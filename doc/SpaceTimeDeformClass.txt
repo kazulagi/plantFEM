@@ -1,0 +1,59 @@
+Field :: 
+real(8),allocatable ::DeformStress(:,:,:)
+real(8),allocatable ::DeformStressInit(:,:,:)
+real(8),allocatable ::DeformStressRHS(:,:)
+real(8),allocatable ::DeformVecEBEInc(:,:)
+real(8),allocatable ::DeformVecGloTot(:)
+
+real(8),allocatable ::ResidualVecGlo(:)
+
+real(8)             ::dt,error
+
+Methods :: 
+procedure :: Init       => Init
+procedure :: SetRHS     => SetRHS
+
+
+! ############################################################
+class(SpaceTimeFEM_),intent(inout)  :: obj
+
+
+! ############################################################
+
+subroutine Init(obj)
+
+
+! ############################################################
+
+! ############################################################
+class(SpaceTimeFEM_),intent(inout)  :: obj
+end subroutine
+
+
+subroutine GetSTShapeFunc(obj,ElemID,GpID)
+integer,optional,intent(in)::ElemID
+
+call obj%STFEMDomain%ShapeFunction%GetAll(elem_id=ElemID,nod_coord=obj%STFEMDomain%Mesh%NodCoord,&
+call obj%STFEMDomain%TimeShapeFunction%GetAll(elem_id=ElemID,nod_coord=obj%STFEMDomain%Mesh%NodCoord,&
+elseif(obj%MeshMove .eqv. .true.)then
+elem_nod=obj%STFEMDomain%Mesh%ElemNod,OptionalGpID=GpID)
+elem_nod=obj%STFEMDomain%Mesh%ElemNod,OptionalGpID=GpID)
+stop "ERROR :: SetElementMatrix >> please run constructor obj%Init to create instance"
+
+! ############################################################
+
+subroutine SetElementMatrix(obj)
+
+end subroutine
+
+! ############################################################
+class(ShapeFunction_),intent(inout)  :: Nobj,Tobj
+end subroutine
+
+
+
+! ############################################################
+class(SpaceTimeFEM_),intent(inout)  :: obj
+
+! ############################################################
+end module

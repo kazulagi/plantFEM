@@ -1,0 +1,26 @@
+interface CopyArray
+interface ImportArray
+interface ExportArray
+interface ShowArray
+interface ExtendArray
+interface insertArray
+interface removeArray
+interface mean
+interface distance
+
+
+subroutine CopyArrayInt(a,ac)
+subroutine CopyArrayRealVec(a,ac)
+subroutine TrimArrayReal(a,k)
+subroutine ExportArraySizeInt(Mat,RankNum,OptionalFileHandle)
+subroutine ExportArrayInt(Mat,OptionalFileHandle)
+subroutine ShowArrayReal(Mat,IndexArray,FileHandle,Name)
+subroutine ShowArraySizeReal(Mat,OptionalFileHandle,Name)
+subroutine ShowArraySizeRealThree(Mat,OptionalFileHandle,Name)
+function InOrOutInt(x,xmax,xmin,DimNum) result(Inside)
+subroutine ExtendArrayInt(mat,extend1stColumn,extend2ndColumn,DefaultValue)
+subroutine insertArrayInt(mat,insert1stColumn,insert2ndColumn,DefaultValue,NextOf)
+subroutine removeArrayInt(mat,remove1stColumn,remove2ndColumn,NextOf)
+function meanVecReal(vec) result(mean_val)
+function distanceReal(x,y) result(dist)
+function countifSameIntArray(Array1,Array2) result(count_num)

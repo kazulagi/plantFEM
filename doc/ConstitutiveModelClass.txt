@@ -1,0 +1,18 @@
+Field :: 
+real(8),allocatable::S_IJ(:,:)
+real(8),allocatable::tau(:,:)
+real(8),allocatable::F_T(:,:)
+real(8),allocatable::F_inv_iJ(:,:)
+real(8),allocatable::Fp_iJ(:,:)
+real(8),allocatable::b_ij(:,:)
+real(8),allocatable::C_IJ_n(:,:)
+real(8),allocatable::E_IJ(:,:)
+real(8),allocatable::Cp_IJ_inv(:,:)
+real(8),allocatable::Bmat(:,:)
+
+
+real(8) :: lamda
+real(8) :: K_mod
+
+character*70::ModelType
+subroutine HyperElasticDer(obj,DerType)

@@ -1,0 +1,15 @@
+Field :: 
+Field :: 
+type(Nodep_),allocatable :: Child(:)
+real(8)         :: vector(3)
+double precision:: fpval
+integer         :: ID
+procedure,public :: Init => InitializeNode
+Methods :: 
+subroutine InitializeTree(obj,NumOfNode)
+subroutine AddNodeInTree(obj,NodeObj)
+subroutine cutNodeInTree(obj,NodeObj)
+subroutine showTree(obj)
+function countIfParentIDis(obj,ParentID) result(num)
+function parentNodeIDTree(obj,ParentID) result(NodeID)
+subroutine setVisualMapTree(obj)

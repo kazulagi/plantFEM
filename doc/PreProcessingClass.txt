@@ -1,0 +1,1193 @@
+Field :: 
+character*200   :: PictureName
+integer         :: PixcelSize(2),num_of_pixcel
+Methods :: 
+procedure :: ImportPictureName  => ImportPictureName
+procedure :: ShowName           => ShowPictureName
+procedure :: GetPixcelSize      => GetPixcelSize
+procedure :: SetColor           => SetColor
+procedure :: GetPixcelByRGB     => GetPixcelByRGB
+procedure :: AssembleSurfaceElement => AssembleSurfaceElement
+procedure :: ExportGeoFile      => ExportGeoFile
+procedure :: ConvertGeo2Inp     => ConvertGeo2Inp
+procedure :: ConvertMsh2Scf     => ConvertMsh2Scf
+procedure :: Export             => ExportPreProcessing
+procedure :: SetDataType        => SetDataTypeFEMDomain
+procedure :: SetUp              => SetUpPreprocessing
+procedure :: SetBC              => SetBoundaryConditionPrePro
+procedure :: SetMatPara         => SetMatParaPreProcessing
+procedure :: ShowBC             => ShowBCPrePrecessing
+procedure :: Convert2Dto3D      => Convert2Dto3D
+procedure :: getSkelton         => getSkeltonPreProcessing
+procedure :: setEntity          => setEntityPreProcessing
+procedure :: meshing            => meshingPreProcessing
+
+
+subroutine InitializePrePro(obj,Default)
+logical,optional,intent(in)::Default
+call obj%FEMDomain%Init(Default)
+! #########################################################
+
+subroutine ImportPictureName(obj,Name)
+character(*),intent(in)::Name
+end subroutine
+
+subroutine ShowPictureName(obj)
+print *, trim(obj%PictureName)
+! #########################################################
+
+subroutine ShowPixcelSize(obj)
+character *20       :: pix_x
+write(pix_x,*) obj%PixcelSize(1)
+
+trim(adjustl(pix_y) )
+! #########################################################
+
+! #########################################################
+class(PreProcessing_),intent(inout):: obj
+character(*),optional,intent(in)   :: Name
+character *200      :: python_script
+character *200      :: command
+
+write(pid,*) MPIData%MyRank
+python_buffer="GetPixcelSize_pid_"//trim(adjustl(pid))//".txt"
+python_script=Name//"GetPixcelSize_pid_"//trim(adjustl(pid))//".py"
+
+
+!print *, trim(python_script)
+! using python script
+fh=MPIData%MyRank+10
+command = "from PIL import Image"
+command = "import sys"
+command = "import os"
+
+command = 'img_in = Image.open("'//trim(obj%PictureName)//'")'
+command = 'python_buffer = open("'//trim(python_buffer)//'","w")'
+
+command = "rgb_im = img_in.convert('RGB')"
+command = "size = rgb_im.size"
+command = "print( str(size[0]), ' ',str(size[1])  ) "
+
+command = "python_buffer.write( str(size[0]))"
+command = "python_buffer.write('\n')"
+command = "python_buffer.write( str(size[1]))"
+
+command = "img_in.close()"
+command = "python_buffer.close()"
+close(fh)
+command = "python3 "//trim(python_script)
+call system(trim(command))
+! get pixcel size
+read(fh,*) obj%PixcelSize(1)
+close(fh)
+
+! #########################################################
+
+subroutine GetAllPointCloud(obj,MPIData,Name)
+class(MPI_),intent(inout)          :: MPIData
+character *20       :: pid
+character *200      :: python_buffer
+integer              :: fh
+call MPIData%GetInfo()
+
+python_buffer="GetAllPointCloud_pid_"//trim(adjustl(pid))//".txt"
+python_script=Name//"GetAllPointCloud_pid_"//trim(adjustl(pid))//".py"
+endif
+print *, trim(python_script)
+! using python script
+fh=MPIData%MyRank+10
+command = "from PIL import Image"
+command = "import sys"
+command = "import os"
+
+command = 'img_in = Image.open("'//trim(obj%PictureName)//'")'
+command = 'python_buffer = open("'//trim(python_buffer)//'","w")'
+
+command = "rgb_im = img_in.convert('RGB')"
+command = "size = rgb_im.size"
+command = "print( str(size[0]), ' ',str(size[1])  ) "
+
+command = "width,height =img_in.size"
+command = "for i in range(width):"
+command = "for j in range(height):"
+command = "R,G,B=rgb_im.getpixel((i,j))"
+command = "python_buffer.write(str(i)+'\t')"
+command = "python_buffer.write(str(j)+'\t')"
+command = "python_buffer.write(str(R)+'\t')"
+command = "python_buffer.write(str(G)+'\t')"
+command = "python_buffer.write(str(B)+'\n')"
+
+command = "img_in.close()"
+command = "python_buffer.close()"
+close(fh)
+command = "python3 "//trim(python_script)
+call system(trim(command))
+end subroutine
+
+subroutine GetPixcelByRGB(obj,MPIData,err,onlycoord,Name)
+class(MPI_),intent(inout)          :: MPIData
+logical,optional,intent(in)        :: onlycoord
+character *20       :: pid
+character *20       :: er
+character *200      :: python_buffer
+character *200      :: command
+
+error=err
+error=0
+
+write(pid,*) MPIData%MyRank
+write(Green,*) obj%ColorRGB(2)
+write(er,*) error
+python_script="GetPixcelByRGB_pid_"//trim(adjustl(pid))//".py"
+python_buffer_size="GetPixcelByRGB_size_pid_"//trim(adjustl(pid))//".txt"
+if(present(Name) )then
+python_buffer       =Name//"GetPixcelByRGB_pid_"//trim(adjustl(pid))//".txt"
+endif
+
+! python imaging library is to be installed.
+open(fh,file=trim(python_script),status="replace")
+write(fh,'(A)') adjustl(trim(command))
+write(fh,'(A)') adjustl(trim(command))
+write(fh,'(A)') adjustl(trim(command))
+! open file
+write(fh,'(A)') adjustl(trim(command))
+write(fh,'(A)') adjustl(trim(command))
+write(fh,'(A)') adjustl(trim(command))
+! get pixcel size
+write(fh,'(A)') adjustl(trim(command))
+write(fh,'(A)') adjustl(trim(command))
+write(fh,'(A)') adjustl(trim(command))
+! get rgb pixcel coordinates
+command = "itr = 0"
+
+write(fh,'(A)') adjustl(trim(command))
+write(fh,'(A)') adjustl(trim(command))
+write(fh,'(A)') "   "//adjustl(trim(command))
+write(fh,'(A)') "       "//adjustl(trim(command))
+")+abs(G-"//adjustl(trim(Green))//&
+write(fh,'(A)') "       "//adjustl(trim(command))
+write(fh,'(A)') "       "//adjustl(trim(command))
+command = "python_buffer.write(str(i)+'\t')"
+command = "itr=itr+1"
+if( onlycoord .eqv. .true. )then
+write(fh,'(A)') "           "//adjustl(trim(command))
+command = "python_buffer.write(str(j)+'\t')"
+command = "python_buffer.write(str(R)+'\t')"
+command = "python_buffer.write(str(G)+'\t')"
+command = "python_buffer.write(str(B)+'\n')"
+endif
+! close
+write(fh,'(A)') adjustl(trim(command))
+write(fh,'(A)') adjustl(trim(command))
+write(fh,'(A)') adjustl(trim(command))
+write(fh,'(A)') adjustl(trim(command))
+
+print *, trim(command)
+
+open(fh,file=python_buffer_size,status="old")
+close(fh)
+allocate(obj%FEMDomain%Mesh%NodCoord(sizeofpc,3) )
+open(fh,file=python_buffer,status="old")
+read(fh,*)obj%FEMDomain%Mesh%NodCoord(i,1:2)
+obj%FEMDomain%Mesh%NodCoord(i,2)=-1.0d0*obj%FEMDomain%Mesh%NodCoord(i,2)
+
+end subroutine
+
+! #########################################################
+class(PreProcessing_),intent(inout):: obj
+
+obj%ColorRGB(2)=Green
+
+! #########################################################
+! #########################################################
+class(PreProcessing_),intent(inout):: obj
+print *, "Object Name is : ",trim(obj%PictureName)
+print *, "Green : ",obj%ColorRGB(2)
+
+! #########################################################
+
+subroutine GetPixcelSurfaceNode(obj,MPIData,r,NumOfMaxNod,Name)
+class(MPI_),intent(inout)          :: MPIData
+integer,optional,intent(in)        :: r,NumOfMaxNod
+character*20    :: pid
+integer,allocatable :: KilledPixcel(:)
+real(8) :: x_real,y_real,z_real
+real(8),allocatable :: buffer(:,:)
+if(present(r) )then
+else
+endif
+if(present(NumOfMaxNod) )then
+else
+endif
+n=size(obj%FEMDomain%Mesh%NodCoord,1)
+KilledPixcel(:)=0
+! remove isolated pixcel and surrounded nodes
+point_count=0
+
+x_real=obj%FEMDomain%Mesh%NodCoord(i,1)
+z_real=obj%FEMDomain%Mesh%NodCoord(i,3)
+y_real_tr=obj%FEMDomain%Mesh%NodCoord(j,2)
+
+(y_real-y_real_tr)*(y_real-y_real_tr)+&
+
+
+if(diff_real < max_r)then
+endif
+if(point_count > MaxNod )then
+exit
+enddo
+KilledPixcel(i)=1
+enddo
+
+call MPIData%GetInfo()
+fh=MPIData%MyRank+10
+if(present(Name) )then
+endif
+open(fh,file=python_buffer,status="replace")
+if(KilledPixcel(i)==0 )then
+else
+endif
+close(fh)
+do i=1,n
+enddo
+point_count=0
+if(KilledPixcel(i)==0)then
+buffer(point_count,:)=obj%FEMDomain%Mesh%NodCoord(i,:)
+cycle
+enddo
+allocate(obj%FEMDomain%Mesh%NodCoord(size(buffer,1),size(buffer,2) ) )
+
+
+end subroutine
+
+
+subroutine AssembleSurfaceElement(obj,MPIData,dim,threshold,DelRange,Name)
+class(MPI_),intent(inout)          :: MPIData
+character(*),optional,intent(in)   :: Name
+character*20    :: pid
+integer,allocatable     :: checked(:)
+integer :: i,j,k,n,trial_num,id_tr,fh,r_threshold,drange
+if(present(threshold) )then
+else
+endif
+if(present(DelRange) )then
+else
+endif
+if( present(dim) .and. dim/=2 )then
+stop   "AssembleSurfaceElement :: >> only 2-D is available."
+
+allocate(buffer(n,3))
+allocate(checked(n),r_value(n) )
+
+checked(1)=1
+do i=1,n-1
+trial_num=0
+if(checked(j)==1 )then
+endif
+x(:)   =buffer(i,:)
+r_tr=dsqrt(dot_product(x-x_tr,x-x_tr ) )
+r_ref=r_tr
+else
+id_tr=j
+else
+endif
+enddo
+checked(id_tr)=1
+
+! remove unnatural pixcel
+do i=1,size(buffer,1)-1
+x_tr(:)=buffer(i+1,:)
+if(r_tr > dble(r_threshold))then
+do k=1,drange
+checked(i+k)=1
+if(i-k >= 1)then
+endif
+enddo
+endif
+
+deallocate(obj%FEMDomain%Mesh%NodCoord)
+
+do i=1,n
+cycle
+k=k+1
+
+enddo
+obj%FEMDomain%Mesh%NodCoord(:,:)=buffer(:,:)
+
+
+write(pid,*) MPIData%MyRank
+python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".txt"
+python_buffer=Name//"GetSurface_pid_"//trim(adjustl(pid))//".txt"
+
+do i=1,size(obj%FEMDomain%Mesh%NodCoord,1)
+enddo
+
+! #########################################################
+
+! #########################################################
+class(PreProcessing_),intent(inout):: obj
+character(*),optional,intent(in)    :: Name
+character*200   :: python_buffer
+real(8),allocatable:: buffer(:,:)
+integer :: i,j,k,n,m,fh
+n=size(obj%FEMDomain%Mesh%NodCoord,1)
+allocate(selected(n) )
+k=0
+k=k+1
+selected(i)=1
+else
+endif
+
+
+do i=1,n
+k=k+1
+endif
+
+
+obj%FEMDomain%Mesh%NodCoord(:,:)=buffer(:,:)
+
+write(pid,*) MPIData%MyRank
+python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".txt"
+if(present(Name) )then
+endif
+do i=1,size(obj%FEMDomain%Mesh%NodCoord,1)
+enddo
+
+end subroutine
+
+
+subroutine ExportGeoFile(obj,MPIData,Name)
+character(*),optional,intent(in)    :: Name
+character*200   :: python_buffer
+integer :: i,j,k,n,fh,xsize
+
+fh=MPIData%MyRank+10
+
+python_buffer=Name//"GetSurface_pid_"//trim(adjustl(pid))//".geo"
+endif
+xsize = size(obj%FEMDomain%Mesh%NodCoord,1)
+do i=1,xsize
+x_p=obj%FEMDomain%Mesh%NodCoord(i,1)
+write(fh,*)"Point(",i,") = {",x_p,",",y_p,",","0, 1.0};"
+
+do i=2,xsize
+enddo
+do i=1,xsize-1
+enddo
+write(fh,*)"Plane Surface(",xsize+2,") = {",xsize+1,"};"
+close(fh)
+!print *, "Generating mesh..."
+end subroutine
+
+
+subroutine ConvertGeo2Msh(obj,MPIData,Name)
+class(MPI_),intent(inout)          :: MPIData
+character*200   :: python_buffer
+character*20    :: pid
+
+
+python_buffer=" "
+python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".geo"
+python_buffer=Name//"GetSurface_pid_"//trim(adjustl(pid))//".geo"
+command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin 100"
+writE(*,'(A)') trim(command)
+call system(command)
+!call system("sh ./MakeMesh.sh")
+
+end subroutine
+
+! #########################################################
+class(PreProcessing_),intent(inout):: obj
+character(*),optional,intent(in)    :: Name
+character*200   :: command
+integer :: i,j,k,n,fh
+write(pid,*) MPIData%MyRank
+fh=MPIData%MyRank+10
+command  = " "
+if(present(Name) )then
+endif
+
+
+!call system("sh ./MakeMesh.sh")
+
+end subroutine
+
+subroutine ConvertGeo2Mesh(obj,MPIData,SizePara,Name)
+class(MPI_),intent(inout)          :: MPIData
+character(*),optional,intent(in)    :: Name
+character*200   :: command
+integer :: i,j,k,n,fh,sp
+
+if(present(SizePara) )then
+else
+endif
+
+write(pid,*) MPIData%MyRank
+fh=MPIData%MyRank+10
+command  = " "
+if(present(Name) )then
+endif
+
+
+
+
+
+end subroutine
+
+subroutine ConvertMsh2Scf(obj,MPIData,ElementType,Name)
+class(MPI_),intent(inout)          :: MPIData
+character*200   :: command,infile,outfile
+character(*),optional,intent(in)    :: Name
+character*11 MeshFormat
+character*6  Nodes
+character*12  EndElements
+integer :: i,j,k,n,n1,n2,fh,a,nm,mm,nod_num,nn,elem_num,surf_num
+real(8) :: re1,re2
+
+! deallocate all
+deallocate(obj%FEMDomain%Mesh%NodCoord)
+
+deallocate(obj%FEMDomain%Mesh%ElemNod)
+! ======================================================
+
+! ======================================================
+fh=MPIData%MyRank+10
+outfile = "GetSurface_pid_"//trim(adjustl(pid))//".scf"
+if(present(Name) )then
+outfile = Name//"GetSurface_pid_"//trim(adjustl(pid))//".scf"
+
+print *, "Opening ",trim(infile)
+
+!read file to get nod and elem number
+read(fh,*)re1,nm,mm
+read(fh,*)Nodes
+if(nodes == "$Entit")then
+read(fh,*)nodes
+print *, "Read entities"
+endif
+else
+endif
+! ======================================================
+read(fh,*)nod_num
+if(allocated(obj%FEMDomain%Mesh%NodCoord))then
+endif
+do i=1,nod_num
+if(i/=a)then
+endif
+read(fh,*)EndNodes
+if(EndNodes/="$EndNodes")then
+endif
+
+! ======================================================
+if(Elements/="$Elements")then
+endif
+read(fh,*)elem_num
+if(trim(ElementType)=="LinearRectangularGp4")then
+elseif(trim(ElementType)=="LinearHexahedralGp8")then
+else
+return
+else
+elemnod_num=4
+
+k=0
+read(fh,*)n1,n2,n3
+if(startfrom==0)then
+endif
+endif
+allocate(obj%FEMDomain%Mesh%ElemNod(k,elemnod_num) )
+
+if(EndElements/="$EndElements")then
+endif
+! ========================================================
+
+write(pid,*) MPIData%MyRank
+infile="GetSurface_pid_"//trim(adjustl(pid))//".msh"
+if(present(Name) )then
+infile  = Name//"GetSurface_pid_"//trim(adjustl(pid))//".msh"
+
+
+
+open(fh,file=infile,status="old")
+! ======================================================
+! ======================================================
+read(fh,*)MeshFormat
+read(fh,*)EndMeshFormat
+if(nodes/="$Nodes")then
+endif
+! ======================================================
+read(fh,*)nod_num
+if(allocated(obj%FEMDomain%Mesh%NodCoord))then
+endif
+do i=1,nod_num
+enddo
+
+stop  "ERROR: invalid location:$EndNodes"
+! ======================================================
+
+read(fh,*)Elements
+stop  "ERROR: invalid location: $Elements"
+
+if(present(ElementType) )then
+elemnod_num=  4
+elemnod_num= 8
+print *, "PreProcessingClass.f90  >> Element : ",ElementType,"is not defined."
+endif
+! default
+endif
+k=0
+if(startfrom > i )then
+cycle
+
+k=k+1
+cycle
+
+read(fh,*) n1
+enddo
+read(fh,*)EndElements
+stop  "ERROR: invalid location: $EndElements"
+close(fh)
+! ========================================================
+
+! Setup FEMDomain
+end subroutine
+
+
+
+
+
+subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
+class(MPI_),intent(inout)          :: MPIData
+character*200   :: python_buffer
+character*200,optional,intent(in) :: ElementType
+character*11 MeshFormat
+character*6  Nodes
+character*12  EndElements
+integer :: i,j,k,n,n1,n2,fh,a,nm,mm,nod_num,nn,elem_num,surf_num,l
+real(8) :: re1,re2
+
+! ======================================================
+if(allocated(obj%FEMDomain%Mesh%NodCoord ))then
+endif
+if(allocated(  obj%FEMDomain%Mesh%ElemNod ))then
+endif
+
+
+write(pid,*) MPIData%MyRank
+infile="GetSurface_pid_"//trim(adjustl(pid))//".mesh"
+if(present(Name) )then
+outfile = Name//"GetSurface_pid_"//trim(adjustl(pid))//".scf"
+endif
+open(fh,file=infile,status="old")
+! ======================================================
+! ======================================================
+read(fh,*)MeshFormat
+read(fh,*)mm
+
+! Number of nodes
+!print *,"nod_number",nod_num
+deallocate(obj%FEMDomain%Mesh%NodCoord)
+allocate(obj%FEMDomain%Mesh%NodCoord(nod_num,3) )
+do i=1,nod_num
+enddo
+read(fh,*)EndNodes
+! ======================================================
+read(fh,*)mm
+read(fh,*) elem_num
+read(fh,*)EndNodes
+
+
+read(fh,*)mm
+devide_line(:,:)=-1
+do i=1,mm
+triangle(i,4)=-1
+read(fh,*)EndNodes
+! ======================================================
+
+obj%FEMDomain%Mesh%ElemNod(:,:)=-1
+read(fh,*) obj%FEMDomain%Mesh%ElemNod(i,1:4)
+! ======================================================
+
+
+deallocate(obj%FEMDomain%Mesh%ElemMat)
+allocate(obj%FEMDomain%Mesh%ElemMat(elem_num))
+! ======================================================
+! convert triangle
+do j=1,3
+node1=triangle(i,1)
+elseif(i==2)then
+node2=triangle(i,3)
+node1=triangle(i,3)
+endif
+do l=1,size(obj%FEMDomain%Mesh%ElemNod,2)
+tr1=obj%FEMDomain%Mesh%ElemNod(k, 1)
+elseif(l==2)then
+tr2=obj%FEMDomain%Mesh%ElemNod(k, 3)
+tr1=obj%FEMDomain%Mesh%ElemNod(k, 3)
+elseif(l==4)then
+tr2=obj%FEMDomain%Mesh%ElemNod(k, 1)
+stop "ERROR :: ConvertMesh2Scf"
+if(node2==tr1 .and. node1 == tr2)then
+endif
+enddo
+enddo
+!call ShowArray(obj%FEMDomain%Mesh%NodCoord,triangle(:,1:3),20)
+!do i=1,size(devide_line,1)
+!enddo
+
+
+! #########################################################
+
+
+
+
+
+subroutine ExportPreProcessing(obj,MPIData,FileName,MeshDimension,Name)
+class(MPI_),optional,intent(inout) :: MPIData
+character(*),optional,intent(in)   :: Name
+character*200   :: python_buffer
+character*20    :: pid
+
+if(present(MPIData) )then
+fh=MPIData%MyRank+120
+python_buffer=Name//"GetSurface_pid_"//trim(adjustl(pid))
+python_buffer="GetSurface_pid_"//trim(adjustl(pid))
+endif
+if(present(Name) )then
+else
+endif
+if(present(Name) )then
+else
+endif
+
+
+! #########################################################
+
+subroutine SetSolverPreProcessing(obj,inSolverType)
+character*200,optional,intent(in) :: inSolverType
+
+sn = inSolverType
+sn = "Default"
+
+
+
+!##################################################
+
+!##################################################
+class(PreProcessing_),intent(inout)::obj
+character*200 :: sn
+sn=""
+if( .not.present(inDType) )then
+else
+endif
+call obj%FEMDomain%SetDataType(trim(sn) )
+end subroutine
+!##################################################
+
+subroutine SetUpPreprocessing(obj,DataType,SolverType,NoFacetMode,MatPara)
+character*200,optional,intent(in) :: DataType
+logical,optional,intent(in) :: NoFacetMode
+real(8),allocatable::MatParaDef(:,:)
+
+if(present(DataType) )then
+else
+endif
+call obj%FEMDomain%Mesh%Init(NoFacetMode=NoFacetMode)
+allocate(MatParaDef(1,1) )
+call obj%FEMDomain%MaterialProp%Init(MaterialParameters=MatParaDef)
+call obj%FEMDomain%MaterialProp%Init(MaterialParameters=MatPara)
+
+end subroutine
+
+!##################################################
+,picscalex,picscaley,picscalez)
+real(8),optional,intent(in)::scalex,scaley,scalez
+real(8) :: lx,ly,lz
+
+if(scalex == 0.0d0)then
+return
+lx=maxval(obj%FEMDomain%Mesh%NodCoord(:,1) ) -&
+if(lx==0.0d0)then
+endif
+obj%FEMDomain%Mesh%NodCoord(:,1)/lx*scalex
+endif
+if(present(scaley) )then
+stop "ERROR :: SetScalePreProcessing >> scaley==0.0d0"
+else
+minval(obj%FEMDomain%Mesh%NodCoord(:,2) )
+stop "ERROR :: SetScalePreProcessing >> ly==0.0d0"
+obj%FEMDomain%Mesh%NodCoord(:,2)=&
+endif
+if(present(scalez) )then
+stop "ERROR :: SetScalePreProcessing >> scalez==0.0d0"
+else
+minval(obj%FEMDomain%Mesh%NodCoord(:,3) )
+stop "ERROR :: SetScalePreProcessing >> lz==0.0d0"
+obj%FEMDomain%Mesh%NodCoord(:,3)=&
+endif
+
+write(123,*) obj%FEMDomain%Mesh%NodCoord(i,:)
+
+!##################################################
+
+!##################################################
+tmin,tmax,val,val_id,NumOfValPerNod)
+real(8),optional,intent(in)::xmin,xmax
+real(8),optional,intent(in)::zmin,zmax
+logical,optional,intent(in)::Dirichlet,Neumann,Initial
+real(8),optional,intent(in)::val
+if(present(Dirichlet) )then
+
+,zmin=zmin,zmax=zmax,tmin=tmin,tmax=tmax,val=val,val_id=val_id,NumOfValPerNod=NumOfValPerNod)
+
+endif
+if(present(Neumann) )then
+
+,zmin=zmin,zmax=zmax,tmin=tmin,tmax=tmax,val=val,val_id=val_id,NumOfValPerNod=NumOfValPerNod)
+return
+endif
+if(present(Initial) )then
+
+,zmin=zmin,zmax=zmax,tmin=tmin,tmax=tmax,val=val,val_id=val_id,NumOfValPerNod=NumOfValPerNod)
+return
+endif
+end subroutine
+
+subroutine SetSizeOfBCPrePrecessing(obj,Dirichlet,Neumann,Initial,NumOfValue)
+
+integer,optional,intent(in)::NumOfValue
+integer :: coord_dim
+if(.not. present(Dirichlet) )then
+else
+endif
+if(.not. present(Neumann) )then
+else
+endif
+
+IC = .false.
+IC=Initial
+
+if(DB .eqv. .true.)then
+elseif(NB .eqv. .true.)then
+elseif(IC .eqv. .true.)then
+else
+endif
+
+!##################################################
+!##################################################
+class(PreProcessing_),intent(inout)::obj
+logical,optional,intent(in)::Dirichlet,Neumann,Initial
+integer :: n,m1,m2,i
+if(Dirichlet .eqv. .true.)then
+m1=size(obj%FEMDomain%Boundary%DBoundNodID,1)
+print *, "Number of boundary conditions are :: ", n
+do i=1,m1
+enddo
+print *, obj%FEMDomain%Boundary%DBoundVal(i,:)
+
+
+
+!##################################################
+
+!##################################################
+class(PreProcessing_),intent(inout)::obj
+integer :: i,n,m
+n=size(obj%FEMDomain%Mesh%NodCoord,1)
+
+
+buffer(i,1:2)=obj%FEMDomain%Mesh%NodCoord(i,1:2)
+deallocate(obj%FEMDomain%Mesh%NodCoord)
+obj%FEMDomain%Mesh%NodCoord(:,:)=buffer(:,:)
+end subroutine
+
+!##################################################
+class(PreProcessing_),intent(inout)::obj
+real(8),optional,intent(in)::Thickness
+real(8) :: Tn
+
+! only for linear elements
+if(present(Thickness))then
+print *, "ERROR :: Convert2Dto3D >> Thickness = 0"
+else
+endif
+Tn=1.0d0
+
+if(division==0)then
+return
+NumOfLayer=division
+NumOfLayer=1
+
+n=size(obj%FEMDomain%Mesh%NodCoord,1)
+
+
+do i=1,n
+buffer( n*(j-1) + i ,3)   = Tn / dble(NumOfLayer)*dble(j-1)
+enddo
+deallocate(obj%FEMDomain%Mesh%NodCoord)
+obj%FEMDomain%Mesh%NodCoord(:,:)=buffer(:,:)
+
+! ElemNod
+if(.not.allocated(obj%FEMDomain%Mesh%ElemNod) )then
+return
+n=size(obj%FEMDomain%Mesh%ElemNod,1)
+
+
+do i=1,n
+buffer( n*(j-1)+i, m+1:2*m  ) = obj%FEMDomain%Mesh%ElemNod(i,1:m)+numnod*(j)
+enddo
+deallocate(obj%FEMDomain%Mesh%ElemNod)
+obj%FEMDomain%Mesh%ElemNod(:,:)=buffer(:,:)
+
+
+print *, "Caution :: Convert2Dto3D >> ElemMat is not allocated = 0"
+endif
+allocate(buffer(n*NumOfLayer,1))
+do j=1,NumOfLayer
+buffer( n*(j-1)+i, 1      ) = obj%FEMDomain%Mesh%ElemMat(i)
+enddo
+deallocate(obj%FEMDomain%Mesh%ElemMat)
+obj%FEMDomain%Mesh%ElemMat(:)=buffer(:,1)
+
+
+!##################################################
+!##################################################
+class(PreProcessing_),intent(inout)::obj
+integer,optional,intent(in)::OptionalSimMode,OptionalItrTol,OptionalTimestep
+call SetControlPara(obj%FEMDomain%ControlPara,OptionalTol,OptionalItrTol,OptionalTimestep,OptionalSimMode)
+!##################################################
+!##################################################
+class(PreProcessing_),intent(inout)::obj
+real(8),optional,intent(in)::Val,AllVal(:)
+
+if(.not.allocated(obj%FEMDomain%MaterialProp%MatPara) )then
+obj%FEMDomain%MaterialProp%MatPara(1,1)=0.0d0
+
+if(NumOfMaterial > size(obj%FEMDomain%MaterialProp%MatPara,1) )then
+do i=1,NumOfMaterial - mm
+
+if(present(val) )then
+endif
+n=size(obj%FEMDomain%MaterialProp%MatPara,2)
+if(present(AllVal) )then
+p(1)=n
+obj%FEMDomain%MaterialProp%MatPara(mm+i,1: minval(p) )=AllVal(1: minval(p) )
+
+endif
+
+if(present(NumOfPara) )then
+mm=size(obj%FEMDomain%MaterialProp%MatPara,2)
+
+if(present(val) )then
+endif
+if(present(AllVal) )then
+p(1)=n
+obj%FEMDomain%MaterialProp%MatPara(1: minval(p) , mm+i)=AllVal(1: minval(p) )
+enddo
+endif
+
+!##################################################
+
+subroutine SetMatIDPreProcessing(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
+class(PreProcessing_),intent(inout)::obj
+real(8),optional,intent(in)::ymin,ymax
+real(8),optional,intent(in)::tmin,tmax
+integer :: i,j,n
+! Now implementing
+,zmin=zmin,zmax=zmax,tmin=tmin,tmax=tmax,MaterialID=MaterialID)
+
+!##################################################
+
+!##################################################
+class(PreProcessing_),intent(inout)::obj
+call obj%FEMDomain%MeltingSkelton()
+end subroutine
+
+!##################################################
+Radius,XSize,YSize,ZSize,Xloc,Yloc,Zloc)
+logical,optional,intent(in) :: Circle,Rectangle,Plane,Cylinder,Box
+integer :: i
+
+if(Circle .eqv. .true.)then
+return
+endif
+if( present(Rectangle) )then
+if(.not. present(Xsize) )then
+return
+if(.not. present(Ysize) )then
+return
+
+deallocate(obj%FEMDomain%Mesh%NodCoord)
+if(allocated(obj%FEMDomain%Mesh%ElemNod) )then
+endif
+deallocate(obj%FEMDomain%Mesh%ElemMat)
+allocate(obj%FEMDomain%Mesh%NodCoord(4,2) )
+obj%FEMDomain%Mesh%NodCoord(2,1)=Xsize; obj%FEMDomain%Mesh%NodCoord(2,2)=0.0d0
+obj%FEMDomain%Mesh%NodCoord(4,1)=0.0d0; obj%FEMDomain%Mesh%NodCoord(4,2)=ysize
+allocate(obj%FEMDomain%Mesh%ElemNod(1,4) )
+obj%FEMDomain%Mesh%ElemNod(1,i)=i
+allocate(obj%FEMDomain%Mesh%ElemMat(1) )
+
+if( present(Xloc) )then
+endif
+obj%FEMDomain%Mesh%NodCoord(:,2)=obj%FEMDomain%Mesh%NodCoord(:,2)+Yloc
+return
+endif
+if( present(Plane) )then
+print *, "Under construction"
+endif
+if( present(Cylinder) )then
+print *, "Under construction"
+endif
+if( present(Box) )then
+if(.not. present(Xsize) )then
+return
+if(.not. present(Ysize) )then
+return
+if(.not. present(Zsize) )then
+return
+
+deallocate(obj%FEMDomain%Mesh%NodCoord)
+if(allocated(obj%FEMDomain%Mesh%ElemNod) )then
+endif
+deallocate(obj%FEMDomain%Mesh%ElemMat)
+
+obj%FEMDomain%Mesh%NodCoord(1,1)=0.0d0; obj%FEMDomain%Mesh%NodCoord(1,2)=0.0d0; obj%FEMDomain%Mesh%NodCoord(1,3)=0.0d0;
+obj%FEMDomain%Mesh%NodCoord(3,1)=Xsize; obj%FEMDomain%Mesh%NodCoord(3,2)=ysize; obj%FEMDomain%Mesh%NodCoord(3,3)=0.0d0;
+obj%FEMDomain%Mesh%NodCoord(5,1)=0.0d0; obj%FEMDomain%Mesh%NodCoord(5,2)=0.0d0; obj%FEMDomain%Mesh%NodCoord(5,3)=ZSize;
+obj%FEMDomain%Mesh%NodCoord(7,1)=Xsize; obj%FEMDomain%Mesh%NodCoord(7,2)=ysize; obj%FEMDomain%Mesh%NodCoord(7,3)=ZSize;
+
+
+obj%FEMDomain%Mesh%ElemNod(1,2)=2
+obj%FEMDomain%Mesh%ElemNod(1,4)=4
+obj%FEMDomain%Mesh%ElemNod(1,6)=6
+obj%FEMDomain%Mesh%ElemNod(1,8)=8
+
+obj%FEMDomain%Mesh%ElemMat(1)=1
+if( present(Xloc) )then
+endif
+obj%FEMDomain%Mesh%NodCoord(:,2)=obj%FEMDomain%Mesh%NodCoord(:,2)+Yloc
+if( present(Zloc) )then
+endif
+
+endif
+
+
+!##################################################
+
+subroutine BooleanModifyerPreProcessing(obj,ModObj,XDiv,Ydic,Zdiv)
+class(PreProcessing_),intent(inout)::ModObj
+real(8) :: ground_level
+integer :: ground_surface_id,n,m,itr,k,i,j,buf(2)
+integer,allocatable::RSIElemID(:),RSINodeID(:),RSIElemNod(:,:),AvailFE(:)
+
+if(.not.allocated(obj%FEMDomain%Mesh%NodCoord) )then
+return
+if(.not.allocated(Modobj%FEMDomain%Mesh%NodCoord) )then
+return
+
+! if rectangle => ok
+! ### only structural is supported ###
+xmin=minval(obj%FEMDomain%Mesh%NodCoord(:,1) )
+ymin=minval(obj%FEMDomain%Mesh%NodCoord(:,2) )
+ground_level=maxval(obj%FEMDomain%Mesh%NodCoord(:,2) )
+
+DimNum=size(obj%FEMDomain%Mesh%NodCoord,2)
+ElemNodNum=size(obj%FEMDomain%Mesh%ElemNod,2)
+allocate(OldNodID(NodeNum),OldtoNewNodID(NodeNum))
+OldtoNewNodID(:)=0
+RSINodeID(:)=-1
+call GetSurface(ModObj%FEMDomain%Mesh)
+
+! call showArray(-Obj%FEMDomain%Mesh%NodCoord,Obj%FEMDomain%Mesh%FacetElemNod,FileHandle=224)
+
+n=size(ModObj%FEMDomain%Mesh%FacetElemNod,1)
+allocate(AvailFE(n) )
+countnode(:,:)=0
+itr=0
+do j=1,m
+! utilize
+countnode(ModObj%FEMDomain%Mesh%FacetElemNod(i,j),2)=i
+itr=itr+1
+endif
+enddo
+k=0
+if(k==0 .and. AvailFE(i)==1 )then
+endif
+if(k==0 .and. AvailFE(i)==0)then
+k=1
+if(k==1 .and. AvailFE(i)==0)then
+endif
+endnode=i
+endif
+enddo
+
+buf(2)=endnode
+m=size(Obj%FEMDomain%Mesh%NodCoord,2)
+
+itr=0
+
+exit
+if(AvailFE(i)==1 )then
+NodCoord(itr,:)=Obj%FEMDomain%Mesh%NodCoord(Obj%FEMDomain%Mesh%FacetElemNod(i,1) ,: )
+
+enddo
+NodCoord(1+itr,1)=xmax        ;NodCoord(1+itr,2)=ymax       ;
+NodCoord(3+itr,1)=xmin        ;NodCoord(3+itr,2)=ymin       ;
+itr=itr+4
+
+
+
+cycle
+
+itr=itr+1
+endif
+if(itr > n)then
+endif
+
+allocate(Obj%FEMDomain%Mesh%NodCoord(size(NodCoord,1),size(NodCoord,2) ) )
+Obj%FEMDomain%Mesh%NodCoord(i,:)=NodCoord(i,:)
+
+
+!call showArray(NodCoord,FileHandle=226)
+!print *, startnode,endnode
+
+
+deallocate(obj%FEMDomain%Mesh%ElemNod)
+
+
+itr=0
+if(AvailFE(i)==1 )then
+obj%FEMDomain%Mesh%FacetElemNod(itr,:)=Modobj%FEMDomain%Mesh%FacetElemNod(i,:)
+OldNodID( Modobj%FEMDomain%Mesh%FacetElemNod(i,j)  )=1
+endif
+
+! list up old to new
+itr=0
+if(OldNodID(i)==1 )then
+OldtoNewNodID(i)=itr
+enddo
+do i=1,size(obj%FEMDomain%Mesh%FacetElemNod,1)
+obj%FEMDomain%Mesh%FacetElemNod(i,j)=OldtoNewNodID( obj%FEMDomain%Mesh%FacetElemNod(i,j)  )
+stop "BooleanModifyerPreProcessing :: ERROR :: OldtoNewNodID is wrong "
+enddo
+
+
+if(allocated(obj%FEMDomain%Mesh%NodCoord) )then
+endif
+itr=0
+if( OldNodID(i)==1 )then
+obj%FEMDomain%Mesh%NodCoord(itr,:)=Modobj%FEMDomain%Mesh%NodCoord(i,:)
+enddo
+countnode(:,:)=0
+
+! Find edge of SurfaceNod
+itr=0
+do j=1,size(obj%FEMDomain%Mesh%FacetElemNod,2)
+countnode(obj%FEMDomain%Mesh%FacetElemNod(i,j),1 )+1
+if(k<j)then
+endif
+enddo
+
+if(maxval(countnode(:,1) )==3 )then
+stop
+print *, "Boolean >> ERROR :: minval(countnode)==2 "
+else
+stop
+
+do i=1,size(countnode,1)
+itr=itr+1
+startnode=i
+endnode=i
+stop "Boolean >> ERROR :: countnode(i,2) /= (1 or 2) "
+endif
+
+print *,"Boolean >> ERROR :: itr /= 2"
+endif
+! あとはSurfaceNodを出力するだけ
+do i=1, size(obj%FEMDomain%Mesh%FacetElemNod,1)
+write(1233,*) obj%FEMDomain%Mesh%NodCoord(i,:)
+
+enddo
+
+
+
+
+
+!do i=1,NodeNum
+!        RSINodeID(i)=1
+!enddo
+!itr=0
+!    do j=1,ElemNodNum
+!            RSIElemID(:)=-1
+!            exit
+!    enddo
+!allocate(RSIElemNod(ElemNum-itr,ElemNodNum) )
+!    if(RSIElemNod(i) == 1 )then
+!    endif
+
+
+else
+return
+
+elseif(size(obj%FEMDomain%Mesh%NodCoord,2)==3)then
+if(size(obj%FEMDomain%Mesh%ElemNod) == 8)then
+
+else
+return
+else
+return
+
+
+!##################################################
+subroutine ReversePreProcessing(obj)
+
+end subroutine
+
+
+!##################################################
+class(PreProcessing_),intent(inout)::obj
+integer,optional,intent(in):: Step
+integer :: stp
+
+stp=step
+stp=0
+
+
+!##################################################
+
+subroutine meshingPreProcessing(obj)
+
+end subroutine
+
+subroutine importPixcelAsNodePreProcessing(obj,interval)
+integer,optional,intent(in):: interval
+real(8),allocatable :: random(:)
+!integer :: fh1,fh2,xsize,ysize,final_size,interval_,i,j,k,xpixcel,ypixcel
+m=size(obj%FEMDomain%Mesh%NodCoord,1)
+k=size(obj%FEMDomain%Mesh%NodCoord,1)
+call random_number(random)
+
+
+NewNodCoord(i,1:2)=obj%FEMDomain%Mesh%NodCoord(int(random(i) ),1:2)
+deallocate(obj%FEMDomain%Mesh%NodCoord)
+obj%FEMDomain%Mesh%NodCoord(:,:)=NewNodCoord(:,:)
+return
+!    open(fh1,file=trim(obj%PixcelSizeDataName),status="old" )
+!    read(fh1,*) xsize
+!    close(fh1)
+!    fh2=10
+!    if(allocated(obj%FEMDomain%Mesh%NodCoord) )then
+!    endif
+!    final_size=xsize*ysize/interval_-1
+!    k=1
+!    do i=1,xsize*ysize
+!        if(j>final_size)then
+!        endif
+!        obj%FEMDomain%Mesh%NodCoord(j,1)=dble(xpixcel)
+!        k=k+1
+!            k=1
+!        endif
+!    close(fh2)
+
+!##################################################
+end module
+

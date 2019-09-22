@@ -1,0 +1,15 @@
+Field :: 
+Field :: 
+type(FEMIface_) ,allocatable::FEMIfaceArray(:)
+Integer,allocatable::Timestep(:)
+integer :: NumberOfObject,NumberOfIface
+character*200 :: FolderName
+character*200 :: IfaceListName
+procedure :: Import => ImportField
+procedure :: Export => ExportField
+
+Methods :: 
+subroutine ImportField(obj,OptionalDomainListName,OptionalIfaceListName,OptionalProjectName,OptionalFileHandle)
+subroutine showField(obj)
+subroutine linkDomainToIfaceField(obj)
+subroutine ExportField(obj,OptionalDomainListName,OptionalIfaceListName,&

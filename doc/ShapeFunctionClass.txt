@@ -1,0 +1,8 @@
+Methods :: 
+subroutine DeallocateShapeFunction(obj)
+subroutine GetGaussPoint(obj)
+subroutine SetGaussPoint(obj)
+subroutine GetShapeFunction(obj)
+subroutine GetShapeFuncDer1(obj)
+subroutine GetShapeFuncDer2(obj)
+subroutine GetElemCoord(obj,nod_coord,elem_nod,elem_id)

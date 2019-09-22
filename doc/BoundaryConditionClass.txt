@@ -1,0 +1,16 @@
+Field :: 
+real(8),allocatable::NBoundVal(:,:)
+real(8),allocatable::TBoundElemGpVal(:,:,:)
+real(8),allocatable::DBoundValInc(:,:)
+real(8),allocatable::TBoundValInc(:,:)
+integer,allocatable::DBoundNodID(:,:)
+integer,allocatable::TBoundNodID(:,:)
+integer,allocatable::NBoundNum(:)
+integer,allocatable::TBoundElemNum(:)
+
+Methods :: 
+procedure :: Delete => DeallocateBoundary
+procedure :: RemoveOverlap => DeleteOverlapBoundary
+procedure :: ImportNBound => ImportNBound
+procedure :: MergeNBound => MergeNBound
+class(Boundary_),intent(inout)::obj

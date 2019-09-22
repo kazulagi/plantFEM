@@ -1,0 +1,14 @@
+Field :: 
+Methods :: 
+procedure :: Input => InputDictionary
+procedure :: GetPageNum => GetPageNumDictionary
+
+
+character*200 :: Path
+character*200 :: FileName
+subroutine InitializeDictionary(obj,NumOfPage)
+subroutine InputDictionary(obj,page,content)
+subroutine setFilePath(obj,FilePath,FileID)
+subroutine setFileName(obj,FileName,FileID)
+subroutine showDictionary(obj,From,to)
+function GetPageNumDictionary(obj,Content) result(page)

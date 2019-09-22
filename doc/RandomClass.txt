@@ -1,0 +1,87 @@
+Field :: 
+integer,allocatable  :: random_int_seed(:)
+real(8) :: random_real
+Methods :: 
+procedure :: random     => getRandom
+procedure :: choiceInt  => choiceRandomInt
+!procedure :: choiceString => choiceRandomString
+procedure :: save       => saveRandom
+
+
+
+subroutine initRandom(obj)
+!integer,optional,intent(in)::SeedSize
+
+allocate(obj%random_int_seed(SeedSize) )
+call random_seed(get=obj%random_int_seed)
+end subroutine
+
+!##########################################
+class(Random_)::obj
+
+
+!##########################################
+
+!##########################################
+class(Random_),intent(inout)::obj
+call random_seed(put=obj%random_int_seed)
+!##########################################
+!##########################################
+class(Random_),intent(in)::obj
+real(8),intent(in) :: From,To
+val(1)=From
+diff=abs(from-to)
+x=a*diff+minval(val)
+end function
+
+!##########################################
+class(Random_),intent(in)::obj
+integer :: x
+
+val(2)=To
+
+xr=a*diff+minval(val)
+if(x==From-1)then
+endif
+x=To
+
+!##########################################
+!##########################################
+class(Random_),intent(in)::obj
+integer,Optional,intent(in) :: Array(:,:)
+
+if(present(Vector) )then
+val=Vector(posi)
+endif
+if(present(Array ))then
+posi =obj%randint(1,size(Array,1) )
+val=Array(posi,posi2)
+endif
+print *, "No list is imported."
+
+!##########################################
+
+function choiceRandomReal(obj,Vector,Array) result(val)
+real(8),Optional,intent(in) :: Vector(:)
+real(8) :: val
+
+if(present(Vector) )then
+val=Vector(posi)
+endif
+if(present(Array ))then
+posi =obj%randint(1,size(Array,1) )
+val=Array(posi,posi2)
+endif
+print *, "No list is imported."
+end function
+
+!##########################################
+!    class(Random_),intent(in) :: obj
+!    character(1) :: val
+!
+!
+!    posi=obj%randint(1,length )
+!
+!end function
+
+end module

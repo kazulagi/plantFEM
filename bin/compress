@@ -1,0 +1,20 @@
+#!/bin/sh
+
+rm ./GetPixcel*.py
+rm *.o
+rm *.mod
+rm *.txt
+rm *.scf
+rm *.scf~
+rm fort.*
+rm *.ipynb
+rm PySiCroF.py
+mv *.f90 log/
+mv *.geo RESULTS/
+mv *.msh RESULTS/
+mv *.pos RESULTS/
+mv GetSurface* RESULTS/
+mv *.txt~ RESULTS/
+mv *.blend RESULTS/
+mv *.blend1 RESULTS/
+ls

@@ -1,0 +1,91 @@
+#!/bin/sh 
+
+echo ">"
+echo "SiCroF >> Fortran Interactive mode for Linux & OS X... "
+echo "Here, fortran script runs with  SiCroF-kernel."
+echo "You can debug your code with SiCroF-API"
+echo "  "
+echo ">"
+echo ">"
+echo "Initializing ..."
+numcore=1
+exitc="exit"
+man="man"
+man1="man SiCroF"
+man2="man sicrof"
+cpucore="cpu-core"
+install="install"
+compress="compress"
+ls="ls"
+f90="f90"
+run="run"
+
+echo "Please input fortran script *.f90 | or check manual by 'man'  "
+echo "  "
+ 
+
+while :
+do
+
+    #echo "Please input fortran script *.f90 | or check manual by 'man'  "
+    echo  ">>> "
+    read command 
+
+
+
+    if [ $command = $exitc ]; then
+        exit 0
+    fi
+    if [ $command = $man ]; then
+        cat ".man_SiCroF"
+        continue
+    fi
+    if [ $command = $man1 ]; then
+        cat ".man_SiCroF"
+        continue
+    fi
+    if [ $command = $man2 ]; then
+        cat ".man_SiCroF"
+        continue
+    fi
+    if [ $command = $install ]; then
+        ./install_macOS
+        continue
+    fi
+    if [ $command = $compress ]; then
+        ./bin/compress
+        continue
+    fi
+    if [ $command = $run ]; then
+        ./bin/run
+        continue
+    fi
+    if [ $command = $ls ]; then
+        echo " "
+        pwd
+        echo " "
+        ls
+        echo " "
+        continue
+    fi
+    if [ $command = $cpucore ]; then
+        echo "Current num of cpu-core is :: $numcore "
+        echo "Please input num of cpu-core"
+        read numcore
+        echo "Current num of cpu-core is :: $numcore "
+        continue
+    fi
+
+    EXTENSION=${command##*.}
+    echo "extension is $EXTENSION"
+    if [ $EXTENSION = $f90 ]; then
+        echo ">"
+        mpifort inc/*o $command 
+        mpirun ./a.out        
+        continue
+    fi
+
+    echo "$command"
+    $command
+done    
+

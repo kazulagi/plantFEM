@@ -1,0 +1,7 @@
+subroutine ImportFEMDomainDiff(obj,OptionalFileFormat,OptionalProjectName)
+subroutine SetupDiffusionEq(obj)
+subroutine GetDiffusionMat(obj)
+subroutine GetUnknownValue(obj)
+subroutine  UpdateUnknownValue(obj)
+subroutine GetElemDiffusionMatrix(obj,diff_coeff,DiffMat)
+subroutine GetElemMassMatrix(obj,MassMat)

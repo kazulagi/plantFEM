@@ -1,0 +1,17 @@
+#!/bin/sh
+
+./install_ifort
+mpiifort ./inc/*.o ./src/MainClass/MainClass.f90 
+echo " Compiling Script ...  "
+echo " Your Script is successfully installed !!"
+echo "    "
+echo "    "
+echo "Running Script"
+echo "    "
+echo "How many CPU cores are to be used?"
+read NumCore
+echo "    "
+echo Number of CPU cores are "$NumCore"
+echo "========================"
+echo "    "
+mpirun -np "$NumCore" ./a.out

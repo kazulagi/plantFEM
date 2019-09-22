@@ -1,0 +1,21 @@
+#!/bin/sh
+
+sudo apt install  -y gcc
+sudo apt install  -y gfortran
+sudo apt install  -y libopenmpi-dev
+sudo apt install  -y python3
+sudo apt install  -y gmsh
+sudo apt install  -y gnuplot
+sudo apt install -y jupyter-notebook
+sudo apt install curl
+curl https://bootstrap.pypa.io/get-pip.py -o ~/get-pip.py
+sudo python3 ~/get-pip.py
+sudo pip install pillow
+sudo pip install numpy
+sudo pip install scipy
+sudo pip install matplotlib
+sudo pip install jupyter
+sudo pip install nbzip
+sudo jupyter serverextension enable --py nbzip --sys-prefix
+sudo jupyter nbextension install --py nbzip
+sudo jupyter nbextension enable --py nbzip

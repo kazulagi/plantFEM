@@ -1,0 +1,125 @@
+program main
+    use mpi
+    use MPIClass
+    use TermClass
+    use FEMDomainClass
+    use DiffusionEquationClass
+    use FiniteDeformationClass
+    use MultiPhysicsIfaceClass
+    use PostProcessingClass
+    implicit none
+
+    type(MPI_)              :: MPIData
+    type(FEMDomain_),target :: rootdomain1,rootdomain2
+    type(DiffusionEq_)      :: field1
+    type(FiniteDeform_)     :: field2
+    type(Term_)             :: term
+    character*70            :: InProjName1,InProjName2
+    integer                 :: i,j,Step
+    real(8)                 :: time
+
+    call StartMPI(MPIData)
+    call InitializeTerm(term)
+    
+    ! ###### Read Infile info ###################
+    print *, "Import Project Name (Diffusion) is : "
+    !read *, InProjName1
+    InProjName1="difftest3d_out"
+    print *, trim(InProjName1),".scf"
+    print *, "Import Project Name (Deformation) is : "
+    !read *, InProjName2
+    InProjName2="finitedtest"
+    print *, trim(InProjName2),".scf"
+    print *, "Time duration (sec.): "
+    time=1.0d0
+    !read *, time
+    ! ###### Read Infile info ###################
+    
+        ! ###### Import Objects ###################
+        !call ImportFEMDomainDiff(rootdomain1,OptionalProjectName=InProjName1)
+        call ImportFEMDomain(rootdomain1,OptionalProjectName=InProjName1,FileHandle=MPIData%Myrank+10)
+        field1%FEMDomain => rootdomain1
+        field1%dt=time/dble(field1%FEMDomain%ControlPara%Timestep)
+        Step=field1%FEMDomain%ControlPara%Timestep
+        !call ImportFEMDomainFiDe(rootdomain2,OptionalProjectName=InProjName2)
+        call ImportFEMDomain(rootdomain2,OptionalProjectName=InProjName2,FileHandle=MPIData%Myrank+20)
+        field2%FEMDomain => rootdomain2
+        field2%dt=time/dble(field2%FEMDomain%ControlPara%Timestep)
+        Step=field2%FEMDomain%ControlPara%Timestep
+        ! ###### Import Objects ###################
+    
+
+    
+    do i=1,1
+        if(MPIData%MyRank==0)then
+            field1%Step=i
+        else
+            field2%Step=i
+        endif
+        if(i==1)then
+
+            if(MPIData%MyRank==0)then
+
+                ! ###### Finite deformation part #############################   
+                call DevideBCIntoTimestep(field2)
+                call SolveFiniteDeformNewton(field2,SolverType=term%BiCGSTAB)  
+                call DisplayDeformStress(field2,OptionalProjectName=InProjName2,DisplayMode=term%gmsh,OptionalStep=i)   
+                call DisplayReactionForce(field2)
+                ! ###### Finite deformation part #############################
+            else
+                ! ###### Diffusion Part ###################
+                call SetupDiffusionEq(field1)
+                call SolveDiffusionEq(field1)
+                call DisplayDiffusionEq(field1,DisplayMode=term%gmsh,OptionalStep=i)
+                ! ###### Diffusion Part ###################   
+            endif 
+
+
+        else
+            if(MPIData%MyRank==0)then
+                ! ###### Update Finite Deformation over timesteps ###################
+                call UpdateInitConfig(field2)
+                call UpdateBCInTimestep(field2)
+                call SolveFiniteDeformNewton(field2,SolverType=term%BiCGSTAB) 
+                call DisplayDeformStress(field2,OptionalProjectName=InProjName2,DisplayMode=term%gmsh,OptionalStep=i)   
+                call DisplayReactionForce(field2)
+                ! ###### Update Finite Deformation over timesteps ###################
+            else
+                ! ###### Update Diffusion Field over timesteps ###################
+                call UpdateDiffusionEq(field1)
+                call SolveDiffusionEq(field1)
+                call DisplayDiffusionEq(field1,DisplayMode=term%gmsh,OptionalStep=i)
+                ! ###### Update Diffusion Field over timesteps ###################
+            endif
+        endif
+
+        ! ########## Multi-Physics #########################
+        !call SyncMesh(rootdomain1,"<-",rootdomain2)
+        !call EnforceMassConserv(field1,field2)
+        ! ########## Multi-Physics #########################
+    enddo
+
+
+
+
+    ! ###### Read Infile info ###################
+    print *, "Import Project Name (Diffusion) is : "
+    !read *, InProjName1
+    InProjName1="difftest3d"
+    print *, trim(InProjName1),".scf"
+    print *, "Import Project Name (Deformation) is : "
+    !read *, InProjName2
+    InProjName2="finitedtest_out"
+    print *, trim(InProjName2),".scf"
+    print *, "Time duration (sec.): "
+    ! ###### Read Infile info ###################
+    
+    ! ###### Import Objects ###################
+    !call ImportFEMDomainDiff(rootdomain1,OptionalProjectName=InProjName1)
+    call ExportFEMDomain(rootdomain1,OptionalProjectName=InProjName1,FileHandle=10)
+    !call ImportFEMDomainFiDe(rootdomain2,OptionalProjectName=InProjName2)
+    call ExportFEMDomain(rootdomain2,OptionalProjectName=InProjName2,FileHandle=20)
+    ! ###### Import Objects ###################
+
+    call EndMPI(MPIData)
+end program main

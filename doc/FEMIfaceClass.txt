@@ -1,0 +1,338 @@
+Field :: 
+type(Mesh_)             :: Mesh1,Mesh2 ! Mesh[12]%ElemNod is a LOCAL node pointer, not a DIRECT pointer for each domains
+type(ControlParameter_) :: ControlPara
+real(8),allocatable     :: NTN_NodCoord(:,:)
+real(8),allocatable     :: STS_NodCoord(:,:)
+real(8),allocatable     :: NTS_Val(:,:)
+integer,allocatable     :: NTN_ElemNod(:,:)
+integer,allocatable     :: STS_ElemNod(:,:)
+integer,allocatable     :: NTS_Active(:)
+real(8),allocatable     :: NTN_Value(:,:)
+real(8),allocatable     :: STS_Value(:,:)
+integer,allocatable     :: GloNodPoint1(:,:),GloNodPoint2(:,:)
+integer                 :: DomainID1
+integer                 :: DomainID3
+integer                 :: NumOfImportedDomain
+character*200           :: FilePathDomain2
+character*200 :: FileNameDomain2
+character*9   :: Dtype
+
+Methods :: 
+procedure :: setFEMDomain => setFEMDomainFEMIface
+procedure :: Import => ImportFEMIface
+procedure :: Export => ExportFEMIface
+procedure :: GmshPlotNTS  => GmshPlotNTSFEMIface
+procedure :: GetNTSelement => GetNTSelement
+procedure :: updateTimestep => updateTimestepIface
+Methods :: 
+
+subroutine InitializeFEMIface(obj,NumOfDomain)
+integer,optional,intent(in)::NumOfDomain
+
+
+
+if(allocated(obj%FEMDomains) ) deallocate(obj%FEMDomains)
+allocate(obj%FEMDomains(NumOfDomain) )
+allocate(obj%FEMDomains(2) )
+obj%NumOfImportedDomain = 0
+
+end subroutine
+
+! #########################################################
+class(FEMIface_),intent(inout)::obj
+character(*),optional,intent(in) :: Name
+
+if(size(obj%FEMDomains,1) < obj%NumOfImportedDomain )then
+else
+obj%FEMDomains(obj%NumOfImportedDomain)%FEMDomainp => dobj
+if(present(Name))then
+endif
+
+! #########################################################
+
+! #########################################################
+class(FEMIface_),intent(inout)::obj
+logical,optional,intent(in)::withNeumannBC,withDirichletBC
+
+if(present(Name) )then
+withNeumannBC=withNeumannBC,withDirichletBC=withDirichletBC)
+call obj%FEMDomains(i)%FEMDomainp%GmshPlotMesh(Name=trim( adjustl(fstring(i)) ) ,&
+endif
+if(present(Name) )then
+else
+endif
+
+! #########################################################
+
+subroutine DeallocateFEMIface(obj)
+
+if(allocated(obj%NTN_NodCoord) ) then
+else
+
+deallocate(obj%NTS_NodCoord)
+if(allocated(obj%STS_NodCoord) )then
+endif
+deallocate(obj%NTN_ElemNod)
+if(allocated(obj%NTS_ElemNod) )then
+endif
+deallocate(obj%STS_ElemNod)
+
+if(allocated(obj%FEMDomains) )then
+endif
+
+! #########################################################
+
+subroutine ImportFEMIface(obj,OptionalFileFormat,OptionalProjectName,FileHandle)
+character*4,optional,intent(in)::OptionalFileFormat
+
+character*70::ProjectName
+character*9  :: DataType
+real(8),allocatable::RealMat(:,:)
+integer :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,ierr
+
+
+fh=FileHandle
+fh =104
+
+FileFormat=trim(OptionalFileFormat)
+FileFormat=".scf"
+
+if(present(OptionalProjectName) )then
+else
+endif
+obj%FileName=ProjectName
+
+open(fh,file=FileName,status="old")
+if(trim(FileFormat)==".scf" )then
+
+
+return
+
+read(fh,*) obj%FileNameDomain1
+read(fh,*) obj%SolverType
+endif
+
+end subroutine
+
+
+!###################### Get FEM Interfaces ##########################
+class(FEMDomain_),optional,intent(inout)::obj1,obj2
+integer,optional,intent(in)  ::MasterID,SlaveID
+integer :: i,j,n1,ierr,err
+if(.not. present(obj1) .and. .not. present(obj2) )then
+return
+
+print *, "object names #2 : ",trim(obj2%FileName)
+
+
+
+if(err==1)then
+return
+n1 = index(trim(obj1%FileName),".scf", back=.true. )
+obj%FilePathDomain2=trim(obj2%FilePath)
+obj%FileNameDomain1=trim(obj1%FileName)
+obj%FileName       ="Iface_"//obj1%FileName(1:n1-1)//"_"//trim(obj2%FileName)
+call obj%GetNTNelement()
+
+call ShowArray(obj%NTS_NodCoord,FileHandle=20)
+end subroutine
+
+
+
+!###################### Get FEM Interfaces ##########################
+class(FEMIface_),intent(inout)::obj
+integer,optional,intent(in) :: MasterID,SlaveID
+integer :: i,j,n1,ierr,err
+if(present(MasterID) )then
+else
+endif
+if(present(SlaveID) )then
+else
+endif
+obj1 => obj%FEMDomains(i)%FEMDomainp
+
+print *, "object names #2 : ",trim(obj2%FileName)
+
+
+call obj%GetGlobalNodePointer()
+!if(err==1)then
+!    return
+!n1 = index(trim(obj1%FileName),".scf", back=.true. )
+!obj%FilePathDomain2=trim(obj2%FilePath)
+!obj%FileNameDomain1=trim(obj1%FileName)
+!obj%FileName       ="Iface_"//obj1%FileName(1:n1-1)//"_"//trim(obj2%FileName)
+call obj%GetNTNelement()
+
+call ShowArray(obj%NTS_NodCoord,FileHandle=20)
+end subroutine
+
+
+subroutine GetNTNelement(obj)
+
+real(8) :: dist
+integer :: master,dim_num,id
+node_num1=size(obj%Mesh1%NodCoord,1)
+
+dim_num2 =size(obj%Mesh2%NodCoord,2)
+if(dim_num1/=dim_num2)then
+endif
+
+allocate(xn(dim_num1) )
+node_num=node_num2
+else
+master = 1
+
+if(allocated(obj%NTN_ElemNod) ) deallocate(obj%NTN_ElemNod)
+
+allocate(obj%NTN_ElemNod(node_num,2 ) ) !In terms of local IDs
+
+if(master==1)then ! domain 1 is master >> search the pair from domain 2
+id = SearchNearestCoord(obj%Mesh2%NodCoord,x)
+obj%NTN_ElemNod(i,2)=id
+obj%NTN_Val(i,1)=dsqrt(dot_product(x-xn,x-xn))
+obj%NTN_NodCoord(i,dim_num+1:2*dim_num)=xn(:)
+x(:)=obj%Mesh2%NodCoord(i,:)
+obj%NTN_ElemNod(i,2)=i
+xn(:)=obj%Mesh1%NodCoord(id,:)
+obj%NTN_NodCoord(i,1:dim_num)=xn(:)
+endif
+
+end subroutine
+
+!###################### Get Node-To-Segment Elements ##########################
+class(FEMIface_),intent(inout)::obj
+real(8),allocatable::x(:),xn(:),ElemMidPointCoord(:,:)
+integer :: node_num1,dim_num1,node_num2,dim_num2,i,j,n,node_num,elem_num2,elem_num
+
+node_num1=size(obj%Mesh1%NodCoord,1)
+
+elem_num2=size(obj%Mesh2%ElemNod,1)
+
+stop "ERROR :: GetNTSelement dimension of domain1 and domain2 is not consistent"
+dim_num=dim_num1
+elem_num=elem_num2 ! master segment
+allocate(x(dim_num1) )
+allocate(ElemMidPointCoord(size(obj%Mesh2%ElemNod,1),dim_num ))
+xn(:)=0.0d0
+xn(:)=xn(:)+1.0d0/dble(elemnod_num)*obj%Mesh2%NodCoord(obj%Mesh2%ElemNod(i,j),:  )
+ElemMidPointCoord(i,:)=xn(:)
+
+if(allocated(obj%NTS_ElemNod) ) deallocate(obj%NTS_ElemNod)
+if(allocated(obj%NTS_SegmentID) ) deallocate(obj%NTS_SegmentID)
+
+allocate(obj%NTS_ElemNod(node_num,1+elemnod_num ) ) !In terms of local IDs
+allocate(obj%NTS_SegmentID(node_num,1 ) )
+
+do i=1,node_num
+id = SearchNearestCoord(ElemMidPointCoord,x)
+obj%NTS_SegmentID(i,1)=id
+
+obj%NTS_ElemNod(i,1+j)=obj%Mesh2%ElemNod(id,j)
+obj%Mesh2%NodCoord( obj%Mesh2%ElemNod(id,j),:   )
+obj%NTS_NodCoord(i,1:dim_num)=x(:)
+enddo
+
+end subroutine
+
+!###################### Get Segment-To-Segment Elements ##########################
+class(FEMIface_),intent(inout)::obj
+print *, "now, developping"
+!###################### Get Segment-To-Segment Elements ##########################
+
+subroutine ExportFEMIface(obj,OptionalFileFormat,OptionalProjectName,FileHandle)
+character*4,optional,intent(in)::OptionalFileFormat
+
+character*70::ProjectName
+character*9  :: DataType
+real(8),allocatable::RealMat(:,:)
+integer :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum
+
+if(present(FileHandle) )then
+else
+endif
+if(present(OptionalFileFormat) )then
+else
+endif
+
+ProjectName=trim(OptionalProjectName)
+ProjectName="untitled"
+
+
+
+if(trim(FileFormat)==".scf" )then
+
+return
+write(fh,'(A)') trim(obj%Dtype)
+write(fh,'(A)') trim(obj%FileNameDomain2)
+
+endif
+
+! #########################################################
+
+
+subroutine GmshPlotNTSFEMIface(obj,Name)
+type(FEMDomain_) :: Fobj
+character(*),optional,intent(in)::Name
+
+
+
+print *, dim_num
+n=size(obj%NTS_ElemNod,1)
+
+if(dim_num==2)then
+elemnodnum=4
+! 8
+else
+return
+
+allocate(Fobj%Mesh%NodCoord(n*m,dim_num) )
+allocate(Fobj%Mesh%ElemMat(n) )
+Fobj%Mesh%ElemMat(:)=1
+Fobj%Mesh%ElemNod(:,:)=0
+! create Fobj%Mesh%NodCoord
+do i=1,n ! number of NTS elements
+
+if(elemnodnum==4)then
+elseif(elemnodnum==8)then
+Fobj%Mesh%ElemNod(i,j+elemnodnum/2)=k
+Fobj%Mesh%ElemNod(i,j-1)=k
+Fobj%Mesh%ElemNod(i,j-1+elemnodnum/2)=k
+endif
+else
+return
+enddo
+
+
+end subroutine
+
+
+subroutine GetGlobalNodePointerNTS(obj)
+type(MPI_)::mpidata
+real(8),allocatable :: x(:),x_tr(:)
+! get GlobalNodePointer of NTS element
+NumElemIface2=size(obj%Mesh2%ElemNod,1)
+m=size(obj%Mesh2%ElemNod,2)
+deallocate(obj%GloNodPoint1)
+if(allocated(obj%GloNodPoint2) )then
+endif
+
+do i=1,NumElemIface1
+!print *, obj%Mesh1%GlobalNodID(obj%Mesh1%ElemNod(i,j) ),"/",size(obj%FEMDomains(1)%FEMDomainp%Mesh%NodCoord,1)
+enddo
+!
+!! for Domain2
+do j=1,m
+obj%GloNodPoint2(i,j)=obj%Mesh2%GlobalNodID(obj%Mesh2%ElemNod(i,j) )
+enddo
+
+end subroutine
+
+! #########################################################
+class(FEMIFace_),intent(inout)::obj
+integer :: dt
+dt=input(default=1,option=timestep)
+
+! #########################################################
+
+
+

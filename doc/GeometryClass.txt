@@ -1,0 +1,29 @@
+Field :: 
+Methods :: 
+procedure :: set    => setPoint
+Field :: 
+Methods :: 
+procedure :: setNode    => SetNodeLine
+procedure :: show       => showLine
+
+real(8) :: radius
+Methods :: 
+procedure :: SetCenter  => InitSetCenterCircle
+procedure :: getArea    => getAreaCircle
+Field :: 
+real(8) :: center(3)
+procedure :: Init       => InitSphere
+procedure :: SetRadius  => InitSetRadiusSphere
+Field :: 
+Field :: 
+Field :: 
+subroutine InitPoint(obj,dim)
+subroutine showPoint(obj,Name)
+subroutine SetNodeLine(obj,point,position)
+subroutine InitCircle(obj,dim)
+subroutine InitSetCenterCircle(obj,point)
+subroutine showCircle(obj,Name)
+subroutine InitSetCenterSphere(obj,point)
+subroutine showSphere(obj,Name)
+subroutine InitTriangle(obj,dim)
+subroutine getCircleTriangle(obj,type_of_circle,circle)

@@ -1,0 +1,196 @@
+#!/bin/sh -eu
+
+echo "-----------------"
+echo "    "
+echo "    "
+echo "SiCroF is installing ..."
+echo "(c) Haruka Tomobe 2019 All Rights Reserved"
+echo "    "
+echo "    "
+echo "-----------------"
+
+echo "Pre-install sequence is started... "
+echo "Skip it  y/n ? :"
+read yes_no
+yes="y"
+if [ $yes_no != $yes ]; then
+echo "------------------------"
+echo "gcc --version"
+gcc --version
+echo "------------------------"
+echo "gfortran --version"
+gfortran --version
+echo "------------------------"
+echo "gmsh --version"
+gmsh --version
+echo "------------------------"
+echo "mpiifort --version"
+mpiifort --version
+echo "------------------------"
+#echo "OpenCL --version"
+#clinfo --version
+#sudo apt install ocl-icd-libopencl1 opencl-headers clinfo ocl-icd-opencl-dev beignet
+echo "------------------------"
+echo "python3 --version"
+python3 --version
+echo "------------------------"
+echo "pip3 --version"
+pip3 --version
+echo "------------------------"
+pip3 install pillow
+echo "------------------------"
+pip3 install numpy
+echo "------------------------"
+pip3 install scipy
+echo "------------------------"
+pip3 install matplotlib
+echo "------------------------"
+pip3 install tensorflow
+echo "------------------------"
+pip3 install jupyter
+echo "------------------------"
+
+echo "All pacages are ready. [ok]"
+# Compilation of low-level classes
+fi
+
+
+start_time=`date +%s%3N`
+
+echo "Compiling ./src/TermClass/TermClass.f90      "
+echo " >> TermClass.o"
+echo " |                             | (0%)\r\c "
+mpiifort -c ./src/TermClass/TermClass.f90 -o ./inc/TermClass.o
+echo "Compiling ./src/MathClass/MathClass.f90   "
+echo " >> MathClass.o"
+echo " | #                           | (2%)\r\c "
+mpiifort -c ./src/MathClass/MathClass.f90 -o ./inc/MathClass.o
+echo "Compiling ./src/RandomClass/RandomClass.f90   "
+echo " >> RandomClass.o"
+echo " | #                           | (2%)\r\c "
+mpiifort -c ./src/RandomClass/RandomClass.f90 -o ./inc/RandomClass.o
+echo "Compiling ./src/MPIClass/MPIClass.f90       "
+echo " >> MPIClass.o"
+echo " | #                           | (5%)\r\c "
+mpiifort -c ./src/MPIClass/MPIClass.f90 -o ./inc/MPIClass.o
+echo "Compiling ./src/DictionaryClass/DictionaryClass.f90      "
+echo " >> DictionaryClass.o"
+echo " | ##                          | (9%)\r\c "
+mpiifort -c ./src/DictionaryClass/DictionaryClass.f90 -o ./inc/DictionaryClass.o
+echo "Compiling ./src/OpenMPClass/OpenMPClass.f90 "
+echo " >> OpenMPClass.o"
+echo " | ###                         | (12%)\r\c"
+mpiifort -c ./src/OpenMPClass/OpenMPClass.f90 -o ./inc/OpenMPClass.o
+echo "Compiling ./src/LinearSolverClass/LinearSolverClass.f90 " 
+echo " >> LinearSolverClass.o "
+echo " | ####                        | (16%)\r\c"
+mpiifort -c ./src/LinearSolverClass/LinearSolverClass.f90 -o ./inc/LinearSolverClass.o
+echo "Compiling ./src/ArrayOperationClass/ArrayOperationClass.f90 " 
+echo " >> ArrayOperationClass.o "
+echo " | #####                       | (20%)\r\c"
+mpiifort -c ./src/ArrayOperationClass/ArrayOperationClass.f90 -o ./inc/ArrayOperationClass.o
+echo "Compiling ./src/GeometryClass/GeometryClass.f90 " 
+echo " >> GeometryClass.o "
+echo " | #####                       | (22%)\r\c"
+mpiifort -c ./src/GeometryClass/GeometryClass.f90 -o ./inc/GeometryClass.o
+echo "Compiling ./src/TreeClass/TreeClass.f90 "
+echo " >> TreeClass.o"
+echo " | ######                      | (24%)\r\c"
+mpiifort -c ./src/TreeClass/TreeClass.f90 -o ./inc/TreeClass.o
+echo "Compiling ./src/ShapeFunctionClass/ShapeFunctionClass.f90 " 
+echo " >> ShapeFunctionClass.o "
+echo " | ######                      | (26%)\r\c"
+mpiifort -c ./src/ShapeFunctionClass/ShapeFunctionClass.f90 -o ./inc/ShapeFunctionClass.o
+echo "Compiling ./src/MeshOperationClass/MeshOperationClass.f90 " 
+echo " >> MeshOperationClass.o "
+echo " | #######                     | (30%)\r\c"
+mpiifort -c ./src/MeshOperationClass/MeshOperationClass.f90 -o ./inc/MeshOperationClass.o
+echo "Compiling ./src/MaterialPropClass/MaterialPropClass.f90 " 
+echo " >> MaterialPropClass.o "
+echo " | ########                    | (35%)\r\c"
+mpiifort -c ./src/MaterialPropClass/MaterialPropClass.f90 -o ./inc/MaterialPropClass.o
+echo "Compiling ./src/ControlParameterClass/ControlParameterClass.f90" 
+echo " >> ControlParameterClass.o "
+echo " | #########                   | (40%)\r\c"
+mpiifort -c ./src/ControlParameterClass/ControlParameterClass.f90 -o ./inc/ControlParameterClass.o
+echo "Compiling ./src/BoundaryConditionClass/BoundaryConditionClass.f90" 
+echo " >> BoundaryConditionClass.o "
+echo " | ##########                  | (45%)\r\c"
+mpiifort -c ./src/BoundaryConditionClass/BoundaryConditionClass.f90 -o ./inc/BoundaryConditionClass.o
+echo "Compiling ./src/ConstitutiveModelClass/ConstitutiveModelClass.f90" 
+echo " >> ConstitutiveModelClass.o"
+echo " | ###########                 | (50%)\r\c"
+mpiifort -c ./src/ConstitutiveModelClass/ConstitutiveModelClass.f90 -o ./inc/ConstitutiveModelClass.o
+# Compilation of high-level classes
+echo "Compiling ./src/FEMDomainClass/FEMDomainClass.f90 " 
+echo " >> FEMDomainClass.o  " 
+echo " | ############                | (55%)\r\c"
+mpiifort -c ./src/FEMDomainClass/FEMDomainClass.f90 -o ./inc/FEMDomainClass.o 
+echo "Compiling ./src/FEMIfaceClass/FEMIfaceClass.f90" 
+echo " >> FEMIfaceClass.o "
+echo " | #############               | (60%)\r\c"
+mpiifort -c ./src/FEMIfaceClass/FEMIfaceClass.f90 -o ./inc/FEMIfaceClass.o
+echo "Compiling ./src/PostProcessingClass/PostProcessingClass.f90" 
+echo " >> PostProcessingClass.o "
+echo " | ##############              | (63%)\r\c"
+mpiifort -c ./src/PostProcessingClass/PostProcessingClass.f90 -o ./inc/PostProcessingClass.o
+echo "Compiling ./src/PreProcessingClass/PreProcessingClass.f90" 
+echo " >> PreProcessingClass.o "
+echo " | ##############              | (65%)\r\c"
+mpiifort -c ./src/PreProcessingClass/PreProcessingClass.f90 -o ./inc/PreProcessingClass.o
+
+# Compilation of Solvers
+echo "Compiling ./src/DiffusionEquationClass/DiffusionEquationClass.f90" 
+echo " >> DiffusionEquationClass.o "
+echo " | ###############             | (70%)\r\c"
+mpiifort -c ./src/DiffusionEquationClass/DiffusionEquationClass.f90 -o ./inc/DiffusionEquationClass.o
+echo "Compiling ./src/FiniteDeformationClass/FiniteDeformationClass.f90" 
+echo " >> FiniteDeformationClass.o "
+echo " | ################            | (75%)\r\c"
+mpiifort -c ./src/FiniteDeformationClass/FiniteDeformationClass.f90 -o ./inc/FiniteDeformationClass.o
+echo "Compiling ./src/ContactMechanicsClass/ContactMechanicsClass.f90" 
+echo " >> ContactMechanicsClass.o "
+echo " | #################           | (80%)\r\c"
+mpiifort -c ./src/ContactMechanicsClass/ContactMechanicsClass.f90 -o ./inc/ContactMechanicsClass.o
+echo "Compiling ./src/MultiDiffDeformClass/MultiDiffDeformClass.f90" 
+echo " >> MultiDiffDeformClass.o "
+echo " | ####################        | (85%)\r\c"
+mpiifort -c ./src/MultiDiffDeformClass/MultiDiffDeformClass.f90 -o ./inc/MultiDiffDeformClass.o
+echo "Compiling ./src/MultiPhysicsClass/MultiPhysicsClass.f90" 
+echo " >> MultiPhysicsClass.o "
+echo " | ########################    | (90%)\r\c"
+mpiifort -c ./src/MultiPhysicsClass/MultiPhysicsClass.f90 -o ./inc/MultiPhysicsClass.o
+echo "Compiling ./src/SpaceTimeDeformClass/SpaceTimeDeformClass.f90" 
+echo " >> SpaceTimeDeformClass.o "
+echo " | ########################    | (92%)\r\c"
+mpiifort -c ./src/SpaceTimeDeformClass/SpaceTimeDeformClass.f90 -o ./inc/SpaceTimeDeformClass.o
+
+
+# Compilation of Fields 
+echo "Compiling ./src/FieldClass/FieldClass.f90" 
+echo " >> FieldClass.o"
+echo " | ##########################  | (95%)\r\c"
+mpiifort -c ./src/FieldClass/FieldClass.f90 -o ./inc/FieldClass.o
+echo "Compiling ./src/SimulatorClass/SimulatorClass.f90" 
+echo " >> SimulatorClass.o"
+echo " | ########################## |  (98%)\r\c"
+mpiifort -c ./src/SimulatorClass/SimulatorClass.f90 -o ./inc/SimulatorClass.o
+echo "Compiling ./src/SiCroFClass/SiCroFClass.f90" 
+echo " >> SiCroFClass.o"
+echo " | ########################## |  (99%)\r\c"
+mpiifort -c ./src/SiCroFClass/SiCroFClass.f90 -o ./inc/SiCroFClass.o
+echo "Copying input files from INPUT/           " 
+echo " >> *.txt, *.scf"
+echo " | ########################### | (100%)\r"
+cp INFILE/* .
+cp EXAMPLES/* .
+cp InputDataPackage/*.scf .
+cp InputDataPackage/*.txt .
+echo "    "
+
+end_time=`date +%s%3N`
+time=$((end_time - start_time)) 
+NANOTIME=`echo "scale=3; ($time)/1000" | bc`
+echo " Total 22 objects are compiled in "${NANOTIME}" sec. "
+echo " SiCroF is successfully installed !!"
+echo "    "

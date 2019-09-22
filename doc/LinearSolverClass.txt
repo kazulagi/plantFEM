@@ -1,0 +1,8 @@
+Methods :: 
+subroutine gauss_seidel(a, b, x, n, itrmax, er0)
+subroutine gauss_jordan_pv(a0, x, b, n)
+subroutine bicgstab_nr(a, b, x, n, itrmax, er,u_nod_x, u_nod_y)
+subroutine modify_residual_1(r,x, u_nod_x, u_nod_y,u_nod_dis_x,u_nod_dis_y)
+subroutine modify_residual(r, u_nod_x, u_nod_y)
+subroutine GPBiCG(a, b, x, n, itrmax, er)
+subroutine pre_processed_GPBiCG(a, b, x, n, itrmax, er)

@@ -1,0 +1,42 @@
+Field :: 
+type(Mesh_)             :: Mesh
+type(Boundary_)         :: Boundary
+real(8) :: RealTime
+character*200 :: FileName
+character*20 :: SolverType
+
+Methods :: 
+procedure,public :: Delete => DeallocateFEMDomain
+procedure,public :: Import => ImportFEMDomain
+procedure,public :: AddDBoundCondition => AddDBoundCondition
+procedure,public :: AddTBoundCondition => AddTBoundCondition
+procedure,public :: SetDataType => SetDataType
+procedure,public :: SetName => SetName
+procedure,public :: InitDBC => InitDBC
+procedure,public :: InitTBC => InitTBC
+procedure :: MeltingSkelton => MeltingSkeltonFEMDomain
+procedure,public :: GmshPlotMesh => GmshPlotMesh
+procedure,public :: GmshPlotContour2D => GmshPlotContour2D
+procedure,public :: GnuplotExportStress => GnuplotExportStress
+procedure,public :: rotate => rotateFEMDomain
+type(ShapeFunction_)    :: TimeShapeFunction
+
+Methods :: 
+subroutine DeallocateFEMDomain(obj)
+subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,SolverType,MeshDimension)
+subroutine InitDBC(obj,NumOfValPerNod)
+subroutine InitNBC(obj,NumOfValPerNod)
+subroutine AddNBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
+subroutine AddTBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
+subroutine SetDataType(obj,inDType)
+subroutine SetUpFEMDomain(obj)
+subroutine SetControlParaFEMDomain(obj,OptionalTol,OptionalItrTol,OptionalTimestep,OptionalSimMode)
+subroutine MeltingSkeltonFEMDomain(obj)
+subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalStep,Name)
+subroutine GmshPlotContour2D(obj,gp_value,OptionalContorName,OptionalAbb,OptionalStep,Name)
+subroutine GmshExportStress(obj,uvec,sigma,strain_measure,step,Name )
+subroutine GnuplotPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalStep)
+subroutine moveFEMDomain(obj,x,y,z)
+subroutine rotateFEMDomain(obj,x,y,z)
+subroutine AddNBCFEMDomain(obj,NodID,DimID,Val,FastMode)
+subroutine ExportFEMDomainAsSTL(obj,OptionalProjectName,FileHandle,SolverType,MeshDimension)

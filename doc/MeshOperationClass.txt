@@ -1,0 +1,16 @@
+Methods :: 
+Methods :: 
+subroutine CopyMesh(cobj,obj,Minimum)
+subroutine ImportElemMat(obj,elem_mat)
+subroutine GetFacetElement(obj)
+subroutine GetInterface(obj1,obj2,iface1,iface2,err)
+subroutine GetInterfaceElemNod(obj,iface)
+subroutine ExportNodCoord(obj,nod_coord)
+subroutine ExportSurface2D(obj,surface_nod)
+subroutine SortFacetMesh(obj)
+subroutine MeshingMesh(obj,Mode,itr_tol)
+subroutine getCircumscribedCircleMesh(obj,centerx,centery,centerz,radius)
+subroutine getCircumscribedTriangleMesh(obj,triangle)
+subroutine DelauneygetNewNodeMesh(obj,node_id,staged_node,triangle)
+subroutine DelauneygetNewTriangleMesh(obj,triangle_node_id,new_node_id)
+subroutine removeCircumscribedTriangleMesh(obj)

@@ -1,0 +1,11 @@
+subroutine StartMPI(obj,NumOfComm)
+subroutine BarrierMPI(obj)
+subroutine BcastMPIInt(obj,From,val)
+subroutine BcastMPIReal(obj,From,val)
+subroutine GatherMPIInt(obj,sendobj,sendcount,recvobj,recvcount,&
+subroutine ScatterMPIReal(obj,sendobj,sendcount,recvobj,recvcount,&
+subroutine AlltoAllMPIInt(obj,sendobj,sendcount,recvobj,recvcount,&
+subroutine AlltoAllMPIReal(obj,sendobj,sendcount,recvobj,recvcount,&
+subroutine ReduceMPIInt(obj,sendobj,recvobj,count,start,To,&
+subroutine showLapTimeMPI(obj,clength,rank)
+subroutine CopyMPI(obj,OriginComm,NewCommLayerID)

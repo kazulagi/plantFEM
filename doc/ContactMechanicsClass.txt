@@ -1,0 +1,41 @@
+Field :: 
+type(FEMDomain_),pointer::FEMDomain1
+real(8),allocatable		:: NTSGap(:,:)
+real(8)				:: penaltypara
+real(8),allocatable    :: Domain2Force(:,:)
+real(8),allocatable    ::KcontactEBE(:,:,:)
+real(8),allocatable    ::FcontactEBE(:,:)
+real(8),allocatable    ::DispVecEBE(:,:)
+real(8),allocatable    ::NTSvariables(:,:)
+real(8),allocatable    ::GloNodCoord(:,:)
+integer,allocatable    ::StickOrSlip(:)
+
+procedure :: Update			=> UpdateContactConfiguration
+procedure :: Import         => ImportContactMechanics
+procedure :: ContactSearch  => ContactSearch
+procedure :: getKcmatStick  => getKcmatStick
+procedure :: setPenaltyParameter 	=> setPenaltyParaCM
+procedure :: updateTimestep => updateTimestepContact
+procedure :: getForce		=> getForceCM
+
+
+Methods :: 
+subroutine ImportContactMechanics(obj)
+subroutine deployContactMechanics(obj,IfaceObj)
+subroutine ContactSearch(obj)
+subroutine GetActiveContactElement(obj)
+subroutine GetNormalGap(xs,xm,gap)
+subroutine getKcmatStick(obj)
+subroutine getKcmatStickSlip(obj)
+subroutine state_stick(j,nod_max,old_nod_coord,nts_elem_nod,active_nts&
+subroutine check_active(uvec,duvec,old_nod_coord,active_nts,nts_elem_nod)
+subroutine check_gn(j,nts_elem_nod,check_active_nts,nod_coord)
+subroutine update_friction(j,nod_max,nod_coord,nts_elem_nod,active_nts,surface_nod,sur_nod_inf&
+subroutine update_res_grad_c_i(j,nod_max,old_nod_coord,nts_elem_nod,active_nts&
+subroutine get_beta_st_nts(nts_ID,nts_elem_nod,nod_coord,beta)
+subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,sur_nod_inf,uvec,step)
+subroutine nts_material(sur_inf_mat,nts_elem_nod,nts_mat,contact_mat,surface_nod,step)
+subroutine save_nts_element(nts_elem_nod,nts_amo,old_nts_elem_nod,old_nts_amo,surface_nod,sur_nod_inf,&
+subroutine get_stabilized_nts(nts_elem_nod,surface_nod,sur_nod_inf)
+subroutine updateContactStressCM(obj)
+subroutine updateTimestepContact(obj,timestep)

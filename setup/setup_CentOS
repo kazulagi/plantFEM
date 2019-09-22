@@ -1,0 +1,17 @@
+#!/bin/sh
+
+sudo yum install -y gcc
+sudo yum install -y gcc-gfortran
+sudo yum install -y libopenmpi-dev
+sudo yum install -y python3
+sudo yum install -y gmsh
+sudo yum install -y gnuplot
+sudo yum install curl
+curl https://bootstrap.pypa.io/get-pip.py -o ~/get-pip.py
+sudo python3 ~/get-pip.py
+pip install pillow
+pip install numpy
+pip install scipy
+pip install matplotlib
+pip install tensorflow
+pip install jupyter

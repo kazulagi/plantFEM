@@ -1,0 +1,427 @@
+* 	haruka	69b3d66  (HEAD -> master, origin/master) Overloaded
+* 	haruka	80f20bc  overloaded
+* 	haruka	b94c6de  small revisions
+* 	haruka	f9fd428  simple modifications
+* 	haruka	8975162  docker is checked
+*   	Haruka Tomobe	df87b5a  Merge branch 'working' into 'master'
+|\  
+| * 	haruka	ee410cd  (origin/working, working) cleaned the directory
+* | 	Haruka Tomobe	db03a08  Update README.md
+* |   	Haruka Tomobe	bb8a7e9  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	8d3d5a7  small changes
+| * 	haruka	39d9792  Document >> DocumentCLass
+| * 	haruka	875ba9a  small revision
+* |   	Haruka Tomobe	93d758a  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	2e045fb  README.md is completed.
+| * 	haruka	e8bd8fe  README.md is completed.
+| * 	haruka	44a4172  README.md is completed.
+| * 	haruka	b44bdc3  README.md is completed.
+| * 	haruka	8d295b8  README.md is completed.
+| * 	haruka	4b7a05e  README.md is completed.
+| * 	haruka	ae339c6  README.md is completed.
+| * 	haruka	89c5f94  README.md is completed.
+| * 	haruka	6e2d801  README.md is completed.
+| * 	haruka	8ef7ab2  README.md is completed.
+| * 	haruka	8ca1d98  README.md is edited
+| * 	haruka	7128129  README.md is edited
+| * 	haruka	535875a  README.md Documentaton
+* |   	Haruka Tomobe	b091857  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	ce2e63b  README.md Documentaton
+| * 	haruka	1049623  README.md Documentaton
+| * 	haruka	a0c6a68  README.md Documentaton
+| * 	haruka	1d54f0b  README.md Documentaton
+| * 	haruka	e3d1387  README.md Documentaton
+| * 	haruka	b634700  README.md Documentaton
+| * 	haruka	f801a21  README.md Documentaton
+| * 	haruka	ad499c5  README.md Documentaton
+| * 	haruka	b536193  README.md Documentaton
+* |   	Haruka Tomobe	aaed23e  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	ef34c05  README.md Documentaton
+| * 	haruka	438efbc  Re-defined MultiPhysicsClass
+| * 	haruka	c732320  small modifications
+* |   	Haruka Tomobe	d80f8f5  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	f163974  install.sh, run.sh >> install, run
+| * 	haruka	c2f8173  BugFixed >> Multi-Iface& Multi-Domain is validated
+| * 	haruka	fecc141  BugFixed >> Multi-Iface& Multi-Domain is validated
+| * 	haruka	d271c6e  log/ is updated
+| * 	haruka	b863211  README.md >> type::Real*8, Int*4 is visualized.
+| * 	haruka	234a60b  bugfixed >> FiniteDeform
+* |   	Haruka Tomobe	1ec944d  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	a442b24  bugfixed >> FiniteDeform
+| * 	haruka	bf31a85  README.md << all modules are listed(3).
+| * 	haruka	b31a405  README.md << all modules are listed(2).
+* |   	Haruka Tomobe	062928e  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	dee547a  README.md << all modules are listed.
+| * 	haruka	ee5e2e3  Object-spaceing method is created.
+| * 	haruka	4471b0c  Bugfixed >> FEMDomainClass/ExportFEMDomain.f90
+| * 	haruka	e051a31  SimulatorClass >> new methods are created: InitializeSimulator(), DeploySimulator(), SetSimulatorTime(), RunSimulation(), DisplayResult()
+* |   	Haruka Tomobe	92a1b19  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	a378634  world shortest one
+| * 	haruka	ae0c072  The world shortest Multi-physics FEM program >> MainClass/MainClass.f90
+| * 	haruka	a0f1a74  Made minumum MainClass/MainClass.f90
+| * 	haruka	fc68d59  Bug fixed :: FiniteDeformationClass, DboundVal is conserved and ValInc is used
+* | 	Haruka Tomobe	d9ad080  Add LICENSE
+* |   	Haruka Tomobe	25c344d  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	81832a4  redredmemodmodified
+* |   	Haruka Tomobe	6b5772e  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	1b88966  redredmemodmodified
+* |   	Haruka Tomobe	0371a0a  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	08b7789  little modification in MainClass/MainClass.f90
+| * 	haruka	9b020d1  little modification.
+| * 	haruka	e44f0a0  FieldClass >> ImportField() is implemented. It is a list of FEMDomain_. It imports all objects written in FieldList file (e.g. FieldList.txt)
+| * 	haruka	d1e5351  run.sh :: Number of CPU Cores can be set.
+| * 	haruka	9c605a9  MPIClass is created, in which MPIStart() and MPIEnd() are created. In addition, default compiler is changed from gfortran to mpif90 at install.sh
+| * 	haruka	ef45192  Generic ImportFEMDomain() is created. From now, all FEMDomain objects are imported by using this subprogram. Also, Generic ExportFEMDomain() is created and validated.
+* |   	Haruka Tomobe	c11e899  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	e36cf1e  install.sh is set
+| * 	haruka	b3113e2  README is modified
+| * 	haruka	d5dd97e  install.sh is modified
+* |   	Haruka Tomobe	e33eec3  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	e153cdd  progress-bar is created
+* |   	Haruka Tomobe	a7d1642  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	7b753a3  termclass is created
+| * 	haruka	4deff2b  termclass is created
+* |   	Haruka Tomobe	1047f02  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	3a99387  run.sh and install.sh is added
+| * 	haruka	1d4304b  FiniteDeformationClass >> Tangential Matrix is modified and time-integration of the deformation gradient tensor is modified >> Forward Euler to Clank-Nicolson
+| * 	haruka	9bcb806  now debugging Stiffness matrix and constitutive part
+| * 	haruka	c24147f  ContactMechanicsClass add attributes
+| * 	haruka	0dc09e1  README.md is modified
+| * 	haruka	9565209  ContactMechanicsClass is  now going on
+| * 	haruka	f15b15a  ContactMechanicsClass is  now going on
+| * 	haruka	f1f65ae  Get NTS Elements
+| * 	haruka	f09c1ed  Get NTN Elements
+| * 	haruka	dd71472  Get Interface Elements
+| * 	haruka	67ab6b0  Now adding FEMIfaceClass
+| * 	haruka	eef8f4d  Debugging Get Next Facets
+| * 	haruka	46de236  FEMSystemClass >> FieldsClass
+| * 	haruka	71cba92  Now constructing FEMSystemClass
+| * 	haruka	16925b9  Started to make contact solver
+| * 	haruka	abbbade  README is updated
+| * 	haruka	de60e26  working
+|/  
+* 	haruka	809f825  (origin/finitedeformoldver) UML diagram is generated
+* 	haruka	481aa8d  Slack test
+* 	haruka	671c03a  Rearranged again
+* 	haruka	8aa8400  Rearranged
+* 	haruka	5341bd5  (origin/SiCroF-multi, SiCroF-multi) Rearranged the filesystem
+* 	haruka	bbb31cb  File system is arranged.
+* 	haruka	e80ea23  deleted all fort*
+* 	haruka	d6ba92e  deleted all *.pos
+* 	haruka	62daa8f  Multiphyis
+* 	haruka	577db39  Multi-Physics is partialy implemented (mesh-sync)
+*   	haruka	ac05c35  both deformation and diffusion are 3d
+|\  
+| *   	Haruka Tomobe	cdd712f  (origin/SiCroF-iint-pointers, origin/SiCroF-3D) Merge branch 'SiCroF-3D-Project' into 'master'
+| |\  
+| | * 	haruka	e3acc90  (origin/SiCroF-3D-Project) updated
+* | | 	haruka	ca0a8c7  3D diffusion is validated
+|/ /  
+* | 	haruka	5891fe5  Readme.md is updated
+* | 	haruka	812a668   + to space-+-space
+* | 	haruka	8bcc2bb   + to space-+-space
+* | 	haruka	2156443   + to space-+-space
+* | 	haruka	e450d26   + to space-+-space
+* | 	haruka	6de9bc2   + to space-+-space
+* | 	haruka	8565690   + to space-+-space
+* | 	haruka	2365a1b   + to space-+-space
+* | 	haruka	2b2c31a   + to space-+-space
+* |   	haruka	0671949  + >>   +
+|\ \  
+| |/  
+| * 	haruka	192fd91   + to space-+-space
+* |   	haruka	77c263d  First Commit
+|\ \  
+| * | 	Haruka Tomobe	b4ead6f  Initial commit
+|  /  
+* |   	haruka	f9f94c0  Updates of 3D-deformation is merged
+|\ \  
+| |/  
+| * 	haruka	a7d179f  (origin/SiCroF-3D-Project-Diff, origin/SiCroF-3D-Project-Deform) 2-D is also runnable
+| * 	haruka	6701899  FiniteDeformationClass 2D and 3D is completed. ...but in case the strain > 30 %, it diverges. something may be unrobust
+| * 	haruka	0f09cd7  SiCroF-3D deformation debug done.
+| * 	haruka	769aa8a  debugging 3-D
+| * 	haruka	e89b302  Ke and fint is debugged
+| * 	haruka	f38d0e3  Now revising ShapeFunctionClass
+| * 	haruka	8f59cb9  3D project is running
+| * 	haruka	5f5c67b  3D project is running
+| * 	haruka	b295945  Diretory is made
+* | 	haruka	028a5a6  This can solve 2-D diffusion & deformation, individualy
+* | 	haruka	fe0f37a  Time duration is measured.
+|/  
+| * 	haruka	f2375cc  (origin/mpi, mpi) rank 1 for diffusion, rank 2 for deformation
+|/  
+* 	haruka	b6b2a46  Debug is done!
+* 	haruka	c1a0dd4  Debug is done!
+* 	haruka	094345b  Debug is almost done ..
+* 	haruka	c8cad36  Debug is almost done
+* 	haruka	30407c3  Done?
+* 	haruka	40a9408  now
+* 	haruka	c37e3f0  Now debugging
+* 	haruka	365a768  Now debugging
+* 	haruka	baf5112  Now debugging
+* 	haruka	d68111a  Now debugging
+* 	haruka	f3b81b6  Now debugging
+* 	haruka	4f8ab42  Now debugging
+* 	haruka	152cb2b  Now debugging
+* 	haruka	2355b7f  Now debugging
+* 	haruka	4a9f155  Now debugging
+* 	haruka	086fada  Now debugging
+* 	haruka	a1e638f  Now debugging
+* 	haruka	8b3e870  Now debugging
+* 	haruka	90866bf  Now debugging
+* 	haruka	11784f8  Debugging the Finite Deformation Class >> problem :: Newton's method did not converge in some cases.
+* 	haruka	c7358e7  All test files are deleted
+* 	haruka	2fdaf8e  hello.txt is added
+* 	Haruka-gmax0000010	3670bfd  ./TestClass >> 100 times repeats
+*   	haruka	6e2f33c  Merge branch 'master' of 10.226.126.149:/nfs/nfshdd/SiCroF
+|\  
+| * 	Haruka-gmax0000010	61746e7  TestClass.f90 is added
+* | 	Haruka-gmax0000010	3bffbce  Directory:TestClass is made and *.pos are deleted by haruka.
+|/  
+* 	haruka	71d7b36  Test: space is added
+* 	haruka	2ccba73  Updated at 2019/03/01
+* 	haruka	b96b701  (HEAD -> master) Logs are updated.
+* 	haruka	69b3d66  (origin/master) Overloaded
+* 	haruka	80f20bc  overloaded
+* 	haruka	b94c6de  small revisions
+* 	haruka	f9fd428  simple modifications
+* 	haruka	8975162  docker is checked
+*   	Haruka Tomobe	df87b5a  Merge branch 'working' into 'master'
+|\  
+| * 	haruka	ee410cd  (origin/working, working) cleaned the directory
+* | 	Haruka Tomobe	db03a08  Update README.md
+* |   	Haruka Tomobe	bb8a7e9  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	8d3d5a7  small changes
+| * 	haruka	39d9792  Document >> DocumentCLass
+| * 	haruka	875ba9a  small revision
+* |   	Haruka Tomobe	93d758a  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	2e045fb  README.md is completed.
+| * 	haruka	e8bd8fe  README.md is completed.
+| * 	haruka	44a4172  README.md is completed.
+| * 	haruka	b44bdc3  README.md is completed.
+| * 	haruka	8d295b8  README.md is completed.
+| * 	haruka	4b7a05e  README.md is completed.
+| * 	haruka	ae339c6  README.md is completed.
+| * 	haruka	89c5f94  README.md is completed.
+| * 	haruka	6e2d801  README.md is completed.
+| * 	haruka	8ef7ab2  README.md is completed.
+| * 	haruka	8ca1d98  README.md is edited
+| * 	haruka	7128129  README.md is edited
+| * 	haruka	535875a  README.md Documentaton
+* |   	Haruka Tomobe	b091857  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	ce2e63b  README.md Documentaton
+| * 	haruka	1049623  README.md Documentaton
+| * 	haruka	a0c6a68  README.md Documentaton
+| * 	haruka	1d54f0b  README.md Documentaton
+| * 	haruka	e3d1387  README.md Documentaton
+| * 	haruka	b634700  README.md Documentaton
+| * 	haruka	f801a21  README.md Documentaton
+| * 	haruka	ad499c5  README.md Documentaton
+| * 	haruka	b536193  README.md Documentaton
+* |   	Haruka Tomobe	aaed23e  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	ef34c05  README.md Documentaton
+| * 	haruka	438efbc  Re-defined MultiPhysicsClass
+| * 	haruka	c732320  small modifications
+* |   	Haruka Tomobe	d80f8f5  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	f163974  install.sh, run.sh >> install, run
+| * 	haruka	c2f8173  BugFixed >> Multi-Iface& Multi-Domain is validated
+| * 	haruka	fecc141  BugFixed >> Multi-Iface& Multi-Domain is validated
+| * 	haruka	d271c6e  log/ is updated
+| * 	haruka	b863211  README.md >> type::Real*8, Int*4 is visualized.
+| * 	haruka	234a60b  bugfixed >> FiniteDeform
+* |   	Haruka Tomobe	1ec944d  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	a442b24  bugfixed >> FiniteDeform
+| * 	haruka	bf31a85  README.md << all modules are listed(3).
+| * 	haruka	b31a405  README.md << all modules are listed(2).
+* |   	Haruka Tomobe	062928e  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	dee547a  README.md << all modules are listed.
+| * 	haruka	ee5e2e3  Object-spaceing method is created.
+| * 	haruka	4471b0c  Bugfixed >> FEMDomainClass/ExportFEMDomain.f90
+| * 	haruka	e051a31  SimulatorClass >> new methods are created: InitializeSimulator(), DeploySimulator(), SetSimulatorTime(), RunSimulation(), DisplayResult()
+* |   	Haruka Tomobe	92a1b19  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	a378634  world shortest one
+| * 	haruka	ae0c072  The world shortest Multi-physics FEM program >> MainClass/MainClass.f90
+| * 	haruka	a0f1a74  Made minumum MainClass/MainClass.f90
+| * 	haruka	fc68d59  Bug fixed :: FiniteDeformationClass, DboundVal is conserved and ValInc is used
+* | 	Haruka Tomobe	d9ad080  Add LICENSE
+* |   	Haruka Tomobe	25c344d  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	81832a4  redredmemodmodified
+* |   	Haruka Tomobe	6b5772e  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	1b88966  redredmemodmodified
+* |   	Haruka Tomobe	0371a0a  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	08b7789  little modification in MainClass/MainClass.f90
+| * 	haruka	9b020d1  little modification.
+| * 	haruka	e44f0a0  FieldClass >> ImportField() is implemented. It is a list of FEMDomain_. It imports all objects written in FieldList file (e.g. FieldList.txt)
+| * 	haruka	d1e5351  run.sh :: Number of CPU Cores can be set.
+| * 	haruka	9c605a9  MPIClass is created, in which MPIStart() and MPIEnd() are created. In addition, default compiler is changed from gfortran to mpif90 at install.sh
+| * 	haruka	ef45192  Generic ImportFEMDomain() is created. From now, all FEMDomain objects are imported by using this subprogram. Also, Generic ExportFEMDomain() is created and validated.
+* |   	Haruka Tomobe	c11e899  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	e36cf1e  install.sh is set
+| * 	haruka	b3113e2  README is modified
+| * 	haruka	d5dd97e  install.sh is modified
+* |   	Haruka Tomobe	e33eec3  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	e153cdd  progress-bar is created
+* |   	Haruka Tomobe	a7d1642  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	7b753a3  termclass is created
+| * 	haruka	4deff2b  termclass is created
+* |   	Haruka Tomobe	1047f02  Merge branch 'working' into 'master'
+|\ \  
+| |/  
+| * 	haruka	3a99387  run.sh and install.sh is added
+| * 	haruka	1d4304b  FiniteDeformationClass >> Tangential Matrix is modified and time-integration of the deformation gradient tensor is modified >> Forward Euler to Clank-Nicolson
+| * 	haruka	9bcb806  now debugging Stiffness matrix and constitutive part
+| * 	haruka	c24147f  ContactMechanicsClass add attributes
+| * 	haruka	0dc09e1  README.md is modified
+| * 	haruka	9565209  ContactMechanicsClass is  now going on
+| * 	haruka	f15b15a  ContactMechanicsClass is  now going on
+| * 	haruka	f1f65ae  Get NTS Elements
+| * 	haruka	f09c1ed  Get NTN Elements
+| * 	haruka	dd71472  Get Interface Elements
+| * 	haruka	67ab6b0  Now adding FEMIfaceClass
+| * 	haruka	eef8f4d  Debugging Get Next Facets
+| * 	haruka	46de236  FEMSystemClass >> FieldsClass
+| * 	haruka	71cba92  Now constructing FEMSystemClass
+| * 	haruka	16925b9  Started to make contact solver
+| * 	haruka	abbbade  README is updated
+| * 	haruka	de60e26  working
+|/  
+* 	haruka	809f825  (origin/finitedeformoldver) UML diagram is generated
+* 	haruka	481aa8d  Slack test
+* 	haruka	671c03a  Rearranged again
+* 	haruka	8aa8400  Rearranged
+* 	haruka	5341bd5  (origin/SiCroF-multi, SiCroF-multi) Rearranged the filesystem
+* 	haruka	bbb31cb  File system is arranged.
+* 	haruka	e80ea23  deleted all fort*
+* 	haruka	d6ba92e  deleted all *.pos
+* 	haruka	62daa8f  Multiphyis
+* 	haruka	577db39  Multi-Physics is partialy implemented (mesh-sync)
+*   	haruka	ac05c35  both deformation and diffusion are 3d
+|\  
+| *   	Haruka Tomobe	cdd712f  (origin/SiCroF-iint-pointers, origin/SiCroF-3D) Merge branch 'SiCroF-3D-Project' into 'master'
+| |\  
+| | * 	haruka	e3acc90  (origin/SiCroF-3D-Project) updated
+* | | 	haruka	ca0a8c7  3D diffusion is validated
+|/ /  
+* | 	haruka	5891fe5  Readme.md is updated
+* | 	haruka	812a668   + to space-+-space
+* | 	haruka	8bcc2bb   + to space-+-space
+* | 	haruka	2156443   + to space-+-space
+* | 	haruka	e450d26   + to space-+-space
+* | 	haruka	6de9bc2   + to space-+-space
+* | 	haruka	8565690   + to space-+-space
+* | 	haruka	2365a1b   + to space-+-space
+* | 	haruka	2b2c31a   + to space-+-space
+* |   	haruka	0671949  + >>   +
+|\ \  
+| |/  
+| * 	haruka	192fd91   + to space-+-space
+* |   	haruka	77c263d  First Commit
+|\ \  
+| * | 	Haruka Tomobe	b4ead6f  Initial commit
+|  /  
+* |   	haruka	f9f94c0  Updates of 3D-deformation is merged
+|\ \  
+| |/  
+| * 	haruka	a7d179f  (origin/SiCroF-3D-Project-Diff, origin/SiCroF-3D-Project-Deform) 2-D is also runnable
+| * 	haruka	6701899  FiniteDeformationClass 2D and 3D is completed. ...but in case the strain > 30 %, it diverges. something may be unrobust
+| * 	haruka	0f09cd7  SiCroF-3D deformation debug done.
+| * 	haruka	769aa8a  debugging 3-D
+| * 	haruka	e89b302  Ke and fint is debugged
+| * 	haruka	f38d0e3  Now revising ShapeFunctionClass
+| * 	haruka	8f59cb9  3D project is running
+| * 	haruka	5f5c67b  3D project is running
+| * 	haruka	b295945  Diretory is made
+* | 	haruka	028a5a6  This can solve 2-D diffusion & deformation, individualy
+* | 	haruka	fe0f37a  Time duration is measured.
+|/  
+| * 	haruka	f2375cc  (origin/mpi, mpi) rank 1 for diffusion, rank 2 for deformation
+|/  
+* 	haruka	b6b2a46  Debug is done!
+* 	haruka	c1a0dd4  Debug is done!
+* 	haruka	094345b  Debug is almost done ..
+* 	haruka	c8cad36  Debug is almost done
+* 	haruka	30407c3  Done?
+* 	haruka	40a9408  now
+* 	haruka	c37e3f0  Now debugging
+* 	haruka	365a768  Now debugging
+* 	haruka	baf5112  Now debugging
+* 	haruka	d68111a  Now debugging
+* 	haruka	f3b81b6  Now debugging
+* 	haruka	4f8ab42  Now debugging
+* 	haruka	152cb2b  Now debugging
+* 	haruka	2355b7f  Now debugging
+* 	haruka	4a9f155  Now debugging
+* 	haruka	086fada  Now debugging
+* 	haruka	a1e638f  Now debugging
+* 	haruka	8b3e870  Now debugging
+* 	haruka	90866bf  Now debugging
+* 	haruka	11784f8  Debugging the Finite Deformation Class >> problem :: Newton's method did not converge in some cases.
+* 	haruka	c7358e7  All test files are deleted
+* 	haruka	2fdaf8e  hello.txt is added
+* 	Haruka-gmax0000010	3670bfd  ./TestClass >> 100 times repeats
+*   	haruka	6e2f33c  Merge branch 'master' of 10.226.126.149:/nfs/nfshdd/SiCroF
+|\  
+| * 	Haruka-gmax0000010	61746e7  TestClass.f90 is added
+* | 	Haruka-gmax0000010	3bffbce  Directory:TestClass is made and *.pos are deleted by haruka.
+|/  
+* 	haruka	71d7b36  Test: space is added
+* 	haruka	2ccba73  Updated at 2019/03/01
