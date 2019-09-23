@@ -14,7 +14,7 @@ module FiniteDeformationClass
 		real(8),allocatable ::DeformStressMat(:,:,:)
 		real(8),allocatable ::DeformStressRHS(:,:)
 		real(8),allocatable ::DeformVecEBETot(:,:)
-        real(8),allocatable ::DeformVecEBEInc(:,:)
+		real(8),allocatable ::DeformVecEBEInc(:,:)
 
         real(8),allocatable ::DeformVecGloTot(:)
 		real(8),allocatable ::DeformVecGloInc(:)
@@ -36,6 +36,8 @@ module FiniteDeformationClass
 		procedure :: Setup => SetupFiniteDeform
 		procedure :: Update => UpdateFiniteDeform
 		procedure :: Display => DisplayDeformStress
+		procedure :: getDBCVector => getDBCVectorDeform
+		procedure :: getDispVector => getDispVectorDeform
 		 	
   	end type
 	
@@ -73,7 +75,7 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype)
 			endif
 
 			call SolveFiniteDeform(obj,SolverType=Solvertype)
-			!call DisplayDeformStress(obj,DisplayMode=gmsh,OptionalStep=itr)  
+			call DisplayDeformStress(obj,DisplayMode=gmsh,OptionalStep=itr)  
 			
 
 			   
@@ -83,7 +85,7 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype)
 
 			!call DisplayDeformStress(obj,DisplayMode=gmsh,OptionalStep=0) 
     		call SolveFiniteDeform(obj,OptionItr=itr,SolverType=Solvertype)
-			!call DisplayDeformStress(obj,DisplayMode=gmsh,OptionalStep=itr)
+			call DisplayDeformStress(obj,DisplayMode=gmsh,OptionalStep=itr)
 			
 
 	    	
@@ -2244,14 +2246,16 @@ end subroutine
 
 
 !######################## Display Finite Deformation ########################
-subroutine DisplayDeformStress(obj,DisplayMode,OptionalStep,Name)
+subroutine DisplayDeformStress(obj,DisplayMode,OptionalStep,Name,withDirichlet)
     class(FiniteDeform_),intent(inout)::obj
-    character(*),optional,intent(in) :: Name,DisplayMode
-    integer,optional,intent(in)::OptionalStep
+	character(*),optional,intent(in) :: Name,DisplayMode
+	logical,optional,intent(in) :: withDirichlet
+	integer,optional,intent(in)::OptionalStep
+	real(8),allocatable::DBCvec(:,:),DispVector(:,:)
     integer :: i,j,n,m,step,dim_num
 
 	if(size(obj%FEMDomain%Mesh%NodCoord,2)==2)then
-
+		! 2-D condition
     	if(present(OptionalStep) )then
     	    step=OptionalStep
     	else
@@ -2264,7 +2268,11 @@ subroutine DisplayDeformStress(obj,DisplayMode,OptionalStep,Name)
     	            print *, obj%DeformVecEBEInc(i,:)
     	        enddo
     	    elseif(trim(DisplayMode)=="gmsh" .or. trim(DisplayMode)=="Gmsh" )then   
-				call GmshExportStress(obj%FEMDomain,obj%DeformVecGloTot,obj%DeformStress,obj%DeformStrain,step,Name=Name )
+				call GmshExportStress(obj%FEMDomain,obj%DeformVecGloTot,obj%DeformStress,obj%DeformStrain,step,Name=Name)
+				call obj%getDispVector(DispVector)
+				call GmshPlotVector(obj%FEMDomain,Vector=DispVector,Name=Name,FieldName="Displacement",&
+				Step=step,withMsh=.true.,NodeWize=.true.,onlyDirichlet=.true.)
+
     	    elseif(trim(DisplayMode)=="gnuplot" .or. trim(DisplayMode)=="Gnuplot" )then
 				call GnuplotExportStress(obj%FEMDomain,obj%DeformVecGloTot,obj%DeformStress,obj%DeformStrain,step )
     	    else
@@ -2275,7 +2283,7 @@ subroutine DisplayDeformStress(obj,DisplayMode,OptionalStep,Name)
 		endif
 	elseif(size(obj%FEMDomain%Mesh%NodCoord,2)==3)then
 		
-
+		! 3-D condition
 		if(present(OptionalStep) )then
     	    step=OptionalStep
     	else
@@ -2290,6 +2298,13 @@ subroutine DisplayDeformStress(obj,DisplayMode,OptionalStep,Name)
 			elseif(trim(DisplayMode)=="gmsh" .or. trim(DisplayMode)=="Gmsh" )then   
 	
 				call GmshExportStress(obj%FEMDomain,obj%DeformVecGloTot,obj%DeformStress,obj%DeformStrain,step,Name=Name )
+				if(present(withDirichlet) )then
+					if(withDirichlet .eqv. .true.)then
+						! Export dirichlet (Deformation) boundary conditions
+						call obj%getDBCVector(DBCvec)
+						call GmshPlotVector(obj=obj%FEMDomain,Vector=DBCvec,Name=Name,Step=step,FieldName="DispBoundary",NodeWize=.true. )
+					endif
+				endif
     	    elseif(trim(DisplayMode)=="gnuplot" .or. trim(DisplayMode)=="Gnuplot" )then
 				call GnuplotExportStress(obj%FEMDomain,obj%DeformVecGloTot,obj%DeformStress,obj%DeformStrain,step )
     	    else
@@ -2481,6 +2496,64 @@ subroutine DisplayReactionForce(obj)
 
 end subroutine
 !############# Reaction Force at Loading Dirichlet Boundary ######################
+
+! ##################################################
+subroutine getDBCVectorDeform(obj,DBCvec)
+	class(FiniteDeform_),intent(in)::obj
+	real(8),allocatable,intent(inout)::DBCvec(:,:)
+	integer :: i,j,n,m,k,l
+	n=size(obj%FEMDomain%Mesh%NodCoord,1)
+	m=size(obj%FEMDomain%Mesh%NodCoord,2)
+	if(.not. allocated(DBCvec ) )then
+		allocate(DBCvec(n,m) )
+		DBCvec(:,:)=0.0d0
+	endif
+
+	! check number of DBC
+	do i=1,size(obj%FEMDomain%Boundary%DBoundNum)
+		k=countif(Array=obj%FEMDomain%Boundary%DBoundNodID(:,i),Value=-1,notEqual=.true.)
+		l=obj%FEMDomain%Boundary%DBoundNum(i)
+		if(k /= l)then
+			print *, "Caution :: FiniteDeformationClass::getDBCVector :: check number of DBC :: k /= l"
+		endif
+	enddo
+
+	do i=1,size(obj%FEMDomain%Boundary%DBoundNodID,1)
+		do j=1,size(obj%FEMDomain%Boundary%DBoundNodID,2)
+			if(obj%FEMDomain%Boundary%DBoundNodID(i,j) <=0)then
+				cycle
+			endif
+			DBCvec(obj%FEMDomain%Boundary%DBoundNodID(i,j),j )=obj%FEMDomain%Boundary%DBoundVal(i,j)
+		enddo
+	enddo
+
+
+end subroutine
+! ##################################################
+
+
+
+! ##################################################
+subroutine getDispVectorDeform(obj,Vector)
+	class(FiniteDeform_),intent(in)::obj
+	real(8),allocatable,intent(inout)::Vector(:,:)
+	integer :: i,j,n,m
+
+	n=size(obj%FEMDomain%Mesh%NodCoord,1)
+	m=size(obj%FEMDomain%Mesh%NodCoord,2)
+	if(.not.allocated(Vector) )then
+		allocate(Vector(n,m) )
+		Vector(:,:)=0.0d0
+	endif
+
+	do i=1,n
+		do j=1,m
+			Vector(i,j)=obj%DeformVecGloTot( m*(i-1)+j)
+		enddo
+	enddo
+end subroutine
+! ##################################################
+
 
 end module FiniteDeformationClass
 

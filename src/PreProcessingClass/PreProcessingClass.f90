@@ -4,6 +4,7 @@ module PreprocessingClass
     use termclass
     use MPIClass
     use FEMDomainClass
+    use ArrayOperationClass
     use PostProcessingClass
     
 
@@ -1497,7 +1498,7 @@ subroutine SetBoundaryConditionPrePro(obj,Dirichlet,Neumann,Initial,xmin,xmax,ym
     logical,optional,intent(in)::Dirichlet,Neumann,Initial
     integer,optional,intent(in)::NumOfValPerNod,val_id
     real(8),optional,intent(in)::val
-    integer :: i,j,n
+    integer :: i,j,n,k,l
 
 
     if(present(Dirichlet) )then
@@ -1505,6 +1506,10 @@ subroutine SetBoundaryConditionPrePro(obj,Dirichlet,Neumann,Initial,xmin,xmax,ym
             
             call AddDBoundCondition(obj%FEMDomain,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax&
             ,zmin=zmin,zmax=zmax,tmin=tmin,tmax=tmax,val=val,val_id=val_id,NumOfValPerNod=NumOfValPerNod)
+            do i=1,size(obj%FEMDomain%Boundary%DBoundNum)
+                k=countif(Array=obj%FEMDomain%Boundary%DBoundNodID(:,i),Value=-1,notEqual=.true.)
+                obj%FEMDomain%Boundary%DBoundNum(i)=k
+            enddo
             return
 
         endif
@@ -1529,6 +1534,8 @@ subroutine SetBoundaryConditionPrePro(obj,Dirichlet,Neumann,Initial,xmin,xmax,ym
             return
         endif
     endif
+
+
 
 end subroutine
 !##################################################
