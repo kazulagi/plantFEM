@@ -47,6 +47,7 @@ module FEMDomainClass
         procedure,public :: GmshPlotContour2D => GmshPlotContour2D
         procedure,public :: GnuplotPlotContour  => GnuplotPlotContour   
 		procedure,public :: GnuplotExportStress => GnuplotExportStress  
+		procedure,public :: getDBCVector => getDBCVectorFEMDomain
 		procedure,public :: move => moveFEMDomain
 		procedure,public :: rotate => rotateFEMDomain
 		procedure,public :: meshing => meshingFEMDomain
@@ -3210,19 +3211,98 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 !===========================================================================================
 
 !===========================================================================================
-subroutine GmshPlotVector(obj,Vector,Name,FieldName,Step,fh,withMsh,ElementWize,NodeWize)
+subroutine GmshPlotVector(obj,Vector,Name,FieldName,Step,fh,withMsh,ElementWize,NodeWize,onlyDirichlet)
 	class(FEMDomain_),intent(in)::obj
-	real(8),intent(in)::Vector(:,:)
+	real(8),optional,intent(in)::Vector(:,:)
 	character(*),intent(in)::FieldName
 	character(*),optional,intent(in)::Name
 	integer,intent(in)::Step
+	real(8),allocatable ::DBCVector(:,:) 
 	integer,optional,intent(in)::fh
-	logical,optional,intent(in)::withMsh,ElementWize,NodeWize
+	logical,optional,intent(in)::withMsh,ElementWize,NodeWize,onlyDirichlet
 
 	character :: filename0*11, filename1*11,center*15
-	integer :: FileHandle,i
+	integer :: FileHandle,i,j,k,n,m
 	FileHandle=input(default=1000,option=fh)
 
+
+	if(present(onlyDirichlet) )then
+		if(onlyDirichlet .eqv. .true.)then
+			
+			call obj%getDBCVector(DBCVector)
+			do i=1,size(DBCVector,1)
+				write(10,*) DBCVector(i,:)
+			enddo
+
+			center="$NodeData"
+		
+			! only for 3D
+		
+			write (filename0, '("_", i6.6, "_vec")') step 
+			if(present(Name) )then
+				open(FileHandle,file=Name//filename0//".msh")
+				print *, Name//filename0//".msh"//" is exported!"
+			else
+				open(FileHandle,file="DBCVector"//filename0//".msh")
+				print *, "DBCVector"//filename0//".msh"//" is exported!"
+			endif
+			write(FileHandle,'(A)') "$MeshFormat"
+		
+			write(FileHandle,'(A)')  "2.2 0 8"
+			write(FileHandle,'(A)')  "$EndMeshFormat"
+			write(FileHandle,'(A)')  trim(center)
+			write(FileHandle,'(A)')  "1"
+			write(FileHandle,'(A)')  '"'//FieldName//'"'
+			write(FileHandle,'(A)')  "1"
+			write(FileHandle,'(A)')  "0.0"
+			write(FileHandle,'(A)')  "3"
+			write(FileHandle,'(A)')  "1"
+			write(FileHandle,'(A)')  "3"
+			write(FileHandle,*) 	size(obj%Mesh%NodCoord,1)  
+			do i=1,size(obj%Mesh%NodCoord,1)
+				write(FileHandle,*) i,DBCVector(i,:)
+			enddo
+
+			close(FileHandle)
+		
+			if(present(withMsh) )then
+				if(withMsh .eqv. .true.)then
+
+				
+				
+					write (filename1, '("_", i6.6, "_msh")') step
+					if(present(Name) )then
+						open(FileHandle,file=Name//filename1//".msh")
+						print *, Name//filename1//".msh"//" is exported!"
+					else
+						open(FileHandle,file="DBCVector"//filename1//".msh")
+						print *, "DBCVector"//filename1//".msh"//" is exported!"
+					endif
+					write(FileHandle,'(A)') "$MeshFormat"
+				
+					write(FileHandle,'(A)')  "2.2 0 8"
+					write(FileHandle,'(A)')  "$EndMeshFormat"
+					write(FileHandle,'(A)')  "$Nodes"
+					write(FileHandle,*) 	size(obj%Mesh%NodCoord,1)  
+					do i=1,size(obj%Mesh%NodCoord,1)
+						write(FileHandle,*) i,obj%Mesh%NodCoord(i,:)
+					enddo
+					write(FileHandle,'(A)')  "$EndNodes"
+					write(FileHandle,'(A)')  "$Elements"
+					write(FileHandle,*) 	size(obj%Mesh%ElemNod,1)
+					do i=1,size(obj%Mesh%ElemNod,1)
+						write(FileHandle,*) i,"5 2 0 1 ",obj%Mesh%ElemNod(i,:)
+					enddo  
+					write(FileHandle,'(A)')  "$EndElements"
+
+					close(FileHandle)
+				endif
+			endif
+			return
+		
+			
+		endif
+	endif
 	
 	if(present(NodeWize) )then
 		if(NodeWize .eqv. .true.)then
@@ -4056,4 +4136,36 @@ subroutine CheckConnedctivityFEMDomain(obj,fix)
 end subroutine
 !#######################################
 
+subroutine getDBCVectorFEMDomain(obj,DBCvec)
+	class(FEMDomain_),intent(in)::obj
+	real(8),allocatable,intent(inout)::DBCvec(:,:)
+	integer :: i,j,n,m,k,l
+	n=size(obj%Mesh%NodCoord,1)
+	m=size(obj%Mesh%NodCoord,2)
+	if(.not. allocated(DBCvec ) )then
+		allocate(DBCvec(n,m) )
+		DBCvec(:,:)=0.0d0
+	endif
+
+	! check number of DBC
+	do i=1,size(obj%Boundary%DBoundNum)
+		k=countif(Array=obj%Boundary%DBoundNodID(:,i),Value=-1,notEqual=.true.)
+		l=obj%Boundary%DBoundNum(i)
+		if(k /= l)then
+			print *, "Caution :: FiniteDeformationClass::getDBCVector :: check number of DBC :: k /= l"
+		endif
+	enddo
+
+	do i=1,size(obj%Boundary%DBoundNodID,1)
+		do j=1,size(obj%Boundary%DBoundNodID,2)
+			if(obj%Boundary%DBoundNodID(i,j) <=0)then
+				cycle
+			endif
+			DBCvec(obj%Boundary%DBoundNodID(i,j),j )=obj%Boundary%DBoundVal(i,j)
+		enddo
+	enddo
+
+
+end subroutine
+! ##################################################
 end module FEMDomainClass

@@ -71,6 +71,10 @@ module ArrayOperationClass
     interface countifSame
         module procedure ::countifSameIntArray,countifSameIntVec,countifSameIntArrayVec,countifSameIntVecArray
     end interface
+
+    interface countif
+        module procedure ::countifint,countifintvec
+    end interface
     
 contains
 
@@ -1542,5 +1546,114 @@ function countifSameIntVecArray(Array1,Array2) result(count_num)
 end function
 !##################################################
 
+!##################################################
+function countifint(Array,Equal,notEqual,Value) result(count_num)
+    integer,intent(in)::Array(:,:),Value
+    integer :: i,j,n,case,count_num
+    logical,optional,intent(in)::Equal,notEqual
+    
+
+    if(present(Equal) )then
+        if(Equal .eqv. .true.)then
+            case=1
+        else
+            case=0
+        endif
+    
+    elseif(present(notEqual) )then
+        if(notEqual .eqv. .true.)then
+            case=0
+        else
+            case=1
+        endif
+    else
+        print *, "caution :: ArrayOperationClass :: countifint :: please check Equal or notEqual"
+        print *, "performed as Equal"
+        case=0
+    endif
+
+    count_num=0
+    if(case==0)then
+        do i=1,size(Array,1)
+            do j=1,size(Array,2)
+                ! not Equal => count
+                if(Array(i,j) /= Value )then
+                    count_num=count_num+1
+                else
+                    cycle
+                endif
+            enddo
+        enddo
+    elseif(case==1)then
+
+        do i=1,size(Array,1)
+            do j=1,size(Array,2)
+                ! Equal => count
+                if(Array(i,j) == Value )then
+                    count_num=count_num+1
+                else
+                    cycle
+                endif
+            enddo
+        enddo
+    else
+        print *, "ERROR :: ArrayOperationClass :: countifint :: please check Equal or notEqual"
+    endif
+end function
+!##################################################
+
+!##################################################
+function countifintVec(Array,Equal,notEqual,Value) result(count_num)
+    integer,intent(in)::Array(:),Value
+    integer :: i,j,n,case,count_num
+    logical,optional,intent(in)::Equal,notEqual
+    
+
+    if(present(Equal) )then
+        if(Equal .eqv. .true.)then
+            case=1
+        else
+            case=0
+        endif
+    
+    elseif(present(notEqual) )then
+        if(notEqual .eqv. .true.)then
+            case=0
+        else
+            case=1
+        endif
+    else
+        print *, "caution :: ArrayOperationClass :: countifint :: please check Equal or notEqual"
+        print *, "performed as Equal"
+        case=0
+    endif
+
+    count_num=0
+    if(case==0)then
+        do i=1,size(Array,1)
+            ! not Equal => count
+            if(Array(i) /= Value )then
+                count_num=count_num+1
+            else
+                cycle
+            endif
+        
+        enddo
+    elseif(case==1)then
+
+        do i=1,size(Array,1)
+            ! Equal => count
+            if(Array(i) == Value )then
+                count_num=count_num+1
+            else
+                cycle
+            endif
+            
+        enddo
+    else
+        print *, "ERROR :: ArrayOperationClass :: countifint :: please check Equal or notEqual"
+    endif
+end function
+!##################################################
 
 end module ArrayOperationClass
