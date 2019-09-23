@@ -173,6 +173,7 @@ jupyter-notebook
 - 2019/08/01 :: Installer for Windows/macOS/Linux is created. 
 - 2019/08/03 :: Delauney triangulation is now under development.
 - 2019/09/06 :: Bugfix of Simulatior
+- 2019/09/23 :: Source code is opened.Now solvers for diffusion, finite deformation, and diffusion-deformation coupling are available. Contact solver is under debugging.
 
 ### On going;
 - ContactMechanicsClass is created for 3-D, Frictionless contact.
@@ -181,7 +182,7 @@ jupyter-notebook
 - debugging pre-processing
 
 
-### Requests:
+### Requests;
 - For all objects 1/21 :: Rule.Style >> Class Name = {objectname_} + "Class"
 - For all objects 1/21 :: "Class::EditorClass" >> Edit and modify InputObjects
 - For .bat files 2019/3/4 :: Adopt Windows
@@ -194,7 +195,7 @@ jupyter-notebook
 - Bugfix for preprocessingclass & PySiCroF
 
 
-### Questions & Answers
+### Questions & Answers;
 
 - Does it allow interactions between two domains without using interface? : No.
 - Can interfaces take the forms of 1-D, 2-D and 3-D? : Yes.
