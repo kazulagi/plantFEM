@@ -1,7 +1,7 @@
 # SiCroF
 
 Simulator for Crops in Fields
-(c) Haruka Tomobe All Right Reserved
+
 ## Documentation of SiCroF
 
 [使い方：日本語版 >> ](https://qiita.com/soybean) https://qiita.com/soybean
