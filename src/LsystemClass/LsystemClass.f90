@@ -66,14 +66,18 @@ module LsystemClass
 contains
 
 ! ########################################
-subroutine InitLsystem(obj,Import)
+subroutine InitLsystem(obj,InObj)
     class(Lsystem_),intent(inout)::obj
-    type(Lsystem_),optional,intent(in) ::Import
+    type(Lsystem_),optional,intent(in) ::InObj
 
     if(present(Import) )then
         ! copy object
+        obj=InObj
     endif
+    
 end subroutine
 ! ########################################
+
+
 
 end module LsystemClass
