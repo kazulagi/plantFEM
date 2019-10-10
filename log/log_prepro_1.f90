@@ -14,8 +14,9 @@ program prepro
    call term%Init()
    ElemType = 'LinearRectangularGp4'
    
-   call InfileList%Init(1)
+   call InfileList%Init(2)
    call InfileList%Input(1,'Tutorial/LeafImageData/grass_traced.png')
+   call InfileList%Input(2,'Tutorial/LeafImageData/grass_traced.png')
    name = InfileList%Get(MPIData%MyRank+1)
    print *, "My_rank : ",MPIData%MyRank,"InfileName : ",trim(name)
    call Root%Init(Default=.true.)

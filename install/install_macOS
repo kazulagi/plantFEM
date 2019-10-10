@@ -141,6 +141,10 @@ echo "Compiling ./src/PreProcessingClass/PreProcessingClass.f90"
 echo " >> PreProcessingClass.o "
 echo " | ##############              | (65%)\r\c"
 mpifort -c ./src/PreProcessingClass/PreProcessingClass.f90 -o  ./inc/PreProcessingClass.o
+echo "Compiling ./src/LsystemClass/LsystemClass.f90" 
+echo " >> LsystemClass.o "
+echo " | ##############              | (65%)\r\c"
+mpifort -c ./src/LsystemClass/LsystemClass.f90 -o  ./inc/LsystemClass.o
 
 # Compilation of Solvers
 echo "Compiling ./src/DiffusionEquationClass/DiffusionEquationClass.f90" 
