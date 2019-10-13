@@ -16,6 +16,8 @@ module LsystemClass
         real(8),allocatable ::  LeafSurfaceNode2D(:,:)
         real(8)             ::  Thickness,length,width,center(3)
         integer             ::  Division
+    contains
+        procedure, public :: Init => initFlower
     end type
 
     type :: Pod_
@@ -23,6 +25,8 @@ module LsystemClass
         real(8),allocatable ::  LeafSurfaceNode2D(:,:)
         real(8)             ::  Thickness,length,width,center(3)
         integer             ::  Division
+    contains
+        procedure, public :: Init => initPod
     end type
 
     type :: Stem_
@@ -33,6 +37,8 @@ module LsystemClass
         real(8)             ::  outer_normal_bottom(3),outer_normal_top(3)
         integer             ::  Division
         type(Stem_),pointer ::  Parent
+    contains
+        procedure, public :: Init => initStem
     end type
 
     type :: Peti_
@@ -42,6 +48,8 @@ module LsystemClass
         real(8)             ::  radius_bottom(3),radius_top(3)
         real(8)             ::  outer_normal_bottom(3),outer_normal_top(3)
         integer             ::  Division
+    contains
+        procedure, public :: Init => initPeti
     end type
 
 
@@ -53,6 +61,8 @@ module LsystemClass
         real(8)             ::  outer_normal_bottom(3),outer_normal_top(3)
         integer             ::  Division
         type(Root_)         ::  Parent
+    contains
+        procedure, public :: Init => initLeaf
     end type
     
     type :: Node_
@@ -126,6 +136,106 @@ end subroutine
 
 
 ! ########################################
+subroutine initPeti(obj,Thickness,length,width)
+    class(Peti_),intent(inout) :: obj
+    integer,optional :: Thickness,length,width
+
+    if(present(length) .and. present(width) )then
+        obj%length  = length
+        obj%width   = width
+        if(present(Thickness) )then
+            obj%Thickness=Thickness
+        endif
+        return
+    endif
+
+    print *, "Caution :: no input is in initleaf"
+
+end subroutine 
+! ########################################
+
+
+! ########################################
+subroutine initStem(obj,Thickness,length,width)
+    class(Stem_),intent(inout) :: obj
+    integer,optional :: Thickness,length,width
+
+    if(present(length) .and. present(width) )then
+        obj%length  = length
+        obj%width   = width
+        if(present(Thickness) )then
+            obj%Thickness=Thickness
+        endif
+        return
+    endif
+
+    print *, "Caution :: no input is in initleaf"
+
+end subroutine 
+! ########################################
+
+
+! ########################################
+subroutine initflower(obj,Thickness,length,width)
+    class(flower_),intent(inout) :: obj
+    integer,optional :: Thickness,length,width
+
+    if(present(length) .and. present(width) )then
+        obj%length  = length
+        obj%width   = width
+        if(present(Thickness) )then
+            obj%Thickness=Thickness
+        endif
+        return
+    endif
+
+    print *, "Caution :: no input is in initleaf"
+
+end subroutine 
+! ########################################
+
+
+! ########################################
+subroutine initPod(obj,Thickness,length,width)
+    class(Pod_),intent(inout) :: obj
+    integer,optional :: Thickness,length,width
+
+    if(present(length) .and. present(width) )then
+        obj%length  = length
+        obj%width   = width
+        if(present(Thickness) )then
+            obj%Thickness=Thickness
+        endif
+        return
+    endif
+
+    print *, "Caution :: no input is in initleaf"
+
+end subroutine 
+! ########################################
+
+
+! ########################################
+subroutine initRoot(obj,Thickness,length,width)
+    class(Root_),intent(inout) :: obj
+    integer,optional :: Thickness,length,width
+
+    if(present(length) .and. present(width) )then
+        obj%length  = length
+        obj%width   = width
+        if(present(Thickness) )then
+            obj%Thickness=Thickness
+        endif
+        return
+    endif
+
+    print *, "Caution :: no input is in initleaf"
+
+end subroutine 
+! ########################################
+
+
+! ########################################
 subroutine initsoybean(obj,growth_habit,Max_Num_of_Node)
     class(soybean_) :: obj
     character*,optional,intent(in) :: growth_habit
@@ -179,16 +289,16 @@ subroutine AddNodeSoybean(obj,SizeRatio)
 
     ! add stem
     if(obj%NumOfNode==1 .or. obj%NumOfNode==2)then
-        allocate(obj%NodeSystem(obj%NumOfNode)%leaf(2) )
+        allocate(obj%NodeSystem(obj%NumOfNode)%Stem(1) )
         call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
-        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
-    else        
-        allocate(obj%NodeSystem(obj%NumOfNode)%leaf(3) )
-        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
-        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
-        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
     endif
 
+
+    ! add Peti
+    if(obj%NumOfNode==1 .or. obj%NumOfNode==2)then
+        allocate(obj%NodeSystem(obj%NumOfNode)%Peti(1) )
+        call obj%NodeSystem(obj%NumOfNode)%Peti(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
+    endif
 
 end subroutine
 ! ########################################
