@@ -7,6 +7,8 @@ module LsystemClass
         real(8),allocatable ::  LeafSurfaceNode2D(:,:)
         real(8)             ::  Thickness,length,width,center(3)
         integer             ::  Division
+    contains
+        procedure, public :: Init => initLeaf
     end type
 
     type :: Flower_
@@ -56,12 +58,12 @@ module LsystemClass
     type :: Node_
         character(200)  :: crop_name
         logical         :: Reproductive
-        type(Leaf_)     ,pointer,allocatable :: Leaf(:) 
-        type(Peti_)     ,pointer,allocatable :: Peti(:)
-        type(Flower_)   ,pointer,allocatable :: Flower(:)
-        type(Pod_)      ,pointer,allocatable :: Pod(:)
-        type(Stem_)     ,pointer,allocatable :: Stem(:)
-        type(Root_)     ,pointer,allocatable :: Root(:)
+        type(Leaf_)     ,allocatable :: Leaf(:) 
+        type(Peti_)     ,allocatable :: Peti(:)
+        type(Flower_)   ,allocatable :: Flower(:)
+        type(Pod_)      ,allocatable :: Pod(:)
+        type(Stem_)     ,allocatable :: Stem(:)
+        type(Root_)     ,allocatable :: Root(:)
     end Type
 
     type :: NodeSystem_
@@ -76,10 +78,13 @@ module LsystemClass
         ! growth_habit = determinate, indeterminate, semi-indeterminate, or vine
         character*20 :: growth_habit
         character*2  :: growth_stage
-        type(NodeSystem_) :: NodeSystem
-        type(RootSystem_) :: RootSystem
+        integer :: NumOfNode
+        integer :: NumOfRoot
+        type(Node_),allocatable :: NodeSystem(:)
+        type(Root_),allocatable :: RootSystem(:)
     contains
         procedure,public :: Init => initsoybean
+        procedure,public :: AddNode => AddNodeSoybean
     end type
 
     type :: Canopy
@@ -101,9 +106,31 @@ module LsystemClass
 contains
 
 ! ########################################
-subroutine initsoybean(obj,growth_habit)
+subroutine initLeaf(obj,Thickness,length,width)
+    class(leaf_),intent(inout) :: obj
+    integer,optional :: Thickness,length,width
+
+    if(present(length) .and. present(width) )then
+        obj%length  = length
+        obj%width   = width
+        if(present(Thickness) )then
+            obj%Thickness=Thickness
+        endif
+        return
+    endif
+
+    print *, "Caution :: no input is in initleaf"
+
+end subroutine 
+! ########################################
+
+
+! ########################################
+subroutine initsoybean(obj,growth_habit,Max_Num_of_Node)
     class(soybean_) :: obj
     character*,optional,intent(in) :: growth_habit
+    integer,optional,intent(in)::Max_Num_of_Node
+    integer ::n
 
     if(present(growth_habit) )then
         obj%growth_habit=growth_habit
@@ -112,6 +139,56 @@ subroutine initsoybean(obj,growth_habit)
     endif
 
     obj%growth_stage="CV"
+
+    n=input(default=100,option=Max_Num_of_Node)
+
+    allocate(soybean%NodeSystem(n))
+    obj%NumOfNode=0
+    obj%NumOfRoot=0
+
+    ! set an initial node and root
+    ! two leaves, one root.
+
+    call obj%AddNode()
+
+end subroutine
+! ########################################
+
+
+
+! ########################################
+subroutine AddNodeSoybean(obj,SizeRatio)
+    class(soybean_),intent(inout)::obj
+    real(8),optional,intent(in)::SizeRatio
+    real(8) :: magnif
+
+    magnif=input(default=1.0d0,option=SizeRatio)
+    obj%NumOfNode=obj%NumOfNode+1
+    
+    ! add leaves
+    if(obj%NumOfNode==1 .or. obj%NumOfNode==2)then
+        allocate(obj%NodeSystem(obj%NumOfNode)%leaf(2) )
+        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
+        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
+    else        
+        allocate(obj%NodeSystem(obj%NumOfNode)%leaf(3) )
+        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
+        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
+        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
+    endif
+
+    ! add stem
+    if(obj%NumOfNode==1 .or. obj%NumOfNode==2)then
+        allocate(obj%NodeSystem(obj%NumOfNode)%leaf(2) )
+        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
+        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
+    else        
+        allocate(obj%NodeSystem(obj%NumOfNode)%leaf(3) )
+        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
+        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
+        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
+    endif
+
 
 end subroutine
 ! ########################################
@@ -142,18 +219,6 @@ end subroutine
 ! ########################################
 
 
-! ########################################
-subroutine Add(obj,Type,id)
-    class(Lsystem_),intent(in)::obj
-    character(*),intent(in)::Type
-    integer,intent(in) :: id
-
-    if(Type=="Stem")then
-        
-    endif
-
-end subroutine
-! ########################################
 
 
 
