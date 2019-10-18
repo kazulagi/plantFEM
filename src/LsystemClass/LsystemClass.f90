@@ -60,9 +60,9 @@ module LsystemClass
         real(8)             ::  radius_bottom(3),radius_top(3)
         real(8)             ::  outer_normal_bottom(3),outer_normal_top(3)
         integer             ::  Division
-        type(Root_)         ::  Parent
+        type(Root_),pointer ::  Parent
     contains
-        procedure, public :: Init => initLeaf
+        procedure, public :: Init => initRoot
     end type
     
     type :: Node_
@@ -77,11 +77,11 @@ module LsystemClass
     end Type
 
     type :: NodeSystem_
-        type(Node_),pointer,allocatable :: NodeSystem(:)
+        type(Node_),allocatable :: NodeSystem(:)
     end type
 
     type :: RootSystem_
-        type(Root_),pointer,allocatable :: Root(:)
+        type(Root_),allocatable :: Root(:)
     end type
 
     type :: soybean_
@@ -99,16 +99,16 @@ module LsystemClass
 
     type :: Canopy
         real(8) :: inter_row, intra_row
-        type(soybean_),pointer,allocatable :: Canopy(:,:)
+        type(soybean_),allocatable :: Canopy(:,:)
         
     end type
 
     type :: Lsystem_
-        type(Leaf_),pointer,allocatable::LeafList(:)
-        type(Peti_),pointer,allocatable::PetiList(:)
-        type(Flower_),pointer,allocatable::FlowerList(:)
-        type(Stem_),pointer,allocatable::StemList(:)
-        type(Root_),pointer,allocatable::RootList(:)
+        type(Leaf_),allocatable::LeafList(:)
+        type(Peti_),allocatable::PetiList(:)
+        type(Flower_),allocatable::FlowerList(:)
+        type(Stem_),allocatable::StemList(:)
+        type(Root_),allocatable::RootList(:)
     contains
         procedure,public :: Init => InitLsystem 
     end type
@@ -118,7 +118,7 @@ contains
 ! ########################################
 subroutine initLeaf(obj,Thickness,length,width)
     class(leaf_),intent(inout) :: obj
-    integer,optional :: Thickness,length,width
+    real(8),optional :: Thickness,length,width
 
     if(present(length) .and. present(width) )then
         obj%length  = length
@@ -138,7 +138,7 @@ end subroutine
 ! ########################################
 subroutine initPeti(obj,Thickness,length,width)
     class(Peti_),intent(inout) :: obj
-    integer,optional :: Thickness,length,width
+    real(8),optional :: Thickness,length,width
 
     if(present(length) .and. present(width) )then
         obj%length  = length
@@ -158,7 +158,7 @@ end subroutine
 ! ########################################
 subroutine initStem(obj,Thickness,length,width)
     class(Stem_),intent(inout) :: obj
-    integer,optional :: Thickness,length,width
+    real(8),optional :: Thickness,length,width
 
     if(present(length) .and. present(width) )then
         obj%length  = length
@@ -178,7 +178,7 @@ end subroutine
 ! ########################################
 subroutine initflower(obj,Thickness,length,width)
     class(flower_),intent(inout) :: obj
-    integer,optional :: Thickness,length,width
+    real(8),optional :: Thickness,length,width
 
     if(present(length) .and. present(width) )then
         obj%length  = length
@@ -198,7 +198,7 @@ end subroutine
 ! ########################################
 subroutine initPod(obj,Thickness,length,width)
     class(Pod_),intent(inout) :: obj
-    integer,optional :: Thickness,length,width
+    real(8),optional :: Thickness,length,width
 
     if(present(length) .and. present(width) )then
         obj%length  = length
@@ -218,7 +218,7 @@ end subroutine
 ! ########################################
 subroutine initRoot(obj,Thickness,length,width)
     class(Root_),intent(inout) :: obj
-    integer,optional :: Thickness,length,width
+    real(8),optional :: Thickness,length,width
 
     if(present(length) .and. present(width) )then
         obj%length  = length
@@ -238,7 +238,7 @@ end subroutine
 ! ########################################
 subroutine initsoybean(obj,growth_habit,Max_Num_of_Node)
     class(soybean_) :: obj
-    character*,optional,intent(in) :: growth_habit
+    character(*),optional,intent(in) :: growth_habit
     integer,optional,intent(in)::Max_Num_of_Node
     integer ::n
 
@@ -252,7 +252,7 @@ subroutine initsoybean(obj,growth_habit,Max_Num_of_Node)
 
     n=input(default=100,option=Max_Num_of_Node)
 
-    allocate(soybean%NodeSystem(n))
+    allocate(obj%NodeSystem(n))
     obj%NumOfNode=0
     obj%NumOfRoot=0
 
@@ -312,11 +312,11 @@ subroutine InitLsystem(obj,InObj,MaxSize)
     integer,optional,intent(in)::MaxSize
     integer :: n
 
-    if(present(Import) )then
-        ! copy object
-        obj=InObj
-        return
-    endif
+    !if(present(InObj) )then
+    !    ! copy object
+    !    obj=InObj
+    !    return
+    !endif
 
     n=input(default=100,option=MaxSize)
     allocate( obj%LeafList(n) )
