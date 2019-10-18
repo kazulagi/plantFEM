@@ -1,7 +1,24 @@
 module ConstitutiveModelClass
     use MathClass
+    use StressClass
 
     implicit none
+    type :: ConstitutiveModel_
+        type(Stress_) :: Stress
+        type(Strain_) :: Strain
+
+    contains
+        !procedure,public :: MCDP => MCDP_model
+        !procedure,public :: CamClay => CamClay_model
+        !procedure,public :: Jaumann => Jaumann_model
+        !procedure,public :: Oldroyd => Oldroyd_model
+        !procedure,public :: MCDP => MCDP_model
+        !procedure,public :: CamClay => CamClay_model
+        !procedure,public :: Jaumann => Jaumann_model
+        !procedure,public :: Oldroyd => Oldroyd_model
+
+    end type
+
 
     type :: ConstModel_
         real(8),allocatable::sigma(:,:)
@@ -34,10 +51,10 @@ module ConstitutiveModelClass
         real(8) :: K_mod
         real(8) :: G_mod
         
-        
         character*70::ModelType
         character*70::Config    
     end type
+
 contains
 !#########################################################################
 subroutine HyperElasticStress(obj)
