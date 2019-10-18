@@ -30,8 +30,9 @@ module StressClass
         ! 5 : Small_strain
 
     contains
-        procedure,public :: init => initStress
-
+        procedure,public :: init        => initStress
+        procedure,public :: getRate     => getStressRate  
+        procedure,public :: getStress   => getStress      
     end type
 contains
 
@@ -167,7 +168,7 @@ end subroutine
 ! ###############################
 
 ! ###############################
-subroutine getStressRate(obj,Type)
+subroutine getStressRate(obj,Strain,Type)
     class(Stress_),intent(inout) :: obj
     class(Strain_),intent(inout) :: strain
     character(*),intent(in) :: Type
@@ -187,5 +188,28 @@ subroutine getStressRate(obj,Type)
 end subroutine
 ! ###############################
 
+! ###############################
+subroutine getStress(obj,Strain,Type)
+    class(Stress_),intent(inout) :: obj
+    class(Strain_),intent(inout) :: strain
+    character(*),intent(in) :: Type
+
+    if(trim(Type) == "StVenant" )then
+         
+        ! obj%sigma(:,:)  = 
+        ! obj%S(:,:)      = 
+
+    elseif(trim(Type) == "NeoHookean" )then
+ 
+        ! obj%sigma(:,:)  = 
+        ! obj%S(:,:)      = 
+        
+    else
+        print *, "ERROR :: getStress :: invalid stress rate",trim(Type)
+        return
+    endif
+
+end subroutine
+! ###############################
 
 end module 
