@@ -152,7 +152,10 @@ echo "Compiling ./src/StrainClass/StrainClass.f90"
 echo " >> StrainClass.o "
 echo " | ##############              | (65%)\r\c"
 mpifort -c ./src/StrainClass/StrainClass.f90 -o  ./inc/StrainClass.o
-
+echo "Compiling ./src/StressClass/StressClass.f90" 
+echo " >> StressClass.o "
+echo " | ##############              | (65%)\r\c"
+mpifort -c ./src/StressClass/StressClass.f90 -o  ./inc/StressClass.o
 
 # Compilation of Solvers
 echo "Compiling ./src/DiffusionEquationClass/DiffusionEquationClass.f90" 
