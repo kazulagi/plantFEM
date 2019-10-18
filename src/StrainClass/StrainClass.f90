@@ -27,6 +27,15 @@ module StrainClass
         integer :: TheoryID
         
         character*40 :: StrainTheory
+        
+        ! Please input one of following keyphrases
+
+        ! Finite_Elasticity
+        ! Finite_ElastoPlasticity
+        ! Infinitesimal_Elasticity
+        ! Infinitesimal_ElastoPlasticity
+        ! Small_strain
+        
     contains    
         procedure,public :: init => InitStrain
         procedure,public :: import => importStrain
@@ -337,6 +346,7 @@ subroutine importStrain(obj,F,F_n,C,C_n,b,Cp,Cp_n,d,de,dp,l,w,eps,eps_n)
  
 end subroutine
 ! ###############################
+
 
 ! ###############################
 subroutine getStrain(obj,C,b,d,w,detF)
