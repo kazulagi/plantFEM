@@ -8,8 +8,9 @@ module StressClass
         real(8),allocatable :: sigma(:,:)
         real(8),allocatable :: S(:,:)
         real(8),allocatable :: P(:,:)
-
+        
         ! hypo
+        real(8),allocatable :: sigma_dot(:,:)
         real(8),allocatable :: sigma_j(:,:)
         real(8),allocatable :: sigma_o(:,:)
         real(8),allocatable :: sigma_t(:,:)
@@ -57,10 +58,15 @@ subroutine initStress(obj,StrainTheory)
         allocate(obj%P(3,3) )
 
         ! hypo
+        allocate(obj%sigma_dot(0,0) )
         allocate(obj%sigma_j(0,0) )
         allocate(obj%sigma_o(0,0) )
         allocate(obj%sigma_t(0,0) )
         allocate(obj%sigma_n(0,0) )
+
+        obj%sigma(:,:)  = 0.0d0
+        obj%S(:,:)      = 0.0d0
+        obj%P(:,:)      = 0.0d0
 
     elseif(trim(obj%StrainTheory)=="Finite_ElastoPlasticity")then
         obj%theoryID=2
@@ -71,11 +77,17 @@ subroutine initStress(obj,StrainTheory)
         allocate(obj%P(3,3) )
 
         ! hypo
+        allocate(obj%sigma_dot(0,0) )
         allocate(obj%sigma_j(0,0) )
         allocate(obj%sigma_o(0,0) )
         allocate(obj%sigma_t(0,0) )
         allocate(obj%sigma_n(0,0) )
 
+
+        obj%sigma(:,:)  = 0.0d0
+        obj%S(:,:)      = 0.0d0
+        obj%P(:,:)      = 0.0d0
+        
     elseif(trim(obj%StrainTheory)=="Infinitesimal_Elasticity")then
         obj%theoryID=3
 
@@ -85,11 +97,20 @@ subroutine initStress(obj,StrainTheory)
         allocate(obj%P(0,0) )
 
         ! hypo
+        allocate(obj%sigma_dot(3,3) )
         allocate(obj%sigma_j(3,3) )
         allocate(obj%sigma_o(3,3) )
         allocate(obj%sigma_t(3,3) )
         allocate(obj%sigma_n(3,3) )
 
+
+        obj%sigma(:,:)  = 0.0d0
+        obj%sigma_dot(:,:) = 0.0d0
+        obj%sigma_j(:,:) = 0.0d0
+        obj%sigma_o(:,:) = 0.0d0
+        obj%sigma_t(:,:) = 0.0d0
+        obj%sigma_n(:,:) = 0.0d0
+        
     elseif(trim(obj%StrainTheory)=="Infinitesimal_ElastoPlasticity")then
         obj%theoryID=4
 
@@ -99,10 +120,18 @@ subroutine initStress(obj,StrainTheory)
         allocate(obj%P(0,0) )
 
         ! hypo
+        allocate(obj%sigma_dot(3,3) )
         allocate(obj%sigma_j(3,3) )
         allocate(obj%sigma_o(3,3) )
         allocate(obj%sigma_t(3,3) )
         allocate(obj%sigma_n(3,3) )
+
+        obj%sigma(:,:)  = 0.0d0
+        obj%sigma_dot(:,:) = 0.0d0
+        obj%sigma_j(:,:) = 0.0d0
+        obj%sigma_o(:,:) = 0.0d0
+        obj%sigma_t(:,:) = 0.0d0
+        obj%sigma_n(:,:) = 0.0d0
 
     elseif(trim(obj%StrainTheory)=="Small_strain")then
         obj%theoryID=5
@@ -113,10 +142,13 @@ subroutine initStress(obj,StrainTheory)
         allocate(obj%P(0,0) )
 
         ! hypo
+        allocate(obj%sigma_dot(0,0) )
         allocate(obj%sigma_j(0,0) )
         allocate(obj%sigma_o(0,0) )
         allocate(obj%sigma_t(0,0) )
         allocate(obj%sigma_n(0,0) )
+
+        obj%sigma(:,:)  = 0.0d0
 
     else
         print *, trim(StrainTheory)
@@ -134,6 +166,26 @@ subroutine initStress(obj,StrainTheory)
 end subroutine
 ! ###############################
 
+! ###############################
+subroutine getStressRate(obj,Type)
+    class(Stress_),intent(inout) :: obj
+    class(Strain_),intent(inout) :: strain
+    character(*),intent(in) :: Type
+
+    if(trim(Type) == "Jaumann" )then
+        obj%sigma_j = obj%sigma_dot + matmul(obj%sigma, strain%w) - matmul(strain%w, obj%sigma) 
+    elseif(trim(Type) == "Oldroyd" )then
+        obj%sigma_o = obj%sigma_dot + matmul(strain%l, obj%sigma) + matmul(obj%sigma, transpose(strain%l) )  
+    elseif(trim(Type) == "Truesdell" )then
+        obj%sigma_t = obj%sigma_dot - matmul(strain%l, obj%sigma) &
+            - matmul(obj%sigma, transpose(strain%l) ) + trace(strain%l)*obj%sigma
+    else
+        print *, "ERROR :: getStressRate :: invalid stress rate",trim(Type)
+        return
+    endif
+
+end subroutine
+! ###############################
 
 
 end module 
