@@ -1,4 +1,5 @@
 module StrainClass
+    use MathClass
     implicit none
 
     type ::  Strain_
@@ -10,6 +11,7 @@ module StrainClass
         real(8),allocatable ::   b(:,:)
         real(8),allocatable ::  Cp(:,:)
         real(8),allocatable ::Cp_n(:,:)
+        real(8)             :: detF
 
         ! Hypo-elasto-plasticity
         real(8),allocatable :: d(:,:)
@@ -337,9 +339,9 @@ end subroutine
 ! ###############################
 
 ! ###############################
-subroutine getStrain(obj,C,b,d,w)
+subroutine getStrain(obj,C,b,d,w,detF)
     class(Strain_),intent(inout)::obj
-    logical,optional,intent(in) :: C,b,d,w
+    logical,optional,intent(in) :: C,b,d,w,detF
 
     if(present(C) )then
         if(C .eqv. .true.)then
@@ -365,6 +367,11 @@ subroutine getStrain(obj,C,b,d,w)
         endif
     endif
 
+    if(present(detF) )then
+        if(detF .eqv. .true.)then
+            obj%detF = det_mat(obj%F,size(obj%F,1) )
+        endif
+    endif
 
 end subroutine
 ! ###############################
