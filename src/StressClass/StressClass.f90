@@ -1,4 +1,5 @@
 module StressClass
+    use StrainClass
     implicit none
 
     type :: Stress_
@@ -26,7 +27,7 @@ module StressClass
         ! 3 : Infinitesimal_Elasticity
         ! 4 : Infinitesimal_ElastoPlasticity
         ! 5 : Small_strain
-        
+
     contains
         procedure,public :: init => initStress
 
@@ -132,5 +133,7 @@ subroutine initStress(obj,StrainTheory)
 
 end subroutine
 ! ###############################
+
+
 
 end module 
