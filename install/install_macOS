@@ -146,6 +146,14 @@ echo " >> LsystemClass.o "
 echo " | ##############              | (65%)\r\c"
 mpifort -c ./src/LsystemClass/LsystemClass.f90 -o  ./inc/LsystemClass.o
 
+
+# Strain and stress measure
+echo "Compiling ./src/StrainClass/StrainClass.f90" 
+echo " >> StrainClass.o "
+echo " | ##############              | (65%)\r\c"
+mpifort -c ./src/StrainClass/StrainClass.f90 -o  ./inc/StrainClass.o
+
+
 # Compilation of Solvers
 echo "Compiling ./src/DiffusionEquationClass/DiffusionEquationClass.f90" 
 echo " >> DiffusionEquationClass.o "
