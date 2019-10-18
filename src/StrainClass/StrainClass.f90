@@ -7,6 +7,7 @@ module StrainClass
         real(8),allocatable :: F_n(:,:)
         real(8),allocatable ::   C(:,:)
         real(8),allocatable :: C_n(:,:)
+        real(8),allocatable ::   b(:,:)
         real(8),allocatable ::  Cp(:,:)
         real(8),allocatable ::Cp_n(:,:)
 
@@ -26,6 +27,7 @@ module StrainClass
         character*40 :: StrainTheory
     contains    
         procedure,public :: init => InitStrain
+        procedure,public :: import => importStrain
     end type
 
 contains
@@ -50,6 +52,7 @@ subroutine InitStrain(obj,StrainTheory)
         allocate(obj%    F(3,3) )
         allocate(obj%  F_n(3,3) )
         allocate(obj%    C(3,3) )
+        allocate(obj%    b(3,3) )
         allocate(obj%  C_n(3,3) )
         allocate(obj%   Cp(0,0) )
         allocate(obj% Cp_n(0,0) )
@@ -79,6 +82,7 @@ subroutine InitStrain(obj,StrainTheory)
         allocate(obj%  F_n(3,3) )
         allocate(obj%    C(3,3) )
         allocate(obj%  C_n(3,3) )
+        allocate(obj%    b(3,3) )
         allocate(obj%   Cp(3,3) )
         allocate(obj% Cp_n(3,3) )
 
@@ -110,6 +114,7 @@ subroutine InitStrain(obj,StrainTheory)
         allocate(obj%  F_n(0,0) )
         allocate(obj%    C(0,0) )
         allocate(obj%  C_n(0,0) )
+        allocate(obj%    b(0,0) )
         allocate(obj%   Cp(0,0) )
         allocate(obj% Cp_n(0,0) )
 
@@ -140,6 +145,7 @@ subroutine InitStrain(obj,StrainTheory)
         allocate(obj%  F_n(0,0) )
         allocate(obj%    C(0,0) )
         allocate(obj%  C_n(0,0) )
+        allocate(obj%    b(0,0) )
         allocate(obj%   Cp(0,0) )
         allocate(obj% Cp_n(0,0) )
 
@@ -172,6 +178,7 @@ subroutine InitStrain(obj,StrainTheory)
         allocate(obj%  F_n(0,0) )
         allocate(obj%    C(0,0) )
         allocate(obj%  C_n(0,0) )
+        allocate(obj%    b(0,0) )
         allocate(obj%   Cp(0,0) )
         allocate(obj% Cp_n(0,0) )
 
@@ -199,6 +206,163 @@ subroutine InitStrain(obj,StrainTheory)
         print *, "Infinitesimal_ElastoPlasticity"
         print *, "Small_strain"
         print *, " <----"
+    endif
+
+
+end subroutine
+! ###############################
+
+
+! ###############################
+subroutine importStrain(obj,F,F_n,C,C_n,b,Cp,Cp_n,d,de,dp,l,w,eps,eps_n)
+    class(Strain_),intent(inout) :: obj
+    real(8),optional,intent(in) :: F(:,:),F_n(:,:),C(:,:),C_n(:,:),b(:,:)
+    real(8),optional,intent(in) :: Cp(:,:),Cp_n(:,:),d(:,:),de(:,:)
+    real(8),optional,intent(in) :: dp(:,:),l(:,:),w(:,:),eps(:,:),eps_n(:,:)
+
+    if(present(F))then
+        if(size(obj%F,1)/= size(F,1) .or. size(obj%F,2) /= size(F,2) )then
+            print *, "ERROR :: importStrain :: invalid size "
+            return
+        else
+            obj%F(:,:) = F(:,:)
+        endif
+    endif
+    if(present(F_n))then
+        if(size(obj%F_n,1)/= size(F_n,1) .or. size(obj%F_n,2) /= size(F_n,2) )then
+            print *, "ERROR :: importStrain :: invalid size "
+            return
+        else
+            obj%F_n(:,:) = F_n(:,:)
+        endif
+    endif
+    if(present(C))then
+        if(size(obj%C,1)/= size(C,1) .or. size(obj%C,2) /= size(C,2) )then
+            print *, "ERROR :: importStrain :: invalid size "
+            return
+        else
+            obj%C(:,:) = C(:,:)
+        endif
+    endif
+    if(present(C_n))then
+        if(size(obj%C_n,1)/= size(C_n,1) .or. size(obj%C_n,2) /= size(C_n,2) )then
+            print *, "ERROR :: importStrain :: invalid size "
+            return
+        else
+            obj%C_n(:,:) = C_n(:,:)
+        endif
+    endif
+    if(present(b))then
+        if(size(obj%b,1)/= size(b,1) .or. size(obj%b,2) /= size(b,2) )then
+            print *, "ERROR :: importStrain :: invalid size "
+            return
+        else
+            obj%b(:,:) = b(:,:)
+        endif
+    endif
+    if(present(Cp))then
+        if(size(obj%Cp,1)/= size(Cp,1) .or. size(obj%Cp,2) /= size(Cp,2) )then
+            print *, "ERROR :: importStrain :: invalid size "
+            return
+        else
+            obj%Cp(:,:) = Cp(:,:)
+        endif
+    endif
+    if(present(Cp_n))then
+        if(size(obj%Cp_n,1)/= size(Cp_n,1) .or. size(obj%Cp_n,2) /= size(Cp_n,2) )then
+            print *, "ERROR :: importStrain :: invalid size "
+            return
+        else
+            obj%Cp_n(:,:) = Cp_n(:,:)
+        endif
+    endif
+    if(present(d))then
+        if(size(obj%d,1)/= size(d,1) .or. size(obj%d,2) /= size(d,2) )then
+            print *, "ERROR :: importStrain :: invalid size "
+            return
+        else
+            obj%d(:,:) = d(:,:)
+        endif
+    endif
+    if(present(de))then
+        if(size(obj%de,1)/= size(de,1) .or. size(obj%de,2) /= size(de,2) )then
+            print *, "ERROR :: importStrain :: invalid size "
+            return
+        else
+            obj%de(:,:) = de(:,:)
+        endif
+    endif
+    if(present(dp))then
+        if(size(obj%dp,1)/= size(dp,1) .or. size(obj%dp,2) /= size(dp,2) )then
+            print *, "ERROR :: importStrain :: invalid size "
+            return
+        else
+            obj%dp(:,:) = dp(:,:)
+        endif
+    endif
+    if(present(l))then
+        if(size(obj%l,1)/= size(l,1) .or. size(obj%l,2) /= size(l,2) )then
+            print *, "ERROR :: importStrain :: invalid size "
+            return
+        else
+            obj%l(:,:) = l(:,:)
+        endif
+    endif
+    if(present(w))then
+        if(size(obj%w,1)/= size(w,1) .or. size(obj%w,2) /= size(w,2) )then
+            print *, "ERROR :: importStrain :: invalid size "
+            return
+        else
+            obj%w(:,:) = w(:,:)
+        endif
+    endif
+    if(present(eps))then
+        if(size(obj%eps,1)/= size(eps,1) .or. size(obj%eps,2) /= size(eps,2) )then
+            print *, "ERROR :: importStrain :: invalid size "
+            return
+        else
+            obj%eps(:,:) = eps(:,:)
+        endif
+    endif
+    if(present(eps_n))then
+        if(size(obj%eps_n,1)/= size(eps_n,1) .or. size(obj%eps_n,2) /= size(eps_n,2) )then
+            print *, "ERROR :: importStrain :: invalid size "
+            return
+        else
+            obj%eps_n(:,:) = eps_n(:,:)
+        endif
+    endif
+ 
+end subroutine
+! ###############################
+
+! ###############################
+subroutine getStrain(obj,C,b,d,w)
+    class(Strain_),intent(inout)::obj
+    logical,optional,intent(in) :: C,b,d,w
+
+    if(present(C) )then
+        if(C .eqv. .true.)then
+            obj%C(:,:) = matmul(transpose(obj%F),obj%F)
+        endif
+    endif
+
+    if(present(b) )then
+        if(b .eqv. .true.)then
+            obj%b(:,:) = matmul(obj%F,transpose(obj%F))
+        endif
+    endif
+
+    if(present(d) )then
+        if(d .eqv. .true.)then
+            obj%d(:,:) = 0.50d0*(obj%l(:,:) + transpose(obj%l) )
+        endif
+    endif
+
+    if(present(w) )then
+        if(w .eqv. .true.)then
+            obj%w(:,:) = 0.50d0*(obj%l(:,:) - transpose(obj%l) )
+        endif
     endif
 
 
