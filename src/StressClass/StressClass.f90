@@ -6,16 +6,21 @@ module StressClass
         
         ! hyper
         real(8),allocatable :: sigma(:,:)
+        real(8),allocatable :: sigma_n(:,:)
         real(8),allocatable :: S(:,:)
         real(8),allocatable :: P(:,:)
+
+        ! derivatives
+        real(8),allocatable :: dSdC(:,:,:,:)
         
         ! hypo
         real(8),allocatable :: sigma_dot(:,:)
         real(8),allocatable :: sigma_j(:,:)
         real(8),allocatable :: sigma_o(:,:)
         real(8),allocatable :: sigma_t(:,:)
-        real(8),allocatable :: sigma_n(:,:)
 
+        ! derivatives (dsigma/deps)
+        real(8),allocatable :: E(:,:,:,:)
 
         integer :: TheoryID
         
@@ -33,6 +38,7 @@ module StressClass
         procedure,public :: init        => initStress
         procedure,public :: getRate     => getStressRate  
         procedure,public :: getStress   => getStress 
+        procedure,public :: getDerivative => getStressDerivative
         procedure,public :: delete      => deleteStress
     end type
 contains
@@ -60,6 +66,7 @@ subroutine initStress(obj,StrainTheory)
 
         ! hyper
         allocate(obj%sigma(3,3) )
+        allocate(obj%sigma_n(3,3) )
         allocate(obj%S(3,3) )
         allocate(obj%P(3,3) )
 
@@ -68,9 +75,9 @@ subroutine initStress(obj,StrainTheory)
         allocate(obj%sigma_j(0,0) )
         allocate(obj%sigma_o(0,0) )
         allocate(obj%sigma_t(0,0) )
-        allocate(obj%sigma_n(0,0) )
 
         obj%sigma(:,:)  = 0.0d0
+        obj%sigma_n(:,:)  = 0.0d0
         obj%S(:,:)      = 0.0d0
         obj%P(:,:)      = 0.0d0
 
@@ -79,6 +86,7 @@ subroutine initStress(obj,StrainTheory)
 
         ! hyper
         allocate(obj%sigma(3,3) )
+        allocate(obj%sigma_n(3,3) )
         allocate(obj%S(3,3) )
         allocate(obj%P(3,3) )
 
@@ -87,10 +95,10 @@ subroutine initStress(obj,StrainTheory)
         allocate(obj%sigma_j(0,0) )
         allocate(obj%sigma_o(0,0) )
         allocate(obj%sigma_t(0,0) )
-        allocate(obj%sigma_n(0,0) )
 
 
         obj%sigma(:,:)  = 0.0d0
+        obj%sigma_n(:,:)  = 0.0d0
         obj%S(:,:)      = 0.0d0
         obj%P(:,:)      = 0.0d0
         
@@ -99,6 +107,7 @@ subroutine initStress(obj,StrainTheory)
 
         ! hyper
         allocate(obj%sigma(3,3) )
+        allocate(obj%sigma_n(3,3) )
         allocate(obj%S(0,0) )
         allocate(obj%P(0,0) )
 
@@ -107,21 +116,21 @@ subroutine initStress(obj,StrainTheory)
         allocate(obj%sigma_j(3,3) )
         allocate(obj%sigma_o(3,3) )
         allocate(obj%sigma_t(3,3) )
-        allocate(obj%sigma_n(3,3) )
 
 
         obj%sigma(:,:)  = 0.0d0
+        obj%sigma_n(:,:)  = 0.0d0
         obj%sigma_dot(:,:) = 0.0d0
         obj%sigma_j(:,:) = 0.0d0
         obj%sigma_o(:,:) = 0.0d0
         obj%sigma_t(:,:) = 0.0d0
-        obj%sigma_n(:,:) = 0.0d0
         
     elseif(trim(obj%StrainTheory)=="Infinitesimal_ElastoPlasticity")then
         obj%theoryID=4
 
         ! hyper
         allocate(obj%sigma(3,3) )
+        allocate(obj%sigma_n(3,3) )
         allocate(obj%S(0,0) )
         allocate(obj%P(0,0) )
 
@@ -130,20 +139,20 @@ subroutine initStress(obj,StrainTheory)
         allocate(obj%sigma_j(3,3) )
         allocate(obj%sigma_o(3,3) )
         allocate(obj%sigma_t(3,3) )
-        allocate(obj%sigma_n(3,3) )
 
         obj%sigma(:,:)  = 0.0d0
+        obj%sigma_n(:,:)  = 0.0d0
         obj%sigma_dot(:,:) = 0.0d0
         obj%sigma_j(:,:) = 0.0d0
         obj%sigma_o(:,:) = 0.0d0
         obj%sigma_t(:,:) = 0.0d0
-        obj%sigma_n(:,:) = 0.0d0
 
     elseif(trim(obj%StrainTheory)=="Small_strain")then
         obj%theoryID=5
 
         ! hyper
         allocate(obj%sigma(3,3) )
+        allocate(obj%sigma_n(3,3) )
         allocate(obj%S(0,0) )
         allocate(obj%P(0,0) )
 
@@ -152,9 +161,9 @@ subroutine initStress(obj,StrainTheory)
         allocate(obj%sigma_j(0,0) )
         allocate(obj%sigma_o(0,0) )
         allocate(obj%sigma_t(0,0) )
-        allocate(obj%sigma_n(0,0) )
 
         obj%sigma(:,:)  = 0.0d0
+        obj%sigma_n(:,:)  = 0.0d0
 
     else
         print *, trim(StrainTheory)
@@ -179,6 +188,7 @@ subroutine deleteStress(obj)
 
         ! hyper
     deallocate(obj%sigma )
+    deallocate(obj%sigma_n )
     deallocate(obj%S )
     deallocate(obj%P )
     
@@ -187,7 +197,6 @@ subroutine deleteStress(obj)
     deallocate(obj%sigma_j )
     deallocate(obj%sigma_o )
     deallocate(obj%sigma_t )
-    deallocate(obj%sigma_n )
 
 
     obj%TheoryID = 0
@@ -197,6 +206,7 @@ subroutine deleteStress(obj)
 
 end subroutine
 ! ###############################
+
 
 ! ###############################
 subroutine getStressRate(obj,Strain,Type)
@@ -219,25 +229,115 @@ subroutine getStressRate(obj,Strain,Type)
 end subroutine
 ! ###############################
 
+
 ! ###############################
-subroutine getStress(obj,Strain,Type)
+subroutine getStress(obj,Strain,Type,lambda,mu)
     class(Stress_),intent(inout) :: obj
     class(Strain_),intent(inout) :: strain
     character(*),intent(in) :: Type
+    real(8),optional,intent(in) :: lambda,mu
+    real(8),allocatable :: F_inv(:,:)
 
-    if(trim(Type) == "StVenant" )then
-         
-        ! obj%sigma(:,:)  = 
-        ! obj%S(:,:)      = 
-
-    elseif(trim(Type) == "NeoHookean" )then
- 
-        ! obj%sigma(:,:)  = 
-        ! obj%S(:,:)      = 
+    
+    if(size(Strain%F,1)==3 )then
+        ! Finite Strain Theory
+        allocate( F_inv(3,3))
+        call inverse_rank_2(strain%F,F_inv )
+        if(trim(Type) == "StVenant" )then
+            
+        elseif(trim(Type) == "NeoHookean" )then
         
+        elseif(trim(Type) == "MCDP" )then
+        
+        elseif(trim(Type) == "CamClay" )then
+
+        else
+            print *, "ERROR :: getStressFinitestrain :: invalid stress rate",trim(Type)
+            return
+        endif
     else
-        print *, "ERROR :: getStress :: invalid stress rate",trim(Type)
-        return
+        if(size(obj%sigma_t,1)==3 )then
+            ! Infinitesimal strain theory
+            if(trim(Type) == "LinearElastic" )then
+            
+            elseif(trim(Type) == "MCDP" )then
+            
+            elseif(trim(Type) == "CamClay" )then
+    
+            else
+                print *, "ERROR :: getStressInfinitesimal :: invalid stress rate",trim(Type)
+                return
+            endif
+        else
+            ! Small strain
+            if(trim(Type) == "LinearElastic" )then
+            
+            elseif(trim(Type) == "MCDP" )then
+            
+            elseif(trim(Type) == "CamClay" )then
+    
+            else
+                print *, "ERROR :: getStressSmallStrain :: invalid stress rate",trim(Type)
+                return
+            endif
+        endif
+    endif
+
+end subroutine
+! ###############################
+
+
+! ###############################
+subroutine getStressDerivative(obj,Strain,Type,lambda,mu)
+    class(Stress_),intent(inout) :: obj
+    class(Strain_),intent(inout) :: strain
+    character(*),intent(in) :: Type
+    real(8),optional,intent(in) :: lambda,mu
+    real(8),allocatable :: F_inv(:,:)
+
+    
+    if(size(Strain%F,1)==3 )then
+        ! Finite Strain Theory
+        allocate( F_inv(3,3))
+        call inverse_rank_2(strain%F,F_inv )
+        if(trim(Type) == "StVenant" )then
+
+        elseif(trim(Type) == "NeoHookean" )then
+        
+        elseif(trim(Type) == "MCDP" )then
+        
+        elseif(trim(Type) == "CamClay" )then
+
+        else
+            print *, "ERROR :: getStressFinitestrain :: invalid stress rate",trim(Type)
+            return
+        endif
+    else
+        if(size(obj%sigma_t,1)==3 )then
+            ! Infinitesimal strain theory
+            if(trim(Type) == "LinearElastic" )then
+            
+            elseif(trim(Type) == "MCDP" )then
+            
+            elseif(trim(Type) == "CamClay" )then
+    
+            else
+                print *, "ERROR :: getStressInfinitesimal :: invalid stress rate",trim(Type)
+                return
+            endif
+        else
+            ! Small strain
+            if(trim(Type) == "LinearElastic" )then
+            
+            elseif(trim(Type) == "MCDP" )then
+            
+            elseif(trim(Type) == "CamClay" )then
+    
+            else
+                print *, "ERROR :: getStressSmallStrain :: invalid stress rate",trim(Type)
+                return
+            endif
+        endif
     endif
 
 end subroutine
