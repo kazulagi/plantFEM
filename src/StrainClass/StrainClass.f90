@@ -1,5 +1,6 @@
 module StrainClass
     use MathClass
+    use ShapeFunctionClass
     implicit none
 
     type ::  Strain_
@@ -39,6 +40,8 @@ module StrainClass
     contains    
         procedure,public :: init => InitStrain
         procedure,public :: import => importStrain
+        procedure,public :: get => getStrain
+        procedure,public :: getAll => getAllStrain
         procedure,public :: delete => deleteStrain
     end type
 
@@ -385,9 +388,69 @@ end subroutine
 
 
 ! ###############################
-subroutine getStrain(obj,C,b,d,w,detF)
+subroutine getallStrain(obj,ShapeFunction)
+    class(Strain_),intent(inout) :: obj
+    class(ShapeFunction_),intent(in)::ShapeFunction
+    real(8),allocatable :: fmat(:,:) ,Jmat_n(:,:),ddudgzi(:,:),ddudx_n(:,:),ddudx(:,:),&
+        dudx(:,:),JmatInv_n(:,:),dudgzi(:,:)
+
+
+    ! for Finite strain theory
+    if(size(obj%F,1) ==3 )then
+        allocate(fmat(3,3) ,Jmat_n(3,3),ddudgzi(3,3),ddudx_n(3,3),JmatInv_n(3,3))
+        fmat(:,:) = 0.0d0
+        fmat(1,1) = 1.0d0
+        fmat(2,2) = 1.0d0
+        fmat(3,3) = 1.0d0
+        Jmat_n(:,:) = matmul(ShapeFunction%dNdgzi,ShapeFunction%ElemCoord_n)
+        ddudgzi(:,:) = matmul(ShapeFunction%dNdgzi,ShapeFunction%du)
+        call inverse_rank_2(Jmat_n,JmatInv_n)
+        ddudx_n(:,:) = matmul(ddudgzi, JmatInv_n  )
+        fmat(:,:) =fmat(:,:) + ddudx_n(:,:)
+        obj%F = matmul(fmat,obj%F_n)
+        call obj%get(C=.true.,b=.true.,detF=.true.)
+    endif
+
+    ! for infinitesimal strain theory
+    if(size(obj%d,1) == 3 )then
+        allocate(ddudx(3,3),ddudgzi(3,3) )
+        ddudgzi(:,:) = matmul(ShapeFunction%dNdgzi,ShapeFunction%du)
+        ddudx(:,:) = matmul(ddudgzi, ShapeFunction%JmatInv  )
+        obj%l(:,:) = ddudx(:,:)
+        ! from velocity gradient tensor l, spin tensor w and stretch tensor d is computed.
+        call obj%get(d=.true.)
+        call obj%get(w=.true.)
+        if(size(obj%de,1)==3 .and. size(obj%dp,1)==3 )then
+            call obj%get(de=.true.)
+        endif
+    endif
+
+    ! for small strain theory
+    if(size(obj%eps,1 )==3 )then
+        if( size(obj%d,1) ==3)then
+            ! forward Euler
+            obj%eps(:,:) =obj%eps_n(:,:)+obj%d(:,:) 
+            ! other integral scheme will be implemented.
+        else
+            ! small strain
+            ! Caution :: du here is seen as u
+            allocate(dudgzi(3,3),dudx(3,3) )
+            dudgzi(:,:) = matmul(ShapeFunction%dNdgzi,ShapeFunction%du)
+            dudx(:,:) = matmul(dudgzi, ShapeFunction%JmatInv  )
+            ! Here is the small strain tensor.
+            obj%eps(:,:) = 0.50d0*(dudx(:,:) + transpose(dudx)) 
+        endif
+    endif
+
+
+
+end subroutine
+! ###############################
+
+! ###############################
+subroutine getStrain(obj,C,b,d,w,de,detF)
     class(Strain_),intent(inout)::obj
-    logical,optional,intent(in) :: C,b,d,w,detF
+    logical,optional,intent(in) :: C,b,d,w,detF,de
 
     if(present(C) )then
         if(C .eqv. .true.)then
@@ -404,6 +467,12 @@ subroutine getStrain(obj,C,b,d,w,detF)
     if(present(d) )then
         if(d .eqv. .true.)then
             obj%d(:,:) = 0.50d0*(obj%l(:,:) + transpose(obj%l) )
+        endif
+    endif
+
+    if(present(de) )then
+        if(de .eqv. .true.)then
+            obj%de(:,:) = obj%d(:,:) - obj%dp(:,:) 
         endif
     endif
 

@@ -84,11 +84,11 @@ subroutine updateStiffnessMatrix(obj,Mesh,ElemID,MeshID)
 
     ! get all objects related to a shape function
     call obj%ShapeFunc%update(ElemType=obj%ShapeFunc%ElemType,&
-        NodCoord=Mesh%NodCoord,ElemNod=Mesh%ElemNod,ElemID=ElemID_out,GpID=GpID_out)
+        NodCoord=Mesh%NodCoordInit,NodCoord=Mesh%NodCoord_n,&
+        ElemNod=Mesh%ElemNod,ElemID=ElemID_out,GpID=GpID_out)
 
-    
     ! create strain tensor
-    
+
 
     ! create stress tensor
 
