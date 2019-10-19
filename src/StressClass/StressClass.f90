@@ -32,7 +32,8 @@ module StressClass
     contains
         procedure,public :: init        => initStress
         procedure,public :: getRate     => getStressRate  
-        procedure,public :: getStress   => getStress      
+        procedure,public :: getStress   => getStress 
+        procedure,public :: delete      => deleteStress
     end type
 contains
 
@@ -47,6 +48,10 @@ subroutine initStress(obj,StrainTheory)
     delta(1,1)=1.0d0
     delta(2,2)=1.0d0
     delta(3,3)=1.0d0
+
+    if(allocated(obj%sigma) )then
+        call obj%delete()
+    endif
 
     obj%StrainTheory=StrainTheory
 
@@ -163,6 +168,32 @@ subroutine initStress(obj,StrainTheory)
         print *, " <----"
     endif
 
+
+end subroutine
+! ###############################
+
+
+! ###############################
+subroutine deleteStress(obj)
+    class(Stress_),intent(inout) :: obj
+
+        ! hyper
+    deallocate(obj%sigma )
+    deallocate(obj%S )
+    deallocate(obj%P )
+    
+    ! hypo
+    deallocate(obj%sigma_dot )
+    deallocate(obj%sigma_j )
+    deallocate(obj%sigma_o )
+    deallocate(obj%sigma_t )
+    deallocate(obj%sigma_n )
+
+
+    obj%TheoryID = 0
+    
+    obj%StrainTheory = " "
+    
 
 end subroutine
 ! ###############################

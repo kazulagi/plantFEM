@@ -120,6 +120,16 @@ echo "Compiling ./src/BoundaryConditionClass/BoundaryConditionClass.f90"
 echo " >> BoundaryConditionClass.o "
 echo " | ##########                  | (45%)\r\c"
 mpifort -c ./src/BoundaryConditionClass/BoundaryConditionClass.f90 -o  ./inc/BoundaryConditionClass.o
+
+# Strain and stress measure
+echo "Compiling ./src/StrainClass/StrainClass.f90" 
+echo " >> StrainClass.o "
+echo " | ##############              | (65%)\r\c"
+mpifort -c ./src/StrainClass/StrainClass.f90 -o  ./inc/StrainClass.o
+echo "Compiling ./src/StressClass/StressClass.f90" 
+echo " >> StressClass.o "
+echo " | ##############              | (65%)\r\c"
+mpifort -c ./src/StressClass/StressClass.f90 -o  ./inc/StressClass.o
 echo "Compiling ./src/ConstitutiveModelClass/ConstitutiveModelClass.f90" 
 echo " >> ConstitutiveModelClass.o"
 echo " | ###########                 | (50%)\r\c"
@@ -147,15 +157,6 @@ echo " | ##############              | (65%)\r\c"
 mpifort -c ./src/LsystemClass/LsystemClass.f90 -o  ./inc/LsystemClass.o
 
 
-# Strain and stress measure
-echo "Compiling ./src/StrainClass/StrainClass.f90" 
-echo " >> StrainClass.o "
-echo " | ##############              | (65%)\r\c"
-mpifort -c ./src/StrainClass/StrainClass.f90 -o  ./inc/StrainClass.o
-echo "Compiling ./src/StressClass/StressClass.f90" 
-echo " >> StressClass.o "
-echo " | ##############              | (65%)\r\c"
-mpifort -c ./src/StressClass/StressClass.f90 -o  ./inc/StressClass.o
 
 # Compilation of Solvers
 echo "Compiling ./src/DiffusionEquationClass/DiffusionEquationClass.f90" 

@@ -39,6 +39,7 @@ module StrainClass
     contains    
         procedure,public :: init => InitStrain
         procedure,public :: import => importStrain
+        procedure,public :: delete => deleteStrain
     end type
 
 contains
@@ -53,6 +54,11 @@ subroutine InitStrain(obj,StrainTheory)
     delta(1,1)=1.0d0
     delta(2,2)=1.0d0
     delta(3,3)=1.0d0
+
+    if(allocated(obj%F) )then
+        ! delete old obj
+        call obj%delete()
+    endif
 
     obj%StrainTheory=StrainTheory
 
@@ -223,6 +229,36 @@ subroutine InitStrain(obj,StrainTheory)
 end subroutine
 ! ###############################
 
+! ###############################
+subroutine deleteStrain(obj)
+    class(Strain_),intent(inout) :: obj
+
+        ! Finite strain theory
+    deallocate(obj%   F )
+    deallocate(obj% F_n )
+    deallocate(obj%   C )
+    deallocate(obj% C_n )
+    deallocate(obj%   b )
+    deallocate(obj%  Cp )
+    deallocate(obj%Cp_n )
+    obj%detF = 0.0d0
+
+    ! Hypo-elasto-plasticity
+    deallocate(obj% d )
+    deallocate(obj%de )
+    deallocate(obj%dp )
+    deallocate(obj% l )
+    deallocate(obj% w )
+    
+    ! small-strain
+    deallocate(obj% eps )
+    deallocate(obj% eps_n )
+
+    obj%TheoryID = 0
+    
+    obj%StrainTheory = " "
+end subroutine
+! ###############################
 
 ! ###############################
 subroutine importStrain(obj,F,F_n,C,C_n,b,Cp,Cp_n,d,de,dp,l,w,eps,eps_n)

@@ -19,10 +19,14 @@ module ShapeFunctionClass
         integer :: NumOfGp
         integer :: GpID
         integer :: ierr
+        integer :: currentGpID
         
         character*70::ElemType
         character(len=60):: ErrorMsg
     contains
+        procedure :: init => initShapeFunction
+        procedure :: update => updateShapeFunction
+
         procedure :: SetType => SetShapeFuncType
         procedure :: GetAll  => GetAllShapeFunc
         procedure :: Deallocate => DeallocateShapeFunction
@@ -31,6 +35,35 @@ module ShapeFunctionClass
     end type ShapeFunction_
 
 contains
+
+!##################################################
+subroutine initShapeFunction(obj,ElemType)
+    class(ShapeFunction_),intent(inout) :: obj
+    character(*),intent(in),optional :: ElemType
+
+    obj%ElemType = ElemType
+
+    call obj%SetType()
+
+end subroutine
+!##################################################
+
+
+!##################################################
+subroutine updateShapeFunction(obj,ElemType,NodCoord,ElemNod,ElemID,GpID)
+    class(ShapeFunction_),intent(inout) :: obj
+    character(*),optional,intent(in) :: ElemType
+    integer,intent(in) ::ElemNod(:,:),ElemID,GpID
+    real(8),intent(in) ::NodCoord(:,:)
+
+    if(present(ElemType) )then
+        call obj%init(ElemType)
+    endif
+    call obj%GetAll(elem_id=i,nod_coord=NodCoord,elem_nod=ElemNod,OptionalGpID=j)
+
+end subroutine
+!##################################################
+
 
 !##################################################
 subroutine SetShapeFuncType(obj)

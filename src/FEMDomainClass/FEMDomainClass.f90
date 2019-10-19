@@ -20,6 +20,9 @@ module FEMDomainClass
         character*200 :: FileName
         character*9 :: Dtype
 		character*20 :: SolverType
+		character*200 :: Category1 
+		character*200 :: Category2
+		character*200 :: Category3
 		integer :: timestep
     contains
         procedure,public :: Init   => InitializeFEMDomain

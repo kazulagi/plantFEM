@@ -177,9 +177,8 @@ jupyter-notebook
 
 ### On going;
 - ContactMechanicsClass is created for 3-D, Frictionless contact.
-- Adoption for Windows, macOS
 - automatic documentation program ./doc/upgrade_readme.py
-- debugging pre-processing
+- Finite-elasto-plasticity for 3D problems is being implemented.
 
 
 ### Requests;
@@ -195,10 +194,13 @@ jupyter-notebook
 - Bugfix for preprocessingclass & PySiCroF
 
 
+
 ### Questions & Answers;
 
 - Does it allow interactions between two domains without using interface? : No.
 - Can interfaces take the forms of 1-D, 2-D and 3-D? : Yes.
 - Does interface include not only surface-to-surface but also domain-to-domain (element-to-element)? : Yes.
 - When the interfaces are to be generated? : Anytime.
-- Which is higher-order? MultiPhysicsClass vs ContactMechanicsClass? : Both are in same level
+- Can we use multiple types of elements in a mesh? : No, we cannot. 
+- Can we use multiple types of Strain Theory in a mesh? : No, we cannot. 
+- Can we use multiple types of Constitutive Models in a mesh? :  No, we cannot, however, it will be revised.
