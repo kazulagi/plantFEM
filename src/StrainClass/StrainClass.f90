@@ -24,6 +24,10 @@ module StrainClass
         ! small-strain
         real(8),allocatable :: eps(:,:)
         real(8),allocatable :: eps_n(:,:)
+        real(8),allocatable :: eps_p(:,:)
+        real(8),allocatable :: eps_p_n(:,:)
+        real(8),allocatable :: eps_e(:,:)
+        real(8),allocatable :: eps_e_n(:,:)
 
         integer :: TheoryID
         
@@ -87,6 +91,10 @@ subroutine InitStrain(obj,StrainTheory)
         ! small-strain
         allocate(obj%  eps(0,0) )
         allocate(obj%  eps_n(0,0) )
+        allocate(obj%  eps_e(0,0) )
+        allocate(obj%  eps_e_n(0,0) )
+        allocate(obj%  eps_p(0,0) )
+        allocate(obj%  eps_p_n(0,0) )
 
         ! Initialize
         obj%    F(:,:) = delta(:,:)
@@ -118,6 +126,10 @@ subroutine InitStrain(obj,StrainTheory)
         ! small-strain
         allocate(obj%  eps(0,0) )
         allocate(obj%  eps_n(0,0) )
+        allocate(obj%  eps_e(0,0) )
+        allocate(obj%  eps_e_n(0,0) )
+        allocate(obj%  eps_p(0,0) )
+        allocate(obj%  eps_p_n(0,0) )
 
         obj%    F(:,:) = delta(:,:)
         obj%  F_n(:,:) = delta(:,:)
@@ -150,6 +162,10 @@ subroutine InitStrain(obj,StrainTheory)
         ! small-strain
         allocate(obj%  eps(3,3) )
         allocate(obj%  eps_n(3,3) )
+        allocate(obj%  eps_e(3,3) )
+        allocate(obj%  eps_e_n(3,3) )
+        allocate(obj%  eps_p(3,3) )
+        allocate(obj%  eps_p_n(3,3) )
 
         ! initialize
         obj%  d(:,:) =delta(:,:)
@@ -157,6 +173,10 @@ subroutine InitStrain(obj,StrainTheory)
         obj%  w(:,:) =0.0d0
         obj%  eps(:,:) =delta(:,:)
         obj%  eps_n(:,:) =delta(:,:)
+        obj%  eps_e(:,:) =delta(:,:)
+        obj%  eps_e_n(:,:) =delta(:,:)
+        obj%  eps_p(:,:) =0.0d0
+        obj%  eps_p_n(:,:) =0.0d0
 
     elseif(trim(obj%StrainTheory)=="Infinitesimal_ElastoPlasticity")then
         obj%theoryID=4
@@ -181,6 +201,10 @@ subroutine InitStrain(obj,StrainTheory)
         ! small-strain
         allocate(obj%  eps(3,3) )
         allocate(obj%  eps_n(3,3) )
+        allocate(obj%  eps_e(3,3) )
+        allocate(obj%  eps_e_n(3,3) )
+        allocate(obj%  eps_p(3,3) )
+        allocate(obj%  eps_p_n(3,3) )
 
         ! initialize
         obj%  d(:,:) =delta(:,:)
@@ -190,6 +214,10 @@ subroutine InitStrain(obj,StrainTheory)
         obj%  w(:,:) =0.0d0
         obj%  eps(:,:) =delta(:,:)
         obj%  eps_n(:,:) =delta(:,:)
+        obj%  eps_e(:,:) =delta(:,:)
+        obj%  eps_e_n(:,:) =delta(:,:)
+        obj%  eps_p(:,:) =0.0d0
+        obj%  eps_p_n(:,:) =0.0d0
 
     elseif(trim(obj%StrainTheory)=="Small_strain")then
         obj%theoryID=5
@@ -214,9 +242,17 @@ subroutine InitStrain(obj,StrainTheory)
         ! small-strain
         allocate(obj%  eps(3,3) )
         allocate(obj%  eps_n(3,3) )
+        allocate(obj%  eps_e(3,3) )
+        allocate(obj%  eps_e_n(3,3) )
+        allocate(obj%  eps_p(3,3) )
+        allocate(obj%  eps_p_n(3,3) )
 
         obj%  eps(:,:) =delta(:,:)
         obj%  eps_n(:,:) =delta(:,:)
+        obj%  eps_e(:,:) =delta(:,:)
+        obj%  eps_e_n(:,:) =delta(:,:)
+        obj%  eps_p(:,:) =0.0d0
+        obj%  eps_p_n(:,:) =0.0d0
 
     else
         print *, trim(StrainTheory)
@@ -258,6 +294,10 @@ subroutine deleteStrain(obj)
     ! small-strain
     deallocate(obj% eps )
     deallocate(obj% eps_n )
+    deallocate(obj%  eps_e )
+    deallocate(obj%  eps_e_n )
+    deallocate(obj%  eps_p )
+    deallocate(obj%  eps_p_n )
 
     obj%TheoryID = 0
     
