@@ -913,7 +913,7 @@ function Invariant_J2(sigma) result(J2)
 	delta(3,3)=1.0d0
 	
 	I1=Invariant_I1(sigma)
-	M_d(:,:)=M(:,:)-I1/3.0d0*delta(:,:)
+	M_d(:,:)=sigma(:,:)-I1/3.0d0*delta(:,:)
 	J2=0.0d0
 	do i=1,size(sigma,1)
 		do j=1,size(sigma,1)
@@ -937,12 +937,12 @@ function Invariant_J3(sigma) result(J3)
 	delta(3,3)=1.0d0
 	
 	I1=Invariant_I1(sigma)
-	M_d(:,:)=M(:,:)-I1/3.0d0*delta(:,:)
+	M_d(:,:)=sigma(:,:)-I1/3.0d0*delta(:,:)
 	J3=0.0d0
 	
 	do i=1,size(sigma,1)
 		do j=1,size(sigma,1)
-			do j=1,size(sigma,1)
+			do k=1,size(sigma,1)
 				J3=J3+1.0d0/3.0d0*M_d(i,j)*M_d(j,k)*M_d(k,i)
 			enddo
 		enddo

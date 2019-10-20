@@ -1,4 +1,5 @@
 module StressClass
+    use MathClass
     use StrainClass
     implicit none
 
@@ -235,19 +236,19 @@ subroutine getStress(obj,Strain,Type,lambda,mu,K,G,c,phi)
     class(Stress_),intent(inout) :: obj
     class(Strain_),intent(inout) :: strain
     character(*),intent(in) :: Type
-    real(8),optional,intent(in) :: lambda,mu,K,G
+    real(8),optional,intent(in) :: lambda,mu,K,G,c,phi
     real(8),allocatable :: F_inv(:,:),Cp_inv(:,:),delta(:,:),C_inv(:,:),M(:,:)
-    real(8) :: detC,detCp,f,J2_M,I1_M,theta_M,BI,fc
+    real(8) :: detC,detCp,f,J2_M,I1_M,theta_M,BI,fc,f_MC
 
     
     if(size(Strain%F,1)==3 )then
         ! Finite Strain Theory
-        allocate( F_inv(3,3),Cp_inv(3,3),C_inv(3,3),delta(3,3),M(:,:) )
+        allocate( F_inv(3,3),Cp_inv(3,3),C_inv(3,3),delta(3,3),M(3,3) )
         call inverse_rank_2(strain%F,F_inv )
         call inverse_rank_2(strain%Cp,Cp_inv )
         call inverse_rank_2(strain%C,C_inv )
-        detC=obj%detF*obj%detF
-        detCp=det_mat(obj%Cp,size(obj%Cp,1) )
+        detC=strain%detF*strain%detF
+        detCp=det_mat(strain%Cp,size(strain%Cp,1) )
         delta(:,:)=0.0d0
         delta(1,1)=1.0d0
         delta(2,2)=1.0d0
@@ -255,31 +256,29 @@ subroutine getStress(obj,Strain,Type,lambda,mu,K,G,c,phi)
         
         if(trim(Type) == "StVenant" )then
             ! Conventional St.Venant 
-            obj%S(:,:)=lambda*0.50d0*trace(obj%C - delta )*delta(:,:)+mu*(obj%C(:,:)-delta(:,:) )
-            obj%sigma(:,:) = 1.0d0/obj%detF*( matmul(obj%F, matmul(obj%S, transpose(obj%F)  ) ) )
+            obj%S(:,:)=lambda*0.50d0*trace(strain%C - delta )*delta(:,:)+mu*(strain%C(:,:)-delta(:,:) )
+            obj%sigma(:,:) = 1.0d0/strain%detF*( matmul(strain%F, matmul(obj%S, transpose(strain%F)  ) ) )
         elseif(trim(Type) == "StVenant_Kirchhoff" )then
             ! St.Venant-Kirchhoff (Wallin and Ristinmaa, 2005 )
             print *, "Finite Strain St.Venant-Kirchhoff will be implemented soon."
-            !obj%S(:,:)=K*log(detF)*C_inv(:,:) + 2.0d0*G*log(detF) 
-            !obj%sigma(:,:) = 1.0d0/obj%detF*( matmul(obj%F, matmul(obj%S, transpose(obj%F)  ) ) )
         elseif(trim(Type) == "NeoHookean" )then
             ! Conventional Neo-Hookean
-            obj%S(:,:)=lambda*log(detF)*C_inv(:,:)+mu*(delta(:,:) - C_inv(:,:)  )
-            obj%sigma(:,:) = 1.0d0/obj%detF*( matmul(obj%F, matmul(obj%S, transpose(obj%F)  ) ) )
+            obj%S(:,:)=lambda*log(strain%detF)*C_inv(:,:)+mu*(delta(:,:) - C_inv(:,:)  )
+            obj%sigma(:,:) = 1.0d0/strain%detF*( matmul(strain%F, matmul(obj%S, transpose(strain%F)  ) ) )
         elseif(trim(Type) == "MCDP" )then
             ! elastic part is Modified Neo-Hookean (Vladimirov, 2008; 2010)
             obj%S(:,:)=lambda*0.50d0*(detC/detCp - 1.0d0 )*C_inv(:,:)&
                 - mu*(Cp_inv(:,:) - C_inv(:,:) )
-            obj%sigma(:,:) = 1.0d0/obj%detF*( matmul(obj%F, matmul(obj%S, transpose(obj%F)  ) ) )
+            obj%sigma(:,:) = 1.0d0/strain%detF*( matmul(strain%F, matmul(obj%S, transpose(strain%F)  ) ) )
 
             ! Check yield criterion (Mohr-Coulomb)
-            M(:,:)=matmul(obj%C,obj%S)
+            M(:,:)=matmul(strain%C,obj%S)
             J2_M    = invariant_J2(M)
-            I1_M    = invariant_J1(M)
+            I1_M    = invariant_I1(M)
             theta_M = invariant_theta(M)
             BI      = (1.0d0+sin(phi) )/(1.0d0 - sin(phi) )
             fc      = (2.0d0*c *cos(phi) )/(1.0d0- sin(phi) )
-            f=1.0d0/detF*(sqrt(J2_M) )
+            f_MC=sqrt(J2_M) + ( (BI-1)*I1_M-3.0d0*fc )/( 3.0d0*(BI+1.0d0)*cos(theta_M) + sqrt(BI-1.0d0)*sin(theta_M)*fc )
 
             ! Return-mapping
 
