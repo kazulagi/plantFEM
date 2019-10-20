@@ -885,4 +885,87 @@ subroutine removeWord_String(str,keyword,itr,Compare)
 end subroutine
 ! ########################################################
 
+
+! ########################################################
+function Invariant_I1(sigma) result(I1)
+	real(8),intent(in) :: sigma(:,:)
+	real(8) :: I1
+	integer :: i,j
+
+	I1=0.0d0
+	do i=1,size(sigma,1)
+		I1=I1+sigma(i,i)
+	enddo
+
+end function
+! ########################################################
+
+
+! ########################################################
+function Invariant_J2(sigma) result(J2)
+	real(8),intent(in) :: sigma(:,:)
+	real(8) :: I1,J2,delta(3,3),M_d(3,3)
+	integer :: i,j
+
+	delta(:,:)=0.0d0
+	delta(1,1)=1.0d0
+	delta(2,2)=1.0d0
+	delta(3,3)=1.0d0
+	
+	I1=Invariant_I1(sigma)
+	M_d(:,:)=M(:,:)-I1/3.0d0*delta(:,:)
+	J2=0.0d0
+	do i=1,size(sigma,1)
+		do j=1,size(sigma,1)
+			J2=J2+0.50d0*M_d(i,j)*M_d(i,j)
+		enddo
+	enddo
+
+end function
+! ########################################################
+
+
+! ########################################################
+function Invariant_J3(sigma) result(J3)
+	real(8),intent(in) :: sigma(:,:)
+	real(8) :: I1,J3,delta(3,3),M_d(3,3)
+	integer :: i,j,k
+
+	delta(:,:)=0.0d0
+	delta(1,1)=1.0d0
+	delta(2,2)=1.0d0
+	delta(3,3)=1.0d0
+	
+	I1=Invariant_I1(sigma)
+	M_d(:,:)=M(:,:)-I1/3.0d0*delta(:,:)
+	J3=0.0d0
+	
+	do i=1,size(sigma,1)
+		do j=1,size(sigma,1)
+			do j=1,size(sigma,1)
+				J3=J3+1.0d0/3.0d0*M_d(i,j)*M_d(j,k)*M_d(k,i)
+			enddo
+		enddo
+	enddo
+
+end function
+! ########################################################
+
+! ########################################################
+function Invariant_theta(sigma) result(theta)
+	real(8),intent(in) :: sigma(:,:)
+	real(8) :: I1,J2,J3,delta(3,3),M_d(3,3),theta
+	integer :: i,j,k
+
+	delta(:,:)=0.0d0
+	delta(1,1)=1.0d0
+	delta(2,2)=1.0d0
+	delta(3,3)=1.0d0
+	J2=Invariant_J2(sigma)
+	J3=Invariant_J3(sigma)
+	theta=1.0d0/3.0d0*asin(-3.0d0*sqrt(3.0d0)*0.50d0*J3/J2/sqrt(J2)  )
+
+end function
+! ########################################################
+
 end module MathClass

@@ -1,0 +1,74 @@
+The plastic potential function is expressed as
+(Shunchuan et al., 2017)
+
+
+Mohr-Coulomb:
+\begin{equation}
+    f({\bf \sigma} )^{MC} = \sqrt{J_2^{\sigma} } + \frac{ (B_I-1)I_1^{\sigma} - 3f_c  }{  3(B_I+1)\cos{\theta^{\sigma}} + \sqrt{3}(B_I-1)\sin{\theta^{\sigma}}  }
+    \label{Mohr_Coulomb_current}
+\end{equation}
+
+Drucker-Pragger:
+
+\begin{equation}
+    f({\bf \sigma}^{DP} ) = \sqrt{J_2^{\sigma} }  + \frac{(B_I-1)}{\sqrt{3}B_I+2\sqrt{3} }I_1^{\sigma} - \frac{\sqrt{3} }{B_I +2 }f_c
+\end{equation}
+
+\begin{equation}
+    B_I = \frac{1+\sin{\theta}}{1-\sin{\theta}}
+    f_c = \frac{2c\cos{\theta}}{1-\sin{\theta}}
+\end{equation}
+
+The plastic potential should be described in terms of intermediate configuration. Therefore, above equations are written as below.
+
+
+Mohr-Coulomb:
+\begin{equation}
+    f({\bf  \bar{M} } )^{MC} = \sqrt{J_2^{ \bar{M} } } + \frac{ (B_I-1)I_1^{ \bar{M} } - 3f_c  }{  3(B_I+1)\cos{\theta^{ \bar{M} }} + \sqrt{3}(B_I-1)\sin{\theta^{ \bar{M} }}  }
+    \label{Mohr_Coulomb_current}
+\end{equation}
+
+Drucker-Pragger:
+
+\begin{equation}
+    f({\bf  \bar{M} }^{DP} ) = \sqrt{J_2^{ \bar{M} } }  + \frac{(B_I-1)}{\sqrt{3}B_I+2\sqrt{3} }I_1^{ \bar{M} } - \frac{\sqrt{3} }{B_I +2 }f_c
+\end{equation}
+
+\begin{equation}
+    B_I = \frac{1+\sin{\theta}}{1-\sin{\theta}}
+    f_c = \frac{2c\cos{\theta}}{1-\sin{\theta}}
+\end{equation}
+
+Here, $\bar{M}$ is the Mandel stress tensor.
+
+The invariant of the yield functions should also be shown as seen in
+
+\begin{equation}
+    \bar{M}_{\bar{IJ}} = \bar{C}_{\bar{IK}}^e \bar{S}_{\bar{KJ}} = F_{\bar{I}i}^{e}  F_{i \bar{K}}^{T} F_{ \bar{K}k}^{e-1} \sigma_{kj} F_{j\bar{J}}^{e-1}  = J F_{\bar{I}i}^{e} \sigma_{ij} F_{j\bar{J}}^{e-1}
+\end{equation}
+
+\begin{equation}
+    I_{1}^{\bar{M}} = \bar{M}_{\bar{II}} = J I_{1}^{\sigma}
+\end{equation}
+
+
+\begin{equation}
+    J_{2}^{\bar{M}} = J^2 J_{2}^{\sigma}
+\end{equation}
+
+
+\begin{equation}
+    J_{3}^{\bar{M}} = J^3 J_{3}^{\sigma}
+\end{equation}
+
+
+\begin{equation}
+    \theta^{\bar{M}} = \theta^{\sigma}
+\end{equation}
+
+
+\begin{equation}
+    \frac{ \partial f ( \bar{\bf M} )^{DP} }{ \partial \bar{M}} )\\
+    = \frac{ 1 }{2} \left( J_{2}^{\bar{M}}  \right)^{-\frac{1}{2} } \left( \bar{M} ^ \frac{I_{1}^{\bar{\bf M}} }{3} {\bf \bar{G}} \right) + \frac{B_I -1 }{\sqrt{3} B_I + 2 \sqrt{3} } {\bf \bar{G}}
+\end{equation}
+

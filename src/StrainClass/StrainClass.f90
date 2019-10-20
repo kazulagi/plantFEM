@@ -74,8 +74,8 @@ subroutine InitStrain(obj,StrainTheory)
         allocate(obj%    C(3,3) )
         allocate(obj%    b(3,3) )
         allocate(obj%  C_n(3,3) )
-        allocate(obj%   Cp(0,0) )
-        allocate(obj% Cp_n(0,0) )
+        allocate(obj%   Cp(3,3) )
+        allocate(obj% Cp_n(3,3) )
 
         ! Hypo-elasto-plasticity
         allocate(obj%  d(0,0) )
@@ -93,6 +93,8 @@ subroutine InitStrain(obj,StrainTheory)
         obj%  F_n(:,:) = delta(:,:)
         obj%    C(:,:) = delta(:,:)
         obj%  C_n(:,:) = delta(:,:)
+        obj%   Cp(:,:) = delta(:,:)
+        obj% Cp_n(:,:) = delta(:,:)
 
     elseif(trim(obj%StrainTheory)=="Finite_ElastoPlasticity")then
         obj%theoryID=2

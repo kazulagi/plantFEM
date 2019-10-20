@@ -231,26 +231,62 @@ end subroutine
 
 
 ! ###############################
-subroutine getStress(obj,Strain,Type,lambda,mu)
+subroutine getStress(obj,Strain,Type,lambda,mu,K,G,c,phi)
     class(Stress_),intent(inout) :: obj
     class(Strain_),intent(inout) :: strain
     character(*),intent(in) :: Type
-    real(8),optional,intent(in) :: lambda,mu
-    real(8),allocatable :: F_inv(:,:)
+    real(8),optional,intent(in) :: lambda,mu,K,G
+    real(8),allocatable :: F_inv(:,:),Cp_inv(:,:),delta(:,:),C_inv(:,:),M(:,:)
+    real(8) :: detC,detCp,f,J2_M,I1_M,theta_M,BI,fc
 
     
     if(size(Strain%F,1)==3 )then
         ! Finite Strain Theory
-        allocate( F_inv(3,3))
+        allocate( F_inv(3,3),Cp_inv(3,3),C_inv(3,3),delta(3,3),M(:,:) )
         call inverse_rank_2(strain%F,F_inv )
+        call inverse_rank_2(strain%Cp,Cp_inv )
+        call inverse_rank_2(strain%C,C_inv )
+        detC=obj%detF*obj%detF
+        detCp=det_mat(obj%Cp,size(obj%Cp,1) )
+        delta(:,:)=0.0d0
+        delta(1,1)=1.0d0
+        delta(2,2)=1.0d0
+        delta(3,3)=1.0d0
+        
         if(trim(Type) == "StVenant" )then
-            
+            ! Conventional St.Venant 
+            obj%S(:,:)=lambda*0.50d0*trace(obj%C - delta )*delta(:,:)+mu*(obj%C(:,:)-delta(:,:) )
+            obj%sigma(:,:) = 1.0d0/obj%detF*( matmul(obj%F, matmul(obj%S, transpose(obj%F)  ) ) )
+        elseif(trim(Type) == "StVenant_Kirchhoff" )then
+            ! St.Venant-Kirchhoff (Wallin and Ristinmaa, 2005 )
+            print *, "Finite Strain St.Venant-Kirchhoff will be implemented soon."
+            !obj%S(:,:)=K*log(detF)*C_inv(:,:) + 2.0d0*G*log(detF) 
+            !obj%sigma(:,:) = 1.0d0/obj%detF*( matmul(obj%F, matmul(obj%S, transpose(obj%F)  ) ) )
         elseif(trim(Type) == "NeoHookean" )then
-        
+            ! Conventional Neo-Hookean
+            obj%S(:,:)=lambda*log(detF)*C_inv(:,:)+mu*(delta(:,:) - C_inv(:,:)  )
+            obj%sigma(:,:) = 1.0d0/obj%detF*( matmul(obj%F, matmul(obj%S, transpose(obj%F)  ) ) )
         elseif(trim(Type) == "MCDP" )then
-        
-        elseif(trim(Type) == "CamClay" )then
+            ! elastic part is Modified Neo-Hookean (Vladimirov, 2008; 2010)
+            obj%S(:,:)=lambda*0.50d0*(detC/detCp - 1.0d0 )*C_inv(:,:)&
+                - mu*(Cp_inv(:,:) - C_inv(:,:) )
+            obj%sigma(:,:) = 1.0d0/obj%detF*( matmul(obj%F, matmul(obj%S, transpose(obj%F)  ) ) )
 
+            ! Check yield criterion (Mohr-Coulomb)
+            M(:,:)=matmul(obj%C,obj%S)
+            J2_M    = invariant_J2(M)
+            I1_M    = invariant_J1(M)
+            theta_M = invariant_theta(M)
+            BI      = (1.0d0+sin(phi) )/(1.0d0 - sin(phi) )
+            fc      = (2.0d0*c *cos(phi) )/(1.0d0- sin(phi) )
+            f=1.0d0/detF*(sqrt(J2_M) )
+
+            ! Return-mapping
+
+        elseif(trim(Type) == "CamClay" )then
+            print *, "FeFp Cam-clay will be implemented soon."
+            !obj%S(:,:)=P0*( 1.0d0/ )
+            !obj%sigma(:,:) = 1.0d0/obj%detF*( matmul(obj%F, matmul(obj%S, transpose(obj%F)  ) ) )
         else
             print *, "ERROR :: getStressFinitestrain :: invalid stress rate",trim(Type)
             return
@@ -259,7 +295,7 @@ subroutine getStress(obj,Strain,Type,lambda,mu)
         if(size(obj%sigma_t,1)==3 )then
             ! Infinitesimal strain theory
             if(trim(Type) == "LinearElastic" )then
-            
+                
             elseif(trim(Type) == "MCDP" )then
             
             elseif(trim(Type) == "CamClay" )then
