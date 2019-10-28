@@ -1,5 +1,6 @@
 module StrainClass
     use MathClass
+    use ShapeFunctionClass
     implicit none
 
     type ::  Strain_
@@ -23,6 +24,10 @@ module StrainClass
         ! small-strain
         real(8),allocatable :: eps(:,:)
         real(8),allocatable :: eps_n(:,:)
+        real(8),allocatable :: eps_p(:,:)
+        real(8),allocatable :: eps_p_n(:,:)
+        real(8),allocatable :: eps_e(:,:)
+        real(8),allocatable :: eps_e_n(:,:)
 
         integer :: TheoryID
         
@@ -39,6 +44,9 @@ module StrainClass
     contains    
         procedure,public :: init => InitStrain
         procedure,public :: import => importStrain
+        procedure,public :: get => getStrain
+        procedure,public :: getAll => getAllStrain
+        procedure,public :: delete => deleteStrain
     end type
 
 contains
@@ -54,6 +62,11 @@ subroutine InitStrain(obj,StrainTheory)
     delta(2,2)=1.0d0
     delta(3,3)=1.0d0
 
+    if(allocated(obj%F) )then
+        ! delete old obj
+        call obj%delete()
+    endif
+
     obj%StrainTheory=StrainTheory
 
     if(    trim(obj%StrainTheory)=="Finite_Elasticity")then
@@ -65,8 +78,8 @@ subroutine InitStrain(obj,StrainTheory)
         allocate(obj%    C(3,3) )
         allocate(obj%    b(3,3) )
         allocate(obj%  C_n(3,3) )
-        allocate(obj%   Cp(0,0) )
-        allocate(obj% Cp_n(0,0) )
+        allocate(obj%   Cp(3,3) )
+        allocate(obj% Cp_n(3,3) )
 
         ! Hypo-elasto-plasticity
         allocate(obj%  d(0,0) )
@@ -78,12 +91,18 @@ subroutine InitStrain(obj,StrainTheory)
         ! small-strain
         allocate(obj%  eps(0,0) )
         allocate(obj%  eps_n(0,0) )
+        allocate(obj%  eps_e(0,0) )
+        allocate(obj%  eps_e_n(0,0) )
+        allocate(obj%  eps_p(0,0) )
+        allocate(obj%  eps_p_n(0,0) )
 
         ! Initialize
         obj%    F(:,:) = delta(:,:)
         obj%  F_n(:,:) = delta(:,:)
         obj%    C(:,:) = delta(:,:)
         obj%  C_n(:,:) = delta(:,:)
+        obj%   Cp(:,:) = delta(:,:)
+        obj% Cp_n(:,:) = delta(:,:)
 
     elseif(trim(obj%StrainTheory)=="Finite_ElastoPlasticity")then
         obj%theoryID=2
@@ -107,6 +126,10 @@ subroutine InitStrain(obj,StrainTheory)
         ! small-strain
         allocate(obj%  eps(0,0) )
         allocate(obj%  eps_n(0,0) )
+        allocate(obj%  eps_e(0,0) )
+        allocate(obj%  eps_e_n(0,0) )
+        allocate(obj%  eps_p(0,0) )
+        allocate(obj%  eps_p_n(0,0) )
 
         obj%    F(:,:) = delta(:,:)
         obj%  F_n(:,:) = delta(:,:)
@@ -139,6 +162,10 @@ subroutine InitStrain(obj,StrainTheory)
         ! small-strain
         allocate(obj%  eps(3,3) )
         allocate(obj%  eps_n(3,3) )
+        allocate(obj%  eps_e(3,3) )
+        allocate(obj%  eps_e_n(3,3) )
+        allocate(obj%  eps_p(3,3) )
+        allocate(obj%  eps_p_n(3,3) )
 
         ! initialize
         obj%  d(:,:) =delta(:,:)
@@ -146,6 +173,10 @@ subroutine InitStrain(obj,StrainTheory)
         obj%  w(:,:) =0.0d0
         obj%  eps(:,:) =delta(:,:)
         obj%  eps_n(:,:) =delta(:,:)
+        obj%  eps_e(:,:) =delta(:,:)
+        obj%  eps_e_n(:,:) =delta(:,:)
+        obj%  eps_p(:,:) =0.0d0
+        obj%  eps_p_n(:,:) =0.0d0
 
     elseif(trim(obj%StrainTheory)=="Infinitesimal_ElastoPlasticity")then
         obj%theoryID=4
@@ -170,6 +201,10 @@ subroutine InitStrain(obj,StrainTheory)
         ! small-strain
         allocate(obj%  eps(3,3) )
         allocate(obj%  eps_n(3,3) )
+        allocate(obj%  eps_e(3,3) )
+        allocate(obj%  eps_e_n(3,3) )
+        allocate(obj%  eps_p(3,3) )
+        allocate(obj%  eps_p_n(3,3) )
 
         ! initialize
         obj%  d(:,:) =delta(:,:)
@@ -179,6 +214,10 @@ subroutine InitStrain(obj,StrainTheory)
         obj%  w(:,:) =0.0d0
         obj%  eps(:,:) =delta(:,:)
         obj%  eps_n(:,:) =delta(:,:)
+        obj%  eps_e(:,:) =delta(:,:)
+        obj%  eps_e_n(:,:) =delta(:,:)
+        obj%  eps_p(:,:) =0.0d0
+        obj%  eps_p_n(:,:) =0.0d0
 
     elseif(trim(obj%StrainTheory)=="Small_strain")then
         obj%theoryID=5
@@ -203,9 +242,17 @@ subroutine InitStrain(obj,StrainTheory)
         ! small-strain
         allocate(obj%  eps(3,3) )
         allocate(obj%  eps_n(3,3) )
+        allocate(obj%  eps_e(3,3) )
+        allocate(obj%  eps_e_n(3,3) )
+        allocate(obj%  eps_p(3,3) )
+        allocate(obj%  eps_p_n(3,3) )
 
         obj%  eps(:,:) =delta(:,:)
         obj%  eps_n(:,:) =delta(:,:)
+        obj%  eps_e(:,:) =delta(:,:)
+        obj%  eps_e_n(:,:) =delta(:,:)
+        obj%  eps_p(:,:) =0.0d0
+        obj%  eps_p_n(:,:) =0.0d0
 
     else
         print *, trim(StrainTheory)
@@ -223,6 +270,40 @@ subroutine InitStrain(obj,StrainTheory)
 end subroutine
 ! ###############################
 
+! ###############################
+subroutine deleteStrain(obj)
+    class(Strain_),intent(inout) :: obj
+
+        ! Finite strain theory
+    deallocate(obj%   F )
+    deallocate(obj% F_n )
+    deallocate(obj%   C )
+    deallocate(obj% C_n )
+    deallocate(obj%   b )
+    deallocate(obj%  Cp )
+    deallocate(obj%Cp_n )
+    obj%detF = 0.0d0
+
+    ! Hypo-elasto-plasticity
+    deallocate(obj% d )
+    deallocate(obj%de )
+    deallocate(obj%dp )
+    deallocate(obj% l )
+    deallocate(obj% w )
+    
+    ! small-strain
+    deallocate(obj% eps )
+    deallocate(obj% eps_n )
+    deallocate(obj%  eps_e )
+    deallocate(obj%  eps_e_n )
+    deallocate(obj%  eps_p )
+    deallocate(obj%  eps_p_n )
+
+    obj%TheoryID = 0
+    
+    obj%StrainTheory = " "
+end subroutine
+! ###############################
 
 ! ###############################
 subroutine importStrain(obj,F,F_n,C,C_n,b,Cp,Cp_n,d,de,dp,l,w,eps,eps_n)
@@ -349,9 +430,69 @@ end subroutine
 
 
 ! ###############################
-subroutine getStrain(obj,C,b,d,w,detF)
+subroutine getallStrain(obj,ShapeFunction)
+    class(Strain_),intent(inout) :: obj
+    class(ShapeFunction_),intent(in)::ShapeFunction
+    real(8),allocatable :: fmat(:,:) ,Jmat_n(:,:),ddudgzi(:,:),ddudx_n(:,:),ddudx(:,:),&
+        dudx(:,:),JmatInv_n(:,:),dudgzi(:,:)
+
+
+    ! for Finite strain theory
+    if(size(obj%F,1) ==3 )then
+        allocate(fmat(3,3) ,Jmat_n(3,3),ddudgzi(3,3),ddudx_n(3,3),JmatInv_n(3,3))
+        fmat(:,:) = 0.0d0
+        fmat(1,1) = 1.0d0
+        fmat(2,2) = 1.0d0
+        fmat(3,3) = 1.0d0
+        Jmat_n(:,:) = matmul(ShapeFunction%dNdgzi,ShapeFunction%ElemCoord_n)
+        ddudgzi(:,:) = matmul(ShapeFunction%dNdgzi,ShapeFunction%du)
+        call inverse_rank_2(Jmat_n,JmatInv_n)
+        ddudx_n(:,:) = matmul(ddudgzi, JmatInv_n  )
+        fmat(:,:) =fmat(:,:) + ddudx_n(:,:)
+        obj%F = matmul(fmat,obj%F_n)
+        call obj%get(C=.true.,b=.true.,detF=.true.)
+    endif
+
+    ! for infinitesimal strain theory
+    if(size(obj%d,1) == 3 )then
+        allocate(ddudx(3,3),ddudgzi(3,3) )
+        ddudgzi(:,:) = matmul(ShapeFunction%dNdgzi,ShapeFunction%du)
+        ddudx(:,:) = matmul(ddudgzi, ShapeFunction%JmatInv  )
+        obj%l(:,:) = ddudx(:,:)
+        ! from velocity gradient tensor l, spin tensor w and stretch tensor d is computed.
+        call obj%get(d=.true.)
+        call obj%get(w=.true.)
+        if(size(obj%de,1)==3 .and. size(obj%dp,1)==3 )then
+            call obj%get(de=.true.)
+        endif
+    endif
+
+    ! for small strain theory
+    if(size(obj%eps,1 )==3 )then
+        if( size(obj%d,1) ==3)then
+            ! forward Euler
+            obj%eps(:,:) =obj%eps_n(:,:)+obj%d(:,:) 
+            ! other integral scheme will be implemented.
+        else
+            ! small strain
+            ! Caution :: du here is seen as u
+            allocate(dudgzi(3,3),dudx(3,3) )
+            dudgzi(:,:) = matmul(ShapeFunction%dNdgzi,ShapeFunction%du)
+            dudx(:,:) = matmul(dudgzi, ShapeFunction%JmatInv  )
+            ! Here is the small strain tensor.
+            obj%eps(:,:) = 0.50d0*(dudx(:,:) + transpose(dudx)) 
+        endif
+    endif
+
+
+
+end subroutine
+! ###############################
+
+! ###############################
+subroutine getStrain(obj,C,b,d,w,de,detF)
     class(Strain_),intent(inout)::obj
-    logical,optional,intent(in) :: C,b,d,w,detF
+    logical,optional,intent(in) :: C,b,d,w,detF,de
 
     if(present(C) )then
         if(C .eqv. .true.)then
@@ -368,6 +509,12 @@ subroutine getStrain(obj,C,b,d,w,detF)
     if(present(d) )then
         if(d .eqv. .true.)then
             obj%d(:,:) = 0.50d0*(obj%l(:,:) + transpose(obj%l) )
+        endif
+    endif
+
+    if(present(de) )then
+        if(de .eqv. .true.)then
+            obj%de(:,:) = obj%d(:,:) - obj%dp(:,:) 
         endif
     endif
 

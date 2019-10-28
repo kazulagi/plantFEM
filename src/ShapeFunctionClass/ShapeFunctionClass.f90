@@ -10,6 +10,8 @@ module ShapeFunctionClass
         real(8),allocatable::GaussIntegWei(:)
         real(8),allocatable::Jmat(:,:),JmatInv(:,:)
         real(8),allocatable::ElemCoord(:,:)
+        real(8),allocatable::ElemCoord_n(:,:)
+        real(8),allocatable::du(:,:)
 
         real(8) :: detJ
 
@@ -19,10 +21,14 @@ module ShapeFunctionClass
         integer :: NumOfGp
         integer :: GpID
         integer :: ierr
+        integer :: currentGpID
         
         character*70::ElemType
         character(len=60):: ErrorMsg
     contains
+        procedure :: init => initShapeFunction
+        procedure :: update => updateShapeFunction
+
         procedure :: SetType => SetShapeFuncType
         procedure :: GetAll  => GetAllShapeFunc
         procedure :: Deallocate => DeallocateShapeFunction
@@ -31,6 +37,35 @@ module ShapeFunctionClass
     end type ShapeFunction_
 
 contains
+
+!##################################################
+subroutine initShapeFunction(obj,ElemType)
+    class(ShapeFunction_),intent(inout) :: obj
+    character(*),intent(in),optional :: ElemType
+
+    obj%ElemType = ElemType
+
+    call obj%SetType()
+
+end subroutine
+!##################################################
+
+
+!##################################################
+subroutine updateShapeFunction(obj,ElemType,NodCoord,ElemNod,ElemID,GpID)
+    class(ShapeFunction_),intent(inout) :: obj
+    character(*),optional,intent(in) :: ElemType
+    integer,intent(in) ::ElemNod(:,:),ElemID,GpID
+    real(8),intent(in) ::NodCoord(:,:)
+
+    if(present(ElemType) )then
+        call obj%init(ElemType)
+    endif
+    call obj%GetAll(elem_id=i,nod_coord=NodCoord,elem_nod=ElemNod,OptionalGpID=j)
+
+end subroutine
+!##################################################
+
 
 !##################################################
 subroutine SetShapeFuncType(obj)
@@ -91,11 +126,11 @@ end subroutine getShapeFuncType
 !##################################################
 
 !##################################################
-subroutine GetAllShapeFunc(obj,elem_id,nod_coord,elem_nod,OptionalNumOfNode,OptionalNumOfOrder,&
+subroutine GetAllShapeFunc(obj,elem_id,nod_coord,nod_coord_n,elem_nod,OptionalNumOfNode,OptionalNumOfOrder,&
     OptionalNumOfDim,OptionalNumOfGp,OptionalGpID)
     class(ShapeFunction_),intent(inout)::obj
     integer,optional,intent(in)::elem_nod(:,:),elem_id
-    real(8),optional,intent(in)::nod_coord(:,:)
+    real(8),optional,intent(in)::nod_coord(:,:),nod_coord_n(:,:)
     integer,optional,intent(in)::OptionalNumOfNode,OptionalNumOfOrder,&
     OptionalNumOfDim,OptionalNumOfGp,OptionalGpID
 
@@ -141,6 +176,10 @@ subroutine GetAllShapeFunc(obj,elem_id,nod_coord,elem_nod,OptionalNumOfNode,Opti
         return
     endif
     call GetElemCoord(obj,nod_coord,elem_nod,elem_id)
+    if(present(nod_coord_n) )then
+        call GetElemCoord_n(obj,nod_coord_n,elem_nod,elem_id)
+        call Getdu(obj)
+    endif
 
 
 
@@ -315,6 +354,66 @@ subroutine GetElemCoord(obj,nod_coord,elem_nod,elem_id)
 
 
 end subroutine GetElemCoord
+!--------------------------------------------------------
+
+
+
+!--------------------------------------------------------
+subroutine GetElemCoord_n(obj,nod_coord_n,elem_nod,elem_id)
+    class(ShapeFunction_),intent(inout)::obj
+    integer,intent(in)::elem_nod(:,:),elem_id
+    real(8),intent(in)::nod_coord_n(:,:)
+    integer::i,j,k,n,m
+
+    
+    n=size(elem_nod,2)
+    m=size(nod_coord_n,2)
+    
+    if(allocated(obj%ElemCoord_n) )then
+        if(n/=size(obj%ElemCoord_n,1) .or. m/=size(obj%ElemCoord_n,2)  )then
+            deallocate(obj%ElemCoord_n)
+            allocate(obj%ElemCoord_n(n,m)  )
+        endif
+    else
+        allocate(obj%ElemCoord_n(n,m)  )
+    endif
+    do j=1,n
+        obj%ElemCoord_n(j,1:m)=nod_coord_n(elem_nod(elem_id,j),1:m )
+        !print *, obj%ElemCoord_n(j,1:m)
+    enddo
+    
+    return
+
+
+end subroutine 
+!--------------------------------------------------------
+
+
+
+!--------------------------------------------------------
+subroutine getdu(obj)
+    class(ShapeFunction_),intent(inout)::obj
+    integer::i,j,k,n,m
+
+    n=size(obj%ElemCoord,1)
+    m=size(obj%ElemCoord,2)
+    
+    if(allocated(obj%du) )then
+        if(n/=size(obj%du,1) .or. m/=size(obj%du,2)  )then
+            deallocate(obj%du)
+            allocate(obj%du(n,m)  )
+        endif
+    else
+        allocate(obj%du(n,m)  )
+    endif
+    do j=1,n
+        obj%du(j,1:m)=obj%ElemCoord(j,1:m)-obj%ElemCoord_n(j,1:m)
+    enddo
+    
+    return
+
+
+end subroutine 
 !--------------------------------------------------------
 
 

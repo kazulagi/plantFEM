@@ -5,7 +5,9 @@ module MaterialPropClass
     type :: MaterialProp_
         real(8),allocatable::MatPara(:,:)
         integer :: NumOfMatPara
-        integer :: NumOfMaterial        
+        integer :: NumOfMaterial    
+        
+        character*40 :: MaterialType
 
         character*70 ErrorMsg
     contains

@@ -7,6 +7,8 @@ module LsystemClass
         real(8),allocatable ::  LeafSurfaceNode2D(:,:)
         real(8)             ::  Thickness,length,width,center(3)
         integer             ::  Division
+        type(Stem_),pointer ::  pStem
+        type(Peti_),pointer ::  pPeti
     contains
         procedure, public :: Init => initLeaf
     end type
@@ -16,6 +18,7 @@ module LsystemClass
         real(8),allocatable ::  LeafSurfaceNode2D(:,:)
         real(8)             ::  Thickness,length,width,center(3)
         integer             ::  Division
+        type(Stem_),pointer ::  pStem
     contains
         procedure, public :: Init => initFlower
     end type
@@ -25,6 +28,7 @@ module LsystemClass
         real(8),allocatable ::  LeafSurfaceNode2D(:,:)
         real(8)             ::  Thickness,length,width,center(3)
         integer             ::  Division
+        type(Stem_),pointer ::  pStem
     contains
         procedure, public :: Init => initPod
     end type
@@ -36,7 +40,7 @@ module LsystemClass
         real(8)             ::  radius_bottom(3),radius_top(3)
         real(8)             ::  outer_normal_bottom(3),outer_normal_top(3)
         integer             ::  Division
-        type(Stem_),pointer ::  Parent
+        type(Stem_),pointer ::  pStem
     contains
         procedure, public :: Init => initStem
     end type
@@ -48,6 +52,7 @@ module LsystemClass
         real(8)             ::  radius_bottom(3),radius_top(3)
         real(8)             ::  outer_normal_bottom(3),outer_normal_top(3)
         integer             ::  Division
+        type(Stem_),pointer ::  pStem
     contains
         procedure, public :: Init => initPeti
     end type
@@ -60,7 +65,8 @@ module LsystemClass
         real(8)             ::  radius_bottom(3),radius_top(3)
         real(8)             ::  outer_normal_bottom(3),outer_normal_top(3)
         integer             ::  Division
-        type(Root_),pointer ::  Parent
+        type(Stem_),pointer ::  pStem
+        type(Root_),pointer ::  pRoot
     contains
         procedure, public :: Init => initRoot
     end type

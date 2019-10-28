@@ -12,6 +12,7 @@ sudo python3 ~/get-pip.py
 pip install pillow
 pip install numpy
 pip install scipy
+pip install opencv-python
 pip install matplotlib
 pip install tensorflow
 pip install jupyter

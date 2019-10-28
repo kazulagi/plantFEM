@@ -10,6 +10,7 @@ curl https://bootstrap.pypa.io/get-pip.py -o ~/get-pip.py
 sudo python3 ~/get-pip.py
 sudo pip install pillow
 sudo pip install numpy
+sudo pip install opencv-python
 sudo pip install scipy
 sudo pip install matplotlib
 sudo pip install jupyter
