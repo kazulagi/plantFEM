@@ -16,6 +16,7 @@ sudo pip install scipy
 sudo pip install matplotlib
 sudo pip install jupyter
 sudo pip install nbzip
+sudo pip install opencv-python
 sudo jupyter serverextension enable --py nbzip --sys-prefix
 sudo jupyter nbextension install --py nbzip
 sudo jupyter nbextension enable --py nbzip

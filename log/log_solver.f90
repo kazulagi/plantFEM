@@ -3,7 +3,7 @@ program main
    implicit none
    type(MPI_)              :: MPIData
    type(Field_),target     :: world
-   integer                 :: TotalStep=10
+   integer                 :: TotalStep=100
    real(8)                 :: time=1.0
    call MPIData%Start()
    call world%Import(OptionalDomainListName="Tutorial/InputData/Domainlist_test.txt",&
