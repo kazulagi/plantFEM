@@ -192,6 +192,7 @@ jupyter-notebook
 - Developing All shape-functions for the preparation of space-time class
 - Add-on for Blender
 - Bugfix for preprocessingclass & PySiCroF
+- Use opencv-python as a imaging library instead of PIL.
 
 
 
