@@ -9,50 +9,50 @@ echo "    "
 echo "    "
 echo "-----------------"
 
-echo "Pre-install sequence is started... "
-echo "Skip it  y/n ? :"
-read yes_no
-yes="y"
-if [ $yes_no != $yes ]; then
-echo "------------------------"
-echo "gcc --version"
-gcc --version
-echo "------------------------"
-echo "gfortran --version"
-gfortran --version
-echo "------------------------"
-echo "gmsh --version"
-gmsh --version
-echo "------------------------"
-echo "mpifort --version"
-mpifort --version
-echo "------------------------"
-#echo "OpenCL --version"
-#clinfo --version
-#sudo apt install ocl-icd-libopencl1 opencl-headers clinfo ocl-icd-opencl-dev beignet
-echo "------------------------"
-echo "python3 --version"
-python3 --version
-echo "------------------------"
-echo "pip3 --version"
-pip3 --version
-echo "------------------------"
-pip3 install pillow
-echo "------------------------"
-pip3 install numpy
-echo "------------------------"
-pip3 install scipy
-echo "------------------------"
-pip3 install matplotlib
-echo "------------------------"
-pip3 install tensorflow
-echo "------------------------"
-pip3 install jupyter
-echo "------------------------"
-
-echo "All pacages are ready. [ok]"
-# Compilation of low-level classes
-fi
+#echo "Pre-install sequence is started... "
+#echo "Skip it  y/n ? :"
+#read yes_no
+#yes="y"
+#if [ $yes_no != $yes ]; then
+#echo "------------------------"
+#echo "gcc --version"
+#gcc --version
+#echo "------------------------"
+#echo "gfortran --version"
+#gfortran --version
+#echo "------------------------"
+#echo "gmsh --version"
+#gmsh --version
+#echo "------------------------"
+#echo "mpifort --version"
+#mpifort --version
+#echo "------------------------"
+##echo "OpenCL --version"
+##clinfo --version
+##sudo apt install ocl-icd-libopencl1 opencl-headers clinfo ocl-icd-opencl-dev beignet
+#echo "------------------------"
+#echo "python3 --version"
+#python3 --version
+#echo "------------------------"
+#echo "pip3 --version"
+#pip3 --version
+#echo "------------------------"
+#pip3 install pillow
+#echo "------------------------"
+#pip3 install numpy
+#echo "------------------------"
+#pip3 install scipy
+#echo "------------------------"
+#pip3 install matplotlib
+#echo "------------------------"
+#pip3 install tensorflow
+#echo "------------------------"
+#pip3 install jupyter
+#echo "------------------------"
+#
+#echo "All pacages are ready. [ok]"
+## Compilation of low-level classes
+#fi
 
 
 start_time=`date +%s%3N`
