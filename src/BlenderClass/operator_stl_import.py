@@ -6,9 +6,10 @@ def read_some_data(context, filepath, use_some_setting):
     f = open(filepath, 'r', encoding='utf-8')
     data = f.read()
     f.close()
+    fpath=filepath
 
     # would normally load the data here
-    print(data)
+    #print(data)
 
     return {'FINISHED'}
 
@@ -24,6 +25,7 @@ class ImportSomeData(Operator, ImportHelper):
     """This appears in the tooltip of the operator and in the generated docs"""
     bl_idname = "import_test.some_data"  # important since its how bpy.ops.import_test.some_data is constructed
     bl_label = "Import Some Data"
+    fpath = ""
 
     # ImportHelper mixin class uses this
     filename_ext = ".stl"
@@ -53,12 +55,15 @@ class ImportSomeData(Operator, ImportHelper):
     )
 
     def execute(self, context):
-        return read_some_data(context, self.filepath, self.use_setting)
+        read_some_data(context, self.filepath, self.use_setting)
+        
+        return {'FINISHED'}
+        
 
 
 # Only needed if you want to add into a dynamic menu
 def menu_func_import(self, context):
-    self.layout.operator(ImportSomeData.bl_idname, text="Text Import Operator")
+    self.layout.operator(ImportSomeData.bl_idname, text="STL Import Operator")
 
 
 def register():
@@ -76,4 +81,7 @@ if __name__ == "__main__":
 
     # test call
     bpy.ops.import_test.some_data('INVOKE_DEFAULT')
+    
+    #print(data)
+    #print(bpy.ops.import_test.filepath)
     
