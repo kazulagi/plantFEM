@@ -98,7 +98,8 @@ class CreateObject2(bpy.types.Operator):
     # メニューを実行した時に呼ばれる関数
     def execute(self, context):
         bpy.ops.mesh.primitive_ico_sphere_add()
-        print("サンプル2-1: 3Dビューに３つICO球を生成しました。")
+        bpy.ops.import_mesh.stl()
+        print("サンプル2-1: 3Dビューに３つICO球を生成しました。&STL")
         
         return {'FINISHED'}
 
