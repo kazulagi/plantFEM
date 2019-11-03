@@ -205,3 +205,9 @@ jupyter-notebook
 - Can we use multiple types of elements in a mesh? : No, we cannot. 
 - Can we use multiple types of Strain Theory in a mesh? : No, we cannot. 
 - Can we use multiple types of Constitutive Models in a mesh? :  No, we cannot, however, it will be revised.
+
+### Calling for someone who can create following modules.
+
+- SiCroF-API for Blender >> We would like to use Blender as a GUI. Author tried to create the API (see src/BlenderClass), however, it will take more time to understand and implement the system Blender 28.0-API and the SiCroF-API for Blender is now stopping.
+- Fluid solvers (by using src/FEMDomainClass)
+- Functional-structural model for cereals.(like src/LsystemClass)
