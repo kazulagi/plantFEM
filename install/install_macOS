@@ -156,6 +156,16 @@ echo " >> LsystemClass.o "
 echo " | ##############              | (65%)\r\c"
 mpifort -c ./src/LsystemClass/LsystemClass.f90 -o  ./inc/LsystemClass.o
 
+echo "Compiling ./src/SeedClass/SeedClass.f90" 
+echo " >> SeedClass.o "
+echo " | ##############              | (65%)\r\c"
+mpifort -c ./src/SeedClass/SeedClass.f90 -o  ./inc/LsystemClass.o
+
+
+echo "Compiling ./src/SoybeanClass/SoybeanClass.f90" 
+echo " >> SoybeanClass.o "
+echo " | ##############              | (65%)\r\c"
+mpifort -c ./src/SoybeanClass/SoybeanClass.f90 -o  ./inc/LsystemClass.o
 
 
 # Compilation of Solvers
