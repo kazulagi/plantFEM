@@ -5,7 +5,10 @@ module LsystemClass
     type :: Leaf_
         type(FEMDomain_)    ::  FEMDomain
         real(8),allocatable ::  LeafSurfaceNode2D(:,:)
-        real(8)             ::  Thickness,length,width,center(3)
+        real(8)             ::  ShapeFactor,Thickness,length,width,center(3)
+        real(8)             ::  MaxThickness,Maxlength,Maxwidth
+        real(8)             ::  center_bottom(3),center_top(3)
+        real(8)             ::  outer_normal_bottom(3),outer_normal_top(3)
         integer             ::  Division
         type(Stem_),pointer ::  pStem
         type(Peti_),pointer ::  pPeti
@@ -36,6 +39,7 @@ module LsystemClass
     type :: Stem_
         type(FEMDomain_)    ::  FEMDomain
         real(8)             ::  Thickness,length,width
+        real(8)             ::  MaxThickness,Maxlength,Maxwidth
         real(8)             ::  center_bottom(3),center_top(3)
         real(8)             ::  radius_bottom(3),radius_top(3)
         real(8)             ::  outer_normal_bottom(3),outer_normal_top(3)
@@ -43,6 +47,7 @@ module LsystemClass
         type(Stem_),pointer ::  pStem
     contains
         procedure, public :: Init => initStem
+        procedure, public :: export => exportStem
     end type
 
     type :: Panicle
@@ -59,6 +64,7 @@ module LsystemClass
     type :: Peti_
         type(FEMDomain_)    ::  FEMDomain
         real(8)             ::  Thickness,length,width
+        real(8)             ::  MaxThickness,Maxlength,Maxwidth
         real(8)             ::  center_bottom(3),center_top(3)
         real(8)             ::  radius_bottom(3),radius_top(3)
         real(8)             ::  outer_normal_bottom(3),outer_normal_top(3)
@@ -66,12 +72,14 @@ module LsystemClass
         type(Stem_),pointer ::  pStem
     contains
         procedure, public :: Init => initPeti
+        procedure, public :: export => exportPeti
     end type
 
 
     type :: Root_
         type(FEMDomain_)    ::  FEMDomain
         real(8)             ::  Thickness,length,width
+        real(8)             ::  MaxThickness,Maxlength,Maxwidth
         real(8)             ::  center_bottom(3),center_top(3)
         real(8)             ::  radius_bottom(3),radius_top(3)
         real(8)             ::  outer_normal_bottom(3),outer_normal_top(3)
@@ -80,6 +88,7 @@ module LsystemClass
         type(Root_),pointer ::  pRoot
     contains
         procedure, public :: Init => initRoot
+        procedure, public :: export => exportRoot
     end type
     
     type :: Node_
@@ -91,34 +100,27 @@ module LsystemClass
         type(Pod_)      ,allocatable :: Pod(:)
         type(Stem_)     ,allocatable :: Stem(:)
         type(Root_)     ,allocatable :: Root(:)
+    contains
+        procedure :: init => initNode
+        procedure :: export => exportNode
     end Type
 
     type :: NodeSystem_
         type(Node_),allocatable :: NodeSystem(:)
+        integer :: num_of_node
+    contains
+        procedure :: export => exportNodeSystem
     end type
 
     type :: RootSystem_
-        type(Root_),allocatable :: Root(:)
-    end type
-
-    type :: soybean_
-        ! growth_habit = determinate, indeterminate, semi-indeterminate, or vine
-        character*20 :: growth_habit
-        character*2  :: growth_stage
-        integer :: NumOfNode
-        integer :: NumOfRoot
-        type(Node_),allocatable :: NodeSystem(:)
         type(Root_),allocatable :: RootSystem(:)
+        integer :: num_of_root
     contains
-        procedure,public :: Init => initsoybean
-        procedure,public :: AddNode => AddNodeSoybean
+        procedure :: export => exportRootSystem
     end type
 
-    type :: Canopy
-        real(8) :: inter_row, intra_row
-        type(soybean_),allocatable :: Canopy(:,:)
-        
-    end type
+
+    
 
     type :: Lsystem_
         type(Leaf_),allocatable::LeafList(:)
@@ -133,60 +135,57 @@ module LsystemClass
 contains
 
 ! ########################################
-subroutine initLeaf(obj,Thickness,length,width)
+subroutine initLeaf(obj,Thickness,length,width,ShapeFactor,MaxThickness,Maxlength,Maxwidth)
     class(leaf_),intent(inout) :: obj
-    real(8),optional :: Thickness,length,width
+    real(8),optional,intent(in) :: Thickness,length,width,ShapeFactor
+    real(8),optional,intent(in) :: MaxThickness,Maxlength,Maxwidth
 
-    if(present(length) .and. present(width) )then
-        obj%length  = length
-        obj%width   = width
-        if(present(Thickness) )then
-            obj%Thickness=Thickness
-        endif
-        return
-    endif
 
-    print *, "Caution :: no input is in initleaf"
+    obj%ShapeFactor = input(default=0.30d0  ,option= ShapeFactor  ) 
+    obj%Thickness   = input(default=0.0010d0,option= Thickness     )
+    obj%length      = input(default=0.0010d0,option= length      )
+    obj%width       = input(default=0.0010d0,option= width)
+
+    obj%MaxThickness   = input(default=0.10d0  ,option= MaxThickness     )
+    obj%Maxlength      = input(default=10.0d0  ,option= Maxlength      )
+    obj%Maxwidth       = input(default=2.0d0   ,option= Maxwidth)
+
 
 end subroutine 
 ! ########################################
 
 
 ! ########################################
-subroutine initPeti(obj,Thickness,length,width)
+subroutine initPeti(obj,Thickness,length,width,MaxThickness,Maxlength,Maxwidth)
     class(Peti_),intent(inout) :: obj
-    real(8),optional :: Thickness,length,width
+    real(8),optional,intent(in)::  Thickness,length,width
+    real(8),optional,intent(in)::  MaxThickness,Maxlength,Maxwidth
 
-    if(present(length) .and. present(width) )then
-        obj%length  = length
-        obj%width   = width
-        if(present(Thickness) )then
-            obj%Thickness=Thickness
-        endif
-        return
-    endif
+    obj%Thickness   = input(default=0.0010d0,option= Thickness     )
+    obj%length      = input(default=0.0010d0,option= length      )
+    obj%width       = input(default=0.0010d0,option= width)
 
-    print *, "Caution :: no input is in initleaf"
+    obj%MaxThickness   = input(default=0.50d0  ,option= MaxThickness     )
+    obj%Maxlength      = input(default=10.0d0  ,option= Maxlength      )
+    obj%Maxwidth       = input(default=0.50d0  ,option= Maxwidth)
 
 end subroutine 
 ! ########################################
 
 
 ! ########################################
-subroutine initStem(obj,Thickness,length,width)
+subroutine initStem(obj,Thickness,length,width,MaxThickness,Maxlength,Maxwidth)
     class(Stem_),intent(inout) :: obj
-    real(8),optional :: Thickness,length,width
+    real(8),optional,intent(in)::  Thickness,length,width
+    real(8),optional,intent(in)::  MaxThickness,Maxlength,MaxWidth
 
-    if(present(length) .and. present(width) )then
-        obj%length  = length
-        obj%width   = width
-        if(present(Thickness) )then
-            obj%Thickness=Thickness
-        endif
-        return
-    endif
+    obj%Thickness   = input(default=0.0010d0,option= Thickness     )
+    obj%length      = input(default=0.2500d0,option= length      )
+    obj%width       = input(default=0.0010d0,option= width)
 
-    print *, "Caution :: no input is in initleaf"
+    obj%MaxThickness   = input(default=0.50d0  ,option=MaxThickness      )
+    obj%Maxlength      = input(default=10.0d0  ,option=Maxlength       )
+    obj%Maxwidth       = input(default=0.50d0  ,option=Maxwidth )
 
 end subroutine 
 ! ########################################
@@ -232,95 +231,6 @@ end subroutine
 ! ########################################
 
 
-! ########################################
-subroutine initRoot(obj,Thickness,length,width)
-    class(Root_),intent(inout) :: obj
-    real(8),optional :: Thickness,length,width
-
-    if(present(length) .and. present(width) )then
-        obj%length  = length
-        obj%width   = width
-        if(present(Thickness) )then
-            obj%Thickness=Thickness
-        endif
-        return
-    endif
-
-    print *, "Caution :: no input is in initleaf"
-
-end subroutine 
-! ########################################
-
-
-! ########################################
-subroutine initsoybean(obj,growth_habit,Max_Num_of_Node)
-    class(soybean_) :: obj
-    character(*),optional,intent(in) :: growth_habit
-    integer,optional,intent(in)::Max_Num_of_Node
-    integer ::n
-
-    if(present(growth_habit) )then
-        obj%growth_habit=growth_habit
-    else
-        obj%growth_habit="determinate"
-    endif
-
-    obj%growth_stage="VE"
-
-    n=input(default=100,option=Max_Num_of_Node)
-
-    allocate(obj%NodeSystem(n))
-    obj%NumOfNode=0
-    obj%NumOfRoot=0
-
-    ! set an initial node and root
-    ! two leaves, one root.
-
-    call obj%AddNode()
-
-end subroutine
-! ########################################
-
-
-
-
-
-
-! ########################################
-subroutine AddNodeSoybean(obj,SizeRatio)
-    class(soybean_),intent(inout)::obj
-    real(8),optional,intent(in)::SizeRatio
-    real(8) :: magnif
-
-    magnif=input(default=1.0d0,option=SizeRatio)
-    obj%NumOfNode=obj%NumOfNode+1
-    
-    ! add leaves
-    if(obj%NumOfNode==1 .or. obj%NumOfNode==2)then
-        allocate(obj%NodeSystem(obj%NumOfNode)%leaf(2) )
-        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
-        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
-    else        
-        allocate(obj%NodeSystem(obj%NumOfNode)%leaf(3) )
-        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
-        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
-        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
-    endif
-
-    ! add stem
-    if(obj%NumOfNode==1 .or. obj%NumOfNode==2)then
-        allocate(obj%NodeSystem(obj%NumOfNode)%Stem(1) )
-        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
-    endif
-
-    ! add Peti
-    if(obj%NumOfNode==1 .or. obj%NumOfNode==2)then
-        allocate(obj%NodeSystem(obj%NumOfNode)%Peti(1) )
-        call obj%NodeSystem(obj%NumOfNode)%Peti(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
-    endif
-
-end subroutine
-! ########################################
 
 
 
@@ -331,7 +241,7 @@ subroutine InitLsystem(obj,InObj,MaxSize)
     integer,optional,intent(in)::MaxSize
     integer :: n
 
-    !if(present(InObj) )then
+    !if(prent(InObj) )then
     !    ! copy object
     !    obj=InObj
     !    return
@@ -347,8 +257,247 @@ subroutine InitLsystem(obj,InObj,MaxSize)
 end subroutine
 ! ########################################
 
+! ########################################
+subroutine initNode(obj,PlantName,Stage,&
+    LeafThickness,Leaflength,Leafwidth,LeafShapeFactor,&
+    MaxLeafThickness,MaxLeaflength,MaxLeafwidth,PetiThickness,Petilength,Petiwidth,PetiShapeFactor,&
+    MaxPetiThickness,MaxPetilength,MaxPetiwidth,StemThickness,Stemlength,Stemwidth,StemShapeFactor,&
+    MaxStemThickness,MaxStemlength,MaxStemwidth)
+    class(Node_),intent(inout),target::obj
+    character(*),intent(in) :: PlantName
+    character(2),intent(in) :: Stage
+    real(8),optional,intent(in) :: LeafThickness,Leaflength,Leafwidth,LeafShapeFactor
+    real(8),optional,intent(in) :: MaxLeafThickness,MaxLeaflength,MaxLeafwidth
+    real(8),optional,intent(in) :: PetiThickness,Petilength,Petiwidth,PetiShapeFactor
+    real(8),optional,intent(in) :: MaxPetiThickness,MaxPetilength,MaxPetiwidth
+    real(8),optional,intent(in) :: StemThickness,Stemlength,Stemwidth,StemShapeFactor
+    real(8),optional,intent(in) :: MaxStemThickness,MaxStemlength,MaxStemwidth
+
+    if(trim(PlantName) == "soybean" .or. trim(PlantName) == "Soybean")then
+        if(Stage == "EV")then
+            allocate(obj%Leaf(2) )
+            allocate(obj%Peti(2) )
+            allocate(obj%Flower(0) )
+            allocate(obj%Pod(0) )
+            allocate(obj%Stem(1) )
+            allocate(obj%Root(0) )
+            
+
+            ! initialize leaf
+            call obj%Leaf(1)%init(ShapeFactor=LeafShapeFactor,Thickness=LeafThickness,length=Leaflength,&
+            width=Leafwidth,MaxThickness=MaxLeafThickness,Maxlength=MaxLeaflength,MaxWidth=MaxLeafWidth)
+            call obj%Leaf(2)%init(ShapeFactor=LeafShapeFactor,Thickness=LeafThickness,length=Leaflength,&
+            width=Leafwidth,MaxThickness=MaxLeafThickness,Maxlength=MaxLeaflength,MaxWidth=MaxLeafWidth)
+            ! initialize peti
+            call obj%Peti(1)%init(Thickness=PetiThickness,length=Petilength,&
+            width=Petiwidth,MaxThickness=MaxPetiThickness,Maxlength=MaxPetilength,MaxWidth=MaxPetiWidth)
+            call obj%Peti(2)%init(Thickness=PetiThickness,length=Petilength,&
+            width=Petiwidth,MaxThickness=MaxPetiThickness,Maxlength=MaxPetilength,MaxWidth=MaxPetiWidth)
+            ! initialize stem
+            call obj%Stem(1)%init(Thickness=StemThickness,length=Stemlength,&
+            width=Stemwidth,MaxThickness=MaxStemThickness,Maxlength=MaxStemlength,MaxWidth=MaxStemWidth)
+            
+            ! joint leaves
+            obj%Leaf(1)%pPeti => obj%Peti(1)
+            obj%Leaf(2)%pPeti => obj%Peti(2)
+            
+            ! joint peti
+            obj%Peti(1)%pStem => obj%Stem(1)
+            obj%Peti(2)%pStem => obj%Stem(1)
+
+            ! set direction of plumule
+            obj%Stem(1)%outer_normal_bottom(:)=0.0d0
+            obj%Stem(1)%outer_normal_bottom(1)=1.0d0
+            
+            obj%Stem(1)%outer_normal_top(:)=0.0d0
+            obj%Stem(1)%outer_normal_top(1)=1.0d0
+            
+            obj%Stem(1)%center_bottom(:)=0.0d0
+            obj%Stem(1)%center_top(:)=0.0d0
+            obj%Stem(1)%center_top(:) = obj%Stem(1)%center_bottom(:) + obj%Stem(1)%length*obj%Stem(1)%outer_normal_bottom(:)
+
+            return
+        else
+            return
+        endif
+    endif
+end subroutine
+! ########################################
+
+
+! ########################################
+subroutine initRoot(obj,PlantName,Stage,&
+    Thickness,length,width,&
+    MaxThickness,Maxlength,Maxwidth)
+    class(Root_),intent(inout)::obj
+    character(*),intent(in) :: PlantName
+    character(2),intent(in) :: Stage
+    real(8),optional,intent(in) :: Thickness,length,width
+    real(8),optional,intent(in) :: MaxThickness,Maxlength,Maxwidth
+
+    if(trim(PlantName) == "soybean" .or. trim(PlantName) == "Soybean")then
+        if(Stage == "EV")then
+            
+
+            ! initialize 
+            obj%Thickness   = input(default=0.0010d0,option= Thickness     )
+            obj%length      = input(default=0.250d0,  option= length      )
+            obj%width       = input(default=0.0010d0,option= width)
+        
+            obj%MaxThickness   = input(default=0.50d0  ,option=MaxThickness      )
+            obj%Maxlength      = input(default=10.0d0  ,option=Maxlength       )
+            obj%Maxwidth       = input(default=0.50d0  ,option=Maxwidth )
+        
+        
+            ! set direction of plumule
+            obj%outer_normal_bottom(:)=0.0d0
+            obj%outer_normal_bottom(1)=-1.0d0
+            
+            obj%outer_normal_top(:)=0.0d0
+            obj%outer_normal_top(1)=-1.0d0
+            
+            obj%center_bottom(:)=0.0d0
+            obj%center_top(:) = obj%center_bottom(:) + obj%length*obj%outer_normal_bottom(:)
+
+            return
+        else
+            return
+        endif
+    endif
+end subroutine
+! ########################################
 
 
 
+
+! ########################################
+subroutine exportRoot(obj,FileName,RootID)
+    class(Root_),intent(in)::obj
+    character(*),intent(in) :: FileName
+    integer,optional,intent(in) :: RootID
+    real(8) :: radius    
+    radius=0.50d0*obj%width+0.50d0*obj%Thickness
+    open(12,file=FileName)
+    write(12,'(A)') "//+"
+    write(12,'(A)') 'SetFactory("OpenCASCADE");'
+    write(12,*) "Cylinder(",input(default=1,option=RootID),") = {",&
+    obj%center_bottom(1),",", obj%center_bottom(2),",", obj%center_bottom(3),",",&
+    obj%outer_normal_bottom(1),",", obj%outer_normal_bottom(2),",", obj%outer_normal_bottom(3),",",&
+    radius,", 2*Pi};"
+    close(12)
+
+end subroutine
+! ########################################
+
+
+! ########################################
+subroutine exportStem(obj,FileName,StemID)
+    class(Stem_),intent(in)::obj
+    character(*),intent(in) :: FileName
+    integer,optional,intent(in) :: StemID
+    real(8) :: radius
+
+    radius=0.50d0*obj%width+0.50d0*obj%Thickness
+    
+    open(13,file=FileName)
+    write(13,'(A)') "//+"
+    write(13,'(A)') 'SetFactory("OpenCASCADE");'
+    write(13,*) "Cylinder(",input(default=1,option=StemID),") = {",&
+    obj%center_bottom(1),",", obj%center_bottom(2),",", obj%center_bottom(3),",",&
+    obj%outer_normal_bottom(1),",", obj%outer_normal_bottom(2),",", obj%outer_normal_bottom(3),",",&
+    radius,", 2*Pi};"
+    close(13)
+
+end subroutine
+! ########################################
+
+
+! ########################################
+subroutine exportPeti(obj,FileName,PetiID)
+    class(Peti_),intent(in)::obj
+    character(*),intent(in) :: FileName
+    integer,optional,intent(in) :: PetiID
+    real(8) :: radius
+    
+    radius=0.50d0*obj%width+0.50d0*obj%Thickness
+    open(14,file=FileName)
+    write(14,'(A)') "//+"
+    write(14,'(A)') 'SetFactory("OpenCASCADE");'
+    write(14,*) "Cylinder(",input(default=1,option=PetiID),") = {",&
+    obj%center_bottom(1),",", obj%center_bottom(2),",", obj%center_bottom(3),",",&
+    obj%outer_normal_bottom(1),",", obj%outer_normal_bottom(2),",", obj%outer_normal_bottom(3),",",&
+    radius,", 2*Pi};"
+    close(14)
+
+end subroutine
+! ########################################
+
+
+
+
+! ########################################
+subroutine exportNode(obj,FileName,NodeID)
+    class(Node_),intent(in) :: obj
+    character(*),optional,intent(in) :: FileName
+    integer :: i,max_num_of_peti_per_node,n
+    integer,intent(in) :: NodeID
+
+    max_num_of_peti_per_node=5
+
+    do i=1,size(obj%Stem,1)
+        call obj%Stem(i)%export(FileName= "Stem_"//trim(adjustl(fstring(i)))//FileName,StemID=i)
+    enddo
+
+    do i=1,size(obj%Peti,1)
+        n=max_num_of_peti_per_node*(NodeID-1)+i
+        call obj%Peti(i)%export(FileName="Peti_"//trim(adjustl(fstring(i)))//FileName,PetiID=n)
+    enddo
+   
+end subroutine
+! ########################################
+
+
+! ########################################
+subroutine exportNodeSystem(obj,FilePath,FileName)
+    class(NodeSystem_),intent(in) :: obj
+
+    ! export stem
+    character(*),optional,intent(in) :: FilePath,FileName
+    integer :: i
+    do i=1,size(obj%NodeSystem)
+        if(present(FileName) )then
+            call obj%NodeSystem(i)%export(FileName="Node_"//trim(FileName),NodeID=i)
+        elseif(present(FilePath) )then
+            call obj%NodeSystem(i)%export(FileName=trim(FilePath)//"/Node.geo",NodeID=i)
+        else
+            call obj%NodeSystem(i)%export(FileName="/Node.geo",NodeID=i)
+        endif
+    enddo
+    
+
+
+end subroutine
+! ########################################
+
+! ########################################
+subroutine exportRootSystem(obj,FilePath,FileName)
+    class(RootSystem_),intent(in) :: obj
+    character(*),optional,intent(in) :: FilePath,FileName
+    integer :: i
+    do i=1,size(obj%RootSystem)
+
+        if(present(FileName) )then
+            call obj%RootSystem(i)%export(FileName="Root_"//trim(FileName),RootID=i)
+        elseif(present(FilePath) )then
+            call obj%RootSystem(i)%export(FileName=trim(FilePath)//"/Root.geo",RootID=i)
+        else
+            call obj%RootSystem(i)%export(FileName="/Root.geo",RootID=i)
+        endif
+        if(i==obj%num_of_root  )then
+            return
+        endif
+    enddo
+end subroutine
+! ########################################
 
 end module LsystemClass
