@@ -45,6 +45,17 @@ module LsystemClass
         procedure, public :: Init => initStem
     end type
 
+    type :: Panicle
+        type(FEMDomain_)    ::  FEMDomain
+        real(8)             ::  Thickness,length,width
+        real(8)             ::  center_bottom(3),center_top(3)
+        real(8)             ::  radius_bottom(3),radius_top(3)
+        real(8)             ::  outer_normal_bottom(3),outer_normal_top(3)
+        integer             ::  Division
+        type(Panicle),pointer ::  pPanicle
+    contains
+        !procedure, public :: Init => initPanicle
+    end type
     type :: Peti_
         type(FEMDomain_)    ::  FEMDomain
         real(8)             ::  Thickness,length,width
@@ -254,7 +265,7 @@ subroutine initsoybean(obj,growth_habit,Max_Num_of_Node)
         obj%growth_habit="determinate"
     endif
 
-    obj%growth_stage="CV"
+    obj%growth_stage="VE"
 
     n=input(default=100,option=Max_Num_of_Node)
 
@@ -269,6 +280,9 @@ subroutine initsoybean(obj,growth_habit,Max_Num_of_Node)
 
 end subroutine
 ! ########################################
+
+
+
 
 
 
@@ -298,7 +312,6 @@ subroutine AddNodeSoybean(obj,SizeRatio)
         allocate(obj%NodeSystem(obj%NumOfNode)%Stem(1) )
         call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
     endif
-
 
     ! add Peti
     if(obj%NumOfNode==1 .or. obj%NumOfNode==2)then
