@@ -1,1 +1,1 @@
-gfortran gnuplot.f95 inoput_gw2.f95 growthmod.f95 growth2.f95
+gfortran gnuplot.f90 inoput_gw2.f90 growthmod.f90 growth2.f90
