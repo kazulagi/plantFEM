@@ -91,6 +91,44 @@ jupyter-notebook
 
 （以上で、SiCroFのインストールに向けた環境構築が完了しました。）
 
+## Execute SiCroF
+
+SiCroF can be utilized by using;
+
+- Jupyter-notebook
+
+```
+cd ~/SiCroF
+jupyter-notebook
+```
+
+- Fortran 
+
+
+```
+cd ~/SiCroF
+python3 SiCroF.py
+```
+
+- Python
+
+```
+cd ~/SiCroF
+python NAME_OF_YOUR_SCRIPT.py
+```
+
+
+```NAME_OF_YOUR_SCRIPT.py
+
+import os
+import sys
+sys.path.append(./src/PySiCroFClass/SiCroF)
+
+# Please write your program in here
+
+```
+
+
 ## structure
 ![桜](doc/UML.png)
 
