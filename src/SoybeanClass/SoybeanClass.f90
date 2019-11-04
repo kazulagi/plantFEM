@@ -109,7 +109,7 @@ subroutine exportSoybean(obj,FilePath,FileName,SeedID)
     integer,optional,intent(inout) :: SeedID
     integer :: i,itr
 
-    itr=1
+    itr=SeedID
     ! if seed exists => output
     if(obj%Seed%num_of_seed>=0)then
         if(present(FileName) )then
@@ -150,6 +150,7 @@ subroutine exportSoybean(obj,FilePath,FileName,SeedID)
             exit
         endif
     enddo
+    SeedID=itr
 
 
 end subroutine
