@@ -19,18 +19,20 @@ contains
 subroutine initSeed(obj,mass,water_content,radius,location,x,y,z)
     class(Seed_),intent(inout) :: obj
     real(8),optional,intent(in) :: mass,water_content,radius,location(3),x,y,z
-    
+    real(8) :: loc(3)
+    loc(:)=0.0d0
+    if(present(location) )then
+        loc(:) = location(:)
+    endif 
     obj%num_of_seed = 1
     obj%mass = input(default=1.0d0,option=mass)
     obj%water_content = input(default=12.0d0,option=water_content)
     obj%radius = input(default=0.30d0,option=radius)
-    obj%location(:) = 0.0d0
-    obj%location(1) = input(default=0.0d0,option=x)
-    obj%location(2) = input(default=0.0d0,option=y)
-    obj%location(3) = input(default=0.0d0+obj%radius,option=z)
-    if(present(location) )then
-        obj%location(:) = location(:)
-    endif 
+    obj%location(:) = loc(:)
+    obj%location(1) = obj%location(1)+input(default=0.0d0,option=x)
+    obj%location(2) = obj%location(2)+input(default=0.0d0,option=y)
+    obj%location(3) = obj%location(3)+input(default=0.0d0+obj%radius,option=z)
+    
 
 end subroutine
 !########################################################
