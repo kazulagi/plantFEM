@@ -142,7 +142,7 @@ python3 SiCroF.py
 >>> ./Tutorial/CreateSoybean/soybean.f90
 
 ```
-![3-D Finite Element model of soybean seed.](./doc/a_seed.jpg)
+![3-D Finite Element model of soybean seed.](./doc/a_seed.png)
 
 
 Ex.2 :: 3-D Finite Element model of soybean seed sowed in a field.
@@ -156,7 +156,7 @@ python3 SiCroF.py
 >>> ./Tutorial/CreateSoybean/soybean.f90
 
 ```
-![3-D Finite Element model of soybean seed sowed in a field.](./doc/sowingseed.jpg)
+![3-D Finite Element model of soybean seed sowed in a field.](./doc/sowingseed.png)
 
 
 Ex.3 :: 3-D thermal diffusion simulation of a grass leaf.
