@@ -3,7 +3,7 @@ program main
     implicit none
 
     type(Soybean_),allocatable :: SoybeanField(:,:)
-    integer :: i,j,itr
+    integer :: i,j,itr,pl_id
     character(10) :: id
     real(8) :: iw1,iw2,dp,location(3)
     integer :: iw1_n,iw2_n
@@ -35,11 +35,12 @@ program main
     enddo
 
     ! Visualize soybean-field
-    itr = 0
+    itr = 1
+    pl_id=0
     do i=1,iw1_n
         do j=1,iw2_n
-            itr=itr+1
-            id=trim(  adjustl(fstring( itr ) ))
+            pl_id=pl_id+1
+            id=trim(  adjustl(fstring( pl_id ) ))
             print *, id
             call SoybeanField(i,j)%export(FileName="/home/haruka/test/seed"//trim(id)//".geo",SeedID=itr)
         enddo
