@@ -32,8 +32,6 @@ subroutine initSeed(obj,mass,water_content,radius,location,x,y,z)
     obj%location(1) = obj%location(1)+input(default=0.0d0,option=x)
     obj%location(2) = obj%location(2)+input(default=0.0d0,option=y)
     obj%location(3) = obj%location(3)+input(default=0.0d0+obj%radius,option=z)
-    
-
 end subroutine
 !########################################################
 
