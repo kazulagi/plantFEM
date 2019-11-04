@@ -60,12 +60,12 @@ subroutine initsoybean(obj,mass,water_content,radius,location,x,y,z,&
     ! setup seed
     call obj%Seed%init(mass,water_content,radius,location,x,y,z)
     ! setup primary node (plumule)
-    call obj%NodeSystem(1)%init(Stage=obj%Stage,Plantname="soybean")
+    call obj%NodeSystem(1)%init(Stage=obj%Stage,Plantname="soybean",location=location)
 
     ! setup primary node (radicle))
     MaxThickness=input(default=0.20d0,option=root_diameter_per_seed_radius)*obj%Seed%radius
     Maxwidth    =input(default=0.20d0,option=root_diameter_per_seed_radius)*obj%Seed%radius
-    call obj%RootSystem(1)%init(Plantname="soybean",Stage=obj%Stage,MaxThickness=MaxThickness,Maxwidth=Maxwidth)
+    call obj%RootSystem(1)%init(Plantname="soybean",Stage=obj%Stage,MaxThickness=MaxThickness,Maxwidth=Maxwidth,location=location)
 
 end subroutine
 ! ########################################
@@ -106,7 +106,7 @@ end subroutine
 subroutine exportSoybean(obj,FilePath,FileName,SeedID)
     class(Soybean_),intent(inout) :: obj
     character(*),optional,intent(in) :: FilePath,FileName
-    integer,optional,intent(in) :: SeedID
+    integer,optional,intent(inout) :: SeedID
     integer :: i,itr
 
     itr=1
