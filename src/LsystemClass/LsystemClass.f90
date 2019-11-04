@@ -201,8 +201,8 @@ subroutine initPeti(obj,Thickness,length,width,MaxThickness,Maxlength,Maxwidth,r
     obj%outer_normal_top(:) = Rotation3D(vector=obj%outer_normal_top,rotx=rotx,roty=roty,rotz=rotz)
 
     obj%center_bottom(:)=loc(:)
-    obj%center_top(:)=0.0d0
     obj%center_top(:) = obj%center_bottom(:) + obj%length*obj%outer_normal_bottom(:)
+
 
 end subroutine 
 ! ########################################
@@ -237,9 +237,11 @@ subroutine initStem(obj,Thickness,length,width,MaxThickness,Maxlength,Maxwidth,r
     obj%outer_normal_top(:) = Rotation3D(vector=obj%outer_normal_top,rotx=rotx,roty=roty,rotz=rotz)
 
     obj%center_bottom(:)=loc(:)
-    obj%center_top(:)=0.0d0
     obj%center_top(:) = obj%center_bottom(:) + obj%length*obj%outer_normal_bottom(:)
     
+
+    ! print 
+    print *, "Stem",obj%center_bottom(:),obj%center_top(:)
 
 
 end subroutine 
@@ -376,15 +378,13 @@ subroutine initNode(obj,PlantName,Stage,&
             obj%Peti(2)%pStem => obj%Stem(1)
 
             ! set direction of plumule
-            obj%Stem(1)%outer_normal_bottom(:)=0.0d0
-            obj%Stem(1)%outer_normal_bottom(1)=1.0d0
-            
-            obj%Stem(1)%outer_normal_top(:)=0.0d0
-            obj%Stem(1)%outer_normal_top(1)=1.0d0
-            
-            obj%Stem(1)%center_bottom(:)=loc(:)
-            obj%Stem(1)%center_top(:)=0.0d0
-            obj%Stem(1)%center_top(:) = obj%Stem(1)%center_bottom(:) + obj%Stem(1)%length*obj%Stem(1)%outer_normal_bottom(:)
+            !obj%Stem(1)%outer_normal_bottom(:)=0.0d0
+            !obj%Stem(1)%outer_normal_bottom(1)=1.0d0
+            !obj%Stem(1)%outer_normal_top(:)=0.0d0
+            !obj%Stem(1)%outer_normal_top(1)=1.0d0
+            !obj%Stem(1)%center_bottom(:)=loc(:)
+            !obj%Stem(1)%center_top(:)=0.0d0
+            !obj%Stem(1)%center_top(:) = obj%Stem(1)%center_bottom(:) + obj%Stem(1)%length*obj%Stem(1)%outer_normal_bottom(:)
 
             return
         else
@@ -457,7 +457,8 @@ subroutine exportRoot(obj,FileName,RootID)
     write(12,'(A)') 'SetFactory("OpenCASCADE");'
     write(12,*) "Cylinder(",input(default=1,option=RootID),") = {",&
     obj%center_bottom(1),",", obj%center_bottom(2),",", obj%center_bottom(3),",",&
-    obj%center_top(1),",", obj%center_top(2),",", obj%center_top(3),",",&
+    obj%center_top(1)-obj%center_bottom(1),",", obj%center_top(2)-obj%center_bottom(2),",",&
+     obj%center_top(3)-obj%center_bottom(3),",",&
     radius,", 2*Pi};"
     close(12)
     RootID=RootID+1
@@ -480,7 +481,8 @@ subroutine exportStem(obj,FileName,StemID)
     write(13,'(A)') 'SetFactory("OpenCASCADE");'
     write(13,*) "Cylinder(",input(default=1,option=StemID),") = {",&
     obj%center_bottom(1),",", obj%center_bottom(2),",", obj%center_bottom(3),",",&
-    obj%center_top(1),",", obj%center_top(2),",", obj%center_top(3),",",&
+    obj%center_top(1)-obj%center_bottom(1),",", obj%center_top(2)-obj%center_bottom(2),",",&
+     obj%center_top(3)-obj%center_bottom(3),",",&
     radius,", 2*Pi};"
     close(13)
     StemID=StemID+1
@@ -502,7 +504,8 @@ subroutine exportPeti(obj,FileName,PetiID)
     write(14,'(A)') 'SetFactory("OpenCASCADE");'
     write(14,*) "Cylinder(",input(default=1,option=PetiID),") = {",&
     obj%center_bottom(1),",", obj%center_bottom(2),",", obj%center_bottom(3),",",&
-    obj%center_top(1),",", obj%center_top(2),",", obj%center_top(3),",",&
+    obj%center_top(1)-obj%center_bottom(1),",", obj%center_top(2)-obj%center_bottom(2),",",&
+     obj%center_top(3)-obj%center_bottom(3),",",&
     radius,", 2*Pi};"
     close(14)
     PetiID=petiID+1
