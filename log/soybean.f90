@@ -11,7 +11,7 @@ program main
     ! Plant Soybeans on Field
     do i=1,1
         do j=1,1
-            call SoybeanField(i,j)%sowing(x=dble(i),y=dble(j) )
+            call SoybeanField(i,j)%sowing()
         enddo
     enddo
 
@@ -22,7 +22,7 @@ program main
             itr=itr+1
             id=trim(  adjustl(fstring( itr ) ))
             print *, id
-            !call SoybeanField(i,j)%export(FileName="/home/haruka/test/seed"//trim(id)//".geo",SeedID=itr )
+            call SoybeanField(i,j)%export(FileName="/home/haruka/test/seed"//trim(id)//".geo",SeedID=itr )
         enddo
     enddo
 
