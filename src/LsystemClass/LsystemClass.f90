@@ -1,4 +1,5 @@
 module LsystemClass
+    use KinematicClass
     use PreprocessingClass
 
 
@@ -135,57 +136,97 @@ module LsystemClass
 contains
 
 ! ########################################
-subroutine initLeaf(obj,Thickness,length,width,ShapeFactor,MaxThickness,Maxlength,Maxwidth)
+subroutine initLeaf(obj,Thickness,length,width,ShapeFactor,MaxThickness,Maxlength,Maxwidth,rotx,roty,rotz)
     class(leaf_),intent(inout) :: obj
     real(8),optional,intent(in) :: Thickness,length,width,ShapeFactor
     real(8),optional,intent(in) :: MaxThickness,Maxlength,Maxwidth
-
+    real(8),optional,intent(in)::  rotx,roty,rotz
 
     obj%ShapeFactor = input(default=0.30d0  ,option= ShapeFactor  ) 
-    obj%Thickness   = input(default=0.0010d0,option= Thickness     )
-    obj%length      = input(default=0.0010d0,option= length      )
-    obj%width       = input(default=0.0010d0,option= width)
+    obj%Thickness   = input(default=0.10d0,option= Thickness     )
+    obj%length      = input(default=0.10d0,option= length      )
+    obj%width       = input(default=0.10d0,option= width)
 
     obj%MaxThickness   = input(default=0.10d0  ,option= MaxThickness     )
     obj%Maxlength      = input(default=10.0d0  ,option= Maxlength      )
     obj%Maxwidth       = input(default=2.0d0   ,option= Maxwidth)
 
+    obj%outer_normal_bottom(:)=0.0d0
+    obj%outer_normal_bottom(1)=1.0d0
+
+    obj%outer_normal_top(:)=0.0d0
+    obj%outer_normal_top(1)=1.0d0
+
+    ! rotate
+    obj%outer_normal_Bottom(:) = Rotation3D(vector=obj%outer_normal_bottom,rotx=rotx,roty=roty,rotz=rotz)
+    obj%outer_normal_top(:) = Rotation3D(vector=obj%outer_normal_top,rotx=rotx,roty=roty,rotz=rotz)
+
+    obj%center_bottom(:)=0.0d0
+    obj%center_top(:) = obj%center_bottom(:) + obj%length*obj%outer_normal_bottom(:)
+    
 
 end subroutine 
 ! ########################################
 
 
 ! ########################################
-subroutine initPeti(obj,Thickness,length,width,MaxThickness,Maxlength,Maxwidth)
+subroutine initPeti(obj,Thickness,length,width,MaxThickness,Maxlength,Maxwidth,rotx,roty,rotz)
     class(Peti_),intent(inout) :: obj
     real(8),optional,intent(in)::  Thickness,length,width
     real(8),optional,intent(in)::  MaxThickness,Maxlength,Maxwidth
+    real(8),optional,intent(in)::  rotx,roty,rotz
 
-    obj%Thickness   = input(default=0.0010d0,option= Thickness     )
-    obj%length      = input(default=0.0010d0,option= length      )
-    obj%width       = input(default=0.0010d0,option= width)
+    obj%Thickness   = input(default=0.010d0,option= Thickness     )
+    obj%length      = input(default=0.050d0,option= length      )
+    obj%width       = input(default=0.010d0,option= width)
 
     obj%MaxThickness   = input(default=0.50d0  ,option= MaxThickness     )
     obj%Maxlength      = input(default=10.0d0  ,option= Maxlength      )
     obj%Maxwidth       = input(default=0.50d0  ,option= Maxwidth)
 
+    obj%outer_normal_bottom(:)=0.0d0
+    obj%outer_normal_bottom(1)=1.0d0
+    obj%outer_normal_top(:)=0.0d0
+    obj%outer_normal_top(1)=1.0d0
+    ! rotate
+    obj%outer_normal_Bottom(:) = Rotation3D(vector=obj%outer_normal_bottom,rotx=rotx,roty=roty,rotz=rotz)
+    obj%outer_normal_top(:) = Rotation3D(vector=obj%outer_normal_top,rotx=rotx,roty=roty,rotz=rotz)
+
+    obj%center_bottom(:)=0.0d0
+    obj%center_top(:)=0.0d0
+    obj%center_top(:) = obj%center_bottom(:) + obj%length*obj%outer_normal_bottom(:)
+
 end subroutine 
 ! ########################################
 
 
 ! ########################################
-subroutine initStem(obj,Thickness,length,width,MaxThickness,Maxlength,Maxwidth)
+subroutine initStem(obj,Thickness,length,width,MaxThickness,Maxlength,Maxwidth,rotx,roty,rotz)
     class(Stem_),intent(inout) :: obj
     real(8),optional,intent(in)::  Thickness,length,width
     real(8),optional,intent(in)::  MaxThickness,Maxlength,MaxWidth
-
-    obj%Thickness   = input(default=0.0010d0,option= Thickness     )
-    obj%length      = input(default=0.2500d0,option= length      )
-    obj%width       = input(default=0.0010d0,option= width)
+    real(8),optional,intent(in)::  rotx,roty,rotz
+    obj%Thickness   = input(default=0.010d0,option= Thickness     )
+    obj%length      = input(default=0.050d0,option= length      )
+    obj%width       = input(default=0.010d0,option= width)
 
     obj%MaxThickness   = input(default=0.50d0  ,option=MaxThickness      )
     obj%Maxlength      = input(default=10.0d0  ,option=Maxlength       )
     obj%Maxwidth       = input(default=0.50d0  ,option=Maxwidth )
+
+    obj%outer_normal_bottom(:)=0.0d0
+    obj%outer_normal_bottom(1)=1.0d0
+    obj%outer_normal_top(:)=0.0d0
+    obj%outer_normal_top(1)=1.0d0
+    ! rotate
+    obj%outer_normal_Bottom(:) = Rotation3D(vector=obj%outer_normal_bottom,rotx=rotx,roty=roty,rotz=rotz)
+    obj%outer_normal_top(:) = Rotation3D(vector=obj%outer_normal_top,rotx=rotx,roty=roty,rotz=rotz)
+
+    obj%center_bottom(:)=0.0d0
+    obj%center_top(:)=0.0d0
+    obj%center_top(:) = obj%center_bottom(:) + obj%length*obj%outer_normal_bottom(:)
+    
+
 
 end subroutine 
 ! ########################################
@@ -241,6 +282,10 @@ subroutine InitLsystem(obj,InObj,MaxSize)
     integer,optional,intent(in)::MaxSize
     integer :: n
 
+    ! Regacy version 
+
+
+
     !if(prent(InObj) )then
     !    ! copy object
     !    obj=InObj
@@ -274,7 +319,7 @@ subroutine initNode(obj,PlantName,Stage,&
     real(8),optional,intent(in) :: MaxStemThickness,MaxStemlength,MaxStemwidth
 
     if(trim(PlantName) == "soybean" .or. trim(PlantName) == "Soybean")then
-        if(Stage == "EV")then
+        if(Stage == "VE")then
             allocate(obj%Leaf(2) )
             allocate(obj%Peti(2) )
             allocate(obj%Flower(0) )
@@ -336,13 +381,13 @@ subroutine initRoot(obj,PlantName,Stage,&
     real(8),optional,intent(in) :: MaxThickness,Maxlength,Maxwidth
 
     if(trim(PlantName) == "soybean" .or. trim(PlantName) == "Soybean")then
-        if(Stage == "EV")then
+        if(Stage == "VE")then
             
 
             ! initialize 
-            obj%Thickness   = input(default=0.0010d0,option= Thickness     )
-            obj%length      = input(default=0.250d0,  option= length      )
-            obj%width       = input(default=0.0010d0,option= width)
+            obj%Thickness   = input(default=0.010d0,option= Thickness     )
+            obj%length      = input(default=0.050d0,  option= length      )
+            obj%width       = input(default=0.010d0,option= width)
         
             obj%MaxThickness   = input(default=0.50d0  ,option=MaxThickness      )
             obj%Maxlength      = input(default=10.0d0  ,option=Maxlength       )
@@ -374,7 +419,7 @@ end subroutine
 subroutine exportRoot(obj,FileName,RootID)
     class(Root_),intent(in)::obj
     character(*),intent(in) :: FileName
-    integer,optional,intent(in) :: RootID
+    integer,optional,intent(inout) :: RootID
     real(8) :: radius    
     radius=0.50d0*obj%width+0.50d0*obj%Thickness
     open(12,file=FileName)
@@ -382,10 +427,10 @@ subroutine exportRoot(obj,FileName,RootID)
     write(12,'(A)') 'SetFactory("OpenCASCADE");'
     write(12,*) "Cylinder(",input(default=1,option=RootID),") = {",&
     obj%center_bottom(1),",", obj%center_bottom(2),",", obj%center_bottom(3),",",&
-    obj%outer_normal_bottom(1),",", obj%outer_normal_bottom(2),",", obj%outer_normal_bottom(3),",",&
+    obj%center_top(1),",", obj%center_top(2),",", obj%center_top(3),",",&
     radius,", 2*Pi};"
     close(12)
-
+    RootID=RootID+1
 end subroutine
 ! ########################################
 
@@ -394,9 +439,10 @@ end subroutine
 subroutine exportStem(obj,FileName,StemID)
     class(Stem_),intent(in)::obj
     character(*),intent(in) :: FileName
-    integer,optional,intent(in) :: StemID
+    integer,optional,intent(inout) :: StemID
     real(8) :: radius
 
+    
     radius=0.50d0*obj%width+0.50d0*obj%Thickness
     
     open(13,file=FileName)
@@ -404,9 +450,10 @@ subroutine exportStem(obj,FileName,StemID)
     write(13,'(A)') 'SetFactory("OpenCASCADE");'
     write(13,*) "Cylinder(",input(default=1,option=StemID),") = {",&
     obj%center_bottom(1),",", obj%center_bottom(2),",", obj%center_bottom(3),",",&
-    obj%outer_normal_bottom(1),",", obj%outer_normal_bottom(2),",", obj%outer_normal_bottom(3),",",&
+    obj%center_top(1),",", obj%center_top(2),",", obj%center_top(3),",",&
     radius,", 2*Pi};"
     close(13)
+    StemID=StemID+1
 
 end subroutine
 ! ########################################
@@ -416,7 +463,7 @@ end subroutine
 subroutine exportPeti(obj,FileName,PetiID)
     class(Peti_),intent(in)::obj
     character(*),intent(in) :: FileName
-    integer,optional,intent(in) :: PetiID
+    integer,optional,intent(inout) :: PetiID
     real(8) :: radius
     
     radius=0.50d0*obj%width+0.50d0*obj%Thickness
@@ -425,9 +472,11 @@ subroutine exportPeti(obj,FileName,PetiID)
     write(14,'(A)') 'SetFactory("OpenCASCADE");'
     write(14,*) "Cylinder(",input(default=1,option=PetiID),") = {",&
     obj%center_bottom(1),",", obj%center_bottom(2),",", obj%center_bottom(3),",",&
-    obj%outer_normal_bottom(1),",", obj%outer_normal_bottom(2),",", obj%outer_normal_bottom(3),",",&
+    obj%center_top(1),",", obj%center_top(2),",", obj%center_top(3),",",&
     radius,", 2*Pi};"
     close(14)
+    PetiID=petiID+1
+
 
 end subroutine
 ! ########################################
@@ -436,41 +485,48 @@ end subroutine
 
 
 ! ########################################
-subroutine exportNode(obj,FileName,NodeID)
+subroutine exportNode(obj,FileName,NodeID,ObjID)
     class(Node_),intent(in) :: obj
     character(*),optional,intent(in) :: FileName
     integer :: i,max_num_of_peti_per_node,n
     integer,intent(in) :: NodeID
+    integer,intent(inout) :: objID
 
     max_num_of_peti_per_node=5
 
     do i=1,size(obj%Stem,1)
-        call obj%Stem(i)%export(FileName= "Stem_"//trim(adjustl(fstring(i)))//FileName,StemID=i)
+        call obj%Stem(i)%export(FileName=FileName//"_Stem"//trim(adjustl(fstring(i)))//".geo",StemID=objID)
     enddo
 
     do i=1,size(obj%Peti,1)
         n=max_num_of_peti_per_node*(NodeID-1)+i
-        call obj%Peti(i)%export(FileName="Peti_"//trim(adjustl(fstring(i)))//FileName,PetiID=n)
+        call obj%Peti(i)%export(FileName=FileName//"_Peti"//trim(adjustl(fstring(i)))//".geo",PetiID=ObjID)
     enddo
-   
+
+
 end subroutine
 ! ########################################
 
 
 ! ########################################
-subroutine exportNodeSystem(obj,FilePath,FileName)
+subroutine exportNodeSystem(obj,FilePath,FileName,ObjID)
     class(NodeSystem_),intent(in) :: obj
+    integer,intent(inout) :: objID
 
     ! export stem
     character(*),optional,intent(in) :: FilePath,FileName
     integer :: i
     do i=1,size(obj%NodeSystem)
+
         if(present(FileName) )then
-            call obj%NodeSystem(i)%export(FileName="Node_"//trim(FileName),NodeID=i)
+            call obj%NodeSystem(i)%export(FileName="Node_"//trim(FileName),objID=ObjID)
         elseif(present(FilePath) )then
-            call obj%NodeSystem(i)%export(FileName=trim(FilePath)//"/Node.geo",NodeID=i)
+            call obj%NodeSystem(i)%export(FileName=trim(FilePath)//"/Node.geo",objID=objID)
         else
-            call obj%NodeSystem(i)%export(FileName="/Node.geo",NodeID=i)
+            call obj%NodeSystem(i)%export(FileName="/Node.geo",objID=objID)
+        endif
+        if(i==obj%num_of_node  )then
+            return
         endif
     enddo
     
@@ -480,18 +536,19 @@ end subroutine
 ! ########################################
 
 ! ########################################
-subroutine exportRootSystem(obj,FilePath,FileName)
+subroutine exportRootSystem(obj,FilePath,FileName,objID)
     class(RootSystem_),intent(in) :: obj
     character(*),optional,intent(in) :: FilePath,FileName
+    integer,intent(inout) :: objID
     integer :: i
     do i=1,size(obj%RootSystem)
 
         if(present(FileName) )then
-            call obj%RootSystem(i)%export(FileName="Root_"//trim(FileName),RootID=i)
+            call obj%RootSystem(i)%export(FileName="Root_"//trim(FileName),RootID=objID)
         elseif(present(FilePath) )then
-            call obj%RootSystem(i)%export(FileName=trim(FilePath)//"/Root.geo",RootID=i)
+            call obj%RootSystem(i)%export(FileName=trim(FilePath)//"/Root.geo",RootID=objID)
         else
-            call obj%RootSystem(i)%export(FileName="/Root.geo",RootID=i)
+            call obj%RootSystem(i)%export(FileName="/Root.geo",RootID=objID)
         endif
         if(i==obj%num_of_root  )then
             return

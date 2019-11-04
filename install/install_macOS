@@ -68,6 +68,13 @@ echo "Compiling ./src/MathClass/MathClass.f90   "
 echo " >> MathClass.o"
 echo " | #                           | (2%)\r\c "
 mpifort -c ./src/MathClass/MathClass.f90 -o  ./inc/MathClass.o
+
+echo "Compiling ./src/KinematicClass/KinematicClass.f90   "
+echo " >> KinematicClass.o"
+echo " | #                           | (2%)\r\c "
+mpifort -c ./src/KinematicClass/KinematicClass.f90 -o  ./inc/KinematicClass.o
+echo "Compiling ./src/RandomClass/RandomClass.f90   "
+
 echo "Compiling ./src/RandomClass/RandomClass.f90   "
 echo " >> RandomClass.o"
 echo " | #                           | (2%)\r\c "

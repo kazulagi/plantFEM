@@ -61,6 +61,7 @@ subroutine initsoybean(obj,mass,water_content,radius,location,x,y,z,&
     call obj%Seed%init(mass,water_content,radius,location,x,y,z)
     ! setup primary node (plumule)
     call obj%NodeSystem(1)%init(Stage=obj%Stage,Plantname="soybean")
+
     ! setup primary node (radicle))
     MaxThickness=input(default=0.20d0,option=root_diameter_per_seed_radius)*obj%Seed%radius
     Maxwidth    =input(default=0.20d0,option=root_diameter_per_seed_radius)*obj%Seed%radius
@@ -90,7 +91,7 @@ subroutine growSoybean(obj,dt)
 
     elseif(obj%Stage=="CV" )then
         ! CV stage
-    elseif(obj%Stage=="R1")then
+    elseif(obj%Stage(1:1)=="R")then
         ! Reproductive Stage
     else
         ! Vagetative
@@ -106,46 +107,51 @@ subroutine exportSoybean(obj,FilePath,FileName,SeedID)
     class(Soybean_),intent(inout) :: obj
     character(*),optional,intent(in) :: FilePath,FileName
     integer,optional,intent(in) :: SeedID
-    integer :: i
+    integer :: i,itr
 
-
+    itr=1
     ! if seed exists => output
     if(obj%Seed%num_of_seed>=0)then
         if(present(FileName) )then
-            call obj%Seed%export(FileName=trim(FileName),SeedID=SeedID)
+            call obj%Seed%export(FileName=trim(FileName),SeedID=itr)
         elseif(present(FilePath) )then
-            call obj%Seed%export(FileName=trim(FilePath)//"/seed.geo",SeedID=SeedID)
+            call obj%Seed%export(FileName=trim(FilePath)//"/seed.geo",SeedID=itr)
         else
-            call obj%Seed%export(FileName="/seed.geo",SeedID=SeedID)
+            call obj%Seed%export(FileName="/seed.geo",SeedID=itr)
         endif
     endif
 
+    itr=itr+1
     ! export NodeSystem
     do i=1,size(obj%NodeSystem)
         if(present(FileName) )then
-            call obj%NodeSystem(i)%export(FileName="Node_"//trim(FileName),NodeID=i)
+            call obj%NodeSystem(i)%export(FileName=trim(FileName)//"_Node.geo",objID=itr)
         elseif(present(FilePath) )then
-            call obj%NodeSystem(i)%export(FileName=trim(FilePath)//"/Node.geo",NodeID=i)
+            call obj%NodeSystem(i)%export(FileName=trim(FilePath)//"/Node.geo",objID=itr)
         else
-            call obj%NodeSystem(i)%export(FileName="/Node.geo",NodeID=i)
+            call obj%NodeSystem(i)%export(FileName="./Node.geo",objID=itr)
+        endif
+        if(i==obj%num_of_node  )then
+            exit
         endif
     enddo
-    
 
+    
     ! export RootSystem
     do i=1,size(obj%RootSystem)
-
         if(present(FileName) )then
-            call obj%RootSystem(i)%export(FileName="Root_"//trim(FileName),RootID=i)
+            call obj%RootSystem(i)%export(FileName=trim(FileName)//"_Root.geo",RootID=itr)
         elseif(present(FilePath) )then
-            call obj%RootSystem(i)%export(FileName=trim(FilePath)//"/Root.geo",RootID=i)
+            call obj%RootSystem(i)%export(FileName=trim(FilePath)//"/Root.geo",RootID=itr)
         else
-            call obj%RootSystem(i)%export(FileName="/Root.geo",RootID=i)
+            call obj%RootSystem(i)%export(FileName="./Root.geo",RootID=i)
         endif
         if(i==obj%num_of_root  )then
-            return
+            exit
         endif
     enddo
+
+
 end subroutine
 ! ########################################
 
