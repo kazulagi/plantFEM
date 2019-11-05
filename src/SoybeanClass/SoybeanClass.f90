@@ -1,7 +1,7 @@
 module SoybeanClass
     use MathClass
     use SeedClass
-    use LsystemClass
+    use PlantNodeClass
     implicit none
     
     type :: soybean_
@@ -12,8 +12,8 @@ module SoybeanClass
         integer :: Num_Of_Root
         character(2) :: Stage ! VE, CV, V1,V2, ..., R1, R2, ..., R8
         type(Seed_) :: Seed
-        type(Node_),allocatable :: NodeSystem(:)
-        type(Root_),allocatable :: RootSystem(:)
+        type(PlantNode_),allocatable :: NodeSystem(:)
+        type(PlantRoot_),allocatable :: RootSystem(:)
     contains
         procedure,public :: Init => initsoybean
         procedure,public :: sowing => initsoybean
@@ -38,22 +38,22 @@ contains
 
 ! ########################################
 subroutine initsoybean(obj,mass,water_content,radius,location,x,y,z,&
-    root_diameter_per_seed_radius,max_node_num)
+    PlantRoot_diameter_per_seed_radius,max_PlantNode_num)
     class(Soybean_),intent(inout) :: obj
     real(8),optional,intent(in) :: mass,water_content,radius,location(3),x,y,z
-    real(8),optional,intent(in) :: root_diameter_per_seed_radius
-    integer,optional,intent(in) :: max_node_num
+    real(8),optional,intent(in) :: PlantRoot_diameter_per_seed_radius
+    integer,optional,intent(in) :: max_PlantNode_num
     real(8) :: MaxThickness,Maxwidth
 
     obj%Stage = "VE"
 
     ! initialize RootSystem and NodeSystem
     if(.not.allocated( obj%RootSystem) )then
-        allocate(obj%RootSystem( input(default=1000,option=max_node_num) ) ) 
+        allocate(obj%RootSystem( input(default=1000,option=max_PlantNode_num) ) ) 
         obj%num_of_root=1
     endif
     if(.not.allocated( obj%NodeSystem) )then
-        allocate(obj%NodeSystem( input(default=1000,option=max_node_num) ) ) 
+        allocate(obj%NodeSystem( input(default=1000,option=max_PlantNode_num) ) ) 
         obj%num_of_node=1
     endif
 
@@ -63,8 +63,8 @@ subroutine initsoybean(obj,mass,water_content,radius,location,x,y,z,&
     call obj%NodeSystem(1)%init(Stage=obj%Stage,Plantname="soybean",location=location)
 
     ! setup primary node (radicle))
-    MaxThickness=input(default=0.20d0,option=root_diameter_per_seed_radius)*obj%Seed%radius
-    Maxwidth    =input(default=0.20d0,option=root_diameter_per_seed_radius)*obj%Seed%radius
+    MaxThickness=input(default=0.20d0,option=PlantRoot_diameter_per_seed_radius)*obj%Seed%radius
+    Maxwidth    =input(default=0.20d0,option=PlantRoot_diameter_per_seed_radius)*obj%Seed%radius
     call obj%RootSystem(1)%init(Plantname="soybean",Stage=obj%Stage,MaxThickness=MaxThickness,Maxwidth=Maxwidth,location=location)
 
 end subroutine
