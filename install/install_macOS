@@ -158,6 +158,53 @@ echo "Compiling ./src/PreProcessingClass/PreProcessingClass.f90"
 echo " >> PreProcessingClass.o "
 echo " | ##############              | (65%)\r\c"
 mpifort -c ./src/PreProcessingClass/PreProcessingClass.f90 -o  ./inc/PreProcessingClass.o
+
+
+
+echo "Compiling ./src/StemClass/StemClass.f90" 
+echo " >> StemClass.o "
+echo " | ##############              | (65%)\r\c"
+mpifort -c ./src/StemClass/StemClass.f90 -o  ./inc/StemClass.o
+
+echo "Compiling ./src/PlantRootClass/PlantRootClass.f90" 
+echo " >> PlantRootClass.o "
+echo " | ##############              | (65%)\r\c"
+mpifort -c ./src/PlantRootClass/PlantRootClass.f90 -o  ./inc/PlantRootClass.o
+
+echo "Compiling ./src/PetiClass/PetiClass.f90" 
+echo " >> PetiClass.o "
+echo " | ##############              | (65%)\r\c"
+mpifort -c ./src/PetiClass/PetiClass.f90 -o  ./inc/PetiClass.o
+
+echo "Compiling ./src/PodClass/PodClass.f90" 
+echo " >> PodClass.o "
+echo " | ##############              | (65%)\r\c"
+mpifort -c ./src/PodClass/PodClass.f90 -o  ./inc/PodClass.o
+
+echo "Compiling ./src/FlowerClass/FlowerClass.f90" 
+echo " >> FlowerClass.o "
+echo " | ##############              | (65%)\r\c"
+mpifort -c ./src/FlowerClass/FlowerClass.f90 -o  ./inc/FlowerClass.o
+
+
+echo "Compiling ./src/PanicleClass/PanicleClass.f90" 
+echo " >> PanicleClass.o "
+echo " | ##############              | (65%)\r\c"
+mpifort -c ./src/PanicleClass/PanicleClass.f90 -o  ./inc/PanicleClass.o
+
+
+echo "Compiling ./src/LeafClass/LeafClass.f90" 
+echo " >> LeafClass.o "
+echo " | ##############              | (65%)\r\c"
+mpifort -c ./src/LeafClass/LeafClass.f90 -o  ./inc/LeafClass.o
+
+
+echo "Compiling ./src/PlantNodeClass/PlantNodeClass.f90" 
+echo " >> PlantNodeClass.o "
+echo " | ##############              | (65%)\r\c"
+mpifort -c ./src/PlantNodeClass/PlantNodeClass.f90 -o  ./inc/PlantNodeClass.o
+
+
 echo "Compiling ./src/LsystemClass/LsystemClass.f90" 
 echo " >> LsystemClass.o "
 echo " | ##############              | (65%)\r\c"
