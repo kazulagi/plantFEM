@@ -43,9 +43,27 @@ subroutine initsoybean(obj,mass,water_content,radius,location,x,y,z,&
     real(8),optional,intent(in) :: mass,water_content,radius,location(3),x,y,z
     real(8),optional,intent(in) :: PlantRoot_diameter_per_seed_radius
     integer,optional,intent(in) :: max_PlantNode_num
-    real(8) :: MaxThickness,Maxwidth
+    real(8) :: MaxThickness,Maxwidth,loc(3)
 
     obj%Stage = "VE"
+
+    loc(:)=0.0d0
+
+    if(present(x) )then
+        loc(1)=x
+    endif
+
+    if(present(y) )then
+        loc(2)=y
+    endif
+
+    if(present(z) )then
+        loc(3)=z
+    endif
+
+    if(present(location) )then
+        loc(:)=location(:)    
+    endif
 
     ! initialize RootSystem and NodeSystem
     if(.not.allocated( obj%RootSystem) )then
@@ -58,14 +76,14 @@ subroutine initsoybean(obj,mass,water_content,radius,location,x,y,z,&
     endif
 
     ! setup seed
-    call obj%Seed%init(mass,water_content,radius,location,x,y,z)
+    call obj%Seed%init(mass=mass,water_content=water_content,radius=radius,location=loc)
     ! setup primary node (plumule)
-    call obj%NodeSystem(1)%init(Stage=obj%Stage,Plantname="soybean",location=location)
+    call obj%NodeSystem(1)%init(Stage=obj%Stage,Plantname="soybean",location=loc)
 
     ! setup primary node (radicle))
     MaxThickness=input(default=0.20d0,option=PlantRoot_diameter_per_seed_radius)*obj%Seed%radius
     Maxwidth    =input(default=0.20d0,option=PlantRoot_diameter_per_seed_radius)*obj%Seed%radius
-    call obj%RootSystem(1)%init(Plantname="soybean",Stage=obj%Stage,MaxThickness=MaxThickness,Maxwidth=Maxwidth,location=location)
+    call obj%RootSystem(1)%init(Plantname="soybean",Stage=obj%Stage,MaxThickness=MaxThickness,Maxwidth=Maxwidth,location=loc)
 
 end subroutine
 ! ########################################
