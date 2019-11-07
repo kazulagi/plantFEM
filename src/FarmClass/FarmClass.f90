@@ -19,36 +19,11 @@ module FarmClass
         real(8) :: locale(2)
         
         real(8) :: Water_kg
-
-        ! ================
-        ! Nutorient
-        !------------
-        real(8) :: N_kg
-        real(8) :: P_kg
-        real(8) :: K_kg
-        real(8) :: Ca_kg
-        real(8) :: Mg_kg
-        real(8) :: S_kg
-        !------------
-        real(8) :: Fe_kg
-        real(8) :: Mn_kg
-        real(8) :: B_kg
-        real(8) :: Zn_kg
-        real(8) :: Mo_kg
-        real(8) :: Cu_kg
-        real(8) :: Cl_kg
-        ! ================
-
-        
-        ! ================
-        ! Soil phyisical parameters
-        real(8) :: C_N_ratio
-        real(8) :: EC
-        ! ================
-
     contains
         procedure :: init => initFarm
         procedure :: sowing => initFarm
+        procedure :: fertilize => fertilizeFarm
+        procedure :: diagnosis => diagnosisFarm
         procedure :: export => exportFarm
     end type
 
@@ -150,6 +125,34 @@ subroutine initFarm(obj,crop_name,num_of_ridge, num_of_plant_per_ridge,width_of_
 end subroutine
 ! ############################################
 
+
+! ############################################
+subroutine fertilizeFarm(obj,N_kg,P_kg,K_kg,Ca_kg,Mg_kg,S_kg,Fe_kg,&
+    Mn_kg,B_kg,Zn_kg,Mo_kg,Cu_kg,Cl_kg)
+    class(Farm_),intent(inout) :: obj
+    ! ================
+    real(8),optional,intent(in) :: N_kg
+    real(8),optional,intent(in) :: P_kg
+    real(8),optional,intent(in) :: K_kg
+    real(8),optional,intent(in) :: Ca_kg
+    real(8),optional,intent(in) :: Mg_kg
+    real(8),optional,intent(in) :: S_kg
+    ! ================
+    real(8),optional,intent(in) :: Fe_kg
+    real(8),optional,intent(in) :: Mn_kg
+    real(8),optional,intent(in) :: B_kg
+    real(8),optional,intent(in) :: Zn_kg
+    real(8),optional,intent(in) :: Mo_kg
+    real(8),optional,intent(in) :: Cu_kg
+    real(8),optional,intent(in) :: Cl_kg
+    ! ================
+
+    call obj%Soil%fertilize(N_kg,P_kg,K_kg,Ca_kg,Mg_kg,S_kg,Fe_kg,&
+    Mn_kg,B_kg,Zn_kg,Mo_kg,Cu_kg,Cl_kg)
+
+end subroutine
+! ############################################
+
 ! ############################################
 subroutine exportFarm(obj,FilePath)
     class(Farm_),intent(inout)::obj
@@ -168,15 +171,26 @@ subroutine exportFarm(obj,FilePath)
         do j=1,obj%num_of_plant_per_ridge
             plant_id = plant_id + 1
             id=trim(  adjustl(fstring( plant_id ) ))
-            print *, id
             call obj%soybean(i,j)%export(FileName=FilePath//trim(id)//".geo",SeedID=obj_id )
         enddo
     enddo
+    print *, "Total "//trim(id)//" plants are exported."
 
     ! export soil
     call obj%soil%export(FileName=FilePath//trim(id)//".geo.soil.geo",format=".geo",objID=obj_id)
 
 end subroutine
 ! ############################################
+
+! ########################################
+subroutine diagnosisFarm(obj,FileName)
+    class(Farm_),intent(inout) :: obj
+    character(*),optional,intent(in)::FileName
+
+    call obj%Soil%diagnosis(FileName=FileName)
+
+end subroutine
+! ########################################
+
 
 end module 
