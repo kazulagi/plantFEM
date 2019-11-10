@@ -145,6 +145,23 @@ python3 SiCroF.py
 ![3-D Finite Element model of soybean seed.](./doc/a_seed.png)
 
 
+Ex.1-1 :: More realistic 3-D Finite Element model of soybean seed.
+
+```command
+
+python3 SiCroF.py
+
+>>> install
+
+>>> ./Tutorial/CreateSoybean/realShapeSeed.f90
+
+```
+![more realistic 3-D Finite Element model of soybean seed.](./doc/realistic_soybeans.jpg)
+
+
+
+
+
 Ex.2 :: 3-D Finite Element model of soybean seed sowed in a field.
 
 ```command

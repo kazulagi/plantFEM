@@ -12,6 +12,7 @@ module PreprocessingClass
     
     type :: PreProcessing_
         type(FEMDomain_) :: FEMDomain
+        type(FEMDomain_),pointer :: pFEMDomain
         character*200   :: PictureName
         character*200   :: RGBDataName,PixcelSizeDataName
         integer         :: PixcelSize(2),num_of_pixcel
@@ -686,29 +687,29 @@ subroutine ReduceSize(obj,MPIData,interval,Name)
     character*200   :: python_buffer
     character*20    :: pid
     real(8),allocatable:: buffer(:,:)
-    integer,allocatable:: selected(:)
+    integer,allocatable:: chosen(:)
     integer :: i,j,k,n,m,fh
 
     n=size(obj%FEMDomain%Mesh%NodCoord,1)  
     m=size(obj%FEMDomain%Mesh%NodCoord,2)   
-    allocate(selected(n) )
-    selected(:)=0
+    allocate(chosen(n) )
+    chosen(:)=0
     k=0
     do i=1,n
         k=k+1
         if(k==interval)then
-            selected(i)=1
+            chosen(i)=1
             k=0
         else
             cycle
         endif 
     enddo
 
-    allocate(buffer( sum(selected),3 ))
+    allocate(buffer( sum(chosen),3 ))
 
     k=0
     do i=1,n
-        if(selected(i)==1 )then
+        if(chosen(i)==1 )then
             k=k+1
             buffer(k,:)= obj%FEMDomain%Mesh%NodCoord(i,:)
         endif

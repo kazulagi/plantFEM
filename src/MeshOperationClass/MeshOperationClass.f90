@@ -28,9 +28,12 @@ module MeshOperationClass
         procedure :: Init => InitializeMesh
         procedure :: Delete => DeallocateMesh
         procedure :: Copy => CopyMesh
+        procedure :: import => importMeshObj 
         procedure :: ImportElemNod => ImportElemNod
         procedure :: ImportNodCoord => ImportNodCoord
         procedure :: ImportElemMat => ImportElemMat
+
+        procedure :: resize => resizeMeshobj
         procedure :: GetFacetElement => GetFacetElement
         procedure :: GetSurface => GetSurface
         procedure :: GetInterface => GetInterface
@@ -58,6 +61,9 @@ module MeshOperationClass
         procedure :: DelauneyremoveOverlaps => DelauneyremoveOverlapsMesh 
         procedure :: RemoveFailedTriangle => RemoveFailedTriangleMesh
         procedure :: GetElemType => GetElemTypeMesh 
+
+        procedure :: convertMeshType => ConvertMeshTypeMesh
+        procedure :: convertTetraToHexa => convertTetraToHexaMesh 
     end type Mesh_
 
 
@@ -75,23 +81,28 @@ subroutine DeallocateMesh(obj)
     if( allocated(obj%SubMeshNodFromTo ) ) deallocate(obj%SubMeshNodFromTo )
     if( allocated(obj%SubMeshElemFromTo) ) deallocate(obj%SubMeshElemFromTo)
     if( allocated(obj%SubMeshSurfFromTo) ) deallocate(obj%SubMeshSurfFromTo)
-    obj%ErrorMsg="All allocatable entities are deallocated"
+    !obj%ErrorMsg="All allocatable entities are deallocated"
 end subroutine DeallocateMesh
 !##################################################
 
 
 !##################################################
-subroutine CopyMesh(cobj,obj,Minimum)
-    class(Mesh_),intent(inout)::cobj
-    type(Mesh_),intent(inout)::obj
+subroutine CopyMesh(obj,cobj,Minimum)
+    class(Mesh_),intent(inout)::obj ! copied
+    class(Mesh_),intent(inout)::cobj! original
+    
     logical,optional,intent(in)::Minimum
 
 
     !real(8),allocatable::NodCoord(:,:)
-    call CopyArray(obj%NodCoord,            cobj%NodCoord)
-    call CopyArray(obj%ElemNod  ,           cobj%ElemNod)
-    call CopyArray(obj%FacetElemNod  ,      cobj%FacetElemNod)
-    call CopyArray(obj%ElemMat  ,           cobj%ElemMat)
+    ! original >> obj, copy>> cobj
+    
+
+    call CopyArray(cobj%NodCoord,            obj%NodCoord)
+    call CopyArray(cobj%ElemNod  ,           obj%ElemNod)
+    
+    call CopyArray(cobj%FacetElemNod  ,      obj%FacetElemNod)
+    call CopyArray(cobj%ElemMat  ,           obj%ElemMat)
     
     if(present(Minimum) )then
         if(Minimum .eqv. .true.)then
@@ -99,16 +110,14 @@ subroutine CopyMesh(cobj,obj,Minimum)
         endif
     endif
     
-    call CopyArray(obj%NodCoordInit  ,      cobj%NodCoordInit)
-    call CopyArray(obj%NextFacets  ,        cobj%NextFacets)
-    call CopyArray(obj%SurfaceLine2D  ,     cobj%SurfaceLine2D)
     
-    
-    call CopyArray(obj%GlobalNodID  ,       cobj%GlobalNodID)
-    
-    call CopyArray(obj%SubMeshNodFromTo  ,  cobj%SubMeshNodFromTo)
-    call CopyArray(obj%SubMeshElemFromTo  , cobj%SubMeshElemFromTo)
-    call CopyArray(obj%SubMeshSurfFromTo  , cobj%SubMeshSurfFromTo)
+    call CopyArray(cobj%NodCoordInit  ,      obj%NodCoordInit)
+    call CopyArray(cobj%NextFacets  ,        obj%NextFacets)
+    call CopyArray(cobj%SurfaceLine2D  ,     obj%SurfaceLine2D)
+    call CopyArray(cobj%GlobalNodID  ,       obj%GlobalNodID)
+    call CopyArray(cobj%SubMeshNodFromTo  ,  obj%SubMeshNodFromTo)
+    call CopyArray(cobj%SubMeshElemFromTo  , obj%SubMeshElemFromTo)
+    call CopyArray(cobj%SubMeshSurfFromTo  , obj%SubMeshSurfFromTo)
     obj%ElemType   = cobj%ElemType
     obj%ErrorMsg   = cobj%ErrorMsg
     
@@ -118,14 +127,20 @@ subroutine CopyMesh(cobj,obj,Minimum)
 end subroutine
 
 !##################################################
-subroutine InitializeMesh(obj,MaterialID,NoFacetMode)
+subroutine InitializeMesh(obj,MaterialID,NoFacetMode,simple)
     class(Mesh_),intent(inout)::obj
     integer,optional,intent(in)::MaterialID
     logical,optional,intent(in)::NoFacetMode
+    logical,optional,intent(in) :: simple
 
 
     integer i,j,n1,n2,ne
 
+    if(present(simple) )then
+        if(simple .eqv. .true. )then
+            return
+        endif
+    endif
     
     if(.not.allocated(obj%NodCoord) )then
         obj%ErrorMsg="Caution :: Initialize >> .not.allocated(obj%NodCoord)"
@@ -244,8 +259,98 @@ subroutine ImportElemMat(obj,elem_mat)
 end subroutine ImportElemMat
 !##################################################
 
+subroutine resizeMeshobj(obj,x_rate,y_rate,z_rate)
+    class(Mesh_),intent(inout) :: obj
+	real(8),optional,intent(in) :: x_rate,y_rate,z_rate
+
+    if(.not.allocated(obj%NodCoord) )then
+        print *, "ERROR :: MeshClass resizeMeshObj >> no Nodal coordintates are not found."
+        return
+    endif
+
+    if(present(x_rate) )then
+        obj%NodCoord(:,1)=x_rate*obj%NodCoord(:,1)
+    endif
+
+    if(present(y_rate) )then
+        obj%NodCoord(:,2)=y_rate*obj%NodCoord(:,2)
+    endif
+
+    if(present(z_rate) )then
+        obj%NodCoord(:,3)=z_rate*obj%NodCoord(:,3)
+    endif
+
+end subroutine
 
 
+!##################################################
+subroutine importMeshObj(obj,FileName,extention,ElemType)
+    class(Mesh_),intent(inout)::obj
+    character(*),intent(in)::FileName,extention,ElemType
+    character(200) :: MeshVersionFormatted,Dim,Vertices,Edges,Triangles
+    character(200) :: Tetrahedra
+    real(8) :: null_num_real
+    integer :: dim_num,node_num,elem_num,elemnod_num,i,j
+    integer :: edge_num,null_num_int,num_of_triangles
+    integer :: num_of_Tetrahedra
+    call obj%delete()
+
+    if(trim(extention) == ".mesh")then
+        open(17,file=FileName)
+        read(17,*) MeshVersionFormatted,null_num_int
+        read(17,*) Dim
+        read(17,*) dim_num
+        read(17,*) Vertices
+        read(17,*) node_num
+        allocate(obj%NodCoord(node_num,dim_num) )
+        do i=1,node_num
+            read(17,*) obj%NodCoord(i,1:dim_num)
+        enddo
+        print *, "MeshClass >> importMeshobj >> imported nod_coord"
+        read(17,*) Edges
+        read(17,*) edge_num
+        do i=1,edge_num
+            read(17,*) null_num_int
+        enddo
+        read(17,*) Triangles
+        read(17,*) num_of_triangles
+        if(trim(adjustl(ElemType))=="Triangles"  )then    
+            allocate(obj%ElemNod(num_of_triangles,3) )
+            print *, "MeshClass >> importMeshobj >> Reading ", trim(Triangles)
+            do i=1,num_of_triangles
+                read(17,*) obj%ElemNod(i,1:3)
+            enddo
+        else
+            do i=1,num_of_triangles
+                read(17,*) null_num_int
+            enddo
+        endif
+
+        read(17,*) Tetrahedra
+        read(17,*) num_of_Tetrahedra
+        if(trim(adjustl(ElemType))=="Tetrahedra"  )then    
+            allocate(obj%ElemNod(num_of_Tetrahedra,4) )
+            print *, "MeshClass >> importMeshobj >> Reading ", trim(Tetrahedra)
+            do i=1,num_of_Tetrahedra
+                read(17,*) obj%ElemNod(i,1:4)
+            enddo
+        else
+            do i=1,num_of_Tetrahedra
+                read(17,*) null_num_int
+            enddo
+        endif
+
+
+        close(17)  
+        
+    else
+        print *, "Extention",extention
+        print *, "MeshClass >> importMeshObj >> extention is not supprted now."
+    endif
+
+    print *, "MeshClass >> importMeshobj >> Mesh is successfully imported."
+end subroutine
+!##################################################
 
 
 !##################################################
@@ -1961,6 +2066,147 @@ function GetElemTypeMesh(obj) result(ElemType)
 end function
 !##################################################
 
+!##################################################
+subroutine ConvertMeshTypeMesh(obj,Option)
+    class(Mesh_),intent(inout) :: obj
+    character(*),intent(in) :: Option
 
+    if(Option=="TetraToHexa" .or. Option=="TetraToHex")then
+        call obj%convertTetraToHexa()
+    else
+        print *, "Option :: ",Option,"is not valid, what if TetraToHexa ?"
+    endif
+
+
+end subroutine
+!##################################################
+
+!##################################################
+subroutine convertTetraToHexaMesh(obj)
+    class(Mesh_),intent(inout) :: obj
+    integer :: i,node_num,elem_num,elemnod_num,incre_nod_num
+    real(8) :: incre_nod_num_real,x1(3),x2(3),x3(3),x4(3)
+    real(8) :: x12(3),x23(3),x31(3),x14(3),x24(3),x34(3)
+    real(8) :: x123(3),x234(3),x134(3),x124(3)
+    real(8) :: x1234(3)
+    
+    integer,allocatable :: HexElemNod(:,:),HexNodCoord(:,:)
+    integer :: local_id(15),node_id
+    
+    ! converter for 3D
+    node_num     = size(obj%NodCoord,1)
+    elem_num    = size(obj%ElemNod,1)
+    elemnod_num = size(obj%ElemNod,2)
+    incre_nod_num=(4+6+1)*elem_num
+
+
+    allocate(HexElemNod( elem_num*4,8) )
+    allocate(HexNodCoord(node_num+incre_nod_num,3)  )
+
+    HexNodCoord(1:node_num,1:3) = obj%NodCoord(1:node_num,1:3)
+    ! increase ElemNod (connectivity)
+    node_id=node_num
+    do i=1, elem_num
+        ! for each element
+        node_id=node_id
+        x1(:) = obj%NodCoord( obj%ElemNod(i,1) ,:) ! #1
+        x2(:) = obj%NodCoord( obj%ElemNod(i,2) ,:) ! #2
+        x3(:) = obj%NodCoord( obj%ElemNod(i,3) ,:) ! #3
+        x4(:) = obj%NodCoord( obj%ElemNod(i,4) ,:) ! #4
+        x12(:)= 0.50d0*x1(:) + 0.50d0*x2(:) ! #5
+        x23(:)= 0.50d0*x2(:) + 0.50d0*x3(:) ! #6
+        x31(:)= 0.50d0*x3(:) + 0.50d0*x1(:) ! #7
+        x14(:)= 0.50d0*x1(:) + 0.50d0*x4(:) ! #8
+        x24(:)= 0.50d0*x2(:) + 0.50d0*x4(:) ! #9
+        x34(:)= 0.50d0*x3(:) + 0.50d0*x4(:) ! #10
+        x123(:) = 1.0d0/3.0d0*x1(:)+1.0d0/3.0d0*x2(:)+1.0d0/3.0d0*x3(:) ! #11
+        x234(:) = 1.0d0/3.0d0*x2(:)+1.0d0/3.0d0*x3(:)+1.0d0/3.0d0*x4(:) ! #12
+        x134(:) = 1.0d0/3.0d0*x1(:)+1.0d0/3.0d0*x3(:)+1.0d0/3.0d0*x4(:) ! #13
+        x124(:) = 1.0d0/3.0d0*x1(:)+1.0d0/3.0d0*x2(:)+1.0d0/3.0d0*x4(:) ! #14
+        x1234(:)=x1(:)+x2(:)+x3(:)+x4(:)
+        x1234(:)=0.250d0*x1234(:) ! #15
+        local_id( 1) = obj%ElemNod(i,1)
+        local_id( 2) = obj%ElemNod(i,2)
+        local_id( 3) = obj%ElemNod(i,3)
+        local_id( 4) = obj%ElemNod(i,4)
+        local_id( 5) = node_id+ 1
+        local_id( 6) = node_id+ 2
+        local_id( 7) = node_id+ 3
+        local_id( 8) = node_id+ 4
+        local_id( 9) = node_id+ 5
+        local_id(10) = node_id+ 6
+        local_id(11) = node_id+ 7
+        local_id(12) = node_id+ 8
+        local_id(13) = node_id+ 9
+        local_id(14) = node_id+10
+        local_id(15) = node_id+11
+
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x12(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x23(:) 
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x31(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x14(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x24(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x34(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x123(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x234(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x134(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x124(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x1234(:)
+
+        ! assemble new element
+        HexElemNod( (i-1)*4 + 1,1) = local_id(1 )
+        HexElemNod( (i-1)*4 + 1,2) = local_id(5 ) 
+        HexElemNod( (i-1)*4 + 1,3) = local_id(11) 
+        HexElemNod( (i-1)*4 + 1,4) = local_id(7 ) 
+        HexElemNod( (i-1)*4 + 1,5) = local_id(8 ) 
+        HexElemNod( (i-1)*4 + 1,6) = local_id(14) 
+        HexElemNod( (i-1)*4 + 1,7) = local_id(15) 
+        HexElemNod( (i-1)*4 + 1,8) = local_id(13) 
+
+        HexElemNod( (i-1)*4 + 2,1) = local_id(5 )
+        HexElemNod( (i-1)*4 + 2,2) = local_id(2 ) 
+        HexElemNod( (i-1)*4 + 2,3) = local_id(6 ) 
+        HexElemNod( (i-1)*4 + 2,4) = local_id(11 ) 
+        HexElemNod( (i-1)*4 + 2,5) = local_id(14 ) 
+        HexElemNod( (i-1)*4 + 2,6) = local_id(9 ) 
+        HexElemNod( (i-1)*4 + 2,7) = local_id(12 ) 
+        HexElemNod( (i-1)*4 + 2,8) = local_id(15 ) 
+
+        HexElemNod( (i-1)*4 + 3,1) = local_id(6 )
+        HexElemNod( (i-1)*4 + 3,2) = local_id(3 ) 
+        HexElemNod( (i-1)*4 + 3,3) = local_id(7 ) 
+        HexElemNod( (i-1)*4 + 3,4) = local_id(11 ) 
+        HexElemNod( (i-1)*4 + 3,5) = local_id(15 ) 
+        HexElemNod( (i-1)*4 + 3,6) = local_id(12 ) 
+        HexElemNod( (i-1)*4 + 3,7) = local_id(10 ) 
+        HexElemNod( (i-1)*4 + 3,8) = local_id(13 ) 
+
+        HexElemNod( (i-1)*4 + 4,1) = local_id(8 )
+        HexElemNod( (i-1)*4 + 4,2) = local_id(14 ) 
+        HexElemNod( (i-1)*4 + 4,3) = local_id(15 ) 
+        HexElemNod( (i-1)*4 + 4,4) = local_id(13 ) 
+        HexElemNod( (i-1)*4 + 4,5) = local_id(4 ) 
+        HexElemNod( (i-1)*4 + 4,6) = local_id(9 ) 
+        HexElemNod( (i-1)*4 + 4,7) = local_id(12 ) 
+        HexElemNod( (i-1)*4 + 4,8) = local_id(10 ) 
+
+    enddo
+
+    ! done, but overlaps exists
+
+
+end subroutine
+!##################################################
 
 end module MeshOperationClass
