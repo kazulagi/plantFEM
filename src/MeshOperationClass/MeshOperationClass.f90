@@ -28,9 +28,12 @@ module MeshOperationClass
         procedure :: Init => InitializeMesh
         procedure :: Delete => DeallocateMesh
         procedure :: Copy => CopyMesh
+        procedure :: import => importMeshObj 
         procedure :: ImportElemNod => ImportElemNod
         procedure :: ImportNodCoord => ImportNodCoord
         procedure :: ImportElemMat => ImportElemMat
+
+        procedure :: resize => resizeMeshobj
         procedure :: GetFacetElement => GetFacetElement
         procedure :: GetSurface => GetSurface
         procedure :: GetInterface => GetInterface
@@ -75,23 +78,28 @@ subroutine DeallocateMesh(obj)
     if( allocated(obj%SubMeshNodFromTo ) ) deallocate(obj%SubMeshNodFromTo )
     if( allocated(obj%SubMeshElemFromTo) ) deallocate(obj%SubMeshElemFromTo)
     if( allocated(obj%SubMeshSurfFromTo) ) deallocate(obj%SubMeshSurfFromTo)
-    obj%ErrorMsg="All allocatable entities are deallocated"
+    !obj%ErrorMsg="All allocatable entities are deallocated"
 end subroutine DeallocateMesh
 !##################################################
 
 
 !##################################################
-subroutine CopyMesh(cobj,obj,Minimum)
-    class(Mesh_),intent(inout)::cobj
-    type(Mesh_),intent(inout)::obj
+subroutine CopyMesh(obj,cobj,Minimum)
+    class(Mesh_),intent(inout)::obj ! copied
+    class(Mesh_),intent(inout)::cobj! original
+    
     logical,optional,intent(in)::Minimum
 
 
     !real(8),allocatable::NodCoord(:,:)
-    call CopyArray(obj%NodCoord,            cobj%NodCoord)
-    call CopyArray(obj%ElemNod  ,           cobj%ElemNod)
-    call CopyArray(obj%FacetElemNod  ,      cobj%FacetElemNod)
-    call CopyArray(obj%ElemMat  ,           cobj%ElemMat)
+    ! original >> obj, copy>> cobj
+    
+
+    call CopyArray(cobj%NodCoord,            obj%NodCoord)
+    call CopyArray(cobj%ElemNod  ,           obj%ElemNod)
+    
+    call CopyArray(cobj%FacetElemNod  ,      obj%FacetElemNod)
+    call CopyArray(cobj%ElemMat  ,           obj%ElemMat)
     
     if(present(Minimum) )then
         if(Minimum .eqv. .true.)then
@@ -99,16 +107,14 @@ subroutine CopyMesh(cobj,obj,Minimum)
         endif
     endif
     
-    call CopyArray(obj%NodCoordInit  ,      cobj%NodCoordInit)
-    call CopyArray(obj%NextFacets  ,        cobj%NextFacets)
-    call CopyArray(obj%SurfaceLine2D  ,     cobj%SurfaceLine2D)
     
-    
-    call CopyArray(obj%GlobalNodID  ,       cobj%GlobalNodID)
-    
-    call CopyArray(obj%SubMeshNodFromTo  ,  cobj%SubMeshNodFromTo)
-    call CopyArray(obj%SubMeshElemFromTo  , cobj%SubMeshElemFromTo)
-    call CopyArray(obj%SubMeshSurfFromTo  , cobj%SubMeshSurfFromTo)
+    call CopyArray(cobj%NodCoordInit  ,      obj%NodCoordInit)
+    call CopyArray(cobj%NextFacets  ,        obj%NextFacets)
+    call CopyArray(cobj%SurfaceLine2D  ,     obj%SurfaceLine2D)
+    call CopyArray(cobj%GlobalNodID  ,       obj%GlobalNodID)
+    call CopyArray(cobj%SubMeshNodFromTo  ,  obj%SubMeshNodFromTo)
+    call CopyArray(cobj%SubMeshElemFromTo  , obj%SubMeshElemFromTo)
+    call CopyArray(cobj%SubMeshSurfFromTo  , obj%SubMeshSurfFromTo)
     obj%ElemType   = cobj%ElemType
     obj%ErrorMsg   = cobj%ErrorMsg
     
@@ -118,14 +124,20 @@ subroutine CopyMesh(cobj,obj,Minimum)
 end subroutine
 
 !##################################################
-subroutine InitializeMesh(obj,MaterialID,NoFacetMode)
+subroutine InitializeMesh(obj,MaterialID,NoFacetMode,simple)
     class(Mesh_),intent(inout)::obj
     integer,optional,intent(in)::MaterialID
     logical,optional,intent(in)::NoFacetMode
+    logical,optional,intent(in) :: simple
 
 
     integer i,j,n1,n2,ne
 
+    if(present(simple) )then
+        if(simple .eqv. .true. )then
+            return
+        endif
+    endif
     
     if(.not.allocated(obj%NodCoord) )then
         obj%ErrorMsg="Caution :: Initialize >> .not.allocated(obj%NodCoord)"
@@ -244,8 +256,98 @@ subroutine ImportElemMat(obj,elem_mat)
 end subroutine ImportElemMat
 !##################################################
 
+subroutine resizeMeshobj(obj,x_rate,y_rate,z_rate)
+    class(Mesh_),intent(inout) :: obj
+	real(8),optional,intent(in) :: x_rate,y_rate,z_rate
+
+    if(.not.allocated(obj%NodCoord) )then
+        print *, "ERROR :: MeshClass resizeMeshObj >> no Nodal coordintates are not found."
+        return
+    endif
+
+    if(present(x_rate) )then
+        obj%NodCoord(:,1)=x_rate*obj%NodCoord(:,1)
+    endif
+
+    if(present(y_rate) )then
+        obj%NodCoord(:,2)=y_rate*obj%NodCoord(:,2)
+    endif
+
+    if(present(z_rate) )then
+        obj%NodCoord(:,3)=z_rate*obj%NodCoord(:,3)
+    endif
+
+end subroutine
 
 
+!##################################################
+subroutine importMeshObj(obj,FileName,extention,ElemType)
+    class(Mesh_),intent(inout)::obj
+    character(*),intent(in)::FileName,extention,ElemType
+    character(200) :: MeshVersionFormatted,Dim,Vertices,Edges,Triangles
+    character(200) :: Tetrahedra
+    real(8) :: null_num_real
+    integer :: dim_num,node_num,elem_num,elemnod_num,i,j
+    integer :: edge_num,null_num_int,num_of_triangles
+    integer :: num_of_Tetrahedra
+    call obj%delete()
+
+    if(trim(extention) == ".mesh")then
+        open(17,file=FileName)
+        read(17,*) MeshVersionFormatted,null_num_int
+        read(17,*) Dim
+        read(17,*) dim_num
+        read(17,*) Vertices
+        read(17,*) node_num
+        allocate(obj%NodCoord(node_num,dim_num) )
+        do i=1,node_num
+            read(17,*) obj%NodCoord(i,1:dim_num)
+        enddo
+        print *, "MeshClass >> importMeshobj >> imported nod_coord"
+        read(17,*) Edges
+        read(17,*) edge_num
+        do i=1,edge_num
+            read(17,*) null_num_int
+        enddo
+        read(17,*) Triangles
+        read(17,*) num_of_triangles
+        if(trim(adjustl(ElemType))=="Triangles"  )then    
+            allocate(obj%ElemNod(num_of_triangles,3) )
+            print *, "MeshClass >> importMeshobj >> Reading ", trim(Triangles)
+            do i=1,num_of_triangles
+                read(17,*) obj%ElemNod(i,1:3)
+            enddo
+        else
+            do i=1,num_of_triangles
+                read(17,*) null_num_int
+            enddo
+        endif
+
+        read(17,*) Tetrahedra
+        read(17,*) num_of_Tetrahedra
+        if(trim(adjustl(ElemType))=="Tetrahedra"  )then    
+            allocate(obj%ElemNod(num_of_Tetrahedra,4) )
+            print *, "MeshClass >> importMeshobj >> Reading ", trim(Tetrahedra)
+            do i=1,num_of_Tetrahedra
+                read(17,*) obj%ElemNod(i,1:4)
+            enddo
+        else
+            do i=1,num_of_Tetrahedra
+                read(17,*) null_num_int
+            enddo
+        endif
+
+
+        close(17)  
+        
+    else
+        print *, "Extention",extention
+        print *, "MeshClass >> importMeshObj >> extention is not supprted now."
+    endif
+
+    print *, "MeshClass >> importMeshobj >> Mesh is successfully imported."
+end subroutine
+!##################################################
 
 
 !##################################################

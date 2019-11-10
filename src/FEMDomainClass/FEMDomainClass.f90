@@ -28,7 +28,10 @@ module FEMDomainClass
         procedure,public :: Init   => InitializeFEMDomain
         procedure,public :: Delete => DeallocateFEMDomain
         procedure,public :: Export => ExportFEMDomain
-        procedure,public :: Import => ImportFEMDomain
+		procedure,public :: Import => ImportFEMDomain
+		procedure,public :: ImportMesh => ImportMeshFEMDomain
+
+		procedure,public :: Resize => resizeFEMDomain
         procedure,public :: Merge  => MergeFEMDomain
         procedure,public :: AddDBoundCondition => AddDBoundCondition
         procedure,public :: AddNBoundCondition => AddNBoundCondition
@@ -88,9 +91,23 @@ end subroutine DeallocateFEMDomain
 
 
 !##################################################
-subroutine InitializeFEMDomain(obj,Default)
-    class(FEMDomain_),intent(inout)::obj
-    logical,optional,intent(in)::Default
+subroutine InitializeFEMDomain(obj,Default,FileName,simple)
+	class(FEMDomain_),intent(inout)::obj
+	character(*),optional,intent(in) :: FileName
+    logical,optional,intent(in)::Default,simple
+
+	if(.not. present(FileName) )then
+		obj%FileName="noName"
+	else
+		obj%FileName=FileName
+	endif
+
+	if(present(simple) )then
+		if(simple .eqv. .true.)then
+			return
+		endif
+
+	endif
 
     if(Default .eqv. .true.)then
         obj%Dtype="FEMDomain"
@@ -120,6 +137,24 @@ end subroutine ImportFEMDomain
 
 
 !##################################################
+subroutine ImportMeshFEMDomain(obj,Mesh)
+	class(FEMDomain_),intent(inout)::obj
+	class(Mesh_),intent(inout)::Mesh
+
+	call obj%Mesh%copy(Mesh)
+end subroutine
+!##################################################
+
+subroutine resizeFEMDomain(obj,x_rate,y_rate,z_rate)
+	class(FEMDomain_),intent(inout) :: obj
+	real(8),optional,intent(in) :: x_rate,y_rate,z_rate
+
+	call obj%Mesh%resize(x_rate=x_rate,y_rate=y_rate,z_rate=z_rate)
+
+end subroutine
+
+
+!##################################################
 subroutine MergeFEMDomain(inobj1,inobj2,outobj)
     class(FEMDomain_),intent(in) ::inobj1,inobj2
     class(FEMDomain_),intent(out)::outobj
@@ -131,14 +166,14 @@ end subroutine MergeFEMDomain
 
 
 !##################################################
-subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,SolverType,MeshDimension)
+subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,SolverType,MeshDimension,FileName)
     class(FEMDomain_),intent(inout)::obj
     character(*),optional,intent(in)::OptionalFileFormat
-    character(*),optional,intent(in)::OptionalProjectName,SolverType
-    
+    character(*),optional,intent(in)::OptionalProjectName,SolverType,FileName
     character*4::FileFormat
     character*200::ProjectName
-    character*200 ::FileName
+	character*200 ::iFileName
+	
     integer,allocatable::IntMat(:,:)
     real(8),allocatable::RealMat(:,:)
     integer,optional,intent(in)::FileHandle,MeshDimension
@@ -147,13 +182,14 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 	
 	if(present(OptionalFileFormat) )then
 		if(OptionalFileFormat=="stl" .or. OptionalFileFormat==".stl")then
-			call ExportFEMDomainAsSTL(obj,OptionalProjectName,FileHandle,SolverType,MeshDimension)
+			call ExportFEMDomainAsSTL(obj=obj,&
+			FileHandle=FileHandle,MeshDimension=MeshDimension,FileName=FileName)
 			return
 		endif
 	endif
 
 	ProjectName = ""
-	FileName=""
+	iFileName=""
 	Msg=""
 
 
@@ -176,13 +212,13 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
     else
         ProjectName="untitled"
     endif
-    FileName = trim(ProjectName)//trim(FileFormat)
+    iFileName = trim(ProjectName)//trim(FileFormat)
 
     !!print *, "Project : ",ProjectName
     !!print *, "is Exported as : ",FileFormat," format"
-    !!print *, "File Name is : ",FileName
+    !!print *, "File Name is : ",iFileName
 
-    open(fh,file=trim(FileName),status="replace")
+    open(fh,file=trim(iFileName),status="replace")
 
 
     if(trim(FileFormat)==".scf" )then
@@ -191,7 +227,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
 		obj%Dtype="domain"
         write(fh,'(A)') obj%Dtype
-        write(*,'(A)') obj%Dtype,trim(FileName)
+        write(*,'(A)') obj%Dtype,trim(iFileName)
         write(fh,*) "  "
         write(fh,'(A)') obj%SolverType
         write(fh,*) "  "
@@ -3960,14 +3996,94 @@ subroutine AddNBCFEMDomain(obj,NodID,DimID,Val,FastMode)
 end subroutine
 ! ################################################
 
-subroutine ExportFEMDomainAsSTL(obj,OptionalProjectName,FileHandle,SolverType,MeshDimension)
+subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 	class(FEMDomain_),intent(inout)::obj
 	integer,optional,intent(in)::FileHandle,MeshDimension
-	character(*),optional,intent(in)::OptionalProjectName,SolverType	
+	character(*),optional,intent(in)::FileName
 	real(8) :: x1(3),x2(3),x3(3)
 	character*11  :: filename0
 	integer :: fh,i,dim_num
+
+	if(present(FileName) )then
 	
+		dim_num=input(default=3,option=MeshDimension)
+
+		if(present(FileHandle) )then
+			fh=FileHandle
+		else
+			fh =104
+		endif
+	
+		write (filename0, '("_", i6.6, ".stl")') obj%Timestep ! ここでファイル名を生成している
+		call system(  "touch "//trim(FileName)//trim(filename0) )
+		print *, trim(FileName)//trim(filename0)
+	
+		open(fh,file=trim(FileName)//trim(filename0) )
+	
+		call obj%Mesh%GetSurface()
+		
+		if(dim_num/=3)then
+			print *, "Sorry, Export stl is supported only for 3-D mesh"
+			close(fh)
+			return
+		endif
+		write(fh,'(A)') "solid "//trim(FileName)
+		print *, "Number of facet is",size(obj%Mesh%FacetElemNod,1)
+		do i=1,size(obj%Mesh%FacetElemNod,1)
+			if(size(obj%Mesh%FacetElemNod,2)==4  )then
+				! rectangular
+				! describe two triangular
+				x1(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),: ) 
+				x2(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,2),: )
+				x3(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),: )
+				write(fh,'(A)') "facet normal 0.0 0.0 1.0"
+				write(fh,'(A)') "outer loop"
+				write(fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
+				write(fh,*) "vertex ",real(x2(1) ),real(x2(2) ),real(x2(3) )
+				write(fh,*) "vertex ",real(x3(1) ),real(x3(2) ),real(x3(3) )
+				write(fh,'(A)') "endloop"
+				write(fh,'(A)') "endfacet"
+				x1(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),: ) 
+				x2(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),: )
+				x3(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,4),: )
+				write(fh,'(A)') "facet normal 0.0 0.0 1.0"
+				write(fh,'(A)') "outer loop"
+				write(fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
+				write(fh,*) "vertex ",real(x2(1) ),real(x2(2) ),real(x2(3) )
+				write(fh,*) "vertex ",real(x3(1) ),real(x3(2) ),real(x3(3) )
+				write(fh,'(A)') "endloop"
+				write(fh,'(A)') "endfacet"
+			elseif(size(obj%Mesh%FacetElemNod,2)==3  )then
+				! rectangular
+				! describe two triangular
+				x1(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),: ) 
+				x2(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,2),: )
+				x3(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),: )
+				write(fh,'(A)') "facet normal 0.0 0.0 1.0"
+				write(fh,'(A)') "outer loop"
+				write(fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
+				write(fh,*) "vertex ",real(x2(1) ),real(x2(2) ),real(x2(3) )
+				write(fh,*) "vertex ",real(x3(1) ),real(x3(2) ),real(x3(3) )
+				write(fh,'(A)') "endloop"
+				write(fh,'(A)') "endfacet"
+				
+			else
+				! other
+				print *, "Sorry, Export stl is supported only for rectangular mesh"
+				return
+				close(fh)
+			endif
+		enddo
+		write(fh,'(A)') "endsolid "//trim(FileName)
+	
+		print *, "writing ",trim(FileName)//trim(filename0)," step>>",obj%Timestep
+		flush(fh)
+		close(fh)
+		return
+		
+	endif
+
+
 	dim_num=input(default=3,option=MeshDimension)
 
     if(present(FileHandle) )then
@@ -3979,6 +4095,7 @@ subroutine ExportFEMDomainAsSTL(obj,OptionalProjectName,FileHandle,SolverType,Me
 	write (filename0, '("_", i6.6, ".stl")') obj%Timestep ! ここでファイル名を生成している
 	call system(  "touch "//trim(obj%FileName)//trim(filename0) )
 	print *, trim(obj%FileName)//trim(filename0)
+
 	open(fh,file=trim(obj%FileName)//trim(filename0) )
 
 	call obj%Mesh%GetSurface()
