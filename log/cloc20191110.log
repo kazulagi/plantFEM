@@ -2,11 +2,11 @@
 classified 183 filesDuplicate file check 183 files (175 known unique)Unique:      100 files                                               179 unique files.                              
 Counting:  100      35 files ignored.
 
-github.com/AlDanial/cloc v 1.74  T=0.35 s (465.9 files/s, 126371.6 lines/s)
+github.com/AlDanial/cloc v 1.74  T=0.36 s (459.7 files/s, 125287.0 lines/s)
 -------------------------------------------------------------------------------
 Language                     files          blank        comment           code
 -------------------------------------------------------------------------------
-Fortran 90                     107           8397           4197          27646
+Fortran 90                     107           8439           4213          27797
 Python                          17            444            182           1311
 C                                6            323            394            888
 C++                              5             42             17            209
@@ -17,8 +17,8 @@ OpenCL                           3             23             71             42
 JavaScript                       5             11              8             34
 HTML                             2              4              0             15
 JSON                             1              0              0             12
-make                             2             14             48              9
 Bourne Shell                     4              2              0              9
+make                             2             14             48              9
 -------------------------------------------------------------------------------
-SUM:                           165           9289           4917          30550
+SUM:                           165           9331           4933          30701
 -------------------------------------------------------------------------------

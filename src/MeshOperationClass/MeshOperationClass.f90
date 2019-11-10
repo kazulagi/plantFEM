@@ -65,6 +65,7 @@ module MeshOperationClass
         procedure :: convertMeshType => ConvertMeshTypeMesh
         procedure :: convertTetraToHexa => convertTetraToHexaMesh 
         procedure :: convertTriangleToRectangular => convertTriangleToRectangularMesh 
+        procedure :: removeOverlappedNode =>removeOverlappedNodeMesh
     end type Mesh_
 
 
@@ -294,6 +295,7 @@ subroutine importMeshObj(obj,FileName,extention,ElemType)
     integer :: dim_num,node_num,elem_num,elemnod_num,i,j
     integer :: edge_num,null_num_int,num_of_triangles
     integer :: num_of_Tetrahedra
+
     call obj%delete()
 
     if(trim(extention) == ".mesh")then
@@ -2093,7 +2095,8 @@ subroutine convertTetraToHexaMesh(obj)
     real(8) :: x123(3),x234(3),x134(3),x124(3)
     real(8) :: x1234(3)
     
-    integer,allocatable :: HexElemNod(:,:),HexNodCoord(:,:)
+    integer,allocatable :: HexElemNod(:,:)
+    real(8),allocatable ::HexNodCoord(:,:)
     integer :: local_id(15),node_id
     
     ! converter for 3D
@@ -2214,6 +2217,7 @@ subroutine convertTetraToHexaMesh(obj)
     obj%ElemNod      =HexElemNod(:,:)
     
     ! done, but overlaps exists
+    call obj%removeOverlappedNode()
 
 
 end subroutine
@@ -2228,7 +2232,8 @@ subroutine convertTriangleToRectangularMesh(obj)
     real(8) :: x12(2),x23(2),x31(2)
     real(8) :: x123(2)
     
-    integer,allocatable :: RectElemNod(:,:),RectNodCoord(:,:)
+    integer,allocatable :: RectElemNod(:,:),before_after(:)
+    real(8),allocatable :: RectNodCoord(:,:)
     integer :: local_id(7),node_id
     
     ! converter for 3D
@@ -2299,6 +2304,115 @@ subroutine convertTriangleToRectangularMesh(obj)
     obj%ElemNod      =RectElemNod(:,:)
     
     ! done, but overlaps exists
+    
+    call obj%removeOverlappedNode()
+
+
+end subroutine
+!##################################################
+
+!##################################################
+subroutine removeOverlappedNodeMesh(obj,tolerance)
+    class(Mesh_),intent(inout)::obj
+    real(8),optional,intent(in) :: tolerance
+    integer,allocatable :: RectElemNod(:,:),checked(:),before_after(:),New_NodCoord(:,:)
+    integer :: i,j,k,dim_num,node_num,itr,elem_num,elemnod_num,l
+    real(8),allocatable :: x(:),x_tr(:)
+    real(8) :: error,tol
+    
+    if(present(tolerance) )then
+        tol=tolerance
+    else
+        tol=1.0e-16
+    endif
+    dim_num=size(obj%NodCoord,2)
+    node_num=size(obj%NodCoord,1)
+    elem_num=size(obj%ElemNod,1)
+    elemnod_num=size(obj%ElemNod,2)
+    allocate( x(dim_num),x_tr(dim_num),checked(node_num ) )
+    allocate(before_after(size(checked) ) )
+    
+
+    do i=1,node_num
+        before_after(i)=i
+    enddo
+
+
+    
+    checked(:)=0
+    itr=0
+    do i=1,node_num-1
+        ! if already checked
+        if(checked(i)>=1 )then
+            cycle
+        endif
+        ! check about ith node
+        x(:)=obj%NodCoord(i,:)
+        
+        
+
+        do k=i+1,node_num
+            ! if already checked
+            if(checked(k)>=1 )then
+                cycle
+            endif
+
+            x_tr(:)=obj%NodCoord(k,:)
+            error = dot_product(x(:) -x_tr(:),x(:)-x_tr(:) )
+            if(error < tol)then
+                ! node id i and node id k are the same node
+                ! use smaller id
+
+                checked(k)=checked(k)+1
+                before_after(k)=i
+                
+            else
+                cycle
+            endif
+        enddo
+    enddo
+
+
+
+    k=0
+    do i=1,size(checked)
+        if(checked(i)>=1 )then
+            cycle
+        else
+            k=k+1
+            l=before_after(i)
+            before_after(i)=k
+            do j=i+1,node_num
+                if(before_after(j)==l )then
+                    before_after(j)=k
+                endif
+            enddo
+        endif
+    enddo
+    allocate(New_NodCoord(k,dim_num ) )
+
+
+    ! fix numbers
+    do i=1,elem_num
+        do j=1,elemnod_num
+            obj%ElemNod(i,j)=before_after( obj%ElemNod(i,j) )
+        enddo
+    enddo
+
+    ! then remove node_id==k check(k)==1
+    k=0
+    do i=1,node_num
+        if(checked(i)>=1 )then
+            cycle
+        else
+            k=k+1
+            New_NodCoord(k,:)=obj%NodCoord(i,:)
+        endif
+    enddo
+
+    deallocate(obj%NodCoord)
+    allocate(obj%NodCoord( size(New_NodCoord,1), size(New_NodCoord,2)   ) )
+    obj%NodCoord(:,:)=New_NodCoord(:,:)
 
 end subroutine
 !##################################################
