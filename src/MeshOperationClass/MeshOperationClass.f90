@@ -64,6 +64,7 @@ module MeshOperationClass
 
         procedure :: convertMeshType => ConvertMeshTypeMesh
         procedure :: convertTetraToHexa => convertTetraToHexaMesh 
+        procedure :: convertTriangleToRectangular => convertTriangleToRectangularMesh 
     end type Mesh_
 
 
@@ -2073,6 +2074,8 @@ subroutine ConvertMeshTypeMesh(obj,Option)
 
     if(Option=="TetraToHexa" .or. Option=="TetraToHex")then
         call obj%convertTetraToHexa()
+    elseif(Option=="convertTriangleToRectangular" .or. Option=="convertTriangleToRectangule")then
+        call obj%convertTriangleToRectangular()
     else
         print *, "Option :: ",Option,"is not valid, what if TetraToHexa ?"
     endif
@@ -2203,8 +2206,99 @@ subroutine convertTetraToHexaMesh(obj)
 
     enddo
 
+    deallocate(obj%NodCoord)
+    deallocate(obj%ElemNod)
+    allocate(obj%NodCoord(size(HexNodCoord,1),size(HexNodCoord,2)  ) )
+    allocate(obj%ElemNod(size(HexElemNod,1) ,size(HexElemNod,2) ))
+    obj%NodCoord(:,:)=HexNodCoord(:,:)
+    obj%ElemNod      =HexElemNod(:,:)
+    
     ! done, but overlaps exists
 
+
+end subroutine
+!##################################################
+
+
+!##################################################
+subroutine convertTriangleToRectangularMesh(obj)
+    class(Mesh_),intent(inout) :: obj
+    integer :: i,node_num,elem_num,elemnod_num,incre_nod_num
+    real(8) :: incre_nod_num_real,x1(2),x2(2),x3(2),x4(2)
+    real(8) :: x12(2),x23(2),x31(2)
+    real(8) :: x123(2)
+    
+    integer,allocatable :: RectElemNod(:,:),RectNodCoord(:,:)
+    integer :: local_id(7),node_id
+    
+    ! converter for 3D
+    node_num     = size(obj%NodCoord,1)
+    elem_num    = size(obj%ElemNod,1)
+    elemnod_num = size(obj%ElemNod,2)
+    incre_nod_num=(4)*elem_num
+
+
+    allocate(RectElemNod( elem_num*3,4) )
+    allocate(RectNodCoord(node_num+incre_nod_num,2)  )
+
+    RectNodCoord(1:node_num,1:2) = obj%NodCoord(1:node_num,1:2)
+    ! increase ElemNod (connectivity)
+    node_id=node_num
+    do i=1, elem_num
+        ! for each element
+        node_id=node_id
+        x1(1:2) = obj%NodCoord( obj%ElemNod(i,1) ,1:2) ! #1
+        x2(1:2) = obj%NodCoord( obj%ElemNod(i,2) ,1:2) ! #2
+        x3(1:2) = obj%NodCoord( obj%ElemNod(i,3) ,1:2) ! #3
+        x12(1:2)= 0.50d0*x1(1:2) + 0.50d0*x2(1:2) ! #4
+        x23(1:2)= 0.50d0*x2(1:2) + 0.50d0*x3(1:2) ! #5
+        x31(1:2)= 0.50d0*x3(1:2) + 0.50d0*x1(1:2) ! #6
+        x123(:)=x1(:)+x2(:)+x3(:)
+        x123(:)=1.0d0/3.0d0*x123(:) ! #7
+
+        local_id( 1) = obj%ElemNod(i,1)
+        local_id( 2) = obj%ElemNod(i,2)
+        local_id( 3) = obj%ElemNod(i,3)
+        local_id( 4) = node_id+ 1
+        local_id( 5) = node_id+ 2
+        local_id( 6) = node_id+ 3
+        local_id( 7) = node_id+ 4
+
+        node_id = node_id + 1
+        RectNodCoord(node_id,1:2) = x12(:)
+        node_id = node_id + 1
+        RectNodCoord(node_id,1:2) = x23(:) 
+        node_id = node_id + 1
+        RectNodCoord(node_id,1:2) = x31(:)
+        node_id = node_id + 1
+        RectNodCoord(node_id,1:2) = x123(:)
+        
+        ! assemble new element
+        RectElemNod( (i-1)*3 + 1,1) = local_id(1 )
+        RectElemNod( (i-1)*3 + 1,2) = local_id(4 ) 
+        RectElemNod( (i-1)*3 + 1,3) = local_id(7) 
+        RectElemNod( (i-1)*3 + 1,4) = local_id(6 ) 
+
+        RectElemNod( (i-1)*3 + 2,1) = local_id(4 )
+        RectElemNod( (i-1)*3 + 2,2) = local_id(2 ) 
+        RectElemNod( (i-1)*3 + 2,3) = local_id(5 ) 
+        RectElemNod( (i-1)*3 + 2,4) = local_id(7 )
+
+        RectElemNod( (i-1)*3 + 3,1) = local_id(5 )
+        RectElemNod( (i-1)*3 + 3,2) = local_id(3 ) 
+        RectElemNod( (i-1)*3 + 3,3) = local_id(6 ) 
+        RectElemNod( (i-1)*3 + 3,4) = local_id(7 )
+
+    enddo
+
+    deallocate(obj%NodCoord)
+    deallocate(obj%ElemNod)
+    allocate(obj%NodCoord(size(RectNodCoord,1),size(RectNodCoord,2)  ) )
+    allocate(obj%ElemNod(size(RectElemNod,1) ,size(RectElemNod,2) ))
+    obj%NodCoord(:,:)=RectNodCoord(:,:)
+    obj%ElemNod      =RectElemNod(:,:)
+    
+    ! done, but overlaps exists
 
 end subroutine
 !##################################################

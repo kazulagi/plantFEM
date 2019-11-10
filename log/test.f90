@@ -9,6 +9,7 @@ program sample
     call dry_seed%createMesh(FileName="/home/haruka/test/seed_dry",withSTL=.true.,ElemType="Tetrahedra")
     call wet_seed%createMesh(FileName="/home/haruka/test/seed_wet",withSTL=.true.,ElemType="Tetrahedra")
     call dry_seed%convertMeshType(Option="TetraToHexa")
+    call dry_seed%FEMDomain%GmshPlotMesh()
 
     
 end program
