@@ -83,7 +83,7 @@ subroutine createMeshSeed(obj,FileName,withSTL,ObjType,ElemType)
     ! modification
     call mesh%import(FileName=trim(meshFileName_m),extention=".mesh",ElemType=ElemType)
     call obj%FEMDomain%importMesh(mesh)
-    call obj%FEMDomain%resize(x_rate=14.0d0,y_rate=10.0d0,z_rate=8.70d0)
+    call obj%FEMDomain%resize(x_rate=obj%width1,y_rate=obj%width2,z_rate=obj%width3)
     
     if(present(withSTL) )then
         if(withSTL .eqv. .true.)then
