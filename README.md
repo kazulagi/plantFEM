@@ -285,7 +285,7 @@ jupyter-notebook
 - Add-on for Blender
 - Bugfix for preprocessingclass & PySiCroF
 - Use opencv-python as a imaging library instead of PIL.
-
+- Caution:: convertMeshType may have some bags: jacobian may be negative.
 
 
 ### Questions & Answers;
