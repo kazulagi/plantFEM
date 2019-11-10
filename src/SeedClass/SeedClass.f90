@@ -20,6 +20,8 @@ module SeedClass
         procedure :: createMesh => createMeshSeed
         procedure :: export => exportSeed
         procedure :: show => showSeed
+
+        procedure :: convertMeshType => convertMeshTypeSeed
     end type
 contains
 !########################################################
@@ -129,6 +131,12 @@ subroutine exportSeed(obj,FileName,SeedID,extention)
 end subroutine
 !########################################################
 
+subroutine convertMeshTypeSeed(obj,Option)
+    class(Seed_),intent(inout)::obj
+    character(*),intent(in) :: Option
+
+    call obj%FEMDomain%convertMeshType(Option=Option)
+end subroutine
 
 !########################################################
 subroutine showSeed(obj)

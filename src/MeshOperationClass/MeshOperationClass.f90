@@ -61,6 +61,9 @@ module MeshOperationClass
         procedure :: DelauneyremoveOverlaps => DelauneyremoveOverlapsMesh 
         procedure :: RemoveFailedTriangle => RemoveFailedTriangleMesh
         procedure :: GetElemType => GetElemTypeMesh 
+
+        procedure :: convertMeshType => ConvertMeshTypeMesh
+        procedure :: convertTetraToHexa => convertTetraToHexaMesh 
     end type Mesh_
 
 
@@ -2063,6 +2066,147 @@ function GetElemTypeMesh(obj) result(ElemType)
 end function
 !##################################################
 
+!##################################################
+subroutine ConvertMeshTypeMesh(obj,Option)
+    class(Mesh_),intent(inout) :: obj
+    character(*),intent(in) :: Option
 
+    if(Option=="TetraToHexa" .or. Option=="TetraToHex")then
+        call obj%convertTetraToHexa()
+    else
+        print *, "Option :: ",Option,"is not valid, what if TetraToHexa ?"
+    endif
+
+
+end subroutine
+!##################################################
+
+!##################################################
+subroutine convertTetraToHexaMesh(obj)
+    class(Mesh_),intent(inout) :: obj
+    integer :: i,node_num,elem_num,elemnod_num,incre_nod_num
+    real(8) :: incre_nod_num_real,x1(3),x2(3),x3(3),x4(3)
+    real(8) :: x12(3),x23(3),x31(3),x14(3),x24(3),x34(3)
+    real(8) :: x123(3),x234(3),x134(3),x124(3)
+    real(8) :: x1234(3)
+    
+    integer,allocatable :: HexElemNod(:,:),HexNodCoord(:,:)
+    integer :: local_id(15),node_id
+    
+    ! converter for 3D
+    node_num     = size(obj%NodCoord,1)
+    elem_num    = size(obj%ElemNod,1)
+    elemnod_num = size(obj%ElemNod,2)
+    incre_nod_num=(4+6+1)*elem_num
+
+
+    allocate(HexElemNod( elem_num*4,8) )
+    allocate(HexNodCoord(node_num+incre_nod_num,3)  )
+
+    HexNodCoord(1:node_num,1:3) = obj%NodCoord(1:node_num,1:3)
+    ! increase ElemNod (connectivity)
+    node_id=node_num
+    do i=1, elem_num
+        ! for each element
+        node_id=node_id
+        x1(:) = obj%NodCoord( obj%ElemNod(i,1) ,:) ! #1
+        x2(:) = obj%NodCoord( obj%ElemNod(i,2) ,:) ! #2
+        x3(:) = obj%NodCoord( obj%ElemNod(i,3) ,:) ! #3
+        x4(:) = obj%NodCoord( obj%ElemNod(i,4) ,:) ! #4
+        x12(:)= 0.50d0*x1(:) + 0.50d0*x2(:) ! #5
+        x23(:)= 0.50d0*x2(:) + 0.50d0*x3(:) ! #6
+        x31(:)= 0.50d0*x3(:) + 0.50d0*x1(:) ! #7
+        x14(:)= 0.50d0*x1(:) + 0.50d0*x4(:) ! #8
+        x24(:)= 0.50d0*x2(:) + 0.50d0*x4(:) ! #9
+        x34(:)= 0.50d0*x3(:) + 0.50d0*x4(:) ! #10
+        x123(:) = 1.0d0/3.0d0*x1(:)+1.0d0/3.0d0*x2(:)+1.0d0/3.0d0*x3(:) ! #11
+        x234(:) = 1.0d0/3.0d0*x2(:)+1.0d0/3.0d0*x3(:)+1.0d0/3.0d0*x4(:) ! #12
+        x134(:) = 1.0d0/3.0d0*x1(:)+1.0d0/3.0d0*x3(:)+1.0d0/3.0d0*x4(:) ! #13
+        x124(:) = 1.0d0/3.0d0*x1(:)+1.0d0/3.0d0*x2(:)+1.0d0/3.0d0*x4(:) ! #14
+        x1234(:)=x1(:)+x2(:)+x3(:)+x4(:)
+        x1234(:)=0.250d0*x1234(:) ! #15
+        local_id( 1) = obj%ElemNod(i,1)
+        local_id( 2) = obj%ElemNod(i,2)
+        local_id( 3) = obj%ElemNod(i,3)
+        local_id( 4) = obj%ElemNod(i,4)
+        local_id( 5) = node_id+ 1
+        local_id( 6) = node_id+ 2
+        local_id( 7) = node_id+ 3
+        local_id( 8) = node_id+ 4
+        local_id( 9) = node_id+ 5
+        local_id(10) = node_id+ 6
+        local_id(11) = node_id+ 7
+        local_id(12) = node_id+ 8
+        local_id(13) = node_id+ 9
+        local_id(14) = node_id+10
+        local_id(15) = node_id+11
+
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x12(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x23(:) 
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x31(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x14(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x24(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x34(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x123(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x234(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x134(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x124(:)
+        node_id = node_id + 1
+        HexNodCoord(node_id,1:3) = x1234(:)
+
+        ! assemble new element
+        HexElemNod( (i-1)*4 + 1,1) = local_id(1 )
+        HexElemNod( (i-1)*4 + 1,2) = local_id(5 ) 
+        HexElemNod( (i-1)*4 + 1,3) = local_id(11) 
+        HexElemNod( (i-1)*4 + 1,4) = local_id(7 ) 
+        HexElemNod( (i-1)*4 + 1,5) = local_id(8 ) 
+        HexElemNod( (i-1)*4 + 1,6) = local_id(14) 
+        HexElemNod( (i-1)*4 + 1,7) = local_id(15) 
+        HexElemNod( (i-1)*4 + 1,8) = local_id(13) 
+
+        HexElemNod( (i-1)*4 + 2,1) = local_id(5 )
+        HexElemNod( (i-1)*4 + 2,2) = local_id(2 ) 
+        HexElemNod( (i-1)*4 + 2,3) = local_id(6 ) 
+        HexElemNod( (i-1)*4 + 2,4) = local_id(11 ) 
+        HexElemNod( (i-1)*4 + 2,5) = local_id(14 ) 
+        HexElemNod( (i-1)*4 + 2,6) = local_id(9 ) 
+        HexElemNod( (i-1)*4 + 2,7) = local_id(12 ) 
+        HexElemNod( (i-1)*4 + 2,8) = local_id(15 ) 
+
+        HexElemNod( (i-1)*4 + 3,1) = local_id(6 )
+        HexElemNod( (i-1)*4 + 3,2) = local_id(3 ) 
+        HexElemNod( (i-1)*4 + 3,3) = local_id(7 ) 
+        HexElemNod( (i-1)*4 + 3,4) = local_id(11 ) 
+        HexElemNod( (i-1)*4 + 3,5) = local_id(15 ) 
+        HexElemNod( (i-1)*4 + 3,6) = local_id(12 ) 
+        HexElemNod( (i-1)*4 + 3,7) = local_id(10 ) 
+        HexElemNod( (i-1)*4 + 3,8) = local_id(13 ) 
+
+        HexElemNod( (i-1)*4 + 4,1) = local_id(8 )
+        HexElemNod( (i-1)*4 + 4,2) = local_id(14 ) 
+        HexElemNod( (i-1)*4 + 4,3) = local_id(15 ) 
+        HexElemNod( (i-1)*4 + 4,4) = local_id(13 ) 
+        HexElemNod( (i-1)*4 + 4,5) = local_id(4 ) 
+        HexElemNod( (i-1)*4 + 4,6) = local_id(9 ) 
+        HexElemNod( (i-1)*4 + 4,7) = local_id(12 ) 
+        HexElemNod( (i-1)*4 + 4,8) = local_id(10 ) 
+
+    enddo
+
+    ! done, but overlaps exists
+
+
+end subroutine
+!##################################################
 
 end module MeshOperationClass

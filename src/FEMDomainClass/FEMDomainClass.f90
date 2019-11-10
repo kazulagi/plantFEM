@@ -57,6 +57,7 @@ module FEMDomainClass
 		procedure,public :: move => moveFEMDomain
 		procedure,public :: rotate => rotateFEMDomain
 		procedure,public :: meshing => meshingFEMDomain
+		procedure,public :: convertMeshType => convertMeshTypeFEMDomain
 
 		! for debug
 		procedure,public :: CheckConnectivity => CheckConnedctivityFEMDomain
@@ -4288,4 +4289,15 @@ subroutine getDBCVectorFEMDomain(obj,DBCvec)
 
 end subroutine
 ! ##################################################
+
+! ##################################################
+subroutine convertMeshTypeFEMDomain(obj,Option)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),intent(in) :: Option
+
+	call obj%Mesh%convertMeshType(Option=Option)
+
+end subroutine
+! ##################################################
+
 end module FEMDomainClass
