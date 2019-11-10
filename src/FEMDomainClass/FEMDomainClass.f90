@@ -2036,6 +2036,8 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 		endif
 	endif
 
+			
+
 	x(:,:)=0.0d0
 	write(fh,*) 'View "',mapname,'" {'
 	do i=1,size(gp_value,1)
@@ -2103,7 +2105,6 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 				gp_value(i,4),",",gp_value(i,4),",",gp_value(i,4),"};"
 			
 		elseif(size(obj%Mesh%ElemNod,2)==8 .and. size(obj%Mesh%NodCoord,2)==3  ) then
-			
 			
 			! 3-D, 8 noded, isoparametric elements with 8 gauss points
 			! 1/8
