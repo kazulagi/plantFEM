@@ -58,7 +58,12 @@ module GeometryClass
     end type
 
     type Tetrahedron_
-        real(8),allocatable :: NodCoord(:,:)
+        real(8) :: NodCoord(4,3)
+        real(8) :: radius
+        real(8) :: center(3)
+    contains
+        procedure :: Init => InitTetrahedron
+        procedure :: getCircle => getCircleTetrahedron
     end type
     
     type Octahedron_
@@ -562,6 +567,46 @@ subroutine showTriangle(obj,Name,option)
     endif
 end subroutine
 !#########################################################
+
+
+!#########################################################
+subroutine InitTetrahedron(obj,NodCoord)
+    class(Tetrahedron_),intent(inout) :: obj
+    real(8),intent(in) :: NodCoord(4,3)
+
+    obj%NodCoord(:,:)=NodCoord(:,:)
+
+end subroutine
+!#########################################################
+
+!#########################################################
+subroutine getCircleTetrahedron(obj)
+    class(Tetrahedron_),intent(inout) :: obj
+    real(8) :: a(3),b(3),c(3),d(3),e(3),f(3),g(3),s,t,r,N(3)
+    real(8) :: a_(3),b_(3),c_(3),d_(3),aA,aB,aC,aD,V,k
+    
+    a(:)=obj%NodCoord(1,:)
+    b(:)=obj%NodCoord(2,:)
+    c(:)=obj%NodCoord(3,:)
+    d(:)=obj%NodCoord(4,:)
+
+    a_(:) = a(:) - d(:)
+    b_(:) = b(:) - d(:)
+    c_(:) = c(:) - d(:)
+    d_(:) = 0.0d0
+
+    aA = 0.50d0*norm(cross_product(a_,b_) )
+    aB = 0.50d0*norm(cross_product(b_,c_) )
+    aC = 0.50d0*norm(cross_product(c_,d_) )
+    aD = 0.50d0*norm(cross_product(d_,a_) )
+
+    V=1.0d0/6.0d0*dot_product(cross_product(a_(:),b_(:) ),c_(:) ) 
+    r = 3.0d0*V/( aA+aB+aC+aD )
+    obj%radius = r
+
+end subroutine
+!#########################################################
+
 
 !#########################################################
 !subroutine 

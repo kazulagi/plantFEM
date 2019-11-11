@@ -2093,7 +2093,7 @@ subroutine convertTetraToHexaMesh(obj)
     real(8) :: incre_nod_num_real,x1(3),x2(3),x3(3),x4(3)
     real(8) :: x12(3),x23(3),x31(3),x14(3),x24(3),x34(3)
     real(8) :: x123(3),x234(3),x134(3),x124(3)
-    real(8) :: x1234(3)
+    real(8) :: x1234(3),direct
     
     integer,allocatable :: HexElemNod(:,:)
     real(8),allocatable ::HexNodCoord(:,:)
@@ -2119,6 +2119,16 @@ subroutine convertTetraToHexaMesh(obj)
         x2(:) = obj%NodCoord( obj%ElemNod(i,2) ,:) ! #2
         x3(:) = obj%NodCoord( obj%ElemNod(i,3) ,:) ! #3
         x4(:) = obj%NodCoord( obj%ElemNod(i,4) ,:) ! #4
+
+        ! check order
+        !direct=dot_product(cross_product(x2-x1,x3-x1),x4-x1)
+        !if(direct<=0.0d0)then
+        !    print *, "Elemid = ",i,"is invalid",direct
+        !    stop "debug"
+        !else
+        !    print *, "Elemid = ",i,"is ok",direct
+        !endif
+
         x12(:)= 0.50d0*x1(:) + 0.50d0*x2(:) ! #5
         x23(:)= 0.50d0*x2(:) + 0.50d0*x3(:) ! #6
         x31(:)= 0.50d0*x3(:) + 0.50d0*x1(:) ! #7
