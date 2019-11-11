@@ -88,6 +88,16 @@ subroutine SetShapeFuncType(obj)
         obj%NumOfOrder  = 1
         obj%NumOfDim    = 3
         obj%NumOfGp     = 8
+    elseif(trim(TrimedElemType)=="Triangular")then
+        obj%NumOfNode   = 3
+        obj%NumOfOrder  = 1
+        obj%NumOfDim    = 2
+        obj%NumOfGp     = 1
+    elseif(trim(TrimedElemType)=="LinearTetrahedral")then
+        obj%NumOfNode   = 4
+        obj%NumOfOrder  = 1
+        obj%NumOfDim    = 3
+        obj%NumOfGp     = 1
     else
         obj%ErrorMsg="ShapeFunctionClass.f90 :: SetShapeFuncType >> Element : "//TrimedElemType//"is not defined."
         print *, "ShapeFunctionClass.f90 :: SetShapeFuncType >> Element : ",TrimedElemType,"is not defined."
@@ -274,6 +284,19 @@ end subroutine DeallocateShapeFunction
 
             obj%GaussIntegWei(:)=1.0d0
 
+        elseif(size(obj%GaussPoint,2)==1 )then
+            ! Triangular or Tetrahedral
+            if(allocated(obj%GaussPoint))then
+                deallocate(obj%GaussPoint)
+            endif
+            if(allocated(obj%GaussIntegWei))then
+                deallocate(obj%GaussIntegWei)
+            endif
+            
+            obj%GaussPoint(1,1) = 1.0d0
+            obj%GaussPoint(2,1) = 1.0d0
+            obj%GaussPoint(3,1) = 1.0d0
+            obj%GaussIntegWei(:)= 1.0d0
         else
             print *, "ERROR :: ShapeFunctionClass/GetGaussPoint is not defined"
         endif

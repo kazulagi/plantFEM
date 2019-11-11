@@ -4035,6 +4035,7 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 			if(size(obj%Mesh%FacetElemNod,2)==4  )then
 				! rectangular
 				! describe two triangular
+				
 				x1(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),: ) 
 				x2(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,2),: )
 				x3(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),: )

@@ -111,6 +111,7 @@ subroutine exportSeed(obj,FileName,SeedID,extention)
     endif
 
     if(ex_format==".stl" .or. ex_format=="stl")then
+        
         call obj%FEMDomain%export(OptionalFileFormat="stl",&
             FileName=FileName//"seed"// trim(adjustl(fstring(input(default=1,option=SeedID))))//".stl"  ,&
             MeshDimension=3 )
