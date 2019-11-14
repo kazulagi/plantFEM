@@ -5,6 +5,6 @@ program main
     type(Farm_):: SoybeanField
     
     call SoybeanField%sowing(crop_name="soybean",single=.false.)
-    call SoybeanField%export(FilePath="/home/haruka/test/soybean")
+    call SoybeanField%export(FileName="/home/haruka/test/soybean")
 
 end program 

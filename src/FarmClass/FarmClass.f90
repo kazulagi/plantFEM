@@ -24,6 +24,7 @@ module FarmClass
         procedure :: sowing => initFarm
         procedure :: fertilize => fertilizeFarm
         procedure :: diagnosis => diagnosisFarm
+        procedure :: grow   => growFarm
         procedure :: export => exportFarm
     end type
 
@@ -32,13 +33,13 @@ contains
 ! ############################################
 subroutine initFarm(obj,crop_name,num_of_ridge, num_of_plant_per_ridge,width_of_ridge,&
     width_of_plant_per_ridge,length_of_farm, width_of_farm,soil_depth,seed_depth,g_per_100seed,&
-    meter,single)
+    meter,single,Variety)
 
     class(Farm_),intent(inout)  :: obj
     integer,optional,intent(in) :: num_of_ridge, num_of_plant_per_ridge
     real(8),optional,intent(in) :: width_of_ridge, width_of_plant_per_ridge,soil_depth
     real(8),optional,intent(in) :: length_of_farm, width_of_farm,seed_depth,g_per_100seed
-    character(*),intent(in) :: crop_name
+    character(*),intent(in) :: crop_name,Variety
     logical,optional,intent(in)      :: meter,single
     integer :: i,j,k,l,n,m
 
@@ -115,7 +116,7 @@ subroutine initFarm(obj,crop_name,num_of_ridge, num_of_plant_per_ridge,width_of_
         do i=1,obj%num_of_ridge
             do j=1, obj%num_of_plant_per_ridge
                 call obj%soybean(i,j)%sowing(x=obj%width_of_ridge*dble(i-1)  ,&
-                    y=obj%width_of_plant_per_ridge*dble(j-1) ,z=obj%seed_depth )
+                    y=obj%width_of_plant_per_ridge*dble(j-1) ,z=obj%seed_depth,Variety=Variety )
             enddo
         enddo        
     else
@@ -154,16 +155,18 @@ end subroutine
 ! ############################################
 
 ! ############################################
-subroutine exportFarm(obj,FilePath)
+subroutine exportFarm(obj,FileName,withSTL,withMesh,TimeStep)
     class(Farm_),intent(inout)::obj
-    integer :: obj_id,plant_id,i,j
-    character(*),intent(in) :: FilePath
+    integer :: obj_id,plant_id,i,j,tstep
+    integer,optional,intent(in) :: TimeStep
+    character(*),intent(in) :: FileName
+    logical,optional,intent(in) :: withSTL,withMesh
     character(200) :: id
     
     ! Visualize soybean-field
-
+    tstep=input(default=0,option=TimeStep)
     ! initialize
-    obj_id = 1
+    obj_id = 1 + tstep
     plant_id  = 0
 
     ! export soybeans
@@ -171,13 +174,23 @@ subroutine exportFarm(obj,FilePath)
         do j=1,obj%num_of_plant_per_ridge
             plant_id = plant_id + 1
             id=trim(  adjustl(fstring( plant_id ) ))
-            call obj%soybean(i,j)%export(FileName=FilePath//trim(id)//".geo",SeedID=obj_id )
+            if( present(withSTL) )then
+                if(withSTL .eqv. .true. )then
+                    call obj%soybean(i,j)%export(FileName=FileName//trim(id)//".geo",SeedID=obj_id,withSTL=withSTL)   
+                endif
+            endif
+            if( present(withMesh) )then
+                if(withMesh .eqv. .true. )then
+                    call obj%soybean(i,j)%export(FileName=FileName//trim(id)//".geo",SeedID=obj_id,withMesh=withMesh)   
+                endif
+            endif
+            call obj%soybean(i,j)%export(FileName=FileName//trim(id)//".geo",SeedID=obj_id )
         enddo
     enddo
     print *, "Total "//trim(id)//" plants are exported."
 
     ! export soil
-    call obj%soil%export(FileName=FilePath//trim(id)//".geo.soil.geo",format=".geo",objID=obj_id)
+    call obj%soil%export(FileName=FileName//trim(id)//"soil",format=".geo",objID=obj_id)
 
 end subroutine
 ! ############################################
@@ -192,5 +205,22 @@ subroutine diagnosisFarm(obj,FileName)
 end subroutine
 ! ########################################
 
+! ########################################
+subroutine growFarm(obj,dt,temp,crop_name)
+    class(Farm_),intent(inout) :: obj
+    character(*),intent(in) :: crop_name
+    real(8),intent(in) :: dt,temp
+    integer :: i,j
+
+    if(crop_name=="Soybean" .or. crop_name=="soybean")then
+        do i=1,size(obj%Soybean,1)
+            do j=1,size(obj%Soybean,2)
+                call obj%Soybean(i,j)%grow(dt=dt,Temp=temp)
+            enddo
+        enddo
+    endif
+
+end subroutine
+! ########################################
 
 end module 

@@ -13,6 +13,7 @@ module SeedClass
         real(8) :: water_content ! seed water_content %
         real(8) :: radius ! seed radius (cm)
         real(8) :: width1,width2,width3 
+        real(8) :: width1_origin,width2_origin,width3_origin 
         real(8) :: location(3) ! seed location (x,y,z)
     contains
         procedure :: init => initSeed 
@@ -37,18 +38,23 @@ subroutine initSeed(obj,mass,water_content,radius,location,x,y,z,width1,width2,w
     obj%num_of_seed = 1
     obj%mass = input(default=1.0d0,option=mass)
     obj%water_content = input(default=12.0d0,option=water_content)
-    obj%radius = input(default=0.30d0,option=radius)
+    
 
     obj%width1 = input(default=obj%radius,option=width1 )
     obj%width2 = input(default=obj%radius,option=width2 )
     obj%width3 = input(default=obj%radius,option=width3 )
-    
+    obj%radius = input(default=0.330d0*obj%width1+0.330d0*obj%width2+0.330d0*obj%width3,option=radius)
+
     obj%location(:) = loc(:)
     obj%location(1) = obj%location(1)+input(default=0.0d0,option=x)
     obj%location(2) = obj%location(2)+input(default=0.0d0,option=y)
     obj%location(3) = obj%location(3)+input(default=0.0d0+obj%radius,option=z)
 
     call obj%FEMDomain%init(simple=.true.)
+    obj%width1_origin = obj%width1
+    obj%width2_origin = obj%width2
+    obj%width3_origin = obj%width3
+
 end subroutine
 !########################################################
 
@@ -72,6 +78,7 @@ subroutine createMeshSeed(obj,FileName,withSTL,ObjType,ElemType)
     character*200   :: command
     character*200   :: strings
     integer :: intval
+    real(8) :: x_rate,y_rate,z_rate
     logical,optional,intent(in) :: withSTL
 
     
@@ -85,7 +92,10 @@ subroutine createMeshSeed(obj,FileName,withSTL,ObjType,ElemType)
     ! modification
     call mesh%import(FileName=trim(meshFileName_m),extention=".mesh",ElemType=ElemType)
     call obj%FEMDomain%importMesh(mesh)
-    call obj%FEMDomain%resize(x_rate=obj%width1,y_rate=obj%width2,z_rate=obj%width3)
+    x_rate=obj%width1/(maxval(obj%FEMDomain%Mesh%NodCoord(:,1) ) - minval(obj%FEMDomain%Mesh%NodCoord(:,1) )  )
+    y_rate=obj%width2/(maxval(obj%FEMDomain%Mesh%NodCoord(:,2) ) - minval(obj%FEMDomain%Mesh%NodCoord(:,2) )  )
+    z_rate=obj%width3/(maxval(obj%FEMDomain%Mesh%NodCoord(:,3) ) - minval(obj%FEMDomain%Mesh%NodCoord(:,3) )  )
+    call obj%FEMDomain%resize(x_rate=x_rate,y_rate=y_rate,z_rate=z_rate)
     
     if(present(withSTL) )then
         if(withSTL .eqv. .true.)then
@@ -104,6 +114,7 @@ subroutine exportSeed(obj,FileName,SeedID,extention)
     character(10) :: ex_format 
     integer,optional,intent(in) :: SeedID
 
+
     if(.not.present(extention) )then
         ex_format=".geo"
     else
@@ -115,11 +126,11 @@ subroutine exportSeed(obj,FileName,SeedID,extention)
         call obj%FEMDomain%export(OptionalFileFormat="stl",&
             FileName=FileName//"seed"// trim(adjustl(fstring(input(default=1,option=SeedID))))//".stl"  ,&
             MeshDimension=3 )
-        return
-    endif
-
-
-    if(ex_format==".geo" .or. ex_format=="geo")then
+        
+        
+    elseif(ex_format==".pos" .or. ex_format=="pos")then 
+        call obj%FEMDomain%GmshPlotMesh(Name=FileName//"seed"// trim(adjustl(fstring(input(default=1,option=SeedID))))//".pos")
+    elseif(ex_format==".geo" .or. ex_format=="geo")then
         open(10,file=FileName)
         write(10,'(A)') "//+"
         write(10,'(A)') 'SetFactory("OpenCASCADE");'
@@ -127,7 +138,14 @@ subroutine exportSeed(obj,FileName,SeedID,extention)
         obj%location(1),",", obj%location(2),",", obj%location(3),",",&
         obj%radius,", -Pi/2, Pi/2, 2*Pi};"
         close(10)
+    else
+        print *, "ERROR :: export formats .pos, .stl, .geo are available."
     endif
+
+    
+
+
+    
 
 end subroutine
 !########################################################
