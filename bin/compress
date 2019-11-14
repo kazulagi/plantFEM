@@ -8,6 +8,7 @@ rm *.scf
 rm *.scf~
 rm fort.*
 rm *.ipynb
+rm *.mesh
 rm PySiCroF.py
 mv *.f90 log/
 mv *.geo RESULTS/

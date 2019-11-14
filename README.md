@@ -187,6 +187,17 @@ jupyter-notebook
 
 ![3-D thermal diffusion simulation of a grass leaf.](./doc/grass_leaf.gif)
 
+
+Ex.4 :: Simulation for Germination of soybean.
+
+```
+python3 SiCroF.py
+
+>>> Tutorial/CreateSoybean/WaterAbsorption.f90
+
+```
+![ Simulation for Germination of soybean.](./doc/soaked_soy_seed.png)
+
 ## import file format   
 - [Format of .scf file](doc/InputFileFormat.md)
 

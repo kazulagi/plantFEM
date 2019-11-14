@@ -1196,10 +1196,6 @@ subroutine ShowMesh(obj,FileHandle,OnlySurface)
         no_fh = .true.
     endif
 
-        !call ShowArraySize(Obj%ElemNod)
-        !call ShowArraySize(Obj%FacetElemNod)
-        !print *, maxval(Obj%FacetElemNod),n
-        !call ShowArraySize(obj%NodCoord)
     if(present(OnlySurface) )then
         if(OnlySurface .eqv. .true. )then
             n=size(obj%FacetElemNod,1)
@@ -1315,7 +1311,6 @@ subroutine MeltingSkeltonMesh(obj,ItrTol)
             endif
         enddo
 
-        !call showArray(Obj%NodCoord,MeltObj%ElemNod, FileHandle=50)
         
     enddo
 
@@ -2325,7 +2320,8 @@ end subroutine
 subroutine removeOverlappedNodeMesh(obj,tolerance)
     class(Mesh_),intent(inout)::obj
     real(8),optional,intent(in) :: tolerance
-    integer,allocatable :: RectElemNod(:,:),checked(:),before_after(:),New_NodCoord(:,:)
+    integer,allocatable :: RectElemNod(:,:),checked(:),before_after(:)
+    real(8),allocatable :: New_NodCoord(:,:)
     integer :: i,j,k,dim_num,node_num,itr,elem_num,elemnod_num,l
     real(8),allocatable :: x(:),x_tr(:)
     real(8) :: error,tol
