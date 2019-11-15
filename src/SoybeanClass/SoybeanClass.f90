@@ -169,10 +169,14 @@ subroutine WaterAbsorptionSoybean(obj,temp,dt)
     obj%seed%width2=obj%seed%width2_origin*(w2max - AA*exp(-BB*obj%time)   ) 
     obj%seed%width3=obj%seed%width3_origin*(w3max - AA*exp(-BB*obj%time)   ) 
 
-    ! for debug
-    obj%seed%width2=obj%seed%width2_origin*(w2max ) 
-    obj%seed%width3=obj%seed%width3_origin*(w3max ) 
-
+    ! linear model; it should be changed in near future.
+    if(obj%time > 60.0d0*6.0d0)then
+        obj%seed%width2=obj%seed%width2_origin*(w2max ) 
+        obj%seed%width3=obj%seed%width3_origin*(w3max ) 
+    else
+        obj%seed%width2=obj%seed%width2_origin + obj%seed%width2_origin*(w2max-1.0d0 )*(obj%time)/(60.0d0*6.0d0) 
+        obj%seed%width3=obj%seed%width3_origin + obj%seed%width3_origin*(w3max-1.0d0 )*(obj%time)/(60.0d0*6.0d0)
+    endif
 
     wx = maxval(obj%Seed%FEMDomain%Mesh%NodCoord(:,1))-minval(obj%Seed%FEMDomain%Mesh%NodCoord(:,1)) 
     wy = maxval(obj%Seed%FEMDomain%Mesh%NodCoord(:,2))-minval(obj%Seed%FEMDomain%Mesh%NodCoord(:,2)) 
