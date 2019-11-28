@@ -72,11 +72,13 @@ echo " >> KinematicClass.o"
 echo " | #                           | (2%)\r\c "
 mpif90 -c ./src/KinematicClass/KinematicClass.f90 -o  ./inc/KinematicClass.o
 echo "Compiling ./src/RandomClass/RandomClass.f90   "
-
-
 echo " >> RandomClass.o"
 echo " | #                           | (2%)\r\c "
 mpif90 -c ./src/RandomClass/RandomClass.f90 -o  ./inc/RandomClass.o
+echo "Compiling ./src/ArrayOperationClass/ArrayOperationClass.f90 " 
+echo " >> ArrayOperationClass.o "
+echo " | #                           | (4%)\r\c"
+mpif90 -c ./src/ArrayOperationClass/ArrayOperationClass.f90 -o  ./inc/ArrayOperationClass.o
 echo "Compiling ./src/MPIClass/MPIClass.f90       "
 echo " >> MPIClass.o"
 echo " | #                           | (5%)\r\c "
@@ -93,10 +95,6 @@ echo "Compiling ./src/LinearSolverClass/LinearSolverClass.f90 "
 echo " >> LinearSolverClass.o "
 echo " | ####                        | (16%)\r\c"
 mpif90 -c ./src/LinearSolverClass/LinearSolverClass.f90 -o  ./inc/LinearSolverClass.o
-echo "Compiling ./src/ArrayOperationClass/ArrayOperationClass.f90 " 
-echo " >> ArrayOperationClass.o "
-echo " | #####                       | (20%)\r\c"
-mpif90 -c ./src/ArrayOperationClass/ArrayOperationClass.f90 -o  ./inc/ArrayOperationClass.o
 echo "Compiling ./src/GeometryClass/GeometryClass.f90 " 
 echo " >> GeometryClass.o "
 echo " | #####                       | (22%)\r\c"

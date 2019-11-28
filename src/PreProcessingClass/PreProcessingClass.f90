@@ -147,7 +147,8 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
             
             ! Convert SurfaceNod to .geo
             call soil%ExportGeoFile(MPIData,Name=trim(project)//"soil"//trim(str_id)//".geo" )
-
+            return
+            
             ! Run Gmsh to convert .geo to .msh
             call soil%ConvertGeo2Msh(MPIData ,Name=trim(project)//"soil"//trim(str_id)//".geo" )
             call soil%ConvertGeo2Inp(MPIData ,Name=trim(project)//"soil"//trim(str_id)//".geo" )
@@ -157,7 +158,7 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
             Name=trim(project)//"soil"//trim(str_id)//".mesh")
             call soil%FEMDomain%checkconnectivity(fix=.true.)
             call soil%Convert3Dto2D()
-            return
+            
 
         endif
 
@@ -2867,7 +2868,8 @@ subroutine modifySuefaceNodePrepro(obj,Mesh,boolean)
     real(8),allocatable :: surfacenod_m(:,:), surfacenod(:,:),buffer(:,:)
     integer :: i,j,n,itr,cross1,cross2,cross3,cross4,end1,end2,cases
     integer,allocatable :: in_out(:), in_out_m(:)
-    real(8) :: xmax,ymax,xmin,ymin,x_tr,y_tr
+    integer :: s(4),s_m(4)
+    real(8) :: xmax,ymax,xmin,ymin,x_tr,y_tr,direct,direct_m
     real(8) :: xmax_m,ymax_m,xmin_m,ymin_m,end1_m,end2_m
 
     if(boolean == "diff" .or.boolean == "Diff"  )then
@@ -3008,7 +3010,54 @@ subroutine modifySuefaceNodePrepro(obj,Mesh,boolean)
         ! add soil surface and root surface
         n=sum(in_out_m)+sum(in_out)
         allocate(buffer(size(obj%FEMDomain%Mesh%NodCoord,1),2 ) )
-        buffer(:,1:2)=obj%FEMDomain%Mesh%NodCoord(:,1:2)
+
+
+        do i=1,size(Mesh%SurfaceLine2D,1)
+            if(Mesh%NodCoord( Mesh%SurfaceLine2D(i),1)==maxval( Mesh%NodCoord(:,1) ) )then
+                s(1)=i
+            elseif(Mesh%NodCoord( Mesh%SurfaceLine2D(i) ,2)==maxval( Mesh%NodCoord(:,2) ) )then
+                s(2)=i
+            elseif(Mesh%NodCoord( Mesh%SurfaceLine2D(i) ,1)==minval( Mesh%NodCoord(:,1) ) )then
+                s(3)=i
+            elseif(Mesh%NodCoord( Mesh%SurfaceLine2D(i) ,2)==minval( Mesh%NodCoord(:,2) ) )then    
+                s(4)=i
+            else
+                cycle
+            endif
+        enddo
+        
+        do i=1,size(obj%FEMDomain%Mesh%NodCoord,1)
+            if(obj%FEMDomain%Mesh%NodCoord(i,1)==maxval( obj%FEMDomain%Mesh%NodCoord(:,1) ) )then
+                s_m(1)=i
+            elseif(obj%FEMDomain%Mesh%NodCoord(i,2)==maxval( obj%FEMDomain%Mesh%NodCoord(:,2) ) )then
+                s_m(2)=i
+            elseif(obj%FEMDomain%Mesh%NodCoord(i,1)==minval( obj%FEMDomain%Mesh%NodCoord(:,1) ) )then
+                s_m(3)=i
+            elseif(obj%FEMDomain%Mesh%NodCoord(i,2)==minval( obj%FEMDomain%Mesh%NodCoord(:,2) ) )then    
+                s_m(4)=i
+            else
+                cycle
+            endif
+        enddo
+
+        direct=dble(s(4)-s(3))/abs(s(4)-s(3) )+dble(s(3)-s(2))/abs(s(3)-s(2) )&
+            +dble(s(2)-s(1))/abs(s(2)-s(1) )+dble(s(1)-s(4))/abs(s(1)-s(4) )
+        direct_m=dble(s_m(4)-s_m(3))/abs(s_m(4)-s_m(3) )+dble(s_m(3)-s_m(2))/abs(s_m(3)-s_m(2) )&
+            +dble(s_m(2)-s_m(1))/abs(s_m(2)-s_m(1) )+dble(s_m(1)-s_m(4))/abs(s_m(1)-s_m(4) )
+
+        if(direct * direct_m <= 0.0d0)then
+            print *, "opposite direction"
+            do i=1,size(buffer,1)
+                buffer(i,1:2)=obj%FEMDomain%Mesh%NodCoord( size(buffer,1)-i+1    ,1:2)
+            enddo
+        else
+            print *, "same direction"
+            buffer(:,1:2)=obj%FEMDomain%Mesh%NodCoord(:,1:2)
+        endif
+        
+
+
+
         deallocate(obj%FEMDomain%Mesh%NodCoord)
         allocate(obj%FEMDomain%Mesh%NodCoord(n,2) )
 
@@ -3057,7 +3106,6 @@ subroutine modifySuefaceNodePrepro(obj,Mesh,boolean)
         enddo
 
 
-        call showarray(obj%FEMDomain%Mesh%NodCoord,Name="test.txt")
     endif
     
 end subroutine
