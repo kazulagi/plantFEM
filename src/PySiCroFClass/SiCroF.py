@@ -123,12 +123,12 @@ class prepro:
             os.system("a.exe\n")
             
         elif pf=="Darwin":
-            os.system("mpifort inc/*.o "+"buf_"+str(self.DomainName+"_import.f90") )
+            os.system("mpif90 inc/*.o "+"buf_"+str(self.DomainName+"_import.f90") )
             os.system("./a.out\n")
             os.system("rm -f "+"buf_"+str(self.DomainName+"_import.f90"))
         
         elif pf=="Linux":
-            os.system("mpifort inc/*.o "+"buf_"+str(self.DomainName+"_import.f90") +" ")
+            os.system("mpif90 inc/*.o "+"buf_"+str(self.DomainName+"_import.f90") +" ")
             os.system("./a.out\n")
             os.system("rm -f "+"buf_"+str(self.DomainName+"_import.f90"))
         
@@ -155,12 +155,12 @@ class prepro:
             os.system("a.exe\n")
             
         elif pf=="Darwin":
-            os.system("mpifort inc/*.o "+"buf_"+str(self.DomainName+"_import.f90") )
+            os.system("mpif90 inc/*.o "+"buf_"+str(self.DomainName+"_import.f90") )
             os.system("./a.out\n")
             os.system("rm -f "+"buf_"+str(self.DomainName+"_import.f90"))
         
         elif pf=="Linux":
-            os.system("mpifort inc/*.o "+"buf_"+str(self.DomainName+"_import.f90") +" ")
+            os.system("mpif90 inc/*.o "+"buf_"+str(self.DomainName+"_import.f90") +" ")
             os.system("./a.out\n")
             os.system("rm -f "+"buf_"+str(self.DomainName+"_import.f90"))
         
@@ -221,12 +221,12 @@ class prepro:
             os.system("a.exe\n")
             
         elif pf=="Darwin":
-            os.system("mpifort inc/*.o "+"buf_"+str(self.DomainName+"_rotate.f90") )
+            os.system("mpif90 inc/*.o "+"buf_"+str(self.DomainName+"_rotate.f90") )
             os.system("./a.out\n")
             os.system("rm -f "+"buf_"+str(self.DomainName+"_rotate.f90"))
         
         elif pf=="Linux":
-            os.system("mpifort inc/*.o "+"buf_"+str(self.DomainName+"_rotate.f90") +" ")
+            os.system("mpif90 inc/*.o "+"buf_"+str(self.DomainName+"_rotate.f90") +" ")
             os.system("./a.out\n")
             os.system("rm -f "+"buf_"+str(self.DomainName+"_rotate.f90"))
         
@@ -256,13 +256,13 @@ class prepro:
            
         elif pf=="Darwin":
 
-            os.system("mpifort inc/*.o "+"buf_"+str(self.DomainName+"_move.f90") )
+            os.system("mpif90 inc/*.o "+"buf_"+str(self.DomainName+"_move.f90") )
             os.system("./a.out\n")
             os.system("rm -f "+"buf_"+str(self.DomainName+"_move.f90"))
         
         elif pf=="Linux":
 
-            os.system("mpifort inc/*.o "+"buf_"+str(self.DomainName+"_move.f90") +" ")
+            os.system("mpif90 inc/*.o "+"buf_"+str(self.DomainName+"_move.f90") +" ")
             os.system("./a.out\n")
             os.system("rm -f "+"buf_"+str(self.DomainName+"_move.f90"))
         
@@ -298,13 +298,13 @@ class prepro:
             os.system("a.exe\n")
             
         elif pf=="Darwin":
-            os.system("mpifort inc/*.o "+str(Name+"_saveas.f90") )
+            os.system("mpif90 inc/*.o "+str(Name+"_saveas.f90") )
             os.system("./a.out\n")
             os.system("rm -f "+str(Name+"_saveas.f90"))
         
         
         elif pf=="Linux":
-            os.system("mpifort inc/*.o "+str(Name+"_saveas.f90") +" ")
+            os.system("mpif90 inc/*.o "+str(Name+"_saveas.f90") +" ")
             os.system("./a.out\n")
             os.system("rm -f "+str(Name+"_saveas.f90"))
         
@@ -397,13 +397,13 @@ class prepro:
             
         
         elif pf=="Darwin":
-            os.system("mpifort inc/*.o "+"buf_"+str(Name+"_exportasstl.f90") )
+            os.system("mpif90 inc/*.o "+"buf_"+str(Name+"_exportasstl.f90") )
             os.system("./a.out\n")
             os.system("rm -f "+"buf_"+str(Name+"_exportasstl.f90"))
 
         
         elif pf=="Linux":
-            os.system("mpifort inc/*.o "+"buf_"+str(Name+"_exportasstl.f90") +" ")
+            os.system("mpif90 inc/*.o "+"buf_"+str(Name+"_exportasstl.f90") +" ")
             os.system("./a.out\n")
             os.system("rm -f "+"buf_"+str(Name+"_exportasstl.f90"))
 
@@ -647,20 +647,20 @@ class prepro:
                 if pf == "Darwin":
                     print("OS : Mac")
                     self.exportFortranScript()
-                    os.system("mpifort inc/*.o "+str(self.ProjName+"_1.f90") +" ")
+                    os.system("mpif90 inc/*.o "+str(self.ProjName+"_1.f90") +" ")
                     os.system("mpirun -np "+str(self.NumCore)+" ./a.out\n")
                     os.system('gmsh *.geo -2 -algo del2d -clmin 100 -format mesh')
-                    os.system("mpifort inc/*.o "+str(self.ProjName+"_2.f90")+" ")
+                    os.system("mpif90 inc/*.o "+str(self.ProjName+"_2.f90")+" ")
                     print("Running preprocessing...")
                     os.system("mpirun -np "+str(self.NumCore)+" ./a.out\n")
                     print("Successfully done!")
                 elif pf == "Linux":
                     print("OS : Linux")
                     self.exportFortranScript()
-                    os.system("mpifort inc/*.o "+str(self.ProjName+"_1.f90") +" ")
+                    os.system("mpif90 inc/*.o "+str(self.ProjName+"_1.f90") +" ")
                     os.system("mpirun -np "+str(self.NumCore)+" ./a.out\n")
                     os.system('gmsh *.geo -2 -algo del2d -clmin 100 -format mesh')
-                    os.system("mpifort inc/*.o "+str(self.ProjName+"_2.f90")+" ")
+                    os.system("mpif90 inc/*.o "+str(self.ProjName+"_2.f90")+" ")
                     print("Running preprocessing...")
                     os.system("mpirun -np "+str(self.NumCore)+" ./a.out\n")
                     print("Successfully done!")
@@ -684,20 +684,20 @@ class prepro:
                 if pf == "Darwin":
                     print("OS : Mac")
                     self.exportFortranScript()
-                    os.system("mpifort inc/*.o "+str(self.ProjName+"_1.f90") +" ")
+                    os.system("mpif90 inc/*.o "+str(self.ProjName+"_1.f90") +" ")
                     os.system("mpirun -np "+str(self.NumCore)+" ./a.out\n")
                     #os.system('gmsh *.geo -2 -algo del2d -clmin 100 -format mesh')
-                    #os.system("mpifort inc/*.o "+str(self.ProjName+"_2.f90")+" ")
+                    #os.system("mpif90 inc/*.o "+str(self.ProjName+"_2.f90")+" ")
                     print("Running preprocessing...")
                     #os.system("mpirun -np "+str(self.NumCore)+" ./a.out\n")
                     print("Successfully done!")
                 elif pf == "Linux":
                     print("OS : Linux")
                     self.exportFortranScript()
-                    os.system("mpifort inc/*.o "+str(self.ProjName+"_1.f90") +" ")
+                    os.system("mpif90 inc/*.o "+str(self.ProjName+"_1.f90") +" ")
                     os.system("mpirun -np "+str(self.NumCore)+" ./a.out\n")
                     #os.system('gmsh *.geo -2 -algo del2d -clmin 100 -format mesh')
-                    #os.system("mpifort inc/*.o "+str(self.ProjName+"_2.f90")+" ")
+                    #os.system("mpif90 inc/*.o "+str(self.ProjName+"_2.f90")+" ")
                     print("Running preprocessing...")
                     #os.system("mpirun -np "+str(self.NumCore)+" ./a.out\n")
                     print("Successfully done!")
@@ -721,20 +721,20 @@ class prepro:
                 if pf == "Darwin":
                     print("OS : Mac")
                     self.exportFortranScript()
-                    #os.system("mpifort inc/*.o "+str(self.ProjName+"_1.f90") +" ")
+                    #os.system("mpif90 inc/*.o "+str(self.ProjName+"_1.f90") +" ")
                     #os.system("mpirun -np "+str(self.NumCore)+" ./a.out\n")
                     #os.system('gmsh *.geo -2 -algo del2d -clmin 100 -format mesh')
-                    os.system("mpifort inc/*.o "+str(self.ProjName+"_2.f90")+" ")
+                    os.system("mpif90 inc/*.o "+str(self.ProjName+"_2.f90")+" ")
                     print("Running preprocessing...")
                     os.system("mpirun -np "+str(self.NumCore)+" ./a.out\n")
                     print("Successfully done!")
                 elif pf == "Linux":
                     print("OS : Linux")
                     self.exportFortranScript()
-                    #os.system("mpifort inc/*.o "+str(self.ProjName+"_1.f90") +" ")
+                    #os.system("mpif90 inc/*.o "+str(self.ProjName+"_1.f90") +" ")
                     #os.system("mpirun -np "+str(self.NumCore)+" ./a.out\n")
                     #os.system('gmsh *.geo -2 -algo del2d -clmin 100 -format mesh')
-                    os.system("mpifort inc/*.o "+str(self.ProjName+"_2.f90")+" ")
+                    os.system("mpif90 inc/*.o "+str(self.ProjName+"_2.f90")+" ")
                     print("Running preprocessing...")
                     os.system("mpirun -np "+str(self.NumCore)+" ./a.out\n")
                     print("Successfully done!")
@@ -820,7 +820,7 @@ class solver:
             if pf == "Darwin":
                 print("OS : Mac")
                 self.exportFortranScript()
-                os.system("mpifort inc/*.o "+str(self.ProjName+".f90"))
+                os.system("mpif90 inc/*.o "+str(self.ProjName+".f90"))
                 print("Now Running Simulation...")
                 os.system("mpirun -np "+str(self.NumCore)+" ./a.out\n")
                 print("Simulation is done!")
@@ -830,7 +830,7 @@ class solver:
 
             elif pf == "Linux":
                 self.exportFortranScript()
-                os.system("mpifort inc/*.o "+str(self.ProjName+".f90")+" ")
+                os.system("mpif90 inc/*.o "+str(self.ProjName+".f90")+" ")
                 print("Now Running Simulation...")
                 os.system("mpirun -np "+str(self.NumCore)+" ./a.out\n")
                 print("Simulation is done!")

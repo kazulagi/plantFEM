@@ -2,12 +2,13 @@ module PreprocessingClass
     
     use mpi
     use termclass
+    use DictionaryClass
     use MPIClass
     use FEMDomainClass
     use ArrayOperationClass
     use PostProcessingClass
-    
 
+    
     implicit none    
     
     type :: PreProcessing_
@@ -18,7 +19,9 @@ module PreprocessingClass
         integer         :: PixcelSize(2),num_of_pixcel
         integer         :: ColorRGB(3)
     contains
+        procedure :: getScfFromImage    => getScfFromImagePreProcessing
         procedure :: Init               => InitializePrePro
+        procedure :: finalize           => finalizePrePro
         procedure :: ImportPictureName  => ImportPictureName
         procedure :: importPixcelAsNode => importPixcelAsNodePreProcessing
         procedure :: ShowName           => ShowPictureName
@@ -29,6 +32,7 @@ module PreprocessingClass
         procedure :: ShowColor          => ShowColor
         procedure :: GetPixcelByRGB     => GetPixcelByRGB
         procedure :: GetSurfaceNode     => GetPixcelSurfaceNode
+        procedure :: modifySuefaceNode => modifySuefaceNodePrepro
         procedure :: AssembleSurfaceElement => AssembleSurfaceElement
         procedure :: ReduceSize         => ReduceSize
         procedure :: ExportGeoFile      => ExportGeoFile
@@ -59,9 +63,184 @@ module PreprocessingClass
         procedure :: showMesh           => showMeshPreProcessing 
         procedure :: meshing            => meshingPreProcessing
         
+        
     end type
     
 contains
+
+! #########################################################
+subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scalex,scaley,&
+    Soilfile,sR,SG,sB)
+    class(PreProcessing_),intent(inout) :: obj
+    class(MPI_),intent(inout)           :: MPIData
+
+    type(Dictionary_)       :: InfileList
+    type(PreProcessing_)    :: leaf,soil
+    character(*),intent(in) :: project,elemtype
+    character(*),optional,intent(in) :: Soilfile
+    integer,intent(in) :: R,G,B
+    integer,optional,intent(in) :: sR,SG,sB
+    real(8),intent(in) :: scalex,scaley
+    character * 200         :: name,name1,name2,name3,name4,SolverName,str_id,sname
+    integer :: NumOfImages,i,id
+
+    
+
+    if(trim(ElemType) /= "LinearRectangularGp4")then
+        print *, "ERROR :: now only LinearRectangularGp4 is available."
+        return
+    endif
+
+
+    ! get paths for Image lists
+    open(50,file=trim(project)//"filenamelist.txt")
+    read(50,*) NumOfImages
+    call InfileList%Init(NumOfImages)
+    do i=1,NumOfImages
+        read(50,'(A)' ) name
+        call InfileList%Input(i, trim(name) )
+    enddo
+
+    call MPIData%createStack(total=NumOfImages)
+    
+    do i=1,size(MPIData%LocalStack)
+        id=MPIData%LocalStack(i)
+        str_id= trim(adjustl(fstring(id)))
+        name=trim(InfileList%get( MPIData%LocalStack(i)) )
+        print *, "MyRank",MPIData%MyRank,"|",trim(name)
+        
+        ! Get Pixcel
+        call leaf%ImportPictureName(name)
+        call leaf%GetPixcelSize(MPIData)
+        call leaf%SetColor(R,G,B)
+        call leaf%GetPixcelByRGB(MPIData,err=5,onlycoord=.true.)
+        ! Get Outline
+        call leaf%GetSurfaceNode(MPIData)
+        call leaf%AssembleSurfaceElement(MPIData,dim=2,threshold=10,DelRange=10)
+        
+        ! Convert SurfaceNod to .geo
+        call leaf%ExportGeoFile(MPIData,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
+            
+        ! Run Gmsh to convert .geo to .msh
+        call leaf%ConvertGeo2Msh(MPIData ,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
+        call leaf%ConvertGeo2Inp(MPIData ,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
+        call leaf%ConvertGeo2Mesh(MPIData,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
+        ! Convert .msh to .scf
+        ! need debug
+        call leaf%ConvertMesh2Scf(MPIData,ElementType=ElemType,&
+            Name=trim(project)//"mesh"//trim(str_id)//".mesh" )
+        call leaf%FEMDomain%checkconnectivity(fix=.true.)
+        call leaf%Convert3Dto2D()
+
+        ! get soil mesh
+        if(present(Soilfile) )then
+            sname=trim(Soilfile)
+            call soil%ImportPictureName(sname)
+            call soil%GetPixcelSize(MPIData)
+            call soil%SetColor(sR,sG,sB)
+            call soil%GetPixcelByRGB(MPIData,err=5,onlycoord=.true.)
+
+            ! Get Outline (simple outline)
+            ! see soil as a box
+            call soil%GetSurfaceNode(MPIData,box=.true.)
+            call soil%modifySuefaceNode(Mesh=leaf%FEMDomain%Mesh,boolean="diff")
+            
+            ! Convert SurfaceNod to .geo
+            call soil%ExportGeoFile(MPIData,Name=trim(project)//"soil"//trim(str_id)//".geo" )
+
+            ! Run Gmsh to convert .geo to .msh
+            call soil%ConvertGeo2Msh(MPIData ,Name=trim(project)//"soil"//trim(str_id)//".geo" )
+            call soil%ConvertGeo2Inp(MPIData ,Name=trim(project)//"soil"//trim(str_id)//".geo" )
+            call soil%ConvertGeo2Mesh(MPIData,Name=trim(project)//"soil"//trim(str_id)//".geo" )
+            ! Convert .msh to .scf
+            call soil%ConvertMesh2Scf(MPIData,ElementType=ElemType,&
+            Name=trim(project)//"soil"//trim(str_id)//".mesh")
+            call soil%FEMDomain%checkconnectivity(fix=.true.)
+            call soil%Convert3Dto2D()
+            return
+
+        endif
+
+        SolverName="FiniteDeform_"
+        call leaf%SetSolver(InSolverType=SolverName)
+        call leaf%SetUp(NoFacetMode=.true.)
+        call leaf%Reverse()
+    
+        
+        ! destructer
+        call leaf%finalize()
+        call soil%finalize()
+    enddo
+
+    return
+
+    call leaf%SetScale(scalex=scalex,scaley=scaley)
+    
+    !SolverName="DiffusionEq_"
+    SolverName="FiniteDeform_"
+    call leaf%SetSolver(InSolverType=SolverName)
+    call leaf%SetUp(NoFacetMode=.true.)
+    call leaf%Reverse()
+    call leaf%Convert2Dto3D(Thickness=0.250d0,division=4)
+    !!############### Setup Material Info ######################
+    !!############### Setup Material Info ######################
+    !!############### Setup Material Info ######################
+
+    !call leaf%SetMatPara(MaterialID=1,ParameterID=1,Val=0.00010d0)
+    call leaf%SetMatPara(MaterialID=1,ParameterID=1,Val=1.0000d0)
+    call leaf%SetMatPara(MaterialID=1,ParameterID=2,Val=0.3000d0)
+    call leaf%SetMatPara(MaterialID=1,ParameterID=3,Val=0.0000d0)
+    call leaf%SetMatPara(MaterialID=1,ParameterID=4,Val=dble(1.0e+20) )
+    call leaf%SetMatPara(MaterialID=1,ParameterID=5,Val=0.0000d0)
+    call leaf%SetMatPara(MaterialID=1,ParameterID=6,Val=0.0000d0)
+    
+    call leaf%SetMatID( MaterialID=1)
+    !call leaf%SetMatID( xmin=,xmax=,ymin=,ymax=,zmin=,zmax=,tmin=,tmax=,MaterialID=)
+
+    !!############### Setup Material Info ######################
+    !!############### Setup Material Info ######################
+    !!############### Setup Material Info ######################
+    
+    
+
+    !!############### Setup Boundary Condition ######################
+    !!############### Setup Boundary Condition ######################
+    !!############### Setup Boundary Condition ######################
+    call leaf%SetSizeOfBC(Dirichlet=.true. , NumOfValue=3)
+    call leaf%SetBC(Dirichlet=.true., ymax=-1.0d0, ymin=-25.0d0,  val=-1.0d0,val_id=1)
+    call leaf%SetBC(Dirichlet=.true., ymax=-1.0d0, ymin=-25.0d0,  val=-1.0d0,val_id=2)
+    call leaf%SetBC(Dirichlet=.true., ymax=-1.0d0, ymin=-25.0d0,  val=-1.0d0,val_id=3)
+    call leaf%SetBC(Dirichlet=.true., ymax=-100.0d0,             val=4.0d0,val_id=1)
+    call leaf%SetBC(Dirichlet=.true., ymax=-100.0d0,             val=4.0d0,val_id=2)
+    call leaf%SetBC(Dirichlet=.true., ymax=-100.0d0,             val=4.0d0,val_id=3)
+    call leaf%SetSizeOfBC(Neumann=.true. , NumOfValue=3)
+    !call leaf%SetBC(Neumann=.true., zmax=0.0d0, val=-1.0d0,val_id=1)
+    !call leaf%SetBC(Neumann=.true., zmax=0.0d0, val=-1.0d0,val_id=2)
+    !call leaf%SetBC(Neumann=.true., zmax=0.0d0, val=-1.0d0,val_id=3)
+    
+    
+    !call leaf%SetSizeOfBC(Initial=.true. , NumOfValue=6)
+    !call leaf%SetBC(Initial=.true.,   val=0.0d0, val_id=6)
+    !call leaf%SetBC(Initial=.true., ymax=-2.6d0,  ymin=-30.20d0, val=30.0d0,val_id=1)
+    !call leaf%SetBC(Initial=.true., ymax=-30.20d0,ymin=-58.20d0, val=20.0d0,val_id=1)
+    !call leaf%SetBC(Initial=.true., ymax=-58.20d0,               val=10.0d0,val_id=1)
+    
+    call leaf%SetControlPara(OptionalItrTol=100,OptionalTimestep=100,OptionalSimMode=1)
+        
+    !!############### Setup Boundary Condition ######################
+    !!############### Setup Boundary Condition ######################
+    !!############### Setup Boundary Condition ######################
+
+    ! Export Object
+    call leaf%FEMDomain%GmshPlotVector(Name="Tutorial/InputData/grass_leaf",step=0,&
+        withMsh=.true.,FieldName="DispBound",NodeWize=.true.,onlyDirichlet=.true.)
+    
+    call leaf%Export(Name="Tutorial/InputData/grass_leaf")
+    call MPIData%End()
+
+
+end subroutine
+! #########################################################
 
 ! #########################################################
 subroutine InitializePrePro(obj,Default)
@@ -69,6 +248,23 @@ subroutine InitializePrePro(obj,Default)
     logical,optional,intent(in)::Default
 
     call obj%FEMDomain%Init(Default)
+end subroutine
+! #########################################################
+
+! #########################################################
+subroutine finalizePrePro(obj)
+    class(PreProcessing_),intent(inout)::obj
+
+    call obj%FEMDomain%delete()
+    if(associated(obj%pFEMDomain) )then
+        deallocate(obj%pFEMDomain)
+    endif
+    obj%PictureName = ""
+    obj%RGBDataName = ""
+    obj%PixcelSizeDataName = ""
+    obj%PixcelSize(:)=0
+    obj%num_of_pixcel=0
+    obj%ColorRGB(:) =0 
 end subroutine
 ! #########################################################
 
@@ -430,19 +626,137 @@ end subroutine
 
 
 ! #########################################################
-subroutine GetPixcelSurfaceNode(obj,MPIData,r,NumOfMaxNod,Name)
+subroutine GetPixcelSurfaceNode(obj,MPIData,r,NumOfMaxNod,Name,convex,division,box)
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
     character(*),optional,intent(in)   :: Name
-    integer,optional,intent(in)        :: r,NumOfMaxNod
+    integer,optional,intent(in)        :: r,NumOfMaxNod,division
+    logical,optional,intent(in)        :: convex,box
+
     character*200   :: python_buffer
     character*20    :: pid
     
     integer,allocatable :: KilledPixcel(:)
-    integer :: i,j,n,node_id,check_node_id,point_count,fh,MaxNod
-    real(8) :: x_real,y_real,z_real
-    real(8) :: x_real_tr,y_real_tr,z_real_tr,diff_real,max_r
-    real(8),allocatable :: buffer(:,:)
+    
+    integer :: i,j,k,n,node_id,check_node_id,point_count,fh,MaxNod,dv,itr
+    real(8) :: x_real,y_real,z_real,xmin,xmax,ymin,ymax,dly,dlx,xwidth,ywidth,xm,ym
+    real(8) :: x_real_tr,y_real_tr,z_real_tr,diff_real,max_r,x_tr,y_tr,ymax_tr,ymin_tr
+    real(8),allocatable :: buffer(:,:),NodCoordDiv(:,:),xmaxval(:),ymaxval(:),xminmval(:),yminmval(:)
+    ! in case of box
+    if(present(box) )then
+        if(box .eqv. .true.)then
+            print *, "Notice :: obj%GetSurfaceNode as Box"
+            xm=minval(obj%FEMDomain%Mesh%NodCoord(:,1))
+            ym=minval(obj%FEMDomain%Mesh%NodCoord(:,2)) 
+            dv = input(default=10,option=division)        
+            xwidth = maxval(obj%FEMDomain%Mesh%NodCoord(:,1))-minval(obj%FEMDomain%Mesh%NodCoord(:,1))
+            ywidth = maxval(obj%FEMDomain%Mesh%NodCoord(:,2))-minval(obj%FEMDomain%Mesh%NodCoord(:,2)) 
+            dlx = xwidth/dble(dv)
+            dly = ywidth/dble(dv)
+            xmax=maxval(obj%FEMDomain%Mesh%NodCoord(:,1))
+            ymax=maxval(obj%FEMDomain%Mesh%NodCoord(:,2))
+            xmin=minval(obj%FEMDomain%Mesh%NodCoord(:,1))
+            ymin=minval(obj%FEMDomain%Mesh%NodCoord(:,2))
+            allocate(buffer(4*dv,2) )
+            buffer(:,:)=0.0d0
+            
+            do i=1,dv
+                buffer(i,1) = dlx*dble(i-1) + xm 
+                buffer(i,2) = ymin
+            enddo
+
+            do i=1,dv
+                buffer(i+dv,1) = xmax 
+                buffer(i+dv,2) = dly*dble(i-1) + ym
+            enddo
+
+            do i=1,dv
+                buffer(i+dv*2,1) = xmax - dlx*dble(i-1)  
+                buffer(i+dv*2,2) = ymax
+            enddo
+
+            do i=1,dv
+                buffer(i+dv*3,1) = xmin 
+                buffer(i+dv*3,2) = ymax - dly*dble(i-1)
+            enddo
+
+            deallocate(obj%FEMDomain%Mesh%NodCoord)
+            allocate(obj%FEMDomain%Mesh%NodCoord(size(buffer,1),size(buffer,2) )  )
+            do i=1,size(buffer,1)
+                obj%FEMDomain%Mesh%NodCoord(i,:)=buffer(size(buffer,1)-i+1,:)
+            enddo
+            return
+        endif
+    endif
+
+    ! in case of convex
+    ! in case of convex
+    !if(present(convex) )then
+    !    if(convex .eqv. .true.)then
+    !        xm=minval(obj%FEMDomain%Mesh%NodCoord(:,1))
+    !        ym=minval(obj%FEMDomain%Mesh%NodCoord(:,2)) 
+    !        ! get discrete points with interval by division
+    !        dv = input(default=10,option=division)
+    !        xwidth = maxval(obj%FEMDomain%Mesh%NodCoord(:,1))-minval(obj%FEMDomain%Mesh%NodCoord(:,1))
+    !        ywidth = maxval(obj%FEMDomain%Mesh%NodCoord(:,2))-minval(obj%FEMDomain%Mesh%NodCoord(:,2)) 
+    !        dlx = xwidth/dble(dv)
+    !        dly = ywidth/dble(dv)
+    !        allocate(buffer(dv*4,2) )
+    !        allocate(xmaxval(dv) )
+    !        allocate(xmaxval(dv) )
+    !        allocate(yminval(dv) )
+    !        allocate(yminval(dv) )
+!
+    !        ! get x-max values
+    !        do i=1,dv
+    !            ymin=dble(i-1)*ywidth+ym
+    !            ymax=dble(i)*ywidth+ym
+    !            itr=1
+    !            do j=1,size(obj%FEMDomain%Mesh%NodCoord,1)
+    !                y_tr=obj%FEMDomain%Mesh%NodCoord(j,2)
+    !                if(ymin <= y_tr .and. y_tr <= ymax  )then
+    !                    if(itr==1)then
+    !                        itr=itr+1
+    !                        xmax_tr=obj%FEMDomain%Mesh%NodCoord(j,1)
+    !                        xmin_tr=obj%FEMDomain%Mesh%NodCoord(j,1)
+    !                    else
+    !                        if(xmax_tr<=obj%FEMDomain%Mesh%NodCoord(j,1) )then
+    !                            xmax_tr=obj%FEMDomain%Mesh%NodCoord(j,1) ! update y-max
+    !                            xmaxval(i)=xmax_tr
+    !                        endif
+    !                        if(xmin_tr>=obj%FEMDomain%Mesh%NodCoord(j,1) )then
+    !                            xmin_tr=obj%FEMDomain%Mesh%NodCoord(j,1) ! update y-max
+    !                            xminval(i)=xmin_tr
+    !                        endif
+    !                    endif
+    !                else
+    !                    cycle
+    !                endif
+    !            enddo
+    !        enddo
+!
+    !        do i=1,dv
+    !            buffer(i,2)=ymaxval(i)
+    !        enddo
+!
+    !        do i=1,dv
+    !            buffer(i+dv*2,dv*3)=yminval(i)
+    !        enddo
+    !        
+    !        do i=1,dv
+    !            buffer(i,2)=ymaxval(i)
+    !        enddo
+!
+    !        do i=1,dv
+    !            buffer(i+dv*2,dv*3)=yminval(i)
+    !        enddo
+    !        
+!
+    !    endif
+    !endif
+    ! in case of convex
+    ! in case of convex
+
 
     if(present(r) )then
         max_r=r
@@ -679,16 +993,66 @@ end subroutine
 
 
 ! #########################################################
-subroutine ReduceSize(obj,MPIData,interval,Name)
+subroutine ReduceSize(obj,MPIData,interval,Name,auto,curvetol)
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
     character(*),optional,intent(in)    :: Name
-    integer,intent(in) :: interval
+    integer,optional,intent(in) :: interval
     character*200   :: python_buffer
     character*20    :: pid
     real(8),allocatable:: buffer(:,:)
-    integer,allocatable:: chosen(:)
-    integer :: i,j,k,n,m,fh
+    integer,allocatable:: chosen(:),kill(:)
+    logical,optional,intent(in) :: auto
+    integer :: i,j,k,n,m,fh,itr,id1,id2,id3,killcount,killcount_b
+    real(8),optional,intent(in) :: curvetol
+    real(8) :: x1(2),x2(2),x3(2),x4(2),dp1,dp2,tol
+
+    tol=input(default=0.010d0,option=curvetol)
+    if(present(auto) )then
+        if(auto .eqv. .true.)then
+            
+            n=size(obj%FEMDomain%Mesh%NodCoord,1)  
+            m=size(obj%FEMDomain%Mesh%NodCoord,2)  
+            allocate(kill(n) )
+            kill(:)=0
+            do i=1,n-2
+                if(kill(i)==1 )then
+                    cycle
+                endif
+                do 
+                    x1(1:2)=obj%FEMDomain%Mesh%NodCoord(i  ,1:2)    
+                    x2(1:2)=obj%FEMDomain%Mesh%NodCoord(i+1,1:2)  
+                    x3(1:2)=obj%FEMDomain%Mesh%NodCoord(i+2,1:2)  
+                    x4(1:2)=0.50d0*x1(1:2)+0.50d0*x2(1:2)
+                    dp1=dot_product(x3-x4,x3-x4)
+                    dp2=dot_product(x1-x4,x1-x4)
+                    if(dp1/dp2 < tol )then
+                        kill(i+1)=1
+                        cycle
+                    else
+                        exit
+                    endif
+                enddo
+            enddo
+
+            ! kill nodes
+            allocate( buffer( n-sum(kill) ,2) )
+            itr=1
+            do i=1,n
+                if(kill(i)==1 )then
+                    buffer(itr,1:2)=obj%FEMDomain%Mesh%NodCoord(i  ,1:2)
+                    itr=itr+1
+                else
+                    cycle
+                endif
+            enddo
+            deallocate(obj%FEMDomain%Mesh%NodCoord)
+            allocate(obj%FEMDomain%Mesh%NodCoord( size(buffer,1),size(buffer,2) ))
+            obj%FEMDomain%Mesh%NodCoord(:,:)=buffer(:,:)
+            return
+        endif
+    endif
+
 
     n=size(obj%FEMDomain%Mesh%NodCoord,1)  
     m=size(obj%FEMDomain%Mesh%NodCoord,2)   
@@ -735,6 +1099,8 @@ subroutine ReduceSize(obj,MPIData,interval,Name)
     enddo
     close(fh)
 
+
+
     
 end subroutine
 ! #########################################################
@@ -756,7 +1122,7 @@ subroutine ExportGeoFile(obj,MPIData,Name)
     python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".geo"
 
     if(present(Name) )then
-        python_buffer=Name//"GetSurface_pid_"//trim(adjustl(pid))//".geo"
+        python_buffer=trim(Name)
         
     endif
 
@@ -806,7 +1172,7 @@ subroutine ConvertGeo2Msh(obj,MPIData,Name)
     command  = " "
     python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".geo"
     if(present(Name) )then
-        python_buffer=Name//"GetSurface_pid_"//trim(adjustl(pid))//".geo"
+        python_buffer=trim(Name)
     endif
     command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin 100"
 
@@ -839,7 +1205,7 @@ subroutine ConvertGeo2Inp(obj,MPIData,Name)
     command  = " "
     python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".geo"
     if(present(Name) )then
-        python_buffer=Name//"GetSurface_pid_"//trim(adjustl(pid))//".geo"
+        python_buffer=trim(Name)
     endif
     command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin 100 -format inp" 
 
@@ -881,7 +1247,7 @@ subroutine ConvertGeo2Mesh(obj,MPIData,SizePara,Name)
     command  = " "
     python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".geo"
     if(present(Name) )then
-        python_buffer=Name//"GetSurface_pid_"//trim(adjustl(pid))//".geo"
+        python_buffer=trim(Name)
     endif
     command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin"//trim(a)//" -format mesh" 
 
@@ -1148,10 +1514,10 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
     character*200   :: command,infile,outfile
     character*200,optional,intent(in) :: ElementType
     character*20    :: pid
-    character*11 MeshFormat
+    character*200 MeshFormat
 	character*14 EndMeshFormat
 	character*6  Nodes
-	character*9  EndNodes,Elements
+	character*200  EndNodes,Elements
     character*12  EndElements	
     integer,allocatable :: elem1(:),surface_nod(:),triangle(:,:),devide_line(:,:)
     integer :: i,j,k,n,n1,n2,fh,a,nm,mm,nod_num,nn,elem_num,surf_num,l
@@ -1159,6 +1525,7 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
     real(8) :: re1,re2
     
 
+    print *,  "ConvertMesh2Scf >>>> only for 2D"
     obj%FEMDomain%Mesh%ElemType = "LinearRectangularGp4"
     ! ======================================================
     ! deallocate all
@@ -1179,8 +1546,8 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
     infile="GetSurface_pid_"//trim(adjustl(pid))//".mesh"
     outfile = "GetSurface_pid_"//trim(adjustl(pid))//".scf"
     if(present(Name) )then
-        infile  = Name//"GetSurface_pid_"//trim(adjustl(pid))//".mesh"
-        outfile = Name//"GetSurface_pid_"//trim(adjustl(pid))//".scf"
+        infile  = Name
+        outfile = Name//".scf"
         
     endif
 	
@@ -1191,56 +1558,65 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
     ! ======================================================
 	!read file to get nod and elem number
     read(fh,*)MeshFormat
-    read(fh,*)MeshFormat
-    read(fh,*)mm
-    read(fh,*)MeshFormat
-
-	! ======================================================
-	! Number of nodes
-	read(fh,*)nod_num
-	!print *,"nod_number",nod_num
-    if(allocated(obj%FEMDomain%Mesh%NodCoord))then
-        deallocate(obj%FEMDomain%Mesh%NodCoord)
+    if( trim(adjustl(MeshFormat) )/= "MeshVersionFormatted")then
+        print *, "ConvertMesh2Scf ERROR :: ",MeshFormat
     endif
-    allocate(obj%FEMDomain%Mesh%NodCoord(nod_num,3) )
-    obj%FEMDomain%Mesh%NodCoord(:,:)=0.0d0
-	do i=1,nod_num
-		read(fh,*) obj%FEMDomain%Mesh%NodCoord(i,:)
-    enddo
-    
-	read(fh,*)EndNodes
-    
-    ! ======================================================
-    
-    read(fh,*)mm
-    do i=1,mm
-        read(fh,*) elem_num
-    enddo
-    read(fh,*)EndNodes
-    ! ======================================================
-    
-    
+    read(fh,*) MeshFormat
+    read(fh,*) mm
+    do 
+        MeshFormat=" "
+        read(fh,*) MeshFormat
+        if( trim(adjustl(MeshFormat) ) == "Vertices" )then
+            print *, "ConvertMesh2Scf reading ",trim(adjustl(MeshFormat) )
+            ! ======================================================
+	        ! Number of nodes
+	        read(fh,*)nod_num
+	        !print *,"nod_number",nod_num
+            if(allocated(obj%FEMDomain%Mesh%NodCoord))then
+                deallocate(obj%FEMDomain%Mesh%NodCoord)
+            endif
+            allocate(obj%FEMDomain%Mesh%NodCoord(nod_num,2) )
+            obj%FEMDomain%Mesh%NodCoord(:,:)=0.0d0
+	        do i=1,nod_num
+	        	read(fh,*) obj%FEMDomain%Mesh%NodCoord(i,1:2)
+            enddo
 
-    ! ======================================================
-    read(fh,*)mm
-    allocate(triangle(mm,4),devide_line(mm,3) )
-    devide_line(:,:)=-1
-    
-    do i=1,mm
-        read(fh,*) triangle(i,1:3)
-        triangle(i,4)=-1
-    enddo
-    read(fh,*)EndNodes
-    ! ======================================================
-    ! ======================================================
-    read(fh,*)elem_num
+            cycle
+            ! ======================================================
+        elseif( trim(adjustl(MeshFormat) ) == "Quadrilaterals" )then
+            ! ======================================================
+            print *, "ConvertMesh2Scf reading ",trim(adjustl(MeshFormat) )
+            read(fh,*)elem_num
+            allocate(obj%FEMDomain%Mesh%ElemNod(elem_num,4))
+            obj%FEMDomain%Mesh%ElemNod(:,:)=-1
+            do i=1,elem_num
+                read(fh,*) obj%FEMDomain%Mesh%ElemNod(i,1:4)
+            enddo
+            exit
+            ! ======================================================
+        elseif( trim(adjustl(MeshFormat) ) == "Triangles" )then
+            
+            ! ======================================================
+            print *, "ConvertMesh2Scf reading ",trim(adjustl(MeshFormat) )
+            read(fh,*)mm
+            allocate(triangle(mm,4),devide_line(mm,3) )
+            devide_line(:,:)=-1
 
-    allocate(obj%FEMDomain%Mesh%ElemNod(elem_num,4))
-    obj%FEMDomain%Mesh%ElemNod(:,:)=-1
-    do i=1,elem_num
-        read(fh,*) obj%FEMDomain%Mesh%ElemNod(i,1:4)
+            do i=1,mm
+                read(fh,*) triangle(i,1:3)
+                triangle(i,4)=-1
+            enddo
+            ! ======================================================
+        else
+            print *, "ConvertMesh2Scf Skipped",trim(adjustl(MeshFormat))
+            read(fh,*)mm
+            do i=1,mm
+                read(fh,*) n
+            enddo
+        endif
+        
     enddo
-    ! ======================================================
+    return
 
 
     ! ======================================================
@@ -1289,13 +1665,6 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
             enddo
         enddo
     enddo
-
-    !call ShowArray(obj%FEMDomain%Mesh%NodCoord,triangle(:,1:3),20)
-    !call ShowArray(obj%FEMDomain%Mesh%NodCoord,obj%FEMDomain%Mesh%ElemNod,30)
-    !do i=1,size(devide_line,1)
-    !    print *, devide_line(i,:)
-    !enddo
-    !stop "now debugging"
     
 
 
@@ -2486,6 +2855,211 @@ subroutine importPreProcessing(obj,Name,FileHandle)
 
     call obj%FEMDomain%import(OptionalProjectName=Name,FileHandle=FileHandle)
 
+end subroutine
+!##################################################
+
+
+!##################################################
+subroutine modifySuefaceNodePrepro(obj,Mesh,boolean)
+    class(PreProcessing_),intent(inout) :: obj
+    class(Mesh_),intent(inout) :: Mesh
+    character(*),intent(in) :: boolean
+    real(8),allocatable :: surfacenod_m(:,:), surfacenod(:,:),buffer(:,:)
+    integer :: i,j,n,itr,cross1,cross2,cross3,cross4,end1,end2,cases
+    integer,allocatable :: in_out(:), in_out_m(:)
+    real(8) :: xmax,ymax,xmin,ymin,x_tr,y_tr
+    real(8) :: xmax_m,ymax_m,xmin_m,ymin_m,end1_m,end2_m
+
+    if(boolean == "diff" .or.boolean == "Diff"  )then
+        cross1=0
+        ! only for 2D
+        if(.not. allocated(Mesh%SurfaceLine2D) )then
+            call Mesh%GetSurface()
+        endif
+
+        ! Only for box-shaped soil and roots:
+        ! It should be boolean operation
+        n=size(Mesh%SurfaceLine2D)
+        xmin=minval(obj%FEMDomain%Mesh%NodCoord(:,1))
+        ymin=minval(obj%FEMDomain%Mesh%NodCoord(:,2))
+        xmax=maxval(obj%FEMDomain%Mesh%NodCoord(:,1))
+        ymax=maxval(obj%FEMDomain%Mesh%NodCoord(:,2))
+        xmin_m=minval(Mesh%NodCoord(:,1))
+        ymin_m=minval(Mesh%NodCoord(:,2))
+        xmax_m=maxval(Mesh%NodCoord(:,1))
+        ymax_m=maxval(Mesh%NodCoord(:,2))
+        
+        allocate(in_out(size(Mesh%SurfaceLine2D,1) ) )
+        in_out(:)=0
+        itr=0
+        end1=1
+        end2=n
+        do i=1,n
+            x_tr=Mesh%NodCoord( Mesh%SurfaceLine2D(i) ,1)
+            y_tr=Mesh%NodCoord( Mesh%SurfaceLine2D(i) ,2)
+            if( xmin <= x_tr .and. x_tr<= xmax )then
+                if( ymin <= y_tr .and. y_tr<= ymax )then
+                    ! in 
+                    itr=itr+1
+                    in_out(i)=1
+                else
+                    ! out
+                    in_out(i)=0
+                    if( ymin > y_tr  )then
+                        cross1=1
+                    else
+                        cross1=3
+                    endif
+                endif
+            else
+                !out
+                in_out(i)=0
+                cross1=2
+                if( xmin > x_tr  )then
+                    cross1=4
+                else
+                    cross1=2
+                endif
+            endif
+        enddo
+        allocate(surfacenod(itr,2 ))
+        
+        ! only for roots surrounded by soils
+        ! detect two ends
+        do i=1,n-1
+            if(in_out(i)==0 .and. in_out(i+1)==1 )then
+                end1=i
+            endif
+            if(in_out(i)==1 .and. in_out(i+1)==0 )then
+                end2=i
+            endif
+        enddo    
+
+        itr=0
+        do i=1,n
+            x_tr=Mesh%NodCoord( Mesh%SurfaceLine2D(i) ,1)
+            y_tr=Mesh%NodCoord( Mesh%SurfaceLine2D(i) ,2)
+            if( xmin <= x_tr .and. x_tr<= xmax )then
+                if( ymin <= y_tr .and. y_tr<= ymax )then
+                    itr=itr+1       
+                    surfacenod(itr,1)=x_tr
+                    surfacenod(itr,2)=y_tr
+                else
+                    cycle
+                endif
+            else
+                cycle
+            endif
+        enddo
+
+        ! remove overlapped soil surface
+        allocate( in_out_m(size(obj%FEMDomain%Mesh%NodCoord,1) ))
+        in_out_m(:)=0
+        itr=0
+        do i=1,size(in_out_m)
+            x_tr=obj%FEMDomain%Mesh%NodCoord( i ,1)
+            y_tr=obj%FEMDomain%Mesh%NodCoord( i ,2)
+            if( xmin_m <= x_tr .and. x_tr<= xmax_m )then
+                if( ymin_m <= y_tr .and. y_tr<= ymax_m )then
+                    ! in 
+                    itr=itr+1
+                    in_out_m(i)=0
+                else
+                    ! out
+                    in_out_m(i)=1
+                    
+                endif
+            else
+                !out
+                in_out_m(i)=1
+                cross1=2
+                
+            endif
+        enddo
+        allocate(surfacenod_m(itr,2 ))
+        ! only for roots surrounded by soils
+        ! detect two ends
+        do i=1,n-1
+            if(in_out_m(i)==0 .and. in_out_m(i+1)==1 )then
+                end1_m=i
+            endif
+            if(in_out_m(i)==1 .and. in_out_m(i+1)==0 )then
+                end2_m=i
+            endif
+        enddo 
+
+        itr=0
+        do i=1,n
+            x_tr=obj%FEMDomain%Mesh%NodCoord( i ,1)
+            y_tr=obj%FEMDomain%Mesh%NodCoord( i ,2)
+            if( xmin_m <= x_tr .and. x_tr<= xmax_m )then
+                if( ymin_m <= y_tr .and. y_tr<= ymax_m )then
+                    itr=itr+1       
+                    surfacenod_m(itr,1)=x_tr
+                    surfacenod_m(itr,2)=y_tr
+                else
+                    cycle
+                endif
+            else
+                cycle
+            endif
+        enddo
+
+        ! add soil surface and root surface
+        n=sum(in_out_m)+sum(in_out)
+        allocate(buffer(size(obj%FEMDomain%Mesh%NodCoord,1),2 ) )
+        buffer(:,1:2)=obj%FEMDomain%Mesh%NodCoord(:,1:2)
+        deallocate(obj%FEMDomain%Mesh%NodCoord)
+        allocate(obj%FEMDomain%Mesh%NodCoord(n,2) )
+
+        !scall showarray(obj%FEMDomain%Mesh%NodCoord)
+        !call showarray(Mesh%NodCoord)
+        i=end1_m
+        itr=0
+        do 
+            itr=itr+1
+            i=i+1
+            if(i>size(buffer,1) )then
+                i=1
+            endif
+
+            if(in_out_m(i)==0 )then
+                itr=itr-1
+                cycle
+            endif
+
+            obj%FEMDomain%Mesh%NodCoord(itr,1:2)=buffer(i,1:2)
+            if(itr>=sum(in_out_m) )then
+                exit
+            endif
+        enddo
+        itr=itr+1
+        obj%FEMDomain%Mesh%NodCoord(itr,1:2)=Mesh%NodCoord(Mesh%SurfaceLine2D(end1),1:2)
+        i=end1
+
+
+        do 
+            itr=itr+1
+            i=i+1
+            if(i>size(Mesh%SurfaceLine2D,1) )then
+                i=1
+            endif
+
+            if(in_out(i)==0 )then
+                itr=itr-1
+                cycle
+            endif
+
+            obj%FEMDomain%Mesh%NodCoord(itr,1:2)=Mesh%NodCoord(Mesh%SurfaceLine2D(i),1:2)
+            if(itr>=size(obj%FEMDomain%Mesh%NodCoord,1))then
+                exit
+            endif
+        enddo
+
+
+        call showarray(obj%FEMDomain%Mesh%NodCoord,Name="test.txt")
+    endif
+    
 end subroutine
 !##################################################
 

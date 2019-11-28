@@ -18,6 +18,7 @@ module MeshOperationClass
         integer,allocatable::SubMeshNodFromTo(:,:)
         integer,allocatable::SubMeshElemFromTo(:,:)
         integer,allocatable::SubMeshSurfFromTo(:,:)
+        integer :: surface
 
         !for Interfaces
         integer,allocatable::GlobalNodID(:)
@@ -378,7 +379,7 @@ subroutine GetFacetElement(obj)
 
     If(NumOfDim < 2 .or. NumOfDim > 4 ) then
         obj%ErrorMsg = "ERROR::GetFaceElement.f90 >> NumOfDim = 2 or 3"
-        return
+        stop
     endif
 
     if(NumOfDim==2)then
@@ -600,7 +601,7 @@ subroutine GetSurface2D(obj)
 
     If(NumOfDim /= 2) then
         obj%ErrorMsg = "ERROR::GetFaceElement.f90 >> NumOfDim /= 2"
-        return
+        stop 
     endif
 
     call GetFacetElement(obj)
@@ -658,12 +659,13 @@ subroutine GetSurface(obj)
 
     NumOfDim=size(obj%NodCoord,2)
     if(NumOfDim==2)then
-        
         call GetSurface2D(obj)
+        obj%surface=1
     elseif(NumOfDim==3)then
         call GetFacetElement(obj)
 
         call GetNextFacets(obj)
+        obj%surface=1
 
     else
         stop "ERROR >> GetSurface >> NumOfDim== 2 or 3 "

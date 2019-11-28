@@ -1,6 +1,7 @@
 module MPIClass
     use mpi
     use MathClass
+    use ArrayOperationClass
     implicit none
 
 
@@ -24,6 +25,7 @@ module MPIClass
         integer :: Comm4
         integer :: Comm5
         integer,allocatable::Comm(:),key(:)
+        integer,allocatable::Stack(:,:),localstack(:)
         integer :: LapTimeStep
         real(8) :: stime
         real(8) :: etime
@@ -68,6 +70,8 @@ module MPIClass
         procedure, Pass :: AllReduceMPIReal 
         generic :: AllReduce => AllReduceMPIInt, AllReduceMPIReal 
 
+        procedure :: createStack => createStackMPI
+        procedure :: showStack   => showStackMPI
         procedure :: free  => freeMPI 
         procedure :: split => splitMPI 
         procedure :: copy  => copyMPI 
@@ -89,6 +93,7 @@ subroutine StartMPI(obj,NumOfComm)
     call mpi_comm_size(mpi_comm_world,obj%Petot ,obj%ierr)
     call mpi_comm_rank(mpi_comm_world,obj%MyRank,obj%ierr)
 
+
     allocate(obj%Comm(input(default=100,option=NumOfComm)  ) )
     allocate(obj%key(input(default=100,option=NumOfComm)  ) )
     obj%Comm(:)=MPI_COMM_WORLD
@@ -98,9 +103,77 @@ subroutine StartMPI(obj,NumOfComm)
     obj%LapTimeStep = 1
     obj%laptime(obj%LapTimeStep)=MPI_Wtime()
     obj%comments%comment(:)="No comment"
+
+    print *, "Number of Core is ",obj%Petot
+
 end subroutine
 !################################################################
 
+!################################################################
+subroutine createStackMPI(obj,total)
+    class(MPI_),intent(inout) :: obj
+    integer,intent(in) :: total
+    integer :: i,j,LocalStacksize,itr,locstacksize
+
+    if(allocated(obj%Stack ))then
+        deallocate(obj%Stack)
+    endif
+    LocalStacksize=int(dble(total)/dble(obj%Petot))+1
+
+    allocate(obj%Stack(obj%petot,LocalStacksize) )
+
+    itr=1
+    locstacksize=0
+    obj%Stack(:,:)=0
+    do j=1,size(obj%Stack,2)
+        do i=1,size(obj%Stack,1)
+            obj%Stack(i,j)=itr
+            itr=itr+1
+            if(itr==total+1)then
+                exit
+            endif
+        enddo
+        if(itr==total+1)then
+            exit
+        endif
+    enddo
+
+    j= countif(Array=obj%Stack(obj%MyRank+1,:),Equal=.true.,Value=0)
+
+    if(allocated(obj%localstack) )then
+        deallocate(obj%localstack)
+    endif
+    allocate(obj%localstack(LocalStacksize-j))
+    do i=1,size(obj%localstack)
+        obj%localstack(i)=obj%stack(obj%MyRank+1,i)
+    enddo
+
+end subroutine
+!################################################################
+
+
+
+!################################################################
+subroutine showStackMPI(obj)
+    class(MPI_),intent(inout) :: obj
+    integer :: i,j,n
+
+    if(.not.allocated(obj%Stack) )then
+        print *, "No stack is set"
+        return
+    else
+        call obj%Barrier()
+        do i=1,obj%Petot
+            if(obj%MyRank+1==i)then
+                print *, "MyRank",obj%MyRank,"Stack :: ",obj%localstack(:)
+            endif
+        enddo
+    endif
+
+
+
+end subroutine
+!################################################################
 
 
 !################################################################
