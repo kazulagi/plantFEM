@@ -18,6 +18,7 @@ module MeshOperationClass
         integer,allocatable::SubMeshNodFromTo(:,:)
         integer,allocatable::SubMeshElemFromTo(:,:)
         integer,allocatable::SubMeshSurfFromTo(:,:)
+        integer :: surface
 
         !for Interfaces
         integer,allocatable::GlobalNodID(:)
@@ -378,7 +379,7 @@ subroutine GetFacetElement(obj)
 
     If(NumOfDim < 2 .or. NumOfDim > 4 ) then
         obj%ErrorMsg = "ERROR::GetFaceElement.f90 >> NumOfDim = 2 or 3"
-        return
+        stop
     endif
 
     if(NumOfDim==2)then
@@ -600,7 +601,7 @@ subroutine GetSurface2D(obj)
 
     If(NumOfDim /= 2) then
         obj%ErrorMsg = "ERROR::GetFaceElement.f90 >> NumOfDim /= 2"
-        return
+        stop 
     endif
 
     call GetFacetElement(obj)
@@ -658,12 +659,13 @@ subroutine GetSurface(obj)
 
     NumOfDim=size(obj%NodCoord,2)
     if(NumOfDim==2)then
-        
         call GetSurface2D(obj)
+        obj%surface=1
     elseif(NumOfDim==3)then
         call GetFacetElement(obj)
 
         call GetNextFacets(obj)
+        obj%surface=1
 
     else
         stop "ERROR >> GetSurface >> NumOfDim== 2 or 3 "
@@ -2071,7 +2073,7 @@ subroutine ConvertMeshTypeMesh(obj,Option)
 
     if(Option=="TetraToHexa" .or. Option=="TetraToHex")then
         call obj%convertTetraToHexa()
-    elseif(Option=="convertTriangleToRectangular" .or. Option=="convertTriangleToRectangule")then
+    elseif(Option=="convertTriangleToRectangular" .or. Option=="TriangleToRectangule")then
         call obj%convertTriangleToRectangular()
     else
         print *, "Option :: ",Option,"is not valid, what if TetraToHexa ?"
@@ -2248,6 +2250,7 @@ subroutine convertTriangleToRectangularMesh(obj)
     incre_nod_num=(4)*elem_num
 
 
+    print *, "Triangle mesh to rectangular mesh"
     allocate(RectElemNod( elem_num*3,4) )
     allocate(RectNodCoord(node_num+incre_nod_num,2)  )
 
@@ -2301,6 +2304,7 @@ subroutine convertTriangleToRectangularMesh(obj)
 
     enddo
 
+    
     deallocate(obj%NodCoord)
     deallocate(obj%ElemNod)
     allocate(obj%NodCoord(size(RectNodCoord,1),size(RectNodCoord,2)  ) )
@@ -2311,6 +2315,7 @@ subroutine convertTriangleToRectangularMesh(obj)
     ! done, but overlaps exists
     
     call obj%removeOverlappedNode()
+
 
 
 end subroutine

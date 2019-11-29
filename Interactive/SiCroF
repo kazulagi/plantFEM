@@ -16,7 +16,7 @@ man2="man sicrof"
 cpucore="cpu-core"
 install="install"
 compress="compress"
-mpifort="mpifort"
+mpif90="mpif90"
 intel="intel"
 ls="ls"
 f90="f90"
@@ -95,7 +95,8 @@ do
     echo "extension is $EXTENSION"
     if [ $EXTENSION = $f90 ]; then
         echo ">"
-        $mpifort inc/*o $command 
+        $mpif90 inc/*o $command 
+        echo "Current num of cpu-core is :: $numcore "
         mpirun -np $numcore ./a.out        
         continue
     fi
