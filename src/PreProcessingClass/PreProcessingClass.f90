@@ -100,7 +100,7 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
         read(50,'(A)' ) name
         call InfileList%Input(i, trim(name) )
     enddo
-
+    close(50)
     call MPIData%createStack(total=NumOfImages)
     
     do i=1,size(MPIData%LocalStack)
@@ -127,6 +127,7 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
         call leaf%ConvertGeo2Mesh(MPIData,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
         ! Convert .msh to .scf
         ! need debug
+        
         call leaf%ConvertMesh2Scf(MPIData,ElementType=ElemType,&
             Name=trim(project)//"mesh"//trim(str_id)//".mesh" )
         call leaf%FEMDomain%checkconnectivity(fix=.true.)
@@ -147,7 +148,6 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
             
             ! Convert SurfaceNod to .geo
             call soil%ExportGeoFile(MPIData,Name=trim(project)//"soil"//trim(str_id)//".geo" )
-            return
             
             ! Run Gmsh to convert .geo to .msh
             call soil%ConvertGeo2Msh(MPIData ,Name=trim(project)//"soil"//trim(str_id)//".geo" )
@@ -156,11 +156,12 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
             ! Convert .msh to .scf
             call soil%ConvertMesh2Scf(MPIData,ElementType=ElemType,&
             Name=trim(project)//"soil"//trim(str_id)//".mesh")
+            
             call soil%FEMDomain%checkconnectivity(fix=.true.)
             call soil%Convert3Dto2D()
-            
-
         endif
+
+        return
 
         SolverName="FiniteDeform_"
         call leaf%SetSolver(InSolverType=SolverName)
@@ -1175,7 +1176,7 @@ subroutine ConvertGeo2Msh(obj,MPIData,Name)
     if(present(Name) )then
         python_buffer=trim(Name)
     endif
-    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin 100"
+    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin 100 -clmax 100000"
 
     writE(*,'(A)') trim(command)
     
@@ -1208,7 +1209,7 @@ subroutine ConvertGeo2Inp(obj,MPIData,Name)
     if(present(Name) )then
         python_buffer=trim(Name)
     endif
-    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin 100 -format inp" 
+    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin 100 -clmax 100000 -format inp" 
 
     writE(*,'(A)') trim(command)
     
@@ -1236,7 +1237,7 @@ subroutine ConvertGeo2Mesh(obj,MPIData,SizePara,Name)
     if(present(SizePara) )then
         sp=SizePara
     else
-        sp=10
+        sp=100
     endif
     write (a,*) sp
 
@@ -1250,7 +1251,7 @@ subroutine ConvertGeo2Mesh(obj,MPIData,SizePara,Name)
     if(present(Name) )then
         python_buffer=trim(Name)
     endif
-    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin"//trim(a)//" -format mesh" 
+    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin"//trim(a)//" -clmax 100000  -format mesh" 
 
     writE(*,'(A)') trim(command)
     
@@ -1510,6 +1511,7 @@ end subroutine
 subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
+    type(Mesh_) :: tobj
     character(*),optional,intent(in) :: Name
     character*200   :: python_buffer
     character*200   :: command,infile,outfile
@@ -1520,7 +1522,7 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
 	character*6  Nodes
 	character*200  EndNodes,Elements
     character*12  EndElements	
-    integer,allocatable :: elem1(:),surface_nod(:),triangle(:,:),devide_line(:,:)
+    integer,allocatable :: elem1(:),surface_nod(:),triangle(:,:),devide_line(:,:),buffer(:,:)
     integer :: i,j,k,n,n1,n2,fh,a,nm,mm,nod_num,nn,elem_num,surf_num,l
     integer :: elem_num_all,n3,n4,n5,n6,n7,elemnod_num,startfrom,node1,node2,tr1,tr2
     real(8) :: re1,re2
@@ -1600,16 +1602,17 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
             ! ======================================================
             print *, "ConvertMesh2Scf reading ",trim(adjustl(MeshFormat) )
             read(fh,*)mm
-            allocate(triangle(mm,4),devide_line(mm,3) )
-            devide_line(:,:)=-1
+            allocate(tobj%ElemNod(mm,3) )
 
             do i=1,mm
-                read(fh,*) triangle(i,1:3)
-                triangle(i,4)=-1
+                read(fh,*) tobj%ElemNod(i,1:3)
             enddo
             ! ======================================================
         else
             print *, "ConvertMesh2Scf Skipped",trim(adjustl(MeshFormat))
+            if(trim(adjustl(MeshFormat)) == "End")then
+                exit
+            endif
             read(fh,*)mm
             do i=1,mm
                 read(fh,*) n
@@ -1617,19 +1620,48 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
         endif
         
     enddo
+
+
+
+    
+
+    ! ======================================================
+    !
+    !if(allocated(obj%FEMDomain%Mesh%ElemMat) )then
+    !    deallocate(obj%FEMDomain%Mesh%ElemMat)
+    !endif
+    !allocate(obj%FEMDomain%Mesh%ElemMat(elem_num))
+    !obj%FEMDomain%Mesh%ElemMat(:)=1
+    ! ======================================================
+    
+
+    ! convert triangle 
+    if(.not. allocated(tobj%ElemNod) )then
+        print *, "No triangles"
+        return
+    endif
+
+    allocate( tobj%NodCoord(size(obj%FEMDomain%Mesh%NodCoord,1  ),2  ) )
+    tobj%NodCoord(:,1:2)=obj%FEMDomain%Mesh%NodCoord(:,1:2)
+
+    call tobj%convertMeshType(option="convertTriangleToRectangular")
+        
+    if(allocated(obj%FEMDomain%Mesh%ElemNod)  )then
+        print *, "triangular and rectangurar => ignore triangular"
+        return
+    else
+        print *, "triangular => converted."
+        allocate( obj%FEMDomain%Mesh%ElemNod( sizE(tobj%ElemNod,1),1:4  )   )
+        deallocate(obj%FEMDomain%Mesh%NodCoord )
+        allocate(obj%FEMDomain%Mesh%NodCoord(size(tobj%NodCoord,1),size(tobj%NodCoord,2) ) )
+        obj%FEMDomain%Mesh%NodCoord(:,:)=tobj%NodCoord(:,:)
+        obj%FEMDomain%Mesh%ElemNod(:,:)=tobj%ElemNod(:,:)
+
+    endif
+
     return
 
-
-    ! ======================================================
     
-    if(allocated(obj%FEMDomain%Mesh%ElemMat) )then
-        deallocate(obj%FEMDomain%Mesh%ElemMat)
-    endif
-    allocate(obj%FEMDomain%Mesh%ElemMat(elem_num))
-    obj%FEMDomain%Mesh%ElemMat(:)=1
-    ! ======================================================
-    
-    ! convert triangle 
     do i=1,size(devide_line,1)
         do j=1,3
             if(i==1)then
@@ -2865,12 +2897,12 @@ subroutine modifySuefaceNodePrepro(obj,Mesh,boolean)
     class(PreProcessing_),intent(inout) :: obj
     class(Mesh_),intent(inout) :: Mesh
     character(*),intent(in) :: boolean
-    real(8),allocatable :: surfacenod_m(:,:), surfacenod(:,:),buffer(:,:)
+    real(8),allocatable :: surfacenod_m(:,:), surfacenod(:,:),buffer(:,:),surf_nod_buffer(:,:)
     integer :: i,j,n,itr,cross1,cross2,cross3,cross4,end1,end2,cases
     integer,allocatable :: in_out(:), in_out_m(:)
-    integer :: s(4),s_m(4)
+    integer :: s(4),s_m(4),non
     real(8) :: xmax,ymax,xmin,ymin,x_tr,y_tr,direct,direct_m
-    real(8) :: xmax_m,ymax_m,xmin_m,ymin_m,end1_m,end2_m
+    real(8) :: xmax_m,ymax_m,xmin_m,ymin_m,end1_m,end2_m,xe1,xe2,ye1,ye2
 
     if(boolean == "diff" .or.boolean == "Diff"  )then
         cross1=0
@@ -2955,137 +2987,69 @@ subroutine modifySuefaceNodePrepro(obj,Mesh,boolean)
         enddo
 
         ! remove overlapped soil surface
-        allocate( in_out_m(size(obj%FEMDomain%Mesh%NodCoord,1) ))
-        in_out_m(:)=0
-        itr=0
-        do i=1,size(in_out_m)
-            x_tr=obj%FEMDomain%Mesh%NodCoord( i ,1)
-            y_tr=obj%FEMDomain%Mesh%NodCoord( i ,2)
-            if( xmin_m <= x_tr .and. x_tr<= xmax_m )then
-                if( ymin_m <= y_tr .and. y_tr<= ymax_m )then
-                    ! in 
-                    itr=itr+1
-                    in_out_m(i)=0
-                else
-                    ! out
-                    in_out_m(i)=1
-                    
-                endif
-            else
-                !out
-                in_out_m(i)=1
-                cross1=2
-                
-            endif
-        enddo
-        allocate(surfacenod_m(itr,2 ))
+        !allocate( in_out_m(size(obj%FEMDomain%Mesh%NodCoord,1) ))
+        !in_out_m(:)=0
+        !itr=0
+        !do i=1,size(in_out_m)
+        !    x_tr=obj%FEMDomain%Mesh%NodCoord( i ,1)
+        !    y_tr=obj%FEMDomain%Mesh%NodCoord( i ,2)
+        !    if( xmin_m <= x_tr .and. x_tr<= xmax_m )then
+        !        if( ymin_m <= y_tr .and. y_tr<= ymax_m )then
+        !            ! in 
+        !            itr=itr+1
+        !            in_out_m(i)=0
+        !        else
+        !            ! out
+        !            in_out_m(i)=1
+        !            
+        !        endif
+        !    else
+        !        !out
+        !        in_out_m(i)=1
+        !        
+        !    endif
+        !enddo
+        !allocate(surfacenod_m(itr,2 ))
         ! only for roots surrounded by soils
         ! detect two ends
-        do i=1,n-1
-            if(in_out_m(i)==0 .and. in_out_m(i+1)==1 )then
-                end1_m=i
-            endif
-            if(in_out_m(i)==1 .and. in_out_m(i+1)==0 )then
-                end2_m=i
-            endif
-        enddo 
-
-        itr=0
-        do i=1,n
-            x_tr=obj%FEMDomain%Mesh%NodCoord( i ,1)
-            y_tr=obj%FEMDomain%Mesh%NodCoord( i ,2)
-            if( xmin_m <= x_tr .and. x_tr<= xmax_m )then
-                if( ymin_m <= y_tr .and. y_tr<= ymax_m )then
-                    itr=itr+1       
-                    surfacenod_m(itr,1)=x_tr
-                    surfacenod_m(itr,2)=y_tr
-                else
-                    cycle
-                endif
-            else
-                cycle
-            endif
-        enddo
+        !do i=1,n-1
+        !    if(in_out_m(i)==0 .and. in_out_m(i+1)==1 )then
+        !        end1_m=i
+        !    endif
+        !    if(in_out_m(i)==1 .and. in_out_m(i+1)==0 )then
+        !        end2_m=i
+        !    endif
+        !enddo 
+!
+        !itr=0
+        !do i=1,n
+        !    x_tr=obj%FEMDomain%Mesh%NodCoord( i ,1)
+        !    y_tr=obj%FEMDomain%Mesh%NodCoord( i ,2)
+        !    if( xmin_m <= x_tr .and. x_tr<= xmax_m )then
+        !        if( ymin_m <= y_tr .and. y_tr<= ymax_m )then
+        !            itr=itr+1       
+        !            surfacenod_m(itr,1)=x_tr
+        !            surfacenod_m(itr,2)=y_tr
+        !        else
+        !            cycle
+        !        endif
+        !    else
+        !        cycle
+        !    endif
+        !enddo
 
         ! add soil surface and root surface
-        n=sum(in_out_m)+sum(in_out)
+        n=4+sum(in_out)
         allocate(buffer(size(obj%FEMDomain%Mesh%NodCoord,1),2 ) )
+        buffer(:,1:2)=obj%FEMDomain%Mesh%NodCoord(:,1:2)
+        deallocate( obj%FEMDomain%Mesh%NodCoord )
+        allocate( obj%FEMDomain%Mesh%NodCoord(n,2 ) )
 
-
-        do i=1,size(Mesh%SurfaceLine2D,1)
-            if(Mesh%NodCoord( Mesh%SurfaceLine2D(i),1)==maxval( Mesh%NodCoord(:,1) ) )then
-                s(1)=i
-            elseif(Mesh%NodCoord( Mesh%SurfaceLine2D(i) ,2)==maxval( Mesh%NodCoord(:,2) ) )then
-                s(2)=i
-            elseif(Mesh%NodCoord( Mesh%SurfaceLine2D(i) ,1)==minval( Mesh%NodCoord(:,1) ) )then
-                s(3)=i
-            elseif(Mesh%NodCoord( Mesh%SurfaceLine2D(i) ,2)==minval( Mesh%NodCoord(:,2) ) )then    
-                s(4)=i
-            else
-                cycle
-            endif
-        enddo
-        
-        do i=1,size(obj%FEMDomain%Mesh%NodCoord,1)
-            if(obj%FEMDomain%Mesh%NodCoord(i,1)==maxval( obj%FEMDomain%Mesh%NodCoord(:,1) ) )then
-                s_m(1)=i
-            elseif(obj%FEMDomain%Mesh%NodCoord(i,2)==maxval( obj%FEMDomain%Mesh%NodCoord(:,2) ) )then
-                s_m(2)=i
-            elseif(obj%FEMDomain%Mesh%NodCoord(i,1)==minval( obj%FEMDomain%Mesh%NodCoord(:,1) ) )then
-                s_m(3)=i
-            elseif(obj%FEMDomain%Mesh%NodCoord(i,2)==minval( obj%FEMDomain%Mesh%NodCoord(:,2) ) )then    
-                s_m(4)=i
-            else
-                cycle
-            endif
-        enddo
-
-        direct=dble(s(4)-s(3))/abs(s(4)-s(3) )+dble(s(3)-s(2))/abs(s(3)-s(2) )&
-            +dble(s(2)-s(1))/abs(s(2)-s(1) )+dble(s(1)-s(4))/abs(s(1)-s(4) )
-        direct_m=dble(s_m(4)-s_m(3))/abs(s_m(4)-s_m(3) )+dble(s_m(3)-s_m(2))/abs(s_m(3)-s_m(2) )&
-            +dble(s_m(2)-s_m(1))/abs(s_m(2)-s_m(1) )+dble(s_m(1)-s_m(4))/abs(s_m(1)-s_m(4) )
-
-        if(direct * direct_m <= 0.0d0)then
-            print *, "opposite direction"
-            do i=1,size(buffer,1)
-                buffer(i,1:2)=obj%FEMDomain%Mesh%NodCoord( size(buffer,1)-i+1    ,1:2)
-            enddo
-        else
-            print *, "same direction"
-            buffer(:,1:2)=obj%FEMDomain%Mesh%NodCoord(:,1:2)
-        endif
-        
-
-
-
-        deallocate(obj%FEMDomain%Mesh%NodCoord)
-        allocate(obj%FEMDomain%Mesh%NodCoord(n,2) )
-
-        !scall showarray(obj%FEMDomain%Mesh%NodCoord)
-        !call showarray(Mesh%NodCoord)
-        i=end1_m
+        ! get subdomain of root domain which is in soil domain 
+        ! end1 to end2
+        allocate( surf_nod_buffer ( sum(in_out),2 ) )
         itr=0
-        do 
-            itr=itr+1
-            i=i+1
-            if(i>size(buffer,1) )then
-                i=1
-            endif
-
-            if(in_out_m(i)==0 )then
-                itr=itr-1
-                cycle
-            endif
-
-            obj%FEMDomain%Mesh%NodCoord(itr,1:2)=buffer(i,1:2)
-            if(itr>=sum(in_out_m) )then
-                exit
-            endif
-        enddo
-        itr=itr+1
-        obj%FEMDomain%Mesh%NodCoord(itr,1:2)=Mesh%NodCoord(Mesh%SurfaceLine2D(end1),1:2)
-        i=end1
-
+        i=end1-1
 
         do 
             itr=itr+1
@@ -3099,11 +3063,202 @@ subroutine modifySuefaceNodePrepro(obj,Mesh,boolean)
                 cycle
             endif
 
-            obj%FEMDomain%Mesh%NodCoord(itr,1:2)=Mesh%NodCoord(Mesh%SurfaceLine2D(i),1:2)
-            if(itr>=size(obj%FEMDomain%Mesh%NodCoord,1))then
+            surf_nod_buffer(itr,1:2)=Mesh%NodCoord(Mesh%SurfaceLine2D(i),1:2)
+            if(itr>=size(surf_nod_buffer,1))then
                 exit
             endif
         enddo
+
+        ! add soil surface (box-shaped)
+
+        xe1=Mesh%NodCoord(Mesh%SurfaceLine2D(end1),1)
+        xe2=Mesh%NodCoord(Mesh%SurfaceLine2D(end2),1)
+        ye1=Mesh%NodCoord(Mesh%SurfaceLine2D(end1),2)
+        ye2=Mesh%NodCoord(Mesh%SurfaceLine2D(end2),2)
+
+        ! get anti-clockwize surface-line
+        non=size(surf_nod_buffer,1)
+        if(cross1==1 )then
+            ! head is down-ward
+            print *, "head is down-ward"
+            
+            if(xe1 < xe2  )then
+                do i=1,non
+                    obj%FEMDomain%Mesh%NodCoord( i ,1:2) = surf_nod_buffer(i,1:2)
+                enddo
+            else
+                do i=1,non
+                    obj%FEMDomain%Mesh%NodCoord( i ,1:2) = surf_nod_buffer(non - i+1,1:2 )
+                enddo
+            endif
+            obj%FEMDomain%Mesh%NodCoord( non+1 ,1) = xmax
+            obj%FEMDomain%Mesh%NodCoord( non+2 ,1) = xmax
+            obj%FEMDomain%Mesh%NodCoord( non+3 ,1) = xmin
+            obj%FEMDomain%Mesh%NodCoord( non+4 ,1) = xmin
+
+            obj%FEMDomain%Mesh%NodCoord( non+1 ,2) = ymin
+            obj%FEMDomain%Mesh%NodCoord( non+2 ,2) = ymax
+            obj%FEMDomain%Mesh%NodCoord( non+3 ,2) = ymax
+            obj%FEMDomain%Mesh%NodCoord( non+4 ,2) = ymin
+        elseif(cross1==2)then
+            ! head is right-side
+            print *, "head is right-side"
+            
+            if(ye1 < ye2  )then
+                do i=1,non
+                    obj%FEMDomain%Mesh%NodCoord( i ,1:2) = surf_nod_buffer(i,1:2)
+                enddo
+            else
+                do i=1,non
+                    obj%FEMDomain%Mesh%NodCoord( i ,1:2) = surf_nod_buffer(non - i+1,1:2 )
+                enddo
+            endif
+            obj%FEMDomain%Mesh%NodCoord( non+1 ,1) = xmax
+            obj%FEMDomain%Mesh%NodCoord( non+2 ,1) = xmin
+            obj%FEMDomain%Mesh%NodCoord( non+3 ,1) = xmin
+            obj%FEMDomain%Mesh%NodCoord( non+4 ,1) = xmax
+            obj%FEMDomain%Mesh%NodCoord( non+1 ,2) = ymax
+            obj%FEMDomain%Mesh%NodCoord( non+2 ,2) = ymax
+            obj%FEMDomain%Mesh%NodCoord( non+3 ,2) = ymin
+            obj%FEMDomain%Mesh%NodCoord( non+4 ,2) = ymin
+        elseif(cross1==3)then
+            ! head is upper-side
+            print *, "head is upper-side"
+            
+            if(xe1 > xe2  )then
+                do i=1,non
+                    obj%FEMDomain%Mesh%NodCoord( i ,1:2) = surf_nod_buffer(i,1:2)
+                enddo
+            else
+                do i=1,non
+                    obj%FEMDomain%Mesh%NodCoord( i ,1:2) = surf_nod_buffer(non - i+1,1:2 )
+                enddo
+            endif
+            obj%FEMDomain%Mesh%NodCoord( non+1 ,1) = xmin
+            obj%FEMDomain%Mesh%NodCoord( non+2 ,1) = xmin
+            obj%FEMDomain%Mesh%NodCoord( non+3 ,1) = xmax
+            obj%FEMDomain%Mesh%NodCoord( non+4 ,1) = xmax
+
+            obj%FEMDomain%Mesh%NodCoord( non+1 ,2) = ymax
+            obj%FEMDomain%Mesh%NodCoord( non+2 ,2) = ymin
+            obj%FEMDomain%Mesh%NodCoord( non+3 ,2) = ymin
+            obj%FEMDomain%Mesh%NodCoord( non+4 ,2) = ymax
+        elseif(cross1==4)then
+            ! head is upper-side
+            print *, " head is upper-side"
+            
+            if(ye1 > ye2  )then
+                do i=1,non
+                    obj%FEMDomain%Mesh%NodCoord( i ,1:2) = surf_nod_buffer(i,1:2)
+                enddo
+            else
+                do i=1,non
+                    obj%FEMDomain%Mesh%NodCoord( i ,1:2) = surf_nod_buffer(non - i+1,1:2 )
+                enddo
+            endif
+            obj%FEMDomain%Mesh%NodCoord( non+1 ,1) = xmin
+            obj%FEMDomain%Mesh%NodCoord( non+2 ,1) = xmax
+            obj%FEMDomain%Mesh%NodCoord( non+3 ,1) = xmax
+            obj%FEMDomain%Mesh%NodCoord( non+4 ,1) = xmin
+
+            obj%FEMDomain%Mesh%NodCoord( non+1 ,2) = ymin
+            obj%FEMDomain%Mesh%NodCoord( non+2 ,2) = ymin
+            obj%FEMDomain%Mesh%NodCoord( non+3 ,2) = ymax
+            obj%FEMDomain%Mesh%NodCoord( non+4 ,2) = ymax
+        else
+            ! inside
+            print *, "none of them"
+            print *, cross1
+            
+            obj%FEMDomain%Mesh%NodCoord( 1:non ,1:2) = surf_nod_buffer(1:non,1:2)
+            obj%FEMDomain%Mesh%NodCoord( non+1 ,1) = xmin
+            obj%FEMDomain%Mesh%NodCoord( non+2 ,1) = xmax
+            obj%FEMDomain%Mesh%NodCoord( non+3 ,1) = xmax
+            obj%FEMDomain%Mesh%NodCoord( non+4 ,1) = xmin
+
+            obj%FEMDomain%Mesh%NodCoord( non+1 ,2) = ymin
+            obj%FEMDomain%Mesh%NodCoord( non+2 ,2) = ymin
+            obj%FEMDomain%Mesh%NodCoord( non+3 ,2) = ymax
+            obj%FEMDomain%Mesh%NodCoord( non+4 ,2) = ymax
+        endif
+
+
+
+        return
+
+!        do i=1,size(Mesh%SurfaceLine2D,1)
+!            if(Mesh%NodCoord( Mesh%SurfaceLine2D(i),1)==maxval( Mesh%NodCoord(:,1) ) )then
+!                s(1)=i
+!            elseif(Mesh%NodCoord( Mesh%SurfaceLine2D(i) ,2)==maxval( Mesh%NodCoord(:,2) ) )then
+!                s(2)=i
+!            elseif(Mesh%NodCoord( Mesh%SurfaceLine2D(i) ,1)==minval( Mesh%NodCoord(:,1) ) )then
+!                s(3)=i
+!            elseif(Mesh%NodCoord( Mesh%SurfaceLine2D(i) ,2)==minval( Mesh%NodCoord(:,2) ) )then    
+!                s(4)=i
+!            else
+!                cycle
+!            endif
+!        enddo
+!        
+!        do i=1,size(obj%FEMDomain%Mesh%NodCoord,1)
+!            if(obj%FEMDomain%Mesh%NodCoord(i,1)==maxval( obj%FEMDomain%Mesh%NodCoord(:,1) ) )then
+!                s_m(1)=i
+!            elseif(obj%FEMDomain%Mesh%NodCoord(i,2)==maxval( obj%FEMDomain%Mesh%NodCoord(:,2) ) )then
+!                s_m(2)=i
+!            elseif(obj%FEMDomain%Mesh%NodCoord(i,1)==minval( obj%FEMDomain%Mesh%NodCoord(:,1) ) )then
+!                s_m(3)=i
+!            elseif(obj%FEMDomain%Mesh%NodCoord(i,2)==minval( obj%FEMDomain%Mesh%NodCoord(:,2) ) )then    
+!                s_m(4)=i
+!            else
+!                cycle
+!            endif
+!        enddo
+!
+!        direct=dble(s(4)-s(3))/abs(s(4)-s(3) )+dble(s(3)-s(2))/abs(s(3)-s(2) )&
+!            +dble(s(2)-s(1))/abs(s(2)-s(1) )+dble(s(1)-s(4))/abs(s(1)-s(4) )
+!        direct_m=dble(s_m(4)-s_m(3))/abs(s_m(4)-s_m(3) )+dble(s_m(3)-s_m(2))/abs(s_m(3)-s_m(2) )&
+!            +dble(s_m(2)-s_m(1))/abs(s_m(2)-s_m(1) )+dble(s_m(1)-s_m(4))/abs(s_m(1)-s_m(4) )
+!
+!
+!
+!        if(direct * direct_m <= 0.0d0)then
+!            print *, "opposite direction"
+!            do i=1,size(buffer,1)
+!                buffer(i,1:2)=obj%FEMDomain%Mesh%NodCoord( size(buffer,1)-i+1    ,1:2)
+!            enddo
+!        else
+!            print *, "same direction"
+!            buffer(:,1:2)=obj%FEMDomain%Mesh%NodCoord(:,1:2)
+!        endif
+!        
+
+
+
+        !scall showarray(obj%FEMDomain%Mesh%NodCoord)
+        !call showarray(Mesh%NodCoord)
+!        i=end1_m
+!        itr=0
+!        do 
+!            itr=itr+1
+!            i=i+1
+!            if(i>size(buffer,1) )then
+!                i=1
+!            endif
+!
+!            if(in_out_m(i)==0 )then
+!                itr=itr-1
+!                cycle
+!            endif
+!
+!            obj%FEMDomain%Mesh%NodCoord(itr,1:2)=buffer(i,1:2)
+!            if(itr>=sum(in_out_m) )then
+!                exit
+!            endif
+!        enddo
+!        itr=itr+1
+!        obj%FEMDomain%Mesh%NodCoord(itr,1:2)=Mesh%NodCoord(Mesh%SurfaceLine2D(end1),1:2)
+!        i=end1
+
 
 
     endif

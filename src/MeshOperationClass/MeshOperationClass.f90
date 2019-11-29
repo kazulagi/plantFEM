@@ -2073,7 +2073,7 @@ subroutine ConvertMeshTypeMesh(obj,Option)
 
     if(Option=="TetraToHexa" .or. Option=="TetraToHex")then
         call obj%convertTetraToHexa()
-    elseif(Option=="convertTriangleToRectangular" .or. Option=="convertTriangleToRectangule")then
+    elseif(Option=="convertTriangleToRectangular" .or. Option=="TriangleToRectangule")then
         call obj%convertTriangleToRectangular()
     else
         print *, "Option :: ",Option,"is not valid, what if TetraToHexa ?"
@@ -2250,6 +2250,7 @@ subroutine convertTriangleToRectangularMesh(obj)
     incre_nod_num=(4)*elem_num
 
 
+    print *, "Triangle mesh to rectangular mesh"
     allocate(RectElemNod( elem_num*3,4) )
     allocate(RectNodCoord(node_num+incre_nod_num,2)  )
 
@@ -2303,6 +2304,7 @@ subroutine convertTriangleToRectangularMesh(obj)
 
     enddo
 
+    
     deallocate(obj%NodCoord)
     deallocate(obj%ElemNod)
     allocate(obj%NodCoord(size(RectNodCoord,1),size(RectNodCoord,2)  ) )
@@ -2313,6 +2315,7 @@ subroutine convertTriangleToRectangularMesh(obj)
     ! done, but overlaps exists
     
     call obj%removeOverlappedNode()
+
 
 
 end subroutine
