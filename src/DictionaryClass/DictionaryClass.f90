@@ -3,6 +3,10 @@ module DictionaryClass
 
     type ::  Page_
         character*200 :: value
+        integer :: IntValue
+        real(8) :: RealValue
+        integer,allocatable :: intlist(:)
+        real(8),allocatable :: realist(:)
     end type
 
     type :: Dictionary_
@@ -12,6 +16,11 @@ module DictionaryClass
         procedure :: Input => InputDictionary
         procedure :: Get => GetDictionaryValue
         procedure :: GetPageNum => GetPageNumDictionary 
+        procedure :: sizeof => sizeofDictionary
+        procedure :: content => contentofDictionary
+        procedure :: intlist => intlistofDictionary
+        procedure :: intvalue => intvalueofDictionary
+        procedure :: realvalue => realvalueofDictionary
         procedure :: show => showDictionary
 
     end type
@@ -49,19 +58,86 @@ end subroutine
 
 
 ! ##############################################
-subroutine InputDictionary(obj,page,content)
+subroutine InputDictionary(obj,page,content,RealValue,IntValue,Realist,Intlist)
     class(Dictionary_),intent(inout)::obj
     integer,intent(in)      :: page
-    character(*),intent(in)           :: content
-
+    character(*),optional,intent(in)           :: Content
+    integer,optional,intent(in) :: IntValue,Intlist(:)
+    real(8),optional,intent(in) :: RealValue,Realist(:)
+    
     if(page > size(obj%Dictionary) )then
         print *, "Error :: InputDictionary >> Num of Page is overflowed"
         stop
     endif
-    obj%Dictionary(page)%Value = content 
+    if(present(RealValue)  )then
+        obj%Dictionary(page)%RealValue = RealValue
+        return
+    endif
+    if(present(Realist)  )then
+        if(allocated(obj%Dictionary(page)%Realist) )then
+            deallocate(obj%Dictionary(page)%Realist)
+        endif
+        allocate(obj%Dictionary(page)%Realist(size(Realist,1) ) )
+        obj%Dictionary(page)%Realist(:) = Realist(:)
+        return
+    endif
+    if(present(IntValue)  )then
+        obj%Dictionary(page)%intValue = intValue
+        return
+    endif
+    if(present(intlist)  )then
+        if(allocated(obj%Dictionary(page)%intlist) )then
+            deallocate(obj%Dictionary(page)%intlist)
+        endif
+        allocate(obj%Dictionary(page)%intlist(size(intlist,1) ) )
+        obj%Dictionary(page)%intlist(:) = intlist(:)
+        return
+    endif
 
+    if(present(content) )then
+        obj%Dictionary(page)%Value = content 
+    endif
 end subroutine
 ! ##############################################
+
+
+
+! ##############################################
+function intlistofDictionary(obj,page,ind) result(n)
+    class(Dictionary_),intent(in) :: obj
+    integer,intent(in) :: page,ind
+    integer :: n
+
+    n=obj%Dictionary(page)%intlist(ind)
+
+end function
+! ##############################################
+
+! ##############################################
+function intvalueofDictionary(obj,page) result(n)
+    class(Dictionary_),intent(in) :: obj
+    integer,intent(in) :: page
+    integer :: n
+
+    n=obj%Dictionary(page)%intvalue
+
+end function
+! ##############################################
+
+
+
+! ##############################################
+function realvalueofDictionary(obj,page) result(n)
+    class(Dictionary_),intent(in) :: obj
+    integer,intent(in) :: page
+    real(8) :: n
+
+    n=obj%Dictionary(page)%realvalue
+
+end function
+! ##############################################
+
+
 
 ! ##############################################
 function GetDictionaryValue(obj,page) result(content)
@@ -96,6 +172,7 @@ subroutine setDirectoryName(obj,DirectoryName,FileID)
 end subroutine
 ! ##############################################
 
+
 ! ##############################################
 subroutine setFileName(obj,FileName,FileID) 
     class(FileList_),intent(inout)::obj
@@ -124,6 +201,30 @@ subroutine showDictionary(obj,From,to)
 
 end subroutine
 ! ##############################################
+
+
+! ##############################################
+function sizeofDictionary(obj) result(n)
+    class(Dictionary_),intent(in) :: obj
+    integer :: n
+
+    n = size(obj%Dictionary)
+
+end function
+! ##############################################
+
+
+! ##############################################
+function contentofDictionary(obj,id) result(content)
+    class(Dictionary_),intent(in) :: obj
+    integer,intent(in) :: id
+    character*200 :: content
+ 
+    content = obj%Dictionary(id)%value
+
+end function
+! ##############################################
+
 
 
 ! ##############################################

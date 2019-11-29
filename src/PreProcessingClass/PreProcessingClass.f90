@@ -70,19 +70,20 @@ contains
 
 ! #########################################################
 subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scalex,scaley,&
-    Soilfile,sR,SG,sB)
+    Soilfile,sR,SG,sB,SolverName)
     class(PreProcessing_),intent(inout) :: obj
     class(MPI_),intent(inout)           :: MPIData
 
-    type(Dictionary_)       :: InfileList
+    type(Dictionary_)       :: InfileList,DBoundlist,NBoundlist
     type(PreProcessing_)    :: leaf,soil
-    character(*),intent(in) :: project,elemtype
+    character(*),intent(in) :: project,elemtype,SolverName
     character(*),optional,intent(in) :: Soilfile
     integer,intent(in) :: R,G,B
     integer,optional,intent(in) :: sR,SG,sB
     real(8),intent(in) :: scalex,scaley
-    character * 200         :: name,name1,name2,name3,name4,SolverName,str_id,sname
-    integer :: NumOfImages,i,id
+    real(8) :: Dbound_val,Nbound_val
+    character * 200         :: name,name1,name2,name3,name4,str_id,sname,dirichlet,neumann
+    integer :: NumOfImages,i,id,num_d,num_n,DBoundRGB(3),Dbound_xyz,NBoundRGB(3),Nbound_xyz
 
     
 
@@ -102,6 +103,34 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
     enddo
     close(50)
     call MPIData%createStack(total=NumOfImages)
+
+    ! get boundary information list
+    open(60, file=trim(project)//"boundcondlist.txt")
+    read(60,*) dirichlet
+    read(60,*) num_d
+    call DBoundlist%Init(num_d)
+    do i=1,num_d
+        read(60,'(A)' ) name
+        read(60,*)  DBoundRGB(1:3)
+        read(60,*)  Dbound_xyz, Dbound_val
+        call DBoundlist%Input(i, content=trim(name) )
+        call DBoundlist%Input(i, intlist=DBoundRGB )
+        call DBoundlist%Input(i, IntValue=Dbound_xyz )
+        call DBoundlist%Input(i, RealValue=Dbound_val )
+    enddo
+    read(60,*) neumann
+    read(60,*) num_n
+    do i=1,num_n
+        read(60,'(A)' ) name
+        read(60,*)  NBoundRGB(1:3)
+        read(60,*)  Nbound_xyz, Nbound_val
+        call NBoundlist%Input(i, content=trim(name) )
+        call NBoundlist%Input(i, Intlist=NBoundRGB )
+        call NBoundlist%Input(i, IntValue=Nbound_xyz )
+        call NBoundlist%Input(i, RealValue=Nbound_val )
+    enddo
+    close(60)
+
     
     do i=1,size(MPIData%LocalStack)
         id=MPIData%LocalStack(i)
@@ -133,6 +162,9 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
         call leaf%FEMDomain%checkconnectivity(fix=.true.)
         call leaf%Convert3Dto2D()
 
+        call leaf%setBC(dirichlet=.true.,Boundinfo=DBoundlist)
+        call leaf%setBC(dirichlet=.true.,Boundinfo=NBoundlist)
+
         ! get soil mesh
         if(present(Soilfile) )then
             sname=trim(Soilfile)
@@ -163,32 +195,26 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
 
         return
 
-        SolverName="FiniteDeform_"
+        ! setup boundary conditions
+        call soil%setBC(dirichlet=.true.,Boundinfo=DBoundlist)
+        call soil%setBC(dirichlet=.true.,Boundinfo=NBoundlist)
+
         call leaf%SetSolver(InSolverType=SolverName)
         call leaf%SetUp(NoFacetMode=.true.)
-        call leaf%Reverse()
     
         
-        ! destructer
-        call leaf%finalize()
-        call soil%finalize()
     enddo
+    call leaf%Export(Name=trim(project)//"root"//trim(str_id)//".geo")
+    call soil%Export(Name=trim(project)//"soil"//trim(str_id)//".geo")
 
+
+    ! destructor
+    call leaf%finalize()
+    call soil%finalize()
     return
 
-    call leaf%SetScale(scalex=scalex,scaley=scaley)
-    
-    !SolverName="DiffusionEq_"
-    SolverName="FiniteDeform_"
-    call leaf%SetSolver(InSolverType=SolverName)
-    call leaf%SetUp(NoFacetMode=.true.)
-    call leaf%Reverse()
-    call leaf%Convert2Dto3D(Thickness=0.250d0,division=4)
-    !!############### Setup Material Info ######################
-    !!############### Setup Material Info ######################
-    !!############### Setup Material Info ######################
 
-    !call leaf%SetMatPara(MaterialID=1,ParameterID=1,Val=0.00010d0)
+    call leaf%SetScale(scalex=scalex,scaley=scaley)
     call leaf%SetMatPara(MaterialID=1,ParameterID=1,Val=1.0000d0)
     call leaf%SetMatPara(MaterialID=1,ParameterID=2,Val=0.3000d0)
     call leaf%SetMatPara(MaterialID=1,ParameterID=3,Val=0.0000d0)
@@ -197,42 +223,9 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
     call leaf%SetMatPara(MaterialID=1,ParameterID=6,Val=0.0000d0)
     
     call leaf%SetMatID( MaterialID=1)
-    !call leaf%SetMatID( xmin=,xmax=,ymin=,ymax=,zmin=,zmax=,tmin=,tmax=,MaterialID=)
-
-    !!############### Setup Material Info ######################
-    !!############### Setup Material Info ######################
-    !!############### Setup Material Info ######################
-    
-    
-
-    !!############### Setup Boundary Condition ######################
-    !!############### Setup Boundary Condition ######################
-    !!############### Setup Boundary Condition ######################
-    call leaf%SetSizeOfBC(Dirichlet=.true. , NumOfValue=3)
-    call leaf%SetBC(Dirichlet=.true., ymax=-1.0d0, ymin=-25.0d0,  val=-1.0d0,val_id=1)
-    call leaf%SetBC(Dirichlet=.true., ymax=-1.0d0, ymin=-25.0d0,  val=-1.0d0,val_id=2)
-    call leaf%SetBC(Dirichlet=.true., ymax=-1.0d0, ymin=-25.0d0,  val=-1.0d0,val_id=3)
-    call leaf%SetBC(Dirichlet=.true., ymax=-100.0d0,             val=4.0d0,val_id=1)
-    call leaf%SetBC(Dirichlet=.true., ymax=-100.0d0,             val=4.0d0,val_id=2)
-    call leaf%SetBC(Dirichlet=.true., ymax=-100.0d0,             val=4.0d0,val_id=3)
-    call leaf%SetSizeOfBC(Neumann=.true. , NumOfValue=3)
-    !call leaf%SetBC(Neumann=.true., zmax=0.0d0, val=-1.0d0,val_id=1)
-    !call leaf%SetBC(Neumann=.true., zmax=0.0d0, val=-1.0d0,val_id=2)
-    !call leaf%SetBC(Neumann=.true., zmax=0.0d0, val=-1.0d0,val_id=3)
-    
-    
-    !call leaf%SetSizeOfBC(Initial=.true. , NumOfValue=6)
-    !call leaf%SetBC(Initial=.true.,   val=0.0d0, val_id=6)
-    !call leaf%SetBC(Initial=.true., ymax=-2.6d0,  ymin=-30.20d0, val=30.0d0,val_id=1)
-    !call leaf%SetBC(Initial=.true., ymax=-30.20d0,ymin=-58.20d0, val=20.0d0,val_id=1)
-    !call leaf%SetBC(Initial=.true., ymax=-58.20d0,               val=10.0d0,val_id=1)
     
     call leaf%SetControlPara(OptionalItrTol=100,OptionalTimestep=100,OptionalSimMode=1)
-        
-    !!############### Setup Boundary Condition ######################
-    !!############### Setup Boundary Condition ######################
-    !!############### Setup Boundary Condition ######################
-
+    
     ! Export Object
     call leaf%FEMDomain%GmshPlotVector(Name="Tutorial/InputData/grass_leaf",step=0,&
         withMsh=.true.,FieldName="DispBound",NodeWize=.true.,onlyDirichlet=.true.)
@@ -1892,10 +1885,15 @@ end subroutine
 
 !##################################################
 subroutine SetBoundaryConditionPrePro(obj,Dirichlet,Neumann,Initial,xmin,xmax,ymin,ymax,zmin,zmax,&
-    tmin,tmax,val,val_id,NumOfValPerNod)
+    tmin,tmax,val,val_id,NumOfValPerNod,BoundInfo,MPIData)
     class(PreProcessing_),intent(inout)::obj
+    type(preprocessing_) :: DBC
+    class(Dictionary_),optional,intent(in) :: BoundInfo
+    class(MPI_),optional,intent(inout) :: MPIData
     real(8),optional,intent(in)::xmin,xmax
     real(8),optional,intent(in)::ymin,ymax
+    real(8) :: x_min,x_max
+    real(8) :: y_min,y_max
     real(8),optional,intent(in)::zmin,zmax
     real(8),optional,intent(in)::tmin,tmax
     logical,optional,intent(in)::Dirichlet,Neumann,Initial
@@ -1903,6 +1901,25 @@ subroutine SetBoundaryConditionPrePro(obj,Dirichlet,Neumann,Initial,xmin,xmax,ym
     real(8),optional,intent(in)::val
     integer :: i,j,n,k,l
 
+    if(present(BoundInfo) )then
+        do i=1,BoundInfo%sizeof()
+            ! list of boundary conditions is given as figures
+            call DBC%ImportPictureName( trim(BoundInfo%content(i) ) )
+            call DBC%GetPixcelSize(MPIData)
+            call DBC%SetColor(BoundInfo%IntList(i,1),&
+                BoundInfo%IntList(i,2),BoundInfo%IntList(i,3))
+            call DBC%GetPixcelByRGB(MPIData,err=5,onlycoord=.true.)
+            call DBC%GetSurfaceNode(MPIData,box=.true.)
+            x_min=minval(DBC%FEMDomain%Mesh%NodCoord(:,1) )
+            x_max=maxval(DBC%FEMDomain%Mesh%NodCoord(:,1) )
+            y_min=minval(DBC%FEMDomain%Mesh%NodCoord(:,2) )
+            y_max=maxval(DBC%FEMDomain%Mesh%NodCoord(:,2) )
+
+            call obj%setBC(Dirichlet=.true.,xmin=x_min,xmax=x_max,ymin=y_min,ymax=y_max,&
+            val_id=BoundInfo%intvalue(i),val=BoundInfo%realvalue(i),NumOfValPerNod=1 )
+
+        enddo
+    endif
 
     if(present(Dirichlet) )then
         if(Dirichlet .eqv. .true.)then
