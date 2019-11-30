@@ -199,17 +199,21 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 				if(present(with) )then
 					print *, "Mode :: contact problem"
 					write(100, '(A)' ) "2"
+					write(100, '(A)' ) "  "
 					n=size(obj%Mesh%NodCoord,1)
 					m=size(with%Mesh%NodCoord,1)
 					write(100, '(A)' ) "1  "//trim(adjustl(fstring(n) ) )
 					write(100, '(A)' ) trim(adjustl(fstring(n+1) ) )//"  "//trim(adjustl(fstring(n+m) ) )
+					write(100, '(A)' ) "  "
 					n=size(obj%Mesh%ElemNod,1)
 					m=size(with%Mesh%ElemNod,1)
 					write(100, '(A)' ) trim(adjustl(fstring(n) ) )
 					write(100, '(A)' ) trim(adjustl(fstring(n+m) ) )
+					write(100, '(A)' ) "  "
 					n=size(obj%Mesh%NodCoord,1)
 					m=size(obj%Mesh%NodCoord,2)
-					write(100, '(A)' ) trim(adjustl(fstring(n) ) )
+					write(100, * ) size(obj%Mesh%NodCoord,1)+size(with%Mesh%NodCoord,1)
+					write(100, '(A)' ) "  "
 					do i=1,n
 						write(100,*) obj%Mesh%NodCoord(i,:)	
 					enddo
@@ -218,11 +222,13 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 					do i=1,n
 						write(100,*) with%Mesh%NodCoord(i,:)
 					enddo
+					write(100, '(A)' ) "  "
 					n=size(with%Mesh%ElemNod,1)+size(obj%Mesh%ElemNod,1)
 					m=size(obj%Mesh%ElemNod,2)
 					write(100, * ) trim(adjustl(fstring(n) ) ),"  ",trim(adjustl(fstring(m) ) )
 					n=size(obj%Mesh%ElemNod,1)
 					m=size(obj%Mesh%ElemNod,2)
+					write(100, '(A)' ) "  "
 					do i=1,n
 						write(100,*) obj%Mesh%ElemNod(i,:)
 					enddo
@@ -230,27 +236,181 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 					m=size(with%Mesh%ElemNod,2)
 					nn=size(obj%Mesh%NodCoord,1)
 					do i=1,n
-						write(100,*) with%Mesh%ElemNod(i,j)+nn  
+						write(100,*) with%Mesh%ElemNod(i,:)+nn  
 					enddo
+					print *, "Elem-mat"
+					write(100, '(A)' ) "  "
 					n=size(obj%Mesh%ElemNod,1)
 					if(.not.allocated(obj%Mesh%ElemMat) )then
 						allocate(obj%Mesh%ElemMat(n) )
 						obj%Mesh%ElemMat(:)=1
 					endif
+					write(100, '(A)' ) "  "
+
 					do i=1,n
 						write(100, *)  obj%Mesh%ElemMat(i)  
 					enddo
+					write(100, '(A)' ) "  "
 					n=size(with%Mesh%ElemNod,1)
 					if(.not.allocated(with%Mesh%ElemMat) )then
 						allocate(with%Mesh%ElemMat(n) )
 						with%Mesh%ElemMat(:)=2
 					endif
+					write(100, '(A)' ) "  "
 					do i=1,n
 						write(100, *) with%Mesh%ElemMat(i)  
 					enddo
+					write(100, '(A)' ) "  "
 					
-					write(100, '(A)') "Material parameters will be put in here." 
+					print *, "Material parameters will be put in here." 
+					write(100,*) size(obj%MaterialProp%MatPara,1)
+					write(100, '(A)' ) "  "
+					do i=1,size(obj%MaterialProp%MatPara,1)
+						write(100,*) obj%MaterialProp%MatPara(i,:)
+					enddo
+					write(100, '(A)' ) "  "
+					print *, "Dboundary will be put in here." 
 					
+					! count number of dirichlet condition for x
+					n=0
+					do i=1,size(obj%Boundary%DBoundNodID,1)
+						if(obj%Boundary%DBoundNodID(i,1)>=1 )then
+							n=n+1
+						else
+							cycle
+						endif
+					enddo
+					do i=1,size(with%Boundary%DBoundNodID,1)
+						if(with%Boundary%DBoundNodID(i,1)>=1 )then
+							n=n+1
+						else
+							cycle
+						endif
+					enddo
+					! count number of dirichlet condition for y
+					m=0
+					do i=1,size(obj%Boundary%DBoundNodID,1)
+						if(obj%Boundary%DBoundNodID(i,2)>=1 )then
+							m=m+1
+						else
+							cycle
+						endif
+					enddo
+					do i=1,size(with%Boundary%DBoundNodID,1)
+						if(with%Boundary%DBoundNodID(i,2)>=1 )then
+							m=m+1
+						else
+							cycle
+						endif
+					enddo
+					! write number of dirichlet condition for x and y
+					write(100,*) n,m
+
+					! write out dirichlet boundary for x
+					do i=1,size(obj%Boundary%DBoundNodID,1)
+						if(obj%Boundary%DBoundNodID(i,1)>=1 )then
+							write(100,*) obj%Boundary%DBoundNodID(i,1)
+						else
+							cycle
+						endif
+					enddo
+					do i=1,size(with%Boundary%DBoundNodID,1)
+						if(with%Boundary%DBoundNodID(i,1)>=1 )then
+							write(100,*) with%Boundary%DBoundNodID(i,1)+nn
+						else
+							cycle
+						endif
+					enddo
+					write(100, '(A)' ) "  "
+
+					! write out value of dirichlet boundary for x
+					do i=1,size(obj%Boundary%DBoundNodID,1)
+						if(obj%Boundary%DBoundNodID(i,1)>=1 )then
+							write(100,*) obj%Boundary%DBoundVal(i,1)
+						else
+							cycle
+						endif
+					enddo
+					do i=1,size(with%Boundary%DBoundNodID,1)
+						if(with%Boundary%DBoundNodID(i,1)>=1 )then
+							write(100,*) with%Boundary%DBoundVal(i,1)
+						else
+							cycle
+						endif
+					enddo
+					write(100, '(A)' ) "  "
+
+					! write out dirichlet boundary for y
+					do i=1,size(obj%Boundary%DBoundNodID,1)
+						if(obj%Boundary%DBoundNodID(i,2)>=1 )then
+							write(100,*) obj%Boundary%DBoundNodID(i,2)
+						else
+							cycle
+						endif
+					enddo
+					do i=1,size(with%Boundary%DBoundNodID,1)
+						if(with%Boundary%DBoundNodID(i,2)>=1 )then
+							write(100,*) with%Boundary%DBoundNodID(i,2)+nn
+						else
+							cycle
+						endif
+					enddo
+					write(100, '(A)' ) "  "
+					! write outvalue of  dirichlet boundary for y
+					do i=1,size(obj%Boundary%DBoundNodID,1)
+						if(obj%Boundary%DBoundNodID(i,2)>=1 )then
+							write(100,*) obj%Boundary%DBoundVal(i,2)
+						else
+							cycle
+						endif
+					enddo
+					do i=1,size(with%Boundary%DBoundNodID,1)
+						if(with%Boundary%DBoundNodID(i,2)>=1 )then
+							write(100,*) with%Boundary%DBoundVal(i,2)
+						else
+							cycle
+						endif
+					enddo
+					write(100, '(A)' ) "  "
+
+					if(.not. allocated(obj%Boundary%NBoundNodID)  )then
+						write(100,*) 0
+					else
+						if(size(obj%Boundary%NBoundNodID,1)==0 )then
+							write(100,*) 0
+						else
+							print *, "ERROR :: ExportFEMDOmain :: Neumann boundary will be implemented."
+							stop
+						endif
+					endif
+					write(100, '(A)' ) "  "
+
+					! surface nodes
+					! count surface nodes
+					n=0
+					n=size(obj%Mesh%SurfaceLine2D)+size(with%Mesh%SurfaceLine2D)
+					write(100,*) n
+					write(100, '(A)' ) "  "
+
+					do i=1,size(obj%Mesh%SurfaceLine2D)
+						write(100,*) obj%Mesh%SurfaceLine2D(i)
+					enddo
+					do i=1,size(with%Mesh%SurfaceLine2D)
+						write(100,*) with%Mesh%SurfaceLine2D(i)+nn
+					enddo
+					write(100, '(A)' ) "  "
+					write(100,*) 1, size(obj%Mesh%SurfaceLine2D)
+					write(100,*) size(obj%Mesh%SurfaceLine2D)+1,size(obj%Mesh%SurfaceLine2D)+size(with%Mesh%SurfaceLine2D)
+
+					write(100,*) 0.010d0, 0.010d0
+					write(100,*) 1,1
+					write(100,*) 1,n,1
+					write(100,*) 1
+					write(100,*) 0.5000000000000E+05,   0.5000000000000E+05,   0.2402100000000E+01 ,  0.5404000000000E+00
+					write(100,*) 1,200,1
+					
+
+
 				endif
 			close(100)
 			return

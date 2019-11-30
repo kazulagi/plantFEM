@@ -82,7 +82,7 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
     integer,intent(in) :: R,G,B
     integer,optional,intent(in) :: sR,SG,sB
     real(8),intent(in) :: scalex,scaley
-    real(8) :: Dbound_val,Nbound_val
+    real(8) :: Dbound_val,Nbound_val,xratio,yratio
     character * 200         :: name,name1,name2,name3,name4,str_id,&
         sname,dirichlet,neumann,materials,parameters
     integer :: NumOfImages,i,id,num_d,num_n,DBoundRGB(3),Dbound_xyz,NBoundRGB(3),Nbound_xyz
@@ -171,7 +171,7 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
         call leaf%GetPixcelByRGB(MPIData,err=5,onlycoord=.true.)
         ! Get Outline
         call leaf%GetSurfaceNode(MPIData)
-        call leaf%AssembleSurfaceElement(MPIData,dim=2,threshold=10,DelRange=10)
+        call leaf%AssembleSurfaceElement(MPIData,dim=2,threshold=5,DelRange=5)
         
         ! Convert SurfaceNod to .geo
         call leaf%ExportGeoFile(MPIData,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
@@ -193,7 +193,7 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
         call leaf%SetSolver(InSolverType=SolverName)
         call leaf%SetUp(NoFacetMode=.true.)
 
-        !call leaf%SetMatPara(simple=.true.)
+        call leaf%SetMatPara(materialist=materialist,simple=.true.,MaterialID=1)
         
         call leaf%setBC(MPIData=MPIData,dirichlet=.true.,Boundinfo=DBoundlist)
         call leaf%setBC(MPIData=MPIData,neumann=.true.,Boundinfo=NBoundlist)
@@ -231,15 +231,8 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
             call soil%SetSolver(InSolverType=SolverName)
             call soil%SetUp(NoFacetMode=.true.)
 
-            !call soil%SetMatPara(simple=.true.)
-            !call soil%SetScale(scalex=scalex,scaley=scaley)
-            !call soil%SetMatPara(MaterialID=1,ParameterID=1,Val=1.0000d0)
-            !call soil%SetMatPara(MaterialID=1,ParameterID=2,Val=0.3000d0)
-            !call soil%SetMatPara(MaterialID=1,ParameterID=3,Val=0.0000d0)
-            !call soil%SetMatPara(MaterialID=1,ParameterID=4,Val=dble(1.0e+20) )
-            !call soil%SetMatPara(MaterialID=1,ParameterID=5,Val=0.0000d0)
-            !call soil%SetMatPara(MaterialID=1,ParameterID=6,Val=0.0000d0)
-            !call soil%SetMatID( MaterialID=1)
+            call soil%SetMatPara(materialist=materialist,simple=.true.,MaterialID=2)
+            
 
             ! setup boundary conditions
             call soil%setBC(MPIData=MPIData,dirichlet=.true.,Boundinfo=DBoundlist)
@@ -250,10 +243,15 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
             !call soil%Export(Name=trim(project)//"soil"//trim(str_id)//".geo")
 
         endif
-
+        xratio=scalex/leaf%PixcelSize(1)
+        yratio=scaley/leaf%PixcelSize(2)
+        call soil%SetScale(xratio=xratio,yratio=yratio)
+        call leaf%SetScale(xratio=xratio,yratio=yratio)
+        call soil%Reverse()
+        call leaf%Reverse()
         call leaf%Export(with=soil,Name=trim(project)//"rootandsoil"//trim(str_id)//".scf",regacy=.true.)
         
-        return
+        
 
         ! destructor
         call leaf%finalize()
@@ -938,13 +936,13 @@ subroutine AssembleSurfaceElement(obj,MPIData,dim,threshold,DelRange,Name)
     if(present(threshold) )then
         r_threshold=threshold
     else
-        r_threshold=10
+        r_threshold=5
     endif
 
     if(present(DelRange) )then
         drange=DelRange
     else
-        drange=10
+        drange=5
     endif
 
     if( present(dim) .and. dim/=2 )then
@@ -1037,6 +1035,9 @@ subroutine AssembleSurfaceElement(obj,MPIData,dim,threshold,DelRange,Name)
     if(present(Name) )then
         python_buffer=Name//"GetSurface_pid_"//trim(adjustl(pid))//".txt"    
     endif
+
+    ! modifier to remove invalid surface nodes
+    
 
     open(fh,file=python_buffer,status="replace")
     do i=1,size(obj%FEMDomain%Mesh%NodCoord,1)
@@ -1891,12 +1892,26 @@ end subroutine
 
 !##################################################
 subroutine SetScalePreProcessing(obj,scalex,scaley,scalez&
-    ,picscalex,picscaley,picscalez)
+    ,picscalex,picscaley,picscalez,xratio,yratio)
     class(PreProcessing_),intent(inout)::obj
     real(8),optional,intent(in)::scalex,scaley,scalez
-    real(8),optional,intent(in)::picscalex,picscaley,picscalez
+    real(8),optional,intent(in)::picscalex,picscaley,picscalez,xratio,yratio
     real(8) :: lx,ly,lz
     integer :: i
+
+    if(present(xratio) )then
+        do i=1,size(obj%FEMDomain%Mesh%NodCoord,1)
+            obj%FEMDomain%Mesh%NodCoord(i,1)=xratio*obj%FEMDomain%Mesh%NodCoord(i,1)
+        enddo
+    endif
+    if(present(yratio) )then
+        do i=1,size(obj%FEMDomain%Mesh%NodCoord,1)
+            obj%FEMDomain%Mesh%NodCoord(i,2)=yratio*obj%FEMDomain%Mesh%NodCoord(i,2)
+        enddo
+    endif
+    if(present(yratio) .or. present(xratio))then
+        return
+    endif
 
     if(present(scalex) )then
         if(scalex == 0.0d0)then
@@ -2268,25 +2283,36 @@ subroutine SetMatParaPreProcessing(obj,MaterialID,ParameterID,Val,materialist,si
     logical,optional,intent(in) :: simple
     integer ::i,n,m,p(2),mm
 
+    if(present(materialist) )then
+        ! import material information from list
+        print *, "total ",materialist%sizeof()," materials are imported."
+        n=materialist%sizeof()
+        m=size(materialist%Dictionary(1)%Realist)
+        if(allocated(obj%FEMDomain%MaterialProp%MatPara) )then
+            deallocate(obj%FEMDomain%MaterialProp%MatPara)
+        endif
+        allocate(obj%FEMDomain%MaterialProp%MatPara(n,m) )
+        do i=1,materialist%sizeof()
+            obj%FEMDomain%MaterialProp%MatPara(i,:)=materialist%Dictionary(i)%Realist(:)
+        enddo
+    endif
+
     if(present(simple) )then
         if(simple .eqv. .true.)then
             if(.not.allocated(obj%FEMDomain%Mesh%ElemMat) )then
                 n=size(obj%FEMDomain%Mesh%ElemNod,1)
                 allocate(obj%FEMDomain%Mesh%ElemMat(n) )
-                obj%FEMDomain%Mesh%ElemMat(:)=1
+            else
+                deallocate(obj%FEMDomain%Mesh%ElemMat)
+                n=size(obj%FEMDomain%Mesh%ElemNod,1)
+                allocate(obj%FEMDomain%Mesh%ElemMat(n) )
             endif
+            obj%FEMDomain%Mesh%ElemMat(:)=input(default=1,option=MaterialID)
         endif
         return
     endif
 
-    if(present(materialist) )then
-        ! import material information from list
-        print *, "total ",materialist%sizeof()," materials are imported."
-        do i=1,materialist%sizeof()
-            
-        enddo
-        return
-    endif
+
 
     if(.not.allocated(obj%FEMDomain%MaterialProp%MatPara) )then
         allocate(obj%FEMDomain%MaterialProp%MatPara(MaterialID,ParameterID) )
