@@ -167,19 +167,96 @@ end subroutine MergeFEMDomain
 
 
 !##################################################
-subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,SolverType,MeshDimension,FileName)
+subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,SolverType,MeshDimension,&
+	FileName,Name,regacy,with)
     class(FEMDomain_),intent(inout)::obj
+    class(FEMDomain_),optional,intent(inout)::with
     character(*),optional,intent(in)::OptionalFileFormat
     character(*),optional,intent(in)::OptionalProjectName,SolverType,FileName
-    character*4::FileFormat
+	character*4::FileFormat
+	character(*),optional,intent(in) :: Name
+	logical,optional,intent(in) :: regacy
     character*200::ProjectName
 	character*200 ::iFileName
 	
     integer,allocatable::IntMat(:,:)
     real(8),allocatable::RealMat(:,:)
     integer,optional,intent(in)::FileHandle,MeshDimension
-    integer :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum
+    integer :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,nn
 	character*70 Msg
+
+	if(present(regacy) )then
+		if(regacy .eqv. .true.)then
+			! export as regacy mode
+			! request Name
+			if(.not. present(Name) )then
+				print *, "ExportFEMDomain :: please import Name"
+				stop 
+			endif
+
+			open(100,file=trim(Name) )
+				print *, "Exporting .scf file >>> ",trim(Name)
+				if(present(with) )then
+					print *, "Mode :: contact problem"
+					write(100, '(A)' ) "2"
+					n=size(obj%Mesh%NodCoord,1)
+					m=size(with%Mesh%NodCoord,1)
+					write(100, '(A)' ) "1  "//trim(adjustl(fstring(n) ) )
+					write(100, '(A)' ) trim(adjustl(fstring(n+1) ) )//"  "//trim(adjustl(fstring(n+m) ) )
+					n=size(obj%Mesh%ElemNod,1)
+					m=size(with%Mesh%ElemNod,1)
+					write(100, '(A)' ) trim(adjustl(fstring(n) ) )
+					write(100, '(A)' ) trim(adjustl(fstring(n+m) ) )
+					n=size(obj%Mesh%NodCoord,1)
+					m=size(obj%Mesh%NodCoord,2)
+					write(100, '(A)' ) trim(adjustl(fstring(n) ) )
+					do i=1,n
+						write(100,*) obj%Mesh%NodCoord(i,:)	
+					enddo
+					n=size(with%Mesh%NodCoord,1)
+					m=size(with%Mesh%NodCoord,2)
+					do i=1,n
+						write(100,*) with%Mesh%NodCoord(i,:)
+					enddo
+					n=size(with%Mesh%ElemNod,1)+size(obj%Mesh%ElemNod,1)
+					m=size(obj%Mesh%ElemNod,2)
+					write(100, * ) trim(adjustl(fstring(n) ) ),"  ",trim(adjustl(fstring(m) ) )
+					n=size(obj%Mesh%ElemNod,1)
+					m=size(obj%Mesh%ElemNod,2)
+					do i=1,n
+						write(100,*) obj%Mesh%ElemNod(i,:)
+					enddo
+					n=size(with%Mesh%ElemNod,1)
+					m=size(with%Mesh%ElemNod,2)
+					nn=size(obj%Mesh%NodCoord,1)
+					do i=1,n
+						write(100,*) with%Mesh%ElemNod(i,j)+nn  
+					enddo
+					n=size(obj%Mesh%ElemNod,1)
+					if(.not.allocated(obj%Mesh%ElemMat) )then
+						allocate(obj%Mesh%ElemMat(n) )
+						obj%Mesh%ElemMat(:)=1
+					endif
+					do i=1,n
+						write(100, *)  obj%Mesh%ElemMat(i)  
+					enddo
+					n=size(with%Mesh%ElemNod,1)
+					if(.not.allocated(with%Mesh%ElemMat) )then
+						allocate(with%Mesh%ElemMat(n) )
+						with%Mesh%ElemMat(:)=2
+					endif
+					do i=1,n
+						write(100, *) with%Mesh%ElemMat(i)  
+					enddo
+					
+					write(100, '(A)') "Material parameters will be put in here." 
+					
+				endif
+			close(100)
+			return
+
+		endif
+	endif
 	
 	if(present(OptionalFileFormat) )then
 		if(OptionalFileFormat=="stl" .or. OptionalFileFormat==".stl")then
@@ -668,7 +745,8 @@ subroutine AddDBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     real(8) :: minline,maxline,SetDBCound(3)
     integer,allocatable::DBoundNodIDBuf(:,:),CopiedArrayInt(:,:)
     real(8),allocatable::DBoundValBuf(:,:),CopiedArrayReal(:,:),x(:),rmin(:),rmax(:)
-    integer :: countnum,i,j,k,node_id,n,m,NumVN,newboundnum,ValID,count_n
+    integer :: countnum,i,j,k,node_id,n,m,NumVN,newboundnum,ValID,count_n,dim_num
+
 
     if(present(val_id) )then
         ValID=val_id
@@ -682,11 +760,13 @@ subroutine AddDBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
         NumVN=3
     endif
 
-    n=size(obj%Mesh%NodCoord,2)
+	n=size(obj%Mesh%NodCoord,2)
+	dim_num=n
+	
     
     if( present(Mode2D) )then
         if(Mode2D .eqv. .true.)then
-            allocate(x(2) )
+            allocate(x(3) )
             allocate(rmin(3) )
             allocate(rmax(3) )
         else
@@ -695,7 +775,7 @@ subroutine AddDBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
             allocate(rmax(3) )
         endif
     elseif(n==2)then
-        allocate(x(2) )
+        allocate(x(3) )
         allocate(rmin(3) )
         allocate(rmax(3) )
     else
@@ -749,7 +829,7 @@ subroutine AddDBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
         t_max = tmax
     endif
 
-	print *, "Range is : ",x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
+	!print *, "Range is : ",x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
     
     ! get node ID and value
     
@@ -757,28 +837,52 @@ subroutine AddDBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     
     
     if( .not. allocated(obj%Mesh%FacetElemNod))then
-        call obj%InitDBC(NumOfValPerNod)
-    endif
+		call obj%InitDBC(NumOfValPerNod)
+		print *, "add dbc :: initialized"
+	endif
+	
+	if(.not.allocated(obj%Boundary%DBoundNodID) )then
+		call obj%InitDBC(NumOfValPerNod)
+	endif
     rmin(1)=x_min
     rmin(2)=y_min
     rmin(3)=z_min
     
     rmax(1)=x_max
     rmax(2)=y_max
-    rmax(3)=z_max
+	rmax(3)=z_max
+	
     n=size(obj%Mesh%FacetElemNod,1)
 	m=size(obj%Mesh%FacetElemNod,2)
 	count_n=0
+
+	if(.not. allocated(obj%Boundary%DBoundNum) )then
+		i=size(obj%Boundary%DBoundNodID,2)
+		allocate(obj%Boundary%DBoundNum(i))
+	endif
+
     do i=1,size(obj%Mesh%FacetElemNod,1)
 		do j=1,size(obj%Mesh%FacetElemNod,2)
-			
-            x(:)=obj%Mesh%NodCoord( obj%Mesh%FacetElemNod(i,j),: )    
+			if(obj%Mesh%FacetElemNod(i,j) > size(obj%Mesh%NodCoord,1) )then
+				print *, "ERROR :: obj%Mesh%FacetElemNod is out of range"
+				print *, "Number of nodes: ",size(obj%Mesh%NodCoord,1),&
+					"obj%Mesh%FacetElemNod(i,j) is ",obj%Mesh%FacetElemNod(i,j)
+				stop 
+			endif
+			x(:)=0.0d0
+            x(1:dim_num)=obj%Mesh%NodCoord( obj%Mesh%FacetElemNod(i,j),1:dim_num )    
 			InOut = InOrOut(x,rmax,rmin)
             if(InOut .eqv. .true.)then
                 if( (i-1)*m+j > n*m )then
                     stop "sgdssdfssssssssssssss"
 				endif
 				count_n=count_n+1
+				if(size(obj%Boundary%DBoundNodID,1) < (i-1)*m+j  )then
+					print *, "ERROR :: obj%Boundary%DBoundNodID is out of range"
+					print *, size(obj%Boundary%DBoundNodID,1),size(obj%Boundary%DBoundNodID,2),size(obj%Mesh%NodCoord,1),&
+						ValID,obj%Mesh%FacetElemNod(i,j)
+					stop 
+				endif
                 obj%Boundary%DBoundNum(ValID)=obj%Boundary%DBoundNum(ValID)+1
                 obj%Boundary%DBoundNodID( (i-1)*m+j ,ValID)=obj%Mesh%FacetElemNod(i,j)
                 obj%Boundary%DBoundVal( (i-1)*m+j ,ValID)=val

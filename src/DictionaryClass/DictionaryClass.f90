@@ -186,19 +186,80 @@ end subroutine
 
 
 ! ##############################################
-subroutine showDictionary(obj,From,to)
+subroutine showDictionary(obj,From,to,Name)
     class(Dictionary_)::obj
     integer,optional,intent(in)::From,to
-    integer :: i,n,startp,endp
+    character(*),optional,intent(in) :: Name
+    integer :: i,n,startp,endp,rl,il
 
     n=size(obj%Dictionary,1)
 
+    
     startp=input(default=1,option=From)
     endp  =input(default=n,option=to)
-    do i=startp,endp
-        print *, "Page : ",i,"Content : ",trim(obj%Dictionary(i)%Value )
-    enddo
 
+    
+    do i=startp,endp
+        rl = 0
+        il = 0
+        if(.not. allocated(obj%Dictionary(i)%Intlist) )then
+            allocate(obj%Dictionary(i)%Intlist(0) )
+            il = 1
+        endif
+        if(.not. allocated(obj%Dictionary(i)%Realist) )then
+            allocate(obj%Dictionary(i)%Realist(0) )
+            rl = 1
+        endif
+    
+        print *, "Page : ",i,"Content : ",trim(obj%Dictionary(i)%Value ),&
+        "IntValue : ",obj%Dictionary(i)%IntValue,&
+        "RealValue : ",obj%Dictionary(i)%RealValue,&
+        "Intlist(:) : ",obj%Dictionary(i)%Intlist(:),&
+        "Realist(:) : ",obj%Dictionary(i)%Realist(:)
+        
+        if(il==1 )then
+            deallocate(obj%Dictionary(i)%Intlist )
+        endif
+        if(rl == 1 )then
+            deallocate(obj%Dictionary(i)%Realist )
+        endif
+    enddo
+    
+
+    if(present(Name) )then
+        open(1023,file=trim(Name))
+        
+        
+        do i=startp,endp
+            rl = 0
+            il = 0
+            if(.not. allocated(obj%Dictionary(i)%Intlist) )then
+                allocate(obj%Dictionary(i)%Intlist(0) )
+                il = 1
+            endif
+            if(.not. allocated(obj%Dictionary(i)%Realist) )then
+                allocate(obj%Dictionary(i)%Realist(0) )
+                rl = 1
+            endif
+            write(1023,*) "Page : ",i,"Content : ",trim(obj%Dictionary(i)%Value ),&
+                "IntValue : ",obj%Dictionary(i)%IntValue,&
+                "RealValue : ",obj%Dictionary(i)%RealValue,&
+                "Intlist(:) : ",obj%Dictionary(i)%Intlist(:),&
+                "Realist(:) : ",obj%Dictionary(i)%Realist(:)
+            
+            if(il==1 )then
+                deallocate(obj%Dictionary(i)%Intlist )
+            endif
+            if(rl == 1 )then
+                deallocate(obj%Dictionary(i)%Realist )
+            endif
+        enddo
+        close(1023)
+
+    endif
+
+
+    
 end subroutine
 ! ##############################################
 
@@ -245,6 +306,7 @@ function GetPageNumDictionary(obj,Content) result(page)
     if(page==-1)then
         print *, "ERROR ::",trim(Content)," is a word to be found only in the dictionary of fools."
     endif
+
 
 
 end function

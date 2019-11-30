@@ -11,6 +11,7 @@ module MeshOperationClass
         real(8),allocatable::NodCoord(:,:)
         real(8),allocatable::NodCoordInit(:,:)
         integer,allocatable::ElemNod(:,:)
+
         integer,allocatable::FacetElemNod(:,:)
         integer,allocatable::NextFacets(:,:)
         integer,allocatable::SurfaceLine2D(:)
@@ -656,6 +657,26 @@ subroutine GetSurface(obj)
     integer :: id_1,id_2
     integer,allocatable::buffer(:,:)
 
+
+    if(allocated(obj%FacetElemNod) ) then
+        deallocate(obj%FacetElemNod)
+    endif
+    if(allocated(obj%NextFacets) ) then
+        deallocate(obj%NextFacets)
+    endif
+    if(allocated(obj%SurfaceLine2D) ) then
+        deallocate(obj%SurfaceLine2D)
+    endif
+    if(allocated(obj%SubMeshNodFromTo) ) then
+        deallocate(obj%SubMeshNodFromTo)
+    endif
+    if(allocated(obj%SubMeshElemFromTo) ) then
+        deallocate(obj%SubMeshElemFromTo)
+    endif
+    if(allocated(obj%SubMeshSurfFromTo) ) then
+        deallocate(obj%SubMeshSurfFromTo)
+    endif
+        
 
     NumOfDim=size(obj%NodCoord,2)
     if(NumOfDim==2)then

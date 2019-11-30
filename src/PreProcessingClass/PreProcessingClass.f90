@@ -22,6 +22,7 @@ module PreprocessingClass
         procedure :: getScfFromImage    => getScfFromImagePreProcessing
         procedure :: Init               => InitializePrePro
         procedure :: finalize           => finalizePrePro
+
         procedure :: ImportPictureName  => ImportPictureName
         procedure :: importPixcelAsNode => importPixcelAsNodePreProcessing
         procedure :: ShowName           => ShowPictureName
@@ -74,7 +75,7 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
     class(PreProcessing_),intent(inout) :: obj
     class(MPI_),intent(inout)           :: MPIData
 
-    type(Dictionary_)       :: InfileList,DBoundlist,NBoundlist
+    type(Dictionary_)       :: InfileList,DBoundlist,NBoundlist,Materialist
     type(PreProcessing_)    :: leaf,soil
     character(*),intent(in) :: project,elemtype,SolverName
     character(*),optional,intent(in) :: Soilfile
@@ -82,8 +83,11 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
     integer,optional,intent(in) :: sR,SG,sB
     real(8),intent(in) :: scalex,scaley
     real(8) :: Dbound_val,Nbound_val
-    character * 200         :: name,name1,name2,name3,name4,str_id,sname,dirichlet,neumann
+    character * 200         :: name,name1,name2,name3,name4,str_id,&
+        sname,dirichlet,neumann,materials,parameters
     integer :: NumOfImages,i,id,num_d,num_n,DBoundRGB(3),Dbound_xyz,NBoundRGB(3),Nbound_xyz
+    integer :: NumOfMaterial,NumOfparameter,matid,MaterialRGB(3)
+    real(8),allocatable :: matpara(:)
 
     
 
@@ -131,6 +135,28 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
     enddo
     close(60)
 
+
+    ! get paths for material information lists
+    open(70,file=trim(project)//"materialist.txt")
+    read(70, '(A)' ) materials
+    read(70,*) NumOfMaterial
+    read(70, '(A)' ) parameters
+    read(70,*) NumOfparameter
+    allocate(matpara(NumOfparameter))
+    
+    call Materialist%Init(NumOfMaterial)
+    do i=1,NumOfMaterial
+        read(70,'(A)' ) name
+        read(70,*) MaterialRGB(1:3)
+        read(70,*) matpara(1:NumOfparameter)
+        call materialist%Input(i, content=trim(name) )
+        call materialist%Input(i, Intlist=materialRGB )
+        call materialist%Input(i, Realist=matpara )
+    !    call Materialist%Input(i, trim(name) )
+    enddo
+    close(70)
+
+    
     
     do i=1,size(MPIData%LocalStack)
         id=MPIData%LocalStack(i)
@@ -154,16 +180,27 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
         call leaf%ConvertGeo2Msh(MPIData ,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
         call leaf%ConvertGeo2Inp(MPIData ,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
         call leaf%ConvertGeo2Mesh(MPIData,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
+        
         ! Convert .msh to .scf
-        ! need debug
         
         call leaf%ConvertMesh2Scf(MPIData,ElementType=ElemType,&
             Name=trim(project)//"mesh"//trim(str_id)//".mesh" )
         call leaf%FEMDomain%checkconnectivity(fix=.true.)
-        call leaf%Convert3Dto2D()
 
-        call leaf%setBC(dirichlet=.true.,Boundinfo=DBoundlist)
-        call leaf%setBC(dirichlet=.true.,Boundinfo=NBoundlist)
+        !call leaf%Convert3Dto2D()
+
+
+        call leaf%SetSolver(InSolverType=SolverName)
+        call leaf%SetUp(NoFacetMode=.true.)
+
+        !call leaf%SetMatPara(simple=.true.)
+        
+        call leaf%setBC(MPIData=MPIData,dirichlet=.true.,Boundinfo=DBoundlist)
+        call leaf%setBC(MPIData=MPIData,neumann=.true.,Boundinfo=NBoundlist)
+        call leaf%SetControlPara(OptionalItrTol=100,OptionalTimestep=100,OptionalSimMode=1)
+        
+        
+        !call leaf%Export(Name=trim(project)//"root"//trim(str_id)//".geo")
 
         ! get soil mesh
         if(present(Soilfile) )then
@@ -190,48 +227,52 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
             Name=trim(project)//"soil"//trim(str_id)//".mesh")
             
             call soil%FEMDomain%checkconnectivity(fix=.true.)
-            call soil%Convert3Dto2D()
+            
+            call soil%SetSolver(InSolverType=SolverName)
+            call soil%SetUp(NoFacetMode=.true.)
+
+            !call soil%SetMatPara(simple=.true.)
+            !call soil%SetScale(scalex=scalex,scaley=scaley)
+            !call soil%SetMatPara(MaterialID=1,ParameterID=1,Val=1.0000d0)
+            !call soil%SetMatPara(MaterialID=1,ParameterID=2,Val=0.3000d0)
+            !call soil%SetMatPara(MaterialID=1,ParameterID=3,Val=0.0000d0)
+            !call soil%SetMatPara(MaterialID=1,ParameterID=4,Val=dble(1.0e+20) )
+            !call soil%SetMatPara(MaterialID=1,ParameterID=5,Val=0.0000d0)
+            !call soil%SetMatPara(MaterialID=1,ParameterID=6,Val=0.0000d0)
+            !call soil%SetMatID( MaterialID=1)
+
+            ! setup boundary conditions
+            call soil%setBC(MPIData=MPIData,dirichlet=.true.,Boundinfo=DBoundlist)
+            call soil%setBC(MPIData=MPIData,Neumann=.true.,Boundinfo=NBoundlist)
+
+            call soil%SetControlPara(OptionalItrTol=100,OptionalTimestep=100,OptionalSimMode=1)
+            
+            !call soil%Export(Name=trim(project)//"soil"//trim(str_id)//".geo")
+
         endif
 
+        call leaf%Export(with=soil,Name=trim(project)//"rootandsoil"//trim(str_id)//".scf",regacy=.true.)
+        
         return
 
-        ! setup boundary conditions
-        call soil%setBC(dirichlet=.true.,Boundinfo=DBoundlist)
-        call soil%setBC(dirichlet=.true.,Boundinfo=NBoundlist)
+        ! destructor
+        call leaf%finalize()
+        call soil%finalize()
 
-        call leaf%SetSolver(InSolverType=SolverName)
-        call leaf%SetUp(NoFacetMode=.true.)
-    
         
     enddo
-    call leaf%Export(Name=trim(project)//"root"//trim(str_id)//".geo")
-    call soil%Export(Name=trim(project)//"soil"//trim(str_id)//".geo")
 
 
-    ! destructor
-    call leaf%finalize()
-    call soil%finalize()
-    return
 
 
-    call leaf%SetScale(scalex=scalex,scaley=scaley)
-    call leaf%SetMatPara(MaterialID=1,ParameterID=1,Val=1.0000d0)
-    call leaf%SetMatPara(MaterialID=1,ParameterID=2,Val=0.3000d0)
-    call leaf%SetMatPara(MaterialID=1,ParameterID=3,Val=0.0000d0)
-    call leaf%SetMatPara(MaterialID=1,ParameterID=4,Val=dble(1.0e+20) )
-    call leaf%SetMatPara(MaterialID=1,ParameterID=5,Val=0.0000d0)
-    call leaf%SetMatPara(MaterialID=1,ParameterID=6,Val=0.0000d0)
     
-    call leaf%SetMatID( MaterialID=1)
     
-    call leaf%SetControlPara(OptionalItrTol=100,OptionalTimestep=100,OptionalSimMode=1)
     
     ! Export Object
-    call leaf%FEMDomain%GmshPlotVector(Name="Tutorial/InputData/grass_leaf",step=0,&
-        withMsh=.true.,FieldName="DispBound",NodeWize=.true.,onlyDirichlet=.true.)
+    !call leaf%FEMDomain%GmshPlotVector(Name="Tutorial/InputData/grass_leaf",step=0,&
+    !    withMsh=.true.,FieldName="DispBound",NodeWize=.true.,onlyDirichlet=.true.)
     
-    call leaf%Export(Name="Tutorial/InputData/grass_leaf")
-    call MPIData%End()
+    
 
 
 end subroutine
@@ -251,9 +292,7 @@ subroutine finalizePrePro(obj)
     class(PreProcessing_),intent(inout)::obj
 
     call obj%FEMDomain%delete()
-    if(associated(obj%pFEMDomain) )then
-        deallocate(obj%pFEMDomain)
-    endif
+    
     obj%PictureName = ""
     obj%RGBDataName = ""
     obj%PixcelSizeDataName = ""
@@ -300,28 +339,38 @@ subroutine GetPixcelSize(obj,MPIData,Name)
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
     character(*),optional,intent(in)   :: Name
-    character *20       :: pid
+    character *30       :: pid
     character *200      :: python_script
     character *200      :: python_buffer
     character *200      :: command
     integer              :: fh
 
+
     call MPIData%GetInfo()
-    write(pid,*) MPIData%MyRank
+
+    pid = trim(adjustl(fstring(MPIData%MyRank)))
     python_script="GetPixcelSize_pid_"//trim(adjustl(pid))//".py"
     python_buffer="GetPixcelSize_pid_"//trim(adjustl(pid))//".txt"
+
+
+
+
     if(present(Name) )then
         python_script=Name//"GetPixcelSize_pid_"//trim(adjustl(pid))//".py"
         python_buffer=Name//"GetPixcelSize_pid_"//trim(adjustl(pid))//".txt"
-        
     endif
+
+
+
 
     obj%PixcelSizeDataName=python_buffer
     !print *, trim(python_script)
     
     ! using python script
     ! python imaging library is to be installed.
-    fh=MPIData%MyRank+10
+    fh=MPIData%MyRank+100
+
+
     open(fh,file=trim(python_script),status="replace")
     command = "from PIL import Image"
     write(fh,'(A)') adjustl(trim(command))
@@ -332,35 +381,44 @@ subroutine GetPixcelSize(obj,MPIData,Name)
 
     ! open file
     command = 'img_in = Image.open("'//trim(obj%PictureName)//'")'
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     command = 'python_buffer = open("'//trim(python_buffer)//'","w")'
     write(fh,'(A)') adjustl(trim(command))
-
+    !print *, command
     ! get pixcel size
     command = "rgb_im = img_in.convert('RGB')"
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     command = "size = rgb_im.size"
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     command = "print( str(size[0]), ' ',str(size[1])  ) "
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     
     ! write size
     command = "python_buffer.write( str(size[0]))"
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     command = "python_buffer.write('\n')"
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     command = "python_buffer.write( str(size[1]))"
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     
     ! close
     command = "img_in.close()"
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     command = "python_buffer.close()"
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     close(fh)
 
     command = "python3 "//trim(python_script)
-    print *, trim(command)
+    !print *, trim(command)
     call system(trim(command))
 
     ! get pixcel size
@@ -584,6 +642,10 @@ subroutine GetPixcelByRGB(obj,MPIData,err,onlycoord,Name)
     allocate(obj%FEMDomain%Mesh%NodCoord(sizeofpc,3) )
     obj%FEMDomain%Mesh%NodCoord(:,3)=0.0d0
     open(fh,file=python_buffer,status="old")
+    if(sizeofpc==0)then
+        print *, "ERROR :: GetPixcelByRGB >> no such color"
+        stop 
+    endif
     do i=1,sizeofpc
         read(fh,*)obj%FEMDomain%Mesh%NodCoord(i,1:2)
     enddo
@@ -1652,6 +1714,9 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
 
     endif
 
+    print *, "surface information is updated"
+    call obj%FEMDomain%Mesh%GetSurface()
+
     return
 
     
@@ -1707,12 +1772,14 @@ end subroutine
 
 
 ! #########################################################
-subroutine ExportPreProcessing(obj,MPIData,FileName,MeshDimension,Name)
+subroutine ExportPreProcessing(obj,MPIData,FileName,MeshDimension,Name,regacy,with)
     class(PreProcessing_),intent(inout):: obj
+    class(PreProcessing_),optional,intent(inout):: with
     class(MPI_),optional,intent(inout) :: MPIData
     character*200,optional,intent(in)  :: FileName
     character(*),optional,intent(in)   :: Name
     integer,optional,intent(in) :: MeshDimension
+    logical,optional,intent(in)::regacy
     character*200   :: python_buffer
     character*200   :: command
     character*20    :: pid
@@ -1742,7 +1809,8 @@ subroutine ExportPreProcessing(obj,MPIData,FileName,MeshDimension,Name)
         endif
     endif
 
-    call obj%FEMDomain%Export(OptionalProjectName=python_buffer,FileHandle=fh)
+    call obj%FEMDomain%Export(OptionalProjectName=python_buffer,FileHandle=fh,Name=Name,regacy=regacy&
+    ,with=with%FEMDomain)
     
 end subroutine
 ! #########################################################
@@ -1902,23 +1970,44 @@ subroutine SetBoundaryConditionPrePro(obj,Dirichlet,Neumann,Initial,xmin,xmax,ym
     integer :: i,j,n,k,l
 
     if(present(BoundInfo) )then
+        if(.not.allocated(BoundInfo%Dictionary))then
+            return
+        endif
+
         do i=1,BoundInfo%sizeof()
             ! list of boundary conditions is given as figures
+            print *, "now dbc"
+            if(.not. present(MPIData) )then
+                print *, "ERROR :: setBC :: MPIData should be imported."
+                return
+            endif
+            print *,trim(BoundInfo%content(i) )
+
             call DBC%ImportPictureName( trim(BoundInfo%content(i) ) )
-            call DBC%GetPixcelSize(MPIData)
+            call DBC%GetPixcelSize(MPIData, name="DBC")
             call DBC%SetColor(BoundInfo%IntList(i,1),&
                 BoundInfo%IntList(i,2),BoundInfo%IntList(i,3))
+            
             call DBC%GetPixcelByRGB(MPIData,err=5,onlycoord=.true.)
-            call DBC%GetSurfaceNode(MPIData,box=.true.)
+            
             x_min=minval(DBC%FEMDomain%Mesh%NodCoord(:,1) )
             x_max=maxval(DBC%FEMDomain%Mesh%NodCoord(:,1) )
             y_min=minval(DBC%FEMDomain%Mesh%NodCoord(:,2) )
             y_max=maxval(DBC%FEMDomain%Mesh%NodCoord(:,2) )
 
+            ! debug
+            !print *, minval(obj%FEMDomain%Mesh%NodCoord(:,1)),&
+            !maxval(obj%FEMDomain%Mesh%NodCoord(:,1)),&
+            !minval(obj%FEMDomain%Mesh%NodCoord(:,2)),&
+            !maxval(obj%FEMDomain%Mesh%NodCoord(:,2))
+            n=size(obj%FEMDomain%Mesh%NodCoord,2)
             call obj%setBC(Dirichlet=.true.,xmin=x_min,xmax=x_max,ymin=y_min,ymax=y_max,&
-            val_id=BoundInfo%intvalue(i),val=BoundInfo%realvalue(i),NumOfValPerNod=1 )
-
+            val_id=BoundInfo%intvalue(i),val=BoundInfo%realvalue(i),NumOfValPerNod=n )
+            
+            print *, "boundary condition ID : ",i
+            call DBC%finalize()
         enddo
+        return
     endif
 
     if(present(Dirichlet) )then
@@ -1926,11 +2015,16 @@ subroutine SetBoundaryConditionPrePro(obj,Dirichlet,Neumann,Initial,xmin,xmax,ym
             
             call AddDBoundCondition(obj%FEMDomain,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax&
             ,zmin=zmin,zmax=zmax,tmin=tmin,tmax=tmax,val=val,val_id=val_id,NumOfValPerNod=NumOfValPerNod)
+            print *, "boundary conditions are added."
+            if(.not. allocated(obj%FEMDomain%Boundary%DBoundNum) )then
+                n=size(obj%FEMDomain%Boundary%DBoundNodID,2)
+                allocate(obj%FEMDomain%Boundary%DBoundNum(n) )
+                print *, "caution .not. allocated(obj%FEMDomain%Boundary%DBoundNum "
+            endif
             do i=1,size(obj%FEMDomain%Boundary%DBoundNum)
                 k=countif(Array=obj%FEMDomain%Boundary%DBoundNodID(:,i),Value=-1,notEqual=.true.)
                 obj%FEMDomain%Boundary%DBoundNum(i)=k
             enddo
-            return
 
         endif
     endif    
@@ -2166,11 +2260,33 @@ end subroutine
 !##################################################
 
 !##################################################
-subroutine SetMatParaPreProcessing(obj,MaterialID,ParameterID,Val)
+subroutine SetMatParaPreProcessing(obj,MaterialID,ParameterID,Val,materialist,simple)
     class(PreProcessing_),intent(inout)::obj
-    integer,intent(in)::MaterialID,ParameterID
-    real(8),intent(in)::Val
+    class(Dictionary_),optional,intent(inout) :: materialist
+    integer,optional,intent(in)::MaterialID,ParameterID
+    real(8),optional,intent(in)::Val
+    logical,optional,intent(in) :: simple
     integer ::i,n,m,p(2),mm
+
+    if(present(simple) )then
+        if(simple .eqv. .true.)then
+            if(.not.allocated(obj%FEMDomain%Mesh%ElemMat) )then
+                n=size(obj%FEMDomain%Mesh%ElemNod,1)
+                allocate(obj%FEMDomain%Mesh%ElemMat(n) )
+                obj%FEMDomain%Mesh%ElemMat(:)=1
+            endif
+        endif
+        return
+    endif
+
+    if(present(materialist) )then
+        ! import material information from list
+        print *, "total ",materialist%sizeof()," materials are imported."
+        do i=1,materialist%sizeof()
+            
+        enddo
+        return
+    endif
 
     if(.not.allocated(obj%FEMDomain%MaterialProp%MatPara) )then
         allocate(obj%FEMDomain%MaterialProp%MatPara(MaterialID,ParameterID) )
