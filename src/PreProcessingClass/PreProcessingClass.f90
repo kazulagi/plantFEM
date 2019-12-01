@@ -175,7 +175,7 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
         
         ! Convert SurfaceNod to .geo
         call leaf%ExportGeoFile(MPIData,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
-            
+        
         ! Run Gmsh to convert .geo to .msh
         call leaf%ConvertGeo2Msh(MPIData ,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
         call leaf%ConvertGeo2Inp(MPIData ,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
@@ -928,11 +928,14 @@ subroutine AssembleSurfaceElement(obj,MPIData,dim,threshold,DelRange,Name)
     character(*),optional,intent(in)   :: Name
     character*200   :: python_buffer
     character*20    :: pid
-    real(8),allocatable     :: buffer(:,:),r_value(:)
-    integer,allocatable     :: checked(:)
-    real(8)                 :: x(3),x_tr(3),r_tr,r_ref
-    integer :: i,j,k,n,trial_num,id_tr,fh,r_threshold,drange
+    real(8),allocatable     :: buffer(:,:),r_value(:),line_segment_len(:)
+    integer,allocatable     :: checked(:),line_segment(:,:),kill(:)
+    real(8)                 :: x(3),x_tr(3),r_tr,r_ref,a1(2),a2(2),b1(2),b2(2),c1,c2,c3
+    real(8) :: bufvec(2),middle(2)
+    integer :: i,j,k,n,trial_num,id_tr,fh,r_threshold,drange,nn,ys_solved,m
 
+
+    
     if(present(threshold) )then
         r_threshold=threshold
     else
@@ -947,7 +950,8 @@ subroutine AssembleSurfaceElement(obj,MPIData,dim,threshold,DelRange,Name)
 
     if( present(dim) .and. dim/=2 )then
         call MPIData%End()
-        stop   "AssembleSurfaceElement :: >> only 2-D is available."
+        print *, "AssembleSurfaceElement :: >> only 2-D is available."
+        stop   
     endif
 
     n=size(obj%FEMDomain%Mesh%NodCoord,1 )
@@ -1036,14 +1040,158 @@ subroutine AssembleSurfaceElement(obj,MPIData,dim,threshold,DelRange,Name)
         python_buffer=Name//"GetSurface_pid_"//trim(adjustl(pid))//".txt"    
     endif
 
-    ! modifier to remove invalid surface nodes
-    
 
     open(fh,file=python_buffer,status="replace")
     do i=1,size(obj%FEMDomain%Mesh%NodCoord,1)
         write(fh,*) obj%FEMDomain%Mesh%NodCoord(i,1:2)
     enddo
     close(fh)
+
+
+
+    ! modifier to remove invalid surface nodes
+    ! remove solitary island
+    ! for 2-D cases
+    ! get median of line segments
+    n=size(obj%FEMDomain%Mesh%NodCoord,1)
+    allocate(line_segment(n,3),line_segment_len(n) ) 
+    line_segment(:,:)=0
+    do i=1,n-1
+        line_segment(i,1) = i
+        line_segment(i,2) = i+1
+    enddo
+    line_segment(n,1) = n
+    line_segment(n,2) = 1
+
+    do i=1,n
+        a1(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(i,1) ,1:2 )
+        a2(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(i,2) ,1:2 )
+        line_segment_len(i)=dsqrt(dot_product(a2-a1,a2-a1)  )
+    enddo
+
+    ! write a operation to remove invalid nodes.
+
+
+    ! remove crossing surface
+    
+
+    do i=1,n-2
+        a1(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(i,1) ,1:2 )
+        a2(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(i,2) ,1:2 )-a1(1:2)
+        ys_solved = 0
+        do j=i+2,n
+            b1(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(j,1) ,1:2 )-a1(1:2)
+            b2(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(j,2) ,1:2 )-a1(1:2)
+            ! detect crossing by cross product
+            c1=( a2(1)*b1(2) - a2(2)*b1(1))*( a2(1)*b2(2) - a2(2)*b2(1))
+            if(c1>0.0d0)then
+                cycle
+            else
+                b1(1:2)=b1(1:2)+a1(1:2)
+                b2(1:2)=b2(1:2)+a1(1:2)
+                a2(1:2)=a2(1:2)+a1(1:2)
+
+                b2(1:2)=b2(1:2)-b1(1:2)
+                a1(1:2)=a1(1:2)-b1(1:2)
+                a2(1:2)=a2(1:2)-b1(1:2)
+                c2=( b2(1)*a1(2)-b2(2)*a1(1) )*( b2(1)*a2(2)-b2(2)*a2(1) )
+                if(c2>0.0d0)then
+                    cycle
+                else
+                    ! crossed
+                    
+                    nn= line_segment(j,1)
+                    k=i
+                    
+                    do 
+                        if( line_segment(k,2) >= line_segment(nn,1) )then
+                            ys_solved=1
+                            exit
+                        endif
+                        if( abs(line_segment(k,2) - line_segment(nn,1))<=1 )then
+                            ys_solved=1
+                            exit
+                        endif
+                        
+                        print *, "surface-line segments are Crossed >> modification ",line_segment(k,2) ," to ",line_segment(nn,1)
+                        
+                        bufvec(1:2)=obj%FEMDomain%Mesh%NodCoord(  line_segment(k,2) ,1:2)
+                        obj%FEMDomain%Mesh%NodCoord( line_segment(k,2) ,1:2 ) = &
+                            obj%FEMDomain%Mesh%NodCoord( line_segment(nn,1) ,1:2 )
+                        obj%FEMDomain%Mesh%NodCoord( line_segment(nn,1) ,1:2 ) = bufvec(1:2)
+                        
+                        if(  line_segment(nn,1) - line_segment(k,2)  <= 1)then
+                            ys_solved=1
+                            exit
+                        endif
+
+                        nn=nn-1
+                        k=k+1
+
+                    enddo
+                endif
+            endif
+
+            if(ys_solved == 1)then
+                exit
+            endif
+        enddo
+    enddo
+
+    ! reverse
+    nn=size(obj%FEMDomain%Mesh%NodCoord,1)
+    do i=1,size(obj%FEMDomain%Mesh%NodCoord,1)
+        if(nn <= i )then
+            exit
+        endif
+        bufvec(1:2)=obj%FEMDomain%Mesh%NodCoord(i,1:2)
+        obj%FEMDomain%Mesh%NodCoord(i,1:2)=obj%FEMDomain%Mesh%NodCoord(nn,1:2)
+        obj%FEMDomain%Mesh%NodCoord(nn,1:2)=bufvec(1:2)
+        nn=nn-1
+    enddo
+
+    ! kill invalid nodes
+    nn=size(obj%FEMDomain%Mesh%NodCoord,1)
+    allocate(kill(size(obj%FEMDomain%Mesh%NodCoord,1) ) )
+    kill(:)=0
+    do i=1,nn-1
+        a1(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(i,1) ,1:2 ) !11
+        a2(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(i,2) ,1:2 ) !9
+        b1(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(i+1,2) ,1:2 ) !10
+        middle(1:2)=0.50d0*a2(1:2)+0.50d0*a1(1:2) !11-9
+        if( dot_product(middle-b1,middle-b1) == 0.0d0 )then
+            ! invalid node
+            kill( line_segment(i+1,2) ) = 1
+            print *, line_segment(i,2) , " will be killed."
+        endif
+    enddo
+
+    if(allocated(buffer) )then
+        deallocate(buffer)
+    endif
+
+    allocate(buffer( nn-sum(kill),2 ) )
+    k=0
+    do i=1,nn
+        if(kill(i)==1 )then
+            cycle
+        else
+            k=k+1
+            buffer(k,1:2)=obj%FEMDomain%Mesh%NodCoord(i,1:2)
+        endif
+    enddo
+    deallocate(obj%FEMDomain%Mesh%NodCoord)
+    n=size(buffer,1)
+    m=size(buffer,2)
+    allocate(obj%FEMDomain%Mesh%NodCoord(n,m)  )
+    do i=1,n
+        obj%FEMDomain%Mesh%NodCoord(i,1:2)=buffer(i,1:2)
+    enddo
+
+
+
+
+
 
 end subroutine
 ! #########################################################

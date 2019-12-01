@@ -75,6 +75,10 @@ module ArrayOperationClass
     interface countif
         module procedure ::countifint,countifintvec
     end interface
+
+    interface quicksort
+        module procedure :: quicksortreal,quicksortint
+    end interface
     
 contains
 
@@ -1645,6 +1649,167 @@ function countifintVec(Array,Equal,notEqual,Value) result(count_num)
         print *, "ERROR :: ArrayOperationClass :: countifint :: please check Equal or notEqual"
     endif
 end function
+!##################################################
+
+
+!##################################################
+recursive subroutine quicksortint(list) 
+    integer,intent(inout) :: list(:)
+    integer :: border,a,b,buf
+    integer :: i,j,border_id,n,start,last,scope1_out,scope2_out
+    integer :: scope1,scope2
+    logical :: crossed
+    ! http://www.ics.kagoshima-u.ac.jp/~fuchida/edu/algorithm/sort-algorithm/quick-sort.html
+
+
+    
+    scope1=1
+    scope2=size(list)
+    
+    if(size(list)==1)then
+        return
+    endif
+
+    ! determine border
+    n=size(list)
+    a=list(1)
+    b=list(2)
+
+    
+    if(a >= b)then
+        border=a
+        if(size(list)==2 )then
+            list(1)=b
+            list(2)=a
+            return
+        endif
+    else
+        border=b
+        if(size(list)==2 )then
+            list(1)=a
+            list(2)=b
+            return
+        endif
+    endif
+
+    last=scope2
+    crossed=.false.
+
+    
+    do start=scope1,scope2
+        if(list(start)>=border)then
+            do 
+                if(list(last)<border )then
+                    ! exchange
+                    buf=list(start)
+                    list(start)=list(last)
+                    list(last)=buf
+                    exit
+                else
+                    if(start >=last )then
+                        crossed = .true.
+                        exit
+                    else
+                        last=last-1
+                    endif
+                endif
+            enddo
+        else
+            cycle
+        endif 
+
+        if(crossed .eqv. .true.)then
+            call quicksort(list(scope1:start))
+            call quicksort(list(last:scope2))
+            exit
+        else
+            cycle
+        endif
+
+    enddo
+
+end subroutine
+!##################################################
+
+
+
+!##################################################
+recursive subroutine quicksortreal(list) 
+    real(8),intent(inout) :: list(:)
+    real(8) :: border,a,b,buf
+    integer :: i,j,border_id,n,start,last,scope1_out,scope2_out
+    integer :: scope1,scope2
+    logical :: crossed
+    ! http://www.ics.kagoshima-u.ac.jp/~fuchida/edu/algorithm/sort-algorithm/quick-sort.html
+
+
+    
+    scope1=1
+    scope2=size(list)
+    
+    if(size(list)==1)then
+        return
+    endif
+
+    ! determine border
+    n=size(list)
+    a=list(1)
+    b=list(2)
+
+    
+    if(a >= b)then
+        border=a
+        if(size(list)==2 )then
+            list(1)=b
+            list(2)=a
+            return
+        endif
+    else
+        border=b
+        if(size(list)==2 )then
+            list(1)=a
+            list(2)=b
+            return
+        endif
+    endif
+
+    last=scope2
+    crossed=.false.
+
+    
+    do start=scope1,scope2
+        if(list(start)>=border)then
+            do 
+                if(list(last)<border )then
+                    ! exchange
+                    buf=list(start)
+                    list(start)=list(last)
+                    list(last)=buf
+                    exit
+                else
+                    if(start >=last )then
+                        crossed = .true.
+                        exit
+                    else
+                        last=last-1
+                    endif
+                endif
+            enddo
+        else
+            cycle
+        endif 
+
+        if(crossed .eqv. .true.)then
+            call quicksort(list(scope1:start))
+            call quicksort(list(last:scope2))
+            exit
+        else
+            cycle
+        endif
+
+    enddo
+
+end subroutine
 !##################################################
 
 end module ArrayOperationClass
