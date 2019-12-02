@@ -1,5 +1,6 @@
 module ArrayOperationClass
     use MathClass
+    use RandomClass
     implicit none
 
     interface MergeArray
