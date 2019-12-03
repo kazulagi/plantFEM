@@ -13,6 +13,7 @@ exitc="exit"
 man="man"
 man1="man SiCroF"
 man2="man sicrof"
+hostfile=""
 cpucore="cpu-core"
 install="install"
 compress="compress"
@@ -38,6 +39,13 @@ do
         mpifort="mpiifort"
         install="install_ifort"
         echo "Intel fortran will be used."
+        continue
+    fi
+
+    if [ $command = "hostfile" ]; then
+        echo "Filepath of hostfile is : "
+        read hostfile
+        echo "Current hostfile is : $hostfile"
         continue
     fi
 
@@ -97,6 +105,13 @@ do
         echo ">"
         $mpif90 inc/*o $command 
         echo "Current num of cpu-core is :: $numcore "
+
+        if [ $hostfile != "" ]; then
+            echo "hostfile is activated."
+            mpirun --hostfile $hostfile -np $numcore ./a.out  
+            continue
+        fi
+
         mpirun -np $numcore ./a.out        
         continue
     fi
