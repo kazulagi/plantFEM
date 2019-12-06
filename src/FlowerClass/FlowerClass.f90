@@ -7,9 +7,9 @@ module FlowerClass
 
     type :: Flower_
         type(FEMDomain_)    ::  FEMDomain
-        real(8),allocatable ::  LeafSurfaceNode2D(:,:)
-        real(8)             ::  Thickness,length,width,center(3)
-        integer             ::  Division
+        real(real64),allocatable ::  LeafSurfaceNode2D(:,:)
+        real(real64)             ::  Thickness,length,width,center(3)
+        integer(int32)             ::  Division
         type(Stem_),pointer ::  pStem
     contains
         procedure, public :: Init => initFlower
@@ -20,7 +20,7 @@ contains
 ! ########################################
 subroutine initflower(obj,Thickness,length,width)
     class(flower_),intent(inout) :: obj
-    real(8),optional :: Thickness,length,width
+    real(real64),optional :: Thickness,length,width
 
     if(present(length) .and. present(width) )then
         obj%length  = length

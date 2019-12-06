@@ -1,27 +1,30 @@
 module ShapeFunctionClass
+    use, intrinsic :: iso_fortran_env
     use MathClass
+    implicit none
+    
     type::ShapeFunction_
         
-        real(8),allocatable::Nmat(:)
-        real(8),allocatable::dNdgzi(:,:)
-        real(8),allocatable::dNdgzidgzi(:,:)
-        real(8),allocatable::gzi(:)
-        real(8),allocatable::GaussPoint(:,:)
-        real(8),allocatable::GaussIntegWei(:)
-        real(8),allocatable::Jmat(:,:),JmatInv(:,:)
-        real(8),allocatable::ElemCoord(:,:)
-        real(8),allocatable::ElemCoord_n(:,:)
-        real(8),allocatable::du(:,:)
+        real(real64),allocatable::Nmat(:)
+        real(real64),allocatable::dNdgzi(:,:)
+        real(real64),allocatable::dNdgzidgzi(:,:)
+        real(real64),allocatable::gzi(:)
+        real(real64),allocatable::GaussPoint(:,:)
+        real(real64),allocatable::GaussIntegWei(:)
+        real(real64),allocatable::Jmat(:,:),JmatInv(:,:)
+        real(real64),allocatable::ElemCoord(:,:)
+        real(real64),allocatable::ElemCoord_n(:,:)
+        real(real64),allocatable::du(:,:)
 
-        real(8) :: detJ
+        real(real64) :: detJ
 
-        integer :: NumOfNode
-        integer :: NumOfOrder
-        integer :: NumOfDim
-        integer :: NumOfGp
-        integer :: GpID
-        integer :: ierr
-        integer :: currentGpID
+        integer(int32) :: NumOfNode
+        integer(int32) :: NumOfOrder
+        integer(int32) :: NumOfDim
+        integer(int32) :: NumOfGp
+        integer(int32) :: GpID
+        integer(int32) :: ierr
+        integer(int32) :: currentGpID
         
         character*70::ElemType
         character(len=60):: ErrorMsg
@@ -55,8 +58,9 @@ end subroutine
 subroutine updateShapeFunction(obj,ElemType,NodCoord,ElemNod,ElemID,GpID)
     class(ShapeFunction_),intent(inout) :: obj
     character(*),optional,intent(in) :: ElemType
-    integer,intent(in) ::ElemNod(:,:),ElemID,GpID
-    real(8),intent(in) ::NodCoord(:,:)
+    integer(int32),intent(in) ::ElemNod(:,:),ElemID,GpID
+    real(real64),intent(in) ::NodCoord(:,:)
+    integer(int32) :: i,j
 
     if(present(ElemType) )then
         call obj%init(ElemType)
@@ -113,7 +117,7 @@ end subroutine SetShapeFuncType
 subroutine getShapeFuncType(obj,NumOfDim,NumOfNodePerElem)
     class(ShapeFunction_),intent(inout)::obj
     character*70 ::  TrimedElemType
-    integer,intent(in) :: NumOfDim,NumOfNodePerElem
+    integer(int32),intent(in) :: NumOfDim,NumOfNodePerElem
 
     if(NumOfDim==2)then
         if(NumOfNodePerElem==4)then
@@ -139,9 +143,9 @@ end subroutine getShapeFuncType
 subroutine GetAllShapeFunc(obj,elem_id,nod_coord,nod_coord_n,elem_nod,OptionalNumOfNode,OptionalNumOfOrder,&
     OptionalNumOfDim,OptionalNumOfGp,OptionalGpID)
     class(ShapeFunction_),intent(inout)::obj
-    integer,optional,intent(in)::elem_nod(:,:),elem_id
-    real(8),optional,intent(in)::nod_coord(:,:),nod_coord_n(:,:)
-    integer,optional,intent(in)::OptionalNumOfNode,OptionalNumOfOrder,&
+    integer(int32),optional,intent(in)::elem_nod(:,:),elem_id
+    real(real64),optional,intent(in)::nod_coord(:,:),nod_coord_n(:,:)
+    integer(int32),optional,intent(in)::OptionalNumOfNode,OptionalNumOfOrder,&
     OptionalNumOfDim,OptionalNumOfGp,OptionalGpID
 
     
@@ -352,9 +356,9 @@ end subroutine DeallocateShapeFunction
 !--------------------------------------------------------
 subroutine GetElemCoord(obj,nod_coord,elem_nod,elem_id)
     class(ShapeFunction_),intent(inout)::obj
-    integer,intent(in)::elem_nod(:,:),elem_id
-    real(8),intent(in)::nod_coord(:,:)
-    integer::i,j,k,n,m
+    integer(int32),intent(in)::elem_nod(:,:),elem_id
+    real(real64),intent(in)::nod_coord(:,:)
+    integer(int32)::i,j,k,n,m
 
     
     n=size(elem_nod,2)
@@ -384,9 +388,9 @@ end subroutine GetElemCoord
 !--------------------------------------------------------
 subroutine GetElemCoord_n(obj,nod_coord_n,elem_nod,elem_id)
     class(ShapeFunction_),intent(inout)::obj
-    integer,intent(in)::elem_nod(:,:),elem_id
-    real(8),intent(in)::nod_coord_n(:,:)
-    integer::i,j,k,n,m
+    integer(int32),intent(in)::elem_nod(:,:),elem_id
+    real(real64),intent(in)::nod_coord_n(:,:)
+    integer(int32)::i,j,k,n,m
 
     
     n=size(elem_nod,2)
@@ -416,7 +420,7 @@ end subroutine
 !--------------------------------------------------------
 subroutine getdu(obj)
     class(ShapeFunction_),intent(inout)::obj
-    integer::i,j,k,n,m
+    integer(int32)::i,j,k,n,m
 
     n=size(obj%ElemCoord,1)
     m=size(obj%ElemCoord,2)
@@ -443,7 +447,7 @@ end subroutine
 !--------------------------------------------------------
 subroutine GetJmat(obj)
     class(ShapeFunction_),intent(inout)::obj
-    integer n
+    integer(int32) n
 
 
     n=size(obj%ElemCoord,2)

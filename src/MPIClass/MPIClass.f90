@@ -1,7 +1,8 @@
 module MPIClass
+    use, intrinsic :: iso_fortran_env
     use mpi
     use MathClass
-    use ArrayOperationClass
+    use ArrayClass
     implicit none
 
 
@@ -16,20 +17,20 @@ module MPIClass
     type:: MPI_
 
     
-        integer :: ierr
-        integer :: MyRank
-        integer :: PeTot
-        integer :: Comm1
-        integer :: Comm2
-        integer :: Comm3
-        integer :: Comm4
-        integer :: Comm5
-        integer,allocatable::Comm(:),key(:)
-        integer,allocatable::Stack(:,:),localstack(:)
-        integer :: LapTimeStep
-        real(8) :: stime
-        real(8) :: etime
-        real(8) :: laptime(1000)
+        integer(int32) :: ierr
+        integer(int32) :: MyRank
+        integer(int32) :: PeTot
+        integer(int32) :: Comm1
+        integer(int32) :: Comm2
+        integer(int32) :: Comm3
+        integer(int32) :: Comm4
+        integer(int32) :: Comm5
+        integer(int32),allocatable::Comm(:),key(:)
+        integer(int32),allocatable::Stack(:,:),localstack(:)
+        integer(int32) :: LapTimeStep
+        real(real64) :: stime
+        real(real64) :: etime
+        real(real64) :: laptime(1000)
         type(comment) :: comments(1000)
 
     contains
@@ -87,7 +88,7 @@ contains
 !################################################################
 subroutine StartMPI(obj,NumOfComm)
     class(MPI_),intent(inout)::obj
-    integer,optional,intent(in)::NumOfComm
+    integer(int32),optional,intent(in)::NumOfComm
 
     call mpi_init(obj%ierr)
     call mpi_comm_size(mpi_comm_world,obj%Petot ,obj%ierr)
@@ -112,8 +113,8 @@ end subroutine
 !################################################################
 subroutine createStackMPI(obj,total)
     class(MPI_),intent(inout) :: obj
-    integer,intent(in) :: total
-    integer :: i,j,LocalStacksize,itr,locstacksize
+    integer(int32),intent(in) :: total
+    integer(int32) :: i,j,LocalStacksize,itr,locstacksize
 
     if(allocated(obj%Stack ))then
         deallocate(obj%Stack)
@@ -156,7 +157,7 @@ end subroutine
 !################################################################
 subroutine showStackMPI(obj)
     class(MPI_),intent(inout) :: obj
-    integer :: i,j,n
+    integer(int32) :: i,j,n
 
     if(.not.allocated(obj%Stack) )then
         print *, "No stack is set"
@@ -179,10 +180,10 @@ end subroutine
 !################################################################
 subroutine readMPIInt(obj,val,ExecRank,Msg)
     class(MPI_),intent(inout)::obj
-    integer,optional,intent(in)::ExecRank
+    integer(int32),optional,intent(in)::ExecRank
     character(*),optional,intent(in)::Msg
-    integer,intent(out)::val
-    integer :: i,j,n
+    integer(int32),intent(out)::val
+    integer(int32) :: i,j,n
 
 
     n=input(default=0,option=ExecRank)
@@ -199,11 +200,11 @@ end subroutine
 !################################################################
 subroutine readMPIReal(obj,val,ExecRank,Msg)
     class(MPI_),intent(inout)::obj
-    integer,optional,intent(in)::ExecRank
+    integer(int32),optional,intent(in)::ExecRank
     character(*),optional,intent(in)::Msg
-    real(8),intent(out)::val
+    real(real64),intent(out)::val
     character*200 :: Massage
-    integer :: i,j,n
+    integer(int32) :: i,j,n
 
 
     n=input(default=0,option=ExecRank)
@@ -232,7 +233,7 @@ end subroutine
 !################################################################
 subroutine BarrierMPI(obj)
     class(MPI_),intent(inout)::obj
-    integer :: i
+    integer(int32) :: i
 
     call MPI_barrier(mpi_comm_world,obj%ierr)
 end subroutine
@@ -244,19 +245,19 @@ end subroutine
 !################################################################
 subroutine BcastMPIInt(obj,From,val)
     class(MPI_),intent(inout)::obj
-    integer,intent(inout)::From,val
-    integer :: i
+    integer(int32),intent(inout)::From,val
+    integer(int32) :: i
 
-    call MPI_Bcast(val, 1, MPI_INTEGER, From, MPI_COMM_WORLD, obj%ierr)
+    call MPI_Bcast(val, 1, MPI_integer, From, MPI_COMM_WORLD, obj%ierr)
 end subroutine
 !################################################################
 
 !################################################################
 subroutine BcastMPIReal(obj,From,val)
     class(MPI_),intent(inout)::obj
-    integer,intent(inout)::From 
-    Real(8),intent(inout)::val
-    integer :: i
+    integer(int32),intent(inout)::From 
+    real(real64),intent(inout)::val
+    integer(int32) :: i
 
     call MPI_Bcast(val, 1, MPI_REAL8, From, MPI_COMM_WORLD, obj%ierr)
 end subroutine
@@ -267,17 +268,17 @@ end subroutine
 subroutine GatherMPIInt(obj,sendobj,sendcount,recvobj,recvcount,&
     send_start_id,recv_start_id,To)
     class(MPI_),intent(inout)::obj
-    integer,intent(inout)::sendobj(:),recvobj(:)
-    integer,intent(in)::sendcount,recvcount
-    integer,optional,intent(in)::send_start_id,recv_start_id,To
-    integer :: i,s_start_id,r_start_id,ToID
+    integer(int32),intent(inout)::sendobj(:),recvobj(:)
+    integer(int32),intent(in)::sendcount,recvcount
+    integer(int32),optional,intent(in)::send_start_id,recv_start_id,To
+    integer(int32) :: i,s_start_id,r_start_id,ToID
 
     s_start_id=input(default=1,option=send_start_id)
     r_start_id=input(default=1,option=recv_start_id)
     ToID=input(default=0,option=To)
 
-    call MPI_Gather(sendobj(s_start_id), sendcount, MPI_INTEGER, recvobj(r_start_id)&
-    , recvcount, MPI_INTEGER, ToID ,MPI_COMM_WORLD, obj%ierr)
+    call MPI_Gather(sendobj(s_start_id), sendcount, MPI_integer, recvobj(r_start_id)&
+    , recvcount, MPI_integer, ToID ,MPI_COMM_WORLD, obj%ierr)
 end subroutine
 !################################################################
 
@@ -286,10 +287,10 @@ end subroutine
 subroutine GatherMPIReal(obj,sendobj,sendcount,recvobj,recvcount,&
     send_start_id,recv_start_id,To)
     class(MPI_),intent(inout)::obj
-    Real(8),intent(inout)::sendobj(:),recvobj(:)
-    integer,intent(in)::sendcount,recvcount
-    integer,optional,intent(in)::send_start_id,recv_start_id,To
-    integer :: i,s_start_id,r_start_id,ToID
+    real(real64),intent(inout)::sendobj(:),recvobj(:)
+    integer(int32),intent(in)::sendcount,recvcount
+    integer(int32),optional,intent(in)::send_start_id,recv_start_id,To
+    integer(int32) :: i,s_start_id,r_start_id,ToID
 
     s_start_id=input(default=1,option=send_start_id)
     r_start_id=input(default=1,option=recv_start_id)
@@ -308,17 +309,17 @@ end subroutine
 subroutine ScatterMPIInt(obj,sendobj,sendcount,recvobj,recvcount,&
     send_start_id,recv_start_id,From)
     class(MPI_),intent(inout)::obj
-    integer,intent(inout)::sendobj(:),recvobj(:)
-    integer,intent(in)::sendcount,recvcount
-    integer,optional,intent(in)::send_start_id,recv_start_id,From
-    integer :: i,s_start_id,r_start_id,FromID
+    integer(int32),intent(inout)::sendobj(:),recvobj(:)
+    integer(int32),intent(in)::sendcount,recvcount
+    integer(int32),optional,intent(in)::send_start_id,recv_start_id,From
+    integer(int32) :: i,s_start_id,r_start_id,FromID
 
     s_start_id=input(default=1,option=send_start_id)
     r_start_id=input(default=1,option=recv_start_id)
     FromID=input(default=0,option=From)
 
-    call MPI_Scatter(sendobj(s_start_id), sendcount, MPI_INTEGER, recvobj(r_start_id)&
-    , recvcount, MPI_INTEGER, FromID, MPI_COMM_WORLD, obj%ierr)
+    call MPI_Scatter(sendobj(s_start_id), sendcount, MPI_integer, recvobj(r_start_id)&
+    , recvcount, MPI_integer, FromID, MPI_COMM_WORLD, obj%ierr)
 end subroutine
 !################################################################
 
@@ -327,10 +328,10 @@ end subroutine
 subroutine ScatterMPIReal(obj,sendobj,sendcount,recvobj,recvcount,&
     send_start_id,recv_start_id,From)
     class(MPI_),intent(inout)::obj
-    Real(8),intent(inout)::sendobj(:),recvobj(:)
-    integer,intent(in)::sendcount,recvcount
-    integer,optional,intent(in)::send_start_id,recv_start_id,From
-    integer :: i,s_start_id,r_start_id,FromID
+    real(real64),intent(inout)::sendobj(:),recvobj(:)
+    integer(int32),intent(in)::sendcount,recvcount
+    integer(int32),optional,intent(in)::send_start_id,recv_start_id,From
+    integer(int32) :: i,s_start_id,r_start_id,FromID
 
     s_start_id=input(default=1,option=send_start_id)
     r_start_id=input(default=1,option=recv_start_id)
@@ -350,16 +351,16 @@ end subroutine
 subroutine AllGatherMPIInt(obj,sendobj,sendcount,recvobj,recvcount,&
     send_start_id,recv_start_id)
     class(MPI_),intent(inout)::obj
-    integer,intent(inout)::sendobj(:),recvobj(:)
-    integer,intent(in)::sendcount,recvcount
-    integer,optional,intent(in)::send_start_id,recv_start_id
-    integer :: i,s_start_id,r_start_id
+    integer(int32),intent(inout)::sendobj(:),recvobj(:)
+    integer(int32),intent(in)::sendcount,recvcount
+    integer(int32),optional,intent(in)::send_start_id,recv_start_id
+    integer(int32) :: i,s_start_id,r_start_id
 
     s_start_id=input(default=1,option=send_start_id)
     r_start_id=input(default=1,option=recv_start_id)
 
-    call MPI_AllGather(sendobj(s_start_id), sendcount, MPI_INTEGER, recvobj(r_start_id)&
-    , recvcount, MPI_INTEGER, MPI_COMM_WORLD, obj%ierr)
+    call MPI_AllGather(sendobj(s_start_id), sendcount, MPI_integer, recvobj(r_start_id)&
+    , recvcount, MPI_integer, MPI_COMM_WORLD, obj%ierr)
 end subroutine
 !################################################################
 
@@ -368,10 +369,10 @@ end subroutine
 subroutine AllGatherMPIReal(obj,sendobj,sendcount,recvobj,recvcount,&
     send_start_id,recv_start_id)
     class(MPI_),intent(inout)::obj
-    Real(8),intent(inout)::sendobj(:),recvobj(:)
-    integer,intent(in)::sendcount,recvcount
-    integer,optional,intent(in)::send_start_id,recv_start_id
-    integer :: i,s_start_id,r_start_id
+    real(real64),intent(inout)::sendobj(:),recvobj(:)
+    integer(int32),intent(in)::sendcount,recvcount
+    integer(int32),optional,intent(in)::send_start_id,recv_start_id
+    integer(int32) :: i,s_start_id,r_start_id
 
     s_start_id=input(default=1,option=send_start_id)
     r_start_id=input(default=1,option=recv_start_id)
@@ -391,16 +392,16 @@ end subroutine
 subroutine AlltoAllMPIInt(obj,sendobj,sendcount,recvobj,recvcount,&
     send_start_id,recv_start_id)
     class(MPI_),intent(inout)::obj
-    integer,intent(inout)::sendobj(:),recvobj(:)
-    integer,intent(in)::sendcount,recvcount
-    integer,optional,intent(in)::send_start_id,recv_start_id
-    integer :: i,s_start_id,r_start_id
+    integer(int32),intent(inout)::sendobj(:),recvobj(:)
+    integer(int32),intent(in)::sendcount,recvcount
+    integer(int32),optional,intent(in)::send_start_id,recv_start_id
+    integer(int32) :: i,s_start_id,r_start_id
 
     s_start_id=input(default=1,option=send_start_id)
     r_start_id=input(default=1,option=recv_start_id)
 
-    call MPI_AlltoAll(sendobj(s_start_id), sendcount, MPI_INTEGER, recvobj(r_start_id)&
-    , recvcount, MPI_INTEGER, MPI_COMM_WORLD, obj%ierr)
+    call MPI_AlltoAll(sendobj(s_start_id), sendcount, MPI_integer, recvobj(r_start_id)&
+    , recvcount, MPI_integer, MPI_COMM_WORLD, obj%ierr)
 end subroutine
 !################################################################
 
@@ -409,10 +410,10 @@ end subroutine
 subroutine AlltoAllMPIReal(obj,sendobj,sendcount,recvobj,recvcount,&
     send_start_id,recv_start_id)
     class(MPI_),intent(inout)::obj
-    Real(8),intent(inout)::sendobj(:),recvobj(:)
-    integer,intent(in)::sendcount,recvcount
-    integer,optional,intent(in)::send_start_id,recv_start_id
-    integer :: i,s_start_id,r_start_id
+    real(real64),intent(inout)::sendobj(:),recvobj(:)
+    integer(int32),intent(in)::sendcount,recvcount
+    integer(int32),optional,intent(in)::send_start_id,recv_start_id
+    integer(int32) :: i,s_start_id,r_start_id
 
     s_start_id=input(default=1,option=send_start_id)
     r_start_id=input(default=1,option=recv_start_id)
@@ -429,10 +430,10 @@ end subroutine
 subroutine ReduceMPIInt(obj,sendobj,recvobj,count,start,To,&
     max,min,sum,prod,land,band,lor,bor,lxor,bxor,maxloc,minloc)
     class(MPI_),intent(inout)::obj
-    integer,intent(inout)::sendobj(:),recvobj(:)
-    integer,intent(in)::count
-    integer  :: ToID,start_id
-    integer,optional,intent(in)::start,To
+    integer(int32),intent(inout)::sendobj(:),recvobj(:)
+    integer(int32),intent(in)::count
+    integer(int32)  :: ToID,start_id
+    integer(int32),optional,intent(in)::start,To
     logical,optional,intent(in)::max,min,sum,prod,land,band,lor
     logical,optional,intent(in)::bor,lxor,bxor,maxloc,minloc
 
@@ -442,83 +443,83 @@ subroutine ReduceMPIInt(obj,sendobj,recvobj,count,start,To,&
         if(max .eqv. .true.)then
 
             call MPI_Reduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER, ToID, MPI_MAX, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer, ToID, MPI_MAX, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(min) )then
         if(min .eqv. .true.)then
             
             call MPI_Reduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER, ToID, MPI_MIN, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer, ToID, MPI_MIN, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(sum) )then
         if(sum .eqv. .true.)then
             
             call MPI_Reduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER, ToID, MPI_SUM, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer, ToID, MPI_SUM, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(prod) )then
         if(prod .eqv. .true.)then
             
             call MPI_Reduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER, ToID, MPI_PROD, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer, ToID, MPI_PROD, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(land) )then
         if(land .eqv. .true.)then
             
             call MPI_Reduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER, ToID, MPI_LAND, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer, ToID, MPI_LAND, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(band) )then
         if(band .eqv. .true.)then
             
             call MPI_Reduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER, ToID,MPI_BAND , MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer, ToID,MPI_BAND , MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(lor) )then
         if(lor .eqv. .true.)then
             
             call MPI_Reduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER, ToID, MPI_LOR, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer, ToID, MPI_LOR, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(bor) )then
         if(bor .eqv. .true.)then
             
             call MPI_Reduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER, ToID,MPI_BOR , MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer, ToID,MPI_BOR , MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(lxor) )then
         if(lxor .eqv. .true.)then
             
             call MPI_Reduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER, ToID, MPI_LXOR, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer, ToID, MPI_LXOR, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(bxor) )then
         if(bxor .eqv. .true.)then
             
             call MPI_Reduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER, ToID, MPI_BXOR, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer, ToID, MPI_BXOR, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(maxloc) )then
         if(maxloc .eqv. .true.)then
             
             call MPI_Reduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER, ToID, MPI_MAXLOC, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer, ToID, MPI_MAXLOC, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(minloc) )then
         if(minloc .eqv. .true.)then
             call MPI_Reduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER, ToID, MPI_MINLOC, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer, ToID, MPI_MINLOC, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
 
@@ -530,10 +531,10 @@ end subroutine
 subroutine ReduceMPIReal(obj,sendobj,recvobj,count,start,To,&
     max,min,sum,prod,land,band,lor,bor,lxor,bxor,maxloc,minloc)
     class(MPI_),intent(inout)::obj
-    real(8),intent(inout)::sendobj(:),recvobj(:)
-    integer,intent(in)::count
-    integer  :: ToID,start_id
-    integer,optional,intent(in)::start,To
+    real(real64),intent(inout)::sendobj(:),recvobj(:)
+    integer(int32),intent(in)::count
+    integer(int32)  :: ToID,start_id
+    integer(int32),optional,intent(in)::start,To
     logical,optional,intent(in)::max,min,sum,prod,land,band,lor
     logical,optional,intent(in)::bor,lxor,bxor,maxloc,minloc
 
@@ -632,10 +633,10 @@ end subroutine
 subroutine AllReduceMPIInt(obj,sendobj,recvobj,count,start,&
     max,min,sum,prod,land,band,lor,bor,lxor,bxor,maxloc,minloc)
     class(MPI_),intent(inout)::obj
-    integer,intent(inout)::sendobj(:),recvobj(:)
-    integer,intent(in)::count
-    integer  :: start_id
-    integer,optional,intent(in)::start
+    integer(int32),intent(inout)::sendobj(:),recvobj(:)
+    integer(int32),intent(in)::count
+    integer(int32)  :: start_id
+    integer(int32),optional,intent(in)::start
     logical,optional,intent(in)::max,min,sum,prod,land,band,lor
     logical,optional,intent(in)::bor,lxor,bxor,maxloc,minloc
 
@@ -644,83 +645,83 @@ subroutine AllReduceMPIInt(obj,sendobj,recvobj,count,start,&
         if(max .eqv. .true.)then
 
             call MPI_AllReduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER,  MPI_MAX, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer,  MPI_MAX, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(min) )then
         if(min .eqv. .true.)then
             
             call MPI_AllReduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER,  MPI_MIN, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer,  MPI_MIN, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(sum) )then
         if(sum .eqv. .true.)then
             
             call MPI_AllReduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER,  MPI_SUM, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer,  MPI_SUM, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(prod) )then
         if(prod .eqv. .true.)then
             
             call MPI_AllReduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER,  MPI_PROD, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer,  MPI_PROD, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(land) )then
         if(land .eqv. .true.)then
             
             call MPI_AllReduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER,  MPI_LAND, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer,  MPI_LAND, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(band) )then
         if(band .eqv. .true.)then
             
             call MPI_AllReduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER, MPI_BAND , MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer, MPI_BAND , MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(lor) )then
         if(lor .eqv. .true.)then
             
             call MPI_AllReduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER,  MPI_LOR, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer,  MPI_LOR, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(bor) )then
         if(bor .eqv. .true.)then
             
             call MPI_AllReduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER, MPI_BOR , MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer, MPI_BOR , MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(lxor) )then
         if(lxor .eqv. .true.)then
             
             call MPI_AllReduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER,  MPI_LXOR, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer,  MPI_LXOR, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(bxor) )then
         if(bxor .eqv. .true.)then
             
             call MPI_AllReduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER,  MPI_BXOR, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer,  MPI_BXOR, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(maxloc) )then
         if(maxloc .eqv. .true.)then
             
             call MPI_AllReduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER,  MPI_MAXLOC, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer,  MPI_MAXLOC, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
     if(present(minloc) )then
         if(minloc .eqv. .true.)then
             call MPI_AllReduce(sendobj(start_id), recvobj(start_id)&
-            , count, MPI_INTEGER,  MPI_MINLOC, MPI_COMM_WORLD, obj%ierr)
+            , count, MPI_integer,  MPI_MINLOC, MPI_COMM_WORLD, obj%ierr)
         endif
     endif
 
@@ -732,10 +733,10 @@ end subroutine
 subroutine AllReduceMPIReal(obj,sendobj,recvobj,count,start,&
     max,min,sum,prod,land,band,lor,bor,lxor,bxor,maxloc,minloc)
     class(MPI_),intent(inout)::obj
-    real(8),intent(inout)::sendobj(:),recvobj(:)
-    integer,intent(in)::count
-    integer  :: start_id
-    integer,optional,intent(in)::start
+    real(real64),intent(inout)::sendobj(:),recvobj(:)
+    integer(int32),intent(in)::count
+    integer(int32)  :: start_id
+    integer(int32),optional,intent(in)::start
     logical,optional,intent(in)::max,min,sum,prod,land,band,lor
     logical,optional,intent(in)::bor,lxor,bxor,maxloc,minloc
 
@@ -833,7 +834,7 @@ end subroutine
 !################################################################
 subroutine EndMPI(obj)
     class(MPI_),intent(inout)::obj
-    integer :: i
+    integer(int32) :: i
 
     call MPI_barrier(mpi_comm_world,obj%ierr)
     obj%etime = mpi_wtime()
@@ -878,9 +879,9 @@ end subroutine
 !################################################################
 subroutine showLapTimeMPI(obj,clength,rank)
     class(MPI_),intent(inout)::obj
-    integer,optional,intent(in)::rank,cLength
-    integer :: i,n
-    real(8) :: rate
+    integer(int32),optional,intent(in)::rank,cLength
+    integer(int32) :: i,n
+    real(real64) :: rate
 
     if(present(clength) )then
         n=clength
@@ -932,7 +933,7 @@ end subroutine
 !################################################################
 subroutine CopyMPI(obj,OriginComm,NewCommLayerID)
     class(MPI_),intent(inout)::obj
-    integer,optional,intent(in)::OriginComm,NewCommLayerID
+    integer(int32),optional,intent(in)::OriginComm,NewCommLayerID
     
 
     call MPI_COMM_DUP(input(default=MPI_COMM_WORLD,option=OriginComm),& 
@@ -945,7 +946,7 @@ end subroutine
 !################################################################
 subroutine SplitMPI(obj,OriginComm,NewCommLayerID,key)
     class(MPI_),intent(inout)::obj
-    integer,optional,intent(in)::OriginComm,NewCommLayerID,key
+    integer(int32),optional,intent(in)::OriginComm,NewCommLayerID,key
     
 
     !call MPI_COMM_SPLIT(input(default=MPI_COMM_WORLD,option=OriginComm),& 
@@ -961,7 +962,7 @@ end subroutine
 !################################################################
 subroutine FreeMPI(obj,CommLayerID)
     class(MPI_),intent(inout)::obj
-    integer,optional,intent(in) :: CommLayerID
+    integer(int32),optional,intent(in) :: CommLayerID
     
     !call MPI_COMM_FREE(input(default=MPI_COMM_WORLD,option=obj%Comm(CommLayerID) ), obj%ierr)
     

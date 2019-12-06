@@ -1,4 +1,5 @@
 module SoybeanClass
+    use, intrinsic :: iso_fortran_env
     use MathClass
     use SeedClass
     use PlantNodeClass
@@ -8,13 +9,13 @@ module SoybeanClass
         ! growth_habit = determinate, indeterminate, semi-indeterminate, or vine
         character*20 :: growth_habit
         character*2  :: growth_stage
-        integer :: Num_Of_Node
-        integer :: Num_Of_Root
+        integer(int32) :: Num_Of_Node
+        integer(int32) :: Num_Of_Root
         character(2) :: Stage ! VE, CV, V1,V2, ..., R1, R2, ..., R8
         type(Seed_) :: Seed
         type(PlantNode_),allocatable :: NodeSystem(:)
         type(PlantRoot_),allocatable :: RootSystem(:)
-        real(8) :: time
+        real(real64) :: time
     contains
         procedure,public :: Init => initsoybean
         procedure,public :: sowing => initsoybean
@@ -25,7 +26,7 @@ module SoybeanClass
     end type
 
     type :: SoybeanCanopy_
-        real(8) :: inter_row, intra_row
+        real(real64) :: inter_row, intra_row
         type(soybean_),allocatable :: Canopy(:,:)
         
     end type
@@ -42,12 +43,12 @@ contains
 subroutine initsoybean(obj,mass,water_content,radius,location,x,y,z,&
     PlantRoot_diameter_per_seed_radius,max_PlantNode_num,Variety,FileName)
     class(Soybean_),intent(inout) :: obj
-    real(8),optional,intent(in) :: mass,water_content,radius,location(3),x,y,z
-    real(8),optional,intent(in) :: PlantRoot_diameter_per_seed_radius
+    real(real64),optional,intent(in) :: mass,water_content,radius,location(3),x,y,z
+    real(real64),optional,intent(in) :: PlantRoot_diameter_per_seed_radius
     character(*),optional,intent(in) :: Variety,FileName
     character(200) :: fn
-    integer,optional,intent(in) :: max_PlantNode_num
-    real(8) :: MaxThickness,Maxwidth,loc(3)
+    integer(int32),optional,intent(in) :: max_PlantNode_num
+    real(real64) :: MaxThickness,Maxwidth,loc(3)
 
     obj%Stage = "VE"
     if(present(FileName) )then
@@ -113,7 +114,7 @@ end subroutine
 ! ########################################
 subroutine growSoybean(obj,dt,Temp)
     class(Soybean_),intent(inout) :: obj
-    real(8),intent(in) :: dt,temp ! time-interval
+    real(real64),intent(in) :: dt,temp ! time-interval
 
     if(trim(obj%Stage)=="VE")then
         ! VE
@@ -146,9 +147,9 @@ end subroutine
 ! ########################################
 subroutine WaterAbsorptionSoybean(obj,temp,dt)
     class(Soybean_),intent(inout) :: obj
-    real(8),intent(in) :: temp,dt
-    real(8) :: a,b,c,d,AA,BB,w1max,w2max,w3max,time
-    real(8) :: x_rate,y_rate,z_rate,wx,wy,wz
+    real(real64),intent(in) :: temp,dt
+    real(real64) :: a,b,c,d,AA,BB,w1max,w2max,w3max,time
+    real(real64) :: x_rate,y_rate,z_rate,wx,wy,wz
 
     obj%time=obj%time+dt
 
@@ -201,9 +202,9 @@ subroutine exportSoybean(obj,FilePath,FileName,SeedID,withSTL,withMesh)
     class(Soybean_),intent(inout) :: obj
     character(*),optional,intent(in) :: FilePath
     character(*),intent(in) :: FileName
-    integer,optional,intent(inout) :: SeedID
+    integer(int32),optional,intent(inout) :: SeedID
     logical,optional,intent(in) :: withSTL,withMesh
-    integer :: i,itr
+    integer(int32) :: i,itr
 
     itr=SeedID
     ! if seed exists => output
@@ -270,8 +271,8 @@ end subroutine
 !subroutine initsoybean(obj,growth_habit,Max_Num_of_Node)
 !    class(soybean_) :: obj
 !    character(*),optional,intent(in) :: growth_habit
-!    integer,optional,intent(in)::Max_Num_of_Node
-!    integer ::n
+!    integer(int32),optional,intent(in)::Max_Num_of_Node
+!    integer(int32) ::n
 !
 !    if(present(growth_habit) )then
 !        obj%growth_habit=growth_habit
@@ -303,8 +304,8 @@ end subroutine
 !! ########################################
 !subroutine AddNodeSoybean(obj,SizeRatio)
 !    class(soybean_),intent(inout)::obj
-!    real(8),optional,intent(in)::SizeRatio
-!    real(8) :: magnif
+!    real(real64),optional,intent(in)::SizeRatio
+!    real(real64) :: magnif
 !
 !    magnif=input(default=1.0d0,option=SizeRatio)
 !    obj%NumOfNode=obj%NumOfNode+1

@@ -1,4 +1,5 @@
 module KinematicClass
+    use, intrinsic :: iso_fortran_env
     use MathClass
 
     implicit none
@@ -7,9 +8,9 @@ contains
 
 ! #############################################
 function RotationMatrix3D(rotx,roty,rotz,n,angle) result(Rmat)
-    real(8)::Rmat(3,3)
-    real(8),optional,intent(in)::rotx,roty,rotz,n(3),angle
-    integer :: i
+    real(real64)::Rmat(3,3)
+    real(real64),optional,intent(in)::rotx,roty,rotz,n(3),angle
+    integer(int32) :: i
     Rmat(:,:)=0.0d0
     do i=1,3
         Rmat(i,i)=1.0d0
@@ -54,9 +55,9 @@ end function
 
 ! #############################################
 function Rotation3D(vector,rotx,roty,rotz,n,angle) result(vec)
-    real(8)::vec(3)
-    real(8),intent(in)::vector(3)
-    real(8),optional,intent(in)::rotx,roty,rotz,n(3),angle
+    real(real64)::vec(3)
+    real(real64),intent(in)::vector(3)
+    real(real64),optional,intent(in)::rotx,roty,rotz,n(3),angle
 
     vec(:) = matmul( RotationMatrix3D(rotx,roty,rotz,n,angle) ,vector)
 

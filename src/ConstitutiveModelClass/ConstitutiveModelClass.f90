@@ -1,4 +1,5 @@
 module ConstitutiveModelClass
+    use, intrinsic :: iso_fortran_env
     use MathClass
     use StressClass
 
@@ -21,35 +22,35 @@ module ConstitutiveModelClass
 
 
     type :: ConstModel_
-        real(8),allocatable::sigma(:,:)
-        real(8),allocatable::S_IJ(:,:)
-        real(8),allocatable::M_IJ(:,:)
-        real(8),allocatable::tau(:,:)
-        real(8),allocatable::F_iJ(:,:)
-        real(8),allocatable::F_T(:,:)
-        real(8),allocatable::F_iJ_n(:,:)
-        real(8),allocatable::F_inv_iJ(:,:)
-        real(8),allocatable::F_T_inv_iJ(:,:)
-        real(8),allocatable::Fp_iJ(:,:)
-        real(8),allocatable::FT_Ij(:,:)
-        real(8),allocatable::b_ij(:,:)
-        real(8),allocatable::C_IJ(:,:)
-        real(8),allocatable::C_IJ_n(:,:)
-        real(8),allocatable::C_IJ_inv(:,:)
-        real(8),allocatable::E_IJ(:,:)
-        real(8),allocatable::Cp_IJ(:,:)
-        real(8),allocatable::Cp_IJ_inv(:,:)
-        real(8),allocatable::Cp_IJ_n(:,:)
-        real(8),allocatable::Bmat(:,:)
+        real(real64),allocatable::sigma(:,:)
+        real(real64),allocatable::S_IJ(:,:)
+        real(real64),allocatable::M_IJ(:,:)
+        real(real64),allocatable::tau(:,:)
+        real(real64),allocatable::F_iJ(:,:)
+        real(real64),allocatable::F_T(:,:)
+        real(real64),allocatable::F_iJ_n(:,:)
+        real(real64),allocatable::F_inv_iJ(:,:)
+        real(real64),allocatable::F_T_inv_iJ(:,:)
+        real(real64),allocatable::Fp_iJ(:,:)
+        real(real64),allocatable::FT_Ij(:,:)
+        real(real64),allocatable::b_ij(:,:)
+        real(real64),allocatable::C_IJ(:,:)
+        real(real64),allocatable::C_IJ_n(:,:)
+        real(real64),allocatable::C_IJ_inv(:,:)
+        real(real64),allocatable::E_IJ(:,:)
+        real(real64),allocatable::Cp_IJ(:,:)
+        real(real64),allocatable::Cp_IJ_inv(:,:)
+        real(real64),allocatable::Cp_IJ_n(:,:)
+        real(real64),allocatable::Bmat(:,:)
 
 
-        real(8),allocatable::StressDer(:,:,:,:)
+        real(real64),allocatable::StressDer(:,:,:,:)
 
-        real(8) :: detF
-        real(8) :: lamda
-        real(8) :: mu
-        real(8) :: K_mod
-        real(8) :: G_mod
+        real(real64) :: detF
+        real(real64) :: lamda
+        real(real64) :: mu
+        real(real64) :: K_mod
+        real(real64) :: G_mod
         
         character*70::ModelType
         character*70::Config    
@@ -59,7 +60,7 @@ contains
 !#########################################################################
 subroutine HyperElasticStress(obj)
     type(ConstModel_),intent(inout)::obj
-    real(8) :: a(3,3),delta(3,3)
+    real(real64) :: a(3,3),delta(3,3)
 
     delta(:,:)=0.0d0
     delta(1,1)=1.0d0
@@ -137,8 +138,8 @@ end subroutine
 subroutine HyperElasticDer(obj,DerType)
     type(ConstModel_),intent(inout)::obj
     character*70,intent(in)::DerType
-    real(8) :: a(3,3),a1(3,3),delta(3,3)
-    integer :: i,j,k,l
+    real(real64) :: a(3,3),a1(3,3),delta(3,3)
+    integer(int32) :: i,j,k,l
 
     delta(:,:)=0.0d0
     delta(1,1)=1.0d0

@@ -1,4 +1,5 @@
 module FarmClass
+    use, intrinsic :: iso_fortran_env
     use SoilClass
     use SoybeanClass
     implicit none
@@ -6,19 +7,19 @@ module FarmClass
     type :: Farm_
         type(Soybean_),allocatable :: Soybean(:,:)
         type(Soil_) ::  Soil
-        integer :: num_of_ridge
-        integer :: num_of_plant_per_ridge
-        real(8) :: width_of_ridge
-        real(8) :: width_of_plant_per_ridge
-        real(8) :: length_of_farm, width_of_farm
-        real(8) :: soil_depth
-        real(8) :: seed_depth
-        integer :: total_num_of_plant
-        real(8) :: plant_density,plant_density_m,total_weight_of_seed,total_area
-        real(8) :: g_per_100seed
-        real(8) :: locale(2)
+        integer(int32) :: num_of_ridge
+        integer(int32) :: num_of_plant_per_ridge
+        real(real64) :: width_of_ridge
+        real(real64) :: width_of_plant_per_ridge
+        real(real64) :: length_of_farm, width_of_farm
+        real(real64) :: soil_depth
+        real(real64) :: seed_depth
+        integer(int32) :: total_num_of_plant
+        real(real64) :: plant_density,plant_density_m,total_weight_of_seed,total_area
+        real(real64) :: g_per_100seed
+        real(real64) :: locale(2)
         
-        real(8) :: Water_kg
+        real(real64) :: Water_kg
     contains
         procedure :: init => initFarm
         procedure :: sowing => initFarm
@@ -36,12 +37,12 @@ subroutine initFarm(obj,crop_name,num_of_ridge, num_of_plant_per_ridge,width_of_
     meter,single,Variety)
 
     class(Farm_),intent(inout)  :: obj
-    integer,optional,intent(in) :: num_of_ridge, num_of_plant_per_ridge
-    real(8),optional,intent(in) :: width_of_ridge, width_of_plant_per_ridge,soil_depth
-    real(8),optional,intent(in) :: length_of_farm, width_of_farm,seed_depth,g_per_100seed
+    integer(int32),optional,intent(in) :: num_of_ridge, num_of_plant_per_ridge
+    real(real64),optional,intent(in) :: width_of_ridge, width_of_plant_per_ridge,soil_depth
+    real(real64),optional,intent(in) :: length_of_farm, width_of_farm,seed_depth,g_per_100seed
     character(*),intent(in) :: crop_name,Variety
     logical,optional,intent(in)      :: meter,single
-    integer :: i,j,k,l,n,m
+    integer(int32) :: i,j,k,l,n,m
 
     ! input default value
 
@@ -132,20 +133,20 @@ subroutine fertilizeFarm(obj,N_kg,P_kg,K_kg,Ca_kg,Mg_kg,S_kg,Fe_kg,&
     Mn_kg,B_kg,Zn_kg,Mo_kg,Cu_kg,Cl_kg)
     class(Farm_),intent(inout) :: obj
     ! ================
-    real(8),optional,intent(in) :: N_kg
-    real(8),optional,intent(in) :: P_kg
-    real(8),optional,intent(in) :: K_kg
-    real(8),optional,intent(in) :: Ca_kg
-    real(8),optional,intent(in) :: Mg_kg
-    real(8),optional,intent(in) :: S_kg
+    real(real64),optional,intent(in) :: N_kg
+    real(real64),optional,intent(in) :: P_kg
+    real(real64),optional,intent(in) :: K_kg
+    real(real64),optional,intent(in) :: Ca_kg
+    real(real64),optional,intent(in) :: Mg_kg
+    real(real64),optional,intent(in) :: S_kg
     ! ================
-    real(8),optional,intent(in) :: Fe_kg
-    real(8),optional,intent(in) :: Mn_kg
-    real(8),optional,intent(in) :: B_kg
-    real(8),optional,intent(in) :: Zn_kg
-    real(8),optional,intent(in) :: Mo_kg
-    real(8),optional,intent(in) :: Cu_kg
-    real(8),optional,intent(in) :: Cl_kg
+    real(real64),optional,intent(in) :: Fe_kg
+    real(real64),optional,intent(in) :: Mn_kg
+    real(real64),optional,intent(in) :: B_kg
+    real(real64),optional,intent(in) :: Zn_kg
+    real(real64),optional,intent(in) :: Mo_kg
+    real(real64),optional,intent(in) :: Cu_kg
+    real(real64),optional,intent(in) :: Cl_kg
     ! ================
 
     call obj%Soil%fertilize(N_kg,P_kg,K_kg,Ca_kg,Mg_kg,S_kg,Fe_kg,&
@@ -157,8 +158,8 @@ end subroutine
 ! ############################################
 subroutine exportFarm(obj,FileName,withSTL,withMesh,TimeStep)
     class(Farm_),intent(inout)::obj
-    integer :: obj_id,plant_id,i,j,tstep
-    integer,optional,intent(in) :: TimeStep
+    integer(int32) :: obj_id,plant_id,i,j,tstep
+    integer(int32),optional,intent(in) :: TimeStep
     character(*),intent(in) :: FileName
     logical,optional,intent(in) :: withSTL,withMesh
     character(200) :: id
@@ -209,8 +210,8 @@ end subroutine
 subroutine growFarm(obj,dt,temp,crop_name)
     class(Farm_),intent(inout) :: obj
     character(*),intent(in) :: crop_name
-    real(8),intent(in) :: dt,temp
-    integer :: i,j
+    real(real64),intent(in) :: dt,temp
+    integer(int32) :: i,j
 
     if(crop_name=="Soybean" .or. crop_name=="soybean")then
         do i=1,size(obj%Soybean,1)

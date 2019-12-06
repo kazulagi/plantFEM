@@ -1,5 +1,5 @@
 module MultiPhysicsClass
-
+    use, intrinsic :: iso_fortran_env
     use FEMIfaceClass
     use FEMDomainClass
 
@@ -21,7 +21,7 @@ subroutine SyncMesh(obj,Arrow)
     class(MultiPhysics_),intent(inout)::obj
     character*2,optional,intent(in)::Arrow
 
-    integer :: i,j,n,m,dim_num1,dim_num2,elem_num1,elem_num2,node_num1,node_num2,ierr
+    integer(int32) :: i,j,n,m,dim_num1,dim_num2,elem_num1,elem_num2,node_num1,node_num2,ierr
 
     
     node_num1=size(obj%FEMDomain1%Mesh%NodCoord,1)

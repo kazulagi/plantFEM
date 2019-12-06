@@ -1,5 +1,6 @@
 module TreeClass
-    use ArrayOperationClass
+    use, intrinsic :: iso_fortran_env
+    use ArrayClass
     implicit none
 
 
@@ -10,12 +11,12 @@ module TreeClass
     type :: Node_
         type(Node_), pointer    :: Parent
         type(Nodep_),allocatable :: Child(:)
-        real(8)         :: coord(3)
-        real(8)         :: vector(3)
+        real(real64)         :: coord(3)
+        real(real64)         :: vector(3)
         character*200   :: Name
         double precision:: fpval
-        integer         :: intval
-        integer         :: ID
+        integer(int32)         :: intval
+        integer(int32)         :: ID
     contains
         procedure,public :: Init => InitializeNode
         procedure,public :: create => CreateNode
@@ -24,7 +25,7 @@ module TreeClass
 
     type :: Tree_
         type(Nodep_),allocatable :: Node(:)
-        integer :: SortedUntil
+        integer(int32) :: SortedUntil
     contains
         procedure,public :: Init => InitializeTree
         procedure,public :: Add  => AddNodeInTree
@@ -77,8 +78,8 @@ end subroutine
 ! #######################################################
 subroutine InitializeTree(obj,NumOfNode)
     class(Tree_),intent(inout)::obj
-    integer,optional,intent(in)::NumOfNode
-    integer :: i,n,num
+    integer(int32),optional,intent(in)::NumOfNode
+    integer(int32) :: i,n,num
 
     num=input(default=10000,option=NumOfNode)
     if(.not.allocated (obj%Node))then
@@ -114,7 +115,7 @@ end subroutine
 subroutine cutNodeInTree(obj,NodeObj)
     class(Tree_),intent(inout)::obj
     class(Node_),target,intent(in)::NodeObj
-    integer :: i,num
+    integer(int32) :: i,num
 
     num=obj%SortedUntil
     do i=1,obj%SortedUntil
@@ -140,8 +141,8 @@ end subroutine
 subroutine showTree(obj)
     class(Tree_),intent(in)::obj
 
-    integer :: i,n
-    real(8) :: x,y,vx,vy
+    integer(int32) :: i,n
+    real(real64) :: x,y,vx,vy
 
     print *, "Num of Tree = ",obj%NumOfTree()
     do i=1,obj%NumOfTree()
@@ -166,7 +167,7 @@ end subroutine
 ! #######################################################
 function NumOfTree(obj) result(num)
     class(Tree_),intent(in)::obj
-    integer :: i,n,num
+    integer(int32) :: i,n,num
 
     num=0
     do i=1,obj%SortedUntil
@@ -181,8 +182,8 @@ end function
 ! #######################################################
 function countIfParentIDis(obj,ParentID) result(num)
     class(Tree_),intent(in)::obj
-    integer,intent(in)::ParentID
-    integer :: i,n,num
+    integer(int32),intent(in)::ParentID
+    integer(int32) :: i,n,num
     
 
     num=0
@@ -199,8 +200,8 @@ end function
 ! #######################################################
 function parentNodeIDTree(obj,ParentID) result(NodeID)
     class(Tree_),intent(in)::obj
-    integer,optional,intent(in)::ParentID
-    integer :: i,n,num,pid,NodeID
+    integer(int32),optional,intent(in)::ParentID
+    integer(int32) :: i,n,num,pid,NodeID
 
     pid = input(default=1,option=ParentID)
     num=0
@@ -220,9 +221,9 @@ end function
 subroutine setVisualMapTree(obj)
     class(Tree_),intent(in)::obj
     
-    integer :: i,j,n,num,num_i,num_of_node
-    real(8) :: vec(3),pi,theta,dtheta
-    real(8),allocatable :: rotate(:,:)
+    integer(int32) :: i,j,n,num,num_i,num_of_node
+    real(real64) :: vec(3),pi,theta,dtheta
+    real(real64),allocatable :: rotate(:,:)
 
     allocate(rotate(3,3))
 

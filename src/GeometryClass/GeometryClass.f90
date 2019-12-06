@@ -1,10 +1,11 @@
 module GeometryClass
+    use, intrinsic :: iso_fortran_env
     use MathClass
-    use ArrayOperationClass
+    use ArrayClass
     implicit none
 
     type Point_
-        real(8),allocatable :: coord(:)
+        real(real64),allocatable :: coord(:)
     contains
         procedure :: Init   => InitPoint
         procedure :: set    => setPoint
@@ -12,7 +13,7 @@ module GeometryClass
     end type
 
     type Line_
-        real(8),allocatable :: coord(:,:)
+        real(real64),allocatable :: coord(:,:)
     contains
         procedure :: Init       => InitLine
         procedure :: setNode    => SetNodeLine
@@ -21,8 +22,8 @@ module GeometryClass
     end type
 
     type Circle_
-        real(8) :: radius
-        real(8),allocatable :: center(:)
+        real(real64) :: radius
+        real(real64),allocatable :: center(:)
     contains
         procedure :: Init       => InitCircle     
         procedure :: SetCenter  => InitSetCenterCircle     
@@ -32,8 +33,8 @@ module GeometryClass
     end type
 
     type Sphere_
-        real(8) :: radius
-        real(8) :: center(3)
+        real(real64) :: radius
+        real(real64) :: center(3)
     contains
         procedure :: Init       => InitSphere     
         procedure :: SetCenter  => InitSetCenterSphere     
@@ -43,7 +44,7 @@ module GeometryClass
 
 
     type Triangle_
-        real(8),allocatable :: NodCoord(:,:)
+        real(real64),allocatable :: NodCoord(:,:)
     contains
         procedure :: Init       => InitTriangle
         procedure :: setNode    => setNodeTriangle
@@ -54,27 +55,27 @@ module GeometryClass
     end type
 
     type Tetragon_
-        real(8),allocatable :: NodCoord(:,:)
+        real(real64),allocatable :: NodCoord(:,:)
     end type
 
     type Tetrahedron_
-        real(8) :: NodCoord(4,3)
-        real(8) :: radius
-        real(8) :: center(3)
+        real(real64) :: NodCoord(4,3)
+        real(real64) :: radius
+        real(real64) :: center(3)
     contains
         procedure :: Init => InitTetrahedron
         procedure :: getCircle => getCircleTetrahedron
     end type
     
     type Octahedron_
-        real(8),allocatable :: NodCoord(:,:)
+        real(real64),allocatable :: NodCoord(:,:)
     end type
 contains
 
 !#########################################################
 subroutine InitPoint(obj,dim)
     class(Point_),intent(inout)::obj
-    integer,optional,intent(in)::dim
+    integer(int32),optional,intent(in)::dim
 
     ! default == 3
     if(allocated(obj%coord) )then
@@ -107,9 +108,9 @@ end subroutine
 !#########################################################
 subroutine setPoint(obj,x,y,z,xvec)
     class(Point_),intent(inout)::obj
-    real(8),optional,intent(in)::x,y,z
-    real(8),optional,intent(in)::xvec(:)
-    integer :: n
+    real(real64),optional,intent(in)::x,y,z
+    real(real64),optional,intent(in)::xvec(:)
+    integer(int32) :: n
 
     n=size(obj%coord)
     if(present(xvec) )then
@@ -147,7 +148,7 @@ end subroutine
 !#########################################################
 subroutine InitLine(obj,dim)
     class(Line_),intent(inout)::obj
-    integer,optional,intent(inout)::dim
+    integer(int32),optional,intent(inout)::dim
 
     ! default = 3D
     if(allocated(obj%coord) )then
@@ -163,7 +164,7 @@ end subroutine
 subroutine SetNodeLine(obj,point,position)
     class(Line_),intent(inout)::obj
     class(Point_),intent(in)::Point
-    integer,intent(in)::position
+    integer(int32),intent(in)::position
 
     if(position <=0 .or. position >= 3)then
         print *, "ERROR :: Line%SetNode => (position <=0 .or. position >= 3)",position
@@ -185,7 +186,7 @@ end subroutine
 !#########################################################
 subroutine importLine(obj,NodCoord)
     class(Line_),intent(inout)::obj
-    integer,intent(in)::NodCoord(:,:)
+    integer(int32),intent(in)::NodCoord(:,:)
 
     if(size(obj%coord,2)/=size(NodCoord,2) )then
         print *, "ERROR :: importLine :: size(obj%NodCoord,2)/=size(NodCoord,2)"
@@ -220,7 +221,7 @@ end subroutine
 !#########################################################
 subroutine InitCircle(obj,dim)
     class(Circle_),intent(inout)::obj
-    integer,optional,intent(inout)::dim
+    integer(int32),optional,intent(inout)::dim
 
     ! default = 3D
     if(allocated(obj%center) )then
@@ -251,7 +252,7 @@ end subroutine
 !#########################################################
 subroutine InitSetRadiusCircle(obj,radius)
     class(Circle_),intent(inout)::obj
-    real(8),intent(in)::radius
+    real(real64),intent(in)::radius
 
     obj%radius=radius
     
@@ -263,7 +264,7 @@ end subroutine
 !#########################################################
 function getAreaCircle(obj) result(area)
     class(Circle_),intent(inout)::obj
-    real(8) :: area,pi
+    real(real64) :: area,pi
     pi=3.14159260d0
 
     area=obj%radius*obj%radius*pi
@@ -277,8 +278,8 @@ end function
 subroutine showCircle(obj,Name)
     class(Circle_),intent(in)::obj
     character(*),optional,intent(in)::Name
-    real(8) :: angle,dtheta,pi
-    integer :: i
+    real(real64) :: angle,dtheta,pi
+    integer(int32) :: i
 
     pi=3.14159260d0
 
@@ -305,7 +306,7 @@ end subroutine
 !#########################################################
 subroutine InitSphere(obj,dim)
     class(Sphere_),intent(inout)::obj
-    integer,optional,intent(inout)::dim
+    integer(int32),optional,intent(inout)::dim
 
     obj%center(:)=0.0d0
     obj%radius=1.0d0
@@ -331,7 +332,7 @@ end subroutine
 !#########################################################
 subroutine InitSetRadiusSphere(obj,radius)
     class(Sphere_),intent(inout)::obj
-    real(8),intent(in)::radius
+    real(real64),intent(in)::radius
 
     obj%radius=radius
     
@@ -343,8 +344,8 @@ end subroutine
 subroutine showSphere(obj,Name)
     class(Sphere_),intent(in)::obj
     character(*),optional,intent(in)::Name
-    real(8) :: angle1,angle2,dtheta,pi
-    integer :: i,j
+    real(real64) :: angle1,angle2,dtheta,pi
+    integer(int32) :: i,j
 
     pi=3.14159260d0
 
@@ -374,7 +375,7 @@ end subroutine
 !#########################################################
 subroutine InitTriangle(obj,dim)
     class(Triangle_),intent(inout)::obj
-    integer,optional,intent(in)::dim
+    integer(int32),optional,intent(in)::dim
 
 
     if(allocated(obj%NodCoord) )then
@@ -390,7 +391,7 @@ end subroutine
 subroutine setNodeTriangle(obj,point,order)
     class(Triangle_),intent(inout)::obj
     class(Point_),intent(in)::point
-    integer,intent(in)::order
+    integer(int32),intent(in)::order
 
     if( size(obj%NodCoord,2)/=size(point%coord) )then
         print *, "ERROR ::InitSetNodeTriangle ::  ( size(obj%NodCoord,2)/=size(point%coord)  )"
@@ -405,7 +406,7 @@ end subroutine
 !#########################################################
 subroutine importTriangle(obj,NodCoord)
     class(Triangle_),intent(inout)::obj
-    integer,intent(in)::NodCoord(:,:)
+    integer(int32),intent(in)::NodCoord(:,:)
 
     if(size(obj%NodCoord,2)/=size(NodCoord,2) )then
         print *, "ERROR :: importTriangle :: size(obj%NodCoord,2)/=size(NodCoord,2)"
@@ -422,9 +423,9 @@ subroutine getCircleTriangle(obj,type_of_circle,circle)
     class(Triangle_),intent(in)::obj
     type(Circle_),intent(inout) :: circle
     character(*),intent(in) :: type_of_circle
-    real(8) :: x1,x2,x3,y1,y2,y3
-    real(8),allocatable :: a(:),b(:),c(:)
-    integer :: i,n
+    real(real64) :: x1,x2,x3,y1,y2,y3
+    real(real64),allocatable :: a(:),b(:),c(:)
+    integer(int32) :: i,n
 
     n=size(obj%NodCoord,2)
     call initCircle(circle,dim=n)
@@ -515,8 +516,8 @@ end subroutine
 !#########################################################
 function getAreaTriangle(obj) result(area)
     class(Triangle_),intent(in)::obj
-    real(8) :: area
-    real(8) :: x1,x2,x3,y1,y2,y3
+    real(real64) :: area
+    real(real64) :: x1,x2,x3,y1,y2,y3
 
     if(size(obj%NodCoord,2)==2 )then
 
@@ -572,7 +573,7 @@ end subroutine
 !#########################################################
 subroutine InitTetrahedron(obj,NodCoord)
     class(Tetrahedron_),intent(inout) :: obj
-    real(8),intent(in) :: NodCoord(4,3)
+    real(real64),intent(in) :: NodCoord(4,3)
 
     obj%NodCoord(:,:)=NodCoord(:,:)
 
@@ -582,8 +583,8 @@ end subroutine
 !#########################################################
 subroutine getCircleTetrahedron(obj)
     class(Tetrahedron_),intent(inout) :: obj
-    real(8) :: a(3),b(3),c(3),d(3),e(3),f(3),g(3),s,t,r,N(3)
-    real(8) :: a_(3),b_(3),c_(3),d_(3),aA,aB,aC,aD,V,k
+    real(real64) :: a(3),b(3),c(3),d(3),e(3),f(3),g(3),s,t,r,N(3)
+    real(real64) :: a_(3),b_(3),c_(3),d_(3),aA,aB,aC,aD,V,k
     
     a(:)=obj%NodCoord(1,:)
     b(:)=obj%NodCoord(2,:)

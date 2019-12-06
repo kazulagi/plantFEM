@@ -1,4 +1,5 @@
 module PlantNodeClass
+    use, intrinsic :: iso_fortran_env
     use KinematicClass
     use FEMDomainClass
     use StemClass
@@ -35,13 +36,13 @@ subroutine initNode(obj,PlantName,Stage,&
     character(*),intent(in) :: PlantName
     character(2),intent(in) :: Stage
     
-    real(8),optional,intent(in) :: LeafThickness,Leaflength,Leafwidth,LeafShapeFactor
-    real(8),optional,intent(in) :: MaxLeafThickness,MaxLeaflength,MaxLeafwidth
-    real(8),optional,intent(in) :: PetiThickness,Petilength,Petiwidth,PetiShapeFactor
-    real(8),optional,intent(in) :: MaxPetiThickness,MaxPetilength,MaxPetiwidth
-    real(8),optional,intent(in) :: StemThickness,Stemlength,Stemwidth,StemShapeFactor
-    real(8),optional,intent(in) :: MaxStemThickness,MaxStemlength,MaxStemwidth,location(3)
-    real(8) :: loc(3)
+    real(real64),optional,intent(in) :: LeafThickness,Leaflength,Leafwidth,LeafShapeFactor
+    real(real64),optional,intent(in) :: MaxLeafThickness,MaxLeaflength,MaxLeafwidth
+    real(real64),optional,intent(in) :: PetiThickness,Petilength,Petiwidth,PetiShapeFactor
+    real(real64),optional,intent(in) :: MaxPetiThickness,MaxPetilength,MaxPetiwidth
+    real(real64),optional,intent(in) :: StemThickness,Stemlength,Stemwidth,StemShapeFactor
+    real(real64),optional,intent(in) :: MaxStemThickness,MaxStemlength,MaxStemwidth,location(3)
+    real(real64) :: loc(3)
     loc(:)=0.0d0
     if(present(location) )then
         loc(:)=location(:)
@@ -100,8 +101,8 @@ end subroutine
 subroutine exportNode(obj,FileName,ObjID)
     class(PlantNode_),intent(in) :: obj
     character(*),optional,intent(in) :: FileName
-    integer :: i,max_num_of_peti_per_node,n
-    integer,intent(inout) :: objID
+    integer(int32) :: i,max_num_of_peti_per_node,n
+    integer(int32),intent(inout) :: objID
 
     max_num_of_peti_per_node=5
 

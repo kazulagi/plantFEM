@@ -1,7 +1,7 @@
 ! updated 2019/1/19
-module MeshOperationClass
+module MeshClass
     use MathClass
-    use ArrayOperationClass
+    use ArrayClass
     use ShapeFunctionClass
     use GeometryClass
     implicit none
@@ -11,6 +11,7 @@ module MeshOperationClass
         real(8),allocatable::NodCoord(:,:)
         real(8),allocatable::NodCoordInit(:,:)
         integer,allocatable::ElemNod(:,:)
+
         integer,allocatable::FacetElemNod(:,:)
         integer,allocatable::NextFacets(:,:)
         integer,allocatable::SurfaceLine2D(:)
@@ -657,6 +658,26 @@ subroutine GetSurface(obj)
     integer,allocatable::buffer(:,:)
 
 
+    if(allocated(obj%FacetElemNod) ) then
+        deallocate(obj%FacetElemNod)
+    endif
+    if(allocated(obj%NextFacets) ) then
+        deallocate(obj%NextFacets)
+    endif
+    if(allocated(obj%SurfaceLine2D) ) then
+        deallocate(obj%SurfaceLine2D)
+    endif
+    if(allocated(obj%SubMeshNodFromTo) ) then
+        deallocate(obj%SubMeshNodFromTo)
+    endif
+    if(allocated(obj%SubMeshElemFromTo) ) then
+        deallocate(obj%SubMeshElemFromTo)
+    endif
+    if(allocated(obj%SubMeshSurfFromTo) ) then
+        deallocate(obj%SubMeshSurfFromTo)
+    endif
+        
+
     NumOfDim=size(obj%NodCoord,2)
     if(NumOfDim==2)then
         call GetSurface2D(obj)
@@ -1092,7 +1113,7 @@ subroutine GetNextFacets(obj)
                 if(i>size(obj%NextFacets,1) .or. n>size(obj%NextFacets,2) )then
                     print *, "i , size(obj%NextFacets,1) : ",i,size(obj%NextFacets,1)
                     print *, "n, size(obj%NextFacets,2)  : ",n,size(obj%NextFacets,2)
-                    stop "MeshOperationClass >> GetNextFacets >> invalid i,n"
+                    stop "MeshClass >> GetNextFacets >> invalid i,n"
                 endif
                 obj%NextFacets(i,n)=buffer(j)
                 n=n+1
@@ -1451,7 +1472,7 @@ subroutine MeshingMesh(obj,Mode,itr_tol)
     dim_mode=input(default=2,option=Mode)
     if(dim_mode==2)then
         if(.not. allocated(obj%NodCoord) )then
-            print *, "ERROR :: MeshOperationClass MeshingMesh"
+            print *, "ERROR :: MeshClass MeshingMesh"
             print *, "This method creates mesh-connectivity for the given nodal coordinates."
             print *, "Therefore, Mesh%NodCoord(:,:) should be filled preliminary."
             return 
@@ -2428,4 +2449,4 @@ subroutine removeOverlappedNodeMesh(obj,tolerance)
 end subroutine
 !##################################################
 
-end module MeshOperationClass
+end module MeshClass

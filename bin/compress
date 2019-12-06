@@ -1,6 +1,7 @@
 #!/bin/sh
 
 rm ./GetPixcel*.py
+rm ./DBCGetPixcelSize*.py
 rm *.o
 rm *.mod
 rm *.txt
@@ -18,4 +19,5 @@ mv GetSurface* RESULTS/
 mv *.txt~ RESULTS/
 mv *.blend RESULTS/
 mv *.blend1 RESULTS/
+rm ./a.out
 ls

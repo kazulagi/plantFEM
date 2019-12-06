@@ -1,4 +1,5 @@
 module SimulatorClass
+    use, intrinsic :: iso_fortran_env
     use MPIClass
     use TermClass
     use FEMDomainClass
@@ -29,11 +30,11 @@ subroutine Simulator(world,OptionalStep,OptionalTime,SolverType)
     class(Field_),target,intent(inout)   :: world
     type(Simulator_),target             :: sim
     type(MPI_) :: mpidata
-    integer,intent(in)  :: OptionalStep
-    real(8),intent(in)  :: OptionalTime
+    integer(int32),intent(in)  :: OptionalStep
+    real(real64),intent(in)  :: OptionalTime
     character(*),optional,intent(in)::SolverType
-    integer                 :: i,Step,ierr
-    real(8)                 :: time
+    integer(int32)                 :: i,Step,ierr
+    real(real64)                 :: time
 
     step=OptionalStep
     time=OptionalTime
@@ -55,10 +56,10 @@ end subroutine
 subroutine RunSimulation(sim,field,step,SolverType)
     type(Field_),target,intent(inout)  :: field
     class(Simulator_),intent(inout) :: sim
-    integer,intent(in)             :: step
+    integer(int32),intent(in)             :: step
     character(*),Optional,intent(in)::SolverType
     type(Term_)             :: term
-    integer :: i,n,ierr
+    integer(int32) :: i,n,ierr
     
     call InitializeTerm(term)
     n=size(field%FEMDomainArray,1)
@@ -128,7 +129,7 @@ subroutine InitializeSimulator(sim,field)
     type(Field_    ),intent(inout) :: field
     type(Simulator_),intent(inout) :: sim
 
-    integer :: n
+    integer(int32) :: n
     n = size(field%FEMDomainArray,1)
     allocate(sim%DiffusionEq_Array(n) )
     allocate(sim%FiniteDeform_Array(n) )
@@ -147,7 +148,7 @@ end subroutine
 subroutine DeploySimulator(sim,field)
     type(Field_),target,intent(inout)  :: field
     class(Simulator_),intent(inout) :: sim
-    integer :: i,j,n,DomainNum,ierr
+    integer(int32) :: i,j,n,DomainNum,ierr
 
     if(.not.allocated(sim%DiffusionEq_Array) ) then
         call InitializeSimulator(sim,field)
@@ -219,9 +220,9 @@ subroutine DisplaySimulation(sim,field,step)
 
     type(Field_),target,intent(inout)  :: field
     class(Simulator_),intent(inout) :: sim
-    integer,intent(in)             :: step
+    integer(int32),intent(in)             :: step
     type(Term_)             :: term
-    integer :: i,n,ierr
+    integer(int32) :: i,n,ierr
 
     call InitializeTerm(term)
     n=size(field%FEMDomainArray,1)
@@ -257,9 +258,9 @@ subroutine SetSimulatorTime(sim,field,time,step)
 
     type(Field_),target,intent(inout)  :: field
     class(Simulator_),intent(inout) :: sim
-    real(8),intent(in)  :: time
-    integer,intent(in) :: step
-    integer :: i,n,ierr
+    real(real64),intent(in)  :: time
+    integer(int32),intent(in) :: step
+    integer(int32) :: i,n,ierr
     
     n=size(field%FEMDomainArray,1)
     do i=1,n

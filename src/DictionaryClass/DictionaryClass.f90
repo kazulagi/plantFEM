@@ -1,12 +1,15 @@
 module DictionaryClass
+    use, intrinsic :: iso_fortran_env
     use MathClass
+
+    implicit none
 
     type ::  Page_
         character*200 :: value
-        integer :: IntValue
-        real(8) :: RealValue
-        integer,allocatable :: intlist(:)
-        real(8),allocatable :: realist(:)
+        integer(int32) :: IntValue
+        real(real64) :: RealValue
+        integer(int32),allocatable :: intlist(:)
+        real(real64),allocatable :: realist(:)
     end type
 
     type :: Dictionary_
@@ -29,7 +32,7 @@ module DictionaryClass
         character*200 :: Path
         character*200 :: DirectoryName
         character*200 :: FileName
-        integer       :: FileID
+        integer(int32)       :: FileID
     end type
 
 
@@ -46,7 +49,7 @@ contains
 ! ##############################################
 subroutine InitializeDictionary(obj,NumOfPage)
     class(Dictionary_),intent(inout)::obj
-    integer,intent(in)      :: NumOfPage
+    integer(int32),intent(in)      :: NumOfPage
     if(allocated(obj%Dictionary) )then
         deallocate(obj%Dictionary)
     endif
@@ -60,10 +63,10 @@ end subroutine
 ! ##############################################
 subroutine InputDictionary(obj,page,content,RealValue,IntValue,Realist,Intlist)
     class(Dictionary_),intent(inout)::obj
-    integer,intent(in)      :: page
+    integer(int32),intent(in)      :: page
     character(*),optional,intent(in)           :: Content
-    integer,optional,intent(in) :: IntValue,Intlist(:)
-    real(8),optional,intent(in) :: RealValue,Realist(:)
+    integer(int32),optional,intent(in) :: IntValue,Intlist(:)
+    real(real64),optional,intent(in) :: RealValue,Realist(:)
     
     if(page > size(obj%Dictionary) )then
         print *, "Error :: InputDictionary >> Num of Page is overflowed"
@@ -105,8 +108,8 @@ end subroutine
 ! ##############################################
 function intlistofDictionary(obj,page,ind) result(n)
     class(Dictionary_),intent(in) :: obj
-    integer,intent(in) :: page,ind
-    integer :: n
+    integer(int32),intent(in) :: page,ind
+    integer(int32) :: n
 
     n=obj%Dictionary(page)%intlist(ind)
 
@@ -116,8 +119,8 @@ end function
 ! ##############################################
 function intvalueofDictionary(obj,page) result(n)
     class(Dictionary_),intent(in) :: obj
-    integer,intent(in) :: page
-    integer :: n
+    integer(int32),intent(in) :: page
+    integer(int32) :: n
 
     n=obj%Dictionary(page)%intvalue
 
@@ -129,8 +132,8 @@ end function
 ! ##############################################
 function realvalueofDictionary(obj,page) result(n)
     class(Dictionary_),intent(in) :: obj
-    integer,intent(in) :: page
-    real(8) :: n
+    integer(int32),intent(in) :: page
+    real(real64) :: n
 
     n=obj%Dictionary(page)%realvalue
 
@@ -142,7 +145,7 @@ end function
 ! ##############################################
 function GetDictionaryValue(obj,page) result(content)
     class(Dictionary_),intent(in)::obj
-    integer,intent(in)      :: page
+    integer(int32),intent(in)      :: page
     character*200 :: content
 
     content = obj%Dictionary(page)%Value
@@ -153,7 +156,7 @@ end function
 ! ##############################################
 subroutine setFilePath(obj,FilePath,FileID) 
     class(FileList_),intent(inout)::obj
-    integer,intent(in) :: FileID
+    integer(int32),intent(in) :: FileID
     character*200,intent(in) :: FilePath
 
     obj%FileList(FileID)%Path = FilePath
@@ -164,7 +167,7 @@ end subroutine
 ! ##############################################
 subroutine setDirectoryName(obj,DirectoryName,FileID) 
     class(FileList_),intent(inout)::obj
-    integer,intent(in) :: FileID
+    integer(int32),intent(in) :: FileID
     character*200,intent(in) :: DirectoryName
 
     obj%FileList(FileID)%DirectoryName = DirectoryName
@@ -176,7 +179,7 @@ end subroutine
 ! ##############################################
 subroutine setFileName(obj,FileName,FileID) 
     class(FileList_),intent(inout)::obj
-    integer,intent(in) :: FileID
+    integer(int32),intent(in) :: FileID
     character*200,intent(in) :: FileName
 
     obj%FileList(FileID)%FileName = FileName
@@ -186,19 +189,80 @@ end subroutine
 
 
 ! ##############################################
-subroutine showDictionary(obj,From,to)
+subroutine showDictionary(obj,From,to,Name)
     class(Dictionary_)::obj
-    integer,optional,intent(in)::From,to
-    integer :: i,n,startp,endp
+    integer(int32),optional,intent(in)::From,to
+    character(*),optional,intent(in) :: Name
+    integer(int32) :: i,n,startp,endp,rl,il
 
     n=size(obj%Dictionary,1)
 
+    
     startp=input(default=1,option=From)
     endp  =input(default=n,option=to)
-    do i=startp,endp
-        print *, "Page : ",i,"Content : ",trim(obj%Dictionary(i)%Value )
-    enddo
 
+    
+    do i=startp,endp
+        rl = 0
+        il = 0
+        if(.not. allocated(obj%Dictionary(i)%Intlist) )then
+            allocate(obj%Dictionary(i)%Intlist(0) )
+            il = 1
+        endif
+        if(.not. allocated(obj%Dictionary(i)%Realist) )then
+            allocate(obj%Dictionary(i)%Realist(0) )
+            rl = 1
+        endif
+    
+        print *, "Page : ",i,"Content : ",trim(obj%Dictionary(i)%Value ),&
+        "IntValue : ",obj%Dictionary(i)%IntValue,&
+        "RealValue : ",obj%Dictionary(i)%RealValue,&
+        "Intlist(:) : ",obj%Dictionary(i)%Intlist(:),&
+        "Realist(:) : ",obj%Dictionary(i)%Realist(:)
+        
+        if(il==1 )then
+            deallocate(obj%Dictionary(i)%Intlist )
+        endif
+        if(rl == 1 )then
+            deallocate(obj%Dictionary(i)%Realist )
+        endif
+    enddo
+    
+
+    if(present(Name) )then
+        open(1023,file=trim(Name))
+        
+        
+        do i=startp,endp
+            rl = 0
+            il = 0
+            if(.not. allocated(obj%Dictionary(i)%Intlist) )then
+                allocate(obj%Dictionary(i)%Intlist(0) )
+                il = 1
+            endif
+            if(.not. allocated(obj%Dictionary(i)%Realist) )then
+                allocate(obj%Dictionary(i)%Realist(0) )
+                rl = 1
+            endif
+            write(1023,*) "Page : ",i,"Content : ",trim(obj%Dictionary(i)%Value ),&
+                "IntValue : ",obj%Dictionary(i)%IntValue,&
+                "RealValue : ",obj%Dictionary(i)%RealValue,&
+                "Intlist(:) : ",obj%Dictionary(i)%Intlist(:),&
+                "Realist(:) : ",obj%Dictionary(i)%Realist(:)
+            
+            if(il==1 )then
+                deallocate(obj%Dictionary(i)%Intlist )
+            endif
+            if(rl == 1 )then
+                deallocate(obj%Dictionary(i)%Realist )
+            endif
+        enddo
+        close(1023)
+
+    endif
+
+
+    
 end subroutine
 ! ##############################################
 
@@ -206,7 +270,7 @@ end subroutine
 ! ##############################################
 function sizeofDictionary(obj) result(n)
     class(Dictionary_),intent(in) :: obj
-    integer :: n
+    integer(int32) :: n
 
     n = size(obj%Dictionary)
 
@@ -217,7 +281,7 @@ end function
 ! ##############################################
 function contentofDictionary(obj,id) result(content)
     class(Dictionary_),intent(in) :: obj
-    integer,intent(in) :: id
+    integer(int32),intent(in) :: id
     character*200 :: content
  
     content = obj%Dictionary(id)%value
@@ -231,8 +295,8 @@ end function
 function GetPageNumDictionary(obj,Content) result(page)
     class(Dictionary_),intent(in)::obj
     character(*),intent(in)::Content
-    integer :: page
-    integer :: i,n
+    integer(int32) :: page
+    integer(int32) :: i,n
 
     n=size(obj%Dictionary,1)
     page=-1
@@ -245,6 +309,7 @@ function GetPageNumDictionary(obj,Content) result(page)
     if(page==-1)then
         print *, "ERROR ::",trim(Content)," is a word to be found only in the dictionary of fools."
     endif
+
 
 
 end function

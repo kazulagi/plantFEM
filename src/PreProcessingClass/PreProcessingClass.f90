@@ -1,11 +1,11 @@
 module PreprocessingClass
-    
+    use, intrinsic :: iso_fortran_env
     use mpi
     use termclass
     use DictionaryClass
     use MPIClass
     use FEMDomainClass
-    use ArrayOperationClass
+    use ArrayClass
     use PostProcessingClass
 
     
@@ -16,12 +16,13 @@ module PreprocessingClass
         type(FEMDomain_),pointer :: pFEMDomain
         character*200   :: PictureName
         character*200   :: RGBDataName,PixcelSizeDataName
-        integer         :: PixcelSize(2),num_of_pixcel
-        integer         :: ColorRGB(3)
+        integer(int32)         :: PixcelSize(2),num_of_pixcel
+        integer(int32)         :: ColorRGB(3)
     contains
         procedure :: getScfFromImage    => getScfFromImagePreProcessing
         procedure :: Init               => InitializePrePro
         procedure :: finalize           => finalizePrePro
+
         procedure :: ImportPictureName  => ImportPictureName
         procedure :: importPixcelAsNode => importPixcelAsNodePreProcessing
         procedure :: ShowName           => ShowPictureName
@@ -74,16 +75,19 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
     class(PreProcessing_),intent(inout) :: obj
     class(MPI_),intent(inout)           :: MPIData
 
-    type(Dictionary_)       :: InfileList,DBoundlist,NBoundlist
+    type(Dictionary_)       :: InfileList,DBoundlist,NBoundlist,Materialist
     type(PreProcessing_)    :: leaf,soil
     character(*),intent(in) :: project,elemtype,SolverName
     character(*),optional,intent(in) :: Soilfile
-    integer,intent(in) :: R,G,B
-    integer,optional,intent(in) :: sR,SG,sB
-    real(8),intent(in) :: scalex,scaley
-    real(8) :: Dbound_val,Nbound_val
-    character * 200         :: name,name1,name2,name3,name4,str_id,sname,dirichlet,neumann
-    integer :: NumOfImages,i,id,num_d,num_n,DBoundRGB(3),Dbound_xyz,NBoundRGB(3),Nbound_xyz
+    integer(int32),intent(in) :: R,G,B
+    integer(int32),optional,intent(in) :: sR,SG,sB
+    real(real64),intent(in) :: scalex,scaley
+    real(real64) :: Dbound_val,Nbound_val,xratio,yratio
+    character * 200         :: name,name1,name2,name3,name4,str_id,&
+        sname,dirichlet,neumann,materials,parameters
+    integer(int32) :: NumOfImages,i,id,num_d,num_n,DBoundRGB(3),Dbound_xyz,NBoundRGB(3),Nbound_xyz
+    integer(int32) :: NumOfMaterial,NumOfparameter,matid,MaterialRGB(3)
+    real(real64),allocatable :: matpara(:)
 
     
 
@@ -131,6 +135,28 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
     enddo
     close(60)
 
+
+    ! get paths for material information lists
+    open(70,file=trim(project)//"materialist.txt")
+    read(70, '(A)' ) materials
+    read(70,*) NumOfMaterial
+    read(70, '(A)' ) parameters
+    read(70,*) NumOfparameter
+    allocate(matpara(NumOfparameter))
+    
+    call Materialist%Init(NumOfMaterial)
+    do i=1,NumOfMaterial
+        read(70,'(A)' ) name
+        read(70,*) MaterialRGB(1:3)
+        read(70,*) matpara(1:NumOfparameter)
+        call materialist%Input(i, content=trim(name) )
+        call materialist%Input(i, Intlist=materialRGB )
+        call materialist%Input(i, Realist=matpara )
+    !    call Materialist%Input(i, trim(name) )
+    enddo
+    close(70)
+
+    
     
     do i=1,size(MPIData%LocalStack)
         id=MPIData%LocalStack(i)
@@ -145,25 +171,36 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
         call leaf%GetPixcelByRGB(MPIData,err=5,onlycoord=.true.)
         ! Get Outline
         call leaf%GetSurfaceNode(MPIData)
-        call leaf%AssembleSurfaceElement(MPIData,dim=2,threshold=10,DelRange=10)
+        call leaf%AssembleSurfaceElement(MPIData,dim=2,threshold=5,DelRange=5)
         
         ! Convert SurfaceNod to .geo
         call leaf%ExportGeoFile(MPIData,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
-            
+        
         ! Run Gmsh to convert .geo to .msh
         call leaf%ConvertGeo2Msh(MPIData ,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
         call leaf%ConvertGeo2Inp(MPIData ,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
         call leaf%ConvertGeo2Mesh(MPIData,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
+        
         ! Convert .msh to .scf
-        ! need debug
         
         call leaf%ConvertMesh2Scf(MPIData,ElementType=ElemType,&
             Name=trim(project)//"mesh"//trim(str_id)//".mesh" )
         call leaf%FEMDomain%checkconnectivity(fix=.true.)
-        call leaf%Convert3Dto2D()
 
-        call leaf%setBC(dirichlet=.true.,Boundinfo=DBoundlist)
-        call leaf%setBC(dirichlet=.true.,Boundinfo=NBoundlist)
+        !call leaf%Convert3Dto2D()
+
+
+        call leaf%SetSolver(InSolverType=SolverName)
+        call leaf%SetUp(NoFacetMode=.true.)
+
+        call leaf%SetMatPara(materialist=materialist,simple=.true.,MaterialID=1)
+        
+        call leaf%setBC(MPIData=MPIData,dirichlet=.true.,Boundinfo=DBoundlist)
+        call leaf%setBC(MPIData=MPIData,neumann=.true.,Boundinfo=NBoundlist)
+        call leaf%SetControlPara(OptionalItrTol=100,OptionalTimestep=100,OptionalSimMode=1)
+        
+        
+        !call leaf%Export(Name=trim(project)//"root"//trim(str_id)//".geo")
 
         ! get soil mesh
         if(present(Soilfile) )then
@@ -190,48 +227,50 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
             Name=trim(project)//"soil"//trim(str_id)//".mesh")
             
             call soil%FEMDomain%checkconnectivity(fix=.true.)
-            call soil%Convert3Dto2D()
+            
+            call soil%SetSolver(InSolverType=SolverName)
+            call soil%SetUp(NoFacetMode=.true.)
+
+            call soil%SetMatPara(materialist=materialist,simple=.true.,MaterialID=2)
+            
+
+            ! setup boundary conditions
+            call soil%setBC(MPIData=MPIData,dirichlet=.true.,Boundinfo=DBoundlist)
+            call soil%setBC(MPIData=MPIData,Neumann=.true.,Boundinfo=NBoundlist)
+
+            call soil%SetControlPara(OptionalItrTol=100,OptionalTimestep=100,OptionalSimMode=1)
+            
+            !call soil%Export(Name=trim(project)//"soil"//trim(str_id)//".geo")
+
         endif
+        xratio=scalex/leaf%PixcelSize(1)
+        yratio=scaley/leaf%PixcelSize(2)
+        call soil%SetScale(xratio=xratio,yratio=yratio)
+        call leaf%SetScale(xratio=xratio,yratio=yratio)
+        call soil%Reverse()
+        call leaf%Reverse()
+        call leaf%Export(with=soil,Name=trim(project)//"rootandsoil"//trim(str_id)//".scf",regacy=.true.)
+        
+        
 
-        return
+        ! destructor
+        call leaf%finalize()
+        call soil%finalize()
 
-        ! setup boundary conditions
-        call soil%setBC(dirichlet=.true.,Boundinfo=DBoundlist)
-        call soil%setBC(dirichlet=.true.,Boundinfo=NBoundlist)
-
-        call leaf%SetSolver(InSolverType=SolverName)
-        call leaf%SetUp(NoFacetMode=.true.)
-    
         
     enddo
-    call leaf%Export(Name=trim(project)//"root"//trim(str_id)//".geo")
-    call soil%Export(Name=trim(project)//"soil"//trim(str_id)//".geo")
 
 
-    ! destructor
-    call leaf%finalize()
-    call soil%finalize()
-    return
 
 
-    call leaf%SetScale(scalex=scalex,scaley=scaley)
-    call leaf%SetMatPara(MaterialID=1,ParameterID=1,Val=1.0000d0)
-    call leaf%SetMatPara(MaterialID=1,ParameterID=2,Val=0.3000d0)
-    call leaf%SetMatPara(MaterialID=1,ParameterID=3,Val=0.0000d0)
-    call leaf%SetMatPara(MaterialID=1,ParameterID=4,Val=dble(1.0e+20) )
-    call leaf%SetMatPara(MaterialID=1,ParameterID=5,Val=0.0000d0)
-    call leaf%SetMatPara(MaterialID=1,ParameterID=6,Val=0.0000d0)
     
-    call leaf%SetMatID( MaterialID=1)
     
-    call leaf%SetControlPara(OptionalItrTol=100,OptionalTimestep=100,OptionalSimMode=1)
     
     ! Export Object
-    call leaf%FEMDomain%GmshPlotVector(Name="Tutorial/InputData/grass_leaf",step=0,&
-        withMsh=.true.,FieldName="DispBound",NodeWize=.true.,onlyDirichlet=.true.)
+    !call leaf%FEMDomain%GmshPlotVector(Name="Tutorial/InputData/grass_leaf",step=0,&
+    !    withMsh=.true.,FieldName="DispBound",NodeWize=.true.,onlyDirichlet=.true.)
     
-    call leaf%Export(Name="Tutorial/InputData/grass_leaf")
-    call MPIData%End()
+    
 
 
 end subroutine
@@ -251,9 +290,7 @@ subroutine finalizePrePro(obj)
     class(PreProcessing_),intent(inout)::obj
 
     call obj%FEMDomain%delete()
-    if(associated(obj%pFEMDomain) )then
-        deallocate(obj%pFEMDomain)
-    endif
+    
     obj%PictureName = ""
     obj%RGBDataName = ""
     obj%PixcelSizeDataName = ""
@@ -300,28 +337,38 @@ subroutine GetPixcelSize(obj,MPIData,Name)
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
     character(*),optional,intent(in)   :: Name
-    character *20       :: pid
+    character *30       :: pid
     character *200      :: python_script
     character *200      :: python_buffer
     character *200      :: command
-    integer              :: fh
+    integer(int32)              :: fh
+
 
     call MPIData%GetInfo()
-    write(pid,*) MPIData%MyRank
+
+    pid = trim(adjustl(fstring(MPIData%MyRank)))
     python_script="GetPixcelSize_pid_"//trim(adjustl(pid))//".py"
     python_buffer="GetPixcelSize_pid_"//trim(adjustl(pid))//".txt"
+
+
+
+
     if(present(Name) )then
         python_script=Name//"GetPixcelSize_pid_"//trim(adjustl(pid))//".py"
         python_buffer=Name//"GetPixcelSize_pid_"//trim(adjustl(pid))//".txt"
-        
     endif
+
+
+
 
     obj%PixcelSizeDataName=python_buffer
     !print *, trim(python_script)
     
     ! using python script
     ! python imaging library is to be installed.
-    fh=MPIData%MyRank+10
+    fh=MPIData%MyRank+100
+
+
     open(fh,file=trim(python_script),status="replace")
     command = "from PIL import Image"
     write(fh,'(A)') adjustl(trim(command))
@@ -332,35 +379,44 @@ subroutine GetPixcelSize(obj,MPIData,Name)
 
     ! open file
     command = 'img_in = Image.open("'//trim(obj%PictureName)//'")'
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     command = 'python_buffer = open("'//trim(python_buffer)//'","w")'
     write(fh,'(A)') adjustl(trim(command))
-
+    !print *, command
     ! get pixcel size
     command = "rgb_im = img_in.convert('RGB')"
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     command = "size = rgb_im.size"
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     command = "print( str(size[0]), ' ',str(size[1])  ) "
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     
     ! write size
     command = "python_buffer.write( str(size[0]))"
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     command = "python_buffer.write('\n')"
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     command = "python_buffer.write( str(size[1]))"
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     
     ! close
     command = "img_in.close()"
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     command = "python_buffer.close()"
+    !print *, command
     write(fh,'(A)') adjustl(trim(command))
     close(fh)
 
     command = "python3 "//trim(python_script)
-    print *, trim(command)
+    !print *, trim(command)
     call system(trim(command))
 
     ! get pixcel size
@@ -383,7 +439,7 @@ subroutine GetAllPointCloud(obj,MPIData,Name)
     character *200      :: python_script
     character *200      :: python_buffer
     character *200      :: command
-    integer              :: fh
+    integer(int32)              :: fh
 
     call MPIData%GetInfo()
     write(pid,*) MPIData%MyRank
@@ -460,7 +516,7 @@ end subroutine
 subroutine GetPixcelByRGB(obj,MPIData,err,onlycoord,Name)
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
-    integer,optional,intent(in)        :: err
+    integer(int32),optional,intent(in)        :: err
     logical,optional,intent(in)        :: onlycoord
     character(*),optional,intent(in)   :: Name
     character *20       :: pid
@@ -470,7 +526,7 @@ subroutine GetPixcelByRGB(obj,MPIData,err,onlycoord,Name)
     character *200      :: python_buffer
     character *200      :: python_buffer_size
     character *200      :: command
-    integer              :: fh,error,sizeofpc,i
+    integer(int32)              :: fh,error,sizeofpc,i
 
     if(present(err) )then
         error=err
@@ -584,6 +640,10 @@ subroutine GetPixcelByRGB(obj,MPIData,err,onlycoord,Name)
     allocate(obj%FEMDomain%Mesh%NodCoord(sizeofpc,3) )
     obj%FEMDomain%Mesh%NodCoord(:,3)=0.0d0
     open(fh,file=python_buffer,status="old")
+    if(sizeofpc==0)then
+        print *, "ERROR :: GetPixcelByRGB >> no such color"
+        stop 
+    endif
     do i=1,sizeofpc
         read(fh,*)obj%FEMDomain%Mesh%NodCoord(i,1:2)
     enddo
@@ -598,7 +658,7 @@ end subroutine
 ! #########################################################
 subroutine SetColor(obj,Red,Green,Blue)
     class(PreProcessing_),intent(inout):: obj
-    integer,intent(in) :: Red,Green,Blue
+    integer(int32),intent(in) :: Red,Green,Blue
 
     obj%ColorRGB(1)=Red
     obj%ColorRGB(2)=Green
@@ -625,18 +685,18 @@ subroutine GetPixcelSurfaceNode(obj,MPIData,r,NumOfMaxNod,Name,convex,division,b
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
     character(*),optional,intent(in)   :: Name
-    integer,optional,intent(in)        :: r,NumOfMaxNod,division
+    integer(int32),optional,intent(in)        :: r,NumOfMaxNod,division
     logical,optional,intent(in)        :: convex,box
 
     character*200   :: python_buffer
     character*20    :: pid
     
-    integer,allocatable :: KilledPixcel(:)
+    integer(int32),allocatable :: KilledPixcel(:)
     
-    integer :: i,j,k,n,node_id,check_node_id,point_count,fh,MaxNod,dv,itr
-    real(8) :: x_real,y_real,z_real,xmin,xmax,ymin,ymax,dly,dlx,xwidth,ywidth,xm,ym
-    real(8) :: x_real_tr,y_real_tr,z_real_tr,diff_real,max_r,x_tr,y_tr,ymax_tr,ymin_tr
-    real(8),allocatable :: buffer(:,:),NodCoordDiv(:,:),xmaxval(:),ymaxval(:),xminmval(:),yminmval(:)
+    integer(int32) :: i,j,k,n,node_id,check_node_id,point_count,fh,MaxNod,dv,itr
+    real(real64) :: x_real,y_real,z_real,xmin,xmax,ymin,ymax,dly,dlx,xwidth,ywidth,xm,ym
+    real(real64) :: x_real_tr,y_real_tr,z_real_tr,diff_real,max_r,x_tr,y_tr,ymax_tr,ymin_tr
+    real(real64),allocatable :: buffer(:,:),NodCoordDiv(:,:),xmaxval(:),ymaxval(:),xminmval(:),yminmval(:)
     ! in case of box
     if(present(box) )then
         if(box .eqv. .true.)then
@@ -864,30 +924,34 @@ end subroutine
 subroutine AssembleSurfaceElement(obj,MPIData,dim,threshold,DelRange,Name)
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
-    integer,optional,intent(in)        :: dim,threshold,DelRange
+    integer(int32),optional,intent(in)        :: dim,threshold,DelRange
     character(*),optional,intent(in)   :: Name
     character*200   :: python_buffer
     character*20    :: pid
-    real(8),allocatable     :: buffer(:,:),r_value(:)
-    integer,allocatable     :: checked(:)
-    real(8)                 :: x(3),x_tr(3),r_tr,r_ref
-    integer :: i,j,k,n,trial_num,id_tr,fh,r_threshold,drange
+    real(real64),allocatable     :: buffer(:,:),r_value(:),line_segment_len(:)
+    integer(int32),allocatable     :: checked(:),line_segment(:,:),kill(:)
+    real(real64)                 :: x(3),x_tr(3),r_tr,r_ref,a1(2),a2(2),b1(2),b2(2),c1,c2,c3
+    real(real64) :: bufvec(2),middle(2)
+    integer(int32) :: i,j,k,n,trial_num,id_tr,fh,r_threshold,drange,nn,ys_solved,m
 
+
+    
     if(present(threshold) )then
         r_threshold=threshold
     else
-        r_threshold=10
+        r_threshold=5
     endif
 
     if(present(DelRange) )then
         drange=DelRange
     else
-        drange=10
+        drange=5
     endif
 
     if( present(dim) .and. dim/=2 )then
         call MPIData%End()
-        stop   "AssembleSurfaceElement :: >> only 2-D is available."
+        print *, "AssembleSurfaceElement :: >> only 2-D is available."
+        stop   
     endif
 
     n=size(obj%FEMDomain%Mesh%NodCoord,1 )
@@ -976,11 +1040,158 @@ subroutine AssembleSurfaceElement(obj,MPIData,dim,threshold,DelRange,Name)
         python_buffer=Name//"GetSurface_pid_"//trim(adjustl(pid))//".txt"    
     endif
 
+
     open(fh,file=python_buffer,status="replace")
     do i=1,size(obj%FEMDomain%Mesh%NodCoord,1)
         write(fh,*) obj%FEMDomain%Mesh%NodCoord(i,1:2)
     enddo
     close(fh)
+
+
+
+    ! modifier to remove invalid surface nodes
+    ! remove solitary island
+    ! for 2-D cases
+    ! get median of line segments
+    n=size(obj%FEMDomain%Mesh%NodCoord,1)
+    allocate(line_segment(n,3),line_segment_len(n) ) 
+    line_segment(:,:)=0
+    do i=1,n-1
+        line_segment(i,1) = i
+        line_segment(i,2) = i+1
+    enddo
+    line_segment(n,1) = n
+    line_segment(n,2) = 1
+
+    do i=1,n
+        a1(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(i,1) ,1:2 )
+        a2(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(i,2) ,1:2 )
+        line_segment_len(i)=dsqrt(dot_product(a2-a1,a2-a1)  )
+    enddo
+
+    ! write a operation to remove invalid nodes.
+
+
+    ! remove crossing surface
+    
+
+    do i=1,n-2
+        a1(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(i,1) ,1:2 )
+        a2(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(i,2) ,1:2 )-a1(1:2)
+        ys_solved = 0
+        do j=i+2,n
+            b1(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(j,1) ,1:2 )-a1(1:2)
+            b2(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(j,2) ,1:2 )-a1(1:2)
+            ! detect crossing by cross product
+            c1=( a2(1)*b1(2) - a2(2)*b1(1))*( a2(1)*b2(2) - a2(2)*b2(1))
+            if(c1>0.0d0)then
+                cycle
+            else
+                b1(1:2)=b1(1:2)+a1(1:2)
+                b2(1:2)=b2(1:2)+a1(1:2)
+                a2(1:2)=a2(1:2)+a1(1:2)
+
+                b2(1:2)=b2(1:2)-b1(1:2)
+                a1(1:2)=a1(1:2)-b1(1:2)
+                a2(1:2)=a2(1:2)-b1(1:2)
+                c2=( b2(1)*a1(2)-b2(2)*a1(1) )*( b2(1)*a2(2)-b2(2)*a2(1) )
+                if(c2>0.0d0)then
+                    cycle
+                else
+                    ! crossed
+                    
+                    nn= line_segment(j,1)
+                    k=i
+                    
+                    do 
+                        if( line_segment(k,2) >= line_segment(nn,1) )then
+                            ys_solved=1
+                            exit
+                        endif
+                        if( abs(line_segment(k,2) - line_segment(nn,1))<=1 )then
+                            ys_solved=1
+                            exit
+                        endif
+                        
+                        print *, "surface-line segments are Crossed >> modification ",line_segment(k,2) ," to ",line_segment(nn,1)
+                        
+                        bufvec(1:2)=obj%FEMDomain%Mesh%NodCoord(  line_segment(k,2) ,1:2)
+                        obj%FEMDomain%Mesh%NodCoord( line_segment(k,2) ,1:2 ) = &
+                            obj%FEMDomain%Mesh%NodCoord( line_segment(nn,1) ,1:2 )
+                        obj%FEMDomain%Mesh%NodCoord( line_segment(nn,1) ,1:2 ) = bufvec(1:2)
+                        
+                        if(  line_segment(nn,1) - line_segment(k,2)  <= 1)then
+                            ys_solved=1
+                            exit
+                        endif
+
+                        nn=nn-1
+                        k=k+1
+
+                    enddo
+                endif
+            endif
+
+            if(ys_solved == 1)then
+                exit
+            endif
+        enddo
+    enddo
+
+    ! reverse
+    nn=size(obj%FEMDomain%Mesh%NodCoord,1)
+    do i=1,size(obj%FEMDomain%Mesh%NodCoord,1)
+        if(nn <= i )then
+            exit
+        endif
+        bufvec(1:2)=obj%FEMDomain%Mesh%NodCoord(i,1:2)
+        obj%FEMDomain%Mesh%NodCoord(i,1:2)=obj%FEMDomain%Mesh%NodCoord(nn,1:2)
+        obj%FEMDomain%Mesh%NodCoord(nn,1:2)=bufvec(1:2)
+        nn=nn-1
+    enddo
+
+    ! kill invalid nodes
+    nn=size(obj%FEMDomain%Mesh%NodCoord,1)
+    allocate(kill(size(obj%FEMDomain%Mesh%NodCoord,1) ) )
+    kill(:)=0
+    do i=1,nn-1
+        a1(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(i,1) ,1:2 ) !11
+        a2(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(i,2) ,1:2 ) !9
+        b1(1:2)=obj%FEMDomain%Mesh%NodCoord( line_segment(i+1,2) ,1:2 ) !10
+        middle(1:2)=0.50d0*a2(1:2)+0.50d0*a1(1:2) !11-9
+        if( dot_product(middle-b1,middle-b1) == 0.0d0 )then
+            ! invalid node
+            kill( line_segment(i+1,2) ) = 1
+            print *, line_segment(i,2) , " will be killed."
+        endif
+    enddo
+
+    if(allocated(buffer) )then
+        deallocate(buffer)
+    endif
+
+    allocate(buffer( nn-sum(kill),2 ) )
+    k=0
+    do i=1,nn
+        if(kill(i)==1 )then
+            cycle
+        else
+            k=k+1
+            buffer(k,1:2)=obj%FEMDomain%Mesh%NodCoord(i,1:2)
+        endif
+    enddo
+    deallocate(obj%FEMDomain%Mesh%NodCoord)
+    n=size(buffer,1)
+    m=size(buffer,2)
+    allocate(obj%FEMDomain%Mesh%NodCoord(n,m)  )
+    do i=1,n
+        obj%FEMDomain%Mesh%NodCoord(i,1:2)=buffer(i,1:2)
+    enddo
+
+
+
+
+
 
 end subroutine
 ! #########################################################
@@ -992,15 +1203,15 @@ subroutine ReduceSize(obj,MPIData,interval,Name,auto,curvetol)
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
     character(*),optional,intent(in)    :: Name
-    integer,optional,intent(in) :: interval
+    integer(int32),optional,intent(in) :: interval
     character*200   :: python_buffer
     character*20    :: pid
-    real(8),allocatable:: buffer(:,:)
-    integer,allocatable:: chosen(:),kill(:)
+    real(real64),allocatable:: buffer(:,:)
+    integer(int32),allocatable:: chosen(:),kill(:)
     logical,optional,intent(in) :: auto
-    integer :: i,j,k,n,m,fh,itr,id1,id2,id3,killcount,killcount_b
-    real(8),optional,intent(in) :: curvetol
-    real(8) :: x1(2),x2(2),x3(2),x4(2),dp1,dp2,tol
+    integer(int32) :: i,j,k,n,m,fh,itr,id1,id2,id3,killcount,killcount_b
+    real(real64),optional,intent(in) :: curvetol
+    real(real64) :: x1(2),x2(2),x3(2),x4(2),dp1,dp2,tol
 
     tol=input(default=0.010d0,option=curvetol)
     if(present(auto) )then
@@ -1109,8 +1320,8 @@ subroutine ExportGeoFile(obj,MPIData,Name)
     class(MPI_),intent(inout)          :: MPIData
     character*200   :: python_buffer
     character*20    :: pid
-    integer :: i,j,k,n,fh,xsize
-    real(8) :: x_p,y_p
+    integer(int32) :: i,j,k,n,fh,xsize
+    real(real64) :: x_p,y_p
 
     write(pid,*) MPIData%MyRank
     fh=MPIData%MyRank+10
@@ -1158,7 +1369,7 @@ subroutine ConvertGeo2Msh(obj,MPIData,Name)
     character*200   :: python_buffer
     character*200   :: command
     character*20    :: pid
-    integer :: i,j,k,n,fh
+    integer(int32) :: i,j,k,n,fh
 
     write(pid,*) MPIData%MyRank
 
@@ -1191,7 +1402,7 @@ subroutine ConvertGeo2Inp(obj,MPIData,Name)
     character*200   :: python_buffer
     character*200   :: command
     character*20    :: pid
-    integer :: i,j,k,n,fh
+    integer(int32) :: i,j,k,n,fh
 
     write(pid,*) MPIData%MyRank
 
@@ -1218,12 +1429,12 @@ end subroutine
 subroutine ConvertGeo2Mesh(obj,MPIData,SizePara,Name)
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
-    integer,optional,intent(in) :: SizePara
+    integer(int32),optional,intent(in) :: SizePara
     character(*),optional,intent(in)    :: Name
     character*200   :: python_buffer
     character*200   :: command
     character*20    :: pid,a
-    integer :: i,j,k,n,fh,sp
+    integer(int32) :: i,j,k,n,fh,sp
 
     
 
@@ -1272,10 +1483,10 @@ subroutine ConvertMsh2Scf(obj,MPIData,ElementType,Name)
 	character*6  Nodes
 	character*9  EndNodes,Elements
     character*12  EndElements	
-    integer,allocatable :: elem1(:),surface_nod(:)
-    integer :: i,j,k,n,n1,n2,fh,a,nm,mm,nod_num,nn,elem_num,surf_num
-    integer :: elem_num_all,n3,n4,n5,n6,n7,elemnod_num,startfrom
-    real(8) :: re1,re2
+    integer(int32),allocatable :: elem1(:),surface_nod(:)
+    integer(int32) :: i,j,k,n,n1,n2,fh,a,nm,mm,nod_num,nn,elem_num,surf_num
+    integer(int32) :: elem_num_all,n3,n4,n5,n6,n7,elemnod_num,startfrom
+    real(real64) :: re1,re2
     
 
     ! ======================================================
@@ -1515,10 +1726,10 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
 	character*6  Nodes
 	character*200  EndNodes,Elements
     character*12  EndElements	
-    integer,allocatable :: elem1(:),surface_nod(:),triangle(:,:),devide_line(:,:),buffer(:,:)
-    integer :: i,j,k,n,n1,n2,fh,a,nm,mm,nod_num,nn,elem_num,surf_num,l
-    integer :: elem_num_all,n3,n4,n5,n6,n7,elemnod_num,startfrom,node1,node2,tr1,tr2
-    real(8) :: re1,re2
+    integer(int32),allocatable :: elem1(:),surface_nod(:),triangle(:,:),devide_line(:,:),buffer(:,:)
+    integer(int32) :: i,j,k,n,n1,n2,fh,a,nm,mm,nod_num,nn,elem_num,surf_num,l
+    integer(int32) :: elem_num_all,n3,n4,n5,n6,n7,elemnod_num,startfrom,node1,node2,tr1,tr2
+    real(real64) :: re1,re2
     
 
     print *,  "ConvertMesh2Scf >>>> only for 2D"
@@ -1652,6 +1863,9 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
 
     endif
 
+    print *, "surface information is updated"
+    call obj%FEMDomain%Mesh%GetSurface()
+
     return
 
     
@@ -1707,16 +1921,18 @@ end subroutine
 
 
 ! #########################################################
-subroutine ExportPreProcessing(obj,MPIData,FileName,MeshDimension,Name)
+subroutine ExportPreProcessing(obj,MPIData,FileName,MeshDimension,Name,regacy,with)
     class(PreProcessing_),intent(inout):: obj
+    class(PreProcessing_),optional,intent(inout):: with
     class(MPI_),optional,intent(inout) :: MPIData
     character*200,optional,intent(in)  :: FileName
     character(*),optional,intent(in)   :: Name
-    integer,optional,intent(in) :: MeshDimension
+    integer(int32),optional,intent(in) :: MeshDimension
+    logical,optional,intent(in)::regacy
     character*200   :: python_buffer
     character*200   :: command
     character*20    :: pid
-    integer :: i,j,k,n,fh
+    integer(int32) :: i,j,k,n,fh
 
     fh=11
     if(present(MPIData) )then
@@ -1742,7 +1958,8 @@ subroutine ExportPreProcessing(obj,MPIData,FileName,MeshDimension,Name)
         endif
     endif
 
-    call obj%FEMDomain%Export(OptionalProjectName=python_buffer,FileHandle=fh)
+    call obj%FEMDomain%Export(OptionalProjectName=python_buffer,FileHandle=fh,Name=Name,regacy=regacy&
+    ,with=with%FEMDomain)
     
 end subroutine
 ! #########################################################
@@ -1796,8 +2013,8 @@ subroutine SetUpPreprocessing(obj,DataType,SolverType,NoFacetMode,MatPara)
     character*200,optional,intent(in) :: DataType
     character*200,optional,intent(in) :: SolverType
     logical,optional,intent(in) :: NoFacetMode
-    real(8),allocatable,optional,intent(inout)::MatPara(:,:)
-    real(8),allocatable::MatParaDef(:,:)
+    real(real64),allocatable,optional,intent(inout)::MatPara(:,:)
+    real(real64),allocatable::MatParaDef(:,:)
     character*200 :: sn
 
 
@@ -1823,12 +2040,26 @@ end subroutine
 
 !##################################################
 subroutine SetScalePreProcessing(obj,scalex,scaley,scalez&
-    ,picscalex,picscaley,picscalez)
+    ,picscalex,picscaley,picscalez,xratio,yratio)
     class(PreProcessing_),intent(inout)::obj
-    real(8),optional,intent(in)::scalex,scaley,scalez
-    real(8),optional,intent(in)::picscalex,picscaley,picscalez
-    real(8) :: lx,ly,lz
-    integer :: i
+    real(real64),optional,intent(in)::scalex,scaley,scalez
+    real(real64),optional,intent(in)::picscalex,picscaley,picscalez,xratio,yratio
+    real(real64) :: lx,ly,lz
+    integer(int32) :: i
+
+    if(present(xratio) )then
+        do i=1,size(obj%FEMDomain%Mesh%NodCoord,1)
+            obj%FEMDomain%Mesh%NodCoord(i,1)=xratio*obj%FEMDomain%Mesh%NodCoord(i,1)
+        enddo
+    endif
+    if(present(yratio) )then
+        do i=1,size(obj%FEMDomain%Mesh%NodCoord,1)
+            obj%FEMDomain%Mesh%NodCoord(i,2)=yratio*obj%FEMDomain%Mesh%NodCoord(i,2)
+        enddo
+    endif
+    if(present(yratio) .or. present(xratio))then
+        return
+    endif
 
     if(present(scalex) )then
         if(scalex == 0.0d0)then
@@ -1890,35 +2121,56 @@ subroutine SetBoundaryConditionPrePro(obj,Dirichlet,Neumann,Initial,xmin,xmax,ym
     type(preprocessing_) :: DBC
     class(Dictionary_),optional,intent(in) :: BoundInfo
     class(MPI_),optional,intent(inout) :: MPIData
-    real(8),optional,intent(in)::xmin,xmax
-    real(8),optional,intent(in)::ymin,ymax
-    real(8) :: x_min,x_max
-    real(8) :: y_min,y_max
-    real(8),optional,intent(in)::zmin,zmax
-    real(8),optional,intent(in)::tmin,tmax
+    real(real64),optional,intent(in)::xmin,xmax
+    real(real64),optional,intent(in)::ymin,ymax
+    real(real64) :: x_min,x_max
+    real(real64) :: y_min,y_max
+    real(real64),optional,intent(in)::zmin,zmax
+    real(real64),optional,intent(in)::tmin,tmax
     logical,optional,intent(in)::Dirichlet,Neumann,Initial
-    integer,optional,intent(in)::NumOfValPerNod,val_id
-    real(8),optional,intent(in)::val
-    integer :: i,j,n,k,l
+    integer(int32),optional,intent(in)::NumOfValPerNod,val_id
+    real(real64),optional,intent(in)::val
+    integer(int32) :: i,j,n,k,l
 
     if(present(BoundInfo) )then
+        if(.not.allocated(BoundInfo%Dictionary))then
+            return
+        endif
+
         do i=1,BoundInfo%sizeof()
             ! list of boundary conditions is given as figures
+            print *, "now dbc"
+            if(.not. present(MPIData) )then
+                print *, "ERROR :: setBC :: MPIData should be imported."
+                return
+            endif
+            print *,trim(BoundInfo%content(i) )
+
             call DBC%ImportPictureName( trim(BoundInfo%content(i) ) )
-            call DBC%GetPixcelSize(MPIData)
+            call DBC%GetPixcelSize(MPIData, name="DBC")
             call DBC%SetColor(BoundInfo%IntList(i,1),&
                 BoundInfo%IntList(i,2),BoundInfo%IntList(i,3))
+            
             call DBC%GetPixcelByRGB(MPIData,err=5,onlycoord=.true.)
-            call DBC%GetSurfaceNode(MPIData,box=.true.)
+            
             x_min=minval(DBC%FEMDomain%Mesh%NodCoord(:,1) )
             x_max=maxval(DBC%FEMDomain%Mesh%NodCoord(:,1) )
             y_min=minval(DBC%FEMDomain%Mesh%NodCoord(:,2) )
             y_max=maxval(DBC%FEMDomain%Mesh%NodCoord(:,2) )
 
+            ! debug
+            !print *, minval(obj%FEMDomain%Mesh%NodCoord(:,1)),&
+            !maxval(obj%FEMDomain%Mesh%NodCoord(:,1)),&
+            !minval(obj%FEMDomain%Mesh%NodCoord(:,2)),&
+            !maxval(obj%FEMDomain%Mesh%NodCoord(:,2))
+            n=size(obj%FEMDomain%Mesh%NodCoord,2)
             call obj%setBC(Dirichlet=.true.,xmin=x_min,xmax=x_max,ymin=y_min,ymax=y_max,&
-            val_id=BoundInfo%intvalue(i),val=BoundInfo%realvalue(i),NumOfValPerNod=1 )
-
+            val_id=BoundInfo%intvalue(i),val=BoundInfo%realvalue(i),NumOfValPerNod=n )
+            
+            print *, "boundary condition ID : ",i
+            call DBC%finalize()
         enddo
+        return
     endif
 
     if(present(Dirichlet) )then
@@ -1926,11 +2178,16 @@ subroutine SetBoundaryConditionPrePro(obj,Dirichlet,Neumann,Initial,xmin,xmax,ym
             
             call AddDBoundCondition(obj%FEMDomain,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax&
             ,zmin=zmin,zmax=zmax,tmin=tmin,tmax=tmax,val=val,val_id=val_id,NumOfValPerNod=NumOfValPerNod)
+            print *, "boundary conditions are added."
+            if(.not. allocated(obj%FEMDomain%Boundary%DBoundNum) )then
+                n=size(obj%FEMDomain%Boundary%DBoundNodID,2)
+                allocate(obj%FEMDomain%Boundary%DBoundNum(n) )
+                print *, "caution .not. allocated(obj%FEMDomain%Boundary%DBoundNum "
+            endif
             do i=1,size(obj%FEMDomain%Boundary%DBoundNum)
                 k=countif(Array=obj%FEMDomain%Boundary%DBoundNodID(:,i),Value=-1,notEqual=.true.)
                 obj%FEMDomain%Boundary%DBoundNum(i)=k
             enddo
-            return
 
         endif
     endif    
@@ -1965,9 +2222,9 @@ subroutine SetSizeOfBCPrePrecessing(obj,Dirichlet,Neumann,Initial,NumOfValue)
     class(PreProcessing_),intent(inout)::obj
     
     logical,optional,intent(in)::Dirichlet,Neumann,Initial
-    integer,optional,intent(in)::NumOfValue
+    integer(int32),optional,intent(in)::NumOfValue
     logical :: DB,NB,IC
-    integer :: coord_dim
+    integer(int32) :: coord_dim
 
     if(.not. present(Dirichlet) )then
         DB = .false.
@@ -2009,7 +2266,7 @@ subroutine ShowBCPrePrecessing(obj,Dirichlet,Neumann,Initial)
     
     logical,optional,intent(in)::Dirichlet,Neumann,Initial
 
-    integer :: n,m1,m2,i
+    integer(int32) :: n,m1,m2,i
 
     if(Dirichlet .eqv. .true.)then
         n=size(obj%FEMDomain%Boundary%DBoundNum)
@@ -2036,8 +2293,8 @@ end subroutine
 !##################################################
 subroutine Convert3Dto2D(obj)
     class(PreProcessing_),intent(inout)::obj
-    real(8),allocatable::buffer(:,:)
-    integer :: i,n,m
+    real(real64),allocatable::buffer(:,:)
+    integer(int32) :: i,n,m
 
     n=size(obj%FEMDomain%Mesh%NodCoord,1)
     m=size(obj%FEMDomain%Mesh%NodCoord,2)
@@ -2058,11 +2315,11 @@ end subroutine
 !##################################################
 subroutine Convert2Dto3D(obj,Thickness,division)
     class(PreProcessing_),intent(inout)::obj
-    real(8),allocatable::buffer(:,:)
-    real(8),optional,intent(in)::Thickness
-    integer,optional,intent(in)::division
-    real(8) :: Tn
-    integer :: i,j,n,m,NumOfLayer,numnod
+    real(real64),allocatable::buffer(:,:)
+    real(real64),optional,intent(in)::Thickness
+    integer(int32),optional,intent(in)::division
+    real(real64) :: Tn
+    integer(int32) :: i,j,n,m,NumOfLayer,numnod
 
 
     ! only for linear elements
@@ -2158,19 +2415,52 @@ end subroutine
 !##################################################
 subroutine SetControlParaPrePro(obj,OptionalTol,OptionalItrTol,OptionalTimestep,OptionalSimMode)
     class(PreProcessing_),intent(inout)::obj
-    real(8),optional,intent(in)::OptionalTol
-    integer,optional,intent(in)::OptionalSimMode,OptionalItrTol,OptionalTimestep
+    real(real64),optional,intent(in)::OptionalTol
+    integer(int32),optional,intent(in)::OptionalSimMode,OptionalItrTol,OptionalTimestep
     
     call SetControlPara(obj%FEMDomain%ControlPara,OptionalTol,OptionalItrTol,OptionalTimestep,OptionalSimMode)
 end subroutine
 !##################################################
 
 !##################################################
-subroutine SetMatParaPreProcessing(obj,MaterialID,ParameterID,Val)
+subroutine SetMatParaPreProcessing(obj,MaterialID,ParameterID,Val,materialist,simple)
     class(PreProcessing_),intent(inout)::obj
-    integer,intent(in)::MaterialID,ParameterID
-    real(8),intent(in)::Val
-    integer ::i,n,m,p(2),mm
+    class(Dictionary_),optional,intent(inout) :: materialist
+    integer(int32),optional,intent(in)::MaterialID,ParameterID
+    real(real64),optional,intent(in)::Val
+    logical,optional,intent(in) :: simple
+    integer(int32) ::i,n,m,p(2),mm
+
+    if(present(materialist) )then
+        ! import material information from list
+        print *, "total ",materialist%sizeof()," materials are imported."
+        n=materialist%sizeof()
+        m=size(materialist%Dictionary(1)%Realist)
+        if(allocated(obj%FEMDomain%MaterialProp%MatPara) )then
+            deallocate(obj%FEMDomain%MaterialProp%MatPara)
+        endif
+        allocate(obj%FEMDomain%MaterialProp%MatPara(n,m) )
+        do i=1,materialist%sizeof()
+            obj%FEMDomain%MaterialProp%MatPara(i,:)=materialist%Dictionary(i)%Realist(:)
+        enddo
+    endif
+
+    if(present(simple) )then
+        if(simple .eqv. .true.)then
+            if(.not.allocated(obj%FEMDomain%Mesh%ElemMat) )then
+                n=size(obj%FEMDomain%Mesh%ElemNod,1)
+                allocate(obj%FEMDomain%Mesh%ElemMat(n) )
+            else
+                deallocate(obj%FEMDomain%Mesh%ElemMat)
+                n=size(obj%FEMDomain%Mesh%ElemNod,1)
+                allocate(obj%FEMDomain%Mesh%ElemMat(n) )
+            endif
+            obj%FEMDomain%Mesh%ElemMat(:)=input(default=1,option=MaterialID)
+        endif
+        return
+    endif
+
+
 
     if(.not.allocated(obj%FEMDomain%MaterialProp%MatPara) )then
         allocate(obj%FEMDomain%MaterialProp%MatPara(MaterialID,ParameterID) )
@@ -2254,12 +2544,12 @@ end subroutine
 subroutine SetMatIDPreProcessing(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     tmin,tmax,MaterialID)
     class(PreProcessing_),intent(inout)::obj
-    real(8),optional,intent(in)::xmin,xmax
-    real(8),optional,intent(in)::ymin,ymax
-    real(8),optional,intent(in)::zmin,zmax
-    real(8),optional,intent(in)::tmin,tmax
-    integer,optional,intent(in)::MaterialID
-    integer :: i,j,n
+    real(real64),optional,intent(in)::xmin,xmax
+    real(real64),optional,intent(in)::ymin,ymax
+    real(real64),optional,intent(in)::zmin,zmax
+    real(real64),optional,intent(in)::tmin,tmax
+    integer(int32),optional,intent(in)::MaterialID
+    integer(int32) :: i,j,n
 
     ! Now implementing
     call AddMaterialID(obj%FEMDomain,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax&
@@ -2286,8 +2576,8 @@ subroutine setEntityPreProcessing(obj,Circle,Rectangle,Plane,Cylinder,Box,&
     Radius,XSize,YSize,ZSize,Xloc,Yloc,Zloc)
     class(PreProcessing_),intent(inout)::obj
     logical,optional,intent(in) :: Circle,Rectangle,Plane,Cylinder,Box
-    real(8),optional,intent(in) :: Radius,XSize,YSize,ZSize,Xloc,Yloc,Zloc
-    integer :: i
+    real(real64),optional,intent(in) :: Radius,XSize,YSize,ZSize,Xloc,Yloc,Zloc
+    integer(int32) :: i
 
 
     if( present(Circle) )then
@@ -2428,13 +2718,13 @@ end subroutine
 subroutine BooleanModifyerPreProcessing(obj,ModObj,XDiv,Ydic,Zdiv)
     class(PreProcessing_),intent(inout)::obj
     class(PreProcessing_),intent(inout)::ModObj
-    integer,optional,intent(in) :: XDiv,Ydic,Zdiv
-    real(8) :: ground_level
-    real(8),allocatable::RSInterface(:,:),xmin,xmax,ymin,ymax,NodCoord(:,:)
-    integer :: ground_surface_id,n,m,itr,k,i,j,buf(2)
-    integer :: NodeNum,DimNum,ElemNum,ElemNodNum,startnode,endnode,newnodenum
-    integer,allocatable::RSIElemID(:),RSINodeID(:),RSIElemNod(:,:),AvailFE(:)
-    integer,allocatable::OldNodID(:),OldtoNewNodID(:),countnode(:,:)
+    integer(int32),optional,intent(in) :: XDiv,Ydic,Zdiv
+    real(real64) :: ground_level
+    real(real64),allocatable::RSInterface(:,:),xmin,xmax,ymin,ymax,NodCoord(:,:)
+    integer(int32) :: ground_surface_id,n,m,itr,k,i,j,buf(2)
+    integer(int32) :: NodeNum,DimNum,ElemNum,ElemNodNum,startnode,endnode,newnodenum
+    integer(int32),allocatable::RSIElemID(:),RSINodeID(:),RSIElemNod(:,:),AvailFE(:)
+    integer(int32),allocatable::OldNodID(:),OldtoNewNodID(:),countnode(:,:)
 
     ! ###### This is for 4-node elements or 8-node box element
     if(.not.allocated(obj%FEMDomain%Mesh%NodCoord) )then
@@ -2769,10 +3059,10 @@ end subroutine
 subroutine showMeshPreProcessing(obj,Step,Name,withNeumannBC,withDirichletBC)
     class(PreProcessing_),intent(inout)::obj
     character(*),optional,intent(in):: Name
-    integer,optional,intent(in):: Step
+    integer(int32),optional,intent(in):: Step
 	logical,optional,intent(in)::withNeumannBC,withDirichletBC
 
-    integer :: stp
+    integer(int32) :: stp
 
 
     if(present(Step) )then
@@ -2798,11 +3088,11 @@ end subroutine
 !##################################################
 subroutine importPixcelAsNodePreProcessing(obj,interval)
     class(PreProcessing_),intent(inout)::Obj
-    integer,optional,intent(in):: interval
-    integer ::i,j, n,k,l,m
-    real(8),allocatable :: random(:)
-    real(8),allocatable :: NewNodCoord(:,:)
-    !integer :: fh1,fh2,xsize,ysize,final_size,interval_,i,j,k,xpixcel,ypixcel
+    integer(int32),optional,intent(in):: interval
+    integer(int32) ::i,j, n,k,l,m
+    real(real64),allocatable :: random(:)
+    real(real64),allocatable :: NewNodCoord(:,:)
+    !integer(int32) :: fh1,fh2,xsize,ysize,final_size,interval_,i,j,k,xpixcel,ypixcel
 
     m=size(obj%FEMDomain%Mesh%NodCoord,1)
     n=input(default=1,option=interval)
@@ -2863,7 +3153,7 @@ end subroutine
 subroutine removeBoundaryConditionPrePro(obj,Dirichlet,Neumann,Initial)
     class(PreProcessing_),intent(inout)::obj
     logical,optional,intent(in)::Dirichlet,Neumann,Initial
-    integer :: i,j,n
+    integer(int32) :: i,j,n
 
 
     if(present(Dirichlet) )then
@@ -2901,7 +3191,7 @@ end subroutine
 subroutine importPreProcessing(obj,Name,FileHandle)
     class(PreProcessing_),intent(inout)::obj
     character(*),intent(in)::Name
-    integer,optional,intent(in)::FileHandle
+    integer(int32),optional,intent(in)::FileHandle
 
     call obj%FEMDomain%import(OptionalProjectName=Name,FileHandle=FileHandle)
 
@@ -2914,12 +3204,12 @@ subroutine modifySuefaceNodePrepro(obj,Mesh,boolean)
     class(PreProcessing_),intent(inout) :: obj
     class(Mesh_),intent(inout) :: Mesh
     character(*),intent(in) :: boolean
-    real(8),allocatable :: surfacenod_m(:,:), surfacenod(:,:),buffer(:,:),surf_nod_buffer(:,:)
-    integer :: i,j,n,itr,cross1,cross2,cross3,cross4,end1,end2,cases
-    integer,allocatable :: in_out(:), in_out_m(:)
-    integer :: s(4),s_m(4),non
-    real(8) :: xmax,ymax,xmin,ymin,x_tr,y_tr,direct,direct_m
-    real(8) :: xmax_m,ymax_m,xmin_m,ymin_m,end1_m,end2_m,xe1,xe2,ye1,ye2
+    real(real64),allocatable :: surfacenod_m(:,:), surfacenod(:,:),buffer(:,:),surf_nod_buffer(:,:)
+    integer(int32) :: i,j,n,itr,cross1,cross2,cross3,cross4,end1,end2,cases
+    integer(int32),allocatable :: in_out(:), in_out_m(:)
+    integer(int32) :: s(4),s_m(4),non
+    real(real64) :: xmax,ymax,xmin,ymin,x_tr,y_tr,direct,direct_m
+    real(real64) :: xmax_m,ymax_m,xmin_m,ymin_m,end1_m,end2_m,xe1,xe2,ye1,ye2
 
     if(boolean == "diff" .or.boolean == "Diff"  )then
         cross1=0

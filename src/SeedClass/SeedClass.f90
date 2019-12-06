@@ -1,4 +1,5 @@
 module SeedClass
+    use, intrinsic :: iso_fortran_env
     use MathClass
     use RandomClass
     use LsystemClass
@@ -8,13 +9,13 @@ module SeedClass
 
     type :: Seed_
         type(FEMDomain_) :: FEMDomain
-        integer :: num_of_seed ! num of seed
-        real(8) :: mass ! seed mass g/cm^3
-        real(8) :: water_content ! seed water_content %
-        real(8) :: radius ! seed radius (cm)
-        real(8) :: width1,width2,width3 
-        real(8) :: width1_origin,width2_origin,width3_origin 
-        real(8) :: location(3) ! seed location (x,y,z)
+        integer(int32) :: num_of_seed ! num of seed
+        real(real64) :: mass ! seed mass g/cm^3
+        real(real64) :: water_content ! seed water_content %
+        real(real64) :: radius ! seed radius (cm)
+        real(real64) :: width1,width2,width3 
+        real(real64) :: width1_origin,width2_origin,width3_origin 
+        real(real64) :: location(3) ! seed location (x,y,z)
     contains
         procedure :: init => initSeed 
         procedure :: import => importSeed
@@ -28,9 +29,9 @@ contains
 !########################################################
 subroutine initSeed(obj,mass,water_content,radius,location,x,y,z,width1,width2,width3)
     class(Seed_),intent(inout) :: obj
-    real(8),optional,intent(in) :: mass,water_content,radius,location(3),x,y,z
-    real(8),optional,intent(in) :: width1,width2,width3
-    real(8) :: loc(3)
+    real(real64),optional,intent(in) :: mass,water_content,radius,location(3),x,y,z
+    real(real64),optional,intent(in) :: width1,width2,width3
+    real(real64) :: loc(3)
     loc(:)=0.0d0
     if(present(location) )then
         loc(:) = location(:)
@@ -77,8 +78,8 @@ subroutine createMeshSeed(obj,FileName,withSTL,ObjType,ElemType)
     character*200   :: meshFileName,meshFileName_m
     character*200   :: command
     character*200   :: strings
-    integer :: intval
-    real(8) :: x_rate,y_rate,z_rate
+    integer(int32) :: intval
+    real(real64) :: x_rate,y_rate,z_rate
     logical,optional,intent(in) :: withSTL
 
     
@@ -112,7 +113,7 @@ subroutine exportSeed(obj,FileName,SeedID,extention)
     character(*),intent(in) :: FileName
     character(*),optional,intent(in) ::extention
     character(10) :: ex_format 
-    integer,optional,intent(in) :: SeedID
+    integer(int32),optional,intent(in) :: SeedID
 
 
     if(.not.present(extention) )then

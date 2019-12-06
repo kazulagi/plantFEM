@@ -1,12 +1,19 @@
 program main
-    use mpi
+    use SiCroF
 
-    implicit none
+    type(Random_) :: random
+    type(FEMDomain_) :: femdomain
+    integer(int32) :: i
+    
+    call random%init()
+    allocate(femdomain%Mesh%nodCoord(100,3) )
+    do i=1,100
+        femdomain%Mesh%nodCoord(i,1) = random%random()
+        femdomain%Mesh%nodCoord(i,2) = random%random()
+        femdomain%Mesh%nodCoord(i,3) = random%random()
+    enddo
 
-    integer :: i,j,n
-    call mpi_init(i)
-    call mpi_comm_size(mpi_comm_world,j ,i)
-    call mpi_comm_rank(mpi_comm_world,n,i)
-    print *, "j", j,n
 
-end program 
+    call showarray(Mat=femdomain%Mesh%nodCoord,Name="test.txt")
+    
+end program

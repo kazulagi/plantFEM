@@ -1,11 +1,11 @@
-! updated 2019/1/19
 module MaterialPropClass
+    use, intrinsic :: iso_fortran_env
     implicit none
 
     type :: MaterialProp_
-        real(8),allocatable::MatPara(:,:)
-        integer :: NumOfMatPara
-        integer :: NumOfMaterial    
+        real(real64),allocatable::MatPara(:,:)
+        integer(int32) :: NumOfMatPara
+        integer(int32) :: NumOfMaterial    
         
         character*40 :: MaterialType
 
@@ -36,7 +36,7 @@ end subroutine DeallocateMaterialProp
 !##################################################
 subroutine initializeMaterial(obj,MaterialParameters)
     class(MaterialProp_),intent(inout)::obj
-    real(8),allocatable,optional,intent(inout) :: MaterialParameters(:,:)
+    real(real64),allocatable,optional,intent(inout) :: MaterialParameters(:,:)
     if(.not.allocated(obj%MatPara))then
         obj%ErrorMsg="ERROR :: MaterialPropClass%Initialize >>.not.allocated(MatPara)"
         print *,"ERROR :: MaterialPropClass%Initialize >>.not.allocated(MatPara)"
@@ -70,7 +70,7 @@ end subroutine initializeMaterial
 !##################################################
 subroutine ImportMatPara(obj,mat_para)
     class(MaterialProp_),intent(inout)::obj
-    real(8),intent(in)::mat_para(:,:)
+    real(real64),intent(in)::mat_para(:,:)
     
     include "./ImportMatPara.f90"
 

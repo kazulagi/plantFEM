@@ -1,4 +1,5 @@
 module ContactMechanicsClass
+    use, intrinsic :: iso_fortran_env
 	use MathClass
 	use MPIClass
     use FEMIfaceClass
@@ -13,25 +14,25 @@ module ContactMechanicsClass
 		type(FEMDomain_),pointer::FEMDomain2
 
 		! common fields
-		real(8),allocatable		:: NTSGap(:,:)
-		real(8),allocatable		:: NTSGzi(:,:)
-		real(8)				:: penaltypara
+		real(real64),allocatable		:: NTSGap(:,:)
+		real(real64),allocatable		:: NTSGzi(:,:)
+		real(real64)				:: penaltypara
 
 		! for weak coupling contact analysis
-		real(8),allocatable    :: Domain1Force(:,:)
-		real(8),allocatable    :: Domain2Force(:,:)
+		real(real64),allocatable    :: Domain1Force(:,:)
+		real(real64),allocatable    :: Domain2Force(:,:)
 
 
 		! for strong coupling contact analysys
-        real(8),allocatable    ::KcontactEBE(:,:,:)
-        real(8),allocatable    ::KcontactGlo(:,:)
-        real(8),allocatable    ::FcontactEBE(:,:)
-        real(8),allocatable    ::FcontactGlo(:)
-        real(8),allocatable    ::DispVecEBE(:,:)
-        real(8),allocatable    ::DispVecGlo(:)
-        real(8),allocatable    ::NTSvariables(:,:)
-        real(8),allocatable    ::ContactMatPara(:,:)
-        real(8),allocatable    ::GloNodCoord(:,:)
+        real(real64),allocatable    ::KcontactEBE(:,:,:)
+        real(real64),allocatable    ::KcontactGlo(:,:)
+        real(real64),allocatable    ::FcontactEBE(:,:)
+        real(real64),allocatable    ::FcontactGlo(:)
+        real(real64),allocatable    ::DispVecEBE(:,:)
+        real(real64),allocatable    ::DispVecGlo(:)
+        real(real64),allocatable    ::NTSvariables(:,:)
+        real(real64),allocatable    ::ContactMatPara(:,:)
+        real(real64),allocatable    ::GloNodCoord(:,:)
         integer,allocatable    ::NTSMaterial(:)
 		integer,allocatable    ::StickOrSlip(:)
 		integer :: step
@@ -221,8 +222,8 @@ end subroutine
 subroutine GetActiveNTS(obj)
     class(ContactMechanics_),intent(inout)::obj
 	type(MPI_)::mpidata
-    real(8) :: gap
-    real(8),allocatable :: xs(:),xm(:,:)
+    real(real64) :: gap
+    real(real64),allocatable :: xs(:),xm(:,:)
 	integer i,j,n,dim_num,mnod_num
 	
 
@@ -264,10 +265,10 @@ end subroutine
 
 ! #####################################################
 subroutine GetNormalGap(xs,xm,gap)
-    real(8),intent(in)::xs(:),xm(:,:)
-    real(8),intent(out)::gap
+    real(real64),intent(in)::xs(:),xm(:,:)
+    real(real64),intent(out)::gap
 
-    real(8),allocatable :: nm(:),am1(:),am2(:),mid(:),gvec(:)
+    real(real64),allocatable :: nm(:),am1(:),am2(:),mid(:),gvec(:)
     integer :: i,j,n,dim_num,ierr
 
     dim_num = size(xs)
@@ -331,8 +332,8 @@ subroutine getKcmatStick(obj)
     class(ContactMechanics_),intent(inout)  :: obj
 
 
-	real(8),allocatable ::nts_amo(:,:),k_contact(:,:),fvec_contact(:)
-	real(8),allocatable :: old_nod_coord(:,:),uvec(:),contact_mat_para(:,:)
+	real(real64),allocatable ::nts_amo(:,:),k_contact(:,:),fvec_contact(:)
+	real(real64),allocatable :: old_nod_coord(:,:),uvec(:),contact_mat_para(:,:)
     integer             :: elem_id,nod_max
     integer,allocatable :: nts_elem_nod(:,:),active_nts(:),nts_mat(:)
     integer,allocatable :: stick_slip(:)
@@ -374,7 +375,7 @@ end subroutine
  subroutine state_stick(j,nod_max,old_nod_coord,nts_elem_nod,active_nts&
      ,nts_amo, k_contact,nts_mat,contact_mat_para,uvec,fvec_contact,stick_slip)
       !現在のnts_elementについて、すべてstick状態としてk_contactの計算
-    real(8), allocatable ::x2s(:),x11(:),x12(:),evec(:),avec(:),nvec(:)&
+    real(real64), allocatable ::x2s(:),x11(:),x12(:),evec(:),avec(:),nvec(:)&
 	,k_st(:,:),ns(:),n0s(:),ts(:),ts_st(:),t0s(:),ngz0(:),fvec_e(:),nod_coord(:,:),&
 	nvec_(:),tvec_(:),x1(:),x2(:),x3(:),x4(:),x5(:),x6(:),tvec(:),mvec(:),yi(:),Dns(:,:),&
 	ym(:),ys(:),nvec__(:),ovec(:),mvec_(:),mvec__(:),Dns_1(:),Dns_2(:),Dns_3(:),domega_mat(:),&
@@ -384,12 +385,12 @@ end subroutine
 	ye(:),yj(:),yk(:),c_nod_coord(:,:)
 	
 
-	real(8) ,intent(inout)::nts_amo(:,:),k_contact(:,:),fvec_contact(:)
-	real(8), intent(in) :: old_nod_coord(:,:),uvec(:),contact_mat_para(:,:)
+	real(real64) ,intent(inout)::nts_amo(:,:),k_contact(:,:),fvec_contact(:)
+	real(real64), intent(in) :: old_nod_coord(:,:),uvec(:),contact_mat_para(:,:)
     integer, intent(in) :: j, nod_max,nts_elem_nod(:,:),active_nts(:),nts_mat(:)
 	integer, intent(inout) :: stick_slip(:)
-    real(8) c,phy,en,ct,gns,gz,l,pn,tts,gt,gz0,alpha,omega,gns_,gz_,sjk,delta
-	real(8) gzi_hat,delta_hat,ganma_,kappa,S0,ganma,gzi_,ganma_hat,lamda_,T0,dfdtn,HH,sel
+    real(real64) c,phy,en,ct,gns,gz,l,pn,tts,gt,gz0,alpha,omega,gns_,gz_,sjk,delta
+	real(real64) gzi_hat,delta_hat,ganma_,kappa,S0,ganma,gzi_,ganma_hat,lamda_,T0,dfdtn,HH,sel
 	integer i, ii , k,beta,i_1,ii_1,node_ID
 	 
 	 ! 0 duvecの格納,ξ,ｇN等諸量の格納
@@ -1136,8 +1137,8 @@ end subroutine
  !check for contact: gn<0 → active NTS-element----------------
  
  subroutine check_active(uvec,duvec,old_nod_coord,active_nts,nts_elem_nod)
-    real(8),intent(in)::uvec(:),duvec(:),old_nod_coord(:,:)
-	real(8),allocatable::nod_coord(:,:)
+    real(real64),intent(in)::uvec(:),duvec(:),old_nod_coord(:,:)
+	real(real64),allocatable::nod_coord(:,:)
 	integer,allocatable,intent(inout)::active_nts(:)
 	integer,intent(in)::nts_elem_nod(:,:)
 	integer,allocatable ::check_active_nts(:)
@@ -1184,11 +1185,11 @@ end subroutine
 !check gn
 !-------------------
  subroutine check_gn(j,nts_elem_nod,check_active_nts,nod_coord)
-	 real(8), allocatable ::x2s(:),x11(:),x12(:),avec(:),nvec(:),evec(:),yL(:),tvec_(:),nvec_(:)
+	 real(real64), allocatable ::x2s(:),x11(:),x12(:),avec(:),nvec(:),evec(:),yL(:),tvec_(:),nvec_(:)
 	
-	real(8), intent(in) :: nod_coord(:,:)
+	real(real64), intent(in) :: nod_coord(:,:)
     integer, intent(in) :: j, nts_elem_nod(:,:)
-    real(8) gz,l,gns,alpha,sel,delta
+    real(real64) gz,l,gns,alpha,sel,delta
 	integer i,beta
 	integer:: check_active_nts(:)
 	delta=1.0e-5
@@ -1295,7 +1296,7 @@ end subroutine
 !-------------------
  subroutine update_friction(j,nod_max,nod_coord,nts_elem_nod,active_nts,surface_nod,sur_nod_inf&
               ,nts_amo, k_contact,uvec,duvec,fvec_contact,stick_slip,contact_mat_para,nts_mat,itr_contact)
-	 real(8), allocatable ::x2s(:), dgt(:),tt_tr(:),gslt(:),&
+	 real(real64), allocatable ::x2s(:), dgt(:),tt_tr(:),gslt(:),&
 	n_t(:),K_st(:,:),ns(:),n0s(:),ts(:),t0s(:),ngz0(:), &
 	x11(:),x12(:),evec(:),gt(:),avec(:),&
 	nvec(:),k_sl(:,:),n_tr(:),ts_st(:),ts_sl(:),fvec_e(:),&
@@ -1303,13 +1304,13 @@ end subroutine
 	x1_0(:),x2_0(:),x3_0(:),x4_0(:),x5_0(:),x6_0(:),c_nod_coord(:,:),&
 	tvec_(:),nvec_(:),xe(:), xL(:),xs_1(:),xs_2(:),xs_0(:)
 
-	real(8), intent(inout) ::nts_amo(:,:),k_contact(:,:),fvec_contact(:)
-	real(8), intent(in) :: nod_coord(:,:),uvec(:),duvec(:),contact_mat_para(:,:)
+	real(real64), intent(inout) ::nts_amo(:,:),k_contact(:,:),fvec_contact(:)
+	real(real64), intent(in) :: nod_coord(:,:),uvec(:),duvec(:),contact_mat_para(:,:)
     integer, intent(in) :: j, nod_max,nts_elem_nod(:,:),active_nts(:),nts_mat(:),itr_contact
 	integer, intent(in) :: surface_nod(:),sur_nod_inf(:,:)
 	integer, intent(inout) ::stick_slip(:)
-    real(8) c,phy,en,ct,f_tr,Lamda,gns,gz0,gz,l,pn,f_tr0,x,tts,tol_rmm,signm,beta_0,alpha,sel,gz0_,gz_,c_num,delta
-	real(8) l_s1,l_s2,ls_ave
+    real(real64) c,phy,en,ct,f_tr,Lamda,gns,gz0,gz,l,pn,f_tr0,x,tts,tol_rmm,signm,beta_0,alpha,sel,gz0_,gz_,c_num,delta
+	real(real64) l_s1,l_s2,ls_ave
 	integer i, ii ,k,ss,itr_rm,z,gzn,node_ID,beta,shift,old_slave,slave1,slave2
 	 
 	 ! 0 duvecの格納,ξ,ｇN等諸量の格納
@@ -1669,7 +1670,7 @@ end subroutine
 
 
 
-	real(8), allocatable ::x2s(:),x11(:),x12(:),evec(:),avec(:),nvec(:)&
+	real(real64), allocatable ::x2s(:),x11(:),x12(:),evec(:),avec(:),nvec(:)&
 	,k_st(:,:),ns(:),n0s(:),ts(:),ts_st(:),t0s(:),ngz0(:),fvec_e(:),nod_coord(:,:),&
 	nvec_(:),tvec_(:),x1(:),x2(:),x3(:),x4(:),x5(:),x6(:),tvec(:),mvec(:),yi(:),Dns(:,:),&
 	ym(:),ys(:),nvec__(:),ovec(:),mvec_(:),mvec__(:),Dns_1(:),Dns_2(:),Dns_3(:),domega_mat(:),&
@@ -1679,12 +1680,12 @@ end subroutine
 	ye(:),yj(:),yk(:),c_nod_coord(:,:)
 	
 
-	real(8) ,intent(inout)::nts_amo(:,:),k_contact(:,:),fvec_contact(:)
-	real(8), intent(in) :: old_nod_coord(:,:),uvec(:),contact_mat_para(:,:),duvec(:)
+	real(real64) ,intent(inout)::nts_amo(:,:),k_contact(:,:),fvec_contact(:)
+	real(real64), intent(in) :: old_nod_coord(:,:),uvec(:),contact_mat_para(:,:),duvec(:)
     integer, intent(in) :: j, nod_max,nts_elem_nod(:,:),active_nts(:),nts_mat(:)
 	integer, intent(inout) :: stick_slip(:)
-    real(8) c,phy,en,ct,gns,gz,l,pn,tts,gt,gz0,alpha,omega,gns_,gz_,sjk,delta
-	real(8) gzi_hat,delta_hat,ganma_,kappa,S0,ganma,gzi_,ganma_hat,lamda_,T0,dfdtn,HH,sel
+    real(real64) c,phy,en,ct,gns,gz,l,pn,tts,gt,gz0,alpha,omega,gns_,gz_,sjk,delta
+	real(real64) gzi_hat,delta_hat,ganma_,kappa,S0,ganma,gzi_,ganma_hat,lamda_,T0,dfdtn,HH,sel
 	integer i, ii , k,beta,i_1,ii_1,node_ID
 	 
 	 ! 0 duvecの格納,ξ,ｇN等諸量の格納
@@ -2449,7 +2450,7 @@ end subroutine
  subroutine update_res_grad_c(j,nod_max,old_nod_coord,nts_elem_nod,active_nts&
               ,nts_amo, k_contact,uvec,duvec,fvec_contact,stick_slip,contact_mat_para,nts_mat)
 			  
-	real(8), allocatable ::x2s(:),x11(:),x12(:),evec(:),avec(:),nvec(:)&
+	real(real64), allocatable ::x2s(:),x11(:),x12(:),evec(:),avec(:),nvec(:)&
 	,k_st(:,:),ns(:),n0s(:),ts(:),ts_st(:),t0s(:),ngz0(:),fvec_e(:),nod_coord(:,:),&
 	nvec_(:),tvec_(:),x1(:),x2(:),x3(:),x4(:),x5(:),x6(:),tvec(:),mvec(:),yi(:),Dns(:,:),&
 	ym(:),ys(:),nvec__(:),ovec(:),mvec_(:),mvec__(:),Dns_1(:),Dns_2(:),Dns_3(:),domega_mat(:),&
@@ -2459,12 +2460,12 @@ end subroutine
 	ye(:),yj(:),yk(:),c_nod_coord(:,:)
 	
 
-	real(8) ,intent(inout)::nts_amo(:,:),k_contact(:,:),fvec_contact(:)
-	real(8), intent(in) :: old_nod_coord(:,:),uvec(:),contact_mat_para(:,:),duvec(:)
+	real(real64) ,intent(inout)::nts_amo(:,:),k_contact(:,:),fvec_contact(:)
+	real(real64), intent(in) :: old_nod_coord(:,:),uvec(:),contact_mat_para(:,:),duvec(:)
     integer, intent(in) :: j, nod_max,nts_elem_nod(:,:),active_nts(:),nts_mat(:)
 	integer, intent(inout) :: stick_slip(:)
-    real(8) c,phy,en,ct,gns,gz,l,pn,tts,gt,gz0,alpha,omega,gns_,gz_,sjk,delta
-	real(8) gzi_hat,delta_hat,ganma_,kappa,S0,ganma,gzi_,ganma_hat,lamda_,T0,dfdtn,HH,sel
+    real(real64) c,phy,en,ct,gns,gz,l,pn,tts,gt,gz0,alpha,omega,gns_,gz_,sjk,delta
+	real(real64) gzi_hat,delta_hat,ganma_,kappa,S0,ganma,gzi_,ganma_hat,lamda_,T0,dfdtn,HH,sel
 	integer i, ii , k,beta,i_1,ii_1,node_ID
 	 
 	 ! 0 duvecの格納,ξ,ｇN等諸量の格納
@@ -3218,7 +3219,7 @@ end subroutine
 
  subroutine disp_rvec(u_nod_x,u_nod_y,rvec)
        integer, intent(in) :: u_nod_x(:),u_nod_y(:)
-	   real(8), intent(inout) :: rvec(:)
+	   real(real64), intent(inout) :: rvec(:)
 	   integer i
 	   
 	   !x方向変位を設定した残差ベクトル成分を0.0d0
@@ -3237,9 +3238,9 @@ end subroutine
 	integer,intent(in)::nts_ID,nts_elem_nod(:,:)
 	integer,intent(out)::beta
 	integer i,j,n
-	real(8),intent(in)::nod_coord(:,:)
-	real(8),allocatable::tvec_0(:),x1(:),x2(:),x3(:),a(:)
-	real(8) direction
+	real(real64),intent(in)::nod_coord(:,:)
+	real(real64),allocatable::tvec_0(:),x1(:),x2(:),x3(:),a(:)
+	real(real64) direction
 
 	n=size(nod_coord,2)
 	
@@ -3278,14 +3279,14 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
   nts_elem_nod_es(:,:),master_nod(:),master_nod_es(:),slave_nod(:),&
   slave_nod_es(:)
   
-  real(8),intent(in)::old_nod_coord(:,:),uvec(:)
-  real(8), allocatable ::con_d_coord(:,:),grobal_grid(:,:),grobal_grid_es(:,:),nod_coord(:,:),zerovec(:)
+  real(real64),intent(in)::old_nod_coord(:,:),uvec(:)
+  real(real64), allocatable ::con_d_coord(:,:),grobal_grid(:,:),grobal_grid_es(:,:),nod_coord(:,:),zerovec(:)
   
   integer grobal_grid_max,m,s,m_nod,s_nod,&	
   sla_nod_max,i,j,k,l,o,p,q,nei_nod,nei_nod_1,nei_nod_2,&	
   nn,nts_elem_max,x2,x11,x12
   
-  real(8) gn,gn_tr,tol,tol_rm,ll,lx,ly,x,y,z,norm_rvec,norm_uvec,start,fin_time,nts_time,gzi
+  real(real64) gn,gn_tr,tol,tol_rm,ll,lx,ly,x,y,z,norm_rvec,norm_uvec,start,fin_time,nts_time,gzi
   
   
   allocate(nod_coord(size(old_nod_coord,1),size(old_nod_coord,2)),&
@@ -3797,9 +3798,9 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 !=====================================================================
  subroutine save_nts_element(nts_elem_nod,nts_amo,old_nts_elem_nod,old_nts_amo,surface_nod,sur_nod_inf,&
 	stick_slip,old_stick_slip)
-	real(8),intent(in)::nts_amo(:,:)
-	real(8),allocatable,intent(inout)::old_nts_amo(:,:)
-	real(8) gzin
+	real(real64),intent(in)::nts_amo(:,:)
+	real(real64),allocatable,intent(inout)::old_nts_amo(:,:)
+	real(real64) gzin
 	integer,intent(in)::nts_elem_nod(:,:),surface_nod(:),sur_nod_inf(:,:),stick_slip(:)
 	integer,allocatable,intent(inout)::old_nts_elem_nod(:,:),old_stick_slip(:)
 	integer i,j,n,m1,m2,m3,shift,slave_node,old_master,master1,master2
@@ -3941,8 +3942,8 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
  end subroutine get_next_segment
 !=====================================================================
  subroutine load_nts_element(nts_elem_nod,nts_amo,old_nts_elem_nod,old_nts_amo,stick_slip,old_stick_slip)
-	real(8),intent(inout)::nts_amo(:,:)
-	real(8),intent(in)::old_nts_amo(:,:)
+	real(real64),intent(inout)::nts_amo(:,:)
+	real(real64),intent(in)::old_nts_amo(:,:)
 	integer,intent(inout)::nts_elem_nod(:,:),stick_slip(:)
 	integer,intent(in)::old_nts_elem_nod(:,:),old_stick_slip(:)
 	
@@ -4026,7 +4027,7 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 ! #########################################
 subroutine setPenaltyParaCM(obj,para)
 	class(ContactMechanics_),intent(inout)::obj
-	real(8),intent(in)		::	para
+	real(real64),intent(in)		::	para
 
 	obj%PenaltyPara = para
 
@@ -4078,9 +4079,9 @@ end subroutine
 ! #########################################
 subroutine getGapCM(obj)
 	class(ContactMechanics_),intent(inout)::obj
-	real(8),allocatable :: gap(:),avec(:),avec1(:),avec2(:),nvec(:),evec(:),xs1(:),xm1(:),xm2(:),xm3(:),xm4(:)
-	real(8),allocatable :: xm5(:),xm6(:),xm7(:),xm8(:),mid(:)
-	real(8) :: val
+	real(real64),allocatable :: gap(:),avec(:),avec1(:),avec2(:),nvec(:),evec(:),xs1(:),xm1(:),xm2(:),xm3(:),xm4(:)
+	real(real64),allocatable :: xm5(:),xm6(:),xm7(:),xm8(:),mid(:)
+	real(real64) :: val
 	integer :: i,j,k,n,NumOfNTSelem,dim_num
 	type(MPI_)::mpidata
 
@@ -4230,12 +4231,12 @@ end subroutine
 ! #########################################
 subroutine getForceCM(obj)
 	class(ContactMechanics_),intent(inout)::obj
-	real(8),allocatable :: gap(:),avec(:),avec1(:),avec2(:),nvec(:),evec(:),xs1(:),xm1(:),xm2(:),xm3(:),xm4(:)
-	real(8),allocatable :: xm5(:),xm6(:),xm7(:),xm8(:),mid(:)
-	real(8) :: val,area
+	real(real64),allocatable :: gap(:),avec(:),avec1(:),avec2(:),nvec(:),evec(:),xs1(:),xm1(:),xm2(:),xm3(:),xm4(:)
+	real(real64),allocatable :: xm5(:),xm6(:),xm7(:),xm8(:),mid(:)
+	real(real64) :: val,area
 	integer :: i,j,k,n,m,NumOfNTSelem,dim_num
 
-	real(8) :: gzi,gzi1,gzi2
+	real(real64) :: gzi,gzi1,gzi2
 
 	if(.not. allocated(obj%FEMIface%NTS_ElemNod) )then
 		print *, "Error :: ContactMechanics_ >> updateContactStressCM >> not (.not. allocated(obj%NTS_ElemNod) )"
@@ -4388,7 +4389,7 @@ subroutine exportForceAsTractionCM(obj)
 	class(ContactMechanics_),intent(inout)::obj
 	type(mpi_)::mpidata
 	integer :: nodeid,i,j,k
-	real(8) :: bcval
+	real(real64) :: bcval
 
 	
 	
