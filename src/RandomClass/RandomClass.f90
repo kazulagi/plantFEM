@@ -1,14 +1,15 @@
 module RandomClass
+    use, intrinsic :: iso_fortran_env
     use MathClass
     implicit none
 
 
     type::Random_
-        integer :: random_int
-        integer,allocatable  :: random_int_seed(:)
-        integer,allocatable :: random_int_vec(:)
-        real(8) :: random_real
-        real(8),allocatable :: random_real_vec(:)
+        integer(int32) :: random_int
+        integer(int32),allocatable  :: random_int_seed(:)
+        integer(int32),allocatable :: random_int_vec(:)
+        real(real64) :: random_real
+        real(real64),allocatable :: random_real_vec(:)
     contains
         procedure :: init       => initRandom
         procedure :: random     => getRandom
@@ -27,8 +28,8 @@ contains
 !##########################################
 subroutine initRandom(obj)
     class(Random_),intent(inout)::obj
-    !integer,optional,intent(in)::SeedSize
-    integer::SeedSize
+    !integer(int32),optional,intent(in)::SeedSize
+    integer(int32)::SeedSize
     
     call random_seed(size=SeedSize)
     allocate(obj%random_int_seed(SeedSize) )
@@ -42,7 +43,7 @@ end subroutine
 !##########################################
 function getRandom(obj) result(x)
     class(Random_)::obj
-    real(8) :: x
+    real(real64) :: x
 
     call random_number(x)
 
@@ -62,8 +63,8 @@ end subroutine
 !##########################################
 function uniformRandom(obj,From,To) result(x)
     class(Random_),intent(in)::obj
-    real(8) :: x,a,diff,val(2)
-    real(8),intent(in) :: From,To
+    real(real64) :: x,a,diff,val(2)
+    real(real64),intent(in) :: From,To
 
     val(1)=From
     val(2)=To
@@ -78,9 +79,9 @@ end function
 !##########################################
 function getRandomInt(obj,From,To) result(x)
     class(Random_),intent(in)::obj
-    real(8) :: xr,a,diff,val(2)
-    integer :: x
-    integer,intent(in) :: From,To
+    real(real64) :: xr,a,diff,val(2)
+    integer(int32) :: x
+    integer(int32),intent(in) :: From,To
 
     val(1)=From
     val(2)=To
@@ -102,9 +103,9 @@ end function
 !##########################################
 function choiceRandomInt(obj,Vector,Array) result(val)
     class(Random_),intent(in)::obj
-    integer,optional,intent(in) :: Vector(:)
-    integer,Optional,intent(in) :: Array(:,:)
-    integer :: val,posi,posi2
+    integer(int32),optional,intent(in) :: Vector(:)
+    integer(int32),Optional,intent(in) :: Array(:,:)
+    integer(int32) :: val,posi,posi2
 
     ! it should be over-rided
     if(present(Vector) )then
@@ -131,10 +132,10 @@ end function
 !##########################################
 function choiceRandomReal(obj,Vector,Array) result(val)
     class(Random_),intent(in)::obj
-    real(8),Optional,intent(in) :: Vector(:)
-    real(8),Optional,intent(in) :: Array(:,:)
-    real(8) :: val
-    integer :: posi,posi2
+    real(real64),Optional,intent(in) :: Vector(:)
+    real(real64),Optional,intent(in) :: Array(:,:)
+    real(real64) :: val
+    integer(int32) :: posi,posi2
 
     ! it should be over-rided
     if(present(Vector) )then
@@ -162,7 +163,7 @@ end function
 !    class(Random_),intent(in) :: obj
 !    character(*),  intent(in) :: Str
 !    character(1) :: val
-!    integer :: posi,length
+!    integer(int32) :: posi,length
 !
 !    length=len(Str)
 !

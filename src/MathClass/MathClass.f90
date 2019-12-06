@@ -1,4 +1,5 @@
 module MathClass
+    use, intrinsic :: iso_fortran_env
 	implicit none
 	
 
@@ -24,9 +25,9 @@ contains
 
 !########################################
 function norm(vec) result(a)
-	real(8),intent(in)::vec(:)
-	integer :: n
-	real(8) :: a
+	real(real64),intent(in)::vec(:)
+	integer(int32) :: n
+	real(real64) :: a
 
 	n=size(vec)
 	a=dsqrt(dot_product(vec,vec) )
@@ -38,11 +39,11 @@ end function
 
 !########################################
 function SearchNearestCoord(Array,x)  result(id)
-	real(8),intent(in) :: Array(:,:)
-	real(8),intent(in) :: x(:)
-	integer,allocatable::xr(:)
+	real(real64),intent(in) :: Array(:,:)
+	real(real64),intent(in) :: x(:)
+	integer(int32),allocatable::xr(:)
 
-	integer :: i,id,n,m,norm,tr_norm
+	integer(int32) :: i,id,n,m,norm,tr_norm
 
 	n=size(Array,1)
 	m=size(Array,2)
@@ -74,10 +75,10 @@ end function
 
 !##################################################
 function SearchIDIntVec(Vec,val) result(id_)
-	integer,intent(in) :: Vec(:)
-	integer,intent(in) :: val
+	integer(int32),intent(in) :: Vec(:)
+	integer(int32),intent(in) :: val
 
-	integer :: i,id_
+	integer(int32) :: i,id_
 
 	do i=1,size(Vec)
 		if(Vec(i)==val )then
@@ -89,11 +90,11 @@ function SearchIDIntVec(Vec,val) result(id_)
 end function
 !##################################################
 subroutine heapsort(n,array)
-  	integer,intent(in) :: n
-  	integer,intent(inout) :: array(1:n)
+  	integer(int32),intent(in) :: n
+  	integer(int32),intent(inout) :: array(1:n)
   
-  	integer ::i,k,j,l
-  	integer :: t
+  	integer(int32) ::i,k,j,l
+  	integer(int32) :: t
   
   	if(n.le.0)then
   		write(6,*)"Error, at heapsort"; stop
@@ -140,8 +141,8 @@ end subroutine heapsort
 !calculate cross product
 !---------------------------
 function cross_product(a,b) result (c)
-	real(8), intent(in) :: a(:),b(:)
-	real(8), allocatable :: c(:)
+	real(real64), intent(in) :: a(:),b(:)
+	real(real64), allocatable :: c(:)
   
     if(size(a) /= size(b)) then
         stop  "wrong number on size a, b"
@@ -161,10 +162,10 @@ end function cross_product
 !calculate diadic
 !----------------------
 function diadic(a,b) result(c)
-  real(8), intent(in) :: a(:), b(:)
-	real(8), allocatable :: c(:,:)
+  real(real64), intent(in) :: a(:), b(:)
+	real(real64), allocatable :: c(:,:)
 	
-	integer n,i,j
+	integer(int32) n,i,j
 	   
 	allocate(c(size(a),size(b) ) )
 	do i=1,size(a)
@@ -178,11 +179,11 @@ end function diadic
 !calculate gz
 !--------------
 subroutine calcgz(x2,x11,x12,nod_coord,gzi)
-	real(8), intent(in) :: nod_coord(:,:)
-	real(8),intent(out) :: gzi
-	integer,intent(in):: x2,x11,x12
-		real(8) l
-		real(8),allocatable::avec(:)
+	real(real64), intent(in) :: nod_coord(:,:)
+	real(real64),intent(out) :: gzi
+	integer(int32),intent(in):: x2,x11,x12
+		real(real64) l
+		real(real64),allocatable::avec(:)
 
 		allocate(avec(2))
 		l = dot_product( nod_coord(x12,1:2) - nod_coord(x11,1:2), &
@@ -203,11 +204,11 @@ subroutine calcgz(x2,x11,x12,nod_coord,gzi)
 end subroutine calcgz
 !==========================================================
 subroutine eigen_2d(Amat,eigenvector)
-	real(8),intent(in)::Amat(:,:)
-	real(8),intent(inout)::eigenvector(:,:)
+	real(real64),intent(in)::Amat(:,:)
+	real(real64),intent(inout)::eigenvector(:,:)
 
-	real(8)::b,c,phy,eigenvalue(2)
-	integer i,j
+	real(real64)::b,c,phy,eigenvalue(2)
+	integer(int32) i,j
 	
 	eigenvalue(:)=0.0d0
 	eigenvector(:,:)=0.0d0
@@ -241,8 +242,8 @@ subroutine eigen_2d(Amat,eigenvector)
 end subroutine eigen_2d
 !==========================================================
 function signmm(a) result(b)
-	real(8),intent(in)::a
-	real(8) b
+	real(real64),intent(in)::a
+	real(real64) b
 	
 	if(a>0)then
 		b=1.0d0
@@ -251,16 +252,16 @@ function signmm(a) result(b)
 	elseif(a==0)then
 		b=0.0d0
 	else
-		stop "ERROR: Invalid Real(8) in function_signm"
+		stop "ERROR: Invalid real(real64) in function_signm"
 	endif
 	
 end function signmm 
 !==========================================================
 recursive function det_mat(a,n) result(det)
-  	integer, intent(in) :: n
-  	real(8), intent(in) :: a(n, n)
-  	real(8) det, b(n-1, n-1)
-  	integer i
+  	integer(int32), intent(in) :: n
+  	real(real64), intent(in) :: a(n, n)
+  	real(real64) det, b(n-1, n-1)
+  	integer(int32) i
 	if (n > 1) then
 		det = 0.0d0
 		do i = 1, n
@@ -276,9 +277,9 @@ recursive function det_mat(a,n) result(det)
 end function det_mat
 !=====================================================================================
 subroutine trans_rank_2(A,A_T)
-	real(8),intent(in)::A(:,:)
-	real(8),allocatable,intent(out)::A_T(:,:)
-	integer n,m,i,j
+	real(real64),intent(in)::A(:,:)
+	real(real64),allocatable,intent(out)::A_T(:,:)
+	integer(int32) n,m,i,j
 	
 	n=size(A,1)
 	m=size(A,2)
@@ -293,9 +294,9 @@ subroutine trans_rank_2(A,A_T)
  end subroutine trans_rank_2
 !================================================================================== 
 function trans1(A) result(A_T)
-	real(8),intent(in)::A(:)
-	real(8),allocatable::A_T(:,:)
-	integer n,m,i,j
+	real(real64),intent(in)::A(:)
+	real(real64),allocatable::A_T(:,:)
+	integer(int32) n,m,i,j
 	
 	n=size(A)
 	if(.not. allocated(A_T) )allocate(A_T(1,n))
@@ -307,9 +308,9 @@ function trans1(A) result(A_T)
  end function trans1
 !==================================================================================    
 function trans2(A) result(A_T)
-	real(8),intent(in)::A(:,:)
-	real(8),allocatable::A_T(:,:)
-	integer n,m,i,j
+	real(real64),intent(in)::A(:,:)
+	real(real64),allocatable::A_T(:,:)
+	integer(int32) n,m,i,j
 	
 	n=size(A,1)
 	m=size(A,2)
@@ -324,10 +325,10 @@ function trans2(A) result(A_T)
  end function trans2
 !================================================================================== 
 subroutine inverse_rank_2(A,A_inv)
-	real(8),intent(in)::A(:,:)
-	real(8),allocatable::A_inv(:,:)
-	real(8) detA,detA_1
-	integer m,n
+	real(real64),intent(in)::A(:,:)
+	real(real64),allocatable::A_inv(:,:)
+	real(real64) detA,detA_1
+	integer(int32) m,n
 	
 	m=size(A,1)
 	n=size(A,2)
@@ -357,12 +358,12 @@ subroutine inverse_rank_2(A,A_inv)
  end subroutine inverse_rank_2
 !================================================================================== 
 subroutine tensor_exponential(A,expA,TOL,itr_tol)
-  	real(8),intent(in)::A(:,:),TOL
-  	real(8),allocatable,intent(inout)::expA(:,:)
-  	integer, intent(in)::itr_tol
-  	real(8),allocatable::increA(:,:)
-  	real(8) increment,NN
-  	integer i,j,n
+  	real(real64),intent(in)::A(:,:),TOL
+  	real(real64),allocatable,intent(inout)::expA(:,:)
+  	integer(int32), intent(in)::itr_tol
+  	real(real64),allocatable::increA(:,:)
+  	real(real64) increment,NN
+  	integer(int32) i,j,n
 	
   	if(.not. allocated(expA) )allocate(expA(size(A,1),size(A,2) ))
   	allocate(increA(size(A,1),size(A,2) ))
@@ -403,12 +404,12 @@ subroutine tensor_exponential(A,expA,TOL,itr_tol)
 end subroutine tensor_exponential
 !================================================================================== 
 subroutine tensor_expo_der(A,expA_A,TOL,itr_tol)
-  	real(8),intent(in)::A(:,:),TOL
-  	real(8),allocatable,intent(inout)::expA_A(:,:,:,:)
-  	integer, intent(in)::itr_tol
-  	real(8),allocatable::increA_1(:,:),increA_2(:,:),increA_3(:,:,:,:),I_ij(:,:),A_inv(:,:)
-  	real(8) increment,NN
-  	integer i,j,k,l,n,m,o
+  	real(real64),intent(in)::A(:,:),TOL
+  	real(real64),allocatable,intent(inout)::expA_A(:,:,:,:)
+  	integer(int32), intent(in)::itr_tol
+  	real(real64),allocatable::increA_1(:,:),increA_2(:,:),increA_3(:,:,:,:),I_ij(:,:),A_inv(:,:)
+  	real(real64) increment,NN
+  	integer(int32) i,j,k,l,n,m,o
 	
   	if(.not. allocated(expA_A) )allocate(expA_A(size(A,1),size(A,1),size(A,1),size(A,1) ))
   	allocate(I_ij(size(A,1),size(A,1) ))
@@ -491,16 +492,16 @@ end subroutine tensor_expo_der
 !================================================================================== 
 
 function GetNormRe(a) result(b)
-	real(8),intent(in)::a(:)
-	real(8) :: b
+	real(real64),intent(in)::a(:)
+	real(real64) :: b
 	b=dot_product(a,a)
 end function
 !================================================================================== 
 
 function GetNormMatRe(a) result(b)
-	real(8),intent(in)::a(:,:)
-	real(8) :: b
-	integer :: i,j
+	real(real64),intent(in)::a(:,:)
+	real(real64) :: b
+	integer(int32) :: i,j
 	b=0
 	do i=1,size(a,1)
 		do j=1,size(a,2)
@@ -511,9 +512,9 @@ end function
 !================================================================================== 
 
 function trace(a) result(b)
-	real(8),intent(in)::a(:,:)
-	real(8) :: b
-	integer :: i,j
+	real(real64),intent(in)::a(:,:)
+	real(real64) :: b
+	integer(int32) :: i,j
 	b=0
 	do i=1,size(a,1)
 		b=b+a(i,i)
@@ -523,13 +524,13 @@ end function
 
 !================================================================================== 
 function pi(n) result(res)
-	integer,intent(in)::n
-	real(8) :: ptr
-	real(8) :: an,bn,tn,pn
-	real(8) :: atr,btr,ttr
-	real(8) :: res
+	integer(int32),intent(in)::n
+	real(real64) :: ptr
+	real(real64) :: an,bn,tn,pn
+	real(real64) :: atr,btr,ttr
+	real(real64) :: res
 
-	integer :: i
+	integer(int32) :: i
 
 	an=1.0d0
 	bn=1.0d0/sqrt(2.0d0)
@@ -557,7 +558,7 @@ end function
 
 !================================================================================== 
 function fstring_int(x) result(a)
-	integer,intent(in) :: x
+	integer(int32),intent(in) :: x
 	character(len=20)	:: a
 
 	write(a,*) x
@@ -570,8 +571,8 @@ end function
 
 !================================================================================== 
 function fstring_int_len(x,length) result(a)
-	integer,intent(in) :: x
-	integer,intent(in) :: length
+	integer(int32),intent(in) :: x
+	integer(int32),intent(in) :: length
 	character(len=length)	:: a
 
 	write(a,*) x
@@ -583,7 +584,7 @@ end function
 
 !================================================================================== 
 function fstring_real(x) result(a)
-	real(8),intent(in) :: x
+	real(real64),intent(in) :: x
 	character(len=20)	:: a
 
 
@@ -596,8 +597,8 @@ end function
 
 !================================================================================== 
 function fstring_real_len(x,length) result(a)
-	real(8),intent(in) :: x
-	integer,intent(in) :: length
+	real(real64),intent(in) :: x
+	integer(int32),intent(in) :: length
 	character(len=60)	:: a
 	character*40						:: form
 
@@ -612,7 +613,7 @@ end function
 !================================================================================== 
 function fint(ch)	result(a)
 	character(*),intent(in)			:: ch
-	integer				:: a
+	integer(int32)				:: a
 
 	read(ch,*) a
 
@@ -623,7 +624,7 @@ end function
 !================================================================================== 
 function freal(ch)	result(a)
 	character(*),intent(in)			:: ch
-	real(8)				:: a
+	real(real64)				:: a
 
 	read(ch,*) a
 
@@ -634,9 +635,9 @@ end function
 
 !================================================================================== 
 function input_Int(default,option) result(val)
-	integer,intent(in) :: default
-	integer,optional,intent(in)::option
-	integer :: val
+	integer(int32),intent(in) :: default
+	integer(int32),optional,intent(in)::option
+	integer(int32) :: val
 
 	if(present(option) )then
 		val=option
@@ -652,9 +653,9 @@ end function
 
 !================================================================================== 
 function input_Real(default,option) result(val)
-	real(8),intent(in) :: default
-	real(8),optional,intent(in)::option
-	real(8) :: val
+	real(real64),intent(in) :: default
+	real(real64),optional,intent(in)::option
+	real(real64) :: val
 
 	if(present(option) )then
 		val=option
@@ -671,10 +672,10 @@ end function
 
 !================================================================================== 
 function input_IntVec(default,option) result(val)
-	integer,intent(in) :: default(:)
-	integer,optional,intent(in)::option(:)
-	integer,allocatable :: val(:)
-	integer :: n,m
+	integer(int32),intent(in) :: default(:)
+	integer(int32),optional,intent(in)::option(:)
+	integer(int32),allocatable :: val(:)
+	integer(int32) :: n,m
 
 	if(present(option) )then
 		n=size(option,1)
@@ -691,10 +692,10 @@ end function
 
 !================================================================================== 
 function input_Realvec(default,option) result(val)
-	real(8),intent(in) :: default(:)
-	real(8),optional,intent(in)::option(:)
-	real(8),allocatable :: val(:)
-	integer :: n,m
+	real(real64),intent(in) :: default(:)
+	real(real64),optional,intent(in)::option(:)
+	real(real64),allocatable :: val(:)
+	integer(int32) :: n,m
 
 	if(present(option) )then
 		n=size(option,1)
@@ -714,10 +715,10 @@ end function
 
 !================================================================================== 
 function input_IntArray(default,option) result(val)
-	integer,intent(in) :: default(:,:)
-	integer,optional,intent(in)::option(:,:)
-	integer,allocatable :: val(:,:)
-	integer :: n,m
+	integer(int32),intent(in) :: default(:,:)
+	integer(int32),optional,intent(in)::option(:,:)
+	integer(int32),allocatable :: val(:,:)
+	integer(int32) :: n,m
 
 	if(present(option) )then
 		n=size(option,1)
@@ -736,10 +737,10 @@ end function
 
 !================================================================================== 
 function input_RealArray(default,option) result(val)
-	real(8),intent(in) :: default(:,:)
-	real(8),optional,intent(in)::option(:,:)
-	real(8),allocatable :: val(:,:)
-	integer :: n,m
+	real(real64),intent(in) :: default(:,:)
+	real(real64),optional,intent(in)::option(:,:)
+	real(real64),allocatable :: val(:,:)
+	integer(int32) :: n,m
 
 	if(present(option) )then
 		n=size(option,1)
@@ -788,8 +789,8 @@ end function
 !================================================================================== 
 
 function zeroif_Int(val,negative,positive) result(retval)
-	integer,intent(in)::val
-	integer :: retval
+	integer(int32),intent(in)::val
+	integer(int32) :: retval
 	logical,optional,intent(in) :: negative,positive
 
 	if(val/=val)then
@@ -816,8 +817,8 @@ end function
 	
 
 function zeroif_Real(val,negative,positive) result(retval)
-	real(8),intent(in)::val
-	real(8) :: retval
+	real(real64),intent(in)::val
+	real(real64) :: retval
 	logical,optional,intent(in) :: negative,positive
 
 	if(val/=val)then
@@ -847,8 +848,8 @@ subroutine removeWord_String(str,keyword,itr,Compare)
 	character(*),intent(inout)::str
 	character(*),intent(in   )::keyword
 	
-	integer :: len_total,len_kw,i,j,n,itr_max
-	integer,optional,intent(in)::itr
+	integer(int32) :: len_total,len_kw,i,j,n,itr_max
+	integer(int32),optional,intent(in)::itr
 	logical,optional,intent(in)::Compare
 	logical :: bk
 	
@@ -888,9 +889,9 @@ end subroutine
 
 ! ########################################################
 function Invariant_I1(sigma) result(I1)
-	real(8),intent(in) :: sigma(:,:)
-	real(8) :: I1
-	integer :: i,j
+	real(real64),intent(in) :: sigma(:,:)
+	real(real64) :: I1
+	integer(int32) :: i,j
 
 	I1=0.0d0
 	do i=1,size(sigma,1)
@@ -903,9 +904,9 @@ end function
 
 ! ########################################################
 function Invariant_J2(sigma) result(J2)
-	real(8),intent(in) :: sigma(:,:)
-	real(8) :: I1,J2,delta(3,3),M_d(3,3)
-	integer :: i,j
+	real(real64),intent(in) :: sigma(:,:)
+	real(real64) :: I1,J2,delta(3,3),M_d(3,3)
+	integer(int32) :: i,j
 
 	delta(:,:)=0.0d0
 	delta(1,1)=1.0d0
@@ -927,9 +928,9 @@ end function
 
 ! ########################################################
 function Invariant_J3(sigma) result(J3)
-	real(8),intent(in) :: sigma(:,:)
-	real(8) :: I1,J3,delta(3,3),M_d(3,3)
-	integer :: i,j,k
+	real(real64),intent(in) :: sigma(:,:)
+	real(real64) :: I1,J3,delta(3,3),M_d(3,3)
+	integer(int32) :: i,j,k
 
 	delta(:,:)=0.0d0
 	delta(1,1)=1.0d0
@@ -953,9 +954,9 @@ end function
 
 ! ########################################################
 function Invariant_theta(sigma) result(theta)
-	real(8),intent(in) :: sigma(:,:)
-	real(8) :: I1,J2,J3,delta(3,3),M_d(3,3),theta
-	integer :: i,j,k
+	real(real64),intent(in) :: sigma(:,:)
+	real(real64) :: I1,J2,J3,delta(3,3),M_d(3,3),theta
+	integer(int32) :: i,j,k
 
 	delta(:,:)=0.0d0
 	delta(1,1)=1.0d0

@@ -1,4 +1,5 @@
-module ArrayOperationClass
+module ArrayClass
+    use, intrinsic :: iso_fortran_env
     use MathClass
     use RandomClass
     implicit none
@@ -88,10 +89,10 @@ contains
 
 !=====================================
 subroutine MergeArrayInt(a,b,c)
-    integer,intent(in)::a(:,:)
-    integer,intent(in)::b(:,:)
-    integer,allocatable,intent(out)::c(:,:)
-    integer i,j,an,am,bn,bm
+    integer(int32),intent(in)::a(:,:)
+    integer(int32),intent(in)::b(:,:)
+    integer(int32),allocatable,intent(out)::c(:,:)
+    integer(int32) i,j,an,am,bn,bm
 
     if(allocated(c)) deallocate(c)
     an=size(a,1)
@@ -118,10 +119,10 @@ end subroutine
 
 !=====================================
 subroutine MergeArrayReal(a,b,c)
-    real(8),intent(in)::a(:,:)
-    real(8),intent(in)::b(:,:)
-    real(8),allocatable,intent(out)::c(:,:)
-    integer i,j,an,am,bn,bm
+    real(real64),intent(in)::a(:,:)
+    real(real64),intent(in)::b(:,:)
+    real(real64),allocatable,intent(out)::c(:,:)
+    integer(int32) i,j,an,am,bn,bm
     if(allocated(c)) deallocate(c)
     an=size(a,1)
     am=size(a,2)
@@ -149,9 +150,9 @@ end subroutine
 
 !=====================================
 subroutine CopyArrayInt(a,ac)
-    integer,allocatable,intent(inout)::a(:,:)
-    integer,allocatable,intent(inout)::ac(:,:)
-    integer i,j,n,m
+    integer(int32),allocatable,intent(inout)::a(:,:)
+    integer(int32),allocatable,intent(inout)::ac(:,:)
+    integer(int32) i,j,n,m
 
     if(.not.allocated(a) )then
         print *, "CopyArray :: original array is not allocated"
@@ -170,9 +171,9 @@ end subroutine
 
 !=====================================
 subroutine CopyArrayReal(a,ac)
-    real(8),allocatable,intent(inout)::a(:,:)
-    real(8),allocatable,intent(inout)::ac(:,:)
-    integer i,j,n,m
+    real(real64),allocatable,intent(inout)::a(:,:)
+    real(real64),allocatable,intent(inout)::ac(:,:)
+    integer(int32) i,j,n,m
 
     if(.not.allocated(a) )then
         print *, "CopyArray :: original array is not allocated"
@@ -194,9 +195,9 @@ end subroutine
 
 !=====================================
 subroutine CopyArrayIntVec(a,ac)
-    integer,allocatable,intent(inout)::a(:)
-    integer,allocatable,intent(inout)::ac(:)
-    integer i,j,n,m
+    integer(int32),allocatable,intent(inout)::a(:)
+    integer(int32),allocatable,intent(inout)::ac(:)
+    integer(int32) i,j,n,m
 
     if(.not.allocated(a) )then 
         print *, "CopyArray :: original array is not allocated"
@@ -214,9 +215,9 @@ end subroutine
 
 !=====================================
 subroutine CopyArrayRealVec(a,ac)
-    real(8),allocatable,intent(inout)::a(:)
-    real(8),allocatable,intent(inout)::ac(:)
-    integer i,j,n,m
+    real(real64),allocatable,intent(inout)::a(:)
+    real(real64),allocatable,intent(inout)::ac(:)
+    integer(int32) i,j,n,m
 
     if(.not.allocated(a) )then
         
@@ -237,10 +238,10 @@ end subroutine
 
 !=====================================
 subroutine TrimArrayInt(a,k)
-    integer,allocatable,intent(inout)::a(:,:)
-    integer,intent(in)::k
-    integer,allocatable::ac(:,:)
-    integer :: i,j,n,m
+    integer(int32),allocatable,intent(inout)::a(:,:)
+    integer(int32),intent(in)::k
+    integer(int32),allocatable::ac(:,:)
+    integer(int32) :: i,j,n,m
 
     n=size(a,1)
     m=size(a,2)
@@ -260,10 +261,10 @@ end subroutine
 
 !=====================================
 subroutine TrimArrayReal(a,k)
-    real(8),allocatable,intent(inout)::a(:,:)
-    integer,intent(in)::k
-    real(8),allocatable::ac(:,:)
-    integer :: i,j,n,m
+    real(real64),allocatable,intent(inout)::a(:,:)
+    integer(int32),intent(in)::k
+    real(real64),allocatable::ac(:,:)
+    integer(int32) :: i,j,n,m
 
     n=size(a,1)
     m=size(a,2)
@@ -285,10 +286,10 @@ end subroutine
 
 !##################################################
 subroutine ImportArrayInt(Mat,OptionalFileHandle,OptionalSizeX,OptionalSizeY,FileName)
-    integer,allocatable,intent(inout)::Mat(:,:)
-    integer,optional,intent(in)::OptionalFileHandle,OptionalSizeX,OptionalSizeY
+    integer(int32),allocatable,intent(inout)::Mat(:,:)
+    integer(int32),optional,intent(in)::OptionalFileHandle,OptionalSizeX,OptionalSizeY
     character(*) ,optional,intent(in) :: FileName
-    integer i,j,n,m,fh
+    integer(int32) i,j,n,m,fh
 
     if(present(FileName) )then
         if(allocated(Mat))then
@@ -310,7 +311,7 @@ subroutine ImportArrayInt(Mat,OptionalFileHandle,OptionalSizeX,OptionalSizeY,Fil
         n=size(Mat,1)
     else
         n=1
-        print *, "Caution :: ArrayOperationClass/ImportArray >> No size_X is set"
+        print *, "Caution :: ArrayClass/ImportArray >> No size_X is set"
     endif
 
 
@@ -320,7 +321,7 @@ subroutine ImportArrayInt(Mat,OptionalFileHandle,OptionalSizeX,OptionalSizeY,Fil
         m=size(Mat,2)
     else
         m=1
-        print *, "Caution :: ArrayOperationClass/ImportArray >> No size_Y is set"
+        print *, "Caution :: ArrayClass/ImportArray >> No size_Y is set"
     endif
 
 
@@ -351,12 +352,12 @@ end subroutine ImportArrayInt
 
 !##################################################
 subroutine ImportArrayReal(Mat,OptionalFileHandle,OptionalSizeX,OptionalSizeY,FileName)
-    real(8),allocatable,intent(inout)::Mat(:,:)
-    integer,optional,intent(in)::OptionalFileHandle,OptionalSizeX,OptionalSizeY
+    real(real64),allocatable,intent(inout)::Mat(:,:)
+    integer(int32),optional,intent(in)::OptionalFileHandle,OptionalSizeX,OptionalSizeY
     
     !include "./ImportArray.f90"
     character(*) ,optional,intent(in) :: FileName
-    integer i,j,n,m,fh
+    integer(int32) i,j,n,m,fh
 
     if(present(FileName) )then
         if(allocated(Mat))then
@@ -377,7 +378,7 @@ subroutine ImportArrayReal(Mat,OptionalFileHandle,OptionalSizeX,OptionalSizeY,Fi
         n=size(Mat,1)
     else
         n=1
-        print *, "Caution :: ArrayOperationClass/ImportArray >> No size_X is set"
+        print *, "Caution :: ArrayClass/ImportArray >> No size_X is set"
     endif
 
 
@@ -387,7 +388,7 @@ subroutine ImportArrayReal(Mat,OptionalFileHandle,OptionalSizeX,OptionalSizeY,Fi
         m=size(Mat,2)
     else
         m=1
-        print *, "Caution :: ArrayOperationClass/ImportArray >> No size_Y is set"
+        print *, "Caution :: ArrayClass/ImportArray >> No size_Y is set"
     endif
 
 
@@ -418,12 +419,12 @@ end subroutine ImportArrayReal
 
 !##################################################
 subroutine ExportArraySizeInt(Mat,RankNum,OptionalFileHandle)
-    integer,intent(in)::Mat(:,:)
-    integer,optional,intent(in)::OptionalFileHandle
-    integer,intent(in)::RankNum
+    integer(int32),intent(in)::Mat(:,:)
+    integer(int32),optional,intent(in)::OptionalFileHandle
+    integer(int32),intent(in)::RankNum
     
     !#include "./ExportArraySize.f90"
-    integer :: fh
+    integer(int32) :: fh
     if(present(OptionalFileHandle) )then
         fh=OptionalFileHandle
     endif
@@ -435,12 +436,12 @@ end subroutine ExportArraySizeInt
 
 !##################################################
 subroutine ExportArraySizeReal(Mat,RankNum,OptionalFileHandle)
-    real(8),intent(in)::Mat(:,:)
-    integer,optional,intent(in)::OptionalFileHandle
-    integer,intent(in)::RankNum
+    real(real64),intent(in)::Mat(:,:)
+    integer(int32),optional,intent(in)::OptionalFileHandle
+    integer(int32),intent(in)::RankNum
     
     !#include "./ExportArraySize.f90"
-    integer :: fh
+    integer(int32) :: fh
     if(present(OptionalFileHandle) )then
         fh=OptionalFileHandle
     endif
@@ -452,11 +453,11 @@ end subroutine ExportArraySizeReal
 
 !##################################################
 subroutine ExportArrayInt(Mat,OptionalFileHandle)
-    integer,intent(in)::Mat(:,:)
-    integer,optional,intent(in)::OptionalFileHandle
+    integer(int32),intent(in)::Mat(:,:)
+    integer(int32),optional,intent(in)::OptionalFileHandle
     
     !#include "./ExportArray.f90"
-    integer :: fh,i
+    integer(int32) :: fh,i
 
     if(present(OptionalFileHandle) )then
         fh=OptionalFileHandle
@@ -475,11 +476,11 @@ end subroutine ExportArrayInt
 
 !##################################################
 subroutine ExportArrayReal(Mat,OptionalFileHandle)
-    real(8),intent(in)::Mat(:,:)
-    integer,optional,intent(in)::OptionalFileHandle
+    real(real64),intent(in)::Mat(:,:)
+    integer(int32),optional,intent(in)::OptionalFileHandle
     
     !#include "./ExportArray.f90"
-    integer :: fh,i
+    integer(int32) :: fh,i
 
     if(present(OptionalFileHandle) )then
         fh=OptionalFileHandle
@@ -499,14 +500,14 @@ end subroutine ExportArrayReal
 
 !##################################################
 subroutine ShowArrayInt(Mat,IndexArray,FileHandle,Name)
-    integer,intent(in)::Mat(:,:)
-    integer,optional,intent(in) :: IndexArray(:,:)
-    integer,optional,intent(in)::FileHandle 
+    integer(int32),intent(in)::Mat(:,:)
+    integer(int32),optional,intent(in) :: IndexArray(:,:)
+    integer(int32),optional,intent(in)::FileHandle 
     character(*),optional,intent(in)::Name
     
     
     !#include "./ExportArray.f90"
-    integer :: fh,i,j,k,l
+    integer(int32) :: fh,i,j,k,l
 
     if(present(FileHandle) )then
         fh=FileHandle
@@ -574,14 +575,14 @@ end subroutine
 
 !##################################################
 subroutine ShowArrayReal(Mat,IndexArray,FileHandle,Name)
-    real(8),intent(in)::Mat(:,:)
-    integer,optional,intent(in) :: IndexArray(:,:)
-    integer,optional,intent(in)::FileHandle
+    real(real64),intent(in)::Mat(:,:)
+    integer(int32),optional,intent(in) :: IndexArray(:,:)
+    integer(int32),optional,intent(in)::FileHandle
     character(*),optional,intent(in)::Name
     
     
     !#include "./ExportArray.f90"
-    integer :: fh,i,j,k,l
+    integer(int32) :: fh,i,j,k,l
 
     if(present(FileHandle) )then
         fh=FileHandle
@@ -653,12 +654,12 @@ end subroutine
 
 !##################################################
 subroutine ShowArraySizeInt(Mat,OptionalFileHandle,Name)
-    integer,allocatable,intent(in)::Mat(:,:)
-    integer,optional,intent(in)::OptionalFileHandle
+    integer(int32),allocatable,intent(in)::Mat(:,:)
+    integer(int32),optional,intent(in)::OptionalFileHandle
     character(*),optional,intent(in)::Name
     
     !#include "./ExportArray.f90"
-    integer :: fh,i
+    integer(int32) :: fh,i
 
 
     if(present(OptionalFileHandle) )then
@@ -696,12 +697,12 @@ end subroutine
 
 !##################################################
 subroutine ShowArraySizeReal(Mat,OptionalFileHandle,Name)
-    real(8),allocatable,intent(in)::Mat(:,:)
-    integer,optional,intent(in)::OptionalFileHandle
+    real(real64),allocatable,intent(in)::Mat(:,:)
+    integer(int32),optional,intent(in)::OptionalFileHandle
     character(*),optional,intent(in)::Name
     
     !#include "./ExportArray.f90"
-    integer :: fh,i
+    integer(int32) :: fh,i
 
     if(present(OptionalFileHandle) )then
         fh=OptionalFileHandle
@@ -737,12 +738,12 @@ end subroutine
 
 !##################################################
 subroutine ShowArraySizeIntvec(Mat,OptionalFileHandle,Name)
-    integer,allocatable,intent(in)::Mat(:)
-    integer,optional,intent(in)::OptionalFileHandle
+    integer(int32),allocatable,intent(in)::Mat(:)
+    integer(int32),optional,intent(in)::OptionalFileHandle
     character(*),optional,intent(in)::Name
     
     !#include "./ExportArray.f90"
-    integer :: fh,i
+    integer(int32) :: fh,i
 
 
     if(present(OptionalFileHandle) )then
@@ -779,12 +780,12 @@ end subroutine
 
 !##################################################
 subroutine ShowArraySizeRealvec(Mat,OptionalFileHandle,Name)
-    real(8),allocatable,intent(in)::Mat(:)
-    integer,optional,intent(in)::OptionalFileHandle
+    real(real64),allocatable,intent(in)::Mat(:)
+    integer(int32),optional,intent(in)::OptionalFileHandle
     character(*),optional,intent(in)::Name
     
     !#include "./ExportArray.f90"
-    integer :: fh,i
+    integer(int32) :: fh,i
 
     if(present(OptionalFileHandle) )then
         fh=OptionalFileHandle
@@ -819,12 +820,12 @@ end subroutine
 
 !##################################################
 subroutine ShowArraySizeIntThree(Mat,OptionalFileHandle,Name)
-    integer,allocatable,intent(in)::Mat(:,:,:)
-    integer,optional,intent(in)::OptionalFileHandle
+    integer(int32),allocatable,intent(in)::Mat(:,:,:)
+    integer(int32),optional,intent(in)::OptionalFileHandle
     character(*),optional,intent(in)::Name
     
     !#include "./ExportArray.f90"
-    integer :: fh,i
+    integer(int32) :: fh,i
 
 
 
@@ -860,12 +861,12 @@ end subroutine
 
 !##################################################
 subroutine ShowArraySizeRealThree(Mat,OptionalFileHandle,Name)
-    real(8),allocatable,intent(in)::Mat(:,:,:,:)
-    integer,optional,intent(in)::OptionalFileHandle
+    real(real64),allocatable,intent(in)::Mat(:,:,:,:)
+    integer(int32),optional,intent(in)::OptionalFileHandle
     character(*),optional,intent(in)::Name
     
     !#include "./ExportArray.f90"
-    integer :: fh,i
+    integer(int32) :: fh,i
 
     if(present(OptionalFileHandle) )then
         fh=OptionalFileHandle
@@ -901,12 +902,12 @@ end subroutine
 
 !##################################################
 function InOrOutReal(x,xmax,xmin,DimNum) result(Inside)
-    real(8),intent(in)::x(:)
-    real(8),intent(in)::xmax(:),xmin(:)
-    integer,optional,intent(in)::DimNum
-    integer :: dim_num
+    real(real64),intent(in)::x(:)
+    real(real64),intent(in)::xmax(:),xmin(:)
+    integer(int32),optional,intent(in)::DimNum
+    integer(int32) :: dim_num
     logical ::Inside
-    integer :: i,j,n,cout
+    integer(int32) :: i,j,n,cout
 
     cout=0
     if(present(DimNum) )then
@@ -938,12 +939,12 @@ end function
 
 !##################################################
 function InOrOutInt(x,xmax,xmin,DimNum) result(Inside)
-    integer,intent(in)::x(:)
-    integer,intent(in)::xmax(:),xmin(:)
-    integer,optional,intent(in)::DimNum
-    integer :: dim_num
+    integer(int32),intent(in)::x(:)
+    integer(int32),intent(in)::xmax(:),xmin(:)
+    integer(int32),optional,intent(in)::DimNum
+    integer(int32) :: dim_num
     logical ::Inside
-    integer :: i,j,n,cout
+    integer(int32) :: i,j,n,cout
 
     cout=0
     if(present(DimNum) )then
@@ -975,12 +976,12 @@ end function
 
 !##################################################
 subroutine ExtendArrayReal(mat,extend1stColumn,extend2ndColumn,DefaultValue)
-    real(8),allocatable,intent(inout)::mat(:,:)
-    real(8),allocatable :: buffer(:,:)
+    real(real64),allocatable,intent(inout)::mat(:,:)
+    real(real64),allocatable :: buffer(:,:)
     logical,optional,intent(in) :: extend1stColumn,extend2ndColumn
-    real(8),optional,intent(in) :: DefaultValue
-    real(8) :: val
-    integer :: n,m
+    real(real64),optional,intent(in) :: DefaultValue
+    real(real64) :: val
+    integer(int32) :: n,m
 
     if( present(DefaultValue) )then
         val = DefaultValue
@@ -1022,12 +1023,12 @@ end subroutine
 
 !##################################################
 subroutine ExtendArrayInt(mat,extend1stColumn,extend2ndColumn,DefaultValue)
-    integer,allocatable,intent(inout)::mat(:,:)
-    integer,allocatable :: buffer(:,:)
+    integer(int32),allocatable,intent(inout)::mat(:,:)
+    integer(int32),allocatable :: buffer(:,:)
     logical,optional,intent(in) :: extend1stColumn,extend2ndColumn
-    integer,optional,intent(in) :: DefaultValue
-    integer :: val
-    integer :: i,j,k,n,m
+    integer(int32),optional,intent(in) :: DefaultValue
+    integer(int32) :: val
+    integer(int32) :: i,j,k,n,m
 
     if( present(DefaultValue) )then
         val = DefaultValue
@@ -1068,12 +1069,12 @@ end subroutine
 
 !##################################################
 subroutine insertArrayInt(mat,insert1stColumn,insert2ndColumn,DefaultValue,NextOf)
-    integer,allocatable,intent(inout)::mat(:,:)
-    integer,allocatable :: buffer(:,:)
+    integer(int32),allocatable,intent(inout)::mat(:,:)
+    integer(int32),allocatable :: buffer(:,:)
     logical,optional,intent(in) :: insert1stColumn,insert2ndColumn
-    integer,optional,intent(in) :: DefaultValue,NextOf
-    integer :: val
-    integer :: i,nof
+    integer(int32),optional,intent(in) :: DefaultValue,NextOf
+    integer(int32) :: val
+    integer(int32) :: i,nof
     
     call extendArray(mat,insert1stColumn,insert2ndColumn,DefaultValue)
 
@@ -1123,14 +1124,14 @@ end subroutine
 
 !##################################################
 subroutine insertArrayReal(mat,insert1stColumn,insert2ndColumn,DefaultValue,NextOf)
-    real(8),allocatable,intent(inout)::mat(:,:)
-    real(8),allocatable :: buffer(:,:)
+    real(real64),allocatable,intent(inout)::mat(:,:)
+    real(real64),allocatable :: buffer(:,:)
     logical,optional,intent(in) :: insert1stColumn,insert2ndColumn
     
-    integer,optional,intent(in) :: NextOf
-    real(8),optional,intent(in) :: DefaultValue
-    real(8) :: val
-    integer :: i,nof
+    integer(int32),optional,intent(in) :: NextOf
+    real(real64),optional,intent(in) :: DefaultValue
+    real(real64) :: val
+    integer(int32) :: i,nof
     
     call extendArray(mat,insert1stColumn,insert2ndColumn,DefaultValue)
 
@@ -1182,13 +1183,13 @@ end subroutine
 
 !##################################################
 subroutine removeArrayInt(mat,remove1stColumn,remove2ndColumn,NextOf)
-    integer,allocatable,intent(inout)::mat(:,:)
-    integer,allocatable :: buffer(:,:)
+    integer(int32),allocatable,intent(inout)::mat(:,:)
+    integer(int32),allocatable :: buffer(:,:)
     logical,optional,intent(in) :: remove1stColumn,remove2ndColumn
     
-    integer,optional,intent(in) :: NextOf
+    integer(int32),optional,intent(in) :: NextOf
     
-    integer :: i,nof
+    integer(int32) :: i,nof
     
     if( present(remove1stColumn ))then
         if( remove1stColumn .eqv. .true. )then
@@ -1273,13 +1274,13 @@ end subroutine
 
 !##################################################
 subroutine removeArrayReal(mat,remove1stColumn,remove2ndColumn,NextOf)
-    real(8),allocatable,intent(inout)::mat(:,:)
-    real(8),allocatable :: buffer(:,:)
+    real(real64),allocatable,intent(inout)::mat(:,:)
+    real(real64),allocatable :: buffer(:,:)
     logical,optional,intent(in) :: remove1stColumn,remove2ndColumn
     
-    integer,optional,intent(in) :: NextOf
+    integer(int32),optional,intent(in) :: NextOf
     
-    integer :: i,nof,rmsin,m,n
+    integer(int32) :: i,nof,rmsin,m,n
     
     if( present(remove1stColumn ))then
         if( remove1stColumn .eqv. .true. )then
@@ -1365,10 +1366,10 @@ end subroutine
 
 !##################################################
 function meanVecReal(vec) result(mean_val)
-    real(8),intent(in)::vec(:)
-    real(8)::mean_val
+    real(real64),intent(in)::vec(:)
+    real(real64)::mean_val
 
-    integer :: i
+    integer(int32) :: i
     mean_val=0.0d0
     do i=1,size(vec)
         mean_val=mean_val+vec(i)
@@ -1380,9 +1381,9 @@ end function
 
 !##################################################
 function meanVecint(vec) result(mean_val)
-    integer,intent(in)::vec(:)
-    integer::mean_val
-    integer :: i
+    integer(int32),intent(in)::vec(:)
+    integer(int32)::mean_val
+    integer(int32) :: i
     mean_val=0
     do i=1,size(vec)
         mean_val=mean_val+vec(i)
@@ -1395,10 +1396,10 @@ end function
 
 !##################################################
 function distanceReal(x,y) result(dist)
-    real(8),intent(in)::x(:),y(:)
-    real(8)::dist
+    real(real64),intent(in)::x(:),y(:)
+    real(real64)::dist
 
-    integer :: i
+    integer(int32) :: i
 
     if(size(x)/=size(y) )then
         print *, "ERROR ArrayClass ::  distanceReal(x,y) size(x)/=size(y) "
@@ -1416,10 +1417,10 @@ end function
 
 !##################################################
 function distanceInt(x,y) result(dist)
-    integer,intent(in)::x(:),y(:)
-    integer::dist
+    integer(int32),intent(in)::x(:),y(:)
+    integer(int32)::dist
 
-    integer :: i
+    integer(int32) :: i
 
     if(size(x)/=size(y) )then
         print *, "ERROR ArrayClass ::  distanceReal(x,y) size(x)/=size(y) "
@@ -1437,8 +1438,8 @@ end function
 
 !##################################################
 function countifSameIntArray(Array1,Array2) result(count_num)
-    integer,intent(in)::Array1(:,:),Array2(:,:)
-    integer :: i,j,k,l,n,count_num,exist
+    integer(int32),intent(in)::Array1(:,:),Array2(:,:)
+    integer(int32) :: i,j,k,l,n,count_num,exist
 
     count_num=0
     do i=1,size(Array1,1)
@@ -1468,8 +1469,8 @@ end function
 
 !##################################################
 function countifSameIntVec(Array1,Array2) result(count_num)
-    integer,intent(in)::Array1(:),Array2(:)
-    integer :: i,j,k,l,n,count_num,exist
+    integer(int32),intent(in)::Array1(:),Array2(:)
+    integer(int32) :: i,j,k,l,n,count_num,exist
 
     count_num=0
     do i=1,size(Array1)
@@ -1490,8 +1491,8 @@ end function
 
 !##################################################
 function countifSameIntArrayVec(Array1,Array2) result(count_num)
-    integer,intent(in)::Array1(:,:),Array2(:)
-    integer :: i,j,k,l,n,count_num,exist
+    integer(int32),intent(in)::Array1(:,:),Array2(:)
+    integer(int32) :: i,j,k,l,n,count_num,exist
 
     count_num=0
     do i=1,size(Array1,1)
@@ -1520,8 +1521,8 @@ end function
 
 !##################################################
 function countifSameIntVecArray(Array1,Array2) result(count_num)
-    integer,intent(in)::Array2(:,:),Array1(:)
-    integer :: i,j,k,l,n,count_num,exist
+    integer(int32),intent(in)::Array2(:,:),Array1(:)
+    integer(int32) :: i,j,k,l,n,count_num,exist
 
     count_num=0
     do i=1,size(Array1,1)
@@ -1544,8 +1545,8 @@ end function
 
 !##################################################
 function countifint(Array,Equal,notEqual,Value) result(count_num)
-    integer,intent(in)::Array(:,:),Value
-    integer :: i,j,n,case,count_num
+    integer(int32),intent(in)::Array(:,:),Value
+    integer(int32) :: i,j,n,case,count_num
     logical,optional,intent(in)::Equal,notEqual
     
 
@@ -1563,7 +1564,7 @@ function countifint(Array,Equal,notEqual,Value) result(count_num)
             case=1
         endif
     else
-        print *, "caution :: ArrayOperationClass :: countifint :: please check Equal or notEqual"
+        print *, "caution :: ArrayClass :: countifint :: please check Equal or notEqual"
         print *, "performed as Equal"
         case=0
     endif
@@ -1593,15 +1594,15 @@ function countifint(Array,Equal,notEqual,Value) result(count_num)
             enddo
         enddo
     else
-        print *, "ERROR :: ArrayOperationClass :: countifint :: please check Equal or notEqual"
+        print *, "ERROR :: ArrayClass :: countifint :: please check Equal or notEqual"
     endif
 end function
 !##################################################
 
 !##################################################
 function countifintVec(Array,Equal,notEqual,Value) result(count_num)
-    integer,intent(in)::Array(:),Value
-    integer :: i,j,n,case,count_num
+    integer(int32),intent(in)::Array(:),Value
+    integer(int32) :: i,j,n,case,count_num
     logical,optional,intent(in)::Equal,notEqual
     
 
@@ -1619,7 +1620,7 @@ function countifintVec(Array,Equal,notEqual,Value) result(count_num)
             case=1
         endif
     else
-        print *, "caution :: ArrayOperationClass :: countifint :: please check Equal or notEqual"
+        print *, "caution :: ArrayClass :: countifint :: please check Equal or notEqual"
         print *, "performed as Equal"
         case=0
     endif
@@ -1647,7 +1648,7 @@ function countifintVec(Array,Equal,notEqual,Value) result(count_num)
             
         enddo
     else
-        print *, "ERROR :: ArrayOperationClass :: countifint :: please check Equal or notEqual"
+        print *, "ERROR :: ArrayClass :: countifint :: please check Equal or notEqual"
     endif
 end function
 !##################################################
@@ -1655,10 +1656,10 @@ end function
 
 !##################################################
 recursive subroutine quicksortint(list) 
-    integer,intent(inout) :: list(:)
-    integer :: border,a,b,buf
-    integer :: i,j,border_id,n,start,last,scope1_out,scope2_out
-    integer :: scope1,scope2
+    integer(int32),intent(inout) :: list(:)
+    integer(int32) :: border,a,b,buf
+    integer(int32) :: i,j,border_id,n,start,last,scope1_out,scope2_out
+    integer(int32) :: scope1,scope2
     logical :: crossed
     ! http://www.ics.kagoshima-u.ac.jp/~fuchida/edu/algorithm/sort-algorithm/quick-sort.html
 
@@ -1736,10 +1737,10 @@ end subroutine
 
 !##################################################
 recursive subroutine quicksortreal(list) 
-    real(8),intent(inout) :: list(:)
-    real(8) :: border,a,b,buf
-    integer :: i,j,border_id,n,start,last,scope1_out,scope2_out
-    integer :: scope1,scope2
+    real(real64),intent(inout) :: list(:)
+    real(real64) :: border,a,b,buf
+    integer(int32) :: i,j,border_id,n,start,last,scope1_out,scope2_out
+    integer(int32) :: scope1,scope2
     logical :: crossed
     ! http://www.ics.kagoshima-u.ac.jp/~fuchida/edu/algorithm/sort-algorithm/quick-sort.html
 
@@ -1813,4 +1814,4 @@ recursive subroutine quicksortreal(list)
 end subroutine
 !##################################################
 
-end module ArrayOperationClass
+end module ArrayClass

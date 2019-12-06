@@ -1,4 +1,5 @@
 module FieldClass
+    use, intrinsic :: iso_fortran_env
     use MPIClass
     use FEMDomainClass
     use FEMIfaceClass
@@ -17,9 +18,9 @@ module FieldClass
         type(FEMDomain_),allocatable::FEMDomainArray(:)
         type(FEMIface_) ,allocatable::FEMIfaceArray(:)
         type(FieldObjName_),allocatable::FieldList(:)
-        Integer,allocatable::Timestep(:)
-        real(8),allocatable::RealTime(:)
-        integer :: NumberOfObject,NumberOfIface
+        integer(int32),allocatable::Timestep(:)
+        real(real64),allocatable::RealTime(:)
+        integer(int32) :: NumberOfObject,NumberOfIface
 
         character*200 :: FolderName
         character*200 :: DomainListName
@@ -40,10 +41,10 @@ subroutine ImportField(obj,OptionalDomainListName,OptionalIfaceListName,Optional
     character(*),optional,intent(in)::OptionalDomainListName
     character(*),optional,intent(in)::OptionalIfaceListName
     character(*),optional,intent(in)::OptionalProjectName
-    integer,optional,intent(in)::OptionalFileHandle
+    integer(int32),optional,intent(in)::OptionalFileHandle
 
     character*200::pathd,pathi,line
-    integer :: fh,fh2,i,fh_i,ierr
+    integer(int32) :: fh,fh2,i,fh_i,ierr
     if(present(OptionalFileHandle) )then
         fh=OptionalFileHandle
         fh2=fh+1
@@ -140,7 +141,7 @@ end subroutine
 !###################################################
 subroutine showField(obj)
     class(Field_),intent(inout)::obj
-    integer :: i,n,m
+    integer(int32) :: i,n,m
 
     n=size(obj%FEMDomainArray)
     m=size(obj%FEMIfaceArray)
@@ -170,7 +171,7 @@ subroutine linkDomainToIfaceField(obj)
     class(Field_),target,intent(inout)::obj
     type(Dictionary_)::DomainNameList
     type(MPI_)::mpidata
-    integer :: i,j,n,m,page1,page2
+    integer(int32) :: i,j,n,m,page1,page2
 
     n=size(obj%FEMIfaceArray,1)
     m=size(obj%FEMDomainArray,1)
@@ -203,9 +204,9 @@ end subroutine
 !###################################################
 subroutine ShiftField(obj,distance,Optionaldirection)
     class(field_),intent(inout)::obj
-    integer,optional,intent(in)::Optionaldirection
-    real(8),intent(in) :: distance
-    integer :: i,n,dir
+    integer(int32),optional,intent(in)::Optionaldirection
+    real(real64),intent(in) :: distance
+    integer(int32) :: i,n,dir
 
     if(present(Optionaldirection) )then
         dir=Optionaldirection
@@ -232,10 +233,10 @@ subroutine ExportField(obj,OptionalDomainListName,OptionalIfaceListName,&
     character*200,optional,intent(in)::OptionalDomainListName
     character*200,optional,intent(in)::OptionalIfaceListName
     character*200,optional,intent(in)::OptionalProjectName
-    integer,optional,intent(in)::OptionalFileHandle
+    integer(int32),optional,intent(in)::OptionalFileHandle
     
     character*200::pathd,pathi
-    integer :: fh,fh2,i,fh_i
+    integer(int32) :: fh,fh2,i,fh_i
 
 
     if(present(OptionalFileHandle) )then

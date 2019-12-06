@@ -1,4 +1,5 @@
 module LsystemClass
+    use, intrinsic :: iso_fortran_env
     use KinematicClass
     use PreprocessingClass
     use FEMDomainClass
@@ -14,14 +15,14 @@ module LsystemClass
     
     type :: NodeSystem_
         type(PlantNode_),allocatable :: NodeSystem(:)
-        integer :: num_of_node
+        integer(int32) :: num_of_node
     contains
         !procedure :: export => exportNodeSystem
     end type
 
     type :: RootSystem_
         type(PlantRoot_),allocatable :: RootSystem(:)
-        integer :: num_of_root
+        integer(int32) :: num_of_root
     contains
         !procedure :: export => exportRootSystem
     end type
@@ -50,8 +51,8 @@ contains
 subroutine InitLsystem(obj,InObj,MaxSize)
     class(Lsystem_),intent(inout)::obj
     type(Lsystem_),optional,intent(in) ::InObj
-    integer,optional,intent(in)::MaxSize
-    integer :: n
+    integer(int32),optional,intent(in)::MaxSize
+    integer(int32) :: n
 
     ! Regacy version 
 
@@ -69,11 +70,11 @@ end subroutine
 ! ########################################
 !subroutine exportNodeSystem(obj,FilePath,FileName,ObjID)
 !    class(NodeSystem_),intent(in) :: obj
-!    integer,intent(inout) :: objID
+!    integer(int32),intent(inout) :: objID
 !
 !    ! export stem
 !    character(*),optional,intent(in) :: FilePath,FileName
-!    integer :: i
+!    integer(int32) :: i
 !    do i=1,size(obj%NodeSystem)
 !
 !        if(present(FileName) )then
@@ -97,8 +98,8 @@ end subroutine
 !subroutine exportRootSystem(obj,FilePath,FileName,objID)
 !    class(RootSystem_),intent(in) :: obj
 !    character(*),optional,intent(in) :: FilePath,FileName
-!    integer,intent(inout) :: objID
-!    integer :: i
+!    integer(int32),intent(inout) :: objID
+!    integer(int32) :: i
 !    do i=1,size(obj%RootSystem)
 !
 !        if(present(FileName) )then

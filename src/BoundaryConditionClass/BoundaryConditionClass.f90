@@ -1,29 +1,29 @@
-
 module BoundaryConditionClass
-    use ArrayOperationClass
-    use MeshOperationClass
+    use, intrinsic :: iso_fortran_env
+    use ArrayClass
+    use MeshClass
 
     implicit none
 
     type::Boundary_
-        real(8),allocatable::DBoundVal(:,:)
-        real(8),allocatable::NBoundVal(:,:)  
-        real(8),allocatable::TBoundVal(:,:)  
-        real(8),allocatable::TBoundElemGpVal(:,:,:)      
+        real(real64),allocatable::DBoundVal(:,:)
+        real(real64),allocatable::NBoundVal(:,:)  
+        real(real64),allocatable::TBoundVal(:,:)  
+        real(real64),allocatable::TBoundElemGpVal(:,:,:)      
         
-        real(8),allocatable::DBoundValInc(:,:)
-        real(8),allocatable::NBoundValInc(:,:)  
-        real(8),allocatable::TBoundValInc(:,:)
+        real(real64),allocatable::DBoundValInc(:,:)
+        real(real64),allocatable::NBoundValInc(:,:)  
+        real(real64),allocatable::TBoundValInc(:,:)
 
-        integer,allocatable::DBoundNodID(:,:)
-        integer,allocatable::NBoundNodID(:,:)
-        integer,allocatable::TBoundNodID(:,:)
-        integer,allocatable::TBoundElemID(:)
+        integer(int32),allocatable::DBoundNodID(:,:)
+        integer(int32),allocatable::NBoundNodID(:,:)
+        integer(int32),allocatable::TBoundNodID(:,:)
+        integer(int32),allocatable::TBoundElemID(:)
 
-        integer,allocatable::DBoundNum(:)
-        integer,allocatable::NBoundNum(:)
-        integer,allocatable::TBoundNum(:)
-        integer,allocatable::TBoundElemNum(:)
+        integer(int32),allocatable::DBoundNum(:)
+        integer(int32),allocatable::NBoundNum(:)
+        integer(int32),allocatable::TBoundNum(:)
+        integer(int32),allocatable::TBoundElemNum(:)
 
 
         character*70 :: ErrorMsg
@@ -47,7 +47,7 @@ contains
 subroutine CheckDatatypeBoundary(obj)
     class(Boundary_),intent(inout)::obj
 
-    integer i,j,n,m,o
+    integer(int32) i,j,n,m,o
 
     if(allocated(obj%DBoundNodID))then
         obj%ErrorMsg=""
@@ -68,7 +68,7 @@ subroutine CheckDatatypeBoundary(obj)
                 return
             endif
             if(obj%DBoundNodID(i,j)/=obj%DBoundNodID(i,j) )then
-                obj%ErrorMsg="Check Point 1/10 : Invalid Integer is in DBoundNodID"
+                obj%ErrorMsg="Check Point 1/10 : Invalid integer(int32) is in DBoundNodID"
                 return
             endif         
         enddo
@@ -110,7 +110,7 @@ subroutine CheckDatatypeBoundary(obj)
                 return
             endif
             if(obj%NBoundNodID(i,j)/=obj%NBoundNodID(i,j) )then
-                obj%ErrorMsg="Check Point 1/10 : Invalid Integer is in NBoundNodID"
+                obj%ErrorMsg="Check Point 1/10 : Invalid integer(int32) is in NBoundNodID"
                 return
             endif         
         enddo
@@ -188,7 +188,7 @@ subroutine InitializeBoundary(obj,Default)
     class(Boundary_),intent(inout)::obj
     logical,optional,intent(in):: Default
 
-    integer i,j,n,m
+    integer(int32) i,j,n,m
 
     if(present(Default) )then
         if(Default .eqv. .true.)then
@@ -279,9 +279,9 @@ subroutine DeleteOverlapBoundary(obj)
 
     !only Dirichlet Boundary Condition is checked.
     !overwrite mode
-    integer,allocatable::Intbuf(:,:)
-    real(8),allocatable::Realbuf(:,:)
-    integer :: i,j,k,n,m,countnum
+    integer(int32),allocatable::Intbuf(:,:)
+    real(real64),allocatable::Realbuf(:,:)
+    integer(int32) :: i,j,k,n,m,countnum
 
     n = size(obj%DBoundNodID,1)
     m = size(obj%DBoundNodID,2)
@@ -337,8 +337,8 @@ end subroutine DeleteOverlapBoundary
 !###############  Import D-Boundary Condition ###############
 subroutine ImportDBound(obj,Node_ID,DValue)
     class(Boundary_),intent(inout)::obj
-    real(8),intent(in)::DValue(:,:)
-    integer,intent(in)::Node_ID(:,:)
+    real(real64),intent(in)::DValue(:,:)
+    integer(int32),intent(in)::Node_ID(:,:)
 
     include "./ImportDBound.f90"
 
@@ -375,8 +375,8 @@ end subroutine MergeNBound
 !###############  Import N-Boundary Condition ###############
 subroutine ImportNBound(obj,Node_ID,NValue)
     class(Boundary_),intent(inout)::obj
-    real(8),intent(in)::NValue(:,:)
-    integer,intent(in)::Node_ID(:,:)
+    real(real64),intent(in)::NValue(:,:)
+    integer(int32),intent(in)::Node_ID(:,:)
 
     include "./ImportNBound.f90"
 

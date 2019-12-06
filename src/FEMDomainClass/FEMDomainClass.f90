@@ -1,8 +1,9 @@
 module FEMDomainClass
+    use, intrinsic :: iso_fortran_env
 	use MathClass
-    use ArrayOperationClass
+    use ArrayClass
     use ShapeFunctionClass
-    use MeshOperationClass
+    use MeshClass
     use MaterialPropClass
     use BoundaryConditionClass
     use ControlParaeterClass
@@ -15,7 +16,7 @@ module FEMDomainClass
         type(MaterialProp_)     :: MaterialProp
         type(Boundary_)         :: Boundary
         type(ControlParameter_) :: ControlPara
-        real(8) :: RealTime
+        real(real64) :: RealTime
         character*200 :: FilePath
         character*200 :: FileName
         character*9 :: Dtype
@@ -23,7 +24,7 @@ module FEMDomainClass
 		character*200 :: Category1 
 		character*200 :: Category2
 		character*200 :: Category3
-		integer :: timestep
+		integer(int32) :: timestep
     contains
         procedure,public :: Init   => InitializeFEMDomain
         procedure,public :: Delete => DeallocateFEMDomain
@@ -148,7 +149,7 @@ end subroutine
 
 subroutine resizeFEMDomain(obj,x_rate,y_rate,z_rate)
 	class(FEMDomain_),intent(inout) :: obj
-	real(8),optional,intent(in) :: x_rate,y_rate,z_rate
+	real(real64),optional,intent(in) :: x_rate,y_rate,z_rate
 
 	call obj%Mesh%resize(x_rate=x_rate,y_rate=y_rate,z_rate=z_rate)
 
@@ -179,10 +180,10 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
     character*200::ProjectName
 	character*200 ::iFileName
 	
-    integer,allocatable::IntMat(:,:)
-    real(8),allocatable::RealMat(:,:)
-    integer,optional,intent(in)::FileHandle,MeshDimension
-    integer :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,nn
+    integer(int32),allocatable::IntMat(:,:)
+    real(real64),allocatable::RealMat(:,:)
+    integer(int32),optional,intent(in)::FileHandle,MeshDimension
+    integer(int32) :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,nn
 	character*70 Msg
 
 	if(present(regacy) )then
@@ -851,9 +852,9 @@ end subroutine ExportFEMDomain
 !##################################################
 subroutine InitDBC(obj,NumOfValPerNod)
     class(FEMDomain_),intent(inout)::obj
-    integer,intent(in) :: NumOfValPerNod
+    integer(int32),intent(in) :: NumOfValPerNod
     
-    integer :: n,m
+    integer(int32) :: n,m
     !if the facet is not created, create facets (surface elements)
     call GetSurface(obj%Mesh)        
     n=size(obj%Mesh%FacetElemNod,1)
@@ -886,26 +887,26 @@ end subroutine
 subroutine AddDBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     tmin,tmax,valx,valy,valz,val,val_id,NumOfValPerNod,Mode2D )
     class(FEMDomain_),intent(inout)::obj
-    real(8),optional,intent(in)::xmin,xmax
-    real(8),optional,intent(in)::ymin,ymax
-    real(8),optional,intent(in)::zmin,zmax
-    real(8),optional,intent(in)::tmin,tmax
-    real(8),optional,intent(in)::val
-    integer,optional,intent(in)::val_id,NumOfValPerNod
-    real(8)::x_min,x_max
-    real(8)::y_min,y_max
-    real(8)::z_min,z_max
-    real(8)::t_min,t_max
+    real(real64),optional,intent(in)::xmin,xmax
+    real(real64),optional,intent(in)::ymin,ymax
+    real(real64),optional,intent(in)::zmin,zmax
+    real(real64),optional,intent(in)::tmin,tmax
+    real(real64),optional,intent(in)::val
+    integer(int32),optional,intent(in)::val_id,NumOfValPerNod
+    real(real64)::x_min,x_max
+    real(real64)::y_min,y_max
+    real(real64)::z_min,z_max
+    real(real64)::t_min,t_max
     
-    real(8),optional,intent(in)::valx,valy,valz
+    real(real64),optional,intent(in)::valx,valy,valz
 
 
     logical,optional,intent(in) :: Mode2D
     logical :: InOut
-    real(8) :: minline,maxline,SetDBCound(3)
-    integer,allocatable::DBoundNodIDBuf(:,:),CopiedArrayInt(:,:)
-    real(8),allocatable::DBoundValBuf(:,:),CopiedArrayReal(:,:),x(:),rmin(:),rmax(:)
-    integer :: countnum,i,j,k,node_id,n,m,NumVN,newboundnum,ValID,count_n,dim_num
+    real(real64) :: minline,maxline,SetDBCound(3)
+    integer(int32),allocatable::DBoundNodIDBuf(:,:),CopiedArrayInt(:,:)
+    real(real64),allocatable::DBoundValBuf(:,:),CopiedArrayReal(:,:),x(:),rmin(:),rmax(:)
+    integer(int32) :: countnum,i,j,k,node_id,n,m,NumVN,newboundnum,ValID,count_n,dim_num
 
 
     if(present(val_id) )then
@@ -1062,9 +1063,9 @@ end subroutine AddDBoundCondition
 !##################################################
 subroutine InitNBC(obj,NumOfValPerNod)
     class(FEMDomain_),intent(inout)::obj
-    integer,intent(in) :: NumOfValPerNod
+    integer(int32),intent(in) :: NumOfValPerNod
     
-    integer :: n,m
+    integer(int32) :: n,m
     !if the facet is not created, create facets (surface elements)
     if( .not. allocated(obj%Mesh%FacetElemNod) )then
         call GetSurface(obj%Mesh)        
@@ -1105,26 +1106,26 @@ end subroutine
 subroutine AddNBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     tmin,tmax,valx,valy,valz,val,val_id,NumOfValPerNod,Mode2D )
     class(FEMDomain_),intent(inout)::obj
-    real(8),optional,intent(in)::xmin,xmax
-    real(8),optional,intent(in)::ymin,ymax
-    real(8),optional,intent(in)::zmin,zmax
-    real(8),optional,intent(in)::tmin,tmax
-    real(8),optional,intent(in)::val
-    integer,optional,intent(in)::val_id,NumOfValPerNod
-    real(8)::x_min,x_max
-    real(8)::y_min,y_max
-    real(8)::z_min,z_max
-    real(8)::t_min,t_max
+    real(real64),optional,intent(in)::xmin,xmax
+    real(real64),optional,intent(in)::ymin,ymax
+    real(real64),optional,intent(in)::zmin,zmax
+    real(real64),optional,intent(in)::tmin,tmax
+    real(real64),optional,intent(in)::val
+    integer(int32),optional,intent(in)::val_id,NumOfValPerNod
+    real(real64)::x_min,x_max
+    real(real64)::y_min,y_max
+    real(real64)::z_min,z_max
+    real(real64)::t_min,t_max
     
-    real(8),optional,intent(in)::valx,valy,valz
+    real(real64),optional,intent(in)::valx,valy,valz
 
 
     logical,optional,intent(in) :: Mode2D
     logical :: InOut
-    real(8) :: minline,maxline,SetDBCound(3)
-    integer,allocatable::NBoundNodINBuf(:,:),CopiedArrayInt(:,:)
-    real(8),allocatable::NBoundValBuf(:,:),CopiedArrayReal(:,:),x(:),rmin(:),rmax(:)
-    integer :: countnum,i,j,k,node_id,n,m,NumVN,newboundnum,ValID
+    real(real64) :: minline,maxline,SetDBCound(3)
+    integer(int32),allocatable::NBoundNodINBuf(:,:),CopiedArrayInt(:,:)
+    real(real64),allocatable::NBoundValBuf(:,:),CopiedArrayReal(:,:),x(:),rmin(:),rmax(:)
+    integer(int32) :: countnum,i,j,k,node_id,n,m,NumVN,newboundnum,ValID
 
     if(present(val_id) )then
         ValID=val_id
@@ -1351,9 +1352,9 @@ end subroutine AddNBoundCondition
 !##################################################
 subroutine InitTBC(obj,NumOfValPerNod)
     class(FEMDomain_),intent(inout)::obj
-    integer,intent(in) :: NumOfValPerNod
+    integer(int32),intent(in) :: NumOfValPerNod
     
-    integer :: n,m
+    integer(int32) :: n,m
     !if the facet is not created, create facets (surface elements)
     if( .not. allocated(obj%Mesh%FacetElemNod) )then
         call GetSurface(obj%Mesh)        
@@ -1393,26 +1394,26 @@ end subroutine
 subroutine AddTBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     tmin,tmax,valx,valy,valz,val,val_id,NumOfValPerNod,Mode2D )
     class(FEMDomain_),intent(inout)::obj
-    real(8),optional,intent(in)::xmin,xmax
-    real(8),optional,intent(in)::ymin,ymax
-    real(8),optional,intent(in)::zmin,zmax
-    real(8),optional,intent(in)::tmin,tmax
-    real(8),optional,intent(in)::val
-    integer,optional,intent(in)::val_id,NumOfValPerNod
-    real(8)::x_min,x_max
-    real(8)::y_min,y_max
-    real(8)::z_min,z_max
-    real(8)::t_min,t_max
+    real(real64),optional,intent(in)::xmin,xmax
+    real(real64),optional,intent(in)::ymin,ymax
+    real(real64),optional,intent(in)::zmin,zmax
+    real(real64),optional,intent(in)::tmin,tmax
+    real(real64),optional,intent(in)::val
+    integer(int32),optional,intent(in)::val_id,NumOfValPerNod
+    real(real64)::x_min,x_max
+    real(real64)::y_min,y_max
+    real(real64)::z_min,z_max
+    real(real64)::t_min,t_max
     
-    real(8),optional,intent(in)::valx,valy,valz
+    real(real64),optional,intent(in)::valx,valy,valz
 
 
     logical,optional,intent(in) :: Mode2D
     logical :: InOut
-    real(8) :: minline,maxline,SetDBCound(3)
-    integer,allocatable::TBoundNodITBuf(:,:),CopiedArrayInt(:,:)
-    real(8),allocatable::TBoundValBuf(:,:),CopiedArrayReal(:,:),x(:),rmin(:),rmax(:)
-    integer :: countnum,i,j,k,node_id,n,m,NumVN,newboundnum,ValID,count_n
+    real(real64) :: minline,maxline,SetDBCound(3)
+    integer(int32),allocatable::TBoundNodITBuf(:,:),CopiedArrayInt(:,:)
+    real(real64),allocatable::TBoundValBuf(:,:),CopiedArrayReal(:,:),x(:),rmin(:),rmax(:)
+    integer(int32) :: countnum,i,j,k,node_id,n,m,NumVN,newboundnum,ValID,count_n
 
     if(present(val_id) )then
         ValID=val_id
@@ -1539,21 +1540,21 @@ end subroutine AddTBoundCondition
 !subroutine AddNBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
 !    tmin,tmax,valx,valy,valz)
 !    class(FEMDomain_),intent(inout)::obj
-!    real(8),optional,intent(in)::xmin,xmax
-!    real(8),optional,intent(in)::ymin,ymax
-!    real(8),optional,intent(in)::zmin,zmax
-!    real(8),optional,intent(in)::tmin,tmax
-!    real(8)::x_min,x_max
-!    real(8)::y_min,y_max
-!    real(8)::z_min,z_max
-!    real(8)::t_min,t_max
+!    real(real64),optional,intent(in)::xmin,xmax
+!    real(real64),optional,intent(in)::ymin,ymax
+!    real(real64),optional,intent(in)::zmin,zmax
+!    real(real64),optional,intent(in)::tmin,tmax
+!    real(real64)::x_min,x_max
+!    real(real64)::y_min,y_max
+!    real(real64)::z_min,z_max
+!    real(real64)::t_min,t_max
 !    
-!    real(8),optional,intent(in)::valx,valy,valz
+!    real(real64),optional,intent(in)::valx,valy,valz
 !
-!    real(8) :: minline,maxline,SetNBCound(3)
-!    integer,allocatable::NBoundNodIDBuf(:,:),CopiedArrayInt(:,:)
-!    real(8),allocatable::NBoundValBuf(:,:),CopiedArrayReal(:,:)
-!    integer :: countnum,i,j,k,node_id
+!    real(real64) :: minline,maxline,SetNBCound(3)
+!    integer(int32),allocatable::NBoundNodIDBuf(:,:),CopiedArrayInt(:,:)
+!    real(real64),allocatable::NBoundValBuf(:,:),CopiedArrayReal(:,:)
+!    integer(int32) :: countnum,i,j,k,node_id
 !
 !    
 !
@@ -1716,21 +1717,21 @@ end subroutine AddTBoundCondition
 !subroutine AddTBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
 !    tmin,tmax,valx,valy,valz)
 !    class(FEMDomain_),intent(inout)::obj
-!    real(8),optional,intent(in)::xmin,xmax
-!    real(8),optional,intent(in)::ymin,ymax
-!    real(8),optional,intent(in)::zmin,zmax
-!    real(8),optional,intent(in)::tmin,tmax
-!    real(8)::x_min,x_max
-!    real(8)::y_min,y_max
-!    real(8)::z_min,z_max
-!    real(8)::t_min,t_max
+!    real(real64),optional,intent(in)::xmin,xmax
+!    real(real64),optional,intent(in)::ymin,ymax
+!    real(real64),optional,intent(in)::zmin,zmax
+!    real(real64),optional,intent(in)::tmin,tmax
+!    real(real64)::x_min,x_max
+!    real(real64)::y_min,y_max
+!    real(real64)::z_min,z_max
+!    real(real64)::t_min,t_max
 !    
-!    real(8),optional,intent(in)::valx,valy,valz
+!    real(real64),optional,intent(in)::valx,valy,valz
 !
-!    real(8) :: minline,maxline,SetTBCound(3)
-!    integer,allocatable::TBoundNodIDBuf(:,:),CopiedArrayInt(:,:)
-!    real(8),allocatable::TBoundValBuf(:,:),CopiedArrayReal(:,:)
-!    integer :: countnum,i,j,k,node_id
+!    real(real64) :: minline,maxline,SetTBCound(3)
+!    integer(int32),allocatable::TBoundNodIDBuf(:,:),CopiedArrayInt(:,:)
+!    real(real64),allocatable::TBoundValBuf(:,:),CopiedArrayReal(:,:)
+!    integer(int32) :: countnum,i,j,k,node_id
 !
 !    
 !
@@ -1956,8 +1957,8 @@ end subroutine
 !##################################################
 subroutine SetControlParaFEMDomain(obj,OptionalTol,OptionalItrTol,OptionalTimestep,OptionalSimMode)
     class(FEMDomain_),intent(inout)::obj
-    real(8),optional,intent(in)::OptionalTol
-    integer,optional,intent(in)::OptionalSimMode,OptionalItrTol,OptionalTimestep
+    real(real64),optional,intent(in)::OptionalTol
+    integer(int32),optional,intent(in)::OptionalSimMode,OptionalItrTol,OptionalTimestep
     
     call SetControlPara(obj%ControlPara,OptionalTol,OptionalItrTol,OptionalTimestep,OptionalSimMode)
 end subroutine
@@ -1968,26 +1969,26 @@ end subroutine
 subroutine AddMaterialID(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     tmin,tmax,valx,valy,valz,MaterialID ,mode2D)
     class(FEMDomain_),intent(inout)::obj
-    real(8),optional,intent(in)::xmin,xmax
-    real(8),optional,intent(in)::ymin,ymax
-    real(8),optional,intent(in)::zmin,zmax
-    real(8),optional,intent(in)::tmin,tmax
+    real(real64),optional,intent(in)::xmin,xmax
+    real(real64),optional,intent(in)::ymin,ymax
+    real(real64),optional,intent(in)::zmin,zmax
+    real(real64),optional,intent(in)::tmin,tmax
     
-    integer,optional,intent(in)::MaterialID
-    real(8)::x_min,x_max
-    real(8)::y_min,y_max
-    real(8)::z_min,z_max
-    real(8)::t_min,t_max
+    integer(int32),optional,intent(in)::MaterialID
+    real(real64)::x_min,x_max
+    real(real64)::y_min,y_max
+    real(real64)::z_min,z_max
+    real(real64)::t_min,t_max
     
-    real(8),optional,intent(in)::valx,valy,valz
+    real(real64),optional,intent(in)::valx,valy,valz
 
 
     logical,optional,intent(in) :: Mode2D
     logical :: InOut
-    real(8) :: minline,maxline,SetDBCound(3)
-    integer,allocatable::TBoundNodITBuf(:,:),CopiedArrayInt(:,:)
-    real(8),allocatable::TBoundValBuf(:,:),CopiedArrayReal(:,:),x(:),rmin(:),rmax(:)
-    integer :: countnum,i,j,k,node_id,n,m,NumVN,newboundnum,ValID,md
+    real(real64) :: minline,maxline,SetDBCound(3)
+    integer(int32),allocatable::TBoundNodITBuf(:,:),CopiedArrayInt(:,:)
+    real(real64),allocatable::TBoundValBuf(:,:),CopiedArrayReal(:,:),x(:),rmin(:),rmax(:)
+    integer(int32) :: countnum,i,j,k,node_id,n,m,NumVN,newboundnum,ValID,md
 
     if(present(MaterialID) )then
         md=MaterialID
@@ -2116,14 +2117,14 @@ end subroutine
 subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeumannBC,withDirichletBC&
 	,onlyNeumannBC,onlyDirichletBC,asMsh)
 	class(FEMDomain_),intent(inout)::obj
-	real(8),allocatable::gp_value(:,:)
-	integer,optional,intent(in)::OptionalStep
+	real(real64),allocatable::gp_value(:,:)
+	integer(int32),optional,intent(in)::OptionalStep
 	character,optional,intent(in):: OptionalContorName*30,OptionalAbb*6
 	character(*),optional,intent(in)::Name
 	logical,optional,intent(in)::withNeumannBC,withDirichletBC,onlyNeumannBC,onlyDirichletBC,asMsh
-	real(8),allocatable::x_double(:,:)
-	real(8),allocatable::x(:,:)
-	integer i,j,k,l,step,fh,nodeid1,nodeid2
+	real(real64),allocatable::x_double(:,:)
+	real(real64),allocatable::x(:,:)
+	integer(int32) i,j,k,l,step,fh,nodeid1,nodeid2
 	character filename0*11
 	character filename*200
 	character filetitle*6
@@ -2885,13 +2886,13 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 ! ########################################################################################
 subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalStep,Name)
 	class(FEMDomain_),intent(in)::obj
-	real(8),intent(in)::gp_value(:,:)
-	integer,optional,intent(in)::OptionalStep
+	real(real64),intent(in)::gp_value(:,:)
+	integer(int32),optional,intent(in)::OptionalStep
 	character,optional,intent(in):: OptionalContorName*30,OptionalAbb*6
 	character(*),optional,intent(in)::Name
-	real(8),allocatable::x_double(:,:)
-	real(8),allocatable::x(:,:)
-	integer i,j,k,step,fh
+	real(real64),allocatable::x_double(:,:)
+	real(real64),allocatable::x(:,:)
+	integer(int32) i,j,k,step,fh
 	character filename0*11
 	character filename*25
 	character filetitle*6
@@ -3518,16 +3519,16 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 !===========================================================================================
 subroutine GmshPlotVector(obj,Vector,Name,FieldName,Step,fh,withMsh,ElementWize,NodeWize,onlyDirichlet)
 	class(FEMDomain_),intent(in)::obj
-	real(8),optional,intent(in)::Vector(:,:)
+	real(real64),optional,intent(in)::Vector(:,:)
 	character(*),intent(in)::FieldName
 	character(*),optional,intent(in)::Name
-	integer,intent(in)::Step
-	real(8),allocatable ::DBCVector(:,:) 
-	integer,optional,intent(in)::fh
+	integer(int32),intent(in)::Step
+	real(real64),allocatable ::DBCVector(:,:) 
+	integer(int32),optional,intent(in)::fh
 	logical,optional,intent(in)::withMsh,ElementWize,NodeWize,onlyDirichlet
 
 	character :: filename0*11, filename1*11,center*15
-	integer :: FileHandle,i,j,k,n,m
+	integer(int32) :: FileHandle,i,j,k,n,m
 	FileHandle=input(default=1000,option=fh)
 
 
@@ -3696,12 +3697,12 @@ end subroutine
 
 subroutine GmshPlotContour2D(obj,gp_value,OptionalContorName,OptionalAbb,OptionalStep,Name)
 	class(FEMDomain_),intent(in)::obj
-	real(8),intent(in)::gp_value(:,:)
-	integer,optional,intent(in)::OptionalStep
+	real(real64),intent(in)::gp_value(:,:)
+	integer(int32),optional,intent(in)::OptionalStep
 	character,optional,intent(in):: OptionalContorName*30,OptionalAbb*6
 	character(*),optional,intent(in)::Name
-	real(8),allocatable::x(:,:)
-	integer i,j,k,step
+	real(real64),allocatable::x(:,:)
+	integer(int32) i,j,k,step
 	character filename0*11
 	character filename*17
 	character filetitle*6
@@ -3792,17 +3793,17 @@ subroutine GmshPlotContour2D(obj,gp_value,OptionalContorName,OptionalAbb,Optiona
  !===========================================================================================
 subroutine GmshExportStress(obj,uvec,sigma,strain_measure,step,Name )
 	class(FEMDomain_),intent(in)::obj
-	real(8),intent(in)::uvec(:),sigma(:,:,:),strain_measure(:,:,:)
-	integer,intent(in)::step
+	real(real64),intent(in)::uvec(:),sigma(:,:,:),strain_measure(:,:,:)
+	integer(int32),intent(in)::step
 	character p_stress_field*30
-	real(8),allocatable::c_nod_coord(:,:),gp_value(:,:),F_iJ(:,:),b_ij(:,:)
-	real(8) tr_sigma,tr_C,tr_b
+	real(real64),allocatable::c_nod_coord(:,:),gp_value(:,:),F_iJ(:,:),b_ij(:,:)
+	real(real64) tr_sigma,tr_C,tr_b
 	character q_stress_field*30
 	character p_strain_field*30
 	character q_strain_field*30
 	character mapname*30,abbrivation*6
 	character(*),optional,intent(in)::Name
-	integer i,j,n,gp_number,dim_num
+	integer(int32) i,j,n,gp_number,dim_num
 	
 	gp_number=size(strain_measure,2)
 	dim_num=size(obj%Mesh%NodCoord,2)
@@ -3934,11 +3935,11 @@ subroutine GmshExportStress(obj,uvec,sigma,strain_measure,step,Name )
  !=======================================================================================
 subroutine GnuplotPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalStep)
 	class(FEMDomain_),intent(in)::obj
-	real(8),intent(in)::gp_value(:,:)
-	integer,optional,intent(in)::OptionalStep
+	real(real64),intent(in)::gp_value(:,:)
+	integer(int32),optional,intent(in)::OptionalStep
 	character,optional,intent(in):: OptionalContorName*30,OptionalAbb*6
-	real(8),allocatable::x(:,:)
-	integer i,j,k,step,n
+	real(real64),allocatable::x(:,:)
+	integer(int32) i,j,k,step,n
 	character filename0*11
 	character filename*17
 	character filetitle*6
@@ -3985,17 +3986,17 @@ subroutine GnuplotPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,Option
  !===========================================================================================
 subroutine GnuplotExportStress(obj,uvec,sigma,strain_measure,step )
 	class(FEMDomain_),intent(in)::obj
-	real(8),intent(in)::uvec(:),sigma(:,:,:),strain_measure(:,:,:)
-	integer,intent(in)::step
+	real(real64),intent(in)::uvec(:),sigma(:,:,:),strain_measure(:,:,:)
+	integer(int32),intent(in)::step
 	character p_stress_field*30
 	
-	real(8),allocatable::c_nod_coord(:,:),gp_value(:,:)
-	real(8) tr_sigma,tr_C
+	real(real64),allocatable::c_nod_coord(:,:),gp_value(:,:)
+	real(real64) tr_sigma,tr_C
 	character q_stress_field*30
 	character p_strain_field*30
 	character q_strain_field*30
 	character mapname*30,abbrivation*6
-	integer i,j,n,gp_number,dim_num
+	integer(int32) i,j,n,gp_number,dim_num
 	
 	
 	gp_number=size(strain_measure,2)
@@ -4068,7 +4069,7 @@ subroutine GnuplotExportStress(obj,uvec,sigma,strain_measure,step )
 ! ################################################
 subroutine moveFEMDomain(obj,x,y,z)
 	class(FEMDomain_),intent(inout)::obj
-	real(8),optional,intent(in)::x,y,z
+	real(real64),optional,intent(in)::x,y,z
 	
 	
 	if(present(x) )then
@@ -4096,9 +4097,9 @@ end subroutine
 ! ################################################
 subroutine rotateFEMDomain(obj,x,y,z)
 	class(FEMDomain_),intent(inout)::obj
-	real(8),optional,intent(in)::x,y,z
-	real(8),allocatable :: midpoint(:),rotmat(:,:),rotation(:),coord(:)
-	integer :: i,j,n,m
+	real(real64),optional,intent(in)::x,y,z
+	real(real64),allocatable :: midpoint(:),rotmat(:,:),rotation(:),coord(:)
+	integer(int32) :: i,j,n,m
 
 	n=size(obj%Mesh%NodCoord,2)
 	m=size(obj%Mesh%NodCoord,1)
@@ -4202,10 +4203,10 @@ end subroutine
 ! ################################################
 subroutine AddNBCFEMDomain(obj,NodID,DimID,Val,FastMode)
 	class(FEMDomain_),intent(inout)::obj
-	integer,intent(in)::NodID,DimID
-	real(8),intent(in)::Val
+	integer(int32),intent(in)::NodID,DimID
+	real(real64),intent(in)::Val
 	logical,optional,intent(in)::FastMode
-	integer :: installed,i,j,n
+	integer(int32) :: installed,i,j,n
 	logical :: fmode
 
 	if(present(FastMode) )then
@@ -4264,11 +4265,11 @@ end subroutine
 
 subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 	class(FEMDomain_),intent(inout)::obj
-	integer,optional,intent(in)::FileHandle,MeshDimension
+	integer(int32),optional,intent(in)::FileHandle,MeshDimension
 	character(*),optional,intent(in)::FileName
-	real(8) :: x1(3),x2(3),x3(3)
+	real(real64) :: x1(3),x2(3),x3(3)
 	character*11  :: filename0
-	integer :: fh,i,dim_num
+	integer(int32) :: fh,i,dim_num
 
 	if(present(FileName) )then
 	
@@ -4449,9 +4450,9 @@ end subroutine
 !#######################################
 subroutine CheckConnedctivityFEMDomain(obj,fix)
 	class(FEMDomain_),intent(inout)::obj
-	integer,allocatable:: checklist(:,:),new_node_id(:)
+	integer(int32),allocatable:: checklist(:,:),new_node_id(:)
 	logical,optional,intent(in)::fix
-	integer :: i,n,m,j
+	integer(int32) :: i,n,m,j
 
 	n=size(obj%Mesh%NodCoord,1)
 	allocate(checklist(n,1),new_node_id(n) )
@@ -4525,8 +4526,8 @@ end subroutine
 
 subroutine getDBCVectorFEMDomain(obj,DBCvec)
 	class(FEMDomain_),intent(in)::obj
-	real(8),allocatable,intent(inout)::DBCvec(:,:)
-	integer :: i,j,n,m,k,l
+	real(real64),allocatable,intent(inout)::DBCvec(:,:)
+	integer(int32) :: i,j,n,m,k,l
 	n=size(obj%Mesh%NodCoord,1)
 	m=size(obj%Mesh%NodCoord,2)
 	if(.not. allocated(DBCvec ) )then

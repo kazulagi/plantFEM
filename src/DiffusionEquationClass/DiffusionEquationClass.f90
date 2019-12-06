@@ -1,4 +1,5 @@
 module DiffusionEquationClass
+    use, intrinsic :: iso_fortran_env
     use FEMDomainClass
     use PostProcessingClass
     use LinearSolverClass
@@ -6,15 +7,15 @@ module DiffusionEquationClass
 
     type:: DiffusionEq_
         type(FEMDomain_),pointer ::FEMDomain
-        real(8),allocatable ::UnknownValue(:,:)
-        real(8),allocatable ::UnknownValueInit(:,:)
-        real(8),allocatable ::UnknownValueRate(:,:)
-        real(8),allocatable ::DiffusionMat(:,:,:)
-        real(8),allocatable ::Divergence(:,:)
-        real(8),allocatable ::Flowvector(:,:)
-        real(8),allocatable ::FluxVector3D(:,:)
-        real(8)             ::dt
-        integer             :: step
+        real(real64),allocatable ::UnknownValue(:,:)
+        real(real64),allocatable ::UnknownValueInit(:,:)
+        real(real64),allocatable ::UnknownValueRate(:,:)
+        real(real64),allocatable ::DiffusionMat(:,:,:)
+        real(real64),allocatable ::Divergence(:,:)
+        real(real64),allocatable ::Flowvector(:,:)
+        real(real64),allocatable ::FluxVector3D(:,:)
+        real(real64)             ::dt
+        integer(int32)             :: step
     contains
         procedure :: Solve => SolveDiffusionEq
         procedure :: Update => UpdateDiffusionEq
@@ -36,9 +37,9 @@ subroutine ImportFEMDomainDiff(obj,OptionalFileFormat,OptionalProjectName)
     character*4::FileFormat
     character*70::ProjectName
     character*74 ::FileName
-    integer,allocatable::IntMat(:,:)
-    real(8),allocatable::RealMat(:,:)
-    integer :: fh,i,j,NumOfDomain,n,m,DimNum
+    integer(int32),allocatable::IntMat(:,:)
+    real(real64),allocatable::RealMat(:,:)
+    integer(int32) :: fh,i,j,NumOfDomain,n,m,DimNum
     character*70 Msg
 
 call DeallocateFEMDomain(obj)
@@ -194,9 +195,9 @@ subroutine SolveDiffusionEq(obj,Solvertype)
     character(*),optional,intent(in)::Solvertype
     character*70 ::solver,defaultsolver
 
-    real(8),allocatable::Amat(:,:),bvec(:),xvec(:)
-    real(8)::val,er
-    integer ::i,j, n,m,k,nodeid1,nodeid2,localid,itrmax
+    real(real64),allocatable::Amat(:,:),bvec(:),xvec(:)
+    real(real64)::val,er
+    integer(int32) ::i,j, n,m,k,nodeid1,nodeid2,localid,itrmax
 
     defaultsolver="GaussJordan"
 
@@ -403,10 +404,10 @@ end subroutine
 subroutine GetDiffusionMat(obj)
     class(DiffusionEq_),intent(inout)::obj
 
-    integer :: nod_num,dim_num,elemnod_num,elem_num
-    integer :: i,j,k
-    real(8) :: diff_coeff
-    real(8),allocatable::DiffMat(:,:),MassMat(:,:),Cvec(:),Flux(:)
+    integer(int32) :: nod_num,dim_num,elemnod_num,elem_num
+    integer(int32) :: i,j,k
+    real(real64) :: diff_coeff
+    real(real64),allocatable::DiffMat(:,:),MassMat(:,:),Cvec(:),Flux(:)
  
     nod_num     =   size(obj%FEMDomain%Mesh%NodCoord,1)
     elem_num    =   size(obj%FEMDomain%Mesh%ElemNod,1)
@@ -466,8 +467,8 @@ end subroutine
 subroutine GetFlowvector(obj)
     class(DiffusionEq_),intent(inout)::obj
 
-    integer ::  i,j,k,n,m,num_of_nbc,node_id,num_of_elem,num_of_elemnod
-    real(8),allocatable::MassMat(:,:),RHSvector(:)
+    integer(int32) ::  i,j,k,n,m,num_of_nbc,node_id,num_of_elem,num_of_elemnod
+    real(real64),allocatable::MassMat(:,:),RHSvector(:)
     
     obj%Flowvector(:,:)=0.0d0
     num_of_elem=size(obj%FEMDomain%Mesh%ElemNod,1)
@@ -538,8 +539,8 @@ end subroutine GetFlowvector
 subroutine GetUnknownValue(obj)
     class(DiffusionEq_),intent(inout)::obj
 
-    integer :: i,j,k,n,m,nodeid
-    real(8) :: val
+    integer(int32) :: i,j,k,n,m,nodeid
+    real(real64) :: val
     
     n=size(obj%FEMDomain%Mesh%ElemNod,1)
     m=size(obj%FEMDomain%Mesh%ElemNod,2)
@@ -599,8 +600,8 @@ end subroutine GetUnknownValue
 subroutine GetDivergence(obj)
     class(DiffusionEq_),intent(inout)::obj
 
-    integer :: i,j,k,n,m,nodeid
-    real(8) :: val
+    integer(int32) :: i,j,k,n,m,nodeid
+    real(real64) :: val
     
     n=size(obj%FEMDomain%Mesh%ElemNod,1)
     m=size(obj%FEMDomain%Mesh%ElemNod,2)
@@ -635,10 +636,10 @@ end subroutine
 !################## Elemental Entities ##################
 subroutine GetElemDiffusionMatrix(obj,diff_coeff,DiffMat)
     class(ShapeFunction_),intent(inout)::obj
-    real(8),intent(in)::diff_coeff
-    real(8),allocatable,intent(inout)::DiffMat(:,:)
-    integer :: i,j,n
-    real(8) :: signm_modifier
+    real(real64),intent(in)::diff_coeff
+    real(real64),allocatable,intent(inout)::DiffMat(:,:)
+    integer(int32) :: i,j,n
+    real(real64) :: signm_modifier
     n=size(obj%dNdgzi,2)
     if(size(DiffMat,1)/=n .or.size(DiffMat,2)/=n )then
         if(allocated(DiffMat)) then
@@ -666,11 +667,11 @@ end subroutine GetElemDiffusionMatrix
 !################## Elemental Entities ##################
 subroutine getElemFluxVec(obj,diff_coeff,Flux,Cvec)
     class(ShapeFunction_),intent(inout)::obj
-    real(8),intent(in)::diff_coeff
-    real(8),intent(in)::Cvec(:)
-    real(8),allocatable,intent(inout)::Flux(:)
-    integer :: i,j,n
-    real(8) :: signm_modifier
+    real(real64),intent(in)::diff_coeff
+    real(real64),intent(in)::Cvec(:)
+    real(real64),allocatable,intent(inout)::Flux(:)
+    integer(int32) :: i,j,n
+    real(real64) :: signm_modifier
     n=size(obj%dNdgzi,2)
     if(size(Flux,1)/=n )then
         if(allocated(Flux)) then
@@ -701,8 +702,8 @@ end subroutine GetElemFluxVec
 !################## Elemental Entities ##################
 subroutine GetElemMassMatrix(obj,MassMat)
     class(ShapeFunction_),intent(inout)::obj
-    real(8),allocatable,intent(inout)::MassMat(:,:)
-    integer :: i,j,n
+    real(real64),allocatable,intent(inout)::MassMat(:,:)
+    integer(int32) :: i,j,n
 
     n=size(obj%dNdgzi,2)
     if(.not.allocated(MassMat) )allocate(MassMat(n,n) )
@@ -728,8 +729,8 @@ subroutine DisplayDiffusionEq(obj,OptionalProjectName,DisplayMode,OptionalStep,N
     class(DiffusionEq_),intent(inout)::obj
     character(*),optional,intent(in) :: OptionalProjectName,DisplayMode,Name
     logical::withMsh
-    integer,optional,intent(in)::OptionalStep
-    integer :: i,j,n,m,step
+    integer(int32),optional,intent(in)::OptionalStep
+    integer(int32) :: i,j,n,m,step
 
     if(present(OptionalStep) )then
         step=OptionalStep

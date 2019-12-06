@@ -1,4 +1,5 @@
 module PetiClass
+    use, intrinsic :: iso_fortran_env
     use KinematicClass
     use StemClass
     use FEMDomainClass
@@ -7,12 +8,12 @@ module PetiClass
 
     type :: Peti_
         type(FEMDomain_)    ::  FEMDomain
-        real(8)             ::  Thickness,length,width
-        real(8)             ::  MaxThickness,Maxlength,Maxwidth
-        real(8)             ::  center_bottom(3),center_top(3)
-        real(8)             ::  radius_bottom(3),radius_top(3)
-        real(8)             ::  outer_normal_bottom(3),outer_normal_top(3)
-        integer             ::  Division
+        real(real64)             ::  Thickness,length,width
+        real(real64)             ::  MaxThickness,Maxlength,Maxwidth
+        real(real64)             ::  center_bottom(3),center_top(3)
+        real(real64)             ::  radius_bottom(3),radius_top(3)
+        real(real64)             ::  outer_normal_bottom(3),outer_normal_top(3)
+        integer(int32)             ::  Division
         type(Stem_),pointer ::  pStem
     contains
         procedure, public :: Init => initPeti
@@ -24,10 +25,10 @@ contains
 ! ########################################
 subroutine initPeti(obj,Thickness,length,width,MaxThickness,Maxlength,Maxwidth,rotx,roty,rotz,location)
     class(Peti_),intent(inout) :: obj
-    real(8),optional,intent(in)::  Thickness,length,width
-    real(8),optional,intent(in)::  MaxThickness,Maxlength,Maxwidth
-    real(8),optional,intent(in)::  rotx,roty,rotz,location(3)
-    real(8) :: loc(3)
+    real(real64),optional,intent(in)::  Thickness,length,width
+    real(real64),optional,intent(in)::  MaxThickness,Maxlength,Maxwidth
+    real(real64),optional,intent(in)::  rotx,roty,rotz,location(3)
+    real(real64) :: loc(3)
     loc(:)=0.0d0
     if(present(location) )then
         loc(:)=location(:)
@@ -60,8 +61,8 @@ end subroutine
 subroutine exportPeti(obj,FileName,PetiID)
     class(Peti_),intent(in)::obj
     character(*),intent(in) :: FileName
-    integer,optional,intent(inout) :: PetiID
-    real(8) :: radius
+    integer(int32),optional,intent(inout) :: PetiID
+    real(real64) :: radius
     
     radius=0.50d0*obj%width+0.50d0*obj%Thickness
     open(14,file=FileName)

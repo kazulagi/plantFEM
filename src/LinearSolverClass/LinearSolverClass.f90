@@ -1,14 +1,15 @@
 module LinearSolverClass
+  use, intrinsic :: iso_fortran_env
   use MathClass
   implicit none
 contains
 !====================================================================================
 subroutine gauss_seidel(a, b, x, n, itrmax, er0)
-  integer, intent(in) :: n, itrmax
-  real(8), intent(in)  :: a(n, n), b(n), er0
-  real(8), intent(out) :: x(n)
-  real(8) s, er, rd(n), r(n)
-  integer i, itr
+  integer(int32), intent(in) :: n, itrmax
+  real(real64), intent(in)  :: a(n, n), b(n), er0
+  real(real64), intent(out) :: x(n)
+  real(real64) s, er, rd(n), r(n)
+  integer(int32) i, itr
   do i = 1, n
     if (a(i, i) == 0.0d0)  stop  'a(i, i) == 0.0d0'
     rd(i) = 1.0d0 / a(i, i)
@@ -30,11 +31,11 @@ subroutine gauss_seidel(a, b, x, n, itrmax, er0)
  end subroutine gauss_seidel
 !===================================================================================
 subroutine gauss_jordan_pv(a0, x, b, n)
-  integer, intent(in) :: n
-  real(8), intent(in) :: a0(n,n), b(n)
-  real(8), intent(out) :: x(n)
-  integer i, j, k, m,nn, mm
-  real(8) ar, am, t, a(n,n), w(n)
+  integer(int32), intent(in) :: n
+  real(real64), intent(in) :: a0(n,n), b(n)
+  real(real64), intent(out) :: x(n)
+  integer(int32) i, j, k, m,nn, mm
+  real(real64) ar, am, t, a(n,n), w(n)
   nn = size(a0,1)
 
   a(:,:)= a0(:,:)
@@ -76,12 +77,12 @@ subroutine gauss_jordan_pv(a0, x, b, n)
 !===========================================================================
 
  subroutine bicgstab_diffusion(a, b, x, n, itrmax, er,DBC,DBCVal)
-  integer, intent(in) :: n, itrmax,DBC(:,:)
-  real(8), intent(in) :: a(n,n), b(n), er,DBCVal(:,:)
-  real(8), intent(inout) :: x(n)
-     integer itr,i,j
-     real(8) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
-     real(8) r(n), r0(n), p(n), y(n), e(n), v(n)
+  integer(int32), intent(in) :: n, itrmax,DBC(:,:)
+  real(real64), intent(in) :: a(n,n), b(n), er,DBCVal(:,:)
+  real(real64), intent(inout) :: x(n)
+     integer(int32) itr,i,j
+     real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
+     real(real64) r(n), r0(n), p(n), y(n), e(n), v(n)
      er0=1.00e-8
    r(:) = b - matmul(a,x)
    ! if DBC => reset residual
@@ -153,12 +154,12 @@ subroutine gauss_jordan_pv(a0, x, b, n)
 !===============================================================
 
 subroutine bicgstab1d(a, b, x, n, itrmax, er)
-  integer, intent(in) :: n, itrmax
-  real(8), intent(in) :: a(n,n), b(n), er
-  real(8), intent(inout) :: x(n)
-     integer itr
-     real(8) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
-     real(8) r(n), r0(n), p(n), y(n), e(n), v(n)
+  integer(int32), intent(in) :: n, itrmax
+  real(real64), intent(in) :: a(n,n), b(n), er
+  real(real64), intent(inout) :: x(n)
+     integer(int32) itr
+     real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
+     real(real64) r(n), r0(n), p(n), y(n), e(n), v(n)
      er0=1.00e-14
 	 r(:) = b - matmul(a,x)
      c1 = dot_product(r,r)
@@ -192,12 +193,12 @@ subroutine bicgstab1d(a, b, x, n, itrmax, er)
  end subroutine bicgstab1d
 !===============================================================
 subroutine bicgstab_nr(a, b, x, n, itrmax, er,u_nod_x, u_nod_y)
-  integer, intent(in) :: n, itrmax,u_nod_x(:),u_nod_y(:)
-  real(8), intent(in) :: a(n,n),b(n), er
-  real(8), intent(inout) :: x(n)
-  integer itr
-     real(8) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
-     real(8) r(n), r0(n), p(n), y(n), e(n), v(n)
+  integer(int32), intent(in) :: n, itrmax,u_nod_x(:),u_nod_y(:)
+  real(real64), intent(in) :: a(n,n),b(n), er
+  real(real64), intent(inout) :: x(n)
+  integer(int32) itr
+     real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
+     real(real64) r(n), r0(n), p(n), y(n), e(n), v(n)
      er0=1.00e-14
 	 
 	 r(:) = b - matmul(a,x)
@@ -239,12 +240,12 @@ subroutine bicgstab_nr(a, b, x, n, itrmax, er,u_nod_x, u_nod_y)
  end subroutine bicgstab_nr
 !====================================================================================
 subroutine bicgstab_nr1(a, b, x, n, itrmax, er,u_nod_x, u_nod_y,u_nod_dis_x,u_nod_dis_y)
-  integer, intent(in) :: n, itrmax,u_nod_x(:),u_nod_y(:)
-  real(8), intent(in) :: a(n,n),b(n), er,u_nod_dis_x(:),u_nod_dis_y(:)
-  real(8), intent(inout) :: x(n)
-     integer itr
-     real(8) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
-     real(8) r(n), r0(n), p(n), y(n), e(n), v(n)
+  integer(int32), intent(in) :: n, itrmax,u_nod_x(:),u_nod_y(:)
+  real(real64), intent(in) :: a(n,n),b(n), er,u_nod_dis_x(:),u_nod_dis_y(:)
+  real(real64), intent(inout) :: x(n)
+     integer(int32) itr
+     real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
+     real(real64) r(n), r0(n), p(n), y(n), e(n), v(n)
      er0=1.00e-14
 	 r(:) = b - matmul(a,x)
 	 call modify_residual_1(r,x, u_nod_x, u_nod_y,u_nod_dis_x,u_nod_dis_y)
@@ -279,12 +280,12 @@ subroutine bicgstab_nr1(a, b, x, n, itrmax, er,u_nod_x, u_nod_y,u_nod_dis_x,u_no
 !====================================================================================
 
 subroutine bicgstab_dirichlet(a, b, x, n, itrmax, er,DBoundNodID, DBoundVal,SetBC)
-  integer, intent(in) :: n, itrmax,DBoundNodID(:,:),SetBC
-  real(8), intent(in) :: a(n,n),b(n), er,DBoundVal(:,:)
-  real(8), intent(inout) :: x(n)
-     integer itr
-     real(8) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
-     real(8) r(n), r0(n), p(n), y(n), e(n), v(n)
+  integer(int32), intent(in) :: n, itrmax,DBoundNodID(:,:),SetBC
+  real(real64), intent(in) :: a(n,n),b(n), er,DBoundVal(:,:)
+  real(real64), intent(inout) :: x(n)
+     integer(int32) itr
+     real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
+     real(real64) r(n), r0(n), p(n), y(n), e(n), v(n)
      er0=1.00e-14
 	 
 	 r(:) = b - matmul(a,x)
@@ -328,10 +329,10 @@ subroutine bicgstab_dirichlet(a, b, x, n, itrmax, er,DBoundNodID, DBoundVal,SetB
 
 
 subroutine modify_residual_1(r,x, u_nod_x, u_nod_y,u_nod_dis_x,u_nod_dis_y)
-	integer,intent(in)::u_nod_x(:),u_nod_y(:)
-	real(8), intent(in) :: u_nod_dis_x(:),u_nod_dis_y(:)
-	real(8),intent(inout)::r(:),x(:)
-	 integer i
+	integer(int32),intent(in)::u_nod_x(:),u_nod_y(:)
+	real(real64), intent(in) :: u_nod_dis_x(:),u_nod_dis_y(:)
+	real(real64),intent(inout)::r(:),x(:)
+	 integer(int32) i
 	 
 	 do i=1,size(u_nod_x)
 
@@ -348,9 +349,9 @@ subroutine modify_residual_1(r,x, u_nod_x, u_nod_y,u_nod_dis_x,u_nod_dis_y)
   end subroutine modify_residual_1
 !====================================================================================
 subroutine modify_residual(r, u_nod_x, u_nod_y)
-	integer,intent(in)::u_nod_x(:),u_nod_y(:)
-	real(8),intent(inout)::r(:)
-	 integer i
+	integer(int32),intent(in)::u_nod_x(:),u_nod_y(:)
+	real(real64),intent(inout)::r(:)
+	 integer(int32) i
 	 
 	 do i=1,size(u_nod_x)
 
@@ -365,13 +366,13 @@ subroutine modify_residual(r, u_nod_x, u_nod_y)
   end subroutine modify_residual
 !====================================================================================
 subroutine modify_residual_dirichlet(r,x, DBoundNodID, DBoundVal,SetBC)
-  integer,intent(in)::DBoundNodID(:,:),SetBC
-  real(8),intent(in)::DBoundVal(:,:)
-	real(8),intent(inout)::r(:),x(:)
+  integer(int32),intent(in)::DBoundNodID(:,:),SetBC
+  real(real64),intent(in)::DBoundVal(:,:)
+	real(real64),intent(inout)::r(:),x(:)
 
   
-	integer :: i,j,k,dim_num,dbc_num
-	real(8) :: val
+	integer(int32) :: i,j,k,dim_num,dbc_num
+	real(real64) :: val
 
   if(SetBC==1)then
 
@@ -420,16 +421,16 @@ end subroutine
 
 !===========================================================================
 subroutine GPBiCG(a, b, x, n, itrmax, er)
-  integer, intent(in) :: n
-  integer,optional,intent(in) :: itrmax
-  real(8), intent(in) :: a(n,n), b(n)
-  real(8), optional,intent(in)::er
-  real(8), intent(inout) :: x(n)
-     integer itr,itrmax_
-     real(8) alp,c1, rr,er0,init_rr,beta
-     real(8) gzi,nu,val1,val2,r0rk,eps
-     real(8) r(n), r0(n), p(n), y(n),ap(n),q(n)
-     real(8) u(n),w(n),t(n),t_(n),z(n)
+  integer(int32), intent(in) :: n
+  integer(int32),optional,intent(in) :: itrmax
+  real(real64), intent(in) :: a(n,n), b(n)
+  real(real64), optional,intent(in)::er
+  real(real64), intent(inout) :: x(n)
+     integer(int32) itr,itrmax_
+     real(real64) alp,c1, rr,er0,init_rr,beta
+     real(real64) gzi,nu,val1,val2,r0rk,eps
+     real(real64) r(n), r0(n), p(n), y(n),ap(n),q(n)
+     real(real64) u(n),w(n),t(n),t_(n),z(n)
      eps=1.0e-18
      er0=input(default=eps,option=er)
 
@@ -492,17 +493,17 @@ subroutine GPBiCG(a, b, x, n, itrmax, er)
  
 !===========================================================================
 subroutine pre_processed_GPBiCG(a, b, x, n, itrmax, er)
-  integer, intent(in) :: n
-  integer,optional,intent(in) :: itrmax
-  real(8), intent(in) :: a(n,n), b(n)
-  real(8), optional,intent(in)::er
-  real(8), intent(inout) :: x(n)
+  integer(int32), intent(in) :: n
+  integer(int32),optional,intent(in) :: itrmax
+  real(real64), intent(in) :: a(n,n), b(n)
+  real(real64), optional,intent(in)::er
+  real(real64), intent(inout) :: x(n)
     ! presented by Moe Thuthu et al., 2009, algorithm #3
-     integer itr,itrmax_
-     real(8) alp,c1, rr,er0,init_rr,beta
-     real(8) gzi,nu,val1,val2,r0rk,eps
-     real(8) r(n), r0(n), p(n), y(n),ap(n),q(n)
-     real(8) u(n),w(n),t(n),t_(n),z(n)
+     integer(int32) itr,itrmax_
+     real(real64) alp,c1, rr,er0,init_rr,beta
+     real(real64) gzi,nu,val1,val2,r0rk,eps
+     real(real64) r(n), r0(n), p(n), y(n),ap(n),q(n)
+     real(real64) u(n),w(n),t(n),t_(n),z(n)
      eps=1.00e-14
      er0=input(default=eps,option=er)
 

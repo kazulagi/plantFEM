@@ -1,4 +1,5 @@
 module SpaceTimeDeformClass
+    use, intrinsic :: iso_fortran_env
     use MathClass
 	use LinearSolverClass
 	use FEMDomainClass
@@ -7,23 +8,23 @@ module SpaceTimeDeformClass
     
     type :: SpaceTimeFEM_
 		type(STFEMDomain_),pointer ::STFEMDomain
-	    real(8),allocatable ::DeformStress(:,:,:)
-	    real(8),allocatable ::DeformStrain(:,:,:)
-        real(8),allocatable ::DeformStressInit(:,:,:)
-		real(8),allocatable ::DeformStressMat(:,:,:)
-		real(8),allocatable ::DeformStressRHS(:,:)
-		real(8),allocatable ::DeformVecEBETot(:,:)
-        real(8),allocatable ::DeformVecEBEInc(:,:)
+	    real(real64),allocatable ::DeformStress(:,:,:)
+	    real(real64),allocatable ::DeformStrain(:,:,:)
+        real(real64),allocatable ::DeformStressInit(:,:,:)
+		real(real64),allocatable ::DeformStressMat(:,:,:)
+		real(real64),allocatable ::DeformStressRHS(:,:)
+		real(real64),allocatable ::DeformVecEBETot(:,:)
+        real(real64),allocatable ::DeformVecEBEInc(:,:)
 
-        real(8),allocatable ::DeformVecGloTot(:)
-		real(8),allocatable ::DeformVecGloInc(:)
+        real(real64),allocatable ::DeformVecGloTot(:)
+		real(real64),allocatable ::DeformVecGloInc(:)
 		
-		real(8),allocatable ::TractionVecGlo(:)
-		real(8),allocatable ::ResidualVecGlo(:)
-		real(8),allocatable ::InternalVecGlo(:)
+		real(real64),allocatable ::TractionVecGlo(:)
+		real(real64),allocatable ::ResidualVecGlo(:)
+		real(real64),allocatable ::InternalVecGlo(:)
 
-		real(8),allocatable ::VolInitCurrEBE(:,:)
-        real(8)             ::dt,error
+		real(real64),allocatable ::VolInitCurrEBE(:,:)
+        real(real64)             ::dt,error
 
 
         logical :: MeshMove
@@ -71,8 +72,8 @@ end subroutine
 ! ############################################################
 subroutine GetSTShapeFunc(obj,ElemID,GpID)
     class(SpaceTimeFEM_),intent(inout)  :: obj
-    integer,optional,intent(in)::ElemID
-    integer,optional,intent(in)::GpID
+    integer(int32),optional,intent(in)::ElemID
+    integer(int32),optional,intent(in)::GpID
 
     if( obj%MeshMove .eqv. .false. )then
         call obj%STFEMDomain%ShapeFunction%GetAll(elem_id=ElemID,nod_coord=obj%STFEMDomain%Mesh%NodCoord,&

@@ -1,4 +1,5 @@
 module MultiDiffDeformClass
+    use, intrinsic :: iso_fortran_env
     use DiffusionEquationClass
     use FiniteDeformationClass
     implicit none
@@ -9,7 +10,7 @@ subroutine EnforceMassConserv(difobj,defobj)
     class(DiffusionEq_) ,intent(inout)::difobj
     class(FiniteDeform_),intent(in   )::defobj
 
-    integer :: i,elem_num
+    integer(int32) :: i,elem_num
 
     elem_num=size(difobj%Divergence,1)
     ! only for linear elements

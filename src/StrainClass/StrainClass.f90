@@ -1,35 +1,36 @@
 module StrainClass
+    use, intrinsic :: iso_fortran_env
     use MathClass
     use ShapeFunctionClass
     implicit none
 
     type ::  Strain_
         ! Finite strain theory
-        real(8),allocatable ::   F(:,:)
-        real(8),allocatable :: F_n(:,:)
-        real(8),allocatable ::   C(:,:)
-        real(8),allocatable :: C_n(:,:)
-        real(8),allocatable ::   b(:,:)
-        real(8),allocatable ::  Cp(:,:)
-        real(8),allocatable ::Cp_n(:,:)
-        real(8)             :: detF
+        real(real64),allocatable ::   F(:,:)
+        real(real64),allocatable :: F_n(:,:)
+        real(real64),allocatable ::   C(:,:)
+        real(real64),allocatable :: C_n(:,:)
+        real(real64),allocatable ::   b(:,:)
+        real(real64),allocatable ::  Cp(:,:)
+        real(real64),allocatable ::Cp_n(:,:)
+        real(real64)             :: detF
 
         ! Hypo-elasto-plasticity
-        real(8),allocatable :: d(:,:)
-        real(8),allocatable ::de(:,:)
-        real(8),allocatable ::dp(:,:)
-        real(8),allocatable :: l(:,:)
-        real(8),allocatable :: w(:,:)
+        real(real64),allocatable :: d(:,:)
+        real(real64),allocatable ::de(:,:)
+        real(real64),allocatable ::dp(:,:)
+        real(real64),allocatable :: l(:,:)
+        real(real64),allocatable :: w(:,:)
         
         ! small-strain
-        real(8),allocatable :: eps(:,:)
-        real(8),allocatable :: eps_n(:,:)
-        real(8),allocatable :: eps_p(:,:)
-        real(8),allocatable :: eps_p_n(:,:)
-        real(8),allocatable :: eps_e(:,:)
-        real(8),allocatable :: eps_e_n(:,:)
+        real(real64),allocatable :: eps(:,:)
+        real(real64),allocatable :: eps_n(:,:)
+        real(real64),allocatable :: eps_p(:,:)
+        real(real64),allocatable :: eps_p_n(:,:)
+        real(real64),allocatable :: eps_e(:,:)
+        real(real64),allocatable :: eps_e_n(:,:)
 
-        integer :: TheoryID
+        integer(int32) :: TheoryID
         
         character*40 :: StrainTheory
         
@@ -55,7 +56,7 @@ contains
 subroutine InitStrain(obj,StrainTheory)
     class(Strain_),intent(inout) :: obj
     character(*),intent(in) :: StrainTheory
-    real(8) :: delta(3,3)
+    real(real64) :: delta(3,3)
 
     delta(:,:)=0.0d0
     delta(1,1)=1.0d0
@@ -308,9 +309,9 @@ end subroutine
 ! ###############################
 subroutine importStrain(obj,F,F_n,C,C_n,b,Cp,Cp_n,d,de,dp,l,w,eps,eps_n)
     class(Strain_),intent(inout) :: obj
-    real(8),optional,intent(in) :: F(:,:),F_n(:,:),C(:,:),C_n(:,:),b(:,:)
-    real(8),optional,intent(in) :: Cp(:,:),Cp_n(:,:),d(:,:),de(:,:)
-    real(8),optional,intent(in) :: dp(:,:),l(:,:),w(:,:),eps(:,:),eps_n(:,:)
+    real(real64),optional,intent(in) :: F(:,:),F_n(:,:),C(:,:),C_n(:,:),b(:,:)
+    real(real64),optional,intent(in) :: Cp(:,:),Cp_n(:,:),d(:,:),de(:,:)
+    real(real64),optional,intent(in) :: dp(:,:),l(:,:),w(:,:),eps(:,:),eps_n(:,:)
 
     if(present(F))then
         if(size(obj%F,1)/= size(F,1) .or. size(obj%F,2) /= size(F,2) )then
@@ -433,7 +434,7 @@ end subroutine
 subroutine getallStrain(obj,ShapeFunction)
     class(Strain_),intent(inout) :: obj
     class(ShapeFunction_),intent(in)::ShapeFunction
-    real(8),allocatable :: fmat(:,:) ,Jmat_n(:,:),ddudgzi(:,:),ddudx_n(:,:),ddudx(:,:),&
+    real(real64),allocatable :: fmat(:,:) ,Jmat_n(:,:),ddudgzi(:,:),ddudx_n(:,:),ddudx(:,:),&
         dudx(:,:),JmatInv_n(:,:),dudgzi(:,:)
 
 

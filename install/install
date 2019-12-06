@@ -75,10 +75,10 @@ echo "Compiling ./src/RandomClass/RandomClass.f90   "
 echo " >> RandomClass.o"
 echo " | #                           | (2%)\r\c "
 mpif90 -c ./src/RandomClass/RandomClass.f90 -o  ./inc/RandomClass.o
-echo "Compiling ./src/ArrayOperationClass/ArrayOperationClass.f90 " 
-echo " >> ArrayOperationClass.o "
+echo "Compiling ./src/ArrayClass/ArrayClass.f90 " 
+echo " >> ArrayClass.o "
 echo " | #                           | (4%)\r\c"
-mpif90 -c ./src/ArrayOperationClass/ArrayOperationClass.f90 -o  ./inc/ArrayOperationClass.o
+mpif90 -c ./src/ArrayClass/ArrayClass.f90 -o  ./inc/ArrayClass.o
 echo "Compiling ./src/MPIClass/MPIClass.f90       "
 echo " >> MPIClass.o"
 echo " | #                           | (5%)\r\c "
@@ -107,10 +107,10 @@ echo "Compiling ./src/ShapeFunctionClass/ShapeFunctionClass.f90 "
 echo " >> ShapeFunctionClass.o "
 echo " | ######                      | (26%)\r\c"
 mpif90 -c ./src/ShapeFunctionClass/ShapeFunctionClass.f90 -o  ./inc/ShapeFunctionClass.o
-echo "Compiling ./src/MeshOperationClass/MeshOperationClass.f90 " 
-echo " >> MeshOperationClass.o "
+echo "Compiling ./src/MeshClass/MeshClass.f90 " 
+echo " >> MeshClass.o "
 echo " | #######                     | (30%)\r\c"
-mpif90 -c ./src/MeshOperationClass/MeshOperationClass.f90 -o  ./inc/MeshOperationClass.o
+mpif90 -c ./src/MeshClass/MeshClass.f90 -o  ./inc/MeshClass.o
 echo "Compiling ./src/MaterialPropClass/MaterialPropClass.f90 " 
 echo " >> MaterialPropClass.o "
 echo " | ########                    | (35%)\r\c"

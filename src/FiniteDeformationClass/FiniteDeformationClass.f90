@@ -1,4 +1,5 @@
 module FiniteDeformationClass
+    use, intrinsic :: iso_fortran_env
     use MathClass
 	use LinearSolverClass
 	use FEMDomainClass
@@ -8,25 +9,25 @@ module FiniteDeformationClass
 
     type:: FiniteDeform_
 		type(FEMDomain_),pointer ::FEMDomain
-	    real(8),allocatable ::DeformStress(:,:,:)
-	    real(8),allocatable ::DeformStrain(:,:,:)
-        real(8),allocatable ::DeformStressInit(:,:,:)
-		real(8),allocatable ::DeformStressMat(:,:,:)
-		real(8),allocatable ::DeformStressRHS(:,:)
-		real(8),allocatable ::DeformVecEBETot(:,:)
-		real(8),allocatable ::DeformVecEBEInc(:,:)
+	    real(real64),allocatable ::DeformStress(:,:,:)
+	    real(real64),allocatable ::DeformStrain(:,:,:)
+        real(real64),allocatable ::DeformStressInit(:,:,:)
+		real(real64),allocatable ::DeformStressMat(:,:,:)
+		real(real64),allocatable ::DeformStressRHS(:,:)
+		real(real64),allocatable ::DeformVecEBETot(:,:)
+		real(real64),allocatable ::DeformVecEBEInc(:,:)
 
-        real(8),allocatable ::DeformVecGloTot(:)
-		real(8),allocatable ::DeformVecGloInc(:)
+        real(real64),allocatable ::DeformVecGloTot(:)
+		real(real64),allocatable ::DeformVecGloInc(:)
 		
-		real(8),allocatable ::TractionVecGlo(:)
-		real(8),allocatable ::ResidualVecGlo(:)
-		real(8),allocatable ::InternalVecGlo(:)
+		real(real64),allocatable ::TractionVecGlo(:)
+		real(real64),allocatable ::ResidualVecGlo(:)
+		real(real64),allocatable ::InternalVecGlo(:)
 
-		real(8),allocatable ::VolInitCurrEBE(:,:)
-		real(8)             ::dt,error
+		real(real64),allocatable ::VolInitCurrEBE(:,:)
+		real(real64)             ::dt,error
 		
-		integer :: itr,Step
+		integer(int32) :: itr,Step
 	contains
 		procedure :: Solve => SolveFiniteDeformNewton
 		procedure :: UpdateSolution => SolveFiniteDeform
@@ -45,14 +46,14 @@ contains
 !######################## Solve deformation by Netwon's method ########################
 subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype)
 	class(FiniteDeform_),intent(inout)::obj
-	integer,optional,intent(in)::OptionItr
+	integer(int32),optional,intent(in)::OptionItr
     character*70,optional,intent(in)::Solvertype
     character*70 ::solver,defaultsolver
 
-    real(8),allocatable::Amat(:,:),bvec(:),xvec(:)
-    real(8)::val,er,residual
-    integer ::i,j,n,m,k,l,dim1,dim2,nodeid1,nodeid2,localid,itrmax,SetBC,itr_tol,itr
-	integer :: dim_num,node_num,elem_num,node_num_elmtl
+    real(real64),allocatable::Amat(:,:),bvec(:),xvec(:)
+    real(real64)::val,er,residual
+    integer(int32) ::i,j,n,m,k,l,dim1,dim2,nodeid1,nodeid2,localid,itrmax,SetBC,itr_tol,itr
+	integer(int32) :: dim_num,node_num,elem_num,node_num_elmtl
     character*70 :: gmsh,GaussJordan
     gmsh="Gmsh"
     GaussJordan="GaussJordan"
@@ -122,7 +123,7 @@ end subroutine
 subroutine DevideBCIntoTimestep(obj)
 	class(FiniteDeform_),intent(inout)::obj
 
-	integer ::n,m, timestep
+	integer(int32) ::n,m, timestep
 
 	!debug Display Dirichlet Boundary Condition
 	call obj%FEMDomain%GmshPlotMesh(onlyDirichletBC=.true.)
@@ -179,7 +180,7 @@ end subroutine
 subroutine UpdateBCInTimestep(obj)
 	class(FiniteDeform_),intent(inout)::obj
 
-	integer :: timestep
+	integer(int32) :: timestep
 
 	if(obj%FEMDomain%ControlPara%SimMode==1)then
 		
@@ -215,9 +216,9 @@ subroutine ImportFEMDomainFiDe(obj,OptionalFileFormat,OptionalProjectName)
     character*4::FileFormat
     character*70::ProjectName
     character*74 ::FileName
-    integer,allocatable::IntMat(:,:)
-    real(8),allocatable::RealMat(:,:)
-    integer :: fh,i,j,NumOfDomain,n,m,DimNum
+    integer(int32),allocatable::IntMat(:,:)
+    real(real64),allocatable::RealMat(:,:)
+    integer(int32) :: fh,i,j,NumOfDomain,n,m,DimNum
     character*70 Msg
 
 call DeallocateFEMDomain(obj)
@@ -411,8 +412,8 @@ end subroutine
 subroutine UpdateCurrConfig(obj)
     class(FiniteDeform_),intent(inout)::obj
 
-    integer :: i,j,n,m
-    integer :: num_node,num_elem,num_dim
+    integer(int32) :: i,j,n,m
+    integer(int32) :: num_node,num_elem,num_dim
 
     num_node=size(obj%FEMDomain%Mesh%NodCoord,1)
     num_dim =size(obj%FEMDomain%Mesh%NodCoord,2)
@@ -441,8 +442,8 @@ end subroutine
 subroutine UpdateInitConfig(obj)
     class(FiniteDeform_),intent(inout)::obj
 
-    integer :: i,j,n,m
-    integer :: num_node,num_elem,num_dim
+    integer(int32) :: i,j,n,m
+    integer(int32) :: num_node,num_elem,num_dim
 
     num_node=size(obj%FEMDomain%Mesh%NodCoord,1)
     num_dim =size(obj%FEMDomain%Mesh%NodCoord,2)
@@ -474,17 +475,17 @@ end subroutine
 		type(ConstModel_)	::mdl
 
 
-	 integer, optional,intent(in) :: OptionalStep
-	 integer :: itr_rm,itr,itr_contact
-	 integer :: nod_num,dim_num,elemnod_num,elem_num
-   real(8), allocatable :: g(:,:), Bmat(:,:), Ce_neoHK(:,:), BTmat(:,:), Psymat(:,:), &
+	 integer(int32), optional,intent(in) :: OptionalStep
+	 integer(int32) :: itr_rm,itr,itr_contact
+	 integer(int32) :: nod_num,dim_num,elemnod_num,elem_num
+   real(real64), allocatable :: g(:,:), Bmat(:,:), Ce_neoHK(:,:), BTmat(:,:), Psymat(:,:), &
       xymat(:,:),xymat_c(:,:), Jmat(:,:), s(:), Kmat_e(:,:),c_nod_coord(:,:),cc_nod_coord(:,:),&
 	  dNdxi(:,:),F_iJ_n(:,:),F_iJ(:,:),C_IJ(:,:),Cp_IJ_n(:,:),Cp_IJ(:,:),b_ij(:,:),F_inv(:,:),&
 	  F_T_inv(:,:),F_T(:,:),dNdx(:,:),M_IJ(:,:),Cp_IJ_inv(:,:),gvec_e(:)
-	  integer,allocatable::ij(:,:)
-   integer i, j,k, m, p, q,gp_num,NumOfStrainMeasure
-	 real(8) detJ,Lamda,mu,c,phy,psy,E,v,xx,Tol
-	 real(8) ,allocatable::MatPara(:)
+	  integer(int32),allocatable::ij(:,:)
+   integer(int32) i, j,k, m, p, q,gp_num,NumOfStrainMeasure
+	 real(real64) detJ,Lamda,mu,c,phy,psy,E,v,xx,Tol
+	 real(real64) ,allocatable::MatPara(:)
 	 
 	 itr_rm =obj%FEMDomain%ControlPara%ItrTol
 	 itr		=obj%itr
@@ -664,21 +665,21 @@ subroutine GetKmat(obj,mdl,sf,Kmat_e,gvec_e,dim_num,elemnod_num,elem)
 	type(FiniteDeform_),intent(in) :: obj
 	type(ConstModel_),intent(inout)::mdl
 	type(ShapeFunction_),intent(in)::sf
-	real(8),intent(inout) :: Kmat_e(:,:),gvec_e(:)
-	integer,intent(in)::dim_num,elemnod_num,elem
-	real(8):: a0(3,3),dXdgzi(3,3)
-	real(8):: Xmat(elemnod_num,3)
-	real(8),allocatable:: a0_inv(:,:), dgzidX(:,:),Jgzimat_inv(:,:),Dmat(:,:),Sigma(:)
-	real(8):: a1(elemnod_num,3)
-	real(8):: K1(elemnod_num*dim_num,elemnod_num*dim_num)
-	real(8):: a2(elemnod_num,3)
-	real(8):: A3(elemnod_num,elemnod_num)
-	real(8)::dumat(elemnod_num,3)
-	real(8):: a4(elemnod_num,3,elemnod_num,3)
-	real(8)::Jgzimat(3,3),dxxdgzi(3,3),dNdX(elemnod_num,3)
+	real(real64),intent(inout) :: Kmat_e(:,:),gvec_e(:)
+	integer(int32),intent(in)::dim_num,elemnod_num,elem
+	real(real64):: a0(3,3),dXdgzi(3,3)
+	real(real64):: Xmat(elemnod_num,3)
+	real(real64),allocatable:: a0_inv(:,:), dgzidX(:,:),Jgzimat_inv(:,:),Dmat(:,:),Sigma(:)
+	real(real64):: a1(elemnod_num,3)
+	real(real64):: K1(elemnod_num*dim_num,elemnod_num*dim_num)
+	real(real64):: a2(elemnod_num,3)
+	real(real64):: A3(elemnod_num,elemnod_num)
+	real(real64)::dumat(elemnod_num,3)
+	real(real64):: a4(elemnod_num,3,elemnod_num,3)
+	real(real64)::Jgzimat(3,3),dxxdgzi(3,3),dNdX(elemnod_num,3)
 	
-	integer ::alpha,beta,ganma,ii,I,J,jj,K,kk,L,ll,n,m,o,p,q,rr,R,s,loc_1,loc_2
-	real(8) :: detJgzi
+	integer(int32) ::alpha,beta,ganma,ii,I,J,jj,K,kk,L,ll,n,m,o,p,q,rr,R,s,loc_1,loc_2
+	real(real64) :: detJgzi
 	character*70 :: DerType
 	!DerType="F_iJ"
 	DerType="c_current"
@@ -813,20 +814,20 @@ subroutine GetGvec(obj,mdl,sf,gvec_e,dim_num,elemnod_num,elem)
 	type(FiniteDeform_),intent(in) :: obj
 	type(ConstModel_),intent(inout)::mdl
 	type(ShapeFunction_),intent(in)::sf
-	real(8),intent(inout) :: gvec_e(:)
-	integer,intent(in)::dim_num,elemnod_num,elem
+	real(real64),intent(inout) :: gvec_e(:)
+	integer(int32),intent(in)::dim_num,elemnod_num,elem
 
-	real(8):: a0(3,3),Jgzimat(3,3),dXdgzi(3,3)
-	real(8),allocatable:: a0_inv(:,:),dgzidX(:,:)
-	real(8):: a1(elemnod_num,3)
-	real(8):: a2(elemnod_num,3)
-	real(8):: dumat(elemnod_num,3)
-	real(8):: Xmat(elemnod_num,3)
-	real(8):: a3(elemnod_num,3)
-	real(8):: dNdX(elemnod_num,3)
-	real(8):: a4(elemnod_num,3,elemnod_num,3),detJgzi
+	real(real64):: a0(3,3),Jgzimat(3,3),dXdgzi(3,3)
+	real(real64),allocatable:: a0_inv(:,:),dgzidX(:,:)
+	real(real64):: a1(elemnod_num,3)
+	real(real64):: a2(elemnod_num,3)
+	real(real64):: dumat(elemnod_num,3)
+	real(real64):: Xmat(elemnod_num,3)
+	real(real64):: a3(elemnod_num,3)
+	real(real64):: dNdX(elemnod_num,3)
+	real(real64):: a4(elemnod_num,3,elemnod_num,3),detJgzi
 	
-	integer ::alpha,beta,ganma,ii,I,j,k,l,m,o,p,q,r,s,loc_1,n
+	integer(int32) ::alpha,beta,ganma,ii,I,j,k,l,m,o,p,q,r,s,loc_1,n
 	character*70 :: DerType
 	DerType="F_iJ"
 
@@ -880,9 +881,9 @@ end subroutine
 !=================================================================================
 ! K�}�g���N�X�ւ̏d�ˍ��킹
 subroutine K_mat_ICU(Kmat, elem_nod, i, Kemat)
-   	integer, intent(in) :: i, elem_nod(:,:)
-   	real(8), intent(in) :: Kemat(:,:)
-	real(8), intent(inout) :: Kmat(:,:,:)
+   	integer(int32), intent(in) :: i, elem_nod(:,:)
+   	real(real64), intent(in) :: Kemat(:,:)
+	real(real64), intent(inout) :: Kmat(:,:,:)
 	   
 	Kmat(i,:,:)=Kmat(i,:,:) + Kemat(:,:)
 	   
@@ -893,9 +894,9 @@ subroutine K_mat_ICU(Kmat, elem_nod, i, Kemat)
 !=================================================================================
 subroutine g_vector_ICU(elem,elem_nod,gvec_e,gvec)
 
-	integer, intent(in) :: elem_nod(:,:),elem
-	real(8),intent(in):: gvec_e(:)
-	real(8),intent(inout)::gvec(:,:)
+	integer(int32), intent(in) :: elem_nod(:,:),elem
+	real(real64),intent(in):: gvec_e(:)
+	real(real64),intent(inout)::gvec(:,:)
 	
 	gvec(elem,:)=gvec_e(:)
 
@@ -905,13 +906,13 @@ subroutine g_vector_ICU(elem,elem_nod,gvec_e,gvec)
 !=================================================================================
 subroutine F_tensor_ICU(obj,elem,gauss,F_iJ_n,F_iJ)
 	class(FiniteDeform_),intent(inout)::obj
-	integer, intent(in)::elem,gauss
+	integer(int32), intent(in)::elem,gauss
 
-	real(8),allocatable:: F_iJ_n(:,:),F_iJ(:,:),dNdx(:,:),x_dNdxi_inv(:,:),x_dNdxi(:,:),&
+	real(real64),allocatable:: F_iJ_n(:,:),F_iJ(:,:),dNdx(:,:),x_dNdxi_inv(:,:),x_dNdxi(:,:),&
 	dumat_t(:,:),f_n_n_1(:,:),dumat(:,:),x_u(:,:),tr_dNdgzi(:,:),dF_iJ(:,:)
-	real(8)::LungeKutta(3,3),LungeKutta_1(3,3),LungeKutta_2(3,3),LungeKutta_3(3,3),&
+	real(real64)::LungeKutta(3,3),LungeKutta_1(3,3),LungeKutta_2(3,3),LungeKutta_3(3,3),&
 	LungeKutta_4(3,3),delta(3,3),dt
-	integer n,m,i,j
+	integer(int32) n,m,i,j
 
 
 	n=size(obj%FEMDomain%ShapeFunction%ElemCoord,1)
@@ -1064,11 +1065,11 @@ subroutine F_tensor_ICU(obj,elem,gauss,F_iJ_n,F_iJ)
 
 !=================================================================================
 subroutine C_tensor(F,C_IJ,b_ij,itr,dim_num)
-	real(8),allocatable::C_IJ(:,:),b_ij(:,:),F_T(:,:)
-	real(8),intent(in)::F(:,:)
-	integer,intent(in)::itr,dim_num
+	real(real64),allocatable::C_IJ(:,:),b_ij(:,:),F_T(:,:)
+	real(real64),intent(in)::F(:,:)
+	integer(int32),intent(in)::itr,dim_num
 
-	integer i
+	integer(int32) i
 	
 	if(.not.allocated(  C_IJ )) allocate( C_IJ(3,3)  )
 	if(.not.allocated(  b_ij )) allocate( b_ij(3,3)  )
@@ -1097,11 +1098,11 @@ subroutine C_tensor(F,C_IJ,b_ij,itr,dim_num)
   end subroutine C_tensor
 !=================================================================================
 subroutine Cp_tensor(elem,gauss,strain_measure,Cp_IJ_n,Cp_IJ,Cp_IJ_inv,dim_num)
-	real(8),allocatable:: Cp_iJ_n(:,:),Cp_iJ(:,:),Cp_IJ_inv(:,:)
-	real(8),intent(in)::strain_measure(:,:,:)
-	integer, intent(in)::elem,gauss,dim_num
+	real(real64),allocatable:: Cp_iJ_n(:,:),Cp_iJ(:,:),Cp_IJ_inv(:,:)
+	real(real64),intent(in)::strain_measure(:,:,:)
+	integer(int32), intent(in)::elem,gauss,dim_num
 
-	integer i
+	integer(int32) i
 	
 	if(.not.allocated( Cp_iJ_n  )) allocate( Cp_iJ_n(3,3)  )
 	if(.not.allocated( Cp_iJ    )) allocate(  Cp_iJ(3,3) )
@@ -1142,10 +1143,10 @@ subroutine Cp_tensor(elem,gauss,strain_measure,Cp_IJ_n,Cp_IJ,Cp_IJ_inv,dim_num)
    end subroutine Cp_tensor
 !=================================================================================
 subroutine M_neo_Hookean(C_IJ,Cp_IJ,Cp_IJ_inv,M_IJ,Lamda,mu,elem,gauss)
-	real(8),intent(in)::C_IJ(:,:),Lamda,mu,Cp_IJ(:,:),Cp_IJ_inv(:,:)
-	real(8),allocatable::M_IJ(:,:),G_IJ(:,:),C_Cp_1(:,:)
-	integer, intent(in):: elem,gauss
-	integer i,j,n
+	real(real64),intent(in)::C_IJ(:,:),Lamda,mu,Cp_IJ(:,:),Cp_IJ_inv(:,:)
+	real(real64),allocatable::M_IJ(:,:),G_IJ(:,:),C_Cp_1(:,:)
+	integer(int32), intent(in):: elem,gauss
+	integer(int32) i,j,n
 	
 	if(.not. allocated(M_IJ) )allocate(M_IJ(3,3))
 	
@@ -1172,16 +1173,16 @@ subroutine M_neo_Hookean(C_IJ,Cp_IJ,Cp_IJ_inv,M_IJ,Lamda,mu,elem,gauss)
 !=================================================================================
 subroutine Return_Mapping_MCDP(dim_num,elem,gauss,C_IJ,Cp_IJ,Cp_IJ_n,Cp_IJ_inv,M_IJ,MatPara,&
    itr_rm,tol,sigma,F_T,F_T_inv,itr,itr_contact,strain_measure,step)
-	real(8),intent(in)::C_IJ(:,:),Cp_IJ_n(:,:),F_T(:,:),F_T_inv(:,:),MatPara(:)
-	real(8),intent(inout)::Cp_IJ(:,:),sigma(:,:,:),strain_measure(:,:,:)
-	real(8),allocatable,intent(inout)::M_IJ(:,:),Cp_IJ_inv(:,:)
-	integer, intent (in)::elem,gauss,itr,itr_rm,step,itr_contact,dim_num
+	real(real64),intent(in)::C_IJ(:,:),Cp_IJ_n(:,:),F_T(:,:),F_T_inv(:,:),MatPara(:)
+	real(real64),intent(inout)::Cp_IJ(:,:),sigma(:,:,:),strain_measure(:,:,:)
+	real(real64),allocatable,intent(inout)::M_IJ(:,:),Cp_IJ_inv(:,:)
+	integer(int32), intent (in)::elem,gauss,itr,itr_rm,step,itr_contact,dim_num
 	
-	real(8),allocatable::G_IJ(:,:),Jmat(:,:),Xvec(:),Yvec(:),dXvec(:),Zmat(:,:),sigm(:,:),M_FT(:,:),C_IJ_inv(:,:),&
+	real(real64),allocatable::G_IJ(:,:),Jmat(:,:),Xvec(:),Yvec(:),dXvec(:),Zmat(:,:),sigm(:,:),M_FT(:,:),C_IJ_inv(:,:),&
 	M_1(:,:),M_2(:,:),M_2_T(:,:),M_3(:,:),M_4(:,:),M_5(:,:),C_1(:,:),C_2(:,:),C_3(:,:),B_6(:,:),B_7(:,:),B_8(:,:),B_9(:,:),B_10(:,:)
-	real(8) detF,I1_M,J2_M,J3_M,Theta_M,BI_MC,BI_DP,fc_MC,er,tol,residual_0,yield_function_mc,detC,detCp,alpha,beta,gunma,omega,&
+	real(real64) detF,I1_M,J2_M,J3_M,Theta_M,BI_MC,BI_DP,fc_MC,er,tol,residual_0,yield_function_mc,detC,detCp,alpha,beta,gunma,omega,&
 	a11,a12,a13,a14,a15,a16,a17,a18,a21,a22,a23,a24,a25,a26,MM,xx,c1,c2,c3,c4,c5,c6,c7,val,E,v,Lamda,mu,c,phy,psy
-	integer n,A,B,I,J,K,L,R,M,P,Q,nn,itrmax,retmap_itr,mesh
+	integer(int32) n,A,B,I,J,K,L,R,M,P,Q,nn,itrmax,retmap_itr,mesh
 	
 	
 	
@@ -1679,13 +1680,13 @@ subroutine Return_Mapping_MCDP(dim_num,elem,gauss,C_IJ,Cp_IJ,Cp_IJ_n,Cp_IJ_inv,M
 !=================================================================================
 ! D�}�g���N�X�̌v�Z
 subroutine Ce_neoHK_current(dim_num, elem, gauss,Lame1,Lame2,C_IJ,Cp_IJ,b_ij,M_IJ,Ce_neoHK,F_T,F_T_inv,ij)
-     integer, intent(in) :: dim_num,elem, gauss
-     real(8), intent(in) :: Lame1,Lame2,C_IJ(:,:),Cp_IJ(:,:),b_ij(:,:),F_T(:,:),F_T_inv(:,:),M_IJ(:,:)
-     real(8), allocatable, intent(out) :: Ce_neoHK(:,:)
-	 integer,allocatable,intent(out)::ij(:,:)
-	 real(8), allocatable::t_ij(:,:),G_IJ(:,:)
-     integer  n,m,p,q,i,j,k,l
-	 real(8) detF,detCp,detC
+     integer(int32), intent(in) :: dim_num,elem, gauss
+     real(real64), intent(in) :: Lame1,Lame2,C_IJ(:,:),Cp_IJ(:,:),b_ij(:,:),F_T(:,:),F_T_inv(:,:),M_IJ(:,:)
+     real(real64), allocatable, intent(out) :: Ce_neoHK(:,:)
+	 integer(int32),allocatable,intent(out)::ij(:,:)
+	 real(real64), allocatable::t_ij(:,:),G_IJ(:,:)
+     integer(int32)  n,m,p,q,i,j,k,l
+	 real(real64) detF,detCp,detC
 	
 	allocate(G_IJ(3,3)) 
 	
@@ -1776,12 +1777,12 @@ subroutine Ce_neoHK_current(dim_num, elem, gauss,Lame1,Lame2,C_IJ,Cp_IJ,b_ij,M_I
 !=================================================================================
 ! D�}�g���N�X�̌v�Z
 subroutine GetSigmaVec(Sigma,Sigma_ij,dim_num)
-     real(8), intent(in) :: Sigma_ij(:,:)
-     real(8), allocatable, intent(inout) :: Sigma(:)
-	 integer,allocatable::ij(:,:)
-	 integer,intent(in)::dim_num
-     integer  n,m,p,q,i,j,k,l
-	 real(8) detF,detCp,detC
+     real(real64), intent(in) :: Sigma_ij(:,:)
+     real(real64), allocatable, intent(inout) :: Sigma(:)
+	 integer(int32),allocatable::ij(:,:)
+	 integer(int32),intent(in)::dim_num
+     integer(int32)  n,m,p,q,i,j,k,l
+	 real(real64) detF,detCp,detC
 	
 	if(allocated(ij) ) deallocate(ij)
 	 if(dim_num==2)then
@@ -1829,12 +1830,12 @@ subroutine GetSigmaVec(Sigma,Sigma_ij,dim_num)
 !=================================================================================
 ! D�}�g���N�X�̌v�Z
 subroutine GetDmat(Dmat,c_ijkl,dim_num)
-     real(8), intent(in) :: c_ijkl(:,:,:,:)
-     real(8), allocatable, intent(inout) :: Dmat(:,:)
-	 integer,allocatable::ij(:,:)
-	 integer,intent(in)::dim_num
-     integer  n,m,p,q,i,j,k,l
-	 real(8) detF,detCp,detC
+     real(real64), intent(in) :: c_ijkl(:,:,:,:)
+     real(real64), allocatable, intent(inout) :: Dmat(:,:)
+	 integer(int32),allocatable::ij(:,:)
+	 integer(int32),intent(in)::dim_num
+     integer(int32)  n,m,p,q,i,j,k,l
+	 real(real64) detF,detCp,detC
 	
 	if(allocated(ij) ) deallocate(ij)
 	 if(dim_num==2)then
@@ -1892,11 +1893,11 @@ subroutine GetDmat(Dmat,c_ijkl,dim_num)
 !=================================================================================
    !B�}�g���N�X�̌v�Z
 subroutine B_mat(dim_num,Psymat, Jmat, detJ, Bmat,mm)
-     real(8), intent(in) :: Psymat(:,:), Jmat(:,:), detJ ! J�̋t�s��
-     real(8), allocatable, intent(inout) :: Bmat(:,:)
-	 integer,intent(in)::dim_num
-	 real(8), allocatable :: JPsy(:,:), Jin(:,:)
-     integer  k, l,m, n, a, b, p,mm,i,j,q
+     real(real64), intent(in) :: Psymat(:,:), Jmat(:,:), detJ ! J�̋t�s��
+     real(real64), allocatable, intent(inout) :: Bmat(:,:)
+	 integer(int32),intent(in)::dim_num
+	 real(real64), allocatable :: JPsy(:,:), Jin(:,:)
+     integer(int32)  k, l,m, n, a, b, p,mm,i,j,q
 	 
 	 if(dim_num==2)then
 		k=3
@@ -2037,11 +2038,11 @@ subroutine B_mat(dim_num,Psymat, Jmat, detJ, Bmat,mm)
 !=================================================================================	
 ! �K�E�X�ϕ�
 subroutine K_mat_e(j,s, BTmat, Ce_neoHK, Bmat, detJ, Kmat_e,F_iJ)
-   integer, intent(in) :: j
-   real(8), intent(in) :: BTmat(:,:), Ce_neoHK(:,:), Bmat(:,:), detJ, s(:),F_iJ(:,:)
-   real(8), intent(out) :: Kmat_e(:,:)
-   real(8), allocatable :: DBmat(:,:)
-   integer nm, e,n
+   integer(int32), intent(in) :: j
+   real(real64), intent(in) :: BTmat(:,:), Ce_neoHK(:,:), Bmat(:,:), detJ, s(:),F_iJ(:,:)
+   real(real64), intent(out) :: Kmat_e(:,:)
+   real(real64), allocatable :: DBmat(:,:)
+   integer(int32) nm, e,n
    
    n= size(F_iJ,1)
    nm = size(Bmat, 2)
@@ -2056,11 +2057,11 @@ subroutine K_mat_e(j,s, BTmat, Ce_neoHK, Bmat, detJ, Kmat_e,F_iJ)
 !=================================================================================
 subroutine g_vector_e(elem,gauss,s, BTmat,sigma, detJ, gvec_e)
 
-    integer, intent(in) :: elem,gauss
-    real(8), intent(in) :: BTmat(:,:), sigma(:,:,:), detJ, s(:)
-    real(8), intent(inout) :: gvec_e(:)
-    real(8), allocatable :: sigm(:)
-    integer nm, i
+    integer(int32), intent(in) :: elem,gauss
+    real(real64), intent(in) :: BTmat(:,:), sigma(:,:,:), detJ, s(:)
+    real(real64), intent(inout) :: gvec_e(:)
+    real(real64), allocatable :: sigm(:)
+    integer(int32) nm, i
 	 
 	if(size(BTmat,2)==3)then
        allocate(sigm(3))
@@ -2095,14 +2096,14 @@ subroutine g_vector_e(elem,gauss,s, BTmat,sigma, detJ, gvec_e)
 !######################## Solve DiffusionEq ########################
 subroutine SolveFiniteDeform(obj,OptionItr,Solvertype)
 	class(FiniteDeform_),intent(inout)::obj
-	integer,optional,intent(in)::OptionItr
+	integer(int32),optional,intent(in)::OptionItr
     character*70,optional,intent(in)::Solvertype
     character*70 ::solver,defaultsolver
 
-    real(8),allocatable::Amat(:,:),bvec(:),xvec(:)
-    real(8)::val,er
-    integer ::i,j,n,m,k,l,dim1,dim2,nodeid1,nodeid2,localid,itrmax,SetBC,int1,int2
-	integer :: dim_num,node_num,elem_num,node_num_elmtl
+    real(real64),allocatable::Amat(:,:),bvec(:),xvec(:)
+    real(real64)::val,er
+    integer(int32) ::i,j,n,m,k,l,dim1,dim2,nodeid1,nodeid2,localid,itrmax,SetBC,int1,int2
+	integer(int32) :: dim_num,node_num,elem_num,node_num_elmtl
 	
 	defaultsolver="BiCGSTAB"
 	
@@ -2250,9 +2251,9 @@ subroutine DisplayDeformStress(obj,DisplayMode,OptionalStep,Name,withDirichlet)
     class(FiniteDeform_),intent(inout)::obj
 	character(*),optional,intent(in) :: Name,DisplayMode
 	logical,optional,intent(in) :: withDirichlet
-	integer,optional,intent(in)::OptionalStep
-	real(8),allocatable::DBCvec(:,:),DispVector(:,:)
-    integer :: i,j,n,m,step,dim_num
+	integer(int32),optional,intent(in)::OptionalStep
+	real(real64),allocatable::DBCvec(:,:),DispVector(:,:)
+    integer(int32) :: i,j,n,m,step,dim_num
 
 	if(size(obj%FEMDomain%Mesh%NodCoord,2)==2)then
 		! 2-D condition
@@ -2324,7 +2325,7 @@ end subroutine
 subroutine GetTractionVector(obj)
 	class(FiniteDeform_),intent(inout)::obj
 
-	integer :: i,j,dim_num,node
+	integer(int32) :: i,j,dim_num,node
 
 	if(allocated(obj%TractionVecGlo) .and. size(obj%DeformVecGloTot )/=size(obj%TractionVecGlo) )then
 		deallocate(obj%TractionVecGlo)
@@ -2359,7 +2360,7 @@ end subroutine
 subroutine GetInternalVector(obj)
 	class(FiniteDeform_),intent(inout)::obj
 
-	integer :: i,j,dim_num,node_num,nodeid1,node_num_elmtl,elem_num,dim1
+	integer(int32) :: i,j,dim_num,node_num,nodeid1,node_num_elmtl,elem_num,dim1
 
 
 	node_num=size(obj%FEMDomain%Mesh%NodCoord,1)
@@ -2393,7 +2394,7 @@ end subroutine
 subroutine GetResidualVector(obj)
 	class(FiniteDeform_),intent(inout)::obj
 
-	integer :: i,j,dim_num,node
+	integer(int32) :: i,j,dim_num,node
 
 	if(allocated(obj%ResidualVecGlo) .and. size(obj%DeformVecGloTot )/=size(obj%ResidualVecGlo) )then
 		deallocate(obj%ResidualVecGlo)
@@ -2413,7 +2414,7 @@ end subroutine
 subroutine UpdateStrainMeasure(obj)
 	class(FiniteDeform_),intent(inout)::obj
 
-	integer :: i,j,dim_num
+	integer(int32) :: i,j,dim_num
 
 	dim_num=size(obj%FEMDomain%Mesh%NodCoord,2)
 
@@ -2464,9 +2465,9 @@ end subroutine
 subroutine DisplayReactionForce(obj)
 	class(FiniteDeform_),intent(in)::obj
 
-	integer :: i,j,k,dim_num,dbc_num
-	real(8),allocatable :: ReactionForce(:)
-	real(8) :: val
+	integer(int32) :: i,j,k,dim_num,dbc_num
+	real(real64),allocatable :: ReactionForce(:)
+	real(real64) :: val
 
 	dim_num=size(obj%FEMDomain%Boundary%DBoundNodID,2)
 	dbc_num=size(obj%FEMDomain%Boundary%DBoundNodID,1)
@@ -2500,8 +2501,8 @@ end subroutine
 ! ##################################################
 subroutine getDBCVectorDeform(obj,DBCvec)
 	class(FiniteDeform_),intent(in)::obj
-	real(8),allocatable,intent(inout)::DBCvec(:,:)
-	integer :: i,j,n,m,k,l
+	real(real64),allocatable,intent(inout)::DBCvec(:,:)
+	integer(int32) :: i,j,n,m,k,l
 	n=size(obj%FEMDomain%Mesh%NodCoord,1)
 	m=size(obj%FEMDomain%Mesh%NodCoord,2)
 	if(.not. allocated(DBCvec ) )then
@@ -2536,8 +2537,8 @@ end subroutine
 ! ##################################################
 subroutine getDispVectorDeform(obj,Vector)
 	class(FiniteDeform_),intent(in)::obj
-	real(8),allocatable,intent(inout)::Vector(:,:)
-	integer :: i,j,n,m
+	real(real64),allocatable,intent(inout)::Vector(:,:)
+	integer(int32) :: i,j,n,m
 
 	n=size(obj%FEMDomain%Mesh%NodCoord,1)
 	m=size(obj%FEMDomain%Mesh%NodCoord,2)

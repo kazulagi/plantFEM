@@ -1,11 +1,10 @@
 module FEMIfaceClass
-
-
+    use, intrinsic :: iso_fortran_env
     use MathClass
     use MPIClass
-    use ArrayOperationClass
+    use ArrayClass
     use ShapeFunctionClass
-    use MeshOperationClass
+    use MeshClass
     use MaterialPropClass
     use BoundaryConditionClass
     use ControlParaeterClass
@@ -25,29 +24,29 @@ module FEMIfaceClass
         type(MaterialProp_)     :: MaterialProp
         type(ControlParameter_) :: ControlPara
         type(FEMDomainPointer_),allocatable :: FEMDomains(:)
-        real(8),allocatable     :: NTN_NodCoord(:,:)
-        real(8),allocatable     :: NTS_NodCoord(:,:)
-        real(8),allocatable     :: STS_NodCoord(:,:)
-        real(8),allocatable     :: NTN_Val(:,:)
-        real(8),allocatable     :: NTS_Val(:,:)
-        real(8),allocatable     :: STS_Val(:,:)
-        integer,allocatable     :: NTN_ElemNod(:,:)
-        integer,allocatable     :: NTS_ElemNod(:,:)
-        integer,allocatable     :: STS_ElemNod(:,:)
-        integer,allocatable     :: NTN_Active(:)
-        integer,allocatable     :: NTS_Active(:)
-        integer,allocatable     :: STS_Active(:)
-        real(8),allocatable     :: NTN_Value(:,:)
-        real(8),allocatable     :: NTS_Value(:,:)
-        real(8),allocatable     :: STS_Value(:,:)
-        integer,allocatable     :: NTS_SegmentID(:,:)
-        integer,allocatable     :: GloNodPoint1(:,:),GloNodPoint2(:,:)
+        real(real64),allocatable     :: NTN_NodCoord(:,:)
+        real(real64),allocatable     :: NTS_NodCoord(:,:)
+        real(real64),allocatable     :: STS_NodCoord(:,:)
+        real(real64),allocatable     :: NTN_Val(:,:)
+        real(real64),allocatable     :: NTS_Val(:,:)
+        real(real64),allocatable     :: STS_Val(:,:)
+        integer(int32),allocatable     :: NTN_ElemNod(:,:)
+        integer(int32),allocatable     :: NTS_ElemNod(:,:)
+        integer(int32),allocatable     :: STS_ElemNod(:,:)
+        integer(int32),allocatable     :: NTN_Active(:)
+        integer(int32),allocatable     :: NTS_Active(:)
+        integer(int32),allocatable     :: STS_Active(:)
+        real(real64),allocatable     :: NTN_Value(:,:)
+        real(real64),allocatable     :: NTS_Value(:,:)
+        real(real64),allocatable     :: STS_Value(:,:)
+        integer(int32),allocatable     :: NTS_SegmentID(:,:)
+        integer(int32),allocatable     :: GloNodPoint1(:,:),GloNodPoint2(:,:)
         
-        integer                 :: DomainID1
-        integer                 :: DomainID2
-        integer                 :: DomainID3
-        integer                 :: TimeStep
-        integer                 :: NumOfImportedDomain
+        integer(int32)                 :: DomainID1
+        integer(int32)                 :: DomainID2
+        integer(int32)                 :: DomainID3
+        integer(int32)                 :: TimeStep
+        integer(int32)                 :: NumOfImportedDomain
         character*200           :: FilePathDomain1
         character*200           :: FilePathDomain2
         character*200           :: FilePath
@@ -79,8 +78,8 @@ contains
 ! #########################################################
 subroutine InitializeFEMIface(obj,NumOfDomain)
     class(FEMIface_),intent(inout)::obj
-    integer,optional,intent(in)::NumOfDomain
-    integer :: i
+    integer(int32),optional,intent(in)::NumOfDomain
+    integer(int32) :: i
 
     call obj%Delete()
 
@@ -130,7 +129,7 @@ subroutine GmshPlotMeshFEMIface(obj,Name,withNeumannBC,withDirichletBC)
     class(FEMIface_),intent(inout)::obj
     character(*),optional,intent(in) :: Name
     logical,optional,intent(in)::withNeumannBC,withDirichletBC
-    integer :: i
+    integer(int32) :: i
 
     do i=1,size(obj%FEMDomains,1)
         if(present(Name) )then
@@ -198,10 +197,10 @@ subroutine ImportFEMIface(obj,OptionalFileFormat,OptionalProjectName,FileHandle)
     character*70::ProjectName
     character*74 ::FileName
     character*9  :: DataType
-    integer,allocatable::IntMat(:,:)
-    real(8),allocatable::RealMat(:,:)
-    integer,optional,intent(in)::FileHandle
-    integer :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,ierr
+    integer(int32),allocatable::IntMat(:,:)
+    real(real64),allocatable::RealMat(:,:)
+    integer(int32),optional,intent(in)::FileHandle
+    integer(int32) :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,ierr
     character*70 Msg
 
 
@@ -259,9 +258,9 @@ end subroutine
 subroutine GetFEMIfaceFromFEMDomains(obj,obj1,obj2,MasterID,SlaveID)
     class(FEMDomain_),optional,intent(inout)::obj1,obj2
     class(FEMIface_),intent(inout)::obj
-    integer,optional,intent(in)  ::MasterID,SlaveID
+    integer(int32),optional,intent(in)  ::MasterID,SlaveID
 
-    integer :: i,j,n1,ierr,err
+    integer(int32) :: i,j,n1,ierr,err
 
     if(.not. present(obj1) .and. .not. present(obj2) )then
         call GetFEMIfaceFromPointer(obj,MasterID,SlaveID)
@@ -307,9 +306,9 @@ end subroutine
 subroutine GetFEMIfaceFromPointer(obj,MasterID,SlaveID)
     class(FEMIface_),intent(inout)::obj
     class(FEMDomain_),pointer::obj1,obj2
-    integer,optional,intent(in) :: MasterID,SlaveID
+    integer(int32),optional,intent(in) :: MasterID,SlaveID
 
-    integer :: i,j,n1,ierr,err
+    integer(int32) :: i,j,n1,ierr,err
 
     if(present(MasterID) )then
         i=MasterID
@@ -362,10 +361,10 @@ end subroutine
 subroutine GetNTNelement(obj)
     class(FEMIface_),intent(inout)::obj
 
-    real(8),allocatable::x(:),xn(:)
-    real(8) :: dist
-    integer :: node_num1,dim_num1,node_num2,dim_num2,i,j,n,node_num
-    integer :: master,dim_num,id
+    real(real64),allocatable::x(:),xn(:)
+    real(real64) :: dist
+    integer(int32) :: node_num1,dim_num1,node_num2,dim_num2,i,j,n,node_num
+    integer(int32) :: master,dim_num,id
 
     node_num1=size(obj%Mesh1%NodCoord,1)
     dim_num1 =size(obj%Mesh1%NodCoord,2)
@@ -427,10 +426,10 @@ end subroutine
 subroutine GetNTSelement(obj)
     class(FEMIface_),intent(inout)::obj
 
-    real(8),allocatable::x(:),xn(:),ElemMidPointCoord(:,:)
-    real(8) :: dist
-    integer :: node_num1,dim_num1,node_num2,dim_num2,i,j,n,node_num,elem_num2,elem_num
-    integer :: slave,dim_num,id,elemnod_num2,elemnod_num
+    real(real64),allocatable::x(:),xn(:),ElemMidPointCoord(:,:)
+    real(real64) :: dist
+    integer(int32) :: node_num1,dim_num1,node_num2,dim_num2,i,j,n,node_num,elem_num2,elem_num
+    integer(int32) :: slave,dim_num,id,elemnod_num2,elemnod_num
 
 
     node_num1=size(obj%Mesh1%NodCoord,1)
@@ -512,10 +511,10 @@ subroutine ExportFEMIface(obj,OptionalFileFormat,OptionalProjectName,FileHandle)
     character*70::ProjectName
     character*74 ::FileName
     character*9  :: DataType
-    integer,allocatable::IntMat(:,:)
-    real(8),allocatable::RealMat(:,:)
-    integer,optional,intent(in)::FileHandle
-    integer :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum
+    integer(int32),allocatable::IntMat(:,:)
+    real(real64),allocatable::RealMat(:,:)
+    integer(int32),optional,intent(in)::FileHandle
+    integer(int32) :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum
     character*70 Msg
 
 
@@ -568,7 +567,7 @@ end subroutine
 subroutine GmshPlotNTSFEMIface(obj,Name)
     class(FEMIFace_),intent(in)::obj
     type(FEMDomain_) :: Fobj
-    integer :: i,j,n,m,dim_num,k,elemnodnum,step
+    integer(int32) :: i,j,n,m,dim_num,k,elemnodnum,step
     character(*),optional,intent(in)::Name
     
 
@@ -640,8 +639,8 @@ end subroutine
 subroutine GetGlobalNodePointerNTS(obj)
     class(FEMIface_)::obj
     type(MPI_)::mpidata
-    integer :: i,j,k,n,m,NumElemIface1,NumElemIface2
-    real(8),allocatable :: x(:),x_tr(:)
+    integer(int32) :: i,j,k,n,m,NumElemIface1,NumElemIface2
+    real(real64),allocatable :: x(:),x_tr(:)
 
     ! get GlobalNodePointer of NTS element
     NumElemIface1=size(obj%Mesh1%ElemNod,1)
@@ -682,8 +681,8 @@ end subroutine
 ! #########################################################
 subroutine updateTimestepIface(obj,timestep)
     class(FEMIFace_),intent(inout)::obj
-    integer,optional,intent(in)::timestep
-    integer :: dt
+    integer(int32),optional,intent(in)::timestep
+    integer(int32) :: dt
 
     dt=input(default=1,option=timestep)
     obj%TimeStep=obj%TimeStep+dt

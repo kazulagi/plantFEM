@@ -1,4 +1,5 @@
 module TermClass
+    use, intrinsic :: iso_fortran_env
     implicit none
 
     type :: Term_

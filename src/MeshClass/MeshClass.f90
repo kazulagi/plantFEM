@@ -1,7 +1,7 @@
 ! updated 2019/1/19
-module MeshOperationClass
+module MeshClass
     use MathClass
-    use ArrayOperationClass
+    use ArrayClass
     use ShapeFunctionClass
     use GeometryClass
     implicit none
@@ -1113,7 +1113,7 @@ subroutine GetNextFacets(obj)
                 if(i>size(obj%NextFacets,1) .or. n>size(obj%NextFacets,2) )then
                     print *, "i , size(obj%NextFacets,1) : ",i,size(obj%NextFacets,1)
                     print *, "n, size(obj%NextFacets,2)  : ",n,size(obj%NextFacets,2)
-                    stop "MeshOperationClass >> GetNextFacets >> invalid i,n"
+                    stop "MeshClass >> GetNextFacets >> invalid i,n"
                 endif
                 obj%NextFacets(i,n)=buffer(j)
                 n=n+1
@@ -1472,7 +1472,7 @@ subroutine MeshingMesh(obj,Mode,itr_tol)
     dim_mode=input(default=2,option=Mode)
     if(dim_mode==2)then
         if(.not. allocated(obj%NodCoord) )then
-            print *, "ERROR :: MeshOperationClass MeshingMesh"
+            print *, "ERROR :: MeshClass MeshingMesh"
             print *, "This method creates mesh-connectivity for the given nodal coordinates."
             print *, "Therefore, Mesh%NodCoord(:,:) should be filled preliminary."
             return 
@@ -2449,4 +2449,4 @@ subroutine removeOverlappedNodeMesh(obj,tolerance)
 end subroutine
 !##################################################
 
-end module MeshOperationClass
+end module MeshClass

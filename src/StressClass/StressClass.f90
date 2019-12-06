@@ -1,4 +1,5 @@
 module StressClass
+    use, intrinsic :: iso_fortran_env
     use MathClass
     use StrainClass
     implicit none
@@ -6,24 +7,24 @@ module StressClass
     type :: Stress_
         
         ! hyper
-        real(8),allocatable :: sigma(:,:)
-        real(8),allocatable :: sigma_n(:,:)
-        real(8),allocatable :: S(:,:)
-        real(8),allocatable :: P(:,:)
+        real(real64),allocatable :: sigma(:,:)
+        real(real64),allocatable :: sigma_n(:,:)
+        real(real64),allocatable :: S(:,:)
+        real(real64),allocatable :: P(:,:)
 
         ! derivatives
-        real(8),allocatable :: dSdC(:,:,:,:)
+        real(real64),allocatable :: dSdC(:,:,:,:)
         
         ! hypo
-        real(8),allocatable :: sigma_dot(:,:)
-        real(8),allocatable :: sigma_j(:,:)
-        real(8),allocatable :: sigma_o(:,:)
-        real(8),allocatable :: sigma_t(:,:)
+        real(real64),allocatable :: sigma_dot(:,:)
+        real(real64),allocatable :: sigma_j(:,:)
+        real(real64),allocatable :: sigma_o(:,:)
+        real(real64),allocatable :: sigma_t(:,:)
 
         ! derivatives (dsigma/deps)
-        real(8),allocatable :: E(:,:,:,:)
+        real(real64),allocatable :: E(:,:,:,:)
 
-        integer :: TheoryID
+        integer(int32) :: TheoryID
         
         character*40 :: StrainTheory
         
@@ -49,7 +50,7 @@ contains
 subroutine initStress(obj,StrainTheory)
     class(Stress_),intent(inout) :: obj
     character(*),intent(in) :: StrainTheory
-    real(8) :: delta(3,3)
+    real(real64) :: delta(3,3)
 
     delta(:,:)=0.0d0
     delta(1,1)=1.0d0
@@ -236,10 +237,10 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
     class(Stress_),intent(inout) :: obj
     class(Strain_),intent(inout) :: strain
     character(*),optional,intent(in) :: ConstitutiveModel,TimeIntegral,StressRate
-    real(8),optional,intent(in) :: lambda,mu,K,G,c,phi,dt
-    real(8),allocatable :: F_inv(:,:),Cp_inv(:,:),delta(:,:),C_inv(:,:),M(:,:),E(:,:,:,:)
-    real(8) :: detC,detCp,f,J2_M,I1_M,theta_M,BI,fc,f_MC
-    integer :: i,j,l
+    real(real64),optional,intent(in) :: lambda,mu,K,G,c,phi,dt
+    real(real64),allocatable :: F_inv(:,:),Cp_inv(:,:),delta(:,:),C_inv(:,:),M(:,:),E(:,:,:,:)
+    real(real64) :: detC,detCp,f,J2_M,I1_M,theta_M,BI,fc,f_MC
+    integer(int32) :: i,j,l
 
     allocate(delta(3,3))
     delta(:,:)=0.0d0
@@ -578,8 +579,8 @@ subroutine getStressDerivative(obj,Strain,ConstitutiveModel,lambda,mu)
     class(Stress_),intent(inout) :: obj
     class(Strain_),intent(inout) :: strain
     character(*),intent(in) :: ConstitutiveModel
-    real(8),optional,intent(in) :: lambda,mu
-    real(8),allocatable :: F_inv(:,:)
+    real(real64),optional,intent(in) :: lambda,mu
+    real(real64),allocatable :: F_inv(:,:)
 
     
     if(size(Strain%F,1)==3 )then

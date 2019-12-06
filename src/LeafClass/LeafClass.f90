@@ -1,4 +1,5 @@
 module LeafClass
+    use, intrinsic :: iso_fortran_env
     use KinematicClass
     use FEMDomainClass
     use StemClass
@@ -8,12 +9,12 @@ module LeafClass
 
     type :: Leaf_
         type(FEMDomain_)    ::  FEMDomain
-        real(8),allocatable ::  LeafSurfaceNode2D(:,:)
-        real(8)             ::  ShapeFactor,Thickness,length,width,center(3)
-        real(8)             ::  MaxThickness,Maxlength,Maxwidth
-        real(8)             ::  center_bottom(3),center_top(3)
-        real(8)             ::  outer_normal_bottom(3),outer_normal_top(3)
-        integer             ::  Division
+        real(real64),allocatable ::  LeafSurfaceNode2D(:,:)
+        real(real64)             ::  ShapeFactor,Thickness,length,width,center(3)
+        real(real64)             ::  MaxThickness,Maxlength,Maxwidth
+        real(real64)             ::  center_bottom(3),center_top(3)
+        real(real64)             ::  outer_normal_bottom(3),outer_normal_top(3)
+        integer(int32)             ::  Division
         type(Stem_),pointer ::  pStem
         type(Peti_),pointer ::  pPeti
     contains
@@ -24,10 +25,10 @@ contains
 ! ########################################
     subroutine initLeaf(obj,Thickness,length,width,ShapeFactor,MaxThickness,Maxlength,Maxwidth,rotx,roty,rotz,location)
         class(leaf_),intent(inout) :: obj
-        real(8),optional,intent(in) :: Thickness,length,width,ShapeFactor
-        real(8),optional,intent(in) :: MaxThickness,Maxlength,Maxwidth
-        real(8),optional,intent(in)::  rotx,roty,rotz,location(3)
-        real(8) :: loc(3)
+        real(real64),optional,intent(in) :: Thickness,length,width,ShapeFactor
+        real(real64),optional,intent(in) :: MaxThickness,Maxlength,Maxwidth
+        real(real64),optional,intent(in)::  rotx,roty,rotz,location(3)
+        real(real64) :: loc(3)
         loc(:)=0.0d0
         if(present(location) )then
             loc(:)=location(:)

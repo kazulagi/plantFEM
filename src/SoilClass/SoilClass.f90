@@ -1,39 +1,40 @@
 module SoilClass
+    use, intrinsic :: iso_fortran_env
     use SiCroF
     implicit none
 
     type :: Soil_
         type(FEMDomain_) :: FEMDomain
 
-        real(8) :: depth
-        real(8) :: length
-        real(8) :: width
-        real(8) :: x,y,z ! center coordinate
+        real(real64) :: depth
+        real(real64) :: length
+        real(real64) :: width
+        real(real64) :: x,y,z ! center coordinate
 
         ! ================
         ! Nutorient
         !------------
-        real(8) :: N_kg
-        real(8) :: P_kg
-        real(8) :: K_kg
-        real(8) :: Ca_kg
-        real(8) :: Mg_kg
-        real(8) :: S_kg
+        real(real64) :: N_kg
+        real(real64) :: P_kg
+        real(real64) :: K_kg
+        real(real64) :: Ca_kg
+        real(real64) :: Mg_kg
+        real(real64) :: S_kg
         !------------
-        real(8) :: Fe_kg
-        real(8) :: Mn_kg
-        real(8) :: B_kg
-        real(8) :: Zn_kg
-        real(8) :: Mo_kg
-        real(8) :: Cu_kg
-        real(8) :: Cl_kg
+        real(real64) :: Fe_kg
+        real(real64) :: Mn_kg
+        real(real64) :: B_kg
+        real(real64) :: Zn_kg
+        real(real64) :: Mo_kg
+        real(real64) :: Cu_kg
+        real(real64) :: Cl_kg
         ! ================
 
         
         ! ================
         ! Soil phyisical parameters
-        real(8) :: C_N_ratio
-        real(8) :: EC
+        real(real64) :: C_N_ratio
+        real(real64) :: EC
         ! ================
 
 
@@ -49,7 +50,7 @@ contains
 ! ################################################################
 subroutine initSoil(obj,depth,length,width,x,y,z)
     class(Soil_),intent(inout)::obj
-    real(8),optional,intent(in):: depth,length,width,x,y,z ! cm
+    real(real64),optional,intent(in):: depth,length,width,x,y,z ! cm
 
     obj%depth = input(default=-1.0d0,option=depth )
     obj%length= input(default=1.0d0,option=length)
@@ -68,20 +69,20 @@ subroutine fertilizeSoil(obj,N_kg,P_kg,K_kg,Ca_kg,Mg_kg,S_kg,Fe_kg,&
     
     class(Soil_),intent(inout)::obj
     ! ================
-    real(8),optional,intent(in) :: N_kg
-    real(8),optional,intent(in) :: P_kg
-    real(8),optional,intent(in) :: K_kg
-    real(8),optional,intent(in) :: Ca_kg
-    real(8),optional,intent(in) :: Mg_kg
-    real(8),optional,intent(in) :: S_kg
+    real(real64),optional,intent(in) :: N_kg
+    real(real64),optional,intent(in) :: P_kg
+    real(real64),optional,intent(in) :: K_kg
+    real(real64),optional,intent(in) :: Ca_kg
+    real(real64),optional,intent(in) :: Mg_kg
+    real(real64),optional,intent(in) :: S_kg
     ! ================
-    real(8),optional,intent(in) :: Fe_kg
-    real(8),optional,intent(in) :: Mn_kg
-    real(8),optional,intent(in) :: B_kg
-    real(8),optional,intent(in) :: Zn_kg
-    real(8),optional,intent(in) :: Mo_kg
-    real(8),optional,intent(in) :: Cu_kg
-    real(8),optional,intent(in) :: Cl_kg
+    real(real64),optional,intent(in) :: Fe_kg
+    real(real64),optional,intent(in) :: Mn_kg
+    real(real64),optional,intent(in) :: B_kg
+    real(real64),optional,intent(in) :: Zn_kg
+    real(real64),optional,intent(in) :: Mo_kg
+    real(real64),optional,intent(in) :: Cu_kg
+    real(real64),optional,intent(in) :: Cl_kg
     ! ================
 
     obj%N_kg    = input(default=0.0d0,option=N_kg)
@@ -104,7 +105,7 @@ end subroutine
 ! ################################################################
 subroutine exportSoil(obj,FileName,format,objID)
     class(Soil_),intent(inout)::obj
-    integer,optional,intent(inout) :: objID
+    integer(int32),optional,intent(inout) :: objID
     character(*),intent(in)::FileName
     character(*),optional,intent(in) :: format
 
