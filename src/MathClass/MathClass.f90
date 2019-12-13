@@ -762,7 +762,7 @@ end function
 function input_String(default,option) result(val)
 	character(*),intent(in) :: default
 	character(*),optional,intent(in)::option
-	character(len(default) ) :: val
+	character(200 ) :: val
 
 	if(present(option) )then
 		val=option
