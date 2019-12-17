@@ -1,5 +1,5 @@
 program main
-    use SiCroF
+    use FarmClass
     implicit none
     type(Farm_):: SoybeanField
     integer :: i,timestep
