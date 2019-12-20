@@ -1,4 +1,4 @@
-#!/bin/sh 
+#!/bin/zsh 
 
 echo ">"
 echo "SiCroF >> Fortran Interactive mode for Linux & OS X... "
