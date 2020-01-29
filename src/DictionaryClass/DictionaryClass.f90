@@ -25,6 +25,7 @@ module DictionaryClass
         procedure :: intvalue => intvalueofDictionary
         procedure :: realvalue => realvalueofDictionary
         procedure :: show => showDictionary
+        procedure :: export => exportDictionary
 
     end type
 
@@ -53,7 +54,6 @@ subroutine InitializeDictionary(obj,NumOfPage)
     if(allocated(obj%Dictionary) )then
         deallocate(obj%Dictionary)
     endif
-
     allocate(obj%Dictionary(NumOfPage) )
 
 end subroutine
@@ -266,6 +266,49 @@ subroutine showDictionary(obj,From,to,Name)
 end subroutine
 ! ##############################################
 
+! ##############################################
+subroutine exportDictionary(obj,FileName,fh,from,to)
+    class(Dictionary_)::obj
+    integer(int32),optional,intent(in)::From,to,fh
+    character(*),intent(in) :: FileName
+    integer(int32) :: i,n,startp,endp,rl,il,nnn
+
+    n=size(obj%Dictionary,1)
+    startp=input(default=1,option=From)
+    endp  =input(default=n,option=to)
+
+    nnn=input(default=1000,option=fh)
+    open(nnn,file=trim(FileName))
+    
+    
+    do i=startp,endp
+        rl = 0
+        il = 0
+        if(.not. allocated(obj%Dictionary(i)%Intlist) )then
+            allocate(obj%Dictionary(i)%Intlist(0) )
+            il = 1
+        endif
+        if(.not. allocated(obj%Dictionary(i)%Realist) )then
+            allocate(obj%Dictionary(i)%Realist(0) )
+            rl = 1
+        endif
+        write(nnn,*) "Page : ",i,"Content : ",trim(obj%Dictionary(i)%Value ),&
+            "IntValue : ",obj%Dictionary(i)%IntValue,&
+            "RealValue : ",obj%Dictionary(i)%RealValue,&
+            "Intlist(:) : ",obj%Dictionary(i)%Intlist(:),&
+            "Realist(:) : ",obj%Dictionary(i)%Realist(:)
+        
+        if(il==1 )then
+            deallocate(obj%Dictionary(i)%Intlist )
+        endif
+        if(rl == 1 )then
+            deallocate(obj%Dictionary(i)%Realist )
+        endif
+    enddo
+    close(nnn)
+
+end subroutine
+! ##############################################
 
 ! ##############################################
 function sizeofDictionary(obj) result(n)
@@ -314,6 +357,7 @@ function GetPageNumDictionary(obj,Content) result(page)
 
 end function
 ! ##############################################
+
 
 
 end module

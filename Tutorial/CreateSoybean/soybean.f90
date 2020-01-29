@@ -46,15 +46,4 @@ program main
         enddo
     enddo
 
-    ! Grow soybean over dt (sec.)
-    !itr = 0
-    !do i=1,1
-    !    do j=1,1
-    !        itr=itr+1
-    !        id=trim(  adjustl(fstring( itr ) ))
-    !        print *, id
-    !        call SoybeanField(i,j)%grow(dt=60.0d0)
-    !    enddo
-    !enddo
-
 end program 

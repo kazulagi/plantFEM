@@ -1,5 +1,5 @@
 #!/bin/sh
-
+rm hostfile
 rm ./GetPixcel*.py
 rm ./DBCGetPixcelSize*.py
 rm *.o

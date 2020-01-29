@@ -4,6 +4,7 @@ module ArrayClass
     use RandomClass
     implicit none
 
+
     interface MergeArray
         module procedure MergeArrayInt, MergeArrayReal
     end interface MergeArray
