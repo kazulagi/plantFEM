@@ -20,4 +20,5 @@ mv *.txt~ RESULTS/
 mv *.blend RESULTS/
 mv *.blend1 RESULTS/
 rm ./a.out
+rm -f ./inc/*.o
 ls
