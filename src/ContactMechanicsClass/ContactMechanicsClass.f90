@@ -16,7 +16,7 @@ module ContactMechanicsClass
 		! common fields
 		real(real64),allocatable		:: NTSGap(:,:)
 		real(real64),allocatable		:: NTSGzi(:,:)
-		real(real64)				:: penaltypara
+		real(real64)		  			:: penaltypara
 
 		! for weak coupling contact analysis
 		real(real64),allocatable    :: Domain1Force(:,:)

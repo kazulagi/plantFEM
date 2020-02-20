@@ -16,9 +16,9 @@ module RandomClass
         procedure :: randint    => getRandomInt
         procedure :: choiceInt  => choiceRandomInt
         procedure :: choiceReal => choiceRandomReal
-        !procedure :: choiceString => choiceRandomString
         procedure :: uniform    => uniformRandom
         procedure :: save       => saveRandom
+        !procedure :: choiceString => choiceRandomString
     end type
 
 contains

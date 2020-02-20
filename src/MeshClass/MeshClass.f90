@@ -1,5 +1,6 @@
 ! updated 2019/1/19
 module MeshClass
+    use iso_fortran_env
     use MathClass
     use ArrayClass
     use ShapeFunctionClass
@@ -8,21 +9,20 @@ module MeshClass
 
 
     type:: Mesh_
-        real(8),allocatable::NodCoord(:,:)
-        real(8),allocatable::NodCoordInit(:,:)
-        integer,allocatable::ElemNod(:,:)
-
-        integer,allocatable::FacetElemNod(:,:)
-        integer,allocatable::NextFacets(:,:)
-        integer,allocatable::SurfaceLine2D(:)
-        integer,allocatable::ElemMat(:)
-        integer,allocatable::SubMeshNodFromTo(:,:)
-        integer,allocatable::SubMeshElemFromTo(:,:)
-        integer,allocatable::SubMeshSurfFromTo(:,:)
-        integer :: surface
+        real(real64),allocatable::NodCoord(:,:)
+        real(real64),allocatable::NodCoordInit(:,:)
+        integer(int32),allocatable::ElemNod(:,:)
+        integer(int32),allocatable::FacetElemNod(:,:)
+        integer(int32),allocatable::NextFacets(:,:)
+        integer(int32),allocatable::SurfaceLine2D(:)
+        integer(int32),allocatable::ElemMat(:)
+        integer(int32),allocatable::SubMeshNodFromTo(:,:)
+        integer(int32),allocatable::SubMeshElemFromTo(:,:)
+        integer(int32),allocatable::SubMeshSurfFromTo(:,:)
+        integer(int32) :: surface
 
         !for Interfaces
-        integer,allocatable::GlobalNodID(:)
+        integer(int32),allocatable::GlobalNodID(:)
 
         character*70::ElemType
         character*70 ErrorMsg
@@ -34,7 +34,6 @@ module MeshClass
         procedure :: ImportElemNod => ImportElemNod
         procedure :: ImportNodCoord => ImportNodCoord
         procedure :: ImportElemMat => ImportElemMat
-
         procedure :: resize => resizeMeshobj
         procedure :: GetFacetElement => GetFacetElement
         procedure :: GetSurface => GetSurface
@@ -57,13 +56,11 @@ module MeshClass
         procedure :: getCircumscribedCircle => getCircumscribedCircleMesh
         procedure :: getCircumscribedTriangle => getCircumscribedTriangleMesh
         procedure :: removeCircumscribedTriangle => removeCircumscribedTriangleMesh
-    
         procedure :: DelauneygetNewNode => DelauneygetNewNodeMesh 
         procedure :: DelauneygetNewTriangle => DelauneygetNewTriangleMesh 
         procedure :: DelauneyremoveOverlaps => DelauneyremoveOverlapsMesh 
         procedure :: RemoveFailedTriangle => RemoveFailedTriangleMesh
         procedure :: GetElemType => GetElemTypeMesh 
-
         procedure :: convertMeshType => ConvertMeshTypeMesh
         procedure :: convertTetraToHexa => convertTetraToHexaMesh 
         procedure :: convertTriangleToRectangular => convertTriangleToRectangularMesh 
@@ -98,7 +95,7 @@ subroutine CopyMesh(obj,cobj,Minimum)
     logical,optional,intent(in)::Minimum
 
 
-    !real(8),allocatable::NodCoord(:,:)
+    !real(real64),allocatable::NodCoord(:,:)
     ! original >> obj, copy>> cobj
     
 
@@ -133,12 +130,12 @@ end subroutine
 !##################################################
 subroutine InitializeMesh(obj,MaterialID,NoFacetMode,simple)
     class(Mesh_),intent(inout)::obj
-    integer,optional,intent(in)::MaterialID
+    integer(int32),optional,intent(in)::MaterialID
     logical,optional,intent(in)::NoFacetMode
     logical,optional,intent(in) :: simple
 
 
-    integer i,j,n1,n2,ne
+    integer(int32) i,j,n1,n2,ne
 
     if(present(simple) )then
         if(simple .eqv. .true. )then
@@ -229,7 +226,7 @@ end subroutine InitializeMesh
 !##################################################
 subroutine ImportElemNod(obj,elem_nod)
     class(Mesh_),intent(inout)::obj
-    integer,intent(in)::elem_nod(:,:)
+    integer(int32),intent(in)::elem_nod(:,:)
     
     include "./ImportElemNod.f90"
 
@@ -243,7 +240,7 @@ end subroutine ImportElemNod
 !##################################################
 subroutine ImportNodCoord(obj,nod_coord)
     class(Mesh_),intent(inout)::obj
-    real(8),intent(in)::nod_coord(:,:)
+    real(real64),intent(in)::nod_coord(:,:)
 
     include "./ImportNodCoord.f90"
 
@@ -256,7 +253,7 @@ end subroutine ImportNodCoord
 !##################################################
 subroutine ImportElemMat(obj,elem_mat)
     class(Mesh_),intent(inout)::obj
-    integer,intent(in)::elem_mat(:)
+    integer(int32),intent(in)::elem_mat(:)
 
     include "./ImportElemMat.f90"
 
@@ -265,7 +262,7 @@ end subroutine ImportElemMat
 
 subroutine resizeMeshobj(obj,x_rate,y_rate,z_rate)
     class(Mesh_),intent(inout) :: obj
-	real(8),optional,intent(in) :: x_rate,y_rate,z_rate
+	real(real64),optional,intent(in) :: x_rate,y_rate,z_rate
 
     if(.not.allocated(obj%NodCoord) )then
         print *, "ERROR :: MeshClass resizeMeshObj >> no Nodal coordintates are not found."
@@ -293,10 +290,10 @@ subroutine importMeshObj(obj,FileName,extention,ElemType)
     character(*),intent(in)::FileName,extention,ElemType
     character(200) :: MeshVersionFormatted,Dim,Vertices,Edges,Triangles
     character(200) :: Tetrahedra
-    real(8) :: null_num_real
-    integer :: dim_num,node_num,elem_num,elemnod_num,i,j
-    integer :: edge_num,null_num_int,num_of_triangles
-    integer :: num_of_Tetrahedra
+    real(real64) :: null_num_real
+    integer(int32) :: dim_num,node_num,elem_num,elemnod_num,i,j
+    integer(int32) :: edge_num,null_num_int,num_of_triangles
+    integer(int32) :: num_of_Tetrahedra
 
     call obj%delete()
 
@@ -363,12 +360,12 @@ subroutine GetFacetElement(obj)
     class(Mesh_),intent(inout)::obj
 
 
-    integer :: i,j,k,l,n
-    integer :: NumOfElem,NumOfDim,NumNodePerElem
-    integer :: id_1,id_2,id_3,id_4
-    integer :: id_r1,id_r2,id_r3,id_r4
-    integer,allocatable::id(:),idr(:)
-    integer,allocatable::buffer(:,:)
+    integer(int32) :: i,j,k,l,n
+    integer(int32) :: NumOfElem,NumOfDim,NumNodePerElem
+    integer(int32) :: id_1,id_2,id_3,id_4
+    integer(int32) :: id_r1,id_r2,id_r3,id_r4
+    integer(int32),allocatable::id(:),idr(:)
+    integer(int32),allocatable::buffer(:,:)
 
 
     if(allocated(obj%FacetElemNod) )then
@@ -590,10 +587,10 @@ end subroutine GetFacetElement
 !##################################################
 subroutine GetSurface2D(obj)
     class(Mesh_),intent(inout)::obj
-    integer :: i,j,k,n
-    integer :: NumOfElem,NumOfDim,NumNodePerElem
-    integer :: id_1,id_2
-    integer,allocatable::buffer(:,:)
+    integer(int32) :: i,j,k,n
+    integer(int32) :: NumOfElem,NumOfDim,NumNodePerElem
+    integer(int32) :: id_1,id_2
+    integer(int32),allocatable::buffer(:,:)
 
 
     NumOfElem = size(obj%ElemNod,1) 
@@ -652,10 +649,10 @@ end subroutine GetSurface2D
 !##################################################
 subroutine GetSurface(obj)
     class(Mesh_),intent(inout)::obj
-    integer :: i,j,k,n
-    integer :: NumOfElem,NumOfDim,NumNodePerElem
-    integer :: id_1,id_2
-    integer,allocatable::buffer(:,:)
+    integer(int32) :: i,j,k,n
+    integer(int32) :: NumOfElem,NumOfDim,NumNodePerElem
+    integer(int32) :: id_1,id_2
+    integer(int32),allocatable::buffer(:,:)
 
 
     if(allocated(obj%FacetElemNod) ) then
@@ -704,8 +701,8 @@ subroutine GetInterface(obj1,obj2,iface1,iface2,err)
     class(Mesh_),intent(inout)::obj1,obj2
     class(Mesh_),intent(inout)::iface1,iface2
     type(Mesh_) :: BBox1,BBox2,BBox
-    integer,optional,intent(inout)::err
-    integer :: i,j,n,ierr
+    integer(int32),optional,intent(inout)::err
+    integer(int32) :: i,j,n,ierr
 
 
     err =0
@@ -754,8 +751,8 @@ subroutine GetInterfaceElemNod(obj,iface)
     class(Mesh_),intent(in)::obj
     class(Mesh_),intent(inout)::iface
 
-    integer :: i,j,n,felem_num,felemnod_num,dim_num
-    integer,allocatable::node_id_list(:)
+    integer(int32) :: i,j,n,felem_num,felemnod_num,dim_num
+    integer(int32),allocatable::node_id_list(:)
 
     if(allocated(iface%ElemNod) )then
         deallocate(iface%ElemNod)
@@ -825,8 +822,8 @@ subroutine GetBoundingBox(obj,BBox)
     class(Mesh_),intent(in)::obj
     class(Mesh_),intent(inout)::BBox
 
-    real(8),allocatable::max_coord(:),min_coord(:)
-    integer :: dim_num,i
+    real(real64),allocatable::max_coord(:),min_coord(:)
+    integer(int32) :: dim_num,i
 
 
     dim_num=size(obj%NodCoord,2)
@@ -880,8 +877,8 @@ end subroutine
 subroutine GetFacetElemInsideBox(obj,BBox,iface)
     class(Mesh_),intent(in)::obj,BBox
     class(Mesh_),intent(inout)::iface
-    integer i,j,n,dim_num,s_elem_num,count_s_elem_num,c_or_not,k,mm
-    real(8) ::max_obj,max_bb,min_obj,min_bb
+    integer(int32) i,j,n,dim_num,s_elem_num,count_s_elem_num,c_or_not,k,mm
+    real(real64) ::max_obj,max_bb,min_obj,min_bb
 
     dim_num=size(obj%NodCoord,2)
     s_elem_num=size(obj%FacetElemNod,1)
@@ -945,9 +942,9 @@ subroutine GetInterSectBox(obj1,obj2,BBox)
     class(Mesh_),intent(in)::obj1,obj2
     class(Mesh_),intent(inout)::BBox
 
-    real(8),allocatable::width1(:),width2(:),center1(:),center2(:),max_coord(:),min_coord(:)
-    real(8) :: xmax_(2),xmin_(2)
-    integer :: dim_num,i,j,c_or_not
+    real(real64),allocatable::width1(:),width2(:),center1(:),center2(:),max_coord(:),min_coord(:)
+    real(real64) :: xmax_(2),xmin_(2)
+    integer(int32) :: dim_num,i,j,c_or_not
 
 
     dim_num=size(obj1%NodCoord,2)
@@ -1061,8 +1058,8 @@ end subroutine
 !##################################################
 subroutine GetNextFacets(obj)
     class(Mesh_),intent(inout)::obj
-    integer,allocatable::buffer(:)
-    integer :: i,j,n,node_id,k,l,m
+    integer(int32),allocatable::buffer(:)
+    integer(int32) :: i,j,n,node_id,k,l,m
     
     if(allocated(obj%NextFacets) )then
         deallocate(obj%NextFacets)
@@ -1142,8 +1139,8 @@ end subroutine
 subroutine MergeMesh(inobj1,inobj2,outobj)
     class(Mesh_),intent(in) ::inobj1,inobj2
     class(Mesh_),intent(out)::outobj
-    integer node_num1,num1,num2,num3
-    integer i,j,k
+    integer(int32) node_num1,num1,num2,num3
+    integer(int32) i,j,k
     
     include "./MergeMesh.f90"
     
@@ -1157,7 +1154,7 @@ end subroutine MergeMesh
 !##################################################
 subroutine ExportElemNod(obj,elem_nod)
     class(Mesh_),intent(inout)::obj
-    integer,allocatable,intent(inout)::elem_nod(:,:)
+    integer(int32),allocatable,intent(inout)::elem_nod(:,:)
     
     include "./ExportElemNod.f90"
 
@@ -1168,7 +1165,7 @@ end subroutine ExportElemNod
 !##################################################
 subroutine ExportNodCoord(obj,nod_coord)
     class(Mesh_),intent(inout)::obj
-    real(8),allocatable,intent(inout)::nod_coord(:,:)
+    real(real64),allocatable,intent(inout)::nod_coord(:,:)
 
     include "./ExportNodCoord.f90"
 
@@ -1182,7 +1179,7 @@ end subroutine ExportNodCoord
 !##################################################
 subroutine ExportSurface2D(obj,surface_nod)
     class(Mesh_),intent(inout)::obj
-    integer,allocatable,intent(inout)::surface_nod(:)
+    integer(int32),allocatable,intent(inout)::surface_nod(:)
 
     include "./ExportSurface2D.f90"
 
@@ -1205,10 +1202,10 @@ end subroutine DisplayMesh
 !##################################################
 subroutine ShowMesh(obj,FileHandle,OnlySurface) 
     class(Mesh_),intent(inout)::obj
-    integer,optional,intent(in)::FileHandle
+    integer(int32),optional,intent(in)::FileHandle
     logical,optional,intent(in)::OnlySurface
     logical :: no_fh
-    integer :: i,j,fh,n,m,exp_mode
+    integer(int32) :: i,j,fh,n,m,exp_mode
     
     
     
@@ -1278,9 +1275,9 @@ end subroutine
 subroutine MeltingSkeltonMesh(obj,ItrTol)
     class(Mesh_),intent(inout)::obj
     type(Mesh_) :: MeltObj
-    integer,optional,intent(in)::ItrTol
+    integer(int32),optional,intent(in)::ItrTol
     
-    integer :: itr,i,j,k,l,n,m,EndStep,dnum,dnum_init,nodeid,fnodeid
+    integer(int32) :: itr,i,j,k,l,n,m,EndStep,dnum,dnum_init,nodeid,fnodeid
 
     ! ######## Caution #################
     ! IT gets a "skelton mesh" 
@@ -1346,10 +1343,10 @@ end subroutine
 !##################################################
 function getNumOfDomainMesh(obj,ItrTol) result(dnum)
     class(Mesh_),intent(inout)::obj
-    integer,optional,intent(in)::ItrTol
-    integer,allocatable :: domain_id(:), domain_id_ref(:),node_id(:)
+    integer(int32),optional,intent(in)::ItrTol
+    integer(int32),allocatable :: domain_id(:), domain_id_ref(:),node_id(:)
 
-    integer :: itr,i,j,k,l,n,m,node,cnode,itrmax,dnum
+    integer(int32) :: itr,i,j,k,l,n,m,node,cnode,itrmax,dnum
 
     n=size(obj%ElemNod,1)
     m=size(obj%ElemNod,2)
@@ -1418,8 +1415,8 @@ end function
 subroutine SortFacetMesh(obj)
     class(Mesh_),intent(inout)::obj
 
-    integer :: i,j,n,m,a1,a2,id
-    real(8),allocatable :: buf(:)
+    integer(int32) :: i,j,n,m,a1,a2,id
+    real(real64),allocatable :: buf(:)
     ! SortFacet
     n=size(obj%NodCoord,2)
     if(n==2)then
@@ -1459,11 +1456,11 @@ subroutine MeshingMesh(obj,Mode,itr_tol)
     class(Mesh_),intent(inout)::obj
     type(triangle_)::tri
     type(circle_)::cir
-    integer,optional,intent(in) :: Mode,itr_tol
-    integer :: i,j,k,n,m,node_num,dim_num,dim_mode
-    real(8),allocatable :: stage_range(:,:),triangle(:,:)
-    integer,allocatable :: staged_node(:)
-    real(8) :: centerx,centery,centerz,radius
+    integer(int32),optional,intent(in) :: Mode,itr_tol
+    integer(int32) :: i,j,k,n,m,node_num,dim_num,dim_mode
+    real(real64),allocatable :: stage_range(:,:),triangle(:,:)
+    integer(int32),allocatable :: staged_node(:)
+    real(real64) :: centerx,centery,centerz,radius
     logical :: NoChange
 
     ! This method creates mesh-connectivity for the given nodal coordinates.
@@ -1555,10 +1552,10 @@ end subroutine
 !##################################################
 subroutine getCircumscribedCircleMesh(obj,centerx,centery,centerz,radius)
     class(Mesh_),intent(inout)::obj
-    real(8),intent(out)::centerx,centery,centerz,radius
-    real(8),allocatable::center(:)
-    real(8) :: dist
-    integer ::i
+    real(real64),intent(out)::centerx,centery,centerz,radius
+    real(real64),allocatable::center(:)
+    real(real64) :: dist
+    integer(int32) ::i
     
     allocate(center( size(obj%NodCoord,2 ) ) )
     ! get center corrdinate
@@ -1595,10 +1592,10 @@ end subroutine
 !##################################################
 subroutine getCircumscribedTriangleMesh(obj,triangle)
     class(Mesh_),intent(inout)::obj
-    real(8),allocatable :: center(:)
-    real(8),allocatable,intent(out) :: triangle(:,:)
-    real(8) :: centerx,centery,centerz,radius,pi
-    integer :: i
+    real(real64),allocatable :: center(:)
+    real(real64),allocatable,intent(out) :: triangle(:,:)
+    real(real64) :: centerx,centery,centerz,radius,pi
+    integer(int32) :: i
 
     pi=3.1415926d0
 
@@ -1629,11 +1626,11 @@ end subroutine
 !##################################################
 subroutine DelauneygetNewNodeMesh(obj,node_id,staged_node,triangle)
     class(Mesh_),intent(inout)::obj
-    integer,intent(in) :: node_id
-    integer,intent(inout):: staged_node(:) ! if =1,staged.
-    real(8),intent(inout)  :: triangle(:,:)
-    real(8) :: avec(3),bvec(3),cvec(3),s,t
-    integer :: triangle_node_id(3),new_node_id,i,j,n,point,cover_triangle
+    integer(int32),intent(in) :: node_id
+    integer(int32),intent(inout):: staged_node(:) ! if =1,staged.
+    real(real64),intent(inout)  :: triangle(:,:)
+    real(real64) :: avec(3),bvec(3),cvec(3),s,t
+    integer(int32) :: triangle_node_id(3),new_node_id,i,j,n,point,cover_triangle
 
 
     ! add NewNode
@@ -1759,8 +1756,8 @@ end subroutine
 !##################################################
 subroutine DelauneygetNewTriangleMesh(obj,triangle_node_id,new_node_id)
     class(Mesh_),intent(inout)::obj
-    integer,intent(in)::triangle_node_id(:),new_node_id
-    integer :: last_elem_id,i
+    integer(int32),intent(in)::triangle_node_id(:),new_node_id
+    integer(int32) :: last_elem_id,i
 
     last_elem_id=0
     
@@ -1799,14 +1796,14 @@ subroutine DelauneyremoveOverlapsMesh(obj,step,NoChange)
     type(Point_)::p1,p2,p3
     type(Triangle_)::t1
     type(Circle_)::c1
-    integer,optional,intent(in) ::step
+    integer(int32),optional,intent(in) ::step
     logical,optional,intent(inout) :: NoChange
-    real(8) :: center(2),a(2),b(2),c(2),node(2)
-    real(8) :: x1,y1,x2,y2,x3,y3,radius,dist_tr
-    integer :: i,j,n,k,l,nodeid_1,nodeid_2,nodeid_tr_1,nodeid_tr_2,point(3)
-    integer :: elem_id, node_tr,nodeid_3,dot_1,count_num,countin,flip_node
-    integer :: old_triangle_id_2,old_triangle_id_1,far_node,far_node_loc,rhs_node,lhs_node 
-    integer :: far_node_tr,far_node_loc_tr,k_1,k_2
+    real(real64) :: center(2),a(2),b(2),c(2),node(2)
+    real(real64) :: x1,y1,x2,y2,x3,y3,radius,dist_tr
+    integer(int32) :: i,j,n,k,l,nodeid_1,nodeid_2,nodeid_tr_1,nodeid_tr_2,point(3)
+    integer(int32) :: elem_id, node_tr,nodeid_3,dot_1,count_num,countin,flip_node
+    integer(int32) :: old_triangle_id_2,old_triangle_id_1,far_node,far_node_loc,rhs_node,lhs_node 
+    integer(int32) :: far_node_tr,far_node_loc_tr,k_1,k_2
 
     count_num=0
     NoChange = .False.
@@ -1971,7 +1968,7 @@ subroutine RemoveFailedTriangleMesh(obj)
     type(Point_)::p1,p2,p3
     type(Triangle_)::t1
     type(Circle_)::c1
-    integer :: i,j,n,remove,k
+    integer(int32) :: i,j,n,remove,k
 
     ! remove non-triangle element
 
@@ -2037,7 +2034,7 @@ end subroutine
 !##################################################
 subroutine removeCircumscribedTriangleMesh(obj)
     class(Mesh_),intent(inout)::obj
-    integer :: i,j,k,l,n,tri_nodes(3),rmn
+    integer(int32) :: i,j,k,l,n,tri_nodes(3),rmn
 
     do i=1,3
         tri_nodes(i)=size(obj%NodCoord,1)
@@ -2074,7 +2071,7 @@ function GetElemTypeMesh(obj) result(ElemType)
     class(Mesh_),intent(inout)::obj
     type(ShapeFunction_)::sobj
     character*200 :: ElemType
-    integer :: i,j,n,m
+    integer(int32) :: i,j,n,m
 
     n=size(obj%NodCoord,2)
     m=size(obj%ElemNod,2)
@@ -2107,15 +2104,15 @@ end subroutine
 !##################################################
 subroutine convertTetraToHexaMesh(obj)
     class(Mesh_),intent(inout) :: obj
-    integer :: i,node_num,elem_num,elemnod_num,incre_nod_num
-    real(8) :: incre_nod_num_real,x1(3),x2(3),x3(3),x4(3)
-    real(8) :: x12(3),x23(3),x31(3),x14(3),x24(3),x34(3)
-    real(8) :: x123(3),x234(3),x134(3),x124(3)
-    real(8) :: x1234(3),direct
+    integer(int32) :: i,node_num,elem_num,elemnod_num,incre_nod_num
+    real(real64) :: incre_nod_num_real,x1(3),x2(3),x3(3),x4(3)
+    real(real64) :: x12(3),x23(3),x31(3),x14(3),x24(3),x34(3)
+    real(real64) :: x123(3),x234(3),x134(3),x124(3)
+    real(real64) :: x1234(3),direct
     
-    integer,allocatable :: HexElemNod(:,:)
-    real(8),allocatable ::HexNodCoord(:,:)
-    integer :: local_id(15),node_id
+    integer(int32),allocatable :: HexElemNod(:,:)
+    real(real64),allocatable ::HexNodCoord(:,:)
+    integer(int32) :: local_id(15),node_id
     
     ! converter for 3D
     node_num     = size(obj%NodCoord,1)
@@ -2255,14 +2252,14 @@ end subroutine
 !##################################################
 subroutine convertTriangleToRectangularMesh(obj)
     class(Mesh_),intent(inout) :: obj
-    integer :: i,node_num,elem_num,elemnod_num,incre_nod_num
-    real(8) :: incre_nod_num_real,x1(2),x2(2),x3(2),x4(2)
-    real(8) :: x12(2),x23(2),x31(2)
-    real(8) :: x123(2)
+    integer(int32) :: i,node_num,elem_num,elemnod_num,incre_nod_num
+    real(real64) :: incre_nod_num_real,x1(2),x2(2),x3(2),x4(2)
+    real(real64) :: x12(2),x23(2),x31(2)
+    real(real64) :: x123(2)
     
-    integer,allocatable :: RectElemNod(:,:),before_after(:)
-    real(8),allocatable :: RectNodCoord(:,:)
-    integer :: local_id(7),node_id
+    integer(int32),allocatable :: RectElemNod(:,:),before_after(:)
+    real(real64),allocatable :: RectNodCoord(:,:)
+    integer(int32) :: local_id(7),node_id
     
     ! converter for 3D
     node_num     = size(obj%NodCoord,1)
@@ -2345,12 +2342,12 @@ end subroutine
 !##################################################
 subroutine removeOverlappedNodeMesh(obj,tolerance)
     class(Mesh_),intent(inout)::obj
-    real(8),optional,intent(in) :: tolerance
-    integer,allocatable :: RectElemNod(:,:),checked(:),before_after(:)
-    real(8),allocatable :: New_NodCoord(:,:)
-    integer :: i,j,k,dim_num,node_num,itr,elem_num,elemnod_num,l
-    real(8),allocatable :: x(:),x_tr(:)
-    real(8) :: error,tol
+    real(real64),optional,intent(in) :: tolerance
+    integer(int32),allocatable :: RectElemNod(:,:),checked(:),before_after(:)
+    real(real64),allocatable :: New_NodCoord(:,:)
+    integer(int32) :: i,j,k,dim_num,node_num,itr,elem_num,elemnod_num,l
+    real(real64),allocatable :: x(:),x_tr(:)
+    real(real64) :: error,tol
     
     if(present(tolerance) )then
         tol=tolerance

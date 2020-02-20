@@ -54,12 +54,15 @@ module ConstitutiveModelClass
         
         character*70::ModelType
         character*70::Config    
+    contains
+        procedure,public :: getStress => HyperElasticStress
+        procedure,public :: getStressDer => HyperElasticDer
     end type
 
 contains
 !#########################################################################
 subroutine HyperElasticStress(obj)
-    type(ConstModel_),intent(inout)::obj
+    Class(ConstModel_),intent(inout)::obj
     real(real64) :: a(3,3),delta(3,3)
 
     delta(:,:)=0.0d0
@@ -136,7 +139,7 @@ end subroutine
 
 !#########################################################################
 subroutine HyperElasticDer(obj,DerType)
-    type(ConstModel_),intent(inout)::obj
+    Class(ConstModel_),intent(inout)::obj
     character*70,intent(in)::DerType
     real(real64) :: a(3,3),a1(3,3),delta(3,3)
     integer(int32) :: i,j,k,l
