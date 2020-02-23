@@ -969,4 +969,197 @@ function Invariant_theta(sigma) result(theta)
 end function
 ! ########################################################
 
+! ########################################################
+function inv_mod(a_in,m_in,ItrMax) result(x)
+	integer(int32),intent(in) :: a_in,m_in
+	integer(int32),optional,intent(in) :: ItrMax
+	integer(int32) :: d, q,t, Kmat_n(2,2),Kmat_npp(2,2),k,itr_tol,r0,r1,r2,i,x,y,m0
+	integer(int32) :: a,m
+
+	a=a_in
+	m=m_in
+	
+	itr_tol=input(default=10000,option=ItrMax)
+	! inverse modula by Extended Euclidean algorithm
+	! d = e^-1 (mod (lambda))
+	! d*e = 1 (mod (lambda))
+	! one integer q
+	! d*e - q*lambda = 1, e, lambda are known, d, q are unknown.
+	! get d, q by extended Euclidean algorithm
+	! gcd(e, lambda) = 1
+	!Kmat_npp(1,1)=1
+	!Kmat_npp(1,2)=0
+	!Kmat_npp(2,1)=0
+	!Kmat_npp(2,2)=1
+	!r0=e
+	!r1=lambda
+	!do i=1, itr_tol
+	!	r2=mod(r0,r1)
+	!	if(r2==0)then
+	!		print *, "gcd of ",e," and",lambda,"is", r1
+	!		exit
+	!	endif
+	!	k=(r0-r2)/r1
+	!	Kmat_n(1,1)=0
+	!	Kmat_n(1,2)=1
+	!	Kmat_n(2,1)=1
+	!	Kmat_n(2,2)=-k
+	!	a=matmul(Kmat_npp,Kmat_n)
+	!	Kmat_npp=a
+	!	print *, r0,"=",k,"*",r1,"+",r2
+	!	r0=r1
+	!	r1=r2
+	!enddo
+	!d = Kmat_npp(1,2)
+	!print *, "Kmat_npp=",Kmat_npp
+	! cited by https://www.geeksforgeeks.org/multiplicative-inverse-under-modulo-m/
+	m0=m
+	y=0
+	x=1
+	if(gcd(a,m)/=1 )then
+		a = mod(a,m) 
+		do x=1,m
+			if( mod(a*x,m)==1)then
+				return
+			endif
+		enddo
+	endif
+	if(m==1)then
+		return
+	endif
+	
+	do i=1,itr_tol
+		if(a > 1)then
+			q=(a -mod(a,m))/m
+			
+			t=m
+
+			m= mod(a,m)
+			a=t
+			t=y
+
+			y=x - q*y
+			x=t
+		else
+			exit
+		endif
+	enddo
+	if(x < 0)then
+		x = x+m0
+	endif
+
+end function
+! ########################################################
+
+! ########################################################
+function gcd(a,b,ItrMax) result(c)
+	integer(int32),intent(in) :: a,b
+	integer(int32),optional,intent(in) :: ItrMax
+	integer(int32) :: i,r0,r1,r2,k,itr_tol,c
+	c=1
+	itr_tol=input(default=10000,option=ItrMax)
+	r0=a
+	r1=b
+	do i=1, itr_tol
+		r2=mod(r0,r1)	
+		if(r2==0)then
+			!print *, "gcd of ",a," and",b,"is", r1
+			exit
+		endif
+		k=(r0-r2)/r1
+		!print *, r0,"=",k,"*",r1,"+",r2
+		r0=r1
+		r1=r2
+	enddo
+	c=r1
+
+end function
+! ########################################################
+
+
+! ########################################################
+function lcm(a,b,ItrMax) result(c)
+	integer(int32),intent(in) :: a,b
+	integer(int32),optional,intent(in) :: ItrMax
+	integer(int32) :: i,r0,r1,r2,k,itr_tol,c
+
+	itr_tol=input(default=10000,option=ItrMax)
+	r0=a
+	r1=b
+	do i=1, itr_tol
+		r2=mod(r0,r1)
+		if(r2==0)then
+			!print *, "gcd of ",a," and",b,"is", r1
+			exit
+		endif
+		k=(r0-r2)/r1
+		!print *, r0,"=",k,"*",r1,"+",r2
+		r0=r1
+		r1=r2
+	enddo
+	c=a*b/r1
+
+
+end function
+! ########################################################
+
+
+! ########################################################
+subroutine rsa_keygen(prime1,prime2,seed,id_rsa,id_rsa_pub)
+	integer(int32),intent(in) :: prime1,prime2,seed
+	integer(int32),intent(out) :: id_rsa(2),id_rsa_pub(2)
+	integer(int32) :: n,e,lambda,d,p,q
+	
+	p=prime1
+	q=prime2
+
+	n=p*q
+	lambda=(p-1)*(q-1)/gcd(p-1,q-1)
+	!print *, "lambda=",lambda
+	
+	id_rsa_pub(1)=n
+	id_rsa_pub(2)=seed
+
+	id_rsa(1)=n
+	id_rsa(2)=inv_mod(seed, lambda) !get d
+	
+	print *, "#######################################################"
+	print *, "Encrypted by RSA algorithm, public keys "
+	print *, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+	print *, "Multiplication of two prime numbers is ",id_rsa_pub(1)
+	print *, "Seed value (1 < seed < ",id_rsa_pub(1),") is", id_rsa_pub(2)
+	print *, "Notice:: message should be (1 < seed < ",id_rsa_pub(1),")."
+	print *, "#######################################################"
+
+
+end subroutine
+! ########################################################
+
+! ########################################################
+function rsa_encrypt(id_rsa_pub,message) result(ciphertext)
+	integer(int32),intent(in) ::id_rsa_pub(2),message
+	integer(int32) :: ciphertext,i
+
+	ciphertext = 1
+	do i=1, id_rsa_pub(2)
+		ciphertext= mod(ciphertext* message,  id_rsa_pub(1) )
+	enddo
+
+end function
+! ########################################################
+
+! ########################################################
+function rsa_decrypt(id_rsa,ciphertext) result(message)
+	integer(int32),intent(in) ::id_rsa(2),ciphertext
+	integer(int32) :: d,n,e,message,i
+
+	
+	message = 1
+	do i=1, id_rsa(2)
+		message= mod(message* ciphertext,  id_rsa(1) )
+	enddo
+
+end function
+! ########################################################
+
 end module MathClass
