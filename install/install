@@ -95,10 +95,17 @@ echo "Compiling ./src/LinearSolverClass/LinearSolverClass.f90 "
 echo " >> LinearSolverClass.o "
 echo " | ####                        | (16%)\r\c"
 mpif90 -c ./src/LinearSolverClass/LinearSolverClass.f90 -o  ./inc/LinearSolverClass.o
+
 echo "Compiling ./src/GeometryClass/GeometryClass.f90 " 
 echo " >> GeometryClass.o "
 echo " | #####                       | (22%)\r\c"
 mpif90 -c ./src/GeometryClass/GeometryClass.f90 -o  ./inc/GeometryClass.o
+
+echo "Compiling ./src/RouteOptimizationClass/RouteOptimizationClass.f90 " 
+echo " >> RouteOptimizationClass.o "
+echo " | #####                       | (22%)\r\c"
+mpif90 -c ./src/RouteOptimizationClass/RouteOptimizationClass.f90 -o  ./inc/RouteOptimizationClass.o
+
 echo "Compiling ./src/TreeClass/TreeClass.f90 "
 echo " >> TreeClass.o"
 echo " | ######                      | (24%)\r\c"

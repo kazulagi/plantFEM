@@ -6,6 +6,7 @@ module GeometryClass
 
     type Point_
         real(real64),allocatable :: coord(:)
+        character*30 :: name
     contains
         procedure :: Init   => InitPoint
         procedure :: set    => setPoint
