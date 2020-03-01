@@ -6,6 +6,8 @@ Simulator for Crops in Fields
 
 [使い方：日本語版 >> ](https://qiita.com/soybean) https://qiita.com/soybean
 
+[   New! 田周り経路最適化アプリを実装しました。 >> ](https://qiita.com/soybean) https://qiita.com/soybean
+
 ## Environment
 
 ### Linux 
