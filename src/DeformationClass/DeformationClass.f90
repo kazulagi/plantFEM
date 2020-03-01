@@ -1,4 +1,5 @@
 module DeformationClass
+    use iso_fortran_env
     use StrainClass
     use StressClass
     use StiffnessMatrixClass
@@ -9,7 +10,7 @@ module DeformationClass
         type(Stress_),allocatable :: Stress(:,:) ! for Elements, for Gauss-points
         type(Strain_),allocatable :: Strain(:,:) ! for Elements, for Gauss-points
         type(StiffnessMatrix_)    :: StifMat
-        real(8)     :: tol
+        real(real64)     :: tol
         
     contains 
         procedure :: init => initDeformation

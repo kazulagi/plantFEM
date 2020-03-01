@@ -36,7 +36,6 @@ module BoundaryConditionClass
         procedure :: ImportNBound => ImportNBound
         procedure :: MergeDBound => MergeDBound
         procedure :: MergeNBound => MergeNBound
-
         procedure :: removeDBC => removeDBCBoundary        
         procedure :: removeNBC => removeNBCBoundary
         procedure :: removeTBC => removeTBCBoundary        

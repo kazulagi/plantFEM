@@ -14,7 +14,7 @@ module TreeClass
         real(real64)         :: coord(3)
         real(real64)         :: vector(3)
         character*200   :: Name
-        double precision:: fpval
+        real(real64) :: fpval
         integer(int32)         :: intval
         integer(int32)         :: ID
     contains

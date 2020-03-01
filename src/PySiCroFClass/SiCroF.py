@@ -33,7 +33,39 @@ else:
 
 inc=".\inc\ArrayOperationClass.o  .\inc\BoundaryConditionClass.o  .\inc\ConstitutiveModelClass.o  .\inc\ContactMechanicsClass.o  .\inc\ControlParameterClass.o  .\inc\DictionaryClass.o  .\inc\DiffusionEquationClass.o  .\inc\FEMDomainClass.o  .\inc\FEMIfaceClass.o  .\inc\FieldClass.o  .\inc\FiniteDeformationClass.o  .\inc\LinearSolverClass.o  .\inc\MPIClass.o  .\inc\MaterialPropClass.o  .\inc\MathClass.o  .\inc\MeshOperationClass.o  .\inc\MultiDiffDeformClass.o  .\inc\MultiPhysicsClass.o  .\inc\OpenMPClass.o  .\inc\PostProcessingClass.o  .\inc\PreProcessingClass.o  .\inc\ShapeFunctionClass.o  .\inc\SiCroFClass.o  .\inc\SimulatorClass.o  .\inc\SpaceTimeDeformClass.o  .\inc\TermClass.o  .\inc\TreeClass.o "
 
+class routeOpt:
+    def __init__(self):
+        print("Initialized.")
+    
+    def getOptimizedRoute(self,FieldList,OptRoute):
+        prog=open("getOptimizedRoute.f90","w")
+        prog.write("program main\n")
+        prog.write("  use RouteOptimization")
+        prog.write("  use MPIClass")
+        prog.write("  implicit none")
+        prog.write("  type(MPI_) :: mpid")
+        prog.write("  type(RouteOptimization_) :: obj")
+        prog.write("  ! start mpi")
+        prog.write("  call mpid%"+"start()")
+        prog.write("  ! get points from file")
+        prog.write("  call obj%"+"import('Tutorial/RouteOptimization/coord1.txt')")
+        prog.write("  ! optimize route by solving a TS problem.")
+        prog.write('  call obj%'+'run(SolverName="TSP_enum_greedy_roop",NumOfPoints=59)')
+        prog.write('  call obj%'+'run(SolverName="TSP_enum_greedy_roop",NumOfPoints=59)')
+        prog.write('  ! export route')
+        prog.write('  call obj%'+'export(Repository="Tutorial/RouteOptimization")')
+        prog.write('  !close mpi')
+        prog.write('  call mpid%end()')
+        prog.write('end program main  ')
+        prog.close()
 
+        print("OS : Linux")
+        os.system("mpif90 inc/*.o getOptimizedRoute.f90\n")
+        print("Optimizing route...")
+        os.system("mpirun ./a.out\n")
+        print("Successfully done!")
+
+    
 
 class prepro:
 

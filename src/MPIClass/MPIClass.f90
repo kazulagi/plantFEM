@@ -10,7 +10,7 @@ module MPIClass
     !    module procedure BcastMPIReal, BcastMPIInt
     !end interface
 
-    type :: comment
+    type :: comment_
         character*200 :: comment
     endtype
     
@@ -31,7 +31,7 @@ module MPIClass
         real(real64) :: stime
         real(real64) :: etime
         real(real64) :: laptime(1000)
-        type(comment) :: comments(1000)
+        type(comment_) :: comments(1000)
 
     contains
         procedure :: Start => StartMPI

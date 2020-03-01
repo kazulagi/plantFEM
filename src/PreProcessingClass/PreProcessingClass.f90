@@ -22,7 +22,6 @@ module PreprocessingClass
         procedure :: getScfFromImage    => getScfFromImagePreProcessing
         procedure :: Init               => InitializePrePro
         procedure :: finalize           => finalizePrePro
-
         procedure :: ImportPictureName  => ImportPictureName
         procedure :: importPixcelAsNode => importPixcelAsNodePreProcessing
         procedure :: ShowName           => ShowPictureName

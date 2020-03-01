@@ -16,14 +16,11 @@ module FiniteDeformationClass
 		real(real64),allocatable ::DeformStressRHS(:,:)
 		real(real64),allocatable ::DeformVecEBETot(:,:)
 		real(real64),allocatable ::DeformVecEBEInc(:,:)
-
         real(real64),allocatable ::DeformVecGloTot(:)
 		real(real64),allocatable ::DeformVecGloInc(:)
-		
 		real(real64),allocatable ::TractionVecGlo(:)
 		real(real64),allocatable ::ResidualVecGlo(:)
 		real(real64),allocatable ::InternalVecGlo(:)
-
 		real(real64),allocatable ::VolInitCurrEBE(:,:)
 		real(real64)             ::dt,error
 		
@@ -39,7 +36,7 @@ module FiniteDeformationClass
 		procedure :: Display => DisplayDeformStress
 		procedure :: getDBCVector => getDBCVectorDeform
 		procedure :: getDispVector => getDispVectorDeform
-		 	
+
   	end type
 	
 contains

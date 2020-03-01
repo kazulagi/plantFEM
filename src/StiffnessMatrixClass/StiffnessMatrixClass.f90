@@ -1,6 +1,6 @@
 module StiffnessMatrixClass
     use ShapeFunctionClass
-    use MeshOperationClass
+    use MeshClass
     use StressClass
     use StrainClass
 
@@ -9,7 +9,7 @@ module StiffnessMatrixClass
     ! Provides a set of Element-by-element stiffness matrix & RHS vector of internal force
     ! for all types of elements, all Strain Theory, and all constitutive models.
 
-    type :: StiffnessMatrixClass_
+    type :: StiffnessMatrix_
         real(8),allocatable     :: Amat(:,:),bvec(:)   
         type(ShapeFunction_)    :: ShapeFunc
         type(Stress_),pointer   :: Stress

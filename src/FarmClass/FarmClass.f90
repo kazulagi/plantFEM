@@ -9,13 +9,16 @@ module FarmClass
         type(Soil_) ::  Soil
         integer(int32) :: num_of_ridge
         integer(int32) :: num_of_plant_per_ridge
-        real(real64) :: width_of_ridge
-        real(real64) :: width_of_plant_per_ridge
-        real(real64) :: length_of_farm, width_of_farm
-        real(real64) :: soil_depth
-        real(real64) :: seed_depth
+        real(real64)   :: width_of_ridge
+        real(real64)   :: width_of_plant_per_ridge
+        real(real64)   :: length_of_farm, width_of_farm
+        real(real64)   :: soil_depth
+        real(real64)   :: seed_depth
         integer(int32) :: total_num_of_plant
-        real(real64) :: plant_density,plant_density_m,total_weight_of_seed,total_area
+        real(real64) :: plant_density
+        real(real64) :: plant_density_m
+        real(real64) :: total_weight_of_seed
+        real(real64) :: total_area
         real(real64) :: g_per_100seed
         real(real64) :: locale(2)
         

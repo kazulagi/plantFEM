@@ -40,8 +40,8 @@ module FEMIfaceClass
         real(real64),allocatable     :: NTS_Value(:,:)
         real(real64),allocatable     :: STS_Value(:,:)
         integer(int32),allocatable     :: NTS_SegmentID(:,:)
-        integer(int32),allocatable     :: GloNodPoint1(:,:),GloNodPoint2(:,:)
-        
+        integer(int32),allocatable     :: GloNodPoint1(:,:)
+        integer(int32),allocatable     :: GloNodPoint2(:,:)
         integer(int32)                 :: DomainID1
         integer(int32)                 :: DomainID2
         integer(int32)                 :: DomainID3

@@ -31,7 +31,6 @@ module ShapeFunctionClass
     contains
         procedure :: init => initShapeFunction
         procedure :: update => updateShapeFunction
-
         procedure :: SetType => SetShapeFuncType
         procedure :: GetAll  => GetAllShapeFunc
         procedure :: Deallocate => DeallocateShapeFunction

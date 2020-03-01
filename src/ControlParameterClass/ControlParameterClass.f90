@@ -7,10 +7,20 @@ module ControlParaeterClass
         integer(int32) :: ItrTol
         integer(int32) :: Timestep
     contains
+        procedure,public :: init => initControlPara
         procedure,public :: SetControlPara => SetControlPara
     end type ControlParameter_
 
 contains
+
+subroutine initControlPara(obj)
+    class(ControlParameter_),intent(inout):: obj
+
+    obj%Tol=1.0e-16
+    obj%SimMode=-1
+    obj%ItrTol=-1
+    obj%Timestep=-1
+end subroutine
 
 !######### Import Control Parameters #########
 subroutine SetControlPara(obj,OptionalTol,OptionalItrTol,OptionalTimestep,OptionalSimMode)

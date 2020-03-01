@@ -31,7 +31,6 @@ module FEMDomainClass
         procedure,public :: Export => ExportFEMDomain
 		procedure,public :: Import => ImportFEMDomain
 		procedure,public :: ImportMesh => ImportMeshFEMDomain
-
 		procedure,public :: Resize => resizeFEMDomain
         procedure,public :: Merge  => MergeFEMDomain
         procedure,public :: AddDBoundCondition => AddDBoundCondition
@@ -46,7 +45,7 @@ module FEMDomainClass
         procedure,public :: InitNBC => InitNBC
 		procedure,public :: InitTBC => InitTBC
 		procedure,public :: AddNBC => AddNBCFEMDomain 
-        procedure :: MeltingSkelton => MeltingSkeltonFEMDomain
+        procedure,public :: MeltingSkelton => MeltingSkeltonFEMDomain
         procedure,public :: SetControlPara =>  SetControlParaFEMDomain
         procedure,public :: GmshPlotMesh => GmshPlotMesh
 		procedure,public :: GmshPlotContour => GmshPlotContour
