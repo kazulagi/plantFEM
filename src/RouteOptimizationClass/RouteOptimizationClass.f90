@@ -93,7 +93,11 @@ subroutine runRouteOptimization(obj,SolverName, NumOfPoints)
     call system(trim(command))
 
     ! create input file for external solver
+
     n = input(default=size(obj%PointList) ,option=NumOfPoints)
+    if(n==0)then
+        n=size(obj%PointList)
+    endif
     open(120,file="points.txt")
     write(120,*) n 
     do i=1, n
