@@ -42,6 +42,7 @@ module PreprocessingClass
         procedure :: ConvertMsh2Scf     => ConvertMsh2Scf
         procedure :: ConvertMesh2Scf    => ConvertMesh2Scf
         procedure :: Export             => ExportPreProcessing
+        procedure :: ExportAsLodgingSim => ExportAsLodgingSimProcessing
         procedure :: import             => importPreProcessing
         procedure :: Reverse            => ReversePreProcessing
         procedure :: SetDataType        => SetDataTypeFEMDomain
@@ -1713,12 +1714,12 @@ end subroutine
 ! #########################################################
 subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
     class(PreProcessing_),intent(inout):: obj
-    class(MPI_),intent(inout)          :: MPIData
+    class(MPI_),optional,intent(inout)          :: MPIData
     type(Mesh_) :: tobj
     character(*),optional,intent(in) :: Name
     character*200   :: python_buffer
     character*200   :: command,infile,outfile
-    character*200,optional,intent(in) :: ElementType
+    character(*),optional,intent(in) :: ElementType
     character*20    :: pid
     character*200 MeshFormat
 	character*14 EndMeshFormat
@@ -1726,7 +1727,7 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
 	character*200  EndNodes,Elements
     character*12  EndElements	
     integer(int32),allocatable :: elem1(:),surface_nod(:),triangle(:,:),devide_line(:,:),buffer(:,:)
-    integer(int32) :: i,j,k,n,n1,n2,fh,a,nm,mm,nod_num,nn,elem_num,surf_num,l
+    integer(int32) :: i,j,k,n,n1,n2,fh,a,nm,mm,nod_num,nn,elem_num,surf_num,l,numnum
     integer(int32) :: elem_num_all,n3,n4,n5,n6,n7,elemnod_num,startfrom,node1,node2,tr1,tr2
     real(real64) :: re1,re2
     
@@ -1747,8 +1748,9 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
 
 
     ! ======================================================
-    write(pid,*) MPIData%MyRank
-    fh=MPIData%MyRank+10
+    numnum=input(default=1,option=MPIData%MyRank)
+    write(pid,*) numnum
+    fh=input(default=1,option=MPIData%MyRank+10)
     infile="GetSurface_pid_"//trim(adjustl(pid))//".mesh"
     outfile = "GetSurface_pid_"//trim(adjustl(pid))//".scf"
     if(present(Name) )then
@@ -1909,7 +1911,6 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
 
 end subroutine
 ! #########################################################
-
 
 
 
@@ -2307,6 +2308,16 @@ subroutine Convert3Dto2D(obj)
     allocate(obj%FEMDomain%Mesh%NodCoord(n,2) )
     obj%FEMDomain%Mesh%NodCoord(:,:)=buffer(:,:)
     deallocate(buffer)
+    if(allocated(obj%FEMDomain%Mesh%ElemMat)  )then
+        if(size(obj%FEMDomain%Mesh%ElemMat)/=size(obj%FEMDomain%Mesh%ElemNod,1) )then
+            deallocate(obj%FEMDomain%Mesh%ElemMat)
+        endif
+    endif
+    if(.not.allocated(obj%FEMDomain%Mesh%ElemMat) )then
+        n=size(obj%FEMDomain%Mesh%ElemNod,1)
+        allocate(obj%FEMDomain%Mesh%ElemMat(n) )
+        obj%FEMDomain%Mesh%ElemMat(:)=1
+    endif
 end subroutine
 !##################################################
 
@@ -2983,6 +2994,17 @@ subroutine BooleanModifyerPreProcessing(obj,ModObj,XDiv,Ydic,Zdiv)
             enddo
 
 
+            
+            if(allocated(obj%FEMDomain%Mesh%ElemMat)  )then
+                if(size(obj%FEMDomain%Mesh%ElemMat)/=size(obj%FEMDomain%Mesh%ElemNod,1) )then
+                    deallocate(obj%FEMDomain%Mesh%ElemMat)
+                endif
+            endif
+            if(.not.allocated(obj%FEMDomain%Mesh%ElemMat) )then
+                n=size(obj%FEMDomain%Mesh%ElemNod,1)
+                allocate(obj%FEMDomain%Mesh%ElemMat(n) )
+                obj%FEMDomain%Mesh%ElemMat(:)=1
+            endif
 
         
             
@@ -3055,11 +3077,11 @@ end subroutine
 
 
 !##################################################
-subroutine showMeshPreProcessing(obj,Step,Name,withNeumannBC,withDirichletBC)
+subroutine showMeshPreProcessing(obj,Step,Name,withNeumannBC,withDirichletBC,withMaterial)
     class(PreProcessing_),intent(inout)::obj
     character(*),optional,intent(in):: Name
     integer(int32),optional,intent(in):: Step
-	logical,optional,intent(in)::withNeumannBC,withDirichletBC
+	logical,optional,intent(in)::withNeumannBC,withDirichletBC,withMaterial
 
     integer(int32) :: stp
 
@@ -3070,7 +3092,8 @@ subroutine showMeshPreProcessing(obj,Step,Name,withNeumannBC,withDirichletBC)
         stp=0
     endif
 
-    call GmshPlotMesh(obj%FEMDomain,OptionalStep=stp,Name=trim(Name),withNeumannBC=withNeumannBC,withDirichletBC=withDirichletBC)
+    call GmshPlotMesh(obj%FEMDomain,OptionalStep=stp,Name=trim(Name),withNeumannBC=withNeumannBC,&
+        withDirichletBC=withDirichletBC,withMaterial=withMaterial)
 
 end subroutine
 !##################################################
@@ -3187,11 +3210,16 @@ end subroutine
 
 
 !##################################################
-subroutine importPreProcessing(obj,Name,FileHandle)
+subroutine importPreProcessing(obj,Name,FileHandle,Mesh)
     class(PreProcessing_),intent(inout)::obj
-    character(*),intent(in)::Name
+    type(Mesh_),optional,intent(in)::Mesh
+    character(*),optional,intent(in)::Name
     integer(int32),optional,intent(in)::FileHandle
 
+    if(present(Mesh) )then
+        call obj%FEMDomain%import(Mesh=Mesh)
+        return
+    endif
     call obj%FEMDomain%import(OptionalProjectName=Name,FileHandle=FileHandle)
 
 end subroutine
@@ -3571,6 +3599,136 @@ subroutine modifySuefaceNodePrepro(obj,Mesh,boolean)
     
 end subroutine
 !##################################################
+
+
+! #########################################################
+subroutine ExportAsLodgingSimProcessing(obj,soil,Name,penalypara,displacement)
+    class(PreProcessing_),intent(inout):: obj
+    type(PreProcessing_),intent(inout):: soil
+    real(real64),optional,intent(in)::penalypara,displacement
+    character(*),intent(in) :: Name
+    real(real64) :: x_max,x_min, y_max, y_min
+    integer(int32) :: number_of_node,fh,i
+    integer(int32),allocatable :: top_root_list(:)
+    integer(int32),allocatable :: rightside_soil_list(:)
+    integer(int32),allocatable :: leftside_soil_list(:)
+    integer(int32),allocatable :: bottom_soil_list(:)
+    integer(int32) :: total_x_cond, total_y_cond
+    ! Export As Lodging Simulator 25 file.
+
+    ! bug exists
+
+    ! give ux=0, uy=0 at toproot.
+    y_max=maxval(obj%FEMDomain%Mesh%NodCoord(:,2))
+    number_of_node=countif(Array=obj%FEMDomain%Mesh%NodCoord(:,2), Equal=.true., Value=y_max)
+    allocate(top_root_list(number_of_node))
+    top_root_list(:)=getif(Array=obj%FEMDomain%Mesh%NodCoord(:,2),Value=y_max)
+    
+    ! give ux=0, uy=0 at right-side of soil.
+    x_max=maxval(Soil%FEMDomain%Mesh%NodCoord(:,1))
+    number_of_node=countif(Array=Soil%FEMDomain%Mesh%NodCoord(:,1), Equal=.true., Value=x_max)
+    allocate(rightside_soil_list(number_of_node))
+    rightside_soil_list(:)=0
+    rightside_soil_list(:)=getif(Array=Soil%FEMDomain%Mesh%NodCoord(:,1),Value=x_max)
+    rightside_soil_list(:)=rightside_soil_list(:)+size(obj%FEMDomain%Mesh%NodCoord,1)
+
+    ! give ux=0, uy=0 at left-side of soil.
+    x_min=minval(Soil%FEMDomain%Mesh%NodCoord(:,1))
+    number_of_node=countif(Array=Soil%FEMDomain%Mesh%NodCoord(:,1), Equal=.true., Value=x_min)
+    allocate(leftside_soil_list(number_of_node))
+    leftside_soil_list(:)=0
+    leftside_soil_list(:)=getif(Array=Soil%FEMDomain%Mesh%NodCoord(:,1),Value=x_min)
+    leftside_soil_list(:)=leftside_soil_list(:)+size(obj%FEMDomain%Mesh%NodCoord,1)
+
+
+    ! give ux=0, uy=0 at the bottom of soil.
+    y_min=minval(Soil%FEMDomain%Mesh%NodCoord(:,2))
+    number_of_node=countif(Array=Soil%FEMDomain%Mesh%NodCoord(:,2), Equal=.true., Value=y_min)
+    allocate(bottom_soil_list(number_of_node))
+    bottom_soil_list(:)=0
+    bottom_soil_list(:)=getif(Array=Soil%FEMDomain%Mesh%NodCoord(:,2),Value=y_min)
+    bottom_soil_list(:)=bottom_soil_list(:)+size(obj%FEMDomain%Mesh%NodCoord,1)
+
+    total_x_cond = size(top_root_list)+size(rightside_soil_list)+size(leftside_soil_list)+size(bottom_soil_list)
+    total_y_cond = size(top_root_list)+size(rightside_soil_list)+size(leftside_soil_list)+size(bottom_soil_list)
+
+    ! export info
+    fh=22
+    open(fh,file=Name)
+    write(fh,*) 2
+    write(fh,*) 1, size(obj%FEMDomain%Mesh%NodCoord,1)
+    write(fh,*) size(obj%FEMDomain%Mesh%NodCoord,1)+1, &
+        size(obj%FEMDomain%Mesh%NodCoord,1)+size(soil%FEMDomain%Mesh%NodCoord,1)
+    write(fh,*) size(obj%FEMDomain%Mesh%ElemNod,1)
+    write(fh,*) size(soil%FEMDomain%Mesh%ElemNod,1)
+    write(fh,*) size(obj%FEMDomain%Mesh%NodCoord,1)+size(soil%FEMDomain%Mesh%NodCoord,1)
+    call showArray(Mat=obj%FEMDomain%Mesh%NodCoord,FileHandle=fh)
+    call showArray(Mat=Soil%FEMDomain%Mesh%NodCoord,FileHandle=fh)
+    write(fh,*) size(obj%FEMDomain%Mesh%ElemNod,1)+size(soil%FEMDomain%Mesh%ElemNod,1),&
+        size(soil%FEMDomain%Mesh%ElemNod,2) 
+    call showArray(Mat=obj%FEMDomain%Mesh%ElemNod,FileHandle=fh)
+    call showArray(Mat=Soil%FEMDomain%Mesh%ElemNod,FileHandle=fh,Add=size(obj%FEMDomain%Mesh%NodCoord,1))
+    call showArray(Mat=obj%FEMDomain%Mesh%ElemMat,FileHandle=fh)
+    Soil%FEMDomain%Mesh%ElemMat(:)=4
+    call showArray(Mat=Soil%FEMDomain%Mesh%ElemMat,FileHandle=fh)
+    write(fh,*) 4
+    write(fh,*) "6038.93994      0.349999994       0.00000000       1.00000002E+20  0.777999997       0.00000000"    
+    write(fh,*) "6038.93994      0.349999994       0.00000000       1.00000002E+20  0.777999997       0.00000000"    
+    write(fh,*) "60000.0000      0.349999994       0.00000000       1.00000002E+20  0.777999997       0.00000000"    
+    write(fh,*) "60000.0000      0.349999994       0.00000000       1.00000002E+20  0.777999997       0.00000000"    
+    write(fh,*) total_x_cond, total_y_cond
+    call showArray(Mat=top_root_list      ,FileHandle=fh)
+    call showArray(Mat=rightside_soil_list,FileHandle=fh)
+    call showArray(Mat=leftside_soil_list ,FileHandle=fh)
+    call showArray(Mat=bottom_soil_list   ,FileHandle=fh)
+    do i=1,size(top_root_list)
+        write(fh,*) 0.0d0
+    enddo
+    do i=1,size(rightside_soil_list)
+        write(fh,*) 0.0d0
+    enddo
+    do i=1,size(leftside_soil_list)
+        write(fh,*) 0.0d0
+    enddo
+    do i=1,size(bottom_soil_list)
+        write(fh,*) 0.0d0
+    enddo
+    call showArray(Mat=top_root_list      ,FileHandle=fh)
+    call showArray(Mat=rightside_soil_list,FileHandle=fh)
+    call showArray(Mat=leftside_soil_list ,FileHandle=fh)
+    call showArray(Mat=bottom_soil_list   ,FileHandle=fh)
+    do i=1,size(top_root_list)
+        write(fh,*) -1.0d0
+    enddo
+    do i=1,size(rightside_soil_list)
+        write(fh,*) 0.0d0
+    enddo
+    do i=1,size(leftside_soil_list)
+        write(fh,*) 0.0d0
+    enddo
+    do i=1,size(bottom_soil_list)
+        write(fh,*) 0.0d0
+    enddo
+    write(fh,*) 0
+    call obj%FEMDomain%Mesh%getSurface()
+    call Soil%FEMDomain%Mesh%getSurface()
+    write(fh,*) size(obj%FEMDomain%Mesh%SurfaceLine2D)+size(Soil%FEMDomain%Mesh%SurfaceLine2D)
+    call showArray(Mat= obj%FEMDomain%Mesh%SurfaceLine2D,FileHandle=fh)
+    call showArray(Mat=Soil%FEMDomain%Mesh%SurfaceLine2D,FileHandle=fh,Add=size(obj%FEMDomain%Mesh%NodCoord,1))
+    write(fh,*) 1, size(obj%FEMDomain%Mesh%SurfaceLine2D)
+    write(fh,*) size(obj%FEMDomain%Mesh%SurfaceLine2D)+1, &
+        size(obj%FEMDomain%Mesh%SurfaceLine2D)+size(Soil%FEMDomain%Mesh%SurfaceLine2D)
+    write(fh,*) "0.1000000000000E-01   0.1000000000000E-01"
+    write(fh,*) "1  1"
+    write(fh,*) 1, size(obj%FEMDomain%Mesh%SurfaceLine2D)+size(Soil%FEMDomain%Mesh%SurfaceLine2D),1 
+    write(fh,*) 1
+    write(fh,*) "0.5000000000000E+05   0.5000000000000E+05   0.2402100000000E+01   0.5404000000000E+00"
+    write(fh,*) "1  800  1"
+    close(fh) 
+
+end subroutine ExportAsLodgingSimProcessing
+! #########################################################
+
 
 end module
 
