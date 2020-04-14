@@ -48,7 +48,9 @@ module MeshClass
         procedure :: ExportNodCoord => ExportNodCoord
         procedure :: ExportSurface2D => ExportSurface2D
         procedure :: DisplayMesh => DisplayMesh 
+        procedure :: display => DisplayMesh 
         procedure :: ShowMesh => ShowMesh 
+        procedure :: show => ShowMesh 
         procedure :: MeltingSkelton => MeltingSkeltonMesh 
         procedure :: getNumOfDomain => getNumOfDomainMesh
         procedure :: SortFacet    => SortFacetMesh 
@@ -65,6 +67,8 @@ module MeshClass
         procedure :: convertTetraToHexa => convertTetraToHexaMesh 
         procedure :: convertTriangleToRectangular => convertTriangleToRectangularMesh 
         procedure :: removeOverlappedNode =>removeOverlappedNodeMesh
+        procedure :: create=>createMesh
+        procedure :: shift=>shiftMesh
     end type Mesh_
 
 
@@ -90,7 +94,7 @@ end subroutine DeallocateMesh
 !##################################################
 subroutine CopyMesh(obj,cobj,Minimum)
     class(Mesh_),intent(inout)::obj ! copied
-    class(Mesh_),intent(inout)::cobj! original
+    class(Mesh_),intent(in)::cobj! original
     
     logical,optional,intent(in)::Minimum
 
@@ -285,9 +289,10 @@ end subroutine
 
 
 !##################################################
-subroutine importMeshObj(obj,FileName,extention,ElemType)
+subroutine importMeshObj(obj,FileName,extention,ElemType,Mesh)
     class(Mesh_),intent(inout)::obj
-    character(*),intent(in)::FileName,extention,ElemType
+    type(Mesh_),optional,intent(in) :: Mesh
+    character(*),optional,intent(in)::FileName,extention,ElemType
     character(200) :: MeshVersionFormatted,Dim,Vertices,Edges,Triangles
     character(200) :: Tetrahedra
     real(real64) :: null_num_real
@@ -296,6 +301,10 @@ subroutine importMeshObj(obj,FileName,extention,ElemType)
     integer(int32) :: num_of_Tetrahedra
 
     call obj%delete()
+    if(present(Mesh) )then
+        call obj%copy(Mesh)
+        return
+    endif
 
     if(trim(extention) == ".mesh")then
         open(17,file=FileName)
@@ -1190,8 +1199,8 @@ end subroutine ExportSurface2D
 !##################################################
 subroutine DisplayMesh(obj,OptionalFolderName,OptionalFormat)
     class(Mesh_),intent(inout)::obj
-    character*70,optional,intent(in):: OptionalFolderName
-    character*4,optional,intent(in) :: OptionalFormat
+    character(*),optional,intent(in):: OptionalFolderName
+    character(*),optional,intent(in) :: OptionalFormat
     
     include "./DisplayMesh.f90"
     
@@ -2445,5 +2454,252 @@ subroutine removeOverlappedNodeMesh(obj,tolerance)
 
 end subroutine
 !##################################################
+
+subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr)
+    class(Mesh_),intent(inout) :: obj
+    character(*),intent(in) :: meshtype
+    integer(int32),optional,intent(in) :: x_num,y_num ! number of division
+    real(real64),optional,intent(in) :: x_len,y_len,Le,Lh,Dr ! length
+    integer(int32) :: i,j,n,m,xn,yn
+    real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt
+    ! this subroutine creates mesh
+
+    if(meshtype=="rectangular2D")then
+        xn=input(default=1,option=x_num)
+        yn=input(default=1,option=y_num)
+        lx=input(default=1.0d0,option=x_len)
+        ly=input(default=1.0d0,option=y_len)
+        ! creating rectangular mesh
+        allocate(obj%NodCoord( (xn+1)*(yn+1) , 2 ))
+        allocate(obj%ElemNod( xn*yn,4) )
+        allocate(obj%ElemMat(xn*yn) )
+        n=0
+        do j=1, yn+1
+            do i=1, xn+1
+                n=n+1
+                obj%NodCoord(n,1)=lx/dble(xn)*dble(i-1)
+                obj%NodCoord(n,2)=ly/dble(yn)*dble(j-1)
+            enddo
+        enddo
+        n=1
+        obj%ElemNod(1,1)=1
+        obj%ElemNod(1,2)=2
+        obj%ElemNod(1,3)=yn+3
+        obj%ElemNod(1,4)=yn+2
+        obj%ElemNod(2,1)=2
+        obj%ElemNod(2,2)=3
+        obj%ElemNod(2,3)=yn+4
+        obj%ElemNod(2,4)=yn+3
+
+        
+        n=0
+        do j=1, yn
+            do i=1, xn
+                n=n+1
+                obj%ElemNod(n,1)=i + (j-1)*(xn+1)
+                obj%ElemNod(n,2)=i+1 + (j-1)*(xn+1)
+                obj%ElemNod(n,3)=xn+2+i+ + (j-1)*(xn+1)
+                obj%ElemNod(n,4)=xn+1+i + (j-1)*(xn+1)
+                obj%ElemMat(n)=1
+            enddo
+        enddo
+    endif
+
+    if(meshtype=="Root2D")then
+        xn=input(default=1,option=x_num)
+        yn=input(default=1,option=y_num)
+        lx=input(default=1.0d0,option=x_len)
+        ly=input(default=1.0d0,option=y_len)
+        ! creating rectangular mesh
+        allocate(obj%NodCoord( (xn+1)*(yn+1) , 2 ))
+        allocate(obj%ElemNod( xn*yn,4) )
+        allocate(obj%ElemMat(xn*yn) )
+        n=0
+        do j=1, yn+1
+            do i=1, xn+1
+                n=n+1
+                obj%NodCoord(n,1)=lx/dble(xn)*dble(i-1)
+                obj%NodCoord(n,2)=ly/dble(yn)*dble(j-1)
+            enddo
+        enddo
+        n=1
+        obj%ElemNod(1,1)=1
+        obj%ElemNod(1,2)=2
+        obj%ElemNod(1,3)=yn+3
+        obj%ElemNod(1,4)=yn+2
+        obj%ElemNod(2,1)=2
+        obj%ElemNod(2,2)=3
+        obj%ElemNod(2,3)=yn+4
+        obj%ElemNod(2,4)=yn+3
+
+        
+        n=0
+        do j=1, yn
+            do i=1, xn
+                n=n+1
+                obj%ElemNod(n,1)=i + (j-1)*(xn+1)
+                obj%ElemNod(n,2)=i+1 + (j-1)*(xn+1)
+                obj%ElemNod(n,3)=xn+2+i+ + (j-1)*(xn+1)
+                obj%ElemNod(n,4)=xn+1+i + (j-1)*(xn+1)
+                obj%ElemMat(n)=1
+            enddo
+        enddo
+
+        !Lt : Length of root cap
+        !Le : Length of enlongating-zone
+        !Lh : Length of tail
+        !Dr : Diameter of root
+
+        ! first, shift to the origin
+        call obj%shift(x=-lx*0.50d0)
+
+        if(.not. present(Lh) )then
+            print *, "createMesh >> ERROR >> Lh should be given."
+        endif
+        if(.not. present(Le) )then
+            print *, "createMesh >> ERROR >> Lh should be given."
+        endif
+        ! get parabolic constant
+        radius=0.50d0*lx
+        a_val=Lh/radius/radius
+        do i=1,xn+1
+            do j=1,yn+1
+                x_=obj%NodCoord(i+(xn+1)*(j-1) ,1)
+                obj%NodCoord(i+(xn+1)*(j-1) ,2)=obj%NodCoord(i+(xn+1)*(j-1) ,2)&
+                    *(ly - a_val*x_*x_ )/ly
+                obj%NodCoord(i+(xn+1)*(j-1) ,2)=-obj%NodCoord(i+(xn+1)*(j-1) ,2)
+                obj%NodCoord(i+(xn+1)*(j-1) ,1)=-obj%NodCoord(i+(xn+1)*(j-1) ,1)
+            enddo
+        enddo
+
+        ! Set material IDs
+        ! rootcap=1, enlongating zone =2, and others are 3
+        obj%ElemMat(:)=3
+        do i=1,size(obj%ElemMat,1)
+            x_=obj%NodCoord(obj%ElemNod(i,1),2)+obj%NodCoord(obj%ElemNod(i,3),2)&
+                +obj%NodCoord(obj%ElemNod(i,2),2)+obj%NodCoord(obj%ElemNod(i,4),2)
+            x_=x_*0.250d0
+            if(x_ >= -(y_len-Le-Lh) )then
+                obj%ElemMat(i)=3
+            elseif( -(y_len-Le-Lh) > x_ .and. x_ > -(y_len-Lh))then
+                obj%ElemMat(i)=2
+            else
+                obj%ElemMat(i)=1
+            endif
+        enddo
+
+        call obj%GetSurface()
+    endif
+
+
+    if(meshtype=="RootAndSoil2D")then
+        xn=input(default=1,option=x_num)
+        yn=input(default=1,option=y_num)
+        lx=input(default=1.0d0,option=x_len)
+        ly=input(default=1.0d0,option=y_len)
+        ! creating rectangular mesh
+        allocate(obj%NodCoord( (xn+1)*(yn+1) , 2 ))
+        allocate(obj%ElemNod( xn*yn,4) )
+        allocate(obj%ElemMat(xn*yn) )
+        n=0
+        do j=1, yn+1
+            do i=1, xn+1
+                n=n+1
+                obj%NodCoord(n,1)=lx/dble(xn)*dble(i-1)
+                obj%NodCoord(n,2)=ly/dble(yn)*dble(j-1)
+            enddo
+        enddo
+        n=1
+        obj%ElemNod(1,1)=1
+        obj%ElemNod(1,2)=2
+        obj%ElemNod(1,3)=yn+3
+        obj%ElemNod(1,4)=yn+2
+        obj%ElemNod(2,1)=2
+        obj%ElemNod(2,2)=3
+        obj%ElemNod(2,3)=yn+4
+        obj%ElemNod(2,4)=yn+3
+
+        
+        n=0
+        do j=1, yn
+            do i=1, xn
+                n=n+1
+                obj%ElemNod(n,1)=i + (j-1)*(xn+1)
+                obj%ElemNod(n,2)=i+1 + (j-1)*(xn+1)
+                obj%ElemNod(n,3)=xn+2+i+ + (j-1)*(xn+1)
+                obj%ElemNod(n,4)=xn+1+i + (j-1)*(xn+1)
+                obj%ElemMat(n)=1
+            enddo
+        enddo
+
+        !Lt : Length of root cap
+        !Le : Length of enlongating-zone
+        !Lh : Length of tail
+        !Dr : Diameter of root
+
+        ! first, shift to the origin
+        call obj%shift(x=-lx*0.50d0)
+
+        if(.not. present(Lh) )then
+            print *, "createMesh >> ERROR >> Lh should be given."
+        endif
+        if(.not. present(Le) )then
+            print *, "createMesh >> ERROR >> Lh should be given."
+        endif
+        ! get parabolic constant
+        radius=0.50d0*lx
+        a_val=Lh/radius/radius
+        do i=1,xn+1
+            do j=1,yn+1
+                x_=obj%NodCoord(i+(xn+1)*(j-1) ,1)
+                obj%NodCoord(i+(xn+1)*(j-1) ,2)=obj%NodCoord(i+(xn+1)*(j-1) ,2)&
+                    *(ly - a_val*x_*x_ )/ly
+                obj%NodCoord(i+(xn+1)*(j-1) ,2)=-obj%NodCoord(i+(xn+1)*(j-1) ,2)
+                obj%NodCoord(i+(xn+1)*(j-1) ,1)=-obj%NodCoord(i+(xn+1)*(j-1) ,1)
+            enddo
+        enddo
+
+        ! Set material IDs
+        ! rootcap=1, enlongating zone =2, and others are 3
+        obj%ElemMat(:)=3
+        do i=1,size(obj%ElemMat,1)
+            x_=obj%NodCoord(obj%ElemNod(i,1),2)+obj%NodCoord(obj%ElemNod(i,3),2)&
+                +obj%NodCoord(obj%ElemNod(i,2),2)+obj%NodCoord(obj%ElemNod(i,4),2)
+            x_=x_*0.250d0
+            if(x_ >= -(y_len-Le-Lh) )then
+                obj%ElemMat(i)=3
+            elseif( -(y_len-Le-Lh) > x_ .and. x_ > -(y_len-Lh))then
+                obj%ElemMat(i)=2
+            else
+                obj%ElemMat(i)=1
+            endif
+        enddo
+        call obj%GetSurface()
+        
+        
+
+    endif
+
+
+
+end subroutine createMesh
+
+
+! ##############################################
+
+subroutine shiftMesh(obj,x,y,z)
+    class(Mesh_),intent(inout)::obj
+    real(real64),optional,intent(in) :: x,y,z
+
+    if(present(x) )then
+        obj%NodCoord(:,1)=obj%NodCoord(:,1)+x
+    endif
+    if(present(y) )then
+        obj%NodCoord(:,2)=obj%NodCoord(:,2)+y
+    endif
+    if(present(z) )then
+        obj%NodCoord(:,3)=obj%NodCoord(:,3)+z
+    endif
+end subroutine shiftMesh
 
 end module MeshClass

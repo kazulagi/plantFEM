@@ -39,7 +39,7 @@ module ArrayClass
 
 
     interface ShowArray
-        module procedure ShowArrayInt, ShowArrayReal
+        module procedure ShowArrayInt, ShowArrayReal,ShowArrayIntVec, ShowArrayRealVec
     end interface ShowArray
 
 
@@ -76,7 +76,11 @@ module ArrayClass
     end interface
 
     interface countif
-        module procedure ::countifint,countifintvec
+        module procedure ::countifint,countifintvec,countifReal,countifRealvec
+    end interface
+
+    interface getif
+        module procedure ::getifreal,getifrealvec!,getifint,getifintvec
     end interface
 
     interface quicksort
@@ -151,7 +155,7 @@ end subroutine
 
 !=====================================
 subroutine CopyArrayInt(a,ac)
-    integer(int32),allocatable,intent(inout)::a(:,:)
+    integer(int32),allocatable,intent(in)::a(:,:)
     integer(int32),allocatable,intent(inout)::ac(:,:)
     integer(int32) i,j,n,m
 
@@ -172,7 +176,7 @@ end subroutine
 
 !=====================================
 subroutine CopyArrayReal(a,ac)
-    real(real64),allocatable,intent(inout)::a(:,:)
+    real(real64),allocatable,intent(in)::a(:,:)
     real(real64),allocatable,intent(inout)::ac(:,:)
     integer(int32) i,j,n,m
 
@@ -196,7 +200,7 @@ end subroutine
 
 !=====================================
 subroutine CopyArrayIntVec(a,ac)
-    integer(int32),allocatable,intent(inout)::a(:)
+    integer(int32),allocatable,intent(in)::a(:)
     integer(int32),allocatable,intent(inout)::ac(:)
     integer(int32) i,j,n,m
 
@@ -216,7 +220,7 @@ end subroutine
 
 !=====================================
 subroutine CopyArrayRealVec(a,ac)
-    real(real64),allocatable,intent(inout)::a(:)
+    real(real64),allocatable,intent(in)::a(:)
     real(real64),allocatable,intent(inout)::ac(:)
     integer(int32) i,j,n,m
 
@@ -500,16 +504,14 @@ end subroutine ExportArrayReal
 
 
 !##################################################
-subroutine ShowArrayInt(Mat,IndexArray,FileHandle,Name)
+subroutine ShowArrayInt(Mat,IndexArray,FileHandle,Name,Add)
     integer(int32),intent(in)::Mat(:,:)
     integer(int32),optional,intent(in) :: IndexArray(:,:)
-    integer(int32),optional,intent(in)::FileHandle 
+    integer(int32),optional,intent(in)::FileHandle ,Add
     character(*),optional,intent(in)::Name
-    
-    
-    !#include "./ExportArray.f90"
-    integer(int32) :: fh,i,j,k,l
+    integer(int32) :: fh,i,j,k,l,nn
 
+    nn=input(default=0,option=Add)
     if(present(FileHandle) )then
         fh=FileHandle
     else
@@ -532,10 +534,10 @@ subroutine ShowArrayInt(Mat,IndexArray,FileHandle,Name)
                 
                 if(present(FileHandle) .or. present(Name) )then
                     do l=1,size(Mat,2)-1
-                        write(fh,'(i0)',advance='no') Mat(k,l)
+                        write(fh,'(i0)',advance='no') Mat(k,l)+nn
                         write(fh,'(A)',advance='no') "     "
                     enddo
-                    write(fh,'(i0)',advance='yes') Mat(k,size(Mat,2) )
+                    write(fh,'(i0)',advance='yes') Mat(k,size(Mat,2) )+nn
                 else
                     print *, Mat(k,:)
                 endif
@@ -548,10 +550,10 @@ subroutine ShowArrayInt(Mat,IndexArray,FileHandle,Name)
             if(present(FileHandle) .or. present(Name) )then
                 !write(fh,*) Mat(j,:)
                 do k=1,size(Mat,2)-1
-                    write(fh,'(i0)',advance='no') Mat(j,k)
+                    write(fh,'(i0)',advance='no') Mat(j,k)+nn
                     write(fh,'(A)',advance='no') "     "
                 enddo
-                write(fh,'(i0)',advance='yes') Mat(j,size(Mat,2) )
+                write(fh,'(i0)',advance='yes') Mat(j,size(Mat,2) )+nn
             else
                 print *, Mat(j,:)
             endif
@@ -574,23 +576,89 @@ end subroutine
 !##################################################
 
 
-!##################################################
-subroutine ShowArrayReal(Mat,IndexArray,FileHandle,Name)
-    real(real64),intent(in)::Mat(:,:)
-    integer(int32),optional,intent(in) :: IndexArray(:,:)
-    integer(int32),optional,intent(in)::FileHandle
-    character(*),optional,intent(in)::Name
-    
-    
-    !#include "./ExportArray.f90"
-    integer(int32) :: fh,i,j,k,l
 
+
+!##################################################
+subroutine ShowArrayIntVec(Mat,IndexArray,FileHandle,Name,Add)
+    integer(int32),intent(in)::Mat(:)
+    integer(int32),optional,intent(in) :: IndexArray(:,:)
+    integer(int32),optional,intent(in)::FileHandle ,Add
+    character(*),optional,intent(in)::Name
+    integer(int32) :: fh,i,j,k,l,nn
+
+    nn=input(default=0,option=Add)
     if(present(FileHandle) )then
         fh=FileHandle
     else
         fh=10
     endif
+
+    if(present(Name) )then
+        open(fh,file=Name)
+    endif
     
+    if(present(IndexArray))then
+        
+        do i=1,size(IndexArray,1)
+            do j=1,size(IndexArray,2)
+                k = IndexArray(i,j)
+                if(k <= 0)then
+                    cycle
+                endif
+                
+                
+                if(present(FileHandle) .or. present(Name) )then
+                    write(fh,'(i0)') Mat(k)+nn
+                else
+                    print *, Mat(k)
+                endif
+            enddo
+        enddo
+    else
+
+        do j=1,size(Mat,1)
+            
+            if(present(FileHandle) .or. present(Name) )then
+                !write(fh,*) Mat(j,:)
+                write(fh,'(i0)') Mat(j)+nn
+            else
+                print *, Mat(j)
+            endif
+
+        enddo
+        
+    endif
+    
+    if(present(FileHandle) .or. present(Name) )then
+        flush(fh)
+    endif
+
+
+    if(present(Name) )then
+        close(fh)
+    endif
+
+
+end subroutine 
+!##################################################
+
+
+!##################################################
+subroutine ShowArrayReal(Mat,IndexArray,FileHandle,Name,Add)
+    real(real64),intent(in)::Mat(:,:)
+    real(real64),optional,intent(in) :: Add
+    integer(int32),optional,intent(in) :: IndexArray(:,:)
+    integer(int32),optional,intent(in)::FileHandle
+    character(*),optional,intent(in)::Name
+    real(real64) :: nn
+    integer(int32) :: fh,i,j,k,l
+
+    nn=input(default=0.0d0,option=Add)
+    if(present(FileHandle) )then
+        fh=FileHandle
+    else
+        fh=10
+    endif
 
     if(present(Name) )then
         open(fh,file=Name)
@@ -609,10 +677,10 @@ subroutine ShowArrayReal(Mat,IndexArray,FileHandle,Name)
                 if(present(FileHandle) .or. present(Name) )then
                     !write(fh,*) Mat(k,:)
                     do l=1,size(Mat,2)-1
-                        write(fh, '(e22.14e3)',advance='no' ) Mat( k,l )
+                        write(fh, '(e22.14e3)',advance='no' ) Mat( k,l )+nn
                         write(fh,'(A)',advance='no') "     "
                     enddo
-                    write(fh,'(e22.14e3)',advance='yes') Mat( k,size(Mat,2) )
+                    write(fh,'(e22.14e3)',advance='yes') Mat( k,size(Mat,2) )+nn
                 else
                     print *, Mat(k,:)
                 endif
@@ -625,10 +693,10 @@ subroutine ShowArrayReal(Mat,IndexArray,FileHandle,Name)
             if(present(FileHandle) .or. present(Name) )then
                 !write(fh,*) Mat(j,:)
                 do l=1,size(Mat,2)-1
-                    write(fh,'(e22.14e3)',advance='no') Mat( j,l )
+                    write(fh,'(e22.14e3)',advance='no') Mat( j,l )+nn
                     write(fh,'(A)',advance='no') "     "
                 enddo
-                write(fh,'(e22.14e3)',advance='yes') Mat( j,size(Mat,2) )
+                write(fh,'(e22.14e3)',advance='yes') Mat( j,size(Mat,2) )+nn
             else
                 print *, Mat(j,:)
             endif
@@ -650,6 +718,72 @@ subroutine ShowArrayReal(Mat,IndexArray,FileHandle,Name)
 end subroutine 
 !##################################################
 
+
+
+
+!##################################################
+subroutine ShowArrayRealVec(Mat,IndexArray,FileHandle,Name,Add)
+    real(real64),intent(in)::Mat(:)
+    integer(int32),optional,intent(in) :: IndexArray(:,:)
+    integer(int32),optional,intent(in)::FileHandle ,Add
+    character(*),optional,intent(in)::Name
+    integer(int32) :: fh,i,j,k,l,nn
+
+    nn=input(default=0,option=Add)
+    if(present(FileHandle) )then
+        fh=FileHandle
+    else
+        fh=10
+    endif
+
+    if(present(Name) )then
+        open(fh,file=Name)
+    endif
+    
+    if(present(IndexArray))then
+        
+        do i=1,size(IndexArray,1)
+            do j=1,size(IndexArray,2)
+                k = IndexArray(i,j)
+                if(k <= 0)then
+                    cycle
+                endif
+                
+                
+                if(present(FileHandle) .or. present(Name) )then
+                    write(fh,'(i0)') Mat(k)+nn
+                else
+                    print *, Mat(k)
+                endif
+            enddo
+        enddo
+    else
+
+        do j=1,size(Mat,1)
+            
+            if(present(FileHandle) .or. present(Name) )then
+                !write(fh,*) Mat(j,:)
+                write(fh,'(i0)') Mat(j)+nn
+            else
+                print *, Mat(j)
+            endif
+
+        enddo
+        
+    endif
+    
+    if(present(FileHandle) .or. present(Name) )then
+        flush(fh)
+    endif
+
+
+    if(present(Name) )then
+        close(fh)
+    endif
+
+
+end subroutine 
+!##################################################
 
 
 
@@ -1654,6 +1788,116 @@ function countifintVec(Array,Equal,notEqual,Value) result(count_num)
 end function
 !##################################################
 
+!##################################################
+function countifReal(Array,Equal,notEqual,Value) result(count_num)
+    real(real64),intent(in)::Array(:,:),Value
+    integer(int32) :: i,j,n,case,count_num
+    logical,optional,intent(in)::Equal,notEqual
+    
+
+    if(present(Equal) )then
+        if(Equal .eqv. .true.)then
+            case=1
+        else
+            case=0
+        endif
+    
+    elseif(present(notEqual) )then
+        if(notEqual .eqv. .true.)then
+            case=0
+        else
+            case=1
+        endif
+    else
+        print *, "caution :: ArrayClass :: countifint :: please check Equal or notEqual"
+        print *, "performed as Equal"
+        case=0
+    endif
+
+    count_num=0
+    if(case==0)then
+        do i=1,size(Array,1)
+            do j=1,size(Array,2)
+                ! not Equal => count
+                if(Array(i,j) /= Value )then
+                    count_num=count_num+1
+                else
+                    cycle
+                endif
+            enddo
+        enddo
+    elseif(case==1)then
+
+        do i=1,size(Array,1)
+            do j=1,size(Array,2)
+                ! Equal => count
+                if(Array(i,j) == Value )then
+                    count_num=count_num+1
+                else
+                    cycle
+                endif
+            enddo
+        enddo
+    else
+        print *, "ERROR :: ArrayClass :: countifint :: please check Equal or notEqual"
+    endif
+end function
+!##################################################
+
+!##################################################
+function countifRealVec(Array,Equal,notEqual,Value) result(count_num)
+    real(real64),intent(in)::Array(:),Value
+    integer(int32) :: i,j,n,case,count_num
+    logical,optional,intent(in)::Equal,notEqual
+    
+
+    if(present(Equal) )then
+        if(Equal .eqv. .true.)then
+            case=1
+        else
+            case=0
+        endif
+    
+    elseif(present(notEqual) )then
+        if(notEqual .eqv. .true.)then
+            case=0
+        else
+            case=1
+        endif
+    else
+        print *, "caution :: ArrayClass :: countifint :: please check Equal or notEqual"
+        print *, "performed as Equal"
+        case=0
+    endif
+
+    count_num=0
+    if(case==0)then
+        do i=1,size(Array,1)
+            ! not Equal => count
+            if(Array(i) /= Value )then
+                count_num=count_num+1
+            else
+                cycle
+            endif
+        
+        enddo
+    elseif(case==1)then
+
+        do i=1,size(Array,1)
+            ! Equal => count
+            if(Array(i) == Value )then
+                count_num=count_num+1
+            else
+                cycle
+            endif
+            
+        enddo
+    else
+        print *, "ERROR :: ArrayClass :: countifint :: please check Equal or notEqual"
+    endif
+end function
+!##################################################
+
 
 !##################################################
 recursive subroutine quicksortint(list) 
@@ -1813,6 +2057,46 @@ recursive subroutine quicksortreal(list)
     enddo
 
 end subroutine
+!##################################################
+
+!##################################################
+function getifReal(Array,Value) result(list)
+    real(real64),intent(in)::Array(:,:),Value
+    integer(int32) :: i,j,n,m,countifSame,l
+    integer(int32),allocatable :: list(:,:)
+
+    n=countif(Array=Array, Equal=.true., Value=Value)
+    allocate(list(n,2))
+    l=0
+    do i=1,size(Array,1)
+        do j=1,size(Array,2)
+            if(Value==Array(i,j) )then
+                l=l+1
+                list(l,1)=i
+                list(l,2)=j
+            endif
+        enddo
+    enddo
+end function
+!##################################################
+
+
+!##################################################
+function getifRealVec(Array,Value) result(list)
+    real(real64),intent(in)::Array(:),Value
+    integer(int32) :: i,j,n,m,countifSame,l,k
+    integer(int32),allocatable :: list(:)
+
+    n=countif(Array=Array, Equal=.true., Value=Value)
+    allocate(list(n))
+    l=0
+    do i=1,size(Array,1)
+        if(Value==Array(i) )then
+            l=l+1
+            list(l)=i
+        endif
+    enddo
+end function
 !##################################################
 
 end module ArrayClass

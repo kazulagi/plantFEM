@@ -18,6 +18,7 @@ module PlantRootClass
         type(PlantRoot_),pointer ::  pRoot
     contains
         procedure, public :: Init => initRoot
+        procedure, public :: create => createRoot
         procedure, public :: export => exportRoot
     end type
 contains
@@ -69,7 +70,22 @@ subroutine initRoot(obj,PlantName,Stage,&
 end subroutine
 ! ########################################
 
+subroutine createRoot(obj,option)
+    class(PlantRoot_),intent(inout) :: obj
+    character(*),optional,intent(in) :: option
 
+    if(.not. present(option) )then
+        print *, "createRoot >> ERROR >> no option is selected."
+        stop 
+    else
+        if(option=="Root2D")then
+            !call obj%FEMDomain%Mesh%create()
+        else
+            print *,  "No such option as ", option
+            stop
+        endif
+    endif
+end subroutine
 
 ! ########################################
 subroutine exportRoot(obj,FileName,RootID)
