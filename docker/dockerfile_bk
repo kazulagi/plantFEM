@@ -1,0 +1,65 @@
+FROM ubuntu:18.04
+RUN apt update -y
+RUN apt upgrade -y
+# Install GFortran 
+RUN apt instal gcc
+RUN apt install -y gfortran
+RUN apt install python3
+RUN apt install  -y gmsh
+RUN apt install  -y gnuplot
+RUN apt install -y jupyter-notebook
+RUN apt install curl
+RUN curl https://bootstrap.pypa.io/get-pip.py -o ~/get-pip.py
+RUN python3 ~/get-pip.py
+RUN pip install pillow
+RUN pip install numpy
+RUN pip install scipy
+RUN pip install matplotlib
+RUN pip install jupyter
+RUN pip install nbzip
+RUN pip install opencv-python
+RUN jupyter serverextension enable --py nbzip --sys-prefix
+RUN jupyter nbextension install --py nbzip
+RUN jupyter nbextension enable --py nbzip
+COPY ../../SiCroF ./
+# Install MKL
+#RUN apt install -y wget
+#RUN apt install -y gnupg
+#RUN wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB
+#RUN apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB
+#RUN wget https://apt.repos.intel.com/setup/intelproducts.list -O /etc/apt/sources.list.d/intelproducts.list
+#RUN apt update -y
+#RUN apt install -y intel-mkl-2019.0-045
+# Install code
+# RUN apt install -y curl
+# RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
+# RUN ls -l /etc/apt/trusted.gpg.d/
+# RUN install -o root -g root -m 644 microsoft.gpg /etc/apt/trusted.gpg.d/
+# RUN ls -l /etc/apt/trusted.gpg.d/
+# #RUN ls /etc/apt/sources.list.d/
+# RUN sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list'
+# #RUN ls /etc/apt/sources.list.d/
+# #RUN cat /etc/apt/sources.list.d/vscode.list
+# RUN apt install apt-transport-https
+# RUN apt update
+# RUN apt -y install code
+###
+# RUN apt install -y snapd
+# RUN snap update
+# RUN snap install --classic code
+# ARG PATH=$PATH:/snap/bin/code
+###
+#RUN apt install -y curl gdebi
+#RUN curl -L https://go.microsoft.com/fwlink/?LinkID=760868 -o vscode.deb
+#RUN yes | gdebi ./vscode.deb
+# Install others
+#RUN apt install -y x11-apps
+#RUN apt install -y libx11-xcb-dev
+#RUN apt install -y libasound2
+RUN apt install -y openmpi-doc openmpi-bin libopenmpi-dev
+ARG DOCKER_UID=1000
+ARG DOCKER_USER=user
+ARG DOCKER_PASSWORD=pass
+RUN useradd -m --uid ${DOCKER_UID} --groups root ${DOCKER_USER} \
+  && echo ${DOCKER_USER}:${DOCKER_PASSWORD} | chpasswd
+USER ${DOCKER_USER}
