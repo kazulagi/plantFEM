@@ -6,7 +6,7 @@ Simulator for Crops in Fields
 
 [使い方：日本語版 >> ](https://qiita.com/soybean) https://qiita.com/soybean
 
-[   New! 田周り経路最適化アプリを実装しました。 >> ](https://qiita.com/soybean/items/99397a410ac63fd176ce) https://qiita.com/soybean/items/99397a410ac63fd176ce
+[   New!  simplified class-structure >> ](doc/README/class.pdf)
 
 ## Environment
 

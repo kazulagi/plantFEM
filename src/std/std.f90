@@ -13,6 +13,6 @@ module std
     use TreeClass
     use ShapeFunctionClass
     use RouteOptimization
-    implicit none
+    implicit nonest
     
 end module std
