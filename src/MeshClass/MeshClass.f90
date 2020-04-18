@@ -69,6 +69,7 @@ module MeshClass
         procedure :: removeOverlappedNode =>removeOverlappedNodeMesh
         procedure :: create=>createMesh
         procedure :: shift=>shiftMesh
+        procedure :: check=>checkMesh
     end type Mesh_
 
 
@@ -2701,5 +2702,103 @@ subroutine shiftMesh(obj,x,y,z)
         obj%NodCoord(:,3)=obj%NodCoord(:,3)+z
     endif
 end subroutine shiftMesh
+! ##############################################
+subroutine checkMesh(obj)
+    class(Mesh_),intent(inout)::obj
+    integer(int32) :: i,j,n,m,a,b,c,k,l
+    integer(int32),allocatable :: Elem(:)
+    real(real64) :: x1(3),x2(3),x3(3),dp,normalvec(3)
+    if(.not. allocated(obj%NodCoord))then
+        print *, "Check-mesh :: ERROR >> nodal coordiate is empty"
+        stop
+    endif
+    if(.not. allocated(obj%ElemNod))then
+        print *, "Check-mesh :: ERROR >> Element-connectivity is empty"
+        stop
+    endif
+
+
+    n=size(obj%ElemNod,2)
+    m=size(obj%NodCoord,2)
+    allocate(Elem(n))
+    if(n==4 .and. m==2)then
+        do i=1,size(obj%ElemNod,1)
+            !check node-order
+            Elem(1:n)=obj%ElemNod(i,1:n)
+            x1(:)=0.0d0
+            x2(:)=0.0d0
+            x1(1:2)=obj%NodCoord(Elem(2),1:2)-obj%NodCoord(Elem(1),1:2)
+            x2(1:2)=obj%NodCoord(Elem(4),1:2)-obj%NodCoord(Elem(1),1:2)
+            x3(:)=cross_product(x1,x2)
+            normalvec(:)=0.0d0
+            normalvec(3)=1.0d0
+            dp=dot_product(x3,normalvec)
+            if(dp <= 0)then
+                !print *, dp
+                !print *, normalvec
+                !print *, x3(:)
+                !print *, x2(:)
+                !print *, x1(:)
+                !print *, elem(:)
+                !print *, obj%NodCoord(Elem(1),1:2), obj%NodCoord(Elem(2),1)-obj%NodCoord(Elem(1),1),&
+                !     obj%NodCoord(Elem(2),2)-obj%NodCoord(Elem(1),2)
+                !print *, obj%NodCoord(Elem(2),1:2), obj%NodCoord(Elem(3),1)-obj%NodCoord(Elem(2),1),&
+                !     obj%NodCoord(Elem(3),2)-obj%NodCoord(Elem(2),2)
+                !print *, obj%NodCoord(Elem(3),1:2), obj%NodCoord(Elem(4),1)-obj%NodCoord(Elem(3),1),&
+                !     obj%NodCoord(Elem(4),2)-obj%NodCoord(Elem(3),2)
+                !print *, obj%NodCoord(Elem(4),1:2), obj%NodCoord(Elem(1),1)-obj%NodCoord(Elem(4),1),&
+                !     obj%NodCoord(Elem(1),2)-obj%NodCoord(Elem(4),2)
+                print *, "Check-mesh :: ERROR >> Order of the connectivity is wrong!"
+                ! modify connectivity
+                do j=1,n
+                    obj%ElemNod(i,j)=elem(n-j+1)
+                enddo
+                print *, "Check-mesh :: OK >> ERROR is modified!"
+
+            else
+                cycle
+            endif
+             
+        enddo
+        print *, "Mesh-connectivity is OK"
+    else
+        print *, "Element type :: ",m,"dimensional",n,"node iso-parametric element"
+        print *, "Check-mesh :: Sorry not implemented for such types of meshes."
+        stop 
+    endif
+
+    ! surface-node connectivity check only for 4-node isopara
+    call obj%GetSurface()
+    return
+    
+    if(.not.allocated(obj%SurfaceLine2D) )then
+        a=obj%SurfaceLine2D(1)
+        b=obj%SurfaceLine2D(2)
+        do i=1,size(obj%ElemNod,1)
+            do j=1,size(obj%ElemNod,2)
+                if(obj%ElemNod(i,j)==a)then
+                    do k=1,size(obj%ElemNod,2)
+                        if(b==obj%ElemNod(i,k) )then
+                            if(j+1==k .or. j-3==k)then
+                                print *, "Check-mesh :: invalid surface-mesh order"
+                                stop 
+                            endif
+                        endif
+                    enddo
+                endif
+            enddo
+        enddo
+
+    else
+
+    endif
+
+
+
+
+
+
+end subroutine checkMesh
+! ##############################################
 
 end module MeshClass

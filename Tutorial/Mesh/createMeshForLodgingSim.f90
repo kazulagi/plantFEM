@@ -22,6 +22,11 @@ program main
     call root%showMesh(Name="root")
     call soil%showMesh(Name="soil")
 
+    print *, "Root mesh check"
+    call root%FEMDomain%Mesh%check()
+    print *, "Root mesh check"
+    call soil%FEMDomain%Mesh%check()
+
     call showArray(rootmesh%ElemNod)
     call showArraySize(rootmesh%NodCoord)
     call showArraySize(rootmesh%ElemNod)
