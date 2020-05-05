@@ -1,11 +1,15 @@
 module BoundaryConditionClass
     use, intrinsic :: iso_fortran_env
+    use std
     use ArrayClass
     use MeshClass
 
     implicit none
 
     type::Boundary_
+        type(Mesh_) :: DBound
+        type(Mesh_) :: NBound
+        type(Mesh_) :: TBound
         real(real64),allocatable::DBoundVal(:,:)
         real(real64),allocatable::NBoundVal(:,:)  
         real(real64),allocatable::TBoundVal(:,:)  
@@ -25,6 +29,8 @@ module BoundaryConditionClass
         integer(int32),allocatable::TBoundNum(:)
         integer(int32),allocatable::TBoundElemNum(:)
 
+        real(real64) ::x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
+        real(real64) :: value,values(4)
 
         character*70 :: ErrorMsg
     contains
@@ -39,9 +45,118 @@ module BoundaryConditionClass
         procedure :: removeDBC => removeDBCBoundary        
         procedure :: removeNBC => removeNBCBoundary
         procedure :: removeTBC => removeTBCBoundary        
+        procedure :: set     => setBoundary
+        procedure :: gmsh    => gmshBoundary
     end type Boundary_
 
 contains
+
+! ###########################################################################
+subroutine setBoundary(obj,new,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,value,values)
+    class(Boundary_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
+    real(real64),optional,intent(in) :: value,values(4)
+    logical,optional,intent(in) :: new
+    integer(int32) :: i,j,n,m
+
+    if(present(new) )then
+        if(new .eqv. .true.)then
+            call obj%init(Default=.true.)
+        endif
+    endif
+    obj%x_max=input(default=10000000.0d0,option=x_max)
+    obj%x_min=input(default=0.0d0  ,option=x_min)
+    obj%y_max=input(default=10000000.0d0,option=y_max)
+    obj%y_min=input(default=0.0d0  ,option=y_min)
+    obj%z_max=input(default=10000000.0d0,option=z_max)
+    obj%z_min=input(default=0.0d0  ,option=z_min)
+    obj%t_max=input(default=10000000.0d0,option=t_max)
+    obj%t_min=input(default=0.0d0  ,option=t_min)
+
+    obj%value=input(default=0.0d0  ,option=value)
+
+    if(size( obj%DBound%ElemNod,1 )==1 )then
+        obj%DBound%NodCoord(1,1) = obj%x_min
+        obj%DBound%NodCoord(1,2) = obj%y_min
+        obj%DBound%NodCoord(1,3) = obj%z_min
+
+        obj%DBound%NodCoord(2,1) = obj%x_max
+        obj%DBound%NodCoord(2,2) = obj%y_min
+        obj%DBound%NodCoord(2,3) = obj%z_min
+
+        obj%DBound%NodCoord(3,1) = obj%x_max
+        obj%DBound%NodCoord(3,2) = obj%y_max
+        obj%DBound%NodCoord(3,3) = obj%z_min
+
+        obj%DBound%NodCoord(4,1) = obj%x_min
+        obj%DBound%NodCoord(4,2) = obj%y_max
+        obj%DBound%NodCoord(4,3) = obj%z_min
+
+        obj%DBound%NodCoord(5,1) = obj%x_min
+        obj%DBound%NodCoord(5,2) = obj%y_min
+        obj%DBound%NodCoord(5,3) = obj%z_max
+
+        obj%DBound%NodCoord(6,1) = obj%x_max
+        obj%DBound%NodCoord(6,2) = obj%y_min
+        obj%DBound%NodCoord(6,3) = obj%z_max
+
+        obj%DBound%NodCoord(7,1) = obj%x_max
+        obj%DBound%NodCoord(7,2) = obj%y_max
+        obj%DBound%NodCoord(7,3) = obj%z_max
+
+        obj%DBound%NodCoord(8,1) = obj%x_min
+        obj%DBound%NodCoord(8,2) = obj%y_max
+        obj%DBound%NodCoord(8,3) = obj%z_max
+
+
+        do i=1,8
+            obj%DBound%ElemNod(1,i)=i
+        enddo
+    else
+        n=size(obj%DBound%ElemNod,1)
+        call extendArray(mat=obj%DBound%NodCoord,extend1stColumn=.true.)
+        call extendArray(mat=obj%DBound%ElemNod,extend1stColumn=.true.)
+
+        obj%DBound%NodCoord( (n-1)*8 + 1,1) = obj%x_min
+        obj%DBound%NodCoord( (n-1)*8 + 1,2) = obj%y_min
+        obj%DBound%NodCoord( (n-1)*8 + 1,3) = obj%z_min
+        
+        obj%DBound%NodCoord( (n-1)*8 + 2,1) = obj%x_max
+        obj%DBound%NodCoord( (n-1)*8 + 2,2) = obj%y_min
+        obj%DBound%NodCoord( (n-1)*8 + 2,3) = obj%z_min
+
+        obj%DBound%NodCoord( (n-1)*8 + 3,1) = obj%x_max
+        obj%DBound%NodCoord( (n-1)*8 + 3,2) = obj%y_max
+        obj%DBound%NodCoord( (n-1)*8 + 3,3) = obj%z_min
+
+        obj%DBound%NodCoord( (n-1)*8 + 4,1) = obj%x_min
+        obj%DBound%NodCoord( (n-1)*8 + 4,2) = obj%y_max
+        obj%DBound%NodCoord( (n-1)*8 + 4,3) = obj%z_min
+
+        obj%DBound%NodCoord( (n-1)*8 + 5,1) = obj%x_min
+        obj%DBound%NodCoord( (n-1)*8 + 5,2) = obj%y_min
+        obj%DBound%NodCoord( (n-1)*8 + 5,3) = obj%z_max
+
+        obj%DBound%NodCoord( (n-1)*8 + 6,1) = obj%x_max
+        obj%DBound%NodCoord( (n-1)*8 + 6,2) = obj%y_min
+        obj%DBound%NodCoord( (n-1)*8 + 6,3) = obj%z_max
+
+        obj%DBound%NodCoord( (n-1)*8 + 7,1) = obj%x_max
+        obj%DBound%NodCoord( (n-1)*8 + 7,2) = obj%y_max
+        obj%DBound%NodCoord( (n-1)*8 + 7,3) = obj%z_max
+
+        obj%DBound%NodCoord( (n-1)*8 + 8,1) = obj%x_min
+        obj%DBound%NodCoord( (n-1)*8 + 8,2) = obj%y_max
+        obj%DBound%NodCoord( (n-1)*8 + 8,3) = obj%z_max
+
+        do i=1,8
+            obj%DBound%ElemNod(1+n,i)=i
+        enddo
+    endif
+    
+end subroutine setBoundary
+! ###########################################################################
+
 !############### Check Consistency of Objects ###############
 subroutine CheckDatatypeBoundary(obj)
     class(Boundary_),intent(inout)::obj
@@ -183,11 +298,12 @@ end subroutine DeallocateBoundary
 
 
 !############### Initialize Boundary Conditions ###############
-subroutine InitializeBoundary(obj,Default)
+subroutine InitializeBoundary(obj,Default,NumberOfBC)
     class(Boundary_),intent(inout)::obj
     logical,optional,intent(in):: Default
+    integer(int32),optional,intent(in)::NumberOfBC
 
-    integer(int32) i,j,n,m
+    integer(int32) i,j,n,m,num
 
     if(present(Default) )then
         if(Default .eqv. .true.)then
@@ -208,6 +324,12 @@ subroutine InitializeBoundary(obj,Default)
             allocate(obj%NBoundNum(1) )
             allocate(obj%TBoundNum(1) )
             allocate(obj%TBoundElemNum(1) )
+            allocate(obj%DBound%NodCoord(8,3))
+            allocate(obj%NBound%NodCoord(8,3))
+            allocate(obj%TBound%NodCoord(8,3))
+            allocate(obj%DBound%ElemNod(1,8))
+            allocate(obj%NBound%ElemNod(1,8))
+            allocate(obj%TBound%ElemNod(1,8))
     
             obj%DBoundVal(1,1) =0.0d0
             obj%NBoundVal(1,1)   =0.0d0
@@ -451,6 +573,39 @@ subroutine removeTBCBoundary(obj)
         deallocate(obj%TBoundElemNum)
     endif
 end subroutine
+!###############################################
+
+!###############################################
+subroutine gmshBoundary(obj,Dirichlet, Neumann, Time,Name)
+    class(Boundary_),intent(inout) :: obj
+    logical,optional,intent(in) :: Dirichlet, Neumann, Time
+    character(*),optional,intent(in) :: Name
+
+    if(present(Dirichlet) )then
+        if(Dirichlet .eqv. .true.)then
+            call obj%DBound%gmsh(Name=Name//"Dirichlet")
+        endif
+        return
+    endif
+
+    if(present(Neumann) )then
+        if(Neumann .eqv. .true.)then
+            call obj%NBound%gmsh(Name=Name//"Neumann")
+        endif
+        return
+    endif
+
+    if(present(Time) )then
+        if(Time .eqv. .true.)then
+            call obj%TBound%gmsh(Name=Name//"Time")
+        endif
+        return
+    endif
+    
+
+
+
+end subroutine gmshBoundary
 !###############################################
 
 end module BoundaryConditionClass

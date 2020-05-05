@@ -194,6 +194,10 @@ echo "Compiling ./src/SpaceTimeDeformClass/SpaceTimeDeformClass.f90"
 echo " >> SpaceTimeDeformClass.o "
 echo " | ####################        | (85%)\r\c"
 mpif90 -c ./src/SpaceTimeDeformClass/SpaceTimeDeformClass.f90 -o  ./inc/SpaceTimeDeformClass.o
+echo "Compiling ./src/WaterAbsorptionClass/WaterAbsorptionClass.f90" 
+echo " >> WaterAbsorptionClass.o "
+echo " | ####################        | (85%)\r\c"
+mpif90 -c ./src/WaterAbsorptionClass/WaterAbsorptionClass.f90 -o  ./inc/WaterAbsorptionClass.o
 # Compilation of Fields 
 echo "Compiling ./src/FieldClass/FieldClass.f90" 
 echo " >> FieldClass.o"

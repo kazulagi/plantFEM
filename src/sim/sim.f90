@@ -1,8 +1,10 @@
 module sim
+    use fem
     use DiffusionEquationClass
     use FiniteDeformationClass
     use ContactMechanicsClass
     use MultiDiffDeformClass
+    use WaterAbsorptionClass
     use MultiPhysicsClass
     use SpaceTimeDeformClass
     use FieldClass

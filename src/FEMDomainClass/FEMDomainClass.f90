@@ -60,6 +60,8 @@ module FEMDomainClass
 		procedure,public :: rotate => rotateFEMDomain
 		procedure,public :: meshing => meshingFEMDomain
 		procedure,public :: convertMeshType => convertMeshTypeFEMDomain
+		procedure,public :: create => createFEMDomain
+		procedure,public :: setBoundary => setBoundaryFEMDomain
 
 		! for debug
 		procedure,public :: CheckConnectivity => CheckConnedctivityFEMDomain
@@ -653,8 +655,14 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 	
 	if(present(OptionalFileFormat) )then
 		if(OptionalFileFormat=="stl" .or. OptionalFileFormat==".stl")then
-			call ExportFEMDomainAsSTL(obj=obj,&
+			if(present(Name) )then
+				call ExportFEMDomainAsSTL(obj=obj,&
+			FileHandle=FileHandle,MeshDimension=MeshDimension,FileName=trim(Name))
+			else
+				call ExportFEMDomainAsSTL(obj=obj,&
 			FileHandle=FileHandle,MeshDimension=MeshDimension,FileName=FileName)
+			endif
+			
 			return
 		endif
 	endif
@@ -4798,5 +4806,34 @@ subroutine convertMeshTypeFEMDomain(obj,Option)
 
 end subroutine
 ! ##################################################
+
+! ##################################################
+subroutine createFEMDomain(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division)
+	class(FEMDomain_),intent(inout) :: obj
+    character(*),intent(in) :: meshtype
+    integer(int32),optional,intent(in) :: x_num,y_num ! number of division
+    integer(int32),optional,intent(in) :: division ! for 3D rectangular
+    real(real64),optional,intent(in) :: x_len,y_len,Le,Lh,Dr ! length
+    real(real64),optional,intent(in) :: thickness ! for 3D rectangular
+
+	call obj%Mesh%create(meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division)
+
+end subroutine createFEMDomain
+! ##################################################
+
+! ##################################################
+subroutine setBoundaryFEMDomain(obj,new,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,value,values)
+	class(FEMDomain_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
+	real(real64),optional,intent(in) :: value,values(4)
+	logical,optional,intent(in) :: new
+
+	call obj%Boundary%set(new,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,value,values)
+
+end subroutine setBoundaryFEMDomain
+! ##################################################
+
+
+
 
 end module FEMDomainClass
