@@ -5,7 +5,7 @@ module WaterAbsorptionClass
     implicit none
 
     type :: WaterAbsorption_
-        type(FEMDomain_):: FEMDomain
+        type(FEMDomain_),pointer:: Water, Tissue
         type(DiffusionEq_)::DiffusionEq
         type(FiniteDeform_)::FiniteDeform
     contains
@@ -18,23 +18,11 @@ module WaterAbsorptionClass
 contains
 
 !#####################################
-subroutine importWaterAbsorption(obj,OptionalFileFormat,OptionalProjectName,FileHandle,Mesh)
+subroutine importWaterAbsorption(obj,Water,Tissue)
     class(WaterAbsorption_),intent(inout) :: obj
-	type(Mesh_),optional,intent(in)::Mesh
-    character*4,optional,intent(in)::OptionalFileFormat
-    character(*),optional,intent(in)::OptionalProjectName
-	character*4::FileFormat
-    character*70::ProjectName
-    character*74 ::FileName
-    character*9  :: DataType
-    integer,allocatable::IntMat(:,:)
-    real(8),allocatable::RealMat(:,:)
-    integer,optional,intent(in)::FileHandle
-    integer :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum
-    character*70 Msg,name
-
-    call obj%FEMDomain%import(OptionalFileFormat,OptionalProjectName,FileHandle,Mesh)
-
+	type(FEMDomain_),target,intent(inout) :: Water,Tissue
+    obj%Water => Water
+    obj%Tissue => Tissue
 end subroutine importWaterAbsorption
 !#####################################
 
@@ -73,9 +61,11 @@ subroutine exportWaterAbsorption(obj,OptionalFileFormat,OptionalProjectName,File
     integer(int32) :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,nn
     character*70 Msg
     
-    call obj%FEMDomain%export(OptionalFileFormat,OptionalProjectName,FileHandle,&
+    call obj%Water%export(OptionalFileFormat,OptionalProjectName,FileHandle,&
     SolverType,MeshDimension,FileName,Name,regacy,with)
 
+    call obj%Tissue%export(OptionalFileFormat,OptionalProjectName,FileHandle,&
+    SolverType,MeshDimension,FileName,Name,regacy,with)
 
 end subroutine exportWaterAbsorption
 !#####################################

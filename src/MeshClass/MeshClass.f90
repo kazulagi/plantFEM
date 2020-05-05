@@ -24,6 +24,7 @@ module MeshClass
         !for Interfaces
         integer(int32),allocatable::GlobalNodID(:)
 
+        character*200::FileName
         character*70::ElemType
         character*70 ErrorMsg
     contains
@@ -70,6 +71,8 @@ module MeshClass
         procedure :: create=>createMesh
         procedure :: shift=>shiftMesh
         procedure :: check=>checkMesh
+        procedure :: Convert2Dto3D => Convert2Dto3DMesh
+        procedure :: gmsh => gmshMesh
     end type Mesh_
 
 
@@ -1198,13 +1201,135 @@ end subroutine ExportSurface2D
 
 
 !##################################################
-subroutine DisplayMesh(obj,OptionalFolderName,OptionalFormat)
+subroutine DisplayMesh(obj,OptionalFolderName,OptionalFormat,FileHandle,Name)
     class(Mesh_),intent(inout)::obj
     character(*),optional,intent(in):: OptionalFolderName
-    character(*),optional,intent(in) :: OptionalFormat
+    character(*),optional,intent(in) :: OptionalFormat,Name
+    integer(int32),optional,intent(in) :: FileHandle
+    integer(int32) :: fh
+    character*70 DefaultFolderName
+    character*70 FolderName
+    character*76 command_mkdir
+    character*86 surfaceout
+    integer i,j,node_ID,node_ID_next,k
+
+    fh=input(default=10,option=FileHandle)
+    if(present(Name) )then
+        open(fh,file=Name)
+        if(.not.allocated(obj%ElemNod) )then
+            print *, "DisplayMesh :: Error >> mesh-connectivity is not allocated."
+            return
+        endif
+        do i=1,size(obj%ElemNod,1)
+            do j=1,size(obj%ElemNod,2)
+                write(fh,*) obj%NodCoord(obj%ElemNod(i,j),:)
+            enddo
+            write(fh,*) obj%NodCoord(obj%ElemNod(i,1),:)
+            write(fh,*) "  "
+        enddo
+        close(fh)
+        return
+    endif
+
     
-    include "./DisplayMesh.f90"
+if(present(OptionalFormat) )then
+    if(trim(OptionalFormat)==".gp")then
+        ! Export Mesh as .gp
+        open(102,file="SurfaceLine2D.txt")
+        ! Surface line
+        do i=1,size(obj%SubMeshSurfFromTo,1)
+            do j=obj%SubMeshSurfFromTo(i,2),obj%SubMeshSurfFromTo(i,3)-1
+                node_ID     =obj%SurfaceLine2D(j)
+                node_ID_next=obj%SurfaceLine2D(j+1)
+                write(102,*) obj%NodCoord(node_ID,:),&
+                    obj%NodCoord(node_ID_next,:)-obj%NodCoord(node_ID,:) 
+            enddo
+            node_ID     =obj%SurfaceLine2D(obj%SubMeshSurfFromTo(i,3))
+            node_ID_next=obj%SurfaceLine2D(obj%SubMeshSurfFromTo(i,2))
+            write(102,*) obj%NodCoord(node_ID,:),&
+                obj%NodCoord(node_ID_next,:)-obj%NodCoord(node_ID,:) 
+            
+            write(102,*) "  "
+        enddo
+        close(102)
+        open(102,file="SurfaceLine2D.gp")
+        write(102,*) "plot 'SurfaceLine2D.txt' with vector "
+        write(102,*) "pause -1"
+        close(102)
+        call system("gnuplot SurfaceLine2D.gp")
+    endif
+endif
+if(present(OptionalFormat) )then
+    if(trim(OptionalFormat)==".gp")then
+        ! Export Mesh as .gp
+        open(102,file="ElemLine2D.txt")
+        
+        ! Elemace line
+        do i=1,size(obj%SubMeshElemFromTo,1)
+            do j=obj%SubMeshElemFromTo(i,2),obj%SubMeshElemFromTo(i,3)
+                do k=1,size(obj%ElemNod,2)-1
+                    write(102, * ) obj%NodCoord(obj%ElemNod(j,k),:),&
+                        obj%NodCoord(obj%ElemNod(j,k+1),:)-obj%NodCoord(obj%ElemNod(j,k),:)
+                enddo
+                write(102,*) obj%NodCoord(obj%ElemNod(j,size(obj%ElemNod,2)),:),&
+                    obj%NodCoord(obj%ElemNod(j,1),:)&
+                    -obj%NodCoord(obj%ElemNod(j,size(obj%ElemNod,2)),:)
+            enddo
+            write(102,*) "  "
+        enddo
+        close(102)
+        open(102,file="ElemLine2D.gp")
+        write(102,*) "plot 'ElemLine2D.txt' with vector "
+        write(102,*) "pause -1"
+        close(102)
+        call system("gnuplot ElemLine2D.gp")
+
+        return
+    endif
+endif
+
+
+
+DefaultFolderName="DisplaySurface"
+if(present(OptionalFolderName) )then
+    FolderName=OptionalFolderName
+else
+    FolderName=DefaultFolderName
+endif
+command_mkdir="mkdir " // trim(FolderName)
+command_mkdir=trim(command_mkdir)
+
+call system(command_mkdir)
+surfaceout=trim(FolderName)//"/surface_nod.txt"
+surfaceout=trim(surfaceout)
+open(100,file=surfaceout)
+
+do i=1,size(obj%SurfaceLine2D,1)
     
+    write(100,*) obj%NodCoord(obj%SurfaceLine2D(i),: )
+enddo
+close(100)
+
+surfaceout=trim(FolderName)//"/surface_ids.txt"
+surfaceout=trim(surfaceout)
+open(100,file=surfaceout)
+
+do i=1,size(obj%SurfaceLine2D,1)
+    
+    write(100,*) obj%NodCoord(obj%SurfaceLine2D(i),: )
+enddo
+close(100)
+
+surfaceout=trim(FolderName)//"/element_nod.txt"
+surfaceout=trim(surfaceout)
+open(100,file=surfaceout)
+
+do i=1,size(obj%SurfaceLine2D,1)
+    
+    write(100,*) obj%NodCoord(obj%SurfaceLine2D(i),: )
+enddo
+close(100)
+
     
 end subroutine DisplayMesh
 !##################################################
@@ -2456,14 +2581,26 @@ subroutine removeOverlappedNodeMesh(obj,tolerance)
 end subroutine
 !##################################################
 
-subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr)
+subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division)
     class(Mesh_),intent(inout) :: obj
     character(*),intent(in) :: meshtype
     integer(int32),optional,intent(in) :: x_num,y_num ! number of division
+    integer(int32),optional,intent(in) :: division ! for 3D rectangular
     real(real64),optional,intent(in) :: x_len,y_len,Le,Lh,Dr ! length
+    real(real64),optional,intent(in) :: thickness ! for 3D rectangular
     integer(int32) :: i,j,n,m,xn,yn
     real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt
     ! this subroutine creates mesh
+
+    if(meshtype=="rectangular3D")then
+        call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
+        call obj%Convert2Dto3D(Thickness=Thickness,division=division)
+        if(.not.allocated(obj%ElemMat))then
+            n=size(obj%ElemNod,1)
+            allocate(obj%ElemMat(n) )
+        endif
+        return
+    endif
 
     if(meshtype=="rectangular2D")then
         xn=input(default=1,option=x_num)
@@ -2676,14 +2813,113 @@ subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr)
             endif
         enddo
         call obj%GetSurface()
-        
-        
-
     endif
 
 
 
+
 end subroutine createMesh
+
+!##################################################
+subroutine Convert2Dto3DMesh(obj,Thickness,division)
+    class(Mesh_),intent(inout)::obj
+    real(real64),allocatable::buffer(:,:)
+    real(real64),optional,intent(in)::Thickness
+    integer(int32),optional,intent(in)::division
+    real(real64) :: Tn
+    integer(int32) :: i,j,n,m,NumOfLayer,numnod
+
+
+    ! only for linear elements
+
+    if(present(Thickness))then
+        if(Thickness==0.0d0)then
+            print *, "ERROR :: Convert2Dto3D >> Thickness = 0"
+            return
+        else
+            Tn=Thickness
+        endif
+    else
+        Tn=1.0d0
+    endif
+
+    if(present(division))then
+        if(division==0)then
+            print *, "ERROR :: Convert2Dto3D >> division = 0"
+            return
+        endif
+        NumOfLayer=division
+    else
+        NumOfLayer=1
+    endif
+
+    numnod=size(obj%NodCoord,1)
+    n=size(obj%NodCoord,1)
+    m=size(obj%NodCoord,2)
+
+    allocate(buffer(n*(NumOfLayer+1),3))
+
+    do j=1,NumOfLayer+1
+        do i=1,n
+            buffer( n*(j-1) + i ,1:2) = obj%NodCoord(i,1:2)
+            buffer( n*(j-1) + i ,3)   = Tn / dble(NumOfLayer)*dble(j-1)
+        enddo
+    enddo
+
+    deallocate(obj%NodCoord)
+    allocate(obj%NodCoord( size(buffer,1) ,size(buffer,2) ) )
+    obj%NodCoord(:,:)=buffer(:,:)
+    deallocate(buffer)
+
+
+    ! ElemNod
+
+    if(.not.allocated(obj%ElemNod) )then
+        print *, "Caution :: Convert2Dto3D >> ElemNod is not allocated = 0"
+        return
+    endif
+    n=size(obj%ElemNod,1)
+    m=size(obj%ElemNod,2)
+
+    allocate(buffer(n*NumOfLayer,m*2))
+
+    do j=1,NumOfLayer
+        do i=1,n
+            buffer( n*(j-1)+i, 1:m      ) = obj%ElemNod(i,1:m)+numnod*(j-1)
+            buffer( n*(j-1)+i, m+1:2*m  ) = obj%ElemNod(i,1:m)+numnod*(j)
+        enddo
+    enddo
+
+    deallocate(obj%ElemNod)
+    allocate(obj%ElemNod( size(buffer,1) ,size(buffer,2) ) )
+    obj%ElemNod(:,:)=buffer(:,:)
+    deallocate(buffer)
+
+    ! ElemMat
+
+    if(.not.allocated(obj%ElemMat) )then
+        print *, "Caution :: Convert2Dto3D >> ElemMat is not allocated = 0"
+        return
+    endif
+
+    allocate(buffer(n*NumOfLayer,1))
+
+    do j=1,NumOfLayer
+        do i=1,n
+            buffer( n*(j-1)+i, 1      ) = obj%ElemMat(i)
+        enddo
+    enddo
+
+    deallocate(obj%ElemMat)
+    allocate(obj%ElemMat( size(buffer,1) ) )
+    obj%ElemMat(:)=buffer(:,1)
+    deallocate(buffer)
+    
+    
+
+end subroutine
+!##################################################`
+
 
 
 ! ##############################################
@@ -2800,5 +3036,668 @@ subroutine checkMesh(obj)
 
 end subroutine checkMesh
 ! ##############################################
+
+! #########################################################################################
+subroutine gmshMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeumannBC,withDirichletBC&
+	,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial)
+	class(Mesh_),intent(inout)::obj
+	real(real64),allocatable::gp_value(:,:)
+	integer(int32),optional,intent(in)::OptionalStep
+	character,optional,intent(in):: OptionalContorName*30,OptionalAbb*6
+	character(*),optional,intent(in)::Name
+	logical,optional,intent(in)::withNeumannBC,withDirichletBC,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial
+	real(real64),allocatable::x_double(:,:)
+	real(real64),allocatable::x(:,:)
+	integer(int32) i,j,k,l,step,fh,nodeid1,nodeid2
+	character filename0*11
+	character filename*200
+	character filetitle*6
+	character command*200
+	character:: mapname*30,abbmap*6
+	
+
+
+	if(present(OptionalContorName) )then
+		mapname=OptionalContorName
+	else
+		mapname="Value"
+	endif
+
+	if(present(OptionalAbb) )then
+		abbmap=OptionalAbb
+	else
+		abbmap="Values"
+	endif
+
+	if(present(OptionalStep) )then
+		step=OptionalStep
+	else
+		step=1
+	endif
+	fh=123
+
+	filetitle(1:6)=abbmap(1:6)
+    
+    if(.not.allocated(obj%ElemMat) )then
+        allocate(obj%ElemMat(size(obj%ElemNod,1) ) )
+        obj%ElemMat(:)=1
+    endif
+
+	!---------------------
+	write (filename0, '("_", i6.6, ".pos")') step ! ここでファイル名を生成している
+	if(present(Name) )then
+		filename=filetitle//filename0
+		
+		call system(  "touch "//trim(Name)//trim(obj%FileName)//trim(filename) )
+		print *, trim(Name)//trim(filename)
+		open(fh,file=trim(Name)//trim(filename) )
+		print *, "writing ",trim(Name)//trim(filename)," step>>",step
+	else
+		filename=filetitle//filename0
+		call system(  "touch "//trim(obj%FileName)//trim(filename) )
+		print *, trim(obj%FileName)//trim(filename)
+		open(fh,file=trim(obj%FileName)//trim(filename) )
+		print *, "writing ",trim(obj%FileName)//trim(filename)," step>>",step
+	endif
+	
+	
+	!---------------------
+	if( size(obj%ElemNod,2)==4 .and. size(obj%NodCoord,2)==2 ) then
+		allocate(x(4,3) )
+		allocate(x_double(4,3) )
+		x(:,:)=0.0d0
+		x_double(:,:)=0.0d0
+	elseif( size(obj%ElemNod,2)==8 .and. size(obj%NodCoord,2)==3 ) then
+		allocate(x(8,3) )
+		allocate(x_double(8,3) )
+		x(:,:)=0.0d0
+		x_double(:,:)=0.0d0
+		
+	endif
+
+	allocate(gp_value( size(obj%ElemNod,1),size(obj%ElemNod,2) ))
+	do i=1,size(obj%ElemNod,1)
+		gp_value(i,:)=dble(obj%ElemMat(i))
+	enddo
+
+	x(:,:)=0.0d0
+	write(fh,*) 'View "',mapname,'" {'
+	do i=1,size(gp_value,1)
+		if( size(obj%ElemNod,2)==4 .and. size(obj%NodCoord,2)==2 ) then
+			
+			! 2-D, 4 noded, isoparametric elements with four gauss points 
+			x_double(1,1:2)=obj%NodCoord(obj%ElemNod(i,1),1:2  )
+			x_double(2,1:2)=0.50d0*obj%NodCoord(obj%ElemNod(i,1),1:2  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,2),1:2  )
+			x_double(3,1:2)=0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:2  )+0.250d0*obj%NodCoord(obj%ElemNod(i,2),1:2  )&
+					+0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:2  )+0.250d0*obj%NodCoord(obj%ElemNod(i,4),1:2  )
+			x_double(4,1:2)=0.50d0*obj%NodCoord(obj%ElemNod(i,4),1:2  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,1),1:2  )
+
+			
+			x(:,:)=x_double(:,:) 
+
+			write(fh,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(4,1),",",x(4,2),",",x(4,3),"){",gp_value(i,1),",",&
+				gp_value(i,1),",",gp_value(i,1),",",gp_value(i,1),"};"
+				
+
+			x_double(1,1:2)=obj%NodCoord(obj%ElemNod(i,2),1:2  )
+			x_double(2,1:2)=0.50d0*obj%NodCoord(obj%ElemNod(i,2),1:2  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,3),1:2  )
+			x_double(3,1:2)=0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:2  )+0.250d0*obj%NodCoord(obj%ElemNod(i,2),1:2  )&
+					+0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:2  )+0.250d0*obj%NodCoord(obj%ElemNod(i,4),1:2  )
+			x_double(4,1:2)=0.50d0*obj%NodCoord(obj%ElemNod(i,1),1:2  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,2),1:2  )
+
+			
+			x(:,:)=x_double(:,:) 
+
+			
+			write(fh,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(4,1),",",x(4,2),",",x(4,3),"){",gp_value(i,2),",",&
+				gp_value(i,2),",",gp_value(i,2),",",gp_value(i,2),"};"
+				
+			x_double(1,1:2)=obj%NodCoord(obj%ElemNod(i,3),1:2  )
+			x_double(2,1:2)=0.50d0*obj%NodCoord(obj%ElemNod(i,3),1:2  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,4),1:2  )
+			x_double(3,1:2)=0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:2  )+0.250d0*obj%NodCoord(obj%ElemNod(i,2),1:2  )&
+					+0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:2  )+0.250d0*obj%NodCoord(obj%ElemNod(i,4),1:2  )
+			x_double(4,1:2)=0.50d0*obj%NodCoord(obj%ElemNod(i,2),1:2  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,3),1:2  )
+			
+			x(:,:)=x_double(:,:) 
+
+			write(fh,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(4,1),",",x(4,2),",",x(4,3),"){",gp_value(i,3),",",&
+				gp_value(i,3),",",gp_value(i,3),",",gp_value(i,3),"};"
+				
+			x_double(1,1:2)=obj%NodCoord(obj%ElemNod(i,4),1:2  )
+			x_double(2,1:2)=0.50d0*obj%NodCoord(obj%ElemNod(i,4),1:2  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,1),1:2  )
+			x_double(3,1:2)=0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:2  )+0.250d0*obj%NodCoord(obj%ElemNod(i,2),1:2  )&
+					+0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:2  )+0.250d0*obj%NodCoord(obj%ElemNod(i,4),1:2  )
+			x_double(4,1:2)=0.50d0*obj%NodCoord(obj%ElemNod(i,3),1:2  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,4),1:2  )
+			
+			x(:,:)=x_double(:,:) 
+			
+			write(fh,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(4,1),",",x(4,2),",",x(4,3),"){",gp_value(i,4),",",&
+				gp_value(i,4),",",gp_value(i,4),",",gp_value(i,4),"};"
+			
+		elseif(size(obj%ElemNod,2)==8 .and. size(obj%NodCoord,2)==3  ) then
+			
+			! 3-D, 8 noded, isoparametric elements with 8 gauss points
+			! 1/8
+
+			x_double(1,1:3)=obj%NodCoord(obj%ElemNod(i,1),1:3  )
+			x_double(2,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,1), 1:3  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )
+			x_double(3,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  )+0.250d0*obj%NodCoord(obj%ElemNod(i,2), 1:3  )&
+					+0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )+0.250d0*obj%NodCoord(obj%ElemNod(i,4), 1:3  )
+			x_double(4,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,4), 1:3  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,1),1:3  )
+
+			x_double(5,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,1),1:3  )+0.50d0*obj%NodCoord(obj%ElemNod(i,5),1:3  )
+
+			x_double(6,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+					+0.250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )
+			
+			x_double(7,1:3)=0.1250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+					+0.1250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+					+0.1250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )&
+					+0.1250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+
+			x_double(8,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+					+0.250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+			
+			x(:,:)=x_double(:,:) 
+
+
+
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),"){",gp_value(i,1),",",&
+				gp_value(i,1),",",gp_value(i,1),",",gp_value(i,1),"};"
+			write(fh,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),"){",gp_value(i,1),",",&
+				gp_value(i,1),",",gp_value(i,1),",",gp_value(i,1),"};"
+			write(fh,*)" SQ(",x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),"){",gp_value(i,1),",",&
+				gp_value(i,1),",",gp_value(i,1),",",gp_value(i,1),"};"
+			write(fh,*)" SQ(",x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),"){",gp_value(i,1),",",&
+				gp_value(i,1),",",gp_value(i,1),",",gp_value(i,1),"};"
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,1),",",&
+				gp_value(i,1),",",gp_value(i,1),",",gp_value(i,1),"};"
+			write(fh,*)" SQ(",x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,1),",",&
+				gp_value(i,1),",",gp_value(i,1),",",gp_value(i,1),"};"
+			
+			! 2/8
+
+			x_double(1,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,1), 1:3  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )
+			
+			x_double(2,1:3)=obj%NodCoord(obj%ElemNod(i,2),1:3  )
+			
+			x_double(3,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,2), 1:3  )+0.50d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )
+			
+
+			x_double(4,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )
+
+			x_double(5,1:3)= 0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )
+
+			x_double(6,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,2), 1:3  )+0.50d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )
+
+			
+			x_double(7,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )
+			
+			x_double(8,1:3)=0.1250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+
+
+			x(:,:)=x_double(:,:) 
+
+
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),"){",gp_value(i,2),",",&
+				gp_value(i,2),",",gp_value(i,2),",",gp_value(i,2),"};"
+			write(fh,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),"){",gp_value(i,2),",",&
+				gp_value(i,2),",",gp_value(i,2),",",gp_value(i,2),"};"
+			write(fh,*)" SQ(",x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),"){",gp_value(i,2),",",&
+				gp_value(i,2),",",gp_value(i,2),",",gp_value(i,2),"};"
+			write(fh,*)" SQ(",x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),"){",gp_value(i,2),",",&
+				gp_value(i,2),",",gp_value(i,2),",",gp_value(i,2),"};"
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,2),",",&
+				gp_value(i,2),",",gp_value(i,2),",",gp_value(i,2),"};"
+			write(fh,*)" SQ(",x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,2),",",&
+				gp_value(i,2),",",gp_value(i,2),",",gp_value(i,2),"};"
+			
+			
+			! 3/8
+
+			x_double(8,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )
+
+			x_double(3,1:3)=obj%NodCoord(obj%ElemNod(i,3),1:3  )
+			
+			x_double(2,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,2), 1:3  )+0.50d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )
+			
+
+			x_double(1,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )
+
+			x_double(6,1:3)= 0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )
+
+			x_double(7,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,3), 1:3  )+0.50d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )
+
+			
+			x_double(4,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,4),1:3  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )
+
+			x_double(5,1:3)=0.1250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+
+
+			x(:,:)=x_double(:,:) 
+
+
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),"){",gp_value(i,3),",",&
+				gp_value(i,3),",",gp_value(i,3),",",gp_value(i,3),"};"
+			write(fh,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),"){",gp_value(i,3),",",&
+				gp_value(i,3),",",gp_value(i,3),",",gp_value(i,3),"};"
+			write(fh,*)" SQ(",x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),"){",gp_value(i,3),",",&
+				gp_value(i,3),",",gp_value(i,3),",",gp_value(i,3),"};"
+			write(fh,*)" SQ(",x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),"){",gp_value(i,3),",",&
+				gp_value(i,3),",",gp_value(i,3),",",gp_value(i,3),"};"
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,3),",",&
+				gp_value(i,3),",",gp_value(i,3),",",gp_value(i,3),"};"
+			write(fh,*)" SQ(",x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,3),",",&
+				gp_value(i,3),",",gp_value(i,3),",",gp_value(i,3),"};"
+				
+
+			! 4/8
+
+			x_double(6,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )
+
+			x_double(3,1:3)=obj%NodCoord(obj%ElemNod(i,4),1:3  )
+			
+			x_double(7,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,4), 1:3  )+0.50d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+			
+
+			x_double(1,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )
+
+			x_double(8,1:3)= 0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  )
+
+			x_double(4,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,4), 1:3  )+0.50d0*obj%NodCoord(obj%ElemNod(i,1),1:3  )
+
+			
+			x_double(2,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,4),1:3  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )
+
+			x_double(5,1:3)=0.1250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+
+			x(:,:)=x_double(:,:) 
+
+
+
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),"){",gp_value(i,4),",",&
+				gp_value(i,4),",",gp_value(i,4),",",gp_value(i,4),"};"
+			write(fh,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),"){",gp_value(i,4),",",&
+				gp_value(i,4),",",gp_value(i,4),",",gp_value(i,4),"};"
+			write(fh,*)" SQ(",x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),"){",gp_value(i,4),",",&
+				gp_value(i,4),",",gp_value(i,4),",",gp_value(i,4),"};"
+			write(fh,*)" SQ(",x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),"){",gp_value(i,4),",",&
+				gp_value(i,4),",",gp_value(i,4),",",gp_value(i,4),"};"
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,4),",",&
+				gp_value(i,4),",",gp_value(i,4),",",gp_value(i,4),"};"
+			write(fh,*)" SQ(",x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,4),",",&
+				gp_value(i,4),",",gp_value(i,4),",",gp_value(i,4),"};"
+			
+
+
+
+			! 5/8
+
+			x_double(7,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )
+
+			x_double(5,1:3)=obj%NodCoord(obj%ElemNod(i,5),1:3  )
+			
+			x_double(6,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,5), 1:3  )+0.50d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )
+			
+
+			x_double(2,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  )
+
+			x_double(4,1:3)= 0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  )
+
+			x_double(1,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,5), 1:3  )+0.50d0*obj%NodCoord(obj%ElemNod(i,1),1:3  )
+
+			
+			x_double(8,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,5),1:3  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+
+			x_double(3,1:3)=0.1250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+
+			x(:,:)=x_double(:,:) 
+
+
+
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),"){",gp_value(i,5),",",&
+				gp_value(i,5),",",gp_value(i,5),",",gp_value(i,5),"};"
+			write(fh,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),"){",gp_value(i,5),",",&
+				gp_value(i,5),",",gp_value(i,5),",",gp_value(i,5),"};"
+			write(fh,*)" SQ(",x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),"){",gp_value(i,5),",",&
+				gp_value(i,5),",",gp_value(i,5),",",gp_value(i,5),"};"
+			write(fh,*)" SQ(",x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),"){",gp_value(i,5),",",&
+				gp_value(i,5),",",gp_value(i,5),",",gp_value(i,5),"};"
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,5),",",&
+				gp_value(i,5),",",gp_value(i,5),",",gp_value(i,5),"};"
+			write(fh,*)" SQ(",x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,5),",",&
+				gp_value(i,5),",",gp_value(i,5),",",gp_value(i,5),"};"
+			
+			! 6/8
+
+			x_double(8,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )
+
+			x_double(6,1:3)=obj%NodCoord(obj%ElemNod(i,6),1:3  )
+			
+			x_double(5,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,5), 1:3  )+0.50d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )
+			
+
+			x_double(1,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  )
+
+			x_double(3,1:3)= 0.250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )
+
+			x_double(2,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,6), 1:3  )+0.50d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )
+
+			
+			x_double(7,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,6),1:3  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )
+
+			x_double(4,1:3)=0.1250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+
+			x(:,:)=x_double(:,:) 
+
+
+
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),"){",gp_value(i,6),",",&
+				gp_value(i,6),",",gp_value(i,6),",",gp_value(i,6),"};"
+			write(fh,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),"){",gp_value(i,6),",",&
+				gp_value(i,6),",",gp_value(i,6),",",gp_value(i,6),"};"
+			write(fh,*)" SQ(",x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),"){",gp_value(i,6),",",&
+				gp_value(i,6),",",gp_value(i,6),",",gp_value(i,6),"};"
+			write(fh,*)" SQ(",x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),"){",gp_value(i,6),",",&
+				gp_value(i,6),",",gp_value(i,6),",",gp_value(i,6),"};"
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,6),",",&
+				gp_value(i,6),",",gp_value(i,6),",",gp_value(i,6),"};"
+			write(fh,*)" SQ(",x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,6),",",&
+				gp_value(i,6),",",gp_value(i,6),",",gp_value(i,6),"};"
+			
+
+			
+			! 7/8
+
+			x_double(5,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )
+
+			x_double(7,1:3)=obj%NodCoord(obj%ElemNod(i,7),1:3  )
+			
+			x_double(8,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,7), 1:3  )+0.50d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+			
+
+			x_double(4,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+
+			x_double(2,1:3)= 0.250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )
+
+			x_double(3,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,3), 1:3  )+0.50d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )
+
+			
+			x_double(6,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,6),1:3  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )
+
+			x_double(1,1:3)=0.1250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+
+			x(:,:)=x_double(:,:) 
+
+
+
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),"){",gp_value(i,7),",",&
+				gp_value(i,7),",",gp_value(i,7),",",gp_value(i,7),"};"
+			write(fh,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),"){",gp_value(i,7),",",&
+				gp_value(i,7),",",gp_value(i,7),",",gp_value(i,7),"};"
+			write(fh,*)" SQ(",x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),"){",gp_value(i,7),",",&
+				gp_value(i,7),",",gp_value(i,7),",",gp_value(i,7),"};"
+			write(fh,*)" SQ(",x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),"){",gp_value(i,7),",",&
+				gp_value(i,7),",",gp_value(i,7),",",gp_value(i,7),"};"
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,7),",",&
+				gp_value(i,7),",",gp_value(i,7),",",gp_value(i,7),"};"
+			write(fh,*)" SQ(",x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,7),",",&
+				gp_value(i,7),",",gp_value(i,7),",",gp_value(i,7),"};"
+			
+
+			
+
+			
+			! 8/8
+
+			x_double(5,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )
+
+			x_double(7,1:3)=obj%NodCoord(obj%ElemNod(i,8),1:3  )
+			
+			x_double(6,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,7), 1:3  )+0.50d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+			
+
+			x_double(2,1:3)=0.250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+
+			x_double(4,1:3)= 0.250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+				+0.250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  ) + 0.250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+
+			x_double(3,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,4), 1:3  )+0.50d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+
+			
+			x_double(8,1:3)=0.50d0*obj%NodCoord(obj%ElemNod(i,5),1:3  ) + 0.50d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+
+			x_double(1,1:3)=0.1250d0*obj%NodCoord(obj%ElemNod(i,1),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,2),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,3),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,4),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,5),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,6),1:3  )&
+				+0.1250d0*obj%NodCoord(obj%ElemNod(i,7),1:3  )+0.1250d0*obj%NodCoord(obj%ElemNod(i,8),1:3  )
+
+
+			x(:,:)=x_double(:,:) 
+
+
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),"){",gp_value(i,8),",",&
+				gp_value(i,8),",",gp_value(i,8),",",gp_value(i,8),"};"
+			write(fh,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),"){",gp_value(i,8),",",&
+				gp_value(i,8),",",gp_value(i,8),",",gp_value(i,8),"};"
+			write(fh,*)" SQ(",x(2,1),",",x(2,2),",",x(2,3),","&
+			,x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),"){",gp_value(i,8),",",&
+				gp_value(i,8),",",gp_value(i,8),",",gp_value(i,8),"};"
+			write(fh,*)" SQ(",x(3,1),",",x(3,2),",",x(3,3),","&
+			,x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),"){",gp_value(i,8),",",&
+				gp_value(i,8),",",gp_value(i,8),",",gp_value(i,8),"};"
+			write(fh,*)" SQ(",x(4,1),",",x(4,2),",",x(4,3),","&
+			,x(1,1),",",x(1,2),",",x(1,3),","&
+			,x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,8),",",&
+				gp_value(i,8),",",gp_value(i,8),",",gp_value(i,8),"};"
+			write(fh,*)" SQ(",x(5,1),",",x(5,2),",",x(5,3),","&
+			,x(6,1),",",x(6,2),",",x(6,3),","&
+			,x(7,1),",",x(7,2),",",x(7,3),","&
+			,x(8,1),",",x(8,2),",",x(8,3),"){",gp_value(i,8),",",&
+				gp_value(i,8),",",gp_value(i,8),",",gp_value(i,8),"};"
+			
+
+
+
+
+        else
+            print *, " size(obj%ElemNod,2)==",size(obj%ElemNod,2)
+            print *, ".and. size(obj%NodCoord,2)==",size(obj%NodCoord,2)
+			stop "plot_contour >> now constructing"
+		endif
+	enddo
+	write(fh,*) '};'
+	close(fh)
+ end subroutine
+ !===========================================================================================
+
+
 
 end module MeshClass

@@ -19,6 +19,7 @@ module PreprocessingClass
         integer(int32)         :: PixcelSize(2),num_of_pixcel
         integer(int32)         :: ColorRGB(3)
     contains
+        !procedure :: set                => setPreprocessing
         procedure :: getScfFromImage    => getScfFromImagePreProcessing
         procedure :: Init               => InitializePrePro
         procedure :: finalize           => finalizePrePro
