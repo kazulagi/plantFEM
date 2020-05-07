@@ -73,6 +73,7 @@ module MeshClass
         procedure :: check=>checkMesh
         procedure :: Convert2Dto3D => Convert2Dto3DMesh
         procedure :: gmsh => gmshMesh
+        procedure :: showRange => showRangeMesh
     end type Mesh_
 
 
@@ -3698,6 +3699,20 @@ subroutine gmshMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeu
  end subroutine
  !===========================================================================================
 
+subroutine showRangeMesh(obj)
+    class(Mesh_),intent(in) :: obj
+    real(real64) :: x_max, x_min,y_max, y_min, z_max, z_min
 
+    x_max = maxval(obj%NodCoord(:,1) )
+    x_min = minval(obj%NodCoord(:,1) )
+    y_max = maxval(obj%NodCoord(:,2) )
+    y_min = minval(obj%NodCoord(:,2) )
+    z_max = maxval(obj%NodCoord(:,3) )
+    z_min = minval(obj%NodCoord(:,3) )
+    print *, " x_max=", x_max, " x_min=", x_min,&
+     " y_max=",y_max, " y_min=", y_min, &
+     " z_max=", z_max, " z_min=", z_min
 
+end subroutine
+!===========================================================================================
 end module MeshClass

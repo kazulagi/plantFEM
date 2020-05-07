@@ -12,6 +12,10 @@ module WaterAbsorptionClass
         procedure, public :: import=> importWaterAbsorption
         procedure, public :: init=> initWaterAbsorption
         procedure, public :: update=> updateWaterAbsorption
+        procedure, public :: initHydraulicField => initHydraulicFieldWA
+        procedure, public :: updateHydraulicField => updateHydraulicFieldWA
+        procedure, public :: initMechanicalField => initMechanicalFieldWA
+        procedure, public :: updateMechanicalField => updateMechanicalFieldWA
         procedure, public :: export=> exportWaterAbsorption
     end type
 
@@ -21,8 +25,9 @@ contains
 subroutine importWaterAbsorption(obj,Water,Tissue)
     class(WaterAbsorption_),intent(inout) :: obj
 	type(FEMDomain_),target,intent(inout) :: Water,Tissue
-    obj%Water => Water
-    obj%Tissue => Tissue
+    obj%DiffusionEq%FEMDomain => Water
+    obj%FiniteDeform%FEMDomain => Tissue
+
 end subroutine importWaterAbsorption
 !#####################################
 
@@ -31,15 +36,60 @@ end subroutine importWaterAbsorption
 subroutine initWaterAbsorption(obj)
     class(WaterAbsorption_),intent(inout) :: obj
 
+    ! implement as like this
+    call obj%initHydraulicField()
+    call obj%initMechanicalField()
 end subroutine initWaterAbsorption
 !#####################################
+
+
 
 !#####################################
 subroutine updateWaterAbsorption(obj)
     class(WaterAbsorption_),intent(inout) :: obj
-    
+    call obj%updateHydraulicField()
+    call obj%updateMechanicalField()
+
 end subroutine updateWaterAbsorption
 !#####################################
+
+
+
+!#####################################
+subroutine initHydraulicFieldWA(obj)
+    class(WaterAbsorption_),intent(inout) :: obj
+
+end subroutine initHydraulicFieldWA
+!#####################################
+
+
+!#####################################
+subroutine updateHydraulicFieldWA(obj)
+    class(WaterAbsorption_),intent(inout) :: obj
+
+end subroutine updateHydraulicFieldWA
+!#####################################
+
+
+
+
+!#####################################
+subroutine initMechanicalFieldWA(obj)
+    class(WaterAbsorption_),intent(inout) :: obj
+
+end subroutine initMechanicalFieldWA
+!#####################################
+
+
+!#####################################
+subroutine updateMechanicalFieldWA(obj)
+    class(WaterAbsorption_),intent(inout) :: obj
+
+end subroutine updateMechanicalFieldWA
+!#####################################
+
+
+
 
 
 !#####################################
@@ -61,11 +111,9 @@ subroutine exportWaterAbsorption(obj,OptionalFileFormat,OptionalProjectName,File
     integer(int32) :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,nn
     character*70 Msg
     
-    call obj%Water%export(OptionalFileFormat,OptionalProjectName,FileHandle,&
-    SolverType,MeshDimension,FileName,Name,regacy,with)
-
-    call obj%Tissue%export(OptionalFileFormat,OptionalProjectName,FileHandle,&
-    SolverType,MeshDimension,FileName,Name,regacy,with)
+    ! bug exsits
+    !call obj%Tissue%export(SolverType="FiniteDeform",Name=Name)
+    !call obj%Water%export(SolverType="DiffusionEq",Name=Name)
 
 end subroutine exportWaterAbsorption
 !#####################################
