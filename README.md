@@ -18,6 +18,7 @@ This can run in Google-Colab.
 !git clone https://github.com/kazulagi/SiCroF.git
 %cd SiCroF
 %ls
+!python3 setup.py
 !python3 SiCroF.py
 ```
 

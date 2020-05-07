@@ -1,5 +1,6 @@
 module PreprocessingClass
     use, intrinsic :: iso_fortran_env
+    use std
     use mpi
     use termclass
     use DictionaryClass
@@ -1363,17 +1364,21 @@ end subroutine
 
 
 ! #########################################################
-subroutine ConvertGeo2Msh(obj,MPIData,Name)
+subroutine ConvertGeo2Msh(obj,MPIData,Name,clmin,clmax)
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
     character(*),optional,intent(in)    :: Name
+    real(real64),optional,intent(in) :: clmin,clmax
     character*200   :: python_buffer
     character*200   :: command
     character*20    :: pid
     integer(int32) :: i,j,k,n,fh
+    real(real64) :: cmin,cmax
 
     write(pid,*) MPIData%MyRank
 
+    cmin=input(default=100.0d0,option=clmin)
+    cmax=input(default=100000.0d0,option=clmax)
     fh=MPIData%MyRank+10
     python_buffer=" "
     command  = " "
@@ -1381,7 +1386,8 @@ subroutine ConvertGeo2Msh(obj,MPIData,Name)
     if(present(Name) )then
         python_buffer=trim(Name)
     endif
-    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin 100 -clmax 100000"
+    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin "//trim(fstring(cmin))&
+        //" -clmax "//trim(fstring(cmax))
 
     writE(*,'(A)') trim(command)
     
@@ -1396,7 +1402,7 @@ end subroutine
 
 
 ! #########################################################
-subroutine ConvertGeo2Inp(obj,MPIData,Name)
+subroutine ConvertGeo2Inp(obj,MPIData,Name,clmin,clmax)
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
     character(*),optional,intent(in)    :: Name
@@ -1404,8 +1410,12 @@ subroutine ConvertGeo2Inp(obj,MPIData,Name)
     character*200   :: command
     character*20    :: pid
     integer(int32) :: i,j,k,n,fh
+    real(real64) :: cmin,cmax
+    real(real64),optional,intent(in) :: clmin,clmax
 
     write(pid,*) MPIData%MyRank
+    cmin=input(default=100.0d0,option=clmin)
+    cmax=input(default=100000.0d0,option=clmax)
 
     fh=MPIData%MyRank+10
     python_buffer=" "
@@ -1414,7 +1424,9 @@ subroutine ConvertGeo2Inp(obj,MPIData,Name)
     if(present(Name) )then
         python_buffer=trim(Name)
     endif
-    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin 100 -clmax 100000 -format inp" 
+    !command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin 100 -clmax 100000 -format inp" 
+    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin "//trim(fstring(cmin))//&
+        " -clmax "//trim(fstring(cmax))//" -format inp"
 
     writE(*,'(A)') trim(command)
     
@@ -1427,7 +1439,7 @@ end subroutine
 ! #########################################################
 
 ! #########################################################
-subroutine ConvertGeo2Mesh(obj,MPIData,SizePara,Name)
+subroutine ConvertGeo2Mesh(obj,MPIData,SizePara,Name,clmin,clmax)
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
     integer(int32),optional,intent(in) :: SizePara
@@ -1436,8 +1448,11 @@ subroutine ConvertGeo2Mesh(obj,MPIData,SizePara,Name)
     character*200   :: command
     character*20    :: pid,a
     integer(int32) :: i,j,k,n,fh,sp
-
+    real(real64) :: cmin,cmax
+    real(real64),optional,intent(in) :: clmin,clmax
     
+    cmin=input(default=100.0d0,option=clmin)
+    cmax=input(default=100000.0d0,option=clmax)
 
     if(present(SizePara) )then
         sp=SizePara
@@ -1456,7 +1471,9 @@ subroutine ConvertGeo2Mesh(obj,MPIData,SizePara,Name)
     if(present(Name) )then
         python_buffer=trim(Name)
     endif
-    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin"//trim(a)//" -clmax 100000  -format mesh" 
+    !command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin"//trim(a)//" -clmax 100000  -format mesh" 
+    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin "//trim(fstring(cmin))&
+        //" -clmax "//trim(fstring(cmax))//" -format mesh"
 
     writE(*,'(A)') trim(command)
     
