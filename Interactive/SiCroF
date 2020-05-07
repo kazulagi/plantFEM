@@ -112,7 +112,7 @@ do
             continue
         fi
 
-        mpirun -np $numcore ./a.out        
+        mpirun -np $numcore ./a.out --allow-run-as-root
         continue
     fi
 
