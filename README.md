@@ -10,6 +10,17 @@ Simulator for Crops in Fields
 
 ## Environment
 
+### Google Colab !new!
+
+This can run in Google-Colab.
+
+```
+!git clone https://github.com/kazulagi/SiCroF.git
+%cd SiCroF
+%ls
+!python3 SiCroF.py
+```
+
 ### Linux 
 
 #### Ubuntu 18.04

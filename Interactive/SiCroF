@@ -23,6 +23,7 @@ ls="ls"
 f90="f90"
 run="run"
 
+echo "If this is the first time, please type 'install' and press ENTER"
 echo "Please input fortran script *.f90 | or check manual by 'man'  "
 echo "  "
  
