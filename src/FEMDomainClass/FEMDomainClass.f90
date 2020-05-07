@@ -62,6 +62,7 @@ module FEMDomainClass
 		procedure,public :: convertMeshType => convertMeshTypeFEMDomain
 		procedure,public :: create => createFEMDomain
 		procedure,public :: setBoundary => setBoundaryFEMDomain
+		procedure,public :: showRange => showRangeFEMDomain
 
 		! for debug
 		procedure,public :: CheckConnectivity => CheckConnedctivityFEMDomain
@@ -4833,7 +4834,11 @@ subroutine setBoundaryFEMDomain(obj,new,x_max,x_min,y_max,y_min,z_max,z_min,t_ma
 end subroutine setBoundaryFEMDomain
 ! ##################################################
 
+subroutine showRangeFEMDomain(obj)
+	class(FEMDomain_)::obj
 
+	call obj%Mesh%showRange()
+end subroutine
 
 
 end module FEMDomainClass

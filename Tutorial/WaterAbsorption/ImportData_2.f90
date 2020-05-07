@@ -16,14 +16,16 @@ program main
         z_max=-50.0d0,z_min=5.0d0, value=2.0d0)
     call tissue%Boundary%gmsh(Name="DBmesh",Dirichlet=.true.)
 
-    call tissue%export(Name="tissuefile",OptionalFileFormat="stl")
-    call water%export(Name="waterfile",OptionalFileFormat="stl")
+    !call tissue%export(Name="tissuefile",OptionalFileFormat="stl")
+    !call water%export(Name="waterfile",OptionalFileFormat="stl")
 
     call water%GmshPlotMesh(Name="water")
     call tissue%GmshPlotMesh(Name="tissue")
 
     ! import water and tissue
     call seed%import(Water=Water, Tissue=tissue)
-    call seed%export(Name="WaterAndTissue")
+    call Water%showRange()
+    call Tissue%showRange()
+    !call seed%export(Name="WaterAndTissue")
 
 end program main

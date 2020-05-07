@@ -108,11 +108,11 @@ do
 
         if [ $hostfile != "" ]; then
             echo "hostfile is activated."
-            mpirun --hostfile $hostfile -np $numcore ./a.out  
+            mpirun --hostfile $hostfile -np $numcore ./a.out --allow-run-as-root
             continue
         fi
 
-        mpirun -np $numcore ./a.out        
+        mpirun -np $numcore ./a.out --allow-run-as-root
         continue
     fi
 
