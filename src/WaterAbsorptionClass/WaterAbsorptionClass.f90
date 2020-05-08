@@ -11,12 +11,14 @@ module WaterAbsorptionClass
     contains
         procedure, public :: import=> importWaterAbsorption
         procedure, public :: init=> initWaterAbsorption
+        procedure, public :: run => runWaterAbsorption
         procedure, public :: update=> updateWaterAbsorption
         procedure, public :: initHydraulicField => initHydraulicFieldWA
         procedure, public :: updateHydraulicField => updateHydraulicFieldWA
         procedure, public :: initMechanicalField => initMechanicalFieldWA
         procedure, public :: updateMechanicalField => updateMechanicalFieldWA
         procedure, public :: export=> exportWaterAbsorption
+        procedure, public :: display => displayWaterAbsorption
     end type
 
 contains
@@ -31,6 +33,22 @@ subroutine importWaterAbsorption(obj,Water,Tissue)
 end subroutine importWaterAbsorption
 !#####################################
 
+!#####################################
+subroutine runWaterAbsorption(obj,timestep)
+    class(WaterAbsorption_),intent(inout) :: obj
+    integer(int32),intent(in) :: timestep
+    integer(int32) :: i
+
+    return
+    call obj%init()
+    ! Repeat over time
+    do i=1,timestep
+        call obj%update()
+    enddo
+
+
+end subroutine runWaterAbsorption
+!#####################################
 
 !#####################################
 subroutine initWaterAbsorption(obj)
@@ -118,4 +136,12 @@ subroutine exportWaterAbsorption(obj,OptionalFileFormat,OptionalProjectName,File
 end subroutine exportWaterAbsorption
 !#####################################
 
+!#####################################
+subroutine displayWaterAbsorption(obj)
+    class(WaterAbsorption_),intent(inout) :: obj
+
+    ! implement how to display the results.
+
+end subroutine displayWaterAbsorption
+!#####################################
 end module WaterAbsorptionClass
