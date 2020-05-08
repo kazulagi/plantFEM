@@ -8,14 +8,26 @@ module FEMDomainClass
     use BoundaryConditionClass
     use ControlParaeterClass
 
-    implicit none
+	implicit none
+
+	type::Meshp_
+		type(Mesh_),pointer :: Meshp
+	end type
+
+
+	type::Boundaryp_
+		type(Boundary_),pointer :: Boundaryp
+	end type
 
     type::FEMDomain_
         type(Mesh_)             :: Mesh
         type(MaterialProp_)     :: MaterialProp
         type(Boundary_)         :: Boundary
 		type(ControlParameter_) :: ControlPara
-		
+
+		type(Meshp_),allocatable :: Meshes(:)
+		type(Boundaryp_),allocatable :: Boundaries(:)
+        
 
         type(ShapeFunction_)    :: ShapeFunction
         real(real64) :: RealTime
@@ -26,13 +38,14 @@ module FEMDomainClass
 		character*200 :: Category1 
 		character*200 :: Category2
 		character*200 :: Category3
-		integer(int32) :: timestep
+		integer(int32) :: timestep, NumberOfBoundaries
     contains
         procedure,public :: Init   => InitializeFEMDomain
         procedure,public :: Delete => DeallocateFEMDomain
         procedure,public :: Export => ExportFEMDomain
 		procedure,public :: Import => ImportFEMDomain
 		procedure,public :: ImportMesh => ImportMeshFEMDomain
+		procedure,public :: ImportBoundaries => ImportBoundariesFEMDomain
 		procedure,public :: Resize => resizeFEMDomain
         procedure,public :: Merge  => MergeFEMDomain
         procedure,public :: AddDBoundCondition => AddDBoundCondition
@@ -49,7 +62,8 @@ module FEMDomainClass
 		procedure,public :: AddNBC => AddNBCFEMDomain 
         procedure,public :: MeltingSkelton => MeltingSkeltonFEMDomain
         procedure,public :: SetControlPara =>  SetControlParaFEMDomain
-        procedure,public :: GmshPlotMesh => GmshPlotMesh
+		procedure,public :: GmshPlotMesh => GmshPlotMesh
+		procedure,public :: gmsh => GmshPlotMesh
 		procedure,public :: GmshPlotContour => GmshPlotContour
 		procedure,public :: GmshPlotVector => GmshPlotVector 
         procedure,public :: GmshPlotContour2D => GmshPlotContour2D
@@ -63,6 +77,8 @@ module FEMDomainClass
 		procedure,public :: create => createFEMDomain
 		procedure,public :: setBoundary => setBoundaryFEMDomain
 		procedure,public :: showRange => showRangeFEMDomain
+		procedure,public :: showBoundaries => showBoundariesFEMDomain
+		procedure,public :: removeBoundaries => removeBoundariesFEMDomain
 
 		! for debug
 		procedure,public :: CheckConnectivity => CheckConnedctivityFEMDomain
@@ -131,9 +147,11 @@ end subroutine InitializeFEMDomain
 
 
 !##################################################
-subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,Mesh)
+subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,Mesh,Boundaries&
+		,Boundary,NumberOfBoundaries,BoundaryID)
 	class(FEMDomain_),intent(inout)::obj
 	type(Mesh_),optional,intent(in)::Mesh
+	type(Boundary_),optional,intent(in)::Boundary
     character*4,optional,intent(in)::OptionalFileFormat
     character(*),optional,intent(in)::OptionalProjectName
 	
@@ -145,9 +163,15 @@ character*74 ::FileName
 character*9  :: DataType
 integer,allocatable::IntMat(:,:)
 real(8),allocatable::RealMat(:,:)
-integer,optional,intent(in)::FileHandle
+integer,optional,intent(in)::FileHandle,NumberOfBoundaries,BoundaryID
 integer :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum
 character*70 Msg,name
+logical,optional,intent(in) :: Boundaries
+
+if(present(Boundaries) )then
+	call obj%ImportBoundaries(Boundary,NumberOfBoundaries,BoundaryID)
+	return
+endif
 
 if(present(Mesh) )then
 	call obj%Mesh%import(Mesh=Mesh)
@@ -2356,12 +2380,12 @@ end subroutine
 
 ! #########################################################################################
 subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeumannBC,withDirichletBC&
-	,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial)
+	,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial,Tag)
 	class(FEMDomain_),intent(inout)::obj
 	real(real64),allocatable::gp_value(:,:)
 	integer(int32),optional,intent(in)::OptionalStep
 	character,optional,intent(in):: OptionalContorName*30,OptionalAbb*6
-	character(*),optional,intent(in)::Name
+	character(*),optional,intent(in)::Name,Tag
 	logical,optional,intent(in)::withNeumannBC,withDirichletBC,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial
 	real(real64),allocatable::x_double(:,:)
 	real(real64),allocatable::x(:,:)
@@ -2376,6 +2400,8 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 
 	if(present(OptionalContorName) )then
 		mapname=OptionalContorName
+	elseif(present(Tag) )then
+		mapname=trim(Tag)
 	else
 		mapname="Value"
 	endif
@@ -2405,13 +2431,13 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 	if(present(Name) )then
 		filename=filetitle//filename0
 		
-		call system(  "touch "//trim(Name)//trim(obj%FileName)//trim(filename) )
+		!call system(  "touch "//trim(Name)//trim(obj%FileName)//trim(filename) )
 		print *, trim(Name)//trim(filename)
 		open(fh,file=trim(Name)//trim(filename) )
 		print *, "writing ",trim(Name)//trim(filename)," step>>",step
 	else
 		filename=filetitle//filename0
-		call system(  "touch "//trim(obj%FileName)//trim(filename) )
+		!call system(  "touch "//trim(obj%FileName)//trim(filename) )
 		print *, trim(obj%FileName)//trim(filename)
 		open(fh,file=trim(obj%FileName)//trim(filename) )
 		print *, "writing ",trim(obj%FileName)//trim(filename)," step>>",step
@@ -4829,16 +4855,112 @@ subroutine setBoundaryFEMDomain(obj,new,x_max,x_min,y_max,y_min,z_max,z_min,t_ma
 	real(real64),optional,intent(in) :: value,values(4)
 	logical,optional,intent(in) :: new
 
-	call obj%Boundary%set(new,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,value,values)
+	!call obj%Boundary%setDB(new,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,value,values)
 
 end subroutine setBoundaryFEMDomain
 ! ##################################################
 
+! ##################################################
 subroutine showRangeFEMDomain(obj)
 	class(FEMDomain_)::obj
 
 	call obj%Mesh%showRange()
 end subroutine
+! ##################################################
 
+! ##################################################
+subroutine ImportBoundariesFEMDomain(obj,Boundary,NumberOfBoundaries,BoundaryID)
+	class(FEMDomain_),intent(inout) :: obj
+	type(Boundary_),target,intent(in) :: Boundary
+	integer(int32),optional,intent(in) :: NumberOfBoundaries,BoundaryID
+	integer(int32) :: n
+
+
+	if(.not.allocated(obj%Boundaries) )then
+		n=input(default=30,option=NumberOfBoundaries)
+		allocate(obj%Boundaries(n))
+		obj%NumberOfBoundaries = 0
+	endif
+
+	if(present(BoundaryID) )then
+		if(BoundaryID > size(obj%Boundaries) )then
+			print *, "ERROR :: ImportBoundariesFEMDomain >> requested BoundaryID is grater than the size of stack"
+			print *, "Stack size is ",size(obj%Boundaries), " , and your request is ",BoundaryID
+			return
+		endif
+		if(BoundaryID > obj%NumberOfBoundaries)then
+			print *, "ERROR :: ImportBoundariesFEMDomain >> requested BoundaryID is grater than the Last ID"
+			print *, "The last ID is ",obj%NumberOfBoundaries+1, " , and your request is ",BoundaryID
+			print *, "Hence, your request ",BoundaryID, " is accepted as the ID of ",obj%NumberOfBoundaries+1
+			obj%NumberOfBoundaries=obj%NumberOfBoundaries+1
+			obj%Boundaries(obj%NumberOfBoundaries)%Boundaryp => Boundary
+			print *, "Now, number of boundary conditions is ",obj%NumberOfBoundaries
+			return
+		endif
+		if( associated(obj%Boundaries(BoundaryID)%Boundaryp) )then
+			print *, "Boundary ID :: ", BoundaryID, " is overwritten."
+			nullify(obj%Boundaries(BoundaryID)%Boundaryp )
+		endif
+		obj%Boundaries(BoundaryID)%Boundaryp => Boundary
+		return
+	endif
+
+	obj%NumberOfBoundaries=obj%NumberOfBoundaries+1
+
+	obj%Boundaries(obj%NumberOfBoundaries)%Boundaryp => Boundary
+
+	print *, "Now, number of boundary conditions is ",obj%NumberOfBoundaries
+
+end subroutine ImportBoundariesFEMDomain
+! ##################################################
+
+
+! ##################################################
+subroutine showBoundariesFEMDomain(obj,Name)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),optional,intent(in)::Name
+	integer(int32) :: i
+
+	if(present(Name) )then
+		print *, "Domain Name is :: ", trim(Name)
+	endif
+
+	if(.not. allocated(obj%Boundaries) )then
+		print *, "No boundary is set."
+	else
+		do i=1,obj%NumberOfBoundaries
+			print *, "B.C. ::",i," => ",associated(obj%Boundaries(i)%Boundaryp)
+		enddo
+	endif
+end subroutine showBoundariesFEMDomain
+! ##################################################
+
+
+! ##################################################
+subroutine removeBoundariesFEMDomain(obj,Name,BoundaryID)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),optional,intent(in)::Name
+	integer(int32) :: i
+	integer(int32),optional,intent(in) ::BoundaryID
+
+	if(present(Name) )then
+		print *, "Domain Name is :: ", trim(Name)
+	endif
+
+	if(.not. allocated(obj%Boundaries) )then
+		print *, "No boundary is set."
+	else
+		if(present(BoundaryID))then
+			nullify(obj%Boundaries(BoundaryID)%Boundaryp)
+		else
+			do i=1,obj%NumberOfBoundaries
+				nullify(obj%Boundaries(i)%Boundaryp)
+			enddo
+		endif
+	endif
+	call obj%showBoundaries(Name)
+
+end subroutine removeBoundariesFEMDomain
+! ##################################################
 
 end module FEMDomainClass

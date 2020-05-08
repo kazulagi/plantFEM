@@ -109,16 +109,14 @@ echo "Compiling ./src/ShapeFunctionClass/ShapeFunctionClass.f90 "
 echo " >> ShapeFunctionClass.o "
 echo " | ######                      | (26%)\r\c"
 mpif90 -c ./src/ShapeFunctionClass/ShapeFunctionClass.f90 -o  ./inc/ShapeFunctionClass.o
-echo "Compiling ./src/ShapeFunctionClass/ShapeFunctionClass.f90 " 
-echo " >> ShapeFunctionClass.o "
-echo " | #######                     | (30%)\r\c"
-mpif90 -c ./src/std/std.f90 -o  ./inc/std.o
 echo "Compiling ./src/std/std.f90 " 
 echo " >> std.o "
 echo " | #######                     | (30%)\r\c"
 echo "Standard library (std) is compiled."
-
-
+mpif90 -c ./src/std/std.f90 -o  ./inc/std.o
+echo "Compiling ./src/MeshClass/MeshClass.f90 " 
+echo " >> MeshClass.o "
+echo " | #######                     | (30%)\r\c"
 mpif90 -c ./src/MeshClass/MeshClass.f90 -o  ./inc/MeshClass.o
 echo "Compiling ./src/MaterialPropClass/MaterialPropClass.f90 " 
 echo " >> MaterialPropClass.o "

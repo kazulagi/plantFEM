@@ -27,6 +27,7 @@ module MeshClass
         character*200::FileName
         character*70::ElemType
         character*70 ErrorMsg
+
     contains
         procedure :: Init => InitializeMesh
         procedure :: Delete => DeallocateMesh
@@ -74,6 +75,7 @@ module MeshClass
         procedure :: Convert2Dto3D => Convert2Dto3DMesh
         procedure :: gmsh => gmshMesh
         procedure :: showRange => showRangeMesh
+        procedure :: empty => emptyMesh
     end type Mesh_
 
 
@@ -3040,16 +3042,18 @@ end subroutine checkMesh
 
 ! #########################################################################################
 subroutine gmshMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeumannBC,withDirichletBC&
-	,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial)
+	,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial,ElemValue)
 	class(Mesh_),intent(inout)::obj
 	real(real64),allocatable::gp_value(:,:)
 	integer(int32),optional,intent(in)::OptionalStep
-	character,optional,intent(in):: OptionalContorName*30,OptionalAbb*6
-	character(*),optional,intent(in)::Name
+    character,optional,intent(in):: OptionalAbb*6
+    character(*),optional,intent(in):: OptionalContorName
+    character(*),optional,intent(in)::Name
 	logical,optional,intent(in)::withNeumannBC,withDirichletBC,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial
 	real(real64),allocatable::x_double(:,:)
 	real(real64),allocatable::x(:,:)
-	integer(int32) i,j,k,l,step,fh,nodeid1,nodeid2
+    integer(int32) i,j,k,l,step,fh,nodeid1,nodeid2
+    real(real64),optional,intent(in) :: ElemValue(:,:)
 	character filename0*11
 	character filename*200
 	character filetitle*6
@@ -3089,13 +3093,13 @@ subroutine gmshMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeu
 	if(present(Name) )then
 		filename=filetitle//filename0
 		
-		call system(  "touch "//trim(Name)//trim(obj%FileName)//trim(filename) )
+		!call system(  "touch "//trim(Name)//trim(obj%FileName)//trim(filename) )
 		print *, trim(Name)//trim(filename)
 		open(fh,file=trim(Name)//trim(filename) )
 		print *, "writing ",trim(Name)//trim(filename)," step>>",step
 	else
 		filename=filetitle//filename0
-		call system(  "touch "//trim(obj%FileName)//trim(filename) )
+		!call system(  "touch "//trim(obj%FileName)//trim(filename) )
 		print *, trim(obj%FileName)//trim(filename)
 		open(fh,file=trim(obj%FileName)//trim(filename) )
 		print *, "writing ",trim(obj%FileName)//trim(filename)," step>>",step
@@ -3118,7 +3122,7 @@ subroutine gmshMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeu
 
 	allocate(gp_value( size(obj%ElemNod,1),size(obj%ElemNod,2) ))
 	do i=1,size(obj%ElemNod,1)
-		gp_value(i,:)=dble(obj%ElemMat(i))
+		gp_value(i,:)=input(default=dble(obj%ElemMat(i)),option=ElemValue(i,1))
 	enddo
 
 	x(:,:)=0.0d0
@@ -3715,4 +3719,21 @@ subroutine showRangeMesh(obj)
 
 end subroutine
 !===========================================================================================
+
+function emptyMesh(obj) result(res)
+    class(Mesh_),intent(in) :: obj
+    logical :: res
+    integer(int32) :: cn
+    cn=0
+    if(allocated(obj%NodCoord) )then
+        cn=cn+1
+    endif
+    if(allocated(obj%ElemNod) )then
+        cn=cn+1
+    endif
+    if(cn==0)then
+        res=.true.
+    endif
+end function
+
 end module MeshClass
