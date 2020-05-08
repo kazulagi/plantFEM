@@ -7,9 +7,15 @@ module BoundaryConditionClass
     implicit none
 
     type::Boundary_
+        ! new data structure
         type(Mesh_) :: DBound
         type(Mesh_) :: NBound
         type(Mesh_) :: TBound
+        real(real64),allocatable:: DBoundPara(:,:)
+        real(real64),allocatable:: NBoundPara(:,:)
+        real(real64),allocatable:: TBoundPara(:,:)
+        
+        ! classic data structure
         real(real64),allocatable::DBoundVal(:,:)
         real(real64),allocatable::NBoundVal(:,:)  
         real(real64),allocatable::TBoundVal(:,:)  
@@ -30,7 +36,7 @@ module BoundaryConditionClass
         integer(int32),allocatable::TBoundElemNum(:)
 
         real(real64) ::x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
-        real(real64) :: value,values(4)
+        integer(int32) :: Dcount,Ncount,Tcount
 
         character*70 :: ErrorMsg
     contains
@@ -45,37 +51,90 @@ module BoundaryConditionClass
         procedure :: removeDBC => removeDBCBoundary        
         procedure :: removeNBC => removeNBCBoundary
         procedure :: removeTBC => removeTBCBoundary        
-        procedure :: set     => setBoundary
+        procedure :: setDB     => setDBoundary
+        procedure :: setNB     => setNBoundary
+        procedure :: setTB     => setTBoundary
         procedure :: gmsh    => gmshBoundary
+        procedure :: create => createBoundary
+        procedure :: show => showBoundary
     end type Boundary_
 
 contains
 
-! ###########################################################################
-subroutine setBoundary(obj,new,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,value,values)
+subroutine showBoundary(obj)
     class(Boundary_),intent(inout) :: obj
-    real(real64),optional,intent(in) :: x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
-    real(real64),optional,intent(in) :: value,values(4)
-    logical,optional,intent(in) :: new
-    integer(int32) :: i,j,n,m
+    integer(int32) ::i,j,n
+    if(allocated(obj%DBound%NodCoord) )then
+        print *, "Dirichlet Boundary edge:: "
+        do i=1,size(obj%DBound%NodCoord,1)
+            print *, obj%DBound%NodCoord(i,:)
+        enddo
+    else
+        print *,  "Dirichlet Boundary edge:: None"
+    endif
+    if(allocated(obj%DBound%ElemNod) )then
+        do i=1,size(obj%DBound%ElemNod,1)
+            print *, "Dirichlet Boundary Connectivity:: "
+            print *, obj%DBound%ElemNod(i,:)
+        enddo
+    else
+        print *, "Dirichlet Boundary Connectivity:: None"
+    endif
 
-    if(present(new) )then
-        if(new .eqv. .true.)then
-            call obj%init(Default=.true.)
+end subroutine
+
+! ###########################################################################
+subroutine createBoundary(obj,Category,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,&
+    BoundValue)
+    class(Boundary_),intent(inout) :: obj
+    character(*),optional,intent(in) :: Category
+    real(real64),optional,intent(in) :: x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
+    real(real64),optional,intent(in) :: BoundValue
+    if(present(Category) )then
+        if(Category == "Dirichlet")then
+            call obj%setDB(x_max=x_max,x_min=x_min,y_max=y_max,y_min=y_min,z_max=z_max,&
+                z_min=z_min,t_max=t_max,t_min=t_min,BoundValue=BoundValue)
         endif
     endif
+    if(present(Category) )then
+        if(Category == "Neumann")then
+            call obj%setNB(x_max=x_max,x_min=x_min,y_max=y_max,y_min=y_min,z_max=z_max,&
+                z_min=z_min,t_max=t_max,t_min=t_min,BoundValue=BoundValue)
+        endif
+    endif
+    if(present(Category) )then
+        if(Category == "Time")then
+            call obj%setTB(x_max=x_max,x_min=x_min,y_max=y_max,y_min=y_min,z_max=z_max,&
+                z_min=z_min,t_max=t_max,t_min=t_min,BoundValue=BoundValue)
+        endif
+    endif
+end subroutine
+! ###########################################################################
+
+! ###########################################################################
+subroutine setDBoundary(obj,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,BoundValue)
+    class(Boundary_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
+    real(real64),optional,intent(in) :: BoundValue
+    integer(int32) :: i,j,n,m,valsize
+
+    valsize=1
+    if(.not. allocated(obj%DBound%NodCoord) )then
+        allocate(obj%DBound%NodCoord(8,3))
+        allocate(obj%DBound%ElemNod(1,8))
+        allocate(obj%DBoundPara(1,valsize))
+        obj%Dcount=1
+    endif
     obj%x_max=input(default=10000000.0d0,option=x_max)
-    obj%x_min=input(default=0.0d0  ,option=x_min)
+    obj%x_min=input(default=-10000000.0d0 ,option=x_min)
     obj%y_max=input(default=10000000.0d0,option=y_max)
-    obj%y_min=input(default=0.0d0  ,option=y_min)
+    obj%y_min=input(default=-10000000.0d0 ,option=y_min)
     obj%z_max=input(default=10000000.0d0,option=z_max)
-    obj%z_min=input(default=0.0d0  ,option=z_min)
+    obj%z_min=input(default=-10000000.0d0 ,option=z_min)
     obj%t_max=input(default=10000000.0d0,option=t_max)
-    obj%t_min=input(default=0.0d0  ,option=t_min)
+    obj%t_min=input(default=0.0d0 ,option=t_min)
 
-    obj%value=input(default=0.0d0  ,option=value)
-
-    if(size( obj%DBound%ElemNod,1 )==1 )then
+    if(obj%Dcount==1 )then
         obj%DBound%NodCoord(1,1) = obj%x_min
         obj%DBound%NodCoord(1,2) = obj%y_min
         obj%DBound%NodCoord(1,3) = obj%z_min
@@ -112,50 +171,307 @@ subroutine setBoundary(obj,new,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,v
         do i=1,8
             obj%DBound%ElemNod(1,i)=i
         enddo
+        obj%DBoundPara(1,1)=input(default=0.0d0,option=BoundValue)
+        !if(present(Values) )then
+        !    obj%DBoundPara(1,:)=values
+        !endif
+        obj%Dcount=obj%Dcount+1
     else
         n=size(obj%DBound%ElemNod,1)
-        call extendArray(mat=obj%DBound%NodCoord,extend1stColumn=.true.)
-        call extendArray(mat=obj%DBound%ElemNod,extend1stColumn=.true.)
-
-        obj%DBound%NodCoord( (n-1)*8 + 1,1) = obj%x_min
-        obj%DBound%NodCoord( (n-1)*8 + 1,2) = obj%y_min
-        obj%DBound%NodCoord( (n-1)*8 + 1,3) = obj%z_min
-        
-        obj%DBound%NodCoord( (n-1)*8 + 2,1) = obj%x_max
-        obj%DBound%NodCoord( (n-1)*8 + 2,2) = obj%y_min
-        obj%DBound%NodCoord( (n-1)*8 + 2,3) = obj%z_min
-
-        obj%DBound%NodCoord( (n-1)*8 + 3,1) = obj%x_max
-        obj%DBound%NodCoord( (n-1)*8 + 3,2) = obj%y_max
-        obj%DBound%NodCoord( (n-1)*8 + 3,3) = obj%z_min
-
-        obj%DBound%NodCoord( (n-1)*8 + 4,1) = obj%x_min
-        obj%DBound%NodCoord( (n-1)*8 + 4,2) = obj%y_max
-        obj%DBound%NodCoord( (n-1)*8 + 4,3) = obj%z_min
-
-        obj%DBound%NodCoord( (n-1)*8 + 5,1) = obj%x_min
-        obj%DBound%NodCoord( (n-1)*8 + 5,2) = obj%y_min
-        obj%DBound%NodCoord( (n-1)*8 + 5,3) = obj%z_max
-
-        obj%DBound%NodCoord( (n-1)*8 + 6,1) = obj%x_max
-        obj%DBound%NodCoord( (n-1)*8 + 6,2) = obj%y_min
-        obj%DBound%NodCoord( (n-1)*8 + 6,3) = obj%z_max
-
-        obj%DBound%NodCoord( (n-1)*8 + 7,1) = obj%x_max
-        obj%DBound%NodCoord( (n-1)*8 + 7,2) = obj%y_max
-        obj%DBound%NodCoord( (n-1)*8 + 7,3) = obj%z_max
-
-        obj%DBound%NodCoord( (n-1)*8 + 8,1) = obj%x_min
-        obj%DBound%NodCoord( (n-1)*8 + 8,2) = obj%y_max
-        obj%DBound%NodCoord( (n-1)*8 + 8,3) = obj%z_max
-
         do i=1,8
-            obj%DBound%ElemNod(1+n,i)=i
+            call extendArray(mat=obj%DBound%NodCoord,extend1stColumn=.true.)
         enddo
+        call extendArray(mat=obj%DBoundPara,extend1stColumn=.true.)
+        call extendArray(mat=obj%DBound%ElemNod,extend1stColumn=.true.)
+        obj%Dcount=obj%Dcount+1
+        obj%DBound%NodCoord( n*8 + 1,1) = obj%x_min
+        obj%DBound%NodCoord( n*8 + 1,2) = obj%y_min
+        obj%DBound%NodCoord( n*8 + 1,3) = obj%z_min
+        
+        obj%DBound%NodCoord( n*8 + 2,1) = obj%x_max
+        obj%DBound%NodCoord( n*8 + 2,2) = obj%y_min
+        obj%DBound%NodCoord( n*8 + 2,3) = obj%z_min
+
+        obj%DBound%NodCoord( n*8 + 3,1) = obj%x_max
+        obj%DBound%NodCoord( n*8 + 3,2) = obj%y_max
+        obj%DBound%NodCoord( n*8 + 3,3) = obj%z_min
+
+        obj%DBound%NodCoord( n*8 + 4,1) = obj%x_min
+        obj%DBound%NodCoord( n*8 + 4,2) = obj%y_max
+        obj%DBound%NodCoord( n*8 + 4,3) = obj%z_min
+
+        obj%DBound%NodCoord( n*8 + 5,1) = obj%x_min
+        obj%DBound%NodCoord( n*8 + 5,2) = obj%y_min
+        obj%DBound%NodCoord( n*8 + 5,3) = obj%z_max
+
+        obj%DBound%NodCoord( n*8 + 6,1) = obj%x_max
+        obj%DBound%NodCoord( n*8 + 6,2) = obj%y_min
+        obj%DBound%NodCoord( n*8 + 6,3) = obj%z_max
+
+        obj%DBound%NodCoord( n*8 + 7,1) = obj%x_max
+        obj%DBound%NodCoord( n*8 + 7,2) = obj%y_max
+        obj%DBound%NodCoord( n*8 + 7,3) = obj%z_max
+
+        obj%DBound%NodCoord( n*8 + 8,1) = obj%x_min
+        obj%DBound%NodCoord( n*8 + 8,2) = obj%y_max
+        obj%DBound%NodCoord( n*8 + 8,3) = obj%z_max
+        
+        obj%DBoundPara(1+n,1)=input(default=0.0d0,option=BoundValue)
+        do i=1,8
+            obj%DBound%ElemNod(1+n,i)=i+n*8
+        enddo
+        !if(present(Values) )then
+        !    obj%DBoundPara(1+n,:)=values
+        !endif
+
+
     endif
     
-end subroutine setBoundary
+end subroutine setDBoundary
 ! ###########################################################################
+
+
+! ###########################################################################
+subroutine setNBoundary(obj,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,BoundValue)
+    class(Boundary_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
+    real(real64),optional,intent(in) :: BoundValue
+    integer(int32) :: i,j,n,m,valsize
+
+    valsize=1
+    if(.not. allocated(obj%NBound%NodCoord) )then
+        allocate(obj%NBound%NodCoord(8,3))
+        allocate(obj%NBound%ElemNod(1,8))
+        allocate(obj%NBoundPara(1,valsize))
+        obj%Dcount=1
+    endif
+    obj%x_max=input(default=10000000.0d0,option=x_max)
+    obj%x_min=input(default=-10000000.0d0 ,option=x_min)
+    obj%y_max=input(default=10000000.0d0,option=y_max)
+    obj%y_min=input(default=-10000000.0d0 ,option=y_min)
+    obj%z_max=input(default=10000000.0d0,option=z_max)
+    obj%z_min=input(default=-10000000.0d0 ,option=z_min)
+    obj%t_max=input(default=10000000.0d0,option=t_max)
+    obj%t_min=input(default=0.0d0 ,option=t_min)
+
+    if(obj%Dcount==1 )then
+        obj%NBound%NodCoord(1,1) = obj%x_min
+        obj%NBound%NodCoord(1,2) = obj%y_min
+        obj%NBound%NodCoord(1,3) = obj%z_min
+
+        obj%NBound%NodCoord(2,1) = obj%x_max
+        obj%NBound%NodCoord(2,2) = obj%y_min
+        obj%NBound%NodCoord(2,3) = obj%z_min
+
+        obj%NBound%NodCoord(3,1) = obj%x_max
+        obj%NBound%NodCoord(3,2) = obj%y_max
+        obj%NBound%NodCoord(3,3) = obj%z_min
+
+        obj%NBound%NodCoord(4,1) = obj%x_min
+        obj%NBound%NodCoord(4,2) = obj%y_max
+        obj%NBound%NodCoord(4,3) = obj%z_min
+
+        obj%NBound%NodCoord(5,1) = obj%x_min
+        obj%NBound%NodCoord(5,2) = obj%y_min
+        obj%NBound%NodCoord(5,3) = obj%z_max
+
+        obj%NBound%NodCoord(6,1) = obj%x_max
+        obj%NBound%NodCoord(6,2) = obj%y_min
+        obj%NBound%NodCoord(6,3) = obj%z_max
+
+        obj%NBound%NodCoord(7,1) = obj%x_max
+        obj%NBound%NodCoord(7,2) = obj%y_max
+        obj%NBound%NodCoord(7,3) = obj%z_max
+
+        obj%NBound%NodCoord(8,1) = obj%x_min
+        obj%NBound%NodCoord(8,2) = obj%y_max
+        obj%NBound%NodCoord(8,3) = obj%z_max
+
+
+        do i=1,8
+            obj%NBound%ElemNod(1,i)=i
+        enddo
+        obj%NBoundPara(1,1)=input(default=0.0d0,option=BoundValue)
+        !if(present(Values) )then
+        !    obj%NBoundPara(1,:)=values
+        !endif
+        obj%Dcount=obj%Dcount+1
+    else
+        n=size(obj%NBound%ElemNod,1)
+        do i=1,8
+            call extendArray(mat=obj%NBound%NodCoord,extend1stColumn=.true.)
+        enddo
+        call extendArray(mat=obj%NBoundPara,extend1stColumn=.true.)
+        call extendArray(mat=obj%NBound%ElemNod,extend1stColumn=.true.)
+        obj%Dcount=obj%Dcount+1
+        obj%NBound%NodCoord( n*8 + 1,1) = obj%x_min
+        obj%NBound%NodCoord( n*8 + 1,2) = obj%y_min
+        obj%NBound%NodCoord( n*8 + 1,3) = obj%z_min
+        
+        obj%NBound%NodCoord( n*8 + 2,1) = obj%x_max
+        obj%NBound%NodCoord( n*8 + 2,2) = obj%y_min
+        obj%NBound%NodCoord( n*8 + 2,3) = obj%z_min
+
+        obj%NBound%NodCoord( n*8 + 3,1) = obj%x_max
+        obj%NBound%NodCoord( n*8 + 3,2) = obj%y_max
+        obj%NBound%NodCoord( n*8 + 3,3) = obj%z_min
+
+        obj%NBound%NodCoord( n*8 + 4,1) = obj%x_min
+        obj%NBound%NodCoord( n*8 + 4,2) = obj%y_max
+        obj%NBound%NodCoord( n*8 + 4,3) = obj%z_min
+
+        obj%NBound%NodCoord( n*8 + 5,1) = obj%x_min
+        obj%NBound%NodCoord( n*8 + 5,2) = obj%y_min
+        obj%NBound%NodCoord( n*8 + 5,3) = obj%z_max
+
+        obj%NBound%NodCoord( n*8 + 6,1) = obj%x_max
+        obj%NBound%NodCoord( n*8 + 6,2) = obj%y_min
+        obj%NBound%NodCoord( n*8 + 6,3) = obj%z_max
+
+        obj%NBound%NodCoord( n*8 + 7,1) = obj%x_max
+        obj%NBound%NodCoord( n*8 + 7,2) = obj%y_max
+        obj%NBound%NodCoord( n*8 + 7,3) = obj%z_max
+
+        obj%NBound%NodCoord( n*8 + 8,1) = obj%x_min
+        obj%NBound%NodCoord( n*8 + 8,2) = obj%y_max
+        obj%NBound%NodCoord( n*8 + 8,3) = obj%z_max
+        
+        obj%NBoundPara(1+n,1)=input(default=0.0d0,option=BoundValue)
+        do i=1,8
+            obj%NBound%ElemNod(1+n,i)=i+n*8
+        enddo
+        !if(present(Values) )then
+        !    obj%DBoundPara(1+n,:)=values
+        !endif
+
+
+    endif
+    
+end subroutine setNBoundary
+! ###########################################################################
+
+
+! ###########################################################################
+subroutine setTBoundary(obj,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,BoundValue)
+    class(Boundary_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
+    real(real64),optional,intent(in) :: BoundValue
+    integer(int32) :: i,j,n,m,valsize
+
+    valsize=1
+    if(.not. allocated(obj%TBound%NodCoord) )then
+        allocate(obj%TBound%NodCoord(8,3))
+        allocate(obj%TBound%ElemNod(1,8))
+        allocate(obj%TBoundPara(1,valsize))
+        obj%Dcount=1
+    endif
+    obj%x_max=input(default=10000000.0d0,option=x_max)
+    obj%x_min=input(default=-10000000.0d0 ,option=x_min)
+    obj%y_max=input(default=10000000.0d0,option=y_max)
+    obj%y_min=input(default=-10000000.0d0 ,option=y_min)
+    obj%z_max=input(default=10000000.0d0,option=z_max)
+    obj%z_min=input(default=-10000000.0d0 ,option=z_min)
+    obj%t_max=input(default=10000000.0d0,option=t_max)
+    obj%t_min=input(default=0.0d0 ,option=t_min)
+
+    if(obj%Dcount==1 )then
+        obj%TBound%NodCoord(1,1) = obj%x_min
+        obj%TBound%NodCoord(1,2) = obj%y_min
+        obj%TBound%NodCoord(1,3) = obj%z_min
+
+        obj%TBound%NodCoord(2,1) = obj%x_max
+        obj%TBound%NodCoord(2,2) = obj%y_min
+        obj%TBound%NodCoord(2,3) = obj%z_min
+
+        obj%TBound%NodCoord(3,1) = obj%x_max
+        obj%TBound%NodCoord(3,2) = obj%y_max
+        obj%TBound%NodCoord(3,3) = obj%z_min
+
+        obj%TBound%NodCoord(4,1) = obj%x_min
+        obj%TBound%NodCoord(4,2) = obj%y_max
+        obj%TBound%NodCoord(4,3) = obj%z_min
+
+        obj%TBound%NodCoord(5,1) = obj%x_min
+        obj%TBound%NodCoord(5,2) = obj%y_min
+        obj%TBound%NodCoord(5,3) = obj%z_max
+
+        obj%TBound%NodCoord(6,1) = obj%x_max
+        obj%TBound%NodCoord(6,2) = obj%y_min
+        obj%TBound%NodCoord(6,3) = obj%z_max
+
+        obj%TBound%NodCoord(7,1) = obj%x_max
+        obj%TBound%NodCoord(7,2) = obj%y_max
+        obj%TBound%NodCoord(7,3) = obj%z_max
+
+        obj%TBound%NodCoord(8,1) = obj%x_min
+        obj%TBound%NodCoord(8,2) = obj%y_max
+        obj%TBound%NodCoord(8,3) = obj%z_max
+
+
+        do i=1,8
+            obj%TBound%ElemNod(1,i)=i
+        enddo
+        obj%TBoundPara(1,1)=input(default=0.0d0,option=BoundValue)
+        !if(present(Values) )then
+        !    obj%TBoundPara(1,:)=values
+        !endif
+        obj%Dcount=obj%Dcount+1
+    else
+        n=size(obj%TBound%ElemNod,1)
+        do i=1,8
+            call extendArray(mat=obj%TBound%NodCoord,extend1stColumn=.true.)
+        enddo
+        call extendArray(mat=obj%TBoundPara,extend1stColumn=.true.)
+        call extendArray(mat=obj%TBound%ElemNod,extend1stColumn=.true.)
+        obj%Dcount=obj%Dcount+1
+        obj%TBound%NodCoord( n*8 + 1,1) = obj%x_min
+        obj%TBound%NodCoord( n*8 + 1,2) = obj%y_min
+        obj%TBound%NodCoord( n*8 + 1,3) = obj%z_min
+        
+        obj%TBound%NodCoord( n*8 + 2,1) = obj%x_max
+        obj%TBound%NodCoord( n*8 + 2,2) = obj%y_min
+        obj%TBound%NodCoord( n*8 + 2,3) = obj%z_min
+
+        obj%TBound%NodCoord( n*8 + 3,1) = obj%x_max
+        obj%TBound%NodCoord( n*8 + 3,2) = obj%y_max
+        obj%TBound%NodCoord( n*8 + 3,3) = obj%z_min
+
+        obj%TBound%NodCoord( n*8 + 4,1) = obj%x_min
+        obj%TBound%NodCoord( n*8 + 4,2) = obj%y_max
+        obj%TBound%NodCoord( n*8 + 4,3) = obj%z_min
+
+        obj%TBound%NodCoord( n*8 + 5,1) = obj%x_min
+        obj%TBound%NodCoord( n*8 + 5,2) = obj%y_min
+        obj%TBound%NodCoord( n*8 + 5,3) = obj%z_max
+
+        obj%TBound%NodCoord( n*8 + 6,1) = obj%x_max
+        obj%TBound%NodCoord( n*8 + 6,2) = obj%y_min
+        obj%TBound%NodCoord( n*8 + 6,3) = obj%z_max
+
+        obj%TBound%NodCoord( n*8 + 7,1) = obj%x_max
+        obj%TBound%NodCoord( n*8 + 7,2) = obj%y_max
+        obj%TBound%NodCoord( n*8 + 7,3) = obj%z_max
+
+        obj%TBound%NodCoord( n*8 + 8,1) = obj%x_min
+        obj%TBound%NodCoord( n*8 + 8,2) = obj%y_max
+        obj%TBound%NodCoord( n*8 + 8,3) = obj%z_max
+        
+        obj%TBoundPara(1+n,1)=input(default=0.0d0,option=BoundValue)
+        do i=1,8
+            obj%TBound%ElemNod(1+n,i)=i+n*8
+        enddo
+        !if(present(Values) )then
+        !    obj%DBoundPara(1+n,:)=values
+        !endif
+
+
+    endif
+    
+end subroutine setTBoundary
+! ###########################################################################
+
+
+
 
 !############### Check Consistency of Objects ###############
 subroutine CheckDatatypeBoundary(obj)
@@ -576,28 +892,76 @@ end subroutine
 !###############################################
 
 !###############################################
-subroutine gmshBoundary(obj,Dirichlet, Neumann, Time,Name)
+subroutine gmshBoundary(obj,Dirichlet, Neumann, Time, Name, Tag)
     class(Boundary_),intent(inout) :: obj
     logical,optional,intent(in) :: Dirichlet, Neumann, Time
-    character(*),optional,intent(in) :: Name
+    character(*),optional,intent(in) :: Name,Tag
+    real(real64),allocatable :: ElemValue(:,:)
+    integer(int32) :: i
+
 
     if(present(Dirichlet) )then
         if(Dirichlet .eqv. .true.)then
-            call obj%DBound%gmsh(Name=Name//"Dirichlet")
+            if( obj%DBound%empty() .eqv. .true. )then
+                print *, "ERROR gmshBoundary :: No Dirichlet B.C. is installed. "
+                return
+            endif
+            allocate(ElemValue(size(obj%DBoundPara,1),1 ))
+            do i=1,size(obj%DBoundPara,2)
+                ElemValue(:,1)=obj%DBoundPara(:,i)
+                if(present(tag) )then
+                    call obj%DBound%gmsh(Name=Name//"Dirichlet",ElemValue=ElemValue,&
+                        OptionalContorName=trim(Tag))
+                else
+                    call obj%DBound%gmsh(Name=Name//"Dirichlet",ElemValue=ElemValue,&
+                        OptionalContorName="Dirichlet Boundary Value :: ID = "//trim(adjustl(fstring(i))))
+                endif
+            enddo
+            deallocate(ElemValue)
         endif
         return
     endif
 
     if(present(Neumann) )then
         if(Neumann .eqv. .true.)then
-            call obj%NBound%gmsh(Name=Name//"Neumann")
+            if( obj%NBound%empty() .eqv. .true. )then
+                print *, "ERROR gmshBoundary :: No Neumann B.C. is installed. "
+                return
+            endif
+            allocate(ElemValue(size(obj%NBoundPara,1),1 ))
+            do i=1,size(obj%NBoundPara,2)
+                ElemValue(:,1)=obj%NBoundPara(:,i)
+                if(present(tag) )then
+                    call obj%NBound%gmsh(Name=Name//"Neumann",ElemValue=ElemValue,&
+                        OptionalContorName=trim(Tag))
+                else
+                    call obj%NBound%gmsh(Name=Name//"Neumann",ElemValue=ElemValue,&
+                        OptionalContorName="Neumann Boundary Value :: ID = "//trim(adjustl(fstring(i))))
+                endif
+            enddo
+            deallocate(ElemValue)
         endif
         return
     endif
 
     if(present(Time) )then
         if(Time .eqv. .true.)then
-            call obj%TBound%gmsh(Name=Name//"Time")
+            if( obj%TBound%empty() .eqv. .true. )then
+                print *, "ERROR gmshBoundary :: No Time B.C. is installed. "
+                return
+            endif
+            allocate(ElemValue(size(obj%TBoundPara,1),1 ))
+            do i=1,size(obj%TBoundPara,2)
+                ElemValue(:,1)=obj%TBoundPara(:,i)
+                if(present(tag) )then
+                    call obj%TBound%gmsh(Name=Name//"Time",ElemValue=ElemValue,&
+                        OptionalContorName=trim(Tag))
+                else
+                    call obj%TBound%gmsh(Name=Name//"Time",ElemValue=ElemValue,&
+                        OptionalContorName="Time Boundary Value :: ID = "//trim(adjustl(fstring(i))))
+                endif
+            enddo
+            deallocate(ElemValue)
         endif
         return
     endif
