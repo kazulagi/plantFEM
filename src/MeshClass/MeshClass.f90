@@ -3733,6 +3733,8 @@ function emptyMesh(obj) result(res)
     endif
     if(cn==0)then
         res=.true.
+    else
+        res=.false.
     endif
 end function
 
