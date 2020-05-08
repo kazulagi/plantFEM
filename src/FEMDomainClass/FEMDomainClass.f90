@@ -79,6 +79,8 @@ module FEMDomainClass
 		procedure,public :: showRange => showRangeFEMDomain
 		procedure,public :: showBoundaries => showBoundariesFEMDomain
 		procedure,public :: removeBoundaries => removeBoundariesFEMDomain
+		procedure,public :: copy => copyFEMDomain
+		procedure,public :: burn => burnFEMDomain
 
 		! for debug
 		procedure,public :: CheckConnectivity => CheckConnedctivityFEMDomain
@@ -4929,7 +4931,8 @@ subroutine showBoundariesFEMDomain(obj,Name)
 		print *, "No boundary is set."
 	else
 		do i=1,obj%NumberOfBoundaries
-			print *, "B.C. ::",i," => ",associated(obj%Boundaries(i)%Boundaryp)
+			print *, "Layer :: ",obj%Boundaries(i)%Boundaryp%Layer,"B.C. ::",i," => ",&
+				associated(obj%Boundaries(i)%Boundaryp)
 		enddo
 	endif
 end subroutine showBoundariesFEMDomain
@@ -4961,6 +4964,56 @@ subroutine removeBoundariesFEMDomain(obj,Name,BoundaryID)
 	call obj%showBoundaries(Name)
 
 end subroutine removeBoundariesFEMDomain
+! ##################################################
+
+! ##################################################
+subroutine copyFEMDomain(obj,OriginalObj,onlyMesh)
+	class(FEMDomain_),intent(inout) :: obj
+	class(FEMDomain_),intent(in) :: OriginalObj
+	logical,optional,intent(in) :: onlyMesh
+
+
+	call obj%Mesh%copy(OriginalObj%Mesh)
+
+	if(present(onlyMesh) )then
+		if(onlyMesh .eqv. .true.)then
+			print *, "Only mesh is copied."
+			return
+		endif
+	endif
+
+end subroutine copyFEMDomain
+! ##################################################
+
+! ##################################################
+subroutine burnFEMDomain(obj, template, templateFile)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),intent(in) :: template
+	character(*),optional,intent(in) :: templateFile 
+	! BURN creates a complete input file for a FEM analysis.
+	! You can use build-in templates or your original template.
+	! We prepare following build-in templates.
+	! - FiniteDeform_ :: For 3-D Finite Deformation Analysis
+	! - DiffusionEq_  :: For 3-D Diffusion Analysis
+	! If you want to use your original format, please import 
+	! your template file.
+	! (This is being implemented.)
+	
+	if(template=="Original")then
+		print *, "Please add an argument as 'templateFile = [Your_Template_File]'"
+		return
+	elseif(template=="FiniteDeform_" .or. template=="FiniteDeform")then
+		print *, "Build-in template :: FiniteDeform_ is utilized..."
+		! Run burning process ...
+
+	elseif(template=="DiffusionEq_" .or. template=="DiffusionEq")then
+		print *, "Build-in template :: DiffusionEq_ is utilized..."
+		! Run burning process ...
+		
+	else
+		print *, "In case that you want to use your template, please type template='original'."
+	endif
+end subroutine burnFEMDomain
 ! ##################################################
 
 end module FEMDomainClass

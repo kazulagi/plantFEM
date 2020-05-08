@@ -14,7 +14,7 @@ rm PySiCroF.py
 mv *.f90 log/
 mv *.geo RESULTS/
 mv *.msh RESULTS/
-mv *.pos RESULTS/
+rm *.pos 
 mv GetSurface* RESULTS/
 mv *.txt~ RESULTS/
 mv *.blend RESULTS/

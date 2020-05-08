@@ -37,6 +37,7 @@ module BoundaryConditionClass
 
         real(real64) ::x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
         integer(int32) :: Dcount,Ncount,Tcount
+        integer(int32) :: layer
 
         character*70 :: ErrorMsg
     contains
@@ -85,39 +86,42 @@ end subroutine
 
 ! ###########################################################################
 subroutine createBoundary(obj,Category,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,&
-    BoundValue)
+    BoundValue,Layer)
     class(Boundary_),intent(inout) :: obj
     character(*),optional,intent(in) :: Category
     real(real64),optional,intent(in) :: x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
     real(real64),optional,intent(in) :: BoundValue
+    integer(int32),optional,intent(in) :: Layer
     if(present(Category) )then
         if(Category == "Dirichlet")then
             call obj%setDB(x_max=x_max,x_min=x_min,y_max=y_max,y_min=y_min,z_max=z_max,&
-                z_min=z_min,t_max=t_max,t_min=t_min,BoundValue=BoundValue)
+                z_min=z_min,t_max=t_max,t_min=t_min,BoundValue=BoundValue,Layer=Layer)
         endif
     endif
     if(present(Category) )then
         if(Category == "Neumann")then
             call obj%setNB(x_max=x_max,x_min=x_min,y_max=y_max,y_min=y_min,z_max=z_max,&
-                z_min=z_min,t_max=t_max,t_min=t_min,BoundValue=BoundValue)
+                z_min=z_min,t_max=t_max,t_min=t_min,BoundValue=BoundValue,Layer=Layer)
         endif
     endif
     if(present(Category) )then
         if(Category == "Time")then
             call obj%setTB(x_max=x_max,x_min=x_min,y_max=y_max,y_min=y_min,z_max=z_max,&
-                z_min=z_min,t_max=t_max,t_min=t_min,BoundValue=BoundValue)
+                z_min=z_min,t_max=t_max,t_min=t_min,BoundValue=BoundValue,Layer=Layer)
         endif
     endif
 end subroutine
 ! ###########################################################################
 
 ! ###########################################################################
-subroutine setDBoundary(obj,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,BoundValue)
+subroutine setDBoundary(obj,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,BoundValue,Layer)
     class(Boundary_),intent(inout) :: obj
     real(real64),optional,intent(in) :: x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
     real(real64),optional,intent(in) :: BoundValue
     integer(int32) :: i,j,n,m,valsize
-
+    integer(int32),optional,intent(in) :: Layer
+    
+    obj%Layer=input(default=1, option=Layer)
     valsize=1
     if(.not. allocated(obj%DBound%NodCoord) )then
         allocate(obj%DBound%NodCoord(8,3))
@@ -232,18 +236,21 @@ end subroutine setDBoundary
 
 
 ! ###########################################################################
-subroutine setNBoundary(obj,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,BoundValue)
+subroutine setNBoundary(obj,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,BoundValue,Layer)
     class(Boundary_),intent(inout) :: obj
     real(real64),optional,intent(in) :: x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
     real(real64),optional,intent(in) :: BoundValue
     integer(int32) :: i,j,n,m,valsize
-
+    integer(int32),optional,intent(in) :: Layer
+    
+    obj%Layer=input(default=1, option=Layer)
+    
     valsize=1
     if(.not. allocated(obj%NBound%NodCoord) )then
         allocate(obj%NBound%NodCoord(8,3))
         allocate(obj%NBound%ElemNod(1,8))
         allocate(obj%NBoundPara(1,valsize))
-        obj%Dcount=1
+        obj%Ncount=1
     endif
     obj%x_max=input(default=10000000.0d0,option=x_max)
     obj%x_min=input(default=-10000000.0d0 ,option=x_min)
@@ -254,7 +261,7 @@ subroutine setNBoundary(obj,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,Boun
     obj%t_max=input(default=10000000.0d0,option=t_max)
     obj%t_min=input(default=0.0d0 ,option=t_min)
 
-    if(obj%Dcount==1 )then
+    if(obj%Ncount==1 )then
         obj%NBound%NodCoord(1,1) = obj%x_min
         obj%NBound%NodCoord(1,2) = obj%y_min
         obj%NBound%NodCoord(1,3) = obj%z_min
@@ -295,7 +302,7 @@ subroutine setNBoundary(obj,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,Boun
         !if(present(Values) )then
         !    obj%NBoundPara(1,:)=values
         !endif
-        obj%Dcount=obj%Dcount+1
+        obj%Ncount=obj%Ncount+1
     else
         n=size(obj%NBound%ElemNod,1)
         do i=1,8
@@ -303,7 +310,7 @@ subroutine setNBoundary(obj,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,Boun
         enddo
         call extendArray(mat=obj%NBoundPara,extend1stColumn=.true.)
         call extendArray(mat=obj%NBound%ElemNod,extend1stColumn=.true.)
-        obj%Dcount=obj%Dcount+1
+        obj%Ncount=obj%Ncount+1
         obj%NBound%NodCoord( n*8 + 1,1) = obj%x_min
         obj%NBound%NodCoord( n*8 + 1,2) = obj%y_min
         obj%NBound%NodCoord( n*8 + 1,3) = obj%z_min
@@ -352,18 +359,20 @@ end subroutine setNBoundary
 
 
 ! ###########################################################################
-subroutine setTBoundary(obj,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,BoundValue)
+subroutine setTBoundary(obj,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,BoundValue,Layer)
     class(Boundary_),intent(inout) :: obj
     real(real64),optional,intent(in) :: x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
     real(real64),optional,intent(in) :: BoundValue
     integer(int32) :: i,j,n,m,valsize
-
+    integer(int32),optional,intent(in) :: Layer
+    
+    obj%Layer=input(default=1, option=Layer)
     valsize=1
     if(.not. allocated(obj%TBound%NodCoord) )then
         allocate(obj%TBound%NodCoord(8,3))
         allocate(obj%TBound%ElemNod(1,8))
         allocate(obj%TBoundPara(1,valsize))
-        obj%Dcount=1
+        obj%Tcount=1
     endif
     obj%x_max=input(default=10000000.0d0,option=x_max)
     obj%x_min=input(default=-10000000.0d0 ,option=x_min)
@@ -374,7 +383,7 @@ subroutine setTBoundary(obj,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,Boun
     obj%t_max=input(default=10000000.0d0,option=t_max)
     obj%t_min=input(default=0.0d0 ,option=t_min)
 
-    if(obj%Dcount==1 )then
+    if(obj%Tcount==1 )then
         obj%TBound%NodCoord(1,1) = obj%x_min
         obj%TBound%NodCoord(1,2) = obj%y_min
         obj%TBound%NodCoord(1,3) = obj%z_min
@@ -415,7 +424,7 @@ subroutine setTBoundary(obj,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,Boun
         !if(present(Values) )then
         !    obj%TBoundPara(1,:)=values
         !endif
-        obj%Dcount=obj%Dcount+1
+        obj%Tcount=obj%Tcount+1
     else
         n=size(obj%TBound%ElemNod,1)
         do i=1,8
@@ -423,7 +432,7 @@ subroutine setTBoundary(obj,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,Boun
         enddo
         call extendArray(mat=obj%TBoundPara,extend1stColumn=.true.)
         call extendArray(mat=obj%TBound%ElemNod,extend1stColumn=.true.)
-        obj%Dcount=obj%Dcount+1
+        obj%Tcount=obj%Tcount+1
         obj%TBound%NodCoord( n*8 + 1,1) = obj%x_min
         obj%TBound%NodCoord( n*8 + 1,2) = obj%y_min
         obj%TBound%NodCoord( n*8 + 1,3) = obj%z_min

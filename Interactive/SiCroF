@@ -61,15 +61,15 @@ do
         exit 0
     fi
     if [ $command = $man ]; then
-        cat ".man_SiCroF"
+        less ".man_SiCroF"
         continue
     fi
     if [ $command = $man1 ]; then
-        cat ".man_SiCroF"
+        less ".man_SiCroF"
         continue
     fi
     if [ $command = $man2 ]; then
-        cat ".man_SiCroF"
+        less ".man_SiCroF"
         continue
     fi
     if [ $command = "install" ]; then
