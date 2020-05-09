@@ -15,6 +15,10 @@ module FEMDomainClass
 	end type
 
 
+	type::Materialp_
+		type(MaterialProp_),pointer :: Materialp
+	end type
+
 	type::Boundaryp_
 		type(Boundary_),pointer :: Boundaryp
 	end type
@@ -26,11 +30,13 @@ module FEMDomainClass
 		type(ControlParameter_) :: ControlPara
 
 		type(Meshp_),allocatable :: Meshes(:)
+		type(Materialp_),allocatable :: Materials(:)
 		type(Boundaryp_),allocatable :: Boundaries(:)
         
 
         type(ShapeFunction_)    :: ShapeFunction
-        real(real64) :: RealTime
+		real(real64) :: RealTime
+		integer(int32) :: NumOfDomain
         character*200 :: FilePath
         character*200 :: FileName
         character*9 :: Dtype
@@ -38,13 +44,14 @@ module FEMDomainClass
 		character*200 :: Category1 
 		character*200 :: Category2
 		character*200 :: Category3
-		integer(int32) :: timestep, NumberOfBoundaries
+		integer(int32) :: timestep, NumberOfBoundaries, NumberOfMaterials
     contains
         procedure,public :: Init   => InitializeFEMDomain
         procedure,public :: Delete => DeallocateFEMDomain
         procedure,public :: Export => ExportFEMDomain
 		procedure,public :: Import => ImportFEMDomain
 		procedure,public :: ImportMesh => ImportMeshFEMDomain
+		procedure,public :: ImportMaterials => ImportMaterialsFEMDomain
 		procedure,public :: ImportBoundaries => ImportBoundariesFEMDomain
 		procedure,public :: Resize => resizeFEMDomain
         procedure,public :: Merge  => MergeFEMDomain
@@ -77,6 +84,8 @@ module FEMDomainClass
 		procedure,public :: create => createFEMDomain
 		procedure,public :: setBoundary => setBoundaryFEMDomain
 		procedure,public :: showRange => showRangeFEMDomain
+		procedure,public :: showMaterials => showMaterialsFEMDomain
+		procedure,public :: removeMaterials => removeMaterialsFEMDomain
 		procedure,public :: showBoundaries => showBoundariesFEMDomain
 		procedure,public :: removeBoundaries => removeBoundariesFEMDomain
 		procedure,public :: copy => copyFEMDomain
@@ -150,10 +159,11 @@ end subroutine InitializeFEMDomain
 
 !##################################################
 subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,Mesh,Boundaries&
-		,Boundary,NumberOfBoundaries,BoundaryID)
+		,Boundary,Materials, Material,NumberOfBoundaries,BoundaryID,NumberOfMaterials,MaterialID)
 	class(FEMDomain_),intent(inout)::obj
 	type(Mesh_),optional,intent(in)::Mesh
 	type(Boundary_),optional,intent(in)::Boundary
+	type(MaterialProp_),optional,intent(in)::Material
     character*4,optional,intent(in)::OptionalFileFormat
     character(*),optional,intent(in)::OptionalProjectName
 	
@@ -165,16 +175,24 @@ character*74 ::FileName
 character*9  :: DataType
 integer,allocatable::IntMat(:,:)
 real(8),allocatable::RealMat(:,:)
-integer,optional,intent(in)::FileHandle,NumberOfBoundaries,BoundaryID
+integer,optional,intent(in)::FileHandle,NumberOfBoundaries,BoundaryID,MaterialID,NumberOfMaterials
 integer :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum
 character*70 Msg,name
-logical,optional,intent(in) :: Boundaries
+logical,optional,intent(in) :: Boundaries,Materials
 
 if(present(Boundaries) )then
-	call obj%ImportBoundaries(Boundary,NumberOfBoundaries,BoundaryID)
-	return
+	if(Boundaries .eqv. .true.)then
+		call obj%ImportBoundaries(Boundary,NumberOfBoundaries,BoundaryID)
+		return
+	endif
 endif
 
+if(present(Materials) )then
+	if(materials .eqv. .true.)then
+		call obj%ImportMaterials(Material,NumberOfMaterials,MaterialID)
+		return
+	endif
+endif
 if(present(Mesh) )then
 	call obj%Mesh%import(Mesh=Mesh)
 	return
@@ -221,17 +239,17 @@ if(trim(FileFormat)==".scf" )then
     endif
     obj%Dtype=DataType
     read(fh,*) obj%SolverType
-    read(fh,*) NumOfDomain
-    allocate(IntMat(NumOfDomain,2))
-    allocate(obj%Mesh%SubMeshNodFromTo(NumOfDomain,3) )
-    allocate(obj%Mesh%SubMeshElemFromTo(NumOfDomain,3) )
+    read(fh,*) obj%NumOfDomain
+    allocate(IntMat(obj%NumOfDomain,2))
+    allocate(obj%Mesh%SubMeshNodFromTo(obj%NumOfDomain,3) )
+    allocate(obj%Mesh%SubMeshElemFromTo(obj%NumOfDomain,3) )
     
-    do i=1,NumOfDomain
+    do i=1,obj%NumOfDomain
         obj%Mesh%SubMeshNodFromTo(i,1)=i
         read(fh,*) obj%Mesh%SubMeshNodFromTo(i,2),obj%Mesh%SubMeshNodFromTo(i,3)
     enddo
 
-    do i=1,NumOfDomain
+    do i=1,obj%NumOfDomain
         obj%Mesh%SubMeshElemFromTo(i,1)=i
         read(fh,*) obj%Mesh%SubMeshElemFromTo(i,3)
         if(i==1)then
@@ -444,7 +462,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
     integer(int32),allocatable::IntMat(:,:)
     real(real64),allocatable::RealMat(:,:)
     integer(int32),optional,intent(in)::FileHandle,MeshDimension
-    integer(int32) :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,nn
+    integer(int32) :: fh,i,j,k,n,m,DimNum,GpNum,nn
 	character*70 Msg
 
 	if(present(regacy) )then
@@ -724,12 +742,19 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
     !!print *, "is Exported as : ",FileFormat," format"
     !!print *, "File Name is : ",iFileName
 
-    open(fh,file=trim(iFileName),status="replace")
-
+	if(present(Name) )then
+		open(fh,file=trim(Name)//".scf",status="replace")
+	else
+		open(fh,file=trim(iFileName),status="replace")
+	endif
 
     if(trim(FileFormat)==".scf" )then
-        
-        NumOfDomain=size(obj%Mesh%SubMeshNodFromTo,1)
+		
+		if(allocated(obj%Mesh%SubMeshNodFromTo) )then
+			obj%NumOfDomain=size(obj%Mesh%SubMeshNodFromTo,1)
+		else
+			obj%NumOfDomain=1
+		endif
 
 		obj%Dtype="domain"
         write(fh,'(A)') obj%Dtype
@@ -737,30 +762,32 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
         write(fh,*) "  "
         write(fh,'(A)') obj%SolverType
         write(fh,*) "  "
-        write(fh,*) NumOfDomain
+        write(fh,*) obj%NumOfDomain
         write(fh,*) "  "
+
 
         print *, "########### Meta Info ###########"
         print *, obj%Dtype
         print *, obj%SolverType
-        print *, NumOfDomain
+        print *, obj%NumOfDomain
         print *, "########### Meta Info ###########"
         
     
-        do i=1,NumOfDomain
+        do i=1,obj%NumOfDomain
             write(fh,*) obj%Mesh%SubMeshNodFromTo(i,2),obj%Mesh%SubMeshNodFromTo(i,3)
         enddo
         write(fh,*) "  "
-        do i=1,NumOfDomain
+        do i=1,obj%NumOfDomain
             write(fh,*) obj%Mesh%SubMeshElemFromTo(i,3)
         enddo
         write(fh,*) "  "
 
+
         print *, "########### Domain info ###########"
-        do i=1,NumOfDomain
+        do i=1,obj%NumOfDomain
             !write(*,*) obj%Mesh%SubMeshNodFromTo(i,2),obj%Mesh%SubMeshNodFromTo(i,3)
         enddo
-        do i=1,NumOfDomain
+        do i=1,obj%NumOfDomain
             !write(*,*) obj%Mesh%SubMeshElemFromTo(i,3)
         enddo
         
@@ -801,7 +828,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
             endif
         enddo
         write(fh,*) "  "
-        flush(fh)
+		flush(fh)
 
 
         print *, " "
@@ -817,7 +844,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
             write(fh,*) obj%Mesh%ElemMat(i)
         enddo
         write(fh,*) "  "
-        
+		
         n=size(obj%MaterialProp%MatPara,1)
         m=size(obj%MaterialProp%MatPara,2)
         write(fh,*) n,m
@@ -826,6 +853,12 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
         enddo
         write(fh,*) "  "
         flush(fh)
+
+
+		print *, "debug"
+		return
+
+
 
         print *, "########### Material info ###########"
         n=size(obj%Mesh%ElemNod,1)
@@ -4990,6 +5023,7 @@ subroutine burnFEMDomain(obj, template, templateFile)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: template
 	character(*),optional,intent(in) :: templateFile 
+	integer(int32) :: SpaceDim, ElemNodNum, NumOfMatPara, NumOfMaterial
 	! BURN creates a complete input file for a FEM analysis.
 	! You can use build-in templates or your original template.
 	! We prepare following build-in templates.
@@ -5005,15 +5039,225 @@ subroutine burnFEMDomain(obj, template, templateFile)
 	elseif(template=="FiniteDeform_" .or. template=="FiniteDeform")then
 		print *, "Build-in template :: FiniteDeform_ is utilized..."
 		! Run burning process ...
-
+		NumOfMatPara = 6
 	elseif(template=="DiffusionEq_" .or. template=="DiffusionEq")then
 		print *, "Build-in template :: DiffusionEq_ is utilized..."
 		! Run burning process ...
-		
+		NumOfMatPara = 1
 	else
 		print *, "In case that you want to use your template, please type template='original'."
+		return
 	endif
+
+	! domain information
+	obj%Dtype="domain"
+	obj%SolverType=trim(template)
+	obj%NumOfDomain=1
+	
+	if(allocated(obj%Mesh%SubMeshNodFromTo))then
+		deallocate(obj%Mesh%SubMeshNodFromTo)
+	endif
+	if(allocated(obj%Mesh%SubMeshElemFromTo))then
+		deallocate(obj%Mesh%SubMeshElemFromTo)
+	endif
+	allocate(obj%Mesh%SubMeshNodFromTo(obj%NumOfDomain,3) )
+	allocate(obj%Mesh%SubMeshElemFromTo(obj%NumOfDomain,3) )
+	if(obj%Mesh%empty() .eqv. .true. )then
+		print *, "BurnFEMDomain :: Mesh is Empty!"
+		return
+	endif
+
+	! mesh information
+	obj%Mesh%SubMeshNodFromTo(1,1) = 1
+	obj%Mesh%SubMeshNodFromTo(1,2) = 1
+	obj%Mesh%SubMeshNodFromTo(1,3) = size(obj%Mesh%NodCoord,1)
+	obj%Mesh%SubMeshElemFromTo(1,1) = 1
+	obj%Mesh%SubMeshElemFromTo(1,2) = 1
+	obj%Mesh%SubMeshElemFromTo(1,3) = size(obj%Mesh%ElemNod,1)
+	if(.not.allocated(obj%Mesh%ElemMat) )then
+		allocate(obj%Mesh%ElemMat(size(obj%Mesh%ElemNod,1) ) )
+		obj%Mesh%ElemMat(:)=1
+	endif
+
+	!call obj%burnMaterials()
+
+
+	
+
+
+
 end subroutine burnFEMDomain
+! ##################################################
+
+subroutine burnMaterialsFEMDomain(obj,NumOfMatPara)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32),intent(in) :: NumOfMatPara
+	integer(int32) :: i,j,k,n,m,NumOfMaterial,layer,in_num
+	logical :: in_case
+	real(real64) :: matparaval,coord(3),x_max(3),x_min(3)
+
+
+	if(.not. allocated(obj%Materials) )then
+		print *, "No material is burned. All material IDs are 1 "
+		if(.not.allocated(obj%Mesh%ElemMat) )then
+			allocate(obj%Mesh%ElemMat(size(obj%Mesh%ElemNod,1) ) )
+			obj%Mesh%ElemMat(:)=1
+		endif
+	else
+		n=size(obj%Materials,1)
+		NumOfMaterial=0
+		do i=1,n
+			m=size(obj%Materials(i)%Materialp%meshPara,1)
+			NumOfMaterial=NumOfMaterial+1
+		enddo
+		! Material Exists
+		k=size(obj%Mesh%ElemNod,1)
+		do i=1,k
+			! for eah element
+			coord(:)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),:)
+			! coord represents the coordinate of the element
+			do j=1, n
+				! debugg
+				in_case=inOrOut(x=coord,xmax=x_max ,xmin=x_min )
+			enddo
+			
+		enddo
+	endif
+
+	! set Material Parameter
+	if(allocated(obj%MaterialProp%MatPara) )then
+		deallocate(obj%MaterialProp%MatPara)
+	endif
+
+	NumOfMaterial=maxval(obj%Mesh%ElemMat)
+	allocate(obj%MaterialProp%MatPara(NumOfMaterial,NumOfMatPara) )
+	! initialize material parameters
+	obj%MaterialProp%MatPara(:,:)=0.0d0
+
+	if(.not. allocated(obj%Materials) )then
+		print *, "No material parameter is burned. All material parameters are 0.0 "
+		return
+	else
+		! Material Exists ! buggg
+		n=size(obj%Materials,1)
+		NumOfMaterial=0
+		do i=1,n
+			m=size(obj%Materials(i)%Materialp%meshPara,1)
+			do j=1,m
+				!NumOfMaterial=NumOfMaterial+1
+				!matparaval=obj%Materials(i)%Materialp%meshPara(j,1)
+				!layer=obj%Materials(i)%Materialp%layer
+				!MaterialProp%MatPara(NumOfMaterial,layer) = matparaval
+				!if(size(MaterialProp%MatPara) < NumOfMaterial  )then
+				!	stop "ERROR :: burnMaterialsFEMDomain size(MaterialProp%MatPara) < NumOfMaterial  "
+				!endif
+			enddo
+		enddo
+		
+	endif
+	
+
+
+end subroutine burnMaterialsFEMDomain
+
+
+
+! ##################################################
+subroutine ImportMaterialsFEMDomain(obj,Material,NumberOfMaterials,MaterialID)
+	class(FEMDomain_),intent(inout) :: obj
+	type(MaterialProp_),target,intent(in) :: Material
+	integer(int32),optional,intent(in) :: NumberOfMaterials,MaterialID
+	integer(int32) :: n
+
+
+	if(.not.allocated(obj%Materials) )then
+		n=input(default=30,option=NumberOfMaterials)
+		allocate(obj%Materials(n))
+		obj%NumberOfMaterials = 0
+	endif
+
+	if(present(MaterialID) )then
+		if(MaterialID > size(obj%Materials) )then
+			print *, "ERROR :: ImportMaterialsFEMDomain >> requested MaterialID is grater than the size of stack"
+			print *, "Stack size is ",size(obj%Materials), " , and your request is ",MaterialID
+			return
+		endif
+		if(MaterialID > obj%NumberOfMaterials)then
+			print *, "ERROR :: ImportMaterialsFEMDomain >> requested MaterialID is grater than the Last ID"
+			print *, "The last ID is ",obj%NumberOfMaterials+1, " , and your request is ",MaterialID
+			print *, "Hence, your request ",MaterialID, " is accepted as the ID of ",obj%NumberOfMaterials+1
+			obj%NumberOfMaterials=obj%NumberOfMaterials+1
+			obj%Materials(obj%NumberOfMaterials)%Materialp => Material
+			print *, "Now, number of Material conditions is ",obj%NumberOfMaterials
+			return
+		endif
+		if( associated(obj%Materials(MaterialID)%Materialp) )then
+			print *, "Material ID :: ", MaterialID, " is overwritten."
+			nullify(obj%Materials(MaterialID)%Materialp )
+		endif
+		obj%Materials(MaterialID)%Materialp => Material
+		return
+	endif
+
+	obj%NumberOfMaterials=obj%NumberOfMaterials+1
+
+	obj%Materials(obj%NumberOfMaterials)%Materialp => Material
+
+	print *, "Now, number of Material conditions is ",obj%NumberOfMaterials
+
+end subroutine ImportMaterialsFEMDomain
+! ##################################################
+
+
+
+
+! ##################################################
+subroutine showMaterialsFEMDomain(obj,Name)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),optional,intent(in)::Name
+	integer(int32) :: i
+
+	if(present(Name) )then
+		print *, "Domain Name is :: ", trim(Name)
+	endif
+
+	if(.not. allocated(obj%Materials) )then
+		print *, "No boundary is set."
+	else
+		do i=1,obj%NumberOfMaterials
+			print *, "Layer :: ",obj%Materials(i)%Materialp%Layer,"Material ::",i," => ",&
+				associated(obj%Materials(i)%Materialp)
+		enddo
+	endif
+end subroutine showMaterialsFEMDomain
+! ##################################################
+
+
+! ##################################################
+subroutine removeMaterialsFEMDomain(obj,Name,BoundaryID)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),optional,intent(in)::Name
+	integer(int32) :: i
+	integer(int32),optional,intent(in) ::BoundaryID
+
+	if(present(Name) )then
+		print *, "Domain Name is :: ", trim(Name)
+	endif
+
+	if(.not. allocated(obj%Materials) )then
+		print *, "No boundary is set."
+	else
+		if(present(BoundaryID))then
+			nullify(obj%Materials(BoundaryID)%Materialp)
+		else
+			do i=1,obj%NumberOfMaterials
+				nullify(obj%Materials(i)%Materialp)
+			enddo
+		endif
+	endif
+	call obj%showMaterials(Name)
+
+end subroutine removeMaterialsFEMDomain
 ! ##################################################
 
 end module FEMDomainClass
