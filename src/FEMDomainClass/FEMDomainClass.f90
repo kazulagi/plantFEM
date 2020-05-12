@@ -39,6 +39,7 @@ module FEMDomainClass
 		integer(int32) :: NumOfDomain
         character*200 :: FilePath
         character*200 :: FileName
+        character*200 :: Name
         character*9 :: Dtype
 		character*20 :: SolverType
 		character*200 :: Category1 
@@ -89,7 +90,12 @@ module FEMDomainClass
 		procedure,public :: showBoundaries => showBoundariesFEMDomain
 		procedure,public :: removeBoundaries => removeBoundariesFEMDomain
 		procedure,public :: copy => copyFEMDomain
-		procedure,public :: burn => burnFEMDomain
+		procedure,public :: bake => bakeFEMDomain
+		procedure,public :: bakeMaterials => bakeMaterialsFEMDomain
+		procedure,public :: bakeDBoundaries => bakeDBoundariesFEMDomain
+		procedure,public :: show => showFEMDomain
+		procedure,public :: rename => renameFEMDomain
+		
 
 		! for debug
 		procedure,public :: CheckConnectivity => CheckConnedctivityFEMDomain
@@ -120,7 +126,15 @@ end subroutine DeallocateFEMDomain
 
 
 
+! ################################################
+subroutine renameFEMDomain(obj,Name)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),intent(in) :: Name
 
+	obj%Name = ""
+	obj%Name = trim(Name)
+
+end subroutine renameFEMDomain
 
 
 !##################################################
@@ -156,6 +170,42 @@ subroutine InitializeFEMDomain(obj,Default,FileName,simple)
 end subroutine InitializeFEMDomain
 !##################################################
 
+
+!##################################################
+subroutine showFEMDomain(obj)
+	class(FEMDomain_),intent(in)::obj
+	integer(int32)::i
+
+	print *, "=========================="
+	print *, "Name :: ",trim(obj%Name)
+	print *, "Materials :: "
+	if(.not.allocated(obj%Materials) )then
+		print *, "No material is imported"
+	else
+		do i=1,obj%NumberOfMaterials
+			if(associated(obj%Materials(i)%materialp ) )then
+				call obj%Materials(i)%materialp%show()
+			else
+				cycle
+			endif
+		enddo
+	endif
+	print *, "Boundaries :: "
+	if(.not.allocated(obj%boundaries) )then
+		print *, "No Boundary is imported"
+	else
+		do i=1,obj%NumberOfBoundaries
+			if(associated(obj%Boundaries(i)%Boundaryp ) )then
+				call obj%Boundaries(i)%Boundaryp%show()
+			else
+				cycle
+			endif
+		enddo
+	endif
+
+
+end subroutine showFEMDomain
+!##################################################
 
 !##################################################
 subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,Mesh,Boundaries&
@@ -2494,9 +2544,13 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 	endif
 
 	allocate(gp_value( size(obj%Mesh%ElemNod,1),size(obj%Mesh%ElemNod,2) ))
-	do i=1,size(obj%Mesh%ElemNod,1)
-		gp_value(i,:)=dble(obj%Mesh%ElemMat(i))
-	enddo
+	if(allocated(obj%Mesh%ElemMat) )then
+		do i=1,size(obj%Mesh%ElemMat,1)
+			gp_value(i,:)=dble(obj%Mesh%ElemMat(i))
+		enddo
+	else
+		gp_value(i,:)=0.0d0
+	endif
 
 	if(present(withDirichletBC) )then
 		if(withDirichletBC .eqv. .true. )then
@@ -2565,7 +2619,6 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 	endif
 
 
-	gp_value(:,:)=-1.0d0
 	if(present(onlyDirichletBC) )then
 		if(onlyDirichletBC .eqv. .true. )then
 			! search Dirichlet BC and change color
@@ -4870,14 +4923,20 @@ end subroutine
 ! ##################################################
 
 ! ##################################################
-subroutine createFEMDomain(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division)
+subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division)
 	class(FEMDomain_),intent(inout) :: obj
-    character(*),intent(in) :: meshtype
+	character(*),intent(in) :: meshtype
+	character(*),optional,intent(in) ::Name
     integer(int32),optional,intent(in) :: x_num,y_num ! number of division
     integer(int32),optional,intent(in) :: division ! for 3D rectangular
     real(real64),optional,intent(in) :: x_len,y_len,Le,Lh,Dr ! length
     real(real64),optional,intent(in) :: thickness ! for 3D rectangular
 
+	if(present(Name) )then
+		obj%Name=Name
+	else
+		obj%Name="NoName"
+	endif
 	call obj%Mesh%create(meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division)
 
 end subroutine createFEMDomain
@@ -4908,12 +4967,15 @@ subroutine ImportBoundariesFEMDomain(obj,Boundary,NumberOfBoundaries,BoundaryID)
 	class(FEMDomain_),intent(inout) :: obj
 	type(Boundary_),target,intent(in) :: Boundary
 	integer(int32),optional,intent(in) :: NumberOfBoundaries,BoundaryID
-	integer(int32) :: n
+	integer(int32) :: n,i
 
 
 	if(.not.allocated(obj%Boundaries) )then
 		n=input(default=30,option=NumberOfBoundaries)
 		allocate(obj%Boundaries(n))
+		do i=1,n
+			nullify(obj%Boundaries(i)%boundaryp)
+		enddo
 		obj%NumberOfBoundaries = 0
 	endif
 
@@ -5019,12 +5081,12 @@ end subroutine copyFEMDomain
 ! ##################################################
 
 ! ##################################################
-subroutine burnFEMDomain(obj, template, templateFile)
+subroutine bakeFEMDomain(obj, template, templateFile)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: template
 	character(*),optional,intent(in) :: templateFile 
-	integer(int32) :: SpaceDim, ElemNodNum, NumOfMatPara, NumOfMaterial
-	! BURN creates a complete input file for a FEM analysis.
+	integer(int32) :: SpaceDim, ElemNodNum, NumOfMatPara, NumOfMaterial, NodeDOF
+	! bake creates a complete input file for a FEM analysis.
 	! You can use build-in templates or your original template.
 	! We prepare following build-in templates.
 	! - FiniteDeform_ :: For 3-D Finite Deformation Analysis
@@ -5038,12 +5100,14 @@ subroutine burnFEMDomain(obj, template, templateFile)
 		return
 	elseif(template=="FiniteDeform_" .or. template=="FiniteDeform")then
 		print *, "Build-in template :: FiniteDeform_ is utilized..."
-		! Run burning process ...
+		! Run bakeing process ...
 		NumOfMatPara = 6
+		NodeDOF = 3
 	elseif(template=="DiffusionEq_" .or. template=="DiffusionEq")then
 		print *, "Build-in template :: DiffusionEq_ is utilized..."
-		! Run burning process ...
+		! Run bakeing process ...
 		NumOfMatPara = 1
+		NodeDOF = 1
 	else
 		print *, "In case that you want to use your template, please type template='original'."
 		return
@@ -5063,7 +5127,7 @@ subroutine burnFEMDomain(obj, template, templateFile)
 	allocate(obj%Mesh%SubMeshNodFromTo(obj%NumOfDomain,3) )
 	allocate(obj%Mesh%SubMeshElemFromTo(obj%NumOfDomain,3) )
 	if(obj%Mesh%empty() .eqv. .true. )then
-		print *, "BurnFEMDomain :: Mesh is Empty!"
+		print *, "bakeFEMDomain :: Mesh is Empty!"
 		return
 	endif
 
@@ -5079,86 +5143,188 @@ subroutine burnFEMDomain(obj, template, templateFile)
 		obj%Mesh%ElemMat(:)=1
 	endif
 
-	!call obj%burnMaterials()
-
+	call obj%bakeMaterials(NumOfMatPara=NumOfMatPara)
+	call obj%bakeDBoundaries(NodeDOF=NodeDOF)
 
 	
 
 
 
-end subroutine burnFEMDomain
+end subroutine bakeFEMDomain
 ! ##################################################
 
-subroutine burnMaterialsFEMDomain(obj,NumOfMatPara)
+! ##################################################
+subroutine bakeMaterialsFEMDomain(obj,NumOfMatPara)
 	class(FEMDomain_),intent(inout) :: obj
-	integer(int32),intent(in) :: NumOfMatPara
-	integer(int32) :: i,j,k,n,m,NumOfMaterial,layer,in_num
+	integer(int32),optional,intent(in) :: NumOfMatPara
+	integer(int32) :: i,j,k,l,n,m,NumOfMaterial,layer,in_num,NumOfLayer
+	real(real64),allocatable :: matPara(:,:),info(:,:)
+	integer(int32),allocatable :: key(:)
+	type(Rectangle_) :: rect,mrect
 	logical :: in_case
 	real(real64) :: matparaval,coord(3),x_max(3),x_min(3)
 
+	! get Num of Layer
+	NumOfLayer=0
+	if(.not. allocated(obj%Materials) )then
+		print *, "no materials found"
+		return
+	endif
+
+
+	do i=1,size(obj%Materials)
+		if(associated(obj%Materials(i)%materialp ) )then
+			NumOfLayer=NumOfLayer+1
+		else
+			cycle
+		endif
+	enddo
+
+
 
 	if(.not. allocated(obj%Materials) )then
-		print *, "No material is burned. All material IDs are 1 "
+		print *, "No material is baked. All material IDs are 1 "
 		if(.not.allocated(obj%Mesh%ElemMat) )then
 			allocate(obj%Mesh%ElemMat(size(obj%Mesh%ElemNod,1) ) )
 			obj%Mesh%ElemMat(:)=1
 		endif
-	else
-		n=size(obj%Materials,1)
-		NumOfMaterial=0
-		do i=1,n
-			m=size(obj%Materials(i)%Materialp%meshPara,1)
-			NumOfMaterial=NumOfMaterial+1
-		enddo
-		! Material Exists
-		k=size(obj%Mesh%ElemNod,1)
-		do i=1,k
-			! for eah element
-			coord(:)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),:)
-			! coord represents the coordinate of the element
-			do j=1, n
-				! debugg
-				in_case=inOrOut(x=coord,xmax=x_max ,xmin=x_min )
-			enddo
-			
-		enddo
-	endif
-
-	! set Material Parameter
-	if(allocated(obj%MaterialProp%MatPara) )then
-		deallocate(obj%MaterialProp%MatPara)
-	endif
-
-	NumOfMaterial=maxval(obj%Mesh%ElemMat)
-	allocate(obj%MaterialProp%MatPara(NumOfMaterial,NumOfMatPara) )
-	! initialize material parameters
-	obj%MaterialProp%MatPara(:,:)=0.0d0
-
-	if(.not. allocated(obj%Materials) )then
-		print *, "No material parameter is burned. All material parameters are 0.0 "
+		stop "No material parameters are found."
 		return
 	else
-		! Material Exists ! buggg
-		n=size(obj%Materials,1)
-		NumOfMaterial=0
-		do i=1,n
-			m=size(obj%Materials(i)%Materialp%meshPara,1)
-			do j=1,m
-				!NumOfMaterial=NumOfMaterial+1
-				!matparaval=obj%Materials(i)%Materialp%meshPara(j,1)
-				!layer=obj%Materials(i)%Materialp%layer
-				!MaterialProp%MatPara(NumOfMaterial,layer) = matparaval
-				!if(size(MaterialProp%MatPara) < NumOfMaterial  )then
-				!	stop "ERROR :: burnMaterialsFEMDomain size(MaterialProp%MatPara) < NumOfMaterial  "
-				!endif
+		! total $NumOfLayer material parameters exist.
+		! for all materials, resistrate material parameter and material IDs
+		m=input(default=NumOfLayer,option=NumOfMatPara)
+		allocate(rect%NodCoord(size(obj%Mesh%ElemNod,2),size(obj%Mesh%NodCoord,2)) )
+		allocate(mrect%NodCoord(size(obj%Mesh%ElemNod,2),size(obj%Mesh%NodCoord,2)) )
+		allocate(matPara(size(obj%Mesh%ElemNod,1),m) )
+		matPara(:,:) = 0.0d0
+		do i=1,size(obj%Mesh%ElemNod,1)
+			! for each element
+			
+			! input rectangler
+			do j=1,size(obj%Mesh%ElemNod,2)
+				rect%NodCoord(j,:)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,j),:)
+			enddo
+
+			! for all materials, check material parameters
+			do j=1,size(obj%Materials)
+				if(associated(obj%Materials(j)%materialp) )then
+					do k=1, size(obj%Materials(j)%materialp%Mesh%ElemNod,1)
+						! for each zones, check in-out
+						! import nodal coordinate
+						do l=1,size(obj%Materials(j)%materialp%Mesh%ElemNod,2)
+							n=obj%Materials(j)%materialp%Mesh%ElemNod(k,l)
+							mrect%NodCoord(l,:)=obj%Materials(j)%materialp%Mesh%NodCoord(n,:)
+						enddo
+						layer=obj%Materials(j)%materialp%layer
+						! check in-out
+						if(rect%contact(mrect) .eqv. .true. )then
+							! in
+							matPara(i,layer)=obj%Materials(j)%materialp%meshPara(k,1)
+						else
+							cycle
+						endif
+					enddo
+				else
+					cycle
+				endif
 			enddo
 		enddo
-		
+
 	endif
-	
+
+	call getKeyAndValue(Array=matPara,key=obj%Mesh%ElemMat, info=obj%MaterialProp%MatPara)
+
+end subroutine bakeMaterialsFEMDomain
+! ##################################################
+
+! ##################################################
+subroutine bakeDBoundariesFEMDomain(obj,NodeDOF)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32) ,optional,intent(in) :: NodeDOF 
+	integer(int32) :: i,j,k,l,n,m,NumOfMaterial,layer,in_num,NumOfLayer
+	real(real64),allocatable :: matPara(:,:),info(:,:)
+	integer(int32),allocatable :: key(:)
+	type(Rectangle_) :: rect,mrect
+	logical :: in_case
+	real(real64) :: matparaval,coord(3),x_max(3),x_min(3)
+
+	! get Num of Layer
+	NumOfLayer=0
+	if(.not. allocated(obj%Boundaries) )then
+		print *, "no Boundaries found"
+		return
+	endif
 
 
-end subroutine burnMaterialsFEMDomain
+!	do i=1,size(obj%Boundaries)
+!		if(associated(obj%Boundaries(i)%materialp ) )then
+!			NumOfLayer=NumOfLayer+1
+!		else
+!			cycle
+!		endif
+!	enddo
+!
+!
+!
+!	if(.not. allocated(obj%Boundaries) )then
+!		print *, "No material is baked. All material IDs are 1 "
+!		if(.not.allocated(obj%DBound%ElemMat) )then
+!			allocate(obj%DBound%ElemMat(size(obj%DBound%ElemNod,1) ) )
+!			obj%DBound%ElemMat(:)=1
+!		endif
+!		stop "No material parameters are found."
+!		return
+!	else
+!		! total $NumOfLayer material parameters exist.
+!		! for all Boundaries, resistrate material parameter and material IDs
+!		m=input(default=NumOfLayer,option=NumOfMatPara)
+!		allocate(rect%NodCoord(size(obj%DBound%ElemNod,2),size(obj%DBound%NodCoord,2)) )
+!		allocate(mrect%NodCoord(size(obj%DBound%ElemNod,2),size(obj%DBound%NodCoord,2)) )
+!		allocate(matPara(size(obj%DBound%ElemNod,1),m) )
+!		matPara(:,:) = 0.0d0
+!		do i=1,size(obj%DBound%ElemNod,1)
+!			! for each element
+!			
+!			! input rectangler
+!			do j=1,size(obj%DBound%ElemNod,2)
+!				rect%NodCoord(j,:)=obj%DBound%NodCoord(obj%DBound%ElemNod(i,j),:)
+!			enddo
+!
+!			! for all Boundaries, check material parameters
+!			do j=1,size(obj%Boundaries)
+!				if(associated(obj%Boundaries(j)%materialp) )then
+!					do k=1, size(obj%Boundaries(j)%materialp%DBound%ElemNod,1)
+!						! for each zones, check in-out
+!						! import nodal coordinate
+!						do l=1,size(obj%Boundaries(j)%materialp%DBound%ElemNod,2)
+!							n=obj%Boundaries(j)%materialp%DBound%ElemNod(k,l)
+!							mrect%NodCoord(l,:)=obj%Boundaries(j)%materialp%DBound%NodCoord(n,:)
+!						enddo
+!						layer=obj%Boundaries(j)%materialp%layer
+!						! check in-out
+!						if(rect%contact(mrect) .eqv. .true. )then
+!							! in
+!							matPara(i,layer)=obj%Boundaries(j)%materialp%DBoundPara(k,1)
+!						else
+!							cycle
+!						endif
+!					enddo
+!				else
+!					cycle
+!				endif
+!			enddo
+!		enddo
+!
+!	endif
+!
+!	call getKeyAndValue(Array=matPara,key=obj%DBound%ElemMat, info=obj%MaterialProp%MatPara)
+
+end subroutine bakeDBoundariesFEMDomain
+! ##################################################
+
+
+
 
 
 
@@ -5166,14 +5332,17 @@ end subroutine burnMaterialsFEMDomain
 subroutine ImportMaterialsFEMDomain(obj,Material,NumberOfMaterials,MaterialID)
 	class(FEMDomain_),intent(inout) :: obj
 	type(MaterialProp_),target,intent(in) :: Material
-	integer(int32),optional,intent(in) :: NumberOfMaterials,MaterialID
-	integer(int32) :: n
+	integer(int32), optional,intent(in) :: NumberOfMaterials,MaterialID
+	integer(int32) :: n,i
 
 
 	if(.not.allocated(obj%Materials) )then
 		n=input(default=30,option=NumberOfMaterials)
 		allocate(obj%Materials(n))
 		obj%NumberOfMaterials = 0
+		do i=1,n
+			nullify(obj%Materials(i)%materialp)
+		enddo
 	endif
 
 	if(present(MaterialID) )then

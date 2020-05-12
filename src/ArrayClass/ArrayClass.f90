@@ -86,6 +86,10 @@ module ArrayClass
     interface quicksort
         module procedure :: quicksortreal,quicksortint
     end interface
+
+    interface getKeyAndValue
+        module procedure :: getKeyAndValueReal
+    end interface
     
 contains
 
@@ -2098,5 +2102,59 @@ function getifRealVec(Array,Value) result(list)
     enddo
 end function
 !##################################################
+
+subroutine getKeyAndValueReal(Array, Key, info)
+    real(real64),intent(in) :: Array(:,:)
+    integer(int32),allocatable,intent(inout) :: Key(:)
+    real(real64),allocatable,intent(inout) :: info(:,:)
+    integer(int32) :: i,j,n,m,k,cou,cou2,id,sz
+    logical :: hit
+
+    n=size(Array,1)
+    m=size(Array,2)
+    if( allocated(key) )then
+        deallocate(key)
+    endif
+    if( allocated(info) )then
+        deallocate(info)
+    endif
+    allocate(key(n))
+    allocate(info(1,m))
+    
+    key(:)=1
+    info(1,1:m)=Array(1,1:m)
+    sz=1
+    do i=2,n
+        ! check list
+        hit = .false.
+        do j=1,size(info,1)
+            cou=0
+            do k=1,size(info,2)
+                if(Array(i,k)==info(j,k) )then
+                    cou=cou+1
+                else
+                    cycle
+                endif
+            enddo
+            if(cou==m)then
+                !hit
+                hit = .true.
+                key(i)=j
+                exit
+            else
+                cycle
+            endif
+        enddo
+        if(hit .eqv. .true.)then
+            cycle
+        else
+            ! add a new key and info
+            call extendArray(mat=info,extend1stColumn=.true.)
+            sz=sz+1
+            info(sz,1:m)=Array(i,1:m)
+        endif
+    enddo
+
+end subroutine getKeyAndValueReal
 
 end module ArrayClass

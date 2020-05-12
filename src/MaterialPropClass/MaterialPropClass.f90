@@ -9,6 +9,7 @@ module MaterialPropClass
         real(real64) ::x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
         integer(int32) :: Mcount
         integer(int32) :: layer
+        character(200) :: Name
 
 
         real(real64),allocatable::MatPara(:,:)
@@ -24,23 +25,48 @@ module MaterialPropClass
         procedure :: create => createMaterialProp
         procedure :: set => setMaterialProp
         procedure :: gmsh => gmshMaterialProp
+        procedure :: show => showMaterialProp
     end type MaterialProp_
 
 contains
 
 
 ! ###########################################################################
-subroutine createMaterialProp(obj,Category,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,&
+subroutine createMaterialProp(obj,Name,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,&
     ParaValue,Layer)
     class(MaterialProp_),intent(inout) :: obj
-    character(*),optional,intent(in) :: Category
+    character(*),optional,intent(in) :: Name
     real(real64),optional,intent(in) :: x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
     real(real64),optional,intent(in) :: ParaValue
     integer(int32),optional,intent(in) :: Layer
+    if(present(Name) )then
+        obj%Name=trim(Name)
+    else
+        obj%Name="NoName"
+    endif
     call obj%set(x_max=x_max,x_min=x_min,y_max=y_max,y_min=y_min,z_max=z_max,&
         z_min=z_min,t_max=t_max,t_min=t_min,ParaValue=ParaValue,Layer=Layer)
         
 end subroutine
+! ###########################################################################
+
+! ###########################################################################
+subroutine showMaterialProp(obj)
+    class(MaterialProp_),intent(inout) :: obj
+    integer(int32) :: i,j,n
+
+    n=size(obj%Mesh%ElemNod,1)
+
+    print *, trim(obj%Name)
+    do i=1,n
+        if(i==n)then
+            print *, "  L _ Zone #",i,"Parameters : ",obj%meshPara(i,:)
+        else
+            print *, "  | - Zone #",i,"Parameters : ",obj%meshPara(i,:)
+        endif
+    enddo
+
+end subroutine showMaterialProp
 ! ###########################################################################
 
 ! ###########################################################################
