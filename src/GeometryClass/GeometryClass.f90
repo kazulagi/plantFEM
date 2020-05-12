@@ -63,11 +63,14 @@ module GeometryClass
         real(real64),allocatable :: NodCoord(:,:)
     contains
         procedure :: Init       => InitRectangle
+        procedure :: create     => createRectangle
+        procedure :: move       => moveRectangle
         procedure :: setNode    => setNodeRectangle
         procedure :: import     => importRectangle
         procedure :: getCircle  => getCircleRectangle
         procedure :: getArea    => getAreaRectangle 
         procedure :: show       => showRectangle
+        procedure :: contact   => contactRectangle
     end type
 
     type Tetragon_
@@ -657,6 +660,36 @@ end subroutine
 !#########################################################
 
 !#########################################################
+subroutine createRectangle(obj)
+    class(Rectangle_),intent(inout) :: obj
+
+    ! create unit one
+    allocate(obj%NodCoord(8,3) )
+    obj%NodCoord(1,1)=-1.0d0; obj%NodCoord(1,2)=-1.0d0; obj%NodCoord(1,3)=-1.0d0;
+    obj%NodCoord(2,1)= 1.0d0; obj%NodCoord(2,2)=-1.0d0; obj%NodCoord(2,3)=-1.0d0;
+    obj%NodCoord(3,1)= 1.0d0; obj%NodCoord(3,2)= 1.0d0; obj%NodCoord(3,3)=-1.0d0;
+    obj%NodCoord(4,1)=-1.0d0; obj%NodCoord(4,2)= 1.0d0; obj%NodCoord(4,3)=-1.0d0;
+    obj%NodCoord(5,1)=-1.0d0; obj%NodCoord(5,2)=-1.0d0; obj%NodCoord(5,3)= 1.0d0;
+    obj%NodCoord(6,1)= 1.0d0; obj%NodCoord(6,2)=-1.0d0; obj%NodCoord(6,3)= 1.0d0;
+    obj%NodCoord(7,1)= 1.0d0; obj%NodCoord(7,2)= 1.0d0; obj%NodCoord(7,3)= 1.0d0;
+    obj%NodCoord(8,1)=-1.0d0; obj%NodCoord(8,2)= 1.0d0; obj%NodCoord(8,3)= 1.0d0;
+end subroutine createRectangle
+!#########################################################
+
+
+!#########################################################
+subroutine moveRectangle(obj,x,y,z)
+    class(Rectangle_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x, y, z
+
+    obj%NodCoord(:,1)=obj%NodCoord(:,1)+input(default=0.0d0,option=x)
+    obj%NodCoord(:,2)=obj%NodCoord(:,2)+input(default=0.0d0,option=y)
+    obj%NodCoord(:,3)=obj%NodCoord(:,3)+input(default=0.0d0,option=z)
+
+end subroutine moveRectangle
+!#########################################################
+
+!#########################################################
 subroutine setNodeRectangle(obj,point,order)
     class(Rectangle_),intent(inout)::obj
     class(Point_),intent(in)::point
@@ -869,6 +902,49 @@ subroutine showRectangle(obj,Name,option)
         print *, "Rectangle> x3(:) = ",obj%NodCoord(4,:)
     endif
 end subroutine
+!#########################################################
+
+
+!#########################################################
+function contactRectangle(obj,Rectangle,threshold) result(contact)
+    class(Rectangle_),intent(in) :: obj
+    class(Rectangle_),intent(in) :: Rectangle
+    integer(int32),optional,intent(in) :: threshold
+    logical :: contact, inside
+    integer(int32) :: i,j,k,n,m,dim,inside_score,th
+    real(real64)::dist1,dist2,dist3,x2d(2),x3d(3),x_max(3),x_min(3)
+
+    th=input(default=1,option=threshold)
+
+    ! Contact Rectangle to Rectangle
+    dim = size(obj%NodCoord,2)
+    if(dim==3)then
+        ! get range
+        do i=1,dim
+            x_max(i)=maxval(Rectangle%NodCoord(:,i))
+            x_min(i)=minval(Rectangle%NodCoord(:,i))
+        enddo
+        inside_score=0
+        inside=.false.
+        do i=1,size(obj%NodCoord,1)
+            x3d(1:3)=obj%NodCoord(i,1:3)
+            inside=InOrOut(x=x3d,xmax=x_max,xmin=x_min,DimNum=dim)
+            if(inside .eqv. .true.)then
+                inside_score=inside_score+1
+            endif
+        enddo
+        if(inside_score >= th)then
+            contact=.true.
+        else
+            contact=.false.
+        endif
+    else
+        print *, "Please implement contactRectangle for",dim,"D"
+        stop 
+    endif
+    
+
+end function contactRectangle
 !#########################################################
 
 

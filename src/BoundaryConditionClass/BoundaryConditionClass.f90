@@ -38,7 +38,7 @@ module BoundaryConditionClass
         real(real64) ::x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
         integer(int32) :: Dcount,Ncount,Tcount
         integer(int32) :: layer
-
+        character*200 :: Name
         character*70 :: ErrorMsg
     contains
         procedure :: Init => InitializeBoundary
@@ -62,36 +62,102 @@ module BoundaryConditionClass
 
 contains
 
-subroutine showBoundary(obj)
+! ###########################################################################
+subroutine showBoundary(obj,onlyRange)
     class(Boundary_),intent(inout) :: obj
     integer(int32) ::i,j,n
-    if(allocated(obj%DBound%NodCoord) )then
-        print *, "Dirichlet Boundary edge:: "
-        do i=1,size(obj%DBound%NodCoord,1)
-            print *, obj%DBound%NodCoord(i,:)
-        enddo
-    else
-        print *,  "Dirichlet Boundary edge:: None"
-    endif
-    if(allocated(obj%DBound%ElemNod) )then
-        do i=1,size(obj%DBound%ElemNod,1)
-            print *, "Dirichlet Boundary Connectivity:: "
-            print *, obj%DBound%ElemNod(i,:)
-        enddo
-    else
-        print *, "Dirichlet Boundary Connectivity:: None"
-    endif
+    logical ,optional, intent(in) :: onlyRange
 
+    if(present(onlyRange) )then
+        if(allocated(obj%DBound%NodCoord) )then
+            print *, "Dirichlet Boundary edge:: "
+            do i=1,size(obj%DBound%NodCoord,1)
+                print *, obj%DBound%NodCoord(i,:)
+            enddo
+        else
+            print *,  "Dirichlet Boundary edge:: None"
+        endif
+        if(allocated(obj%DBound%ElemNod) )then
+            do i=1,size(obj%DBound%ElemNod,1)
+                print *, "Dirichlet Boundary Connectivity:: "
+                print *, obj%DBound%ElemNod(i,:)
+            enddo
+        else
+            print *, "Dirichlet Boundary Connectivity:: None"
+        endif
+
+        if(allocated(obj%NBound%NodCoord) )then
+            print *, "Neumann Boundary edge:: "
+            do i=1,size(obj%NBound%NodCoord,1)
+                print *, obj%NBound%NodCoord(i,:)
+            enddo
+        else
+            print *,  "Neumann Boundary edge:: None"
+        endif
+        if(allocated(obj%NBound%ElemNod) )then
+            do i=1,size(obj%NBound%ElemNod,1)
+                print *, "Neumann Boundary Connectivity:: "
+                print *, obj%NBound%ElemNod(i,:)
+            enddo
+        else
+            print *, "Neumann Boundary Connectivity:: None"
+        endif
+        return
+    else
+
+        if(allocated(obj%Dbound%ElemNod) )then
+            n=size(obj%Dbound%ElemNod,1)
+            print *, trim(obj%Name), " as Dirichlet Boundary"
+            do i=1,n
+                if(i==n)then
+                    print *, "  L _ Zone #",i,"Parameters : ",obj%DboundPara(i,:)
+                else
+                    print *, "  | - Zone #",i,"Parameters : ",obj%DboundPara(i,:)
+                endif
+            enddo
+        endif
+
+        if(allocated(obj%Nbound%ElemNod) )then
+            n=size(obj%Nbound%ElemNod,1)
+            print *, trim(obj%Name), " as Neumann Boundary"
+            do i=1,n
+                if(i==n)then
+                    print *, "  L _ Zone #",i,"Parameters : ",obj%NboundPara(i,:)
+                else
+                    print *, "  | - Zone #",i,"Parameters : ",obj%NboundPara(i,:)
+                endif
+            enddo
+        endif
+
+        if(allocated(obj%Tbound%ElemNod))then
+            n=size(obj%Tbound%ElemNod,1)
+            print *, trim(obj%Name), " as Time Boundary"
+            do i=1,n
+                if(i==n)then
+                    print *, "  L _ Zone #",i,"Parameters : ",obj%TboundPara(i,:)
+                else
+                    print *, "  | - Zone #",i,"Parameters : ",obj%TboundPara(i,:)
+                endif
+            enddo
+        endif
+    endif
 end subroutine
+! ###########################################################################
 
 ! ###########################################################################
-subroutine createBoundary(obj,Category,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,&
+subroutine createBoundary(obj,Name,Category,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,&
     BoundValue,Layer)
     class(Boundary_),intent(inout) :: obj
-    character(*),optional,intent(in) :: Category
+    character(*),optional,intent(in) :: Category,Name
     real(real64),optional,intent(in) :: x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
     real(real64),optional,intent(in) :: BoundValue
     integer(int32),optional,intent(in) :: Layer
+    obj%Name=""
+    if(present(Name) )then
+        obj%Name=Name
+    else
+        obj%Name="NoName"
+    endif
     if(present(Category) )then
         if(Category == "Dirichlet")then
             call obj%setDB(x_max=x_max,x_min=x_min,y_max=y_max,y_min=y_min,z_max=z_max,&
