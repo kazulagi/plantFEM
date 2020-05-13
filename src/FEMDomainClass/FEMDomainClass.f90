@@ -93,6 +93,7 @@ module FEMDomainClass
 		procedure,public :: bake => bakeFEMDomain
 		procedure,public :: bakeMaterials => bakeMaterialsFEMDomain
 		procedure,public :: bakeDBoundaries => bakeDBoundariesFEMDomain
+		procedure,public :: bakeNBoundaries => bakeNBoundariesFEMDomain
 		procedure,public :: show => showFEMDomain
 		procedure,public :: rename => renameFEMDomain
 		
@@ -1465,7 +1466,8 @@ subroutine AddNBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     real(real64)::x_min,x_max
     real(real64)::y_min,y_max
     real(real64)::z_min,z_max
-    real(real64)::t_min,t_max
+	real(real64)::t_min,t_max,area
+	type(Triangle_) :: tobj
     
     real(real64),optional,intent(in)::valx,valy,valz
 
@@ -1475,7 +1477,7 @@ subroutine AddNBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     real(real64) :: minline,maxline,SetDBCound(3)
     integer(int32),allocatable::NBoundNodINBuf(:,:),CopiedArrayInt(:,:)
     real(real64),allocatable::NBoundValBuf(:,:),CopiedArrayReal(:,:),x(:),rmin(:),rmax(:)
-    integer(int32) :: countnum,i,j,k,node_id,n,m,NumVN,newboundnum,ValID
+    integer(int32) :: countnum,i,j,k,node_id,n,m,NumVN,newboundnum,ValID,dim,nodenum
 
     if(present(val_id) )then
         ValID=val_id
@@ -1592,8 +1594,44 @@ subroutine AddNBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
                     stop "sgdssdfssssssssssssss"
                 endif
                 obj%Boundary%NBoundNum(ValID)=obj%Boundary%NBoundNum(ValID)+1
-                obj%Boundary%NBoundNodID( (i-1)*m+j ,ValID)=obj%Mesh%FacetElemNod(i,j)
-                obj%Boundary%NBoundVal( (i-1)*m+j ,ValID)=val
+				obj%Boundary%NBoundNodID( (i-1)*m+j ,ValID)=obj%Mesh%FacetElemNod(i,j)
+				nodenum=size(obj%Mesh%ElemNod,2)
+				if(nodenum==3)then
+					call tobj%init(dim=3)
+					tobj%NodCoord(1,1:3)=&
+					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),1:3)
+					tobj%NodCoord(2,1:3)=&
+					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),1:3)
+					tobj%NodCoord(3,1:3)=&
+					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),1:3)
+					area=tobj%getArea()
+				elseif(nodenum>=4)then
+					nodenum=4
+					call tobj%init(dim=3)
+					tobj%NodCoord(1,1:3)=&
+					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),1:3)
+					tobj%NodCoord(2,1:3)=&
+					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,2),1:3)
+					tobj%NodCoord(3,1:3)=&
+					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),1:3)
+					area=tobj%getArea()
+					call tobj%init(dim=3)
+					tobj%NodCoord(1,1:3)=&
+					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,2),1:3)
+					tobj%NodCoord(2,1:3)=&
+					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),1:3)
+					tobj%NodCoord(3,1:3)=&
+					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,4),1:3)
+					area=area+tobj%getArea()
+				else
+					print *, "ERROR :: Node num = ",nodenum,"is not implemented."
+					stop 
+				endif
+				if(area==0.0d0 .or. area/=area)then
+					print *, "area==0.0d0 .or. area/=area"
+					stop
+				endif
+                obj%Boundary%NBoundVal( (i-1)*m+j ,ValID)=val*area/dble(nodenum)
             endif
         enddo
     enddo
@@ -5102,12 +5140,14 @@ subroutine bakeFEMDomain(obj, template, templateFile)
 		print *, "Build-in template :: FiniteDeform_ is utilized..."
 		! Run bakeing process ...
 		NumOfMatPara = 6
-		NodeDOF = 3
+		NodeDOF =  3
+		NodeTDOF = 1
 	elseif(template=="DiffusionEq_" .or. template=="DiffusionEq")then
 		print *, "Build-in template :: DiffusionEq_ is utilized..."
 		! Run bakeing process ...
 		NumOfMatPara = 1
 		NodeDOF = 1
+		NodeTDOF= 1 
 	else
 		print *, "In case that you want to use your template, please type template='original'."
 		return
@@ -5145,8 +5185,8 @@ subroutine bakeFEMDomain(obj, template, templateFile)
 
 	call obj%bakeMaterials(NumOfMatPara=NumOfMatPara)
 	call obj%bakeDBoundaries(NodeDOF=NodeDOF)
-
-	
+	call obj%bakeNBoundaries(NodeDOF=NodeDOF)
+	call obj%bakeTBoundaries(NodeDOF=NodeTDOF)
 
 
 
@@ -5242,12 +5282,15 @@ end subroutine bakeMaterialsFEMDomain
 subroutine bakeDBoundariesFEMDomain(obj,NodeDOF)
 	class(FEMDomain_),intent(inout) :: obj
 	integer(int32) ,optional,intent(in) :: NodeDOF 
-	integer(int32) :: i,j,k,l,n,m,NumOfMaterial,layer,in_num,NumOfLayer
+	integer(int32) :: i,j,k,l,n,m,NumOfMaterial,layer,in_num,NumOfLayer,DBCnum,&
+	val_id,NumOfValPerNod
 	real(real64),allocatable :: matPara(:,:),info(:,:)
 	integer(int32),allocatable :: key(:)
 	type(Rectangle_) :: rect,mrect
 	logical :: in_case
-	real(real64) :: matparaval,coord(3),x_max(3),x_min(3)
+	real(real64) :: matparaval,coord(3),x_max(3),x_min(3),&
+	xmin,xmax,ymin,ymax,zmin,zmax,tmin,tmax,valx,valy,valz,val
+
 
 	! get Num of Layer
 	NumOfLayer=0
@@ -5256,73 +5299,229 @@ subroutine bakeDBoundariesFEMDomain(obj,NodeDOF)
 		return
 	endif
 
+	DBCnum=NodeDOF
 
-!	do i=1,size(obj%Boundaries)
-!		if(associated(obj%Boundaries(i)%materialp ) )then
-!			NumOfLayer=NumOfLayer+1
-!		else
-!			cycle
-!		endif
-!	enddo
-!
-!
-!
-!	if(.not. allocated(obj%Boundaries) )then
-!		print *, "No material is baked. All material IDs are 1 "
-!		if(.not.allocated(obj%DBound%ElemMat) )then
-!			allocate(obj%DBound%ElemMat(size(obj%DBound%ElemNod,1) ) )
-!			obj%DBound%ElemMat(:)=1
-!		endif
-!		stop "No material parameters are found."
-!		return
-!	else
-!		! total $NumOfLayer material parameters exist.
-!		! for all Boundaries, resistrate material parameter and material IDs
-!		m=input(default=NumOfLayer,option=NumOfMatPara)
-!		allocate(rect%NodCoord(size(obj%DBound%ElemNod,2),size(obj%DBound%NodCoord,2)) )
-!		allocate(mrect%NodCoord(size(obj%DBound%ElemNod,2),size(obj%DBound%NodCoord,2)) )
-!		allocate(matPara(size(obj%DBound%ElemNod,1),m) )
-!		matPara(:,:) = 0.0d0
-!		do i=1,size(obj%DBound%ElemNod,1)
-!			! for each element
-!			
-!			! input rectangler
-!			do j=1,size(obj%DBound%ElemNod,2)
-!				rect%NodCoord(j,:)=obj%DBound%NodCoord(obj%DBound%ElemNod(i,j),:)
-!			enddo
-!
-!			! for all Boundaries, check material parameters
-!			do j=1,size(obj%Boundaries)
-!				if(associated(obj%Boundaries(j)%materialp) )then
-!					do k=1, size(obj%Boundaries(j)%materialp%DBound%ElemNod,1)
-!						! for each zones, check in-out
-!						! import nodal coordinate
-!						do l=1,size(obj%Boundaries(j)%materialp%DBound%ElemNod,2)
-!							n=obj%Boundaries(j)%materialp%DBound%ElemNod(k,l)
-!							mrect%NodCoord(l,:)=obj%Boundaries(j)%materialp%DBound%NodCoord(n,:)
-!						enddo
-!						layer=obj%Boundaries(j)%materialp%layer
-!						! check in-out
-!						if(rect%contact(mrect) .eqv. .true. )then
-!							! in
-!							matPara(i,layer)=obj%Boundaries(j)%materialp%DBoundPara(k,1)
-!						else
-!							cycle
-!						endif
-!					enddo
-!				else
-!					cycle
-!				endif
-!			enddo
-!		enddo
-!
-!	endif
-!
-!	call getKeyAndValue(Array=matPara,key=obj%DBound%ElemMat, info=obj%MaterialProp%MatPara)
+	if(.not. allocated(obj%Boundaries) )then
+		print *, "No Dirichlet Boundaries are imported."
+		return
+	endif
+
+	NumOfLayer=0
+	do i=1, size(obj%Boundaries,1)
+		if(associated(obj%Boundaries(i)%Boundaryp ) )then
+			if(obj%Boundaries(i)%Boundaryp%Dbound%empty() .eqv. .false. )then
+				NumOfLayer=NumOfLayer+1
+			endif
+		else
+			cycle
+		endif
+	enddo
+	print *, "Number of Layer for Dirichlet Boundary= ",NumOfLayer
+
+	call obj%initDBC(NumOfValPerNod=input(default=NumOfLayer,option=NodeDOF) )
+
+
+	if(.not. allocated(obj%Boundaries) )then
+		print *, "No Dirichlet boundary is baked."
+		return
+	else
+		! total $NumOfLayer Boundary Conditions exist.
+		! for all Boundaries, resistrate material parameter and material IDs
+		do i=1,size(obj%Boundaries,1)
+			! for each Layer
+			if(associated(obj%Boundaries(i)%Boundaryp ) )then
+				if(obj%Boundaries(i)%Boundaryp%DBound%empty() .eqv. .false. )then
+					do j=1,size(obj%Boundaries(i)%Boundaryp%DBound%ElemNod,1)
+						! for each Zone
+						xmin = minval( obj%Boundaries(i)%Boundaryp%DBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,1) ) 
+						xmax = maxval( obj%Boundaries(i)%Boundaryp%DBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,1) ) 
+						ymin = minval( obj%Boundaries(i)%Boundaryp%DBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,2) )
+						ymax = maxval( obj%Boundaries(i)%Boundaryp%DBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,2) )
+						zmin = minval( obj%Boundaries(i)%Boundaryp%DBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,3) )
+						zmax = maxval( obj%Boundaries(i)%Boundaryp%DBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,3) )
+						val = obj%Boundaries(i)%Boundaryp%DBoundPara(j,1)
+						call obj%AddDBoundCondition(xmin=xmin,xmax=xmax,ymin=ymin,&
+						ymax=ymax,zmin=zmin,zmax=zmax,val=val,&
+						val_id=obj%Boundaries(i)%Boundaryp%layer)
+					enddo
+				endif
+			endif
+		enddo
+	endif
+	call showArray(obj%Boundary%DBoundNodID)
 
 end subroutine bakeDBoundariesFEMDomain
 ! ##################################################
 
+
+! ##################################################
+subroutine bakeNBoundariesFEMDomain(obj,NodeDOF)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32) ,optional,intent(in) :: NodeDOF 
+	integer(int32) :: i,j,k,l,n,m,NumOfMaterial,layer,in_num,NumOfLayer,DBCnum,&
+	val_id,NumOfValPerNod,numofnode
+	real(real64),allocatable :: matPara(:,:),info(:,:)
+	integer(int32),allocatable :: key(:)
+	type(Rectangle_) :: rect,mrect
+	logical :: in_case
+	real(real64) :: matparaval,coord(3),x_max(3),x_min(3),&
+	xmin,xmax,ymin,ymax,zmin,zmax,tmin,tmax,valx,valy,valz,val,area
+
+
+	! get Num of Layer
+	NumOfLayer=0
+	if(.not. allocated(obj%Boundaries) )then
+		print *, "no Boundaries found"
+		return
+	endif
+
+	DBCnum=NodeDOF
+
+	if(.not. allocated(obj%Boundaries) )then
+		print *, "No Neumann Boundaries are imported."
+		return
+	endif
+
+	NumOfLayer=0
+	do i=1, size(obj%Boundaries,1)
+		if(associated(obj%Boundaries(i)%Boundaryp ) )then
+			if(obj%Boundaries(i)%Boundaryp%Nbound%empty() .eqv. .false. )then
+				NumOfLayer=NumOfLayer+1
+			endif
+		else
+			cycle
+		endif
+	enddo
+	print *, "Number of Layer for Neumann Boundary= ",NumOfLayer
+
+	call obj%initDBC(NumOfValPerNod=input(default=NumOfLayer,option=NodeDOF) )
+
+
+	if(.not. allocated(obj%Boundaries) )then
+		print *, "No Neumann boundary is baked."
+		return
+	else
+		! total $NumOfLayer Boundary Conditions exist.
+		! for all Boundaries, resistrate material parameter and material IDs
+		do i=1,size(obj%Boundaries,1)
+			! for each Layer
+			if(associated(obj%Boundaries(i)%Boundaryp ) )then
+				if(obj%Boundaries(i)%Boundaryp%NBound%empty() .eqv. .false. )then
+					do j=1,size(obj%Boundaries(i)%Boundaryp%NBound%ElemNod,1)
+						! for each Zone
+						xmin = minval( obj%Boundaries(i)%Boundaryp%NBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,1) ) 
+						xmax = maxval( obj%Boundaries(i)%Boundaryp%NBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,1) ) 
+						ymin = minval( obj%Boundaries(i)%Boundaryp%NBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,2) )
+						ymax = maxval( obj%Boundaries(i)%Boundaryp%NBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,2) )
+						zmin = minval( obj%Boundaries(i)%Boundaryp%NBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,3) )
+						zmax = maxval( obj%Boundaries(i)%Boundaryp%NBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,3) )
+						val = obj%Boundaries(i)%Boundaryp%NBoundPara(j,1)
+						call obj%AddNBoundCondition(xmin=xmin,xmax=xmax,ymin=ymin,&
+						ymax=ymax,zmin=zmin,zmax=zmax,val=val,&
+						val_id=obj%Boundaries(i)%Boundaryp%layer)
+					enddo
+				endif
+			endif
+		enddo
+	endif
+	call showArray(obj%Boundary%NBoundNodID)
+
+end subroutine bakeNBoundariesFEMDomain
+! ##################################################
+
+
+! ##################################################
+subroutine bakeTBoundariesFEMDomain(obj,NodeDOF)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32) ,optional,intent(in) :: NodeDOF 
+	integer(int32) :: i,j,k,l,n,m,NumOfMaterial,layer,in_num,NumOfLayer,DBCnum,&
+	val_id,NumOfValPerNod,numofnode
+	real(real64),allocatable :: matPara(:,:),info(:,:)
+	integer(int32),allocatable :: key(:)
+	type(Rectangle_) :: rect,mrect
+	logical :: in_case
+	real(real64) :: matparaval,coord(3),x_max(3),x_min(3),&
+	xmin,xmax,ymin,ymax,zmin,zmax,tmin,tmax,valx,valy,valz,val,area
+
+
+	! get Num of Layer
+	NumOfLayer=0
+	if(.not. allocated(obj%Boundaries) )then
+		print *, "no Boundaries found"
+		return
+	endif
+
+	DBCnum=NodeDOF
+
+	if(.not. allocated(obj%Boundaries) )then
+		print *, "No Time Boundaries are imported."
+		return
+	endif
+
+	NumOfLayer=0
+	do i=1, size(obj%Boundaries,1)
+		if(associated(obj%Boundaries(i)%Boundaryp ) )then
+			if(obj%Boundaries(i)%Boundaryp%Tbound%empty() .eqv. .false. )then
+				NumOfLayer=NumOfLayer+1
+			endif
+		else
+			cycle
+		endif
+	enddo
+	print *, "Number of Layer for Time Boundary= ",NumOfLayer
+
+	call obj%initDBC(NumOfValPerNod=input(default=NumOfLayer,option=NodeDOF) )
+
+
+	if(.not. allocated(obj%Boundaries) )then
+		print *, "No Time boundary is baked."
+		return
+	else
+		! total $NumOfLayer Boundary Conditions exist.
+		! for all Boundaries, resistrate material parameter and material IDs
+		do i=1,size(obj%Boundaries,1)
+			! for each Layer
+			if(associated(obj%Boundaries(i)%Boundaryp ) )then
+				if(obj%Boundaries(i)%Boundaryp%TBound%empty() .eqv. .false. )then
+					do j=1,size(obj%Boundaries(i)%Boundaryp%TBound%ElemNod,1)
+						! for each Zone
+						xmin = minval( obj%Boundaries(i)%Boundaryp%TBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,1) ) 
+						xmax = maxval( obj%Boundaries(i)%Boundaryp%TBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,1) ) 
+						ymin = minval( obj%Boundaries(i)%Boundaryp%TBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,2) )
+						ymax = maxval( obj%Boundaries(i)%Boundaryp%TBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,2) )
+						zmin = minval( obj%Boundaries(i)%Boundaryp%TBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,3) )
+						zmax = maxval( obj%Boundaries(i)%Boundaryp%TBound%NodCoord&
+						(obj%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,3) )
+						val = obj%Boundaries(i)%Boundaryp%TBoundPara(j,1)
+						call obj%AddTBoundCondition(xmin=xmin,xmax=xmax,ymin=ymin,&
+						ymax=ymax,zmin=zmin,zmax=zmax,val=val,&
+						val_id=obj%Boundaries(i)%Boundaryp%layer)
+					enddo
+				endif
+			endif
+		enddo
+	endif
+	call showArray(obj%Boundary%TBoundNodID)
+
+end subroutine bakeTBoundariesFEMDomain
+! ##################################################
 
 
 

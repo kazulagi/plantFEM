@@ -14,6 +14,7 @@ program main
     !  create mesh
     call water%create(Name="water",MeshType="rectangular3D",x_num=30,y_num=15,x_len=300.0d0, y_len=50.0d0,&
         thickness=50.0d0,division=15)
+    call water%rotate(x=1.0d0)
     call tissue%copy(water,onlyMesh=.true.)
     call tissue%rename("tissue")
 
