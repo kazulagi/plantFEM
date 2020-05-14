@@ -555,6 +555,7 @@ function getAreaTriangle(obj) result(area)
     class(Triangle_),intent(in)::obj
     real(real64) :: area
     real(real64) :: x1,x2,x3,y1,y2,y3
+    real(real64) :: a(3),b(3),c(3)
 
     if(size(obj%NodCoord,2)==2 )then
 
@@ -567,7 +568,15 @@ function getAreaTriangle(obj) result(area)
         area = abs(0.50d0*( x1*y2 + x2*y3 + x3*y1 - y1*x2 -y2*x3 - y3*x1 ))
 
     elseif( size(obj%NodCoord,2)==3 )then
-
+        a(:)=obj%NodCoord(1,:)
+        b(:)=obj%NodCoord(2,:)
+        c(:)=obj%NodCoord(3,:)
+        a(:)=a(:)-c(:)
+        b(:)=b(:)-c(:)
+        area=(a(1)*a(1) + a(2)*a(2) + a(3)*a(3))*(b(1)*b(1) + b(2)*b(2) + b(3)*b(3))
+        area=area-(a(1)*b(1)+a(2)*b(2)+a(3)*b(3))*(a(1)*b(1)+a(2)*b(2)+a(3)*b(3))
+        area=0.50d0*area
+        area=sqrt(area)
     else
         print *, "ERROR :: getAreaTriangle, size(obj%NodCoord,2)==2 "
         return

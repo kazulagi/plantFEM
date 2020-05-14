@@ -76,7 +76,6 @@ subroutine SetShapeFuncType(obj)
     character*70 ::  TrimedElemType
 
     
-
     TrimedElemType=trim(obj%ElemType)
     if(trim(TrimedElemType)=="LinearRectangularGp4")then
 

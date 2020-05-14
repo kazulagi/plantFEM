@@ -17,9 +17,9 @@ module DiffusionEquationClass
         real(real64)             ::dt
         integer(int32)             :: step
     contains
+        procedure :: Setup => SetupDiffusionEq
         procedure :: Solve => SolveDiffusionEq
         procedure :: Update => UpdateDiffusionEq
-        procedure :: Setup => SetupDiffusionEq
         procedure :: GetMat => GetDiffusionMat
         procedure :: GetRHS => GetFlowvector
         procedure :: GetInitVal => GetUnknownValue
@@ -42,143 +42,143 @@ subroutine ImportFEMDomainDiff(obj,OptionalFileFormat,OptionalProjectName)
     integer(int32) :: fh,i,j,NumOfDomain,n,m,DimNum
     character*70 Msg
 
-call DeallocateFEMDomain(obj)
+    call DeallocateFEMDomain(obj)
 
-fh =104
-if(present(OptionalFileFormat) )then
-    FileFormat=trim(OptionalFileFormat)
-else
-    FileFormat=".scf"
-endif
-
-
-if(present(OptionalProjectName) )then
-    ProjectName=trim(OptionalProjectName)
-else
-    ProjectName="untitled"
-endif
-
-FileName = trim(ProjectName)//trim(FileFormat)
-obj%FileName = trim(FileName)
-obj%FilePath = "./"
-!!print *, "Project : ",ProjectName
-!!print *, "is Exported as : ",FileFormat," format"
-!!print *, "File Name is : ",FileName
-
-open(fh,file=FileName,status="old")
-
-if(trim(FileFormat)==".scf" )then
-
-    read(fh,*) NumOfDomain
-    allocate(IntMat(NumOfDomain,2))
-    allocate(obj%Mesh%SubMeshNodFromTo(NumOfDomain,3) )
-    allocate(obj%Mesh%SubMeshElemFromTo(NumOfDomain,3) )
-    
-    do i=1,NumOfDomain
-        obj%Mesh%SubMeshNodFromTo(i,1)=i
-        read(fh,*) obj%Mesh%SubMeshNodFromTo(i,2),obj%Mesh%SubMeshNodFromTo(i,3)
-    enddo
-
-    do i=1,NumOfDomain
-        obj%Mesh%SubMeshElemFromTo(i,1)=i
-        read(fh,*) obj%Mesh%SubMeshElemFromTo(i,3)
-        if(i==1)then
-            obj%Mesh%SubMeshElemFromTo(i,2)=1    
-        else
-            obj%Mesh%SubMeshElemFromTo(i,2)=obj%Mesh%SubMeshElemFromTo(i-1,3)+1
-        endif
-    enddo
-    
-    read(fh,*) n,m
-    DimNum=m
-    allocate(obj%Mesh%NodCoord(n,m) )
-    call ImportArray(obj%Mesh%NodCoord,OptionalFileHandle=fh)
-
-    read(fh,*) n,m
-    read(fh,*)obj%Mesh%ElemType
-    allocate(obj%Mesh%ElemNod(n,m) )
-    allocate(obj%Mesh%ElemMat(n  ) )
-    call ImportArray(obj%Mesh%ElemNod,OptionalFileHandle=fh)
-    do i=1,n
-        read(fh,*) obj%Mesh%ElemMat(i)
-    enddo
-    read(fh,*) n,m
-    allocate(obj%MaterialProp%MatPara(n,m) )
-    call ImportArray(obj%MaterialProp%MatPara,OptionalFileHandle=fh)
-    
-
-
-    !######### Dirichlet boundary conditions #################
-    DimNum=1
-    allocate(obj%Boundary%DBoundNum(DimNum ))
-    read(fh,*) obj%Boundary%DBoundNum(:)
-    allocate(obj%Boundary%DBoundNodID( maxval(obj%Boundary%DBoundNum), size(obj%Boundary%DBoundNum)  )  )
-    allocate(obj%Boundary%DBoundVal( maxval(obj%Boundary%DBoundNum), size(obj%Boundary%DBoundNum)  )  )
-
-    obj%Boundary%DBoundNodID(:,:)=-1
-    obj%Boundary%DBoundVal(:,:)  =0.0d0
-
-    do i=1,size(obj%Boundary%DBoundNum,1)
-        do j=1,obj%Boundary%DBoundNum(i)
-            read(fh,*) obj%Boundary%DBoundNodID(j,i)
-        enddo
-        do j=1,obj%Boundary%DBoundNum(i)
-            read(fh,*) obj%Boundary%DBoundVal(j,i)
-        enddo
-    enddo
-    !######### Dirichlet boundary conditions #################
-    
-    
-    
-    !######### Neumann boundary conditions #################
-    read(fh,*) n
-    allocate( obj%Boundary%NBoundNum(DimNum))
-    allocate(obj%Boundary%NBoundNodID(n, size(obj%Boundary%NBoundNum)  )  )
-    allocate(obj%Boundary%NBoundVal( n, size(obj%Boundary%NBoundNum)  )  )
-    obj%Boundary%NBoundNodID(:,:)=-1
-    obj%Boundary%NBoundVal(:,:)  =0.0d0
-
-    obj%Boundary%NBoundNum(:)=n
-    do i=1,n
-        read(fh,*) m
-        obj%Boundary%NBoundNodID(i,:)=m
-    enddo
-
-    do i=1,n
-        read(fh,*) obj%Boundary%NBoundVal(i,:)
-    enddo
-    !######### Neumann boundary conditions #################
-
-
-
-
-    !######### Initial conditions #################
-    read(fh,*) n
-    allocate(obj%Boundary%TBoundNodID(n,1) )
-    allocate(obj%Boundary%TBoundVal(  n,1) )
-    allocate(obj%Boundary%TBoundNum(  1) )
-
-    obj%Boundary%TBoundNum=n
-    
-    if(n/=0)then
-        if(n<0)then
-            print *, "ERROR :: number of initial conditions are to be zero"
-        else
-            do i=1,n
-                read(fh,*) obj%Boundary%TBoundNodID(i,1)
-            enddo
-            do i=1,n
-                read(fh,*) obj%Boundary%TBoundVal(i,1)
-            enddo
-        endif
+    fh =104
+    if(present(OptionalFileFormat) )then
+        FileFormat=trim(OptionalFileFormat)
+    else
+        FileFormat=".scf"
     endif
-    
-    !######### Initial conditions #################
-    read(fh,*) obj%ControlPara%ItrTol,obj%ControlPara%Timestep
-    close(fh)
-else
-    !!print *, "ERROR :: ExportFEMDomain >> only .scf file can be exported."
-endif
+
+
+    if(present(OptionalProjectName) )then
+        ProjectName=trim(OptionalProjectName)
+    else
+        ProjectName="untitled"
+    endif
+
+    FileName = trim(ProjectName)//trim(FileFormat)
+    obj%FileName = trim(FileName)
+    obj%FilePath = "./"
+    !!print *, "Project : ",ProjectName
+    !!print *, "is Exported as : ",FileFormat," format"
+    !!print *, "File Name is : ",FileName
+
+    open(fh,file=FileName,status="old")
+
+    if(trim(FileFormat)==".scf" )then
+
+        read(fh,*) NumOfDomain
+        allocate(IntMat(NumOfDomain,2))
+        allocate(obj%Mesh%SubMeshNodFromTo(NumOfDomain,3) )
+        allocate(obj%Mesh%SubMeshElemFromTo(NumOfDomain,3) )
+
+        do i=1,NumOfDomain
+            obj%Mesh%SubMeshNodFromTo(i,1)=i
+            read(fh,*) obj%Mesh%SubMeshNodFromTo(i,2),obj%Mesh%SubMeshNodFromTo(i,3)
+        enddo
+
+        do i=1,NumOfDomain
+            obj%Mesh%SubMeshElemFromTo(i,1)=i
+            read(fh,*) obj%Mesh%SubMeshElemFromTo(i,3)
+            if(i==1)then
+                obj%Mesh%SubMeshElemFromTo(i,2)=1    
+            else
+                obj%Mesh%SubMeshElemFromTo(i,2)=obj%Mesh%SubMeshElemFromTo(i-1,3)+1
+            endif
+        enddo
+
+        read(fh,*) n,m
+        DimNum=m
+        allocate(obj%Mesh%NodCoord(n,m) )
+        call ImportArray(obj%Mesh%NodCoord,OptionalFileHandle=fh)
+
+        read(fh,*) n,m
+        read(fh,*)obj%Mesh%ElemType
+        allocate(obj%Mesh%ElemNod(n,m) )
+        allocate(obj%Mesh%ElemMat(n  ) )
+        call ImportArray(obj%Mesh%ElemNod,OptionalFileHandle=fh)
+        do i=1,n
+            read(fh,*) obj%Mesh%ElemMat(i)
+        enddo
+        read(fh,*) n,m
+        allocate(obj%MaterialProp%MatPara(n,m) )
+        call ImportArray(obj%MaterialProp%MatPara,OptionalFileHandle=fh)
+
+
+
+        !######### Dirichlet boundary conditions #################
+        DimNum=1
+        allocate(obj%Boundary%DBoundNum(DimNum ))
+        read(fh,*) obj%Boundary%DBoundNum(:)
+        allocate(obj%Boundary%DBoundNodID( maxval(obj%Boundary%DBoundNum), size(obj%Boundary%DBoundNum)  )  )
+        allocate(obj%Boundary%DBoundVal( maxval(obj%Boundary%DBoundNum), size(obj%Boundary%DBoundNum)  )  )
+
+        obj%Boundary%DBoundNodID(:,:)=-1
+        obj%Boundary%DBoundVal(:,:)  =0.0d0
+
+        do i=1,size(obj%Boundary%DBoundNum,1)
+            do j=1,obj%Boundary%DBoundNum(i)
+                read(fh,*) obj%Boundary%DBoundNodID(j,i)
+            enddo
+            do j=1,obj%Boundary%DBoundNum(i)
+                read(fh,*) obj%Boundary%DBoundVal(j,i)
+            enddo
+        enddo
+        !######### Dirichlet boundary conditions #################
+
+
+
+        !######### Neumann boundary conditions #################
+        read(fh,*) n
+        allocate( obj%Boundary%NBoundNum(DimNum))
+        allocate(obj%Boundary%NBoundNodID(n, size(obj%Boundary%NBoundNum)  )  )
+        allocate(obj%Boundary%NBoundVal( n, size(obj%Boundary%NBoundNum)  )  )
+        obj%Boundary%NBoundNodID(:,:)=-1
+        obj%Boundary%NBoundVal(:,:)  =0.0d0
+
+        obj%Boundary%NBoundNum(:)=n
+        do i=1,n
+            read(fh,*) m
+            obj%Boundary%NBoundNodID(i,:)=m
+        enddo
+
+        do i=1,n
+            read(fh,*) obj%Boundary%NBoundVal(i,:)
+        enddo
+        !######### Neumann boundary conditions #################
+
+
+
+
+        !######### Initial conditions #################
+        read(fh,*) n
+        allocate(obj%Boundary%TBoundNodID(n,1) )
+        allocate(obj%Boundary%TBoundVal(  n,1) )
+        allocate(obj%Boundary%TBoundNum(  1) )
+
+        obj%Boundary%TBoundNum=n
+
+        if(n/=0)then
+            if(n<0)then
+                print *, "ERROR :: number of initial conditions are to be zero"
+            else
+                do i=1,n
+                    read(fh,*) obj%Boundary%TBoundNodID(i,1)
+                enddo
+                do i=1,n
+                    read(fh,*) obj%Boundary%TBoundVal(i,1)
+                enddo
+            endif
+        endif
+
+        !######### Initial conditions #################
+        read(fh,*) obj%ControlPara%ItrTol,obj%ControlPara%Timestep
+        close(fh)
+    else
+        !!print *, "ERROR :: ExportFEMDomain >> only .scf file can be exported."
+    endif
 
 end subroutine ImportFEMDomainDiff
 !######################## ImportData of DiffusionEq ########################
@@ -231,7 +231,6 @@ subroutine SolveDiffusionEq(obj,Solvertype)
     !===================================
     
     
-
     !===================================
     xvec(:)=0.0d0
     ! set initial value for xvec
@@ -328,7 +327,7 @@ subroutine SolveDiffusionEq(obj,Solvertype)
     er=1.0e-15
     n=size(bvec)
     
-    
+
     if(trim(solver)=="GaussJordan")then
         print *, "Solver type :: GaussJordan" 
         call  gauss_jordan_pv(Amat, xvec, bvec,size(xvec) )
@@ -385,11 +384,13 @@ subroutine SetupDiffusionEq(obj)
     class(DiffusionEq_),intent(inout)::obj
 
     obj%step=1
+    if(obj%dt==0.0d0 .or. obj%dt/=obj%dt)then
+        obj%dt=1.0d0
+    endif
     call GetUnknownValue(obj)
     call GetDivergence(obj)
     call GetDiffusionMat(obj)
     call GetFlowvector(obj)
-    
     
 end subroutine
 !######################## Initialize DiffusionEq ########################
@@ -419,7 +420,7 @@ subroutine GetDiffusionMat(obj)
     if( .not. allocated( obj%FlowVector  ) ) allocate(obj%FlowVector(elem_num,elemnod_num) )
     if( .not. allocated( obj%UnknownValue) ) allocate(obj%UnknownValue(elem_num,elemnod_num) )
     if( .not. allocated( obj%DiffusionMat) ) allocate(obj%DiffusionMat(elem_num,elemnod_num,elemnod_num) )
-    if( .not. allocated( obj%FluxVector3D) ) allocate(obj%FluxVector3D(elem_num,3) )
+    if( .not. allocated( obj%FluxVector3D) ) allocate(obj%FluxVector3D(elem_num,elemnod_num) )
     obj%FlowVector(:,:)=0.0d0
     obj%FluxVector3D(:,:)=0.0d0
     obj%DiffusionMat(:,:,:)=0.0d0
@@ -428,6 +429,8 @@ subroutine GetDiffusionMat(obj)
     obj%FEMDomain%ShapeFunction%ElemType=obj%FEMDomain%Mesh%ElemType
     call SetShapeFuncType(obj%FEMDomain%ShapeFunction)
 
+    !call showArraySize(obj%FluxVector3D)
+    !call showArraySize(Flux)
 
     do i=1,elem_num
         Cvec(:)=obj%UnknownValue(i,:)

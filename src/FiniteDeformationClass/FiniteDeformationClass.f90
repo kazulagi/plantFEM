@@ -44,7 +44,7 @@ contains
 subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype)
 	class(FiniteDeform_),intent(inout)::obj
 	integer(int32),optional,intent(in)::OptionItr
-    character*70,optional,intent(in)::Solvertype
+    character(*),optional,intent(in)::Solvertype
     character*70 ::solver,defaultsolver
 
     real(real64),allocatable::Amat(:,:),bvec(:),xvec(:)
@@ -123,15 +123,16 @@ subroutine DevideBCIntoTimestep(obj)
 	integer(int32) ::n,m, timestep
 
 	!debug Display Dirichlet Boundary Condition
-	call obj%FEMDomain%GmshPlotMesh(onlyDirichletBC=.true.)
-
-
+	!call obj%FEMDomain%GmshPlotMesh(onlyDirichletBC=.true.)
 	timestep=obj%FEMDomain%ControlPara%Timestep
 	
 	if(obj%FEMDomain%ControlPara%SimMode==1)then
 		
+
+	
 		n=size(obj%FEMDomain%Boundary%DBoundVal,1)
 		m=size(obj%FEMDomain%Boundary%DBoundVal,2)
+
 		if(.not.allocated(obj%FEMDomain%Boundary%DBoundValInc ) )then
 			allocate(obj%FEMDomain%Boundary%DBoundValInc(n,m) )
 		else
@@ -140,8 +141,9 @@ subroutine DevideBCIntoTimestep(obj)
 				deallocate(obj%FEMDomain%Boundary%DBoundValInc)
 			endif
 		endif
-		
 		obj%FEMDomain%Boundary%DBoundValInc(:,:)=1.0d0/dble(timestep)*obj%FEMDomain%Boundary%DBoundVal(:,:)
+		
+		
 		!obj%FEMDomain%Boundary%DBoundVal(:,:)=obj%FEMDomain%Boundary%DBoundValInc(:,:)
 	elseif(obj%FEMDomain%ControlPara%SimMode==2)then
 		n=size(obj%FEMDomain%Boundary%NBoundVal,1)
@@ -157,6 +159,7 @@ subroutine DevideBCIntoTimestep(obj)
 		
 		obj%FEMDomain%Boundary%NBoundValInc(:,:)=1.0d0/dble(timestep)*obj%FEMDomain%Boundary%NBoundVal(:,:)
 		obj%FEMDomain%Boundary%NBoundVal(:,:)=obj%FEMDomain%Boundary%NBoundValInc(:,:)
+		
 	else
 		print *, "ERROR :: Displacement Control or Force Control?"
 	endif
@@ -208,7 +211,7 @@ end subroutine
 subroutine ImportFEMDomainFiDe(obj,OptionalFileFormat,OptionalProjectName)
     class(FEMDomain_),intent(inout)::obj
     character*4,optional,intent(in)::OptionalFileFormat
-    character*70,optional,intent(in)::OptionalProjectName
+    character(*),optional,intent(in)::OptionalProjectName
 
     character*4::FileFormat
     character*70::ProjectName
@@ -382,6 +385,9 @@ end subroutine
 subroutine SetupFiniteDeform(obj)
     class(FiniteDeform_),intent(inout)::obj
 	
+    if(obj%dt==0.0d0 .or. obj%dt/=obj%dt)then
+        obj%dt=1.0d0
+    endif
 	call UpdateCurrConfig(obj)
     call GetDeformStressMatAndVector(obj)
 end subroutine
@@ -422,7 +428,17 @@ subroutine UpdateCurrConfig(obj)
     if(.not.allocated(obj%DeformVecGloInc) ) then
         allocate(obj%DeformVecGloInc(num_node*num_dim) )
         obj%DeformVecGloInc(:)=0.0d0
-    endif
+	endif
+	if(.not. allocated(obj%FEMDomain%Mesh%NodCoordInit) )then
+		allocate(obj%FEMDomain%Mesh%NodCoordInit(num_node,num_dim) )
+		obj%FEMDomain%Mesh%NodCoordInit(:,:)=obj%FEMDomain%Mesh%NodCoord(:,:)
+	endif
+	
+	!call showArraySIze(obj%FEMDomain%Mesh%NodCoord)
+	!call showArraySIze(obj%FEMDomain%Mesh%NodCoordInit)
+	!call showArraySize(obj%DeformVecGloInc)
+	!call showArraySize(obj%DeformVecGloTot)
+	!stop 
 	do i=1,num_node
         do j=1,num_dim
             obj%FEMDomain%Mesh%NodCoord(i,j )=obj%FEMDomain%Mesh%NodCoordInit(i,j) + &
@@ -520,7 +536,7 @@ end subroutine
     
     obj%DeformStressRHS(:,:)  =0.0d0
 	obj%DeformStressMat(:,:,:)=0.0d0
-	
+	obj%FEMDomain%ShapeFunction%ElemType=obj%FEMDomain%Mesh%GetElemType()
 	call SetShapeFuncType(obj%FEMDomain%ShapeFunction)
 	
 	
@@ -2094,7 +2110,7 @@ subroutine g_vector_e(elem,gauss,s, BTmat,sigma, detJ, gvec_e)
 subroutine SolveFiniteDeform(obj,OptionItr,Solvertype)
 	class(FiniteDeform_),intent(inout)::obj
 	integer(int32),optional,intent(in)::OptionItr
-    character*70,optional,intent(in)::Solvertype
+    character(*),optional,intent(in)::Solvertype
     character*70 ::solver,defaultsolver
 
     real(real64),allocatable::Amat(:,:),bvec(:),xvec(:)
@@ -2102,7 +2118,6 @@ subroutine SolveFiniteDeform(obj,OptionItr,Solvertype)
     integer(int32) ::i,j,n,m,k,l,dim1,dim2,nodeid1,nodeid2,localid,itrmax,SetBC,int1,int2
 	integer(int32) :: dim_num,node_num,elem_num,node_num_elmtl
 	
-	defaultsolver="BiCGSTAB"
 	
 	node_num=size(obj%FEMDomain%Mesh%NodCoord,1)
 	dim_num=size(obj%FEMDomain%Mesh%NodCoord,2)
@@ -2121,14 +2136,17 @@ subroutine SolveFiniteDeform(obj,OptionItr,Solvertype)
 		SetBC=1
 	endif
 
-
 	!if sorving initial value
 	if(SetBC==1)then
 		obj%DeformVecEBEInc(:,:)=0.0d0
 		obj%DeformVecGloInc(:)=0.0d0
 	endif
 
-	solver=input(default=defaultsolver,Option=SolverType)
+	if(present(SolverType) )then
+		solver=SolverType
+	else
+		solver="BiCGSTAB"
+	endif
 	
 	n=node_num
 	m=dim_num
@@ -2136,7 +2154,9 @@ subroutine SolveFiniteDeform(obj,OptionItr,Solvertype)
     Amat(:,:)=0.0d0
 	bvec(:)  =0.0d0
 	
-
+	!print *, "stop debug"
+	!call showArray(Amat, Name="Amat.txt")
+	!stop 
 
     !===================================
     ! assemble matrix
@@ -2160,7 +2180,7 @@ subroutine SolveFiniteDeform(obj,OptionItr,Solvertype)
     !===================================
     
     
-    call GetTractionVector(obj)
+	call GetTractionVector(obj)
 
 	call GetInternalVector(obj)
 	call GetResidualVector(obj)
@@ -2198,7 +2218,7 @@ subroutine SolveFiniteDeform(obj,OptionItr,Solvertype)
     er=1.0e-15
     n=size(bvec)
 	xvec(:)=0.0d0
-    
+
     if(trim(solver(1:11) )=="GaussJordan")then
         print *, "Solver type :: GaussJordan"
         call  gauss_jordan_pv(Amat, xvec, bvec, n)
