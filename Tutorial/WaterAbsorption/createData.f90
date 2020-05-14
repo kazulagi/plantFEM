@@ -3,7 +3,7 @@ program main
     implicit none
 
     type(WaterAbsorption_)::seed
-    type(FEMDomain_) :: water,tissue,tissue2,tissue3
+    type(FEMDomain_),target :: water,tissue,tissue2,tissue3
     type(MaterialProp_):: Permiability, YoungsModulus,PoissonRatio
     type(MaterialProp_):: density,Cohesion,phi,psi
     type(Boundary_) :: disp_x,disp_y,disp_z
@@ -12,20 +12,18 @@ program main
 
 
     !  create mesh
-    call water%create(Name="water",MeshType="rectangular3D",x_num=30,y_num=15,x_len=300.0d0, y_len=50.0d0,&
-        thickness=50.0d0,division=15)
-    call water%rotate(x=1.0d0)
+    call water%create(Name="water",MeshType="rectangular3D",x_num=20,y_num=10,x_len=300.0d0, y_len=50.0d0,&
+        thickness=50.0d0,division=5)
     call tissue%copy(water,onlyMesh=.true.)
     call tissue%rename("tissue")
 
+
     ! create material
     ! for deformation analysis
-    call YoungsModulus%create(Name="YoungsModulus",x_max=300.0d0,x_min=150.0d0,y_max=70.0d0,y_min=0.0d0,&
-    z_max=70.0d0,z_min=0.0d0,ParaValue=12000.0d0,Layer=1)
+    call YoungsModulus%create(Name="YoungsModulus",ParaValue=12000.0d0,Layer=1)
     call YoungsModulus%create(Name="YoungsModulus",x_max=150.0d0,x_min=0.0d0,y_max=70.0d0,y_min=0.0d0,&
     z_max=70.0d0,z_min=0.0d0,ParaValue=6000.0d0,Layer=1)
-    call PoissonRatio%create(Name="PoissonRatio",x_max=300.0d0,x_min=0.0d0,y_max=50.0d0,y_min=0.0d0,&
-    z_max=50.0d0,z_min=0.0d0,ParaValue=0.30d0,Layer=2)
+    call PoissonRatio%create(Name="PoissonRatio",ParaValue=0.30d0,Layer=2)
     !call PoissonRatio%create(Name="PoissonRatio",x_max=100.0d0,x_min=0.0d0,y_max=50.0d0,y_min=0.0d0,&
     !z_max=50.0d0,z_min=0.0d0,ParaValue=0.10d0,Layer=2)
     call Density%create(Name="Density",ParaValue=0.00d0,Layer=3)
@@ -35,9 +33,9 @@ program main
 
     ! for diffusion analysis
     call Permiability%create(Name="Permiability",x_max=300.0d0,x_min=100.0d0,y_max=50.0d0,y_min=0.0d0,&
-    z_max=50.0d0,z_min=0.0d0,ParaValue=0.0010d0,Layer=1)
+    z_max=50.0d0,z_min=0.0d0,ParaValue=-0.0010d0,Layer=1)
     call Permiability%create(Name="Permiability",x_max=100.0d0,x_min=0.0d0,y_max=50.0d0,y_min=0.0d0,&
-    z_max=50.0d0,z_min=0.0d0,ParaValue=0.000010d0,Layer=1)
+    z_max=50.0d0,z_min=0.0d0,ParaValue=-0.000010d0,Layer=1)
 
     ! import Materials onto FEMDomains
     call tissue%import(Materials=.true., Material=YoungsModulus)
@@ -84,10 +82,11 @@ program main
     
     ! for Flow analysis
     ! known value
-    call const%create(category="Dirichlet",BoundValue=0.0d0,Name="const")
+    call const%create(category="Dirichlet",x_max=5.0d0,x_min=-1.0d0,y_max=100.0d0,y_min=-100.0d0,&
+    z_max=100.0d0,z_min=-100.0d0,BoundValue=0.0d0,Name="const",Layer=1)
     ! flux boundary
     call const%create(category="Dirichlet",x_max=310.0d0,x_min=299.0d0,y_max=100.0d0,y_min=-100.0d0,&
-    z_max=100.0d0,z_min=-100.0d0,BoundValue=20.0d0,Name="const")
+    z_max=100.0d0,z_min=-100.0d0,BoundValue=20.0d0,Name="const",Layer=1)
 
 
     ! visualize on Gmsh
@@ -119,21 +118,20 @@ program main
     call water%bake(template="DiffusionEq_")    
     
     ! visualize Domains
-    call tissue%gmsh(Name="tissue",Tag="Tissue2 Domain")
+    call tissue%gmsh(Name="tissue",Tag="Tissue Domain")
     call water%gmsh(Name="water",Tag="Water Domain")
-
-    return
     
     call tissue%export(Name="tissue")
     call water%export(Name="water")
+
     ! mount data into a seed (An instance of Water-Absorption Solver)
+    
     call seed%import(Water=water,Tissue=tissue)
 
-
     ! run simulation
-    call seed%run(timestep=10)
-
+    call seed%run(timestep=10,dt=0.0010d0,SolverType="BiCGSTAB",Display=.true.)
+    
     ! visualize data
-    call seed%display()
+    !call seed%display()
     
 end program main

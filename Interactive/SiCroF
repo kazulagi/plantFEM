@@ -14,14 +14,17 @@ man="man"
 man1="man SiCroF"
 man2="man sicrof"
 hostfile=""
+keywords=""
 cpucore="cpu-core"
 install="install"
 compress="compress"
 mpif90="mpif90"
 intel="intel"
+debugMode="-"
 ls="ls"
 f90="f90"
 run="run"
+ret=0
 
 echo "If this is the first time, please type 'install' and press ENTER"
 echo "Please input fortran script *.f90 | or check manual by 'man'  "
@@ -35,6 +38,14 @@ do
     echo -n ">>> "
     read command 
 
+
+    if [ $command = $debugMode ]; then
+        echo "Debug Mode :: Please input keywords of re-compile modules."
+        read keywords
+        echo $(cat ./install/install | grep $keywords | grep -m1 mpif90)
+        $(cat ./install/install | grep $keywords| grep -m1 mpif90)
+        continue
+    fi
 
     if [ $command = $intel ]; then
         mpifort="mpiifort"
@@ -104,7 +115,7 @@ do
     echo "extension is $EXTENSION"
     if [ $EXTENSION = $f90 ]; then
         echo ">"
-        $mpif90 inc/*o $command 
+        $mpif90 inc/*o $command -g -fcheck=all 
         echo "Current num of cpu-core is :: $numcore "
 
         if [ $hostfile != "" ]; then

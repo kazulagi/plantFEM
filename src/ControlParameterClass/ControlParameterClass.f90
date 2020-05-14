@@ -9,6 +9,7 @@ module ControlParaeterClass
     contains
         procedure,public :: init => initControlPara
         procedure,public :: SetControlPara => SetControlPara
+        procedure,public :: set => SetControlPara
     end type ControlParameter_
 
 contains
@@ -17,9 +18,9 @@ subroutine initControlPara(obj)
     class(ControlParameter_),intent(inout):: obj
 
     obj%Tol=1.0e-16
-    obj%SimMode=-1
-    obj%ItrTol=-1
-    obj%Timestep=-1
+    obj%SimMode=1
+    obj%ItrTol=1000
+    obj%Timestep=1
 end subroutine
 
 !######### Import Control Parameters #########

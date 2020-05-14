@@ -6,6 +6,9 @@ Commands:
 (1) For installation >>
     install :: compile all modules
 
+(2) For debug >>
+    - :: compile only 1 module. Type - [Enter], and write your debugged module name.
+
 (2) For changing number of cpu-cores
     cpu-core :: change number of cpu-core
 

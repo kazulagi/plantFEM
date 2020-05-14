@@ -41,7 +41,7 @@ module FEMDomainClass
         character*200 :: FileName
         character*200 :: Name
         character*9 :: Dtype
-		character*20 :: SolverType
+		character*200 :: SolverType
 		character*200 :: Category1 
 		character*200 :: Category2
 		character*200 :: Category3
@@ -94,6 +94,7 @@ module FEMDomainClass
 		procedure,public :: bakeMaterials => bakeMaterialsFEMDomain
 		procedure,public :: bakeDBoundaries => bakeDBoundariesFEMDomain
 		procedure,public :: bakeNBoundaries => bakeNBoundariesFEMDomain
+		procedure,public :: bakeTBoundaries => bakeTBoundariesFEMDomain
 		procedure,public :: show => showFEMDomain
 		procedure,public :: rename => renameFEMDomain
 		
@@ -822,8 +823,8 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
         print *, obj%SolverType
         print *, obj%NumOfDomain
         print *, "########### Meta Info ###########"
-        
-    
+
+
         do i=1,obj%NumOfDomain
             write(fh,*) obj%Mesh%SubMeshNodFromTo(i,2),obj%Mesh%SubMeshNodFromTo(i,3)
         enddo
@@ -834,6 +835,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
         write(fh,*) "  "
 
 
+		
         print *, "########### Domain info ###########"
         do i=1,obj%NumOfDomain
             !write(*,*) obj%Mesh%SubMeshNodFromTo(i,2),obj%Mesh%SubMeshNodFromTo(i,3)
@@ -884,7 +886,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
         print *, " "
         print *, "########### Element info ###########"
-        write(*,'(A)') "Element Type : ",trim(obj%Mesh%ElemType)
+        print *, "Element Type : ",trim(obj%Mesh%GetElemType() )
         print *, "Number of Element : ",n, "Number of node per element : ",m
         print *, "Successfully Exported"
         print *, "########### Element info ###########"
@@ -906,10 +908,6 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
         flush(fh)
 
 
-		print *, "debug"
-		return
-
-
 
         print *, "########### Material info ###########"
         n=size(obj%Mesh%ElemNod,1)
@@ -918,20 +916,19 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
         m=size(obj%MaterialProp%MatPara,2)
         !write(*,*) n,m
         do i=1,n
-            !write(*,*) obj%MaterialProp%MatPara(i,:)
+            write(*,*) obj%MaterialProp%MatPara(i,:)
         enddo
         print *, "Successfully Exported"
         print *, "########### Material info ###########"
-        
+		
         !DirichletBoundary
-
 
         if(.not.allocated(obj%Boundary%DBoundNum))then
             
             write(fh,*) "0" !DirichletBoundaryDimension
             write(fh,*) "  "
-            stop "gfsf"
-            !print *, "ImportFEMDomain >> Caution :: no Dirichlet Boundary Condition is loaded. "
+			print *, "ImportFEMDomain >> Caution :: no Dirichlet Boundary Condition is loaded. "
+			stop 
         else
 
             n=size(obj%Boundary%DBoundNum)
@@ -961,7 +958,6 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
             enddo
 
         endif
-
 
 
 
@@ -1007,6 +1003,8 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
         print *, "########### Dirichlet Boundary info ###########"
         
         
+
+
 
         if(.not.allocated(obj%Boundary%NBoundNum) )then
             DimNum=0
@@ -1420,7 +1418,8 @@ subroutine InitNBC(obj,NumOfValPerNod)
     !if the facet is not created, create facets (surface elements)
     if( .not. allocated(obj%Mesh%FacetElemNod) )then
         call GetSurface(obj%Mesh)        
-    endif
+	endif
+	
     n=size(obj%Mesh%FacetElemNod,1)
     m=size(obj%Mesh%FacetElemNod,2)
 
@@ -2552,18 +2551,17 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 	!---------------------
 	write (filename0, '("_", i6.6, ".pos")') step ! ここでファイル名を生成している
 	if(present(Name) )then
-		filename=filetitle//filename0
+		filename=filename0
 		
 		!call system(  "touch "//trim(Name)//trim(obj%FileName)//trim(filename) )
-		print *, trim(Name)//trim(filename)
-		open(fh,file=trim(Name)//trim(filename) )
-		print *, "writing ",trim(Name)//trim(filename)," step>>",step
+		open(fh,file=trim(Name)//trim(filetitle)//trim(filename) )
+		print *, "writing ",trim(Name)//trim(filetitle)//trim(filename)," step>>",step
 	else
-		filename=filetitle//filename0
+		filename=filename0
 		!call system(  "touch "//trim(obj%FileName)//trim(filename) )
-		print *, trim(obj%FileName)//trim(filename)
-		open(fh,file=trim(obj%FileName)//trim(filename) )
-		print *, "writing ",trim(obj%FileName)//trim(filename)," step>>",step
+		!print *, trim(obj%FileName)//trim(filetitle)//trim(filename)
+		open(fh,file=trim(obj%FileName)//trim(filetitle)//trim(filename) )
+		print *, "writing ",trim(obj%FileName)//trim(filetitle)//trim(filename)," step>>",step
 	endif
 	
 	
@@ -3314,13 +3312,13 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 	filetitle(1:6)=abbmap(1:6)
 	!---------------------
 	write (filename0, '("_", i6.6, ".pos")') step ! ここでファイル名を生成している
-	filename=filetitle//filename0
+	filename=filename0
 	!command="touch "//trim(obj%FileName)//trim(filename)
-	call system("touch "//trim(obj%FileName)//trim(filename))
+	!call system("touch "//trim(obj%FileName)//trim(filename))
 
 
-	open(fh,file=trim(obj%FileName)//trim(filename))
-	print *, "writing ",trim(obj%FileName)//trim(filename)," step>>",step
+	open(fh,file=trim(obj%FileName)//trim(filetitle)//trim(filename))
+	print *, "writing ",trim(obj%FileName)//trim(filetitle)//trim(filename)," step>>",step
 	
 	!---------------------
 	if( size(obj%Mesh%ElemNod,2)==4 .and. size(obj%Mesh%NodCoord,2)==2 ) then
@@ -4123,11 +4121,11 @@ subroutine GmshPlotContour2D(obj,gp_value,OptionalContorName,OptionalAbb,Optiona
 	filetitle(1:6)=abbmap(1:6)
 	!---------------------
 	write (filename0, '("_", i6.6, ".pos")') step ! ここでファイル名を生成している
-	filename=filetitle//filename0
+	filename=filename0
 
 
-	open(40,file=trim(obj%FileName)//filetitle//filename0)
-	print *, "writing ",trim(obj%FileName)//filetitle//filename0," step>>",step	
+	open(40,file=trim(obj%FileName)//trim(filetitle)//filename0)
+	print *, "writing ",trim(obj%FileName)//trim(filetitle)//filename0," step>>",step	
 
 	!---------------------
 	allocate(x(4,3) )
@@ -4360,7 +4358,7 @@ subroutine GnuplotPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,Option
 	filetitle(1:6)=abbmap(1:6)
 	!---------------------
 	write (filename0, '("_", i6.6, ".txt")') step ! ここでファイル名を生成している
-	filename=filetitle//filename0
+	filename=filename0
 	open(40,file="touch "//trim(obj%FileName)//filename)
 	print *, "writing .gnuplot-txt file... step>>",step
 	!---------------------
@@ -4972,8 +4970,10 @@ subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
 
 	if(present(Name) )then
 		obj%Name=Name
+		obj%FileName=Name
 	else
 		obj%Name="NoName"
+		obj%FileName="NoName"
 	endif
 	call obj%Mesh%create(meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division)
 
@@ -5107,7 +5107,8 @@ subroutine copyFEMDomain(obj,OriginalObj,onlyMesh)
 
 
 	call obj%Mesh%copy(OriginalObj%Mesh)
-
+	obj%FileName=Originalobj%FileName
+	obj%Name=Originalobj%Name
 	if(present(onlyMesh) )then
 		if(onlyMesh .eqv. .true.)then
 			print *, "Only mesh is copied."
@@ -5119,11 +5120,13 @@ end subroutine copyFEMDomain
 ! ##################################################
 
 ! ##################################################
-subroutine bakeFEMDomain(obj, template, templateFile)
+subroutine bakeFEMDomain(obj, template, templateFile,Tol,SimMode,ItrTol,Timestep)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: template
 	character(*),optional,intent(in) :: templateFile 
-	integer(int32) :: SpaceDim, ElemNodNum, NumOfMatPara, NumOfMaterial, NodeDOF
+	integer(int32) :: SpaceDim, ElemNodNum, NumOfMatPara, NumOfMaterial, NodeDOF,NodeTDOF
+	integer(int32),optional,intent(in)  :: SimMode,ItrTol,Timestep
+	real(real64),optional,intent(in) :: Tol
 	! bake creates a complete input file for a FEM analysis.
 	! You can use build-in templates or your original template.
 	! We prepare following build-in templates.
@@ -5170,7 +5173,7 @@ subroutine bakeFEMDomain(obj, template, templateFile)
 		print *, "bakeFEMDomain :: Mesh is Empty!"
 		return
 	endif
-
+	obj%Mesh%ElemType=obj%Mesh%GetElemType()
 	! mesh information
 	obj%Mesh%SubMeshNodFromTo(1,1) = 1
 	obj%Mesh%SubMeshNodFromTo(1,2) = 1
@@ -5182,13 +5185,19 @@ subroutine bakeFEMDomain(obj, template, templateFile)
 		allocate(obj%Mesh%ElemMat(size(obj%Mesh%ElemNod,1) ) )
 		obj%Mesh%ElemMat(:)=1
 	endif
+	call showarraysize(obj%Mesh%SubMeshNodFromTo)
+	call showarraysize(obj%Mesh%SubMeshElemFromTo)
+
 
 	call obj%bakeMaterials(NumOfMatPara=NumOfMatPara)
 	call obj%bakeDBoundaries(NodeDOF=NodeDOF)
 	call obj%bakeNBoundaries(NodeDOF=NodeDOF)
 	call obj%bakeTBoundaries(NodeDOF=NodeTDOF)
 
-
+	call obj%ControlPara%set(OptionalTol=Tol,&
+	OptionalItrTol=ItrTol,&
+	OptionalTimestep=Timestep,&
+	OptionalSimMode=SimMode)
 
 end subroutine bakeFEMDomain
 ! ##################################################
@@ -5274,7 +5283,8 @@ subroutine bakeMaterialsFEMDomain(obj,NumOfMatPara)
 	endif
 
 	call getKeyAndValue(Array=matPara,key=obj%Mesh%ElemMat, info=obj%MaterialProp%MatPara)
-
+	!call showarray(obj%Mesh%ElemMat,Name="test1.txt")
+	!call showarray(obj%MaterialProp%MatPara,Name="test2.txt")
 end subroutine bakeMaterialsFEMDomain
 ! ##################################################
 
@@ -5354,7 +5364,6 @@ subroutine bakeDBoundariesFEMDomain(obj,NodeDOF)
 			endif
 		enddo
 	endif
-	call showArray(obj%Boundary%DBoundNodID)
 
 end subroutine bakeDBoundariesFEMDomain
 ! ##################################################
@@ -5400,8 +5409,8 @@ subroutine bakeNBoundariesFEMDomain(obj,NodeDOF)
 	enddo
 	print *, "Number of Layer for Neumann Boundary= ",NumOfLayer
 
-	call obj%initDBC(NumOfValPerNod=input(default=NumOfLayer,option=NodeDOF) )
-
+	call obj%initNBC(NumOfValPerNod=input(default=NumOfLayer,option=NodeDOF) )
+	
 
 	if(.not. allocated(obj%Boundaries) )then
 		print *, "No Neumann boundary is baked."
@@ -5436,7 +5445,6 @@ subroutine bakeNBoundariesFEMDomain(obj,NodeDOF)
 			endif
 		enddo
 	endif
-	call showArray(obj%Boundary%NBoundNodID)
 
 end subroutine bakeNBoundariesFEMDomain
 ! ##################################################
@@ -5482,7 +5490,7 @@ subroutine bakeTBoundariesFEMDomain(obj,NodeDOF)
 	enddo
 	print *, "Number of Layer for Time Boundary= ",NumOfLayer
 
-	call obj%initDBC(NumOfValPerNod=input(default=NumOfLayer,option=NodeDOF) )
+	call obj%initTBC(NumOfValPerNod=input(default=NumOfLayer,option=NodeDOF) )
 
 
 	if(.not. allocated(obj%Boundaries) )then
@@ -5518,7 +5526,6 @@ subroutine bakeTBoundariesFEMDomain(obj,NodeDOF)
 			endif
 		enddo
 	endif
-	call showArray(obj%Boundary%TBoundNodID)
 
 end subroutine bakeTBoundariesFEMDomain
 ! ##################################################

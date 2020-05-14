@@ -680,12 +680,12 @@ subroutine GetSurface(obj)
     if(allocated(obj%SurfaceLine2D) ) then
         deallocate(obj%SurfaceLine2D)
     endif
-    if(allocated(obj%SubMeshNodFromTo) ) then
-        deallocate(obj%SubMeshNodFromTo)
-    endif
-    if(allocated(obj%SubMeshElemFromTo) ) then
-        deallocate(obj%SubMeshElemFromTo)
-    endif
+!    if(allocated(obj%SubMeshNodFromTo) ) then
+!        deallocate(obj%SubMeshNodFromTo)
+!    endif
+!    if(allocated(obj%SubMeshElemFromTo) ) then
+!        deallocate(obj%SubMeshElemFromTo)
+!    endif
     if(allocated(obj%SubMeshSurfFromTo) ) then
         deallocate(obj%SubMeshSurfFromTo)
     endif
@@ -2584,7 +2584,7 @@ subroutine removeOverlappedNodeMesh(obj,tolerance)
 end subroutine
 !##################################################
 
-subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division)
+recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division)
     class(Mesh_),intent(inout) :: obj
     character(*),intent(in) :: meshtype
     integer(int32),optional,intent(in) :: x_num,y_num ! number of division
