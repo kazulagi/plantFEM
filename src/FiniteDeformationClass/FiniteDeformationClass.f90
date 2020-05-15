@@ -57,7 +57,6 @@ subroutine checkFiniteDeform(obj)
 		print *, "size(obj%FEMDomain%Boundary%DBoundNodID,2)/=size(obj%FEMDomain%Mesh%NodCoord,2)"
 		stop 
 	endif
-	if(.not. allocated() )
 
 
 end subroutine
