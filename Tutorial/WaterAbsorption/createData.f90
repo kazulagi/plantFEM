@@ -68,7 +68,7 @@ program main
     
     ! displacement-loading
     call disp_z%create(Category="Dirichlet",x_max=310.0d0,x_min=299.0d0,y_max=100.0d0,y_min=-100.0d0,&
-    z_max=100.0d0,z_min=-100.0d0,BoundValue=-10.0d0,Layer=3,Name="disp_z")
+    z_max=100.0d0,z_min=-100.0d0,BoundValue=-100.0d0,Layer=3,Name="disp_z")
     
 
     ! traction boundary conditions

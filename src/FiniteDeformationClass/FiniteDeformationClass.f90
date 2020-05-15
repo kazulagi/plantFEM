@@ -36,10 +36,34 @@ module FiniteDeformationClass
 		procedure :: Display => DisplayDeformStress
 		procedure :: getDBCVector => getDBCVectorDeform
 		procedure :: getDispVector => getDispVectorDeform
+		procedure :: check => checkFiniteDeform
 
   	end type
 	
 contains
+
+! #######################################################
+subroutine checkFiniteDeform(obj)
+	class(FiniteDeform_),intent(in) :: obj
+	integer(int32) :: i,j,error_counter
+	! check conditions and return alartes.
+	error_counter=0
+	print *, "checkFiniteDeform :: Analyzing imported data and checking consistency..."
+	if(.not.associated(obj%FEMDomain) )then
+		print *, "Alert! checkFiniteDeform >> FEMDomain is not improted."
+		stop 
+	endif
+	if(size(obj%FEMDomain%Boundary%DBoundNodID,2)/=size(obj%FEMDomain%Mesh%NodCoord,2))then
+		print *, "size(obj%FEMDomain%Boundary%DBoundNodID,2)/=size(obj%FEMDomain%Mesh%NodCoord,2)"
+		stop 
+	endif
+	if(.not. allocated() )
+
+
+end subroutine
+! #######################################################
+
+
 !######################## Solve deformation by Netwon's method ########################
 subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype)
 	class(FiniteDeform_),intent(inout)::obj
