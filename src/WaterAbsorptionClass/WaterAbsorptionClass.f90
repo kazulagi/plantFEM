@@ -17,6 +17,7 @@ module WaterAbsorptionClass
         procedure, public :: update=> updateWaterAbsorption
         procedure, public :: export=> exportWaterAbsorption
         procedure, public :: display => displayWaterAbsorption
+        
     end type
 
 contains
@@ -48,7 +49,7 @@ end subroutine importWaterAbsorption
 subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Display)
     class(WaterAbsorption_),intent(inout) :: obj
     character(*),intent(in) :: SolverType
-    integer(int32) :: i
+    integer(int32) :: i,n
     logical,optional,intent(in) :: onlyInit,Only1st,Display
     integer(int32),intent(in) :: timestep
     real(real64),optional,intent(in) :: dt
@@ -70,7 +71,9 @@ subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Displa
     do i=2,timestep
         print *, "Timestep :: ",i,"/",timestep   
         call obj%update(SolverType,Display=Display,step=i)
-
+        !n=1
+        !call showArray(obj%FiniteDeform%DeformVecGloTot,&
+        !Name="test"//trim(adjustl(fstring(n))//".txt")  ) 
         if(present(only1st) )then
             return
         endif
@@ -86,6 +89,7 @@ subroutine initWaterAbsorption(obj,SolverType,Display)
     type(Term_)             :: term
     character(*),intent(in) :: SolverType
     logical,optional,intent(in) :: Display
+    integer(int32) :: n
 
     call term%init()
     ! ###### Diffusion Part ###################
@@ -108,7 +112,10 @@ subroutine initWaterAbsorption(obj,SolverType,Display)
     if(present(Display) )then
         if(Display .eqv. .true.)then
             call DisplayDeformStress(obj%FiniteDeform,&
-                DisplayMode=term%gmsh,OptionalStep=1)   
+                DisplayMode=term%gmsh,OptionalStep=1)  
+            n=obj%FiniteDeform%step
+            !call showArray(obj%FiniteDeform%DeformVecGloTot,&
+            !Name="test"//trim(adjustl(fstring(n))//".txt")  ) 
             call DisplayReactionForce(obj%FiniteDeform)
         endif
     endif
@@ -138,7 +145,7 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step)
         endif
     endif
     ! ###### Update Diffusion Field over timesteps ###################
-    return
+
     ! ###### Update Finite Deformation over timesteps ###################
     call obj%FiniteDeform%UpdateInitConfig()
     call obj%FiniteDeform%UpdateBC()
