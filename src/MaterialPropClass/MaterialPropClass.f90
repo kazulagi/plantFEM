@@ -6,8 +6,10 @@ module MaterialPropClass
     type :: MaterialProp_
         type(Mesh_) :: Mesh
         real(real64),allocatable:: meshPara(:,:)
+
         real(real64) ::x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
         integer(int32) :: Mcount
+        
         integer(int32) :: layer
         character(200) :: Name
 

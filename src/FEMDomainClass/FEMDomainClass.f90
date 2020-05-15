@@ -5138,6 +5138,9 @@ subroutine bakeFEMDomain(obj, template, templateFile,Tol,SimMode,ItrTol,Timestep
 	
 	if(template=="Original")then
 		print *, "Please add an argument as 'templateFile = [Your_Template_File]'"
+		! text-based finding is not good. Upper/lower cases >> global module to relate ID and 
+		! INTEGER, PARAMETER :: TEMP_FINITE_DEFORM = 1000; call tissue%bake(template=TEMP_FINITE_DEFORM)
+		! SELECT CASE( template ); CASE( TEMP_FINITE_DEFORM)
 		return
 	elseif(template=="FiniteDeform_" .or. template=="FiniteDeform")then
 		print *, "Build-in template :: FiniteDeform_ is utilized..."
