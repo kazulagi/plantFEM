@@ -824,6 +824,10 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
         print *, obj%NumOfDomain
         print *, "########### Meta Info ###########"
 
+		if(.not. allocated(obj%Mesh%SubMeshNodFromTo) )then
+			print *, "obj%Mesh%SubMeshNodFromTo is not allocated"
+			stop 
+		endif
 
         do i=1,obj%NumOfDomain
             write(fh,*) obj%Mesh%SubMeshNodFromTo(i,2),obj%Mesh%SubMeshNodFromTo(i,3)
