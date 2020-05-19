@@ -14,6 +14,8 @@ module DiffusionEquationClass
         real(real64),allocatable ::Divergence(:,:)
         real(real64),allocatable ::Flowvector(:,:)
         real(real64),allocatable ::FluxVector3D(:,:)
+
+        real(real64),allocatable ::Permiability(:)  ! directly give parameter #1
         real(real64)             ::dt
         integer(int32)             :: step
     contains
@@ -24,9 +26,32 @@ module DiffusionEquationClass
         procedure :: GetRHS => GetFlowvector
         procedure :: GetInitVal => GetUnknownValue
         procedure :: Display => DisplayDiffusionEq 
+        procedure :: import => importDiffusionEq 
     end type
 
 contains
+
+
+! ###################################################
+subroutine importDiffusionEq(obj, Permiability)
+	class(DiffusionEq_),intent(inout) :: obj
+	real(real64),optional,intent(in) :: Permiability(:)
+	integer(int32) :: i,j,n
+
+	if(present(Permiability) )then
+		if(allocated(obj%Permiability) )then
+			deallocate(obj%Permiability)
+		endif
+		n=size(Permiability)
+		allocate(obj%Permiability(n) )
+        obj%Permiability(:)=Permiability(:)
+        return
+	endif
+
+end subroutine importDiffusionEq
+! ###################################################
+
+
 
 !######################## ImportData of DiffusionEq ########################
 subroutine ImportFEMDomainDiff(obj,OptionalFileFormat,OptionalProjectName)
@@ -438,6 +463,16 @@ subroutine GetDiffusionMat(obj)
 
             diff_coeff=obj%FEMDomain%MaterialProp%MatPara(obj%FEMDomain%Mesh%ElemMat(i),1)
             
+			! allow direct-import of Permiability
+			if(allocated(obj%Permiability) )then
+				if(size(obj%Permiability)/=elem_num) then
+					print *, "ERROR :: FiniteDeform :: size(obj%Permiability/=elem_num)"
+				else
+					diff_coeff = obj%Permiability(i)
+				endif
+			endif
+
+
             call getAllShapeFunc(obj%FEMDomain%ShapeFunction,elem_id=i,nod_coord=obj%FEMDomain%Mesh%NodCoord,&
                 elem_nod=obj%FEMDomain%Mesh%ElemNod,OptionalGpID=j)
             call getElemDiffusionMatrix(obj%FEMDomain%ShapeFunction,diff_coeff,DiffMat)  

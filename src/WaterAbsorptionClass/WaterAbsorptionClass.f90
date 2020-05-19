@@ -8,6 +8,38 @@ module WaterAbsorptionClass
         type(FEMDomain_),pointer:: Water, Tissue
         type(DiffusionEq_)::DiffusionEq
         type(FiniteDeform_)::FiniteDeform
+        type(MaterialProp_),pointer:: a_Psi
+        type(MaterialProp_),pointer:: a_P
+        type(MaterialProp_),pointer:: theta_eq
+        type(MaterialProp_),pointer:: theta_ps
+        type(MaterialProp_),pointer:: Psi_eq
+        type(MaterialProp_),pointer:: a_E
+        type(MaterialProp_),pointer:: a_v
+        type(MaterialProp_),pointer:: E_eq
+        type(MaterialProp_),pointer:: v_eq
+        real(real64),allocatable :: WaterAbsorbingPower(:)
+        real(real64),allocatable :: WaterPotential(:)
+        real(real64),allocatable :: TurgorPressure(:)
+        real(real64),allocatable :: WaterContent(:)
+        real(real64),allocatable :: Conductivity(:)
+        real(real64),allocatable :: YoungsModulus(:)
+        real(real64),allocatable :: PoissonsRatio(:)
+        ! Parameters(A,B)
+        ! A : Element ID 
+        ! B: 1=a_Psi, 2=a_P, 3=theta_eq, 4=theta_ps, 5=Psi_eq, 
+        ! 6=a_E, 7=a_v, 8=E_eq, 9=v_eq
+
+        real(real64),allocatable :: a_Psi_val(:)
+        real(real64),allocatable :: a_P_val(:)
+        real(real64),allocatable :: theta_eq_val(:)
+        real(real64),allocatable :: theta_ps_val(:)
+        real(real64),allocatable :: Psi_eq_val(:)
+        real(real64),allocatable :: a_E_val(:)
+        real(real64),allocatable :: a_v_val(:)
+        real(real64),allocatable :: E_eq_val(:)
+        real(real64),allocatable :: v_eq_val(:)
+
+        real(real64),allocatable :: Parameters(:,:)
         integer(int32) :: timestep
         real(real64) :: dt
     contains
@@ -17,15 +49,25 @@ module WaterAbsorptionClass
         procedure, public :: update=> updateWaterAbsorption
         procedure, public :: export=> exportWaterAbsorption
         procedure, public :: display => displayWaterAbsorption
-        
+        procedure, public :: bake => bakeWaterAbsorption
     end type
-
 contains
-
 !#####################################
-subroutine importWaterAbsorption(obj,Water,Tissue)
+subroutine importWaterAbsorption(obj,Water,Tissue,a_Psi,a_P,theta_eq,theta_ps,&
+    Psi_eq,a_E,a_v,E_eq,v_eq)
     class(WaterAbsorption_),intent(inout) :: obj
-    type(FEMDomain_),target,intent(inout) :: Water,Tissue
+    type(FEMDomain_),target,optional,intent(inout) :: Water,Tissue
+
+    type(MaterialProp_),target,optional,intent(in):: a_Psi
+    type(MaterialProp_),target,optional,intent(in):: a_P
+    type(MaterialProp_),target,optional,intent(in):: theta_eq
+    type(MaterialProp_),target,optional,intent(in):: theta_ps
+    type(MaterialProp_),target,optional,intent(in):: Psi_eq
+    type(MaterialProp_),target,optional,intent(in):: a_E
+    type(MaterialProp_),target,optional,intent(in):: a_v
+    type(MaterialProp_),target,optional,intent(in):: E_eq
+    type(MaterialProp_),target,optional,intent(in):: v_eq
+
     if(associated(obj%DiffusionEq%FEMDomain) )then
         nullify(obj%DiffusionEq%FEMDomain)
     endif
@@ -33,13 +75,78 @@ subroutine importWaterAbsorption(obj,Water,Tissue)
     if(associated(obj%FiniteDeform%FEMDomain) )then
         nullify(obj%FiniteDeform%FEMDomain)
     endif
-    obj%DiffusionEq%FEMDomain => Water
-    obj%FiniteDeform%FEMDomain => Tissue
-    
-    Water%SolverType  = "DiffusionEq_"
-    Tissue%SolverType = "FiniteDeform_" 
+    if(present(water) )then
+        obj%DiffusionEq%FEMDomain => Water
+        obj%water => water
+        Water%SolverType  = "DiffusionEq_"
+    endif
+    if(present(tissue))then
+        obj%FiniteDeform%FEMDomain => Tissue
+        Tissue%SolverType = "FiniteDeform_" 
+        obj%Tissue => Tissue
+    endif
 
+    
     print *, "[ImportFile]>"
+
+    if(present(a_Psi) )then
+        if(associated(obj%a_Psi) )then
+            nullify(obj%a_Psi)
+        endif
+        obj%a_Psi => a_Psi
+    endif
+    
+    if(present(a_P) )then
+        if(associated(obj%a_P) )then
+            nullify(obj%a_P)
+        endif
+        obj%a_P => a_P
+    endif
+
+    if(present(theta_eq) )then
+        if(associated(obj%theta_eq) )then
+            nullify(obj%theta_eq)
+        endif
+        obj%theta_eq => theta_eq
+    endif
+    if(present(theta_ps) )then
+        if(associated(obj%theta_ps) )then
+            nullify(obj%theta_ps)
+        endif
+        obj%theta_ps => theta_ps
+    endif
+    if(present(Psi_eq) )then
+        if(associated(obj%Psi_eq) )then
+            nullify(obj%Psi_eq)
+        endif
+        obj%Psi_eq => Psi_eq
+    endif
+    if(present(a_E) )then
+        if(associated(obj%a_E) )then
+            nullify(obj%a_E)
+        endif
+        obj%a_E => a_E
+    endif
+    if(present(a_v) )then
+        if(associated(obj%a_v) )then
+            nullify(obj%a_v)
+        endif
+        obj%a_v => a_v
+    endif
+
+    if(present(E_eq) )then
+        if(associated(obj%E_eq) )then
+            nullify(obj%E_eq)
+        endif
+        obj%E_eq => E_eq
+    endif
+
+    if(present(v_eq) )then
+        if(associated(obj%v_eq) )then
+            nullify(obj%v_eq)
+        endif
+        obj%v_eq => v_eq
+    endif
 
 
 end subroutine importWaterAbsorption
@@ -135,6 +242,11 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step)
     integer(int32),optional,intent(in) :: step
     type(Term_)             :: term
     call term%init()
+
+    ! ###### update DIffusion parameters ############
+    obj%Permiability = 0.0010d0 
+    call obj%DiffusionEq%import(Permiability=obj%Permiability)
+
     ! ###### Update Diffusion Field over timesteps ###################
     call obj%DiffusionEq%Update()
     call obj%DiffusionEq%Solve(SolverType=SolverType)
@@ -145,6 +257,10 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step)
         endif
     endif
     ! ###### Update Diffusion Field over timesteps ###################
+
+    ! ###### update DIffusion parameters ############
+    call obj%FiniteDeform%import(YoungsModulus=obj%YoungsModulus)
+    call obj%FiniteDeform%import(PoissonsRatio=obj%PoissonsRatio)
 
     ! ###### Update Finite Deformation over timesteps ###################
     call obj%FiniteDeform%UpdateInitConfig()
@@ -202,4 +318,120 @@ subroutine displayWaterAbsorption(obj)
 
 end subroutine displayWaterAbsorption
 !#####################################
-end module WaterAbsorptionClass
+
+
+
+
+!#####################################
+subroutine bakeWaterAbsorption(obj)
+    class(WaterAbsorption_),intent(inout) :: obj
+    integer(int32) :: i,j,k,l,n,m,NumOfMaterial,layer,in_num,NumOfLayer
+    real(real64),allocatable :: matPara(:,:),info(:,:)
+    integer(int32),allocatable :: key(:)
+    type(Rectangle_) :: rect,mrect
+    logical :: in_case
+    real(real64) :: matparaval,coord(3),x_max(3),x_min(3)
+
+    !call obj%tissue%bake(template="FiniteDeform_")
+    !call obj%water%bake(template="DiffusionEq_") 
+    
+    n=size(obj%water%mesh%ElemNod,1)
+    print *, n
+    ! initialize all parameters
+    if(allocated(obj%WaterAbsorbingPower) )then
+        deallocate(obj%WaterAbsorbingPower)
+    endif
+    allocate(obj%WaterAbsorbingPower(n))
+    if(allocated(obj%WaterPotential) )then
+        deallocate(obj%WaterPotential)
+    endif
+    allocate(obj%WaterPotential(n))
+    if(allocated(obj%TurgorPressure) )then
+        deallocate(obj%TurgorPressure)
+    endif
+    allocate(obj%TurgorPressure(n))
+    if(allocated(obj%WaterContent) )then
+        deallocate(obj%WaterContent)
+    endif
+    allocate(obj%WaterContent(n))
+    if(allocated(obj%Conductivity) )then
+        deallocate(obj%Conductivity)
+    endif
+    allocate(obj%Conductivity(n))
+    if(allocated(obj%YoungsModulus) )then
+        deallocate(obj%YoungsModulus)
+    endif
+    allocate(obj%YoungsModulus(n))
+    if(allocated(obj%PoissonsRatio) )then
+        deallocate(obj%PoissonsRatio)
+    endif
+    allocate(obj%PoissonsRatio(n))
+
+    ! initialize parameters
+    obj%WaterAbsorbingPower(:) = 0.0d0 ! kPa
+    obj%WaterPotential(:) = 0.0d0 ! water
+    obj%TurgorPressure(:) = 0.0d0 ! changes with theta
+    obj%WaterContent(:) = 1.0d0 ! theta
+    obj%Conductivity(:) = 1.0d0 ! changes with theta
+    obj%YoungsModulus(:) = 1.0d0 ! E
+    obj%PoissonsRatio(:) = 0.30d0 ! v
+    if(.not. associated(obj%a_Psi) )then
+        print *, "a_Psi is not associated."
+        stop 
+    endif
+    if(.not. associated(obj%a_P) )then
+        print *, "a_P is not associated."
+        stop 
+    endif
+    if(.not. associated(obj%theta_eq) )then
+        print *, "theta_eq is not associated."
+        stop 
+    endif
+    if(.not. associated(obj%theta_ps) )then
+        print *, "theta_ps is not associated."
+        stop 
+    endif
+    if(.not. associated(obj%Psi_eq) )then
+        print *, "Psi_eq is not associated."
+        stop 
+    endif
+    if(.not. associated(obj%a_E) )then
+        print *, "a_E is not associated."
+        stop 
+    endif
+    if(.not. associated(obj%a_v) )then
+        print *, "a_v is not associated."
+        stop 
+    endif
+    if(.not. associated(obj%E_eq) )then
+        print *, "E_eq is not associated."
+        stop 
+    endif
+    if(.not. associated(obj%v_eq) )then
+        print *, "v_eq is not associated."
+        stop 
+    endif
+    
+
+    ! a_Psi
+    call obj%a_Psi%getValues(mesh=obj%Tissue%Mesh,Values=obj%a_Psi_val)
+    call obj%a_P%getValues(mesh=obj%Tissue%Mesh,Values=obj%a_P_val)
+    call obj%theta_eq%getValues(mesh=obj%Tissue%Mesh,Values=obj%theta_eq_val)
+    call obj%theta_ps%getValues(mesh=obj%Tissue%Mesh,Values=obj%theta_ps_val)
+    call obj%Psi_eq%getValues(mesh=obj%Tissue%Mesh,Values=obj%Psi_eq_val)
+    call obj%a_E%getValues(mesh=obj%Tissue%Mesh,Values=obj%a_E_val)
+    call obj%a_v%getValues(mesh=obj%Tissue%Mesh,Values=obj%a_v_val)
+    call obj%E_eq%getValues(mesh=obj%Tissue%Mesh,Values=obj%E_eq_val)
+    call obj%v_eq%getValues(mesh=obj%Tissue%Mesh,Values=obj%v_eq_val)
+    
+    open(10,file="test.txt")
+    do i=1,size(obj%a_Psi_val)
+        write(10,*) obj%a_Psi_val(i)
+    enddo
+    close(10)
+    
+    !call showarray(mat=obj%WaterAbsorbingPower, Name="test.txt")
+     
+end subroutine bakeWaterAbsorption
+!#####################################
+end module 

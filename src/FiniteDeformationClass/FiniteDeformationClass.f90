@@ -22,6 +22,8 @@ module FiniteDeformationClass
 		real(real64),allocatable ::ResidualVecGlo(:)
 		real(real64),allocatable ::InternalVecGlo(:)
 		real(real64),allocatable ::VolInitCurrEBE(:,:)
+		real(real64),allocatable ::YoungsModulus(:) ! directly give parameter #1
+		real(real64),allocatable ::PoissonsRatio(:) ! directly give parameter #2
 		real(real64)             ::dt,error
 		
 		integer(int32) :: itr,Step
@@ -37,10 +39,38 @@ module FiniteDeformationClass
 		procedure :: getDBCVector => getDBCVectorDeform
 		procedure :: getDispVector => getDispVectorDeform
 		procedure :: check => checkFiniteDeform
+		procedure :: import => importFiniteDeform
 
   	end type
 	
 contains
+
+! ###############################################################
+subroutine importFiniteDeform(obj, YoungsModulus, PoissonsRatio)
+	class(FiniteDeform_),intent(inout) :: obj
+	real(real64),optional,intent(in) :: YoungsModulus(:), PoissonsRatio(:)
+	integer(int32) :: i,j,n
+
+	if(present(YoungsModulus) )then
+		if(allocated(obj%YoungsModulus) )then
+			deallocate(obj%YoungsModulus)
+		endif
+		n=size(YoungsModulus)
+		allocate(obj%YoungsModulus(n) )
+		obj%YoungsModulus(:)=YoungsModulus(:)
+	endif
+
+	if(present(PoissonsRatio) )then
+		if(allocated(obj%PoissonsRatio) )then
+			deallocate(obj%PoissonsRatio)
+		endif
+		n=size(PoissonsRatio)
+		allocate(obj%PoissonsRatio(n) )
+		obj%PoissonsRatio(:)=PoissonsRatio(:)
+	endif
+
+end subroutine importFiniteDeform
+! ###############################################################
 
 ! #######################################################
 subroutine checkFiniteDeform(obj)
@@ -605,6 +635,24 @@ end subroutine
 			gvec_e(:)   = 0.0d0
 			E = obj%FEMDomain%MaterialProp%MatPara(obj%FEMDomain%Mesh%ElemMat(i),1)
 			v = obj%FEMDomain%MaterialProp%MatPara(obj%FEMDomain%Mesh%ElemMat(i),2)
+
+			! allow direct-import of Youngs modulus and Poissons ratio
+			if(allocated(obj%YoungsModulus) )then
+				if(size(obj%YoungsModulus)/=elem_num) then
+					print *, "ERROR :: FiniteDeform :: size(obj%YoungsModulus/=elem_num)"
+				else
+					E = obj%YoungsModulus(i)
+				endif
+			endif
+
+			! allow direct-import of Youngs modulus and Poissons ratio
+			if(allocated(obj%PoissonsRatio) )then
+				if(size(obj%PoissonsRatio)/=elem_num) then
+					print *, "ERROR :: FiniteDeform :: size(obj%PoissonsRatio/=elem_num)"
+				else
+					v = obj%PoissonsRatio(i)
+				endif
+			endif
 			mdl%Lamda=v*E/(1.0d0 + v)/(1.0d0-2.0d0*v)
 			mdl%mu=E/2.0d0/(1.0d0 + v)
 			c=obj%FEMDomain%MaterialProp%MatPara(obj%FEMDomain%Mesh%ElemMat(i),4)

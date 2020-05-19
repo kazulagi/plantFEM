@@ -6,8 +6,10 @@ module MaterialPropClass
     type :: MaterialProp_
         type(Mesh_) :: Mesh
         real(real64),allocatable:: meshPara(:,:)
+
         real(real64) ::x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
         integer(int32) :: Mcount
+        
         integer(int32) :: layer
         character(200) :: Name
 
@@ -26,6 +28,7 @@ module MaterialPropClass
         procedure :: set => setMaterialProp
         procedure :: gmsh => gmshMaterialProp
         procedure :: show => showMaterialProp
+        procedure :: getValues => getValuesMaterialProp
     end type MaterialProp_
 
 contains
@@ -303,5 +306,54 @@ subroutine ShowMatPara(obj)
 end subroutine ShowMatPara
 !##################################################
 
+!##################################################
+subroutine getValuesMaterialProp(obj,mesh,Values)
+    class(MaterialProp_),intent(in):: obj
+    type(Mesh_),intent(in) :: mesh
+    type(Rectangle_) ::rect,mrect
+    real(real64),allocatable,intent(inout) :: Values(:)
+    integer(int32) :: i,j,k,l,n,dim_num,elem_num
 
+    n=size(mesh%NodCoord,1)
+    dim_num=size(mesh%NodCoord,2)
+    elem_num=size(mesh%ElemNod,1)
+    if(.not. allocated(Values) )then
+        allocate(Values(elem_num) )
+    elseif(size(Values) /= elem_num)then
+        print *, "ERROR :: getValuesMaterialProp >> size(Values) /= elem_num"
+        print *, size(Values),elem_num
+        deallocate(Values)
+        allocate(Values(elem_num) )
+        Values(:)=0.0d0
+        print *, size(Values),elem_num
+    endif
+    
+
+    allocate(rect%NodCoord(size(obj%Mesh%ElemNod,2),size(obj%Mesh%NodCoord,2)) )
+	allocate(mrect%NodCoord(size(obj%Mesh%ElemNod,2),size(obj%Mesh%NodCoord,2)) )
+		
+    do i=1,size(Mesh%ElemNod,1)
+        do j=1,size(Mesh%ElemNod,2)
+            rect%NodCoord(j,:)=Mesh%NodCoord(Mesh%ElemNod(i,j),:)
+        enddo
+        ! for all materials, check material parameters
+		! for each zones, check in-out
+        ! import nodal coordinate
+        do k=1,size(obj%Mesh%ElemNod,1)
+		    do l=1,size(obj%Mesh%ElemNod,2)
+		    	n=obj%Mesh%ElemNod(k,l)
+		    	mrect%NodCoord(l,:)=obj%Mesh%NodCoord(n,:)
+		    enddo
+		    ! check in-out
+		    if(rect%contact(mrect) .eqv. .true. )then
+		    	! in
+		    	Values(i)=obj%meshPara(k,1)
+		    else
+		    	cycle
+            endif
+        enddo
+    enddo
+
+end subroutine getValuesMaterialProp
+!##################################################
 end module MaterialPropClass
