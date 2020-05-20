@@ -24,6 +24,7 @@ module WaterAbsorptionClass
         real(real64),allocatable :: Conductivity(:)
         real(real64),allocatable :: YoungsModulus(:)
         real(real64),allocatable :: PoissonsRatio(:)
+        real(real64),allocatable :: Permiability(:)
         ! Parameters(A,B)
         ! A : Element ID 
         ! B: 1=a_Psi, 2=a_P, 3=theta_eq, 4=theta_ps, 5=Psi_eq, 
