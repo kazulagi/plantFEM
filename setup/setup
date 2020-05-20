@@ -8,6 +8,7 @@ sudo apt install  -y gmsh
 sudo apt install  -y gnuplot
 sudo apt install -y jupyter-notebook
 sudo apt install curl
+sudo apt install graphviz
 curl https://bootstrap.pypa.io/get-pip.py -o ~/get-pip.py
 sudo python3 ~/get-pip.py
 sudo pip install pillow
@@ -17,6 +18,8 @@ sudo pip install matplotlib
 sudo pip install jupyter
 sudo pip install nbzip
 sudo pip install opencv-python
+sudo pip install diagram
+sudo pip install diagrams
 sudo jupyter serverextension enable --py nbzip --sys-prefix
 sudo jupyter nbextension install --py nbzip
 sudo jupyter nbextension enable --py nbzip

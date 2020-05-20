@@ -16,6 +16,7 @@ mv *.geo RESULTS/
 mv *.msh RESULTS/
 rm *.pos 
 rm *.msh 
+rm *.stl 
 mv GetSurface* RESULTS/
 mv *.txt~ RESULTS/
 mv *.blend RESULTS/

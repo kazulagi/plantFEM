@@ -104,7 +104,11 @@ module FEMDomainClass
         
     end type FEMDomain_
 
-    type,extends(FEMDomain_) :: STFEMDomain_
+	type:: FEMDomainp_
+		type(FEMDomain_),pointer :: FEMDomain
+	end type
+	
+	type,extends(FEMDomain_) :: STFEMDomain_
         type(ShapeFunction_)    :: TimeShapeFunction
         type(Mesh_)             :: TimeMesh
     end type
