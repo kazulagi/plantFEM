@@ -24,7 +24,8 @@ module FiniteDeformationClass
 		real(real64),allocatable ::VolInitCurrEBE(:,:)
 		real(real64),allocatable ::YoungsModulus(:) ! directly give parameter #1
 		real(real64),allocatable ::PoissonsRatio(:) ! directly give parameter #2
-		real(real64)             ::dt,error
+		real(real64),allocatable :: PorePressure(:) ! directly give parameter #2
+		real(real64)             ::dt,error,nr_tol
 		
 		integer(int32) :: itr,Step
 	contains
@@ -46,9 +47,10 @@ module FiniteDeformationClass
 contains
 
 ! ###############################################################
-subroutine importFiniteDeform(obj, YoungsModulus, PoissonsRatio)
+subroutine importFiniteDeform(obj, YoungsModulus, PoissonsRatio, PorePressure)
 	class(FiniteDeform_),intent(inout) :: obj
-	real(real64),optional,intent(in) :: YoungsModulus(:), PoissonsRatio(:)
+	real(real64),optional,intent(in) :: YoungsModulus(:), PoissonsRatio(:),&
+		PorePressure(:)
 	integer(int32) :: i,j,n
 
 	if(present(YoungsModulus) )then
@@ -67,6 +69,15 @@ subroutine importFiniteDeform(obj, YoungsModulus, PoissonsRatio)
 		n=size(PoissonsRatio)
 		allocate(obj%PoissonsRatio(n) )
 		obj%PoissonsRatio(:)=PoissonsRatio(:)
+	endif
+
+	if(present(PorePressure) )then
+		if(allocated(obj%PorePressure) )then
+			deallocate(obj%PorePressure)
+		endif
+		n=size(PorePressure)
+		allocate(obj%PorePressure(n) )
+		obj%PorePressure(:)=PorePressure(:)
 	endif
 
 end subroutine importFiniteDeform
@@ -94,14 +105,15 @@ end subroutine
 
 
 !######################## Solve deformation by Netwon's method ########################
-subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype)
+subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype,nr_tol)
 	class(FiniteDeform_),intent(inout)::obj
 	integer(int32),optional,intent(in)::OptionItr
-    character(*),optional,intent(in)::Solvertype
+	character(*),optional,intent(in)::Solvertype
+	real(real64),optional,intent(in)::nr_tol
     character*70 ::solver,defaultsolver
 
     real(real64),allocatable::Amat(:,:),bvec(:),xvec(:)
-    real(real64)::val,er,residual
+    real(real64)::val,er,residual,tolerance
     integer(int32) ::i,j,n,m,k,l,dim1,dim2,nodeid1,nodeid2,localid,itrmax,SetBC,itr_tol,itr
 	integer(int32) :: dim_num,node_num,elem_num,node_num_elmtl
     character*70 :: gmsh,GaussJordan
@@ -114,7 +126,11 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype)
 	else
 		itr_tol = obj%FEMDomain%ControlPara%ItrTol
 	endif
-
+	if(present(nr_tol) )then
+		tolerance=nr_tol
+	else
+		tolerance=1.0e-8
+	endif
 	do
 		itr=itr + 1
 		obj%Itr=itr
@@ -122,11 +138,11 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype)
 			
 			call SetupFiniteDeform(obj)
 			if(obj%Step==1)then
-				call DisplayDeformStress(obj,DisplayMode=gmsh,OptionalStep=0)     
+				!call DisplayDeformStress(obj,DisplayMode=gmsh,OptionalStep=0)     
 			endif
 
 			call SolveFiniteDeform(obj,SolverType=Solvertype)
-			call DisplayDeformStress(obj,DisplayMode=gmsh,OptionalStep=itr)  
+			!call DisplayDeformStress(obj,DisplayMode=gmsh,OptionalStep=itr)  
 			
 
 			   
@@ -136,15 +152,15 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype)
 
 			!call DisplayDeformStress(obj,DisplayMode=gmsh,OptionalStep=0) 
     		call SolveFiniteDeform(obj,OptionItr=itr,SolverType=Solvertype)
-			call DisplayDeformStress(obj,DisplayMode=gmsh,OptionalStep=itr)
+			!call DisplayDeformStress(obj,DisplayMode=gmsh,OptionalStep=itr)
 			
 
 	    	
 
 	
 			!print *, "Residual r*r = ",dot_product(obj%ResidualVecGlo,obj%ResidualVecGlo)
-			print *, "ERROR :: ",obj%error
-			if(obj%error<1.0e-8 )then
+			print *, "Step, Itr, ERROR :: ",obj%step ,obj%itr,obj%error
+			if(obj%error<1.0e-5 )then
 				print *,"itr=",itr, "Netwton's Method is converged !"
 				exit
 			endif
@@ -435,12 +451,19 @@ end subroutine
 
 
 !#############################################################
-subroutine SetupFiniteDeform(obj)
-    class(FiniteDeform_),intent(inout)::obj
+subroutine SetupFiniteDeform(obj,tol)
+	class(FiniteDeform_),intent(inout)::obj
+	integer(int32),optional,intent(in) :: tol
 	
     if(obj%dt==0.0d0 .or. obj%dt/=obj%dt)then
         obj%dt=1.0d0
-    endif
+	endif
+	if(present(tol) )then
+		obj%nr_tol = tol
+	else
+		obj%nr_tol = 1.0e-08
+	endif
+	
 	call UpdateCurrConfig(obj)
     call GetDeformStressMatAndVector(obj)
 end subroutine
@@ -764,6 +787,7 @@ subroutine GetKmat(obj,mdl,sf,Kmat_e,gvec_e,dim_num,elemnod_num,elem)
 	
 	integer(int32) ::alpha,beta,ganma,ii,I,J,jj,K,kk,L,ll,n,m,o,p,q,rr,R,s,loc_1,loc_2
 	real(real64) :: detJgzi
+	real(real64) :: PorePressure
 	character*70 :: DerType
 	!DerType="F_iJ"
 	DerType="c_current"
@@ -804,11 +828,24 @@ subroutine GetKmat(obj,mdl,sf,Kmat_e,gvec_e,dim_num,elemnod_num,elem)
 		enddo
 	enddo
 
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	! For water-soil coupling analysis
+	
+	if(.not. allocated(obj%PorePressure) )then
+		PorePressure=obj%PorePressure(elem)
+	elseif(size(obj%PorePressure)< elem )then
+		PorePressure=0.0d0
+	else
+		PorePressure=0.0d0
+	endif
+	Sigma(1)=Sigma(1)+PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+	Sigma(2)=Sigma(2)+PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+	Sigma(3)=Sigma(3)+PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 	Kmat_e(:,:)=Kmat_e(:,:)+matmul(matmul(transpose(mdl%Bmat),Dmat),mdl%Bmat )/det_mat(mdl%F_ij,size(mdl%F_ij,1) )*sf%detJ &
 		 +K1(:,:)*sf%detJ
 	!stop "debug l3"
-
-
 	gvec_e(:)=gvec_e(:)+matmul(transpose(mdl%Bmat),Sigma)*sf%detJ
 	
 	!
@@ -2178,18 +2215,22 @@ subroutine g_vector_e(elem,gauss,s, BTmat,sigma, detJ, gvec_e)
 
 
 !######################## Solve DiffusionEq ########################
-subroutine SolveFiniteDeform(obj,OptionItr,Solvertype)
+subroutine SolveFiniteDeform(obj,OptionItr,Solvertype,nr_tol)
 	class(FiniteDeform_),intent(inout)::obj
 	integer(int32),optional,intent(in)::OptionItr
     character(*),optional,intent(in)::Solvertype
+    real(real64) ,optional,intent(in) :: nr_tol
     character*70 ::solver,defaultsolver
 
     real(real64),allocatable::Amat(:,:),bvec(:),xvec(:)
     real(real64)::val,er
     integer(int32) ::i,j,n,m,k,l,dim1,dim2,nodeid1,nodeid2,localid,itrmax,SetBC,int1,int2
 	integer(int32) :: dim_num,node_num,elem_num,node_num_elmtl
-	
-	
+	obj%nr_tol=1.0e-08
+	if(present(nr_tol) )then
+		obj%nr_tol = nr_tol
+	endif
+
 	node_num=size(obj%FEMDomain%Mesh%NodCoord,1)
 	dim_num=size(obj%FEMDomain%Mesh%NodCoord,2)
 	elem_num=size(obj%FEMDomain%Mesh%ElemNod,1)
