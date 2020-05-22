@@ -8,6 +8,7 @@ module DiffusionEquationClass
     type:: DiffusionEq_
         type(FEMDomain_),pointer ::FEMDomain
         real(real64),allocatable ::UnknownValue(:,:)
+        real(real64),allocatable ::UnknownVec(:)
         real(real64),allocatable ::UnknownValueInit(:,:)
         real(real64),allocatable ::UnknownValueRate(:,:)
         real(real64),allocatable ::DiffusionMat(:,:,:)
@@ -368,6 +369,10 @@ subroutine SolveDiffusionEq(obj,Solvertype)
     
     !=====================================
     ! Export Values to Element-by-Element form
+    if(.not. allocated(obj%UnknownVec) )then
+        allocate(obj%UnknownVec(size(xvec) ))
+    endif
+    obj%UnknownVec(:)=xvec(:)
     n=size(obj%FEMDomain%Mesh%ElemNod,1)    
     m=size(obj%FEMDomain%Mesh%ElemNod,2)
     do i=1,n
@@ -480,11 +485,11 @@ subroutine GetDiffusionMat(obj)
             call getElemMassMatrix(obj%FEMDomain%ShapeFunction,MassMat)
             
             do k=1,size(DiffMat,1)
-                obj%DiffusionMat(i,k,:)=obj%DiffusionMat(i,k,:)-DiffMat(k,:)&
-                +2.0d0/obj%dt*MassMat(k,:)    
+                obj%DiffusionMat(i,k,:)=obj%DiffusionMat(i,k,:)- obj%dt/2.0d0* DiffMat(k,:)&
+                +MassMat(k,:)    
             enddo
 
-            obj%FluxVector3D(i,:)=obj%FluxVector3D(i,:)+Flux(:) 
+            obj%FluxVector3D(i,:)=obj%FluxVector3D(i,:) + Flux(:) 
             
             
             DiffMat(:,:)=0.0d0
@@ -506,7 +511,7 @@ subroutine GetFlowvector(obj)
     class(DiffusionEq_),intent(inout)::obj
 
     integer(int32) ::  i,j,k,n,m,num_of_nbc,node_id,num_of_elem,num_of_elemnod
-    real(real64),allocatable::MassMat(:,:),RHSvector(:)
+    real(real64),allocatable::MassMat(:,:),RHSvector(:),diff_coeff,DiffMat(:,:)
     
     obj%Flowvector(:,:)=0.0d0
     num_of_elem=size(obj%FEMDomain%Mesh%ElemNod,1)
@@ -532,7 +537,8 @@ subroutine GetFlowvector(obj)
             do j=1,num_of_elem
                 do k=1,num_of_elemnod
                     if(node_id==obj%FEMDomain%Mesh%ElemNod(j,k)  )then
-                       obj%Flowvector(j,k) = -obj%FEMDomain%Boundary%NBoundVal(i,1)
+                        !obj%Flowvector(j,k) =  - obj%FEMDomain%Boundary%NBoundVal(i,1)
+                        obj%Flowvector(j,k) = - obj%dt * obj%FEMDomain%Boundary%NBoundVal(i,1)
 
                        n=1
                        exit
@@ -554,14 +560,29 @@ subroutine GetFlowvector(obj)
 
     do i=1,num_of_elem
         do j=1,obj%FEMDomain%ShapeFunction%NumOfGp
+
+            diff_coeff=obj%FEMDomain%MaterialProp%MatPara(obj%FEMDomain%Mesh%ElemMat(i),1)
+            
+			! allow direct-import of Permiability
+			if(allocated(obj%Permiability) )then
+				if(size(obj%Permiability)/=num_of_elem) then
+					print *, "ERROR :: FiniteDeform :: size(obj%Permiability/=num_of_elem)"
+				else
+					diff_coeff = obj%Permiability(i)
+				endif
+            endif
+            
             call GetAllShapeFunc(obj%FEMDomain%ShapeFunction,elem_id=i,nod_coord=obj%FEMDomain%Mesh%NodCoord,&
                 elem_nod=obj%FEMDomain%Mesh%ElemNod,OptionalGpID=j)
             call GetElemMassMatrix(obj%FEMDomain%ShapeFunction,MassMat)
-            RHSvector(:)=2.0d0/obj%dt*obj%UnknownValueInit(i,:)+obj%UnknownValueRate(i,:)
-            
-            obj%Flowvector(i,:)=obj%Flowvector(i,:)+matmul(MassMat,RHSvector)+obj%Divergence(i,:)
+            call getElemDiffusionMatrix(obj%FEMDomain%ShapeFunction,diff_coeff,DiffMat)  
+            !RHSvector(:)=obj%dt/2.0d0*obj%UnknownValueInit(i,:)!+obj%UnknownValueRate(i,:)
+            RHSvector(:)=obj%UnknownValueInit(i,:)!+obj%UnknownValueRate(i,:)
+            obj%Flowvector(i,:)=obj%Flowvector(i,:)+matmul(MassMat,RHSvector)+&
+            obj%dt/2.0d0*matmul(DiffMat, RHSvector) !obj%Divergence(i,:)
             
             MassMat(:,:)=0.0d0
+            DiffMat(:,:)=0.0d0
 
             
         enddo
@@ -789,7 +810,7 @@ subroutine DisplayDiffusionEq(obj,OptionalProjectName,DisplayMode,OptionalStep,N
                 print *, obj%UnknownValue(i,:)
             enddo
         elseif(trim(DisplayMode)=="gmsh" .or. trim(DisplayMode)=="Gmsh" )then   
-            call GmshPlotContour(obj%FEMDomain,obj%UnknownValue,OptionalStep=step)
+            call GmshPlotContour(obj%FEMDomain,gp_value=obj%UnknownValue,OptionalStep=step)
             call GmshPlotVector(obj%FEMDomain,Vector=obj%FluxVector3D,Name=trim(obj%FEMDomain%FileName),&
             FieldName="Flux", Step=step,ElementWize=.true.,withMsh=withMsh)
         elseif(trim(DisplayMode)=="gnuplot" .or. trim(DisplayMode)=="Gnuplot" )then

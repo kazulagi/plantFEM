@@ -3324,7 +3324,6 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 	!command="touch "//trim(obj%FileName)//trim(filename)
 	!call system("touch "//trim(obj%FileName)//trim(filename))
 
-
 	open(fh,file=trim(obj%FileName)//trim(filetitle)//trim(filename))
 	print *, "writing ",trim(obj%FileName)//trim(filetitle)//trim(filename)," step>>",step
 	
