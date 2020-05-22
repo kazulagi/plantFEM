@@ -25,7 +25,7 @@ module FiniteDeformationClass
 		real(real64),allocatable ::YoungsModulus(:) ! directly give parameter #1
 		real(real64),allocatable ::PoissonsRatio(:) ! directly give parameter #2
 		real(real64),allocatable :: PorePressure(:) ! directly give parameter #2
-		real(real64)             ::dt,error,tol_nr
+		real(real64)             ::dt,error,nr_tol
 		
 		integer(int32) :: itr,Step
 	contains
@@ -105,10 +105,11 @@ end subroutine
 
 
 !######################## Solve deformation by Netwon's method ########################
-subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype)
+subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype,nr_tol)
 	class(FiniteDeform_),intent(inout)::obj
 	integer(int32),optional,intent(in)::OptionItr
-    character(*),optional,intent(in)::Solvertype
+	character(*),optional,intent(in)::Solvertype
+	real(real64),optional,intent(in)::nr_tol
     character*70 ::solver,defaultsolver
 
     real(real64),allocatable::Amat(:,:),bvec(:),xvec(:)
@@ -125,7 +126,11 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype)
 	else
 		itr_tol = obj%FEMDomain%ControlPara%ItrTol
 	endif
-	tolerance=obj%tol_nr
+	if(present(nr_tol) )then
+		tolerance=nr_tol
+	else
+		tolerance=1.0e-8
+	endif
 	do
 		itr=itr + 1
 		obj%Itr=itr
@@ -155,7 +160,7 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype)
 	
 			!print *, "Residual r*r = ",dot_product(obj%ResidualVecGlo,obj%ResidualVecGlo)
 			print *, "Step, Itr, ERROR :: ",obj%step ,obj%itr,obj%error
-			if(obj%error<tolerance )then
+			if(obj%error<1.0e-5 )then
 				print *,"itr=",itr, "Netwton's Method is converged !"
 				exit
 			endif
@@ -453,7 +458,12 @@ subroutine SetupFiniteDeform(obj,tol)
     if(obj%dt==0.0d0 .or. obj%dt/=obj%dt)then
         obj%dt=1.0d0
 	endif
-	obj%tol_nr = input(default=1.0e-8,option=tol)
+	if(present(tol) )then
+		obj%nr_tol = tol
+	else
+		obj%nr_tol = 1.0e-08
+	endif
+	
 	call UpdateCurrConfig(obj)
     call GetDeformStressMatAndVector(obj)
 end subroutine
@@ -2205,18 +2215,22 @@ subroutine g_vector_e(elem,gauss,s, BTmat,sigma, detJ, gvec_e)
 
 
 !######################## Solve DiffusionEq ########################
-subroutine SolveFiniteDeform(obj,OptionItr,Solvertype)
+subroutine SolveFiniteDeform(obj,OptionItr,Solvertype,nr_tol)
 	class(FiniteDeform_),intent(inout)::obj
 	integer(int32),optional,intent(in)::OptionItr
     character(*),optional,intent(in)::Solvertype
+    real(real64) ,optional,intent(in) :: nr_tol
     character*70 ::solver,defaultsolver
 
     real(real64),allocatable::Amat(:,:),bvec(:),xvec(:)
     real(real64)::val,er
     integer(int32) ::i,j,n,m,k,l,dim1,dim2,nodeid1,nodeid2,localid,itrmax,SetBC,int1,int2
 	integer(int32) :: dim_num,node_num,elem_num,node_num_elmtl
-	
-	
+	obj%nr_tol=1.0e-08
+	if(present(nr_tol) )then
+		obj%nr_tol = nr_tol
+	endif
+
 	node_num=size(obj%FEMDomain%Mesh%NodCoord,1)
 	dim_num=size(obj%FEMDomain%Mesh%NodCoord,2)
 	elem_num=size(obj%FEMDomain%Mesh%ElemNod,1)

@@ -201,7 +201,7 @@ subroutine initWaterAbsorption(obj,SolverType,Display,nr_tol)
 
     call obj%updatePermiability()
     ! ###### Diffusion Part ###################
-    call obj%DiffusionEq%Setup(tol=nr_tol)
+    call obj%DiffusionEq%Setup()
     call obj%DiffusionEq%Solve(SolverType=SolverType)
     if(present(Display) )then
         if(Display .eqv. .true.)then
@@ -220,7 +220,7 @@ subroutine initWaterAbsorption(obj,SolverType,Display,nr_tol)
     ! ###### Finite deformation part #############################   
     call obj%updateStiffness()
     call obj%FiniteDeform%DivideBC()
-    call obj%FiniteDeform%Solve(SolverType=SolverType)  
+    call obj%FiniteDeform%Solve(SolverType=SolverType,nr_tol=nr_tol)  
     if(present(Display) )then
         if(Display .eqv. .true.)then
             call DisplayDeformStress(obj%FiniteDeform,&
