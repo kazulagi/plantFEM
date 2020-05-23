@@ -176,6 +176,7 @@ subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Displa
     do i=2,timestep
         print *, "Timestep :: ",i,"/",timestep   
         call obj%update(SolverType,Display=Display,step=i)
+        
         !n=1
         !call showArray(obj%FiniteDeform%DeformVecGloTot,&
         !Name="test"//trim(adjustl(fstring(n))//".txt")  ) 
@@ -218,7 +219,12 @@ subroutine initWaterAbsorption(obj,SolverType,Display,nr_tol)
 
 
     ! ###### Finite deformation part #############################   
-    call obj%updateStiffness()
+    !call obj%updateStiffness()
+    !call obj%updateStiffness()
+    !call obj%FiniteDeform%import(YoungsModulus=obj%YoungsModulus)
+    !call obj%FiniteDeform%import(PoissonsRatio=obj%PoissonsRatio)
+    !call obj%FiniteDeform%import(PorePressure=obj%PorePressure)
+    ! ###### Finite deformation part #############################   
     call obj%FiniteDeform%DivideBC()
     call obj%FiniteDeform%Solve(SolverType=SolverType,nr_tol=nr_tol)  
     if(present(Display) )then
@@ -270,11 +276,11 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step)
     ! ###### Update Diffusion Field over timesteps ###################
 
     ! only diffusion debug
-    
+    call obj%updateStiffness()
     ! ###### update DIffusion parameters ############
     call obj%FiniteDeform%import(YoungsModulus=obj%YoungsModulus)
     call obj%FiniteDeform%import(PoissonsRatio=obj%PoissonsRatio)
-
+    call obj%FiniteDeform%import(PorePressure=obj%PorePressure)
     ! ###### Update Finite Deformation over timesteps ###################
     call obj%FiniteDeform%UpdateInitConfig()
     call obj%FiniteDeform%UpdateBC()
@@ -284,6 +290,7 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step)
             call DisplayDeformStress(obj%FiniteDeform,&
                 DisplayMode=term%gmsh,OptionalStep=step)   
             call DisplayReactionForce(obj%FiniteDeform)
+            call obj%export(displacement=.true.)
         endif
     endif
     ! ###### Update Finite Deformation over timesteps ###################
@@ -346,7 +353,7 @@ subroutine updateStiffnessWA(obj)
     integer(int32) :: i,j,n
     real(real64) :: a_E, E, E_eq, theta,theta_eq,a_P,theta_ps
     real(real64) :: a_v, v, v_eq,p,val(2)
-    n=size(obj%tissue%mesh%elemNod,1)
+    n=size(obj%water%mesh%elemNod,1)
     if(.not. allocated(obj%YoungsModulus) )then
         allocate(obj%YoungsModulus(n) )
     endif
@@ -374,16 +381,21 @@ subroutine updateStiffnessWA(obj)
         ! compute parameters
         E = a_E * (theta - theta_eq) + E_eq
         v = a_v * (theta - theta_eq) + v_eq
-        val(1)=0.0d0
-        val(2)=a_P*(theta - theta_ps)
-        p = maxval(val)
+        if(theta > theta_ps)then
+            p=a_P*(theta - theta_ps)
+        else
+            p=0.0d0
+        endif
 
         ! export parameters
         obj%YoungsModulus(i)= E
         obj%PoissonsRatio(i)= v
         obj%PorePressure(i) = p
     enddo
-
+    print *,"maxval(obj%a_P_val(:))",maxval(obj%a_P_val(:)),minval(obj%a_P_val(:))
+    print *,"maxval(obj%WaterContent(:))",maxval(obj%WaterContent(:)),minval(obj%WaterContent(:))
+    print *,"maxval(obj%theta_ps_val(:))",maxval(obj%theta_ps_val(:)),minval(obj%theta_ps_val(:))
+    print *, "maxval(obj%PorePressure(:))",maxval(obj%PorePressure(:)),minval(obj%PorePressure(:))
     call obj%FiniteDeform%import( obj%YoungsModulus, obj%PoissonsRatio, obj%PorePressure )
 
 end subroutine updateStiffnessWA
@@ -392,23 +404,44 @@ end subroutine updateStiffnessWA
 
 !#####################################
 subroutine exportWaterAbsorption(obj,OptionalFileFormat,OptionalProjectName,FileHandle,&
-    SolverType,MeshDimension,FileName,Name,regacy,with)
+    SolverType,MeshDimension,FileName,Name,regacy,with, displacement)
     class(WaterAbsorption_),intent(inout) :: obj
     class(FEMDomain_),optional,intent(inout)::with
     character(*),optional,intent(in)::OptionalFileFormat
     character(*),optional,intent(in)::OptionalProjectName,SolverType,FileName
 	character*4::FileFormat
 	character(*),optional,intent(in) :: Name
-	logical,optional,intent(in) :: regacy
+	logical,optional,intent(in) :: regacy,displacement
     character*200::ProjectName
 	character*200 ::iFileName
-	
     integer(int32),allocatable::IntMat(:,:)
     real(real64),allocatable::RealMat(:,:)
     integer(int32),optional,intent(in)::FileHandle,MeshDimension
     integer(int32) :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,nn
     character*70 Msg
     
+    if(present(displacement) )then
+        if(displacement .eqv. .true.)then
+            if(present(Name) )then
+                open(12,file="x"//Name)
+                open(13,file="y"//Name)
+                open(14,file="z"//Name)
+            else
+                open(12,file="x_Disp.txt")
+                open(13,file="y_Disp.txt")
+                open(14,file="z_Disp.txt")
+            endif
+            n=size(obj%water%mesh%nodCoord,1)
+            do i=1,n
+                write(12,*) obj%water%mesh%nodCoord(i,1), obj%tissue%mesh%nodCoord(i,1)-obj%water%mesh%nodCoord(i,1)
+                write(13,*) obj%water%mesh%nodCoord(i,2), obj%tissue%mesh%nodCoord(i,2)-obj%water%mesh%nodCoord(i,2)
+                write(14,*) obj%water%mesh%nodCoord(i,3), obj%tissue%mesh%nodCoord(i,3)-obj%water%mesh%nodCoord(i,3)
+            enddo
+            close(12)
+            close(13)
+            close(14)
+        endif
+    endif
     ! bug exsits
     !call obj%Tissue%export(SolverType="FiniteDeform",Name=Name)
     !call obj%Water%export(SolverType="DiffusionEq",Name=Name)

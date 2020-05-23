@@ -455,7 +455,7 @@ subroutine SetupFiniteDeform(obj,tol)
 	class(FiniteDeform_),intent(inout)::obj
 	integer(int32),optional,intent(in) :: tol
 	
-    if(obj%dt==0.0d0 .or. obj%dt/=obj%dt)then
+	if(obj%dt==0.0d0 .or. obj%dt/=obj%dt)then
         obj%dt=1.0d0
 	endif
 	if(present(tol) )then
@@ -827,27 +827,33 @@ subroutine GetKmat(obj,mdl,sf,Kmat_e,gvec_e,dim_num,elemnod_num,elem)
 			K1( (I-1)*dim_num+3,(J-1)*dim_num+3 ) =K1( (I-1)*dim_num+3,(J-1)*dim_num+3 ) + A3(I,J) 
 		enddo
 	enddo
-
+	! debug
+	!print *, "size(obj%PorePressure)" ,size(obj%PorePressure)
+	!write(3001,*) maxval(obj%PorePressure),minval(obj%PorePressure)
 	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	! For water-soil coupling analysis
 	
 	if(.not. allocated(obj%PorePressure) )then
-		PorePressure=obj%PorePressure(elem)
-	elseif(size(obj%PorePressure)< elem )then
+		PorePressure=0.0d0
+	elseif(size(obj%PorePressure) ==0 )then
 		PorePressure=0.0d0
 	else
-		PorePressure=0.0d0
+		PorePressure=obj%PorePressure(elem)
 	endif
-	Sigma(1)=Sigma(1)+PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
-	Sigma(2)=Sigma(2)+PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
-	Sigma(3)=Sigma(3)+PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+	Sigma(1)=Sigma(1)-PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+	Sigma(2)=Sigma(2)-PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+	Sigma(3)=Sigma(3)-PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
 	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 
 	Kmat_e(:,:)=Kmat_e(:,:)+matmul(matmul(transpose(mdl%Bmat),Dmat),mdl%Bmat )/det_mat(mdl%F_ij,size(mdl%F_ij,1) )*sf%detJ &
 		 +K1(:,:)*sf%detJ
 	!stop "debug l3"
 	gvec_e(:)=gvec_e(:)+matmul(transpose(mdl%Bmat),Sigma)*sf%detJ
 	
+
+
+
 	!
 	!do I=1,elemnod_num
 	!	do ii=1,3

@@ -77,6 +77,14 @@ echo "Compiling ./src/ArrayClass/ArrayClass.f90 "
 echo " >> ArrayClass.o "
 echo " | #                           | (4%)\r\c"
 mpif90 -g -fcheck=all  -c ./src/ArrayClass/ArrayClass.f90 -o  ./inc/ArrayClass.o
+echo "Compiling ./src/VectorClass/VectorClass.f90 " 
+echo " >> VectorClass.o "
+echo " | #                           | (4%)\r\c"
+mpif90 -g -fcheck=all  -c ./src/VectorClass/VectorClass.f90 -o  ./inc/Vector.o
+echo "Compiling ./src/EquationClass/EquationClass.f90 " 
+echo " >> EquationClass.o "
+echo " | #                           | (4%)\r\c"
+mpif90 -g -fcheck=all  -c ./src/EquationClass/EquationClass.f90 -o  ./inc/Equation.o
 echo "Compiling ./src/MPIClass/MPIClass.f90       "
 echo " >> MPIClass.o"
 echo " | #                           | (5%)\r\c "
