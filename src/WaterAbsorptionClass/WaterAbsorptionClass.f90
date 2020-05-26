@@ -149,11 +149,12 @@ end subroutine importWaterAbsorption
 !#####################################
 
 !#####################################
-subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Display,nr_tol,ReducedIntegration)
+subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Display,nr_tol,ReducedIntegration,&
+    infinitesimal)
     class(WaterAbsorption_),intent(inout) :: obj
     character(*),intent(in) :: SolverType
     integer(int32) :: i,n
-    logical,optional,intent(in) :: onlyInit,Only1st,Display,ReducedIntegration
+    logical,optional,intent(in) :: onlyInit,Only1st,Display,ReducedIntegration,infinitesimal
     real(real64) ,optional,intent(in) :: nr_tol
     integer(int32),intent(in) :: timestep
     real(real64),optional,intent(in) :: dt
@@ -170,7 +171,7 @@ subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Displa
 
     print *, "[ImportFile]>>>[Initialize]>"
     
-    call obj%init(SolverType,Display=Display,nr_tol=nr_tol)
+    call obj%init(SolverType,Display=Display,nr_tol=nr_tol,infinitesimal=infinitesimal)
     print *, "[ImportFile]>>>[Initialize]>>>[1st Step]>"
     if(present(onlyInit) )then
         return
@@ -193,15 +194,16 @@ end subroutine runWaterAbsorption
 !#####################################
 
 !#####################################
-subroutine initWaterAbsorption(obj,SolverType,Display,nr_tol)
+subroutine initWaterAbsorption(obj,SolverType,Display,nr_tol,infinitesimal)
     class(WaterAbsorption_),intent(inout) :: obj
     type(Term_)             :: term
     character(*),intent(in) :: SolverType
-    logical,optional,intent(in) :: Display
+    logical,optional,intent(in) :: Display,infinitesimal
     real(real64) ,optional,intent(in) :: nr_tol
     integer(int32) :: n
 
     call term%init()
+
 
     call obj%updatePermiability()
     ! ###### Diffusion Part ###################
@@ -228,6 +230,9 @@ subroutine initWaterAbsorption(obj,SolverType,Display,nr_tol)
     !call obj%FiniteDeform%import(PoissonsRatio=obj%PoissonsRatio)
     !call obj%FiniteDeform%import(PorePressure=obj%PorePressure)
     ! ###### Finite deformation part #############################   
+    if(present(infinitesimal) )then
+        obj%FiniteDeform%infinitesimal = infinitesimal
+    endif
     call obj%FiniteDeform%DivideBC()
     call obj%FiniteDeform%Solve(SolverType=SolverType,nr_tol=nr_tol)  
     if(present(Display) )then
@@ -286,6 +291,7 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step,nr_tol)
     call obj%FiniteDeform%import(PoissonsRatio=obj%PoissonsRatio)
     call obj%FiniteDeform%import(PorePressure=obj%PorePressure)
     ! ###### Update Finite Deformation over timesteps ###################
+    obj%FiniteDeform%step=step
     call obj%FiniteDeform%UpdateInitConfig()
     call obj%FiniteDeform%UpdateBC()
     call obj%FiniteDeform%Solve(SolverType=SolverType,nr_tol=nr_tol) 
@@ -368,6 +374,7 @@ subroutine updateStiffnessWA(obj)
 
     if(.not. allocated(obj%PorePressure) )then
         allocate(obj%PorePressure(n) )
+        obj%PorePressure=0.0d0
     endif
 
     ! update these parameters considering volumetric water content
@@ -394,7 +401,7 @@ subroutine updateStiffnessWA(obj)
         ! export parameters
         obj%YoungsModulus(i)= E
         obj%PoissonsRatio(i)= v
-        obj%PorePressure(i) = p
+        obj%PorePressure(i) = p !- obj%PorePressure(i)
     enddo
     print *,"maxval(obj%a_P_val(:))",maxval(obj%a_P_val(:)),minval(obj%a_P_val(:))
     print *,"maxval(obj%WaterContent(:))",maxval(obj%WaterContent(:)),minval(obj%WaterContent(:))

@@ -22,7 +22,7 @@ program main
 
 
     !  create mesh
-    call water%create(Name="water",MeshType="rectangular3D",x_num=20,y_num=5,x_len=300.0d0, y_len=50.0d0,&
+    call water%create(Name="water",MeshType="rectangular3D",x_num=30,y_num=5,x_len=300.0d0, y_len=50.0d0,&
         thickness=50.0d0,division=5)
     call tissue%copy(water,onlyMesh=.true.)
     call tissue%rename("tissue")
@@ -30,10 +30,10 @@ program main
 
     ! create material
     ! for deformation analysis
-    call YoungsModulus%create(Name="YoungsModulus",ParaValue=12000.0d0,Layer=1)
-    call YoungsModulus%create(Name="YoungsModulus",x_max=150.0d0,x_min=0.0d0,y_max=70.0d0,y_min=0.0d0,&
-    z_max=70.0d0,z_min=0.0d0,ParaValue=6000.0d0,Layer=1)
-    call PoissonRatio%create(Name="PoissonRatio",ParaValue=0.30d0,Layer=2)
+    call YoungsModulus%create(Name="YoungsModulus",ParaValue=10.0d0,Layer=1)
+    !call YoungsModulus%create(Name="YoungsModulus",x_max=1500.0d0,x_min=0.0d0,y_max=70.0d0,y_min=0.0d0,&
+    !z_max=70.0d0,z_min=0.0d0,ParaValue=6000.0d0,Layer=1)
+    call PoissonRatio%create(Name="PoissonRatio",ParaValue=0.40d0,Layer=2)
     !call PoissonRatio%create(Name="PoissonRatio",x_max=100.0d0,x_min=0.0d0,y_max=50.0d0,y_min=0.0d0,&
     !z_max=50.0d0,z_min=0.0d0,ParaValue=0.10d0,Layer=2)
     call Density%create(Name="Density",ParaValue=0.00d0,Layer=3)
@@ -42,10 +42,11 @@ program main
     call psi%create(Name="psi",ParaValue=0.0d0,Layer=6)
 
     ! for diffusion analysis
-    call Permiability%create(Name="Permiability",x_max=300.0d0,x_min=100.0d0,y_max=50.0d0,y_min=0.0d0,&
-    z_max=50.0d0,z_min=0.0d0,ParaValue=1.0d0,Layer=1)
-    call Permiability%create(Name="Permiability",x_max=100.0d0,x_min=0.0d0,y_max=50.0d0,y_min=0.0d0,&
-    z_max=50.0d0,z_min=0.0d0,ParaValue=1.0d0,Layer=1)
+    call Permiability%create(Name="Permiability",ParaValue=10.0d0,Layer=1)
+    !call Permiability%create(Name="Permiability",x_max=300.0d0,x_min=100.0d0,y_max=50.0d0,y_min=0.0d0,&
+    !z_max=50.0d0,z_min=0.0d0,ParaValue=1.0d0,Layer=1)
+    !call Permiability%create(Name="Permiability",x_max=100.0d0,x_min=0.0d0,y_max=50.0d0,y_min=0.0d0,&
+    !z_max=50.0d0,z_min=0.0d0,ParaValue=1.0d0,Layer=1)
 
     ! for WaterAbsorption analysis
     
@@ -112,11 +113,14 @@ program main
     ! displacement-loading
     !call disp_z%create(Category="Dirichlet",x_max=310.0d0,x_min=299.0d0,y_max=100.0d0,y_min=-100.0d0,&
     !z_max=100.0d0,z_min=-100.0d0,BoundValue=-10.0d0,Layer=3,Name="disp_z")
-    call disp_z%create(Category="Dirichlet",x_max=310.0d0,x_min=299.0d0,y_max=100.0d0,y_min=-100.0d0,&
-    z_max=100.0d0,z_min=-100.0d0,BoundValue=0.0d0,Layer=1,Name="disp_x")
-    call disp_z%create(Category="Dirichlet",x_max=310.0d0,x_min=299.0d0,y_max=100.0d0,y_min=-100.0d0,&
-    z_max=100.0d0,z_min=-100.0d0,BoundValue=0.0d0,Layer=2,Name="disp_y")
-
+    !call disp_z%create(Category="Dirichlet",x_max=310.0d0,x_min=299.0d0,y_max=10.0d0,y_min=-10.0d0,&
+    !z_max=10.0d0,z_min=-10.0d0,BoundValue=0.0d0,Layer=3,Name="disp_z")
+    !call disp_z%create(Category="Dirichlet",x_max=310.0d0,x_min=299.0d0,y_max=10.0d0,y_min=-10.0d0,&
+    !z_max=10.0d0,z_min=-10.0d0,BoundValue=0.0d0,Layer=3,Name="disp_z")
+    !call disp_z%create(Category="Dirichlet",x_min=290.0d0,BoundValue=0.0d0,Layer=3,Name="disp_z")
+    !call disp_y%create(Category="Dirichlet",x_min=290.0d0,BoundValue=0.0d0,Layer=3,Name="disp_z")
+    !call disp_z%create(Category="Dirichlet",x_min=290.0d0,BoundValue=0.0d0,Layer=3,Name="disp_z")
+    
     ! traction boundary conditions
     !call traction_x%create("Neumann",x_max=300.0d0,x_min=30.0d0,y_max=120.0d0,y_min=-10.0d0,&
     !    z_max=10.0d0,z_min=-100.0d0,BoundValue=5.0d0)
@@ -129,7 +133,7 @@ program main
     ! for Flow analysis
     ! known value
     call const%create(category="Dirichlet",x_max=5.0d0,x_min=-1.0d0,y_max=100.0d0,y_min=-100.0d0,&
-    z_max=100.0d0,z_min=-100.0d0,BoundValue=0.0d0,Name="const",Layer=1)
+    z_max=100.0d0,z_min=-100.0d0,BoundValue=1.0d0,Name="const",Layer=1)
     ! flux boundary
     call const%create(category="Dirichlet",x_max=310.0d0,x_min=299.0d0,y_max=100.0d0,y_min=-100.0d0,&
     z_max=100.0d0,z_min=-100.0d0,BoundValue=1.0d0,Name="const",Layer=1)
@@ -176,7 +180,8 @@ program main
     ! run simulation
     call seed%gnuplot(mode="all")
 
-    call seed%run(timestep=100,dt=1000.0d0,SolverType="BiCGSTAB",Display=.true.,nr_tol=0.00000010d0)
+    call seed%run(timestep=1000,dt=10000.0d0,SolverType="BiCGSTAB",&
+        Display=.true.,nr_tol=0.010d0,infinitesimal=.true.)
     
     ! visualize data
     !call seed%display()

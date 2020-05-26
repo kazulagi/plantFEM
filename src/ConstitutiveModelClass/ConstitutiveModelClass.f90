@@ -7,7 +7,7 @@ module ConstitutiveModelClass
     type :: ConstitutiveModel_
         type(Stress_) :: Stress
         type(Strain_) :: Strain
-
+        logical :: infinitesimal
     contains
         !procedure,public :: MCDP => MCDP_model
         !procedure,public :: CamClay => CamClay_model
@@ -97,6 +97,7 @@ subroutine HyperElasticStress(obj)
         obj%tau(:,:)=0.50d0*obj%lamda*(obj%b_ij(1,1)+obj%b_ij(2,2)+obj%b_ij(3,3) -3.0d0 )*obj%b_ij(:,:)&
             + obj%mu*matmul(obj%b_ij, a )
         obj%sigma(:,:)=1.0d0/det_mat(obj%F_iJ, size(obj%F_iJ,1))*obj%tau(:,:)
+        
     elseif(trim(obj%ModelType)=="NeoHookean" )then
         if(.not.allocated(obj%sigma) )then
             allocate(obj%sigma(3,3) )
