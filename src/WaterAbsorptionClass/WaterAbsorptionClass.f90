@@ -149,15 +149,18 @@ end subroutine importWaterAbsorption
 !#####################################
 
 !#####################################
-subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Display,nr_tol)
+subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Display,nr_tol,ReducedIntegration)
     class(WaterAbsorption_),intent(inout) :: obj
     character(*),intent(in) :: SolverType
     integer(int32) :: i,n
-    logical,optional,intent(in) :: onlyInit,Only1st,Display
+    logical,optional,intent(in) :: onlyInit,Only1st,Display,ReducedIntegration
     real(real64) ,optional,intent(in) :: nr_tol
     integer(int32),intent(in) :: timestep
     real(real64),optional,intent(in) :: dt
 
+    if(present(ReducedIntegration) )then
+        obj%FiniteDeform%ReducedIntegration = ReducedIntegration
+    endif
         
     obj%dt=input(default=1.0d0,option=dt)
     obj%timestep=timestep
@@ -175,7 +178,7 @@ subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Displa
     ! Repeat over time
     do i=2,timestep
         print *, "Timestep :: ",i,"/",timestep   
-        call obj%update(SolverType,Display=Display,step=i)
+        call obj%update(SolverType,Display=Display,step=i,nr_tol=nr_tol)
         
         !n=1
         !call showArray(obj%FiniteDeform%DeformVecGloTot,&
@@ -246,12 +249,13 @@ end subroutine initWaterAbsorption
 
 
 !#####################################
-subroutine updateWaterAbsorption(obj,SolverType,Display,step)
+subroutine updateWaterAbsorption(obj,SolverType,Display,step,nr_tol)
     class(WaterAbsorption_),intent(inout) :: obj
     character(*),intent(in) :: SolverType
     logical,optional,intent(in) :: Display
     integer(int32),optional,intent(in) :: step
     type(Term_)             :: term
+    real(real64),optional,intent(in) :: nr_tol
     integer(int32) :: i
     call term%init()
 
@@ -284,7 +288,7 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step)
     ! ###### Update Finite Deformation over timesteps ###################
     call obj%FiniteDeform%UpdateInitConfig()
     call obj%FiniteDeform%UpdateBC()
-    call obj%FiniteDeform%Solve(SolverType=SolverType) 
+    call obj%FiniteDeform%Solve(SolverType=SolverType,nr_tol=nr_tol) 
     if(present(Display) )then
         if(Display.eqv. .true.)then
             call DisplayDeformStress(obj%FiniteDeform,&

@@ -25,7 +25,9 @@ module FiniteDeformationClass
 		real(real64),allocatable ::YoungsModulus(:) ! directly give parameter #1
 		real(real64),allocatable ::PoissonsRatio(:) ! directly give parameter #2
 		real(real64),allocatable :: PorePressure(:) ! directly give parameter #2
-		real(real64)             ::dt,error,nr_tol
+		real(real64)             ::dt,error
+		real(real64)             ::nr_tol=1.0e-8
+		logical :: ReducedIntegration = .false.
 		
 		integer(int32) :: itr,Step
 	contains
@@ -119,7 +121,7 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype,nr_tol)
     character*70 :: gmsh,GaussJordan
     gmsh="Gmsh"
     GaussJordan="GaussJordan"
-
+	
 	itr=0
 	if(present(OptionItr) )then
 		itr_tol = OptionItr
@@ -127,9 +129,7 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype,nr_tol)
 		itr_tol = obj%FEMDomain%ControlPara%ItrTol
 	endif
 	if(present(nr_tol) )then
-		tolerance=nr_tol
-	else
-		tolerance=1.0e-8
+		obj%nr_tol=nr_tol
 	endif
 	do
 		itr=itr + 1
@@ -160,7 +160,7 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype,nr_tol)
 	
 			!print *, "Residual r*r = ",dot_product(obj%ResidualVecGlo,obj%ResidualVecGlo)
 			print *, "Step, Itr, ERROR :: ",obj%step ,obj%itr,obj%error
-			if(obj%error<1.0e-5 )then
+			if(obj%error<obj%nr_tol )then
 				print *,"itr=",itr, "Netwton's Method is converged !"
 				exit
 			endif
@@ -458,11 +458,11 @@ subroutine SetupFiniteDeform(obj,tol)
 	if(obj%dt==0.0d0 .or. obj%dt/=obj%dt)then
         obj%dt=1.0d0
 	endif
-	if(present(tol) )then
-		obj%nr_tol = tol
-	else
-		obj%nr_tol = 1.0e-08
-	endif
+	!if(present(tol) )then
+	!	obj%nr_tol = tol
+	!else
+	!	obj%nr_tol = 1.0e-08
+	!endif
 	
 	call UpdateCurrConfig(obj)
     call GetDeformStressMatAndVector(obj)
@@ -613,7 +613,7 @@ end subroutine
     obj%DeformStressRHS(:,:)  =0.0d0
 	obj%DeformStressMat(:,:,:)=0.0d0
 	obj%FEMDomain%ShapeFunction%ElemType=obj%FEMDomain%Mesh%GetElemType()
-	call SetShapeFuncType(obj%FEMDomain%ShapeFunction)
+	call SetShapeFuncType(obj%FEMDomain%ShapeFunction, ReducedIntegration=obj%ReducedIntegration)
 	
 	
 	gp_num=obj%FEMDomain%ShapeFunction%NumOfGp
@@ -649,9 +649,7 @@ end subroutine
 	endif
 	m = elemnod_num*dim_num
 	allocate (Kmat_e(elemnod_num*dim_num,elemnod_num*dim_num),gvec_e(elemnod_num*dim_num))
-	obj%VolInitCurrEBE(:,2)=0.0d0
-
-        
+	obj%VolInitCurrEBE(:,2)=0.0d0        
 		do i = 1, elem_num !�v�f���ƃ��[�
 
 			Kmat_e(:,:) = 0.0d0
@@ -693,7 +691,7 @@ end subroutine
 			do j = 1, obj%FEMDomain%ShapeFunction%NumOfGp !�K�E�X�ϕ����ƃ��[�v
 				! -----J�}�g���N�X�̌v�Z-----------------------------------------
 				call GetAllShapeFunc(obj%FEMDomain%ShapeFunction,elem_id=i,nod_coord=obj%FEMDomain%Mesh%NodCoord,&
-				elem_nod=obj%FEMDomain%Mesh%ElemNod,OptionalGpID=j)
+				elem_nod=obj%FEMDomain%Mesh%ElemNod,OptionalGpID=j,ReducedIntegration=obj%ReducedIntegration)
 				
     
 				! ---Compute stress/strain measures of the Finite Elasto-Plast-
@@ -734,7 +732,7 @@ end subroutine
 				! Get Volumetric change
 				obj%VolInitCurrEBE(i,2)=obj%VolInitCurrEBE(i,2)+&
 					det_mat(mdl%F_iJ,size(mdl%F_iJ,1) )/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
-
+				
 
 				
 				mdl%ModelType="NeoHookean"
@@ -751,8 +749,6 @@ end subroutine
 				!  BTmat,obj%DeformStress, obj%FEMDomain%ShapeFunction%detJ, gvec_e)
 				
                   ! -----�v�f�����}�g���N�X�̑�������--------------------------------
-            
-				
             enddo
             
 			! ------�S�̍����}�g���N�X�ւ̏d�ˍ��킹------------------------------
@@ -811,7 +807,7 @@ subroutine GetKmat(obj,mdl,sf,Kmat_e,gvec_e,dim_num,elemnod_num,elem)
 	detJgzi=det_mat(Jgzimat,size(Jgzimat,1) )
 
 
-
+	
 	!call inverse_rank_2(a0,a0_inv)
 	call HyperElasticStress(mdl)
 	call HyperElasticDer(mdl,DerType) !get cc mat  
@@ -2232,7 +2228,7 @@ subroutine SolveFiniteDeform(obj,OptionItr,Solvertype,nr_tol)
     real(real64)::val,er
     integer(int32) ::i,j,n,m,k,l,dim1,dim2,nodeid1,nodeid2,localid,itrmax,SetBC,int1,int2
 	integer(int32) :: dim_num,node_num,elem_num,node_num_elmtl
-	obj%nr_tol=1.0e-08
+	!obj%nr_tol=1.0e-08
 	if(present(nr_tol) )then
 		obj%nr_tol = nr_tol
 	endif
@@ -2366,8 +2362,12 @@ subroutine SolveFiniteDeform(obj,OptionItr,Solvertype,nr_tol)
 	enddo
 	obj%DeformVecGloInc(:)=obj%DeformVecGloInc(:) + xvec(:)
 
-	obj%error =  dot_product(xvec,xvec)
-
+	if(dot_product(obj%DeformVecGloInc,obj%DeformVecGloInc) ==0.0d0)then
+		obj%error=	dot_product(xvec,xvec)
+	else
+		obj%error = abs(1.0d0- dot_product(obj%DeformVecGloInc-xvec,obj%DeformVecGloInc-xvec)/&
+		dot_product(obj%DeformVecGloInc,obj%DeformVecGloInc))
+	endif
 
     !=====================================
 	

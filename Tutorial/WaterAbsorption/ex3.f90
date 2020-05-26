@@ -22,7 +22,7 @@ program main
 
 
     !  create mesh
-    call water%create(Name="water",MeshType="rectangular3D",x_num=40,y_num=10,x_len=300.0d0, y_len=50.0d0,&
+    call water%create(Name="water",MeshType="rectangular3D",x_num=20,y_num=5,x_len=300.0d0, y_len=50.0d0,&
         thickness=50.0d0,division=5)
     call tissue%copy(water,onlyMesh=.true.)
     call tissue%rename("tissue")
@@ -30,10 +30,10 @@ program main
 
     ! create material
     ! for deformation analysis
-    call YoungsModulus%create(Name="YoungsModulus",ParaValue=12000.0d0,Layer=1)
-    call YoungsModulus%create(Name="YoungsModulus",x_max=150.0d0,x_min=0.0d0,y_max=70.0d0,y_min=0.0d0,&
-    z_max=70.0d0,z_min=0.0d0,ParaValue=6000.0d0,Layer=1)
-    call PoissonRatio%create(Name="PoissonRatio",ParaValue=0.30d0,Layer=2)
+    call YoungsModulus%create(Name="YoungsModulus",ParaValue=10.0d0,Layer=1)
+    !call YoungsModulus%create(Name="YoungsModulus",x_max=1500.0d0,x_min=0.0d0,y_max=70.0d0,y_min=0.0d0,&
+    !z_max=70.0d0,z_min=0.0d0,ParaValue=6000.0d0,Layer=1)
+    call PoissonRatio%create(Name="PoissonRatio",ParaValue=0.40d0,Layer=2)
     !call PoissonRatio%create(Name="PoissonRatio",x_max=100.0d0,x_min=0.0d0,y_max=50.0d0,y_min=0.0d0,&
     !z_max=50.0d0,z_min=0.0d0,ParaValue=0.10d0,Layer=2)
     call Density%create(Name="Density",ParaValue=0.00d0,Layer=3)
@@ -49,17 +49,17 @@ program main
 
     ! for WaterAbsorption analysis
     
-    call a_Psi%create(   Name="a_Psi",   Paravalue=2000.0d0,Layer=1)
+    call a_Psi%create(   Name="a_Psi",   Paravalue=20.0d0,Layer=1)
     !call a_Psi%create(   Name="a_Psi",   Paravalue=0.0d0,Layer=1)
     !call a_P%create(     Name="a_P",     Paravalue=40000.0d0,Layer=1)
-    call a_P%create(     Name="a_P",     Paravalue=4000.0d0,Layer=1)
+    call a_P%create(     Name="a_P",     Paravalue=40.0d0,Layer=1)
     call theta_eq%create(Name="theta_eq",Paravalue=1.0d0,Layer=1)
     !call Psi_eq%create(  Name="Psi_eq",  Paravalue=1.0d0,Layer=1)
-    call Psi_eq%create(  Name="Psi_eq",  Paravalue=2000.0d0,Layer=1)
+    call Psi_eq%create(  Name="Psi_eq",  Paravalue=20.0d0,Layer=1)
     
     call a_E%create(     Name="a_E",     Paravalue=0.0d0,Layer=1)
     call a_v%create(     Name="a_v",Paravalue=0.0d0,Layer=1)
-    call E_eq%create(    Name="E_eq",Paravalue=2000.0d0,Layer=1)
+    call E_eq%create(    Name="E_eq",Paravalue=100.0d0,Layer=1)
     call v_eq%create(    Name="v_eq",Paravalue=0.30d0,Layer=1)
 
 
@@ -110,10 +110,16 @@ program main
     z_max=100.0d0,z_min=-100.0d0,BoundValue=0.0d0,Layer=3,Name="disp_z")
     
     ! displacement-loading
-    call disp_z%create(Category="Dirichlet",x_max=310.0d0,x_min=299.0d0,y_max=100.0d0,y_min=-100.0d0,&
-    z_max=100.0d0,z_min=-100.0d0,BoundValue=-1.0d0,Layer=1,Name="disp_x")
+    !call disp_z%create(Category="Dirichlet",x_max=310.0d0,x_min=299.0d0,y_max=100.0d0,y_min=-100.0d0,&
+    !z_max=100.0d0,z_min=-100.0d0,BoundValue=-10.0d0,Layer=3,Name="disp_z")
+    !call disp_z%create(Category="Dirichlet",x_max=310.0d0,x_min=299.0d0,y_max=10.0d0,y_min=-10.0d0,&
+    !z_max=10.0d0,z_min=-10.0d0,BoundValue=0.0d0,Layer=3,Name="disp_z")
+    !call disp_z%create(Category="Dirichlet",x_max=310.0d0,x_min=299.0d0,y_max=10.0d0,y_min=-10.0d0,&
+    !z_max=10.0d0,z_min=-10.0d0,BoundValue=0.0d0,Layer=3,Name="disp_z")
+    !call disp_z%create(Category="Dirichlet",x_min=290.0d0,BoundValue=0.0d0,Layer=3,Name="disp_z")
+    !call disp_y%create(Category="Dirichlet",x_min=290.0d0,BoundValue=0.0d0,Layer=3,Name="disp_z")
+    !call disp_z%create(Category="Dirichlet",x_min=290.0d0,BoundValue=0.0d0,Layer=3,Name="disp_z")
     
-
     ! traction boundary conditions
     !call traction_x%create("Neumann",x_max=300.0d0,x_min=30.0d0,y_max=120.0d0,y_min=-10.0d0,&
     !    z_max=10.0d0,z_min=-100.0d0,BoundValue=5.0d0)
@@ -173,7 +179,8 @@ program main
     ! run simulation
     call seed%gnuplot(mode="all")
 
-    call seed%run(timestep=100,dt=100000.0d0,SolverType="BiCGSTAB",Display=.true.,nr_tol=0.00000010d0)
+    call seed%run(timestep=1000,dt=1000000.0d0,SolverType="BiCGSTAB",&
+        Display=.true.,nr_tol=0.010d0)
     
     ! visualize data
     !call seed%display()
