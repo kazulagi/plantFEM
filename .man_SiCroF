@@ -3,8 +3,9 @@ This is a brief mannual of the interactive shell of SiCroF.
 Commands:
 
 
-(1) For installation >>
+(1) For installation/update >>
     install :: compile all modules
+    update  :: update SiCroF
 
 (2) For debug >>
     - :: compile only 1 module. Type - [Enter], and write your debugged module name.
