@@ -26,4 +26,5 @@ rm ./*.out
 rm -f ./inc/*.o
 rm Home
 rm Desktop
+clear
 ls
