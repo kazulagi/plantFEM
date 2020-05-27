@@ -88,11 +88,16 @@ Install following applications
 - pip (https://qiita.com/suzuki_y/items/3261ffa9b67410803443)
 - gfortran (https://home.hiroshima-u.ac.jp/rgdlab/rgdl_html/programming/gfortran_20180520.htm)
 - jupyter notebook (https://jupyter.org/)
+- VScode(https://code.visualstudio.com)
 
-by following commands
-（インストールは、以下のコマンドを打つことで可能です。）
+by the following way.
 
+(1) Enable WSL and Ubuntu 20.04
+(2) Open VScode
+(3) Open terminal and type
 ```
+wsl
+cd ~/
 sudo apt update
 sudo apt upgrade -y
 sudo apt install git
@@ -100,48 +105,28 @@ git clone https://gitlab.com/kazulagi/SiCroF.git
 cd SiCroF
 sudo apt install python3
 python3 setup.py
-jupyter-notebook
+```
+(4) Open CLI mode of SiCroF
+```
+python3 SiCorF.py
+```
+(5) Install
+```
+install
 ```
 
-（以上で、SiCroFのインストールに向けた環境構築が完了しました。）
-
-## Execute SiCroF
-
-SiCroF can be utilized by using;
-
-- Jupyter-notebook
-
+(6) Set path to Home and Desktop directories.
 ```
-cd ~/SiCroF
-jupyter-notebook
+>>>[Enter]
+Hello.f90[Enter]
+type your username[Enter]
 ```
+(7) Open Hello.f90 on your Desktop of Windows by VScode and edit it!
 
-- Fortran 
-
-
+(8) To run your program (e.g. Hello.f90), type
 ```
-cd ~/SiCroF
-python3 SiCroF.py
+Desktop/Hello.f90
 ```
-
-- Python
-
-```
-cd ~/SiCroF
-python NAME_OF_YOUR_SCRIPT.py
-```
-
-
-```NAME_OF_YOUR_SCRIPT.py
-
-import os
-import sys
-sys.path.append(./src/PySiCroFClass/SiCroF)
-
-# Please write your program in here
-
-```
-
 
 ## Photography
 
