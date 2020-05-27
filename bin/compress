@@ -3,6 +3,7 @@ rm hostfile
 rm ./GetPixcel*.py
 rm ./DBCGetPixcelSize*.py
 rm *.o
+rm *.so
 rm *.mod
 rm *.txt
 rm *.scf

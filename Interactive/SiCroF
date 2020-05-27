@@ -24,6 +24,12 @@ debugMode="-"
 ls="ls"
 f90="f90"
 run="run"
+nano="nano "
+vim="vim "
+emacs="emacs "
+code="code "
+vi="vi "
+NAN=""
 ret=0
 
 echo "If this is the first time, please type 'install' and press ENTER"
@@ -39,7 +45,7 @@ do
     read command 
 
 
-    if [ $command = $debugMode ]; then
+    if [ "$command" = "$debugMode" ]; then
         echo "Debug Mode :: Please input keywords of re-compile modules."
         read keywords
         echo $(cat ./install/install | grep $keywords | grep -m1 mpif90)
@@ -47,55 +53,55 @@ do
         continue
     fi
 
-    if [ $command = $intel ]; then
+    if [ "$command" = "$intel" ]; then
         mpifort="mpiifort"
         install="install_ifort"
         echo "Intel fortran will be used."
         continue
     fi
 
-    if [ $command = "hostfile" ]; then
+    if [ "$command" = "hostfile" ]; then
         echo "Filepath of hostfile is : "
         read hostfile
         echo "Current hostfile is : $hostfile"
         continue
     fi
 
-    if [ $command = "gcc" ]; then
+    if [ "$command" = "gcc" ]; then
         mpifort="mpifort"
         install="install"
         echo "GCC fortran will be used."
         continue
     fi
 
-    if [ $command = $exitc ]; then
+    if [ "$command" = $exitc ]; then
         exit 0
     fi
-    if [ $command = $man ]; then
+    if [ "$command" = "$man" ]; then
         less ".man_SiCroF"
         continue
     fi
-    if [ $command = $man1 ]; then
+    if [ "$command" = "$man1" ]; then
         less ".man_SiCroF"
         continue
     fi
-    if [ $command = $man2 ]; then
+    if [ "$command" = "$man2" ]; then
         less ".man_SiCroF"
         continue
     fi
-    if [ $command = "install" ]; then
+    if [ "$command" = "install" ]; then
         ./install/"$install"
         continue
     fi
-    if [ $command = $compress ]; then
+    if [ "$command" = "$compress" ]; then
         ./bin/compress
         continue
     fi
-    if [ $command = $run ]; then
+    if [ "$command" = "$run" ]; then
         ./bin/run
         continue
     fi
-    if [ $command = $ls ]; then
+    if [ "$command" = "$ls" ]; then
         echo " "
         pwd
         echo " "
@@ -103,7 +109,7 @@ do
         echo " "
         continue
     fi
-    if [ $command = $cpucore ]; then
+    if [ "$command" = "$cpucore" ]; then
         echo "Current num of cpu-core is :: $numcore "
         echo "Please input num of cpu-core"
         read numcore
@@ -111,14 +117,53 @@ do
         continue
     fi
 
+
+    for line in ${command}
+    do
+        break
+    done    
+    if [ ${line} = $nano ]; then
+        echo "Editor :: nano"
+        $command
+        continue
+    fi
+
+    for line in ${command}
+    do
+        break
+    done    
+    if [ "${line}" = "$vim" ]; then
+        echo "Editor :: vim"
+        $command
+        continue
+    fi
+
+    if [ "${line}" = "$emacs" ]; then
+        echo "Editor :: emacs"
+        $command
+        continue
+    fi
+    if [ "${line}" = "$code" ]; then
+        echo "Editor :: code"
+        $command
+        continue
+    fi
+    if [ "${line}" = "$vi" ]; then
+        echo "Editor :: vi"
+        $command
+        continue
+    fi
+
     EXTENSION=${command##*.}
-    echo "extension is $EXTENSION"
-    if [ $EXTENSION = $f90 ]; then
+    #echo "extension is $EXTENSION"
+    if [ "$EXTENSION" = "$f90" ]; then
+
+
         echo ">"
         $mpif90 inc/*o $command -g -fcheck=all 
-        echo "Current num of cpu-core is :: $numcore "
+        #echo "Current num of cpu-core is :: $numcore "
 
-        if [ $hostfile != "" ]; then
+        if [ "$hostfile" != "" ]; then
             echo "hostfile is activated."
             mpirun  --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out
             continue
