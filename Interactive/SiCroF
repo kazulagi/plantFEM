@@ -81,7 +81,7 @@ do
         continue
     fi
     if [ "$command" = "update" ]; then
-        ./bin/update
+        sh bin/update
         continue
     fi
 
