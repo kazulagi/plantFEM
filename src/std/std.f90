@@ -5,6 +5,8 @@ module std
     use KinematicClass
     use RandomClass
     use ArrayClass
+    use VectorClass
+    use EquationClass
     use MPIClass
     use DictionaryClass
     use OpenMPClass

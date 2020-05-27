@@ -25,7 +25,10 @@ module FiniteDeformationClass
 		real(real64),allocatable ::YoungsModulus(:) ! directly give parameter #1
 		real(real64),allocatable ::PoissonsRatio(:) ! directly give parameter #2
 		real(real64),allocatable :: PorePressure(:) ! directly give parameter #2
-		real(real64)             ::dt,error,nr_tol
+		real(real64)             ::dt,error
+		real(real64)             ::nr_tol=1.0e-8
+		logical :: ReducedIntegration = .false.
+		logical :: infinitesimal = .false.
 		
 		integer(int32) :: itr,Step
 	contains
@@ -105,12 +108,13 @@ end subroutine
 
 
 !######################## Solve deformation by Netwon's method ########################
-subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype,nr_tol)
+subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype,nr_tol,infinitesimal)
 	class(FiniteDeform_),intent(inout)::obj
 	integer(int32),optional,intent(in)::OptionItr
 	character(*),optional,intent(in)::Solvertype
 	real(real64),optional,intent(in)::nr_tol
-    character*70 ::solver,defaultsolver
+	character*70 ::solver,defaultsolver
+	logical,optional,intent(in) :: infinitesimal
 
     real(real64),allocatable::Amat(:,:),bvec(:),xvec(:)
     real(real64)::val,er,residual,tolerance
@@ -118,8 +122,12 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype,nr_tol)
 	integer(int32) :: dim_num,node_num,elem_num,node_num_elmtl
     character*70 :: gmsh,GaussJordan
     gmsh="Gmsh"
-    GaussJordan="GaussJordan"
+	GaussJordan="GaussJordan"
+	if(present(infinitesimal) )then
+		obj%infinitesimal = infinitesimal
+	endif
 
+	
 	itr=0
 	if(present(OptionItr) )then
 		itr_tol = OptionItr
@@ -127,9 +135,7 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype,nr_tol)
 		itr_tol = obj%FEMDomain%ControlPara%ItrTol
 	endif
 	if(present(nr_tol) )then
-		tolerance=nr_tol
-	else
-		tolerance=1.0e-8
+		obj%nr_tol=nr_tol
 	endif
 	do
 		itr=itr + 1
@@ -143,7 +149,9 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype,nr_tol)
 
 			call SolveFiniteDeform(obj,SolverType=Solvertype)
 			!call DisplayDeformStress(obj,DisplayMode=gmsh,OptionalStep=itr)  
-			
+			if(obj%infinitesimal .eqv. .true.)then
+				exit
+			endif
 
 			   
 		else
@@ -160,7 +168,7 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype,nr_tol)
 	
 			!print *, "Residual r*r = ",dot_product(obj%ResidualVecGlo,obj%ResidualVecGlo)
 			print *, "Step, Itr, ERROR :: ",obj%step ,obj%itr,obj%error
-			if(obj%error<1.0e-5 )then
+			if(obj%error<obj%nr_tol )then
 				print *,"itr=",itr, "Netwton's Method is converged !"
 				exit
 			endif
@@ -455,14 +463,14 @@ subroutine SetupFiniteDeform(obj,tol)
 	class(FiniteDeform_),intent(inout)::obj
 	integer(int32),optional,intent(in) :: tol
 	
-    if(obj%dt==0.0d0 .or. obj%dt/=obj%dt)then
+	if(obj%dt==0.0d0 .or. obj%dt/=obj%dt)then
         obj%dt=1.0d0
 	endif
-	if(present(tol) )then
-		obj%nr_tol = tol
-	else
-		obj%nr_tol = 1.0e-08
-	endif
+	!if(present(tol) )then
+	!	obj%nr_tol = tol
+	!else
+	!	obj%nr_tol = 1.0e-08
+	!endif
 	
 	call UpdateCurrConfig(obj)
     call GetDeformStressMatAndVector(obj)
@@ -562,6 +570,7 @@ end subroutine
   subroutine GetDeformStressMatAndVector(obj,OptionalStep)
 		class(FiniteDeform_),intent(inout)::obj
 		type(ConstModel_)	::mdl
+		
 
 
 	 integer(int32), optional,intent(in) :: OptionalStep
@@ -613,7 +622,7 @@ end subroutine
     obj%DeformStressRHS(:,:)  =0.0d0
 	obj%DeformStressMat(:,:,:)=0.0d0
 	obj%FEMDomain%ShapeFunction%ElemType=obj%FEMDomain%Mesh%GetElemType()
-	call SetShapeFuncType(obj%FEMDomain%ShapeFunction)
+	call SetShapeFuncType(obj%FEMDomain%ShapeFunction, ReducedIntegration=obj%ReducedIntegration)
 	
 	
 	gp_num=obj%FEMDomain%ShapeFunction%NumOfGp
@@ -649,11 +658,8 @@ end subroutine
 	endif
 	m = elemnod_num*dim_num
 	allocate (Kmat_e(elemnod_num*dim_num,elemnod_num*dim_num),gvec_e(elemnod_num*dim_num))
-	obj%VolInitCurrEBE(:,2)=0.0d0
-
-        
+	obj%VolInitCurrEBE(:,2)=0.0d0        
 		do i = 1, elem_num !�v�f���ƃ��[�
-
 			Kmat_e(:,:) = 0.0d0
 			gvec_e(:)   = 0.0d0
 			E = obj%FEMDomain%MaterialProp%MatPara(obj%FEMDomain%Mesh%ElemMat(i),1)
@@ -693,53 +699,60 @@ end subroutine
 			do j = 1, obj%FEMDomain%ShapeFunction%NumOfGp !�K�E�X�ϕ����ƃ��[�v
 				! -----J�}�g���N�X�̌v�Z-----------------------------------------
 				call GetAllShapeFunc(obj%FEMDomain%ShapeFunction,elem_id=i,nod_coord=obj%FEMDomain%Mesh%NodCoord,&
-				elem_nod=obj%FEMDomain%Mesh%ElemNod,OptionalGpID=j)
+				elem_nod=obj%FEMDomain%Mesh%ElemNod,OptionalGpID=j,ReducedIntegration=obj%ReducedIntegration)
 				
-    
-				! ---Compute stress/strain measures of the Finite Elasto-Plast-
-				call F_tensor_ICU(obj,i,j,mdl%F_iJ_n,mdl%F_iJ)
-				
+	
+				if(obj%infinitesimal .eqv. .false.)then
+					! ---Compute stress/strain measures of the Finite Elasto-Plast-
+					call F_tensor_ICU(obj,i,j,mdl%F_iJ_n,mdl%F_iJ)
+					
 
 
-				call trans_rank_2(mdl%F_iJ,mdl%F_T)
-                
-                
-				call C_tensor(mdl%F_iJ,mdl%C_IJ,mdl%b_ij,itr,dim_num)
-				
-                !call Cp_tensor(i,j,obj%DeformStrain,mdl%Cp_IJ_n,mdl%Cp_IJ,mdl%Cp_IJ_inv,dim_num)
-				
-                call inverse_rank_2(mdl%F_iJ,mdl%F_inv_iJ)
-				call inverse_rank_2(mdl%F_T,mdl%F_T_inv_iJ)
+					call trans_rank_2(mdl%F_iJ,mdl%F_T)
+					
+					
+					call C_tensor(mdl%F_iJ,mdl%C_IJ,mdl%b_ij,itr,dim_num)
+					
+                	!call Cp_tensor(i,j,obj%DeformStrain,mdl%Cp_IJ_n,mdl%Cp_IJ,mdl%Cp_IJ_inv,dim_num)
+					
+                	call inverse_rank_2(mdl%F_iJ,mdl%F_inv_iJ)
+					call inverse_rank_2(mdl%F_T,mdl%F_T_inv_iJ)
 
-                !call M_neo_Hookean(mdl%C_IJ,mdl%Cp_IJ,mdl%Cp_IJ_inv,mdl%M_IJ,mdl%Lamda,mdl%mu,i,j)
-                
-				!----Return-Mapping algorithm----------------------------------
-			
-				!call Return_Mapping_MCDP(dim_num,i,j,mdl%C_IJ,mdl%Cp_IJ,mdl%Cp_IJ_n,mdl%Cp_IJ_inv,mdl%M_IJ,MatPara,&
-				!itr_rm,tol,obj%DeformStress,mdl%F_T,mdl%F_T_inv_ij,itr,itr_contact,obj%DeformStrain,OptionalStep)
-				
-			  
-				! -----current config. Ce matrix-----------------------------------------
-				!call Ce_neoHK_current(dim_num, i,j,mdl%Lamda,mdl%mu,mdl%C_IJ,mdl%Cp_IJ,mdl%b_ij,mdl%M_IJ,Ce_neoHK,mdl%F_T,mdl%F_T_inv,ij)
+                	!call M_neo_Hookean(mdl%C_IJ,mdl%Cp_IJ,mdl%Cp_IJ_inv,mdl%M_IJ,mdl%Lamda,mdl%mu,i,j)
+					
+					!----Return-Mapping algorithm----------------------------------
+					
+					!call Return_Mapping_MCDP(dim_num,i,j,mdl%C_IJ,mdl%Cp_IJ,mdl%Cp_IJ_n,mdl%Cp_IJ_inv,mdl%M_IJ,MatPara,&
+					!itr_rm,tol,obj%DeformStress,mdl%F_T,mdl%F_T_inv_ij,itr,itr_contact,obj%DeformStrain,OptionalStep)
+					
+					
+					! -----current config. Ce matrix-----------------------------------------
+					!call Ce_neoHK_current(dim_num, i,j,mdl%Lamda,mdl%mu,mdl%C_IJ,mdl%Cp_IJ,mdl%b_ij,mdl%M_IJ,Ce_neoHK,mdl%F_T,mdl%F_T_inv,ij)
 
-                ! -----B,W�}�g���N�X�̌v�Z----------------------------------------
-				call B_mat(dim_num,obj%FEMDomain%ShapeFunction%dNdgzi, &
-					obj%FEMDomain%ShapeFunction%Jmat, obj%FEMDomain%ShapeFunction%detJ, mdl%Bmat,m)
-				
-				
-                ! -----BT�}�g���N�X�̌v�Z-----------------------------------------
-				!call trans_rank_2(Bmat,BTmat)
-				!-----2-D neo-Hookean current stifness matrix-------------------
-				
-				! Get Volumetric change
-				obj%VolInitCurrEBE(i,2)=obj%VolInitCurrEBE(i,2)+&
-					det_mat(mdl%F_iJ,size(mdl%F_iJ,1) )/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
-
-
-				
-				mdl%ModelType="NeoHookean"
-                call GetKmat(obj,mdl,obj%FEMDomain%ShapeFunction,Kmat_e,gvec_e,dim_num,elemnod_num,i)
-				
+                	! -----B,W�}�g���N�X�̌v�Z----------------------------------------
+					call B_mat(dim_num,obj%FEMDomain%ShapeFunction%dNdgzi, &
+						obj%FEMDomain%ShapeFunction%Jmat, obj%FEMDomain%ShapeFunction%detJ, mdl%Bmat,m)
+					
+					
+                	! -----BT�}�g���N�X�̌v�Z-----------------------------------------
+					!call trans_rank_2(Bmat,BTmat)
+					!-----2-D neo-Hookean current stifness matrix-------------------
+					
+					! Get Volumetric change
+					obj%VolInitCurrEBE(i,2)=obj%VolInitCurrEBE(i,2)+&
+						det_mat(mdl%F_iJ,size(mdl%F_iJ,1) )/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+					mdl%ModelType="NeoHookean"
+					call GetKmat(obj,mdl,obj%FEMDomain%ShapeFunction,Kmat_e,gvec_e,dim_num,elemnod_num,i)
+				else
+					! infinitesimal strain theory
+					! ---Compute stress/strain measures of the Finite Elasto-Plast-
+					call F_tensor_ICU(obj,i,j,mdl%F_iJ_n,mdl%F_iJ)
+					! -----B,W�}�g���N�X�̌v�Z----------------------------------------
+					call B_mat(dim_num,obj%FEMDomain%ShapeFunction%dNdgzi, &
+						obj%FEMDomain%ShapeFunction%Jmat, obj%FEMDomain%ShapeFunction%detJ, mdl%Bmat,m)
+					call GetKmat(obj,mdl,obj%FEMDomain%ShapeFunction,Kmat_e,gvec_e,dim_num,elemnod_num,i)
+					
+				endif
 				!do k=1,size(Kmat_e,1)
 				!	write(200,*) Kmat_e(k,:),"|",gvec_e(k)
 				!enddo
@@ -751,8 +764,6 @@ end subroutine
 				!  BTmat,obj%DeformStress, obj%FEMDomain%ShapeFunction%detJ, gvec_e)
 				
                   ! -----�v�f�����}�g���N�X�̑�������--------------------------------
-            
-				
             enddo
             
 			! ------�S�̍����}�g���N�X�ւ̏d�ˍ��킹------------------------------
@@ -776,7 +787,8 @@ subroutine GetKmat(obj,mdl,sf,Kmat_e,gvec_e,dim_num,elemnod_num,elem)
 	integer(int32),intent(in)::dim_num,elemnod_num,elem
 	real(real64):: a0(3,3),dXdgzi(3,3)
 	real(real64):: Xmat(elemnod_num,3)
-	real(real64),allocatable:: a0_inv(:,:), dgzidX(:,:),Jgzimat_inv(:,:),Dmat(:,:),Sigma(:)
+	real(real64),allocatable:: a0_inv(:,:), dgzidX(:,:),Jgzimat_inv(:,:),Dmat(:,:),Sigma(:),Sigma_i(:,:),&
+		dumat_i(:,:)
 	real(real64):: a1(elemnod_num,3)
 	real(real64):: K1(elemnod_num*dim_num,elemnod_num*dim_num)
 	real(real64):: a2(elemnod_num,3)
@@ -792,12 +804,14 @@ subroutine GetKmat(obj,mdl,sf,Kmat_e,gvec_e,dim_num,elemnod_num,elem)
 	!DerType="F_iJ"
 	DerType="c_current"
 
-
+	allocate(dumat_i(elemnod_num*3,1) )
+	!mdl%infinitesimal = obj%infinitesimal
 	n=size(sf%ElemCoord,1)
 	m=size(sf%ElemCoord,2)
 	do i=1,n !num of node per elems
 		do j=1,m ! num of dim
 			dumat(i,j)=obj%DeformVecEBEInc(elem, m*(i-1) + j )
+			dumat_i( (i-1)*3 + j ,1) =dumat(i,j)
 		enddo
 	enddo
 	!Xmat(:,:)   =sf%ElemCoord(:,:) !- dumat(:,:)
@@ -810,44 +824,97 @@ subroutine GetKmat(obj,mdl,sf,Kmat_e,gvec_e,dim_num,elemnod_num,elem)
 	call inverse_rank_2(Jgzimat,Jgzimat_inv)
 	detJgzi=det_mat(Jgzimat,size(Jgzimat,1) )
 
-
-
-	!call inverse_rank_2(a0,a0_inv)
-	call HyperElasticStress(mdl)
-	call HyperElasticDer(mdl,DerType) !get cc mat  
-	call GetDmat(Dmat,mdl%StressDer,dim_num)
-	call GetSigmaVec(Sigma,mdl%sigma,dim_num)
-	
-	K1(:,:)=0.0d0
-	A3(:,:)=matmul( matmul( dNdX  , mdl%sigma )      ,   transpose(dNdX))   
-	do i=1,elemnod_num
-		do j=1,elemnod_num
-			K1( (I-1)*dim_num+1,(J-1)*dim_num+1 ) =K1( (I-1)*dim_num+1,(J-1)*dim_num+1 ) + A3(I,J)
-			K1( (I-1)*dim_num+2,(J-1)*dim_num+2 ) =K1( (I-1)*dim_num+2,(J-1)*dim_num+2 ) + A3(I,J)
-			K1( (I-1)*dim_num+3,(J-1)*dim_num+3 ) =K1( (I-1)*dim_num+3,(J-1)*dim_num+3 ) + A3(I,J) 
+	if(obj%infinitesimal .eqv. .false.)then
+		
+		!call inverse_rank_2(a0,a0_inv)
+		call HyperElasticStress(mdl)
+		call HyperElasticDer(mdl,DerType) !get cc mat  
+		call GetDmat(Dmat,mdl%StressDer,dim_num)
+		call GetSigmaVec(Sigma,mdl%sigma,dim_num)
+		
+		K1(:,:)=0.0d0
+		A3(:,:)=matmul( matmul( dNdX  , mdl%sigma )      ,   transpose(dNdX))   
+		do i=1,elemnod_num
+			do j=1,elemnod_num
+				K1( (I-1)*dim_num+1,(J-1)*dim_num+1 ) =K1( (I-1)*dim_num+1,(J-1)*dim_num+1 ) + A3(I,J)
+				K1( (I-1)*dim_num+2,(J-1)*dim_num+2 ) =K1( (I-1)*dim_num+2,(J-1)*dim_num+2 ) + A3(I,J)
+				K1( (I-1)*dim_num+3,(J-1)*dim_num+3 ) =K1( (I-1)*dim_num+3,(J-1)*dim_num+3 ) + A3(I,J) 
+			enddo
 		enddo
-	enddo
+		! debug
+		!print *, "size(obj%PorePressure)" ,size(obj%PorePressure)
+		!write(3001,*) maxval(obj%PorePressure),minval(obj%PorePressure)
+		!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		! For water-soil coupling analysis
 
-	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	! For water-soil coupling analysis
-	
-	if(.not. allocated(obj%PorePressure) )then
-		PorePressure=obj%PorePressure(elem)
-	elseif(size(obj%PorePressure)< elem )then
-		PorePressure=0.0d0
+		if(.not. allocated(obj%PorePressure) )then
+			PorePressure=0.0d0
+		elseif(size(obj%PorePressure) ==0 )then
+			PorePressure=0.0d0
+		else
+			PorePressure=obj%PorePressure(elem)
+		endif
+		Sigma(1)=Sigma(1)-PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+		Sigma(2)=Sigma(2)-PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+		Sigma(3)=Sigma(3)-PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+		!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		
+
+		Kmat_e(:,:)=Kmat_e(:,:)+matmul(matmul(transpose(mdl%Bmat),Dmat),mdl%Bmat )/det_mat(mdl%F_ij,size(mdl%F_ij,1) )*sf%detJ &
+			 +K1(:,:)*sf%detJ
+		!stop "debug l3"
+		gvec_e(:)=gvec_e(:)+matmul(transpose(mdl%Bmat),Sigma)*sf%detJ
 	else
-		PorePressure=0.0d0
-	endif
-	Sigma(1)=Sigma(1)+PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
-	Sigma(2)=Sigma(2)+PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
-	Sigma(3)=Sigma(3)+PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
-	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		!call inverse_rank_2(a0,a0_inv)
+		!call HyperElasticStress(mdl)
+		!call HyperElasticDer(mdl,DerType) !get cc mat  
+		!call GetDmat(Dmat,mdl%StressDer,dim_num)
+		!call GetSigmaVec(Sigma,mdl%sigma,dim_num)
+		
+		! clear Dmat and import St. Venant stiffness matrix
+		allocate(Dmat(6,6) )
+		Dmat(:,:)=0.0d0
+		Dmat(1,1)= 2.0d0*mdl%mu + mdl%lamda
+		Dmat(1,2)= mdl%lamda
+		Dmat(1,3)= mdl%lamda
+		Dmat(2,1)= mdl%lamda
+		Dmat(2,2)= 2.0d0*mdl%mu + mdl%lamda
+		Dmat(2,3)= mdl%lamda
+		Dmat(3,1)= mdl%lamda
+		Dmat(3,2)= mdl%lamda
+		Dmat(3,3)= 2.0d0*mdl%mu + mdl%lamda
+		Dmat(4,4)= mdl%mu
+		Dmat(5,5)= mdl%mu
+		Dmat(6,6)= mdl%mu
 
-	Kmat_e(:,:)=Kmat_e(:,:)+matmul(matmul(transpose(mdl%Bmat),Dmat),mdl%Bmat )/det_mat(mdl%F_ij,size(mdl%F_ij,1) )*sf%detJ &
-		 +K1(:,:)*sf%detJ
-	!stop "debug l3"
-	gvec_e(:)=gvec_e(:)+matmul(transpose(mdl%Bmat),Sigma)*sf%detJ
-	
+		! stress dsigma = [D][B]{du}
+		allocate(Sigma_i(6,1))
+		Sigma_i(:,:) = matmul(Dmat, matmul(mdl%Bmat, dumat_i) )
+
+		! debug
+		!print *, "size(obj%PorePressure)" ,size(obj%PorePressure)
+		!write(3001,*) maxval(obj%PorePressure),minval(obj%PorePressure)
+		!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		! For water-soil coupling analysis
+
+		if(.not. allocated(obj%PorePressure) )then
+			PorePressure=0.0d0
+		elseif(size(obj%PorePressure) ==0 )then
+			PorePressure=0.0d0
+		else
+			PorePressure=obj%PorePressure(elem)
+		endif
+		Sigma_i(1,1)=Sigma_i(1,1)-PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+		Sigma_i(2,1)=Sigma_i(2,1)-PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+		Sigma_i(3,1)=Sigma_i(3,1)-PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+		!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+		Kmat_e(:,:)=Kmat_e(:,:)+matmul(matmul(transpose(mdl%Bmat),Dmat),mdl%Bmat )*sf%detJ 
+		!stop "debug l3"
+		gvec_e(:)=gvec_e(:)+matmul(transpose(mdl%Bmat),Sigma_i(:,1) )*sf%detJ
+	endif
+
+
 	!
 	!do I=1,elemnod_num
 	!	do ii=1,3
@@ -1053,6 +1120,8 @@ subroutine F_tensor_ICU(obj,elem,gauss,F_iJ_n,F_iJ)
 	if(.not.allocated(  x_u )) allocate( x_u(n,m)  )
 	if(.not.allocated(  tr_dNdgzi )) allocate(  tr_dNdgzi(n,m) )
 	
+	n=size(obj%FEMDomain%ShapeFunction%ElemCoord,1)
+	m=size(obj%FEMDomain%ShapeFunction%ElemCoord,2)
 	do i=1,n !num of node per elems
 		do j=1,m ! num of dim
 			dumat(i,j)=obj%DeformVecEBEInc(elem, m*(i-1) + j )
@@ -2226,7 +2295,7 @@ subroutine SolveFiniteDeform(obj,OptionItr,Solvertype,nr_tol)
     real(real64)::val,er
     integer(int32) ::i,j,n,m,k,l,dim1,dim2,nodeid1,nodeid2,localid,itrmax,SetBC,int1,int2
 	integer(int32) :: dim_num,node_num,elem_num,node_num_elmtl
-	obj%nr_tol=1.0e-08
+	!obj%nr_tol=1.0e-08
 	if(present(nr_tol) )then
 		obj%nr_tol = nr_tol
 	endif
@@ -2360,8 +2429,12 @@ subroutine SolveFiniteDeform(obj,OptionItr,Solvertype,nr_tol)
 	enddo
 	obj%DeformVecGloInc(:)=obj%DeformVecGloInc(:) + xvec(:)
 
-	obj%error =  dot_product(xvec,xvec)
-
+	if(dot_product(obj%DeformVecGloInc,obj%DeformVecGloInc) ==0.0d0)then
+		obj%error=	dot_product(xvec,xvec)
+	else
+		obj%error = abs(1.0d0- dot_product(obj%DeformVecGloInc-xvec,obj%DeformVecGloInc-xvec)/&
+		dot_product(obj%DeformVecGloInc,obj%DeformVecGloInc))
+	endif
 
     !=====================================
 	
