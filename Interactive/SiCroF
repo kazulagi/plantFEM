@@ -24,26 +24,60 @@ debugMode="-"
 ls="ls"
 f90="f90"
 run="run"
-nano="nano "
-vim="vim "
-emacs="emacs "
-code="code "
-vi="vi "
+nano="nano"
+vim="vim"
+emacs="emacs"
+code="code"
+vi="vi"
+cp="cp"
+cd="cd"
+ls="ls"
+rm="rm"
+grep="grep"
+touch="touch"
+pick="pick"
 NAN=""
 sendToDesktop=">>>"
+command2=""
 ret=0
 
 echo "If this is the first time, please type 'install' and press ENTER"
 echo "Please input fortran script *.f90 | or check manual by 'man'  "
 echo "  "
- 
-
+homepath="$PWD"
 while :
 do
 
     #echo "Please input fortran script *.f90 | or check manual by 'man'  "
     echo -n ">>> "
     read command 
+    
+    if [ "$command" = "homepath" ]; then
+        echo "$homepath"
+        continue
+    fi
+
+    if [ "$command" = "goback" ]; then
+        echo "Back to SiCroF/"
+        cd $homepath
+        ls
+        continue
+    fi
+
+    if [ "$command" = "pick" ]; then
+        echo "copy to SiCroF/"
+        echo "Input file-name."
+        read filename
+        cp $filename $homepath
+        continue
+    fi
+
+    if [ "$command" = "gb" ]; then
+        echo "Back to SiCroF/"
+        cd $homepath
+        ls
+        continue
+    fi
 
     if [ "$command" = "$sendToDesktop" ]; then
         echo "only for WSL :: "
@@ -51,6 +85,8 @@ do
         read keywords
         echo "Input user-name of Windows"
         read username
+        ln -s /mnt/c/Users/$username ./Home
+        ln -s /mnt/c/Users/$username/Desktop ./Desktop
         echo "cp $keywords /mnt/c/Users/$username/Desktop/"
         cp $keywords /mnt/c/Users/$username/Desktop/
         continue
@@ -162,6 +198,39 @@ do
     if [ "${line}" = "$vi" ]; then
         echo "Editor :: vi"
         $command
+        continue
+    fi
+
+    if [ "${line}" = "$cp" ]; then
+        $command
+        ls
+        continue
+    fi
+    if [ "${line}" = "$cd" ]; then
+        $command
+        ls
+        continue
+    fi
+
+    if [ "${line}" = "$ls" ]; then
+        $command
+        continue
+    fi
+
+    if [ "${line}" = "$grep" ]; then
+        $command
+        continue
+    fi
+
+    if [ "${line}" = "$rm" ]; then
+        $command
+        ls
+        continue
+    fi
+
+    if [ "${line}" = "$touch" ]; then
+        $command
+        ls
         continue
     fi
 

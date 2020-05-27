@@ -24,6 +24,19 @@ Commands:
 (6) Exit >>
     exit :: get out from this mode.
 
+(7) Others >>
+
+    >>>    :: (Only for WSL) send file to Desktop of Windows
+    goback :: go back to SiCroF/
+    gb     :: go back to SiCroF/
+    pick   :: copy file to SiCroF/
+
+    The following text-editors are available.
+    vim, vi, emacs, vscode, nano
+
+    The following UNIX commands are available.
+    ls, cp, cd, grep, rm, touch, mkdir
+
 Press q to close this window.
     
 
