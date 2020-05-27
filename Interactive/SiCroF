@@ -30,6 +30,7 @@ emacs="emacs "
 code="code "
 vi="vi "
 NAN=""
+sendToDesktop=">>>"
 ret=0
 
 echo "If this is the first time, please type 'install' and press ENTER"
@@ -44,6 +45,16 @@ do
     echo -n ">>> "
     read command 
 
+    if [ "$command" = "$sendToDesktop" ]; then
+        echo "only for WSL :: "
+        echo "Input file-name to send it to Desktop"
+        read keywords
+        echo "Input user-name of Windows"
+        read username
+        echo "cp $keywords /mnt/c/Users/$username/Desktop/"
+        cp $keywords /mnt/c/Users/$username/Desktop/
+        continue
+    fi
 
     if [ "$command" = "$debugMode" ]; then
         echo "Debug Mode :: Please input keywords of re-compile modules."
