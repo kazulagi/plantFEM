@@ -128,6 +128,90 @@ type your username[Enter]
 Desktop/Hello.f90
 ```
 
+
+## How to make and use your original add-on.
+
+(1) Create your add-on in SiCroF/addon or other places. An example is shown in addon/addon_example.f90
+
+```Fortran
+module addon_example
+    use SiCroF
+    type::addon_example_
+        ! Member variables
+        real(real64),private :: realVal
+        real(int32 ),private :: intVal
+    contains
+        ! methods (public_name => private_name)
+        procedure :: set => setaddon_sample
+        procedure :: show => showaddon_sample
+    end type
+contains
+
+! Definitions of methods
+
+! ################################################
+subroutine setaddon_sample(obj,realVal, intVal)
+    class(addon_example_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: realVal
+    integer(int32),optional,intent(in) :: intVal
+
+    obj%realVal = input(default=0.0d0, option=realVal)
+    obj%intVal  = input(default=0, option=intVal)
+
+end subroutine
+! ################################################
+
+
+
+! ################################################
+subroutine showaddon_sample(obj)
+    class(addon_example_),intent(in) :: obj
+    print *, "Real-64bit value is :: ", obj%realVal
+    print *, "int-32bit value is  :: ", obj%intVal
+end subroutine
+! ################################################
+
+end module addon_example
+```
+
+(2) Compile your addon by typing "addon" after
+
+
+
+```
+python3 SiCroF.py
+
+>>> addon
+installing add-on
+Directory path of your awesome addon is : (default path = addon)
+> addon
+installing from addon
+addon_example
+Compiling ./addon/addon_example.f90      
+ >> addon_example.o
+ | ########################### | (100%)
+>>>
+```
+
+(3) Run your script (An example is shown in Tutorial/HowToUseAddon/ex1.f90)
+
+```Fortran
+program main
+    use addon_example
+    implicit none
+    type(addon_example_) :: obj
+    call obj%set(realVal=8.0d0, intVal=-100)
+    call obj%show()
+end program
+```
+(4) Done!
+```
+>>> test.f90
+>
+ Real-64bit value is ::    8.0000000000000000     
+ int-32bit value is  ::   -100.000000    
+>>> 
+```
 ## Photography
 
 Ex.1 :: 3-D Finite Element model of soybean seed.

@@ -37,6 +37,8 @@ Commands:
     The following UNIX commands are available.
     ls, cp, cd, grep, rm, touch, mkdir
 
+    addon :: Enable your Add-on
+    
 Press q to close this window.
     
 
