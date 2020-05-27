@@ -80,6 +80,11 @@ do
         echo "$homepath"
         continue
     fi
+    if [ "$command" = "update" ]; then
+        ./bin/update
+        continue
+    fi
+
 
     if [ "$command" = "goback" ]; then
         echo "Back to SiCroF/"
