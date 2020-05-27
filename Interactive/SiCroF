@@ -51,6 +51,7 @@ do
         read keywords
         echo "Input user-name of Windows"
         read username
+        echo "cp $keywords /mnt/c/Users/$username/Desktop/"
         cp $keywords /mnt/c/Users/$username/Desktop/
         continue
     fi
