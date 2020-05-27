@@ -24,4 +24,6 @@ mv *.blend RESULTS/
 mv *.blend1 RESULTS/
 rm ./*.out
 rm -f ./inc/*.o
+rm Home
+rm Desktop
 ls
