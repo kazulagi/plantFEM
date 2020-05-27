@@ -40,6 +40,7 @@ NAN=""
 sendToDesktop=">>>"
 command2=""
 ret=0
+addonpath="addon"
 
 echo "If this is the first time, please type 'install' and press ENTER"
 echo "Please input fortran script *.f90 | or check manual by 'man'  "
@@ -52,6 +53,29 @@ do
     echo -n ">>> "
     read command 
     
+    if [ "$command" = "addon" ]; then
+        echo "installing add-on"
+        echo "Directory path of your awesome addon is : (default path = addon)"
+        echo -n "> "
+        read addonpath
+        echo "installing from $addonpath"
+        ls $addonpath | grep ".f90" > ap.txt
+        sed -e 's/.f90//g' ap.txt > aps.txt
+        cat aps.txt
+        while read line
+        do
+            echo "Compiling ./$addonpath/$line.f90      "
+            echo " >> $line.o"
+            echo " | ########################### | (100%)\r\c "
+            mpif90 -shared -fPIC -g -fcheck=all  -c ./$addonpath/$line.f90 -o  ./inc/$line.o
+        done < ./aps.txt
+        echo " "
+        rm ap.txt
+        rm aps.txt
+        continue
+    fi
+
+
     if [ "$command" = "homepath" ]; then
         echo "$homepath"
         continue
