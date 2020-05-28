@@ -6,8 +6,9 @@ module FEMDomainClass
     use MeshClass
     use MaterialPropClass
     use BoundaryConditionClass
-    use ControlParaeterClass
-
+	use ControlParaeterClass
+	use std
+	
 	implicit none
 
 	type::Meshp_
@@ -32,9 +33,12 @@ module FEMDomainClass
 		type(Meshp_),allocatable :: Meshes(:)
 		type(Materialp_),allocatable :: Materials(:)
 		type(Boundaryp_),allocatable :: Boundaries(:)
-        
+
 
         type(ShapeFunction_)    :: ShapeFunction
+		real(real64),allocatable :: scalar(:)
+		real(real64),allocatable :: vector(:,:)
+		real(real64),allocatable :: tensor(:,:,:)
 		real(real64) :: RealTime
 		integer(int32) :: NumOfDomain
         character*200 :: FilePath
@@ -97,7 +101,8 @@ module FEMDomainClass
 		procedure,public :: bakeTBoundaries => bakeTBoundariesFEMDomain
 		procedure,public :: show => showFEMDomain
 		procedure,public :: rename => renameFEMDomain
-		
+		procedure,public :: display => displayFEMDomain
+		procedure,public :: field => fieldFEMDomain
 
 		! for debug
 		procedure,public :: CheckConnectivity => CheckConnedctivityFEMDomain
@@ -116,6 +121,267 @@ module FEMDomainClass
 contains
 
 
+!##################################################
+subroutine displayFEMDomain(obj,path,name,extention)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),intent(in) :: path,name,extention
+	integer(int32) :: i,j,n
+	open(10,file=trim(path)//trim(name)//trim(extention) )
+	if( trim(extention) == ".vtk" )then
+		write(10,'(A)' ) "# vtk DataFile Version 2.0"
+		write(10,'(A)' ) "Cube example"
+		write(10,'(A)' ) "ASCII"
+		write(10,'(A)' ) "DATASET POLYDATA"
+		write(10,'(A)' ,advance="no") "POINTS "
+		write(10,'(i10)' ,advance="no")size(obj%mesh%NodCoord,1)
+		write(10,'(A)')" float"
+		do i=1,size(obj%mesh%NodCoord,1)
+			do j=1,size(obj%mesh%NodCoord,2)
+				if(j==size(obj%mesh%NodCoord,2))then
+					write(10,'(f20.8)' ) obj%mesh%NodCoord(i,j)
+				else
+					write(10,'(f20.8)', advance="no" ) obj%mesh%NodCoord(i,j)
+					write(10,'(A)', advance="no" ) " "
+				endif
+			enddo
+		enddo
+		write(10,'(A)',advance="no")" POLYGONS "
+		write(10,'(i10)',advance="no") 6*size(obj%mesh%ElemNod,1)
+		write(10,'(A)',advance="no") " "
+		write(10,'(i10)') size(obj%mesh%ElemNod,1)*5*6
+		do i=1,size(obj%mesh%ElemNod,1)
+			write(10,'(A)',advance="no") "4 "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,1)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,2)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,3)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,4)-1
+			write(10,'(A)') " "
+			write(10,'(A)',advance="no") "4 "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,5)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,6)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,7)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,8)-1
+			write(10,'(A)') " "
+			write(10,'(A)',advance="no") "4 "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,1)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,2)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,6)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,5)-1
+			write(10,'(A)') " "
+			write(10,'(A)',advance="no") "4 "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,3)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,4)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,8)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,7)-1
+			write(10,'(A)') " "
+			write(10,'(A)',advance="no") "4 "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,1)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,5)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,8)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,4)-1
+			write(10,'(A)') " "
+			write(10,'(A)',advance="no") "4 "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,2)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,3)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,7)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,6)-1
+			write(10,'(A)') " "
+		enddo
+		write(10,'(A)') "CELL_DATA 6"
+	elseif(trim(extention) == ".ply")then
+		write(10,'(A)')"ply"
+		write(10,'(A)')"format ascii 1.0"
+		write(10,'(A)',advance="no")"element vertex "
+		write(10,'(i10)') size(obj%mesh%NodCoord,1)
+		write(10,'(A)')"property float32 x"
+		write(10,'(A)')"property float32 y"
+		write(10,'(A)')"property float32 z"
+		write(10,'(A)')"property uchar red"
+		write(10,'(A)')"property uchar green"
+		write(10,'(A)')"property uchar blue"
+		write(10,'(A)',advance="no")"element face "
+		write(10,'(i10)') size(obj%mesh%ElemNod,1)*6
+		write(10,'(A)')"property list uint8 int32 vertex_indices"
+		write(10,'(A)') "end_header"
+		do i=1,size(obj%mesh%NodCoord,1)
+			do j=1,size(obj%mesh%NodCoord,2)
+				if(j==size(obj%mesh%NodCoord,2))then
+					write(10,'(f20.8)', advance="no"  ) obj%mesh%NodCoord(i,j)
+					write(10,'(A)', advance="no" ) " "
+				else
+					write(10,'(f20.8)', advance="no" ) obj%mesh%NodCoord(i,j)
+					write(10,'(A)', advance="no" ) " "
+				endif
+			enddo
+			write(10,'(A)', advance="no" ) " "
+			write(10,'(i3)',advance="no") int(obj%mesh%NodCoord(i,1)*255.0d0/maxval(obj%mesh%NodCoord(:,1) ))
+			write(10,'(A)', advance="no" ) " "
+			write(10,'(i3)',advance="no") int(obj%mesh%NodCoord(i,2)*255.0d0/maxval(obj%mesh%NodCoord(:,2) ))
+			write(10,'(A)', advance="no" ) " "
+			write(10,'(i3)') int(obj%mesh%NodCoord(i,3)*255.0d0/maxval(obj%mesh%NodCoord(:,3) ))
+		enddo
+		do i=1,size(obj%mesh%ElemNod,1)
+			write(10,'(A)',advance="no") "4 "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,1)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,2)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,3)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,4)-1
+			write(10,'(A)') " "
+			write(10,'(A)',advance="no") "4 "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,5)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,6)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,7)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,8)-1
+			write(10,'(A)') " "
+			write(10,'(A)',advance="no") "4 "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,1)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,2)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,6)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,5)-1
+			write(10,'(A)') " "
+			write(10,'(A)',advance="no") "4 "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,3)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,4)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,8)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,7)-1
+			write(10,'(A)') " "
+			write(10,'(A)',advance="no") "4 "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,1)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,5)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,8)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,4)-1
+			write(10,'(A)') " "
+			write(10,'(A)',advance="no") "4 "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,2)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,3)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,7)-1
+			write(10,'(A)',advance="no") " "
+			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,6)-1
+			write(10,'(A)') " "
+		enddo
+
+	else
+		print *, "Invalid extention :: ",trim(extention)
+		stop
+	endif
+	close(10)
+
+end subroutine displayFEMDomain
+!##################################################
+
+
+!##################################################
+subroutine fieldFEMDomain(obj,scalar,vector,tensor)
+	class(FEMDomain_),intent(inout) :: obj
+	real(real64),optional,intent(in) :: scalar(:),vector(:,:),tensor(:,:,:)
+	integer(int32) :: i,j,k,n
+
+	! import data >> to obj
+	if(present(scalar) )then
+		if(size(scalar,1)==0 )then
+			print *, "displayFEMDomain :: ERROR :: scalar is not allocated."
+			stop 
+		endif
+		if(allocated(obj%scalar) )then
+			deallocate(obj%scalar)
+		endif
+		i=size(scalar)
+		if(obj%mesh%empty() .eqv. .true.)then
+			print *, "displayFEMDomain :: ERROR :: element is not imported."
+			stop
+		endif
+		if(i/=size(obj%mesh%ElemNod,1))then
+			print *, "displayFEMDomain :: ERROR :: size(scalar/=size(obj%mesh%ElemNod,1)"
+			stop 
+		endif
+		allocate(obj%scalar(i) )
+		obj%scalar(:) = scalar(:)
+	endif
+	
+	! import data >> to obj
+	if(present(vector) )then
+		if(size(vector,1)==0 )then
+			print *, "displayFEMDomain :: ERROR :: vector is not allocated."
+			stop 
+		endif
+		if(allocated(obj%vector) )then
+			deallocate(obj%vector)
+		endif
+		i=size(vector,1)
+		j=size(vector,2)
+		if(obj%mesh%empty() .eqv. .true.)then
+			print *, "displayFEMDomain :: ERROR :: element is not imported."
+			stop
+		endif
+		if(i/=size(obj%mesh%ElemNod,1))then
+			print *, "displayFEMDomain :: ERROR :: size(vector/=size(obj%mesh%ElemNod,1)"
+			stop 
+		endif
+		allocate(obj%vector(i,j) )
+		obj%vector(:,:) = vector(:,:)
+	endif
+	
+	! import data >> to obj
+	if(present(tensor) )then
+		if(size(tensor,1)==0 )then
+			print *, "displayFEMDomain :: ERROR :: tensor is not allocated."
+			stop 
+		endif
+		if(allocated(obj%tensor) )then
+			deallocate(obj%tensor)
+		endif
+		i=size(tensor,1)
+		j=size(tensor,2)
+		k=size(tensor,3)
+		if(obj%mesh%empty() .eqv. .true.)then
+			print *, "displayFEMDomain :: ERROR :: element is not imported."
+			stop
+		endif
+		if(i/=size(obj%mesh%ElemNod,1))then
+			print *, "displayFEMDomain :: ERROR :: size(tensor/=size(obj%mesh%ElemNod,1)"
+			stop 
+		endif
+		allocate(obj%tensor(i,j,k) )
+		obj%tensor(:,:,:) = tensor(:,:,:)
+	endif
+
+end subroutine fieldFEMDomain
+!##################################################
 
 
 !##################################################
@@ -504,20 +770,20 @@ end subroutine MergeFEMDomain
 
 !##################################################
 subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,SolverType,MeshDimension,&
-	FileName,Name,regacy,with)
+	FileName,Name,regacy,with,path,extention,step,FieldValue)
     class(FEMDomain_),intent(inout)::obj
     class(FEMDomain_),optional,intent(inout)::with
-    character(*),optional,intent(in)::OptionalFileFormat
+    character(*),optional,intent(in)::OptionalFileFormat,path,extention
     character(*),optional,intent(in)::OptionalProjectName,SolverType,FileName
 	character*4::FileFormat
 	character(*),optional,intent(in) :: Name
 	logical,optional,intent(in) :: regacy
     character*200::ProjectName
 	character*200 ::iFileName
-	
+	real(real64),optional,intent(in) :: FieldValue(:,:)
     integer(int32),allocatable::IntMat(:,:)
     real(real64),allocatable::RealMat(:,:)
-    integer(int32),optional,intent(in)::FileHandle,MeshDimension
+    integer(int32),optional,intent(in)::FileHandle,MeshDimension,step
     integer(int32) :: fh,i,j,k,n,m,DimNum,GpNum,nn
 	character*70 Msg
 

@@ -26,5 +26,6 @@ rm ./*.out
 rm -f ./inc/*.o
 rm Home
 rm Desktop
+rm sicrof
 clear
 ls
