@@ -12,6 +12,7 @@ module FiniteDeformationClass
 	    real(real64),allocatable ::DeformStress(:,:,:)
 	    real(real64),allocatable ::DeformStrain(:,:,:)
         real(real64),allocatable ::DeformStressInit(:,:,:)
+        real(real64),allocatable ::DeformStressinc(:,:,:)
 		real(real64),allocatable ::DeformStressMat(:,:,:)
 		real(real64),allocatable ::DeformStressRHS(:,:)
 		real(real64),allocatable ::DeformVecEBETot(:,:)
@@ -183,7 +184,7 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype,nr_tol,infinitesimal
 		endif
 
 	enddo
-
+	call UpdateStressMeasure(obj)
 	call UpdateStrainMeasure(obj)
 
 	
@@ -634,7 +635,7 @@ end subroutine
 		NumOfStrainMeasure=49
 	endif
 	allocate(MatPara(7))
-    if( .not. allocated( obj%DeformStrain ) ) then
+    if( .not. allocated( obj%DeformStrain )) then
         allocate(obj%DeformStrain(elem_num,gp_num,NumOfStrainMeasure) )
         obj%DeformStrain(:,:,:) =0.0d0  
         obj%DeformStrain(:,:,1) =1.0d0  ! Cp_iJ_n(1,1)
@@ -656,7 +657,11 @@ end subroutine
 	!initialize
 	if(.not.allocated(obj%DeformStress))then
         allocate(obj%DeformStress(elem_num,gp_num,6) )
-        obj%DeformStress(:,:,:)=0.0d0
+		obj%DeformStress(:,:,:)=0.0d0
+	endif
+	if(.not.allocated(obj%DeformStressinc))then
+        allocate(obj%DeformStressinc(elem_num,gp_num,6) )
+		obj%DeformStressinc(:,:,:)=0.0d0
 	endif
 	m = elemnod_num*dim_num
 	allocate (Kmat_e(elemnod_num*dim_num,elemnod_num*dim_num),gvec_e(elemnod_num*dim_num))
@@ -744,15 +749,16 @@ end subroutine
 					obj%VolInitCurrEBE(i,2)=obj%VolInitCurrEBE(i,2)+&
 						det_mat(mdl%F_iJ,size(mdl%F_iJ,1) )/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
 					mdl%ModelType="NeoHookean"
-					call GetKmat(obj,mdl,obj%FEMDomain%ShapeFunction,Kmat_e,gvec_e,dim_num,elemnod_num,i)
+					call GetKmat(obj,mdl,obj%FEMDomain%ShapeFunction,Kmat_e,gvec_e,dim_num,elemnod_num,i,j)
 				else
 					! infinitesimal strain theory
+
 					! ---Compute stress/strain measures of the Finite Elasto-Plast-
 					call F_tensor_ICU(obj,i,j,mdl%F_iJ_n,mdl%F_iJ)
 					! -----B,W�}�g���N�X�̌v�Z----------------------------------------
 					call B_mat(dim_num,obj%FEMDomain%ShapeFunction%dNdgzi, &
 						obj%FEMDomain%ShapeFunction%Jmat, obj%FEMDomain%ShapeFunction%detJ, mdl%Bmat,m)
-					call GetKmat(obj,mdl,obj%FEMDomain%ShapeFunction,Kmat_e,gvec_e,dim_num,elemnod_num,i)
+					call GetKmat(obj,mdl,obj%FEMDomain%ShapeFunction,Kmat_e,gvec_e,dim_num,elemnod_num,i,j)
 					
 				endif
 				!do k=1,size(Kmat_e,1)
@@ -781,16 +787,16 @@ end subroutine
 !================================================================================
 
 !================================================================================
-subroutine GetKmat(obj,mdl,sf,Kmat_e,gvec_e,dim_num,elemnod_num,elem)
-	type(FiniteDeform_),intent(in) :: obj
+subroutine GetKmat(obj,mdl,sf,Kmat_e,gvec_e,dim_num,elemnod_num,elem,gp)
+	type(FiniteDeform_),intent(inout) :: obj
 	type(ConstModel_),intent(inout)::mdl
 	type(ShapeFunction_),intent(in)::sf
 	real(real64),intent(inout) :: Kmat_e(:,:),gvec_e(:)
-	integer(int32),intent(in)::dim_num,elemnod_num,elem
+	integer(int32),intent(in)::dim_num,elemnod_num,elem,gp
 	real(real64):: a0(3,3),dXdgzi(3,3)
 	real(real64):: Xmat(elemnod_num,3)
 	real(real64),allocatable:: a0_inv(:,:), dgzidX(:,:),Jgzimat_inv(:,:),Dmat(:,:),Sigma(:),Sigma_i(:,:),&
-		dumat_i(:,:)
+		dumat_i(:,:),Sigma_tot(:,:)
 	real(real64):: a1(elemnod_num,3)
 	real(real64):: K1(elemnod_num*dim_num,elemnod_num*dim_num)
 	real(real64):: a2(elemnod_num,3)
@@ -891,8 +897,9 @@ subroutine GetKmat(obj,mdl,sf,Kmat_e,gvec_e,dim_num,elemnod_num,elem)
 
 		! stress dsigma = [D][B]{du}
 		allocate(Sigma_i(6,1))
-		Sigma_i(:,:) = matmul(Dmat, matmul(mdl%Bmat, dumat_i) )
-
+		allocate(Sigma_tot(6,1))
+		Sigma_i(:,:) = matmul(Dmat, matmul(mdl%Bmat, dumat_i) ) !\partial \sigma / \artial t * dt
+		Sigma_tot(1:6,1)  =obj%DeformStress(elem,gp,1:6)
 		! debug
 		!print *, "size(obj%PorePressure)" ,size(obj%PorePressure)
 		!write(3001,*) maxval(obj%PorePressure),minval(obj%PorePressure)
@@ -906,14 +913,17 @@ subroutine GetKmat(obj,mdl,sf,Kmat_e,gvec_e,dim_num,elemnod_num,elem)
 		else
 			PorePressure=obj%PorePressure(elem)
 		endif
-		Sigma_i(1,1)=Sigma_i(1,1)-PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
-		Sigma_i(2,1)=Sigma_i(2,1)-PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
-		Sigma_i(3,1)=Sigma_i(3,1)-PorePressure/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+		Sigma_tot(1,1)=Sigma_tot(1,1)-PorePressure!/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+		Sigma_tot(2,1)=Sigma_tot(2,1)-PorePressure!/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
+		Sigma_tot(3,1)=Sigma_tot(3,1)-PorePressure!/dble(obj%FEMDomain%ShapeFunction%NumOfGp)
 		!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 		Kmat_e(:,:)=Kmat_e(:,:)+matmul(matmul(transpose(mdl%Bmat),Dmat),mdl%Bmat )*sf%detJ 
 		!stop "debug l3"
-		gvec_e(:)=gvec_e(:)+matmul(transpose(mdl%Bmat),Sigma_i(:,1) )*sf%detJ
+		gvec_e(:)=gvec_e(:)+matmul(transpose(mdl%Bmat),Sigma_tot(:,1) )*sf%detJ&
+			+matmul(transpose(mdl%Bmat),Sigma_i(:,1) )*sf%detJ
+		! update d \sigma
+		obj%DeformStressinc(elem,gp,1:6)=Sigma_i(1:6,1)
 	endif
 
 
@@ -2613,6 +2623,14 @@ subroutine GetResidualVector(obj)
 end subroutine
 !############# Get Residual Vector ######################
 
+
+subroutine UpdateStressMeasure(obj)
+	class(FiniteDeform_),intent(inout)::obj
+	if(obj%infinitesimal .eqv. .true.)then
+		obj%DeformStress(:,:,:)=obj%DeformStress(:,:,:)+obj%DeformStressinc(:,:,:)
+		obj%DeformStressinc(:,:,:)=0.0d0
+	endif
+end subroutine
 
 !############# Uodate strain variables ######################
 subroutine UpdateStrainMeasure(obj)
