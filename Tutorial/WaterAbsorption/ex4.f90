@@ -30,7 +30,7 @@ program main
 
     ! create material
     ! for deformation analysis
-    call YoungsModulus%create(Name="YoungsModulus",ParaValue=100.0d0,Layer=1)
+    call YoungsModulus%create(Name="YoungsModulus",ParaValue=200.0d0,Layer=1)
     !call YoungsModulus%create(Name="YoungsModulus",x_max=1500.0d0,x_min=0.0d0,y_max=70.0d0,y_min=0.0d0,&
     !z_max=70.0d0,z_min=0.0d0,ParaValue=6000.0d0,Layer=1)
     call PoissonRatio%create(Name="PoissonRatio",ParaValue=0.40d0,Layer=2)
@@ -181,7 +181,7 @@ program main
     call seed%gnuplot(mode="all")
 
     call seed%run(timestep=1000,dt=1000.0d0,SolverType="BiCGSTAB",&
-        Display=.true.,nr_tol=0.010d0,infinitesimal=.true.)
+        Display=.true.,nr_tol=0.010d0,infinitesimal=.true.,interval=10)
     
     ! visualize data
     !call seed%display()

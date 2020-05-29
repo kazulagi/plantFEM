@@ -150,15 +150,18 @@ end subroutine importWaterAbsorption
 
 !#####################################
 subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Display,nr_tol,ReducedIntegration,&
-    infinitesimal)
+    infinitesimal,interval)
     class(WaterAbsorption_),intent(inout) :: obj
     character(*),intent(in) :: SolverType
-    integer(int32) :: i,n
-    logical,optional,intent(in) :: onlyInit,Only1st,Display,ReducedIntegration,infinitesimal
+    integer(int32) :: i,n,interv,coun
+    logical,optional,intent(in) :: onlyInit,Only1st,Display,&
+    ReducedIntegration,infinitesimal
     real(real64) ,optional,intent(in) :: nr_tol
     integer(int32),intent(in) :: timestep
+    integer(int32),optional,intent(in) :: interval
     real(real64),optional,intent(in) :: dt
 
+    interv=input(default=1,option=interval)
     if(present(ReducedIntegration) )then
         obj%FiniteDeform%ReducedIntegration = ReducedIntegration
     endif
@@ -177,13 +180,22 @@ subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Displa
         return
     endif
     ! Repeat over time
+    coun=0
     do i=2,timestep
+        
+        if(coun==interv)then
+            coun=0
+            call obj%update(SolverType,Display=Display,step=i,nr_tol=nr_tol)
+        else
+            coun=coun+1
+            call obj%update(SolverType,Display=.false.,step=i,nr_tol=nr_tol)
+        endif    
         print *, "Timestep :: ",i,"/",timestep   
-        call obj%update(SolverType,Display=Display,step=i,nr_tol=nr_tol)
         
         !n=1
         !call showArray(obj%FiniteDeform%DeformVecGloTot,&
         !Name="test"//trim(adjustl(fstring(n))//".txt")  ) 
+        
         if(present(only1st) )then
             return
         endif
@@ -261,11 +273,10 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step,nr_tol)
     integer(int32),optional,intent(in) :: step
     type(Term_)             :: term
     real(real64),optional,intent(in) :: nr_tol
-    integer(int32) :: i
+    integer(int32) :: i,n,m
     call term%init()
 
     ! ###### update DIffusion parameters ############
-     
     call obj%updatePermiability()
     call obj%DiffusionEq%import(Permiability=obj%Permiability)
     do i=1,size(obj%water%mesh%nodCoord,1)
@@ -277,7 +288,7 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step,nr_tol)
     call obj%DiffusionEq%Solve(SolverType=SolverType)
     if(present(Display) )then
         if(Display .eqv. .true.)then
-            
+
             call DisplayDiffusionEq(obj%DiffusionEq,&
             DisplayMode=term%Gmsh,OptionalStep=step)
         endif
