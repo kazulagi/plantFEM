@@ -638,6 +638,30 @@ subroutine GetUnknownValue(obj)
         endif
     endif
 
+    !===================================
+    ! introduce D.B.C
+    if(.not.allocated(obj%FEMDomain%Boundary%DBoundNodID) )then
+        stop "No obj%FEMDomain%Boundary%DBoundNodID is installed"
+    endif
+    n=size(obj%FEMDomain%Boundary%DBoundNodID,1)
+    do i=1,n
+        nodeid=obj%FEMDomain%Boundary%DBoundNodID(i,1)
+        if(nodeid<1)then
+            cycle
+        else
+            val=obj%FEMDomain%Boundary%DBoundVal(i,1)
+            do j=1, size(obj%FEMDomain%Mesh%ElemNod,1)
+                do k=1, size(obj%FEMDomain%Mesh%ElemNod,2)
+                    if(obj%FEMDomain%Mesh%ElemNod(j,k)==nodeid )then
+                        obj%UnknownValueInit(j,k)=val
+                        obj%UnknownValue(j,k)=val            
+                    endif
+                enddo
+            enddo
+        endif
+    enddo
+    !===================================
+    
     if(.not.allocated(obj%UnknownValueRate) )then
         allocate(obj%UnknownValueRate(n,m) )
     elseif( size(obj%UnknownValueRate,1)/=n .or. size(obj%UnknownValueRate,1)/=m )then
@@ -682,8 +706,12 @@ end subroutine
 subroutine  UpdateUnknownValue(obj)
     class(DiffusionEq_),intent(inout)::obj
 
-    obj%UnknownValueRate(:,:)=-obj%UnknownValueRate(:,:)+&
-        2.0d0/obj%dt*(obj%UnknownValue(:,:)-obj%UnknownValueInit(:,:) )
+    !!call showArraySize(obj%UnknownValueRate)
+    !call showArraySize(obj%UnknownValueRate)
+    !call showArraySize(obj%UnknownValueRate)
+    
+    !obj%UnknownValueRate(:,:)=-obj%UnknownValueRate(:,:)+&
+    !    2.0d0/obj%dt*(obj%UnknownValue(:,:)-obj%UnknownValueInit(:,:) )
     obj%UnknownValueInit(:,:)=obj%UnknownValue(:,:)
         
 end subroutine
