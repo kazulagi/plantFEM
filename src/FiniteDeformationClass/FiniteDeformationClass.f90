@@ -17,7 +17,7 @@ module FiniteDeformationClass
 		real(real64),allocatable ::DeformVecEBETot(:,:)
 		real(real64),allocatable ::DeformVecEBEInc(:,:)
         real(real64),allocatable ::DeformVecGloTot(:)
-		real(real64),allocatable ::DeformVecGloInc(:)
+		real(real64),allocatable ::DeformVecGloInc(:) 
 		real(real64),allocatable ::TractionVecGlo(:)
 		real(real64),allocatable ::ResidualVecGlo(:)
 		real(real64),allocatable ::InternalVecGlo(:)
@@ -504,11 +504,13 @@ subroutine UpdateCurrConfig(obj)
 
     num_node=size(obj%FEMDomain%Mesh%NodCoord,1)
     num_dim =size(obj%FEMDomain%Mesh%NodCoord,2)
-    num_elem=size(obj%FEMDomain%Mesh%ElemNod,1)
+	num_elem=size(obj%FEMDomain%Mesh%ElemNod,1)
+	! Displacement :: u
     if(.not.allocated(obj%DeformVecGloTot) ) then
         allocate(obj%DeformVecGloTot(num_node*num_dim) )
         obj%DeformVecGloTot(:)=0.0d0
-    endif
+	endif
+	! ⊿u = v
     if(.not.allocated(obj%DeformVecGloInc) ) then
         allocate(obj%DeformVecGloInc(num_node*num_dim) )
         obj%DeformVecGloInc(:)=0.0d0

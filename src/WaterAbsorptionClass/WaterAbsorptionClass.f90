@@ -401,7 +401,7 @@ subroutine updateStiffnessWA(obj)
         ! export parameters
         obj%YoungsModulus(i)= E
         obj%PoissonsRatio(i)= v
-        obj%PorePressure(i) = p !- obj%PorePressure(i)
+        obj%PorePressure(i) = p - obj%PorePressure(i)
     enddo
     print *,"maxval(obj%a_P_val(:))",maxval(obj%a_P_val(:)),minval(obj%a_P_val(:))
     print *,"maxval(obj%WaterContent(:))",maxval(obj%WaterContent(:)),minval(obj%WaterContent(:))
