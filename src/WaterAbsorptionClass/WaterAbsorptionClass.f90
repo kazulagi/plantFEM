@@ -306,6 +306,12 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step,nr_tol)
     call obj%FiniteDeform%UpdateInitConfig()
     call obj%FiniteDeform%UpdateBC()
     call obj%FiniteDeform%Solve(SolverType=SolverType,nr_tol=nr_tol) 
+    write(113,*) step, maxval(obj%tissue%mesh%nodCoord(:,1))
+    flush(113)
+    write(114,*) step, maxval(obj%tissue%mesh%nodCoord(:,2))
+    flush(114)
+    write(115,*) step, maxval(obj%tissue%mesh%nodCoord(:,3))
+    flush(115)
     if(present(Display) )then
         if(Display.eqv. .true.)then
             call DisplayDeformStress(obj%FiniteDeform,&
@@ -412,7 +418,7 @@ subroutine updateStiffnessWA(obj)
         ! export parameters
         obj%YoungsModulus(i)= E
         obj%PoissonsRatio(i)= v
-        obj%PorePressure(i) = p - obj%PorePressure(i)
+        obj%PorePressure(i) = p !- obj%PorePressure(i)
     enddo
     print *,"maxval(obj%a_P_val(:))",maxval(obj%a_P_val(:)),minval(obj%a_P_val(:))
     print *,"maxval(obj%WaterContent(:))",maxval(obj%WaterContent(:)),minval(obj%WaterContent(:))
