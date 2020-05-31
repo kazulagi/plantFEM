@@ -76,6 +76,7 @@ module MeshClass
         procedure :: gmsh => gmshMesh
         procedure :: showRange => showRangeMesh
         procedure :: empty => emptyMesh
+        procedure :: AdjustSphere => AdjustSphereMesh
     end type Mesh_
 
 
@@ -2584,15 +2585,133 @@ subroutine removeOverlappedNodeMesh(obj,tolerance)
 end subroutine
 !##################################################
 
-recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division)
+!##################################################
+subroutine AdjustSphereMesh(obj,rx,ry,rz,debug)
+    class(Mesh_),intent(inout) :: obj
+    type(Mesh_) :: mesh
+    real(real64)   :: o(3),rate,x_cur(3),x_pres(3)
+    real(real64),optional,intent(in)   :: rx,ry,rz
+    real(real64)   :: r_x,r_y,r_z,dist,r_tr(3)
+    integer(int32) :: i,ii,j,k,n,node_id,itr
+    integer(int32),allocatable :: elem(:)
+    logical,optional,intent(in) :: debug
+
+    n=size(obj%ElemNod,1)
+    
+    call mesh%copy(obj)
+    itr=0
+    do 
+        itr=itr+1
+        o(1)=minval(mesh%NodCoord(:,1))+maxval(mesh%NodCoord(:,1))
+        o(2)=minval(mesh%NodCoord(:,2))+maxval(mesh%NodCoord(:,2))
+        o(3)=minval(mesh%NodCoord(:,3))+maxval(mesh%NodCoord(:,3))
+        o(:)=0.50d0*o(:)
+        
+        if(allocated(elem) )then
+            deallocate(elem)
+        endif
+        n=size(mesh%ElemNod,1)
+        if(present(debug) )then
+            print *, "itr :",itr,"Number of element",n
+        endif
+        
+        if(n==0)then
+            exit
+        endif
+        allocate(elem(n) )
+        elem(:)=1
+        call mesh%getSurface()
+
+        
+        do i=1,size(mesh%FacetElemNod,1)
+            do j=1,size(mesh%FacetElemNod,2)
+                node_id=mesh%FacetElemNod(i,j)
+                if(i==1 .and. j==1)then
+                    r_x=0.50d0*(mesh%NodCoord(node_id,1) - o(1) )
+                    r_y=0.50d0*(mesh%NodCoord(node_id,2) - o(2) )
+                    r_z=0.50d0*(mesh%NodCoord(node_id,3) - o(3) )
+                    cycle
+                else
+                    r_tr(1)=0.50d0*(mesh%NodCoord(node_id,1) - o(1) )
+                    r_tr(2)=0.50d0*(mesh%NodCoord(node_id,2) - o(2) )
+                    r_tr(3)=0.50d0*(mesh%NodCoord(node_id,3) - o(3) )            
+                endif
+                if(r_x < r_tr(1))then
+                    r_x=r_tr(1)
+                endif
+                if(r_y < r_tr(2))then
+                    r_y=r_tr(2)
+                endif
+                if(r_z < r_tr(3))then
+                    r_z=r_tr(3)
+                endif
+            enddo
+        enddo
+        print *, r_x,r_y,r_z
+        
+        do i=1,size(mesh%FacetElemNod,1)
+            do j=1,size(mesh%FacetElemNod,2)
+                node_id=mesh%FacetElemNod(i,j)
+                
+                x_cur(1:3)=obj%NodCoord(node_id,1:3)
+                
+                dist=distance(x_cur,o)
+
+                x_pres(1)=o(1)+ r_x/dist*(x_cur(1) - o(1) )*2.0d0
+                x_pres(2)=o(2)+ r_y/dist*(x_cur(2) - o(2) )*2.0d0
+                x_pres(3)=o(3)+ r_z/dist*(x_cur(3) - o(3) )*2.0d0
+                
+                obj%NodCoord(node_id,1:3)=x_pres(1:3)
+            enddo
+        enddo
+        ! remove facets
+        elem(:)=1
+        do i=1,size(mesh%ElemNod,1)
+            do ii=1,size(mesh%ElemNod,2)
+                do j=1,size(mesh%FacetElemNod,1)
+                    do k=1,size(mesh%FacetElemNod,2)
+                        node_id=mesh%FacetElemNod(j,k)
+                        if(mesh%ElemNod(i,ii)==node_id )then
+                            elem(i)=0
+                            exit
+                        endif
+                    enddo
+                enddo
+            enddo
+        enddo
+        if(minval(elem)==1 )then
+            print *, "ERROR :: AdjustSphereMesh minval(elem)==1"
+            stop 
+        endif
+        if(maxval(elem)==0 )then
+            print *, "converged"
+            exit
+        endif
+        ! remove elems
+        do i=size(elem),1,-1
+            if(elem(i)==0 )then
+                call removeArray(mat=mesh%ElemNod,remove1stColumn=.true.,NextOf=i-1)
+            endif
+        enddo
+        call showArray(mat=mesh%NodCoord,IndexArray=mesh%ElemNod,&
+            Name=trim(adjustl( fstring(itr) ))//".txt")
+    enddo
+    
+    
+end subroutine AdjustSphereMesh
+!##################################################
+
+recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,&
+    division,smooth)
     class(Mesh_),intent(inout) :: obj
     character(*),intent(in) :: meshtype
+    logical,optional,intent(in) :: smooth
     integer(int32),optional,intent(in) :: x_num,y_num ! number of division
     integer(int32),optional,intent(in) :: division ! for 3D rectangular
     real(real64),optional,intent(in) :: x_len,y_len,Le,Lh,Dr ! length
     real(real64),optional,intent(in) :: thickness ! for 3D rectangular
-    integer(int32) :: i,j,n,m,xn,yn
-    real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt
+    integer(int32) :: i,j,n,m,xn,yn,smoothedge(8)
+    real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt,unitx,unity
     ! this subroutine creates mesh
 
     if(meshtype=="rectangular3D")then
@@ -2605,11 +2724,29 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         return
     endif
 
+
+    if(meshtype=="Sphere3D")then
+        call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=1.0d0,y_len=1.0d0)       
+        call obj%Convert2Dto3D(Thickness=1.0d0,division=division)
+        if(.not.allocated(obj%ElemMat))then
+            n=size(obj%ElemNod,1)
+            allocate(obj%ElemMat(n) )
+        endif
+        call obj%AdjustSphere(debug=.true.)
+        call obj%resize(x_rate=x_len,&
+            y_rate=y_len,&
+            z_rate=thickness)
+        return
+    endif
+
+
     if(meshtype=="rectangular2D")then
         xn=input(default=1,option=x_num)
         yn=input(default=1,option=y_num)
         lx=input(default=1.0d0,option=x_len)
         ly=input(default=1.0d0,option=y_len)
+        unitx=x_len/dble(xn)
+        unity=y_len/dble(yn)
         ! creating rectangular mesh
         allocate(obj%NodCoord( (xn+1)*(yn+1) , 2 ))
         allocate(obj%ElemNod( xn*yn,4) )
@@ -2622,6 +2759,25 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                 obj%NodCoord(n,2)=ly/dble(yn)*dble(j-1)
             enddo
         enddo
+
+        if(present(smooth) )then
+            if(smooth .eqv. .true.)then
+            
+                smoothedge(1)=1
+                smoothedge(2)=xn+1
+                smoothedge(3)=(xn+1)*yn + 1
+                smoothedge(4)=(xn+1)*(yn+1)
+                obj%NodCoord(smoothedge(1),1)=obj%NodCoord(smoothedge(1),1)+0.30d0*unitx
+                obj%NodCoord(smoothedge(1),2)=obj%NodCoord(smoothedge(1),2)+0.30d0*unity
+                obj%NodCoord(smoothedge(2),1)=obj%NodCoord(smoothedge(2),1)-0.30d0*unitx
+                obj%NodCoord(smoothedge(2),2)=obj%NodCoord(smoothedge(2),2)+0.30d0*unity
+                obj%NodCoord(smoothedge(3),1)=obj%NodCoord(smoothedge(3),1)+0.30d0*unitx
+                obj%NodCoord(smoothedge(3),2)=obj%NodCoord(smoothedge(3),2)-0.30d0*unity
+                obj%NodCoord(smoothedge(4),1)=obj%NodCoord(smoothedge(4),1)-0.30d0*unitx
+                obj%NodCoord(smoothedge(4),2)=obj%NodCoord(smoothedge(4),2)-0.30d0*unity
+            endif
+        endif
+        
         n=1
         obj%ElemNod(1,1)=1
         obj%ElemNod(1,2)=2
@@ -2644,6 +2800,8 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                 obj%ElemMat(n)=1
             enddo
         enddo
+
+
     endif
 
     if(meshtype=="Root2D")then
@@ -2824,11 +2982,12 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
 end subroutine createMesh
 
 !##################################################
-subroutine Convert2Dto3DMesh(obj,Thickness,division)
+subroutine Convert2Dto3DMesh(obj,Thickness,division,smooth)
     class(Mesh_),intent(inout)::obj
     real(real64),allocatable::buffer(:,:)
     real(real64),optional,intent(in)::Thickness
     integer(int32),optional,intent(in)::division
+    logical,optional,intent(in) :: smooth
     real(real64) :: Tn
     integer(int32) :: i,j,n,m,NumOfLayer,numnod
 
