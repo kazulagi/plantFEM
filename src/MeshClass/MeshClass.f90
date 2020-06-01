@@ -2679,6 +2679,7 @@ subroutine AdjustSphereMesh(obj,rx,ry,rz,debug)
                 enddo
             enddo
         enddo
+        
         if(minval(elem)==1 )then
             print *, "ERROR :: AdjustSphereMesh minval(elem)==1"
             stop 

@@ -38,7 +38,7 @@ module WaterAbsorptionClass
         real(real64),allocatable :: v_eq_val(:)
 
         real(real64),allocatable :: theta_ps_val(:) ! computed from other variables
-
+        character(200) :: Name
         integer(int32) :: timestep
         real(real64) :: dt
     contains
@@ -150,9 +150,10 @@ end subroutine importWaterAbsorption
 
 !#####################################
 subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Display,nr_tol,ReducedIntegration,&
-    infinitesimal,interval)
+    infinitesimal,interval,Name)
     class(WaterAbsorption_),intent(inout) :: obj
     character(*),intent(in) :: SolverType
+    character(*),optional,intent(in) :: Name
     integer(int32) :: i,n,interv,coun
     logical,optional,intent(in) :: onlyInit,Only1st,Display,&
     ReducedIntegration,infinitesimal
@@ -161,6 +162,12 @@ subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Displa
     integer(int32),optional,intent(in) :: interval
     real(real64),optional,intent(in) :: dt
 
+    if(present(Name) )then
+        obj%water%FileName=Name
+        obj%water%Name=Name
+        obj%tissue%FileName=Name
+        obj%tissue%Name=Name
+    endif
     interv=input(default=1,option=interval)
     if(present(ReducedIntegration) )then
         obj%FiniteDeform%ReducedIntegration = ReducedIntegration
@@ -216,7 +223,9 @@ subroutine initWaterAbsorption(obj,SolverType,Display,nr_tol,infinitesimal)
 
     call term%init()
 
-
+    open(113,file=trim(obj%tissue%name)//"x_length.txt",status="replace")
+    open(114,file=trim(obj%tissue%name)//"y_length.txt",status="replace")
+    open(115,file=trim(obj%tissue%name)//"z_length.txt",status="replace")
     call obj%updatePermiability()
     ! ###### Diffusion Part ###################
     call obj%DiffusionEq%Setup()

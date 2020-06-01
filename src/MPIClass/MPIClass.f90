@@ -15,8 +15,6 @@ module MPIClass
     endtype
     
     type:: MPI_
-
-    
         integer(int32) :: ierr
         integer(int32) :: MyRank
         integer(int32) :: PeTot
@@ -31,8 +29,9 @@ module MPIClass
         real(real64) :: stime
         real(real64) :: etime
         real(real64) :: laptime(1000)
+        character(200) :: name
         type(comment_) :: comments(1000)
-
+        
     contains
         procedure :: Start => StartMPI
         procedure :: Barrier => BarrierMPI
@@ -80,6 +79,7 @@ module MPIClass
         procedure :: getLapTime => getLapTimeMPI
         procedure :: showLapTime => showLapTimeMPI
         procedure :: GetInfo => GetMPIInfo
+        procedure :: createFileName => createFileNameMPI
     end type    
 contains
 
@@ -109,6 +109,23 @@ subroutine StartMPI(obj,NumOfComm)
 
 end subroutine
 !################################################################
+
+!################################################################
+subroutine createFileNameMPI(obj,Path,Name)
+    class(MPI_),intent(inout) :: obj
+    character(*),intent(in) :: Path,Name
+    integer :: i, access
+    
+    i=access(trim(Path)//trim(adjustl(fstring(obj%MyRank)))," ")
+    if(i/=0)then
+        call system("mkdir "//trim(Path)//trim(adjustl(fstring(obj%MyRank))))
+    endif
+    obj%name=trim(Path)//trim(adjustl(fstring(obj%MyRank)))//"/"&
+        //Name//trim(adjustl(fstring(obj%MyRank)))
+
+end subroutine
+!################################################################
+
 
 !################################################################
 subroutine createStackMPI(obj,total)
