@@ -2715,7 +2715,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt,unitx,unity
     ! this subroutine creates mesh
 
-    if(meshtype=="rectangular3D")then
+    if(meshtype=="rectangular3D" .or. meshtype=="Cube")then
         call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
         call obj%Convert2Dto3D(Thickness=Thickness,division=division)
         if(.not.allocated(obj%ElemMat))then
