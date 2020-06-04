@@ -242,10 +242,10 @@ end subroutine
 
 
 !########################################################
-subroutine envSeed(obj,disp_x,disp_y,disp_z,const,x_max,x_min,y_max,y_min,&
+subroutine envSeed(obj,disp_x,disp_y,disp_z,WaterContent,x_max,x_min,y_max,y_min,&
     z_max,z_min)
     class(Seed_),intent(inout) :: obj
-    real(real64),optional,intent(in)::disp_x,disp_y,disp_z,const
+    real(real64),optional,intent(in)::disp_x,disp_y,disp_z,WaterContent
     real(real64),optional,intent(in) :: x_max,x_min,y_max,y_min,&
     z_max,z_min
 
@@ -272,9 +272,9 @@ subroutine envSeed(obj,disp_x,disp_y,disp_z,const,x_max,x_min,y_max,y_min,&
         
     endif
 
-    if(present(const) )then
+    if(present(WaterContent) )then
         call obj%const%create(Category="Dirichlet",x_max=x_max,x_min=x_min,y_max=y_max,y_min=y_min,&
-        z_max=z_max,z_min=z_min,BoundValue=const,Layer=1,Name="const")
+        z_max=z_max,z_min=z_min,BoundValue=WaterContent,Layer=1,Name="const")
         call obj%water%import(Boundaries=.true., Boundary=obj%const)
     
     endif
