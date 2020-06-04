@@ -13,7 +13,7 @@ import argparse
 
 def yes_no_input():
     while True:
-        choice = input("Do you install SiCroF? 'yes' or 'no' [y/N]: ").lower()
+        choice = input("Do you install SiCroF? 'yes' or 'no' [Y/n]: ").lower()
         if choice in ['y', 'ye', 'yes']:
             return True
         elif choice in ['n', 'no']:
