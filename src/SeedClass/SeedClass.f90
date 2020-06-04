@@ -39,6 +39,9 @@ module SeedClass
         procedure :: env     => envSeed
         procedure :: material=> materialSeed
         procedure :: grow    => growSeed
+        procedure :: move => moveSeed
+        procedure :: rotate => rotateSeed
+        procedure :: gmsh => gmshSeed
 
         procedure :: init => initSeed 
         procedure :: import => importSeed
@@ -51,7 +54,7 @@ module SeedClass
 contains
 
 !########################################################
-subroutine createSeed(obj,x_num,y_num,z_num,x_len,y_len,z_len,YoungsModulus,PoissonRatio,Permiability,&
+subroutine createSeed(obj,Name,MeshType,x_num,y_num,z_num,x_len,y_len,z_len,YoungsModulus,PoissonRatio,Permiability,&
     a_Psi, a_P, theta_eq, Psi_eq, a_E, a_v, E_eq, v_eq)
     
     
@@ -61,7 +64,8 @@ subroutine createSeed(obj,x_num,y_num,z_num,x_len,y_len,z_len,YoungsModulus,Pois
 
     real(real64),optional,intent(in) :: a_Psi, a_P, theta_eq, Psi_eq, &
         a_E, a_v, E_eq, v_eq
-
+    character(*),optional,intent(in) :: MeshType,Name
+    character(200) :: Mesh_Type,fname
     integer(int32),optional,intent(in) :: x_num,y_num,z_num
     integer(int32) :: xnum,ynum,znum
     real(real64),optional,intent(in) :: x_len,y_len,z_len
@@ -76,10 +80,27 @@ subroutine createSeed(obj,x_num,y_num,z_num,x_len,y_len,z_len,YoungsModulus,Pois
     zlen = input(default= 70.0d0,option=z_len)
 
     !  create mesh
-    call obj%water%create(Name="water",MeshType="Sphere3D",x_num=xnum,y_num=ynum,x_len=xlen, y_len=ylen,&
+    if(present(MeshType) )then
+        Mesh_Type=trim(MeshType)
+    else
+        Mesh_Type="Sphere3D"
+    endif
+
+    if(present(Name) )then
+        fname=trim(Name)//"water"
+    else
+        fname="water"
+    endif
+    call obj%water%create(Name=trim(fname),MeshType=trim(Mesh_Type),x_num=xnum,y_num=ynum,x_len=xlen, y_len=ylen,&
         thickness=zlen,division=znum)
     call obj%tissue%copy(obj%water,onlyMesh=.true.)
-    call obj%tissue%rename("tissue")
+
+    if(present(Name) )then
+        fname=trim(Name)//"tissue"
+    else
+        fname="tissue"
+    endif
+    call obj%tissue%rename(trim(fname))
 
 
     ! create material
@@ -154,12 +175,66 @@ subroutine createSeed(obj,x_num,y_num,z_num,x_len,y_len,z_len,YoungsModulus,Pois
     call     obj%E_eq%gmsh(Name="E_eq    ", Tag="E_eq    ") 
     call     obj%v_eq%gmsh(Name="v_eq    ", Tag="v_eq    ") 
 
-    call obj%tissue%show()
-    call obj%water%show()
+
+    if(present(Name) )then
+        fname=trim(Name)//"water"
+    else
+        fname="water"
+    endif
+    call obj%water%gmsh(Name=trim(fname),Tag="Water Domain")
+
+    if(present(Name) )then
+        fname=trim(Name)//"tissue"
+    else
+        fname="tissue"
+    endif
+    call obj%tissue%gmsh(Name=trim(fname),Tag="Tissue Domain")
+
     
 end subroutine
 !########################################################
 
+subroutine gmshSeed(obj,Name)
+    class(Seed_),intent(inout) :: obj
+    character(*),optional,intent(in) :: Name
+    character(200) :: fname
+
+    if(present(Name) )then
+        fname=trim(Name)//"water"
+    else
+        fname="water"
+    endif
+    call obj%water%gmsh(Name=trim(fname),Tag="Water Domain")
+
+    if(present(Name) )then
+        fname=trim(Name)//"tissue"
+    else
+        fname="tissue"
+    endif
+    call obj%tissue%gmsh(Name=trim(fname),Tag="Tissue Domain")
+end subroutine 
+
+
+!########################################################
+subroutine moveSeed(obj, x, y, z)
+    class(Seed_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x,y,z
+
+    call obj%water%move(x=x,y=y,z=z)
+    call obj%tissue%move(x=x,y=y,z=z)
+end subroutine
+!########################################################
+
+
+!########################################################
+subroutine rotateSeed(obj, x, y, z)
+    class(Seed_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x,y,z
+
+    call obj%water%rotate(x=x,y=y,z=z)
+    call obj%tissue%rotate(x=x,y=y,z=z)
+end subroutine
+!########################################################
 
 
 !########################################################

@@ -5,7 +5,7 @@ program main
     type(Seed_) :: soy
 
     ! create seed
-    call soy%create(x_num=12,y_num=11,z_num=10,x_len=90.0d0, y_len=80.0d0,z_len=70.0d0)
+    call soy%create(MeshType="Sphere3D",x_num=12,y_num=11,z_num=10,x_len=90.0d0, y_len=80.0d0,z_len=70.0d0)
     
     ! create environment
     call soy%env(disp_x=0.0d0,x_max=1.0d0,x_min=-5.0d0,y_max=100.0d0,y_min=-100.0d0,&
