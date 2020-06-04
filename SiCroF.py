@@ -2,19 +2,34 @@ import os
 import sys
 import platform
 import argparse
+import time
 
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 import argparse
+
+# coding=utf-8
+
+
+def yes_no_input():
+    while True:
+        choice = input("Do you install SiCroF? 'yes' or 'no' [y/N]: ").lower()
+        if choice in ['y', 'ye', 'yes']:
+            return True
+        elif choice in ['n', 'no']:
+            return False
 
 '''
 引数の定義
 -a, -bは必須
 -c, -dは任意
 '''
+
+
 def get_args():
     psr = argparse.ArgumentParser()
     psr.add_argument('-m', '--mode', help='use other compiler instead of mpif90')
+    psr.add_argument('-s', '--script', help='script for mpif90')
     #psr.add_argument('-b', '--bravo', required=True, help='A explanation for arg called b')
     #psr.add_argument('-c', '--charlie', help='A explanation for arg called c')
     #psr.add_argument('-d', '--delta', help='A explanation for arg called d')
@@ -27,6 +42,17 @@ if __name__ == '__main__':
     #print(args.bravo)
     #print(args.charlie)
     #print(args.delta)
+    ofiles = os.path.exists("./inc/obj.o")
+
+    if ofiles == False:
+        if yes_no_input():
+            os.system("python3 install.py")
+            print("[ok] SiCroF has been installed.")
+        else:
+            print("[Caution] SiCroF is not installed yet.\n")
+            time.sleep(3)
+    else:
+        print("[ok] SiCroF has been installed.")
 
 
     print("Detecting OS type...")
@@ -40,9 +66,20 @@ if __name__ == '__main__':
         os.system("sh ./Interactive/SiCroF_macOS")
     elif pf == "Linux":
         print("OS : Linux")
-        if args.mode == "gfortran":
-            os.system("sh ./Interactive/SiCroF_gfortran")
-        else:
-            os.system("sh ./Interactive/SiCroF")
+        aout = os.path.exists("a.out")
+        #print(aout)
+        if aout == True:
+            os.system("rm ./a.out")
+
+        if args.script is None:
+            print("Interactive Mode :: \n")
+            print("\n")
+            if args.mode == "gfortran":
+                os.system("sh ./Interactive/SiCroF_gfortran ")
+            else:
+                os.system("sh ./Interactive/SiCroF ")
+        else :
+            os.system("sh ./Interactive/SiCroF_run " + str(args.script))
+            
     else:
         print("OS : Unknown ")

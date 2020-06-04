@@ -8,6 +8,24 @@ Simulator for Crops in Fields
 
 [   New!  simplified class-structure >> ](doc/README/class.pdf)
 
+
+## How to run your *.f90 script with SiCroF.
+### Command-line mode:
+
+
+    ```
+    python3 SiCroF.py -s your_script.f90
+    ```
+
+### Interactive mode
+
+    ```
+    python3 SiCroF.py
+
+    >>> your_script.f90
+    ```
+
+
 ## Environment
 
 ### Google Colab !new!

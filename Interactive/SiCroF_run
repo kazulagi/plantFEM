@@ -1,0 +1,283 @@
+#!/bin/zsh 
+
+#echo ">"
+#echo "SiCroF >>  mode for Linux & OS X... "
+#echo "Here, fortran script runs with  SiCroF-kernel."
+#echo "You can debug your code with SiCroF-API"
+#echo "  "
+#echo "Initializing ..."
+numcore=1
+exitc="exit"
+man="man"
+man1="man SiCroF"
+man2="man sicrof"
+hostfile=""
+keywords=""
+cpucore="cpu-core"
+install="install"
+compress="compress"
+mpif90="mpif90"
+intel="intel"
+debugMode="-"
+ls="ls"
+f90="f90"
+run="run"
+nano="nano"
+vim="vim"
+emacs="emacs"
+code="code"
+vi="vi"
+cp="cp"
+cd="cd"
+ls="ls"
+rm="rm"
+grep="grep"
+touch="touch"
+pick="pick"
+NAN=""
+sendToDesktop=">>>"
+ret=0
+addonpath="addon"
+
+echo "If this is the first time, please type 'install' and press ENTER"
+echo "Please input fortran script *.f90 | or check manual by 'man'  "
+echo "  "
+homepath="$PWD"
+#while :
+#do
+
+    #echo "Please input fortran script *.f90 | or check manual by 'man'  "
+    echo -n ">>> $1\n"
+    
+    if [ "$1" = "addon" ]; then
+        echo "installing add-on"
+        echo "Directory path of your awesome addon is : (default path = addon)"
+        echo -n "> "
+        read addonpath
+        echo "installing from $addonpath"
+        ls $addonpath | grep ".f90" > ap.txt
+        sed -e 's/.f90//g' ap.txt > aps.txt
+        cat aps.txt
+        while read line
+        do
+            echo "Compiling ./$addonpath/$line.f90      "
+            echo " >> $line.o"
+            echo " | ########################### | (100%)\r\c "
+            mpif90 -shared -fPIC -g -fcheck=all  -c ./$addonpath/$line.f90 -o  ./inc/$line.o
+        done < ./aps.txt
+        echo " "
+        rm ap.txt
+        rm aps.txt
+        return 0
+    fi
+
+
+    if [ "$1" = "homepath" ]; then
+        echo "$homepath"
+        return 0
+    fi
+    if [ "$1" = "update" ]; then
+        sh bin/update
+        return 0
+    fi
+
+
+    if [ "$1" = "goback" ]; then
+        echo "Back to SiCroF/"
+        cd $homepath
+        ls
+        return 0
+    fi
+
+    if [ "$1" = "pick" ]; then
+        echo "copy to SiCroF/"
+        echo "Input file-name."
+        read filename
+        cp $filename $homepath
+        return 0
+    fi
+
+    if [ "$1" = "gb" ]; then
+        echo "Back to SiCroF/"
+        cd $homepath
+        ls
+        return 0
+    fi
+
+    if [ "$1" = "$sendToDesktop" ]; then
+        echo "only for WSL :: "
+        echo "Input file-name to send it to Desktop"
+        read keywords
+        echo "Input user-name of Windows"
+        read username
+        ln -s /mnt/c/Users/$username ./Home
+        ln -s /mnt/c/Users/$username/Desktop ./Desktop
+        echo "cp $keywords /mnt/c/Users/$username/Desktop/"
+        cp $keywords /mnt/c/Users/$username/Desktop/
+        return 0
+    fi
+
+    if [ "$1" = "$debugMode" ]; then
+        echo "Debug Mode :: Please input keywords of re-compile modules."
+        read keywords
+        echo $(cat ./install/install | grep $keywords | grep -m1 mpif90)
+        $(cat ./install/install | grep $keywords| grep -m1 mpif90)
+        return 0
+    fi
+
+    if [ "$1" = "$intel" ]; then
+        mpifort="mpiifort"
+        install="install_ifort"
+        echo "Intel fortran will be used."
+        return 0
+    fi
+
+    if [ "$1" = "hostfile" ]; then
+        echo "Filepath of hostfile is : "
+        read hostfile
+        echo "Current hostfile is : $hostfile"
+        return 0
+    fi
+
+    if [ "$1" = "gcc" ]; then
+        mpifort="mpifort"
+        install="install"
+        echo "GCC fortran will be used."
+        return 0
+    fi
+
+    if [ "$1" = $exitc ]; then
+        exit 0
+    fi
+    if [ "$1" = "$man" ]; then
+        less ".man_SiCroF"
+        return 0
+    fi
+    if [ "$1" = "$man1" ]; then
+        less ".man_SiCroF"
+        return 0
+    fi
+    if [ "$1" = "$man2" ]; then
+        less ".man_SiCroF"
+        return 0
+    fi
+    if [ "$1" = "install" ]; then
+        ./install/"$install"
+        return 0
+    fi
+    if [ "$1" = "$compress" ]; then
+        ./bin/compress
+        return 0
+    fi
+    if [ "$1" = "$run" ]; then
+        ./bin/run
+        return 0
+    fi
+    if [ "$1" = "$ls" ]; then
+        echo " "
+        pwd
+        echo " "
+        ls
+        echo " "
+        return 0
+    fi
+    if [ "$1" = "$cpucore" ]; then
+        echo "Current num of cpu-core is :: $numcore "
+        echo "Please input num of cpu-core"
+        read numcore
+        echo "Current num of cpu-core is :: $numcore "
+        return 0
+    fi
+
+
+    for line in ${1}
+    do
+        break
+    done    
+    if [ ${line} = $nano ]; then
+        echo "Editor :: nano"
+        $1
+        return 0
+    fi
+
+    for line in ${1}
+    do
+        break
+    done    
+    if [ "${line}" = "$vim" ]; then
+        echo "Editor :: vim"
+        $1
+        return 0
+    fi
+
+    if [ "${line}" = "$emacs" ]; then
+        echo "Editor :: emacs"
+        $1
+        return 0
+    fi
+    if [ "${line}" = "$code" ]; then
+        echo "Editor :: code"
+        $1
+        return 0
+    fi
+    if [ "${line}" = "$vi" ]; then
+        echo "Editor :: vi"
+        $1
+        return 0
+    fi
+
+    if [ "${line}" = "$cp" ]; then
+        $1
+        ls
+        return 0
+    fi
+    if [ "${line}" = "$cd" ]; then
+        $1
+        ls
+        return 0
+    fi
+
+    if [ "${line}" = "$ls" ]; then
+        $1
+        return 0
+    fi
+
+    if [ "${line}" = "$grep" ]; then
+        $1
+        return 0
+    fi
+
+    if [ "${line}" = "$rm" ]; then
+        $1
+        ls
+        return 0
+    fi
+
+    if [ "${line}" = "$touch" ]; then
+        $1
+        ls
+        return 0
+    fi
+
+    EXTENSION=${1##*.}
+    #echo "extension is $EXTENSION"
+    if [ "$EXTENSION" = "$f90" ]; then
+
+
+        $mpif90 inc/*o $1 -g -fcheck=all 
+        #echo "Current num of cpu-core is :: $numcore "
+
+        if [ "$hostfile" != "" ]; then
+            echo "hostfile is activated."
+            mpirun  --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out
+            return 0
+        fi
+
+        mpirun --allow-run-as-root -np $numcore ./a.out 
+        return 0
+    fi
+
+    echo "$1"
+    sh $1
+#done    
+
