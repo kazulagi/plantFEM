@@ -1,14 +1,50 @@
 import bpy
-
+import os
 
 def write_some_data(context, filepath, use_some_setting):
     print("running write_sicrof_data...")
     f = open(filepath, 'w', encoding='utf-8')
+    sname = filepath
+    sname = os.path.basename(sname)
+    sname = sname+".f90"
+    script = open(filepath, 'r', encoding='utf-8')
+    
+    num_wa = 0
+    #objs = [obj for obj in scene.objects if obj.name.startswith("Seed_")]
+
+    #f.write(str(objs) )
+    script.write("program main")
+    script.write("  use SeedClass")
+    script.write("  implicit none")
+    
     for i in range(len(bpy.context.editable_objects)):
         #f.write( str(bpy.context.editable_objects[i].display_bounds_type ))
         #f.write("\n")
-        f.write( str(bpy.context.editable_objects[i].data ))
+        if str(bpy.context.editable_objects[i].data ).find('Mesh("') == -1:
+            continue
+        st = str(bpy.context.editable_objects[i].data )
+        st = st.replace("bpy_struct,", " ")
+        st = st.replace('Mesh("', " ")
+        st = st.replace('")>', " ")
+        st = st.replace('<', " ")
+        st = st.replace(' ', "")
+        st = st.replace('_RNA_UI',"")
+        f.write(st)
         f.write("\n")
+            
+        #f.write("\n")
+        #f.write( str(bpy.context.editable_objects[i].name ))
+
+        f.write("\n")
+        st = str(bpy.context.editable_objects[i].name )
+        st = st.replace("bpy_struct,", " ")
+        st = st.replace('Mesh("', " ")
+        st = st.replace('")>', " ")
+        st = st.replace('<', " ")
+        st = st.replace(' ', "")
+        st = st.replace('_RNA_UI',"")
+        st = st.replace('_RNA_UI',"")
+        f.write(st)
         n=0
         m=0
         f.write("\n")
@@ -16,14 +52,27 @@ def write_some_data(context, filepath, use_some_setting):
             n=n+1
             m=1
         f.write(str(n-m)+"\n")
+        
+        n=0
+        m=0
         for mykey, myvalue in bpy.context.editable_objects[i].items():
+            n=n+1
+            if n == 1:
+                continue
             f.write( str(mykey) + " " + str(myvalue) )
+            #if str(mykey) == "WaterAbsorption" :
+            #    m=1
+            #elif str(mykey) == "waterabsorption" :
+            #    m=1
+            #elif str(mykey) == "Waterabsorption" :
+            #    m=1
+            #elif str(mykey) == "waterAbsorption" :
+            #    m=1
+            #else:    
             f.write("\n")
-            
-        f.write("\n")
-        f.write( str(bpy.context.editable_objects[i].name ))
-        f.write("\n")
-        f.write( str(bpy.context.editable_objects[i].active_material ))
+        #num_wa=num_wa+m
+        #f.write( str(bpy.context.editable_objects[i].active_material ))
+        
         f.write("\n")
         f.write("location\n")
         for j in range(len(bpy.context.editable_objects[i].location)):
@@ -45,6 +94,13 @@ def write_some_data(context, filepath, use_some_setting):
     #    f.write(str(bpy.context.object.location[i]))
     #    f.write("\n")
     #f.write("Hello World %s" % use_some_setting)
+    f.write("EOF")
+    f.close()
+
+    f = open(filepath, 'r', encoding='utf-8')
+    
+    script.write("end program")
+    script.close()
     f.close()
 
     #create .f90 script
