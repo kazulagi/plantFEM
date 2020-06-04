@@ -14,11 +14,11 @@ program main
         z_max=100.0d0,z_min=-100.0d0)
     call soy%env(disp_z=0.0d0,x_max=1.0d0,x_min=-5.0d0,y_max=100.0d0,y_min=-100.0d0,&
         z_max=100.0d0,z_min=-100.0d0)
-    call soy%env(const=1.0d0,x_max=5.0d0,x_min=-1.0d0,y_max=100.0d0,y_min=-100.0d0,&
+    call soy%env(WaterContent=1.0d0,x_max=5.0d0,x_min=-1.0d0,y_max=100.0d0,y_min=-100.0d0,&
         z_max=100.0d0,z_min=-100.0d0)
     
     ! start growth
-    call soy%grow(timestep=1000,dt=10.0d0,Display=.true.,nr_tol=0.010d0,interval=10)
+    call soy%grow(timestep=1,dt=10.0d0,Display=.true.,nr_tol=0.010d0,interval=10)
     
     
 end program main
