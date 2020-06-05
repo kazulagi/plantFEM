@@ -232,72 +232,17 @@ end program
 ```
 ## Photography
 
-Ex.1 :: 3-D Finite Element model of soybean seed.
-
-```command
-
-python3 SiCroF.py
-
->>> install
-
->>> ./Tutorial/CreateSoybean/soybean.f90
+Ex.1 :: 3-D Finite Element model of soybean seed sowed in a field.
 
 ```
-![3-D Finite Element model of soybean seed.](./doc/a_seed.png)
+![3-D Finite Element model of soybean seed sowed in a field by Blender.](./doc/soaked_soy_seed.png)
 
 
-Ex.1-1 :: More realistic 3-D Finite Element model of soybean seed.
+Ex.2 :: 3-D thermal diffusion simulation of a grass leaf.
 
-```command
-
-python3 SiCroF.py
-
->>> install
-
->>> ./Tutorial/CreateSoybean/realShapeSeed.f90
-
-```
-![more realistic 3-D Finite Element model of soybean seed.](./doc/realistic_soybeans.jpg)
-
-
-
-
-
-Ex.2 :: 3-D Finite Element model of soybean seed sowed in a field.
-
-```command
-
-python3 SiCroF.py
-
->>> install
-
->>> ./Tutorial/CreateSoybean/SoybeanField.f90
-
-```
-![3-D Finite Element model of soybean seed sowed in a field.](./doc/soils_and_seeds.png)
-
-
-Ex.3 :: 3-D thermal diffusion simulation of a grass leaf.
-
-```zsh
-
-jupyter-notebook 
-
-
-```
 
 ![3-D thermal diffusion simulation of a grass leaf.](./doc/grass_leaf.gif)
 
-
-Ex.4 :: Simulation for Germination of soybean.
-
-```
-python3 SiCroF.py
-
->>> Tutorial/CreateSoybean/WaterAbsorption.f90
-
-```
-![ Simulation for Germination of soybean.](./doc/soaked_soy_seed.png)
 
 ## import file format   
 - [Format of .scf file](doc/InputFileFormat.md)

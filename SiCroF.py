@@ -44,6 +44,9 @@ if __name__ == '__main__':
     #print(args.delta)
     ofiles = os.path.exists("./inc/obj.o")
 
+    if str(args.script) == "install":
+        ofiles = True
+
     if ofiles == False:
         if yes_no_input():
             os.system("python3 install.py")
