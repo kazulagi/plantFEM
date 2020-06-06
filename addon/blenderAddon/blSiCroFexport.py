@@ -2,6 +2,20 @@ import bpy
 import os
 from tkinter import messagebox
 
+
+bl_info = {
+    "name" : "SiCriF_export",             # プラグイン名
+    "author" : "Haruka Tomobe",                  # 作者
+    "version" : (0,1),                  # プラグインのバージョン
+    "blender" : (2, 8, 2),              # プラグインが動作するBlenderのバージョン
+    "location" : "File > Export > SiCroF_export",   # Blender内部でのプラグインの位置づけ
+    "description" : "File export for SiCroF.",   # プラグインの説明
+    "warning" : "",
+    "wiki_url" : "",                    # プラグインの説明が存在するWikiページのURL
+    "tracker_url" : "",                 # Blender Developer OrgのスレッドURL
+    "category" : "Import-Export"                   # プラグインのカテゴリ名
+}
+
 def write_some_data(context, filepath, use_some_setting):
     print("running write_sicrof_data...")
     #f = open(filepath, 'w', encoding='utf-8')
@@ -98,41 +112,41 @@ def write_some_data(context, filepath, use_some_setting):
                 if str(mykey).lower() == "x_num" or str(mykey).lower() == "xnum" :
                     sf.write(",x_num="+str(myvalue) )
                 if str(mykey).lower() == "y_num" or str(mykey).lower() == "ynum" :
-                    sf.write(",y_num="+str(myvalue) )
+                    sf.write(",y_num="+str(myvalue)+"&\n" )
                 if str(mykey).lower() == "z_num" or str(mykey).lower() == "znum" :
-                    sf.write(",z_num="+str(myvalue) )
+                    sf.write(",z_num="+str(myvalue)+"&\n" )
                 
                 if str(mykey).lower() == "youngsmodulus" or str(mykey).lower() == "youngmodulus" :
-                    sf.write(",YoungsModulus="+str(myvalue) )
+                    sf.write(",YoungsModulus="+str(myvalue)+"d0 &\n" )
 
                 if str(mykey).lower() == "poissonratio" or str(mykey).lower() == "poissonsratio" :
-                    sf.write(",PoissonRatio="+str(myvalue) )
+                    sf.write(",PoissonRatio="+str(myvalue)+"d0 &\n" )
 
                 if str(mykey).lower() == "permiability" or str(mykey).lower() == "conductance" :
-                    sf.write(",Permiability="+str(myvalue) )
+                    sf.write(",Permiability="+str(myvalue)+"d0 &\n" )
 
                 if str(mykey).lower() == "a_psi" or str(mykey).lower() == "apsi" :
-                    sf.write(",a_Psi="+str(myvalue) )
+                    sf.write(",a_Psi="+str(myvalue)+"d0 &\n" )
 
                 if str(mykey).lower() == "a_P" or str(mykey).lower() == "ap" :
-                    sf.write(",a_P="+str(myvalue) )
+                    sf.write(",a_P="+str(myvalue)+"d0 &\n" )
 
                 if str(mykey).lower() == "theta_eq" or str(mykey).lower() == "thetaeq" :
-                    sf.write(",theta_eq="+str(myvalue) )
+                    sf.write(",theta_eq="+str(myvalue)+"d0 &\n" )
 
                 if str(mykey).lower() == "psi_eq" or str(mykey).lower() == "psieq" :
-                    sf.write(",Psi_eq="+str(myvalue) )
+                    sf.write(",Psi_eq="+str(myvalue)+"d0 &\n" )
 
                 if str(mykey).lower() == "a_e" or str(mykey).lower() == "ae" :
-                    sf.write(",a_E="+str(myvalue) )
+                    sf.write(",a_E="+str(myvalue)+"d0 &\n" )
 
                 if str(mykey).lower() == "a_v" or str(mykey).lower() == "av" :
-                    sf.write(",a_v="+str(myvalue) )
+                    sf.write(",a_v="+str(myvalue)+"d0 &\n" )
 
                 if str(mykey).lower() == "e_eq" or str(mykey).lower() == "eeq" :
-                    sf.write(",E_eq="+str(myvalue) )
+                    sf.write(",E_eq="+str(myvalue)+"d0 &\n" )
                 if str(mykey).lower() == "v_eq" or str(mykey).lower() == "veq" :
-                    sf.write(",v_eq="+str(myvalue) )
+                    sf.write(",v_eq="+str(myvalue)+"d0 &\n" )
                 #if str(mykey) == "WaterAbsorption" :
                 #    m=1
                 #elif str(mykey) == "waterabsorption" :
@@ -151,13 +165,13 @@ def write_some_data(context, filepath, use_some_setting):
                 #f.write( str(bpy.context.editable_objects[i].scale[j]) )
                 #f.write("\n")
                 if j == 0:
-                    sf.write(",x_len="+str( float(2.0)*float(bpy.context.editable_objects[i].scale[j]))+"0d0&\n")
+                    sf.write(",x_len="+str( float(2.0)*float(bpy.context.editable_objects[i].scale[j]))+"d0&\n")
 
                 if j == 1:
-                    sf.write(",y_len="+str( float(2.0)*float(bpy.context.editable_objects[i].scale[j]))+"0d0&\n")
+                    sf.write(",y_len="+str( float(2.0)*float(bpy.context.editable_objects[i].scale[j]))+"d0&\n")
 
                 if j == 2:
-                    sf.write(",z_len="+str( float(2.0)*float(bpy.context.editable_objects[i].scale[j]))+"0d0)\n")
+                    sf.write(",z_len="+str( float(2.0)*float(bpy.context.editable_objects[i].scale[j]))+"d0)\n")
 
             sf.write("\n")
             #f.write("\n")
@@ -168,13 +182,13 @@ def write_some_data(context, filepath, use_some_setting):
                 #f.write( str(bpy.context.editable_objects[i].location[j]) )
                 
                 if j == 0:
-                    sf.write("x="+str( float(bpy.context.editable_objects[i].location[j]))+"0d0&\n")
+                    sf.write("x="+str( float(bpy.context.editable_objects[i].location[j]))+"d0&\n")
 
                 if j == 1:
-                    sf.write(",y="+str( float(bpy.context.editable_objects[i].location[j]))+"0d0&\n")
+                    sf.write(",y="+str( float(bpy.context.editable_objects[i].location[j]))+"d0&\n")
 
                 if j == 2:
-                    sf.write(",z="+str( float(bpy.context.editable_objects[i].location[j]))+"0d0)\n")
+                    sf.write(",z="+str( float(bpy.context.editable_objects[i].location[j]))+"d0)\n")
             sf.write("\n")
             #f.write("\n")
 
@@ -185,13 +199,13 @@ def write_some_data(context, filepath, use_some_setting):
                 #f.write("\n")
                 
                 if j == 0:
-                    sf.write("x="+str( float(bpy.context.editable_objects[i].delta_rotation_euler[j]))+"0d0&\n")
+                    sf.write("x="+str( float(bpy.context.editable_objects[i].delta_rotation_euler[j]))+"d0&\n")
 
                 if j == 1:
-                    sf.write(",y="+str( float(bpy.context.editable_objects[i].delta_rotation_euler[j]))+"0d0&\n")
+                    sf.write(",y="+str( float(bpy.context.editable_objects[i].delta_rotation_euler[j]))+"d0&\n")
 
                 if j == 2:
-                    sf.write(",z="+str( float(bpy.context.editable_objects[i].delta_rotation_euler[j]))+"0d0)\n")
+                    sf.write(",z="+str( float(bpy.context.editable_objects[i].delta_rotation_euler[j]))+"d0)\n")
             sf.write("\n")
             #f.write("\n")
             sf.write("call seed"+str(i)+"%gmsh(Name='seed"+str(i)+"')")
@@ -245,16 +259,16 @@ def write_some_data(context, filepath, use_some_setting):
                         m=4
                     if m==1:
                         sf.write("call "+str(seed)+"%env(")
-                        sf.write("disp_x="+str(myvalue)+"0d0" )
+                        sf.write("disp_x="+str(myvalue)+"d0" )
                     elif m==2:
                         sf.write("call "+str(seed)+"%env(")
-                        sf.write("disp_y="+str(myvalue)+"0d0" )
+                        sf.write("disp_y="+str(myvalue)+"d0" )
                     elif m==3:
                         sf.write("call "+str(seed)+"%env(")
-                        sf.write("disp_z="+str(myvalue)+"0d0" )
+                        sf.write("disp_z="+str(myvalue)+"d0" )
                     elif m==4:
                         sf.write("call "+str(seed)+"%env(")
-                        sf.write("WaterContent="+str(myvalue)+"0d0" )
+                        sf.write("WaterContent="+str(myvalue)+"d0" )
                     else:
                         continue
                     x_max =  float(bpy.context.editable_objects[i].scale[0]) \
