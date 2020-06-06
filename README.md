@@ -37,13 +37,20 @@ Simulator for Crops in Fields
 
 This can run in Google-Colab.
 
+Installation:
 ```
 !git clone https://github.com/kazulagi/SiCroF.git
 %cd SiCroF
 %ls
 !python3 setup.py
-!python3 SiCroF.py
+!python3 SiCroF.py -s install
 ```
+Execution:
+
+```
+!python3 SiCroF.py -s your_script.f90
+```
+
 
 ### Linux 
 
