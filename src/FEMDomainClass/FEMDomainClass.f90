@@ -1197,13 +1197,24 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 		
         !DirichletBoundary
 
-        if(.not.allocated(obj%Boundary%DBoundNum))then
+        if(.not.allocated(obj%Boundary%DBoundNodID))then
             
             write(fh,*) "0" !DirichletBoundaryDimension
             write(fh,*) "  "
 			print *, "ImportFEMDomain >> Caution :: no Dirichlet Boundary Condition is loaded. "
 			stop 
         else
+			! update obj%Boundary%DBoundNum
+			if(allocated(obj%Boundary%DBoundNum) )then
+				deallocate(obj%Boundary%DBoundNum)
+			endif
+			n=size(obj%Boundary%DBoundNodID,2)
+			allocate(obj%Boundary%DBoundNum(n) )
+			m=size(obj%Boundary%DBoundNodID,1)
+			do i=1,n
+				obj%Boundary%DBoundNum(i)=m-countif(Array=obj%Boundary%DBoundNodID(:,i),Equal=.true.,Value=-1 )
+			enddo
+
 
             n=size(obj%Boundary%DBoundNum)
             write(fh,*) n !DirichletBoundaryDimension
