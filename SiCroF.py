@@ -66,7 +66,22 @@ if __name__ == '__main__':
         os.system("./Interactive/SiCroF.bat")
     elif pf == "Darwin":
         print("OS : macOS")
-        os.system("sh ./Interactive/SiCroF_macOS")
+        #os.system("sh ./Interactive/SiCroF_macOS")
+        aout = os.path.exists("a.out")
+        #print(aout)
+        if aout == True:
+            os.system("rm ./a.out")
+
+        if args.script is None:
+            print("Interactive Mode :: \n")
+            print("\n")
+            if args.mode == "gfortran":
+                os.system("sh ./Interactive/SiCroF_gfortran ")
+            else:
+                os.system("sh ./Interactive/SiCroF ")
+        else :
+            os.system("sh ./Interactive/SiCroF_run " + str(args.script))
+        
     elif pf == "Linux":
         print("OS : Linux")
         aout = os.path.exists("a.out")
