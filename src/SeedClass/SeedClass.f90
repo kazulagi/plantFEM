@@ -362,12 +362,13 @@ end subroutine
 
 
 !########################################################
-subroutine growSeed(obj,timestep,dt,Display,nr_tol,interval)
+subroutine growSeed(obj,timestep,dt,Display,nr_tol,interval,Name)
     
     class(Seed_) ,intent(inout) :: obj
     integer(int32),optional, intent(in) :: timestep,interval
     real(real64),optional, intent(in) :: dt,nr_tol
     logical,optional, intent(in) ::Display
+    character(*),optional,intent(in) :: Name
     ! bake data by using templates
     call obj%tissue%bake(template="FiniteDeform_")
     call obj%water%bake(template="DiffusionEq_")    
@@ -386,7 +387,7 @@ subroutine growSeed(obj,timestep,dt,Display,nr_tol,interval)
     ! run simula
 
     call obj%seedDomain%run(timestep=timestep,dt=dt,SolverType="BiCGSTAB",&
-        Display=.true.,nr_tol=nr_tol,infinitesimal=.true.,interval=interval)
+        Display=.true.,nr_tol=nr_tol,infinitesimal=.true.,interval=interval,Name=Name)
 
 end subroutine
 !########################################################
