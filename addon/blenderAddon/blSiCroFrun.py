@@ -1,7 +1,6 @@
 import bpy
 import os
 import sys
-from tkinter import messagebox
 
 def write_some_data(context, filepath, use_some_setting):
     print("running script...")

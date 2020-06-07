@@ -1,6 +1,5 @@
 import bpy
 import os
-from tkinter import messagebox
 
 
 bl_info = {
