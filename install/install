@@ -4,7 +4,7 @@ echo "-----------------"
 echo "    "
 echo "    "
 echo "SiCroF is installing ..."
-echo "(c) Haruka Tomobe 2019 All Rights Reserved"
+echo "(c) Haruka Tomobe 2020 All Rights Reserved"
 echo "    "
 echo "    "
 echo "-----------------"
@@ -287,7 +287,7 @@ mpif90 -shared -fPIC -g -fcheck=all  -o obj.so ./inc/*.o
 echo "Copying input files from INPUT/           " 
 echo " >> *.txt, *.scf"
 echo " | ########################### | (100%)\r"
-cp ipynb/* .
+#cp ipynb/* .
 echo "    "
 
 echo "#!/bin/sh" > sicrof
