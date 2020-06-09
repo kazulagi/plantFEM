@@ -26,6 +26,12 @@ subroutine openIO(obj,path,name,extention,fh)
     character(*),optional,intent(in)::path,name,extention
     integer(int32),optional,intent(in) :: fh
     
+
+    if(obj%active .eqv. .true.)then
+        print *, "ERROR :: "//trim(obj%path)//trim(obj%name)//trim(obj%extention)//" is already opened."
+        stop
+    endif
+
     obj%active=.true.
     if(present(fh) )then
         obj%fh=fh
@@ -34,9 +40,16 @@ subroutine openIO(obj,path,name,extention,fh)
     endif
 
     
+    obj%path="./"
+    obj%name="untitled"
+    obj%name=".txt"
+
     if(present(path) )then
+        obj%path=trim(path)
         if(present(name) )then
+            obj%name=trim(name)
             if(present(extention) )then
+                obj%extention=trim(extention)
                 open(obj%fh,file=trim(path)//trim(name)//trim(extention) )
             else
                 open(obj%fh,file=trim(path)//trim(name) )
@@ -78,6 +91,11 @@ end subroutine writeIO
 ! #############################################
 subroutine closeIO(obj)
     class(IO_),intent(inout) :: obj
+
+    if(obj%active .eqv. .false.)then
+        print *, "ERROR :: "//"file is already closed."
+        stop
+    endif
 
     close(obj%fh)
     obj%fh=0
