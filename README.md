@@ -1,3 +1,8 @@
+
+![soaked_soy_seed](https://user-images.githubusercontent.com/54159711/84125111-0b8f6b00-aa77-11ea-9f79-1acfe37e2b8f.png)
+![grass_leaf](https://user-images.githubusercontent.com/54159711/84125213-311c7480-aa77-11ea-8c61-e7bbce016f8a.gif)
+
+
 # SiCroF
 
 Simulator for Crops in Fields
