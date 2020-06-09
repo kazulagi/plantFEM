@@ -7,7 +7,11 @@
 
 Simulator for Crops in Fields
 
+
 ## Documentation of SiCroF
+
+![image931](https://user-images.githubusercontent.com/54159711/84130533-5eb8ec00-aa7e-11ea-92c9-08a49ccc3674.png)
+
 
 [使い方：日本語版 >> ](https://qiita.com/soybean) https://qiita.com/soybean
 
