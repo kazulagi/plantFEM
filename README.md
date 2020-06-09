@@ -247,11 +247,12 @@ end program
  int-32bit value is  ::   -100.000000    
 >>> 
 ```
+
+
 ## Photography
 
 Ex.1 :: 3-D Finite Element model of soybean seed sowed in a field.
 
-```
 ![3-D Finite Element model of soybean seed sowed in a field by Blender.](./doc/soaked_soy_seed.png)
 
 
