@@ -2,6 +2,7 @@ module std
     use, intrinsic :: iso_fortran_env
     use TermClass
     use MathClass
+    use IOClass
     use KinematicClass
     use RandomClass
     use ArrayClass

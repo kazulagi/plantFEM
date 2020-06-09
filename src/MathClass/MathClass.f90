@@ -2,6 +2,9 @@ module MathClass
     use, intrinsic :: iso_fortran_env
 	implicit none
 	
+	interface str
+		module procedure fstring_Int, fstring_Real, fstring_Int_len, fstring_Real_len
+	end interface str
 
     interface fstring
         module procedure fstring_Int, fstring_Real, fstring_Int_len, fstring_Real_len
@@ -565,6 +568,7 @@ function fstring_int(x) result(a)
 	character(len=20)	:: a
 
 	write(a,*) x
+	a = adjustl(a)
 
 end function
 !================================================================================== 
@@ -579,7 +583,7 @@ function fstring_int_len(x,length) result(a)
 	character(len=length)	:: a
 
 	write(a,*) x
-
+	a = adjustl(a)
 end function
 !================================================================================== 
 
@@ -592,7 +596,7 @@ function fstring_real(x) result(a)
 
 
 	write(a,'(f0.8)') x
-
+	a = adjustl(a)
 end function
 !================================================================================== 
 
@@ -607,7 +611,7 @@ function fstring_real_len(x,length) result(a)
 
 	
 	write(a,'(f0.10)') x
-
+	a = adjustl(a)
 end function
 !================================================================================== 
 
