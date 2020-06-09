@@ -23,17 +23,16 @@ Simulator for Crops in Fields
 ### Command-line mode:
 
 
-    ```
-    python3 SiCroF.py -s your_script.f90
-    ```
+```
+python3 SiCroF.py -s your_script.f90
+```
 
 ### Interactive mode
 
-    ```
-    python3 SiCroF.py
-
-    >>> your_script.f90
-    ```
+ ```
+ python3 SiCroF.py
+ >>> your_script.f90
+ ```
 
 
 ## Environment
