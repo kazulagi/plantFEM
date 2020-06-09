@@ -1,5 +1,5 @@
 bl_info = {
-    "name": "SiCroF (World)",
+    "name": "SiCroF (B.C.)",
     "author": "Haruka Tomobe",
     "version": (1, 0),
     "blender": (2, 80, 0),
@@ -65,7 +65,7 @@ class OBJECT_OT_add_object(Operator, AddObjectHelper):
 def add_object_button(self, context):
     self.layout.operator(
         OBJECT_OT_add_object.bl_idname,
-        text="SiCroF World",
+        text="Boundary Condition",
         icon='PLUGIN')
 
 

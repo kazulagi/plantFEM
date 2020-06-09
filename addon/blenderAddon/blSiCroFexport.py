@@ -6,7 +6,7 @@ bl_info = {
     "name" : "SiCriF_export",             # プラグイン名
     "author" : "Haruka Tomobe",                  # 作者
     "version" : (0,1),                  # プラグインのバージョン
-    "blender" : (2, 8, 2),              # プラグインが動作するBlenderのバージョン
+    "blender" : (2, 80, 0),              # プラグインが動作するBlenderのバージョン
     "location" : "File > Export > SiCroF_export",   # Blender内部でのプラグインの位置づけ
     "description" : "File export for SiCroF.",   # プラグインの説明
     "warning" : "",
@@ -119,10 +119,10 @@ def write_some_data(context, filepath, use_some_setting):
                     sf.write(",YoungsModulus="+str(myvalue)+"d0 &\n" )
 
                 if str(mykey).lower() == "poissonratio" or str(mykey).lower() == "poissonsratio" :
-                    sf.write(",PoissonRatio="+str(myvalue)+"d0 &\n" )
+                    sf.write(",PoissonRatio="+str(myvalue)+"d0 &\n")
 
                 if str(mykey).lower() == "permiability" or str(mykey).lower() == "conductance" :
-                    sf.write(",Permiability="+str(myvalue)+"d0 &\n" )
+                    sf.write(",Permiability=dble("+str( float(myvalue) )+") &\n" )
 
                 if str(mykey).lower() == "a_psi" or str(mykey).lower() == "apsi" :
                     sf.write(",a_Psi="+str(myvalue)+"d0 &\n" )
@@ -242,7 +242,6 @@ def write_some_data(context, filepath, use_some_setting):
                     n=n+1
                     if n == 1:
                         continue
-                    
                     m=0
                     if str(mykey).lower() == "disp_x" or str(mykey).lower() == "dispx" :
                         
@@ -305,7 +304,7 @@ def write_some_data(context, filepath, use_some_setting):
         
         for mykey, myvalue in bpy.context.scene.world.items():
             if str(mykey).lower() == "dt" or str(mykey).lower() == "d_t" :               
-                sf.write(",dt="+str(int(myvalue) )+"d0"+"&\n")
+                sf.write(",dt="+str(float(myvalue) )+"d0"+"&\n")
         
         for mykey, myvalue in bpy.context.scene.world.items():
             if str(mykey).lower() == "display" or str(mykey).lower() == "export" :               
