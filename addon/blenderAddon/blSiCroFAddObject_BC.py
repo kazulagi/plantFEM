@@ -1,5 +1,5 @@
 bl_info = {
-    "name": "SiCroF (World)",
+    "name": "SiCroF (B.C.)",
     "author": "Haruka Tomobe",
     "version": (1, 0),
     "blender": (2, 80, 0),
@@ -65,7 +65,7 @@ class OBJECT_OT_add_object(Operator, AddObjectHelper):
 def add_object_button(self, context):
     self.layout.operator(
         OBJECT_OT_add_object.bl_idname,
-        text="SiCroF World",
+        text="Boundary Condition",
         icon='PLUGIN')
 
 
@@ -92,8 +92,13 @@ def unregister():
 
 if __name__ == "__main__":
     register()
-    bpy.context.scene.world["timestep"]=1
-    bpy.context.scene.world["dt"]=float(1)
-    bpy.context.scene.world["Display"]="true"
-    bpy.context.scene.world["nr_tol"]=float(0.01)
-    bpy.context.scene.world["interval"]=int(10)
+    bpy.ops.mesh.primitive_cube_add(enter_editmode=False, location=(0, 0, 0))
+    for obj in bpy.context.selected_objects:
+        obj.name = "BC_"
+        obj.data.name = "BC_"
+        obj["key"]="value"       
+        obj["disp_x"]=float(0)    
+        obj["disp_y"]=float(0)
+        obj["disp_z"]=float(0)
+        obj["WaterContent"]=float(1)
+

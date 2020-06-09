@@ -1,5 +1,5 @@
 bl_info = {
-    "name": "SiCroF (World)",
+    "name": "SiCroF (Seed)",
     "author": "Haruka Tomobe",
     "version": (1, 0),
     "blender": (2, 80, 0),
@@ -65,7 +65,7 @@ class OBJECT_OT_add_object(Operator, AddObjectHelper):
 def add_object_button(self, context):
     self.layout.operator(
         OBJECT_OT_add_object.bl_idname,
-        text="SiCroF World",
+        text="Seed",
         icon='PLUGIN')
 
 
@@ -92,8 +92,22 @@ def unregister():
 
 if __name__ == "__main__":
     register()
-    bpy.context.scene.world["timestep"]=1
-    bpy.context.scene.world["dt"]=float(1)
-    bpy.context.scene.world["Display"]="true"
-    bpy.context.scene.world["nr_tol"]=float(0.01)
-    bpy.context.scene.world["interval"]=int(10)
+    bpy.ops.mesh.primitive_uv_sphere_add(enter_editmode=False, location=(0, 0, 0))
+    for obj in bpy.context.selected_objects:
+        obj.name = "Seed_"
+        obj.data.name = "Seed_"
+        obj["x_num"]=int(10)        
+        obj["y_num"]=int(10)
+        obj["z_num"]=int(10)
+        obj["YoungsModulus"]=float(100)
+        obj["PoissonRatio"]=float(0.3)
+        obj["Permiability"]=float(0.0000001)
+        obj["a_Psi"]=float(20)
+        obj["a_P"]=float(40)
+        obj["theta_eq"]=float(1)
+        obj["Psi_eq"]=float(20)
+        obj["a_E"]=float(0)
+        obj["a_v"]=float(0)
+        obj["E_eq"]=float(100)
+        obj["v_eq"]=float(0.3)
+
