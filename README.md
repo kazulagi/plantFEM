@@ -23,17 +23,16 @@ Simulator for Crops in Fields
 ### Command-line mode:
 
 
-    ```
-    python3 SiCroF.py -s your_script.f90
-    ```
+```
+python3 SiCroF.py -s your_script.f90
+```
 
 ### Interactive mode
 
-    ```
-    python3 SiCroF.py
-
-    >>> your_script.f90
-    ```
+ ```
+ python3 SiCroF.py
+ >>> your_script.f90
+ ```
 
 
 ## Environment
@@ -247,11 +246,12 @@ end program
  int-32bit value is  ::   -100.000000    
 >>> 
 ```
+
+
 ## Photography
 
 Ex.1 :: 3-D Finite Element model of soybean seed sowed in a field.
 
-```
 ![3-D Finite Element model of soybean seed sowed in a field by Blender.](./doc/soaked_soy_seed.png)
 
 
