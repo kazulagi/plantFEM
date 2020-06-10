@@ -127,7 +127,7 @@ def write_some_data(context, filepath, use_some_setting):
                 if str(mykey).lower() == "a_psi" or str(mykey).lower() == "apsi" :
                     sf.write(",a_Psi="+str(myvalue)+"d0 &\n" )
 
-                if str(mykey).lower() == "a_P" or str(mykey).lower() == "ap" :
+                if str(mykey).lower() == "a_p" or str(mykey).lower() == "ap" :
                     sf.write(",a_P="+str(myvalue)+"d0 &\n" )
 
                 if str(mykey).lower() == "theta_eq" or str(mykey).lower() == "thetaeq" :

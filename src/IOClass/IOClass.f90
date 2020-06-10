@@ -10,7 +10,7 @@ module IOClass
     contains
         procedure,public :: open => openIO
         procedure,public :: write => writeIO
-        procedure,public :: close => closeIO
+        procedure,public :: close => closeIO    
     end type
 
     
@@ -19,6 +19,7 @@ module IOClass
     end interface print
 
 contains
+
 
 ! #############################################
 subroutine openIO(obj,path,name,extention,fh)

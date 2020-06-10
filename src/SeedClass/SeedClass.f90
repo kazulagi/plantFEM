@@ -385,6 +385,7 @@ subroutine growSeed(obj,timestep,dt,Display,nr_tol,interval,Name)
     call obj%seedDomain%import(Water=obj%water,Tissue=obj%tissue)
     call obj%seedDomain%bake()
     ! run simula
+    call obj%seedDomain%gnuplot(mode="all")
 
     call obj%seedDomain%run(timestep=timestep,dt=dt,SolverType="BiCGSTAB",&
         Display=.true.,nr_tol=nr_tol,infinitesimal=.true.,interval=interval,Name=Name)
