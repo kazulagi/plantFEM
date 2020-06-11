@@ -43,6 +43,7 @@ module WaterAbsorptionClass
         real(real64) :: dt
     contains
         procedure, public :: import=> importWaterAbsorption
+        procedure, public :: assign=> assignWaterAbsorption
         procedure, public :: init=> initWaterAbsorption
         procedure, public :: run => runWaterAbsorption
         procedure, public :: update=> updateWaterAbsorption

@@ -55,6 +55,7 @@ module FEMDomainClass
         procedure,public :: Delete => DeallocateFEMDomain
         procedure,public :: Export => ExportFEMDomain
 		procedure,public :: Import => ImportFEMDomain
+		procedure,public :: Assign => AssignFEMDomain
 		procedure,public :: ImportMesh => ImportMeshFEMDomain
 		procedure,public :: ImportMaterials => ImportMaterialsFEMDomain
 		procedure,public :: ImportBoundaries => ImportBoundariesFEMDomain
