@@ -416,6 +416,13 @@ subroutine updateStiffnessWA(obj)
         a_P = obj%a_P_val(i)
 
         ! compute parameters
+        if(a_E > 0)then
+            a_E= - abs(a_E)  
+        endif
+
+        if( theta > 1.0d0)then
+            theta = 1.0d0
+        endif
         E = a_E * (theta - theta_eq) + E_eq
         v = a_v * (theta - theta_eq) + v_eq
         if(theta > theta_ps)then
