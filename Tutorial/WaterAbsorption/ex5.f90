@@ -30,10 +30,10 @@ program main
 
     ! create material
     ! for deformation analysis
-    call YoungsModulus%create(Name="YoungsModulus",ParaValue=200.0d0,Layer=1)
+    call YoungsModulus%create(Name="YoungsModulus",ParaValue=1367.420d0,Layer=1)
     !call YoungsModulus%create(Name="YoungsModulus",x_max=1500.0d0,x_min=0.0d0,y_max=70.0d0,y_min=0.0d0,&
     !z_max=70.0d0,z_min=0.0d0,ParaValue=6000.0d0,Layer=1)
-    call PoissonRatio%create(Name="PoissonRatio",ParaValue=0.40d0,Layer=2)
+    call PoissonRatio%create(Name="PoissonRatio",ParaValue=0.30d0,Layer=2)
     !call PoissonRatio%create(Name="PoissonRatio",x_max=100.0d0,x_min=0.0d0,y_max=50.0d0,y_min=0.0d0,&
     !z_max=50.0d0,z_min=0.0d0,ParaValue=0.10d0,Layer=2)
     call Density%create(Name="Density",ParaValue=0.00d0,Layer=3)
@@ -42,7 +42,7 @@ program main
     call psi%create(Name="psi",ParaValue=0.0d0,Layer=6)
 
     ! for diffusion analysis
-    call Permiability%create(Name="Permiability",ParaValue=10.0d0,Layer=1)
+    call Permiability%create(Name="Permiability",ParaValue=0.000010d0,Layer=1)
     !call Permiability%create(Name="Permiability",x_max=300.0d0,x_min=100.0d0,y_max=50.0d0,y_min=0.0d0,&
     !z_max=50.0d0,z_min=0.0d0,ParaValue=1.0d0,Layer=1)
     !call Permiability%create(Name="Permiability",x_max=100.0d0,x_min=0.0d0,y_max=50.0d0,y_min=0.0d0,&
@@ -50,17 +50,17 @@ program main
 
     ! for WaterAbsorption analysis
     
-    call a_Psi%create(   Name="a_Psi",   Paravalue=20.0d0,Layer=1)
+    call a_Psi%create(   Name="a_Psi",   Paravalue=600.0d0,Layer=1)
     !call a_Psi%create(   Name="a_Psi",   Paravalue=0.0d0,Layer=1)
     !call a_P%create(     Name="a_P",     Paravalue=40000.0d0,Layer=1)
-    call a_P%create(     Name="a_P",     Paravalue=40.0d0,Layer=1)
+    call a_P%create(     Name="a_P",     Paravalue=1200.0d0,Layer=1)
     call theta_eq%create(Name="theta_eq",Paravalue=1.0d0,Layer=1)
     !call Psi_eq%create(  Name="Psi_eq",  Paravalue=1.0d0,Layer=1)
-    call Psi_eq%create(  Name="Psi_eq",  Paravalue=20.0d0,Layer=1)
+    call Psi_eq%create(  Name="Psi_eq",  Paravalue=600.0d0,Layer=1)
     
-    call a_E%create(     Name="a_E",     Paravalue=0.0d0,Layer=1)
+    call a_E%create(     Name="a_E",     Paravalue=-1321.60d0,Layer=1)
     call a_v%create(     Name="a_v",Paravalue=0.0d0,Layer=1)
-    call E_eq%create(    Name="E_eq",Paravalue=100.0d0,Layer=1)
+    call E_eq%create(    Name="E_eq",Paravalue=45.80d0,Layer=1)
     call v_eq%create(    Name="v_eq",Paravalue=0.30d0,Layer=1)
 
 
