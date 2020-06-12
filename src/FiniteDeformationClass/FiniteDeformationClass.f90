@@ -26,7 +26,7 @@ module FiniteDeformationClass
 		real(real64),allocatable ::YoungsModulus(:) ! directly give parameter #1
 		real(real64),allocatable ::PoissonsRatio(:) ! directly give parameter #2
 		real(real64),allocatable :: PorePressure(:) ! directly give parameter #2
-		real(real64)             ::dt,error
+		real(real64)             ::dt,error,reactionforce
 		real(real64)             ::nr_tol=1.0e-8
 		logical :: ReducedIntegration = .false.
 		logical :: infinitesimal = .false.
@@ -2688,13 +2688,14 @@ subroutine DisplayReactionForce(obj)
 	class(FiniteDeform_),intent(in)::obj
 
 	integer(int32) :: i,j,k,dim_num,dbc_num
-	real(real64),allocatable :: ReactionForce(:)
+	real(real64),allocatable :: ReactionForce(:),ReactionForce_wall(:)
 	real(real64) :: val
 
 	dim_num=size(obj%FEMDomain%Boundary%DBoundNodID,2)
 	dbc_num=size(obj%FEMDomain%Boundary%DBoundNodID,1)
-	allocate(ReactionForce(dim_num) )
+	allocate(ReactionForce(dim_num),ReactionForce_wall(dim_num) )
 	ReactionForce(:)=0.0d0
+	ReactionForce_wall(:)=0.0d0
 	do i=1,dim_num
 		do j=1,dbc_num
 			k=obj%FEMDomain%Boundary%DBoundNodID(j,i)
@@ -2703,6 +2704,8 @@ subroutine DisplayReactionForce(obj)
 				cycle
 			elseif(k>=1 .and. Val/=0.0d0 )then
 				ReactionForce(i)=ReactionForce(i) + obj%InternalVecGlo( dim_num*(k-1) + i )
+			elseif(k>=1 .and. Val==0.0d0 )then
+				ReactionForce_wall(i)=ReactionForce_wall(i) + abs(obj%InternalVecGlo( dim_num*(k-1) + i ))
 			else
 				cycle
 			endif
@@ -2716,6 +2719,13 @@ subroutine DisplayReactionForce(obj)
 	write(101,*) obj%Step,ReactionForce(:)
 	close(101)
 
+	if(obj%Step==1)then
+		open(101,file="ReactionForce_wall.txt",status="replace")
+	else
+		open(101,file="ReactionForce_wall.txt",position="append")
+	endif
+	write(101,*) obj%Step,ReactionForce_wall(:)
+	close(101)
 
 end subroutine
 !############# Reaction Force at Loading Dirichlet Boundary ######################
