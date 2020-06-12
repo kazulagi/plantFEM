@@ -43,7 +43,7 @@ module WaterAbsorptionClass
         real(real64) :: dt
     contains
         procedure, public :: import=> importWaterAbsorption
-        procedure, public :: assign=> assignWaterAbsorption
+        procedure, public :: assign=> importWaterAbsorption
         procedure, public :: init=> initWaterAbsorption
         procedure, public :: run => runWaterAbsorption
         procedure, public :: update=> updateWaterAbsorption
@@ -257,6 +257,7 @@ subroutine initWaterAbsorption(obj,SolverType,Display,nr_tol,infinitesimal)
     endif
     call obj%FiniteDeform%DivideBC()
     call obj%FiniteDeform%Solve(SolverType=SolverType,nr_tol=nr_tol)  
+    call DisplayReactionForce(obj%FiniteDeform)
     if(present(Display) )then
         if(Display .eqv. .true.)then
             call DisplayDeformStress(obj%FiniteDeform,&
@@ -264,7 +265,7 @@ subroutine initWaterAbsorption(obj,SolverType,Display,nr_tol,infinitesimal)
             n=obj%FiniteDeform%step
             !call showArray(obj%FiniteDeform%DeformVecGloTot,&
             !Name="test"//trim(adjustl(fstring(n))//".txt")  ) 
-            call DisplayReactionForce(obj%FiniteDeform)
+            
         endif
     endif
     ! ###### Finite deformation part #############################
@@ -322,11 +323,12 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step,nr_tol)
     flush(114)
     write(115,*) step, maxval(obj%tissue%mesh%nodCoord(:,3))
     flush(115)
+    call DisplayReactionForce(obj%FiniteDeform)
     if(present(Display) )then
         if(Display.eqv. .true.)then
             call DisplayDeformStress(obj%FiniteDeform,&
                 DisplayMode=term%gmsh,OptionalStep=step)   
-            call DisplayReactionForce(obj%FiniteDeform)
+            
             call obj%export(displacement=.true.)
         endif
     endif
