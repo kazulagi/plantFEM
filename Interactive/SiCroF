@@ -41,6 +41,7 @@ sendToDesktop=">>>"
 command2=""
 ret=0
 addonpath="addon"
+link="link"
 
 echo "If this is the first time, please type 'install' and press ENTER"
 echo "Please input fortran script *.f90 | or check manual by 'man'  "
@@ -118,6 +119,15 @@ do
         ln -s /mnt/c/Users/$username/Desktop ./Desktop
         echo "cp $keywords /mnt/c/Users/$username/Desktop/"
         cp $keywords /mnt/c/Users/$username/Desktop/
+        continue
+    fi
+
+    if [ "$command" = "$link" ]; then
+        echo "only for WSL :: "
+        echo "Input user-name of Windows"
+        read username
+        ln -s /mnt/c/Users/$username ./Home
+        ln -s /mnt/c/Users/$username/Desktop ./Desktop
         continue
     fi
 

@@ -81,19 +81,6 @@ python3 setup.py
 jupyter-notebook
 ```
 
-#### CentOS
-
-```
-sudo yum update
-sudo yum upgrade -y
-sudo yum install git
-git clone https://gitlab.com/kazulagi/SiCroF.git
-cd SiCroF
-sudo yum install python3
-sh ./setup_CentOS
-jupyter-notebook
-```
-
 - Execute Gmsh and go to Tools>Mesh>General and check "Recombine all triangular meshes", then, click File>Save Option As Default  and close window.
 
 ### macOS (Mojave)
@@ -126,19 +113,15 @@ https://qiita.com/Aruneko/items/c79810b0b015bebf30bb
 
 Install following applications 
 （その後、以下のアプリケーションをインストールします。）
-- Gmsh (http://gmsh.info/)
-- Git (https://git-scm.com/)
-- Python3 (https://www.python.org/)
-- pip (https://qiita.com/suzuki_y/items/3261ffa9b67410803443)
-- gfortran (https://home.hiroshima-u.ac.jp/rgdlab/rgdl_html/programming/gfortran_20180520.htm)
-- jupyter notebook (https://jupyter.org/)
 - VScode(https://code.visualstudio.com)
 
-by the following way.
+and, 
 
-(1) Enable WSL and Ubuntu 20.04
+(1) Enable WSL.
+(2) Install Ubuntu 20.04 from Windows store.
 (2) Open VScode
 (3) Open terminal and type
+
 ```
 wsl
 cd ~/
@@ -150,6 +133,7 @@ cd SiCroF
 sudo apt install python3
 python3 setup.py
 ```
+
 (4) Open CLI mode of SiCroF
 ```
 python3 SiCorF.py
