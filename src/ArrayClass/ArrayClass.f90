@@ -202,7 +202,8 @@ subroutine savetxtArrayReal(realarray,path,name,extention)
         write(fh,'(A)',advance='yes') "</title>"
         write(fh,'(A)',advance='yes') "</head>"
         write(fh,'(A)',advance='yes') "<body>"
-        write(fh,'(A)',advance='yes') "<table border='5'>"
+        write(fh,'(A)',advance='yes')"<table border='5'>"
+        write(fh,'(A)',advance='yes') '<meta http-equiv="refresh" content="3">'
         do i=1, n
             write(fh, '(A)',advance='yes') "<tr>"
             do j=1,m
