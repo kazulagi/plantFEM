@@ -7,6 +7,11 @@ sudo apt install  -y python3
 sudo apt install  -y gmsh
 sudo apt install  -y gnuplot
 sudo apt install -y jupyter-notebook
+sudo apt-get -yV install liblapack-dev
+sudo apt-get -yV install liblapack-doc
+sudo apt-get -yV install liblapack-pic
+sudo apt-get -yV install liblapack-test
+sudo apt-get -yV install liblapack3gf
 sudo apt install curl
 sudo apt install graphviz
 curl https://bootstrap.pypa.io/get-pip.py -o ~/get-pip.py

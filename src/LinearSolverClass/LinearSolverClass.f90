@@ -1,8 +1,144 @@
 module LinearSolverClass
   use, intrinsic :: iso_fortran_env
   use MathClass
+  use MPIClass
   implicit none
+
+  type :: LinearSolver_
+    ! non-Element-by-element
+    real(real64),allocatable :: a(:,:)
+    real(real64),allocatable :: b(:)
+    real(real64),allocatable :: x(:)
+    ! Element-by-element
+    real(real64),allocatable :: a_e(:,:,:)
+    real(real64),allocatable :: b_e(:,:)
+    real(real64),allocatable :: x_e(:,:)
+    integer(int32),allocatable :: connectivity(:,:)
+    integer(int32) :: itrmax=1000000
+    real(real64) :: er0=dble(1.0e-08)
+  contains
+    procedure, public :: import => importLinearSolver
+    procedure, public :: solve => solveLinearSolver
+  end type
 contains
+
+!====================================================================================
+subroutine importLinearSolver(obj,a,x,b,a_e,b_e,x_e,connectivity)
+  class(LinearSolver_),intent(inout) :: obj
+  real(8),optional,intent(in) :: a(:,:),b(:),x(:),a_e(:,:,:),b_e(:,:),x_e(:,:)
+  integer(int32),optional,intent(in) :: connectivity(:,:)
+  integer(int32) :: k,l,m
+
+  ! in case of non element-by-element
+  if(present(a) )then
+    ! Set Ax=b
+    k=size(a,1)
+    l=size(a,2)
+    if(.not. allocated(obj%a) )then
+      allocate(obj%a(k,l) )
+    elseif(size(obj%a,1)/=k .or. size(obj%a,2)/=l )then
+      deallocate(obj%a)
+      allocate(obj%a(k,l) )
+    endif
+    obj%a(:,:)=a(:,:)
+  endif
+
+  if(present(b) )then
+    k=size(b,1)
+    if(.not. allocated(obj%b) )then
+      allocate(obj%b(k) )
+    elseif(size(obj%b,1)/=k)then
+      deallocate(obj%b)
+      allocate(obj%b(k) )
+    endif
+    obj%b(:)=b(:)
+  endif
+
+  if(present(x) )then
+    k=size(x,1)
+    if(.not. allocated(obj%x) )then
+      allocate(obj%x(k) )
+    elseif(size(obj%x,1)/=k)then
+      deallocate(obj%x)
+      allocate(obj%x(k) )
+    endif
+    obj%x(:)=x(:)
+  endif
+
+  if(present(a_e) )then
+    ! Set A_e x_e =b_e
+    k=size(a_e,1)
+    l=size(a_e,2)
+    m=size(a_e,3)
+    if(.not. allocated(obj%a_e) )then
+      allocate(obj%a_e(k,l,m) )
+    endif
+    obj%a_e(:,:,:)=a_e(:,:,:)
+  endif
+
+  if(present(b_e) )then
+    ! Set Ax=b
+    k=size(b_e,1)
+    l=size(b_e,2)
+    if(.not. allocated(obj%b_e) )then
+      allocate(obj%b_e(k,l) )
+    elseif(size(obj%b_e,1)/=k .or. size(obj%b_e,2)/=l )then
+      deallocate(obj%b_e)
+      allocate(obj%b_e(k,l) )
+    endif
+    obj%b_e(:,:)=b_e(:,:)
+  endif
+
+  if(present(x_e) )then
+    ! Set Ax=b
+    k=size(x_e,1)
+    l=size(x_e,2)
+    if(.not. allocated(obj%x_e) )then
+      allocate(obj%x_e(k,l) )
+    elseif(size(obj%x_e,1)/=k .or. size(obj%x_e,2)/=l )then
+      deallocate(obj%x_e)
+      allocate(obj%x_e(k,l) )
+    endif
+    obj%x_e(:,:)=x_e(:,:)
+  endif
+
+end subroutine importLinearSolver
+!====================================================================================
+
+
+!====================================================================================
+subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC)
+  class(LinearSolver_),intent(inout) :: obj
+  character(*),intent(in) :: Solver
+  logical,optional,intent(in) :: MPI, OpenCL, CUDAC
+
+  ! No MPI, No OpenCl and No CUDAC
+  if(allocated(obj%a) )then
+    if(allocated(obj%b) )then
+      if(allocated(obj%x))then
+        ! run as non EBE-mode
+        if(trim(Solver) == "GaussSeidel" )then
+          call gauss_seidel(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0 )
+        elseif(trim(Solver) == "GaussJordanPV" .or. trim(Solver) == "GaussJordan" )then
+          call gauss_jordan_pv(obj%a, obj%x, obj%b, size(obj%a,1) )
+        elseif(trim(Solver) == "BiCGSTAB" )then
+          call bicgstab1d(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0)
+        elseif(trim(Solver) == "GPBiCG" )then
+          call pre_processed_GPBiCG(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0)
+        else
+          print *, "LinearSolver_ ERROR:: no such solver as :: ",trim(Solver)
+        endif
+        return
+      endif
+    endif
+  endif
+
+  print *, "LinearSolver_ ERROR:: EBE-mode is not implemented yet."
+  stop 
+end subroutine solveLinearSolver
+!====================================================================================
+
+
 !====================================================================================
 subroutine gauss_seidel(a, b, x, n, itrmax, er0)
   integer(int32), intent(in) :: n, itrmax
@@ -160,7 +296,8 @@ subroutine bicgstab1d(a, b, x, n, itrmax, er)
      integer(int32) itr
      real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
      real(real64) r(n), r0(n), p(n), y(n), e(n), v(n)
-     er0=1.00e-14
+     er0=dble(1.00e-14)
+
 	 r(:) = b - matmul(a,x)
      c1 = dot_product(r,r)
 	 init_rr=c1

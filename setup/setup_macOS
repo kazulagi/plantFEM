@@ -6,6 +6,11 @@ brew install  python3
 brew install  gmsh
 brew install  gnuplot
 brew install curl
+sudo apt-get -yV install liblapack-dev
+sudo apt-get -yV install liblapack-doc
+sudo apt-get -yV install liblapack-pic
+sudo apt-get -yV install liblapack-test
+sudo apt-get -yV install liblapack3gf
 curl https://bootstrap.pypa.io/get-pip.py -o ~/get-pip.py
 sudo python3 ~/get-pip.py
 sudo pip install pillow
