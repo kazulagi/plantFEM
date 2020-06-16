@@ -9,8 +9,8 @@ module MeshClass
 
 
     type:: Mesh_
-        real(real64),allocatable::NodCoord(:,:)
-        real(real64),allocatable::NodCoordInit(:,:)
+        real(real64),allocatable  ::NodCoord(:,:)
+        real(real64),allocatable  ::NodCoordInit(:,:)
         integer(int32),allocatable::ElemNod(:,:)
         integer(int32),allocatable::FacetElemNod(:,:)
         integer(int32),allocatable::NextFacets(:,:)
@@ -33,6 +33,7 @@ module MeshClass
         procedure :: Delete => DeallocateMesh
         procedure :: Copy => CopyMesh
         procedure :: import => importMeshObj 
+        procedure :: export => exportMeshObj 
         procedure :: ImportElemNod => ImportElemNod
         procedure :: ImportNodCoord => ImportNodCoord
         procedure :: ImportElemMat => ImportElemMat
@@ -371,6 +372,279 @@ subroutine importMeshObj(obj,FileName,extention,ElemType,Mesh)
 end subroutine
 !##################################################
 
+!##################################################
+subroutine exportMeshObj(obj,restart,path,stl)
+    class(Mesh_),intent(inout)::obj
+    logical,optional,intent(in) :: restart,stl
+    character(*),intent(in) :: path
+    type(IO_) :: f
+    integer(int32) :: i,j,dim_num
+	real(real64) :: x1(3),x2(3),x3(3)
+    
+
+    if(obj%empty() .eqv. .true.)then
+        return
+    endif
+
+    call system("mkdir -p "//trim(path)//"/Mesh")
+    call f%open(trim(path)//"/Mesh/","Mesh",".vtk")
+    
+	write(f%fh,'(A)' ) "# vtk DataFile Version 2.0"
+	write(f%fh,'(A)' ) "Cube example"
+	write(f%fh,'(A)' ) "ASCII"
+	write(f%fh,'(A)' ) "DATASET POLYDATA"
+	write(f%fh,'(A)' ,advance="no") "POINTS "
+	write(f%fh,'(i10)' ,advance="no")size(obj%NodCoord,1)
+	write(f%fh,'(A)')" float"
+	do i=1,size(obj%NodCoord,1)
+		do j=1,size(obj%NodCoord,2)
+			if(j==size(obj%NodCoord,2))then
+				write(f%fh,'(f20.8)' ) obj%NodCoord(i,j)
+			else
+				write(f%fh,'(f20.8)', advance="no" ) obj%NodCoord(i,j)
+				write(f%fh,'(A)', advance="no" ) " "
+			endif
+		enddo
+	enddo
+	write(f%fh,'(A)',advance="no")" POLYGONS "
+	write(f%fh,'(i10)',advance="no") 6*size(obj%ElemNod,1)
+	write(f%fh,'(A)',advance="no") " "
+	write(f%fh,'(i10)') size(obj%ElemNod,1)*5*6
+	do i=1,size(obj%ElemNod,1)
+		write(f%fh,'(A)',advance="no") "4 "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,1)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,2)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,3)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,4)-1
+		write(f%fh,'(A)') " "
+		write(f%fh,'(A)',advance="no") "4 "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,5)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,6)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,7)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,8)-1
+		write(f%fh,'(A)') " "
+		write(f%fh,'(A)',advance="no") "4 "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,1)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,2)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,6)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,5)-1
+		write(f%fh,'(A)') " "
+		write(f%fh,'(A)',advance="no") "4 "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,3)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,4)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,8)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,7)-1
+		write(f%fh,'(A)') " "
+		write(f%fh,'(A)',advance="no") "4 "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,1)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,5)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,8)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,4)-1
+		write(f%fh,'(A)') " "
+		write(f%fh,'(A)',advance="no") "4 "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,2)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,3)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,7)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,6)-1
+		write(f%fh,'(A)') " "
+	enddo
+    write(f%fh,'(A)') "CELL_DATA 6"
+    call f%close()
+    
+    call system("mkdir -p "//trim(path)//"/Mesh")
+    call f%open(trim(path)//"/Mesh/","Mesh",".ply")
+	write(f%fh,'(A)')"ply"
+	write(f%fh,'(A)')"format ascii 1.0"
+	write(f%fh,'(A)',advance="no")"element vertex "
+	write(f%fh,'(i10)') size(obj%NodCoord,1)
+	write(f%fh,'(A)')"property float32 x"
+	write(f%fh,'(A)')"property float32 y"
+	write(f%fh,'(A)')"property float32 z"
+	write(f%fh,'(A)')"property uchar red"
+	write(f%fh,'(A)')"property uchar green"
+	write(f%fh,'(A)')"property uchar blue"
+	write(f%fh,'(A)',advance="no")"element face "
+	write(f%fh,'(i10)') size(obj%ElemNod,1)*6
+	write(f%fh,'(A)')"property list uint8 int32 vertex_indices"
+	write(f%fh,'(A)') "end_header"
+	do i=1,size(obj%NodCoord,1)
+		do j=1,size(obj%NodCoord,2)
+			if(j==size(obj%NodCoord,2))then
+				write(f%fh,'(f20.8)', advance="no"  ) obj%NodCoord(i,j)
+				write(f%fh,'(A)', advance="no" ) " "
+			else
+				write(f%fh,'(f20.8)', advance="no" ) obj%NodCoord(i,j)
+				write(f%fh,'(A)', advance="no" ) " "
+			endif
+		enddo
+		write(f%fh,'(A)', advance="no" ) " "
+		write(f%fh,'(i3)',advance="no") int(obj%NodCoord(i,1)*255.0d0/maxval(obj%NodCoord(:,1) ))
+		write(f%fh,'(A)', advance="no" ) " "
+		write(f%fh,'(i3)',advance="no") int(obj%NodCoord(i,2)*255.0d0/maxval(obj%NodCoord(:,2) ))
+		write(f%fh,'(A)', advance="no" ) " "
+		write(f%fh,'(i3)') int(obj%NodCoord(i,3)*255.0d0/maxval(obj%NodCoord(:,3) ))
+	enddo
+	do i=1,size(obj%ElemNod,1)
+		write(f%fh,'(A)',advance="no") "4 "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,1)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,2)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,3)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,4)-1
+		write(f%fh,'(A)') " "
+		write(f%fh,'(A)',advance="no") "4 "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,5)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,6)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,7)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,8)-1
+		write(f%fh,'(A)') " "
+		write(f%fh,'(A)',advance="no") "4 "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,1)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,2)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,6)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,5)-1
+		write(f%fh,'(A)') " "
+		write(f%fh,'(A)',advance="no") "4 "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,3)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,4)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,8)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,7)-1
+		write(f%fh,'(A)') " "
+		write(f%fh,'(A)',advance="no") "4 "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,1)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,5)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,8)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,4)-1
+		write(f%fh,'(A)') " "
+		write(f%fh,'(A)',advance="no") "4 "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,2)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,3)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,7)-1
+		write(f%fh,'(A)',advance="no") " "
+		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,6)-1
+		write(f%fh,'(A)') " "
+	enddo
+    call f%close()
+
+    if(present(stl) )then
+        call system("mkdir -p "//trim(path)//"/Mesh")
+        call f%open(trim(path)//"/Mesh/","Mesh",".stl")
+        call obj%GetSurface()
+	    dim_num = size(obj%NodCoord,2)
+        if(dim_num/=3)then
+            print *, "Sorry, Export stl is supported only for 3-D mesh"
+            close(f%fh)
+            return
+        endif
+        write(f%fh,'(A)') "solid "//trim(path)//"/Mesh"
+        print *, "Number of facet is",size(obj%FacetElemNod,1)
+        do i=1,size(obj%FacetElemNod,1)
+            if(size(obj%FacetElemNod,2)==4  )then
+                ! rectangular
+                ! describe two triangular
+
+                x1(:)=obj%NodCoord(obj%FacetElemNod(i,1),: ) 
+                x2(:)=obj%NodCoord(obj%FacetElemNod(i,2),: )
+                x3(:)=obj%NodCoord(obj%FacetElemNod(i,3),: )
+                write(f%fh,'(A)') "facet normal 0.0 0.0 1.0"
+                write(f%fh,'(A)') "outer loop"
+                write(f%fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
+                write(f%fh,*) "vertex ",real(x2(1) ),real(x2(2) ),real(x2(3) )
+                write(f%fh,*) "vertex ",real(x3(1) ),real(x3(2) ),real(x3(3) )
+                write(f%fh,'(A)') "endloop"
+                write(f%fh,'(A)') "endfacet"
+                x1(:)=obj%NodCoord(obj%FacetElemNod(i,1),: ) 
+                x2(:)=obj%NodCoord(obj%FacetElemNod(i,3),: )
+                x3(:)=obj%NodCoord(obj%FacetElemNod(i,4),: )
+                write(f%fh,'(A)') "facet normal 0.0 0.0 1.0"
+                write(f%fh,'(A)') "outer loop"
+                write(f%fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
+                write(f%fh,*) "vertex ",real(x2(1) ),real(x2(2) ),real(x2(3) )
+                write(f%fh,*) "vertex ",real(x3(1) ),real(x3(2) ),real(x3(3) )
+                write(f%fh,'(A)') "endloop"
+                write(f%fh,'(A)') "endfacet"
+            elseif(size(obj%FacetElemNod,2)==3  )then
+                ! rectangular
+                ! describe two triangular
+                x1(:)=obj%NodCoord(obj%FacetElemNod(i,1),: ) 
+                x2(:)=obj%NodCoord(obj%FacetElemNod(i,2),: )
+                x3(:)=obj%NodCoord(obj%FacetElemNod(i,3),: )
+                write(f%fh,'(A)') "facet normal 0.0 0.0 1.0"
+                write(f%fh,'(A)') "outer loop"
+                write(f%fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
+                write(f%fh,*) "vertex ",real(x2(1) ),real(x2(2) ),real(x2(3) )
+                write(f%fh,*) "vertex ",real(x3(1) ),real(x3(2) ),real(x3(3) )
+                write(f%fh,'(A)') "endloop"
+                write(f%fh,'(A)') "endfacet"
+
+            else
+                ! other
+                print *, "Sorry, Export stl is supported only for rectangular mesh"
+                return
+                close(f%fh)
+            endif
+        enddo
+        write(f%fh,'(A)') "endsolid "//trim(path)//"/Mesh"
+        call f%close()
+    endif
+
+
+    if(present(restart) )then
+        call system("mkdir -p "//trim(path)//"/Mesh")
+        call f%open(trim(path)//"/Mesh/","Mesh",".res")
+        write(f%fh,*) obj%NodCoord(:,:)
+        write(f%fh,*) obj%NodCoordInit(:,:)
+        write(f%fh,*) obj%ElemNod(:,:)
+        write(f%fh,*) obj%FacetElemNod(:,:)
+        write(f%fh,*) obj%NextFacets(:,:)
+        write(f%fh,*) obj%SurfaceLine2D(:)
+        write(f%fh,*) obj%ElemMat(:)
+        write(f%fh,*) obj%SubMeshNodFromTo(:,:)
+        write(f%fh,*) obj%SubMeshElemFromTo(:,:)
+        write(f%fh,*) obj%SubMeshSurfFromTo(:,:)
+        write(f%fh,*) obj%surface
+        write(f%fh,*) obj%GlobalNodID(:)
+        write(f%fh,'(A)') trim(obj%FileName)
+        write(f%fh,'(A)') trim(obj%ElemType)
+        write(f%fh,'(A)') trim(obj%ErrorMsg)
+        call f%close()
+    endif
+end subroutine
+!##################################################
 
 !##################################################
 subroutine GetFacetElement(obj)
@@ -1213,7 +1487,7 @@ subroutine DisplayMesh(obj,OptionalFolderName,OptionalFormat,FileHandle,Name)
     integer(int32) :: fh
     character*70 DefaultFolderName
     character*70 FolderName
-    character*76 command_mkdir
+    character*76 command_mkdir 
     character*86 surfaceout
     integer i,j,node_ID,node_ID_next,k
 
@@ -1300,10 +1574,10 @@ if(present(OptionalFolderName) )then
 else
     FolderName=DefaultFolderName
 endif
-command_mkdir="mkdir " // trim(FolderName)
-command_mkdir=trim(command_mkdir)
+command_mkdir ="mkdir -p " // trim(FolderName)
+command_mkdir =trim(command_mkdir )
 
-call system(command_mkdir)
+call system(command_mkdir )
 surfaceout=trim(FolderName)//"/surface_nod.txt"
 surfaceout=trim(surfaceout)
 open(100,file=surfaceout)

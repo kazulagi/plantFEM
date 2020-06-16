@@ -771,14 +771,14 @@ end subroutine MergeFEMDomain
 
 !##################################################
 subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,SolverType,MeshDimension,&
-	FileName,Name,regacy,with,path,extention,step,FieldValue)
+	FileName,Name,regacy,with,path,extention,step,FieldValue,restart)
     class(FEMDomain_),intent(inout)::obj
     class(FEMDomain_),optional,intent(inout)::with
     character(*),optional,intent(in)::OptionalFileFormat,path,extention
     character(*),optional,intent(in)::OptionalProjectName,SolverType,FileName
 	character*4::FileFormat
 	character(*),optional,intent(in) :: Name
-	logical,optional,intent(in) :: regacy
+	logical,optional,intent(in) :: regacy,restart
     character*200::ProjectName
 	character*200 ::iFileName
 	real(real64),optional,intent(in) :: FieldValue(:,:)
@@ -787,6 +787,37 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
     integer(int32),optional,intent(in)::FileHandle,MeshDimension,step
     integer(int32) :: fh,i,j,k,n,m,DimNum,GpNum,nn
 	character*70 Msg
+	type(IO_) :: f
+
+	if(present(restart) )then
+		if(.not.present(path) )then
+			print *, "FEMDomain ERROR :: .not.present(path)"
+			stop 
+		endif
+
+		call system("mkdir -p "//trim(path))
+		call system("mkdir -p "//trim(path)//"/FEMDomain")
+		call obj%Mesh%export(path=trim(path)//"/FEMDomain",restart=.true.)
+		call obj%MaterialProp%export(path=trim(path)//"/FEMDomain",restart=.true.)
+		call obj%Boundary%export(path=trim(path)//"/FEMDomain",restart=.true.)
+		call obj%ControlPara%export(path=trim(path)//"/FEMDomain",restart=.true.)
+		call obj%ShapeFunction%export(path=trim(path)//"/FEMDomain",restart=.true.)
+
+		call f%open(trim(path)//"/FEMDomain","/FEMDomain",".res" )
+		write(f%fh,*) obj%RealTime
+		write(f%fh,*) obj%NumOfDomain
+		write(f%fh, '(A)' ) trim(obj%FilePath)
+		write(f%fh, '(A)' ) trim(obj%FileName)
+		write(f%fh, '(A)' ) trim(obj%Name)
+		write(f%fh, '(A)' ) trim(obj%Dtype)
+		write(f%fh, '(A)' ) trim(obj%SolverType)
+		write(f%fh, '(A)' ) trim(obj%Category1)
+		write(f%fh, '(A)' ) trim(obj%Category2)
+		write(f%fh, '(A)' ) trim(obj%Category3)
+		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
+		call f%close()
+		return
+	endif
 
 	if(present(regacy) )then
 		if(regacy .eqv. .true.)then

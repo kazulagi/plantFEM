@@ -18,7 +18,7 @@ module DiffusionEquationClass
 
         real(real64),allocatable ::Permiability(:)  ! directly give parameter #1
         real(real64)             ::dt
-        integer(int32)             :: step
+        integer(int32)           :: step
     contains
         procedure :: Setup => SetupDiffusionEq
         procedure :: Solve => SolveDiffusionEq
@@ -28,6 +28,7 @@ module DiffusionEquationClass
         procedure :: GetInitVal => GetUnknownValue
         procedure :: Display => DisplayDiffusionEq 
         procedure :: import => importDiffusionEq 
+        procedure :: export => exportDiffusionEq 
     end type
 
 contains
@@ -52,7 +53,36 @@ subroutine importDiffusionEq(obj, Permiability)
 end subroutine importDiffusionEq
 ! ###################################################
 
+! ###################################################
+subroutine exportDiffusionEq(obj,path,restart)
+    class(DiffusionEq_),intent(inout) :: obj
+    character(*),optional,intent(in) :: path
+    logical,optional,intent(in) :: restart
+    type(IO_) :: f
+    
+    if(present(restart) )then
+        call system("mkdir -p "//trim(path)//"/DiffusionEq")
+	    call f%open("./",trim(path),"/DiffusionEq/DiffusionEq.res")
+	    	
+        call obj%FEMDomain%export(path = trim(path)//"/FEMDomain",FileHandle=f%fh+1,restart=.true.)
 
+        write(f%fh,*) obj%UnknownValue(:,:)
+        write(f%fh,*) obj%UnknownVec(:)
+        write(f%fh,*) obj%UnknownValueInit(:,:)
+        write(f%fh,*) obj%UnknownValueRate(:,:)
+        write(f%fh,*) obj%DiffusionMat(:,:,:)
+        write(f%fh,*) obj%Divergence(:,:)
+        write(f%fh,*) obj%Flowvector(:,:)
+        write(f%fh,*) obj%FluxVector3D(:,:)
+        write(f%fh,*) obj%Permiability(:) 
+        write(f%fh,*) obj%dt
+        write(f%fh,*) obj%step
+
+	    call f%close()
+    endif
+
+end subroutine 
+! ###################################################
 
 !######################## ImportData of DiffusionEq ########################
 subroutine ImportFEMDomainDiff(obj,OptionalFileFormat,OptionalProjectName)

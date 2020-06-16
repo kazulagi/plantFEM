@@ -2337,4 +2337,46 @@ subroutine getKeyAndValueReal(Array, Key, info)
 
 end subroutine getKeyAndValueReal
 
+
+function imcompleteCholosky(mat) result(a)
+    real(real64) :: mat(:,:)
+    real(real64),allocatable :: a(:,:)
+    integer(int32) :: n,i,j,k
+    n=size(mat,1)
+    allocate(a(n,n) )
+    a(:,:)=mat(:,:)
+    do k=1,n
+        if(a(k,k) ==0.0d0)then
+            stop
+        endif
+        a(k,k)= dsqrt( abs(a(k,k)) )
+        do i=k+1, n
+            if(a(i,k)/=0.0d0 )then
+                if(a(k,k) ==0.0d0)then
+                    print *, "ERROR :: a(k,k) ==0.0d0"
+                    stop
+                endif
+                !print *, a(k,k) , "aik",k
+                a(i,k) = a(i,k)/a(k,k)
+                !print *, a(i,k) , "aik"
+            endif
+        enddo
+        do j=k+1,n
+            do i=j,n
+                if( a(i,j) /= 0.0d0 )then
+                    !print *, a(i,j),a(i,k),a(j,k) ,"dsf",i,j,k
+                    a(i,j)=a(i,j)-a(i,k)*a(j,k)
+                endif
+            enddo
+        enddo
+        do i=1,n
+            do j=i+1,n
+                a(i,j)=0.0d0
+            enddo
+        enddo
+    enddo
+
+    call showArray(a)
+end function
+
 end module ArrayClass

@@ -643,6 +643,7 @@ subroutine GPBiCG(a, b, x, n, itrmax, er)
  end subroutine 
 !===============================================================
 
+
  
 !===========================================================================
 subroutine preconditioned_GPBiCG(a, b, x, n, itrmax, er)
@@ -660,7 +661,7 @@ subroutine preconditioned_GPBiCG(a, b, x, n, itrmax, er)
     real(real64) u(n),w(n),t(n),t_(n),z(n)
 
     print *, "<<< Under implementation >>>"
-    return
+    
     ! Incomplete Cholosky decomposition.
     ! http://www.slis.tsukuba.ac.jp/~fujisawa.makoto.fu/cgi-bin/wiki/index.php?%A5%B3%A5%EC%A5%B9%A5%AD%A1%BC%CA%AC%B2%F2
     ! >>>>>>>>>>
@@ -668,32 +669,34 @@ subroutine preconditioned_GPBiCG(a, b, x, n, itrmax, er)
     d(:) = 0.0d0
     d(1) = a(1,1)
     L(1,1) = 1.0d0
-    do i=2, n
-      ! i < kの場合
-      do j=1, i
-        if( abs(a(i,j)) < dble(1.0e-10)  )then
-          cycle
-        else
-          lld = a(i,j)
-          do k=1, j
-            lld = lld - L(i,k)*L(j,k)*d(k)
-          enddo
-          if(d(j)==0.0d0)then
-            stop "Error :: d(j)==0.0d0"
-          endif
-          L(i,j) = 1.0d0/d(j)*lld
-        endif
-        ld = a(i,i)
-        do k=1, i
-          ld = ld - L(i,k)*L(i,k)*d(k)
-        enddo
-        d(i) = ld
-        L(i,i) = 1.0d0
-      enddo
-      
-    enddo
-!
+    L(:,:) = imcompleteCholosky(a)
     call showArray(L)
+    
+    !do i=2, n
+    !  ! i < kの場合
+    !  do j=1, i
+    !    if( abs(a(i,j)) < dble(1.0e-10)  )then
+    !      cycle
+    !    else
+    !      lld = a(i,j)
+    !      do k=1, j
+    !        lld = lld - L(i,k)*L(j,k)*d(k)
+    !      enddo
+    !      if(d(j)==0.0d0)then
+    !        stop "Error :: d(j)==0.0d0"
+    !      endif
+    !      L(i,j) = 1.0d0/d(j)*lld
+    !    endif
+    !    ld = a(i,i)
+    !    do k=1, i
+    !      ld = ld - L(i,k)*L(i,k)*d(k)
+    !    enddo
+    !    d(i) = ld
+    !    L(i,i) = 1.0d0
+    !  enddo
+    !  
+    !enddo
+!
     print *, d
 
     ! <<<<<<<<<<

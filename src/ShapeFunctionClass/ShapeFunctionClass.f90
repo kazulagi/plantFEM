@@ -1,6 +1,7 @@
 module ShapeFunctionClass
     use, intrinsic :: iso_fortran_env
     use MathClass
+    use IOClass
     implicit none
     
     type::ShapeFunction_
@@ -15,9 +16,7 @@ module ShapeFunctionClass
         real(real64),allocatable::ElemCoord(:,:)
         real(real64),allocatable::ElemCoord_n(:,:)
         real(real64),allocatable::du(:,:)
-
         real(real64) :: detJ
-
         integer(int32) :: NumOfNode
         integer(int32) :: NumOfOrder
         integer(int32) :: NumOfDim
@@ -36,6 +35,7 @@ module ShapeFunctionClass
         procedure :: Deallocate => DeallocateShapeFunction
         procedure :: getType => getShapeFuncType 
         procedure :: GetGaussPoint => GetGaussPoint
+        procedure :: export => exportShapeFunction
     end type ShapeFunction_
 
 contains
@@ -745,5 +745,41 @@ subroutine GetJmat(obj)
     
 end subroutine GetJmat
 !--------------------------------------------------------
+
+subroutine exportShapeFunction(obj,restart,path)
+    class(ShapeFunction_),intent(inout) :: obj
+    logical,optional,intent(in) :: restart
+    character(*),intent(in) :: path
+    type(IO_) :: f
+
+    if(present(restart) )then
+        call system("mkdir -p "//trim(path)//"/ShapeFunction")
+        call f%open(trim(path)//"/ShapeFunction/","ShapeFunction",".res")
+        write(f%fh,*) obj%Nmat(:)
+        write(f%fh,*) obj%dNdgzi(:,:)
+        write(f%fh,*) obj%dNdgzidgzi(:,:)
+        write(f%fh,*) obj%gzi(:)
+        write(f%fh,*) obj%gaussPoint(:,:)
+        write(f%fh,*) obj%gaussIntegWei(:)
+        write(f%fh,*) obj%Jmat(:,:)
+        write(f%fh,*) obj%JmatInv(:,:)
+        write(f%fh,*) obj%ElemCoord(:,:)
+        write(f%fh,*) obj%ElemCoord_n(:,:)
+        write(f%fh,*) obj%du(:,:)
+        write(f%fh,*) obj%detJ
+        write(f%fh,*) obj%NumOfNode
+        write(f%fh,*) obj%NumOfOrder
+        write(f%fh,*) obj%NumOfDim
+        write(f%fh,*) obj%NumOfGp
+        write(f%fh,*) obj%GpID
+        write(f%fh,*) obj%ierr
+        write(f%fh,*) obj%currentGpID
+        write(f%fh,*) obj%ReducedIntegration
+        write(f%fh,'(A)' ) trim(obj%elemType)
+        write(f%fh,'(A)' ) trim(obj%ErrorMsg)
+        call f%close()
+    endif
+
+end subroutine
 
 end module ShapeFunctionClass

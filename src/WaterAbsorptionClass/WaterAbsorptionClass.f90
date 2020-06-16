@@ -451,22 +451,103 @@ end subroutine updateStiffnessWA
 
 !#####################################
 subroutine exportWaterAbsorption(obj,OptionalFileFormat,OptionalProjectName,FileHandle,&
-    SolverType,MeshDimension,FileName,Name,regacy,with, displacement)
+    SolverType,MeshDimension,FileName,Name,regacy,with, displacement,restart,path)
     class(WaterAbsorption_),intent(inout) :: obj
     class(FEMDomain_),optional,intent(inout)::with
-    character(*),optional,intent(in)::OptionalFileFormat
+    character(*),optional,intent(in)::OptionalFileFormat,path
     character(*),optional,intent(in)::OptionalProjectName,SolverType,FileName
 	character*4::FileFormat
 	character(*),optional,intent(in) :: Name
-	logical,optional,intent(in) :: regacy,displacement
+	logical,optional,intent(in) :: regacy,displacement,restart
     character*200::ProjectName
-	character*200 ::iFileName
+	character*200 ::iFileName,fname
     integer(int32),allocatable::IntMat(:,:)
     real(real64),allocatable::RealMat(:,:)
     integer(int32),optional,intent(in)::FileHandle,MeshDimension
-    integer(int32) :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,nn
+    integer(int32) :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,nn,fh_
     character*70 Msg
+    type(IO_) :: f
     
+    if(present(restart) )then
+        if(.not. present(path) )then
+            print *, " exportWaterAbsorption ERROR >> .not. present(path)"
+            stop
+        endif
+
+		call system("mkdir -p "//trim(path)//"/WaterAbsorption")
+		call f%open("./",trim(path)//"/WaterAbsorption","/WaterAbsorption.res")
+        fname=trim(path)//"/WaterAbsorption"
+        write(f%fh,*) obj%WaterAbsorbingPower(:)
+        write(f%fh,*) obj%WaterPotential(:)
+        write(f%fh,*) obj%TurgorPressure(:)
+        write(f%fh,*) obj%WaterContent(:)
+        write(f%fh,*) obj%Conductivity(:)
+        write(f%fh,*) obj%YoungsModulus(:)
+        write(f%fh,*) obj%PoissonsRatio(:)
+        write(f%fh,*) obj%Permiability(:)
+        write(f%fh,*) obj%PorePressure(:)
+        write(f%fh,*) obj%a_Psi_val(:)
+        write(f%fh,*) obj%a_P_val(:)
+        write(f%fh,*) obj%theta_eq_val(:)
+        write(f%fh,*) obj%Psi_eq_val(:)
+        write(f%fh,*) obj%a_E_val(:)
+        write(f%fh,*) obj%a_v_val(:)
+        write(f%fh,*) obj%E_eq_val(:)
+        write(f%fh,*) obj%v_eq_val(:)
+        write(f%fh,*) obj%theta_ps_val(:) ! computed from other variables
+        write(f%fh,*) obj%Name
+        write(f%fh,*) obj%timestep
+        write(f%fh,*) obj%dt
+        call f%close()
+
+
+        call system("mkdir -p ./"//trim(fname)//"/FEMDomain")
+        call f%open("./",trim(fname),"/FEMDomain/Water.res")
+        call obj%Water%export(path = "./"//trim(fname)//"/FEMDomain", restart=restart)
+        call f%close()
+        
+        call f%open("./",trim(fname),"/FEMDomain/Tissue.res")
+        call obj%Tissue%export(path = "./"//trim(fname)//"/FEMDomain", restart=restart)
+        call f%close()
+
+        call system("mkdir -p ./"//trim(fname)//"/DiffusionEq")
+        call f%open("./",trim(fname),"/DiffusionEq/DiffusionEq.res")
+        call obj%DiffusionEq%export(path="./"//trim(fname)//"/DiffusionEq",restart=restart)
+        call f%close()
+        
+        call system("mkdir -p ./"//trim(fname)//"/FiniteDeform")
+        call f%open("./",trim(fname),"/FiniteDeform/FiniteDeform.res")
+        call obj%FiniteDeform%export(path="./"//trim(fname)//"/FiniteDeform",restart=restart)
+        call f%close()
+
+        call system("mkdir -p ./"//trim(fname)//"/a_Psi")
+        call obj%a_Psi%export(      path=trim(fname)//"/a_Psi"  ,restart=restart)
+        
+
+        call system("mkdir -p ./"//trim(fname)//"/a_P")
+        call obj%a_P%export(        path=trim(fname)//"/a_P"    ,restart=restart)
+        
+        call system("mkdir -p ./"//trim(fname)//"/theta_eq")
+        call obj%theta_eq%export(   path=trim(fname)//"/theta_eq"   ,restart=restart)
+        
+        call system("mkdir -p ./"//trim(fname)//"/Psi_eq")
+        call obj%Psi_eq%export(     path=trim(fname)//"/Psi_eq"     ,restart=restart)
+        
+        call system("mkdir -p ./"//trim(fname)//"/a_E")
+        call obj%a_E%export(        path=trim(fname)//"/a_E"    ,restart=restart)
+        
+        call system("mkdir -p ./"//trim(fname)//"/a_v")
+        call obj%a_v%export(        path=trim(fname)//"/a_v"    ,restart=restart)
+        
+        call system("mkdir -p ./"//trim(fname)//"/E_eq")
+        call obj%E_eq%export(       path=trim(fname)//"/E_eq"   ,restart=restart)
+        
+        call system("mkdir -p ./"//trim(fname)//"/v_eq")
+        call obj%v_eq%export(       path=trim(fname)//"/v_eq"   ,restart=restart)
+        
+        return
+    endif
+
     if(present(displacement) )then
         if(displacement .eqv. .true.)then
             if(present(Name) )then

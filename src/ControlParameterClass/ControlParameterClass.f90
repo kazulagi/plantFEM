@@ -1,8 +1,9 @@
 module ControlParaeterClass
     use, intrinsic :: iso_fortran_env    
+    use std
     implicit none
     type::ControlParameter_
-        real(real64) :: Tol
+        real(real64)   :: Tol
         integer(int32) :: SimMode
         integer(int32) :: ItrTol
         integer(int32) :: Timestep
@@ -10,6 +11,7 @@ module ControlParaeterClass
         procedure,public :: init => initControlPara
         procedure,public :: SetControlPara => SetControlPara
         procedure,public :: set => SetControlPara
+        procedure,public :: export => exportControlPara
     end type ControlParameter_
 
 contains
@@ -56,5 +58,24 @@ subroutine SetControlPara(obj,OptionalTol,OptionalItrTol,OptionalTimestep,Option
 end subroutine SetControlPara
 !######### Import Control Parameters #########
 
+
+subroutine exportControlPara(obj,restart,path)
+    class(ControlParameter_),intent(inout) :: obj
+    logical,optional,intent(in) :: restart
+    character(*),intent(in) :: path
+    type(IO_) :: f
+
+    if(present(restart) )then
+        call system("mkdir -p "//trim(path)//"/ControlPara")
+        call f%open(trim(path)//"/ControlPara/","ControlPara",".res")
+        write(f%fh,*) obj%Tol
+        write(f%fh,*) obj%SimMode
+        write(f%fh,*) obj%ItrTol
+        write(f%fh,*) obj%Timestep
+        call f%close()
+        return
+    endif
+    
+end subroutine
 
 end module ControlParaeterClass
