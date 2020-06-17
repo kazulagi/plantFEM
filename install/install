@@ -25,7 +25,8 @@ echo "-----------------"
 #gmsh --version
 #echo "------------------------"
 #echo  -shared -fPIC"mpif90 -g -fcheck=all  --version"
-#mpif9 -shared -fPIC0 -g -fcheck=all  --version
+#mpif90 -g -fcheck=all  --version"#mpif9 -shared -fPIC0
+# -g -fcheck=all  --version
 #echo "------------------------"
 ##echo "OpenCL --version"
 ##clinfo --version
@@ -157,6 +158,7 @@ mpif90 -shared -fPIC -g -fcheck=all  -c ./src/ConstitutiveModelClass/Constitutiv
 echo "Compiling ./src/FEMDomainClass/FEMDomainClass.f90 " 
 echo " >> FEMDomainClass.o  " 
 echo " | ############                | (55%)\r\c"
+mpif90 -shared -fPIC -g -fcheck=all  -c ./src/FEMDomainClass/FEMDomainClass.f90 -o  ./inc/FEMDomainClass.o 
 mpif90 -shared -fPIC -g -fcheck=all  -c ./src/FEMDomainClass/FEMDomainClass.f90 -o  ./inc/FEMDomainClass.o 
 echo "Compiling ./src/FEMIfaceClass/FEMIfaceClass.f90" 
 echo " >> FEMIfaceClass.o "

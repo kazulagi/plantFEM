@@ -42,6 +42,7 @@ command2=""
 ret=0
 addonpath="addon"
 link="link"
+init="init"
 
 echo "If this is the first time, please type 'install' and press ENTER"
 echo "Please input fortran script *.f90 | or check manual by 'man'  "
@@ -76,11 +77,18 @@ do
         continue
     fi
 
+    if [ "$command" = "init" ]; then
+        #echo "$homepath"
+        echo "init"
+        continue
+    fi
 
     if [ "$command" = "homepath" ]; then
         echo "$homepath"
         continue
     fi
+
+
     if [ "$command" = "update" ]; then
         sh bin/update
         continue
