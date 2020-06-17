@@ -45,7 +45,7 @@ module FiniteDeformationClass
 		procedure :: getDispVector => getDispVectorDeform
 		procedure :: check => checkFiniteDeform
 		procedure :: import => importFiniteDeform
-
+		procedure :: export => exportFiniteDeform
   	end type
 	
 contains
@@ -2787,6 +2787,49 @@ subroutine getDispVectorDeform(obj,Vector)
 end subroutine
 ! ##################################################
 
+
+! ##################################################
+subroutine exportFiniteDeform(obj,restart,path)
+	class(FiniteDeform_),intent(inout) :: obj
+	logical,optional, intent(in) :: restart
+	character(*),intent(in) :: path
+	type(IO_) :: f, ff
+	integer(int32) :: fh_
+
+	if(present(restart) )then
+		! make new dir 
+		call system("mkdir -p "//trim(path)//"/FiniteDeform")
+    	call obj%FEMDomain%export(path=path//"/FiniteDeform",restart=restart)
+		
+		call f%open("./",trim(path)//"/FiniteDeform","/FiniteDeform.res")
+		write(f%fh, *) obj%DeformStress(:,:,:)
+		write(f%fh, *) obj%DeformStrain(:,:,:)
+		write(f%fh, *) obj%DeformStressInit(:,:,:)
+		write(f%fh, *) obj%DeformStressinc(:,:,:)
+		write(f%fh, *) obj%DeformStressMat(:,:,:)
+		write(f%fh, *) obj%DeformStressRHS(:,:)
+		write(f%fh, *) obj%DeformVecEBETot(:,:)
+		write(f%fh, *) obj%DeformVecEBEInc(:,:)
+		write(f%fh, *) obj%DeformVecGloTot(:)
+		write(f%fh, *) obj%DeformVecGloInc(:) 
+		write(f%fh, *) obj%TractionVecGlo(:)
+		write(f%fh, *) obj%ResidualVecGlo(:)
+		write(f%fh, *) obj%InternalVecGlo(:)
+		write(f%fh, *) obj%VolInitCurrEBE(:,:)
+		write(f%fh, *) obj%YoungsModulus(:) 
+		write(f%fh, *) obj%PoissonsRatio(:) 
+		write(f%fh, *) obj%PorePressure(:)  
+		write(f%fh, *) obj%dt,obj%error,obj%reactionforce
+		write(f%fh, *) obj%nr_tol
+		write(f%fh, *) obj%ReducedIntegration
+		write(f%fh, *) obj%infinitesimal
+		write(f%fh, *) obj%itr
+		write(f%fh, *) obj%Step
+		call f%close()
+	endif
+
+end subroutine
+! ##################################################
 
 end module FiniteDeformationClass
 

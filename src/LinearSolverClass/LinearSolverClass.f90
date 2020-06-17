@@ -1,8 +1,154 @@
 module LinearSolverClass
   use, intrinsic :: iso_fortran_env
   use MathClass
+  use MPIClass
   implicit none
+
+  type :: LinearSolver_
+    ! non-Element-by-element
+    real(real64),allocatable :: a(:,:)
+    real(real64),allocatable :: b(:)
+    real(real64),allocatable :: x(:)
+    ! Element-by-element
+    real(real64),allocatable :: a_e(:,:,:)
+    real(real64),allocatable :: b_e(:,:)
+    real(real64),allocatable :: x_e(:,:)
+    integer(int32),allocatable :: connectivity(:,:)
+    integer(int32) :: itrmax=1000000
+    real(real64) :: er0=dble(1.0e-08)
+  contains
+    procedure, public :: import => importLinearSolver
+    procedure, public :: solve => solveLinearSolver
+  end type
 contains
+
+!====================================================================================
+subroutine importLinearSolver(obj,a,x,b,a_e,b_e,x_e,connectivity)
+  class(LinearSolver_),intent(inout) :: obj
+  real(8),optional,intent(in) :: a(:,:),b(:),x(:),a_e(:,:,:),b_e(:,:),x_e(:,:)
+  integer(int32),optional,intent(in) :: connectivity(:,:)
+  integer(int32) :: k,l,m
+
+  ! in case of non element-by-element
+  if(present(a) )then
+    ! Set Ax=b
+    k=size(a,1)
+    l=size(a,2)
+    if(.not. allocated(obj%a) )then
+      allocate(obj%a(k,l) )
+    elseif(size(obj%a,1)/=k .or. size(obj%a,2)/=l )then
+      deallocate(obj%a)
+      allocate(obj%a(k,l) )
+    endif
+    obj%a(:,:)=a(:,:)
+  endif
+
+  if(present(b) )then
+    k=size(b,1)
+    if(.not. allocated(obj%b) )then
+      allocate(obj%b(k) )
+    elseif(size(obj%b,1)/=k)then
+      deallocate(obj%b)
+      allocate(obj%b(k) )
+    endif
+    obj%b(:)=b(:)
+  endif
+
+  if(present(x) )then
+    k=size(x,1)
+    if(.not. allocated(obj%x) )then
+      allocate(obj%x(k) )
+    elseif(size(obj%x,1)/=k)then
+      deallocate(obj%x)
+      allocate(obj%x(k) )
+    endif
+    obj%x(:)=x(:)
+  endif
+
+  if(present(a_e) )then
+    ! Set A_e x_e =b_e
+    k=size(a_e,1)
+    l=size(a_e,2)
+    m=size(a_e,3)
+    if(.not. allocated(obj%a_e) )then
+      allocate(obj%a_e(k,l,m) )
+    endif
+    obj%a_e(:,:,:)=a_e(:,:,:)
+  endif
+
+  if(present(b_e) )then
+    ! Set Ax=b
+    k=size(b_e,1)
+    l=size(b_e,2)
+    if(.not. allocated(obj%b_e) )then
+      allocate(obj%b_e(k,l) )
+    elseif(size(obj%b_e,1)/=k .or. size(obj%b_e,2)/=l )then
+      deallocate(obj%b_e)
+      allocate(obj%b_e(k,l) )
+    endif
+    obj%b_e(:,:)=b_e(:,:)
+  endif
+
+  if(present(x_e) )then
+    ! Set Ax=b
+    k=size(x_e,1)
+    l=size(x_e,2)
+    if(.not. allocated(obj%x_e) )then
+      allocate(obj%x_e(k,l) )
+    elseif(size(obj%x_e,1)/=k .or. size(obj%x_e,2)/=l )then
+      deallocate(obj%x_e)
+      allocate(obj%x_e(k,l) )
+    endif
+    obj%x_e(:,:)=x_e(:,:)
+  endif
+
+end subroutine importLinearSolver
+!====================================================================================
+
+
+!====================================================================================
+subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning)
+  class(LinearSolver_),intent(inout) :: obj
+  character(*),intent(in) :: Solver
+  logical,optional,intent(in) :: MPI, OpenCL, CUDAC,preconditioning
+
+  ! No MPI, No OpenCl and No CUDAC
+  if(allocated(obj%a) )then
+    if(allocated(obj%b) )then
+      if(allocated(obj%x))then
+        ! run as non EBE-mode
+        if(trim(Solver) == "GaussSeidel" )then
+          call gauss_seidel(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0 )
+        elseif(trim(Solver) == "GaussJordanPV" .or. trim(Solver) == "GaussJordan" )then
+          call gauss_jordan_pv(obj%a, obj%x, obj%b, size(obj%a,1) )
+        elseif(trim(Solver) == "BiCGSTAB" )then
+          call bicgstab1d(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0)
+        elseif(trim(Solver) == "GPBiCG" )then
+          if(present(preconditioning) )then
+            if(preconditioning .eqv. .true.)then
+              call preconditioned_GPBiCG(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0)
+            else
+              call GPBiCG(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0)
+            endif
+          else
+            call GPBiCG(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0)
+          endif
+          
+
+        else
+          print *, "LinearSolver_ ERROR:: no such solver as :: ",trim(Solver)
+        endif
+        return
+      endif
+    endif
+  endif
+
+  print *, "LinearSolver_ ERROR:: EBE-mode is not implemented yet."
+  stop 
+end subroutine solveLinearSolver
+!====================================================================================
+
+
 !====================================================================================
 subroutine gauss_seidel(a, b, x, n, itrmax, er0)
   integer(int32), intent(in) :: n, itrmax
@@ -160,7 +306,8 @@ subroutine bicgstab1d(a, b, x, n, itrmax, er)
      integer(int32) itr
      real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
      real(real64) r(n), r0(n), p(n), y(n), e(n), v(n)
-     er0=1.00e-14
+     er0=dble(1.00e-14)
+
 	 r(:) = b - matmul(a,x)
      c1 = dot_product(r,r)
 	 init_rr=c1
@@ -448,13 +595,17 @@ subroutine GPBiCG(a, b, x, n, itrmax, er)
     z(:) = 0.0d0
     itrmax_=input(default=1000,option=itrmax)
     do itr = 1, itrmax_
-      r0rk=dot_product(r0,r)
       p(:) = r(:)+beta*(p(:)-u(:) )  ! triple checked.
-      ap   = matmul(a,p) ! triple checked. ap=v,
+
+      ap(:)   = matmul(a,p) ! triple checked. ap=v,
       alp  = dot_product(r0,r )/dot_product(r0,ap )! triple checked.
       y(:) = t(:) - r(:) - alp*w(:) + alp*ap(:) !triple checked.
+      
       t(:) = r(:) - alp*ap(:) ! triple checked.
+
       q(:) = matmul(a,t) ! triple checked. s=q=at=c
+      
+      r0rk=dot_product(r0,r)
       if(itr==1)then
         gzi  = dot_product(q,t)/dot_product(q,q)! double checked.
         nu   = 0.0d0 ! double checked.
@@ -463,24 +614,26 @@ subroutine GPBiCG(a, b, x, n, itrmax, er)
         val2 = dot_product(q,q)*dot_product(y,y) - dot_product(y,q)*dot_product(q,y)
         
         if(  val2==0.0d0 ) then
-          print *, itr
-          print *,  r(:), alp*ap(:) 
+          !print *, itr
+          !print *,  r(:), alp*ap(:) 
           stop "GPBiCG devide by zero"
         endif
         gzi  = val1/val2
         val1 = dot_product(q,q)*dot_product(y,t) - dot_product(y,q)*dot_product(q,t)
         nu  = val1/val2  !triple checked.
       endif
-
+      
       u(:) = gzi*ap + nu*(t_(:) -r(:) + beta*u(:)  ) !double checked.
       z(:) = gzi*r(:) + nu*z(:) - alp*u(:)!double checked.
-      x(:) = x(:) +alp*ap(:) +z(:) !double checked.
+      x(:) = x(:) +alp*p(:) +z(:) !double checked.
+
       r(:) = t(:) -nu*y(:) -gzi*q(:)!double checked.
       t_(:)=t(:)
       rr = dot_product(r,r)
-      print *, 'itr, er =', itr,sqrt(rr),sqrt(rr)/sqrt(init_rr)
+      !print *, 'itr, er =', itr,sqrt(rr),sqrt(rr)/sqrt(init_rr)
       !print *, "ans = ",x(:)
-      if (sqrt(rr)/sqrt(init_rr) < er0.and. itr ==5) exit
+      if (sqrt(rr)/sqrt(init_rr) < er0 ) exit
+      r0rk=dot_product(r0,r)
       beta=alp/gzi*dot_product(r0,r)/r0rk
       w(:) = q(:) + beta * ap(:)
       if(itr==itrmax_) then
@@ -490,74 +643,157 @@ subroutine GPBiCG(a, b, x, n, itrmax, er)
  end subroutine 
 !===============================================================
 
+
  
 !===========================================================================
-subroutine pre_processed_GPBiCG(a, b, x, n, itrmax, er)
+subroutine preconditioned_GPBiCG(a, b, x, n, itrmax, er)
   integer(int32), intent(in) :: n
   integer(int32),optional,intent(in) :: itrmax
-  real(real64), intent(in) :: a(n,n), b(n)
+  real(real64), intent(in) :: a(1:n,1:n), b(1:n)
   real(real64), optional,intent(in)::er
-  real(real64), intent(inout) :: x(n)
+  real(real64), intent(inout) :: x(1:n)
+  real(real64) :: L(1:n,1:n),d(1:n)
     ! presented by Moe Thuthu et al., 2009, algorithm #3
-     integer(int32) itr,itrmax_
-     real(real64) alp,c1, rr,er0,init_rr,beta
-     real(real64) gzi,nu,val1,val2,r0rk,eps
-     real(real64) r(n), r0(n), p(n), y(n),ap(n),q(n)
-     real(real64) u(n),w(n),t(n),t_(n),z(n)
-     eps=1.00e-14
-     er0=input(default=eps,option=er)
+    integer(int32) itr,itrmax_,i,j,k
+    real(real64) alp,c1, rr,er0,init_rr,beta,lld,ld
+    real(real64) gzi,nu,val1,val2,r0rk,eps
+    real(real64) r(n),rk(n),r_(n),r_k(n), r0(n), p(n), y(n),ap(n),q(n)
+    real(real64) u(n),w(n),t(n),t_(n),z(n)
+
+    print *, "<<< Under implementation >>>"
+    
+    ! Incomplete Cholosky decomposition.
+    ! http://www.slis.tsukuba.ac.jp/~fujisawa.makoto.fu/cgi-bin/wiki/index.php?%A5%B3%A5%EC%A5%B9%A5%AD%A1%BC%CA%AC%B2%F2
+    ! >>>>>>>>>>
+    L(:,:) = 0.0d0
+    d(:) = 0.0d0
+    d(1) = a(1,1)
+    L(1,1) = 1.0d0
+    L(:,:) = imcompleteCholosky(a)
+    call showArray(L)
+    
+    !do i=2, n
+    !  ! i < kの場合
+    !  do j=1, i
+    !    if( abs(a(i,j)) < dble(1.0e-10)  )then
+    !      cycle
+    !    else
+    !      lld = a(i,j)
+    !      do k=1, j
+    !        lld = lld - L(i,k)*L(j,k)*d(k)
+    !      enddo
+    !      if(d(j)==0.0d0)then
+    !        stop "Error :: d(j)==0.0d0"
+    !      endif
+    !      L(i,j) = 1.0d0/d(j)*lld
+    !    endif
+    !    ld = a(i,i)
+    !    do k=1, i
+    !      ld = ld - L(i,k)*L(i,k)*d(k)
+    !    enddo
+    !    d(i) = ld
+    !    L(i,i) = 1.0d0
+    !  enddo
+    !  
+    !enddo
+!
+    print *, d
+
+    ! <<<<<<<<<<
+
+    eps=dble(1.00e-14)
+    er0=input(default=eps,option=er)
 
     r(:) = b - matmul(a,x)
+    call icres(L, d, r, p, n)
+    
+
+
     c1 = dot_product(r,r)
     init_rr=c1
     if (c1 < er0) return
     beta=0.0d0
-    p(:) = 0.0d0
+    !p(:) = 0.0d0
     r0(:) = r(:)
     w(:) = 0.0d0
     u(:) = 0.0d0
     t(:) = 0.0d0
     t_(:)= 0.0d0
     z(:) = 0.0d0
-    itrmax_=input(default=1000,option=itrmax)
-    do itr = 1, itrmax_
-      r0rk=dot_product(r0,r)
-      p(:) = r(:)+beta*(p(:)-u(:) )  ! triple checked.
-      ap   = matmul(a,p) ! triple checked. ap=v,
-      alp  = dot_product(r0,r )/dot_product(r0,ap )! triple checked.
-      y(:) = t(:) - r(:) - alp*w(:) + alp*ap(:) !triple checked.
-      t(:) = r(:) - alp*ap(:) ! triple checked.
-      q(:) = matmul(a,t) ! triple checked. s=q=at=c
-      if(itr==1)then
-        gzi  = dot_product(q,t)/dot_product(q,q)! double checked.
-        nu   = 0.0d0 ! double checked.
-      else
-        val1 = dot_product(y,y)*dot_product(q,t) - dot_product(y,t)*dot_product(q,y)
-        val2 = dot_product(q,q)*dot_product(y,y) - dot_product(y,q)*dot_product(q,y)
-        
-        if(  val2==0.0d0 ) stop "Bicgstab devide by zero"
-        gzi  = val1/val2
-        val1 = dot_product(q,q)*dot_product(y,t) - dot_product(y,q)*dot_product(q,t)
-        nu  = val1/val2  !triple checked.
-      endif
+    itrmax_=input(default=100000,option=itrmax)
+    itrmax_=10
+    do itr = 1, itrmax_ 
+      call icres(L, d, r, r_k, n)
 
-      u(:) = gzi*ap + nu*(t_(:) -r(:) + beta*u(:)  ) !double checked.
-      z(:) = gzi*r(:) + nu*z(:) - alp*u(:)!double checked.
-      x(:) = x(:) +alp*ap(:) +z(:) !double checked.
-      r(:) = t(:) -nu*y(:) -gzi*q(:)!double checked.
-      t_(:)=t(:)
+      !p(:) = r(:)+beta*(p(:)-u(:) )  ! triple checked.
+      !r0rk=dot_product(r0,r)
+      ap   = matmul(a,p) ! triple checked. ap=v,
+      alp  = dot_product(r,r_k )/dot_product(p,ap )! triple checked.
+      x(:) = x(:) + alp*ap(:)
+      rk(:)=r(:)
+      r(:) = r(:) - alp*ap(:)
+      !y(:) = t(:) - r(:) - alp*w(:) + alp*ap(:) !triple checked.
+      !t(:) = r(:) - alp*ap(:) ! triple checked.
+
+      !q(:) = matmul(a,t) ! triple checked. s=q=at=c
+      !if(itr==1)then
+      !  gzi  = dot_product(q,t)/dot_product(q,q)! double checked.
+      !  nu   = 0.0d0 ! double checked.
+      !else
+      !  val1 = dot_product(y,y)*dot_product(q,t) - dot_product(y,t)*dot_product(q,y)
+      !  val2 = dot_product(q,q)*dot_product(y,y) - dot_product(y,q)*dot_product(q,y)
+      !  
+      !  if(  val2==0.0d0 ) stop "Bicgstab devide by zero"
+      !  gzi  = val1/val2
+      !  val1 = dot_product(q,q)*dot_product(y,t) - dot_product(y,q)*dot_product(q,t)
+      !  nu  = val1/val2  !triple checked.
+      !endif
+
+      !u(:) = gzi*ap + nu*(t_(:) -r(:) + beta*u(:)  ) !double checked.
+      !z(:) = gzi*r(:) + nu*z(:) - alp*u(:)!double checked.
+      !x(:) = x(:) +alp*p(:) +z(:) !double checked.
+      !r(:) = t(:) -nu*y(:) -gzi*q(:)!double checked.
+      !t_(:)=t(:)
       rr = dot_product(r,r)
-      print *, 'itr, er =', itr,rr,sqrt(rr)/sqrt(init_rr)
+      print *, rr
+      !print *, 'itr, er =', itr,rr,sqrt(rr)/sqrt(init_rr)
       !print *, "ans = ",x(:)
-      if (sqrt(rr)/sqrt(init_rr) < er0 .and. itr ==5) exit
-      beta=alp/gzi*dot_product(r0,r)/r0rk
-      w(:) = q(:) + beta * ap(:)
+      if (sqrt(rr)/sqrt(init_rr) < er0 ) exit
+      call icres(L, d, r, r_, n)
+      beta = dot_product(r,r_)/dot_product(rk,r_k)
+      p(:)=r_(:)+beta*p(:)
+      !beta=alp/gzi*dot_product(r0,r)/r0rk
+      !w(:) = q(:) + beta * ap(:)
       if(itr==itrmax_) then
-        print *, "ERROR :: GPBiCG did not converge."
+        print *, "ERROR :: preconditioned-CG did not converge."
       endif
     enddo
  end subroutine 
 !===============================================================
+
+subroutine icres(L, d, r, u, n)
+  real(real64) :: y(n), rly,lu
+  real(real64),intent(inout) :: L(1:n,1:n), d(1:n),r(1:n),u(1:n)
+  integer(int32),intent(in)  :: n
+  integer(int32) :: i,j
+  do i=1, n
+    rly = r(i)
+    do j=1, i
+      rly = rly - L(i,j)*y(j)
+    enddo
+    y(i) = rly/L(i,i)
+  enddo
+
+  do i=n, 1, -1
+    lu=0.0d0
+    do j=i+1, n
+      lu = lu + L(j,i)*u(j)
+    enddo
+    u(i)= y(i)-d(i)*lu
+  enddo
+
+
+end subroutine icres
 
 end module
 !====================================================================================

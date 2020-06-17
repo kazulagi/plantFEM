@@ -771,14 +771,14 @@ end subroutine MergeFEMDomain
 
 !##################################################
 subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,SolverType,MeshDimension,&
-	FileName,Name,regacy,with,path,extention,step,FieldValue)
+	FileName,Name,regacy,with,path,extention,step,FieldValue,restart)
     class(FEMDomain_),intent(inout)::obj
     class(FEMDomain_),optional,intent(inout)::with
     character(*),optional,intent(in)::OptionalFileFormat,path,extention
     character(*),optional,intent(in)::OptionalProjectName,SolverType,FileName
 	character*4::FileFormat
 	character(*),optional,intent(in) :: Name
-	logical,optional,intent(in) :: regacy
+	logical,optional,intent(in) :: regacy,restart
     character*200::ProjectName
 	character*200 ::iFileName
 	real(real64),optional,intent(in) :: FieldValue(:,:)
@@ -787,6 +787,37 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
     integer(int32),optional,intent(in)::FileHandle,MeshDimension,step
     integer(int32) :: fh,i,j,k,n,m,DimNum,GpNum,nn
 	character*70 Msg
+	type(IO_) :: f
+
+	if(present(restart) )then
+		if(.not.present(path) )then
+			print *, "FEMDomain ERROR :: .not.present(path)"
+			stop 
+		endif
+
+		call system("mkdir -p "//trim(path))
+		call system("mkdir -p "//trim(path)//"/FEMDomain")
+		call obj%Mesh%export(path=trim(path)//"/FEMDomain",restart=.true.)
+		call obj%MaterialProp%export(path=trim(path)//"/FEMDomain",restart=.true.)
+		call obj%Boundary%export(path=trim(path)//"/FEMDomain",restart=.true.)
+		call obj%ControlPara%export(path=trim(path)//"/FEMDomain",restart=.true.)
+		call obj%ShapeFunction%export(path=trim(path)//"/FEMDomain",restart=.true.)
+
+		call f%open(trim(path)//"/FEMDomain","/FEMDomain",".res" )
+		write(f%fh,*) obj%RealTime
+		write(f%fh,*) obj%NumOfDomain
+		write(f%fh, '(A)' ) trim(obj%FilePath)
+		write(f%fh, '(A)' ) trim(obj%FileName)
+		write(f%fh, '(A)' ) trim(obj%Name)
+		write(f%fh, '(A)' ) trim(obj%Dtype)
+		write(f%fh, '(A)' ) trim(obj%SolverType)
+		write(f%fh, '(A)' ) trim(obj%Category1)
+		write(f%fh, '(A)' ) trim(obj%Category2)
+		write(f%fh, '(A)' ) trim(obj%Category3)
+		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
+		call f%close()
+		return
+	endif
 
 	if(present(regacy) )then
 		if(regacy .eqv. .true.)then
@@ -4771,11 +4802,14 @@ end subroutine
  
 
 ! ################################################
-subroutine rotateFEMDomain(obj,x,y,z)
+subroutine rotateFEMDomain(obj,x,y,z,deg)
 	class(FEMDomain_),intent(inout)::obj
 	real(real64),optional,intent(in)::x,y,z
+	real(real64) ::xd,yd,zd
 	real(real64),allocatable :: midpoint(:),rotmat(:,:),rotation(:),coord(:)
 	integer(int32) :: i,j,n,m
+	logical,optional,intent(in) :: deg
+
 
 	n=size(obj%Mesh%NodCoord,2)
 	m=size(obj%Mesh%NodCoord,1)
@@ -4792,6 +4826,7 @@ subroutine rotateFEMDomain(obj,x,y,z)
 
 	if(present(x) )then
 		do i=1,m
+
 			coord(:)=obj%Mesh%NodCoord(i,:)-midpoint(:)
 
 			rotmat(:,:)=0.0d0
@@ -5244,7 +5279,8 @@ end subroutine
 ! ##################################################
 
 ! ##################################################
-subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division)
+subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division,&
+	top,margin,inclineRate)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: meshtype
 	character(*),optional,intent(in) ::Name
@@ -5252,6 +5288,7 @@ subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     integer(int32),optional,intent(in) :: division ! for 3D rectangular
     real(real64),optional,intent(in) :: x_len,y_len,Le,Lh,Dr ! length
     real(real64),optional,intent(in) :: thickness ! for 3D rectangular
+    real(real64),optional,intent(in) :: top,margin,inclineRate ! for 3D Ridge and dam
 
 	if(present(Name) )then
 		obj%Name=Name
@@ -5260,7 +5297,8 @@ subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
 		obj%Name="NoName"
 		obj%FileName="NoName"
 	endif
-	call obj%Mesh%create(meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division)
+	call obj%Mesh%create(meshtype,x_num,y_num,x_len,y_len,Le,&
+	Lh,Dr,thickness,division,top=top,margin=margin)
 
 end subroutine createFEMDomain
 ! ##################################################

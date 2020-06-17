@@ -58,6 +58,7 @@ module BoundaryConditionClass
         procedure :: gmsh    => gmshBoundary
         procedure :: create => createBoundary
         procedure :: show => showBoundary
+        procedure :: export => exportBoundary
     end type Boundary_
 
 contains
@@ -1046,5 +1047,56 @@ subroutine gmshBoundary(obj,Dirichlet, Neumann, Time, Name, Tag)
 
 end subroutine gmshBoundary
 !###############################################
+
+subroutine exportBoundary(obj,restart,path)
+    class(Boundary_),intent(inout)::obj
+    logical,optional,intent(in) :: restart
+    character(*),intent(in) :: path
+    type(IO_) :: f
+
+    if(present(restart) )then
+        call system("mkdir -p "//trim(path)//"/Boundary")
+        call obj%DBound%export(path=trim(path)//"/Boundary", restart=.true.)
+        call obj%NBound%export(path=trim(path)//"/Boundary", restart=.true.)
+        call obj%TBound%export(path=trim(path)//"/Boundary", restart=.true.)
+        
+        call f%open(trim(path)//"/","Boundary/Boundary",".res" )
+        write(f%fh,*) obj%DBoundPara(:,:)
+        write(f%fh,*) obj%NBoundPara(:,:)
+        write(f%fh,*) obj%TBoundPara(:,:)
+        write(f%fh,*) obj%DBoundVal(:,:)
+        write(f%fh,*) obj%NBoundVal(:,:)  
+        write(f%fh,*) obj%TBoundVal(:,:)  
+        write(f%fh,*) obj%TBoundElemGpVal(:,:,:)      
+        write(f%fh,*) obj%DBoundValInc(:,:)
+        write(f%fh,*) obj%NBoundValInc(:,:)  
+        write(f%fh,*) obj%TBoundValInc(:,:)
+        write(f%fh,*) obj%DBoundNodID(:,:)
+        write(f%fh,*) obj%NBoundNodID(:,:)
+        write(f%fh,*) obj%TBoundNodID(:,:)
+        write(f%fh,*) obj%TBoundElemID(:)
+        write(f%fh,*) obj%DBoundNum(:)
+        write(f%fh,*) obj%NBoundNum(:)
+        write(f%fh,*) obj%TBoundNum(:)
+        write(f%fh,*) obj%TBoundElemNum(:)
+        write(f%fh,*) obj%x_max
+        write(f%fh,*) obj%x_min
+        write(f%fh,*) obj%y_max
+        write(f%fh,*) obj%y_min
+        write(f%fh,*) obj%z_max
+        write(f%fh,*) obj%z_min
+        write(f%fh,*) obj%t_max
+        write(f%fh,*) obj%t_min
+        write(f%fh,*) obj%Dcount
+        write(f%fh,*) obj%Ncount
+        write(f%fh,*) obj%Tcount
+        write(f%fh,*) obj%layer
+        write(f%fh, '(A)' ) trim(obj%Name)
+        write(f%fh, '(A)' ) trim(obj%ErrorMsg)
+        call f%close()
+    endif
+
+end subroutine
+
 
 end module BoundaryConditionClass

@@ -5,6 +5,29 @@ module ArrayClass
     implicit none
 
 
+    type :: Array_
+        integer(int32),allocatable ,private :: inta(:,:)
+        integer(real64),allocatable,private ::reala(:,:)
+    contains
+        procedure, public :: array => arrayarrayReal
+    end type
+
+    !interface arrayarray
+    !    module procedure arrayarrayReal, arrayarrayInt
+    !end interface arrayarray
+    interface loadtxt
+        module procedure loadtxtArrayReal
+    end interface
+
+    interface savetxt
+        module procedure savetxtArrayReal
+    end interface
+
+
+    interface addArray
+        module procedure addArrayInt, addArrayReal,addArrayIntVec
+    end interface addArray
+
     interface MergeArray
         module procedure MergeArrayInt, MergeArrayReal
     end interface MergeArray
@@ -92,8 +115,262 @@ module ArrayClass
     end interface
     
 contains
+        
 
 ! ############## Elementary Entities ############## 
+!=====================================
+function loadtxtArrayInt(path,name,extention) result(intArray)
+    integer(int32),allocatable :: intArray(:,:)
+    character(*),intent(in) :: path,name,extention
+    integer(int32) :: fh, n,m,x,i
+    fh = 9
+!    open(fh,file = trim(path)//trim(name)//trim(extention),status="old" )
+!    do
+!        read(fh, * , end=100 ) x
+!        n=n+1
+!    enddo
+!100 continue
+!    rewind(fh)
+!    do
+!        read(fh, '(i10)', advance='no',end=200 ) x
+!        n=n+1
+!    enddo
+!200 continue
+!    close(fh)
+    
+    open(fh,file = trim(path)//trim(name)//trim(extention),status="old" )
+    read(fh,*) n,m
+    allocate(intArray(n,m) )
+    do i=1, n
+        read(fh,*) intArray(i,1:m)
+    enddo
+    close(fh)
+
+end function 
+!=====================================
+
+!=====================================
+function loadtxtArrayReal(path,name,extention) result(realarray)
+    real(real64),allocatable :: realarray(:,:)
+    character(*),intent(in) :: path,name,extention
+    integer(int32) :: fh, n,m,x,i
+    fh = 9
+!    open(fh,file = trim(path)//trim(name)//trim(extention),status="old" )
+!    do
+!        read(fh, * , end=100 ) x
+!        n=n+1
+!    enddo
+!100 continue
+!    rewind(fh)
+!    do
+!        read(fh, '(i10)', advance='no',end=200 ) x
+!        n=n+1
+!    enddo
+!200 continue
+!    close(fh)
+    
+    open(fh,file = trim(path)//trim(name)//trim(extention),status="old" )
+    read(fh,*) n,m
+    allocate(realArray(n,m) )
+    do i=1, n
+        read(fh,*) realArray(i,1:m)
+    enddo
+    close(fh)
+
+end function 
+!=====================================
+
+
+subroutine savetxtArrayReal(realarray,path,name,extention) 
+    real(real64),intent(in) :: realarray(:,:)
+    character(*),intent(in) :: path,name,extention
+    integer(int32) :: fh, n,m,x,i,j
+    fh = 9
+
+    open(fh,file = trim(path)//trim(name)//trim(extention),status="replace" )
+    n = size(realArray,1)
+    m = size(realArray,2)
+    if(trim(extention) == ".csv")then
+        write(fh,*) n,",",m,","
+        do i=1, n
+            do j=1,m-1
+                write(fh, '(A)',advance='no') trim(str(realArray(i,j)))//","
+            enddo
+            write(fh,'(A)',advance='yes') trim(str(realArray(i,m)))
+        enddo
+    elseif(trim(extention) == ".html")then
+        write(fh,'(A)',advance='yes') "<!DOCTYPE html>"
+        write(fh,'(A)',advance='yes') "<html>"
+        write(fh,'(A)',advance='yes') "<head>"
+        write(fh,'(A)',advance='no' ) "<title>"
+        write(fh,'(A)',advance='no' ) "Saved by savetxt"
+        write(fh,'(A)',advance='yes') "</title>"
+        write(fh,'(A)',advance='yes') "</head>"
+        write(fh,'(A)',advance='yes') "<body>"
+        write(fh,'(A)',advance='yes')"<table border='5'>"
+        write(fh,'(A)',advance='yes') '<meta http-equiv="refresh" content="3">'
+        do i=1, n
+            write(fh, '(A)',advance='yes') "<tr>"
+            do j=1,m
+                write(fh, '(A)',advance='no')  "<td><div contenteditable>"
+                write(fh, '(A)',advance='no') trim(str(realArray(i,j)))
+                write(fh, '(A)',advance='yes') "</td></div>"
+            enddo
+            write(fh, '(A)',advance='yes') "</tr>"
+        enddo
+        write(fh,'(A)',advance='yes') "</table>"
+        write(fh,'(A)',advance='yes') "</body>"
+        write(fh,'(A)',advance='yes') "</html>"
+    else
+        write(fh,*) n,m
+        do i=1, n
+            write(fh,*) realArray(i,1:m)
+        enddo
+    endif
+    close(fh)
+end subroutine
+!=====================================
+subroutine arrayarrayReal(obj,reala)
+    class(Array_),intent(inout) :: obj
+    real(real64),intent(in) :: reala(:,:)
+    integer(int32) :: n,m
+    if(allocated(obj%reala))then
+        deallocate(obj%reala)
+    endif
+
+    if(allocated(obj%inta))then
+        deallocate(obj%inta)
+    endif
+    n = size(reala,1)
+    m = size(reala,2)
+
+    allocate(obj%reala(n,m) )
+    allocate(obj%inta(n,m) )
+    
+    obj%reala(:,:) = reala(:,:)
+    obj%inta(:,:) = int(reala(:,:))
+
+end subroutine
+!=====================================
+
+
+!=====================================
+subroutine arrayarrayint(obj,inta)
+    class(Array_),intent(inout) :: obj
+    integer(int32),intent(in) :: inta(:,:)
+    integer(int32) :: n,m
+    if(allocated(obj%inta))then
+        deallocate(obj%inta)
+    endif
+
+    if(allocated(obj%reala))then
+        deallocate(obj%reala)
+    endif
+
+    n = size(inta,1)
+    m = size(inta,2)
+
+    allocate(obj%inta(n,m) )
+    allocate(obj%inta(n,m) )
+    
+    obj%inta(:,:) = inta(:,:)
+    obj%reala(:,:) = dble(inta(:,:))
+
+end subroutine
+!=====================================
+
+
+
+!=====================================
+subroutine addArrayInt(a,b)
+    integer(int32),allocatable,intent(inout)::a(:,:)
+    integer(int32),intent(in)::b(:,:)
+    integer(int32),allocatable::c(:,:)
+    integer(int32) i,j,an,am,bn,bm
+
+    if(allocated(c)) deallocate(c)
+    an=size(a,1)
+    am=size(a,2)
+
+    bn=size(b,1)
+    bm=size(b,2)
+
+    if(am/=bm)then
+        print *, "ERROR :: MergeArray, size(a,2)/= size(b,2)"
+        return
+    endif
+    allocate(c(an+bn,am) )
+    do i=1,an
+        c(i,:)=a(i,:)
+    enddo
+    do i=1,bn
+        c(i+an,:)=b(i,:)
+    enddo
+    
+    call copyArray(c,a)
+
+end subroutine
+!=====================================
+
+
+
+!=====================================
+subroutine addArrayIntVec(a,b)
+    integer(int32),allocatable,intent(inout)::a(:)
+    integer(int32),intent(in)::b(:)
+    integer(int32),allocatable::c(:)
+    integer(int32) i,j,an,am,bn,bm
+
+    if(allocated(c)) deallocate(c)
+    an=size(a,1)
+
+    bn=size(b,1)
+
+    allocate(c(an+bn) )
+    do i=1,an
+        c(i)=a(i)
+    enddo
+    do i=1,bn
+        c(i+an)=b(i)
+    enddo
+    
+    call copyArray(c,a)
+
+end subroutine
+!=====================================
+
+!=====================================
+subroutine addArrayReal(a,b)
+    real(real64),allocatable,intent(inout)::a(:,:)
+    real(real64),intent(in)::b(:,:)
+    real(real64),allocatable::c(:,:)
+    integer(int32) i,j,an,am,bn,bm
+
+    if(allocated(c)) deallocate(c)
+    an=size(a,1)
+    am=size(a,2)
+
+    bn=size(b,1)
+    bm=size(b,2)
+
+    if(am/=bm)then
+        print *, "ERROR :: MergeArray, size(a,2)/= size(b,2)"
+        return
+    endif
+    allocate(c(an+bn,am) )
+    do i=1,an
+        c(i,:)=a(i,:)
+    enddo
+    do i=1,bn
+        c(i+an,:)=b(i,:)
+    enddo
+    
+    call copyArray(c,a)
+
+end subroutine
+!=====================================
+
+
 
 
 !=====================================
@@ -2156,5 +2433,47 @@ subroutine getKeyAndValueReal(Array, Key, info)
     enddo
 
 end subroutine getKeyAndValueReal
+
+
+function imcompleteCholosky(mat) result(a)
+    real(real64) :: mat(:,:)
+    real(real64),allocatable :: a(:,:)
+    integer(int32) :: n,i,j,k
+    n=size(mat,1)
+    allocate(a(n,n) )
+    a(:,:)=mat(:,:)
+    do k=1,n
+        if(a(k,k) ==0.0d0)then
+            stop
+        endif
+        a(k,k)= dsqrt( abs(a(k,k)) )
+        do i=k+1, n
+            if(a(i,k)/=0.0d0 )then
+                if(a(k,k) ==0.0d0)then
+                    print *, "ERROR :: a(k,k) ==0.0d0"
+                    stop
+                endif
+                !print *, a(k,k) , "aik",k
+                a(i,k) = a(i,k)/a(k,k)
+                !print *, a(i,k) , "aik"
+            endif
+        enddo
+        do j=k+1,n
+            do i=j,n
+                if( a(i,j) /= 0.0d0 )then
+                    !print *, a(i,j),a(i,k),a(j,k) ,"dsf",i,j,k
+                    a(i,j)=a(i,j)-a(i,k)*a(j,k)
+                endif
+            enddo
+        enddo
+        do i=1,n
+            do j=i+1,n
+                a(i,j)=0.0d0
+            enddo
+        enddo
+    enddo
+
+    call showArray(a)
+end function
 
 end module ArrayClass

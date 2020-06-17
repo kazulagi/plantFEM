@@ -4,7 +4,7 @@ module IOClass
     implicit none
 
     type :: IO_
-        integer :: fh=0
+        integer :: fh=1000
         logical :: active=.false.
         character(200)::path,name,extention
     contains
@@ -51,15 +51,15 @@ subroutine openIO(obj,path,name,extention,fh)
             obj%name=trim(name)
             if(present(extention) )then
                 obj%extention=trim(extention)
-                open(obj%fh,file=trim(path)//trim(name)//trim(extention) )
+                open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention) )
             else
-                open(obj%fh,file=trim(path)//trim(name) )
+                open(newunit=obj%fh,file=trim(path)//trim(name) )
             endif
         else
-            open(obj%fh,file=trim(path) )
+            open(newunit=obj%fh,file=trim(path) )
         endif
     else
-        open(obj%fh,file="./untitled.txt" )
+        open(newunit=obj%fh,file="./untitled.txt" )
     endif
     
 

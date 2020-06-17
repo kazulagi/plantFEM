@@ -23,6 +23,7 @@ module MaterialPropClass
         character*70 ErrorMsg
     contains
         procedure :: Init => initializeMaterial
+        procedure :: export => exportMaterialProp
         procedure :: Delete => DeallocateMaterialProp
         procedure :: create => createMaterialProp
         procedure :: set => setMaterialProp
@@ -52,6 +53,41 @@ subroutine createMaterialProp(obj,Name,x_max,x_min,y_max,y_min,z_max,z_min,t_max
         
 end subroutine
 ! ###########################################################################
+
+! ###########################################################################
+subroutine exportMaterialProp(obj,restart,path)
+    class(MaterialProp_),intent(inout)::obj
+    logical,optional,intent(in) :: restart
+    character(*),intent(in) :: path
+    type(IO_) :: f
+
+    if(present(restart) )then
+        call system("mkdir -p "//trim(path)//"/Material")
+        call f%open(trim(path)//"/Material/","Material",".res")
+        call obj%Mesh%export(path=trim(path)//"/Material",restart=.true.)
+        write(f%fh,*) obj%meshPara(:,:)
+        write(f%fh,*) obj%x_max
+        write(f%fh,*) obj%x_min
+        write(f%fh,*) obj%y_max
+        write(f%fh,*) obj%y_min
+        write(f%fh,*) obj%z_max
+        write(f%fh,*) obj%z_min
+        write(f%fh,*) obj%t_max
+        write(f%fh,*) obj%t_min
+        write(f%fh,*) obj%Mcount
+        write(f%fh,*) obj%layer
+        write(f%fh, '(A)' ) trim(obj%Name)
+        write(f%fh,*) obj%MatPara(:,:)
+        write(f%fh,*) obj%NumOfMatPara
+        write(f%fh,*) obj%NumOfMaterial    
+        write(f%fh, '(A)') trim(obj%MaterialType)
+        write(f%fh, '(A)') trim(obj%ErrorMsg)
+        call f%close()
+    endif
+
+end subroutine
+! ###########################################################################
+
 
 ! ###########################################################################
 subroutine showMaterialProp(obj)

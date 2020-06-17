@@ -25,7 +25,8 @@ echo "-----------------"
 #gmsh --version
 #echo "------------------------"
 #echo  -shared -fPIC"mpif90 -g -fcheck=all  --version"
-#mpif9 -shared -fPIC0 -g -fcheck=all  --version
+#mpif90 -g -fcheck=all  --version"#mpif9 -shared -fPIC0
+# -g -fcheck=all  --version
 #echo "------------------------"
 ##echo "OpenCL --version"
 ##clinfo --version
@@ -158,6 +159,7 @@ echo "Compiling ./src/FEMDomainClass/FEMDomainClass.f90 "
 echo " >> FEMDomainClass.o  " 
 echo " | ############                | (55%)\r\c"
 mpif90 -shared -fPIC -g -fcheck=all  -c ./src/FEMDomainClass/FEMDomainClass.f90 -o  ./inc/FEMDomainClass.o 
+mpif90 -shared -fPIC -g -fcheck=all  -c ./src/FEMDomainClass/FEMDomainClass.f90 -o  ./inc/FEMDomainClass.o 
 echo "Compiling ./src/FEMIfaceClass/FEMIfaceClass.f90" 
 echo " >> FEMIfaceClass.o "
 echo " | #############               | (60%)\r\c"
@@ -228,6 +230,15 @@ echo "Modules for simulators (sim) is installed."
 
 
 # Compilation of agricultural objects
+echo "Compiling ./src/RidgeClass/RidgeClass.f90" 
+echo " >> RidgeClass.o "
+echo " | ########################    | (90%)\r\c"
+mpif90 -shared -fPIC -g -fcheck=all  -c ./src/RidgeClass/RidgeClass.f90 -o  ./inc/RidgeClass.o
+echo "Compiling ./src/DamClass/DamClass.f90" 
+echo " >> DamClass.o "
+echo " | ########################    | (90%)\r\c"
+mpif90 -shared -fPIC -g -fcheck=all  -c ./src/DamClass/DamClass.f90 -o  ./inc/DamClass.o
+
 echo "Compiling ./src/StemClass/StemClass.f90" 
 echo " >> StemClass.o "
 echo " | ########################    | (90%)\r\c"
