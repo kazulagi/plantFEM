@@ -230,6 +230,15 @@ echo "Modules for simulators (sim) is installed."
 
 
 # Compilation of agricultural objects
+echo "Compiling ./src/RidgeClass/RidgeClass.f90" 
+echo " >> RidgeClass.o "
+echo " | ########################    | (90%)\r\c"
+mpif90 -shared -fPIC -g -fcheck=all  -c ./src/RidgeClass/RidgeClass.f90 -o  ./inc/RidgeClass.o
+echo "Compiling ./src/DamClass/DamClass.f90" 
+echo " >> DamClass.o "
+echo " | ########################    | (90%)\r\c"
+mpif90 -shared -fPIC -g -fcheck=all  -c ./src/DamClass/DamClass.f90 -o  ./inc/DamClass.o
+
 echo "Compiling ./src/StemClass/StemClass.f90" 
 echo " >> StemClass.o "
 echo " | ########################    | (90%)\r\c"

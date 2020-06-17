@@ -23,6 +23,11 @@ module ArrayClass
         module procedure savetxtArrayReal
     end interface
 
+
+    interface addArray
+        module procedure addArrayInt, addArrayReal,addArrayIntVec
+    end interface addArray
+
     interface MergeArray
         module procedure MergeArrayInt, MergeArrayReal
     end interface MergeArray
@@ -273,6 +278,98 @@ subroutine arrayarrayint(obj,inta)
 
 end subroutine
 !=====================================
+
+
+
+!=====================================
+subroutine addArrayInt(a,b)
+    integer(int32),allocatable,intent(inout)::a(:,:)
+    integer(int32),intent(in)::b(:,:)
+    integer(int32),allocatable::c(:,:)
+    integer(int32) i,j,an,am,bn,bm
+
+    if(allocated(c)) deallocate(c)
+    an=size(a,1)
+    am=size(a,2)
+
+    bn=size(b,1)
+    bm=size(b,2)
+
+    if(am/=bm)then
+        print *, "ERROR :: MergeArray, size(a,2)/= size(b,2)"
+        return
+    endif
+    allocate(c(an+bn,am) )
+    do i=1,an
+        c(i,:)=a(i,:)
+    enddo
+    do i=1,bn
+        c(i+an,:)=b(i,:)
+    enddo
+    
+    call copyArray(c,a)
+
+end subroutine
+!=====================================
+
+
+
+!=====================================
+subroutine addArrayIntVec(a,b)
+    integer(int32),allocatable,intent(inout)::a(:)
+    integer(int32),intent(in)::b(:)
+    integer(int32),allocatable::c(:)
+    integer(int32) i,j,an,am,bn,bm
+
+    if(allocated(c)) deallocate(c)
+    an=size(a,1)
+
+    bn=size(b,1)
+
+    allocate(c(an+bn) )
+    do i=1,an
+        c(i)=a(i)
+    enddo
+    do i=1,bn
+        c(i+an)=b(i)
+    enddo
+    
+    call copyArray(c,a)
+
+end subroutine
+!=====================================
+
+!=====================================
+subroutine addArrayReal(a,b)
+    real(real64),allocatable,intent(inout)::a(:,:)
+    real(real64),intent(in)::b(:,:)
+    real(real64),allocatable::c(:,:)
+    integer(int32) i,j,an,am,bn,bm
+
+    if(allocated(c)) deallocate(c)
+    an=size(a,1)
+    am=size(a,2)
+
+    bn=size(b,1)
+    bm=size(b,2)
+
+    if(am/=bm)then
+        print *, "ERROR :: MergeArray, size(a,2)/= size(b,2)"
+        return
+    endif
+    allocate(c(an+bn,am) )
+    do i=1,an
+        c(i,:)=a(i,:)
+    enddo
+    do i=1,bn
+        c(i+an,:)=b(i,:)
+    enddo
+    
+    call copyArray(c,a)
+
+end subroutine
+!=====================================
+
 
 
 

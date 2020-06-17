@@ -4802,11 +4802,14 @@ end subroutine
  
 
 ! ################################################
-subroutine rotateFEMDomain(obj,x,y,z)
+subroutine rotateFEMDomain(obj,x,y,z,deg)
 	class(FEMDomain_),intent(inout)::obj
 	real(real64),optional,intent(in)::x,y,z
+	real(real64) ::xd,yd,zd
 	real(real64),allocatable :: midpoint(:),rotmat(:,:),rotation(:),coord(:)
 	integer(int32) :: i,j,n,m
+	logical,optional,intent(in) :: deg
+
 
 	n=size(obj%Mesh%NodCoord,2)
 	m=size(obj%Mesh%NodCoord,1)
@@ -4823,6 +4826,7 @@ subroutine rotateFEMDomain(obj,x,y,z)
 
 	if(present(x) )then
 		do i=1,m
+
 			coord(:)=obj%Mesh%NodCoord(i,:)-midpoint(:)
 
 			rotmat(:,:)=0.0d0
@@ -5275,7 +5279,8 @@ end subroutine
 ! ##################################################
 
 ! ##################################################
-subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division)
+subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division,&
+	top,margin,inclineRate)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: meshtype
 	character(*),optional,intent(in) ::Name
@@ -5283,6 +5288,7 @@ subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     integer(int32),optional,intent(in) :: division ! for 3D rectangular
     real(real64),optional,intent(in) :: x_len,y_len,Le,Lh,Dr ! length
     real(real64),optional,intent(in) :: thickness ! for 3D rectangular
+    real(real64),optional,intent(in) :: top,margin,inclineRate ! for 3D Ridge and dam
 
 	if(present(Name) )then
 		obj%Name=Name
@@ -5291,7 +5297,8 @@ subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
 		obj%Name="NoName"
 		obj%FileName="NoName"
 	endif
-	call obj%Mesh%create(meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division)
+	call obj%Mesh%create(meshtype,x_num,y_num,x_len,y_len,Le,&
+	Lh,Dr,thickness,division,top=top,margin=margin)
 
 end subroutine createFEMDomain
 ! ##################################################

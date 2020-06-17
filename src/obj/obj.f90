@@ -1,4 +1,6 @@
 module obj
+    use RidgeClass
+    use DamClass
     use StemClass
     use PlantRootClass
     use PetiClass

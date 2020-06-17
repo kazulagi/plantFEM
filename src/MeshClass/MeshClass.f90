@@ -78,6 +78,7 @@ module MeshClass
         procedure :: showRange => showRangeMesh
         procedure :: empty => emptyMesh
         procedure :: AdjustSphere => AdjustSphereMesh
+        procedure :: add => addMesh
     end type Mesh_
 
 
@@ -1419,7 +1420,20 @@ end subroutine
 !##################################################
 
 
+!##################################################
+subroutine addMesh(obj,mesh)
+    class(Mesh_),intent(inout) :: obj
+    class(Mesh_),intent(inout)    :: mesh
+    integer(int32) :: NumOfElem
 
+    NumOfElem=size(obj%ElemNod,1)
+    call addarray(obj%NodCoord,mesh%NodCoord)
+    call addarray(obj%ElemNod,mesh%ElemNod)
+    call addarray(obj%ElemMat,mesh%ElemMat)
+    obj%ElemNod(NumOfElem+1:,:)=obj%ElemNod(NumOfElem+1:,:)+size(obj%NodCoord,1)
+
+end subroutine
+!##################################################
 
 
 
@@ -1433,8 +1447,259 @@ subroutine MergeMesh(inobj1,inobj2,outobj)
     integer(int32) node_num1,num1,num2,num3
     integer(int32) i,j,k
     
-    include "./MergeMesh.f90"
+    !MergeObjects if the array is allocated.
+
+    ! ========= Merge nodes  ============
+    num1=size(inobj1%NodCoord,1)
+    node_num1=num1
+    num2=size(inobj2%NodCoord,1)
+    num3=size(inobj2%NodCoord,2)
+    if(num3 /= size(inobj1%NodCoord,1) )then
+        outobj%ErrorMsg="MergeMesh >> num3 /= inobj1%NodCoord,1"
+    endif
+
+    allocate(outobj%NodCoord(num1+num2, num3))
+    do i=1,num1
+        outobj%NodCoord(i,:)=inobj1%NodCoord(i,:)
+    enddo
+    do i=1,num2
+        outobj%NodCoord(i+num1,:)=inobj2%NodCoord(i,:)
+    enddo
+
+    ! update subdomain infomation
+    if(allocated(inobj1%SubMeshNodFromTo) )then
+        if(allocated(inobj2%SubMeshNodFromTo) )then
+            if(allocated(outobj%SubMeshNodFromTo) )then
+                deallocate(outobj%SubMeshNodFromTo)
+            endif
+            allocate(outobj%SubMeshNodFromTo(2,3) )
+            outobj%SubMeshNodFromTo(1,1)=1 !subdomain ID
+            outobj%SubMeshNodFromTo(1,2)=1
+            outobj%SubMeshNodFromTo(1,3)=num1
+            
+            outobj%SubMeshNodFromTo(2,1)=2 !subdomain ID
+            outobj%SubMeshNodFromTo(2,2)=num1+1 !node id starts from
+            outobj%SubMeshNodFromTo(2,3)=num1+num2 !node id goes to
+        else
+            if(allocated(outobj%SubMeshNodFromTo) )then
+                deallocate(outobj%SubMeshNodFromTo)
+            endif
+            allocate(outobj%SubMeshNodFromTo(2,3) )
+            outobj%SubMeshNodFromTo(1,1)=1 !subdomain ID
+            outobj%SubMeshNodFromTo(1,2)=1
+            outobj%SubMeshNodFromTo(1,3)=num1
+            
+            outobj%SubMeshNodFromTo(2,1)=2 !subdomain ID
+            outobj%SubMeshNodFromTo(2,2)=num1+1 !node id starts from
+            outobj%SubMeshNodFromTo(2,3)=num1+num2 !node id goes to
+        endif    
+    else
+        if(allocated(inobj2%SubMeshNodFromTo) )then
+            if(allocated(outobj%SubMeshNodFromTo) )then
+                deallocate(outobj%SubMeshNodFromTo)
+            endif
+            allocate(outobj%SubMeshNodFromTo(2,3) )
+            outobj%SubMeshNodFromTo(1,1)=1 !subdomain ID
+            outobj%SubMeshNodFromTo(1,2)=1
+            outobj%SubMeshNodFromTo(1,3)=num1
+            
+            outobj%SubMeshNodFromTo(2,1)=2 !subdomain ID
+            outobj%SubMeshNodFromTo(2,2)=num1+1 !node id starts from
+            outobj%SubMeshNodFromTo(2,3)=num1+num2 !node id goes to
+        else
+            if(allocated(outobj%SubMeshNodFromTo) )then
+                deallocate(outobj%SubMeshNodFromTo)
+            endif
+            allocate(outobj%SubMeshNodFromTo(2,3) )
+            outobj%SubMeshNodFromTo(1,1)=1 !subdomain ID
+            outobj%SubMeshNodFromTo(1,2)=1
+            outobj%SubMeshNodFromTo(1,3)=num1
+            
+            outobj%SubMeshNodFromTo(2,1)=2 !subdomain ID
+            outobj%SubMeshNodFromTo(2,2)=num1+1 !node id starts from
+            outobj%SubMeshNodFromTo(2,3)=num1+num2 !node id goes to
+        endif    
+    endif
+    ! ========= Merge nodes  ============
     
+
+
+    ! ========= Merge elements  ============
+    num1=size(inobj1%ElemNod,1)
+    num2=size(inobj2%ElemNod,1)
+    num3=size(inobj2%ElemNod,2)
+    if(num3 /= size(inobj1%ElemNod,1) )then
+        outobj%ErrorMsg="MergeMesh >> num3 /= inobj1%ElemNod,1"
+    endif
+
+    allocate(outobj%ElemNod(num1+num2, num3))
+    do i=1,num1
+        outobj%ElemNod(i,:)=inobj1%ElemNod(i,:)
+    enddo
+    do i=1,num2
+        outobj%ElemNod(i+num1,:)=inobj2%ElemNod(i,:)+node_num1
+    enddo
+    ! update subdomain infomation
+    if(allocated(inobj1%SubMeshElemFromTo) )then
+        if(allocated(inobj2%SubMeshElemFromTo) )then
+            if(allocated(outobj%SubMeshElemFromTo) )then
+                deallocate(outobj%SubMeshElemFromTo)
+            endif
+            allocate(outobj%SubMeshElemFromTo(2,3) )
+            outobj%SubMeshElemFromTo(1,1)=1 !subdomain ID
+            outobj%SubMeshElemFromTo(1,2)=1
+            outobj%SubMeshElemFromTo(1,3)=num1
+            
+            outobj%SubMeshElemFromTo(2,1)=2 !subdomain ID
+            outobj%SubMeshElemFromTo(2,2)=num1+1 !node id starts from
+            outobj%SubMeshElemFromTo(2,3)=num1+num2 !node id goes to
+        else
+            if(allocated(outobj%SubMeshElemFromTo) )then
+                deallocate(outobj%SubMeshElemFromTo)
+            endif
+            allocate(outobj%SubMeshElemFromTo(2,3) )
+            outobj%SubMeshElemFromTo(1,1)=1 !subdomain ID
+            outobj%SubMeshElemFromTo(1,2)=1
+            outobj%SubMeshElemFromTo(1,3)=num1
+            
+            outobj%SubMeshElemFromTo(2,1)=2 !subdomain ID
+            outobj%SubMeshElemFromTo(2,2)=num1+1 !node id starts from
+            outobj%SubMeshElemFromTo(2,3)=num1+num2 !node id goes to
+        endif    
+    else
+        if(allocated(inobj2%SubMeshElemFromTo) )then
+            if(allocated(outobj%SubMeshElemFromTo) )then
+                deallocate(outobj%SubMeshElemFromTo)
+            endif
+            allocate(outobj%SubMeshElemFromTo(2,3) )
+            outobj%SubMeshElemFromTo(1,1)=1 !subdomain ID
+            outobj%SubMeshElemFromTo(1,2)=1
+            outobj%SubMeshElemFromTo(1,3)=num1
+            
+            outobj%SubMeshElemFromTo(2,1)=2 !subdomain ID
+            outobj%SubMeshElemFromTo(2,2)=num1+1 !node id starts from
+            outobj%SubMeshElemFromTo(2,3)=num1+num2 !node id goes to
+        else
+            if(allocated(outobj%SubMeshElemFromTo) )then
+                deallocate(outobj%SubMeshElemFromTo)
+            endif
+            allocate(outobj%SubMeshElemFromTo(2,3) )
+            outobj%SubMeshElemFromTo(1,1)=1 !subdomain ID
+            outobj%SubMeshElemFromTo(1,2)=1
+            outobj%SubMeshElemFromTo(1,3)=num1
+            
+            outobj%SubMeshElemFromTo(2,1)=2 !subdomain ID
+            outobj%SubMeshElemFromTo(2,2)=num1+1 !node id starts from
+            outobj%SubMeshElemFromTo(2,3)=num1+num2 !node id goes to
+        endif    
+    endif
+    ! ========= Merge elements  ============
+    
+
+    ! ========= Merge Facet Elements  ============
+    num1=size(inobj1%FacetElemNod,1)
+    num2=size(inobj2%FacetElemNod,1)
+    num3=size(inobj2%FacetElemNod,2)
+    if(num3 /= size(inobj1%FacetElemNod,1) )then
+        outobj%ErrorMsg="MergeMesh >> num3 /= inobj1%ElemNod,1"
+    endif
+
+    allocate(outobj%FacetElemNod(num1+num2, num3))
+    do i=1,num1
+        outobj%FacetElemNod(i,:)=inobj1%FacetElemNod(i,:)
+    enddo
+    do i=1,num2
+        outobj%FacetElemNod(i+num1,:)=inobj2%FacetElemNod(i,:)+node_num1
+    enddo
+
+    
+    ! ========= Merge Facet Elements  ============
+
+
+    ! ========= Merge surface elements  ============
+    num1=size(inobj1%SurfaceLine2D,1)
+    num2=size(inobj2%SurfaceLine2D,1)
+    
+    allocate(outobj%SurfaceLine2D(num1+num2))
+    do i=1,num1
+        outobj%SurfaceLine2D(i)=inobj1%SurfaceLine2D(i)
+    enddo
+    do i=1,num2
+        outobj%SurfaceLine2D(i+num1)=inobj2%SurfaceLine2D(i)+node_num1
+    enddo
+
+    ! update subdomain infomation
+    if(allocated(inobj1%SubMeshSurfFromTo) )then
+        if(allocated(inobj2%SubMeshSurfFromTo) )then
+            if(allocated(outobj%SubMeshSurfFromTo) )then
+                deallocate(outobj%SubMeshSurfFromTo)
+            endif
+            allocate(outobj%SubMeshSurfFromTo(2,3) )
+            outobj%SubMeshSurfFromTo(1,1)=1 !subdomain ID
+            outobj%SubMeshSurfFromTo(1,2)=1
+            outobj%SubMeshSurfFromTo(1,3)=num1
+            
+            outobj%SubMeshSurfFromTo(2,1)=2 !subdomain ID
+            outobj%SubMeshSurfFromTo(2,2)=num1+1 !node id starts from
+            outobj%SubMeshSurfFromTo(2,3)=num1+num2 !node id goes to
+        else
+            if(allocated(outobj%SubMeshSurfFromTo) )then
+                deallocate(outobj%SubMeshSurfFromTo)
+            endif
+            allocate(outobj%SubMeshSurfFromTo(2,3) )
+            outobj%SubMeshSurfFromTo(1,1)=1 !subdomain ID
+            outobj%SubMeshSurfFromTo(1,2)=1
+            outobj%SubMeshSurfFromTo(1,3)=num1
+            
+            outobj%SubMeshSurfFromTo(2,1)=2 !subdomain ID
+            outobj%SubMeshSurfFromTo(2,2)=num1+1 !node id starts from
+            outobj%SubMeshSurfFromTo(2,3)=num1+num2 !node id goes to
+        endif    
+    else
+        if(allocated(inobj2%SubMeshSurfFromTo) )then
+            if(allocated(outobj%SubMeshSurfFromTo) )then
+                deallocate(outobj%SubMeshSurfFromTo)
+            endif
+            allocate(outobj%SubMeshSurfFromTo(2,3) )
+            outobj%SubMeshSurfFromTo(1,1)=1 !subdomain ID
+            outobj%SubMeshSurfFromTo(1,2)=1
+            outobj%SubMeshSurfFromTo(1,3)=num1
+            
+            outobj%SubMeshSurfFromTo(2,1)=2 !subdomain ID
+            outobj%SubMeshSurfFromTo(2,2)=num1+1 !node id starts from
+            outobj%SubMeshSurfFromTo(2,3)=num1+num2 !node id goes to
+        else
+            if(allocated(outobj%SubMeshSurfFromTo) )then
+                deallocate(outobj%SubMeshSurfFromTo)
+            endif
+            allocate(outobj%SubMeshSurfFromTo(2,3) )
+            outobj%SubMeshSurfFromTo(1,1)=1 !subdomain ID
+            outobj%SubMeshSurfFromTo(1,2)=1
+            outobj%SubMeshSurfFromTo(1,3)=num1
+            
+            outobj%SubMeshSurfFromTo(2,1)=2 !subdomain ID
+            outobj%SubMeshSurfFromTo(2,2)=num1+1 !node id starts from
+            outobj%SubMeshSurfFromTo(2,3)=num1+num2 !node id goes to
+        endif    
+    endif
+    ! ========= Merge surface elements  ============
+
+
+    ! ========= Merge Material ID ==================
+    num1=size(inobj1%ElemMat,1)
+    num2=size(inobj2%ElemMat,1)
+    if(num3 /= size(inobj1%ElemMat,1) )then
+        outobj%ErrorMsg="MergeMesh >> num3 /= inobj1%ElemMat,1"
+    endif
+
+    allocate(outobj%ElemMat(num1+num2))
+    do i=1,num1
+        outobj%ElemMat(i)=inobj1%ElemMat(i)
+    enddo
+    do i=1,num2
+        outobj%ElemMat(i+num1)=inobj2%ElemMat(i)+Maxval(inobj1%ElemMat)
+    enddo
+    ! ========= Merge Material ID ==================
     
 
 end subroutine MergeMesh
@@ -2977,16 +3242,19 @@ end subroutine AdjustSphereMesh
 !##################################################
 
 recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,&
-    division,smooth)
+    division,smooth,top,margin,inclineRate)
     class(Mesh_),intent(inout) :: obj
+    type(Mesh_) :: mesh1,mesh2
     character(*),intent(in) :: meshtype
     logical,optional,intent(in) :: smooth
     integer(int32),optional,intent(in) :: x_num,y_num ! number of division
     integer(int32),optional,intent(in) :: division ! for 3D rectangular
     real(real64),optional,intent(in) :: x_len,y_len,Le,Lh,Dr ! length
-    real(real64),optional,intent(in) :: thickness ! for 3D rectangular
+    real(real64),optional,intent(in) :: thickness,inclineRate ! for 3D rectangular
+    real(real64),optional,intent(in) :: top,margin ! for 3D rectangular
     integer(int32) :: i,j,n,m,xn,yn,smoothedge(8)
-    real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt,unitx,unity
+    real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt,unitx,unity,xm, ym,tp,rx,ry
+    real(real64)::ymin,ymax
     ! this subroutine creates mesh
 
     if(meshtype=="rectangular3D" .or. meshtype=="Cube")then
@@ -3000,6 +3268,101 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     endif
 
 
+    if(meshtype=="Dam3D" )then
+        call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
+        
+        xm=0.50d0*maxval(obj%NodCoord(:,1) )+0.50d0*minval(obj%NodCoord(:,1) )
+        ym=0.50d0*maxval(obj%NodCoord(:,2) )+0.50d0*minval(obj%NodCoord(:,2) )
+        lx=maxval(obj%NodCoord(:,1) )- minval(obj%NodCoord(:,1) )
+        ly=maxval(obj%NodCoord(:,2) )- minval(obj%NodCoord(:,2) )
+        ymin=minval(obj%NodCoord(:,2))
+        obj%NodCoord(:,1)=obj%NodCoord(:,1)-xm
+        obj%NodCoord(:,2)=obj%NodCoord(:,2)-ymin
+        tp = input(default=ly*1.50d0,option=top)
+
+        if(top < ly)then
+            print *, "ERROR createMesh >> top < ly"
+            stop 
+        endif
+        do i=1,size(obj%NodCoord,1)
+            ry = obj%NodCoord(i,2)
+            rx = (top-ry)*lx*0.50d0/top
+            obj%NodCoord(i,1) = obj%NodCoord(i,1)/(lx*0.50d0)*rx
+        enddo
+        ! add mesh
+        call mesh1%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
+        call mesh2%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
+        ymax=maxval(mesh1%NodCoord(:,2) )
+        mesh1%NodCoord(:,1)=mesh1%NodCoord(:,1)
+        mesh1%NodCoord(:,2)=mesh1%NodCoord(:,2)-ymax
+        mesh2%NodCoord(:,1)=mesh2%NodCoord(:,1)-2.0d0*xm
+        mesh2%NodCoord(:,2)=mesh2%NodCoord(:,2)-ymax
+        call obj%add(mesh1)
+        call obj%add(mesh2)
+        call showArray(obj%NodCoord,Name="text.txt")
+        stop
+        !call obj%removeOverlappedNode()
+        call obj%Convert2Dto3D(Thickness=Thickness,division=division)
+        if(.not.allocated(obj%ElemMat))then
+            n=size(obj%ElemNod,1)
+            allocate(obj%ElemMat(n) )
+        endif
+        return
+    endif
+
+    if(meshtype=="Trapezoid2D" .or. meshtype=="Ridge2D")then
+        call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
+        
+        xm=0.50d0*maxval(obj%NodCoord(:,1) )+0.50d0*minval(obj%NodCoord(:,1) )
+        ym=0.50d0*maxval(obj%NodCoord(:,2) )+0.50d0*minval(obj%NodCoord(:,2) )
+        lx=maxval(obj%NodCoord(:,1) )- minval(obj%NodCoord(:,1) )
+        ly=maxval(obj%NodCoord(:,2) )- minval(obj%NodCoord(:,2) )
+        obj%NodCoord(:,1)=obj%NodCoord(:,1)-xm
+        tp = input(default=ly*1.50d0,option=top)
+        if(top < ly)then
+            print *, "ERROR createMesh >> top < ly"
+            stop 
+        endif
+        do i=1,size(obj%NodCoord,1)
+            ry = obj%NodCoord(i,2)
+            rx = (top-ry)*lx*0.50d0/top
+            obj%NodCoord(i,1) = obj%NodCoord(i,1)/(lx*0.50d0)*rx
+        enddo
+        if(.not.allocated(obj%ElemMat))then
+            n=size(obj%ElemNod,1)
+            allocate(obj%ElemMat(n) )
+        endif
+        return
+    endif
+
+    if(meshtype=="Trapezoid3D" .or. meshtype=="Ridge3D")then
+        call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
+        
+        xm=0.50d0*maxval(obj%NodCoord(:,1) )+0.50d0*minval(obj%NodCoord(:,1) )
+        ym=0.50d0*maxval(obj%NodCoord(:,2) )+0.50d0*minval(obj%NodCoord(:,2) )
+        lx=maxval(obj%NodCoord(:,1) )- minval(obj%NodCoord(:,1) )
+        ly=maxval(obj%NodCoord(:,2) )- minval(obj%NodCoord(:,2) )
+        obj%NodCoord(:,1)=obj%NodCoord(:,1)-xm
+        tp = input(default=ly*1.50d0,option=top)
+        if(top < ly)then
+            print *, "ERROR createMesh >> top < ly"
+            stop 
+        endif
+        do i=1,size(obj%NodCoord,1)
+            ry = obj%NodCoord(i,2)
+            rx = (top-ry)*lx*0.50d0/top
+            obj%NodCoord(i,1) = obj%NodCoord(i,1)/(lx*0.50d0)*rx
+        enddo
+
+        call obj%Convert2Dto3D(Thickness=Thickness,division=division)
+        if(.not.allocated(obj%ElemMat))then
+            n=size(obj%ElemNod,1)
+            allocate(obj%ElemMat(n) )
+        endif
+        return
+    endif
+
+    
     if(meshtype=="Sphere3D")then
         call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=1.0d0,y_len=1.0d0)       
         call obj%Convert2Dto3D(Thickness=1.0d0,division=division)
