@@ -13,6 +13,11 @@ module LinearSolverClass
     real(real64),allocatable :: a_e(:,:,:)
     real(real64),allocatable :: b_e(:,:)
     real(real64),allocatable :: x_e(:,:)
+
+    real(real64),allocatable :: val(:)
+    integer(int32),allocatable :: index_I(:)
+    integer(int32),allocatable :: index_J(:)
+
     integer(int32),allocatable :: connectivity(:,:)
     integer(int32) :: itrmax=1000000
     real(real64) :: er0=dble(1.0e-08)
@@ -23,12 +28,36 @@ module LinearSolverClass
 contains
 
 !====================================================================================
-subroutine importLinearSolver(obj,a,x,b,a_e,b_e,x_e,connectivity)
+subroutine importLinearSolver(obj,a,x,b,a_e,b_e,x_e,connectivity,val,index_I,index_J)
   class(LinearSolver_),intent(inout) :: obj
   real(8),optional,intent(in) :: a(:,:),b(:),x(:),a_e(:,:,:),b_e(:,:),x_e(:,:)
+  real(8),optional,intent(in) :: val(:)
+  integer(int32),optional,intent(in) :: index_I(:),index_J(:)
   integer(int32),optional,intent(in) :: connectivity(:,:)
   integer(int32) :: k,l,m
 
+  if(present(val) )then
+    if(.not. allocated(obj%val) )then
+      allocate(obj%val(size(val) ))
+      obj%val=val
+    endif
+  endif
+  
+  if(present(index_i) )then
+    if(.not. allocated(obj%index_i) )then
+      allocate(obj%index_i(size(index_i) ))
+      obj%index_i=index_i
+    endif
+  endif
+
+  
+  if(present(index_j) )then
+    if(.not. allocated(obj%index_j) )then
+      allocate(obj%index_j(size(index_j) ))
+      obj%index_j=index_j
+    endif
+  endif
+  
   ! in case of non element-by-element
   if(present(a) )then
     ! Set Ax=b
@@ -107,10 +136,10 @@ end subroutine importLinearSolver
 
 
 !====================================================================================
-subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning)
+subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
   class(LinearSolver_),intent(inout) :: obj
   character(*),intent(in) :: Solver
-  logical,optional,intent(in) :: MPI, OpenCL, CUDAC,preconditioning
+  logical,optional,intent(in) :: MPI, OpenCL, CUDAC,preconditioning,CRS
 
   ! No MPI, No OpenCl and No CUDAC
   if(allocated(obj%a) )then
@@ -122,7 +151,15 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning)
         elseif(trim(Solver) == "GaussJordanPV" .or. trim(Solver) == "GaussJordan" )then
           call gauss_jordan_pv(obj%a, obj%x, obj%b, size(obj%a,1) )
         elseif(trim(Solver) == "BiCGSTAB" )then
-          call bicgstab1d(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0)
+          if(present(CRS) )then
+            if(CRS .eqv. .true.)then
+              call bicgstab_CRS(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0)
+            else
+              call bicgstab1d(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0)  
+            endif
+          else
+            call bicgstab1d(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0)
+          endif
         elseif(trim(Solver) == "GPBiCG" )then
           if(present(preconditioning) )then
             if(preconditioning .eqv. .true.)then
@@ -299,6 +336,63 @@ subroutine gauss_jordan_pv(a0, x, b, n)
  end subroutine bicgstab_diffusion
 !===============================================================
 
+subroutine bicgstab_CRS(a, index_i, index_j, x,b, itrmax, er)
+  integer(int32), intent(inout) :: index_i(:),index_j(:), itrmax
+  real(real64), intent(inout) :: a(:), b(:), er
+  real(real64), intent(inout) :: x(:)
+  integer(int32) itr,i,j,n
+  real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
+  real(real64),allocatable:: r(:), r0(:), p(:), y(:), e(:), v(:)
+
+  n=size(b)
+  allocate(r(n), r0(n), p(n), y(n), e(n), v(n))
+  er0=dble(1.00e-14)
+  r(:) = b(:)
+  do i=1,size(a)
+    r( index_i(i) ) = r( index_i(i) ) - a(i)*x( index_j(i) ) 
+  enddo
+
+  !r(:) = b - matmul(a,x)
+  
+  c1 = dot_product(r,r)
+	init_rr=c1
+  if (c1 < er0) return
+  p(:) = r(:)
+  r0(:) = r(:)
+  do itr = 1, itrmax   
+    c1 = dot_product(r0,r)
+    !y(:) = matmul(a,p)
+    y(:)=0.0d0
+    do i=1,size(a)
+      y( index_i(i) ) = y( index_i(i) ) + a(i)*p( index_j(i) ) 
+    enddo
+    c2 = dot_product(r0,y)
+    alp = c1/c2
+    e(:) = r(:) - alp * y(:)
+    !v(:) = matmul(a,e)
+    v(:)=0.0d0
+    do i=1,size(a)
+      v( index_i(i) ) = v( index_i(i) ) + a(i)*e( index_j(i) ) 
+    enddo
+    ev = dot_product(e,v)
+    vv = dot_product(v,v)
+    if(  vv==0.0d0 ) stop "Bicgstab devide by zero"
+		c3 = ev / vv
+    x(:) = x(:) + alp * p(:) + c3 * e(:)
+    r(:) = e(:) - c3 * v(:)
+    rr = dot_product(r,r)
+    !    write(*,*) 'itr, er =', itr,rr
+    if (rr/init_rr < er0) exit
+    c1 = dot_product(r0,r)
+    bet = c1 / (c2 * c3)
+		if(  (c2 * c3)==0.0d0 ) stop "Bicgstab devide by zero"
+    p(:) = r(:) + bet * (p(:) -c3*y(:) )
+  enddo
+ end subroutine 
+!===============================================================
+
+!===============================================================
+
 subroutine bicgstab1d(a, b, x, n, itrmax, er)
   integer(int32), intent(in) :: n, itrmax
   real(real64), intent(in) :: a(n,n), b(n), er
@@ -315,9 +409,10 @@ subroutine bicgstab1d(a, b, x, n, itrmax, er)
      p(:) = r(:)
      r0(:) = r(:)
      do itr = 1, itrmax
-      
-      c1 = dot_product(r0,r)
+        c1 = dot_product(r0,r)
+
         y(:) = matmul(a,p)
+
         c2 = dot_product(r0,y)
         alp = c1/c2
         e(:) = r(:) - alp * y(:)
@@ -325,7 +420,7 @@ subroutine bicgstab1d(a, b, x, n, itrmax, er)
         ev = dot_product(e,v)
         vv = dot_product(v,v)
         if(  vv==0.0d0 ) stop "Bicgstab devide by zero"
-		c3 = ev / vv
+	    	c3 = ev / vv
         x(:) = x(:) + alp * p(:) + c3 * e(:)
         r(:) = e(:) - c3 * v(:)
         rr = dot_product(r,r)
@@ -339,6 +434,7 @@ subroutine bicgstab1d(a, b, x, n, itrmax, er)
      enddo
  end subroutine bicgstab1d
 !===============================================================
+
 subroutine bicgstab_nr(a, b, x, n, itrmax, er,u_nod_x, u_nod_y)
   integer(int32), intent(in) :: n, itrmax,u_nod_x(:),u_nod_y(:)
   real(real64), intent(in) :: a(n,n),b(n), er

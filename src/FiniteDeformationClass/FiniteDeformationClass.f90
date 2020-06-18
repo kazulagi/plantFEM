@@ -160,7 +160,7 @@ subroutine SolveFiniteDeformNewton(obj,OptionItr,Solvertype,nr_tol,infinitesimal
 			call UpdateFiniteDeform(obj)
 
 			!call DisplayDeformStress(obj,DisplayMode=gmsh,OptionalStep=0) 
-    		call SolveFiniteDeform(obj,OptionItr=itr,SolverType=Solvertype)
+			call SolveFiniteDeform(obj,OptionItr=itr,SolverType=Solvertype)
 			!call DisplayDeformStress(obj,DisplayMode=gmsh,OptionalStep=itr)
 			
 
@@ -2301,7 +2301,8 @@ subroutine SolveFiniteDeform(obj,OptionItr,Solvertype,nr_tol)
 	integer(int32),optional,intent(in)::OptionItr
     character(*),optional,intent(in)::Solvertype
     real(real64) ,optional,intent(in) :: nr_tol
-    character*70 ::solver,defaultsolver
+	character*70 ::solver,defaultsolver
+	type(IO_) :: f
 
     real(real64),allocatable::Amat(:,:),bvec(:),xvec(:)
     real(real64)::val,er
@@ -2424,7 +2425,16 @@ subroutine SolveFiniteDeform(obj,OptionItr,Solvertype,nr_tol)
         print *, "Critical ERROR :: No solvers are selected in FiniteDeform_"
         stop 
     endif
-    
+	
+	print *, size(bvec)
+	call showArray(Amat,name="Amat.txt")
+	call f%open("Bvec.txt")
+	do i=1,size(bvec)
+		writE(f%fh,*) bvec(:)
+	enddo
+	call f%close()
+	
+	stop
 
     
     !=====================================
