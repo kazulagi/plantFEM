@@ -2426,15 +2426,15 @@ subroutine SolveFiniteDeform(obj,OptionItr,Solvertype,nr_tol)
         stop 
     endif
 	
-	print *, size(bvec)
-	call showArray(Amat,name="Amat.txt")
-	call f%open("Bvec.txt")
-	do i=1,size(bvec)
-		writE(f%fh,*) bvec(:)
-	enddo
-	call f%close()
-	
-	stop
+!	print *, size(bvec)
+!	call showArray(Amat,name="Amat.txt")
+!	call f%open("Bvec.txt")
+!	do i=1,size(bvec)
+!		writE(f%fh,*) bvec(:)
+!	enddo
+!	call f%close()
+!	
+!	stop
 
     
     !=====================================
