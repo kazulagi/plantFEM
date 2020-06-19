@@ -128,7 +128,9 @@ homepath="$PWD"
             echo "Caution: a plain script is created. "
         fi
         echo "New project is successfully created in $pan$pn"
-
+        echo "You can run the script by:"
+        echo " "
+        echo "python3 SiCroF.py -s $pan$pn/main.f90"
 
         return 0
     fi

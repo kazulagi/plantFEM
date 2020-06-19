@@ -2,16 +2,16 @@ This is a brief mannual of the interactive shell of SiCroF.
 
 Commands:
 
-
-(1) For installation/update >>
+(0) For installation/update >>
     install :: compile all modules
     update  :: update SiCroF
 
+(1) Create new script
+    new :: create a template or a plain script. Give it a try.
+
 (2) For debug >>
     - :: compile only 1 module. Type - [Enter], and write your debugged module name.
-
-(2) For changing number of cpu-cores
-    cpu-core :: change number of cpu-core
+    
 
 (3) Initialize SiCroF
     compress :: remove files and initialize SiCroF
@@ -31,6 +31,7 @@ Commands:
     goback :: go back to SiCroF/
     gb     :: go back to SiCroF/
     pick   :: copy file to SiCroF/
+    cpu-core :: change number of cpu-core
 
     The following text-editors are available.
     vim, vi, emacs, vscode, nano
