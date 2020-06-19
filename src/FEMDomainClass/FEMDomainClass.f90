@@ -51,62 +51,73 @@ module FEMDomainClass
 		character*200 :: Category3
 		integer(int32) :: timestep, NumberOfBoundaries, NumberOfMaterials
     contains
-        procedure,public :: Init   => InitializeFEMDomain
-        procedure,public :: Delete => DeallocateFEMDomain
-        procedure,public :: Export => ExportFEMDomain
-		procedure,public :: Import => ImportFEMDomain
-		procedure,public :: Assign => ImportFEMDomain
-		procedure,public :: ImportMesh => ImportMeshFEMDomain
-		procedure,public :: ImportMaterials => ImportMaterialsFEMDomain
-		procedure,public :: ImportBoundaries => ImportBoundariesFEMDomain
-		procedure,public :: Resize => resizeFEMDomain
-        procedure,public :: Merge  => MergeFEMDomain
-        procedure,public :: AddDBoundCondition => AddDBoundCondition
-        procedure,public :: AddNBoundCondition => AddNBoundCondition
-        procedure,public :: AddTBoundCondition => AddTBoundCondition
-        procedure,public :: AddMaterialID => AddMaterialID
-        procedure,public :: SetDataType => SetDataType
-        procedure,public :: SetSolver => SetSolver 
-        procedure,public :: SetName => SetName 
-        procedure,public :: SetUp      => SetUpFEMDomain
-        procedure,public :: InitDBC => InitDBC
-        procedure,public :: InitNBC => InitNBC
-		procedure,public :: InitTBC => InitTBC
-		procedure,public :: AddNBC => AddNBCFEMDomain 
-        procedure,public :: MeltingSkelton => MeltingSkeltonFEMDomain
-        procedure,public :: SetControlPara =>  SetControlParaFEMDomain
-		procedure,public :: GmshPlotMesh => GmshPlotMesh
-		procedure,public :: gmsh => GmshPlotMesh
-		procedure,public :: GmshPlotContour => GmshPlotContour
-		procedure,public :: GmshPlotVector => GmshPlotVector 
-        procedure,public :: GmshPlotContour2D => GmshPlotContour2D
-        procedure,public :: GnuplotPlotContour  => GnuplotPlotContour   
-		procedure,public :: GnuplotExportStress => GnuplotExportStress  
-		procedure,public :: getDBCVector => getDBCVectorFEMDomain
-		procedure,public :: move => moveFEMDomain
-		procedure,public :: rotate => rotateFEMDomain
-		procedure,public :: meshing => meshingFEMDomain
-		procedure,public :: convertMeshType => convertMeshTypeFEMDomain
-		procedure,public :: create => createFEMDomain
-		procedure,public :: setBoundary => setBoundaryFEMDomain
-		procedure,public :: showRange => showRangeFEMDomain
-		procedure,public :: showMaterials => showMaterialsFEMDomain
-		procedure,public :: removeMaterials => removeMaterialsFEMDomain
-		procedure,public :: showBoundaries => showBoundariesFEMDomain
-		procedure,public :: removeBoundaries => removeBoundariesFEMDomain
-		procedure,public :: copy => copyFEMDomain
+		procedure,public :: addNBC => AddNBCFEMDomain 
+        procedure,public :: addDBoundCondition => AddDBoundCondition
+        procedure,public :: addNBoundCondition => AddNBoundCondition
+        procedure,public :: addTBoundCondition => AddTBoundCondition
+        procedure,public :: addMaterialID => AddMaterialID
+		procedure,public :: assign => ImportFEMDomain
+		
 		procedure,public :: bake => bakeFEMDomain
 		procedure,public :: bakeMaterials => bakeMaterialsFEMDomain
 		procedure,public :: bakeDBoundaries => bakeDBoundariesFEMDomain
 		procedure,public :: bakeNBoundaries => bakeNBoundariesFEMDomain
 		procedure,public :: bakeTBoundaries => bakeTBoundariesFEMDomain
-		procedure,public :: show => showFEMDomain
-		procedure,public :: rename => renameFEMDomain
-		procedure,public :: display => displayFEMDomain
-		procedure,public :: field => fieldFEMDomain
+		
+		procedure,public :: checkConnectivity => CheckConnedctivityFEMDomain
+		procedure,public :: copy => copyFEMDomain
+		procedure,public :: convertMeshType => convertMeshTypeFEMDomain
+		procedure,public :: create => createFEMDomain
 
-		! for debug
-		procedure,public :: CheckConnectivity => CheckConnedctivityFEMDomain
+        procedure,public :: delete => DeallocateFEMDomain
+		procedure,public :: display => displayFEMDomain
+
+		
+		procedure,public :: export => ExportFEMDomain
+		
+		procedure,public :: field => fieldFEMDomain
+		
+		procedure,public :: gmshPlotMesh => GmshPlotMesh
+		procedure,public :: gmsh => GmshPlotMesh
+		procedure,public :: gmshPlotContour => GmshPlotContour
+		procedure,public :: gmshPlotVector => GmshPlotVector 
+        procedure,public :: gmshPlotContour2D => GmshPlotContour2D
+        procedure,public :: gnuplotPlotContour  => GnuplotPlotContour   
+		procedure,public :: gnuplotExportStress => GnuplotExportStress  
+		procedure,public :: getDBCVector => getDBCVectorFEMDomain
+		
+        procedure,public :: init   => InitializeFEMDomain
+		procedure,public :: import => ImportFEMDomain
+		procedure,public :: importMesh => ImportMeshFEMDomain
+		procedure,public :: importMaterials => ImportMaterialsFEMDomain
+		procedure,public :: importBoundaries => ImportBoundariesFEMDomain
+        procedure,public :: initDBC => InitDBC
+        procedure,public :: initNBC => InitNBC
+		procedure,public :: initTBC => InitTBC
+
+        procedure,public :: meltingSkelton => MeltingSkeltonFEMDomain
+		procedure,public :: move => moveFEMDomain
+		procedure,public :: meshing => meshingFEMDomain
+		procedure,public :: merge  => MergeFEMDomain
+
+		procedure,public :: removeMaterials => removeMaterialsFEMDomain
+		procedure,public :: rotate => rotateFEMDomain
+		procedure,public :: removeBoundaries => removeBoundariesFEMDomain
+		procedure,public :: rename => renameFEMDomain
+		procedure,public :: resize => resizeFEMDomain
+
+        procedure,public :: setDataType => SetDataType
+        procedure,public :: setSolver => SetSolver 
+        procedure,public :: setName => SetName 
+        procedure,public :: setUp      => SetUpFEMDomain
+		procedure,public :: setBoundary => setBoundaryFEMDomain
+        procedure,public :: setControlPara =>  SetControlParaFEMDomain
+		procedure,public :: show => showFEMDomain
+		procedure,public :: showRange => showRangeFEMDomain
+		procedure,public :: showMaterials => showMaterialsFEMDomain
+		procedure,public :: showBoundaries => showBoundariesFEMDomain
+		
+		
         
     end type FEMDomain_
 

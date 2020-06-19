@@ -29,56 +29,65 @@ module MeshClass
         character*70 ErrorMsg
 
     contains
-        procedure :: Init => InitializeMesh
-        procedure :: Delete => DeallocateMesh
-        procedure :: Copy => CopyMesh
-        procedure :: import => importMeshObj 
-        procedure :: export => exportMeshObj 
-        procedure :: ImportElemNod => ImportElemNod
-        procedure :: ImportNodCoord => ImportNodCoord
-        procedure :: ImportElemMat => ImportElemMat
-        procedure :: resize => resizeMeshobj
-        procedure :: GetFacetElement => GetFacetElement
-        procedure :: GetSurface => GetSurface
-        procedure :: GetInterface => GetInterface
-        procedure :: GetInterfaceElemNod => GetInterfaceElemNod
-        procedure :: GetBoundingBox     => GetBoundingBox
-        procedure :: GetFacetElemInsideBox => GetFacetElemInsideBox
-        procedure :: GetInterSectBox => GetInterSectBox
-        procedure :: GetNextFacets => GetNextFacets
-        procedure :: MergeMesh => MergeMesh
-        procedure :: ExportElemNod => ExportElemNod
-        procedure :: ExportNodCoord => ExportNodCoord
-        procedure :: ExportSurface2D => ExportSurface2D
-        procedure :: DisplayMesh => DisplayMesh 
-        procedure :: display => DisplayMesh 
-        procedure :: ShowMesh => ShowMesh 
-        procedure :: show => ShowMesh 
-        procedure :: MeltingSkelton => MeltingSkeltonMesh 
-        procedure :: getNumOfDomain => getNumOfDomainMesh
-        procedure :: SortFacet    => SortFacetMesh 
-        procedure :: Meshing    => MeshingMesh
-        procedure :: getCircumscribedCircle => getCircumscribedCircleMesh
-        procedure :: getCircumscribedTriangle => getCircumscribedTriangleMesh
-        procedure :: removeCircumscribedTriangle => removeCircumscribedTriangleMesh
-        procedure :: DelauneygetNewNode => DelauneygetNewNodeMesh 
-        procedure :: DelauneygetNewTriangle => DelauneygetNewTriangleMesh 
-        procedure :: DelauneyremoveOverlaps => DelauneyremoveOverlapsMesh 
-        procedure :: RemoveFailedTriangle => RemoveFailedTriangleMesh
-        procedure :: GetElemType => GetElemTypeMesh 
+        procedure :: add => addMesh
+        procedure :: adjustSphere => AdjustSphereMesh
+
+        procedure :: copy => CopyMesh
         procedure :: convertMeshType => ConvertMeshTypeMesh
         procedure :: convertTetraToHexa => convertTetraToHexaMesh 
         procedure :: convertTriangleToRectangular => convertTriangleToRectangularMesh 
-        procedure :: removeOverlappedNode =>removeOverlappedNodeMesh
         procedure :: create=>createMesh
-        procedure :: shift=>shiftMesh
         procedure :: check=>checkMesh
-        procedure :: Convert2Dto3D => Convert2Dto3DMesh
-        procedure :: gmsh => gmshMesh
-        procedure :: showRange => showRangeMesh
+        procedure :: convert2Dto3D => Convert2Dto3DMesh
+        
+        procedure :: delete => DeallocateMesh
+        procedure :: displayMesh => DisplayMesh 
+        procedure :: display => DisplayMesh 
+        procedure :: delauneygetNewNode => DelauneygetNewNodeMesh 
+        procedure :: delauneygetNewTriangle => DelauneygetNewTriangleMesh 
+        procedure :: delauneyremoveOverlaps => DelauneyremoveOverlapsMesh 
+        
+        procedure :: export => exportMeshObj
+        procedure :: exportElemNod => ExportElemNod
+        procedure :: exportNodCoord => ExportNodCoord
+        procedure :: exportSurface2D => ExportSurface2D
         procedure :: empty => emptyMesh
-        procedure :: AdjustSphere => AdjustSphereMesh
-        procedure :: add => addMesh
+        
+        procedure :: getFacetElement => GetFacetElement
+        procedure :: getSurface => GetSurface
+        procedure :: getInterface => GetInterface
+        procedure :: getInterfaceElemNod => GetInterfaceElemNod
+        procedure :: getBoundingBox     => GetBoundingBox
+        procedure :: getFacetElemInsideBox => GetFacetElemInsideBox
+        procedure :: getInterSectBox => GetInterSectBox
+        procedure :: getNextFacets => GetNextFacets 
+        procedure :: getElemType => GetElemTypeMesh 
+        procedure :: getNumOfDomain => getNumOfDomainMesh
+        procedure :: getCircumscribedCircle => getCircumscribedCircleMesh
+        procedure :: getCircumscribedTriangle => getCircumscribedTriangleMesh
+        procedure :: gmsh => gmshMesh
+        
+        procedure :: import => importMeshObj 
+        procedure :: importElemNod => ImportElemNod
+        procedure :: importNodCoord => ImportNodCoord
+        procedure :: importElemMat => ImportElemMat
+        procedure :: init => InitializeMesh
+        
+        procedure :: mergeMesh => MergeMesh
+        procedure :: meltingSkelton => MeltingSkeltonMesh 
+        procedure :: meshing    => MeshingMesh
+
+        procedure :: removeCircumscribedTriangle => removeCircumscribedTriangleMesh
+        procedure :: removeFailedTriangle => RemoveFailedTriangleMesh
+        procedure :: removeOverlappedNode =>removeOverlappedNodeMesh
+        procedure :: resize => resizeMeshobj
+        
+        procedure :: sortFacet    => SortFacetMesh 
+        procedure :: shift=>shiftMesh
+        procedure :: showRange => showRangeMesh
+        procedure :: showMesh => ShowMesh 
+        procedure :: show => ShowMesh 
+        
     end type Mesh_
 
 
@@ -3297,9 +3306,13 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         mesh1%NodCoord(:,2)=mesh1%NodCoord(:,2)-ymax
         mesh2%NodCoord(:,1)=mesh2%NodCoord(:,1)-2.0d0*xm
         mesh2%NodCoord(:,2)=mesh2%NodCoord(:,2)-ymax
+
+        print *, "deo"
         call obj%add(mesh1)
         call obj%add(mesh2)
-        call showArray(obj%NodCoord,Name="text.txt")
+        print *, "deo"
+        call showArray(obj%NodCoord,IndexArray=obj%ElemNod,Name="text.txt")
+        print *, "ERROR :: Dam3D is not implemented yet."
         stop
         !call obj%removeOverlappedNode()
         call obj%Convert2Dto3D(Thickness=Thickness,division=division)

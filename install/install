@@ -65,6 +65,10 @@ echo "Compiling ./src/MathClass/MathClass.f90   "
 echo " >> MathClass.o"
 echo " | #                           | (2%)\r\c "
 mpif90 -shared -fPIC -g -fcheck=all  -c ./src/MathClass/MathClass.f90 -o  ./inc/MathClass.o
+echo "Compiling ./src/PhysicsClass/PhysicsClass.f90   "
+echo " >> PhysicsClass.o"
+echo " | #                           | (2%)\r\c "
+mpif90 -shared -fPIC -g -fcheck=all  -c ./src/PhysicsClass/PhysicsClass.f90 -o  ./inc/PhysicsClass.o
 echo "Compiling ./src/IOClass/IOClass.f90      "
 echo " >> IOClass.o"
 echo " |                             | (0%)\r\c "
