@@ -33,7 +33,7 @@ module FEMDomainClass
 		type(Meshp_),allocatable :: Meshes(:)
 		type(Materialp_),allocatable :: Materials(:)
 		type(Boundaryp_),allocatable :: Boundaries(:)
-
+		type(FEMDomain_),allocatable :: FEMDomains(:)
 
         type(ShapeFunction_)    :: ShapeFunction
 		real(real64),allocatable :: scalar(:)
@@ -71,6 +71,7 @@ module FEMDomainClass
 
         procedure,public :: delete => DeallocateFEMDomain
 		procedure,public :: display => displayFEMDomain
+		procedure,public :: divide => divideFEMDomain
 
 		
 		procedure,public :: export => ExportFEMDomain
@@ -117,7 +118,7 @@ module FEMDomainClass
 		procedure,public :: showMaterials => showMaterialsFEMDomain
 		procedure,public :: showBoundaries => showBoundariesFEMDomain
 		
-		
+
         
     end type FEMDomain_
 
@@ -132,6 +133,32 @@ module FEMDomainClass
 
 contains
 
+!##################################################
+subroutine divideFEMDomain(obj,n) 
+	class(FEMDomain_),intent(inout)::obj
+	integer(int32) :: n
+	
+	! split obj into n objects
+	if(allocated(obj%FEMDomains) )then
+		deallocate(obj%FEMDomains)
+	endif
+	allocate(obj%FEMDomains(n))
+
+	! Greedy algorithm
+	if(obj%Mesh%empty() .eqv. .true. )then
+		print *, "divideFEMDomain >> ERROR >> No mesh is imported."
+		stop
+	endif
+
+	!
+
+
+
+
+
+
+end subroutine divideFEMDomain
+!##################################################
 
 !##################################################
 subroutine displayFEMDomain(obj,path,name,extention)

@@ -336,7 +336,7 @@ subroutine gauss_jordan_pv(a0, x, b, n)
  end subroutine bicgstab_diffusion
 !===============================================================
 
-subroutine bicgstab_CRS(a, index_i, index_j, x,b, itrmax, er)
+subroutine bicgstab_CRS(a, index_i, index_j, x, b, itrmax, er)
   integer(int32), intent(inout) :: index_i(:),index_j(:), itrmax
   real(real64), intent(inout) :: a(:), b(:), er
   real(real64), intent(inout) :: x(:)
@@ -361,11 +361,13 @@ subroutine bicgstab_CRS(a, index_i, index_j, x,b, itrmax, er)
   r0(:) = r(:)
   do itr = 1, itrmax   
     c1 = dot_product(r0,r)
+    
     !y(:) = matmul(a,p)
     y(:)=0.0d0
     do i=1,size(a)
       y( index_i(i) ) = y( index_i(i) ) + a(i)*p( index_j(i) ) 
     enddo
+
     c2 = dot_product(r0,y)
     alp = c1/c2
     e(:) = r(:) - alp * y(:)
@@ -381,6 +383,8 @@ subroutine bicgstab_CRS(a, index_i, index_j, x,b, itrmax, er)
     x(:) = x(:) + alp * p(:) + c3 * e(:)
     r(:) = e(:) - c3 * v(:)
     rr = dot_product(r,r)
+    
+    
     !    write(*,*) 'itr, er =', itr,rr
     if (rr/init_rr < er0) exit
     c1 = dot_product(r0,r)
@@ -411,6 +415,7 @@ subroutine bicgstab1d(a, b, x, n, itrmax, er)
      do itr = 1, itrmax
         c1 = dot_product(r0,r)
 
+
         y(:) = matmul(a,p)
 
         c2 = dot_product(r0,y)
@@ -424,6 +429,10 @@ subroutine bicgstab1d(a, b, x, n, itrmax, er)
         x(:) = x(:) + alp * p(:) + c3 * e(:)
         r(:) = e(:) - c3 * v(:)
         rr = dot_product(r,r)
+
+        
+    
+    
     !    write(*,*) 'itr, er =', itr,rr
         if (rr/init_rr < er0) exit
         c1 = dot_product(r0,r)
