@@ -6,6 +6,7 @@
 # plantFEM
 
 Plant simulator based on Finite Element Method (FEM).
+(Renamed from its old name "SiCroF")
 
 
 ## Documentation of plantFEM
