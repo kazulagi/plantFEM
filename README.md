@@ -3,12 +3,12 @@
 ![grass_leaf](https://user-images.githubusercontent.com/54159711/84125213-311c7480-aa77-11ea-8c61-e7bbce016f8a.gif)
 
 
-# SiCroF
+# plantFEM
 
-Simulator for Crops in Fields
+Plant simulator based on Finite Element Method (FEM).
 
 
-## Documentation of SiCroF
+## Documentation of plantFEM
 
 
 
@@ -24,23 +24,23 @@ Simulator for Crops in Fields
 [   New!  simplified class-structure >> ](doc/README/class.pdf)
 
 
-## How to use SiCroF as a blender-addon.
+## How to use plantFEM as a blender-addon.
 
-[How to use SiCroF as a blender-addon. >>](doc/BlenderAddon.md)
+[How to use plantFEM as a blender-addon. >>](doc/BlenderAddon.md)
 
 
-## How to run your *.f90 script with SiCroF.
+## How to run your *.f90 script with plantFEM.
 ### Command-line mode:
 
 
 ```
-python3 SiCroF.py -s your_script.f90
+python3 plantfem.py -s your_script.f90
 ```
 
 ### Interactive mode
 
  ```
- python3 SiCroF.py
+ python3 plantfem.py
  >>> your_script.f90
  ```
 
@@ -53,16 +53,16 @@ This can run in Google-Colab.
 
 Installation:
 ```
-!git clone https://github.com/kazulagi/SiCroF.git
-%cd SiCroF
+!git clone https://github.com/kazulagi/plantfem.git
+%cd plantfem
 %ls
 !python3 setup.py
-!python3 SiCroF.py -s install
+!python3 plantfem.py -s install
 ```
 Execution:
 
 ```
-!python3 SiCroF.py -s your_script.f90
+!python3 plantfem.py -s your_script.f90
 ```
 
 
@@ -74,8 +74,8 @@ Execution:
 sudo apt update
 sudo apt upgrade -y
 sudo apt install git
-git clone https://gitlab.com/kazulagi/SiCroF.git
-cd SiCroF
+git clone https://gitlab.com/kazulagi/plantfem.git
+cd plantfem
 sudo apt install python3
 python3 setup.py
 jupyter-notebook
@@ -98,8 +98,8 @@ And, install other applications.
 
 ```
 brew install git
-git clone https://gitlab.com/kazulagi/SiCroF.git
-cd SiCroF
+git clone https://gitlab.com/kazulagi/plantfem.git
+cd plantfem
 brew install python3
 python3 setup.py
 jupyter-notebook
@@ -128,13 +128,13 @@ cd ~/
 sudo apt update
 sudo apt upgrade -y
 sudo apt install git
-git clone https://gitlab.com/kazulagi/SiCroF.git
-cd SiCroF
+git clone https://gitlab.com/kazulagi/plantfem.git
+cd plantfem
 sudo apt install python3
 python3 setup.py
 ```
 
-(4) Open CLI mode of SiCroF
+(4) Open CLI mode of plantFEM
 ```
 python3 SiCorF.py
 ```
@@ -159,7 +159,7 @@ Desktop/Hello.f90
 
 ## How to make and use your original add-on.
 
-(1) Create your add-on in SiCroF/addon or other places. An example is shown in addon/addon_example.f90
+(1) Create your add-on in plantfem/addon or other places. An example is shown in addon/addon_example.f90
 
 ```Fortran
 module addon_example
@@ -207,7 +207,7 @@ end module addon_example
 
 
 ```
-python3 SiCroF.py
+python3 plantfem.py
 
 >>> addon
 installing add-on
@@ -369,7 +369,7 @@ Ex.2 :: 3-D thermal diffusion simulation of a grass leaf.
 
 ### Calling for someone who can create following modules.
 
-- SiCroF-API for Blender >> We would like to use Blender as a GUI. Author tried to create the API (see src/BlenderClass), however, it will take more time to understand and implement the system Blender 28.0-API and the SiCroF-API for Blender is now stopping.
+- plantFEM-API for Blender >> We would like to use Blender as a GUI. Author tried to create the API (see src/BlenderClass), however, it will take more time to understand and implement the system Blender 28.0-API and the plantFEM-API for Blender is now stopping.
 - Fluid solvers (by using src/FEMDomainClass)
 - Functional-structural model for cereals.(like src/LsystemClass)
 
