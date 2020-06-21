@@ -3,8 +3,8 @@ module MathClass
 	implicit none
 	
 
-	real(real64) :: pi=3.141592653589793238d0
-	real(real64) :: e =2.718281828459045235d0
+	!real(real64) :: pi=3.141592653589793238d0
+	!real(real64) :: e =2.718281828459045235d0
 
 	interface str
 		module procedure fstring_Int, fstring_Real, fstring_Int_len, fstring_Real_len

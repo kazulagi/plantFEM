@@ -328,12 +328,12 @@ homepath="$PWD"
     if [ "$EXTENSION" = "$f90" ]; then
 
 
-        $mpif90 inc/*o $1 -g -fcheck=all 
+        $mpif90 inc/*o $1 -g -fcheck=all  -fintrinsic-modules-path inc/
         #echo "Current num of cpu-core is :: $numcore "
 
         if [ "$hostfile" != "" ]; then
             echo "hostfile is activated."
-            mpirun  --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out
+            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out
             return 0
         fi
 
