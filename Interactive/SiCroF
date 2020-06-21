@@ -287,12 +287,12 @@ do
 
 
         echo ">"
-        $mpif90 inc/*o $command -g -fcheck=all 
+        $mpif90  -fintrinsic-modules-path inc/ inc/*o $command -g -fcheck=all 
         #echo "Current num of cpu-core is :: $numcore "
 
         if [ "$hostfile" != "" ]; then
             echo "hostfile is activated."
-            mpirun  --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out
+            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out
             continue
         fi
 

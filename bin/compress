@@ -24,6 +24,7 @@ mv *.blend RESULTS/
 mv *.blend1 RESULTS/
 rm ./*.out
 rm -f ./inc/*.o
+rm -f ./inc/*.mod
 rm Home
 rm Desktop
 rm sicrof

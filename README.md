@@ -35,7 +35,7 @@ Plant simulator based on Finite Element Method (FEM).
 
 
 ```
-python3 plantfem.py -s your_script.f90
+./plantfem your_script.f90
 ```
 
 ### Interactive mode
@@ -58,12 +58,12 @@ Installation:
 %cd plantfem
 %ls
 !python3 setup.py
-!python3 plantfem.py -s install
+!./plantfem install
 ```
 Execution:
 
 ```
-!python3 plantfem.py -s your_script.f90
+!./plantfem your_script.f90
 ```
 
 
