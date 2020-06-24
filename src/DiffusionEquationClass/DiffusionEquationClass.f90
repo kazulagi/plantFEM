@@ -29,9 +29,124 @@ module DiffusionEquationClass
         procedure :: Display => DisplayDiffusionEq 
         procedure :: import => importDiffusionEq 
         procedure :: export => exportDiffusionEq 
+
+        procedure :: save => saveDiffusionEq
+        procedure :: open => openDiffusionEq
+        
     end type
 
 contains
+
+! #######################################################################
+subroutine linkDiffusionEq(obj,FEMDomain)
+	class(DiffusionEq_),intent(inout) :: obj
+	type(FEMDomain_),target,intent(in) :: FEMDomain
+
+	if(associated(obj%FEMDomain) )then
+		nullify(obj%FEMDomain)
+		obj%FEMDomain => FEMDOmain
+	endif
+
+end subroutine
+! #######################################################################
+
+! #######################################################################
+subroutine openDiffusionEq(obj,path,name)
+	class(DiffusionEq_),intent(inout) :: obj
+	character(*),intent(in) :: path
+	character(*),optional,intent(in) :: name
+	character(200) :: pathi
+	type(IO_) :: f
+	integer(int32) :: n
+
+	if(present(name) )then
+		pathi=path
+		if( index(path, "/", back=.true.) == len(path) )then
+			n=index(path, "/", back=.true.)
+			pathi(n:n)= " "
+		endif
+
+		call f%open(trim(pathi)//"/"//trim(name) ,"/"//"DiffusionEq",".prop" )
+	else
+		pathi=path
+		if( index(path, "/", back=.true.) == len(path) )then
+			n=index(path, "/", back=.true.)
+			pathi(n:n)= " "
+		endif
+		call f%open(trim(pathi)//"/DiffusionEq","/DiffusionEq",".prop" )
+	endif
+	
+	! write smt at here!
+
+
+    call openArray(f%fh, obj%UnknownValue)
+    call openArray(f%fh, obj%UnknownVec)
+    call openArray(f%fh, obj%UnknownValueInit)
+    call openArray(f%fh, obj%UnknownValueRate)
+    call openArray(f%fh, obj%DiffusionMat)
+    call openArray(f%fh, obj%Divergence)
+    call openArray(f%fh, obj%Flowvector)
+    call openArray(f%fh, obj%FluxVector3D)
+
+    call openArray(f%fh, obj%Permiability)  ! directly give parameter #1
+    read(f%fh,*) obj%dt
+    read(f%fh,*)  obj%step
+
+	call f%close()
+	
+end subroutine 
+
+
+
+! #######################################################################
+subroutine saveDiffusionEq(obj,path,name)
+	class(DiffusionEq_),intent(inout) :: obj
+	character(*),intent(in) :: path
+	character(*),optional,intent(in) :: name
+	character(200) :: pathi
+	type(IO_) :: f
+	integer(int32) :: n
+
+	if(present(name) )then
+		pathi=path
+		if( index(path, "/", back=.true.) == len(path) )then
+			n=index(path, "/", back=.true.)
+			pathi(n:n)= " "
+		endif
+
+		call system("mkdir -p "//trim(pathi))
+		call system("mkdir -p "//trim(pathi)//"/"//trim(name) )
+		call f%open(trim(pathi)//"/"//trim(name) ,"/"//"DiffusionEq",".prop" )
+	else
+		pathi=path
+		if( index(path, "/", back=.true.) == len(path) )then
+			n=index(path, "/", back=.true.)
+			pathi(n:n)= " "
+		endif
+		call system("mkdir -p "//trim(pathi))
+		call system("mkdir -p "//trim(pathi)//"/DiffusionEq")
+		call f%open(trim(pathi)//"/DiffusionEq","/DiffusionEq",".prop" )
+	endif
+	
+	! write smt at here!
+
+
+    call writeArray(f%fh, obj%UnknownValue)
+    call writeArray(f%fh, obj%UnknownVec)
+    call writeArray(f%fh, obj%UnknownValueInit)
+    call writeArray(f%fh, obj%UnknownValueRate)
+    call writeArray(f%fh, obj%DiffusionMat)
+    call writeArray(f%fh, obj%Divergence)
+    call writeArray(f%fh, obj%Flowvector)
+    call writeArray(f%fh, obj%FluxVector3D)
+
+    call writeArray(f%fh, obj%Permiability)  ! directly give parameter #1
+    write(f%fh,*) obj%dt
+    write(f%fh,*)  obj%step
+
+	call f%close()
+	
+end subroutine 
 
 
 ! ###################################################
@@ -63,8 +178,10 @@ subroutine exportDiffusionEq(obj,path,restart)
     if(present(restart) )then
         call system("mkdir -p "//trim(path)//"/DiffusionEq")
 	    call f%open("./",trim(path),"/DiffusionEq/DiffusionEq.res")
-	    	
-        call obj%FEMDomain%export(path = trim(path)//"/FEMDomain",FileHandle=f%fh+1,restart=.true.)
+        
+        if(associated(obj%FEMDomain) )then
+            call obj%FEMDomain%export(path = trim(path)//"/FEMDomain",FileHandle=f%fh+1,restart=.true.)
+        endif
 
         write(f%fh,*) obj%UnknownValue(:,:)
         write(f%fh,*) obj%UnknownVec(:)
@@ -849,6 +966,14 @@ subroutine DisplayDiffusionEq(obj,OptionalProjectName,DisplayMode,OptionalStep,N
     integer(int32),optional,intent(in)::OptionalStep
     integer(int32) :: i,j,n,m,step
 
+    if(.not.associated(obj%FEMDomain) )then
+        return
+    endif
+    if(obj%FEMDomain%Mesh%empty() .eqv. .true. )then
+		return
+    endif
+    
+    
     if(present(OptionalStep) )then
         step=OptionalStep
     else

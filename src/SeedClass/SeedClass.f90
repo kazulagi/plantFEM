@@ -9,10 +9,12 @@ module SeedClass
     implicit none
 
     type :: Seed_
-        type(FEMDomain_) :: FEMDomain
-        type(WaterAbsorption_) :: seedDomain
+        type(FEMDomain_) :: FEMDomain ! regacy
+        
+        type(WaterAbsorption_) :: seedDomain 
         type(FEMDomain_) :: water
         type(FEMDomain_) :: tissue
+
         type(MaterialProp_):: Permiability, YoungsModulus,PoissonRatio
         type(MaterialProp_):: density,Cohesion,phi,psi
         type(MaterialProp_):: a_Psi
@@ -23,17 +25,34 @@ module SeedClass
         type(MaterialProp_):: a_v
         type(MaterialProp_):: E_eq
         type(MaterialProp_):: v_eq
-        type(Boundary_) :: disp_x,disp_y,disp_z
-        type(Boundary_) :: traction_x,traction_y,traction_z
-        type(Boundary_) :: flux, const 
         
-        integer(int32) :: num_of_seed ! num of seed
-        real(real64) :: mass ! seed mass g/cm^3
-        real(real64) :: water_content ! seed water_content %
-        real(real64) :: radius ! seed radius (cm)
-        real(real64) :: width1,width2,width3 
-        real(real64) :: width1_origin,width2_origin,width3_origin 
-        real(real64) :: location(3) ! seed location (x,y,z)
+        type(Boundary_) :: disp_x
+        type(Boundary_) :: disp_y
+        type(Boundary_) :: disp_z
+        type(Boundary_) :: traction_x
+        type(Boundary_) :: traction_y
+        type(Boundary_) :: traction_z
+        type(Boundary_) :: flux
+        type(Boundary_) :: const 
+        
+        integer(int32) :: num_of_seed=1 ! num of seed
+        real(real64) :: mass=0.0d0 ! seed mass g/cm^3
+        real(real64) :: water_content=0.0d0 ! seed water_content %
+        real(real64) :: radius=0.0d0 ! seed radius (cm)
+        real(real64) :: width1=0.00d0
+        real(real64) :: width2=0.00d0
+        real(real64) :: width3=0.0d0 
+        real(real64) :: width1_origin=0.00d0
+        real(real64) :: width2_origin=0.00d0
+        real(real64) :: width3_origin=0.0d0
+        real(real64) :: location(3)=0.0d0 ! seed location (x,y,z)
+
+        character(200) :: path
+        character(200) :: name
+
+        ! not exported
+
+        integer(int32) :: step=0
     contains
         procedure :: create  => createSeed
         procedure :: env     => envSeed
@@ -47,11 +66,353 @@ module SeedClass
         procedure :: import => importSeed
         procedure :: createMesh => createMeshSeed
         procedure :: export => exportSeed
+        procedure :: save => saveSeed
+        procedure :: open => openSeed
+        procedure :: flush => flushSeed
         procedure :: show => showSeed
 
+
         procedure :: convertMeshType => convertMeshTypeSeed
+        procedure :: result => resultSeed
+        
     end type
 contains
+
+
+!#####################################
+subroutine resultSeed(obj,path,name,step)
+    class(Seed_),intent(inout) :: obj
+    character(*),intent(in) :: path, name
+    integer(int32),intent(in) :: step
+    
+    call obj%seedDomain%result(path,name,step)
+end subroutine
+!#####################################
+
+
+!########################################################
+subroutine openSeed(obj,path,name)
+    class(Seed_),intent(inout)::obj
+    character(*),optional,intent(in) :: path
+    character(*),optional,intent(in) :: name
+    character(200) :: data_type
+    type(IO_) :: f
+
+    if(present(path) )then
+        obj%path=path
+    else
+        obj%path="home/"
+    endif
+
+    if(present(name) )then
+        obj%name=name
+    else
+        obj%name="untitled"
+    endif
+
+    ! check data-type
+    call f%open(trim(obj%path)//trim(obj%name)//"/type")
+    data_type = f%read()
+    call f%close()
+    if(trim(data_type) /= "seed" )then
+        print *, "openSeed >> ERROR :: "//trim(obj%path)//trim(obj%name)//"/type /= seed"
+        stop
+    endif
+
+
+    call f%open(trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain/","seed",".prop")
+    read(f%fh,*)  obj%num_of_seed ! num of seed
+    read(f%fh,*)  obj%mass ! seed mass g/cm^3
+    read(f%fh,*)  obj%water_content ! seed water_content %
+    read(f%fh,*)  obj%radius ! seed radius (cm)
+    read(f%fh,*)  obj%width1
+    read(f%fh,*)  obj%width2
+    read(f%fh,*)  obj%width3 
+    read(f%fh,*)  obj%width1_origin
+    read(f%fh,*)  obj%width2_origin
+    read(f%fh,*)  obj%width3_origin 
+    read(f%fh,*)  obj%location(1) ! seed location (x,y,z)
+    read(f%fh,*)  obj%location(2) ! seed location (x,y,z)
+    read(f%fh,*)  obj%location(3) ! seed location (x,y,z)
+    read(f%fh,*)  obj%path
+    read(f%fh,*)  obj%name
+    call f%close()
+    
+
+    ! only for SeedClass
+    ! FEMDomain
+    call obj%water%save(path=trim(obj%path)//trim(obj%name)//"/input/seed",name="water")
+    call obj%tissue%save(path=trim(obj%path)//trim(obj%name)//"/input/seed",name="tissue")
+
+    ! WaterAbsorption
+    call obj%seedDomain%save(path=trim(obj%path)//trim(obj%name)//"/input/seed",name="seedDomain")
+
+    ! Material
+    call obj%Permiability%save( path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="Permiability"     )
+    call obj%YoungsModulus%save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="YoungsModulus"     )
+    call obj%PoissonRatio%save( path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="PoissonRatio"     )
+    call obj%density%save(      path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="density"     )
+    call obj%Cohesion%save(     path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="Cohesion"     )
+    call obj%phi%save(      path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="phi"     )
+    call obj%psi%save(      path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="phi"     )
+    call obj%a_Psi%save(        path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="a_Psi"     )
+    call obj%a_P%save(          path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="a_P"     )
+    call obj%theta_eq%save(     path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="theta_eq"     )
+    call obj%Psi_eq%save(       path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="Psi_eq"     )
+    call obj%a_E%save(          path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="a_E"     )
+    call obj%a_v%save(          path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="a_v"     )
+    call obj%E_eq%save(         path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="E_eq"     )
+    call obj%v_eq%save(         path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="v_eq"     )
+    
+    ! Boundary
+    call obj % disp_x % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="disp_x"  )
+    call obj % disp_y % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="disp_y"  )
+    call obj % disp_z % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="disp_z"  )
+    call obj % const  % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="const"  )
+    
+    call obj % traction_x % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="traction_x"  )
+    call obj % traction_y % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="traction_y"  )
+    call obj % traction_z % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="traction_z"  )
+    call obj % flux % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="flux"  )
+
+    ! link
+    call obj%seedDomain%link()
+    call obj%water%import(Boundaries=.true.,Boundary=obj%const)
+    call obj%Tissue%import(Boundaries=.true.,Boundary=obj%disp_x)
+    call obj%Tissue%import(Boundaries=.true.,Boundary=obj%disp_y)
+    call obj%Tissue%import(Boundaries=.true.,Boundary=obj%disp_z)
+    
+
+end subroutine
+!########################################################
+
+
+
+
+!########################################################
+subroutine flushSeed(obj,path,name)
+    class(Seed_),intent(inout)::obj
+    character(*),optional,intent(in) :: path
+    character(*),optional,intent(in) :: name
+    type(IO_) :: f
+
+    obj%step=obj%step+1
+
+    if(present(path) )then
+        obj%path=path
+    else
+        obj%path="home/"
+    endif
+
+    if(present(name) )then
+        obj%name=name
+    else
+        obj%name="untitled"
+    endif
+
+    ! create directory for save
+    call system("mkdir -p "//trim(obj%path)//trim(obj%name))
+    
+    call f%open(trim(obj%path)//trim(obj%name)//"/type")
+    call f%write("seed")
+    call f%close()
+
+    call f%open(trim(obj%path)//trim(obj%name)//"/readme")
+    call f%write("./input/ : Data stack for plant-FEM analysis")
+    call f%write("           ,which contains mesh and its properties.")
+    call f%write("./output/ : Data stack for results of plant-FEM analysis")
+    call f%write("           ,which contains field informations.")
+    call f%write("./server/ : Server script and options for plant-FEM analysis")
+    call f%write("           ,which contains .f90 scripts and options.")
+    call f%close()
+
+    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input")
+    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/output")
+    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/server")
+
+    ! only for SeedClass
+    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "")
+    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "")
+    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "")
+    call obj%water%save(path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "",name="water")
+    call obj%tissue%save(path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "",name="tissue")
+    call obj%seedDomain%save(path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "",name="seedDomain")
+
+
+    call obj%Permiability%save( path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="Permiability"     )
+    call obj%YoungsModulus%save(path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="YoungsModulus"     )
+    call obj%PoissonRatio%save( path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="PoissonRatio"     )
+    call obj%density%save(      path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="density"     )
+    call obj%Cohesion%save(     path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="Cohesion"     )
+    call obj%phi%save(      path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="phi"     )
+    call obj%psi%save(      path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="phi"     )
+    call obj%a_Psi%save(        path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="a_Psi"     )
+    call obj%a_P%save(          path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="a_P"     )
+    call obj%theta_eq%save(     path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="theta_eq"     )
+    call obj%Psi_eq%save(       path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="Psi_eq"     )
+    call obj%a_E%save(          path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="a_E"     )
+    call obj%a_v%save(          path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="a_v"     )
+    call obj%E_eq%save(         path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="E_eq"     )
+    call obj%v_eq%save(         path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="v_eq"     )
+    
+    call obj % disp_x % save(path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="disp_x"  )
+    call obj % disp_y % save(path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="disp_y"  )
+    call obj % disp_z % save(path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="disp_z"  )
+    call obj % traction_x % save(path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="traction_x"  )
+    call obj % traction_y % save(path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="traction_y"  )
+    call obj % traction_z % save(path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="traction_z"  )
+    call obj % flux % save(path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="flux"  )
+    call obj % const  % save(path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain",name="const"  )
+    
+    call f%open(trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+        "/seedDomain/","seed",".prop")
+    write(f%fh,*)  obj%num_of_seed ! num of seed
+    write(f%fh,*)  obj%mass ! seed mass g/cm^3
+    write(f%fh,*)  obj%water_content ! seed water_content %
+    write(f%fh,*)  obj%radius ! seed radius (cm)
+    write(f%fh,*)  obj%width1
+    write(f%fh,*)  obj%width2
+    write(f%fh,*)  obj%width3 
+    write(f%fh,*)  obj%width1_origin
+    write(f%fh,*)  obj%width2_origin
+    write(f%fh,*)  obj%width3_origin 
+    write(f%fh,*)  obj%location(1) ! seed location (x,y,z)
+    write(f%fh,*)  obj%location(2) ! seed location (x,y,z)
+    write(f%fh,*)  obj%location(3) ! seed location (x,y,z)
+    write(f%fh,*)  trim(obj%path)
+    write(f%fh,*)  trim(obj%name)
+    call f%close()
+
+end subroutine
+!########################################################
+
+!########################################################
+subroutine saveSeed(obj,path,name)
+    class(Seed_),intent(inout)::obj
+    character(*),optional,intent(in) :: path
+    character(*),optional,intent(in) :: name
+    type(IO_) :: f
+
+    if(present(path) )then
+        obj%path=path
+    else
+        obj%path="home/"
+    endif
+
+    if(present(name) )then
+        obj%name=name
+    else
+        obj%name="untitled"
+    endif
+
+    ! create directory for save
+    call system("mkdir -p "//trim(obj%path)//trim(obj%name))
+    
+    call f%open(trim(obj%path)//trim(obj%name)//"/type")
+    call f%write("seed")
+    call f%close()
+
+    call f%open(trim(obj%path)//trim(obj%name)//"/readme")
+    call f%write("./input/ : Data stack for plant-FEM analysis")
+    call f%write("           ,which contains mesh and its properties.")
+    call f%write("./output/ : Data stack for results of plant-FEM analysis")
+    call f%write("           ,which contains field informations.")
+    call f%write("./server/ : Server script and options for plant-FEM analysis")
+    call f%write("           ,which contains .f90 scripts and options.")
+    call f%close()
+
+    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input")
+    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/output")
+    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/server")
+
+    ! only for SeedClass
+    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input/seed")
+    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input/seed")
+    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input/seed")
+    call obj%water%save(path=trim(obj%path)//trim(obj%name)//"/input/seed",name="water")
+    call obj%tissue%save(path=trim(obj%path)//trim(obj%name)//"/input/seed",name="tissue")
+    call obj%seedDomain%save(path=trim(obj%path)//trim(obj%name)//"/input/seed",name="seedDomain")
+
+
+    call obj%Permiability%save( path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="Permiability"     )
+    call obj%YoungsModulus%save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="YoungsModulus"     )
+    call obj%PoissonRatio%save( path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="PoissonRatio"     )
+    call obj%density%save(      path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="density"     )
+    call obj%Cohesion%save(     path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="Cohesion"     )
+    call obj%phi%save(      path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="phi"     )
+    call obj%psi%save(      path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="phi"     )
+    call obj%a_Psi%save(        path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="a_Psi"     )
+    call obj%a_P%save(          path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="a_P"     )
+    call obj%theta_eq%save(     path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="theta_eq"     )
+    call obj%Psi_eq%save(       path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="Psi_eq"     )
+    call obj%a_E%save(          path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="a_E"     )
+    call obj%a_v%save(          path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="a_v"     )
+    call obj%E_eq%save(         path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="E_eq"     )
+    call obj%v_eq%save(         path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="v_eq"     )
+    
+    call obj % disp_x % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="disp_x"  )
+    call obj % disp_y % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="disp_y"  )
+    call obj % disp_z % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="disp_z"  )
+    call obj % traction_x % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="traction_x"  )
+    call obj % traction_y % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="traction_y"  )
+    call obj % traction_z % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="traction_z"  )
+    call obj % flux % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="flux"  )
+    call obj % const  % save(path=trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain",name="const"  )
+    
+    call f%open(trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain/","seed",".prop")
+    write(f%fh,*)  obj%num_of_seed ! num of seed
+    write(f%fh,*)  obj%mass ! seed mass g/cm^3
+    write(f%fh,*)  obj%water_content ! seed water_content %
+    write(f%fh,*)  obj%radius ! seed radius (cm)
+    write(f%fh,*)  obj%width1
+    write(f%fh,*)  obj%width2
+    write(f%fh,*)  obj%width3 
+    write(f%fh,*)  obj%width1_origin
+    write(f%fh,*)  obj%width2_origin
+    write(f%fh,*)  obj%width3_origin 
+    write(f%fh,*)  obj%location(1) ! seed location (x,y,z)
+    write(f%fh,*)  obj%location(2) ! seed location (x,y,z)
+    write(f%fh,*)  obj%location(3) ! seed location (x,y,z)
+    write(f%fh,*)  trim(obj%path)
+    write(f%fh,*)  trim(obj%name)
+    call f%close()
+
+    obj%step=obj%step+1
+    call obj%seedDomain%result(path=trim(obj%path)//trim(obj%name)//"/output/seed",name="seedDomain",step=obj%step)
+
+
+end subroutine
+!########################################################
+
 
 !########################################################
 subroutine createSeed(obj,Name,MeshType,x_num,y_num,z_num,x_len,y_len,z_len,YoungsModulus,PoissonRatio,Permiability,&
@@ -331,7 +692,6 @@ subroutine envSeed(obj,disp_x,disp_y,disp_z,WaterContent,x_max,x_min,y_max,y_min
         call obj%disp_x%create(Category="Dirichlet",x_max=x_max,x_min=x_min,y_max=y_max,y_min=y_min,&
         z_max=z_max,z_min=z_min,BoundValue=disp_x,Layer=1,Name="disp_x")
         call obj%tissue%import(Boundaries=.true., Boundary=obj%disp_x)
-        
     endif
 
     if(present(disp_y) )then
@@ -362,14 +722,23 @@ end subroutine
 
 
 !########################################################
-subroutine growSeed(obj,timestep,dt,Display,nr_tol,interval,Name)
+subroutine growSeed(obj,timestep,dt,Display,nr_tol,interval,Name,restart)
     
     class(Seed_) ,intent(inout) :: obj
     integer(int32),optional, intent(in) :: timestep,interval
     real(real64),optional, intent(in) :: dt,nr_tol
-    logical,optional, intent(in) ::Display
+    logical,optional, intent(in) ::Display,restart
     character(*),optional,intent(in) :: Name
     ! bake data by using templates
+
+    if(present(restart) )then
+        if(restart .eqv. .true.)then
+            call obj%seedDomain%run(timestep=timestep,dt=dt,SolverType="BiCGSTAB",&
+            Display=.true.,nr_tol=nr_tol,infinitesimal=.true.,interval=interval,Name=Name)
+            return
+        endif
+    endif
+
     call obj%tissue%bake(template="FiniteDeform_")
     call obj%water%bake(template="DiffusionEq_")    
     
@@ -385,7 +754,6 @@ subroutine growSeed(obj,timestep,dt,Display,nr_tol,interval,Name)
     call obj%seedDomain%import(Water=obj%water,Tissue=obj%tissue)
     call obj%seedDomain%bake()
     ! run simula
-    call obj%seedDomain%gnuplot(mode="all")
 
     call obj%seedDomain%run(timestep=timestep,dt=dt,SolverType="BiCGSTAB",&
         Display=.true.,nr_tol=nr_tol,infinitesimal=.true.,interval=interval,Name=Name)

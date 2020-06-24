@@ -43,10 +43,21 @@ module ArrayClass
     end interface TrimArray
 
 
+
+    
+    interface openArray
+        module procedure openArrayInt, openArrayReal, openArrayIntVec, openArrayRealVec,openArrayInt3, openArrayReal3
+    end interface
+
+    interface writeArray
+        module procedure writeArrayInt, writeArrayReal, writeArrayIntVec, writeArrayRealVec,writeArrayInt3, writeArrayReal3
+    end interface
+
+
+
     interface ImportArray
         module procedure ImportArrayInt, ImportArrayReal
     end interface ImportArray
-
     interface ExportArray
         module procedure ExportArrayInt, ExportArrayReal
     end interface ExportArray
@@ -568,6 +579,266 @@ subroutine TrimArrayReal(a,k)
 
 end subroutine
 !=====================================
+
+
+!=====================================
+subroutine openArrayInt(fh, Array)
+    integer(int32),intent(in) :: fh
+    integer(int32),allocatable,intent(out)::Array(:,:)
+    integer(int32) :: i,j,n,m
+    read(fh,*) n
+    read(fh,*) m
+    if(n==0 .and. m==0)then
+        return
+    endif
+    if(allocated(Array) ) deallocate(Array)
+    allocate(Array(n,m) )
+    do i=1,n
+        read(fh,*) Array(i,1:m)
+    enddo
+end subroutine
+!=====================================
+
+
+
+
+!=====================================
+subroutine openArrayInt3(fh, Array3)
+    integer(int32),intent(in) :: fh
+    integer(int32),allocatable,intent(out)::Array3(:,:,:)
+    integer(int32) :: i,j,n,m,o
+    read(fh,*) n
+    read(fh,*) m
+    read(fh,*) o
+    if( abs(n)+abs(m)+abs(o)==0)then
+        return
+    endif
+
+    if(allocated(Array3) ) deallocate(Array3)
+    allocate(Array3(n,m,o) )
+    do i=1,n
+        do j=1, m
+            read(fh,*) Array3(i,j,1:o)
+        enddo
+    enddo
+end subroutine
+!=====================================
+
+
+!=====================================
+subroutine openArrayReal3(fh, Array3)
+    integer(int32),intent(in) :: fh
+    real(real64),allocatable,intent(out)::Array3(:,:,:)
+    integer(int32) :: i,j,n,m,o
+    read(fh,*) n
+    read(fh,*) m
+    read(fh,*) o
+    if( abs(n)+abs(m)+abs(o)==0)then
+        return
+    endif
+
+    if(allocated(Array3) ) deallocate(Array3)
+    allocate(Array3(n,m,o) )
+    do i=1,n
+        do j=1, m
+            read(fh,*) Array3(i,j,1:o)
+        enddo
+    enddo
+end subroutine
+!====================================
+
+!=====================================
+subroutine openArrayReal(fh, Array)
+    integer(int32),intent(in) :: fh
+    real(real64),allocatable,intent(out)::Array(:,:)
+    integer(int32) :: i,j,n,m
+    read(fh,*) n
+    read(fh,*) m
+    if(n==0 .and. m==0)then
+        return
+    endif
+    if(allocated(Array) ) deallocate(Array)
+    allocate(Array(n,m) )
+    do i=1,n
+        read(fh,*) Array(i,1:m)
+    enddo
+end subroutine
+!=====================================
+
+!=====================================
+subroutine openArrayIntVec(fh, Vector)
+    integer(int32),intent(in) :: fh
+    integer(int32),allocatable,intent(out)::Vector(:)
+    integer(int32) :: i,j,n,m
+    read(fh,*) n
+    if(n==0 )then
+        return
+    endif
+    if(allocated(Vector) ) deallocate(Vector)
+    allocate(Vector(n) )
+    do i=1,n
+        read(fh,*) Vector(i)
+    enddo
+end subroutine
+!=====================================
+
+
+!=====================================
+subroutine openArrayRealVec(fh, Vector)
+    integer(int32),intent(in) :: fh
+    real(real64),allocatable,intent(out)::Vector(:)
+    integer(int32) :: i,j,n,m
+    read(fh,*) n
+    if(n==0 )then
+        return
+    endif
+    if(allocated(Vector) ) deallocate(Vector)
+    allocate(Vector(n) )
+    do i=1,n
+        read(fh,*) Vector(i)
+    enddo
+end subroutine
+!=====================================
+
+
+
+
+
+!=====================================
+subroutine writeArrayInt(fh, Array)
+    integer(int32),intent(in) :: fh
+    integer(int32),allocatable,intent(in)::Array(:,:)
+    integer(int32) :: i,j,n,m
+    if(.not.allocated(Array) )then
+        n=0
+        m=0
+    else
+        n=size(Array,1)
+        m=size(Array,2)
+    endif
+
+    write(fh,*) n
+    write(fh,*) m
+    do i=1,n
+        write(fh,*) Array(i,1:m)
+    enddo
+end subroutine
+!=====================================
+
+
+
+
+!=====================================
+subroutine writeArrayInt3(fh, Array3)
+    integer(int32),intent(in) :: fh
+    integer(int32),allocatable,intent(in)::Array3(:,:,:)
+    integer(int32) :: i,j,n,m,o
+    if(.not.allocated(Array3) )then
+        n=0
+        m=0
+        o=0
+    else
+        n=size(Array3,1)
+        m=size(Array3,2)
+        o=size(Array3,3)
+    endif
+    write(fh,*) n
+    write(fh,*) m
+    write(fh,*) o
+    do i=1,n
+        do j=1,m
+            write(fh,*) Array3(i,j,1:o)
+        enddo
+    enddo
+end subroutine
+!=====================================
+
+
+
+!=====================================
+subroutine writeArrayReal3(fh, Array3)
+    integer(int32),intent(in) :: fh
+    real(real64),allocatable,intent(in)::Array3(:,:,:)
+    integer(int32) :: i,j,n,m,o
+    if(.not.allocated(Array3) )then
+        n=0
+        m=0
+        o=0
+    else
+        n=size(Array3,1)
+        m=size(Array3,2)
+        o=size(Array3,3)
+    endif
+    write(fh,*) n
+    write(fh,*) m
+    write(fh,*) o
+    do i=1,n
+        do j=1,m
+            write(fh,*) Array3(i,j,1:o)
+        enddo
+    enddo
+end subroutine
+!=====================================
+!=====================================
+subroutine writeArrayReal(fh, Array)
+    integer(int32),intent(in) :: fh
+    real(real64),allocatable,intent(in)::Array(:,:)
+    integer(int32) :: i,j,n,m
+    if(.not.allocated(Array) )then
+        n=0
+        m=0
+    else
+        n=size(Array,1)
+        m=size(Array,2)
+    endif
+    write(fh,*) n
+    write(fh,*) m
+    do i=1,n
+        write(fh,*) Array(i,1:m)
+    enddo
+end subroutine
+!=====================================
+
+!=====================================
+subroutine writeArrayIntVec(fh, Vector)
+    integer(int32),intent(in) :: fh
+    integer(int32),allocatable,intent(in)::Vector(:)
+    integer(int32) :: i,j,n,m
+    if(.not.allocated(Vector) )then
+        n=0
+        m=0
+    else
+        n=size(Vector)
+    endif
+    write(fh,*) n
+    do i=1,n
+        write(fh,*) Vector(i)
+    enddo
+end subroutine
+!=====================================
+
+
+!=====================================
+subroutine writeArrayRealVec(fh, Vector)
+    integer(int32),intent(in) :: fh
+    real(real64),allocatable,intent(in)::Vector(:)
+    integer(int32) :: i,j,n,m
+    if(.not.allocated(Vector) )then
+        n=0
+        m=0
+    else
+        n=size(Vector)
+    endif
+    write(fh,*) n
+    do i=1,n
+        write(fh,*) Vector(i)
+    enddo
+end subroutine
+!=====================================
+
+
+
+
 
 
 !##################################################

@@ -1,6 +1,7 @@
 module ShapeFunctionClass
     use, intrinsic :: iso_fortran_env
     use MathClass
+    use ArrayClass
     use IOClass
     implicit none
     
@@ -36,9 +37,200 @@ module ShapeFunctionClass
         procedure :: getType => getShapeFuncType 
         procedure :: GetGaussPoint => GetGaussPoint
         procedure :: export => exportShapeFunction
+        procedure :: remove => removeShapeFunction
+        procedure :: save => saveShapeFunction
+        procedure :: open => openShapeFunction
     end type ShapeFunction_
 
 contains
+
+! #####################################################
+subroutine openShapeFunction(obj,path,name)
+    class(ShapeFunction_ ),intent(inout)::obj
+    character(*),intent(in) :: path
+    character(*),optional,intent(in) :: name
+    type(IO_) :: f
+
+    if(present(name) )then
+        call system("mkdir -p "//trim(path)//"/"//trim(name))
+        
+        call f%open(trim(path)//"/"//trim(name)//"/","ShapeFunction","prop" )
+        
+        call openArray(f%fh,obj%Nmat)
+        call openArray(f%fh,obj%dNdgzi)
+        call openArray(f%fh,obj%dNdgzidgzi)
+        call openArray(f%fh,obj%gzi)
+        call openArray(f%fh,obj%GaussPoint)
+        call openArray(f%fh,obj%GaussIntegWei)
+        call openArray(f%fh,obj%Jmat)
+        call openArray(f%fh,obj%JmatInv)
+        call openArray(f%fh,obj%ElemCoord)
+        call openArray(f%fh,obj%ElemCoord_n)
+        call openArray(f%fh,obj%du)
+        read(f%fh,*)obj%detJ
+        read(f%fh,*)obj%NumOfNode
+        read(f%fh,*)obj%NumOfOrder
+        read(f%fh,*)obj%NumOfDim
+        read(f%fh,*)obj%NumOfGp
+        read(f%fh,*)obj%GpID
+        read(f%fh,*)obj%ierr
+        read(f%fh,*)obj%currentGpID
+        read(f%fh,*)obj%ReducedIntegration
+        read(f%fh,*)obj%ElemType
+        read(f%fh,*)obj%ErrorMsg
+        
+        call f%close()
+    else
+
+        call system("mkdir -p "//trim(path)//"/ShapeFunction")
+        call f%open(trim(path)//"/","ShapeFunction/ShapeFunction","prop" )
+        
+        call openArray(f%fh,obj%Nmat)
+        call openArray(f%fh,obj%dNdgzi)
+        call openArray(f%fh,obj%dNdgzidgzi)
+        call openArray(f%fh,obj%gzi)
+        call openArray(f%fh,obj%GaussPoint)
+        call openArray(f%fh,obj%GaussIntegWei)
+        call openArray(f%fh,obj%Jmat)
+        call openArray(f%fh,obj%JmatInv)
+        call openArray(f%fh,obj%ElemCoord)
+        call openArray(f%fh,obj%ElemCoord_n)
+        call openArray(f%fh,obj%du)
+        read(f%fh,*)obj%detJ
+        read(f%fh,*)obj%NumOfNode
+        read(f%fh,*)obj%NumOfOrder
+        read(f%fh,*)obj%NumOfDim
+        read(f%fh,*)obj%NumOfGp
+        read(f%fh,*)obj%GpID
+        read(f%fh,*)obj%ierr
+        read(f%fh,*)obj%currentGpID
+        read(f%fh,*)obj%ReducedIntegration
+        read(f%fh,*)obj%ElemType
+        read(f%fh,*)obj%ErrorMsg
+        
+        call f%close()
+    endif
+
+end subroutine
+! #####################################################
+
+
+! #####################################################
+subroutine saveShapeFunction(obj,path,name)
+    class(ShapeFunction_ ),intent(inout)::obj
+    character(*),intent(in) :: path
+    character(*),optional,intent(in) :: name
+    type(IO_) :: f
+
+    if(present(name) )then
+        call system("mkdir -p "//trim(path)//"/"//trim(name))
+        
+        call f%open(trim(path)//"/"//trim(name)//"/","ShapeFunction","prop" )
+        
+        call writeArray(f%fh,obj%Nmat)
+        call writeArray(f%fh,obj%dNdgzi)
+        call writeArray(f%fh,obj%dNdgzidgzi)
+        call writeArray(f%fh,obj%gzi)
+        call writeArray(f%fh,obj%GaussPoint)
+        call writeArray(f%fh,obj%GaussIntegWei)
+        call writeArray(f%fh,obj%Jmat)
+        call writeArray(f%fh,obj%JmatInv)
+        call writeArray(f%fh,obj%ElemCoord)
+        call writeArray(f%fh,obj%ElemCoord_n)
+        call writeArray(f%fh,obj%du)
+        write(f%fh,*)obj%detJ
+        write(f%fh,*)obj%NumOfNode
+        write(f%fh,*)obj%NumOfOrder
+        write(f%fh,*)obj%NumOfDim
+        write(f%fh,*)obj%NumOfGp
+        write(f%fh,*)obj%GpID
+        write(f%fh,*)obj%ierr
+        write(f%fh,*)obj%currentGpID
+        write(f%fh,*)obj%ReducedIntegration
+        write(f%fh,*)trim(obj%ElemType)
+        write(f%fh,*)trim(obj%ErrorMsg)
+        
+        call f%close()
+    else
+
+        call system("mkdir -p "//trim(path)//"/ShapeFunction")
+        call f%open(trim(path)//"/","ShapeFunction/ShapeFunction","prop" )
+        
+        call writeArray(f%fh,obj%Nmat)
+        call writeArray(f%fh,obj%dNdgzi)
+        call writeArray(f%fh,obj%dNdgzidgzi)
+        call writeArray(f%fh,obj%gzi)
+        call writeArray(f%fh,obj%GaussPoint)
+        call writeArray(f%fh,obj%GaussIntegWei)
+        call writeArray(f%fh,obj%Jmat)
+        call writeArray(f%fh,obj%JmatInv)
+        call writeArray(f%fh,obj%ElemCoord)
+        call writeArray(f%fh,obj%ElemCoord_n)
+        call writeArray(f%fh,obj%du)
+        write(f%fh,*) obj%detJ
+        write(f%fh,*) obj%NumOfNode
+        write(f%fh,*) obj%NumOfOrder
+        write(f%fh,*) obj%NumOfDim
+        write(f%fh,*) obj%NumOfGp
+        write(f%fh,*) obj%GpID
+        write(f%fh,*) obj%ierr
+        write(f%fh,*) obj%currentGpID
+        write(f%fh,*) obj%ReducedIntegration
+        write(f%fh,*) trim(obj%ElemType)
+        write(f%fh,*) trim(obj%ErrorMsg)
+        
+        call f%close()
+    endif
+
+end subroutine
+! #####################################################
+
+subroutine removeShapeFunction(obj)
+    class(ShapeFunction_),intent(inout)::obj
+
+    if(allocated(obj%Nmat))then
+        deallocate(obj%Nmat)
+    endif
+    if(allocated(obj%dNdgzi))then
+        deallocate(obj%dNdgzi)
+    endif
+    if(allocated(obj%dNdgzidgzi))then
+        deallocate(obj%dNdgzidgzi)
+    endif
+    if(allocated(obj%gzi))then
+        deallocate(obj%gzi)
+    endif
+    if(allocated(obj%GaussPoint))then
+        deallocate(obj%GaussPoint)
+    endif
+    if(allocated(obj%GaussIntegWei))then
+        deallocate(obj%GaussIntegWei)
+    endif
+    if(allocated(obj%Jmat))then
+        deallocate(obj%Jmat)
+    endif
+    if(allocated(obj%ElemCoord))then
+        deallocate(obj%ElemCoord)
+    endif
+    if(allocated(obj%ElemCoord_n))then
+        deallocate(obj%ElemCoord_n)
+    endif
+    if(allocated(obj%du))then
+        deallocate(obj%du)
+    endif
+    obj%detJ=0.0d0
+    obj%NumOfNode=0
+    obj%NumOfOrder=0
+    obj%NumOfDim=0
+    obj%NumOfGp=0
+    obj%GpID=0
+    obj%ierr=0
+    obj%currentGpID=0
+    obj%ReducedIntegration = .false.
+    obj%ElemType=" "
+    obj%ErrorMsg=" "
+
+end subroutine
 
 !##################################################
 subroutine initShapeFunction(obj,ElemType)
