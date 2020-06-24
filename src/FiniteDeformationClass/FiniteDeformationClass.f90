@@ -46,9 +46,146 @@ module FiniteDeformationClass
 		procedure :: check => checkFiniteDeform
 		procedure :: import => importFiniteDeform
 		procedure :: export => exportFiniteDeform
+
+
+		procedure :: save => saveFiniteDeform
+		procedure :: open => openFiniteDeform
+		procedure :: link => linkFiniteDeform
+		
   	end type
 	
 contains
+
+! #######################################################################
+subroutine linkFiniteDeform(obj,FEMDomain)
+	class(FiniteDeform_),intent(inout) :: obj
+	type(FEMDomain_),target,intent(in) :: FEMDomain
+
+	if(associated(obj%FEMDomain) )then
+		nullify(obj%FEMDomain)
+		obj%FEMDomain => FEMDOmain
+	endif
+
+end subroutine
+! #######################################################################
+
+! #######################################################################
+subroutine openFiniteDeform(obj,path,name)
+	class(FiniteDeform_),intent(inout) :: obj
+	character(*),intent(in) :: path
+	character(*),optional,intent(in) :: name
+	character(200) :: pathi
+	type(IO_) :: f
+	integer(int32) :: n
+
+	if(present(name) )then
+		pathi=path
+		if( index(path, "/", back=.true.) == len(path) )then
+			n=index(path, "/", back=.true.)
+			pathi(n:n)= " "
+		endif
+
+		call system("mkdir -p "//trim(pathi))
+		call system("mkdir -p "//trim(pathi)//"/"//trim(name) )
+		call f%open(trim(pathi)//"/"//trim(name) ,"/"//"FiniteDeform",".prop" )
+	else
+		pathi=path
+		if( index(path, "/", back=.true.) == len(path) )then
+			n=index(path, "/", back=.true.)
+			pathi(n:n)= " "
+		endif
+		call system("mkdir -p "//trim(pathi))
+		call system("mkdir -p "//trim(pathi)//"/FiniteDeform")
+		call f%open(trim(pathi)//"/FiniteDeform","/FiniteDeform",".prop" )
+	endif
+	
+	! write smt at here!
+
+	call openArray(f%fh, obj%DeformStress)
+	call openArray(f%fh, obj%DeformStrain)
+	call openArray(f%fh, obj%DeformStressInit)
+	call openArray(f%fh, obj%DeformStressinc)
+	call openArray(f%fh, obj%DeformStressMat)
+	call openArray(f%fh, obj%DeformStressRHS)
+	call openArray(f%fh, obj%DeformVecEBETot)
+	call openArray(f%fh, obj%DeformVecEBEInc)
+	call openArray(f%fh, obj%DeformVecGloTot)
+	call openArray(f%fh, obj%DeformVecGloInc) 
+	call openArray(f%fh, obj%TractionVecGlo)
+	call openArray(f%fh, obj%ResidualVecGlo)
+	call openArray(f%fh, obj%InternalVecGlo)
+	call openArray(f%fh, obj%VolInitCurrEBE)
+	call openArray(f%fh, obj%YoungsModulus) ! directly give parameter #1
+	call openArray(f%fh, obj%PoissonsRatio) ! directly give parameter #2
+	call openArray(f%fh, obj%PorePressure) ! directly give parameter #2
+	read(f%fh,*) obj%dt,obj%error,obj%reactionforce
+	read(f%fh,*) obj%nr_tol
+	read(f%fh,*) obj%ReducedIntegration 
+	read(f%fh,*) obj%infinitesimal 
+	
+	call f%close()
+	
+end subroutine 
+
+
+! #######################################################################
+subroutine saveFiniteDeform(obj,path,name)
+	class(FiniteDeform_),intent(inout) :: obj
+	character(*),intent(in) :: path
+	character(*),optional,intent(in) :: name
+	character(200) :: pathi
+	type(IO_) :: f
+	integer(int32) :: n
+
+	if(present(name) )then
+		pathi=path
+		if( index(path, "/", back=.true.) == len(path) )then
+			n=index(path, "/", back=.true.)
+			pathi(n:n)= " "
+		endif
+
+		call system("mkdir -p "//trim(pathi))
+		call system("mkdir -p "//trim(pathi)//"/"//trim(name) )
+		call f%open(trim(pathi)//"/"//trim(name) ,"/"//"FiniteDeform",".prop" )
+	else
+		pathi=path
+		if( index(path, "/", back=.true.) == len(path) )then
+			n=index(path, "/", back=.true.)
+			pathi(n:n)= " "
+		endif
+		call system("mkdir -p "//trim(pathi))
+		call system("mkdir -p "//trim(pathi)//"/FiniteDeform")
+		call f%open(trim(pathi)//"/FiniteDeform","/FiniteDeform",".prop" )
+	endif
+	
+	! write smt at here!
+
+	call writeArray(f%fh, obj%DeformStress)
+	call writeArray(f%fh, obj%DeformStrain)
+	call writeArray(f%fh, obj%DeformStressInit)
+	call writeArray(f%fh, obj%DeformStressinc)
+	call writeArray(f%fh, obj%DeformStressMat)
+	call writeArray(f%fh, obj%DeformStressRHS)
+	call writeArray(f%fh, obj%DeformVecEBETot)
+	call writeArray(f%fh, obj%DeformVecEBEInc)
+	call writeArray(f%fh, obj%DeformVecGloTot)
+	call writeArray(f%fh, obj%DeformVecGloInc) 
+	call writeArray(f%fh, obj%TractionVecGlo)
+	call writeArray(f%fh, obj%ResidualVecGlo)
+	call writeArray(f%fh, obj%InternalVecGlo)
+	call writeArray(f%fh, obj%VolInitCurrEBE)
+	call writeArray(f%fh, obj%YoungsModulus) ! directly give parameter #1
+	call writeArray(f%fh, obj%PoissonsRatio) ! directly give parameter #2
+	call writeArray(f%fh, obj%PorePressure) ! directly give parameter #2
+	write(f%fh,*) obj%dt,obj%error,obj%reactionforce
+	write(f%fh,*) obj%nr_tol
+	write(f%fh,*) obj%ReducedIntegration 
+	write(f%fh,*) obj%infinitesimal 
+	
+	call f%close()
+	
+end subroutine 
+! #######################################################################
 
 ! ###############################################################
 subroutine importFiniteDeform(obj, YoungsModulus, PoissonsRatio, PorePressure)
@@ -2467,8 +2604,58 @@ end subroutine
 
 
 
+!######################## Display Finite Deformation ########################
+subroutine resultFiniteDeform(obj,path,name,step)
+    class(FiniteDeform_),intent(inout)::obj
+	character(*),intent(in) :: Name,path
+	integer(int32),optional,intent(in)::step
+	real(real64),allocatable::DBCvec(:,:),DispVector(:,:)
+    integer(int32) :: i,j,n,m,fstep,dim_num
+
+	if(size(obj%FEMDomain%Mesh%NodCoord,2)==2)then
+		! 2-D condition
+    	if(present(step) )then
+    	    fstep=step
+    	else
+    	    fstep=1
+    	endif
 
 
+		call GmshExportStress(obj%FEMDomain,obj%DeformVecGloTot,obj%DeformStress,&
+		obj%DeformStrain,fstep,Name=trim(path)//"/"//trim(Name))
+		call obj%getDispVector(DispVector)
+		call GmshPlotVector(obj%FEMDomain,Vector=DispVector,Name=trim(path)//"/"//trim(Name),FieldName="Displacement",&
+		Step=step,withMsh=.true.,NodeWize=.true.,onlyDirichlet=.true.)
+
+	elseif(size(obj%FEMDomain%Mesh%NodCoord,2)==3)then
+		
+		! 3-D condition
+		if(present(step) )then
+    	    fstep=step
+    	else
+    	    fstep=1
+    	endif
+		call GmshExportStress(obj%FEMDomain,obj%DeformVecGloTot,obj%DeformStress,obj%DeformStrain,step,Name=trim(path)//"/"//trim(Name) )
+		call obj%getDBCVector(DBCvec)
+		call GmshPlotVector(obj=obj%FEMDomain,Vector=DBCvec,Name=trim(path)//"/"//trim(Name),Step=fstep,FieldName="DispBoundary",&
+		NodeWize=.true. )
+		!call obj%exportAsPly()
+
+	endif
+end subroutine 
+!######################## Display Finite Deformation ########################
+
+
+subroutine exportAsPlyFiniteDeform(obj)
+	class(FiniteDeform_),intent(inout) :: obj
+	real(real64),allocatable :: scalar(:)
+	integer(int32) :: n,m
+	n=size(obj%FEMDomain%Mesh%NodCoord,1)
+
+	allocate(scalar(n) )
+
+	
+end subroutine
 
 !######################## Display Finite Deformation ########################
 subroutine DisplayDeformStress(obj,DisplayMode,OptionalStep,Name,withDirichlet)
@@ -2479,6 +2666,12 @@ subroutine DisplayDeformStress(obj,DisplayMode,OptionalStep,Name,withDirichlet)
 	real(real64),allocatable::DBCvec(:,:),DispVector(:,:)
     integer(int32) :: i,j,n,m,step,dim_num
 
+    if(.not.associated(obj%FEMDomain) )then
+        return
+    endif
+	if(obj%FEMDomain%Mesh%empty() .eqv. .true. )then
+		return
+	endif
 	if(size(obj%FEMDomain%Mesh%NodCoord,2)==2)then
 		! 2-D condition
     	if(present(OptionalStep) )then
@@ -2809,8 +3002,11 @@ subroutine exportFiniteDeform(obj,restart,path)
 	if(present(restart) )then
 		! make new dir 
 		call system("mkdir -p "//trim(path)//"/FiniteDeform")
-    	call obj%FEMDomain%export(path=path//"/FiniteDeform",restart=restart)
 		
+		if(associated(obj%FEMDomain) )then
+    		call obj%FEMDomain%export(path=path//"/FiniteDeform",restart=restart)
+		endif
+
 		call f%open("./",trim(path)//"/FiniteDeform","/FiniteDeform.res")
 		write(f%fh, *) obj%DeformStress(:,:,:)
 		write(f%fh, *) obj%DeformStrain(:,:,:)

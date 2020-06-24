@@ -10,6 +10,7 @@ module IOClass
     contains
         procedure,public :: open => openIO
         procedure,public :: write => writeIO
+        procedure,public :: read => readIO
         procedure,public :: close => closeIO    
     end type
 
@@ -87,6 +88,18 @@ subroutine writeIO(obj,char,in32, re64)
     endif
 
 end subroutine writeIO
+! #############################################
+
+
+! #############################################
+function readIO(obj) result(char)
+    class(IO_),intent(inout) :: obj
+    character(200) :: char
+    
+    read(obj%fh,'(A)' ) char
+
+
+end function readIO
 ! #############################################
 
 ! #############################################

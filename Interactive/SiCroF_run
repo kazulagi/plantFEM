@@ -52,6 +52,23 @@ homepath="$PWD"
 
     #echo "Please input fortran script *.f90 | or check manual by 'man'  "
     echo -n ">>> $1\n"
+
+#    if [-d {"$1"} ]; then
+#        # this is directory
+#
+#        $mpif90 inc/*o "$1/server/server.f90" -g -fcheck=all  -fintrinsic-modules-path inc/
+#        #echo "Current num of cpu-core is :: $numcore "
+#
+#        #if [ "$hostfile" != "" ]; then
+#        #    echo "hostfile is activated."
+#        #    mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out
+#        #    return 0
+#        #fi
+#        mpirun --allow-run-as-root -np $numcore ./a.out 
+#        return 0
+#
+#
+#    fi 
     
     if [ "$1" = "addon" ]; then
         echo "installing add-on"

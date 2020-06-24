@@ -20,14 +20,14 @@ module MeshClass
         integer(int32),allocatable::SubMeshNodFromTo(:,:)
         integer(int32),allocatable::SubMeshElemFromTo(:,:)
         integer(int32),allocatable::SubMeshSurfFromTo(:,:)
-        integer(int32) :: surface
+        integer(int32) :: surface=1
 
         !for Interfaces
         integer(int32),allocatable::GlobalNodID(:)
 
-        character*200::FileName
-        character*70::ElemType
-        character*70 ErrorMsg
+        character*200::FileName=" "
+        character*70::ElemType=" "
+        character*70:: ErrorMsg=" "
 
     contains
         procedure :: add => addMesh
@@ -78,11 +78,15 @@ module MeshClass
         procedure :: meltingSkelton => MeltingSkeltonMesh 
         procedure :: meshing    => MeshingMesh
 
+        procedure :: open => openMesh
+
+        procedure :: remove => removeMesh
         procedure :: removeCircumscribedTriangle => removeCircumscribedTriangleMesh
         procedure :: removeFailedTriangle => RemoveFailedTriangleMesh
         procedure :: removeOverlappedNode =>removeOverlappedNodeMesh
         procedure :: resize => resizeMeshobj
         
+        procedure :: save    => saveMesh 
         procedure :: sortFacet    => SortFacetMesh 
         procedure :: shift=>shiftMesh
         procedure :: showRange => showRangeMesh
@@ -93,7 +97,127 @@ module MeshClass
 
 
     contains
+
+
+    subroutine saveMesh(obj,path,name)
+        class(Mesh_),intent(inout)::obj
+        character(*),intent(in) :: path
+        character(*),optional,intent(in) :: name
+        type(IO_) :: f
+        integer(int32) :: i,j,dim_num,n,m
+        
+        if(present(name) )then
+            call system("mkdir -p "//trim(path)//"/"//trim(name))
+            call f%open(trim(path)//"/"//trim(name)//"/","Mesh",".prop")
+        else
+            call system("mkdir -p "//trim(path)//"/Mesh")
+            call f%open(trim(path)//"/Mesh/","Mesh",".prop")
+        endif
+            
     
+        call writeArray(f%fh,obj%NodCoord)
+    
+        call writeArray(f%fh,obj%NodCoord)
+    
+        call writeArray(f%fh,obj%NodCoordInit)
+        
+        call writeArray(f%fh,obj%ElemNod)
+        
+        call writeArray(f%fh,obj%FacetElemNod)
+        
+        call writeArray(f%fh,obj%NextFacets)
+    
+        call writeArray(f%fh,obj%SurfaceLine2D)
+        
+        call writeArray(f%fh,obj%ElemMat)
+        
+        call writeArray(f%fh,obj%SubMeshNodFromTo)
+        
+        call writeArray(f%fh,obj%SubMeshElemFromTo)
+        
+        call writeArray(f%fh,obj%SubMeshSurfFromTo)
+        
+        call writeArray(f%fh,obj%GlobalNodID)
+        
+        write(f%fh,*) obj%surface
+        
+        write(f%fh,'(A)') trim(obj%FileName)
+        write(f%fh,'(A)') trim(obj%ElemType)
+        write(f%fh,'(A)') trim(obj%ErrorMsg)
+        call f%close()        
+    end subroutine
+
+
+subroutine openMesh(obj,path,name)
+    class(Mesh_),intent(inout)::obj
+    character(*),intent(in) :: path
+    character(*),optional,intent(in) :: name
+    type(IO_) :: f
+    integer(int32) :: i,j,dim_num,n,m
+    
+    if(present(name) )then
+        call f%open(trim(path)//"/"//trim(name)//"/","Mesh",".prop")
+    else
+        call f%open(trim(path)//"/Mesh/","Mesh",".prop")
+    endif
+        
+
+    call openArray(f%fh,obj%NodCoord)
+
+    call openArray(f%fh,obj%NodCoord)
+
+    call openArray(f%fh,obj%NodCoordInit)
+    
+    call openArray(f%fh,obj%ElemNod)
+    
+    call openArray(f%fh,obj%FacetElemNod)
+    
+    call openArray(f%fh,obj%NextFacets)
+
+    call openArray(f%fh,obj%SurfaceLine2D)
+    
+    call openArray(f%fh,obj%ElemMat)
+    
+    call openArray(f%fh,obj%SubMeshNodFromTo)
+    
+    call openArray(f%fh,obj%SubMeshElemFromTo)
+    
+    call openArray(f%fh,obj%SubMeshSurfFromTo)
+    
+    call openArray(f%fh,obj%GlobalNodID)
+    
+    read(f%fh,*) obj%surface
+    
+    read(f%fh,'(A)') obj%FileName
+    read(f%fh,'(A)') obj%ElemType
+    read(f%fh,'(A)') obj%ErrorMsg
+    call f%close()        
+end subroutine
+
+
+subroutine removeMesh(obj)
+    class(Mesh_),intent(inout)::obj
+
+    if( allocated(obj%NodCoord         ) ) deallocate(obj%NodCoord         )
+    if( allocated(obj%NodCoordInit     ) ) deallocate(obj%NodCoordInit     )
+    if( allocated(obj%ElemNod          ) ) deallocate(obj%ElemNod          )
+    if( allocated(obj%FacetElemNod     ) ) deallocate(obj%FacetElemNod     )
+    if( allocated(obj%NextFacets       ) ) deallocate(obj%NextFacets       )
+    if( allocated(obj%SurfaceLine2D    ) ) deallocate(obj%SurfaceLine2D    )
+    if( allocated(obj%ElemMat          ) ) deallocate(obj%ElemMat          )
+    if( allocated(obj%SubMeshNodFromTo ) ) deallocate(obj%SubMeshNodFromTo )
+    if( allocated(obj%SubMeshElemFromTo) ) deallocate(obj%SubMeshElemFromTo)
+    if( allocated(obj%SubMeshSurfFromTo) ) deallocate(obj%SubMeshSurfFromTo)
+    if( allocated(obj%GlobalNodID      ) ) deallocate(obj%GlobalNodID      )
+
+    obj%surface=1
+    
+    obj%FileName=" "
+    obj%ElemType=" "
+    obj%ErrorMsg=" "
+
+end subroutine
+
 !##################################################
 subroutine DeallocateMesh(obj)
     class(Mesh_),intent(inout)::obj
@@ -384,22 +508,67 @@ end subroutine
 !##################################################
 
 !##################################################
-subroutine exportMeshObj(obj,restart,path,stl)
+subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
     class(Mesh_),intent(inout)::obj
+    real(real64),optional,intent(in) :: scalar(:),vector(:,:),tensor(:,:,:)
     logical,optional,intent(in) :: restart,stl
     character(*),intent(in) :: path
+    character(*),optional,intent(in) :: name
+    character(200) :: fieldname
     type(IO_) :: f
     integer(int32) :: i,j,dim_num
 	real(real64) :: x1(3),x2(3),x3(3)
     
+    if(present(name) )then
+        fieldname=trim(name)
+    else
+        fieldname="Mesh"
+    endif
+
+    call system("mkdir -p "//trim(path)//"/Mesh")
 
     if(obj%empty() .eqv. .true.)then
         return
     endif
 
-    call system("mkdir -p "//trim(path)//"/Mesh")
+
+    if(present(restart) )then
+        call system("mkdir -p "//trim(path)//"/Mesh")
+        call f%open(trim(path)//"/Mesh/",trim(fieldname),".prop")
+        
+        call writeArray(f%fh,obj%NodCoord)
+
+        call writeArray(f%fh,obj%NodCoordInit)
+        
+        call writeArray(f%fh,obj%ElemNod)
+        
+        call writeArray(f%fh,obj%FacetElemNod)
+        
+        call writeArray(f%fh,obj%NextFacets)
+
+        call writeArray(f%fh,obj%SurfaceLine2D)
+        
+        call writeArray(f%fh,obj%ElemMat)
+        
+        call writeArray(f%fh,obj%SubMeshNodFromTo)
+        
+        call writeArray(f%fh,obj%SubMeshElemFromTo)
+        
+        call writeArray(f%fh,obj%SubMeshSurfFromTo)
+        
+        call writeArray(f%fh,obj%GlobalNodID)
+        
+        write(f%fh,*) obj%surface
+
+        write(f%fh,'(A)') trim(obj%FileName)
+        write(f%fh,'(A)') trim(obj%ElemType)
+        write(f%fh,'(A)') trim(obj%ErrorMsg)
+        call f%close()
+        return
+    endif
+
+    ! export mesh 
     call f%open(trim(path)//"/Mesh/","Mesh",".vtk")
-    
 	write(f%fh,'(A)' ) "# vtk DataFile Version 2.0"
 	write(f%fh,'(A)' ) "Cube example"
 	write(f%fh,'(A)' ) "ASCII"
@@ -421,65 +590,193 @@ subroutine exportMeshObj(obj,restart,path,stl)
 	write(f%fh,'(i10)',advance="no") 6*size(obj%ElemNod,1)
 	write(f%fh,'(A)',advance="no") " "
 	write(f%fh,'(i10)') size(obj%ElemNod,1)*5*6
-	do i=1,size(obj%ElemNod,1)
-		write(f%fh,'(A)',advance="no") "4 "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,1)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,2)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,3)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,4)-1
-		write(f%fh,'(A)') " "
-		write(f%fh,'(A)',advance="no") "4 "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,5)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,6)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,7)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,8)-1
-		write(f%fh,'(A)') " "
-		write(f%fh,'(A)',advance="no") "4 "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,1)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,2)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,6)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,5)-1
-		write(f%fh,'(A)') " "
-		write(f%fh,'(A)',advance="no") "4 "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,3)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,4)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,8)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,7)-1
-		write(f%fh,'(A)') " "
-		write(f%fh,'(A)',advance="no") "4 "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,1)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,5)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,8)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,4)-1
-		write(f%fh,'(A)') " "
-		write(f%fh,'(A)',advance="no") "4 "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,2)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,3)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,7)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,6)-1
-		write(f%fh,'(A)') " "
-	enddo
     write(f%fh,'(A)') "CELL_DATA 6"
     call f%close()
     
+
+    ! export mesh with scalar
+    if(present(scalar) )then
+
+        call f%open(trim(path)//"/Mesh/",trim(fieldname),".vtk")
+    	write(f%fh,'(A)' ) "# vtk DataFile Version 2.0"
+    	write(f%fh,'(A)' ) "Cube example"
+    	write(f%fh,'(A)' ) "ASCII"
+    	write(f%fh,'(A)' ) "DATASET POLYDATA"
+    	write(f%fh,'(A)' ,advance="no") "POINTS "
+    	write(f%fh,'(i10)' ,advance="no")size(obj%NodCoord,1)
+    	write(f%fh,'(A)')" float"
+    	do i=1,size(obj%NodCoord,1)
+    		do j=1,size(obj%NodCoord,2)
+    			if(j==size(obj%NodCoord,2))then
+    				write(f%fh,'(f20.8)' ) obj%NodCoord(i,j)
+    			else
+    				write(f%fh,'(f20.8)', advance="no" ) obj%NodCoord(i,j)
+    				write(f%fh,'(A)', advance="no" ) " "
+    			endif
+    		enddo
+    	enddo
+    	write(f%fh,'(A)',advance="no")" POLYGONS "
+    	write(f%fh,'(i10)',advance="no") 6*size(obj%ElemNod,1)
+    	write(f%fh,'(A)',advance="no") " "
+    	write(f%fh,'(i10)') size(obj%ElemNod,1)*5*6
+    	
+
+	    do i=1,size(obj%ElemNod,1)
+	    	write(f%fh,'(A)',advance="no") "4 "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,1))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,2))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,3))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,4))
+	    	write(f%fh,'(A)') " "
+	    	write(f%fh,'(A)',advance="no") "4 "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,5))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,6))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,7))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,8))
+	    	write(f%fh,'(A)') " "
+	    	write(f%fh,'(A)',advance="no") "4 "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,1))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,2))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,6))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,5))
+	    	write(f%fh,'(A)') " "
+	    	write(f%fh,'(A)',advance="no") "4 "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,3))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,4))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,8))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,7))
+	    	write(f%fh,'(A)') " "
+	    	write(f%fh,'(A)',advance="no") "4 "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,1))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,5))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,8))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,4))
+	    	write(f%fh,'(A)') " "
+	    	write(f%fh,'(A)',advance="no") "4 "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,2))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,3))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,7))
+	    	write(f%fh,'(A)',advance="no") " "
+	    	write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,6))
+	    	write(f%fh,'(A)') " "
+        enddo
+        
+        call system("mkdir -p "//trim(path)//"/Mesh")
+        call f%open(trim(path)//"/Mesh/",trim(fieldname),".ply")
+    	write(f%fh,'(A)')"ply"
+    	write(f%fh,'(A)')"format ascii 1.0"
+    	write(f%fh,'(A)',advance="no")"element vertex "
+    	write(f%fh,'(i10)') size(obj%NodCoord,1)
+    	write(f%fh,'(A)')"property float32 x"
+    	write(f%fh,'(A)')"property float32 y"
+    	write(f%fh,'(A)')"property float32 z"
+    	write(f%fh,'(A)')"property uchar red"
+    	write(f%fh,'(A)')"property uchar green"
+    	write(f%fh,'(A)')"property uchar blue"
+    	write(f%fh,'(A)',advance="no")"element face "
+    	write(f%fh,'(i10)') size(obj%ElemNod,1)*6
+    	write(f%fh,'(A)')"property list uint8 int32 vertex_indices"
+    	write(f%fh,'(A)') "end_header"
+    	do i=1,size(obj%NodCoord,1)
+    		do j=1,size(obj%NodCoord,2)
+    			if(j==size(obj%NodCoord,2))then
+    				write(f%fh,'(f20.8)', advance="no"  ) obj%NodCoord(i,j)
+    				write(f%fh,'(A)', advance="no" ) " "
+    			else
+    				write(f%fh,'(f20.8)', advance="no" ) obj%NodCoord(i,j)
+    				write(f%fh,'(A)', advance="no" ) " "
+    			endif
+    		enddo
+    		write(f%fh,'(A)', advance="no" ) " "
+    		write(f%fh,'(i3)',advance="no") int(obj%NodCoord(i,1)*255.0d0/maxval(obj%NodCoord(:,1) ))
+    		write(f%fh,'(A)', advance="no" ) " "
+    		write(f%fh,'(i3)',advance="no") int(obj%NodCoord(i,2)*255.0d0/maxval(obj%NodCoord(:,2) ))
+    		write(f%fh,'(A)', advance="no" ) " "
+    		write(f%fh,'(i3)') int(obj%NodCoord(i,3)*255.0d0/maxval(obj%NodCoord(:,3) ))
+        enddo
+        do i=1,size(obj%ElemNod,1)
+            write(f%fh,'(A)',advance="no") "4 "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,1))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,2))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,3))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,4))
+            write(f%fh,'(A)') " "
+            write(f%fh,'(A)',advance="no") "4 "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,5))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,6))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,7))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,8))
+            write(f%fh,'(A)') " "
+            write(f%fh,'(A)',advance="no") "4 "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,1))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,2))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,6))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,5))
+            write(f%fh,'(A)') " "
+            write(f%fh,'(A)',advance="no") "4 "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,3))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,4))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,8))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,7))
+            write(f%fh,'(A)') " "
+            write(f%fh,'(A)',advance="no") "4 "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,1))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,5))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,8))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,4))
+            write(f%fh,'(A)') " "
+            write(f%fh,'(A)',advance="no") "4 "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,2))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,3))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,7))
+            write(f%fh,'(A)',advance="no") " "
+            write(f%fh,'(i10)',advance="no") scalar(obj%ElemNod(i,6))
+            write(f%fh,'(A)') " "
+        enddo
+        call f%close()
+
+
+
+    endif
+    write(f%fh,'(A)') "CELL_DATA 6"
+    call f%close()
+    
+
+
     call system("mkdir -p "//trim(path)//"/Mesh")
     call f%open(trim(path)//"/Mesh/","Mesh",".ply")
 	write(f%fh,'(A)')"ply"
@@ -512,63 +809,63 @@ subroutine exportMeshObj(obj,restart,path,stl)
 		write(f%fh,'(i3)',advance="no") int(obj%NodCoord(i,2)*255.0d0/maxval(obj%NodCoord(:,2) ))
 		write(f%fh,'(A)', advance="no" ) " "
 		write(f%fh,'(i3)') int(obj%NodCoord(i,3)*255.0d0/maxval(obj%NodCoord(:,3) ))
-	enddo
-	do i=1,size(obj%ElemNod,1)
-		write(f%fh,'(A)',advance="no") "4 "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,1)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,2)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,3)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,4)-1
-		write(f%fh,'(A)') " "
-		write(f%fh,'(A)',advance="no") "4 "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,5)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,6)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,7)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,8)-1
-		write(f%fh,'(A)') " "
-		write(f%fh,'(A)',advance="no") "4 "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,1)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,2)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,6)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,5)-1
-		write(f%fh,'(A)') " "
-		write(f%fh,'(A)',advance="no") "4 "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,3)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,4)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,8)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,7)-1
-		write(f%fh,'(A)') " "
-		write(f%fh,'(A)',advance="no") "4 "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,1)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,5)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,8)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,4)-1
-		write(f%fh,'(A)') " "
-		write(f%fh,'(A)',advance="no") "4 "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,2)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,3)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,7)-1
-		write(f%fh,'(A)',advance="no") " "
-		write(f%fh,'(i10)',advance="no") obj%ElemNod(i,6)-1
-		write(f%fh,'(A)') " "
-	enddo
+    enddo
+    do i=1,size(obj%ElemNod,1)
+        write(f%fh,'(A)',advance="no") "4 "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,1)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,2)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,3)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,4)-1
+        write(f%fh,'(A)') " "
+        write(f%fh,'(A)',advance="no") "4 "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,5)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,6)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,7)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,8)-1
+        write(f%fh,'(A)') " "
+        write(f%fh,'(A)',advance="no") "4 "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,1)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,2)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,6)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,5)-1
+        write(f%fh,'(A)') " "
+        write(f%fh,'(A)',advance="no") "4 "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,3)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,4)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,8)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,7)-1
+        write(f%fh,'(A)') " "
+        write(f%fh,'(A)',advance="no") "4 "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,1)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,5)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,8)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,4)-1
+        write(f%fh,'(A)') " "
+        write(f%fh,'(A)',advance="no") "4 "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,2)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,3)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,7)-1
+        write(f%fh,'(A)',advance="no") " "
+        write(f%fh,'(i10)',advance="no") obj%ElemNod(i,6)-1
+        write(f%fh,'(A)') " "
+    enddo
     call f%close()
 
     if(present(stl) )then
@@ -634,26 +931,6 @@ subroutine exportMeshObj(obj,restart,path,stl)
     endif
 
 
-    if(present(restart) )then
-        call system("mkdir -p "//trim(path)//"/Mesh")
-        call f%open(trim(path)//"/Mesh/","Mesh",".res")
-        write(f%fh,*) obj%NodCoord(:,:)
-        write(f%fh,*) obj%NodCoordInit(:,:)
-        write(f%fh,*) obj%ElemNod(:,:)
-        write(f%fh,*) obj%FacetElemNod(:,:)
-        write(f%fh,*) obj%NextFacets(:,:)
-        write(f%fh,*) obj%SurfaceLine2D(:)
-        write(f%fh,*) obj%ElemMat(:)
-        write(f%fh,*) obj%SubMeshNodFromTo(:,:)
-        write(f%fh,*) obj%SubMeshElemFromTo(:,:)
-        write(f%fh,*) obj%SubMeshSurfFromTo(:,:)
-        write(f%fh,*) obj%surface
-        write(f%fh,*) obj%GlobalNodID(:)
-        write(f%fh,'(A)') trim(obj%FileName)
-        write(f%fh,'(A)') trim(obj%ElemType)
-        write(f%fh,'(A)') trim(obj%ErrorMsg)
-        call f%close()
-    endif
 end subroutine
 !##################################################
 

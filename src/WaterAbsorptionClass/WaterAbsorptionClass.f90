@@ -6,8 +6,6 @@ module WaterAbsorptionClass
 
     type :: WaterAbsorption_
         type(FEMDomain_),pointer:: Water, Tissue
-        type(DiffusionEq_)::DiffusionEq
-        type(FiniteDeform_)::FiniteDeform
         type(MaterialProp_),pointer:: a_Psi
         type(MaterialProp_),pointer:: a_P
         type(MaterialProp_),pointer:: theta_eq
@@ -16,6 +14,10 @@ module WaterAbsorptionClass
         type(MaterialProp_),pointer:: a_v
         type(MaterialProp_),pointer:: E_eq
         type(MaterialProp_),pointer:: v_eq
+
+        type(DiffusionEq_)::DiffusionEq
+        type(FiniteDeform_)::FiniteDeform
+
         real(real64),allocatable :: WaterAbsorbingPower(:)
         real(real64),allocatable :: WaterPotential(:)
         real(real64),allocatable :: TurgorPressure(:)
@@ -38,8 +40,10 @@ module WaterAbsorptionClass
         real(real64),allocatable :: v_eq_val(:)
 
         real(real64),allocatable :: theta_ps_val(:) ! computed from other variables
+
         character(200) :: Name
-        integer(int32) :: timestep
+        integer(int32) :: timestep=0
+        integer(int32) :: flushstep=0
         real(real64) :: dt
     contains
         procedure, public :: import=> importWaterAbsorption
@@ -53,9 +57,381 @@ module WaterAbsorptionClass
         procedure, public :: gnuplot => gnuplotWaterAbsorption
         procedure, public :: updatePermiability => updatePermiabilityWA
         procedure, public :: updateStiffness => updateStiffnessWA
+
+        ! <<<<<<<< IO >>>>>>>>>>
+        procedure, public :: save =>saveWaterAbsorption
+        procedure, public :: open => openWaterAbsorption
+        procedure, public :: link => linkWaterAbsorption
+        procedure, public :: result => resultWaterAbsorption
+        ! <<<<<<<< IO >>>>>>>>>>
+
     end type
 contains
+
 !#####################################
+subroutine resultWaterAbsorption(obj,path,name,step)
+    class(WaterAbsorption_),intent(inout) :: obj
+    character(*),intent(in) :: path, name
+    integer(int32),intent(in) :: step
+    
+    call obj%DiffusionEq%display(OptionalStep=step,Name=trim(path)//"/output/"//trim(name))
+    call obj%FiniteDeform%display(OptionalStep=step,Name=trim(path)//"/output/"//trim(name))
+
+end subroutine
+!#####################################
+
+!#####################################
+subroutine linkWaterAbsorption(obj,Water, Tissue,a_Psi,a_P,theta_eq,Psi_eq,a_E,a_v,E_eq,v_eq)
+    class(WaterAbsorption_),intent(inout) :: obj
+    type(FEMDomain_),optional,target :: Water, Tissue
+    type(MaterialProp_),optional,target :: a_Psi,a_P,theta_eq,Psi_eq,a_E,a_v,E_eq,v_eq
+
+
+    if(present(Water) )then
+        if(associated(obj%Water) ) nullify(obj%Water)
+        obj%Water => Water
+    endif
+    if(present(Tissue) )then
+        if(associated(obj%Tissue) ) nullify(obj%Tissue)
+        obj%Tissue => Tissue
+    endif
+    if(present(a_Psi) )then
+        if(associated(obj%a_Psi) ) nullify(obj%a_Psi)
+        obj%a_Psi => a_Psi
+    endif
+    if(present(a_P) )then
+        if(associated(obj%a_P) ) nullify(obj%a_P)
+        obj%a_P => a_P
+    endif
+    if(present(theta_eq) )then
+        if(associated(obj%theta_eq) ) nullify(obj%theta_eq)
+        obj%theta_eq => theta_eq
+    endif
+    if(present(Psi_eq) )then
+        if(associated(obj%Psi_eq) ) nullify(obj%Psi_eq)
+        obj%Psi_eq => Psi_eq
+    endif
+    if(present(a_E) )then
+        if(associated(obj%a_E) ) nullify(obj%a_E)
+        obj%a_E => a_E
+    endif
+    if(present(a_v) )then
+        if(associated(obj%a_v) ) nullify(obj%a_v)
+        obj%a_v => a_v
+    endif
+    if(present(E_eq) )then
+        if(associated(obj%E_eq) ) nullify(obj%E_eq)
+        obj%E_eq => E_eq
+    endif
+    if(present(v_eq) )then
+        if(associated(obj%v_eq) ) nullify(obj%v_eq)
+        obj%v_eq => v_eq
+    endif
+
+    if(present(Water) )then
+        if(associated(obj%DiffusionEq%FEMDomain) ) nullify(obj%DiffusionEq%FEMDomain)
+        obj%DiffusionEq%FEMDomain => Water
+    endif
+    
+    if(present(Tissue) )then
+        if(associated(obj%FiniteDeform%FEMDomain) ) nullify(obj%FiniteDeform%FEMDomain)
+        obj%FiniteDeform%FEMDomain => Tissue
+    endif
+end subroutine
+!#####################################
+
+
+!#####################################
+subroutine openWaterAbsorption(obj,path,name)
+    class(WaterAbsorption_),intent(inout) :: obj
+    character(*),optional,intent(in)::path
+    character(*),optional,intent(in) :: Name
+    character(200) ::fname
+    integer(int32) :: fh
+    logical :: restart=.true.
+    type(IO_) :: f
+    
+    if(.not. present(path) )then
+        print *, " exportWaterAbsorption ERROR >> .not. present(path)"
+        stop
+    endif
+
+    if(present(name) )then
+        call system("mkdir -p "//trim(path)//"/"//trim(name) )
+	    fname=trim(path)//"/"//trim(name) 
+        call f%open("./",trim(path)//"/"//trim(name) ,"/WaterAbsorption.prop")
+    else
+        call system("mkdir -p "//trim(path)//"/WaterAbsorption")
+        call f%open("./",trim(path)//"/WaterAbsorption","/WaterAbsorption.res")
+        fname=trim(path)//"/WaterAbsorption"
+    endif
+    
+    call openArray(f%fh, obj%WaterAbsorbingPower)
+    call openArray(f%fh, obj%WaterPotential)
+    call openArray(f%fh, obj%TurgorPressure)
+    call openArray(f%fh, obj%WaterContent)
+    call openArray(f%fh, obj%Conductivity)
+    call openArray(f%fh, obj%YoungsModulus)
+    call openArray(f%fh, obj%PoissonsRatio)
+    call openArray(f%fh, obj%Permiability)
+    call openArray(f%fh, obj%PorePressure)
+    call openArray(f%fh, obj%a_Psi_val)
+    call openArray(f%fh, obj%a_P_val)
+    call openArray(f%fh, obj%theta_eq_val)
+    call openArray(f%fh, obj%Psi_eq_val)
+    call openArray(f%fh, obj%a_E_val)
+    call openArray(f%fh, obj%a_v_val)
+    call openArray(f%fh, obj%E_eq_val)
+    call openArray(f%fh, obj%v_eq_val)
+    call openArray(f%fh, obj%theta_ps_val) ! computed from other )
+    read(f%fh,*) obj%Name
+    read(f%fh,*) obj%timestep
+    read(f%fh,*) obj%dt
+    call f%close()
+		
+    
+end subroutine
+! ################################################
+
+
+!#####################################
+subroutine flushWaterAbsorption(obj,path,name)
+    class(WaterAbsorption_),intent(inout) :: obj
+    character(*),optional,intent(in)::path
+    character(*),optional,intent(in) :: Name
+    character(200) ::fname
+    character(200) ::fs
+    integer(int32) :: fh
+    logical :: restart=.true.
+    type(IO_) :: f
+    
+    fs=trim(str(obj%flushstep) )
+    if(.not. present(path) )then
+        print *, " exportWaterAbsorption ERROR >> .not. present(path)"
+        stop
+    endif
+
+    if(present(name) )then
+        fname=trim(path)//"/"//trim(name) 
+        call system("mkdir -p "//trim(path)//"/"//trim(name) )
+        
+        
+        if(associated(obj%water) )then
+            call obj%Water%save(path = "./"//trim(fname)//"/water", name="water")
+        endif
+
+        if(associated(obj%tissue) )then
+            call obj%Tissue%save(path = "./"//trim(fname)//"/", name="tissue")
+        endif
+
+        call obj%DiffusionEq%export(path="./"//trim(fname)//"/DiffusionEq",restart=restart)
+        call obj%FiniteDeform%export(path="./"//trim(fname)//"/FiniteDeform",restart=restart)
+
+        if(associated(obj%a_Psi) )then
+            call system("mkdir -p ./"//trim(fname)//"/a_Psi")
+            call obj%a_Psi%export(      path=trim(fname)//"/a_Psi"  ,restart=restart)
+        endif
+        
+        if(associated(obj%a_P) )then
+            call system("mkdir -p ./"//trim(fname)//"/a_P")
+            call obj%a_P%export(        path=trim(fname)//"/a_P"    ,restart=restart)
+        endif
+        
+        if(associated(obj%theta_eq) )then
+            call system("mkdir -p ./"//trim(fname)//"/theta_eq")
+            call obj%theta_eq%export(   path=trim(fname)//"/theta_eq"   ,restart=restart)
+        endif
+        
+        if(associated(obj%Psi_eq) )then
+            call system("mkdir -p ./"//trim(fname)//"/Psi_eq")
+            call obj%Psi_eq%export(     path=trim(fname)//"/Psi_eq"     ,restart=restart)
+        endif
+        
+        if(associated(obj%a_E) )then
+            call system("mkdir -p ./"//trim(fname)//"/a_E")
+            call obj%a_E%export(        path=trim(fname)//"/a_E"    ,restart=restart)
+        endif
+        
+        if(associated(obj%a_v) )then
+            call system("mkdir -p ./"//trim(fname)//"/a_v")
+            call obj%a_v%export(        path=trim(fname)//"/a_v"    ,restart=restart)
+        endif
+        
+        if(associated(obj%E_eq) )then
+            call system("mkdir -p ./"//trim(fname)//"/E_eq")
+            call obj%E_eq%export(       path=trim(fname)//"/E_eq"   ,restart=restart)
+        endif
+        
+        if(associated(obj%v_eq) )then
+            call system("mkdir -p ./"//trim(fname)//"/v_eq")
+            call obj%v_eq%export(       path=trim(fname)//"/v_eq"   ,restart=restart)
+        endif
+
+        call f%open("./",trim(path)//"/"//trim(name) ,"/WaterAbsorption.prop")
+        
+        write(f%fh,*) obj%WaterAbsorbingPower(:)
+        write(f%fh,*) obj%WaterPotential(:)
+        write(f%fh,*) obj%TurgorPressure(:)
+        write(f%fh,*) obj%WaterContent(:)
+        write(f%fh,*) obj%Conductivity(:)
+        write(f%fh,*) obj%YoungsModulus(:)
+        write(f%fh,*) obj%PoissonsRatio(:)
+        write(f%fh,*) obj%Permiability(:)
+        write(f%fh,*) obj%PorePressure(:)
+        write(f%fh,*) obj%a_Psi_val(:)
+        write(f%fh,*) obj%a_P_val(:)
+        write(f%fh,*) obj%theta_eq_val(:)
+        write(f%fh,*) obj%Psi_eq_val(:)
+        write(f%fh,*) obj%a_E_val(:)
+        write(f%fh,*) obj%a_v_val(:)
+        write(f%fh,*) obj%E_eq_val(:)
+        write(f%fh,*) obj%v_eq_val(:)
+        write(f%fh,*) obj%theta_ps_val(:) ! computed from other variables
+        write(f%fh,*) obj%Name
+        write(f%fh,*) obj%timestep
+        write(f%fh,*) obj%dt
+        call f%close()
+    else
+        call system("mkdir -p "//trim(path)//"/WaterAbsorption")
+        call f%open("./",trim(path)//"/WaterAbsorption","/WaterAbsorption.res")
+        fname=trim(path)//"/WaterAbsorption"
+        write(f%fh,*) obj%WaterAbsorbingPower(:)
+        write(f%fh,*) obj%WaterPotential(:)
+        write(f%fh,*) obj%TurgorPressure(:)
+        write(f%fh,*) obj%WaterContent(:)
+        write(f%fh,*) obj%Conductivity(:)
+        write(f%fh,*) obj%YoungsModulus(:)
+        write(f%fh,*) obj%PoissonsRatio(:)
+        write(f%fh,*) obj%Permiability(:)
+        write(f%fh,*) obj%PorePressure(:)
+        write(f%fh,*) obj%a_Psi_val(:)
+        write(f%fh,*) obj%a_P_val(:)
+        write(f%fh,*) obj%theta_eq_val(:)
+        write(f%fh,*) obj%Psi_eq_val(:)
+        write(f%fh,*) obj%a_E_val(:)
+        write(f%fh,*) obj%a_v_val(:)
+        write(f%fh,*) obj%E_eq_val(:)
+        write(f%fh,*) obj%v_eq_val(:)
+        write(f%fh,*) obj%theta_ps_val(:) ! computed from other variables
+        write(f%fh,*) obj%Name
+        write(f%fh,*) obj%timestep
+        write(f%fh,*) obj%dt
+        call f%close()
+        
+        if(associated(obj%water) )then
+            call obj%Water%save(path = "./"//trim(fname)//"/water", name="water")
+        endif
+
+        if(associated(obj%tissue) )then
+            call obj%Tissue%save(path = "./"//trim(fname)//"/", name="tissue")
+        endif
+
+        call obj%DiffusionEq%export(path="./"//trim(fname)//"/DiffusionEq",restart=restart)
+        call obj%FiniteDeform%export(path="./"//trim(fname)//"/FiniteDeform",restart=restart)
+
+        if(associated(obj%a_Psi) )then
+            call system("mkdir -p ./"//trim(fname)//"/a_Psi")
+            call obj%a_Psi%export(      path=trim(fname)//"/a_Psi"  ,restart=restart)
+        endif
+        
+        if(associated(obj%a_P) )then
+            call system("mkdir -p ./"//trim(fname)//"/a_P")
+            call obj%a_P%export(        path=trim(fname)//"/a_P"    ,restart=restart)
+        endif
+        
+        if(associated(obj%theta_eq) )then
+            call system("mkdir -p ./"//trim(fname)//"/theta_eq")
+            call obj%theta_eq%export(   path=trim(fname)//"/theta_eq"   ,restart=restart)
+        endif
+        
+        if(associated(obj%Psi_eq) )then
+            call system("mkdir -p ./"//trim(fname)//"/Psi_eq")
+            call obj%Psi_eq%export(     path=trim(fname)//"/Psi_eq"     ,restart=restart)
+        endif
+        
+        if(associated(obj%a_E) )then
+            call system("mkdir -p ./"//trim(fname)//"/a_E")
+            call obj%a_E%export(        path=trim(fname)//"/a_E"    ,restart=restart)
+        endif
+        
+        if(associated(obj%a_v) )then
+            call system("mkdir -p ./"//trim(fname)//"/a_v")
+            call obj%a_v%export(        path=trim(fname)//"/a_v"    ,restart=restart)
+        endif
+        
+        if(associated(obj%E_eq) )then
+            call system("mkdir -p ./"//trim(fname)//"/E_eq")
+            call obj%E_eq%export(       path=trim(fname)//"/E_eq"   ,restart=restart)
+        endif
+        
+        if(associated(obj%v_eq) )then
+            call system("mkdir -p ./"//trim(fname)//"/v_eq")
+            call obj%v_eq%export(       path=trim(fname)//"/v_eq"   ,restart=restart)
+        endif
+
+    endif
+		
+    
+end subroutine
+! ################################################
+
+
+
+!#####################################
+subroutine saveWaterAbsorption(obj,path,name)
+    class(WaterAbsorption_),intent(inout) :: obj
+    character(*),optional,intent(in)::path
+    character(*),optional,intent(in) :: Name
+    character(200) ::fname
+    integer(int32) :: fh
+    logical :: restart=.true.
+    type(IO_) :: f
+    
+    if(.not. present(path) )then
+        print *, " exportWaterAbsorption ERROR >> .not. present(path)"
+        stop
+    endif
+
+    if(present(name) )then
+        call system("mkdir -p "//trim(path)//"/"//trim(name) )
+	    fname=trim(path)//"/"//trim(name) 
+        call f%open("./",trim(path)//"/"//trim(name) ,"/WaterAbsorption.prop")
+    else
+        call system("mkdir -p "//trim(path)//"/WaterAbsorption")
+        call f%open("./",trim(path)//"/WaterAbsorption","/WaterAbsorption.res")
+        fname=trim(path)//"/WaterAbsorption"
+    endif
+
+    call WriteArray(f%fh, obj%WaterAbsorbingPower)
+    call WriteArray(f%fh, obj%WaterPotential)
+    call WriteArray(f%fh, obj%TurgorPressure)
+    call WriteArray(f%fh, obj%WaterContent)
+    call WriteArray(f%fh, obj%Conductivity)
+    call WriteArray(f%fh, obj%YoungsModulus)
+    call WriteArray(f%fh, obj%PoissonsRatio)
+    call WriteArray(f%fh, obj%Permiability)
+    call WriteArray(f%fh, obj%PorePressure)
+    call WriteArray(f%fh, obj%a_Psi_val)
+    call WriteArray(f%fh, obj%a_P_val)
+    call WriteArray(f%fh, obj%theta_eq_val)
+    call WriteArray(f%fh, obj%Psi_eq_val)
+    call WriteArray(f%fh, obj%a_E_val)
+    call WriteArray(f%fh, obj%a_v_val)
+    call WriteArray(f%fh, obj%E_eq_val)
+    call WriteArray(f%fh, obj%v_eq_val)
+    call WriteArray(f%fh, obj%theta_ps_val) ! computed from other )
+    write(f%fh,*) obj%Name
+    write(f%fh,*) obj%timestep
+    write(f%fh,*) obj%dt
+    call f%close()
+		
+    
+end subroutine
+! ################################################
+
+
+
+! ################################################
 subroutine importWaterAbsorption(obj,Water,Tissue,a_Psi,a_P,theta_eq,theta_ps,&
     Psi_eq,a_E,a_v,E_eq,v_eq)
     class(WaterAbsorption_),intent(inout) :: obj
@@ -151,18 +527,33 @@ end subroutine importWaterAbsorption
 
 !#####################################
 subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Display,nr_tol,ReducedIntegration,&
-    infinitesimal,interval,Name)
+    infinitesimal,interval,Name,restart)
     class(WaterAbsorption_),intent(inout) :: obj
     character(*),intent(in) :: SolverType
     character(*),optional,intent(in) :: Name
     integer(int32) :: i,n,interv,coun
     logical,optional,intent(in) :: onlyInit,Only1st,Display,&
-    ReducedIntegration,infinitesimal
+    ReducedIntegration,infinitesimal,restart
     real(real64) ,optional,intent(in) :: nr_tol
     integer(int32),intent(in) :: timestep
     integer(int32),optional,intent(in) :: interval
     real(real64),optional,intent(in) :: dt
 
+    if( present(restart) )then
+        if(restart .eqv. .true. )then
+            do i=1,timestep
+                if(coun==interv)then
+                    coun=0
+                    call obj%update(SolverType,Display=Display,step=i,nr_tol=nr_tol)
+                else
+                    coun=coun+1
+                    call obj%update(SolverType,Display=.false.,step=i,nr_tol=nr_tol)
+                endif    
+                print *, "Timestep :: ",i,"/",timestep   
+            enddo
+            return
+        endif
+    endif
     if(present(Name) )then
         obj%water%FileName=Name
         obj%water%Name=Name
@@ -224,9 +615,9 @@ subroutine initWaterAbsorption(obj,SolverType,Display,nr_tol,infinitesimal)
 
     call term%init()
 
-    open(113,file=trim(obj%tissue%name)//"x_length.txt",status="replace")
-    open(114,file=trim(obj%tissue%name)//"y_length.txt",status="replace")
-    open(115,file=trim(obj%tissue%name)//"z_length.txt",status="replace")
+    !open(113,file=trim(obj%tissue%name)//"x_length.txt",status="replace")
+    !open(114,file=trim(obj%tissue%name)//"y_length.txt",status="replace")
+    !open(115,file=trim(obj%tissue%name)//"z_length.txt",status="replace")
     call obj%updatePermiability()
     ! ###### Diffusion Part ###################
     call obj%DiffusionEq%Setup()
@@ -290,10 +681,10 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step,nr_tol)
     ! ###### update DIffusion parameters ############
     call obj%updatePermiability()
     call obj%DiffusionEq%import(Permiability=obj%Permiability)
-    do i=1,size(obj%water%mesh%nodCoord,1)
-        write(1234,*) obj%water%mesh%nodCoord(i,1),obj%DiffusionEq%dt*dble(step), obj%DiffusionEq%UnknownVec(i)
-    enddo
-    write(1234,*) "  "
+    !do i=1,size(obj%water%mesh%nodCoord,1)
+    !    write(1234,*) obj%water%mesh%nodCoord(i,1),obj%DiffusionEq%dt*dble(step), obj%DiffusionEq%UnknownVec(i)
+    !enddo
+    !write(1234,*) "  "
     ! ###### Update Diffusion Field over timesteps ###################
     call obj%DiffusionEq%Update()
     call obj%DiffusionEq%Solve(SolverType=SolverType)
@@ -317,12 +708,12 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step,nr_tol)
     call obj%FiniteDeform%UpdateInitConfig()
     call obj%FiniteDeform%UpdateBC()
     call obj%FiniteDeform%Solve(SolverType=SolverType,nr_tol=nr_tol) 
-    write(113,*) step, maxval(obj%tissue%mesh%nodCoord(:,1))
-    flush(113)
-    write(114,*) step, maxval(obj%tissue%mesh%nodCoord(:,2))
-    flush(114)
-    write(115,*) step, maxval(obj%tissue%mesh%nodCoord(:,3))
-    flush(115)
+    !write(113,*) step, maxval(obj%tissue%mesh%nodCoord(:,1))
+    !flush(113)
+    !write(114,*) step, maxval(obj%tissue%mesh%nodCoord(:,2))
+    !flush(114)
+    !write(115,*) step, maxval(obj%tissue%mesh%nodCoord(:,3))
+    !flush(115)
     call DisplayReactionForce(obj%FiniteDeform)
     if(present(Display) )then
         if(Display.eqv. .true.)then
@@ -474,86 +865,161 @@ subroutine exportWaterAbsorption(obj,OptionalFileFormat,OptionalProjectName,File
             stop
         endif
 
-		call system("mkdir -p "//trim(path)//"/WaterAbsorption")
-		call f%open("./",trim(path)//"/WaterAbsorption","/WaterAbsorption.res")
-        fname=trim(path)//"/WaterAbsorption"
-        write(f%fh,*) obj%WaterAbsorbingPower(:)
-        write(f%fh,*) obj%WaterPotential(:)
-        write(f%fh,*) obj%TurgorPressure(:)
-        write(f%fh,*) obj%WaterContent(:)
-        write(f%fh,*) obj%Conductivity(:)
-        write(f%fh,*) obj%YoungsModulus(:)
-        write(f%fh,*) obj%PoissonsRatio(:)
-        write(f%fh,*) obj%Permiability(:)
-        write(f%fh,*) obj%PorePressure(:)
-        write(f%fh,*) obj%a_Psi_val(:)
-        write(f%fh,*) obj%a_P_val(:)
-        write(f%fh,*) obj%theta_eq_val(:)
-        write(f%fh,*) obj%Psi_eq_val(:)
-        write(f%fh,*) obj%a_E_val(:)
-        write(f%fh,*) obj%a_v_val(:)
-        write(f%fh,*) obj%E_eq_val(:)
-        write(f%fh,*) obj%v_eq_val(:)
-        write(f%fh,*) obj%theta_ps_val(:) ! computed from other variables
-        write(f%fh,*) obj%Name
-        write(f%fh,*) obj%timestep
-        write(f%fh,*) obj%dt
-        call f%close()
+        if(present(name) )then
+            call system("mkdir -p "//trim(path)//"/"//trim(name) )
+		    call f%open("./",trim(path)//"/"//trim(name) ,"/WaterAbsorption.prop")
+            fname=trim(path)//"/"//trim(name) 
+            write(f%fh,*) obj%WaterAbsorbingPower(:)
+            write(f%fh,*) obj%WaterPotential(:)
+            write(f%fh,*) obj%TurgorPressure(:)
+            write(f%fh,*) obj%WaterContent(:)
+            write(f%fh,*) obj%Conductivity(:)
+            write(f%fh,*) obj%YoungsModulus(:)
+            write(f%fh,*) obj%PoissonsRatio(:)
+            write(f%fh,*) obj%Permiability(:)
+            write(f%fh,*) obj%PorePressure(:)
+            write(f%fh,*) obj%a_Psi_val(:)
+            write(f%fh,*) obj%a_P_val(:)
+            write(f%fh,*) obj%theta_eq_val(:)
+            write(f%fh,*) obj%Psi_eq_val(:)
+            write(f%fh,*) obj%a_E_val(:)
+            write(f%fh,*) obj%a_v_val(:)
+            write(f%fh,*) obj%E_eq_val(:)
+            write(f%fh,*) obj%v_eq_val(:)
+            write(f%fh,*) obj%theta_ps_val(:) ! computed from other variables
+            write(f%fh,*) obj%Name
+            write(f%fh,*) obj%timestep
+            write(f%fh,*) obj%dt
+            call f%close()
 
 
-        call system("mkdir -p ./"//trim(fname)//"/FEMDomain")
-        call f%open("./",trim(fname),"/FEMDomain/Water.res")
-        call obj%Water%export(path = "./"//trim(fname)//"/FEMDomain", restart=restart)
-        call f%close()
-        
-        call f%open("./",trim(fname),"/FEMDomain/Tissue.res")
-        call obj%Tissue%export(path = "./"//trim(fname)//"/FEMDomain", restart=restart)
-        call f%close()
+            call system("mkdir -p ./"//trim(fname)//"/FEMDomain")
+            call f%open("./",trim(fname),"/FEMDomain/Water.res")
+            call obj%Water%export(path = "./"//trim(fname)//"/FEMDomain", restart=restart)
+            call f%close()
+            
+            call f%open("./",trim(fname),"/FEMDomain/Tissue.res")
+            call obj%Tissue%export(path = "./"//trim(fname)//"/FEMDomain", restart=restart)
+            call f%close()
 
-        call system("mkdir -p ./"//trim(fname)//"/DiffusionEq")
-        call f%open("./",trim(fname),"/DiffusionEq/DiffusionEq.res")
-        call obj%DiffusionEq%export(path="./"//trim(fname)//"/DiffusionEq",restart=restart)
-        call f%close()
-        
-        call system("mkdir -p ./"//trim(fname)//"/FiniteDeform")
-        call f%open("./",trim(fname),"/FiniteDeform/FiniteDeform.res")
-        call obj%FiniteDeform%export(path="./"//trim(fname)//"/FiniteDeform",restart=restart)
-        call f%close()
+            call system("mkdir -p ./"//trim(fname)//"/DiffusionEq")
+            call f%open("./",trim(fname),"/DiffusionEq/DiffusionEq.res")
+            call obj%DiffusionEq%export(path="./"//trim(fname)//"/DiffusionEq",restart=restart)
+            call f%close()
+            
+            call system("mkdir -p ./"//trim(fname)//"/FiniteDeform")
+            call f%open("./",trim(fname),"/FiniteDeform/FiniteDeform.res")
+            call obj%FiniteDeform%export(path="./"//trim(fname)//"/FiniteDeform",restart=restart)
+            call f%close()
 
-        call system("mkdir -p ./"//trim(fname)//"/a_Psi")
-        call obj%a_Psi%export(      path=trim(fname)//"/a_Psi"  ,restart=restart)
-        
+            call system("mkdir -p ./"//trim(fname)//"/a_Psi")
+            call obj%a_Psi%export(      path=trim(fname)//"/a_Psi"  ,restart=restart)
+            
 
-        call system("mkdir -p ./"//trim(fname)//"/a_P")
-        call obj%a_P%export(        path=trim(fname)//"/a_P"    ,restart=restart)
+            call system("mkdir -p ./"//trim(fname)//"/a_P")
+            call obj%a_P%export(        path=trim(fname)//"/a_P"    ,restart=restart)
+            
+            call system("mkdir -p ./"//trim(fname)//"/theta_eq")
+            call obj%theta_eq%export(   path=trim(fname)//"/theta_eq"   ,restart=restart)
+            
+            call system("mkdir -p ./"//trim(fname)//"/Psi_eq")
+            call obj%Psi_eq%export(     path=trim(fname)//"/Psi_eq"     ,restart=restart)
+            
+            call system("mkdir -p ./"//trim(fname)//"/a_E")
+            call obj%a_E%export(        path=trim(fname)//"/a_E"    ,restart=restart)
+            
+            call system("mkdir -p ./"//trim(fname)//"/a_v")
+            call obj%a_v%export(        path=trim(fname)//"/a_v"    ,restart=restart)
+            
+            call system("mkdir -p ./"//trim(fname)//"/E_eq")
+            call obj%E_eq%export(       path=trim(fname)//"/E_eq"   ,restart=restart)
+            
+            call system("mkdir -p ./"//trim(fname)//"/v_eq")
+            call obj%v_eq%export(       path=trim(fname)//"/v_eq"   ,restart=restart)
         
-        call system("mkdir -p ./"//trim(fname)//"/theta_eq")
-        call obj%theta_eq%export(   path=trim(fname)//"/theta_eq"   ,restart=restart)
-        
-        call system("mkdir -p ./"//trim(fname)//"/Psi_eq")
-        call obj%Psi_eq%export(     path=trim(fname)//"/Psi_eq"     ,restart=restart)
-        
-        call system("mkdir -p ./"//trim(fname)//"/a_E")
-        call obj%a_E%export(        path=trim(fname)//"/a_E"    ,restart=restart)
-        
-        call system("mkdir -p ./"//trim(fname)//"/a_v")
-        call obj%a_v%export(        path=trim(fname)//"/a_v"    ,restart=restart)
-        
-        call system("mkdir -p ./"//trim(fname)//"/E_eq")
-        call obj%E_eq%export(       path=trim(fname)//"/E_eq"   ,restart=restart)
-        
-        call system("mkdir -p ./"//trim(fname)//"/v_eq")
-        call obj%v_eq%export(       path=trim(fname)//"/v_eq"   ,restart=restart)
-        
+        else
+            call system("mkdir -p "//trim(path)//"/WaterAbsorption")
+            call f%open("./",trim(path)//"/WaterAbsorption","/WaterAbsorption.res")
+            fname=trim(path)//"/WaterAbsorption"
+            write(f%fh,*) obj%WaterAbsorbingPower(:)
+            write(f%fh,*) obj%WaterPotential(:)
+            write(f%fh,*) obj%TurgorPressure(:)
+            write(f%fh,*) obj%WaterContent(:)
+            write(f%fh,*) obj%Conductivity(:)
+            write(f%fh,*) obj%YoungsModulus(:)
+            write(f%fh,*) obj%PoissonsRatio(:)
+            write(f%fh,*) obj%Permiability(:)
+            write(f%fh,*) obj%PorePressure(:)
+            write(f%fh,*) obj%a_Psi_val(:)
+            write(f%fh,*) obj%a_P_val(:)
+            write(f%fh,*) obj%theta_eq_val(:)
+            write(f%fh,*) obj%Psi_eq_val(:)
+            write(f%fh,*) obj%a_E_val(:)
+            write(f%fh,*) obj%a_v_val(:)
+            write(f%fh,*) obj%E_eq_val(:)
+            write(f%fh,*) obj%v_eq_val(:)
+            write(f%fh,*) obj%theta_ps_val(:) ! computed from other variables
+            write(f%fh,*) obj%Name
+            write(f%fh,*) obj%timestep
+            write(f%fh,*) obj%dt
+            call f%close()
+    
+    
+            call system("mkdir -p ./"//trim(fname)//"/FEMDomain")
+            call f%open("./",trim(fname),"/FEMDomain/Water.res")
+            call obj%Water%export(path = "./"//trim(fname)//"/FEMDomain", restart=restart)
+            call f%close()
+            
+            call f%open("./",trim(fname),"/FEMDomain/Tissue.res")
+            call obj%Tissue%export(path = "./"//trim(fname)//"/FEMDomain", restart=restart)
+            call f%close()
+    
+            call system("mkdir -p ./"//trim(fname)//"/DiffusionEq")
+            call f%open("./",trim(fname),"/DiffusionEq/DiffusionEq.res")
+            call obj%DiffusionEq%export(path="./"//trim(fname)//"/DiffusionEq",restart=restart)
+            call f%close()
+            
+            call system("mkdir -p ./"//trim(fname)//"/FiniteDeform")
+            call f%open("./",trim(fname),"/FiniteDeform/FiniteDeform.res")
+            call obj%FiniteDeform%export(path="./"//trim(fname)//"/FiniteDeform",restart=restart)
+            call f%close()
+    
+            call system("mkdir -p ./"//trim(fname)//"/a_Psi")
+            call obj%a_Psi%export(      path=trim(fname)//"/a_Psi"  ,restart=restart)
+            
+    
+            call system("mkdir -p ./"//trim(fname)//"/a_P")
+            call obj%a_P%export(        path=trim(fname)//"/a_P"    ,restart=restart)
+            
+            call system("mkdir -p ./"//trim(fname)//"/theta_eq")
+            call obj%theta_eq%export(   path=trim(fname)//"/theta_eq"   ,restart=restart)
+            
+            call system("mkdir -p ./"//trim(fname)//"/Psi_eq")
+            call obj%Psi_eq%export(     path=trim(fname)//"/Psi_eq"     ,restart=restart)
+            
+            call system("mkdir -p ./"//trim(fname)//"/a_E")
+            call obj%a_E%export(        path=trim(fname)//"/a_E"    ,restart=restart)
+            
+            call system("mkdir -p ./"//trim(fname)//"/a_v")
+            call obj%a_v%export(        path=trim(fname)//"/a_v"    ,restart=restart)
+            
+            call system("mkdir -p ./"//trim(fname)//"/E_eq")
+            call obj%E_eq%export(       path=trim(fname)//"/E_eq"   ,restart=restart)
+            
+            call system("mkdir -p ./"//trim(fname)//"/v_eq")
+            call obj%v_eq%export(       path=trim(fname)//"/v_eq"   ,restart=restart)
+            
+        endif
+		
         return
     endif
 
     if(present(displacement) )then
         if(displacement .eqv. .true.)then
             if(present(Name) )then
-                open(12,file="x"//Name)
-                open(13,file="y"//Name)
-                open(14,file="z"//Name)
+                open(12,file="x"//trim(Name))
+                open(13,file="y"//trim(Name))
+                open(14,file="z"//trim(Name))
             else
                 open(12,file="x_Disp.txt")
                 open(13,file="y_Disp.txt")
@@ -707,7 +1173,10 @@ subroutine bakeWaterAbsorption(obj)
     enddo
 
     n=size(obj%theta_eq_val)
-    allocate(obj%theta_ps_val(n) )
+    if(.not.allocated(obj%theta_ps_val) )then
+        allocate(obj%theta_ps_val(n) )
+    endif
+    
     do i=1,n
         obj%theta_ps_val(i)  =  (-  obj%Psi_eq_val(i) + obj%a_P_val(i) *  obj%theta_eq_val(i) )/obj%a_P_val(i) 
     enddo

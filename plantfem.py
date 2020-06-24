@@ -30,10 +30,6 @@ def get_args():
     psr = argparse.ArgumentParser()
     psr.add_argument('-m', '--mode', help='use other compiler instead of mpif90')
     psr.add_argument('-s', '--script', help='script for mpif90')
-    #psr.add_argument('-b', '--bravo', required=True, help='A explanation for arg called b')
-    #psr.add_argument('-c', '--charlie', help='A explanation for arg called c')
-    #psr.add_argument('-d', '--delta', help='A explanation for arg called d')
-
     return psr.parse_args()
 
 if __name__ == '__main__':

@@ -24,16 +24,111 @@ module MaterialPropClass
     contains
         procedure :: Init => initializeMaterial
         procedure :: export => exportMaterialProp
+        procedure :: save => saveMaterialProp
         procedure :: Delete => DeallocateMaterialProp
         procedure :: create => createMaterialProp
         procedure :: set => setMaterialProp
         procedure :: gmsh => gmshMaterialProp
         procedure :: show => showMaterialProp
         procedure :: getValues => getValuesMaterialProp
+        procedure :: remove => removeMaterialProp
+        procedure :: open => openMaterialProp
+        
     end type MaterialProp_
 
 contains
 
+! ###########################################################################
+subroutine openMaterialProp(obj,path,name)
+    class(MaterialProp_),intent(inout)::obj
+    character(*),intent(in) :: path
+    character(*),optional,intent(in) :: name
+    type(IO_) :: f
+
+    if(present(name) )then
+        call f%open(trim(path)//"/"//trim(name)//"/","Material",".prop")
+        call obj%Mesh%open(path=trim(path),name=trim(name))
+        call openArray(f%fh,obj%meshPara)
+        read(f%fh,*) obj%x_max
+        read(f%fh,*) obj%x_min
+        read(f%fh,*) obj%y_max
+        read(f%fh,*) obj%y_min
+        read(f%fh,*) obj%z_max
+        read(f%fh,*) obj%z_min
+        read(f%fh,*) obj%t_max
+        read(f%fh,*) obj%t_min
+        read(f%fh,*) obj%Mcount
+        read(f%fh,*) obj%layer
+        read(f%fh, '(A)' ) obj%Name
+        call openArray(f%fh, obj%MatPara)
+        read(f%fh,*) obj%NumOfMatPara
+        read(f%fh,*) obj%NumOfMaterial    
+        read(f%fh, '(A)') obj%MaterialType
+        read(f%fh, '(A)') obj%ErrorMsg
+        call f%close()
+    else
+        call system("mkdir -p "//trim(path)//"/Material")
+        call f%open(trim(path)//"/Material/","Material",".prop")
+        call obj%Mesh%open(path=trim(path),name="Material")
+        call openArray(f%fh,obj%meshPara)
+        read(f%fh,*) obj%x_max
+        read(f%fh,*) obj%x_min
+        read(f%fh,*) obj%y_max
+        read(f%fh,*) obj%y_min
+        read(f%fh,*) obj%z_max
+        read(f%fh,*) obj%z_min
+        read(f%fh,*) obj%t_max
+        read(f%fh,*) obj%t_min
+        read(f%fh,*) obj%Mcount
+        read(f%fh,*) obj%layer
+        read(f%fh, '(A)' ) obj%Name
+        call openArray(f%fh, obj%MatPara)
+        read(f%fh,*) obj%NumOfMatPara
+        read(f%fh,*) obj%NumOfMaterial    
+        read(f%fh, '(A)') obj%MaterialType
+        read(f%fh, '(A)') obj%ErrorMsg
+        call f%close()
+    endif
+
+
+
+end subroutine
+! ###########################################################################
+
+! ###########################################################################
+subroutine removeMaterialProp(obj)
+    class(MaterialProp_),intent(inout) :: obj
+
+    call obj%Mesh%remove()
+    if(allocated( obj%meshPara))then
+        deallocate(obj%meshPara)
+    endif
+
+    obj%x_max=0.0d0
+    obj%x_min=0.0d0
+    obj%y_max=0.0d0
+    obj%y_min=0.0d0
+    obj%z_max=0.0d0
+    obj%z_min=0.0d0
+    obj%t_max=0.0d0
+    obj%t_min=0.0d0
+    obj%Mcount=1
+    obj%layer=1
+    obj%Name=" "
+
+
+    if(allocated(obj%MatPara))then
+        deallocate(obj%MatPara)
+    endif
+
+    obj%NumOfMatPara=1
+    obj%NumOfMaterial    =1
+    
+    obj%MaterialType=" "
+    obj%ErrorMsg=" "
+
+end subroutine
+! ###########################################################################
 
 ! ###########################################################################
 subroutine createMaterialProp(obj,Name,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,&
@@ -54,6 +149,64 @@ subroutine createMaterialProp(obj,Name,x_max,x_min,y_max,y_min,z_max,z_min,t_max
 end subroutine
 ! ###########################################################################
 
+
+! ###########################################################################
+subroutine saveMaterialProp(obj,path,name)
+    class(MaterialProp_),intent(inout)::obj
+    character(*),intent(in) :: path
+    character(*),optional,intent(in) :: name
+    type(IO_) :: f
+
+    if(present(name) )then
+        call system("mkdir -p "//trim(path)//"/"//trim(name))
+        call f%open(trim(path)//"/"//trim(name)//"/","Material",".prop")
+        call obj%Mesh%save(path=trim(path),name=trim(name))
+        call writeArray(f%fh, obj%meshPara)
+        write(f%fh,*) obj%x_max
+        write(f%fh,*) obj%x_min
+        write(f%fh,*) obj%y_max
+        write(f%fh,*) obj%y_min
+        write(f%fh,*) obj%z_max
+        write(f%fh,*) obj%z_min
+        write(f%fh,*) obj%t_max
+        write(f%fh,*) obj%t_min
+        write(f%fh,*) obj%Mcount
+        write(f%fh,*) obj%layer
+        write(f%fh, '(A)' ) trim(obj%Name)
+        call writeArray(f%fh, obj%MatPara)
+        write(f%fh,*) obj%NumOfMatPara
+        write(f%fh,*) obj%NumOfMaterial    
+        write(f%fh, '(A)') trim(obj%MaterialType)
+        write(f%fh, '(A)') trim(obj%ErrorMsg)
+        call f%close()
+    else
+        call system("mkdir -p "//trim(path)//"/Material")
+        call f%open(trim(path)//"/Material/","Material",".prop")
+        call obj%Mesh%save(path=trim(path),name="Material")
+        call writeArray(f%fh, obj%meshPara)
+        write(f%fh,*) obj%x_max
+        write(f%fh,*) obj%x_min
+        write(f%fh,*) obj%y_max
+        write(f%fh,*) obj%y_min
+        write(f%fh,*) obj%z_max
+        write(f%fh,*) obj%z_min
+        write(f%fh,*) obj%t_max
+        write(f%fh,*) obj%t_min
+        write(f%fh,*) obj%Mcount
+        write(f%fh,*) obj%layer
+        write(f%fh, '(A)' ) trim(obj%Name)
+        call writeArray(f%fh, obj%MatPara)
+        write(f%fh,*) obj%NumOfMatPara
+        write(f%fh,*) obj%NumOfMaterial    
+        write(f%fh, '(A)') trim(obj%MaterialType)
+        write(f%fh, '(A)') trim(obj%ErrorMsg)
+        call f%close()
+    endif
+
+end subroutine
+! ###########################################################################
+
+
 ! ###########################################################################
 subroutine exportMaterialProp(obj,restart,path)
     class(MaterialProp_),intent(inout)::obj
@@ -63,7 +216,7 @@ subroutine exportMaterialProp(obj,restart,path)
 
     if(present(restart) )then
         call system("mkdir -p "//trim(path)//"/Material")
-        call f%open(trim(path)//"/Material/","Material",".res")
+        call f%open(trim(path)//"/Material/","Material",".prop")
         call obj%Mesh%export(path=trim(path)//"/Material",restart=.true.)
         write(f%fh,*) obj%meshPara(:,:)
         write(f%fh,*) obj%x_max

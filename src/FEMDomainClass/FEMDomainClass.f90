@@ -39,17 +39,19 @@ module FEMDomainClass
 		real(real64),allocatable :: scalar(:)
 		real(real64),allocatable :: vector(:,:)
 		real(real64),allocatable :: tensor(:,:,:)
-		real(real64) :: RealTime
-		integer(int32) :: NumOfDomain
-        character*200 :: FilePath
-        character*200 :: FileName
-        character*200 :: Name
-        character*9 :: Dtype
-		character*200 :: SolverType
-		character*200 :: Category1 
-		character*200 :: Category2
-		character*200 :: Category3
-		integer(int32) :: timestep, NumberOfBoundaries, NumberOfMaterials
+		real(real64) :: RealTime=1.0d0
+		integer(int32) :: NumOfDomain=1
+        character*200 :: FilePath="None"
+        character*200 :: FileName="None"
+        character*200 :: Name="None"
+        character*9 :: Dtype="None"
+		character*200 :: SolverType="None"
+		character*200 :: Category1 ="None"
+		character*200 :: Category2="None"
+		character*200 :: Category3="None"
+		integer(int32) :: timestep=1
+		integer(int32) :: NumberOfBoundaries=0
+		integer(int32) ::  NumberOfMaterials=0
     contains
 		procedure,public :: addNBC => AddNBCFEMDomain 
         procedure,public :: addDBoundCondition => AddDBoundCondition
@@ -101,11 +103,16 @@ module FEMDomainClass
 		procedure,public :: meshing => meshingFEMDomain
 		procedure,public :: merge  => MergeFEMDomain
 
+		procedure,public :: open => openFEMDomain
+
 		procedure,public :: removeMaterials => removeMaterialsFEMDomain
 		procedure,public :: rotate => rotateFEMDomain
 		procedure,public :: removeBoundaries => removeBoundariesFEMDomain
 		procedure,public :: rename => renameFEMDomain
 		procedure,public :: resize => resizeFEMDomain
+		procedure,public :: remove => removeFEMDomain
+
+		procedure,public :: save => saveFEMDomain
 
         procedure,public :: setDataType => SetDataType
         procedure,public :: setSolver => SetSolver 
@@ -117,9 +124,6 @@ module FEMDomainClass
 		procedure,public :: showRange => showRangeFEMDomain
 		procedure,public :: showMaterials => showMaterialsFEMDomain
 		procedure,public :: showBoundaries => showBoundariesFEMDomain
-		
-
-        
     end type FEMDomain_
 
 	type:: FEMDomainp_
@@ -132,6 +136,203 @@ module FEMDomainClass
     end type
 
 contains
+
+! ####################################################################
+subroutine openFEMDomain(obj,path,name)
+
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),intent(in) :: path
+	character(*),optional,intent(in) :: name
+	character(200) :: pathi
+	type(IO_) :: f
+	integer(int32) :: n
+
+	! remove and initialze
+	call obj%remove()
+
+	if(present(name) )then
+		pathi=path
+		if( index(path, "/", back=.true.) == len(path) )then
+			n=index(path, "/", back=.true.)
+			pathi(n:n)= " "
+		endif
+
+		call system("mkdir -p "//trim(pathi))
+		call system("mkdir -p "//trim(pathi)//"/"//trim(name) )
+		call obj%Mesh%open(path=trim(pathi) ,name=trim(name)) !implement!
+		call obj%MaterialProp%open(path=trim(pathi) ,name=trim(name))!implement!
+		call obj%Boundary%open(path=trim(pathi) ,name=trim(name))!implement!
+		call obj%ControlPara%open(path=trim(pathi) ,name=trim(name))!implement!
+		call obj%ShapeFunction%open(path=trim(pathi) ,name=trim(name))!implement!
+
+		call f%open(trim(pathi)//"/"//trim(name) ,"/"//"FEMDomain",".prop" )
+		write(f%fh,*) obj%RealTime
+		write(f%fh,*) obj%NumOfDomain
+		write(f%fh, '(A)' ) trim(obj%FilePath)
+		write(f%fh, '(A)' ) trim(obj%FileName)
+		write(f%fh, '(A)' ) trim(obj%Name)
+		write(f%fh, '(A)' ) trim(obj%Dtype)
+		write(f%fh, '(A)' ) trim(obj%SolverType)
+		write(f%fh, '(A)' ) trim(obj%Category1)
+		write(f%fh, '(A)' ) trim(obj%Category2)
+		write(f%fh, '(A)' ) trim(obj%Category3)
+		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
+		call f%close()
+	else
+		pathi=path
+		if( index(path, "/", back=.true.) == len(path) )then
+			n=index(path, "/", back=.true.)
+			pathi(n:n)= " "
+		endif
+
+		call system("mkdir -p "//trim(pathi))
+		call system("mkdir -p "//trim(pathi)//"/FEMDomain")
+		call obj%Mesh%open(path=trim(pathi),name="FEMDomain")
+		call obj%MaterialProp%open(path=trim(pathi),name="FEMDomain")
+		call obj%Boundary%open(path=trim(pathi),name="FEMDomain")
+		call obj%ControlPara%open(path=trim(pathi),name="FEMDomain")
+		call obj%ShapeFunction%open(path=trim(pathi),name="FEMDomain")
+
+		call f%open(trim(pathi)//"/FEMDomain","/FEMDomain",".prop" )
+		write(f%fh,*) obj%RealTime
+		write(f%fh,*) obj%NumOfDomain
+		write(f%fh, '(A)' ) trim(obj%FilePath)
+		write(f%fh, '(A)' ) trim(obj%FileName)
+		write(f%fh, '(A)' ) trim(obj%Name)
+		write(f%fh, '(A)' ) trim(obj%Dtype)
+		write(f%fh, '(A)' ) trim(obj%SolverType)
+		write(f%fh, '(A)' ) trim(obj%Category1)
+		write(f%fh, '(A)' ) trim(obj%Category2)
+		write(f%fh, '(A)' ) trim(obj%Category3)
+		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
+		call f%close()
+	endif
+
+end subroutine
+! ####################################################################
+
+
+! ####################################################################
+subroutine removeFEMDomain(obj)
+	class(FEMDomain_),intent(inout) :: obj
+
+	! remove all objects
+
+	call obj%Mesh%remove()
+	call obj%MaterialProp%remove()
+	call obj%Boundary%remove()
+	call obj%ControlPara%remove()
+	call obj%ShapeFunction%remove()
+
+	if(allocated(obj%Meshes))then
+		deallocate(obj%Meshes)
+	endif
+	if(allocated(obj%Materials))then
+		deallocate(obj%Materials)
+	endif
+	if(allocated(obj%Boundaries))then
+		deallocate(obj%Boundaries)
+	endif
+	if(allocated(obj%FEMDomains))then
+		deallocate(obj%FEMDomains)
+	endif
+
+
+	if(allocated(obj%scalar) )then
+		deallocate(obj%scalar)
+	endif
+	if(allocated(obj%vector) )then
+		deallocate(obj%vector)
+	endif
+	if(allocated(obj%tensor) )then
+		deallocate(obj%tensor)
+	endif
+
+	obj%RealTime=1.0d0
+	obj%NumOfDomain=1
+	obj%FilePath="None"
+	obj%FileName="None"
+	obj%Name="None"
+	obj%Dtype="None"
+	obj%SolverType="None"
+	obj%Category1 ="None"
+	obj%Category2="None"
+	obj%Category3="None"
+	obj%timestep=1
+	obj%NumberOfBoundaries=0
+	obj% NumberOfMaterials=0
+
+end subroutine
+! ####################################################################
+
+
+! ####################################################################
+subroutine saveFEMDomain(obj,path,name)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),intent(in) :: path
+	character(*),optional,intent(in) :: name
+	character(200) :: pathi
+	type(IO_) :: f
+	integer(int32) :: n
+
+	if(present(name) )then
+		pathi=path
+		if( index(path, "/", back=.true.) == len(path) )then
+			n=index(path, "/", back=.true.)
+			pathi(n:n)= " "
+		endif
+
+		call system("mkdir -p "//trim(pathi))
+		call system("mkdir -p "//trim(pathi)//"/"//trim(name) )
+		call obj%Mesh%save(path=trim(pathi) ,name=trim(name))
+		call obj%MaterialProp%save(path=trim(pathi) ,name=trim(name))
+		call obj%Boundary%save(path=trim(pathi) ,name=trim(name))
+		call obj%ControlPara%save(path=trim(pathi) ,name=trim(name))
+		call obj%ShapeFunction%save(path=trim(pathi) ,name=trim(name))
+
+		call f%open(trim(pathi)//"/"//trim(name) ,"/"//"FEMDomain",".prop" )
+		write(f%fh,*) obj%RealTime
+		write(f%fh,*) obj%NumOfDomain
+		write(f%fh, '(A)' ) trim(obj%FilePath)
+		write(f%fh, '(A)' ) trim(obj%FileName)
+		write(f%fh, '(A)' ) trim(obj%Name)
+		write(f%fh, '(A)' ) trim(obj%Dtype)
+		write(f%fh, '(A)' ) trim(obj%SolverType)
+		write(f%fh, '(A)' ) trim(obj%Category1)
+		write(f%fh, '(A)' ) trim(obj%Category2)
+		write(f%fh, '(A)' ) trim(obj%Category3)
+		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
+		call f%close()
+	else
+		pathi=path
+		if( index(path, "/", back=.true.) == len(path) )then
+			n=index(path, "/", back=.true.)
+			pathi(n:n)= " "
+		endif
+
+		call system("mkdir -p "//trim(pathi))
+		call system("mkdir -p "//trim(pathi)//"/FEMDomain")
+		call obj%Mesh%save(path=trim(pathi),name="FEMDomain")
+		call obj%MaterialProp%save(path=trim(pathi),name="FEMDomain")
+		call obj%Boundary%save(path=trim(pathi),name="FEMDomain")
+		call obj%ControlPara%save(path=trim(pathi),name="FEMDomain")
+		call obj%ShapeFunction%save(path=trim(pathi),name="FEMDomain")
+
+		call f%open(trim(pathi)//"/FEMDomain","/FEMDomain",".prop" )
+		write(f%fh,*) obj%RealTime
+		write(f%fh,*) obj%NumOfDomain
+		write(f%fh, '(A)' ) trim(obj%FilePath)
+		write(f%fh, '(A)' ) trim(obj%FileName)
+		write(f%fh, '(A)' ) trim(obj%Name)
+		write(f%fh, '(A)' ) trim(obj%Dtype)
+		write(f%fh, '(A)' ) trim(obj%SolverType)
+		write(f%fh, '(A)' ) trim(obj%Category1)
+		write(f%fh, '(A)' ) trim(obj%Category2)
+		write(f%fh, '(A)' ) trim(obj%Category3)
+		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
+		call f%close()
+	endif
+end subroutine 
 
 !##################################################
 subroutine divideFEMDomain(obj,n) 

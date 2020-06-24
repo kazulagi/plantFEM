@@ -49,9 +49,11 @@ module BoundaryConditionClass
         procedure :: ImportNBound => ImportNBound
         procedure :: MergeDBound => MergeDBound
         procedure :: MergeNBound => MergeNBound
+        procedure :: remove => removeBoudary
         procedure :: removeDBC => removeDBCBoundary        
         procedure :: removeNBC => removeNBCBoundary
         procedure :: removeTBC => removeTBCBoundary        
+        procedure :: save => saveBoundary
         procedure :: setDB     => setDBoundary
         procedure :: setNB     => setNBoundary
         procedure :: setTB     => setTBoundary
@@ -59,9 +61,189 @@ module BoundaryConditionClass
         procedure :: create => createBoundary
         procedure :: show => showBoundary
         procedure :: export => exportBoundary
+        procedure :: open => openBoundary
     end type Boundary_
 
 contains
+
+! ####################################################################
+
+subroutine openBoundary(obj,path,name)
+    class(Boundary_),intent(inout)::obj
+    character(*),intent(in) :: path
+    character(*),optional,intent(in) :: name
+    type(IO_) :: f
+
+    if(present(name) )then
+        call system("mkdir -p "//trim(path)//"/"//trim(name))
+        call obj%DBound%open(path=trim(path),name=trim(name) )
+        call obj%NBound%open(path=trim(path),name=trim(name) )
+        call obj%TBound%open(path=trim(path),name=trim(name) )
+        
+        call f%open(trim(path)//"/"//trim(name)//"/","Boundary","prop" )
+        call openArray(f%fh, obj%DBoundPara)
+        call openArray(f%fh, obj%NBoundPara)
+        call openArray(f%fh, obj%TBoundPara)
+        call openArray(f%fh, obj%DBoundVal)
+        call openArray(f%fh, obj%NBoundVal)  
+        call openArray(f%fh, obj%TBoundVal)  
+        call openArray(f%fh, obj%TBoundElemGpVal)      
+        call openArray(f%fh, obj%DBoundValInc)
+        call openArray(f%fh, obj%NBoundValInc)  
+        call openArray(f%fh, obj%TBoundValInc)
+        call openArray(f%fh, obj%DBoundNodID)
+        call openArray(f%fh, obj%NBoundNodID)
+        call openArray(f%fh, obj%TBoundNodID)
+        call openArray(f%fh, obj%TBoundElemID)
+        call openArray(f%fh, obj%DBoundNum)
+        call openArray(f%fh, obj%NBoundNum)
+        call openArray(f%fh, obj%TBoundNum)
+        call openArray(f%fh, obj%TBoundElemNum)
+        read(f%fh,*) obj%x_max
+        read(f%fh,*) obj%x_min
+        read(f%fh,*) obj%y_max
+        read(f%fh,*) obj%y_min
+        read(f%fh,*) obj%z_max
+        read(f%fh,*) obj%z_min
+        read(f%fh,*) obj%t_max
+        read(f%fh,*) obj%t_min
+        read(f%fh,*) obj%Dcount
+        read(f%fh,*) obj%Ncount
+        read(f%fh,*) obj%Tcount
+        read(f%fh,*) obj%layer
+        read(f%fh, '(A)' ) obj%Name
+        read(f%fh, '(A)' ) obj%ErrorMsg
+        call f%close()
+    else
+
+        call system("mkdir -p "//trim(path)//"/Boundary")
+        call obj%DBound%open(path=trim(path), name="Boundary")
+        call obj%NBound%open(path=trim(path), name="Boundary")
+        call obj%TBound%open(path=trim(path), name="Boundary")
+        
+        call f%open(trim(path)//"/","Boundary/Boundary","prop" )
+        call openArray(f%fh, obj%DBoundPara)
+        call openArray(f%fh, obj%NBoundPara)
+        call openArray(f%fh, obj%TBoundPara)
+        call openArray(f%fh, obj%DBoundVal)
+        call openArray(f%fh, obj%NBoundVal)  
+        call openArray(f%fh, obj%TBoundVal)  
+        call openArray(f%fh, obj%TBoundElemGpVal)      
+        call openArray(f%fh, obj%DBoundValInc)
+        call openArray(f%fh, obj%NBoundValInc)  
+        call openArray(f%fh, obj%TBoundValInc)
+        call openArray(f%fh, obj%DBoundNodID)
+        call openArray(f%fh, obj%NBoundNodID)
+        call openArray(f%fh, obj%TBoundNodID)
+        call openArray(f%fh, obj%TBoundElemID)
+        call openArray(f%fh, obj%DBoundNum)
+        call openArray(f%fh, obj%NBoundNum)
+        call openArray(f%fh, obj%TBoundNum)
+        call openArray(f%fh, obj%TBoundElemNum)
+        read(f%fh,*) obj%x_max
+        read(f%fh,*) obj%x_min
+        read(f%fh,*) obj%y_max
+        read(f%fh,*) obj%y_min
+        read(f%fh,*) obj%z_max
+        read(f%fh,*) obj%z_min
+        read(f%fh,*) obj%t_max
+        read(f%fh,*) obj%t_min
+        read(f%fh,*) obj%Dcount
+        read(f%fh,*) obj%Ncount
+        read(f%fh,*) obj%Tcount
+        read(f%fh,*) obj%layer
+        read(f%fh, '(A)' ) obj%Name
+        read(f%fh, '(A)' ) obj%ErrorMsg
+        call f%close()
+    endif
+
+end subroutine
+
+
+
+
+
+
+! ####################################################################
+subroutine removeBoudary(obj)
+    class(Boundary_),intent(inout) :: obj
+
+    call obj%DBound%remove()
+    call obj%NBound%remove()
+    call obj%TBound%remove()
+
+    if(allocated(obj%DBoundPara) )then
+        deallocate(obj%DBoundPara)
+    endif
+    if(allocated(obj%NBoundPara) )then
+        deallocate(obj%NBoundPara)
+    endif
+    if(allocated(obj%TBoundPara) )then
+        deallocate(obj%TBoundPara)
+    endif
+    if(allocated(obj%DBoundVal) )then
+        deallocate(obj%DBoundVal)
+    endif
+    if(allocated(obj%NBoundVal) )then
+        deallocate(obj%NBoundVal)
+    endif
+    if(allocated(obj%TBoundVal) )then
+        deallocate(obj%TBoundVal)
+    endif
+    if(allocated(obj%TBoundElemGpVal) )then
+        deallocate(obj%TBoundElemGpVal)
+    endif
+    if(allocated(obj%DBoundValInc) )then
+        deallocate(obj%DBoundValInc)
+    endif
+    if(allocated(obj%NBoundValInc) )then
+        deallocate(obj%NBoundValInc)
+    endif
+    if(allocated(obj%TBoundValInc) )then
+        deallocate(obj%TBoundValInc)
+    endif
+    if(allocated(obj%DBoundNodID) )then
+        deallocate(obj%DBoundNodID)
+    endif
+    if(allocated(obj%NBoundNodID) )then
+        deallocate(obj%NBoundNodID)
+    endif
+    if(allocated(obj%TBoundNodID) )then
+        deallocate(obj%TBoundNodID)
+    endif
+    if(allocated(obj%TBoundElemID) )then
+        deallocate(obj%TBoundElemID)
+    endif
+    if(allocated(obj%DBoundNum) )then
+        deallocate(obj%DBoundNum)
+    endif
+    if(allocated(obj%NBoundNum) )then
+        deallocate(obj%NBoundNum)
+    endif
+    if(allocated(obj%TBoundNum) )then
+        deallocate(obj%TBoundNum)
+    endif
+    if(allocated(obj%TBoundElemNum) )then
+        deallocate(obj%TBoundElemNum)
+    endif
+
+    
+    obj%x_max=0.0d0
+    obj%x_min=0.0d0
+    obj%y_max=0.0d0
+    obj%y_min=0.0d0
+    obj%z_max=0.0d0
+    obj%z_min=0.0d0
+    obj%t_max=0.0d0
+    obj%t_min=0.0d0
+
+    obj%Dcount=0
+    obj%Ncount=0
+    obj%Tcount=0
+    obj%layer=0
+    obj%Name=" "
+    obj%ErrorMsg=" "
+end subroutine
 
 ! ###########################################################################
 subroutine showBoundary(obj,onlyRange)
@@ -1060,7 +1242,7 @@ subroutine exportBoundary(obj,restart,path)
         call obj%NBound%export(path=trim(path)//"/Boundary", restart=.true.)
         call obj%TBound%export(path=trim(path)//"/Boundary", restart=.true.)
         
-        call f%open(trim(path)//"/","Boundary/Boundary",".res" )
+        call f%open(trim(path)//"/","Boundary/Boundary","prop" )
         write(f%fh,*) obj%DBoundPara(:,:)
         write(f%fh,*) obj%NBoundPara(:,:)
         write(f%fh,*) obj%TBoundPara(:,:)
@@ -1097,6 +1279,102 @@ subroutine exportBoundary(obj,restart,path)
     endif
 
 end subroutine
+! ############################################################
+
+
+subroutine saveBoundary(obj,path,name)
+    class(Boundary_),intent(inout)::obj
+    character(*),intent(in) :: path
+    character(*),optional,intent(in) :: name
+    type(IO_) :: f
+
+    if(present(name) )then
+        call system("mkdir -p "//trim(path)//"/"//trim(name))
+        call obj%DBound%save(path=trim(path), name=trim(name))
+        call obj%NBound%save(path=trim(path), name=trim(name))
+        call obj%TBound%save(path=trim(path), name=trim(name))
+        
+        call f%open(trim(path)//"/"//trim(name)//"/","Boundary","prop" )
+        call writeArray(f%fh, obj%DBoundPara)
+        call writeArray(f%fh, obj%NBoundPara)
+        call writeArray(f%fh, obj%TBoundPara)
+        call writeArray(f%fh, obj%DBoundVal)
+        call writeArray(f%fh, obj%NBoundVal)  
+        call writeArray(f%fh, obj%TBoundVal)  
+        call writeArray(f%fh, obj%TBoundElemGpVal)      
+        call writeArray(f%fh, obj%DBoundValInc)
+        call writeArray(f%fh, obj%NBoundValInc)  
+        call writeArray(f%fh, obj%TBoundValInc)
+        call writeArray(f%fh, obj%DBoundNodID)
+        call writeArray(f%fh, obj%NBoundNodID)
+        call writeArray(f%fh, obj%TBoundNodID)
+        call writeArray(f%fh, obj%TBoundElemID)
+        call writeArray(f%fh, obj%DBoundNum)
+        call writeArray(f%fh, obj%NBoundNum)
+        call writeArray(f%fh, obj%TBoundNum)
+        call writeArray(f%fh, obj%TBoundElemNum)
+        write(f%fh,*) obj%x_max
+        write(f%fh,*) obj%x_min
+        write(f%fh,*) obj%y_max
+        write(f%fh,*) obj%y_min
+        write(f%fh,*) obj%z_max
+        write(f%fh,*) obj%z_min
+        write(f%fh,*) obj%t_max
+        write(f%fh,*) obj%t_min
+        write(f%fh,*) obj%Dcount
+        write(f%fh,*) obj%Ncount
+        write(f%fh,*) obj%Tcount
+        write(f%fh,*) obj%layer
+        write(f%fh, '(A)' ) trim(obj%Name)
+        write(f%fh, '(A)' ) trim(obj%ErrorMsg)
+        call f%close()
+    else
+
+        call system("mkdir -p "//trim(path)//"/Boundary")
+        call obj%DBound%save(path=trim(path), name="Boundary")
+        call obj%NBound%save(path=trim(path), name="Boundary")
+        call obj%TBound%save(path=trim(path), name="Boundary")
+        
+        call f%open(trim(path)//"/","Boundary/Boundary","prop" )
+        call writeArray(f%fh, obj%DBoundPara)
+        call writeArray(f%fh, obj%NBoundPara)
+        call writeArray(f%fh, obj%TBoundPara)
+        call writeArray(f%fh, obj%DBoundVal)
+        call writeArray(f%fh, obj%NBoundVal)  
+        call writeArray(f%fh, obj%TBoundVal)  
+        call writeArray(f%fh, obj%TBoundElemGpVal)      
+        call writeArray(f%fh, obj%DBoundValInc)
+        call writeArray(f%fh, obj%NBoundValInc)  
+        call writeArray(f%fh, obj%TBoundValInc)
+        call writeArray(f%fh, obj%DBoundNodID)
+        call writeArray(f%fh, obj%NBoundNodID)
+        call writeArray(f%fh, obj%TBoundNodID)
+        call writeArray(f%fh, obj%TBoundElemID)
+        call writeArray(f%fh, obj%DBoundNum)
+        call writeArray(f%fh, obj%NBoundNum)
+        call writeArray(f%fh, obj%TBoundNum)
+        call writeArray(f%fh, obj%TBoundElemNum)
+        write(f%fh,*) obj%x_max
+        write(f%fh,*) obj%x_min
+        write(f%fh,*) obj%y_max
+        write(f%fh,*) obj%y_min
+        write(f%fh,*) obj%z_max
+        write(f%fh,*) obj%z_min
+        write(f%fh,*) obj%t_max
+        write(f%fh,*) obj%t_min
+        write(f%fh,*) obj%Dcount
+        write(f%fh,*) obj%Ncount
+        write(f%fh,*) obj%Tcount
+        write(f%fh,*) obj%layer
+        write(f%fh, '(A)' ) trim(obj%Name)
+        write(f%fh, '(A)' ) trim(obj%ErrorMsg)
+        call f%close()
+    endif
+
+end subroutine
+
+
+
 
 
 end module BoundaryConditionClass

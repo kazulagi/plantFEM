@@ -9,13 +9,81 @@ module ControlParaeterClass
         integer(int32) :: Timestep
     contains
         procedure,public :: init => initControlPara
+        procedure,public :: remove => initControlPara
         procedure,public :: SetControlPara => SetControlPara
         procedure,public :: set => SetControlPara
         procedure,public :: export => exportControlPara
+        procedure,public :: open => openControlPara
+        procedure,public :: save => saveControlPara
     end type ControlParameter_
 
 contains
 
+
+
+
+! ########################################################
+subroutine openControlPara(obj,path,name)
+    class(ControlParameter_),intent(inout):: obj
+    
+    character(*),intent(in) :: path
+    character(*),optional,intent(in) :: name
+    type(IO_) :: f
+
+    if(present(name) )then
+        call f%open(trim(path)//"/"//trim(name)//"/","ControlPara",".prop")
+        read(f%fh,*) obj%Tol
+        read(f%fh,*) obj%SimMode
+        read(f%fh,*) obj%ItrTol
+        read(f%fh,*) obj%Timestep
+        call f%close()
+    else
+        call f%open(trim(path)//"/ControlPara/","ControlPara",".prop")
+        read(f%fh,*) obj%Tol
+        read(f%fh,*) obj%SimMode
+        read(f%fh,*) obj%ItrTol
+        read(f%fh,*) obj%Timestep
+        call f%close()
+    endif
+end subroutine
+! ########################################################
+
+
+
+
+! ########################################################
+subroutine saveControlPara(obj,path,name)
+    class(ControlParameter_),intent(inout):: obj
+    
+    character(*),intent(in) :: path
+    character(*),optional,intent(in) :: name
+    type(IO_) :: f
+
+    if(present(name) )then
+        call system("mkdir -p "//trim(path)//"/"//trim(name))
+        call f%open(trim(path)//"/"//trim(name)//"/","ControlPara",".prop")
+        write(f%fh,*) obj%Tol
+        write(f%fh,*) obj%SimMode
+        write(f%fh,*) obj%ItrTol
+        write(f%fh,*) obj%Timestep
+        call f%close()
+    else
+        call system("mkdir -p "//trim(path)//"/ControlPara")
+        call f%open(trim(path)//"/ControlPara/","ControlPara",".prop")
+        write(f%fh,*) obj%Tol
+        write(f%fh,*) obj%SimMode
+        write(f%fh,*) obj%ItrTol
+        write(f%fh,*) obj%Timestep
+        call f%close()
+    endif
+end subroutine
+! ########################################################
+
+
+
+
+
+! ########################################################
 subroutine initControlPara(obj)
     class(ControlParameter_),intent(inout):: obj
 
@@ -24,6 +92,7 @@ subroutine initControlPara(obj)
     obj%ItrTol=1000
     obj%Timestep=1
 end subroutine
+! ########################################################
 
 !######### Import Control Parameters #########
 subroutine SetControlPara(obj,OptionalTol,OptionalItrTol,OptionalTimestep,OptionalSimMode)
