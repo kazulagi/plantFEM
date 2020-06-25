@@ -11,16 +11,16 @@ module MaterialPropClass
         integer(int32) :: Mcount
         
         integer(int32) :: layer
-        character(200) :: Name
+        character(200) :: Name= " "
 
 
         real(real64),allocatable::MatPara(:,:)
         integer(int32) :: NumOfMatPara
         integer(int32) :: NumOfMaterial    
         
-        character*40 :: MaterialType
+        character*40 :: MaterialType= " "
 
-        character*70 ErrorMsg
+        character*70 :: ErrorMsg= " "
     contains
         procedure :: Init => initializeMaterial
         procedure :: export => exportMaterialProp
@@ -46,8 +46,8 @@ subroutine openMaterialProp(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call f%open(trim(path)//"/"//trim(name)//"/","Material",".prop")
-        call obj%Mesh%open(path=trim(path),name=trim(name))
+        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","Material",".prop")
+        call obj%Mesh%open(path=trim(path)//"/"//trim(adjustl(name)),name="Mesh")
         call openArray(f%fh,obj%meshPara)
         read(f%fh,*) obj%x_max
         read(f%fh,*) obj%x_min
@@ -69,7 +69,7 @@ subroutine openMaterialProp(obj,path,name)
     else
         call system("mkdir -p "//trim(path)//"/Material")
         call f%open(trim(path)//"/Material/","Material",".prop")
-        call obj%Mesh%open(path=trim(path),name="Material")
+        call obj%Mesh%open(path=trim(path)//"/"//"Material",name="Mesh")
         call openArray(f%fh,obj%meshPara)
         read(f%fh,*) obj%x_max
         read(f%fh,*) obj%x_min
@@ -139,7 +139,7 @@ subroutine createMaterialProp(obj,Name,x_max,x_min,y_max,y_min,z_max,z_min,t_max
     real(real64),optional,intent(in) :: ParaValue
     integer(int32),optional,intent(in) :: Layer
     if(present(Name) )then
-        obj%Name=trim(Name)
+        obj%Name=trim(adjustl(name))
     else
         obj%Name="NoName"
     endif
@@ -158,9 +158,9 @@ subroutine saveMaterialProp(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call system("mkdir -p "//trim(path)//"/"//trim(name))
-        call f%open(trim(path)//"/"//trim(name)//"/","Material",".prop")
-        call obj%Mesh%save(path=trim(path),name=trim(name))
+        call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
+        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","Material",".prop")
+        call obj%Mesh%save(path=trim(path)//"/"//trim(adjustl(name)),name="Mesh")
         call writeArray(f%fh, obj%meshPara)
         write(f%fh,*) obj%x_max
         write(f%fh,*) obj%x_min
@@ -182,7 +182,7 @@ subroutine saveMaterialProp(obj,path,name)
     else
         call system("mkdir -p "//trim(path)//"/Material")
         call f%open(trim(path)//"/Material/","Material",".prop")
-        call obj%Mesh%save(path=trim(path),name="Material")
+        call obj%Mesh%save(path=trim(path)//"/"//"Material",name="Mesh")
         call writeArray(f%fh, obj%meshPara)
         write(f%fh,*) obj%x_max
         write(f%fh,*) obj%x_min

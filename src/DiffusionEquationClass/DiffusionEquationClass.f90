@@ -32,10 +32,30 @@ module DiffusionEquationClass
 
         procedure :: save => saveDiffusionEq
         procedure :: open => openDiffusionEq
+        procedure :: remove => removeDiffusionEq
         
     end type
 
 contains
+
+! #######################################################################
+subroutine removeDiffusionEq(obj)
+    class(DiffusionEq_),intent(inout) :: obj
+    if(associated(obj%FEMDomain)) nullify(obj%FEMDomain)
+    if(allocated(obj%UnknownValue)) deallocate(obj%UnknownValue)
+    if(allocated(obj%UnknownVec)) deallocate(obj%UnknownVec)
+    if(allocated(obj%UnknownValueInit)) deallocate(obj%UnknownValueInit)
+    if(allocated(obj%UnknownValueRate)) deallocate(obj%UnknownValueRate)
+    if(allocated(obj%DiffusionMat)) deallocate(obj%DiffusionMat)
+    if(allocated(obj%Divergence)) deallocate(obj%Divergence)
+    if(allocated(obj%Flowvector)) deallocate(obj%Flowvector)
+    if(allocated(obj%FluxVector3D)) deallocate(obj%FluxVector3D)
+
+    if(allocated(obj%Permiability)) deallocate(obj%Permiability)
+    obj%dt=1.0d0
+    obj% step=0
+end subroutine
+! #######################################################################
 
 ! #######################################################################
 subroutine linkDiffusionEq(obj,FEMDomain)
@@ -61,18 +81,18 @@ subroutine openDiffusionEq(obj,path,name)
 
 	if(present(name) )then
 		pathi=path
-		if( index(path, "/", back=.true.) == len(path) )then
-			n=index(path, "/", back=.true.)
-			pathi(n:n)= " "
-		endif
+		!if( index(path, "/", back=.true.) == len(path) )then
+		!	n=index(path, "/", back=.true.)
+		!	pathi(n:n)= " "
+		!endif
 
 		call f%open(trim(pathi)//"/"//trim(name) ,"/"//"DiffusionEq",".prop" )
 	else
 		pathi=path
-		if( index(path, "/", back=.true.) == len(path) )then
-			n=index(path, "/", back=.true.)
-			pathi(n:n)= " "
-		endif
+		!if( index(path, "/", back=.true.) == len(path) )then
+		!	n=index(path, "/", back=.true.)
+		!	pathi(n:n)= " "
+		!endif
 		call f%open(trim(pathi)//"/DiffusionEq","/DiffusionEq",".prop" )
 	endif
 	
@@ -109,20 +129,20 @@ subroutine saveDiffusionEq(obj,path,name)
 
 	if(present(name) )then
 		pathi=path
-		if( index(path, "/", back=.true.) == len(path) )then
-			n=index(path, "/", back=.true.)
-			pathi(n:n)= " "
-		endif
+		!if( index(path, "/", back=.true.) == len(path) )then
+		!	n=index(path, "/", back=.true.)
+		!	pathi(n:n)= " "
+		!endif
 
 		call system("mkdir -p "//trim(pathi))
 		call system("mkdir -p "//trim(pathi)//"/"//trim(name) )
 		call f%open(trim(pathi)//"/"//trim(name) ,"/"//"DiffusionEq",".prop" )
 	else
 		pathi=path
-		if( index(path, "/", back=.true.) == len(path) )then
-			n=index(path, "/", back=.true.)
-			pathi(n:n)= " "
-		endif
+		!if( index(path, "/", back=.true.) == len(path) )then
+		!	n=index(path, "/", back=.true.)
+		!	pathi(n:n)= " "
+		!endif
 		call system("mkdir -p "//trim(pathi))
 		call system("mkdir -p "//trim(pathi)//"/DiffusionEq")
 		call f%open(trim(pathi)//"/DiffusionEq","/DiffusionEq",".prop" )
@@ -363,7 +383,7 @@ end subroutine ImportFEMDomainDiff
 
 
 !######################## Solve DiffusionEq ########################
-subroutine SolveDiffusionEq(obj,Solvertype)
+subroutine SolveDiffusionEq(obj,Solvertype,restart)
     class(DiffusionEq_),intent(inout)::obj
     character(*),optional,intent(in)::Solvertype
     character*70 ::solver,defaultsolver
@@ -371,6 +391,12 @@ subroutine SolveDiffusionEq(obj,Solvertype)
     real(real64),allocatable::Amat(:,:),bvec(:),xvec(:)
     real(real64)::val,er
     integer(int32) ::i,j, n,m,k,nodeid1,nodeid2,localid,itrmax
+    logical,optional,intent(in) :: restart
+    logical :: skip=.false.
+
+    if(present(restart) )then
+        skip=.true.
+    endif
 
     defaultsolver="GaussJordan"
 
@@ -410,7 +436,7 @@ subroutine SolveDiffusionEq(obj,Solvertype)
     ! 
     if(allocated(obj%FEMDomain%Boundary%TboundNodID) )then
         
-        if(obj%step==1)then
+        if(obj%step==1 .and. skip .eqv. .false.)then
             do i=1,size(obj%FEMDomain%Boundary%TboundNodID,1)
                 if(obj%FEMDomain%Boundary%TboundNodID(i,1)>=1 )then
                     xvec(obj%FEMDomain%Boundary%TBoundNodID(i,1) )=obj%FEMDomain%Boundary%TboundVal(i,1)
@@ -439,7 +465,7 @@ subroutine SolveDiffusionEq(obj,Solvertype)
     ! 
     if(allocated(obj%FEMDomain%Boundary%TboundNodID) )then
         
-        if(obj%step==1)then
+        if(obj%step==1.and. skip .eqv. .false.)then
             n=size(obj%FEMDomain%Mesh%ElemNod,1)    
             m=size(obj%FEMDomain%Mesh%ElemNod,2)
             do i=1,n

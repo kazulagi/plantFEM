@@ -31,7 +31,7 @@ subroutine openControlPara(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call f%open(trim(path)//"/"//trim(name)//"/","ControlPara",".prop")
+        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","ControlPara",".prop")
         read(f%fh,*) obj%Tol
         read(f%fh,*) obj%SimMode
         read(f%fh,*) obj%ItrTol
@@ -60,8 +60,8 @@ subroutine saveControlPara(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call system("mkdir -p "//trim(path)//"/"//trim(name))
-        call f%open(trim(path)//"/"//trim(name)//"/","ControlPara",".prop")
+        call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
+        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","ControlPara",".prop")
         write(f%fh,*) obj%Tol
         write(f%fh,*) obj%SimMode
         write(f%fh,*) obj%ItrTol

@@ -74,6 +74,8 @@ module MeshClass
         procedure :: importElemMat => ImportElemMat
         procedure :: init => InitializeMesh
         
+        procedure :: length => lengthMesh
+        
         procedure :: mergeMesh => MergeMesh
         procedure :: meltingSkelton => MeltingSkeltonMesh 
         procedure :: meshing    => MeshingMesh
@@ -98,24 +100,43 @@ module MeshClass
 
     contains
 
+    function lengthMesh(obj) result(length)
+        class(Mesh_) ,intent(in) :: obj
+        real(real64) :: length(3)
+        integer(int32) :: i
 
+        length(:)=0.0d0
+        do i=1,size(obj%NodCoord,2)
+            length(i)=maxval(obj%NodCoord(:,i)) - minval(obj%NodCoord(:,i))
+        enddo
+
+    end function
+
+! ####################################################################
     subroutine saveMesh(obj,path,name)
         class(Mesh_),intent(inout)::obj
         character(*),intent(in) :: path
         character(*),optional,intent(in) :: name
         type(IO_) :: f
         integer(int32) :: i,j,dim_num,n,m
+
+
         
         if(present(name) )then
-            call system("mkdir -p "//trim(path)//"/"//trim(name))
-            call f%open(trim(path)//"/"//trim(name)//"/","Mesh",".prop")
+            call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
+            call f%open(trim(path)//"/"//trim(adjustl(name))//"/","Mesh",".prop")
+            !call obj%gmsh(Name=trim(path)//"/"//trim(adjustl(name))//"/Mesh")
+            !call obj%export(path=trim(path)//"/"//trim(adjustl(name))//"/",name="Mesh")
+            !print *, trim(path)//"/"//trim(adjustl(name))//"/","Mesh",".prop"
+
         else
             call system("mkdir -p "//trim(path)//"/Mesh")
             call f%open(trim(path)//"/Mesh/","Mesh",".prop")
+            !call obj%gmsh(Name=trim(path)//"/Mesh/Mesh")
+            !call obj%export(path=trim(path)//"/Mesh/",name="Mesh")
+            !print *, trim(path)//"/Mesh/","Mesh",".prop"
         endif
-            
-    
-        call writeArray(f%fh,obj%NodCoord)
+
     
         call writeArray(f%fh,obj%NodCoord)
     
@@ -156,13 +177,12 @@ subroutine openMesh(obj,path,name)
     integer(int32) :: i,j,dim_num,n,m
     
     if(present(name) )then
-        call f%open(trim(path)//"/"//trim(name)//"/","Mesh",".prop")
+        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","Mesh",".prop")
     else
         call f%open(trim(path)//"/Mesh/","Mesh",".prop")
     endif
         
 
-    call openArray(f%fh,obj%NodCoord)
 
     call openArray(f%fh,obj%NodCoord)
 
@@ -304,7 +324,7 @@ subroutine InitializeMesh(obj,MaterialID,NoFacetMode,simple)
     obj%SubMeshNodFromTo(1,1)=1
     obj%SubMeshNodFromTo(1,2)=1
     obj%SubMeshNodFromTo(1,3)=n1
-    print *, "Mesh%Init() => Domain information (Nodes) is imported"
+    !print *, "Mesh%Init() => Domain information (Nodes) is imported"
 
 
     if(.not.allocated(obj%ElemNod) )then
@@ -321,7 +341,7 @@ subroutine InitializeMesh(obj,MaterialID,NoFacetMode,simple)
     obj%SubMeshElemFromTo(1,1)=1
     obj%SubMeshElemFromTo(1,2)=1
     obj%SubMeshElemFromTo(1,3)=n1
-    print *, "Mesh%Init() => Domain information (Elements) is imported"
+    !print *, "Mesh%Init() => Domain information (Elements) is imported"
 
 
     if( allocated(obj%ElemMat) .and. size(obj%ElemMat)/=ne )then
@@ -461,7 +481,7 @@ subroutine importMeshObj(obj,FileName,extention,ElemType,Mesh)
         do i=1,node_num
             read(17,*) obj%NodCoord(i,1:dim_num)
         enddo
-        print *, "MeshClass >> importMeshobj >> imported nod_coord"
+        !print *, "MeshClass >> importMeshobj >> imported nod_coord"
         read(17,*) Edges
         read(17,*) edge_num
         do i=1,edge_num
@@ -520,7 +540,7 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
 	real(real64) :: x1(3),x2(3),x3(3)
     
     if(present(name) )then
-        fieldname=trim(name)
+        fieldname=trim(adjustl(name))
     else
         fieldname="Mesh"
     endif
@@ -4181,10 +4201,10 @@ subroutine gmshMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeu
 	if(present(Name) )then
 		filename=filetitle//filename0
 		
-		!call system(  "touch "//trim(Name)//trim(obj%FileName)//trim(filename) )
-		print *, trim(Name)//trim(filename)
-		open(fh,file=trim(Name)//trim(filename) )
-		print *, "writing ",trim(Name)//trim(filename)," step>>",step
+		!call system(  "touch "//trim(adjustl(name))//trim(obj%FileName)//trim(filename) )
+		print *, trim(adjustl(name))//trim(filename)
+		open(fh,file=trim(adjustl(name))//trim(filename) )
+		print *, "writing ",trim(adjustl(name))//trim(filename)," step>>",step
 	else
 		filename=filetitle//filename0
 		!call system(  "touch "//trim(obj%FileName)//trim(filename) )
@@ -4208,7 +4228,11 @@ subroutine gmshMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeu
 		
 	endif
 
-	allocate(gp_value( size(obj%ElemNod,1),size(obj%ElemNod,2) ))
+    allocate(gp_value( size(obj%ElemNod,1),size(obj%ElemNod,2) ))
+    if(.not.allocated(obj%ElemMat))then
+        allocate(obj%ElemMat(size(obj%ElemNod,1)) )
+        obj%ElemMat(:)=1
+    endif
 	do i=1,size(obj%ElemNod,1)
 		gp_value(i,:)=input(default=dble(obj%ElemMat(i)),option=ElemValue(i,1))
 	enddo
