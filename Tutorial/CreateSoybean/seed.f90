@@ -3,6 +3,7 @@ program main
     implicit none
 
     type(Seed_) :: soy
+    type(IO_) :: f
 
     ! create seed
     call soy%create(MeshType="Sphere3D",x_num=12,y_num=11,z_num=10,x_len=90.0d0, y_len=80.0d0,z_len=70.0d0)
@@ -18,15 +19,40 @@ program main
     call soy%env(WaterContent=1.0d0,x_max=5.0d0,x_min=-1.0d0,y_max=100.0d0,y_min=-100.0d0,&
         z_max=100.0d0,z_min=-100.0d0)
     
-    call soy%save("../","seed")
+!    ! start growth
+!    
+!    call soy%grow(timestep=1,dt=100.0d0,Display=.true.,nr_tol=0.010d0,restart=.false.)
+!
+!    call soy%save("../","seed000")
+!
+!    call f%open("../","seed000/output/seed_length.txt")
+!    write(f%fh, *) soy%length()
+!    call f%close()
     
-    ! start growth
-    call soy%grow(timestep=1,dt=10.0d0,Display=.true.,nr_tol=0.010d0,restart=.false.)
 
-    ! need revision for restart analysis
-    call soy%grow(timestep=1,dt=10.0d0,Display=.true.,nr_tol=0.010d0,restart=.true.)
+!    ! ####################
+!    call soy%grow(timestep=10,dt=100.0d0,Display=.true.,nr_tol=0.010d0,restart=.true.)
+!
+!    call soy%save("../","seed001")
+!    
+!    call f%open("../","seed001/output/seed_length.txt")
+!    write(f%fh, *) soy%length()
+!    call f%close()
+!    
 
-    call soy%open("../","seed")
+    ! ####################
+    call soy%grow(timestep=2,dt=100.0d0,Display=.true.,nr_tol=0.010d0,restart=.false.)
+
+    call soy%save("../","seed002")
+    !call soy%load("../","seed002")
+    call showArraysize(soy%seedDomain%DiffusionEq%UnknownValue)
+    
+    
+    !call soy%grow(timestep=2,dt=100.0d0,Display=.true.,nr_tol=0.010d0,restart=.true.)
+    !call f%open("../","seed002/output/seed_length.txt")
+    !write(f%fh, *) soy%length()
+    !call f%close()
+    !call soy%open("../","seed")
     
     
 end program main

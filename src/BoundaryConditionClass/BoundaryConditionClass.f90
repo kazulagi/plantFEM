@@ -38,8 +38,8 @@ module BoundaryConditionClass
         real(real64) ::x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
         integer(int32) :: Dcount,Ncount,Tcount
         integer(int32) :: layer
-        character*200 :: Name
-        character*70 :: ErrorMsg
+        character*200 :: Name= " "
+        character*70 :: ErrorMsg= " "
     contains
         procedure :: Init => InitializeBoundary
         procedure :: Delete => DeallocateBoundary
@@ -75,12 +75,12 @@ subroutine openBoundary(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call system("mkdir -p "//trim(path)//"/"//trim(name))
-        call obj%DBound%open(path=trim(path),name=trim(name) )
-        call obj%NBound%open(path=trim(path),name=trim(name) )
-        call obj%TBound%open(path=trim(path),name=trim(name) )
+        call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
+        call obj%DBound%open(path=trim(path)//"/"//trim(adjustl(name)), name="DBound")
+        call obj%NBound%open(path=trim(path)//"/"//trim(adjustl(name)), name="NBound")
+        call obj%TBound%open(path=trim(path)//"/"//trim(adjustl(name)), name="TBound")
         
-        call f%open(trim(path)//"/"//trim(name)//"/","Boundary","prop" )
+        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","Boundary","prop" )
         call openArray(f%fh, obj%DBoundPara)
         call openArray(f%fh, obj%NBoundPara)
         call openArray(f%fh, obj%TBoundPara)
@@ -1289,12 +1289,12 @@ subroutine saveBoundary(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call system("mkdir -p "//trim(path)//"/"//trim(name))
-        call obj%DBound%save(path=trim(path), name=trim(name))
-        call obj%NBound%save(path=trim(path), name=trim(name))
-        call obj%TBound%save(path=trim(path), name=trim(name))
+        call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
+        call obj%DBound%save(path=trim(path)//"/"//trim(adjustl(name)), name="DBound")
+        call obj%NBound%save(path=trim(path)//"/"//trim(adjustl(name)), name="NBound")
+        call obj%TBound%save(path=trim(path)//"/"//trim(adjustl(name)), name="TBound")
         
-        call f%open(trim(path)//"/"//trim(name)//"/","Boundary","prop" )
+        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","Boundary","prop" )
         call writeArray(f%fh, obj%DBoundPara)
         call writeArray(f%fh, obj%NBoundPara)
         call writeArray(f%fh, obj%TBoundPara)

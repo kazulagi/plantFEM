@@ -98,6 +98,8 @@ module FEMDomainClass
         procedure,public :: initNBC => InitNBC
 		procedure,public :: initTBC => InitTBC
 
+		procedure,public :: length => lengthFEMDomain
+
         procedure,public :: meltingSkelton => MeltingSkeltonFEMDomain
 		procedure,public :: move => moveFEMDomain
 		procedure,public :: meshing => meshingFEMDomain
@@ -124,6 +126,8 @@ module FEMDomainClass
 		procedure,public :: showRange => showRangeFEMDomain
 		procedure,public :: showMaterials => showMaterialsFEMDomain
 		procedure,public :: showBoundaries => showBoundariesFEMDomain
+
+		
     end type FEMDomain_
 
 	type:: FEMDomainp_
@@ -136,6 +140,13 @@ module FEMDomainClass
     end type
 
 contains
+
+function lengthFEMDomain(obj) result(length)
+	class(FEMDomain_),intent(in) :: obj
+	real(real64) :: length(3)
+
+	length(:)=obj%Mesh%length()
+end function
 
 ! ####################################################################
 subroutine openFEMDomain(obj,path,name)
@@ -152,20 +163,20 @@ subroutine openFEMDomain(obj,path,name)
 
 	if(present(name) )then
 		pathi=path
-		if( index(path, "/", back=.true.) == len(path) )then
-			n=index(path, "/", back=.true.)
-			pathi(n:n)= " "
-		endif
+		!if( index(path, "/", back=.true.) == len(path) )then
+		!	n=index(path, "/", back=.true.)
+		!	pathi(n:n)= " "
+		!endif
 
 		call system("mkdir -p "//trim(pathi))
-		call system("mkdir -p "//trim(pathi)//"/"//trim(name) )
-		call obj%Mesh%open(path=trim(pathi) ,name=trim(name)) !implement!
-		call obj%MaterialProp%open(path=trim(pathi) ,name=trim(name))!implement!
-		call obj%Boundary%open(path=trim(pathi) ,name=trim(name))!implement!
-		call obj%ControlPara%open(path=trim(pathi) ,name=trim(name))!implement!
-		call obj%ShapeFunction%open(path=trim(pathi) ,name=trim(name))!implement!
+		call system("mkdir -p "//trim(pathi)//"/"//trim(adjustl(name)) )
+		call obj%Mesh%open(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="Mesh") !implement!
+		call obj%MaterialProp%open(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="MaterialProp")!implement!
+		call obj%Boundary%open(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="Boundary")!implement!
+		call obj%ControlPara%open(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="ControlPara")!implement!
+		call obj%ShapeFunction%open(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="ShapeFunction")!implement!
 
-		call f%open(trim(pathi)//"/"//trim(name) ,"/"//"FEMDomain",".prop" )
+		call f%open(trim(pathi)//"/"//trim(adjustl(name)) ,"/"//"FEMDomain",".prop" )
 		write(f%fh,*) obj%RealTime
 		write(f%fh,*) obj%NumOfDomain
 		write(f%fh, '(A)' ) trim(obj%FilePath)
@@ -180,18 +191,18 @@ subroutine openFEMDomain(obj,path,name)
 		call f%close()
 	else
 		pathi=path
-		if( index(path, "/", back=.true.) == len(path) )then
-			n=index(path, "/", back=.true.)
-			pathi(n:n)= " "
-		endif
+		!if( index(path, "/", back=.true.) == len(path) )then
+		!	n=index(path, "/", back=.true.)
+		!	pathi(n:n)= " "
+		!endif
 
 		call system("mkdir -p "//trim(pathi))
 		call system("mkdir -p "//trim(pathi)//"/FEMDomain")
-		call obj%Mesh%open(path=trim(pathi),name="FEMDomain")
-		call obj%MaterialProp%open(path=trim(pathi),name="FEMDomain")
-		call obj%Boundary%open(path=trim(pathi),name="FEMDomain")
-		call obj%ControlPara%open(path=trim(pathi),name="FEMDomain")
-		call obj%ShapeFunction%open(path=trim(pathi),name="FEMDomain")
+		call obj%Mesh%open(path=trim(pathi)//"/"//"FEMDomain",name="Mesh")
+		call obj%MaterialProp%open(path=trim(pathi)//"/"//"FEMDomain",name="MaterialProp")
+		call obj%Boundary%open(path=trim(pathi)//"/"//"FEMDomain",name="Boundary")
+		call obj%ControlPara%open(path=trim(pathi)//"/"//"FEMDomain",name="ControlPara")
+		call obj%ShapeFunction%open(path=trim(pathi)//"/"//"FEMDomain",name="ShapeFunction")
 
 		call f%open(trim(pathi)//"/FEMDomain","/FEMDomain",".prop" )
 		write(f%fh,*) obj%RealTime
@@ -277,20 +288,20 @@ subroutine saveFEMDomain(obj,path,name)
 
 	if(present(name) )then
 		pathi=path
-		if( index(path, "/", back=.true.) == len(path) )then
-			n=index(path, "/", back=.true.)
-			pathi(n:n)= " "
-		endif
+		!if( index(path, "/", back=.true.) == len(path) )then
+		!	n=index(path, "/", back=.true.)
+		!	pathi(n:n)= " "
+		!endif
 
 		call system("mkdir -p "//trim(pathi))
-		call system("mkdir -p "//trim(pathi)//"/"//trim(name) )
-		call obj%Mesh%save(path=trim(pathi) ,name=trim(name))
-		call obj%MaterialProp%save(path=trim(pathi) ,name=trim(name))
-		call obj%Boundary%save(path=trim(pathi) ,name=trim(name))
-		call obj%ControlPara%save(path=trim(pathi) ,name=trim(name))
-		call obj%ShapeFunction%save(path=trim(pathi) ,name=trim(name))
+		call system("mkdir -p "//trim(pathi)//"/"//trim(adjustl(name)) )
+		call obj%Mesh%save(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="Mesh")
+		call obj%MaterialProp%save(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="MaterialProp")
+		call obj%Boundary%save(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="Boundary")
+		call obj%ControlPara%save(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="ControlPara")
+		call obj%ShapeFunction%save(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="ShapeFunction")
 
-		call f%open(trim(pathi)//"/"//trim(name) ,"/"//"FEMDomain",".prop" )
+		call f%open(trim(pathi)//"/"//trim(adjustl(name)) ,"/"//"FEMDomain",".prop" )
 		write(f%fh,*) obj%RealTime
 		write(f%fh,*) obj%NumOfDomain
 		write(f%fh, '(A)' ) trim(obj%FilePath)
@@ -305,18 +316,18 @@ subroutine saveFEMDomain(obj,path,name)
 		call f%close()
 	else
 		pathi=path
-		if( index(path, "/", back=.true.) == len(path) )then
-			n=index(path, "/", back=.true.)
-			pathi(n:n)= " "
-		endif
+		!if( index(path, "/", back=.true.) == len(path) )then
+		!	n=index(path, "/", back=.true.)
+		!	pathi(n:n)= " "
+		!endif
 
 		call system("mkdir -p "//trim(pathi))
 		call system("mkdir -p "//trim(pathi)//"/FEMDomain")
-		call obj%Mesh%save(path=trim(pathi),name="FEMDomain")
-		call obj%MaterialProp%save(path=trim(pathi),name="FEMDomain")
-		call obj%Boundary%save(path=trim(pathi),name="FEMDomain")
-		call obj%ControlPara%save(path=trim(pathi),name="FEMDomain")
-		call obj%ShapeFunction%save(path=trim(pathi),name="FEMDomain")
+		call obj%Mesh%save(path=trim(pathi)//"/"//"FEMDomain",name="Mesh")
+		call obj%MaterialProp%save(path=trim(pathi)//"/"//"FEMDomain",name="MaterialProp")
+		call obj%Boundary%save(path=trim(pathi)//"/"//"FEMDomain",name="Boundary")
+		call obj%ControlPara%save(path=trim(pathi)//"/"//"FEMDomain",name="ControlPara")
+		call obj%ShapeFunction%save(path=trim(pathi)//"/"//"FEMDomain",name="ShapeFunction")
 
 		call f%open(trim(pathi)//"/FEMDomain","/FEMDomain",".prop" )
 		write(f%fh,*) obj%RealTime
@@ -366,7 +377,7 @@ subroutine displayFEMDomain(obj,path,name,extention)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: path,name,extention
 	integer(int32) :: i,j,n
-	open(10,file=trim(path)//trim(name)//trim(extention) )
+	open(10,file=trim(path)//trim(adjustl(name))//trim(extention) )
 	if( trim(extention) == ".vtk" )then
 		write(10,'(A)' ) "# vtk DataFile Version 2.0"
 		write(10,'(A)' ) "Cube example"
@@ -644,7 +655,7 @@ subroutine renameFEMDomain(obj,Name)
 	character(*),intent(in) :: Name
 
 	obj%Name = ""
-	obj%Name = trim(Name)
+	obj%Name = trim(adjustl(name))
 
 end subroutine renameFEMDomain
 
@@ -1042,7 +1053,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 		call obj%ControlPara%export(path=trim(path)//"/FEMDomain",restart=.true.)
 		call obj%ShapeFunction%export(path=trim(path)//"/FEMDomain",restart=.true.)
 
-		call f%open(trim(path)//"/FEMDomain","/FEMDomain",".res" )
+		call f%open(trim(path)//"/FEMDomain","/FEMDomain",".prop" )
 		write(f%fh,*) obj%RealTime
 		write(f%fh,*) obj%NumOfDomain
 		write(f%fh, '(A)' ) trim(obj%FilePath)
@@ -1067,8 +1078,8 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 				stop 
 			endif
 
-			open(100,file=trim(Name) )
-				print *, "Exporting .scf file >>> ",trim(Name)
+			open(100,file=trim(adjustl(name)) )
+				print *, "Exporting .scf file >>> ",trim(adjustl(name))
 				if(present(with) )then
 					print *, "Mode :: contact problem"
 					write(100, '(A)' ) "2"
@@ -1295,7 +1306,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 		if(OptionalFileFormat=="stl" .or. OptionalFileFormat==".stl")then
 			if(present(Name) )then
 				call ExportFEMDomainAsSTL(obj=obj,&
-			FileHandle=FileHandle,MeshDimension=MeshDimension,FileName=trim(Name))
+			FileHandle=FileHandle,MeshDimension=MeshDimension,FileName=trim(adjustl(name)))
 			else
 				call ExportFEMDomainAsSTL(obj=obj,&
 			FileHandle=FileHandle,MeshDimension=MeshDimension,FileName=FileName)
@@ -1336,7 +1347,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
     !!print *, "File Name is : ",iFileName
 
 	if(present(Name) )then
-		open(fh,file=trim(Name)//".scf",status="replace")
+		open(fh,file=trim(adjustl(name))//".scf",status="replace")
 	else
 		open(fh,file=trim(iFileName),status="replace")
 	endif
@@ -3109,9 +3120,9 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 	if(present(Name) )then
 		filename=filename0
 		
-		!call system(  "touch "//trim(Name)//trim(obj%FileName)//trim(filename) )
-		open(fh,file=trim(Name)//trim(filetitle)//trim(filename) )
-		print *, "writing ",trim(Name)//trim(filetitle)//trim(filename)," step>>",step
+		!call system(  "touch "//trim(adjustl(name))//trim(obj%FileName)//trim(filename) )
+		open(fh,file=trim(adjustl(name))//trim(filetitle)//trim(filename) )
+		print *, "writing ",trim(adjustl(name))//trim(filetitle)//trim(filename)," step>>",step
 	else
 		filename=filename0
 		!call system(  "touch "//trim(obj%FileName)//trim(filename) )
@@ -5619,7 +5630,7 @@ subroutine showBoundariesFEMDomain(obj,Name)
 	integer(int32) :: i
 
 	if(present(Name) )then
-		print *, "Domain Name is :: ", trim(Name)
+		print *, "Domain Name is :: ", trim(adjustl(name))
 	endif
 
 	if(.not. allocated(obj%Boundaries) )then
@@ -5642,7 +5653,7 @@ subroutine removeBoundariesFEMDomain(obj,Name,BoundaryID)
 	integer(int32),optional,intent(in) ::BoundaryID
 
 	if(present(Name) )then
-		print *, "Domain Name is :: ", trim(Name)
+		print *, "Domain Name is :: ", trim(adjustl(name))
 	endif
 
 	if(.not. allocated(obj%Boundaries) )then
@@ -6158,7 +6169,7 @@ subroutine showMaterialsFEMDomain(obj,Name)
 	integer(int32) :: i
 
 	if(present(Name) )then
-		print *, "Domain Name is :: ", trim(Name)
+		print *, "Domain Name is :: ", trim(adjustl(name))
 	endif
 
 	if(.not. allocated(obj%Materials) )then
@@ -6181,7 +6192,7 @@ subroutine removeMaterialsFEMDomain(obj,Name,BoundaryID)
 	integer(int32),optional,intent(in) ::BoundaryID
 
 	if(present(Name) )then
-		print *, "Domain Name is :: ", trim(Name)
+		print *, "Domain Name is :: ", trim(adjustl(name))
 	endif
 
 	if(.not. allocated(obj%Materials) )then

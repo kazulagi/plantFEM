@@ -446,13 +446,14 @@ end subroutine
 
 
 !=====================================
-subroutine CopyArrayInt(a,ac)
+subroutine CopyArrayInt(a,ac,debug)
     integer(int32),allocatable,intent(in)::a(:,:)
     integer(int32),allocatable,intent(inout)::ac(:,:)
     integer(int32) i,j,n,m
+    logical,optional,intent(in) :: debug
 
     if(.not.allocated(a) )then
-        print *, "CopyArray :: original array is not allocated"
+        !print *, "CopyArray :: original array is not allocated"
         return
     endif
     n=size(a,1)
@@ -473,7 +474,7 @@ subroutine CopyArrayReal(a,ac)
     integer(int32) i,j,n,m
 
     if(.not.allocated(a) )then
-        print *, "CopyArray :: original array is not allocated"
+        !print *, "CopyArray :: original array is not allocated"
         return
     endif
     n=size(a,1)
@@ -497,7 +498,7 @@ subroutine CopyArrayIntVec(a,ac)
     integer(int32) i,j,n,m
 
     if(.not.allocated(a) )then 
-        print *, "CopyArray :: original array is not allocated"
+        !print *, "CopyArray :: original array is not allocated"
         return
     endif
     n=size(a,1)
@@ -518,7 +519,7 @@ subroutine CopyArrayRealVec(a,ac)
 
     if(.not.allocated(a) )then
         
-        print *, "CopyArray :: original array is not allocated"
+        !print *, "CopyArray :: original array is not allocated"
         return
     endif
     n=size(a,1)

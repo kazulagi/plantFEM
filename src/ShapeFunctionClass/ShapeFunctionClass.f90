@@ -52,9 +52,9 @@ subroutine openShapeFunction(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call system("mkdir -p "//trim(path)//"/"//trim(name))
+        call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
         
-        call f%open(trim(path)//"/"//trim(name)//"/","ShapeFunction","prop" )
+        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","ShapeFunction","prop" )
         
         call openArray(f%fh,obj%Nmat)
         call openArray(f%fh,obj%dNdgzi)
@@ -123,9 +123,9 @@ subroutine saveShapeFunction(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call system("mkdir -p "//trim(path)//"/"//trim(name))
+        call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
         
-        call f%open(trim(path)//"/"//trim(name)//"/","ShapeFunction","prop" )
+        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","ShapeFunction","prop" )
         
         call writeArray(f%fh,obj%Nmat)
         call writeArray(f%fh,obj%dNdgzi)
