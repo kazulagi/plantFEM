@@ -34,7 +34,7 @@ module ArrayClass
 
 
     interface CopyArray
-        module procedure CopyArrayInt, CopyArrayReal,CopyArrayIntVec, CopyArrayRealVec
+        module procedure CopyArrayInt, CopyArrayReal,CopyArrayIntVec, CopyArrayRealVec,CopyArrayChar
     end interface CopyArray
 
 
@@ -85,7 +85,7 @@ module ArrayClass
 
 
     interface ExtendArray
-        module procedure  :: ExtendArrayReal,ExtendArrayInt
+        module procedure  :: ExtendArrayReal,ExtendArrayInt,ExtendArrayChar
     end interface ExtendArray
 
     interface insertArray
@@ -466,6 +466,29 @@ subroutine CopyArrayInt(a,ac,debug)
 end subroutine
 !=====================================
 
+
+
+
+!=====================================
+subroutine CopyArrayChar(a,ac,debug)
+    character(200),allocatable,intent(in)::a(:,:)
+    character(200),allocatable,intent(inout)::ac(:,:)
+    integer(int32) i,j,n,m
+    logical,optional,intent(in) :: debug
+
+    if(.not.allocated(a) )then
+        !print *, "CopyArray :: original array is not allocated"
+        return
+    endif
+    n=size(a,1)
+    m=size(a,2)
+    if(allocated(ac) ) deallocate(ac)
+
+    allocate(ac(n,m) )
+    ac(:,:)=a(:,:)
+    
+end subroutine
+!=====================================
 
 !=====================================
 subroutine CopyArrayReal(a,ac)
@@ -1744,6 +1767,53 @@ subroutine ExtendArrayInt(mat,extend1stColumn,extend2ndColumn,DefaultValue)
             allocate(buffer(n, m+1 ) )
             buffer(:,:)=val
             buffer(1:n,1:m)=mat(1:n,1:m)
+            deallocate(mat)
+            call copyArray(buffer,mat)
+            deallocate(buffer)
+        endif
+    endif
+
+
+end subroutine
+!##################################################
+
+
+
+!##################################################
+subroutine ExtendArrayChar(mat,extend1stColumn,extend2ndColumn,DefaultValue)
+    character(200),allocatable,intent(inout)::mat(:,:)
+    character(200),allocatable :: buffer(:,:)
+    logical,optional,intent(in) :: extend1stColumn,extend2ndColumn
+    character(200),optional,intent(in) :: DefaultValue
+    character(200) :: val
+    integer(int32) :: i,j,k,n,m
+
+    if( present(DefaultValue) )then
+        val = DefaultValue
+    else
+        val = ""
+    endif
+
+    n=size(mat,1)
+    m=size(mat,2)
+    if(present(extend1stColumn) )then
+        if(extend1stColumn .eqv. .true.)then
+            allocate(buffer(n+1, m ) )
+            buffer(:,:)=val
+            buffer(1:n,1:m)(1:200)=mat(1:n,1:m)(1:200)
+            deallocate(mat)
+            call copyArray(buffer,mat)
+            deallocate(buffer)
+        endif
+    endif
+
+    n=size(mat,1)
+    m=size(mat,2)
+    if(present(extend2ndColumn) )then
+        if(extend2ndColumn .eqv. .true.)then
+            allocate(buffer(n, m+1 ) )
+            buffer(:,:)=val
+            buffer(1:n,1:m)(1:200)=mat(1:n,1:m)(1:200)
             deallocate(mat)
             call copyArray(buffer,mat)
             deallocate(buffer)

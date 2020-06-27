@@ -1173,4 +1173,54 @@ function rsa_decrypt(id_rsa,ciphertext) result(message)
 end function
 ! ########################################################
 
+function IsItNumber(char) result(res)
+	character(*),intent(inout) :: char
+	logical :: res
+	integer :: i
+	character(1) :: firstchar
+
+	res=.false.
+	! search all
+	firstchar=trim(adjustl(char(1:1)))
+
+	if(firstchar == "1" )then
+		res=.true.
+		return
+	elseif(firstchar == "2" )then
+		res=.true.
+		return
+	elseif(firstchar == "3" )then
+		res=.true.
+		return
+	elseif(firstchar == "4" )then
+		res=.true.
+		return
+	elseif(firstchar == "5" )then
+		res=.true.
+		return
+	elseif(firstchar == "6" )then
+		res=.true.
+		return
+	elseif(firstchar == "7" )then
+		res=.true.
+		return
+	elseif(firstchar == "8" )then
+		res=.true.
+		return
+	elseif(firstchar == "9" )then
+		res=.true.
+		return						
+	elseif(firstchar == "0" )then
+		res=.true.
+		return						
+	elseif(firstchar == "." )then
+		res=.true.
+		return							
+	else
+		return
+	endif
+
+
+end function IsItNumber
+
 end module MathClass
