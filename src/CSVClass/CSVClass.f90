@@ -25,6 +25,8 @@ module CSVClass
         integer(int32),allocatable :: position(:,:)
     contains
         procedure,public :: open => importCSV
+        procedure,public :: read => importCSV
+        procedure,public :: export => exportCSV
         procedure,public :: import => importCSV
         procedure,public :: copy => copyCSV
     end type
@@ -188,6 +190,31 @@ subroutine importCSV(obj,path,name,extention)
         print *, obj%rval(i,1), obj%ival(i,1),trim(obj%cval(i,1) ),obj%position(i,1:2)
     enddo
 
+
+end subroutine
+! ########################################################
+
+! ########################################################
+subroutine exportCSV(obj,path,name,extention)
+    class(CSV_),intent(in) :: obj
+    character(*),intent(in) :: path, name, extention
+    type(IO_) :: f
+    integer(int32) :: i,j,n,itr,xsize,ysize,k,l
+    call f%open(path,name,extention)
+    ysize=maxval(obj%position(:,1) )
+    xsize=maxval(obj%position(:,2) )
+    do i=1,ysize
+        do j=1, xsize
+            do k=1,size(obj%position,1)
+                if( obj%position(k,1) == i .and. obj%position(k,2) == j  )then
+                    write(f%fh,'(A)',advance="no") trim(obj%cval(k,1) )
+                endif
+            enddo
+            write(f%fh,'(A)',advance="no") ","
+        enddo
+        write(f%fh,'(A)',advance="yes") ","
+    enddo
+    call f%close()
 
 end subroutine
 ! ########################################################
