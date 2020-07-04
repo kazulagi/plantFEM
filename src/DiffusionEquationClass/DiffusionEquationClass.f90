@@ -29,14 +29,30 @@ module DiffusionEquationClass
         procedure :: Display => DisplayDiffusionEq 
         procedure :: import => importDiffusionEq 
         procedure :: export => exportDiffusionEq 
+        procedure :: deploy => deployDiffusionEq 
 
         procedure :: save => saveDiffusionEq
         procedure :: open => openDiffusionEq
         procedure :: remove => removeDiffusionEq
-        
+
     end type
 
 contains
+
+! #######################################################################
+subroutine deployDiffusionEq(obj,FEMDomain)
+    class(DiffusionEq_),intent(inout) :: obj
+    type(FEMDomain_),target,intent(in) :: FEMDomain
+
+    if(associated(obj%FEMDomain) )then
+        nullify(obj%FEMDomain)
+    endif
+    obj%FEMDomain => FEMDomain
+
+end subroutine
+! #######################################################################
+
+
 
 ! #######################################################################
 subroutine removeDiffusionEq(obj)

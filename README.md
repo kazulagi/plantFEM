@@ -22,7 +22,10 @@ Plant simulator based on Finite Element Method (FEM).
 
 [使い方：日本語版 >> ](https://qiita.com/soybean) https://qiita.com/soybean
 
-[   New!  simplified class-structure >> ](doc/README/class.pdf)
+## New! sample codes and tutorials of module "std" >> Tutorial/playon_std. Let's check it out!
+
+
+[ New!  simplified class-structure >> ](doc/README/class.pdf)
 
 
 ## How to use plantFEM as a blender-addon.

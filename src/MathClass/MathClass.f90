@@ -154,7 +154,7 @@ function cross_product(a,b) result (c)
 	real(real64), intent(in) :: a(:),b(:)
 	real(real64), allocatable :: c(:)
   
-    if(size(a) /= size(b)) then
+    if(size(a) /= 3 .or. size(b)/= 3 ) then
         stop  "wrong number on size a, b"
     endif
  
@@ -186,6 +186,24 @@ function diadic(a,b) result(c)
 
 end function diadic	
 !==========================================================
+!=========================================================
+!calculate diadic
+!----------------------
+function tensor_product(a,b) result(c)
+	real(real64), intent(in) :: a(:), b(:)
+	  real(real64), allocatable :: c(:,:)
+	  
+	  integer(int32) n,i,j
+		 
+	  allocate(c(size(a),size(b) ) )
+	  do i=1,size(a)
+		  do j=1,size(b)
+			  c(i,j)=a(i)*b(j)		
+		  enddo
+	  enddo
+  
+  end function tensor_product	
+  !==========================================================
 !calculate gz
 !--------------
 subroutine calcgz(x2,x11,x12,nod_coord,gzi)
@@ -286,6 +304,27 @@ recursive function det_mat(a,n) result(det)
 	endif
 end function det_mat
 !=====================================================================================
+
+!==========================================================
+recursive function det(a,n) result(det_v)
+  	integer(int32), intent(in) :: n
+  	real(real64), intent(in) :: a(n, n)
+  	real(real64) det_v, b(n-1, n-1)
+  	integer(int32) i
+	if (n > 1) then
+		det_v = 0.0d0
+		do i = 1, n
+		  	b(1:i-1, 1:n-1) = a(1:i-1, 2:n)
+		  	b(i:n-1, 1:n-1) = a(i+1:n, 2:n)
+		  	det_v = det_v + (-1.0d0) ** (i + 1) &
+			* a(i, 1) * det(b, n-1)
+		
+		enddo
+	else
+		det_v = a(1,1)
+	endif
+end function det
+!=====================================================================================
 subroutine trans_rank_2(A,A_T)
 	real(real64),intent(in)::A(:,:)
 	real(real64),allocatable,intent(out)::A_T(:,:)
@@ -367,6 +406,40 @@ subroutine inverse_rank_2(A,A_inv)
 	
  end subroutine inverse_rank_2
 !================================================================================== 
+!================================================================================== 
+function inverse(A) result(A_inv)
+	real(real64),intent(in)::A(:,:)
+	real(real64),allocatable::A_inv(:,:)
+	real(real64) detA,detA_1
+	integer(int32) m,n
+	
+	m=size(A,1)
+	n=size(A,2)
+	if(.not. allocated(A_inv) )allocate(A_inv(m,n))
+	detA=det_mat(A,n)
+	if(detA==0.0d0) stop "ERROR: inverse, detA=0"
+	detA_1=1.0d0/detA
+	if(n==2)then
+	  	A_inv(1,1)=detA_1*A(2,2)
+	  	A_inv(1,2)=-detA_1*A(1,2)
+	  	A_inv(2,1)=-detA_1*A(2,1)
+	  	A_inv(2,2)=detA_1*A(1,1)
+	elseif(n==3)then
+	  	A_inv(1,1)=detA_1*(A(2,2)*A(3,3)-A(2,3)*A(3,2))
+	  	A_inv(1,2)=detA_1*(A(1,3)*A(3,2)-A(1,2)*A(3,3))
+	  	A_inv(1,3)=detA_1*(A(1,2)*A(2,3)-A(1,3)*A(2,2))
+	  	A_inv(2,1)=detA_1*(A(2,3)*A(3,1)-A(2,1)*A(3,3))
+	  	A_inv(2,2)=detA_1*(A(1,1)*A(3,3)-A(1,3)*A(3,1))
+	  	A_inv(2,3)=detA_1*(A(1,3)*A(2,1)-A(1,1)*A(2,3))
+	  	A_inv(3,1)=detA_1*(A(2,1)*A(3,2)-A(2,2)*A(3,1))
+	  	A_inv(3,2)=detA_1*(A(1,2)*A(3,1)-A(1,1)*A(3,2))
+	  	A_inv(3,3)=detA_1*(A(1,1)*A(2,2)-A(1,2)*A(2,1))
+	else
+	  	print *, "ERROR: Aij with i=j=",n,"/=2or3"
+	endif
+	
+ end function inverse
+!================================================================================== 
 subroutine tensor_exponential(A,expA,TOL,itr_tol)
   	real(real64),intent(in)::A(:,:),TOL
   	real(real64),allocatable,intent(inout)::expA(:,:)
@@ -412,6 +485,26 @@ subroutine tensor_exponential(A,expA,TOL,itr_tol)
   	deallocate(increA)
   
 end subroutine tensor_exponential
+!================================================================================== 
+function identity_matrix(n) result(mat)
+	integer(int32),intent(in) :: n ! rank
+	real(real64) :: mat(n,n)
+	integer(int32) :: i
+	mat(:,:)=0.0d0
+	do i=1,n
+		mat(i,i)=1.0d0
+	enddo
+
+end function
+!================================================================================== 
+
+!================================================================================== 
+function zero_matrix(n) result(mat)
+	integer(int32),intent(in) :: n ! rank
+	real(real64) :: mat(n,n)
+	mat(:,:)=0.0d0
+
+end function
 !================================================================================== 
 subroutine tensor_expo_der(A,expA_A,TOL,itr_tol)
   	real(real64),intent(in)::A(:,:),TOL
@@ -530,9 +623,29 @@ function trace(a) result(b)
 		b=b+a(i,i)
 	enddo
 end function
+
+!================================================================================== 
+function sym(a,n) result(ret)
+	real(real64),intent(in) :: a(n,n)
+	real(real64) :: ret(n,n)
+	integer(int32) :: i,n
+
+	ret = 0.50d0*(a) + 0.50d0*transpose(a)
+
+end function
 !================================================================================== 
 
 !================================================================================== 
+function asym(a,n) result(ret)
+	real(real64),intent(in) :: a(n,n)
+	real(real64) :: ret(n,n)
+	integer(int32) :: i,n
+
+	ret = 0.50d0*(a) - 0.50d0*transpose(a)
+
+end function
+!================================================================================== 
+
 function pi_value(n) result(res)
 	integer(int32),intent(in)::n
 	real(real64) :: ptr
@@ -1172,5 +1285,55 @@ function rsa_decrypt(id_rsa,ciphertext) result(message)
 
 end function
 ! ########################################################
+
+function IsItNumber(char) result(res)
+	character(*),intent(inout) :: char
+	logical :: res
+	integer :: i
+	character(1) :: firstchar
+
+	res=.false.
+	! search all
+	firstchar=trim(adjustl(char(1:1)))
+
+	if(firstchar == "1" )then
+		res=.true.
+		return
+	elseif(firstchar == "2" )then
+		res=.true.
+		return
+	elseif(firstchar == "3" )then
+		res=.true.
+		return
+	elseif(firstchar == "4" )then
+		res=.true.
+		return
+	elseif(firstchar == "5" )then
+		res=.true.
+		return
+	elseif(firstchar == "6" )then
+		res=.true.
+		return
+	elseif(firstchar == "7" )then
+		res=.true.
+		return
+	elseif(firstchar == "8" )then
+		res=.true.
+		return
+	elseif(firstchar == "9" )then
+		res=.true.
+		return						
+	elseif(firstchar == "0" )then
+		res=.true.
+		return						
+	elseif(firstchar == "." )then
+		res=.true.
+		return							
+	else
+		return
+	endif
+
+
+end function IsItNumber
 
 end module MathClass

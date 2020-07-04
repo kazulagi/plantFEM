@@ -286,16 +286,20 @@ subroutine GatherMPIInt(obj,sendobj,sendcount,recvobj,recvcount,&
     send_start_id,recv_start_id,To)
     class(MPI_),intent(inout)::obj
     integer(int32),intent(inout)::sendobj(:),recvobj(:)
-    integer(int32),intent(in)::sendcount,recvcount
+    integer(int32),optional,intent(in)::sendcount,recvcount
+    integer(int32)::sendcountv,recvcountv
     integer(int32),optional,intent(in)::send_start_id,recv_start_id,To
     integer(int32) :: i,s_start_id,r_start_id,ToID
+
+    sendcountv=input(default=size(sendobj),option=sendcount )
+    recvcountv=input(default=size(sendobj),option=recvcount )
 
     s_start_id=input(default=1,option=send_start_id)
     r_start_id=input(default=1,option=recv_start_id)
     ToID=input(default=0,option=To)
 
-    call MPI_Gather(sendobj(s_start_id), sendcount, MPI_integer, recvobj(r_start_id)&
-    , recvcount, MPI_integer, ToID ,MPI_COMM_WORLD, obj%ierr)
+    call MPI_Gather(sendobj(s_start_id), sendcountv, MPI_integer, recvobj(r_start_id)&
+    , recvcountv, MPI_integer, ToID ,MPI_COMM_WORLD, obj%ierr)
 end subroutine
 !################################################################
 
@@ -305,16 +309,20 @@ subroutine GatherMPIReal(obj,sendobj,sendcount,recvobj,recvcount,&
     send_start_id,recv_start_id,To)
     class(MPI_),intent(inout)::obj
     real(real64),intent(inout)::sendobj(:),recvobj(:)
-    integer(int32),intent(in)::sendcount,recvcount
+    integer(int32),optional,intent(in)::sendcount,recvcount
+    integer(int32)::sendcountv,recvcountv
     integer(int32),optional,intent(in)::send_start_id,recv_start_id,To
     integer(int32) :: i,s_start_id,r_start_id,ToID
 
+    sendcountv=input(default=size(sendobj),option=sendcount )
+    recvcountv=input(default=size(sendobj),option=recvcount )
+    
     s_start_id=input(default=1,option=send_start_id)
     r_start_id=input(default=1,option=recv_start_id)
     ToID=input(default=0,option=To)
 
-    call MPI_Gather(sendobj(s_start_id), sendcount, MPI_REAL8, recvobj(r_start_id)&
-    , recvcount, MPI_REAL8, ToID, MPI_COMM_WORLD, obj%ierr)
+    call MPI_Gather(sendobj(s_start_id), sendcountv, MPI_REAL8, recvobj(r_start_id)&
+    , recvcountv, MPI_REAL8, ToID, MPI_COMM_WORLD, obj%ierr)
 end subroutine
 !################################################################
 

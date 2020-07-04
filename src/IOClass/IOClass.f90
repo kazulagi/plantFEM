@@ -30,6 +30,7 @@ subroutine openIO(obj,path,name,extention,fh)
     
 
     if(obj%active .eqv. .true.)then
+        
         print *, "ERROR :: "//trim(obj%path)//trim(obj%name)//trim(obj%extention)//" is already opened."
         stop
     endif

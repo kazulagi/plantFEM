@@ -7,6 +7,7 @@ module std
     use KinematicClass
     use RandomClass
     use ArrayClass
+    use CSVClass
     use VectorClass
     use EquationClass
     use MPIClass

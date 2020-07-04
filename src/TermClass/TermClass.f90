@@ -4,14 +4,16 @@ module TermClass
 
     type :: Term_
         ! post-processors
-        character*70 :: gmsh
-        character*70 :: gnuplot
+
+        character*4 :: gmsh="Gmsh"
+        character*7 :: gnuplot="gnuplot"
         
         ! Solvers
-        character*70 :: GaussJordan
-        character*70 :: BiCGSTAB
-        character*70 :: Result
-        character*200:: FiniteDeform
+        character*8  :: BiCGSTAB="BiCGSTAB"
+        character*11 :: GaussJordan="GaussJordan"
+        character*12 :: Diffusioneq= "Diffusioneq_"
+        character*13 :: FiniteDeform= "FiniteDeform_"
+
     contains
         procedure :: init => InitializeTerm
     end type
@@ -27,7 +29,7 @@ subroutine InitializeTerm(obj)
     obj%GaussJordan="GaussJordan"
     obj%BiCGSTAB="BiCGSTAB"
 
-    obj%Result = "./RESULTS"
+    obj%Diffusioneq= "Diffusioneq_"
     obj%FiniteDeform = "FiniteDeform_"
 
 
