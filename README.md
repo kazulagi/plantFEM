@@ -22,10 +22,29 @@ Plant simulator based on Finite Element Method (FEM).
 
 [使い方：日本語版 >> ](https://qiita.com/soybean) https://qiita.com/soybean
 
-## New! sample codes and tutorials of module "std" >> Tutorial/playon_std. Let's check it out!
-
 
 [ New!  simplified class-structure >> ](doc/README/class.pdf)
+
+## New! sample codes and tutorials of module "std" 
+
+
+[ <std #1> Standard math library for plantFEM             >> ](Tutorial/playon_std/ex0001_math.f90)
+
+
+[ <std #2> Kernel for file-IO                             >> ](Tutorial/playon_std/ex0002_fileIO.f90)
+
+
+[ <std #3> Standard array-operation library for plantFEM  >> ](Tutorial/playon_std/ex0003_array.f90)
+
+
+[ <std #4> Linear solvers for plantFEM                    >> ](Tutorial/playon_std/ex0004_linearsolvers.f90)
+
+
+[ <std #5> Kernel for parallel computing using MPI        >> ](Tutorial/playon_std/ex0005_mpi.f90)
+
+
+[ <std #6> Kernel for RSA-encryption (just for fun)       >> ](Tutorial/playon_std/ex0006_RSAencryption.f90)
+
 
 
 ## How to use plantFEM as a blender-addon.
