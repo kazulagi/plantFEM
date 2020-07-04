@@ -3069,10 +3069,10 @@ end subroutine
 
 ! #########################################################################################
 subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeumannBC,withDirichletBC&
-	,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial,Tag)
+	,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial,Tag,timestep)
 	class(FEMDomain_),intent(inout)::obj
 	real(real64),allocatable::gp_value(:,:)
-	integer(int32),optional,intent(in)::OptionalStep
+	integer(int32),optional,intent(in)::OptionalStep,timestep
 	character,optional,intent(in):: OptionalContorName*30,OptionalAbb*6
 	character(*),optional,intent(in)::Name,Tag
 	logical,optional,intent(in)::withNeumannBC,withDirichletBC,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial
@@ -3101,11 +3101,15 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 		abbmap="Values"
 	endif
 
+
 	if(present(OptionalStep) )then
 		step=OptionalStep
-	else
+    elseif(present(timeStep) )then
+        step=timestep
+    else
 		step=1
 	endif
+
 	fh=123
 
 	filetitle(1:6)=abbmap(1:6)
@@ -5529,14 +5533,14 @@ end subroutine
 ! ##################################################
 
 ! ##################################################
-subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,division,&
+subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
 	top,margin,inclineRate)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: meshtype
 	character(*),optional,intent(in) ::Name
-    integer(int32),optional,intent(in) :: x_num,y_num ! number of division
+    integer(int32),optional,intent(in) :: x_num,y_num,z_num ! number of division
     integer(int32),optional,intent(in) :: division ! for 3D rectangular
-    real(real64),optional,intent(in) :: x_len,y_len,Le,Lh,Dr ! length
+    real(real64),optional,intent(in) :: x_len,y_len,z_len,Le,Lh,Dr ! length
     real(real64),optional,intent(in) :: thickness ! for 3D rectangular
     real(real64),optional,intent(in) :: top,margin,inclineRate ! for 3D Ridge and dam
 
@@ -5547,9 +5551,13 @@ subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
 		obj%Name="NoName"
 		obj%FileName="NoName"
 	endif
-	call obj%Mesh%create(meshtype,x_num,y_num,x_len,y_len,Le,&
-	Lh,Dr,thickness,division,top=top,margin=margin)
-
+	if(present(z_num) .or. present(z_len) )then
+		call obj%Mesh%create(meshtype,x_num,y_num,x_len,y_len,Le,&
+			Lh,Dr,z_len,z_num,top=top,margin=margin)
+	else
+		call obj%Mesh%create(meshtype,x_num,y_num,x_len,y_len,Le,&
+			Lh,Dr,thickness,division,top=top,margin=margin)
+	endif
 end subroutine createFEMDomain
 ! ##################################################
 

@@ -3540,8 +3540,8 @@ subroutine AdjustSphereMesh(obj,rx,ry,rz,debug)
                 call removeArray(mat=mesh%ElemNod,remove1stColumn=.true.,NextOf=i-1)
             endif
         enddo
-        call showArray(mat=mesh%NodCoord,IndexArray=mesh%ElemNod,&
-            Name=trim(adjustl( fstring(itr) ))//".txt")
+        !call showArray(mat=mesh%NodCoord,IndexArray=mesh%ElemNod,&
+        !    Name=trim(adjustl( fstring(itr) ))//".txt")
     enddo
     
     
@@ -4177,10 +4177,10 @@ end subroutine checkMesh
 
 ! #########################################################################################
 subroutine gmshMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeumannBC,withDirichletBC&
-	,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial,ElemValue)
+	,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial,ElemValue,timestep)
 	class(Mesh_),intent(inout)::obj
 	real(real64),allocatable::gp_value(:,:)
-	integer(int32),optional,intent(in)::OptionalStep
+	integer(int32),optional,intent(in)::OptionalStep,timestep
     character,optional,intent(in):: OptionalAbb*6
     character(*),optional,intent(in):: OptionalContorName
     character(*),optional,intent(in)::Name
@@ -4211,7 +4211,9 @@ subroutine gmshMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeu
 
 	if(present(OptionalStep) )then
 		step=OptionalStep
-	else
+    elseif(present(timeStep) )then
+        step=timestep
+    else
 		step=1
 	endif
 	fh=123

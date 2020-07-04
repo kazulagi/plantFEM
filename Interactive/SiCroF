@@ -43,6 +43,7 @@ ret=0
 addonpath="addon"
 link="link"
 init="init"
+remove="remove"
 
 echo "If this is the first time, please type 'install' and press ENTER"
 echo "Please input fortran script *.f90 | or check manual by 'man'  "
@@ -188,6 +189,10 @@ do
         continue
     fi
     if [ "$command" = "$compress" ]; then
+        ./bin/compress
+        continue
+    fi
+    if [ "$command" = "$remove" ]; then
         ./bin/compress
         continue
     fi
