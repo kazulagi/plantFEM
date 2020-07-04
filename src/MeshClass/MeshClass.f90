@@ -3564,6 +3564,33 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     real(real64)::ymin,ymax
     ! this subroutine creates mesh
 
+
+    if(meshtype=="Bar1D" .or. meshtype=="bar1D")then
+        ! need x_len, x_num
+        if(allocated(obj%NodCoord)) deallocate(obj%NodCoord)
+        if(allocated(obj%ElemNod)) deallocate(obj%ElemNod)
+        if(allocated(obj%ElemMat)) deallocate(obj%ElemMat)
+        
+        n=input(default=10,option=x_num)
+        allocate(obj%NodCoord(n+1,1) )
+        allocate(obj%ElemNod(n,2) )
+        allocate(obj%ElemMat(n) )
+        
+        lx=input(default=10.0d0,option=x_len)
+        do i=1,n+1
+            obj%NodCoord(i,1)=dble(i-1)*lx/n
+            
+        enddo
+        do i=1,n
+            obj%ElemNod(i,1)=i
+            obj%ElemNod(i,2)=i+1
+            obj%ElemMat(i)=1
+        enddo
+
+    endif
+
+
+
     if(meshtype=="rectangular3D" .or. meshtype=="Cube")then
         call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
         call obj%Convert2Dto3D(Thickness=Thickness,division=division)
