@@ -20,10 +20,38 @@ program main
     type(Boundary_) :: traction_x,traction_y,traction_z
     type(Boundary_) :: flux, const 
 
+    character(200) :: name
+
+
+    ! for mpi parametric study
+    real(real64) :: param_permiability
+    real(real64) :: param_a_Psi
+    real(real64) :: param_a_P
+    real(real64) :: param_Psi_eq
+    real(real64) :: param_a_E
+    real(real64) :: param_a_E
+    real(real64) :: param_E_eq
+
+    type(MPI_) ::mpid
+
+
     ! unit :: N, mm
+    call mpid%start()
+
+    name="result_"//trim(str(mpid%myrank))//"/"
+    call system("mkdir -p "//trim(name) )
+    
+    param_permiability  = dble(1.0e-9) + dble(1.0e-9) * dble(mod(mpid%myrank,3))
+    param_a_P           = 0.1160d0 * 2.0d0 ** (dble(mod(mpid%myrank+1,6)) )
+    param_a_Psi         = 10.0d0 ** (dble(mod(mpid%myrank+2,3)-1) )   - param_a_P
+    param_Psi_eq        = 0.0580d0 ** 10.0d0 ** (dble(mod(mpid%myrank+3,3)-1) )
+    param_a_E           = -13.2100d0 ** 10.0d0 ** (dble(mod(mpid%myrank+4,3)-1) )
+    param_E_eq          = 0.4580d0** 10.0d0 ** (dble(mod(mpid%myrank+5,3)-1) )
+
 
     !  create mesh
     ! From experiment of 2020/6/12, unit:mm, N
+
     call water%create(Name="water",MeshType="Sphere3D",x_num=12,y_num=11,x_len=9.150d0, y_len=8.150d0,&
         thickness=6.80d0,division=10) 
     call tissue%copy(water,onlyMesh=.true.)
@@ -32,7 +60,8 @@ program main
 
     ! create material
     ! for deformation analysis
-    call YoungsModulus%create(Name="YoungsModulus",ParaValue=13.670d0,Layer=1)
+    call YoungsModulus%create(Name="YoungsModulus",ParaValue=13.670d0,Layer=1) ! this is overwritten by follows
+
     !call YoungsModulus%create(Name="YoungsModulus",x_max=1500.0d0,x_min=0.0d0,y_max=70.0d0,y_min=0.0d0,&
     !z_max=70.0d0,z_min=0.0d0,ParaValue=6000.0d0,Layer=1)
     call PoissonRatio%create(Name="PoissonRatio",ParaValue=0.30d0,Layer=2)
@@ -44,27 +73,27 @@ program main
     call psi%create(Name="psi",ParaValue=0.0d0,Layer=6)
 
     ! for diffusion analysis
-    call Permiability%create(Name="Permiability",ParaValue=dble(4.0e-9),Layer=1) ! Adhikary et al., 2008
+    call Permiability%create(Name="Permiability",ParaValue=param_permiability,Layer=1) ! Adhikary et al., 2008
     !call Permiability%create(Name="Permiability",x_max=300.0d0,x_min=100.0d0,y_max=50.0d0,y_min=0.0d0,&
     !z_max=50.0d0,z_min=0.0d0,ParaValue=1.0d0,Layer=1)
     !call Permiability%create(Name="Permiability",x_max=100.0d0,x_min=0.0d0,y_max=50.0d0,y_min=0.0d0,&
     !z_max=50.0d0,z_min=0.0d0,ParaValue=1.0d0,Layer=1)
 
     ! for WaterAbsorption analysis
-    call a_Psi%create(   Name="a_Psi",   Paravalue=0.9420d0,Layer=1)
+    call a_Psi%create(   Name="a_Psi",   Paravalue=param_a_Psi,Layer=1)
     !call a_Psi%create(   Name="a_Psi",  Paravalue=0.0d0,Layer=1)
     !call a_P%create(     Name="a_P",    Paravalue=40000.0d0,Layer=1)
-    call a_P%create(     Name="a_P",     Paravalue=0.1160d0,Layer=1)
+    call a_P%create(     Name="a_P",     Paravalue=param_a_P,Layer=1)
 
     ! Tugor pressure
     call theta_eq%create(Name="theta_eq",Paravalue=1.0d0,Layer=1)
     !call Psi_eq%create(  Name="Psi_eq",  Paravalue=1.0d0,Layer=1)
-    call Psi_eq%create(  Name="Psi_eq",  Paravalue=0.0580d0,Layer=1)
+    call Psi_eq%create(  Name="Psi_eq",  Paravalue=param_Psi_eq,Layer=1)
     
     ! Youngs modulus
-    call a_E%create(     Name="a_E",     Paravalue=-13.2100d0,Layer=1)
+    call a_E%create(     Name="a_E",     Paravalue=param_a_E,Layer=1)
     call a_v%create(     Name="a_v",Paravalue=0.0d0,Layer=1)
-    call E_eq%create(    Name="E_eq",Paravalue=0.4580d0,Layer=1)
+    call E_eq%create(    Name="E_eq",Paravalue=param_E_eq,Layer=1)
     call v_eq%create(    Name="v_eq",Paravalue=0.30d0,Layer=1)
 
 
@@ -191,9 +220,12 @@ program main
     ! run simulation
     call seed%gnuplot(mode="all")
 
-    call seed%run(timestep=10000,dt=100.0d0,SolverType="BiCGSTAB",&
-        Display=.true.,nr_tol=0.00010d0,infinitesimal=.true.)
-    call seed%export(path="../test3",restart=.true.)
+    call seed%run(timestep=10000,dt=10.0d0,SolverType="BiCGSTAB",interval=10000,&
+        Display=.true.,nr_tol=0.00010d0,infinitesimal=.true.,Name=name,ID=mpid%myrank)
+    !call seed%export(path="../test3",restart=.true.)
     ! visualize data
     !call seed%display()
+
+
+    call mpid%end()
 end program main

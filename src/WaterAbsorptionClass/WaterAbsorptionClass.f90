@@ -44,6 +44,7 @@ module WaterAbsorptionClass
         character(200) :: Name= " "
         integer(int32) :: timestep=0
         integer(int32) :: flushstep=0
+        integer(int32) :: ID=0
         real(real64) :: dt
     contains
         procedure, public :: import=> importWaterAbsorption
@@ -590,7 +591,7 @@ end subroutine importWaterAbsorption
 
 !#####################################
 subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Display,nr_tol,ReducedIntegration,&
-    infinitesimal,interval,Name,restart)
+    infinitesimal,interval,Name,restart,ID)
     class(WaterAbsorption_),intent(inout) :: obj
     character(*),intent(in) :: SolverType
     character(*),optional,intent(in) :: Name
@@ -599,7 +600,7 @@ subroutine runWaterAbsorption(obj,timestep,dt,SolverType,onlyInit,Only1st,Displa
     ReducedIntegration,infinitesimal,restart
     real(real64) ,optional,intent(in) :: nr_tol
     integer(int32),intent(in) :: timestep
-    integer(int32),optional,intent(in) :: interval
+    integer(int32),optional,intent(in) :: interval,ID
     real(real64),optional,intent(in) :: dt
 
     if( present(restart) )then
@@ -705,7 +706,7 @@ subroutine initWaterAbsorption(obj,SolverType,Display,nr_tol,infinitesimal)
     endif
     call obj%FiniteDeform%DivideBC()
     call obj%FiniteDeform%Solve(SolverType=SolverType,nr_tol=nr_tol)  
-    call DisplayReactionForce(obj%FiniteDeform)
+    call DisplayReactionForce(obj%FiniteDeform,obj%ID)
     if(present(Display) )then
         if(Display .eqv. .true.)then
             call DisplayDeformStress(obj%FiniteDeform,&
@@ -778,7 +779,7 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step,nr_tol,restart)
     !flush(114)
     !write(115,*) step, maxval(obj%tissue%mesh%nodCoord(:,3))
     !flush(115)
-    call DisplayReactionForce(obj%FiniteDeform)
+    call DisplayReactionForce(obj%FiniteDeform,obj%ID)
     if(present(Display) )then
         if(Display.eqv. .true.)then
             call DisplayDeformStress(obj%FiniteDeform,&
