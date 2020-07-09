@@ -20,12 +20,12 @@ program main
     type(Boundary_) :: traction_x,traction_y,traction_z
     type(Boundary_) :: flux, const 
 
-    
+    ! unit :: N, mm
 
     !  create mesh
     ! From experiment of 2020/6/12, unit:mm, N
     call water%create(Name="water",MeshType="Sphere3D",x_num=12,y_num=11,x_len=9.150d0, y_len=8.150d0,&
-        thickness=6.90d0,division=10)
+        thickness=6.80d0,division=10) 
     call tissue%copy(water,onlyMesh=.true.)
     call tissue%rename("tissue")
 
@@ -44,22 +44,22 @@ program main
     call psi%create(Name="psi",ParaValue=0.0d0,Layer=6)
 
     ! for diffusion analysis
-    call Permiability%create(Name="Permiability",ParaValue=0.000010d0,Layer=1)
+    call Permiability%create(Name="Permiability",ParaValue=dble(4.0e-9),Layer=1) ! Adhikary et al., 2008
     !call Permiability%create(Name="Permiability",x_max=300.0d0,x_min=100.0d0,y_max=50.0d0,y_min=0.0d0,&
     !z_max=50.0d0,z_min=0.0d0,ParaValue=1.0d0,Layer=1)
     !call Permiability%create(Name="Permiability",x_max=100.0d0,x_min=0.0d0,y_max=50.0d0,y_min=0.0d0,&
     !z_max=50.0d0,z_min=0.0d0,ParaValue=1.0d0,Layer=1)
 
     ! for WaterAbsorption analysis
-    call a_Psi%create(   Name="a_Psi",   Paravalue=600.0d0,Layer=1)
-    !call a_Psi%create(   Name="a_Psi",   Paravalue=0.0d0,Layer=1)
-    !call a_P%create(     Name="a_P",     Paravalue=40000.0d0,Layer=1)
-    call a_P%create(     Name="a_P",     Paravalue=1200.0d0,Layer=1)
+    call a_Psi%create(   Name="a_Psi",   Paravalue=0.9420d0,Layer=1)
+    !call a_Psi%create(   Name="a_Psi",  Paravalue=0.0d0,Layer=1)
+    !call a_P%create(     Name="a_P",    Paravalue=40000.0d0,Layer=1)
+    call a_P%create(     Name="a_P",     Paravalue=0.1160d0,Layer=1)
 
     ! Tugor pressure
     call theta_eq%create(Name="theta_eq",Paravalue=1.0d0,Layer=1)
     !call Psi_eq%create(  Name="Psi_eq",  Paravalue=1.0d0,Layer=1)
-    call Psi_eq%create(  Name="Psi_eq",  Paravalue=0.0290d0,Layer=1)
+    call Psi_eq%create(  Name="Psi_eq",  Paravalue=0.0580d0,Layer=1)
     
     ! Youngs modulus
     call a_E%create(     Name="a_E",     Paravalue=-13.2100d0,Layer=1)
@@ -107,19 +107,19 @@ program main
     ! fixed boundary
     ! If multiple values are to be set for a Dirichlet/Neumann/Time Boundary condition,
     ! please use Layer (1, 2, 3...).
-    call disp_x%create(Category="Dirichlet",x_max=1.0d0,x_min=-5.0d0,y_max=100.0d0,y_min=-100.0d0,&
-    z_max=100.0d0,z_min=-100.0d0,BoundValue=0.0d0,Layer=1,Name="disp_x")
-    call disp_y%create(Category="Dirichlet",x_max=1.0d0,x_min=-5.0d0,y_max=100.0d0,y_min=-100.0d0,&
-    z_max=100.0d0,z_min=-100.0d0,BoundValue=0.0d0,Layer=2,Name="disp_y")
-    call disp_z%create(Category="Dirichlet",x_max=1.0d0,x_min=-5.0d0,y_max=100.0d0,y_min=-100.0d0,&
-    z_max=100.0d0,z_min=-100.0d0,BoundValue=0.0d0,Layer=3,Name="disp_z")
+    call disp_x%create(Category="Dirichlet",x_max=100.0d0,x_min=-100.0d0,y_max=100.0d0,y_min=-100.0d0,&
+    z_max=1.0d0,z_min=-1.0d0,BoundValue=0.0d0,Layer=1,Name="disp_x")
+    call disp_y%create(Category="Dirichlet",x_max=100.0d0,x_min=-100.0d0,y_max=100.0d0,y_min=-100.0d0,&
+    z_max=1.0d0,z_min=-1.0d0,BoundValue=0.0d0,Layer=2,Name="disp_y")
+    call disp_z%create(Category="Dirichlet",x_max=100.0d0,x_min=-100.0d0,y_max=100.0d0,y_min=-100.0d0,&
+    z_max=1.0d0,z_min=-1.0d0,BoundValue=0.0d0,Layer=3,Name="disp_z")
 
-    call disp_x%create(Category="Dirichlet",x_max=91.0d0,x_min=85.0d0,y_max=100.0d0,y_min=-100.0d0,&
-    z_max=100.0d0,z_min=-100.0d0,BoundValue=0.0d0,Layer=1,Name="disp_x")
-    call disp_y%create(Category="Dirichlet",x_max=91.0d0,x_min=85.0d0,y_max=100.0d0,y_min=-100.0d0,&
-    z_max=100.0d0,z_min=-100.0d0,BoundValue=0.0d0,Layer=2,Name="disp_y")
-    call disp_z%create(Category="Dirichlet",x_max=91.0d0,x_min=85.0d0,y_max=100.0d0,y_min=-100.0d0,&
-    z_max=100.0d0,z_min=-100.0d0,BoundValue=0.0d0,Layer=3,Name="disp_z")
+    call disp_x%create(Category="Dirichlet",x_max=100.0d0,x_min=-100.0d0,y_max=100.0d0,y_min=-100.0d0,&
+    z_max=15.0d0,z_min=6.50d0,BoundValue=0.0d0,Layer=1,Name="disp_x")
+    call disp_y%create(Category="Dirichlet",x_max=100.0d0,x_min=-100.0d0,y_max=100.0d0,y_min=-100.0d0,&
+    z_max=15.0d0,z_min=6.50d0,BoundValue=0.0d0,Layer=2,Name="disp_y")
+    call disp_z%create(Category="Dirichlet",x_max=100.0d0,x_min=-100.0d0,y_max=100.0d0,y_min=-100.0d0,&
+    z_max=15.0d0,z_min=6.50d0,BoundValue=0.0d0,Layer=3,Name="disp_z")
     
     ! displacement-loading
     !call disp_z%create(Category="Dirichlet",x_max=310.0d0,x_min=299.0d0,y_max=100.0d0,y_min=-100.0d0,&
@@ -143,11 +143,11 @@ program main
     
     ! for Flow analysis
     ! known value
-    call const%create(category="Dirichlet",x_max=5.0d0,x_min=-1.0d0,y_max=100.0d0,y_min=-100.0d0,&
-    z_max=100.0d0,z_min=-100.0d0,BoundValue=1.0d0,Name="const",Layer=1)
+    !call const%create(category="Dirichlet",x_max=100.0d0,x_min=-100.0d0,y_max=100.0d0,y_min=-100.0d0,&
+    !z_max=1.0d0,z_min=-100.0d0,BoundValue=1.0d0,Name="const",Layer=1)
     ! flux boundary
-    call const%create(category="Dirichlet",x_max=91.0d0,x_min=85.0d0,y_max=100.0d0,y_min=-100.0d0,&
-    z_max=100.0d0,z_min=-100.0d0,BoundValue=1.0d0,Name="const",Layer=1)
+    call const%create(category="Dirichlet",x_max=100.0d0,x_min=-100.0d0,y_max=100.0d0,y_min=-100.0d0,&
+    z_max=6.70d0,z_min=0.10d0,BoundValue=1.0d0,Name="const",Layer=1)
 
     ! visualize on Gmsh
     !call disp_x%gmsh(Dirichlet=.true.,Name="disp_x",Tag="B : disp_x")
@@ -191,8 +191,8 @@ program main
     ! run simulation
     call seed%gnuplot(mode="all")
 
-    call seed%run(timestep=1,dt=1000.0d0,SolverType="BiCGSTAB",&
-        Display=.true.,nr_tol=0.010d0,infinitesimal=.true.,interval=100)
+    call seed%run(timestep=10000,dt=100.0d0,SolverType="BiCGSTAB",&
+        Display=.true.,nr_tol=0.00010d0,infinitesimal=.true.)
     call seed%export(path="../test3",restart=.true.)
     ! visualize data
     !call seed%display()

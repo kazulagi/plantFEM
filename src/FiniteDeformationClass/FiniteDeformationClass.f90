@@ -31,7 +31,8 @@ module FiniteDeformationClass
 		logical :: ReducedIntegration = .false.
 		logical :: infinitesimal = .false.
 		
-		integer(int32) :: itr,Step
+		integer(int32) :: itr
+		integer(int32) :: Step=0
 	contains
 		procedure :: Solve => SolveFiniteDeformNewton
 		procedure :: UpdateSolution => SolveFiniteDeform
@@ -2932,10 +2933,12 @@ end subroutine
 
 
 !############# Reaction Force at Loading Dirichlet Boundary ######################
-subroutine DisplayReactionForce(obj)
+subroutine DisplayReactionForce(obj,id)
 	class(FiniteDeform_),intent(in)::obj
+	integer(int32),optional,intent(in) :: id
 
 	integer(int32) :: i,j,k,dim_num,dbc_num
+	character(200) :: filename
 	real(real64),allocatable :: ReactionForce(:),ReactionForce_wall(:)
 	real(real64) :: val
 
@@ -2959,18 +2962,21 @@ subroutine DisplayReactionForce(obj)
 			endif
 		enddo
 	enddo
+
+	k=input(default=0,option=id)
+	filename="ReactionForce"//trim(str(k))//"_wall.txt"
 	if(obj%Step==1)then
-		open(101,file="ReactionForce.txt",status="replace")
+		open(101,file="all_"//trim(filename),status="replace")
 	else
-		open(101,file="ReactionForce.txt",position="append")
+		open(101,file="all_"//trim(filename),position="append")
 	endif
 	write(101,*) obj%Step,ReactionForce(:)
 	close(101)
 
 	if(obj%Step==1)then
-		open(101,file="ReactionForce_wall.txt",status="replace")
+		open(101,file=trim(filename),status="replace")
 	else
-		open(101,file="ReactionForce_wall.txt",position="append")
+		open(101,file=trim(filename),position="append")
 	endif
 	write(101,*) obj%Step,ReactionForce_wall(:)
 	close(101)

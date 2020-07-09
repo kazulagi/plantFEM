@@ -45,6 +45,9 @@ Plant simulator based on Finite Element Method (FEM).
 
 [ <std #6> Kernel for RSA-encryption (just for fun)       >> ](Tutorial/playon_std/ex0006_RSAencryption.f90)
 
+## New! sample codes and tutorials of module "fem" 
+
+[ <fem #1> domain-creation library for plantFEM           >> ](Tutorial/playon_fem/ex0001_mesh.f90)
 
 
 ## How to use plantFEM as a blender-addon.

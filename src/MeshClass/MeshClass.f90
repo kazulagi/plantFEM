@@ -34,6 +34,7 @@ module MeshClass
         procedure :: adjustSphere => AdjustSphereMesh
 
         procedure :: copy => CopyMesh
+        procedure :: cut => cutMesh
         procedure :: convertMeshType => ConvertMeshTypeMesh
         procedure :: convertTetraToHexa => convertTetraToHexaMesh 
         procedure :: convertTriangleToRectangular => convertTriangleToRectangularMesh 
@@ -42,6 +43,7 @@ module MeshClass
         procedure :: convert2Dto3D => Convert2Dto3DMesh
         
         procedure :: delete => DeallocateMesh
+        procedure :: detectIface => detectIfaceMesh
         procedure :: displayMesh => DisplayMesh 
         procedure :: display => DisplayMesh 
         procedure :: delauneygetNewNode => DelauneygetNewNodeMesh 
@@ -80,6 +82,8 @@ module MeshClass
         procedure :: meltingSkelton => MeltingSkeltonMesh 
         procedure :: meshing    => MeshingMesh
 
+        procedure :: HowManyDomain => HowManyDomainMesh
+
         procedure :: open => openMesh
 
         procedure :: remove => removeMesh
@@ -94,11 +98,103 @@ module MeshClass
         procedure :: showRange => showRangeMesh
         procedure :: showMesh => ShowMesh 
         procedure :: show => ShowMesh 
+
         
     end type Mesh_
 
 
     contains
+
+! ####################################################################
+    function detectIfaceMesh(obj,material1, material2) result(list)
+        class(Mesh_) ,intent(inout) :: obj
+        integer(int32),optional,intent(in) :: material1, material2
+        integer(int32),allocatable :: list(:)
+        integer(int32) :: itr, i,j,k,l,n,node_id,m
+
+!        if(present(,material1) .and.  present(,material2))then
+!            ! rip between material 1 and material 2
+!            
+!            if(material1 == material2)then
+!                print *, "caution! cutmesh >> material1 == material2"
+!                return
+!            endif
+!
+!            ! detect interface
+!            do i=1,size(obj%ElemNod,1)
+!                if(obj%ElemMat(i) == material1 )then
+!                    do j=i+1, size(obj%ElemNod,1)
+!                        if(obj%ElemMat(j) == material2)then
+!                            ! now , elem #i and #j touch interface
+!                            ! let us record the interfacial nodes
+!                            ! detect shared nodes
+!                            do k=1,size(obj%ElemNod,2)
+!                                do l=1,size(obj%ElemNod,2)
+!                                    if(obj%ElemNod(i,k) == obj%ElemNod(j,l)  )then
+!                                        node_id=obj%ElemNod(i,k)
+!                                        call addlist(list,node_id)
+!                                    endif
+!                                enddo
+!                            enddo
+!                        else
+!                            cycle
+!                        endif
+!                    enddo
+!                else
+!                    cycle
+!                endif
+!            enddo
+!        endif
+!
+        
+    end function
+! ####################################################################
+
+
+! ####################################################################
+    subroutine cutMesh(obj,material1, material2)
+        class(Mesh_) ,intent(inout) :: obj
+        integer(int32),allocatable :: list(:)
+        integer(int32),optional,intent(in) :: material1, material2
+        integer(int32) :: itr, i,j,k,n
+!        if(present(,material1) .and.  present(,material2))then
+!            ! rip between material 1 and material 2
+!            if(material1 == material2)then
+!                print *, "caution! cutmesh >> material1 == material2"
+!                return
+!            endif
+!
+!            ! detect interface
+!            list = obj%detectIface(material1, material2)            
+!
+!            ! add new nodes on interface
+!            n=size(obj%NodCoord,1)
+!            do i=1, size(list)
+!                call extendArray(mat=obj%NodCoord,extend1stColumn=.true.)
+!                obj%NodCoord(n+i,:)=obj%NodCoord(list(i),: )
+!            enddo
+!
+!            ! change node_id
+!            do i=1,size(obj%ElemNod,1)
+!                if(obj%elemmat(i) == material1 )then
+!                    do j=1,size(obj%ElemNod,2)
+!                        do k=1,size(list)
+!                            if( obj%ElemNod(i,j) == list(k) )then
+!                                obj%ElemNod(i,j) = n+k
+!                                exit
+!                            endif
+!                        enddo
+!                    enddo
+!                else
+!                    cycle
+!                endif
+!            enddo
+!
+!        endif
+
+        
+    end subroutine
+! ####################################################################
 
     function lengthMesh(obj) result(length)
         class(Mesh_) ,intent(in) :: obj
@@ -3540,8 +3636,8 @@ subroutine AdjustSphereMesh(obj,rx,ry,rz,debug)
                 call removeArray(mat=mesh%ElemNod,remove1stColumn=.true.,NextOf=i-1)
             endif
         enddo
-        call showArray(mat=mesh%NodCoord,IndexArray=mesh%ElemNod,&
-            Name=trim(adjustl( fstring(itr) ))//".txt")
+        !call showArray(mat=mesh%NodCoord,IndexArray=mesh%ElemNod,&
+        !    Name=trim(adjustl( fstring(itr) ))//".txt")
     enddo
     
     
@@ -4177,10 +4273,10 @@ end subroutine checkMesh
 
 ! #########################################################################################
 subroutine gmshMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeumannBC,withDirichletBC&
-	,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial,ElemValue)
+	,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial,ElemValue,timestep)
 	class(Mesh_),intent(inout)::obj
 	real(real64),allocatable::gp_value(:,:)
-	integer(int32),optional,intent(in)::OptionalStep
+	integer(int32),optional,intent(in)::OptionalStep,timestep
     character,optional,intent(in):: OptionalAbb*6
     character(*),optional,intent(in):: OptionalContorName
     character(*),optional,intent(in)::Name
@@ -4211,7 +4307,9 @@ subroutine gmshMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeu
 
 	if(present(OptionalStep) )then
 		step=OptionalStep
-	else
+    elseif(present(timeStep) )then
+        step=timestep
+    else
 		step=1
 	endif
 	fh=123
@@ -5475,5 +5573,30 @@ subroutine mpi_read_control_p(infile_control,my_rank,itr_max,tol)
 end subroutine mpi_read_control_p
 !#######################################################################################
 
+!#######################################################################################
+function HowManyDomainMesh(obj) result(ret)
+    class(Mesh_),intent(in) :: obj
+    integer(int32) :: ret, i,j,itr,k,n
+    integer(int32),allocatable :: domain_id(:)
+
+!    if(obj%empty() .eqv. .true.)then
+!        print *, "HowManyDomainMesh :: obj%empty() .eqv. .true."
+!        return
+!    endif
+!
+!    n=size(obj%NodCoord,1)
+!    allocate(domain_id(n) )
+!    domain_id(:)=-1
+!    k=1
+!    domain_id(1)=1
+!    do 
+!
+!        if(minval(domain_id)/=-1 )then
+!            exit
+!        endif
+!    enddo
+
+end function
+!#######################################################################################
 
 end module MeshClass

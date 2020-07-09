@@ -42,6 +42,7 @@ init="init"
 projectname=""
 projectpath=""
 num=""
+remove="remove"
 
 echo "If this is the first time, please type 'install' and press ENTER"
 echo "Please input fortran script *.f90 | or check manual by 'man'  "
@@ -249,6 +250,10 @@ homepath="$PWD"
     if [ "$1" = "$compress" ]; then
         ./bin/compress
         return 0
+    fi
+    if [ "$command" = "$remove" ]; then
+        ./bin/compress
+        continue
     fi
     if [ "$1" = "$run" ]; then
         ./bin/run

@@ -118,6 +118,10 @@ module ArrayClass
         module procedure ::countifint,countifintvec,countifReal,countifRealvec
     end interface
 
+    interface exist
+        module procedure ::existIntVec
+    end interface
+
     interface getif
         module procedure ::getifreal,getifrealvec!,getifint,getifintvec
     end interface
@@ -130,6 +134,9 @@ module ArrayClass
         module procedure :: getKeyAndValueReal
     end interface
     
+    interface addlist
+        module procedure :: addListIntVec
+    end interface
 contains
         
 
@@ -2822,5 +2829,69 @@ function imcompleteCholosky(mat) result(a)
 
     call showArray(a)
 end function
+
+
+! ##########################################################
+subroutine addListIntVec(vector,val)
+    integer(int32),allocatable,intent(inout) :: vector(:)
+    integer(int32),intent(in) :: val
+    integer(int32),allocatable :: buffer(:)
+    integer(int32) :: i,j,k,n
+    logical :: ret
+
+    ! search 
+    ret = exist(vector,val)
+    if(.not. allocated(vector) )then
+        allocate(vector(1) )
+        vector(1)=Val
+        return
+    endif
+
+    if(size(vector)==0 )then
+        deallocate(vector)
+        allocate(vector(1) )
+        vector(1)=Val
+        return
+    endif
+    ! if exist, add this
+    if(ret .eqv. .true.)then
+        n=size(vector) 
+        allocate(buffer(n) )
+        buffer(:) = vector(:)
+        deallocate(vector)
+        allocate(vector(n+1) )
+        vector(1:n)=buffer(1:n)
+        vector(n+1)=val
+    endif
+
+end subroutine
+! ##########################################################
+
+
+
+! ##########################################################
+function existIntVec(vector,val) result(ret)
+    integer(int32),allocatable,intent(inout) :: vector(:)
+    integer(int32),intent(in) :: val
+    integer(int32),allocatable :: buffer(:)
+    logical :: ret
+    integer(int32) :: i,j,k,n
+
+    !if(.not. allocated(vector) )then
+    !    return
+    !endif
+!
+    !! search 
+    !do i=1,size(vector)
+    !    if(vector(i) == val ) then
+    !        ret=.true.
+    !        return
+    !    endif
+    !enddo
+
+end function
+! ##########################################################
+
+
 
 end module ArrayClass
