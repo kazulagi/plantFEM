@@ -20,12 +20,73 @@ module LinearSolverClass
 
     integer(int32),allocatable :: connectivity(:,:)
     integer(int32) :: itrmax=1000000
+    integer(int32) :: currentID=1
     real(real64) :: er0=dble(1.0e-08)
   contains
+    procedure, public :: set => setLinearSolver
     procedure, public :: import => importLinearSolver
     procedure, public :: solve => solveLinearSolver
   end type
 contains
+
+!====================================================================================
+subroutine setLinearSolver(obj,low,column,entryvalue,init)
+  class(LinearSolver_),intent(inout) :: obj
+  integer(int32),optional,intent(in) :: low, column
+  real(real64),optional,intent(in) :: entryvalue
+  logical,optional,intent(in) :: init
+
+  if(present(init) )then
+    if(init .eqv. .true.)then
+      obj%currentID=1
+    endif
+  endif
+
+  if(present(low) .and. present(column))then
+    if(.not. allocated(obj%val) )then
+      allocate(obj%val(1) )
+      obj%val(1)=input(default=0.0d0, option=entryvalue)
+    endif
+    if(.not. allocated(obj%index_I) )then
+      allocate(obj%index_I(1) )
+      obj%index_I(1)=low
+    endif
+    if(.not. allocated(obj%index_J) )then
+      allocate(obj%index_J(1) )
+      obj%index_J(1)=column
+      return
+    endif
+    if(obj%currentID < size(obj%val) )then
+      obj%val(obj%currentID)=entryvalue
+      obj%index_I(obj%currentID)=low
+      obj%index_J(obj%currentID)=column
+    else
+      call  extendArray(obj%val,entryvalue)
+      call  extendArray(obj%index_I,low)
+      call  extendArray(obj%index_J,column)
+    endif
+    obj%currentID=obj%currentID+1
+  elseif(present(low) )then
+    if(.not. allocated(obj%b) )then
+      allocate(obj%b(1) )
+      obj%b(1)=input(default=0.0d0, option=entryvalue)
+      return
+    else
+      if(low > size(obj%b) )then
+        if(obj%currentID < size(obj%val) )then
+          obj%b(low)=entryvalue
+        else
+          call extendArray(obj%b,0.0d0,low-size(obj%b) )
+          obj%b(low)=entryvalue
+        endif
+      endif
+    endif
+  else
+    return
+  endif
+
+end subroutine
+!====================================================================================
 
 !====================================================================================
 subroutine importLinearSolver(obj,a,x,b,a_e,b_e,x_e,connectivity,val,index_I,index_J)
@@ -141,6 +202,30 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
   character(*),intent(in) :: Solver
   logical,optional,intent(in) :: MPI, OpenCL, CUDAC,preconditioning,CRS
 
+  if(.not. allocated(obj%a) .and. .not. allocated(obj%val) )then
+    print *, "solveLinearSolver >> ERROR :: .not. allocated(obj%b) "
+    stop
+  endif
+
+
+  if(.not. allocated(obj%b) )then
+    print *, "solveLinearSolver >> ERROR :: .not. allocated(obj%b) "
+    stop
+  endif
+
+
+  if(.not. allocated(obj%x) )then
+    allocate(obj%x( size(obj%b) ) )
+    obj%x(:)=0.0d0
+  endif
+
+  
+  if(size(obj%x) /=size(obj%b) )then
+    deallocate(obj%x)
+    allocate(obj%x( size(obj%b) ) )
+    obj%x(:)=0.0d0
+  endif
+  
   ! No MPI, No OpenCl and No CUDAC
   if(allocated(obj%a) )then
     if(allocated(obj%b) )then
@@ -178,6 +263,9 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
         return
       endif
     endif
+  else
+    call bicgstab_CRS(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0)
+    return
   endif
 
   print *, "LinearSolver_ ERROR:: EBE-mode is not implemented yet."

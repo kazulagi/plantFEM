@@ -90,7 +90,7 @@ module ArrayClass
 
 
     interface ExtendArray
-        module procedure  :: ExtendArrayReal,ExtendArrayInt,ExtendArrayChar
+        module procedure  :: ExtendArrayReal,ExtendArrayRealVec,ExtendArrayIntVec,ExtendArrayInt,ExtendArrayChar
     end interface ExtendArray
 
     interface insertArray
@@ -1739,6 +1739,63 @@ subroutine ExtendArrayReal(mat,extend1stColumn,extend2ndColumn,DefaultValue)
     endif
 
 
+end subroutine
+!##################################################
+
+
+!##################################################
+subroutine ExtendArrayRealVec(mat,DefaultValue,number)
+    real(real64),allocatable,intent(inout)::mat(:)
+    real(real64),allocatable :: buffer(:)
+    integer,optional,intent(in) :: number
+    real(real64),optional,intent(in) :: DefaultValue
+    real(real64) :: val
+    integer(int32) :: n,m,extn
+
+    if( present(DefaultValue) )then
+        val = DefaultValue
+    else
+        val = 0.0d0
+    endif
+
+    extn=input(default=1,option=number)
+    n=size(mat,1)
+    allocate(buffer(n+extn) )
+    buffer(:)=val
+    buffer(1:n)=mat(1:n)
+    deallocate(mat)
+    call copyArray(buffer,mat)
+    deallocate(buffer)
+        
+end subroutine
+!##################################################
+
+
+
+!##################################################
+subroutine ExtendArrayIntVec(mat,DefaultValue,number)
+    integer(int32),allocatable,intent(inout)::mat(:)
+    integer(int32),allocatable :: buffer(:)
+    integer(int32),optional,intent(in) :: number
+    integer(int32),optional,intent(in) :: DefaultValue
+    integer(int32) :: val
+    integer(int32) :: n,m,extn
+
+    if( present(DefaultValue) )then
+        val = DefaultValue
+    else
+        val = 0.0d0
+    endif
+
+    extn=input(default=1,option=number)
+    n=size(mat,1)
+    allocate(buffer(n+extn) )
+    buffer(:)=val
+    buffer(1:n)=mat(1:n)
+    deallocate(mat)
+    call copyArray(buffer,mat)
+    deallocate(buffer)
+        
 end subroutine
 !##################################################
 
