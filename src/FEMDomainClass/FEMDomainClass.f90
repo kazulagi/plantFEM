@@ -732,26 +732,132 @@ end subroutine showFEMDomain
 
 !##################################################
 subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,Mesh,Boundaries&
-		,Boundary,Materials, Material,NumberOfBoundaries,BoundaryID,NumberOfMaterials,MaterialID)
+		,Boundary,Materials, Material,NumberOfBoundaries,BoundaryID,NumberOfMaterials,MaterialID,&
+		node,element,materialinfo,dirichlet,file)
 	class(FEMDomain_),intent(inout)::obj
 	type(Mesh_),optional,intent(in)::Mesh
 	type(Boundary_),optional,intent(in)::Boundary
 	type(MaterialProp_),optional,intent(in)::Material
     character*4,optional,intent(in)::OptionalFileFormat
     character(*),optional,intent(in)::OptionalProjectName
-	
+	logical,optional,intent(in) :: node,element,materialinfo,dirichlet
+	type(IO_) :: f
 
-
+	character(*),optional,intent(in) :: file
 	character*4::FileFormat
-character*70::ProjectName
-character*74 ::FileName
-character*9  :: DataType
-integer,allocatable::IntMat(:,:)
-real(8),allocatable::RealMat(:,:)
-integer,optional,intent(in)::FileHandle,NumberOfBoundaries,BoundaryID,MaterialID,NumberOfMaterials
-integer :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum
-character*70 Msg,name
-logical,optional,intent(in) :: Boundaries,Materials
+	character*70::ProjectName
+	character*74 ::FileName
+	character*9  :: DataType
+	integer,allocatable::IntMat(:,:)
+	real(8),allocatable::RealMat(:,:)
+	integer,optional,intent(in)::FileHandle,NumberOfBoundaries,BoundaryID,MaterialID,NumberOfMaterials
+	integer :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,nodenum,matnum, paranum
+	character*70 Msg,name
+	logical,optional,intent(in) :: Boundaries,Materials
+
+if(present(node) )then
+	if(node .eqv. .true. )then
+		if(.not. present(file) )then
+			print *, "Please iput filename"
+			stop
+		endif
+		call f%open("./",trim(file))
+		read(f%fh,*) nodenum, dimnum
+		if(allocated(obj%Mesh%NodCoord ) )then
+			deallocate(obj%Mesh%NodCoord)
+		endif
+		allocate(obj%Mesh%NodCoord(nodenum, dimnum) )
+		do i=1,nodenum
+			read(f%fh,*) obj%Mesh%NodCoord(i,:)
+		enddo
+		call f%close()
+		return
+	endif
+endif
+
+if(present(Element) )then
+	if(Element .eqv. .true. )then
+		if(.not. present(file) )then
+			print *, "Please iput filename"
+			stop
+		endif
+		call f%open("./",trim(file))
+		read(f%fh,*) nodenum, dimnum
+		if(allocated(obj%Mesh%ElemNod ) )then
+			deallocate(obj%Mesh%ElemNod)
+		endif
+		allocate(obj%Mesh%ElemNod(nodenum, dimnum) )
+		do i=1,nodenum
+			read(f%fh,*) obj%Mesh%ElemNod(i,:)
+		enddo
+		call f%close()
+		return
+	endif
+endif
+
+if(present(materialinfo) )then
+	if(materialinfo .eqv. .true. )then
+		if(.not. present(file) )then
+			print *, "Please iput filename"
+			stop
+		endif
+		call f%open("./",trim(file))
+		read(f%fh,*) nodenum
+		if(allocated(obj%Mesh%ElemMat ) )then
+			deallocate(obj%Mesh%ElemMat)
+		endif
+		allocate(obj%Mesh%ElemMat(nodenum) )
+		do i=1,nodenum
+			read(f%fh,*) obj%Mesh%ElemMat(i)
+		enddo
+		
+		read(f%fh,*) matnum, paranum
+		if(allocated(obj%MaterialProp%MatPara ) )then
+			deallocate(obj%MaterialProp%MatPara)
+		endif
+		allocate(obj%MaterialProp%MatPara(matnum, paranum) )
+		do i=1,matnum
+			read(f%fh,*) obj%MaterialProp%MatPara(i,:)
+		enddo
+		call f%close()
+		return
+	endif
+endif
+
+if(present(dirichlet) )then
+	if(dirichlet .eqv. .true. )then
+		if(.not. present(file) )then
+			print *, "Please iput filename"
+			stop
+		endif
+		call f%open("./",trim(file))
+		dimnum=size(obj%mesh%NodCoord,2)
+		if(allocated(obj%Boundary%DboundNum ) )then
+			deallocate(obj%Boundary%DboundNum)
+		endif
+		allocate(obj%Boundary%DboundNum(dimnum) )
+		read(f%fh,*) obj%Boundary%DboundNum(:)
+		if(allocated(obj%Boundary%DboundNodID ) )then
+			deallocate(obj%Boundary%DboundNodID)
+		endif
+		allocate(obj%Boundary%DboundNodID(maxval(obj%Boundary%DboundNum),dimnum ) )
+		if(allocated(obj%Boundary%DBoundVal ) )then
+			deallocate(obj%Boundary%DBoundVal)
+		endif
+		allocate(obj%Boundary%DBoundVal(maxval(obj%Boundary%DboundNum),dimnum ) )
+		
+		do i=1,size(obj%Boundary%DboundNodID,1)
+			read(f%fh,*) obj%Boundary%DboundNodID(i,:)
+		enddo
+		do i=1,size(obj%Boundary%DboundVal,1)
+			read(f%fh,*) obj%Boundary%DboundVal(i,:)
+		enddo
+		call f%close()
+		return
+	endif
+endif
+
+
 
 if(present(Boundaries) )then
 	if(Boundaries .eqv. .true.)then
