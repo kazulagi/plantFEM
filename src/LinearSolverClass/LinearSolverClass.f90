@@ -25,9 +25,57 @@ module LinearSolverClass
   contains
     procedure, public :: set => setLinearSolver
     procedure, public :: import => importLinearSolver
+    procedure, public :: fix => fixLinearSolver
     procedure, public :: solve => solveLinearSolver
   end type
 contains
+
+!====================================================================================
+subroutine fixLinearSolver(obj,nodeid,entryvalue)
+  class(LinearSolver_),intent(inout) :: obj
+  integer(int32),intent(in) :: nodeid
+  real(real64),intent(in) :: entryvalue
+  integer(int32) :: i,j
+
+  ! only for CRS-format
+  if(.not. allocated(obj%val) .or. .not.allocated(obj%b))then
+    print *, "ERROR >> fixLinearSolver .not. allocated(val) "
+    stop
+  endif
+
+  do i=1,size(obj%val)
+
+    if(obj%index_J(i)==nodeid)then
+      obj%b(obj%index_I(i) ) = obj%b(obj%index_I(i) )- obj%val(i) * entryvalue
+      obj%val(i)=0.0d0
+    endif
+
+  enddo
+
+  do i=1,size(obj%index_I)
+    
+    if(obj%index_I(i)==nodeid)then
+      if(obj%index_J(i) ==nodeid)then
+        obj%val(i)=1.0d0
+      else
+        obj%val(i)=0.0d0
+      endif
+      obj%b(obj%index_I(i) ) = entryvalue
+    endif
+    
+    if(obj%index_I(i)==nodeid)then
+      if(obj%index_J(i)==nodeid)then
+        obj%val(i)=1.0d0
+      endif
+    endif
+  enddo
+  
+  
+
+
+end subroutine
+!====================================================================================
+
 
 !====================================================================================
 subroutine setLinearSolver(obj,low,column,entryvalue,init)
@@ -35,9 +83,16 @@ subroutine setLinearSolver(obj,low,column,entryvalue,init)
   integer(int32),optional,intent(in) :: low, column
   real(real64),optional,intent(in) :: entryvalue
   logical,optional,intent(in) :: init
+  integer(int32) :: i
 
   if(present(init) )then
     if(init .eqv. .true.)then
+      if(allocated(obj%val) )then
+        obj%val(:)=0.0d0
+      endif
+      if(allocated(obj%b) )then
+        obj%b(:)=0.0d0
+      endif
       obj%currentID=1
     endif
   endif
@@ -56,6 +111,16 @@ subroutine setLinearSolver(obj,low,column,entryvalue,init)
       obj%index_J(1)=column
       return
     endif
+    ! if already exists, add.
+    do i=1,size(obj%index_I)
+      if(obj%index_I(i) == low )then
+        if(obj%index_J(i) == column )then
+          obj%val(i) = obj%val(i) + entryvalue
+          return
+        endif
+      endif
+    enddo
+
     if(obj%currentID < size(obj%val) )then
       obj%val(obj%currentID)=entryvalue
       obj%index_I(obj%currentID)=low
@@ -77,7 +142,7 @@ subroutine setLinearSolver(obj,low,column,entryvalue,init)
           obj%b(low)=entryvalue
         else
           call extendArray(obj%b,0.0d0,low-size(obj%b) )
-          obj%b(low)=entryvalue
+          obj%b(low)=obj%b(low)+entryvalue
         endif
       endif
     endif

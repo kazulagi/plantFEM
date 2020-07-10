@@ -163,6 +163,11 @@ homepath="$PWD"
         return 0
     fi
 
+    if [ "$1" = "setup" ]; then
+        python3 setup.py
+        sh ./install/"$install"
+        return 0
+    fi
 
     if [ "$1" = "goback" ]; then
         echo "Back to SiCroF/"
