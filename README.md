@@ -8,6 +8,11 @@
 Plant simulator based on Finite Element Method (FEM).
 (Renamed from its old name "SiCroF")
 
+## Installation
+
+```
+git clone https://github.com/kazulagi/plantFEM.git && cd plantFEM && ./plantfem setup
+```
 
 ## Documentation of plantFEM
 

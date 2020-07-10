@@ -13,11 +13,12 @@ import argparse
 
 def yes_no_input():
     while True:
-        choice = input("Do you install plantFEM? 'yes' or 'no' [Y/n]: ").lower()
-        if choice in ['y', 'ye', 'yes']:
-            return True
-        elif choice in ['n', 'no']:
-            return False
+        return True
+        #choice = input("Do you install plantFEM? 'yes' or 'no' [Y/n]: ").lower()
+        #if choice in ['y', 'ye', 'yes']:
+        #    return True
+        #elif choice in ['n', 'no']:
+        #    return False
 
 '''
 引数の定義
