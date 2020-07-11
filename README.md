@@ -10,8 +10,16 @@ Plant simulator based on Finite Element Method (FEM).
 
 ## Installation
 
+On Ubuntu 18.04 or later,
+
 ```
 git clone https://github.com/kazulagi/plantFEM.git && cd plantFEM && ./plantfem setup
+```
+
+If you want to build and run as a docker container, the Dockerfile is located at
+
+```
+docker/Dockerfile
 ```
 
 ## Documentation of plantFEM
