@@ -733,14 +733,14 @@ end subroutine showFEMDomain
 !##################################################
 subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,Mesh,Boundaries&
 		,Boundary,Materials, Material,NumberOfBoundaries,BoundaryID,NumberOfMaterials,MaterialID,&
-		node,element,materialinfo,dirichlet,file)
+		node,element,materialinfo,dirichlet,neumann,file)
 	class(FEMDomain_),intent(inout)::obj
 	type(Mesh_),optional,intent(in)::Mesh
 	type(Boundary_),optional,intent(in)::Boundary
 	type(MaterialProp_),optional,intent(in)::Material
     character*4,optional,intent(in)::OptionalFileFormat
     character(*),optional,intent(in)::OptionalProjectName
-	logical,optional,intent(in) :: node,element,materialinfo,dirichlet
+	logical,optional,intent(in) :: node,element,materialinfo,dirichlet,neumann
 	type(IO_) :: f
 
 	character(*),optional,intent(in) :: file
@@ -851,6 +851,40 @@ if(present(dirichlet) )then
 		enddo
 		do i=1,size(obj%Boundary%DboundVal,1)
 			read(f%fh,*) obj%Boundary%DboundVal(i,:)
+		enddo
+		call f%close()
+		return
+	endif
+endif
+
+
+if(present(neumann) )then
+	if(neumann .eqv. .true. )then
+		if(.not. present(file) )then
+			print *, "Please iput filename"
+			stop
+		endif
+		call f%open("./",trim(file))
+		dimnum=size(obj%mesh%NodCoord,2)
+		if(allocated(obj%Boundary%NboundNum ) )then
+			deallocate(obj%Boundary%NboundNum)
+		endif
+		allocate(obj%Boundary%NboundNum(dimnum) )
+		read(f%fh,*) obj%Boundary%NboundNum(:)
+		if(allocated(obj%Boundary%NboundNodID ) )then
+			deallocate(obj%Boundary%NboundNodID)
+		endif
+		allocate(obj%Boundary%NboundNodID(maxval(obj%Boundary%NboundNum),dimnum ) )
+		if(allocated(obj%Boundary%NBoundVal ) )then
+			deallocate(obj%Boundary%NBoundVal)
+		endif
+		allocate(obj%Boundary%NBoundVal(maxval(obj%Boundary%NboundNum),dimnum ) )
+		
+		do i=1,size(obj%Boundary%NboundNodID,1)
+			read(f%fh,*) obj%Boundary%NboundNodID(i,:)
+		enddo
+		do i=1,size(obj%Boundary%NboundVal,1)
+			read(f%fh,*) obj%Boundary%NboundVal(i,:)
 		enddo
 		call f%close()
 		return
