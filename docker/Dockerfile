@@ -33,7 +33,8 @@ RUN apt install  -y gnuplot
 #RUN pip install diagram
 #RUN pip install diagrams
 
-
-RUN git clone https://github.com/kazulagi/plantFEM.git && cd plantFEM && ./plantfem setup
+RUN git clone https://github.com/kazulagi/plantFEM.git
+WORKDIR "/plantFEM"
+RUN python3 install.py
 
 CMD ["./plantfem ./home/untitled/main.f90"]
