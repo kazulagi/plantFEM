@@ -117,38 +117,41 @@ homepath="$PWD"
 
         mkdir -p $pan$pn
         echo "Which template do you want to use?"
-        echo "1 : File-IO"
-        echo "2 : Linear solvers"
-        echo "3 ; MPI computing"
-        echo "4 : RSA-encryption"
-        echo "5 : Create Mesh"
-        echo "6 : Soybean simulation"
+        echo "1 : File-IO (std)"
+        echo "2 : Linear solvers (std)"
+        echo "3 ; MPI computing (std)"
+        echo "4 : Array operation (std)"
+        echo "5 : Create Mesh (fem)"
+        echo "6 : Diffusion-1D simulation (sim)"
+        echo "7 : Create soybean (obj)"
         echo "For more detail, please check ./Tutorial/*"
         echo -n ">>> "
         read temp
         if [ "x$temp" = "x" ]; then
-            cp Tutorial/Example/main.f90 "$pan$pn/main.f90"
-            echo "Caution: a plain script is created. "
+            cp Tutorial/app/untitled.f90 "$pan$pn/main.f90"
+            echo "Note: a plain script is created. "
         elif [ "$temp" = "1" ]; then
-            cp Tutorial/std/input_output_ex2.f90 "$pan$pn/main.f90"
+            cp Tutorial/playon_std/ex0002_fileIO.f90 "$pan$pn/main.f90"
         elif [ "$temp" = "2" ]; then
-            cp Tutorial/std/linear_solver_ex1.f90  "$pan$pn/main.f90"
+            cp Tutorial/playon_std/ex0007_easySolver.f90 "$pan$pn/main.f90"
         elif [ "$temp" = "3" ]; then
-            cp Tutorial/MPI/DoItByMPI.f90 "$pan$pn/main.f90"
+            cp Tutorial/playon_std/ex0005_mpi.f90  "$pan$pn/main.f90"
         elif [ "$temp" = "4" ]; then
-            cp Tutorial/RSAencryption/RSAencryption.f90 "$pan$pn/main.f90"
+            cp Tutorial/playon_std/ex0003_array.f90  "$pan$pn/main.f90"
         elif [ "$temp" = "5" ]; then
-            cp Tutorial/Example/createTable.f90  "$pan$pn/main.f90"
+            cp Tutorial/playon_fem/ex0001_mesh.f90  "$pan$pn/main.f90"
         elif [ "$temp" = "6" ]; then
-            cp Tutorial/WaterAbsorption/ex5.f90 "$pan$pn/main.f90"
+            cp Tutorial/playon_sim/ex0001_diffusion1D.f90 "$pan$pn/main.f90"
+        elif [ "$temp" = "7" ]; then
+            cp Tutorial/playon_obj/seed.f90 "$pan$pn/main.f90"
         else
-            cp Tutorial/Example/main.f90 "$pan$pn/main.f90"
+            cp Tutorial/app/untitled.f90 "$pan$pn/main.f90"
             echo "Caution: a plain script is created. "
         fi
         echo "New project is successfully created in $pan$pn"
         echo "You can run the script by:"
         echo " "
-        echo "python3 SiCroF.py -s $pan$pn/main.f90"
+        echo "./plantfem -s $pan$pn/main.f90"
 
         return 0
     fi
