@@ -16,10 +16,27 @@ On Ubuntu 18.04 or later,
 git clone https://github.com/kazulagi/plantFEM.git && cd plantFEM && ./plantfem setup
 ```
 
-If you want to build and run as a docker container, the Dockerfile is located at
+If you want to build and run as a docker container,
+
+- (1) Activate "Docker for Windows" (https://docs.docker.com/docker-for-windows/)
+
+
+- (2) Open command-prompt and run
+
+```{.copy}
+git clone https://github.com/kazulagi/plantFEM.git && cd plantFEM/docker
+```
+
+- (3) Build docker-image
 
 ```
-docker/Dockerfile
+./build.bat
+```
+
+- (4) Run docker-container
+
+```
+./run.bat
 ```
 
 ## Documentation of plantFEM
