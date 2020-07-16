@@ -15,6 +15,12 @@ module ArrayClass
     !interface arrayarray
     !    module procedure arrayarrayReal, arrayarrayInt
     !end interface arrayarray
+
+
+    !interface newArray
+    !    module procedure newArrayReal
+    !end interface
+
     interface loadtxt
         module procedure loadtxtArrayReal
     end interface
@@ -205,14 +211,21 @@ end function
 
 
 subroutine savetxtArrayReal(realarray,path,name,extention) 
-    real(real64),intent(in) :: realarray(:,:)
+    real(real64),allocatable,intent(in) :: realarray(:,:)
     character(*),intent(in) :: path,name,extention
     integer(int32) :: fh, n,m,x,i,j
     fh = 9
 
+
     open(fh,file = trim(path)//trim(name)//trim(extention),status="replace" )
     n = size(realArray,1)
     m = size(realArray,2)
+
+    if(.not.allocated(realarray))then
+        n=0
+        m=0
+    endif
+
     if(trim(extention) == ".csv")then
         write(fh,*) n,",",m,","
         do i=1, n
