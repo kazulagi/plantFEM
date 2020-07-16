@@ -197,7 +197,7 @@ do
         continue
     fi
     if [ "$command" = "$run" ]; then
-        ./bin/run
+        ./plantfem ./server.f90
         continue
     fi
     if [ "$command" = "$ls" ]; then
@@ -215,6 +215,71 @@ do
         echo "Current num of cpu-core is :: $numcore "
         continue
     fi
+
+    if [ "$1" = "new" ]; then
+        #echo "$homepath"
+        echo "[Your project name:  (default=untitled), if OK, press ENTER]"
+        echo -n ">>> "
+        read projectname
+        num=0
+        if [ "x$projectname" = "x" ]; then
+            pn="untitled"
+        else
+            pn="$projectname"
+        fi
+        echo "[Path of the project (default=$homepath/home/), if OK, press ENTER ]"
+        echo -n ">>> "
+        read projectpath
+        if [ "x$projectpath" = "x" ]; then
+            #$projectname="./home/"
+            pan="$homepath/home/"
+        else
+            pan="$projectpath"
+        fi
+        echo "$pan$pn"
+
+        mkdir -p $pan$pn
+        echo "Which template do you want to use?"
+        echo "1 : File-IO (std)"
+        echo "2 : Linear solvers (std)"
+        echo "3 ; MPI computing (std)"
+        echo "4 : Array operation (std)"
+        echo "5 : Create Mesh (fem)"
+        echo "6 : Diffusion-1D simulation (sim)"
+        echo "7 : Create soybean (obj)"
+        echo "For more detail, please check ./Tutorial/*"
+        echo -n ">>> "
+        read temp
+        if [ "x$temp" = "x" ]; then
+            cp Tutorial/app/untitled.f90 "$pan$pn/main.f90"
+            echo "Note: a plain script is created. "
+        elif [ "$temp" = "1" ]; then
+            cp Tutorial/playon_std/ex0002_fileIO.f90 "$pan$pn/main.f90"
+        elif [ "$temp" = "2" ]; then
+            cp Tutorial/playon_std/ex0007_easySolver.f90 "$pan$pn/main.f90"
+        elif [ "$temp" = "3" ]; then
+            cp Tutorial/playon_std/ex0005_mpi.f90  "$pan$pn/main.f90"
+        elif [ "$temp" = "4" ]; then
+            cp Tutorial/playon_std/ex0003_array.f90  "$pan$pn/main.f90"
+        elif [ "$temp" = "5" ]; then
+            cp Tutorial/playon_fem/ex0001_mesh.f90  "$pan$pn/main.f90"
+        elif [ "$temp" = "6" ]; then
+            cp Tutorial/playon_sim/ex0001_diffusion1D.f90 "$pan$pn/main.f90"
+        elif [ "$temp" = "7" ]; then
+            cp Tutorial/playon_obj/seed.f90 "$pan$pn/main.f90"
+        else
+            cp Tutorial/app/untitled.f90 "$pan$pn/main.f90"
+            echo "Caution: a plain script is created. "
+        fi
+        echo "New project is successfully created in $pan$pn"
+        echo "You can run the script by:"
+        echo " "
+        echo "./plantfem $pan$pn/main.f90"
+        cp "$pan$pn/main.f90" >> "./server.f90"
+        
+        return 0
+    fi
+
 
 
     for line in ${command}

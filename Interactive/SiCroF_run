@@ -151,8 +151,9 @@ homepath="$PWD"
         echo "New project is successfully created in $pan$pn"
         echo "You can run the script by:"
         echo " "
-        echo "./plantfem -s $pan$pn/main.f90"
-
+        echo "./plantfem run"
+        ln -f "$pan$pn/main.f90" "./server.f90"
+        
         return 0
     fi
 
@@ -165,6 +166,7 @@ homepath="$PWD"
         sh bin/update
         return 0
     fi
+
 
     if [ "$1" = "setup" ]; then
         python3 setup.py
@@ -259,12 +261,16 @@ homepath="$PWD"
         ./bin/compress
         return 0
     fi
+    if [ "$1" = "$init" ]; then
+        ./bin/compress
+        return 0
+    fi
     if [ "$command" = "$remove" ]; then
         ./bin/compress
         continue
     fi
     if [ "$1" = "$run" ]; then
-        ./bin/run
+        ./plantfem ./server.f90
         return 0
     fi
     if [ "$1" = "$ls" ]; then
@@ -359,6 +365,7 @@ homepath="$PWD"
 
 
         $mpif90 inc/*o $1 -g -fcheck=all  -fintrinsic-modules-path inc/
+        ln -f $1 "server.f90"
         #echo "Current num of cpu-core is :: $numcore "
 
         if [ "$hostfile" != "" ]; then

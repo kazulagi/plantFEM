@@ -18,6 +18,7 @@ module RandomClass
         procedure :: choiceReal => choiceRandomReal
         procedure :: uniform    => uniformRandom
         procedure :: save       => saveRandom
+        procedure :: randn      => randnRandom
         !procedure :: choiceString => choiceRandomString
     end type
 
@@ -156,6 +157,31 @@ function choiceRandomReal(obj,Vector,Array) result(val)
     
 end function
 !##########################################
+
+
+!##########################################
+function randnRandom(obj,d0,d1) result(array)
+    class(Random_),intent(inout)::obj
+    real(real64),allocatable :: array(:,:)
+    integer(int32),optional,intent(in) :: d0,d1
+    integer(int32) :: n,m,i,j
+
+    n=input(default=1, option=d0)
+    m=input(default=1, option=d1)
+
+    allocate(array(n,m) )
+
+    call obj%init()
+
+    do i=1,n
+        do j=1,m
+            array(i,j) = obj%random()
+        enddo
+    enddo
+    
+end function
+!##########################################
+
 
 
 !##########################################

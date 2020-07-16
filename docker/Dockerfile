@@ -37,4 +37,4 @@ RUN git clone https://github.com/kazulagi/plantFEM.git
 WORKDIR "/plantFEM"
 RUN python3 install.py
 
-CMD ["./plantfem ./home/untitled/main.f90"]
+CMD ["./plantfem ./server.f90"]

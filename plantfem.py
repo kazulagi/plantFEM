@@ -20,12 +20,6 @@ def yes_no_input():
         elif choice in ['n', 'no']:
             return False
 
-'''
-引数の定義
--a, -bは必須
--c, -dは任意
-'''
-
 
 def get_args():
     psr = argparse.ArgumentParser()
