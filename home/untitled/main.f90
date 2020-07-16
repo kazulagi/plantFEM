@@ -1,34 +1,61 @@
 program main
-    use std
+    use std ! standard package of SiCroF library
     implicit none
 
-    type(LinearSolver_) :: app
-    type(time_) :: time
-    integer(int32) :: i
+    ! This example utilizes Input-Output Class, where
+    ! You can handle external files.
 
-    call time%start()
-    
-    ! set matrix (only non-zero value)
-    call app%set(init=.true.)
-    call app%set(1,1, entryvalue=  1.0d0)
-    call app%set(2,2, entryvalue=  2.0d0)
-    call app%set(2,3, entryvalue= -1.0d0)
-    call app%set(3,2, entryvalue= -1.0d0)
-    call app%set(3,3, entryvalue=  2.0d0)
-    call app%set(4,4, entryvalue=  1.0d0)
-    
-    ! set Right-hand side vector (only non-zero value)
-    call app%set(1, entryvalue=  0.5d0)
-    call app%set(2, entryvalue=  0.5d0)
-    call app%set(3, entryvalue=  0.2d0)
-    call app%set(4, entryvalue=  0.2d0)
-    
-    ! solve!
-    call app%solve(Solver="BiCGSTAB",CRS=.true.)
-    
-    ! show result
-    print *, app%x
+    ! How to use:
 
-    call time%show()
+    ! First, create the instance
+
+    type(IO_) :: f ! file-IO instance
+    integer(int32) :: i, num ! int i and int num
     
-end program
+
+    ! #1 create, edit and close files.
+    ! ----> open file(filepath, filename, extention)
+    call f%open("./","test",".txt")
+    ! write something
+    call f%write(str(100.0d0) )
+    write(f%fh,*) 100.0d0
+    ! and close it
+    call f%close()
+
+
+
+    ! ----> create sequential files (filepath, filename, extention)
+    ! it creates
+    ! ./hello1.txt
+    ! ./hello2.txt
+    ! ./hello3.txt
+    ! ...
+    ! ./hello10.txt
+
+    ! for i=1; i<11;i++
+    do i=1,10
+        !    f.open(filepath, filename, extention)
+        !    str(int) => string
+        call f%open("./","hello"//trim(str(i)),".txt")
+        
+        ! This
+        call f%write(str(i))
+        ! and this
+        write(f%fh,*) str(i)
+        ! are same 
+
+        call f%close()
+
+        call f%open("./","hello"//trim(str(i)),".txt")        
+        ! read a line
+        read(f%fh,*) num
+        ! print(num)
+        print *, num
+
+        call f%close()
+    enddo
+
+    ! Importance Index 7 / 10 : [*******   ]
+
+    
+end program 
