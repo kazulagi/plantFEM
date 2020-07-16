@@ -262,7 +262,7 @@ homepath="$PWD"
         return 0
     fi
     if [ "$1" = "$init" ]; then
-        ./bin/compress
+        ./bin/init
         return 0
     fi
     if [ "$command" = "$remove" ]; then
@@ -270,7 +270,16 @@ homepath="$PWD"
         continue
     fi
     if [ "$1" = "$run" ]; then
-        ./plantfem ./server.f90
+        $mpif90 inc/*o ./server.f90 -g -fcheck=all  -fintrinsic-modules-path inc/        
+        #echo "Current num of cpu-core is :: $numcore "
+
+        if [ "$hostfile" != "" ]; then
+            echo "hostfile is activated."
+            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out
+            return 0
+        fi
+
+        mpirun --allow-run-as-root -np $numcore ./a.out 
         return 0
     fi
     if [ "$1" = "$ls" ]; then
@@ -364,8 +373,16 @@ homepath="$PWD"
     if [ "$EXTENSION" = "$f90" ]; then
 
 
+        if [ "$1" != "./server.f90" ]; then
+            ln -f $1 "server.f90"
+        fi
+
+        if [ "$1" != "server.f90" ]; then
+            ln -f $1 "server.f90"
+        fi
+        
         $mpif90 inc/*o $1 -g -fcheck=all  -fintrinsic-modules-path inc/
-        ln -f $1 "server.f90"
+
         #echo "Current num of cpu-core is :: $numcore "
 
         if [ "$hostfile" != "" ]; then

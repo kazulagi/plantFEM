@@ -1,0 +1,3 @@
+ln -f ./Tutorial/app/untitled.f90 ./server.f90
+echo "ln -f ./Tutorial/app/untitled.f90 ./server.f90"
+echo "Done."
