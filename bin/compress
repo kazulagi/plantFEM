@@ -28,6 +28,6 @@ rm -f ./inc/*.mod
 rm Home
 rm Desktop
 rm sicrof
-cp ./Tutorial/app/untitled.f90 ./server.f90
+rm ./server.f90
 clear
 ls

@@ -325,7 +325,6 @@ mv *.so inc/
 #echo "#!/bin/sh" > sicrof
 #echo "cd /home/haruka/SiCroF" >> sicrof
 #echo "python3 SiCroF.py" >> sicrof
-
 end_time=`date +%s%3N`
 time=$((end_time - start_time)) 
 NANOTIME=`echo "scale=3; ($time)/1000" | bc`

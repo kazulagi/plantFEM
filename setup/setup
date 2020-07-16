@@ -26,6 +26,9 @@ sudo pip install nbzip
 sudo pip install opencv-python
 sudo pip install diagram
 sudo pip install diagrams
+sudo chmod +x ./bin/init
+sudo chmod +x ./bin/update
+sudo chmod +x ./bin/compress
 #sudo jupyter serverextension enable --py nbzip --sys-prefix
 #sudo jupyter nbextension install --py nbzip
 #sudo jupyter nbextension enable --py nbzip

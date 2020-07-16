@@ -13,6 +13,9 @@ RUN apt install  -y git
 RUN apt install  -y nano
 RUN apt install  -y vim
 RUN apt install  -y gnuplot
+RUN chmod +x ./bin/init
+RUN chmod +x ./bin/update
+RUN chmod +x ./bin/compress
 #RUN apt install -y jupyter-notebook
 #RUN apt-get -yV install liblapack-dev
 #RUN apt-get -yV install liblapack-doc
