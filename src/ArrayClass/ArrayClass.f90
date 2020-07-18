@@ -5,12 +5,6 @@ module ArrayClass
     implicit none
 
 
-    type :: Array_
-        integer(int32),allocatable ,private :: inta(:,:)
-        integer(real64),allocatable,private ::reala(:,:)
-    contains
-        procedure, public :: array => arrayarrayReal
-    end type
 
     !interface arrayarray
     !    module procedure arrayarrayReal, arrayarrayInt
@@ -29,20 +23,31 @@ module ArrayClass
         module procedure savetxtArrayReal
     end interface
 
+    interface add
+        module procedure addArrayInt, addArrayReal,addArrayIntVec
+    end interface add
 
     interface addArray
         module procedure addArrayInt, addArrayReal,addArrayIntVec
     end interface addArray
 
-    interface MergeArray
+    interface Merge
         module procedure MergeArrayInt, MergeArrayReal
-    end interface MergeArray
+    end interface Merge
 
 
     interface CopyArray
         module procedure CopyArrayInt, CopyArrayReal,CopyArrayIntVec, CopyArrayRealVec,CopyArrayChar
     end interface CopyArray
 
+    interface Copy
+        module procedure CopyArrayInt, CopyArrayReal,CopyArrayIntVec, CopyArrayRealVec,CopyArrayChar
+    end interface Copy
+
+
+    interface Trim
+        module procedure TrimArrayInt, TrimArrayReal
+    end interface Trim
 
     interface TrimArray
         module procedure TrimArrayInt, TrimArrayReal
@@ -50,25 +55,50 @@ module ArrayClass
 
 
 
-    
+    interface open
+        module procedure openArrayInt, openArrayReal, openArrayIntVec, openArrayRealVec,openArrayInt3, openArrayReal3
+    end interface
+
     interface openArray
         module procedure openArrayInt, openArrayReal, openArrayIntVec, openArrayRealVec,openArrayInt3, openArrayReal3
     end interface
+    interface load
+        module procedure openArrayInt, openArrayReal, openArrayIntVec, openArrayRealVec,openArrayInt3, openArrayReal3
+    end interface
+    
     interface loadArray
         module procedure openArrayInt, openArrayReal, openArrayIntVec, openArrayRealVec,openArrayInt3, openArrayReal3
     end interface
+    interface write
+        module procedure writeArrayInt, writeArrayReal, writeArrayIntVec, writeArrayRealVec,writeArrayInt3, writeArrayReal3
+    end interface
+    
     interface writeArray
         module procedure writeArrayInt, writeArrayReal, writeArrayIntVec, writeArrayRealVec,writeArrayInt3, writeArrayReal3
     end interface
+    interface save
+        module procedure writeArrayInt, writeArrayReal, writeArrayIntVec, writeArrayRealVec,writeArrayInt3, writeArrayReal3
+    end interface
+
     interface saveArray
         module procedure writeArrayInt, writeArrayReal, writeArrayIntVec, writeArrayRealVec,writeArrayInt3, writeArrayReal3
     end interface
 
 
 
+
+    interface Import
+        module procedure ImportArrayInt, ImportArrayReal
+    end interface Import
+    
     interface ImportArray
         module procedure ImportArrayInt, ImportArrayReal
     end interface ImportArray
+
+    interface Export
+        module procedure ExportArrayInt, ExportArrayReal
+    end interface Export
+
     interface ExportArray
         module procedure ExportArrayInt, ExportArrayReal
     end interface ExportArray
@@ -78,30 +108,56 @@ module ArrayClass
         module procedure ExportArraySizeInt, ExportArraySizeReal
     end interface ExportArraySize
 
+    interface ExportSize
+        module procedure ExportArraySizeInt, ExportArraySizeReal
+    end interface ExportSize
+
     interface InOrOut
             module procedure InOrOutReal,InOrOutInt
     end interface
 
-
-    interface ShowArray
-        module procedure ShowArrayInt, ShowArrayReal,ShowArrayIntVec, ShowArrayRealVec
-    end interface ShowArray
-
-
+    interface print
+        module procedure ::  printArrayInt, printArrayReal,printArrayIntVec, printArrayRealVec
+    end interface print
+    
+    interface ShowSize
+        module procedure    ShowArraySizeInt, ShowArraySizeReal
+        module procedure    ShowArraySizeIntvec, ShowArraySizeRealvec
+        module procedure    ShowArraySizeIntThree, ShowArraySizeRealThree
+    end interface ShowSize
     interface ShowArraySize
         module procedure    ShowArraySizeInt, ShowArraySizeReal
         module procedure    ShowArraySizeIntvec, ShowArraySizeRealvec
         module procedure    ShowArraySizeIntThree, ShowArraySizeRealThree
     end interface ShowArraySize
 
+    interface Show
+        module procedure ::  ShowArrayInt, ShowArrayReal,ShowArrayIntVec, ShowArrayRealVec
+    end interface Show
+    interface ShowArray
+        module procedure ::  ShowArrayInt, ShowArrayReal,ShowArrayIntVec, ShowArrayRealVec
+    end interface ShowArray
 
+
+    interface Extend
+        module procedure  :: ExtendArrayReal,ExtendArrayRealVec,ExtendArrayIntVec,ExtendArrayInt,ExtendArrayChar
+    end interface Extend
+    
     interface ExtendArray
         module procedure  :: ExtendArrayReal,ExtendArrayRealVec,ExtendArrayIntVec,ExtendArrayInt,ExtendArrayChar
     end interface ExtendArray
 
+    interface insert
+        module procedure :: insertArrayInt, insertArrayReal
+    end interface insert
+    
     interface insertArray
         module procedure :: insertArrayInt, insertArrayReal
     end interface insertArray
+
+    interface remove
+        module procedure :: removeArrayReal,removeArrayInt 
+    end interface remove
 
     interface removeArray
         module procedure :: removeArrayReal,removeArrayInt 
@@ -143,6 +199,15 @@ module ArrayClass
     interface addlist
         module procedure :: addListIntVec
     end interface
+
+
+    type :: Array_
+        integer(int32),allocatable ,private :: inta(:,:)
+        integer(real64),allocatable,private ::reala(:,:)
+    contains
+        procedure, public :: array => arrayarrayReal
+    end type
+
 contains
         
 
@@ -2961,6 +3026,291 @@ function existIntVec(vector,val) result(ret)
 
 end function
 ! ##########################################################
+
+
+
+
+!##################################################
+subroutine printArrayInt(Mat,IndexArray,FileHandle,Name,Add)
+    integer(int32),intent(in)::Mat(:,:)
+    integer(int32),optional,intent(in) :: IndexArray(:,:)
+    integer(int32),optional,intent(in)::FileHandle ,Add
+    character(*),optional,intent(in)::Name
+    integer(int32) :: fh,i,j,k,l,nn
+
+    nn=input(default=0,option=Add)
+    if(present(FileHandle) )then
+        fh=FileHandle
+    else
+        fh=10
+    endif
+
+    if(present(Name) )then
+        open(fh,file=Name)
+    endif
+    
+    if(present(IndexArray))then
+        
+        do i=1,size(IndexArray,1)
+            do j=1,size(IndexArray,2)
+                k = IndexArray(i,j)
+                if(k <= 0)then
+                    cycle
+                endif
+                
+                
+                if(present(FileHandle) .or. present(Name) )then
+                    do l=1,size(Mat,2)-1
+                        write(fh,'(i0)',advance='no') Mat(k,l)+nn
+                        write(fh,'(A)',advance='no') "     "
+                    enddo
+                    write(fh,'(i0)',advance='yes') Mat(k,size(Mat,2) )+nn
+                else
+                    print *, Mat(k,:)
+                endif
+            enddo
+        enddo
+    else
+
+        do j=1,size(Mat,1)
+            
+            if(present(FileHandle) .or. present(Name) )then
+                !write(fh,*) Mat(j,:)
+                do k=1,size(Mat,2)-1
+                    write(fh,'(i0)',advance='no') Mat(j,k)+nn
+                    write(fh,'(A)',advance='no') "     "
+                enddo
+                write(fh,'(i0)',advance='yes') Mat(j,size(Mat,2) )+nn
+            else
+                print *, Mat(j,:)
+            endif
+
+        enddo
+        
+    endif
+    
+    if(present(FileHandle) .or. present(Name) )then
+        flush(fh)
+    endif
+
+
+    if(present(Name) )then
+        close(fh)
+    endif
+
+
+end subroutine 
+!##################################################
+
+
+
+
+!##################################################
+subroutine printArrayIntVec(Mat,IndexArray,FileHandle,Name,Add)
+    integer(int32),intent(in)::Mat(:)
+    integer(int32),optional,intent(in) :: IndexArray(:,:)
+    integer(int32),optional,intent(in)::FileHandle ,Add
+    character(*),optional,intent(in)::Name
+    integer(int32) :: fh,i,j,k,l,nn
+
+    nn=input(default=0,option=Add)
+    if(present(FileHandle) )then
+        fh=FileHandle
+    else
+        fh=10
+    endif
+
+    if(present(Name) )then
+        open(fh,file=Name)
+    endif
+    
+    if(present(IndexArray))then
+        
+        do i=1,size(IndexArray,1)
+            do j=1,size(IndexArray,2)
+                k = IndexArray(i,j)
+                if(k <= 0)then
+                    cycle
+                endif
+                
+                
+                if(present(FileHandle) .or. present(Name) )then
+                    write(fh,'(i0)') Mat(k)+nn
+                else
+                    print *, Mat(k)
+                endif
+            enddo
+        enddo
+    else
+
+        do j=1,size(Mat,1)
+            
+            if(present(FileHandle) .or. present(Name) )then
+                !write(fh,*) Mat(j,:)
+                write(fh,'(i0)') Mat(j)+nn
+            else
+                print *, Mat(j)
+            endif
+
+        enddo
+        
+    endif
+    
+    if(present(FileHandle) .or. present(Name) )then
+        flush(fh)
+    endif
+
+
+    if(present(Name) )then
+        close(fh)
+    endif
+
+
+end subroutine 
+!##################################################
+
+
+!##################################################
+subroutine printArrayReal(Mat,IndexArray,FileHandle,Name,Add)
+    real(real64),intent(in)::Mat(:,:)
+    real(real64),optional,intent(in) :: Add
+    integer(int32),optional,intent(in) :: IndexArray(:,:)
+    integer(int32),optional,intent(in)::FileHandle
+    character(*),optional,intent(in)::Name
+    real(real64) :: nn
+    integer(int32) :: fh,i,j,k,l
+
+    nn=input(default=0.0d0,option=Add)
+    if(present(FileHandle) )then
+        fh=FileHandle
+    else
+        fh=10
+    endif
+
+    if(present(Name) )then
+        open(fh,file=Name)
+    endif
+
+    if(present(IndexArray))then
+        
+        do i=1,size(IndexArray,1)
+            do j=1,size(IndexArray,2)
+                k = IndexArray(i,j)
+                if(k <= 0)then
+                    cycle
+                endif
+                
+                
+                if(present(FileHandle) .or. present(Name) )then
+                    !write(fh,*) Mat(k,:)
+                    do l=1,size(Mat,2)-1
+                        write(fh, '(e22.14e3)',advance='no' ) Mat( k,l )+nn
+                        write(fh,'(A)',advance='no') "     "
+                    enddo
+                    write(fh,'(e22.14e3)',advance='yes') Mat( k,size(Mat,2) )+nn
+                else
+                    print *, Mat(k,:)
+                endif
+            enddo
+        enddo
+    else
+
+        do j=1,size(Mat,1)
+            
+            if(present(FileHandle) .or. present(Name) )then
+                !write(fh,*) Mat(j,:)
+                do l=1,size(Mat,2)-1
+                    write(fh,'(e22.14e3)',advance='no') Mat( j,l )+nn
+                    write(fh,'(A)',advance='no') "     "
+                enddo
+                write(fh,'(e22.14e3)',advance='yes') Mat( j,size(Mat,2) )+nn
+            else
+                print *, Mat(j,:)
+            endif
+
+        enddo
+        
+    endif
+    
+    if(present(FileHandle) .or. present(Name) )then
+        flush(fh)
+    endif
+
+
+
+    if(present(Name) )then
+        close(fh)
+    endif
+
+end subroutine 
+!##################################################
+
+
+
+
+!##################################################
+subroutine printArrayRealVec(Mat,IndexArray,FileHandle,Name,Add)
+    real(real64),intent(in)::Mat(:)
+    integer(int32),optional,intent(in) :: IndexArray(:,:)
+    integer(int32),optional,intent(in)::FileHandle ,Add
+    character(*),optional,intent(in)::Name
+    integer(int32) :: fh,i,j,k,l,nn
+
+    nn=input(default=0,option=Add)
+    if(present(FileHandle) )then
+        fh=FileHandle
+    else
+        fh=10
+    endif
+
+    if(present(Name) )then
+        open(fh,file=Name)
+    endif
+    
+    if(present(IndexArray))then
+        
+        do i=1,size(IndexArray,1)
+            do j=1,size(IndexArray,2)
+                k = IndexArray(i,j)
+                if(k <= 0)then
+                    cycle
+                endif
+                
+                
+                if(present(FileHandle) .or. present(Name) )then
+                    write(fh,'(i0)') Mat(k)+nn
+                else
+                    print *, Mat(k)
+                endif
+            enddo
+        enddo
+    else
+
+        do j=1,size(Mat,1)
+            
+            if(present(FileHandle) .or. present(Name) )then
+                !write(fh,*) Mat(j,:)
+                write(fh,'(i0)') Mat(j)+nn
+            else
+                print *, Mat(j)
+            endif
+
+        enddo
+        
+    endif
+    
+    if(present(FileHandle) .or. present(Name) )then
+        flush(fh)
+    endif
+
+
+    if(present(Name) )then
+        close(fh)
+    endif
+
+
+end subroutine 
+!##################################################
 
 
 
