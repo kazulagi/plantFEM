@@ -11,7 +11,7 @@ program main
     real(real64),allocatable :: a(:,:)
     real(real64),allocatable :: b(:,:)
     real(real64),allocatable :: ab(:,:)
-    real(real64),allocatable :: copy(:,:)
+    real(real64),allocatable :: copyobj(:,:)
     real(real64),allocatable :: ret(:,:)
     integer(int32) :: i
 
@@ -60,12 +60,12 @@ program main
 
     ! -----> copy array
     a(1,2)=20.0d0
-    call copyarray(a,copy)
+    call copyarray(a,copyobj)
     ! -----> It shows the array.
     print *, "a (original) = "
     call showArray(a)
     print *, "copy = "
-    call showArray(copy)
+    call showArray(copyobj)
 
     ! Importance Index 7 / 10 : [*******   ]
 

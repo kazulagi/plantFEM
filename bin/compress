@@ -29,5 +29,7 @@ rm Home
 rm Desktop
 rm sicrof
 rm ./server.f90
+touch ./server.f90
+rm ./inc/*.so
 clear
 ls
