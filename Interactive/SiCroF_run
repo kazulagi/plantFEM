@@ -162,6 +162,13 @@ homepath="$PWD"
         echo "$homepath"
         return 0
     fi
+
+    if [ "$1" = "docker" ]; then
+        sudo docker build github.com/kazulagi/plantfem
+        sudo docker run --rm -it kazulagi/plantfem /bin/bash
+        return 0
+    fi
+
     if [ "$1" = "update" ]; then
         sh bin/update
         return 0

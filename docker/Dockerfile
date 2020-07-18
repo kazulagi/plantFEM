@@ -13,6 +13,7 @@ RUN apt install  -y git
 RUN apt install  -y nano
 RUN apt install  -y vim
 RUN apt install  -y gnuplot
+RUN apt install  -y zsh
 #RUN apt install -y jupyter-notebook
 #RUN apt-get -yV install liblapack-dev
 #RUN apt-get -yV install liblapack-doc
@@ -37,5 +38,8 @@ RUN git clone https://github.com/kazulagi/plantFEM.git
 WORKDIR "/plantFEM"
 RUN ls
 RUN python3 install.py
+RUN chmod +x bin/init
+RUN chmod +x bin/update
+RUN chmod +x bin/compress
 
 CMD ["./plantfem ./server.f90"]

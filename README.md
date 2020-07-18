@@ -30,13 +30,13 @@ git clone https://github.com/kazulagi/plantFEM.git && cd plantFEM/docker
 - (3) Build docker-image
 
 ```
-./build.bat
+docker build github.com/kazulagi/plantfem
 ```
 
-- (4) Run docker-container
+- (4) Login into docker-container
 
 ```
-./run.bat
+docker run --rm -it kazulagi/plantfem /bin/bash
 ```
 
 ## Documentation of plantFEM
