@@ -181,8 +181,9 @@ module ArrayClass
     end interface
 
     interface exist
-        module procedure ::existIntVec
+        module procedure :: existIntVec, existIntArray
     end interface
+
 
     interface getif
         module procedure ::getifreal,getifrealvec!,getifint,getifintvec
@@ -3008,25 +3009,61 @@ end subroutine
 function existIntVec(vector,val) result(ret)
     integer(int32),allocatable,intent(inout) :: vector(:)
     integer(int32),intent(in) :: val
-    integer(int32),allocatable :: buffer(:)
     logical :: ret
     integer(int32) :: i,j,k,n
 
-    !if(.not. allocated(vector) )then
-    !    return
-    !endif
+    if(.not. allocated(vector) )then
+        return
+    endif
 !
-    !! search 
-    !do i=1,size(vector)
-    !    if(vector(i) == val ) then
-    !        ret=.true.
-    !        return
-    !    endif
-    !enddo
+    ! search 
+    do i=1,size(vector)
+        if(vector(i) == val ) then
+            ret=.true.
+            return
+        endif
+    enddo
 
 end function
 ! ##########################################################
 
+
+
+
+! ##########################################################
+function existIntArray(vector,val,columnid) result(ret)
+    integer(int32),allocatable,intent(inout) :: vector(:,:)
+    integer(int32),intent(in) :: val
+    integer(int32),optional,intent(in) :: columnid
+    logical :: ret
+    integer(int32) :: i,j,k,n
+
+    if(.not. allocated(vector) )then
+        return
+    endif
+!
+
+    ! search 
+    if(present(columnid) )then
+        do i=1,size(vector,1)
+            if(vector(i,columnid) == val ) then
+                ret=.true.
+                return
+            endif
+        enddo    
+    endif
+    
+    do i=1,size(vector,1)
+        do j=1,size(vector,2)
+            if(vector(i,j) == val ) then
+                ret=.true.
+                return
+            endif
+        enddo
+    enddo
+
+end function
+! ##########################################################
 
 
 

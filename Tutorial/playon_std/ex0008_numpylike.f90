@@ -2,7 +2,7 @@ program main
     use plantFEM
     implicit none
 
-    ! 静的型付け
+    ! 静的型宣言
     type(Random_) :: random
     type(IO_) :: f
     real(real64),allocatable :: dat(:,:)
@@ -33,15 +33,18 @@ program main
     call print(dat1)
     
 
-    return    
     ! または、たくさん配列を並べるときにはこれが便利
     call f%open("./","array2",".txt")
+    call save(f%fh, dat)
+    call save(f%fh, dat)
     call save(f%fh, dat)
     call f%close()
 
     
     ! 読む時
     call f%open("./","array2",".txt")
+    call load(f%fh, dat)
+    call load(f%fh, dat1)
     call load(f%fh, dat2)
     call f%close()
 

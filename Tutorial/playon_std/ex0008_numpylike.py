@@ -8,6 +8,8 @@ import numpy as np
 #
 #
 
+
+# 乱数入り配列の作成
 dat = np.random.randn(3,5)
 
 # 配列の表示

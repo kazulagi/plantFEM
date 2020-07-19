@@ -1,11 +1,6 @@
 ! updated 2019/1/19
 module MeshClass
-    use iso_fortran_env
-    use MathClass
-    use ArrayClass
-    use ShapeFunctionClass
-    use GeometryClass
-    use MPIClass
+    use std
     implicit none
 
 
@@ -46,6 +41,7 @@ module MeshClass
         procedure :: detectIface => detectIfaceMesh
         procedure :: displayMesh => DisplayMesh 
         procedure :: display => DisplayMesh 
+        procedure :: divide => divideMesh
         procedure :: delauneygetNewNode => DelauneygetNewNodeMesh 
         procedure :: delauneygetNewTriangle => DelauneygetNewTriangleMesh 
         procedure :: delauneyremoveOverlaps => DelauneyremoveOverlapsMesh 
@@ -4974,11 +4970,148 @@ function emptyMesh(obj) result(res)
         res=.false.
     endif
 end function
+! ################################################################################
 
 
 
+
+! ################################################################################
+function divideMesh(obj,n) result(meshes)
+    class(Mesh_),intent(inout) :: obj
+    class(Mesh_),allocatable :: meshes(:)
+    integer(int32),optional,intent(in) :: n
+    integer(int32) :: i,j,k,l,m,mesh_num,loc_elem_num,elem_num,elem_type,dim_num
+    integer(int32) :: cur_node_id,cur_elem_id,local_id,global_id,num_loc_node
+    logical,allocatable :: selected(:)
+    integer(int32),allocatable :: global_vs_local(:,:)
+    integer(int32),allocatable :: buffer(:,:)
+    logical :: tf
+
+    ! divide mesh by the Greedy algorithm.
+
+    mesh_num = input(default=2, option=n)
+    
+    allocate(meshes(mesh_num) )
+    
+    
+    elem_num  = size(obj%ElemNod,1)
+    elem_type = size(obj%ElemNod,2)
+
+    allocate(selected(elem_num) )
+    selected(:) = .false.
+    loc_elem_num=int(elem_num/mesh_num)
+    ! count number of mesh
+    k=0
+    do i=1,mesh_num
+        if(i<=mod(elem_num,mesh_num) )then
+            allocate( meshes(i)%ElemNod(loc_elem_num+1, elem_type) )
+            allocate( meshes(i)%ElemMat(loc_elem_num+1           ) )
+            meshes(i)%ElemMat(:)=1
+        else
+            allocate(meshes(i)%ElemNod(loc_elem_num,elem_type) )
+            allocate( meshes(i)%ElemMat(loc_elem_num         ) )
+            meshes(i)%ElemMat(:)=1
+        endif
+    enddo
+
+    do i=1, size(meshes)
+        print *, size(meshes(i)%ElemNod,1)
+    enddo
+
+    do i=1,size(meshes)
+        do j=1,size(selected)
+            if(selected(j) .eqv. .false. )then
+                cur_elem_id=j
+                exit
+            endif
+        enddo
+
+        k=1
+        meshes(i)%ElemNod(k,:) = obj%ElemNod(cur_elem_id,:)
+        selected(cur_elem_id)=.true.
+        ! search neighbor element
+        do l=cur_elem_id+1, elem_num
+            if(k==size(meshes(i)%ElemNod,1) )then
+                exit
+            endif
+
+            if(selected(l) .eqv. .true. )then
+                cycle
+            endif
+            
+            m=countifsame(meshes(i)%ElemNod(k,:),obj%ElemNod(l,:)  )
+            
+            if( m<=0)then
+                ! no contact
+                cycle
+            else
+                ! contact
+                k=k+1
+                meshes(i)%ElemNod(k,:)=obj%ElemNod(l,:) 
+                selected(l)=.true.
+            endif
+        enddo
+    enddo
+
+
+    
+    
+    local_id=0
+    do i=1,size(meshes,1)
+        allocate(global_vs_local(1,2) )
+        do j=1,size(meshes(i)%ElemNod,1)
+            do k=1,size(meshes(i)%ElemNod,2)
+                global_id=meshes(i)%ElemNod(j,k)
+                if(m==0)then
+                    local_id=local_id+1
+                    global_vs_local(1,1)=global_id ! global node id
+                    global_vs_local(1,2)=local_id ! local node id
+                else
+                    tf=exist(vector=global_vs_local,val=global_id,columnid=1 )
+                    if(tf .eqv. .true. )then
+                        cycle
+                    else
+                        call extend(mat=global_vs_local)
+                        local_id=local_id+1
+                        global_vs_local(1,1)=global_id ! global node id
+                        global_vs_local(1,2)=local_id ! local node id
+                    endif
+                endif
+            enddo
+        enddo
+
+        ! change node-ids and allocate nodal-coordinat
+        num_loc_node=size(global_vs_local)
+        dim_num=size(obj%NodCoord,2)
+        allocate(buffer(size(meshes(i)%ElemNod,1),size(meshes(i)%ElemNod,2)  ) )
+
+        allocate(meshes(i)%NodCoord(num_loc_node,dim_num) )
+        do j=1,size(global_vs_local,1)
+            ! update node id
+            meshes(i)%NodCoord(global_vs_local(j,2),:) = obj%NodCoord(global_vs_local(j,1),: )
+            ! update elem_id
+            do k=1,size(meshes(i)%ElemNod,1)
+                do l=1,size(meshes(i)%ElemNod,2)
+                    if( meshes(i)%ElemNod(k,l) == global_vs_local(j,1) )then
+                        buffer(k,l) = global_vs_local(j,2)
+                    endif
+                enddo
+            enddo
+        enddo
+        meshes(i)%ElemNod(:,:)=buffer(:,:)
+
+        deallocate(global_vs_local)
+        deallocate(buffer)
+    enddo
+
+
+
+end function
+! ################################################################################
+
+
+! ################################################################################
 ! followings are exported from mpi_leaflow_1.0.0 @ 2020/06/20
-
 subroutine mpi_greedy_division(infile,my_rank,petot,mpi_elem_nod,mpi_elem_nod_id,elem_num)
 	
 	integer i,j,k,n,mpi_elem_num,rem,elem_type,current_id
@@ -5399,6 +5532,9 @@ subroutine mpi_node_relation(mpi_nod_coord_id,my_rank,petot,node_num,mpi_nod_bou
 	
 end subroutine mpi_node_relation
 !#######################################################################################
+
+
+
 subroutine mpi_read_mat_para(infile_mat,mpi_elem_nod,mpi_elem_nod_id,my_rank,petot,elem_num,mpi_elem_mat,mat_cons)
 	
 	integer i,j,mpi_elem_num,itr,null_8,mat_num,para_num,exist0_or_not1
