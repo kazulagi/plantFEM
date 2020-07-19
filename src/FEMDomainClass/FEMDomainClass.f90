@@ -348,6 +348,7 @@ end subroutine
 !##################################################
 subroutine divideFEMDomain(obj,n) 
 	class(FEMDomain_),intent(inout)::obj
+    type(Mesh_),allocatable :: meshes(:)
 	integer(int32) :: n
 	
 	! split obj into n objects
@@ -362,10 +363,10 @@ subroutine divideFEMDomain(obj,n)
 		stop
 	endif
 
-	!
+	
+	meshes = obj%mesh%divide(n)
 
-
-
+	
 
 
 

@@ -4,10 +4,11 @@ module IOClass
     implicit none
 
     type :: IO_
-        integer :: fh=1000
+        integer :: fh=100
         logical :: active=.false.
         character(200)::path,name,extention
     contains
+        procedure,public :: unit => unitIO
         procedure,public :: open => openIO
         procedure,public :: write => writeIO
         procedure,public :: read => readIO
@@ -21,6 +22,13 @@ module IOClass
 
 contains
 
+! #############################################
+function unitIO(obj) result(unit)
+    class(IO_),intent(inout) :: obj
+    integer(int32) :: unit
+    unit=obj%fh
+end function
+! #############################################
 
 ! #############################################
 subroutine openIO(obj,path,name,extention,fh)
