@@ -1,7 +1,6 @@
 import bpy
 import os
 import sys
-from tkinter import messagebox
 
 def write_some_data(context, filepath, use_some_setting):
     print("running script...")
@@ -12,14 +11,14 @@ def write_some_data(context, filepath, use_some_setting):
     
     os.chdir(fn)
     sc = open("bl.sh", 'w')
-    sc.write("python3 SiCroF.py -s install")
+    sc.write("python3 plantfem.py -s "+str(scriptname))
     sc.close()
-    #os.system("python3 SiCroF.py -s install")
+    #os.system("python3 plantFEM.py -s install")
     os.system("sh bl.sh")
     #scriptname
 
-    #ret = os.system("python3 SiCroF.py -s "+scriptname)
-    #messagebox.showinfo("SiCroF", "SiCroF is installed!"+str (ret))
+    #ret = os.system("python3 plantFEM.py -s "+scriptname)
+    #messagebox.showinfo("plantFEM", "plantFEM is installed!"+str (ret))
     return {'FINISHED'}    
 
 # ExportHelper is a helper class, defines filename and
@@ -32,13 +31,13 @@ from bpy.types import Operator
 class ExportSomeData(Operator, ExportHelper):
     """This appears in the tooltip of the operator and in the generated docs"""
     bl_idname = "export_test.some_data"  # important since its how bpy.ops.import_test.some_data is constructed
-    bl_label = "Install SiCroF"
+    bl_label = "Run plantFEM (.f90)"
 
     # ExportHelper mixin class uses this
-    filename_ext = ""
+    filename_ext = ".f90"
 
     filter_glob: StringProperty(
-        default="",
+        default="*.f90",
         options={'HIDDEN'},
         maxlen=255,  # Max internal buffer length, longer would be clamped.
     )
@@ -67,7 +66,7 @@ class ExportSomeData(Operator, ExportHelper):
 
 # Only needed if you want to add into a dynamic menu
 def menu_func_export(self, context):
-    self.layout.operator(ExportSomeData.bl_idname, text="run SiCroF")
+    self.layout.operator(ExportSomeData.bl_idname, text="run plantFEM")
 
 
 def register():
