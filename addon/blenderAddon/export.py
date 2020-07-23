@@ -3,12 +3,12 @@ import os
 
 
 bl_info = {
-    "name" : "SiCriF_export",             # プラグイン名
+    "name" : "plantFEM_export",             # プラグイン名
     "author" : "Haruka Tomobe",                  # 作者
     "version" : (0,1),                  # プラグインのバージョン
     "blender" : (2, 80, 0),              # プラグインが動作するBlenderのバージョン
-    "location" : "File > Export > SiCroF_export",   # Blender内部でのプラグインの位置づけ
-    "description" : "File export for SiCroF.",   # プラグインの説明
+    "location" : "File > Export > plantFEM_export",   # Blender内部でのプラグインの位置づけ
+    "description" : "File export for plantFEM.",   # プラグインの説明
     "warning" : "",
     "wiki_url" : "",                    # プラグインの説明が存在するWikiページのURL
     "tracker_url" : "",                 # Blender Developer OrgのスレッドURL
@@ -16,7 +16,7 @@ bl_info = {
 }
 
 def write_some_data(context, filepath, use_some_setting):
-    print("running write_sicrof_data...")
+    print("running write_plantFEM_data...")
     #f = open(filepath, 'w', encoding='utf-8')
     num_wa = 0
     #objs = [obj for obj in scene.objects if obj.name.startswith("Seed_")]
@@ -348,7 +348,7 @@ from bpy.types import Operator
 class ExportSomeData(Operator, ExportHelper):
     """This appears in the tooltip of the operator and in the generated docs"""
     bl_idname = "export_test.some_data"  # important since its how bpy.ops.import_test.some_data is constructed
-    bl_label = "Export SiCroF Data"
+    bl_label = "Export plantFEM Data"
 
     # ExportHelper mixin class uses this
     filename_ext = ".f90"
@@ -383,7 +383,7 @@ class ExportSomeData(Operator, ExportHelper):
 
 # Only needed if you want to add into a dynamic menu
 def menu_func_export(self, context):
-    self.layout.operator(ExportSomeData.bl_idname, text="Export SiCroF")
+    self.layout.operator(ExportSomeData.bl_idname, text="Export plantFEM objects and world")
 
 
 def register():

@@ -1,10 +1,10 @@
 bl_info = {
-    "name": "SiCroF (World)",
+    "name": "plantFEM (World)",
     "author": "Haruka Tomobe",
     "version": (1, 0),
     "blender": (2, 80, 0),
-    "location": "View3D > Add > Mesh > SiCroF Object",
-    "description": "Adds a new SiCroF Object",
+    "location": "View3D > Add > Mesh > plantFEM Object",
+    "description": "Adds a new plantFEM Object",
     "warning": "",
     "wiki_url": "",
     "category": "Add Mesh",

@@ -1,10 +1,10 @@
 bl_info = {
-    "name": "SiCroF (B.C.)",
+    "name": "plantFEM-world",
     "author": "Haruka Tomobe",
     "version": (1, 0),
     "blender": (2, 80, 0),
-    "location": "View3D > Add > Mesh > SiCroF Object",
-    "description": "Adds a new SiCroF Object",
+    "location": "View3D > Add > Mesh > plantFEM Object",
+    "description": "Adds a new plantFEM Object",
     "warning": "",
     "wiki_url": "",
     "category": "Add Mesh",
@@ -32,7 +32,7 @@ def add_object(self, context):
     edges = []
     faces = [[0, 1, 2, 3]]
 
-    mesh = bpy.data.meshes.new(name="New Object Mesh")
+    mesh = bpy.data.meshes.new(name="Setup plantFEM-world")
     mesh.from_pydata(verts, edges, faces)
     # useful for development when the mesh may be invalid.
     # mesh.validate(verbose=True)
@@ -40,7 +40,7 @@ def add_object(self, context):
     
 
 class OBJECT_OT_add_object(Operator, AddObjectHelper):
-    """Create a new Mesh Object"""
+    """Setup plantFEM-world"""
     bl_idname = "mesh.add_object"
     bl_label = "Add Mesh Object"
     bl_options = {'REGISTER', 'UNDO'}
@@ -56,6 +56,12 @@ class OBJECT_OT_add_object(Operator, AddObjectHelper):
     def execute(self, context):
         
         #add_object(self, context)
+        bpy.context.scene.world["timestep"]=1
+        bpy.context.scene.world["dt"]=float(1)
+        bpy.context.scene.world["Display"]="true"
+        bpy.context.scene.world["nr_tol"]=float(0.01)
+        bpy.context.scene.world["interval"]=int(10)
+        
 
         return {'FINISHED'}
 
@@ -65,7 +71,7 @@ class OBJECT_OT_add_object(Operator, AddObjectHelper):
 def add_object_button(self, context):
     self.layout.operator(
         OBJECT_OT_add_object.bl_idname,
-        text="Boundary Condition",
+        text="plantFEM-world",
         icon='PLUGIN')
 
 
@@ -92,8 +98,3 @@ def unregister():
 
 if __name__ == "__main__":
     register()
-    bpy.context.scene.world["timestep"]=1
-    bpy.context.scene.world["dt"]=float(1)
-    bpy.context.scene.world["Display"]="true"
-    bpy.context.scene.world["nr_tol"]=float(0.01)
-    bpy.context.scene.world["interval"]=int(10)

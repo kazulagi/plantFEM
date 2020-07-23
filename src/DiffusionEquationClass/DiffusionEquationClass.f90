@@ -19,10 +19,12 @@ module DiffusionEquationClass
         real(real64),allocatable ::Permiability(:)  ! directly give parameter #1
         real(real64)             ::dt
         integer(int32)           :: step
+        logical :: explicit = .false.
     contains
         procedure :: Setup => SetupDiffusionEq
         procedure :: Solve => SolveDiffusionEq
         procedure :: Update => UpdateDiffusionEq
+
         procedure :: GetMat => GetDiffusionMat
         procedure :: GetRHS => GetFlowvector
         procedure :: GetInitVal => GetUnknownValue
@@ -34,10 +36,112 @@ module DiffusionEquationClass
         procedure :: save => saveDiffusionEq
         procedure :: open => openDiffusionEq
         procedure :: remove => removeDiffusionEq
+        procedure :: updateByRK4 => updateByRK4DiffusionEq
 
     end type
 
 contains
+
+
+! #######################################################################
+subroutine updateByRK4DiffusionEq(obj)
+    class(DiffusionEq_),intent(inout) :: obj
+
+    ! update unknown by 4th order Runge-Kutta method.
+
+    integer(int32) :: nod_num,dim_num,elemnod_num,elem_num
+    integer(int32) :: i,j,k
+    real(real64) :: diff_coeff
+    real(real64),allocatable::DiffMat(:,:),MassMat(:,:),Cvec(:),Flux(:),&
+        k1(:),k2(:),k3(:),k4(:),MassMat_inv(:,:),vec(:),rkvec(:)
+ 
+    nod_num     =   size(obj%FEMDomain%Mesh%NodCoord,1)
+    elem_num    =   size(obj%FEMDomain%Mesh%ElemNod,1)
+    elemnod_num =   size(obj%FEMDomain%Mesh%ElemNod,2)
+    dim_num     =   size(obj%FEMDomain%Mesh%NodCoord,2)
+
+    allocate(Cvec(elemnod_num) ,Flux(elemnod_num))
+    allocate(k1(elemnod_num))
+    allocate(k2(elemnod_num))
+    allocate(k3(elemnod_num))
+    allocate(k4(elemnod_num))
+    allocate(vec(elemnod_num))
+    allocate(rkvec(elemnod_num))
+
+    if( .not. allocated( obj%FlowVector  ) ) allocate(obj%FlowVector(elem_num,elemnod_num) )
+    if( .not. allocated( obj%UnknownValue) ) allocate(obj%UnknownValue(elem_num,elemnod_num) )
+    if( .not. allocated( obj%DiffusionMat) ) allocate(obj%DiffusionMat(elem_num,elemnod_num,elemnod_num) )
+    if( .not. allocated( obj%FluxVector3D) ) allocate(obj%FluxVector3D(elem_num,elemnod_num) )
+    obj%FlowVector(:,:)=0.0d0
+    obj%FluxVector3D(:,:)=0.0d0
+    obj%DiffusionMat(:,:,:)=0.0d0
+
+
+    obj%FEMDomain%ShapeFunction%ElemType=obj%FEMDomain%Mesh%ElemType
+    call SetShapeFuncType(obj%FEMDomain%ShapeFunction)
+
+    !call showArraySize(obj%FluxVector3D)
+    !call showArraySize(Flux)
+
+    do i=1,elem_num
+        Cvec(:)=obj%UnknownValue(i,:)
+        vec(:)=obj%UnknownValue(i,:)
+        do j=1,obj%FEMDomain%ShapeFunction%NumOfGp
+
+            diff_coeff=obj%FEMDomain%MaterialProp%MatPara(obj%FEMDomain%Mesh%ElemMat(i),1)
+            
+			! allow direct-import of Permiability
+			if(allocated(obj%Permiability) )then
+				if(size(obj%Permiability)/=elem_num) then
+					print *, "ERROR :: FiniteDeform :: size(obj%Permiability/=elem_num)"
+				else
+					diff_coeff = obj%Permiability(i)
+				endif
+			endif
+
+
+            call getAllShapeFunc(obj%FEMDomain%ShapeFunction,elem_id=i,nod_coord=obj%FEMDomain%Mesh%NodCoord,&
+                elem_nod=obj%FEMDomain%Mesh%ElemNod,OptionalGpID=j)
+            call getElemDiffusionMatrix(obj%FEMDomain%ShapeFunction,diff_coeff,DiffMat)  
+            call getElemFluxVec(obj%FEMDomain%ShapeFunction,diff_coeff,Flux,Cvec)      
+            call getElemMassMatrix(obj%FEMDomain%ShapeFunction,MassMat)
+            
+            ! 4th-order RK!
+            vec(:)=matmul(DiffMat,Cvec)-Flux(:)
+            call gauss_jordan_pv(MassMat,k1,vec,size(vec) )
+            
+            rkvec(:)=Cvec(:)+obj%dt*0.50d0*k1(:)
+            vec(:)=matmul(DiffMat,rkvec)-Flux(:)
+            call gauss_jordan_pv(MassMat,k2,vec,size(vec) )
+            
+            rkvec(:)=Cvec(:)+obj%dt*0.50d0*k2(:)
+            vec(:)=matmul(DiffMat,rkvec)-Flux(:)
+            call gauss_jordan_pv(MassMat,k3,vec,size(vec) )
+
+            rkvec(:)=Cvec(:)+obj%dt*0.50d0*k3(:)
+            vec(:)=matmul(DiffMat,rkvec)-Flux(:)
+            call gauss_jordan_pv(MassMat,k4,vec,size(vec) )
+
+            obj%UnknownValue(i,:) = obj%UnknownValue(i,:) &
+            + obj%dt/6.0d0*(k1+2.0d0*k2+2.0d0*k3+k4)
+
+            do k=1,size(DiffMat,1)
+                obj%DiffusionMat(i,k,:)=obj%DiffusionMat(i,k,:)- obj%dt/2.0d0* DiffMat(k,:)&
+                +MassMat(k,:)    
+            enddo
+
+            obj%FluxVector3D(i,:)=obj%FluxVector3D(i,:) + Flux(:) 
+            
+            
+            DiffMat(:,:)=0.0d0
+            MassMat(:,:)=0.0d0
+
+            
+        enddo
+    enddo
+
+end subroutine
+! #######################################################################
 
 ! #######################################################################
 subroutine deployDiffusionEq(obj,FEMDomain)
@@ -410,6 +514,30 @@ subroutine SolveDiffusionEq(obj,Solvertype,restart)
     logical,optional,intent(in) :: restart
     logical :: skip=.false.
 
+
+    if(obj%explicit .eqv. .true.)then
+        ! explicit solver is utilized for time-integral. 
+        ! Default Algorithm is RK-4
+        call obj%updateByRK4()
+
+        !=====================================
+        ! Export Values to Element-by-Element form
+        if(.not. allocated(obj%UnknownVec) )then
+            allocate(obj%UnknownVec(size(xvec) ))
+        endif
+        obj%UnknownVec(:)=xvec(:)
+        n=size(obj%FEMDomain%Mesh%ElemNod,1)    
+        m=size(obj%FEMDomain%Mesh%ElemNod,2)
+        do i=1,n
+            do j=1,m
+                nodeid1=obj%FEMDomain%Mesh%ElemNod(i,j)
+                obj%UnknownValue(i,j)=xvec(nodeid1)
+            enddo
+        enddo
+        !=====================================
+        return
+    endif
+
     if(present(restart) )then
         skip=.true.
     endif
@@ -583,11 +711,22 @@ end subroutine
 
 
 !######################## Initialize DiffusionEq ########################
-subroutine UpdateDiffusionEq(obj)
+subroutine UpdateDiffusionEq(obj,explicit)
     class(DiffusionEq_),intent(inout)::obj
+    logical,optional,intent(in) :: explicit
+
+
+    if(present(explicit))then
+        obj%explicit = explicit
+    endif
 
     obj%step=obj%step+1
     call UpdateUnknownValue(obj)
+
+    if(obj%explicit .eqv. .true.)then
+        return
+    endif
+
     call GetDiffusionMat(obj)
     call GetFlowvector(obj)
     
@@ -599,15 +738,31 @@ end subroutine
 
 
 !######################## Initialize DiffusionEq ########################
-subroutine SetupDiffusionEq(obj)
+subroutine SetupDiffusionEq(obj,explicit)
     class(DiffusionEq_),intent(inout)::obj
+    logical,optional,intent(in) :: explicit
+    
+    if(present(explicit))then
+        obj%explicit = explicit
+    endif
+
 
     obj%step=1
     if(obj%dt==0.0d0 .or. obj%dt/=obj%dt)then
         obj%dt=1.0d0
     endif
+
     call GetUnknownValue(obj)
+    
     call GetDivergence(obj)
+    
+
+
+    if(obj%explicit .eqv. .true.)then
+        return
+    endif
+
+    
     call GetDiffusionMat(obj)
     call GetFlowvector(obj)
     
@@ -634,7 +789,7 @@ subroutine GetDiffusionMat(obj)
     elemnod_num =   size(obj%FEMDomain%Mesh%ElemNod,2)
     dim_num     =   size(obj%FEMDomain%Mesh%NodCoord,2)
 
-    allocate(Cvec(elemnod_num) ,Flux(dim_num))
+    allocate(Cvec(elemnod_num) ,Flux(elemnod_num))
 
     if( .not. allocated( obj%FlowVector  ) ) allocate(obj%FlowVector(elem_num,elemnod_num) )
     if( .not. allocated( obj%UnknownValue) ) allocate(obj%UnknownValue(elem_num,elemnod_num) )
@@ -727,10 +882,12 @@ subroutine GetFlowvector(obj)
                 do k=1,num_of_elemnod
                     if(node_id==obj%FEMDomain%Mesh%ElemNod(j,k)  )then
                         !obj%Flowvector(j,k) =  - obj%FEMDomain%Boundary%NBoundVal(i,1)
+                        !
                         obj%Flowvector(j,k) = - obj%dt * obj%FEMDomain%Boundary%NBoundVal(i,1)
+                        !obj%Flowvector(j,k) = obj%Flowvector(j,k) - obj%dt * obj%FEMDomain%Boundary%NBoundVal(i,1)
 
-                       n=1
-                       exit
+                        n=1
+                        exit
                     endif
                 enddo
                 if(n==1)then
