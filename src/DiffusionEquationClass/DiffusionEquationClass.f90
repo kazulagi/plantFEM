@@ -48,25 +48,31 @@ subroutine updateByRK4DiffusionEq(obj)
     class(DiffusionEq_),intent(inout) :: obj
 
     ! update unknown by 4th order Runge-Kutta method.
+    
 
     integer(int32) :: nod_num,dim_num,elemnod_num,elem_num
-    integer(int32) :: i,j,k
+    integer(int32) :: i,j,k,l,m
     real(real64) :: diff_coeff
-    real(real64),allocatable::DiffMat(:,:),MassMat(:,:),Cvec(:),Flux(:),&
-        k1(:),k2(:),k3(:),k4(:),MassMat_inv(:,:),vec(:),rkvec(:)
+    real(real64),allocatable::DiffMat(:,:),MassMat(:,:),Cvec(:),Flux(:),FluxA(:),&
+        k1(:),k2(:),k3(:),k4(:),MassMat_inv(:,:),vec(:),rkvec(:),DiffMatA(:,:),MassMatA(:,:),&
+        UnknownValue_n(:,:)
  
     nod_num     =   size(obj%FEMDomain%Mesh%NodCoord,1)
     elem_num    =   size(obj%FEMDomain%Mesh%ElemNod,1)
     elemnod_num =   size(obj%FEMDomain%Mesh%ElemNod,2)
     dim_num     =   size(obj%FEMDomain%Mesh%NodCoord,2)
 
-    allocate(Cvec(elemnod_num) ,Flux(elemnod_num))
+    allocate(Cvec(elemnod_num) ,Flux(elemnod_num),FluxA(elemnod_num))
     allocate(k1(elemnod_num))
     allocate(k2(elemnod_num))
     allocate(k3(elemnod_num))
     allocate(k4(elemnod_num))
     allocate(vec(elemnod_num))
     allocate(rkvec(elemnod_num))
+    allocate(DiffMatA(elemnod_num,elemnod_num))
+    allocate(MassMatA(elemnod_num,elemnod_num))
+
+    
 
     if( .not. allocated( obj%FlowVector  ) ) allocate(obj%FlowVector(elem_num,elemnod_num) )
     if( .not. allocated( obj%UnknownValue) ) allocate(obj%UnknownValue(elem_num,elemnod_num) )
@@ -76,6 +82,19 @@ subroutine updateByRK4DiffusionEq(obj)
     obj%FluxVector3D(:,:)=0.0d0
     obj%DiffusionMat(:,:,:)=0.0d0
 
+    ! apply dirichlet B.C.
+    do i=1, size(obj%FEMDomain%Mesh%ElemNod,1)
+        do j=1, size(obj%FEMDomain%Mesh%ElemNod,2)
+            do k=1,size(obj%FEMDomain%Boundary%DBoundNodID,1)
+                if(obj%FEMDomain%Boundary%DBoundNodID(k,1)==obj%FEMDomain%Mesh%ElemNod(i,j) )then
+                    obj%UnknownValue(i,j)=obj%FEMDomain%Boundary%DBoundVal(k,1)
+                endif
+            enddo
+        enddo
+    enddo
+
+    UnknownValue_n = obj%UnknownValue
+
 
     obj%FEMDomain%ShapeFunction%ElemType=obj%FEMDomain%Mesh%ElemType
     call SetShapeFuncType(obj%FEMDomain%ShapeFunction)
@@ -83,10 +102,17 @@ subroutine updateByRK4DiffusionEq(obj)
     !call showArraySize(obj%FluxVector3D)
     !call showArraySize(Flux)
 
+
     do i=1,elem_num
-        Cvec(:)=obj%UnknownValue(i,:)
-        vec(:)=obj%UnknownValue(i,:)
+        Cvec(:)=UnknownValue_n(i,:)
+        vec(:)=UnknownValue_n(i,:)
+
+        DiffMatA(:,:)=0.0d0
+        MassMatA(:,:)=0.0d0
+        FluxA(:)=0.0d0
+
         do j=1,obj%FEMDomain%ShapeFunction%NumOfGp
+
 
             diff_coeff=obj%FEMDomain%MaterialProp%MatPara(obj%FEMDomain%Mesh%ElemMat(i),1)
             
@@ -103,41 +129,54 @@ subroutine updateByRK4DiffusionEq(obj)
             call getAllShapeFunc(obj%FEMDomain%ShapeFunction,elem_id=i,nod_coord=obj%FEMDomain%Mesh%NodCoord,&
                 elem_nod=obj%FEMDomain%Mesh%ElemNod,OptionalGpID=j)
             call getElemDiffusionMatrix(obj%FEMDomain%ShapeFunction,diff_coeff,DiffMat)  
+            
+            !if(obj%step==2) stop
+
             call getElemFluxVec(obj%FEMDomain%ShapeFunction,diff_coeff,Flux,Cvec)      
             call getElemMassMatrix(obj%FEMDomain%ShapeFunction,MassMat)
             
-            ! 4th-order RK!
-            vec(:)=matmul(DiffMat,Cvec)-Flux(:)
-            call gauss_jordan_pv(MassMat,k1,vec,size(vec) )
-            
-            rkvec(:)=Cvec(:)+obj%dt*0.50d0*k1(:)
-            vec(:)=matmul(DiffMat,rkvec)-Flux(:)
-            call gauss_jordan_pv(MassMat,k2,vec,size(vec) )
-            
-            rkvec(:)=Cvec(:)+obj%dt*0.50d0*k2(:)
-            vec(:)=matmul(DiffMat,rkvec)-Flux(:)
-            call gauss_jordan_pv(MassMat,k3,vec,size(vec) )
+        
+            MassMatA(:,:) = MassMatA(:,:) + MassMat(:,:)
+            DiffMatA(:,:) = DiffMatA(:,:) + DiffMat(:,:)
+            FluxA(:)=FluxA(:)+Flux(:)
 
-            rkvec(:)=Cvec(:)+obj%dt*0.50d0*k3(:)
-            vec(:)=matmul(DiffMat,rkvec)-Flux(:)
-            call gauss_jordan_pv(MassMat,k4,vec,size(vec) )
 
-            obj%UnknownValue(i,:) = obj%UnknownValue(i,:) &
-            + obj%dt/6.0d0*(k1+2.0d0*k2+2.0d0*k3+k4)
+            !do k=1,size(DiffMat,1)
+            !    obj%DiffusionMat(i,k,:)=obj%DiffusionMat(i,k,:)- obj%dt/2.0d0* DiffMat(k,:)&
+            !    +MassMat(k,:)    
+            !enddo
 
-            do k=1,size(DiffMat,1)
-                obj%DiffusionMat(i,k,:)=obj%DiffusionMat(i,k,:)- obj%dt/2.0d0* DiffMat(k,:)&
-                +MassMat(k,:)    
-            enddo
-
-            obj%FluxVector3D(i,:)=obj%FluxVector3D(i,:) + Flux(:) 
-            
-            
-            DiffMat(:,:)=0.0d0
-            MassMat(:,:)=0.0d0
-
-            
+            !
+            !obj%FluxVector3D(i,:)=obj%FluxVector3D(i,:) + Flux(:)             
         enddo
+
+
+
+        ! 4th-order RK!
+        vec(:)=matmul(DiffMatA,Cvec)-FluxA(:)
+        call gauss_jordan_pv(MassMatA,k1,vec,size(vec) )
+        
+        rkvec(:)=Cvec(:)+obj%dt*0.50d0*k1(:)
+        vec(:)=matmul(DiffMatA,rkvec)-FluxA(:)
+        call gauss_jordan_pv(MassMatA,k2,vec,size(vec) )
+        
+        rkvec(:)=Cvec(:)+obj%dt*0.50d0*k2(:)
+        vec(:)=matmul(DiffMatA,rkvec)-FluxA(:)
+        call gauss_jordan_pv(MassMatA,k3,vec,size(vec) )
+
+        rkvec(:)=Cvec(:)+obj%dt*0.50d0*k3(:)
+        vec(:)=matmul(DiffMatA,rkvec)-FluxA(:)
+        call gauss_jordan_pv(MassMatA,k4,vec,size(vec) )
+
+        !call print("UnknownValue_n(i,:)")
+        !call print(UnknownValue_n(i,:))
+        !call print("obj%UnknownValue(i,:)")
+        !call print(obj%UnknownValue(i,:))
+        !stop
+
+        obj%UnknownValue(i,:) = UnknownValue_n(i,:) &
+        + obj%dt/6.0d0*(k1+2.0d0*k2+2.0d0*k3+k4)
+
     enddo
 
 end subroutine
@@ -519,22 +558,6 @@ subroutine SolveDiffusionEq(obj,Solvertype,restart)
         ! explicit solver is utilized for time-integral. 
         ! Default Algorithm is RK-4
         call obj%updateByRK4()
-
-        !=====================================
-        ! Export Values to Element-by-Element form
-        if(.not. allocated(obj%UnknownVec) )then
-            allocate(obj%UnknownVec(size(xvec) ))
-        endif
-        obj%UnknownVec(:)=xvec(:)
-        n=size(obj%FEMDomain%Mesh%ElemNod,1)    
-        m=size(obj%FEMDomain%Mesh%ElemNod,2)
-        do i=1,n
-            do j=1,m
-                nodeid1=obj%FEMDomain%Mesh%ElemNod(i,j)
-                obj%UnknownValue(i,j)=xvec(nodeid1)
-            enddo
-        enddo
-        !=====================================
         return
     endif
 
@@ -1087,6 +1110,10 @@ subroutine GetElemDiffusionMatrix(obj,diff_coeff,DiffMat)
         signm_modifier=-1.0d0
     else
         signm_modifier=1.0d0
+    endif
+
+    if(.not. allocated(DiffMat) )then
+        allocate(DiffMat(n,n) )
     endif
 
     DiffMat(:,:)=0.0d0

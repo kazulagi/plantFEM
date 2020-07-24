@@ -25,6 +25,7 @@ mv *.blend1 RESULTS/
 rm ./*.out
 rm -f ./inc/*.o
 rm -f ./inc/*.mod
+rm -f *.gp
 rm Home
 rm Desktop
 rm sicrof

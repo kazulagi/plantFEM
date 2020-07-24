@@ -8,11 +8,11 @@ program main
     type(DiffusionEq_) :: Solver
     integer(int32) :: i
 
-    !call domain%create(meshtype="rectangular3D",x_num=10,y_num=10,z_num=10,&
-    !    x_len=50.0d0,y_len=20.0d0,z_len=10.0d0)
-
-    call domain%create(meshtype="Sphere3D",x_num=10,y_num=10,z_num=10,&
+    call domain%create(meshtype="rectangular3D",x_num=10,y_num=10,z_num=10,&
         x_len=50.0d0,y_len=20.0d0,z_len=10.0d0)
+
+    !call domain%create(meshtype="Sphere3D",x_num=10,y_num=10,z_num=10,&
+    !    x_len=50.0d0,y_len=20.0d0,z_len=10.0d0)
     !call domain%gmsh(Name="test")
 
     call Permiability%create(Name="Permiability",ParaValue=0.10d0,Layer=1) 
@@ -30,7 +30,8 @@ program main
     
     call solver%setup()
     call solver%solve(solvertype="BiCGSTAB")
-    do i=1,100
+    call solver%display(Name="res",optionalstep=0,displaymode="gmsh")
+    do i=1,7
         call solver%update()
         call solver%solve(solvertype="BiCGSTAB")
         call solver%display(Name="res",optionalstep=i,displaymode="gmsh")
