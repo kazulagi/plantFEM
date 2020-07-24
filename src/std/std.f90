@@ -8,6 +8,8 @@ module std
     use KinematicClass
     use RandomClass
     use ArrayClass
+    use VertexClass
+    use GraphClass
     use CSVClass
     use VectorClass
     use EquationClass

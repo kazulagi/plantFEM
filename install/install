@@ -89,6 +89,14 @@ echo "Compiling ./src/ArrayClass/ArrayClass.f90 "
 echo " >> ArrayClass.o "
 echo " | #                           | (4%)\r\c"
 mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ArrayClass/ArrayClass.f90 -o  ./inc/ArrayClass.o
+echo "Compiling ./src/VertexClass/VertexClass.f90 " 
+echo " >> VertexClass.o "
+echo " | #                           | (4%)\r\c"
+mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/VertexClass/VertexClass.f90 -o  ./inc/VertexClass.o
+echo "Compiling ./src/GraphClass/GraphClass.f90 " 
+echo " >> GraphClass.o "
+echo " | #                           | (4%)\r\c"
+mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/GraphClass/GraphClass.f90 -o  ./inc/GraphClass.o
 echo "Compiling ./src/VectorClass/VectorClass.f90 " 
 echo " >> VectorClass.o "
 echo " | #                           | (4%)\r\c"
