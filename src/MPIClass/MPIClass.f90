@@ -3,6 +3,7 @@ module MPIClass
     use mpi
     use MathClass
     use ArrayClass
+    use GraphClass
     implicit none
 
 
@@ -24,6 +25,7 @@ module MPIClass
         integer(int32) :: Comm4
         integer(int32) :: Comm5
         integer(int32),allocatable::Comm(:),key(:)
+        integer(int32),allocatable::local_ID(:),Global_ID(:)
         integer(int32),allocatable::Stack(:,:),localstack(:)
         integer(int32) :: LapTimeStep
         real(real64) :: stime
@@ -31,7 +33,7 @@ module MPIClass
         real(real64) :: laptime(1000)
         character(200) :: name
         type(comment_) :: comments(1000)
-        
+        type(Graph_) :: graph
     contains
         procedure :: Start => StartMPI
         procedure :: Barrier => BarrierMPI
@@ -40,8 +42,14 @@ module MPIClass
         generic ::  read =>   readMPIInt,readMPIReal
         
         procedure, Pass :: BcastMPIInt
+        procedure, Pass :: BcastMPIIntVec
+        procedure, Pass :: BcastMPIIntArray
         procedure, Pass :: BcastMPIReal
-        generic  :: Bcast => BcastMPIInt, BcastMPIReal
+        procedure, Pass :: BcastMPIRealVec
+        procedure, Pass :: BcastMPIRealArray
+        procedure, Pass :: BcastMPIChar
+        generic  :: Bcast => BcastMPIInt, BcastMPIReal,BcastMPIChar,BcastMPIIntVec,&
+            BcastMPIIntArray,BcastMPIRealVec,BcastMPIRealArray
 
         procedure, Pass :: GatherMPIInt 
         procedure, Pass :: GatherMPIReal 
@@ -55,7 +63,9 @@ module MPIClass
 
         procedure, Pass :: AllGatherMPIInt 
         procedure, Pass :: AllGatherMPIReal 
-        generic :: AllGather => AllGatherMPIInt, AllGatherMPIReal 
+        procedure, Pass :: AllGatherMPIGraph 
+        generic :: AllGather => AllGatherMPIInt, AllGatherMPIReal,AllGatherMPIGraph
+        generic :: merge => AllGatherMPIGraph
 
         procedure, Pass :: AlltoAllMPIInt 
         procedure, Pass :: AlltoAllMPIReal 
@@ -80,6 +90,11 @@ module MPIClass
         procedure :: showLapTime => showLapTimeMPI
         procedure :: GetInfo => GetMPIInfo
         procedure :: createFileName => createFileNameMPI
+
+
+        procedure, Pass :: syncGraphMPI
+        generic :: sync => syncGraphMPI
+
     end type    
 contains
 
@@ -269,6 +284,79 @@ subroutine BcastMPIInt(obj,From,val)
 end subroutine
 !################################################################
 
+
+!################################################################
+subroutine BcastMPIIntVec(obj,From,val)
+    class(MPI_),intent(inout)::obj
+    integer(int32),intent(inout) :: From
+    integer(int32),allocatable,intent(inout)::val(:)
+    integer(int32) :: i,j,n,vec_size
+    integer(int32) :: sendval
+
+    if(allocated(val) .and. From/=obj%myrank )then
+        deallocate(val)
+    endif
+
+    vec_size=0
+    if(From==obj%myrank )then
+        vec_size = size(val)
+    endif
+    call obj%Bcast(From=From, val=vec_size)
+
+    if(From/=obj%myrank )then
+        allocate(val(vec_size) )
+    endif
+
+    sendval=0
+    do i=1,vec_size
+        call MPI_Bcast(val(i), 1, MPI_integer, From, MPI_COMM_WORLD, obj%ierr)
+    enddo
+
+end subroutine
+!################################################################
+
+
+
+
+!################################################################
+subroutine BcastMPIIntArray(obj,From,val)
+    class(MPI_),intent(inout)::obj
+    integer(int32),intent(inout) :: From
+    integer(int32),allocatable,intent(inout)::val(:,:)
+    integer(int32) :: i,j,n,vec_size1,vec_size2
+    integer(int32) :: sendval
+
+    if(allocated(val) .and. From/=obj%myrank )then
+        deallocate(val)
+    endif
+
+    vec_size1=0
+    vec_size2=0
+    if(From==obj%myrank )then
+        vec_size1 = size(val,1)
+    endif
+    call obj%Bcast(From=From, val=vec_size1)
+    if(From==obj%myrank )then
+        vec_size2 = size(val,2)
+    endif
+    call obj%Bcast(From=From, val=vec_size2)
+
+    if(From/=obj%myrank )then
+        allocate(val(vec_size1, vec_size2) )
+    endif
+
+    sendval=0
+    do i=1,vec_size1
+        do j=1, vec_size2
+            call MPI_Bcast(val(i,j), 1, MPI_integer, From, MPI_COMM_WORLD, obj%ierr)
+        enddo
+    enddo
+
+end subroutine
+!################################################################
+
+
+
 !################################################################
 subroutine BcastMPIReal(obj,From,val)
     class(MPI_),intent(inout)::obj
@@ -280,6 +368,90 @@ subroutine BcastMPIReal(obj,From,val)
 end subroutine
 !################################################################
 
+
+
+
+!################################################################
+subroutine BcastMPIRealVec(obj,From,val)
+    class(MPI_),intent(inout)::obj
+    integer(int32),intent(inout) :: From
+    real(real64),allocatable,intent(inout)::val(:)
+    integer(int32) :: i,j,n,vec_size
+    
+
+    if(allocated(val) .and. From/=obj%myrank )then
+        deallocate(val)
+    endif
+
+    vec_size=0
+    if(From==obj%myrank )then
+        vec_size = size(val)
+    endif
+    call obj%Bcast(From=From, val=vec_size)
+
+    if(From/=obj%myrank )then
+        allocate(val(vec_size) )
+    endif
+
+    
+    do i=1,vec_size
+        call MPI_Bcast(val(i), 1, MPI_REAL8, From, MPI_COMM_WORLD, obj%ierr)
+    enddo
+
+end subroutine
+!################################################################
+
+
+
+
+!################################################################
+subroutine BcastMPIRealArray(obj,From,val)
+    class(MPI_),intent(inout)::obj
+    integer(int32),intent(inout) :: From
+    real(real64),allocatable,intent(inout)::val(:,:)
+    integer(int32) :: i,j,n,vec_size1,vec_size2
+
+    if(allocated(val) .and. From/=obj%myrank )then
+        deallocate(val)
+    endif
+
+    vec_size1=0
+    vec_size2=0
+    if(From==obj%myrank )then
+        vec_size1 = size(val,1)
+    endif
+    call obj%Bcast(From=From, val=vec_size1)
+    if(From==obj%myrank )then
+        vec_size2 = size(val,2)
+    endif
+    call obj%Bcast(From=From, val=vec_size2)
+
+    if(From/=obj%myrank )then
+        allocate(val(vec_size1, vec_size2) )
+    endif
+
+    do i=1,vec_size1
+        do j=1, vec_size2
+            call MPI_Bcast(val(i,j), 1, MPI_integer, From, MPI_COMM_WORLD, obj%ierr)
+        enddo
+    enddo
+
+end subroutine
+!################################################################
+
+
+subroutine BcastMPIChar(obj,From,val)
+    class(MPI_),intent(inout)::obj
+    integer(int32),intent(inout)::From 
+    character(*),intent(inout)::val
+    character(200)::val200
+    integer(int32) :: i
+
+    val200=trim(val)
+    call MPI_Bcast(val200(1:200), 200, MPI_CHARACTER, From, MPI_COMM_WORLD, obj%ierr)
+    val=trim(val200)
+
+end subroutine
 
 !################################################################
 subroutine GatherMPIInt(obj,sendobj,sendcount,recvobj,recvcount,&
@@ -408,6 +580,220 @@ end subroutine
 !################################################################
 
 
+!################################################################
+subroutine AllGatherMPIGraph(obj,graph)
+    class(MPI_),intent(inout)::obj
+    type(Graph_),intent(inout) :: graph
+    type(Vertex_),allocatable :: vertex(:)
+    integer(int32),allocatable::sendobj(:),recvobj(:)
+    real(real64),allocatable::sendobj_r(:),recvobj_r(:)
+    
+    real(real64) :: reval,x,y,z
+    real(real64),allocatable :: reval_s(:),x_s(:),y_s(:),z_s(:)
+
+    integer(int32) :: intval,ID,MyRank
+    integer(int32),allocatable :: intval_s(:),ID_s(:),MyRank_s(:)
+
+    integer(int32),allocatable::num_of_data(:),AdjacencyMatrix(:,:),AdjacencyData(:,:)
+    integer(int32)::sendcount,recvcount
+    integer(int32)::send_start_id,recv_start_id,sender_rank
+    integer(int32) :: i,j,jj,k,s_start_id,r_start_id,numofvertex,totalnumvertex
+
+    character(200) :: name
+
+    ! graph1  => graph1 + graph2 + graph3 +graph4
+    ! graph2  => graph1 + graph2 + graph3 +graph4
+    ! graph3  => graph1 + graph2 + graph3 +graph4
+    ! graph4  => graph1 + graph2 + graph3 +graph4
+    
+    ! get number of vertex.
+    if(allocated(obj%Global_ID ) ) deallocate(obj%Global_ID)
+    if(allocated(graph%Global_ID ) ) deallocate(graph%Global_ID)
+    allocate(obj%Global_ID(size(graph%vertex)) )
+    allocate(graph%Global_ID(size(graph%vertex)) )
+    obj%Global_ID(:)=0
+    graph%Global_ID(:)=0
+    
+
+    totalnumvertex=0
+    allocate(num_of_data(obj%petot) )
+    do i=1,obj%petot
+        numofvertex=size(graph%vertex)
+        sender_rank=i-1
+        call obj%Bcast(From=sender_rank,val=numofvertex)
+        num_of_data(i)=numofvertex
+        totalnumvertex=totalnumvertex+numofvertex
+    enddo
+
+    print *, "My rank is ",obj%myrank,"/toral vertex is :: ",totalnumvertex
+    
+
+
+    allocate(recvobj(totalnumvertex) )
+    allocate(sendobj( size(graph%vertex) ) )
+    allocate(recvobj_r(totalnumvertex) )
+    allocate(sendobj_r( size(graph%vertex) ) )
+    !allocate(reval_s(totalnumvertex) )
+    !allocate(x_s(totalnumvertex) )
+    !allocate(y_s(totalnumvertex) )
+    !allocate(z_s(totalnumvertex) )
+    !allocate( intval_s(totalnumvertex) )
+    !allocate( ID_s(totalnumvertex) )
+    !allocate( MyRank_s(totalnumvertex) )
+    allocate( vertex(totalnumvertex) )
+    allocate( AdjacencyMatrix(totalnumvertex,totalnumvertex) )
+    AdjacencyMatrix(:,:)=0
+    !sendobj(:)=1
+
+    ! allgather vertex
+    ! vertex%reval
+    reval=0.0d0
+    k=1
+    do i=1, obj%petot
+        sender_rank=i-1
+        do j=1,num_of_data(i)
+            if(i-1==obj%myrank)then
+                reval=graph%vertex(j)%reval
+            endif
+            call obj%Bcast(From=sender_rank,val=reval)
+            vertex(k)%reval=reval
+            k=k+1
+        enddo
+    enddo
+
+    ! vertex%x
+    x=0.0d0
+    k=1
+    do i=1, obj%petot
+        sender_rank=i-1
+        do j=1,num_of_data(i)
+            if(i-1==obj%myrank)then
+                x=graph%vertex(j)%x
+            endif
+            call obj%Bcast(From=sender_rank,val=x)
+            vertex(k)%x=x
+            k=k+1
+        enddo
+    enddo
+
+    ! vertex%y
+    y=0.0d0
+    k=1
+    do i=1, obj%petot
+        sender_rank=i-1
+        do j=1,num_of_data(i)
+            if(i-1==obj%myrank)then
+                y=graph%vertex(j)%y
+            endif
+            call obj%Bcast(From=sender_rank,val=y)
+            vertex(k)%y=y
+            k=k+1
+        enddo
+    enddo
+
+    ! vertex%z
+    z=0.0d0
+    k=1
+    do i=1, obj%petot
+        sender_rank=i-1
+        do j=1,num_of_data(i)
+            if(i-1==obj%myrank)then
+                z=graph%vertex(j)%z
+            endif
+            call obj%Bcast(From=sender_rank,val=z)
+            vertex(k)%z=z
+            k=k+1
+        enddo
+    enddo
+
+    ! vertex%intval
+    intval=0
+    k=1
+    do i=1, obj%petot
+        sender_rank=i-1
+        do j=1,num_of_data(i)
+            if(i-1==obj%myrank)then
+                intval=graph%vertex(j)%intval
+            endif
+            call obj%Bcast(From=sender_rank,val=intval)
+            vertex(k)%intval=intval
+            k=k+1
+        enddo
+    enddo
+
+    ! vertex%ID
+    ID=0
+    k=1
+    do i=1, obj%petot
+        sender_rank=i-1
+        do j=1,num_of_data(i)
+            if(i-1==obj%myrank)then
+                ID=graph%vertex(j)%ID
+            endif
+            call obj%Bcast(From=sender_rank,val=ID)
+            vertex(k)%ID=ID
+            k=k+1
+        enddo
+    enddo
+
+    ! vertex%Myrank
+    Myrank=0
+    k=1
+    do i=1, obj%petot
+        sender_rank=i-1
+        do j=1,num_of_data(i)
+            if(i-1==obj%myrank)then
+                Myrank=graph%vertex(j)%Myrank
+            endif
+            call obj%Bcast(From=sender_rank,val=Myrank)
+            vertex(k)%Myrank=Myrank
+            k=k+1
+        enddo
+    enddo
+
+    ! vertex%name and Global_ID
+    name="NoName"
+    k=1
+    do i=1, obj%petot
+        sender_rank=i-1
+        do j=1,num_of_data(i)
+            if(i-1==obj%myrank)then
+                name=graph%vertex(j)%name
+                obj%Global_ID(j)=k
+                graph%Global_ID(j)=k
+            endif
+            call obj%Bcast(From=sender_rank,val=name)
+            vertex(k)%name=name
+            k=k+1
+        enddo
+    enddo
+
+    ! vertex%AdjacencyMatrix(:,:)
+    ! あと、IDの振り直しを行うなど。
+
+    intval=0
+    k=0
+    do i=1, obj%petot
+        sender_rank=i-1
+
+        do j=1,num_of_data(i)
+            do jj=1,num_of_data(i)
+                if(i-1==obj%myrank)then
+                    intval=graph%AdjacencyMatrix(j,jj)
+                endif
+                call obj%Bcast(From=sender_rank,val=intval)
+                AdjacencyMatrix(k+j,k+jj)=intval
+            enddo
+        enddo
+        k=k+num_of_data(i)
+    enddo
+
+    graph%AdjacencyMatrix = AdjacencyMatrix
+    graph%Vertex          = vertex
+    graph%NumOfVertex     = totalnumvertex
+
+end subroutine
+!################################################################
 
 
 
@@ -993,6 +1379,33 @@ subroutine FreeMPI(obj,CommLayerID)
     
     !call MPI_COMM_FREE(MPI_COMM_WORLD, obj%ierr)
     
+end subroutine
+!################################################################
+
+
+!################################################################
+subroutine syncGraphMPI(obj,graph)
+    class(MPI_),intent(inout) ::obj
+    type(Graph_) ,intent(inout) ::graph
+    integer(int32),allocatable :: AdjacencyMatrix(:,:)
+    integer(int32) :: i,j,size1,size2,n
+
+    size1 = size(graph%AdjacencyMatrix,1)
+    size2 = size(graph%AdjacencyMatrix,2)
+    allocate(AdjacencyMatrix(size1,size2))
+    AdjacencyMatrix(:,:) = 0
+
+    ! sync only edge
+    do i=1,obj%petot
+        n=i-1
+        if( n==obj%myrank )then
+            AdjacencyMatrix = graph%AdjacencyMatrix
+        endif
+        call obj%Bcast(From=n,val= AdjacencyMatrix)
+        call graph%sync(AdjacencyMatrix)
+    enddo
+
+
 end subroutine
 !################################################################
 
