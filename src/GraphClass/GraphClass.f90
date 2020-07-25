@@ -16,14 +16,38 @@ module GraphClass
         ! vertex info
         type(Vertex_),allocatable :: Vertex(:)
 
+        ! global info
+        integer(int32),allocatable :: Global_ID(:)
+
         integer(int32) :: NumOfVertex=0
         
     contains
         procedure, public :: add => addGraph ! add vertex or edge
         procedure, public :: update => updateGraph ! update vertex or edge
         procedure, public :: show => showGraph
+        procedure, public :: remove => removeGraph
+        procedure, public :: sync => syncGraph
     end type
 contains
+
+! ######################################
+subroutine removeGraph(obj,onlyVertex)
+    class(Graph_),intent(inout) :: obj
+    logical,optional,intent(in) :: onlyVertex
+
+    deallocate(obj%vertex)
+
+    if(present(onlyVertex) )then
+        if(onlyVertex.eqv. .true.)then
+            return
+        endif
+    endif
+
+    deallocate(obj%AdjacencyMatrix)
+    obj%NumOfVertex=0
+
+end subroutine
+! ######################################
 
 ! ######################################
 subroutine addGraph(obj,vertex,from, to,between,and)
@@ -153,13 +177,15 @@ subroutine showGraph(obj,withname)
         do j=1,n
             if(obj%AdjacencyMatrix (i,j) > 0)then
                 id=id+1
-                command = "set arrow "//trim(str(id))//" from "//str(obj%vertex(i)%x)//","//str(obj%vertex(i)%y)//" to "&
+                command = "set arrow "//trim(str(id))//" head filled from "&
+                //str(obj%vertex(i)%x)//","//str(obj%vertex(i)%y)//" to "&
                 //str(obj%vertex(j)%x)//","//str(obj%vertex(j)%y)
                 call f%write(trim(command) )
                 
             elseif(obj%AdjacencyMatrix (i,j) < 0)then
                 id=id+1
-                command = "set arrow "//trim(str(id))//" from "//str(obj%vertex(j)%x)//","//str(obj%vertex(j)%y)//" to "&
+                command = "set arrow "//trim(str(id))//" head filled from "&
+                //str(obj%vertex(j)%x)//","//str(obj%vertex(j)%y)//" to "&
                 //str(obj%vertex(i)%x)//","//str(obj%vertex(i)%y)
                 call f%write(trim(command) )
             else
@@ -167,6 +193,7 @@ subroutine showGraph(obj,withname)
             endif
         enddo
     enddo
+    call f%write("unset key")
     call f%write("plot './vertex.txt'")
     call f%write("pause -1")
     call f%close()
@@ -174,5 +201,36 @@ subroutine showGraph(obj,withname)
     call system("gnuplot ./showGraph.gp")
 end subroutine
 ! ######################################
+
+
+! ######################################
+subroutine syncGraph(obj,AdjacencyMatrix)
+    class(Graph_),intent(inout) :: obj
+    integer(int32),intent(in)::AdjacencyMatrix(:,:)
+    integer(int32) :: i,j,buf(2)
+
+    do i=1,size(AdjacencyMatrix,1)
+        do j=1,size(AdjacencyMatrix,2)
+            if(AdjacencyMatrix(i,j) == 0)then
+                cycle
+            endif
+
+            if(AdjacencyMatrix(i,j)*obj%AdjacencyMatrix(i,j) < 0 )then
+                obj%AdjacencyMatrix(i,j) = 1
+                obj%AdjacencyMatrix(j,i) = 1
+            endif
+            if(AdjacencyMatrix(i,j)*obj%AdjacencyMatrix(i,j) > 0 )then
+                cycle
+            endif
+            if(AdjacencyMatrix(i,j)*obj%AdjacencyMatrix(i,j) == 0 )then
+                obj%AdjacencyMatrix(i,j) = obj%AdjacencyMatrix(i,j) + AdjacencyMatrix(i,j)
+            endif
+            
+        enddo
+    enddo
+
+end subroutine
+! ######################################
+
 
 end module GraphClass
