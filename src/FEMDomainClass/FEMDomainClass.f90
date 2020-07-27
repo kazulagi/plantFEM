@@ -74,7 +74,7 @@ module FEMDomainClass
         procedure,public :: delete => DeallocateFEMDomain
 		procedure,public :: display => displayFEMDomain
 		procedure,public :: divide => divideFEMDomain
-
+		procedure,public :: distribute => distributeFEMDomain
 		
 		procedure,public :: export => ExportFEMDomain
 		
@@ -349,7 +349,8 @@ end subroutine
 subroutine divideFEMDomain(obj,n) 
 	class(FEMDomain_),intent(inout)::obj
     type(Mesh_),allocatable :: meshes(:)
-	integer(int32) :: n
+	integer(int32),intent(inout) :: n
+	integer(int32) :: i
 	
 	! split obj into n objects
 	if(allocated(obj%FEMDomains) )then
@@ -362,15 +363,45 @@ subroutine divideFEMDomain(obj,n)
 		print *, "divideFEMDomain >> ERROR >> No mesh is imported."
 		stop
 	endif
-
 	
 	meshes = obj%mesh%divide(n)
 
-	
-
-
+	! import mesh
+	do i=1,n
+		call obj%FEMDomains(i)%import(Mesh=meshes(i))
+	enddo
 
 end subroutine divideFEMDomain
+!##################################################
+
+!##################################################
+subroutine distributeFEMDomain(obj,mpid) 
+	class(FEMDomain_),intent(inout)::obj
+    type(Mesh_),allocatable :: meshes(:)
+	type(MPI_),intent(inout) :: mpid
+	integer(int32) :: n
+	
+	n=mpid%petot
+
+	! split obj into n objects
+	if(allocated(obj%FEMDomains) )then
+		deallocate(obj%FEMDomains)
+	endif
+	allocate(obj%FEMDomains(n))
+
+	! Greedy algorithm
+	if(obj%Mesh%empty() .eqv. .true. )then
+		print *, "distributeFEMDomain >> ERROR >> No mesh is imported."
+		stop
+	endif
+	
+	meshes = obj%mesh%divide(n)
+
+	! import mesh
+	call obj%import(Mesh=meshes(mpid%myrank+1))
+
+
+end subroutine distributeFEMDomain
 !##################################################
 
 !##################################################
