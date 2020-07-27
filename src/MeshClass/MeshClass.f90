@@ -4979,7 +4979,7 @@ end function
 function divideMesh(obj,n) result(meshes)
     class(Mesh_),intent(inout) :: obj
     class(Mesh_),allocatable :: meshes(:)
-    integer(int32),optional,intent(in) :: n
+    integer(int32),intent(in) :: n
     integer(int32) :: i,j,k,l,m,mesh_num,loc_elem_num,elem_num,elem_type,dim_num
     integer(int32) :: cur_node_id,cur_elem_id,local_id,global_id,num_loc_node
     logical,allocatable :: selected(:)
@@ -4987,6 +4987,11 @@ function divideMesh(obj,n) result(meshes)
     integer(int32),allocatable :: buffer(:,:)
     logical :: tf
 
+    if(n<2)then
+        allocate(meshes(1))
+        call meshes(1)%copy(obj)
+        return
+    endif
     ! divide mesh by the Greedy algorithm.
 
     mesh_num = input(default=2, option=n)
