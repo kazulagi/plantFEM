@@ -19,6 +19,7 @@ module RandomClass
         procedure :: uniform    => uniformRandom
         procedure :: save       => saveRandom
         procedure :: randn      => randnRandom
+        procedure :: histogram      => histogramRandom
         !procedure :: choiceString => choiceRandomString
     end type
 
@@ -42,14 +43,29 @@ end subroutine
 
 
 !##########################################
-function getRandom(obj) result(x)
+function getRandom(obj,distribution) result(x)
     class(Random_)::obj
-    real(real64) :: x
+    character(*),optional,intent(in)::distribution
+    real(real64) :: x,val,y
+    integer(int32) :: i
+
+
+    if(trim(distribution)=="Binomial" .or. trim(distribution)=="binomial")then
+        val=0.0d0
+        do i=1,20
+            call random_number(y)
+            val=val+y
+        enddo
+        x=val-10.0d0
+        return
+    endif
 
     call random_number(x)
 
 end function
 !##########################################
+
+
 
 
 
@@ -201,5 +217,35 @@ end function
 !end function
 !##########################################
 
+
+!##########################################
+function histogramRandom(obj,list,division) result(histogram)
+    class(Random_),intent(inout) :: obj
+    real(real64),intent(in)  :: list(:)
+    integer(int32),allocatable :: histogram(:)
+    integer(int32),optional,intent(in) :: division
+    integer(int32) :: i,j,n
+    real(real64) :: maxv, minv,val,intval
+
+    n=input(default=10,option=division)
+    maxv=maxval(list)
+    minv=minval(list)
+    intval=(maxv-minv)/dble(n)
+
+    allocate( histogram(n) )
+    histogram(:)=0
+    do i=1,size(list,1)
+        val = (list(i) - minv )/intval
+        if(n < int(val)+1 )then
+            val=val-1.0d0
+        endif
+        if(1 > int(val)+1 )then
+            val=1.0d0
+        endif
+        histogram(int(val)+1) = histogram(int(val)+1) + 1
+    enddo
+
+end function
+!##########################################
 
 end module
