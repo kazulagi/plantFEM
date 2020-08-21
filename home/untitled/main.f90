@@ -1,48 +1,58 @@
 program main
-    use plantFEM
+    use obj
     implicit none
 
-    integer(int32),parameter :: sample=10000
-    integer(int32),parameter :: division=10
-
-    type(Random_)::random
+    type(Seed_) :: soy
     type(IO_) :: f
+
+    ! create seed
+    call soy%create(MeshType="Sphere3D",x_num=12,y_num=11,z_num=10,x_len=90.0d0, y_len=80.0d0,z_len=70.0d0)
     
-    real(real64) :: list(sample)
-    integer(int32) :: i
-    integer(int32),allocatable :: histogram(:)
 
-    call random%init()
+    ! create environment
+    call soy%env(disp_x=0.0d0,x_max=1.0d0,x_min=-5.0d0,y_max=100.0d0,y_min=-100.0d0,&
+        z_max=100.0d0,z_min=-100.0d0)
+    call soy%env(disp_y=0.0d0,x_max=1.0d0,x_min=-5.0d0,y_max=100.0d0,y_min=-100.0d0,&
+        z_max=100.0d0,z_min=-100.0d0)
+    call soy%env(disp_z=0.0d0,x_max=1.0d0,x_min=-5.0d0,y_max=100.0d0,y_min=-100.0d0,&
+        z_max=100.0d0,z_min=-100.0d0)
+    call soy%env(WaterContent=1.0d0,x_max=5.0d0,x_min=-1.0d0,y_max=100.0d0,y_min=-100.0d0,&
+        z_max=100.0d0,z_min=-100.0d0)
     
-    ! generate a set of random number
-    do i=1,sample
-        ! Uniform random numbers
-        !list(i) = random%random()
-        
-        ! binomial distribution
-        list(i) = random%random(distribution="binomial")
-    enddo
-
-    ! get histogram
-    histogram = random%histogram(list=list,division=division)
+!    ! start growth
+!    
+!    call soy%grow(timestep=1,dt=100.0d0,Display=.true.,nr_tol=0.010d0,restart=.false.)
+!
+!    call soy%save("../","seed000")
+!
+!    call f%open("../","seed000/output/seed_length.txt")
+!    write(f%fh, *) soy%length()
+!    call f%close()
     
-    call print(histogram)
 
-    ! Data
-    call f%open("./","test",",txt")
-    do i=1,size(histogram)
-        write(f%fh,*) histogram(i)
-    enddo
-    call f%close()
+!    ! ####################
+!    call soy%grow(timestep=10,dt=100.0d0,Display=.true.,nr_tol=0.010d0,restart=.true.)
+!
+!    call soy%save("../","seed001")
+!    
+!    call f%open("../","seed001/output/seed_length.txt")
+!    write(f%fh, *) soy%length()
+!    call f%close()
+!    
 
-    ! Gnuplot-script
-    call f%open("./","test",".gp")
-    call f%write("set yr[0:]")
-    call f%write("plot 'test,txt' with boxes")
-    call f%write("pause -1")
-    call f%close()
+    ! ####################
+    call soy%grow(timestep=2,dt=100.0d0,Display=.true.,nr_tol=0.010d0,restart=.false.)
 
-    ! plot
-    call system("gnuplot ./test.gp")
+    call soy%save("../","seed002")
+    !call soy%load("../","seed002")
+    call showArraysize(soy%seedDomain%DiffusionEq%UnknownValue)
+    
+    
+    !call soy%grow(timestep=2,dt=100.0d0,Display=.true.,nr_tol=0.010d0,restart=.true.)
+    !call f%open("../","seed002/output/seed_length.txt")
+    !write(f%fh, *) soy%length()
+    !call f%close()
+    !call soy%open("../","seed")
+    
     
 end program main

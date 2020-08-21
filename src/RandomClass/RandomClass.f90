@@ -14,6 +14,7 @@ module RandomClass
         procedure :: init       => initRandom
         procedure :: random     => getRandom
         procedure :: randint    => getRandomInt
+        procedure :: name    => nameRandom
         procedure :: choiceInt  => choiceRandomInt
         procedure :: choiceReal => choiceRandomReal
         procedure :: uniform    => uniformRandom
@@ -33,8 +34,12 @@ subroutine initRandom(obj)
     !integer(int32),optional,intent(in)::SeedSize
     integer(int32)::SeedSize
     
+
+
     call random_seed(size=SeedSize)
-    allocate(obj%random_int_seed(SeedSize) )
+    if(.not.allocated(obj%random_int_seed) )then
+        allocate(obj%random_int_seed(SeedSize) )
+    endif
     !call random_seed(get=obj%random_real_vec)
     call random_seed(get=obj%random_int_seed)
 
@@ -247,5 +252,20 @@ function histogramRandom(obj,list,division) result(histogram)
 
 end function
 !##########################################
+
+
+!##########################################
+function nameRandom(obj) result(str)
+    class(Random_),intent(inout) :: obj
+    character(200) :: str
+    integer(int32) :: n
+
+    call obj%init()
+    n=int(obj%random()*1000000)
+
+    str="RandName"//fstring_int(n)
+!##########################################
+
+end function
 
 end module

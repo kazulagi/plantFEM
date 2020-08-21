@@ -64,6 +64,7 @@ module MeshClass
         procedure :: getNumOfDomain => getNumOfDomainMesh
         procedure :: getCircumscribedCircle => getCircumscribedCircleMesh
         procedure :: getCircumscribedTriangle => getCircumscribedTriangleMesh
+        procedure :: getNodeList => getNodeListMesh
         procedure :: gmsh => gmshMesh
         
         procedure :: import => importMeshObj 
@@ -548,9 +549,10 @@ end subroutine
 subroutine importMeshObj(obj,FileName,extention,ElemType,Mesh)
     class(Mesh_),intent(inout)::obj
     type(Mesh_),optional,intent(in) :: Mesh
+    type(IO_) :: f
     character(*),optional,intent(in)::FileName,extention,ElemType
     character(200) :: MeshVersionFormatted,Dim,Vertices,Edges,Triangles
-    character(200) :: Tetrahedra
+    character(200) :: Tetrahedra,ex,ch
     real(real64) :: null_num_real
     integer(int32) :: dim_num,node_num,elem_num,elemnod_num,i,j
     integer(int32) :: edge_num,null_num_int,num_of_triangles
@@ -560,6 +562,14 @@ subroutine importMeshObj(obj,FileName,extention,ElemType,Mesh)
     if(present(Mesh) )then
         call obj%copy(Mesh)
         return
+    endif
+
+    if(present(FileName) )then
+        ex=getext(FileName)
+        if(  trim(ex)=="stl")then
+            
+            return
+        endif
     endif
 
     if(trim(extention) == ".mesh")then
@@ -1529,6 +1539,8 @@ subroutine GetBoundingBox(obj,BBox)
     if(dim_num==2)then
         allocate(BBox%NodCoord(4,2) )
         allocate(BBox%ElemNod( 1,4) )
+        allocate(BBox%ElemMat(1) )
+        BBox%ElemMat(1)=1
         do i=1,4
             BBox%ElemNod(1,i)=i
         enddo
@@ -1538,9 +1550,14 @@ subroutine GetBoundingBox(obj,BBox)
         BBox%NodCoord(3,1)=max_coord(1) ; BBox%NodCoord(3,2)=max_coord(2) ;
         BBox%NodCoord(4,1)=min_coord(1) ; BBox%NodCoord(4,2)=max_coord(2) ;
 
+        
+
     elseif(dim_num==3)then
         allocate(BBox%NodCoord(8,3) )
         allocate(BBox%ElemNod( 1,8) )
+        allocate(BBox%ElemMat(1) )
+        BBox%ElemMat(1)=1
+
         do i=1,8
             BBox%ElemNod(1,i)=i
         enddo
@@ -1553,6 +1570,7 @@ subroutine GetBoundingBox(obj,BBox)
         BBox%NodCoord(6,1)=max_coord(1) ; BBox%NodCoord(6,2)=min_coord(2) ; BBox%NodCoord(6,3)=max_coord(3) ;
         BBox%NodCoord(7,1)=max_coord(1) ; BBox%NodCoord(7,2)=max_coord(2) ; BBox%NodCoord(7,3)=max_coord(3) ;
         BBox%NodCoord(8,1)=min_coord(1) ; BBox%NodCoord(8,2)=max_coord(2) ; BBox%NodCoord(8,3)=max_coord(3) ;
+
 
     else
         stop "ERROR :: GetBoundingBox :: dim_num should be 2 or 3 "
@@ -5739,5 +5757,45 @@ function HowManyDomainMesh(obj) result(ret)
 
 end function
 !#######################################################################################
+
+!#######################################################################################
+function getNodeListMesh(obj,BoundingBox) result(NodeList)
+    class(Mesh_),intent(inout) :: obj
+    type(Mesh_),intent(inout) :: BoundingBox
+    integer(int32),allocatable :: NodeList(:)
+    integer(int32) :: i,j,n,num_of_node,m
+    logical ,allocatable:: tf(:)
+    real(real64),allocatable :: x(:),x_min(:),x_max(:)
+    
+    n=size(obj%NodCoord,1)
+    m=size(obj%NodCoord,2)
+    allocate( x(m),x_min(m),x_max(m),tf(n) )
+
+    num_of_node=0
+    do i=1,n
+        x(:)=obj%NodCoord(i,:)
+        do j=1,m
+            x_min(j)=minval(BoundingBox%NodCoord(:,j))
+            x_max(j)=maxval(BoundingBox%NodCoord(:,j))
+        enddo
+        tf(i)=.false.
+        tf(i) = InOrOut(x=x,xmax=x_max,xmin=x_min,DimNum=m)
+    enddo
+
+    n=countif(Vector=tf,tf=.true.)
+
+    allocate(NodeList(n) )
+
+    j=0
+    do i=1,size(tf)
+        if(tf(i) .eqv. .true. )then
+            j=j+1
+            NodeList(j) = i
+        endif
+    enddo
+
+end function
+!#######################################################################################
+
 
 end module MeshClass
