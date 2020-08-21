@@ -20,7 +20,7 @@ module ArrayClass
     end interface
 
     interface savetxt
-        module procedure savetxtArrayReal
+        module procedure savetxtArrayReal,savetxtArrayint
     end interface
 
     interface add
@@ -177,7 +177,7 @@ module ArrayClass
     end interface
 
     interface countif
-        module procedure ::countifint,countifintvec,countifReal,countifRealvec
+        module procedure ::countifint,countifintvec,countifReal,countifRealvec,countiflogicVec
     end interface
 
     interface exist
@@ -200,6 +200,7 @@ module ArrayClass
     interface addlist
         module procedure :: addListIntVec
     end interface
+    
 
 
     type :: Array_
@@ -332,6 +333,66 @@ subroutine savetxtArrayReal(realarray,path,name,extention)
     close(fh)
 end subroutine
 !=====================================
+
+
+subroutine savetxtArrayint(realarray,path,name,extention) 
+    integer(int32),allocatable,intent(in) :: realarray(:,:)
+    character(*),intent(in) :: path,name,extention
+    integer(int32) :: fh, n,m,x,i,j
+    fh = 9
+
+
+    open(fh,file = trim(path)//trim(name)//trim(extention),status="replace" )
+    n = size(realArray,1)
+    m = size(realArray,2)
+
+    if(.not.allocated(realarray))then
+        n=0
+        m=0
+    endif
+
+    if(trim(extention) == ".csv")then
+        write(fh,*) n,",",m,","
+        do i=1, n
+            do j=1,m-1
+                write(fh, '(A)',advance='no') trim(str(realArray(i,j)))//","
+            enddo
+            write(fh,'(A)',advance='yes') trim(str(realArray(i,m)))
+        enddo
+    elseif(trim(extention) == ".html")then
+        write(fh,'(A)',advance='yes') "<!DOCTYPE html>"
+        write(fh,'(A)',advance='yes') "<html>"
+        write(fh,'(A)',advance='yes') "<head>"
+        write(fh,'(A)',advance='no' ) "<title>"
+        write(fh,'(A)',advance='no' ) "Saved by savetxt"
+        write(fh,'(A)',advance='yes') "</title>"
+        write(fh,'(A)',advance='yes') "</head>"
+        write(fh,'(A)',advance='yes') "<body>"
+        write(fh,'(A)',advance='yes')"<table border='5'>"
+        write(fh,'(A)',advance='yes') '<meta http-equiv="refresh" content="3">'
+        do i=1, n
+            write(fh, '(A)',advance='yes') "<tr>"
+            do j=1,m
+                write(fh, '(A)',advance='no')  "<td><div contenteditable>"
+                write(fh, '(A)',advance='no') trim(str(realArray(i,j)))
+                write(fh, '(A)',advance='yes') "</td></div>"
+            enddo
+            write(fh, '(A)',advance='yes') "</tr>"
+        enddo
+        write(fh,'(A)',advance='yes') "</table>"
+        write(fh,'(A)',advance='yes') "</body>"
+        write(fh,'(A)',advance='yes') "</html>"
+    else
+        write(fh,*) n,m
+        do i=1, n
+            write(fh,*) realArray(i,1:m)
+        enddo
+    endif
+    close(fh)
+end subroutine
+!=====================================
+
+
 subroutine arrayarrayReal(obj,reala)
     class(Array_),intent(inout) :: obj
     real(real64),intent(in) :: reala(:,:)
@@ -1895,6 +1956,12 @@ subroutine ExtendArrayInt(mat,extend1stColumn,extend2ndColumn,DefaultValue)
         val = 0
     endif
 
+    if(.not.allocated(mat) )then
+        allocate(mat(1,1)    )
+        mat(1,1)=val
+        return
+    endif
+
     n=size(mat,1)
     m=size(mat,2)
     if(present(extend1stColumn) )then
@@ -2448,6 +2515,24 @@ function countifSameIntVecArray(Array1,Array2) result(count_num)
 
 end function
 !##################################################
+
+
+!##################################################
+function countiflogicVec(Vector, tf) result(count_num)
+    logical,intent(in)::Vector(:)
+    logical,intent(in) :: tf
+    integer(int32) :: count_num,i
+
+    count_num=0
+    do i=1,size(Vector)
+        if(Vector(i) .eqv. tf)then
+            count_num=count_num+1
+        endif
+    enddo
+
+end function
+!##################################################
+
 
 !##################################################
 function countifint(Array,Equal,notEqual,Value) result(count_num)
@@ -3348,6 +3433,32 @@ subroutine printArrayRealVec(Mat,IndexArray,FileHandle,Name,Add)
 
 end subroutine 
 !##################################################
+
+
+function getext(char) result(ext)
+        
+    
+    character(*),intent(in) :: char
+    character(7) :: ext
+    integer(int32) :: n,m
+
+    ext="       "
+    n=0
+    n = index(char,".", back=.true.)   
+    m = len(char)
+    if(n==0)then
+        print *, "No extention"
+        return
+    endif
+
+    if(m-n+1 <1)then
+        print *, "ERROR :: ArrayClass/extention"
+        stop
+    endif
+
+    ext(1:m-n+1) = char(n+1:m)
+
+end function
 
 
 

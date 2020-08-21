@@ -141,11 +141,18 @@ echo "Compiling ./src/ShapeFunctionClass/ShapeFunctionClass.f90 "
 echo " >> ShapeFunctionClass.o "
 echo " | ######                      | (26%)\r\c"
 mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ShapeFunctionClass/ShapeFunctionClass.f90 -o  ./inc/ShapeFunctionClass.o
+echo "Compiling ./src/STLClass/STLClass.f90 " 
+echo " >> STLClass.o "
+echo " | #######                     | (30%)\r\c"
+echo "Standard library (STLClass) is compiled."
+mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/STLClass/STLClass.f90 -o  ./inc/STLClass.o
 echo "Compiling ./src/std/std.f90 " 
 echo " >> std.o "
 echo " | #######                     | (30%)\r\c"
 echo "Standard library (std) is compiled."
 mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/std/std.f90 -o  ./inc/std.o
+
+
 echo "Compiling ./src/MeshClass/MeshClass.f90 " 
 echo " >> MeshClass.o "
 echo " | #######                     | (30%)\r\c"

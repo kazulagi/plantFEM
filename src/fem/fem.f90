@@ -3,6 +3,7 @@ module fem
     use MeshClass
     use MaterialPropClass
     use ControlParaeterClass
+    !use ContactClass
     use BoundaryConditionClass
     use StrainClass
     use StressClass

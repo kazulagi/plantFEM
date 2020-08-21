@@ -33,7 +33,7 @@ module DictionaryClass
         character*200 :: Path
         character*200 :: DirectoryName
         character*200 :: FileName
-        integer(int32)       :: FileID
+        integer(int32):: FileID
     end type
 
 

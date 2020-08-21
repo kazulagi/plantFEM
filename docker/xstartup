@@ -1,0 +1,4 @@
+export XKL_XMODMAP_DISABLE=1
+#export DISPLAY=:1
+#autocutsel -fork
+exec /usr/bin/startlxde

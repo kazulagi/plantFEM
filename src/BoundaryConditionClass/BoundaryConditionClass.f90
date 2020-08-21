@@ -6,6 +6,10 @@ module BoundaryConditionClass
 
     implicit none
 
+    type :: ContactName_
+        character(200) :: name
+    end type
+
     type::Boundary_
         ! new data structure
         type(Mesh_) :: DBound
@@ -35,12 +39,20 @@ module BoundaryConditionClass
         integer(int32),allocatable::TBoundNum(:)
         integer(int32),allocatable::TBoundElemNum(:)
 
+        ! contact boundary
+        type(ContactName_),allocatable :: ContactNameList(:)
+        integer(int32),allocatable:: MasterNodeID(:,:)
+        integer(int32),allocatable:: SlaveNodeID(:,:)
+        integer(int32),allocatable:: MasterSegment(:,:)
+        integer(int32),allocatable:: SlaveSegment(:,:)
+
         real(real64) ::x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
         integer(int32) :: Dcount,Ncount,Tcount
         integer(int32) :: layer
         character*200 :: Name= " "
         character*70 :: ErrorMsg= " "
     contains
+        procedure :: AddMasterNode => AddMasterNodeBoundary
         procedure :: Init => InitializeBoundary
         procedure :: Delete => DeallocateBoundary
         procedure :: CheckDataType => CheckDatatypeBoundary
@@ -1374,7 +1386,11 @@ subroutine saveBoundary(obj,path,name)
 end subroutine
 
 
+! ################################################################
+subroutine AddMasterNodeBoundary(obj)
+    class(Boundary_),intent(inout) :: obj
 
+end subroutine 
 
 
 end module BoundaryConditionClass

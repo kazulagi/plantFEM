@@ -49,9 +49,11 @@ module FEMDomainClass
 		character*200 :: Category1 ="None"
 		character*200 :: Category2="None"
 		character*200 :: Category3="None"
+		integer(int32) :: DomainID=1
 		integer(int32) :: timestep=1
 		integer(int32) :: NumberOfBoundaries=0
 		integer(int32) ::  NumberOfMaterials=0
+
     contains
 		procedure,public :: addNBC => AddNBCFEMDomain 
         procedure,public :: addDBoundCondition => AddDBoundCondition
@@ -69,6 +71,7 @@ module FEMDomainClass
 		procedure,public :: checkConnectivity => CheckConnedctivityFEMDomain
 		procedure,public :: copy => copyFEMDomain
 		procedure,public :: convertMeshType => convertMeshTypeFEMDomain
+		procedure,public :: contactdetect => contactdetectFEMDomain
 		procedure,public :: create => createFEMDomain
 
         procedure,public :: delete => DeallocateFEMDomain
@@ -349,7 +352,7 @@ end subroutine
 subroutine divideFEMDomain(obj,n) 
 	class(FEMDomain_),intent(inout)::obj
     type(Mesh_),allocatable :: meshes(:)
-	integer(int32),intent(inout) :: n
+	integer(int32),intent(in) :: n
 	integer(int32) :: i
 	
 	! split obj into n objects
@@ -6389,6 +6392,113 @@ subroutine removeMaterialsFEMDomain(obj,Name,BoundaryID)
 	call obj%showMaterials(Name)
 
 end subroutine removeMaterialsFEMDomain
+! ##################################################
+
+
+! ##################################################
+subroutine contactdetectFEMDomain(obj1, obj2, ContactModel)
+	class(FEMDomain_),intent(inout) :: obj1, obj2
+	character(*),optional,intent(in) :: ContactModel
+	type(Mesh_) :: BoundBox
+	type(Random_) :: random
+	type(ContactName_),allocatable :: cnbuf(:)
+	integer(int32),allocatable :: buffer(:)
+	real(real64),allocatable :: x(:)
+
+	integer(int32) :: i,domain_id,n,id,m,node_id,seg_nod_num
+
+	! detect contact nodes and assemble contact elements
+	
+	! first, both domains should be named.
+	! If these are not named, name by random name.
+	m=size(obj1%Mesh%NodCoord,2)
+	allocate(x(m) )
+	
+	if( trim(obj1%name) == "NoName" )then
+		obj1%name=trim( random%name() )
+		print *, "Caution !!! object #1 is not named. New name is "//trim(obj1%name)
+	endif
+	if( trim(obj2%name) == "NoName" )then
+		obj2%name=trim( random%name() )
+		print *, "Caution !!! object #2 is not named. New name is "//trim(obj2%name)
+	endif
+
+	! create Node-To-Node contact elements
+	! First, let us detect a bounding box, in which contact interfaces are presented.
+	call obj1%Mesh%GetInterSectBox(obj2%Mesh,BoundBox)
+	! , where, obj1, obj2 are FEMDomain objects, and BoundBox is the bounding box.
+
+	! if, the BoundingBox is not allocated, return
+	if( BoundBox%empty() )then
+		return
+	endif
+
+	! Hereby, two domains are in contact.
+	! let us detect the contact nodes.
+	if(.not. allocated(obj1%Boundary%ContactNameList) )then
+		allocate(obj1%Boundary%ContactNameList(1) )
+		obj1%Boundary%ContactNameList(1)%name=obj2%name
+		domain_id=1
+	else
+		cnbuf = obj1%Boundary%ContactNameList
+		n=size(obj1%Boundary%ContactNameList)
+		deallocate(obj1%Boundary%ContactNameList)
+		allocate(obj1%Boundary%ContactNameList(n+1) )
+		obj1%Boundary%ContactNameList(1:n)%name=cnbuf(1:n)%name
+		obj1%Boundary%ContactNameList(n+1)%name=trim(obj2%name)
+		domain_id=n+1
+	endif
+	
+
+	buffer = obj1%Mesh%getNodeList(BoundingBox=BoundBox)
+	
+	call obj1%Mesh%getSurface()
+	call obj2%Mesh%getSurface()
+	if(m==2)then
+		seg_nod_num=4
+	else
+		seg_nod_num=16
+	endif
+
+	do i=1,size(buffer)
+		if(.not. allocated(obj1%Boundary%MasterNodeID) )then
+			allocate(obj1%Boundary%MasterNodeID(1,2) )
+			allocate(obj1%Boundary%SlaveNodeID(1,2) )
+			allocate(obj1%Boundary%MasterSegment(seg_nod_num,2) )
+			allocate(obj1%Boundary%SlaveSegment( seg_nod_num,2) )
+		else
+			call extend(obj1%Boundary%MasterNodeID,extend1stColumn=.true.)
+			call extend(obj1%Boundary%SlaveNodeID,extend1stColumn=.true.)
+		endif
+
+		n=size(obj1%Boundary%MasterNodeID,1)
+		
+		obj1%Boundary%MasterNodeID(n,1) = buffer(i)
+		obj1%Boundary%MasterNodeID(n,2) = domain_id
+		obj1%Boundary%SlaveNodeID(n,1) = 0
+		obj1%Boundary%SlaveNodeID(n,2) = domain_id
+
+		 
+		obj1%Boundary%MasterSegment(n,:)=domain_id 
+		obj1%Boundary%SlaveSegment( n,:)=domain_id 
+		
+
+	enddo
+
+	! assemble Node-To-Node contact element
+	do i=1,size(obj1%Boundary%MasterNodeID,1)
+		node_id=obj1%Boundary%MasterNodeID(i,1)
+		x(:)=obj1%Mesh%NodCoord( node_id,: )
+		id = SearchNearestCoord(Array=obj2%Mesh%NodCoord,x=x)
+		obj1%Boundary%SlaveNodeID(i,1)=id
+	enddo
+
+	! assemble Node-To-Segment contact element
+	
+
+
+
+end subroutine
 ! ##################################################
 
 end module FEMDomainClass
