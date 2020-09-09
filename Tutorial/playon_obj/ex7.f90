@@ -191,9 +191,9 @@ program main
     ! run simulation
     call seed%gnuplot(mode="all")
 
-    call seed%run(timestep=1,dt=1000.0d0,SolverType="BiCGSTAB",&
+    call seed%run(timestep=10,dt=1000.0d0,SolverType="BiCGSTAB",&
         Display=.true.,nr_tol=0.010d0,infinitesimal=.true.,interval=100)
-    call seed%export(path="../test3",restart=.true.)
+    call seed%export(path="../test3",restart=.false.)
     ! visualize data
     !call seed%display()
 end program main

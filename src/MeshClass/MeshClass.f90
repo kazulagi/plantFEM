@@ -65,6 +65,7 @@ module MeshClass
         procedure :: getCircumscribedCircle => getCircumscribedCircleMesh
         procedure :: getCircumscribedTriangle => getCircumscribedTriangleMesh
         procedure :: getNodeList => getNodeListMesh
+        procedure :: getGetVolume => getGetVolumeMesh
         procedure :: gmsh => gmshMesh
         
         procedure :: import => importMeshObj 
@@ -521,9 +522,10 @@ subroutine ImportElemMat(obj,elem_mat)
 end subroutine ImportElemMat
 !##################################################
 
-subroutine resizeMeshobj(obj,x_rate,y_rate,z_rate)
+subroutine resizeMeshobj(obj,x_rate,y_rate,z_rate,x_len,y_len,z_len)
     class(Mesh_),intent(inout) :: obj
-	real(real64),optional,intent(in) :: x_rate,y_rate,z_rate
+    real(real64),optional,intent(in) :: x_rate,y_rate,z_rate,x_len,y_len,z_len
+    real(real64) :: rate, len
 
     if(.not.allocated(obj%NodCoord) )then
         print *, "ERROR :: MeshClass resizeMeshObj >> no Nodal coordintates are not found."
@@ -542,6 +544,23 @@ subroutine resizeMeshobj(obj,x_rate,y_rate,z_rate)
         obj%NodCoord(:,3)=z_rate*obj%NodCoord(:,3)
     endif
 
+    if(present(x_len) )then
+        len = maxval(obj%NodCoord(:,1) ) - minval(obj%NodCoord(:,1) )
+        rate = x_len/len
+        obj%NodCoord(:,1)=rate*obj%NodCoord(:,1)
+    endif
+
+    if(present(y_len) )then
+        len = maxval(obj%NodCoord(:,2) ) - minval(obj%NodCoord(:,2) )
+        rate = y_len/len
+        obj%NodCoord(:,2)=rate*obj%NodCoord(:,2)
+    endif
+
+    if(present(z_len) )then
+        len = maxval(obj%NodCoord(:,3) ) - minval(obj%NodCoord(:,3) )
+        rate = z_len/len
+        obj%NodCoord(:,3)=rate*obj%NodCoord(:,3)
+    endif
 end subroutine
 
 
@@ -5796,6 +5815,42 @@ function getNodeListMesh(obj,BoundingBox) result(NodeList)
 
 end function
 !#######################################################################################
+
+!#######################################################################################
+function getGetVolumeMesh(obj) result(volume)
+    class(Mesh_),intent(inout) :: obj
+    real(real64),allocatable :: volume(:),eNodCoord(:,:)
+    integer(int32) :: i,j,numelem, numelemnod,numnode,dimnum
+
+    if(obj%empty() .eqv. .true. )then
+        print *, "getGetVolumeMesh >> Mesh is empty."
+        return
+    endif
+
+    numelem  = size(obj%ElemNod,1)
+    numelemnod = size(obj%ElemNod,2)
+    numnode = size(obj%NodCoord,1)
+    dimnum  = size(obj%NodCoord,2)
+
+    allocate( volume(numelem) )
+    allocate(eNodCoord(numelemnod, dimnum) )
+
+    if(numelemnod == 8)then
+        do i=1,numelem
+            do j=1, numelemnod
+                eNodCoord(j,:)=obj%NodCoord( obj%ElemNod(i,j) ,:)
+            enddo
+        enddo
+    else
+        print *, "getGetVolumeMesh >> Not imlemented."
+        stop
+    endif
+
+
+
+end function
+!#######################################################################################
+
 
 
 end module MeshClass

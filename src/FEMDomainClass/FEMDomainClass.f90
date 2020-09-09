@@ -771,6 +771,7 @@ subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 		node,element,materialinfo,dirichlet,neumann,file)
 	class(FEMDomain_),intent(inout)::obj
 	type(Mesh_),optional,intent(in)::Mesh
+	type(Mesh_)::mobj
 	type(Boundary_),optional,intent(in)::Boundary
 	type(MaterialProp_),optional,intent(in)::Material
     character*4,optional,intent(in)::OptionalFileFormat
@@ -787,8 +788,45 @@ subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 	real(8),allocatable::RealMat(:,:)
 	integer,optional,intent(in)::FileHandle,NumberOfBoundaries,BoundaryID,MaterialID,NumberOfMaterials
 	integer :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,nodenum,matnum, paranum
-	character*70 Msg,name
+	character*70 Msg,name,ch
 	logical,optional,intent(in) :: Boundaries,Materials
+
+	if( trim(getext(trim(file)) )=="mesh" )then
+		
+		call f%open("./",trim(file))
+		read(f%fh,*) ch
+		read(f%fh,*) ch
+		read(f%fh,*) n
+		read(f%fh,*) ch
+		read(f%fh,*) m
+		allocate(mobj%NodCoord(m,n) )
+		do i=1, m
+			read(f%fh,*) mobj%NodCoord(i,:)
+		enddo
+		do
+			read(f%fh,*) ch
+			if(trim(adjustl(ch)) == "Tetrahedra" )then
+				read(f%fh,*)n
+				allocate(mobj%ElemNod(n,4),mobj%ElemMat(n) )
+				mobj%ElemMat(:) = 1
+				do i=1,n
+					read(f%fh,*) mobj%ElemNod(i,1:4)
+				enddo
+				exit
+			elseif(trim(adjustl(ch)) == "End" )then
+				exit
+			else
+				read(f%fh,*)n
+				do i=1,n
+					read(f%fh,*) ch
+				enddo
+			endif
+		enddo
+		call f%close()
+		call mobj%convertTetraToHexa()
+		call obj%Mesh%copy(mobj)
+		return
+	endif
 
 if(present(node) )then
 	if(node .eqv. .true. )then
@@ -1174,11 +1212,11 @@ subroutine ImportMeshFEMDomain(obj,Mesh)
 end subroutine
 !##################################################
 
-subroutine resizeFEMDomain(obj,x_rate,y_rate,z_rate)
+subroutine resizeFEMDomain(obj,x_rate,y_rate,z_rate,x_len,y_len,z_len)
 	class(FEMDomain_),intent(inout) :: obj
-	real(real64),optional,intent(in) :: x_rate,y_rate,z_rate
+	real(real64),optional,intent(in) :: x_rate,y_rate,z_rate,x_len,y_len,z_len
 
-	call obj%Mesh%resize(x_rate=x_rate,y_rate=y_rate,z_rate=z_rate)
+	call obj%Mesh%resize(x_rate=x_rate,y_rate=y_rate,z_rate=z_rate,x_len=x_len,y_len=y_len,z_len=z_len)
 
 end subroutine
 
