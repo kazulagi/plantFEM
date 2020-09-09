@@ -22,6 +22,8 @@ module WaterAbsorptionClass
         real(real64),allocatable :: WaterPotential(:)
         real(real64),allocatable :: TurgorPressure(:)
         real(real64),allocatable :: WaterContent(:)
+        real(real64),allocatable :: WaterMass(:)
+        real(real64),allocatable :: volume(:)
         real(real64),allocatable :: Conductivity(:)
         real(real64),allocatable :: YoungsModulus(:)
         real(real64),allocatable :: PoissonsRatio(:)
@@ -58,6 +60,7 @@ module WaterAbsorptionClass
         procedure, public :: gnuplot => gnuplotWaterAbsorption
         procedure, public :: updatePermiability => updatePermiabilityWA
         procedure, public :: updateStiffness => updateStiffnessWA
+        procedure, public :: UpdateVolume => UpdateVolumeWA
 
         ! <<<<<<<< IO >>>>>>>>>>
         procedure, public :: save =>saveWaterAbsorption
@@ -94,6 +97,7 @@ subroutine removeWaterAbsorption(obj)
     if(allocated(obj%WaterPotential)) deallocate(obj%WaterPotential)
     if(allocated(obj%TurgorPressure)) deallocate(obj%TurgorPressure)
     if(allocated(obj%WaterContent)) deallocate(obj%WaterContent)
+    if(allocated(obj%WaterMass)) deallocate(obj%WaterMass)
     if(allocated(obj%Conductivity)) deallocate(obj%Conductivity)
     if(allocated(obj%YoungsModulus)) deallocate(obj%YoungsModulus)
     if(allocated(obj%PoissonsRatio)) deallocate(obj%PoissonsRatio)
@@ -228,6 +232,7 @@ subroutine openWaterAbsorption(obj,path,name)
     call openArray(f%fh, obj%WaterPotential)
     call openArray(f%fh, obj%TurgorPressure)
     call openArray(f%fh, obj%WaterContent)
+    call openArray(f%fh, obj%WaterMass)
     call openArray(f%fh, obj%Conductivity)
     call openArray(f%fh, obj%YoungsModulus)
     call openArray(f%fh, obj%PoissonsRatio)
@@ -331,6 +336,7 @@ subroutine flushWaterAbsorption(obj,path,name)
         write(f%fh,*) obj%WaterPotential(:)
         write(f%fh,*) obj%TurgorPressure(:)
         write(f%fh,*) obj%WaterContent(:)
+        write(f%fh,*) obj%WaterMass(:)
         write(f%fh,*) obj%Conductivity(:)
         write(f%fh,*) obj%YoungsModulus(:)
         write(f%fh,*) obj%PoissonsRatio(:)
@@ -357,6 +363,7 @@ subroutine flushWaterAbsorption(obj,path,name)
         write(f%fh,*) obj%WaterPotential(:)
         write(f%fh,*) obj%TurgorPressure(:)
         write(f%fh,*) obj%WaterContent(:)
+        write(f%fh,*) obj%WaterMass(:)
         write(f%fh,*) obj%Conductivity(:)
         write(f%fh,*) obj%YoungsModulus(:)
         write(f%fh,*) obj%PoissonsRatio(:)
@@ -470,6 +477,7 @@ subroutine saveWaterAbsorption(obj,path,name)
     call WriteArray(f%fh, obj%WaterPotential)
     call WriteArray(f%fh, obj%TurgorPressure)
     call WriteArray(f%fh, obj%WaterContent)
+    call WriteArray(f%fh, obj%WaterMass)
     call WriteArray(f%fh, obj%Conductivity)
     call WriteArray(f%fh, obj%YoungsModulus)
     call WriteArray(f%fh, obj%PoissonsRatio)
@@ -672,6 +680,7 @@ subroutine initWaterAbsorption(obj,SolverType,Display,nr_tol,infinitesimal)
     integer(int32) :: n
 
     call term%init()
+    obj%volume = obj%FiniteDeform%getVolume()
 
     !open(113,file=trim(obj%tissue%name)//"x_length.txt",status="replace")
     !open(114,file=trim(obj%tissue%name)//"y_length.txt",status="replace")
@@ -717,6 +726,10 @@ subroutine initWaterAbsorption(obj,SolverType,Display,nr_tol,infinitesimal)
             
         endif
     endif
+    call obj%UpdateVolume()
+
+    ! update mesh of Diffusion analysis added at 20200827
+    obj%DiffusionEq%FEMDomain%Mesh%NodCoord = obj%FiniteDeform%FEMDomain%Mesh%NodCoord
     ! ###### Finite deformation part #############################
     print *, "[ImportFile]>>>[Initialize]>>>[1st Step]>>>>["
     
@@ -734,7 +747,10 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step,nr_tol,restart)
     type(Term_)             :: term
     real(real64),optional,intent(in) :: nr_tol
     integer(int32) :: i,n,m
+    
     call term%init()
+    obj%volume = obj%FiniteDeform%getVolume()
+
 
 
     obj%DiffusionEq%FEMDomain%name="DiffusionEq"
@@ -773,13 +789,13 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step,nr_tol,restart)
     call obj%FiniteDeform%UpdateInitConfig()
     call obj%FiniteDeform%UpdateBC()
     call obj%FiniteDeform%Solve(SolverType=SolverType,nr_tol=nr_tol,restart=restart) 
-    !write(113,*) step, maxval(obj%tissue%mesh%nodCoord(:,1))
-    !flush(113)
-    !write(114,*) step, maxval(obj%tissue%mesh%nodCoord(:,2))
-    !flush(114)
-    !write(115,*) step, maxval(obj%tissue%mesh%nodCoord(:,3))
-    !flush(115)
+    
+
+    ! update mesh of Diffusion analysis added at 20200827
+    obj%DiffusionEq%FEMDomain%Mesh%NodCoord = obj%FiniteDeform%FEMDomain%Mesh%NodCoord
+
     call DisplayReactionForce(obj%FiniteDeform,obj%ID)
+    print *, "Timestep ",step
     if(present(Display) )then
         if(Display.eqv. .true.)then
             call DisplayDeformStress(obj%FiniteDeform,&
@@ -788,6 +804,7 @@ subroutine updateWaterAbsorption(obj,SolverType,Display,step,nr_tol,restart)
             call obj%export(displacement=.true.)
         endif
     endif
+
     ! ###### Update Finite Deformation over timesteps ###################
 
 end subroutine updateWaterAbsorption
@@ -803,10 +820,15 @@ subroutine updatePermiabilityWA(obj)
     if(.not. allocated(obj%Permiability) )then
         allocate(obj%Permiability(n) )
     endif
+
     if(.not. allocated(obj%WaterContent) )then
         allocate(obj%WaterContent(n) )
-        obj%WaterContent(n) = 0.0d0
+        allocate(obj%WaterMass(n) )
+        obj%WaterContent(:) = 0.0d0
+        obj%WaterMass(:) = 0.0d0
     endif
+
+
     if(allocated(obj%DiffusionEq%UnknownValue) )then
         if(size(obj%DiffusionEq%UnknownValue,1)==n)then
             m=size(obj%DiffusionEq%UnknownValue,2)
@@ -819,6 +841,7 @@ subroutine updatePermiabilityWA(obj)
             enddo
         endif
     endif
+
     ! determine permiability for each element
     do i=1,n
         k_0=obj%Water%MaterialProp%matPara(obj%Water%Mesh%ElemMat(i),1 )
@@ -1297,4 +1320,33 @@ subroutine gnuplotWaterAbsorption(obj,mode,ElemID)
     endif
 end subroutine gnuplotWaterAbsorption
 !#####################################
+
+
+!#####################################
+subroutine UpdateVolumeWA(obj)
+    class(WaterAbsorption_),intent(inout) :: obj
+    real(real64),allocatable :: volume(:)
+    real(real64) :: theta_old, theta_new,mw,vol_old, vol_new
+    integer(int32) :: i,j,n,numelem
+
+    numelem = size(obj%FiniteDeform%FEMDomain%Mesh%ElemNod,1)
+    volume = obj%FiniteDeform%getVolume()
+    if(.not. allocated(obj%WaterMass) )then
+        allocate(obj%WaterMass(numelem))
+    endif
+
+    do i=1,numelem
+        theta_old = obj%WaterContent(i)
+        vol_old = obj%volume(i)
+        mw = theta_old*vol_old
+        theta_new = mw/volume(i)
+        obj%WaterMass(i) = mw
+        obj%WaterContent(i) = theta_new
+    enddo
+    obj%volume = obj%FiniteDeform%getVolume()
+    
+end subroutine
+!#####################################
+
+
 end module 

@@ -45,6 +45,7 @@ module FiniteDeformationClass
 		procedure :: Display => DisplayDeformStress
 		procedure :: getDBCVector => getDBCVectorDeform
 		procedure :: getDispVector => getDispVectorDeform
+		procedure :: getVolume => getVolumeDeform
 		procedure :: check => checkFiniteDeform
 		procedure :: import => importFiniteDeform
 		procedure :: export => exportFiniteDeform
@@ -3088,6 +3089,31 @@ subroutine exportFiniteDeform(obj,restart,path)
 
 end subroutine
 ! ##################################################
+
+
+! ##################################################
+function getVolumeDeform(obj) result(volume)
+	class(FiniteDeform_),intent(inout) :: obj
+	real(real64),allocatable :: volume(:)
+	integer(int32) :: numnode, numelem,i,j,gp_num
+
+
+	obj%FEMDomain%ShapeFunction%ElemType=obj%FEMDomain%Mesh%GetElemType()
+	call SetShapeFuncType(obj%FEMDomain%ShapeFunction)
+	gp_num=obj%FEMDomain%ShapeFunction%NumOfGp
+	allocate(volume(size(obj%FEMDomain%Mesh%ElemNod,1)) )
+	do i = 1, size(obj%FEMDomain%Mesh%ElemNod,1)
+		do j = 1, obj%FEMDomain%ShapeFunction%NumOfGp !�K�E�X�ϕ����ƃ��[�v
+			! -----J�}�g���N�X�̌v�Z-----------------------------------------
+			call GetAllShapeFunc(obj%FEMDomain%ShapeFunction,elem_id=i,nod_coord=obj%FEMDomain%Mesh%NodCoord,&
+			elem_nod=obj%FEMDomain%Mesh%ElemNod,OptionalGpID=j)
+			volume(i) = obj%FEMDomain%ShapeFunction%detJ
+		enddo
+	enddo
+
+end function getVolumeDeform
+! ##################################################
+
 
 end module FiniteDeformationClass
 

@@ -21,13 +21,13 @@ program main
     type(Boundary_) :: flux, const 
 
     !  create mesh
-    call water%import(file="untitled.mesh")
-    call water%resize(x_len=90.0d0,y_len=80.0d0,z_len=70.0d0)
-    call water%gmsh()
+    !call water%import(file="untitled.mesh")
+    !call water%resize(x_len=90.0d0,y_len=80.0d0,z_len=70.0d0)
+    !call water%gmsh()
     !return
 
-    !call water%create(Name="water",MeshType="Sphere3D",x_num=12,y_num=11,x_len=90.0d0, y_len=80.0d0,&
-    !    thickness=70.0d0,division=10)
+    call water%create(Name="water",MeshType="Sphere3D",x_num=12,y_num=11,x_len=90.0d0, y_len=80.0d0,&
+        thickness=70.0d0,division=10)
     call tissue%copy(water,onlyMesh=.true.)
     call tissue%rename("tissue")
 
@@ -145,8 +145,10 @@ program main
     !call const%create(category="Dirichlet",x_max=5.0d0,x_min=-1.0d0,y_max=100.0d0,y_min=-100.0d0,&
     !z_max=100.0d0,z_min=-100.0d0,BoundValue=1.0d0,Name="const",Layer=1)
     ! flux boundary
-    call const%create(category="Dirichlet",x_max=100.0d0,x_min=-100.0d0,y_max=100.0d0,y_min=-100.0d0,&
-    z_max=60.0d0,z_min=10.0d0,BoundValue=1.0d0,Name="const",Layer=1)
+    call const%create(category="Dirichlet",x_max=100.0d0,x_min=-100.0d0,y_max=100.0d0,y_min=70.0d0,&
+    z_max=100.0d0,z_min=-100.0d0,BoundValue=1.0d0,Name="const",Layer=1)
+    call const%create(category="Dirichlet",x_max=100.0d0,x_min=-100.0d0,y_max=10.0d0,y_min=-10.0d0,&
+    z_max=100.0d0,z_min=-100.0d0,BoundValue=1.0d0,Name="const",Layer=1)
 
     ! visualize on Gmsh
     !call disp_x%gmsh(Dirichlet=.true.,Name="disp_x",Tag="B : disp_x")

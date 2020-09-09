@@ -55,10 +55,13 @@ end subroutine
 
 program main
     use plantFEM 
-	implicit none
+    implicit none
+    
 
     type(FEMDomain_)::domain ! 有限要素法シミュレーションのためのデータベースアプリ
     type(LinearSolver_)::LinearSolver ! 連立方程式を解くアプリ
+    type(IO_) :: file ! ファイル編集アプリ 
+    integer(int32) :: i !整数
 
     ! FEMデータベースアプリを起動して、データを読み込む
 
@@ -79,5 +82,13 @@ program main
     ! 結果を表示する。
     ! 連立方程式を解くアプリ(LinearSolver) の(%)　解(x)を表示する。
     print *, LinearSolver%x(:)
+
+    ! 結果の書き出し
+    call file%open("./","result2",".txt")
+    do i=1, size(LinearSolver%x)
+        call file%write( str(LinearSolver%x(i)) )
+    enddo
+    call file%close()
+
 
 end program main
