@@ -26,7 +26,7 @@ jobs:
       - name: Run a one-line script
         run:  |
           python3 setup.py
-          sh install 
+          python3 install.py
           ./plantfem run
 
       # Runs a set of commands using the runners shell
