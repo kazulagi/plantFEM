@@ -27,7 +27,7 @@ jobs:
         run:  |
           python3 setup.py
           python3 install.py
-          ./plantfem run
+          ./plantfem ./Tutorial/app/untitled.f90 
 
       # Runs a set of commands using the runners shell
       - name: Run a multi-line script
