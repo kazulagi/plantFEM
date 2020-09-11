@@ -1,22 +1,22 @@
-FROM ubuntu:18.04
+FROM ubuntu:16.04
 
 RUN apt-get update && \
     apt-get install -y redis-server && \
     apt-get clean
 
 RUN apt-get install  -y apt
-RUN apt install  -y gcc
-RUN apt install  -y gfortran
-RUN apt install  -y libopenmpi-dev
-RUN apt install  -y python3
-RUN apt install  -y gmsh
-RUN apt install  -y git
-RUN apt install  -y nano
-RUN apt install  -y vim
-RUN apt install  -y gnuplot
-RUN apt install  -y zsh
-RUN apt install  -y snap
-RUN apt install  -y curl
+RUN apt-get install  -y gcc
+RUN apt-get install  -y gfortran
+RUN apt-get install  -y libopenmpi-dev
+RUN apt-get install  -y python3
+RUN apt-get install  -y gmsh
+RUN apt-get install  -y git
+RUN apt-get install  -y nano
+RUN apt-get install  -y vim
+RUN apt-get install  -y gnuplot
+RUN apt-get install  -y zsh
+RUN apt-get install  -y snap
+RUN apt-get install  -y curl
 RUN curl https://bootstrap.pypa.io/get-pip.py -o ~/get-pip.py
 RUN python3 ~/get-pip.py
 RUN pip install pillow
