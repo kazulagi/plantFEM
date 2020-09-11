@@ -4030,7 +4030,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                 n=n+1
                 obj%ElemNod(n,1)=i + (j-1)*(xn+1)
                 obj%ElemNod(n,2)=i+1 + (j-1)*(xn+1)
-                obj%ElemNod(n,3)=xn+2+i+ + (j-1)*(xn+1)
+                obj%ElemNod(n,3)=xn+2+i+ (j-1)*(xn+1)
                 obj%ElemNod(n,4)=xn+1+i + (j-1)*(xn+1)
                 obj%ElemMat(n)=1
             enddo
