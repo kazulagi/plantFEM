@@ -33,7 +33,7 @@ module FEMDomainClass
 		type(Meshp_),allocatable :: Meshes(:)
 		type(Materialp_),allocatable :: Materials(:)
 		type(Boundaryp_),allocatable :: Boundaries(:)
-		type(FEMDomain_),allocatable :: FEMDomains(:)
+		type(FEMDomainp_),allocatable :: FEMDomains(:)
 
         type(ShapeFunction_)    :: ShapeFunction
 		real(real64),allocatable :: scalar(:)
@@ -371,7 +371,7 @@ subroutine divideFEMDomain(obj,n)
 
 	! import mesh
 	do i=1,n
-		call obj%FEMDomains(i)%import(Mesh=meshes(i))
+		call obj%FEMDomains(i)%FEMDomain%import(Mesh=meshes(i))
 	enddo
 
 end subroutine divideFEMDomain

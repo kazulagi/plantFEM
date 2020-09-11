@@ -52,7 +52,7 @@ RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin prohibit-passwo
 # sshのポートを22 => 20022に変更します
 RUN sed -i 's/#Port 22/Port 20022/' /etc/ssh/sshd_config
 # ホスト側にある公開鍵をイメージ側に登録します
-COPY ~/.ssh/id_rsa.pub /root/.ssh/authorized_keys
+COPY $HOME/.ssh/id_rsa.pub /root/.ssh/authorized_keys
 
 EXPOSE 20022
 CMD ["/usr/sbin/sshd", "-D"]
