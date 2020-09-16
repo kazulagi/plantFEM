@@ -12,15 +12,21 @@ module SoybeanClass
         integer(int32) :: Num_Of_Node
         integer(int32) :: Num_Of_Root
         character(2) :: Stage ! VE, CV, V1,V2, ..., R1, R2, ..., R8
+        integer(int32)::stage_id=0
         type(Seed_) :: Seed
         type(PlantNode_),allocatable :: NodeSystem(:)
         type(PlantRoot_),allocatable :: RootSystem(:)
+        type(Mesh_) :: struct ! 節-節点データ構造
         real(real64) :: time
+        real(real64) :: seed_length
+        real(real64) :: seed_width
+        real(real64) :: seed_height
     contains
         procedure,public :: Init => initsoybean
         procedure,public :: sowing => initsoybean
         procedure,public :: export => exportSoybean
         procedure,public :: grow => growSoybean
+        procedure,public :: show => showSoybean
         procedure,public :: WaterAbsorption => WaterAbsorptionSoybean
         !procedure,public :: AddNode => AddNodeSoybean
     end type
@@ -28,86 +34,238 @@ module SoybeanClass
     type :: SoybeanCanopy_
         real(real64) :: inter_row, intra_row
         type(soybean_),allocatable :: Canopy(:,:)
-        
     end type
-
 
 contains
 
-
-
-
-
-
 ! ########################################
-subroutine initsoybean(obj,mass,water_content,radius,location,x,y,z,&
+subroutine initsoybean(obj,config,&
+    regacy,mass,water_content,radius,location,x,y,z,&
     PlantRoot_diameter_per_seed_radius,max_PlantNode_num,Variety,FileName)
     class(Soybean_),intent(inout) :: obj
+
     real(real64),optional,intent(in) :: mass,water_content,radius,location(3),x,y,z
     real(real64),optional,intent(in) :: PlantRoot_diameter_per_seed_radius
-    character(*),optional,intent(in) :: Variety,FileName
-    character(200) :: fn
+    character(*),optional,intent(in) :: Variety,FileName,config
+    logical,optional,intent(in) :: regacy
+    character(200) :: fn,conf,line
     integer(int32),optional,intent(in) :: max_PlantNode_num
     real(real64) :: MaxThickness,Maxwidth,loc(3)
+    integer(int32) :: i,j,k,blcount,id,rmc
+    type(IO_) :: soyconf
 
-    obj%Stage = "VE"
-    if(present(FileName) )then
-        fn=FileName
-    else
-        fn="untitled"
+    if(allocated(obj%NodeSystem) )then
+        deallocate(obj%NodeSystem)
     endif
-
-    loc(:)=0.0d0
-
-    if(present(x) )then
-        loc(1)=x
+    if(allocated(obj%RootSystem) )then
+        deallocate(obj%RootSystem)
     endif
-
-    if(present(y) )then
-        loc(2)=y
-    endif
-
-    if(present(z) )then
-        loc(3)=z
-    endif
-
-    if(present(location) )then
-        loc(:)=location(:)    
-    endif
-
-    ! initialize RootSystem and NodeSystem
-    if(.not.allocated( obj%RootSystem) )then
-        allocate(obj%RootSystem( input(default=1000,option=max_PlantNode_num) ) ) 
-        obj%num_of_root=1
-    endif
-    if(.not.allocated( obj%NodeSystem) )then
-        allocate(obj%NodeSystem( input(default=1000,option=max_PlantNode_num) ) ) 
-        obj%num_of_node=1
-    endif
-
-    ! setup seed
-    if(Variety=="Tachinagaha" .or. Variety=="tachinagaha" )then
-        call obj%Seed%init(mass=mass,width1=9.70d0,width2=8.20d0,width3=7.70d0,&
-            water_content=water_content,radius=radius,location=loc)    
-        call obj%Seed%createMesh(FileName=trim(fn)//".stl",ElemType="Tetrahedra")
-
-        call obj%Seed%convertMeshType(Option="TetraToHexa")
-               
-    else
-        print *, "Variety name :: is not implemented."
-        stop
-    endif
-
     
-    ! setup primary node (plumule)
-    call obj%NodeSystem(1)%init(Stage=obj%Stage,Plantname="soybean",location=loc)
+    ! 子葉節、初生葉節、根の第1節まで種子の状態で存在
+    allocate(obj%NodeSystem(2))
+    allocate(obj%RootSystem(1))
 
-    ! setup primary node (radicle))
-    MaxThickness=input(default=0.20d0,option=PlantRoot_diameter_per_seed_radius)*obj%Seed%radius
-    Maxwidth    =input(default=0.20d0,option=PlantRoot_diameter_per_seed_radius)*obj%Seed%radius
-    call obj%RootSystem(1)%init(Plantname="soybean",Stage=obj%Stage,MaxThickness=MaxThickness,Maxwidth=Maxwidth,location=loc)
+    ! 節を生成するためのスクリプトを開く
+    if(.not.present(config) )then
+        ! デフォルトの設定を生成
+        print *, "New soybean-configuration >> soyconfig.json"
+        call soyconf%open("soyconfig.json")
+        write(soyconf%fh,*) '{'
+        write(soyconf%fh,*) '   "type": "soybean",'
+        write(soyconf%fh,*) '   "stage": 0,'
+        write(soyconf%fh,*) '   "length": 0.0090,'
+        write(soyconf%fh,*) '   "width" : 0.0081,'
+        write(soyconf%fh,*) '   "height": 0.0072'
+        write(soyconf%fh,*) '}'
+        conf="soyconfig.json"
+        call soyconf%close()
+    else
+        conf = trim(config)
+    endif
+    
+    call soyconf%open(trim(conf))
+    blcount=0
+    do
+        read(soyconf%fh,'(a)') line
+        print *, trim(line)
+        if( adjustl(trim(line))=="{" )then
+            blcount=1
+            cycle
+        endif
+        if( adjustl(trim(line))=="}" )then
+            exit
+        endif
+        
+        if(blcount==1)then
+            
+            if(index(line,"type")/=0 .and. index(line,"soybean")==0 )then
+                print *, "ERROR: This config-file is not for soybean"
+                return
+            endif
 
-    obj%time=0.0d0
+            if(index(line,"stage")/=0 )then
+                ! 生育ステージ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%stage_id
+            endif
+
+
+            if(index(line,"length")/=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%seed_length
+            endif
+
+            if(index(line,"width")/=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%seed_width
+            endif
+
+            if(index(line,"height")/=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%seed_height
+            endif
+
+            cycle
+
+        endif
+
+    enddo
+    call soyconf%close()
+
+
+    allocate(obj%struct%NodCoord(4,3) )
+    allocate(obj%struct%ElemNod(3,2) )
+    allocate(obj%struct%ElemMat(3) )
+    ! 子葉結節部=(0,0,0)
+    obj%struct%NodCoord(1,1:3) = 0.0d0
+    ! 初生葉結節部
+    obj%struct%NodCoord(2,1) = 0.0d0
+    obj%struct%NodCoord(2,2) = 0.0d0
+    obj%struct%NodCoord(2,3) = 1.0d0/20.0d0*obj%seed_height
+    ! 地際部
+    obj%struct%NodCoord(3,1) = 1.0d0/4.0d0*obj%seed_length
+    obj%struct%NodCoord(3,2) = 0.0d0
+    obj%struct%NodCoord(3,3) = -1.0d0/3.0d0*obj%seed_height
+    ! 根冠
+    obj%struct%NodCoord(4,1) = 1.0d0/2.0d0*obj%seed_length
+    obj%struct%NodCoord(4,2) = 0.0d0
+    obj%struct%NodCoord(4,3) = -1.0d0/2.0d0*obj%seed_height
+
+    ! 子葉-初生葉節
+    obj%struct%ElemNod(1,1) = 1
+    obj%struct%ElemNod(1,2) = 2
+    ! 地際-子葉節
+    obj%struct%ElemNod(2,1) = 3
+    obj%struct%ElemNod(2,2) = 1
+    ! 地際-根冠節
+    obj%struct%ElemNod(3,1) = 3
+    obj%struct%ElemNod(3,2) = 4
+
+    ! 子葉-初生葉節 stem: 1
+    obj%struct%ElemMat(1) = 1
+    ! 地際-子葉節 stem: 1
+    obj%struct%ElemMat(2) = 1
+    ! 地際-根冠節 primary root: -1
+    obj%struct%ElemMat(3) = -1
+
+
+
+
+
+    if(present(regacy) )then
+        if(regacy .eqv. .true.)then
+            obj%Stage = "VE"
+            if(present(FileName) )then
+                fn=FileName
+            else
+                fn="untitled"
+            endif
+
+            loc(:)=0.0d0
+
+            if(present(x) )then
+                loc(1)=x
+            endif
+
+            if(present(y) )then
+                loc(2)=y
+            endif
+
+            if(present(z) )then
+                loc(3)=z
+            endif
+
+            if(present(location) )then
+                loc(:)=location(:)    
+            endif
+
+            ! initialize RootSystem and NodeSystem
+            if(.not.allocated( obj%RootSystem) )then
+                allocate(obj%RootSystem( input(default=1000,option=max_PlantNode_num) ) ) 
+                obj%num_of_root=1
+            endif
+            if(.not.allocated( obj%NodeSystem) )then
+                allocate(obj%NodeSystem( input(default=1000,option=max_PlantNode_num) ) ) 
+                obj%num_of_node=1
+            endif
+
+            ! setup seed
+            if(Variety=="Tachinagaha" .or. Variety=="tachinagaha" )then
+                call obj%Seed%init(mass=mass,width1=9.70d0,width2=8.20d0,&
+                    width3=7.70d0,&
+                    water_content=water_content,radius=radius,location=loc)    
+                call obj%Seed%createMesh(FileName=trim(fn)//".stl",&
+                ElemType="Tetrahedra")
+
+                call obj%Seed%convertMeshType(Option="TetraToHexa")
+
+            else
+                print *, "Variety name :: is not implemented."
+                stop
+            endif
+
+
+            ! setup primary node (plumule)
+            call obj%NodeSystem(1)%init(Stage=obj%Stage,&
+            Plantname="soybean",location=loc)
+
+            ! setup primary node (radicle))
+            MaxThickness=input(default=0.20d0,&
+            option=PlantRoot_diameter_per_seed_radius)*obj%Seed%radius
+            Maxwidth    =input(default=0.20d0,&
+            option=PlantRoot_diameter_per_seed_radius)*obj%Seed%radius
+            call obj%RootSystem(1)%init(Plantname="soybean",&
+            Stage=obj%Stage,MaxThickness=MaxThickness,Maxwidth=Maxwidth,location=loc)
+
+            obj%time=0.0d0
+            return
+        endif
+    endif
+
+
 end subroutine
 ! ########################################
 
@@ -338,5 +496,19 @@ end subroutine
 !! ########################################
 !
 
+! ########################################
+subroutine showSoybean(obj,name)
+    class(Soybean_),intent(inout) :: obj
+    character(*),intent(in)::name
+
+    if( obj%struct%empty() .eqv. .true.)then
+        print *, "Error :: showSoybean>> no structure is imported."
+        return
+    endif
+
+    call obj%struct%export(name=name)
+
+end subroutine
+! ########################################
 
 end module

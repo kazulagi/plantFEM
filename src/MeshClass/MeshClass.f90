@@ -653,17 +653,40 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
     class(Mesh_),intent(inout)::obj
     real(real64),optional,intent(in) :: scalar(:),vector(:,:),tensor(:,:,:)
     logical,optional,intent(in) :: restart,stl
-    character(*),intent(in) :: path
+    character(*),optional,intent(in) :: path
     character(*),optional,intent(in) :: name
     character(200) :: fieldname
     type(IO_) :: f
     integer(int32) :: i,j,dim_num
-	real(real64) :: x1(3),x2(3),x3(3)
+	real(real64) :: x1(3),x2(3),x3(3),x,y,z
     
     if(present(name) )then
         fieldname=trim(adjustl(name))
     else
         fieldname="Mesh"
+    endif
+
+    if(size(obj%ElemNod,2)==2 )then
+
+        call f%open(trim(fieldname)//".msh" )
+        call f%write("$MeshFormat") 
+        call f%write("2.2 0 8")
+        call f%write("$EndMeshFormat\n")
+        call f%write('$Nodes')
+        write(f%fh,*) size(obj%NodCoord,1)
+        do i=1,size(obj%NodCoord,1)
+            write(f%fh,*) i,obj%NodCoord(i,:)
+        enddo
+        call f%write('$EndNodes')
+        call f%write('$Elements')
+        write(f%fh,*) size(obj%ElemNod,1)
+        do i=1,size(obj%ElemNod,1)
+            write(f%fh,*) i,"3 2 2 1",obj%ElemNod(i,:),obj%ElemNod(i,:)
+        enddo
+        call f%write('$EndElements')
+        call f%close()
+        
+        return
     endif
 
     call system("mkdir -p "//trim(path)//"/Mesh")

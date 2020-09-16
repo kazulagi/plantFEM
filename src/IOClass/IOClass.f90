@@ -35,7 +35,50 @@ subroutine openIO(obj,path,name,extention,fh)
     class(IO_),intent(inout) :: obj
     character(*),optional,intent(in)::path,name,extention
     integer(int32),optional,intent(in) :: fh
+    logical :: yml=.False.
     
+
+!    if(present(extention) )then
+!        if( trim(extention) == "yml" )then
+!            yml=.True.
+!        endif
+!    endif
+!    if(present(extention) )then
+!        if( trim(extention) == ".yml" )then
+!            yml=.True.
+!        endif
+!    endif
+!    if(present(extention) )then
+!        if( trim(extention) == ".YML" )then
+!            yml=.True.
+!        endif
+!    endif
+!    if(present(extention) )then
+!        if( trim(extention) == ".yaml" )then
+!            yml=.True.
+!        endif
+!    endif
+!    if(present(extention) )then
+!        if( trim(extention) == ".YAML" )then
+!            yml=.True.
+!        endif
+!    endif
+!    if(present(extention) )then
+!        if( trim(extention) == "yaml" )then
+!            yml=.True.
+!        endif
+!    endif
+!    if( index(path,"yml") /= 0 )then
+!        yml=.True.
+!    endif
+!    if( index(path,"yaml") /= 0 )then
+!        yml=.True.
+!    endif
+!
+!    if(yml .eqv. .true.)then
+!        
+!        return
+!    endif
 
     if(obj%active .eqv. .true.)then
         
