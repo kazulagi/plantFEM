@@ -27,7 +27,7 @@ contains
 
 
 ! ########################################
-subroutine initNode(obj,PlantName,Stage,&
+subroutine initNode(obj,regacy,PlantName,Stage,&
     LeafThickness,Leaflength,Leafwidth,LeafShapeFactor,&
     MaxLeafThickness,MaxLeaflength,MaxLeafwidth,PetiThickness,Petilength,Petiwidth,PetiShapeFactor,&
     MaxPetiThickness,MaxPetilength,MaxPetiwidth,StemThickness,Stemlength,Stemwidth,StemShapeFactor,&
@@ -35,6 +35,7 @@ subroutine initNode(obj,PlantName,Stage,&
     class(PlantNode_),intent(inout),target::obj
     character(*),intent(in) :: PlantName
     character(2),intent(in) :: Stage
+    logical,optional,intent(in) :: regacy
     
     real(real64),optional,intent(in) :: LeafThickness,Leaflength,Leafwidth,LeafShapeFactor
     real(real64),optional,intent(in) :: MaxLeafThickness,MaxLeaflength,MaxLeafwidth
@@ -43,51 +44,68 @@ subroutine initNode(obj,PlantName,Stage,&
     real(real64),optional,intent(in) :: StemThickness,Stemlength,Stemwidth,StemShapeFactor
     real(real64),optional,intent(in) :: MaxStemThickness,MaxStemlength,MaxStemwidth,location(3)
     real(real64) :: loc(3)
-    loc(:)=0.0d0
-    if(present(location) )then
-        loc(:)=location(:)
-    endif
 
-    if(trim(PlantName) == "soybean" .or. trim(PlantName) == "Soybean")then
-        if(Stage == "VE")then
-            allocate(obj%Leaf(2) )
-            allocate(obj%Peti(2) )
-            allocate(obj%Flower(0) )
-            allocate(obj%Pod(0) )
-            allocate(obj%Stem(1) )
-            allocate(obj%Root(0) )
-            
 
-            ! initialize leaf
-            call obj%Leaf(1)%init(ShapeFactor=LeafShapeFactor,Thickness=LeafThickness,length=Leaflength,&
-            width=Leafwidth,MaxThickness=MaxLeafThickness,Maxlength=MaxLeaflength,MaxWidth=MaxLeafWidth,&
-            location=location)
-            call obj%Leaf(2)%init(ShapeFactor=LeafShapeFactor,Thickness=LeafThickness,length=Leaflength,&
-            width=Leafwidth,MaxThickness=MaxLeafThickness,Maxlength=MaxLeaflength,MaxWidth=MaxLeafWidth,&
-            location=location)
-            ! initialize peti
-            call obj%Peti(1)%init(Thickness=PetiThickness,length=Petilength,&
-            width=Petiwidth,MaxThickness=MaxPetiThickness,Maxlength=MaxPetilength,MaxWidth=MaxPetiWidth,&
-            location=location)
-            call obj%Peti(2)%init(Thickness=PetiThickness,length=Petilength,&
-            width=Petiwidth,MaxThickness=MaxPetiThickness,Maxlength=MaxPetilength,MaxWidth=MaxPetiWidth,&
-            location=location)
-            ! initialize stem
-            call obj%Stem(1)%init(Thickness=StemThickness,length=Stemlength,&
-            width=Stemwidth,MaxThickness=MaxStemThickness,Maxlength=MaxStemlength,MaxWidth=MaxStemWidth,&
-            location=location)
-            
-            ! joint leaves
-            obj%Leaf(1)%pPeti => obj%Peti(1)
-            obj%Leaf(2)%pPeti => obj%Peti(2)
-            
-            ! joint peti
-            obj%Peti(1)%pStem => obj%Stem(1)
-            obj%Peti(2)%pStem => obj%Stem(1)
 
-            return
-        else
-            return
+    if(present(regacy) )then
+        if(regacy .eqv. .true.)then
+            loc(:)=0.0d0
+            if(present(location) )then
+                loc(:)=location(:)
+            endif
+        
+            if(trim(PlantName) == "soybean" .or. trim(PlantName) == "Soybean")then
+                if(Stage == "VE")then
+                    allocate(obj%Leaf(2) )
+                    allocate(obj%Peti(2) )
+                    allocate(obj%Flower(0) )
+                    allocate(obj%Pod(0) )
+                    allocate(obj%Stem(1) )
+                    allocate(obj%Root(0) )
+
+                
+                    ! initialize leaf
+                    call obj%Leaf(1)%init(ShapeFactor=LeafShapeFactor,&
+                    Thickness=LeafThickness,length=Leaflength,&
+                    width=Leafwidth,MaxThickness=MaxLeafThickness,&
+                    Maxlength=MaxLeaflength,MaxWidth=MaxLeafWidth,&
+                    location=location)
+                    call obj%Leaf(2)%init(ShapeFactor=LeafShapeFactor,&
+                    Thickness=LeafThickness,length=Leaflength,&
+                    width=Leafwidth,MaxThickness=MaxLeafThickness,&
+                    Maxlength=MaxLeaflength,MaxWidth=MaxLeafWidth,&
+                    location=location)
+                    ! initialize peti
+                    call obj%Peti(1)%init(Thickness=PetiThickness,&
+                    length=Petilength,&
+                    width=Petiwidth,MaxThickness=MaxPetiThickness,&
+                    Maxlength=MaxPetilength,MaxWidth=MaxPetiWidth,&
+                    location=location)
+                    call obj%Peti(2)%init(Thickness=PetiThickness,&
+                    length=Petilength,&
+                    width=Petiwidth,MaxThickness=MaxPetiThickness,&
+                    Maxlength=MaxPetilength,MaxWidth=MaxPetiWidth,&
+                    location=location)
+                    ! initialize stem
+                    call obj%Stem(1)%init(Thickness=StemThickness,&
+                    length=Stemlength,&
+                    width=Stemwidth,MaxThickness=MaxStemThickness,&
+                    Maxlength=MaxStemlength,MaxWidth=MaxStemWidth,&
+                    location=location)
+
+                    ! joint leaves
+                    obj%Leaf(1)%pPeti => obj%Peti(1)
+                    obj%Leaf(2)%pPeti => obj%Peti(2)
+
+                    ! joint peti
+                    obj%Peti(1)%pStem => obj%Stem(1)
+                    obj%Peti(2)%pStem => obj%Stem(1)
+                
+                    return
+                else
+                    return
+                endif
+            endif
         endif
     endif
 end subroutine

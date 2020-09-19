@@ -1,26 +1,9 @@
 program main
     use plantFEM
     implicit none
+    integer(int32) :: i
 
-    type(Webserver_) :: ws
-    character(200)   :: message
-    
-    ! http サーバーの立ち上げ
-    call ws%init()
-    
-    do 
-        print *, "Please input message!"
-        read(*,*) message
-        ! bodyの記述
-        ws%body = "<h1>"//trim(message)//"</h1>"
-
-        ! 更新
-        call ws%update()
-
-        if( trim(adjustl(message))=="exit" )then
-            exit
-        endif
-    enddo
+    print *, (i,i=1,12,2)
     
     
 end program main

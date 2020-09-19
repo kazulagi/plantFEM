@@ -26,8 +26,44 @@ module MathClass
 		module procedure removeWord_String 
 	end interface 
 
+	interface radian
+		module procedure radianreal32,radianreal64, radianint
+	end interface
+
 
 contains
+
+! ###############################################
+function radianreal32(deg) result(ret)
+	real(real32),intent(in) :: deg
+	real(real64) :: ret
+	ret = deg/180.0d0*3.1415926535d0
+end function
+! ###############################################
+
+! ###############################################
+function radianreal64(deg) result(ret)
+	real(real64),intent(in) :: deg
+	real(real64) :: ret
+	ret = deg/180.0d0*3.1415926535d0
+end function
+! ###############################################
+
+! ###############################################
+function radianint(deg) result(ret)
+	integer(int32),intent(in) :: deg
+	real(real64) :: ret
+	ret = dble(deg)/180.0d0*3.1415926535d0
+end function
+! ###############################################
+
+! ###############################################
+function degrees(rad) result(ret)
+	real(real64),intent(in) :: rad
+	real(real64) :: ret
+	ret = rad/3.1415926535d0*180.0d0
+end function
+! ###############################################
 
 
 !########################################

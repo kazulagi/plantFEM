@@ -5,6 +5,7 @@ module PlantRootClass
     use StemClass
     implicit none
 
+    ! This module is regacy.
 
     type :: PlantRoot_
         type(FEMDomain_)    ::  FEMDomain
@@ -17,14 +18,14 @@ module PlantRootClass
         type(Stem_),pointer ::  pStem
         type(PlantRoot_),pointer ::  pRoot
     contains
-        procedure, public :: Init => initRoot
-        procedure, public :: create => createRoot
-        procedure, public :: export => exportRoot
+        procedure, public :: Init => initPlantRoot
+        procedure, public :: create => createPlantRoot
+        procedure, public :: export => exportPlantRoot
     end type
 contains
 
 ! ########################################
-subroutine initRoot(obj,PlantName,Stage,&
+subroutine initPlantRoot(obj,PlantName,Stage,&
     Thickness,length,width,&
     MaxThickness,Maxlength,Maxwidth,location)
     class(PlantRoot_),intent(inout)::obj
@@ -70,12 +71,12 @@ subroutine initRoot(obj,PlantName,Stage,&
 end subroutine
 ! ########################################
 
-subroutine createRoot(obj,option)
+subroutine createPlantRoot(obj,option)
     class(PlantRoot_),intent(inout) :: obj
     character(*),optional,intent(in) :: option
 
     if(.not. present(option) )then
-        print *, "createRoot >> ERROR >> no option is selected."
+        print *, "createPlantRoot >> ERROR >> no option is selected."
         stop 
     else
         if(option=="Root2D")then
@@ -88,7 +89,7 @@ subroutine createRoot(obj,option)
 end subroutine
 
 ! ########################################
-subroutine exportRoot(obj,FileName,RootID)
+subroutine exportPlantRoot(obj,FileName,RootID)
     class(PlantRoot_),intent(in)::obj
     character(*),intent(in) :: FileName
     integer(int32),optional,intent(inout) :: RootID

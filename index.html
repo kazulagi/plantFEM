@@ -7,6 +7,17 @@ untitled
 </title>
 </head>
 <body>
-<h1>hello</h1>
+<h1>exit</h1>
 </body>
+
+<script>
+$(document).ready(function () {
+    $.getJSON("soyconfig.json", function(data){
+        for(var i in data){
+            $("#contents_list2").append("<li>" + data[i].animal + "（" + data[i].type + "）</li>");
+        }
+    });
+});
+</script>
 </html>
+

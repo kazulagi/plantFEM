@@ -279,6 +279,11 @@ echo "Compiling ./src/PlantRootClass/PlantRootClass.f90"
 echo " >> PlantRootClass.o "
 echo " | ########################    | (90%)\r\c"
 mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlantRootClass/PlantRootClass.f90 -o  ./inc/PlantRootClass.o
+echo "Compiling ./src/RootClass/RootClass.f90" 
+echo " >> RootClass.o "
+echo " | ########################    | (90%)\r\c"
+mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RootClass/RootClass.f90 -o  ./inc/RootClass.o
+
 echo "Compiling ./src/PetiClass/PetiClass.f90" 
 echo " >> PetiClass.o "
 echo " | ########################    | (90%)\r\c"
