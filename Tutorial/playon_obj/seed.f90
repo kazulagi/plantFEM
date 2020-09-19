@@ -1,58 +1,20 @@
 program main
-    use obj
+    use plantFEM
     implicit none
 
-    type(Seed_) :: soy
-    type(IO_) :: f
+    type(Soybean_) :: soy(5)
+    type(MPI_)     :: mpid
+    integer(int32) :: i,j
 
-    ! create seed
-    call soy%create(MeshType="Sphere3D",x_num=12,y_num=11,z_num=10,x_len=90.0d0, y_len=80.0d0,z_len=70.0d0)
-    
+    call mpid%start()
+    i = mpid%myrank + 1
+    do j=1,5
+        call soy(j)%init("soyconfig")
+        ! 条間75cm, 株間15cm
+        call soy(j)%move(x=dble(i-1)*0.750d0,y=dble(j-1)*0.150d0 )
+        ! 描画
+        call soy(j)%gmsh("soy"//trim(str(i))//"_"//trim(str(j)))
+    enddo
+    call mpid%end()
 
-    ! create environment
-    call soy%env(disp_x=0.0d0,x_max=1.0d0,x_min=-5.0d0,y_max=100.0d0,y_min=-100.0d0,&
-        z_max=100.0d0,z_min=-100.0d0)
-    call soy%env(disp_y=0.0d0,x_max=1.0d0,x_min=-5.0d0,y_max=100.0d0,y_min=-100.0d0,&
-        z_max=100.0d0,z_min=-100.0d0)
-    call soy%env(disp_z=0.0d0,x_max=1.0d0,x_min=-5.0d0,y_max=100.0d0,y_min=-100.0d0,&
-        z_max=100.0d0,z_min=-100.0d0)
-    call soy%env(WaterContent=1.0d0,x_max=5.0d0,x_min=-1.0d0,y_max=100.0d0,y_min=-100.0d0,&
-        z_max=100.0d0,z_min=-100.0d0)
-    
-!    ! start growth
-!    
-!    call soy%grow(timestep=1,dt=100.0d0,Display=.true.,nr_tol=0.010d0,restart=.false.)
-!
-!    call soy%save("../","seed000")
-!
-!    call f%open("../","seed000/output/seed_length.txt")
-!    write(f%fh, *) soy%length()
-!    call f%close()
-    
-
-!    ! ####################
-!    call soy%grow(timestep=10,dt=100.0d0,Display=.true.,nr_tol=0.010d0,restart=.true.)
-!
-!    call soy%save("../","seed001")
-!    
-!    call f%open("../","seed001/output/seed_length.txt")
-!    write(f%fh, *) soy%length()
-!    call f%close()
-!    
-
-    ! ####################
-    call soy%grow(timestep=2,dt=100.0d0,Display=.true.,nr_tol=0.010d0,restart=.false.)
-
-    call soy%save("../","seed002")
-    !call soy%load("../","seed002")
-    call showArraysize(soy%seedDomain%DiffusionEq%UnknownValue)
-    
-    
-    !call soy%grow(timestep=2,dt=100.0d0,Display=.true.,nr_tol=0.010d0,restart=.true.)
-    !call f%open("../","seed002/output/seed_length.txt")
-    !write(f%fh, *) soy%length()
-    !call f%close()
-    !call soy%open("../","seed")
-    
-    
 end program main

@@ -266,7 +266,7 @@ do
         elif [ "$temp" = "6" ]; then
             cp Tutorial/playon_sim/ex0001_diffusion1D.f90 "$pan$pn/main.f90"
         elif [ "$temp" = "7" ]; then
-            cp Tutorial/playon_obj/seed.f90 "$pan$pn/main.f90"
+            cp Tutorial/playon_obj/ex0001_soybean.f90 "$pan$pn/main.f90"
         else
             cp Tutorial/app/untitled.f90 "$pan$pn/main.f90"
             echo "Caution: a plain script is created. "
