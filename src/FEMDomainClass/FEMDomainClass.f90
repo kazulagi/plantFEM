@@ -5747,14 +5747,15 @@ end subroutine
 
 ! ##################################################
 subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
-	top,margin,inclineRate)
+	top,margin,inclineRate,shaperatio)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: meshtype
 	character(*),optional,intent(in) ::Name
     integer(int32),optional,intent(in) :: x_num,y_num,z_num ! number of division
     integer(int32),optional,intent(in) :: division ! for 3D rectangular
     real(real64),optional,intent(in) :: x_len,y_len,z_len,Le,Lh,Dr ! length
-    real(real64),optional,intent(in) :: thickness ! for 3D rectangular
+	real(real64),optional,intent(in) :: thickness ! for 3D rectangular
+	real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
     real(real64),optional,intent(in) :: top,margin,inclineRate ! for 3D Ridge and dam
 
 	if(present(Name) )then
@@ -5766,10 +5767,10 @@ subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,z_num,x_len,y_len,z_len
 	endif
 	if(present(z_num) .or. present(z_len) )then
 		call obj%Mesh%create(meshtype,x_num,y_num,x_len,y_len,Le,&
-			Lh,Dr,z_len,z_num,top=top,margin=margin)
+			Lh,Dr,z_len,z_num,top=top,margin=margin,shaperatio=shaperatio)
 	else
 		call obj%Mesh%create(meshtype,x_num,y_num,x_len,y_len,Le,&
-			Lh,Dr,thickness,division,top=top,margin=margin)
+			Lh,Dr,thickness,division,top=top,margin=margin,shaperatio=shaperatio)
 	endif
 end subroutine createFEMDomain
 ! ##################################################

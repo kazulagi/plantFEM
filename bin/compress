@@ -7,6 +7,7 @@ rm *.so
 rm *.mod
 rm *.txt
 rm *.scf
+rm *.json
 rm *.scf~
 rm fort.*
 rm *.ipynb

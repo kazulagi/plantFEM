@@ -1,10 +1,10 @@
-module StemClass
+module RootClass
     use, intrinsic :: iso_fortran_env
     use KinematicClass
     use FEMDomainClass
     implicit none
     
-    type :: Stem_
+    type :: Root_
         type(FEMDomain_)    ::  FEMDomain
         real(real64)             ::  Thickness,length,width
         real(real64)             ::  MaxThickness,Maxlength,Maxwidth
@@ -34,59 +34,62 @@ module StemClass
 
 
         integer(int32)             ::  Division
-        type(Stem_),pointer ::  pStem
+        type(Root_),pointer ::  pRoot
     contains
-        procedure, public :: Init => initStem
-        procedure, public :: rotate => rotateStem
-        procedure, public :: move => moveStem
-        procedure, public :: connect => connectStem
-        procedure, public :: getCoordinate => getCoordinateStem
-        procedure, public :: gmsh => gmshStem
-        procedure, public :: export => exportStem
+        procedure, public :: Init => initRoot
+        procedure, public :: rotate => rotateRoot
+        procedure, public :: move => moveRoot
+        procedure, public :: connect => connectRoot
+        procedure, public :: rescale => rescaleRoot
+        procedure, public :: resize => resizeRoot
+        procedure, public :: fix => fixRoot
+        procedure, public :: getCoordinate => getCoordinateRoot
+        procedure, public :: gmsh => gmshRoot
+        procedure, public :: export => exportRoot
     end type
 contains
 
 
 
 ! ########################################
-subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlength,Maxwidth,rotx,roty,rotz,location)
-    class(Stem_),intent(inout) :: obj
+subroutine initRoot(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlength,Maxwidth,rotx,roty,rotz,location)
+    class(Root_),intent(inout) :: obj
     real(real64),optional,intent(in)::  Thickness,length,width
     real(real64),optional,intent(in)::  MaxThickness,Maxlength,MaxWidth
     real(real64),optional,intent(in)::  rotx,roty,rotz,location(3)
     logical, optional,intent(in) :: regacy
     character(*),optional,intent(in) :: config
-    type(IO_) :: stemconf,f
+    type(IO_) :: Rootconf,f
     character(200) :: fn,conf,line
     integer(int32),allocatable :: buf(:)
     integer(int32) :: id,rmc,n,node_id,node_id2,elemid,blcount,i,j
     real(real64) :: loc(3)
 
     ! 節を生成するためのスクリプトを開く
-    if(.not.present(config)  .or. index(config,"json")==0 )then
+    if(.not.present(config) .or. index(config,".json")==0 )then
         ! デフォルトの設定を生成
-        print *, "New stem-configuration >> stemconfig.json"
-        call stemconf%open("stemconfig.json")
-        write(stemconf%fh,*) '{'
-        write(stemconf%fh,*) '   "type": "stem",'
-        write(stemconf%fh,*) '   "minlength": 0.001,'
-        write(stemconf%fh,*) '   "mindiameter": 0.001,'
-        write(stemconf%fh,*) '   "maxlength": 0.07,'
-        write(stemconf%fh,*) '   "maxdiameter": 0.01,'
-        write(stemconf%fh,*) '   "xnum": 10,'
-        write(stemconf%fh,*) '   "ynum": 10,'
-        write(stemconf%fh,*) '   "znum": 10'
-        write(stemconf%fh,*) '}'
-        conf="stemconfig.json"
-        call stemconf%close()
+        print *, "New Root-configuration >> Rootconfig.json"
+        call Rootconf%open("rootconfig.json")
+        write(Rootconf%fh,*) '{'
+        write(Rootconf%fh,*) '   "type": "root",'
+        write(Rootconf%fh,*) '   "minlength": 0.002,'
+        write(Rootconf%fh,*) '   "mindiameter": 0.001,'
+        write(Rootconf%fh,*) '   "maxlength": 0.07,'
+        write(Rootconf%fh,*) '   "maxdiameter": 0.01,'
+        write(Rootconf%fh,*) '   "xnum": 10,'
+        write(Rootconf%fh,*) '   "ynum": 10,'
+        write(Rootconf%fh,*) '   "znum": 10'
+        write(Rootconf%fh,*) '}'
+        conf="rootconfig.json"
+        call Rootconf%close()
     else
         conf = trim(config)
     endif
     
-    call stemconf%open(trim(conf))
+    call Rootconf%open(trim(conf))
     blcount=0
     do
-        read(stemconf%fh,'(a)') line
+        read(Rootconf%fh,'(a)') line
         print *, trim(line)
         if( adjustl(trim(line))=="{" )then
             blcount=1
@@ -98,8 +101,8 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
         
         if(blcount==1)then
             
-            if(index(line,"type")/=0 .and. index(line,"stem")==0 )then
-                print *, "ERROR: This config-file is not for stem"
+            if(index(line,"type")/=0 .and. index(line,"root")==0 )then
+                print *, "ERROR: This config-file is not for Root"
                 return
             endif
 
@@ -192,7 +195,7 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
         endif
 
     enddo
-    call stemconf%close()
+    call Rootconf%close()
 
     ! グラフ構造とメッシュ構造を生成する。
 
@@ -219,6 +222,7 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     ! メッシュを生成
     call obj%FEMdomain%create(meshtype="rectangular3D",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
     x_len=obj%mindiameter/2.0d0,y_len=obj%mindiameter/2.0d0,z_len=obj%minlength )
+    
 
     ! <I>面に属する要素番号、節点番号、要素座標、節点座標のリストを生成
     obj%I_planeNodeID = obj%FEMdomain%mesh%getNodeList(zmax=0.0d0)
@@ -259,10 +263,7 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
         zmin=obj%minlength)
     obj%B_PointElementID = buf(1)
 
-    print *, obj%A_PointNodeID
-    print *, obj%B_PointNodeID
-    print *, obj%A_PointElementID
-    print *, obj%B_PointElementID
+    call obj%FEMdomain%rotate(x=radian(180.0d0) )
 ! デバッグ用
 !    call f%open("I_phaseNodeID.txt")
 !    do i=1,size(obj%I_planeNodeID)
@@ -296,23 +297,6 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
 !    return
 
     ! Aについて、要素番号、節点番号、要素座標、節点座標のリストを生成
-
-
-
-
-    !
-    !           %%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-    !         %%                        %   %
-    !        %%                    %      %%  
-    !      %%                 %          %%    
-    !     %%            %              %%      
-    !     %%      %                  %%        
-    !     %%                       %%          
-    !       %%                  %%            
-    !         %%%%%%%%%%%%%%%%%                               
-
-
-
 
 
 
@@ -358,10 +342,10 @@ end subroutine
 
 
 ! ########################################
-subroutine exportStem(obj,FileName,StemID)
-    class(Stem_),intent(in)::obj
+subroutine exportRoot(obj,FileName,RootID)
+    class(Root_),intent(in)::obj
     character(*),intent(in) :: FileName
-    integer(int32),optional,intent(inout) :: StemID
+    integer(int32),optional,intent(inout) :: RootID
     real(real64) :: radius
 
     
@@ -370,21 +354,21 @@ subroutine exportStem(obj,FileName,StemID)
     open(13,file=FileName)
     write(13,'(A)') "//+"
     write(13,'(A)') 'SetFactory("OpenCASCADE");'
-    write(13,*) "Cylinder(",input(default=1,option=StemID),") = {",&
+    write(13,*) "Cylinder(",input(default=1,option=RootID),") = {",&
     obj%center_bottom(1),",", obj%center_bottom(2),",", obj%center_bottom(3),",",&
     obj%center_top(1)-obj%center_bottom(1),",", obj%center_top(2)-obj%center_bottom(2),",",&
      obj%center_top(3)-obj%center_bottom(3),",",&
     radius,", 2*Pi};"
     close(13)
-    StemID=StemID+1
+    RootID=RootID+1
 
 end subroutine
 ! ########################################
 
 
 ! ########################################
-recursive subroutine rotateStem(obj,x,y,z,reset)
-    class(Stem_),intent(inout) :: obj
+recursive subroutine rotateRoot(obj,x,y,z,reset)
+    class(Root_),intent(inout) :: obj
     real(real64),optional,intent(in) :: x,y,z
     logical,optional,intent(in) :: reset
     real(real64),allocatable :: origin1(:),origin2(:),disp(:)
@@ -394,7 +378,7 @@ recursive subroutine rotateStem(obj,x,y,z,reset)
             call obj%femdomain%rotate(-obj%rot_x,-obj%rot_y,-obj%rot_z)
             obj%rot_x = 0.0d0
             obj%rot_y = 0.0d0
-            obj%rot_z = 0.0d0
+            obj%rot_z = radian(180.0d0)
         endif
     endif
 
@@ -414,8 +398,8 @@ end subroutine
 
 
 ! ########################################
-recursive subroutine moveStem(obj,x,y,z,reset)
-    class(Stem_),intent(inout) :: obj
+recursive subroutine moveRoot(obj,x,y,z,reset)
+    class(Root_),intent(inout) :: obj
     real(real64),optional,intent(in) :: x,y,z
     logical,optional,intent(in) :: reset
     real(real64),allocatable :: origin1(:),origin2(:),disp(:)
@@ -437,33 +421,33 @@ recursive subroutine moveStem(obj,x,y,z,reset)
 end subroutine
 ! ########################################
 
-subroutine connectStem(obj,direct,stem)
-    class(Stem_),intent(inout) :: obj,stem
+subroutine connectRoot(obj,direct,Root)
+    class(Root_),intent(inout) :: obj,Root
     character(2),intent(in) :: direct
     real(real64),allocatable :: x1(:),x2(:),disp(:)
 
     if(direct=="->" .or. direct=="=>")then
-        ! move obj to connect stem (stem is not moved.)
+        ! move obj to connect Root (Root is not moved.)
         x1 =  obj%getCoordinate("A")
-        x2 = stem%getCoordinate("B")
+        x2 = Root%getCoordinate("B")
         disp = x2 - x1
         call obj%move(x=disp(1),y=disp(2),z=disp(3) )
     endif
 
 
     if(direct=="<-" .or. direct=="<=")then
-        ! move obj to connect stem (stem is not moved.)
-        x1 = stem%getCoordinate("A")
+        ! move obj to connect Root (Root is not moved.)
+        x1 = Root%getCoordinate("A")
         x2 =  obj%getCoordinate("B")
         disp = x2 - x1
-        call stem%move(x=disp(1),y=disp(2),z=disp(3) )
+        call Root%move(x=disp(1),y=disp(2),z=disp(3) )
     endif
 end subroutine
 
 
 ! ########################################
-function getCoordinateStem(obj,nodetype) result(ret)
-    class(Stem_),intent(inout) :: obj
+function getCoordinateRoot(obj,nodetype) result(ret)
+    class(Root_),intent(inout) :: obj
     character(*),intent(in) :: nodetype
     real(real64),allocatable :: ret(:)
     integer(int32) :: dimnum
@@ -480,8 +464,8 @@ function getCoordinateStem(obj,nodetype) result(ret)
 end function
 ! ########################################
 
-subroutine gmshStem(obj,name)
-    class(Stem_),intent(inout) :: obj
+subroutine gmshRoot(obj,name)
+    class(Root_),intent(inout) :: obj
     character(*),intent(in) ::name
 
     call obj%femdomain%gmsh(Name=name)
@@ -489,8 +473,8 @@ end subroutine
 
 
 ! ########################################
-subroutine resizeStem(obj,x,y,z)
-    class(Stem_),optional,intent(inout) :: obj
+subroutine resizeRoot(obj,x,y,z)
+    class(Root_),optional,intent(inout) :: obj
     real(real64),optional,intent(in) :: x,y,z
     real(real64),allocatable :: origin1(:), origin2(:),disp(:)
 
@@ -502,9 +486,10 @@ subroutine resizeStem(obj,x,y,z)
 end subroutine
 ! ########################################
 
+
 ! ########################################
-subroutine rescaleStem(obj,x,y,z)
-    class(Stem_),optional,intent(inout) :: obj
+subroutine rescaleRoot(obj,x,y,z)
+    class(Root_),optional,intent(inout) :: obj
     real(real64),optional,intent(in) :: x,y,z
     real(real64),allocatable :: origin1(:), origin2(:),disp(:)
 
@@ -515,6 +500,22 @@ subroutine rescaleStem(obj,x,y,z)
     call obj%move(x=disp(1),y=disp(2),z=disp(3) )
 end subroutine
 ! ########################################
+
+
+
+! ########################################
+subroutine fixRoot(obj,x,y,z)
+    class(Root_),optional,intent(inout) :: obj
+    real(real64),optional,intent(in) :: x,y,z
+    real(real64),allocatable :: origin1(:), origin2(:),disp(:)
+
+    origin1 = obj%getCoordinate("A")
+    call obj%move(x=-origin1(1),y=-origin1(2),z=-origin1(3) )
+    call obj%move(x=x,y=y,z=z )
+end subroutine
+! ########################################
+
+
 
 
 end module

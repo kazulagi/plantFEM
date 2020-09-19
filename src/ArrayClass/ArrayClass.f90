@@ -200,6 +200,10 @@ module ArrayClass
     interface addlist
         module procedure :: addListIntVec
     end interface
+
+    interface Angles
+        module procedure :: anglesReal3D
+    end interface
     
 
 
@@ -3460,6 +3464,52 @@ function getext(char) result(ext)
 
 end function
 
+! ############################################################
+function anglesReal3D(vector1, vector2) result(angles)
+    real(real64), intent(in) :: vector1(3), vector2(3)
+    real(real64) :: angles(3),unit1(3),unit2(3),e3(3)
+   
+    e3(:)=0.0d0
+    e3(3)=1.0d0
+    unit1(:)=0.0d0
+    unit2(:)=0.0d0
+    angles(:)=0.0d0
+    ! xy-平面で眺める
+    unit1(1:2) = vector1(1:2)
+    unit2(1:2) = vector2(1:2)
+    angles(3)=asin( norm(cross_product(unit1,unit2))/norm(unit1)/norm(unit2) )
+    e3(:)=cross_product(unit1,unit2)
+    if(e3(3)==0.0d0)then
+        angles(3)=0.0d0
+    else
+        angles(3)=angles(3)*e3(3)
+    endif
 
+    
+    ! yz-平面で眺める
+    unit1(1:2) = vector1(2:3)
+    unit2(1:2) = vector2(2:3)
+    angles(1)=asin( norm(cross_product(unit1,unit2))/norm(unit1)/norm(unit2) )
+    e3(:)=cross_product(unit1,unit2)
+    if(e3(3)==0.0d0)then
+        angles(1)=0.0d0
+    else
+        angles(1)=angles(1)*e3(3)
+    endif
+    ! xz-平面で眺める
+    unit1(1) = vector1(1)
+    unit2(1) = vector2(1)
+    unit1(2) = vector1(3)
+    unit2(2) = vector2(3)
+    angles(2)=asin( norm(cross_product(unit1,unit2))/norm(unit1)/norm(unit2) )
+    e3(:)=cross_product(unit1,unit2)
+    angles(2)=angles(2)*signmm(e3(3))
+    if(e3(3)==0.0d0)then
+        angles(2)=0.0d0
+    else
+        angles(2)=angles(2)*e3(3)
+    endif
+end function
+! ############################################################
 
 end module ArrayClass

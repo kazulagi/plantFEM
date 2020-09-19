@@ -1,4 +1,3 @@
-! updated 2019/1/19
 module MeshClass
     use std
     implicit none
@@ -7,6 +6,10 @@ module MeshClass
     type:: Mesh_
         real(real64),allocatable  ::NodCoord(:,:)
         real(real64),allocatable  ::NodCoordInit(:,:)
+
+        integer(int32),allocatable::BottomElemID
+        integer(int32),allocatable::TopElemID
+
         integer(int32),allocatable::ElemNod(:,:)
         integer(int32),allocatable::FacetElemNod(:,:)
         integer(int32),allocatable::NextFacets(:,:)
@@ -65,6 +68,7 @@ module MeshClass
         procedure :: getCircumscribedCircle => getCircumscribedCircleMesh
         procedure :: getCircumscribedTriangle => getCircumscribedTriangleMesh
         procedure :: getNodeList => getNodeListMesh
+        procedure :: getElementList => getElementListMesh
         procedure :: getGetVolume => getGetVolumeMesh
         procedure :: gmsh => gmshMesh
         
@@ -79,6 +83,17 @@ module MeshClass
         procedure :: mergeMesh => MergeMesh
         procedure :: meltingSkelton => MeltingSkeltonMesh 
         procedure :: meshing    => MeshingMesh
+
+        procedure :: numElements => numElementsMesh
+        procedure :: ne => numElementsMesh
+        procedure :: numNodes => numNodesMesh
+        procedure :: nn => numNodesMesh
+        procedure :: numNodesForEachElement => numNodesForEachElementMesh
+        procedure :: nne => numNodesForEachElementMesh
+        procedure :: numDimension => numDimensionMesh
+        procedure :: nd => numDimensionMesh
+        
+
 
         procedure :: HowManyDomain => HowManyDomainMesh
 
@@ -309,8 +324,110 @@ subroutine openMesh(obj,path,name)
 end subroutine
 
 
-subroutine removeMesh(obj)
+subroutine removeMesh(obj,element,x_min,x_max,y_min,y_max,z_min,z_max)
     class(Mesh_),intent(inout)::obj
+    logical,optional,intent(in) :: element
+    integer(int32),allocatable :: rm_node_list(:)
+    integer(int32),allocatable :: newid_vs_oldid(:,:)
+    integer(int32),allocatable :: rm_elem_list(:),ElemMat(:)
+    integer(int32) :: i,j,k,n,totcount,oldid
+    real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
+    real(real64) :: xmin(3),xmax(3),x(3)
+    logical :: tf
+
+    if(present(element) )then
+        if(element .eqv. .true.)then
+            ! remove only element
+            if(obj%empty() .eqv. .true. )then
+                print *, "ERROR obj%empty() .eqv. .true."
+                stop
+            endif
+            
+            ! initialization
+            n = size(obj%NodCoord,1)
+            allocate(rm_node_list(n) )
+            rm_node_list(:)=0
+
+            allocate(newid_vs_oldid(n,2) )
+            newid_vs_oldid(:,:)=-1
+            
+            n = size(obj%ElemNod,1)
+            allocate(rm_elem_list(n) )
+            rm_elem_list(:)=0
+            
+
+            ! list-up all nodes which is to be removed.
+            xmin(1)=input(default=-dble(1.0e+18),option=x_min)
+            xmin(2)=input(default=-dble(1.0e+18),option=y_min)
+            xmin(3)=input(default=-dble(1.0e+18),option=z_min)
+
+            xmax(1)=input(default= dble(1.0e+18),option=x_max)
+            xmax(2)=input(default= dble(1.0e+18),option=y_max)
+            xmax(3)=input(default= dble(1.0e+18),option=z_max)
+
+
+            totcount=0
+            do i=1, size(rm_node_list)
+                x(:)=0
+                do j=1,size(obj%NodCoord,2)
+                    x(j)=obj%NodCoord(i,j)
+                enddo
+                tf = InOrOut(x=x,xmax=xmax,xmin=xmin,DimNum=3)    
+                if(tf .eqv. .true.)then
+                    rm_node_list(i)=1 ! to be removed
+                    newid_vs_oldid(i,1) = -1 ! new
+                    newid_vs_oldid(i,1) = i ! old id
+                else
+                    rm_node_list(i)=0 ! not to be removed
+                    totcount=totcount+1
+                    newid_vs_oldid(i,1) = totcount ! new
+                    newid_vs_oldid(i,1) = i ! old id
+                endif
+            enddo
+
+            ! new id への更新
+            do i=1,obj%numElements()
+                do j=1,obj%numNodesForEachElement()
+                    oldid = obj%ElemNod(i,j)
+                    obj%ElemNod(i,j) = newid_vs_oldid(oldid,1)
+                enddo
+            enddo
+            ! もしnew id が-1なら、消去
+            do i=obj%numElements(),1,-1
+                if(minval(obj%ElemNod(i,:) )==-1 )then
+                    rm_elem_list(i)=1
+                    ! remove
+                    call removeArray(mat=obj%ElemNod,remove1stColumn=.true.,NextOf=i-1)
+                endif
+            enddo
+            ! もしrm_node_list(i)=1なら消去
+            do i=obj%numNodes(),1, -1
+                if(rm_node_list(i)==1 )then
+                    call removeArray(mat=obj%ElemNod,remove1stColumn=.true.,NextOf=i-1)
+                endif
+            enddo
+
+            if(.not. allocated(obj%ElemMat) )then
+                allocate(obj%ElemMat(totcount) )
+                obj%ElemMat(:) = 1
+            else
+                ElemMat = obj%ElemMat
+                deallocate(obj%ElemMat)
+                allocate(obj%ElemMat(totcount) )
+                n=0
+                do i=1,size(rm_elem_list)
+                    if(rm_elem_list(i)==0 )then
+                        n=n+1
+                        obj%ElemMat(n) = ElemMat(i)
+                    else
+                        cycle
+                    endif
+                enddo
+            endif
+
+            return
+        endif
+    endif
 
     if( allocated(obj%NodCoord         ) ) deallocate(obj%NodCoord         )
     if( allocated(obj%NodCoordInit     ) ) deallocate(obj%NodCoordInit     )
@@ -3701,7 +3818,7 @@ end subroutine AdjustSphereMesh
 !##################################################
 
 recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,&
-    division,smooth,top,margin,inclineRate)
+    division,smooth,top,margin,inclineRate,shaperatio)
     class(Mesh_),intent(inout) :: obj
     type(Mesh_) :: mesh1,mesh2
     character(*),intent(in) :: meshtype
@@ -3711,11 +3828,58 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     real(real64),optional,intent(in) :: x_len,y_len,Le,Lh,Dr ! length
     real(real64),optional,intent(in) :: thickness,inclineRate ! for 3D rectangular
     real(real64),optional,intent(in) :: top,margin ! for 3D rectangular
+    real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
     integer(int32) :: i,j,n,m,xn,yn,smoothedge(8)
-    real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt,unitx,unity,xm, ym,tp,rx,ry
-    real(real64)::ymin,ymax
+    real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt,unitx,unity,xm, ym,tp,rx,ry,zc,zl,zm
+
+    real(real64)::ymin,ymax,ratio,width
     ! this subroutine creates mesh
 
+    if(meshtype=="Leaf3D")then
+        call obj%create(meshtype="rectangular3D",x_num=x_num,&
+        y_num=y_num,x_len=x_len,y_len=y_len,Le=Le,Lh=Lh,Dr=Dr,thickness=thickness,&
+        division=division,smooth=smooth,top=top,margin=margin,inclineRate=inclineRate)
+        obj%NodCoord(:,1) =obj%NodCoord(:,1) - (maxval(obj%NodCoord(:,1))-minval(obj%NodCoord(:,1)))*0.50d0
+        obj%NodCoord(:,2) =obj%NodCoord(:,2)  - (maxval(obj%NodCoord(:,2))-minval(obj%NodCoord(:,2)))*0.50d0
+        
+        ! shape like this
+        !
+        !           %%%%%%%%%%%%%%%%%%%%%%%%%%%%%  B
+        !         %%                        %   %
+        !        %%                    %      %%  
+        !      %%                 %          %%    
+        !     %%            %              %%      
+        !     %%      %                  %%        
+        !     %%                       %%          
+        !   A   %%                  %%            
+        !      <I> %%%%%%%%%%%%%%%%                               
+    
+        do i=1,size(obj%NodCoord,1)
+            zc = obj%NodCoord(i,3)
+            zm = minval(obj%NodCoord(:,3) )
+            width = maxval(obj%NodCoord(:,1) )- minval(obj%NodCoord(:,1) )
+            width = width/2.0d0
+            zl = maxval(obj%NodCoord(:,3) )- minval(obj%NodCoord(:,3) )
+            if(zc <= 1.0d0/20.0d0*zl)then
+                ratio = 1.0d0/10.0d0 
+            elseif(1.0d0/20.0d0*zl < zc .and. zc <= zl*shaperatio )then
+                ratio = 1.0d0/10.0d0 + 0.90d0/(zl*shaperatio - 1.0d0/20.0d0*zl)*(zc - 1.0d0/20.0d0*zl)
+            else
+                ratio = 1.0d0 -0.90d0/(zl - shaperatio*zl)*(zc - shaperatio*zl)
+            endif
+            obj%NodCoord(i,1) = obj%NodCoord(i,1)*ratio
+        enddo
+    endif
+
+    if(meshtype=="HalfSphere3D")then
+        call obj%create(meshtype="Sphere3D",x_num=x_num,y_num=y_num,x_len=x_len,&
+        y_len=y_len,Le=Le,Lh=Lh,Dr=Dr,thickness=thickness,&
+        division=division,smooth=smooth,top=top,margin=margin,inclineRate=inclineRate)
+
+        ! remove half by x-z plane
+        call obj%remove(element=.true.,y_max=-dble(1.0e-8))
+
+    endif
 
     if(meshtype=="Bar1D" .or. meshtype=="bar1D")then
         ! need x_len, x_num
@@ -3741,8 +3905,6 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
 
     endif
 
-
-
     if(meshtype=="rectangular3D" .or. meshtype=="Cube")then
         call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
         call obj%Convert2Dto3D(Thickness=Thickness,division=division)
@@ -3750,7 +3912,11 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             n=size(obj%ElemNod,1)
             allocate(obj%ElemMat(n) )
         endif
-        return
+
+        ! create direction-data
+        obj%BottomElemID = (x_num)*(y_num)/2
+        obj%TopElemID    = (x_num)*(y_num)/2 + (x_num)*(y_num)*(division-1)
+
     endif
 
 
@@ -5801,28 +5967,52 @@ end function
 !#######################################################################################
 
 !#######################################################################################
-function getNodeListMesh(obj,BoundingBox) result(NodeList)
+function getNodeListMesh(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax) result(NodeList)
     class(Mesh_),intent(inout) :: obj
-    type(Mesh_),intent(inout) :: BoundingBox
+    type(Mesh_),optional,intent(inout) :: BoundingBox
+    real(real64),optional,intent(in) :: xmin,xmax,ymin,ymax,zmin,zmax
     integer(int32),allocatable :: NodeList(:)
     integer(int32) :: i,j,n,num_of_node,m
     logical ,allocatable:: tf(:)
     real(real64),allocatable :: x(:),x_min(:),x_max(:)
     
+    
+
     n=size(obj%NodCoord,1)
     m=size(obj%NodCoord,2)
     allocate( x(m),x_min(m),x_max(m),tf(n) )
 
-    num_of_node=0
-    do i=1,n
-        x(:)=obj%NodCoord(i,:)
-        do j=1,m
-            x_min(j)=minval(BoundingBox%NodCoord(:,j))
-            x_max(j)=maxval(BoundingBox%NodCoord(:,j))
+    if(present(BoundingBox) )then
+        num_of_node=0
+        do i=1,n
+            x(:)=obj%NodCoord(i,:)
+            do j=1,m
+                x_min(j)=minval(BoundingBox%NodCoord(:,j))
+                x_max(j)=maxval(BoundingBox%NodCoord(:,j))
+            enddo
+            tf(i)=.false.
+            tf(i) = InOrOut(x=x,xmax=x_max,xmin=x_min,DimNum=m)
         enddo
-        tf(i)=.false.
-        tf(i) = InOrOut(x=x,xmax=x_max,xmin=x_min,DimNum=m)
-    enddo
+    else
+        if(m==3)then
+            x_min(1)=input(default=-dble(1.0e+18),option=xmin)
+            x_min(2)=input(default=-dble(1.0e+18),option=ymin)
+            x_min(3)=input(default=-dble(1.0e+18),option=zmin)
+
+            x_max(1)=input(default= dble(1.0e+18),option=xmax)
+            x_max(2)=input(default= dble(1.0e+18),option=ymax)
+            x_max(3)=input(default= dble(1.0e+18),option=zmax)
+        else
+            print *, "Stop >> getNodeListMesh is supproted for 3D"
+            stop
+        endif
+        num_of_node=0
+        do i=1,n
+            x(:)=obj%NodCoord(i,:)
+            tf(i)=.false.
+            tf(i) = InOrOut(x=x,xmax=x_max,xmin=x_min,DimNum=m)
+        enddo
+    endif
 
     n=countif(Vector=tf,tf=.true.)
 
@@ -5838,6 +6028,71 @@ function getNodeListMesh(obj,BoundingBox) result(NodeList)
 
 end function
 !#######################################################################################
+
+
+!#######################################################################################
+function getElementListMesh(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax) result(ElementList)
+    class(Mesh_),intent(inout) :: obj
+    type(Mesh_),optional,intent(inout) :: BoundingBox
+    real(real64),optional,intent(in) :: xmin,xmax,ymin,ymax,zmin,zmax
+    integer(int32),allocatable :: NodeList(:)
+    integer(int32),allocatable :: ElementList(:)
+
+    integer(int32) :: i,j,n,num_of_node,m,counter,k
+    logical ,allocatable:: tf(:),exist
+    real(real64),allocatable :: x(:),x_min(:),x_max(:)
+    
+    
+    NodeList =  obj%getNodeList(BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax)
+
+    counter=0
+    do i=1,size(obj%ElemNod,1)
+        exist=.false.
+        do j=1,size(obj%ElemNod,2)
+            do k=1,size(NodeList,1)
+                if( obj%ElemNod(i,j) == Nodelist(k) )then
+                    exist=.true.
+                    exit
+                endif
+            enddo    
+            if(exist .eqv. .true.)then
+                exit
+            endif
+        enddo
+        if(exist .eqv. .true. )then
+            counter=counter+1
+        else
+            cycle
+        endif
+    enddo
+    allocate(ElementList(counter) )
+    
+    counter=0
+    do i=1,size(obj%ElemNod,1)
+        exist=.false.
+        do j=1,size(obj%ElemNod,2)
+            do k=1,size(NodeList,1)
+                if( obj%ElemNod(i,j) == Nodelist(k) )then
+                    exist=.true.
+                    exit
+                endif
+            enddo    
+            if(exist .eqv. .true.)then
+                exit
+            endif
+        enddo
+        if(exist .eqv. .true. )then
+            counter=counter+1
+            ElementList(counter) = i
+        else
+            cycle
+        endif
+    enddo
+    
+
+end function
+!#######################################################################################
+
 
 !#######################################################################################
 function getGetVolumeMesh(obj) result(volume)
@@ -5874,6 +6129,62 @@ function getGetVolumeMesh(obj) result(volume)
 end function
 !#######################################################################################
 
+
+
+!#######################################################################################
+function numElementsMesh(obj) result(ret)
+    class(Mesh_),intent(in) :: obj
+    integer(int32) :: ret
+
+    if(obj%empty() .eqv. .true. )then
+        ret = 0
+        return
+    endif
+    ret = size(obj%ElemNod,1)
+end function
+!#######################################################################################
+
+
+!#######################################################################################
+function numNodesMesh(obj) result(ret)
+    class(Mesh_),intent(in) :: obj
+    integer(int32) :: ret
+
+    if(obj%empty() .eqv. .true. )then
+        ret = 0
+        return
+    endif
+    ret = size(obj%NodCoord,1)
+end function
+!#######################################################################################
+
+
+!#######################################################################################
+function numNodesForEachElementMesh(obj) result(ret)
+    class(Mesh_),intent(in) :: obj
+    integer(int32) :: ret
+
+    if(obj%empty() .eqv. .true. )then
+        ret = 0
+        return
+    endif
+    ret = size(obj%ElemNod,2)
+end function
+!#######################################################################################
+
+
+!#######################################################################################
+function numDimensionMesh(obj) result(ret)
+    class(Mesh_),intent(in) :: obj
+    integer(int32) :: ret
+
+    if(obj%empty() .eqv. .true. )then
+        ret = 0
+        return
+    endif
+    ret = size(obj%NodCoord,2)
+end function
+!#######################################################################################
 
 
 end module MeshClass

@@ -3,6 +3,7 @@ module obj
     use DamClass
     use StemClass
     use PlantRootClass
+    use RootClass
     use PetiClass
     use PodClass
     use FlowerClass
