@@ -93,8 +93,6 @@ module MeshClass
         procedure :: numDimension => numDimensionMesh
         procedure :: nd => numDimensionMesh
         
-
-
         procedure :: HowManyDomain => HowManyDomainMesh
 
         procedure :: open => openMesh
@@ -112,7 +110,6 @@ module MeshClass
         procedure :: showMesh => ShowMesh 
         procedure :: show => ShowMesh 
 
-        
     end type Mesh_
 
 
@@ -324,128 +321,164 @@ subroutine openMesh(obj,path,name)
 end subroutine
 
 
-subroutine removeMesh(obj,element,x_min,x_max,y_min,y_max,z_min,z_max)
+subroutine removeMesh(obj,all,x_min,x_max,y_min,y_max,z_min,z_max)
     class(Mesh_),intent(inout)::obj
-    logical,optional,intent(in) :: element
+    logical,optional,intent(in) :: all
     integer(int32),allocatable :: rm_node_list(:)
-    integer(int32),allocatable :: newid_vs_oldid(:,:)
+    integer(int32),allocatable :: newid_vs_oldid(:,:),elemnod(:,:)
     integer(int32),allocatable :: rm_elem_list(:),ElemMat(:)
+    real(real64),allocatable :: nodcoord(:,:)
     integer(int32) :: i,j,k,n,totcount,oldid
     real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
     real(real64) :: xmin(3),xmax(3),x(3)
     logical :: tf
+    type(IO_)::f
 
-    if(present(element) )then
-        if(element .eqv. .true.)then
-            ! remove only element
-            if(obj%empty() .eqv. .true. )then
-                print *, "ERROR obj%empty() .eqv. .true."
-                stop
-            endif
+    if( present(all) )then
+        if(all .eqv. .true.)then
+            if( allocated(obj%NodCoord         ) ) deallocate(obj%NodCoord         )
+            if( allocated(obj%NodCoordInit     ) ) deallocate(obj%NodCoordInit     )
+            if( allocated(obj%ElemNod          ) ) deallocate(obj%ElemNod          )
+            if( allocated(obj%FacetElemNod     ) ) deallocate(obj%FacetElemNod     )
+            if( allocated(obj%NextFacets       ) ) deallocate(obj%NextFacets       )
+            if( allocated(obj%SurfaceLine2D    ) ) deallocate(obj%SurfaceLine2D    )
+            if( allocated(obj%ElemMat          ) ) deallocate(obj%ElemMat          )
+            if( allocated(obj%SubMeshNodFromTo ) ) deallocate(obj%SubMeshNodFromTo )
+            if( allocated(obj%SubMeshElemFromTo) ) deallocate(obj%SubMeshElemFromTo)
+            if( allocated(obj%SubMeshSurfFromTo) ) deallocate(obj%SubMeshSurfFromTo)
+            if( allocated(obj%GlobalNodID      ) ) deallocate(obj%GlobalNodID      )
             
-            ! initialization
-            n = size(obj%NodCoord,1)
-            allocate(rm_node_list(n) )
-            rm_node_list(:)=0
-
-            allocate(newid_vs_oldid(n,2) )
-            newid_vs_oldid(:,:)=-1
+            obj%surface=1
             
-            n = size(obj%ElemNod,1)
-            allocate(rm_elem_list(n) )
-            rm_elem_list(:)=0
-            
-
-            ! list-up all nodes which is to be removed.
-            xmin(1)=input(default=-dble(1.0e+18),option=x_min)
-            xmin(2)=input(default=-dble(1.0e+18),option=y_min)
-            xmin(3)=input(default=-dble(1.0e+18),option=z_min)
-
-            xmax(1)=input(default= dble(1.0e+18),option=x_max)
-            xmax(2)=input(default= dble(1.0e+18),option=y_max)
-            xmax(3)=input(default= dble(1.0e+18),option=z_max)
-
-
-            totcount=0
-            do i=1, size(rm_node_list)
-                x(:)=0
-                do j=1,size(obj%NodCoord,2)
-                    x(j)=obj%NodCoord(i,j)
-                enddo
-                tf = InOrOut(x=x,xmax=xmax,xmin=xmin,DimNum=3)    
-                if(tf .eqv. .true.)then
-                    rm_node_list(i)=1 ! to be removed
-                    newid_vs_oldid(i,1) = -1 ! new
-                    newid_vs_oldid(i,1) = i ! old id
-                else
-                    rm_node_list(i)=0 ! not to be removed
-                    totcount=totcount+1
-                    newid_vs_oldid(i,1) = totcount ! new
-                    newid_vs_oldid(i,1) = i ! old id
-                endif
-            enddo
-
-            ! new id への更新
-            do i=1,obj%numElements()
-                do j=1,obj%numNodesForEachElement()
-                    oldid = obj%ElemNod(i,j)
-                    obj%ElemNod(i,j) = newid_vs_oldid(oldid,1)
-                enddo
-            enddo
-            ! もしnew id が-1なら、消去
-            do i=obj%numElements(),1,-1
-                if(minval(obj%ElemNod(i,:) )==-1 )then
-                    rm_elem_list(i)=1
-                    ! remove
-                    call removeArray(mat=obj%ElemNod,remove1stColumn=.true.,NextOf=i-1)
-                endif
-            enddo
-            ! もしrm_node_list(i)=1なら消去
-            do i=obj%numNodes(),1, -1
-                if(rm_node_list(i)==1 )then
-                    call removeArray(mat=obj%ElemNod,remove1stColumn=.true.,NextOf=i-1)
-                endif
-            enddo
-
-            if(.not. allocated(obj%ElemMat) )then
-                allocate(obj%ElemMat(totcount) )
-                obj%ElemMat(:) = 1
-            else
-                ElemMat = obj%ElemMat
-                deallocate(obj%ElemMat)
-                allocate(obj%ElemMat(totcount) )
-                n=0
-                do i=1,size(rm_elem_list)
-                    if(rm_elem_list(i)==0 )then
-                        n=n+1
-                        obj%ElemMat(n) = ElemMat(i)
-                    else
-                        cycle
-                    endif
-                enddo
-            endif
-
+            obj%FileName=" "
+            obj%ElemType=" "
+            obj%ErrorMsg=" "
             return
         endif
     endif
 
-    if( allocated(obj%NodCoord         ) ) deallocate(obj%NodCoord         )
-    if( allocated(obj%NodCoordInit     ) ) deallocate(obj%NodCoordInit     )
-    if( allocated(obj%ElemNod          ) ) deallocate(obj%ElemNod          )
-    if( allocated(obj%FacetElemNod     ) ) deallocate(obj%FacetElemNod     )
-    if( allocated(obj%NextFacets       ) ) deallocate(obj%NextFacets       )
-    if( allocated(obj%SurfaceLine2D    ) ) deallocate(obj%SurfaceLine2D    )
-    if( allocated(obj%ElemMat          ) ) deallocate(obj%ElemMat          )
-    if( allocated(obj%SubMeshNodFromTo ) ) deallocate(obj%SubMeshNodFromTo )
-    if( allocated(obj%SubMeshElemFromTo) ) deallocate(obj%SubMeshElemFromTo)
-    if( allocated(obj%SubMeshSurfFromTo) ) deallocate(obj%SubMeshSurfFromTo)
-    if( allocated(obj%GlobalNodID      ) ) deallocate(obj%GlobalNodID      )
+    ! remove only element
+    if(obj%empty() .eqv. .true. )then
+        print *, "ERROR obj%empty() .eqv. .true."
+        stop
+    endif
 
-    obj%surface=1
+    ! initialization
+    n = size(obj%NodCoord,1)
+    allocate(rm_node_list(n) )
+    rm_node_list(:)=0
+    allocate(newid_vs_oldid(n,2) )
+    newid_vs_oldid(:,:)=-1
+
+    n = size(obj%ElemNod,1)
+    allocate(rm_elem_list(n) )
+    rm_elem_list(:)=0
+
+    ! list-up all nodes which is to be removed.
+    xmin(1)=input(default=-dble(1.0e+18),option=x_min)
+    xmin(2)=input(default=-dble(1.0e+18),option=y_min)
+    xmin(3)=input(default=-dble(1.0e+18),option=z_min)
+    xmax(1)=input(default= dble(1.0e+18),option=x_max)
+    xmax(2)=input(default= dble(1.0e+18),option=y_max)
+    xmax(3)=input(default= dble(1.0e+18),option=z_max)
     
-    obj%FileName=" "
-    obj%ElemType=" "
-    obj%ErrorMsg=" "
+    totcount=0
+    do i=1, size(rm_node_list)
+        x(:)=0
+        do j=1,size(obj%NodCoord,2)
+            x(j)=obj%NodCoord(i,j)
+        enddo
+        tf = InOrOut(x=x,xmax=xmax,xmin=xmin,DimNum=3)    
+        if(tf .eqv. .true.)then
+            rm_node_list(i)=1 ! to be removed
+            newid_vs_oldid(i,1) = -1 ! new
+            newid_vs_oldid(i,1) = i ! old id
+        else
+            rm_node_list(i)=0 ! not to be removed
+            totcount=totcount+1
+            newid_vs_oldid(i,1) = totcount ! new
+            newid_vs_oldid(i,1) = i ! old id
+        endif
+    enddo
+
+    nodcoord = obj%nodcoord
+    deallocate(obj%nodcoord)
+    allocate(obj%nodcoord(totcount,size(nodcoord,2) ) )
+    totcount=0
+    do i=1,size(rm_node_list)
+        if(rm_node_list(i)==1 )then
+            cycle
+        else
+            totcount=totcount+1
+            obj%nodcoord(totcount,:) = nodcoord(i,:)
+        endif
+    enddo
+    
+    ! new id への更新
+    totcount=0
+    do i=1,obj%numElements()
+        do j=1,obj%numNodesForEachElement()
+
+            do k=1,size(rm_node_list)
+                if( rm_node_list(obj%elemnod(i,j)) == 1 )then
+                    rm_elem_list(i)=1
+                    exit
+                endif
+            enddo
+
+        enddo
+    enddo
+
+    totcount=0
+    do i=1,size(rm_elem_list)
+        totcount=totcount+rm_elem_list(i)
+    enddo
+
+    elemnod = obj%elemnod
+    deallocate(obj%elemnod)
+    allocate(obj%elemnod(size(elemnod,1)-totcount,size(elemnod,2) ) )
+    
+    totcount=0
+    do i=1,size(rm_elem_list)
+        if(rm_elem_list( i )==1 )then
+            cycle
+        else
+            totcount=totcount+1
+            obj%elemnod(totcount,:) = elemnod(i,:)
+        endif
+    enddo
+
+    call f%open("debug")
+    do i=1,size(obj%elemnod,1)
+        do j=1,size(obj%elemnod,2)
+            totcount=0
+            do k=1,obj%elemnod(i,j)-1
+                totcount=totcount+rm_node_list(k)
+            enddo
+            write(f%fh,*) "Before",obj%elemnod(i,j),"after",obj%elemnod(i,j) - totcount
+            obj%elemnod(i,j) = obj%elemnod(i,j) - totcount
+        enddo
+    enddo
+    call f%close()
+
+    totcount=0
+    do i=1,size(rm_elem_list)
+        totcount=totcount+rm_elem_list(i)
+    enddo
+
+    elemmat = obj%elemmat
+    deallocate(obj%elemmat)
+    allocate(obj%elemmat(size(elemmat)- totcount) )
+    totcount=0
+    do i=1,size(rm_elem_list)
+        if(rm_elem_list(i)==1 )then
+            cycle
+        else
+            totcount=totcount+1
+            obj%elemmat(totcount) = elemmat(i)
+        endif
+    enddo
+
 
 end subroutine
 
@@ -3830,7 +3863,8 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     real(real64),optional,intent(in) :: top,margin ! for 3D rectangular
     real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
     integer(int32) :: i,j,n,m,xn,yn,smoothedge(8)
-    real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt,unitx,unity,xm, ym,tp,rx,ry,zc,zl,zm
+    real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt,&
+        unitx,unity,xm, ym,tp,rx,ry,zc,zl,zm,ysize
 
     real(real64)::ymin,ymax,ratio,width
     ! this subroutine creates mesh
@@ -3877,7 +3911,8 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         division=division,smooth=smooth,top=top,margin=margin,inclineRate=inclineRate)
 
         ! remove half by x-z plane
-        call obj%remove(element=.true.,y_max=-dble(1.0e-8))
+        ysize = maxval(obj%NodCoord(:,2) ) - minval(obj%NodCoord(:,2) )
+        call obj%remove(y_max=ysize/2.0d0-dble(1.0e-8))
 
     endif
 
