@@ -3,6 +3,7 @@ module LeafClass
     use KinematicClass
     use FEMDomainClass
     use PetiClass
+    use StemClass
     implicit none
 
 
@@ -41,7 +42,12 @@ module LeafClass
         procedure, public :: Init => initLeaf
         procedure, public :: rotate => rotateleaf
         procedure, public :: move => moveleaf
-        procedure, public :: connect => connectleaf
+        
+        procedure,pass :: connectLeafLeaf => connectLeafLeaf
+        procedure,pass :: connectLeafStem => connectLeafStem
+
+        generic :: connect => connectLeafLeaf, connectLeafStem
+        
         procedure, public :: rescale => rescaleleaf
         procedure, public :: resize => resizeleaf
         procedure, public :: getCoordinate => getCoordinateleaf
@@ -426,28 +432,78 @@ obj%disp_z = obj%disp_z + input(default=0.0d0, option=z)
 end subroutine
 ! ########################################
 
-subroutine connectleaf(obj,direct,leaf)
-class(leaf_),intent(inout) :: obj,leaf
-character(2),intent(in) :: direct
-real(real64),allocatable :: x1(:),x2(:),disp(:)
+! ########################################
+subroutine connectleafleaf(obj,direct,leaf)
+    class(leaf_),intent(inout) :: obj    
+    class(leaf_),intent(inout) :: leaf
+    character(2),intent(in) :: direct
+    real(real64),allocatable :: x1(:),x2(:),disp(:)
 
-if(direct=="->" .or. direct=="=>")then
-    ! move obj to connect leaf (leaf is not moved.)
-    x1 =  obj%getCoordinate("A")
-    x2 = leaf%getCoordinate("B")
-    disp = x2 - x1
-    call obj%move(x=disp(1),y=disp(2),z=disp(3) )
-endif
+    !if(present(Stem) )then
+    !    if(direct=="->" .or. direct=="=>")then
+    !        ! move obj to connect stem (stem is not moved.)
+    !        x1 = leaf%getCoordinate("A")
+    !        x2 = stem%getCoordinate("B")
+    !        disp = x2 - x1
+    !        call leaf%move(x=disp(1),y=disp(2),z=disp(3) )
+    !    endif
+!
+!
+    !    if(direct=="<-" .or. direct=="<=")then
+    !        ! move obj to connect stem (stem is not moved.)
+    !        x1 = stem%getCoordinate("A")
+    !        x2 = leaf%getCoordinate("B")
+    !        disp = x2 - x1
+    !        call stem%move(x=disp(1),y=disp(2),z=disp(3) )
+    !    endif
+    !    return
+    !endif
 
+    if(direct=="->" .or. direct=="=>")then
+        ! move obj to connect leaf (leaf is not moved.)
+        x1 =  obj%getCoordinate("A")
+        x2 = leaf%getCoordinate("B")
+        disp = x2 - x1
+        call obj%move(x=disp(1),y=disp(2),z=disp(3) )
+    endif
 
-if(direct=="<-" .or. direct=="<=")then
-    ! move obj to connect leaf (leaf is not moved.)
-    x1 = leaf%getCoordinate("A")
-    x2 =  obj%getCoordinate("B")
-    disp = x2 - x1
-    call leaf%move(x=disp(1),y=disp(2),z=disp(3) )
-endif
+    if(direct=="<-" .or. direct=="<=")then
+        ! move obj to connect leaf (leaf is not moved.)
+        x1 = leaf%getCoordinate("A")
+        x2 =  obj%getCoordinate("B")
+        disp = x2 - x1
+        call leaf%move(x=disp(1),y=disp(2),z=disp(3) )
+    endif
+
 end subroutine
+! ########################################
+
+! ########################################
+subroutine connectLeafStem(obj,direct,Stem)
+    class(leaf_),intent(inout) :: obj    
+    class(Stem_),intent(inout) :: stem
+    character(2),intent(in) :: direct
+    real(real64),allocatable :: x1(:),x2(:),disp(:)
+
+
+    if(direct=="->" .or. direct=="=>")then
+        ! move obj to connect stem (stem is not moved.)
+        x1 = obj%getCoordinate("A")
+        x2 = stem%getCoordinate("B")
+        disp = x2 - x1
+        call obj%move(x=disp(1),y=disp(2),z=disp(3) )
+    endif
+    
+    if(direct=="<-" .or. direct=="<=")then
+        ! move obj to connect stem (stem is not moved.)
+        x1 = stem%getCoordinate("A")
+        x2 = obj%getCoordinate("B")
+        disp = x2 - x1
+        call stem%move(x=disp(1),y=disp(2),z=disp(3) )
+    endif
+end subroutine
+! ########################################
+
 
 
 ! ########################################

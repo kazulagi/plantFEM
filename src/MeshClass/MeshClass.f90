@@ -324,6 +324,7 @@ end subroutine
 subroutine removeMesh(obj,all,x_min,x_max,y_min,y_max,z_min,z_max)
     class(Mesh_),intent(inout)::obj
     logical,optional,intent(in) :: all
+    logical :: removeall = .true.
     integer(int32),allocatable :: rm_node_list(:)
     integer(int32),allocatable :: newid_vs_oldid(:,:),elemnod(:,:)
     integer(int32),allocatable :: rm_elem_list(:),ElemMat(:)
@@ -334,27 +335,50 @@ subroutine removeMesh(obj,all,x_min,x_max,y_min,y_max,z_min,z_max)
     logical :: tf
     type(IO_)::f
 
-    if( present(all) )then
-        if(all .eqv. .true.)then
-            if( allocated(obj%NodCoord         ) ) deallocate(obj%NodCoord         )
-            if( allocated(obj%NodCoordInit     ) ) deallocate(obj%NodCoordInit     )
-            if( allocated(obj%ElemNod          ) ) deallocate(obj%ElemNod          )
-            if( allocated(obj%FacetElemNod     ) ) deallocate(obj%FacetElemNod     )
-            if( allocated(obj%NextFacets       ) ) deallocate(obj%NextFacets       )
-            if( allocated(obj%SurfaceLine2D    ) ) deallocate(obj%SurfaceLine2D    )
-            if( allocated(obj%ElemMat          ) ) deallocate(obj%ElemMat          )
-            if( allocated(obj%SubMeshNodFromTo ) ) deallocate(obj%SubMeshNodFromTo )
-            if( allocated(obj%SubMeshElemFromTo) ) deallocate(obj%SubMeshElemFromTo)
-            if( allocated(obj%SubMeshSurfFromTo) ) deallocate(obj%SubMeshSurfFromTo)
-            if( allocated(obj%GlobalNodID      ) ) deallocate(obj%GlobalNodID      )
-            
-            obj%surface=1
-            
-            obj%FileName=" "
-            obj%ElemType=" "
-            obj%ErrorMsg=" "
-            return
-        endif
+    if(present(all) )then
+        removeall = all
+    endif
+
+    if(present(x_min) )then
+        removeall = .false.
+    endif
+    if(present(x_max) )then
+        removeall = .false.
+    endif
+
+    if(present(y_min) )then
+        removeall = .false.
+    endif
+    if(present(y_max) )then
+        removeall = .false.
+    endif
+
+    if(present(z_min) )then
+        removeall = .false.
+    endif
+    if(present(z_max) )then
+        removeall = .false.
+    endif
+
+    if(removeall .eqv. .true.)then
+        if( allocated(obj%NodCoord         ) ) deallocate(obj%NodCoord         )
+        if( allocated(obj%NodCoordInit     ) ) deallocate(obj%NodCoordInit     )
+        if( allocated(obj%ElemNod          ) ) deallocate(obj%ElemNod          )
+        if( allocated(obj%FacetElemNod     ) ) deallocate(obj%FacetElemNod     )
+        if( allocated(obj%NextFacets       ) ) deallocate(obj%NextFacets       )
+        if( allocated(obj%SurfaceLine2D    ) ) deallocate(obj%SurfaceLine2D    )
+        if( allocated(obj%ElemMat          ) ) deallocate(obj%ElemMat          )
+        if( allocated(obj%SubMeshNodFromTo ) ) deallocate(obj%SubMeshNodFromTo )
+        if( allocated(obj%SubMeshElemFromTo) ) deallocate(obj%SubMeshElemFromTo)
+        if( allocated(obj%SubMeshSurfFromTo) ) deallocate(obj%SubMeshSurfFromTo)
+        if( allocated(obj%GlobalNodID      ) ) deallocate(obj%GlobalNodID      )
+        
+        obj%surface=1
+        
+        obj%FileName=" "
+        obj%ElemType=" "
+        obj%ErrorMsg=" "
+        return
     endif
 
     ! remove only element

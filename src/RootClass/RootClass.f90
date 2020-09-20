@@ -2,6 +2,7 @@ module RootClass
     use, intrinsic :: iso_fortran_env
     use KinematicClass
     use FEMDomainClass
+    use StemClass
     implicit none
     
     type :: Root_
@@ -38,8 +39,14 @@ module RootClass
     contains
         procedure, public :: Init => initRoot
         procedure, public :: rotate => rotateRoot
+        
         procedure, public :: move => moveRoot
-        procedure, public :: connect => connectRoot
+                
+        procedure,pass :: connectRootRoot => connectRootRoot
+        procedure,pass :: connectRootStem => connectRootStem
+
+        generic :: connect => connectRootRoot, connectRootStem
+
         procedure, public :: rescale => rescaleRoot
         procedure, public :: resize => resizeRoot
         procedure, public :: fix => fixRoot
@@ -421,8 +428,11 @@ recursive subroutine moveRoot(obj,x,y,z,reset)
 end subroutine
 ! ########################################
 
-subroutine connectRoot(obj,direct,Root)
-    class(Root_),intent(inout) :: obj,Root
+
+! ########################################
+subroutine connectRootRoot(obj,direct,Root)
+    class(Root_),intent(inout) :: obj
+    class(Root_),intent(inout) :: Root
     character(2),intent(in) :: direct
     real(real64),allocatable :: x1(:),x2(:),disp(:)
 
@@ -433,8 +443,6 @@ subroutine connectRoot(obj,direct,Root)
         disp = x2 - x1
         call obj%move(x=disp(1),y=disp(2),z=disp(3) )
     endif
-
-
     if(direct=="<-" .or. direct=="<=")then
         ! move obj to connect Root (Root is not moved.)
         x1 = Root%getCoordinate("A")
@@ -442,8 +450,37 @@ subroutine connectRoot(obj,direct,Root)
         disp = x2 - x1
         call Root%move(x=disp(1),y=disp(2),z=disp(3) )
     endif
-end subroutine
 
+end subroutine
+! ########################################
+
+
+! ########################################
+subroutine connectRootStem(obj,direct,stem)
+    class(Root_),intent(inout) :: obj
+    class(Stem_),intent(inout) :: Stem
+    character(2),intent(in) :: direct
+    real(real64),allocatable :: x1(:),x2(:),disp(:)
+
+    if(direct=="->" .or. direct=="=>")then
+        ! move obj to connect Stem (Stem is not moved.)
+        x1 =  obj%getCoordinate("A")
+        x2 = Stem%getCoordinate("A") ! 注意！stemのAにつなぐ
+        disp = x2 - x1
+        call obj%move(x=disp(1),y=disp(2),z=disp(3) )
+    endif
+
+
+    if(direct=="<-" .or. direct=="<=")then
+        ! move obj to connect Stem (Stem is not moved.)
+        x1 = Stem%getCoordinate("A")
+        x2 =  obj%getCoordinate("A") ! 注意！rootのAにつなぐ
+        disp = x2 - x1
+        call Stem%move(x=disp(1),y=disp(2),z=disp(3) )
+    endif
+
+end subroutine
+! ########################################
 
 ! ########################################
 function getCoordinateRoot(obj,nodetype) result(ret)
