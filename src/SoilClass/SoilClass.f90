@@ -1,6 +1,7 @@
 module SoilClass
     use, intrinsic :: iso_fortran_env
-    use SiCroF
+    use fem
+    use FertilizerClass
     implicit none
 
     type :: Soil_
@@ -9,25 +10,28 @@ module SoilClass
         real(real64) :: depth
         real(real64) :: length
         real(real64) :: width
+        integer(int32) :: num_x
+        integer(int32) :: num_y
+        integer(int32) :: num_z
         real(real64) :: x,y,z ! center coordinate
 
         ! ================
         ! Nutorient
         !------------
-        real(real64) :: N_kg
-        real(real64) :: P_kg
-        real(real64) :: K_kg
-        real(real64) :: Ca_kg
-        real(real64) :: Mg_kg
-        real(real64) :: S_kg
+        real(real64) :: N_kg = 0.0d0
+        real(real64) :: P_kg = 0.0d0
+        real(real64) :: K_kg = 0.0d0
+        real(real64) :: Ca_kg = 0.0d0
+        real(real64) :: Mg_kg = 0.0d0
+        real(real64) :: S_kg = 0.0d0
         !------------
-        real(real64) :: Fe_kg
-        real(real64) :: Mn_kg
-        real(real64) :: B_kg
-        real(real64) :: Zn_kg
-        real(real64) :: Mo_kg
-        real(real64) :: Cu_kg
-        real(real64) :: Cl_kg
+        real(real64) :: Fe_kg = 0.0d0
+        real(real64) :: Mn_kg = 0.0d0
+        real(real64) :: B_kg = 0.0d0
+        real(real64) :: Zn_kg = 0.0d0
+        real(real64) :: Mo_kg = 0.0d0
+        real(real64) :: Cu_kg = 0.0d0
+        real(real64) :: Cl_kg = 0.0d0
         ! ================
 
         
@@ -40,6 +44,8 @@ module SoilClass
 
     contains
         procedure :: init => initSoil
+        procedure :: new => initSoil
+        procedure :: gmsh => gmshSoil
         procedure :: fertilize => fertilizeSoil
         procedure :: diagnosis => diagnosisSoil
         procedure :: export => exportSoil
@@ -48,26 +54,153 @@ module SoilClass
 contains
 
 ! ################################################################
-subroutine initSoil(obj,depth,length,width,x,y,z)
+subroutine initSoil(obj,config)
     class(Soil_),intent(inout)::obj
-    real(real64),optional,intent(in):: depth,length,width,x,y,z ! cm
+    character(*),optional,intent(in) :: config
+    character(200) :: fn,conf,line
+    real(real64) :: MaxThickness,Maxwidth,loc(3),vec(3),rot(3),zaxis(3),meshloc(3),meshvec(3)
+    integer(int32) :: i,j,k,blcount,id,rmc,n,node_id,node_id2,elemid
+    type(IO_) :: soilconf
 
-    obj%depth = input(default=-1.0d0,option=depth )
-    obj%length= input(default=1.0d0,option=length)
-    obj%width = input(default=1.0d0,option=width )
-    obj%x     = input(default=0.0d0,option=x )
-    obj%y     = input(default=0.0d0,option=y)
-    obj%z     = input(default=0.0d0,option=z )
+    ! 節を生成するためのスクリプトを開く
+    if(.not.present(config).or. index(config,".json")==0 )then
+        ! デフォルトの設定を生成
+        print *, "New soybean-configuration >> soilconfig.json"
+        call soilconf%open("soilconfig.json")
+        write(soilconf%fh,*) '{'
+        write(soilconf%fh,*) '   "type": "soil",'
+        write(soilconf%fh,*) '   "length": 1.00,'
+        write(soilconf%fh,*) '   "width" : 1.00,'
+        write(soilconf%fh,*) '   "depth" : 0.40,'
+        write(soilconf%fh,*) '   "num_x": 10,'
+        write(soilconf%fh,*) '   "num_y": 10,'
+        write(soilconf%fh,*) '   "num_z":  4'
+        write(soilconf%fh,*) '}'
+        conf="soilconfig.json"
+        call soilconf%close()
+    else
+        conf = trim(config)
+    endif
+    
+    call soilconf%open(trim(conf))
+    blcount=0
+    do
+        read(soilconf%fh,'(a)') line
+        print *, trim(line)
+        if( adjustl(trim(line))=="{" )then
+            blcount=1
+            cycle
+        endif
+        if( adjustl(trim(line))=="}" )then
+            exit
+        endif
+        
+        if(blcount==1)then
+            
+            if(index(line,"type")/=0 .and. index(line,"soil")==0 )then
+                print *, "ERROR: This config-file is not for soybean"
+                return
+            endif
+
+
+            if(index(line,"length")/=0 )then
+                ! 生育ステージ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%length
+            endif
+
+
+            if(index(line,"width")/=0 )then
+                ! 生育ステージ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%width
+            endif
+
+            if(index(line,"depth")/=0 )then
+                ! 生育ステージ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%depth
+            endif
+
+
+            if(index(line,"num_y")/=0 )then
+                ! 生育ステージ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%num_y
+            endif
+
+
+            if(index(line,"num_z")/=0 )then
+                ! 生育ステージ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%num_z
+            endif
+
+            if(index(line,"num_x")/=0 )then
+                ! 生育ステージ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%num_x
+            endif
+
+            cycle
+
+        endif
+
+    enddo
+    call soilconf%close()
+
+
+    
+    call obj%FEMdomain%create(meshtype="rectangular3D",x_num=obj%num_y,&
+    y_num=obj%num_z,z_num=obj%num_x,&
+    x_len=obj%length,y_len=obj%width,z_len=obj%depth)
+
+    call obj%femdomain%move(x=-obj%length/2.0d0,&
+    y=-obj%width/2.0d0,z=-obj%depth)
+
 
 end subroutine
 ! ################################################################
 
 
 ! ################################################################
-subroutine fertilizeSoil(obj,N_kg,P_kg,K_kg,Ca_kg,Mg_kg,S_kg,Fe_kg,&
+subroutine fertilizeSoil(obj,Fertilizer,N_kg,P_kg,K_kg,Ca_kg,Mg_kg,S_kg,Fe_kg,&
     Mn_kg,B_kg,Zn_kg,Mo_kg,Cu_kg,Cl_kg)
     
     class(Soil_),intent(inout)::obj
+    type(Fertilizer_),optional,intent(in) :: Fertilizer
+
+
     ! ================
     real(real64),optional,intent(in) :: N_kg
     real(real64),optional,intent(in) :: P_kg
@@ -84,6 +217,24 @@ subroutine fertilizeSoil(obj,N_kg,P_kg,K_kg,Ca_kg,Mg_kg,S_kg,Fe_kg,&
     real(real64),optional,intent(in) :: Cu_kg
     real(real64),optional,intent(in) :: Cl_kg
     ! ================
+
+
+    if(present(Fertilizer) )then
+        obj%N_kg = obj%N_kg + Fertilizer%N_kg
+        obj%P_kg = obj%P_kg + Fertilizer%P_kg
+        obj%K_kg = obj%K_kg + Fertilizer%K_kg
+        obj%Ca_kg = obj%Ca_kg + Fertilizer%Ca_kg
+        obj%Mg_kg = obj%Mg_kg + Fertilizer%Mg_kg
+        obj%S_kg = obj%S_kg + Fertilizer%S_kg
+        obj%Fe_kg = obj%Fe_kg + Fertilizer%Fe_kg
+        obj%Mn_kg = obj%Mn_kg + Fertilizer%Mn_kg
+        obj%B_kg = obj%B_kg + Fertilizer%B_kg
+        obj%Zn_kg = obj%Zn_kg + Fertilizer%Zn_kg
+        obj%Mo_kg = obj%Mo_kg + Fertilizer%Mo_kg
+        obj%Cu_kg = obj%Cu_kg + Fertilizer%Cu_kg
+        obj%Cl_kg = obj%Cl_kg + Fertilizer%Cl_kg
+        return
+    endif
 
     obj%N_kg    = input(default=0.0d0,option=N_kg)
     obj%P_kg    = input(default=0.0d0,option=P_kg)
@@ -229,6 +380,17 @@ subroutine diagnosisSoil(obj,FileName)
         close(16)
     endif
 end subroutine
+
+
+! ########################################
+subroutine gmshSoil(obj,name)
+    class(Soil_),intent(inout) :: obj
+    character(*),intent(in) :: name
+
+    call obj%femdomain%gmsh(Name=name)
+    
+end subroutine
+! ########################################
 
 
 end module

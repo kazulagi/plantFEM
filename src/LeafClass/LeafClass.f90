@@ -4,6 +4,7 @@ module LeafClass
     use FEMDomainClass
     use PetiClass
     use StemClass
+    use LightClass
     implicit none
 
 
@@ -14,6 +15,7 @@ module LeafClass
         real(real64)             ::  MaxThickness,Maxlength,Maxwidth
         real(real64)             ::  center_bottom(3),center_top(3)
         real(real64)             ::  outer_normal_bottom(3),outer_normal_top(3)
+        real(real64),allocatable ::  source(:), ppfd(:)
         integer(int32)             ::  Division
         type(leaf_),pointer ::  pleaf
         type(Peti_),pointer ::  pPeti
@@ -47,6 +49,8 @@ module LeafClass
         procedure,pass :: connectLeafStem => connectLeafStem
 
         generic :: connect => connectLeafLeaf, connectLeafStem
+        
+        procedure, public :: photosynthesis => photosynthesisLeaf
         
         procedure, public :: rescale => rescaleleaf
         procedure, public :: resize => resizeleaf
@@ -259,7 +263,11 @@ contains
         call obj%FEMdomain%create(meshtype="rectangular3D",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
         x_len=obj%minwidth/2.0d0,y_len=obj%minwidth/2.0d0,z_len=obj%minlength,shaperatio=obj%shaperatio)
         
-
+        allocate(obj%source(size(obj%FEMDomain%Mesh%ElemNod,1) ) )
+        obj%source(:) = 0.0d0
+        allocate(obj%ppfd(size(obj%FEMDomain%Mesh%ElemNod,1) ) )
+        obj%ppfd(:) = 0.0d0
+        
         ! <I>面に属する要素番号、節点番号、要素座標、節点座標のリストを生成
         obj%I_planeNodeID = obj%FEMdomain%mesh%getNodeList(zmax=0.0d0)
         obj%I_planeElementID = obj%FEMdomain%mesh%getElementList(zmax=0.0d0)
@@ -561,6 +569,110 @@ subroutine rescaleleaf(obj,x,y,z)
     call obj%move(x=disp(1),y=disp(2),z=disp(3) )
 end subroutine
 ! ########################################
+
+! ########################################
+!subroutine LayTracingLeaf(obj,maxPPFD,light,)
+!    class(Leaf_),intent(inout) :: obj
+!    class(Light_),intent(in) :: light
+!    real(real64),intent(in) :: maxPPFD
+!    integer(int32) :: i,j,n,m,node_id
+!    real(real64) :: lx(3)
+!    real(real64),allocatable :: Elem_x(:,:)
+!    ! PPFDを計算する。
+!    ! Photosynthetic photon flux density (PPFD)
+!    ! micro-mol/m^2/s
+!
+!    ! 反射、屈折は無視、直線のみ
+!
+!    n=size(obj%FEMDomain%Mesh%ElemNod,2)
+!    m=size(obj%FEMDomain%Mesh%NodCoord,2)
+!
+!    allocate(Elem_x(n,m) )
+!    ! 要素ごと
+!    do i=1, size(obj%FEMDomain%Mesh%ElemNod,1)
+!        do j=1,size(obj%FEMDomain%Mesh%ElemNod,2)
+!            node_id = obj%FEMDomain%Mesh%ElemNod(i,j)
+!            Elem_x(j,:) = obj%FEMDomain%Mesh%NodCoord(node_id,:)
+!        enddo
+!        ! 要素座標 >> Elem_x(:,:)
+!        ! 光源座標 >> lx(:)
+!
+!    enddo
+!
+!
+!
+!end subroutine
+! ########################################
+
+! ########################################
+subroutine photosynthesisLeaf(obj,dt)
+
+    ! https://eprints.lib.hokudai.ac.jp/dspace/bitstream/2115/39102/1/67-013.pdf
+
+    class(Leaf_),intent(inout) :: obj
+    real(real64),intent(in) :: dt
+    ! Farquhar modelのパラメータ
+    real(real64) :: A   ! CO2吸収速度
+    real(real64) :: V_c ! カルボキシル化反応速度
+    real(real64) :: V_o ! 酸素化反応速度
+
+    real(real64) :: W_c! RuBPが飽和している場合のCO2吸収速度
+    real(real64) :: W_j! RuBP供給が律速している場合のCO2吸収速度
+
+    real(real64) :: V_cmax ! 最大カルボキシル化反応速度
+    real(real64) :: V_omax ! 最大酸素化反応速度
+    real(real64) :: O_2 ! 酸素濃度
+    real(real64) :: CO_2 ! 二酸化炭素濃度
+    real(real64) :: R_d ! なんだっけ
+
+    real(real64) :: K_c ! CO2に対するミカエリス定数
+    real(real64) :: K_o ! O2に対するミカエリス定数
+
+    real(real64) :: J_ ! 電子伝達速度
+    real(real64) :: I_ ! 光強度
+    real(real64) :: phi ! I-J曲線の初期勾配
+    real(real64) :: J_max !最大電子伝達速度
+    real(real64) :: theta_r ! 曲線の凸度
+
+    real(real64) :: maxPPFD=1.0d0 ! micro-mol/m^2/s
+
+    real(real64) :: Lambda
+
+    integer(int32) :: i
+
+    ! 工事中
+    return
+
+    ! For each elements, estimate photosynthesis by Farquhar model
+    do i=1,size(obj%source)
+
+        ! 光合成量の計算
+        ! Farquhar model
+        V_c = (V_cmax*CO_2)/(CO_2 + K_o * (1.0d0 + O_2/K_o) )
+        V_o = (V_omax*O_2 )/(O_2 + K_o * (1.0d0 + CO_2/K_c) )
+        
+        Lambda = (V_omax*K_c*O_2)/( 2.0d0 * V_cmax*K_o )
+    
+        W_c = (V_cmax*(CO_2 - Lambda))/(CO_2 + K_c*(1.0d0 + O_2/K_o)  )
+    
+        J_ = (phi*I_ + J_max - &
+        sqrt( (phi*I_ + J_max)**(2.0d0) - 4.0d0*phi*I_*theta_r*J_max)&
+        /(2.0d0 * theta_r) )
+        W_j = J_ * (CO_2 - Lambda)/(4.0d0 * CO_2 + 8.0d0 * Lambda ) - R_d
+        ! CO2吸収速度
+        A = V_c + 0.50d0*V_o - R_d
+    
+        if(W_j >= W_c )then
+            A = W_c
+        else
+            A = W_j
+        endif
+        
+
+    enddo
+
+
+end subroutine
 
 
 end module 

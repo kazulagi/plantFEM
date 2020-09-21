@@ -109,7 +109,7 @@ subroutine initFarm(obj,crop_name,num_of_ridge, num_of_plant_per_ridge,width_of_
     obj%total_weight_of_seed= obj%g_per_100seed* dble(obj%total_num_of_plant)/100.0d0
 
     ! compute soil profile
-    call obj%soil%init(depth=obj%soil_depth,length=obj%length_of_farm,width=obj%width_of_farm)
+    call obj%soil%init()
 
     if(allocated(obj%soybean) )then
         deallocate(obj%soybean)
@@ -152,8 +152,8 @@ subroutine fertilizeFarm(obj,N_kg,P_kg,K_kg,Ca_kg,Mg_kg,S_kg,Fe_kg,&
     real(real64),optional,intent(in) :: Cl_kg
     ! ================
 
-    call obj%Soil%fertilize(N_kg,P_kg,K_kg,Ca_kg,Mg_kg,S_kg,Fe_kg,&
-    Mn_kg,B_kg,Zn_kg,Mo_kg,Cu_kg,Cl_kg)
+    call obj%Soil%fertilize(N_kg=N_kg,P_kg=P_kg,K_kg=K_kg,Ca_kg=Ca_kg,Mg_kg=Mg_kg,S_kg=S_kg,Fe_kg=Fe_kg,&
+    Mn_kg=Mn_kg,B_kg=B_kg,Zn_kg=Zn_kg,Mo_kg=Mo_kg,Cu_kg=Cu_kg,Cl_kg=Cl_kg)
 
 end subroutine
 ! ############################################
