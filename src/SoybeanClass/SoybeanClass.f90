@@ -4,6 +4,8 @@ module SoybeanClass
     use SeedClass
     use LeafClass
     use RootClass
+    use SoilClass
+    use LightClass
     use PlantNodeClass
     implicit none
     
@@ -25,8 +27,16 @@ module SoybeanClass
         type(Stem_),allocatable :: Stem(:)
         type(Leaf_),allocatable :: Leaf(:)
         type(Root_),allocatable :: Root(:)
-
-        type(Mesh_) :: struct ! 節-節点データ構造
+        type(Soil_),allocatable :: Soil
+        
+        ! 節-節点データ構造
+        type(Mesh_) :: struct 
+        integer(int32),allocatable :: leaf2stem(:,:)
+        integer(int32),allocatable :: stem2stem(:,:)
+        integer(int32),allocatable :: root2stem(:,:)
+        integer(int32),allocatable :: root2root(:,:)
+        
+        ! 器官オブジェクト配列
         type(FEMDomain_),allocatable :: leaf_list(:)
         type(FEMDomain_),allocatable :: stem_list(:)
         type(FEMDomain_),allocatable :: root_list(:)
@@ -43,17 +53,23 @@ module SoybeanClass
         character(200) :: leafconfig=" "
     contains
         procedure,public :: Init => initsoybean
+        procedure,public :: new => initsoybean
         procedure,public :: sowing => initsoybean
         procedure,public :: export => exportSoybean
+
         procedure,public :: grow => growSoybean
+        
         procedure,public :: show => showSoybean
         procedure,public :: gmsh => gmshSoybean
+
         procedure,public :: WaterAbsorption => WaterAbsorptionSoybean
         procedure,public :: move => moveSoybean
 
         procedure,public :: numleaf => numleafsoybean
         procedure,public :: numstem => numstemsoybean
         procedure,public :: numroot => numrootsoybean
+
+        procedure,public :: laytracing => laytracingsoybean
 
         !procedure,public :: AddNode => AddNodeSoybean
     end type
@@ -64,6 +80,8 @@ module SoybeanClass
     end type
 
 contains
+
+
 
 ! ########################################
 subroutine initsoybean(obj,config,&
@@ -82,18 +100,8 @@ subroutine initsoybean(obj,config,&
     integer(int32) :: i,j,k,blcount,id,rmc,n,node_id,node_id2,elemid
     type(IO_) :: soyconf
 
-
-
-    if(allocated(obj%NodeSystem) )then
-        deallocate(obj%NodeSystem)
-    endif
-    if(allocated(obj%RootSystem) )then
-        deallocate(obj%RootSystem)
-    endif
     
     ! 子葉節、初生葉節、根の第1節まで種子の状態で存在
-    allocate(obj%NodeSystem(2))
-    allocate(obj%RootSystem(1))
 
     ! 節を生成するためのスクリプトを開く
     if(.not.present(config).or. index(config,".json")==0 )then
@@ -261,6 +269,8 @@ subroutine initsoybean(obj,config,&
     enddo
     call soyconf%close()
 
+    
+
     if(index(config,".json")==0 )then
         obj%stemconfig=" "
         obj%rootconfig=" "
@@ -273,7 +283,14 @@ subroutine initsoybean(obj,config,&
     allocate(obj%leaf(obj%MaxLeafNum) )
     allocate(obj%root(obj%MaxrootNum) )
     allocate(obj%stem(obj%MaxstemNum) )
-
+    allocate(obj%stem2stem(obj%MaxstemNum,obj%MaxstemNum) )
+    allocate(obj%leaf2stem(obj%MaxstemNum,obj%MaxLeafNum) )
+    allocate(obj%root2stem(obj%MaxrootNum,obj%MaxstemNum) )
+    allocate(obj%root2root(obj%MaxrootNum,obj%MaxrootNum) )
+    obj%stem2stem(:,:) = 0
+    obj%leaf2stem(:,:) = 0
+    obj%root2stem(:,:) = 0
+    obj%root2root(:,:) = 0
     !allocate(obj%struct%NodCoord(4,3) )
     !allocate(obj%struct%ElemNod(3,2) )
     !allocate(obj%struct%ElemMat(3) )
@@ -283,20 +300,30 @@ subroutine initsoybean(obj,config,&
     call obj%leaf(1)%rotate(x=radian(90.0d0),y=radian(90.0d0),z=radian(10.0d0) )
     call obj%leaf(2)%init(obj%leafconfig)
     call obj%leaf(2)%rotate(x=radian(90.0d0),y=radian(90.0d0),z=radian(-10.0d0) )
-
-    call obj%stem(1)%init(obj%stemconfig)
-    call obj%stem(2)%init(obj%stemconfig)
-    call obj%stem(1)%connect("<=",obj%stem(2))
     
+    call obj%stem(1)%init(obj%stemconfig)
+    call obj%stem(1)%rotate(x=radian(40.0d0) )
+    
+    call obj%stem(2)%init(obj%stemconfig)
+    call obj%stem(2)%rotate(x=radian(80.0d0) )
+
     call obj%root(1)%init(obj%rootconfig)
     call obj%root(1)%fix(x=0.0d0,y=0.0d0,z=0.0d0)
-
-    call obj%stem(1)%rotate(x=radian(40.0d0) )
-    call obj%stem(1)%connect("<=",obj%stem(2))
-    call obj%stem(2)%rotate(x=radian(80.0d0) )
-    
     call obj%root(1)%rotate(x=radian(-60.0d0) )
 
+    call obj%leaf(1)%connect("=>",obj%stem(1))
+    obj%leaf2stem(1,1) = 1.0d0 
+    
+    call obj%leaf(2)%connect("=>",obj%stem(1))
+    obj%leaf2stem(2,1) = 1.0d0
+    
+    call obj%stem(2)%connect("=>",obj%stem(1))
+    obj%stem2stem(2,1) = 1.0d0
+    
+    call obj%root(1)%connect("=>",obj%stem(1))
+    obj%root2stem(1,1) = 1.0d0
+    
+    obj%stage = "VE"
     ! 初生葉結節部
     !obj%struct%NodCoord(2,1) = 0.0d0
     !obj%struct%NodCoord(2,2) = 0.0d0
@@ -521,35 +548,32 @@ end subroutine
 ! ########################################
 
 ! ########################################
-subroutine growSoybean(obj,dt,Temp)
+subroutine growSoybean(obj,dt,temp,light)
     class(Soybean_),intent(inout) :: obj
-    real(real64),intent(in) :: dt,temp ! time-interval
+    type(Light_),optional,intent(inout) :: light
+    real(real64),intent(in) :: dt,temp! time-interval
+    real(real64) :: ac_temp ! time-interval
+    integer(int32) :: i
 
+    ! 光量子量を計算
+    call obj%laytracing(Light)
 
+    ! 光合成量を計算
+    do i=1,size(obj%Leaf)
+        if(obj%Leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call obj%leaf(i)%photosynthesis(dt=dt)
+        endif
+    enddo
 
-    if(trim(obj%Stage)=="VE")then
-        ! VE
-        ! Seed => VE
+    ! ソースの消耗、拡散を計算
+    !call obj%source2sink()
 
-        ! water-absorption
-        call obj%WaterAbsorption(dt=dt,temp=temp)
+    ! 伸長を計算
+    !call obj%extention()
 
-        ! Update RootSystem
-        !call obj%UpdateRootSystemVE()
+    ! 分化を計算、構造の更新
+    !call obj%development()
 
-        ! Update NodeSystem
-        !call obj%UpdateNodeSystemVE()
-
-
-    elseif(trim(obj%Stage)=="CV" )then
-        ! CV stage
-    elseif(obj%Stage(1:1)=="R")then
-        ! Reproductive Stage
-    else
-        print *, "Invalid growth stage"
-        stop 
-        ! Vagetative
-    endif
 
 end subroutine
 ! ########################################
@@ -866,7 +890,27 @@ subroutine moveSoybean(obj,x,y,z)
 end subroutine
 ! ########################################
 
+! ########################################
+subroutine laytracingsoybean(obj,light)
+    class(Soybean_),intent(inout) :: obj
+    type(Light_),intent(in) :: light
+    real(real64) :: max_PPFD
+    integer(int32) :: i,j,n
 
+    max_PPFD = light%maxPPFD
+    ! 総当りで、総遮蔽長を割り出す
+    ! 茎は光を通さない、葉は透過率あり、空間は透過率ゼロ
 
+    do i=1,size(obj%leaf)
+        if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+            ! 葉あり
+            obj%leaf(i)%PPFD(:)=0.0d0
+            do j=1,size(obj%leaf(i)%PPFD)
 
+            enddo
+        endif
+    enddo
+    
+end subroutine
+! ########################################
 end module
