@@ -1,6 +1,7 @@
 *.pos
 *.msh
 /home
+home/*
 ./Desktop
 
 
