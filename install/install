@@ -270,6 +270,10 @@ echo "Compiling ./src/RidgeClass/RidgeClass.f90"
 echo " >> RidgeClass.o "
 echo " | ########################    | (90%)\r\c"
 mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RidgeClass/RidgeClass.f90 -o  ./inc/RidgeClass.o
+echo "Compiling ./src/AirClass/AirClass.f90" 
+echo " >> AirClass.o "
+echo " | ########################    | (90%)\r\c"
+mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/AirClass/AirClass.f90 -o  ./inc/AirClass.o
 echo "Compiling ./src/DamClass/DamClass.f90" 
 echo " >> DamClass.o "
 echo " | ########################    | (90%)\r\c"
@@ -356,6 +360,7 @@ mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/Plan
 
 mv *.mod inc/
 mv *.so inc/
+mkdir -p home
 #echo "Copying input files from INPUT/           " 
 #echo " >> *.txt, *.scf"
 #echo " | ########################### | (100%)\r"

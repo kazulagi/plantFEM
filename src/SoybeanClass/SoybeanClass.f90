@@ -548,24 +548,22 @@ end subroutine
 ! ########################################
 
 ! ########################################
-subroutine growSoybean(obj,dt,temp,light)
+subroutine growSoybean(obj,dt,light,air,temp)
     class(Soybean_),intent(inout) :: obj
     type(Light_),optional,intent(inout) :: light
-    real(real64),intent(in) :: dt,temp! time-interval
+    type(air_),optional,intent(in) :: air
+    real(real64),optional,intent(in) :: temp
+    real(real64),intent(in) :: dt! time-interval
     real(real64) :: ac_temp ! time-interval
     integer(int32) :: i
 
     ! 光量子量を計算
-    call obj%laytracing(Light)
-
-    return
-    !以下工事中
-
+    call obj%laytracing(light=light)
 
     ! 光合成量を計算
     do i=1,size(obj%Leaf)
         if(obj%Leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%leaf(i)%photosynthesis(dt=dt)
+            call obj%leaf(i)%photosynthesis(dt=dt,air=air)
         endif
     enddo
 

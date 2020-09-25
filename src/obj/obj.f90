@@ -1,5 +1,6 @@
 module obj
     use RidgeClass
+    use AirClass
     use DamClass
     use StemClass
     use PlantRootClass

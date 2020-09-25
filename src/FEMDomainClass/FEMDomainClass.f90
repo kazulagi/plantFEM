@@ -91,6 +91,7 @@ module FEMDomainClass
         procedure,public :: gnuplotPlotContour  => GnuplotPlotContour   
 		procedure,public :: gnuplotExportStress => GnuplotExportStress  
 		procedure,public :: getDBCVector => getDBCVectorFEMDomain
+		procedure,public :: getVolume => getVolumeFEMDomain
 		
         procedure,public :: init   => InitializeFEMDomain
 		procedure,public :: import => ImportFEMDomain
@@ -6539,5 +6540,21 @@ subroutine contactdetectFEMDomain(obj1, obj2, ContactModel)
 
 end subroutine
 ! ##################################################
+
+function getVolumeFEMDomain(obj,elem) result(ret)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32),intent(in) :: elem
+	real(real64) :: ret
+	integer(int32) :: i,j
+
+
+	obj%ShapeFunction%ElemType=obj%Mesh%GetElemType()
+	call SetShapeFuncType(obj%ShapeFunction)
+	i = elem
+	call GetAllShapeFunc(obj%ShapeFunction,elem_id=i,nod_coord=obj%Mesh%NodCoord,&
+		elem_nod=obj%Mesh%ElemNod,OptionalGpID=j)
+	ret = obj%ShapeFunction%detJ
+
+end function
 
 end module FEMDomainClass
