@@ -5,6 +5,7 @@ module LeafClass
     use PetiClass
     use StemClass
     use LightClass
+    use AirClass
     implicit none
 
 
@@ -39,6 +40,30 @@ module LeafClass
         integer(int32)  :: xnum = 10
         integer(int32)  :: ynum = 10
         integer(int32)  :: znum = 10
+
+        ! phisiological parameters
+
+
+        real(real64) :: V_cmax = 100.0d0 ! 最大カルボキシル化反応速度, mincro-mol/m-2/s
+        real(real64) :: V_omax = 100.0d0 ! 最大酸素化反応速度, mincro-mol/m-2/s, lambdaから推定
+        real(real64) :: O2 = 380.0d0! 酸素濃度, ppm
+        real(real64) :: CO2=202000.0d0! 二酸化炭素濃度, ppm
+        real(real64) :: R_d=1.0d0 ! 暗呼吸速度, mincro-mol/m-2/s
+    
+        real(real64) :: K_c=272.380d0 ! CO2に対するミカエリス定数
+        real(real64) :: K_o=165820.0d0 ! O2に対するミカエリス定数
+    
+        real(real64) :: J_=0.0d0 ! 電子伝達速度
+        real(real64) :: I_=0.0d0 ! 光強度
+        real(real64) :: phi=0.0d0 ! I-J曲線の初期勾配
+        real(real64) :: J_max=180.0d0 !最大電子伝達速度,mincro-mol/m-2/s
+        real(real64) :: theta_r=0.0d0 ! 曲線の凸度
+    
+        real(real64) :: maxPPFD=1.0d0 ! micro-mol/m^2/s
+    
+        real(real64) :: Lambda= 37.430d0 ! 暗呼吸速度を無視した時のCO2補償点ppm
+        real(real64) :: temp=303.0d0 ! temp
+    
 
     contains
         procedure, public :: Init => initLeaf
@@ -605,11 +630,13 @@ end subroutine
 ! ########################################
 
 ! ########################################
-subroutine photosynthesisLeaf(obj,dt)
+subroutine photosynthesisLeaf(obj,dt,air)
 
     ! https://eprints.lib.hokudai.ac.jp/dspace/bitstream/2115/39102/1/67-013.pdf
 
     class(Leaf_),intent(inout) :: obj
+    type(Air_),intent(in) :: air
+    type(IO_) :: f
     real(real64),intent(in) :: dt
     ! Farquhar modelのパラメータ
     real(real64) :: A   ! CO2吸収速度
@@ -621,8 +648,8 @@ subroutine photosynthesisLeaf(obj,dt)
 
     real(real64) :: V_cmax ! 最大カルボキシル化反応速度
     real(real64) :: V_omax ! 最大酸素化反応速度
-    real(real64) :: O_2 ! 酸素濃度
-    real(real64) :: CO_2 ! 二酸化炭素濃度
+    real(real64) :: O2 ! 酸素濃度
+    real(real64) :: CO2 ! 二酸化炭素濃度
     real(real64) :: R_d ! なんだっけ
 
     real(real64) :: K_c ! CO2に対するミカエリス定数
@@ -634,44 +661,90 @@ subroutine photosynthesisLeaf(obj,dt)
     real(real64) :: J_max !最大電子伝達速度
     real(real64) :: theta_r ! 曲線の凸度
 
-    real(real64) :: maxPPFD=1.0d0 ! micro-mol/m^2/s
+    real(real64) :: pfd
 
-    real(real64) :: Lambda
+    real(real64) :: Lambda, volume
 
-    integer(int32) :: i
 
-    ! 工事中
-    return
+    integer(int32) :: i, element_id
 
-    ! For each elements, estimate photosynthesis by Farquhar model
+    obj%temp=air%temp
+    obj%CO2 = air%CO2
+    obj%O2 = air%O2
+
+    ! TT-model
+    
     do i=1,size(obj%source)
-
-        ! 光合成量の計算
-        ! Farquhar model
-        V_c = (V_cmax*CO_2)/(CO_2 + K_o * (1.0d0 + O_2/K_o) )
-        V_o = (V_omax*O_2 )/(O_2 + K_o * (1.0d0 + CO_2/K_c) )
+        ! 要素ごとに電子伝達速度を求める
+        element_id = i
+        pfd = obj%ppfd(element_id)
+        obj%J_ = 0.240d0*pfd/(sqrt(1.0d0 + (0.240d0*0.240d0)*pfd*pfd)/obj%J_max/obj%J_max)
         
-        Lambda = (V_omax*K_c*O_2)/( 2.0d0 * V_cmax*K_o )
-    
-        W_c = (V_cmax*(CO_2 - Lambda))/(CO_2 + K_c*(1.0d0 + O_2/K_o)  )
-    
-        J_ = (phi*I_ + J_max - &
-        sqrt( (phi*I_ + J_max)**(2.0d0) - 4.0d0*phi*I_*theta_r*J_max)&
-        /(2.0d0 * theta_r) )
-        W_j = J_ * (CO_2 - Lambda)/(4.0d0 * CO_2 + 8.0d0 * Lambda ) - R_d
-        ! CO2吸収速度
-        A = V_c + 0.50d0*V_o - R_d
-    
+        ! lambdaからV_omaxを推定
+        obj%V_omax = obj%Lambda*( 2.0d0 * obj%V_cmax*obj%K_o )/(obj%K_c*O2)
+
+        ! CO2固定速度の計算
+        V_c = (obj%V_cmax*obj%CO2)/(obj%CO2 +obj% K_o * (1.0d0+ obj%O2/obj%K_o) )
+        V_o = (obj%V_omax*obj%O2 )/(obj%O2 + obj%K_o * (1.0d0 + obj%CO2/obj%K_c) )
+
+        ! RuBPが飽和している場合のCO2吸収速度
+        W_c = (obj%V_cmax*(obj%CO2 - obj%Lambda))/(obj%CO2 + obj%K_c*(1.0d0 + obj%O2/obj%K_o))
+
+        ! RuBP供給が律速している場合のCO2吸収速度
+        W_j = obj%J_ * (obj%CO2 - obj%Lambda)/(4.0d0 * obj%CO2 + 8.0d0 * obj%Lambda ) - obj%R_d
+
+
         if(W_j >= W_c )then
             A = W_c
         else
             A = W_j
         endif
+        ! 要素体積を求める, m^3
+        volume = obj%femdomain%getVolume(elem=i)
+
+        !CO2固定量　mincro-mol/m-2/s
+        ! ここ、体積あたりにする必要がある
+        ! 一応、通常の葉の厚さを2mmとして、
+        ! 1 micro-mol/m^2/sを、 1 micro-mol/ 0.002m^3/s= 500micro-mol/m^3/sとして計算
+        ! また、ソース量はC6H12O6の質量gramとして換算する。
+        ! CO2の分子量44.01g/mol
+        ! C6H12O6の分子量180.16g/mol
+        ! 6CO2 + 12H2O => C6H12O6 + 6H2O + 6O2
+        ! よって、生成されるソース量は
+        !               {CO2固定量,mol     }× {1/6 してグルコースmol}×グルコース分子量
+        obj%source(i) =obj%source(i)+ A*dt/500.0d0*volume * 1.0d0/6.0d0 * 180.160d0
         
-
     enddo
-
-
+    
+!    ! For each elements, estimate photosynthesis by Farquhar model
+!    do i=1,size(obj%source)
+!
+!        ! 光合成量の計算
+!        ! Farquhar model
+!        V_c = (V_cmax*CO2)/(CO2 + K_o * (1.0d0 + O2/K_o) )
+!        V_o = (V_omax*O2 )/(O2 + K_o * (1.0d0 + CO2/K_c) )
+!        
+!        Lambda = (V_omax*K_c*O2)/( 2.0d0 * V_cmax*K_o )
+!    
+!        W_c = (V_cmax*(CO2 - Lambda))/(CO2 + K_c*(1.0d0 + O2/K_o)  )
+!    
+!        J_ = (phi*I_ + J_max - &
+!        sqrt( (phi*I_ + J_max)**(2.0d0) - 4.0d0*phi*I_*theta_r*J_max)&
+!        /(2.0d0 * theta_r) )
+!        W_j = J_ * (CO2 - Lambda)/(4.0d0 * CO2 + 8.0d0 * Lambda ) - R_d
+!        ! CO2吸収速度
+!        A = V_c + 0.50d0*V_o - R_d
+!    
+!        if(W_j >= W_c )then
+!            A = W_c
+!        else
+!            A = W_j
+!        endif
+!        
+!
+!    enddo
+!
+!
 end subroutine
 
 
