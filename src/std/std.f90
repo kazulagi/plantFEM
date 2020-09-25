@@ -4,6 +4,7 @@ module std
     use TermClass
     use MathClass
     use PhysicsClass
+    use HTTPClass
     use IOClass
     use KinematicClass
     use RandomClass

@@ -73,6 +73,10 @@ echo "Compiling ./src/PhysicsClass/PhysicsClass.f90   "
 echo " >> PhysicsClass.o"
 echo " | #                           | (2%)\r\c "
 mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PhysicsClass/PhysicsClass.f90 -o  ./inc/PhysicsClass.o
+echo "Compiling ./src/HTTPClass/HTTPClass.f90   "
+echo " >> HTTPClass.o"
+echo " | #                           | (2%)\r\c "
+mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/HTTPClass/HTTPClass.f90 -o  ./inc/HTTPClass.o
 echo "Compiling ./src/IOClass/IOClass.f90      "
 echo " >> IOClass.o"
 echo " |                             | (0%)\r\c "

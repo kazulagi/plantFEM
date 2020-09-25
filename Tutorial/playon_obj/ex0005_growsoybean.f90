@@ -1,5 +1,5 @@
 program main
-    use plantFEM
+    use SoybeanClass
     implicit none
 
     type(Soybean_) :: soy
@@ -8,7 +8,7 @@ program main
 
     call light%init() ! create the Sun
 
-    call soil%init("soilconfig.json")
+    call soil%init()
 
     !call soil%gmsh("soil")
 
