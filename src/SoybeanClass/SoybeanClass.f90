@@ -558,6 +558,10 @@ subroutine growSoybean(obj,dt,temp,light)
     ! 光量子量を計算
     call obj%laytracing(Light)
 
+    return
+    !以下工事中
+
+
     ! 光合成量を計算
     do i=1,size(obj%Leaf)
         if(obj%Leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
@@ -894,23 +898,192 @@ end subroutine
 subroutine laytracingsoybean(obj,light)
     class(Soybean_),intent(inout) :: obj
     type(Light_),intent(in) :: light
-    real(real64) :: max_PPFD
-    integer(int32) :: i,j,n
+    real(real64),allocatable :: stemcenter(:,:),stemradius(:)
+    real(real64),allocatable :: leafcenter(:,:),leafradius(:)
+    real(real64),allocatable :: elemnodcoord(:,:),x(:),x2(:)
+    real(real64) :: max_PPFD,r,rc,r0
+    real(real64),parameter :: extinction_ratio = 100.0d0 ! ratio/m
+    type(IO_) :: f
+    integer(int32) :: i,j,n,num_particle,k,l,nodeid,m,totcount
 
     max_PPFD = light%maxPPFD
     ! 総当りで、総遮蔽長を割り出す
     ! 茎は光を通さない、葉は透過率あり、空間は透過率ゼロ
+    ! 要素中心から頂点への平均長さを半径に持ち、要素中心を中心とする球
+    ! を考え、Layとの公差判定を行う。
+    num_particle = 0
+    do i=1,size(obj%leaf)
+        if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+            num_particle=num_particle+size(obj%leaf(i)%femdomain%mesh%ElemNod,1)
+        endif
+    enddo
+    allocate(leafcenter(num_particle,3),leafradius(num_particle) )
+    leafcenter(:,:) = 0.0d0
+    leafradius(:) = 0.0d0
 
+    num_particle = 0
+    do i=1,size(obj%leaf)
+        if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+            num_particle=num_particle+size(obj%stem(i)%femdomain%mesh%ElemNod,1)
+        endif
+    enddo
+    allocate(stemcenter(num_particle,3),stemradius(num_particle) )
+    stemcenter(:,:) = 0.0d0
+    stemradius(:) = 0.0d0
+
+    num_particle = 0
+    
+    do i=1,size(obj%leaf)
+        if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+            n = size(obj%leaf(i)%femdomain%mesh%Elemnod,2)
+            m = size(obj%leaf(i)%femdomain%mesh%Nodcoord,2)
+            allocate(elemnodcoord(n,m) )
+            allocate(x(m) )
+            do j=1,size(obj%leaf(i)%femdomain%mesh%elemnod,1)
+                do k=1,size(obj%leaf(i)%femdomain%mesh%elemnod,2)
+                    nodeid = obj%leaf(i)%femdomain%mesh%elemnod(j,k)
+                    elemnodcoord(k,:) = obj%leaf(i)%femdomain%mesh%Nodcoord(nodeid,:)
+                enddo
+                num_particle = num_particle+1
+                do k=1, size(elemnodcoord,1)
+                    do l=1, size(elemnodcoord,2)
+                        leafcenter(num_particle,l) = &
+                        + leafcenter(num_particle,l) &
+                        + 1.0d0/dble(size(elemnodcoord,1))*elemnodcoord(k,l)
+                    enddo
+                enddo
+                do k=1, size(elemnodcoord,1)
+                    x(:) = elemnodcoord(k,:)
+                    x(:) = x(:) - leafcenter(num_particle,:)
+                    leafradius(num_particle) = leafradius(num_particle) &
+                    + sqrt(dot_product(x,x))/dble(size(elemnodcoord,1))
+                enddo
+            enddo
+            deallocate(elemnodcoord)
+            deallocate(x)
+        endif
+    enddo
+
+
+    num_particle = 0
+    do i=1,size(obj%stem)
+        if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+            n = size(obj%stem(i)%femdomain%mesh%Elemnod,2)
+            m = size(obj%stem(i)%femdomain%mesh%Nodcoord,2)
+            allocate(elemnodcoord(n,m) )
+            allocate(x(m) )
+            do j=1,size(obj%stem(i)%femdomain%mesh%elemnod,1)
+                do k=1,size(obj%stem(i)%femdomain%mesh%elemnod,2)
+                    nodeid = obj%stem(i)%femdomain%mesh%elemnod(j,k)
+                    elemnodcoord(k,:) = obj%stem(i)%femdomain%mesh%Nodcoord(nodeid,:)
+                enddo
+                num_particle = num_particle+1
+                do k=1, size(elemnodcoord,1)
+                    do l=1, size(elemnodcoord,2)
+                        stemcenter(num_particle,l) = &
+                        + stemcenter(num_particle,l) &
+                        + 1.0d0/dble(size(elemnodcoord,1))*elemnodcoord(k,l)
+                    enddo
+                enddo
+                do k=1, size(elemnodcoord,1)
+                    x(:) = elemnodcoord(k,:)
+                    x(:) = x(:) - stemcenter(num_particle,:)
+                    stemradius(num_particle) = stemradius(num_particle) &
+                    + sqrt(dot_product(x,x))/dble(size(elemnodcoord,1))
+                enddo
+            enddo
+            deallocate(elemnodcoord)
+            deallocate(x)
+        endif
+    enddo
+    
+
+    ! DEBUG
+    call f%open("leaf.txt")
+    do i=1,size(leafcenter,1)
+        write(f%fh,*) leafcenter(i,:)
+    enddo
+    call f%close()
+    
+    call f%open("stem.txt")
+    do i=1,size(stemcenter,1)
+        write(f%fh,*) stemcenter(i,:)
+    enddo
+    call f%close()
+    
+    allocate(x(3),x2(3) )
+    
+    
+    num_particle = 0
+    totcount = 0
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             ! 葉あり
-            obj%leaf(i)%PPFD(:)=0.0d0
+            obj%leaf(i)%PPFD(:) = max_PPFD
             do j=1,size(obj%leaf(i)%PPFD)
+                totcount = totcount + 1
+                num_particle = num_particle + 1
+                ! それぞれの要素について、遮蔽particleを探索
+                ! 茎：全減衰
+                ! 葉：半減衰
+                ! 簡単のため上からのみ
+                ! x-yのみについて見て、上方かつx-y平面距離が半径以内で覆陰判定
+                x(:) = leafcenter(num_particle,:)
+                r0   = leafradius(num_particle)
+                ! 枝による覆陰判定
+                
+                do k=1, size(stemcenter,1)
+                    x2(:) = stemcenter(k,:)
+                    r     = stemradius(k)
+                    rc    = ( x(1)-x2(1) )**(2.0d0) + ( x(2)-x2(2) )**(2.0d0) 
+                    rc    = sqrt(rc)
+                    if(rc <= r0 + r .and. x(3) < x2(3) )then
+                        ! 茎により覆陰されてる
+                        obj%leaf(i)%PPFD(j) = 0.0d0
+                        exit
+                    endif
+                enddo
+                if(obj%leaf(i)%PPFD(j) == 0.0d0)then
+                    cycle
+                endif
+
+                do k=1, size(leafcenter,1)
+                    ! もし自信だったら除外
+                    if(totcount == k)then
+                        cycle
+                    endif
+                    
+                    x2(:) = leafcenter(k,:)
+                    r     = leafradius(k)
+                    rc    = ( x(1)-x2(1) )**(2.0d0) + ( x(2)-x2(2) )**(2.0d0) 
+                    rc    = sqrt(rc)
+                    if(rc <= (r0 + r)/2.0d0 .and. x(3) < x2(3) )then
+                        ! 茎により覆陰されてる
+                        obj%leaf(i)%PPFD(j) = &
+                        obj%leaf(i)%PPFD(j)*(1.0d0-extinction_ratio*2.0d0*r)
+                        if( obj%leaf(i)%PPFD(j) <= 0.0d0 )then
+                            obj%leaf(i)%PPFD(j) = 0.0d0
+                        endif
+                    endif
+                enddo
 
             enddo
         endif
     enddo
     
+    call f%open("PPFD.txt")
+    do i=1,size(obj%leaf)
+        if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+            ! 葉あり
+            do j=1,size(obj%leaf(i)%PPFD,1)
+                write(f%fh,*) obj%leaf(i)%PPFD(j),"leaf_id: ",str(i),"elem_id: ",str(j)
+            enddo
+        endif
+    enddo
+    call f%close()
+    
+
+
 end subroutine
 ! ########################################
 end module
