@@ -6552,7 +6552,7 @@ function getVolumeFEMDomain(obj,elem) result(ret)
 	call SetShapeFuncType(obj%ShapeFunction)
 	i = elem
 	call GetAllShapeFunc(obj%ShapeFunction,elem_id=i,nod_coord=obj%Mesh%NodCoord,&
-		elem_nod=obj%Mesh%ElemNod,OptionalGpID=j)
+		elem_nod=obj%Mesh%ElemNod,OptionalGpID=1)
 	ret = obj%ShapeFunction%detJ
 
 end function

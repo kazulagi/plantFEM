@@ -16,7 +16,7 @@ module LeafClass
         real(real64)             ::  MaxThickness,Maxlength,Maxwidth
         real(real64)             ::  center_bottom(3),center_top(3)
         real(real64)             ::  outer_normal_bottom(3),outer_normal_top(3)
-        real(real64),allocatable ::  source(:), ppfd(:)
+        real(real64),allocatable ::  source(:), ppfd(:),A(:)
         integer(int32)             ::  Division
         type(leaf_),pointer ::  pleaf
         type(Peti_),pointer ::  pPeti
@@ -288,6 +288,9 @@ contains
         call obj%FEMdomain%create(meshtype="rectangular3D",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
         x_len=obj%minwidth/2.0d0,y_len=obj%minwidth/2.0d0,z_len=obj%minlength,shaperatio=obj%shaperatio)
         
+
+        allocate(obj%A(size(obj%FEMDomain%Mesh%ElemNod,1) ) )
+        obj%A(:) = 0.0d0
         allocate(obj%source(size(obj%FEMDomain%Mesh%ElemNod,1) ) )
         obj%source(:) = 0.0d0
         allocate(obj%ppfd(size(obj%FEMDomain%Mesh%ElemNod,1) ) )
@@ -673,7 +676,6 @@ subroutine photosynthesisLeaf(obj,dt,air)
     obj%O2 = air%O2
 
     ! TT-model
-    
     do i=1,size(obj%source)
         ! 要素ごとに電子伝達速度を求める
         element_id = i
@@ -700,7 +702,8 @@ subroutine photosynthesisLeaf(obj,dt,air)
             A = W_j
         endif
         ! 要素体積を求める, m^3
-        volume = obj%femdomain%getVolume(elem=i)
+        obj%A(element_id) = A
+        volume = obj%femdomain%getVolume(elem=element_id)
 
         !CO2固定量　mincro-mol/m-2/s
         ! ここ、体積あたりにする必要がある
@@ -715,7 +718,6 @@ subroutine photosynthesisLeaf(obj,dt,air)
         obj%source(i) =obj%source(i)+ A*dt/500.0d0*volume * 1.0d0/6.0d0 * 180.160d0
         
     enddo
-    
 !    ! For each elements, estimate photosynthesis by Farquhar model
 !    do i=1,size(obj%source)
 !
