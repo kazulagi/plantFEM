@@ -901,6 +901,7 @@ subroutine laytracingsoybean(obj,light)
     real(real64),allocatable :: elemnodcoord(:,:),x(:),x2(:)
     real(real64) :: max_PPFD,r,rc,r0
     real(real64),parameter :: extinction_ratio = 100.0d0 ! ratio/m
+    !real(real64),parameter :: radius_ratio = 0.01d0 ! radius_of_gauss_point/element_length
     type(IO_) :: f
     integer(int32) :: i,j,n,num_particle,k,l,nodeid,m,totcount
 
@@ -953,8 +954,13 @@ subroutine laytracingsoybean(obj,light)
                 do k=1, size(elemnodcoord,1)
                     x(:) = elemnodcoord(k,:)
                     x(:) = x(:) - leafcenter(num_particle,:)
-                    leafradius(num_particle) = leafradius(num_particle) &
-                    + sqrt(dot_product(x,x))/dble(size(elemnodcoord,1))
+                    if(k>=2 .and. leafradius(num_particle) > sqrt(dot_product(x,x))  )then
+                        leafradius(num_particle) = sqrt(dot_product(x,x))
+                    elseif(k==1)then
+                        leafradius(num_particle) = sqrt(dot_product(x,x))    
+                    else
+                        cycle
+                    endif
                 enddo
             enddo
             deallocate(elemnodcoord)
@@ -986,8 +992,14 @@ subroutine laytracingsoybean(obj,light)
                 do k=1, size(elemnodcoord,1)
                     x(:) = elemnodcoord(k,:)
                     x(:) = x(:) - stemcenter(num_particle,:)
-                    stemradius(num_particle) = stemradius(num_particle) &
-                    + sqrt(dot_product(x,x))/dble(size(elemnodcoord,1))
+                    !最小半径で考える
+                    if(k>=2 .and. stemradius(num_particle) > sqrt(dot_product(x,x))  )then
+                        stemradius(num_particle) = sqrt(dot_product(x,x))
+                    elseif(k==1)then
+                        stemradius(num_particle) = sqrt(dot_product(x,x))    
+                    else
+                        cycle
+                    endif
                 enddo
             enddo
             deallocate(elemnodcoord)

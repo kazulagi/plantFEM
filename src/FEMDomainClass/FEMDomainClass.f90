@@ -112,6 +112,8 @@ module FEMDomainClass
 
 		procedure,public :: open => openFEMDomain
 
+		procedure,public :: ply => plyFEMDomain
+
 		procedure,public :: removeMaterials => removeMaterialsFEMDomain
 		procedure,public :: rotate => rotateFEMDomain
 		procedure,public :: removeBoundaries => removeBoundariesFEMDomain
@@ -131,7 +133,9 @@ module FEMDomainClass
 		procedure,public :: showRange => showRangeFEMDomain
 		procedure,public :: showMaterials => showMaterialsFEMDomain
 		procedure,public :: showBoundaries => showBoundariesFEMDomain
+		procedure,public :: stl => stlFEMDomain
 
+		procedure,public :: vtk => vtkFEMDomain
 		
     end type FEMDomain_
 
@@ -408,10 +412,13 @@ end subroutine distributeFEMDomain
 !##################################################
 
 !##################################################
-subroutine displayFEMDomain(obj,path,name,extention)
+subroutine displayFEMDomain(obj,path,name,extention,field)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: path,name,extention
 	integer(int32) :: i,j,n
+	real(real64),optional,intent(in) :: field(:)
+	real(real64) :: val
+
 	open(10,file=trim(path)//trim(adjustl(name))//trim(extention) )
 	if( trim(extention) == ".vtk" )then
 		write(10,'(A)' ) "# vtk DataFile Version 2.0"
@@ -525,59 +532,63 @@ subroutine displayFEMDomain(obj,path,name,extention)
 			write(10,'(i3)') int(obj%mesh%NodCoord(i,3)*255.0d0/maxval(obj%mesh%NodCoord(:,3) ))
 		enddo
 		do i=1,size(obj%mesh%ElemNod,1)
+			val = dble(obj%mesh%ElemNod(i,1)-1)
+			if(present(field) )then
+				val=field(i)
+			endif
 			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,1)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,2)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,3)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,4)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)') " "
 			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,5)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,6)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,7)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,8)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)') " "
 			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,1)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,2)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,6)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,5)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)') " "
 			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,3)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,4)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,8)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,7)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)') " "
 			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,1)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,5)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,8)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,4)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)') " "
 			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,2)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,3)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,7)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,6)-1
+			write(10,'(i10)',advance="no") int(val)
 			write(10,'(A)') " "
 		enddo
 
@@ -3282,9 +3293,10 @@ end subroutine
 
 ! #########################################################################################
 subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeumannBC,withDirichletBC&
-	,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial,Tag,timestep)
+	,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial,Tag,timestep,field)
 	class(FEMDomain_),intent(inout)::obj
 	real(real64),allocatable::gp_value(:,:)
+	real(real64),allocatable,optional,intent(in)::field(:)
 	integer(int32),optional,intent(in)::OptionalStep,timestep
 	character,optional,intent(in):: OptionalContorName*30,OptionalAbb*6
 	character(*),optional,intent(in)::Name,Tag
@@ -3370,6 +3382,11 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 		enddo
 	else
 		gp_value(i,:)=0.0d0
+	endif
+	if(present(Field) )then
+		do i=1,size(gp_value,1)
+			gp_value(i,:)=field(i)
+		enddo
 	endif
 
 	if(present(withDirichletBC) )then
@@ -6555,5 +6572,73 @@ function getVolumeFEMDomain(obj,elem) result(ret)
 	ret = obj%ShapeFunction%detJ
 
 end function
+! ##################################################
+
+! ##################################################
+subroutine vtkFEMDomain(obj,name)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),intent(in) :: name
+	type(IO_) :: f
+	integer(int32) ::i
+
+	if(obj%mesh%empty() .eqv. .true.)then
+		print *, "ERROR :: vtkFEMDomain >> obj%mesh%empty() .eqv. .true., nothing exported"
+		return
+	endif
+
+	call displayFEMDomain(obj,path="./",name=name,extention=".vtk")
+	return
+
+	!call f%open(trim(name)//".vtk")
+	!call f%write("# vtk DataFile Version 4.1")
+	!call f%write("vtk output")
+	!call f%write("ASCII")
+	!call f%write("DATASET UNSTRUCTURED_GRID")
+	!write(f%fh,*) "POINTS "//trim(str(size(obj%mesh%nodcoord,1)))//" double"
+	!do i=1,size(obj%mesh%nodcoord,1)
+	!	write(f%fh,*) obj%mesh%nodcoord(i,:)
+	!enddo
+	!write(f%fh,*) "CELLS "//trim(str( size(obj%mesh%ElemNod,1)  ) )//&
+	!	" "//trim(str(size(obj%mesh%ElemNod,1)*(size(obj%mesh%ElemNod,2)+1)   ) )
+	!do i=1,size(obj%mesh%ElemNod,1)
+	!	write(f%fh,*) size(obj%mesh%ElemNod,2) , obj%mesh%ElemNod(i,:)-1
+	!enddo
+	!write(f%fh,*) "CELL_TYPES ",size(obj%mesh%ElemNod,1)
+	!do i=1,size(obj%mesh%ElemNod,1)
+	!	write(f%fh,*) "12"
+	!enddo
+	!call f%close()
+
+end subroutine
+! ##################################################
+
+! ##################################################
+subroutine plyFEMDomain(obj,name)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),intent(in) :: name
+	type(IO_) :: f
+	integer(int32) ::i
+
+	if(obj%mesh%empty() .eqv. .true.)then
+		print *, "ERROR :: vtkFEMDomain >> obj%mesh%empty() .eqv. .true., nothing exported"
+		return
+	endif
+
+	call displayFEMDomain(obj,path="./",name=name,extention=".ply")
+	return
+
+
+end subroutine
+! ##################################################
+
+subroutine stlFEMDomain(obj,name)
+	class(FEMDomain_),intent(inout) :: obj
+	type(IO_) :: f
+	character(*),intent(in) :: name
+
+	call f%open(trim(name)//".stl")
+	call ExportFEMDomainAsSTL(obj,FileHandle=f%fh,MeshDimension=size(obj%mesh%Nodcoord,2))
+	call f%close()
+end subroutine
 
 end module FEMDomainClass
