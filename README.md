@@ -297,6 +297,26 @@ end program
 >>> 
 ```
 
+You can set a hostfile
+
+```
+vi ./etc/hostfile
+```
+
+and a number of process by
+
+```
+./plantfem cpu-core
+```
+
+or
+
+```
+vi ./etc/cpucore
+```
+
+
+
 
 ## Photography
 
