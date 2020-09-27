@@ -24,6 +24,7 @@ module FEMDomainClass
 		type(Boundary_),pointer :: Boundaryp
 	end type
 
+
     type::FEMDomain_
         type(Mesh_)             :: Mesh
         type(MaterialProp_)     :: MaterialProp
@@ -33,7 +34,7 @@ module FEMDomainClass
 		type(Meshp_),allocatable :: Meshes(:)
 		type(Materialp_),allocatable :: Materials(:)
 		type(Boundaryp_),allocatable :: Boundaries(:)
-		type(FEMDomainp_),allocatable :: FEMDomains(:)
+		!type(FEMDomainp_),allocatable :: FEMDomains(:)
 
         type(ShapeFunction_)    :: ShapeFunction
 		real(real64),allocatable :: scalar(:)
@@ -134,9 +135,9 @@ module FEMDomainClass
 		
     end type FEMDomain_
 
-	type:: FEMDomainp_
-		type(FEMDomain_),pointer :: FEMDomain
-	end type
+	!type:: FEMDomainp_
+	!	type(FEMDomain_),pointer :: FEMDomain
+	!end type
 	
 	type,extends(FEMDomain_) :: STFEMDomain_
         type(ShapeFunction_)    :: TimeShapeFunction
@@ -248,9 +249,9 @@ subroutine removeFEMDomain(obj)
 	if(allocated(obj%Boundaries))then
 		deallocate(obj%Boundaries)
 	endif
-	if(allocated(obj%FEMDomains))then
-		deallocate(obj%FEMDomains)
-	endif
+	!if(allocated(obj%FEMDomains))then
+	!	deallocate(obj%FEMDomains)
+	!endif
 
 
 	if(allocated(obj%scalar) )then
@@ -350,17 +351,15 @@ subroutine saveFEMDomain(obj,path,name)
 end subroutine 
 
 !##################################################
-subroutine divideFEMDomain(obj,n) 
+function divideFEMDomain(obj,n) result(FEMDomains)
 	class(FEMDomain_),intent(inout)::obj
+	type(FEMDomain_),allocatable :: FEMDomains(:)
     type(Mesh_),allocatable :: meshes(:)
 	integer(int32),intent(in) :: n
 	integer(int32) :: i
 	
 	! split obj into n objects
-	if(allocated(obj%FEMDomains) )then
-		deallocate(obj%FEMDomains)
-	endif
-	allocate(obj%FEMDomains(n))
+	allocate(FEMDomains(n))
 
 	! Greedy algorithm
 	if(obj%Mesh%empty() .eqv. .true. )then
@@ -372,10 +371,10 @@ subroutine divideFEMDomain(obj,n)
 
 	! import mesh
 	do i=1,n
-		call obj%FEMDomains(i)%FEMDomain%import(Mesh=meshes(i))
+		call FEMDomains(i)%import(Mesh=meshes(i))
 	enddo
 
-end subroutine divideFEMDomain
+end function divideFEMDomain
 !##################################################
 
 !##################################################
@@ -388,10 +387,10 @@ subroutine distributeFEMDomain(obj,mpid)
 	n=mpid%petot
 
 	! split obj into n objects
-	if(allocated(obj%FEMDomains) )then
-		deallocate(obj%FEMDomains)
-	endif
-	allocate(obj%FEMDomains(n))
+	!if(allocated(obj%FEMDomains) )then
+	!	deallocate(obj%FEMDomains)
+	!endif
+	!allocate(obj%FEMDomains(n))
 
 	! Greedy algorithm
 	if(obj%Mesh%empty() .eqv. .true. )then
