@@ -280,13 +280,18 @@ homepath="$PWD"
         $mpif90 inc/*o ./server.f90 -g -fcheck=all  -fintrinsic-modules-path inc/        
         #echo "Current num of cpu-core is :: $numcore "
 
+        while read line
+        do 
+            echo "num of process :: "$line && break 
+        done < ./etc/cpucore
+
         if [ "$hostfile" != "" ]; then
             echo "hostfile is activated."
             mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out
             return 0
         fi
 
-        mpirun --allow-run-as-root -np $numcore ./a.out 
+        mpirun --allow-run-as-root --hostfile ./etc/hostfile -np $line ./a.out 
         return 0
     fi
     if [ "$1" = "$ls" ]; then
@@ -301,6 +306,7 @@ homepath="$PWD"
         echo "Current num of cpu-core is :: $numcore "
         echo "Please input num of cpu-core"
         read numcore
+        echo $numcore > ./etc/cpucore
         echo "Current num of cpu-core is :: $numcore "
         return 0
     fi
@@ -397,8 +403,11 @@ homepath="$PWD"
             mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out
             return 0
         fi
-
-        mpirun --allow-run-as-root -np $numcore ./a.out 
+        while read line
+        do 
+            echo $line && break
+        done < ./etc/cpucore
+        mpirun --allow-run-as-root --hostfile ./etc/hostfile -np $line ./a.out 
         return 0
     fi
 

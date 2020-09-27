@@ -13,6 +13,7 @@ sudo apt-get -yV install liblapack-doc
 sudo apt-get -yV install liblapack-pic
 sudo apt-get -yV install liblapack-test
 sudo apt-get -yV install liblapack3gf
+sudo apt-get install bc
 sudo apt -yV install curl
 sudo apt -yV install graphviz
 curl https://bootstrap.pypa.io/get-pip.py -o ~/get-pip.py

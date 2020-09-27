@@ -25,16 +25,19 @@ def get_args():
     psr = argparse.ArgumentParser()
     psr.add_argument('-m', '--mode', help='use other compiler instead of mpif90')
     psr.add_argument('-s', '--script', help='script for mpif90')
+    psr.add_argument('-np', '--num_of_process', help='number of process mpif90')
     return psr.parse_args()
 
 if __name__ == '__main__':
     args = get_args()
+    
     #print(args.mode)
     #print(args.bravo)
     #print(args.charlie)
     #print(args.delta)
     ofiles = os.path.exists("./inc/obj.o")
 
+    
     if str(args.script) == "install":
         ofiles = True
 

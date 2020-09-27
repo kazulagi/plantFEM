@@ -563,10 +563,18 @@ end function
 
 ! ########################################
 subroutine gmshleaf(obj,name)
-class(leaf_),intent(inout) :: obj
-character(*),intent(in) ::name
+    class(leaf_),intent(inout) :: obj
+    character(*),intent(in) ::name
 
-call obj%femdomain%gmsh(Name=name)
+    call obj%femdomain%gmsh(Name=name)
+    ! PPFD を出力
+    call obj%femdomain%gmsh(Name=name//"_PPFD_",field=obj%PPFD)
+    ! ソース量 を出力
+    call obj%femdomain%gmsh(Name=name//"_SOURCE_",field=obj%source)
+    ! 光合成速度 を出力
+    call obj%femdomain%gmsh(Name=name//"_A_",field=obj%A)
+
+
 end subroutine
 ! ########################################
 
