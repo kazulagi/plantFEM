@@ -374,5 +374,5 @@ end_time=`date +%s%3N`
 time=$((end_time - start_time)) 
 NANOTIME=`echo "scale=3; ($time)/1000" | bc`
 echo " Total 22 objects are compiled in "${NANOTIME}" sec. "
-echo " SiCroF is successfully installed !!"
+echo " plantFEM is successfully installed !!"
 echo "    "
