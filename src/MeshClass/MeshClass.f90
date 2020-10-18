@@ -30,6 +30,7 @@ module MeshClass
     contains
         procedure :: add => addMesh
         procedure :: adjustSphere => AdjustSphereMesh
+        procedure :: adjustCylinder => AdjustCylinderMesh
 
         procedure :: copy => CopyMesh
         procedure :: cut => cutMesh
@@ -3874,10 +3875,127 @@ subroutine AdjustSphereMesh(obj,rx,ry,rz,debug)
 end subroutine AdjustSphereMesh
 !##################################################
 
+!##################################################
+subroutine AdjustCylinderMesh(obj,rx,ry,rz,debug)
+    class(Mesh_),intent(inout) :: obj
+    type(Mesh_) :: mesh
+    real(real64)   :: o(3),rate,x_cur(3),x_pres(3)
+    real(real64),optional,intent(in)   :: rx,ry,rz
+    real(real64)   :: r_x,r_y,r_z,dist,r_tr(3)
+    integer(int32) :: i,ii,j,k,n,node_id,itr
+    integer(int32),allocatable :: elem(:)
+    logical,optional,intent(in) :: debug
+
+    n=size(obj%ElemNod,1)
+    
+    call mesh%copy(obj)
+    itr=0
+    do 
+        itr=itr+1
+        o(1)=minval(mesh%NodCoord(:,1))+maxval(mesh%NodCoord(:,1))
+        o(2)=minval(mesh%NodCoord(:,2))+maxval(mesh%NodCoord(:,2))
+        o(3)=minval(mesh%NodCoord(:,3))+maxval(mesh%NodCoord(:,3))
+        o(:)=0.50d0*o(:)
+        
+        if(allocated(elem) )then
+            deallocate(elem)
+        endif
+        n=size(mesh%ElemNod,1)
+        if(present(debug) )then
+            print *, "itr :",itr,"Number of element",n
+        endif
+        
+        if(n==0)then
+            exit
+        endif
+        allocate(elem(n) )
+        elem(:)=1
+        call mesh%getSurface()
+
+        
+        do i=1,size(mesh%FacetElemNod,1)
+            do j=1,size(mesh%FacetElemNod,2)
+                node_id=mesh%FacetElemNod(i,j)
+                if(i==1 .and. j==1)then
+                    r_x=0.50d0*(mesh%NodCoord(node_id,1) - o(1) )
+                    r_y=0.50d0*(mesh%NodCoord(node_id,2) - o(2) )
+                    r_z=0.50d0*(mesh%NodCoord(node_id,3) - o(3) )
+                    cycle
+                else
+                    r_tr(1)=0.50d0*(mesh%NodCoord(node_id,1) - o(1) )
+                    r_tr(2)=0.50d0*(mesh%NodCoord(node_id,2) - o(2) )
+                    r_tr(3)=0.50d0*(mesh%NodCoord(node_id,3) - o(3) )            
+                endif
+                if(r_x < r_tr(1))then
+                    r_x=r_tr(1)
+                endif
+                if(r_y < r_tr(2))then
+                    r_y=r_tr(2)
+                endif
+                if(r_z < r_tr(3))then
+                    r_z=r_tr(3)
+                endif
+            enddo
+        enddo
+        
+        do i=1,size(mesh%FacetElemNod,1)
+            do j=1,size(mesh%FacetElemNod,2)
+                node_id=mesh%FacetElemNod(i,j)
+                
+                x_cur(1:3)=obj%NodCoord(node_id,1:3)
+                
+                dist=distance(x_cur(1:3),o(1:3) )
+
+                x_pres(1)=o(1)+ r_x/dist*(x_cur(1) - o(1) )*2.0d0
+                x_pres(2)=o(2)+ r_y/dist*(x_cur(2) - o(2) )*2.0d0
+                x_pres(3)=o(3)+ r_z/dist*(x_cur(3) - o(3) )*2.0d0
+                
+                obj%NodCoord(node_id,1:2)=x_pres(1:2)
+            enddo
+        enddo
+        ! remove facets
+        elem(:)=1
+        do i=1,size(mesh%ElemNod,1)
+            do ii=1,size(mesh%ElemNod,2)
+                do j=1,size(mesh%FacetElemNod,1)
+                    do k=1,size(mesh%FacetElemNod,2)
+                        node_id=mesh%FacetElemNod(j,k)
+                        if(mesh%ElemNod(i,ii)==node_id )then
+                            elem(i)=0
+                            exit
+                        endif
+                    enddo
+                enddo
+            enddo
+        enddo
+        
+        if(minval(elem)==1 )then
+            print *, "ERROR :: AdjustSphereMesh minval(elem)==1"
+            stop 
+        endif
+        if(maxval(elem)==0 )then
+            print *, "converged"
+            exit
+        endif
+        ! remove elems
+        do i=size(elem),1,-1
+            if(elem(i)==0 )then
+                call removeArray(mat=mesh%ElemNod,remove1stColumn=.true.,NextOf=i-1)
+            endif
+        enddo
+        !call showArray(mat=mesh%NodCoord,IndexArray=mesh%ElemNod,&
+        !    Name=trim(adjustl( fstring(itr) ))//".txt")
+    enddo
+    
+    
+end subroutine AdjustCylinderMesh
+!##################################################
+
 recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,&
     division,smooth,top,margin,inclineRate,shaperatio)
     class(Mesh_),intent(inout) :: obj
     type(Mesh_) :: mesh1,mesh2
+    type(IO_) :: f
     character(*),intent(in) :: meshtype
     logical,optional,intent(in) :: smooth
     integer(int32),optional,intent(in) :: x_num,y_num ! number of division
@@ -3886,11 +4004,12 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     real(real64),optional,intent(in) :: thickness,inclineRate ! for 3D rectangular
     real(real64),optional,intent(in) :: top,margin ! for 3D rectangular
     real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
-    integer(int32) :: i,j,n,m,xn,yn,smoothedge(8)
+    integer(int32) :: i,j,n,m,xn,yn,smoothedge(8),ini,k
     real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt,&
-        unitx,unity,xm, ym,tp,rx,ry,zc,zl,zm,ysize
+        unitx,unity,xm, ym,tp,rx,ry,zc,zl,zm,ysize,ox,oy,dist,rr
 
-    real(real64)::ymin,ymax,ratio,width
+    real(real64)::ymin,ymax,ratio,width,pi,xx,yy,dx,dy
+    pi = 3.1415926535d0
     ! this subroutine creates mesh
 
     if(meshtype=="Leaf3D")then
@@ -4078,7 +4197,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     endif
 
     
-    if(meshtype=="Sphere3D")then
+    if(meshtype=="Sphere3D" .or. meshtype=="Sphere")then
         call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=1.0d0,y_len=1.0d0)       
         call obj%Convert2Dto3D(Thickness=1.0d0,division=division)
         if(.not.allocated(obj%ElemMat))then
@@ -4092,6 +4211,172 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         return
     endif
 
+    if(meshtype=="Cylinder3D" .or. meshtype=="Cylinder")then
+        call obj%create(meshtype="Circle2D",x_num=x_num,y_num=y_num,x_len=1.0d0,y_len=1.0d0)       
+        call obj%Convert2Dto3D(Thickness=thickness,division=division)
+        if(.not.allocated(obj%ElemMat))then
+            n=size(obj%ElemNod,1)
+            allocate(obj%ElemMat(n) )
+        endif
+        !call obj%adjustCylinder(debug=.true.)
+        call obj%resize(x_rate=2.0d0*x_len,&
+            y_rate=2.0d0*y_len,&
+            z_rate=thickness)
+        return
+    endif
+
+    if(meshtype=="Circle2D" .or. meshtype=="Circle")then
+        ! create mesh by scheme-circle method
+        ! https://support.jpmandt.com/mesh/create-mesh/surface-create-mesh/scheme-circle/
+        ! fraction:interval = 1:1
+        xn = input(default=10,option=x_num/2+1)
+        yn = input(default=10,option=y_num/2+1)
+        ! x方向とy方向のうち、より分割数が多い方に合わせる
+        if(xn <= ym)then
+            xn = ym
+        else
+            yn = xn
+        endif
+        ! 正方形ができる。
+        call obj%create(meshtype="rectangular2D",x_num=2*xn,y_num=2*yn,x_len=2.0d0,y_len=2.0d0)     
+
+        obj%nodcoord(:,1)=obj%nodcoord(:,1)-1.0d0
+        obj%nodcoord(:,2)=obj%nodcoord(:,2)-1.0d0
+        
+        ! 正方形を整形して、円とのコネクティビティを改善
+        do i=1,size(obj%nodCoord,1)
+            xx = obj%nodCoord(i,1)
+            yy = obj%nodCoord(i,2)
+            if(xx>=0.0d0 .and. yy>=0.0d0)then
+                obj%nodCoord(i,1) = xx + xx*(sqrt(2.0d0)-1.0d0)*(1.0d0-yy)
+                obj%nodCoord(i,2) = yy + yy*(sqrt(2.0d0)-1.0d0)*(1.0d0-xx)
+            elseif(xx< 0.0d0 .and. yy>=0.0d0)then
+                obj%nodCoord(i,1) = xx + xx*(sqrt(2.0d0)-1.0d0)*(1.0d0-yy)
+                obj%nodCoord(i,2) = yy + yy*(sqrt(2.0d0)-1.0d0)*(1.0d0+xx)
+            elseif(xx< 0.0d0 .and. yy< 0.0d0)then
+                obj%nodCoord(i,1) = xx + xx*(sqrt(2.0d0)-1.0d0)*(1.0d0+yy)
+                obj%nodCoord(i,2) = yy + yy*(sqrt(2.0d0)-1.0d0)*(1.0d0+xx)
+            elseif(xx>=0.0d0 .and. yy< 0.0d0)then
+                obj%nodCoord(i,1) = xx + xx*(sqrt(2.0d0)-1.0d0)*(1.0d0+yy)
+                obj%nodCoord(i,2) = yy + yy*(sqrt(2.0d0)-1.0d0)*(1.0d0-xx)
+            else
+                print *, "ERROR :: createMesh >> circle error"
+                stop 
+            endif
+        enddo
+
+
+        !obj%nodcoord(:,1)=obj%nodcoord(:,1)*0.650d0
+        !obj%nodcoord(:,2)=obj%nodcoord(:,2)*0.650d0
+
+        obj%nodcoord(:,1)=dble(2*xn-1)/dble(2*xn)*obj%nodcoord(:,1)/sqrt(2.0d0)
+        obj%nodcoord(:,2)=dble(2*xn-1)/dble(2*xn)*obj%nodcoord(:,2)/sqrt(2.0d0)
+
+        ! 外周メッシュ
+        allocate(mesh1%nodcoord( (2*xn)* (2*xn)*4   ,size(obj%nodcoord,2) ) )
+        
+        do i=1, (2*xn) ! For each layer
+            do j=1, (2*xn)*4
+                mesh1%nodcoord( (i-1)* (2*xn)*4+ j,1) = (1.0d0 + dble(i)*(1.0d0/dble( (2*xn)) ) )&
+                    *cos(2.0d0*pi/4.0d0/dble( (2*xn))*dble(j-1) )
+                mesh1%nodcoord( (i-1)* (2*xn)*4+ j,2) = (1.0d0 + dble(i)*(1.0d0/dble( (2*xn)) ) )&
+                    *sin(2.0d0*pi/4.0d0/dble( (2*xn))*dble(j-1) )
+            enddo
+        enddo
+
+        call print(mat=mesh1%nodcoord,name="circle.txt")
+        call print(mat=obj%nodcoord,name="cube.txt")
+
+        ! 要素
+        ! Starts from ElementID: (2*xn+1)*(2*xn+1)
+        allocate(mesh1%elemnod(8*xn*(xn+1),4) )
+        mesh1%elemnod(:,:)=0
+        j=0
+        do i=1,xn
+            j=j+1
+            mesh1%elemnod(j,1)= (2*xn+1)*(xn+i)
+            mesh1%elemnod(j,2)= (2*xn+1)*(2*xn+1)+ j
+            mesh1%elemnod(j,3)= (2*xn+1)*(2*xn+1)+ j+1
+            mesh1%elemnod(j,4)= (2*xn+1)*(xn+i+1)
+        enddo
+        do i=1,2*xn
+            j=j+1
+            mesh1%elemnod(j,1)= (2*xn+1)*(2*xn+1)-i+1
+            mesh1%elemnod(j,2)= (2*xn+1)*(2*xn+1)+ j
+            mesh1%elemnod(j,3)= (2*xn+1)*(2*xn+1)+ j+1
+            mesh1%elemnod(j,4)= (2*xn+1)*(2*xn+1)-i
+        enddo
+        do i=1,2*xn
+            j=j+1
+            mesh1%elemnod(j,1)= (2*xn+1)*(2*xn+1)-(2*xn+1)+1-(i-1)*(2*xn+1)
+            mesh1%elemnod(j,2)= (2*xn+1)*(2*xn+1)+ j
+            mesh1%elemnod(j,3)= (2*xn+1)*(2*xn+1)+ j+1
+            mesh1%elemnod(j,4)= (2*xn+1)*(2*xn+1)-(2*xn+1)+1-(i)*(2*xn+1)
+        enddo
+        do i=1,2*xn
+            j=j+1
+            mesh1%elemnod(j,1)= i
+            mesh1%elemnod(j,2)= (2*xn+1)*(2*xn+1)+ j
+            mesh1%elemnod(j,3)= (2*xn+1)*(2*xn+1)+ j+1
+            mesh1%elemnod(j,4)= i+1
+        enddo
+        do i=1,xn
+            j=j+1
+            mesh1%elemnod(j,1)= (2*xn+1)*i
+            mesh1%elemnod(j,2)= (2*xn+1)*(2*xn+1)+ j
+            mesh1%elemnod(j,3)= (2*xn+1)*(2*xn+1)+ j+1
+            mesh1%elemnod(j,4)= (2*xn+1)*(i+1)
+        enddo
+        mesh1%elemnod(j,3)= (2*xn+1)*(2*xn+1) +1
+        
+        do i=1,xn
+            ini=j+1
+            do k=1,8*xn-1
+                j=j+1
+                mesh1%elemnod(j,1)= (2*xn+1)*(2*xn+1)+ j - 8*xn
+                mesh1%elemnod(j,2)= (2*xn+1)*(2*xn+1)+ j
+                mesh1%elemnod(j,3)= (2*xn+1)*(2*xn+1)+ j+1
+                mesh1%elemnod(j,4)= (2*xn+1)*(2*xn+1)+ j+1 - 8*xn
+            enddo
+            j=j+1
+            mesh1%elemnod(j,1)= (2*xn+1)*(2*xn+1)+ j - 8*xn
+            mesh1%elemnod(j,2)= (2*xn+1)*(2*xn+1)+ j
+            mesh1%elemnod(j,3)= (2*xn+1)*(2*xn+1)+ ini
+            mesh1%elemnod(j,4)= (2*xn+1)*(2*xn+1)+ ini - 8*xn
+        enddo
+        call print(mat=mesh1%elemnod,name="elem.txt")
+
+        allocate(mesh2%nodcoord(size(obj%nodcoord,1)+size(mesh1%nodcoord,1),&
+            size(obj%nodcoord,2)) )
+        mesh2%nodcoord(1:size(obj%nodcoord,1),1:2)=obj%nodcoord(1:size(obj%nodcoord,1),1:2)
+        mesh2%nodcoord(size(obj%nodcoord,1)+1:size(obj%nodcoord,1)+size(mesh1%nodcoord,1),1:2)&
+            =mesh1%nodcoord(1:size(mesh1%nodcoord,1),1:2)
+        allocate(mesh2%elemnod(size(obj%elemnod,1)+size(mesh1%elemnod,1),&
+            size(obj%elemnod,2)) )
+        mesh2%elemnod(1:size(obj%elemnod,1),1:4)=obj%elemnod(1:size(obj%elemnod,1),1:4)
+        mesh2%elemnod(size(obj%elemnod,1)+1:size(obj%elemnod,1)+size(mesh1%elemnod,1),1:4)&
+            =mesh1%elemnod(1:size(mesh1%elemnod,1),1:4)
+        call print(mat=mesh2%elemnod,name="elem2.txt")
+        !call print(mat=mesh2%nodcoord,IndexArray=mesh2%elemnod,name="mesh2.txt")
+
+        call f%open("mesh2.txt")
+        do i=1,size(mesh2%elemnod,1)
+            do j=1,size(mesh2%elemnod,2)
+                write(f%fh,*) mesh2%nodcoord(mesh2%elemnod(i,j),:)
+            enddo
+            write(f%fh,*) mesh2%nodcoord(mesh2%elemnod(i,1),:)
+            write(f%fh,*) " "
+        enddo
+        call f%close()
+
+        allocate(mesh2%elemmat(size(mesh2%elemnod,1) ) )
+        mesh2%elemmat(:)=1
+        call obj%remove()
+        obj%nodcoord = mesh2%nodcoord
+        obj%elemnod = mesh2%elemnod
+        obj%elemmat = mesh2%elemmat
+        return
+    endif
 
     if(meshtype=="rectangular2D")then
         xn=input(default=1,option=x_num)
