@@ -79,6 +79,8 @@ module MeshClass
         procedure :: importElemMat => ImportElemMat
         procedure :: init => InitializeMesh
         
+        procedure :: json => jsonMesh
+
         procedure :: length => lengthMesh
         
         procedure :: mergeMesh => MergeMesh
@@ -6529,6 +6531,75 @@ function numDimensionMesh(obj) result(ret)
     ret = size(obj%NodCoord,2)
 end function
 !#######################################################################################
+!#######################################################################################
 
+subroutine jsonMesh(obj,name,fh,endl)
+	class(Mesh_),intent(in) :: obj
+	type(IO_) :: f
+	integer(int32),optional,intent(in) :: fh
+	character(*),optional,intent(in) :: name
+    integer(int32) :: fileid,i,j
+    logical,optional,intent(in) :: endl
+	
+	! export JSON file
+	if(present(name) )then
+		call f%open(name)
+		fileid=f%fh
+	else
+		fileid=fh
+	endif
+
+
+    
+    if(present(name) )then
+        call f%write('{')
+		write(fileid,*) '"name": "'//trim(name)//'",'
+	endif
+	write(fileid,*) '"mesh":{'
+    call json(array=obj%nodcoord,fh=fileid,name="nodcoord")
+    call json(array=obj%NodCoordInit,fh=fileid,name="NodCoordInit")
+    call json(array=obj%ElemNod,fh=fileid,name="ElemNod")
+    call json(array=obj%FacetElemNod,fh=fileid,name="FacetElemNod")
+    call json(array=obj%NextFacets,fh=fileid,name="NextFacets")
+    call json(array=obj%SurfaceLine2D,fh=fileid,name="SurfaceLine2D")
+    call json(array=obj%ElemMat,fh=fileid,name="ElemMat")
+    call json(array=obj%SubMeshNodFromTo,fh=fileid,name="SubMeshNodFromTo")
+    call json(array=obj%SubMeshElemFromTo,fh=fileid,name="SubMeshElemFromTo")
+    call json(array=obj%SubMeshSurfFromTo,fh=fileid,name="SubMeshSurfFromTo")
+    call json(array=obj%GlobalNodID,fh=fileid,name="GlobalNodID",endl=.true.)
+    write(fileid,*) '},'
+
+!    integer(int32),allocatable::BottomElemID
+!    integer(int32),allocatable::TopElemID
+!    integer(int32) :: surface=1
+!
+!
+!    character*200::FileName=" "
+!    character*70::ElemType=" "
+!    character*70:: ErrorMsg=" "
+
+
+
+	
+
+    if(present(name) )then
+        
+        if(present(endl) )then
+            if(endl .eqv. .true.)then
+                write(fileid,*) '}'
+            else
+                write(fileid,*) '},'
+            endif
+        else
+            write(fileid,*) '},'
+        endif
+		call f%close()
+	endif
+
+
+
+
+end subroutine
+!#######################################################################################
 
 end module MeshClass

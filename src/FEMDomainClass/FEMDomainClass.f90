@@ -40,6 +40,7 @@ module FEMDomainClass
 		real(real64),allocatable :: scalar(:)
 		real(real64),allocatable :: vector(:,:)
 		real(real64),allocatable :: tensor(:,:,:)
+
 		real(real64) :: RealTime=1.0d0
 		integer(int32) :: NumOfDomain=1
         character*200 :: FilePath="None"
@@ -102,6 +103,8 @@ module FEMDomainClass
         procedure,public :: initDBC => InitDBC
         procedure,public :: initNBC => InitNBC
 		procedure,public :: initTBC => InitTBC
+
+		procedure,public :: json => jsonFEMDomain
 
 		procedure,public :: length => lengthFEMDomain
 
@@ -6639,6 +6642,53 @@ subroutine stlFEMDomain(obj,name)
 	call f%open(trim(name)//".stl")
 	call ExportFEMDomainAsSTL(obj,FileHandle=f%fh,MeshDimension=size(obj%mesh%Nodcoord,2))
 	call f%close()
+end subroutine
+
+! ##################################################
+subroutine jsonFEMDomain(obj,name,fh,endl)
+	class(FEMDomain_),intent(in) :: obj
+	type(IO_) :: f
+	integer(int32),optional,intent(in) :: fh
+	character(*),optional,intent(in) :: name
+	integer(int32) :: fileid
+    logical,optional,intent(in) :: endl
+	
+	! export JSON file
+	if(present(name) )then
+		call f%open(name)
+		fileid=f%fh
+	else
+		fileid=fh
+	endif
+
+
+	call f%write('{')
+	if(present(name) )then
+		write(f%fh,*) '"name": "'//trim(name)//'",'
+	endif
+	write(f%fh,*) '"type": "femdomain",'
+
+	call obj%mesh%json(fh=fileid)
+	
+	write(f%fh,*) '"return": 0'
+
+	if(present(endl) )then
+        if(endl .eqv. .true.)then
+            write(fileid,*) '}'
+        else
+            write(fileid,*) '},'
+        endif
+    else
+        write(fileid,*) '},'
+    endif
+
+	
+	if(present(name) )then
+		call f%close()
+	endif
+
+
+
 end subroutine
 
 end module FEMDomainClass
