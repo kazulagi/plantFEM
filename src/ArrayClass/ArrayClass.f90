@@ -84,7 +84,9 @@ module ArrayClass
         module procedure writeArrayInt, writeArrayReal, writeArrayIntVec, writeArrayRealVec,writeArrayInt3, writeArrayReal3
     end interface
 
-
+    interface json
+        module procedure jsonArrayReal, jsonArrayInt, jsonArrayRealVec, jsonArrayIntVec
+    end interface
 
 
     interface Import
@@ -3511,5 +3513,169 @@ function anglesReal3D(vector1, vector2) result(angles)
     endif
 end function
 ! ############################################################
+
+
+! ############################################################
+subroutine jsonArrayReal(array,fh,name,endl)
+    real(real64),intent(in) :: array(:,:)
+    integer(int32),intent(in) :: fh
+    character(*),intent(in) :: name
+    integer(int32) :: i,j,n
+    logical,optional,intent(in) :: endl
+
+    if(size(array,1)==0 .or. size(array,1)==1)then
+        return
+    endif
+
+    write(fh,'(a)') '"'//trim(name)//'" : ['
+    do i=1,size(array,1)
+        write(fh,'(a)',advance='no') '['
+        do j=1,size(array,2)
+            if(j==size(array,2))then
+                if(abs(array(i,j)) < 1.0d0 )then
+                    if(array(i,j)<=0.0d0)then
+                        write(fh,'(a)',advance='no') "-0"//trim(str(abs(array(i,j))))
+                    else
+                        write(fh,'(a)',advance='no') "0"//trim(str(array(i,j)))
+                    endif
+                else
+                    write(fh,'(a)',advance='no') trim(str(array(i,j)))
+                endif
+            else
+                if(abs(array(i,j)) < 1.0d0 )then
+                    if(array(i,j)<=0.0d0)then
+                        write(fh,'(a)',advance='no') "-0"//trim(str(abs(array(i,j))))//','
+                    else
+                        write(fh,'(a)',advance='no') "0"//trim(str(array(i,j)))//','
+                    endif
+                else
+                    write(fh,'(a)',advance='no') trim(str(array(i,j)))//','
+                endif
+            endif
+        enddo
+        if(i==size(array,1))then
+            write(fh,'(a)',advance='yes') ']'
+        else
+            write(fh,'(a)',advance='yes') '],'
+        endif
+    enddo
+    if(present(endl) )then
+        if(endl .eqv. .true.)then
+            write(fh,'(a)') ']'        
+            return
+        endif
+    endif
+    write(fh,'(a)') '],'
+end subroutine
+! ############################################################
+
+
+! ############################################################
+subroutine jsonArrayInt(array,fh,name,endl)
+    integer(int32),intent(in) :: array(:,:)
+    integer(int32),intent(in) :: fh
+    character(*),intent(in) :: name
+    logical,optional,intent(in) :: endl
+    integer(int32) :: i,j,n
+
+    if(size(array,1)==0 )then
+        return
+    endif
+    write(fh,'(a)') '"'//trim(name)//'" : ['
+    do i=1,size(array,1)
+        write(fh,'(a)',advance='no') '['
+        do j=1,size(array,2)
+            if(j==size(array,2))then
+                write(fh,'(a)',advance='no') trim(str(array(i,j)))
+            else
+                write(fh,'(a)',advance='no') trim(str(array(i,j)))//','
+            endif
+        enddo
+        if(i==size(array,1))then
+            write(fh,'(a)',advance='yes') ']'
+        else
+            write(fh,'(a)',advance='yes') '],'
+        endif
+    enddo
+    if(present(endl) )then
+        if(endl .eqv. .true.)then
+            write(fh,'(a)') ']'        
+            return
+        endif
+    endif
+    write(fh,'(a)') '],'
+end subroutine
+! ############################################################
+
+
+! ############################################################
+subroutine jsonArrayRealVec(array,fh,name,endl)
+    real(real64),intent(in) :: array(:)
+    integer(int32),intent(in) :: fh
+    character(*),intent(in) :: name
+    integer(int32) :: i,j,n
+    logical,optional,intent(in) :: endl
+
+
+    if(size(array,1)==0 .or. size(array,1)==1)then
+        return
+    endif
+
+    write(fh,'(a)',advance='no') '"'//trim(name)//'" : ['
+    do i=1,size(array,1)
+        if(abs(array(i)) < 1.0d0 )then
+            if(array(i)<=0.0d0)then
+                write(fh,'(a)',advance='no') "-0"//trim(str(abs(array(i))))
+            else
+                write(fh,'(a)',advance='no') "0"//trim(str(array(i)))
+            endif
+        else
+            write(fh,'(a)',advance='no') trim(str(array(i)))
+        endif
+        if(i/=size(array,1) )then
+            write(fh,'(a)',advance='no') ","
+        endif
+    enddo
+    if(present(endl) )then
+        if(endl .eqv. .true.)then
+            write(fh,'(a)') ']'        
+            return
+        endif
+    endif
+    write(fh,'(a)') '],'
+end subroutine
+! ############################################################
+
+
+
+! ############################################################
+subroutine jsonArrayIntVec(array,fh,name,endl)
+    integer(int32),intent(in) :: array(:)
+    integer(int32),intent(in) :: fh
+    character(*),intent(in) :: name
+    integer(int32) :: i,j,n
+    logical,optional,intent(in) :: endl
+
+    if(size(array,1)==0 )then
+        return
+    endif
+    write(fh,'(a)',advance='no') '"'//trim(name)//'" : ['
+    do i=1,size(array,1)
+        write(fh,'(a)',advance='no') trim(str(array(i)))
+        if(i/=size(array,1) )then
+            write(fh,'(a)',advance='no') ","
+        endif
+    enddo
+    if(present(endl) )then
+        if(endl .eqv. .true.)then
+            write(fh,'(a)') ']'        
+            return
+        endif
+    endif
+    write(fh,'(a)') '],'
+end subroutine
+! ############################################################
+
+
 
 end module ArrayClass
