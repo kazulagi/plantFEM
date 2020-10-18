@@ -6,7 +6,7 @@ sudo apt install  -y libopenmpi-dev
 sudo apt install  -y python3
 sudo apt install  -y gmsh
 sudo apt install  -y gnuplot
-sudo apt install -y jupyter-notebook
+#sudo apt install -y jupyter-notebook
 sudo chmod 777 ./plantfem
 sudo apt-get -yV install liblapack-dev
 sudo apt-get -yV install liblapack-doc
@@ -15,18 +15,18 @@ sudo apt-get -yV install liblapack-test
 sudo apt-get -yV install liblapack3gf
 sudo apt-get install bc
 sudo apt -yV install curl
-sudo apt -yV install graphviz
+#sudo apt -yV install graphviz
 curl https://bootstrap.pypa.io/get-pip.py -o ~/get-pip.py
 sudo python3 ~/get-pip.py
 sudo pip install pillow
 sudo pip install numpy
 sudo pip install scipy
 sudo pip install matplotlib
-sudo pip install jupyter
-sudo pip install nbzip
+#sudo pip install jupyter
+#sudo pip install nbzip
 sudo pip install opencv-python
-sudo pip install diagram
-sudo pip install diagrams
+#sudo pip install diagram
+#sudo pip install diagrams
 sudo chmod +x ./bin/init
 sudo chmod +x ./bin/update
 sudo chmod +x ./bin/compress

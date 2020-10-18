@@ -20,6 +20,7 @@ module SoybeanClass
         integer(int32) :: MaxStemNum= 50
         character(2) :: Stage ! VE, CV, V1,V2, ..., R1, R2, ..., R8
         integer(int32)::stage_id=0
+        real(real64) :: dt
         type(Seed_) :: Seed
         type(PlantNode_),allocatable :: NodeSystem(:)
         type(PlantRoot_),allocatable :: RootSystem(:)
@@ -70,6 +71,7 @@ module SoybeanClass
         procedure,public :: numroot => numrootsoybean
 
         procedure,public :: laytracing => laytracingsoybean
+        procedure,public :: SinkSourceFlow => SinkSourceFlowSoybean
 
         !procedure,public :: AddNode => AddNodeSoybean
     end type
@@ -557,6 +559,8 @@ subroutine growSoybean(obj,dt,light,air,temp)
     real(real64) :: ac_temp ! time-interval
     integer(int32) :: i
 
+    obj%dt = dt
+
     ! 光量子量を計算
     call obj%laytracing(light=light)
 
@@ -566,6 +570,9 @@ subroutine growSoybean(obj,dt,light,air,temp)
             call obj%leaf(i)%photosynthesis(dt=dt,air=air)
         endif
     enddo
+
+    ! シンクソース輸送を計算
+    call obj%SinkSourceFlow()
 
     ! ソースの消耗、拡散を計算
     !call obj%source2sink()
@@ -579,6 +586,16 @@ subroutine growSoybean(obj,dt,light,air,temp)
 
 end subroutine
 ! ########################################
+
+subroutine SinkSourceFlowSoybean(obj)
+    class(Soybean_),intent(inout) :: obj
+    type(DiffusionEq_) :: DiffusionEq
+
+    !DiffusionEq%femdomain => obj%femdomain
+
+    
+
+end subroutine
 
 
 ! ########################################

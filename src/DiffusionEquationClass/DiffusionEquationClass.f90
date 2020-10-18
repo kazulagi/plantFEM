@@ -6,7 +6,9 @@ module DiffusionEquationClass
     implicit none
 
     type:: DiffusionEq_
+        ! For single-domain problem
         type(FEMDomain_),pointer ::FEMDomain
+        
         real(real64),allocatable ::UnknownValue(:,:)
         real(real64),allocatable ::UnknownVec(:)
         real(real64),allocatable ::UnknownValueInit(:,:)
@@ -774,7 +776,7 @@ subroutine SetupDiffusionEq(obj,explicit)
     if(obj%dt==0.0d0 .or. obj%dt/=obj%dt)then
         obj%dt=1.0d0
     endif
-
+    
     call GetUnknownValue(obj)
     
     call GetDivergence(obj)
