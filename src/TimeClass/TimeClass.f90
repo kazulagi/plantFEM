@@ -9,6 +9,7 @@ module TimeClass
         procedure,public :: start => starttime
         procedure,public :: show => showtime
         procedure,public :: clear => cleartime
+        procedure,public :: reset => cleartime
         procedure,public :: sleep => sleeptime
     end type
 
