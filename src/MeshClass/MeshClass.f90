@@ -56,6 +56,8 @@ module MeshClass
         procedure :: exportSurface2D => ExportSurface2D
         procedure :: empty => emptyMesh
         
+        procedure :: getCoordinate => getCoordinateMesh
+        procedure :: getNodeIDinElement => getNodeIDinElementMesh
         procedure :: getFacetElement => GetFacetElement
         procedure :: getSurface => GetSurface
         procedure :: getInterface => GetInterface
@@ -117,6 +119,107 @@ module MeshClass
 
 
     contains
+
+! ##########################################################################
+function getCoordinateMesh(obj,NodeID,onlyX,onlyY,OnlyZ) result(x)
+    class(Mesh_),intent(inout) :: obj
+    integer(int32),optional,intent(in) :: NodeID
+    real(real64),allocatable :: x(:)
+    logical,optional,intent(in) :: onlyX,onlyY,OnlyZ
+    integer(int32) :: n,m,itr,i,j
+
+    if(.not.allocated(obj%nodcoord) )then
+        print *, "getCoordinateMesh :: mesh is not allocated."
+        return
+    endif
+
+    n = size(obj%nodcoord,1)
+    m = size(obj%nodcoord,2)
+
+    if(present(NodeID))then
+
+        if(present(onlyX))then
+            if(onlyX .eqv. .true.) then
+                allocate(x(1) )
+                x(1) = obj%nodcoord(NodeID,1)
+                return
+            endif
+        endif
+        if(present(onlyY))then
+            if(onlyY .eqv. .true.) then
+                allocate(x(1) )
+                x(1) = obj%nodcoord(NodeID,2)
+                return
+            endif
+        endif
+        if(present(onlyZ))then
+            if(onlyZ .eqv. .true.) then
+                allocate(x(1) )
+                x(1) = obj%nodcoord(NodeID,3)
+                return
+            endif
+        endif
+
+        allocate(x(m) )
+        x(:) = obj%nodcoord(NodeID,:)
+    else
+
+        if(present(onlyX))then
+            if(onlyX .eqv. .true.) then
+                allocate(x(n) )
+                x(:) = obj%nodcoord(:,1)
+                return
+            endif
+        endif
+        if(present(onlyY))then
+            if(onlyY .eqv. .true.) then
+                allocate(x(n) )
+                x(:) = obj%nodcoord(:,2)
+                return
+            endif
+        endif
+        if(present(onlyZ))then
+            if(onlyZ .eqv. .true.) then
+                allocate(x(n) )
+                x(:) = obj%nodcoord(:,3)
+                return
+            endif
+        endif
+
+        allocate(x(n*m) )
+
+        itr=0
+        do i=1,m
+            do j=1,m    
+                itr=itr+1
+                x(itr) = obj%nodcoord(i,j)
+            enddo
+        enddo
+
+    endif
+
+end function
+! ##########################################################################
+
+
+! ##########################################################################
+function getNodeIDinElementMesh(obj,ElementID) result(NodeIDList)
+    class(Mesh_),intent(inout) :: obj
+    integer(int32),intent(in) :: ElementID
+    integer(int32),allocatable :: NodeIDList(:)
+    integer(int32) :: m
+
+    if(.not.allocated(obj%elemnod) )then
+        print *, "ERROR :: getNodeIDinElementMesh :: mesh is NOT created."
+        return
+    endif
+
+    m = size(obj%elemnod,2)
+    allocate(NodeIDList(m) )
+    NodeIDList(:) = obj%elemnod(ElementID,:)
+
+end function
+! ##########################################################################
 
 ! ####################################################################
     function detectIfaceMesh(obj,material1, material2) result(list)
@@ -6555,18 +6658,42 @@ subroutine jsonMesh(obj,name,fh,endl)
         call f%write('{')
 		write(fileid,*) '"name": "'//trim(name)//'",'
 	endif
-	write(fileid,*) '"mesh":{'
-    call json(array=obj%nodcoord,fh=fileid,name="nodcoord")
-    call json(array=obj%NodCoordInit,fh=fileid,name="NodCoordInit")
-    call json(array=obj%ElemNod,fh=fileid,name="ElemNod")
-    call json(array=obj%FacetElemNod,fh=fileid,name="FacetElemNod")
-    call json(array=obj%NextFacets,fh=fileid,name="NextFacets")
-    call json(array=obj%SurfaceLine2D,fh=fileid,name="SurfaceLine2D")
-    call json(array=obj%ElemMat,fh=fileid,name="ElemMat")
-    call json(array=obj%SubMeshNodFromTo,fh=fileid,name="SubMeshNodFromTo")
-    call json(array=obj%SubMeshElemFromTo,fh=fileid,name="SubMeshElemFromTo")
-    call json(array=obj%SubMeshSurfFromTo,fh=fileid,name="SubMeshSurfFromTo")
-    call json(array=obj%GlobalNodID,fh=fileid,name="GlobalNodID",endl=.true.)
+    write(fileid,*) '"mesh":{'
+    
+    if(allocated(obj%nodcoord) )then
+        call json(array=obj%nodcoord,fh=fileid,name="nodcoord")
+    endif
+    if(allocated(obj%NodCoordInit) )then
+        call json(array=obj%NodCoordInit,fh=fileid,name="NodCoordInit")
+    endif
+    if(allocated(obj%ElemNod) )then
+        call json(array=obj%ElemNod,fh=fileid,name="ElemNod")
+    endif
+    if(allocated(obj%FacetElemNod) )then
+        call json(array=obj%FacetElemNod,fh=fileid,name="FacetElemNod")
+    endif
+    if(allocated(obj%NextFacets) )then
+        call json(array=obj%NextFacets,fh=fileid,name="NextFacets")
+    endif
+    if(allocated(obj%SurfaceLine2D) )then
+        call json(array=obj%SurfaceLine2D,fh=fileid,name="SurfaceLine2D")
+    endif
+    if(allocated(obj%ElemMat) )then
+        call json(array=obj%ElemMat,fh=fileid,name="ElemMat")
+    endif
+    if(allocated(obj%SubMeshNodFromTo) )then
+        call json(array=obj%SubMeshNodFromTo,fh=fileid,name="SubMeshNodFromTo")
+    endif
+    if(allocated(obj%SubMeshElemFromTo) )then
+        call json(array=obj%SubMeshElemFromTo,fh=fileid,name="SubMeshElemFromTo")
+    endif
+    if(allocated(obj%SubMeshSurfFromTo) )then
+        call json(array=obj%SubMeshSurfFromTo,fh=fileid,name="SubMeshSurfFromTo")
+    endif
+    if(allocated(obj%GlobalNodID) )then
+        call json(array=obj%GlobalNodID,fh=fileid,name="GlobalNodID",endl=.true.)
+    endif
+    
     write(fileid,*) '},'
 
 !    integer(int32),allocatable::BottomElemID
@@ -6577,7 +6704,7 @@ subroutine jsonMesh(obj,name,fh,endl)
 !    character*200::FileName=" "
 !    character*70::ElemType=" "
 !    character*70:: ErrorMsg=" "
-
+    write(fileid,*) '"return" : 0'
 
 
 	

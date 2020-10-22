@@ -1226,11 +1226,14 @@ subroutine ImportMeshFEMDomain(obj,Mesh)
 end subroutine
 !##################################################
 
-subroutine resizeFEMDomain(obj,x_rate,y_rate,z_rate,x_len,y_len,z_len)
+subroutine resizeFEMDomain(obj,x_rate,y_rate,z_rate,x_len,y_len,z_len,&
+	x,y,z)
 	class(FEMDomain_),intent(inout) :: obj
 	real(real64),optional,intent(in) :: x_rate,y_rate,z_rate,x_len,y_len,z_len
+	real(real64),optional,intent(in) :: x ,y ,z 
 
 	call obj%Mesh%resize(x_rate=x_rate,y_rate=y_rate,z_rate=z_rate,x_len=x_len,y_len=y_len,z_len=z_len)
+	call obj%Mesh%resize(x_len=x,y_len=y,z_len=z)
 
 end subroutine
 
