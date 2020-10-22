@@ -2,40 +2,39 @@ program main
     use fem
     implicit none
 
-    type(FEMDomain_) :: obj1
-    type(FEMDomain_) :: obj2
-    type(FEMDomain_) :: obj3
-    type(FEMDomain_) :: obj4
-    type(FEMDomain_) :: obj5
+    type(Mesh_) :: cube, sphere, cylinder
+    real(real64),allocatable :: coordinate(:)
+
+    ! create new plain mesh
+    call cube%create(meshtype="Cube",x_num=10,y_num=10,division=10,x_len=1.0d0,y_len=1.0d0,thickness=1.0d0)
+    call sphere%create(meshtype="Sphere",x_num=10,y_num=10,division=10,x_len=1.0d0,y_len=1.0d0,thickness=1.0d0)
+    call cylinder%create(meshtype="Cylinder",x_num=10,y_num=10,division=10,x_len=1.0d0,y_len=1.0d0,thickness=1.0d0)
+
+    ! export as json files
+    call cube%json(name="cube.json",endl=.true.)
+    call sphere%json(name="sphere.json",endl=.true.)
+    call cylinder%json(name="cylinder.json",endl=.true.)
 
 
-    integer(int32) :: i
+    ! get number of nodes
+    print *, "Number of nodes (cube) : ", cube%numNodes()
+    ! get number of elements
+    print *, "Number of elements (cube) : ", cube%numElements()
 
-    ! create mesh entities
+    ! remove elements and nodes in a range
+    call cube%remove(x_min=0.20d0,x_max=2.0d0)
+    ! get number of nodes
+    print *, "Number of nodes (cube) : ", cube%numNodes()
+    ! get number of elements
+    print *, "Number of elements (cube) : ", cube%numElements()
 
-    ! -----> 1D
-    call obj1%create(meshtype="Bar1D",x_num=10,x_len=10.0d0)
-    
-    ! -----> 2D
-    call obj2%create(meshtype="rectangular2D",x_num=12,y_num=12,x_len=5.0d0,y_len=50.0d0)
-    call obj2%gmsh(Name="obj2",timestep=0)
-    
-    ! -----> 3D
-    call obj3%create(meshtype="Cube",x_num=10,y_num=12,z_num=10,x_len=5.0d0,y_len=50.0d0,z_len=10.0d0)
-    call obj3%gmsh(Name="obj3",timestep=0)
-    
-    call obj4%create(meshtype="Sphere3D",x_num=10,y_num=10,z_num=10,x_len=5.0d0,y_len=50.0d0,z_len=10.0d0)
-    call obj4%gmsh(Name="obj4",timestep=0)
+    ! get coordinate
+    ! (x, y, z) of node, the ID of which is 10
+    coordinate = cube%getCoordinate(NodeID=11)
+    print *, "x, y, z :",coordinate(:)
 
-    ! -----> move
-    do i=1, 20
-        call obj4%move(x=1.0d0)
-        call obj4%gmsh(Name="obj4_move",timestep=i)
-    enddo
+    ! x-coordinate (x1, x2, x3, ... xn) of all nodes
+    coordinate = cube%getCoordinate(onlyY=.true.)
+    print *, "(x1, x2, x3, ... xn) :",coordinate(:)
 
-    ! -----> move
-    do i=1, 20
-        call obj4%rotate(x=0.10d0)
-        call obj4%gmsh(Name="obj4_rotate",timestep=i)
-    enddo
 end program main
