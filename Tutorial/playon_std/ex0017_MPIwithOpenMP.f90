@@ -11,7 +11,7 @@ program doTest
     call mpid%start()
     print *, "Running MPI with OpenMP"
 
-    !$omp parallel num_threads(4)
+    !$omp parallel num_threads(2)
     nthreads = omp_get_num_threads()
     myid = omp_get_thread_num()
     print *, "nprocess :",trim(str(mpid%petot))," myrank :",trim(str(mpid%myrank)), &
