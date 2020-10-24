@@ -24,8 +24,8 @@ echo "-----------------"
 #echo "gmsh --version"
 #gmsh --version
 #echo "------------------------"
-#echo  -shared -fPIC"mpif90 -g -fcheck=all -fintrinsic-modules-path inc/  --version"
-#mpif90 -g -fcheck=all -fintrinsic-modules-path inc/  --version"#mpif9 -shared -fPIC0
+#echo  -shared -fPIC"mpif90 -fopenmp -fopenacc -g -fcheck=all -fintrinsic-modules-path inc/  --version"
+#mpif90 -fopenmp -fopenacc -g -fcheck=all -fintrinsic-modules-path inc/  --version"#mpif9 -shared -fPIC0
 # -g -fcheck=all -fintrinsic-modules-path inc/  --version
 #echo "------------------------"
 ##echo "OpenCL --version"
@@ -60,158 +60,158 @@ start_time=`date +%s%3N`
 echo "Compiling ./src/TimeClass/TimeClass.f90      "
 echo " >> TimeClass.o"
 echo " |                             | (0%)\r\c "
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/TimeClass/TimeClass.f90 -o  ./inc/TimeClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/TimeClass/TimeClass.f90 -o  ./inc/TimeClass.o
 echo "Compiling ./src/TermClass/TermClass.f90      "
 echo " >> TermClass.o"
 echo " |                             | (0%)\r\c "
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/TermClass/TermClass.f90 -o  ./inc/TermClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/TermClass/TermClass.f90 -o  ./inc/TermClass.o
 echo "Compiling ./src/MathClass/MathClass.f90   "
 echo " >> MathClass.o"
 echo " | #                           | (2%)\r\c "
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MathClass/MathClass.f90 -o  ./inc/MathClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MathClass/MathClass.f90 -o  ./inc/MathClass.o
 echo "Compiling ./src/PhysicsClass/PhysicsClass.f90   "
 echo " >> PhysicsClass.o"
 echo " | #                           | (2%)\r\c "
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PhysicsClass/PhysicsClass.f90 -o  ./inc/PhysicsClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PhysicsClass/PhysicsClass.f90 -o  ./inc/PhysicsClass.o
 echo "Compiling ./src/HTTPClass/HTTPClass.f90   "
 echo " >> HTTPClass.o"
 echo " | #                           | (2%)\r\c "
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/HTTPClass/HTTPClass.f90 -o  ./inc/HTTPClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/HTTPClass/HTTPClass.f90 -o  ./inc/HTTPClass.o
 echo "Compiling ./src/IOClass/IOClass.f90      "
 echo " >> IOClass.o"
 echo " |                             | (0%)\r\c "
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/IOClass/IOClass.f90 -o  ./inc/IOClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/IOClass/IOClass.f90 -o  ./inc/IOClass.o
 echo "Compiling ./src/KinematicClass/KinematicClass.f90   "
 echo " >> KinematicClass.o"
 echo " | #                           | (2%)\r\c "
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/KinematicClass/KinematicClass.f90 -o  ./inc/KinematicClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/KinematicClass/KinematicClass.f90 -o  ./inc/KinematicClass.o
 echo "Compiling ./src/RandomClass/RandomClass.f90   "
 echo " >> RandomClass.o"
 echo " | #                           | (2%)\r\c "
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RandomClass/RandomClass.f90 -o  ./inc/RandomClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RandomClass/RandomClass.f90 -o  ./inc/RandomClass.o
 echo "Compiling ./src/ArrayClass/ArrayClass.f90 " 
 echo " >> ArrayClass.o "
 echo " | #                           | (4%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ArrayClass/ArrayClass.f90 -o  ./inc/ArrayClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ArrayClass/ArrayClass.f90 -o  ./inc/ArrayClass.o
 echo "Compiling ./src/VertexClass/VertexClass.f90 " 
 echo " >> VertexClass.o "
 echo " | #                           | (4%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/VertexClass/VertexClass.f90 -o  ./inc/VertexClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/VertexClass/VertexClass.f90 -o  ./inc/VertexClass.o
 echo "Compiling ./src/GraphClass/GraphClass.f90 " 
 echo " >> GraphClass.o "
 echo " | #                           | (4%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/GraphClass/GraphClass.f90 -o  ./inc/GraphClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/GraphClass/GraphClass.f90 -o  ./inc/GraphClass.o
 echo "Compiling ./src/VectorClass/VectorClass.f90 " 
 echo " >> VectorClass.o "
 echo " | #                           | (4%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/VectorClass/VectorClass.f90 -o  ./inc/Vector.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/VectorClass/VectorClass.f90 -o  ./inc/Vector.o
 echo "Compiling ./src/EquationClass/EquationClass.f90 " 
 echo " >> EquationClass.o "
 echo " | #                           | (4%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/EquationClass/EquationClass.f90 -o  ./inc/Equation.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/EquationClass/EquationClass.f90 -o  ./inc/Equation.o
 echo "Compiling ./src/MPIClass/MPIClass.f90       "
 echo " >> MPIClass.o"
 echo " | #                           | (5%)\r\c "
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MPIClass/MPIClass.f90 -o  ./inc/MPIClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MPIClass/MPIClass.f90 -o  ./inc/MPIClass.o
 echo "Compiling ./src/DictionaryClass/DictionaryClass.f90      "
 echo " >> DictionaryClass.o"
 echo " | ##                          | (9%)\r\c "
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/DictionaryClass/DictionaryClass.f90 -o  ./inc/DictionaryClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/DictionaryClass/DictionaryClass.f90 -o  ./inc/DictionaryClass.o
 echo "Compiling ./src/OpenMPClass/OpenMPClass.f90 "
 echo " >> OpenMPClass.o"
 echo " | ###                         | (12%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/OpenMPClass/OpenMPClass.f90 -o  ./inc/OpenMPClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/OpenMPClass/OpenMPClass.f90 -o  ./inc/OpenMPClass.o
 echo "Compiling ./src/LinearSolverClass/LinearSolverClass.f90 " 
 echo " >> LinearSolverClass.o "
 echo " | ####                        | (16%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LinearSolverClass/LinearSolverClass.f90 -o  ./inc/LinearSolverClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LinearSolverClass/LinearSolverClass.f90 -o  ./inc/LinearSolverClass.o
 echo "Compiling ./src/GeometryClass/GeometryClass.f90 " 
 echo " >> GeometryClass.o "
 echo " | #####                       | (22%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/GeometryClass/GeometryClass.f90 -o  ./inc/GeometryClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/GeometryClass/GeometryClass.f90 -o  ./inc/GeometryClass.o
 echo "Compiling ./src/RouteOptimizationClass/RouteOptimizationClass.f90 " 
 echo " >> RouteOptimizationClass.o "
 echo " | #####                       | (22%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RouteOptimizationClass/RouteOptimizationClass.f90 -o  ./inc/RouteOptimizationClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RouteOptimizationClass/RouteOptimizationClass.f90 -o  ./inc/RouteOptimizationClass.o
 echo "Compiling ./src/TreeClass/TreeClass.f90 "
 echo " >> TreeClass.o"
 echo " | ######                      | (24%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/TreeClass/TreeClass.f90 -o  ./inc/TreeClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/TreeClass/TreeClass.f90 -o  ./inc/TreeClass.o
 echo "Compiling ./src/CSVClass/CSVClass.f90 " 
 echo " >> CSVClass.o "
 echo " | ######                      | (26%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/CSVClass/CSVClass.f90 -o  ./inc/CSVClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/CSVClass/CSVClass.f90 -o  ./inc/CSVClass.o
 echo "Compiling ./src/ShapeFunctionClass/ShapeFunctionClass.f90 " 
 echo " >> ShapeFunctionClass.o "
 echo " | ######                      | (26%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ShapeFunctionClass/ShapeFunctionClass.f90 -o  ./inc/ShapeFunctionClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ShapeFunctionClass/ShapeFunctionClass.f90 -o  ./inc/ShapeFunctionClass.o
 echo "Compiling ./src/STLClass/STLClass.f90 " 
 echo " >> STLClass.o "
 echo " | #######                     | (30%)\r\c"
 echo "Standard library (STLClass) is compiled."
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/STLClass/STLClass.f90 -o  ./inc/STLClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/STLClass/STLClass.f90 -o  ./inc/STLClass.o
 echo "Compiling ./src/WebserverClass/WebServerClass.f90 " 
 echo " >> WebserverClass.o "
 echo " | #######                     | (30%)\r\c"
 echo "Standard library (WebserverClass) is compiled."
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/WebserverClass/WebServerClass.f90 -o  ./inc/WebServerClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/WebserverClass/WebServerClass.f90 -o  ./inc/WebServerClass.o
 echo "Compiling ./src/std/std.f90 " 
 echo " >> std.o "
 echo " | #######                     | (30%)\r\c"
 echo "Standard library (std) is compiled."
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/std/std.f90 -o  ./inc/std.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/std/std.f90 -o  ./inc/std.o
 
 
 echo "Compiling ./src/MeshClass/MeshClass.f90 " 
 echo " >> MeshClass.o "
 echo " | #######                     | (30%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MeshClass/MeshClass.f90 -o  ./inc/MeshClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MeshClass/MeshClass.f90 -o  ./inc/MeshClass.o
 echo "Compiling ./src/MaterialPropClass/MaterialPropClass.f90 " 
 echo " >> MaterialPropClass.o "
 echo " | ########                    | (35%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MaterialPropClass/MaterialPropClass.f90 -o  ./inc/MaterialPropClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MaterialPropClass/MaterialPropClass.f90 -o  ./inc/MaterialPropClass.o
 echo "Compiling ./src/ControlParameterClass/ControlParameterClass.f90" 
 echo " >> ControlParameterClass.o "
 echo " | #########                   | (40%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ControlParameterClass/ControlParameterClass.f90 -o  ./inc/ControlParameterClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ControlParameterClass/ControlParameterClass.f90 -o  ./inc/ControlParameterClass.o
 echo "Compiling ./src/BoundaryConditionClass/BoundaryConditionClass.f90" 
 echo " >> BoundaryConditionClass.o "
 echo " | ##########                  | (45%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/BoundaryConditionClass/BoundaryConditionClass.f90 -o  ./inc/BoundaryConditionClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/BoundaryConditionClass/BoundaryConditionClass.f90 -o  ./inc/BoundaryConditionClass.o
 echo "Compiling ./src/StrainClass/StrainClass.f90" 
 echo " >> StrainClass.o "
 echo " | ##############              | (65%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/StrainClass/StrainClass.f90 -o  ./inc/StrainClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/StrainClass/StrainClass.f90 -o  ./inc/StrainClass.o
 echo "Compiling ./src/StressClass/StressClass.f90" 
 echo " >> StressClass.o "
 echo " | ##############              | (65%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/StressClass/StressClass.f90 -o  ./inc/StressClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/StressClass/StressClass.f90 -o  ./inc/StressClass.o
 echo "Compiling ./src/ConstitutiveModelClass/ConstitutiveModelClass.f90" 
 echo " >> ConstitutiveModelClass.o"
 echo " | ###########                 | (50%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ConstitutiveModelClass/ConstitutiveModelClass.f90 -o  ./inc/ConstitutiveModelClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ConstitutiveModelClass/ConstitutiveModelClass.f90 -o  ./inc/ConstitutiveModelClass.o
 # Compilation of high-level classes
 echo "Compiling ./src/FEMDomainClass/FEMDomainClass.f90 " 
 echo " >> FEMDomainClass.o  " 
 echo " | ############                | (55%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FEMDomainClass/FEMDomainClass.f90 -o  ./inc/FEMDomainClass.o 
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FEMDomainClass/FEMDomainClass.f90 -o  ./inc/FEMDomainClass.o 
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FEMDomainClass/FEMDomainClass.f90 -o  ./inc/FEMDomainClass.o 
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FEMDomainClass/FEMDomainClass.f90 -o  ./inc/FEMDomainClass.o 
 echo "Compiling ./src/FEMIfaceClass/FEMIfaceClass.f90" 
 echo " >> FEMIfaceClass.o "
 echo " | #############               | (60%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FEMIfaceClass/FEMIfaceClass.f90 -o  ./inc/FEMIfaceClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FEMIfaceClass/FEMIfaceClass.f90 -o  ./inc/FEMIfaceClass.o
 echo "Compiling ./src/PostProcessingClass/PostProcessingClass.f90" 
 echo " >> PostProcessingClass.o "
 echo " | ##############              | (63%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PostProcessingClass/PostProcessingClass.f90 -o  ./inc/PostProcessingClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PostProcessingClass/PostProcessingClass.f90 -o  ./inc/PostProcessingClass.o
 echo "Compiling ./src/PreProcessingClass/PreProcessingClass.f90" 
 echo " >> PreProcessingClass.o "
 echo " | ##############              | (65%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PreProcessingClass/PreProcessingClass.f90 -o  ./inc/PreProcessingClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PreProcessingClass/PreProcessingClass.f90 -o  ./inc/PreProcessingClass.o
 echo "Compiling ./src/fem/fem.f90" 
 echo " >> fem.o "
 echo " | ##############              | (65%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/fem/fem.f90 -o  ./inc/fem.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/fem/fem.f90 -o  ./inc/fem.o
 echo "Modules for FEM (fem) is installed."
 
 
@@ -220,48 +220,48 @@ echo "Modules for FEM (fem) is installed."
 echo "Compiling ./src/DiffusionEquationClass/DiffusionEquationClass.f90" 
 echo " >> DiffusionEquationClass.o "
 echo " | ###############             | (70%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/DiffusionEquationClass/DiffusionEquationClass.f90 -o  ./inc/DiffusionEquationClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/DiffusionEquationClass/DiffusionEquationClass.f90 -o  ./inc/DiffusionEquationClass.o
 echo "Compiling ./src/FiniteDeformationClass/FiniteDeformationClass.f90" 
 echo " >> FiniteDeformationClass.o "
 echo " | ################            | (75%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FiniteDeformationClass/FiniteDeformationClass.f90 -o  ./inc/FiniteDeformationClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FiniteDeformationClass/FiniteDeformationClass.f90 -o  ./inc/FiniteDeformationClass.o
 echo "Compiling ./src/ContactMechanicsClass/ContactMechanicsClass.f90" 
 echo " >> ContactMechanicsClass.o "
 echo " | #################           | (80%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ContactMechanicsClass/ContactMechanicsClass.f90 -o  ./inc/ContactMechanicsClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ContactMechanicsClass/ContactMechanicsClass.f90 -o  ./inc/ContactMechanicsClass.o
 echo "Compiling ./src/MultiDiffDeformClass/MultiDiffDeformClass.f90" 
 echo " >> MultiDiffDeformClass.o "
 echo " | ####################        | (85%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MultiDiffDeformClass/MultiDiffDeformClass.f90 -o  ./inc/MultiDiffDeformClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MultiDiffDeformClass/MultiDiffDeformClass.f90 -o  ./inc/MultiDiffDeformClass.o
 echo "Compiling ./src/MultiPhysicsClass/MultiPhysicsClass.f90" 
 echo " >> MultiPhysicsClass.o "
 echo " | ####################        | (85%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MultiPhysicsClass/MultiPhysicsClass.f90 -o  ./inc/MultiPhysicsClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MultiPhysicsClass/MultiPhysicsClass.f90 -o  ./inc/MultiPhysicsClass.o
 echo "Compiling ./src/SpaceTimeDeformClass/SpaceTimeDeformClass.f90" 
 echo " >> SpaceTimeDeformClass.o "
 echo " | ####################        | (85%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SpaceTimeDeformClass/SpaceTimeDeformClass.f90 -o  ./inc/SpaceTimeDeformClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SpaceTimeDeformClass/SpaceTimeDeformClass.f90 -o  ./inc/SpaceTimeDeformClass.o
 echo "Compiling ./src/WaterAbsorptionClass/WaterAbsorptionClass.f90" 
 echo " >> WaterAbsorptionClass.o "
 echo " | ####################        | (85%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/WaterAbsorptionClass/WaterAbsorptionClass.f90 -o  ./inc/WaterAbsorptionClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/WaterAbsorptionClass/WaterAbsorptionClass.f90 -o  ./inc/WaterAbsorptionClass.o
 # Compilation of Fields 
 echo "Compiling ./src/FieldClass/FieldClass.f90" 
 echo " >> FieldClass.o"
 echo " | ####################        | (87%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FieldClass/FieldClass.f90 -o  ./inc/FieldClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FieldClass/FieldClass.f90 -o  ./inc/FieldClass.o
 echo "Compiling ./src/SimulatorClass/SimulatorClass.f90" 
 echo " >> SimulatorClass.o"
 echo " | ####################        | (87%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SimulatorClass/SimulatorClass.f90 -o  ./inc/SimulatorClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SimulatorClass/SimulatorClass.f90 -o  ./inc/SimulatorClass.o
 echo "Compiling ./src/SiCroFClass/SiCroFClass.f90" 
 echo " >> SiCroFClass.o"
 echo " | ####################        | (87%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SiCroFClass/SiCroFClass.f90 -o  ./inc/SiCroFClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SiCroFClass/SiCroFClass.f90 -o  ./inc/SiCroFClass.o
 echo "Compiling ./src/sim/sim.f90" 
 echo " >> sim.o "
 echo " | ##############              | (65%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/sim/sim.f90 -o  ./inc/sim.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/sim/sim.f90 -o  ./inc/sim.o
 echo "Modules for simulators (sim) is installed."
 
 
@@ -269,94 +269,94 @@ echo "Modules for simulators (sim) is installed."
 echo "Compiling ./src/RidgeClass/RidgeClass.f90" 
 echo " >> RidgeClass.o "
 echo " | ########################    | (90%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RidgeClass/RidgeClass.f90 -o  ./inc/RidgeClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RidgeClass/RidgeClass.f90 -o  ./inc/RidgeClass.o
 echo "Compiling ./src/AirClass/AirClass.f90" 
 echo " >> AirClass.o "
 echo " | ########################    | (90%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/AirClass/AirClass.f90 -o  ./inc/AirClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/AirClass/AirClass.f90 -o  ./inc/AirClass.o
 echo "Compiling ./src/DamClass/DamClass.f90" 
 echo " >> DamClass.o "
 echo " | ########################    | (90%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/DamClass/DamClass.f90 -o  ./inc/DamClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/DamClass/DamClass.f90 -o  ./inc/DamClass.o
 echo "Compiling ./src/LightClass/LightClass.f90" 
 echo " >> LightClass.o "
 echo " | ########################    | (90%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LightClass/LightClass.f90 -o  ./inc/DamClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LightClass/LightClass.f90 -o  ./inc/DamClass.o
 
 echo "Compiling ./src/FertilizerClass/FertilizerClass.f90" 
 echo " >> FertilizerClass.o "
 echo " | ########################    | (90%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FertilizerClass/FertilizerClass.f90 -o  ./inc/FertilizerClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FertilizerClass/FertilizerClass.f90 -o  ./inc/FertilizerClass.o
 
 
 echo "Compiling ./src/StemClass/StemClass.f90" 
 echo " >> StemClass.o "
 echo " | ########################    | (90%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/StemClass/StemClass.f90 -o  ./inc/StemClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/StemClass/StemClass.f90 -o  ./inc/StemClass.o
 echo "Compiling ./src/PlantRootClass/PlantRootClass.f90" 
 echo " >> PlantRootClass.o "
 echo " | ########################    | (90%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlantRootClass/PlantRootClass.f90 -o  ./inc/PlantRootClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlantRootClass/PlantRootClass.f90 -o  ./inc/PlantRootClass.o
 
 echo "Compiling ./src/RootClass/RootClass.f90" 
 echo " >> RootClass.o "
 echo " | ########################    | (90%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RootClass/RootClass.f90 -o  ./inc/RootClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RootClass/RootClass.f90 -o  ./inc/RootClass.o
 
 echo "Compiling ./src/PetiClass/PetiClass.f90" 
 echo " >> PetiClass.o "
 echo " | ########################    | (90%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PetiClass/PetiClass.f90 -o  ./inc/PetiClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PetiClass/PetiClass.f90 -o  ./inc/PetiClass.o
 echo "Compiling ./src/PodClass/PodClass.f90" 
 echo " >> PodClass.o "
 echo " | ########################    | (90%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PodClass/PodClass.f90 -o  ./inc/PodClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PodClass/PodClass.f90 -o  ./inc/PodClass.o
 echo "Compiling ./src/FlowerClass/FlowerClass.f90" 
 echo " >> FlowerClass.o "
 echo " | ########################    | (92%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FlowerClass/FlowerClass.f90 -o  ./inc/FlowerClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FlowerClass/FlowerClass.f90 -o  ./inc/FlowerClass.o
 echo "Compiling ./src/PanicleClass/PanicleClass.f90" 
 echo " >> PanicleClass.o "
 echo " | ########################    | (92%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PanicleClass/PanicleClass.f90 -o  ./inc/PanicleClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PanicleClass/PanicleClass.f90 -o  ./inc/PanicleClass.o
 echo "Compiling ./src/LeafClass/LeafClass.f90" 
 echo " >> LeafClass.o "
 echo " | ########################    | (92%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LeafClass/LeafClass.f90 -o  ./inc/LeafClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LeafClass/LeafClass.f90 -o  ./inc/LeafClass.o
 echo "Compiling ./src/PlantNodeClass/PlantNodeClass.f90" 
 echo " >> PlantNodeClass.o "
 echo " | ########################    | (92%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlantNodeClass/PlantNodeClass.f90 -o  ./inc/PlantNodeClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlantNodeClass/PlantNodeClass.f90 -o  ./inc/PlantNodeClass.o
 echo "Compiling ./src/LsystemClass/LsystemClass.f90" 
 echo " >> LsystemClass.o "
 echo " | ##########################  | (95%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LsystemClass/LsystemClass.f90 -o  ./inc/LsystemClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LsystemClass/LsystemClass.f90 -o  ./inc/LsystemClass.o
 echo "Compiling ./src/SeedClass/SeedClass.f90" 
 echo " >> SeedClass.o "
 echo " | ##########################  | (95%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SeedClass/SeedClass.f90 -o  ./inc/SeedClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SeedClass/SeedClass.f90 -o  ./inc/SeedClass.o
 echo "Compiling ./src/SoilClass/SoilClass.f90" 
 echo " >> SoilClass.o "
 echo " | ########################## |  (99%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SoilClass/SoilClass.f90 -o  ./inc/SoilClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SoilClass/SoilClass.f90 -o  ./inc/SoilClass.o
 echo "Compiling ./src/SoybeanClass/SoybeanClass.f90" 
 echo " >> SoybeanClass.o "
 echo " | ########################## |  (99%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SoybeanClass/SoybeanClass.f90 -o  ./inc/SoybeanClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SoybeanClass/SoybeanClass.f90 -o  ./inc/SoybeanClass.o
 echo "Compiling ./src/FarmClass/FarmClass.f90" 
 echo " >> FarmClass.o "
 echo " | ########################## |  (99%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FarmClass/FarmClass.f90 -o  ./inc/FarmClass.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FarmClass/FarmClass.f90 -o  ./inc/FarmClass.o
 echo "Compiling ./src/obj/obj.f90            " 
 echo " >> obj.o       "
 echo " | ########################## |  (99%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/obj/obj.f90 -o  ./inc/obj.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/obj/obj.f90 -o  ./inc/obj.o
 echo "Modules for field-objects (obj) is installed."
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -o obj.so ./inc/*.o 
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -o obj.so ./inc/*.o 
 echo "Compiling ./src/PlantFEM/PlantFEM.f90            " 
 echo " >> PlantFEM.o       "
 echo " | ########################## |  (99%)\r\c"
-mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlantFEM/PlantFEM.f90 -o  ./inc/PlantFEM.o
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlantFEM/PlantFEM.f90 -o  ./inc/PlantFEM.o
 
 mv *.mod inc/
 mv *.so inc/
