@@ -33,5 +33,6 @@ rm sicrof
 rm ./server.f90
 touch ./server.f90
 rm ./inc/*.so
+echo "1" > etc/cpucore
 clear
 ls
