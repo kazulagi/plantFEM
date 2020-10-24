@@ -85,7 +85,7 @@ homepath="$PWD"
             echo "Compiling ./$addonpath/$line.f90      "
             echo " >> $line.o"
             echo " | ########################### | (100%)\r\c "
-            mpif90 -shared -fPIC -g -fcheck=all  -c ./$addonpath/$line.f90 -o  ./inc/$line.o
+            mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all  -c ./$addonpath/$line.f90 -o  ./inc/$line.o
         done < ./aps.txt
         echo " "
         rm ap.txt
@@ -277,7 +277,7 @@ homepath="$PWD"
         continue
     fi
     if [ "$1" = "$run" ]; then
-        $mpif90 inc/*o ./server.f90 -g -fcheck=all  -fintrinsic-modules-path inc/        
+        $mpif90 inc/*o ./server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path inc/        
         #echo "Current num of cpu-core is :: $numcore "
 
         while read line
@@ -394,7 +394,7 @@ homepath="$PWD"
             ln -f $1 "server.f90"
         fi
         
-        $mpif90 inc/*o $1 -g -fcheck=all  -fintrinsic-modules-path inc/
+        $mpif90 inc/*o $1 -g -fcheck=all -fopenmp -fopenacc -fintrinsic-modules-path inc/
 
         #echo "Current num of cpu-core is :: $numcore "
 
