@@ -18,6 +18,11 @@ module RandomClass
         procedure :: choiceInt  => choiceRandomInt
         procedure :: choiceReal => choiceRandomReal
         procedure :: uniform    => uniformRandom
+        procedure :: gauss    => gaussRandom
+        procedure :: ChiSquared => ChiSquaredRandom
+        procedure :: Chauchy => ChauchyRandom
+        procedure :: Lognormal => LognormalRandom
+        procedure :: InverseGauss => InverseGaussRandom
         procedure :: save       => saveRandom
         procedure :: randn      => randnRandom
         procedure :: histogram      => histogramRandom
@@ -267,5 +272,94 @@ function nameRandom(obj) result(str)
 !##########################################
 
 end function
+
+! Reference: omitakahiro.github.io
+
+!##########################################
+function gaussRandom(obj,mu,sigma) result(ret)
+    class(Random_),intent(inout) :: obj
+    real(real64),intent(in) :: mu,sigma
+    real(real64) :: ret
+    real(real64) :: pi = 3.141592653d0
+
+
+    ret = sqrt( -2.0d0 * log(obj%random() ) )*sin(2.0d0*pi*obj%random())
+    ret = mu + sigma*ret
+
+
+end function 
+!##########################################
+
+
+!##########################################
+function ChiSquaredRandom(obj,k) result(ret)
+    class(Random_),intent(inout) :: obj
+    real(real64),intent(in) :: k
+    real(real64) :: ret,z,w
+    real(real64) :: pi = 3.141592653d0
+    integer(int32) :: i
+
+    w=0.0d0
+    z=0.0d0
+    ret=0.0d0
+    do i=1, int(k)
+        z = sqrt( -2.0d0 * log(obj%random() ) )*sin(2.0d0*pi*obj%random())
+        w = w + z*z
+    enddo
+    ret = w
+
+end function 
+!##########################################
+
+!##########################################
+function ChauchyRandom(obj,mu,gamma) result(ret)
+    class(Random_),intent(inout) :: obj
+    real(real64),intent(in) :: mu,gamma
+    real(real64) :: ret,z,w
+    real(real64) :: pi = 3.141592653d0
+
+    
+    ret = mu + gamma*tan(pi*(obj%random()-0.50d0 ) )
+    
+end function 
+!##########################################
+
+
+!##########################################
+function LognormalRandom(obj,mu,sigma) result(ret)
+    class(Random_),intent(inout) :: obj
+    real(real64),intent(in) :: mu,sigma
+    real(real64) :: ret,z,w
+    real(real64) :: pi = 3.141592653d0
+
+    
+    ret = obj%gauss(mu=mu, sigma=sigma)
+    ret = exp(ret)
+    
+end function 
+!##########################################
+
+!##########################################
+function InverseGaussRandom(obj,mu,lambda) result(ret)
+    class(Random_),intent(inout) :: obj
+    real(real64),intent(in) :: mu,lambda
+    real(real64) :: ret,x,y,z,w
+    real(real64) :: pi = 3.141592653d0
+    
+
+    x = obj%gauss(mu=0.0d0,sigma=1.0d0)
+    y = x*x
+    w = mu+0.50d0*y*mu*mu/lambda - (0.50d0*mu/lambda)*sqrt(4.0d0*mu*lambda*y+mu*mu*y*y)
+    z = obj%random()
+
+    if(z < mu/(mu+w))then
+        ret=w
+    else
+        ret=mu*mu/w
+    endif
+end function 
+!##########################################
+
+
 
 end module
