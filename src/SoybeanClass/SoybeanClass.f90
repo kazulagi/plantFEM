@@ -53,6 +53,10 @@ module SoybeanClass
         character(200) :: rootconfig=" "
         character(200) :: leafconfig=" "
     contains
+        procedure,public :: addStem => addStemSoybean
+        !procedure,public :: addRoot => addRootSoybean
+        !procedure,public :: addLeaf => addLeafSoybean
+
         procedure,public :: Init => initsoybean
         procedure,public :: new => initsoybean
         procedure,public :: sowing => initsoybean
@@ -1113,4 +1117,35 @@ subroutine laytracingsoybean(obj,light)
 
 end subroutine
 ! ########################################
+
+subroutine addStemSoybean(obj,stemid,rotx,roty,rotz,json)
+    class(Soybean_),intent(inout) :: obj
+    integer(int32),intent(in) :: stemid
+    character(*),optional,intent(in) :: json
+    real(real64),optional,intent(in) :: rotx,roty,rotz
+    integer(int32) :: i
+
+    ! add a stem after stem(stemid)
+    do i=1,size(obj%stem)
+        if( obj%stem(i)%femdomain%mesh%empty() .eqv. .true. )then
+            if(present(json) )then
+                call obj%stem(i)%init(json)
+                call obj%stem(i)%rotate(x=rotx,y=roty,z=rotz)
+                call obj%stem(i)%connect("=>",obj%stem(stemid))
+                return
+            else
+                call obj%stem(i)%init()
+                call obj%stem(i)%rotate(x=rotx,y=roty,z=rotz)
+                call obj%stem(i)%connect("=>",obj%stem(stemid))
+                return
+            endif
+        else
+            cycle
+        endif
+    enddo
+
+
+
+end subroutine
+
 end module

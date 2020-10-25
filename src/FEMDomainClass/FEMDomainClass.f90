@@ -20,6 +20,7 @@ module FEMDomainClass
 		type(MaterialProp_),pointer :: Materialp
 	end type
 
+
 	type::Boundaryp_
 		type(Boundary_),pointer :: Boundaryp
 	end type
@@ -123,6 +124,7 @@ module FEMDomainClass
 		procedure,public :: rename => renameFEMDomain
 		procedure,public :: resize => resizeFEMDomain
 		procedure,public :: remove => removeFEMDomain
+		procedure,public :: read => readFEMDomain
 
 		procedure,public :: save => saveFEMDomain
 
@@ -6693,5 +6695,29 @@ subroutine jsonFEMDomain(obj,name,fh,endl)
 
 
 end subroutine
+! ##############################################
+subroutine readFEMDomain(obj,name)
+	class(FEMDomain_) ,intent(inout) :: obj
+	character(*),intent(in) :: name
+	logical :: ret=.false.
+	type(IO_) :: f
+
+	
+	if(index(name,"json")/=0 )then
+		call f%open(trim(name) )
+		
+		! json読み取ります
+
+		call f%close()	
+		ret = .true.
+	endif
+
+	if(ret .eqv. .false.)then
+		print *, "ERROR >> readFEMDomain >> not such file as ",trim(name)
+		return
+	endif
+end subroutine
+! ##############################################
+
 
 end module FEMDomainClass
