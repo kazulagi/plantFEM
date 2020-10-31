@@ -4316,6 +4316,24 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         return
     endif
 
+
+    if(meshtype=="HQSphere3D" .or. meshtype=="HQSphere")then
+        
+        call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=1.0d0,y_len=1.0d0)       
+        call obj%Convert2Dto3D(Thickness=1.0d0,division=division)
+
+        if(.not.allocated(obj%ElemMat))then
+            n=size(obj%ElemNod,1)
+            allocate(obj%ElemMat(n) )
+        endif
+        
+        call obj%AdjustSphere(debug=.true.)
+        call obj%resize(x_rate=x_len,&
+            y_rate=y_len,&
+            z_rate=thickness)
+        return
+    endif
+
     if(meshtype=="Cylinder3D" .or. meshtype=="Cylinder")then
         call obj%create(meshtype="Circle2D",x_num=x_num,y_num=y_num,x_len=1.0d0,y_len=1.0d0)       
         call obj%Convert2Dto3D(Thickness=thickness,division=division)

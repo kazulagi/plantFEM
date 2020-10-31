@@ -4,8 +4,6 @@ module ArrayClass
     use RandomClass
     implicit none
 
-
-
     !interface arrayarray
     !    module procedure arrayarrayReal, arrayarrayInt
     !end interface arrayarray

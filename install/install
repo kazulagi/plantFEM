@@ -155,10 +155,15 @@ echo " >> WebserverClass.o "
 echo " | ======>                     | (30%)\r\c"
 echo "Standard library (WebserverClass) is compiled."
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/WebserverClass/WebServerClass.f90 -o  ./inc/WebServerClass.o
+echo "Compiling ./src/PhysicalFieldClass/PhysicalFieldClass.f90 " 
+echo " >> PhysicalFieldClass.o "
+echo " | ======>                     | (30%)\r\c"
+echo "Standard library (PhysicalFieldClass) is compiled."
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PhysicalFieldClass/PhysicalFieldClass.f90 -o  ./inc/PhysicalFieldClass.o
 echo "Compiling ./src/std/std.f90 " 
 echo " >> std.o "
 echo " | ======>                     | (30%)\r\c"
-echo "Standard library (std) is compiled.       "
+echo "Standard library (std) is compiled.          "
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/std/std.f90 -o  ./inc/std.o
 
 
