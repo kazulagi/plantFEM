@@ -32,12 +32,11 @@ module FEMDomainClass
         type(Boundary_)         :: Boundary
 		type(ControlParameter_) :: ControlPara
 
-		type(Meshp_),allocatable :: Meshes(:)
-		type(Materialp_),allocatable :: Materials(:)
-		type(Boundaryp_),allocatable :: Boundaries(:)
-		!type(FEMDomainp_),allocatable :: FEMDomains(:)
+		type(ShapeFunction_)    :: ShapeFunction
+		
+		type(PhysicalField_),allocatable :: PhysicalField(:)
+		integer(int32) :: numoflayer=0
 
-        type(ShapeFunction_)    :: ShapeFunction
 		real(real64),allocatable :: scalar(:)
 		real(real64),allocatable :: vector(:,:)
 		real(real64),allocatable :: tensor(:,:,:)
@@ -57,8 +56,27 @@ module FEMDomainClass
 		integer(int32) :: NumberOfBoundaries=0
 		integer(int32) ::  NumberOfMaterials=0
 
+		! juncs
+
+		type(Meshp_),allocatable :: Meshes(:)
+		type(Materialp_),allocatable :: Materials(:)
+		type(Boundaryp_),allocatable :: Boundaries(:)
+		!type(FEMDomainp_),allocatable :: FEMDomains(:)
     contains
 		procedure,public :: addNBC => AddNBCFEMDomain 
+		procedure,public :: importLayer => importLayerFEMDomain
+
+		procedure,pass :: addLayerFEMDomain
+		procedure,pass :: addLayerFEMDomainScalar
+		procedure,pass :: addLayerFEMDomainVector
+		procedure,pass :: addLayerFEMDomainTensor
+		generic,public :: addLayer => addLayerFEMDomainScalar,addLayerFEMDomain,&
+			addLayerFEMDomainVector,&
+			addLayerFEMDomainTensor
+
+		procedure,public :: showLayer => showLayerFEMDomain
+		procedure,public :: searchLayer => searchLayerFEMDomain
+
         procedure,public :: addDBoundCondition => AddDBoundCondition
         procedure,public :: addNBoundCondition => AddNBoundCondition
         procedure,public :: addTBoundCondition => AddTBoundCondition
@@ -113,6 +131,7 @@ module FEMDomainClass
 		procedure,public :: move => moveFEMDomain
 		procedure,public :: meshing => meshingFEMDomain
 		procedure,public :: merge  => MergeFEMDomain
+		procedure,public :: msh => mshFEMDomain
 
 		procedure,public :: open => openFEMDomain
 
@@ -3298,6 +3317,70 @@ end subroutine
 !##################################################
 
 
+!##################################################
+subroutine mshFEMDomain(obj,name)
+	! export as msh format
+	class(FEMDomain_),intent(in)::obj
+	character(*),intent(in) :: name
+	type(IO_) :: f
+	integer(int32) :: i,j,typeid
+
+	call f%open(trim(name)//".msh" )
+	write(f%fh, '(a)') "$MeshFormat"
+	! version of gmsh, 0=ASCII, 8=real(8)
+	write(f%fh, '(a)' ) "2.2 0 8"
+	write(f%fh, '(a)' ) "$EndMeshFormat"
+	
+	write(f%fh, '(a)' ) "$Nodes"
+	write(f%fh, '(a)' ) str(size(obj%mesh%nodcoord,1) )
+	do i=1,size(obj%mesh%nodcoord,1)
+		write(f%fh,'(a)',advance="no") trim(str(i))//" "
+		do j=1,size(obj%mesh%nodcoord,2)-1
+			write(f%fh,'(a)',advance="no") trim(str(obj%mesh%nodcoord(i,j)))//" "
+		enddo
+		j=size(obj%mesh%nodcoord,2)
+		write(f%fh,'(a)',advance="yes") trim(str(obj%mesh%nodcoord(i,j)))
+	enddo
+	write(f%fh,'(a)' ) "$EndNodes"
+
+	write(f%fh, '(a)' ) "$Elements"
+	write(f%fh, '(a)' ) trim(str(size(obj%mesh%elemnod,1) ))
+	! id, type, tag
+	! 1 : 2-node line
+	! 2 : 3-node line
+	! 3 : 4-node quadrangle
+	! 4 : 4-node tetrahedron
+	! 5 : 8-node hexahedron
+	! ...etc.
+	if(size(obj%mesh%elemnod,2) == 8 .and. size(obj%mesh%nodcoord,2)==3 ) then
+		typeid=5
+	elseif(size(obj%mesh%elemnod,2) == 4 .and. size(obj%mesh%nodcoord,2)==3 )then
+		typeid=4
+	elseif(size(obj%mesh%elemnod,2) == 4 .and. size(obj%mesh%nodcoord,2)==2 )then
+		typeid=3
+	elseif(size(obj%mesh%elemnod,2) == 3 .and. size(obj%mesh%nodcoord,2)==1 )then
+		typeid=2
+	elseif(size(obj%mesh%elemnod,2) == 2 .and. size(obj%mesh%nodcoord,2)==1 )then
+		typeid=1
+	else
+		print *, "mshFEMDomain >> meshtype is not supported. (only 1-5 for elm-type)"
+		stop 
+	endif
+
+	do i=1,size(obj%mesh%elemnod,1)
+		write(f%fh,'(a)',advance="no") trim(str(i))//" "//trim(str(typeid))//" 0 "
+		do j=1,size(obj%mesh%elemnod,2)-1
+			write(f%fh,'(a)',advance="no") trim(str(obj%mesh%elemnod(i,j)))//" "
+		enddo
+		j=size(obj%mesh%elemnod,2)
+		write(f%fh,'(a)',advance="yes") trim(str(obj%mesh%elemnod(i,j)))
+	enddo
+	write(f%fh, '(a)' ) "$EndElements"
+	call f%close()
+
+end subroutine
+!##################################################
+
 
 ! #########################################################################################
 subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeumannBC,withDirichletBC&
@@ -3312,7 +3395,7 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 	real(real64),allocatable::x_double(:,:)
 	real(real64),allocatable::x(:,:)
 	integer(int32) i,j,k,l,step,fh,nodeid1,nodeid2
-	character filename0*11
+	character filename0*11,filename0msh*11
 	character filename*200
 	character filetitle*6
 	character command*200
@@ -5776,12 +5859,22 @@ subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,z_num,x_len,y_len,z_len
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: meshtype
 	character(*),optional,intent(in) ::Name
-    integer(int32),optional,intent(in) :: x_num,y_num,z_num ! number of division
+	integer(int32),optional,intent(in) :: x_num,y_num,z_num ! number of division
+	integer(int32) :: xnum,ynum,znum ! number of division
     integer(int32),optional,intent(in) :: division ! for 3D rectangular
-    real(real64),optional,intent(in) :: x_len,y_len,z_len,Le,Lh,Dr ! length
+	real(real64),optional,intent(in) :: x_len,y_len,z_len,Le,Lh,Dr ! length
+	real(real64) :: xlen,ylen,zlen ! length
 	real(real64),optional,intent(in) :: thickness ! for 3D rectangular
 	real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
     real(real64),optional,intent(in) :: top,margin,inclineRate ! for 3D Ridge and dam
+
+	xnum=input(default=10,option=x_num)
+	ynum=input(default=10,option=y_num)
+	znum=input(default=10,option=z_num)
+
+	xlen=input(default=1.0d0,option=x_len)
+	ylen=input(default=1.0d0,option=y_len)
+	zlen=input(default=1.0d0,option=z_len)
 
 	if(present(Name) )then
 		obj%Name=Name
@@ -5791,11 +5884,11 @@ subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,z_num,x_len,y_len,z_len
 		obj%FileName="NoName"
 	endif
 	if(present(z_num) .or. present(z_len) )then
-		call obj%Mesh%create(meshtype,x_num,y_num,x_len,y_len,Le,&
-			Lh,Dr,z_len,z_num,top=top,margin=margin,shaperatio=shaperatio)
+		call obj%Mesh%create(meshtype,xnum,ynum,xlen,ylen,Le,&
+			Lh,Dr,zlen,znum,top=top,margin=margin,shaperatio=shaperatio)
 	else
-		call obj%Mesh%create(meshtype,x_num,y_num,x_len,y_len,Le,&
-			Lh,Dr,thickness,division,top=top,margin=margin,shaperatio=shaperatio)
+		call obj%Mesh%create(meshtype,xnum,ynum,xlen,ylen,Le,&
+			Lh,Dr,zlen,znum,top=top,margin=margin,shaperatio=shaperatio)
 	endif
 end subroutine createFEMDomain
 ! ##################################################
@@ -6719,5 +6812,275 @@ subroutine readFEMDomain(obj,name)
 end subroutine
 ! ##############################################
 
+
+
+
+
+subroutine addLayerFEMDomain(obj,name,attribute,datastyle,vectorrank,tensorrank1,tensorrank2)
+	class(FEMDomain_),intent(inout) :: obj
+	type(PhysicalField_),allocatable :: pfa(:)
+	character(*),intent(in) :: attribute ! should be NODAL, ELEMENTAL, or GAUSSPOINT
+	character(*),intent(in) :: datastyle ! should be SCALAR, VECTOR, or TENSOR
+	character(*),intent(in) :: name
+	integer,optional,intent(in) :: vectorrank,tensorrank1,tensorrank2
+	integer(int32) :: datasize, datadimension,vector_rank,tensor_rank1,tensor_rank2
+
+	vector_rank = input(default=3,option=vectorrank)
+	tensor_rank1 = input(default=3,option=tensorrank1)
+	tensor_rank2 = input(default=3,option=tensorrank2)
+
+	if(.not.allocated(obj % PhysicalField) ) then
+		allocate(obj % PhysicalField(100)) ! 100 layer as default
+		obj%numoflayer=0
+	endif
+	obj%numoflayer=obj%numoflayer+1
+	
+	if(obj%numoflayer>size(obj % PhysicalField) )then
+		pfa = obj%PhysicalField
+		deallocate(obj%PhysicalField)
+		allocate(obj%PhysicalField(size(pfa)*100 ) )
+		obj%PhysicalField(1:size(pfa))=pfa(:)
+	endif
+
+
+	obj % PhysicalField(obj%numoflayer) % name   = trim(name)
+	if(obj%mesh%empty() .eqv. .true. )then
+		print *, "ERROR >> addLayerFEMDomain >> mesh should be defined preliminary."
+		return
+	endif
+
+	datasize=0
+	select case( trim(attribute))
+		case ("Nodal","NODAL","node-wize","Node-Wize","NODEWIZE")
+			datasize=size(obj%mesh%nodcoord,1)
+		case ("Elemental","ELEMENTAL","element-wize","Element-Wize","ELEMENTWIZE")
+			datasize=size(obj%mesh%elemnod,1)
+		case ("Gausspoint","GAUSSPOINT","gausspoint-wize","GaussPoint-Wize","GAUSSPOINTWIZE")
+			datasize=size(obj%mesh%elemnod,1)
+	end select
+
+	select case( trim(datastyle))
+		case ("Scalar","SCALAR","scalar")
+			allocate(obj%PhysicalField(obj%numoflayer) % scalar(datasize) )
+			obj%PhysicalField(obj%numoflayer) % scalar(:) = 0.0d0
+		case ("Vector","VECTOR","vector")
+			allocate(obj%PhysicalField(obj%numoflayer) % vector(datasize,vector_rank) )
+			obj%PhysicalField(obj%numoflayer) % vector(:,:) = 0.0d0
+		case ("Tensor","TENSOR","tensor")
+			allocate(obj%PhysicalField(obj%numoflayer) % tensor(datasize,tensor_rank1,tensor_rank2) )
+			obj%PhysicalField(obj%numoflayer) % tensor(:,:,:) = 0.0d0
+	end select
+
+	!if(present(scalar) )then
+	!	obj % PhysicalField(obj%numoflayer) % scalar = scalar		
+	!endif
+    
+
+end subroutine
+! ######################################################################
+
+
+
+
+
+
+! ######################################################################
+subroutine addLayerFEMDomainScalar(obj,name,scalar)
+	class(FEMDomain_),intent(inout) :: obj
+	type(PhysicalField_),allocatable :: pfa(:)
+	real(real64),intent(in) :: scalar(:)
+	character(*),intent(in) :: name
+	integer(int32) :: datasize
+
+
+	if(.not.allocated(obj % PhysicalField) ) then
+		allocate(obj % PhysicalField(100)) ! 100 layer as default
+		obj%numoflayer=0
+	endif
+	obj%numoflayer=obj%numoflayer+1
+	
+	if(obj%numoflayer>size(obj % PhysicalField) )then
+		pfa = obj%PhysicalField
+		deallocate(obj%PhysicalField)
+		allocate(obj%PhysicalField(size(pfa)*100 ) )
+		obj%PhysicalField(1:size(pfa))=pfa(:)
+	endif
+
+
+	obj % PhysicalField(obj%numoflayer) % name   = trim(name)
+	if(obj%mesh%empty() .eqv. .true. )then
+		print *, "ERROR >> addLayerFEMDomain >> mesh should be defined preliminary."
+		return
+	endif
+
+	obj%PhysicalField(obj%numoflayer) % scalar =scalar
+
+	!if(present(scalar) )then
+	!	obj % PhysicalField(obj%numoflayer) % scalar = scalar		
+	!endif
+    
+
+end subroutine
+! ######################################################################
+
+
+
+! ######################################################################
+subroutine addLayerFEMDomainVector(obj,name,vector)
+	class(FEMDomain_),intent(inout) :: obj
+	type(PhysicalField_),allocatable :: pfa(:)
+	real(real64),intent(in) :: vector(:,:)
+	character(*),intent(in) :: name
+	integer(int32) :: datasize,datadimension
+
+
+	if(.not.allocated(obj % PhysicalField) ) then
+		allocate(obj % PhysicalField(100)) ! 100 layer as default
+		obj%numoflayer=0
+	endif
+	obj%numoflayer=obj%numoflayer+1
+	
+	if(obj%numoflayer>size(obj % PhysicalField) )then
+		pfa = obj%PhysicalField
+		deallocate(obj%PhysicalField)
+		allocate(obj%PhysicalField(size(pfa)*100 ) )
+		obj%PhysicalField(1:size(pfa))=pfa(:)
+	endif
+
+
+	obj % PhysicalField(obj%numoflayer) % name   = trim(name)
+	if(obj%mesh%empty() .eqv. .true. )then
+		print *, "ERROR >> addLayerFEMDomain >> mesh should be defined preliminary."
+		return
+	endif
+	obj%PhysicalField(obj%numoflayer) % vector =vector
+	
+end subroutine
+! ######################################################################
+
+
+
+! ######################################################################
+subroutine addLayerFEMDomaintensor(obj,name,tensor)
+	class(FEMDomain_),intent(inout) :: obj
+	type(PhysicalField_),allocatable :: pfa(:)
+	real(real64),intent(in) :: tensor(:,:,:)
+	character(*),intent(in) :: name
+	integer(int32) :: datasize,datadimension
+
+
+	if(.not.allocated(obj % PhysicalField) ) then
+		allocate(obj % PhysicalField(100)) ! 100 layer as default
+		obj%numoflayer=0
+	endif
+	obj%numoflayer=obj%numoflayer+1
+	
+	if(obj%numoflayer>size(obj % PhysicalField) )then
+		pfa = obj%PhysicalField
+		deallocate(obj%PhysicalField)
+		allocate(obj%PhysicalField(size(pfa)*100 ) )
+		obj%PhysicalField(1:size(pfa))=pfa(:)
+	endif
+
+
+	obj % PhysicalField(obj%numoflayer) % name   = trim(name)
+	if(obj%mesh%empty() .eqv. .true. )then
+		print *, "ERROR >> addLayerFEMDomain >> mesh should be defined preliminary."
+		return
+	endif
+
+	obj%PhysicalField(obj%numoflayer) % tensor =tensor
+    
+end subroutine
+! ######################################################################
+
+! ######################################################################
+subroutine importLayerFEMDomain(obj,name,id,scalar,vector,tensor)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),optional,intent(in) :: name
+	integer(int32),optional,intent(in)  :: id
+	real(real64),optional,intent(in) :: scalar(:),vector(:,:),tensor(:,:,:)
+	integer(int32) :: i,j,n
+	
+	if(present(name))then
+		do i=1,obj%numoflayer
+			if( trim(obj%PhysicalField(i)%name)==trim(name) )then
+				if(present(scalar) )then
+					obj%PhysicalField(i)%scalar = scalar
+				endif
+				if(present(vector) )then
+					obj%PhysicalField(i)%vector = vector
+				endif
+				if(present(tensor) )then
+					obj%PhysicalField(i)%tensor = tensor
+				endif
+			endif
+		enddo
+	endif
+
+	if(present(id) )then
+		if(present(scalar) )then
+			obj%PhysicalField(id)%scalar = scalar
+		endif
+		if(present(vector) )then
+			obj%PhysicalField(id)%vector = vector
+		endif
+		if(present(tensor) )then
+			obj%PhysicalField(id)%tensor = tensor
+		endif
+	endif
+
+end subroutine
+! ######################################################################
+
+
+
+! ######################################################################
+subroutine showLayerFEMDomain(obj)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32) :: i,j,n
+	
+	print *, "Number of layers : ",obj%numoflayer
+	do i=1,obj%numoflayer
+		print *, trim(obj%PhysicalField(i)%name)//" : scalar >> "&
+			//str(allocated(obj%PhysicalField(i)%scalar))//" : vector >> "&
+			//str(allocated(obj%PhysicalField(i)%vector))//" : tensor >> "&
+			//str(allocated(obj%PhysicalField(i)%tensor))
+	enddo
+
+end subroutine
+! ######################################################################
+
+
+! ######################################################################
+function searchLayerFEMDomain(obj,name,id) result(ret)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),optional,intent(in) :: name
+	integer(int32),optional,intent(in) :: id
+	integer(int32) :: i
+	logical :: ret
+
+	ret =.False.
+	if(present(name) )then
+		do i=1,obj%numoflayer
+			if(trim(obj%PhysicalField(i)%name)==trim(name) )then
+				ret=.true.
+				return
+			endif
+		enddo
+		return
+	endif
+
+	if(present(id) )then
+		if(id <= obj%numoflayer)then
+			!print *, "Layer-ID : ",id," is : ",trim(obj%PhysicalField(id)%name)
+			ret = .true.
+		else
+			print *, "id ",id,"is greater than the number of layers",obj%numoflayer
+		endif
+	endif
+
+end function
+! ######################################################################
 
 end module FEMDomainClass

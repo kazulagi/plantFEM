@@ -7,11 +7,11 @@ module MathClass
 	!real(real64) :: e =2.718281828459045235d0
 
 	interface str
-		module procedure fstring_Int, fstring_Real, fstring_Int_len, fstring_Real_len
+		module procedure fstring_Int, fstring_Real, fstring_Int_len, fstring_Real_len, fstring_logical
 	end interface str
 
     interface fstring
-        module procedure fstring_Int, fstring_Real, fstring_Int_len, fstring_Real_len
+        module procedure fstring_Int, fstring_Real, fstring_Int_len, fstring_Real_len, fstring_logical
 	end interface fstring
 
 	interface input
@@ -722,6 +722,16 @@ function fstring_int(x) result(a)
 
 	write(a,*) x
 	a = adjustl(a)
+
+end function
+!================================================================================== 
+
+!================================================================================== 
+function fstring_logical(x) result(a)
+	logical,intent(in) :: x
+	character(len=5)	:: a
+
+	write(a,*) x
 
 end function
 !================================================================================== 
