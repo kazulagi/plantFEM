@@ -1,9 +1,0 @@
-{
-    
-    "name": "domain.json",
-    "type": "femdomain",
-    "mesh":{
-    "nodcoord" : [[]]
-    },
-
-}
