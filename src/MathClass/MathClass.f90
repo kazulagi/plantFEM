@@ -267,10 +267,73 @@ subroutine calcgz(x2,x11,x12,nod_coord,gzi)
 	 
 end subroutine calcgz
 !==========================================================
+function arg(comp) result(theta)
+	complex,intent(in) :: comp
+	real(real64) :: theta,re,im
+	real(real64) ::pi=3.141592653589793d0
+
+	re = dble(real(comp) )
+	im = dble(aimag(comp) )
+
+	if(re>0.0d0 )then
+		theta = atan(im/re)
+	elseif(re<0.0d0 .and. im>=0.0d0)then
+		theta = atan(im/re+pi)
+	elseif(re<0.0d0 .and. im<0.0d0)then
+		theta = atan(im/re-pi)
+	elseif(re==0.0d0 .and. im>0.0d0)then
+		theta = pi/2.0d0
+	elseif(re==0.0d0 .and. im<0.0d0)then
+		theta = -pi/2.0d0
+	else
+		print *, "arg :: indeterminate"
+		stop 
+	endif
+
+
+end function
+!==========================================================
+
+
+function cubic_equation(a,b,c,d) result(x)
+	real(real64),intent(in) :: a,b,c,d
+	real(real64) :: x(3),theta
+	real(real64) ::Deq,A_,B_,C_,p,q
+	real(real64) ::pi=3.141592653589793d0
+	complex  :: comp
+	!https://qiita.com/yotapoon/items/42b1749b69c264d6f486
+
+	A_ = b/a
+	B_ = c/a
+	C_ = d/a
+	p = B_ - A_*A_/3.0d0
+	q = 2.0d0*A_*A_*A_/27.0d0 - A_*B_/3.0d0 + C_
+	Deq = q*q/4.0d0 + p*p*p/27.0d0
+	
+	if(Deq > 0.0d0)then
+		print *, "D > 0 :: not implemented now."
+	elseif(Deq==0)then
+		print *, "D == 0 "
+		x(1) = -2.0d0*(p/2.0d0)**(3)
+		x(2) = (p/2.0d0)**(3)
+		x(3) = (p/2.0d0)**(3)
+		return
+	else
+		print *, "D < 0 "
+		comp = cmplx(-q/2.0d0, sqrt(-Deq) )
+		theta=arg(comp)
+		x(1) = 2.0d0*sqrt(-p/3.0d0)*cos(theta)
+		x(2) = 2.0d0*sqrt(-p/3.0d0)*cos( (theta+2.0d0*pi)/3.0d0 )
+		x(3) = 2.0d0*sqrt(-p/3.0d0)*cos( (theta+4.0d0*pi)/3.0d0 )
+	endif
+
+
+end function
+
+!==========================================================
 subroutine eigen_2d(Amat,eigenvector)
 	real(real64),intent(in)::Amat(:,:)
-	real(real64),intent(inout)::eigenvector(:,:)
-
+	real(real64),allocatable,intent(inout)::eigenvector(:,:)
 	real(real64)::b,c,phy,eigenvalue(2)
 	integer(int32) i,j
 	

@@ -4407,8 +4407,8 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             enddo
         enddo
 
-        call print(mat=mesh1%nodcoord,name="circle.txt")
-        call print(mat=obj%nodcoord,name="cube.txt")
+        !call print(mat=mesh1%nodcoord,name="circle.txt")
+        !call print(mat=obj%nodcoord,name="cube.txt")
 
         ! 要素
         ! Starts from ElementID: (2*xn+1)*(2*xn+1)
@@ -4467,7 +4467,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             mesh1%elemnod(j,3)= (2*xn+1)*(2*xn+1)+ ini
             mesh1%elemnod(j,4)= (2*xn+1)*(2*xn+1)+ ini - 8*xn
         enddo
-        call print(mat=mesh1%elemnod,name="elem.txt")
+        !call print(mat=mesh1%elemnod,name="elem.txt")
 
         allocate(mesh2%nodcoord(size(obj%nodcoord,1)+size(mesh1%nodcoord,1),&
             size(obj%nodcoord,2)) )
@@ -4479,18 +4479,18 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         mesh2%elemnod(1:size(obj%elemnod,1),1:4)=obj%elemnod(1:size(obj%elemnod,1),1:4)
         mesh2%elemnod(size(obj%elemnod,1)+1:size(obj%elemnod,1)+size(mesh1%elemnod,1),1:4)&
             =mesh1%elemnod(1:size(mesh1%elemnod,1),1:4)
-        call print(mat=mesh2%elemnod,name="elem2.txt")
+        !call print(mat=mesh2%elemnod,name="elem2.txt")
         !call print(mat=mesh2%nodcoord,IndexArray=mesh2%elemnod,name="mesh2.txt")
 
-        call f%open("mesh2.txt")
-        do i=1,size(mesh2%elemnod,1)
-            do j=1,size(mesh2%elemnod,2)
-                write(f%fh,*) mesh2%nodcoord(mesh2%elemnod(i,j),:)
-            enddo
-            write(f%fh,*) mesh2%nodcoord(mesh2%elemnod(i,1),:)
-            write(f%fh,*) " "
-        enddo
-        call f%close()
+        !call f%open("mesh2.txt")
+        !do i=1,size(mesh2%elemnod,1)
+        !    do j=1,size(mesh2%elemnod,2)
+        !        write(f%fh,*) mesh2%nodcoord(mesh2%elemnod(i,j),:)
+        !    enddo
+        !    write(f%fh,*) mesh2%nodcoord(mesh2%elemnod(i,1),:)
+        !    write(f%fh,*) " "
+        !enddo
+        !call f%close()
 
         allocate(mesh2%elemmat(size(mesh2%elemnod,1) ) )
         mesh2%elemmat(:)=1

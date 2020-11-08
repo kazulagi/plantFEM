@@ -1053,5 +1053,41 @@ subroutine icres(L, d, r, u, n)
 
 end subroutine icres
 
+!==========================================================
+function eigen_3d(tensor) result(eigenvector)
+	real(real64),intent(in) :: tensor(3,3)
+	integer(int32) :: i,j,n
+	real(real64) :: eigenvector(3,3),a,b,c,d
+	real(real64) :: eigenvalue(3),mat(3,3),ev(3),zero(3),unitmat(3,3)
+	
+	zero(:)=0.0d0
+	unitmat(:,:) =0.0d0
+	unitmat(1,1) = 1.0d0
+	unitmat(2,2) = 1.0d0
+	unitmat(3,3) = 1.0d0
+	! get eigen values
+	! (1) solve cubic equation
+	!https://keisan.casio.jp/exec/user/1305724050
+	a = 1.0d0
+	b = -tensor(1,1)-tensor(2,2)-tensor(3,3)
+	c = tensor(1,1)*tensor(2,2)+tensor(2,2)*tensor(3,3)+tensor(3,3)*tensor(1,1)&
+		-tensor(1,2)*tensor(2,1)-tensor(2,3)*tensor(3,2)-tensor(3,1)*tensor(1,3)
+	d = -tensor(1,1)*tensor(2,2)*tensor(3,3)-tensor(1,2)*tensor(2,3)*tensor(3,1)&
+		-tensor(1,3)*tensor(2,1)*tensor(3,2)+tensor(1,3)*tensor(2,2)*tensor(3,1)&
+		+tensor(2,3)*tensor(3,2)*tensor(1,1)+tensor(3,3)*tensor(1,2)*tensor(2,1)
+	eigenvalue = cubic_equation(a,b,c,d)
+
+	do i=1,3	
+		mat(:,:) = eigenvalue(i)*unitmat(:,:)-tensor(:,:)
+		call gauss_jordan_pv(mat, ev, zero,3)
+		eigenvector(:,3)=ev(:)
+	enddo
+
+
+
+end function
+
+
+
 end module
 !====================================================================================
