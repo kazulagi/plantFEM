@@ -113,6 +113,9 @@ module FEMDomainClass
 		procedure,public :: gnuplotExportStress => GnuplotExportStress  
 		procedure,public :: getDBCVector => getDBCVectorFEMDomain
 		procedure,public :: getVolume => getVolumeFEMDomain
+		procedure,public :: getLayerID => getLayerIDFEMDomain
+		procedure,public :: getLayerAttribute => getLayerAttributeFEMDomain
+		procedure,public :: getLayerDataStyle => getLayerDataStyleFEMDomain
 		
         procedure,public :: init   => InitializeFEMDomain
 		procedure,public :: import => ImportFEMDomain
@@ -136,6 +139,7 @@ module FEMDomainClass
 		procedure,public :: open => openFEMDomain
 
 		procedure,public :: ply => plyFEMDomain
+		procedure,public :: projection => projectionFEMDomain
 
 		procedure,public :: removeMaterials => removeMaterialsFEMDomain
 		procedure,public :: rotate => rotateFEMDomain
@@ -6814,8 +6818,7 @@ end subroutine
 
 
 
-
-
+! ##############################################
 subroutine addLayerFEMDomain(obj,name,attribute,datastyle,vectorrank,tensorrank1,tensorrank2)
 	class(FEMDomain_),intent(inout) :: obj
 	type(PhysicalField_),allocatable :: pfa(:)
@@ -6851,24 +6854,30 @@ subroutine addLayerFEMDomain(obj,name,attribute,datastyle,vectorrank,tensorrank1
 
 	datasize=0
 	select case( trim(attribute))
-		case ("Nodal","NODAL","node-wize","Node-Wize","NODEWIZE")
+		case ("Nodal","NODAL","node-wize","Node-Wize","NODEWIZE","Node","node")
 			datasize=size(obj%mesh%nodcoord,1)
-		case ("Elemental","ELEMENTAL","element-wize","Element-Wize","ELEMENTWIZE")
+			obj%PhysicalField(obj%numoflayer) %attribute = 1
+		case ("Elemental","ELEMENTAL","element-wize","Element-Wize","ELEMENTWIZE","Element","element")
 			datasize=size(obj%mesh%elemnod,1)
+			obj%PhysicalField(obj%numoflayer) %attribute = 2
 		case ("Gausspoint","GAUSSPOINT","gausspoint-wize","GaussPoint-Wize","GAUSSPOINTWIZE")
 			datasize=size(obj%mesh%elemnod,1)
+			obj%PhysicalField(obj%numoflayer) %attribute = 3
 	end select
 
 	select case( trim(datastyle))
 		case ("Scalar","SCALAR","scalar")
 			allocate(obj%PhysicalField(obj%numoflayer) % scalar(datasize) )
+			obj%PhysicalField(obj%numoflayer)%datastyle = 1
 			obj%PhysicalField(obj%numoflayer) % scalar(:) = 0.0d0
 		case ("Vector","VECTOR","vector")
 			allocate(obj%PhysicalField(obj%numoflayer) % vector(datasize,vector_rank) )
 			obj%PhysicalField(obj%numoflayer) % vector(:,:) = 0.0d0
+			obj%PhysicalField(obj%numoflayer)%datastyle = 2
 		case ("Tensor","TENSOR","tensor")
 			allocate(obj%PhysicalField(obj%numoflayer) % tensor(datasize,tensor_rank1,tensor_rank2) )
 			obj%PhysicalField(obj%numoflayer) % tensor(:,:,:) = 0.0d0
+			obj%PhysicalField(obj%numoflayer)%datastyle = 3
 	end select
 
 	!if(present(scalar) )then
@@ -7081,6 +7090,262 @@ function searchLayerFEMDomain(obj,name,id) result(ret)
 	endif
 
 end function
+! ######################################################################
+
+
+! ######################################################################
+function getLayerIDFEMDomain(obj,name) result(id)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),intent(in) :: name
+	integer(int32) :: id
+	integer(int32)::i
+	
+	do i=1,obj%numoflayer
+		if(trim(obj%PhysicalField(i)%name)==trim(name) )then
+			id=i
+			return
+		endif
+	enddo
+
+end function
+! ######################################################################
+
+
+
+! ######################################################################
+function getLayerAttributeFEMDomain(obj,name) result(id)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),intent(in) :: name
+	integer(int32):: id
+	integer(int32)::i
+	
+	do i=1,obj%numoflayer
+		if(trim(obj%PhysicalField(i)%name)==trim(name) )then
+			id = obj%PhysicalField(i)%attribute 
+			return
+		endif
+	enddo
+
+end function
+! ######################################################################
+
+
+
+! ######################################################################
+function getLayerDataStyleFEMDomain(obj,name) result(id)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),intent(in) :: name
+	integer(int32) :: id
+	integer(int32)::i
+	
+	do i=1,obj%numoflayer
+		if(trim(obj%PhysicalField(i)%name)==trim(name) )then
+			id = obj%PhysicalField(i)%DataStyle
+			return
+		endif
+	enddo
+
+end function
+! ######################################################################
+subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
+	class(FEMDomain_),intent(inout) :: obj
+	character(2),intent(in) :: direction ! "=>, <=, -> or <-"
+	type(FEMDomain_),intent(inout) :: domain
+	type(ShapeFunction_) :: shapefunc
+	character(*),intent(in) :: PhysicalField
+	logical,optional,intent(in) :: debug
+	integer(int32) :: i,j,n,k,field_id
+	real(real64),allocatable :: Jmat(:,:),center(:),x(:),gzi(:),dx(:),dgzi(:),j_inv(:,:)
+	real(real64),allocatable :: LocalCoord(:,:),nodvalue(:),original_scalar(:)
+	integer(int32),allocatable :: ElemID(:)
+	real(real64) :: scalar
+
+
+	! pre-check list
+	! PhysicalField exists for both domains?
+
+	!(1) completed
+	if(present(debug) )then
+		if(debug .eqv. .true.)then
+			print *, "[>>] projectionFEMDomain :: checklist starts."
+		endif
+	endif
+
+	if(obj%searchLayer(name=trim(PhysicalField) ) .eqv. .false. )then
+		print *, "ERROR >> projectionFEMDomain >> no such physicalfield as '"//trim(PhysicalField)&
+			//"' of domain#1"
+		return 
+	endif
+	if(domain%searchLayer(name=trim(PhysicalField) ) .eqv. .false. )then
+		print *, "ERROR >> projectionFEMDomain >> no such physicalfield as '"//trim(PhysicalField)&
+			//"' of domain#1"
+		return 
+	endif
+	if(present(debug) )then
+		if(debug .eqv. .true.)then
+			print *, "[OK] projectionFEMDomain :: checklist #1 fields exists."
+		endif
+	endif
+
+	! check datastyle and attribute
+	if(obj%getLayerDataStyle(name=trim(PhysicalField)) /= &
+		domain%getLayerDataStyle(name=trim(PhysicalField)) )then
+		print *, "ERROR >> projectionFEMDomain >> INVALID DataStyle >> node=1, element=2, gauss point = 3"
+		print *, "obj%getLayerDataStyle(name=trim(PhysicalField)) :: ",obj%getLayerDataStyle(name=trim(PhysicalField)) 
+		print *, "domain%getLayerDataStyle(name=trim(PhysicalField)) :: ",domain%getLayerDataStyle(name=trim(PhysicalField)) 
+		return
+	endif
+	if(obj%getLayerAttribute(name=trim(PhysicalField)) /= &
+		domain%getLayerAttribute(name=trim(PhysicalField)) )then
+		print *, "ERROR >> projectionFEMDomain >> INVALID attribute >> node=1, element=2, gauss point = 3"
+		print *, "obj%getLayerAttribute(name=trim(PhysicalField)) :: ",obj%getLayerAttribute(name=trim(PhysicalField)) 
+		print *, "domain%getLayerAttribute(name=trim(PhysicalField)) :: ",domain%getLayerAttribute(name=trim(PhysicalField)) 
+		return
+	endif
+
+	if(present(debug) )then
+		if(debug .eqv. .true.)then
+			print *, "[OK] projectionFEMDomain :: checklist #2 datastyles and attributes are valid."
+		endif
+	endif
+	
+	if(present(debug) )then
+		if(debug .eqv. .true.)then
+			print *, "[<<] projectionFEMDomain :: checklist completed."
+		endif
+	endif
+
+	! projection starts
+	! if obj%getLayerAttribute(name=trim(PhysicalField)) == 1 (nodal values)
+	if(obj%getLayerAttribute(name=trim(PhysicalField))==1)then
+		if(present(debug) )then
+			if(debug .eqv. .true.)then
+				print *, "[>>] projectionFEMDomain :: projestion starts."
+				print *, "[>>] projectionFEMDomain :: attribute #1 :: scalar."
+			endif
+		endif
+		
+		select case(direction)
+			case ("=>", "->")
+				! obj => domain
+
+				allocate(ElemID(size(domain%mesh%nodcoord,1)))
+				ElemID(:) = -1
+				k=size(domain%mesh%nodcoord,2)
+				allocate(LocalCoord(size(domain%mesh%nodcoord,1),k))
+				LocalCoord(:,:) = 0.0d0
+				shapefunc%ElemType=obj%Mesh%GetElemType()
+				call SetShapeFuncType(shapefunc)
+				do i=1, size(domain%mesh%nodcoord,1) ! for each node
+					do j=1, size(obj%mesh%elemnod,1) ! for each element
+						! get Jacobian matrix (dx/dgzi)
+						do k=1,shapefunc%NumOfGP
+							call GetAllShapeFunc(shapefunc,elem_id=j,nod_coord=obj%Mesh%NodCoord,&
+							elem_nod=obj%Mesh%ElemNod,OptionalGpID=k)
+							if(k==1)then
+								Jmat=shapefunc%Jmat
+							else
+								Jmat=Jmat+shapefunc%Jmat
+							endif
+						enddo
+						! 
+						if(.not. allocated(center) )then
+							allocate(center(size(obj%mesh%nodcoord,2) ) )
+						endif
+						if(.not. allocated(x) )then
+							allocate(x(size(obj%mesh%nodcoord,2) ) )
+						endif
+						if(.not. allocated(dx) )then
+							allocate(dx(size(obj%mesh%nodcoord,2) ) )
+						endif
+						if(.not. allocated(gzi) )then
+							allocate(gzi(size(obj%mesh%nodcoord,2) ) )
+						endif
+						if(.not. allocated(dgzi) )then
+							allocate(dgzi(size(obj%mesh%nodcoord,2) ) )
+						endif
+						center(:)=0.0d0
+						do k=1,size(obj%mesh%elemnod,2)
+							center(:) = center(:) + obj%mesh%nodcoord( obj%mesh%elemnod(j,k),: )
+						enddo
+						center(:) = 1.0d0/dble(size(obj%mesh%elemnod,2))*center(:)
+						x(:) = domain%mesh%nodcoord(i,:)
+						dx(:) = x(:) - center(:)
+						call inverse_rank_2(Jmat,J_inv)
+						dgzi = matmul(J_inv,dx)
+						if( maxval(dgzi)<=1.0d0 .and. minval(dgzi)>=-1.0d0 )then
+							ElemID(i) = j
+							LocalCoord(i,:) = dgzi(:)
+							exit
+						else
+							cycle
+						endif
+					enddo
+					if(present(debug) )then
+						if(debug .eqv. .true.)then
+							if(i == int(dble(size(domain%mesh%nodcoord,1))/4.0d0) )then
+								print *, "[--] projectionFEMDomain :: local coordinate 25 % done."
+							endif
+							if(i == int(dble(size(domain%mesh%nodcoord,1))/2.0d0) )then
+								print *, "[--] projectionFEMDomain :: local coordinate 50 % done."
+							endif
+							if(i == int(3.0d0*dble(size(domain%mesh%nodcoord,1))/4.0d0) )then
+								print *, "[--] projectionFEMDomain :: local coordinate 75 % done."
+							endif
+							if(i == size(domain%mesh%nodcoord,1))then
+								print *, "[ok] projectionFEMDomain :: local coordinate 100 % done."
+							endif
+						endif
+					endif
+				enddo
+
+				
+				! projection
+				field_id = domain%getLayerID(name=PhysicalField)
+				if(domain%getLayerAttribute(name=PhysicalField)==1)then
+					! scalar
+					! for each element
+					do i=1,size(obj%mesh%nodcoord,1)
+						if(elemid(i)==-1 )then
+							cycle
+						endif
+						gzi(:) = localCoord(i,:)
+	
+						scalar = obj%PhysicalField(field_id)%scalar(i)
+						
+						shapefunc%gzi(:) = gzi(:)
+
+						call GetShapeFunction(shapefunc)
+						if(.not.allocated(nodvalue) )then
+							allocate(nodvalue(size(shapefunc%Nmat,1)))
+							nodvalue(:) = scalar*shapefunc%Nmat(:)
+							nodvalue(:) = scalar!*shapefunc%Nmat(:)
+							! ここ、要注意、アルゴリズムに大幅な近似あり。
+							! 単に一方の領域の節点値を他方の要素の節点値全体に適用している。
+							! 局所座標gziは使っていない。
+							! obj => domainのプロジェクションの場合、
+							! objの要素ごとに、domainの節点が入っているかを調査し、
+							! objの要素に対するdomain節点の局所座標を確定し、
+							! その後、objの接点値に形状関数をかけてdomainの節点値とすべき。
+							! 要精査
+						endif
+						do k=1,size(domain%mesh%elemnod,2)
+							n = domain%mesh%elemnod(elemid(i) ,k)
+							domain%PhysicalField(field_id)%scalar(n)=nodvalue(k)
+						enddo
+
+					enddo
+				else
+					print *, "ERROR now coding >> projectionFEMDomain"
+					stop 
+				endif
+				print *, "[caution] need debugs"
+				
+			case ("<=", "<-")
+		end select
+	endif
+
+end subroutine
 ! ######################################################################
 
 end module FEMDomainClass

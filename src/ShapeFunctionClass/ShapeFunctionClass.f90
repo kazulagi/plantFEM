@@ -20,8 +20,8 @@ module ShapeFunctionClass
         real(real64) :: detJ
         integer(int32) :: NumOfNode
         integer(int32) :: NumOfOrder
-        integer(int32) :: NumOfDim
-        integer(int32) :: NumOfGp
+        integer(int32) :: NumOfDim=0
+        integer(int32) :: NumOfGp=0
         integer(int32) :: GpID
         integer(int32) :: ierr
         integer(int32) :: currentGpID
@@ -33,6 +33,7 @@ module ShapeFunctionClass
         procedure :: update => updateShapeFunction
         procedure :: SetType => SetShapeFuncType
         procedure :: GetAll  => GetAllShapeFunc
+        procedure :: get  => GetAllShapeFunc
         procedure :: Deallocate => DeallocateShapeFunction
         procedure :: getType => getShapeFuncType 
         procedure :: GetGaussPoint => GetGaussPoint
@@ -263,12 +264,18 @@ end subroutine
 
 
 !##################################################
-subroutine SetShapeFuncType(obj,ReducedIntegration)
+subroutine SetShapeFuncType(obj,NumOfDim,NumOfNodePerElem,ReducedIntegration)
     class(ShapeFunction_),intent(inout)::obj
     logical,optional,intent(in) :: ReducedIntegration
     character*70 ::  TrimedElemType
+    integer(int32),optional,intent(in) :: NumOfDim,NumOfNodePerElem
 
-
+    if(present(NumOfDim) )then
+        if(present(NumOfNodePerElem) )then
+            call obj%getType(NumOfDim,NumOfNodePerElem)
+        endif
+    endif
+    
     if(present(ReducedIntegration) )then
         obj%ReducedIntegration=ReducedIntegration
     endif
@@ -337,14 +344,33 @@ end subroutine getShapeFuncType
 
 !##################################################
 subroutine GetAllShapeFunc(obj,elem_id,nod_coord,nod_coord_n,elem_nod,OptionalNumOfNode,OptionalNumOfOrder,&
-    OptionalNumOfDim,OptionalNumOfGp,OptionalGpID,ReducedIntegration)
+    OptionalNumOfDim,OptionalNumOfGp,OptionalGpID,ReducedIntegration,NumOfDim,NumOfNodePerElem)
     class(ShapeFunction_),intent(inout)::obj
     integer(int32),optional,intent(in)::elem_nod(:,:),elem_id
+    integer(int32),optional,intent(in) :: NumOfDim,NumOfNodePerElem
     real(real64),optional,intent(in)::nod_coord(:,:),nod_coord_n(:,:)
     integer(int32),optional,intent(in)::OptionalNumOfNode,OptionalNumOfOrder,&
     OptionalNumOfDim,OptionalNumOfGp,OptionalGpID
     logical,optional,intent(in) :: ReducedIntegration
+    integer(int32) :: nd, ne
 
+    nd = input(default=0, option=NumOfDim )
+    ne = input(default=0, option=NumOfNodePerElem )
+    if(present(nod_coord) )then
+        nd = size(nod_coord,2)
+    endif
+    if(present(nod_coord) )then
+        ne = size(elem_nod,2)
+    endif
+
+    if(obj%NumOfGp==0 .and. obj%NumOfDim==0)then
+        
+        if(nd==0 .or. ne==0)then
+            print *, "ERROR :: GetAllShapeFunc >> please import NumOfDim and NumOfNodePerElem"
+            stop
+        endif
+        call obj%SetType(NumOfDim=nd,NumOfNodePerElem=ne,ReducedIntegration=ReducedIntegration)
+    endif
     if(present(ReducedIntegration) )then
         obj%ReducedIntegration=ReducedIntegration
     endif
@@ -446,52 +472,52 @@ end subroutine DeallocateShapeFunction
         endif
 
         if(size(obj%GaussPoint,1)==2 .and. size(obj%GaussPoint,2)==4)then
-            obj%GaussPoint(1,1) = -1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(1,2) =  1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(1,3) =  1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(1,4) = -1.0d0/dsqrt(3.0d0)
+            obj%GaussPoint(1,1) = -0.57735026918962576d0
+            obj%GaussPoint(1,2) =  0.57735026918962576d0
+            obj%GaussPoint(1,3) =  0.57735026918962576d0
+            obj%GaussPoint(1,4) = -0.57735026918962576d0
 
-            obj%GaussPoint(2,1) = -1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(2,2) = -1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(2,3) =  1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(2,4) =  1.0d0/dsqrt(3.0d0)
+            obj%GaussPoint(2,1) = -0.57735026918962576d0
+            obj%GaussPoint(2,2) = -0.57735026918962576d0
+            obj%GaussPoint(2,3) =  0.57735026918962576d0
+            obj%GaussPoint(2,4) =  0.57735026918962576d0
             obj%GaussIntegWei(:)=1.0d0
             if(obj%ReducedIntegration .eqv. .true.)then
                 obj%GaussPoint(:,:) =0.0d0
-                obj%GaussIntegWei(:)=1.0d0/4.0d0
+                obj%GaussIntegWei(:)=0.250d0
             endif
         elseif(size(obj%GaussPoint,1)==3 .and. size(obj%GaussPoint,2)==8)then
-            obj%GaussPoint(1,1) = -1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(1,2) =  1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(1,3) =  1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(1,4) = -1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(1,5) = -1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(1,6) =  1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(1,7) =  1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(1,8) = -1.0d0/dsqrt(3.0d0)
+            obj%GaussPoint(1,1) = -0.57735026918962576d0
+            obj%GaussPoint(1,2) =  0.57735026918962576d0
+            obj%GaussPoint(1,3) =  0.57735026918962576d0
+            obj%GaussPoint(1,4) = -0.57735026918962576d0
+            obj%GaussPoint(1,5) = -0.57735026918962576d0
+            obj%GaussPoint(1,6) =  0.57735026918962576d0
+            obj%GaussPoint(1,7) =  0.57735026918962576d0
+            obj%GaussPoint(1,8) = -0.57735026918962576d0
 
-            obj%GaussPoint(2,1) = -1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(2,2) = -1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(2,3) =  1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(2,4) =  1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(2,5) = -1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(2,6) = -1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(2,7) =  1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(2,8) =  1.0d0/dsqrt(3.0d0)
+            obj%GaussPoint(2,1) = -0.57735026918962576d0
+            obj%GaussPoint(2,2) = -0.57735026918962576d0
+            obj%GaussPoint(2,3) =  0.57735026918962576d0
+            obj%GaussPoint(2,4) =  0.57735026918962576d0
+            obj%GaussPoint(2,5) = -0.57735026918962576d0
+            obj%GaussPoint(2,6) = -0.57735026918962576d0
+            obj%GaussPoint(2,7) =  0.57735026918962576d0
+            obj%GaussPoint(2,8) =  0.57735026918962576d0
 
-            obj%GaussPoint(3,1) = -1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(3,2) = -1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(3,3) = -1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(3,4) = -1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(3,5) =  1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(3,6) =  1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(3,7) =  1.0d0/dsqrt(3.0d0)
-            obj%GaussPoint(3,8) =  1.0d0/dsqrt(3.0d0)
+            obj%GaussPoint(3,1) = -0.57735026918962576d0
+            obj%GaussPoint(3,2) = -0.57735026918962576d0
+            obj%GaussPoint(3,3) = -0.57735026918962576d0
+            obj%GaussPoint(3,4) = -0.57735026918962576d0
+            obj%GaussPoint(3,5) =  0.57735026918962576d0
+            obj%GaussPoint(3,6) =  0.57735026918962576d0
+            obj%GaussPoint(3,7) =  0.57735026918962576d0
+            obj%GaussPoint(3,8) =  0.57735026918962576d0
             obj%GaussIntegWei(:)=1.0d0
             
             if(obj%ReducedIntegration .eqv. .true.)then
                 obj%GaussPoint(:,:) =0.0d0
-                obj%GaussIntegWei(:)=1.0d0/8.0d0
+                obj%GaussIntegWei(:)=0.1250d0
             endif
 
         elseif(size(obj%GaussPoint,2)==1 )then
@@ -652,10 +678,10 @@ elseif(obj%NumOfNode==4) then
         !#######           (2)  +-------------------------+  (3)           #######        
         !#########################################################################
         
-		obj%Nmat(1)=1.0d0/4.0d0*(1.0d0-obj%gzi(1))*(1.0d0-obj%gzi(2))
-	    obj%Nmat(2)=1.0d0/4.0d0*(1.0d0+obj%gzi(1))*(1.0d0-obj%gzi(2))
-		obj%Nmat(3)=1.0d0/4.0d0*(1.0d0+obj%gzi(1))*(1.0d0+obj%gzi(2))
-		obj%Nmat(4)=1.0d0/4.0d0*(1.0d0-obj%gzi(1))*(1.0d0+obj%gzi(2))
+		obj%Nmat(1)=0.250d0*(1.0d0-obj%gzi(1))*(1.0d0-obj%gzi(2))
+	    obj%Nmat(2)=0.250d0*(1.0d0+obj%gzi(1))*(1.0d0-obj%gzi(2))
+		obj%Nmat(3)=0.250d0*(1.0d0+obj%gzi(1))*(1.0d0+obj%gzi(2))
+		obj%Nmat(4)=0.250d0*(1.0d0-obj%gzi(1))*(1.0d0+obj%gzi(2))
 	  
         obj%ErrorMsg="Succeed::GetShapeFunction "
         obj%ierr=0
@@ -708,14 +734,14 @@ elseif(obj%NumOfNode==8) then
         !#######          (1) +-------------------------+ (2)              #######        
         !#########################################################################
         
-        obj%Nmat(1)=1.0d0/8.0d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))
-	    obj%Nmat(2)=1.0d0/8.0d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))
-		obj%Nmat(3)=1.0d0/8.0d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))
-		obj%Nmat(4)=1.0d0/8.0d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))
-        obj%Nmat(5)=1.0d0/8.0d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))
-	    obj%Nmat(6)=1.0d0/8.0d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))
-		obj%Nmat(7)=1.0d0/8.0d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))
-		obj%Nmat(8)=1.0d0/8.0d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))
+        obj%Nmat(1)=0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))
+	    obj%Nmat(2)=0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))
+		obj%Nmat(3)=0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))
+		obj%Nmat(4)=0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))
+        obj%Nmat(5)=0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))
+	    obj%Nmat(6)=0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))
+		obj%Nmat(7)=0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))
+		obj%Nmat(8)=0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))
 	  
 
         obj%ErrorMsg="Succeed::GetShapeFunction "
@@ -804,8 +830,279 @@ endif
         class(ShapeFunction_),intent(inout)::obj
 
         
-        include "./GetShapeFuncDer1.f90"
 
+        if(allocated(obj%dNdgzi) ) then
+            deallocate(obj%dNdgzi)
+        endif
+        allocate(obj%dNdgzi(obj%NumOfDim,obj%NumOfNode) )
+        
+        
+        if(obj%NumOfNode==1) then
+            !#########################################################################
+            !#######                                                           #######
+            !#######                             +     (1)                     #######
+            !#######                                                           #######
+            !#######                                                           #######
+            !#########################################################################
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction NumOfNode==1 "
+            obj%ierr=1
+        
+        elseif(obj%NumOfNode==2) then
+            
+            if(obj%NumOfDim==1) then
+                
+                !#########################################################################
+                !#######                                                           #######
+                !#######                +>----------------------->+                #######
+                !#######            (1)                               (2)          #######
+                !#######                                                           #######
+                !#########################################################################
+                
+                obj%dNdgzi(1,1)= -0.50d0
+                obj%dNdgzi(1,2)=  0.50d0
+                
+                obj%ErrorMsg="Succeed::GetShapeFunction "
+                obj%ierr=0
+            else
+                print *, "ERROR::GetShapeFunction"
+                obj%ErrorMsg="ERROR::GetShapeFunction NumOfNode==2 NumOfOrder/=1 "
+                obj%ierr=1
+            endif
+        elseif(obj%NumOfNode==3) then
+            if(obj%NumOfDim==1) then
+                !#########################################################################
+                !#######                                                           #######
+                !#######                +-----------+-------------+                #######
+                !#######            (1)             (2)            (3)             #######
+                !#######                                                           #######
+                !#########################################################################
+                !allocate(obj%dNdgzi(obj%NumOfNode,obj%NumOfDim) )
+                !
+                !obj%dNdgzi(1,1)=0.50d0*( 1.0d0-gzi(1))
+                !obj%dNdgzi(1,2)=0.50d0*(-1.0d0+gzi(1))
+                !obj%dNdgzi(1,3)=0.50d0*( 1.0d0-gzi(1))
+                !
+                !obj%ErrorMsg="Succeed::GetShapeFunction "
+                !obj%ierr=0
+                print *, "ERROR::GetShapeFunction"
+                obj%ErrorMsg="ERROR::GetShapeFunction "
+                obj%ierr=1
+            elseif(obj%NumOfDim==2) then
+                !#########################################################################
+                !#######                                                           #######
+                !#######          (1)   +-------------------------+                #######
+                !#######                 \                       /  (3)            #######
+                !#######                   \                   /                   #######
+                !#######                     \               /                     #######
+                !#######                       \           /                       #######
+                !#######                         \       /                         #######
+                !#######                           \   /                           #######        
+                !#######                       (2)   +                             #######        
+                !#########################################################################
+                
+                
+                print *, "ERROR::GetShapeFunction"
+                obj%ErrorMsg="ERROR::GetShapeFunction "
+                obj%ierr=1
+            else
+        
+                print *, "ERROR::GetShapeFunction"
+                obj%ErrorMsg="ERROR::GetShapeFunction "
+                obj%ierr=1
+            endif
+        elseif(obj%NumOfNode==4) then
+            if(obj%NumOfDim==1) then
+                !#########################################################################
+                !#######                                                           #######
+                !#######                +-------+---------+-------+                #######
+                !#######          (1)          (2)        (3)       (4)            #######
+                !#######                                                           #######
+                !#########################################################################
+                !obj%ErrorMsg="Succeed::GetShapeFunction "
+                !obj%ierr=0
+                print *, "ERROR::GetShapeFunction"
+                obj%ErrorMsg="ERROR::GetShapeFunction "
+                obj%ierr=1
+            elseif(obj%NumOfDim==2) then
+                !#########################################################################
+                !#######                                                           #######
+                !#######           (4)  +-------------------------+  (3)           #######
+                !#######                |                         |                #######
+                !#######                |                         |                #######
+                !#######                |                         |                #######
+                !#######                |                         |                #######
+                !#######                |                         |                #######
+                !#######                |                         |                #######        
+                !#######           (1)  +-------------------------+  (2)           #######        
+                !#########################################################################
+                
+                obj%dNdgzi(1,1) = -0.250d0*(1.0d0-obj%gzi(2))
+                obj%dNdgzi(1,2) =  0.250d0*(1.0d0-obj%gzi(2))
+                obj%dNdgzi(1,3) =  0.250d0*(1.0d0+obj%gzi(2))
+                obj%dNdgzi(1,4) = -0.250d0*(1.0d0+obj%gzi(2))
+              
+                obj%dNdgzi(2,1) = -0.250d0*(1.0d0-obj%gzi(1))
+                obj%dNdgzi(2,2) = -0.250d0*(1.0d0+obj%gzi(1))
+                obj%dNdgzi(2,3) =  0.250d0*(1.0d0+obj%gzi(1))
+                obj%dNdgzi(2,4) =  0.250d0*(1.0d0-obj%gzi(1))
+              
+                obj%ErrorMsg="Succeed::GetShapeFunction "
+                obj%ierr=0
+            elseif(obj%NumOfDim==3) then
+                !#########################################################################
+                !#######                    (4)   +                                #######
+                !#######                        /   \                              #######
+                !#######                      /       \                            #######
+                !#######                    /           \                          #######
+                !#######                  /           ___+    (3)                  #######
+                !#######                /  ___----'''     \                        #######
+                !#######          (1)  +  -                 \                      #######
+                !#######                '''-->---____       \                      #######        
+                !#######                              -->--- +   (2)               #######        
+                !#########################################################################
+                
+                print *, "ERROR::GetShapeFunction"
+                obj%ErrorMsg="ERROR::GetShapeFunction "
+                obj%ierr=1
+            else
+                print *, "ERROR::GetShapeFunction"
+                obj%ErrorMsg="ERROR::GetShapeFunction "
+                obj%ierr=1
+            endif
+            
+            
+        elseif(obj%NumOfNode==5) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==6) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==7) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==8) then
+            if(obj%NumOfDim==3) then
+                !#########################################################################
+                !#######           (8)   +-------------------------+ (7)           #######
+                !#######                /|                        /|               #######
+                !#######               / |                  (6)  / |               #######
+                !#######          (5) +--|----------------------+  |               #######
+                !#######              |  |                      |  |               #######
+                !#######              |  +----------------------|--+ (3)           #######
+                !#######              | / (4)                   | /                #######
+                !#######              |/                        |/                 #######        
+                !#######          (1) +-------------------------+ (2)              #######        
+                !#########################################################################
+                
+                obj%dNdgzi(1,1)= - 0.1250d0*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))
+                obj%dNdgzi(1,2)= + 0.1250d0*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))
+                obj%dNdgzi(1,3)= + 0.1250d0*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))
+                obj%dNdgzi(1,4)= - 0.1250d0*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))
+                obj%dNdgzi(1,5)= - 0.1250d0*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))
+                obj%dNdgzi(1,6)= + 0.1250d0*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))
+                obj%dNdgzi(1,7)= + 0.1250d0*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))
+                obj%dNdgzi(1,8)= - 0.1250d0*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))
+              
+                obj%dNdgzi(2,1)= - 0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(3))
+                obj%dNdgzi(2,2)= - 0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(3))
+                obj%dNdgzi(2,3)= + 0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(3))
+                obj%dNdgzi(2,4)= + 0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(3))
+                obj%dNdgzi(2,5)= - 0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(3))
+                obj%dNdgzi(2,6)= - 0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(3))
+                obj%dNdgzi(2,7)= + 0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(3))
+                obj%dNdgzi(2,8)= + 0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(3))
+              
+                obj%dNdgzi(3,1)= - 0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))
+                obj%dNdgzi(3,2)= - 0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))
+                obj%dNdgzi(3,3)= - 0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))
+                obj%dNdgzi(3,4)= - 0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))
+                obj%dNdgzi(3,5)= + 0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))
+                obj%dNdgzi(3,6)= + 0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))
+                obj%dNdgzi(3,7)= + 0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))
+                obj%dNdgzi(3,8)= + 0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))
+                
+        
+                obj%ErrorMsg="Succeed::GetShapeFunction "
+                obj%ierr=0
+            else
+                print *, "ERROR::GetShapeFunction"
+                obj%ErrorMsg="ERROR::GetShapeFunction "
+                obj%ierr=1
+            endif
+            
+        elseif(obj%NumOfNode==9) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==10) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==11) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==12) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==13) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==14) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==15) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==16) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==17) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==18) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==19) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==20) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==21) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==22) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==23) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        elseif(obj%NumOfNode==24) then
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        else
+            print *, "ERROR::GetShapeFunction"
+            obj%ErrorMsg="ERROR::GetShapeFunction "
+            obj%ierr=1
+        endif
     end subroutine GetShapeFuncDer1
 !--------------------------------------------------------
 
