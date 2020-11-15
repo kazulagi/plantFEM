@@ -2,7 +2,7 @@ module test
 
 contains
     subroutine hello()
-        print *, "Hello world!"
+        print *, "hello"
     end subroutine
 
 end module test
