@@ -1,8 +1,8 @@
 *.pos
 *.msh
 /home
-home/*
-./Desktop
+home/
+./Desktop/
 addon/github/
 
 
