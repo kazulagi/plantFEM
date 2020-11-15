@@ -90,6 +90,16 @@ do
     fi
 
 
+    if [ "$1" = "clone" ]; then
+        echo ">>> Please paste the github directory name."
+        echo -n ">>> "
+        read command 
+        cd ./addon/github/
+        git clone "$command" 
+        cd ../../
+        return 0
+    fi
+
     if [ "$command" = "update" ]; then
         sh bin/update
         continue
