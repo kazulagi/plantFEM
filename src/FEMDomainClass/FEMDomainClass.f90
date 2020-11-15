@@ -7227,7 +7227,7 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 		
 		select case(direction)
 			case ("=>", "->")
-				! obj => domain
+				! project obj-side field to => domain
 
 				allocate(ElemID(size(domain%mesh%nodcoord,1)))
 				ElemID(:) = -1
@@ -7236,6 +7236,7 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 				LocalCoord(:,:) = 0.0d0
 				shapefunc%ElemType=obj%Mesh%GetElemType()
 				call SetShapeFuncType(shapefunc)
+
 				do i=1, size(domain%mesh%nodcoord,1) ! for each node
 					do j=1, size(obj%mesh%elemnod,1) ! for each element
 						! get Jacobian matrix (dx/dgzi)
@@ -7299,6 +7300,8 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 					endif
 				enddo
 
+				! projection先の節点番号iに対応したprojection元の要素ID:ElemID(i)
+				! projection先の節点番号iに対応したprojection元の要素局所座標:LocalCoord(i,1:3)@3D
 				
 				! projection
 				field_id = domain%getLayerID(name=PhysicalField)
@@ -7306,33 +7309,49 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 					! scalar
 					! for each element
 					do i=1,size(obj%mesh%nodcoord,1)
+						! 節点ごとの値 node-by-node
 						if(elemid(i)==-1 )then
+							! 対応する要素なし
 							cycle
 						endif
+
+						! local coordinate
 						gzi(:) = localCoord(i,:)
-	
-						scalar = obj%PhysicalField(field_id)%scalar(i)
-						
 						shapefunc%gzi(:) = gzi(:)
 
 						call GetShapeFunction(shapefunc)
+
+
+						! 要素を構成する節点値sに乗っている値
 						if(.not.allocated(nodvalue) )then
 							allocate(nodvalue(size(shapefunc%Nmat,1)))
-							nodvalue(:) = scalar*shapefunc%Nmat(:)
-							nodvalue(:) = scalar!*shapefunc%Nmat(:)
-							! ここ、要注意、アルゴリズムに大幅な近似あり。
-							! 単に一方の領域の節点値を他方の要素の節点値全体に適用している。
-							! 局所座標gziは使っていない。
-							! obj => domainのプロジェクションの場合、
-							! objの要素ごとに、domainの節点が入っているかを調査し、
-							! objの要素に対するdomain節点の局所座標を確定し、
-							! その後、objの接点値に形状関数をかけてdomainの節点値とすべき。
-							! 要精査
+							nodvalue(:) = 0.0d0
 						endif
-						do k=1,size(domain%mesh%elemnod,2)
-							n = domain%mesh%elemnod(elemid(i) ,k)
-							domain%PhysicalField(field_id)%scalar(n)=nodvalue(k)
+						do k=1,size(obj%mesh%elemnod,2)
+							n = obj%mesh%elemnod(elemid(i) ,k)
+							nodvalue(k) = obj%PhysicalField(field_id)%scalar(n)
 						enddo
+						! 節点値の計算
+						scalar = dot_product(shapefunc%Nmat, nodvalue)
+						domain%PhysicalField(field_id)%scalar(i)=scalar
+						!if(.not.allocated(nodvalue) )then
+						!	allocate(nodvalue(size(shapefunc%Nmat,1)))
+						!	nodvalue(:) = scalar*shapefunc%Nmat(:)
+						!	nodvalue(:) = scalar!*shapefunc%Nmat(:)
+						!	! ここ、要注意、アルゴリズムに大幅な近似あり。
+						!	! 単に一方の領域の節点値を他方の要素の節点値全体に適用している。
+						!	! 局所座標gziは使っていない。
+						!
+						!	! obj => domainのプロジェクションの場合、
+						!	! objの要素ごとに、domainの節点が入っているかを調査し、
+						!	! objの要素に対するdomain節点の局所座標を確定し、
+						!	! その後、objの接点値に形状関数をかけてdomainの節点値とすべき。
+						!	! 要精査
+						!endif
+						!do k=1,size(domain%mesh%elemnod,2)
+						!	n = domain%mesh%elemnod(elemid(i) ,k)
+						!	domain%PhysicalField(field_id)%scalar(n)=nodvalue(k)
+						!enddo
 
 					enddo
 				else
