@@ -453,3 +453,15 @@ Ex.2 :: 3-D thermal diffusion simulation of a grass leaf.
 - Fluid solvers (by using src/FEMDomainClass)
 - Functional-structural model for cereals.(like src/LsystemClass)
 
+## Acknowledgements
+
+This project is financially supported by the following research grants.
+
+- Grant-in-Aid for Young Scientists(Start-up), (ID:20K22599), JSPS, JAPAN
+- Grant-in-Aid for JSPS Fellows, (ID:17J02383), JSPS, JAPAN
+
+## Relevant publications
+
+- Haruka Tomobe, Kazunori Fujisawa, Akira Murakami, Experiments and FE-analysis of 2-D root-soil contact problems based on node-to-segment approach, Soils and Foundations, Volume 59, Issue 6, 2019, Pages 1860-1874.
+
+Others are under revision and/or under preparation.
