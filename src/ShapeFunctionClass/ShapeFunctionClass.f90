@@ -546,9 +546,14 @@ end subroutine DeallocateShapeFunction
 
         class(ShapeFunction_),intent(inout)::obj
         if(allocated(obj%gzi) ) then
+            if(size(obj%gzi,1)/=obj%NumOfDim )then
             deallocate(obj%gzi)
+                allocate(obj%gzi(obj%NumOfDim) )
+            endif
+        else
+            allocate(obj%gzi(obj%NumOfDim) )
         endif
-        allocate(obj%gzi(obj%NumOfDim) )
+        
         
         if(obj%NumOfDim /= size(obj%GaussPoint,1) )then
             print *, "ERROR::SetGaussPoint",obj%NumOfDim, size(obj%GaussPoint,1)
@@ -573,9 +578,13 @@ end subroutine DeallocateShapeFunction
 
         
 if(allocated(obj%Nmat) ) then
-    deallocate(obj%Nmat)
+    if(size(obj%Nmat,1)/=obj%NumOfNode)then
+        deallocate(obj%Nmat)
+        allocate(obj%Nmat(obj%NumOfNode) )
+    endif
+else
+    allocate(obj%Nmat(obj%NumOfNode) )
 endif
-allocate(obj%Nmat(obj%NumOfNode) )
 
 
 if(obj%NumOfNode==1) then
@@ -832,9 +841,14 @@ endif
         
 
         if(allocated(obj%dNdgzi) ) then
-            deallocate(obj%dNdgzi)
+            if(size(obj%dNdgzi,1)/=obj%NumOfDim .or. size(obj%dNdgzi,2)/=obj%NumOfNode)then
+                deallocate(obj%dNdgzi)
+                allocate(obj%dNdgzi(obj%NumOfDim,obj%NumOfNode) )
+            endif
+        else
+            allocate(obj%dNdgzi(obj%NumOfDim,obj%NumOfNode) )
         endif
-        allocate(obj%dNdgzi(obj%NumOfDim,obj%NumOfNode) )
+        
         
         
         if(obj%NumOfNode==1) then
