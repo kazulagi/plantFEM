@@ -7154,15 +7154,24 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 	type(ShapeFunction_) :: shapefunc
 	character(*),intent(in) :: PhysicalField
 	logical,optional,intent(in) :: debug
-	integer(int32) :: i,j,n,k,field_id
+	logical :: inside
+	integer(int32) :: i,j,n,k,field_id,dim_num
 	real(real64),allocatable :: Jmat(:,:),center(:),x(:),gzi(:),dx(:),dgzi(:),j_inv(:,:)
-	real(real64),allocatable :: LocalCoord(:,:),nodvalue(:),original_scalar(:)
+	real(real64),allocatable :: LocalCoord(:,:),nodvalue(:),original_scalar(:),xvec(:),x_max(:),x_min(:)
 	integer(int32),allocatable :: ElemID(:)
 	real(real64) :: scalar
 
 
 	! pre-check list
 	! PhysicalField exists for both domains?
+	dim_num=size(obj%mesh%nodcoord,2)
+	if(dim_num/=3)then
+		print *, "Caution :: femdomain%projection is ready for 3-D, not for other dimensions"
+		return
+	endif
+	allocate(xvec(dim_num) )
+	allocate(x_max(dim_num) )
+	allocate(x_min(dim_num) )
 
 	!(1) completed
 	if(present(debug) )then
@@ -7239,6 +7248,7 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 
 				do i=1, size(domain%mesh%nodcoord,1) ! for each node
 					do j=1, size(obj%mesh%elemnod,1) ! for each element
+						
 						! get Jacobian matrix (dx/dgzi)
 						do k=1,shapefunc%NumOfGP
 							call GetAllShapeFunc(shapefunc,elem_id=j,nod_coord=obj%Mesh%NodCoord,&
@@ -7249,6 +7259,16 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 								Jmat=Jmat+shapefunc%Jmat
 							endif
 						enddo
+						! In-Or-out
+						xvec(:)=domain%mesh%nodcoord(i,:)
+						do k=1,dim_num
+							x_max(k)=maxval(shapefunc%elemcoord(:,k) )
+							x_min(k)=minval(shapefunc%elemcoord(:,k) )
+						enddo
+						inside = InOrOutReal(x=xvec(:),xmax=x_max(:),xmin=x_min(:),DimNum=size(xvec) )
+						if(inside .eqv. .false.)then
+							cycle
+						endif
 						! 
 						if(.not. allocated(center) )then
 							allocate(center(size(obj%mesh%nodcoord,2) ) )
@@ -7300,6 +7320,7 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 					endif
 				enddo
 
+				
 				! projection先の節点番号iに対応したprojection元の要素ID:ElemID(i)
 				! projection先の節点番号iに対応したprojection元の要素局所座標:LocalCoord(i,1:3)@3D
 				
