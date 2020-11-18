@@ -1,5 +1,5 @@
 module FEMDomainClass
-    use, intrinsic :: iso_fortran_env
+	use, intrinsic :: iso_fortran_env
 	use MathClass
     use ArrayClass
     use ShapeFunctionClass
@@ -7147,19 +7147,20 @@ function getLayerDataStyleFEMDomain(obj,name) result(id)
 
 end function
 ! ######################################################################
-subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
+subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug,mpid)
 	class(FEMDomain_),intent(inout) :: obj
 	character(2),intent(in) :: direction ! "=>, <=, -> or <-"
 	type(FEMDomain_),intent(inout) :: domain
 	type(ShapeFunction_) :: shapefunc
+	type(MPI_),optional,intent(inout) :: mpid
 	character(*),intent(in) :: PhysicalField
 	logical,optional,intent(in) :: debug
 	logical :: inside
-	integer(int32) :: i,j,n,k,field_id,dim_num
+	integer(int32) :: i,j,n,k,field_id,dim_num,start_id,end_id,from_rank
 	real(real64),allocatable :: Jmat(:,:),center(:),x(:),gzi(:),dx(:),dgzi(:),j_inv(:,:)
 	real(real64),allocatable :: LocalCoord(:,:),nodvalue(:),original_scalar(:),xvec(:),x_max(:),x_min(:)
 	integer(int32),allocatable :: ElemID(:)
-	real(real64) :: scalar
+	real(real64) :: scalar,val
 
 
 	! pre-check list
@@ -7246,7 +7247,19 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 				shapefunc%ElemType=obj%Mesh%GetElemType()
 				call SetShapeFuncType(shapefunc)
 
-				do i=1, size(domain%mesh%nodcoord,1) ! for each node
+				!!call GetAllShapeFunc(shapefunc,elem_id=1,nod_coord=obj%Mesh%NodCoord,&
+				!elem_nod=obj%Mesh%ElemNod,OptionalGpID=1)
+				
+				! for mpi acceralation
+				start_id=1
+				end_id=size(domain%mesh%nodcoord,1)
+				if(present(mpid) )then
+					call mpid%initItr(end_id)
+					start_id = mpid%start_id
+					end_id = mpid%end_id
+				endif
+
+				do i=start_id, end_id ! for each node
 					do j=1, size(obj%mesh%elemnod,1) ! for each element
 						
 						! get Jacobian matrix (dx/dgzi)
@@ -7320,6 +7333,25 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 					endif
 				enddo
 
+				! for mpi acceralation
+				! merge data
+				if(present(mpid) )then
+					call mpid%Barrier()
+					do i=1,size(ElemID)
+						n =ElemID(i)
+						from_rank = mpid%start_end_id(i)-1
+						call mpid%Bcast(From=from_rank,val=n)
+						ElemID(i)=n
+
+
+						do j=1,size(LocalCoord,2)
+							val = LocalCoord(i,j)
+							call mpid%Bcast(From=from_rank,val=val)
+							LocalCoord(i,j)=val
+						enddo
+					enddo
+				endif
+
 				
 				! projection先の節点番号iに対応したprojection元の要素ID:ElemID(i)
 				! projection先の節点番号iに対応したprojection元の要素局所座標:LocalCoord(i,1:3)@3D
@@ -7337,8 +7369,8 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 						endif
 
 						! local coordinate
-						gzi(:) = localCoord(i,:)
-						shapefunc%gzi(:) = gzi(:)
+						
+						shapefunc%gzi(:) = localCoord(i,:)
 
 						call GetShapeFunction(shapefunc)
 
@@ -7379,7 +7411,6 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 					print *, "ERROR now coding >> projectionFEMDomain"
 					stop 
 				endif
-				print *, "[caution] need debugs"
 				
 			case ("<=", "<-")
 		end select

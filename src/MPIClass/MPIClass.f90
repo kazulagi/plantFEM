@@ -24,6 +24,8 @@ module MPIClass
         integer(int32) :: Comm3
         integer(int32) :: Comm4
         integer(int32) :: Comm5
+        integer(int32) :: start_id, end_id
+        integer(int32),allocatable::start_end_id(:)
         integer(int32),allocatable::Comm(:),key(:)
         integer(int32),allocatable::local_ID(:),Global_ID(:)
         integer(int32),allocatable::Stack(:,:),localstack(:)
@@ -36,6 +38,7 @@ module MPIClass
         type(Graph_) :: graph
     contains
         procedure :: Start => StartMPI
+        procedure :: initItr => initItrMPI
         procedure :: Barrier => BarrierMPI
         procedure, Pass ::  readMPIInt
         procedure, Pass ::  readMPIReal
@@ -124,6 +127,44 @@ subroutine StartMPI(obj,NumOfComm)
 
 end subroutine
 !################################################################
+
+
+!################################################################
+subroutine initItrMPI(obj,total_iteration)
+    class(MPI_),intent(inout) :: obj
+    integer(int32),intent(in) :: total_iteration
+    integer(int32) :: petot, modval,divval,start_id, end_id,i
+
+    ! from  1 to total_iteration
+    modval = mod(total_iteration,obj%petot)
+    divval = total_iteration/obj%petot
+    if(obj%myrank+1 <= modval)then
+        obj%start_id = obj%myrank*(divval+1)+1
+        obj%end_id   = obj%myrank*(divval+1)+(divval+1)
+    else
+        obj%start_id = modval*(divval+1) + (obj%myrank+1-modval-1)*(divval)+1
+        obj%end_id   = modval*(divval+1) + (obj%myrank+1-modval)*(divval)
+    endif
+    
+    if(allocated(obj%start_end_id) )then
+        deallocate(obj%start_end_id)
+    endif
+
+    allocate(obj%start_end_id(total_iteration))
+    do i=1,obj%petot
+        if(i <= modval)then
+            start_id = (i-1)*(divval+1)+1
+            end_id   = (i-1)*(divval+1)+(divval+1)
+            obj%start_end_id(start_id:end_id)=i
+        else
+            start_id = modval*(divval+1) + (i-modval-1)*(divval)+1
+            end_id   = modval*(divval+1) + (i-modval)*(divval)
+            obj%start_end_id(start_id:end_id)=i
+        endif
+    enddo
+end subroutine
+!################################################################
+
 
 !################################################################
 subroutine createFileNameMPI(obj,Path,Name)
