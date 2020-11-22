@@ -4101,7 +4101,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     class(Mesh_),intent(inout) :: obj
     type(Mesh_) :: mesh1,mesh2
     type(IO_) :: f
-    character(*),intent(in) :: meshtype
+    character(*),optional,intent(in) :: meshtype
     logical,optional,intent(in) :: smooth
     integer(int32),optional,intent(in) :: x_num,y_num ! number of division
     integer(int32),optional,intent(in) :: division ! for 3D rectangular
@@ -4112,12 +4112,14 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     integer(int32) :: i,j,n,m,xn,yn,smoothedge(8),ini,k
     real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt,&
         unitx,unity,xm, ym,tp,rx,ry,zc,zl,zm,ysize,ox,oy,dist,rr
+    logical :: validmeshtype=.false.
 
     real(real64)::ymin,ymax,ratio,width,pi,xx,yy,dx,dy
     pi = 3.1415926535d0
     ! this subroutine creates mesh
 
     if(meshtype=="Leaf3D")then
+        validmeshtype=.true.
         call obj%create(meshtype="rectangular3D",x_num=x_num,&
         y_num=y_num,x_len=x_len,y_len=y_len,Le=Le,Lh=Lh,Dr=Dr,thickness=thickness,&
         division=division,smooth=smooth,top=top,margin=margin,inclineRate=inclineRate)
@@ -4154,6 +4156,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     endif
 
     if(meshtype=="HalfSphere3D")then
+        validmeshtype=.true.
         call obj%create(meshtype="Sphere3D",x_num=x_num,y_num=y_num,x_len=x_len,&
         y_len=y_len,Le=Le,Lh=Lh,Dr=Dr,thickness=thickness,&
         division=division,smooth=smooth,top=top,margin=margin,inclineRate=inclineRate)
@@ -4166,6 +4169,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
 
     if(meshtype=="Bar1D" .or. meshtype=="bar1D")then
         ! need x_len, x_num
+        validmeshtype=.true.
         if(allocated(obj%NodCoord)) deallocate(obj%NodCoord)
         if(allocated(obj%ElemNod)) deallocate(obj%ElemNod)
         if(allocated(obj%ElemMat)) deallocate(obj%ElemMat)
@@ -4189,6 +4193,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     endif
 
     if(meshtype=="rectangular3D" .or. meshtype=="Cube")then
+        validmeshtype=.true.
         call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
         call obj%Convert2Dto3D(Thickness=Thickness,division=division)
         if(.not.allocated(obj%ElemMat))then
@@ -4204,6 +4209,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
 
 
     if(meshtype=="Dam3D" )then
+        validmeshtype=.true.
         call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
         
         xm=0.50d0*maxval(obj%NodCoord(:,1) )+0.50d0*minval(obj%NodCoord(:,1) )
@@ -4250,6 +4256,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     endif
 
     if(meshtype=="Trapezoid2D" .or. meshtype=="Ridge2D")then
+        validmeshtype=.true.
         call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
         
         xm=0.50d0*maxval(obj%NodCoord(:,1) )+0.50d0*minval(obj%NodCoord(:,1) )
@@ -4275,6 +4282,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     endif
 
     if(meshtype=="Trapezoid3D" .or. meshtype=="Ridge3D")then
+        validmeshtype=.true.
         call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
         
         xm=0.50d0*maxval(obj%NodCoord(:,1) )+0.50d0*minval(obj%NodCoord(:,1) )
@@ -4303,6 +4311,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
 
     
     if(meshtype=="Sphere3D" .or. meshtype=="Sphere")then
+        validmeshtype=.true.
         call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=1.0d0,y_len=1.0d0)       
         call obj%Convert2Dto3D(Thickness=1.0d0,division=division)
         if(.not.allocated(obj%ElemMat))then
@@ -4318,7 +4327,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
 
 
     if(meshtype=="HQSphere3D" .or. meshtype=="HQSphere")then
-        
+        validmeshtype=.true.
         call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=1.0d0,y_len=1.0d0)       
         call obj%Convert2Dto3D(Thickness=1.0d0,division=division)
 
@@ -4335,6 +4344,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     endif
 
     if(meshtype=="Cylinder3D" .or. meshtype=="Cylinder")then
+        validmeshtype=.true.
         call obj%create(meshtype="Circle2D",x_num=x_num,y_num=y_num,x_len=1.0d0,y_len=1.0d0)       
         call obj%Convert2Dto3D(Thickness=thickness,division=division)
         if(.not.allocated(obj%ElemMat))then
@@ -4349,6 +4359,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     endif
 
     if(meshtype=="Circle2D" .or. meshtype=="Circle")then
+        validmeshtype=.true.
         ! create mesh by scheme-circle method
         ! https://support.jpmandt.com/mesh/create-mesh/surface-create-mesh/scheme-circle/
         ! fraction:interval = 1:1
@@ -4387,7 +4398,10 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                 stop 
             endif
         enddo
-
+        if(present(meshtype) .and. validmeshtype .eqv. .false. )then
+            print *, "createMesh%error :: no such mesh as ", trim(meshtype)
+            return
+        endif
 
         !obj%nodcoord(:,1)=obj%nodcoord(:,1)*0.650d0
         !obj%nodcoord(:,2)=obj%nodcoord(:,2)*0.650d0

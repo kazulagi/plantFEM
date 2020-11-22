@@ -287,6 +287,7 @@ homepath="$PWD"
         continue
     fi
     if [ "$1" = "$run" ]; then
+        python3 bin/check_end.py
         $mpif90 inc/*o ./server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path inc/        
         #echo "Current num of cpu-core is :: $numcore "
 

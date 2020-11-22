@@ -15,10 +15,20 @@ module SoybeanClass
         character*2  :: growth_stage
         integer(int32) :: Num_Of_Node
         integer(int32) :: Num_Of_Root
+
         integer(int32) :: MaxLeafNum= 50
         integer(int32) :: MaxRootNum=200
         integer(int32) :: MaxStemNum= 50
-        character(2) :: Stage ! VE, CV, V1,V2, ..., R1, R2, ..., R8
+        
+        integer(int32)  :: ms_node,br_node(50),br_from(50)
+
+        real(real64)    :: ms_length,br_length(50)
+        real(real64)    :: ms_width,br_width(50)
+        real(real64)    :: ms_angle_ave,br_angle_ave(50)
+        real(real64)    :: ms_angle_sig,br_angle_sig(50)
+        
+        character(3) :: Stage ! VE, CV, V1,V2, ..., R1, R2, ..., R8
+        character(200) :: name
         integer(int32)::stage_id=0
         real(real64) :: dt
         type(Seed_) :: Seed
@@ -66,6 +76,7 @@ module SoybeanClass
         
         procedure,public :: show => showSoybean
         procedure,public :: gmsh => gmshSoybean
+        procedure,public :: msh => mshSoybean
 
         procedure,public :: WaterAbsorption => WaterAbsorptionSoybean
         procedure,public :: move => moveSoybean
@@ -103,9 +114,18 @@ subroutine initsoybean(obj,config,&
     character(200) :: fn,conf,line
     integer(int32),optional,intent(in) :: max_PlantNode_num,max_leaf_num,max_stem_num,max_root_num
     real(real64) :: MaxThickness,Maxwidth,loc(3),vec(3),rot(3),zaxis(3),meshloc(3),meshvec(3)
-    integer(int32) :: i,j,k,blcount,id,rmc,n,node_id,node_id2,elemid
+    integer(int32) :: i,j,k,blcount,id,rmc,n,node_id,node_id2,elemid,branch_id
     type(IO_) :: soyconf
+    type(Random_) :: random
 
+    obj%br_node(:)=0
+    obj%br_from(:)=0
+    obj%br_length(:)=0.0d0
+
+    obj%br_angle_ave(:)=0.0d0
+    obj%br_angle_sig(:)=10.0d0
+    obj%ms_angle_ave=0.0d0
+    obj%ms_angle_sig=10.0d0
     
     ! 子葉節、初生葉節、根の第1節まで種子の状態で存在
 
@@ -148,6 +168,122 @@ subroutine initsoybean(obj,config,&
         
         if(blcount==1)then
             
+            if(index(line,"Name")/=0)then
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%name
+            endif
+
+            if(index(line,"Mainstem")/=0)then
+                do
+                    read(soyconf%fh,'(a)') line
+                    print *, trim(line)
+                    if( index(line,"}")/=0 )then
+                        exit
+                    endif
+                    
+                    if(index(line,"Length")/=0 )then
+                        rmc=index(line,",")
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%ms_length
+                    endif
+
+                    if(index(line,"Width")/=0 )then
+                        rmc=index(line,",")
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%ms_width
+                    endif
+                    
+                    if(index(line,"Node")/=0 )then
+                        rmc=index(line,",")
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%ms_node
+                    endif
+                
+                enddo
+            endif
+
+            if(index(line,"Branch#")/=0)then
+                rmc=index(line,"{")
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                rmc=index(line,'"')
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                rmc=index(line,'"')
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                rmc=index(line,':')
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,"#")
+                print *, trim(line)
+                read(line(id+1:),*) branch_id
+
+                do
+                    read(soyconf%fh,'(a)') line
+                    print *, trim(line)
+                    if( index(line,"}")/=0 )then
+                        exit
+                    endif
+                    
+                    if(index(line,"Length")/=0 )then
+                        rmc=index(line,",")
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%br_length(branch_id)
+                    endif
+
+                    if(index(line,"Width")/=0 )then
+                        rmc=index(line,",")
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%br_Width(branch_id)
+                    endif
+                    
+                    if(index(line,"Node")/=0 )then
+                        rmc=index(line,",")
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%br_node(branch_id)
+                    endif
+
+                    if(index(line,"From")/=0 )then
+                        rmc=index(line,",")
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%br_from(branch_id)
+                    endif
+                
+                enddo
+            endif
+
+
             if(index(line,"type")/=0 .and. index(line,"soybean")==0 )then
                 print *, "ERROR: This config-file is not for soybean"
                 return
@@ -283,200 +419,260 @@ subroutine initsoybean(obj,config,&
         obj%leafconfig=" "
     endif
 
+    if(obj%ms_node/=0)then
+        ! loaded from Mainstem-Branches relation file format
+        ! ex.
+!       {
+!           "Name":"soybean",
+!           "Mainstem":{
+!               "Length":1.2,
+!               "Node":13
+!           },
+!           "Branch#1":{
+!               "From":1,
+!               "Length":0.6,
+!               "Node":7
+!           },
+!           "Branch#2":{
+!               "From":3,
+!               "Length":0.2,
+!               "Node":2
+!           },
+!           "Branch#3":{
+!               "From":4,
+!               "Length":0.2,
+!               "Node":2
+!           }
+!       }
+        ! count number of nodes
+        !num_node = countif(obj%ms_node,notEquai=.true.,0)
+        !num_node = num_node + countif(obj%br_node,notEquai=.true.,0)
+        
+        allocate(obj%leaf(obj%MaxLeafNum) )
+        allocate(obj%root(obj%MaxrootNum) )
+        allocate(obj%stem(obj%MaxstemNum) )
+        allocate(obj%stem2stem(obj%MaxstemNum,obj%MaxstemNum) )
+        allocate(obj%leaf2stem(obj%MaxstemNum,obj%MaxLeafNum) )
+        allocate(obj%root2stem(obj%MaxrootNum,obj%MaxstemNum) )
+        allocate(obj%root2root(obj%MaxrootNum,obj%MaxrootNum) )
+        obj%stem2stem(:,:) = 0
+        obj%leaf2stem(:,:) = 0
+        obj%root2stem(:,:) = 0
+        obj%root2root(:,:) = 0
 
+        ! set mainstem
+        do i=1,obj%ms_node
 
-    ! create leaf, root, stem
-    allocate(obj%leaf(obj%MaxLeafNum) )
-    allocate(obj%root(obj%MaxrootNum) )
-    allocate(obj%stem(obj%MaxstemNum) )
-    allocate(obj%stem2stem(obj%MaxstemNum,obj%MaxstemNum) )
-    allocate(obj%leaf2stem(obj%MaxstemNum,obj%MaxLeafNum) )
-    allocate(obj%root2stem(obj%MaxrootNum,obj%MaxstemNum) )
-    allocate(obj%root2root(obj%MaxrootNum,obj%MaxrootNum) )
-    obj%stem2stem(:,:) = 0
-    obj%leaf2stem(:,:) = 0
-    obj%root2stem(:,:) = 0
-    obj%root2root(:,:) = 0
-    !allocate(obj%struct%NodCoord(4,3) )
-    !allocate(obj%struct%ElemNod(3,2) )
-    !allocate(obj%struct%ElemMat(3) )
-    ! 子葉結節部=(0,0,0)
-    !obj%struct%NodCoord(1,1:3) = 0.0d0
-    call obj%leaf(1)%init(obj%leafconfig)
-    call obj%leaf(1)%rotate(x=radian(90.0d0),y=radian(90.0d0),z=radian(10.0d0) )
-    call obj%leaf(2)%init(obj%leafconfig)
-    call obj%leaf(2)%rotate(x=radian(90.0d0),y=radian(90.0d0),z=radian(-10.0d0) )
+            call obj%stem(i)%init()
+            call obj%stem(i)%resize(&
+                x = obj%ms_width, &
+                y = obj%ms_width, &
+                z = obj%ms_length/dble(obj%ms_node) &
+                )
+            call obj%stem(i)%rotate(&
+                x = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
+                y = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
+                z = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig))   &
+                )                
+        enddo
+
+        do i=1,obj%ms_node-1
+            call obj%stem(i+1)%connect("=>",obj%stem(i))
+            obj%stem2stem(i+1,i) = 1
+        enddo
+        
+        obj%stage = "V"//trim(str(obj%ms_node))
+        return
+    else
+        ! create leaf, root, stem
+        allocate(obj%leaf(obj%MaxLeafNum) )
+        allocate(obj%root(obj%MaxrootNum) )
+        allocate(obj%stem(obj%MaxstemNum) )
+        allocate(obj%stem2stem(obj%MaxstemNum,obj%MaxstemNum) )
+        allocate(obj%leaf2stem(obj%MaxstemNum,obj%MaxLeafNum) )
+        allocate(obj%root2stem(obj%MaxrootNum,obj%MaxstemNum) )
+        allocate(obj%root2root(obj%MaxrootNum,obj%MaxrootNum) )
+        
+        !allocate(obj%struct%NodCoord(4,3) )
+        !allocate(obj%struct%ElemNod(3,2) )
+        !allocate(obj%struct%ElemMat(3) )
+        ! 子葉結節部=(0,0,0)
+        !obj%struct%NodCoord(1,1:3) = 0.0d0
+        call obj%leaf(1)%init(obj%leafconfig)
+        call obj%leaf(1)%rotate(x=radian(90.0d0),y=radian(90.0d0),z=radian(10.0d0) )
+        call obj%leaf(2)%init(obj%leafconfig)
+        call obj%leaf(2)%rotate(x=radian(90.0d0),y=radian(90.0d0),z=radian(-10.0d0) )
+        
+        call obj%stem(1)%init(obj%stemconfig)
+        call obj%stem(1)%rotate(x=radian(40.0d0) )
+        
+        call obj%stem(2)%init(obj%stemconfig)
+        call obj%stem(2)%rotate(x=radian(80.0d0) )
     
-    call obj%stem(1)%init(obj%stemconfig)
-    call obj%stem(1)%rotate(x=radian(40.0d0) )
+        call obj%root(1)%init(obj%rootconfig)
+        call obj%root(1)%fix(x=0.0d0,y=0.0d0,z=0.0d0)
+        call obj%root(1)%rotate(x=radian(-60.0d0) )
     
-    call obj%stem(2)%init(obj%stemconfig)
-    call obj%stem(2)%rotate(x=radian(80.0d0) )
-
-    call obj%root(1)%init(obj%rootconfig)
-    call obj%root(1)%fix(x=0.0d0,y=0.0d0,z=0.0d0)
-    call obj%root(1)%rotate(x=radian(-60.0d0) )
-
-    call obj%leaf(1)%connect("=>",obj%stem(1))
-    obj%leaf2stem(1,1) = 1.0d0 
+        call obj%leaf(1)%connect("=>",obj%stem(1))
+        obj%leaf2stem(1,1) = 1
+        
+        call obj%leaf(2)%connect("=>",obj%stem(1))
+        obj%leaf2stem(2,1) = 1
+        
+        call obj%stem(2)%connect("=>",obj%stem(1))
+        obj%stem2stem(2,1) = 1
+        
+        call obj%root(1)%connect("=>",obj%stem(1))
+        obj%root2stem(1,1) = 1
+        
+        obj%stage = "VE"
+        ! 初生葉結節部
+        !obj%struct%NodCoord(2,1) = 0.0d0
+        !obj%struct%NodCoord(2,2) = 0.0d0
+        !obj%struct%NodCoord(2,3) = 1.0d0/20.0d0*obj%seed_height
+        ! 地際部
+        !obj%struct%NodCoord(3,1) = 1.0d0/4.0d0*obj%seed_length
+        !obj%struct%NodCoord(3,2) = 0.0d0
+        !obj%struct%NodCoord(3,3) = -1.0d0/3.0d0*obj%seed_height
+        ! 根冠
+        !obj%struct%NodCoord(4,1) = 1.0d0/2.0d0*obj%seed_length
+        !obj%struct%NodCoord(4,2) = 0.0d0
+        !obj%struct%NodCoord(4,3) = -1.0d0/2.0d0*obj%seed_height
     
-    call obj%leaf(2)%connect("=>",obj%stem(1))
-    obj%leaf2stem(2,1) = 1.0d0
+        ! 子葉-初生葉節
+        !obj%struct%ElemNod(1,1) = 1
+        !obj%struct%ElemNod(1,2) = 2
+        ! 地際-子葉節
+        !obj%struct%ElemNod(2,1) = 3
+        !obj%struct%ElemNod(2,2) = 1
+        ! 地際-根冠節
+        !obj%struct%ElemNod(3,1) = 3
+        !obj%struct%ElemNod(3,2) = 4
     
-    call obj%stem(2)%connect("=>",obj%stem(1))
-    obj%stem2stem(2,1) = 1.0d0
+        ! 子葉-初生葉節 stem: 1
+        !obj%struct%ElemMat(1) = 1
+        ! 地際-子葉節 stem: 1
+        !obj%struct%ElemMat(2) = 1
+        ! 地際-根冠節 primary root: -1
+        !obj%struct%ElemMat(3) = -1
     
-    call obj%root(1)%connect("=>",obj%stem(1))
-    obj%root2stem(1,1) = 1.0d0
+        ! FEメッシュを生成
+        ! 領域を確保
+    !    n = input(default=80,option=max_leaf_num)
+    !    allocate(obj%leaf_list(n) )
+    !    n = input(default=80,option=max_stem_num)
+    !    allocate(obj%stem_list(n) )
+    !    n = input(default=80,option=max_root_num)
+    !    allocate(obj%root_list(n) )
+    !
+    !    ! 子葉のメッシュを生成
+    !    call obj%leaf_list(1)%create(meshtype="Sphere3D",x_num=10,y_num=10,z_num=10,&
+    !        x_len=obj%seed_length,y_len=obj%seed_width,z_len=obj%seed_height)
+    !    call obj%leaf_list(1)%move(x=0.0d0,y=-0.50d0*obj%seed_width,z=-0.50d0*obj%seed_height)
+    !
+    !    call obj%leaf_list(2)%create(meshtype="Sphere3D",x_num=10,y_num=10,z_num=10,&
+    !        x_len=obj%seed_length,y_len=obj%seed_width,z_len=obj%seed_height)
+    !    call obj%leaf_list(2)%rotate(x=radian(180.0d0) )
+    !    call obj%leaf_list(2)%move(x=0.0d0,y=-0.50d0*obj%seed_width,z=-0.50d0*obj%seed_height)
+    !
+    !
+    !
+    !    ! 子葉-初生葉節のメッシュを生成
+    !    rot(:) = 0.0d0
+    !    call obj%stem_list(1)%create(meshtype="rectangular3D",x_num=5,y_num=5,z_num=10,&
+    !        x_len=obj%seed_width/6.0d0,y_len=obj%seed_width/6.0d0,z_len=obj%seed_length/4.0d0)
+    !    ! 節基部の節点ID
+    !    node_id = obj%struct%ElemNod(1,1)
+    !    ! 節先端部の節点ID
+    !    node_id2= obj%struct%ElemNod(1,2)
+    !    ! 節基部の位置ベクトル
+    !    loc(:) = obj%struct%NodCoord( node_id  ,:)
+    !    ! 節先端部までの方向ベクトル
+    !    vec(:) =  obj%struct%NodCoord( node_id2 ,:) - obj%struct%NodCoord( node_id  ,:)  
+    !    
+    !    ! structの構造データにメッシュデータを合わせる。
+    !    print *, obj%stem_list(1)%Mesh%BottomElemID
+    !    print *, obj%stem_list(1)%Mesh%TopElemID
+    !
+    !    elemid = obj%stem_list(1)%Mesh%BottomElemID
+    !    node_id = obj%stem_list(1)%Mesh%ElemNod(elemID,1)
+    !    meshloc(:) = obj%stem_list(1)%Mesh%NodCoord(node_id,:)
+    !
+    !    elemid = obj%stem_list(1)%Mesh%TopElemID
+    !    node_id = obj%stem_list(1)%Mesh%ElemNod(elemID,1)
+    !    meshvec(:) = obj%stem_list(1)%Mesh%NodCoord(node_id,:)-meshloc(:)
     
-    obj%stage = "VE"
-    ! 初生葉結節部
-    !obj%struct%NodCoord(2,1) = 0.0d0
-    !obj%struct%NodCoord(2,2) = 0.0d0
-    !obj%struct%NodCoord(2,3) = 1.0d0/20.0d0*obj%seed_height
-    ! 地際部
-    !obj%struct%NodCoord(3,1) = 1.0d0/4.0d0*obj%seed_length
-    !obj%struct%NodCoord(3,2) = 0.0d0
-    !obj%struct%NodCoord(3,3) = -1.0d0/3.0d0*obj%seed_height
-    ! 根冠
-    !obj%struct%NodCoord(4,1) = 1.0d0/2.0d0*obj%seed_length
-    !obj%struct%NodCoord(4,2) = 0.0d0
-    !obj%struct%NodCoord(4,3) = -1.0d0/2.0d0*obj%seed_height
-
-    ! 子葉-初生葉節
-    !obj%struct%ElemNod(1,1) = 1
-    !obj%struct%ElemNod(1,2) = 2
-    ! 地際-子葉節
-    !obj%struct%ElemNod(2,1) = 3
-    !obj%struct%ElemNod(2,2) = 1
-    ! 地際-根冠節
-    !obj%struct%ElemNod(3,1) = 3
-    !obj%struct%ElemNod(3,2) = 4
-
-    ! 子葉-初生葉節 stem: 1
-    !obj%struct%ElemMat(1) = 1
-    ! 地際-子葉節 stem: 1
-    !obj%struct%ElemMat(2) = 1
-    ! 地際-根冠節 primary root: -1
-    !obj%struct%ElemMat(3) = -1
-
-    ! FEメッシュを生成
-    ! 領域を確保
-!    n = input(default=80,option=max_leaf_num)
-!    allocate(obj%leaf_list(n) )
-!    n = input(default=80,option=max_stem_num)
-!    allocate(obj%stem_list(n) )
-!    n = input(default=80,option=max_root_num)
-!    allocate(obj%root_list(n) )
-!
-!    ! 子葉のメッシュを生成
-!    call obj%leaf_list(1)%create(meshtype="Sphere3D",x_num=10,y_num=10,z_num=10,&
-!        x_len=obj%seed_length,y_len=obj%seed_width,z_len=obj%seed_height)
-!    call obj%leaf_list(1)%move(x=0.0d0,y=-0.50d0*obj%seed_width,z=-0.50d0*obj%seed_height)
-!
-!    call obj%leaf_list(2)%create(meshtype="Sphere3D",x_num=10,y_num=10,z_num=10,&
-!        x_len=obj%seed_length,y_len=obj%seed_width,z_len=obj%seed_height)
-!    call obj%leaf_list(2)%rotate(x=radian(180.0d0) )
-!    call obj%leaf_list(2)%move(x=0.0d0,y=-0.50d0*obj%seed_width,z=-0.50d0*obj%seed_height)
-!
-!
-!
-!    ! 子葉-初生葉節のメッシュを生成
-!    rot(:) = 0.0d0
-!    call obj%stem_list(1)%create(meshtype="rectangular3D",x_num=5,y_num=5,z_num=10,&
-!        x_len=obj%seed_width/6.0d0,y_len=obj%seed_width/6.0d0,z_len=obj%seed_length/4.0d0)
-!    ! 節基部の節点ID
-!    node_id = obj%struct%ElemNod(1,1)
-!    ! 節先端部の節点ID
-!    node_id2= obj%struct%ElemNod(1,2)
-!    ! 節基部の位置ベクトル
-!    loc(:) = obj%struct%NodCoord( node_id  ,:)
-!    ! 節先端部までの方向ベクトル
-!    vec(:) =  obj%struct%NodCoord( node_id2 ,:) - obj%struct%NodCoord( node_id  ,:)  
-!    
-!    ! structの構造データにメッシュデータを合わせる。
-!    print *, obj%stem_list(1)%Mesh%BottomElemID
-!    print *, obj%stem_list(1)%Mesh%TopElemID
-!
-!    elemid = obj%stem_list(1)%Mesh%BottomElemID
-!    node_id = obj%stem_list(1)%Mesh%ElemNod(elemID,1)
-!    meshloc(:) = obj%stem_list(1)%Mesh%NodCoord(node_id,:)
-!
-!    elemid = obj%stem_list(1)%Mesh%TopElemID
-!    node_id = obj%stem_list(1)%Mesh%ElemNod(elemID,1)
-!    meshvec(:) = obj%stem_list(1)%Mesh%NodCoord(node_id,:)-meshloc(:)
-
-    !print *, "loc",loc
-    !print *, "meshloc",meshloc
-    !print *, "vec",vec
-    !print *, "meshvec",meshvec
-    
-!    ! 節中央を原点へ
-!    call obj%stem_list(1)%move(x=-obj%seed_width/12.0d0,y=-obj%seed_width/12.0d0)
-!    
-!    print *, "loc",loc
-!    print *, "vec",vec
-!    print *, "rot",rot
-!    zaxis(:)=0.0d0
-!    zaxis(3)=obj%seed_length/5.0d0
-!    rot(:) = angles(zaxis,vec)
-!    call obj%stem_list(1)%move(x=loc(1),y=loc(2),z=loc(3) )
-!    call obj%stem_list(1)%rotate(x=0.0d0,y=0.0d0,z=0.0d0 )
-!!    
-!    
-!!    
-!
-!
-!    ! 地際-子葉節のメッシュを生成
-!    rot(:) = 0.0d0
-!    call obj%stem_list(2)%create(meshtype="rectangular3D",x_num=5,y_num=5,z_num=10,&
-!        x_len=obj%seed_width/6.0d0,y_len=obj%seed_width/6.0d0,z_len=obj%seed_length/4.0d0)
-!    ! 節基部の節点ID
-!    node_id = obj%struct%ElemNod(2,1)
-!    ! 節先端部の節点ID
-!    node_id2= obj%struct%ElemNod(2,2)
-!    ! 節基部の位置ベクトル
-!    loc(:) = obj%struct%NodCoord( node_id  ,:)
-!    ! 節先端部までの方向ベクトル
-!    vec(:) =  obj%struct%NodCoord( node_id2 ,:) - obj%struct%NodCoord( node_id  ,:)  
-!    ! 節中央を原点へ
-!    call obj%stem_list(2)%move(x=-obj%seed_width/12.0d0,y=-obj%seed_width/12.0d0,&
-!        z=-obj%seed_length/8.0d0)
-!    zaxis(:)=0.0d0
-!    zaxis(3)=obj%seed_length/5.0d0
-!    rot(:) = angles(zaxis,vec)
-!    print *, "loc",loc
-!    print *, "vec",vec
-!    print *, "rot",rot
-!    !call obj%stem_list(2)%rotate(x=rot(1),y=rot(2),z=rot(3) )
-!    call obj%stem_list(2)%move(x=loc(1),y=loc(2),z=loc(3) )
-!    
-!
-!
-!    ! 地際-根冠節のメッシュ生成
-!    rot(:) = 0.0d0
-!    call obj%root_list(1)%create(meshtype="rectangular3D",x_num=5,y_num=5,z_num=10,&
-!        x_len=obj%seed_width/6.0d0,y_len=obj%seed_width/6.0d0,z_len=obj%seed_length/4.0d0)
-!    ! 節基部の節点ID
-!    node_id = obj%struct%ElemNod(3,1)
-!    ! 節先端部の節点ID
-!    node_id2= obj%struct%ElemNod(3,2)
-!    ! 節基部の位置ベクトル
-!    loc(:) = obj%struct%NodCoord( node_id  ,:)
-!    ! 節先端部までの方向ベクトル
-!    vec(:) =  obj%struct%NodCoord( node_id2 ,:) - obj%struct%NodCoord( node_id  ,:)  
-!    ! 節基部へ移動
-!    call obj%root_list(1)%move(x=-obj%seed_width/12.0d0,y=-obj%seed_width/12.0d0,&
-!        z=-obj%seed_length/8.0d0)
-!    call obj%root_list(1)%move(x=loc(1),y=loc(2),z=loc(3) )
-!    zaxis(:)=0.0d0
-!    zaxis(3)=obj%seed_length/5.0d0
-!    rot(:) = angles(zaxis,vec)
-!    !call obj%root_list(1)%rotate(x=rot(1),y=rot(2),z=rot(3) )
-!    print *, "loc",loc
-!    print *, "vec",vec
-!    print *, "rot",rot
-
+        !print *, "loc",loc
+        !print *, "meshloc",meshloc
+        !print *, "vec",vec
+        !print *, "meshvec",meshvec
+        
+    !    ! 節中央を原点へ
+    !    call obj%stem_list(1)%move(x=-obj%seed_width/12.0d0,y=-obj%seed_width/12.0d0)
+    !    
+    !    print *, "loc",loc
+    !    print *, "vec",vec
+    !    print *, "rot",rot
+    !    zaxis(:)=0.0d0
+    !    zaxis(3)=obj%seed_length/5.0d0
+    !    rot(:) = angles(zaxis,vec)
+    !    call obj%stem_list(1)%move(x=loc(1),y=loc(2),z=loc(3) )
+    !    call obj%stem_list(1)%rotate(x=0.0d0,y=0.0d0,z=0.0d0 )
+    !!    
+    !    
+    !!    
+    !
+    !
+    !    ! 地際-子葉節のメッシュを生成
+    !    rot(:) = 0.0d0
+    !    call obj%stem_list(2)%create(meshtype="rectangular3D",x_num=5,y_num=5,z_num=10,&
+    !        x_len=obj%seed_width/6.0d0,y_len=obj%seed_width/6.0d0,z_len=obj%seed_length/4.0d0)
+    !    ! 節基部の節点ID
+    !    node_id = obj%struct%ElemNod(2,1)
+    !    ! 節先端部の節点ID
+    !    node_id2= obj%struct%ElemNod(2,2)
+    !    ! 節基部の位置ベクトル
+    !    loc(:) = obj%struct%NodCoord( node_id  ,:)
+    !    ! 節先端部までの方向ベクトル
+    !    vec(:) =  obj%struct%NodCoord( node_id2 ,:) - obj%struct%NodCoord( node_id  ,:)  
+    !    ! 節中央を原点へ
+    !    call obj%stem_list(2)%move(x=-obj%seed_width/12.0d0,y=-obj%seed_width/12.0d0,&
+    !        z=-obj%seed_length/8.0d0)
+    !    zaxis(:)=0.0d0
+    !    zaxis(3)=obj%seed_length/5.0d0
+    !    rot(:) = angles(zaxis,vec)
+    !    print *, "loc",loc
+    !    print *, "vec",vec
+    !    print *, "rot",rot
+    !    !call obj%stem_list(2)%rotate(x=rot(1),y=rot(2),z=rot(3) )
+    !    call obj%stem_list(2)%move(x=loc(1),y=loc(2),z=loc(3) )
+    !    
+    !
+    !
+    !    ! 地際-根冠節のメッシュ生成
+    !    rot(:) = 0.0d0
+    !    call obj%root_list(1)%create(meshtype="rectangular3D",x_num=5,y_num=5,z_num=10,&
+    !        x_len=obj%seed_width/6.0d0,y_len=obj%seed_width/6.0d0,z_len=obj%seed_length/4.0d0)
+    !    ! 節基部の節点ID
+    !    node_id = obj%struct%ElemNod(3,1)
+    !    ! 節先端部の節点ID
+    !    node_id2= obj%struct%ElemNod(3,2)
+    !    ! 節基部の位置ベクトル
+    !    loc(:) = obj%struct%NodCoord( node_id  ,:)
+    !    ! 節先端部までの方向ベクトル
+    !    vec(:) =  obj%struct%NodCoord( node_id2 ,:) - obj%struct%NodCoord( node_id  ,:)  
+    !    ! 節基部へ移動
+    !    call obj%root_list(1)%move(x=-obj%seed_width/12.0d0,y=-obj%seed_width/12.0d0,&
+    !        z=-obj%seed_length/8.0d0)
+    !    call obj%root_list(1)%move(x=loc(1),y=loc(2),z=loc(3) )
+    !    zaxis(:)=0.0d0
+    !    zaxis(3)=obj%seed_length/5.0d0
+    !    rot(:) = angles(zaxis,vec)
+    !    !call obj%root_list(1)%rotate(x=rot(1),y=rot(2),z=rot(3) )
+    !    print *, "loc",loc
+    !    print *, "vec",vec
+    !    print *, "rot",rot    
+    endif
 
     ! ここからレガシーモード
     if(present(regacy) )then
@@ -885,6 +1081,35 @@ subroutine gmshSoybean(obj,name)
 
 end subroutine
 ! ########################################
+
+
+! ########################################
+subroutine mshSoybean(obj,name)
+    class(Soybean_),intent(inout) :: obj
+    character(*),intent(in) :: name
+    integer(int32) :: i
+
+    do i=1,size(obj%stem)
+        if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call obj%stem(i)%msh(name=trim(name)//"_stem"//trim(str(i)))
+        endif
+    enddo
+
+    do i=1,size(obj%root)
+        if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call obj%root(i)%msh(name=trim(name)//"_root"//trim(str(i)))
+        endif
+    enddo
+
+    do i=1,size(obj%leaf)
+        if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call obj%leaf(i)%msh(name=trim(name)//"_leaf"//trim(str(i)))
+        endif
+    enddo
+
+end subroutine
+! ########################################
+
 
 ! ########################################
 subroutine moveSoybean(obj,x,y,z)

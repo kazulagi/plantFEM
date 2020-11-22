@@ -7157,6 +7157,7 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug,mpid)
 	logical,optional,intent(in) :: debug
 	logical :: inside
 	integer(int32) :: i,j,n,k,field_id,dim_num,start_id,end_id,from_rank
+	integer(int32) :: num_node
 	real(real64),allocatable :: Jmat(:,:),center(:),x(:),gzi(:),dx(:),dgzi(:),j_inv(:,:)
 	real(real64),allocatable :: LocalCoord(:,:),nodvalue(:),original_scalar(:),xvec(:),x_max(:),x_min(:)
 	integer(int32),allocatable :: ElemID(:)
@@ -7413,6 +7414,181 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug,mpid)
 				endif
 				
 			case ("<=", "<-")
+				! project domain-side field to => obj
+
+				allocate(ElemID(size(obj%mesh%nodcoord,1)))
+				ElemID(:) = -1
+				k=size(obj%mesh%nodcoord,2)
+				allocate(LocalCoord(size(obj%mesh%nodcoord,1),k))
+				LocalCoord(:,:) = 0.0d0
+				shapefunc%ElemType=domain%Mesh%GetElemType()
+				call SetShapeFuncType(shapefunc)
+
+				!!call GetAllShapeFunc(shapefunc,elem_id=1,nod_coord=domain%Mesh%NodCoord,&
+				!elem_nod=domain%Mesh%ElemNod,OptionalGpID=1)
+				
+				! for mpi acceralation
+				start_id=1
+				end_id=size(obj%mesh%nodcoord,1)
+				if(present(mpid) )then
+					call mpid%initItr(end_id)
+					start_id = mpid%start_id
+					end_id = mpid%end_id
+				endif
+
+				do i=start_id, end_id ! for each node
+					do j=1, size(domain%mesh%elemnod,1) ! for each element
+						
+						! get Jacobian matrix (dx/dgzi)
+						do k=1,shapefunc%NumOfGP
+							call GetAllShapeFunc(shapefunc,elem_id=j,nod_coord=domain%Mesh%NodCoord,&
+							elem_nod=domain%Mesh%ElemNod,OptionalGpID=k)
+							if(k==1)then
+								Jmat=shapefunc%Jmat
+							else
+								Jmat=Jmat+shapefunc%Jmat
+							endif
+						enddo
+						! In-Or-out
+						xvec(:)=obj%mesh%nodcoord(i,:)
+						do k=1,dim_num
+							x_max(k)=maxval(shapefunc%elemcoord(:,k) )
+							x_min(k)=minval(shapefunc%elemcoord(:,k) )
+						enddo
+						inside = InOrOutReal(x=xvec(:),xmax=x_max(:),xmin=x_min(:),DimNum=size(xvec) )
+						if(inside .eqv. .false.)then
+							cycle
+						endif
+						! 
+						if(.not. allocated(center) )then
+							allocate(center(size(domain%mesh%nodcoord,2) ) )
+						endif
+						if(.not. allocated(x) )then
+							allocate(x(size(domain%mesh%nodcoord,2) ) )
+						endif
+						if(.not. allocated(dx) )then
+							allocate(dx(size(domain%mesh%nodcoord,2) ) )
+						endif
+						if(.not. allocated(gzi) )then
+							allocate(gzi(size(domain%mesh%nodcoord,2) ) )
+						endif
+						if(.not. allocated(dgzi) )then
+							allocate(dgzi(size(domain%mesh%nodcoord,2) ) )
+						endif
+						center(:)=0.0d0
+						do k=1,size(domain%mesh%elemnod,2)
+							center(:) = center(:) + domain%mesh%nodcoord( domain%mesh%elemnod(j,k),: )
+						enddo
+						center(:) = 1.0d0/dble(size(domain%mesh%elemnod,2))*center(:)
+						x(:) = obj%mesh%nodcoord(i,:)
+						dx(:) = x(:) - center(:)
+						call inverse_rank_2(Jmat,J_inv)
+						dgzi = matmul(J_inv,dx)
+						if( maxval(dgzi)<=1.0d0 .and. minval(dgzi)>=-1.0d0 )then
+							ElemID(i) = j
+							LocalCoord(i,:) = dgzi(:)
+							exit
+						else
+							cycle
+						endif
+					enddo
+					if(present(debug) )then
+						if(debug .eqv. .true.)then
+							if(i == int(dble(size(obj%mesh%nodcoord,1))/4.0d0) )then
+								print *, "[--] projectionFEMDomain :: local coordinate 25 % done."
+							endif
+							if(i == int(dble(size(obj%mesh%nodcoord,1))/2.0d0) )then
+								print *, "[--] projectionFEMDomain :: local coordinate 50 % done."
+							endif
+							if(i == int(3.0d0*dble(size(obj%mesh%nodcoord,1))/4.0d0) )then
+								print *, "[--] projectionFEMDomain :: local coordinate 75 % done."
+							endif
+							if(i == size(obj%mesh%nodcoord,1))then
+								print *, "[ok] projectionFEMDomain :: local coordinate 100 % done."
+							endif
+						endif
+					endif
+				enddo
+
+				! for mpi acceralation
+				! merge data
+				if(present(mpid) )then
+					call mpid%Barrier()
+					do i=1,size(ElemID)
+						n =ElemID(i)
+						from_rank = mpid%start_end_id(i)-1
+						call mpid%Bcast(From=from_rank,val=n)
+						ElemID(i)=n
+
+
+						do j=1,size(LocalCoord,2)
+							val = LocalCoord(i,j)
+							call mpid%Bcast(From=from_rank,val=val)
+							LocalCoord(i,j)=val
+						enddo
+					enddo
+				endif
+
+				
+				! projection先の節点番号iに対応したprojection元の要素ID:ElemID(i)
+				! projection先の節点番号iに対応したprojection元の要素局所座標:LocalCoord(i,1:3)@3D
+				
+				! projection
+				field_id = domain%getLayerID(name=PhysicalField)
+				if(domain%getLayerAttribute(name=PhysicalField)==1)then
+					! scalar
+					! for each element
+					do i=1,size(obj%mesh%nodcoord,1)
+						! 節点ごとの値 node-by-node
+						if(elemid(i)==-1 )then
+							! 対応する要素なし
+							cycle
+						endif
+
+						! local coordinate
+						
+						shapefunc%gzi(:) = localCoord(i,:)
+
+						call GetShapeFunction(shapefunc)
+
+
+						! 要素を構成する節点値sに乗っている値
+						if(.not.allocated(nodvalue) )then
+							allocate(nodvalue(size(shapefunc%Nmat,1)))
+							nodvalue(:) = 0.0d0
+						endif
+						do k=1,size(obj%mesh%elemnod,2)
+							n = obj%mesh%elemnod(elemid(i) ,k)
+							nodvalue(k) = obj%PhysicalField(field_id)%scalar(n)
+						enddo
+						! 節点値の計算
+						scalar = dot_product(shapefunc%Nmat, nodvalue)
+						domain%PhysicalField(field_id)%scalar(i)=scalar
+						!if(.not.allocated(nodvalue) )then
+						!	allocate(nodvalue(size(shapefunc%Nmat,1)))
+						!	nodvalue(:) = scalar*shapefunc%Nmat(:)
+						!	nodvalue(:) = scalar!*shapefunc%Nmat(:)
+						!	! ここ、要注意、アルゴリズムに大幅な近似あり。
+						!	! 単に一方の領域の節点値を他方の要素の節点値全体に適用している。
+						!	! 局所座標gziは使っていない。
+						!
+						!	! obj => domainのプロジェクションの場合、
+						!	! objの要素ごとに、domainの節点が入っているかを調査し、
+						!	! objの要素に対するdomain節点の局所座標を確定し、
+						!	! その後、objの接点値に形状関数をかけてdomainの節点値とすべき。
+						!	! 要精査
+						!endif
+						!do k=1,size(domain%mesh%elemnod,2)
+						!	n = domain%mesh%elemnod(elemid(i) ,k)
+						!	domain%PhysicalField(field_id)%scalar(n)=nodvalue(k)
+						!enddo
+
+					enddo
+				else
+					print *, "ERROR now coding >> projectionFEMDomain"
+					stop 
+				endif
+				
 		end select
 	endif
 

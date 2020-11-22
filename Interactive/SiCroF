@@ -207,6 +207,7 @@ do
         continue
     fi
     if [ "$command" = "$run" ]; then
+        python3 bin/check_end.py
         ./plantfem ./server.f90
         continue
     fi
