@@ -38,10 +38,12 @@ module StemClass
     contains
         procedure, public :: Init => initStem
         procedure, public :: rotate => rotateStem
+        procedure, public :: resize => resizeStem
         procedure, public :: move => moveStem
         procedure, public :: connect => connectStem
         procedure, public :: getCoordinate => getCoordinateStem
         procedure, public :: gmsh => gmshStem
+        procedure, public :: msh => mshStem
         procedure, public :: export => exportStem
     end type
 contains
@@ -217,7 +219,7 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     !                                             
 
     ! メッシュを生成
-    call obj%FEMdomain%create(meshtype="rectangular3D",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
+    call obj%FEMdomain%create(meshtype="Cube",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
     x_len=obj%mindiameter/2.0d0,y_len=obj%mindiameter/2.0d0,z_len=obj%minlength )
 
     ! <I>面に属する要素番号、節点番号、要素座標、節点座標のリストを生成
@@ -356,6 +358,13 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
 end subroutine 
 ! ########################################
 
+subroutine resize(obj,x,y,z)
+    class(Stem_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x,y,z
+
+    call obj%femdomain%resize(x,y,z)
+
+end subroutine
 
 ! ########################################
 subroutine exportStem(obj,FileName,StemID)
@@ -487,6 +496,12 @@ subroutine gmshStem(obj,name)
     call obj%femdomain%gmsh(Name=name)
 end subroutine
 
+subroutine mshStem(obj,name)
+    class(Stem_),intent(inout) :: obj
+    character(*),intent(in) ::name
+
+    call obj%femdomain%msh(Name=name)
+end subroutine
 
 ! ########################################
 subroutine resizeStem(obj,x,y,z)
