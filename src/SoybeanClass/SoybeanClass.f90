@@ -16,16 +16,32 @@ module SoybeanClass
         integer(int32) :: Num_Of_Node
         integer(int32) :: Num_Of_Root
 
-        integer(int32) :: MaxLeafNum= 50
-        integer(int32) :: MaxRootNum=200
-        integer(int32) :: MaxStemNum= 50
+        integer(int32) :: MaxLeafNum= 300
+        integer(int32) :: MaxRootNum=300
+        integer(int32) :: MaxStemNum= 300
         
-        integer(int32)  :: ms_node,br_node(50),br_from(50)
+        integer(int32)  :: ms_node,br_node(300),br_from(300)
 
-        real(real64)    :: ms_length,br_length(50)
-        real(real64)    :: ms_width,br_width(50)
-        real(real64)    :: ms_angle_ave,br_angle_ave(50)
-        real(real64)    :: ms_angle_sig,br_angle_sig(50)
+        real(real64)    :: ms_length,br_length(300)
+        real(real64)    :: ms_width,br_width(300)
+        real(real64)    :: ms_angle_ave,br_angle_ave(300)
+        real(real64)    :: ms_angle_sig,br_angle_sig(300)
+        
+        real(real64)    :: peti_size_ave(300)
+        real(real64)    :: peti_size_sig(300)
+        real(real64)    :: peti_width_ave(300)
+        real(real64)    :: peti_width_sig(300)
+        real(real64)    :: peti_angle_ave(300)
+        real(real64)    :: peti_angle_sig(300)
+
+        real(real64)    :: leaf_angle_ave(300*3)
+        real(real64)    :: leaf_angle_sig(300*3)
+        real(real64)    :: leaf_length_ave(300*3)
+        real(real64)    :: leaf_length_sig(300*3)
+        real(real64)    :: leaf_width_ave(300*3)
+        real(real64)    :: leaf_width_sig(300*3)
+        real(real64)    :: leaf_thickness_ave(300*3)
+        real(real64)    :: leaf_thickness_sig(300*3)
         
         character(3) :: Stage ! VE, CV, V1,V2, ..., R1, R2, ..., R8
         character(200) :: name
@@ -114,18 +130,54 @@ subroutine initsoybean(obj,config,&
     character(200) :: fn,conf,line
     integer(int32),optional,intent(in) :: max_PlantNode_num,max_leaf_num,max_stem_num,max_root_num
     real(real64) :: MaxThickness,Maxwidth,loc(3),vec(3),rot(3),zaxis(3),meshloc(3),meshvec(3)
-    integer(int32) :: i,j,k,blcount,id,rmc,n,node_id,node_id2,elemid,branch_id
+    integer(int32) :: i,j,k,blcount,id,rmc,n,node_id,node_id2,elemid,branch_id,num_stem_node
+    integer(int32) :: num_leaf
     type(IO_) :: soyconf
     type(Random_) :: random
 
+
+    ! set default parameters
+    ! stem
     obj%br_node(:)=0
     obj%br_from(:)=0
     obj%br_length(:)=0.0d0
 
     obj%br_angle_ave(:)=0.0d0
     obj%br_angle_sig(:)=10.0d0
+    obj%br_angle_ave(1)=2.0d0
+    obj%br_angle_sig(1)=360.0d0*random%random()
+    
     obj%ms_angle_ave=0.0d0
-    obj%ms_angle_sig=10.0d0
+    obj%ms_angle_sig=2.0d0
+
+    ! peti
+    ! is also stem
+    
+    obj%peti_size_ave(:) = 0.20d0
+    obj%peti_size_sig(:) = 0.010d0
+
+    obj%peti_width_ave(:) = 0.0050d0
+    obj%peti_width_sig(:) = 0.00010d0
+
+    obj%peti_angle_ave(:) = 30.0d0
+    obj%peti_angle_sig(:) = 1.00d0
+
+    ! leaf
+    obj%leaf_length_ave(:) = 0.20d0
+    obj%leaf_length_sig(:) = 0.01d0
+
+    obj%leaf_width_ave(:) = 0.050d0
+    obj%leaf_width_sig(:) = 0.010d0
+
+    obj%leaf_thickness_ave(:) = 0.00100d0
+    obj%leaf_thickness_sig(:) = 0.00050d0
+
+    obj%leaf_angle_ave(:) = 30.0d0
+    obj%leaf_angle_sig(:) = 10.0d0
+    
+
+
+
     
     ! 子葉節、初生葉節、根の第1節まで種子の状態で存在
 
@@ -480,7 +532,84 @@ subroutine initsoybean(obj,config,&
             call obj%stem(i+1)%connect("=>",obj%stem(i))
             obj%stem2stem(i+1,i) = 1
         enddo
+
+        ! set branches
+        k=obj%ms_node
+        do i=1,size(obj%br_node)
+            do j=1, obj%br_node(i)
+                k = k + 1
+                call obj%stem(k)%init()
+                call obj%stem(k)%resize(&
+                    x = obj%ms_width, &
+                    y = obj%ms_width, &
+                    z = obj%ms_length/dble(obj%ms_node) &
+                    )
+                    
+                call obj%stem(k)%rotate(&
+                    x = radian(random%gauss(mu=obj%br_angle_ave(j),sigma=obj%br_angle_sig(j) )),  &
+                    y = radian(random%gauss(mu=obj%br_angle_ave(j),sigma=obj%br_angle_sig(j) )),  &
+                    z = radian(random%gauss(mu=obj%br_angle_ave(j),sigma=obj%br_angle_sig(j) ))   &
+                    )                
+                
+                if(j==1)then
+                    call obj%stem(k)%connect("=>",obj%stem(obj%br_from(i)  ))
+                    obj%stem2stem(k,obj%br_from(i) ) = 1
+                else
+                    call obj%stem(k)%connect("=>",obj%stem(k-1))
+                    obj%stem2stem(k,k-1) = 1
+                endif
+                    
+            enddo
+        enddo
         
+
+        ! peti and leaf
+        num_stem_node = k
+        num_leaf = 0
+        do i=1, num_stem_node
+            ! ３複葉
+            ! add peti
+            num_stem_node = num_stem_node +1
+            call obj%stem(num_stem_node)%init()
+
+            call obj%stem(num_stem_node)%resize(&
+                x = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
+                y = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
+                z = random%gauss(mu=obj%peti_size_ave(i),sigma=obj%peti_size_sig(i)) &
+                )
+            
+            call obj%stem(num_stem_node)%rotate(&
+                x = radian(random%gauss(mu=obj%peti_angle_ave(i),sigma=obj%peti_angle_sig(i) )),  &
+                y = 0.0d0,  &
+                z = radian(360.0d0*random%random() )   &
+                )      
+            call obj%stem(num_stem_node)%connect("=>",obj%stem(i))
+            obj%leaf2stem(num_stem_node,i) = 1            
+
+            
+
+            ! add leaves
+            do j=1,3
+                num_leaf=num_leaf+1
+                call obj%leaf(num_leaf)%init()
+                call obj%leaf(num_leaf)%resize(&
+                    y = random%gauss(mu=obj%leaf_thickness_ave(i),sigma=obj%leaf_thickness_sig(i))  , &
+                    z = random%gauss(mu=obj%leaf_length_ave(i)   ,sigma=obj%leaf_length_sig(i)) , &
+                    x = random%gauss(mu=obj%leaf_width_ave(i)    ,sigma=obj%leaf_width_sig(i)) &
+                )
+                call obj%leaf(num_leaf)%rotate(&
+                    x = radian(random%gauss(mu=obj%leaf_angle_ave(i),sigma=obj%leaf_angle_sig(i))), &
+                    y = 0.0d0, &
+                    z = radian(random%random()*360.0d0) &
+                )
+                call obj%leaf(num_leaf)%connect("=>",obj%stem(num_stem_node))
+                obj%leaf2stem(num_leaf,num_stem_node) = 1
+            enddo
+            
+        enddo
+
+
+
         obj%stage = "V"//trim(str(obj%ms_node))
         return
     else
