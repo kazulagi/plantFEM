@@ -1,5 +1,5 @@
 program main
-    use SoybeanClass
+    use plantFEM
     implicit none
 
     type(Soybean_) :: soy

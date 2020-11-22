@@ -2,10 +2,9 @@ program main
     use plantFEM
     implicit none
 
-    type(Soybean_)::soy
+    type(Soybean_) :: soy
 
-    call soy%init()
-    call soy%move(x=10.0d0)
-    
+    call soy%init(config="Tutorial/playon_obj/realSoybeanConfig.json") 
+    call soy%msh(name="soy")
+
 end program main
-

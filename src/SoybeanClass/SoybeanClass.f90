@@ -23,6 +23,7 @@ module SoybeanClass
         integer(int32)  :: ms_node,br_node(300),br_from(300)
 
         real(real64)    :: ms_length,br_length(300)
+        
         real(real64)    :: ms_width,br_width(300)
         real(real64)    :: ms_angle_ave,br_angle_ave(300)
         real(real64)    :: ms_angle_sig,br_angle_sig(300)
