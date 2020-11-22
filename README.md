@@ -1,4 +1,4 @@
-![soybean_plant](https://user-images.githubusercontent.com/54159711/93706326-0e165c00-fb60-11ea-9d23-731961efcb63.png)
+![soy3d](https://user-images.githubusercontent.com/54159711/99902211-6ce28800-2cff-11eb-9dbc-9983c07ffe7d.png)
 ![soaked_soy_seed](https://user-images.githubusercontent.com/54159711/84125111-0b8f6b00-aa77-11ea-9f79-1acfe37e2b8f.png)
 ![grass_leaf](https://user-images.githubusercontent.com/54159711/84125213-311c7480-aa77-11ea-8c61-e7bbce016f8a.gif)
 
