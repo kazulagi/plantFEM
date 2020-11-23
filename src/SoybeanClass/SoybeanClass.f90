@@ -94,6 +94,7 @@ module SoybeanClass
         procedure,public :: show => showSoybean
         procedure,public :: gmsh => gmshSoybean
         procedure,public :: msh => mshSoybean
+        procedure,public :: stl => stlSoybean
 
         procedure,public :: WaterAbsorption => WaterAbsorptionSoybean
         procedure,public :: move => moveSoybean
@@ -1240,6 +1241,33 @@ subroutine mshSoybean(obj,name)
 end subroutine
 ! ########################################
 
+
+! ########################################
+subroutine stlSoybean(obj,name)
+    class(Soybean_),intent(inout) :: obj
+    character(*),intent(in) :: name
+    integer(int32) :: i
+
+    do i=1,size(obj%stem)
+        if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call obj%stem(i)%stl(name=trim(name)//"_stem"//trim(str(i)))
+        endif
+    enddo
+
+    do i=1,size(obj%root)
+        if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call obj%root(i)%stl(name=trim(name)//"_root"//trim(str(i)))
+        endif
+    enddo
+
+    do i=1,size(obj%leaf)
+        if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call obj%leaf(i)%stl(name=trim(name)//"_leaf"//trim(str(i)))
+        endif
+    enddo
+
+end subroutine
+! ########################################
 
 ! ########################################
 subroutine moveSoybean(obj,x,y,z)

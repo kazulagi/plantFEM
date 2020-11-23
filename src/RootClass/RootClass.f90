@@ -53,6 +53,7 @@ module RootClass
         procedure, public :: getCoordinate => getCoordinateRoot
         procedure, public :: gmsh => gmshRoot
         procedure, public :: msh => mshRoot
+        procedure, public :: stl => stlRoot
         procedure, public :: export => exportRoot
     end type
 contains
@@ -515,6 +516,14 @@ subroutine mshRoot(obj,name)
 
     call obj%femdomain%msh(Name=name)
 end subroutine
+
+subroutine stlRoot(obj,name)
+    class(Root_),intent(inout) :: obj
+    character(*),intent(in) ::name
+
+    call obj%femdomain%stl(Name=name)
+end subroutine
+
 
 ! ########################################
 subroutine resizeRoot(obj,x,y,z)

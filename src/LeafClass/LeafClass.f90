@@ -82,6 +82,7 @@ module LeafClass
         procedure, public :: getCoordinate => getCoordinateleaf
         procedure, public :: gmsh => gmshleaf
         procedure, public :: msh => mshleaf
+        procedure, public :: stl => stlleaf
     end type
 contains
 
@@ -596,6 +597,23 @@ subroutine mshleaf(obj,name)
 end subroutine
 ! ########################################
 
+
+! ########################################
+subroutine stlleaf(obj,name)
+    class(leaf_),intent(inout) :: obj
+    character(*),intent(in) ::name
+
+    call obj%femdomain%stl(Name=name)
+    ! PPFD を出力
+    !call obj%femdomain%msh(Name=name//"_PPFD_",field=obj%PPFD)
+    ! ソース量 を出力
+    !call obj%femdomain%msh(Name=name//"_SOURCE_",field=obj%source)
+    ! 光合成速度 を出力
+    !call obj%femdomain%msh(Name=name//"_A_",field=obj%A)
+
+
+end subroutine
+! ########################################
 
 ! ########################################
 subroutine resizeleaf(obj,x,y,z)
