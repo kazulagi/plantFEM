@@ -7,7 +7,7 @@ figure = pyplot.figure()
 axes = mplot3d.Axes3D(figure)
 
 # Load the STL files and add the vectors to the plot
-your_mesh = mesh.Mesh.from_file('soybean.stl')
+your_mesh = mesh.Mesh.from_file('soybean1.stl')
 axes.add_collection3d(mplot3d.art3d.Poly3DCollection(your_mesh.vectors))
 
 # Auto scale to the mesh size

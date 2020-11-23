@@ -22,11 +22,5 @@
         "Length":0.2,
         "Width":0.01,
         "Node":2
-    },
-    "Branch#4":{
-        "From":5,
-        "Length":0.2,
-        "Width":0.01,
-        "Node":2
     }
 }
