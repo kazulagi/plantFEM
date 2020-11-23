@@ -2839,7 +2839,7 @@ subroutine SortFacetMesh(obj)
     if(n==2)then
         if(.not.allocated(obj%FacetElemNod) )then
             
-            print *, "ERROR :: SortFacetMesh >> for 3D, now implementing "
+            !"  SortFacetMesh >> for 3D, now implementing "
 
             return
         endif
@@ -2859,7 +2859,7 @@ subroutine SortFacetMesh(obj)
             obj%FacetElemNod(id,:)=buf(:)
         enddo
     elseif(n==3)then
-        print *, "ERROR :: SortFacetMesh >> for 3D, now implementing "
+        !print *, "ERROR :: SortFacetMesh >> for 3D, now implementing "
         return
     endif
 

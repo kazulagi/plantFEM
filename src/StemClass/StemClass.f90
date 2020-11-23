@@ -44,6 +44,7 @@ module StemClass
         procedure, public :: getCoordinate => getCoordinateStem
         procedure, public :: gmsh => gmshStem
         procedure, public :: msh => mshStem
+        procedure, public :: stl => stlStem
         procedure, public :: export => exportStem
     end type
 contains
@@ -503,6 +504,13 @@ subroutine mshStem(obj,name)
     call obj%femdomain%msh(Name=name)
 end subroutine
 
+
+subroutine stlStem(obj,name)
+    class(Stem_),intent(inout) :: obj
+    character(*),intent(in) ::name
+
+    call obj%femdomain%stl(Name=name)
+end subroutine
 ! ########################################
 subroutine resizeStem(obj,x,y,z)
     class(Stem_),optional,intent(inout) :: obj

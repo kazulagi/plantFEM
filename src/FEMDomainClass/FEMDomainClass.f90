@@ -5641,6 +5641,72 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 		
 	endif
 
+	if(present(FileHandle) )then
+	
+		fh=FileHandle
+		
+		call obj%Mesh%GetSurface()
+		dim_num=input(default=3,option=MeshDimension)
+		if(dim_num/=3)then
+			print *, "Sorry, Export stl is supported only for 3-D mesh"
+			return
+		endif
+		write(fh,'(A)') "solid stl"
+		print *, "Number of facet is",size(obj%Mesh%FacetElemNod,1)
+		do i=1,size(obj%Mesh%FacetElemNod,1)
+			if(size(obj%Mesh%FacetElemNod,2)==4  )then
+				! rectangular
+				! describe two triangular
+				
+				x1(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),: ) 
+				x2(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,2),: )
+				x3(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),: )
+				write(fh,'(A)') "facet normal 0.0 0.0 1.0"
+				write(fh,'(A)') "outer loop"
+				write(fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
+				write(fh,*) "vertex ",real(x2(1) ),real(x2(2) ),real(x2(3) )
+				write(fh,*) "vertex ",real(x3(1) ),real(x3(2) ),real(x3(3) )
+				write(fh,'(A)') "endloop"
+				write(fh,'(A)') "endfacet"
+				x1(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),: ) 
+				x2(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),: )
+				x3(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,4),: )
+				write(fh,'(A)') "facet normal 0.0 0.0 1.0"
+				write(fh,'(A)') "outer loop"
+				write(fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
+				write(fh,*) "vertex ",real(x2(1) ),real(x2(2) ),real(x2(3) )
+				write(fh,*) "vertex ",real(x3(1) ),real(x3(2) ),real(x3(3) )
+				write(fh,'(A)') "endloop"
+				write(fh,'(A)') "endfacet"
+			elseif(size(obj%Mesh%FacetElemNod,2)==3  )then
+				! rectangular
+				! describe two triangular
+				x1(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),: ) 
+				x2(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,2),: )
+				x3(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),: )
+				write(fh,'(A)') "facet normal 0.0 0.0 1.0"
+				write(fh,'(A)') "outer loop"
+				write(fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
+				write(fh,*) "vertex ",real(x2(1) ),real(x2(2) ),real(x2(3) )
+				write(fh,*) "vertex ",real(x3(1) ),real(x3(2) ),real(x3(3) )
+				write(fh,'(A)') "endloop"
+				write(fh,'(A)') "endfacet"
+				
+			else
+				! other
+				print *, "Sorry, Export stl is supported only for rectangular mesh"
+				return
+				close(fh)
+			endif
+		enddo
+		write(fh,'(A)') "endsolid "//trim(FileName)
+	
+		print *, "writing ",trim(FileName)//trim(filename0)," step>>",obj%Timestep
+		flush(fh)
+		return
+		
+	endif
+
 
 	dim_num=input(default=3,option=MeshDimension)
 
@@ -6741,9 +6807,9 @@ subroutine stlFEMDomain(obj,name)
 	type(IO_) :: f
 	character(*),intent(in) :: name
 
-	call f%open(trim(name)//".stl")
-	call ExportFEMDomainAsSTL(obj,FileHandle=f%fh,MeshDimension=size(obj%mesh%Nodcoord,2))
-	call f%close()
+	!call f%open(trim(name)//".stl")
+	call ExportFEMDomainAsSTL(obj,MeshDimension=size(obj%mesh%Nodcoord,2),FileName=name)
+	!call f%close()
 end subroutine
 
 ! ##################################################
