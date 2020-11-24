@@ -337,11 +337,11 @@ contains
             zmin=obj%minlength)
         obj%B_PointElementID = buf(1)
     
-        print *, obj%A_PointNodeID
-        print *, obj%B_PointNodeID
-        print *, obj%A_PointElementID
-        print *, obj%B_PointElementID
-
+        !print *, obj%A_PointNodeID
+        !print *, obj%B_PointNodeID
+        !print *, obj%A_PointElementID
+        !print *, obj%B_PointElementID
+!
         call obj%FEMdomain%remove()
         call obj%FEMdomain%create(meshtype="Leaf3D",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
         x_len=obj%minwidth/2.0d0,y_len=obj%minthickness/2.0d0,z_len=obj%minlength,shaperatio=obj%shaperatio)

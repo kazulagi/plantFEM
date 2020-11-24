@@ -134,6 +134,8 @@ subroutine initsoybean(obj,config,&
     real(real64) :: MaxThickness,Maxwidth,loc(3),vec(3),rot(3),zaxis(3),meshloc(3),meshvec(3)
     integer(int32) :: i,j,k,blcount,id,rmc,n,node_id,node_id2,elemid,branch_id,num_stem_node
     integer(int32) :: num_leaf
+    real(real64)::readvalreal
+    integer(int32) :: readvalint
     type(IO_) :: soyconf
     type(Random_) :: random
 
@@ -144,10 +146,10 @@ subroutine initsoybean(obj,config,&
     obj%br_from(:)=0
     obj%br_length(:)=0.0d0
 
-    obj%br_angle_ave(:)=0.0d0
+    obj%br_angle_ave(:)= 0.0d0
     obj%br_angle_sig(:)=10.0d0
-    obj%br_angle_ave(1)=2.0d0
-    obj%br_angle_sig(1)=360.0d0*random%random()
+    obj%br_angle_ave(1)=30.0d0
+    obj%br_angle_sig(1)=2.0d0
     
     obj%ms_angle_ave=0.0d0
     obj%ms_angle_sig=2.0d0
@@ -174,7 +176,7 @@ subroutine initsoybean(obj,config,&
     obj%leaf_thickness_ave(:) = 0.00100d0
     obj%leaf_thickness_sig(:) = 0.00050d0
 
-    obj%leaf_angle_ave(:) = 30.0d0
+    obj%leaf_angle_ave(:) = 40.0d0
     obj%leaf_angle_sig(:) = 10.0d0
     
 
@@ -199,7 +201,35 @@ subroutine initsoybean(obj,config,&
         write(soyconf%fh,*) '   "height": 0.0072,'
         write(soyconf%fh,*) '   "MaxLeafNum": 50,'
         write(soyconf%fh,*) '   "MaxRootNum":200,'
-        write(soyconf%fh,*) '   "MaxStemNum": 50'
+        write(soyconf%fh,*) '   "MaxStemNum": 50,'
+
+        ! stem
+        write(soyconf%fh,*) '   "br_node" : 0,'
+        write(soyconf%fh,*) '   "br_from" : 0,'
+        write(soyconf%fh,*) '   "br_length" : 0.00,'
+        write(soyconf%fh,*) '   "br_angle_ave" : 0.00,'
+        write(soyconf%fh,*) '   "br_angle_sig" : 10.00,'
+        write(soyconf%fh,*) '   "br_angle_ave(1)": 360.00,'
+        write(soyconf%fh,*) '   "br_angle_sig(1)": 2.00,'
+        write(soyconf%fh,*) '   "ms_angle_ave": 0.00,'
+        write(soyconf%fh,*) '   "ms_angle_sig": 2.00,'
+        ! peti
+        ! is also stem
+        write(soyconf%fh,*) '   "peti_size_ave"  :  0.200,'
+        write(soyconf%fh,*) '   "peti_size_sig"  :  0.0100,'
+        write(soyconf%fh,*) '   "peti_width_ave"  :  0.00500,'
+        write(soyconf%fh,*) '   "peti_width_sig"  :  0.000100,'
+        write(soyconf%fh,*) '   "peti_angle_ave"  :  30.00,'
+        write(soyconf%fh,*) '   "peti_angle_sig"  :  1.000,'
+        ! leaf
+        write(soyconf%fh,*) '   "leaf_length_ave"  :  0.200,'
+        write(soyconf%fh,*) '   "leaf_length_sig"  :  0.010,'
+        write(soyconf%fh,*) '   "leaf_width_ave"  :  0.0500,'
+        write(soyconf%fh,*) '   "leaf_width_sig"  :  0.0100,'
+        write(soyconf%fh,*) '   "leaf_thickness_ave"  :  0.001000,'
+        write(soyconf%fh,*) '   "leaf_thickness_sig"  :  0.000500,'
+        write(soyconf%fh,*) '   "leaf_angle_ave"  :  40.00,'
+        write(soyconf%fh,*) '   "leaf_angle_sig"  :  10.00'
         write(soyconf%fh,*) '}'
         conf="soyconfig.json"
         call soyconf%close()
@@ -266,6 +296,8 @@ subroutine initsoybean(obj,config,&
                         id = index(line,":")
                         read(line(id+1:),*) obj%ms_node
                     endif
+
+                    
                 
                 enddo
             endif
@@ -458,6 +490,252 @@ subroutine initsoybean(obj,config,&
                 read(line(id+1:),*) obj%seed_height
             endif
 
+
+            ! for version 2020.11.24
+
+            ! stem
+            if(index(line,"br_angle_ave") /=0 .and. index(line,"br_angle_ave(") ==0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%br_angle_ave(:) = readvalreal
+            endif
+            
+            if(index(line,"br_angle_sig") /=0 .and. index(line,"br_angle_sig(") ==0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%br_angle_sig(:) = readvalreal
+            endif
+
+            if(index(line,"br_angle_ave(1)")/=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%br_angle_ave(1) = readvalreal
+            endif
+            if(index(line,"br_angle_sig(1)")/=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%br_angle_sig(1) = readvalreal
+            endif
+
+            if(index(line,"ms_angle_ave")/=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%ms_angle_ave = readvalreal
+            endif
+            
+            if(index(line,"ms_angle_sig")/=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%ms_angle_sig = readvalreal
+            endif
+            ! peti
+            ! is also stem
+            
+            if(index(line,"peti_size_ave")  /=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%peti_size_ave(:) = readvalreal
+            endif
+            
+            if(index(line,"peti_size_sig")  /=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%peti_size_sig(:) = readvalreal
+            endif
+            
+            if(index(line,"peti_width_ave")  /=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%peti_width_ave(:) = readvalreal
+            endif
+            
+            if(index(line,"peti_width_sig")  /=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%peti_width_sig(:) = readvalreal
+            endif
+            
+            if(index(line,"peti_angle_ave")  /=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%peti_angle_ave(:) = readvalreal
+            endif
+            
+            if(index(line,"peti_angle_sig")  /=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%peti_angle_sig(:) = readvalreal
+            endif
+            ! leaf
+            
+            if(index(line,"leaf_length_ave")  /=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%leaf_length_ave(:) = readvalreal
+            endif
+            
+            if(index(line,"leaf_length_sig")  /=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%leaf_length_sig(:) = readvalreal
+            endif
+            
+            if(index(line,"leaf_width_ave")  /=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%leaf_width_ave(:) = readvalreal
+            endif
+            
+            if(index(line,"leaf_width_sig")  /=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%leaf_width_sig(:) = readvalreal
+            endif
+            
+            if(index(line,"leaf_thickness_ave")  /=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%leaf_thickness_ave(:) = readvalreal
+            endif
+            
+            if(index(line,"leaf_thickness_sig")  /=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%leaf_thickness_sig(:) = readvalreal
+            endif
+            
+            if(index(line,"leaf_angle_ave")  /=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%leaf_angle_ave(:) = readvalreal
+            endif
+            
+            if(index(line,"leaf_angle_sig")  /=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%leaf_angle_sig(:) = readvalreal
+            endif
+
             cycle
 
         endif
@@ -549,8 +827,8 @@ subroutine initsoybean(obj,config,&
                     
                 call obj%stem(k)%rotate(&
                     x = radian(random%gauss(mu=obj%br_angle_ave(j),sigma=obj%br_angle_sig(j) )),  &
-                    y = radian(random%gauss(mu=obj%br_angle_ave(j),sigma=obj%br_angle_sig(j) )),  &
-                    z = radian(random%gauss(mu=obj%br_angle_ave(j),sigma=obj%br_angle_sig(j) ))   &
+                    y = 0.0d0,  &
+                    z = radian(360.0d0*random%random() )   &
                     )                
                 
                 if(j==1)then
