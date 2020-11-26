@@ -23,7 +23,9 @@
         "Width":0.01,
         "Node":2
     },
-
+    
+    "Comment": "This entity and following content is optional.",
+    
     "ms_angle_ave": 0.00, 
     "ms_angle_sig": 2.00,
 

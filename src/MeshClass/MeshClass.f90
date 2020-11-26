@@ -4515,7 +4515,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         return
     endif
 
-    if(meshtype=="rectangular2D")then
+    if(meshtype=="rectangular2D" .or. meshtype=="Box2D")then
         xn=input(default=1,option=x_num)
         yn=input(default=1,option=y_num)
         lx=input(default=1.0d0,option=x_len)

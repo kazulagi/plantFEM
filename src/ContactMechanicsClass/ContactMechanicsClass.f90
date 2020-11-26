@@ -16,7 +16,10 @@ module ContactMechanicsClass
 		! common fields
 		real(real64),allocatable		:: NTSGap(:,:)
 		real(real64),allocatable		:: NTSGzi(:,:)
-		real(real64)		  			:: penaltypara
+		real(real64)		  			:: penaltypara=dble(1.0e+5)
+		real(real64)		  			:: FrictionalCoefficient=0.30d0
+		real(real64)		  			:: Cohesion=0.0d0
+		real(real64)		  			:: Tolerance=dble(1.0e-10)
 
 		! for weak coupling contact analysis
 		real(real64),allocatable    :: Domain1Force(:,:)
@@ -32,10 +35,59 @@ module ContactMechanicsClass
         real(real64),allocatable    ::DispVecGlo(:)
         real(real64),allocatable    ::NTSvariables(:,:)
         real(real64),allocatable    ::ContactMatPara(:,:)
-        real(real64),allocatable    ::GloNodCoord(:,:)
-        integer,allocatable    ::NTSMaterial(:)
-		integer,allocatable    ::StickOrSlip(:)
-		integer :: step
+		real(real64),allocatable    ::GloNodCoord(:,:)
+		
+		! boundary conditions for lodging simulator 2.5
+		integer(int32),allocatable    ::u_nod_x(:)
+		integer(int32),allocatable    ::u_nod_y(:)
+		integer(int32),allocatable    ::u_nod_z(:)
+		real(real64),allocatable    ::du_nod_dis_x(:)
+		real(real64),allocatable    ::du_nod_dis_y(:)
+		real(real64),allocatable    ::du_nod_dis_z(:)
+		real(real64),allocatable    ::u_nod_dis_x(:)
+		real(real64),allocatable    ::u_nod_dis_y(:)
+		real(real64),allocatable    ::u_nod_dis_z(:)
+		real(real64),allocatable		:: duvec(:)
+		real(real64),allocatable		::  uvec(:)
+		real(real64),allocatable		:: dfvec(:)
+		real(real64),allocatable		::  fvec(:)
+
+        integer(int32),allocatable    ::NTSMaterial(:)
+		integer(int32),allocatable    ::StickOrSlip(:)
+	
+		integer(int32) :: step=0
+		integer(int32) :: itr_contact=0
+		integer(int32) :: itr=0
+		integer(int32) :: BiCG_ItrMax=10000
+		integer(int32) :: NR_ItrMax=100
+		integer(int32) :: control=1 ! 1:displacement-control, 2: traction-control
+		integer(int32) :: TimeStep=100
+
+		! from lodging-simulatiro 2.5
+
+		integer(int32),allocatable    ::nts_elem_nod(:,:)
+		integer(int32),allocatable    ::old_nts_elem_nod(:,:)
+		integer(int32),allocatable    ::surface_nod(:)
+		integer(int32),allocatable    ::sur_nod_inf(:,:)
+		real(real64),allocatable    ::nod_coord(:,:)
+		real(real64),allocatable    ::old_nod_coord(:,:)
+		real(real64),allocatable    ::elem_nod(:,:)
+		integer(int32),allocatable  :: nts_mat(:)
+		integer(int32),allocatable  :: sur_inf_mat(:,:)
+		integer(int32),allocatable  :: contact_mat(:,:)
+		real(real64),allocatable    ::contact_mat_para(:,:)
+		integer(int32),allocatable  :: active_nts(:)
+
+		real(real64),allocatable    ::k_contact(:,:)
+		real(real64),allocatable    ::fvec_contact(:)
+		real(real64),allocatable    ::nts_amo(:,:)
+		integer(int32),allocatable  :: stick_slip(:)
+		integer(int32),allocatable  :: old_stick_slip(:)
+		real(real64),allocatable    ::old_nts_amo(:,:)
+		real(real64),allocatable    ::kmat(:,:),gvec(:),rvec(:)
+		real(real64),allocatable    ::K_total(:,:),initial_duvec(:),dduvec(:),dduvec_nr(:)
+
+
 		
 	contains
 		procedure :: Update			=> UpdateContactConfiguration
@@ -52,13 +104,30 @@ module ContactMechanicsClass
 		procedure :: getGap			=> getGapCM
 		procedure :: getForce		=> getForceCM
 		procedure :: exportForceAsTraction 	=> exportForceAsTractionCM
+		procedure :: getDispBound => getDispBoundCM
+		procedure :: getTracBound => getTracBoundCM
+
+		procedure :: properties => propertiesCM
+		procedure :: property => propertiesCM
+		procedure :: run => runCM
+
+		! >>> regacy subroutines for lodging-simulator 2.5
+		procedure :: ls_add_du => ls_add_duCM
+		procedure :: ls_nts_generate => ls_nts_generateCM
+		procedure :: ls_nts_material => ls_nts_materialCM
+		procedure :: ls_get_stabilized_nts => ls_get_stabilized_ntsCM
+		procedure :: ls_check_active => ls_check_active_CM
     end type
 
 contains
 
 ! #####################################################
-subroutine InitializeContactMechanics(obj)
-    class(ContactMechanics_),intent(inout)  :: obj
+subroutine InitializeContactMechanics(obj,femdomain1, femdomain2)
+	class(ContactMechanics_),intent(inout)  :: obj
+	type(FEMDomain_),target,intent(in) :: femdomain1, femdomain2
+
+	integer(int32) :: node_num_1
+	integer(int32) :: node_num_2
 
     if(allocated(obj%KcontactEBE) )then
         deallocate(obj%KcontactEBE)
@@ -81,20 +150,695 @@ subroutine InitializeContactMechanics(obj)
     if(allocated(obj%NTSvariables) )then
         deallocate(obj%NTSvariables)
     endif
-    
-    if(.not. associated(obj%FEMDomain1) )then
-        print *, "ContactMechanics%Init >> FEMDomain1 is not imported"
-        return
-    endif
-    if(.not. associated(obj%FEMDomain2) )then
-        print *, "ContactMechanics%Init >> FEMDomain2 is not imported"
-        return
-    endif
-    if(.not. associated(obj%FEMIface) )then
-        print *, "ContactMechanics%Init >> FEMIface is not imported"
-        return
-    endif
+	
+	if(associated(obj%femdomain1) )then
+		nullify(obj%femdomain1)
+	endif
+	if(associated(obj%femdomain2) )then
+		nullify(obj%femdomain2)
+	endif
+	
+	obj%femdomain1 => femdomain1
+	obj%femdomain2 => femdomain2
+    !if(.not. associated(obj%FEMDomain1) )then
+    !    print *, "ContactMechanics%Init >> FEMDomain1 is not imported"
+    !    return
+    !endif
+    !if(.not. associated(obj%FEMDomain2) )then
+    !    print *, "ContactMechanics%Init >> FEMDomain2 is not imported"
+    !    return
+    !endif
+    !if(.not. associated(obj%FEMIface) )then
+    !    print *, "ContactMechanics%Init >> FEMIface is not imported"
+    !    return
+	!endif
+	if(obj%femdomain1%mesh%empty()  .eqv. .true.)then
+		print *, "[Caution] >> initContactMechanics:: obj%femdomain1%mesh is empty" 
+		stop
+	endif
+	if(obj%femdomain2%mesh%empty()  .eqv. .true.)then
+		print *, "[Caution] >> initContactMechanics:: obj%femdomain2%mesh is empty" 
+		stop
+	endif
+	
+	node_num_1 = size(obj%femdomain1%mesh%nodcoord,1)
+	node_num_2 = size(obj%femdomain2%mesh%nodcoord,1)
 
+	! initialize data objects
+	if(.not. allocated(obj%duvec))then
+		allocate(obj%duvec((node_num_1+node_num_2)*size(obj%femdomain1%mesh%nodcoord,2) ))
+	endif
+	if(.not. allocated(obj%uvec))then
+		allocate(obj%uvec((node_num_1+node_num_2)*size(obj%femdomain1%mesh%nodcoord,2) ))
+	endif
+	if(.not. allocated(obj%dfvec))then
+		allocate(obj%dfvec((node_num_1+node_num_2)*size(obj%femdomain1%mesh%nodcoord,2) ))
+	endif
+
+	if(.not. allocated(obj%fvec))then
+		allocate(obj%fvec((node_num_1+node_num_2)*size(obj%femdomain1%mesh%nodcoord,2) ))
+	endif
+end subroutine
+! #####################################################
+
+subroutine runCM(obj,debug)
+	class(ContactMechanics_),intent(inout) :: obj
+	logical,optional,intent(in) :: debug
+	logical :: Debugflag=.false.
+	integer(int32) :: i,nod_max,nn,itr,fstep,j,k,l,o
+	integer(int32) :: node_num_1,node_num_2,converge_check,error
+	type(IO_) :: ErrorLog
+	real(real64) :: rvec0,u_norm,er,er0,reacforcex,reacforcey
+
+	if(present(debug) )then
+		Debugflag = debug
+	endif
+	! initialize domains as deformable bodies
+	call obj%femdomain1%bake(template="FiniteDeform_")
+	call obj%femdomain2%bake(template="FiniteDeform_")
+	
+	! get displacement boundary
+	call obj%getDispBound()		
+	call obj%getTracBound()		
+
+
+	
+	if(obj%control == 2) then
+		!外力制御であれば、外力増分の計算
+		do i = 1, size(obj%dfvec)
+			obj%dfvec(i) = 1.0d0/dble(obj%timestep)*obj%fvec(i)
+		enddo
+		obj%fvec(:) = 0.0d0
+
+	elseif(obj%control == 1) then
+		!変位制御であれば、変位増分の計算と外力ベクトルの計算
+		
+		obj%du_nod_dis_x(:)= 1.0d0/dble(obj%timestep)*obj%u_nod_dis_x(:)
+		obj%du_nod_dis_y(:)= 1.0d0/dble(obj%timestep)*obj%u_nod_dis_y(:)
+		obj%u_nod_dis_x(:)= 0.0d0
+		obj%u_nod_dis_y(:)= 0.0d0	
+	
+	endif
+	
+
+	call ErrorLog%open("Contact_ErrorLog.txt")
+	write(ErrorLog%fh,*)'step=',1,"/",fstep
+	obj%step=0
+
+	! time-loop
+	do i=1, obj%TimeStep
+		obj%step = obj%step+1
+		obj%duvec(:) = 0.0d0
+		obj%itr_contact = 0
+
+		fstep=obj%TimeStep
+		print *, 'Step=',i !現在のstepの出力
+		if(Debugflag .eqv. .true.) print *, "Debug flag 0"
+
+		
+		!=========================================================
+		!Add force/displacement increments
+		!--------------------------------------
+		obj%itr = 0 !N-R法ループ1回目
+
+		if(obj%control ==1) then  !変位/外力増分の追加
+			call obj%ls_add_du() !強制変位量の追加
+		elseif(obj%control==2) then
+			obj%fvec(:)=obj%fvec(:)+obj%dfvec(:) !外力増分の追加
+		else
+			print *,"wrong nomber is in control"
+			exit
+		endif
+		!==================================================================
+		if(Debugflag .eqv. .true.) print *, "Debug flag 1"
+
+		call obj%ls_nts_generate()
+		call obj%ls_get_stabilized_nts()
+		call obj%ls_nts_material()
+		!================================================================
+		if(Debugflag .eqv. .true.) print *, "Debug flag 2"
+
+		
+		if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0 )then !contact exists
+			!================================================================
+			!check for contact: gn<0 → active NTS-element
+			!--------------------------------------------
+			call obj%ls_check_active()
+			!================================================================
+		endif
+		if(Debugflag .eqv. .true.) print *, "Debug flag 3"
+	
+		
+		!===============================================================================
+		!Elastic stick の計算(trial phase)
+		!Calculate [K_stick(u)],[K(u)],gvec
+		!-----------------------------------
+		if(.not.allocated(obj%k_contact) )	then
+			allocate(obj%k_contact(size(obj%uvec),size(obj%uvec) ) )
+		endif
+		if(.not.allocated(obj%fvec_contact) )	then
+			allocate(obj%fvec_contact(size(obj%uvec) ) )
+		endif
+		obj%k_contact(:,:)=0.0d0 
+		obj%fvec_contact(:)=0.0d0
+
+		
+		if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0 )then !contact exists
+		!nts諸量の初期化
+			allocate(obj%nts_amo(size(obj%nts_elem_nod,1),12),obj%stick_slip( size(obj%nts_elem_nod,1) )  )
+			obj%nts_amo(:,:)=0.0d0
+			obj%stick_slip(:)=0
+			!もし過去にNTSを構成していれば、load data
+			if(allocated(obj%old_nts_amo))then
+				call load_nts_element(obj%nts_elem_nod,obj%nts_amo,obj%old_nts_elem_nod,obj%old_nts_amo,&
+					obj%stick_slip,obj%old_stick_slip)
+			endif
+			obj%stick_slip(:)=0
+			do j = 1, size(obj%active_nts,1)
+				
+				if(obj%stick_slip(obj%active_nts(j) )==0 )then
+					nod_max=size(obj%nod_coord,1)
+					call state_stick(j,nod_max,obj%nod_coord,obj%nts_elem_nod,obj%active_nts&
+					,obj%nts_amo, obj%k_contact,obj%nts_mat,obj%contact_mat_para,obj%uvec,obj%fvec_contact,&
+					obj%stick_slip)  !state stick and K_contactへの重ね合わせ
+					
+				else
+					call update_res_grad_c_i(j,nod_max,obj%nod_coord,obj%nts_elem_nod,obj%active_nts&
+						,obj%nts_amo,obj% k_contact,obj%uvec,obj%duvec,obj%fvec_contact,obj%stick_slip,&
+						obj%contact_mat_para,obj%nts_mat) 
+				endif
+			enddo
+			
+		endif
+ 
+
+		! ここは、FiniteDeformationClassから呼び出し
+
+
+		obj%kmat(:,:)=0.0d0
+		obj%gvec(:)=0.0d0
+		!call k_mat_f_int(elem_mat,elem_nod,f_nod,nod_coord,mat_cons, Kmat,stress,duvec,&
+		!		pulout,gvec,sigma,uvec,strain_measure,itr_tol,tol,itr,i,obj%itr_contact)
+		!================================================================================
+		if(Debugflag .eqv. .true.) print *, "Debug flag 4"
+
+
+		!==========================================================================
+		!Solve
+		!-----------------------
+		obj%K_total(:,:) = obj%kmat(:,:)+ obj%k_contact(:,:) !全体接触剛性マトリクスの計算
+		obj%rvec(:)=obj%fvec(:)-obj%gvec(:)-obj%fvec_contact(:)!fvec_contact(:)
+		!!!!no tension wall 保留中
+		!call  no_tension_wall(gvec,surface_nod,sur_nod_inf,nod_coord,uvec,&
+		!	u_nod_x,u_nod_y,active_wall_x,active_wall_y)
+		!active_wall_x(:)=1
+		!active_wall_y(:)=1
+		!==================
+
+		call displace(obj%K_total, obj%rvec, obj%u_nod_x, obj%du_nod_dis_x,obj%u_nod_y, &
+			obj%du_nod_dis_y) !Dirichlet Boundary conditions
+		nn=size(obj%uvec,1)    !Parameters for gauss_joprdan
+
+		do k=1,size(obj%rvec)
+			if(obj%rvec(k)>=0.0d0 .or. obj%rvec(k)<0.0d0 )then
+				cycle
+			else
+				error=1
+				print *, "NaN !!"
+				exit
+			endif
+		enddo
+		
+		do k=1,size(obj%K_total,1)
+			do l=1,size(obj%k_total,2)
+				if(obj%K_total(k,l) >=0.0d0 .or. obj%K_total(k,l)<0.0d0 )then
+					cycle
+				else
+					error=1
+					print *, "NaN !!"
+					exit
+				
+				endif
+			enddo
+		enddo			
+	
+		!call gauss_jordan_pv(k_total, duvec, rvec, nn)
+		!duvec(:)=0.0d0
+		!call bicgstab1d(k_total, Rvec, duvec, nn, itr_tol, tol_rm)	!obtain initial du
+	
+		er=1.0e-15
+		nn = size(obj%rvec)
+		call bicgstab_nr1(obj%k_total, obj%Rvec, obj%duvec, nn, obj%BiCG_ItrMax,&
+			er,obj%u_nod_x, obj%u_nod_y,obj%u_nod_dis_x,obj%u_nod_dis_y)
+		
+		
+		
+		!#### ERROR CHECKER ########
+		if(dot_product(obj%duvec,obj%duvec) /=dot_product(obj%duvec,obj%duvec)  )then
+			print *, "ERROR :: runContactMechanics"
+			exit
+		endif
+		!#### ERROR CHECKER ########
+		
+		
+		
+		!call gnuplot_out(elem_nod,nod_coord,uvec+duvec,i,process_parallel)
+		! stop  "debug"
+		
+		!x=duvec(2*u_nod_y(1))
+		!write(108,*) x,du_nod_dis_y(1)
+		!if(int(x)/=int(du_nod_dis_y(1)) )then
+		!	error=1
+		!	print *, "invalid uvec"
+		!	exit
+		!endif
+		obj%initial_duvec(:)=obj%duvec(:)
+
+		!=========================================================================
+		print *, "Debug flag 5"
+
+
+		do 
+
+				
+			!call gnuplot_out(elem_nod,nod_coord,uvec+duvec,obj%itr_contact,process_parallel)
+				
+			!==================================================================
+			if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0  )then !contact exists
+				!==================================================================
+				!check contact pairing
+			
+				
+				!==================================================================
+				!check for contact: gn<0 → active NTS-element
+				!-----------------------------------------------
+				call obj%ls_check_active()
+				!=====================================================================
+			endif
+			print *, "Debug flag 6"			
+			
+			
+			
+			!================================================
+			
+			if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0 .and. obj%itr_contact>=2 )then !contact exists
+				obj%k_contact(:,:)=0.0d0	
+				obj%fvec_contact(:)=0.0d0
+
+				do j = 1, size(obj%active_nts,1)
+					call update_friction(j,nod_max,obj%nod_coord,obj%nts_elem_nod,obj%active_nts,obj%surface_nod,obj%sur_nod_inf&
+					,obj%nts_amo,obj% k_contact,obj%uvec,obj%duvec,obj%fvec_contact,obj%stick_slip,&
+					obj%contact_mat_para,obj%nts_mat,obj%itr_contact) !with return mapping Algorithm
+				enddo
+
+			endif
+			
+	
+			
+			!================================================
+			print *, "Debug flag 7"
+			
+			!====================================================================
+			!LOOP OVER ITERATIONS : k = 1, 2, ..., convergence
+			!------------------------------------------------------
+				
+			itr = itr + 1 
+			obj%dduvec(:)=0.0d0
+			
+			if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0 )then !contact exists
+				obj%k_contact(:,:)=0.0d0	
+				obj%fvec_contact(:)=0.0d0
+
+				do j = 1, size(obj%active_nts,1)
+					call update_res_grad_c(j,nod_max,obj%nod_coord,obj%nts_elem_nod,obj%active_nts&
+					,obj%nts_amo,obj% k_contact,obj%uvec,obj%duvec,obj%fvec_contact,obj%stick_slip,&
+					obj%contact_mat_para,obj%nts_mat) !with return mapping Algorithm
+				enddo
+
+			endif
+		  
+		
+			!===============================================================================
+			!Elastic stick/ Plastic slip の計算
+			!Calculate [K_stick(u)],[K(u)] 
+			!-----------------------------------
+			obj%kmat(:,:)=0.0d0
+			obj%gvec(:)=0.0d0
+			
+			!call k_mat_f_int(elem_mat,elem_nod,f_nod,nod_coord,mat_cons, Kmat,stress,duvec,pulout,gvec,&
+			!	sigma,uvec,strain_measure,itr_tol,tol,itr,i,obj%itr_contact)
+
+			!================================================================================
+			print *, "Debug flag 8"
+
+				!================================================================================
+				!Calculate Rresidual vecor r
+				!--------------------------------
+			obj%k_total(:,:)=obj%kmat(:,:)+obj%k_contact(:,:)
+			obj%rvec(:)=obj%fvec(:)-obj%gvec(:)-obj%fvec_contact(:)
+			if(itr==1)then
+				rvec0=abs(dot_product(obj%rvec,obj%rvec))!**(1.0d0/2.0d0)
+			endif
+			!=================================================================================
+			print *, "Debug flag 9"
+			print *, "itr=",itr
+
+	
+			!================================================================================
+			!Solve
+			!---------------
+			
+			!!!!no tension wall 保留中
+			!call  no_tension_wall(gvec,surface_nod,sur_nod_inf,nod_coord,uvec+duvec,&
+			!u_nod_x,u_nod_y,active_wall_x,active_wall_y)
+			!if(obj%itr_contact<0)then
+				!active_wall_x(:)=1
+				!active_wall_y(:)=1
+			!endif
+			!=====================
+	
+			call displace_nr(obj%K_total, obj%Rvec, obj%u_nod_x, obj%u_nod_dis_x,obj%u_nod_y, &
+				obj%u_nod_dis_y) !変位境界ではΔu=0
+			
+
+			!call gauss_jordan_pv(k_total, dduvec, Rvec, nn)
+			!call bicgstab1d(k_total, Rvec, dduvec, nn, itr_tol, tol_rm)
+			obj%dduvec(:)=0.0d0
+			er=1.0e-15
+			
+			!NaN checker
+			do k=1,size(obj%rvec)
+				if(obj%rvec(k)>=0.0d0 .or. obj%rvec(k)<0.0d0 )then
+					cycle
+				else
+					error=1
+					exit
+				endif
+			enddo
+			
+			do k=1,size(obj%K_total,1)
+				do l=1,size(obj%k_total,2)
+					if(obj%K_total(k,l) >=0.0d0 .or. obj%K_total(k,l)<0.0d0 )then
+						cycle
+					else
+						error=1
+						exit
+					endif
+				enddo
+			enddo
+			
+			call bicgstab_nr(obj%k_total, obj%Rvec, obj%dduvec, nn, obj%BiCG_ItrMax,er,&
+				obj%u_nod_x, obj%u_nod_y)
+			
+						
+				
+			
+			!#### ERROR CHECKER ########
+			if(dot_product(obj%dduvec,obj%dduvec) /=dot_product(obj%dduvec,obj%dduvec)  )then
+				error=1
+				exit
+			endif
+
+			!#### ERROR CHECKER ########
+			
+			
+			
+			!---変位ベクトルの足しこみ-----------------------------
+			obj%duvec(:) = obj%duvec(:) + obj%dduvec(:) 
+			
+		
+			
+			if(obj%itr_contact*itr==1)then
+				obj%dduvec_nr(:)=obj%dduvec(:)
+			endif
+			
+			
+			
+			
+			u_norm=abs(dot_product(obj%rvec,obj%rvec))/rvec0!
+			if(u_norm==0.0d0)then
+				print *, "u_norm=0 at step",i,"contact_itr=",obj%itr_contact,"itr=",itr
+			endif
+			!u_norm=(abs(dot_product(rvec,rvec))**(1.0d0/2.0d0))/u_norm
+			!#### ERROR CHECKER ########
+			if(u_norm>100000.0d0  )then
+				error=1
+			endif
+			
+
+	
+			if(error==1)then
+				exit
+			endif
+			!#### ERROR CHECKER ########
+			!==========================================================================
+			!Check convergence
+			!Contact analysisの収束判定
+			!------------------------------------			
+			
+			!call gnuplot_out(elem_nod,nod_coord,uvec+duvec,itr,process_parallel)
+			if( abs(u_norm) <= 1.0e-5 .and. obj%itr_contact>=2 ) then
+			
+				print *, 'contact loop itr=',itr,'residual_out_cont',u_norm
+				!write(1000,*)'contact loop itr=',itr,'residual_out_cont',u_norm
+				obj%uvec(:)=obj%uvec(:)+obj%duvec(:)
+				if(dot_product(obj%uvec,obj%uvec)==0.0d0 )then
+					error=1
+					exit
+				endif
+				obj%duvec(:)=0.0d0
+				!compute traction forces:
+				reacforcey=0.0d0
+				reacforcex=0.0d0
+				do o =1, size(obj%u_nod_x)
+					if(obj%u_nod_dis_x(o)==0.0d0)then
+						cycle
+					else
+						reacforcex=reacforcex+obj%gvec(2*obj%u_nod_x(o)-1)
+					endif
+				enddo
+				do o =1, size(obj%u_nod_y)
+					if(obj%u_nod_dis_y(o)==0.0d0)then
+						cycle
+					else
+						reacforcey=reacforcey+obj%gvec(2*obj%u_nod_y(o))
+					endif
+				enddo
+				
+				!if(i==outputstep)then
+				!	outputstep=outputstep+ops
+				!	!call gnuplot_out(elem_nod,nod_coord,uvec,i,process_parallel)
+				!endif
+				!call gnu_st(elem_nod,nod_coord,uvec,sigma,i,scalar)
+				
+				!write(1000,*)'step=',i+1,"/",fstep
+				print *, "Debug flag 11"
+				!debug
+				!write(52,*) "step, s12 elem,gauss=(1,1),(2,1)...",Fstep, sigma(:,:,3)
+			
+				if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0 )then !contact exists
+					call save_nts_element(obj%nts_elem_nod,obj%nts_amo,obj%old_nts_elem_nod,obj%old_nts_amo,obj%surface_nod,obj%sur_nod_inf,obj%&
+					stick_slip,obj%old_stick_slip)
+					deallocate(obj%nts_amo,obj%active_nts,obj%stick_slip)
+				endif
+				!call output_stress_contour(nod_coord,uvec,elem_nod,sigma,strain_measure,i,process_parallel )
+				deallocate(obj%nts_elem_nod)
+				!call variable_update(strain_measure)
+				!converge_check=1
+				!error=0
+
+				exit
+			elseif( abs(u_norm) <= obj%Tolerance .and. obj%itr_contact<=1 ) then
+
+				obj%itr_contact=obj%itr_contact+1
+				itr=0
+			
+				cycle
+				
+			else
+			
+				print *, 'contact loop itr=',obj%itr_contact,'residual_out',u_norm
+				!write(1000,*)'contact loop itr=',obj%itr_contact,'residual_out',u_norm
+
+
+				if(itr >= obj%NR_ItrMax)then
+					!close(40)
+					!close(50)
+					!close(61)
+					!close(70)					
+					!call system("png_script.gp")
+					!call system("stre_png_scr.gp")
+					! stop 'contact loop did not converge'
+					print *, "ERROR :: NR-did not converge"
+					converge_check=0
+
+					exit
+				else
+				
+					cycle
+				
+				endif
+
+			endif
+			!------------収束判定ここまで------------------------------------------------
+			!===========================================================================
+			
+			
+			
+		enddo
+		
+		if(converge_check==0 .or. error ==1 )then
+			exit
+		endif
+		
+	enddo
+  
+	!output restart data
+	if(error==0 .and. converge_check==1)then 
+		
+		!call restart_out(nod_coord,uvec,fvec,sigma,strain_measure,old_nts_elem_nod,&
+	!		old_nts_amo,old_stick_slip,gvec,process_parallel)
+	endif
+	write(*,*)'Contact Elasto-Plastic analysis was completed!'
+	
+	call ErrorLog%close()
+
+end subroutine
+
+! #####################################################
+subroutine propertiesCM(obj,config)
+	class(ContactMechanics_),intent(inout) :: obj
+	character(*),optional,intent(in) :: config
+	type(IO_) :: f
+	character(200) :: fn,conf,line
+	integer(int32) :: blcount,rmc,id
+
+
+
+	if(.not.present(config).or. index(config,".json")==0 )then
+		
+        print *, "New contact-configuration >> contact.json"
+		call f%open("contact.json")
+		
+        write(f%fh,*) '{'
+        write(f%fh,*) '   "type": "contact",'
+		write(f%fh,*) '    "FrictionalCoefficient": 0.30,'
+		write(f%fh,*) '    "PenaltyParameter": 1.0e+5,'
+		write(f%fh,*) '    "Cohesion": 0.00,'
+		write(f%fh,*) '    "TimeStep": 100,'
+        write(f%fh,*) '    "Tolerance:":1.0e-10,'
+        write(f%fh,*) '    "BiCG_ItrMax:":10000'
+        write(f%fh,*) '}'
+
+		conf="contact.json"
+
+		call f%close()
+    else
+        conf = trim(config)
+	endif
+
+    call f%open(trim(conf))
+    blcount=0
+    do
+        read(f%fh,'(a)') line
+        print *, trim(line)
+		
+		if( adjustl(trim(line))=="{" )then
+            blcount=1
+            cycle
+		endif
+		
+        if( adjustl(trim(line))=="}" )then
+            exit
+        endif
+        
+        if(blcount==1)then
+            
+            if(index(line,"FrictionalCoefficient")/=0)then
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%FrictionalCoefficient
+			endif
+			
+			if(index(line,"TimeStep")/=0)then
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%TimeStep
+			endif
+
+			
+			if(index(line,"Tolerance")/=0)then
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%Tolerance
+			endif
+			
+			if(index(line,"PenaltyParameter")/=0)then
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%penaltypara
+			endif
+
+			if(index(line,"Cohesion")/=0)then
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%Cohesion
+			endif
+
+
+			if(index(line,"BiCG_ItrMax")/=0)then
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) obj%BiCG_ItrMax
+			endif
+		endif
+	enddo
+	call f%close()
+
+	if(allocated(obj%sur_inf_mat)) deallocate(obj%sur_inf_mat)
+	if(allocated(obj%contact_mat)) deallocate(obj%contact_mat)
+	if(allocated(obj%contact_mat_para)) deallocate(obj%contact_mat_para)
+	
+	allocate(obj%sur_inf_mat(1,3))
+	allocate(obj%contact_mat(1,1))
+	allocate(obj%contact_mat_para(1,4))
+
+	! from surface nod id
+	obj%sur_inf_mat(1,1)=1
+	! to 
+	obj%sur_inf_mat(1,2)=size(obj%femdomain1%mesh%nodcoord,1)+size(obj%femdomain2%mesh%nodcoord,1)
+	obj%sur_inf_mat(1,3)=1 !; material id = 1
+
+	obj%contact_mat(:,:)=1
+
+	obj%contact_mat_para(1,1) =obj%penaltypara ! eT
+	obj%contact_mat_para(1,2) =obj%penaltypara ! eN
+	obj%contact_mat_para(1,3) =obj%Cohesion ! c
+	obj%contact_mat_para(1,4) =atan(obj%FrictionalCoefficient) ! Φ
 
 end subroutine
 ! #####################################################
@@ -1136,27 +1880,27 @@ end subroutine
  !============================================================
  !check for contact: gn<0 → active NTS-element----------------
  
- subroutine check_active(uvec,duvec,old_nod_coord,active_nts,nts_elem_nod)
-    real(real64),intent(in)::uvec(:),duvec(:),old_nod_coord(:,:)
+ subroutine ls_check_active_CM(obj)
+	
+	class(ContactMechanics_),intent(inout) :: obj
 	real(real64),allocatable::nod_coord(:,:)
-	integer,allocatable,intent(inout)::active_nts(:)
-	integer,intent(in)::nts_elem_nod(:,:)
+
 	integer,allocatable ::check_active_nts(:)
 	integer active_nts_max,i,j
 	
-	allocate(nod_coord(size(old_nod_coord,1),size(old_nod_coord,2)))
+	allocate(nod_coord(size(obj%old_nod_coord,1),size(obj%old_nod_coord,2)))
 	do i=1, size(nod_coord,1)
-		nod_coord(i,1)=old_nod_coord(i,1)+uvec(2*i-1)+duvec(2*i-1)
-		nod_coord(i,2)=old_nod_coord(i,2)+uvec(2*i  )+duvec(2*i  )
+		nod_coord(i,1)=obj%old_nod_coord(i,1)+obj%uvec(2*i-1)+obj%duvec(2*i-1)
+		nod_coord(i,2)=obj%old_nod_coord(i,2)+obj%uvec(2*i  )+obj%duvec(2*i  )
 	enddo	
 	
-	allocate( check_active_nts(size(nts_elem_nod,1) )  )
-	do i=1, size(nts_elem_nod,1)
-	    call check_gn(i,nts_elem_nod,check_active_nts,nod_coord)
+	allocate( check_active_nts(size(obj%nts_elem_nod,1) )  )
+	do i=1, size(obj%nts_elem_nod,1)
+	    call check_gn(i,obj%nts_elem_nod,check_active_nts,nod_coord)
 	enddo
 	active_nts_max=0
 	
-	do i=1, size(nts_elem_nod,1 )
+	do i=1, size(obj%nts_elem_nod,1 )
 	   if( check_active_nts(i)==1 )then
 	       active_nts_max=active_nts_max+1 !active
        elseif(check_active_nts(i)==0)then
@@ -1165,22 +1909,22 @@ end subroutine
 	        stop "something wrong at check_active_nts"
 	   endif
 	enddo
-	if( allocated(active_nts) )deallocate(active_nts)
-	!print *, "active nts= ",active_nts_max,"/",size(nts_elem_nod,1)
-	allocate(active_nts(active_nts_max) )
+	if( allocated(obj%active_nts) )deallocate(obj%active_nts)
+	!print *, "active nts= ",active_nts_max,"/",size(obj%nts_elem_nod,1)
+	allocate(obj%active_nts(active_nts_max) )
 	
 	j=0
-	do i=1, size(nts_elem_nod,1)
-	   if( check_active_nts(i)==1  )then
+	do i=1, size(obj%nts_elem_nod,1)
+	   if( check_active_nts(i)==1)then
 	      j=j+1
-		  active_nts(j)=i
+		  obj%active_nts(j)=i
 	   else
 	      cycle
 	   endif
 	enddo
 	
 	
- end subroutine check_active
+ end subroutine ls_check_active_CM
 !=============================================================
 !check gn
 !-------------------
@@ -3270,86 +4014,130 @@ end subroutine
  end subroutine get_beta_st_nts
 !===============================================================
 
-subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,sur_nod_inf,uvec,step)
-! 配列の宣言
-  
-  integer,intent(in)::elem_nod(:,:),surface_nod(:),sur_nod_inf(:,:),con_max,step
-  integer,allocatable,intent(out)::nts_elem_nod(:,:)
-  integer,allocatable:: mast_slav(:,:),mast_slav_es(:,:),&
-  nts_elem_nod_es(:,:),master_nod(:),master_nod_es(:),slave_nod(:),&
-  slave_nod_es(:)
-  
-  real(real64),intent(in)::old_nod_coord(:,:),uvec(:)
-  real(real64), allocatable ::con_d_coord(:,:),grobal_grid(:,:),grobal_grid_es(:,:),nod_coord(:,:),zerovec(:)
-  
-  integer grobal_grid_max,m,s,m_nod,s_nod,&	
-  sla_nod_max,i,j,k,l,o,p,q,nei_nod,nei_nod_1,nei_nod_2,&	
-  nn,nts_elem_max,x2,x11,x12
-  
-  real(real64) gn,gn_tr,tol,tol_rm,ll,lx,ly,x,y,z,norm_rvec,norm_uvec,start,fin_time,nts_time,gzi
+subroutine ls_nts_generateCM(obj)
+	! 配列の宣言
+  	class(ContactMechanics_),intent(inout) :: obj
+ 
+  	integer,allocatable:: mast_slav(:,:),mast_slav_es(:,:),&
+  	nts_elem_nod_es(:,:),master_nod(:),master_nod_es(:),slave_nod(:),&
+  	slave_nod_es(:)
   
   
-  allocate(nod_coord(size(old_nod_coord,1),size(old_nod_coord,2)),&
-	zerovec(size(uvec)))
 
-  do i=1, size(nod_coord,1)
-	nod_coord(i,1)=old_nod_coord(i,1)+uvec(2*i-1)
-	nod_coord(i,2)=old_nod_coord(i,2)+uvec(2*i  )
-  enddo
-  zerovec(:)=0.0d0
+  	real(real64), allocatable ::con_d_coord(:,:),grobal_grid(:,:),grobal_grid_es(:,:),nod_coord(:,:),zerovec(:),uvec(:)
+  
+  	integer grobal_grid_max,m,s,m_nod,s_nod,con_max,step,&	
+  	sla_nod_max,i,j,k,l,o,p,q,nei_nod,nei_nod_1,nei_nod_2,&	
+  	nn,nts_elem_max,x2,x11,x12,surn1,surn2
+  
+  	real(real64) gn,gn_tr,tol,tol_rm,ll,lx,ly,x,y,z,norm_rvec,norm_uvec,start,fin_time,nts_time,gzi
+  
+	! only for 2D, 2domains
+	if(.not. allocated(obj%sur_nod_inf) )then
+		allocate(obj%sur_nod_inf(2,2) )
 
-!===============================
-!contact search
-!=========================================================================================
-!Grobal search
-!----------------
-  
-  allocate(con_d_coord(con_max,4))
-  ! 連続体ごと外接する長方形のx-min,x-max,y-min,y-maxの座標
-  con_d_coord(1:con_max,1:4) = 0
-  
-      do i = 1, con_max   ! 連続体ループ
-	   
-	       do j = sur_nod_inf(i,1), sur_nod_inf(i,2) !該当連続体の開始節点～最終節点
-	       !各連続体ごとに、最初の節点の値を初期のx-min,x-max,y-min,y-maxの座標とする。
-  	         if(j == sur_nod_inf(i,1)) then
-		          con_d_coord(i,1) = nod_coord( surface_nod(j),1)
-			      con_d_coord(i,2) = nod_coord( surface_nod(j),1)
-			      con_d_coord(i,3) = nod_coord( surface_nod(j),2)
-			      con_d_coord(i,4) = nod_coord( surface_nod(j),2)
-		      endif      
+		call obj%femdomain1%mesh%getSurface()
+		call obj%femdomain2%mesh%getSurface()
+		surn1 = size(obj%femdomain1%mesh%SurfaceLine2D)
+		surn2 = size(obj%femdomain2%mesh%SurfaceLine2D)
+
+		obj%sur_nod_inf(1,1) = 1
+		obj%sur_nod_inf(1,2) = surn1
+		obj%sur_nod_inf(2,1) = surn1+1
+		obj%sur_nod_inf(2,2) = surn1+surn2
+
+		if(.not. allocated(obj%surface_nod) )then
+			allocate(obj%surface_nod(surn1+surn2))
+			obj%surface_nod(1:surn1) = obj%femdomain1%mesh%SurfaceLine2D(:)
+			obj%surface_nod(1+surn1:surn2) = obj%femdomain2%mesh%SurfaceLine2D(:)&
+				+size(obj%femdomain1%mesh%nodcoord,1)
+		endif
+	endif
+
+	con_max = 2
+	step = obj%step
+	uvec = obj%uvec
+
+	p = size(obj%femdomain1%mesh%nodcoord,1)+size(obj%femdomain2%mesh%nodcoord,1)
+	q = size(obj%femdomain1%mesh%nodcoord,2)
+
+
+	if(.not.allocated(obj%nod_coord) ) allocate(obj%nod_coord(p,q))
+
+	obj%nod_coord(1:size(obj%femdomain1%mesh%nodcoord,1),:) = obj%femdomain1%mesh%nodcoord(:,:)
+	obj%nod_coord(size(obj%femdomain1%mesh%nodcoord,1)+1:&
+		size(obj%femdomain2%mesh%nodcoord,1),:) = obj%femdomain2%mesh%nodcoord(:,:)
+
+
+	if(.not.allocated(obj%elem_nod)) allocate(obj%elem_nod(p,q))
+
+	obj%elem_nod(1:size(obj%femdomain1%mesh%elemnod,1),:) = obj%femdomain1%mesh%elemnod(:,:)
+	obj%elem_nod(size(obj%femdomain1%mesh%elemnod,1)+1:&
+		size(obj%femdomain2%mesh%elemnod,1),:) = obj%femdomain2%mesh%elemnod(:,:)&
+		+size(obj%femdomain1%mesh%nodcoord,1)
+
+
 	
-	
-	          !連続体ごとに、接点の読み込み、最小/最大の更新
-	          if(con_d_coord(i,1) > nod_coord( surface_nod(j) ,1)) then
-		          con_d_coord(i,1) = nod_coord( surface_nod(j) ,1)
-		      endif
-		   
-		      if(con_d_coord(i,2) < nod_coord( surface_nod(j) ,1)) then
-		       con_d_coord(i,2) = nod_coord( surface_nod(j) ,1)
-		      endif
-		   
-		      if(con_d_coord(i,3) > nod_coord( surface_nod(j) ,2)) then
-		          con_d_coord(i,3) = nod_coord( surface_nod(j) ,2)
-		      endif
-		   
-		      if(con_d_coord(i,4) < nod_coord( surface_nod(j) ,2)) then
-		          con_d_coord(i,4) = nod_coord( surface_nod(j) ,2)
-		      endif
-		   
-		   
-	       enddo
-      enddo
+  	allocate(nod_coord(size(obj%nod_coord,1),size(obj%nod_coord,2)),&
+		zerovec(size(uvec)))
 
-! この時点で、連続体ごとに外接長方形の領域が確定
-!check
+  	do i=1, size(nod_coord,1)
+		nod_coord(i,1)=obj%nod_coord(i,1)+obj%uvec(2*i-1)
+		nod_coord(i,2)=obj%nod_coord(i,2)+obj%uvec(2*i  )
+	  	enddo
+	  	zerovec(:)=0.0d0
 
-  grobal_grid_max = 0
+	!===============================
+	!contact search
+	!=========================================================================================
+	!Grobal search
+	!----------------
+	  
+	allocate(con_d_coord(con_max,4))
+	! 連続体ごと外接する長方形のx-min,x-max,y-min,y-maxの座標
+	con_d_coord(1:con_max,1:4) = 0
+	    do i = 1, con_max   ! 連続体ループ
+		
+		    do j = obj%sur_nod_inf(i,1), obj%sur_nod_inf(i,2) !該当連続体の開始節点～最終節点
+		    !各連続体ごとに、最初の節点の値を初期のx-min,x-max,y-min,y-maxの座標とする。
+	  	        if(j == obj%sur_nod_inf(i,1)) then
+			        con_d_coord(i,1) = nod_coord( obj%surface_nod(j),1)
+				    con_d_coord(i,2) = nod_coord( obj%surface_nod(j),1)
+				    con_d_coord(i,3) = nod_coord( obj%surface_nod(j),2)
+				    con_d_coord(i,4) = nod_coord( obj%surface_nod(j),2)
+			    endif      
+			  
+			  
+		        !連続体ごとに、接点の読み込み、最小/最大の更新
+		        if(con_d_coord(i,1) > nod_coord( obj%surface_nod(j) ,1)) then
+			        con_d_coord(i,1) = nod_coord( obj%surface_nod(j) ,1)
+			    endif
+			
+			    if(con_d_coord(i,2) < nod_coord( obj%surface_nod(j) ,1)) then
+			     con_d_coord(i,2) = nod_coord( obj%surface_nod(j) ,1)
+			    endif
+			
+			    if(con_d_coord(i,3) > nod_coord( obj%surface_nod(j) ,2)) then
+			        con_d_coord(i,3) = nod_coord( obj%surface_nod(j) ,2)
+			    endif
+			
+			    if(con_d_coord(i,4) < nod_coord( obj%surface_nod(j) ,2)) then
+			        con_d_coord(i,4) = nod_coord( obj%surface_nod(j) ,2)
+			    endif
+			  
+			  
+		    enddo
+	    enddo
 
-  allocate(mast_slav(1,2))
-   
-   
-  ! grobal search のループ
+	! この時点で、連続体ごとに外接長方形の領域が確定
+	!check
+
+	grobal_grid_max = 0
+
+	allocate(mast_slav(1,2))
+	  
+	  
+	  ! grobal search のループ
     do i = 1, con_max
      
 	     do j = 1, con_max
@@ -3531,14 +4319,14 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 			do k = 1, 2 !master矩形,slave矩形
 				write(20,*) 'master,slave',k
 		   
-				do j = sur_nod_inf(mast_slav(i,k),1), sur_nod_inf &
+				do j = obj%sur_nod_inf(mast_slav(i,k),1), obj%sur_nod_inf &
 					(mast_slav(i,k),2) !m,sごとに、表面節点を1つずつ、重複矩形に入っているか吟味 jは吟味中の表面接点用No.
 				
-					if(grobal_grid(i,1) <= nod_coord(surface_nod(j),1) .and. & 
-						nod_coord(surface_nod(j),1) <= grobal_grid(i,2) ) then
+					if(grobal_grid(i,1) <= nod_coord(obj%surface_nod(j),1) .and. & 
+						nod_coord(obj%surface_nod(j),1) <= grobal_grid(i,2) ) then
 					
-						if(grobal_grid(i,3) <= nod_coord(surface_nod(j),2) &
-							.and. nod_coord(surface_nod(j),2) <= grobal_grid(i,4)) then
+						if(grobal_grid(i,3) <= nod_coord(obj%surface_nod(j),2) &
+							.and. nod_coord(obj%surface_nod(j),2) <= grobal_grid(i,4)) then
 
 							if (k == 1) then  
 								m = m + 1    !master,slaveごとに接点数記録
@@ -3546,7 +4334,7 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 								
 								if (m == 1) then
 
-									master_nod(m) = surface_nod(j)
+									master_nod(m) = obj%surface_nod(j)
 									
 								elseif(m>=2) then
 									!m>=2である。
@@ -3564,7 +4352,7 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 									do l = 1,size(master_nod_es)
 										master_nod(l) = master_nod_es(l)
 									enddo 
-									master_nod(m) = surface_nod(j)
+									master_nod(m) = obj%surface_nod(j)
 									deallocate(master_nod_es) !避難用配列の解体
 				
 
@@ -3578,8 +4366,8 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 									!接点数の記録						  
 								if (s == 1) then
 
-									slave_nod(s) = surface_nod(j)
-									write(20,*)surface_nod(j)
+									slave_nod(s) = obj%surface_nod(j)
+									write(20,*)obj%surface_nod(j)
 								elseif(s>=2)then
 									!s>=2である。
 									!slave_nod配列の拡張
@@ -3595,7 +4383,7 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 									do l = 1,size(slave_nod_es)
 										slave_nod(l) = slave_nod_es(l)
 									enddo
-									slave_nod(s) = surface_nod(j)
+									slave_nod(s) = obj%surface_nod(j)
 									deallocate(slave_nod_es) !避難用配列の解体
 									
 
@@ -3636,8 +4424,8 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 
 				if(grobal_grid_max==i)then
 					print *, "No contact !"
-					allocate(nts_elem_nod(1,3) ) !no contact >> nts_elem_nod==0
-					nts_elem_nod(:,:)=0
+					allocate(obj%nts_elem_nod(1,3) ) !no contact >> nts_elem_nod==0
+					obj%nts_elem_nod(:,:)=0
 					exit
 				else
 					cycle !次重複矩形へ
@@ -3651,29 +4439,29 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 			! (1) nts_element節点番号記憶配列の確保
 
 			if (i >= 2) then  !NTSへの書き込みが2回目以上で、NTS節点番号記憶用配列の拡張を要する場合
-				allocate(nts_elem_nod_es(size(nts_elem_nod,1) ,3))
+				allocate(nts_elem_nod_es(size(obj%nts_elem_nod,1) ,3))
 				nts_elem_nod_es(:,:)=0
-				nts_elem_max=size(nts_elem_nod,1) 
-				do l = 1, size(nts_elem_nod,1)
+				nts_elem_max=size(obj%nts_elem_nod,1) 
+				do l = 1, size(obj%nts_elem_nod,1)
 					do k =1, 3
-						nts_elem_nod_es(l,k) = nts_elem_nod(l,k)
+						nts_elem_nod_es(l,k) = obj%nts_elem_nod(l,k)
 					enddo
 				enddo
 
-				deallocate(nts_elem_nod)
-				allocate(nts_elem_nod(size(nts_elem_nod_es,1)+size(slave_nod,1),3))
-				nts_elem_nod(:,:)=0
+				deallocate(obj%nts_elem_nod)
+				allocate(obj%nts_elem_nod(size(nts_elem_nod_es,1)+size(slave_nod,1),3))
+				obj%nts_elem_nod(:,:)=0
 				! size=これまでに記録されたntsの数+今回のslave_nodの数
 				do l = 1, size(nts_elem_nod_es,1)
 					do k =1, 3
-						nts_elem_nod(l,k) = nts_elem_nod_es(l,k)
+						obj%nts_elem_nod(l,k) = nts_elem_nod_es(l,k)
 					enddo
 				enddo
 				deallocate(nts_elem_nod_es)
 			elseif(i==1)then
 				nts_elem_max =0
-				allocate(nts_elem_nod( size(slave_nod) ,3))
-				nts_elem_nod(:,:)=0
+				allocate(obj%nts_elem_nod( size(slave_nod) ,3))
+				obj%nts_elem_nod(:,:)=0
 			else
 				 stop  "wrong i on module ntselem"
 			endif
@@ -3686,12 +4474,12 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 			do l = 1, size(slave_nod) !slave nod ごとにNTS作成
 
 				!do k = 1,size(master_nod)!重複矩形を構成するmaster_nodを1つずつ検証
-				do k = sur_nod_inf(mast_slav(i,1),1), sur_nod_inf(mast_slav(i,1),2)
+				do k = obj%sur_nod_inf(mast_slav(i,1),1), obj%sur_nod_inf(mast_slav(i,1),2)
 					!表面節点用No.
 					!現在のslave_nodとの距離を計算
 
-					lx=(nod_coord(slave_nod(l),1)-nod_coord(surface_nod(k),1))**2
-					ly=(nod_coord(slave_nod(l),2)-nod_coord(surface_nod(k),2))**2
+					lx=(nod_coord(slave_nod(l),1)-nod_coord(obj%surface_nod(k),1))**2
+					ly=(nod_coord(slave_nod(l),2)-nod_coord(obj%surface_nod(k),2))**2
 
 					gn_tr = (lx+ly)**(1.0d0/2.0d0)
 
@@ -3702,7 +4490,7 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 					!汝は最近傍なりや?
 					If(gn_tr <= gn) then
 						gn = gn_tr 
-						nei_nod=surface_nod(k) !近傍節点番号の更新X1@表面節点用No.
+						nei_nod=obj%surface_nod(k) !近傍節点番号の更新X1@表面節点用No.
 					elseif(gn_tr >gn) then
 						cycle
 					else
@@ -3714,8 +4502,8 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 				!最近傍節点=nei_nod---------------------
 
 				
-				nts_elem_nod(nts_elem_max+l,1) = slave_nod(l)
-				nts_elem_nod(nts_elem_max+l,2) = nei_nod
+				obj%nts_elem_nod(nts_elem_max+l,1) = slave_nod(l)
+				obj%nts_elem_nod(nts_elem_max+l,2) = nei_nod
 
 			enddo
 			!次重複矩形へ、パラメータクリア
@@ -3727,39 +4515,46 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 		enddo
 	elseif(grobal_grid_max==0)then
 		print *, "No contact !"
-		allocate(nts_elem_nod(1,3) ) !no contact >> nts_elem_nod==0
-		nts_elem_nod(:,:)=0
+		allocate(obj%nts_elem_nod(1,3) ) !no contact >> nts_elem_nod==0
+		obj%nts_elem_nod(:,:)=0
 	else
 		 stop "Wrong value in grobal_grid"
 	endif
 	
 	deallocate(nod_coord,zerovec)
 
- end subroutine nts_generat
+
+
+ end subroutine 
 
 !=====================================================================
- subroutine nts_material(sur_inf_mat,nts_elem_nod,nts_mat,contact_mat,surface_nod,step)
-	integer,intent(in)::sur_inf_mat(:,:),nts_elem_nod(:,:),contact_mat(:,:),surface_nod(:),step
-	integer,allocatable,intent(out)::nts_mat(:)
-	integer i,j,s,m,ss,mm,n
-	
-	n=size(nts_elem_nod,1)
+ subroutine ls_nts_materialCM(obj)
+	class(ContactMechanics_),intent(inout) :: obj
+	integer i,j,s,m,ss,mm,n,step
 
-	allocate(nts_mat(n) )
+	step = obj%step
+	
+	n=size(obj%nts_elem_nod,1)
+
+	if(allocated(obj%nts_mat) )then
+		deallocate(obj%nts_mat)
+	endif
+
+	allocate(obj%nts_mat(n) )
 
 	do i=1,n !nts要素ごとに繰り返し
-		if(nts_elem_nod(1,1)+nts_elem_nod(1,2)+nts_elem_nod(1,3)==0 )then
-			nts_mat(:)=0 !0を入れておく
+		if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)==0 )then
+			obj%nts_mat(:)=0 !0を入れておく
 
 			exit
 		endif
 !		if(step==136) stop "2"
 		!表面節点No.を検索し、slave=s,master=mへ格納
-		do j=1, size(surface_nod,1)
-			if(surface_nod(j)==nts_elem_nod(i,1) )then
+		do j=1, size(obj%surface_nod,1)
+			if(obj%surface_nod(j)==obj%nts_elem_nod(i,1) )then
 				s=j
 
-			elseif(surface_nod(j)==nts_elem_nod(i,2) )then
+			elseif(obj%surface_nod(j)==obj%nts_elem_nod(i,2) )then
 				m=j
 
 			else
@@ -3770,9 +4565,9 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 
 		!master nodの周面材料No.を検索
 		
-		do j=1,size(sur_inf_mat,1)
-			if(sur_inf_mat(j,1)<=m .and. sur_inf_mat(j,2)>=m )then
-				mm=sur_inf_mat(j,3)
+		do j=1,size(obj%sur_inf_mat,1)
+			if(obj%sur_inf_mat(j,1)<=m .and. obj%sur_inf_mat(j,2)>=m )then
+				mm=obj%sur_inf_mat(j,3)
 
 				exit
 			else
@@ -3782,19 +4577,19 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 		
 
 		!slave  nodの周面材料No.を検索
-		do j=1,size(sur_inf_mat,1)
-			if(sur_inf_mat(j,1)<=s .and. sur_inf_mat(j,2)>=s )then
-				ss=sur_inf_mat(j,3)
+		do j=1,size(obj%sur_inf_mat,1)
+			if(obj%sur_inf_mat(j,1)<=s .and. obj%sur_inf_mat(j,2)>=s )then
+				ss=obj%sur_inf_mat(j,3)
 
 				exit
 			else
 				cycle
 			endif
 		enddo
-		nts_mat(i)=contact_mat(ss,mm)	
+		obj%nts_mat(i)=obj%contact_mat(ss,mm)	
 	enddo
 	
- end subroutine nts_material
+ end subroutine 
 !=====================================================================
  subroutine save_nts_element(nts_elem_nod,nts_amo,old_nts_elem_nod,old_nts_amo,surface_nod,sur_nod_inf,&
 	stick_slip,old_stick_slip)
@@ -3972,55 +4767,56 @@ subroutine nts_generat(con_max,elem_nod,nts_elem_nod,old_nod_coord,surface_nod,s
 	enddo
  end subroutine load_nts_element
 !=====================================================================
- subroutine get_stabilized_nts(nts_elem_nod,surface_nod,sur_nod_inf)
-	integer,allocatable,intent(inout)::nts_elem_nod(:,:)
+ subroutine ls_get_stabilized_ntsCM(obj)
+	class(ContactMechanics_),intent(inout) :: obj
 	integer,allocatable::nts_elem_nod_new(:,:)
-	integer,intent(in)::surface_nod(:),sur_nod_inf(:,:)
 	integer i,j,k,n,node_num,old_master,master1,master2,shift,cs,cm
 	
-	if(nts_elem_nod(1,1)+nts_elem_nod(1,2)+nts_elem_nod(1,3)==0 )then
+
+
+	if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)==0 )then
 		return
 	endif
 	!expand nts_lem_nod from 3 to 6
-	n=size(nts_elem_nod,1)
+	n=size(obj%nts_elem_nod,1)
 	allocate(nts_elem_nod_new(n,6) )
 	
 	!input node#1 and node #2
 	do i=1,n
-		nts_elem_nod_new(i,1:2)=nts_elem_nod(i,1:2)
+		nts_elem_nod_new(i,1:2)=obj%nts_elem_nod(i,1:2)
 		
 		!get node#3
 		old_master=nts_elem_nod_new(i,2)
 		shift=1
-		call get_next_segment(surface_nod,sur_nod_inf,shift,old_master,master1,master2)
+		call get_next_segment(obj%surface_nod,obj%sur_nod_inf,shift,old_master,master1,master2)
 		nts_elem_nod_new(i,3)=master2
 		
 		!get node#4
 		old_master=nts_elem_nod_new(i,2)
 		shift=-1
-		call get_next_segment(surface_nod,sur_nod_inf,shift,old_master,master1,master2)
+		call get_next_segment(obj%surface_nod,obj%sur_nod_inf,shift,old_master,master1,master2)
 		nts_elem_nod_new(i,4)=master1
 		
 		!get node#5
 		old_master=nts_elem_nod_new(i,3)
 		shift=1
-		call get_next_segment(surface_nod,sur_nod_inf,shift,old_master,master1,master2)
+		call get_next_segment(obj%surface_nod,obj%sur_nod_inf,shift,old_master,master1,master2)
 		nts_elem_nod_new(i,5)=master2
 		
 		!get node#6
 		old_master=nts_elem_nod_new(i,4)
 		shift=-1
-		call get_next_segment(surface_nod,sur_nod_inf,shift,old_master,master1,master2)
+		call get_next_segment(obj%surface_nod,obj%sur_nod_inf,shift,old_master,master1,master2)
 		nts_elem_nod_new(i,6)=master1
 	enddo
 	
-	deallocate(nts_elem_nod)
-	allocate(nts_elem_nod(n,6))
+	deallocate(obj%nts_elem_nod)
+	allocate(obj%nts_elem_nod(n,6))
 	do i=1,n
-		nts_elem_nod(i,1:6)=nts_elem_nod_new(i,1:6)
+		obj%nts_elem_nod(i,1:6)=nts_elem_nod_new(i,1:6)
 	enddo
 	
- end subroutine get_stabilized_nts
+ end subroutine 
 !=====================================================================
 
 
@@ -4467,5 +5263,220 @@ subroutine updateTimestepContact(obj,timestep)
 end subroutine
 ! #########################################################
 
+
+! #########################################################
+subroutine getDispBoundCM(obj)
+	class(ContactMechanics_),intent(inout) :: obj
+	integer(int32) :: num_of_u_nod_x=0
+	integer(int32) :: num_of_u_nod_y=0
+	integer(int32) :: num_of_u_nod_z=0
+	integer(int32) :: i,n,domain1_node_num
+
+	! for x
+	do i=1,size(obj%femdomain1%boundary%DBoundNodID,1)
+		if(obj%femdomain1%boundary%DBoundNodID(i,1) >=1)then
+			num_of_u_nod_x=num_of_u_nod_x+1
+		endif
+	enddo
+	do i=1,size(obj%femdomain2%boundary%DBoundNodID,1)
+		if(obj%femdomain2%boundary%DBoundNodID(i,1) >=1)then
+			num_of_u_nod_x=num_of_u_nod_x+1
+		endif
+	enddo
+
+	if(allocated(obj%u_nod_x) ) deallocate(obj%u_nod_x)
+	if(allocated(obj%u_nod_dis_x) ) deallocate(obj%u_nod_dis_x)
+	allocate(obj%u_nod_x(num_of_u_nod_x) )
+	allocate(obj%u_nod_dis_x(num_of_u_nod_x) )
+
+	num_of_u_nod_x=0
+	do i=1,size(obj%femdomain1%boundary%DBoundNodID,1)
+		if(obj%femdomain1%boundary%DBoundNodID(i,1) >=1)then
+			num_of_u_nod_x=num_of_u_nod_x+1
+			obj%u_nod_x(num_of_u_nod_x) = obj%femdomain1%boundary%DBoundNodID(i,1)
+			obj%u_nod_dis_x(num_of_u_nod_x) = obj%femdomain1%boundary%DBoundVal(i,1)
+		endif
+	enddo
+
+	do i=1,size(obj%femdomain2%boundary%DBoundNodID,1)
+		if(obj%femdomain2%boundary%DBoundNodID(i,1) >=1)then
+			num_of_u_nod_x=num_of_u_nod_x+1
+			obj%u_nod_x(num_of_u_nod_x) = obj%femdomain2%boundary%DBoundNodID(i,1)
+			obj%u_nod_dis_x(num_of_u_nod_x) = obj%femdomain2%boundary%DBoundVal(i,1)
+		endif
+	enddo
+
+	if(size(obj%femdomain2%boundary%DBoundNodID,2)==1 )then
+		return
+	endif
+
+	! for y
+	do i=1,size(obj%femdomain1%boundary%DBoundNodID,1)
+		if(obj%femdomain1%boundary%DBoundNodID(i,2) >=1)then
+			num_of_u_nod_y=num_of_u_nod_y+1
+		endif
+	enddo
+	do i=1,size(obj%femdomain2%boundary%DBoundNodID,1)
+		if(obj%femdomain2%boundary%DBoundNodID(i,2) >=1)then
+			num_of_u_nod_y=num_of_u_nod_y+1
+		endif
+	enddo
+
+	if(allocated(obj%u_nod_y) ) deallocate(obj%u_nod_y)
+	if(allocated(obj%u_nod_dis_y) ) deallocate(obj%u_nod_dis_y)
+	allocate(obj%u_nod_y(num_of_u_nod_y) )
+	allocate(obj%u_nod_dis_y(num_of_u_nod_y) )
+
+	num_of_u_nod_y=0
+	do i=1,size(obj%femdomain1%boundary%DBoundNodID,1)
+		if(obj%femdomain1%boundary%DBoundNodID(i,2) >=1)then
+			num_of_u_nod_y=num_of_u_nod_y+1
+			obj%u_nod_y(num_of_u_nod_y) = obj%femdomain1%boundary%DBoundNodID(i,2)
+			obj%u_nod_dis_y(num_of_u_nod_y) = obj%femdomain1%boundary%DBoundVal(i,2)
+		endif
+	enddo
+
+	do i=1,size(obj%femdomain2%boundary%DBoundNodID,1)
+		if(obj%femdomain2%boundary%DBoundNodID(i,2) >=1)then
+			num_of_u_nod_y=num_of_u_nod_y+1
+			obj%u_nod_y(num_of_u_nod_y) = obj%femdomain2%boundary%DBoundNodID(i,2)
+			obj%u_nod_dis_y(num_of_u_nod_y) = obj%femdomain2%boundary%DBoundVal(i,2)
+		endif
+	enddo
+
+	if(size(obj%femdomain2%boundary%DBoundNodID,2)==2 )then
+		return
+	endif
+
+	! for z
+	do i=1,size(obj%femdomain1%boundary%DBoundNodID,1)
+		if(obj%femdomain1%boundary%DBoundNodID(i,3) >=1)then
+			num_of_u_nod_z=num_of_u_nod_z+1
+		endif
+	enddo
+	do i=1,size(obj%femdomain2%boundary%DBoundNodID,1)
+		if(obj%femdomain2%boundary%DBoundNodID(i,3) >=1)then
+			num_of_u_nod_z=num_of_u_nod_z+1
+		endif
+	enddo
+
+	if(allocated(obj%u_nod_z) ) deallocate(obj%u_nod_z)
+	if(allocated(obj%u_nod_dis_z) ) deallocate(obj%u_nod_dis_z)
+	allocate(obj%u_nod_z(num_of_u_nod_z) )
+	allocate(obj%u_nod_dis_z(num_of_u_nod_z) )
+
+	num_of_u_nod_z=0
+	do i=1,size(obj%femdomain1%boundary%DBoundNodID,1)
+		if(obj%femdomain1%boundary%DBoundNodID(i,3) >=1)then
+			num_of_u_nod_z=num_of_u_nod_z+1
+			obj%u_nod_z(num_of_u_nod_z) = obj%femdomain1%boundary%DBoundNodID(i,3)
+			obj%u_nod_dis_z(num_of_u_nod_z) = obj%femdomain1%boundary%DBoundVal(i,3)
+		endif
+	enddo
+
+	do i=1,size(obj%femdomain2%boundary%DBoundNodID,1)
+		if(obj%femdomain2%boundary%DBoundNodID(i,3) >=1)then
+			num_of_u_nod_z=num_of_u_nod_z+1
+			obj%u_nod_z(num_of_u_nod_z) = obj%femdomain2%boundary%DBoundNodID(i,3)
+			obj%u_nod_dis_z(num_of_u_nod_z) = obj%femdomain2%boundary%DBoundVal(i,3)
+		endif
+	enddo
+end subroutine
+! #########################################################
+
+
+
+! #########################################################
+subroutine ls_add_duCM(obj)
+	class(ContactMechanics_),intent(inout) :: obj
+	integer(int32) :: i
+	if(.not. allocated(obj%du_nod_dis_x) )then
+		obj%du_nod_dis_x = obj%u_nod_dis_x
+	endif
+	if(.not. allocated(obj%du_nod_dis_y) )then
+		obj%du_nod_dis_y = obj%u_nod_dis_y
+	endif
+	! regacy subroutine for lodging simulator 2.5
+	! this will be revised.
+	do i=1,size(obj%u_nod_x,1)
+		obj%u_nod_dis_x(i)=obj%du_nod_dis_x(i)
+	enddo
+	
+	do i=1,size(obj%u_nod_y,1)
+		obj%u_nod_dis_y(i)=obj%du_nod_dis_y(i)
+	enddo
+	if(allocated(obj%u_nod_z) )then
+		do i=1,size(obj%u_nod_z,1)
+			obj%u_nod_dis_z(i)=obj%du_nod_dis_z(i)
+		enddo
+	endif
+
+end subroutine
+! #########################################################
+
+
+! #########################################################
+subroutine getTracBoundCM(obj,dim_num)
+	class(ContactMechanics_),intent(inout) :: obj
+	integer(int32),optional,intent(in) :: dim_num
+	integer(int32) :: i,n,domain1_node_num,node_id,dimnum
+
+	dimnum = input(default=size(obj%femdomain1%mesh%nodcoord,2),option=dim_num)
+	! for x
+	do i=1,size(obj%femdomain1%boundary%NBoundNodID,1)
+		if(obj%femdomain1%boundary%NBoundNodID(i,1) >=1)then
+			node_id =obj%femdomain1%boundary%NBoundNodID(i,1) 
+			obj%fvec( (node_id-1)*dimnum+1 ) = obj%femdomain1%boundary%NBoundVal(i,1)
+		endif
+	enddo
+	domain1_node_num = size(obj%femdomain1%boundary%NBoundNodID,1)
+
+	do i=1,size(obj%femdomain2%boundary%NBoundNodID,1)
+		if(obj%femdomain2%boundary%NBoundNodID(i,1) >=1)then
+			node_id =obj%femdomain2%boundary%NBoundNodID(i,1) 
+			obj%fvec( (node_id-1)*dimnum+1+domain1_node_num ) &
+				= obj%femdomain2%boundary%NBoundVal(i,1)
+		endif
+	enddo
+
+	! for y
+	do i=1,size(obj%femdomain1%boundary%NBoundNodID,1)
+		if(obj%femdomain1%boundary%NBoundNodID(i,2) >=1)then
+			node_id =obj%femdomain1%boundary%NBoundNodID(i,2) 
+			obj%fvec( (node_id-1)*dimnum+2 ) = obj%femdomain1%boundary%NBoundVal(i,2)
+		endif
+	enddo
+	domain1_node_num = size(obj%femdomain1%boundary%NBoundNodID,1)
+
+	do i=1,size(obj%femdomain2%boundary%NBoundNodID,1)
+		if(obj%femdomain2%boundary%NBoundNodID(i,2) >=1)then
+			node_id =obj%femdomain2%boundary%NBoundNodID(i,2) 
+			obj%fvec( (node_id-1)*dimnum+2+domain1_node_num ) &
+				= obj%femdomain2%boundary%NBoundVal(i,2)
+		endif
+	enddo
+
+	if(size(obj%femdomain1%mesh%nodcoord,2)<=2)then
+		return
+	endif
+
+	! for z
+	do i=1,size(obj%femdomain1%boundary%NBoundNodID,1)
+		if(obj%femdomain1%boundary%NBoundNodID(i,3) >=1)then
+			node_id =obj%femdomain1%boundary%NBoundNodID(i,3) 
+			obj%fvec( (node_id-1)*dimnum+2 ) = obj%femdomain1%boundary%NBoundVal(i,3)
+		endif
+	enddo
+	domain1_node_num = size(obj%femdomain1%boundary%NBoundNodID,1)
+
+	do i=1,size(obj%femdomain2%boundary%NBoundNodID,1)
+		if(obj%femdomain2%boundary%NBoundNodID(i,3) >=1)then
+			node_id =obj%femdomain2%boundary%NBoundNodID(i,3) 
+			obj%fvec( (node_id-1)*dimnum+2+domain1_node_num ) &
+				= obj%femdomain2%boundary%NBoundVal(i,3)
+		endif
+	enddo
+end subroutine
+! #########################################################
 
 end module 
