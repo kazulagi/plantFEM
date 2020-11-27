@@ -5924,7 +5924,7 @@ end subroutine
 ! ##################################################
 
 ! ##################################################
-subroutine createFEMDomain(obj,Name,meshtype,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
+subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
 	top,margin,inclineRate,shaperatio)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: meshtype

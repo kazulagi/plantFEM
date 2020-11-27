@@ -5479,4 +5479,95 @@ subroutine getTracBoundCM(obj,dim_num)
 end subroutine
 ! #########################################################
 
+! regacy
+!-------------------------------
+   subroutine displace_nr(Kmat, rvec, u_nod_x, u_nod_dis_x,u_nod_y, u_nod_dis_y)
+       integer, intent(in) :: u_nod_x(:), u_nod_y(:)
+       real(8), intent(inout) :: Kmat(:,:), rvec(:)
+       real(8), intent(in) :: u_nod_dis_x(:), u_nod_dis_y(:)
+       integer i,k
+	   
+	   !Kmat�̕␳
+	   do i=1, size(u_nod_x)
+
+	      do k=1, size(kmat,1)
+		     kmat(k,2*u_nod_x(i)-1)=0.0d0
+			 kmat(2*u_nod_x(i)-1,k)=0.0d0
+		  enddo
+	   enddo
+	   do i=1, size(u_nod_y)
+
+	      do k=1, size(kmat,1)
+		     kmat(k,2*u_nod_y(i))=0.0d0
+			 kmat(2*u_nod_y(i),k)=0.0d0
+		  enddo
+	   enddo
+	   !�ψʋ��E��̓���
+	   do i=1,size(u_nod_x)
+
+	      kmat(2*u_nod_x(i)-1,2*u_nod_x(i)-1)=1.0d0
+		  rvec(2*u_nod_x(i)-1)=0.0d0
+	   enddo
+	   do i=1,size(u_nod_y)
+
+	      kmat(2*u_nod_y(i),2*u_nod_y(i))=1.0d0
+		  rvec(2*u_nod_y(i))=0.0d0
+	   enddo
+
+	   
+   end subroutine displace_nr
+!=================================================================================
+
+
+   subroutine displace(Kmat, Bvec, u_nod_x, u_nod_dis_x,u_nod_y, u_nod_dis_y)
+	integer, intent(in) :: u_nod_x(:), u_nod_y(:)
+	real(8), intent(inout) :: Kmat(:,:), Bvec(:)
+	real(8), intent(in) :: u_nod_dis_x(:), u_nod_dis_y(:)
+	integer i,k
+	!�O�̓x�N�g���̕␳
+	do i=1, size(u_nod_x,1)
+
+	   do k=1,size(kmat,1)
+		  Bvec(k)=Bvec(k)-kmat(k,2*u_nod_x(i)-1)/kmat(2*u_nod_x(i)-1,2*u_nod_x(i)-1)*&
+		  u_nod_dis_x(i)
+	   enddo
+	enddo
+	do i=1, size(u_nod_y,1)
+
+	   do k=1, size(kmat,1)
+		  Bvec(k)=Bvec(k)-kmat(k,2*u_nod_y(i))/kmat(2*u_nod_y(i),2*u_nod_y(i))*&
+		  u_nod_dis_y(i)
+	   enddo
+	enddo
+	!Kmat�̕␳
+	do i=1, size(u_nod_x)
+
+	   do k=1, size(kmat,1)
+		  kmat(k,2*u_nod_x(i)-1)=0.0d0
+		  kmat(2*u_nod_x(i)-1,k)=0.0d0
+	   enddo
+	enddo
+	do i=1, size(u_nod_y)
+
+	   do k=1, size(kmat,1)
+		  kmat(k,2*u_nod_y(i))=0.0d0
+		  kmat(2*u_nod_y(i),k)=0.0d0
+	   enddo
+	enddo
+	!�ψʋ��E��̓���
+	do i=1,size(u_nod_x)
+
+	   kmat(2*u_nod_x(i)-1,2*u_nod_x(i)-1)=1.0d0
+	   bvec(2*u_nod_x(i)-1)=u_nod_dis_x(i)
+	enddo
+	do i=1,size(u_nod_y)
+
+	   kmat(2*u_nod_y(i),2*u_nod_y(i))=1.0d0
+	   bvec(2*u_nod_y(i))=u_nod_dis_y(i)
+	enddo
+
+
+
+end subroutine displace
+
 end module 
