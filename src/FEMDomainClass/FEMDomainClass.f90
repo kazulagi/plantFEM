@@ -6838,16 +6838,16 @@ subroutine jsonFEMDomain(obj,name,fh,endl)
 
 	call obj%mesh%json(fh=fileid)
 	
-	write(f%fh,*) '"return": 0'
+	
 
 	if(present(endl) )then
-        if(endl .eqv. .true.)then
-            write(fileid,*) '}'
-        else
+		if(endl .eqv. .false.)then
             write(fileid,*) '},'
+        else
+            write(fileid,*) '}'
         endif
     else
-        write(fileid,*) '},'
+		write(fileid,*) '}'
     endif
 
 	

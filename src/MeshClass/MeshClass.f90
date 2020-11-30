@@ -4,17 +4,22 @@ module MeshClass
 
 
     type:: Mesh_
+        ! Name
+        character*200::FileName=" "
+        ! Nodal coordinates
         real(real64),allocatable  ::NodCoord(:,:)
-        real(real64),allocatable  ::NodCoordInit(:,:)
+        ! Connectivity information for FE-mesh
+        integer(int32),allocatable::ElemNod(:,:)
+        ! Material IDs for Finite Elements
+        integer(int32),allocatable::ElemMat(:)
 
+        ! optional data;
+        real(real64),allocatable  ::NodCoordInit(:,:)
         integer(int32),allocatable::BottomElemID
         integer(int32),allocatable::TopElemID
-
-        integer(int32),allocatable::ElemNod(:,:)
         integer(int32),allocatable::FacetElemNod(:,:)
         integer(int32),allocatable::NextFacets(:,:)
         integer(int32),allocatable::SurfaceLine2D(:)
-        integer(int32),allocatable::ElemMat(:)
         integer(int32),allocatable::SubMeshNodFromTo(:,:)
         integer(int32),allocatable::SubMeshElemFromTo(:,:)
         integer(int32),allocatable::SubMeshSurfFromTo(:,:)
@@ -23,7 +28,7 @@ module MeshClass
         !for Interfaces
         integer(int32),allocatable::GlobalNodID(:)
 
-        character*200::FileName=" "
+        
         character*70::ElemType=" "
         character*70:: ErrorMsg=" "
 
@@ -4520,8 +4525,8 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         yn=input(default=1,option=y_num)
         lx=input(default=1.0d0,option=x_len)
         ly=input(default=1.0d0,option=y_len)
-        unitx=x_len/dble(xn)
-        unity=y_len/dble(yn)
+        unitx=lx/dble(xn)
+        unity=ly/dble(yn)
         ! creating rectangular mesh
         allocate(obj%NodCoord( (xn+1)*(yn+1) , 2 ))
         allocate(obj%ElemNod( xn*yn,4) )
@@ -6693,7 +6698,7 @@ subroutine jsonMesh(obj,name,fh,endl)
     write(fileid,*) '"mesh":{'
     
     if(allocated(obj%nodcoord) )then
-        call json(array=obj%nodcoord,fh=fileid,name="nodcoord")
+        call json(array=obj%nodcoord,fh=fileid,name="NodCoord")
     endif
     if(allocated(obj%NodCoordInit) )then
         call json(array=obj%NodCoordInit,fh=fileid,name="NodCoordInit")
@@ -6723,11 +6728,10 @@ subroutine jsonMesh(obj,name,fh,endl)
         call json(array=obj%SubMeshSurfFromTo,fh=fileid,name="SubMeshSurfFromTo")
     endif
     if(allocated(obj%GlobalNodID) )then
-        call json(array=obj%GlobalNodID,fh=fileid,name="GlobalNodID",endl=.true.)
+        call json(array=obj%GlobalNodID,fh=fileid,name="GlobalNodID")
     endif
+    write(fileid,*) '"return_mesh":0'
     
-    write(fileid,*) '},'
-
 !    integer(int32),allocatable::BottomElemID
 !    integer(int32),allocatable::TopElemID
 !    integer(int32) :: surface=1
@@ -6736,22 +6740,23 @@ subroutine jsonMesh(obj,name,fh,endl)
 !    character*200::FileName=" "
 !    character*70::ElemType=" "
 !    character*70:: ErrorMsg=" "
-    write(fileid,*) '"return" : 0'
+    
 
 
 	
 
+    if(present(endl) )then
+        if(endl .eqv. .false.)then
+            write(fileid,*) '},'
+        else
+            write(fileid,*) '}'
+        endif
+    else
+        write(fileid,*) '}'
+    endif
+
     if(present(name) )then
         
-        if(present(endl) )then
-            if(endl .eqv. .true.)then
-                write(fileid,*) '}'
-            else
-                write(fileid,*) '},'
-            endif
-        else
-            write(fileid,*) '},'
-        endif
 		call f%close()
 	endif
 
