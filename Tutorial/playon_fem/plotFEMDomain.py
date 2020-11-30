@@ -8,7 +8,7 @@ json_object = json.load(json_file)
 
 # メッシュオブジェクト中の節点座標配列を取り出す
 
-nodcoord = np.array(json_object["mesh"]["nodcoord"])
+nodcoord = np.array(json_object["mesh"]["NodCoord"])
 
 # 以下、matplotlibで描画
 #x軸とy軸にラベル付け

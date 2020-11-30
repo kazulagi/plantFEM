@@ -3631,7 +3631,7 @@ subroutine jsonArrayRealVec(array,fh,name,endl)
             write(fh,'(a)',advance='no') trim(str(array(i)))
         endif
         if(i/=size(array,1) )then
-            write(fh,'(a)',advance='no') ","
+            write(fh,'(a)',advance='yes') ","
         endif
     enddo
     if(present(endl) )then
@@ -3661,7 +3661,7 @@ subroutine jsonArrayIntVec(array,fh,name,endl)
     do i=1,size(array,1)
         write(fh,'(a)',advance='no') trim(str(array(i)))
         if(i/=size(array,1) )then
-            write(fh,'(a)',advance='no') ","
+            write(fh,'(a)',advance='yes') ","
         endif
     enddo
     if(present(endl) )then
