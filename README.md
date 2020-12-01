@@ -1,4 +1,3 @@
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1H5cmdKa9MJUC-22dHnvIgo8k6sdQ6NnF?usp=sharing)
 ![soyfield](https://user-images.githubusercontent.com/54159711/99903052-37d93400-2d05-11eb-841b-cd4d792cbfb3.png)
 ![soy3d](https://user-images.githubusercontent.com/54159711/99902211-6ce28800-2cff-11eb-9dbc-9983c07ffe7d.png)
 ![soaked_soy_seed](https://user-images.githubusercontent.com/54159711/84125111-0b8f6b00-aa77-11ea-9f79-1acfe37e2b8f.png)
@@ -6,6 +5,7 @@
 
 
 # plantFEM
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1H5cmdKa9MJUC-22dHnvIgo8k6sdQ6NnF?usp=sharing)
 
 
 
@@ -13,6 +13,8 @@ Plant simulator based on Finite Element Method (FEM).
 (Renamed from its old name "SiCroF")
 
 https://kazulagi.github.io/plantfem.github.io/
+
+
 
 ## Installation
 
