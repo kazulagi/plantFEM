@@ -8,11 +8,11 @@ program main
 
     integer(int32) :: num_dim =2 ! 2-dimensional
     integer(int32) :: num_node=9 ! 9 nodes
-    integer(int32) :: num_elem=5 ! 4 elements
+    integer(int32) :: num_elem=4 ! 4 elements
     integer(int32) :: num_node_per_elem=4 ! 4 nodes per 1 element
     
     allocate(NodCoord(num_node,num_dim) )
-    allocate(ElemNod(num_node,num_node_per_elem) )
+    allocate(ElemNod(num_elem,num_node_per_elem) )
     allocate(ElemMat(num_elem))
     
     NodCoord(1,1) = 0.0d0; NodCoord(1,2) = 0.0d0;
