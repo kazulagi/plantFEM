@@ -1526,32 +1526,40 @@ end subroutine
 subroutine jsonSoybean(obj,name)
     class(Soybean_),intent(inout) :: obj
     character(*),intent(in) :: name
-    integer(int32) :: i
+    integer(int32) :: i,countnum
     type(IO_) :: f
 
     call f%open(trim(name)//".json")
     call f%write("{")
-    
+    countnum=0
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+            countnum=countnum+1
             call f%write('"'//"stem"//trim(str(i))//'":')
             call obj%stem(i)%femdomain%json(name=trim(name)//"_stem"//trim(str(i)),fh=f%fh,endl=.false.)
         endif
     enddo
-    
+    call f%write('"num_stem":'//str(countnum)//',' )
+
+    countnum=0
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+            countnum=countnum+1
             call f%write('"'//"root"//trim(str(i))//'":')
             call obj%root(i)%femdomain%json(name=trim(name)//"_root"//trim(str(i)),fh=f%fh,endl=.false.)
         endif
     enddo
+    call f%write('"num_root":'//str(countnum)//',' )
     
+    countnum=0
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+            countnum=countnum+1
             call f%write('"'//"leaf"//trim(str(i))//'":')
             call obj%leaf(i)%femdomain%json(name=trim(name)//"_leaf"//trim(str(i)),fh=f%fh,endl=.false.)
         endif
     enddo
+    call f%write('"num_leaf":'//str(countnum)//',' )
     call f%write('"return_soybean":0')
     call f%write("}")
     call f%close()

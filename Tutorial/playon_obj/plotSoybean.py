@@ -16,9 +16,10 @@ ax.set_zlabel("z")
 json_file = open('soy.json', 'r')
 json_object = json.load(json_file)
 
-num_leaf=87
-num_stem=58
-num_root=0
+# get number of stem, leaf and root
+num_leaf=int(json_object["num_leaf"])
+num_stem=int(json_object["num_stem"])
+num_root=int(json_object["num_root"])
 
 # メッシュオブジェクト中の節点座標配列を取り出す
 for i in range(num_leaf):
