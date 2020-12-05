@@ -116,6 +116,8 @@ module FEMDomainClass
 		procedure,public :: getLayerID => getLayerIDFEMDomain
 		procedure,public :: getLayerAttribute => getLayerAttributeFEMDomain
 		procedure,public :: getLayerDataStyle => getLayerDataStyleFEMDomain
+		procedure,public :: getShapeFunction => getShapeFunctionFEMDomain
+		
 		
         procedure,public :: init   => InitializeFEMDomain
 		procedure,public :: import => ImportFEMDomain
@@ -7660,5 +7662,21 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug,mpid)
 
 end subroutine
 ! ######################################################################
+
+
+! ######################################################################
+function getShapeFunctionFEMDomain(obj, ElementID,GaussPointID,ReducedIntegration) result(sobj)
+	class(FEMDomain_),intent(inout)::obj
+    integer(int32),intent(in) :: GaussPointID, ElementID
+    logical,optional,intent(in) :: ReducedIntegration
+    type(ShapeFunction_)::sobj
+    character*200 :: ElemType
+	integer(int32) :: i,j,n,m,gpid,elemID
+	
+	sobj = obj%mesh%getShapeFunction(ElementID,GaussPointID,ReducedIntegration)
+
+end function
+! ######################################################################
+
 
 end module FEMDomainClass

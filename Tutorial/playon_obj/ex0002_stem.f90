@@ -44,20 +44,4 @@ program main
     call stem5%gmsh("Stem5")
     call stem6%gmsh("Stem6")
  
-!    call soy%init()
-!
-!    ! こんなことしたい
-!    call soy%show("soy")
-!    
-!    
-!    do i=1,soy%numstem()
-!        call soy%stem_list(i)%gmsh(Name="soy_stem"//trim(str(i)))
-!    enddo
-!    do i=1,soy%numroot()
-!        call soy%root_list(i)%gmsh(Name="soy_root"//trim(str(i)))
-!    enddo
-!    do i=1,soy%numleaf()
-!        call soy%leaf_list(i)%gmsh(Name="soy_leaf"//trim(str(i)))
-!    enddo
-
 end program main

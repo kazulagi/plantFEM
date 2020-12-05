@@ -78,6 +78,8 @@ module MeshClass
         procedure :: getNodeList => getNodeListMesh
         procedure :: getElementList => getElementListMesh
         procedure :: getGetVolume => getGetVolumeMesh
+        procedure :: getShapeFunction => getShapeFunctionMesh
+        procedure :: ShapeFunction => getShapeFunctionMesh
         procedure :: gmsh => gmshMesh
         
         procedure :: import => importMeshObj 
@@ -3506,6 +3508,37 @@ function GetElemTypeMesh(obj) result(ElemType)
 end function
 !##################################################
 
+
+
+!##################################################
+function getShapeFunctionMesh(obj, ElementID,GaussPointID,ReducedIntegration) result(sobj)
+    class(Mesh_),intent(inout)::obj
+    integer(int32),intent(in) :: GaussPointID, ElementID
+    logical,optional,intent(in) :: ReducedIntegration
+    type(ShapeFunction_)::sobj
+    character*200 :: ElemType
+    integer(int32) :: i,j,n,m,gpid,elemID
+
+
+    gpid   = GaussPointID
+    elemid = ElementID
+
+    n=size(obj%NodCoord,2)
+    m=size(obj%ElemNod,2)
+    sobj%ReducedIntegration = input(default=.false.,option=ReducedIntegration)
+
+    call sobj%getType(NumOfDim=n,NumOfNodePerElem=m)
+
+    ! get shape functions
+    call SetShapeFuncType(sobj)
+
+    call getAllShapeFunc(sobj,elem_id=elemid,nod_coord=obj%NodCoord,elem_nod=obj%ElemNod,OptionalGpID=gpid)
+
+    
+
+end function
+!##################################################
+
 !##################################################
 subroutine ConvertMeshTypeMesh(obj,Option)
     class(Mesh_),intent(inout) :: obj
@@ -4563,10 +4596,12 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         obj%ElemNod(1,2)=2
         obj%ElemNod(1,3)=yn+3
         obj%ElemNod(1,4)=yn+2
-        obj%ElemNod(2,1)=2
-        obj%ElemNod(2,2)=3
-        obj%ElemNod(2,3)=yn+4
-        obj%ElemNod(2,4)=yn+3
+        if(xn>=2)then
+            obj%ElemNod(2,1)=2
+            obj%ElemNod(2,2)=3
+            obj%ElemNod(2,3)=yn+4
+            obj%ElemNod(2,4)=yn+3
+        endif
 
         
         n=0
@@ -4606,10 +4641,12 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         obj%ElemNod(1,2)=2
         obj%ElemNod(1,3)=yn+3
         obj%ElemNod(1,4)=yn+2
-        obj%ElemNod(2,1)=2
-        obj%ElemNod(2,2)=3
-        obj%ElemNod(2,3)=yn+4
-        obj%ElemNod(2,4)=yn+3
+        if(xn>=2)then
+            obj%ElemNod(2,1)=2
+            obj%ElemNod(2,2)=3
+            obj%ElemNod(2,3)=yn+4
+            obj%ElemNod(2,4)=yn+3
+        endif
 
         
         n=0
@@ -4693,10 +4730,12 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         obj%ElemNod(1,2)=2
         obj%ElemNod(1,3)=yn+3
         obj%ElemNod(1,4)=yn+2
-        obj%ElemNod(2,1)=2
-        obj%ElemNod(2,2)=3
-        obj%ElemNod(2,3)=yn+4
-        obj%ElemNod(2,4)=yn+3
+        if(xn>=2)then
+            obj%ElemNod(2,1)=2
+            obj%ElemNod(2,2)=3
+            obj%ElemNod(2,3)=yn+4
+            obj%ElemNod(2,4)=yn+3
+        endif
 
         
         n=0
