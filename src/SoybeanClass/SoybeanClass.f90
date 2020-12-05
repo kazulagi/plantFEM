@@ -95,6 +95,8 @@ module SoybeanClass
         procedure,public :: gmsh => gmshSoybean
         procedure,public :: msh => mshSoybean
         procedure,public :: stl => stlSoybean
+        procedure,public :: json => jsonSoybean
+        
 
         procedure,public :: WaterAbsorption => WaterAbsorptionSoybean
         procedure,public :: move => moveSoybean
@@ -1521,28 +1523,70 @@ end subroutine
 
 
 ! ########################################
+subroutine jsonSoybean(obj,name)
+    class(Soybean_),intent(inout) :: obj
+    character(*),intent(in) :: name
+    integer(int32) :: i
+    type(IO_) :: f
+
+    call f%open(trim(name)//".json")
+    call f%write("{")
+    
+    do i=1,size(obj%stem)
+        if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call f%write('"'//"stem"//trim(str(i))//'":')
+            call obj%stem(i)%femdomain%json(name=trim(name)//"_stem"//trim(str(i)),fh=f%fh,endl=.false.)
+        endif
+    enddo
+    
+    do i=1,size(obj%root)
+        if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call f%write('"'//"root"//trim(str(i))//'":')
+            call obj%root(i)%femdomain%json(name=trim(name)//"_root"//trim(str(i)),fh=f%fh,endl=.false.)
+        endif
+    enddo
+    
+    do i=1,size(obj%leaf)
+        if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call f%write('"'//"leaf"//trim(str(i))//'":')
+            call obj%leaf(i)%femdomain%json(name=trim(name)//"_leaf"//trim(str(i)),fh=f%fh,endl=.false.)
+        endif
+    enddo
+    call f%write('"return_soybean":0')
+    call f%write("}")
+    call f%close()
+end subroutine
+! ########################################
+
+! ########################################
 subroutine stlSoybean(obj,name)
     class(Soybean_),intent(inout) :: obj
     character(*),intent(in) :: name
     integer(int32) :: i
 
+
+    !call system("echo ' ' > "//trim(name)//".stl")
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%stem(i)%stl(name=trim(name)//"_stem"//trim(str(i)))
+            !call system("cat "//trim(name)//"_stem"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
         endif
     enddo
 
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%root(i)%stl(name=trim(name)//"_root"//trim(str(i)))
+            !call system("cat "//trim(name)//"_root"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
         endif
     enddo
 
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%leaf(i)%stl(name=trim(name)//"_leaf"//trim(str(i)))
+            !call system("cat "//trim(name)//"_leaf"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
         endif
     enddo
+
 
 end subroutine
 ! ########################################
