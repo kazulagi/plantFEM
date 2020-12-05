@@ -7,6 +7,7 @@ module sim
     use WaterAbsorptionClass
     use MultiPhysicsClass
     use SpaceTimeDeformClass
+    use PoromechanicsClass
     use FieldClass
     use SimulatorClass
     use SiCroF

@@ -116,6 +116,8 @@ module FEMDomainClass
 		procedure,public :: getLayerID => getLayerIDFEMDomain
 		procedure,public :: getLayerAttribute => getLayerAttributeFEMDomain
 		procedure,public :: getLayerDataStyle => getLayerDataStyleFEMDomain
+		procedure,public :: getShapeFunction => getShapeFunctionFEMDomain
+		
 		
         procedure,public :: init   => InitializeFEMDomain
 		procedure,public :: import => ImportFEMDomain
@@ -6818,23 +6820,50 @@ subroutine jsonFEMDomain(obj,name,fh,endl)
 	type(IO_) :: f
 	integer(int32),optional,intent(in) :: fh
 	character(*),optional,intent(in) :: name
+	character(:),allocatable :: fname
+	
 	integer(int32) :: fileid
     logical,optional,intent(in) :: endl
 	
 	! export JSON file
-	if(present(name) )then
-		call f%open(name)
-		fileid=f%fh
+	if(present(name)  )then
+		if(present(fh) )then
+			![ok] name
+			![ok] file handle
+			!append
+			fileid=fh
+			fname=trim(name)
+		else
+			call f%open(name)
+			fileid=f%fh
+			fname=trim(name)
+			![ok] name
+			![--] file handle
+			! > create new file with Name=name
+		endif
 	else
-		fileid=fh
+		if(present(fh) )then
+			fileid=fh	
+			fname="untitled"
+			![--] name
+			![ok] file handle
+			!append
+		else
+			![--] name
+			![--] file handle
+			!append
+			call f%open(name="untitled.json")
+			fileid=f%fh
+			fname="untitled"
+		endif
 	endif
 
 
-	call f%write('{')
+	write(fileid,'(A)') '{'
 	if(present(name) )then
-		write(f%fh,*) '"name": "'//trim(name)//'",'
+		write(fileid,*) '"name": "'//trim(name)//'",'
 	endif
-	write(f%fh,*) '"type": "femdomain",'
+	write(fileid,*) '"type": "femdomain",'
 
 	call obj%mesh%json(fh=fileid)
 	
@@ -6850,11 +6879,21 @@ subroutine jsonFEMDomain(obj,name,fh,endl)
 		write(fileid,*) '}'
     endif
 
-	
-	if(present(name) )then
-		call f%close()
+	if(present(name)  )then
+		if(present(fh) )then
+			fileid=fh	
+		else
+			call f%close()
+			fileid=f%fh
+		endif
+	else
+		if(present(fh) )then
+			fileid=fh	
+		else
+			call f%close()
+			fileid=f%fh
+		endif
 	endif
-
 
 
 end subroutine
@@ -7660,5 +7699,21 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug,mpid)
 
 end subroutine
 ! ######################################################################
+
+
+! ######################################################################
+function getShapeFunctionFEMDomain(obj, ElementID,GaussPointID,ReducedIntegration) result(sobj)
+	class(FEMDomain_),intent(inout)::obj
+    integer(int32),intent(in) :: GaussPointID, ElementID
+    logical,optional,intent(in) :: ReducedIntegration
+    type(ShapeFunction_)::sobj
+    character*200 :: ElemType
+	integer(int32) :: i,j,n,m,gpid,elemID
+	
+	sobj = obj%mesh%getShapeFunction(ElementID,GaussPointID,ReducedIntegration)
+
+end function
+! ######################################################################
+
 
 end module FEMDomainClass

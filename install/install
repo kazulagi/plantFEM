@@ -246,6 +246,10 @@ echo "Compiling ./src/SpaceTimeDeformClass/SpaceTimeDeformClass.f90"
 echo " >> SpaceTimeDeformClass.o "
 echo " | ===================>        | (86%)\r\c"
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SpaceTimeDeformClass/SpaceTimeDeformClass.f90 -o  ./inc/SpaceTimeDeformClass.o
+echo "Compiling ./src/PoromechanicsClass/PoromechanicsClass.f90" 
+echo " >> PoromechanicsClass.o "
+echo " | ===================>        | (86%)\r\c"
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PoromechanicsClass/PoromechanicsClass.f90 -o  ./inc/PoromechanicsClass.o
 echo "Compiling ./src/WaterAbsorptionClass/WaterAbsorptionClass.f90" 
 echo " >> WaterAbsorptionClass.o "
 echo " | ===================>        | (86%)\r\c"
