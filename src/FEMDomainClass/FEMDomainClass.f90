@@ -138,6 +138,9 @@ module FEMDomainClass
 		procedure,public :: merge  => MergeFEMDomain
 		procedure,public :: msh => mshFEMDomain
 
+		procedure,public :: nn => nnFEMDomain
+		procedure,public :: ne => neFEMDomain
+
 		procedure,public :: open => openFEMDomain
 
 		procedure,public :: ply => plyFEMDomain
@@ -3324,12 +3327,39 @@ end subroutine
 
 
 !##################################################
-subroutine mshFEMDomain(obj,name)
+subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname)
 	! export as msh format
 	class(FEMDomain_),intent(in)::obj
 	character(*),intent(in) :: name
+	character(*),optional,intent(in) :: fieldname
+	real(real64),optional,intent(in):: vector(:,:),scalar(:,:),tensor(:,:)
+	integer(int32),optional,intent(in) :: step
+	character(:),allocatable :: fname
 	type(IO_) :: f
-	integer(int32) :: i,j,typeid
+	integer(int32) :: i,j,typeid,n
+
+	if(present(Vector) )then
+		n = input(default=1, option=step)
+		if(present(fieldname) )then
+			fname = fieldname
+		else
+			fname = "Vector Field"
+		endif
+		call obj%GmshPlotVector(Vector=vector,name=name,FieldName=fname,step=n)
+		return
+	endif
+
+
+	if(present(Scalar) )then
+		n = input(default=1, option=step)
+		if(present(fieldname) )then
+			fname = fieldname
+		else
+			fname = "Scalar Field"
+		endif
+		call obj%GmshPlotContour(gp_value=scalar,OptionalContorName=fname,OptionalStep=n,Name=name)
+		return
+	endif
 
 	call f%open(trim(name)//".msh" )
 	write(f%fh, '(a)') "$MeshFormat"
@@ -3383,6 +3413,7 @@ subroutine mshFEMDomain(obj,name)
 	enddo
 	write(f%fh, '(a)' ) "$EndElements"
 	call f%close()
+
 
 end subroutine
 !##################################################
@@ -7715,5 +7746,24 @@ function getShapeFunctionFEMDomain(obj, ElementID,GaussPointID,ReducedIntegratio
 end function
 ! ######################################################################
 
+! ######################################################################
+function nnFEMDomain(obj) result(ret)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32) :: ret
+
+	ret = size(obj%mesh%nodcoord,1)
+
+end function
+! ######################################################################
+
+! ######################################################################
+function neFEMDomain(obj) result(ret)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32) :: ret
+
+	ret = size(obj%mesh%ElemNod,1)
+
+end function
+! ######################################################################
 
 end module FEMDomainClass

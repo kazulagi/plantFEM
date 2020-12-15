@@ -1,40 +1,46 @@
-from wsgiref.simple_server import make_server
 import json
-import requests
 import os
 
-def app(environ, start_response):
-    status = '200 OK'
-    headers = [
-      ('Content-type', 'application/json; charset=utf-8'),
-      ('Access-Control-Allow-Origin', '*'),
-    ]
-    start_response(status, headers)
-    
-    # 事前にlocalhost:3000に何かしらのサーバー立ててください。
-    # localhost 3000番にhttpGET
-    url= 'http://localhost:3000/post'
-    req = requests.get(url)
-    print(req.text)
-    
-    jsonfile=str(req.text)
-    
-    # bodyをinput.jsonに改名
-    f=open("input.json",'w')
-    f.write(str(jsonfile))
-    f.close()
+# convert server.json into server.f90
 
-    # input.json >> 計算の実行 >> output.json
-    os.system("./plantfem run")
+server_json = open('server.json', 'r')
+server = json.load(server_json)
 
-    # 出力の読み込み
-    f=open("output.json",'r')
-    jsonfile=f.read()
-    f.close()
+server_f90 = open('server.f90','w')
 
-    # 計算結果ファイルの返却
-    return [jsonfile.encode("utf-8")]
+server_f90.write('program main\n')
+server_f90.write("  ")
+server_f90.write('use plantFEM\n')
+# declear variables
+server_f90.write("  ")
+server_f90.write("type(")
+server_f90.write(str(server["object"]["type"]) )
+server_f90.write(") :: ")
+server_f90.write(str(server["object"]["name"]))
+server_f90.write("\n")
 
-with make_server('', 3005, app) as httpd:
-    print("Serving on port 3005...")
-    httpd.serve_forever()
+# Operations
+if "create" in str(server["object"]["exec"]):
+    server_f90.write("  ")
+    server_f90.write("call "+str(server["object"]["name"])+"%create(")
+    # arguments
+    if "meshtype" in str(server["object"]["exec"]["create"]):
+        server_f90.write('meshtype='+"'"+str(server["object"]["exec"]["create"]["meshtype"])+"'")
+    server_f90.write(")\n")
+
+# Operations
+if "msh" in str(server["object"]["exec"]):
+    server_f90.write("  ")
+    server_f90.write("call "+str(server["object"]["name"])+"%msh(")
+    # arguments
+    if "name" in str(server["object"]["exec"]["msh"]):
+        server_f90.write('name='+"'"+str(server["object"]["exec"]["msh"]["name"])+"'")
+    server_f90.write(")\n")
+
+    #server_f90.write("call "+str(server["object"]["name"])+"%msh(")
+    #if "name" in str(server["object"]["exec"]["msh"]):
+    #    server_f90.write('name='+"'"+str(server["object"]["exec"]["msh"]["name"])+"'")
+    #server_f90.write(")")
+server_f90.write('end program main\n')
+server_f90.close()
+os.system("./plantfem run")

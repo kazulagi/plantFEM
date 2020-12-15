@@ -384,6 +384,12 @@ function signmm(a) result(b)
 	
 end function signmm 
 !==========================================================
+
+! ################################################################
+! From 数値計算のためのFortran90/95プログラミング入門 単行本（ソフトカバー） –
+! This function is not presented with GPL or any licenses.
+! this function will be replaced by LAPACK.
+
 recursive function det_mat(a,n) result(det)
   	integer(int32), intent(in) :: n
   	real(real64), intent(in) :: a(n, n)
@@ -1444,5 +1450,7 @@ function IsItNumber(char) result(res)
 
 
 end function IsItNumber
+
+
 
 end module MathClass

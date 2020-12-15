@@ -44,8 +44,13 @@ module SoilClass
 
     contains
         procedure :: init => initSoil
+        procedure :: create => initSoil
         procedure :: new => initSoil
+        procedure :: resize => resizeSoil
+        procedure :: rotate => rotateSoil
+        procedure :: move => moveSoil
         procedure :: gmsh => gmshSoil
+        procedure :: msh => mshSoil
         procedure :: fertilize => fertilizeSoil
         procedure :: diagnosis => diagnosisSoil
         procedure :: export => exportSoil
@@ -54,9 +59,10 @@ module SoilClass
 contains
 
 ! ################################################################
-subroutine initSoil(obj,config)
+subroutine initSoil(obj,config,x_num,y_num,z_num)
     class(Soil_),intent(inout)::obj
     character(*),optional,intent(in) :: config
+    integer(int32),optional,intent(in) :: x_num,y_num,z_num
     character(200) :: fn,conf,line
     real(real64) :: MaxThickness,Maxwidth,loc(3),vec(3),rot(3),zaxis(3),meshloc(3),meshvec(3)
     integer(int32) :: i,j,k,blcount,id,rmc,n,node_id,node_id2,elemid
@@ -179,10 +185,20 @@ subroutine initSoil(obj,config)
     enddo
     call soilconf%close()
 
-
+    if(present(x_num) )then
+        obj%num_x = x_num
+    endif
     
-    call obj%FEMdomain%create(meshtype="rectangular3D",x_num=obj%num_y,&
-    y_num=obj%num_z,z_num=obj%num_x,&
+    if(present(y_num) )then
+        obj%num_y = y_num
+    endif
+
+    if(present(z_num) )then
+        obj%num_z = z_num
+    endif
+
+    call obj%FEMdomain%create(meshtype="rectangular3D",x_num=obj%num_x,&
+    y_num=obj%num_y,z_num=obj%num_z,&
     x_len=obj%length,y_len=obj%width,z_len=obj%depth)
 
     call obj%femdomain%move(x=-obj%length/2.0d0,&
@@ -392,5 +408,46 @@ subroutine gmshSoil(obj,name)
 end subroutine
 ! ########################################
 
+! ########################################
+subroutine resizeSoil(obj,x,y,z)
+    class(Soil_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x,y,z
+
+    call obj%femdomain%resize(x=x,y=y,z=z)
+
+end subroutine
+! ########################################
+
+! ########################################
+subroutine rotateSoil(obj,x,y,z)
+    class(Soil_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x,y,z
+
+    call obj%femdomain%rotate(x=x,y=y,z=z)
+    
+end subroutine
+! ########################################
+
+
+! ########################################
+subroutine moveSoil(obj,x,y,z)
+    class(Soil_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x,y,z
+
+    call obj%femdomain%move(x=x,y=y,z=z)
+    
+end subroutine
+! ########################################
+
+
+! ########################################
+subroutine mshSoil(obj,name)
+    class(Soil_),intent(inout) :: obj
+    character(*),intent(in) :: name
+
+    call obj%femdomain%msh(Name=name)
+    
+end subroutine
+! ########################################
 
 end module

@@ -25,6 +25,7 @@ module RandomClass
         procedure :: InverseGauss => InverseGaussRandom
         procedure :: save       => saveRandom
         procedure :: randn      => randnRandom
+        procedure :: fill       => fillRandom
         procedure :: histogram      => histogramRandom
         !procedure :: choiceString => choiceRandomString
     end type
@@ -360,6 +361,20 @@ function InverseGaussRandom(obj,mu,lambda) result(ret)
 end function 
 !##########################################
 
+!##########################################
+subroutine fillRandom(obj,array)
+    class(Random_),intent(inout) :: obj
+    real(real64),intent(inout)  :: array(:,:)
+    integer(int32) :: i,j
 
+    call obj%init()
+    do i=1,size(Array,2)
+        do j=1,sizE(Array,1)
+            array(j,i) = obj%random()
+        enddo
+    enddo
+    
+end subroutine
+!##########################################
 
 end module

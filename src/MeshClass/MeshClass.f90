@@ -45,7 +45,7 @@ module MeshClass
         procedure :: create=>createMesh
         procedure :: check=>checkMesh
         procedure :: convert2Dto3D => Convert2Dto3DMesh
-        
+        procedure :: clean => cleanMesh
         procedure :: delete => DeallocateMesh
         procedure :: detectIface => detectIfaceMesh
         procedure :: displayMesh => DisplayMesh 
@@ -4126,6 +4126,8 @@ subroutine AdjustCylinderMesh(obj,rx,ry,rz,debug)
                 call removeArray(mat=mesh%ElemNod,remove1stColumn=.true.,NextOf=i-1)
             endif
         enddo
+
+        
         !call showArray(mat=mesh%NodCoord,IndexArray=mesh%ElemNod,&
         !    Name=trim(adjustl( fstring(itr) ))//".txt")
     enddo
@@ -4175,7 +4177,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         !     %%                       %%          
         !   A   %%                  %%            
         !      <I> %%%%%%%%%%%%%%%%                               
-    
+        call obj%clean()
         do i=1,size(obj%NodCoord,1)
             zc = obj%NodCoord(i,3)
             zm = minval(obj%NodCoord(:,3) )
@@ -4357,6 +4359,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             allocate(obj%ElemMat(n) )
         endif
         call obj%AdjustSphere(debug=.true.)
+        call obj%clean()
         call obj%resize(x_rate=x_len,&
             y_rate=y_len,&
             z_rate=thickness)
@@ -4390,6 +4393,8 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             allocate(obj%ElemMat(n) )
         endif
         !call obj%adjustCylinder(debug=.true.)
+        ! move unconnected nodes
+        call obj%clean()
         call obj%resize(x_rate=2.0d0*x_len,&
             y_rate=2.0d0*y_len,&
             z_rate=thickness)
@@ -6801,6 +6806,42 @@ subroutine jsonMesh(obj,name,fh,endl)
 
 
 
+
+end subroutine
+!#######################################################################################
+!#######################################################################################
+subroutine cleanMesh(obj)
+    class(Mesh_),intent(inout) :: obj
+    integer(int32) :: i,j,n,num_dim
+    integer(int32),allocatable :: removes(:)
+    real(real64),allocatable :: nodcoord(:,:)
+
+    allocate(removes( size(obj%nodcoord,1) ) )
+    removes(:) = 1
+    num_dim  =size(obj%nodcoord,2)
+    do i=1,size(obj%ElemNod,1)
+        do j=1, size(obj%ElemNod,2)
+            removes(obj%ElemNod(i,j) ) = 0
+        enddo
+    enddo
+    n = size(obj%nodcoord,1) - sum(removes)
+    allocate(nodcoord(n,num_dim) )
+    n=0
+    do i=1,size(removes)
+        if(removes(i)==0 )then
+            n=n+1
+            nodcoord(n,:) = obj%nodcoord(i,:)
+        else
+            cycle
+        endif
+    enddo
+    obj%nodcoord = nodcoord
+    do i=1,size(obj%elemnod,1)
+        do j=1,size(obj%elemnod,2)
+            
+            obj%elemnod(i,j)=obj%elemnod(i,j)-sum(removes(1:obj%elemnod(i,j)) )
+        enddo
+    enddo
 
 end subroutine
 !#######################################################################################
