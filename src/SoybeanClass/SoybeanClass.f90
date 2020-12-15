@@ -15,19 +15,24 @@ module SoybeanClass
         character*2  :: growth_stage
         integer(int32) :: Num_Of_Node
         integer(int32) :: Num_Of_Root
-
+        
         integer(int32) :: MaxLeafNum= 300
         integer(int32) :: MaxRootNum=300
         integer(int32) :: MaxStemNum= 300
         
         integer(int32)  :: ms_node,br_node(300),br_from(300)
-
         real(real64)    :: ms_length,br_length(300)
-        
         real(real64)    :: ms_width,br_width(300)
         real(real64)    :: ms_angle_ave,br_angle_ave(300)
         real(real64)    :: ms_angle_sig,br_angle_sig(300)
         
+
+        integer(int32)  :: mr_node,brr_node(300),brr_from(300)
+        real(real64)    :: mr_length,brr_length(300)
+        real(real64)    :: mr_width,brr_width(300)
+        real(real64)    :: mr_angle_ave,brr_angle_ave(300)
+        real(real64)    :: mr_angle_sig,brr_angle_sig(300)
+
         real(real64)    :: peti_size_ave(300)
         real(real64)    :: peti_size_sig(300)
         real(real64)    :: peti_width_ave(300)
@@ -156,6 +161,18 @@ subroutine initsoybean(obj,config,&
     obj%ms_angle_ave=0.0d0
     obj%ms_angle_sig=2.0d0
 
+    ! for roots
+    obj%brr_node(:)=0
+    obj%brr_from(:)=0
+    obj%brr_length(:)=0.0d0
+
+    obj%brr_angle_ave(:)= 0.0d0
+    obj%brr_angle_sig(:)=10.0d0
+    obj%brr_angle_ave(1)=30.0d0
+    obj%brr_angle_sig(1)=2.0d0
+    
+    obj%mr_angle_ave=0.0d0
+    obj%mr_angle_sig=2.0d0
     ! peti
     ! is also stem
     
@@ -215,6 +232,18 @@ subroutine initsoybean(obj,config,&
         write(soyconf%fh,*) '   "br_angle_sig(1)": 2.00,'
         write(soyconf%fh,*) '   "ms_angle_ave": 0.00,'
         write(soyconf%fh,*) '   "ms_angle_sig": 2.00,'
+
+
+        ! root
+        write(soyconf%fh,*) '   "brr_node" : 0,'
+        write(soyconf%fh,*) '   "brr_from" : 0,'
+        write(soyconf%fh,*) '   "brr_length" : 0.00,'
+        write(soyconf%fh,*) '   "brr_angle_ave" : 0.00,'
+        write(soyconf%fh,*) '   "brr_angle_sig" : 10.00,'
+        write(soyconf%fh,*) '   "brr_angle_ave(1)": 360.00,'
+        write(soyconf%fh,*) '   "brr_angle_sig(1)": 2.00,'
+        write(soyconf%fh,*) '   "mr_angle_ave": 0.00,'
+        write(soyconf%fh,*) '   "mr_angle_sig": 2.00,'
         ! peti
         ! is also stem
         write(soyconf%fh,*) '   "peti_size_ave"  :  0.200,'
@@ -366,6 +395,115 @@ subroutine initsoybean(obj,config,&
                         endif
                         id = index(line,":")
                         read(line(id+1:),*) obj%br_from(branch_id)
+                    endif
+                
+                enddo
+            endif
+
+            ! for roots
+
+            if(index(line,"Mainroot")/=0)then
+                do
+                    read(soyconf%fh,'(a)') line
+                    print *, trim(line)
+                    if( index(line,"}")/=0 )then
+                        exit
+                    endif
+                    
+                    if(index(line,"Length")/=0 )then
+                        rmc=index(line,",")
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%mr_length
+                    endif
+
+                    if(index(line,"Width")/=0 )then
+                        rmc=index(line,",")
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%mr_width
+                    endif
+                    
+                    if(index(line,"Node")/=0 )then
+                        rmc=index(line,",")
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%mr_node
+                    endif
+
+                    
+                
+                enddo
+            endif
+
+            if(index(line,"Branchroot#")/=0)then
+                rmc=index(line,"{")
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                rmc=index(line,'"')
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                rmc=index(line,'"')
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                rmc=index(line,':')
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,"#")
+                print *, trim(line)
+                read(line(id+1:),*) branch_id
+
+                do
+                    read(soyconf%fh,'(a)') line
+                    print *, trim(line)
+                    if( index(line,"}")/=0 )then
+                        exit
+                    endif
+                    
+                    if(index(line,"Length")/=0 )then
+                        rmc=index(line,",")
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%brr_length(branch_id)
+                    endif
+
+                    if(index(line,"Width")/=0 )then
+                        rmc=index(line,",")
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%brr_Width(branch_id)
+                    endif
+                    
+                    if(index(line,"Node")/=0 )then
+                        rmc=index(line,",")
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%brr_node(branch_id)
+                    endif
+
+                    if(index(line,"From")/=0 )then
+                        rmc=index(line,",")
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%brr_from(branch_id)
                     endif
                 
                 enddo
@@ -738,6 +876,84 @@ subroutine initsoybean(obj,config,&
                 obj%leaf_angle_sig(:) = readvalreal
             endif
 
+
+            ! added in 2020/12/15
+            ! for roots
+
+
+
+            if(index(line,"brr_angle_ave") /=0 .and. index(line,"brr_angle_ave(") ==0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%brr_angle_ave(:) = readvalreal
+            endif
+            
+            if(index(line,"brr_angle_sig") /=0 .and. index(line,"brr_angle_sig(") ==0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%brr_angle_sig(:) = readvalreal
+            endif
+
+            if(index(line,"brr_angle_ave(1)")/=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%brr_angle_ave(1) = readvalreal
+            endif
+            if(index(line,"brr_angle_sig(1)")/=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%brr_angle_sig(1) = readvalreal
+            endif
+
+            if(index(line,"mr_angle_ave")/=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%mr_angle_ave = readvalreal
+            endif
+            
+            if(index(line,"mr_angle_sig")/=0 )then
+                ! 種子の長さ
+                rmc=index(line,",")
+                ! カンマがあれば除く
+                if(rmc /= 0)then
+                    line(rmc:rmc)=" "
+                endif
+                id = index(line,":")
+                read(line(id+1:),*) readvalreal
+                obj%mr_angle_sig = readvalreal
+            endif
+
+
             cycle
 
         endif
@@ -845,6 +1061,9 @@ subroutine initsoybean(obj,config,&
         enddo
         
 
+
+
+
         ! peti and leaf
         num_stem_node = k
         num_leaf = 0
@@ -891,6 +1110,60 @@ subroutine initsoybean(obj,config,&
         enddo
 
 
+        ! set mainroot
+        do i=1,obj%mr_node
+
+            call obj%root(i)%init()
+            call obj%root(i)%resize(&
+                x = obj%mr_width, &
+                y = obj%mr_width, &
+                z = obj%mr_length/dble(obj%mr_node) &
+                )
+            call obj%root(i)%rotate(&
+                x = radian(random%gauss(mu=obj%mr_angle_ave,sigma=obj%mr_angle_sig)),  &
+                y = radian(random%gauss(mu=obj%mr_angle_ave,sigma=obj%mr_angle_sig)),  &
+                z = radian(random%gauss(mu=obj%mr_angle_ave,sigma=obj%mr_angle_sig))   &
+                )                
+        enddo
+
+        do i=1,obj%mr_node-1
+            if(i==1)then
+                call obj%root(1)%connect("=>",obj%stem(1))    
+                obj%root2stem(1,1) = 1
+            endif
+            call obj%root(i+1)%connect("=>",obj%root(i))
+            obj%root2root(i+1,i) = 1
+        enddo
+
+        ! set branches
+        k=obj%mr_node
+        do i=1,size(obj%brr_node)
+            do j=1, obj%brr_node(i)
+                k = k + 1
+                call obj%root(k)%init()
+                call obj%root(k)%resize(&
+                    x = obj%mr_width, &
+                    y = obj%mr_width, &
+                    z = obj%mr_length/dble(obj%mr_node) &
+                    )
+                    
+                call obj%root(k)%rotate(&
+                    x = radian(random%gauss(mu=obj%brr_angle_ave(j),sigma=obj%brr_angle_sig(j) )),  &
+                    y = 0.0d0,  &
+                    z = radian(360.0d0*random%random() )   &
+                    )                
+                
+                if(j==1)then
+                    call obj%root(k)%connect("=>",obj%root(obj%brr_from(i)  ))
+                    obj%root2root(k,obj%brr_from(i) ) = 1
+                else
+                    call obj%root(k)%connect("=>",obj%root(k-1))
+                    obj%root2root(k,k-1) = 1
+                endif
+                    
+            enddo
+        enddo
+        
 
         obj%stage = "V"//trim(str(obj%ms_node))
         return
