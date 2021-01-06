@@ -332,10 +332,17 @@ echo "Compiling ./src/LeafClass/LeafClass.f90"
 echo " >> LeafClass.o "
 echo " | =======================>    | (92%)\r\c"
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LeafClass/LeafClass.f90 -o  ./inc/LeafClass.o
+
 echo "Compiling ./src/PlantNodeClass/PlantNodeClass.f90" 
 echo " >> PlantNodeClass.o "
 echo " | =======================>    | (92%)\r\c"
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlantNodeClass/PlantNodeClass.f90 -o  ./inc/PlantNodeClass.o
+
+echo "Compiling ./src/InsectClass/InsectClass.f90" 
+echo " >> InsectClass.o "
+echo " | =======================>    | (92%)\r\c"
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/InsectClass/InsectClass.f90 -o  ./inc/InsectClass.o
+
 echo "Compiling ./src/LsystemClass/LsystemClass.f90" 
 echo " >> LsystemClass.o "
 echo " | =========================>  | (95%)\r\c"
@@ -348,10 +355,17 @@ echo "Compiling ./src/SoilClass/SoilClass.f90"
 echo " >> SoilClass.o "
 echo " | =========================> |  (99%)\r\c"
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SoilClass/SoilClass.f90 -o  ./inc/SoilClass.o
+
 echo "Compiling ./src/SoybeanClass/SoybeanClass.f90" 
 echo " >> SoybeanClass.o "
 echo " | =========================> |  (99%)\r\c"
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SoybeanClass/SoybeanClass.f90 -o  ./inc/SoybeanClass.o
+
+echo "Compiling ./src/RiceClass/RiceClass.f90" 
+echo " >> RiceClass.o "
+echo " | =========================> |  (99%)\r\c"
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RiceClass/RiceClass.f90 -o  ./inc/RiceClass.o
+
 echo "Compiling ./src/FarmClass/FarmClass.f90" 
 echo " >> FarmClass.o "
 echo " | =========================> |  (99%)\r\c"

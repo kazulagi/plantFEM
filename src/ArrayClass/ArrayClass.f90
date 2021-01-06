@@ -3120,10 +3120,10 @@ end function
 
 
 ! ##########################################################
-function existIntArray(vector,val,columnid) result(ret)
+function existIntArray(vector,val,rowid,columnid) result(ret)
     integer(int32),allocatable,intent(inout) :: vector(:,:)
     integer(int32),intent(in) :: val
-    integer(int32),optional,intent(in) :: columnid
+    integer(int32),optional,intent(in) :: columnid,rowid
     logical :: ret
     integer(int32) :: i,j,k,n
 
@@ -3142,6 +3142,15 @@ function existIntArray(vector,val,columnid) result(ret)
         enddo    
     endif
     
+    if(present(rowid) )then
+        do i=1,size(vector,2)
+            if(vector(rowid,i) == val ) then
+                ret=.true.
+                return
+            endif
+        enddo    
+    endif
+
     do i=1,size(vector,1)
         do j=1,size(vector,2)
             if(vector(i,j) == val ) then

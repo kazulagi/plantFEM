@@ -11,6 +11,7 @@ module obj
     use PanicleClass
     use LeafClass
     use PlantNodeClass
+    use InsectClass
     use LsystemClass
     use SeedClass
     use SoilClass
