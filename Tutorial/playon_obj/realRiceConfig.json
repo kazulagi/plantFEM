@@ -1,25 +1,25 @@
 {
     "Name":"soybean",
     "Mainstem":{
-        "Length":0.98,
+        "Length":0.20,
         "Width":0.010,
         "Node":13
     },
     "Branch#1":{
         "From":2,
-        "Length":0.7,
+        "Length":0.05,
         "Width":0.01,
         "Node":7
     },
     "Branch#2":{
         "From":3,
-        "Length":0.65,
+        "Length":0.05,
         "Width":0.01,
         "Node":7
     },
     "Branch#3":{
         "From":4,
-        "Length":0.2,
+        "Length":0.05,
         "Width":0.01,
         "Node":2
     },
@@ -36,7 +36,7 @@
         "Node":7
     },
     "Branchroot#2":{
-        "From":2,
+        "From":1,
         "Length":0.65,
         "Width":0.01,
         "Node":7
@@ -92,16 +92,16 @@
     "peti_size_sig"  :  0.0100,
     "peti_width_ave"  :  0.00500,
     "peti_width_sig"  :  0.000100,
-    "peti_angle_ave"  :  30.00,
+    "peti_angle_ave"  :  0.00,
     "peti_angle_sig"  :  1.000,
     
     "leaf_thickness_ave"  :  0.001000,
     "leaf_thickness_sig"  :  0.000500,
 
-    "leaf_angle_ave": 70.00,
-    "leaf_angle_sig": 1.00,
-    "leaf_length_ave":   0.200,
+    "leaf_angle_ave": 10.00,
+    "leaf_angle_sig": 10.00,
+    "leaf_length_ave":   0.400,
     "leaf_length_sig":   0.030,
-    "leaf_width_ave":  0.1000,
+    "leaf_width_ave":  0.0100,
     "leaf_width_sig":  0.0100
 }

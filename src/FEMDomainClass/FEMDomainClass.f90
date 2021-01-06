@@ -101,6 +101,7 @@ module FEMDomainClass
 		procedure,public :: distribute => distributeFEMDomain
 		
 		procedure,public :: export => ExportFEMDomain
+		procedure,public :: edit => editFEMDomain
 		
 		procedure,public :: field => fieldFEMDomain
 		
@@ -7765,5 +7766,12 @@ function neFEMDomain(obj) result(ret)
 
 end function
 ! ######################################################################
+
+subroutine editFEMDomain(obj,x,altitude)
+    class(FEMDomain_),intent(inout) :: obj
+	real(real64),optional,intent(in) :: x(:),altitude(:)
+	
+	call obj%mesh%edit(x,altitude)
+end subroutine
 
 end module FEMDomainClass

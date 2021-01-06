@@ -60,6 +60,7 @@ module MeshClass
         procedure :: exportNodCoord => ExportNodCoord
         procedure :: exportSurface2D => ExportSurface2D
         procedure :: empty => emptyMesh
+        procedure :: edit => editMesh
         
         procedure :: getCoordinate => getCoordinateMesh
         procedure :: getNodeIDinElement => getNodeIDinElementMesh
@@ -77,8 +78,10 @@ module MeshClass
         procedure :: getCircumscribedTriangle => getCircumscribedTriangleMesh
         procedure :: getNodeList => getNodeListMesh
         procedure :: getElementList => getElementListMesh
-        procedure :: getGetVolume => getGetVolumeMesh
+        procedure :: getVolume => getVolumeMesh
         procedure :: getShapeFunction => getShapeFunctionMesh
+        procedure :: getCenterCoordinate => getCenterCoordinateMesh
+        procedure :: getNeighboringElement => getNeighboringElementMesh
         procedure :: ShapeFunction => getShapeFunctionMesh
         procedure :: gmsh => gmshMesh
         
@@ -104,6 +107,8 @@ module MeshClass
         procedure :: nne => numNodesForEachElementMesh
         procedure :: numDimension => numDimensionMesh
         procedure :: nd => numDimensionMesh
+        procedure :: nearestElementID => nearestElementIDMesh
+        !procedure :: nearestNodeID => nearestNodeIDMesh
         
         procedure :: HowManyDomain => HowManyDomainMesh
 
@@ -6625,13 +6630,13 @@ end function
 
 
 !#######################################################################################
-function getGetVolumeMesh(obj) result(volume)
+function getVolumeMesh(obj) result(volume)
     class(Mesh_),intent(inout) :: obj
     real(real64),allocatable :: volume(:),eNodCoord(:,:)
     integer(int32) :: i,j,numelem, numelemnod,numnode,dimnum
 
     if(obj%empty() .eqv. .true. )then
-        print *, "getGetVolumeMesh >> Mesh is empty."
+        print *, "getVolumeMesh >> Mesh is empty."
         return
     endif
 
@@ -6650,7 +6655,7 @@ function getGetVolumeMesh(obj) result(volume)
             enddo
         enddo
     else
-        print *, "getGetVolumeMesh >> Not imlemented."
+        print *, "getVolumeMesh >> Not imlemented."
         stop
     endif
 
@@ -6845,5 +6850,162 @@ subroutine cleanMesh(obj)
 
 end subroutine
 !#######################################################################################
+!################################################################################
+function nearestElementIDMesh(obj,x,y,z) result(ret)
+    class(Mesh_),intent(in) :: obj
+    real(real64),optional,intent(in) :: x,y,z
+    real(real64),allocatable :: xcoord(:)
+    integer(int32) :: ret,dim_num,elem_num,node_num,i,j
+
+    dim_num = size(obj%nodcoord,2)
+    node_num = size(obj%nodcoord,1)
+    elem_num = size(obj%elemnod,2)
+
+    
+    print *, "Not implemented now."
+    stop
+end function
+!##################################################################################
+
+
+!##################################################################################
+function getCenterCoordinateMesh(obj, elemid) result(ret)
+    class(Mesh_),intent(in) :: obj
+    integer(int32),intent(in) :: elemid
+    integer(int32) :: dimnum,i
+    real(real64),allocatable :: ret(:)
+
+    if(obj%empty() .eqv. .true. )then
+        print *, "ERROR :: mesh is empty"
+        return
+    endif
+    dimnum = size(obj%nodcoord,2)
+
+    allocate(ret(dimnum) )
+
+    ret(:) = 0.0d0
+    do i=1,size(obj%elemnod,2)
+        ret(:)  = ret(:) + 1.0d0/dble(size(obj%elemnod,2))*obj%nodcoord(obj%elemnod(elemid,i),: )
+    enddo
+
+end function
+!##################################################################################
+
+
+!##################################################################################
+function getNeighboringElementMesh(obj, elemid) result(ret)
+    class(Mesh_),intent(inout) :: obj
+    integer(int32),intent(in) :: elemid
+    integer(int32) :: dimnum,i,facetnum,elemnodnum,j
+    integer(int32),allocatable :: ret(:),nodelist(:),elemlist(:)
+    logical :: exists
+
+    if(obj%empty() .eqv. .true. )then
+        print *, "ERROR :: mesh is empty"
+        return
+    endif
+    dimnum = size(obj%nodcoord,2)
+
+    elemnodnum = size(obj%elemnod,2)
+
+    allocate(elemlist(size(obj%elemnod,1) ) )
+    
+    elemlist(:)  = 0
+    
+    allocate(nodelist(elemnodnum) )
+    do i=1,size(obj%elemnod,2)
+        nodelist(i)=obj%elemnod(elemid,i)
+    enddo
+
+    do i=1,size(obj%elemnod,1)
+        exists = .false.
+        do j=1,size(nodelist,1)
+            if(existIntArray(vector=obj%elemnod,rowid=i,val=nodelist(j) ) .eqv. .true. )then
+                exists = .true.
+                exit
+            else
+                cycle
+            endif
+        enddo
+        if(exists .eqv. .true.)then
+            elemlist(i) = 1
+        endif
+    enddo
+    allocate(ret(sum(elemlist) ))
+    j=0
+    do i=1,size(elemlist)
+        if(elemlist(i)==1 )then
+            j=j+1
+            ret(j) = i
+        endif
+    enddo
+    return
+    !if(dimnum==3)then
+    !    if(elemnodnum==8)then
+    !        facetnum = 6
+    !    elseif(elemnodnum==4)then
+    !        facetnum = 4
+    !    else
+    !        print *, "ERROR :: getNeighboringElementMesh :: not implemented. elemnodnum",elemnodnum
+    !    endif
+    !    
+    !elseif(dimnum==2)then
+!
+    !    if(elemnodnum==4)then
+    !        facetnum = 4
+    !    elseif(elemnodnum==3)then
+    !        facetnum = 3
+    !    else
+    !        print *, "ERROR :: getNeighboringElementMesh :: not implemented. elemnodnum",elemnodnum
+    !    endif
+    !elseif(dimnum==1)then
+!
+    !    if(elemnodnum==2)then
+    !        facetnum = 2
+    !    else
+    !        print *, "ERROR :: getNeighboringElementMesh :: not implemented. elemnodnum",elemnodnum
+    !    endif
+    !else
+    !    print *, "ERROR :: getNeighboringElementMesh :: no such dimension-of-mesh as",dimnum
+    !endif
+!
+    !allocate(edgelist(facetnum,) )
+
+
+end function
+!##################################################################################
+
+subroutine editMesh(obj,x,altitude)
+    class(Mesh_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x(:),altitude(:)
+    real(real64) :: coord(3),top,original_top
+    integer(int32) :: i,j
+
+    if(present(x) .and. present(altitude) )then
+        ! from x(n) -> x(n+1), the altitute (z-coordinate) changes from al(n) -> al(n+1)
+        original_top=maxval(obj%nodcoord(:,3)) 
+        do i=1, size(obj%nodcoord,1)
+            coord(:) =obj%nodcoord(i,:)
+            if(coord(3) <= 0.0d0 )then
+                ! only for above-ground part
+                cycle
+            endif
+            do j=1,size(x)-1
+                if(x(j) <= coord(1) .and. coord(1)<x(j+1) )then
+                    top = (altitude(j+1)-altitude(j))/(x(j+1)-x(j) )*(coord(1)- x(j) ) +altitude(j) 
+                    coord(3) = top/original_top*coord(3)
+                    exit
+                endif
+                if(j==size(x)-1 .and. coord(1)==x(j+1) )then
+                    top = (altitude(j+1)-altitude(j))/(x(j+1)-x(j) )*(coord(1)- x(j) ) +altitude(j) 
+                    coord(3) = top/original_top*coord(3)
+                    exit
+                endif
+            enddo
+            obj%nodcoord(i,:) = coord(:) 
+        enddo
+    endif
+    
+end subroutine
 
 end module MeshClass
