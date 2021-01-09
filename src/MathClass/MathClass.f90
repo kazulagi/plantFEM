@@ -30,8 +30,50 @@ module MathClass
 		module procedure radianreal32,radianreal64, radianint
 	end interface
 
-
+	interface array
+		module procedure arrayDim1Real64,arrayDim2Real64,arrayDim3Real64
+	end interface
 contains
+
+! ###############################################
+function arrayDim1Real64(size1) result(ret)
+	integer(int32),intent(in) :: size1
+	real(real64),allocatable :: ret(:)
+
+	allocate(ret(size1) )
+
+	ret(:) = 0.0d0
+
+end function
+! ###############################################
+
+
+! ###############################################
+function arrayDim2Real64(size1,size2) result(ret)
+	integer(int32),intent(in) :: size1,size2
+	real(real64),allocatable :: ret(:,:)
+
+	allocate(ret(size1,size2) )
+
+	ret(:,:) = 0.0d0
+
+
+end function
+! ###############################################
+
+
+! ###############################################
+function arrayDim3Real64(size1,size2,size3) result(ret)
+	integer(int32),intent(in) :: size1,size2,size3
+	real(real64),allocatable :: ret(:,:,:)
+
+	allocate(ret(size1,size2,size3) )
+
+	ret(:,:,:) = 0.0d0
+
+
+end function
+! ###############################################
 
 ! ###############################################
 function radianreal32(deg) result(ret)
@@ -337,8 +379,8 @@ subroutine eigen_2d(Amat,eigenvector)
 	real(real64)::b,c,phy,eigenvalue(2)
 	integer(int32) i,j
 	
-	eigenvalue(:)=0.0d0
-	eigenvector(:,:)=0.0d0
+	eigenvalue=array(size(Amat,1) )
+	eigenvector=array(size(Amat,1),size(Amat,1))
 	
 	b=-1.0d0*(Amat(1,1)+Amat(2,2))
 	c=Amat(1,1)*Amat(2,2)-Amat(1,2)*Amat(1,2)
