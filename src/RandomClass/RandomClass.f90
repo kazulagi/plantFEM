@@ -27,6 +27,10 @@ module RandomClass
         procedure :: randn      => randnRandom
         procedure :: fill       => fillRandom
         procedure :: histogram      => histogramRandom
+        procedure :: scalar          => scalarRandom
+        procedure :: vector          => vectorRandom
+        procedure :: matrix          => matrixRandom
+        procedure :: cube            => cubeRandom
         !procedure :: choiceString => choiceRandomString
     end type
 
@@ -376,5 +380,75 @@ subroutine fillRandom(obj,array)
     
 end subroutine
 !##########################################
+
+
+!##########################################
+function cubeRandom(obj,size1, size2, size3) result(ret)
+    class(Random_) ,intent(inout) :: obj
+    integer(int32),intent(in) :: size1, size2, size3
+    real(real64),allocatable :: ret(:,:,:)
+    integer(int32) :: i,j,k
+
+    allocate( ret(size1,size2, size3) )
+    do i=1,size3
+        do j=1,size2
+            do k=1,size1
+                ret(k,j,i) = obj%random()
+            enddo
+        enddo
+    enddo
+
+end function
+!##########################################
+
+
+!##########################################
+function matrixRandom(obj,size1, size2) result(ret)
+    class(Random_) ,intent(inout) :: obj
+    integer(int32),intent(in) :: size1, size2
+    real(real64),allocatable :: ret(:,:)
+    integer(int32) :: j,k
+
+    allocate( ret(size1,size2) )
+    do j=1,size2
+        do k=1,size1
+            ret(k,j) = obj%random()
+        enddo
+    enddo
+
+end function
+!##########################################
+
+
+!##########################################
+function vectorRandom(obj,size1) result(ret)
+    class(Random_) ,intent(inout) :: obj
+    integer(int32),intent(in) :: size1
+    real(real64),allocatable :: ret(:)
+    integer(int32) :: k
+
+    allocate( ret(size1) )
+    do k=1,size1
+        ret(k) = obj%random()
+    enddo
+    
+
+end function
+!##########################################
+
+
+!##########################################
+function scalarRandom(obj,size1) result(ret)
+    class(Random_) ,intent(inout) :: obj
+    integer(int32),intent(in) :: size1
+    real(real64),allocatable :: ret
+    integer(int32) :: k
+
+    ret = obj%random()
+    
+
+end function
+!##########################################
+
 
 end module

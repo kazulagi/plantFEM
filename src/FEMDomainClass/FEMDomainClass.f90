@@ -3328,16 +3328,48 @@ end subroutine
 
 
 !##################################################
-subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname)
+recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname)
 	! export as msh format
 	class(FEMDomain_),intent(in)::obj
 	character(*),intent(in) :: name
 	character(*),optional,intent(in) :: fieldname
-	real(real64),optional,intent(in):: vector(:,:),scalar(:,:),tensor(:,:)
+	real(real64),optional,intent(in):: vector(:,:),scalar(:,:),tensor(:,:,:)
+	real(real64),allocatable :: eigenvector(:,:),eigens(:),tens(:,:),vec1(:,:),vec2(:,:),scalar_(:,:)
+	real(real64),allocatable :: vector_(:,:)
 	integer(int32),optional,intent(in) :: step
 	character(:),allocatable :: fname
 	type(IO_) :: f
 	integer(int32) :: i,j,typeid,n
+
+
+
+	if(present(tensor) )then
+		
+		if(size(tensor,2)==2)then
+
+			allocate(tens(size(tensor,2),size(tensor,3)) )
+			allocate(vec1(size(tensor,1),size(tensor,2)),vec2(size(tensor,1),size(tensor,2)))
+			do i=1,size(tensor,1)
+				tens(:,:) = tensor(i,:,:)
+				call eigen_2d(tens, eigenvector)
+				vec1(i,:) = eigenvector(1,:)
+				vec2(i,:) = eigenvector(2,:)
+			enddo
+			call obj%msh(vector=vec1,name="first_eigen_plus"//name)
+			call obj%msh(vector=vec2,name="second_eigen_plus"//name)
+			do i=1,size(vec1)
+				vec1(i,:) =  - vec1(i,:) 
+				vec2(i,:) =  - vec2(i,:)
+			enddo 
+			call obj%msh(vector=vec1,name="first_eigen_minus"//name)
+			call obj%msh(vector=vec2,name="second_eigen_minus"//name)
+			return
+		else
+			! only rank-2 tensor is now implemented.
+			! for arbitrary rank-size, please implement them in src/MathClass
+			return
+		endif
+	endif
 
 	if(present(Vector) )then
 		n = input(default=1, option=step)
@@ -3346,7 +3378,9 @@ subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname)
 		else
 			fname = "Vector Field"
 		endif
-		call obj%GmshPlotVector(Vector=vector,name=name,FieldName=fname,step=n)
+		vector_ = array(size(vector,1),3 )
+		vector_(:,1:size(vector,2) ) = vector(:,1:size(vector,2))
+		call obj%GmshPlotVector(Vector=vector_,name=name,FieldName=fname,step=n)
 		return
 	endif
 
@@ -3360,6 +3394,31 @@ subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname)
 		endif
 		call obj%GmshPlotContour(gp_value=scalar,OptionalContorName=fname,OptionalStep=n,Name=name)
 		return
+	endif
+
+	if(present(fieldname) )then
+		! fieldname がどこかのレイヤーの名前と一致した場合
+		do i=1,size(obj%PhysicalField)
+			if(trim(obj%PhysicalField(i)%name)==trim(fieldname) )then
+				
+				if(allocated(obj%PhysicalField(i)%scalar))then
+					scalar_ = array(size(obj%PhysicalField(i)%scalar) ,1)
+					do j=1,size(scalar_)
+						scalar_(j,:) = obj%PhysicalField(i)%scalar(j)
+					enddo
+					call obj%msh(name=name,scalar=scalar_,step=step,fieldname=fieldname)
+					return
+				endif
+				if(allocated(obj%PhysicalField(i)%vector))then
+					call obj%msh(name=name,vector=obj%PhysicalField(i)%vector,step=step,fieldname=fieldname)
+					return
+				endif
+				if(allocated(obj%PhysicalField(i)%tensor))then
+					call obj%msh(name=name,tensor=obj%PhysicalField(i)%tensor,step=step,fieldname=fieldname)
+					return
+				endif
+			endif
+		enddo
 	endif
 
 	call f%open(trim(name)//".msh" )
@@ -3376,7 +3435,19 @@ subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname)
 			write(f%fh,'(a)',advance="no") trim(str(obj%mesh%nodcoord(i,j)))//" "
 		enddo
 		j=size(obj%mesh%nodcoord,2)
-		write(f%fh,'(a)',advance="yes") trim(str(obj%mesh%nodcoord(i,j)))
+		if(3-j == 0)then
+			write(f%fh,'(a)',advance="yes") trim(str(obj%mesh%nodcoord(i,j)))
+		elseif(3-j==1)then
+			write(f%fh,'(a)',advance="no") trim(str(obj%mesh%nodcoord(i,j)))//" "
+			write(f%fh,'(a)',advance="yes") "0.00000  "
+		elseif(3-j==2)then
+			write(f%fh,'(a)',advance="no") trim(str(obj%mesh%nodcoord(i,j)))//" "
+			write(f%fh,'(a)',advance="no") "0.00000  "
+			write(f%fh,'(a)',advance="yes") "0.00000  "
+		else
+			print *, "ERROR :: mshFEMDomain >> invalid node dimension"
+			stop 			
+		endif
 	enddo
 	write(f%fh,'(a)' ) "$EndNodes"
 
@@ -6964,6 +7035,7 @@ subroutine addLayerFEMDomain(obj,name,attribute,datastyle,vectorrank,tensorrank1
 	character(*),intent(in) :: name
 	integer,optional,intent(in) :: vectorrank,tensorrank1,tensorrank2
 	integer(int32) :: datasize, datadimension,vector_rank,tensor_rank1,tensor_rank2
+
 
 	vector_rank = input(default=3,option=vectorrank)
 	tensor_rank1 = input(default=3,option=tensorrank1)
