@@ -1,26 +1,52 @@
 module IOClass
     use iso_fortran_env
     use MathClass
+    use StringClass
     implicit none
 
     type :: IO_
         integer :: fh=100
         logical :: active=.false.
+        logical :: EOF=.true.
         character(200)::path,name,extention
     contains
         procedure,public :: unit => unitIO
         procedure,public :: open => openIO
         procedure,public :: write => writeIO
         procedure,public :: read => readIO
+        procedure,public :: readline => readlineIO
         procedure,public :: close => closeIO    
     end type
 
     
     interface print
-        module procedure printChar, printReal64, printReal32, printInt64, printInt32
+        module procedure printChar,printString, printReal64, printReal32, printInt64, printInt32
     end interface print
 
 contains
+
+! #############################################
+function readlineIO(obj) result(ret)
+    class(IO_),intent(inout) :: obj
+    character(len=:),allocatable :: ret
+
+    if(obj%EOF .eqv. .true.)then
+        print *, "ERROR :: file is not opened or EOF"
+        allocate(character(len=30000) :: ret )
+        ret = " "
+        return
+    endif
+
+    allocate(character(len=30000) :: ret )
+    read(obj%fh,'(A)',end=100) ret
+    ret = trim(adjustl(ret) )
+    return
+
+100 ret = " "
+    obj%EOF =.true.
+end function
+! #############################################
+
 
 ! #############################################
 function unitIO(obj) result(unit)
@@ -115,6 +141,7 @@ subroutine openIO(obj,path,name,extention,fh)
         open(newunit=obj%fh,file="./untitled.txt" )
     endif
     
+    obj%EOF = .false.
 
 end subroutine openIO
 ! #############################################
@@ -175,6 +202,15 @@ subroutine printChar(char)
     character(*),intent(in) :: char
 
     write(*,'(A)' ) trim(char)
+
+end subroutine
+! #############################################
+
+! #############################################
+subroutine printString(char)
+    type(String_) :: char
+
+    write(*,'(A)' ) trim(char%all)
 
 end subroutine
 ! #############################################
