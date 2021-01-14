@@ -7,6 +7,7 @@ module IOClass
     type :: IO_
         integer :: fh=100
         logical :: active=.false.
+        logical :: EOF=.true.
         character(200)::path,name,extention
     contains
         procedure,public :: unit => unitIO
@@ -29,10 +30,20 @@ function readlineIO(obj) result(ret)
     class(IO_),intent(inout) :: obj
     character(len=:),allocatable :: ret
 
-    allocate(character(len=3000) :: ret )
-    read(obj%fh,'(A)') ret
-    ret = trim(adjustl(ret) )
+    if(obj%EOF .eqv. .true.)then
+        print *, "ERROR :: file is not opened or EOF"
+        allocate(character(len=30000) :: ret )
+        ret = " "
+        return
+    endif
 
+    allocate(character(len=30000) :: ret )
+    read(obj%fh,'(A)',end=100) ret
+    ret = trim(adjustl(ret) )
+    return
+
+100 ret = " "
+    obj%EOF =.true.
 end function
 ! #############################################
 
@@ -130,6 +141,7 @@ subroutine openIO(obj,path,name,extention,fh)
         open(newunit=obj%fh,file="./untitled.txt" )
     endif
     
+    obj%EOF = .false.
 
 end subroutine openIO
 ! #############################################

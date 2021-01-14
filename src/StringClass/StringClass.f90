@@ -10,7 +10,7 @@ module StringClass
     public :: assignment(=)
 
     interface operator(+)
-        module procedure addstring, addstringchar
+        module procedure addstring, addstringchar,addcharstring
     end interface
       
     interface assignment(=)
