@@ -1,6 +1,7 @@
 module IOClass
     use iso_fortran_env
     use MathClass
+    use StringClass
     implicit none
 
     type :: IO_
@@ -12,15 +13,29 @@ module IOClass
         procedure,public :: open => openIO
         procedure,public :: write => writeIO
         procedure,public :: read => readIO
+        procedure,public :: readline => readlineIO
         procedure,public :: close => closeIO    
     end type
 
     
     interface print
-        module procedure printChar, printReal64, printReal32, printInt64, printInt32
+        module procedure printChar,printString, printReal64, printReal32, printInt64, printInt32
     end interface print
 
 contains
+
+! #############################################
+function readlineIO(obj) result(ret)
+    class(IO_),intent(inout) :: obj
+    character(len=:),allocatable :: ret
+
+    allocate(character(len=3000) :: ret )
+    read(obj%fh,'(A)') ret
+    ret = trim(adjustl(ret) )
+
+end function
+! #############################################
+
 
 ! #############################################
 function unitIO(obj) result(unit)
@@ -175,6 +190,15 @@ subroutine printChar(char)
     character(*),intent(in) :: char
 
     write(*,'(A)' ) trim(char)
+
+end subroutine
+! #############################################
+
+! #############################################
+subroutine printString(char)
+    type(String_) :: char
+
+    write(*,'(A)' ) trim(char%all)
 
 end subroutine
 ! #############################################

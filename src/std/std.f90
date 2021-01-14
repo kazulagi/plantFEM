@@ -1,5 +1,6 @@
 module std
     use, intrinsic :: iso_fortran_env
+    use StringClass
     use TimeClass
     use TermClass
     use MathClass

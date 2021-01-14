@@ -57,6 +57,10 @@ echo "-----------------"
 
 
 start_time=`date +%s%3N`
+echo "Compiling ./src/StringClass/StringClass.f90      "
+echo " >> StringClass.o"
+echo " | >                           | (0%)\r\c "
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/StringClass/StringClass.f90 -o  ./inc/StringClass.o
 echo "Compiling ./src/TimeClass/TimeClass.f90      "
 echo " >> TimeClass.o"
 echo " | >                           | (0%)\r\c "
