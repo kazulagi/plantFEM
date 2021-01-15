@@ -12,7 +12,12 @@
 Plant simulator based on Finite Element Method (FEM).
 (Renamed from its old name "SiCroF")
 
-https://kazulagi.github.io/plantfem.github.io/
+- Tutorial:
+[Click here!](https://kazulagi.github.io/pf/)
+
+- Documentation:
+
+[Click here!](https://kazulagi.github.io/plantfem.github.io/)
 
 
 
