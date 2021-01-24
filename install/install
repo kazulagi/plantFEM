@@ -230,6 +230,12 @@ echo "Compiling ./src/DiffusionEquationClass/DiffusionEquationClass.f90"
 echo " >> DiffusionEquationClass.o "
 echo " | ===============>            | (70%)\r\c"
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/DiffusionEquationClass/DiffusionEquationClass.f90 -o  ./inc/DiffusionEquationClass.o
+
+echo "Compiling ./src/SpaceTimeDiffusionClass/SpaceTimeDiffusionClass.f90" 
+echo " >> SpaceTimeDiffusionClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SpaceTimeDiffusionClass/SpaceTimeDiffusionClass.f90 -o  ./inc/SpaceTimeDiffusionClass.o
+
 echo "Compiling ./src/FiniteDeformationClass/FiniteDeformationClass.f90" 
 echo " >> FiniteDeformationClass.o "
 echo " | ===============>            | (75%)\r\c"
@@ -254,6 +260,10 @@ echo "Compiling ./src/PoromechanicsClass/PoromechanicsClass.f90"
 echo " >> PoromechanicsClass.o "
 echo " | ===================>        | (86%)\r\c"
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PoromechanicsClass/PoromechanicsClass.f90 -o  ./inc/PoromechanicsClass.o
+echo "Compiling ./src/SoilWaterCouplingClass/SoilWaterCouplingClass.f90" 
+echo " >> SoilWaterCouplingClass.o "
+echo " | ===================>        | (86%)\r\c"
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SoilWaterCouplingClass/SoilWaterCouplingClass.f90 -o  ./inc/SoilWaterCouplingClass.o
 echo "Compiling ./src/WaterAbsorptionClass/WaterAbsorptionClass.f90" 
 echo " >> WaterAbsorptionClass.o "
 echo " | ===================>        | (86%)\r\c"

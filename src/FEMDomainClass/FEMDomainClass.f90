@@ -141,6 +141,7 @@ module FEMDomainClass
 
 		procedure,public :: nn => nnFEMDomain
 		procedure,public :: ne => neFEMDomain
+		procedure,public ::	nne => nneFEMDomain
 
 		procedure,public :: open => openFEMDomain
 
@@ -6208,13 +6209,16 @@ end subroutine copyFEMDomain
 ! ##################################################
 
 ! ##################################################
-subroutine bakeFEMDomain(obj, template, templateFile,Tol,SimMode,ItrTol,Timestep)
+recursive subroutine bakeFEMDomain(obj, template, templateFile,&
+	NodalDOF,NumOfMaterialPara,Tol,SimMode,ItrTol,Timestep)
 	class(FEMDomain_),intent(inout) :: obj
-	character(*),intent(in) :: template
+	character(*),optional,intent(in) :: template
 	character(*),optional,intent(in) :: templateFile 
-	integer(int32) :: SpaceDim, ElemNodNum, NumOfMatPara, NumOfMaterial, NodeDOF,NodeTDOF
-	integer(int32),optional,intent(in)  :: SimMode,ItrTol,Timestep
+	integer(int32) :: SpaceDim, ElemNodNum, NumOfMatPara, NumOfMaterial, NodeDOF,NodeTDOF,i
+	integer(int32),optional,intent(in)  :: SimMode,ItrTol,Timestep,NodalDOF,NumOfMaterialPara
 	real(real64),optional,intent(in) :: Tol
+	type(IO_) :: file
+	type(String_) :: line
 	! bake creates a complete input file for a FEM analysis.
 	! You can use build-in templates or your original template.
 	! We prepare following build-in templates.
@@ -6223,28 +6227,70 @@ subroutine bakeFEMDomain(obj, template, templateFile,Tol,SimMode,ItrTol,Timestep
 	! If you want to use your original format, please import 
 	! your template file.
 	! (This is being implemented.)
-	
-	if(template=="Original")then
-		print *, "Please add an argument as 'templateFile = [Your_Template_File]'"
-		! text-based finding is not good. Upper/lower cases >> global module to relate ID and 
-		! INTEGER, PARAMETER :: TEMP_FINITE_DEFORM = 1000; call tissue%bake(template=TEMP_FINITE_DEFORM)
-		! SELECT CASE( template ); CASE( TEMP_FINITE_DEFORM)
-		return
-	elseif(template=="FiniteDeform_" .or. template=="FiniteDeform")then
-		print *, "Build-in template :: FiniteDeform_ is utilized..."
-		! Run bakeing process ...
-		NumOfMatPara = 6
-		NodeDOF =  3
-		NodeTDOF = 1
-	elseif(template=="DiffusionEq_" .or. template=="DiffusionEq")then
-		print *, "Build-in template :: DiffusionEq_ is utilized..."
-		! Run bakeing process ...
-		NumOfMatPara = 1
-		NodeDOF = 1
-		NodeTDOF= 1 
+	if(present(template) )then
+		if(template=="Original" .or. template=="original")then
+			print *, "Please add an argument as 'templateFile = [Your_Template_File]'"
+			! text-based finding is not good. Upper/lower cases >> global module to relate ID and 
+			! INTEGER, PARAMETER :: TEMP_FINITE_DEFORM = 1000; call tissue%bake(template=TEMP_FINITE_DEFORM)
+			! SELECT CASE( template ); CASE( TEMP_FINITE_DEFORM)
+			! read line by line
+			NumOfMatPara = input(default=5, option=NumOfMaterialPara)
+			NodeDOF = input(default=1, option=NodalDOF)
+			NodeTDOF = 1
+
+			if(present(templateFile) )then
+				call file%open(trim(templateFile))
+			
+				do 
+					line = file%readline()
+
+					i = index(line%all, "NumOfMatPara")
+					if(i/=0)then
+						line%all =line%all(i+1:) 
+						read(line%all,* ) NumOfMatPara
+					endif
+
+					i = index(line%all, "NodeDOF")
+					if(i/=0)then
+						line%all =line%all(i+1:) 
+						read(line%all,* ) NodeDOF
+					endif
+
+					i = index(line%all, "NodeTDOF")
+					if(i/=0)then
+						line%all =line%all(i+1:) 
+						read(line%all,* ) NodeTDOF
+					endif
+
+					if(file%EOF .eqv. .true.)then
+						exit
+					endif
+				enddo
+				call file%close()
+			endif
+			return
+		elseif(template=="FiniteDeform_" .or. template=="FiniteDeform")then
+			print *, "Build-in template :: FiniteDeform_ is utilized..."
+			! Run bakeing process ...
+			NumOfMatPara = 6
+			NodeDOF =  3
+			NodeTDOF = 1
+		elseif(template=="DiffusionEq_" .or. template=="DiffusionEq")then
+			print *, "Build-in template :: DiffusionEq_ is utilized..."
+			! Run bakeing process ...
+			NumOfMatPara = 1
+			NodeDOF = 1
+			NodeTDOF= 1 
+		else
+			print *, "In case that you want to use your template, please type template='original'."
+			print *, "BakeFEMDomain == default (="
+			call obj%bake(template="Original", templateFile= templateFile,NodalDOF=NodalDOF,&
+				NumOfMaterialPara=NumOfMaterialPara,Tol=Tol,SimMode=SimMode,ItrTol=ItrTol,Timestep=Timestep)
+			return
+		endif
 	else
-		print *, "In case that you want to use your template, please type template='original'."
-		return
+		call obj%bake(template="Original", templateFile= templateFile,NodalDOF=NodalDOF,&
+		NumOfMaterialPara=NumOfMaterialPara,Tol=Tol,SimMode=SimMode,ItrTol=ItrTol,Timestep=Timestep)
 	endif
 
 	! domain information
@@ -7835,6 +7881,16 @@ function neFEMDomain(obj) result(ret)
 	integer(int32) :: ret
 
 	ret = size(obj%mesh%ElemNod,1)
+
+end function
+! ######################################################################
+
+! ######################################################################
+function nneFEMDomain(obj) result(ret)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32) :: ret
+
+	ret = size(obj%mesh%ElemNod,2)
 
 end function
 ! ######################################################################
