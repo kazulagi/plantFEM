@@ -44,6 +44,7 @@ addonpath="addon"
 link="link"
 init="init"
 remove="remove"
+keyword=" "
 
 echo "If this is the first time, please type 'install' and press ENTER"
 echo "Please input fortran script *.f90 | or check manual by 'man'  "
@@ -186,6 +187,7 @@ do
         less ".man_SiCroF"
         continue
     fi
+
     if [ "$command" = "$man1" ]; then
         less ".man_SiCroF"
         continue
@@ -224,6 +226,14 @@ do
         echo "Please input num of cpu-core"
         read numcore
         echo "Current num of cpu-core is :: $numcore "
+        continue
+    fi
+
+
+    if [ "$command" = "search" ]; then
+        echo "A keyword"
+        read keyword
+        ls Tutorial/*/*.f90 | grep -i $keyword
         continue
     fi
 

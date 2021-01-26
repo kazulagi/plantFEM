@@ -1,4 +1,5 @@
 module MathClass
+	use StringClass
     use, intrinsic :: iso_fortran_env
 	implicit none
 	
@@ -7,7 +8,7 @@ module MathClass
 	!real(real64) :: e =2.718281828459045235d0
 
 	interface str
-		module procedure fstring_Int, fstring_Real, fstring_Int_len, fstring_Real_len, fstring_logical
+		module procedure fstring_Int, fstring_Real, fstring_Int_len, fstring_Real_len, fstring_logical, fstring_String
 	end interface str
 
     interface fstring
@@ -847,6 +848,16 @@ function fstring_logical(x) result(a)
 end function
 !================================================================================== 
 
+
+
+!================================================================================== 
+function fstring_String(x) result(a)
+	type(String_),intent(in) :: x
+	character(len=:),allocatable :: a
+
+	a = x%all
+end function
+!================================================================================== 
 
 
 

@@ -366,18 +366,24 @@ end function
 !##########################################
 
 !##########################################
-subroutine fillRandom(obj,array)
+subroutine fillRandom(obj,array,vector)
     class(Random_),intent(inout) :: obj
-    real(real64),intent(inout)  :: array(:,:)
+    real(real64),optional,intent(inout)  :: array(:,:),vector(:)
     integer(int32) :: i,j
 
     call obj%init()
-    do i=1,size(Array,2)
-        do j=1,sizE(Array,1)
-            array(j,i) = obj%random()
+    if(present(array) )then
+        do i=1,size(Array,2)
+            do j=1,sizE(Array,1)
+                array(j,i) = obj%random()
+            enddo
         enddo
-    enddo
-    
+    endif
+    if(present(vector) )then
+        do i=1,size(vector,1)
+            vector(i) = obj%random()
+        enddo
+    endif
 end subroutine
 !##########################################
 

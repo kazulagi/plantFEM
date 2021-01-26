@@ -4253,6 +4253,22 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     endif
 
 
+    if(meshtype=="Cube3D")then
+        validmeshtype=.true.
+        call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
+        call obj%Convert2Dto3D(Thickness=Thickness,division=division)
+        if(.not.allocated(obj%ElemMat))then
+            n=size(obj%ElemNod,1)
+            allocate(obj%ElemMat(n) )
+        endif
+
+        ! create direction-data
+        obj%BottomElemID = (x_num)*(y_num)/2
+        obj%TopElemID    = (x_num)*(y_num)/2 + (x_num)*(y_num)*(division-1)
+
+    endif
+
+
     if(meshtype=="Dam3D" )then
         validmeshtype=.true.
         call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)

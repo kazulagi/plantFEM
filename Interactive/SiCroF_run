@@ -206,6 +206,14 @@ homepath="$PWD"
         return 0
     fi
 
+
+    if [ "$1" = "search" ]; then
+        echo "A keyword"
+        read keyword
+        ls Tutorial/*/*.f90 | grep -i $keyword
+        return 0
+    fi
+
     if [ "$1" = "gb" ]; then
         echo "Back to SiCroF/"
         cd $homepath
