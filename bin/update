@@ -38,8 +38,9 @@ mv Home tmp/
 mv Desktop tmp/
 mv sicrof tmp/
 mv ./server.f90 tmp/
-touch ./server.f90
+
 mv ./inc/*.so tmp/
+touch ./server.f90
 echo "1" > etc/cpucore
 clear
 ls
@@ -47,37 +48,38 @@ ls
 git fetch
 git pull origin master
 
-mv tmp/hostfile* .
-mv tmp/./GetPixcel*.py .
-mv tmp/./DBCGetPixcelSize*.py .
-mv tmp/*.o .
-mv tmp/*.so .
-mv tmp/*.mod .
-mv tmp/*.txt .
-mv tmp/*.scf .
-mv tmp/*.json .
-mv tmp/*.scf~ .
-mv tmp/fort.* .
-mv tmp/*.ipynb .
-mv tmp/*.mesh .
-mv tmp/PySiCroF.py .
-mv tmp/*.f90 .
-mv tmp/*.geo .
-mv tmp/*.msh .
-mv tmp/*.pos  .
-mv tmp/*.msh  .
-mv tmp/*.stl  .
-mv tmp/GetSurface* .
-mv tmp/*.txt~ .
-mv tmp/*.blend .
-mv tmp/*.blend1 .
-mv tmp/./*.out .
-mv tmp/-f ./inc/*.o .
-mv tmp/-f ./inc/*.mod .
-mv tmp/-f *.gp .
-mv tmp/Home .
-mv tmp/Desktop .
-mv tmp/sicrof .
-mv tmp/./server.f90 .
-mv tmp/./inc/*.so .
+#mv tmp/hostfile* .
+#mv tmp/./GetPixcel*.py .
+#mv tmp/./DBCGetPixcelSize*.py .
+#mv tmp/*.o .
+#mv tmp/*.so .
+#mv tmp/*.mod .
+#mv tmp/*.txt .
+#mv tmp/*.scf .
+#mv tmp/*.json .
+#mv tmp/*.scf~ .
+#mv tmp/fort.* .
+#mv tmp/*.ipynb .
+#mv tmp/*.mesh .
+#mv tmp/PySiCroF.py .
+#mv tmp/*.f90 .
+#mv tmp/*.geo .
+#mv tmp/*.msh .
+#mv tmp/*.pos  .
+#mv tmp/*.msh  .
+#mv tmp/*.stl  .
+#mv tmp/GetSurface* .
+#mv tmp/*.txt~ .
+#mv tmp/*.blend .
+#mv tmp/*.blend1 .
+#mv tmp/./*.out .
+#mv tmp/-f ./inc/*.o .
+#mv tmp/-f ./inc/*.mod .
+#mv tmp/-f *.gp .
+#mv tmp/Home .
+#mv tmp/Desktop .
+#mv tmp/sicrof .
+#mv tmp/./server.f90 .
+#mv tmp/./inc/*.so .
+mv tmp/* .
 
