@@ -11,9 +11,20 @@ module IOClass
         character(200)::path,name,extention
     contains
         procedure,public :: unit => unitIO
-        procedure,public :: open => openIO
-        procedure,public :: write => writeIO
-        procedure,public :: read => readIO
+
+        procedure,pass   :: openIOchar
+        procedure,pass   :: openIOstring
+        generic,public :: open => openIOchar, openIOstring
+        !procedure,public :: open => openIO
+        procedure,pass :: writeIOchar
+        procedure,pass :: writeIOstring
+        procedure,pass :: writeIOint32
+        procedure,pass :: writeIOre64
+        generic,public :: write => writeIOchar,writeIOstring,writeIOre64,writeIOint32
+        !procedure,public :: write => writeIO
+        procedure,pass :: readIOchar
+        generic,public :: read => readIOchar
+
         procedure,public :: readline => readlineIO
         procedure,public :: close => closeIO    
     end type
@@ -57,7 +68,7 @@ end function
 ! #############################################
 
 ! #############################################
-subroutine openIO(obj,path,name,extention,fh)
+subroutine openIOchar(obj,path,name,extention,fh)
     class(IO_),intent(inout) :: obj
     character(*),optional,intent(in)::path,name,extention
     integer(int32),optional,intent(in) :: fh
@@ -143,43 +154,165 @@ subroutine openIO(obj,path,name,extention,fh)
     
     obj%EOF = .false.
 
-end subroutine openIO
+end subroutine openIOchar
 ! #############################################
 
 
+
 ! #############################################
-subroutine writeIO(obj,char,in32, re64)
+subroutine openIOstring(obj,path_s,name_s,extention_s,fh)
     class(IO_),intent(inout) :: obj
-    character(*),optional,intent(in) :: char
-    integer(int32),optional,intent(in) :: in32
-    real(real64),optional,intent(in) :: re64
+    type(String_),intent(in) ::path_s
+    type(String_),optional,intent(in)::name_s,extention_s
+    character(len=:),allocatable::path,name,extention
+    integer(int32),optional,intent(in) :: fh
+    logical :: yml=.False.
     
-    if(present(char) )then
-        write(obj%fh, '(A)') char
-    endif
-    
-    if(present(in32) )then
-        write(obj%fh, '(A)') trim(str(in32))
+
+!    if(present(extention) )then
+!        if( trim(extention) == "yml" )then
+!            yml=.True.
+!        endif
+!    endif
+!    if(present(extention) )then
+!        if( trim(extention) == ".yml" )then
+!            yml=.True.
+!        endif
+!    endif
+!    if(present(extention) )then
+!        if( trim(extention) == ".YML" )then
+!            yml=.True.
+!        endif
+!    endif
+!    if(present(extention) )then
+!        if( trim(extention) == ".yaml" )then
+!            yml=.True.
+!        endif
+!    endif
+!    if(present(extention) )then
+!        if( trim(extention) == ".YAML" )then
+!            yml=.True.
+!        endif
+!    endif
+!    if(present(extention) )then
+!        if( trim(extention) == "yaml" )then
+!            yml=.True.
+!        endif
+!    endif
+!    if( index(path,"yml") /= 0 )then
+!        yml=.True.
+!    endif
+!    if( index(path,"yaml") /= 0 )then
+!        yml=.True.
+!    endif
+!
+!    if(yml .eqv. .true.)then
+!        
+!        return
+!    endif
+
+    if(obj%active .eqv. .true.)then
+        
+        print *, "ERROR :: "//trim(obj%path)//trim(obj%name)//trim(obj%extention)//" is already opened."
+        stop
     endif
 
-    if(present(re64) )then
-        write(obj%fh, '(A)') trim(str(re64))
+    obj%active=.true.
+    if(present(fh) )then
+        obj%fh=fh
+    else
+        obj%fh=10
     endif
 
-end subroutine writeIO
+    
+    obj%path="./"
+    obj%name="untitled"
+    obj%name=".txt"
+
+    obj%path=trim(path_s%str() )
+    if(present(name_s) )then
+        obj%name=trim(name_s%str())
+        if(present(extention_s) )then
+            obj%extention=trim(extention_s%str())
+            open(newunit=obj%fh,file=trim(path_s%str())//trim(name_s%str())//trim(extention_s%str()) )
+        else
+            open(newunit=obj%fh,file=trim(path_s%str())//trim(name_s%str()) )
+        endif
+    else
+        open(newunit=obj%fh,file=trim(path_s%str()) )
+    endif
+    
+    obj%EOF = .false.
+
+end subroutine openIOstring
+! #############################################
+
+
+
+! #############################################
+subroutine writeIOchar(obj,char)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: char
+    
+    write(obj%fh, '(A)') char
+
+end subroutine writeIOchar
+! #############################################
+
+
+
+! #############################################
+subroutine writeIOint32(obj,in32)
+    class(IO_),intent(inout) :: obj
+    integer(int32),intent(in) :: in32
+    
+    write(obj%fh, '(A)') trim(str(in32))
+
+end subroutine writeIOint32
 ! #############################################
 
 
 ! #############################################
-function readIO(obj) result(char)
+subroutine writeIOre64(obj,re64)
+    class(IO_),intent(inout) :: obj
+    real(real64),intent(in) :: re64
+    
+    write(obj%fh, '(A)') trim(str(re64))
+
+end subroutine writeIOre64
+! #############################################
+
+
+! #############################################
+subroutine writeIOstring(obj,string)
+    class(IO_),intent(inout) :: obj
+    type(String_),intent(in) :: string
+    write(obj%fh, '(A)') str(string)
+    
+
+end subroutine writeIOstring
+! #############################################
+
+! #############################################
+function readIOchar(obj) result(char)
     class(IO_),intent(inout) :: obj
     character(200) :: char
     
     read(obj%fh,'(A)' ) char
 
-
-end function readIO
+end function readIOchar
 ! #############################################
+
+! #############################################
+!function readIOstring(obj) result(char)
+!    class(IO_),intent(inout) :: obj
+!    type(String_) :: char
+!    
+!    read(obj%fh,'(A)' ) char%all
+!
+!end function readIOstring
+! #############################################
+
 
 ! #############################################
 subroutine closeIO(obj)

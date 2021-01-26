@@ -2,7 +2,10 @@ module StringClass
     implicit none
 
     type :: string_
-        character(len=:),allocatable :: all
+      character(len=:),allocatable :: all
+    contains
+      procedure, public :: char => charString 
+      procedure, public :: str => charString 
     end type
 
     
@@ -18,6 +21,18 @@ module StringClass
     end interface
 
 contains
+
+!==============================================================
+!
+function charString(x) result(ret)
+  class(String_),intent(in) :: x
+  character(len=:),allocatable :: ret 
+
+  ret = x%all
+end function
+!==============================================================
+!
+
 !==============================================================
 !
 !==============================================================
@@ -58,7 +73,6 @@ function addstringchar(x, y) result(z)
 
 !==============================================================
 subroutine assignstring(x, y)
- 
   type(string_), intent(out) :: x
   character(*),intent(in)  :: y
 

@@ -3358,7 +3358,7 @@ recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname)
 			enddo
 			call obj%msh(vector=vec1,name="first_eigen_plus"//name)
 			call obj%msh(vector=vec2,name="second_eigen_plus"//name)
-			do i=1,size(vec1)
+			do i=1,size(vec1,1)
 				vec1(i,:) =  - vec1(i,:) 
 				vec2(i,:) =  - vec2(i,:)
 			enddo 
@@ -6234,7 +6234,7 @@ recursive subroutine bakeFEMDomain(obj, template, templateFile,&
 			! INTEGER, PARAMETER :: TEMP_FINITE_DEFORM = 1000; call tissue%bake(template=TEMP_FINITE_DEFORM)
 			! SELECT CASE( template ); CASE( TEMP_FINITE_DEFORM)
 			! read line by line
-			NumOfMatPara = input(default=5, option=NumOfMaterialPara)
+			NumOfMatPara = input(default=3, option=NumOfMaterialPara)
 			NodeDOF = input(default=1, option=NodalDOF)
 			NodeTDOF = 1
 
@@ -6268,7 +6268,6 @@ recursive subroutine bakeFEMDomain(obj, template, templateFile,&
 				enddo
 				call file%close()
 			endif
-			return
 		elseif(template=="FiniteDeform_" .or. template=="FiniteDeform")then
 			print *, "Build-in template :: FiniteDeform_ is utilized..."
 			! Run bakeing process ...
@@ -6325,7 +6324,6 @@ recursive subroutine bakeFEMDomain(obj, template, templateFile,&
 	call showarraysize(obj%Mesh%SubMeshNodFromTo)
 	call showarraysize(obj%Mesh%SubMeshElemFromTo)
 
-
 	call obj%bakeMaterials(NumOfMatPara=NumOfMatPara)
 	call obj%bakeDBoundaries(NodeDOF=NodeDOF)
 	call obj%bakeNBoundaries(NodeDOF=NodeDOF)
@@ -6380,6 +6378,7 @@ subroutine bakeMaterialsFEMDomain(obj,NumOfMatPara)
 		! total $NumOfLayer material parameters exist.
 		! for all materials, resistrate material parameter and material IDs
 		m=input(default=NumOfLayer,option=NumOfMatPara)
+		
 		allocate(rect%NodCoord(size(obj%Mesh%ElemNod,2),size(obj%Mesh%NodCoord,2)) )
 		allocate(mrect%NodCoord(size(obj%Mesh%ElemNod,2),size(obj%Mesh%NodCoord,2)) )
 		allocate(matPara(size(obj%Mesh%ElemNod,1),m) )
