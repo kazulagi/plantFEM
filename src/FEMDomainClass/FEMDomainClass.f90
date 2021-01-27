@@ -7145,8 +7145,6 @@ end subroutine
 
 
 
-
-
 ! ######################################################################
 subroutine addLayerFEMDomainScalar(obj,name,scalar)
 	class(FEMDomain_),intent(inout) :: obj
@@ -7176,12 +7174,25 @@ subroutine addLayerFEMDomainScalar(obj,name,scalar)
 		return
 	endif
 
+	
 	obj%PhysicalField(obj%numoflayer) % scalar =scalar
+	
+	! auto detection of the type of layer
+	obj%PhysicalField(obj%numoflayer)%datastyle = 1
+	if(size(scalar,1) == obj%nn()  )then
+		! Node-wise scalar field
+		obj%PhysicalField(obj%numoflayer) %attribute = 1
+	elseif(size(scalar,1) == obj%ne())then
+		! Element-wise scalar field
+		obj%PhysicalField(obj%numoflayer) %attribute = 2
+	elseif(size(scalar,1) == obj%nne()*obj%nn()  )then
+		! GausPoint-wise field
+		obj%PhysicalField(obj%numoflayer) %attribute = 3
+	else
+		obj%PhysicalField(obj%numoflayer) %attribute = 0
+		print *, "addLaayerFEMDOmainScalar :: layer ",trim(name),"is not node-wise, not element-wize nor GaussPoint-wise"
+	endif
 
-	!if(present(scalar) )then
-	!	obj % PhysicalField(obj%numoflayer) % scalar = scalar		
-	!endif
-    
 
 end subroutine
 ! ######################################################################
@@ -7217,7 +7228,24 @@ subroutine addLayerFEMDomainVector(obj,name,vector)
 		return
 	endif
 	obj%PhysicalField(obj%numoflayer) % vector =vector
-	
+
+		! auto detection of the type of layer
+	obj%PhysicalField(obj%numoflayer)%datastyle = 2
+	if(size(vector,1) == obj%nn()  )then
+		! Node-wise vector field
+		obj%PhysicalField(obj%numoflayer) %attribute = 1
+	elseif(size(vector,1) == obj%ne())then
+		! Element-wise vector field
+		obj%PhysicalField(obj%numoflayer) %attribute = 2
+	elseif(size(vector,1) == obj%nne()*obj%nn()  )then
+		! GausPoint-wise field
+		obj%PhysicalField(obj%numoflayer) %attribute = 3
+	else
+		obj%PhysicalField(obj%numoflayer) %attribute = 0
+		print *, "addLaayerFEMDOmainvector :: layer ",trim(name),"is not node-wise, not element-wize nor GaussPoint-wise"
+	endif
+
+
 end subroutine
 ! ######################################################################
 
@@ -7253,7 +7281,22 @@ subroutine addLayerFEMDomaintensor(obj,name,tensor)
 	endif
 
 	obj%PhysicalField(obj%numoflayer) % tensor =tensor
-    
+    	! auto detection of the type of layer
+	obj%PhysicalField(obj%numoflayer)%datastyle = 3
+	if(size(tensor,1) == obj%nn()  )then
+		! Node-wise tensor field
+		obj%PhysicalField(obj%numoflayer) %attribute = 1
+	elseif(size(tensor,1) == obj%ne())then
+		! Element-wise tensor field
+		obj%PhysicalField(obj%numoflayer) %attribute = 2
+	elseif(size(tensor,1) == obj%nne()*obj%nn()  )then
+		! GausPoint-wise field
+		obj%PhysicalField(obj%numoflayer) %attribute = 3
+	else
+		obj%PhysicalField(obj%numoflayer) %attribute = 0
+		print *, "addLaayerFEMDOmaintensor :: layer ",trim(name),"is not node-wise, not element-wize nor GaussPoint-wise"
+	endif
+
 end subroutine
 ! ######################################################################
 
