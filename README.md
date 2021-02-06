@@ -224,6 +224,15 @@ type your username[Enter]
 Desktop/Hello.f90
 ```
 
+## Use plantfem as a webserver
+
+Run
+
+```
+python3 server.py
+```
+
+
 
 ## How to make and use your original add-on.
 
