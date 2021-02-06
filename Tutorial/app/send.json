@@ -1,0 +1,71 @@
+{
+    "Name":"soybean",
+    "Mainstem":{
+        "Length":0.98,
+        "Width":0.010,
+        "Node":13
+    },
+    "Branch#1":{
+        "From":2,
+        "Length":0.7,
+        "Width":0.01,
+        "Node":7
+    },
+    "Branch#2":{
+        "From":3,
+        "Length":0.65,
+        "Width":0.01,
+        "Node":7
+    },
+    "Branch#3":{
+        "From":4,
+        "Length":0.2,
+        "Width":0.01,
+        "Node":2
+    },
+    
+    "Mainroot":{
+        "Length":0.98,
+        "Width":0.010,
+        "Node":13
+    },
+    "Branchroot#1":{
+        "From":1,
+        "Length":0.7,
+        "Width":0.01,
+        "Node":7
+    },
+    "Branchroot#2":{
+        "From":2,
+        "Length":0.65,
+        "Width":0.01,
+        "Node":7
+    },
+    "Branchroot#3":{
+        "From":3,
+        "Length":0.2,
+        "Width":0.01,
+        "Node":2
+    },
+
+    "Branchroot#4":{
+        "From":4,
+        "Length":0.2,
+        "Width":0.01,
+        "Node":2
+    },
+
+    "Branchroot#5":{
+        "From":5,
+        "Length":0.2,
+        "Width":0.01,
+        "Node":2
+    },
+
+    "Branchroot#6":{
+        "From":6,
+        "Length":0.2,
+        "Width":0.01,
+        "Node":2
+    }
+}
