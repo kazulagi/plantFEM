@@ -306,11 +306,12 @@ homepath="$PWD"
 
         if [ "$hostfile" != "" ]; then
             echo "hostfile is activated."
-            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out
+            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out "$2"
             return 0
         fi
 
-        mpirun --allow-run-as-root --hostfile ./etc/hostfile -np $line ./a.out 
+        mpirun --allow-run-as-root --hostfile ./etc/hostfile -np $line ./a.out  "$2"
+        
         return 0
     fi
     if [ "$1" = "$ls" ]; then
