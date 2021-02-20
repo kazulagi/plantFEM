@@ -156,11 +156,11 @@ module ArrayClass
     end interface insertArray
 
     interface remove
-        module procedure :: removeArrayReal,removeArrayInt 
+        module procedure :: removeArrayReal,removeArrayInt,removeArrayReal3rdOrder
     end interface remove
 
     interface removeArray
-        module procedure :: removeArrayReal,removeArrayInt 
+        module procedure :: removeArrayReal,removeArrayInt,removeArrayReal3rdOrder
     end interface removeArray
 
     interface mean
@@ -2339,6 +2339,98 @@ subroutine removeArrayReal(mat,remove1stColumn,remove2ndColumn,NextOf)
 
 end subroutine
 !##################################################
+
+
+!##################################################
+subroutine removeArrayReal3rdOrder(mat,remove1stColumn,remove2ndColumn,NextOf)
+    real(real64),allocatable,intent(inout)::mat(:,:,:)
+    real(real64),allocatable :: buffer(:,:,:)
+    logical,optional,intent(in) :: remove1stColumn,remove2ndColumn
+    
+    integer(int32),optional,intent(in) :: NextOf
+    
+    integer(int32) :: i,nof,rmsin,m,n
+    
+    if( present(remove1stColumn ))then
+        if( remove1stColumn .eqv. .true. )then
+            nof=size(mat,1)
+        endif
+    endif
+    
+    if( present(remove2ndColumn ))then
+        if( remove2ndColumn .eqv. .true. )then
+            nof=size(mat,2)
+        endif
+    endif
+
+    if(present(NextOf) )then
+        if(NextOf >= nof)then
+            return
+        endif
+    endif
+
+    buffer = mat
+
+    if(present(NextOf))then
+        nof=NextOf
+    else 
+        if( present(remove1stColumn ))then
+            if( remove1stColumn .eqv. .true. )then
+                nof=size(mat,1)-1
+            endif
+        endif
+        
+        if( present(remove2ndColumn ))then
+            if( remove2ndColumn .eqv. .true. )then
+                nof=size(mat,2)-1
+            endif
+        endif
+    endif
+
+
+    deallocate(mat)
+    
+    if( present(remove1stColumn ))then
+        if( remove1stColumn .eqv. .true. )then
+            if(size(buffer,1)-1 == 0)then
+                print *, "Array is deleted"
+                return
+            endif
+            allocate(mat(size(buffer,1)-1,size(buffer,2),size(buffer,3)) )
+            mat(:,:,:)=0.0d0
+            do i=1,nof
+                mat(i,:,:)=buffer(i,:,:)
+            enddo
+            
+            do i=nof+1,size(buffer,1)-1
+                mat(i,:,:)=buffer(i+1,:,:)
+            enddo
+
+        endif
+    endif
+    if( present(remove2ndColumn ))then
+        if( remove2ndColumn .eqv. .true. )then
+            
+            if(size(buffer,2)-1 == 0)then
+                print *, "Array is deleted"
+                return
+            endif
+            allocate(mat(size(buffer,1),size(buffer,2)-1,size(buffer,3)) )
+            mat(:,:,:)=0.0d0
+            do i=1,nof
+                mat(:,i,:)=buffer(:,i,:)
+            enddo
+
+            do i=nof+1,size(buffer,2)-1
+                mat(:,i,:)=buffer(:,i+1,:)
+            enddo
+        endif
+    endif
+
+end subroutine
+!##################################################
+
+
 
 
 !##################################################
