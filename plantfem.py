@@ -26,6 +26,7 @@ def get_args():
     psr.add_argument('-m', '--mode', help='use other compiler instead of mpif90')
     psr.add_argument('-s', '--script', help='script for mpif90')
     psr.add_argument('-np', '--num_of_process', help='number of process mpif90')
+    psr.add_argument('-f', '--filename', help='IO-file name')
     return psr.parse_args()
 
 if __name__ == '__main__':
@@ -80,6 +81,7 @@ if __name__ == '__main__':
         print("OS : Linux")
         aout = os.path.exists("a.out")
         #print(aout)
+
         if aout == True:
             os.system("rm ./a.out")
 
@@ -91,7 +93,9 @@ if __name__ == '__main__':
             else:
                 os.system("sh ./Interactive/SiCroF ")
         else :
-            os.system("sh ./Interactive/SiCroF_run " + str(args.script))
-            
+            if args.filename is None:
+                os.system("sh ./Interactive/SiCroF_run " + str(args.script))
+            else:
+                os.system("sh ./Interactive/SiCroF_run " + str(args.script)+" " + str(args.filename) )
     else:
         print("OS : Unknown ")
