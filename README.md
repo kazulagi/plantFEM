@@ -231,6 +231,13 @@ Run
 ```
 python3 server.py
 ```
+Client API/Example:
+
+```
+
+
+curl-XPOST -d @send.json -H "Content-Type: application/json" https://asia-northeast2-plantfem-api.cloudfunctions.net/plantfem > soy_get3.json
+```
 
 
 

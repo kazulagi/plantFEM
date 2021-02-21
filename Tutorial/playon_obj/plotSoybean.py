@@ -13,7 +13,7 @@ ax.set_ylabel("y")
 ax.set_zlabel("z")
 
 # read file
-json_file = open('soy.json', 'r')
+json_file = open('soy2.json', 'r')
 json_object = json.load(json_file)
 
 # get number of stem, leaf and root
