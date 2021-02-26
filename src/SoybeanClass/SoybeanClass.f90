@@ -1013,7 +1013,7 @@ subroutine initsoybean(obj,config,&
         ! set mainstem
         do i=1,obj%ms_node
 
-            call obj%stem(i)%init()
+            call obj%stem(i)%init(config=obj%stemconfig)
             call obj%stem(i)%resize(&
                 x = obj%ms_width, &
                 y = obj%ms_width, &
@@ -1036,7 +1036,7 @@ subroutine initsoybean(obj,config,&
         do i=1,size(obj%br_node)
             do j=1, obj%br_node(i)
                 k = k + 1
-                call obj%stem(k)%init()
+                call obj%stem(k)%init(config=obj%stemconfig)
                 call obj%stem(k)%resize(&
                     x = obj%ms_width, &
                     y = obj%ms_width, &
@@ -1071,7 +1071,7 @@ subroutine initsoybean(obj,config,&
             ! ３複葉
             ! add peti
             num_stem_node = num_stem_node +1
-            call obj%stem(num_stem_node)%init()
+            call obj%stem(num_stem_node)%init(config=obj%stemconfig)
 
             call obj%stem(num_stem_node)%resize(&
                 x = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
@@ -1092,7 +1092,7 @@ subroutine initsoybean(obj,config,&
             ! add leaves
             do j=1,3
                 num_leaf=num_leaf+1
-                call obj%leaf(num_leaf)%init()
+                call obj%leaf(num_leaf)%init(config=obj%leafconfig)
                 call obj%leaf(num_leaf)%resize(&
                     y = random%gauss(mu=obj%leaf_thickness_ave(i),sigma=obj%leaf_thickness_sig(i))  , &
                     z = random%gauss(mu=obj%leaf_length_ave(i)   ,sigma=obj%leaf_length_sig(i)) , &
@@ -1113,7 +1113,7 @@ subroutine initsoybean(obj,config,&
         ! set mainroot
         do i=1,obj%mr_node
 
-            call obj%root(i)%init()
+            call obj%root(i)%init(obj%rootconfig)
             call obj%root(i)%resize(&
                 x = obj%mr_width, &
                 y = obj%mr_width, &
@@ -1140,7 +1140,7 @@ subroutine initsoybean(obj,config,&
         do i=1,size(obj%brr_node)
             do j=1, obj%brr_node(i)
                 k = k + 1
-                call obj%root(k)%init()
+                call obj%root(k)%init(config=obj%rootconfig)
                 call obj%root(k)%resize(&
                     x = obj%mr_width, &
                     y = obj%mr_width, &
