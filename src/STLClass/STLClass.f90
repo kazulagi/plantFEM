@@ -20,9 +20,10 @@ contains
 ! ######################################################
     subroutine reduceSizeSTL(obj,ratio)
         class(STL_),intent(inout) :: obj
+        type(STL_) :: buffer
         real(real64),intent(in) :: ratio ! conpression ratio (0 < ratio < 1)
         type(Random_) :: random
-        integer(int32) :: final_num,n, kill_id,i,kill_num
+        integer(int32) :: final_num,n, kill_id,i,kill_num,id
         logical,allocatable :: kill_list(:)
 
         if(ratio > 1.0d0 .or. ratio < 0.0d0)then
@@ -37,7 +38,11 @@ contains
         kill_num = n - final_num
         print *, "Reduce number of facet from ",n," to ",final_num," ratio: ",ratio
 
-        
+        allocate(buffer%facet(final_num,3,3) )
+        allocate(buffer%normal(final_num,3) )
+        buffer%facet(:,:,:) = 0.0d0
+        buffer%normal(:,1:2)=0.0d0
+        buffer%normal(:,3)=1.0d0
         call random%init()
         i=0
         do 
@@ -53,15 +58,21 @@ contains
                 kill_list(kill_id) = .true.
             endif
         enddo
-
+        id=0
         do i=n,1,-1
             if(kill_list(i) .eqv. .true. )then
-                call remove(mat = obj%facet, remove1stColumn=.true., NextOf=i-1 )
-                call remove(mat = obj%normal, remove1stColumn=.true., NextOf=i-1 )
-            else
                 cycle
+            else
+                id = id + 1
+                buffer%facet(id,:,:) = obj%facet(i,:,:)
             endif
         enddo
+
+        deallocate(obj%facet)
+        deallocate(obj%normal)
+
+        obj%facet = buffer%facet
+        obj%normal = buffer%normal
 
     end subroutine
 ! ######################################################
@@ -74,6 +85,7 @@ contains
         real(real64) :: x, y, z
         integer(int32) :: numoffacet,i,j,numnorm,n
         type(IO_) :: f
+        type(String_) :: string
 
         if(index(name, ".stl")==0 .and. index(name, ".STL")==0 )then
             print *, "open ",trim(name)//".stl"
@@ -88,21 +100,18 @@ contains
         numoffacet=0
         do
             if(f%EOF .eqv. .true.) exit
-            read (f%fh,*) ch
-            ch =adjustl(ch) 
+            string = f%readline()
+            ch =trim(adjustl(string%all) )
 
-            if( ch(1:10)=="outer" )then
+            if( index(ch,"outer")/=0 .and.index(ch,"loop") /=0 )then
                 numoffacet=numoffacet+1
                 cycle
-            endif
-
-            if( ch(1:8)=="endsolid" )then
-                exit
             endif
         enddo
 
         allocate(obj%normal(numoffacet,3) )
         allocate(obj%facet(numoffacet,3,3) )
+
 
         call f%close()
 
@@ -117,21 +126,18 @@ contains
         do
 
             if(f%EOF .eqv. .true.) exit
-            read (f%fh,*) ch
-            ch =adjustl(ch) 
-
-            if(ch(1:8)=="endfacet" .or. ch(1:5)=="solid"  )then
-                if(numnorm==n)then
-                    exit
-                endif
+            string = f%readline()
+            ch =trim(adjustl(string%all) )
+            if(index(ch,"facet")/=0 .and. index(ch,"normal")/=0  )then
+                read(ch,*) facet, normal, x,y,z
                 numnorm=numnorm+1
-                read(f%fh,*) facet,normal,x,y,z
                 obj%normal(numnorm,1)=x
                 obj%normal(numnorm,2)=y
                 obj%normal(numnorm,3)=z
+                cycle
             endif
 
-            if( ch(1:10)=="outer" )then
+            if( index(ch,"outer")/=0 .and.index(ch,"loop")/=0  )then
                 numoffacet=numoffacet+1
                 do i=1,3
                     read(f%fh,*) ch,x,y,z
@@ -140,12 +146,35 @@ contains
                     obj%facet(numoffacet,i,3)=z
                 enddo
                 cycle
+                cycle
             endif
 
-
-            if( ch(1:8)=="endsolid" )then
-                exit
-            endif
+!            if(ch(1:8)=="endfacet" .or. ch(1:5)=="solid"  )then
+!                if(numnorm==n)then
+!                    exit
+!                endif
+!                numnorm=numnorm+1
+!                read(f%fh,*) facet,normal,x,y,z
+!                obj%normal(numnorm,1)=x
+!                obj%normal(numnorm,2)=y
+!                obj%normal(numnorm,3)=z
+!            endif
+!
+!            if( ch(1:10)=="outer" )then
+!                numoffacet=numoffacet+1
+!                do i=1,3
+!                    read(f%fh,*) ch,x,y,z
+!                    obj%facet(numoffacet,i,1)=x
+!                    obj%facet(numoffacet,i,2)=y
+!                    obj%facet(numoffacet,i,3)=z
+!                enddo
+!                cycle
+!            endif
+!
+!
+!            if( ch(1:8)=="endsolid" )then
+!                cycle
+!            endif
 
         enddo
 
