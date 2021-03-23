@@ -1,13 +1,13 @@
 #! /bin/bash
 if [ $# -eq 0 ]; then
-    python3 plantfem.py
+    python3 bin/run.py
 fi
 if [ $# -eq 1 ]; then
-    python3 plantfem.py -s "$1" 
+    python3 bin/run.py -s "$1" 
 fi
 if [ $# -eq 2 ]; then
-    python3 plantfem.py -s "$1" -f "$2" 
+    python3 bin/run.py -s "$1" -f "$2" 
 fi
 if [ $# -eq 3 ]; then
-    python3 plantfem.py -s "$1" "$2" "$3"
+    python3 bin/run.py -s "$1" "$2" "$3"
 fi

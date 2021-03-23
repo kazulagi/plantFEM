@@ -1,101 +1,99 @@
 import os
-import sys
-import platform
-import argparse
-import time
-
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-import argparse
-
-# coding=utf-8
 
 
-def yes_no_input():
-    while True:
-        #return True
-        choice = input("Do you install plantFEM? 'yes' or 'no' [Y/n]: ").lower()
-        if choice in ['y', 'ye', 'yes']:
-            return True
-        elif choice in ['n', 'no']:
-            return False
-
-
-def get_args():
-    psr = argparse.ArgumentParser()
-    psr.add_argument('-m', '--mode', help='use other compiler instead of mpif90')
-    psr.add_argument('-s', '--script', help='script for mpif90')
-    psr.add_argument('-np', '--num_of_process', help='number of process mpif90')
-    psr.add_argument('-f', '--filename', help='IO-file name')
-    return psr.parse_args()
-
-if __name__ == '__main__':
-    args = get_args()
+class script:
+    name = "server.f90"
+    variable_dict =  {}
     
-    #print(args.mode)
-    #print(args.bravo)
-    #print(args.charlie)
-    #print(args.delta)
-    ofiles = os.path.exists("./inc/obj.o")
 
-    
-    if str(args.script) == "install":
-        ofiles = True
-
-    if ofiles == False:
-        if yes_no_input():
-            os.system("python3 install.py")
-            print("[ok] SiCroF has been installed.")
-        else:
-            print("[Caution] SiCroF is not installed yet.\n")
-            time.sleep(3)
-    else:
-        print("[ok] SiCroF has been installed.")
-
-
-    print("Detecting OS type...")
-    pf=platform.system()
-    if pf == 'Windows':
-        print("OS : Windows")
-        print("Please use Windows Subsystem Linux(WSL) ")
-        os.system("./Interactive/SiCroF.bat")
-    elif pf == "Darwin":
-        print("OS : macOS")
-        #os.system("sh ./Interactive/SiCroF_macOS")
-        aout = os.path.exists("a.out")
-        #print(aout)
-        if aout == True:
-            os.system("rm ./a.out")
-
-        if args.script is None:
-            print("Interactive Mode :: \n")
-            print("\n")
-            if args.mode == "gfortran":
-                os.system("sh ./Interactive/SiCroF_gfortran ")
+class soybean:
+    config = "Tutorial/playon_obj/realSoybeanConfig.json"
+    name = "soy"
+    code = ""
+    variable_dict = {}
+    script_list  = []
+    script = "server.f90"
+    def __init__(self, name="soy"):
+        self.name = name
+                print("Your path to plantfem is : " + path)
+        if not os.path.exists(path):
+            print("ERROR ::  plantfem is not installed.")
+            Y_or_No = input("Do you want to install plantfem? Y/n")
+            if(Y_or_No == "Y" or Y_or_No == "y"):
+                os.system("git clone https://github.com/kazulagi/plantfem.git")
+                cdir = os.getcwd()
+                os.chdir("./plantfem")
+                os.system("python3 setup.py")
+                os.system("./plantfem install")
+                os.chdir(cdir)
             else:
-                os.system("sh ./Interactive/SiCroF ")
-        else :
-            os.system("sh ./Interactive/SiCroF_run " + str(args.script))
+                print("Aborted. Please install plantfem by")
+                print("     git clone https://github.com/kazulagi/plantfem.git")
+                print("     cd ./plantfem")
+                print("     python3 setup.py")
+                print("     ./plantfem install")
+
+    def create(self, config="Tutorial/playon_obj/realSoybeanConfig.json"):
+        self.config = config
         
-    elif pf == "Linux":
-        print("OS : Linux")
-        aout = os.path.exists("a.out")
-        #print(aout)
-
-        if aout == True:
-            os.system("rm ./a.out")
-
-        if args.script is None:
-            print("Interactive Mode :: \n")
-            print("\n")
-            if args.mode == "gfortran":
-                os.system("sh ./Interactive/SiCroF_gfortran ")
+        # add variable
+        self.variable_dict[self.name]="Soybean_"
+        # add code
+        self.code = self.code + "\n call "+ self.name+"%init(config='"+self.config+"')"
+        print("Config-file : "+  self.config)
+    
+    def msh(self, name="untitled"):
+        self.code = self.code + "\n call "+ self.name+"%msh(name='"+name+"')"
+    
+    def stl(self, name="untitled"):
+        self.code = self.code + "\n call "+ self.name+"%stl(name='"+name+"')"
+    
+    def json(self, name="untitled"):
+        self.code = self.code + "\n call "+ self.name+"%json(name='"+name+"')"
+    
+    def run(self,path="./plantfem"):
+        f = open(self.script, "w")
+        
+        f.write("program main\n")
+        f.write("use plantfem\n")
+        f.write("implicit none\n")
+        
+        # write variables
+        for key, value in self.variable_dict.items():   
+            f.write("type("+value+") :: "+key+"\n")
+        
+        # write code
+        f.write(self.code+"\n")
+        
+        # end program
+        f.write("end program")
+        
+        f.close()
+        print("Your path to plantfem is : " + path)
+        if os.path.exists(path):
+            os.system("mpif90 "+path+"/inc/*o server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path "+path+"/inc/")
+            os.system("mpirun --allow-run-as-root ./a.out ")
+        else:
+            print("ERROR ::  plantfem is not installed.")
+            Y_or_No = input("Do you want to install plantfem? Y/n")
+            if(Y_or_No == "Y" or Y_or_No == "y"):
+                os.system("git clone https://github.com/kazulagi/plantfem.git")
+                cdir = os.getcwd()
+                os.chdir("./plantfem")
+                os.system("python3 setup.py")
+                os.system("./plantfem install")
+                os.chdir(cdir)
+                os.system("mpif90 "+path+"/inc/*o server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path "+path+"/inc/")
+                os.system("mpirun --allow-run-as-root ./a.out ")
+                
             else:
-                os.system("sh ./Interactive/SiCroF ")
-        else :
-            if args.filename is None:
-                os.system("sh ./Interactive/SiCroF_run " + str(args.script))
-            else:
-                os.system("sh ./Interactive/SiCroF_run " + str(args.script)+" " + str(args.filename) )
-    else:
-        print("OS : Unknown ")
+                print("Aborted. Please install plantfem by")
+                print("     git clone https://github.com/kazulagi/plantfem.git")
+                print("     cd ./plantfem")
+                print("     python3 setup.py")
+                print("     ./plantfem install")
+
+                
+            
+        
+    
