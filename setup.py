@@ -2,6 +2,25 @@ import os
 import sys
 import platform
 
+import setuptools
+from setuptools import setup, find_packages
+ 
+setuptools.setup(
+    name="plantfem",
+    version="1.0",
+    author="kazulagi",
+    author_email="kazulagi@gmail.com",
+    description="plantfem as a python package",
+    long_description="plantfem as a python package",
+    long_description_content_type="text/markdown",
+    url="https://github.com/kazulagi/plantfem",
+    packages=find_packages(where='./'), 
+    classifiers=[
+        "Programming Language :: Python :: 3.6.0",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",   
+    ]
+)
 
 print("Detecting OS type...")
 pf=platform.system()

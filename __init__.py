@@ -1,0 +1,3 @@
+from .plantfem import (
+    soybean
+)
