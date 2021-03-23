@@ -1,6 +1,40 @@
 # [Click here!! >> Home page](https://plantfem.org)
 
 
+# Use plantfem by pip (Under develpment)
+
+```shellscript
+mkdir your_project
+cd your_project
+git clone https://github.com/kazulagi/plantfem
+cd plantfem
+python3 setup.py
+./plantfem install
+pip install .
+cd ../
+```
+Then, run your script
+
+```python
+
+import plantfem as pf
+
+soy = pf.soybean(name="hello_soy")
+soy.create(config="./plantfem/Tutorial/playon_obj/realSoybeanConfig.json")
+soy.msh(name="hello_soy")
+soy.json(name="hello_soy")
+
+#soy.stl(name="hello_soy")
+
+# path to plantfem
+soy.run(path="./plantfem")
+
+```
+
+#
+#
+#
+
 ![soyfield](https://user-images.githubusercontent.com/54159711/99903052-37d93400-2d05-11eb-841b-cd4d792cbfb3.png)
 ![soy3d](https://user-images.githubusercontent.com/54159711/99902211-6ce28800-2cff-11eb-9dbc-9983c07ffe7d.png)
 ![soaked_soy_seed](https://user-images.githubusercontent.com/54159711/84125111-0b8f6b00-aa77-11ea-9f79-1acfe37e2b8f.png)
