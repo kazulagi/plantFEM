@@ -36,6 +36,9 @@ module FEMDomainClass
 		
 		type(PhysicalField_),allocatable :: PhysicalField(:)
 		integer(int32) :: numoflayer=0
+		character(len=36) :: uuid
+
+		character(len=36) :: link(2)
 
 		real(real64),allocatable :: scalar(:)
 		real(real64),allocatable :: vector(:,:)
@@ -6031,8 +6034,9 @@ end subroutine
 
 ! ##################################################
 subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
-	top,margin,inclineRate,shaperatio)
+	top,margin,inclineRate,shaperatio,master,slave)
 	class(FEMDomain_),intent(inout) :: obj
+	type(FEMDomain_),optional,intent(in) :: master,slave
 	character(*),intent(in) :: meshtype
 	character(*),optional,intent(in) ::Name
 	integer(int32),optional,intent(in) :: x_num,y_num,z_num ! number of division
@@ -6043,6 +6047,12 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 	real(real64),optional,intent(in) :: thickness ! for 3D rectangular
 	real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
     real(real64),optional,intent(in) :: top,margin,inclineRate ! for 3D Ridge and dam
+
+	integer,dimension(3),parameter :: versions_to_test = [0,1,4]
+
+	! create uuid
+
+	obj%uuid = generate_uuid(1)
 
 	xnum=input(default=10,option=x_num)
 	ynum=input(default=10,option=y_num)
@@ -6059,13 +6069,29 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 		obj%Name="NoName"
 		obj%FileName="NoName"
 	endif
+
+	! if create interface, set paired uuid in address
+	obj%link(1) = "None"
+	obj%link(2) = "None"
+	
+	if(present(master) )then
+		obj%link(1) = master%uuid
+	endif
+
+	if(present(slave) )then
+		obj%link(2) = slave%uuid
+	endif
+
 	if(present(z_num) .or. present(z_len) )then
 		call obj%Mesh%create(meshtype,xnum,ynum,xlen,ylen,Le,&
-			Lh,Dr,zlen,znum,top=top,margin=margin,shaperatio=shaperatio)
+			Lh,Dr,zlen,znum,top=top,margin=margin,shaperatio=shaperatio,&
+			master=master%mesh,slave=slave%mesh)
 	else
 		call obj%Mesh%create(meshtype,xnum,ynum,xlen,ylen,Le,&
-			Lh,Dr,zlen,znum,top=top,margin=margin,shaperatio=shaperatio)
+			Lh,Dr,zlen,znum,top=top,margin=margin,shaperatio=shaperatio,&
+			master=master%mesh,slave=slave%mesh)
 	endif
+
 end subroutine createFEMDomain
 ! ##################################################
 
@@ -6768,9 +6794,9 @@ subroutine removeMaterialsFEMDomain(obj,Name,BoundaryID)
 	endif
 	call obj%showMaterials(Name)
 
+
 end subroutine removeMaterialsFEMDomain
 ! ##################################################
-
 
 ! ##################################################
 subroutine contactdetectFEMDomain(obj1, obj2, ContactModel)
@@ -6837,7 +6863,7 @@ subroutine contactdetectFEMDomain(obj1, obj2, ContactModel)
 		seg_nod_num=16
 	endif
 
-	do i=1,size(buffer)
+	do i=1,size(buffer,1)
 		if(.not. allocated(obj1%Boundary%MasterNodeID) )then
 			allocate(obj1%Boundary%MasterNodeID(1,2) )
 			allocate(obj1%Boundary%SlaveNodeID(1,2) )
@@ -6856,8 +6882,8 @@ subroutine contactdetectFEMDomain(obj1, obj2, ContactModel)
 		obj1%Boundary%SlaveNodeID(n,2) = domain_id
 
 		 
-		obj1%Boundary%MasterSegment(n,:)=domain_id 
-		obj1%Boundary%SlaveSegment( n,:)=domain_id 
+		!obj1%Boundary%MasterSegment(n,:)=domain_id 
+		!obj1%Boundary%SlaveSegment( n,:)=domain_id 
 		
 
 	enddo
