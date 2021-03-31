@@ -57,6 +57,10 @@ echo "-----------------"
 
 
 start_time=`date +%s%3N`
+echo "Compiling ./src/uuid-fortran/uuid_module.f90     "
+echo " >> uuid_module.o"
+echo " | >                           | (0%)\r\c "
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/uuid-fortran/uuid_module.f90 -o  ./inc/uuid_module.o
 echo "Compiling ./src/StringClass/StringClass.f90      "
 echo " >> StringClass.o"
 echo " | >                           | (0%)\r\c "

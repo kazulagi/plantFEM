@@ -184,10 +184,21 @@ homepath="$PWD"
         return 0
     fi
 
+    if [ "$1" = "search" ]; then
+        read command
+        grep -ril "$command" Tutorial/*/*.f90
+        return 0
+    fi
 
     if [ "$1" = "setup" ]; then
         python3 setup.py
         sh ./install/"$install"
+        return 0
+    fi
+
+    if [ "$1" = "load" ]; then
+        cp "$2" server.f90
+        echo "copied $2 to server.f90"
         return 0
     fi
 
@@ -197,6 +208,7 @@ homepath="$PWD"
         ls
         return 0
     fi
+
 
     if [ "$1" = "pick" ]; then
         echo "copy to SiCroF/"

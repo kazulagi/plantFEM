@@ -1,7 +1,10 @@
 import plantfem as pf
 
 soy = pf.soybean(name="hello_soy")
-soy.create()
+soy.create(config="./Tutorial/playon_obj/realSoybeanConfig.json")
 soy.msh(name="hello_soy")
+soy.json(name="hello_soy")
+#soy.stl(name="hello_soy")
 
-soy.run()
+# path to plantfem
+soy.run(path="./")

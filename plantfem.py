@@ -1,9 +1,10 @@
 import os
-
+import src.FEMDomainClass.FEMDomainClass
 
 class script:
     name = "server.f90"
     variable_dict =  {}
+    
     
 
 class soybean:

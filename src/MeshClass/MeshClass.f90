@@ -13,6 +13,9 @@ module MeshClass
         ! Material IDs for Finite Elements
         integer(int32),allocatable::ElemMat(:)
 
+        integer(int32),allocatable::MasterID(:)
+        integer(int32),allocatable::SlaveID(:)
+
         ! optional data;
         real(real64),allocatable  ::NodCoordInit(:,:)
         integer(int32),allocatable::BottomElemID
@@ -23,6 +26,8 @@ module MeshClass
         integer(int32),allocatable::SubMeshNodFromTo(:,:)
         integer(int32),allocatable::SubMeshElemFromTo(:,:)
         integer(int32),allocatable::SubMeshSurfFromTo(:,:)
+
+
         integer(int32) :: surface=1
 
         !for Interfaces
@@ -4142,9 +4147,10 @@ end subroutine AdjustCylinderMesh
 !##################################################
 
 recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,&
-    division,smooth,top,margin,inclineRate,shaperatio)
+    division,smooth,top,margin,inclineRate,shaperatio,master,slave)
     class(Mesh_),intent(inout) :: obj
-    type(Mesh_) :: mesh1,mesh2
+    type(Mesh_) :: mesh1,mesh2,interface1,interface2
+    type(Mesh_),optional,intent(in) :: master,slave
     type(IO_) :: f
     character(*),optional,intent(in) :: meshtype
     logical,optional,intent(in) :: smooth
@@ -4154,14 +4160,254 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     real(real64),optional,intent(in) :: thickness,inclineRate ! for 3D rectangular
     real(real64),optional,intent(in) :: top,margin ! for 3D rectangular
     real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
-    integer(int32) :: i,j,n,m,xn,yn,smoothedge(8),ini,k
+    integer(int32) :: i,j,n,m,xn,yn,smoothedge(8),ini,k,dim_num,node_num
     real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt,&
         unitx,unity,xm, ym,tp,rx,ry,zc,zl,zm,ysize,ox,oy,dist,rr
     logical :: validmeshtype=.false.
-
-    real(real64)::ymin,ymax,ratio,width,pi,xx,yy,dx,dy
+    type(Mesh_) :: BoundBox
+    real(real64)::ymin,ymax,ratio,width,pi,xx,yy,dx,dy,x(3),x_max(3),x_min(3),x_m_mid(3),x_s_mid(3)
+    integer(int32),allocatable:: OutNodeID(:),OutElementID(:)
+    logical :: inside
+    real(real64):: dist_tr, dist_cur
     pi = 3.1415926535d0
     ! this subroutine creates mesh
+
+    if(meshtype=="Node-To-Node" .or. meshtype=="node-no-node") then
+        call master%GetInterSectBox(slave,BoundBox)
+        if( BoundBox%empty() .eqv. .true. ) then
+            call print("No interface")
+            return
+        else
+            call print("Contact interface detected.")
+            ! get master and slave nodes
+            ! Global search for master node
+            dim_num = size(master%nodcoord,2) 
+            node_num = size(master%nodcoord,1)
+            allocate(OutNodeID(size(master%nodcoord,1) ) )
+            OutNodeID(:) = 0
+            do i=1,size(master%nodcoord,1)
+                x(:) = 0.0d0
+                x_max(:) = 0.0d0
+                x_min(:) = 0.0d0
+                x(1:size(master%nodcoord,2)) = master%nodcoord(i,1:size(master%nodcoord,2) )
+    
+                do j=1,size(BoundBox%NodCoord,2)
+                    x_max(j) = maxval(BoundBox%NodCoord(:,j) )
+                enddo
+                do j=1,size(BoundBox%NodCoord,2)
+                    x_min(j) = minval(BoundBox%NodCoord(:,j) )
+                enddo
+                ! Judge inside or not
+                inside = InOrOut(x=x,xmax=x_max,xmin=x_min)
+                if(inside .eqv. .false.)then
+                    OutNodeID(i)=1    
+                endif
+            enddo
+            call print("Interface node :: "//str(node_num - sum(OutNodeID))//"/"//str(node_num) )
+            allocate(interface1%nodcoord(node_num - sum(OutNodeID) , dim_num ) )
+            j=0
+            do i=1,size(master%Nodcoord,1)
+                if(OutNodeID(i)==1 )then
+                    ! out >> ignore the node
+                    cycle
+                else
+                    j=j+1
+                    interface1%nodcoord(j,:) = master%Nodcoord(i,:)
+                endif
+            enddo
+
+            allocate(OutElementID(size(master%elemnod,1) ) )
+            k=0
+            OutElementID(:) = 0
+            do i=1,size(master%elemnod,1)
+                do j=1,size(master%elemnod,2)
+                    if(OutNodeID(master%elemnod(i,j) )==1)then
+                        ! out element
+                        k=k+1
+                        OutElementID(i) = 1
+                        exit
+                    endif
+                enddo
+            enddo
+
+            call print("Interface element :: "//str(size(master%elemnod,1) - k)//"/"//str(size(master%elemnod,1)) )
+            allocate(interface1%elemnod(size(master%elemnod,1) - k ,size(master%elemnod,2) ) )
+            k=0
+            do i=1,size(OutElementID,1)
+                if(OutElementID(i) == 1 )then
+                    cycle
+                else
+                    k=k+1
+                    do j=1,size(master%elemnod,2)
+                        interface1%elemnod(k,j) = master%elemnod(i,j) - sum(OutNodeID(1:master%elemnod(i,j)-1 ))
+                    enddo
+                endif
+            enddo
+
+
+            deallocate(OutElementID)
+            deallocate(OutNodeID)
+            
+            ! global search for slave
+            dim_num = size(slave%nodcoord,2) 
+            node_num = size(slave%nodcoord,1)
+            allocate(OutNodeID(size(slave%nodcoord,1) ) )
+            OutNodeID(:) = 0
+            do i=1,size(slave%nodcoord,1)
+                x(:) = 0.0d0
+                x_max(:) = 0.0d0
+                x_min(:) = 0.0d0
+                x(1:size(slave%nodcoord,2)) = slave%nodcoord(i,1:size(slave%nodcoord,2) )
+    
+                do j=1,size(BoundBox%NodCoord,2)
+                    x_max(j) = maxval(BoundBox%NodCoord(:,j) )
+                enddo
+                do j=1,size(BoundBox%NodCoord,2)
+                    x_min(j) = minval(BoundBox%NodCoord(:,j) )
+                enddo
+                ! Judge inside or not
+                inside = InOrOut(x=x,xmax=x_max,xmin=x_min)
+                if(inside .eqv. .false.)then
+                    OutNodeID(i)=1    
+                endif
+            enddo
+            call print("Interface node :: "//str(node_num - sum(OutNodeID))//"/"//str(node_num) )
+            allocate(interface2%nodcoord(node_num - sum(OutNodeID) , dim_num ) )
+            j=0
+            do i=1,size(slave%Nodcoord,1)
+                if(OutNodeID(i)==1 )then
+                    ! out >> ignore the node
+                    cycle
+                else
+                    j=j+1
+                    interface2%nodcoord(j,:) = slave%Nodcoord(i,:)
+                endif
+            enddo
+
+            allocate(OutElementID(size(slave%elemnod,1) ) )
+            k=0
+            OutElementID(:) = 0
+            do i=1,size(slave%elemnod,1)
+                do j=1,size(slave%elemnod,2)
+                    if(OutNodeID(slave%elemnod(i,j) )==1)then
+                        ! out element
+                        k=k+1
+                        OutElementID(i) = 1
+                        exit
+                    endif
+                enddo
+            enddo
+
+            call print("Interface element :: "//str(size(slave%elemnod,1) - k)//"/"//str(size(slave%elemnod,1)) )
+            allocate(interface2%elemnod(size(slave%elemnod,1) - k ,size(slave%elemnod,2) ) )
+            k=0
+            do i=1,size(OutElementID,1)
+                if(OutElementID(i) == 1 )then
+                    cycle
+                else
+                    k=k+1
+                    do j=1,size(slave%elemnod,2)
+                        interface2%elemnod(k,j) = slave%elemnod(i,j) - sum(OutNodeID(1:slave%elemnod(i,j)-1 ))
+                    enddo
+                endif
+            enddo
+
+
+            deallocate(OutElementID)
+            deallocate(OutNodeID)
+            
+
+            !obj%nodcoord = interface2%nodcoord
+            !obj%elemnod = interface2%elemnod
+
+            call print("Global Search Done!")
+            call print("local search >> ")
+
+            ! pairing 
+            ! link Node-To-Node
+            allocate(obj%nodcoord(size(interface2%nodcoord,1)*2,size(interface2%nodcoord,2)  ) )
+            node_num = size(interface2%nodcoord,1)
+            ! =
+            ! slave-node #1  x, y
+            ! slave-node #2  x, y
+            ! slave-node #3  x, y
+            ! slave-node #4  x, y
+            ! slave-node #5  x, y
+            ! ...
+            ! master-node #1  x, y
+            ! master-node #2  x, y
+            ! master-node #3  x, y
+            ! master-node #4  x, y
+            ! master-node #5  x, y
+            ! ...
+            
+            allocate(obj%elemnod(size(interface2%nodcoord,1),  8 )) ! slave-node, master-node
+            
+            do j=1, size(interface2%nodcoord,1)! for each slave node
+
+                ! どっちがmasterか気をつける。
+
+                ! initialize
+                obj%elemnod(j,1) = j  ! slave node
+                obj%elemnod(j,2:8) = j+node_num  ! master node
+                x_s_mid(1:dim_num) = interface2%nodcoord(j,1:dim_num)
+                x_m_mid(1:dim_num) = interface1%nodcoord(1,1:dim_num)
+                dist_cur = dsqrt(dot_product(x_m_mid- x_s_mid, x_m_mid-x_s_mid ) )
+
+                ! get nearest master node
+                obj%nodcoord(j,1:dim_num) = interface2%nodcoord(j,1:dim_num) ! slave node
+                do i=1,size(interface1%nodcoord,1) ! for each master node
+                    x_s_mid(:) = 0.0d0
+                    x_s_mid(1:dim_num) = interface2%nodcoord(j,1:dim_num)
+                    x_m_mid(:) = 0.0d0
+                    x_m_mid(1:dim_num) = interface1%nodcoord(i,1:dim_num)
+                    dist_tr = dsqrt(dot_product(x_m_mid- x_s_mid, x_m_mid-x_s_mid ) )
+                    if(dist_tr <= dist_cur)then
+                        dist_cur = dist_tr
+                        obj%nodcoord(j+node_num,:) = interface1%nodcoord(i,:) ! master node
+                    endif
+                enddo
+
+            enddo
+
+            allocate(obj%masterID(node_num) )
+            allocate(obj%slaveID(node_num) )
+
+            ! search master ids
+            do j=1,size(interface2%nodcoord,1)
+                do i=1,size(master%nodcoord,1)
+                    x(:) = 0.0d0
+                    x_m_mid(:) = 0.0d0
+                    x(1:dim_num) = obj%nodcoord(j+node_num,1:dim_num)
+                    x_m_mid(1:dim_num) = master%nodcoord(i,1:dim_num)
+                    dist_tr = dsqrt(dot_product(x-x_m_mid, x-x_m_mid ) )
+                    if(dist_tr == 0.0d0)then
+                        obj%masterID(j) = i
+                        exit
+                    endif
+                enddo
+            enddo
+            
+            ! search slave ids
+            do j=1,size(interface2%nodcoord,1)
+                do i=1,size(slave%nodcoord,1)
+                    x(:) = 0.0d0
+                    x_m_mid(:) = 0.0d0
+                    x(1:dim_num) =  obj%nodcoord(j,1:dim_num)
+                    x_m_mid(1:dim_num) = slave%nodcoord(i,1:dim_num)
+                    dist_tr = dsqrt(dot_product(x-x_m_mid, x-x_m_mid ) )
+                    if(dist_tr == 0.0d0)then
+                        obj%slaveID(j) = i
+                        exit
+                    endif
+                enddo
+            enddo
+            
+        endif
+        
+
+        return
+    endif
 
     if(meshtype=="Leaf3D")then
         validmeshtype=.true.
