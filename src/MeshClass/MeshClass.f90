@@ -595,24 +595,25 @@ subroutine removeMesh(obj,all,x_min,x_max,y_min,y_max,z_min,z_max)
         endif
     enddo
 
-    call f%open("debug")
     do i=1,size(obj%elemnod,1)
         do j=1,size(obj%elemnod,2)
             totcount=0
             do k=1,obj%elemnod(i,j)-1
                 totcount=totcount+rm_node_list(k)
             enddo
-            write(f%fh,*) "Before",obj%elemnod(i,j),"after",obj%elemnod(i,j) - totcount
             obj%elemnod(i,j) = obj%elemnod(i,j) - totcount
         enddo
     enddo
-    call f%close()
 
     totcount=0
     do i=1,size(rm_elem_list)
         totcount=totcount+rm_elem_list(i)
     enddo
 
+    if(.not. allocated(obj%elemmat) )then
+        call print(".not. allocated(obj%elemmat) >> ignored!")
+        return
+    endif
     elemmat = obj%elemmat
     deallocate(obj%elemmat)
     allocate(obj%elemmat(size(elemmat)- totcount) )
@@ -1990,12 +1991,13 @@ subroutine GetInterSectBox(obj1,obj2,BBox)
     class(Mesh_),intent(in)::obj1,obj2
     class(Mesh_),intent(inout)::BBox
 
-    real(real64),allocatable::width1(:),width2(:),center1(:),center2(:),max_coord(:),min_coord(:)
+    real(real64),allocatable::width1(:),width2(:),center1(:),center2(:),max_coord(:),min_coord(:),&
+        x1_max(:),x1_min(:),x2_max(:),x2_min(:),center(:)
     real(real64) :: xmax_(2),xmin_(2)
     integer(int32) :: dim_num,i,j,c_or_not
 
-
-    dim_num=size(obj1%NodCoord,2)
+    ! check contact
+    dim_num=size(obj1%nodcoord,2)
     
     if(dim_num==2)then
         if(allocated(BBox%NodCoord) ) deallocate(BBox%NodCoord)
@@ -2032,6 +2034,23 @@ subroutine GetInterSectBox(obj1,obj2,BBox)
         width2(i) = maxval(obj2%NodCoord(:,i)) - minval(obj2%NodCoord(:,i)) 
     enddo
 
+
+!    ! Detect intersection by nodes
+!    dim_num=size(obj1%NodCoord,2)
+!    allocate(x1_max(dim_num),x2_max(dim_num),x1_min(dim_num),x2_min(dim_num),center(dim_num) )
+!    do i=1,dim_num
+!        x1_max(i) = maxval(obj1%nodcoord(:,i) )
+!        x1_min(i) = minval(obj1%nodcoord(:,i) )
+!        x2_max(i) = maxval(obj2%nodcoord(:,i) )
+!        x2_min(i) = minval(obj2%nodcoord(:,i) )
+!    enddo
+!    center(:)  = 0.50d0*center1(:)+ 0.50d0*center1(:)
+!
+!    c_or_not = 0 ! default :: contact
+!    do i=1,dim_num
+!        if(center() )
+!    enddo
+!   
     ! Contact detection
     c_or_not=1
     do i=1,dim_num
@@ -4180,7 +4199,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         else
             call print("Contact interface detected.")
             ! get master and slave nodes
-            ! Global search for master node
+            ! Global search for master node by AABB algorithm (Bounding-Box method)
             dim_num = size(master%nodcoord,2) 
             node_num = size(master%nodcoord,1)
             allocate(OutNodeID(size(master%nodcoord,1) ) )
@@ -4203,7 +4222,9 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                     OutNodeID(i)=1    
                 endif
             enddo
+
             call print("Interface node :: "//str(node_num - sum(OutNodeID))//"/"//str(node_num) )
+            
             allocate(interface1%nodcoord(node_num - sum(OutNodeID) , dim_num ) )
             j=0
             do i=1,size(master%Nodcoord,1)
@@ -4317,10 +4338,45 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             deallocate(OutNodeID)
             
 
+            
             !obj%nodcoord = interface2%nodcoord
             !obj%elemnod = interface2%elemnod
 
+!            ! again get boundary box
+!            print *, maxval(interface1%nodcoord(:,1)), maxval(interface1%nodcoord(:,2)), maxval(interface1%nodcoord(:,3))
+!            print *, minval(interface1%nodcoord(:,1)), minval(interface1%nodcoord(:,2)), minval(interface1%nodcoord(:,3))
+!            print *, maxval(interface2%nodcoord(:,1)), maxval(interface2%nodcoord(:,2)), maxval(interface2%nodcoord(:,3))
+!            print *, minval(interface2%nodcoord(:,1)), minval(interface2%nodcoord(:,2)), minval(interface2%nodcoord(:,3))
+!            
+!            call interface1%GetInterSectBox(interface2,BoundBox)
+!            
+!            call interface1%remove(x_max=minval(BoundBox%nodcoord(:,1)) )
+!            call interface1%remove(y_max=minval(BoundBox%nodcoord(:,2)) )
+!            call interface1%remove(z_max=minval(BoundBox%nodcoord(:,3)) )
+!
+!            call interface1%remove(x_min=maxval(BoundBox%nodcoord(:,1)) )
+!            call interface1%remove(y_min=maxval(BoundBox%nodcoord(:,2)) )
+!            call interface1%remove(z_min=maxval(BoundBox%nodcoord(:,3)) )
+!            
+!            call interface2%remove(x_max=minval(BoundBox%nodcoord(:,1)) )
+!            call interface2%remove(y_max=minval(BoundBox%nodcoord(:,2)) )
+!            call interface2%remove(z_max=minval(BoundBox%nodcoord(:,3)) )
+!
+!            call interface2%remove(x_min=maxval(BoundBox%nodcoord(:,1)) )
+!            call interface2%remove(y_min=maxval(BoundBox%nodcoord(:,2)) )
+!            call interface2%remove(z_min=maxval(BoundBox%nodcoord(:,3)) )
+!            
+!
+!            
+
             call print("Global Search Done!")
+
+
+
+            
+
+
+
             call print("local search >> ")
 
             ! pairing 
@@ -4402,7 +4458,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                     endif
                 enddo
             enddo
-            
+
         endif
         
 
