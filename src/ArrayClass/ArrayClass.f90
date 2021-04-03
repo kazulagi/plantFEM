@@ -3188,16 +3188,14 @@ end subroutine
 
 ! ##########################################################
 function existIntVec(vector,val) result(ret)
-    integer(int32),allocatable,intent(inout) :: vector(:)
+    integer(int32),intent(in) :: vector(:)
     integer(int32),intent(in) :: val
     logical :: ret
     integer(int32) :: i,j,k,n
 
-    if(.not. allocated(vector) )then
-        return
-    endif
 !
     ! search 
+    ret=.false.
     do i=1,size(vector)
         if(vector(i) == val ) then
             ret=.true.

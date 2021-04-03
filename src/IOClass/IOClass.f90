@@ -12,8 +12,11 @@ module IOClass
     contains
         procedure,public :: unit => unitIO
 
+        procedure,public :: numLine => numLineIO
+
         procedure,pass   :: openIOchar
         procedure,pass   :: openIOstring
+        
         generic,public :: open => openIOchar, openIOstring
         !procedure,public :: open => openIO
         procedure,pass :: writeIOchar
@@ -35,6 +38,29 @@ module IOClass
     end interface print
 
 contains
+
+function numLineIO(obj,name) result(line)
+    class(IO_),intent(inout) :: obj
+    type(IO_) :: f
+    character(*),intent(in) :: name
+    integer(int32) :: line
+    character(len=1) :: content
+
+    call f%open(name)
+    
+    line=1
+    do 
+        content = f%readline()
+        if(f%EOF .eqv. .true.) then
+            line=line-1
+            exit
+        endif
+        line = line+1
+    enddo
+
+    call f%close()
+
+end function
 
 ! #############################################
 function readlineIO(obj) result(ret)

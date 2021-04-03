@@ -39,6 +39,7 @@ module FEMDomainClass
 		character(len=36) :: uuid
 
 		character(len=36) :: link(2)
+		character(len=70) :: meshtype
 
 		real(real64),allocatable :: scalar(:)
 		real(real64),allocatable :: vector(:,:)
@@ -66,6 +67,7 @@ module FEMDomainClass
 		type(Boundaryp_),allocatable :: Boundaries(:)
 		!type(FEMDomainp_),allocatable :: FEMDomains(:)
     contains
+		procedure,public :: add => addFEMDomain
 		procedure,public :: addNBC => AddNBCFEMDomain 
 		procedure,public :: importLayer => importLayerFEMDomain
 
@@ -121,6 +123,7 @@ module FEMDomainClass
 		procedure,public :: getLayerAttribute => getLayerAttributeFEMDomain
 		procedure,public :: getLayerDataStyle => getLayerDataStyleFEMDomain
 		procedure,public :: getShapeFunction => getShapeFunctionFEMDomain
+		procedure,public :: getNearestNodeID => getNearestNodeIDFEMDomain
 		
 		
         procedure,public :: init   => InitializeFEMDomain
@@ -150,6 +153,10 @@ module FEMDomainClass
 
 		procedure,public :: ply => plyFEMDomain
 		procedure,public :: projection => projectionFEMDomain
+        procedure,public :: position => positionFEMDomain
+        procedure,public :: position_x => position_xFEMDomain
+        procedure,public :: position_y => position_yFEMDomain
+        procedure,public :: position_z => position_zFEMDomain
 
 		procedure,public :: removeMaterials => removeMaterialsFEMDomain
 		procedure,public :: rotate => rotateFEMDomain
@@ -188,6 +195,17 @@ module FEMDomainClass
 
 contains
 
+! ####################################################################
+subroutine addFEMDomain(obj,mesh,from,length,rot_x,rot_y,rot_z,x,y,z,dx,dy,dz)
+	class(FEMDomain_),intent(inout) :: obj
+    class(Mesh_),optional,intent(inout)    :: mesh
+    integer(int32),optional,intent(in) :: from
+    real(real64),optional,intent(in) :: length,rot_x,rot_y,rot_z,x,y,z,dx,dy,dz
+	call obj%mesh%add(mesh,from,length,rot_x,rot_y,rot_z,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz)
+end subroutine
+! ####################################################################
+
+! ####################################################################
 function lengthFEMDomain(obj) result(length)
 	class(FEMDomain_),intent(in) :: obj
 	real(real64) :: length(3)
@@ -6034,7 +6052,7 @@ end subroutine
 
 ! ##################################################
 subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
-	top,margin,inclineRate,shaperatio,master,slave)
+	top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz)
 	class(FEMDomain_),intent(inout) :: obj
 	type(FEMDomain_),optional,intent(in) :: master,slave
 	character(*),intent(in) :: meshtype
@@ -6047,10 +6065,13 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 	real(real64),optional,intent(in) :: thickness ! for 3D rectangular
 	real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
     real(real64),optional,intent(in) :: top,margin,inclineRate ! for 3D Ridge and dam
+	real(real64),optional,intent(in) :: x,y,z,dx,dy,dz
 
 	integer,dimension(3),parameter :: versions_to_test = [0,1,4]
 
 	! create uuid
+
+	obj%meshtype = trim(meshtype)
 
 	obj%uuid = generate_uuid(1)
 
@@ -6085,11 +6106,11 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 	if(present(z_num) .or. present(z_len) )then
 		call obj%Mesh%create(meshtype,xnum,ynum,xlen,ylen,Le,&
 			Lh,Dr,zlen,znum,top=top,margin=margin,shaperatio=shaperatio,&
-			master=master%mesh,slave=slave%mesh)
+			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz)
 	else
 		call obj%Mesh%create(meshtype,xnum,ynum,xlen,ylen,Le,&
 			Lh,Dr,zlen,znum,top=top,margin=margin,shaperatio=shaperatio,&
-			master=master%mesh,slave=slave%mesh)
+			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz)
 	endif
 
 end subroutine createFEMDomain
@@ -7969,5 +7990,64 @@ subroutine editFEMDomain(obj,x,altitude)
 	
 	call obj%mesh%edit(x,altitude)
 end subroutine
+
+! ######################################################################
+function getNearestNodeIDFEMDomain(obj,x,y,z,except,exceptlist) result(node_id)
+	class(FEMDomain_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x,y,z ! coordinate
+    integer(int32),optional,intent(in) :: except ! excepted node id
+    integer(int32),optional,intent(in) :: exceptlist(:) ! excepted node id
+	integer(int32) :: node_id,i
+
+	node_id = obj%mesh%getNearestNodeID(x=x,y=y,z=z,except=except,exceptlist=exceptlist)
+end function
+! ######################################################################
+
+! ##########################################################################
+function positionFEMDomain(obj,id) result(x)
+    class(FEMDomain_),intent(in) :: obj
+    integer(int32),intent(in) :: id ! node_id
+    real(real64) :: x(3)
+    integer(int32) :: dim_num,i
+
+    dim_num = size(obj%mesh%nodcoord,2)
+    do i=1,dim_num
+        x(i) = obj%mesh%nodcoord(id,i)
+    enddo
+end function
+! ##########################################################################
+
+! ##########################################################################
+function position_xFEMDomain(obj,id) result(x)
+    class(FEMDomain_),intent(in) :: obj
+    integer(int32),intent(in) :: id ! node_id
+    real(real64) :: x
+    
+    x = obj%mesh%nodcoord(id,1)
+
+end function
+! ##########################################################################
+
+! ##########################################################################
+function position_yFEMDomain(obj,id) result(x)
+    class(FEMDomain_),intent(in) :: obj
+    integer(int32),intent(in) :: id ! node_id
+    real(real64) :: x
+    
+    x = obj%mesh%nodcoord(id,2)
+
+end function
+! ##########################################################################
+
+! ##########################################################################
+function position_zFEMDomain(obj,id) result(x)
+    class(FEMDomain_),intent(in) :: obj
+    integer(int32),intent(in) :: id ! node_id
+    real(real64) :: x
+    
+    x = obj%mesh%nodcoord(id,3)
+
+end function
+! ##########################################################################
 
 end module FEMDomainClass

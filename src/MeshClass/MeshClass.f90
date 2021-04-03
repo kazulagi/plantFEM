@@ -36,6 +36,7 @@ module MeshClass
         
         character*70::ElemType=" "
         character*70:: ErrorMsg=" "
+        character*70:: meshtype
 
     contains
         procedure :: add => addMesh
@@ -113,11 +114,17 @@ module MeshClass
         procedure :: numDimension => numDimensionMesh
         procedure :: nd => numDimensionMesh
         procedure :: nearestElementID => nearestElementIDMesh
-        !procedure :: nearestNodeID => nearestNodeIDMesh
+        procedure :: getNearestElementID => NearestElementIDMesh
+        procedure :: getNearestNodeID => getNearestNodeIDMesh
         
         procedure :: HowManyDomain => HowManyDomainMesh
 
         procedure :: open => openMesh
+
+        procedure :: position => positionMesh
+        procedure :: position_x => position_xMesh
+        procedure :: position_y => position_yMesh
+        procedure :: position_z => position_zMesh
 
         procedure :: remove => removeMesh
         procedure :: removeCircumscribedTriangle => removeCircumscribedTriangleMesh
@@ -2196,10 +2203,70 @@ end subroutine
 
 
 !##################################################
-subroutine addMesh(obj,mesh)
+subroutine addMesh(obj,mesh,from,length,rot_x,rot_y,rot_z,x,y,z,dx,dy,dz)
     class(Mesh_),intent(inout) :: obj
-    class(Mesh_),intent(inout)    :: mesh
-    integer(int32) :: NumOfElem
+    class(Mesh_),optional,intent(inout)    :: mesh
+    integer(int32),optional,intent(in) :: from
+    real(real64),optional,intent(in) :: length,rot_x,rot_y,rot_z,x,y,z,dx,dy,dz
+    integer(int32) :: NumOfElem,node_id,elem_id
+    real(real64) :: n(3),rotmat(3,3),L
+
+    if(obj%meshtype == "Root" .or. obj%meshtype == "root")then
+        ! add node
+        node_id = size(obj%nodcoord,1)
+        elem_id=size(obj%elemnod,1)
+        call extendArray(obj%nodcoord,extend1stColumn=.true.)
+        call extendArray(obj%elemnod,extend1stColumn=.true.)
+
+        n(:) = 0.0d0
+        n(3) = -1.0d0
+
+        if(present(rot_x) )then
+		    rotmat(1,1)=1.0d0	;rotmat(1,2)=0.0d0		;rotmat(1,3)=0.0d0			;
+		    rotmat(2,1)=0.0d0	;rotmat(2,2)=cos(rot_x)		;rotmat(2,3)=-sin(rot_x);
+		    rotmat(3,1)=0.0d0	;rotmat(3,2)=sin(rot_x)		;rotmat(3,3)= cos(rot_x);
+            n(:) = matmul(rotmat,n)
+        endif
+        if(present(rot_y) )then    
+			rotmat(1,1)=cos(rot_y)	;rotmat(1,2)=0.0d0		;rotmat(1,3)=sin(rot_y)		;
+			rotmat(2,1)=0.0d0	;rotmat(2,2)=1.0d0		;rotmat(2,3)=0.0d0		;
+			rotmat(3,1)=-sin(rot_y)	;rotmat(3,2)=0.0d0		;rotmat(3,3)= cos(rot_y)    ;
+            n(:) = matmul(rotmat,n)
+        endif
+        if(present(rot_z) )then
+			rotmat(1,1)=cos(rot_z)	;rotmat(1,2)=-sin(rot_z)	;rotmat(1,3)=0.0d0		;
+			rotmat(2,1)=sin(rot_z)	;rotmat(2,2)=cos(rot_z)		;rotmat(2,3)=0.0d0		;
+			rotmat(3,1)=0.0d0	;rotmat(3,2)=0.0d0		;rotmat(3,3)=1.0d0 		;
+            n(:) = matmul(rotmat,n)
+        endif
+
+        ! Or you can directly identify new node by coordinate
+        n(1) = input(default=n(1), option=dx )
+        n(2) = input(default=n(2), option=dy )
+        n(3) = input(default=n(3), option=dz )
+
+
+        L = input(default=1.0d0,option=length)
+        if(present(from) )then
+            obj%nodcoord(node_id+1,:) = obj%nodcoord(From,:) + L*n(:) 
+            
+            obj%nodcoord(node_id+1,1) = input(default=obj%nodcoord(node_id+1,1), option=x )
+            obj%nodcoord(node_id+1,2) = input(default=obj%nodcoord(node_id+1,2), option=y )
+            obj%nodcoord(node_id+1,3) = input(default=obj%nodcoord(node_id+1,3), option=z )
+            obj%elemnod(elem_id+1,1)  = From
+            obj%elemnod(elem_id+1,2:)  = node_id+1
+        else
+            obj%nodcoord(node_id+1,:) = obj%nodcoord(node_id,:) + L*n(:) 
+            
+            obj%nodcoord(node_id+1,1) = input(default=obj%nodcoord(node_id+1,1), option=x )
+            obj%nodcoord(node_id+1,2) = input(default=obj%nodcoord(node_id+1,2), option=y )
+            obj%nodcoord(node_id+1,3) = input(default=obj%nodcoord(node_id+1,3), option=z )
+            obj%elemnod(elem_id+1,1)  = node_id
+            obj%elemnod(elem_id+1,2:)  = node_id+1
+        endif
+
+        return
+    endif
 
     NumOfElem=size(obj%ElemNod,1)
     call addarray(obj%NodCoord,mesh%NodCoord)
@@ -4166,7 +4233,7 @@ end subroutine AdjustCylinderMesh
 !##################################################
 
 recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,&
-    division,smooth,top,margin,inclineRate,shaperatio,master,slave)
+    division,smooth,top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz)
     class(Mesh_),intent(inout) :: obj
     type(Mesh_) :: mesh1,mesh2,interface1,interface2
     type(Mesh_),optional,intent(in) :: master,slave
@@ -4179,17 +4246,45 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     real(real64),optional,intent(in) :: thickness,inclineRate ! for 3D rectangular
     real(real64),optional,intent(in) :: top,margin ! for 3D rectangular
     real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
+    real(real64),optional,intent(in) :: x,y,z,dx,dy,dz
     integer(int32) :: i,j,n,m,xn,yn,smoothedge(8),ini,k,dim_num,node_num
     real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt,&
         unitx,unity,xm, ym,tp,rx,ry,zc,zl,zm,ysize,ox,oy,dist,rr
     logical :: validmeshtype=.false.
     type(Mesh_) :: BoundBox
-    real(real64)::ymin,ymax,ratio,width,pi,xx,yy,dx,dy,x(3),x_max(3),x_min(3),x_m_mid(3),x_s_mid(3)
+    real(real64)::ymin,ymax,ratio,width,pi,xx,yy,xvec(3),x_max(3),x_min(3),x_m_mid(3),x_s_mid(3)
     integer(int32),allocatable:: OutNodeID(:),OutElementID(:)
     logical :: inside
     real(real64):: dist_tr, dist_cur
     pi = 3.1415926535d0
     ! this subroutine creates mesh
+    obj%meshtype = meshtype
+
+    if(obj%meshtype=="root" .or. obj%meshtype=="Root")then
+        ! tree-like graph structure 
+        call obj%remove(all=.true.)
+        ! initialize root
+        !   o  (0,0,0)
+        !   |
+        !   |
+        !   o  (0,0,-1)
+        allocate(obj%nodcoord(2,3))
+        obj%nodcoord(:,:) = 0.0d0
+        obj%nodcoord(2,3) = -1.0d0
+
+        obj%nodcoord(2,1) = input(default=obj%nodcoord(2,1), option=x)
+        obj%nodcoord(2,2) = input(default=obj%nodcoord(2,2), option=y)
+        obj%nodcoord(2,3) = input(default=obj%nodcoord(2,3), option=z)
+
+        obj%nodcoord(2,1) = input(default=obj%nodcoord(2,1), option=dx)
+        obj%nodcoord(2,2) = input(default=obj%nodcoord(2,2), option=dy)
+        obj%nodcoord(2,3) = input(default=obj%nodcoord(2,3), option=dz)
+
+        allocate(obj%elemnod(1,8))
+        obj%elemnod(1,1) = 1
+        obj%elemnod(1,2:8) = 2
+
+    endif
 
     if(meshtype=="Node-To-Node" .or. meshtype=="node-no-node") then
         call master%GetInterSectBox(slave,BoundBox)
@@ -4205,10 +4300,10 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             allocate(OutNodeID(size(master%nodcoord,1) ) )
             OutNodeID(:) = 0
             do i=1,size(master%nodcoord,1)
-                x(:) = 0.0d0
+                xvec(:) = 0.0d0
                 x_max(:) = 0.0d0
                 x_min(:) = 0.0d0
-                x(1:size(master%nodcoord,2)) = master%nodcoord(i,1:size(master%nodcoord,2) )
+                xvec(1:size(master%nodcoord,2)) = master%nodcoord(i,1:size(master%nodcoord,2) )
     
                 do j=1,size(BoundBox%NodCoord,2)
                     x_max(j) = maxval(BoundBox%NodCoord(:,j) )
@@ -4217,7 +4312,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                     x_min(j) = minval(BoundBox%NodCoord(:,j) )
                 enddo
                 ! Judge inside or not
-                inside = InOrOut(x=x,xmax=x_max,xmin=x_min)
+                inside = InOrOut(x=xvec,xmax=x_max,xmin=x_min)
                 if(inside .eqv. .false.)then
                     OutNodeID(i)=1    
                 endif
@@ -4275,10 +4370,10 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             allocate(OutNodeID(size(slave%nodcoord,1) ) )
             OutNodeID(:) = 0
             do i=1,size(slave%nodcoord,1)
-                x(:) = 0.0d0
+                xvec(:) = 0.0d0
                 x_max(:) = 0.0d0
                 x_min(:) = 0.0d0
-                x(1:size(slave%nodcoord,2)) = slave%nodcoord(i,1:size(slave%nodcoord,2) )
+                xvec(1:size(slave%nodcoord,2)) = slave%nodcoord(i,1:size(slave%nodcoord,2) )
     
                 do j=1,size(BoundBox%NodCoord,2)
                     x_max(j) = maxval(BoundBox%NodCoord(:,j) )
@@ -4287,7 +4382,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                     x_min(j) = minval(BoundBox%NodCoord(:,j) )
                 enddo
                 ! Judge inside or not
-                inside = InOrOut(x=x,xmax=x_max,xmin=x_min)
+                inside = InOrOut(x=xvec,xmax=x_max,xmin=x_min)
                 if(inside .eqv. .false.)then
                     OutNodeID(i)=1    
                 endif
@@ -4432,9 +4527,9 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             ! search master ids
             do j=1,size(interface2%nodcoord,1)
                 do i=1,size(master%nodcoord,1)
-                    x(:) = 0.0d0
+                    xvec(:) = 0.0d0
                     x_m_mid(:) = 0.0d0
-                    x(1:dim_num) = obj%nodcoord(j+node_num,1:dim_num)
+                    xvec(1:dim_num) = obj%nodcoord(j+node_num,1:dim_num)
                     x_m_mid(1:dim_num) = master%nodcoord(i,1:dim_num)
                     dist_tr = dsqrt(dot_product(x-x_m_mid, x-x_m_mid ) )
                     if(dist_tr == 0.0d0)then
@@ -4447,9 +4542,9 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             ! search slave ids
             do j=1,size(interface2%nodcoord,1)
                 do i=1,size(slave%nodcoord,1)
-                    x(:) = 0.0d0
+                    xvec(:) = 0.0d0
                     x_m_mid(:) = 0.0d0
-                    x(1:dim_num) =  obj%nodcoord(j,1:dim_num)
+                    xvec(1:dim_num) =  obj%nodcoord(j,1:dim_num)
                     x_m_mid(1:dim_num) = slave%nodcoord(i,1:dim_num)
                     dist_tr = dsqrt(dot_product(x-x_m_mid, x-x_m_mid ) )
                     if(dist_tr == 0.0d0)then
@@ -7325,5 +7420,99 @@ subroutine editMesh(obj,x,altitude)
     endif
     
 end subroutine
+! ##########################################################################
+
+
+
+! ##########################################################################
+function getNearestNodeIDMesh(obj,x,y,z,except,exceptlist) result(node_id)
+    class(Mesh_),intent(inout) :: obj 
+    real(real64),optional,intent(in) :: x,y,z ! coordinate
+    integer(int32),optional,intent(in) :: except ! excepted node id
+    integer(int32),optional,intent(in) :: exceptlist(:) ! excepted node id
+    integer(int32) :: i,j,dim_num, node_num,node_id,except_id
+    real(real64),allocatable :: xvec(:),xvec_tr(:),dist_cur, dist_tr
+
+    node_num =size(obj%nodcoord,1) 
+    dim_num = size(obj%nodcoord,2)
+    except_id = input(default=0, option=except)
+    
+    allocate(xvec(dim_num),xvec_tr(dim_num) )
+    xvec(:) = 0.0d0
+    xvec(1) = input(default=0.0d0,option=x)
+    xvec(2) = input(default=0.0d0,option=y)
+    xvec(3) = input(default=0.0d0,option=z)
+    xvec_tr(:) = 0.0d0
+    
+    node_id = 1
+    xvec_tr(:) = obj%nodcoord(1,:)
+    dist_cur = dot_product(xvec-xvec_tr,xvec-xvec_tr) 
+    do i=1,node_num
+        if(i == except_id)then
+            cycle
+        endif
+        if(present(exceptlist) )then
+            if(exist(exceptlist,i) .eqv. .true. )then
+                cycle
+            endif
+        endif
+
+        xvec_tr(:) = obj%nodcoord(i,:)
+        dist_tr = dot_product(xvec-xvec_tr,xvec-xvec_tr)
+        if(dist_tr < dist_cur)then
+            node_id = i
+            dist_cur = dist_tr
+        endif
+    enddo
+end function
+! ##########################################################################
+
+
+! ##########################################################################
+function positionMesh(obj,id) result(x)
+    class(Mesh_),intent(in) :: obj
+    integer(int32),intent(in) :: id ! node_id
+    real(real64) :: x(3)
+    integer(int32) :: dim_num,i
+
+    dim_num = size(obj%nodcoord,2)
+    do i=1,dim_num
+        x(i) = obj%nodcoord(id,i)
+    enddo
+end function
+! ##########################################################################
+
+! ##########################################################################
+function position_xMesh(obj,id) result(x)
+    class(Mesh_),intent(in) :: obj
+    integer(int32),intent(in) :: id ! node_id
+    real(real64) :: x
+    
+    x = obj%nodcoord(id,1)
+
+end function
+! ##########################################################################
+
+! ##########################################################################
+function position_yMesh(obj,id) result(x)
+    class(Mesh_),intent(in) :: obj
+    integer(int32),intent(in) :: id ! node_id
+    real(real64) :: x
+    
+    x = obj%nodcoord(id,2)
+
+end function
+! ##########################################################################
+
+! ##########################################################################
+function position_zMesh(obj,id) result(x)
+    class(Mesh_),intent(in) :: obj
+    integer(int32),intent(in) :: id ! node_id
+    real(real64) :: x
+    
+    x = obj%nodcoord(id,3)
+
+end function
+! ##########################################################################
 
 end module MeshClass
