@@ -36,11 +36,13 @@ module MeshClass
         
         character*70::ElemType=" "
         character*70:: ErrorMsg=" "
+        character*70:: meshtype
 
     contains
         procedure :: add => addMesh
         procedure :: adjustSphere => AdjustSphereMesh
         procedure :: adjustCylinder => AdjustCylinderMesh
+        procedure :: assemble => assembleMesh
 
         procedure :: copy => CopyMesh
         procedure :: cut => cutMesh
@@ -113,11 +115,17 @@ module MeshClass
         procedure :: numDimension => numDimensionMesh
         procedure :: nd => numDimensionMesh
         procedure :: nearestElementID => nearestElementIDMesh
-        !procedure :: nearestNodeID => nearestNodeIDMesh
+        procedure :: getNearestElementID => NearestElementIDMesh
+        procedure :: getNearestNodeID => getNearestNodeIDMesh
         
         procedure :: HowManyDomain => HowManyDomainMesh
 
         procedure :: open => openMesh
+
+        procedure :: position => positionMesh
+        procedure :: position_x => position_xMesh
+        procedure :: position_y => position_yMesh
+        procedure :: position_z => position_zMesh
 
         procedure :: remove => removeMesh
         procedure :: removeCircumscribedTriangle => removeCircumscribedTriangleMesh
@@ -136,6 +144,8 @@ module MeshClass
 
 
     contains
+
+
 
 ! ##########################################################################
 function getCoordinateMesh(obj,NodeID,onlyX,onlyY,OnlyZ) result(x)
@@ -595,24 +605,25 @@ subroutine removeMesh(obj,all,x_min,x_max,y_min,y_max,z_min,z_max)
         endif
     enddo
 
-    call f%open("debug")
     do i=1,size(obj%elemnod,1)
         do j=1,size(obj%elemnod,2)
             totcount=0
             do k=1,obj%elemnod(i,j)-1
                 totcount=totcount+rm_node_list(k)
             enddo
-            write(f%fh,*) "Before",obj%elemnod(i,j),"after",obj%elemnod(i,j) - totcount
             obj%elemnod(i,j) = obj%elemnod(i,j) - totcount
         enddo
     enddo
-    call f%close()
 
     totcount=0
     do i=1,size(rm_elem_list)
         totcount=totcount+rm_elem_list(i)
     enddo
 
+    if(.not. allocated(obj%elemmat) )then
+        call print(".not. allocated(obj%elemmat) >> ignored!")
+        return
+    endif
     elemmat = obj%elemmat
     deallocate(obj%elemmat)
     allocate(obj%elemmat(size(elemmat)- totcount) )
@@ -1990,12 +2001,13 @@ subroutine GetInterSectBox(obj1,obj2,BBox)
     class(Mesh_),intent(in)::obj1,obj2
     class(Mesh_),intent(inout)::BBox
 
-    real(real64),allocatable::width1(:),width2(:),center1(:),center2(:),max_coord(:),min_coord(:)
+    real(real64),allocatable::width1(:),width2(:),center1(:),center2(:),max_coord(:),min_coord(:),&
+        x1_max(:),x1_min(:),x2_max(:),x2_min(:),center(:)
     real(real64) :: xmax_(2),xmin_(2)
     integer(int32) :: dim_num,i,j,c_or_not
 
-
-    dim_num=size(obj1%NodCoord,2)
+    ! check contact
+    dim_num=size(obj1%nodcoord,2)
     
     if(dim_num==2)then
         if(allocated(BBox%NodCoord) ) deallocate(BBox%NodCoord)
@@ -2032,6 +2044,23 @@ subroutine GetInterSectBox(obj1,obj2,BBox)
         width2(i) = maxval(obj2%NodCoord(:,i)) - minval(obj2%NodCoord(:,i)) 
     enddo
 
+
+!    ! Detect intersection by nodes
+!    dim_num=size(obj1%NodCoord,2)
+!    allocate(x1_max(dim_num),x2_max(dim_num),x1_min(dim_num),x2_min(dim_num),center(dim_num) )
+!    do i=1,dim_num
+!        x1_max(i) = maxval(obj1%nodcoord(:,i) )
+!        x1_min(i) = minval(obj1%nodcoord(:,i) )
+!        x2_max(i) = maxval(obj2%nodcoord(:,i) )
+!        x2_min(i) = minval(obj2%nodcoord(:,i) )
+!    enddo
+!    center(:)  = 0.50d0*center1(:)+ 0.50d0*center1(:)
+!
+!    c_or_not = 0 ! default :: contact
+!    do i=1,dim_num
+!        if(center() )
+!    enddo
+!   
     ! Contact detection
     c_or_not=1
     do i=1,dim_num
@@ -2177,10 +2206,70 @@ end subroutine
 
 
 !##################################################
-subroutine addMesh(obj,mesh)
+subroutine addMesh(obj,mesh,from,length,rot_x,rot_y,rot_z,x,y,z,dx,dy,dz)
     class(Mesh_),intent(inout) :: obj
-    class(Mesh_),intent(inout)    :: mesh
-    integer(int32) :: NumOfElem
+    class(Mesh_),optional,intent(inout)    :: mesh
+    integer(int32),optional,intent(in) :: from
+    real(real64),optional,intent(in) :: length,rot_x,rot_y,rot_z,x,y,z,dx,dy,dz
+    integer(int32) :: NumOfElem,node_id,elem_id
+    real(real64) :: n(3),rotmat(3,3),L
+
+    if(obj%meshtype == "Root" .or. obj%meshtype == "root")then
+        ! add node
+        node_id = size(obj%nodcoord,1)
+        elem_id=size(obj%elemnod,1)
+        call extendArray(obj%nodcoord,extend1stColumn=.true.)
+        call extendArray(obj%elemnod,extend1stColumn=.true.)
+
+        n(:) = 0.0d0
+        n(3) = -1.0d0
+
+        if(present(rot_x) )then
+		    rotmat(1,1)=1.0d0	;rotmat(1,2)=0.0d0		;rotmat(1,3)=0.0d0			;
+		    rotmat(2,1)=0.0d0	;rotmat(2,2)=cos(rot_x)		;rotmat(2,3)=-sin(rot_x);
+		    rotmat(3,1)=0.0d0	;rotmat(3,2)=sin(rot_x)		;rotmat(3,3)= cos(rot_x);
+            n(:) = matmul(rotmat,n)
+        endif
+        if(present(rot_y) )then    
+			rotmat(1,1)=cos(rot_y)	;rotmat(1,2)=0.0d0		;rotmat(1,3)=sin(rot_y)		;
+			rotmat(2,1)=0.0d0	;rotmat(2,2)=1.0d0		;rotmat(2,3)=0.0d0		;
+			rotmat(3,1)=-sin(rot_y)	;rotmat(3,2)=0.0d0		;rotmat(3,3)= cos(rot_y)    ;
+            n(:) = matmul(rotmat,n)
+        endif
+        if(present(rot_z) )then
+			rotmat(1,1)=cos(rot_z)	;rotmat(1,2)=-sin(rot_z)	;rotmat(1,3)=0.0d0		;
+			rotmat(2,1)=sin(rot_z)	;rotmat(2,2)=cos(rot_z)		;rotmat(2,3)=0.0d0		;
+			rotmat(3,1)=0.0d0	;rotmat(3,2)=0.0d0		;rotmat(3,3)=1.0d0 		;
+            n(:) = matmul(rotmat,n)
+        endif
+
+        ! Or you can directly identify new node by coordinate
+        n(1) = input(default=n(1), option=dx )
+        n(2) = input(default=n(2), option=dy )
+        n(3) = input(default=n(3), option=dz )
+
+
+        L = input(default=1.0d0,option=length)
+        if(present(from) )then
+            obj%nodcoord(node_id+1,:) = obj%nodcoord(From,:) + L*n(:) 
+            
+            obj%nodcoord(node_id+1,1) = input(default=obj%nodcoord(node_id+1,1), option=x )
+            obj%nodcoord(node_id+1,2) = input(default=obj%nodcoord(node_id+1,2), option=y )
+            obj%nodcoord(node_id+1,3) = input(default=obj%nodcoord(node_id+1,3), option=z )
+            obj%elemnod(elem_id+1,1)  = From
+            obj%elemnod(elem_id+1,2:)  = node_id+1
+        else
+            obj%nodcoord(node_id+1,:) = obj%nodcoord(node_id,:) + L*n(:) 
+            
+            obj%nodcoord(node_id+1,1) = input(default=obj%nodcoord(node_id+1,1), option=x )
+            obj%nodcoord(node_id+1,2) = input(default=obj%nodcoord(node_id+1,2), option=y )
+            obj%nodcoord(node_id+1,3) = input(default=obj%nodcoord(node_id+1,3), option=z )
+            obj%elemnod(elem_id+1,1)  = node_id
+            obj%elemnod(elem_id+1,2:)  = node_id+1
+        endif
+
+        return
+    endif
 
     NumOfElem=size(obj%ElemNod,1)
     call addarray(obj%NodCoord,mesh%NodCoord)
@@ -4147,7 +4236,7 @@ end subroutine AdjustCylinderMesh
 !##################################################
 
 recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,&
-    division,smooth,top,margin,inclineRate,shaperatio,master,slave)
+    division,smooth,top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz,coordinate)
     class(Mesh_),intent(inout) :: obj
     type(Mesh_) :: mesh1,mesh2,interface1,interface2
     type(Mesh_),optional,intent(in) :: master,slave
@@ -4156,21 +4245,466 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     logical,optional,intent(in) :: smooth
     integer(int32),optional,intent(in) :: x_num,y_num ! number of division
     integer(int32),optional,intent(in) :: division ! for 3D rectangular
-    real(real64),optional,intent(in) :: x_len,y_len,Le,Lh,Dr ! length
+    real(real64),optional,intent(in) :: x_len,y_len,Le,Lh,Dr,coordinate(:,:) ! length
     real(real64),optional,intent(in) :: thickness,inclineRate ! for 3D rectangular
     real(real64),optional,intent(in) :: top,margin ! for 3D rectangular
     real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
-    integer(int32) :: i,j,n,m,xn,yn,smoothedge(8),ini,k,dim_num,node_num
+    real(real64),optional,intent(in) :: x,y,z,dx,dy,dz
+    
+    integer(int32) :: i,j,n,m,xn,yn,smoothedge(8),ini,k,dim_num,node_num,elem_num
     real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt,&
         unitx,unity,xm, ym,tp,rx,ry,zc,zl,zm,ysize,ox,oy,dist,rr
     logical :: validmeshtype=.false.
     type(Mesh_) :: BoundBox
-    real(real64)::ymin,ymax,ratio,width,pi,xx,yy,dx,dy,x(3),x_max(3),x_min(3),x_m_mid(3),x_s_mid(3)
+    real(real64)::ymin,ymax,ratio,width,pi,xx,yy,xvec(3),x_max(3),x_min(3),x_m_mid(3),x_s_mid(3)
     integer(int32),allocatable:: OutNodeID(:),OutElementID(:)
     logical :: inside
-    real(real64):: dist_tr, dist_cur
+    real(real64):: dist_tr, dist_cur,z_,zval1,zval2,x_1(3),x_2(3)
+    integer(int32) :: num_layer,itr,node1,node2,node3,node4,count,prev_node1
+    integer(int32), allocatable :: elemnod(:,:)
+    integer(int32) :: nearest_node_id,node_id,elist(2),tri_excep,tri_excep_last
+    integer(int32),allocatable :: checked(:),checked_node(:)
+    real(real64),allocatable ::nodcoord(:,:)
+    real(real64) :: ll,center(3),vector(3),e1(3),e2(3),e3(3),len_val
+    
     pi = 3.1415926535d0
     ! this subroutine creates mesh
+    obj%meshtype = meshtype
+
+    if(obj%meshtype=="root" .or. obj%meshtype=="Root")then
+        
+        
+        ! tree-like graph structure 
+        call obj%remove(all=.true.)
+
+
+
+        if(present(coordinate) )then
+            
+            itr = 0
+            obj%nodcoord = coordinate
+
+            ! assemble nodes to a mesh consisits of line elements
+            call obj%assemble()
+
+            if(.not. present(thickness) )then
+                return
+            endif
+            
+            width = input(default=1.0d0,option=thickness)
+            elem_num = size(obj%elemnod,1)
+            node_num = size(obj%nodcoord,1)
+            dim_num = size(obj%nodcoord,2)
+            allocate(nodcoord(node_num*4,dim_num))
+            elemnod = obj%elemnod
+
+            ! 4倍に増やしてつなげる
+            nodcoord(1 :node_num  ,3) = obj%nodcoord(:,3) 
+            nodcoord(1 :node_num  ,1) = obj%nodcoord(1 :node_num  ,1) - width*0.50d0
+            nodcoord(1 :node_num  ,2) = obj%nodcoord(1 :node_num  ,2) - width*0.50d0
+            
+            nodcoord(node_num+1 :node_num*2  ,3) = obj%nodcoord(:,3) +width*0.10d0
+            nodcoord(node_num+1 :node_num*2  ,1) = obj%nodcoord(1 :node_num  ,1) + width*0.50d0
+            nodcoord(node_num+1 :node_num*2  ,2) = obj%nodcoord(1 :node_num  ,2) - width*0.50d0
+
+            nodcoord(node_num*2+1 :node_num*3  ,3) = obj%nodcoord(:,3) +width*0.10d0
+            nodcoord(node_num*2+1 :node_num*3  ,1) = obj%nodcoord(1 :node_num  ,1) + width*0.50d0
+            nodcoord(node_num*2+1 :node_num*3  ,2) = obj%nodcoord(1 :node_num  ,2) + width*0.50d0
+
+            nodcoord(node_num*3+1 :node_num*4  ,3) = obj%nodcoord(:,3) 
+            nodcoord(node_num*3+1 :node_num*4  ,1) = obj%nodcoord(1 :node_num  ,1) - width*0.50d0
+            nodcoord(node_num*3+1 :node_num*4  ,2) = obj%nodcoord(1 :node_num  ,2) + width*0.50d0
+
+            do i=1,elem_num
+                node1 = elemnod(i,1)
+                node2 = elemnod(i,2)
+
+                elemnod(i,1) = node1 + node_num*0
+                elemnod(i,2) = node1 + node_num*1
+                elemnod(i,3) = node1 + node_num*2
+                elemnod(i,4) = node1 + node_num*3
+                
+                elemnod(i,5) = node2 + node_num*0
+                elemnod(i,6) = node2 + node_num*1
+                elemnod(i,7) = node2 + node_num*2
+                elemnod(i,8) = node2 + node_num*3
+            enddo
+
+            obj%nodcoord = nodcoord
+            obj%elemnod  = elemnod
+            return
+
+
+!            ! generate solid elements from line elements
+!            elem_num = size(obj%elemnod,1)
+!            allocate(nodcoord(elem_num*8,3))
+!            allocate(elemnod(elem_num,8))
+!            width = input(default=1.0d0,option=thickness)
+!            ll = width/2.0d0
+!            
+!            e1(:)=0.0d0
+!            e1(1)=1.0d0
+!            
+!            e2(:)=0.0d0
+!            e2(2)=1.0d0
+!            
+!            e3(:)=0.0d0
+!            e3(3)=1.0d0
+!
+!            ! O_________________O
+!            ! |\                 \
+!            ! | \        +        \ 
+!            ! |  \      node2      \ 
+!            ! |   O_________________O
+!            ! O   |                 |
+!            !  \  |    node1        |
+!            !   \ |       +         |
+!            !    \O_________________O
+!            !
+!            ! From +, create O 
+!            do i=1,elem_num
+!                node1 = obj%elemnod(i,1)
+!                node2 = obj%elemnod(i,2)
+!
+!                if(obj%nodcoord(node1,3) > obj%nodcoord(node2,3) )then
+!                    node1 = obj%elemnod(i,2)
+!                    node2 = obj%elemnod(i,1)
+!                endif
+!                x_1(:) = obj%nodcoord(node1,:)
+!                x_2(:) = obj%nodcoord(node2,:)
+!                center(:) =0.50d0*(  x_2(:) + x_1(:) )
+!                vector(:) = x_2(:) - x_1(:)
+!                len_val = abs(vector(3) )
+!
+                ! vector の方向によって場合分け
+!                if( abs(vector(1)) > abs(vector(2)) .and. abs(vector(1)) > abs(vector(3))  ) then
+!                    ! x-domination
+!                    nodcoord(8*i-7,1)=x_1(1) - ll ; nodcoord(8*i-7,2)=x_1(2) - ll ;nodcoord(8*i-7,3)= center(3) - ll;
+!                    nodcoord(8*i-6,1)=x_1(1) + ll ; nodcoord(8*i-6,2)=x_1(2) - ll ;nodcoord(8*i-6,3)= center(3) - ll;
+!                    nodcoord(8*i-5,1)=x_1(1) + ll ; nodcoord(8*i-5,2)=x_1(2) + ll ;nodcoord(8*i-5,3)= center(3) - ll;
+!                    nodcoord(8*i-4,1)=x_1(1) - ll ; nodcoord(8*i-4,2)=x_1(2) + ll ;nodcoord(8*i-4,3)= center(3) - ll;
+!                    nodcoord(8*i-3,1)=x_1(1) - ll ; nodcoord(8*i-3,2)=x_1(2) - ll ;nodcoord(8*i-3,3)= center(3) + ll;
+!                    nodcoord(8*i-2,1)=x_1(1) + ll ; nodcoord(8*i-2,2)=x_1(2) - ll ;nodcoord(8*i-2,3)= center(3) + ll;
+!                    nodcoord(8*i-1,1)=x_1(1) + ll ; nodcoord(8*i-1,2)=x_1(2) + ll ;nodcoord(8*i-1,3)= center(3) + ll;
+!                    nodcoord(8*i  ,1)=x_1(1) - ll ; nodcoord(8*i  ,2)=x_1(2) + ll ;nodcoord(8*i  ,3)= center(3) + ll;
+!                elseif( abs(vector(2)) > abs(vector(1)) .and. abs(vector(2)) > abs(vector(3))  ) then
+!                    ! y-domination
+!                    nodcoord(8*i-7,1)=x_1(1) - ll ; nodcoord(8*i-7,2)=x_1(2) - ll ;nodcoord(8*i-7,3)= center(3) - ll;
+!                    nodcoord(8*i-6,1)=x_1(1) + ll ; nodcoord(8*i-6,2)=x_1(2) - ll ;nodcoord(8*i-6,3)= center(3) - ll;
+!                    nodcoord(8*i-5,1)=x_1(1) + ll ; nodcoord(8*i-5,2)=x_1(2) + ll ;nodcoord(8*i-5,3)= center(3) - ll;
+!                    nodcoord(8*i-4,1)=x_1(1) - ll ; nodcoord(8*i-4,2)=x_1(2) + ll ;nodcoord(8*i-4,3)= center(3) - ll;
+!                    nodcoord(8*i-3,1)=x_1(1) - ll ; nodcoord(8*i-3,2)=x_1(2) - ll ;nodcoord(8*i-3,3)= center(3) + ll;
+!                    nodcoord(8*i-2,1)=x_1(1) + ll ; nodcoord(8*i-2,2)=x_1(2) - ll ;nodcoord(8*i-2,3)= center(3) + ll;
+!                    nodcoord(8*i-1,1)=x_1(1) + ll ; nodcoord(8*i-1,2)=x_1(2) + ll ;nodcoord(8*i-1,3)= center(3) + ll;
+!                    nodcoord(8*i  ,1)=x_1(1) - ll ; nodcoord(8*i  ,2)=x_1(2) + ll ;nodcoord(8*i  ,3)= center(3) + ll;
+!                elseif( abs(vector(3)) > abs(vector(1)) .and. abs(vector(3)) > abs(vector(2))  ) then
+!                    ! z-domination
+!                    nodcoord(8*i-7,1)=x_1(1) - ll ; nodcoord(8*i-7,2)=x_1(2) - ll ;nodcoord(8*i-7,3)= center(3) - ll;
+!                    nodcoord(8*i-6,1)=x_1(1) + ll ; nodcoord(8*i-6,2)=x_1(2) - ll ;nodcoord(8*i-6,3)= center(3) - ll;
+!                    nodcoord(8*i-5,1)=x_1(1) + ll ; nodcoord(8*i-5,2)=x_1(2) + ll ;nodcoord(8*i-5,3)= center(3) - ll;
+!                    nodcoord(8*i-4,1)=x_1(1) - ll ; nodcoord(8*i-4,2)=x_1(2) + ll ;nodcoord(8*i-4,3)= center(3) - ll;
+!                    nodcoord(8*i-3,1)=x_1(1) - ll ; nodcoord(8*i-3,2)=x_1(2) - ll ;nodcoord(8*i-3,3)= center(3) + ll;
+!                    nodcoord(8*i-2,1)=x_1(1) + ll ; nodcoord(8*i-2,2)=x_1(2) - ll ;nodcoord(8*i-2,3)= center(3) + ll;
+!                    nodcoord(8*i-1,1)=x_1(1) + ll ; nodcoord(8*i-1,2)=x_1(2) + ll ;nodcoord(8*i-1,3)= center(3) + ll;
+!                    nodcoord(8*i  ,1)=x_1(1) - ll ; nodcoord(8*i  ,2)=x_1(2) + ll ;nodcoord(8*i  ,3)= center(3) + ll;
+!                else
+!                    ! same
+!
+!                endif        
+!               
+!                nodcoord(8*i-7,1)= center(1) - abs(vector(1))*0.50d0 
+!                nodcoord(8*i-7,2)= center(2) - abs(vector(2))*0.50d0
+!                nodcoord(8*i-7,3)= center(3) - abs(vector(3))*0.50d0
+!
+!                nodcoord(8*i-6,1)= center(1) + abs(vector(1))*0.50d0 
+!                nodcoord(8*i-6,2)= center(2) - abs(vector(2))*0.50d0 
+!                nodcoord(8*i-6,3)= center(3) - abs(vector(3))*0.50d0
+!
+!                nodcoord(8*i-5,1)= center(1) + abs(vector(1))*0.50d0 
+!                nodcoord(8*i-5,2)= center(2) + abs(vector(2))*0.50d0 
+!                nodcoord(8*i-5,3)= center(3) - abs(vector(3))*0.50d0
+!
+!                nodcoord(8*i-4,1)= center(1) - abs(vector(1))*0.50d0 
+!                nodcoord(8*i-4,2)= center(2) + abs(vector(2))*0.50d0 
+!                nodcoord(8*i-4,3)= center(3) - abs(vector(3))*0.50d0
+!
+!                nodcoord(8*i-3,1)= center(1) - abs(vector(1))*0.50d0 
+!                nodcoord(8*i-3,2)= center(2) - abs(vector(2))*0.50d0 
+!                nodcoord(8*i-3,3)= center(3) + abs(vector(3))*0.50d0
+!
+!                nodcoord(8*i-2,1)= center(1) + abs(vector(1))*0.50d0 
+!                nodcoord(8*i-2,2)= center(2) - abs(vector(2))*0.50d0 
+!                nodcoord(8*i-2,3)= center(3) + abs(vector(3))*0.50d0
+!
+!                nodcoord(8*i-1,1)= center(1) + abs(vector(1))*0.50d0 
+!                nodcoord(8*i-1,2)= center(2) + abs(vector(2))*0.50d0 
+!                nodcoord(8*i-1,3)= center(3) + abs(vector(3))*0.50d0
+!
+!                nodcoord(8*i  ,1)= center(1) - abs(vector(1))*0.50d0 
+!                nodcoord(8*i  ,2)= center(2) + abs(vector(2))*0.50d0 
+!                nodcoord(8*i  ,3)= center(3) + abs(vector(3))*0.50d0
+!
+!
+!
+!                elemnod(i,1) = 8*i-7
+!                elemnod(i,2) = 8*i-6
+!                elemnod(i,3) = 8*i-5
+!                elemnod(i,4) = 8*i-4
+!                elemnod(i,5) = 8*i-3
+!                elemnod(i,6) = 8*i-2
+!                elemnod(i,7) = 8*i-1
+!                elemnod(i,8) = 8*i  
+!            enddo
+!
+!            obj%nodcoord = nodcoord
+!            obj%elemnod = elemnod
+!
+            
+
+!            return
+
+            !!!!!
+!            allocate(obj%elemnod(size(obj%nodcoord,1)*2 ,8) )
+!            do 
+!                itr = itr + 1
+!            
+!                if(itr > size(obj%nodcoord,1) ) exit
+!                x_ = obj%nodcoord(itr,1)
+!                y_ = obj%nodcoord(itr,2)
+!                z_ = obj%nodcoord(itr,3)
+!                nearest_node_id = obj%getNearestNodeID(x=x_,y=y_,z=z_,except=itr)
+!                obj%elemnod(2*itr-1,1) = itr
+!                obj%elemnod(2*itr-1,2:) = nearest_node_id
+!                elist(1)=itr
+!                elist(2)=nearest_node_id
+!                x_ = obj%nodcoord(itr,1)
+!                y_ = obj%nodcoord(itr,2)
+!                z_ = obj%nodcoord(itr,3)
+!                nearest_node_id = obj%getNearestNodeID(x=x_,y=y_,z=z_,exceptlist=elist)
+!                obj%elemnod(2*itr,1) = itr
+!                obj%elemnod(2*itr,2:) = nearest_node_id
+!            enddo
+!        
+!            ! remove overlap elements
+!        
+!            ! case 1:
+!            ! A->A
+!        
+!            itr = 0
+!            do i=1,size(obj%elemnod,1)
+!                if(obj%elemnod(i,1) == obj%elemnod(i,2))then
+!                    obj%elemnod(i,:) = 0
+!                    itr=itr+1
+!                endif
+!            enddo
+!        
+!            ! A -> B
+!            ! B <- A
+!            do i=1,size(obj%elemnod,1)
+!                if(obj%elemnod(i,1)==0 )then
+!                    cycle
+!                endif
+!                node1 = obj%elemnod(i,1)
+!                node2 = obj%elemnod(i,2)
+!                do j=i+1,size(obj%elemnod,1)
+!                    if(obj%elemnod(j,1)==0 )then
+!                        cycle
+!                    endif
+!                    if(obj%elemnod(j,1) == node1 .and. &
+!                        obj%elemnod(j,2) == node2)then
+!                        obj%elemnod(j,:)=0
+!                        itr=itr+1
+!                    endif
+!                    if(obj%elemnod(j,1) == node2 .and. &
+!                        obj%elemnod(j,2) == node1)then
+!                        obj%elemnod(j,:)=0
+!                        itr=itr+1
+!                    endif
+!                enddo
+!            enddo
+
+        
+            ! case 2
+            ! D->A
+            ! A->B
+            ! B->C
+            ! C->A
+            ! >> triangle-exception
+            ! Find cyclic graph
+
+        !    node1 = 2
+        !    node2 = 1
+        !    node3 = 1
+        !    node4 = 1
+        !    allocate(checked(size(obj%elemnod,1)) )
+        !    allocate(checked_node(size(obj%nodcoord,1)) )
+        !    checked(:) = 0
+        !    checked_node(:) = 0
+        !    count=0
+        !    do 
+        !
+        !        prev_node1=node1
+        !        ! triangle-exception探索
+        !        ! 通った要素はchecked=1
+        !        tri_excep=0
+        !
+        !        do i=1,size(obj%elemnod,1)
+        !            
+        !            if(checked(i) == 1) then
+        !                cycle
+        !            endif
+        !
+        !            if(obj%elemnod(i,1) == 0 )then
+        !                cycle
+        !            endif
+        !
+        !            checked(i) = 1
+        !
+        !            checked_node(obj%elemnod(i,1))=1 
+        !            checked_node(obj%elemnod(i,2))=1
+        !            
+        !            ! Find next node >> append
+        !            if(obj%elemnod(i,1) == node1 .and. &
+        !                obj%elemnod(i,2) /= node2)then
+        !                node4 = node3
+        !                node3 = node2
+        !                node2 = node1 
+        !                node1 = obj%elemnod(i,2)
+        !                checked_node(node1) = 1
+        !                checked_node(node2) = 1
+        !                checked_node(node3) = 1
+        !                checked_node(node4) = 1
+        !                tri_excep=i
+        !                checked(i) = 1
+        !                exit
+        !            elseif(obj%elemnod(i,2) == node1 .and. &
+        !                obj%elemnod(i,1) /= node2)then
+        !                node4 = node3
+        !                node3 = node2
+        !                node2 = node1 
+        !                node1 = obj%elemnod(i,1)
+        !                checked_node(node1) = 1
+        !                checked_node(node2) = 1
+        !                checked_node(node3) = 1
+        !                checked_node(node4) = 1
+        !                tri_excep=i
+        !                checked(i) = 1
+        !                exit
+        !            else
+        !                cycle
+        !            endif
+        !
+        !        enddo
+        !
+        !
+        !        print *, node1, node2,node3,node4
+        !    
+        !        print *, countif(Array=checked,Equal=.true.,value=0),"/",size(checked)
+        !
+        !
+        !        if(prev_node1 == node1) then
+        !            exit
+        !        endif
+        !
+        !        if(countif(Array=checked,Equal=.true.,value=0) ==0  ) then
+        !            exit
+        !        endif
+        !
+        !
+        !        if(tri_excep==0)then
+        !            do j=1,size(checked)
+        !                if(checked(j)==0 .and. obj%elemnod(j,1)/=0 )then
+        !                    if(checked_node(obj%elemnod(j,1 ))==0 )then
+        !                        node1 = obj%elemnod(j,1 )
+        !                        
+        !                        exit
+        !                    elseif(checked_node(obj%elemnod(j,2 ))==0 )then
+        !                        node1 = obj%elemnod(j,2 )
+        !                        exit
+        !                    else
+        !                        cycle
+        !                    endif
+        !                endif
+        !            enddo
+        !        endif
+        !
+        !        if(node1==node4 .and. tri_excep/=0)then
+        !            itr=itr+1
+        !            ! triangle-exception
+        !            obj%elemnod(tri_excep,:) = 0
+        !            ! checkされてない中で最も接点番号が若いものから再スタート
+        !            do j=1,size(checked)
+        !                if(checked(j)==0 .and. obj%elemnod(j,1)/=0 )then
+        !                    if(checked_node(obj%elemnod(j,1 ))==0 )then
+        !                        node1 = obj%elemnod(j,1 )
+        !                        
+        !                        exit
+        !                    elseif(checked_node(obj%elemnod(j,2 ))==0 )then
+        !                        node1 = obj%elemnod(j,2 )
+        !                        exit
+        !                    else
+        !                        cycle
+        !                    endif
+        !                    cycle
+        !                endif
+        !            enddo
+        !        endif
+        !
+        !
+        !    enddo
+        !
+        !    do i=1,size(obj%elemnod,1)
+        !        node1 = obj%elemnod(i,1)
+        !        node2 = obj%elemnod(i,2)
+        !        do j=i+1,size(obj%elemnod,1)
+        !            if(obj%elemnod(j,1) == node1 )then
+        !                node3 = obj%elemnod(j,2)
+        !            endif
+        !            if(obj%elemnod(j,1) == node2 )then
+        !                node3 = obj%elemnod(j,2)
+        !            endif
+        !        enddo
+        !    enddo
+        !
+        !
+        
+!            elemnod = obj%elemnod
+!            deallocate(obj%elemnod)
+!            allocate(obj%elemnod(size(elemnod,1)-itr,8 ) )
+!            obj%elemnod(:,:)=0
+!            itr=0
+!            do i=1,size(elemnod,1)
+!                if(minval(elemnod(i,:))==0 )then
+!                    cycle
+!                else
+!                    itr=itr+1
+!                    obj%elemnod(itr,:) = elemnod(i,:)
+!                endif
+!            enddo
+!            return
+        endif
+        ! initialize root
+        !   o  (0,0,0)
+        !   |
+        !   |
+        !   o  (0,0,-1)
+        allocate(obj%nodcoord(2,3))
+        obj%nodcoord(:,:) = 0.0d0
+        obj%nodcoord(2,3) = -1.0d0
+
+        obj%nodcoord(2,1) = input(default=obj%nodcoord(2,1), option=x)
+        obj%nodcoord(2,2) = input(default=obj%nodcoord(2,2), option=y)
+        obj%nodcoord(2,3) = input(default=obj%nodcoord(2,3), option=z)
+
+        obj%nodcoord(2,1) = input(default=obj%nodcoord(2,1), option=dx)
+        obj%nodcoord(2,2) = input(default=obj%nodcoord(2,2), option=dy)
+        obj%nodcoord(2,3) = input(default=obj%nodcoord(2,3), option=dz)
+
+        allocate(obj%elemnod(1,8))
+        obj%elemnod(1,1) = 1
+        obj%elemnod(1,2:8) = 2
+
+    endif
 
     if(meshtype=="Node-To-Node" .or. meshtype=="node-no-node") then
         call master%GetInterSectBox(slave,BoundBox)
@@ -4180,16 +4714,16 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         else
             call print("Contact interface detected.")
             ! get master and slave nodes
-            ! Global search for master node
+            ! Global search for master node by AABB algorithm (Bounding-Box method)
             dim_num = size(master%nodcoord,2) 
             node_num = size(master%nodcoord,1)
             allocate(OutNodeID(size(master%nodcoord,1) ) )
             OutNodeID(:) = 0
             do i=1,size(master%nodcoord,1)
-                x(:) = 0.0d0
+                xvec(:) = 0.0d0
                 x_max(:) = 0.0d0
                 x_min(:) = 0.0d0
-                x(1:size(master%nodcoord,2)) = master%nodcoord(i,1:size(master%nodcoord,2) )
+                xvec(1:size(master%nodcoord,2)) = master%nodcoord(i,1:size(master%nodcoord,2) )
     
                 do j=1,size(BoundBox%NodCoord,2)
                     x_max(j) = maxval(BoundBox%NodCoord(:,j) )
@@ -4198,12 +4732,14 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                     x_min(j) = minval(BoundBox%NodCoord(:,j) )
                 enddo
                 ! Judge inside or not
-                inside = InOrOut(x=x,xmax=x_max,xmin=x_min)
+                inside = InOrOut(x=xvec,xmax=x_max,xmin=x_min)
                 if(inside .eqv. .false.)then
                     OutNodeID(i)=1    
                 endif
             enddo
+
             call print("Interface node :: "//str(node_num - sum(OutNodeID))//"/"//str(node_num) )
+            
             allocate(interface1%nodcoord(node_num - sum(OutNodeID) , dim_num ) )
             j=0
             do i=1,size(master%Nodcoord,1)
@@ -4254,10 +4790,10 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             allocate(OutNodeID(size(slave%nodcoord,1) ) )
             OutNodeID(:) = 0
             do i=1,size(slave%nodcoord,1)
-                x(:) = 0.0d0
+                xvec(:) = 0.0d0
                 x_max(:) = 0.0d0
                 x_min(:) = 0.0d0
-                x(1:size(slave%nodcoord,2)) = slave%nodcoord(i,1:size(slave%nodcoord,2) )
+                xvec(1:size(slave%nodcoord,2)) = slave%nodcoord(i,1:size(slave%nodcoord,2) )
     
                 do j=1,size(BoundBox%NodCoord,2)
                     x_max(j) = maxval(BoundBox%NodCoord(:,j) )
@@ -4266,7 +4802,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                     x_min(j) = minval(BoundBox%NodCoord(:,j) )
                 enddo
                 ! Judge inside or not
-                inside = InOrOut(x=x,xmax=x_max,xmin=x_min)
+                inside = InOrOut(x=xvec,xmax=x_max,xmin=x_min)
                 if(inside .eqv. .false.)then
                     OutNodeID(i)=1    
                 endif
@@ -4317,10 +4853,45 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             deallocate(OutNodeID)
             
 
+            
             !obj%nodcoord = interface2%nodcoord
             !obj%elemnod = interface2%elemnod
 
+!            ! again get boundary box
+!            print *, maxval(interface1%nodcoord(:,1)), maxval(interface1%nodcoord(:,2)), maxval(interface1%nodcoord(:,3))
+!            print *, minval(interface1%nodcoord(:,1)), minval(interface1%nodcoord(:,2)), minval(interface1%nodcoord(:,3))
+!            print *, maxval(interface2%nodcoord(:,1)), maxval(interface2%nodcoord(:,2)), maxval(interface2%nodcoord(:,3))
+!            print *, minval(interface2%nodcoord(:,1)), minval(interface2%nodcoord(:,2)), minval(interface2%nodcoord(:,3))
+!            
+!            call interface1%GetInterSectBox(interface2,BoundBox)
+!            
+!            call interface1%remove(x_max=minval(BoundBox%nodcoord(:,1)) )
+!            call interface1%remove(y_max=minval(BoundBox%nodcoord(:,2)) )
+!            call interface1%remove(z_max=minval(BoundBox%nodcoord(:,3)) )
+!
+!            call interface1%remove(x_min=maxval(BoundBox%nodcoord(:,1)) )
+!            call interface1%remove(y_min=maxval(BoundBox%nodcoord(:,2)) )
+!            call interface1%remove(z_min=maxval(BoundBox%nodcoord(:,3)) )
+!            
+!            call interface2%remove(x_max=minval(BoundBox%nodcoord(:,1)) )
+!            call interface2%remove(y_max=minval(BoundBox%nodcoord(:,2)) )
+!            call interface2%remove(z_max=minval(BoundBox%nodcoord(:,3)) )
+!
+!            call interface2%remove(x_min=maxval(BoundBox%nodcoord(:,1)) )
+!            call interface2%remove(y_min=maxval(BoundBox%nodcoord(:,2)) )
+!            call interface2%remove(z_min=maxval(BoundBox%nodcoord(:,3)) )
+!            
+!
+!            
+
             call print("Global Search Done!")
+
+
+
+            
+
+
+
             call print("local search >> ")
 
             ! pairing 
@@ -4376,9 +4947,9 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             ! search master ids
             do j=1,size(interface2%nodcoord,1)
                 do i=1,size(master%nodcoord,1)
-                    x(:) = 0.0d0
+                    xvec(:) = 0.0d0
                     x_m_mid(:) = 0.0d0
-                    x(1:dim_num) = obj%nodcoord(j+node_num,1:dim_num)
+                    xvec(1:dim_num) = obj%nodcoord(j+node_num,1:dim_num)
                     x_m_mid(1:dim_num) = master%nodcoord(i,1:dim_num)
                     dist_tr = dsqrt(dot_product(x-x_m_mid, x-x_m_mid ) )
                     if(dist_tr == 0.0d0)then
@@ -4391,9 +4962,9 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             ! search slave ids
             do j=1,size(interface2%nodcoord,1)
                 do i=1,size(slave%nodcoord,1)
-                    x(:) = 0.0d0
+                    xvec(:) = 0.0d0
                     x_m_mid(:) = 0.0d0
-                    x(1:dim_num) =  obj%nodcoord(j,1:dim_num)
+                    xvec(1:dim_num) =  obj%nodcoord(j,1:dim_num)
                     x_m_mid(1:dim_num) = slave%nodcoord(i,1:dim_num)
                     dist_tr = dsqrt(dot_product(x-x_m_mid, x-x_m_mid ) )
                     if(dist_tr == 0.0d0)then
@@ -4402,7 +4973,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                     endif
                 enddo
             enddo
-            
+
         endif
         
 
@@ -7269,5 +7840,222 @@ subroutine editMesh(obj,x,altitude)
     endif
     
 end subroutine
+! ##########################################################################
+
+
+
+! ##########################################################################
+function getNearestNodeIDMesh(obj,x,y,z,except,exceptlist) result(node_id)
+    class(Mesh_),intent(inout) :: obj 
+    real(real64),optional,intent(in) :: x,y,z ! coordinate
+    integer(int32),optional,intent(in) :: except ! excepted node id
+    integer(int32),optional,intent(in) :: exceptlist(:) ! excepted node id
+    integer(int32) :: i,j,dim_num, node_num,node_id,except_id
+    real(real64),allocatable :: xvec(:),xvec_tr(:),dist_cur, dist_tr
+
+    node_num =size(obj%nodcoord,1) 
+    dim_num = size(obj%nodcoord,2)
+    except_id = input(default=0, option=except)
+    
+    allocate(xvec(dim_num),xvec_tr(dim_num) )
+    xvec(:) = 0.0d0
+    xvec(1) = input(default=0.0d0,option=x)
+    xvec(2) = input(default=0.0d0,option=y)
+    xvec(3) = input(default=0.0d0,option=z)
+    xvec_tr(:) = 0.0d0
+    
+    node_id = 1
+    xvec_tr(:) = obj%nodcoord(1,:)
+    dist_cur = dot_product(xvec-xvec_tr,xvec-xvec_tr) 
+    do i=1,node_num
+        if(i == except_id)then
+            cycle
+        endif
+        if(present(exceptlist) )then
+            if(exist(exceptlist,i) .eqv. .true. )then
+                cycle
+            endif
+        endif
+
+        xvec_tr(:) = obj%nodcoord(i,:)
+        dist_tr = dot_product(xvec-xvec_tr,xvec-xvec_tr)
+        if(dist_tr < dist_cur)then
+            node_id = i
+            dist_cur = dist_tr
+        endif
+    enddo
+end function
+! ##########################################################################
+
+
+! ##########################################################################
+function positionMesh(obj,id) result(x)
+    class(Mesh_),intent(in) :: obj
+    integer(int32),intent(in) :: id ! node_id
+    real(real64) :: x(3)
+    integer(int32) :: dim_num,i
+
+    dim_num = size(obj%nodcoord,2)
+    do i=1,dim_num
+        x(i) = obj%nodcoord(id,i)
+    enddo
+end function
+! ##########################################################################
+
+! ##########################################################################
+function position_xMesh(obj,id) result(x)
+    class(Mesh_),intent(in) :: obj
+    integer(int32),intent(in) :: id ! node_id
+    real(real64) :: x
+    
+    x = obj%nodcoord(id,1)
+
+end function
+! ##########################################################################
+
+! ##########################################################################
+function position_yMesh(obj,id) result(x)
+    class(Mesh_),intent(in) :: obj
+    integer(int32),intent(in) :: id ! node_id
+    real(real64) :: x
+    
+    x = obj%nodcoord(id,2)
+
+end function
+! ##########################################################################
+
+! ##########################################################################
+function position_zMesh(obj,id) result(x)
+    class(Mesh_),intent(in) :: obj
+    integer(int32),intent(in) :: id ! node_id
+    real(real64) :: x
+    
+    x = obj%nodcoord(id,3)
+
+end function
+! ##########################################################################
+
+
+! ##########################################################################
+recursive subroutine assembleMesh(obj)
+    class(Mesh_),intent(inout) :: obj
+    integer(int32),allocatable :: elemnod_1(:,:)
+    integer(int32) :: i,j,itr,node_num,dim_num
+    integer(int32) :: node1,node2,node3,node4,node_1and2(2)
+    real(real64) :: coord(3),center(3),vec1(3),vec2(3)
+
+
+    ! 点群3DCTから線要素を作成
+
+    ! strategy#1
+    ! 1. 最寄りと結合し線分へ
+    ! 2. 線分の中心から最寄りの線分を探索
+    ! 3. 発見した線分と結合
+    
+    ! 1. 最寄りと結合し線分へ
+    node_num = size(obj%nodcoord,1)
+    dim_num  = size(obj%nodcoord,2)
+
+    if(dim_num/=3)then
+        print *, "ERROR >> assembleMesh >> size(obj%nodcoord,1) should be 3"
+        stop
+    endif
+    allocate(elemnod_1(2*node_num,2) )
+    elemnod_1(:,:) = 0
+
+    do i=1,node_num
+        node1 = i
+        coord(:) = obj%nodcoord(node1,:)
+        
+        node2 = obj%getNearestNodeID(&
+            x=coord(1),&
+            y=coord(2),&
+            z=coord(3),&
+            except=node1 &
+            )
+
+        node_1and2(1) = node1
+        node_1and2(2) = node2
+        node3 = obj%getNearestNodeID(&
+            x=coord(1),&
+            y=coord(2),&
+            z=coord(3),&
+            exceptlist=node_1and2 &
+            )
+        elemnod_1(i,1) = node1
+        elemnod_1(i,2) = node2
+        elemnod_1(i+node_num ,1) = node1
+        elemnod_1(i+node_num, 2) = node3
+
+        ! もし同じ方向だったら削除
+        vec1(:) = obj%nodcoord(node3,:) - obj%nodcoord(node1,:)
+        vec2(:) = obj%nodcoord(node2,:) - obj%nodcoord(node1,:)
+        if( dot_product(vec1,vec2) > 0.0d0 )then
+            elemnod_1(i+node_num ,1) = 0
+            elemnod_1(i+node_num, 2) = 0
+        endif
+
+    enddo
+
+    do i=1,size(elemnod_1,1)
+        node1 = elemnod_1(i,1) 
+        node2 = elemnod_1(i,2) 
+        do j=i+1,size(elemnod_1,1)
+            if(elemnod_1(j,1) == 0)then
+                cycle
+            endif
+
+            if(elemnod_1(j,1) == node1 .and. &
+            elemnod_1(j,2) == node2 )then
+                elemnod_1(j,:) = 0
+            endif
+
+            if(elemnod_1(j,2) == node1 .and. &
+            elemnod_1(j,1) == node2 )then
+                elemnod_1(j,:) = 0
+            endif
+        enddo
+    enddo
+
+    itr=0
+    do i=1,size(elemnod_1,1)
+        if(elemnod_1(i,1)==0 )then
+            itr=itr+1
+        endif
+    enddo
+
+    if(allocated(obj%elemnod) ) then
+        deallocate(obj%elemnod)
+    endif
+
+    ! remove 
+    ! A ->B
+    ! B <- A
+
+
+
+    allocate(obj%elemnod(size(elemnod_1,1)-itr,8 ) )
+    obj%elemnod(:,:)=0
+    itr=0
+    do i=1,size(elemnod_1,1)
+        if(minval(elemnod_1(i,:))==0 )then
+            cycle
+        else
+            itr=itr+1
+            obj%elemnod(itr,1) = elemnod_1(i,1)
+            obj%elemnod(itr,2:8) = elemnod_1(i,2)
+        endif
+    enddo
+
+
+    if(minval(obj%elemnod) == 0 ) then
+        print*, "ERROR :: assembleMesh minval(obj%elemnod) == 0 "
+        stop
+    endif
+
+
+end subroutine
+! ##########################################################################
+
 
 end module MeshClass
