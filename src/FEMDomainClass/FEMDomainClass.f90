@@ -6052,7 +6052,7 @@ end subroutine
 
 ! ##################################################
 subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
-	top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz)
+	top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz,coordinate)
 	class(FEMDomain_),intent(inout) :: obj
 	type(FEMDomain_),optional,intent(in) :: master,slave
 	character(*),intent(in) :: meshtype
@@ -6065,8 +6065,8 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 	real(real64),optional,intent(in) :: thickness ! for 3D rectangular
 	real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
     real(real64),optional,intent(in) :: top,margin,inclineRate ! for 3D Ridge and dam
-	real(real64),optional,intent(in) :: x,y,z,dx,dy,dz
-
+	real(real64),optional,intent(in) :: x,y,z,dx,dy,dz,coordinate(:,:)
+	
 	integer,dimension(3),parameter :: versions_to_test = [0,1,4]
 
 	! create uuid
@@ -6104,13 +6104,20 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 	endif
 
 	if(present(z_num) .or. present(z_len) )then
-		call obj%Mesh%create(meshtype,xnum,ynum,xlen,ylen,Le,&
-			Lh,Dr,zlen,znum,top=top,margin=margin,shaperatio=shaperatio,&
-			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz)
+		call obj%Mesh%create(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
+			Lh=Lh,Dr=Dr,thickness=zlen,top=top,margin=margin,shaperatio=shaperatio,&
+			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
+			coordinate=coordinate)
+	elseif(present(thickness) )then
+		call obj%Mesh%create(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
+			Lh=Lh,Dr=Dr,thickness=thickness,top=top,margin=margin,shaperatio=shaperatio,&
+			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
+			coordinate=coordinate)
 	else
-		call obj%Mesh%create(meshtype,xnum,ynum,xlen,ylen,Le,&
-			Lh,Dr,zlen,znum,top=top,margin=margin,shaperatio=shaperatio,&
-			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz)
+		call obj%Mesh%create(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
+			Lh=Lh,Dr=Dr,top=top,margin=margin,shaperatio=shaperatio,&
+			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
+			coordinate=coordinate)
 	endif
 
 end subroutine createFEMDomain
