@@ -12,6 +12,9 @@ module ArrayClass
     !interface newArray
     !    module procedure newArrayReal
     !end interface
+    interface zeros
+        module procedure :: zerosRealArray
+    end interface
 
     interface loadtxt
         module procedure loadtxtArrayReal
@@ -51,7 +54,7 @@ module ArrayClass
         module procedure TrimArrayInt, TrimArrayReal
     end interface TrimArray
 
-
+    
 
     interface open
         module procedure openArrayInt, openArrayReal, openArrayIntVec, openArrayRealVec,openArrayInt3, openArrayReal3
@@ -119,6 +122,11 @@ module ArrayClass
     interface print
         module procedure ::  printArrayInt, printArrayReal,printArrayIntVec, printArrayRealVec
     end interface print
+
+    interface shape
+        module procedure :: shapeVecInt,shapeVecReal,shapeArray2Int,shapeArray2Real,&
+            shapeArray3Int,shapeArray3Real,shapeArray4Int,shapeArray4Real
+    end interface
     
     interface ShowSize
         module procedure    ShowArraySizeInt, ShowArraySizeReal
@@ -3771,6 +3779,108 @@ subroutine jsonArrayIntVec(array,fh,name,endl)
     endif
     write(fh,'(a)') '],'
 end subroutine
+! ############################################################
+
+
+! ############################################################
+function shapeVecInt(vector) result(ret)
+    integer(int32),intent(in) :: vector(:)
+    integer(int32) :: ret
+
+    ret = size(vector)
+end function
+! ############################################################
+
+! ############################################################
+function shapeVecReal(vector) result(ret)
+    real(real64),intent(in) :: vector(:)
+    integer(int32) :: ret
+
+    ret = size(vector)
+end function
+! ############################################################
+
+! ############################################################
+function shapeArray2Int(vector) result(ret)
+    integer(int32),intent(in) :: vector(:,:)
+    integer(int32) :: ret(2)
+
+    ret(1) = size(vector,1)
+    ret(2) = size(vector,2)
+    
+end function
+! ############################################################
+
+! ############################################################
+function shapeArray2Real(vector) result(ret)
+    real(real64),intent(in) :: vector(:,:)
+    integer(int32) :: ret(2)
+    
+    ret(1) = size(vector,1)
+    ret(2) = size(vector,2)
+    
+end function
+! ############################################################
+
+
+! ############################################################
+function shapeArray3Int(vector) result(ret)
+    integer(int32),intent(in) :: vector(:,:,:)
+    integer(int32) :: ret(3)
+
+    ret(1) = size(vector,1)
+    ret(2) = size(vector,2)
+    ret(3) = size(vector,3)
+    
+end function
+! ############################################################
+
+! ############################################################
+function shapeArray3Real(vector) result(ret)
+    real(real64),intent(in) :: vector(:,:,:)
+    integer(int32) :: ret(3)
+
+    ret(1) = size(vector,1)
+    ret(2) = size(vector,2)
+    ret(3) = size(vector,3)
+end function
+! ############################################################
+
+! ############################################################
+function shapeArray4Int(vector) result(ret)
+    integer(int32),intent(in) :: vector(:,:,:,:)
+    integer(int32) :: ret(4)
+
+    ret(1) = size(vector,1)
+    ret(2) = size(vector,2)
+    ret(3) = size(vector,3)
+    ret(4) = size(vector,4)
+    
+end function
+! ############################################################
+
+! ############################################################
+function shapeArray4Real(vector) result(ret)
+    real(real64),intent(in) :: vector(:,:,:,:)
+    integer(int32) :: ret(4)
+
+    ret(1) = size(vector,1)
+    ret(2) = size(vector,2)
+    ret(3) = size(vector,3)
+    ret(4) = size(vector,4)
+end function
+! ############################################################
+
+
+! ############################################################
+function zerosRealArray(size1, size2) result(array)
+    integer(int32) :: size1, size2
+    real(real64),allocatable :: array(:,:)
+
+    allocate(array(size1, size2) )
+    array(:,:) = 0.0d0
+
+end function
 ! ############################################################
 
 
