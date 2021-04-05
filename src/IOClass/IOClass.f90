@@ -37,6 +37,17 @@ module IOClass
         module procedure printChar,printString, printReal64, printReal32, printInt64, printInt32
     end interface print
 
+    interface disp
+        module procedure printChar,printString, printReal64, printReal32, printInt64, printInt32
+    end interface disp
+
+    interface plot
+        module procedure plotRealArray
+    end interface
+
+    interface spy
+        module procedure spyRealArray
+    end interface
 contains
 
 function numLineIO(obj,name) result(line)
@@ -418,4 +429,108 @@ subroutine printint32(in32)
     write(*,'(A)' ) trim(adjustl(char))
 end subroutine
 ! #############################################
+
+subroutine plotRealArray(x,y,z,xr,yr,zr) 
+    real(real64),intent(in) :: x(:),y(:)
+    real(real64),optional,intent(in) :: z(:)
+    character(*),optional,intent(in) :: xr, yr, zr 
+    type(IO_) :: f
+    integer(int32) :: i
+
+    if(present(z) )then
+    
+        call f%open("__plotRealArray__buf_.txt")
+        do i=1,size(x)
+            call f%write(str(x(i))//" "//str(y(i)) //" "//str(z(i)) )
+        enddo
+        call f%close()
+        
+        call print("")
+        call print("Press Ctrl+c to close window.")
+        call f%open("__plotRealArray__buf_.gp")
+        call f%write('unset key' )
+        do i=1,size(x)
+            if(present(xr) )then
+                call f%write('set xr'//trim(xr) )
+            endif
+            if(present(yr) )then
+                call f%write('set yr'//trim(yr) )
+            endif
+            if(present(zr) )then
+                call f%write('set zr'//trim(zr) )
+            endif
+            call f%write('splot "__plotRealArray__buf_.txt" w l')
+            call f%write("pause -1")
+        enddo
+        call f%close()
+    
+        call system("gnuplot __plotRealArray__buf_.gp")
+    
+        call system("rm __plotRealArray__buf_.txt")
+        call system("rm __plotRealArray__buf_.gp")
+    
+        return
+    endif
+    
+    call f%open("__plotRealArray__buf_.txt")
+    do i=1,size(x)
+        call f%write(str(x(i))//" "//str(y(i)) )
+    enddo
+    call f%close()
+    
+    call print("")
+    call print("Press Ctrl+c to close window.")
+    call f%open("__plotRealArray__buf_.gp")
+    call f%write('unset key' )
+    do i=1,size(x)
+        if(present(xr) )then
+            call f%write('set xr'//trim(xr) )
+        endif
+        if(present(yr) )then
+            call f%write('set yr'//trim(yr) )
+        endif
+        call f%write('plot "__plotRealArray__buf_.txt" w l')
+        call f%write("pause -1")
+    enddo
+    call f%close()
+
+    call system("gnuplot __plotRealArray__buf_.gp")
+
+    call system("rm __plotRealArray__buf_.txt")
+    call system("rm __plotRealArray__buf_.gp")
+
+end subroutine
+
+subroutine spyRealArray(array)
+    real(real64),intent(in) :: array(:,:)
+    real(real64),allocatable :: x(:),y(:)
+    integer(int32) :: i,j,non_zero
+
+    non_zero=0
+    do i=1,size(array,1)
+        do j=1,size(array,2)
+            if(array(i,j)/=0.0d0 )then
+                non_zero=non_zero+1
+            endif
+        enddo
+    enddo
+    allocate(x(non_zero),y(non_zero) )
+
+    non_zero=0
+    do i=1,size(array,1)
+        do j=1,size(array,2)
+            if(array(i,j)/=0.0d0 )then
+                non_zero=non_zero+1
+                x(non_zero) = dble(i)
+                y(non_zero) = dble(j)
+            endif
+        enddo
+    enddo
+
+    call plot(x=x, y=y)
+    
+
+
+end subroutine
+
 end module IOClass
