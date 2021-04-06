@@ -4951,7 +4951,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                     x_m_mid(:) = 0.0d0
                     xvec(1:dim_num) = obj%nodcoord(j+node_num,1:dim_num)
                     x_m_mid(1:dim_num) = master%nodcoord(i,1:dim_num)
-                    dist_tr = dsqrt(dot_product(x-x_m_mid, x-x_m_mid ) )
+                    dist_tr = dsqrt(dot_product(xvec-x_m_mid, xvec-x_m_mid ) )
                     if(dist_tr == 0.0d0)then
                         obj%masterID(j) = i
                         exit
@@ -4966,7 +4966,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                     x_m_mid(:) = 0.0d0
                     xvec(1:dim_num) =  obj%nodcoord(j,1:dim_num)
                     x_m_mid(1:dim_num) = slave%nodcoord(i,1:dim_num)
-                    dist_tr = dsqrt(dot_product(x-x_m_mid, x-x_m_mid ) )
+                    dist_tr = dsqrt(dot_product(xvec-x_m_mid, xvec-x_m_mid ) )
                     if(dist_tr == 0.0d0)then
                         obj%slaveID(j) = i
                         exit
