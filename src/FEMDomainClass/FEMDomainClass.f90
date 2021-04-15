@@ -124,6 +124,7 @@ module FEMDomainClass
 		procedure,public :: getLayerDataStyle => getLayerDataStyleFEMDomain
 		procedure,public :: getShapeFunction => getShapeFunctionFEMDomain
 		procedure,public :: getNearestNodeID => getNearestNodeIDFEMDomain
+		procedure,public :: getSurface => getSurfaceFEMDomain
 		
 		
         procedure,public :: init   => InitializeFEMDomain
@@ -146,6 +147,7 @@ module FEMDomainClass
 		procedure,public :: msh => mshFEMDomain
 
 		procedure,public :: nn => nnFEMDomain
+		procedure,public :: nd => ndFEMDomain
 		procedure,public :: ne => neFEMDomain
 		procedure,public ::	nne => nneFEMDomain
 
@@ -6074,6 +6076,7 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 	obj%meshtype = trim(meshtype)
 
 	obj%uuid = generate_uuid(1)
+	obj%mesh%uuid = obj%uuid
 
 	xnum=input(default=10,option=x_num)
 	ynum=input(default=10,option=y_num)
@@ -6118,6 +6121,10 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 			Lh=Lh,Dr=Dr,top=top,margin=margin,shaperatio=shaperatio,&
 			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
 			coordinate=coordinate,division=znum)
+	endif
+
+	if(obj%nd()==2 .or. obj%nd()==3)then
+		call obj%getSurface()
 	endif
 
 end subroutine createFEMDomain
@@ -6931,6 +6938,13 @@ subroutine contactdetectFEMDomain(obj1, obj2, ContactModel)
 
 end subroutine
 ! ##################################################
+
+subroutine getSurfaceFEMDomain(obj)
+	class(FEMDomain_),intent(inout) :: Obj
+	
+	call obj%mesh%getSurface()
+
+end subroutine
 
 function getVolumeFEMDomain(obj,elem) result(ret)
 	class(FEMDomain_),intent(inout) :: obj
@@ -7970,7 +7984,15 @@ function nnFEMDomain(obj) result(ret)
 
 end function
 ! ######################################################################
+! ######################################################################
+function ndFEMDomain(obj) result(ret)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32) :: ret
 
+	ret = size(obj%mesh%nodcoord,2)
+
+end function
+! ######################################################################
 ! ######################################################################
 function neFEMDomain(obj) result(ret)
 	class(FEMDomain_),intent(inout) :: obj
