@@ -7,7 +7,9 @@ Commands:
     update  :: update SiCroF
 
 (1) Create new script
-    new :: create a template or a plain script. Give it a try.
+    new     :: create a template or a plain script. Give it a try.
+    search  :: search sample codes with a keyword
+    load <filename>   :: load file as a Fortran script
 
 (2) For debug >>
     - :: compile only 1 module. Type - [Enter], and write your debugged module name.
@@ -28,6 +30,7 @@ Commands:
 (7) Others >>
 
     >>>    :: (Only for WSL) send file to Desktop of Windows
+    tutorial :: start tutorial
     goback :: go back to SiCroF/
     gb     :: go back to SiCroF/
     pick   :: copy file to SiCroF/
@@ -40,7 +43,8 @@ Commands:
     ls, cp, cd, grep, rm, touch, mkdir
 
     addon :: Enable your Add-on
-    
+
+
 Press q to close this window.
     
 

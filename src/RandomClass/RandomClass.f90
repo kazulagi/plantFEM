@@ -236,29 +236,41 @@ end function
 !##########################################
 function histogramRandom(obj,list,division) result(histogram)
     class(Random_),intent(inout) :: obj
-    real(real64),intent(in)  :: list(:)
-    integer(int32),allocatable :: histogram(:)
+    real(real64),intent(in)  :: list(:) ! data-list
+    real(real64),allocatable :: histogram(:,:)
     integer(int32),optional,intent(in) :: division
     integer(int32) :: i,j,n
     real(real64) :: maxv, minv,val,intval
 
     n=input(default=10,option=division)
+
     maxv=maxval(list)
     minv=minval(list)
+
     intval=(maxv-minv)/dble(n)
 
-    allocate( histogram(n) )
-    histogram(:)=0
-    do i=1,size(list,1)
-        val = (list(i) - minv )/intval
-        if(n < int(val)+1 )then
-            val=val-1.0d0
-        endif
-        if(1 > int(val)+1 )then
-            val=1.0d0
-        endif
-        histogram(int(val)+1) = histogram(int(val)+1) + 1
+    allocate( histogram(n,2) )
+    histogram(:,:)=0
+
+
+    val = minv-0.00000010d0
+    do i=1,size(histogram,1)
+        histogram(i,1) = val
+        val = val + intval
     enddo
+
+    do i=1,size(list,1)
+        val = minv-0.00000010d0
+        do j=1, size(histogram,1)
+            if(val < list(i) .and. list(i) <= val + intval  )then
+                histogram(j,2) = histogram(j,2) + 1.0d0
+                exit
+            endif
+            val = val + intval
+        enddo
+    enddo
+
+
 
 end function
 !##########################################

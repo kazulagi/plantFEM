@@ -5,7 +5,7 @@ program main
     type(Random_) ::random
     type(IO_) :: f
     integer(int32) :: i
-    integer(int32),allocatable :: histogram(:)
+    real(real64),allocatable :: histogram(:,:)
     real(real64) :: list(10000)
 
     do i=1,10000
@@ -16,8 +16,8 @@ program main
 
     call f%open("gauss.txt")
 
-    do i=1,size(histogram)
-        write(f%fh,*) i,histogram(i)
+    do i=1,size(histogram,1)
+        write(f%fh,*) histogram(i,1),histogram(i,2)
     enddo
     call f%close()
     
@@ -29,9 +29,11 @@ program main
     histogram =  random%histogram(list=list,division=20)
 
     call f%open("ChiSquared.txt")
-    do i=1,size(histogram)
-        write(f%fh,*) i,histogram(i)
+    
+    do i=1,size(histogram,1)
+        write(f%fh,*) histogram(i,1),histogram(i,2)
     enddo
+
     call f%close()
 
     do i=1,10000
@@ -41,8 +43,9 @@ program main
     histogram =  random%histogram(list=list,division=20)
 
     call f%open("Chauchy.txt")
-    do i=1,size(histogram)
-        write(f%fh,*) i,histogram(i)
+    
+    do i=1,size(histogram,1)
+        write(f%fh,*) histogram(i,1),histogram(i,2)
     enddo
     call f%close()
 
@@ -54,8 +57,9 @@ program main
     histogram =  random%histogram(list=list,division=20)
 
     call f%open("Lognormal.txt")
-    do i=1,size(histogram)
-        write(f%fh,*) i,histogram(i)
+    
+    do i=1,size(histogram,1)
+        write(f%fh,*) histogram(i,1),histogram(i,2)
     enddo
     call f%close()
 
@@ -68,9 +72,11 @@ program main
     histogram =  random%histogram(list=list,division=20)
 
     call f%open("InverseGauss.txt")
-    do i=1,size(histogram)
-        write(f%fh,*) i,histogram(i)
+    
+    do i=1,size(histogram,1)
+        write(f%fh,*) histogram(i,1),histogram(i,2)
     enddo
+    
     call f%close()
 
 end program

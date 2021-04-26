@@ -33,7 +33,7 @@ module MeshClass
         !for Interfaces
         integer(int32),allocatable::GlobalNodID(:)
 
-        
+        character(len=36) :: uuid
         character*70::ElemType=" "
         character*70:: ErrorMsg=" "
         character*70:: meshtype
@@ -83,8 +83,11 @@ module MeshClass
         procedure :: getNumOfDomain => getNumOfDomainMesh
         procedure :: getCircumscribedCircle => getCircumscribedCircleMesh
         procedure :: getCircumscribedTriangle => getCircumscribedTriangleMesh
+        
         procedure :: getNodeList => getNodeListMesh
+        procedure :: getFacetList => getFacetListMesh
         procedure :: getElementList => getElementListMesh
+
         procedure :: getVolume => getVolumeMesh
         procedure :: getShapeFunction => getShapeFunctionMesh
         procedure :: getCenterCoordinate => getCenterCoordinateMesh
@@ -139,6 +142,7 @@ module MeshClass
         procedure :: showRange => showRangeMesh
         procedure :: showMesh => ShowMesh 
         procedure :: show => ShowMesh 
+        
 
     end type Mesh_
 
@@ -4704,9 +4708,43 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         obj%elemnod(1,1) = 1
         obj%elemnod(1,2:8) = 2
 
+    
     endif
 
-    if(meshtype=="Node-To-Node" .or. meshtype=="node-no-node") then
+
+    if(meshtype=="Node-To-Segment" .or. meshtype=="node-to-segment") then
+        if(.not. present(master) )then
+            call print("ERROR :: please input FEMDomain_-typed object to master")
+        endif
+        if(.not. present(slave) )then
+            call print("ERROR :: please input FEMDomain_-typed object to slave")
+        endif
+
+        ! create Node-To-Node elements
+        call obj%create(meshtype="Node-To-Node",master=master,slave=slave)
+
+        ! get segment
+        ! First, identify facet lists
+        
+        ! If surface is not obtained, get surface.
+        !if(.not. allocated(master%FacetElemNod) )then
+        !    master%getSurface()
+        !endif
+
+        ! for each slave-nodes, 
+        ! get nearest nodes,
+        ! and if the element is inside of the domain,
+        ! skip it
+        ! else if the element is in the surface, 
+        ! get the facet ID 
+        do i=1,size(obj%SlaveID)
+            
+        enddo
+
+        
+    endif 
+
+    if(meshtype=="Node-To-Node" .or. meshtype=="node-to-node") then
         call master%GetInterSectBox(slave,BoundBox)
         if( BoundBox%empty() .eqv. .true. ) then
             call print("No interface")
@@ -7399,10 +7437,71 @@ end function
 
 
 !#######################################################################################
-function getElementListMesh(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax) result(ElementList)
+function getFacetListMesh(obj,NodeID) result(FacetList)
+    class(Mesh_),intent(inout) :: obj
+    integer(int32),intent(in) :: NodeID
+    integer(int32),allocatable :: FacetList(:,:) ! Node-ID =  FacetList(FacetID, LocalNodeID ) 
+    integer(int32) :: i,j,k,l,count_id
+    integer(int32) :: node_per_Facet = 4
+    integer(int32),allocatable :: ElementList(:),NodeList(:,:),CountNodeList(:,:)
+
+    ! Facetとってからcheckのほうが簡単
+
+
+    
+    ! search facets, in which a node is in
+    ElementList = obj%getElementList(NodeID=NodeID)
+    allocate(FacetList(size(ElementList),node_per_Facet ) )
+    FacetList(:,:) = 0
+    allocate(Nodelist(size(ElementList),size(obj%ElemNod,2) ) )
+    allocate(CountNodelist(size(ElementList),size(obj%ElemNod,2) ) )
+    CountNodelist(:,:) = 1
+    ! get all nodes
+    do i=1,size(ElementList)
+        NodeList(i,:) = obj%ElemNod(ElementList(i),: )
+    enddo
+    do i=1,size(NodeList,1)
+        do j=1,size(NodeList,2)
+            do k=i+1,size(NodeList,1)
+                do l=1,size(NodeList,2)
+                    if(NodeList(i,j)==0) then
+                        cycle
+                    endif
+                    if(NodeList(k,l)==0) then
+                        cycle
+                    endif
+                    if(NodeList(i,j) == NodeList(k,l) )then
+                        NodeList(k,l) = 0
+                        CountNodeList(i,j) = CountNodeList(i,j) + 1
+                    endif
+                enddo
+            enddo
+        enddo   
+    enddo
+    do i=1,size(NodeList,1)
+        do j=1,size(NodeList,2)
+            if(CountNodeList(i,j)==0 .or. CountNodeList(i,j)==1)then
+                NodeList(i,j) = 0
+            endif
+        enddo
+    enddo
+    call print(CountNodeList)
+    call print("****")
+    call print(NodeList)
+
+
+
+
+end function
+!#######################################################################################
+
+
+!#######################################################################################
+function getElementListMesh(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax,NodeID) result(ElementList)
     class(Mesh_),intent(inout) :: obj
     type(Mesh_),optional,intent(inout) :: BoundingBox
     real(real64),optional,intent(in) :: xmin,xmax,ymin,ymax,zmin,zmax
+    integer(int32),optional,intent(in) :: NodeID
     integer(int32),allocatable :: NodeList(:)
     integer(int32),allocatable :: ElementList(:)
 
@@ -7410,6 +7509,34 @@ function getElementListMesh(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax) resul
     logical ,allocatable:: tf(:),exist
     real(real64),allocatable :: x(:),x_min(:),x_max(:)
     
+    if(present(NodeID) )then
+        if(obj%empty() .eqv. .true. )then
+            call print("getElementListMesh >> obj%empty() .eqv. .true. ")
+            allocate(ElementList(0))
+            return
+        endif
+        n = 0
+        do i=1,size(obj%elemnod,1)
+            do j=1,size(obj%elemnod,2)
+                if(obj%elemnod(i,j)==NodeID)then
+                    n = n + 1
+                    exit 
+                endif
+            enddo
+        enddo
+        allocate(ElementList(n) )
+        n = 0
+        do i=1,size(obj%elemnod,1)
+            do j=1,size(obj%elemnod,2)
+                if(obj%elemnod(i,j)==NodeID)then
+                    n = n + 1
+                    ElementList(n) = i
+                    exit 
+                endif
+            enddo
+        enddo
+        return
+    endif
     
     NodeList =  obj%getNodeList(BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax)
 
