@@ -4724,7 +4724,23 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         call obj%create(meshtype="Node-To-Node",master=master,slave=slave)
 
         ! get segment
-        ! First, identify element lists
+        ! First, identify facet lists
+        
+        ! If surface is not obtained, get surface.
+        !if(.not. allocated(master%FacetElemNod) )then
+        !    master%getSurface()
+        !endif
+
+        ! for each slave-nodes, 
+        ! get nearest nodes,
+        ! and if the element is inside of the domain,
+        ! skip it
+        ! else if the element is in the surface, 
+        ! get the facet ID 
+        do i=1,size(obj%SlaveID)
+            
+        enddo
+
         
     endif 
 

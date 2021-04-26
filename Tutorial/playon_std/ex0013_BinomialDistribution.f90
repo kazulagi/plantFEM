@@ -10,7 +10,7 @@ program main
     
     real(real64) :: list(sample)
     integer(int32) :: i
-    integer(int32),allocatable :: histogram(:)
+    real(real64),allocatable :: histogram(:,:)
 
     call random%init()
     
@@ -30,7 +30,7 @@ program main
 
     ! Data
     call f%open("./","test",",txt")
-    do i=1,size(histogram)
+    do i=1,size(histogram,1)
         write(f%fh,*) histogram(i)
     enddo
     call f%close()
