@@ -1,5 +1,32 @@
 # [Click here!! >> Home page](https://plantfem.org)
 
+# For Windows users:
+
+### How to install 
+
+1. Activate your WSL2 (Windows 10)
+
+
+2. Install "Ubuntu 20.04" from Microsoft Store
+
+
+3. Run command
+
+```
+apt update && apt upgrade -y
+git clone https://github.com/kazulagi/plantfem
+cd plantfem
+python3 setup.py
+./plantfem install
+```
+
+4. You can open files by this command
+
+```
+explorer.exe .
+```
+
+5. Enjoy!
 
 # Use plantfem by pip (Under develpment)
 
