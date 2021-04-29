@@ -1,0 +1,30 @@
+Node Contact
+MeshClass
+- FacetNodeIDのリスト：外向きを判別できるようにする。 >> mesh%getsurface()　>> ok!
+- 節点に対して、最寄りFacetのdetect& in or outの判定, 最寄り節点のlocal coordinate (ξ1, ξ2)の決定 >> mesh%create("NTN")
+ContactClass
+- 形状関数N(ξ1, ξ2)から接触剛性マトリクスの作成
+- 領域の弾性係数マトリクスの作成
+LinearSolverClass
+- ソルバにマトリクス・ベクトルの情報を送る（uuidと紐づけてConnectivityを判定）。
+- ソルバでAx = Bをとき、変位を求める
+
+Surface Contact
+MeshClass
+- FacetNodeIDのリスト：外向きを判別できるようにする。 >> mesh%getsurface() >> ok!
+- 節点に対して、最寄りFacetのdetect& in or outの判定, 最寄り節点のlocal coordinate (ξ1, ξ2)の決定 >> mesh%create("NTS")
+ContactClass
+- 形状関数N(ξ1, ξ2)から接触剛性マトリクスの作成
+- 領域の弾性係数マトリクスの作成
+LinearSolverClass
+- ソルバにマトリクス・ベクトルの情報を送る（uuidと紐づけてConnectivityを判定）。
+- ソルバでAx = Bをとき、変位を求める
+
+Domain Contact
+- 節点に対して、最寄りElementのdetect& in or outの判定,最寄り節点のlocal coordinate (ξ1, ξ2, ξ3)の決定  >> mesh%create("NTE")
+ContactClass
+- 形状関数N(ξ1, ξ2, ξ3)からConsistencyマトリクスの作成
+- 領域の係数マトリクスの作成
+LinearSolverClass
+- ソルバにマトリクス・ベクトルの情報を送る（uuidと紐づけてConnectivityを判定）。
+- ソルバでAx = Bをとき、変位を求める
