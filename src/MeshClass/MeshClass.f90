@@ -15,6 +15,8 @@ module MeshClass
 
         integer(int32),allocatable::MasterID(:)
         integer(int32),allocatable::SlaveID(:)
+        integer(int32),allocatable::NTSMasterFacetID(:)
+        real(real64),allocatable :: xi(:,:)
 
         ! optional data;
         real(real64),allocatable  ::NodCoordInit(:,:)
@@ -1421,6 +1423,8 @@ subroutine GetFacetElement(obj)
     integer(int32) :: id_r1,id_r2,id_r3,id_r4
     integer(int32),allocatable::id(:),idr(:)
     integer(int32),allocatable::buffer(:,:)
+
+    ! From 1 -> 2 -> -> 3 -> 4, outer normal vector is obtained  
 
 
     if(allocated(obj%FacetElemNod) )then
@@ -4243,8 +4247,9 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     division,smooth,top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz,coordinate)
     class(Mesh_),intent(inout) :: obj
     type(Mesh_) :: mesh1,mesh2,interface1,interface2
-    type(Mesh_),optional,intent(in) :: master,slave
+    type(Mesh_),optional,intent(inout) :: master,slave
     type(IO_) :: f
+    type(ShapeFunction_) :: shape
     character(*),optional,intent(in) :: meshtype
     logical,optional,intent(in) :: smooth
     integer(int32),optional,intent(in) :: x_num,y_num ! number of division
@@ -4260,13 +4265,14 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         unitx,unity,xm, ym,tp,rx,ry,zc,zl,zm,ysize,ox,oy,dist,rr
     logical :: validmeshtype=.false.
     type(Mesh_) :: BoundBox
-    real(real64)::ymin,ymax,ratio,width,pi,xx,yy,xvec(3),x_max(3),x_min(3),x_m_mid(3),x_s_mid(3)
+    real(real64)::ymin,ymax,ratio,width,pi,xx,yy,xvec(3),x_max(3),&
+        x_min(3),x_m_mid(3),x_s_mid(3),x1vec(3),x2vec(3),nvec(3),hvec(3)
     integer(int32),allocatable:: OutNodeID(:),OutElementID(:)
     logical :: inside
     real(real64):: dist_tr, dist_cur,z_,zval1,zval2,x_1(3),x_2(3)
     integer(int32) :: num_layer,itr,node1,node2,node3,node4,count,prev_node1
     integer(int32), allocatable :: elemnod(:,:)
-    integer(int32) :: nearest_node_id,node_id,elist(2),tri_excep,tri_excep_last
+    integer(int32) :: nearest_node_id,nearest_facet_id,node_id,elist(2),tri_excep,tri_excep_last
     integer(int32),allocatable :: checked(:),checked_node(:)
     real(real64),allocatable ::nodcoord(:,:)
     real(real64) :: ll,center(3),vector(3),e1(3),e2(3),e3(3),len_val
@@ -4707,8 +4713,6 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         allocate(obj%elemnod(1,8))
         obj%elemnod(1,1) = 1
         obj%elemnod(1,2:8) = 2
-
-    
     endif
 
 
@@ -4727,21 +4731,98 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         ! First, identify facet lists
         
         ! If surface is not obtained, get surface.
-        !if(.not. allocated(master%FacetElemNod) )then
-        !    master%getSurface()
-        !endif
+        if(.not. allocated(master%FacetElemNod) )then
+            call master%getSurface()
+        endif
+        if(allocated(obj%NTSMasterFacetID) )then
+            deallocate(obj%NTSMasterFacetID)
+        endif
+        allocate(obj%NTSMasterFacetID(size(obj%slaveID)) )
 
-        ! for each slave-nodes, 
-        ! get nearest nodes,
-        ! and if the element is inside of the domain,
-        ! skip it
-        ! else if the element is in the surface, 
-        ! get the facet ID 
         do i=1,size(obj%SlaveID)
-            
+            !print *, slave%nodcoord(obj%SlaveID(i),1:3)
+            ! get nearest facet
+            ! ignore In/out :: find nearest segment for a node-to-segment pairing
+            do j=1,size(master%FacetElemNod,1)
+                center(:) = 0.0d0
+                xvec(:) = slave%nodcoord(obj%SlaveID(i),1:3)
+                do k = 1,size(master%FacetElemNod,2)
+                    node_id = master%FacetElemNod(j,k)
+                    center(:) = center(:) + master%nodcoord(node_id,:)
+                enddo
+                center(:) = 1.0d0/dble(size(master%FacetElemNod,2))*center(:)
+                dist_tr = sqrt(dot_product(center-xvec,center-xvec))
+                if(j==1)then
+                    dist = dist_tr
+                    nearest_facet_id = j
+                else
+                    if(dist_tr < dist)then
+                        dist = dist_tr
+                        nearest_facet_id = j
+                    endif
+                endif
+            enddo
+            obj%NTSMasterFacetID(i) = nearest_facet_id
+        enddo
+        if(allocated(obj%NodCoord) ) deallocate(obj%NodCoord)
+        if(allocated(obj%ElemNod) ) deallocate(obj%ElemNod)
+        if(allocated(obj%ElemMat) ) deallocate(obj%ElemMat)
+        ! nodal coordinate >> slave1, master1, master2, ...
+        allocate(obj%NodCoord(size(obj%slaveid)*(size(master%FacetElemNod,2)+1),3 ) )
+        node_id = 0
+        do i=1, size(obj%slaveID)
+            node_id = node_id+1
+            obj%NodCoord(node_id,:) = slave%nodcoord(obj%slaveID(i),:)
+            do j=1,size(master%FacetElemNod,2)
+                node_id = node_id+1
+                obj%NodCoord(node_id,:) = &
+                master%nodcoord( master%FacetElemNod(obj%NTSMasterFacetID(i),j),:)
+            enddo 
         enddo
 
+        allocate(obj%ElemNod(size(obj%slaveid),size(slave%ElemNod,2)) )
+        node_id = 0
+        do i=1,size(obj%ElemNod,1)
+            do j=1,size(master%FacetElemNod,2)
+                node_id = node_id + 1
+                obj%elemnod(i,j:) = node_id
+            enddo
+        enddo
+        allocate(obj%ElemMat(size(obj%slaveid) ) )
+        obj%ElemMat(:) = 1
+
+        !call print(obj%nodcoord)
+        !call print(obj%elemnod)
+        !stop
+
+        ! get local coordinate (xi_1, xi_2)
+        if(size(master%FacetElemNod,2) /=4)then
+            ! if not 8-node isoparametric elements,
+            call print("createMesh(NTS) >>  not 8-node isoparametric elements >> no xi-local codinate is created")
+            call print("Not supported now.")
+            return
+        endif
+
+        allocate(obj%xi(size(obj%ElemNod,1),2 ) )
+        ! initialize shape function
+        !call shape%init(ElemType="LinearRectangularGp4")
+        do i=1,size(obj%elemnod,1)
+            x1vec(:) = obj%nodcoord(obj%elemnod(i,4),:)-obj%nodcoord(obj%elemnod(i,3),:)
+            x2vec(:) = obj%nodcoord(obj%elemnod(i,2),:)-obj%nodcoord(obj%elemnod(i,3),:)
+            nvec(:) = cross_product(x1vec, x2vec)
+            nvec(:) = 1.0d0/sqrt(dot_product(nvec,nvec) )*nvec(:)
+            ! foot of the node
+            xvec(:) = obj%nodcoord(obj%elemnod(i,1),:) - obj%nodcoord(obj%elemnod(i,3),:)
+            hvec(:) = obj%nodcoord(obj%elemnod(i,1),:) - dot_product(xvec,nvec)*nvec(:)
+            ! 4-node
+            ! create shape function
+            !call shape%getall()
+            !do j=1,4
+            !    call obj%GetAll(elem_id=1,nod_coord=NodCoord,elem_nod=ElemNod,OptionalGpID=j)
+            !enddo
+        enddo
         
+
     endif 
 
     if(meshtype=="Node-To-Node" .or. meshtype=="node-to-node") then

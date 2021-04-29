@@ -22,8 +22,17 @@ module IOClass
         procedure,pass :: writeIOchar
         procedure,pass :: writeIOstring
         procedure,pass :: writeIOint32
+        procedure,pass :: writeIOint32Vector
+        procedure,pass :: writeIOint32Array
         procedure,pass :: writeIOre64
-        generic,public :: write => writeIOchar,writeIOstring,writeIOre64,writeIOint32
+        procedure,pass :: writeIOre64Vector
+        procedure,pass :: writeIOre64Array
+        procedure,pass :: writeIOcomplex64
+        procedure,pass :: writeIOcomplex64Vector
+        procedure,pass :: writeIOcomplex64Array
+        generic,public :: write => writeIOchar,writeIOstring,writeIOre64,writeIOre64Vector,writeIOre64Array,&
+            writeIOint32,writeIOint32Vector,writeIOint32Array,&
+            writeIOcomplex64,writeIOcomplex64Vector,writeIOcomplex64Array
         !procedure,public :: write => writeIO
         procedure,pass :: readIOchar
         generic,public :: read => readIOchar
@@ -310,6 +319,30 @@ end subroutine writeIOint32
 
 
 ! #############################################
+subroutine writeIOint32Vector(obj,in32)
+    class(IO_),intent(inout) :: obj
+    integer(int32),intent(in) :: in32(:)
+    integer(int32) :: i
+    do i=1,size(in32)
+        write(obj%fh, '(A)') trim(str(in32(i) ))
+    enddo
+end subroutine
+! #############################################
+
+
+! #############################################
+subroutine writeIOint32Array(obj,in32)
+    class(IO_),intent(inout) :: obj
+    integer(int32),intent(in) :: in32(:,:)
+    integer(int32) :: i
+    do i=1,size(in32)
+        write(obj%fh, *) in32(i,:) 
+    enddo
+end subroutine
+! #############################################
+
+
+! #############################################
 subroutine writeIOre64(obj,re64)
     class(IO_),intent(inout) :: obj
     real(real64),intent(in) :: re64
@@ -319,6 +352,62 @@ subroutine writeIOre64(obj,re64)
 end subroutine writeIOre64
 ! #############################################
 
+
+! #############################################
+subroutine writeIOre64Vector(obj,re64)
+    class(IO_),intent(inout) :: obj
+    real(real64),intent(in) :: re64(:)
+    integer(int32) :: i
+    do i=1,size(re64)
+        write(obj%fh, '(A)') trim(str(re64(i) ))
+    enddo
+end subroutine
+! #############################################
+
+
+! #############################################
+subroutine writeIOre64Array(obj,re64)
+    class(IO_),intent(inout) :: obj
+    real(real64),intent(in) :: re64(:,:)
+    integer(int32) :: i
+    do i=1,size(re64)
+        write(obj%fh, *) re64(i,:) 
+    enddo
+end subroutine
+! #############################################
+
+! #############################################
+subroutine writeIOcomplex64(obj,complex64)
+    class(IO_),intent(inout) :: obj
+    complex(kind(0d0) ),intent(in) :: complex64
+    
+    write(obj%fh, '(A)') trim(str(complex64))
+
+end subroutine writeIOcomplex64
+! #############################################
+
+
+! #############################################
+subroutine writeIOcomplex64Vector(obj,complex64)
+    class(IO_),intent(inout) :: obj
+    complex(kind(0d0) ),intent(in) :: complex64(:)
+    integer(int32) :: i
+    do i=1,size(complex64)
+        write(obj%fh, '(A)') trim(str(complex64(i) ))
+    enddo
+end subroutine
+! #############################################
+
+! #############################################
+subroutine writeIOcomplex64Array(obj,complex64)
+    class(IO_),intent(inout) :: obj
+    complex(kind(0d0) ),intent(in) :: complex64(:,:)
+    integer(int32) :: i
+    do i=1,size(complex64,1)
+        write(obj%fh, *) complex64(i,:)
+    enddo
+end subroutine
+! #############################################
 
 ! #############################################
 subroutine writeIOstring(obj,string)

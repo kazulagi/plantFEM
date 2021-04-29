@@ -6056,7 +6056,7 @@ end subroutine
 subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
 	top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz,coordinate)
 	class(FEMDomain_),intent(inout) :: obj
-	type(FEMDomain_),optional,intent(in) :: master,slave
+	type(FEMDomain_),optional,intent(inout) :: master,slave
 	character(*),intent(in) :: meshtype
 	character(*),optional,intent(in) ::Name
 	integer(int32),optional,intent(in) :: x_num,y_num,z_num ! number of division

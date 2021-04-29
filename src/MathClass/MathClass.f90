@@ -3,12 +3,16 @@ module MathClass
     use, intrinsic :: iso_fortran_env
 	implicit none
 	
-
+	type :: Math_
+		real(real64) :: PI = 3.141592653589793d0
+		complex(kind(0d0))	 :: i = (0.0d0, 1.0d0)
+		complex(kind(0d0))	 :: j = (0.0d0, 1.0d0)
+	end type
 	!real(real64) :: pi=3.141592653589793238d0
 	!real(real64) :: e =2.718281828459045235d0
 
 	interface str
-		module procedure fstring_Int, fstring_Real, fstring_Int_len, fstring_Real_len, fstring_logical, fstring_String
+		module procedure fstring_Int, fstring_Real, fstring_complex, fstring_Int_len, fstring_Real_len, fstring_logical, fstring_String
 	end interface str
 
     interface fstring
@@ -35,6 +39,73 @@ module MathClass
 		module procedure arrayDim1Real64,arrayDim2Real64,arrayDim3Real64
 	end interface
 contains
+! ###############################################
+recursive function FFT(x) result(hatx)
+	complex(kind(0d0))	,intent(in) :: x(:)
+	complex(kind(0d0))	,allocatable :: hatx(:),W(:),L(:),R(:)
+	integer(int32) :: N, i, itr
+	integer(int32),allocatable :: k(:)
+	type(Math_) :: Math
+
+
+	N = size(x)
+	allocate(hatx(N))
+
+	hatx(:) = 0.0d0
+	allocate(k(N/2) )
+	allocate(W(N/2) )
+	allocate(L(N/2) )
+	allocate(R(N/2) )
+	
+	do i=1,size(k)
+		k(i) = i-1
+		!print *, exp(-1*Math%i * 2.0d0* Math%PI * k(i)/dble(N))
+		W(i) = exp(-1*Math%i * 2.0d0* Math%PI * k(i) /dble(N) )
+	enddo
+	
+	if(N==2)then
+		! butterfly operation
+		hatx(1) = x(1) + x(2)
+		hatx(2) = x(1) - x(2)
+		return
+	endif
+	
+	if(N>=4)then
+		itr=0
+		do i=1, N, 2
+			itr=itr+1
+			
+			if(itr > size(L) )then
+				exit
+			endif
+			L(itr) = x(i)
+		enddo 
+
+		itr=0
+		do i=2, N, 2
+			itr=itr+1
+			if(itr > size(R) )then
+				exit
+			endif
+			R(itr) = x(i)
+		enddo
+		
+		L = FFT(L)
+		R = FFT(R)
+		
+		do i=1,N/2
+			hatx(i) = L(i) + W(i)*R(i)
+		enddo
+		do i=N/2+1, N
+			if(i-N/2 > size(L) )then
+				exit
+			endif
+			hatx(i) = L(i-N/2) - W(i-N/2)*R(i-N/2)
+		enddo
+		return
+	endif
+end function
+! ###############################################
 
 ! ###############################################
 function arrayDim1Real64(size1) result(ret)
@@ -885,6 +956,15 @@ function fstring_real(x) result(a)
 end function
 !================================================================================== 
 
+!================================================================================== 
+function fstring_complex(x) result(a)
+	complex(kind(0d0) ),intent(in) :: x
+	character(len=20)	:: a
+
+	write(a,fmt = '(F0.0,SP,F0.0,"i")') x
+	a = adjustl(a)
+end function
+!================================================================================== 
 
 
 !================================================================================== 
