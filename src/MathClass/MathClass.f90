@@ -901,10 +901,11 @@ end function
 !================================================================================== 
 function fstring_int(x) result(a)
 	integer(int32),intent(in) :: x
-	character(len=20)	:: a
+	character(len=20):: b
+	character(len=:),allocatable	:: a
 
-	write(a,*) x
-	a = adjustl(a)
+	write(b,*) x
+	a = trim(adjustl(b))
 
 end function
 !================================================================================== 
@@ -926,7 +927,7 @@ function fstring_String(x) result(a)
 	type(String_),intent(in) :: x
 	character(len=:),allocatable :: a
 
-	a = x%all
+	a = trim(x%all)
 end function
 !================================================================================== 
 
@@ -948,21 +949,25 @@ end function
 !================================================================================== 
 function fstring_real(x) result(a)
 	real(real64),intent(in) :: x
-	character(len=20)	:: a
+	character(len=20):: b
+	character(len=:),allocatable	:: a
+
+	write(b,'(f0.8)') x
+	a = trim(adjustl(b))
 
 
-	write(a,'(f0.8)') x
-	a = adjustl(a)
+
 end function
 !================================================================================== 
 
 !================================================================================== 
 function fstring_complex(x) result(a)
 	complex(kind(0d0) ),intent(in) :: x
-	character(len=20)	:: a
+	character(len=30):: b
+	character(len=:),allocatable	:: a
 
-	write(a,fmt = '(F0.0,SP,F0.0,"i")') x
-	a = adjustl(a)
+	write(b,fmt = '(F0.0,SP,F0.0,"i")') x
+	a = trim(adjustl(b))
 end function
 !================================================================================== 
 
