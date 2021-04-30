@@ -13,7 +13,7 @@ module ArrayClass
     !    module procedure newArrayReal
     !end interface
     interface zeros
-        module procedure :: zerosRealArray
+        module procedure :: zerosRealArray, zerosRealVector
     end interface
 
     interface loadtxt
@@ -3871,10 +3871,19 @@ function shapeArray4Real(vector) result(ret)
 end function
 ! ############################################################
 
+function zerosRealVector(size1) result(vector)
+    integer(int32),intent(in) :: size1
+    real(real64),allocatable :: vector(:)
+
+    allocate(vector(size1) )
+    vector(:) = 0.0d0
+
+end function zerosRealVector
+
 
 ! ############################################################
 function zerosRealArray(size1, size2) result(array)
-    integer(int32) :: size1, size2
+    integer(int32),intent(in) :: size1, size2
     real(real64),allocatable :: array(:,:)
 
     allocate(array(size1, size2) )

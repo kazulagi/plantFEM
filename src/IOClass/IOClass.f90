@@ -36,7 +36,14 @@ module IOClass
             writeIOcomplex64,writeIOcomplex64Vector,writeIOcomplex64Array
         !procedure,public :: write => writeIO
         procedure,pass :: readIOchar
-        generic,public :: read => readIOchar
+        procedure,pass :: readIOInt
+        procedure,pass :: readIOIntVector
+        procedure,pass :: readIOIntArray
+        procedure,pass :: readIOReal64
+        procedure,pass :: readIOReal64Vector
+        procedure,pass :: readIOReal64Array
+        generic,public :: read => readIOchar,readIOInt,readIOIntVector,readIOIntArray&
+            ,readIOReal64,readIOReal64Vector,readIOReal64Array
 
         procedure,public :: readline => readlineIO
         procedure,public :: close => closeIO    
@@ -59,6 +66,70 @@ module IOClass
         module procedure spyRealArray
     end interface
 contains
+
+! ===========================================
+subroutine readIOInt(obj,val)
+    class(IO_),intent(in) :: obj
+    integer(int32),intent(inout) :: val
+
+    read(obj%fh,*) val
+
+end subroutine
+! ===========================================
+
+
+! ===========================================
+subroutine readIOIntVector(obj,val)
+    class(IO_),intent(in) :: obj
+    integer(int32),intent(inout) :: val(:)
+
+    read(obj%fh,*) val(:)
+
+end subroutine
+! ===========================================
+
+
+! ===========================================
+subroutine readIOIntArray(obj,val)
+    class(IO_),intent(in) :: obj
+    integer(int32),intent(inout) :: val(:,:)
+
+    read(obj%fh,*) val(:,:)
+
+end subroutine
+! ===========================================
+
+! ===========================================
+subroutine readIOReal64(obj,val)
+    class(IO_),intent(in) :: obj
+    real(real64),intent(inout) :: val
+
+    read(obj%fh,*) val
+
+end subroutine
+! ===========================================
+
+
+! ===========================================
+subroutine readIOReal64Vector(obj,val)
+    class(IO_),intent(in) :: obj
+    real(real64),intent(inout) :: val(:)
+
+    read(obj%fh,*) val(:)
+
+end subroutine
+! ===========================================
+
+
+! ===========================================
+subroutine readIOReal64Array(obj,val)
+    class(IO_),intent(in) :: obj
+    real(real64),intent(inout) :: val(:,:)
+
+    read(obj%fh,*) val(:,:)
+
+end subroutine
+! ===========================================
 
 function numLineIO(obj,name) result(line)
     class(IO_),intent(inout) :: obj
@@ -359,7 +430,7 @@ subroutine writeIOchar(obj,char)
 
     if(obj%state=="r")then
         call print("IOClass >> Error >> This file is readonly. ")
-        call print("Nothing is wrriten.")
+        call print("Nothing is written.")
         return
     endif
     
@@ -377,7 +448,7 @@ subroutine writeIOint32(obj,in32)
 
     if(obj%state=="r")then
         call print("IOClass >> Error >> This file is readonly. ")
-        call print("Nothing is wrriten.")
+        call print("Nothing is written.")
         return
     endif
     
@@ -395,7 +466,7 @@ subroutine writeIOint32Vector(obj,in32)
 
     if(obj%state=="r")then
         call print("IOClass >> Error >> This file is readonly. ")
-        call print("Nothing is wrriten.")
+        call print("Nothing is written.")
         return
     endif
     do i=1,size(in32)
@@ -413,7 +484,7 @@ subroutine writeIOint32Array(obj,in32)
 
     if(obj%state=="r")then
         call print("IOClass >> Error >> This file is readonly. ")
-        call print("Nothing is wrriten.")
+        call print("Nothing is written.")
         return
     endif
     do i=1,size(in32,1)
@@ -430,7 +501,7 @@ subroutine writeIOre64(obj,re64)
     
     if(obj%state=="r")then
         call print("IOClass >> Error >> This file is readonly. ")
-        call print("Nothing is wrriten.")
+        call print("Nothing is written.")
         return
     endif
     write(obj%fh, '(A)') trim(str(re64))
@@ -447,7 +518,7 @@ subroutine writeIOre64Vector(obj,re64)
 
     if(obj%state=="r")then
         call print("IOClass >> Error >> This file is readonly. ")
-        call print("Nothing is wrriten.")
+        call print("Nothing is written.")
         return
     endif
     do i=1,size(re64)
@@ -465,7 +536,7 @@ subroutine writeIOre64Array(obj,re64)
 
     if(obj%state=="r")then
         call print("IOClass >> Error >> This file is readonly. ")
-        call print("Nothing is wrriten.")
+        call print("Nothing is written.")
         return
     endif
     do i=1,size(re64,1)
@@ -481,7 +552,7 @@ subroutine writeIOcomplex64(obj,complex64)
     
     if(obj%state=="r")then
         call print("IOClass >> Error >> This file is readonly. ")
-        call print("Nothing is wrriten.")
+        call print("Nothing is written.")
         return
     endif
     write(obj%fh, '(A)') trim(str(complex64))
@@ -498,7 +569,7 @@ subroutine writeIOcomplex64Vector(obj,complex64)
 
     if(obj%state=="r")then
         call print("IOClass >> Error >> This file is readonly. ")
-        call print("Nothing is wrriten.")
+        call print("Nothing is written.")
         return
     endif
     do i=1,size(complex64,1)
@@ -515,7 +586,7 @@ subroutine writeIOcomplex64Array(obj,complex64)
 
     if(obj%state=="r")then
         call print("IOClass >> Error >> This file is readonly. ")
-        call print("Nothing is wrriten.")
+        call print("Nothing is written.")
         return
     endif
     do i=1,size(complex64,1)
@@ -531,7 +602,7 @@ subroutine writeIOstring(obj,string)
 
     if(obj%state=="r")then
         call print("IOClass >> Error >> This file is readonly. ")
-        call print("Nothing is wrriten.")
+        call print("Nothing is written.")
         return
     endif
     write(obj%fh, '(A)') str(string)
@@ -541,13 +612,13 @@ end subroutine writeIOstring
 ! #############################################
 
 ! #############################################
-function readIOchar(obj) result(char)
+subroutine readIOchar(obj,char) 
     class(IO_),intent(inout) :: obj
     character(200) :: char
     
     read(obj%fh,'(A)' ) char
 
-end function readIOchar
+end subroutine readIOchar
 ! #############################################
 
 ! #############################################
