@@ -17,7 +17,7 @@ program main
     ! ----> open file(filepath, filename, extention)
     call f%open("./test.txt",'w')
     ! write something
-    call f%write(str(100.0d0) )
+    call f%write(100.0d0)
     write(f%fh,*) 100.0d0
     ! and close it
     call f%close()
@@ -38,7 +38,7 @@ program main
         !    str(int) => string
         call f%open("./hello"//str(i)//".txt",'w')
         ! This
-        call f%write(str(i))
+        call f%write(i)
         ! and this
         write(f%fh,*) str(i)
         ! are same 
