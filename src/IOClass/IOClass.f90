@@ -8,6 +8,7 @@ module IOClass
         integer :: fh=100
         logical :: active=.false.
         logical :: EOF=.true.
+        character(1) :: state
         character(200)::path,name,extention
     contains
         procedure,public :: unit => unitIO
@@ -114,11 +115,18 @@ end function
 ! #############################################
 
 ! #############################################
-subroutine openIOchar(obj,path,name,extention,fh)
+subroutine openIOchar(obj,path,state,name,extention,fh)
     class(IO_),intent(inout) :: obj
+    character(1),optional,intent(in) :: state ! w or r
     character(*),optional,intent(in)::path,name,extention
     integer(int32),optional,intent(in) :: fh
     logical :: yml=.False.
+
+    if(present(state) )then
+        obj%state = state
+    else
+        obj%state="w"
+    endif
     
 
 !    if(present(extention) )then
@@ -187,15 +195,48 @@ subroutine openIOchar(obj,path,name,extention,fh)
             obj%name=trim(name)
             if(present(extention) )then
                 obj%extention=trim(extention)
-                open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention) )
+                if(present(state) )then
+                    if(state=="r")then
+                        open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='old')
+                    elseif(state=="w")then
+                        open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='replace')
+                    else
+                        call print("Error :: IOClass % open >> argument <state> should be w or r ")
+                        stop
+                    endif
+                else
+                    open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention) )
+                endif
             else
-                open(newunit=obj%fh,file=trim(path)//trim(name) )
+                if(present(state) )then
+                    if(state=="r")then
+                        open(newunit=obj%fh,file=trim(path)//trim(name),status='old' )
+                    elseif(state=="w")then
+                        open(newunit=obj%fh,file=trim(path)//trim(name),status='replace' )
+                    else
+                        call print("Error :: IOClass % open >> argument <state> should be w or r ")
+                        stop
+                    endif
+                else
+                    open(newunit=obj%fh,file=trim(path)//trim(name) )
+                endif
             endif
         else
-            open(newunit=obj%fh,file=trim(path) )
+            if(present(state) )then
+                if(state=="r")then
+                    open(newunit=obj%fh,file=trim(path),status='old' )
+                elseif(state=="w")then
+                    open(newunit=obj%fh,file=trim(path),status='replace' )
+                else
+                    call print("Error :: IOClass % open >> argument <state> should be w or r ")
+                    stop
+                endif
+            else
+                open(newunit=obj%fh,file=trim(path) )
+            endif
         endif
     else
-        open(newunit=obj%fh,file="./untitled.txt" )
+        open(newunit=obj%fh,file="./untitled.txt",status="replace" )
     endif
     
     obj%EOF = .false.
@@ -206,8 +247,9 @@ end subroutine openIOchar
 
 
 ! #############################################
-subroutine openIOstring(obj,path_s,name_s,extention_s,fh)
+subroutine openIOstring(obj,path_s,state,name_s,extention_s,fh)
     class(IO_),intent(inout) :: obj
+    character(1),optional,intent(in) :: state ! w or r
     type(String_),intent(in) ::path_s
     type(String_),optional,intent(in)::name_s,extention_s
     character(len=:),allocatable::path,name,extention
@@ -215,6 +257,11 @@ subroutine openIOstring(obj,path_s,name_s,extention_s,fh)
     logical :: yml=.False.
     
 
+    if(present(state) )then
+        obj%state = state
+    else
+        obj%state="w"
+    endif
 !    if(present(extention) )then
 !        if( trim(extention) == "yml" )then
 !            yml=.True.
@@ -275,6 +322,16 @@ subroutine openIOstring(obj,path_s,name_s,extention_s,fh)
     obj%name="untitled"
     obj%name=".txt"
 
+    if(present(state) )then
+        if(state == "w")then
+            open(newunit=obj%fh,file=trim(path_s%str()),status="replace" )
+        elseif(state == "r")then
+            open(newunit=obj%fh,file=trim(path_s%str()),status="old" )
+        else
+            call print("Error :: IOClass % open >> argument <state> should be w or r ")
+        endif
+    endif
+
     obj%path=trim(path_s%str() )
     if(present(name_s) )then
         obj%name=trim(name_s%str())
@@ -299,6 +356,12 @@ end subroutine openIOstring
 subroutine writeIOchar(obj,char)
     class(IO_),intent(inout) :: obj
     character(*),intent(in) :: char
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is wrriten.")
+        return
+    endif
     
     write(obj%fh, '(A)') char
 
@@ -311,6 +374,12 @@ end subroutine writeIOchar
 subroutine writeIOint32(obj,in32)
     class(IO_),intent(inout) :: obj
     integer(int32),intent(in) :: in32
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is wrriten.")
+        return
+    endif
     
     write(obj%fh, '(A)') trim(str(in32))
 
@@ -323,6 +392,12 @@ subroutine writeIOint32Vector(obj,in32)
     class(IO_),intent(inout) :: obj
     integer(int32),intent(in) :: in32(:)
     integer(int32) :: i
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is wrriten.")
+        return
+    endif
     do i=1,size(in32)
         write(obj%fh, '(A)') trim(str(in32(i) ))
     enddo
@@ -335,7 +410,13 @@ subroutine writeIOint32Array(obj,in32)
     class(IO_),intent(inout) :: obj
     integer(int32),intent(in) :: in32(:,:)
     integer(int32) :: i
-    do i=1,size(in32)
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is wrriten.")
+        return
+    endif
+    do i=1,size(in32,1)
         write(obj%fh, *) in32(i,:) 
     enddo
 end subroutine
@@ -347,6 +428,11 @@ subroutine writeIOre64(obj,re64)
     class(IO_),intent(inout) :: obj
     real(real64),intent(in) :: re64
     
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is wrriten.")
+        return
+    endif
     write(obj%fh, '(A)') trim(str(re64))
 
 end subroutine writeIOre64
@@ -358,6 +444,12 @@ subroutine writeIOre64Vector(obj,re64)
     class(IO_),intent(inout) :: obj
     real(real64),intent(in) :: re64(:)
     integer(int32) :: i
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is wrriten.")
+        return
+    endif
     do i=1,size(re64)
         write(obj%fh, '(A)') trim(str(re64(i) ))
     enddo
@@ -370,7 +462,13 @@ subroutine writeIOre64Array(obj,re64)
     class(IO_),intent(inout) :: obj
     real(real64),intent(in) :: re64(:,:)
     integer(int32) :: i
-    do i=1,size(re64)
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is wrriten.")
+        return
+    endif
+    do i=1,size(re64,1)
         write(obj%fh, *) re64(i,:) 
     enddo
 end subroutine
@@ -381,6 +479,11 @@ subroutine writeIOcomplex64(obj,complex64)
     class(IO_),intent(inout) :: obj
     complex(kind(0d0) ),intent(in) :: complex64
     
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is wrriten.")
+        return
+    endif
     write(obj%fh, '(A)') trim(str(complex64))
 
 end subroutine writeIOcomplex64
@@ -392,7 +495,13 @@ subroutine writeIOcomplex64Vector(obj,complex64)
     class(IO_),intent(inout) :: obj
     complex(kind(0d0) ),intent(in) :: complex64(:)
     integer(int32) :: i
-    do i=1,size(complex64)
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is wrriten.")
+        return
+    endif
+    do i=1,size(complex64,1)
         write(obj%fh, '(A)') trim(str(complex64(i) ))
     enddo
 end subroutine
@@ -403,6 +512,12 @@ subroutine writeIOcomplex64Array(obj,complex64)
     class(IO_),intent(inout) :: obj
     complex(kind(0d0) ),intent(in) :: complex64(:,:)
     integer(int32) :: i
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is wrriten.")
+        return
+    endif
     do i=1,size(complex64,1)
         write(obj%fh, *) complex64(i,:)
     enddo
@@ -413,6 +528,12 @@ end subroutine
 subroutine writeIOstring(obj,string)
     class(IO_),intent(inout) :: obj
     type(String_),intent(in) :: string
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is wrriten.")
+        return
+    endif
     write(obj%fh, '(A)') str(string)
     
 
