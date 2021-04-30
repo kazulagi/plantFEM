@@ -192,7 +192,7 @@ subroutine openSeed(obj,path,name)
 
     ! check data-type
     call f%open(trim(obj%path)//trim(obj%name)//"/type")
-    data_type = f%read()
+    call f%read(data_type)
     call f%close()
     if(trim(data_type) /= "seed" )then
         print *, "openSeed >> ERROR :: "//trim(obj%path)//trim(obj%name)//"/type /= seed"
