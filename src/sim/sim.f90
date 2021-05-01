@@ -2,6 +2,7 @@ module sim
     use fem
     use DiffusionEquationClass
     use SpaceTimeDiffusionClass
+    use SeismicAnalysisClass
     use FiniteDeformationClass
     use ContactMechanicsClass
     use MultiDiffDeformClass

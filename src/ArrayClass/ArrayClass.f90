@@ -216,14 +216,107 @@ module ArrayClass
 
 
     type :: Array_
-        integer(int32),allocatable ,private :: inta(:,:)
-        integer(real64),allocatable,private ::reala(:,:)
+        integer(int32),allocatable  :: inta(:,:)
+        real(real64),allocatable ::reala(:,:)
     contains
         procedure, public :: array => arrayarrayReal
+        procedure, public :: init => zerosRealArrayArrayClass
+        procedure, public :: zeros => zerosRealArrayArrayClass
+        procedure, public :: eye => eyeRealArrayArrayClass
+        procedure, public :: unit => eyeRealArrayArrayClass
+        procedure, public :: random => randomRealArrayArrayClass
+        procedure, public :: print => printArrayClass
+        
     end type
 
+
+    public :: operator(+)
+    public :: assignment(=)
+    public :: operator(*)
+    
+
+    interface operator(+)
+      module procedure addArrayClass
+    end interface
+
+    interface operator(*)
+        module procedure multArrayClass
+    end interface
+
+    
+    interface assignment(=)
+      module procedure assignArrayAlloInt,assignArrayAlloReal, assignAlloArrayInt,assignAlloArrayReal
+    end interface
+
+    interface dot
+        module procedure dotArrayClass
+    end interface
+
 contains
-        
+    
+
+! ===============================================
+function addArrayClass(x, y) result(z)
+    implicit none
+    type(Array_), intent(in) :: x, y
+    type(Array_) :: z
+    
+    z%reala = x%reala + y%reala
+end function 
+! ===============================================
+
+
+! ===============================================
+subroutine assignArrayAlloReal(x, y)
+    implicit none
+    type(Array_), intent(out) :: x
+    real(real64), intent(in)  :: y(:,:)
+  
+    x%reala = y
+
+end subroutine assignArrayAlloReal
+! ===============================================
+
+
+
+! ===============================================
+subroutine assignAlloArrayReal(x, y)
+    implicit none
+
+    real(real64),allocatable,intent(out)  :: x(:,:)
+    type(Array_), intent(in) :: y
+  
+    x = y%reala
+
+end subroutine assignAlloArrayReal
+! ===============================================
+
+
+! ===============================================
+subroutine assignArrayAlloint(x, y)
+    implicit none
+    type(Array_), intent(out) :: x
+    integer(int64), intent(in)  :: y(:,:)
+  
+    x%inta = y
+
+end subroutine assignArrayAlloint
+! ===============================================
+
+
+
+! ===============================================
+subroutine assignAlloArrayint(x, y)
+    implicit none
+
+    integer(int64),allocatable,intent(out)  :: x(:,:)
+    type(Array_), intent(in) :: y
+  
+    x = y%inta
+
+end subroutine assignAlloArrayint
+! ===============================================
+
 
 ! ############## Elementary Entities ############## 
 !=====================================
@@ -3892,6 +3985,110 @@ function zerosRealArray(size1, size2) result(array)
 end function
 ! ############################################################
 
+
+
+
+! ############################################################
+subroutine zerosRealArrayArrayClass(array,size1, size2)
+    class(Array_),intent(inout) :: array
+    integer(int32),optional,intent(in) :: size1, size2
+    integer(int32) :: n,m
+
+    n=input(default=1,option=size1)
+    m=input(default=1,option=size2)
+    
+    if(allocated(array%reala) ) deallocate(array%reala)
+
+    allocate(array%reala(n,m) )
+    array%reala(:,:) = 0.0d0
+
+end subroutine
+! ############################################################
+
+
+
+! ############################################################
+subroutine eyeRealArrayArrayClass(array,size1, size2)
+    class(Array_),intent(inout) :: array
+    integer(int32),optional,intent(in) :: size1, size2
+    integer(int32) :: n,m,i
+
+    n=input(default=1,option=size1)
+    m=input(default=1,option=size2)
+    
+    if(allocated(array%reala) ) deallocate(array%reala)
+
+    allocate(array%reala(n,m) )
+    array%reala(:,:) = 0.0d0
+
+    do i=1, size(array%reala,1)
+        array%reala(i,i) = 1.0d0
+    enddo
+
+end subroutine
+! ############################################################
+
+
+
+! ############################################################
+subroutine randomRealArrayArrayClass(array,size1, size2)
+    class(Array_),intent(inout) :: array
+    integer(int32),optional,intent(in) :: size1, size2
+    integer(int32) :: n,m,i,j
+    type(Random_) :: random
+
+    n=input(default=1,option=size1)
+    m=input(default=1,option=size2)
+    
+    if(allocated(array%reala) ) deallocate(array%reala)
+
+    array%reala = random%randn(n,m)
+    
+end subroutine
+! ############################################################
+
+! ############################################################
+subroutine printArrayClass(array)
+    class(Array_),intent(in) :: array
+    integer(int32) :: i
+
+    print *, "size :: ", str(size(Array%reala,1))," x ",str(size(Array%reala,1))
+    print *, " "
+    do i=1,size(array%reala,1)
+        print *, array%reala(i,:)
+    enddo
+    print *, " "  
+
+end subroutine
+! ############################################################
+
+! ############################################################
+function multArrayClass(x,y) result(z)
+    type(Array_),intent(in) ::x,y
+    type(Array_) :: z
+    
+    z%reala = matmul(x%reala, y%reala)
+    
+end function
+! ############################################################
+
+
+
+! ############################################################
+function dotArrayClass(x,y) result(z)
+    type(Array_),intent(in) ::x,y
+    real(real64) :: z
+    integer(int32) :: i,j
+    
+    z = 0.0d0
+    do i=1,size(x%reala,1)
+        do j=1,size(x%reala,2)
+        z = z + x%reala(i,j) * y%reala(i,j) 
+        enddo
+    enddo
+
+end function
+! ############################################################
 
 
 end module ArrayClass
