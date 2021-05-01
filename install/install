@@ -239,6 +239,11 @@ echo "Compiling ./src/SpaceTimeDiffusionClass/SpaceTimeDiffusionClass.f90"
 echo " >> SpaceTimeDiffusionClass.o "
 echo " | ===============>            | (70%)\r\c"
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SpaceTimeDiffusionClass/SpaceTimeDiffusionClass.f90 -o  ./inc/SpaceTimeDiffusionClass.o
+echo "Compiling ./src/SeismicAnalysisClass/SeismicAnalysisClass.f90" 
+echo " >> SeismicAnalysisClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SeismicAnalysisClass/SeismicAnalysisClass.f90 -o  ./inc/SeismicAnalysisClass.o
+
 
 echo "Compiling ./src/FiniteDeformationClass/FiniteDeformationClass.f90" 
 echo " >> FiniteDeformationClass.o "
