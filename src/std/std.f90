@@ -8,6 +8,7 @@ module std
     use PhysicsClass
     use HTTPClass
     use IOClass
+    use HTMLClass
     use KinematicClass
     use RandomClass
     use ArrayClass
