@@ -6,7 +6,6 @@ type(FEMDomain_),target :: cube
 real(real64) :: wave(100,2)
 integer(int32) :: i
 
-
 ! create Domain
 call cube%create(meshtype="Cube3D")
 

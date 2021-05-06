@@ -106,6 +106,7 @@ module FEMDomainClass
 		procedure,public :: distribute => distributeFEMDomain
 		
 		procedure,public :: export => ExportFEMDomain
+
 		procedure,public :: edit => editFEMDomain
 		
 		procedure,public :: field => fieldFEMDomain
@@ -140,11 +141,12 @@ module FEMDomainClass
 
 		procedure,public :: length => lengthFEMDomain
 
-        procedure,public :: meltingSkelton => MeltingSkeltonFEMDomain
+		procedure,public :: meltingSkelton => MeltingSkeltonFEMDomain
 		procedure,public :: move => moveFEMDomain
 		procedure,public :: meshing => meshingFEMDomain
 		procedure,public :: merge  => MergeFEMDomain
 		procedure,public :: msh => mshFEMDomain
+
 
 		procedure,public :: nn => nnFEMDomain
 		procedure,public :: nd => ndFEMDomain
@@ -183,7 +185,14 @@ module FEMDomainClass
 		procedure,public :: stl => stlFEMDomain
 
 		procedure,public :: vtk => vtkFEMDomain
-		
+
+		! matrices
+
+        procedure,public :: MassMatrix => MassMatrixFEMDomain
+        procedure,public :: MassVector => MassVectorFEMDomain
+		procedure,public :: StiffnessMatrix => StiffnessMatrixFEMDomain 
+		procedure,public :: DiffusionMatrix => DiffusionMatrixFEMDomain 
+		procedure,public :: ElementVector => ElementVectorFEMDomain
     end type FEMDomain_
 
 	!type:: FEMDomainp_
@@ -1127,7 +1136,7 @@ if(trim(FileFormat)==".scf" )then
 
     read(fh,*)obj%Mesh%ElemType
 
-    obj%ShapeFunction%ElemType=obj%Mesh%ElemType
+    !obj%ShapeFunction%ElemType=obj%Mesh%ElemType
     allocate(obj%Mesh%ElemNod(n,m) )
     allocate(obj%Mesh%ElemMat(n  ) )
     call ImportArray(obj%Mesh%ElemNod,OptionalFileHandle=fh)
@@ -8078,5 +8087,211 @@ function position_zFEMDomain(obj,id) result(x)
 
 end function
 ! ##########################################################################
+
+
+! Basic matrices and vectors 
+
+
+! ##########################################################################
+function MassMatrixFEMDomain(obj,ElementID,Density) result(MassMatrix)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32),intent(in) :: ElementID
+	real(real64),optional,intent(in) :: Density
+	real(real64),allocatable :: MassMatrix(:,:)
+	real(real64) :: rho
+	integeR(int32) :: i,n
+
+	rho = input(default=1.0d0, option=Density)
+	! For Element ID = ElementID, create Mass Matrix and return it
+	! Number of Gauss Point = number of node per element, as default.
+
+	! initialize shape-function object
+    !obj%ShapeFunction%ElemType=obj%Mesh%ElemType
+	call SetShapeFuncType(obj%ShapeFunction)
+
+	do i=1, obj%ShapeFunction%NumOfGp
+		call getAllShapeFunc(obj%ShapeFunction,elem_id=ElementID,&
+		nod_coord=obj%Mesh%NodCoord,&
+		elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+	
+    	n=size(obj%ShapeFunction%dNdgzi,2)
+    	if(.not.allocated(MassMatrix) ) then
+			allocate(MassMatrix(n,n) )
+			MassMatrix(:,:)=0.0d0
+		endif
+    	if(size(MassMatrix,1)/=n .or.size(MassMatrix,2)/=n )then
+    	    if(allocated(MassMatrix)) then
+    	        deallocate(MassMatrix)
+    	    endif
+    	    allocate(MassMatrix(n,n) )
+    	endif
+
+    	MassMatrix(:,:)=MassMatrix(:,:)+&
+			diadic( obj%ShapeFunction%Nmat,obj%ShapeFunction%Nmat ) &
+			*det_mat(obj%ShapeFunction%Jmat,size(obj%ShapeFunction%Jmat,1) )
+
+	enddo
+
+	MassMatrix = rho * MassMatrix
+
+end function
+! ##########################################################################
+
+! ##########################################################################
+function MassVectorFEMDomain(obj,ElementID,Density) result(MassVector)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32),intent(in) :: ElementID
+	real(real64),optional,intent(in) :: Density
+	real(real64),allocatable :: MassVector(:)
+	real(real64) :: rho
+	integer(int32) :: i,n
+
+	! 注意：拡散方程式用
+	! 2次元、3次元変形解析or流体解析用の質量マトリクスへは
+	! 改良が必要
+
+	rho = input(default=1.0d0, option=Density)
+	! For Element ID = ElementID, create Mass Matrix and return it
+	! Number of Gauss Point = number of node per element, as default.
+
+	! initialize shape-function object
+    !obj%ShapeFunction%ElemType=obj%Mesh%ElemType
+	call SetShapeFuncType(obj%ShapeFunction)
+
+	do i=1, obj%ShapeFunction%NumOfGp
+		call getAllShapeFunc(obj%ShapeFunction,elem_id=ElementID,&
+		nod_coord=obj%Mesh%NodCoord,&
+		elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+	
+    	n=size(obj%ShapeFunction%dNdgzi,2)
+    	if(.not.allocated(MassVector) ) then
+			allocate(MassVector(n) )
+			MassVector(:)=0.0d0
+		endif
+    	if(size(MassVector,1)/=n)then
+    	    if(allocated(MassVector)) then
+    	        deallocate(MassVector)
+    	    endif
+    	    allocate(MassVector(n) )
+    	endif
+
+
+    	MassVector(:)=MassVector(:)+obj%ShapeFunction%Nmat&
+			*det_mat(obj%ShapeFunction%Jmat,size(obj%ShapeFunction%Jmat,1) )
+
+	enddo
+
+	MassVector = rho * MassVector
+end function
+! ##########################################################################
+
+
+
+! ##########################################################################
+function StiffnessMatrixFEMDomain(obj,ElementID,E,v) result(StiffnessMatrix)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32),intent(in) :: ElementID
+	real(real64),intent(in) :: E, v ! Young's modulus and Poisson ratio
+	real(real64),allocatable :: StiffnessMatrix(:,:)
+
+
+	! 線形弾性微小ひずみにおける要素剛性マトリクス
+	! For Element ID = ElementID, create Stiffness Matrix 
+	! in terms of small-strain and return it
+	! Number of Gauss Point = number of node per element, as default.
+	print *, "Not implemented!"
+	stop
+end function
+! ##########################################################################
+
+
+! ##########################################################################
+function DiffusionMatrixFEMDomain(obj,ElementID,D) result(DiffusionMatrix)
+	! 拡散係数マトリクス
+	! For Element ID = ElementID, create Diffusion Matrix 
+	! in terms of small-strain and return it
+	! Number of Gauss Point = number of node per element, as default.
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32),intent(in) :: ElementID
+	real(real64),optional,intent(in) :: D ! diffusion matrix
+    real(real64)::diff_coeff
+	real(real64),allocatable :: DiffusionMatrix(:,:)
+    real(real64) :: signm_modifier
+	integeR(int32) :: i,n
+
+	diff_coeff = input(default=1.0d0, option=D)
+	! For Element ID = ElementID, create Mass Matrix and return it
+	! Number of Gauss Point = number of node per element, as default.
+
+	! initialize shape-function object
+    !obj%ShapeFunction%ElemType=obj%Mesh%ElemType
+	call SetShapeFuncType(obj%ShapeFunction)
+
+    ! diff_coeff should be negative
+    if( diff_coeff > 0.0d0)then
+        signm_modifier=-1.0d0
+    else
+        signm_modifier=1.0d0
+    endif
+
+	do i=1, obj%ShapeFunction%NumOfGp
+		call getAllShapeFunc(obj%ShapeFunction,elem_id=ElementID,&
+		nod_coord=obj%Mesh%NodCoord,&
+		elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+	
+    	n=size(obj%ShapeFunction%dNdgzi,2)
+    	if(.not.allocated(DiffusionMatrix) ) then
+			allocate(DiffusionMatrix(n,n) )
+			DiffusionMatrix(:,:)=0.0d0
+		endif
+    	if(size(DiffusionMatrix,1)/=n .or.size(DiffusionMatrix,2)/=n )then
+    	    if(allocated(DiffusionMatrix)) then
+    	        deallocate(DiffusionMatrix)
+    	    endif
+    	    allocate(DiffusionMatrix(n,n) )
+    	endif
+
+    	DiffusionMatrix(:,:)=DiffusionMatrix(:,:)+&
+		matmul( transpose(matmul(obj%shapefunction%JmatInv,obj%shapefunction%dNdgzi)),&
+    	matmul(obj%shapefunction%JmatInv,obj%shapefunction%dNdgzi))&
+		*signm_modifier*diff_coeff&
+		*det_mat(obj%shapefunction%JmatInv,size(obj%shapefunction%JmatInv,1) )
+
+	enddo
+
+	print *, "Not perfectly implemented! You need debug"
+	stop
+end function
+! ##########################################################################
+
+! ##########################################################################
+function ElementVectorFEMDomain(obj,ElementID,GlobalVector,DOF) result(ElementVector)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32),intent(in) :: ElementID
+	real(real64),intent(in) :: GlobalVector(:) ! size = number_of_node
+	real(real64),allocatable :: ElementVector(:)
+	integer(int32),optional,intent(in) :: DOF
+	integer(int32) :: i,j,num_node_per_elem, num_dim,nodal_DOF,node_id
+	
+	! For Element ID = ElementID, create ElementVector and return it
+	! Number of Gauss Point = number of node per element, as default.
+	num_node_per_elem = obj%nne()
+	nodal_DOF = input(default=1, option=DOF)
+	allocate(ElementVector(num_node_per_elem*nodal_DOF) )
+	ElementVector(:) = 0.0d0
+	
+	! (x1, y1, z1, x2, y2, z2 ...)
+	do i=1,num_node_per_elem
+		do j=1,nodal_DOF
+			node_id = obj%mesh%elemnod(ElementID,i)
+			ElementVector( (i-1)*nodal_DOF + j) = &
+				GlobalVector((node_id-1)*nodal_DOF + j )
+		enddo
+	enddo
+
+end function
+! ##########################################################################
+
+
 
 end module FEMDomainClass

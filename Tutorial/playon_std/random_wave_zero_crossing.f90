@@ -31,7 +31,7 @@ program main
             g_n = g_nn
         endif
         
-        call f%write( trim(str(dble(i))) //" "//str(g_nn) )
+        call f%write( trim(str(dble(i))) //", "//str(g_nn) )
         
     enddo
     call f%close()
@@ -41,8 +41,9 @@ program main
     call z%open("zero_cross.csv")
     
     do i=1,size(histogram,1)
-        write(f%fh,*) histogram(i,1),histogram(i,2)
+        write(z%fh,*) histogram(i,1),histogram(i,2)
     enddo
     
+    call z%close()
     
 end program main
