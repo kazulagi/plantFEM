@@ -20,6 +20,9 @@ module ArrayClass
         module procedure :: arangeRealVector
     end interface
 
+    interface reshape
+        module procedure :: reshapeRealVector,reshapeIntVector
+    end interface
 
     interface loadtxt
         module procedure loadtxtArrayReal
@@ -218,11 +221,14 @@ module ArrayClass
         module procedure :: anglesReal3D
     end interface
     
-
+    type :: FlexibleChar_
+        character(len=:),allocatable :: string
+    end type
 
     type :: Array_
         integer(int32),allocatable  :: inta(:,:)
         real(real64),allocatable ::reala(:,:)
+        type(FlexibleChar_),allocatable :: list(:,:)
     contains
         procedure, public :: array => arrayarrayReal
         procedure, public :: init => zerosRealArrayArrayClass
@@ -4016,6 +4022,48 @@ end function arangeRealVector
 ! ############################################################
 
 
+! ############################################################
+function reshapeRealVector(vector,size1,size2) result(matrix)
+    real(real64),intent(in) :: vector(:)
+    integer(int32),intent(in) ::size1, size2
+    integer(int32) :: i,j,n
+    real(real64),allocatable :: matrix(:,:) 
+    matrix = zeros(size1, size2) 
+
+    n=0
+    do i=1, size1
+        do j=1, size2
+            n=n+1
+            if(n>size(vector) ) exit
+            matrix(i,j) = vector(n)
+        enddo
+    enddo
+
+end function
+! ############################################################
+
+! ############################################################
+function reshapeIntVector(vector,size1,size2) result(matrix)
+    integer(int32),intent(in) :: vector(:)
+    integer(int32),intent(in) ::size1, size2
+    integer(int32) :: i,j,n
+    integer(int32),allocatable :: matrix(:,:) 
+    matrix = zeros(size1, size2) 
+
+    n=0
+    do i=1, size1
+        do j=1, size2
+            n=n+1
+            if(n>size(vector) ) exit
+            matrix(i,j) = vector(n)
+        enddo
+    enddo
+
+end function
+! ############################################################
+
+
+
 
 ! ############################################################
 subroutine zerosRealArrayArrayClass(array,size1, size2)
@@ -4077,16 +4125,26 @@ end subroutine
 ! ############################################################
 
 ! ############################################################
-subroutine printArrayClass(array)
-    class(Array_),intent(in) :: array
-    integer(int32) :: i
+subroutine printArrayClass(obj)
+    class(Array_),intent(in) :: obj
+    integer(int32) :: i,j
 
-    print *, "size :: ", str(size(Array%reala,1))," x ",str(size(Array%reala,1))
+    if(allocated(obj%list) )then
+        do i=1,size(obj%list,1)
+            do j=1,size(obj%list,2)-1
+                write(*,'(A)',advance='no') trim(obj%list(i,j)%string)// "  "
+            enddo
+            write(*,'(A)',advance='yes') trim(obj%list(i,size(obj%list,2))%string)
+        enddo
+        return
+    endif
+    print *, "size :: ", str(size(obj%reala,1))," x ",str(size(obj%reala,1))
     print *, " "
-    do i=1,size(array%reala,1)
-        print *, array%reala(i,:)
+    do i=1,size(obj%reala,1)
+        print *, obj%reala(i,:)
     enddo
     print *, " "  
+
 
 end subroutine
 ! ############################################################
