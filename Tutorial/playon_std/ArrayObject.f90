@@ -3,6 +3,7 @@ program main
     implicit none
 
     type(Array_) :: A, B, C, I
+    real(real64),allocatable :: vector(:)
 
     print *, " "
     call A%random(3,3)
@@ -19,5 +20,20 @@ program main
     call I%print()
 
     print *, dot(C, C)
+
+    ! create vectors
+    print *, "zeros"
+    vector = zeros(5) ! Five 0
+    print *, vector(:)
+    
+    ! np.arange
+    print *, "arange"
+    vector = arange(5) ! 1, 2, 3 , 4, 5
+    print *, vector(:)
+    
+    ! np.arange
+    print *, "arange : start, stop, step"
+    vector = arange(10, 50, 5) ! 1, 2, 3 , 4, 5
+    print *, vector(:)
 
 end program

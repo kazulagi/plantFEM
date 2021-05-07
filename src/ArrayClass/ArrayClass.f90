@@ -16,6 +16,11 @@ module ArrayClass
         module procedure :: zerosRealArray, zerosRealVector
     end interface
 
+    interface arange
+        module procedure :: arangeRealVector
+    end interface
+
+
     interface loadtxt
         module procedure loadtxtArrayReal
     end interface
@@ -3984,7 +3989,31 @@ function zerosRealArray(size1, size2) result(array)
 
 end function
 ! ############################################################
+! https://numpy.org/doc/stable/reference/generated/numpy.arange.html
+! same as numpy.arange
+function arangeRealVector(size1,stop_val,step) result(vector)
+    integer(int32),intent(in) :: size1
+    integer(int32),optional,intent(in) :: stop_val,step
+    real(real64),allocatable :: vector(:)
+    integer(int32) :: i,a_size
 
+    if(present(stop_val) .and. present(step) )then
+        a_size = stop_val - (size1 -1)
+        a_size = a_size/step 
+        allocate(vector(a_size) )
+        vector(1) = dble(size1)
+        do i=2,size(vector,1)
+            vector(i) = vector(i-1) + dble(step)
+        enddo
+    else
+        allocate(vector(size1) )
+        vector(1) = 0.0d0
+        do i=2,size(vector,1)
+            vector(i) = vector(i-1) + 1.0d0
+        enddo
+    endif
+end function arangeRealVector
+! ############################################################
 
 
 
