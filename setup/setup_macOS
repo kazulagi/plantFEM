@@ -1,21 +1,17 @@
 #!/bin/sh
 
 brew install  gcc
-brew install  openmpi
+brew install  open-mpi
 brew install  python3
 brew install  gmsh
 brew install  gnuplot
 brew install curl
-sudo apt-get -yV install liblapack-dev
-sudo apt-get -yV install liblapack-doc
-sudo apt-get -yV install liblapack-pic
-sudo apt-get -yV install liblapack-test
-sudo apt-get -yV install liblapack3gf
-curl https://bootstrap.pypa.io/get-pip.py -o ~/get-pip.py
-sudo python3 ~/get-pip.py
-sudo pip install pillow
-sudo pip install numpy
-sudo pip install opencv-python
-sudo pip install scipy
-sudo pip install matplotlib
-sudo pip install jupyter
+#curl https://bootstrap.pypa.io/get-pip.py -o ~/get-pip.py
+#python3 ~/get-pip.py
+#pip install pillow
+#pip install numpy
+#pip install opencv-python
+#pip install scipy
+#pip install matplotlib
+#pip install jupyter
+#
