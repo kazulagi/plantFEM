@@ -15,7 +15,7 @@ elif pf == "Darwin":
     print("OS : macOS")
     print("Now installing...")
     #os.system("sh ./setup/setup_macOS")
-    os.system("sh ./install/install_macOS")
+    os.system("sh ./install/install")
     print("Successfully Installed!!")
 elif pf == "Linux":
     print("OS : Linux")
