@@ -190,6 +190,8 @@ module FEMDomainClass
 
         procedure,public :: MassMatrix => MassMatrixFEMDomain
         procedure,public :: MassVector => MassVectorFEMDomain
+		procedure,public :: Bmatrix => BMatrixFEMDomain
+		procedure,public :: Dmatrix => DMatrixFEMDomain
 		procedure,public :: StiffnessMatrix => StiffnessMatrixFEMDomain 
 		procedure,public :: DiffusionMatrix => DiffusionMatrixFEMDomain 
 		procedure,public :: ElementVector => ElementVectorFEMDomain
@@ -8093,28 +8095,33 @@ end function
 
 
 ! ##########################################################################
-function MassMatrixFEMDomain(obj,ElementID,Density) result(MassMatrix)
+function MassMatrixFEMDomain(obj,ElementID,Density,DOF) result(MassMatrix)
 	class(FEMDomain_),intent(inout) :: obj
+	type(ShapeFunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
 	real(real64),optional,intent(in) :: Density
-	real(real64),allocatable :: MassMatrix(:,:)
+	real(real64),allocatable :: MassMatrix(:,:), Nmat(:,:)
+	integer(int32),optional,intent(in) :: DOF
 	real(real64) :: rho
-	integeR(int32) :: i,n
+	integeR(int32) :: i,n,j,k,node_DOF
 
 	rho = input(default=1.0d0, option=Density)
+	node_DOF = input(default=1, option=DOF)
 	! For Element ID = ElementID, create Mass Matrix and return it
 	! Number of Gauss Point = number of node per element, as default.
 
 	! initialize shape-function object
-    !obj%ShapeFunction%ElemType=obj%Mesh%ElemType
-	call SetShapeFuncType(obj%ShapeFunction)
+    
+	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	
 
-	do i=1, obj%ShapeFunction%NumOfGp
-		call getAllShapeFunc(obj%ShapeFunction,elem_id=ElementID,&
+	do i=1, shapefunc%NumOfGp
+		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
 		nod_coord=obj%Mesh%NodCoord,&
 		elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
 	
-    	n=size(obj%ShapeFunction%dNdgzi,2)
+    	n=size(shapefunc%dNdgzi,2)*node_DOF
+
     	if(.not.allocated(MassMatrix) ) then
 			allocate(MassMatrix(n,n) )
 			MassMatrix(:,:)=0.0d0
@@ -8125,11 +8132,35 @@ function MassMatrixFEMDomain(obj,ElementID,Density) result(MassMatrix)
     	    endif
     	    allocate(MassMatrix(n,n) )
     	endif
+		if(.not. allocated(Nmat ) )then
+			allocate(Nmat(node_DOF*size(shapefunc%Nmat),node_DOF ) )
+		endif
+
+
+		Nmat (:,: )=0.0d0
+		do j=1,size(shapefunc%Nmat)
+			do k=1,node_DOF
+				Nmat( (j-1)*node_DOF + k, k ) = shapefunc%Nmat(j)
+				
+				! in case node_DOF=3,
+				! N_(1)    0     0
+				! 0      N_(1)   0
+				! 0        0    N_(1)
+				! N_(2)    0     0
+				! 0      N_(2)   0
+				! 0        0    N_(2)
+				! N_(3)    0     0
+				! 0      N_(3)   0
+				! 0        0    N_(3)
+				! ...
+
+			enddo
+		enddo
 
     	MassMatrix(:,:)=MassMatrix(:,:)+&
-			diadic( obj%ShapeFunction%Nmat,obj%ShapeFunction%Nmat ) &
-			*det_mat(obj%ShapeFunction%Jmat,size(obj%ShapeFunction%Jmat,1) )
-
+			matmul( Nmat, transpose(Nmat) ) &
+			*det_mat(shapefunc%Jmat,size(shapefunc%Jmat,1) )
+		
 	enddo
 
 	MassMatrix = rho * MassMatrix
@@ -8137,51 +8168,90 @@ function MassMatrixFEMDomain(obj,ElementID,Density) result(MassMatrix)
 end function
 ! ##########################################################################
 
+
 ! ##########################################################################
-function MassVectorFEMDomain(obj,ElementID,Density) result(MassVector)
+function MassVectorFEMDomain(obj,ElementID,Density,DOF,Accel) result(MassVector)
 	class(FEMDomain_),intent(inout) :: obj
+	type(ShapeFunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
-	real(real64),optional,intent(in) :: Density
-	real(real64),allocatable :: MassVector(:)
+	real(real64),optional,intent(in) :: Density,Accel(:)
+	real(real64),allocatable :: MassVector(:),accel_vec(:)
+	integer(int32),optional,intent(in) :: DOF
 	real(real64) :: rho
-	integer(int32) :: i,n
+	integer(int32) :: i,j,k,n,node_DOF,dim_num
+	real(real64),allocatable :: Nmat(:,:)
 
 	! 注意：拡散方程式用
 	! 2次元、3次元変形解析or流体解析用の質量マトリクスへは
 	! 改良が必要
-
+	dim_num = size(obj%mesh%nodcoord,2)
 	rho = input(default=1.0d0, option=Density)
+	node_DOF = input(default=1, option=DOF)
+	if(present(accel) )then
+		accel_vec = accel
+	else
+		allocate(accel_vec(dim_num) )
+		accel_vec(:) = 1.0d0
+	endif
+	
 	! For Element ID = ElementID, create Mass Matrix and return it
 	! Number of Gauss Point = number of node per element, as default.
 
 	! initialize shape-function object
     !obj%ShapeFunction%ElemType=obj%Mesh%ElemType
-	call SetShapeFuncType(obj%ShapeFunction)
+	
+	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
 
-	do i=1, obj%ShapeFunction%NumOfGp
-		call getAllShapeFunc(obj%ShapeFunction,elem_id=ElementID,&
+	do i=1, shapefunc%NumOfGp
+		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
 		nod_coord=obj%Mesh%NodCoord,&
 		elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
 	
-    	n=size(obj%ShapeFunction%dNdgzi,2)
+    	n=size(shapefunc%dNdgzi,2)*node_DOF
+		
     	if(.not.allocated(MassVector) ) then
 			allocate(MassVector(n) )
 			MassVector(:)=0.0d0
 		endif
+
     	if(size(MassVector,1)/=n)then
     	    if(allocated(MassVector)) then
     	        deallocate(MassVector)
     	    endif
     	    allocate(MassVector(n) )
     	endif
+		
+		if(.not. allocated(Nmat ) )then
+			allocate(Nmat(node_DOF*size(shapefunc%Nmat),node_DOF ) )
+		endif
 
 
-    	MassVector(:)=MassVector(:)+obj%ShapeFunction%Nmat&
-			*det_mat(obj%ShapeFunction%Jmat,size(obj%ShapeFunction%Jmat,1) )
+		Nmat (:,: )=0.0d0
+		do j=1,size(shapefunc%Nmat)
+			do k=1,node_DOF
+				Nmat( (j-1)*node_DOF + k, k ) = shapefunc%Nmat(j)
+				! in case node_DOF=3,
+				! N_(1)    0     0
+				! 0      N_(1)   0
+				! 0        0    N_(1)
+				! N_(2)    0     0
+				! 0      N_(2)   0
+				! 0        0    N_(2)
+				! N_(3)    0     0
+				! 0      N_(3)   0
+				! 0        0    N_(3)
+				! ...
+
+			enddo
+		enddo
+
+    	MassVector(:)=MassVector(:)+matmul(Nmat,accel_vec) &
+			*det_mat(shapefunc%Jmat,size(shapefunc%Jmat,1) )
 
 	enddo
 
 	MassVector = rho * MassVector
+
 end function
 ! ##########################################################################
 
@@ -8190,20 +8260,296 @@ end function
 ! ##########################################################################
 function StiffnessMatrixFEMDomain(obj,ElementID,E,v) result(StiffnessMatrix)
 	class(FEMDomain_),intent(inout) :: obj
+	type(Shapefunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
 	real(real64),intent(in) :: E, v ! Young's modulus and Poisson ratio
-	real(real64),allocatable :: StiffnessMatrix(:,:)
-
+	real(real64),allocatable :: StiffnessMatrix(:,:),Bmat(:,:),Dmat(:,:)
+	real(real64) :: rho
+	integer(int32) :: node_DOF,i,j,n
 
 	! 線形弾性微小ひずみにおける要素剛性マトリクス
 	! For Element ID = ElementID, create Stiffness Matrix 
 	! in terms of small-strain and return it
 	! Number of Gauss Point = number of node per element, as default.
-	print *, "Not implemented!"
-	stop
+	
+	node_DOF = obj%nd() ! Degree of freedom/node = dimension of space
+
+	! For Element ID = ElementID, create Mass Matrix and return it
+	! Number of Gauss Point = number of node per element, as default.
+
+	! initialize shape-function object
+    
+	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	
+
+	do i=1, shapefunc%NumOfGp
+		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+		nod_coord=obj%Mesh%NodCoord,&
+		elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+	
+    	n=size(shapefunc%dNdgzi,2)*node_DOF
+
+    	if(.not.allocated(StiffnessMatrix) ) then
+			allocate(StiffnessMatrix(n,n) )
+			StiffnessMatrix(:,:)=0.0d0
+		endif
+    	if(size(StiffnessMatrix,1)/=n .or.size(StiffnessMatrix,2)/=n )then
+    	    if(allocated(StiffnessMatrix)) then
+    	        deallocate(StiffnessMatrix)
+    	    endif
+    	    allocate(StiffnessMatrix(n,n) )
+    	endif
+
+		! get so-called B-matrix
+		Bmat = obj%Bmatrix(shapefunc)
+
+		! get D-matrix
+		Dmat = obj%Dmatrix(E=E, v=v)
+
+		if(i==1)then
+			StiffnessMatrix = matmul(matmul(transpose(Bmat),Dmat),Bmat)
+			StiffnessMatrix = StiffnessMatrix * det_mat(shapefunc%Jmat,size(shapefunc%Jmat,1) )
+		else
+			StiffnessMatrix = StiffnessMatrix + &
+				matmul(matmul(transpose(Bmat),Dmat),Bmat)&
+				*det_mat(shapefunc%Jmat,size(shapefunc%Jmat,1) )
+		endif
+
+		
+	enddo
+
 end function
 ! ##########################################################################
 
+
+! ##########################################################################
+function DMatrixFEMDomain(obj,E,v) result(Dmat)
+	class(FEMDomain_) ,intent(inout) :: obj
+	real(real64),intent(in) :: E, v
+	real(real64),allocatable :: Dmat(:,:)
+	real(real64) :: mu, lambda
+
+	! Caution! this is for 
+	! isotropic stiffness matrix
+	mu = E/2.0d0/(1.0d0 + v)
+	lambda = v*E/(1.0d0 + v)/(1.0d0-2.0d0*v)
+
+	if(obj%nd() == 1 )then
+		Dmat = zeros(1,1)
+		Dmat(:,:) = E
+		return
+	elseif(obj%nd() == 2 )then
+		! s_11, s_22, s_12
+		Dmat = zeros(3,3)
+		Dmat(1,1) = (1.0d0-v)*E/( (1.0d0+v)*(1.0d0-2.0d0*v))
+		Dmat(2,2) = (1.0d0-v)*E/( (1.0d0+v)*(1.0d0-2.0d0*v))
+		Dmat(3,3) = E/(2.0d0*(1.0d0+v) )
+		Dmat(1,2) = v*E/( (1.0d0+v)*(1.0d0-2.0d0*v))
+		Dmat(2,1) = v*E/( (1.0d0+v)*(1.0d0-2.0d0*v))
+	elseif(obj%nd() == 3 )then
+		Dmat = zeros(6,6)
+		Dmat(1,1)= 2.0d0*mu + lambda
+		Dmat(1,2)= lambda
+		Dmat(1,3)= lambda
+		Dmat(2,1)= lambda
+		Dmat(2,2)= 2.0d0*mu + lambda
+		Dmat(2,3)= lambda
+		Dmat(3,1)= lambda
+		Dmat(3,2)= lambda
+		Dmat(3,3)= 2.0d0*mu + lambda
+		Dmat(4,4)= mu
+		Dmat(5,5)= mu
+		Dmat(6,6)= mu
+	else
+		print *, "Error :: DMatrixFEMDomain >> number of dimension should be 1-3. Now ",obj%nd() 
+		stop
+	endif
+end function
+! ##########################################################################
+
+
+! ##########################################################################
+recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
+	class(FEMDomain_) ,intent(inout) :: obj
+	type(ShapeFunction_),optional,intent(in) :: shapefunction
+	integer(int32),optional,intent(in) :: ElementID
+	real(real64), allocatable :: Psymat(:,:), Jmat(:,:), detJ 
+	real(real64), allocatable :: Bmat(:,:)
+	integer(int32)::dim_num
+	real(real64), allocatable :: JPsy(:,:), Jin(:,:)
+	integer(int32)  k, l,m, n, a, b, p,mm,i,j,q
+	
+	type(ShapeFunction_) :: sf
+
+	if(present(shapefunction))then
+		
+	
+		dim_num = obj%nd()
+		mm = obj%nne() * 2
+		Psymat = ShapeFunction%dNdgzi
+		Jmat = ShapeFunction%Jmat
+		detJ = det_mat(Jmat, dim_num)
+
+
+		if(dim_num==2)then
+		   k=3
+		elseif(dim_num==3)then
+		   k=6
+		else
+		   stop "B_mat >> dim_num = tobe 2 or 3 "
+		endif
+		!k = size(ij,1)   ! �Ђ��݂���11,��22,��12��3����
+		l = mm  ! 8�ړ_�v�f*2����
+		m = size(Psymat, 1)
+		n = size(Psymat, 2)
+
+		if(allocated(Bmat )) deallocate(Bmat)
+		allocate (Bmat(k, l))
+		allocate(JPsy(m,n))
+		allocate(Jin(m,m))
+
+	! J:Psymat�̌v�Z
+		if(mm/2==3)then
+			stop 'Now Constructing'
+		elseif(mm/2==4)then
+		   if(detJ==0.0d0)  stop "Bmat,detJ=0"
+		   Jin(1,1) = (1.0d0 / detJ) * Jmat(2,2)
+		   Jin(2,2) = (1.0d0 / detJ) * Jmat(1,1)
+		   Jin(1,2) = (-1.0d0 / detJ) * Jmat(1,2)
+		   Jin(2,1) = (-1.0d0 / detJ) * Jmat(2,1)
+		   JPsy(:,:) = matmul(Jin, Psymat)   
+		
+		   Bmat(1,1) =  JPsy(1,1)
+		   Bmat(1,2) = 0.0d0
+		   Bmat(1,3) =  1.0d0 * JPsy(1,2)
+		   Bmat(1,4) = 0.0d0
+		   Bmat(1,5) =  1.0d0 * JPsy(1,3)
+		   Bmat(1,6) = 0.0d0
+		   Bmat(1,7) =  1.0d0 * JPsy(1,4)
+		   Bmat(1,8) = 0.0d0
+		   Bmat(2,1) = 0.0d0
+		   Bmat(2,2) =  1.0d0 * JPsy(2,1)
+		   Bmat(2,3) = 0.0d0
+		   Bmat(2,4) =  1.0d0 * JPsy(2,2)
+		   Bmat(2,5) = 0.0d0
+		   Bmat(2,6) =  1.0d0 * JPsy(2,3)
+		   Bmat(2,7) = 0.0d0
+		   Bmat(2,8) =  1.0d0 * JPsy(2,4)
+		   Bmat(3,1) = Bmat(2,2)
+		   Bmat(3,2) = Bmat(1,1)
+		   Bmat(3,3) = Bmat(2,4)
+		   Bmat(3,4) = Bmat(1,3)
+		   Bmat(3,5) = Bmat(2,6)
+		   Bmat(3,6) = Bmat(1,5)
+		   Bmat(3,7) = Bmat(2,8)
+		   Bmat(3,8) = Bmat(1,7)
+		
+		elseif(mm/2==8)then
+		   Jin(1,1) = (1.0d0 / detJ) * Jmat(2,2)
+		   Jin(2,2) = (1.0d0 / detJ) * Jmat(1,1)
+		   Jin(1,2) = (-1.0d0 / detJ) * Jmat(2,1)
+		   Jin(2,1) = (-1.0d0 / detJ) * Jmat(1,2)
+		   JPsy(:,:) = matmul(Jin, Psymat)      
+		
+		   Bmat(1,1) =  -JPsy(1,1)
+		   Bmat(1,2) = 0.0d0
+		   Bmat(1,3) =  -1.0d0 * JPsy(1,2)
+		   Bmat(1,4) = 0.0d0
+		   Bmat(1,5) =  -1.0d0 * JPsy(1,3)
+		   Bmat(1,6) = 0.0d0
+		   Bmat(1,7) =  -1.0d0 * JPsy(1,4)
+		   Bmat(1,8) = 0.0d0
+		   Bmat(1,9) =  -1.0d0 * JPsy(1,5)
+		   Bmat(1,10) = 0.0d0
+		   Bmat(1,11) =  -1.0d0 * JPsy(1,6)
+		   Bmat(1,12) = 0.0d0
+		   Bmat(1,13) =  -1.0d0 * JPsy(1,7)
+		   Bmat(1,14) = 0.0d0
+		   Bmat(1,15) =  -1.0d0 * JPsy(1,8)
+		   Bmat(1,16) = 0.0d0
+		   Bmat(2,1) = 0.0d0
+		   Bmat(2,2) =  -1.0d0 * JPsy(2,1)
+		   Bmat(2,3) = 0.0d0
+		   Bmat(2,4) =  -1.0d0 * JPsy(2,2)
+		   Bmat(2,5) = 0.0d0
+		   Bmat(2,6) =  -1.0d0 * JPsy(2,3)
+		   Bmat(2,7) = 0.0d0
+		   Bmat(2,8) =  -1.0d0 * JPsy(2,4)
+		   Bmat(2,9) = 0.0d0
+		   Bmat(2,10) =  -1.0d0 * JPsy(2,5)
+		   Bmat(2,11) = 0.0d0
+		   Bmat(2,12) =  -1.0d0 * JPsy(2,6)
+		   Bmat(2,13) = 0.0d0
+		   Bmat(2,14) =  -1.0d0 * JPsy(2,7)
+		   Bmat(2,15) = 0.0d0
+		   Bmat(2,16) =  -1.0d0 * JPsy(2,8)
+		   Bmat(3,1) = Bmat(2,2)
+		   Bmat(3,2) = Bmat(1,1)
+		   Bmat(3,3) = Bmat(2,4)
+		   Bmat(3,4) = Bmat(1,3)
+		   Bmat(3,5) = Bmat(2,6)
+		   Bmat(3,6) = Bmat(1,5)
+		   Bmat(3,7) = Bmat(2,8)
+		   Bmat(3,8) = Bmat(1,7)
+		   Bmat(3,9) = Bmat(2,10)
+		   Bmat(3,10) = Bmat(1,9)
+		   Bmat(3,11) = Bmat(2,12)
+		   Bmat(3,12) = Bmat(1,11)
+		   Bmat(3,13) = Bmat(2,14)
+		   Bmat(3,14) = Bmat(1,13)
+		   Bmat(3,15) = Bmat(2,16)
+		   Bmat(3,16) = Bmat(1,15)
+		elseif(k==6 )then
+		
+		   if(detJ==0.0d0)  stop "Bmat,detJ=0"
+		
+		   call  inverse_rank_2(Jmat,Jin)
+		
+
+		   JPsy(:,:) = transpose(matmul(transpose(Psymat),Jin)) !dNdgzi* dgzidx
+		   Bmat(:,:)=0.0d0
+		   do q=1,size(JPsy,2)
+			   do p=1,dim_num
+				   Bmat(p,dim_num*(q-1) + p )=JPsy(p,q)
+			   enddo
+			   Bmat(4,dim_num*(q-1) + 1 )=JPsy(2,q); Bmat(4, dim_num*(q-1) + 2 )=JPsy(1,q);Bmat(4, dim_num*(q-1) + 3 )=0.0d0    ; 
+			   Bmat(5,dim_num*(q-1) + 1 )=0.0d0    ; Bmat(5, dim_num*(q-1) + 2 )=JPsy(3,q);Bmat(5, dim_num*(q-1) + 3 )=JPsy(2,q);
+			   Bmat(6,dim_num*(q-1) + 1 )=JPsy(3,q); Bmat(6, dim_num*(q-1) + 2 )=0.0d0    ;Bmat(6, dim_num*(q-1) + 3 )=JPsy(1,q);
+		   enddo
+
+		   Bmat(4:6,:)=0.50d0*Bmat(4:6,:)
+
+
+
+		else
+		   stop "Bmat >> The element is not supported."
+	    endif
+
+	else
+		! take sum for all gauss-points
+		if(.not. present(ElementID) )then
+			print *, "BmatrixFEMDOmain >> ERROR >> at least, arg:ElementID or arg:shapefunction is necessary."
+			stop
+		endif
+		call sf%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	
+
+		do i=1, sf%NumOfGp
+			call getAllShapeFunc(sf,elem_id=ElementID,&
+			nod_coord=obj%Mesh%NodCoord,&
+			elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+			
+			if(i==1)then
+				Bmat = obj%Bmatrix(sf,ElementID)
+			else
+				Bmat = Bmat + obj%Bmatrix(sf,ElementID)
+			endif
+		enddo
+		return
+		
+	endif
+end function
+! ##########################################################################
 
 ! ##########################################################################
 function DiffusionMatrixFEMDomain(obj,ElementID,D) result(DiffusionMatrix)
