@@ -5189,7 +5189,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     endif
 
 
-    if(meshtype=="Cube3D")then
+    if(meshtype=="Cube3D" .or.meshtype=="cube3D")then
         validmeshtype=.true.
         call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
         call obj%Convert2Dto3D(Thickness=Thickness,division=division)
