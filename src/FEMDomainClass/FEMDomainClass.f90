@@ -8302,7 +8302,7 @@ function StiffnessMatrixFEMDomain(obj,ElementID,E,v) result(StiffnessMatrix)
 
 		! get so-called B-matrix
 		Bmat = obj%Bmatrix(shapefunc)
-
+		
 		! get D-matrix
 		Dmat = obj%Dmatrix(E=E, v=v)
 
@@ -8399,19 +8399,9 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 		   stop "B_mat >> dim_num = tobe 2 or 3 "
 		endif
 		!k = size(ij,1)   ! �Ђ��݂���11,��22,��12��3����
-		l = mm  ! 8�ړ_�v�f*2����
-		m = size(Psymat, 1)
-		n = size(Psymat, 2)
-
-		if(allocated(Bmat )) deallocate(Bmat)
-		allocate (Bmat(k, l))
-		allocate(JPsy(m,n))
-		allocate(Jin(m,m))
 
 	! J:Psymat�̌v�Z
-		if(mm/2==3)then
-			stop 'Now Constructing'
-		elseif(mm/2==4)then
+		if(obj%nd()==2 .and. obj%nne()==4)then
 		   if(detJ==0.0d0)  stop "Bmat,detJ=0"
 		   Jin(1,1) = (1.0d0 / detJ) * Jmat(2,2)
 		   Jin(2,2) = (1.0d0 / detJ) * Jmat(1,1)
@@ -8421,20 +8411,20 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 		
 		   Bmat(1,1) =  JPsy(1,1)
 		   Bmat(1,2) = 0.0d0
-		   Bmat(1,3) =  1.0d0 * JPsy(1,2)
+		   Bmat(1,3) =  JPsy(1,2)
 		   Bmat(1,4) = 0.0d0
-		   Bmat(1,5) =  1.0d0 * JPsy(1,3)
+		   Bmat(1,5) =  JPsy(1,3)
 		   Bmat(1,6) = 0.0d0
-		   Bmat(1,7) =  1.0d0 * JPsy(1,4)
+		   Bmat(1,7) =  JPsy(1,4)
 		   Bmat(1,8) = 0.0d0
 		   Bmat(2,1) = 0.0d0
-		   Bmat(2,2) =  1.0d0 * JPsy(2,1)
+		   Bmat(2,2) =  JPsy(2,1)
 		   Bmat(2,3) = 0.0d0
-		   Bmat(2,4) =  1.0d0 * JPsy(2,2)
+		   Bmat(2,4) =  JPsy(2,2)
 		   Bmat(2,5) = 0.0d0
-		   Bmat(2,6) =  1.0d0 * JPsy(2,3)
+		   Bmat(2,6) =  JPsy(2,3)
 		   Bmat(2,7) = 0.0d0
-		   Bmat(2,8) =  1.0d0 * JPsy(2,4)
+		   Bmat(2,8) =  JPsy(2,4)
 		   Bmat(3,1) = Bmat(2,2)
 		   Bmat(3,2) = Bmat(1,1)
 		   Bmat(3,3) = Bmat(2,4)
@@ -8444,7 +8434,7 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 		   Bmat(3,7) = Bmat(2,8)
 		   Bmat(3,8) = Bmat(1,7)
 		
-		elseif(mm/2==8)then
+		elseif(obj%nd()==2 .and. obj%nne()==8 )then
 		   Jin(1,1) = (1.0d0 / detJ) * Jmat(2,2)
 		   Jin(2,2) = (1.0d0 / detJ) * Jmat(1,1)
 		   Jin(1,2) = (-1.0d0 / detJ) * Jmat(2,1)
@@ -8453,36 +8443,36 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 		
 		   Bmat(1,1) =  -JPsy(1,1)
 		   Bmat(1,2) = 0.0d0
-		   Bmat(1,3) =  -1.0d0 * JPsy(1,2)
+		   Bmat(1,3) =  JPsy(1,2)
 		   Bmat(1,4) = 0.0d0
-		   Bmat(1,5) =  -1.0d0 * JPsy(1,3)
+		   Bmat(1,5) =  JPsy(1,3)
 		   Bmat(1,6) = 0.0d0
-		   Bmat(1,7) =  -1.0d0 * JPsy(1,4)
+		   Bmat(1,7) =  JPsy(1,4)
 		   Bmat(1,8) = 0.0d0
-		   Bmat(1,9) =  -1.0d0 * JPsy(1,5)
+		   Bmat(1,9) =  JPsy(1,5)
 		   Bmat(1,10) = 0.0d0
-		   Bmat(1,11) =  -1.0d0 * JPsy(1,6)
+		   Bmat(1,11) =  JPsy(1,6)
 		   Bmat(1,12) = 0.0d0
-		   Bmat(1,13) =  -1.0d0 * JPsy(1,7)
+		   Bmat(1,13) =  JPsy(1,7)
 		   Bmat(1,14) = 0.0d0
-		   Bmat(1,15) =  -1.0d0 * JPsy(1,8)
+		   Bmat(1,15) =  JPsy(1,8)
 		   Bmat(1,16) = 0.0d0
 		   Bmat(2,1) = 0.0d0
-		   Bmat(2,2) =  -1.0d0 * JPsy(2,1)
+		   Bmat(2,2) =  JPsy(2,1)
 		   Bmat(2,3) = 0.0d0
-		   Bmat(2,4) =  -1.0d0 * JPsy(2,2)
+		   Bmat(2,4) =  JPsy(2,2)
 		   Bmat(2,5) = 0.0d0
-		   Bmat(2,6) =  -1.0d0 * JPsy(2,3)
+		   Bmat(2,6) =  JPsy(2,3)
 		   Bmat(2,7) = 0.0d0
-		   Bmat(2,8) =  -1.0d0 * JPsy(2,4)
+		   Bmat(2,8) =  JPsy(2,4)
 		   Bmat(2,9) = 0.0d0
-		   Bmat(2,10) =  -1.0d0 * JPsy(2,5)
+		   Bmat(2,10) =  JPsy(2,5)
 		   Bmat(2,11) = 0.0d0
-		   Bmat(2,12) =  -1.0d0 * JPsy(2,6)
+		   Bmat(2,12) =  JPsy(2,6)
 		   Bmat(2,13) = 0.0d0
-		   Bmat(2,14) =  -1.0d0 * JPsy(2,7)
+		   Bmat(2,14) =  JPsy(2,7)
 		   Bmat(2,15) = 0.0d0
-		   Bmat(2,16) =  -1.0d0 * JPsy(2,8)
+		   Bmat(2,16) =  JPsy(2,8)
 		   Bmat(3,1) = Bmat(2,2)
 		   Bmat(3,2) = Bmat(1,1)
 		   Bmat(3,3) = Bmat(2,4)
@@ -8499,15 +8489,14 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 		   Bmat(3,14) = Bmat(1,13)
 		   Bmat(3,15) = Bmat(2,16)
 		   Bmat(3,16) = Bmat(1,15)
-		elseif(k==6 )then
+		elseif(obj%nd()==3 .and. obj%nne()==8 )then
 		
 		   if(detJ==0.0d0)  stop "Bmat,detJ=0"
 		
 		   call  inverse_rank_2(Jmat,Jin)
 		
-
-		   JPsy(:,:) = transpose(matmul(transpose(Psymat),Jin)) !dNdgzi* dgzidx
-		   Bmat(:,:)=0.0d0
+		   JPsy = transpose(matmul(transpose(Psymat),Jin)) !dNdgzi* dgzidx
+		   Bmat=zeros(6,8*3)
 		   do q=1,size(JPsy,2)
 			   do p=1,dim_num
 				   Bmat(p,dim_num*(q-1) + p )=JPsy(p,q)
@@ -8558,12 +8547,14 @@ function DiffusionMatrixFEMDomain(obj,ElementID,D) result(DiffusionMatrix)
 	! in terms of small-strain and return it
 	! Number of Gauss Point = number of node per element, as default.
 	class(FEMDomain_),intent(inout) :: obj
+	type(ShapeFunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
 	real(real64),optional,intent(in) :: D ! diffusion matrix
     real(real64)::diff_coeff
+	real(real64)::	err = dble(1.0e-14)
 	real(real64),allocatable :: DiffusionMatrix(:,:)
-    real(real64) :: signm_modifier
-	integeR(int32) :: i,n
+	integeR(int32) :: i,j,n
+
 
 	diff_coeff = input(default=1.0d0, option=D)
 	! For Element ID = ElementID, create Mass Matrix and return it
@@ -8571,25 +8562,20 @@ function DiffusionMatrixFEMDomain(obj,ElementID,D) result(DiffusionMatrix)
 
 	! initialize shape-function object
     !obj%ShapeFunction%ElemType=obj%Mesh%ElemType
-	call SetShapeFuncType(obj%ShapeFunction)
+	
+	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
 
-    ! diff_coeff should be negative
-    if( diff_coeff > 0.0d0)then
-        signm_modifier=-1.0d0
-    else
-        signm_modifier=1.0d0
-    endif
-
-	do i=1, obj%ShapeFunction%NumOfGp
-		call getAllShapeFunc(obj%ShapeFunction,elem_id=ElementID,&
+	do i=1, shapefunc%NumOfGp
+		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
 		nod_coord=obj%Mesh%NodCoord,&
 		elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
 	
-    	n=size(obj%ShapeFunction%dNdgzi,2)
+    	n=size(shapefunc%dNdgzi,2)
     	if(.not.allocated(DiffusionMatrix) ) then
 			allocate(DiffusionMatrix(n,n) )
 			DiffusionMatrix(:,:)=0.0d0
 		endif
+
     	if(size(DiffusionMatrix,1)/=n .or.size(DiffusionMatrix,2)/=n )then
     	    if(allocated(DiffusionMatrix)) then
     	        deallocate(DiffusionMatrix)
@@ -8597,16 +8583,23 @@ function DiffusionMatrixFEMDomain(obj,ElementID,D) result(DiffusionMatrix)
     	    allocate(DiffusionMatrix(n,n) )
     	endif
 
+
     	DiffusionMatrix(:,:)=DiffusionMatrix(:,:)+&
-		matmul( transpose(matmul(obj%shapefunction%JmatInv,obj%shapefunction%dNdgzi)),&
-    	matmul(obj%shapefunction%JmatInv,obj%shapefunction%dNdgzi))&
-		*signm_modifier*diff_coeff&
-		*det_mat(obj%shapefunction%JmatInv,size(obj%shapefunction%JmatInv,1) )
+		matmul( transpose(matmul(shapefunc%JmatInv,shapefunc%dNdgzi)),&
+    	matmul(shapefunc%JmatInv,shapefunc%dNdgzi))&
+		*diff_coeff &
+		*det_mat(shapefunc%JmatInv,size(shapefunc%JmatInv,1) )
 
 	enddo
 
-	print *, "Not perfectly implemented! You need debug"
-	stop
+	! if Rounding error >> fix 0 
+	do i=1,size(DiffusionMatrix,1)
+		do j=1,size(DiffusionMatrix,1)
+			if(abs(DiffusionMatrix(i,j)) < err*abs(maxval(DiffusionMatrix)))then
+				DiffusionMatrix(i,j) = 0.0d0
+			endif
+		enddo
+	enddo
 end function
 ! ##########################################################################
 
