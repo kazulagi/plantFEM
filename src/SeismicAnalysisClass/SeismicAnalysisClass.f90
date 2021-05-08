@@ -56,13 +56,14 @@ subroutine CreateMatrixAndVectorSeismicAnalysis(obj, solver)
     real(real64),allocatable :: K_ij(:,:)
     real(real64),allocatable :: dF_i(:)
     real(real64),allocatable :: R_i(:)
+    real(real64),allocatable :: U_i(:)
     real(real64),allocatable ::dU_i(:)
     real(real64),allocatable :: V_i(:)
     real(real64),allocatable ::dV_i(:)
     real(real64),allocatable :: A_i(:)
     real(real64),allocatable ::dA_i(:)
     real(real64),allocatable :: A_ij(:,:)
-    integer(int32) :: i,dim_num,n
+    integer(int32) :: i,j,k,l,m,dim_num,n
 
 
     dim_num = size(obj%femdomain%mesh%nodcoord,2)
@@ -77,44 +78,46 @@ subroutine CreateMatrixAndVectorSeismicAnalysis(obj, solver)
         allocate(obj%u(n) )
     endif
 
-!    do  ! Newton's Loop
-!        ! Element matrix
-!        do i=1,obj%femdomain%ne()
-!            ! For each element
-!            ! Ax=b will be installed into solver
-!            M_ij = obj%femdomain%MassMatrix(ElementID=i)
-!            K_ij = obj%femdomain%StiffnessMatrix(ElementID=i,E=,v=)
-!            C_ij = obj%alpha * M_ij + obj%beta * K_ij
-!            U_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%U, DOF=obj%femdomain%nd() )
-!            V_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%V, DOF=obj%femdomain%nd() )
-!            A_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A, DOF=obj%femdomain%nd() )
-!            
-!            dF_i = obj%femdomain%MassVector(ElementID=i,Density=)
-!
-!            ! A_ij dU_j = R_i 
-!            A_ij = K_ij &
-!                + 1.0d0/(obj%Newmark_beta * obj%dt * obj%dt)*M_ij &
-!                + obj%Newmark_delta/(obj%Newmark_beta*obj%dt)*C_ij
-!            R_i  = dF_i &
-!                + 1.0d0/(obj%Newmark_beta*obj%dt)*matmul(M_ij, V_i)&
-!                + 1.0d0/(obj%Newmark_beta*2.0d0)*matmul(M_ij, A_i)&
-!                + obj%Newmark_delta/obj%Newmark_beta*matmul(C_ij, V_i)&
-!                + (obj%Newmark_delta/2.0d0*obj%Newmark_beta-1.0d0)*obj%dt*matmul(C_ij, A_i)&
-!
-!            ! import linear equations in the solver
-!            
-!            ! Stiffness matrix
-!            call solver%set(node_id1=, node_id2=, val=)
-!            call solver%set(node_id1=, node_id2=, val=)
-!            call solver%set(node_id1=, node_id2=, val=)
-!            call solver%set(node_id1=, node_id2=, val=)
-!
-!            ! Residual vector
-!            call solver%set(node_id1=, val=)
-!            call solver%set(node_id1=, val=)
-!            call solver%set(node_id1=, val=)
-!            call solver%set(node_id1=, val=)
-!        enddo
+    do  ! Newton's Loop
+        ! Element matrix
+        call solver%init()
+
+        do i=1,obj%femdomain%ne()
+            ! For each element
+            ! Ax=b will be installed into solver
+            M_ij = obj%femdomain%MassMatrix(ElementID=i)
+            K_ij = obj%femdomain%StiffnessMatrix(ElementID=i,E=1000.0d0,v=0.30d0)
+            C_ij = obj%alpha * M_ij + obj%beta * K_ij
+            U_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%U, DOF=obj%femdomain%nd() )
+            V_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%V, DOF=obj%femdomain%nd() )
+            A_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A, DOF=obj%femdomain%nd() )
+            
+            dF_i = obj%femdomain%MassVector(ElementID=i,Density=17.0d0)
+            R_i = zeros(size(dF_i) )
+
+            ! A_ij dU_j = R_i 
+            A_ij = K_ij &
+                + 1.0d0/(obj%Newmark_beta * obj%dt * obj%dt)*M_ij &
+                + obj%Newmark_delta/(obj%Newmark_beta*obj%dt)*C_ij
+
+            R_i(:) = dF_i(:) + 1.0d0/(obj%Newmark_beta*obj%dt)*matmul(M_ij, V_i)&
+                + 1.0d0/(obj%Newmark_beta*2.0d0)*matmul(M_ij, A_i)&
+                + obj%Newmark_delta/obj%Newmark_beta*matmul(C_ij, V_i)&
+                + (obj%Newmark_delta/2.0d0*obj%Newmark_beta-1.0d0)*obj%dt*matmul(C_ij, A_i)
+
+            ! import linear equations in the solver
+            
+            ! Assemble stiffness matrix
+            call solver%assemble(&
+                connectivity=obj%femdomain%connectivity(ElementID=i), &
+                DOF = obj%femdomain%nd(), &
+                eMatrix = A_ij)
+            call solver%assemble(&
+                connectivity=obj%femdomain%connectivity(ElementID=i), &
+                DOF = obj%femdomain%nd(), &
+                eVector = R_i)
+            
+        enddo
 !
 !        ! Introduce Boundary Condition
 !        call solver%fix(node_id1=, val=)
@@ -151,7 +154,7 @@ subroutine CreateMatrixAndVectorSeismicAnalysis(obj, solver)
 !            exit
 !        endif
 !
-!    enddo
+    enddo
 
 end subroutine
 ! ##############################################

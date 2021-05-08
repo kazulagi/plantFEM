@@ -23,12 +23,84 @@ module LinearSolverClass
     integer(int32) :: currentID=1
     real(real64) :: er0=dble(1.0e-08)
   contains
+    procedure, public :: init => initLinearSolver
     procedure, public :: set => setLinearSolver
+    procedure, public :: assemble => assembleLinearSolver
     procedure, public :: import => importLinearSolver
     procedure, public :: fix => fixLinearSolver
     procedure, public :: solve => solveLinearSolver
   end type
 contains
+
+!====================================================================================
+subroutine initLinearSolver(obj)
+  class(LinearSolver_),intent(inout) :: obj
+  
+    ! non-Element-by-element
+  if(allocated(obj % a) ) deallocate(obj % a)
+  if(allocated(obj % b) ) deallocate(obj % b)
+  if(allocated(obj % x) ) deallocate(obj % x)
+  ! Element-by-element
+  if(allocated(obj % a_e) ) deallocate(obj % a_e)
+  if(allocated(obj % b_e) ) deallocate(obj % b_e)
+  if(allocated(obj % x_e) ) deallocate(obj % x_e)
+
+  if(allocated(obj % val) ) deallocate(obj % val)
+  if(allocated(obj % index_I) ) deallocate(obj % index_I)
+  if(allocated(obj % index_J) ) deallocate(obj % index_J)
+
+  if(allocated(obj % connectivity) ) deallocate(obj % connectivity)
+
+  obj % itrmax=1000000
+  obj % currentID=1
+  obj % er0=dble(1.0e-08)
+end subroutine
+!====================================================================================
+
+
+!====================================================================================
+subroutine assembleLinearSolver(obj,connectivity,DOF,eMatrix,eVector)
+  class(LinearSolver_),intent(inout) :: obj 
+  integer(int32),intent(in) :: connectivity(:) ! connectivity matrix 
+  !(global_node_id#1, global_node_id#2, global_node_id#3, . )
+  integer(int32),intent(in) :: DOF ! degree of freedom
+  real(real64),optional,intent(in) :: eMatrix(:,:) ! elemental matrix
+  real(real64),optional,intent(in) :: eVector(:) ! elemental Vector
+  integer(int32) :: i,j,k,l,m,node_id1,node_id2
+  
+  
+  if(present(eMatrix) )then
+    do j=1, size(connectivity)
+      do k=1, size(connectivity)
+        do l=1, DOF
+          do m=1, DOF
+            node_id1 = connectivity(j)
+            node_id2 = connectivity(k)
+            call obj%set(&
+                low=DOF*(node_id1-1) + l, &
+                column= DOF*(node_id2-1) + m, &
+                entryvalue=eMatrix( DOF*(j-1) + l  , DOF*(k-1) + m ) )
+          enddo
+        enddo
+      enddo
+    enddo
+  endif
+
+  if(present(eVector) )then
+    do j=1, size(connectivity)
+        do l=1, DOF
+            node_id1 = connectivity(j)
+            call obj%set(&
+                low=DOF*(node_id1-1) + l, &
+                entryvalue=eVector( DOF*(j-1) + l ) )
+          
+        enddo
+    enddo
+  endif
+
+end subroutine
+!====================================================================================
+
 
 !====================================================================================
 subroutine fixLinearSolver(obj,nodeid,entryvalue)

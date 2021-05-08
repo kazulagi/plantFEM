@@ -87,6 +87,7 @@ module FEMDomainClass
         procedure,public :: addTBoundCondition => AddTBoundCondition
         procedure,public :: addMaterialID => AddMaterialID
 		procedure,public :: assign => ImportFEMDomain
+		procedure,public :: allconnectivity => allconnectivityFEMDomain
 		
 		procedure,public :: bake => bakeFEMDomain
 		procedure,public :: bakeMaterials => bakeMaterialsFEMDomain
@@ -95,6 +96,7 @@ module FEMDomainClass
 		procedure,public :: bakeTBoundaries => bakeTBoundariesFEMDomain
 		
 		procedure,public :: checkConnectivity => CheckConnedctivityFEMDomain
+		procedure,public :: connectivity => connectivityFEMDomain 
 		procedure,public :: copy => copyFEMDomain
 		procedure,public :: convertMeshType => convertMeshTypeFEMDomain
 		procedure,public :: contactdetect => contactdetectFEMDomain
@@ -8631,6 +8633,28 @@ function ElementVectorFEMDomain(obj,ElementID,GlobalVector,DOF) result(ElementVe
 end function
 ! ##########################################################################
 
+
+! ##########################################################################
+function connectivityFEMDomain(obj,ElementID) result(ret)
+	class(FEMDomain_),intent(in) :: obj
+	integer(int32),intent(in) :: ElementID
+	integer(int32),allocatable :: ret(:)
+
+	allocate(ret(size(obj%mesh%elemnod,2) ))
+	ret(:) = obj%mesh%elemnod(ElementID,:)
+
+end function
+! ##########################################################################
+
+! ##########################################################################
+function allconnectivityFEMDomain(obj) result(ret)
+	class(FEMDomain_),intent(in) :: obj
+	integer(int32),allocatable :: ret(:,:)
+
+	ret = obj%mesh%elemnod(:,:)
+
+end function
+! ##########################################################################
 
 
 end module FEMDomainClass
