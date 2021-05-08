@@ -29,6 +29,9 @@ module LinearSolverClass
     procedure, public :: import => importLinearSolver
     procedure, public :: fix => fixLinearSolver
     procedure, public :: solve => solveLinearSolver
+    procedure, public :: show => showLinearSolver
+    procedure, public :: globalMatrix => globalMatrixLinearSolver
+    procedure, public :: globalVector => globalVectorLinearSolver
   end type
 contains
 
@@ -1158,8 +1161,50 @@ function eigen_3d(tensor) result(eigenvector)
 
 
 end function
+!====================================================================================
+subroutine showLinearSolver(obj)
+  class(LinearSolver_),intent(in) :: obj
+  real(real64),allocatable :: A_ij(:,:)
+  integer(int32) :: i,j,n,m
 
+  n = maxval(obj%Index_I)
+  m = maxval(obj%Index_J)
+  n = maxval( (/n, m/) )
 
+  A_ij = zeros(n,n) 
+  do i=1,size(obj%val)
+    A_ij(obj%Index_I(i),obj%Index_J(i) ) = A_ij(obj%Index_I(i),obj%Index_J(i) ) + obj%val(i)
+  enddo
+
+  call print(A_ij)
+end subroutine
+!====================================================================================
+!====================================================================================
+function globalMatrixLinearSolver(obj) result(ret)
+  class(LinearSolver_),intent(in) :: obj
+  real(real64),allocatable :: ret(:,:)
+  integer(int32) :: i,j,n,m
+
+  n = maxval(obj%Index_I)
+  m = maxval(obj%Index_J)
+  n = maxval( (/n, m/) )
+
+  ret = zeros(n,n) 
+  do i=1,size(obj%val)
+    ret(obj%Index_I(i),obj%Index_J(i) ) = ret(obj%Index_I(i),obj%Index_J(i) ) + obj%val(i)
+  enddo
+
+end function
+!====================================================================================
+
+!====================================================================================
+function globalVectorLinearSolver(obj) result(ret)
+  class(LinearSolver_),intent(in) :: obj
+  real(real64),allocatable :: ret(:)
+
+  ret = obj%b
+
+end function
+!====================================================================================
 
 end module
-!====================================================================================
