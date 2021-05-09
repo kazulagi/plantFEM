@@ -511,9 +511,10 @@ end subroutine writeIOre64
 
 
 ! #############################################
-subroutine writeIOre64Vector(obj,re64)
+subroutine writeIOre64Vector(obj,re64,sparse)
     class(IO_),intent(inout) :: obj
     real(real64),intent(in) :: re64(:)
+    logical,optional,intent(in) :: sparse
     integer(int32) :: i
 
     if(obj%state=="r")then
@@ -521,6 +522,22 @@ subroutine writeIOre64Vector(obj,re64)
         call print("Nothing is written.")
         return
     endif
+
+    if(present(sparse) )then
+        if(sparse)then
+            do i=1,size(re64,1)
+                if(re64(i)==0.0d0)then
+                    write(obj%fh, '(A)', advance='no') '0 '
+                else
+                    write(obj%fh, '(A)', advance='no') '* '
+                endif
+                write(obj%fh, '(A)', advance='yes') ' '
+            enddo
+            return
+        endif
+    endif
+
+
     do i=1,size(re64)
         write(obj%fh, '(A)') trim(str(re64(i) ))
     enddo
@@ -528,16 +545,34 @@ end subroutine
 ! #############################################
 
 
+
 ! #############################################
-subroutine writeIOre64Array(obj,re64)
+subroutine writeIOre64Array(obj,re64,sparse)
     class(IO_),intent(inout) :: obj
     real(real64),intent(in) :: re64(:,:)
-    integer(int32) :: i
+    logical,optional,intent(in) :: sparse
+    integer(int32) :: i,j
 
     if(obj%state=="r")then
         call print("IOClass >> Error >> This file is readonly. ")
         call print("Nothing is written.")
         return
+    endif
+    if(present(sparse) )then
+        if(sparse)then
+            
+            do i=1,size(re64,1)
+                do j=1,size(re64,2)
+                    if(re64(i,j)==0.0d0)then
+                        write(obj%fh, '(A)', advance='no') '0 '
+                    else
+                        write(obj%fh, '(A)', advance='no') '* '
+                    endif
+                enddo 
+                write(obj%fh, '(A)', advance='yes') ' '
+            enddo
+            return
+        endif
     endif
     do i=1,size(re64,1)
         write(obj%fh, *) re64(i,:) 
