@@ -180,6 +180,7 @@ module FEMDomainClass
         procedure,public :: setUp      => SetUpFEMDomain
 		procedure,public :: setBoundary => setBoundaryFEMDomain
         procedure,public :: setControlPara =>  SetControlParaFEMDomain
+		procedure,public :: select => selectFEMDomain
 		procedure,public :: show => showFEMDomain
 		procedure,public :: showRange => showRangeFEMDomain
 		procedure,public :: showMaterials => showMaterialsFEMDomain
@@ -7990,7 +7991,7 @@ end function
 
 ! ######################################################################
 function nnFEMDomain(obj) result(ret)
-	class(FEMDomain_),intent(inout) :: obj
+	class(FEMDomain_),intent(in) :: obj
 	integer(int32) :: ret
 
 	ret = size(obj%mesh%nodcoord,1)
@@ -7999,7 +8000,7 @@ end function
 ! ######################################################################
 ! ######################################################################
 function ndFEMDomain(obj) result(ret)
-	class(FEMDomain_),intent(inout) :: obj
+	class(FEMDomain_),intent(in) :: obj
 	integer(int32) :: ret
 
 	ret = size(obj%mesh%nodcoord,2)
@@ -8008,7 +8009,7 @@ end function
 ! ######################################################################
 ! ######################################################################
 function neFEMDomain(obj) result(ret)
-	class(FEMDomain_),intent(inout) :: obj
+	class(FEMDomain_),intent(in) :: obj
 	integer(int32) :: ret
 
 	ret = size(obj%mesh%ElemNod,1)
@@ -8018,7 +8019,7 @@ end function
 
 ! ######################################################################
 function nneFEMDomain(obj) result(ret)
-	class(FEMDomain_),intent(inout) :: obj
+	class(FEMDomain_),intent(in) :: obj
 	integer(int32) :: ret
 
 	ret = size(obj%mesh%ElemNod,2)
@@ -8656,5 +8657,44 @@ function allconnectivityFEMDomain(obj) result(ret)
 end function
 ! ##########################################################################
 
+function selectFEMDomain(obj,x_min,x_max,y_min,y_max,z_min,z_max) result(NodeList)
+	class(FEMDomain_),intent(in) :: obj
+	real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
+	real(real64) :: x(3),xmax(3),xmin(3)
+	integer(int32),allocatable :: NodeList(:),CheckList(:)
+	logical :: InOut
+	integer(int32) :: i,j,n
+
+	CheckList = int(zeros(obj%nn()) )
+	xmin(1) = input(default=minval(obj%mesh%nodcoord(:,1)),option=x_min )
+	xmin(2) = input(default=minval(obj%mesh%nodcoord(:,2)),option=y_min )
+	xmin(3) = input(default=minval(obj%mesh%nodcoord(:,3)),option=z_min )
+
+	xmax(1) = input(default=maxval(obj%mesh%nodcoord(:,1)),option=x_max )
+	xmax(2) = input(default=maxval(obj%mesh%nodcoord(:,2)),option=y_max )
+	xmax(3) = input(default=maxval(obj%mesh%nodcoord(:,3)),option=z_max )
+
+	n = 0
+	do i=1, obj%nn()
+		x(:)=obj%mesh%nodcoord(i,:)
+		InOut = InOrOut(x=x,xmax=xmax,xmin=xmin,DimNum=obj%nd() )
+		if(InOut)then
+			! inside
+			CheckList(i) = 1
+			n=n+1
+		endif
+	enddo
+
+	NodeList = int(zeros(n)  )
+	n=0
+	do i=1,size(CheckList)
+		if(CheckList(i)==1 )then
+			n=n+1
+			NodeList(n)=i
+		endif
+	enddo
+
+end function
+! ##########################################################################
 
 end module FEMDomainClass
