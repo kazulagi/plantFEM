@@ -154,6 +154,8 @@ module FEMDomainClass
 		procedure,public :: nd => ndFEMDomain
 		procedure,public :: ne => neFEMDomain
 		procedure,public ::	nne => nneFEMDomain
+		procedure,public ::	NodeID => NodeIDFEMDomain
+		
 
 		procedure,public :: open => openFEMDomain
 
@@ -197,7 +199,8 @@ module FEMDomainClass
 		procedure,public :: Dmatrix => DMatrixFEMDomain
 		procedure,public :: StiffnessMatrix => StiffnessMatrixFEMDomain 
 		procedure,public :: DiffusionMatrix => DiffusionMatrixFEMDomain 
-		procedure,public :: ElementVector => ElementVectorFEMDomain
+		procedure,public :: ElementVector => ElementVectorFEMDomain 
+		procedure,public :: GlobalVector => GlobalVectorFEMDomain
     end type FEMDomain_
 
 	!type:: FEMDomainp_
@@ -8636,6 +8639,49 @@ end function
 
 
 ! ##########################################################################
+subroutine GlobalVectorFEMDomain(obj,ElementID,ElementVector,DOF,Replace, Reset,GlobalVector)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32),intent(in) :: ElementID
+	real(real64),intent(in) :: ElementVector(:) 
+	real(real64),allocatable,intent(inout) :: GlobalVector(:)! size = number_of_node*DOF
+	integer(int32),optional,intent(in) :: DOF
+	logical,optional,intent(in) :: Replace, Reset
+	integer(int32) :: i,j,k,num_node_per_elem, num_dim,nodal_DOF,node_id
+	
+	! For Element ID = ElementID, create ElementVector and return it
+	! Number of Gauss Point = number of node per element, as default.
+
+	num_node_per_elem = obj%nne()
+	nodal_DOF = input(default=1, option=DOF)
+
+	if(.not. allocated(GlobalVector) )then
+		GlobalVector = zeros(obj%nn() * nodal_DOF )
+	endif
+
+	if(present(Replace) )then
+		if(Replace)then
+			GlobalVector = zeros(obj%nn() * nodal_DOF )
+		endif
+	endif
+
+	if(present(Reset) )then
+		if(Reset)then
+			GlobalVector = zeros(obj%nn() * nodal_DOF )
+		endif
+	endif
+
+	do j=1, obj%nne() ! NNE : Number of Node per Element
+		do k=1, nodal_DOF
+			GlobalVector( (obj%NodeID(ElementID,j)-1)*nodal_DOF + k ) = &
+				ElementVector( (j-1)*nodal_DOF +  k )
+		enddo
+	enddo
+
+end subroutine
+! ##########################################################################
+
+
+! ##########################################################################
 function connectivityFEMDomain(obj,ElementID) result(ret)
 	class(FEMDomain_),intent(in) :: obj
 	integer(int32),intent(in) :: ElementID
@@ -8693,6 +8739,18 @@ function selectFEMDomain(obj,x_min,x_max,y_min,y_max,z_min,z_max) result(NodeLis
 			NodeList(n)=i
 		endif
 	enddo
+
+end function
+! ##########################################################################
+
+
+! ##########################################################################
+function NodeIDFEMDomain(obj,ElementID,LocalNodeID) result(NodeID)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32),intent(in) :: ElementID,LocalNodeID
+	integer(int32) :: NodeID
+
+	NodeID = obj%mesh%elemnod(ElementID,LocalNodeID)
 
 end function
 ! ##########################################################################
