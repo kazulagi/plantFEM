@@ -12,9 +12,17 @@ module ArrayClass
     !interface newArray
     !    module procedure newArrayReal
     !end interface
+
+
     interface zeros
         module procedure :: zerosRealArray, zerosRealVector
     end interface
+
+    interface increment
+        module procedure :: incrementRealVector, incrementIntVector,&
+            incrementRealArray, incrementIntArray 
+    end interface
+
 
     interface arange
         module procedure :: arangeRealVector
@@ -3994,6 +4002,74 @@ function zerosRealArray(size1, size2) result(array)
     array(:,:) = 0.0d0
 
 end function
+
+! ############################################################
+function incrementRealVector(vector) result(dvector)
+    real(real64),intent(in) :: vector(:)
+    real(real64),allocatable ::  dvector(:)
+    integer(int32) :: i
+
+    dvector = zeros(size(vector)-1 )
+
+    do i=1,size(dvector)
+        dvector(i) = vector(i+1) - vector(i)
+    enddo
+
+end function
+! ############################################################
+
+
+! ############################################################
+function incrementIntVector(vector) result(dvector)
+    integer(int32),intent(in) :: vector(:)
+    integer(int32),allocatable ::  dvector(:)
+    integer(int32) :: i
+
+    dvector = zeros(size(vector)-1 )
+
+    do i=1,size(dvector)
+        dvector(i) = vector(i+1) - vector(i)
+    enddo
+    
+end function
+! ############################################################
+
+! ############################################################
+function incrementRealArray(matrix,column) result(dmatrix)
+    real(real64),intent(in) :: matrix(:,:)
+    real(real64),allocatable ::  dmatrix(:,:)
+    integer(int32),intent(in) :: column
+    integer(int32) :: i
+
+    dmatrix = zeros(size(matrix,1)-1,size(matrix,2)  )
+
+    do i=1,size(dmatrix,1)
+        dmatrix(i,:) = matrix(i,:)
+        dmatrix(i,column) = matrix(i+1,column) - matrix(i,column)
+    enddo
+
+end function
+! ############################################################
+
+
+! ############################################################
+function incrementIntArray(matrix,column) result(dmatrix)
+    integer(int32),intent(in) :: matrix(:,:)
+    integer(int32),allocatable:: dmatrix(:,:)
+    integer(int32),intent(in) :: column
+    integer(int32) :: i
+
+    dmatrix = zeros(size(matrix,1)-1,size(matrix,2)  )
+
+    do i=1,size(dmatrix,1)
+        dmatrix(i,:) = matrix(i,:)
+        dmatrix(i,column) = matrix(i+1,column) - matrix(i,column)
+    enddo
+
+end function
+! ############################################################
+
+
 ! ############################################################
 ! https://numpy.org/doc/stable/reference/generated/numpy.arange.html
 ! same as numpy.arange
@@ -4176,6 +4252,5 @@ function dotArrayClass(x,y) result(z)
 
 end function
 ! ############################################################
-
 
 end module ArrayClass
