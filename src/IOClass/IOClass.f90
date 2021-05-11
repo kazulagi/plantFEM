@@ -798,16 +798,15 @@ subroutine plotRealArray(x,y,z,xr,yr,zr)
     call print("Press Ctrl+c to close window.")
     call f%open("__plotRealArray__buf_.gp")
     call f%write('unset key' )
-    do i=1,size(x)
-        if(present(xr) )then
-            call f%write('set xr'//trim(xr) )
-        endif
-        if(present(yr) )then
-            call f%write('set yr'//trim(yr) )
-        endif
-        call f%write('plot "__plotRealArray__buf_.txt" w l')
-        call f%write("pause -1")
-    enddo
+    
+    if(present(xr) )then
+        call f%write('set xr'//trim(xr) )
+    endif
+    if(present(yr) )then
+        call f%write('set yr'//trim(yr) )
+    endif
+    call f%write('plot "__plotRealArray__buf_.txt" w l')
+    call f%write("pause 10")
     call f%close()
 
     call system("gnuplot __plotRealArray__buf_.gp")

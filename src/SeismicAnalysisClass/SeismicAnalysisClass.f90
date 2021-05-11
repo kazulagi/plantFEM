@@ -4,11 +4,16 @@ module SeismicAnalysisClass
 
     type::SeismicAnalysis_
         type(FEMDomain_),pointer :: femdomain
+        real(real64),allocatable :: da(:) ! increment of accel.
         real(real64),allocatable :: a(:) ! accel.
         real(real64),allocatable :: v(:) ! velocity
         real(real64),allocatable :: u(:) ! disp.
         real(real64),allocatable :: du(:) ! increment of disp.
         real(real64),allocatable :: wave(:,:)
+        real(real64),allocatable :: dwave(:,:)
+
+        integer(int32),allocatable :: WaveNodeList(:)
+
         real(real64) :: dt=1.0d0
         real(real64) :: error=0.0d0
         real(real64) :: t=0.0d0
@@ -16,11 +21,12 @@ module SeismicAnalysisClass
         real(real64) :: beta  = 0.50d0 ! Rayleigh damping parameters
         real(real64) :: Newmark_beta  = 0.250d0 ! Nemark-beta method parameters
         real(real64) :: Newmark_delta  = 0.50d0 ! Nemark-beta method parameters
-        integer(int32) :: timestep=1
     contains
         procedure, public :: init => initSeismicAnalysis
+        procedure, public :: loadWave => loadWaveSeismicAnalysis
         procedure, public :: run => runSeismicAnalysis
-        procedure, public :: CreateMatrixAndVector => CreateMatrixAndVectorSeismicAnalysis
+        procedure, public :: LinearReyleighNewmark => LinearReyleighNewmarkSeismicAnalysis
+        procedure, public :: save => saveSeismicAnalysis
     end type
 
 contains
@@ -32,27 +38,86 @@ subroutine initSeismicAnalysis(obj)
     obj%U = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
     obj%V = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
     obj%A = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
+    obj%dA = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
 
 end subroutine
 ! ##############################################
 
 
 ! ##############################################
-subroutine runSeismicAnalysis(obj,dt,timestep,wave)
+subroutine saveSeismicAnalysis(obj,name,ratio)
+    class(SeismicAnalysis_),intent(inout) :: obj
+    character(*),intent(in) :: name
+    real(real64),optional,intent(in) :: ratio
+    real(real64) :: rat
+    
+    rat = input(default=1.0d0,option=ratio)
+    obj%femdomain%mesh%nodcoord(:,:) = obj%femdomain%mesh%nodcoord(:,:) &
+        + rat*reshape(obj%U,obj%femdomain%nn(),obj%femdomain%nd() )
+    call obj%femdomain%msh(name)
+    obj%femdomain%mesh%nodcoord(:,:) = obj%femdomain%mesh%nodcoord(:,:) &
+        - rat*reshape(obj%U,obj%femdomain%nn(),obj%femdomain%nd() )
+    
+end subroutine
+! ##############################################
+
+
+! ##############################################
+subroutine loadWaveSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_max)
+    class(SeismicAnalysis_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
+
+    obj%WaveNodeList = obj%femdomain%select(x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+end subroutine
+! ##############################################
+
+subroutine updateWaveSeismicAnalysis(obj)
+    class(SeismicAnalysis_),intent(inout) :: obj
+    integer(int32) :: node_id,i
+
+    if(.not. allocated(obj%WaveNodeList) )then
+        print *, "Caution >> updateWaveSeismicAnalysis >> no wave"
+    endif
+
+    do i=1,size(obj%WaveNodeList)
+        node_id = obj%WaveNodeList(i)
+        obj%dA(node_id) = obj%dwave(node_id,2)
+    enddo
+
+end subroutine
+
+! ##############################################
+subroutine runSeismicAnalysis(obj,t0,timestep,wave)
     class(SeismicAnalysis_),intent(inout) :: obj
     type(LinearSolver_) :: solver
-    real(real64),optional,intent(in) :: dt
+    real(real64),optional,intent(in) :: t0
     integer(int32),optional,intent(in) :: timestep
     real(real64),optional,intent(in) :: wave(:,:)
-    integer(int32) :: i
+    integer(int32) :: i,step
 
     if(present(wave) )then
         obj%wave = wave
     endif
-    do i=1, obj%timestep
-        obj%t = obj%t + dt
+
+    ! set wave
+    ! wave = a(t)
+    ! dwave = da(t)
+    obj%dwave = increment(obj%wave,2 )
+    step = input(default=size(obj%wave,1)-1,option=timestep )
+    obj%t = input(default=0.0d0,option=t0 )
+
+    do i=1, step
+        ! update dt
+        obj%dt = obj%wave(i+1,1) - obj%wave(i,1)
+        
+        ! update time
+        obj%t = obj%t + obj%dt
+
+        ! show info.
         call print("SeismicAnalysis >> "//str(obj%t-obj%dt)//"< t <"//str(obj%t)//" sec.")
-        call obj%CreateMatrixAndVector(solver)
+        
+        ! solve Linear-ElastoDynamic problem with Reyleigh dumping and Newmark Beta
+        call obj%LinearReyleighNewmark()
         
     enddo 
 end subroutine
@@ -60,9 +125,9 @@ end subroutine
 
 
 ! ##############################################
-subroutine CreateMatrixAndVectorSeismicAnalysis(obj, solver,TOL)
+subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
     class(SeismicAnalysis_),intent(inout) :: obj
-    type(LinearSolver_),intent(inout) :: solver
+    type(LinearSolver_) :: solver
     type(IO_) :: f
     real(real64),allocatable :: M_ij(:,:)
     real(real64),allocatable :: C_ij(:,:)
@@ -109,7 +174,8 @@ subroutine CreateMatrixAndVectorSeismicAnalysis(obj, solver,TOL)
             U_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%U, DOF=obj%femdomain%nd() )
             V_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%V, DOF=obj%femdomain%nd() )
             A_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A, DOF=obj%femdomain%nd() )
-            dA_i  = zeros(size(A_i) ) ! 本当?
+            dA_i = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%dA, DOF=obj%femdomain%nd() )
+
 
             dF_i = obj%femdomain%MassVector(&
                 ElementID=i, &
@@ -142,22 +208,9 @@ subroutine CreateMatrixAndVectorSeismicAnalysis(obj, solver,TOL)
         enddo
 
 
-
-        ! Introduce Boundary Condition
-        FixNodeList = obj%femdomain%select(y_max=0.10d0)
-        do i=1,size(FixNodeList)
-            call solver%fix( 3*i - 2 , 0.0d0 )
-            call solver%fix( 3*i - 1 , 0.0d0 )
-            call solver%fix( 3*i - 0 , 0.0d0 )
-        enddo
-
         ! Now [A] {du} = {R} is ready
         ! Solve
         call solver%solve("BiCGSTAB",CRS=.true.)
-
-        coordinate = reshape(solver%x, obj%femdomain%nn(),obj%femdomain%nd() )
-        obj%femdomain%mesh%nodcoord = obj%femdomain%mesh%nodcoord + coordinate
-        call obj%femdomain%msh("first deform")
 
         obj%dU = solver%x
         
