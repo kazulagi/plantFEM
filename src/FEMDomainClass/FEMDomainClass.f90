@@ -3462,7 +3462,7 @@ recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname)
 		enddo
 	endif
 
-	call f%open(trim(name)//".msh" )
+	call f%open(trim(name)//".msh",'w')
 	write(f%fh, '(a)') "$MeshFormat"
 	! version of gmsh, 0=ASCII, 8=real(8)
 	write(f%fh, '(a)' ) "2.2 0 8"
