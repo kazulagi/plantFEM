@@ -13,7 +13,7 @@ module SeismicAnalysisClass
         real(real64),allocatable :: dwave(:,:)
 
         integer(int32),allocatable :: WaveNodeList(:)
-
+        character(1) :: wavetype="z"
         real(real64) :: dt=1.0d0
         real(real64) :: error=0.0d0
         real(real64) :: t=0.0d0
@@ -24,6 +24,7 @@ module SeismicAnalysisClass
     contains
         procedure, public :: init => initSeismicAnalysis
         procedure, public :: loadWave => loadWaveSeismicAnalysis
+        procedure, public :: updateWave => updateWaveSeismicAnalysis
         procedure, public :: run => runSeismicAnalysis
         procedure, public :: LinearReyleighNewmark => LinearReyleighNewmarkSeismicAnalysis
         procedure, public :: save => saveSeismicAnalysis
@@ -38,7 +39,6 @@ subroutine initSeismicAnalysis(obj)
     obj%U = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
     obj%V = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
     obj%A = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
-    obj%dA = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
 
 end subroutine
 ! ##############################################
@@ -50,38 +50,75 @@ subroutine saveSeismicAnalysis(obj,name,ratio)
     character(*),intent(in) :: name
     real(real64),optional,intent(in) :: ratio
     real(real64) :: rat
-    
+    integer(int32) :: i,j
+
     rat = input(default=1.0d0,option=ratio)
-    obj%femdomain%mesh%nodcoord(:,:) = obj%femdomain%mesh%nodcoord(:,:) &
-        + rat*reshape(obj%U,obj%femdomain%nn(),obj%femdomain%nd() )
-    call obj%femdomain%msh(name)
-    obj%femdomain%mesh%nodcoord(:,:) = obj%femdomain%mesh%nodcoord(:,:) &
-        - rat*reshape(obj%U,obj%femdomain%nn(),obj%femdomain%nd() )
+
+    do i=1,obj%femdomain%nn()
+        do j=1,obj%femdomain%nd()
+            obj%femdomain%mesh%nodcoord(i,j) = obj%femdomain%mesh%nodcoord(i,j)&
+                + rat*obj%U( obj%femdomain%nd()*(i-1) + j )
+        enddo
+    enddo
+
+    call obj%femdomain%msh(name=name)
+
+    do i=1,obj%femdomain%nn()
+        do j=1,obj%femdomain%nd()
+            obj%femdomain%mesh%nodcoord(i,j) = obj%femdomain%mesh%nodcoord(i,j)&
+                - rat*obj%U( obj%femdomain%nd()*(i-1) + j )
+        enddo
+    enddo
+    
+
+    !obj%femdomain%mesh%nodcoord(:,:) = obj%femdomain%mesh%nodcoord(:,:) &
+    !    - rat*reshape(obj%U,obj%femdomain%nn(),obj%femdomain%nd() )
     
 end subroutine
 ! ##############################################
 
 
 ! ##############################################
-subroutine loadWaveSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_max)
+subroutine loadWaveSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_max,direction)
     class(SeismicAnalysis_),intent(inout) :: obj
     real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
+    character(1),optional,intent(in) :: direction ! x, y or z
 
-    obj%WaveNodeList = obj%femdomain%select(x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+    if(present(direction) )then
+        obj%wavetype = direction
+    endif
+
+    obj%WaveNodeList = obj%femdomain%select(&
+        x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
 end subroutine
 ! ##############################################
 
-subroutine updateWaveSeismicAnalysis(obj)
+subroutine updateWaveSeismicAnalysis(obj,timestep,direction)
     class(SeismicAnalysis_),intent(inout) :: obj
-    integer(int32) :: node_id,i
+    integer(int32),intent(in) :: timestep
+    character(1),optional,intent(in) :: direction ! x, y or z
+    integer(int32) :: node_id,i,dir,dim_num
+
+    if(present(direction) )then
+        obj%wavetype = direction
+    endif
+    if(obj%wavetype=="x" .or.obj%wavetype=="X" )then
+        dir=1
+    endif
+    if(obj%wavetype=="y" .or.obj%wavetype=="Y" )then
+        dir=2
+    endif
+    if(obj%wavetype=="z" .or.obj%wavetype=="Z" )then
+        dir=3
+    endif
 
     if(.not. allocated(obj%WaveNodeList) )then
         print *, "Caution >> updateWaveSeismicAnalysis >> no wave"
     endif
-
+    dim_num = obj%femdomain%nd()
     do i=1,size(obj%WaveNodeList)
         node_id = obj%WaveNodeList(i)
-        obj%dA(node_id) = obj%dwave(node_id,2)
+        obj%A( dim_num*(node_id-1)+dir ) = obj%wave(timestep ,2)
     enddo
 
 end subroutine
@@ -113,12 +150,16 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave)
         ! update time
         obj%t = obj%t + obj%dt
 
+        call obj%updateWave(timestep=i)
+
         ! show info.
         call print("SeismicAnalysis >> "//str(obj%t-obj%dt)//"< t <"//str(obj%t)//" sec.")
         
         ! solve Linear-ElastoDynamic problem with Reyleigh dumping and Newmark Beta
         call obj%LinearReyleighNewmark()
         
+        call obj%save("step_"//str(i),ratio=1.0d0)
+
     enddo 
 end subroutine
 ! ##############################################
@@ -145,8 +186,9 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
     integer(int32),allocatable :: FixNodeList(:) 
     real(real64),allocatable   :: Coordinate(:,:)
     real(real64),optional,intent(in) :: TOL
-    real(real64) :: TOL_seismic
+    real(real64) :: TOL_seismic,center_accel(3)
 
+    
     TOL_seismic = input(default=dble(1.0e-14),option=TOL )
 
     dim_num = size(obj%femdomain%mesh%nodcoord,2)
@@ -161,7 +203,7 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
         allocate(obj%u(n) )
     endif
 
-    do  ! Newton's Loop
+    !do  ! Newton's Loop
         ! Element matrix
         call solver%init()
 
@@ -169,21 +211,28 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
             ! For each element
             ! Ax=b will be installed into solver
             M_ij = obj%femdomain%MassMatrix(ElementID=i,DOF=obj%femdomain%nd() )
-            K_ij = obj%femdomain%StiffnessMatrix(ElementID=i,E=1000.0d0,v=0.30d0)
+            K_ij = obj%femdomain%StiffnessMatrix(ElementID=i,E=10000000.0d0,v=0.30d0)
             C_ij = obj%alpha * M_ij + obj%beta * K_ij
             U_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%U, DOF=obj%femdomain%nd() )
             V_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%V, DOF=obj%femdomain%nd() )
             A_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A, DOF=obj%femdomain%nd() )
-            dA_i = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%dA, DOF=obj%femdomain%nd() )
-
+            
+            dim_num = obj%femdomain%nd()
+            center_accel = 0.0d0
+            do j=1,obj%femdomain%nne() 
+                do k=1,obj%femdomain%nd() 
+                    center_accel(k) = center_accel(k) + A_i(dim_num*(j-1)+k ) 
+                enddo
+            enddo
+            center_accel = center_accel/dble(obj%femdomain%nne())
 
             dF_i = obj%femdomain%MassVector(&
                 ElementID=i, &
                 DOF=obj%femdomain%nd(), &
-                Density=0.10d0,&
-                Accel=(/0.0d0, 0.0d0, 9.80d0/) &
+                Density=17.0d0,&
+                Accel=center_accel &
                 )
-            R_i = zeros(size(dF_i) )
+            R_i = zeros(size(dF_i))
 
             ! A_ij dU_j = R_i 
             A_ij = K_ij &
@@ -193,7 +242,7 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
             R_i(:) = dF_i(:) + 1.0d0/(obj%Newmark_beta*obj%dt)*matmul(M_ij, V_i)&
                 + 1.0d0/(obj%Newmark_beta*2.0d0)*matmul(M_ij, A_i)&
                 + obj%Newmark_delta/obj%Newmark_beta*matmul(C_ij, V_i)&
-                + (obj%Newmark_delta/2.0d0*obj%Newmark_beta-1.0d0)*obj%dt*matmul(C_ij, A_i)
+                + (obj%Newmark_delta/(2.0d0*obj%Newmark_beta)-1.0d0)*obj%dt*matmul(C_ij, A_i)
 
             ! Assemble stiffness matrix
             call solver%assemble(&
@@ -214,7 +263,7 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
 
         obj%dU = solver%x
         
-        
+        print *, maxval(solver%x)
 
         do i=1,obj%femdomain%ne()
             ! For each element
@@ -224,10 +273,10 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
             A_i  = obj%femdomain%ElementVector(ElementID=i,GlobalVector=obj% A, DOF=obj%femdomain%nd())
             
             dA_i = 1.0d0/(obj%Newmark_beta*obj%dt*obj%dt)*(&
-                dU_i - obj%dt*V_i - obj%dt*obj%dt/2.0d0*dA_i &
+                dU_i - obj%dt*V_i - obj%dt*obj%dt/2.0d0*A_i &
                 )
             
-            dV_i = obj%dt * (A_i + obj%Newmark_beta*dA_i )
+            dV_i = obj%dt * (A_i + obj%Newmark_delta*dA_i )
 
             U_i = U_i + dU_i
             V_i = V_i + dV_i
@@ -254,15 +303,14 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
                 DOF=obj%femdomain%nd() )
 
         enddo
-return
         ! obj%error == 0 only if nonlinear elasticity.
         ! if Error <= TOL
-        if(obj%error <= TOL_seismic)then
-            ! Converged.
-            exit
-        endif
-
-    enddo
+!        if(obj%error <= TOL_seismic)then
+!            ! Converged.
+!            exit
+!        endif
+!
+!    enddo
 
 end subroutine
 ! ##############################################
