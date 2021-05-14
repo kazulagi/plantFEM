@@ -23,10 +23,10 @@ subroutine getDiffusionEquation1D(domain,LinearSolver)
         k  = domain%materialprop%matpara(materialid,1)
         f  = domain%materialprop%matpara(materialid,2)
 
-        Kmat(1,1)=  k*Le
-        Kmat(1,2)= -k*Le
-        Kmat(2,1)= -k*Le
-        Kmat(2,2)=  k*Le
+        Kmat(1,1)=  k/Le
+        Kmat(1,2)= -k/Le
+        Kmat(2,1)= -k/Le
+        Kmat(2,2)=  k/Le
 
         fvec(1) = 0.50d0*f*Le
         fvec(2) = 0.50d0*f*Le

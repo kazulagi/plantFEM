@@ -13,6 +13,9 @@ module SeismicAnalysisClass
         real(real64),allocatable :: dwave(:,:)
 
         integer(int32),allocatable :: WaveNodeList(:)
+        integer(int32),allocatable :: FixNodeList_x(:)
+        integer(int32),allocatable :: FixNodeList_y(:)
+        integer(int32),allocatable :: FixNodeList_z(:)
         character(1) :: wavetype="z"
         real(real64) :: dt=1.0d0
         real(real64) :: error=0.0d0
@@ -24,6 +27,7 @@ module SeismicAnalysisClass
     contains
         procedure, public :: init => initSeismicAnalysis
         procedure, public :: loadWave => loadWaveSeismicAnalysis
+        procedure, public :: fixDisplacement => fixDisplacementSeismicAnalysis 
         procedure, public :: updateWave => updateWaveSeismicAnalysis
         procedure, public :: run => runSeismicAnalysis
         procedure, public :: LinearReyleighNewmark => LinearReyleighNewmarkSeismicAnalysis
@@ -92,6 +96,53 @@ subroutine loadWaveSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_max,direc
         x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
 end subroutine
 ! ##############################################
+
+
+! ##############################################
+subroutine fixDisplacementSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_max,direction)
+    class(SeismicAnalysis_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
+    character(*),optional,intent(in) :: direction ! x, y or z
+
+
+    if(present(direction) )then
+        if( trim(direction) == "x" .or.  trim(direction) == "X")then
+            obj%FixNodeList_x = obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+        elseif( trim(direction) == "y" .or.  trim(direction) == "Y")then
+            obj%FixNodeList_y = obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+        elseif( trim(direction) == "z" .or.  trim(direction) == "Z")then
+            obj%FixNodeList_z = obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+        elseif( trim(direction) == "all" .or.  trim(direction) == "ALL")then
+        
+            obj%FixNodeList_x = obj%femdomain%select(&
+            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+        
+            obj%FixNodeList_y = obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+
+            obj%FixNodeList_z = obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+        else
+            print *, "ERROR :: loadWaveSeismicAnalysis >> direction should be x, y or z"
+            stop 
+        endif
+    else
+        obj%FixNodeList_x = obj%femdomain%select(&
+            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+        
+        obj%FixNodeList_y = obj%femdomain%select(&
+            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+
+        obj%FixNodeList_z = obj%femdomain%select(&
+            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+    endif
+end subroutine
+! ##############################################
+
+
 
 subroutine updateWaveSeismicAnalysis(obj,timestep,direction)
     class(SeismicAnalysis_),intent(inout) :: obj
@@ -211,7 +262,7 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
             ! For each element
             ! Ax=b will be installed into solver
             M_ij = obj%femdomain%MassMatrix(ElementID=i,DOF=obj%femdomain%nd() )
-            K_ij = obj%femdomain%StiffnessMatrix(ElementID=i,E=10000000.0d0,v=0.30d0)
+            K_ij = obj%femdomain%StiffnessMatrix(ElementID=i,E=10000000.0d0,v=0.00d0)
             C_ij = obj%alpha * M_ij + obj%beta * K_ij
             U_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%U, DOF=obj%femdomain%nd() )
             V_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%V, DOF=obj%femdomain%nd() )
@@ -256,6 +307,22 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
             
         enddo
 
+        ! introduce boundary conditions
+        if(allocated(obj%FixNodeList_x) )then
+            do i=1,size(obj%FixNodeList_x)
+                call solver%fix( dim_num*(obj%FixNodeList_x(i)-1)+1, 0.0d0 )
+            enddo
+        endif
+        if(allocated(obj%FixNodeList_y) )then
+            do i=1,size(obj%FixNodeList_y)
+                call solver%fix( dim_num*(obj%FixNodeList_y(i)-1)+2, 0.0d0 )
+            enddo
+        endif
+        if(allocated(obj%FixNodeList_z) )then
+            do i=1,size(obj%FixNodeList_z)
+                call solver%fix( dim_num*(obj%FixNodeList_z(i)-1)+3, 0.0d0 )
+            enddo
+        endif
 
         ! Now [A] {du} = {R} is ready
         ! Solve
