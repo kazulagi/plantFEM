@@ -260,7 +260,7 @@ subroutine openFEMDomain(obj,path,name)
 		call obj%ControlPara%open(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="ControlPara")!implement!
 		call obj%ShapeFunction%open(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="ShapeFunction")!implement!
 
-		call f%open(trim(pathi)//"/"//trim(adjustl(name)) ,"/"//"FEMDomain",".prop" )
+		call f%open(trim(pathi)//"/"//trim(adjustl(name)) //"/"//"FEMDomain"//".prop" )
 		write(f%fh,*) obj%RealTime
 		write(f%fh,*) obj%NumOfDomain
 		write(f%fh, '(A)' ) trim(obj%FilePath)
@@ -288,7 +288,7 @@ subroutine openFEMDomain(obj,path,name)
 		call obj%ControlPara%open(path=trim(pathi)//"/"//"FEMDomain",name="ControlPara")
 		call obj%ShapeFunction%open(path=trim(pathi)//"/"//"FEMDomain",name="ShapeFunction")
 
-		call f%open(trim(pathi)//"/FEMDomain","/FEMDomain",".prop" )
+		call f%open(trim(pathi)//"/FEMDomain"//"/FEMDomain"//".prop" )
 		write(f%fh,*) obj%RealTime
 		write(f%fh,*) obj%NumOfDomain
 		write(f%fh, '(A)' ) trim(obj%FilePath)
@@ -413,7 +413,7 @@ subroutine saveFEMDomain(obj,path,name)
 		call obj%ControlPara%save(path=trim(pathi)//"/"//"FEMDomain",name="ControlPara")
 		call obj%ShapeFunction%save(path=trim(pathi)//"/"//"FEMDomain",name="ShapeFunction")
 
-		call f%open(trim(pathi)//"/FEMDomain","/FEMDomain",".prop" )
+		call f%open(trim(pathi)//"/FEMDomain"//"/FEMDomain"//".prop" )
 		write(f%fh,*) obj%RealTime
 		write(f%fh,*) obj%NumOfDomain
 		write(f%fh, '(A)' ) trim(obj%FilePath)
@@ -879,7 +879,7 @@ subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
 	if( trim(getext(trim(file)) )=="mesh" )then
 		
-		call f%open("./",trim(file))
+		call f%open(trim(file))
 		read(f%fh,*) ch
 		read(f%fh,*) ch
 		read(f%fh,*) n
@@ -920,7 +920,7 @@ if(present(node) )then
 			print *, "Please iput filename"
 			stop
 		endif
-		call f%open("./",trim(file))
+		call f%open(trim(file))
 		read(f%fh,*) nodenum, dimnum
 		if(allocated(obj%Mesh%NodCoord ) )then
 			deallocate(obj%Mesh%NodCoord)
@@ -940,7 +940,7 @@ if(present(Element) )then
 			print *, "Please iput filename"
 			stop
 		endif
-		call f%open("./",trim(file))
+		call f%open(trim(file))
 		read(f%fh,*) nodenum, dimnum
 		if(allocated(obj%Mesh%ElemNod ) )then
 			deallocate(obj%Mesh%ElemNod)
@@ -960,7 +960,7 @@ if(present(materialinfo) )then
 			print *, "Please iput filename"
 			stop
 		endif
-		call f%open("./",trim(file))
+		call f%open(trim(file))
 		read(f%fh,*) nodenum
 		if(allocated(obj%Mesh%ElemMat ) )then
 			deallocate(obj%Mesh%ElemMat)
@@ -989,7 +989,7 @@ if(present(dirichlet) )then
 			print *, "Please iput filename"
 			stop
 		endif
-		call f%open("./",trim(file))
+		call f%open(trim(file))
 		dimnum=size(obj%mesh%NodCoord,2)
 		if(allocated(obj%Boundary%DboundNum ) )then
 			deallocate(obj%Boundary%DboundNum)
@@ -1023,7 +1023,7 @@ if(present(neumann) )then
 			print *, "Please iput filename"
 			stop
 		endif
-		call f%open("./",trim(file))
+		call f%open(trim(file))
 		dimnum=size(obj%mesh%NodCoord,2)
 		if(allocated(obj%Boundary%NboundNum ) )then
 			deallocate(obj%Boundary%NboundNum)
@@ -1355,7 +1355,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 		call obj%ControlPara%export(path=trim(path)//"/FEMDomain",restart=.true.)
 		call obj%ShapeFunction%export(path=trim(path)//"/FEMDomain",restart=.true.)
 
-		call f%open(trim(path)//"/FEMDomain","/FEMDomain",".prop" )
+		call f%open(trim(path)//"/FEMDomain"//"/FEMDomain"//".prop" )
 		write(f%fh,*) obj%RealTime
 		write(f%fh,*) obj%NumOfDomain
 		write(f%fh, '(A)' ) trim(obj%FilePath)
@@ -6140,9 +6140,9 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 			coordinate=coordinate,division=znum)
 	endif
 
-	if(obj%nd()==2 .or. obj%nd()==3)then
-		call obj%getSurface()
-	endif
+!	if(obj%nd()==2 .or. obj%nd()==3)then
+!		call obj%getSurface()
+!	endif
 
 end subroutine createFEMDomain
 ! ##################################################
