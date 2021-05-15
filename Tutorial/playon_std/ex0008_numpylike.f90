@@ -34,7 +34,7 @@ program main
     
 
     ! または、たくさん配列を並べるときにはこれが便利
-    call f%open("./","array2",".txt")
+    call f%open("./"//"array2"//".txt")
     call save(f%fh, dat)
     call save(f%fh, dat)
     call save(f%fh, dat)
@@ -42,7 +42,7 @@ program main
 
     
     ! 読む時
-    call f%open("./","array2",".txt")
+    call f%open("./"//"array2"//".txt")
     call load(f%fh, dat)
     call load(f%fh, dat1)
     call load(f%fh, dat2)

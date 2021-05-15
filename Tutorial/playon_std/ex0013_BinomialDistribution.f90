@@ -29,14 +29,14 @@ program main
     call print(histogram)
 
     ! Data
-    call f%open("./","test",",txt")
+    call f%open("./"//"test"//".txt",'w')
     do i=1,size(histogram,1)
         write(f%fh,*) histogram(i)
     enddo
     call f%close()
 
     ! Gnuplot-script
-    call f%open("./","test",".gp")
+    call f%open("./"//"test"//".gp",'w')
     call f%write("set yr[0:]")
     call f%write("plot 'test,txt' with boxes")
     call f%write("pause -1")

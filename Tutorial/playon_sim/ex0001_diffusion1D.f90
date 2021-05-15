@@ -84,7 +84,7 @@ program main
     print *, LinearSolver%x(:)
 
     ! 結果の書き出し
-    call file%open("./","result2",".txt")
+    call file%open("./"//"result2"//".txt")
     do i=1, size(LinearSolver%x)
         call file%write( str(LinearSolver%x(i)) )
     enddo
