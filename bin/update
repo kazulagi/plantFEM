@@ -4,6 +4,7 @@
 #git commit -m "update"
 #git fetch
 #git checkout master
+python3 uninstall.py
 mkdir -p tmp
 rm -f tmp/*
 mv hostfile* tmp/
@@ -82,4 +83,5 @@ git pull origin master
 #mv tmp/./server.f90 .
 #mv tmp/./inc/*.so .
 mv tmp/* .
+
 
