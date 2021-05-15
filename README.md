@@ -16,8 +16,7 @@
 apt update && apt upgrade -y
 git clone https://github.com/kazulagi/plantfem
 cd plantfem
-python3 setup.py
-./plantfem install
+python3 install.py
 ```
 
 4. You can open files by this command
@@ -35,10 +34,7 @@ mkdir your_project
 cd your_project
 git clone https://github.com/kazulagi/plantfem
 cd plantfem
-python3 setup.py
-./plantfem install
-pip install .
-cd ../
+python3 install.py
 ```
 Then, run your script
 
@@ -166,7 +162,7 @@ docker run --rm -it kazulagi/plantfem /bin/bash
 
 
 ```
-./plantfem your_script.f90
+plantfem your_script.f90
 ```
 
 ### Interactive mode
@@ -188,8 +184,8 @@ Installation:
 !git clone https://github.com/kazulagi/plantfem.git
 %cd plantfem
 %ls
-!python3 setup.py
-!./plantfem install
+!python3 install.py
+!plantfem install
 ```
 Execution:
 
@@ -502,7 +498,7 @@ Ex.2 :: 3-D thermal diffusion simulation of a grass leaf.
 - 2019/08/03 :: Delauney triangulation is now under development.
 - 2019/09/06 :: Bugfix of Simulatior
 - 2019/09/23 :: Source code is opened.Now solvers for diffusion, finite deformation, and diffusion-deformation coupling are available. Contact solver is under debugging.
-
+- 2021/05/15 :: Now you can install plantFEM by ```install.py``` and can run by ```plantfem run```
 ### On going;
 - ContactMechanicsClass is created for 3-D, Frictionless contact.
 - automatic documentation program ./doc/upgrade_readme.py
