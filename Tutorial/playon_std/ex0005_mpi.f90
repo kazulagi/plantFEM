@@ -19,7 +19,7 @@ program main
     call mpid%initItr(8)
     print *,"myrank",mpid%myrank,"s,e = ",mpid%start_id,mpid%end_id
     print *, mpid%start_end_id(:)
-    call mpid%end()
+    
 
 
     ! create files
