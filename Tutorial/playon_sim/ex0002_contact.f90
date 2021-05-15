@@ -31,7 +31,7 @@ program main
     call savetxt(domain1%Boundary%MasterNodeID,"./","master",".txt")
     call savetxt(domain1%Boundary%SlaveNodeID,"./","slave",".txt")
     
-    call f%open("./","name",".txt")
+    call f%open("./"//"name"//".txt",'w')
     do i=1,size(domain1%Boundary%ContactNameList,1)
         write(f%fh,*) trim(domain1%Boundary%ContactNameList(i)%Name)
     enddo

@@ -34,7 +34,7 @@ program main
     b = loadtxt("./","test",".txt")
 
     ! -----> also, you can do it for multiple arrays as
-    call f%open("./","arrays",".txt")
+    call f%open("./"//"arrays"//".txt")
     ! save "a" array
     call saveArray(f%fh,a)
     ! save "b" array
@@ -44,7 +44,7 @@ program main
     call f%close()
 
     ! -----> and,
-    call f%open("./","arrays",".txt")
+    call f%open("./"//"arrays"//".txt")
     ! load "a" array
     call loadArray(f%fh,a)
     ! load "b" array

@@ -23,7 +23,7 @@ program main
 
 
     ! create files
-    call f%open("./","FileFromRank"//trim(str(mpid%myrank)),".txt")
+    call f%open("./"//"FileFromRank"//trim(str(mpid%myrank))//".txt")
     write(f%fh,*) "MPI is running!"
     write(f%fh,*) "My rank is ",mpid%myrank
     write(f%fh,*) "Number of process is ",mpid%petot

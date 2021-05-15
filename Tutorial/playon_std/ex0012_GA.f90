@@ -20,7 +20,7 @@ program main
     read(*,*) n 
 
     call random%init()
-    call f%open("./","generation1",".txt")
+    call f%open("./"//"generation1"//".txt",'w')
     if(n==1)then
 
 
@@ -35,7 +35,7 @@ program main
         enddo
 
     else
-        call f2%open("./","gene",".txt")
+        call f2%open("./"//"gene"//".txt",'w')
         do i=1,20
             read(f2%fh,*) ret(i,1:5)
         enddo
