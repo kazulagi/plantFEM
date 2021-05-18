@@ -52,6 +52,7 @@ module RootClass
         procedure, public :: fix => fixRoot
         procedure, public :: getCoordinate => getCoordinateRoot
         procedure, public :: gmsh => gmshRoot
+        procedure, public :: vtk => vtkRoot
         procedure, public :: msh => mshRoot
         procedure, public :: stl => stlRoot
         procedure, public :: export => exportRoot
@@ -509,6 +510,7 @@ subroutine gmshRoot(obj,name)
 
     call obj%femdomain%gmsh(Name=name)
 end subroutine
+! ########################################
 
 subroutine mshRoot(obj,name)
     class(Root_),intent(inout) :: obj
@@ -516,6 +518,15 @@ subroutine mshRoot(obj,name)
 
     call obj%femdomain%msh(Name=name)
 end subroutine
+! ########################################
+
+subroutine vtkRoot(obj,name)
+    class(Root_),intent(inout) :: obj
+    character(*),intent(in) ::name
+
+    call obj%femdomain%vtk(Name=name)
+end subroutine
+! ########################################
 
 subroutine stlRoot(obj,name)
     class(Root_),intent(inout) :: obj

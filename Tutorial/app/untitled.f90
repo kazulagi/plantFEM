@@ -1,16 +1,18 @@
-program main
-    use plantFEM
-    implicit none
+use plantfem
 
-    type(Soybean_) :: soy
-    type(Soil_) ::soil
+implicit none
 
-    call soy%init(config="Tutorial/playon_obj/realSoybeanConfig.json") 
-    !call soy%stl(name="soy")
-    call soy%msh(name="soy")
-    call soy%json(name="soy")
+type(Soybean_) :: soy
+type(Soil_) ::soil
 
-    call soil%create(x_num=3,y_num=3,z_num=1)
-    call soil%resize(x=3.0d0, y=3.0d0, z=1.0d0)
-    call soil%msh(name="soil")
-end program main
+call soy%init(config="Tutorial/playon_obj/realSoybeanConfig.json") 
+!call soy%stl(name="soy")
+!call soy%json(name="soy")
+call soy%vtk(name="soy")
+
+
+call soil%create(x_num=3,y_num=3,z_num=1)
+call soil%resize(x=3.0d0, y=3.0d0, z=1.0d0)
+call soil%msh(name="soil")
+
+end
