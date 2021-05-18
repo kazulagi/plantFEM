@@ -1,19 +1,19 @@
 FROM ubuntu:18.04
 
 RUN apt-get update && \
-    apt-get install -y redis-server && \
+    apt-get upgrade -y && \
     apt-get clean
 
-RUN apt install  -y gcc
-RUN apt install  -y gfortran
-RUN apt install  -y libopenmpi-dev
-RUN apt install  -y python3
-RUN apt install  -y gmsh
-RUN apt install  -y git
-RUN apt install  -y nano
-RUN apt install  -y vim
-RUN apt install  -y gnuplot
-RUN apt install  -y zsh
+RUN apt-get install  -y gcc
+RUN apt-get install  -y gfortran
+RUN apt-get install  -y libopenmpi-dev
+RUN apt-get install  -y python3
+#RUN apt-get install  -y gmsh
+RUN apt-get install  -y git
+RUN apt-get install  -y nano
+#RUN apt-get install  -y vim
+RUN apt-get install  -y gnuplot
+#RUN apt-get install  -y zsh
 #RUN apt install -y jupyter-notebook
 #RUN apt-get -yV install liblapack-dev
 #RUN apt-get -yV install liblapack-doc
@@ -41,5 +41,5 @@ RUN python3 install.py
 RUN chmod +x bin/init
 RUN chmod +x bin/update
 RUN chmod +x bin/compress
-
-CMD ["./plantfem ./server.f90"]
+COPY server.f90 .
+CMD ["plantfem run"]
