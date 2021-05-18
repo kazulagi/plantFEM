@@ -41,5 +41,5 @@ RUN python3 install.py
 RUN chmod +x bin/init
 RUN chmod +x bin/update
 RUN chmod +x bin/compress
-COPY server.f90 .
-CMD ["plantfem run"]
+COPY server.f90 /plantFEM/
+CMD ["./plantfem","run"]
