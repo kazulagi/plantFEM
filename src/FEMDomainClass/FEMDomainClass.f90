@@ -6981,18 +6981,120 @@ end function
 ! ##################################################
 
 ! ##################################################
-subroutine vtkFEMDomain(obj,name)
+subroutine vtkFEMDomain(obj,name,scalar,vector)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: name
+	real(real64),optional,intent(in) :: scalar(:),vector(:,:)
 	type(IO_) :: f
-	integer(int32) ::i
+	integer(int32) ::i,dim_num(3),j,VTK_CELL_TYPE
 
 	if(obj%mesh%empty() .eqv. .true.)then
 		print *, "ERROR :: vtkFEMDomain >> obj%mesh%empty() .eqv. .true., nothing exported"
 		return
 	endif
 
-	call displayFEMDomain(obj,path="./",name=name,extention=".vtk")
+	if( .not.allocated(obj%mesh%elemnod) )then
+		VTK_CELL_TYPE=1 ! point
+	elseif(obj%nd()==2 .and. obj%nne()==3 )then
+		VTK_CELL_TYPE=5 ! triangle
+	elseif(obj%nd()==2 .and. obj%nne()==4 )then
+		VTK_CELL_TYPE=9 ! square
+	elseif(obj%nd()==3 .and. obj%nne()==4 )then
+		VTK_CELL_TYPE=10 ! 4-node triangle
+	elseif(obj%nd()==3 .and. obj%nne()==8 )then
+		VTK_CELL_TYPE=12 ! triangle
+	else
+		print *, "VTKFEMDomain >> ERROR :: Nothing is exported."
+		return
+	endif
+
+	!call displayFEMDomain(obj,path="./",name=name,extention=".vtk")
+	if(index(name,".vtk")/=0 .or. index(name,".VTK")/=0 )then
+		call f%open(trim(name),'w')
+	else
+		call f%open(trim(name)//".vtk",'w')
+	endif
+	
+	call f%write("# vtk DataFile Version 2.0")
+	call f%write(name)
+	call f%write("ASCII")
+	call f%write("DATASET UNSTRUCTURED_GRID")
+	call f%write("POINTS "//str( obj%nn() )//" float")
+	do i=1,obj%nn()
+		do j=1, obj%nd()-1
+			write(f%fh,'(A)',advance="no") str(obj%mesh%nodcoord(i,j))//" "
+		enddo
+		write(f%fh,'(A)',advance="yes") str(obj%mesh%nodcoord(i,obj%nd() ))
+	enddo
+
+
+	call f%write("CELLS "//str(obj%ne())//" "//str(obj%ne()* (obj%nne()+1) ))
+	do i=1, obj%ne()
+		write(f%fh,'(A)',advance="no") str(obj%nne() ) // " "
+		do j=1, obj%nne()-1
+			write(f%fh,'(A)',advance="no") str(obj%mesh%elemnod(i,j)-1)//" "
+		enddo
+		write(f%fh,'(A)',advance="yes") str(obj%mesh%elemnod(i, obj%nne() )-1)
+	enddo
+	
+	call f%write("CELL_TYPES "//str(obj%ne() ) )
+	do i=1, obj%ne()
+		call f%write(str(VTK_CELL_TYPE) )
+	enddo
+
+	! if scalar or vector exists..
+	if(present(scalar) )then
+		if(size(scalar)==obj%nn()  )then
+			call f%write("POINT_DATA "//str(obj%nn() ) )
+			call f%write("SCALARS point_scalars float")
+			call f%write("LOOKUP_TABLE default")
+			do i=1,obj%nn()
+				call f%write(str(scalar(i)))
+			enddo
+		elseif(size(scalar)==obj%ne()  )then
+			call f%write("CELL_DATA "//str(obj%ne() ) )
+			call f%write("SCALARS cell_scalars float")
+			call f%write("LOOKUP_TABLE default")
+			do i=1,obj%ne()
+				call f%write(str(scalar(i)))
+			enddo
+		else
+			call print("vtkFEMDOmain ERROR ::size(scalar) sould be obj%nn()   ")
+			call print("size(scalar)="//str(size(scalar))//" and obj%nn() = "//str(obj%nn() ) )
+			call f%close()
+			return
+		endif
+	endif
+	
+	if(present(vector) )then
+		if(size(vector,1)==obj%nn()  )then
+			call f%write("POINT_DATA "//str(obj%nn() ) )
+			call f%write("VECTORS point_vectors float")
+			do i=1,obj%nn()
+				do j=1,size(vector,2)-1
+					write(f%fh,'(A)',advance="no") str(vector(i,j) )
+				enddo
+				write(f%fh,'(A)',advance="yes") str(vector(i, size(vector,2) ) )
+			enddo
+		elseif(size(vector,1)==obj%ne()  )then
+			call f%write("CELL_DATA "//str(obj%ne() ) )
+			call f%write("VECTORS cell_vectors float")
+			do i=1,obj%ne()
+				do j=1,size(vector,2)-1
+					write(f%fh,'(A)',advance="no") str(vector(i,j) )
+				enddo
+				write(f%fh,'(A)',advance="yes") str(vector(i, size(vector,2) ) )
+			enddo
+		else
+			call print("vtkFEMDOmain ERROR ::size(vector,1) sould be obj%nn()   ")
+			call print("size(vector,1)="//str(size(vector,1))//" and obj%nn() = "//str(obj%nn() ) )
+			call f%close()
+			return
+		endif
+	endif	
+
+
+	call f%close()
 	return
 
 	!call f%open(trim(name)//".vtk")

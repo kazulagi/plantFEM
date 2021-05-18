@@ -20,8 +20,8 @@ module SeismicAnalysisClass
         real(real64) :: dt=1.0d0
         real(real64) :: error=0.0d0
         real(real64) :: t=0.0d0
-        real(real64) :: alpha = 0.50d0
-        real(real64) :: beta  = 0.50d0 ! Rayleigh damping parameters
+        real(real64) :: alpha = 0.000d0
+        real(real64) :: beta  = 0.000d0 ! Rayleigh damping parameters
         real(real64) :: Newmark_beta  = 0.250d0 ! Nemark-beta method parameters
         real(real64) :: Newmark_delta  = 0.50d0 ! Nemark-beta method parameters
     contains
@@ -237,7 +237,7 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
     integer(int32),allocatable :: FixNodeList(:) 
     real(real64),allocatable   :: Coordinate(:,:)
     real(real64),optional,intent(in) :: TOL
-    real(real64) :: TOL_seismic,center_accel(3)
+    real(real64) :: TOL_seismic,center_accel(3),rho
 
     
     TOL_seismic = input(default=dble(1.0e-14),option=TOL )
@@ -261,7 +261,8 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
         do i=1,obj%femdomain%ne()
             ! For each element
             ! Ax=b will be installed into solver
-            M_ij = obj%femdomain%MassMatrix(ElementID=i,DOF=obj%femdomain%nd() )
+            rho = 17000.0d0
+            M_ij = rho*obj%femdomain%MassMatrix(ElementID=i,DOF=obj%femdomain%nd() )
             K_ij = obj%femdomain%StiffnessMatrix(ElementID=i,E=10000000.0d0,v=0.00d0)
             C_ij = obj%alpha * M_ij + obj%beta * K_ij
             U_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%U, DOF=obj%femdomain%nd() )
@@ -280,9 +281,9 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
             dF_i = obj%femdomain%MassVector(&
                 ElementID=i, &
                 DOF=obj%femdomain%nd(), &
-                Density=17.0d0,&
+                Density=rho,&
                 Accel=center_accel &
-                )
+                )    
             R_i = zeros(size(dF_i))
 
             ! A_ij dU_j = R_i 

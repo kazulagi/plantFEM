@@ -44,6 +44,7 @@ module StemClass
         procedure, public :: getCoordinate => getCoordinateStem
         procedure, public :: gmsh => gmshStem
         procedure, public :: msh => mshStem
+        procedure, public :: vtk => vtkStem
         procedure, public :: stl => stlStem
         procedure, public :: export => exportStem
     end type
@@ -504,6 +505,12 @@ subroutine mshStem(obj,name)
     call obj%femdomain%msh(Name=name)
 end subroutine
 
+subroutine vtkStem(obj,name)
+    class(Stem_),intent(inout) :: obj
+    character(*),intent(in) ::name
+
+    call obj%femdomain%vtk(Name=name)
+end subroutine
 
 subroutine stlStem(obj,name)
     class(Stem_),intent(inout) :: obj
