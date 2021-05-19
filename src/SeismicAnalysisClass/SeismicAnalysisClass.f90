@@ -20,10 +20,12 @@ module SeismicAnalysisClass
         real(real64) :: dt=1.0d0
         real(real64) :: error=0.0d0
         real(real64) :: t=0.0d0
-        real(real64) :: alpha = 0.000d0
-        real(real64) :: beta  = 0.000d0 ! Rayleigh damping parameters
+        real(real64) :: alpha = 0.057100d0
+        integer(int32) :: step=0
+        real(real64) :: beta  = 0.000578d0 ! Rayleigh damping parameters, h=1%
         real(real64) :: Newmark_beta  = 0.250d0 ! Nemark-beta method parameters
         real(real64) :: Newmark_delta  = 0.50d0 ! Nemark-beta method parameters
+        logical :: restart=.False.
     contains
         procedure, public :: init => initSeismicAnalysis
         procedure, public :: loadWave => loadWaveSeismicAnalysis
@@ -175,13 +177,18 @@ subroutine updateWaveSeismicAnalysis(obj,timestep,direction)
 end subroutine
 
 ! ##############################################
-subroutine runSeismicAnalysis(obj,t0,timestep,wave)
+subroutine runSeismicAnalysis(obj,t0,timestep,wave,restart)
     class(SeismicAnalysis_),intent(inout) :: obj
     type(LinearSolver_) :: solver
     real(real64),optional,intent(in) :: t0
     integer(int32),optional,intent(in) :: timestep
     real(real64),optional,intent(in) :: wave(:,:)
+    logical,optional,intent(in) :: restart
     integer(int32) :: i,step
+
+    if(present(restart) )then
+        obj%restart = restart
+    endif
 
     if(present(wave) )then
         obj%wave = wave
@@ -190,9 +197,12 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave)
     ! set wave
     ! wave = a(t)
     ! dwave = da(t)
-    obj%dwave = increment(obj%wave,2 )
     step = input(default=size(obj%wave,1)-1,option=timestep )
-    obj%t = input(default=0.0d0,option=t0 )
+    if(.not.obj%restart)then
+        obj%dwave = increment(obj%wave,2 )
+        obj%t = input(default=0.0d0,option=t0 )
+        obj%restart = .True. 
+    endif
 
     do i=1, step
         ! update dt
@@ -200,8 +210,9 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave)
         
         ! update time
         obj%t = obj%t + obj%dt
+        obj%step = obj%step+1
 
-        call obj%updateWave(timestep=i)
+        call obj%updateWave(timestep=obj%step)
 
         ! show info.
         call print("SeismicAnalysis >> "//str(obj%t-obj%dt)//"< t <"//str(obj%t)//" sec.")
@@ -209,7 +220,7 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave)
         ! solve Linear-ElastoDynamic problem with Reyleigh dumping and Newmark Beta
         call obj%LinearReyleighNewmark()
         
-        call obj%save("step_"//str(i),ratio=1.0d0)
+        call obj%save("step_"//str(obj%step),ratio=1.0d0)
 
     enddo 
 end subroutine
