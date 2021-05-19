@@ -75,7 +75,7 @@ if __name__ == '__main__':
             else:
                 os.system("sh ./Interactive/SiCroF ")
         else :
-            os.system("sh ./Interactive/SiCroF_run " + str(args.script))
+            os.system("sh ./Interactive/SiCroF_run_macOS " + str(args.script))
         
     elif pf == "Linux":
         print("OS : Linux")
