@@ -364,7 +364,7 @@ echo " | =========================> |  (99%)\r\c"
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlantFEM/PlantFEM.f90 -o  ./inc/PlantFEM.o
 
 mv *.mod inc/
-mv *.so inc/
+cp *.so inc/
 mkdir -p home
 #echo "Copying input files from INPUT/           " 
 #echo " >> *.txt, *.scf"
