@@ -328,8 +328,8 @@ homepath="$PWD"
         continue
     fi
     if [ "$1" = "$run" ]; then
-        python3 bin/check_end.py
-        $mpif90 inc/*o -I ./inc/ ./server.f90 -fopenmp -fopenacc -g -fcheck=all 
+        #python3 bin/check_end.py
+        mpif90 inc/*o -I ./inc/ ./server.f90 -fopenmp -fopenacc -g -fcheck=all 
         #echo "Current num of cpu-core is :: $numcore "
 
         while read line
@@ -448,7 +448,7 @@ homepath="$PWD"
         fi
         
         #$mpif90 inc/*o $1  -I ./inc -g -fcheck=all -fopenmp -fopenacc -fintrinsic-modules-path inc/
-        $mpif90 inc/*o -I ./inc/ ./server.f90 -fopenmp -fopenacc -g -fcheck=all 
+        mpif90 inc/*o -I ./inc/ ./server.f90 -fopenmp -fopenacc -g -fcheck=all 
         
         #echo "Current num of cpu-core is :: $numcore "
 
