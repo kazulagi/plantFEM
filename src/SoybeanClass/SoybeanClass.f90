@@ -1769,28 +1769,42 @@ end subroutine
 
 
 ! ########################################
-subroutine mshSoybean(obj,name)
+subroutine mshSoybean(obj,name,num_threads)
     class(Soybean_),intent(inout) :: obj
     character(*),intent(in) :: name
-    integer(int32) :: i
+    integer(int32),optional,intent(in) :: num_threads
+    integer(int32) :: i,n
 
+    n = input(default=1,option=num_threads)
+    !$OMP parallel num_threads(n) private(i)
+    !$OMP do 
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%stem(i)%msh(name=trim(name)//"_stem"//trim(str(i)))
         endif
     enddo
+    !$OMP end do
+    !$OMP end parallel
 
+    !$OMP parallel num_threads(n) private(i)
+    !$OMP do 
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%root(i)%msh(name=trim(name)//"_root"//trim(str(i)))
         endif
     enddo
+    !$OMP end do
+    !$OMP end parallel
 
+    !$OMP parallel num_threads(n) private(i)
+    !$OMP do 
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%leaf(i)%msh(name=trim(name)//"_leaf"//trim(str(i)))
         endif
     enddo
+    !$OMP end do
+    !$OMP end parallel
 
 end subroutine
 ! ########################################
@@ -1869,33 +1883,46 @@ end subroutine
 ! ########################################
 
 ! ########################################
-subroutine stlSoybean(obj,name)
+subroutine stlSoybean(obj,name,num_threads)
     class(Soybean_),intent(inout) :: obj
     character(*),intent(in) :: name
-    integer(int32) :: i
+    integer(int32),optional,intent(in) :: num_threads
+    integer(int32) :: i,n
 
-
+    n = input(default=1,option=num_threads)
     !call system("echo ' ' > "//trim(name)//".stl")
+    !$OMP parallel num_threads(n) private(i)
+    !$OMP do 
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%stem(i)%stl(name=trim(name)//"_stem"//trim(str(i)))
             !call system("cat "//trim(name)//"_stem"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
         endif
     enddo
+    !$OMP end do
+    !$OMP end parallel
 
+    !$OMP parallel num_threads(n) private(i)
+    !$OMP do 
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%root(i)%stl(name=trim(name)//"_root"//trim(str(i)))
             !call system("cat "//trim(name)//"_root"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
         endif
     enddo
+    !$OMP end do
+    !$OMP end parallel
 
+    !$OMP parallel num_threads(n) private(i)
+    !$OMP do 
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%leaf(i)%stl(name=trim(name)//"_leaf"//trim(str(i)))
             !call system("cat "//trim(name)//"_leaf"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
         endif
     enddo
+    !$OMP end do
+    !$OMP end parallel
 
 
 end subroutine

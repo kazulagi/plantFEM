@@ -17,6 +17,7 @@ elif pf == "Darwin":
     #os.system("sh ./setup/setup_macOS")
     os.system("sh "+str(os.path.abspath("./"))+"/bin/compress")
     os.system("unlink /usr/local/bin/plantfem")
+    os.system("*.so")
     print("Successfully Installed!!")
 elif pf == "Linux":
     print("OS : Linux")
