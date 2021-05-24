@@ -73,6 +73,7 @@ module SoybeanClass
         type(FEMDomain_),allocatable :: leaf_list(:)
         type(FEMDomain_),allocatable :: stem_list(:)
         type(FEMDomain_),allocatable :: root_list(:)
+
         real(real64) :: time
         real(real64) :: seed_length
         real(real64) :: seed_width
@@ -114,6 +115,7 @@ module SoybeanClass
         procedure,public :: laytracing => laytracingsoybean
         procedure,public :: SinkSourceFlow => SinkSourceFlowSoybean
 
+        procedure,public :: update => updateSoybean
         !procedure,public :: AddNode => AddNodeSoybean
     end type
 
@@ -124,7 +126,136 @@ module SoybeanClass
 
 contains
 
+! ########################################
+recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id,debug)
+    class(Soybean_),intent(inout) :: obj
+    integer(int32),optional,intent(in) :: stem_id, root_id, leaf_id
+    integer(int32) :: i,j,this_stem_id,next_stem_id,A_id,B_id,itr_tol,itr
+    integer(int32) :: this_leaf_id,next_leaf_id
+    integer(int32) :: this_root_id,next_root_id
+    real(real64) :: x_A(3),x_B(3),diff(3),error,last_error
+    logical,optional,intent(in) :: debug
+    ! update connectivity
+    if(.not. allocated(obj%stem2stem ))then
+        print *, "updateSoybean >> ERROR :: .not. allocated(obj%stem2stem )"
+        return
+    endif
 
+    itr_tol = 100
+    itr=0
+
+    ! if debug
+    !if(present(debug) )then
+    !    if(debug)then
+    !        print *, "obj%stem2stem"
+    !        call print(obj%stem2stem)
+    !    endif
+    !endif
+
+    ! stem to stem
+    last_error = 1.0d0
+    do 
+        itr=itr+1
+        error = 0.0d0
+        do i=1, size(obj%stem2stem,1)
+            do j=1, size(obj%stem2stem,2)
+                this_stem_id = j
+                next_stem_id = i
+                if(obj%stem2stem(i,j)/=0 .and. i /= j)then
+                    ! this_stem_id ===>>> next_stem_id, connected!
+                    x_B(:) = obj%stem(this_stem_id)%getCoordinate("B")
+                    x_A(:) = obj%stem(next_stem_id)%getCoordinate("A")
+                    diff(:) = x_B(:) - x_A(:)
+                    error = error + dot_product(diff,diff)
+                    call obj%stem(next_stem_id)%move(x=diff(1),y=diff(2),z=diff(3) )
+                endif
+            enddo
+        enddo
+        if(present(debug) )then
+            if(debug)then
+                print *, "soybean % update >> error :: ",error
+            endif
+        endif
+        if(itr > itr_tol) then
+            print *, "soybean % update >> ERROR :: not converged"
+            stop
+        endif
+        
+        if( abs(error) + abs(last_error) == 0.0d0) exit
+        last_error = error
+    enddo
+
+    ! root to root
+    last_error = 1.0d0
+    do 
+        itr=itr+1
+        error = 0.0d0
+        do i=1, size(obj%root2root,1)
+            do j=1, size(obj%root2root,2)
+                this_root_id = j
+                next_root_id = i
+                if(obj%root2root(i,j)/=0 .and. i /= j)then
+                    ! this_root_id ===>>> next_root_id, connected!
+                    x_B(:) = obj%root(this_root_id)%getCoordinate("B")
+                    x_A(:) = obj%root(next_root_id)%getCoordinate("A")
+                    diff(:) = x_B(:) - x_A(:)
+                    error = error + dot_product(diff,diff)
+                    call obj%root(next_root_id)%move(x=diff(1),y=diff(2),z=diff(3) )
+                endif
+            enddo
+        enddo
+        if(present(debug) )then
+            if(debug)then
+                print *, "soybean % update >> error :: ",error
+            endif
+        endif
+        if(itr > itr_tol) then
+            print *, "soybean % update >> ERROR :: not converged"
+            stop
+        endif
+        
+        if( abs(error) + abs(last_error) == 0.0d0) exit
+        last_error = error
+    enddo
+
+
+    ! leaf to stem
+    last_error = 1.0d0
+    do 
+        itr=itr+1
+        error = 0.0d0
+        do i=1, size(obj%leaf2stem,1)
+            do j=1, size(obj%leaf2stem,2)
+                this_stem_id = j
+                next_leaf_id = i
+                if(obj%leaf2stem(i,j)==1)then
+                    ! this_stem_id ===>>> next_leaf_id, connected!
+                    x_B(:) = obj%stem(this_stem_id)%getCoordinate("B")
+                    x_A(:) = obj%leaf(next_leaf_id)%getCoordinate("A")
+                    diff(:) = x_B(:) - x_A(:)
+                    error = error + dot_product(diff,diff)
+                    call obj%leaf(next_leaf_id)%move(x=diff(1),y=diff(2),z=diff(3) )
+                endif
+            enddo
+        enddo
+        if(present(debug) )then
+            if(debug)then
+                print *, "soybean % update >> error :: ",error
+            endif
+        endif
+        if(itr > itr_tol) then
+            print *, "soybean % update >> ERROR :: not converged"
+            stop
+        endif
+        
+        if( abs(error) + abs(last_error) == 0.0d0) exit
+        last_error = error
+    enddo
+
+    
+    
+end subroutine
+! ########################################
 
 ! ########################################
 subroutine initsoybean(obj,config,&
@@ -1086,7 +1217,8 @@ subroutine initsoybean(obj,config,&
                 z = radian(360.0d0*random%random() )   &
                 )      
             call obj%stem(num_stem_node)%connect("=>",obj%stem(i))
-            obj%leaf2stem(num_stem_node,i) = 1            
+            !obj%leaf2stem(num_stem_node,i) = 1   
+            obj%stem2stem(num_stem_node,i) = 1            
 
             
 

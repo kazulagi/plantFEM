@@ -137,6 +137,7 @@ module MeshClass
         procedure :: removeFailedTriangle => RemoveFailedTriangleMesh
         procedure :: removeOverlappedNode =>removeOverlappedNodeMesh
         procedure :: resize => resizeMeshobj
+        procedure :: remesh => remeshMesh
         
         procedure :: save    => saveMesh 
         procedure :: sortFacet    => SortFacetMesh 
@@ -5861,7 +5862,63 @@ subroutine Convert2Dto3DMesh(obj,Thickness,division,smooth)
     
 
 end subroutine
-!##################################################`
+!##################################################
+
+
+!##################################################
+subroutine remeshMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,&
+    division,smooth,top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz,coordinate)
+    class(Mesh_),intent(inout) :: obj
+    type(Mesh_) :: mesh1,mesh2,interface1,interface2
+    type(Mesh_),optional,intent(inout) :: master,slave
+    type(IO_) :: f
+    type(ShapeFunction_) :: shape
+    character(*),optional,intent(in) :: meshtype
+    logical,optional,intent(in) :: smooth
+    integer(int32),optional,intent(in) :: x_num,y_num ! number of division
+    integer(int32),optional,intent(in) :: division ! for 3D rectangular
+    real(real64),optional,intent(in) :: x_len,y_len,Le,Lh,Dr,coordinate(:,:) ! length
+    real(real64),optional,intent(in) :: thickness,inclineRate ! for 3D rectangular
+    real(real64),optional,intent(in) :: top,margin ! for 3D rectangular
+    real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
+    real(real64),optional,intent(in) :: x,y,z,dx,dy,dz
+    
+    integer(int32) :: i,j,n,m,xn,yn,smoothedge(8),ini,k,dim_num,node_num,elem_num
+    real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt,&
+        unitx,unity,xm, ym,tp,rx,ry,zc,zl,zm,ysize,ox,oy,dist,rr
+    logical :: validmeshtype=.false.
+    type(Mesh_) :: BoundBox
+    real(real64)::ymin,ymax,ratio,width,pi,xx,yy,xvec(3),x_max(3),&
+        x_min(3),x_m_mid(3),x_s_mid(3),x1vec(3),x2vec(3),nvec(3),hvec(3)
+    integer(int32),allocatable:: OutNodeID(:),OutElementID(:)
+    logical :: inside
+    real(real64):: dist_tr, dist_cur,z_,zval1,zval2,x_1(3),x_2(3)
+    integer(int32) :: num_layer,itr,node1,node2,node3,node4,count,prev_node1
+    integer(int32), allocatable :: elemnod(:,:)
+    integer(int32) :: nearest_node_id,nearest_facet_id,node_id,elist(2),tri_excep,tri_excep_last
+    integer(int32),allocatable :: checked(:),checked_node(:)
+    real(real64),allocatable ::nodcoord(:,:)
+    real(real64) :: ll,center(3),vector(3),e1(3),e2(3),e3(3),len_val
+    
+    ! remesh
+    ! only for build-in meshtypes
+    if(trim(obj%meshtype)=="")then
+        print *, "ERROR :: remeshMesh >> only for build-in meshtypes, &
+            so the object should have created by createMesh"
+        return
+    endif
+    
+    call mesh1%create(meshtype=meshtype,x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len,Le=Le,Lh=Lh,Dr=Dr,thickness=thickness,&
+    division=division,smooth=smooth,top=top,margin=margin,inclineRate=inclineRate,shaperatio=shaperatio,master=master,&
+    slave=slave,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,coordinate=coordinate)
+
+    obj%nodcoord = mesh1%nodcoord
+    obj%elemnod = mesh1%elemnod
+    obj%elemmat = mesh1%elemmat
+
+
+end subroutine
+!##################################################
 
 
 

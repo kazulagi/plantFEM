@@ -38,6 +38,7 @@ module StemClass
     contains
         procedure, public :: Init => initStem
         procedure, public :: rotate => rotateStem
+        procedure, public :: grow => growStem
         procedure, public :: resize => resizeStem
         procedure, public :: move => moveStem
         procedure, public :: connect => connectStem
@@ -529,6 +530,50 @@ subroutine resizeStem(obj,x,y,z)
     origin2 = obj%getCoordinate("A")
     disp = origin1 - origin2
     call obj%move(x=disp(1),y=disp(2),z=disp(3) )
+end subroutine
+! ########################################
+
+! ########################################
+subroutine growStem(obj,length,length_rate,width_rate)
+    class(Stem_),intent(inout) :: obj 
+    real(real64),optional,intent(in) :: length,length_rate,width_rate
+    real(real64) :: length_r,width_r,l_0,w_0,clength
+    real(real64),allocatable :: origin(:),top(:),n1(:),coord(:),center(:),vert(:)
+    integer(int32) :: i
+
+    origin = obj%getCoordinate("A")
+    top    = obj%getCoordinate("B")
+    l_0    = sqrt(dot_product(top-origin, top-origin) ) 
+    n1     = origin
+    n1     = top - origin
+    n1     = 1.0d0/norm(n1)*n1
+    coord  = origin
+    
+    ! length-ratio = new length / old length
+    if(present(length) )then
+        length_r = length/l_0
+    elseif(present(length_rate) )then
+        length_r = length_rate
+    else
+        length_r = 1.0d0
+    endif
+
+    width_r = input(default=1.0d0, option=width_rate)
+
+    ! enlong & fatten
+    do i=1,obj%femdomain%nn()
+        coord(:) = obj%femdomain%mesh%nodcoord(i,:) - origin(:)
+        center   = coord
+        clength   = dot_product(coord, n1)
+        center(:)  = clength*n1(:)
+        vert = coord - center
+        ! origin -> center -> current coordinate
+        coord(:) = length_r*center(:) + width_r*vert(:)
+        obj%femdomain%mesh%nodcoord(i,:) = origin(:) + coord(:)
+    enddo
+
+    
+
 end subroutine
 ! ########################################
 

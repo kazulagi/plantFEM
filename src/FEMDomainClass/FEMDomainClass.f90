@@ -166,6 +166,8 @@ module FEMDomainClass
         procedure,public :: position_y => position_yFEMDomain
         procedure,public :: position_z => position_zFEMDomain
 
+		
+
 		procedure,public :: removeMaterials => removeMaterialsFEMDomain
 		procedure,public :: rotate => rotateFEMDomain
 		procedure,public :: removeBoundaries => removeBoundariesFEMDomain
@@ -173,6 +175,7 @@ module FEMDomainClass
 		procedure,public :: resize => resizeFEMDomain
 		procedure,public :: remove => removeFEMDomain
 		procedure,public :: read => readFEMDomain
+		procedure,public :: remesh => remeshFEMDomain
 
 		procedure,public :: save => saveFEMDomain
 
@@ -6068,6 +6071,82 @@ subroutine convertMeshTypeFEMDomain(obj,Option)
 
 end subroutine
 ! ##################################################
+
+subroutine remeshFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
+	top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz,coordinate)
+	class(FEMDomain_),intent(inout) :: obj
+	type(FEMDomain_),optional,intent(inout) :: master,slave
+	character(*),optional,intent(in) :: meshtype
+	character(*),optional,intent(in) ::Name
+	integer(int32),optional,intent(in) :: x_num,y_num,z_num ! number of division
+	integer(int32) :: xnum,ynum,znum ! number of division
+    integer(int32),optional,intent(in) :: division ! for 3D rectangular
+	real(real64),optional,intent(in) :: x_len,y_len,z_len,Le,Lh,Dr ! length
+	real(real64) :: xlen,ylen,zlen ! length
+	real(real64),optional,intent(in) :: thickness ! for 3D rectangular
+	real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
+    real(real64),optional,intent(in) :: top,margin,inclineRate ! for 3D Ridge and dam
+	real(real64),optional,intent(in) :: x,y,z,dx,dy,dz,coordinate(:,:)
+	
+	integer,dimension(3),parameter :: versions_to_test = [0,1,4]
+
+!	! create uuid
+!
+!	obj%meshtype = trim(meshtype)
+!
+!	obj%uuid = generate_uuid(1)
+!	obj%mesh%uuid = obj%uuid
+!
+	xnum=input(default=10,option=x_num)
+	ynum=input(default=10,option=y_num)
+	znum=input(default=10,option=z_num)
+
+	xlen=input(default=1.0d0,option=x_len)
+	ylen=input(default=1.0d0,option=y_len)
+	zlen=input(default=1.0d0,option=z_len)
+
+!	if(present(Name) )then
+!		obj%Name=Name
+!		obj%FileName=Name
+!	else
+!		obj%Name="NoName"
+!		obj%FileName="NoName"
+!	endif
+
+!	! if create interface, set paired uuid in address
+!	obj%link(1) = "None"
+!	obj%link(2) = "None"
+!	
+!	if(present(master) )then
+!		obj%link(1) = master%uuid
+!	endif
+!
+!	if(present(slave) )then
+!		obj%link(2) = slave%uuid
+!	endif
+
+	if(present(z_num) .or. present(z_len) )then
+		call obj%Mesh%remesh(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
+			Lh=Lh,Dr=Dr,thickness=zlen,top=top,margin=margin,shaperatio=shaperatio,&
+			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
+			coordinate=coordinate,division=znum)
+	elseif(present(thickness) )then
+		call obj%Mesh%remesh(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
+			Lh=Lh,Dr=Dr,thickness=thickness,top=top,margin=margin,shaperatio=shaperatio,&
+			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
+			coordinate=coordinate,division=znum)
+	else
+		call obj%Mesh%remesh(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
+			Lh=Lh,Dr=Dr,top=top,margin=margin,shaperatio=shaperatio,&
+			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
+			coordinate=coordinate,division=znum)
+	endif
+
+!	if(obj%nd()==2 .or. obj%nd()==3)then
+!		call obj%getSurface()
+!	endif
+
+end subroutine
 
 ! ##################################################
 subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
