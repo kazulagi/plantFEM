@@ -5987,7 +5987,7 @@ subroutine CheckConnedctivityFEMDomain(obj,fix)
 	
 
 	if(minval(checklist)==0 )then
-		print *, "[ERROR] Non-connected nodes exist"
+		print *, "[HIT!] Non-connected nodes exist"
 	else
 		print *, "[OK] All nodes are connected."
 	endif
@@ -6025,6 +6025,7 @@ subroutine CheckConnedctivityFEMDomain(obj,fix)
 
 		endif	
 	endif
+	print *, "[OK] All nodes are connected."
 
 end subroutine
 !#######################################
@@ -7315,7 +7316,11 @@ end subroutine
 subroutine readFEMDomain(obj,name)
 	class(FEMDomain_) ,intent(inout) :: obj
 	character(*),intent(in) :: name
+	character(len=200),allocatable :: line
+	integeR(int32),allocatable :: elemnod(:,:)
 	logical :: ret=.false.
+	real(real64) :: x(3)
+	integer(int32) :: node_num,elem_num,i,j,id,itr,n,m
 	type(IO_) :: f
 
 	
@@ -7326,6 +7331,67 @@ subroutine readFEMDomain(obj,name)
 
 		call f%close()	
 		ret = .true.
+	endif
+
+	
+	if(index(name,"vtk")/=0 )then
+		itr=0
+		call f%open(trim(name),"r" )
+		
+		! msh読み取ります
+		elem_num=0
+		do
+			line = f%readline()
+			if(f%EOF) then
+				return
+			endif
+
+			if(index(line, "POINTS")/=0 )then
+
+				n = index(line,"POINTS")
+				read(line(n+6:),* ) node_num
+				obj%mesh%nodcoord = zeros(node_num,3)
+				do i=1,node_num
+					line = f%readline()
+					read(line,*) obj%mesh%nodcoord(i,:) 
+				enddo
+			endif
+
+			if(index(line, "CELLS")/=0 )then
+				n = index(line,"CELLS")
+				read(line(n+5:),* ) node_num
+				if(allocated(obj%mesh%elemnod)) deallocate(obj%mesh%elemnod) 
+				allocate(obj%mesh%elemnod(node_num,4))
+				obj%mesh%ElemNod(:,:) = 0
+				do i=1,node_num
+					line = f%readline()
+					if(line(1:1)=="4" )then
+						elem_num = elem_num + 1
+						read(line,*) m,obj%mesh%elemnod(elem_num,1:4) 
+					else
+						cycle
+					endif
+				enddo
+
+				elemnod = obj%mesh%elemnod
+				deallocate(obj%mesh%elemnod)
+				allocate(obj%mesh%elemnod(elem_num,4))
+				elem_num=0
+				do i=1,obj%ne()
+					if(elemnod(i,1)/=0 )then
+						elem_num=elem_num+1
+						obj%mesh%elemnod(elem_num,:) = elemnod(i,:)
+					endif
+				enddo
+				obj%mesh%elemnod(:,:) = obj%mesh%elemnod(:,:) + 1
+				call obj%checkconnectivity(fix=.true.)
+
+			endif
+			
+		enddo
+		call f%close()	
+		ret = .true.
+		return
 	endif
 
 	if(ret .eqv. .false.)then
