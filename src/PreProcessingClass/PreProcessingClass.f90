@@ -649,7 +649,7 @@ subroutine GetPixcelByRGB(obj,MPIData,err,onlycoord,Name)
     do i=1,sizeofpc
         read(fh,*)obj%FEMDomain%Mesh%NodCoord(i,1:2)
     enddo
-    obj%FEMDomain%Mesh%NodCoord(i,2)=-1.0d0*obj%FEMDomain%Mesh%NodCoord(i,2)
+    obj%FEMDomain%Mesh%NodCoord(:,2)=-1.0d0*obj%FEMDomain%Mesh%NodCoord(:,2)
     close(fh)
 
 
@@ -914,7 +914,9 @@ subroutine GetPixcelSurfaceNode(obj,MPIData,r,NumOfMaxNod,Name,convex,division,b
     obj%FEMDomain%Mesh%NodCoord(:,:)=buffer(:,:)
     
 
-
+    ! remove clossing 
+    call unwindLine(obj%FEMDomain%Mesh%NodCoord)
+    
 
 
 end subroutine

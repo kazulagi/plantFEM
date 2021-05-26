@@ -228,6 +228,10 @@ module ArrayClass
     interface Angles
         module procedure :: anglesReal3D
     end interface
+
+    interface unwindLine
+        module procedure :: unwindLineReal
+    end interface
     
     type :: FlexibleChar_
         character(len=:),allocatable :: string
@@ -372,7 +376,9 @@ end function
 !=====================================
 function loadtxtArrayReal(path,name,extention) result(realarray)
     real(real64),allocatable :: realarray(:,:)
-    character(*),intent(in) :: path,name,extention
+    character(*),intent(in) :: path
+    character(*),optional,intent(in) :: name,extention
+    character(len=:),allocatable :: nm,ex 
     integer(int32) :: fh, n,m,x,i
     fh = 9
 !    open(fh,file = trim(path)//trim(name)//trim(extention),status="old" )
@@ -388,8 +394,19 @@ function loadtxtArrayReal(path,name,extention) result(realarray)
 !    enddo
 !200 continue
 !    close(fh)
+    if(present(name) )then
+        nm =name
+    else
+        nm=""
+    endif
+    if(present(extention) )then
+        ex =extention
+    else
+        ex=""
+    endif
     
-    open(fh,file = trim(path)//trim(name)//trim(extention),status="old" )
+    
+    open(fh,file = trim(path)//trim(nm)//trim(ex),status="old" )
     read(fh,*) n,m
     allocate(realArray(n,m) )
     do i=1, n
@@ -4252,5 +4269,146 @@ function dotArrayClass(x,y) result(z)
 
 end function
 ! ############################################################
+
+recursive subroutine unwindLineReal(x,itr_tol)
+    real(real64),allocatable,intent(inout) :: x(:,:)
+    real(real64),allocatable :: x_old(:,:)
+    integer(int32),optional,intent(in) :: itr_tol
+    integer(int32),allocatable :: cross_list(:,:)
+    real(real64):: L_i(2,2),L_j(2,2),x1(2),x2(2)
+    integer(int32) :: i,j,n,itr,p1,p2, q1,q2,k,return_sig,itrtol
+    ! (x1,y1) --> (x2,y2) --> (x3,y3) --> (x4,y4) --> 
+    ! if the path is crossing, remove the crossing
+
+    itrtol=input(default=10000000,option=itr_tol)
+
+    if(itrtol<=0)then
+        print *, "ERROR :: unwindLineReal :: did not converge"
+        return
+    endif
+    if(size(x,2)/=2 )then
+        print *, "ERROR :: unwind >> this should be 2-D"
+        return
+    endif
+    ! copy
+    x_old = x
+    allocate(cross_list(size(x,1),4 ) )
+    cross_list(:,:) = 0
+    itr = 0
+    do i=1, size(x,1)-2
+        do j=i+2,size(x,1)
+            if(j==size(x,1))then
+                if(i==1)then
+                    ! (#1) ---> (#2) vs (#last) ---> (#1)
+                    ! no crossing 
+                    cycle
+                else
+                    L_i(1,:) = x(i,:)
+                    L_j(1,:) = x(j,:)
+                    L_i(2,:) = x(i+1,:)
+                    L_j(2,:) = x(1,:)
+                endif
+            else
+                L_i(1,:) = x(i,:)
+                L_j(1,:) = x(j,:)
+                L_i(2,:) = x(i+1,:)
+                L_j(2,:) = x(j+1,:)
+            endif
+            if(judgeCrossing2D(L_i,L_j) )then
+                ! cross!
+                itr=itr+1
+                cross_list(itr,1) = i 
+                cross_list(itr,2) = i+1
+                cross_list(itr,3) = j 
+                cross_list(itr,4) = j+1
+            endif
+        enddo
+    enddo
+    ! unwind
+    if(maxval(cross_list)==0 .or. itr==0)then
+        return
+    endif
+
+    do i=1, size(cross_list,1)
+        if(cross_list(i,1)==0 ) then
+            cycle
+        else
+            p1 = cross_list(i,1)
+            p2 = cross_list(i,2)
+            q1 = cross_list(i,3)
+            q2 = cross_list(i,4)
+            do j = p2, (q1+p2)/2
+                k = j-p1
+                if(j==q2-k)then
+                    cycle
+                endif
+                print *, "flip #"//str(j)//" and #"//str(q2-k)
+                
+                x1(:) = x(j,:)
+                x2(:) = x(q2-k,:)
+                ! exchanges
+                x(j,:) = x2(:)
+                x(q2-k,:) = x1(:)
+            enddo
+            cross_list(i,:) = 0
+        endif
+    enddo
+    itrtol=itrtol-1
+    call unwindline(x,itrtol)
+end subroutine
+! ############################################################
+
+! ############################################################
+function judgeCrossing2D(L1,L2) result(cross)
+    real(real64),intent(in) :: L1(2,2),L2(2,2)
+    real(real64) :: a, b, c1, c2
+    logical :: cross_1to2, cross_2to1, cross
+
+    ! only for 2-D
+    
+    ! Line #1 : y = a x + b
+    ! a = (y2-y1)/(x2-x1)
+    a = ( L1(2,2) - L1(1,2) )/( L1(2,1) - L1(1,1) )
+    ! b = y1 - a x1
+    b = L1(1,2) - a * L1(1,1)
+
+    ! check Line #2
+    ! For Line #2, c1 = y1 -ax1 -b 
+    ! For Line #2, c2 = y2 -ax2 -b
+    c1 = L2(1,2) - a * L2(1,1) - b
+    c2 = L2(2,2) - a * L2(2,1) - b
+
+    if(c1*c2 <0.0d0 )then
+        cross_1to2 = .True.
+    else
+        cross_1to2 = .False.
+    endif
+
+    ! 
+    a = ( L2(2,2) - L2(1,2) )/( L2(2,1) - L2(1,1) )
+    ! b = y1 - a x1
+    b = L2(1,2) - a * L2(1,1)
+
+    ! check Line #2
+    ! For Line #2, c1 = y1 -ax1 -b 
+    ! For Line #2, c2 = y2 -ax2 -b
+    c1 = L1(1,2) - a * L1(1,1) - b
+    c2 = L1(2,2) - a * L1(2,1) - b
+
+    if(c1*c2 <=0.0d0 )then
+        cross_2to1 = .True.
+    else
+        cross_2to1 = .False.
+    endif
+
+    if( cross_2to1 .and. cross_1to2)then
+        cross = .true.
+    else
+        cross = .false.
+    endif
+
+end function
+! ############################################################
+
 
 end module ArrayClass
