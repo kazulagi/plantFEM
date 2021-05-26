@@ -7313,14 +7313,17 @@ subroutine jsonFEMDomain(obj,name,fh,endl)
 
 end subroutine
 ! ##############################################
-subroutine readFEMDomain(obj,name)
+subroutine readFEMDomain(obj,name,DimNum)
 	class(FEMDomain_) ,intent(inout) :: obj
 	character(*),intent(in) :: name
 	character(len=200),allocatable :: line
-	integeR(int32),allocatable :: elemnod(:,:)
+	integeR(int32),allocatable :: elemnod(:,:),node_list(:),element_list(:),g_node_list(:)
+	integer(int32),optional,intent(in) :: DimNum
 	logical :: ret=.false.
 	real(real64) :: x(3)
-	integer(int32) :: node_num,elem_num,i,j,id,itr,n,m
+	real(real64),allocatable :: nodcoord(:,:)
+	integer(int32) :: node_num,elem_num,i,j,id,itr,n,m,num_node_new,num_node,num_entity
+	integer(int32) :: num_dim, num_c_node,nne,node_id
 	type(IO_) :: f
 
 	
@@ -7333,6 +7336,141 @@ subroutine readFEMDomain(obj,name)
 		ret = .true.
 	endif
 
+	
+	if(index(name,"msh")/=0 )then
+		call f%open(trim(name),"r" )
+		! get nodal coordinate
+		! For MSH 4.1
+		if(.not. present(DimNum) )then
+			print *, "ERROR :: readFEMDomain >> DimNum should be 2 or 3"
+			stop
+		endif
+		do 
+			line = f%readline()
+			if(f%EOF) exit
+			if( index(line,"$Nodes")/=0 )then
+				line = f%readline()
+				read(line,*) num_entity, num_node, n,m
+				allocate(g_node_list(num_node) )
+				g_node_list(:) = 0
+				allocate(node_list(num_node) )
+				obj%mesh%nodcoord = zeros(num_node, 3)
+				node_id=0
+				do
+					line = f%readline()
+					read(line,*) num_dim, num_c_node,n,m
+					if(num_dim==DimNum)then
+						! 2-D mesh"
+						
+						do i=1, m
+							line = f%readline()
+							read(line,*) node_list(i)
+							print *, node_list(i)
+							g_node_list( node_list(i) ) = node_list(i)
+						enddo
+						do i=1, m
+							line = f%readline()
+							node_id = node_id+1
+							read(line,*) obj%mesh%nodcoord(node_id,1:3)
+						enddo
+						exit
+					else
+						! ignore
+						line = f%readline()
+						read(line,*) n
+						g_node_list( n ) = n
+						line = f%readline()
+						node_id = node_id+1
+						read(line,*) obj%mesh%nodcoord(n,1:3)
+					endif
+				enddo
+			endif
+
+			if(index(line,"$Elements")/=0 )then
+				line = f%readline()
+				read(line,*) num_entity, num_node, n,m
+				do
+					line = f%readline()
+					read(line,*) num_dim, num_c_node,n,m
+					if(num_dim==DimNum)then
+						! 2-D mesh"
+						allocate(element_list(m) )
+						!defines the geometrical type of the n-th element:
+						!
+						!1
+						!2-node line.
+						!
+						!2
+						!3-node triangle.
+						!
+						!3
+						!4-node quadrangle.
+						!
+						!4
+						!4-node tetrahedron.
+						!
+						!5
+						!8-node hexahedron.
+						!
+						!6
+						!6-node prism.
+						!
+						!7
+						!5-node pyramid.
+						if(n==1)then
+							nne=2
+						elseif(n==2)then
+							nne=3
+						elseif(n==3)then
+							nne=4
+						elseif(n==4)then
+							nne=4
+						elseif(n==5)then
+							nne=8
+						elseif(n==6)then
+							nne=6
+						elseif(n==7)then
+							nne=5
+						else
+							print *, "[CAUTION] ReadFEMDomain >> No such elemtype as",n
+							exit	
+						endif
+						allocate(obj%mesh%elemnod(m, nne))
+						do i=1, m
+							line = f%readline()
+							print *, trim(line)
+							read(line,*) element_list(i),obj%mesh%elemnod(i,1:)
+						enddo
+						exit
+					else
+						! ignore
+						do i=1,m
+							line = f%readline()
+						enddo
+					endif
+				enddo
+				! got nodcoord & elemnod
+				
+				do i=1,size(obj%mesh%elemnod,1)
+					do j=1,size(obj%mesh%elemnod,2)
+						m = g_node_list( obj%mesh%elemnod(i,j) )
+						if(m==0)then
+							print *, g_node_list(845:)
+							print *, "[ERROR] ReadFEMDomain >> obj%mesh%elemnod(i,j) = m",i,j,obj%mesh%elemnod(i,j)
+							stop 
+						else
+							obj%mesh%elemnod(i,j) = m
+						endif
+					enddo
+				enddo
+				
+			endif
+		enddo
+		call f%close()	
+		ret = .true.
+		print *, g_node_list
+		return
+	endif
 	
 	if(index(name,"vtk")/=0 )then
 		itr=0
@@ -7350,6 +7488,8 @@ subroutine readFEMDomain(obj,name)
 
 				n = index(line,"POINTS")
 				read(line(n+6:),* ) node_num
+				allocate(node_list(node_num) )
+				node_list(:) = 0
 				obj%mesh%nodcoord = zeros(node_num,3)
 				do i=1,node_num
 					line = f%readline()
@@ -7384,7 +7524,39 @@ subroutine readFEMDomain(obj,name)
 					endif
 				enddo
 				obj%mesh%elemnod(:,:) = obj%mesh%elemnod(:,:) + 1
-				call obj%checkconnectivity(fix=.true.)
+				! 要素の節点番号を振り直す。
+				do i=1,size(obj%mesh%elemnod,1)
+					do j=1,size(obj%mesh%elemnod,2)
+						node_list( obj%mesh%elemnod(i,j) ) = 1
+					enddo
+				enddo
+				j=0
+				do i=1,size(node_list)
+					if(node_list(i)==1 )then
+						j=j+1
+						node_list(i) = j
+					endif	
+				enddo
+				num_node_new = j
+
+				! new node-id
+				do i=1,size(obj%mesh%elemnod,1)
+					do j=1,size(obj%mesh%elemnod,2)
+						obj%mesh%elemnod(i,j) = node_list( obj%mesh%elemnod(i,j) )
+					enddo
+				enddo
+
+				! remove un-associated nodes
+				!nodcoord = obj%mesh%nodcoord
+				!obj%mesh%nodcoord = zeros(num_node_new,3) 
+				!do i=1, size(node_list)
+				!	j = node_list(i)
+				!	if(j == 0)then
+				!		cycle
+				!	else
+				!		obj%mesh%nodcoord(node_list(i) ,:   ) = nodcoord(i,:)
+				!	endif
+				!enddo
 
 			endif
 			
@@ -8926,7 +9098,6 @@ subroutine GlobalVectorFEMDomain(obj,ElementID,ElementVector,DOF,Replace, Reset,
 
 end subroutine
 ! ##########################################################################
-
 
 ! ##########################################################################
 function connectivityFEMDomain(obj,ElementID) result(ret)
