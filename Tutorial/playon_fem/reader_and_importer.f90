@@ -2,7 +2,7 @@ use FEMDomainClass
 
 type(FEMDomain_) :: domain
 
-call domain%read("root.msh",2) !2-D
-call domain%vtk("root2")
+call domain%read("test.vtk",ElementType=VTK_QUAD) ! 2-D 4-node isoparametric element @ vtk
+call domain%vtk("test2.vtk",ElementType=VTK_QUAD)
 
 end
