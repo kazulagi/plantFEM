@@ -11,6 +11,31 @@ module FEMDomainClass
 	
 	implicit none
 
+	! VTK-FORMAT
+	integer(int32),public :: VTK_VERTEX		 = 1 !	Vertex
+	integer(int32),public :: VTK_POLY_VERTEX = 2 !	Vertex
+	integer(int32),public :: VTK_LINE		 = 3 !	Edge Lagrange P1
+	integer(int32),public :: VTK_TRIANGLE	 = 5 !	Triangle Lagrange P1
+	integer(int32),public :: VTK_PIXEL		 = 8 !	Quadrilateral Lagrange P1
+	integer(int32),public :: VTK_QUAD		 = 9 !	Quadrilateral Lagrange P1
+	integer(int32),public :: VTK_TETRA		 = 10 !	Tetrahedron Lagrange P1
+	integer(int32),public :: VTK_VOXEL		 = 11 !	Hexahedron Lagrange P1
+	integer(int32),public :: VTK_HEXAHEDRON  = 12 !	Hexahedron Lagrange P1
+	integer(int32),public :: VTK_WEDGE		 = 13 !	Wedge Lagrange P1
+	integer(int32),public :: VTK_QUADRATIC_EDGE 	 = 21 !	Edge Lagrange P2
+	integer(int32),public :: VTK_QUADRATIC_TRIANGLE  = 22 !	Triangle Lagrange P2
+	integer(int32),public :: VTK_QUADRATIC_QUAD		 = 23 !	Quadrilateral Lagrange P2
+	integer(int32),public :: VTK_QUADRATIC_TETRA	 = 24 !	Tetrahedron Lagrange P2
+	integer(int32),public :: VTK_QUADRATIC_HEXAHEDRON = 25 !	Hexahedron Lagrange P
+
+	integer(int32),public :: MSH_LINE		 = 1 !	Edge Lagrange P1
+	integer(int32),public :: MSH_TRIANGLE	 = 2 !	Triangle Lagrange P1
+	integer(int32),public :: MSH_QUAD		 = 3 !	Quadrilateral Lagrange P1
+	integer(int32),public :: MSH_TETRA		 = 4 !	Tetrahedron Lagrange P1
+	integer(int32),public :: MSH_HEXAHEDRON  = 5 !	Hexahedron Lagrange P1
+	integer(int32),public :: MSH_PRISM 	 = 6 !	Edge Lagrange P2
+	integer(int32),public :: MSH_PYRAMID  = 7 !	Triangle Lagrange P2
+	
 	type::Meshp_
 		type(Mesh_),pointer :: Meshp
 	end type
@@ -140,6 +165,8 @@ module FEMDomainClass
 		procedure,public :: initTBC => InitTBC
 
 		procedure,public :: json => jsonFEMDomain
+
+		procedure,public :: killElement => killElementFEMDomain
 
 		procedure,public :: length => lengthFEMDomain
 
@@ -7061,12 +7088,13 @@ end function
 ! ##################################################
 
 ! ##################################################
-subroutine vtkFEMDomain(obj,name,scalar,vector)
+subroutine vtkFEMDomain(obj,name,scalar,vector,ElementType)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: name
 	real(real64),optional,intent(in) :: scalar(:),vector(:,:)
+	integer(int32),optional,intent(in) :: ElementType
 	type(IO_) :: f
-	integer(int32) ::i,dim_num(3),j,VTK_CELL_TYPE
+	integer(int32) ::i,dim_num(3),j,VTK_CELL_TYPE,num_node
 
 	if(obj%mesh%empty() .eqv. .true.)then
 		print *, "ERROR :: vtkFEMDomain >> obj%mesh%empty() .eqv. .true., nothing exported"
@@ -7086,6 +7114,10 @@ subroutine vtkFEMDomain(obj,name,scalar,vector)
 	else
 		print *, "VTKFEMDomain >> ERROR :: Nothing is exported."
 		return
+	endif
+
+	if(present(ElementType) )then
+		VTK_CELL_TYPE = ElementType
 	endif
 
 	!call displayFEMDomain(obj,path="./",name=name,extention=".vtk")
@@ -7110,11 +7142,30 @@ subroutine vtkFEMDomain(obj,name,scalar,vector)
 
 	call f%write("CELLS "//str(obj%ne())//" "//str(obj%ne()* (obj%nne()+1) ))
 	do i=1, obj%ne()
-		write(f%fh,'(A)',advance="no") str(obj%nne() ) // " "
-		do j=1, obj%nne()-1
+		num_node = obj%nne() 
+		if(present(ElementType) )then
+			if(ElementType==1)then
+				num_node = 1
+			elseif(ElementType==5)then
+				num_node = 3
+			elseif(ElementType==9)then
+				num_node = 4
+			elseif(ElementType==10)then
+				num_node = 4
+			elseif(ElementType==12)then
+				num_node = 8
+			elseif(ElementType==13)then
+				num_node = 6
+			elseif(ElementType==14)then
+				num_node = 4
+			endif
+		endif
+		write(f%fh,'(A)',advance="no") str(num_node ) // " "
+		
+		do j=1, num_node-1
 			write(f%fh,'(A)',advance="no") str(obj%mesh%elemnod(i,j)-1)//" "
 		enddo
-		write(f%fh,'(A)',advance="yes") str(obj%mesh%elemnod(i, obj%nne() )-1)
+		write(f%fh,'(A)',advance="yes") str(obj%mesh%elemnod(i, num_node )-1)
 	enddo
 	
 	call f%write("CELL_TYPES "//str(obj%ne() ) )
@@ -7313,12 +7364,12 @@ subroutine jsonFEMDomain(obj,name,fh,endl)
 
 end subroutine
 ! ##############################################
-subroutine readFEMDomain(obj,name,DimNum)
+subroutine readFEMDomain(obj,name,DimNum,ElementType)
 	class(FEMDomain_) ,intent(inout) :: obj
 	character(*),intent(in) :: name
 	character(len=200),allocatable :: line
-	integeR(int32),allocatable :: elemnod(:,:),node_list(:),element_list(:),g_node_list(:)
-	integer(int32),optional,intent(in) :: DimNum
+	integeR(int32),allocatable :: elemnod(:,:),node_list(:),element_list(:),g_node_list(:),cell_types(:)
+	integer(int32),optional,intent(in) :: DimNum,ElementType
 	logical :: ret=.false.
 	real(real64) :: x(3)
 	real(real64),allocatable :: nodcoord(:,:)
@@ -7481,6 +7532,16 @@ subroutine readFEMDomain(obj,name,DimNum)
 		do
 			line = f%readline()
 			if(f%EOF) then
+				! post processing
+				if(present(ElementType) )then
+					do i=1,size(cell_types)
+						if(cell_types(i) /= ElementType)then
+							cell_types(i) = -1
+						endif
+					enddo
+					call obj%killElement(blacklist=cell_types,flag=-1)		
+				endif
+				obj%mesh%elemnod = obj%mesh%elemnod + 1
 				return
 			endif
 
@@ -7499,52 +7560,49 @@ subroutine readFEMDomain(obj,name,DimNum)
 
 			if(index(line, "CELLS")/=0 )then
 				n = index(line,"CELLS")
-				read(line(n+5:),* ) node_num
+				read(line(n+5:),* ) elem_num
 				if(allocated(obj%mesh%elemnod)) deallocate(obj%mesh%elemnod) 
-				allocate(obj%mesh%elemnod(node_num,4))
+				allocate(obj%mesh%elemnod(elem_num,8))
 				obj%mesh%ElemNod(:,:) = 0
-				do i=1,node_num
-					line = f%readline()
-					if(line(1:1)=="4" )then
-						elem_num = elem_num + 1
-						read(line,*) m,obj%mesh%elemnod(elem_num,1:4) 
-					else
-						cycle
-					endif
-				enddo
-
-				elemnod = obj%mesh%elemnod
-				deallocate(obj%mesh%elemnod)
-				allocate(obj%mesh%elemnod(elem_num,4))
-				elem_num=0
-				do i=1,obj%ne()
-					if(elemnod(i,1)/=0 )then
-						elem_num=elem_num+1
-						obj%mesh%elemnod(elem_num,:) = elemnod(i,:)
-					endif
-				enddo
-				obj%mesh%elemnod(:,:) = obj%mesh%elemnod(:,:) + 1
-				! 要素の節点番号を振り直す。
-				do i=1,size(obj%mesh%elemnod,1)
-					do j=1,size(obj%mesh%elemnod,2)
-						node_list( obj%mesh%elemnod(i,j) ) = 1
-					enddo
-				enddo
 				j=0
-				do i=1,size(node_list)
-					if(node_list(i)==1 )then
-						j=j+1
-						node_list(i) = j
-					endif	
+				do i=1,elem_num
+					line = f%readline()
+					j = j + 1
+					read(line,*) m,obj%mesh%elemnod(j,1:m) 
 				enddo
-				num_node_new = j
 
-				! new node-id
-				do i=1,size(obj%mesh%elemnod,1)
-					do j=1,size(obj%mesh%elemnod,2)
-						obj%mesh%elemnod(i,j) = node_list( obj%mesh%elemnod(i,j) )
-					enddo
-				enddo
+!				elemnod = obj%mesh%elemnod
+!				deallocate(obj%mesh%elemnod)
+!				allocate(obj%mesh%elemnod(elem_num,4))
+!				elem_num=0
+!				do i=1,obj%ne()
+!					if(elemnod(i,1)/=0 )then
+!						elem_num=elem_num+1
+!						obj%mesh%elemnod(elem_num,:) = elemnod(i,:)
+!					endif
+!				enddo
+!				obj%mesh%elemnod(:,:) = obj%mesh%elemnod(:,:) + 1
+!				! 要素の節点番号を振り直す。
+!				do i=1,size(obj%mesh%elemnod,1)
+!					do j=1,size(obj%mesh%elemnod,2)
+!						node_list( obj%mesh%elemnod(i,j) ) = 1
+!					enddo
+!				enddo
+!				j=0
+!				do i=1,size(node_list)
+!					if(node_list(i)==1 )then
+!						j=j+1
+!						node_list(i) = j
+!					endif	
+!				enddo
+!				num_node_new = j
+!
+!				! new node-id
+!				do i=1,size(obj%mesh%elemnod,1)
+!					do j=1,size(obj%mesh%elemnod,2)
+!						obj%mesh%elemnod(i,j) = node_list( obj%mesh%elemnod(i,j) )
+!					enddo
+!				enddo
 
 				! remove un-associated nodes
 				!nodcoord = obj%mesh%nodcoord
@@ -7559,8 +7617,21 @@ subroutine readFEMDomain(obj,name,DimNum)
 				!enddo
 
 			endif
+
+			if(index(line, "CELL_TYPES")/=0 )then
+				n = index(line, "CELL_TYPES")
+				read(line(n+10:),* ) elem_num
+				allocate(cell_types(elem_num) )
+				do i=1,elem_num
+					line = f%readline()
+					read(line,*) cell_types(i)
+				enddo
+			endif
 			
 		enddo
+
+
+
 		call f%close()	
 		ret = .true.
 		return
@@ -9172,5 +9243,51 @@ function NodeIDFEMDomain(obj,ElementID,LocalNodeID) result(NodeID)
 
 end function
 ! ##########################################################################
+
+subroutine killElementFEMDomain(obj,blacklist,flag)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32),allocatable :: elemnod_old(:,:)
+	integer(int32),optional,intent(in) :: blacklist(:),flag
+	integer(int32) :: i,J,n,m,k
+	logical :: survive
+
+	! if(blacklist(i) == flag ) => kill ethe element
+	elemnod_old = obj%mesh%elemnod
+	
+	m = size(obj%mesh%elemnod,2)
+	k = size(obj%mesh%elemnod,1)
+
+	if(size(blacklist)/=k )then
+		print *, "ERROR :: killElementFEMDomain >> should be size(blacklist)==k"
+		return
+	endif
+	
+	n=0
+	do i=1,size(blacklist)
+		if(blacklist(i)==flag )then
+			n = n + 1
+		endif
+	enddo
+	
+	if(n==0)then
+		return
+	endif
+	
+	deallocate(obj%mesh%elemnod)
+	allocate(obj%mesh%elemnod(k-n,m) )
+	obj%mesh%elemnod(:,:) = 0
+	n=0
+	do i=1, size(elemnod_old,1)
+		
+		if( blacklist(i)==flag )then
+			cycle
+		else
+			n=n+1
+			obj%mesh%elemnod(n,:) = elemnod_old(i,:)
+		endif
+	enddo
+
+end subroutine
+
 
 end module FEMDomainClass
