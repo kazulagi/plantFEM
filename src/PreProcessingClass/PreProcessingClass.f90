@@ -43,6 +43,7 @@ module PreprocessingClass
         procedure :: ConvertGeo2Mesh    => ConvertGeo2Mesh
         procedure :: ConvertMsh2Scf     => ConvertMsh2Scf
         procedure :: ConvertMesh2Scf    => ConvertMesh2Scf
+        procedure :: ConvertGeo2VTK     => ConvertGeo2VTK
         procedure :: Export             => ExportPreProcessing
         procedure :: ExportAsLodgingSim => ExportAsLodgingSimProcessing
         procedure :: import             => importPreProcessing
@@ -1390,6 +1391,44 @@ subroutine ConvertGeo2Msh(obj,MPIData,Name,clmin,clmax)
     endif
     command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin "//trim(fstring(cmin))&
         //" -clmax "//trim(fstring(cmax))
+
+    writE(*,'(A)') trim(command)
+    
+    call system(command)
+
+    !call system("sh ./MakeMesh.sh")
+    
+
+
+end subroutine
+! #########################################################
+
+
+! #########################################################
+subroutine ConvertGeo2VTK(obj,MPIData,Name,clmin,clmax)
+    class(PreProcessing_),intent(inout):: obj
+    class(MPI_),intent(inout)          :: MPIData
+    character(*),optional,intent(in)    :: Name
+    real(real64),optional,intent(in) :: clmin,clmax
+    character*200   :: python_buffer
+    character*200   :: command
+    character*20    :: pid
+    integer(int32) :: i,j,k,n,fh
+    real(real64) :: cmin,cmax
+
+    write(pid,*) MPIData%MyRank
+
+    cmin=input(default=100.0d0,option=clmin)
+    cmax=input(default=100000.0d0,option=clmax)
+    fh=MPIData%MyRank+10
+    python_buffer=" "
+    command  = " "
+    python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".geo"
+    if(present(Name) )then
+        python_buffer=trim(Name)
+    endif
+    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin "//trim(fstring(cmin))&
+        //" -clmax "//trim(fstring(cmax))//" -format vtk"
 
     writE(*,'(A)') trim(command)
     
