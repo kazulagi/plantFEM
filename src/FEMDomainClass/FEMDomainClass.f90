@@ -8019,6 +8019,10 @@ function getLayerDataStyleFEMDomain(obj,name) result(id)
 
 end function
 ! ######################################################################
+
+
+
+! ######################################################################
 subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug,mpid)
 	class(FEMDomain_),intent(inout) :: obj
 	character(2),intent(in) :: direction ! "=>, <=, -> or <-"
@@ -8468,17 +8472,34 @@ end subroutine
 ! ######################################################################
 
 
+
 ! ######################################################################
-function getShapeFunctionFEMDomain(obj, ElementID,GaussPointID,ReducedIntegration) result(sobj)
+function getShapeFunctionFEMDomain(obj, ElementID,GaussPointID,ReducedIntegration,Position) result(sobj)
 	class(FEMDomain_),intent(inout)::obj
-    integer(int32),intent(in) :: GaussPointID, ElementID
+    integer(int32),optional,intent(in) :: GaussPointID, ElementID
     logical,optional,intent(in) :: ReducedIntegration
+	integer(int32),optional,intent(in) :: position(:)
     type(ShapeFunction_)::sobj
     character*200 :: ElemType
 	integer(int32) :: i,j,n,m,gpid,elemID
 	
-	sobj = obj%mesh%getShapeFunction(ElementID,GaussPointID,ReducedIntegration)
-
+	if(.not.present(position) )then
+		sobj = obj%mesh%getShapeFunction(ElementID,GaussPointID,ReducedIntegration)
+	else
+		! search nearest element
+		sobj%ElementID = -1
+		sobj%ElementID      = obj%mesh%getNearestElement(position)
+		if(sobj%ElementID==-1)then
+			sobj%Empty = .true.
+			return
+		endif
+		! 4点セット
+		sobj%NumOfNode = obj%nne() !ok
+		sobj%NumOfDim  = obj%nd()  !ok
+		sobj%gzi       = obj%getLocalCoordinate(ElementID,position)
+		! sobj%Nmat      = zeros(obj%nne() )  !ok
+		! sobj%getShapeFunction() !ok
+	endif
 end function
 ! ######################################################################
 

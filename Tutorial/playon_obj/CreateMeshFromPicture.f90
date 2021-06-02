@@ -60,7 +60,7 @@ call soil%modifySuefaceNode(Mesh=root%FEMDomain%Mesh,boolean="diff")
 
 ! Convert SurfaceNod to .geo
 call soil%ExportGeoFile(mpid,Name=trim(project)//"soil"//trim(str_id)//".geo" )
-            
+
 ! Run Gmsh to convert .geo to .msh
 call soil%ConvertGeo2Msh(mpid ,Name=trim(project)//"soil"//trim(str_id)//".geo" )
 call soil%ConvertGeo2Inp(mpid ,Name=trim(project)//"soil"//trim(str_id)//".geo" )
