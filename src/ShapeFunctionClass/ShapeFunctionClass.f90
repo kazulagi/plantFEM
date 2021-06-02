@@ -25,7 +25,9 @@ module ShapeFunctionClass
         integer(int32) :: GpID
         integer(int32) :: ierr
         integer(int32) :: currentGpID
+        integer(int32) :: ElementID
         logical :: ReducedIntegration = .false.
+        logical :: Empty=.true.
         character*70::ElemType
         character(len=60):: ErrorMsg
     contains
@@ -41,9 +43,22 @@ module ShapeFunctionClass
         procedure :: remove => removeShapeFunction
         procedure :: save => saveShapeFunction
         procedure :: open => openShapeFunction
+        procedure :: getNvec => getNvecShapeFunction
     end type ShapeFunction_
 
 contains
+
+! #####################################################
+function getNvecShapeFunction(obj,x,y,z) result(nvec)
+    class(Shapefunction_),intent(in) :: obj
+    real(real64),optional,intent(in)::x,y,z
+    real(real64),allocatable :: nvec(:)
+
+    ! 
+
+    
+end function
+! #####################################################
 
 ! #####################################################
 subroutine openShapeFunction(obj,path,name)

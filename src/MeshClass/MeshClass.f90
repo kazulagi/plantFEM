@@ -102,6 +102,7 @@ module MeshClass
         procedure :: importNodCoord => ImportNodCoord
         procedure :: importElemMat => ImportElemMat
         procedure :: init => InitializeMesh
+        procedure :: InsideOfElement => InsideOfElementMesh
         
         procedure :: json => jsonMesh
 
@@ -124,6 +125,7 @@ module MeshClass
         procedure :: getNearestNodeID => getNearestNodeIDMesh
         
         procedure :: HowManyDomain => HowManyDomainMesh
+        
 
         procedure :: open => openMesh
 
@@ -7950,18 +7952,237 @@ end subroutine
 !#######################################################################################
 !################################################################################
 function nearestElementIDMesh(obj,x,y,z) result(ret)
-    class(Mesh_),intent(in) :: obj
+    class(Mesh_),intent(inout) :: obj
     real(real64),optional,intent(in) :: x,y,z
     real(real64),allocatable :: xcoord(:)
-    integer(int32) :: ret,dim_num,elem_num,node_num,i,j
+    integer(int32),allocatable :: element_id_list(:)
+    integer(int32) :: ret,dim_num,elem_num,node_num,i,j,nearest_node_id
 
     dim_num = size(obj%nodcoord,2)
     node_num = size(obj%nodcoord,1)
     elem_num = size(obj%elemnod,2)
+    ret = -1 ! default
+    
+    do i=1,size(obj%nodcoord,1)
+        nearest_node_id = obj%getNearestNodeID(x=x,y=y,z=z)
+        element_id_list = obj%getElementList(NodeID=nearest_node_id)
+        do j=1, size(element_id_list)
+            if(obj%InsideOfElement(ElementID=element_id_list(j),x=x,y=y,z=z ) )then
+                ret = element_id_list(j)
+                return
+            else
+                cycle
+            endif
+        enddo
+    enddo
+end function
+!##################################################################################
+
+!##################################################################################
+function InsideOfElementMesh(obj,ElementID,x,y,z) result(Inside)
+    class(Mesh_),intent(in) :: obj
+    integer(int32),intent(in) :: ElementID
+    real(real64),intent(in) :: x,y,z
+    real(real64) :: a,b
+    real(real64),allocatable :: ElemCoord(:,:),p1(:),p2(:),o1(:),o2(:),nvec(:)
+    logical :: Inside
+    integer(int32) :: i,j,cross_count,in_count,node_1,node_2,node_0,node_id,dim_num,nne
+
+    inside = .false.
+
+    ! detect Inside or not.
+    dim_num = size(obj%nodcoord,2)
+    nne =  size(obj%elemnod,2)
+    allocate(ElemCoord( nne, dim_num ) )
+    ElemCoord(:,:) = 0.0d0
+    
+    if(size(obj%elemnod,1) < ElementID )then
+        print *, "ERROR :: InsideOfElementMesh >> size(obj%elemnod,1) < ElementID"
+        Inside = .false.
+        return
+    endif
+
+    do i=1,nne
+        node_id = obj%elemnod(ElementID, i)
+        elemcoord(i,:) = obj%nodcoord(node_id,:)
+    enddo
 
     
-    print *, "Not implemented now."
-    stop
+
+    ! Question >>> 
+    ! x,y,z is in elemcoord?
+    if(size(obj%elemnod,2)==4 .and. size(obj%nodcoord,2)==2 )then
+        ! Line-Crossing algorithm
+        ! x ------> this side
+        cross_count = 0
+        allocate(p1(2), p2(2), o1(2), o2(2) )
+        do i=1,4
+            if(i==4)then    
+                p1(:) = ElemCoord( 4 ,:)
+                p2(:) = ElemCoord( 1 ,:)
+            else
+                p1(:) = ElemCoord( i ,:)
+                p2(:) = ElemCoord( i+1 ,:)
+            endif
+            o1(1) = x
+            o1(2) = y 
+            ! p1, p2を通る直線の方程式
+            a = (p2(2)-p1(2) )/( p2(1) - p1(1) )
+            b = p2(2) - a * p2(1)
+            
+            ! y = o1(2) とy=ax+bとの交点のx座標
+            ! x = (y-b)/a
+            if(a==0)then
+                if(b==y )then
+                    if( abs(p1(1)-x)+abs(p2(1)-x) ==abs(p1(1)-p2(1) )  )then
+                        ! on the line!
+                        Inside = .true.
+                        return
+                    else
+                        cycle
+                    endif
+                else
+                    cycle
+                endif
+            else
+                if( (y-b)/a >= x )then
+                    cross_count=cross_count+1
+                endif
+            endif
+        enddo    
+        if(cross_count == 1)then
+            ! inside
+            Inside=.true.
+        endif
+        
+    elseif (size(obj%elemnod,2)==8 .and. size(obj%nodcoord,2)==3 )then
+        ! 内外判定
+        ! Z = zで断面を切り、(x,y)のリストを作り、交差判定
+        ! 3次元直線のZ=zにおける(x,y)を出す。>>ダメ
+
+        ! 内積で、角度？
+        in_count = 0
+        Inside = .false.
+        allocate(p1(3) )
+        allocate(p2(3) )
+        allocate(o1(3) )
+        allocate(o2(3) )
+        allocate(nvec(3) )
+
+        !trial #1
+        node_0 = 1
+        node_1 = 4
+        node_2 = 2
+        
+        p1(:) = elemcoord(node_1,:) - elemcoord(node_0,:)
+        p2(:) = elemcoord(node_2,:) - elemcoord(node_0,:)
+        
+        o1(1) = x
+        o1(2) = y
+        o1(3) = z
+
+        !call print(elemcoord)
+
+        o1(:) = o1(:) - elemcoord(node_0,:)
+        nvec = cross_product(p1,p2)
+        if(dot_product(nvec,o1) > 0.0d0 )then
+            ! outside
+            Inside = .false.
+            return
+        endif
+
+        !trial #2
+        node_0 = 1
+        node_1 = 2
+        node_2 = 5
+        p1(:) = elemcoord(node_1,:) - elemcoord(node_0,:)
+        p2(:) = elemcoord(node_2,:) - elemcoord(node_0,:)
+        o1(1) = x
+        o1(2) = y
+        o1(3) = z
+        o1(:) = o1(:) - elemcoord(node_0,:)
+        nvec = cross_product(p1,p2)
+        if(dot_product(nvec,o1) > 0.0d0 )then
+            ! outside
+            Inside = .false.
+            return
+        endif
+
+        !trial #3
+        node_0 = 1
+        node_1 = 5
+        node_2 = 4
+        p1(:) = elemcoord(node_1,:) - elemcoord(node_0,:)
+        p2(:) = elemcoord(node_2,:) - elemcoord(node_0,:)
+        o1(1) = x
+        o1(2) = y
+        o1(3) = z
+        o1(:) = o1(:) - elemcoord(node_0,:)
+        nvec = cross_product(p1,p2)
+        if(dot_product(nvec,o1) > 0.0d0 )then
+            ! outside
+            Inside = .false.
+            return
+        endif
+
+        !trial #4
+        node_0 = 3
+        node_1 = 7
+        node_2 = 2
+        p1(:) = elemcoord(node_1,:) - elemcoord(node_0,:)
+        p2(:) = elemcoord(node_2,:) - elemcoord(node_0,:)
+        o1(1) = x
+        o1(2) = y
+        o1(3) = z
+        o1(:) = o1(:) - elemcoord(node_0,:)
+        nvec = cross_product(p1,p2)
+        if(dot_product(nvec,o1) > 0.0d0 )then
+            ! outside
+            Inside = .false.
+            return
+        endif
+
+        !trial #5
+        node_0 = 7
+        node_1 = 8
+        node_2 = 6
+        p1(:) = elemcoord(node_1,:) - elemcoord(node_0,:)
+        p2(:) = elemcoord(node_2,:) - elemcoord(node_0,:)
+        o1(1) = x
+        o1(2) = y
+        o1(3) = z
+        o1(:) = o1(:) - elemcoord(node_0,:)
+        nvec = cross_product(p1,p2)
+        if(dot_product(nvec,o1) > 0.0d0 )then
+            ! outside
+            Inside = .false.
+            return
+        endif
+
+        !trial #6
+        node_0 = 3
+        node_1 = 4
+        node_2 = 7
+        p1(:) = elemcoord(node_1,:) - elemcoord(node_0,:)
+        p2(:) = elemcoord(node_2,:) - elemcoord(node_0,:)
+        o1(1) = x
+        o1(2) = y
+        o1(3) = z
+        o1(:) = o1(:) - elemcoord(node_0,:)
+        nvec = cross_product(p1,p2)
+        if(dot_product(nvec,o1) > 0.0d0 )then
+            ! outside
+            Inside = .false.
+            return
+        endif
+
+        Inside = .true.
+        return
+    else
+        print *, "ERROR :: InsideOfElementMesh >> 4-node box or 8-node cube are acceptable."
+        stop
+    endif
+    
 end function
 !##################################################################################
 
@@ -8321,6 +8542,7 @@ recursive subroutine assembleMesh(obj)
 
 end subroutine
 ! ##########################################################################
+
 
 
 end module MeshClass
