@@ -24,11 +24,15 @@ module LinearSolverClass
     real(real64) :: er0=dble(1.0e-08)
   contains
     procedure, public :: init => initLinearSolver
+
     procedure, public :: set => setLinearSolver
+    
     procedure, public :: assemble => assembleLinearSolver
+    
     procedure, public :: import => importLinearSolver
     procedure, public :: fix => fixLinearSolver
     procedure, public :: solve => solveLinearSolver
+    
     procedure, public :: show => showLinearSolver
     procedure, public :: globalMatrix => globalMatrixLinearSolver
     procedure, public :: globalVector => globalVectorLinearSolver
