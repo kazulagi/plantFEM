@@ -36,6 +36,7 @@ module ShapeFunctionClass
         procedure :: SetType => SetShapeFuncType
         procedure :: GetAll  => GetAllShapeFunc
         procedure :: get  => GetAllShapeFunc
+        procedure :: getOnlyNvec  => GetShapeFunction
         procedure :: Deallocate => DeallocateShapeFunction
         procedure :: getType => getShapeFuncType 
         procedure :: GetGaussPoint => GetGaussPoint
