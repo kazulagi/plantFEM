@@ -229,6 +229,7 @@ module FEMDomainClass
 		procedure,public :: Dmatrix => DMatrixFEMDomain
 		procedure,public :: StiffnessMatrix => StiffnessMatrixFEMDomain 
 		procedure,public :: DiffusionMatrix => DiffusionMatrixFEMDomain 
+		procedure,public :: ConnectMatrix => ConnectMatrixFEMDomain 
 		procedure,public :: ElementVector => ElementVectorFEMDomain 
 		procedure,public :: GlobalVector => GlobalVectorFEMDomain
     end type FEMDomain_
@@ -9418,6 +9419,40 @@ subroutine killElementFEMDomain(obj,blacklist,flag)
 	enddo
 
 end subroutine
+! ###################################################################
+
+
+! ###################################################################
+function ConnectMatrixFEMDomain(obj,position,DOF) result(connectMatrix)
+	class(FEMDomain_),intent(inout) :: obj
+	type(ShapeFunction_) :: sobj
+	real(real64),intent(in) :: position(:)
+	integer(int32),intent(in) :: DOF
+	real(real64),allocatable :: connectMatrix(:,:),cm_DOF1(:,:),Rcvec(:)
+	integer(int32) :: i,j,n
+
+	sobj = obj%getShapeFunction(position=position)
+
+	n = (obj%nne()+1) * DOF
+	if(sobj%elementid == -1)then
+		! no contact
+		connectMatrix = zeros(n,n)
+		return
+	endif
+
+	n = (size(sobj%nmat)+1) * DOF
+	allocate(Rcvec(n) )
+	Rcvec(1:DOF) = 1.0d0
+	do i=1,size(sobj%nmat)
+		do j=1,DOF
+			Rcvec(DOF+ (i-1)*DOF + j) = - sobj%nmat(i)
+		enddo
+	enddo
+	
+	connectMatrix = diadic(Rcvec,Rcvec)
+
+end function
+! ###################################################################
 
 
 end module FEMDomainClass
