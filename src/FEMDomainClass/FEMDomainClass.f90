@@ -153,7 +153,7 @@ module FEMDomainClass
 		procedure,public :: getShapeFunction => getShapeFunctionFEMDomain
 		procedure,public :: getNearestNodeID => getNearestNodeIDFEMDomain
 		procedure,public :: getSurface => getSurfaceFEMDomain
-		
+		procedure,public :: getLocalCoordinate => getLocalCoordinateFEMDomain		
 		
         procedure,public :: init   => InitializeFEMDomain
 		procedure,public :: import => ImportFEMDomain
@@ -8474,32 +8474,141 @@ end subroutine
 
 
 ! ######################################################################
-function getShapeFunctionFEMDomain(obj, ElementID,GaussPointID,ReducedIntegration,Position) result(sobj)
+recursive function getShapeFunctionFEMDomain(obj, ElementID,GaussPointID,ReducedIntegration,Position) result(sobj)
 	class(FEMDomain_),intent(inout)::obj
     integer(int32),optional,intent(in) :: GaussPointID, ElementID
     logical,optional,intent(in) :: ReducedIntegration
-	integer(int32),optional,intent(in) :: position(:)
-    type(ShapeFunction_)::sobj
+	real(real64),optional,intent(in) :: position(:)
+    type(ShapeFunction_) ::sobj
     character*200 :: ElemType
 	integer(int32) :: i,j,n,m,gpid,elemID
+	real(real64) :: x,y,z
 	
 	if(.not.present(position) )then
 		sobj = obj%mesh%getShapeFunction(ElementID,GaussPointID,ReducedIntegration)
 	else
 		! search nearest element
+		
+		! import coordinate
+		x = 0.0d0
+		y = 0.0d0
+		z = 0.0d0
+		if(size(Position)>=1 )then
+			x =  Position(1)
+		endif
+		if(size(Position)>=2 )then
+			y =  Position(2)
+		endif
+
+		if(size(Position)>=3 )then
+			z =  Position(3)
+		endif
+
+		! get the nearest element's ID
 		sobj%ElementID = -1
-		sobj%ElementID      = obj%mesh%getNearestElement(position)
+		sobj%ElementID      = obj%mesh%getNearestElementID(x=x,y=y,z=z)
 		if(sobj%ElementID==-1)then
 			sobj%Empty = .true.
+			print *, "[Caution]:: getShapeFunctionFEMDomain >> sobj%elementID = -1 , no such element"
 			return
 		endif
+
 		! 4点セット
 		sobj%NumOfNode = obj%nne() !ok
 		sobj%NumOfDim  = obj%nd()  !ok
-		sobj%gzi       = obj%getLocalCoordinate(ElementID,position)
-		! sobj%Nmat      = zeros(obj%nne() )  !ok
-		! sobj%getShapeFunction() !ok
+		sobj%gzi       = obj%getLocalCoordinate(ElementID=sobj%ElementID,x=x,y=y,z=z)
+		sobj%Nmat      = zeros(obj%nne() )  !ok
+		call sobj%getOnlyNvec() !ok
 	endif
+end function
+! ######################################################################
+
+! ######################################################################
+function getLocalCoordinateFEMDomain(obj,ElementID,x,y,z) result(xi)
+	class(FEMDomain_),intent(inout) :: Obj
+	type(ShapeFunction_) :: shapefunc
+	integer(int32),intent(in) :: ElementID
+	real(real64),intent(in) ::  x,y,z
+	real(real32),allocatable :: jmat32(:,:),j_inv32(:,:)
+	real(real64),allocatable :: xcoord(:),jmat(:,:),j_inv(:,:),center(:)
+	real(real64),allocatable :: xi(:)
+	integer(int32) :: i,j,n
+
+	Jmat = zeros(obj%nd(),obj%nd())
+	allocate( xcoord(obj%nd() ))
+	allocate( xi(obj%nd() ))
+	allocate( center(obj%nd() ))
+	xcoord(:) = 0.0d0
+	xi(:) = 0.0d0 
+	center(:)  = 0.0d0
+	! only for 2D 4-node/ 3D 8node- isoparametric elements
+	if(obj%nne()==4 .and. obj%nd()==2 )then
+		do i=1,4 ! 4-gauss points
+			shapefunc = obj%mesh%getShapeFunction(ElementID=ElementID,GaussPointID=i)
+			jmat(:,:) = jmat(:,:) + shapefunc%jmat(:,:)
+		enddo
+		jmat(:,:) = 0.250d0 * jmat(:,:)
+		xcoord(1) = x
+		xcoord(2) = y
+		do i=1,size(shapefunc%elemcoord,1)
+			center(:) = center(:) + shapefunc%elemcoord(i,:)
+		enddo
+		center(:) = 0.250d0 *center(:)
+	elseif(obj%nne()==8 .and. obj%nd()==3 )then
+		do i=1,8 ! 8-gauss points
+			shapefunc = obj%mesh%getShapeFunction(ElementID=ElementID,GaussPointID=i)
+			jmat(:,:) = jmat(:,:) + shapefunc%jmat(:,:)
+		enddo
+		jmat(:,:) = 0.1250d0 * jmat(:,:)
+		xcoord(1) = x
+		xcoord(2) = y
+		xcoord(3) = z
+		do i=1,size(shapefunc%elemcoord,1)
+			center(:) = center(:) + shapefunc%elemcoord(i,:)
+		enddo
+		center(:) = 0.1250d0 *center(:)
+	else
+		print *, "ERROR :: getLocalCoordinateFEMDomain, only for 2D 4-node/ 3D 8node- isoparametric elements"
+		stop
+	endif
+
+	! xcoord
+
+
+	! xi(:) = J_inv x(:)
+	xcoord(:) = xcoord(:) - center(:)
+	!jmat32 = jmat
+	!jmat = dble(jmat32)
+	J_inv = inverse(jmat)
+	!j_inv32 = J_inv
+	!J_inv = dble(j_inv32)
+	xi = matmul(J_inv,xcoord)
+
+
+	! ok
+	!allocate(xi( obj%nd()*obj%nne() ) )
+	!n=0
+	!do i=1,obj%nne()
+	!	do j=1,obj%nd()
+	!		n=n+1
+	!		xi(n) = shapefunc%elemcoord(i,j)
+	!	enddo
+	!enddo
+
+!	allocate(xi(12) )
+!	xi(1) = Jmat(1,1)
+!	xi(2) = Jmat(1,2)
+!	xi(3) = Jmat(1,3)
+!	xi(4) = Jmat(2,1)
+!	xi(5) = Jmat(2,2)
+!	xi(6) = Jmat(2,3)
+!	xi(7) = Jmat(3,1)
+!	xi(8) = Jmat(3,2)
+!	xi(9) = Jmat(3,3)
+!	xi(10)= center(1) 
+!	xi(11)= center(2) 
+!	xi(12)= center(3) 
+
 end function
 ! ######################################################################
 
