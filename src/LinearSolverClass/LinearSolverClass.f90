@@ -4,6 +4,8 @@ module LinearSolverClass
   use MPIClass
   implicit none
 
+  
+
   type :: LinearSolver_
     ! non-Element-by-element
     real(real64),allocatable :: a(:,:)
@@ -13,22 +15,37 @@ module LinearSolverClass
     real(real64),allocatable :: a_e(:,:,:)
     real(real64),allocatable :: b_e(:,:)
     real(real64),allocatable :: x_e(:,:)
-
-    real(real64),allocatable :: val(:)
+    
+    ! For Sparse 
+    real(real64),allocatable   :: val(:)
     integer(int32),allocatable :: index_I(:)
     integer(int32),allocatable :: index_J(:)
+    integer(int32),allocatable :: row_domain_id(:)
+    integer(int32),allocatable :: column_domain_id(:)
+    integer(int32),allocatable   :: b_Index_J(:)
+    integer(int32),allocatable   :: b_Domain_ID(:)
 
+    ! info
+    integer(int32),allocatable   :: NumberOfNode(:)
+    integer(int32) :: DOF
+    
+    ! 
     integer(int32),allocatable :: connectivity(:,:)
     integer(int32) :: itrmax=1000000
     integer(int32) :: currentID=1
+    integer(int32) :: b_currentID=1
     real(real64) :: er0=dble(1.0e-08)
   contains
     procedure, public :: init => initLinearSolver
+
     procedure, public :: set => setLinearSolver
+    
     procedure, public :: assemble => assembleLinearSolver
+    
     procedure, public :: import => importLinearSolver
     procedure, public :: fix => fixLinearSolver
     procedure, public :: solve => solveLinearSolver
+    
     procedure, public :: show => showLinearSolver
     procedure, public :: globalMatrix => globalMatrixLinearSolver
     procedure, public :: globalVector => globalVectorLinearSolver
@@ -36,8 +53,10 @@ module LinearSolverClass
 contains
 
 !====================================================================================
-subroutine initLinearSolver(obj)
+subroutine initLinearSolver(obj,NumberOfNode,DOF)
   class(LinearSolver_),intent(inout) :: obj
+  integer(int32),optional,intent(in) :: NumberOfNode(:),DOF
+  integer(int32) :: i,j,k,n,num_total_unk,node_count
   
     ! non-Element-by-element
   if(allocated(obj % a) ) deallocate(obj % a)
@@ -51,27 +70,66 @@ subroutine initLinearSolver(obj)
   if(allocated(obj % val) ) deallocate(obj % val)
   if(allocated(obj % index_I) ) deallocate(obj % index_I)
   if(allocated(obj % index_J) ) deallocate(obj % index_J)
+  if(allocated(obj % row_Domain_ID) ) deallocate(obj % row_Domain_ID)
+  if(allocated(obj % column_Domain_ID) ) deallocate(obj % column_Domain_ID)
+
+  if(allocated(obj % b_Index_J) ) deallocate(obj % b_Index_J)
+  if(allocated(obj % b_Domain_ID) ) deallocate(obj % b_Domain_ID)
 
   if(allocated(obj % connectivity) ) deallocate(obj % connectivity)
 
+  n =  input(default=1, option=DOF)
+  ! Number of node of n th domains is NumberOfNode(n)
+  if(present(NumberOfNode)  )then
+    num_total_unk = sum(NumberOfNode) * n
+    allocate(obj%b_Index_J(num_total_unk) )
+    allocate(obj%b_Domain_ID(num_total_unk) )
+    allocate(obj%b(num_total_unk) )
+    obj%NumberOfNode = NumberOfNode
+    obj%DOF = DOF
+    obj%b(:) = 0.0d0
+
+    num_total_unk = 0
+    do i=1,size(NumberOfNode)
+      node_count= 0
+      do j=1,NumberOfNode(i)
+        do k=1, n
+          num_total_unk = num_total_unk + 1
+          node_count = node_count + 1
+          obj%b_Domain_ID(num_total_unk) = i
+          obj%b_Index_J(num_total_unk)   = node_count
+        enddo
+      enddo
+    enddo
+  endif
+
   obj % itrmax=1000000
   obj % currentID=1
+  obj % b_currentID=1
   obj % er0=dble(1.0e-08)
 end subroutine
 !====================================================================================
 
 
 !====================================================================================
-subroutine assembleLinearSolver(obj,connectivity,DOF,eMatrix,eVector)
+subroutine assembleLinearSolver(obj,connectivity,DOF,eMatrix,eVector,DomainID1, DomainID2)
   class(LinearSolver_),intent(inout) :: obj 
   integer(int32),intent(in) :: connectivity(:) ! connectivity matrix 
   !(global_node_id#1, global_node_id#2, global_node_id#3, . )
   integer(int32),intent(in) :: DOF ! degree of freedom
+  integer(int32),optional,intent(in) :: DomainID1,DomainID2 ! DomainID
   real(real64),optional,intent(in) :: eMatrix(:,:) ! elemental matrix
   real(real64),optional,intent(in) :: eVector(:) ! elemental Vector
   integer(int32) :: i,j,k,l,m,node_id1,node_id2
   
   
+      ! DomainIDは，rowとcolumnの両方必要！！！
+      ! DomainIDは，rowとcolumnの両方必要！！！
+      ! DomainIDは，rowとcolumnの両方必要！！！
+      ! DomainIDは，rowとcolumnの両方必要！！！
+      ! DomainIDは，rowとcolumnの両方必要！！！
+      ! DomainIDは，rowとcolumnの両方必要！！！
+      ! DomainIDは，rowとcolumnの両方必要！！！
   if(present(eMatrix) )then
     do j=1, size(connectivity)
       do k=1, size(connectivity)
@@ -82,7 +140,9 @@ subroutine assembleLinearSolver(obj,connectivity,DOF,eMatrix,eVector)
             call obj%set(&
                 low=DOF*(node_id1-1) + l, &
                 column= DOF*(node_id2-1) + m, &
-                entryvalue=eMatrix( DOF*(j-1) + l  , DOF*(k-1) + m ) )
+                entryvalue=eMatrix( DOF*(j-1) + l  , DOF*(k-1) + m ) ,&
+                row_DomainID = DomainID1,&
+                column_DomainID = DomainID2 )
           enddo
         enddo
       enddo
@@ -95,7 +155,8 @@ subroutine assembleLinearSolver(obj,connectivity,DOF,eMatrix,eVector)
             node_id1 = connectivity(j)
             call obj%set(&
                 low=DOF*(node_id1-1) + l, &
-                entryvalue=eVector( DOF*(j-1) + l ) )
+                entryvalue=eVector( DOF*(j-1) + l ) ,&
+                row_DomainID=DomainID1)
           
         enddo
     enddo
@@ -106,44 +167,152 @@ end subroutine
 
 
 !====================================================================================
-subroutine fixLinearSolver(obj,nodeid,entryvalue)
+recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_DomainID)
   class(LinearSolver_),intent(inout) :: obj
   integer(int32),intent(in) :: nodeid
+  integer(int32),optional,intent(in) :: entryID,DOF,row_DomainID
   real(real64),intent(in) :: entryvalue
-  integer(int32) :: i,j
+  integer(int32),allocatable :: Index_I(:), Index_J(:)
+  integer(int32) :: i,j, n, offset,m
 
-  ! only for CRS-format
-  if(.not. allocated(obj%val) .or. .not.allocated(obj%b))then
-    print *, "ERROR >> fixLinearSolver .not. allocated(val) "
-    stop
+      ! row_DomainIDは，rowとcolumnの両方必要！！！
+      ! row_DomainIDは，rowとcolumnの両方必要！！！
+      ! row_DomainIDは，rowとcolumnの両方必要！！！
+      ! row_DomainIDは，rowとcolumnの両方必要！！！
+      ! row_DomainIDは，rowとcolumnの両方必要！！！
+      ! row_DomainIDは，rowとcolumnの両方必要！！！
+      ! row_DomainIDは，rowとcolumnの両方必要！！！
+
+  if(present(DOF)  )then
+    if(.not. present(entryID) )then
+      print *, "ERROR :: fixLinearSolver >> argument [DOF] should be called with [entryID]"
+      print *, "e.g. x-entry of nodeid=10 in terms of 3d(x,y,z) space is >> "
+      print *, "nodeid =10, entryID=1, DOF=3"
+      stop
+    endif
+    n = (nodeid-1)*DOF + entryID
+    call obj%fix(nodeid=n,entryvalue=entryvalue,row_DomainID=row_DomainID)
+    return
   endif
 
-  do i=1,size(obj%val)
-
-    if(obj%index_J(i)==nodeid)then
-      obj%b(obj%index_I(i) ) = obj%b(obj%index_I(i) )- obj%val(i) * entryvalue
-      obj%val(i)=0.0d0
+  
+  if(.not.allocated(obj%row_domain_id) .and..not.present(row_DomainID) )then
+    ! only for CRS-format
+    if(.not. allocated(obj%val) .or. .not.allocated(obj%b))then
+      print *, "ERROR >> fixLinearSolver .not. allocated(val) "
+      stop
     endif
 
-  enddo
 
-  do i=1,size(obj%index_I)
-    
-    if(obj%index_I(i)==nodeid)then
-      if(obj%index_J(i) ==nodeid)then
-        obj%val(i)=1.0d0
-      else
+    do i=1,size(obj%val)
+      if(obj%index_J(i)==nodeid)then
+        obj%b(obj%index_I(i) ) = obj%b(obj%index_I(i) )- obj%val(i) * entryvalue
         obj%val(i)=0.0d0
       endif
-      obj%b(obj%index_I(i) ) = entryvalue
+    enddo
+
+    do i=1,size(obj%index_I)
+
+      if(obj%index_I(i)==nodeid)then
+        if(obj%index_J(i) ==nodeid)then
+          obj%val(i)=1.0d0
+        else
+          obj%val(i)=0.0d0
+        endif
+        obj%b(obj%index_I(i) ) = entryvalue
+      endif
+
+      if(obj%index_I(i)==nodeid)then
+        if(obj%index_J(i)==nodeid)then
+          obj%val(i)=1.0d0
+        endif
+      endif
+    enddo
+
+
+  elseif(allocated(obj%row_domain_id) .and. present(row_DomainID) )then
+    ! only for CRS-format
+
+    ! Let's fix bugs.
+    Index_I = obj%Index_I
+    Index_J = obj%Index_J
+    do i=1, size(Index_I)
+      m = obj%row_Domain_ID(i)
+      if(m==1)then
+        n = 0
+      else
+        n = sum(obj%NumberOfNode(1:m-1))
+      endif
+      Index_I(i) = Index_I(i) + n
+    enddo
+    do i=1, size(Index_J)
+      m = obj%column_Domain_ID(i)
+      if(m==1)then
+        n = 0
+      else
+        n = sum(obj%NumberOfNode(1:m-1))
+      endif
+      Index_J(i) = Index_J(i) + n
+    enddo
+    
+
+    if(.not. allocated(obj%val) .or. .not.allocated(obj%b))then
+      print *, "ERROR >> fixLinearSolver .not. allocated(val) "
+      stop
     endif
     
-    if(obj%index_I(i)==nodeid)then
-      if(obj%index_J(i)==nodeid)then
-        obj%val(i)=1.0d0
+    print *, "obj%b",obj%b
+
+    ! update b-vector (Right-hand side vector)
+    do i=1,size(obj%val)
+      if(obj%index_J(i)==nodeid .and. obj%column_Domain_ID(i) == row_DomainID )then
+        n = obj%row_Domain_ID(i)
+        if(n == 1)then
+          offset = 0
+        else
+          offset = sum( obj%NumberOfNode(1:n-1) )
+        endif
+        n = obj%Index_I(i)
+        print *, "obj%b( offset + nodeid )",obj%b( offset + n ), offset, n,offset+ n
+        obj%b( offset + n ) = obj%b( offset  + n ) - obj%val(i) * entryvalue
+        if(obj%Index_I(i)==nodeid .and. obj%row_domain_id(i)==row_DomainID )then
+          obj%b( offset + n ) = entryvalue
+        endif
+        obj%val(i)=0.0d0
+      else
+        cycle
       endif
-    endif
-  enddo
+    enddo
+
+    print *, "obj%b",obj%b
+
+
+
+
+    do i=1,size(obj%index_I) ! for all queries of A matrix
+!      if(obj%index_I(i)==nodeid)then
+!        if(obj%index_J(i) ==nodeid)then
+!          obj%val(i)=1.0d0
+!        else
+!          obj%val(i)=0.0d0
+!        endif
+!        obj%b(obj%index_I(i)+offset ) = entryvalue
+!      endif
+      if(obj%index_I(i)==nodeid .and. obj%row_Domain_ID(i)==row_DomainID )then
+        obj%val(i)=0.0d0
+      endif
+      if(obj%index_I(i)==nodeid .and. obj%row_Domain_ID(i)==row_DomainID )then
+        if(obj%index_J(i)==nodeid .and. obj%column_Domain_ID(i)==row_DomainID )then
+          obj%val(i)=1.0d0
+        endif
+      endif
+    enddo
+
+    
+  else
+    print *, "ERROR  :: fixLinearSolver >> allocated(obj%row_domain_id) /= present(row_DomainID)"
+    stop
+  endif
   
   
 
@@ -153,13 +322,32 @@ end subroutine
 
 
 !====================================================================================
-subroutine setLinearSolver(obj,low,column,entryvalue,init)
+recursive subroutine setLinearSolver(obj,low,column,entryvalue,init,row_DomainID,column_DomainID)
   class(LinearSolver_),intent(inout) :: obj
-  integer(int32),optional,intent(in) :: low, column
+  integer(int32),optional,intent(in) :: low, column,row_DomainID,column_DomainID
   real(real64),optional,intent(in) :: entryvalue
   logical,optional,intent(in) :: init
-  integer(int32) :: i
+  integer(int32) :: i,row_DomID,column_DomID,row_offset,column_offset,j,k
 
+  row_DomID = input(default=1,option=row_DomainID)
+  column_DomID = input(default=1,option=column_DomainID)
+  if(allocated(obj%NumberOfNode) )then
+    if(present(row_DomainID) )then
+      if(row_DomainID==1)then
+        row_offset=0
+      else
+        row_offset = sum(obj%NumberOfNode(1:row_DomainID-1) )
+      endif
+    endif
+    if(present(column_DomainID) )then
+      if(column_DomainID==1)then
+        column_offset=0
+      else
+        column_offset = sum(obj%NumberOfNode(1:column_DomainID-1) )
+      endif
+    endif
+  endif
+  
   if(present(init) )then
     if(init .eqv. .true.)then
       if(allocated(obj%val) )then
@@ -173,51 +361,85 @@ subroutine setLinearSolver(obj,low,column,entryvalue,init)
   endif
 
   if(present(low) .and. present(column))then
+    
     if(.not. allocated(obj%val) )then
       allocate(obj%val(1) )
       obj%val(1)=input(default=0.0d0, option=entryvalue)
-    endif
-    if(.not. allocated(obj%index_I) )then
       allocate(obj%index_I(1) )
       obj%index_I(1)=low
-    endif
-    if(.not. allocated(obj%index_J) )then
       allocate(obj%index_J(1) )
       obj%index_J(1)=column
+      allocate(obj%row_Domain_ID(1) )
+      allocate(obj%column_Domain_ID(1) )
+      obj%row_Domain_ID(obj%currentID)=row_DomID
+      obj%column_Domain_ID(obj%currentID)=column_DomID
+
+      ! DomainIDは，rowとcolumnの両方必要！！！
+      ! DomainIDは，rowとcolumnの両方必要！！！
+      ! DomainIDは，rowとcolumnの両方必要！！！
+      ! DomainIDは，rowとcolumnの両方必要！！！
+      ! DomainIDは，rowとcolumnの両方必要！！！
+      ! DomainIDは，rowとcolumnの両方必要！！！
+      ! DomainIDは，rowとcolumnの両方必要！！！
       return
     endif
+    
     ! if already exists, add.
     do i=1,size(obj%index_I)
-      if(obj%index_I(i) == low )then
-        if(obj%index_J(i) == column )then
-          obj%val(i) = obj%val(i) + entryvalue
-          return
+      if(obj%row_domain_id(i) == row_DomainID .and. obj%column_domain_id(i) == column_DomainID )then
+        if(obj%index_I(i) == low )then
+          if(obj%index_J(i) == column )then
+            obj%val(i) = obj%val(i) + entryvalue
+            return
+          endif
         endif
       endif
     enddo
 
-    if(obj%currentID < size(obj%val) )then
-      obj%val(obj%currentID)=entryvalue
-      obj%index_I(obj%currentID)=low
-      obj%index_J(obj%currentID)=column
-    else
-      call  extendArray(obj%val,entryvalue)
-      call  extendArray(obj%index_I,low)
-      call  extendArray(obj%index_J,column)
-    endif
+
+    call  extendArray(obj%val,entryvalue)
+    call  extendArray(obj%index_I,low)
+    call  extendArray(obj%index_J,column)
+    call  extendArray(obj%row_Domain_ID,row_DomID)
+    call  extendArray(obj%column_Domain_ID,column_DomID)
     obj%currentID=obj%currentID+1
-  elseif(present(low) )then
-    if(.not. allocated(obj%b) )then
-      allocate(obj%b(1) )
-      obj%b(1)=input(default=0.0d0, option=entryvalue)
+    return
+  elseif(present(low) .and. .not.present(column) )then ! for right-hand side vector
+
+    if(present(row_DomainID) )then
+      ! multi-domain problem
+      if(.not. allocated(obj%b) )then
+        print *, "ERROR :: setLinearSolver >> for multi-domain problem, please call %init method"
+        print *, "with % init( NumberOfNode , DOF )"
+        stop
+      else
+        
+        ! Right-hand side vector
+        ! Extend one-by-one
+        if(row_DomainID==1)then
+          row_offset=0
+        else
+          row_offset = sum(obj%NumberOfNode(1:row_DomainID-1)  )
+        endif
+        obj%b(row_offset+low) = entryvalue
+      endif
       return
     else
-      if(low > size(obj%b) )then
-        if(obj%currentID < size(obj%val) )then
-          obj%b(low)=entryvalue
-        else
-          call extendArray(obj%b,0.0d0,low-size(obj%b) )
-          obj%b(low)=obj%b(low)+entryvalue
+      ! single-domain problem
+      if(.not. allocated(obj%b) )then
+        allocate(obj%b(low) )
+        obj%b(low) = input(default=0.0d0, option=entryvalue)
+        obj%CurrentID = low
+        return
+      else
+        ! Right-hand side vector
+        if(low > size(obj%b) )then
+          if(obj%currentID < size(obj%val) )then
+            obj%b(low)=entryvalue
+          else
+            call extendArray(obj%b,0.0d0,low-size(obj%b) )
+            obj%b(low)=obj%b(low)+entryvalue
+          endif
         endif
       endif
     endif
@@ -341,6 +563,8 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
   class(LinearSolver_),intent(inout) :: obj
   character(*),intent(in) :: Solver
   logical,optional,intent(in) :: MPI, OpenCL, CUDAC,preconditioning,CRS
+  integer(int32),allocatable :: Index_I(:), Index_J(:)
+  integer(int32) :: i,m,n
 
   if(.not. allocated(obj%a) .and. .not. allocated(obj%val) )then
     print *, "solveLinearSolver >> ERROR :: .not. allocated(obj%b) "
@@ -395,8 +619,6 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
           else
             call GPBiCG(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0)
           endif
-          
-
         else
           print *, "LinearSolver_ ERROR:: no such solver as :: ",trim(Solver)
         endif
@@ -404,7 +626,32 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
       endif
     endif
   else
-    call bicgstab_CRS(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0)
+    if(allocated(obj%NumberOfNode) )then
+      Index_I = obj%Index_I
+      Index_J = obj%Index_J
+      do i=1, size(Index_I)
+        m = obj%row_Domain_ID(i)
+        if(m==1)then
+          n = 0
+        else
+          n = sum(obj%NumberOfNode(1:m-1))
+        endif
+        Index_I(i) = Index_I(i) + n
+      enddo
+      do i=1, size(Index_J)
+        m = obj%column_Domain_ID(i)
+        if(m==1)then
+          n = 0
+        else
+          n = sum(obj%NumberOfNode(1:m-1))
+        endif
+        Index_J(i) = Index_J(i) + n
+      enddo
+      
+      call bicgstab_CRS(obj%val, index_I, index_J, obj%x, obj%b, obj%itrmax, obj%er0)
+    else
+      call bicgstab_CRS(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0)
+    endif
     return
   endif
 
