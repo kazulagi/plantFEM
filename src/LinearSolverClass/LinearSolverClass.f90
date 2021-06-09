@@ -27,7 +27,7 @@ module LinearSolverClass
 
     ! info
     integer(int32),allocatable   :: NumberOfNode(:)
-    integer(int32) :: DOF
+    integer(int32) :: DOF=1
     
     ! 
     integer(int32),allocatable :: connectivity(:,:)
@@ -112,54 +112,89 @@ end subroutine
 
 
 !====================================================================================
-subroutine assembleLinearSolver(obj,connectivity,DOF,eMatrix,eVector,DomainID1, DomainID2)
+subroutine assembleLinearSolver(obj,connectivity,DOF,eMatrix,eVector,DomainIDs)
   class(LinearSolver_),intent(inout) :: obj 
   integer(int32),intent(in) :: connectivity(:) ! connectivity matrix 
   !(global_node_id#1, global_node_id#2, global_node_id#3, . )
   integer(int32),intent(in) :: DOF ! degree of freedom
-  integer(int32),optional,intent(in) :: DomainID1,DomainID2 ! DomainID
+  integer(int32),optional,intent(in) :: DomainIDs(:) ! DomainID
   real(real64),optional,intent(in) :: eMatrix(:,:) ! elemental matrix
   real(real64),optional,intent(in) :: eVector(:) ! elemental Vector
-  integer(int32) :: i,j,k,l,m,node_id1,node_id2
+  integer(int32) :: i,j,k,l,m,node_id1,node_id2,domain_ID1, domain_ID2
   
   
-      ! DomainIDは，rowとcolumnの両方必要！！！
-      ! DomainIDは，rowとcolumnの両方必要！！！
-      ! DomainIDは，rowとcolumnの両方必要！！！
-      ! DomainIDは，rowとcolumnの両方必要！！！
-      ! DomainIDは，rowとcolumnの両方必要！！！
-      ! DomainIDは，rowとcolumnの両方必要！！！
-      ! DomainIDは，rowとcolumnの両方必要！！！
   if(present(eMatrix) )then
-    do j=1, size(connectivity)
-      do k=1, size(connectivity)
-        do l=1, DOF
-          do m=1, DOF
-            node_id1 = connectivity(j)
-            node_id2 = connectivity(k)
-            call obj%set(&
-                low=DOF*(node_id1-1) + l, &
-                column= DOF*(node_id2-1) + m, &
-                entryvalue=eMatrix( DOF*(j-1) + l  , DOF*(k-1) + m ) ,&
-                row_DomainID = DomainID1,&
-                column_DomainID = DomainID2 )
+    if(present(DomainIDs) )then
+      do j=1, size(connectivity)
+        do k=1, size(connectivity)
+          do l=1, DOF
+            do m=1, DOF
+              node_id1 = connectivity(j)
+              node_id2 = connectivity(k)
+              domain_ID1 = DomainIDs(j)
+              domain_ID2 = DomainIDs(k)
+              print *, "obj%set(&
+              low=",DOF*(node_id1-1) + l," &
+              column=", DOF*(node_id2-1) + m," &
+              entryvalue=",eMatrix( DOF*(j-1) + l  , DOF*(k-1) + m ) ,"&
+              row_DomainID =", Domain_ID1,"&
+              column_DomainID =", Domain_ID2 ,")"
+              call obj%set(&
+                  low=DOF*(node_id1-1) + l, &
+                  column= DOF*(node_id2-1) + m, &
+                  entryvalue=eMatrix( DOF*(j-1) + l  , DOF*(k-1) + m ) ,&
+                  row_DomainID = Domain_ID1,&
+                  column_DomainID = Domain_ID2 )
+            enddo
           enddo
         enddo
       enddo
-    enddo
+    else
+      do j=1, size(connectivity)
+        do k=1, size(connectivity)
+          do l=1, DOF
+            do m=1, DOF
+              node_id1 = connectivity(j)
+              node_id2 = connectivity(k)
+              call obj%set(&
+                  low=DOF*(node_id1-1) + l, &
+                  column= DOF*(node_id2-1) + m, &
+                  entryvalue=eMatrix( DOF*(j-1) + l  , DOF*(k-1) + m ) )
+            enddo
+          enddo
+        enddo
+      enddo
+      
+    endif
   endif
 
   if(present(eVector) )then
-    do j=1, size(connectivity)
-        do l=1, DOF
-            node_id1 = connectivity(j)
-            call obj%set(&
-                low=DOF*(node_id1-1) + l, &
-                entryvalue=eVector( DOF*(j-1) + l ) ,&
-                row_DomainID=DomainID1)
-          
-        enddo
-    enddo
+    if(present(DomainIDs) )then
+      do j=1, size(connectivity)
+          do l=1, DOF
+              node_id1 = connectivity(j)
+              domain_ID1 = DomainIDs(j)
+              print *, "obj%set(&
+              low=",DOF*(node_id1-1) + l," &
+              entryvalue=",eVector( DOF*(j-1) + l  ) ,"&
+              row_DomainID =", Domain_ID1,")"
+              call obj%set(&
+                  low=DOF*(node_id1-1) + l, &
+                  entryvalue=eVector( DOF*(j-1) + l ) ,&
+                  row_DomainID=Domain_ID1)
+
+          enddo
+      enddo
+    else
+      do j=1, size(connectivity)
+          do l=1, DOF
+              node_id1 = connectivity(j)
+              call obj%set(&
+                  low=DOF*(node_id1-1) + l, &
+                  entryvalue=eVector( DOF*(j-1) + l ) )
+          enddo
+      enddo
+    endif
   endif
 
 end subroutine
@@ -270,7 +305,7 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
         if(n == 1)then
           offset = 0
         else
-          offset = sum( obj%NumberOfNode(1:n-1) )
+          offset = sum( obj%NumberOfNode(1:n-1) )*obj%DOF
         endif
         n = obj%Index_I(i)
         print *, "obj%b( offset + nodeid )",obj%b( offset + n ), offset, n,offset+ n
@@ -419,9 +454,9 @@ recursive subroutine setLinearSolver(obj,low,column,entryvalue,init,row_DomainID
         if(row_DomainID==1)then
           row_offset=0
         else
-          row_offset = sum(obj%NumberOfNode(1:row_DomainID-1)  )
+          row_offset = sum(obj%NumberOfNode(1:row_DomainID-1)  )*obj%DOF
         endif
-        obj%b(row_offset+low) = entryvalue
+        obj%b(row_offset+low) =obj%b(row_offset+low) + entryvalue
       endif
       return
     else
@@ -634,7 +669,7 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
         if(m==1)then
           n = 0
         else
-          n = sum(obj%NumberOfNode(1:m-1))
+          n = sum(obj%NumberOfNode(1:m-1))*obj%DOF
         endif
         Index_I(i) = Index_I(i) + n
       enddo
@@ -643,7 +678,7 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
         if(m==1)then
           n = 0
         else
-          n = sum(obj%NumberOfNode(1:m-1))
+          n = sum(obj%NumberOfNode(1:m-1))*obj%DOF
         endif
         Index_J(i) = Index_J(i) + n
       enddo
@@ -1430,17 +1465,35 @@ end subroutine
 function globalMatrixLinearSolver(obj) result(ret)
   class(LinearSolver_),intent(in) :: obj
   real(real64),allocatable :: ret(:,:)
-  integer(int32) :: i,j,n,m
+  integer(int32) :: i,j,n,m,p1,p2,domain_id,offset
 
-  n = maxval(obj%Index_I)
-  m = maxval(obj%Index_J)
-  n = maxval( (/n, m/) )
+  if (allocated(obj%NumberOfNode) )then
+    n = sum(obj%NumberOfNode) * obj%DOF
+    ret = zeros(n,n)
+    do i=1,size(obj%val)
+      domain_id = obj%row_domain_id(i)
+      offset = sum( obj%NumberOfNode(:domain_id-1) )
+      !print *, offset
+      p1 = offset*obj%DOF + obj%Index_I(i)
 
-  ret = zeros(n,n) 
-  do i=1,size(obj%val)
-    ret(obj%Index_I(i),obj%Index_J(i) ) = ret(obj%Index_I(i),obj%Index_J(i) ) + obj%val(i)
-  enddo
+      domain_id = obj%column_domain_id(i)
+      offset = sum( obj%NumberOfNode(:domain_id-1) )
+      
+      p2 = offset*obj%DOF + obj%Index_J(i)
+      ret(p1,p2) = ret(p1,p2) + obj%val(i)
+    enddo
+    return
+  else
+    n = maxval(obj%Index_I)
+    m = maxval(obj%Index_J)
+    n = maxval( (/n, m/) )
 
+    ret = zeros(n,n) 
+    do i=1,size(obj%val)
+      ret(obj%Index_I(i),obj%Index_J(i) ) = ret(obj%Index_I(i),obj%Index_J(i) ) + obj%val(i)
+    enddo
+    return
+  endif
 end function
 !====================================================================================
 
@@ -1448,9 +1501,22 @@ end function
 function globalVectorLinearSolver(obj) result(ret)
   class(LinearSolver_),intent(in) :: obj
   real(real64),allocatable :: ret(:)
+  integer(int32) :: i,j,n,m,p1,p2,domain_id,offset
 
-  ret = obj%b
-
+  if (allocated(obj%NumberOfNode) )then
+    n = sum(obj%NumberOfNode) * obj%DOF
+    allocate(ret(n) )
+    ret(:) = 0.0d0
+    do i=1,size(obj%b_Index_J)
+      domain_id = obj%b_domain_id(i)
+      offset = sum( obj%NumberOfNode(:domain_id-1) )
+      p1 = offset*obj%DOF + obj%b_Index_J(i)
+      ret(p1) = ret(p1) + obj%b(i)
+    enddo
+    return
+  else
+    ret = obj%b
+  endif
 end function
 !====================================================================================
 
