@@ -133,12 +133,12 @@ subroutine assembleLinearSolver(obj,connectivity,DOF,eMatrix,eVector,DomainIDs)
               node_id2 = connectivity(k)
               domain_ID1 = DomainIDs(j)
               domain_ID2 = DomainIDs(k)
-              print *, "obj%set(&
-              low=",DOF*(node_id1-1) + l," &
-              column=", DOF*(node_id2-1) + m," &
-              entryvalue=",eMatrix( DOF*(j-1) + l  , DOF*(k-1) + m ) ,"&
-              row_DomainID =", Domain_ID1,"&
-              column_DomainID =", Domain_ID2 ,")"
+              !print *, "obj%set(&
+              !low=",DOF*(node_id1-1) + l," &
+              !column=", DOF*(node_id2-1) + m," &
+              !entryvalue=",eMatrix( DOF*(j-1) + l  , DOF*(k-1) + m ) ,"&
+              !row_DomainID =", Domain_ID1,"&
+              !column_DomainID =", Domain_ID2 ,")"
               call obj%set(&
                   low=DOF*(node_id1-1) + l, &
                   column= DOF*(node_id2-1) + m, &
@@ -174,10 +174,10 @@ subroutine assembleLinearSolver(obj,connectivity,DOF,eMatrix,eVector,DomainIDs)
           do l=1, DOF
               node_id1 = connectivity(j)
               domain_ID1 = DomainIDs(j)
-              print *, "obj%set(&
-              low=",DOF*(node_id1-1) + l," &
-              entryvalue=",eVector( DOF*(j-1) + l  ) ,"&
-              row_DomainID =", Domain_ID1,")"
+              !print *, "obj%set(&
+              !low=",DOF*(node_id1-1) + l," &
+              !entryvalue=",eVector( DOF*(j-1) + l  ) ,"&
+              !row_DomainID =", Domain_ID1,")"
               call obj%set(&
                   low=DOF*(node_id1-1) + l, &
                   entryvalue=eVector( DOF*(j-1) + l ) ,&
@@ -296,7 +296,7 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
       stop
     endif
     
-    print *, "obj%b",obj%b
+    !print *, "obj%b",obj%b
 
     ! update b-vector (Right-hand side vector)
     do i=1,size(obj%val)
@@ -308,7 +308,7 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
           offset = sum( obj%NumberOfNode(1:n-1) )*obj%DOF
         endif
         n = obj%Index_I(i)
-        print *, "obj%b( offset + nodeid )",obj%b( offset + n ), offset, n,offset+ n
+        !print *, "obj%b( offset + nodeid )",obj%b( offset + n ), offset, n,offset+ n
         obj%b( offset + n ) = obj%b( offset  + n ) - obj%val(i) * entryvalue
         if(obj%Index_I(i)==nodeid .and. obj%row_domain_id(i)==row_DomainID )then
           obj%b( offset + n ) = entryvalue
@@ -319,7 +319,7 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
       endif
     enddo
 
-    print *, "obj%b",obj%b
+    !print *, "obj%b",obj%b
 
 
 

@@ -9428,12 +9428,13 @@ function ConnectMatrixFEMDomain(obj,position,DOF) result(connectMatrix)
 	type(ShapeFunction_) :: sobj
 	real(real64),intent(in) :: position(:)
 	integer(int32),intent(in) :: DOF
-	real(real64),allocatable :: connectMatrix(:,:),cm_DOF1(:,:),Rcvec(:)
+	real(real64),allocatable :: connectMatrix(:,:),cm_DOF1(:,:),Rcvec(:),Bc(:,:)
 	integer(int32) :: i,j,n
 
 	sobj = obj%getShapeFunction(position=position)
 
 	n = (obj%nne()+1) * DOF
+	
 	if(sobj%elementid == -1)then
 		! no contact
 		connectMatrix = zeros(n,n)
@@ -9441,18 +9442,21 @@ function ConnectMatrixFEMDomain(obj,position,DOF) result(connectMatrix)
 	endif
 
 	n = (size(sobj%nmat)+1) * DOF
+	Bc = zeros(DOF, n)
+	do i=1,DOF
+		BC(i,i) = 1.0d0
+	enddo
 	allocate(Rcvec(n) )
 	Rcvec(1:DOF) = 1.0d0
 	do i=1,size(sobj%nmat)
 		do j=1,DOF
 			Rcvec(DOF+ (i-1)*DOF + j) = - sobj%nmat(i)
+			Bc(j, i*DOF + j ) = - sobj%nmat(i)
 		enddo
 	enddo
+	connectMatrix = matmul( transpose(Bc),Bc  )
 	
-	connectMatrix = diadic(Rcvec,Rcvec)
-
 end function
-! ###################################################################
-
+! ##################################################################
 
 end module FEMDomainClass

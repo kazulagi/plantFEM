@@ -6,7 +6,7 @@ module ContactClass
 
 	
 	type :: Contact_
-
+		
 	end type
 
 contains
