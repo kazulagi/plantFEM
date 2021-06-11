@@ -9,10 +9,21 @@ module ContactMechanicsClass
     implicit none
 
     type :: ContactMechanics_
-        type(FEMIface_),pointer::FEMIface
-        type(FEMDomain_),pointer::FEMDomain1
-		type(FEMDomain_),pointer::FEMDomain2
+		! Rodern 
+		type(FEMDomainp_),allocatable :: FEMDomains(:)
+		type(LinearSolver_) :: solver
+		integer(int32),allocatable :: contactlist(:,:)
+		logical :: initialized = .false.
 
+		! >>>>>>>>>>>> Regacy >>>>>>>>>>>>>>>>>
+		! >>>>>>>>>>>> Regacy >>>>>>>>>>>>>>>>>
+		! >>>>>>>>>>>> Regacy >>>>>>>>>>>>>>>>>
+		! >>>>>>>>>>>> Regacy >>>>>>>>>>>>>>>>>
+		! 
+		type(FEMDomain_),pointer::FEMDomain1
+		type(FEMDomain_),pointer::FEMDomain2
+	
+		type(FEMIface_),pointer::FEMIface
 		! common fields
 		real(real64),allocatable		:: NTSGap(:,:)
 		real(real64),allocatable		:: NTSGzi(:,:)
@@ -90,8 +101,15 @@ module ContactMechanicsClass
 
 		
 	contains
+		! modern
+		procedure :: Init			=> InitializeContactMechanics
+		procedure :: setup 			=> runCM
+		procedure :: run 			=> runCM
+		procedure :: updateMesh     => updateMeshContactMechanics
+		procedure :: fix     		=> fixContactMechanics
+	
+		! regacy
 		procedure :: Update			=> UpdateContactConfiguration
-        procedure :: Init			=> InitializeContactMechanics
 		procedure :: Import         => ImportContactMechanics 
 		procedure :: deploy			=> deployContactMechanics
 		procedure :: ContactSearch  => ContactSearch 
@@ -109,7 +127,6 @@ module ContactMechanicsClass
 
 		procedure :: properties => propertiesCM
 		procedure :: property => propertiesCM
-		procedure :: run => runCM
 
 		! >>> regacy subroutines for lodging-simulator 2.5
 		procedure :: ls_add_du => ls_add_duCM
@@ -121,587 +138,824 @@ module ContactMechanicsClass
 
 contains
 
+
+
 ! #####################################################
-subroutine InitializeContactMechanics(obj,femdomain1, femdomain2)
+subroutine InitializeContactMechanics(obj, femdomains, contactlist,femdomain1, femdomain2)
 	class(ContactMechanics_),intent(inout)  :: obj
-	type(FEMDomain_),target,intent(in) :: femdomain1, femdomain2
+	type(FEMDomain_),target,optional,intent(in) :: femdomains(:)
+	type(FEMDomain_),target,optional,intent(in) :: femdomain1, femdomain2
+	integer(int32),optional,intent(in) :: ContactList(:,:)
 
 	integer(int32) :: node_num_1
 	integer(int32) :: node_num_2
 
-    if(allocated(obj%KcontactEBE) )then
-        deallocate(obj%KcontactEBE)
-    endif
-    if(allocated(obj%KcontactGlo) )then
-        deallocate(obj%KcontactGlo)
-    endif
-    if(allocated(obj%FcontactEBE) )then
-        deallocate(obj%FcontactEBE)
-    endif
-    if(allocated(obj%FcontactGlo) )then
-        deallocate(obj%FcontactGlo)
-    endif
-    if(allocated(obj%DispVecEBE) )then
-        deallocate(obj%DispVecEBE)
-    endif
-    if(allocated(obj%DispVecGlo) )then
-        deallocate(obj%DispVecGlo)
-    endif
-    if(allocated(obj%NTSvariables) )then
-        deallocate(obj%NTSvariables)
-    endif
-	
-	if(associated(obj%femdomain1) )then
-		nullify(obj%femdomain1)
-	endif
-	if(associated(obj%femdomain2) )then
-		nullify(obj%femdomain2)
-	endif
-	
-	obj%femdomain1 => femdomain1
-	obj%femdomain2 => femdomain2
-    !if(.not. associated(obj%FEMDomain1) )then
-    !    print *, "ContactMechanics%Init >> FEMDomain1 is not imported"
-    !    return
-    !endif
-    !if(.not. associated(obj%FEMDomain2) )then
-    !    print *, "ContactMechanics%Init >> FEMDomain2 is not imported"
-    !    return
-    !endif
-    !if(.not. associated(obj%FEMIface) )then
-    !    print *, "ContactMechanics%Init >> FEMIface is not imported"
-    !    return
-	!endif
-	if(obj%femdomain1%mesh%empty()  .eqv. .true.)then
-		print *, "[Caution] >> initContactMechanics:: obj%femdomain1%mesh is empty" 
-		stop
-	endif
-	if(obj%femdomain2%mesh%empty()  .eqv. .true.)then
-		print *, "[Caution] >> initContactMechanics:: obj%femdomain2%mesh is empty" 
-		stop
-	endif
-	
-	node_num_1 = size(obj%femdomain1%mesh%nodcoord,1)
-	node_num_2 = size(obj%femdomain2%mesh%nodcoord,1)
+	integer(int32) :: numDomain,i
+	integer(int32),allocatable :: NumberOfNode(:)
 
-	! initialize data objects
-	if(.not. allocated(obj%duvec))then
-		allocate(obj%duvec((node_num_1+node_num_2)*size(obj%femdomain1%mesh%nodcoord,2) ))
-	endif
-	if(.not. allocated(obj%uvec))then
-		allocate(obj%uvec((node_num_1+node_num_2)*size(obj%femdomain1%mesh%nodcoord,2) ))
-	endif
-	if(.not. allocated(obj%dfvec))then
-		allocate(obj%dfvec((node_num_1+node_num_2)*size(obj%femdomain1%mesh%nodcoord,2) ))
+	! modern
+	if(present(femdomains) .and. present(contactList) )then
+		numDomain = size(femdomains)
+		if(numDomain==0)then
+			print *, "[Caution] :: InitializeContactMechanics >> No domain was found in femdomains=***"
+			print *, "             as well as contactlist=***"
+			return
+		endif
+
+		if(allocated(obj%femdomains) )then
+			deallocate(obj%femdomains)
+		endif
+
+		allocate(obj%femdomains(numDomain) )
+
+
+		! receive domains as pointers
+		do i=1,numDomain
+			obj%femdomains(i)%femdomainp => femdomains(i)
+		enddo
+
+		obj%ContactList = contactList
+
+
+		! initialize solver
+		allocate(NumberOfNode(numDomain))
+		do i=1,numDomain
+			NumberOfNode(i) = obj%femdomains(i)%femdomainp%nn()
+		enddo
+		call obj%solver%init(NumberOfNode=NumberOfNode, DOF = obj%femdomains(1)%femdomainp%nd() )
+
+		obj%initialized = .true.
+		return
+	else
+		print *, "[Caution] :: contactmechanics%init >> you attempt to run REGACY mode. If you want to run"
+		print *, "Modern version, please set your type(FEMDomain_),allocatable :: something(:) object as"
+		print *, "femdomains = "
 	endif
 
-	if(.not. allocated(obj%fvec))then
-		allocate(obj%fvec((node_num_1+node_num_2)*size(obj%femdomain1%mesh%nodcoord,2) ))
+
+
+	if(present(femdomain1) )then
+		! regacy
+		! regacy
+		! regacy
+		! regacy
+	    if(allocated(obj%KcontactEBE) )then
+	        deallocate(obj%KcontactEBE)
+	    endif
+	    if(allocated(obj%KcontactGlo) )then
+	        deallocate(obj%KcontactGlo)
+	    endif
+	    if(allocated(obj%FcontactEBE) )then
+	        deallocate(obj%FcontactEBE)
+	    endif
+	    if(allocated(obj%FcontactGlo) )then
+	        deallocate(obj%FcontactGlo)
+	    endif
+	    if(allocated(obj%DispVecEBE) )then
+	        deallocate(obj%DispVecEBE)
+	    endif
+	    if(allocated(obj%DispVecGlo) )then
+	        deallocate(obj%DispVecGlo)
+	    endif
+	    if(allocated(obj%NTSvariables) )then
+	        deallocate(obj%NTSvariables)
+	    endif
+
+		if(associated(obj%femdomain1) )then
+			nullify(obj%femdomain1)
+		endif
+		if(associated(obj%femdomain2) )then
+			nullify(obj%femdomain2)
+		endif
+
+		obj%femdomain1 => femdomain1
+		obj%femdomain2 => femdomain2
+	    !if(.not. associated(obj%FEMDomain1) )then
+	    !    print *, "ContactMechanics%Init >> FEMDomain1 is not imported"
+	    !    return
+	    !endif
+	    !if(.not. associated(obj%FEMDomain2) )then
+	    !    print *, "ContactMechanics%Init >> FEMDomain2 is not imported"
+	    !    return
+	    !endif
+	    !if(.not. associated(obj%FEMIface) )then
+	    !    print *, "ContactMechanics%Init >> FEMIface is not imported"
+	    !    return
+		!endif
+		if(obj%femdomain1%mesh%empty()  .eqv. .true.)then
+			print *, "[Caution] >> initContactMechanics:: obj%femdomain1%mesh is empty" 
+			stop
+		endif
+		if(obj%femdomain2%mesh%empty()  .eqv. .true.)then
+			print *, "[Caution] >> initContactMechanics:: obj%femdomain2%mesh is empty" 
+			stop
+		endif
+
+		node_num_1 = size(obj%femdomain1%mesh%nodcoord,1)
+		node_num_2 = size(obj%femdomain2%mesh%nodcoord,1)
+
+		! initialize data objects
+		if(.not. allocated(obj%duvec))then
+			allocate(obj%duvec((node_num_1+node_num_2)*size(obj%femdomain1%mesh%nodcoord,2) ))
+		endif
+		if(.not. allocated(obj%uvec))then
+			allocate(obj%uvec((node_num_1+node_num_2)*size(obj%femdomain1%mesh%nodcoord,2) ))
+		endif
+		if(.not. allocated(obj%dfvec))then
+			allocate(obj%dfvec((node_num_1+node_num_2)*size(obj%femdomain1%mesh%nodcoord,2) ))
+		endif
+
+		if(.not. allocated(obj%fvec))then
+			allocate(obj%fvec((node_num_1+node_num_2)*size(obj%femdomain1%mesh%nodcoord,2) ))
+		endif
+		return
 	endif
 end subroutine
 ! #####################################################
+subroutine fixContactMechanics(obj,direction,disp,DomainID,x_min,x_max,y_min,y_max,z_min,z_max,NodeiDs)
+	class(ContactMechanics_),intent(inout) :: Obj
+	character(1),intent(in) :: direction
+	real(real64),intent(in) :: disp
+	integer(int32),intent(in) :: DomainID
+	integer(int32),optional,intent(in) :: NodeIDs(:)
+	real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
+	integer(int32),allocatable :: FixBoundary(:)
+	integer(int32) :: entryID,i
 
-subroutine runCM(obj,debug)
-	class(ContactMechanics_),intent(inout) :: obj
+	if(present(NodeIDs) )then
+		FixBoundary = NodeIDs
+	else
+		FixBoundary = obj%FEMdomains(DomainID)%femdomainp%select(&
+			x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+	endif
+
+	if(direction=="x")then
+		EntryId=1
+	endif
+	if(direction=="y")then
+		EntryId=2
+	endif
+	if(direction=="z")then
+		EntryId=3
+	endif
+	if(direction=="X")then
+		EntryId=1
+	endif
+	if(direction=="Y")then
+		EntryId=2
+	endif
+	if(direction=="Z")then
+		EntryId=3
+	endif
+
+	do i=1,size(FixBoundary)
+		call obj%solver%fix(nodeid=FixBoundary(i), &
+			EntryID=EntryID, &
+			entryvalue=disp, &
+			DOF=obj%solver%DOF ,&
+			row_DomainID=domainid)
+	enddo
+
+end subroutine
+! #####################################################
+subroutine updateMeshContactMechanics(obj)
+	class(ContactMechanics_),target,intent(inout) :: obj
+	integer(int32) :: i,DOF,From,To
+
+	if(obj%initialized )then
+		DOF = obj%solver%DOF
+		From = 1
+		To   = 0
+		do i=1,size(obj%solver%NumberOfNode)
+			To   = To +  obj%solver%NumberOfNode(i)*DOF
+			obj%femdomains(i)%femdomainp%mesh%nodcoord(:,:) = obj%femdomains(i)%femdomainp%mesh%nodcoord(:,:) +&
+    			reshape( obj%solver%x(From:To),obj%femdomains(i)%femdomainp%nn(),DOF )
+			From = From + obj%solver%NumberOfNode(i)*DOF
+		enddo
+	endif
+end subroutine
+
+! #####################################################
+
+subroutine runCM(obj,penaltyparameter,debug)
+	class(ContactMechanics_),target,intent(inout) :: obj
+	real(real64),optional,intent(in) :: penaltyparameter
+
 	logical,optional,intent(in) :: debug
 	logical :: Debugflag=.false.
 	integer(int32) :: i,nod_max,nn,itr,fstep,j,k,l,o
 	integer(int32) :: node_num_1,node_num_2,converge_check,error
 	type(IO_) :: ErrorLog
 	real(real64) :: rvec0,u_norm,er,er0,reacforcex,reacforcey
-
-	if(present(debug) )then
-		Debugflag = debug
-	endif
-	! initialize domains as deformable bodies
-	call obj%femdomain1%bake(template="FiniteDeform_")
-	call obj%femdomain2%bake(template="FiniteDeform_")
 	
-	! get displacement boundary
-	call obj%getDispBound()		
-	call obj%getTracBound()		
+	integer(int32) :: DomainID, ElementID,InterfaceID,NodeID
+	integer(int32),allocatable :: DomainIDs1(:),DomainIDs12(:),InterConnect(:)
 
+	real(real64),allocatable :: A_ij(:,:), x_i(:), b_i(:) ! A x = b
+	real(real64) :: position(3)
+	real(real64) :: penalty
+	type(FEMDomain_),pointer :: domain1, domain2
 
-	
-	if(obj%control == 2) then
-		!外力制御であれば、外力増分の計算
-		do i = 1, size(obj%dfvec)
-			obj%dfvec(i) = 1.0d0/dble(obj%timestep)*obj%fvec(i)
-		enddo
-		obj%fvec(:) = 0.0d0
-
-	elseif(obj%control == 1) then
-		!変位制御であれば、変位増分の計算と外力ベクトルの計算
+	if( obj%initialized  )then
 		
-		obj%du_nod_dis_x(:)= 1.0d0/dble(obj%timestep)*obj%u_nod_dis_x(:)
-		obj%du_nod_dis_y(:)= 1.0d0/dble(obj%timestep)*obj%u_nod_dis_y(:)
-		obj%u_nod_dis_x(:)= 0.0d0
-		obj%u_nod_dis_y(:)= 0.0d0	
-	
-	endif
-	
-
-	call ErrorLog%open("Contact_ErrorLog.txt")
-	write(ErrorLog%fh,*)'step=',1,"/",fstep
-	obj%step=0
-
-	! time-loop
-	do i=1, obj%TimeStep
-		obj%step = obj%step+1
-		obj%duvec(:) = 0.0d0
-		obj%itr_contact = 0
-
-		fstep=obj%TimeStep
-		print *, 'Step=',i !現在のstepの出力
-		if(Debugflag .eqv. .true.) print *, "Debug flag 0"
-
-		
-		!=========================================================
-		!Add force/displacement increments
-		!--------------------------------------
-		obj%itr = 0 !N-R法ループ1回目
-
-		if(obj%control ==1) then  !変位/外力増分の追加
-			call obj%ls_add_du() !強制変位量の追加
-		elseif(obj%control==2) then
-			obj%fvec(:)=obj%fvec(:)+obj%dfvec(:) !外力増分の追加
-		else
-			print *,"wrong nomber is in control"
-			exit
-		endif
-		!==================================================================
-		if(Debugflag .eqv. .true.) print *, "Debug flag 1"
-
-		call obj%ls_nts_generate()
-		call obj%ls_get_stabilized_nts()
-		call obj%ls_nts_material()
-		!================================================================
-		if(Debugflag .eqv. .true.) print *, "Debug flag 2"
-
-		
-		if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0 )then !contact exists
-			!================================================================
-			!check for contact: gn<0 → active NTS-element
-			!--------------------------------------------
-			call obj%ls_check_active()
-			!================================================================
-		endif
-		if(Debugflag .eqv. .true.) print *, "Debug flag 3"
-	
-		
-		!===============================================================================
-		!Elastic stick の計算(trial phase)
-		!Calculate [K_stick(u)],[K(u)],gvec
-		!-----------------------------------
-		if(.not.allocated(obj%k_contact) )	then
-			allocate(obj%k_contact(size(obj%uvec),size(obj%uvec) ) )
-		endif
-		if(.not.allocated(obj%fvec_contact) )	then
-			allocate(obj%fvec_contact(size(obj%uvec) ) )
-		endif
-		obj%k_contact(:,:)=0.0d0 
-		obj%fvec_contact(:)=0.0d0
-
-		
-		if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0 )then !contact exists
-		!nts諸量の初期化
-			allocate(obj%nts_amo(size(obj%nts_elem_nod,1),12),obj%stick_slip( size(obj%nts_elem_nod,1) )  )
-			obj%nts_amo(:,:)=0.0d0
-			obj%stick_slip(:)=0
-			!もし過去にNTSを構成していれば、load data
-			if(allocated(obj%old_nts_amo))then
-				call load_nts_element(obj%nts_elem_nod,obj%nts_amo,obj%old_nts_elem_nod,obj%old_nts_amo,&
-					obj%stick_slip,obj%old_stick_slip)
+		! linear elastic, small strain 
+		! create stiffness matrix for all domains
+		do DomainID=1, size(obj%femdomains)
+			print *, "Ax = b for Domain-ID :: ",DomainID 
+			if(allocated(DomainIDs1 ))then
+				deallocate(DomainIDs1)
 			endif
-			obj%stick_slip(:)=0
-			do j = 1, size(obj%active_nts,1)
-				
-				if(obj%stick_slip(obj%active_nts(j) )==0 )then
-					nod_max=size(obj%nod_coord,1)
-					call state_stick(j,nod_max,obj%nod_coord,obj%nts_elem_nod,obj%active_nts&
-					,obj%nts_amo, obj%k_contact,obj%nts_mat,obj%contact_mat_para,obj%uvec,obj%fvec_contact,&
-					obj%stick_slip)  !state stick and K_contactへの重ね合わせ
+
+			allocate(DomainIDs1(obj%femdomains(DomainID)%femdomainp%nne()&
+				*obj%femdomains(DomainID)%femdomainp%nd() ) )
+			
+			DomainIDs1(:) = DomainID
+			
+			do ElementID=1, obj%femdomains(DomainID)%femdomainp%ne()
+			    ! For 1st element, create stiffness matrix
+			    A_ij = obj%femdomains(DomainID)%femdomainp%StiffnessMatrix(&
+					ElementID=ElementID,&
+					E=1000.0d0, &
+					v=0.40d0)
+			    b_i  = obj%femdomains(DomainID)%femdomainp%MassVector(&
+			        ElementID=ElementID,&
+			        DOF=obj%femdomains(DomainID)%femdomainp%nd() ,&
+			        Density=0.30d0,&
+			        Accel=(/0.0d0, 0.0d0, 0.0d0/)&
+			        )
+			    ! assemble them 
+			    call obj%solver%assemble(&
+			        connectivity=obj%femdomains(DomainID)%femdomainp%connectivity(ElementID=ElementID),&
+			        DOF=obj%femdomains(DomainID)%femdomainp%nd() ,&
+			        eMatrix=A_ij,&
+			        DomainIDs=DomainIDs1)
+			    call obj%solver%assemble(&
+			        connectivity=obj%femdomains(DomainID)%femdomainp%connectivity(ElementID=ElementID),&
+			        DOF=obj%femdomains(DomainID)%femdomainp%nd(),&
+			        eVector=b_i,&
+			        DomainIDs=DomainIDs1)
+			enddo
+		enddo
+
+		InterfaceID = 0
+		penalty = input(default=10000.0d0,option=penaltyparameter)
+		do i=1, size(obj%ContactList,1)
+			do j=1, size(obj%ContactList,2)
+				if(obj%contactList(i,j)>=1 )then
+					! domains are in contact
+					InterfaceID = InterfaceID+1
+					! Interface
+					print *, "K_c x = 0 for Interface ID :: ",InterfaceID
+
+					! create Elemental Matrices and Vectors
+					if(allocated(DomainIDs12) )then
+						deallocate(DomainIDs12)
+					endif
+					if(allocated(InterConnect) )then
+						deallocate(InterConnect)
+					endif
+					if(associated(domain1) )then
+						nullify(domain1)
+					endif
+					if(associated(domain2) )then
+						nullify(domain2)
+					endif
+
+					domain1 => obj%femdomains(i)%femdomainp
+					domain2 => obj%femdomains(j)%femdomainp
+
+
+					allocate(DomainIDs12(domain2%nne()+1 ) )
+					allocate(InterConnect(domain2%nne()+1 ) )
 					
-				else
-					call update_res_grad_c_i(j,nod_max,obj%nod_coord,obj%nts_elem_nod,obj%active_nts&
-						,obj%nts_amo,obj% k_contact,obj%uvec,obj%duvec,obj%fvec_contact,obj%stick_slip,&
-						obj%contact_mat_para,obj%nts_mat) 
+					DomainIDs12(1) = i
+					DomainIDs12(2:) = j
+
+					do NodeID=1, domain2%nn()
+					    ! For 1st element, create stiffness matrix
+					    ! set global coordinate
+					    position(:) = domain1%mesh%nodcoord(NodeID,:)
+					    InterConnect(1) = NodeID
+					    if( domain2%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))<=0 )then
+					        cycle
+					    endif
+					    InterConnect(2:) = domain2%connectivity(domain2%mesh%nearestElementID(x=position(1),y=position(2),z=position(3) ))
+					    A_ij = penalty*domain2%connectMatrix(position,DOF=domain2%nd() ) 
+					    ! assemble them 
+					    call obj%solver%assemble(&
+					        connectivity=InterConnect,&
+					        DOF=domain2%nd() ,&
+					        eMatrix=A_ij,&
+					        DomainIDs=DomainIDs12)    
+					enddo
+
 				endif
 			enddo
-			
+		enddo
+
+
+		return
+
+
+
+
+	else
+		print *, "[Caution] :: runContactMechanics >> No domain was found in femdomains=***"
+		print *, "You attempt to run it as REGACY mode."	
+
+		if(present(debug) )then
+			Debugflag = debug
 		endif
- 
+		! initialize domains as deformable bodies
+		call obj%femdomain1%bake(template="FiniteDeform_")
+		call obj%femdomain2%bake(template="FiniteDeform_")
 
-		! ここは、FiniteDeformationClassから呼び出し
-
-
-		obj%kmat(:,:)=0.0d0
-		obj%gvec(:)=0.0d0
-		!call k_mat_f_int(elem_mat,elem_nod,f_nod,nod_coord,mat_cons, Kmat,stress,duvec,&
-		!		pulout,gvec,sigma,uvec,strain_measure,itr_tol,tol,itr,i,obj%itr_contact)
-		!================================================================================
-		if(Debugflag .eqv. .true.) print *, "Debug flag 4"
+		! get displacement boundary
+		call obj%getDispBound()		
+		call obj%getTracBound()		
 
 
-		!==========================================================================
-		!Solve
-		!-----------------------
-		obj%K_total(:,:) = obj%kmat(:,:)+ obj%k_contact(:,:) !全体接触剛性マトリクスの計算
-		obj%rvec(:)=obj%fvec(:)-obj%gvec(:)-obj%fvec_contact(:)!fvec_contact(:)
-		!!!!no tension wall 保留中
-		!call  no_tension_wall(gvec,surface_nod,sur_nod_inf,nod_coord,uvec,&
-		!	u_nod_x,u_nod_y,active_wall_x,active_wall_y)
-		!active_wall_x(:)=1
-		!active_wall_y(:)=1
-		!==================
 
-		call displace(obj%K_total, obj%rvec, obj%u_nod_x, obj%du_nod_dis_x,obj%u_nod_y, &
-			obj%du_nod_dis_y) !Dirichlet Boundary conditions
-		nn=size(obj%uvec,1)    !Parameters for gauss_joprdan
+		if(obj%control == 2) then
+			!外力制御であれば、外力増分の計算
+			do i = 1, size(obj%dfvec)
+				obj%dfvec(i) = 1.0d0/dble(obj%timestep)*obj%fvec(i)
+			enddo
+			obj%fvec(:) = 0.0d0
 
-		do k=1,size(obj%rvec)
-			if(obj%rvec(k)>=0.0d0 .or. obj%rvec(k)<0.0d0 )then
-				cycle
+		elseif(obj%control == 1) then
+			!変位制御であれば、変位増分の計算と外力ベクトルの計算
+
+			obj%du_nod_dis_x(:)= 1.0d0/dble(obj%timestep)*obj%u_nod_dis_x(:)
+			obj%du_nod_dis_y(:)= 1.0d0/dble(obj%timestep)*obj%u_nod_dis_y(:)
+			obj%u_nod_dis_x(:)= 0.0d0
+			obj%u_nod_dis_y(:)= 0.0d0	
+		
+		endif
+
+
+		call ErrorLog%open("Contact_ErrorLog.txt")
+		write(ErrorLog%fh,*)'step=',1,"/",fstep
+		obj%step=0
+
+		! time-loop
+		do i=1, obj%TimeStep
+			obj%step = obj%step+1
+			obj%duvec(:) = 0.0d0
+			obj%itr_contact = 0
+
+			fstep=obj%TimeStep
+			print *, 'Step=',i !現在のstepの出力
+			if(Debugflag .eqv. .true.) print *, "Debug flag 0"
+
+
+			!=========================================================
+			!Add force/displacement increments
+			!--------------------------------------
+			obj%itr = 0 !N-R法ループ1回目
+
+			if(obj%control ==1) then  !変位/外力増分の追加
+				call obj%ls_add_du() !強制変位量の追加
+			elseif(obj%control==2) then
+				obj%fvec(:)=obj%fvec(:)+obj%dfvec(:) !外力増分の追加
 			else
-				error=1
-				print *, "NaN !!"
+				print *,"wrong nomber is in control"
 				exit
 			endif
-		enddo
-		
-		do k=1,size(obj%K_total,1)
-			do l=1,size(obj%k_total,2)
-				if(obj%K_total(k,l) >=0.0d0 .or. obj%K_total(k,l)<0.0d0 )then
-					cycle
-				else
-					error=1
-					print *, "NaN !!"
-					exit
-				
-				endif
-			enddo
-		enddo			
-	
-		!call gauss_jordan_pv(k_total, duvec, rvec, nn)
-		!duvec(:)=0.0d0
-		!call bicgstab1d(k_total, Rvec, duvec, nn, itr_tol, tol_rm)	!obtain initial du
-	
-		er=1.0e-15
-		nn = size(obj%rvec)
-		call bicgstab_nr1(obj%k_total, obj%Rvec, obj%duvec, nn, obj%BiCG_ItrMax,&
-			er,obj%u_nod_x, obj%u_nod_y,obj%u_nod_dis_x,obj%u_nod_dis_y)
-		
-		
-		
-		!#### ERROR CHECKER ########
-		if(dot_product(obj%duvec,obj%duvec) /=dot_product(obj%duvec,obj%duvec)  )then
-			print *, "ERROR :: runContactMechanics"
-			exit
-		endif
-		!#### ERROR CHECKER ########
-		
-		
-		
-		!call gnuplot_out(elem_nod,nod_coord,uvec+duvec,i,process_parallel)
-		! stop  "debug"
-		
-		!x=duvec(2*u_nod_y(1))
-		!write(108,*) x,du_nod_dis_y(1)
-		!if(int(x)/=int(du_nod_dis_y(1)) )then
-		!	error=1
-		!	print *, "invalid uvec"
-		!	exit
-		!endif
-		obj%initial_duvec(:)=obj%duvec(:)
-
-		!=========================================================================
-		print *, "Debug flag 5"
-
-
-		do 
-
-				
-			!call gnuplot_out(elem_nod,nod_coord,uvec+duvec,obj%itr_contact,process_parallel)
-				
 			!==================================================================
-			if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0  )then !contact exists
-				!==================================================================
-				!check contact pairing
-			
-				
-				!==================================================================
-				!check for contact: gn<0 → active NTS-element
-				!-----------------------------------------------
-				call obj%ls_check_active()
-				!=====================================================================
-			endif
-			print *, "Debug flag 6"			
-			
-			
-			
-			!================================================
-			
-			if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0 .and. obj%itr_contact>=2 )then !contact exists
-				obj%k_contact(:,:)=0.0d0	
-				obj%fvec_contact(:)=0.0d0
+			if(Debugflag .eqv. .true.) print *, "Debug flag 1"
 
-				do j = 1, size(obj%active_nts,1)
-					call update_friction(j,nod_max,obj%nod_coord,obj%nts_elem_nod,obj%active_nts,obj%surface_nod,obj%sur_nod_inf&
-					,obj%nts_amo,obj% k_contact,obj%uvec,obj%duvec,obj%fvec_contact,obj%stick_slip,&
-					obj%contact_mat_para,obj%nts_mat,obj%itr_contact) !with return mapping Algorithm
-				enddo
+			call obj%ls_nts_generate()
+			call obj%ls_get_stabilized_nts()
+			call obj%ls_nts_material()
+			!================================================================
+			if(Debugflag .eqv. .true.) print *, "Debug flag 2"
 
-			endif
-			
-	
-			
-			!================================================
-			print *, "Debug flag 7"
-			
-			!====================================================================
-			!LOOP OVER ITERATIONS : k = 1, 2, ..., convergence
-			!------------------------------------------------------
-				
-			itr = itr + 1 
-			obj%dduvec(:)=0.0d0
-			
+
 			if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0 )then !contact exists
-				obj%k_contact(:,:)=0.0d0	
-				obj%fvec_contact(:)=0.0d0
+				!================================================================
+				!check for contact: gn<0 → active NTS-element
+				!--------------------------------------------
+				call obj%ls_check_active()
+				!================================================================
+			endif
+			if(Debugflag .eqv. .true.) print *, "Debug flag 3"
+		
 
+			!===============================================================================
+			!Elastic stick の計算(trial phase)
+			!Calculate [K_stick(u)],[K(u)],gvec
+			!-----------------------------------
+			if(.not.allocated(obj%k_contact) )	then
+				allocate(obj%k_contact(size(obj%uvec),size(obj%uvec) ) )
+			endif
+			if(.not.allocated(obj%fvec_contact) )	then
+				allocate(obj%fvec_contact(size(obj%uvec) ) )
+			endif
+			obj%k_contact(:,:)=0.0d0 
+			obj%fvec_contact(:)=0.0d0
+
+
+			if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0 )then !contact exists
+			!nts諸量の初期化
+				allocate(obj%nts_amo(size(obj%nts_elem_nod,1),12),obj%stick_slip( size(obj%nts_elem_nod,1) )  )
+				obj%nts_amo(:,:)=0.0d0
+				obj%stick_slip(:)=0
+				!もし過去にNTSを構成していれば、load data
+				if(allocated(obj%old_nts_amo))then
+					call load_nts_element(obj%nts_elem_nod,obj%nts_amo,obj%old_nts_elem_nod,obj%old_nts_amo,&
+						obj%stick_slip,obj%old_stick_slip)
+				endif
+				obj%stick_slip(:)=0
 				do j = 1, size(obj%active_nts,1)
-					call update_res_grad_c(j,nod_max,obj%nod_coord,obj%nts_elem_nod,obj%active_nts&
-					,obj%nts_amo,obj% k_contact,obj%uvec,obj%duvec,obj%fvec_contact,obj%stick_slip,&
-					obj%contact_mat_para,obj%nts_mat) !with return mapping Algorithm
+
+					if(obj%stick_slip(obj%active_nts(j) )==0 )then
+						nod_max=size(obj%nod_coord,1)
+						call state_stick(j,nod_max,obj%nod_coord,obj%nts_elem_nod,obj%active_nts&
+						,obj%nts_amo, obj%k_contact,obj%nts_mat,obj%contact_mat_para,obj%uvec,obj%fvec_contact,&
+						obj%stick_slip)  !state stick and K_contactへの重ね合わせ
+
+					else
+						call update_res_grad_c_i(j,nod_max,obj%nod_coord,obj%nts_elem_nod,obj%active_nts&
+							,obj%nts_amo,obj% k_contact,obj%uvec,obj%duvec,obj%fvec_contact,obj%stick_slip,&
+							obj%contact_mat_para,obj%nts_mat) 
+					endif
 				enddo
 
 			endif
-		  
 		
-			!===============================================================================
-			!Elastic stick/ Plastic slip の計算
-			!Calculate [K_stick(u)],[K(u)] 
-			!-----------------------------------
+
+			! ここは、FiniteDeformationClassから呼び出し
+
+
 			obj%kmat(:,:)=0.0d0
 			obj%gvec(:)=0.0d0
-			
-			!call k_mat_f_int(elem_mat,elem_nod,f_nod,nod_coord,mat_cons, Kmat,stress,duvec,pulout,gvec,&
-			!	sigma,uvec,strain_measure,itr_tol,tol,itr,i,obj%itr_contact)
-
+			!call k_mat_f_int(elem_mat,elem_nod,f_nod,nod_coord,mat_cons, Kmat,stress,duvec,&
+			!		pulout,gvec,sigma,uvec,strain_measure,itr_tol,tol,itr,i,obj%itr_contact)
 			!================================================================================
-			print *, "Debug flag 8"
+			if(Debugflag .eqv. .true.) print *, "Debug flag 4"
 
-				!================================================================================
-				!Calculate Rresidual vecor r
-				!--------------------------------
-			obj%k_total(:,:)=obj%kmat(:,:)+obj%k_contact(:,:)
-			obj%rvec(:)=obj%fvec(:)-obj%gvec(:)-obj%fvec_contact(:)
-			if(itr==1)then
-				rvec0=abs(dot_product(obj%rvec,obj%rvec))!**(1.0d0/2.0d0)
-			endif
-			!=================================================================================
-			print *, "Debug flag 9"
-			print *, "itr=",itr
 
-	
-			!================================================================================
+			!==========================================================================
 			!Solve
-			!---------------
-			
+			!-----------------------
+			obj%K_total(:,:) = obj%kmat(:,:)+ obj%k_contact(:,:) !全体接触剛性マトリクスの計算
+			obj%rvec(:)=obj%fvec(:)-obj%gvec(:)-obj%fvec_contact(:)!fvec_contact(:)
 			!!!!no tension wall 保留中
-			!call  no_tension_wall(gvec,surface_nod,sur_nod_inf,nod_coord,uvec+duvec,&
-			!u_nod_x,u_nod_y,active_wall_x,active_wall_y)
-			!if(obj%itr_contact<0)then
-				!active_wall_x(:)=1
-				!active_wall_y(:)=1
-			!endif
-			!=====================
-	
-			call displace_nr(obj%K_total, obj%Rvec, obj%u_nod_x, obj%u_nod_dis_x,obj%u_nod_y, &
-				obj%u_nod_dis_y) !変位境界ではΔu=0
-			
+			!call  no_tension_wall(gvec,surface_nod,sur_nod_inf,nod_coord,uvec,&
+			!	u_nod_x,u_nod_y,active_wall_x,active_wall_y)
+			!active_wall_x(:)=1
+			!active_wall_y(:)=1
+			!==================
 
-			!call gauss_jordan_pv(k_total, dduvec, Rvec, nn)
-			!call bicgstab1d(k_total, Rvec, dduvec, nn, itr_tol, tol_rm)
-			obj%dduvec(:)=0.0d0
-			er=1.0e-15
-			
-			!NaN checker
+			call displace(obj%K_total, obj%rvec, obj%u_nod_x, obj%du_nod_dis_x,obj%u_nod_y, &
+				obj%du_nod_dis_y) !Dirichlet Boundary conditions
+			nn=size(obj%uvec,1)    !Parameters for gauss_joprdan
+
 			do k=1,size(obj%rvec)
 				if(obj%rvec(k)>=0.0d0 .or. obj%rvec(k)<0.0d0 )then
 					cycle
 				else
 					error=1
+					print *, "NaN !!"
 					exit
 				endif
 			enddo
-			
+
 			do k=1,size(obj%K_total,1)
 				do l=1,size(obj%k_total,2)
 					if(obj%K_total(k,l) >=0.0d0 .or. obj%K_total(k,l)<0.0d0 )then
 						cycle
 					else
 						error=1
+						print *, "NaN !!"
+						exit
+					
+					endif
+				enddo
+			enddo			
+		
+			!call gauss_jordan_pv(k_total, duvec, rvec, nn)
+			!duvec(:)=0.0d0
+			!call bicgstab1d(k_total, Rvec, duvec, nn, itr_tol, tol_rm)	!obtain initial du
+		
+			er=1.0e-15
+			nn = size(obj%rvec)
+			call bicgstab_nr1(obj%k_total, obj%Rvec, obj%duvec, nn, obj%BiCG_ItrMax,&
+				er,obj%u_nod_x, obj%u_nod_y,obj%u_nod_dis_x,obj%u_nod_dis_y)
+
+
+
+			!#### ERROR CHECKER ########
+			if(dot_product(obj%duvec,obj%duvec) /=dot_product(obj%duvec,obj%duvec)  )then
+				print *, "ERROR :: runContactMechanics"
+				exit
+			endif
+			!#### ERROR CHECKER ########
+
+
+
+			!call gnuplot_out(elem_nod,nod_coord,uvec+duvec,i,process_parallel)
+			! stop  "debug"
+
+			!x=duvec(2*u_nod_y(1))
+			!write(108,*) x,du_nod_dis_y(1)
+			!if(int(x)/=int(du_nod_dis_y(1)) )then
+			!	error=1
+			!	print *, "invalid uvec"
+			!	exit
+			!endif
+			obj%initial_duvec(:)=obj%duvec(:)
+
+			!=========================================================================
+			print *, "Debug flag 5"
+
+
+			do 
+
+
+				!call gnuplot_out(elem_nod,nod_coord,uvec+duvec,obj%itr_contact,process_parallel)
+
+				!==================================================================
+				if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0  )then !contact exists
+					!==================================================================
+					!check contact pairing
+				
+
+					!==================================================================
+					!check for contact: gn<0 → active NTS-element
+					!-----------------------------------------------
+					call obj%ls_check_active()
+					!=====================================================================
+				endif
+				print *, "Debug flag 6"			
+
+
+
+				!================================================
+
+				if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0 .and. obj%itr_contact>=2 )then !contact exists
+					obj%k_contact(:,:)=0.0d0	
+					obj%fvec_contact(:)=0.0d0
+
+					do j = 1, size(obj%active_nts,1)
+						call update_friction(j,nod_max,obj%nod_coord,obj%nts_elem_nod,obj%active_nts,obj%surface_nod,obj%sur_nod_inf&
+						,obj%nts_amo,obj% k_contact,obj%uvec,obj%duvec,obj%fvec_contact,obj%stick_slip,&
+						obj%contact_mat_para,obj%nts_mat,obj%itr_contact) !with return mapping Algorithm
+					enddo
+
+				endif
+
+			
+
+				!================================================
+				print *, "Debug flag 7"
+
+				!====================================================================
+				!LOOP OVER ITERATIONS : k = 1, 2, ..., convergence
+				!------------------------------------------------------
+
+				itr = itr + 1 
+				obj%dduvec(:)=0.0d0
+
+				if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0 )then !contact exists
+					obj%k_contact(:,:)=0.0d0	
+					obj%fvec_contact(:)=0.0d0
+
+					do j = 1, size(obj%active_nts,1)
+						call update_res_grad_c(j,nod_max,obj%nod_coord,obj%nts_elem_nod,obj%active_nts&
+						,obj%nts_amo,obj% k_contact,obj%uvec,obj%duvec,obj%fvec_contact,obj%stick_slip,&
+						obj%contact_mat_para,obj%nts_mat) !with return mapping Algorithm
+					enddo
+
+				endif
+			
+			
+				!===============================================================================
+				!Elastic stick/ Plastic slip の計算
+				!Calculate [K_stick(u)],[K(u)] 
+				!-----------------------------------
+				obj%kmat(:,:)=0.0d0
+				obj%gvec(:)=0.0d0
+
+				!call k_mat_f_int(elem_mat,elem_nod,f_nod,nod_coord,mat_cons, Kmat,stress,duvec,pulout,gvec,&
+				!	sigma,uvec,strain_measure,itr_tol,tol,itr,i,obj%itr_contact)
+
+				!================================================================================
+				print *, "Debug flag 8"
+
+					!================================================================================
+					!Calculate Rresidual vecor r
+					!--------------------------------
+				obj%k_total(:,:)=obj%kmat(:,:)+obj%k_contact(:,:)
+				obj%rvec(:)=obj%fvec(:)-obj%gvec(:)-obj%fvec_contact(:)
+				if(itr==1)then
+					rvec0=abs(dot_product(obj%rvec,obj%rvec))!**(1.0d0/2.0d0)
+				endif
+				!=================================================================================
+				print *, "Debug flag 9"
+				print *, "itr=",itr
+
+			
+				!================================================================================
+				!Solve
+				!---------------
+
+				!!!!no tension wall 保留中
+				!call  no_tension_wall(gvec,surface_nod,sur_nod_inf,nod_coord,uvec+duvec,&
+				!u_nod_x,u_nod_y,active_wall_x,active_wall_y)
+				!if(obj%itr_contact<0)then
+					!active_wall_x(:)=1
+					!active_wall_y(:)=1
+				!endif
+				!=====================
+			
+				call displace_nr(obj%K_total, obj%Rvec, obj%u_nod_x, obj%u_nod_dis_x,obj%u_nod_y, &
+					obj%u_nod_dis_y) !変位境界ではΔu=0
+				
+
+				!call gauss_jordan_pv(k_total, dduvec, Rvec, nn)
+				!call bicgstab1d(k_total, Rvec, dduvec, nn, itr_tol, tol_rm)
+				obj%dduvec(:)=0.0d0
+				er=1.0e-15
+				
+				!NaN checker
+				do k=1,size(obj%rvec)
+					if(obj%rvec(k)>=0.0d0 .or. obj%rvec(k)<0.0d0 )then
+						cycle
+					else
+						error=1
 						exit
 					endif
 				enddo
-			enddo
-			
-			call bicgstab_nr(obj%k_total, obj%Rvec, obj%dduvec, nn, obj%BiCG_ItrMax,er,&
-				obj%u_nod_x, obj%u_nod_y)
-			
-						
-				
-			
-			!#### ERROR CHECKER ########
-			if(dot_product(obj%dduvec,obj%dduvec) /=dot_product(obj%dduvec,obj%dduvec)  )then
-				error=1
-				exit
-			endif
 
-			!#### ERROR CHECKER ########
-			
-			
-			
-			!---変位ベクトルの足しこみ-----------------------------
-			obj%duvec(:) = obj%duvec(:) + obj%dduvec(:) 
-			
-		
-			
-			if(obj%itr_contact*itr==1)then
-				obj%dduvec_nr(:)=obj%dduvec(:)
-			endif
-			
-			
-			
-			
-			u_norm=abs(dot_product(obj%rvec,obj%rvec))/rvec0!
-			if(u_norm==0.0d0)then
-				print *, "u_norm=0 at step",i,"contact_itr=",obj%itr_contact,"itr=",itr
-			endif
-			!u_norm=(abs(dot_product(rvec,rvec))**(1.0d0/2.0d0))/u_norm
-			!#### ERROR CHECKER ########
-			if(u_norm>100000.0d0  )then
-				error=1
-			endif
-			
+				do k=1,size(obj%K_total,1)
+					do l=1,size(obj%k_total,2)
+						if(obj%K_total(k,l) >=0.0d0 .or. obj%K_total(k,l)<0.0d0 )then
+							cycle
+						else
+							error=1
+							exit
+						endif
+					enddo
+				enddo
 
-	
-			if(error==1)then
-				exit
-			endif
-			!#### ERROR CHECKER ########
-			!==========================================================================
-			!Check convergence
-			!Contact analysisの収束判定
-			!------------------------------------			
-			
-			!call gnuplot_out(elem_nod,nod_coord,uvec+duvec,itr,process_parallel)
-			if( abs(u_norm) <= 1.0e-5 .and. obj%itr_contact>=2 ) then
-			
-				print *, 'contact loop itr=',itr,'residual_out_cont',u_norm
-				!write(1000,*)'contact loop itr=',itr,'residual_out_cont',u_norm
-				obj%uvec(:)=obj%uvec(:)+obj%duvec(:)
-				if(dot_product(obj%uvec,obj%uvec)==0.0d0 )then
+				call bicgstab_nr(obj%k_total, obj%Rvec, obj%dduvec, nn, obj%BiCG_ItrMax,er,&
+					obj%u_nod_x, obj%u_nod_y)
+
+
+
+
+				!#### ERROR CHECKER ########
+				if(dot_product(obj%dduvec,obj%dduvec) /=dot_product(obj%dduvec,obj%dduvec)  )then
 					error=1
 					exit
 				endif
-				obj%duvec(:)=0.0d0
-				!compute traction forces:
-				reacforcey=0.0d0
-				reacforcex=0.0d0
-				do o =1, size(obj%u_nod_x)
-					if(obj%u_nod_dis_x(o)==0.0d0)then
-						cycle
-					else
-						reacforcex=reacforcex+obj%gvec(2*obj%u_nod_x(o)-1)
-					endif
-				enddo
-				do o =1, size(obj%u_nod_y)
-					if(obj%u_nod_dis_y(o)==0.0d0)then
-						cycle
-					else
-						reacforcey=reacforcey+obj%gvec(2*obj%u_nod_y(o))
-					endif
-				enddo
-				
-				!if(i==outputstep)then
-				!	outputstep=outputstep+ops
-				!	!call gnuplot_out(elem_nod,nod_coord,uvec,i,process_parallel)
-				!endif
-				!call gnu_st(elem_nod,nod_coord,uvec,sigma,i,scalar)
-				
-				!write(1000,*)'step=',i+1,"/",fstep
-				print *, "Debug flag 11"
-				!debug
-				!write(52,*) "step, s12 elem,gauss=(1,1),(2,1)...",Fstep, sigma(:,:,3)
+
+				!#### ERROR CHECKER ########
+
+
+
+				!---変位ベクトルの足しこみ-----------------------------
+				obj%duvec(:) = obj%duvec(:) + obj%dduvec(:) 
+
 			
-				if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0 )then !contact exists
-					call save_nts_element(obj%nts_elem_nod,obj%nts_amo,obj%old_nts_elem_nod,obj%old_nts_amo,obj%surface_nod,obj%sur_nod_inf,obj%&
-					stick_slip,obj%old_stick_slip)
-					deallocate(obj%nts_amo,obj%active_nts,obj%stick_slip)
+
+				if(obj%itr_contact*itr==1)then
+					obj%dduvec_nr(:)=obj%dduvec(:)
 				endif
-				!call output_stress_contour(nod_coord,uvec,elem_nod,sigma,strain_measure,i,process_parallel )
-				deallocate(obj%nts_elem_nod)
-				!call variable_update(strain_measure)
-				!converge_check=1
-				!error=0
 
-				exit
-			elseif( abs(u_norm) <= obj%Tolerance .and. obj%itr_contact<=1 ) then
 
-				obj%itr_contact=obj%itr_contact+1
-				itr=0
+
+
+				u_norm=abs(dot_product(obj%rvec,obj%rvec))/rvec0!
+				if(u_norm==0.0d0)then
+					print *, "u_norm=0 at step",i,"contact_itr=",obj%itr_contact,"itr=",itr
+				endif
+				!u_norm=(abs(dot_product(rvec,rvec))**(1.0d0/2.0d0))/u_norm
+				!#### ERROR CHECKER ########
+				if(u_norm>100000.0d0  )then
+					error=1
+				endif
+
+
 			
-				cycle
+				if(error==1)then
+					exit
+				endif
+				!#### ERROR CHECKER ########
+				!==========================================================================
+				!Check convergence
+				!Contact analysisの収束判定
+				!------------------------------------			
+
+				!call gnuplot_out(elem_nod,nod_coord,uvec+duvec,itr,process_parallel)
+				if( abs(u_norm) <= 1.0e-5 .and. obj%itr_contact>=2 ) then
 				
-			else
-			
-				print *, 'contact loop itr=',obj%itr_contact,'residual_out',u_norm
-				!write(1000,*)'contact loop itr=',obj%itr_contact,'residual_out',u_norm
+					print *, 'contact loop itr=',itr,'residual_out_cont',u_norm
+					!write(1000,*)'contact loop itr=',itr,'residual_out_cont',u_norm
+					obj%uvec(:)=obj%uvec(:)+obj%duvec(:)
+					if(dot_product(obj%uvec,obj%uvec)==0.0d0 )then
+						error=1
+						exit
+					endif
+					obj%duvec(:)=0.0d0
+					!compute traction forces:
+					reacforcey=0.0d0
+					reacforcex=0.0d0
+					do o =1, size(obj%u_nod_x)
+						if(obj%u_nod_dis_x(o)==0.0d0)then
+							cycle
+						else
+							reacforcex=reacforcex+obj%gvec(2*obj%u_nod_x(o)-1)
+						endif
+					enddo
+					do o =1, size(obj%u_nod_y)
+						if(obj%u_nod_dis_y(o)==0.0d0)then
+							cycle
+						else
+							reacforcey=reacforcey+obj%gvec(2*obj%u_nod_y(o))
+						endif
+					enddo
 
+					!if(i==outputstep)then
+					!	outputstep=outputstep+ops
+					!	!call gnuplot_out(elem_nod,nod_coord,uvec,i,process_parallel)
+					!endif
+					!call gnu_st(elem_nod,nod_coord,uvec,sigma,i,scalar)
 
-				if(itr >= obj%NR_ItrMax)then
-					!close(40)
-					!close(50)
-					!close(61)
-					!close(70)					
-					!call system("png_script.gp")
-					!call system("stre_png_scr.gp")
-					! stop 'contact loop did not converge'
-					print *, "ERROR :: NR-did not converge"
-					converge_check=0
+					!write(1000,*)'step=',i+1,"/",fstep
+					print *, "Debug flag 11"
+					!debug
+					!write(52,*) "step, s12 elem,gauss=(1,1),(2,1)...",Fstep, sigma(:,:,3)
+					
+					if(obj%nts_elem_nod(1,1)+obj%nts_elem_nod(1,2)+obj%nts_elem_nod(1,3)/=0 )then !contact exists
+						call save_nts_element(obj%nts_elem_nod,obj%nts_amo,obj%old_nts_elem_nod,obj%old_nts_amo,obj%surface_nod,obj%sur_nod_inf,obj%&
+						stick_slip,obj%old_stick_slip)
+						deallocate(obj%nts_amo,obj%active_nts,obj%stick_slip)
+					endif
+					!call output_stress_contour(nod_coord,uvec,elem_nod,sigma,strain_measure,i,process_parallel )
+					deallocate(obj%nts_elem_nod)
+					!call variable_update(strain_measure)
+					!converge_check=1
+					!error=0
 
 					exit
-				else
+				elseif( abs(u_norm) <= obj%Tolerance .and. obj%itr_contact<=1 ) then
+
+					obj%itr_contact=obj%itr_contact+1
+					itr=0
 				
 					cycle
-				
-				endif
 
+				else
+				
+					print *, 'contact loop itr=',obj%itr_contact,'residual_out',u_norm
+					!write(1000,*)'contact loop itr=',obj%itr_contact,'residual_out',u_norm
+
+
+					if(itr >= obj%NR_ItrMax)then
+						!close(40)
+						!close(50)
+						!close(61)
+						!close(70)					
+						!call system("png_script.gp")
+						!call system("stre_png_scr.gp")
+						! stop 'contact loop did not converge'
+						print *, "ERROR :: NR-did not converge"
+						converge_check=0
+
+						exit
+					else
+					
+						cycle
+					
+					endif
+
+				endif
+				!------------収束判定ここまで------------------------------------------------
+				!===========================================================================
+
+
+
+			enddo
+
+			if(converge_check==0 .or. error ==1 )then
+				exit
 			endif
-			!------------収束判定ここまで------------------------------------------------
-			!===========================================================================
-			
-			
-			
+
 		enddo
-		
-		if(converge_check==0 .or. error ==1 )then
-			exit
-		endif
-		
-	enddo
-  
-	!output restart data
-	if(error==0 .and. converge_check==1)then 
-		
-		!call restart_out(nod_coord,uvec,fvec,sigma,strain_measure,old_nts_elem_nod,&
-	!		old_nts_amo,old_stick_slip,gvec,process_parallel)
-	endif
-	write(*,*)'Contact Elasto-Plastic analysis was completed!'
 	
-	call ErrorLog%close()
+		!output restart data
+		if(error==0 .and. converge_check==1)then 
+
+			!call restart_out(nod_coord,uvec,fvec,sigma,strain_measure,old_nts_elem_nod,&
+		!		old_nts_amo,old_stick_slip,gvec,process_parallel)
+		endif
+		write(*,*)'Contact Elasto-Plastic analysis was completed!'
+
+		call ErrorLog%close()
+	endif
 
 end subroutine
 

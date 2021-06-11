@@ -243,6 +243,9 @@ module FEMDomainClass
         type(Mesh_)             :: TimeMesh
     end type
 
+	type :: FEMDomainp_
+		type(FEMDomain_),pointer :: femdomainp
+	end type
 contains
 
 ! ####################################################################
