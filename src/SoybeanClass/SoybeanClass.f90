@@ -74,6 +74,8 @@ module SoybeanClass
         type(FEMDomain_),allocatable :: stem_list(:)
         type(FEMDomain_),allocatable :: root_list(:)
 
+        ! シミュレータ
+        type(ContactMechanics_) :: contact
         real(real64) :: time
         real(real64) :: seed_length
         real(real64) :: seed_width
@@ -96,6 +98,7 @@ module SoybeanClass
         procedure,public :: export => exportSoybean
 
         procedure,public :: grow => growSoybean
+        procedure,public :: deform => deformSoybean
         
         procedure,public :: show => showSoybean
         procedure,public :: gmsh => gmshSoybean
@@ -2321,5 +2324,141 @@ subroutine addStemSoybean(obj,stemid,rotx,roty,rotz,json)
 
 
 end subroutine
+! #############################################################
+
+subroutine deformSoybean(obj,penaltyparameter,groundLevel,disp,x_min,x_max,y_min,y_max,z_min,z_max) 
+    class(Soybean_),target,intent(inout) :: obj
+    real(real64),optional,intent(in) :: groundLevel,disp(3)
+    real(real64),optional,intent(in) :: penaltyparameter,x_min,x_max,y_min,y_max,z_min,z_max
+    type(FEMDomainp_),allocatable :: domainsp(:)
+    integer(int32),allocatable :: contactList(:,:)
+    integer(int32) :: i,j,numDomain,stemDomain,leafDomain,rootDomain
+    real(real64) :: penalty,displacement(3),GLevel
+
+
+    if(.not. allocated(obj%Stem) )then
+        print *, "ERROR :: deformSoybean >> no soybean is found!"
+        return
+    endif
+    numDomain = 0
+    do i=1,size(obj%stem)
+        if(obj%stem(i)%femdomain%mesh%empty() )then
+            cycle
+        else
+            numDomain = numDomain + 1
+        endif
+    enddo
+    do i=1,size(obj%leaf)
+        if(obj%leaf(i)%femdomain%mesh%empty() )then
+            cycle
+        else
+            numDomain = numDomain + 1
+        endif
+    enddo
+    do i=1,size(obj%root)
+        if(obj%root(i)%femdomain%mesh%empty() )then
+            cycle
+        else
+            numDomain = numDomain + 1
+        endif
+    enddo
+    
+    allocate(domainsp(numDomain) )
+    numDomain=0
+    stemDomain=0
+    do i=1,size(obj%stem)
+        if(obj%stem(i)%femdomain%mesh%empty() )then
+            cycle
+        else
+            numDomain = numDomain + 1
+            stemDomain = stemDomain + 1
+            domainsp(numDomain)%femdomainp =>  obj%stem(i)%femdomain
+        endif
+    enddo
+    leafDomain = 0
+    do i=1,size(obj%leaf)
+        if(obj%leaf(i)%femdomain%mesh%empty() )then
+            cycle
+        else
+            numDomain = numDomain + 1
+            leafDomain = leafDomain + 1
+            domainsp(numDomain)%femdomainp =>  obj%leaf(i)%femdomain
+        endif
+    enddo
+    rootDomain = 0
+    do i=1,size(obj%root)
+        if(obj%root(i)%femdomain%mesh%empty() )then
+            cycle
+        else
+            numDomain = numDomain + 1
+            rootDomain = rootDomain + 1
+            domainsp(numDomain)%femdomainp =>  obj%root(i)%femdomain
+        endif
+    enddo
+    
+
+    contactlist = zeros(numDomain,numDomain)
+    do i=1,stemDomain
+        do j=1,stemDomain
+            contactlist( i, j  ) = obj%stem2stem(i,j)
+        enddo
+    enddo
+    do i=1,leafDomain
+        do j=1,stemDomain
+            contactlist( i + stemDomain, j  ) = obj%leaf2stem(i,j)
+        enddo
+    enddo
+    do i=1,rootDomain
+        do j=1,stemDomain
+            contactlist( i + stemDomain + leafDomain, j  ) = obj%root2stem(i,j)
+        enddo
+    enddo
+    do i=1,rootDomain
+        do j=1,rootDomain
+            contactlist( i + stemDomain + leafDomain, j+ stemDomain + leafDomain  ) = obj%root2root(i,j)
+        enddo
+    enddo
+
+    call obj%contact%init(femdomainsp=domainsp,contactlist=contactlist)
+    penalty = input(default=1000.0d0, option=penaltyparameter)
+    call obj%contact%setup(penaltyparameter=penalty)
+
+    ! if displacement is set, load displacement
+    if(present(disp) )then
+        do i=1,numDomain
+            call obj%contact%fix(direction="x",disp=disp(1), DomainID=i,&
+                x_min=x_min,x_max=x_max,&
+                y_min=y_min,y_max=y_max,&
+                z_min=z_min,z_max=z_max)
+            call obj%contact%fix(direction="y",disp=disp(2), DomainID=i,&
+                x_min=x_min,x_max=x_max,&
+                y_min=y_min,y_max=y_max,&
+                z_min=z_min,z_max=z_max)
+            call obj%contact%fix(direction="z",disp=disp(3), DomainID=i,&
+                x_min=x_min,x_max=x_max,&
+                y_min=y_min,y_max=y_max,&
+                z_min=z_min,z_max=z_max)
+        enddo    
+    endif
+
+
+    Glevel = input(default=0.0d0,option=groundLevel)
+    ! under-ground parts are fixed.
+    do i=1,numDomain
+        call obj%contact%fix(direction="x",disp=0.0d0, DomainID=i,&
+            z_max=Glevel)
+        call obj%contact%fix(direction="y",disp=0.0d0, DomainID=i,&
+            z_max=Glevel)
+        call obj%contact%fix(direction="z",disp=0.0d0, DomainID=i,&
+            z_max=Glevel)
+    enddo
+
+    ! solve > get displacement
+    call obj%contact%solver%solve("BiCGSTAB")
+    ! update mesh
+    call obj%contact%updateMesh()
+
+end subroutine
+
 
 end module

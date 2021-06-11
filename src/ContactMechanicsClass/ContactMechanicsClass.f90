@@ -13,6 +13,8 @@ module ContactMechanicsClass
 		type(FEMDomainp_),allocatable :: FEMDomains(:)
 		type(LinearSolver_) :: solver
 		integer(int32),allocatable :: contactlist(:,:)
+		real(real64),allocatable :: YoungModulus(:)
+		real(real64),allocatable :: PoissonRatio(:)
 		logical :: initialized = .false.
 
 		! >>>>>>>>>>>> Regacy >>>>>>>>>>>>>>>>>
@@ -141,11 +143,15 @@ contains
 
 
 ! #####################################################
-subroutine InitializeContactMechanics(obj, femdomains, contactlist,femdomain1, femdomain2)
+subroutine InitializeContactMechanics(obj, femdomains, femdomainsp, contactlist,femdomain1, femdomain2)
 	class(ContactMechanics_),intent(inout)  :: obj
 	type(FEMDomain_),target,optional,intent(in) :: femdomains(:)
+	type(FEMDomainp_),target,optional,intent(in) :: femdomainsp(:)
 	type(FEMDomain_),target,optional,intent(in) :: femdomain1, femdomain2
 	integer(int32),optional,intent(in) :: ContactList(:,:)
+
+	real(real64),parameter :: DefaultYoungModulus=1000.0d0
+	real(real64),parameter :: DefaultPoissonRatio=0.30d0
 
 	integer(int32) :: node_num_1
 	integer(int32) :: node_num_2
@@ -154,6 +160,7 @@ subroutine InitializeContactMechanics(obj, femdomains, contactlist,femdomain1, f
 	integer(int32),allocatable :: NumberOfNode(:)
 
 	! modern
+
 	if(present(femdomains) .and. present(contactList) )then
 		numDomain = size(femdomains)
 		if(numDomain==0)then
@@ -167,6 +174,11 @@ subroutine InitializeContactMechanics(obj, femdomains, contactlist,femdomain1, f
 		endif
 
 		allocate(obj%femdomains(numDomain) )
+		allocate(obj%YoungModulus(numDomain) )
+		allocate(obj%PoissonRatio(numDomain) )
+		obj%YoungModulus(:) = DefaultYoungModulus
+		obj%PoissonRatio(:) = DefaultPoissonRatio
+		
 
 
 		! receive domains as pointers
@@ -186,6 +198,44 @@ subroutine InitializeContactMechanics(obj, femdomains, contactlist,femdomain1, f
 
 		obj%initialized = .true.
 		return
+	elseif(present(femdomainsp) .and. present(contactList) )then
+		numDomain = size(femdomainsp)
+		if(numDomain==0)then
+			print *, "[Caution] :: InitializeContactMechanics >> No domain was found in femdomains=***"
+			print *, "             as well as contactlist=***"
+			return
+		endif
+
+		if(allocated(obj%femdomains) )then
+			deallocate(obj%femdomains)
+		endif
+
+		allocate(obj%femdomains(numDomain) )
+		allocate(obj%YoungModulus(numDomain) )
+		allocate(obj%PoissonRatio(numDomain) )
+		obj%YoungModulus(:) = DefaultYoungModulus
+		obj%PoissonRatio(:) = DefaultPoissonRatio
+		
+
+
+		! receive domains as pointers
+		do i=1,numDomain
+			obj%femdomains(i)%femdomainp => femdomainsp(i)%femdomainp
+		enddo
+
+		obj%ContactList = contactList
+
+
+		! initialize solver
+		allocate(NumberOfNode(numDomain))
+		do i=1,numDomain
+			NumberOfNode(i) = obj%femdomains(i)%femdomainp%nn()
+		enddo
+		call obj%solver%init(NumberOfNode=NumberOfNode, DOF = obj%femdomains(1)%femdomainp%nd() )
+
+		obj%initialized = .true.
+		return
+	
 	else
 		print *, "[Caution] :: contactmechanics%init >> you attempt to run REGACY mode. If you want to run"
 		print *, "Modern version, please set your type(FEMDomain_),allocatable :: something(:) object as"
@@ -375,8 +425,8 @@ subroutine runCM(obj,penaltyparameter,debug)
 			    ! For 1st element, create stiffness matrix
 			    A_ij = obj%femdomains(DomainID)%femdomainp%StiffnessMatrix(&
 					ElementID=ElementID,&
-					E=1000.0d0, &
-					v=0.40d0)
+					E=obj%YoungModulus(DomainID), &
+					v=obj%PoissonRatio(DomainID))
 			    b_i  = obj%femdomains(DomainID)%femdomainp%MassVector(&
 			        ElementID=ElementID,&
 			        DOF=obj%femdomains(DomainID)%femdomainp%nd() ,&
