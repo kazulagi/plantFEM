@@ -1,5 +1,6 @@
 module LinearSolverClass
   use, intrinsic :: iso_fortran_env
+  use omp_lib
   use MathClass
   use MPIClass
   implicit none
@@ -49,6 +50,8 @@ module LinearSolverClass
     procedure, public :: show => showLinearSolver
     procedure, public :: globalMatrix => globalMatrixLinearSolver
     procedure, public :: globalVector => globalVectorLinearSolver
+
+    procedure, public :: prepareFix => prepareFixLinearSolver
   end type
 contains
 
@@ -362,7 +365,7 @@ recursive subroutine setLinearSolver(obj,low,column,entryvalue,init,row_DomainID
   integer(int32),optional,intent(in) :: low, column,row_DomainID,column_DomainID
   real(real64),optional,intent(in) :: entryvalue
   logical,optional,intent(in) :: init
-  integer(int32) :: i,row_DomID,column_DomID,row_offset,column_offset,j,k
+  integer(int32) :: i,row_DomID,column_DomID,row_offset,column_offset,j,k,find_num,max_thread
 
   row_DomID = input(default=1,option=row_DomainID)
   column_DomID = input(default=1,option=column_DomainID)
@@ -420,24 +423,40 @@ recursive subroutine setLinearSolver(obj,low,column,entryvalue,init,row_DomainID
     endif
     
     ! if already exists, add.
-    do i=1,size(obj%index_I)
-      if(obj%row_domain_id(i) == row_DomainID .and. obj%column_domain_id(i) == column_DomainID )then
-        if(obj%index_I(i) == low )then
-          if(obj%index_J(i) == column )then
-            obj%val(i) = obj%val(i) + entryvalue
-            return
-          endif
-        endif
-      endif
-    enddo
+!     find_num = 0
+!     !$omp parallel
+!     !$omp do reduction(+:find_num)
+!     do i=1,size(obj%index_I)
+!       if(obj%index_i(i)==0 ) cycle
+!       if(obj%row_domain_id(i) == row_DomainID .and. obj%column_domain_id(i) == column_DomainID )then
+!         if(obj%index_I(i) == low )then
+!           if(obj%index_J(i) == column )then
+!             obj%val(i) = obj%val(i) + entryvalue
+!             find_num = 1
+!           endif
+!         endif
+!       endif
+!     enddo
+!     !$omp end do
+!     !$omp end parallel
+!     if(find_num>=1)then
+!       return
+!     endif
 
-
-    call  extendArray(obj%val,entryvalue)
-    call  extendArray(obj%index_I,low)
-    call  extendArray(obj%index_J,column)
-    call  extendArray(obj%row_Domain_ID,row_DomID)
-    call  extendArray(obj%column_Domain_ID,column_DomID)
+    if(obj%currentID+1 > size(obj%val) )then
+      call  extendArray(obj%val,0.0d0,size(obj%val) )
+      call  extendArray(obj%index_I,0,size(obj%index_I) )
+      call  extendArray(obj%index_J,0,size(obj%index_J) )
+      call  extendArray(obj%row_Domain_ID,0,size(obj%row_Domain_ID) )
+      call  extendArray(obj%column_Domain_ID,0,size(obj%column_Domain_ID) )
+    endif
     obj%currentID=obj%currentID+1
+    obj%val(obj%currentID) = entryvalue
+    obj%index_I(obj%currentID) = low
+    obj%index_J(obj%currentID) = column
+    obj%row_Domain_ID(obj%currentID) = row_DomainID
+    obj%column_Domain_ID(obj%currentID) = column_DomainID
+
     return
   elseif(present(low) .and. .not.present(column) )then ! for right-hand side vector
 
@@ -592,14 +611,140 @@ subroutine importLinearSolver(obj,a,x,b,a_e,b_e,x_e,connectivity,val,index_I,ind
 end subroutine importLinearSolver
 !====================================================================================
 
+!====================================================================================
+subroutine prepareFixLinearSolver(obj)
+  class(LinearSolver_),intent(inout) :: obj
+  integer(int32),allocatable :: Index_I(:), Index_J(:),row_domain_id(:),column_Domain_ID(:)
+  real(real64),allocatable:: val(:)
+  integer(int32),allocatable :: array(:,:)
+  integer(int32) :: i,m,n,rn,rd,cn,cd,same_n,count_reduc,j
+  integer(int32) :: Index_I_max, Index_J_max,row_domain_id_max,column_Domain_ID_max
+  
+
+  ! remove overlapped elements
+  if(.not.allocated(obj%NumberOfNode) )then
+    return
+  endif
+  count_reduc = 0
+
+  ! 通し番号をセット
+
+  ! first, heap sort
+  n=size(obj%val)
+  allocate(array(n,4) )
+  array(:,1) = obj%Index_I
+  array(:,2) = obj%Index_J
+  array(:,3) = obj%row_domain_id
+  array(:,4) = obj%column_Domain_ID
+  call heapsortArray(array, obj%val)
+  
+  obj%Index_I = array(:,1) 
+  obj%Index_J = array(:,2) 
+  obj%row_domain_id = array(:,3) 
+  obj%column_Domain_ID = array(:,4) 
+  ! second, remove overlap
+  do i=1,n-1
+    if(obj%index_i(i)==0 ) cycle
+    do j=i+1,n
+      if(obj%Index_I(i)==obj%Index_I(j) .and. obj%Index_J(i)==obj%Index_J(j) )then
+        if(obj%row_domain_id(i)==obj%row_domain_id(j) .and. obj%column_domain_id(i)==obj%column_domain_id(j) )then
+          obj%val(i) = obj%val(i) + obj%val(j)
+          obj%Index_I(j) = 0
+          obj%row_domain_id(j) = 0
+          obj%Index_j(j) = 0
+          obj%column_domain_id(j) = 0
+        else
+          exit
+        endif
+      else
+        exit
+      endif
+    enddo
+  enddo
+  ! regacy
+
+!  do i=1,size(obj%Index_I)-1
+!    if(obj%Index_I(i) == 0 ) cycle
+!    
+!    !$OMP parallel
+!    !$OMP do
+!    do j=i+1, size(obj%Index_I)
+!      if(obj%row_domain_id(j)==obj%row_domain_id(i) )then
+!        if(obj%column_domain_id(j)==obj%column_domain_id(i) )then
+!          if(obj%Index_I(j) == obj%Index_I(i) )then
+!            if(obj%Index_J(j) == obj%Index_J(i) )then
+!              obj%val(i) = obj%val(i) + obj%val(j)
+!              obj%Index_I(j) = 0
+!              obj%row_domain_id(j) = 0
+!              obj%Index_j(j) = 0
+!              obj%column_domain_id(j) = 0
+!            else
+!              cycle
+!            endif
+!          else
+!            cycle
+!          endif
+!        else
+!          cycle
+!        endif
+!      else
+!        cycle
+!      endif
+!    enddo
+!    !$OMP end do
+!    !$OMP end parallel
+!  enddo
+
+
+
+  ! 
+  count_reduc = 0
+  do i=1,size(obj%index_I)
+    if(obj%index_I(i)/=0 )then
+      count_reduc = count_reduc + 1
+    endif
+  enddo
+  allocate(val( count_reduc ) )
+  allocate(Index_I(count_reduc  ) )
+  allocate(Index_J(count_reduc  ) )
+  allocate(row_domain_id(count_reduc  ) )
+  allocate(column_Domain_ID(count_reduc  ) )
+  n = 0
+  do i=1,size(obj%Index_I)
+    if(obj%Index_I(i)==0 ) cycle
+    n = n+1
+    val(n) = obj%val(i)
+    Index_I(n) = obj%Index_I(i)
+    Index_J(n) = obj%Index_J(i)
+    row_domain_id(n) = obj%row_domain_id(i)
+    column_Domain_ID(n) = obj%column_Domain_ID(i)
+  enddo
+
+  deallocate(obj%val )
+  deallocate(obj%Index_I )
+  deallocate(obj%Index_J )
+  deallocate(obj%row_domain_id )
+  deallocate(obj%column_Domain_ID )
+
+  obj%val=val
+  obj%Index_I=Index_I
+  obj%Index_J=Index_J
+  obj%row_domain_id=row_domain_id
+  obj%column_Domain_ID=column_Domain_ID
+
+
+end subroutine
+!====================================================================================
+
 
 !====================================================================================
 subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
   class(LinearSolver_),intent(inout) :: obj
   character(*),intent(in) :: Solver
   logical,optional,intent(in) :: MPI, OpenCL, CUDAC,preconditioning,CRS
-  integer(int32),allocatable :: Index_I(:), Index_J(:)
-  integer(int32) :: i,m,n
+  integer(int32),allocatable :: Index_I(:), Index_J(:),row_domain_id(:),column_Domain_ID(:)
+  real(real64),allocatable:: val(:)
+  integer(int32) :: i,m,n,rn,rd,cn,cd,same_n,count_reduc,j
 
   if(.not. allocated(obj%a) .and. .not. allocated(obj%val) )then
     print *, "solveLinearSolver >> ERROR :: .not. allocated(obj%b) "
@@ -662,6 +807,8 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
     endif
   else
     if(allocated(obj%NumberOfNode) )then
+      ! May be overlapped!
+      ! remove overlap
       Index_I = obj%Index_I
       Index_J = obj%Index_J
       do i=1, size(Index_I)
@@ -682,7 +829,7 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
         endif
         Index_J(i) = Index_J(i) + n
       enddo
-      
+      print *, "solveLinearSolver >> start!"
       call bicgstab_CRS(obj%val, index_I, index_J, obj%x, obj%b, obj%itrmax, obj%er0)
     else
       call bicgstab_CRS(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0)
@@ -859,6 +1006,7 @@ subroutine bicgstab_CRS(a, index_i, index_j, x, b, itrmax, er)
   er0=dble(1.00e-14)
   r(:) = b(:)
   do i=1,size(a)
+    if(index_i(i) <=0) cycle
     r( index_i(i) ) = r( index_i(i) ) - a(i)*x( index_j(i) ) 
   enddo
 
@@ -875,6 +1023,7 @@ subroutine bicgstab_CRS(a, index_i, index_j, x, b, itrmax, er)
     !y(:) = matmul(a,p)
     y(:)=0.0d0
     do i=1,size(a)
+      if(index_i(i) <=0) cycle
       y( index_i(i) ) = y( index_i(i) ) + a(i)*p( index_j(i) ) 
     enddo
 
@@ -884,6 +1033,7 @@ subroutine bicgstab_CRS(a, index_i, index_j, x, b, itrmax, er)
     !v(:) = matmul(a,e)
     v(:)=0.0d0
     do i=1,size(a)
+      if(index_i(i) <=0) cycle
       v( index_i(i) ) = v( index_i(i) ) + a(i)*e( index_j(i) ) 
     enddo
     ev = dot_product(e,v)

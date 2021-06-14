@@ -503,6 +503,7 @@ subroutine runCM(obj,penaltyparameter,debug)
 			enddo
 		enddo
 
+		call obj%solver%prepareFix()
 
 		return
 

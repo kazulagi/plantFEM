@@ -213,6 +213,15 @@ do
         ./plantfem ./server.f90
         continue
     fi
+
+
+    if [ "$command" = "build" ]; then
+        python3 bin/check_end.py
+        $mpif90 inc/*o -I ./inc ./server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path inc/ -o server.out  
+        continue
+    fi
+
+
     if [ "$command" = "$ls" ]; then
         echo " "
         pwd

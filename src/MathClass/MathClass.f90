@@ -249,10 +249,11 @@ function SearchIDIntVec(Vec,val) result(id_)
 
 end function
 !##################################################
-subroutine heapsort(n,array)
+subroutine heapsort(n,array,val)
   	integer(int32),intent(in) :: n
+	real(real64),optional,intent(inout) :: val(1:n)
   	integer(int32),intent(inout) :: array(1:n)
-  
+	real(real64) :: t_real
   	integer(int32) ::i,k,j,l
   	integer(int32) :: t
   
@@ -267,12 +268,18 @@ subroutine heapsort(n,array)
 	    if(l.gt.1)then
 	        l=l-1
 	        t=array(L)
+			t_real=val(L)
 	    else
 	        t=array(k)
+			t_real=val(k)
+
 	        array(k)=array(1)
+			val(k) = val(1)
+
 	        k=k-1
 	        if(k.eq.1) then
 	           	array(1)=t
+				val(1) = t_real
 	        	exit
 	        endif
 	    endif
@@ -281,9 +288,11 @@ subroutine heapsort(n,array)
 	    do while(j.le.k)
 	        if(j.lt.k)then
 	           	if(array(j).lt.array(j+1))j=j+1
+
 	        endif
 	        if (t.lt.array(j))then
 	        	array(i)=array(j)
+				val(i)=val(j)
 	        	i=j
 	        	j=j+j
 	        else
@@ -291,11 +300,10 @@ subroutine heapsort(n,array)
 	        endif
 	    enddo
 	 	array(i)=t
+		 val(i)=t_real
   	enddo
 
-	return
 end subroutine heapsort
-
 
 !==========================================================
 !calculate cross product
