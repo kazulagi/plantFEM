@@ -327,6 +327,8 @@ homepath="$PWD"
         ./bin/compress
         continue
     fi
+
+
     if [ "$1" = "$run" ]; then
         python3 bin/check_end.py
         $mpif90 inc/*o -I ./inc ./server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path inc/     
@@ -347,6 +349,16 @@ homepath="$PWD"
         
         return 0
     fi
+
+
+    if [ "$1" = "build" ]; then
+        python3 bin/check_end.py
+        $mpif90 inc/*o -I ./inc ./server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path inc/  -o server.out
+        #echo "Current num of cpu-core is :: $numcore "
+        
+        return 0
+    fi
+
     if [ "$1" = "$ls" ]; then
         echo " "
         pwd

@@ -214,7 +214,7 @@ module ArrayClass
     end interface
 
     interface quicksort
-        module procedure :: quicksortreal,quicksortint
+        module procedure :: quicksortreal,quicksortint,quicksortintArray
     end interface
 
     interface getKeyAndValue
@@ -2987,15 +2987,65 @@ function countifRealVec(Array,Equal,notEqual,Value) result(count_num)
 end function
 !##################################################
 
+!subroutine heapsort(array)
+!    
+!    real(real64),intent(inout) :: array(:)
+!   
+!    integer ::i,k,j,l,n
+!    real(real64) :: t
+!   
+!    n=size(array)
+!    if(n.le.0)then
+!       write(6,*)"Error, at heapsort"; stop
+!    endif
+!    if(n.eq.1)return
+!  
+!    l=n/2+1
+!    k=n
+!    do while(k.ne.1)
+!       if(l.gt.1)then
+!          l=l-1
+!          t=array(L)
+!       else
+!          t=array(k)
+!          array(k)=array(1)
+!          k=k-1
+!          if(k.eq.1) then
+!             array(1)=t
+!             exit
+!          endif
+!       endif
+!       i=l
+!       j=l+l
+!       do while(j.le.k)
+!          if(j.lt.k)then
+!             if(array(j).lt.array(j+1))j=j+1
+!          endif
+!          if (t.lt.array(j))then
+!             array(i)=array(j)
+!             i=j
+!             j=j+j
+!          else
+!             j=k+1
+!          endif
+!       enddo
+!       array(i)=t
+!    enddo
+!  
+!    return
+!  end subroutine heapsort
 
 !##################################################
-recursive subroutine quicksortint(list) 
-    integer(int32),intent(inout) :: list(:)
+recursive subroutine quicksortint(list,val) 
+    integer(int32),intent(inout) :: list(:) 
+    real(real64),optional,intent(inout) :: val(:)
     integer(int32) :: border,a,b,buf
+    real(real64) :: buf_r
     integer(int32) :: i,j,border_id,n,start,last,scope1_out,scope2_out
     integer(int32) :: scope1,scope2
     logical :: crossed
     ! http://www.ics.kagoshima-u.ac.jp/~fuchida/edu/algorithm/sort-algorithm/quick-sort.html
+
 
 
     
@@ -3017,6 +3067,10 @@ recursive subroutine quicksortint(list)
         if(size(list)==2 )then
             list(1)=b
             list(2)=a
+
+            buf_r=val(1)
+            val(1)=val(2)
+            val(2)=buf_r
             return
         endif
     else
@@ -3040,6 +3094,10 @@ recursive subroutine quicksortint(list)
                     buf=list(start)
                     list(start)=list(last)
                     list(last)=buf
+
+                    buf_r=val(start)
+                    val(start)=val(last)
+                    val(last)=buf_r
                     exit
                 else
                     if(start >=last )then
@@ -3055,8 +3113,170 @@ recursive subroutine quicksortint(list)
         endif 
 
         if(crossed .eqv. .true.)then
-            call quicksort(list(scope1:start))
-            call quicksort(list(last:scope2))
+            if(.not.present(val) )then
+                call quicksort(list(scope1:start))
+                call quicksort(list(last:scope2))
+            else
+                call quicksort(list(scope1:start),val(scope1:start) )
+                call quicksort(list(last:scope2),val(last:scope2) )
+
+            endif
+            exit
+        else
+            cycle
+        endif
+
+    enddo
+end subroutine
+!##################################################
+
+
+!##################################################
+recursive subroutine quicksortintArray(list,val) 
+    integer(int32),intent(inout) :: list(:,:) ! rowごとにn個の情報がある．
+    real(real64),intent(inout) :: val(:)
+    integer(int32),allocatable :: a(:),b(:),border(:),buf(:)
+    integer(int32) :: i,j,border_id,n,start,last,scope1_out,scope2_out
+    integer(int32) :: scope1,scope2,total_id_a,total_id_b,num_b_win,num_eq
+    real(real64) :: val1,val2,v1,v2
+    logical :: a_wins,border_wins,list_wins
+    logical :: crossed
+    ! http://www.ics.kagoshima-u.ac.jp/~fuchida/edu/algorithm/sort-algorithm/quick-sort.html
+
+
+    
+    scope1=1
+    scope2=size(list,1)
+
+    n = size(list,2)
+    
+    allocate(a(n) )
+    allocate(b(n) )
+    allocate(border(n) )
+    allocate(buf(n) )
+    
+    if(size(list,1)==1)then
+        return
+    endif
+
+    ! determine border
+    a(:)=list(1,:)
+    b(:)=list(2,:)
+
+
+
+    a_wins=.true.
+    do i=1,size(a)
+        if(a(i)>b(i) )then
+            a_wins = .true.
+            exit
+        elseif(a(i)<b(i) )then
+            a_wins = .false.
+            exit
+        else
+            if(i==size(a) .and. a(i)==b(i))then
+                a_wins = .true.
+                exit
+            endif
+            cycle
+        endif
+    enddo
+
+    if( a_wins )then
+        border(:)=a(:)
+        if(size(list,1)==2 )then
+            list(1,:)=b(:)
+            list(2,:)=a(:)
+            v1  = val(1)
+            v2  = val(2)
+            val(1)=v2
+            val(2)=v1
+            return
+        endif
+    else
+        border(:)=b(:)
+        if(size(list,1)==2 )then
+            list(1,:)=a(:)
+            list(2,:)=b(:)
+            return
+        endif
+    endif
+
+    last=scope2
+    crossed=.false.
+
+
+    
+    do start=scope1,scope2
+
+        list_wins=.true.
+        do i=1,size(a)
+            ! priority :: a(1) >a(2)>a(3)
+            if(list(start,i) > border(i) )then
+                list_wins = .true.
+                exit
+            elseif(list(start,i)<border(i) )then
+                list_wins = .false.
+                exit
+            else
+                if(i==size(a)  .and. list(start,i)==border(i) )then
+                    list_wins = .true.
+                    exit
+                endif
+                cycle
+            endif
+        enddo
+
+
+        if(list_wins)then
+            do 
+
+                border_wins = .true.
+                do i=1,size(border)
+                    ! priority :: a(1) >a(2)>a(3)
+                    if(list(start,i) <= border(i) )then
+                        border_wins = .true.
+                        exit
+                    elseif(list(start,i) > border(i) )then
+                        border_wins = .false.
+                        exit
+                    else
+                        if(i==size(border) .and. list(start,i) == border(i))then
+                            border_wins = .false.
+                            exit
+                        endif
+                        cycle
+                    endif
+                enddo
+
+
+                if(border_wins )then
+                    ! exchange
+                    buf(:)=list(start,:)
+                    list(start,:)=list(last,:)
+                    list(last,:)=buf(:)
+                    v1 = val(start)
+                    v2 = val(last)
+                    val(start) = v2
+                    val(last) = v1
+                    exit
+                else
+                    if(start >=last )then
+                        crossed = .true.
+                        exit
+                    else
+                        last=last-1
+                    endif
+                endif
+            enddo
+        else
+            cycle
+        endif 
+
+        if(crossed .eqv. .true.)then
+            call quicksort(list(scope1:start,:),val(scope1:start) )
+            call quicksort(list(last:scope2,:),val(last:scope2)  )
+
             exit
         else
             cycle
@@ -3070,8 +3290,9 @@ end subroutine
 
 
 !##################################################
-recursive subroutine quicksortreal(list) 
+recursive subroutine quicksortreal(list,val) 
     real(real64),intent(inout) :: list(:)
+    real(real64),optional,intent(inout) :: val(:)
     real(real64) :: border,a,b,buf
     integer(int32) :: i,j,border_id,n,start,last,scope1_out,scope2_out
     integer(int32) :: scope1,scope2
@@ -3098,6 +3319,10 @@ recursive subroutine quicksortreal(list)
         if(size(list)==2 )then
             list(1)=b
             list(2)=a
+
+            buf=val(1)
+            val(1)=val(2)
+            val(2)=buf
             return
         endif
     else
@@ -3121,6 +3346,10 @@ recursive subroutine quicksortreal(list)
                     buf=list(start)
                     list(start)=list(last)
                     list(last)=buf
+
+                    buf=val(start)
+                    val(start)=val(last)
+                    val(last)=buf
                     exit
                 else
                     if(start >=last )then
@@ -3136,8 +3365,14 @@ recursive subroutine quicksortreal(list)
         endif 
 
         if(crossed .eqv. .true.)then
-            call quicksort(list(scope1:start))
-            call quicksort(list(last:scope2))
+            if(.not.present(val) )then
+                call quicksort(list(scope1:start))
+                call quicksort(list(last:scope2))
+            else
+                call quicksort(list(scope1:start),val(scope1:start) )
+                call quicksort(list(last:scope2),val(last:scope2) )
+
+            endif
             exit
         else
             cycle
@@ -3169,6 +3404,106 @@ function getifReal(Array,Value) result(list)
 end function
 !##################################################
 
+!##################################################
+subroutine heapsortArray(array,val)
+    real(real64),optional,intent(inout) :: val(:)
+      integer(int32),intent(inout) :: array(:,:)
+    real(real64) :: t_real
+      integer(int32) ::i,k,j,l,n,m,nn
+      integer(int32),allocatable :: t(:)
+      logical :: a_wins
+  
+      n=size(array,1)
+      m=sizE(array,2)
+      allocate(t(m) )
+  
+      if(n.le.0)then
+          write(6,*)"Error, at heapsort"; stop
+      endif
+      if(n.eq.1)return
+  
+    l=n/2+1
+    k=n
+    do while(k.ne.1)
+        if(l.gt.1)then
+            l=l-1
+            t(:)=array(L,: )
+            t_real=val(L)
+        else
+            t(:)=array(k,:)
+            t_real=val(k)
+  
+            array(k,:)=array(1,:)
+            val(k) = val(1)
+  
+            k=k-1
+            if(k.eq.1) then
+                   array(1,:)=t(:)
+                val(1) = t_real
+                exit
+            endif
+        endif
+        i=l
+        j=l+l
+        do while(j.le.k)
+            if(j.lt.k)then
+  
+                  a_wins=.true.
+                  do nn=1,size(array,2)
+                      if(array(j,nn)<array(j+1,nn) )then
+                          a_wins = .true.
+                          exit
+                      elseif(array(j,nn) > array(j+1,nn)  )then
+                          a_wins = .false.
+                          exit
+                      else
+                          if(nn==size(array,2) .and. array(j,nn) == array(j+1,nn)  )then
+                              a_wins = .false.
+                              exit
+                          endif
+                          cycle
+                      endif
+                  enddo
+  
+                  if( a_wins )then
+                      j=j+1
+                  endif
+            endif
+  
+  
+            a_wins=.true.
+            do nn=1,size(array,2)
+                if(t(nn)<array(j,nn) )then
+                    a_wins = .true.
+                    exit
+                elseif(t(nn) > array(j,nn)  )then
+                    a_wins = .false.
+                    exit
+                else
+                    if(nn==size(array,2) .and. t(nn) == array(j,nn)  )then
+                        a_wins = .false.
+                        exit
+                    endif
+                    cycle
+                endif
+            enddo
+  
+            !if (t.lt.array(j))then
+            if (a_wins)then
+                array(i,:)=array(j,:)
+                val(i)=val(j)
+                i=j
+                j=j+j
+            else
+                j=k+1
+            endif
+        enddo
+         array(i,:)=t(:)
+         val(i)=t_real
+      enddo
+  
+  end subroutine heapsortArray
+  
 
 !##################################################
 function getifRealVec(Array,Value) result(list)
