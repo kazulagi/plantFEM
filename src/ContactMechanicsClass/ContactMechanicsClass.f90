@@ -322,16 +322,19 @@ subroutine InitializeContactMechanics(obj, femdomains, femdomainsp, contactlist,
 	endif
 end subroutine
 ! #####################################################
-subroutine fixContactMechanics(obj,direction,disp,DomainID,x_min,x_max,y_min,y_max,z_min,z_max,NodeiDs)
+subroutine fixContactMechanics(obj,direction,disp,DomainID,x_min,x_max,y_min,y_max,z_min,z_max,NodeiDs,reduction)
 	class(ContactMechanics_),intent(inout) :: Obj
 	character(1),intent(in) :: direction
 	real(real64),intent(in) :: disp
 	integer(int32),intent(in) :: DomainID
 	integer(int32),optional,intent(in) :: NodeIDs(:)
+	real(real64),optional,intent(in) :: reduction ! percent
 	real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
-	integer(int32),allocatable :: FixBoundary(:)
-	integer(int32) :: entryID,i
+	real(real64) :: rate
+	integer(int32),allocatable :: FixBoundary(:),reducedFixBoundary(:)
+	integer(int32) :: entryID,i,nsize,interval
 
+	print *, "fixContactMechanics >> [1] selecting fix boundary"
 	if(present(NodeIDs) )then
 		FixBoundary = NodeIDs
 	else
@@ -358,6 +361,38 @@ subroutine fixContactMechanics(obj,direction,disp,DomainID,x_min,x_max,y_min,y_m
 		EntryId=3
 	endif
 
+	
+
+!	if(present(reduction) )then
+!		print *, "fixContactMechanics >> [2] setting fix boundary, size:: ",nsize
+!		if( 0.0d0 < reduction .and. reduction < 1.0d0  )then
+!			rate = reduction
+!		elseif( 1.0d0 < reduction .and. reduction < 100.0d0  )then
+!			rate = reduction/100.0d0
+!		endif
+!		nsize = int( dble(size(FixBoundary) )*rate )
+!		interval = int(size(FixBoundary)/nsize)
+!
+!		do i=1,size(FixBoundary),interval
+!			call obj%solver%fix(nodeid=FixBoundary(i), &
+!				EntryID=EntryID, &
+!				entryvalue=disp, &
+!				DOF=obj%solver%DOF ,&
+!				row_DomainID=domainid)
+!		enddo
+!	else
+!		print *, "fixContactMechanics >> [2] setting fix boundary, size:: ",size(FixBoundary)
+!		do i=1,size(FixBoundary)
+!			call obj%solver%fix(nodeid=FixBoundary(i), &
+!				EntryID=EntryID, &
+!				entryvalue=disp, &
+!				DOF=obj%solver%DOF ,&
+!				row_DomainID=domainid)
+!		enddo
+!	endif
+
+
+	print *, "fixContactMechanics >> [2] setting fix boundary, size:: ",size(FixBoundary)
 	do i=1,size(FixBoundary)
 		call obj%solver%fix(nodeid=FixBoundary(i), &
 			EntryID=EntryID, &
@@ -365,6 +400,8 @@ subroutine fixContactMechanics(obj,direction,disp,DomainID,x_min,x_max,y_min,y_m
 			DOF=obj%solver%DOF ,&
 			row_DomainID=domainid)
 	enddo
+
+	print *, "fixContactMechanics >> [ok] Done"
 
 end subroutine
 ! #####################################################
@@ -484,7 +521,7 @@ subroutine runCM(obj,penaltyparameter,debug)
 					do NodeID=1, domain2%nn()
 					    ! For 1st element, create stiffness matrix
 					    ! set global coordinate
-					    position(:) = domain1%mesh%nodcoord(NodeID,:)
+						position(:) = domain1%mesh%nodcoord(NodeID,:)
 					    InterConnect(1) = NodeID
 					    if( domain2%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))<=0 )then
 					        cycle
@@ -503,7 +540,7 @@ subroutine runCM(obj,penaltyparameter,debug)
 			enddo
 		enddo
 
-		call obj%solver%prepareFix()
+		call obj%solver%prepareFix(debug=.true.)
 
 		return
 
