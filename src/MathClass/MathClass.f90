@@ -268,18 +268,26 @@ subroutine heapsort(n,array,val)
 	    if(l.gt.1)then
 	        l=l-1
 	        t=array(L)
-			t_real=val(L)
+			if(present(val) )then
+				t_real=val(L)
+			endif
 	    else
 	        t=array(k)
-			t_real=val(k)
+			if(present(val) )then
+				t_real=val(k)
+			endif
 
 	        array(k)=array(1)
-			val(k) = val(1)
+			if(present(val) )then			
+				val(k) = val(1)
+			endif
 
 	        k=k-1
 	        if(k.eq.1) then
 	           	array(1)=t
-				val(1) = t_real
+				   if(present(val) )then
+						val(1) = t_real
+				   endif
 	        	exit
 	        endif
 	    endif
@@ -292,7 +300,9 @@ subroutine heapsort(n,array,val)
 	        endif
 	        if (t.lt.array(j))then
 	        	array(i)=array(j)
+				if(present(val) )then
 				val(i)=val(j)
+				endif
 	        	i=j
 	        	j=j+j
 	        else
@@ -300,7 +310,9 @@ subroutine heapsort(n,array,val)
 	        endif
 	    enddo
 	 	array(i)=t
+		 if(present(val) )then
 		 val(i)=t_real
+		 endif
   	enddo
 
 end subroutine heapsort
