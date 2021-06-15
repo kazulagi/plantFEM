@@ -7954,27 +7954,60 @@ end subroutine
 function nearestElementIDMesh(obj,x,y,z) result(ret)
     class(Mesh_),intent(inout) :: obj
     real(real64),optional,intent(in) :: x,y,z
-    real(real64),allocatable :: xcoord(:)
+    real(real64),allocatable :: xcoord(:),nodcoord(:,:),xmin(:),xmax(:)
     integer(int32),allocatable :: element_id_list(:)
+    logical,allocatable :: Inside(:)
     integer(int32) :: ret,dim_num,elem_num,node_num,i,j,nearest_node_id
-
+    real(real64) :: r_val
     dim_num = size(obj%nodcoord,2)
     node_num = size(obj%nodcoord,1)
     elem_num = size(obj%elemnod,2)
     ret = -1 ! default
     
-    do i=1,size(obj%nodcoord,1)
-        nearest_node_id = obj%getNearestNodeID(x=x,y=y,z=z)
-        element_id_list = obj%getElementList(NodeID=nearest_node_id)
-        do j=1, size(element_id_list)
-            if(obj%InsideOfElement(ElementID=element_id_list(j),x=x,y=y,z=z ) )then
-                ret = element_id_list(j)
-                return
-            else
-                cycle
-            endif
-        enddo
+    allocate(xcoord(dim_num) )
+    ! copy array
+    if(dim_num==1)then
+        xcoord(1) = x
+    elseif(dim_num==2)then
+        xcoord(1) = x
+        xcoord(2) = y
+    elseif(dim_num==3)then
+        xcoord(1) = x
+        xcoord(2) = y
+        xcoord(3) = z
+    endif
+!    nodcoord = obj%nodcoord
+!    do i=1,size(nodcoord,1)
+!        nodcoord(i,:) = nodcoord(i,:) - xcoord(:)
+!    enddo
+    ! use heap sort
+
+    ! if position is out of domain,
+    ! return
+    allocate(xmin(dim_num),xmax(dim_num) )
+
+    do i=1,dim_num
+        xmin(i) = minval(obj%nodcoord( :,i) )
+        xmax(i) = maxval(obj%nodcoord( :,i) )
     enddo
+
+    if(.not.InOrOut(xcoord,xmax,xmin,dim_num) )then  
+        ret = -1
+        return
+    endif
+
+
+    nearest_node_id = obj%getNearestNodeID(x=x,y=y,z=z)
+    element_id_list = obj%getElementList(NodeID=nearest_node_id)
+    do j=1, size(element_id_list)
+        if(obj%InsideOfElement(ElementID=element_id_list(j),x=x,y=y,z=z ) )then
+            ret = element_id_list(j)
+            return
+        else
+            cycle
+        endif
+    enddo
+
 end function
 !##################################################################################
 
@@ -8357,12 +8390,13 @@ function getNearestNodeIDMesh(obj,x,y,z,except,exceptlist) result(node_id)
         if(i == except_id)then
             cycle
         endif
+
         if(present(exceptlist) )then
             if(exist(exceptlist,i) .eqv. .true. )then
                 cycle
             endif
         endif
-
+        
         xvec_tr(:) = obj%nodcoord(i,:)
         dist_tr = dot_product(xvec-xvec_tr,xvec-xvec_tr)
         if(dist_tr < dist_cur)then

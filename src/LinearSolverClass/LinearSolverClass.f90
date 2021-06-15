@@ -205,21 +205,20 @@ end subroutine
 
 
 !====================================================================================
-recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_DomainID)
+recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_DomainID,debug)
   class(LinearSolver_),intent(inout) :: obj
+  logical,optional,intent(in) :: debug
   integer(int32),intent(in) :: nodeid
   integer(int32),optional,intent(in) :: entryID,DOF,row_DomainID
   real(real64),intent(in) :: entryvalue
   integer(int32),allocatable :: Index_I(:), Index_J(:)
   integer(int32) :: i,j, n, offset,m
 
-      ! row_DomainIDは，rowとcolumnの両方必要！！！
-      ! row_DomainIDは，rowとcolumnの両方必要！！！
-      ! row_DomainIDは，rowとcolumnの両方必要！！！
-      ! row_DomainIDは，rowとcolumnの両方必要！！！
-      ! row_DomainIDは，rowとcolumnの両方必要！！！
-      ! row_DomainIDは，rowとcolumnの両方必要！！！
-      ! row_DomainIDは，rowとcolumnの両方必要！！！
+  if(present(debug) )then
+    if(debug)then
+      print *, "fixLinearSolver  >> [0] started!"
+    endif
+  endif
 
   if(present(DOF)  )then
     if(.not. present(entryID) )then
@@ -229,7 +228,7 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
       stop
     endif
     n = (nodeid-1)*DOF + entryID
-    call obj%fix(nodeid=n,entryvalue=entryvalue,row_DomainID=row_DomainID)
+    call obj%fix(nodeid=n,entryvalue=entryvalue,row_DomainID=row_DomainID,debug=debug)
     return
   endif
 
@@ -241,6 +240,13 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
       stop
     endif
 
+    
+    if(present(debug) )then
+      if(debug)then
+        print *, "fixLinearSolver  >> [1] fix started!"
+      endif
+    endif
+  
 
     do i=1,size(obj%val)
       if(obj%index_J(i)==nodeid)then
@@ -267,10 +273,21 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
       endif
     enddo
 
+    if(present(debug) )then
+      if(debug)then
+        print *, "fixLinearSolver  >> [ok] done!"
+      endif
+    endif
+    return
 
   elseif(allocated(obj%row_domain_id) .and. present(row_DomainID) )then
-    ! only for CRS-format
+    ! only for COO-format
 
+    if(present(debug) )then
+      if(debug)then
+        print *, "fixLinearSolver  >> [1] sMulti-domain tarted!"
+      endif
+    endif
     ! Let's fix bugs.
     Index_I = obj%Index_I
     Index_J = obj%Index_J
@@ -300,6 +317,12 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
     endif
     
     !print *, "obj%b",obj%b
+    
+    if(present(debug) )then
+      if(debug)then
+        print *, "fixLinearSolver  >> [2] Updating b-vector"
+      endif
+    endif
 
     ! update b-vector (Right-hand side vector)
     do i=1,size(obj%val)
@@ -313,17 +336,31 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
         n = obj%Index_I(i)
         !print *, "obj%b( offset + nodeid )",obj%b( offset + n ), offset, n,offset+ n
         obj%b( offset + n ) = obj%b( offset  + n ) - obj%val(i) * entryvalue
-        if(obj%Index_I(i)==nodeid .and. obj%row_domain_id(i)==row_DomainID )then
-          obj%b( offset + n ) = entryvalue
-        endif
+        !if(obj%Index_I(i)==nodeid .and. obj%row_domain_id(i)==row_DomainID )then
+        !  obj%b( offset + n ) = entryvalue
+        !endif
         obj%val(i)=0.0d0
       else
         cycle
       endif
     enddo
 
+    do i=1,size(obj%val)
+      if(obj%index_J(i)==nodeid .and. obj%column_Domain_ID(i) == row_DomainID )then
+        if(obj%Index_I(i)==nodeid .and. obj%row_domain_id(i)==row_DomainID )then
+          obj%b( offset + n ) = entryvalue
+        endif
+      endif
+    enddo
+    
+
     !print *, "obj%b",obj%b
 
+    if(present(debug) )then
+      if(debug)then
+        print *, "fixLinearSolver  >> [3] Updated b-vector"
+      endif
+    endif
 
 
 
@@ -345,6 +382,12 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
         endif
       endif
     enddo
+    
+    if(present(debug) )then
+      if(debug)then
+        print *, "fixLinearSolver  >> [ok] Done!"
+      endif
+    endif
 
     
   else
@@ -612,8 +655,9 @@ end subroutine importLinearSolver
 !====================================================================================
 
 !====================================================================================
-subroutine prepareFixLinearSolver(obj)
+subroutine prepareFixLinearSolver(obj,debug)
   class(LinearSolver_),intent(inout) :: obj
+  logical,optional,intent(in) :: debug
   integer(int32),allocatable :: Index_I(:), Index_J(:),row_domain_id(:),column_Domain_ID(:)
   real(real64),allocatable:: val(:)
   integer(int32),allocatable :: array(:,:)
@@ -628,6 +672,11 @@ subroutine prepareFixLinearSolver(obj)
   count_reduc = 0
 
   ! 通し番号をセット
+  if(present(debug) )then
+    if(debug)then
+      print *, "prepareFixLinearSolver >> [1] heap-sort started."
+    endif
+  endif
 
   ! first, heap sort
   n=size(obj%val)
@@ -642,6 +691,13 @@ subroutine prepareFixLinearSolver(obj)
   obj%Index_J = array(:,2) 
   obj%row_domain_id = array(:,3) 
   obj%column_Domain_ID = array(:,4) 
+
+  
+  if(present(debug) )then
+    if(debug)then
+      print *, "prepareFixLinearSolver >> [2] Remove overlaps"
+    endif
+  endif
   ! second, remove overlap
   do i=1,n-1
     if(obj%index_i(i)==0 ) cycle
@@ -698,6 +754,11 @@ subroutine prepareFixLinearSolver(obj)
 
 
   ! 
+  if(present(debug) )then
+    if(debug)then
+      print *, "prepareFixLinearSolver >> [3] Renew info"
+    endif
+  endif
   count_reduc = 0
   do i=1,size(obj%index_I)
     if(obj%index_I(i)/=0 )then
@@ -733,6 +794,12 @@ subroutine prepareFixLinearSolver(obj)
   obj%column_Domain_ID=column_Domain_ID
 
 
+  
+  if(present(debug) )then
+    if(debug)then
+      print *, "prepareFixLinearSolver >> [ok] Done"
+    endif
+  endif
 end subroutine
 !====================================================================================
 
@@ -809,6 +876,7 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
     if(allocated(obj%NumberOfNode) )then
       ! May be overlapped!
       ! remove overlap
+      print *, "solveLinearSolver >> preparing..."
       Index_I = obj%Index_I
       Index_J = obj%Index_J
       do i=1, size(Index_I)
