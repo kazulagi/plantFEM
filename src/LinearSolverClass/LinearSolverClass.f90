@@ -1069,23 +1069,25 @@ subroutine bicgstab_CRS(a, index_i, index_j, x, b, itrmax, er)
   real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
   real(real64),allocatable:: r(:), r0(:), p(:), y(:), e(:), v(:)
 
+  print *, "BiCGSTAB STARTED >> DOF:", n
   n=size(b)
   allocate(r(n), r0(n), p(n), y(n), e(n), v(n))
   er0=dble(1.00e-14)
   r(:) = b(:)
+  print *, "BiCGSTAB >> [1] initialize"
   do i=1,size(a)
     if(index_i(i) <=0) cycle
     r( index_i(i) ) = r( index_i(i) ) - a(i)*x( index_j(i) ) 
   enddo
-
   !r(:) = b - matmul(a,x)
-  
+  print *, "BiCGSTAB >> [2] dp1"
   c1 = dot_product(r,r)
 	init_rr=c1
   if (c1 < er0) return
   p(:) = r(:)
   r0(:) = r(:)
   do itr = 1, itrmax   
+    print *, "BiCGSTAB >> ["//str(itr)//"] initialize"
     c1 = dot_product(r0,r)
     
     !y(:) = matmul(a,p)
@@ -1094,11 +1096,13 @@ subroutine bicgstab_CRS(a, index_i, index_j, x, b, itrmax, er)
       if(index_i(i) <=0) cycle
       y( index_i(i) ) = y( index_i(i) ) + a(i)*p( index_j(i) ) 
     enddo
-
+    
     c2 = dot_product(r0,y)
     alp = c1/c2
     e(:) = r(:) - alp * y(:)
     !v(:) = matmul(a,e)
+    
+    print *, "BiCGSTAB >> ["//str(itr)//"] half"
     v(:)=0.0d0
     do i=1,size(a)
       if(index_i(i) <=0) cycle
