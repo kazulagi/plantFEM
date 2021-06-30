@@ -25,6 +25,15 @@ contactList(1,2) = 1
 contactList(2,3) = 1
 ! initialize simulator
 call contact%init(femdomains=domains,contactlist=contactlist)
+
+! change density
+call contact%setDensity(density=0.10d0,DomainID=1)
+call contact%setDensity(density=0.10d0,DomainID=2)
+call contact%setDensity(density=0.10d0,DomainID=3)
+
+!check properties
+call contact%showProperty()
+
 ! setup solver
 call contact%setup(penaltyparameter=500.0d0)
 ! fix displacement

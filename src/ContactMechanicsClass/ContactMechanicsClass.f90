@@ -13,9 +13,19 @@ module ContactMechanicsClass
 		type(FEMDomainp_),allocatable :: FEMDomains(:)
 		type(LinearSolver_) :: solver
 		integer(int32),allocatable :: contactlist(:,:)
-		real(real64),allocatable :: YoungModulus(:)
-		real(real64),allocatable :: PoissonRatio(:)
+		real(real64),allocatable,private :: YoungModulus(:)
+		real(real64),allocatable,private :: PoissonRatio(:)
+		real(real64),allocatable,private :: Density(:)
+
+		real(real64),allocatable :: YoungModulusList(:,:)
+		real(real64),allocatable :: PoissonRatioList(:,:)
+		real(real64),allocatable :: DensityList(:,:)
+
 		logical :: initialized = .false.
+
+		real(real64) :: gravity(1:3) =[0.0d0, 0.0d0, -9.810d0]
+		
+		real(real64) :: penalty = 100000.0d0
 
 		! >>>>>>>>>>>> Regacy >>>>>>>>>>>>>>>>>
 		! >>>>>>>>>>>> Regacy >>>>>>>>>>>>>>>>>
@@ -109,6 +119,14 @@ module ContactMechanicsClass
 		procedure :: run 			=> runCM
 		procedure :: updateMesh     => updateMeshContactMechanics
 		procedure :: fix     		=> fixContactMechanics
+		procedure :: setDensity     => setDensity
+		procedure :: setYoungModulus     => setYoungModulus
+		procedure :: setPoissonRatio     => setPoissonRatio
+		procedure :: properties => propertiesCM
+		procedure :: property => propertiesCM
+		procedure :: showProperty   => showPropertyCM
+
+
 	
 		! regacy
 		procedure :: Update			=> UpdateContactConfiguration
@@ -127,8 +145,6 @@ module ContactMechanicsClass
 		procedure :: getDispBound => getDispBoundCM
 		procedure :: getTracBound => getTracBoundCM
 
-		procedure :: properties => propertiesCM
-		procedure :: property => propertiesCM
 
 		! >>> regacy subroutines for lodging-simulator 2.5
 		procedure :: ls_add_du => ls_add_duCM
@@ -143,15 +159,21 @@ contains
 
 
 ! #####################################################
-subroutine InitializeContactMechanics(obj, femdomains, femdomainsp, contactlist,femdomain1, femdomain2)
+subroutine InitializeContactMechanics(obj, femdomains, femdomainsp, contactlist,femdomain1, femdomain2,&
+	AllYoungModulus,AllPoissonRatio,AllDensity)
 	class(ContactMechanics_),intent(inout)  :: obj
 	type(FEMDomain_),target,optional,intent(in) :: femdomains(:)
 	type(FEMDomainp_),target,optional,intent(in) :: femdomainsp(:)
 	type(FEMDomain_),target,optional,intent(in) :: femdomain1, femdomain2
 	integer(int32),optional,intent(in) :: ContactList(:,:)
 
-	real(real64),parameter :: DefaultYoungModulus=1000.0d0
-	real(real64),parameter :: DefaultPoissonRatio=0.30d0
+	real(real64) :: DefaultYoungModulus=1000.0d0
+	real(real64) :: DefaultPoissonRatio=0.30d0
+	real(real64) :: DefaultDensity=0.0d0
+	
+	real(real64),optional,intent(in) :: AllYoungModulus
+	real(real64),optional,intent(in) :: AllPoissonRatio
+	real(real64),optional,intent(in) :: AllDensity
 
 	integer(int32) :: node_num_1
 	integer(int32) :: node_num_2
@@ -161,6 +183,18 @@ subroutine InitializeContactMechanics(obj, femdomains, femdomainsp, contactlist,
 
 	! modern
 
+	if(present(AllYoungModulus) )then
+		DefaultYoungModulus = AllYoungModulus 
+	endif
+
+	if(present(AllPoissonRatio) )then
+		DefaultPoissonRatio = AllPoissonRatio 
+	endif
+	
+	if(present(AllDensity) )then
+		DefaultDensity = AllDensity 
+	endif
+	
 	if(present(femdomains) .and. present(contactList) )then
 		numDomain = size(femdomains)
 		if(numDomain==0)then
@@ -176,8 +210,10 @@ subroutine InitializeContactMechanics(obj, femdomains, femdomainsp, contactlist,
 		allocate(obj%femdomains(numDomain) )
 		allocate(obj%YoungModulus(numDomain) )
 		allocate(obj%PoissonRatio(numDomain) )
+		allocate(obj%Density(numDomain) )
 		obj%YoungModulus(:) = DefaultYoungModulus
 		obj%PoissonRatio(:) = DefaultPoissonRatio
+		obj%Density(:) = DefaultDensity
 		
 
 
@@ -213,8 +249,10 @@ subroutine InitializeContactMechanics(obj, femdomains, femdomainsp, contactlist,
 		allocate(obj%femdomains(numDomain) )
 		allocate(obj%YoungModulus(numDomain) )
 		allocate(obj%PoissonRatio(numDomain) )
+		allocate(obj%Density(numDomain) )
 		obj%YoungModulus(:) = DefaultYoungModulus
 		obj%PoissonRatio(:) = DefaultPoissonRatio
+		obj%Density(:) = DefaultDensity
 		
 
 
@@ -424,6 +462,8 @@ end subroutine
 
 ! #####################################################
 
+
+! #####################################################
 subroutine runCM(obj,penaltyparameter,debug)
 	class(ContactMechanics_),target,intent(inout) :: obj
 	real(real64),optional,intent(in) :: penaltyparameter
@@ -442,6 +482,7 @@ subroutine runCM(obj,penaltyparameter,debug)
 	real(real64) :: position(3)
 	real(real64) :: penalty
 	type(FEMDomain_),pointer :: domain1, domain2
+
 
 	if(present(debug) )then
 		obj%solver%debug = debug
@@ -463,7 +504,8 @@ subroutine runCM(obj,penaltyparameter,debug)
 			DomainIDs1(:) = DomainID
 			
 			do ElementID=1, obj%femdomains(DomainID)%femdomainp%ne()
-			    ! For 1st element, create stiffness matrix
+				
+				! For 1st element, create stiffness matrix
 			    A_ij = obj%femdomains(DomainID)%femdomainp%StiffnessMatrix(&
 					ElementID=ElementID,&
 					E=obj%YoungModulus(DomainID), &
@@ -471,8 +513,8 @@ subroutine runCM(obj,penaltyparameter,debug)
 			    b_i  = obj%femdomains(DomainID)%femdomainp%MassVector(&
 			        ElementID=ElementID,&
 			        DOF=obj%femdomains(DomainID)%femdomainp%nd() ,&
-			        Density=0.30d0,&
-			        Accel=(/0.0d0, 0.0d0, 0.0d0/)&
+			        Density=obj%Density(DomainID),&
+			        Accel=obj%Gravity&
 			        )
 			    ! assemble them 
 			    call obj%solver%assemble(&
@@ -489,7 +531,7 @@ subroutine runCM(obj,penaltyparameter,debug)
 		enddo
 
 		InterfaceID = 0
-		penalty = input(default=10000.0d0,option=penaltyparameter)
+		penalty = input(default=obj%penalty,option=penaltyparameter)
 		do i=1, size(obj%ContactList,1)
 			do j=1, size(obj%ContactList,2)
 				if(obj%contactList(i,j)>=1 )then
@@ -1052,14 +1094,21 @@ subroutine runCM(obj,penaltyparameter,debug)
 end subroutine
 
 ! #####################################################
-subroutine propertiesCM(obj,config)
+subroutine propertiesCM(obj,config,penalty,gravity)
 	class(ContactMechanics_),intent(inout) :: obj
 	character(*),optional,intent(in) :: config
+	real(real64),optional,intent(in) :: penalty,gravity(3)
 	type(IO_) :: f
 	character(200) :: fn,conf,line
 	integer(int32) :: blcount,rmc,id
 
+	if(present(penalty) )then
+		obj%penalty = penalty
+	endif
 
+	if(present(gravity) )then
+		obj%gravity = gravity
+	endif
 
 	if(.not.present(config).or. index(config,".json")==0 )then
 		
@@ -5915,5 +5964,56 @@ end subroutine
 
 
 end subroutine displace
+
+subroutine showPropertyCM(obj)
+	class(ContactMechanics_),intent(in) :: Obj
+	integer(int32) :: i
+
+	if(allocated(obj%YoungModulus) )then
+		do i=1,size(obj%femdomains)
+			print *, "Domain-ID ::",i,"YoungModulus ::",obj%YoungModulus(i),"PoissonRatio",obj%PoissonRatio(i),"Density",obj%Density(i)
+		enddo
+	endif
+
+end subroutine
+
+subroutine setYoungModulus(obj,YoungModulus,DomainID)
+	class(ContactMechanics_),intent(inout) :: Obj
+	real(real64),intent(in) :: YoungModulus
+	integer(int32),optional,intent(in) :: DomainID
+
+	if(present(DomainID) )then
+		obj%YoungModulus(DomainID) = YoungModulus
+	else
+		obj%YoungModulus(:) = YoungModulus
+	endif
+
+end subroutine
+
+subroutine setPoissonRatio(obj,PoissonRatio,DomainID)
+	class(ContactMechanics_),intent(inout) :: Obj
+	real(real64),intent(in) :: PoissonRatio
+	integer(int32),optional,intent(in) :: DomainID
+
+	if(present(DomainID) )then
+		obj%PoissonRatio(DomainID) = PoissonRatio
+	else
+		obj%PoissonRatio(:) = PoissonRatio
+	endif
+
+end subroutine
+
+subroutine setDensity(obj,density,DomainID)
+	class(ContactMechanics_),intent(inout) :: Obj
+	real(real64),intent(in) :: density
+	integer(int32),optional,intent(in) :: DomainID
+
+	if(present(DomainID) )then
+		obj%density(DomainID) = density
+	else
+		obj%density(:) = density
+	endif
+
+end subroutine
 
 end module 
