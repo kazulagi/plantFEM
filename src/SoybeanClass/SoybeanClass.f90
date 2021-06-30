@@ -61,6 +61,19 @@ module SoybeanClass
         type(Leaf_),allocatable :: Leaf(:)
         type(Root_),allocatable :: Root(:)
         type(Soil_),allocatable :: Soil
+
+        ! material info
+        real(real64),allocatable :: stemYoungModulus(:)
+        real(real64),allocatable :: leafYoungModulus(:)
+        real(real64),allocatable :: rootYoungModulus(:)
+
+        real(real64),allocatable :: stemPoissonRatio(:)
+        real(real64),allocatable :: leafPoissonRatio(:)
+        real(real64),allocatable :: rootPoissonRatio(:)
+
+        real(real64),allocatable :: stemDensity(:)
+        real(real64),allocatable :: leafDensity(:)
+        real(real64),allocatable :: rootDensity(:)
         
         ! 節-節点データ構造
         type(Mesh_) :: struct 
@@ -1136,6 +1149,30 @@ subroutine initsoybean(obj,config,&
         allocate(obj%leaf(obj%MaxLeafNum) )
         allocate(obj%root(obj%MaxrootNum) )
         allocate(obj%stem(obj%MaxstemNum) )
+
+        allocate(obj%leafYoungModulus(obj%MaxLeafNum) )
+        allocate(obj%rootYoungModulus(obj%MaxrootNum) )
+        allocate(obj%stemYoungModulus(obj%MaxstemNum) )
+        ! default value
+        obj%leafYoungModulus(:) = 1000.0d0
+        obj%rootYoungModulus(:) = 1000.0d0
+        obj%stemYoungModulus(:) = 1000.0d0
+        
+        allocate(obj%leafPoissonRatio(obj%MaxLeafNum) )
+        allocate(obj%rootPoissonRatio(obj%MaxrootNum) )
+        allocate(obj%stemPoissonRatio(obj%MaxstemNum) )
+        obj%leafPoissonRatio(:) = 0.30d0
+        obj%rootPoissonRatio(:) = 0.30d0
+        obj%stemPoissonRatio(:) = 0.30d0
+        
+        allocate(obj%leafDensity(obj%MaxLeafNum) )
+        allocate(obj%rootDensity(obj%MaxrootNum) )
+        allocate(obj%stemDensity(obj%MaxstemNum) )
+
+        obj%leafDensity(:) = 0.0d0
+        obj%rootDensity(:) = 0.0d0
+        obj%stemDensity(:) = 0.0d0
+
         allocate(obj%stem2stem(obj%MaxstemNum,obj%MaxstemNum) )
         allocate(obj%leaf2stem(obj%MaxstemNum,obj%MaxLeafNum) )
         allocate(obj%root2stem(obj%MaxrootNum,obj%MaxstemNum) )
@@ -1308,6 +1345,30 @@ subroutine initsoybean(obj,config,&
         allocate(obj%leaf(obj%MaxLeafNum) )
         allocate(obj%root(obj%MaxrootNum) )
         allocate(obj%stem(obj%MaxstemNum) )
+
+        allocate(obj%leafYoungModulus(obj%MaxLeafNum) )
+        allocate(obj%rootYoungModulus(obj%MaxrootNum) )
+        allocate(obj%stemYoungModulus(obj%MaxstemNum) )
+        ! default value
+        obj%leafYoungModulus(:) = 1000.0d0
+        obj%rootYoungModulus(:) = 1000.0d0
+        obj%stemYoungModulus(:) = 1000.0d0
+        
+        allocate(obj%leafPoissonRatio(obj%MaxLeafNum) )
+        allocate(obj%rootPoissonRatio(obj%MaxrootNum) )
+        allocate(obj%stemPoissonRatio(obj%MaxstemNum) )
+        obj%leafPoissonRatio(:) = 0.30d0
+        obj%rootPoissonRatio(:) = 0.30d0
+        obj%stemPoissonRatio(:) = 0.30d0
+        
+        allocate(obj%leafDensity(obj%MaxLeafNum) )
+        allocate(obj%rootDensity(obj%MaxrootNum) )
+        allocate(obj%stemDensity(obj%MaxstemNum) )
+
+        obj%leafDensity(:) = 0.0d0
+        obj%rootDensity(:) = 0.0d0
+        obj%stemDensity(:) = 0.0d0
+
         allocate(obj%stem2stem(obj%MaxstemNum,obj%MaxstemNum) )
         allocate(obj%leaf2stem(obj%MaxstemNum,obj%MaxLeafNum) )
         allocate(obj%root2stem(obj%MaxrootNum,obj%MaxstemNum) )
@@ -2452,6 +2513,47 @@ subroutine deformSoybean(obj,penaltyparameter,groundLevel,disp,x_min,x_max,y_min
     !call print(contactlist)
     !stop
     call obj%contact%init(femdomainsp=domainsp,contactlist=contactlist)
+
+    ! load material info
+    numDomain = 0
+    if(allocated(obj%stem) )then
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%femdomain%mesh%empty() )then
+                cycle
+            else
+                numDomain = numDomain + 1
+                call obj%contact%setYoungModulus(YoungModulus=obj%stemYoungModulus(i),DomainID=numDomain) 
+                call obj%contact%setPoissonRatio(PoissonRatio=obj%stemPoissonRatio(i),DomainID=numDomain) 
+                call obj%contact%setDensity(density=obj%stemDensity(i),DomainID=numDomain) 
+            endif
+        enddo
+    endif
+    if(allocated(obj%leaf) )then
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%femdomain%mesh%empty() )then
+                cycle
+            else
+                numDomain = numDomain + 1
+                call obj%contact%setYoungModulus(YoungModulus=obj%leafYoungModulus(i),DomainID=numDomain) 
+                call obj%contact%setPoissonRatio(PoissonRatio=obj%leafPoissonRatio(i),DomainID=numDomain) 
+                call obj%contact%setDensity(density=obj%leafDensity(i),DomainID=numDomain) 
+            endif
+        enddo
+    endif
+    if(allocated(obj%root) )then
+        do i=1,size(obj%root)
+            if(obj%root(i)%femdomain%mesh%empty() )then
+                cycle
+            else
+                numDomain = numDomain + 1
+                call obj%contact%setYoungModulus(YoungModulus=obj%rootYoungModulus(i),DomainID=numDomain) 
+                call obj%contact%setPoissonRatio(PoissonRatio=obj%rootPoissonRatio(i),DomainID=numDomain) 
+                call obj%contact%setDensity(density=obj%rootDensity(i),DomainID=numDomain) 
+            endif
+        enddo
+    endif
+    !
+
 
     penalty = input(default=1000.0d0, option=penaltyparameter)
     
