@@ -1951,23 +1951,29 @@ subroutine vtkSoybean(obj,name)
     character(*),intent(in) :: name
     integer(int32) :: i
 
-    do i=1,size(obj%stem)
-        if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%stem(i)%vtk(name=trim(name)//"_stem"//trim(str(i)))
-        endif
-    enddo
+    if(allocated(obj%stem) )then
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call obj%stem(i)%vtk(name=trim(name)//"_stem"//trim(str(i)))
+            endif
+        enddo
+    endif
 
-    do i=1,size(obj%root)
-        if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%root(i)%vtk(name=trim(name)//"_root"//trim(str(i)))
-        endif
-    enddo
+    if(allocated(obj%root))then
+        do i=1,size(obj%root)
+            if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call obj%root(i)%vtk(name=trim(name)//"_root"//trim(str(i)))
+            endif
+        enddo
+    endif
 
-    do i=1,size(obj%leaf)
-        if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%leaf(i)%vtk(name=trim(name)//"_leaf"//trim(str(i)))
-        endif
-    enddo
+    if(allocated(obj%leaf))then
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call obj%leaf(i)%vtk(name=trim(name)//"_leaf"//trim(str(i)))
+            endif
+        enddo
+    endif
 
 end subroutine
 ! ########################################
@@ -2341,86 +2347,114 @@ subroutine deformSoybean(obj,penaltyparameter,groundLevel,disp,x_min,x_max,y_min
         return
     endif
     numDomain = 0
-    do i=1,size(obj%stem)
-        if(obj%stem(i)%femdomain%mesh%empty() )then
-            cycle
-        else
-            numDomain = numDomain + 1
-        endif
-    enddo
-    do i=1,size(obj%leaf)
-        if(obj%leaf(i)%femdomain%mesh%empty() )then
-            cycle
-        else
-            numDomain = numDomain + 1
-        endif
-    enddo
-    do i=1,size(obj%root)
-        if(obj%root(i)%femdomain%mesh%empty() )then
-            cycle
-        else
-            numDomain = numDomain + 1
-        endif
-    enddo
+    
+    if(allocated(obj%stem) )then
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%femdomain%mesh%empty() )then
+                cycle
+            else
+                numDomain = numDomain + 1
+            endif
+        enddo
+    endif
+    if(allocated(obj%leaf) )then
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%femdomain%mesh%empty() )then
+                cycle
+            else
+                numDomain = numDomain + 1
+            endif
+        enddo
+    endif
+    if(allocated(obj%root) )then
+        do i=1,size(obj%root)
+            if(obj%root(i)%femdomain%mesh%empty() )then
+                cycle
+            else
+                numDomain = numDomain + 1
+            endif
+        enddo
+    endif
     
     allocate(domainsp(numDomain) )
     numDomain=0
     stemDomain=0
-    do i=1,size(obj%stem)
-        if(obj%stem(i)%femdomain%mesh%empty() )then
-            cycle
-        else
-            numDomain = numDomain + 1
-            stemDomain = stemDomain + 1
-            domainsp(numDomain)%femdomainp =>  obj%stem(i)%femdomain
-        endif
-    enddo
+    if(allocated(obj%stem) )then
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%femdomain%mesh%empty() )then
+                cycle
+            else
+                numDomain = numDomain + 1
+                stemDomain = stemDomain + 1
+                domainsp(numDomain)%femdomainp =>  obj%stem(i)%femdomain
+            endif
+        enddo
+    endif
+
     leafDomain = 0
-    do i=1,size(obj%leaf)
-        if(obj%leaf(i)%femdomain%mesh%empty() )then
-            cycle
-        else
-            numDomain = numDomain + 1
-            leafDomain = leafDomain + 1
-            domainsp(numDomain)%femdomainp =>  obj%leaf(i)%femdomain
-        endif
-    enddo
+    if(allocated(obj%leaf) )then
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%femdomain%mesh%empty() )then
+                cycle
+            else
+                numDomain = numDomain + 1
+                leafDomain = leafDomain + 1
+                domainsp(numDomain)%femdomainp =>  obj%leaf(i)%femdomain
+            endif
+        enddo
+    endif
+
     rootDomain = 0
-    do i=1,size(obj%root)
-        if(obj%root(i)%femdomain%mesh%empty() )then
-            cycle
-        else
-            numDomain = numDomain + 1
-            rootDomain = rootDomain + 1
-            domainsp(numDomain)%femdomainp =>  obj%root(i)%femdomain
-        endif
-    enddo
-    
+    if(allocated(obj%root) )then
+        do i=1,size(obj%root)
+            if(obj%root(i)%femdomain%mesh%empty() )then
+                cycle
+            else
+                numDomain = numDomain + 1
+                rootDomain = rootDomain + 1
+                domainsp(numDomain)%femdomainp =>  obj%root(i)%femdomain
+            endif
+        enddo
+    endif
 
     contactlist = zeros(numDomain,numDomain)
-    do i=1,stemDomain
-        do j=1,stemDomain
-            contactlist( i, j  ) = obj%stem2stem(i,j)
+    if(allocated(obj%stem2stem))then
+        do i=1,stemDomain
+            do j=1,stemDomain
+                contactlist( i, j  ) = obj%stem2stem(i,j)
+            enddo
         enddo
-    enddo
-    do i=1,leafDomain
-        do j=1,stemDomain
-            contactlist( i + stemDomain, j  ) = obj%leaf2stem(i,j)
-        enddo
-    enddo
-    do i=1,rootDomain
-        do j=1,stemDomain
-            contactlist( i + stemDomain + leafDomain, j  ) = obj%root2stem(i,j)
-        enddo
-    enddo
-    do i=1,rootDomain
-        do j=1,rootDomain
-            contactlist( i + stemDomain + leafDomain, j+ stemDomain + leafDomain  ) = obj%root2root(i,j)
-        enddo
-    enddo
+    endif
 
+    if(allocated(obj%leaf2stem) )then
+        do i=1,leafDomain
+            do j=1,stemDomain
+                contactlist( i + stemDomain, j  ) = obj%leaf2stem(i,j)
+            enddo
+        enddo
+    endif
+
+    if(allocated(obj%root2stem) )then
+        do i=1,rootDomain
+            do j=1,stemDomain
+                contactlist( i + stemDomain + leafDomain, j  ) = obj%root2stem(i,j)
+            enddo
+        enddo
+    endif
+
+    if(allocated(obj%root2root) )then
+        do i=1,rootDomain
+            do j=1,rootDomain
+                contactlist( i + stemDomain + leafDomain, j+ stemDomain + leafDomain  ) = obj%root2root(i,j)
+            enddo
+        enddo
+    endif
+    !call print(contactlist)
+    !stop
     call obj%contact%init(femdomainsp=domainsp,contactlist=contactlist)
+
     penalty = input(default=1000.0d0, option=penaltyparameter)
+    
     call obj%contact%setup(penaltyparameter=penalty)
 
     ! if displacement is set, load displacement
@@ -2440,7 +2474,7 @@ subroutine deformSoybean(obj,penaltyparameter,groundLevel,disp,x_min,x_max,y_min
                 z_min=z_min,z_max=z_max)
         enddo    
     endif
-
+    
 
     Glevel = input(default=0.0d0,option=groundLevel)
     ! under-ground parts are fixed.
@@ -2457,6 +2491,7 @@ subroutine deformSoybean(obj,penaltyparameter,groundLevel,disp,x_min,x_max,y_min
     call obj%contact%solver%solve("BiCGSTAB")
     ! update mesh
     call obj%contact%updateMesh()
+
 
 end subroutine
 
