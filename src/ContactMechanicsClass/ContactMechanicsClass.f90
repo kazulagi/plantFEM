@@ -443,6 +443,10 @@ subroutine runCM(obj,penaltyparameter,debug)
 	real(real64) :: penalty
 	type(FEMDomain_),pointer :: domain1, domain2
 
+	if(present(debug) )then
+		obj%solver%debug = debug
+	endif
+
 	if( obj%initialized  )then
 		
 		! linear elastic, small strain 
@@ -540,7 +544,7 @@ subroutine runCM(obj,penaltyparameter,debug)
 			enddo
 		enddo
 
-		call obj%solver%prepareFix(debug=.true.)
+		call obj%solver%prepareFix()
 
 		return
 
