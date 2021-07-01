@@ -265,6 +265,17 @@ echo "Modules for simulators (sim) is installed."
 
 
 # Compilation of agricultural objects
+
+echo "Compiling ./src/DigitalElevationModelClass/DigitalElevationModelClass.f90" 
+echo " >> DigitalElevationModelClass.o "
+echo " | =======================>    | (90%)\r\c"
+mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/DigitalElevationModelClass/DigitalElevationModelClass.f90 -o  ./inc/DigitalElevationModelClass.o
+
+echo "Compiling ./src/BoringClass/BoringClass.f90" 
+echo " >> BoringClass.o "
+echo " | =======================>    | (90%)\r\c"
+mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/BoringClass/BoringClass.f90 -o  ./inc/BoringClass.o
+
 echo "Compiling ./src/RidgeClass/RidgeClass.f90" 
 echo " >> RidgeClass.o "
 echo " | ########################    | (90%)\r\c"

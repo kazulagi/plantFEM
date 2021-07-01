@@ -2,10 +2,14 @@ module SoilClass
     use, intrinsic :: iso_fortran_env
     use fem
     use FertilizerClass
+    use BoringClass
+    use DigitalElevationModelClass
     implicit none
+
 
     type :: Soil_
         type(FEMDomain_) :: FEMDomain
+        type(Boring_),allocatable :: Boring(:)
 
         real(real64) :: depth
         real(real64) :: length
@@ -14,6 +18,10 @@ module SoilClass
         integer(int32) :: num_y
         integer(int32) :: num_z
         real(real64) :: x,y,z ! center coordinate
+
+        ! soil property
+
+
 
         ! ================
         ! Nutorient
@@ -44,6 +52,7 @@ module SoilClass
 
     contains
         procedure :: init => initSoil
+        procedure :: import => importSoil
         procedure :: create => initSoil
         procedure :: new => initSoil
         procedure :: resize => resizeSoil
@@ -51,12 +60,84 @@ module SoilClass
         procedure :: move => moveSoil
         procedure :: gmsh => gmshSoil
         procedure :: msh => mshSoil
+        procedure :: vtk => vtkSoil
         procedure :: fertilize => fertilizeSoil
         procedure :: diagnosis => diagnosisSoil
         procedure :: export => exportSoil
     end type
 
 contains
+! ################################################################
+
+
+! ################################################################
+subroutine importSoil(obj, boring, dem,x_num,y_num,z_num,radius,depth)
+    class(Soil_),intent(inout)::obj
+    type(Boring_),optional,intent(in) :: Boring(:)
+    type(DigitalElevationModel_),optional,intent(in) :: dem
+    integer(int32),optional,intent(in) :: x_num,y_num,z_num
+    real(real64),optional,intent(in) :: radius,depth
+    real(real64) :: radius_val,xlen,ylen,zlen,def_interval,r_tr,original_z,new_z,depth_val
+    integer(int32) :: xnum,ynum,znum,DOF,i,j
+
+    !depth_val = input(default=-1.0d0,option=-abs(depth)
+
+    ! Boring core sampling data
+    if(present(Boring) )then
+        obj%Boring = Boring
+    endif
+
+    if(present(dem) )then
+        DOF = dem%NumberOfPoint() 
+        xnum = input(default=int(dble(DOF)**(1.0d0/3.0d0)),option=x_num)
+        ynum = input(default=int(dble(DOF)**(1.0d0/3.0d0)),option=y_num)
+        znum = input(default=int(dble(DOF)**(1.0d0/3.0d0)),option=z_num)
+
+        xlen = maxval(dem%x) - minval(dem%x)
+        ylen = maxval(dem%y) - minval(dem%y)
+        zlen = maxval(dem%z) - minval(dem%z)
+        ! create mesh
+        call obj%FEMDomain%create("Cube3D",x_num=xnum,y_num=ynum,z_num=znum)
+        call obj%FEMDomain%resize(x=xlen)
+        call obj%FEMDomain%resize(y=ylen)
+        call obj%FEMDomain%resize(z=minval(dem%z))
+        
+        call obj%FEMDomain%move(x=minval(dem%x)  )
+        call obj%FEMDomain%move(y=minval(dem%y)  )
+        !call obj%FEMDomain%move(z=minval(dem%z)  )
+
+        ! modify mesh
+        def_interval = maxval([xlen/dble(xnum),ylen/dble(ynum),zlen/dble(znum)])
+        radius_val = input(default=def_interval,option=radius)
+        do i=1,dem%NumberOfPoint()
+            do j=obj%femdomain%nn()-(xnum+1)*(ynum+1),obj%femdomain%nn()
+                r_tr = (dem%x(i)-obj%femdomain%mesh%nodcoord(j,1))**2
+                r_tr = r_tr + (dem%y(i)-obj%femdomain%mesh%nodcoord(j,2))**2
+                r_tr = sqrt(r_tr)
+                if(r_tr <= radius_val)then
+                    ! change coordinate
+                    !original_z = obj%femdomain%mesh%nodcoord(j,3)
+                    ! height original_z:-> 
+                    !new_z = original_z/zlen * dem%z(i) * &
+                    !    (radius_val - r_tr)*(radius_val - r_tr)/radius_val/radius_val
+                    obj%femdomain%mesh%nodcoord(j,3) = dem%z(i)
+                endif
+            enddo
+        enddo
+
+        do i=1,(xnum+1)*(ynum+1)
+            do j=1,znum
+                obj%femdomain%mesh%nodcoord((xnum+1)*(ynum+1)*(j-1)+i,3) = &
+                    obj%femdomain%mesh%nodcoord( (xnum+1)*(ynum+1)*znum+i ,3)*dble(j)/dble(znum+1)
+            enddo
+        enddo
+    endif
+
+
+
+end subroutine
+! ################################################################
+
 
 ! ################################################################
 subroutine initSoil(obj,config,x_num,y_num,z_num)
@@ -404,6 +485,16 @@ subroutine gmshSoil(obj,name)
     character(*),intent(in) :: name
 
     call obj%femdomain%gmsh(Name=name)
+    
+end subroutine
+! ########################################
+
+! ########################################
+subroutine vtkSoil(obj,name)
+    class(Soil_),intent(inout) :: obj
+    character(*),intent(in) :: name
+
+    call obj%femdomain%vtk(Name=name)
     
 end subroutine
 ! ########################################
