@@ -22,17 +22,17 @@ call domain%msh("init")
 call domain%move(x=-3.0d0)
 
 ! initialize solver
-call solver%init()
+call solver%init(NumberOfNode=[domain%nn()],DOF=3 )
 
 ! create Elemental Matrices and Vectors
 do ElementID=1, domain%ne()
 
     ! For 1st element, create stiffness matrix
-    A_ij = domain%StiffnessMatrix(ElementID=ElementID, E=1000.0d0, v=0.40d0)
+    A_ij = domain%StiffnessMatrix(ElementID=ElementID, E=100.0d0, v=0.40d0)
     b_i  = domain%MassVector(&
         ElementID=ElementID,&
         DOF=domain%nd() ,&
-        Density=0.30d0,&
+        Density=0.00d0,&
         Accel=(/0.0d0, 0.0d0, -9.80d0/)&
         )
 
@@ -47,16 +47,26 @@ do ElementID=1, domain%ne()
         eVector=b_i)
 enddo
 
+call solver%prepareFix()
+
 ! fix deformation >> Dirichlet Boundary
 FixBoundary = domain%select(y_max=0.10d0)
 do i=1,size(FixBoundary)
-    call solver%fix(nodeid=FixBoundary(i)*3-2,entryvalue=0.0d0)
-    call solver%fix(nodeid=FixBoundary(i)*3-1,entryvalue=0.0d0)
-    call solver%fix(nodeid=FixBoundary(i)*3-0,entryvalue=0.0d0)
+    call solver%fix(nodeid=FixBoundary(i)*3-2,entryvalue=0.0d0,row_DomainID=1)
+    call solver%fix(nodeid=FixBoundary(i)*3-1,entryvalue=0.0d0,row_DomainID=1)
+    call solver%fix(nodeid=FixBoundary(i)*3-0,entryvalue=0.0d0,row_DomainID=1)
 enddo
 
+FixBoundary = domain%select(y_min=maxval(domain%mesh%nodcoord(:,2) ) )
+do i=1,size(FixBoundary)
+    call solver%fix(nodeid=FixBoundary(i)*3-2,entryvalue=0.0d0,row_DomainID=1)
+    call solver%fix(nodeid=FixBoundary(i)*3-1,entryvalue=0.0d0,row_DomainID=1)
+    call solver%fix(nodeid=FixBoundary(i)*3-0,entryvalue=1.0d0,row_DomainID=1)
+enddo
+
+
 ! solve > get displacement
-call solver%solve("BiCGSTAB",CRS=.true.)
+call solver%solve("BiCGSTAB")
 
 ! x = X + u
 domain%mesh%Nodcoord(:,:) = domain%mesh%Nodcoord(:,:) + reshape(solver%x,domain%nn(),domain%nd() )
