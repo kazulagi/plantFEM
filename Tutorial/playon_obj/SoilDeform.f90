@@ -31,7 +31,11 @@ soil%VoidRatio    = 0.50d0
 
 call soil%PreFlightCheck()
 
-call soil%deform(z_max=1.0d0,disp=[0.0d0,0.0d0,0.0d0])
+! only gravity
+call soil%deform()
+
+! set deformation
+!call soil%deform(z_max=1.0d0,disp=[0.0d0,0.0d0,0.0d0])
 
 ! result
 call soil%vtk("DEM_deformed")

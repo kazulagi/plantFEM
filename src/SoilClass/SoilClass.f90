@@ -85,7 +85,8 @@ subroutine importSoil(obj, boring, dem,x_num,y_num,z_num,radius,depth)
     type(DigitalElevationModel_),optional,intent(in) :: dem
     integer(int32),optional,intent(in) :: x_num,y_num,z_num
     real(real64),optional,intent(in) :: radius,depth
-    real(real64) :: radius_val,xlen,ylen,zlen,def_interval,r_tr,original_z,new_z,depth_val
+    real(real64) :: radius_val,xlen,ylen,zlen,def_interval
+    real(real64) :: r_tr,original_z,new_z,depth_val,bottom_z
     integer(int32) :: xnum,ynum,znum,DOF,i,j
 
     !depth_val = input(default=-1.0d0,option=-abs(depth)
@@ -118,7 +119,7 @@ subroutine importSoil(obj, boring, dem,x_num,y_num,z_num,radius,depth)
         def_interval = maxval([xlen/dble(xnum),ylen/dble(ynum),zlen/dble(znum)])
         radius_val = input(default=def_interval,option=radius)
         do i=1,dem%NumberOfPoint()
-            do j=obj%femdomain%nn()-(xnum+1)*(ynum+1),obj%femdomain%nn()
+            do j=obj%femdomain%nn()-2*(xnum+1)*(ynum+1),obj%femdomain%nn()
                 r_tr = (dem%x(i)-obj%femdomain%mesh%nodcoord(j,1))**2
                 r_tr = r_tr + (dem%y(i)-obj%femdomain%mesh%nodcoord(j,2))**2
                 r_tr = sqrt(r_tr)
@@ -139,8 +140,10 @@ subroutine importSoil(obj, boring, dem,x_num,y_num,z_num,radius,depth)
                     obj%femdomain%mesh%nodcoord( (xnum+1)*(ynum+1)*znum+i ,3)*dble(j)/dble(znum+1)
             enddo
         enddo
-
-    
+        bottom_z = minval(obj%femdomain%mesh%nodcoord(:,3) )
+        obj%femdomain%mesh%nodcoord( 1:(xnum+1)*(ynum+1),3) = bottom_z
+        
+        
         obj%YoungModulus = zeros(obj%femdomain%ne())
         obj%PoissonRatio = zeros(obj%femdomain%ne())
         obj%Density = zeros(obj%femdomain%ne())
