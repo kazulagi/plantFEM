@@ -27,6 +27,16 @@ explorer.exe .
 
 5. Enjoy!
 
+# Sample codes
+
+You can search sample codes by
+
+```
+plantfem search
+```
+
+and type your keywords.
+
 # Use plantfem by pip (Under develpment)
 
 ```shellscript
