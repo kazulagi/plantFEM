@@ -364,7 +364,11 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
         n = obj%Index_I(i)
         !print *, "obj%b( offset + nodeid )",obj%b( offset + n ), offset, n,offset+ n
         if( .not. obj%Locked(offset + n  )) then
-          obj%b( offset + n ) = obj%b( offset  + n ) - obj%val(i) * entryvalue
+          if(size(obj%NumberOfNode)==1 )then
+            obj%b(n ) = obj%b(n ) - obj%val(i) * entryvalue
+          else
+            obj%b( offset + n ) = obj%b( offset  + n ) - obj%val(i) * entryvalue
+          endif
         endif
         !if(obj%Index_I(i)==nodeid .and. obj%row_domain_id(i)==row_DomainID )then
         !  obj%b( offset + n ) = entryvalue
@@ -376,29 +380,6 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
     enddo
 
 
-
-
-!    do i=1,size(obj%val)
-!      if(obj%index_J(i)==nodeid .and. obj%column_Domain_ID(i) == row_DomainID )then
-!        if(obj%Index_I(i)==nodeid .and. obj%row_domain_id(i)==row_DomainID )then
-!          n = obj%row_Domain_ID(i)
-!          if(n == 1)then
-!            offset = 0
-!          else
-!            offset = sum( obj%NumberOfNode(1:n-1) )*obj%DOF
-!          endif 
-!          if(.not.obj%Locked(offset + n ) )then
-!            obj%b( offset + n ) = entryvalue
-!            obj%Locked(offset + n ) = .true.
-!            !print *, "Locked ",(offset + n),"by",entryvalue
-!          endif
-!        endif
-!      endif
-!    enddo
-    
-
-    !print *, "obj%b",obj%b
-
     if(present(debug) )then
       if(debug)then
         print *, "fixLinearSolver  >> [3] Updated b-vector"
@@ -408,14 +389,6 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
 
 
     do i=1,size(obj%index_I) ! for all queries of A matrix
-!      if(obj%index_I(i)==nodeid)then
-!        if(obj%index_J(i) ==nodeid)then
-!          obj%val(i)=1.0d0
-!        else
-!          obj%val(i)=0.0d0
-!        endif
-!        obj%b(obj%index_I(i)+offset ) = entryvalue
-!      endif
       if(obj%index_I(i)==nodeid .and. obj%row_Domain_ID(i)==row_DomainID )then
         obj%val(i)=0.0d0
       endif
@@ -540,9 +513,17 @@ recursive subroutine setLinearSolver(obj,low,column,entryvalue,init,row_DomainID
     obj%val(obj%currentID) = entryvalue
     obj%index_I(obj%currentID) = low
     obj%index_J(obj%currentID) = column
-    obj%row_Domain_ID(obj%currentID) = row_DomainID
-    obj%column_Domain_ID(obj%currentID) = column_DomainID
-
+    if(present(row_DomainID) )then
+      obj%row_Domain_ID(obj%currentID) = row_DomainID
+    else
+      obj%row_Domain_ID(obj%currentID) = 1
+    endif
+    if(present(column_DomainID) )then
+      obj%column_Domain_ID(obj%currentID) = column_DomainID
+    else
+      obj%column_Domain_ID(obj%currentID) = 1
+    endif
+    
     return
   elseif(present(low) .and. .not.present(column) )then ! for right-hand side vector
 
