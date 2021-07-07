@@ -227,11 +227,15 @@ module FEMDomainClass
         procedure,public :: MassVector => MassVectorFEMDomain
 		procedure,public :: Bmatrix => BMatrixFEMDomain
 		procedure,public :: Dmatrix => DMatrixFEMDomain
+		procedure,public :: StrainMatrix => StrainMatrixFEMDomain
+		procedure,public :: StressMatrix => StressMatrixFEMDomain
+		
 		procedure,public :: StiffnessMatrix => StiffnessMatrixFEMDomain 
 		procedure,public :: DiffusionMatrix => DiffusionMatrixFEMDomain 
 		procedure,public :: ConnectMatrix => ConnectMatrixFEMDomain 
 		procedure,public :: ElementVector => ElementVectorFEMDomain 
 		procedure,public :: GlobalVector => GlobalVectorFEMDomain
+
     end type FEMDomain_
 
 	!type:: FEMDomainp_
@@ -7114,7 +7118,7 @@ subroutine vtkFEMDomain(obj,name,scalar,vector,ElementType)
 	elseif(obj%nd()==3 .and. obj%nne()==4 )then
 		VTK_CELL_TYPE=10 ! 4-node triangle
 	elseif(obj%nd()==3 .and. obj%nne()==8 )then
-		VTK_CELL_TYPE=12 ! triangle
+		VTK_CELL_TYPE=12 ! 8-node box
 	else
 		print *, "VTKFEMDomain >> ERROR :: Nothing is exported."
 		return
@@ -7207,7 +7211,7 @@ subroutine vtkFEMDomain(obj,name,scalar,vector,ElementType)
 			call f%write("VECTORS point_vectors float")
 			do i=1,obj%nn()
 				do j=1,size(vector,2)-1
-					write(f%fh,'(A)',advance="no") str(vector(i,j) )
+					write(f%fh,'(A)',advance="no") str(vector(i,j) )//" "
 				enddo
 				write(f%fh,'(A)',advance="yes") str(vector(i, size(vector,2) ) )
 			enddo
@@ -7216,7 +7220,7 @@ subroutine vtkFEMDomain(obj,name,scalar,vector,ElementType)
 			call f%write("VECTORS cell_vectors float")
 			do i=1,obj%ne()
 				do j=1,size(vector,2)-1
-					write(f%fh,'(A)',advance="no") str(vector(i,j) )
+					write(f%fh,'(A)',advance="no") str(vector(i,j) )//" "
 				enddo
 				write(f%fh,'(A)',advance="yes") str(vector(i, size(vector,2) ) )
 			enddo
@@ -8997,6 +9001,253 @@ function DMatrixFEMDomain(obj,E,v) result(Dmat)
 end function
 ! ##########################################################################
 
+
+! ##########################################################################
+function StrainMatrixFEMDomain(obj,ElementID,GaussPoint,disp) result(StrainMatrix)
+	class(FEMDomain_),intent(inout) :: obj
+	type(Shapefunction_) :: shapefunc
+	integer(int32),intent(in) :: ElementID
+	integer(int32),optional,intent(in) :: GaussPoint
+	
+	real(real64),intent(in) :: disp(:,:)
+	real(real64),allocatable :: StrainMatrix(:,:),Bmat(:,:),Dmat(:,:),ElemDisp(:),Strainvec(:)
+	real(real64) :: rho
+	integer(int32) :: node_DOF,i,j,n,ns
+
+	! 線形弾性微小ひずみにおける要素剛性マトリクス
+	! For Element ID = ElementID, create Stiffness Matrix 
+	! in terms of small-strain and return it
+	! Number of Gauss Point = number of node per element, as default.
+	
+	node_DOF = obj%nd() ! Degree of freedom/node = dimension of space
+
+	! For Element ID = ElementID, create Mass Matrix and return it
+	! Number of Gauss Point = number of node per element, as default.
+
+	! initialize shape-function object
+	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	
+	ElemDisp = zeros(  size( obj%mesh%elemnod,2 ) *node_DOF) 
+	do i=1,obj%nne()
+		do j=1,node_DOF
+			ElemDisp( node_DOF*(i-1) + j ) = Disp(i,j)
+		enddo
+	enddo
+
+	if(present(gausspoint) )then
+		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+		nod_coord=obj%Mesh%NodCoord,&
+		elem_nod=obj%Mesh%ElemNod,OptionalGpID=gausspoint)
+	
+		n=size(shapefunc%dNdgzi,2)*node_DOF
+
+		ns = node_DOF ! For 3D, 3-by-3 matrix.
+		if(.not.allocated(StrainMatrix) ) then
+			allocate(StrainMatrix(ns,ns) )
+			StrainMatrix(:,:)=0.0d0
+		endif
+		if(size(StrainMatrix,1)/=ns .or.size(StrainMatrix,2)/=ns )then
+			if(allocated(StrainMatrix)) then
+				deallocate(StrainMatrix)
+			endif
+			allocate(StrainMatrix(ns,ns) )
+		endif
+
+		! get so-called B-matrix
+		Bmat = obj%Bmatrix(shapefunc)
+		
+		strainvec = matmul(Bmat,ElemDisp)
+
+		if(node_DOF==3)then
+			strainMatrix(1,1) = strainMatrix(1,1)+strainvec(1)
+			strainMatrix(2,2) = strainMatrix(2,2)+strainvec(2)
+			strainMatrix(3,3) = strainMatrix(3,3)+strainvec(3)
+			strainMatrix(1,2) = strainMatrix(1,2)+strainvec(4)
+			strainMatrix(2,3) = strainMatrix(2,3)+strainvec(5)
+			strainMatrix(1,3) = strainMatrix(1,3)+strainvec(6)
+			strainMatrix(2,1) = strainMatrix(2,1)+strainvec(4)
+			strainMatrix(3,2) = strainMatrix(3,2)+strainvec(5)
+			strainMatrix(3,1) = strainMatrix(3,1)+strainvec(6)
+		elseif(node_DOF == 2)then
+			strainMatrix(1,1) = strainMatrix(1,1) + strainvec(1)
+			strainMatrix(2,2) = strainMatrix(2,2) + strainvec(2)
+			strainMatrix(1,2) = strainMatrix(1,2) + strainvec(3)
+			strainMatrix(2,1) = strainMatrix(2,1) + strainvec(3)
+		else
+			print *, "ERROR :: StrainMatrixFEMDomain >> invalid nodeal DOF",node_DOF
+		endif
+	else
+		do i=1, shapefunc%NumOfGp
+			call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+			nod_coord=obj%Mesh%NodCoord,&
+			elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+		
+			n=size(shapefunc%dNdgzi,2)*node_DOF
+	
+			ns = node_DOF ! For 3D, 3-by-3 matrix.
+			if(.not.allocated(StrainMatrix) ) then
+				allocate(StrainMatrix(ns,ns) )
+				StrainMatrix(:,:)=0.0d0
+			endif
+			if(size(StrainMatrix,1)/=ns .or.size(StrainMatrix,2)/=ns )then
+				if(allocated(StrainMatrix)) then
+					deallocate(StrainMatrix)
+				endif
+				allocate(StrainMatrix(ns,ns) )
+			endif
+	
+			! get so-called B-matrix
+			Bmat = obj%Bmatrix(shapefunc)
+			
+			strainvec = matmul(Bmat,ElemDisp)
+			if(node_DOF==3)then
+				strainMatrix(1,1) = strainMatrix(1,1)+strainvec(1)
+				strainMatrix(2,2) = strainMatrix(2,2)+strainvec(2)
+				strainMatrix(3,3) = strainMatrix(3,3)+strainvec(3)
+				strainMatrix(1,2) = strainMatrix(1,2)+strainvec(4)
+				strainMatrix(2,3) = strainMatrix(2,3)+strainvec(5)
+				strainMatrix(1,3) = strainMatrix(1,3)+strainvec(6)
+				strainMatrix(2,1) = strainMatrix(2,1)+strainvec(4)
+				strainMatrix(3,2) = strainMatrix(3,2)+strainvec(5)
+				strainMatrix(3,1) = strainMatrix(3,1)+strainvec(6)
+			elseif(node_DOF == 2)then
+				strainMatrix(1,1) = strainMatrix(1,1) + strainvec(1)
+				strainMatrix(2,2) = strainMatrix(2,2) + strainvec(2)
+				strainMatrix(1,2) = strainMatrix(1,2) + strainvec(3)
+				strainMatrix(2,1) = strainMatrix(2,1) + strainvec(3)
+			else
+				print *, "ERROR :: StrainMatrixFEMDomain >> invalid nodeal DOF",node_DOF
+			endif
+			
+		enddo	
+	endif
+end function
+! ##########################################################################
+
+
+! ##########################################################################
+function StressMatrixFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressMatrix)
+	class(FEMDomain_),intent(inout) :: obj
+	type(Shapefunction_) :: shapefunc
+	integer(int32),intent(in) :: ElementID
+	integer(int32),optional,intent(in) :: GaussPoint
+	
+	real(real64),intent(in) :: disp(:,:),E,v
+	real(real64),allocatable :: StressMatrix(:,:),Bmat(:,:),Dmat(:,:),ElemDisp(:),Stressvec(:)
+	real(real64) :: rho
+	integer(int32) :: node_DOF,i,j,n,ns
+
+
+	! 線形弾性微小ひずみにおける要素剛性マトリクス
+	! For Element ID = ElementID, create Stiffness Matrix 
+	! in terms of small-strain and return it
+	! Number of Gauss Point = number of node per element, as default.
+	
+	node_DOF = obj%nd() ! Degree of freedom/node = dimension of space
+
+	! For Element ID = ElementID, create Mass Matrix and return it
+	! Number of Gauss Point = number of node per element, as default.
+
+	! initialize shape-function object
+	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	
+	ElemDisp = zeros(  size( obj%mesh%elemnod,2 ) *node_DOF) 
+	do i=1,obj%nne()
+		do j=1,node_DOF
+			ElemDisp( node_DOF*(i-1) + j ) = Disp(i,j)
+		enddo
+	enddo
+
+	if(present(gausspoint) )then
+		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+		nod_coord=obj%Mesh%NodCoord,&
+		elem_nod=obj%Mesh%ElemNod,OptionalGpID=gausspoint)
+	
+		n=size(shapefunc%dNdgzi,2)*node_DOF
+
+		ns = node_DOF ! For 3D, 3-by-3 matrix.
+		if(.not.allocated(StressMatrix) ) then
+			allocate(StressMatrix(ns,ns) )
+			StressMatrix(:,:)=0.0d0
+		endif
+		if(size(StressMatrix,1)/=ns .or.size(StressMatrix,2)/=ns )then
+			if(allocated(StressMatrix)) then
+				deallocate(StressMatrix)
+			endif
+			allocate(StressMatrix(ns,ns) )
+		endif
+
+		! get so-called B-matrix
+		Dmat = obj%Dmatrix(E,v)
+		Bmat = obj%Bmatrix(shapefunc)
+		
+		Stressvec = matmul(Dmat,matmul(Bmat,ElemDisp))
+		if(node_DOF==3)then
+			StressMatrix(1,1) = StressMatrix(1,1)+Stressvec(1)
+			StressMatrix(2,2) = StressMatrix(2,2)+Stressvec(2)
+			StressMatrix(3,3) = StressMatrix(3,3)+Stressvec(3)
+			StressMatrix(1,2) = StressMatrix(1,2)+Stressvec(4)
+			StressMatrix(2,3) = StressMatrix(2,3)+Stressvec(5)
+			StressMatrix(1,3) = StressMatrix(1,3)+Stressvec(6)
+			StressMatrix(2,1) = StressMatrix(2,1)+Stressvec(4)
+			StressMatrix(3,2) = StressMatrix(3,2)+Stressvec(5)
+			StressMatrix(3,1) = StressMatrix(3,1)+Stressvec(6)
+		elseif(node_DOF == 2)then
+			StressMatrix(1,1) = StressMatrix(1,1) + Stressvec(1)
+			StressMatrix(2,2) = StressMatrix(2,2) + Stressvec(2)
+			StressMatrix(1,2) = StressMatrix(1,2) + Stressvec(3)
+			StressMatrix(2,1) = StressMatrix(2,1) + Stressvec(3)
+		else
+			print *, "ERROR :: StressMatrixFEMDomain >> invalid nodeal DOF",node_DOF
+		endif
+	else
+		do i=1, shapefunc%NumOfGp
+			call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+			nod_coord=obj%Mesh%NodCoord,&
+			elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+		
+			n=size(shapefunc%dNdgzi,2)*node_DOF
+	
+			ns = node_DOF ! For 3D, 3-by-3 matrix.
+			if(.not.allocated(StressMatrix) ) then
+				allocate(StressMatrix(ns,ns) )
+				StressMatrix(:,:)=0.0d0
+			endif
+			if(size(StressMatrix,1)/=ns .or.size(StressMatrix,2)/=ns )then
+				if(allocated(StressMatrix)) then
+					deallocate(StressMatrix)
+				endif
+				allocate(StressMatrix(ns,ns) )
+			endif
+	
+			! get so-called B-matrix
+			Bmat = obj%Bmatrix(shapefunc)
+			
+			Stressvec = matmul(Bmat,ElemDisp)
+			if(node_DOF==3)then
+				StressMatrix(1,1) = StressMatrix(1,1)+Stressvec(1)
+				StressMatrix(2,2) = StressMatrix(2,2)+Stressvec(2)
+				StressMatrix(3,3) = StressMatrix(3,3)+Stressvec(3)
+				StressMatrix(1,2) = StressMatrix(1,2)+Stressvec(4)
+				StressMatrix(2,3) = StressMatrix(2,3)+Stressvec(5)
+				StressMatrix(1,3) = StressMatrix(1,3)+Stressvec(6)
+				StressMatrix(2,1) = StressMatrix(2,1)+Stressvec(4)
+				StressMatrix(3,2) = StressMatrix(3,2)+Stressvec(5)
+				StressMatrix(3,1) = StressMatrix(3,1)+Stressvec(6)
+			elseif(node_DOF == 2)then
+				StressMatrix(1,1) = StressMatrix(1,1) + Stressvec(1)
+				StressMatrix(2,2) = StressMatrix(2,2) + Stressvec(2)
+				StressMatrix(1,2) = StressMatrix(1,2) + Stressvec(3)
+				StressMatrix(2,1) = StressMatrix(2,1) + Stressvec(3)
+			else
+				print *, "ERROR :: StressMatrixFEMDomain >> invalid nodeal DOF",node_DOF
+			endif
+			
+		enddo	
+	endif
+
+end function
+! ##########################################################################
 
 ! ##########################################################################
 recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)

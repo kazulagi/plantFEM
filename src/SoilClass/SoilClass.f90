@@ -11,6 +11,7 @@ module SoilClass
         type(FEMDomain_) :: FEMDomain
         type(Boring_),allocatable :: Boring(:)
 
+        real(real64),allocatable :: disp(:,:)
         ! soil parameters
         real(real64),allocatable :: YoungModulus(:)
         real(real64),allocatable :: PoissonRatio(:)
@@ -143,7 +144,7 @@ subroutine importSoil(obj, boring, dem,x_num,y_num,z_num,radius,depth)
         bottom_z = minval(obj%femdomain%mesh%nodcoord(:,3) )
         obj%femdomain%mesh%nodcoord( 1:(xnum+1)*(ynum+1),3) = bottom_z
         
-        
+
         obj%YoungModulus = zeros(obj%femdomain%ne())
         obj%PoissonRatio = zeros(obj%femdomain%ne())
         obj%Density = zeros(obj%femdomain%ne())
@@ -759,6 +760,7 @@ subroutine deformSoil(obj,disp,x_min,x_max,y_min,y_max,z_min,z_max,BCRangeError)
     ! update mesh
     obj%femdomain%mesh%nodcoord(:,:) =obj%femdomain%mesh%nodcoord(:,:) &
         + reshape(solver%x,obj%femdomain%nn(),obj%femdomain%nd() )
+    obj%disp = reshape(solver%x,obj%femdomain%nn(),obj%femdomain%nd() )
     
 end subroutine
 

@@ -1057,16 +1057,42 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
 	write(f%fh,'(A)' ,advance="no") "POINTS "
 	write(f%fh,'(i10)' ,advance="no")size(obj%NodCoord,1)
 	write(f%fh,'(A)')" float"
-	do i=1,size(obj%NodCoord,1)
-		do j=1,size(obj%NodCoord,2)
-			if(j==size(obj%NodCoord,2))then
-				write(f%fh,'(f20.8)' ) obj%NodCoord(i,j)
-			else
-				write(f%fh,'(f20.8)', advance="no" ) obj%NodCoord(i,j)
-				write(f%fh,'(A)', advance="no" ) " "
-			endif
-		enddo
-	enddo
+    if( size(obj%NodCoord,2)==3 )then
+	    do i=1,size(obj%NodCoord,1)
+	    	do j=1,size(obj%NodCoord,2)
+                if(j==size(obj%NodCoord,2))then
+	    			write(f%fh,'(f20.8)' ) obj%NodCoord(i,j)
+	    		else
+	    			write(f%fh,'(f20.8)', advance="no" ) obj%NodCoord(i,j)
+	    			write(f%fh,'(A)', advance="no" ) " "
+	    		endif
+	    	enddo
+	    enddo
+    elseif( size(obj%NodCoord,2)==2 )then
+        do i=1,size(obj%NodCoord,1)
+	    	do j=1,size(obj%NodCoord,2)
+                if(j==size(obj%NodCoord,2))then
+	    			write(f%fh,'(f20.8)', advance="no" ) obj%NodCoord(i,j)
+	    			write(f%fh,'(A)', advance="no" ) " "
+	    		endif
+                write(f%fh,'(f20.8)' ) 0.0d0
+	    	enddo
+	    enddo
+    elseif( size(obj%NodCoord,2)==1 )then
+        do i=1,size(obj%NodCoord,1)
+            do j=1,size(obj%NodCoord,2)
+                if(j==size(obj%NodCoord,2))then
+                    write(f%fh,'(f20.8)', advance="no" ) obj%NodCoord(i,j)
+                    write(f%fh,'(A)', advance="no" ) " "
+                endif
+                write(f%fh,'(f20.8)' ) 0.0d0,0.0d0
+            enddo
+        enddo        
+    else
+        print *, "Mesh % vtk >> invalid space dimension",size(obj%NodCoord,2)
+        stop
+    endif
+
 	write(f%fh,'(A)',advance="no")" POLYGONS "
 	write(f%fh,'(i10)',advance="no") 6*size(obj%ElemNod,1)
 	write(f%fh,'(A)',advance="no") " "
@@ -3018,7 +3044,7 @@ subroutine MeshingMesh(obj,Mode,itr_tol)
         if(allocated(obj%ElemNod) )then
             deallocate(obj%ElemNod)
         endif
-        allocate(obj%ElemNod(node_num*100,4) )
+        allocate(obj%ElemNod(node_num*100,3) )
         allocate(staged_node(node_num+3))
         obj%ElemNod(:,:)=-1
         staged_node(:)=0
@@ -3032,7 +3058,6 @@ subroutine MeshingMesh(obj,Mode,itr_tol)
         obj%NodCoord(node_num+1,:)=triangle(1,:)
         obj%NodCoord(node_num+2,:)=triangle(2,:)
         obj%NodCoord(node_num+3,:)=triangle(3,:)
-        
         
         do i=1,size(obj%NodCoord,1)
             ! Delauney triangulation for 2D
@@ -3069,6 +3094,7 @@ subroutine MeshingMesh(obj,Mode,itr_tol)
         ! Remove circumscribed triangle
         call obj%removeCircumscribedTriangle()
 
+        
         print *, "Meshing is successfully done based on Delauney 2D"
 
 
