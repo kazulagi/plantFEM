@@ -4,6 +4,7 @@ implicit none
 ! create ground
 type(Soil_) :: soil
 type(Random_) :: random
+type(Mesh_) :: mesh
 type(DigitalElevationModel_) ::dem
 integer(int32) :: i
 
@@ -18,6 +19,12 @@ do i=1, 100
     dem%y(i) = random%gauss(mu=0.0d0,sigma=10.0d0)
     dem%z(i) = random%gauss(mu=0.0d0,sigma=1.0d0) + 10.0d0
 enddo
+
+mesh%nodcoord = zeros(size(dem%x),3 )
+mesh%nodcoord(:,1) = dem%x
+mesh%nodcoord(:,2) = dem%y
+mesh%nodcoord(:,3) = dem%z
+
 
 call soil%import(dem=dem,x_num=20,y_num=20,z_num=6)
 
