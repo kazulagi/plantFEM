@@ -6,7 +6,7 @@ module PhysicalFieldClass
 
 
     type :: PhysicalField_
-        character(200) ,public:: name="untitled"
+        character(len=:),allocatable,public:: name
         real(real64),allocatable ,public:: scalar(:)
         real(real64),allocatable ,public:: vector(:,:)
         real(real64),allocatable ,public:: tensor(:,:,:)
@@ -33,6 +33,7 @@ subroutine importPhysicalFieldScalar(obj,scalar,name)
     real(real64),intent(in) :: scalar(:)
     character(*),intent(in) :: name
 
+    obj % name   = "untitled"
     obj % scalar = scalar
     obj % name   = name
 
@@ -43,6 +44,7 @@ subroutine importPhysicalFieldVector(obj,vector,name)
     real(real64),intent(in) :: vector(:,:)
     character(*),intent(in) :: name
 
+    obj % name   = "untitled"
     obj % vector = vector
     obj % name   = name
     
@@ -54,6 +56,7 @@ subroutine importPhysicalFieldtensor(obj,tensor,name)
     real(real64),intent(in) :: tensor(:,:,:)
     character(*),intent(in) :: name
 
+    obj % name   = "untitled"
     obj % tensor = tensor
     obj % name   = name
     
@@ -230,6 +233,5 @@ subroutine mshPhysicalField(obj,name,caption)
 
 end subroutine
 ! ########################################################
-
 
 end module 

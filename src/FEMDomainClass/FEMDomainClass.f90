@@ -7118,13 +7118,31 @@ end function
 ! ##################################################
 
 ! ##################################################
-subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,ElementType)
+subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementType)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: name
+	character(*),optional,intent(in) :: field
 	real(real64),optional,intent(in) :: scalar(:),vector(:,:),tensor(:,:,:)
 	integer(int32),optional,intent(in) :: ElementType
+	character(len=:),allocatable :: point_scalars,point_vectors,point_tensors,cell_scalars,cell_vectors,cell_tensors
 	type(IO_) :: f
 	integer(int32) ::i,dim_num(3),j,VTK_CELL_TYPE,num_node,k
+
+	if(present(field) )then
+		point_scalars = trim(field)
+		point_vectors = trim(field)
+		point_tensors = trim(field)
+		cell_scalars = trim(field)
+		cell_vectors = trim(field)
+		cell_tensors = trim(field)
+	else
+		point_scalars = "point_scalars"
+		point_vectors = "point_vectors"
+		point_tensors = "point_tensors"
+		cell_scalars  = "cell_scalars"
+		cell_vectors  = "cell_vectors"
+		cell_tensors  = "cell_tensors"
+	endif
 
 	if(obj%mesh%empty() .eqv. .true.)then
 		print *, "ERROR :: vtkFEMDomain >> obj%mesh%empty() .eqv. .true., nothing exported"
@@ -7207,14 +7225,14 @@ subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,ElementType)
 	if(present(scalar) )then
 		if(size(scalar)==obj%nn()  )then
 			call f%write("POINT_DATA "//str(obj%nn() ) )
-			call f%write("SCALARS point_scalars float")
+			call f%write("SCALARS "//trim(point_scalars)//" float")
 			call f%write("LOOKUP_TABLE default")
 			do i=1,obj%nn()
 				call f%write(str(scalar(i)))
 			enddo
 		elseif(size(scalar)==obj%ne()  )then
 			call f%write("CELL_DATA "//str(obj%ne() ) )
-			call f%write("SCALARS cell_scalars float")
+			call f%write("SCALARS "//trim(cell_scalars)//" float")
 			call f%write("LOOKUP_TABLE default")
 			do i=1,obj%ne()
 				call f%write(str(scalar(i)))
@@ -7230,7 +7248,7 @@ subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,ElementType)
 	if(present(vector) )then
 		if(size(vector,1)==obj%nn()  )then
 			call f%write("POINT_DATA "//str(obj%nn() ) )
-			call f%write("VECTORS point_vectors float")
+			call f%write("VECTORS "//trim(point_vectors)//" float")
 			do i=1,obj%nn()
 				do j=1,size(vector,2)-1
 					write(f%fh,'(A)',advance="no") str(vector(i,j) )//" "
@@ -7239,7 +7257,7 @@ subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,ElementType)
 			enddo
 		elseif(size(vector,1)==obj%ne()  )then
 			call f%write("CELL_DATA "//str(obj%ne() ) )
-			call f%write("VECTORS cell_vectors float")
+			call f%write("VECTORS "//trim(cell_vectors)//" float")
 			do i=1,obj%ne()
 				do j=1,size(vector,2)-1
 					write(f%fh,'(A)',advance="no") str(vector(i,j) )//" "
@@ -7259,7 +7277,7 @@ subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,ElementType)
 	if(present(tensor) )then
 		if(size(tensor,1)==obj%nn()  )then
 			call f%write("POINT_DATA "//str(obj%nn() ) )
-			call f%write("TENSORS point_tensors float")
+			call f%write("TENSORS "//trim(point_tensors)//" float")
 			do i=1,obj%nn()
 				do j=1,size(tensor,2)
 					do k=1,size(tensor,3)-1
@@ -7271,7 +7289,7 @@ subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,ElementType)
 			enddo
 		elseif(size(tensor,1)==obj%ne()  )then
 			call f%write("CELL_DATA "//str(obj%ne() ) )
-			call f%write("TENSORS cell_tensors float")
+			call f%write("TENSORS "//trim(cell_tensors)//" float")
 			do i=1,obj%ne()
 				do j=1,size(tensor,2)
 					do k=1,size(tensor,3)-1
@@ -7292,29 +7310,9 @@ subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,ElementType)
 		endif
 	endif	
 
+	print *, trim(name)//".vtk is exported." 
 
 	call f%close()
-	return
-
-	!call f%open(trim(name)//".vtk")
-	!call f%write("# vtk DataFile Version 4.1")
-	!call f%write("vtk output")
-	!call f%write("ASCII")
-	!call f%write("DATASET UNSTRUCTURED_GRID")
-	!write(f%fh,*) "POINTS "//trim(str(size(obj%mesh%nodcoord,1)))//" double"
-	!do i=1,size(obj%mesh%nodcoord,1)
-	!	write(f%fh,*) obj%mesh%nodcoord(i,:)
-	!enddo
-	!write(f%fh,*) "CELLS "//trim(str( size(obj%mesh%ElemNod,1)  ) )//&
-	!	" "//trim(str(size(obj%mesh%ElemNod,1)*(size(obj%mesh%ElemNod,2)+1)   ) )
-	!do i=1,size(obj%mesh%ElemNod,1)
-	!	write(f%fh,*) size(obj%mesh%ElemNod,2) , obj%mesh%ElemNod(i,:)-1
-	!enddo
-	!write(f%fh,*) "CELL_TYPES ",size(obj%mesh%ElemNod,1)
-	!do i=1,size(obj%mesh%ElemNod,1)
-	!	write(f%fh,*) "12"
-	!enddo
-	!call f%close()
 
 end subroutine
 ! ##################################################
@@ -7726,7 +7724,7 @@ subroutine addLayerFEMDomain(obj,name,attribute,datastyle,vectorrank,tensorrank1
 	character(*),intent(in) :: datastyle ! should be SCALAR, VECTOR, or TENSOR
 	character(*),intent(in) :: name
 	integer,optional,intent(in) :: vectorrank,tensorrank1,tensorrank2
-	integer(int32) :: datasize, datadimension,vector_rank,tensor_rank1,tensor_rank2
+	integer(int32) :: datasize, datadimension,vector_rank,tensor_rank1,tensor_rank2,i
 
 
 	vector_rank = input(default=3,option=vectorrank)
@@ -7743,6 +7741,9 @@ subroutine addLayerFEMDomain(obj,name,attribute,datastyle,vectorrank,tensorrank1
 		pfa = obj%PhysicalField
 		deallocate(obj%PhysicalField)
 		allocate(obj%PhysicalField(size(pfa)*100 ) )
+		do i=1,size(obj%physicalfield)
+		obj%PhysicalField(i)%name = "untitled"
+		enddo
 		obj%PhysicalField(1:size(pfa))=pfa(:)
 	endif
 
@@ -7798,7 +7799,7 @@ subroutine addLayerFEMDomainScalar(obj,name,scalar)
 	type(PhysicalField_),allocatable :: pfa(:)
 	real(real64),intent(in) :: scalar(:)
 	character(*),intent(in) :: name
-	integer(int32) :: datasize
+	integer(int32) :: datasize,i
 
 
 	if(.not.allocated(obj % PhysicalField) ) then
@@ -7811,6 +7812,9 @@ subroutine addLayerFEMDomainScalar(obj,name,scalar)
 		pfa = obj%PhysicalField
 		deallocate(obj%PhysicalField)
 		allocate(obj%PhysicalField(size(pfa)*100 ) )
+		do i=1,size(obj%physicalfield)
+		obj%PhysicalField(i)%name = "untitled"
+		enddo
 		obj%PhysicalField(1:size(pfa))=pfa(:)
 	endif
 
@@ -7852,7 +7856,7 @@ subroutine addLayerFEMDomainVector(obj,name,vector)
 	type(PhysicalField_),allocatable :: pfa(:)
 	real(real64),intent(in) :: vector(:,:)
 	character(*),intent(in) :: name
-	integer(int32) :: datasize,datadimension
+	integer(int32) :: datasize,datadimension,i
 
 
 	if(.not.allocated(obj % PhysicalField) ) then
@@ -7865,6 +7869,9 @@ subroutine addLayerFEMDomainVector(obj,name,vector)
 		pfa = obj%PhysicalField
 		deallocate(obj%PhysicalField)
 		allocate(obj%PhysicalField(size(pfa)*100 ) )
+		do i=1,size(obj%physicalfield)
+		obj%PhysicalField(i)%name = "untitled"
+		enddo
 		obj%PhysicalField(1:size(pfa))=pfa(:)
 	endif
 
@@ -7904,7 +7911,7 @@ subroutine addLayerFEMDomaintensor(obj,name,tensor)
 	type(PhysicalField_),allocatable :: pfa(:)
 	real(real64),intent(in) :: tensor(:,:,:)
 	character(*),intent(in) :: name
-	integer(int32) :: datasize,datadimension
+	integer(int32) :: datasize,datadimension,i
 
 
 	if(.not.allocated(obj % PhysicalField) ) then
@@ -7917,6 +7924,9 @@ subroutine addLayerFEMDomaintensor(obj,name,tensor)
 		pfa = obj%PhysicalField
 		deallocate(obj%PhysicalField)
 		allocate(obj%PhysicalField(size(pfa)*100 ) )
+		do i=1,size(obj%physicalfield)
+		obj%PhysicalField(i)%name = "untitled"
+		enddo
 		obj%PhysicalField(1:size(pfa))=pfa(:)
 	endif
 
@@ -9783,13 +9793,13 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 	class(FEMDomain_),intent(inout) :: Obj
 	character(*),intent(in) :: name
 	type(IO_) :: f
-	character(len=:),allocatable :: fullname, line
-	integer(int32) :: i,j,k,n,from,to,m,numnode,numline
+	character(len=:),allocatable :: fullname, line,fieldname
+	integer(int32) :: i,j,k,n,from,to,m,numnode,numline,POINT_DATA
 	integer(int32),allocatable :: CELLS(:),CELL_TYPES(:)
 	logical :: ASCII=.false.
 	logical :: UNSTRUCTURED_GRID=.false.
 
-	! Only for POINTS, CELLS, CELL_TYPES
+	! Only for POINTS, CELLS, CELL_TYPES, VECTORS, TENSORS, SCALARS
 	
 	call obj%remove()
 
@@ -9969,6 +9979,116 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 			enddo
 
 		endif
+
+		if(index( line,"POINT_DATA") /=0  )then
+			from = index( line,"POINT_DATA") + 10
+			read( line(from:),* ) POINT_DATA
+		endif
+
+		if(index( line,"CELL_DATA") /=0  )then
+			from = index( line,"CELL_DATA") + 10
+			read( line(from:),* ) POINT_DATA
+		endif
+
+
+		if(index( line,"SCALARS") /=0  )then
+			from = index( line,"SCALARS") + 7
+			to = index( line(from+1:)," ")
+			fieldname=trim(adjustl(line(from:to+7)))
+			if(.not.allocated(obj%PhysicalField) )then
+				allocate(obj%PhysicalField(100) )
+				do i=1,size(obj%physicalfield)
+				obj%PhysicalField(i)%name = "untitled"
+				enddo
+			endif
+			do i=1,size(obj%PhysicalField)
+				if(allocated(obj%PhysicalField(i)%scalar ) )then
+					cycle
+				elseif(allocated(obj%PhysicalField(i)%vector ) )then
+					cycle
+				elseif(allocated(obj%PhysicalField(i)%tensor ) )then
+					cycle
+				else
+					allocate(obj%PhysicalField(i)%scalar(POINT_DATA) )
+					obj%PhysicalField(i)%name = trim(fieldname)
+					obj%PhysicalField(i)%scalar(:) = 0.0d0
+					do j=1,POINT_DATA
+						line = f%readline()
+						read(line,*)obj%PhysicalField(i)%scalar(j) 
+					enddo
+				endif
+			enddo
+		endif
+		
+
+		
+		if(index( line,"VECTORS") /=0  )then
+			from = index( line,"VECTORS") + 7
+			to = index( line(from+1:)," ")
+			fieldname=trim(adjustl(line(from:to+7) ))
+			if(.not.allocated(obj%PhysicalField) )then
+				allocate(obj%PhysicalField(100) )
+				do i=1,size(obj%physicalfield)
+				obj%PhysicalField(i)%name = "untitled"
+				enddo
+			endif
+			do i=1,size(obj%PhysicalField)
+				if(allocated(obj%PhysicalField(i)%scalar ) )then
+					cycle
+				elseif(allocated(obj%PhysicalField(i)%vector ) )then
+					cycle
+				elseif(allocated(obj%PhysicalField(i)%tensor ) )then
+					cycle
+				else
+					allocate(obj%PhysicalField(i)%vector(POINT_DATA,3) )
+					obj%PhysicalField(i)%name = trim(fieldname)
+					obj%PhysicalField(i)%vector(:,:) = 0.0d0
+					do j=1,POINT_DATA
+						line = f%readline()
+						read(line,*)obj%PhysicalField(i)%vector(j,:) 
+						
+					enddo
+					exit
+				endif
+			enddo
+		endif
+		
+
+		
+		if(index( line,"TENSORS") /=0  )then
+			from = index( line,"TENSORS") + 7
+			to = index( line(from+1:)," ")
+			fieldname=trim(adjustl(line(from:to+7)))
+			if(.not.allocated(obj%PhysicalField) )then
+				allocate(obj%PhysicalField(100) )
+				do i=1,size(obj%physicalfield)
+				obj%PhysicalField(i)%name = "untitled"
+				enddo
+			endif
+			do i=1,size(obj%PhysicalField)
+				if(allocated(obj%PhysicalField(i)%scalar ) )then
+					cycle
+				elseif(allocated(obj%PhysicalField(i)%vector ) )then
+					cycle
+				elseif(allocated(obj%PhysicalField(i)%tensor ) )then
+					cycle
+				else
+					allocate(obj%PhysicalField(i)%tensor(POINT_DATA,3,3) )
+					obj%PhysicalField(i)%name = trim(fieldname)
+					obj%PhysicalField(i)%tensor(:,:,:) = 0.0d0
+					do j=1,POINT_DATA
+						do k=1,3
+							line = f%readline()
+							read(line,*)obj%PhysicalField(i)%tensor(j,k,:) 
+						enddo
+					enddo
+
+				endif
+				exit
+			enddo
+		endif
+		
+		
 		
 
 		line = f%readline()
