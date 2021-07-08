@@ -7096,13 +7096,13 @@ end function
 ! ##################################################
 
 ! ##################################################
-subroutine vtkFEMDomain(obj,name,scalar,vector,ElementType)
+subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,ElementType)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: name
-	real(real64),optional,intent(in) :: scalar(:),vector(:,:)
+	real(real64),optional,intent(in) :: scalar(:),vector(:,:),tensor(:,:,:)
 	integer(int32),optional,intent(in) :: ElementType
 	type(IO_) :: f
-	integer(int32) ::i,dim_num(3),j,VTK_CELL_TYPE,num_node
+	integer(int32) ::i,dim_num(3),j,VTK_CELL_TYPE,num_node,k
 
 	if(obj%mesh%empty() .eqv. .true.)then
 		print *, "ERROR :: vtkFEMDomain >> obj%mesh%empty() .eqv. .true., nothing exported"
@@ -7227,6 +7227,44 @@ subroutine vtkFEMDomain(obj,name,scalar,vector,ElementType)
 		else
 			call print("vtkFEMDOmain ERROR ::size(vector,1) sould be obj%nn()   ")
 			call print("size(vector,1)="//str(size(vector,1))//" and obj%nn() = "//str(obj%nn() ) )
+			call f%close()
+			return
+		endif
+	endif	
+
+
+
+	if(present(tensor) )then
+		if(size(tensor,1)==obj%nn()  )then
+			call f%write("POINT_DATA "//str(obj%nn() ) )
+			call f%write("TENSORS point_tensors float")
+			do i=1,obj%nn()
+				do j=1,size(tensor,2)
+					do k=1,size(tensor,3)-1
+						write(f%fh,'(A)',advance="no") str(tensor(i,j,k) )//" "
+					enddo
+					write(f%fh,'(A)',advance="yes") str(tensor(i, j,size(tensor,3) ) )
+				enddo
+				
+			enddo
+		elseif(size(tensor,1)==obj%ne()  )then
+			call f%write("CELL_DATA "//str(obj%ne() ) )
+			call f%write("TENSORS cell_tensors float")
+			do i=1,obj%ne()
+				do j=1,size(tensor,2)
+					do k=1,size(tensor,3)-1
+						write(f%fh,'(A)',advance="no") str(tensor(i,j,k) )//" "
+					enddo
+					write(f%fh,'(A)',advance="yes") str(tensor(i, j,size(tensor,3) ) )
+				!do j=1,size(tensor,2)-1
+				!	write(f%fh,'(A)',advance="no") str(tensor(i,j) )//" "
+				!enddo
+				!write(f%fh,'(A)',advance="yes") str(tensor(i, size(tensor,2) ) )
+				enddo
+			enddo
+		else
+			call print("vtkFEMDOmain ERROR ::size(tensor,1) sould be obj%nn()   ")
+			call print("size(tensor,1)="//str(size(tensor,1))//" and obj%nn() = "//str(obj%nn() ) )
 			call f%close()
 			return
 		endif

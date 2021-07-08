@@ -15,7 +15,7 @@ module ArrayClass
 
 
     interface zeros
-        module procedure :: zerosRealArray, zerosRealVector
+        module procedure :: zerosRealArray, zerosRealVector,zerosRealArray3,zerosRealArray4,zerosRealArray5
     end interface
 
     interface increment
@@ -4356,6 +4356,46 @@ function zerosRealArray(size1, size2) result(array)
 end function
 
 ! ############################################################
+
+
+! ############################################################
+function zerosRealArray3(size1, size2,size3) result(array)
+    integer(int32),intent(in) :: size1, size2, size3
+    real(real64),allocatable :: array(:,:,:)
+
+    allocate(array(size1, size2,size3) )
+    array(:,:,:) = 0.0d0
+
+end function
+
+! ############################################################
+
+! ############################################################
+function zerosRealArray4(size1, size2,size3,size4) result(array)
+    integer(int32),intent(in) :: size1, size2,size3,size4
+    real(real64),allocatable :: array(:,:,:,:)
+
+    allocate(array(size1, size2, size3, size4) )
+    array(:,:, :, :) = 0.0d0
+
+end function
+
+! ############################################################
+
+! ############################################################
+function zerosRealArray5(size1, size2,size3,size4,size5) result(array)
+    integer(int32),intent(in) :: size1, size2,size3,size4,size5
+    real(real64),allocatable :: array(:,:,:,:,:)
+
+    allocate(array(size1, size2,size3,size4,size5) )
+    array(:,:,:,:,:) = 0.0d0
+
+end function
+
+! ############################################################
+
+! ############################################################
+
 function incrementRealVector(vector) result(dvector)
     real(real64),intent(in) :: vector(:)
     real(real64),allocatable ::  dvector(:)
