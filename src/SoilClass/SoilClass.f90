@@ -519,11 +519,13 @@ end subroutine
 ! ########################################
 
 ! ########################################
-subroutine vtkSoil(obj,name)
+subroutine vtkSoil(obj,name,scalar,vector,tensor,ElementType)
     class(Soil_),intent(inout) :: obj
-    character(*),intent(in) :: name
-
-    call obj%femdomain%vtk(Name=name)
+	character(*),intent(in) :: name
+	real(real64),optional,intent(in) :: scalar(:),vector(:,:),tensor(:,:,:)
+	integer(int32),optional,intent(in) :: ElementType
+    
+    call obj%femdomain%vtk(name=name,scalar=scalar,vector=vector,tensor=tensor,ElementType=ElementType)
     
 end subroutine
 ! ########################################

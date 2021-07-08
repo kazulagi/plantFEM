@@ -6,7 +6,7 @@ type(Soil_) :: soil
 type(Random_) :: random
 type(FEMDomain_)::domain
 type(DigitalElevationModel_) ::dem
-real(real64),allocatable :: strain(:,:),stress(:,:),trSigma(:)
+real(real64),allocatable :: strain(:,:),stress(:,:),trSigma(:),allstress(:,:,:)
 integer(int32),parameter :: num_node=10
 real(real64) :: E, v
 integer(int32) :: i,j
@@ -35,12 +35,12 @@ enddo
 !call domain%msh("tri")
 
 
-call soil%import(dem=dem,x_num=10,y_num=10,z_num=6)
+call soil%import(dem=dem,x_num=20,y_num=20,z_num=6)
 
 call soil%msh("DEM")
 call soil%vtk("DEM")
 
-soil%YoungModulus = 1000.0d0
+soil%YoungModulus = 10000.0d0
 soil%PoissonRatio = 0.30d0
 soil%Density      = 1.60d0
 soil%VoidRatio    = 0.50d0
@@ -53,19 +53,22 @@ call soil%deform(z_max=2.0d0,disp=[0.0d0,0.0d0,0.0d0])
 !do i=1,soil%femdomain%ne()
 !    strain=soil%femdomain%StrainMatrix(ElementID=i,GaussPoint=2,disp=soil%disp)
 !enddo
+allstress=zeros(soil%femdomain%ne(),3,3 ) 
 
 trSigma = zeros(soil%femdomain%ne() )
 do i=1,soil%femdomain%ne()
     E = soil%YoungModulus(i)
     v = soil%PoissonRatio(i)
-    stress=soil%femdomain%stressMatrix(ElementID=i,GaussPoint=2,E=E,v=v,disp=soil%disp)
+    stress=soil%femdomain%stressMatrix(ElementID=i,E=E,v=v,disp=soil%disp)
     trSigma(i) = trace(stress)
+    allstress(i,:,:) = stress(:,:)
 enddo
 
 ! result
 call soil%vtk("DEM_deformed")
-call soil%femdomain%vtk("DEM_deformed_s11",scalar=trSigma,ElementType=VTK_HEXAHEDRON)
-call soil%femdomain%vtk("DEM_deformed_disp",vector=soil%disp,ElementType=VTK_HEXAHEDRON)
+call soil%vtk("DEM_deformed_s11",scalar=trSigma,ElementType=VTK_HEXAHEDRON)
+call soil%vtk("DEM_deformed_disp",vector=soil%disp,ElementType=VTK_HEXAHEDRON)
+call soil%vtk("DEM_deformed_str",tensor=allstress,ElementType=VTK_HEXAHEDRON)
 
 
 end
