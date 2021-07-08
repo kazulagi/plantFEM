@@ -10,6 +10,7 @@ module SoilClass
     type :: Soil_
         type(FEMDomain_) :: FEMDomain
         type(Boring_),allocatable :: Boring(:)
+        type(LinearSolver_) :: solver
 
         real(real64),allocatable :: disp(:,:)
         ! soil parameters
@@ -758,6 +759,8 @@ subroutine deformSoil(obj,disp,x_min,x_max,y_min,y_max,z_min,z_max,BCRangeError)
     
     ! solve > get displacement
     call solver%solve("BiCGSTAB")
+
+    obj%solver = solver
 
     ! update mesh
     obj%femdomain%mesh%nodcoord(:,:) =obj%femdomain%mesh%nodcoord(:,:) &
