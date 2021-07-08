@@ -12,29 +12,29 @@ module FEMDomainClass
 	implicit none
 
 	! VTK-FORMAT
-	integer(int32),public :: VTK_VERTEX		 = 1 !	Vertex
-	integer(int32),public :: VTK_POLY_VERTEX = 2 !	Vertex
-	integer(int32),public :: VTK_LINE		 = 3 !	Edge Lagrange P1
-	integer(int32),public :: VTK_TRIANGLE	 = 5 !	Triangle Lagrange P1
-	integer(int32),public :: VTK_PIXEL		 = 8 !	Quadrilateral Lagrange P1
-	integer(int32),public :: VTK_QUAD		 = 9 !	Quadrilateral Lagrange P1
-	integer(int32),public :: VTK_TETRA		 = 10 !	Tetrahedron Lagrange P1
-	integer(int32),public :: VTK_VOXEL		 = 11 !	Hexahedron Lagrange P1
-	integer(int32),public :: VTK_HEXAHEDRON  = 12 !	Hexahedron Lagrange P1
-	integer(int32),public :: VTK_WEDGE		 = 13 !	Wedge Lagrange P1
-	integer(int32),public :: VTK_QUADRATIC_EDGE 	 = 21 !	Edge Lagrange P2
-	integer(int32),public :: VTK_QUADRATIC_TRIANGLE  = 22 !	Triangle Lagrange P2
-	integer(int32),public :: VTK_QUADRATIC_QUAD		 = 23 !	Quadrilateral Lagrange P2
-	integer(int32),public :: VTK_QUADRATIC_TETRA	 = 24 !	Tetrahedron Lagrange P2
-	integer(int32),public :: VTK_QUADRATIC_HEXAHEDRON = 25 !	Hexahedron Lagrange P
+	integer(int32),parameter,public :: VTK_VERTEX		 = 1 !	Vertex
+	integer(int32),parameter,public :: VTK_POLY_VERTEX = 2 !	Vertex
+	integer(int32),parameter,public :: VTK_LINE		 = 3 !	Edge Lagrange P1
+	integer(int32),parameter,public :: VTK_TRIANGLE	 = 5 !	Triangle Lagrange P1
+	integer(int32),parameter,public :: VTK_PIXEL		 = 8 !	Quadrilateral Lagrange P1
+	integer(int32),parameter,public :: VTK_QUAD		 = 9 !	Quadrilateral Lagrange P1
+	integer(int32),parameter,public :: VTK_TETRA		 = 10 !	Tetrahedron Lagrange P1
+	integer(int32),parameter,public :: VTK_VOXEL		 = 11 !	Hexahedron Lagrange P1
+	integer(int32),parameter,public :: VTK_HEXAHEDRON  = 12 !	Hexahedron Lagrange P1
+	integer(int32),parameter,public :: VTK_WEDGE		 = 13 !	Wedge Lagrange P1
+	integer(int32),parameter,public :: VTK_QUADRATIC_EDGE 	 = 21 !	Edge Lagrange P2
+	integer(int32),parameter,public :: VTK_QUADRATIC_TRIANGLE  = 22 !	Triangle Lagrange P2
+	integer(int32),parameter,public :: VTK_QUADRATIC_QUAD		 = 23 !	Quadrilateral Lagrange P2
+	integer(int32),parameter,public :: VTK_QUADRATIC_TETRA	 = 24 !	Tetrahedron Lagrange P2
+	integer(int32),parameter,public :: VTK_QUADRATIC_HEXAHEDRON = 25 !	Hexahedron Lagrange P
 
-	integer(int32),public :: MSH_LINE		 = 1 !	Edge Lagrange P1
-	integer(int32),public :: MSH_TRIANGLE	 = 2 !	Triangle Lagrange P1
-	integer(int32),public :: MSH_QUAD		 = 3 !	Quadrilateral Lagrange P1
-	integer(int32),public :: MSH_TETRA		 = 4 !	Tetrahedron Lagrange P1
-	integer(int32),public :: MSH_HEXAHEDRON  = 5 !	Hexahedron Lagrange P1
-	integer(int32),public :: MSH_PRISM 	 = 6 !	Edge Lagrange P2
-	integer(int32),public :: MSH_PYRAMID  = 7 !	Triangle Lagrange P2
+	integer(int32),parameter,public :: MSH_LINE		 = 1 !	Edge Lagrange P1
+	integer(int32),parameter,public :: MSH_TRIANGLE	 = 2 !	Triangle Lagrange P1
+	integer(int32),parameter,public :: MSH_QUAD		 = 3 !	Quadrilateral Lagrange P1
+	integer(int32),parameter,public :: MSH_TETRA		 = 4 !	Tetrahedron Lagrange P1
+	integer(int32),parameter,public :: MSH_HEXAHEDRON  = 5 !	Hexahedron Lagrange P1
+	integer(int32),parameter,public :: MSH_PRISM 	 = 6 !	Edge Lagrange P2
+	integer(int32),parameter,public :: MSH_PYRAMID  = 7 !	Triangle Lagrange P2
 	
 	type::Meshp_
 		type(Mesh_),pointer :: Meshp
@@ -157,6 +157,7 @@ module FEMDomainClass
 		
         procedure,public :: init   => InitializeFEMDomain
 		procedure,public :: import => ImportFEMDomain
+		procedure,public :: importVTKFile => ImportVTKFileFEMDomain
 		procedure,public :: importMesh => ImportMeshFEMDomain
 		procedure,public :: importMaterials => ImportMaterialsFEMDomain
 		procedure,public :: importBoundaries => ImportBoundariesFEMDomain
@@ -279,6 +280,19 @@ subroutine openFEMDomain(obj,path,name)
 	character(200) :: pathi
 	type(IO_) :: f
 	integer(int32) :: n
+
+
+	if(index(path,".vtk")/=0 )then
+		call obj%ImportVTKFile(name=trim(path))
+		return
+	endif
+
+	if(present(name) )then
+		if(index(name,".vtk")/=0 )then
+			call obj%ImportVTKFile(name=trim(path)//"/"//trim(name))
+			return
+		endif
+	endif
 
 	! remove and initialze
 	call obj%remove()
@@ -914,6 +928,14 @@ subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 	integer :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,nodenum,matnum, paranum
 	character*70 Msg,name,ch
 	logical,optional,intent(in) :: Boundaries,Materials
+
+	if(present(file) )then
+		if(index(file,".vtk")/=0 )then
+			call obj%ImportVTKFile(name=trim(file))
+			print *, "imported ",trim(file)
+			return
+		endif
+	endif
 
 	if( trim(getext(trim(file)) )=="mesh" )then
 		
@@ -7423,6 +7445,10 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 	integer(int32) :: num_dim, num_c_node,nne,node_id
 	type(IO_) :: f
 
+	if(index(name,".vtk")/=0 )then
+		call obj%ImportVTKFile(name=trim(name))
+		return
+	endif
 	
 	if(index(name,"json")/=0 )then
 		call f%open(trim(name) )
@@ -9750,5 +9776,208 @@ function ConnectMatrixFEMDomain(obj,position,DOF) result(connectMatrix)
 	
 end function
 ! ##################################################################
+
+
+! ##################################################################
+subroutine ImportVTKFileFEMDomain(obj,name)
+	class(FEMDomain_),intent(inout) :: Obj
+	character(*),intent(in) :: name
+	type(IO_) :: f
+	character(len=:),allocatable :: fullname, line
+	integer(int32) :: i,j,k,n,from,to,m,numnode,numline
+	integer(int32),allocatable :: CELLS(:),CELL_TYPES(:)
+	logical :: ASCII=.false.
+	logical :: UNSTRUCTURED_GRID=.false.
+
+	! Only for POINTS, CELLS, CELL_TYPES
+	
+	call obj%remove()
+
+	if( index(name,".vtk")==0 .and. index(name,".VTK")==0 )then
+		fullname = trim(name)//".vtk"
+	else
+		fullname = trim(name)
+	endif
+
+	call f%open(fullname)
+	
+	! read settings
+	do
+		if(f%EOF) exit
+		line = f%readline()
+		line = adjustl(line)
+		if(index( line(1:1),"#") /=0 )cycle
+		
+		if(index( line,"ASCII") /=0 )then
+			ASCII = .true.
+			cycle
+		endif
+
+		if(index( line,"DATASET") /=0 )then
+			if( index( line,"UNSTRUCTURED_GRID") /=0 )then
+				UNSTRUCTURED_GRID = .true.
+			endif
+			cycle
+		endif
+		if(index( line,"POINTS") /=0  )then
+			exit
+		endif
+
+		if(index( line,"CELLS") /=0 .or. index( line,"cells") /=0  )then
+			exit
+		endif
+
+		if(index( line,"VECTOR") /=0 .or. index( line,"vector") /=0  )then
+			exit
+		endif
+
+		if(index( line,"TENSOR") /=0 .or. index( line,"tensor") /=0  )then
+			exit
+		endif
+
+		if(index( line,"SCALAR") /=0 .or. index( line,"scalar") /=0  )then
+			exit
+		endif
+	enddo
+
+	! check vtk file
+	if(ASCII)then
+		print *, "[ok] ASCII format."
+	else
+		print *, "ERROR :: importVTKFile >> here, vtk file should be ASCII format."
+		stop
+	endif
+	
+	if(UNSTRUCTURED_GRID)then
+		print *, "[ok] UNSTRUCTURED_GRID"
+	else
+		print *, "ERROR :: importVTKFile >> here, DATASET should be UNSTRUCTURED_GRID"
+		stop
+	endif
+	
+	if(f%EOF)then
+		print *,"ERROR ;; importVTKFile >> no readable found in the file!"
+		stop
+	endif
+
+	do
+		if(f%EOF)exit
+		if(index( line,"POINTS") /=0  )then
+			from = index( line,"POINTS") + 6
+			read( line(from:),* ) n
+			allocate(obj%mesh%nodcoord(n,3) )
+			do i=1,n
+				line = f%readline()
+				read(line,*) obj%mesh%nodcoord(i,:)
+			enddo
+		endif
+
+		if(index( line,"CELLS") /=0  )then
+			from = index( line,"CELLS") + 5
+			read( line(from:),* ) n, m
+			allocate(CELLS(m) )
+			numline=0
+			do i=1,n
+				line = f%readline()
+				read(line,*) numnode
+				read(line,*) CELLS(numline+1:numline+numnode+1)
+				CELLS(numline+2:numline+numnode+1) = CELLS(numline+2:numline+numnode+1)+1
+				numline = numline + numnode + 1
+			enddo
+		endif
+
+		if(index( line,"CELL_TYPES") /=0  )then
+			from = index( line,"CELL_TYPES") + 10
+			read( line(from:),* ) n
+			if(.not.allocated(CELLS) )then
+				print *, "ERROR :: importVTKFile >> no CELLS are found before CELL_TYPES."
+				stop
+			endif
+			allocate(CELL_TYPES(n) )
+			do i=1,n
+				line = f%readline()
+				read(line,*) CELL_TYPES(i)
+			enddo
+
+			! cannot use mixed mesh for PlantFEM
+
+			if(maxval(CELL_TYPES)/=minval(CELL_TYPES) )then
+				print *, "[Caution] :: importVTKFile >> cannot use mixed mesh for PlantFEM"
+				print *, "Only CELL_TYPES = ",maxval(CELL_TYPES),"will be imported."
+				n = 0
+				do i=1,size(CELL_TYPES)
+					if(CELL_TYPES(i)==maxval(CELL_TYPES) )then
+						n=n+1
+					endif
+				enddo
+			else
+				n = size(CELL_TYPES)
+			endif
+
+			m = maxval(CELL_TYPES)
+			select case(m)
+			case(VTK_VERTEX)
+				numnode=1
+			case(VTK_POLY_VERTEX)
+				numnode=1
+			case(VTK_LINE)
+				numnode=2
+			case(VTK_TRIANGLE)
+				numnode=3
+			case(VTK_PIXEL)
+				numnode=4
+			case(VTK_QUAD)
+				numnode=4
+			case(VTK_TETRA)
+				numnode=4
+			case(VTK_VOXEL)
+				numnode=8
+			case(VTK_HEXAHEDRON)
+				numnode=8
+			case(VTK_WEDGE)
+				numnode=6
+			case(VTK_QUADRATIC_EDGE)
+				numnode=3
+			case(VTK_QUADRATIC_TRIANGLE)
+				numnode=6
+			case(VTK_QUADRATIC_QUAD)
+				numnode=8
+			case(VTK_QUADRATIC_TETRA)
+				numnode=10
+			case(VTK_QUADRATIC_HEXAHEDRON)
+				numnode=16
+			
+			end select
+
+
+			allocate(obj%mesh%elemnod(n,numnode) )
+			
+			obj%mesh%elemnod(:,:) = 0
+			n=0
+			do i=1,obj%ne() 
+				do
+					if(n+1 > size(CELLS) ) exit
+					if(CELLS(n+1)==numnode )then
+						obj%mesh%elemnod(i,1:numnode) = CELLS(n+2:n+numnode+1)
+						n=n+1+numnode
+						exit
+					else
+						n=n+1+numnode
+						cycle
+					endif
+				enddo
+			enddo
+
+		endif
+		
+
+		line = f%readline()
+	enddo
+	call f%close()
+
+
+end subroutine
+! ##################################################################
+
 
 end module FEMDomainClass
