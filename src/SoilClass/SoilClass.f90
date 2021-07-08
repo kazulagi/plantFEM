@@ -81,8 +81,9 @@ contains
 
 
 ! ################################################################
-subroutine importSoil(obj, boring, dem,x_num,y_num,z_num,radius,depth)
+subroutine importSoil(obj, name, boring, dem,x_num,y_num,z_num,radius,depth)
     class(Soil_),intent(inout)::obj
+    character(*),optional,intent(in) :: name
     type(Boring_),optional,intent(in) :: Boring(:)
     type(DigitalElevationModel_),optional,intent(in) :: dem
     integer(int32),optional,intent(in) :: x_num,y_num,z_num
@@ -154,6 +155,19 @@ subroutine importSoil(obj, boring, dem,x_num,y_num,z_num,radius,depth)
         obj%FrictionAngle = zeros(obj%femdomain%ne())
     endif
 
+    if(present(name) )then
+        if(index(name,".vtk")/=0 )then
+            call obj%femdomain%import(file=trim(name))
+            obj%YoungModulus = zeros(obj%femdomain%ne())
+            obj%PoissonRatio = zeros(obj%femdomain%ne())
+            obj%Density = zeros(obj%femdomain%ne())
+            obj%VoidRatio = zeros(obj%femdomain%ne())
+            obj%Cohesion = zeros(obj%femdomain%ne())
+            obj%FrictionAngle = zeros(obj%femdomain%ne())
+        else
+            print *, "ERROR :: importSoil >> only vtk ASCII format is readable."
+        endif
+    endif
 
 
 end subroutine
