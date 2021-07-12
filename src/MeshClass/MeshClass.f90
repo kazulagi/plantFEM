@@ -93,6 +93,7 @@ module MeshClass
         procedure :: getVolume => getVolumeMesh
         procedure :: getShapeFunction => getShapeFunctionMesh
         procedure :: getCenterCoordinate => getCenterCoordinateMesh
+        procedure :: getNeighboringNode => getNeighboringNodeMesh
         procedure :: getNeighboringElement => getNeighboringElementMesh
         procedure :: ShapeFunction => getShapeFunctionMesh
         procedure :: gmsh => gmshMesh
@@ -107,6 +108,7 @@ module MeshClass
         procedure :: json => jsonMesh
 
         procedure :: length => lengthMesh
+        procedure :: Laplacian => LaplacianMesh
         
         procedure :: mergeMesh => MergeMesh
         procedure :: meltingSkelton => MeltingSkeltonMesh 
@@ -3017,9 +3019,9 @@ subroutine MeshingMesh(obj,Mode,itr_tol)
     type(triangle_)::tri
     type(circle_)::cir
     integer(int32),optional,intent(in) :: Mode,itr_tol
-    integer(int32) :: i,j,k,n,m,node_num,dim_num,dim_mode
+    integer(int32) :: i,j,k,n,m,node_num,dim_num,dim_mode,itr
     real(real64),allocatable :: stage_range(:,:),triangle(:,:)
-    integer(int32),allocatable :: staged_node(:)
+    integer(int32),allocatable :: staged_node(:),lapl_node(:),neighbornode(:)
     real(real64) :: centerx,centery,centerz,radius
     logical :: NoChange
 
@@ -3094,7 +3096,10 @@ subroutine MeshingMesh(obj,Mode,itr_tol)
         ! Remove circumscribed triangle
         call obj%removeCircumscribedTriangle()
 
-        
+        ! Laplacian method
+        call obj%getSurface()
+
+        call obj%Laplacian(itr_tol=itr_tol)
         print *, "Meshing is successfully done based on Delauney 2D"
 
 
@@ -3108,6 +3113,40 @@ subroutine MeshingMesh(obj,Mode,itr_tol)
 end subroutine
 !##################################################
 
+
+subroutine LaplacianMesh(obj,itr_tol)
+    class(Mesh_),intent(inout) ::  obj
+    integer(int32),optional,intent(in) :: itr_tol
+    integer(int32) :: i ,j, k, itr
+    integer(int32),allocatable :: lapl_node(:),neighbornode(:)
+    
+    ! Laplacian method
+
+    call obj%getSurface()
+    lapl_node = int(zeros( size(obj%nodcoord,1) ) )
+    do i=1,size(obj%SurfaceLine2D)
+        lapl_node( obj%SurfaceLine2D(i) ) = -1
+    enddo
+
+    itr = input(default=10, option=itr_tol)
+    do i=1,itr
+        do j=1,size(lapl_node)
+            if(lapl_node(j)==0 )then
+                ! not boundary node => move node
+                neighbornode = obj%getNeighboringNode(NodeId=j)
+                obj%nodcoord(j,:) = 0.0d0
+                do k=1,size(neighbornode)
+                    obj%nodcoord( j ,:) =&
+                    obj%nodcoord( j ,:) + &
+                    1.0d0/dble(size(neighbornode))*obj%nodcoord( neighbornode(k) ,:) 
+                enddo
+            else
+                cycle
+            endif
+        enddo
+    enddo
+
+end subroutine
 
 !##################################################
 subroutine getCircumscribedCircleMesh(obj,centerx,centery,centerz,radius)
@@ -8269,6 +8308,39 @@ function getCenterCoordinateMesh(obj, elemid) result(ret)
 end function
 !##################################################################################
 
+function getNeighboringNodeMesh(obj,nodeid) result(ret)
+    class(Mesh_),intent(inout) :: obj
+    integer(int32),intent(in) :: nodeid
+    integer(int32) :: dimnum,i,facetnum,elemnodnum,j,numnn
+    integer(int32),allocatable :: ret(:),nodelist(:),elemnodtr(:)
+    logical :: exists
+
+    nodelist = int( zeros(size(obj%nodcoord,1) )  )
+    elemnodtr= int( zeros(size(obj%elemnod ,2) )  )
+    do i=1,size(obj%elemnod,1)
+        elemnodtr = obj%elemnod(i,:)
+        elemnodtr(:) = elemnodtr(:) - nodeid 
+        elemnodtr(:) = abs(elemnodtr(:))
+        if(minval(elemnodtr) == 0 )then
+            do j=1,size(obj%elemnod,2)
+                nodelist( obj%elemnod(i,j) ) = 1
+            enddo
+        endif
+    enddo
+
+    nodelist(nodeid) = 0
+
+    ret = int(zeros(sum(nodelist) )  )
+    j = 0
+    do i=1,size(nodelist)
+        if(nodelist(i)==1 )then
+            j=j+1
+            ret( j ) = i
+        endif
+    enddo
+
+
+end function
 
 !##################################################################################
 function getNeighboringElementMesh(obj, elemid) result(ret)
@@ -8603,6 +8675,9 @@ recursive subroutine assembleMesh(obj)
 end subroutine
 ! ##########################################################################
 
+! ##########################################################################
+
+! ##########################################################################
 
 
 end module MeshClass
