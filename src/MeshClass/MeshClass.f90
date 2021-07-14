@@ -1448,6 +1448,15 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
 end subroutine
 !##################################################
 
+recursive subroutine GetFacetElementByDivideConquor(obj)
+    class(Mesh_),intent(inout)::obj
+    type(Mesh_) :: smallObj
+
+    
+
+end subroutine
+
+
 !##################################################
 subroutine GetFacetElement(obj)
     class(Mesh_),intent(inout)::obj
@@ -1455,10 +1464,11 @@ subroutine GetFacetElement(obj)
 
     integer(int32) :: i,j,k,l,n,m
     integer(int32) :: NumOfElem,NumOfDim,NumNodePerElem
-    integer(int32) :: id_1,id_2,id_3,id_4
-    integer(int32) :: id_r1,id_r2,id_r3,id_r4
+    integer(int32) :: id_1,id_2,id_3,id_4,num_face,div_num
+    integer(int32) :: id_r1,id_r2,id_r3,id_r4,diff,elementID_I,elementID_J
     integer(int32),allocatable::id(:),idr(:)
-    integer(int32),allocatable::buffer(:,:)
+    integer(int32),allocatable::buffer(:,:),ElementGroup(:,:)
+    real(real64):: dx(3),x(3)
     logical,allocatable :: overlap(:)
 
     ! From 1 -> 2 -> -> 3 -> 4, outer normal vector is obtained  
@@ -1553,49 +1563,78 @@ subroutine GetFacetElement(obj)
     elseif(NumOfDim==3 )then
             ! New algorithm
         if(fast)then
+            ! divide and conquer method
+            ! divide 10 by 10
+            allocate(ElementGroup(size(obj%elemnod,1),3) )
+            !div_num = size(obj%elemnod,1)/200 + 1
+            div_num=10
+            dx(1) = (maxval(obj%nodcoord(:,1) ) - minval(obj%nodcoord(:,1) ))/dble(div_num)
+            div_num=10
+            dx(2) = (maxval(obj%nodcoord(:,2) ) - minval(obj%nodcoord(:,2) ))/dble(div_num)
+            div_num=10
+            dx(3) = (maxval(obj%nodcoord(:,3) ) - minval(obj%nodcoord(:,3) ))/dble(div_num)
+            do i=1, size(obj%elemnod,1)
+                x(1) = obj%nodcoord(obj%elemnod(i,1) ,1 )
+                x(2) = obj%nodcoord(obj%elemnod(i,1) ,2 )
+                x(3) = obj%nodcoord(obj%elemnod(i,1) ,3 )
+                ElementGroup(i,1) = int((x(1) -minval(obj%nodcoord(:,1) ))/dx(1))
+                ElementGroup(i,2) = int((x(2) -minval(obj%nodcoord(:,2) ))/dx(2))
+                ElementGroup(i,3) = int((x(3) -minval(obj%nodcoord(:,3) ))/dx(3))
+            enddo
+
             n = size(obj%ElemNod,1)
             NumNodePerElem = size(obj%ElemNod,2)
             
         
             if(NumNodePerElem==4)then
+                num_face = 4
                 allocate(obj%FacetElemNod(NumOfElem*4,3),id(3),idr(3) )
                 do i=1,size(obj%ElemNod,1)
                     obj%FacetElemNod(  (i-1)*4+1 ,1) = obj%ElemNod(i,1)
                     obj%FacetElemNod(  (i-1)*4+1 ,2) = obj%ElemNod(i,2)
                     obj%FacetElemNod(  (i-1)*4+1 ,3) = obj%ElemNod(i,3)
+                    
                     obj%FacetElemNod(  (i-1)*4+2 ,1) = obj%ElemNod(i,1)
                     obj%FacetElemNod(  (i-1)*4+2 ,2) = obj%ElemNod(i,2)
                     obj%FacetElemNod(  (i-1)*4+2 ,3) = obj%ElemNod(i,4)
+                    
                     obj%FacetElemNod(  (i-1)*4+3 ,1) = obj%ElemNod(i,2)
                     obj%FacetElemNod(  (i-1)*4+3 ,2) = obj%ElemNod(i,3)
                     obj%FacetElemNod(  (i-1)*4+3 ,3) = obj%ElemNod(i,4)
+                    
                     obj%FacetElemNod(  (i-1)*4+4 ,1) = obj%ElemNod(i,3)
                     obj%FacetElemNod(  (i-1)*4+4 ,2) = obj%ElemNod(i,1)
                     obj%FacetElemNod(  (i-1)*4+4 ,3) = obj%ElemNod(i,4)
                 enddo
             elseif(NumNodePerElem==8)then
+                num_face = 6
                 allocate(obj%FacetElemNod(NumOfElem*6,4),id(4),idr(4) )
                 do i=1,size(obj%ElemNod,1)
                     obj%FacetElemNod(  (i-1)*6+1 ,1) = obj%ElemNod(i,4)
                     obj%FacetElemNod(  (i-1)*6+1 ,2) = obj%ElemNod(i,3)
                     obj%FacetElemNod(  (i-1)*6+1 ,3) = obj%ElemNod(i,2)
                     obj%FacetElemNod(  (i-1)*6+1 ,4) = obj%ElemNod(i,1)
+
                     obj%FacetElemNod(  (i-1)*6+2 ,1) = obj%ElemNod(i,1)
                     obj%FacetElemNod(  (i-1)*6+2 ,2) = obj%ElemNod(i,2)
                     obj%FacetElemNod(  (i-1)*6+2 ,3) = obj%ElemNod(i,6)
                     obj%FacetElemNod(  (i-1)*6+2 ,4) = obj%ElemNod(i,5)
+                    
                     obj%FacetElemNod(  (i-1)*6+3 ,1) = obj%ElemNod(i,2)
                     obj%FacetElemNod(  (i-1)*6+3 ,2) = obj%ElemNod(i,3)
                     obj%FacetElemNod(  (i-1)*6+3 ,3) = obj%ElemNod(i,7)
                     obj%FacetElemNod(  (i-1)*6+3 ,4) = obj%ElemNod(i,6)
+                    
                     obj%FacetElemNod(  (i-1)*6+4 ,1) = obj%ElemNod(i,3)
                     obj%FacetElemNod(  (i-1)*6+4 ,2) = obj%ElemNod(i,4)
                     obj%FacetElemNod(  (i-1)*6+4 ,3) = obj%ElemNod(i,8)
                     obj%FacetElemNod(  (i-1)*6+4 ,4) = obj%ElemNod(i,7)
+                    
                     obj%FacetElemNod(  (i-1)*6+5 ,1) = obj%ElemNod(i,4)
                     obj%FacetElemNod(  (i-1)*6+5 ,2) = obj%ElemNod(i,1)
                     obj%FacetElemNod(  (i-1)*6+5 ,3) = obj%ElemNod(i,5)
                     obj%FacetElemNod(  (i-1)*6+5 ,4) = obj%ElemNod(i,8)
+                    
                     obj%FacetElemNod(  (i-1)*6+6 ,1) = obj%ElemNod(i,5)
                     obj%FacetElemNod(  (i-1)*6+6 ,2) = obj%ElemNod(i,6)
                     obj%FacetElemNod(  (i-1)*6+6 ,3) = obj%ElemNod(i,7)
@@ -1605,14 +1644,29 @@ subroutine GetFacetElement(obj)
                 stop "ERROR :: GetFacetElement :: only for  Hexahedral/tetrahedron ##"
             endif
             allocate(overlap(size(obj%FacetElemNod,1) ) )
-            print *, "Proto>>done"
             overlap(:) = .false.
             
             id = int( zeros(size(obj%FacetElemNod,2) )  )
             idr= int( zeros(size(obj%FacetElemNod,2) )  )
+
+            ! Most time-consuming part
+            elementID_I=0
             do i=1,size(overlap)-1
+                if(mod(i-1,num_face)==0 )then
+                    elementID_I = elementID_I + 1
+                endif
+
                 if(overlap(i) ) cycle
+                ! 全然違うやつをすばやく弾きたい
+                elementID_J = elementID_I
                 do j=i+1,size(overlap)
+                    if(mod(j-1,num_face)==0 )then
+                        elementID_J = elementID_J + 1
+                    endif
+                    if( abs(ElementGroup(elementID_I,1)-ElementGroup(elementID_J,1))>=2 ) cycle
+                    if( abs(ElementGroup(elementID_I,2)-ElementGroup(elementID_J,2))>=2 ) cycle
+                    if( abs(ElementGroup(elementID_I,3)-ElementGroup(elementID_J,3))>=2 ) cycle
+
                     id = obj%FacetElemNod(i,:)
                     idr= obj%FacetElemNod(j,:)
                     if( sameAsGroup(id,idr) )then
@@ -1622,6 +1676,8 @@ subroutine GetFacetElement(obj)
                     endif
                 enddo
             enddo
+            ! to here.
+            
             j = 0
             do i=1,size(overlap)
                 if(.not.overlap(i) )then

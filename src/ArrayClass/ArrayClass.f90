@@ -4802,16 +4802,18 @@ function sameAsGroupintVec(vec1, vec2) result(ret)
         return
     endif
 
+
+    if(maxval(vec1)/=maxval(vec2) .or. minval(vec1)/=minval(vec2) ) then
+        ret = .false.
+        return
+    endif
+    
     if(sum(vec1)/=sum(vec2) ) then
         ret = .false.
         return
     endif
 
 
-    if(maxval(vec1)/=maxval(vec2) .or. maxval(vec1)/=maxval(vec2) ) then
-        ret = .false.
-        return
-    endif
 
     
     do i=1,size(vec1)
