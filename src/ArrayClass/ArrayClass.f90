@@ -71,6 +71,7 @@ module ArrayClass
     end interface TrimArray
 
     
+    
 
     interface open
         module procedure openArrayInt, openArrayReal, openArrayIntVec, openArrayRealVec,openArrayInt3, openArrayReal3
@@ -198,6 +199,10 @@ module ArrayClass
 
     interface countifSame
         module procedure ::countifSameIntArray,countifSameIntVec,countifSameIntArrayVec,countifSameIntVecArray
+    end interface
+
+    interface sameAsGroup
+        module procedure :: sameAsGroupintVec
     end interface
 
     interface countif
@@ -4785,5 +4790,51 @@ function judgeCrossing2D(L1,L2) result(cross)
 end function
 ! ############################################################
 
+function sameAsGroupintVec(vec1, vec2) result(ret)
+    integer(int32),intent(in) :: vec1(:)
+    integer(int32),intent(in) :: vec2(:)
+    logical :: sameValueExists
+    integer(int32) :: i,j
+    logical :: ret
+
+    if(size(vec1)/=size(vec2) )then
+        ret = .false.
+        return
+    endif
+
+
+    if(maxval(vec1)/=maxval(vec2) .or. minval(vec1)/=minval(vec2) ) then
+        ret = .false.
+        return
+    endif
+    
+    if(sum(vec1)/=sum(vec2) ) then
+        ret = .false.
+        return
+    endif
+
+
+
+    
+    do i=1,size(vec1)
+        sameValueExists = .false.
+        do j=1,size(vec2)
+            if(vec1(i)==vec2(j) )then
+                sameValueExists = .true.
+                exit
+            endif
+        enddo
+        if(sameValueExists)then
+            cycle
+        else
+            ret = .false.
+            return
+        endif
+    enddo
+
+    ret = .true.
+
+
+end function
 
 end module ArrayClass

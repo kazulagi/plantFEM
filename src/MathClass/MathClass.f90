@@ -251,8 +251,8 @@ end function
 !##################################################
 subroutine heapsort(n,array,val)
   	integer(int32),intent(in) :: n
-	real(real64),optional,intent(inout) :: val(1:n)
-  	integer(int32),intent(inout) :: array(1:n)
+  	integer(int32),intent(inout) :: array(1:n)! rearrange order by this array
+	real(real64),optional,intent(inout) :: val(1:n) ! linked data
 	real(real64) :: t_real
   	integer(int32) ::i,k,j,l
   	integer(int32) :: t
