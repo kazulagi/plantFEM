@@ -153,6 +153,7 @@ module FEMDomainClass
 		procedure,public :: getShapeFunction => getShapeFunctionFEMDomain
 		procedure,public :: getNearestNodeID => getNearestNodeIDFEMDomain
 		procedure,public :: getSurface => getSurfaceFEMDomain
+		procedure,public :: getElement => getElementFEMDOmain
 		procedure,public :: getLocalCoordinate => getLocalCoordinateFEMDomain		
 		
         procedure,public :: init   => InitializeFEMDomain
@@ -10099,5 +10100,13 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 end subroutine
 ! ##################################################################
 
+function getElementFEMDOmain(obj,ElementID) result(element)
+	class(FEMDomain_),intent(in) :: obj
+	type(FEMDomain_) :: element
+	integer(int32),intent(in) :: ElementID
+
+	element%mesh = obj%mesh%getelement(ElementID)
+
+end function
 
 end module FEMDomainClass
