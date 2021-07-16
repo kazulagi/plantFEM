@@ -131,6 +131,8 @@ module FEMDomainClass
 		procedure,public :: display => displayFEMDomain
 		procedure,public :: divide => divideFEMDomain
 		procedure,public :: distribute => distributeFEMDomain
+		procedure,public :: Delaunay3D => Delaunay3DFEMDomain
+		procedure,public :: Delaunay2D => Delaunay2DFEMDomain
 		
 		procedure,public :: export => ExportFEMDomain
 
@@ -153,6 +155,7 @@ module FEMDomainClass
 		procedure,public :: getShapeFunction => getShapeFunctionFEMDomain
 		procedure,public :: getNearestNodeID => getNearestNodeIDFEMDomain
 		procedure,public :: getSurface => getSurfaceFEMDomain
+		procedure,public :: getElement => getElementFEMDOmain
 		procedure,public :: getLocalCoordinate => getLocalCoordinateFEMDomain		
 		
         procedure,public :: init   => InitializeFEMDomain
@@ -10099,5 +10102,38 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 end subroutine
 ! ##################################################################
 
+function getElementFEMDOmain(obj,ElementID) result(element)
+	class(FEMDomain_),intent(in) :: obj
+	type(FEMDomain_) :: element
+	integer(int32),intent(in) :: ElementID
+
+	element%mesh = obj%mesh%getelement(ElementID)
+
+end function
+! ##################################################################
+
+! ##################################################################
+subroutine Delaunay3DFEMDomain(obj)
+	class(FEMDomain_),intent(inout) :: obj
+
+	if(.not. allocated(obj%mesh%nodcoord) )then
+		print *, "ERROR :: Delauney3DFEMDomain >> no nodes are found in femdomain%mesh%nodcoord(:,:)"
+	endif
+	call obj%mesh%meshing(mode=3)
+
+end subroutine
+! ##################################################################
+
+! ##################################################################
+subroutine Delaunay2DFEMDomain(obj)
+	class(FEMDomain_),intent(inout) :: obj
+
+	if(.not. allocated(obj%mesh%nodcoord) )then
+		print *, "ERROR :: Delauney3DFEMDomain >> no nodes are found in femdomain%mesh%nodcoord(:,:)"
+	endif
+	call obj%mesh%meshing(delaunay2d=.true.)
+
+end subroutine
+! ##################################################################
 
 end module FEMDomainClass

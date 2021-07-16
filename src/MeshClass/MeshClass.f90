@@ -42,6 +42,7 @@ module MeshClass
 
     contains
         procedure :: add => addMesh
+        procedure :: addElements => addElementsMesh
         procedure :: adjustSphere => AdjustSphereMesh
         procedure :: adjustCylinder => AdjustCylinderMesh
         procedure :: assemble => assembleMesh
@@ -76,6 +77,7 @@ module MeshClass
         procedure :: getCoordinate => getCoordinateMesh
         procedure :: getNodeIDinElement => getNodeIDinElementMesh
         procedure :: getFacetElement => GetFacetElement
+        procedure :: getFacetNodeID => getFacetNodeIDMesh
         procedure :: getSurface => GetSurface
         procedure :: getInterface => GetInterface
         procedure :: getInterfaceElemNod => GetInterfaceElemNod
@@ -90,7 +92,8 @@ module MeshClass
         procedure :: getCircumscribedSphere => getCircumscribedSphereMesh
         procedure :: getCircumscribedTriangle => getCircumscribedTriangleMesh
         procedure :: getCircumscribedBox => getCircumscribedBoxMesh
-        
+        procedure :: getCircumscribedSphereOfTetra => getCircumscribedSphereOfTetraMesh
+
         procedure :: getNodeList => getNodeListMesh
         procedure :: getFacetList => getFacetListMesh
         procedure :: getElementList => getElementListMesh
@@ -145,6 +148,7 @@ module MeshClass
         procedure :: removeCircumscribedTriangle => removeCircumscribedTriangleMesh
         procedure :: removeFailedTriangle => RemoveFailedTriangleMesh
         procedure :: removeOverlappedNode =>removeOverlappedNodeMesh
+        procedure :: removeElements => removeElementsMesh
         procedure :: resize => resizeMeshobj
         procedure :: remesh => remeshMesh
         
@@ -1452,9 +1456,61 @@ recursive subroutine GetFacetElementByDivideConquor(obj)
     class(Mesh_),intent(inout)::obj
     type(Mesh_) :: smallObj
 
-    
+    print *, "ERROR :: not implemented yet >> GetFacetElementByDivideConquor"
+    stop
 
 end subroutine
+
+
+!##################################################
+function getFacetNodeIDMesh(obj,ElementID) result(ret)
+    class(Mesh_),intent(in) :: obj
+    integer(int32),intent(in) :: ElementID
+    integer(int32),allocatable :: ret(:,:),order(:,:)
+    integeR(int32) :: i,j,n,elemid,k,dimnum,elemnodnum
+
+
+    ! get element info
+    dimnum = size(obj%nodcoord,2)
+    elemnodnum = size(obj%elemnod,2)
+
+
+    if(dimnum==3 .and. elemnodnum==4)then
+        ! Tetra mesh
+        allocate(ret(4,3) )
+        allocate(order(4,3) )
+        order(1,:) = [3, 2, 1]
+        order(2,:) = [1, 2, 4]
+        order(3,:) = [2, 3, 4]
+        order(4,:) = [3, 1, 4]
+        do k=1,4
+            ret(k,1) = obj%elemnod( ElementID, order(k,1) )
+            ret(k,2) = obj%elemnod( ElementID, order(k,2) )
+            ret(k,3) = obj%elemnod( ElementID, order(k,3) )
+        enddo
+        return
+    elseif(dimnum==3 .and. elemnodnum==8)then
+        ! Tetra mesh
+        allocate(ret(6,4) )
+        allocate(order(6,4) )
+        order(1,:) = [ 4, 3, 2, 1]
+        order(2,:) = [ 1, 2, 6, 5]
+        order(3,:) = [ 2, 3, 7, 6]
+        order(4,:) = [ 3, 4, 8, 7]
+        order(5,:) = [ 4, 1, 5, 8]
+        order(6,:) = [ 5, 6, 7, 8]
+        do k = 1,6
+            ret(k,1) = obj%elemnod( ElementID, order(k,1) )
+            ret(k,2) = obj%elemnod( ElementID, order(k,2) )
+            ret(k,3) = obj%elemnod( ElementID, order(k,3) )
+            ret(k,4) = obj%elemnod( ElementID, order(k,4) )
+        enddo
+        return
+    endif
+
+
+end function
+!##################################################
 
 
 !##################################################
@@ -1563,8 +1619,6 @@ subroutine GetFacetElement(obj)
     elseif(NumOfDim==3 )then
             ! New algorithm
         if(fast)then
-            ! divide and conquer method
-            ! divide 10 by 10
             allocate(ElementGroup(size(obj%elemnod,1),3) )
             !div_num = size(obj%elemnod,1)/200 + 1
             div_num=10
@@ -1590,9 +1644,9 @@ subroutine GetFacetElement(obj)
                 num_face = 4
                 allocate(obj%FacetElemNod(NumOfElem*4,3),id(3),idr(3) )
                 do i=1,size(obj%ElemNod,1)
-                    obj%FacetElemNod(  (i-1)*4+1 ,1) = obj%ElemNod(i,1)
+                    obj%FacetElemNod(  (i-1)*4+1 ,1) = obj%ElemNod(i,3)
                     obj%FacetElemNod(  (i-1)*4+1 ,2) = obj%ElemNod(i,2)
-                    obj%FacetElemNod(  (i-1)*4+1 ,3) = obj%ElemNod(i,3)
+                    obj%FacetElemNod(  (i-1)*4+1 ,3) = obj%ElemNod(i,1)
                     
                     obj%FacetElemNod(  (i-1)*4+2 ,1) = obj%ElemNod(i,1)
                     obj%FacetElemNod(  (i-1)*4+2 ,2) = obj%ElemNod(i,2)
@@ -3164,16 +3218,17 @@ end subroutine
 
 
 !##################################################
-subroutine MeshingMesh(obj,Mode,itr_tol)
+subroutine MeshingMesh(obj,Mode,itr_tol,delaunay2d)
     class(Mesh_),intent(inout)::obj
     type(Mesh_) :: box
     type(triangle_)::tri
     type(circle_)::cir
+    logical,optional,intent(in) :: delaunay2d
     integer(int32),optional,intent(in) :: Mode,itr_tol
     integer(int32) :: i,j,k,n,m,node_num,dim_num,dim_mode,itr
     real(real64),allocatable :: stage_range(:,:),triangle(:,:),nodcoord(:,:)
     integer(int32),allocatable :: staged_node(:),lapl_node(:),&
-        neighbornode(:),ElementElementConnect(:,:),eeconnect(:,:),elemnod(:,:)
+        neighbornode(:),ElementElementConnect(:,:),elemnod(:,:)
     real(real64) :: centerx,centery,centerz,radius
     logical :: NoChange
 
@@ -3181,7 +3236,7 @@ subroutine MeshingMesh(obj,Mode,itr_tol)
     ! Therefore, Mesh%NodCoord(:,:) should be filled preliminary.
 
     dim_mode=input(default=2,option=Mode)
-    if(dim_mode==2)then
+    if(dim_mode==2 .or. present(delaunay2d))then
         if(.not. allocated(obj%NodCoord) )then
             print *, "ERROR :: MeshClass MeshingMesh"
             print *, "This method creates mesh-connectivity for the given nodal coordinates."
@@ -3189,6 +3244,9 @@ subroutine MeshingMesh(obj,Mode,itr_tol)
             return 
         endif
         print *, "Meshing sequence is started."
+        if(.not. delaunay2d)then
+            return
+        endif
 
         node_num=size(obj%NodCoord,1)
         dim_num =size(obj%NodCoord,2)
@@ -3274,7 +3332,7 @@ subroutine MeshingMesh(obj,Mode,itr_tol)
         call obj%arrangeNodeOrder()
 
         ! step #1: get Curcumscribed Box
-        call obj%getCircumscribedBox(box,EEConnect)
+        call obj%getCircumscribedBox(box)
 
         ! prepare connectivity
         if(allocated(obj%ElemNod) )then
@@ -3309,8 +3367,12 @@ subroutine MeshingMesh(obj,Mode,itr_tol)
         do i=1,node_num
             ! Delauney triangulation for 2D
             print *, i,"/",size(obj%NodCoord,1)," :: ",dble(i)/dble(size(obj%NodCoord,1))*100,"% done."
-            ! ここがまだ未完成．フリッピングがまだ．
-            call obj%DelauneygetNewNode3D(NodeID=i,EEConnect=EEConnect)
+            ! some bugs.
+            call obj%DelauneygetNewNode3D(NodeID=i)
+            print *, "Under debugging >> call obj%DelauneygetNewNode3D(NodeID=i)"
+            if(i==1)then
+                return
+            endif
         enddo
 
 
@@ -3430,7 +3492,7 @@ subroutine getCircumscribedSphereOfTetraMesh(obj,center,radius)
     class(Mesh_),intent(in)::obj
     real(real64),intent(inout) :: center(3), radius
     real(real64) ::i, Matrix(3,3),N1(3),N2(3),N3(3),&
-        a1(3),a2(3),a3(3),a4(3),M13(3),M24(3),M12(3),p(3),Matrix_Inv(3,3)
+        a1(3),a2(3),a3(3),a4(3),M13(3),M14(3),M24(3),M12(3),p(3),Matrix_Inv(3,3)
 
     a1(:) = obj%nodcoord(1,:)
     a2(:) = obj%nodcoord(2,:)
@@ -3438,15 +3500,15 @@ subroutine getCircumscribedSphereOfTetraMesh(obj,center,radius)
     a4(:) = obj%nodcoord(4,:)
 
     M13 = 0.50d0*a1 +  0.50d0*a3
-    M24 = 0.50d0*a2 +  0.50d0*a4
+    M14 = 0.50d0*a1 +  0.50d0*a4
     M12 = 0.50d0*a1 +  0.50d0*a2
 
     N1 = a1 - M13
-    N2 = a2 - M24
-    N3 = a3 - M12
+    N2 = a1 - M14
+    N3 = a1 - M12
 
     p(1) = dot_product(M13,N1)
-    p(2) = dot_product(M24,N2)
+    p(2) = dot_product(M14,N2)
     p(3) = dot_product(M12,N3)
 
     Matrix(1,:) = N1(:)
@@ -3533,9 +3595,8 @@ end subroutine
 !##################################################
 
 !##################################################
-subroutine getCircumscribedBoxMesh(obj,Box,EEConnect)
+subroutine getCircumscribedBoxMesh(obj,Box)
     class(Mesh_),intent(inout)::obj
-    integer(int32),allocatable :: EEConnect(:,:)
     type(Mesh_),intent(inout) :: box
     real(real64),allocatable :: center(:)
     real(real64) :: centerx,centery,centerz,radius,pi
@@ -3545,7 +3606,6 @@ subroutine getCircumscribedBoxMesh(obj,Box,EEConnect)
 
     allocate(Box%nodcoord(8,3 ))
     allocate(Box%elemnod(5,4))
-    EEConnect = int(zeros(5,4))
     allocate(center(3))
 
     call obj%getCircumscribedSphere(centerx,centery,centerz,radius)
@@ -3571,26 +3631,21 @@ subroutine getCircumscribedBoxMesh(obj,Box,EEConnect)
     Box%elemnod(4,1)=5;Box%elemnod(4,2)=7;Box%elemnod(4,3)=4;Box%elemnod(4,4)=8;
     Box%elemnod(5,1)=2;Box%elemnod(5,2)=7;Box%elemnod(5,3)=4;Box%elemnod(5,4)=5;
 
-    ! for each element, create connectivity
-    EEConnect(1,1)= 7;EEConnect(1,2)=-1;EEConnect(1,3)=-1;EEConnect(1,4)=-1;
-    EEConnect(2,1)= 7;EEConnect(2,2)=-1;EEConnect(2,3)=-1;EEConnect(2,4)=-1;
-    EEConnect(3,1)= 7;EEConnect(3,2)=-1;EEConnect(3,3)=-1;EEConnect(3,4)=-1;
-    EEConnect(4,1)= 7;EEConnect(4,2)=-1;EEConnect(4,3)=-1;EEConnect(4,4)=-1;
-    EEConnect(5,1)= 1;EEConnect(5,2)= 2;EEConnect(5,3)= 3;EEConnect(5,4)= 4;
-
-
 
 end subroutine
 !##################################################
 
-subroutine DelauneygetNewNode3DMesh(obj,NodeID,EEConnect)
+subroutine DelauneygetNewNode3DMesh(obj,NodeID)
     class(Mesh_),intent(inout)::obj
     type(Mesh_) :: element
     integer(int32),intent(in) :: NodeID
-    integer(int32),allocatable,intent(inout) :: EEConnect(:,:)
-    integer(int32) :: ElementID, ElemNum,i,itr
-    integer(int32),allocatable :: element_id_list(:),elemnod(:,:),staged_element(:)
-    real(real64) :: x,y,z,radius,coord(3),center(3),dist
+    integer(int32) :: ElementID, ElemNum,i,itr,newElemID,j,currentID
+    integer(int32),allocatable :: element_id_list(:),elemnod(:,:),&
+    staged_element(:),newElem(:,:),facetNodeID(:,:),staged_facet_id(:)
+    real(real64) :: x,y,z,radius,coord(3),center(3),dist,surf(3)
+
+    type(IO_) :: f
+    call f%open("debug.txt","w")
 
     x = obj%nodcoord(nodeid,1)
     y = obj%nodcoord(nodeid,2)
@@ -3601,6 +3656,7 @@ subroutine DelauneygetNewNode3DMesh(obj,NodeID,EEConnect)
     do i=1, size(obj%ElemNod)
         if(obj%InsideOfElement(ElementID=i,x=x,y=y,z=z ) )then
             ElementID = i
+            currentID = i
             exit
         else
             cycle
@@ -3612,19 +3668,19 @@ subroutine DelauneygetNewNode3DMesh(obj,NodeID,EEConnect)
         return
     endif
 
-    staged_element(1) = ElementID
-
     ! flipping algorithm
     ! #1 check outer sphere for all neighbor elements
-    element_id_list = int(zeros(4))
-    element_id_list(:) = EEConnect(ElementID,:)
-    do i=1,4
-        if(element_id_list(i)<=0 ) cycle
+    ! ElementIDについて，接する全ての要素を探す
+    element_id_list = obj%getNeighboringElement(ElementID,withSurfaceID=.true.,Interfaces=staged_facet_id)
+    do i=1,size(element_id_list)/2
         element = obj%getElement(ElementID=element_id_list(i))
-        ! 本当の外接円ではない．
-        call element%getCircumscribedSphere(center(1),center(2),center(3),radius )
+        call element%getCircumscribedSphereOfTetra(center,radius)
         dist = sqrt(dot_product(center-coord,center-coord) )
         if(dist <= radius)then
+            if(.not.allocated(staged_element) )then
+                staged_element = int(zeros(1) ) 
+                staged_element(1) = ElementID
+            endif
             call ExtendArrayIntVec(mat=staged_element)
             staged_element(size(staged_element) ) = element_id_list(i)
         else
@@ -3632,78 +3688,75 @@ subroutine DelauneygetNewNode3DMesh(obj,NodeID,EEConnect)
         endif
     enddo
 
-    ! remove staged_element(:) and create new elements
-    ! number of element increases 3 x NUMBER_OF_ELEMENTS
-    ! and decreases NUMBER_OF_ELEMENTS
-
-    elemnod = obj%elemnod
-    obj%elemnod = int(zeros( size(elemnod,1)+2*size(staged_element) , size(elemnod,2)  ))  
-    itr=0
-    do i=1,size(staged_element)
-        elemnod(staged_element(i),: ) = -1
-    enddo
-
-    itr=0
-    do i=1,size(elemnod,1)
-        if(elemnod(i,1)==-1 )then
-            cycle
-        else
-            itr=itr+1
-            obj%elemnod(itr,:) = elemnod(i,:)
-        endif
-    enddo
 
     ! add elements in staged_elements
+    i = 4-sum(staged_facet_id)
+    allocate(newElem(sizE(staged_element)/2*3 + i ,4 ) )
+    newElemID = 0
+    do i=1, size(staged_element)/2
+        facetNodeID = obj%getFacetNodeID(ElementID=(staged_element(i) ) )
+        if( .not. allocated(facetNodeID) ) cycle
+        if( size(facetNodeID)==0 ) cycle
+        do j=1,4
+            if( i + size(staged_element)/2 == j )then
+                ! facet of original tetra
+                cycle
+            else
+                newElemID = newElemID + 1
+                newElem(newElemID,1) = facetNodeID(j,3)
+                newElem(newElemID,2) = facetNodeID(j,2)
+                newElem(newElemID,3) = facetNodeID(j,1)
+                newElem(newElemID,4) = NodeID
+            endif
+        enddo
+    enddo 
 
-    do i=1, size(staged_element)
-        ! あと，以下の実装を終えれば完成
-        ! (1) staged_element(:)にリストアップされた要素のうち，
-        ! staged_element(1)と接する面を除いた三角形面を次々と得て
-        ! 右ねじの法則にしたがって，三角形→追加節点
-        ! の順番で構成される新4面体を構成していく．
-        ! 新4面体を構成するたびに，その節点番号を
-        ! obj%elemnodへ追加する．
+    facetNodeID = obj%getFacetNodeID(ElementID=currentID)
+    call print(obj%elemnod(currentID,:) )
+    call print(" ")
+    call print(facetNodeID)
+    call print(" ")
+    call print(newElem)
+    do i=1,sizE(staged_facet_id)
+        if(staged_facet_id(i)==1 )then
+            cycle
+        else
+            newElemID = newElemID + 1
+            newElem(newElemID,1) = facetNodeID(i,3)
+            newElem(newElemID,2) = facetNodeID(i,2)
+            newElem(newElemID,3) = facetNodeID(i,1)
+            newElem(newElemID,4) = NodeID
+        endif
+    enddo   
 
-!        itr=itr+1
-!        ElementID = staged_element(i)
-!        ! add elements
-!        ! ただし，旧要素の面は除く
-!        obj%elemnod(itr,1)=!obj%elemnod(ElementID,1)
-!        obj%elemnod(itr,2)=!obj%elemnod(ElementID,2)
-!        obj%elemnod(itr,3)=!obj%elemnod(ElementID,3)
-!        obj%elemnod(itr,4)=NodeID
-!
-!        obj%elemnod(itr,1)=!obj%elemnod(ElementID,2)
-!        obj%elemnod(itr,2)=!obj%elemnod(ElementID,1)
-!        obj%elemnod(itr,3)=!obj%elemnod(ElementID,4)
-!        obj%elemnod(itr,4)=NodeID
-!
-!        obj%elemnod(itr,1)=!obj%elemnod(ElementID,1)
-!        obj%elemnod(itr,2)=!obj%elemnod(ElementID,3)
-!        obj%elemnod(itr,3)=!obj%elemnod(ElementID,4)
-!        obj%elemnod(itr,4)=NodeID
-!
-    enddo    
+    call print(" ")
+    call print(newElem)
+    
 
+    ! add elements
+    call obj%addElements(connectivity = newElem)
+    j = sizE(staged_element)/2
+    call obj%removeElements(ElementIDs = staged_element(1:j) )    
+
+    ! remove staged_element(:) and create new elements
+    
 end subroutine
 
 !##################################################
-subroutine DelauneygetNewNodeMesh(obj,node_id,staged_node,triangle,box,EEConnect)
+subroutine DelauneygetNewNodeMesh(obj,node_id,staged_node,triangle,box)
     class(Mesh_),intent(inout)::obj
     type(Mesh_),optional,intent(in) :: box
     integer(int32),optional,intent(in) :: node_id
     integer(int32),optional,intent(inout):: staged_node(:) ! if =1,staged.
-    integer(int32),optional,allocatable,intent(inout) ::EEConnect(:,:)
     real(real64),optional,intent(inout)  :: triangle(:,:)
     real(real64) :: avec(3),bvec(3),cvec(3),s,t
     integer(int32) :: triangle_node_id(3),new_node_id,i,j,n,point,cover_triangle
 
 
     if(size(obj%nodcoord,2)==3 .and. present(Node_id) )then
-        if(.not. present(triangle) .and. present(EEConnect)  )then
-            call obj%DelauneygetNewNode3D(NodeID=node_id,EEConnect=EEConnect)
-            return
-        endif
+        
+        call obj%DelauneygetNewNode3D(NodeID=node_id)
+        return
     endif
     ! add NewNode
     staged_node(node_id)=1
@@ -8751,7 +8804,7 @@ function InsideOfElementMesh(obj,ElementID,x,y,z) result(Inside)
         Inside = .true.
         return
     elseif(size(obj%elemnod,2)==4 .and. size(obj%nodcoord,2)==3 )then
-        ! prizm element
+        ! tetra element
 
 
         ! trial #1
@@ -8764,9 +8817,9 @@ function InsideOfElementMesh(obj,ElementID,x,y,z) result(Inside)
         allocate(nvec(3) )
 
         !trial #1
-        node_0 = 1
+        node_0 = 3
         node_1 = 2
-        node_2 = 3
+        node_2 = 1
         
         p1(:) = elemcoord(node_1,:) - elemcoord(node_0,:)
         p2(:) = elemcoord(node_2,:) - elemcoord(node_0,:)
@@ -8918,20 +8971,142 @@ function getNeighboringNodeMesh(obj,nodeid) result(ret)
 end function
 
 !##################################################################################
-function getNeighboringElementMesh(obj, elemid) result(ret)
+function getNeighboringElementMesh(obj, elemid,withSurfaceID,interfaces) result(ret)
     class(Mesh_),intent(inout) :: obj
     integer(int32),intent(in) :: elemid
-    integer(int32) :: dimnum,i,facetnum,elemnodnum,j
-    integer(int32),allocatable :: ret(:),nodelist(:),elemlist(:)
+    integer(int32),allocatable,optional,intent(inout) :: interfaces(:)
+    logical,optional,intent(in) :: withSurfaceID
+    integer(int32) :: dimnum,i,facetnum,elemnodnum,j,n,k
+    integer(int32),allocatable :: ret(:),nodelist(:),elemlist(:),id(:),idr(:),order(:,:)
+    integer(int32),allocatable :: retbuf(:)
     logical :: exists
 
     if(obj%empty() .eqv. .true. )then
         print *, "ERROR :: mesh is empty"
         return
     endif
-    dimnum = size(obj%nodcoord,2)
 
+    ! get element info
+    dimnum = size(obj%nodcoord,2)
     elemnodnum = size(obj%elemnod,2)
+
+
+    if(dimnum==3 .and. elemnodnum==4)then
+        ! Tetra mesh
+        if(present(withSurfaceID) )then
+            if(withSurfaceID)then
+                allocate(ret(8) )
+            else
+                allocate(ret(4) )
+            endif
+        else
+            allocate(ret(4) )
+        endif
+
+        if(present(interfaces) )then
+            interfaces = int(zeros(4) )
+        endif
+        allocate(id(4) )
+        allocate(idr(4) )
+        allocate(order(4,3) )
+        order(1,:) = [3, 2, 1]
+        order(2,:) = [1, 2, 4]
+        order(3,:) = [2, 3, 4]
+        order(4,:) = [3, 1, 4]
+        ret = -1
+        n = 0
+        do k = 1,4
+            idr(1) = obj%elemnod( elemid, order(k,1) )
+            idr(2) = obj%elemnod( elemid, order(k,2) )
+            idr(3) = obj%elemnod( elemid, order(k,3) )
+            do i=size(obj%elemnod,1),1,-1
+                if(i==elemid) cycle
+                do j=1,4
+                    id(1) = obj%elemnod( i, order(j,1) )
+                    id(2) = obj%elemnod( i, order(j,2) )
+                    id(3) = obj%elemnod( i, order(j,3) )
+                    if(sameAsGroup(id,idr) )then
+                        if(present(interfaces) )then
+                            interfaces(k)=1
+                        endif
+                        n=n+1
+                        ret(n) = i
+                        if(size(ret)==8 )then
+                            ret(n+4) = j
+                        endif
+                        exit
+                    endif
+                enddo
+                if(n==k)then
+                    exit
+                endif
+            enddo
+        enddo
+        call searchAndRemove(vec=ret,leq=0)
+        return
+    elseif(dimnum==3 .and. elemnodnum==8)then
+        ! Tetra mesh
+        if(present(withSurfaceID) )then
+            if(withSurfaceID)then
+                allocate(ret(12) )
+            else
+                allocate(ret(6) )
+            endif
+        else
+            allocate(ret(6) )
+        endif
+
+        if(present(interfaces) )then
+            interfaces = int(zeros(6) )
+        endif
+        allocate(id(6) )
+        allocate(idr(6) )
+        allocate(order(6,4) )
+        order(1,:) = [ 4, 3, 2, 1]
+        order(2,:) = [ 1, 2, 6, 5]
+        order(3,:) = [ 2, 3, 7, 6]
+        order(4,:) = [ 3, 4, 8, 7]
+        order(5,:) = [ 4, 1, 5, 8]
+        order(6,:) = [ 5, 6, 7, 8]
+        ret = -1
+        n = 0
+        do k = 1,6
+            idr(1) = obj%elemnod( elemid, order(k,1) )
+            idr(2) = obj%elemnod( elemid, order(k,2) )
+            idr(3) = obj%elemnod( elemid, order(k,3) )
+            idr(4) = obj%elemnod( elemid, order(k,4) )
+            idr(5) = obj%elemnod( elemid, order(k,5) )
+            idr(6) = obj%elemnod( elemid, order(k,6) )
+            do i=size(obj%elemnod,1),1,-1
+                if(i==elemid) cycle
+                do j=1,6
+                    id(1) = obj%elemnod( i, order(j,1) )
+                    id(2) = obj%elemnod( i, order(j,2) )
+                    id(3) = obj%elemnod( i, order(j,3) )
+                    id(4) = obj%elemnod( i, order(j,4) )
+                    id(5) = obj%elemnod( i, order(j,5) )
+                    id(6) = obj%elemnod( i, order(j,6) )
+                    
+                    if(sameAsGroup(id,idr) )then
+                        if(present(interfaces) )then
+                            interfaces(k)=1
+                        endif
+                        n=n+1
+                        ret(n) = i
+                        if(size(ret)==12 )then
+                            ret(n+6) = j
+                        endif
+                        exit
+                    endif
+                enddo
+                if(n==k)then
+                    exit
+                endif
+            enddo
+        enddo
+        call searchAndRemove(vec=ret,leq=0)
+        return
+    endif
 
     allocate(elemlist(size(obj%elemnod,1) ) )
     
@@ -8964,37 +9139,6 @@ function getNeighboringElementMesh(obj, elemid) result(ret)
             ret(j) = i
         endif
     enddo
-    return
-    !if(dimnum==3)then
-    !    if(elemnodnum==8)then
-    !        facetnum = 6
-    !    elseif(elemnodnum==4)then
-    !        facetnum = 4
-    !    else
-    !        print *, "ERROR :: getNeighboringElementMesh :: not implemented. elemnodnum",elemnodnum
-    !    endif
-    !    
-    !elseif(dimnum==2)then
-!
-    !    if(elemnodnum==4)then
-    !        facetnum = 4
-    !    elseif(elemnodnum==3)then
-    !        facetnum = 3
-    !    else
-    !        print *, "ERROR :: getNeighboringElementMesh :: not implemented. elemnodnum",elemnodnum
-    !    endif
-    !elseif(dimnum==1)then
-!
-    !    if(elemnodnum==2)then
-    !        facetnum = 2
-    !    else
-    !        print *, "ERROR :: getNeighboringElementMesh :: not implemented. elemnodnum",elemnodnum
-    !    endif
-    !else
-    !    print *, "ERROR :: getNeighboringElementMesh :: no such dimension-of-mesh as",dimnum
-    !endif
-!
-    !allocate(edgelist(facetnum,) )
 
 
 end function
@@ -9300,6 +9444,55 @@ end subroutine
 
 
 ! ##########################################################################
+
+subroutine addElementsMesh(obj,Connectivity)
+    class(Mesh_),intent(inout) :: obj
+    integer(int32),intent(in) :: connectivity(:,:)
+    integer(int32),allocatable :: buf(:,:)
+    integer(int32) :: n,m,i,newnum
+    n = size(obj%elemnod,1)
+    m = size(obj%elemnod,2)
+    newnum = sizE(connectivity,1)
+    if(m/=size(connectivity,2) )then
+        print *, "ERROR ::addElementsMesh >>  size(obj%elemnod,2) /=  size(connectivity,2)"
+        stop
+    endif
+
+    allocate(buf(n+newnum,m) )
+    buf(1:n,:) = obj%elemnod(:,:)
+    buf(n+1:,:) = connectivity(:,:)
+
+    obj%elemnod = buf
+
+end subroutine
+
+! ##########################################################################
+
+subroutine removeElementsMesh(obj,ElementIDs)
+    class(Mesh_),intent(inout) :: obj
+    integer(int32),intent(in) :: ElementIDs(:)
+    integer(int32),allocatable :: buf(:,:)
+    integer(int32) :: n,m,i,rmnum,itr
+    n = size(obj%elemnod,1)
+    m = size(obj%elemnod,2)
+    rmnum = size(ElementIDs)
+    allocate(buf(n-rmnum,m) )
+    do i=1,rmnum
+        obj%elemnod(ElementIDs(i),1) = -1
+    enddo
+    itr = 0
+    do i=1,n
+        if( obj%elemnod(i,1) == -1 )then
+            cycle
+        else
+            itr=itr+1
+            buf(itr,:) = obj%elemnod(i,:)
+        endif
+    enddo
+
+    obj%elemnod = buf
+
+end subroutine
 
 ! ##########################################################################
 

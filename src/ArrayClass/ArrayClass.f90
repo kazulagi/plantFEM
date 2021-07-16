@@ -184,6 +184,10 @@ module ArrayClass
         module procedure :: removeArrayReal,removeArrayInt,removeArrayReal3rdOrder
     end interface remove
 
+    interface searchAndRemove
+        module procedure :: searchAndRemoveInt
+    end interface
+
     interface removeArray
         module procedure :: removeArrayReal,removeArrayInt,removeArrayReal3rdOrder
     end interface removeArray
@@ -4836,5 +4840,74 @@ function sameAsGroupintVec(vec1, vec2) result(ret)
 
 
 end function
+
+subroutine searchAndRemoveInt(vec,eq,leq,geq)
+    integer(int32),allocatable,intent(inout) :: vec(:)
+    integer(int32),optional,intent(in) :: eq,leq,geq
+    integer(int32),allocatable :: buf(:)
+    integer(int32):: countnum,i,k
+
+    if(present(eq) )then
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i)==eq )then
+                countnum = countnum + 1
+            endif
+        enddo
+
+        k = size(vec) - countnum
+        allocate(buf( k ) )
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i) /= eq )then
+                countnum=countnum+1
+                buf(countnum) = vec(i)
+            endif
+        enddo
+        vec = buf
+    endif
+
+
+    if(present(leq) )then
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i)<=leq )then
+                countnum = countnum + 1
+            endif
+        enddo
+
+        k = size(vec) - countnum
+        allocate(buf( k ) )
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i) > leq )then
+                countnum=countnum+1
+                buf(countnum) = vec(i)
+            endif
+        enddo
+        vec = buf
+    endif
+
+    if(present(geq) )then
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i)>=geq )then
+                countnum = countnum + 1
+            endif
+        enddo
+
+        k = size(vec) - countnum
+        allocate(buf( k ) )
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i) < geq )then
+                countnum=countnum+1
+                buf(countnum) = vec(i)
+            endif
+        enddo
+        vec = buf
+    endif
+
+end subroutine
 
 end module ArrayClass
