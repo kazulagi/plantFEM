@@ -3218,11 +3218,12 @@ end subroutine
 
 
 !##################################################
-subroutine MeshingMesh(obj,Mode,itr_tol)
+subroutine MeshingMesh(obj,Mode,itr_tol,delaunay2d)
     class(Mesh_),intent(inout)::obj
     type(Mesh_) :: box
     type(triangle_)::tri
     type(circle_)::cir
+    logical,optional,intent(in) :: delaunay2d
     integer(int32),optional,intent(in) :: Mode,itr_tol
     integer(int32) :: i,j,k,n,m,node_num,dim_num,dim_mode,itr
     real(real64),allocatable :: stage_range(:,:),triangle(:,:),nodcoord(:,:)
@@ -3235,7 +3236,7 @@ subroutine MeshingMesh(obj,Mode,itr_tol)
     ! Therefore, Mesh%NodCoord(:,:) should be filled preliminary.
 
     dim_mode=input(default=2,option=Mode)
-    if(dim_mode==2)then
+    if(dim_mode==2 .or. present(delaunay2d))then
         if(.not. allocated(obj%NodCoord) )then
             print *, "ERROR :: MeshClass MeshingMesh"
             print *, "This method creates mesh-connectivity for the given nodal coordinates."
@@ -3243,6 +3244,9 @@ subroutine MeshingMesh(obj,Mode,itr_tol)
             return 
         endif
         print *, "Meshing sequence is started."
+        if(.not. delaunay2d)then
+            return
+        endif
 
         node_num=size(obj%NodCoord,1)
         dim_num =size(obj%NodCoord,2)

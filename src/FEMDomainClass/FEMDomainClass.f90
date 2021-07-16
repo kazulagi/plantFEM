@@ -131,6 +131,8 @@ module FEMDomainClass
 		procedure,public :: display => displayFEMDomain
 		procedure,public :: divide => divideFEMDomain
 		procedure,public :: distribute => distributeFEMDomain
+		procedure,public :: Delaunay3D => Delaunay3DFEMDomain
+		procedure,public :: Delaunay2D => Delaunay2DFEMDomain
 		
 		procedure,public :: export => ExportFEMDomain
 
@@ -10108,5 +10110,30 @@ function getElementFEMDOmain(obj,ElementID) result(element)
 	element%mesh = obj%mesh%getelement(ElementID)
 
 end function
+! ##################################################################
+
+! ##################################################################
+subroutine Delaunay3DFEMDomain(obj)
+	class(FEMDomain_),intent(inout) :: obj
+
+	if(.not. allocated(obj%mesh%nodcoord) )then
+		print *, "ERROR :: Delauney3DFEMDomain >> no nodes are found in femdomain%mesh%nodcoord(:,:)"
+	endif
+	call obj%mesh%meshing(mode=3)
+
+end subroutine
+! ##################################################################
+
+! ##################################################################
+subroutine Delaunay2DFEMDomain(obj)
+	class(FEMDomain_),intent(inout) :: obj
+
+	if(.not. allocated(obj%mesh%nodcoord) )then
+		print *, "ERROR :: Delauney3DFEMDomain >> no nodes are found in femdomain%mesh%nodcoord(:,:)"
+	endif
+	call obj%mesh%meshing(delaunay2d=.true.)
+
+end subroutine
+! ##################################################################
 
 end module FEMDomainClass
