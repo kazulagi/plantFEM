@@ -1,14 +1,29 @@
 import os
+from src.MeshClass.MeshClass import Mesh
 #import src.FEMDomainClass.FEMDomainClass
 
 
 # functions:
-def install():
-    os.system("python3 install.py")
 
-def run(script="run"):
-    os.system("plantfem "+script)
-    return 0
+class plantfem:
+
+    def __init__(self,name="untitled"):
+        self.scriptname = name
+        self.script = open(self.scriptname+".f90","w")
+        self.script.write("use plantfem"+"\n")
+        self.script.write("implicit none"+"\n")
+
+    def install(self):
+        os.system("python3 install.py")
+        
+    def hello(self,message="hello"):
+        self.script.write("call print('"+message+"')\n")
+
+    def run(self):
+        self.script.write("end")
+        self.script.close()
+        os.system("plantfem "+str(self.scriptname)+".f90")
+
 
 
 # Regacy codes >>>>
