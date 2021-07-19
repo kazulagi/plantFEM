@@ -12,6 +12,7 @@ class plantfem:
         self.script = open(self.scriptname+".f90","w")
         self.script.write("use plantfem"+"\n")
         self.script.write("implicit none"+"\n")
+        self.definition = ""
 
     def install(self):
         os.system("python3 install.py")
@@ -19,9 +20,49 @@ class plantfem:
     def hello(self,message="hello"):
         self.script.write("call print('"+message+"')\n")
 
+    
+    def soybean(self,config="Tutorial/playon_obj/realSoybeanConfig.json ",name="nameless_soybean",x=0.0,y=0.0,z=0.0):
+        self.soyname = name
+        self.soyconfig = config
+        
+        self.definition = self.definition + "\n"
+        self.definition = self.definition + "type(Soybean_) :: "+self.soyname+"\n"
+        
+        self.script.write("call "+self.soyname+" "+"%"+" init(config='"+self.soyconfig+"')\n" )
+        self.script.write("call "+self.soyname+" "+"%"+" vtk('"+self.soyname+"')\n" )
+    
+        self.script.write("call "+self.soyname+" "+"%"+" move(x="+str(x)+"d0)\n" )
+        self.script.write("call "+self.soyname+" "+"%"+" move(y="+str(y)+"d0)\n" )
+        self.script.write("call "+self.soyname+" "+"%"+" move(z="+str(z)+"d0)\n" )
+        
+    def soil(self,name="nameless_soil",x=0.0,y=0.0,z=0.0):
+        self.soilname = name
+        
+        self.definition = self.definition + "\n"
+        self.definition = self.definition + "type(Soil_) :: "+self.soilname+"\n"
+        
+        self.script.write("call "+self.soilname+" "+"%"+" init()\n" )
+        self.script.write("call "+self.soilname+" "+"%"+" vtk('"+self.soilname+"')\n" )
+        
+        self.script.write("call "+self.soilname+" "+"%"+" move(x="+str(x)+"d0)\n" )
+        self.script.write("call "+self.soilname+" "+"%"+" move(y="+str(y)+"d0)\n" )
+        self.script.write("call "+self.soilname+" "+"%"+" move(z="+str(z)+"d0)\n" )
+        
     def run(self):
         self.script.write("end")
         self.script.close()
+        
+        
+        with open(self.scriptname+".f90")as f:
+            data = f.readlines()
+
+        #3行目に挿入
+        data.insert(2, self.definition)
+
+        #元のファイルに書き込み
+        with open(self.scriptname+".f90", mode='w')as f:
+            f.writelines(data)
+        
         os.system("plantfem "+str(self.scriptname)+".f90")
 
 

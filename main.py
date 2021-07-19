@@ -1,17 +1,15 @@
+# sample code for python-api of plantfem
 import plantfem as pf
 
-mesh = pf.Mesh()
-mesh.read("test.vtk")
-
-f = open("test.txt","w")
-f.write(str(mesh.vtkdata.cell_connectivity))
-
-print(mesh.NodCoord)
-print(mesh.ElemNod)
-
-mesh.save("test3.vtu",binary=False)
-
-# run serve.f90
+# create untitled.f90
 plantfem = pf.plantfem()
+
+# sey hello
 plantfem.hello(message="Hello, world!")
+
+# create objects
+plantfem.soybean(x=0.0,y=0.0,z=0.0)
+plantfem.soil(x=10.0)
+
+# run 
 plantfem.run()
