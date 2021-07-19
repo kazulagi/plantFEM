@@ -1502,6 +1502,150 @@ end function
 
 
 ! ########################################################
+function convertStringToInteger(message) result(ret)
+	character(*),intent(in):: message
+	character(1) :: x
+	character(2*len(message) ) :: ret
+	integer(int32) :: i
+	ret = ""
+	!allocate(ret(len(message)*2 ) )
+	do i=1,len(message)
+		x =  message(i:i)
+		select case(x)
+			case(" ")
+				cycle
+			case("a","A")
+				ret(2*i-1:2*i) =  "01"
+			case("b","B")
+				ret(2*i-1:2*i) =  "02"
+			case("c","C")
+				ret(2*i-1:2*i) =  "03"
+			case("d","D")
+				ret(2*i-1:2*i) =  "04"
+			case("e","E")
+				ret(2*i-1:2*i) =  "05"
+			case("f","F")
+				ret(2*i-1:2*i) =  "06"
+			case("g","G")
+				ret(2*i-1:2*i) =  "07"
+			case("h","H")
+				ret(2*i-1:2*i) =  "08"
+			case("i","I")
+				ret(2*i-1:2*i) =  "09"
+			case("j","J")
+				ret(2*i-1:2*i) =  "10"
+			case("k","K")
+				ret(2*i-1:2*i) =  "11"
+			case("l","L")
+				ret(2*i-1:2*i) =  "12"
+			case("m","M")
+				ret(2*i-1:2*i) =  "13"
+			case("n","N")
+				ret(2*i-1:2*i) =  "14"
+			case("o","O")
+				ret(2*i-1:2*i) =  "15"
+			case("p","P")
+				ret(2*i-1:2*i) =  "16"
+			case("q","Q")
+				ret(2*i-1:2*i) =  "17"
+			case("r","R")
+				ret(2*i-1:2*i) =  "18"
+			case("s","S")
+				ret(2*i-1:2*i) =  "19"
+			case("t","T")
+				ret(2*i-1:2*i) =  "20"
+			case("u","U")
+				ret(2*i-1:2*i) =  "21"
+			case("v","V")
+				ret(2*i-1:2*i) =  "22"
+			case("w","W")
+				ret(2*i-1:2*i) =  "23"
+			case("x","X")
+				ret(2*i-1:2*i) =  "24"
+			case("y","Y")
+				ret(2*i-1:2*i) =  "25"
+			case("z","Z")
+				ret(2*i-1:2*i) =  "26"
+		end select
+	enddo
+
+end function
+! ########################################################
+
+
+! ########################################################
+function convertIntegerToString(message) result(ret)
+	character(*),intent(in):: message
+	character(2) :: x
+	character(len(message) ) :: ret
+	integer(int32) :: i
+	ret = ""
+	!allocate(ret(len(message)*2 ) )
+	do i=1,len(message)
+		x(1:2) =  message(2*i-1:2*i)
+		select case(x)
+			case("99")
+				cycle
+			case(" ")
+				cycle
+			case("01")
+				ret(i:i) =  "a"
+			case("02")
+				ret(i:i) =  "b"
+			case("03")
+				ret(i:i) =  "c"
+			case("04")
+				ret(i:i) =  "d"
+			case("05")
+				ret(i:i) =  "e"
+			case("06")
+				ret(i:i) =  "f"
+			case("07")
+				ret(i:i) =  "g"
+			case("08")
+				ret(i:i) =  "h"
+			case("09")
+				ret(i:i) =  "i"
+			case("10")
+				ret(i:i) =  "j"
+			case("11")
+				ret(i:i) =  "k"
+			case("12")
+				ret(i:i) =  "l"
+			case("13")
+				ret(i:i) =  "m"
+			case("14")
+				ret(i:i) =  "n"
+			case("15")
+				ret(i:i) =  "o"
+			case("16")
+				ret(i:i) =  "p"
+			case("17")
+				ret(i:i) =  "q"
+			case("18")
+				ret(i:i) =  "r"
+			case("19")
+				ret(i:i) =  "s"
+			case("20")
+				ret(i:i) =  "t"
+			case("21")
+				ret(i:i) =  "u"
+			case("22")
+				ret(i:i) =  "v"
+			case("23")
+				ret(i:i) =  "w"
+			case("24")
+				ret(i:i) =  "x"
+			case("25")
+				ret(i:i) =  "y"
+			case("26")
+				ret(i:i) =  "z"
+		end select
+	enddo
+
+end function
+! ########################################################
+! ########################################################
 subroutine rsa_keygen(prime1,prime2,seed,id_rsa,id_rsa_pub)
 	integer(int32),intent(in) :: prime1,prime2,seed
 	integer(int32),intent(out) :: id_rsa(2),id_rsa_pub(2)
