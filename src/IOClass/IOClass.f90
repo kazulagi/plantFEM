@@ -51,11 +51,11 @@ module IOClass
 
     
     interface print
-        module procedure printChar,printString, printReal64, printReal32, printInt64, printInt32
+        module procedure printChar, printReal64, printReal32, printInt64, printInt32
     end interface print
 
     interface disp
-        module procedure printChar,printString, printReal64, printReal32, printInt64, printInt32
+        module procedure printChar, printReal64, printReal32, printInt64, printInt32
     end interface disp
 
     interface plot
@@ -688,15 +688,6 @@ subroutine printChar(char)
     character(*),intent(in) :: char
 
     write(*,'(A)' ) trim(char)
-
-end subroutine
-! #############################################
-
-! #############################################
-subroutine printString(char)
-    type(String_) :: char
-
-    write(*,'(A)' ) trim(char%all)
 
 end subroutine
 ! #############################################

@@ -55,8 +55,6 @@ function getNvecShapeFunction(obj,x,y,z) result(nvec)
     real(real64),optional,intent(in)::x,y,z
     real(real64),allocatable :: nvec(:)
 
-    ! 
-
     
 end function
 ! #####################################################

@@ -13,9 +13,9 @@ module ContactMechanicsClass
 		type(FEMDomainp_),allocatable :: FEMDomains(:)
 		type(LinearSolver_) :: solver
 		integer(int32),allocatable :: contactlist(:,:)
-		real(real64),allocatable,private :: YoungModulus(:)
-		real(real64),allocatable,private :: PoissonRatio(:)
-		real(real64),allocatable,private :: Density(:)
+		real(real64),allocatable :: YoungModulus(:)
+		real(real64),allocatable :: PoissonRatio(:)
+		real(real64),allocatable :: Density(:)
 
 		real(real64),allocatable :: YoungModulusList(:,:)
 		real(real64),allocatable :: PoissonRatioList(:,:)
@@ -464,13 +464,14 @@ end subroutine
 
 
 ! #####################################################
-subroutine runCM(obj,penaltyparameter,debug)
+subroutine runCM(obj,penaltyparameter,debug,GaussPointProjection)
 	class(ContactMechanics_),target,intent(inout) :: obj
 	real(real64),optional,intent(in) :: penaltyparameter
 
 	logical,optional,intent(in) :: debug
 	logical :: Debugflag=.false.
-	integer(int32) :: i,nod_max,nn,itr,fstep,j,k,l,o
+	logical,optional,intent(in) :: GaussPointProjection
+	integer(int32) :: i,nod_max,nn,itr,fstep,j,k,l,o,GaussPointID
 	integer(int32) :: node_num_1,node_num_2,converge_check,error
 	type(IO_) :: ErrorLog
 	real(real64) :: rvec0,u_norm,er,er0,reacforcex,reacforcey
@@ -479,9 +480,17 @@ subroutine runCM(obj,penaltyparameter,debug)
 	integer(int32),allocatable :: DomainIDs1(:),DomainIDs12(:),InterConnect(:)
 
 	real(real64),allocatable :: A_ij(:,:), x_i(:), b_i(:) ! A x = b
-	real(real64) :: position(3)
+	real(real64),allocatable :: A_ij_GPP(:,:)
+	real(real64) :: position(3),center(3)
 	real(real64) :: penalty
 	type(FEMDomain_),pointer :: domain1, domain2
+	type(ShapeFunction_) :: sf
+	logical :: GPP ! enable Gauss-Point projection
+	if(present(GaussPointProjection) )then
+		if(GaussPointProjection)then
+			GPP=.true.
+		endif
+	endif
 
 
 	if(present(debug) )then
@@ -564,24 +573,62 @@ subroutine runCM(obj,penaltyparameter,debug)
 					DomainIDs12(1) = i
 					DomainIDs12(2:) = j
 
-					do NodeID=1, domain1%nn()
-					    ! For 1st element, create stiffness matrix
-					    ! set global coordinate
-						position(:) = domain1%mesh%nodcoord(NodeID,:)
-					    InterConnect(1) = NodeID
-					    if( domain2%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))<=0 )then
-					        cycle
-					    endif
-					    InterConnect(2:) = domain2%connectivity(domain2%mesh%nearestElementID(x=position(1),y=position(2),z=position(3) ))
-					    A_ij = penalty*domain2%connectMatrix(position,DOF=domain2%nd() ) 
-					    ! assemble them 
-					    call obj%solver%assemble(&
-					        connectivity=InterConnect,&
-					        DOF=domain2%nd() ,&
-					        eMatrix=A_ij,&
-					        DomainIDs=DomainIDs12)    
-					enddo
 
+					if(GPP)then
+						! compute constrait matrix 
+						! by Gauss-Point Projection
+						InterConnect = int( zeros(domain1%nne()+ domain2%nne()) )
+						
+						DomainIDs12 = int( zeros(domain1%nne()+ domain2%nne()) ) 
+						DomainIDs12(1:domain1%nne() ) = i
+						DomainIDs12(domain1%nne()+1: ) = j
+
+						do ElementID=1, domain1%ne()
+							do GaussPointID = 1, domain1%ngp()
+			
+								! For 1st element, create stiffness matrix
+						    	! set global coordinate
+
+								position(:) = domain1%GlobalPositionOfGaussPoint(ElementID,GaussPointID)
+								
+						    	
+						    	if( domain2%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))<=0 )then
+						    	    cycle
+						    	endif
+								
+								InterConnect(1:domain1%nne() ) = domain1%connectivity(ElementID) 
+						    	InterConnect(domain1%nne()+1:) &
+									= domain2%connectivity(domain2%mesh%nearestElementID(x=position(1),y=position(2),z=position(3) ))
+								sf = domain1%mesh%getShapeFunction(ElementID,GaussPointID)
+								A_ij = penalty*domain2%connectMatrix(position,DOF=domain2%nd(),shapefunction=sf ) 
+						    	
+								! assemble them 
+						    	call obj%solver%assemble(&
+						    	    connectivity=InterConnect,&
+						    	    DOF=domain2%nd() ,&
+						    	    eMatrix=A_ij,&
+						    	    DomainIDs=DomainIDs12)    
+							enddo
+						enddo
+					else
+						do NodeID=1, domain1%nn()
+						    ! For 1st element, create stiffness matrix
+						    ! set global coordinate
+							position(:) = domain1%mesh%nodcoord(NodeID,:)
+						    if( domain2%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))<=0 )then
+						        cycle
+						    endif
+							InterConnect(1) = NodeID
+						    InterConnect(2:) = domain2%connectivity(domain2%mesh%nearestElementID(x=position(1),y=position(2),z=position(3) ))
+						    A_ij = penalty*domain2%connectMatrix(position,DOF=domain2%nd() ) 
+						    ! assemble them 
+						    call obj%solver%assemble(&
+						        connectivity=InterConnect,&
+						        DOF=domain2%nd() ,&
+						        eMatrix=A_ij,&
+						        DomainIDs=DomainIDs12)    
+						enddo
+					endif
 				endif
 			enddo
 		enddo
