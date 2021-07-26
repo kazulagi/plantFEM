@@ -3,13 +3,21 @@ module MathClass
     use, intrinsic :: iso_fortran_env
 	implicit none
 	
+
+	integer(int32) :: i_i = 0
+	integer(int32) :: j_j = 0
+	integer(int32) :: k_k = 0
+	!integer(int32) :: i_i = 0
+
+
+
 	type :: Math_
 		real(real64) :: PI = 3.141592653589793d0
 		complex(kind(0d0))	 :: i = (0.0d0, 1.0d0)
 		complex(kind(0d0))	 :: j = (0.0d0, 1.0d0)
 	end type
 	!real(real64) :: pi=3.141592653589793238d0
-	!real(real64) :: e =2.718281828459045235d0
+	!
 
 	interface str
 		module procedure fstring_Int, fstring_Real, fstring_complex, fstring_Int_len, fstring_Real_len, fstring_logical, fstring_String
