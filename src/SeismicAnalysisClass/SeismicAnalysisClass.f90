@@ -100,10 +100,10 @@ subroutine loadWaveSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_max,direc
     !integer(int32) :: WAVE_DISP = 1
     !integer(int32) :: WAVE_VELOCITY = 2
     !integer(int32) :: WAVE_ACCEL = 3
-    if(loadAs < 0 .or. loadAs >3)then
-        print *, "Invalid loadAs :: WAVE_DISP,WAVE_VELOCITY or WAVE_ACCEL"
-        stop
-    endif
+    !if(obj%loadAs < 0 .or. obj%loadAs >3)then
+    !    print *, "Invalid loadAs :: WAVE_DISP,WAVE_VELOCITY or WAVE_ACCEL"
+    !    stop
+    !endif
 
     if(present(direction) )then
         obj%wavedirection = direction

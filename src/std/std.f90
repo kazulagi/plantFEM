@@ -30,4 +30,8 @@ module std
     use PhysicalFieldClass
     implicit none
     
+    !integer(int32) :: i_pf
+    !integer(int32) :: j_pf
+    !integer(int32) :: k_pf
+
 end module std
