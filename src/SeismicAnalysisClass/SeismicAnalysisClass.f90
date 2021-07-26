@@ -2,6 +2,11 @@ module SeismicAnalysisClass
     use fem
     implicit none
 
+    integer(int32) :: WAVE_DISP = 1
+    integer(int32) :: WAVE_VELOCITY = 2
+    integer(int32) :: WAVE_ACCEL = 3
+
+
     type::SeismicAnalysis_
         type(FEMDomain_),pointer :: femdomain
         real(real64),allocatable :: da(:) ! increment of accel.
@@ -16,7 +21,8 @@ module SeismicAnalysisClass
         integer(int32),allocatable :: FixNodeList_x(:)
         integer(int32),allocatable :: FixNodeList_y(:)
         integer(int32),allocatable :: FixNodeList_z(:)
-        character(1) :: wavetype="z"
+        character(1) :: wavedirection="z"
+        integer(int32) :: wavetype = 0
         real(real64) :: dt=1.0d0
         real(real64) :: error=0.0d0
         real(real64) :: t=0.0d0
@@ -85,17 +91,27 @@ end subroutine
 
 
 ! ##############################################
-subroutine loadWaveSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_max,direction)
+subroutine loadWaveSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_max,direction,wavetype)
     class(SeismicAnalysis_),intent(inout) :: obj
     real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
+    integer(int32),intent(in) :: wavetype !
     character(1),optional,intent(in) :: direction ! x, y or z
+    obj%wavetype= wavetype
+    !integer(int32) :: WAVE_DISP = 1
+    !integer(int32) :: WAVE_VELOCITY = 2
+    !integer(int32) :: WAVE_ACCEL = 3
+    if(loadAs < 0 .or. loadAs >3)then
+        print *, "Invalid loadAs :: WAVE_DISP,WAVE_VELOCITY or WAVE_ACCEL"
+        stop
+    endif
 
     if(present(direction) )then
-        obj%wavetype = direction
+        obj%wavedirection = direction
     endif
 
     obj%WaveNodeList = obj%femdomain%select(&
         x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+    
 end subroutine
 ! ##############################################
 
@@ -153,15 +169,15 @@ subroutine updateWaveSeismicAnalysis(obj,timestep,direction)
     integer(int32) :: node_id,i,dir,dim_num
 
     if(present(direction) )then
-        obj%wavetype = direction
+        obj%wavedirection = direction
     endif
-    if(obj%wavetype=="x" .or.obj%wavetype=="X" )then
+    if(obj%wavedirection=="x" .or.obj%wavedirection=="X" )then
         dir=1
     endif
-    if(obj%wavetype=="y" .or.obj%wavetype=="Y" )then
+    if(obj%wavedirection=="y" .or.obj%wavedirection=="Y" )then
         dir=2
     endif
-    if(obj%wavetype=="z" .or.obj%wavetype=="Z" )then
+    if(obj%wavedirection=="z" .or.obj%wavedirection=="Z" )then
         dir=3
     endif
 
@@ -169,10 +185,22 @@ subroutine updateWaveSeismicAnalysis(obj,timestep,direction)
         print *, "Caution >> updateWaveSeismicAnalysis >> no wave"
     endif
     dim_num = obj%femdomain%nd()
-    do i=1,size(obj%WaveNodeList)
-        node_id = obj%WaveNodeList(i)
-        obj%A( dim_num*(node_id-1)+dir ) = obj%wave(timestep ,2)
-    enddo
+    if(obj%wavetype==WAVE_ACCEL)then
+        do i=1,size(obj%WaveNodeList)
+            node_id = obj%WaveNodeList(i)
+            obj%A( dim_num*(node_id-1)+dir ) = obj%wave(timestep ,2)
+        enddo
+    elseif(obj%wavetype==WAVE_VELOCITY)then
+        do i=1,size(obj%WaveNodeList)
+            node_id = obj%WaveNodeList(i)
+            obj%V( dim_num*(node_id-1)+dir ) = obj%wave(timestep ,2)
+        enddo
+    elseif(obj%wavetype==WAVE_DISP)then
+        do i=1,size(obj%WaveNodeList)
+            node_id = obj%WaveNodeList(i)
+            obj%U( dim_num*(node_id-1)+dir ) = obj%wave(timestep ,2)
+        enddo
+    endif
 
 end subroutine
 
@@ -213,15 +241,16 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,restart)
         obj%step = obj%step+1
 
         call obj%updateWave(timestep=obj%step)
-
+        
         ! show info.
         call print("SeismicAnalysis >> "//str(obj%t-obj%dt)//"< t <"//str(obj%t)//" sec.")
         
         ! solve Linear-ElastoDynamic problem with Reyleigh dumping and Newmark Beta
         call obj%LinearReyleighNewmark()
-        
-        call obj%save("step_"//str(obj%step),ratio=1.0d0)
 
+        call obj%save("step_"//str(obj%step),ratio=100.0d0)
+        
+        call obj%femdomain%vtk("seismic_"//str(i) )
     enddo 
 end subroutine
 ! ##############################################
@@ -267,7 +296,7 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
 
     !do  ! Newton's Loop
         ! Element matrix
-        call solver%init()
+        call solver%init(NumberOfNode=[obj%femdomain%nn()],DOF=3)
 
         do i=1,obj%femdomain%ne()
             ! For each element
@@ -316,7 +345,6 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
                 connectivity=obj%femdomain%connectivity(ElementID=i), &
                 DOF = obj%femdomain%nd(), &
                 eVector = R_i)
-            
         enddo
 
         ! introduce boundary conditions
