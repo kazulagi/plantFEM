@@ -1,19 +1,21 @@
-use PlantFEM
+use plantfem 
 implicit none
 
-integer(int32) :: i
-type(Random_) :: random
 type(IO_) :: f
+type(Random_) :: random
 
-! create a gaussian
-call f%open("gaussian.txt","w")
-do i=1,10000
-    ! white gauss noizse
-    write(f%fh,*) i, random%gauss(mu=0.0d0, sigma=0.2d0)
+! open file
+call f%open("gaussian_noise.txt","w")
+
+! i_i is a default loop variable.
+! Loop over 1,000 times.
+do i_i =1,1000
+    ! ... and write ITER, RANDOM NUMBER 
+    call f%write(i_i,random%gauss(mu=0.0d0, sigma=0.10d0) )
 enddo
 call f%close()
 
-! plot 2-D graph with lines
-call f%plot("gaussian.txt","with line")
+! plot graph
+call f%plot("gaussian_noise.txt", "w l")
 
 end

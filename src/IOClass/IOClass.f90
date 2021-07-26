@@ -20,12 +20,35 @@ module IOClass
         
         generic,public :: open => openIOchar, openIOstring
         !procedure,public :: open => openIO
-        procedure,pass :: writeIOchar
-        procedure,pass :: writeIOstring
+        procedure,pass :: writeIOchar,writeIOcharchar,writeIOcharcharchar
+        procedure,pass :: writeIOstring,writeIOstringstring,writeIOstringstringstring
+
+        ! int-char-int
+        procedure,pass :: writeIOint32re64
+
+        procedure,pass :: writeIOint32re64vector
+        procedure,pass :: writeIOint32int32vector
+
         procedure,pass :: writeIOint32
+        procedure,pass :: writeIOint32int32
+        procedure,pass :: writeIOint32int32int32
+        procedure,pass :: writeIOint32int32int32int32
+        procedure,pass :: writeIOint32int32int32int32int32
+        procedure,pass :: writeIOint32int32int32int32int32int32
+
+
+        
         procedure,pass :: writeIOint32Vector
         procedure,pass :: writeIOint32Array
+
         procedure,pass :: writeIOre64
+        procedure,pass :: writeIOre64re64
+        procedure,pass :: writeIOre64re64re64
+        procedure,pass :: writeIOre64re64re64re64
+        procedure,pass :: writeIOre64re64re64re64re64
+        procedure,pass :: writeIOre64re64re64re64re64re64
+
+        
         procedure,pass :: writeIOre64Vector
         procedure,pass :: writeIOre64Array
         procedure,pass :: writeIOcomplex64
@@ -33,6 +56,14 @@ module IOClass
         procedure,pass :: writeIOcomplex64Array
         generic,public :: write => writeIOchar,writeIOstring,writeIOre64,writeIOre64Vector,writeIOre64Array,&
             writeIOint32,writeIOint32Vector,writeIOint32Array,&
+            writeIOre64re64,writeIOre64re64re64,writeIOre64re64re64re64,&
+            writeIOre64re64re64re64re64,writeIOre64re64re64re64re64re64,&
+            writeIOint32int32,writeIOint32int32int32,writeIOint32int32int32int32,&
+            writeIOint32int32int32int32int32,writeIOint32int32int32int32int32int32,&
+            writeIOstringstring,writeIOstringstringstring,&
+            writeIOcharchar,writeIOcharcharchar,&
+            writeIOint32re64vector,writeIOint32int32vector,&
+            writeIOint32re64,&
             writeIOcomplex64,writeIOcomplex64Vector,writeIOcomplex64Array
         !procedure,public :: write => writeIO
         procedure,pass :: readIOchar
@@ -444,6 +475,41 @@ end subroutine writeIOchar
 ! #############################################
 
 
+! #############################################
+subroutine writeIOcharchar(obj,char1,char2)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: char1,char2
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    
+    write(obj%fh, '(A)') char1//" "//char2
+
+end subroutine writeIOcharchar
+! #############################################
+
+
+! #############################################
+subroutine writeIOcharcharchar(obj,char1,char2,char3)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: char1,char2,char3
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    
+    write(obj%fh, '(A)') char1//" "//char2//" "//char3
+
+end subroutine writeIOcharcharchar
+! #############################################
+
+
+
 
 ! #############################################
 subroutine writeIOint32(obj,in32)
@@ -460,6 +526,124 @@ subroutine writeIOint32(obj,in32)
 
 end subroutine writeIOint32
 ! #############################################
+
+! #############################################
+subroutine writeIOint32re64(obj,in32,re64)
+    class(IO_),intent(inout) :: obj
+    integer(int32),intent(in) :: in32
+    real(real64),intent(in) :: re64
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    
+    write(obj%fh, '(A)') trim(str(in32))//" "//trim(str(re64))
+
+end subroutine writeIOint32re64
+! #############################################
+
+! #############################################
+
+
+subroutine writeIOint32int32(obj,in32_1,in32_2)
+    class(IO_),intent(inout) :: obj
+    integer(int32),intent(in) :: in32_1,in32_2
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    
+    write(obj%fh, '(A)') trim(str(in32_1))//" "//trim(str(in32_2))
+
+end subroutine 
+
+! ####################################################
+
+! #############################################
+
+
+subroutine writeIOint32int32int32(obj,in32_1,in32_2,in32_3)
+    class(IO_),intent(inout) :: obj
+    integer(int32),intent(in) :: in32_1,in32_2,in32_3
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    
+    write(obj%fh, '(A)') trim(str(in32_1))//" "//trim(str(in32_2))//" "//trim(str(in32_3))
+
+end subroutine 
+
+! ####################################################
+
+! #############################################
+
+
+subroutine writeIOint32int32int32int32(obj,in32_1,in32_2,in32_3,in32_4)
+    class(IO_),intent(inout) :: obj
+    integer(int32),intent(in) :: in32_1,in32_2,in32_3,in32_4
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    
+    write(obj%fh, '(A)') trim(str(in32_1))//" "//trim(str(in32_2))//" "//trim(str(in32_3))//" "//trim(str(in32_4))
+
+end subroutine 
+
+! ####################################################
+
+
+! #############################################
+
+
+subroutine writeIOint32int32int32int32int32(obj,in32_1,in32_2,in32_3,in32_4,in32_5)
+    class(IO_),intent(inout) :: obj
+    integer(int32),intent(in) :: in32_1,in32_2,in32_3,in32_4,in32_5
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    
+    write(obj%fh, '(A)') trim(str(in32_1))//" "//trim(str(in32_2))//" "&
+        //trim(str(in32_3))//" "//trim(str(in32_4))//" "//trim(str(in32_5))
+
+end subroutine 
+
+! ####################################################
+
+
+! #############################################
+
+
+subroutine writeIOint32int32int32int32int32int32(obj,in32_1,in32_2,in32_3,in32_4,in32_5,in32_6)
+    class(IO_),intent(inout) :: obj
+    integer(int32),intent(in) :: in32_1,in32_2,in32_3,in32_4,in32_5,in32_6
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    
+    write(obj%fh, '(A)') trim(str(in32_1))//" "//trim(str(in32_2))//" "&
+        //trim(str(in32_3))//" "//trim(str(in32_4))//" "//trim(str(in32_5))&
+        //" "//trim(str(in32_6))
+
+end subroutine 
+
+! ####################################################
+
 
 
 ! #############################################
@@ -479,6 +663,48 @@ subroutine writeIOint32Vector(obj,in32)
 end subroutine
 ! #############################################
 
+
+! #############################################
+subroutine writeIOint32int32vector(obj,in32_1,in32)
+    class(IO_),intent(inout) :: obj
+    integer(int32),intent(in) :: in32_1,in32(:)
+    integer(int32) :: i
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+
+    write(obj%fh, '(A)',advance="no") trim(str(in32_1))
+    do i=1,size(in32)
+        write(obj%fh, '(A)',advance="no") " "//trim(str(in32(i) ))
+    enddo
+    write(obj%fh, '(A)',advance="yes") " "
+end subroutine
+! #############################################
+
+
+! #############################################
+subroutine writeIOint32re64Vector(obj,in32_1,re64)
+    class(IO_),intent(inout) :: obj
+    integer(int32),intent(in) :: in32_1
+    real(real64),intent(in) :: re64(:)
+    integer(int32) :: i
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+
+    write(obj%fh, '(A)',advance="no") trim(str(in32_1))
+    do i=1,size(re64)
+        write(obj%fh, '(A)',advance="no") " "//trim(str(re64(i) ))
+    enddo
+    write(obj%fh, '(A)',advance="yes") " "
+end subroutine
+! #############################################
 
 ! #############################################
 subroutine writeIOint32Array(obj,in32)
@@ -512,6 +738,107 @@ subroutine writeIOre64(obj,re64)
 
 end subroutine writeIOre64
 ! #############################################
+
+
+
+subroutine writeIOre64re64(obj,re64_1,re64_2)
+    class(IO_),intent(inout) :: obj
+    real(real64),intent(in) :: re64_1,re64_2
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    
+    write(obj%fh, '(A)') trim(str(re64_1))//" "//trim(str(re64_2))
+
+end subroutine 
+
+! ####################################################
+
+! #############################################
+
+
+subroutine writeIOre64re64re64(obj,re64_1,re64_2,re64_3)
+    class(IO_),intent(inout) :: obj
+    real(real64),intent(in) :: re64_1,re64_2,re64_3
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    
+    write(obj%fh, '(A)') trim(str(re64_1))//" "//trim(str(re64_2))//" "//trim(str(re64_3))
+
+end subroutine 
+
+! ####################################################
+
+! #############################################
+
+
+subroutine writeIOre64re64re64re64(obj,re64_1,re64_2,re64_3,re64_4)
+    class(IO_),intent(inout) :: obj
+    real(real64),intent(in) :: re64_1,re64_2,re64_3,re64_4
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    
+    write(obj%fh, '(A)') trim(str(re64_1))//" "//trim(str(re64_2))//" "//trim(str(re64_3))//" "//trim(str(re64_4))
+
+end subroutine 
+
+! ####################################################
+
+
+! #############################################
+
+
+subroutine writeIOre64re64re64re64re64(obj,re64_1,re64_2,re64_3,re64_4,re64_5)
+    class(IO_),intent(inout) :: obj
+    real(real64),intent(in) :: re64_1,re64_2,re64_3,re64_4,re64_5
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    
+    write(obj%fh, '(A)') trim(str(re64_1))//" "//trim(str(re64_2))//" "&
+        //trim(str(re64_3))//" "//trim(str(re64_4))//" "//trim(str(re64_5))
+
+end subroutine 
+
+! ####################################################
+
+
+! #############################################
+
+
+subroutine writeIOre64re64re64re64re64re64(obj,re64_1,re64_2,re64_3,re64_4,re64_5,re64_6)
+    class(IO_),intent(inout) :: obj
+    real(real64),intent(in) :: re64_1,re64_2,re64_3,re64_4,re64_5,re64_6
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    
+    write(obj%fh, '(A)') trim(str(re64_1))//" "//trim(str(re64_2))//" "&
+        //trim(str(re64_3))//" "//trim(str(re64_4))//" "//trim(str(re64_5))&
+        //" "//trim(str(re64_6))
+
+end subroutine 
+
+! ####################################################
+
+
 
 
 ! #############################################
@@ -648,6 +975,39 @@ subroutine writeIOstring(obj,string)
     
 
 end subroutine writeIOstring
+! #############################################
+
+
+! #############################################
+subroutine writeIOstringstring(obj,string1,string2)
+    class(IO_),intent(inout) :: obj
+    type(String_),intent(in) :: string1,string2
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    write(obj%fh, '(A)') str(string1)//str(string2)
+    
+
+end subroutine 
+! #############################################
+
+! #############################################
+subroutine writeIOstringstringstring(obj,string1,string2,string3)
+    class(IO_),intent(inout) :: obj
+    type(String_),intent(in) :: string1,string2,string3
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    write(obj%fh, '(A)') str(string1)//" "//str(string2)//" "//str(string3)
+    
+
+end subroutine 
 ! #############################################
 
 ! #############################################
