@@ -37,6 +37,7 @@ module LinearSolverClass
     integer(int32) :: currentID=1
     integer(int32) :: b_currentID=1
     real(real64) :: er0=dble(1.0e-08)
+    logical :: ReadyForFix = .false.
   contains
     procedure, public :: init => initLinearSolver
 
@@ -62,6 +63,7 @@ subroutine initLinearSolver(obj,NumberOfNode,DOF)
   integer(int32),optional,intent(in) :: NumberOfNode(:),DOF
   integer(int32) :: i,j,k,n,num_total_unk,node_count
   
+  obj%ReadyForFix = .false.
     ! non-Element-by-element
   if(allocated(obj % a) ) deallocate(obj % a)
   if(allocated(obj % b) ) deallocate(obj % b)
@@ -218,6 +220,10 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
   real(real64),intent(in) :: entryvalue
   integer(int32),allocatable :: Index_I(:), Index_J(:)
   integer(int32) :: i,j, n, offset,m
+
+  if(.not.obj%ReadyForFix)then
+    call obj%prepareFix()
+  endif
 
   if(present(debug) )then
     if(debug)then
@@ -688,11 +694,9 @@ subroutine prepareFixLinearSolver(obj,debug)
   integer(int32) :: i,m,n,rn,rd,cn,cd,same_n,count_reduc,j
   integer(int32) :: Index_I_max, Index_J_max,row_domain_id_max,column_Domain_ID_max
   
-
+  if(obj%ReadyForFix) return
   ! remove overlapped elements
-  if(.not.allocated(obj%NumberOfNode) )then
-    return
-  endif
+  
   count_reduc = 0
 
   if(present(debug) )then
@@ -820,7 +824,7 @@ subroutine prepareFixLinearSolver(obj,debug)
   obj%column_Domain_ID=column_Domain_ID
 
 
-  
+  obj%ReadyForFix = .true.
   if(present(debug) )then
     if(debug)then
       print *, "prepareFixLinearSolver >> [ok] Done"

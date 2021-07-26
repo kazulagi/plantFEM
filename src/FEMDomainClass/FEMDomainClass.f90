@@ -125,6 +125,7 @@ module FEMDomainClass
 		procedure,public :: copy => copyFEMDomain
 		procedure,public :: convertMeshType => convertMeshTypeFEMDomain
 		procedure,public :: contactdetect => contactdetectFEMDomain
+		procedure,public :: centerPosition => centerPositionFEMDomain
 		procedure,public :: create => createFEMDomain
 
         procedure,public :: delete => DeallocateFEMDomain
@@ -149,6 +150,7 @@ module FEMDomainClass
 		procedure,public :: gnuplotExportStress => GnuplotExportStress  
 		procedure,public :: getDBCVector => getDBCVectorFEMDomain
 		procedure,public :: getVolume => getVolumeFEMDomain
+		procedure,public :: getJacobiMatrix => getJacobiMatrixFEMDomain
 		procedure,public :: getLayerID => getLayerIDFEMDomain
 		procedure,public :: getLayerAttribute => getLayerAttributeFEMDomain
 		procedure,public :: getLayerDataStyle => getLayerDataStyleFEMDomain
@@ -156,7 +158,8 @@ module FEMDomainClass
 		procedure,public :: getNearestNodeID => getNearestNodeIDFEMDomain
 		procedure,public :: getSurface => getSurfaceFEMDomain
 		procedure,public :: getElement => getElementFEMDOmain
-		procedure,public :: getLocalCoordinate => getLocalCoordinateFEMDomain		
+		procedure,public :: getLocalCoordinate => getLocalCoordinateFEMDomain	
+		procedure,public :: GlobalPositionOfGaussPoint => getGlobalPositionOfGaussPointFEMDomain	
 		
         procedure,public :: init   => InitializeFEMDomain
 		procedure,public :: import => ImportFEMDomain
@@ -185,6 +188,7 @@ module FEMDomainClass
 		procedure,public :: nd => ndFEMDomain
 		procedure,public :: ne => neFEMDomain
 		procedure,public ::	nne => nneFEMDomain
+		procedure,public ::	ngp => ngpFEMDomain
 		procedure,public ::	NodeID => NodeIDFEMDomain
 		
 
@@ -7102,7 +7106,9 @@ subroutine getSurfaceFEMDomain(obj)
 	call obj%mesh%getSurface()
 
 end subroutine
+! ##################################################
 
+! ##################################################
 function getVolumeFEMDomain(obj,elem) result(ret)
 	class(FEMDomain_),intent(inout) :: obj
 	integer(int32),intent(in) :: elem
@@ -7116,6 +7122,24 @@ function getVolumeFEMDomain(obj,elem) result(ret)
 	call GetAllShapeFunc(obj%ShapeFunction,elem_id=i,nod_coord=obj%Mesh%NodCoord,&
 		elem_nod=obj%Mesh%ElemNod,OptionalGpID=1)
 	ret = obj%ShapeFunction%detJ
+
+end function
+! ##################################################
+
+! ##################################################
+function getJacobiMatrixFEMDomain(obj,elem) result(ret)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32),intent(in) :: elem
+	real(real64),allocatable :: ret(:,:)
+	integer(int32) :: i,j
+
+
+	obj%ShapeFunction%ElemType=obj%Mesh%GetElemType()
+	call SetShapeFuncType(obj%ShapeFunction)
+	i = elem
+	call GetAllShapeFunc(obj%ShapeFunction,elem_id=i,nod_coord=obj%Mesh%NodCoord,&
+		elem_nod=obj%Mesh%ElemNod,OptionalGpID=1)
+	ret = obj%ShapeFunction%Jmat
 
 end function
 ! ##################################################
@@ -8557,6 +8581,45 @@ end subroutine
 ! ######################################################################
 
 
+! ######################################################################
+function centerPositionFEMDomain(obj,ElementID) result(ret)
+	class(FEMDomain_),intent(in) :: obj
+	integer(int32),intent(in) :: ElementID
+	real(real64),allocatable :: ret(:)
+	integer(int32) :: i
+	! get center coordinate of the element 
+
+	ret = zeros(obj%nd() )
+
+	do i=1,obj%nne()
+		ret = ret + obj%mesh%nodcoord( obj%mesh%elemnod(ElementID,i) ,:)
+	enddo
+
+	ret = 1.0d0/dble( obj%nne() )* ret
+
+end function
+! ######################################################################
+
+
+! ######################################################################
+function getGlobalPositionOfGaussPointFEMDomain(obj,ElementID,GaussPointID) result(ret)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32),intent(in) :: ElementID,GaussPointID
+	real(real64),allocatable :: ret(:),center(:)
+	integer(int32) :: i
+	type(ShapeFunction_) :: sf
+	! get center coordinate of the element 
+	center = obj%centerPosition(ElementID)
+
+	sf = obj%mesh%getShapeFunction(ElementID,GaussPointID)
+
+	ret = zeros(size(center) )
+	ret(:) = matmul( transpose(sf%elemcoord) , sf%nmat ) + center(:)
+	
+end function
+! ######################################################################
+
+
 
 ! ######################################################################
 recursive function getShapeFunctionFEMDomain(obj, ElementID,GaussPointID,ReducedIntegration,Position) result(sobj)
@@ -8734,6 +8797,102 @@ function nneFEMDomain(obj) result(ret)
 
 end function
 ! ######################################################################
+
+
+! ######################################################################
+function ngpFEMDomain(obj) result(ret)
+	class(FEMDomain_),intent(inout) :: obj
+	type(ShapeFunction_) :: sf
+	integer(int32) :: ret
+
+	sf = obj%mesh%getShapeFunction(ElementID=1, GaussPointID=1)
+	ret = sf%NumOfGP
+
+!	red = input(default=.false.,option=reduction)
+!
+!	if(obj%nd()==1 )then
+!		if(obj%nne()==2 )then
+!			! 1st order 1-D line element
+!			if(reduction)then
+!				ret = 1
+!			else
+!				ret = 2
+!			endif
+!		elseif(obj%nne()==3 )then
+!			! 2nd order 1-D line element
+!			if(reduction)then
+!				ret = 2
+!			else
+!				ret = 3
+!			endif
+!		else
+!			print *, "ERROR :: ngpFEMDomain >> obj%nne() should be 2 or 3 for 1D"
+!			ret = -1
+!		endif
+!	elseif(obj%nd()==2 )then
+!		if(obj%nne()==3 )then
+!			! 1st order 2-D triangle element
+!			if(reduction)then
+!				ret = 1
+!			else
+!				ret = 3
+!			endif
+!		elseif(obj%nne()==6 )then
+!			! 2nd order 2-D triangle element
+!			if(reduction)then
+!				ret = 3
+!			else
+!				ret = 6
+!			endif
+!		elseif(obj%nne()==4 )then
+!			! 1st order 2-D rectangle element
+!			if(reduction)then
+!				ret = 1
+!			else
+!				ret = 4
+!			endif
+!
+!		elseif(obj%nne()==8 .or. obj%nne()==9 )then
+!			! 2nd order 2-D rectangle element
+!			if(reduction)then
+!				ret = 4
+!			else
+!				ret = 9
+!			endif
+!		else
+!			print *, "ERROR :: ngpFEMDomain >> obj%nne() should be 3, 4, or 9 for 2-D"
+!			ret = -1
+!		endif
+!
+!	elseif(obj%nd()==3 )then
+!
+!		if(obj%nne()==4 )then
+!			! 1st order 3-D tetra element
+!			if(reduction)then
+!				ret = 1
+!			else
+!				ret = 4
+!			endif
+!		elseif(obj%nne()==8 )then
+!			! 1st order 2-D rectangle element
+!			if(reduction)then
+!				ret = 1
+!			else
+!				ret = 8
+!			endif
+!
+!		else
+!			print *, "ERROR :: ngpFEMDomain >> obj%nne() should be 4, 8 for 3-D"
+!			ret = -1
+!		endif
+!	else
+!		print *, "ERROR :: ngpFEMDomain >> obj%nd() should be 1, 2 or 3."
+!		ret = -1
+!	endif
+
+end function
+! ######################################################################
+
 
 subroutine editFEMDomain(obj,x,altitude)
     class(FEMDomain_),intent(inout) :: obj
@@ -9754,38 +9913,81 @@ end subroutine
 
 
 ! ###################################################################
-function ConnectMatrixFEMDomain(obj,position,DOF) result(connectMatrix)
+function ConnectMatrixFEMDomain(obj,position,DOF,shapefunction) result(connectMatrix)
 	class(FEMDomain_),intent(inout) :: obj
+	type(ShapeFunction_),optional,intent(in) :: shapefunction
 	type(ShapeFunction_) :: sobj
 	real(real64),intent(in) :: position(:)
 	integer(int32),intent(in) :: DOF
 	real(real64),allocatable :: connectMatrix(:,:),cm_DOF1(:,:),Rcvec(:),Bc(:,:)
 	integer(int32) :: i,j,n
 
-	sobj = obj%getShapeFunction(position=position)
-
-	n = (obj%nne()+1) * DOF
 	
-	if(sobj%elementid == -1)then
-		! no contact
-		connectMatrix = zeros(n,n)
-		return
-	endif
+	if(present(shapefunction) )then
+		! Gauss-Point Projection
+		sobj = obj%getShapeFunction(position=position)
+		n = (obj%nne()+size(shapefunction%nmat,1) ) * DOF
+		
+		if(sobj%elementid == -1)then
+			! no contact
+			connectMatrix = zeros(n,n)
+			return
+		endif
+		
+		Bc = zeros(DOF, n)
 
-	n = (size(sobj%nmat)+1) * DOF
-	Bc = zeros(DOF, n)
-	do i=1,DOF
-		BC(i,i) = 1.0d0
-	enddo
-	allocate(Rcvec(n) )
-	Rcvec(1:DOF) = 1.0d0
-	do i=1,size(sobj%nmat)
-		do j=1,DOF
-			Rcvec(DOF+ (i-1)*DOF + j) = - sobj%nmat(i)
-			Bc(j, i*DOF + j ) = - sobj%nmat(i)
+		do i=1,DOF
+			BC(i,i) = 1.0d0
 		enddo
-	enddo
-	connectMatrix = matmul( transpose(Bc),Bc  )
+
+		allocate(Rcvec(n) )
+		! <    Domain #1    > <    Domain #2    >
+		! (N1 0  0 N2 0  0 ... N1 0  0 N2 0  0 ...   )
+		! (0  N1 0 0  N2 0 ... 0  N1 0 0  N2 0 ...   )
+		! (0  0 N1 0  0 N2 ... 0  0 N1 0  0 N2 ...   )
+
+		! \epsilon \int_{x_e} Bc^T Bc detJ d x_e = 0
+		do i=1,size(shapefunction%nmat)
+			do j=1,DOF
+				Bc(j, (i-1)*DOF + j ) = shapefunction%nmat(i)
+			enddo
+		enddo
+
+		do i=1,size(sobj%nmat)
+			do j=1,DOF
+				Bc(j, size(shapefunction%nmat)*DOF + (i-1)*DOF + j ) = - sobj%nmat(i)
+			enddo
+		enddo
+
+		connectMatrix = matmul( transpose(Bc),Bc  )*shapefunction%detJ
+		return
+	
+	else
+		sobj = obj%getShapeFunction(position=position)
+		n = (obj%nne()+1) * DOF
+		
+		if(sobj%elementid == -1)then
+			! no contact
+			connectMatrix = zeros(n,n)
+			return
+		endif
+	
+		n = (size(sobj%nmat)+1) * DOF
+		Bc = zeros(DOF, n)
+		do i=1,DOF
+			BC(i,i) = 1.0d0
+		enddo
+		allocate(Rcvec(n) )
+		Rcvec(1:DOF) = 1.0d0
+		do i=1,size(sobj%nmat)
+			do j=1,DOF
+				Rcvec(DOF+ (i-1)*DOF + j) = - sobj%nmat(i)
+				Bc(j, i*DOF + j ) = - sobj%nmat(i)
+			enddo
+		enddo
+		connectMatrix = matmul( transpose(Bc),Bc  )
+			
+	endif
 	
 end function
 ! ##################################################################

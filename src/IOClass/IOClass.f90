@@ -45,17 +45,21 @@ module IOClass
         generic,public :: read => readIOchar,readIOInt,readIOIntVector,readIOIntArray&
             ,readIOReal64,readIOReal64Vector,readIOReal64Array
 
+        procedure,public :: plot => plotIO
+        procedure,public :: splot => splotIO
+
+
         procedure,public :: readline => readlineIO
         procedure,public :: close => closeIO    
     end type
 
     
     interface print
-        module procedure printChar,printString, printReal64, printReal32, printInt64, printInt32
+        module procedure printChar, printReal64, printReal32, printInt64, printInt32
     end interface print
 
     interface disp
-        module procedure printChar,printString, printReal64, printReal32, printInt64, printInt32
+        module procedure printChar, printReal64, printReal32, printInt64, printInt32
     end interface disp
 
     interface plot
@@ -693,15 +697,6 @@ end subroutine
 ! #############################################
 
 ! #############################################
-subroutine printString(char)
-    type(String_) :: char
-
-    write(*,'(A)' ) trim(char%all)
-
-end subroutine
-! #############################################
-
-! #############################################
 subroutine printReal64(re64)
     real(real64),intent(in) :: re64
     character(20) :: char
@@ -847,5 +842,45 @@ subroutine spyRealArray(array)
 
 
 end subroutine
+
+subroutine plotIO(obj,name,option)
+    class(IO_),intent(inout) ::  obj
+    character(*),intent(in) :: name
+    character(*),optional,intent(in) :: option
+    type(IO_) :: gp_script
+
+    call obj%open(name,"r")
+    call gp_script%open("gp_script.gp","w")
+    if(present(option) )then
+        call gp_script%write("plot '"//name//"' "//option)
+    else
+        call gp_script%write("plot '"//name//"' ")
+    endif
+
+    call gp_script%close()
+    call system("gnuplot gp_script.gp -pause")
+    call obj%close()
+end subroutine
+
+
+subroutine splotIO(obj,name,option)
+    class(IO_),intent(inout) ::  obj
+    character(*),intent(in) :: name
+    character(*),optional,intent(in) :: option
+    type(IO_) :: gp_script
+
+    call obj%open(name,"r")
+    call gp_script%open("gp_script.gp","w")
+    if(present(option) )then
+        call gp_script%write("splot '"//name//"' "//option)
+    else
+        call gp_script%write("splot '"//name//"' ")
+    endif
+
+    call gp_script%close()
+    call system("gnuplot gp_script.gp -pause")
+
+end subroutine
+
 
 end module IOClass
