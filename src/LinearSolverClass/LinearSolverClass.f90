@@ -1,6 +1,7 @@
 module LinearSolverClass
   use, intrinsic :: iso_fortran_env
   use omp_lib
+  use TimeClass
   use MathClass
   use MPIClass
   implicit none
@@ -38,7 +39,9 @@ module LinearSolverClass
     integer(int32) :: b_currentID=1
     real(real64) :: er0=dble(1.0e-08)
     logical :: ReadyForFix = .false.
+
   contains
+    
     procedure, public :: init => initLinearSolver
 
     procedure, public :: set => setLinearSolver
@@ -218,16 +221,21 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
   integer(int32),intent(in) :: nodeid
   integer(int32),optional,intent(in) :: entryID,DOF,row_DomainID
   real(real64),intent(in) :: entryvalue
-  integer(int32),allocatable :: Index_I(:), Index_J(:)
+  integer(int32),allocatable :: Index_I(:), Index_J(:),NumNodeBeforeDomainID(:)
   integer(int32) :: i,j, n, offset,m
+  type(Time_) :: time
 
+
+  ! too slow
   if(.not.obj%ReadyForFix)then
     call obj%prepareFix()
   endif
 
   if(present(debug) )then
     if(debug)then
+      call time%start()
       print *, "fixLinearSolver  >> [0] started!"
+
     endif
   endif
 
@@ -303,7 +311,8 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
 
     if(present(debug) )then
       if(debug)then
-        print *, "fixLinearSolver  >> [1] sMulti-domain tarted!"
+        print *, "fixLinearSolver  >> [1] Multi-domain started!"
+        call time%show()
       endif
     endif
 
@@ -320,29 +329,46 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
       !print *, "Locked ",(offset + nodeid),"by",entryvalue
     endif
 
-    ! update other values
-    Index_I = obj%Index_I
-    Index_J = obj%Index_J
-    do i=1, size(Index_I)
-      m = obj%row_Domain_ID(i)
-      if(m==1)then
-        n = 0
-      else
-        n = sum(obj%NumberOfNode(1:m-1))
-      endif
-      Index_I(i) = Index_I(i) + n
-    enddo
-    do i=1, size(Index_J)
-      m = obj%column_Domain_ID(i)
-      if(m==1)then
-        n = 0
-      else
-        n = sum(obj%NumberOfNode(1:m-1))
-      endif
-      Index_J(i) = Index_J(i) + n
-    enddo
 
+    if(present(debug) )then
+      if(debug)then
+        print *, "fixLinearSolver  >> [1-2] count offset number"
+        call time%show()
+      endif
+    endif    
     
+    allocate(NumNodeBeforeDomainID(size(obj%row_Domain_ID,1) ))
+    NumNodeBeforeDomainID(1) = 0
+    do m=2,size(obj%NumberOfNode)
+      NumNodeBeforeDomainID(m) = sum(obj%NumberOfNode(1:m-1))
+    enddo
+!
+!    if(present(debug) )then
+!      if(debug)then
+!        print *, "fixLinearSolver  >> [1-2] lock checking"
+!        call time%show()
+!      endif
+!    endif    
+!
+!    ! update other values
+!    Index_I = obj%Index_I
+!    Index_J = obj%Index_J
+!    
+!    do i=1, size(Index_I)
+!      m = obj%row_Domain_ID(i)
+!      if(m==1)then
+!        cycle
+!      endif
+!      Index_I(i) = Index_I(i) + NumNodeBeforeDomainID(m)
+!    enddo
+!
+!    do i=1, size(Index_J)
+!      m = obj%column_Domain_ID(i)
+!      if(m==1)then
+!        cycle
+!      endif
+!      Index_J(i) = Index_J(i) + NumNodeBeforeDomainID(m)
+!    enddo    
 
     if(.not. allocated(obj%val) .or. .not.allocated(obj%b))then
       print *, "ERROR >> fixLinearSolver .not. allocated(val) "
@@ -354,18 +380,31 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
     if(present(debug) )then
       if(debug)then
         print *, "fixLinearSolver  >> [2] Updating b-vector"
+        call time%show()
       endif
     endif
 
     ! update b-vector (Right-hand side vector)
     do i=1,size(obj%val)
-      if(obj%index_J(i)==nodeid .and. obj%column_Domain_ID(i) == row_DomainID )then
+      
+
+      if(obj%val(i)==0.0d0)then
+        cycle
+      endif
+
+      if(obj%column_Domain_ID(i) /= row_DomainID)then
+        cycle
+      endif
+      
+      if(obj%index_J(i)==nodeid  )then  
+        
         n = obj%row_Domain_ID(i)
-        if(n == 1)then
-          offset = 0
-        else
-          offset = sum( obj%NumberOfNode(1:n-1) )*obj%DOF
-        endif
+        !if(n == 1)then
+        !  offset = 0
+        !else
+        !  offset = sum( obj%NumberOfNode(1:n-1) )*obj%DOF
+        !endif
+        offset = NumNodeBeforeDomainID(n)*obj%DOF
 
         n = obj%Index_I(i)
         !print *, "obj%b( offset + nodeid )",obj%b( offset + n ), offset, n,offset+ n
@@ -389,25 +428,30 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
     if(present(debug) )then
       if(debug)then
         print *, "fixLinearSolver  >> [3] Updated b-vector"
+        call time%show()
       endif
     endif
 
 
 
     do i=1,size(obj%index_I) ! for all queries of A matrix
+      !if(obj%index_I(i)==nodeid .and. obj%row_Domain_ID(i)==row_DomainID )then
+      !  obj%val(i)=0.0d0
+      !endif
+
       if(obj%index_I(i)==nodeid .and. obj%row_Domain_ID(i)==row_DomainID )then
         obj%val(i)=0.0d0
-      endif
-      if(obj%index_I(i)==nodeid .and. obj%row_Domain_ID(i)==row_DomainID )then
         if(obj%index_J(i)==nodeid .and. obj%column_Domain_ID(i)==row_DomainID )then
           obj%val(i)=1.0d0
         endif
       endif
+
     enddo
     
     if(present(debug) )then
       if(debug)then
         print *, "fixLinearSolver  >> [ok] Done!"
+        call time%show()
       endif
     endif
 
@@ -1147,6 +1191,7 @@ subroutine bicgstab_CRS(a, index_i, index_j, x, b, itrmax, er, debug)
     enddo
     ev = dot_product(e,v)
     vv = dot_product(v,v)
+
     if(  vv==0.0d0 ) stop "Bicgstab devide by zero"
 		c3 = ev / vv
     x(:) = x(:) + alp * p(:) + c3 * e(:)

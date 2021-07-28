@@ -8,7 +8,7 @@ pf=platform.system()
 if pf == 'Windows':
     print("OS : Windows")
     print("Now installing...")
-    os.system("install.bat")
+    os.system("install/install.bat")
     print("Please use Windows Subsystem Linux(WSL) ")
     print("Successfully Installed!!")
 elif pf == "Darwin":
