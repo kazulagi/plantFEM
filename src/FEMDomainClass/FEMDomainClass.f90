@@ -9936,9 +9936,9 @@ function ConnectMatrixFEMDomain(obj,position,DOF,shapefunction) result(connectMa
 		
 		Bc = zeros(DOF, n)
 
-		do i=1,DOF
-			BC(i,i) = 1.0d0
-		enddo
+		!do i=1,DOF
+		!	BC(i,i) = 1.0d0
+		!enddo
 
 		allocate(Rcvec(n) )
 		! <    Domain #1    > <    Domain #2    >
@@ -9952,7 +9952,6 @@ function ConnectMatrixFEMDomain(obj,position,DOF,shapefunction) result(connectMa
 				Bc(j, (i-1)*DOF + j ) = shapefunction%nmat(i)
 			enddo
 		enddo
-
 		do i=1,size(sobj%nmat)
 			do j=1,DOF
 				Bc(j, size(shapefunction%nmat)*DOF + (i-1)*DOF + j ) = - sobj%nmat(i)
@@ -9986,7 +9985,7 @@ function ConnectMatrixFEMDomain(obj,position,DOF,shapefunction) result(connectMa
 			enddo
 		enddo
 		connectMatrix = matmul( transpose(Bc),Bc  )
-			
+		return
 	endif
 	
 end function

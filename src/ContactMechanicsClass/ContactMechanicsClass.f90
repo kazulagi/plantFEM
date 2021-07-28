@@ -431,6 +431,7 @@ subroutine fixContactMechanics(obj,direction,disp,DomainID,x_min,x_max,y_min,y_m
 
 
 	print *, "fixContactMechanics >> [2] setting fix boundary, size:: ",size(FixBoundary)
+
 	do i=1,size(FixBoundary)
 		call obj%solver%fix(nodeid=FixBoundary(i), &
 			EntryID=EntryID, &
@@ -599,6 +600,7 @@ subroutine runCM(obj,penaltyparameter,debug,GaussPointProjection)
 								InterConnect(1:domain1%nne() ) = domain1%connectivity(ElementID) 
 						    	InterConnect(domain1%nne()+1:) &
 									= domain2%connectivity(domain2%mesh%nearestElementID(x=position(1),y=position(2),z=position(3) ))
+									
 								sf = domain1%mesh%getShapeFunction(ElementID,GaussPointID)
 								A_ij = penalty*domain2%connectMatrix(position,DOF=domain2%nd(),shapefunction=sf ) 
 						    	

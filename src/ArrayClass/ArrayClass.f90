@@ -12,7 +12,9 @@ module ArrayClass
     !interface newArray
     !    module procedure newArrayReal
     !end interface
-
+    interface dot_product_omp
+        module procedure :: dot_product_omp
+    end interface
 
     interface zeros
         module procedure :: zerosRealArray, zerosRealVector,zerosRealArray3,zerosRealArray4,zerosRealArray5
@@ -4909,5 +4911,23 @@ subroutine searchAndRemoveInt(vec,eq,leq,geq)
     endif
 
 end subroutine
+
+function dot_product_omp(a, b, omp) result(dp)
+    real(real64),intent(in) :: a(:),b(:)
+    real(real64) :: dp
+    integer(int32) :: i
+    logical,intent(in) :: omp
+
+    if(omp)then
+        dp = 0.0d0
+        !$omp parallel do reduction(+:dp)
+        do i=1,size(a)
+            dp = dp + a(i)*b(i)
+        enddo
+        !$omp end parallel do
+    else
+        dp =dot_product(a,b)
+    endif
+end function
 
 end module ArrayClass

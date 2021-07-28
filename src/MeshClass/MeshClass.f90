@@ -8584,7 +8584,7 @@ function nearestElementIDMesh(obj,x,y,z) result(ret)
 
     if(.not.InOrOut(xcoord,xmax,xmin,dim_num) )then  
         ret = -1
-        print *, "Caution! :: getNearestElementID :: out of domain"
+        !print *, "Caution! :: getNearestElementID :: out of domain"
         return
     endif
 
