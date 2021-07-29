@@ -3,7 +3,7 @@ program main
     implicit none
 
     type(Array_) :: A, B, C, I, str_array
-    real(real64),allocatable :: vector(:)
+    real(real64),allocatable :: vector(:),small_vector(:)
     integer(int32),allocatable :: vector_int(:)
     real(real64),allocatable :: matrix(:,:)
     integer(int32),allocatable :: matrix_int(:,:)
@@ -28,7 +28,12 @@ program main
     print *, "zeros"
     vector = zeros(5) ! Five 0
     call print(vector)
-    
+
+    ! hstack
+    print *, "hstack"
+    small_vector = [10.0d0, 20.0d0, 30.0d0, 40.0d0]
+    call print( hstack(vector, small_vector) )
+
     ! np.arange
     print *, "arange"
     vector = arange(5) ! 1, 2, 3 , 4, 5
