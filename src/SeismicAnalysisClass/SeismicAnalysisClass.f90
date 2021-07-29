@@ -97,13 +97,11 @@ subroutine loadWaveSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_max,direc
     integer(int32),intent(in) :: wavetype !
     character(1),optional,intent(in) :: direction ! x, y or z
     obj%wavetype= wavetype
-    !integer(int32) :: WAVE_DISP = 1
-    !integer(int32) :: WAVE_VELOCITY = 2
-    !integer(int32) :: WAVE_ACCEL = 3
-    !if(obj%loadAs < 0 .or. obj%loadAs >3)then
-    !    print *, "Invalid loadAs :: WAVE_DISP,WAVE_VELOCITY or WAVE_ACCEL"
-    !    stop
-    !endif
+    
+    if(obj%wavetype < 0 .or. obj%wavetype >3)then
+        print *, "Invalid loadAs :: WAVE_DISP,WAVE_VELOCITY or WAVE_ACCEL"
+        stop
+    endif
 
     if(present(direction) )then
         obj%wavedirection = direction
@@ -125,37 +123,55 @@ subroutine fixDisplacementSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_ma
 
     if(present(direction) )then
         if( trim(direction) == "x" .or.  trim(direction) == "X")then
-            obj%FixNodeList_x = obj%femdomain%select(&
-                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            obj%FixNodeList_x = hstack(obj%FixNodeList_x , &
+             obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
+                )
         elseif( trim(direction) == "y" .or.  trim(direction) == "Y")then
-            obj%FixNodeList_y = obj%femdomain%select(&
-                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            obj%FixNodeList_y = hstack(obj%FixNodeList_y , &
+             obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
+                )
         elseif( trim(direction) == "z" .or.  trim(direction) == "Z")then
-            obj%FixNodeList_z = obj%femdomain%select(&
-                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            obj%FixNodeList_z = hstack(obj%FixNodeList_z , &
+             obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
+                )
         elseif( trim(direction) == "all" .or.  trim(direction) == "ALL")then
         
-            obj%FixNodeList_x = obj%femdomain%select(&
-            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            obj%FixNodeList_x = hstack(obj%FixNodeList_x , &
+             obj%femdomain%select(&
+            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
+            )
         
-            obj%FixNodeList_y = obj%femdomain%select(&
-                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            obj%FixNodeList_y = hstack(obj%FixNodeList_y , &
+             obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
+                )
 
-            obj%FixNodeList_z = obj%femdomain%select(&
-                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            obj%FixNodeList_z = hstack(obj%FixNodeList_z , &
+             obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
+                )
         else
             print *, "ERROR :: loadWaveSeismicAnalysis >> direction should be x, y or z"
             stop 
         endif
     else
-        obj%FixNodeList_x = obj%femdomain%select(&
-            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+        obj%FixNodeList_x = hstack(obj%FixNodeList_x , &
+         obj%femdomain%select(&
+            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
+            )
         
-        obj%FixNodeList_y = obj%femdomain%select(&
-            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+        obj%FixNodeList_y = hstack(obj%FixNodeList_y , &
+         obj%femdomain%select(&
+            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
+            )
 
-        obj%FixNodeList_z = obj%femdomain%select(&
-            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+        obj%FixNodeList_z = hstack(obj%FixNodeList_z , &
+         obj%femdomain%select(&
+            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
+            )
     endif
 end subroutine
 ! ##############################################
@@ -348,6 +364,8 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
         enddo
 
         ! introduce boundary conditions
+        call print(obj%FixNodeList_x)
+        stop
         if(allocated(obj%FixNodeList_x) )then
             do i=1,size(obj%FixNodeList_x)
                 call solver%fix( dim_num*(obj%FixNodeList_x(i)-1)+1, 0.0d0 )

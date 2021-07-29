@@ -12,6 +12,10 @@ module ArrayClass
     !interface newArray
     !    module procedure newArrayReal
     !end interface
+    interface hstack
+        module procedure :: hstackInt32Vector2,hstackInt32Vector3, hstackReal64Vector2,hstackReal64Vector3
+    end interface
+
     interface dot_product_omp
         module procedure :: dot_product_omp
     end interface
@@ -4930,4 +4934,130 @@ function dot_product_omp(a, b, omp) result(dp)
     endif
 end function
 
+
+! ##############################################################
+function hstackInt32Vector2(Vec1, vec2) result(ret)
+    integer(int32),allocatable,intent(in) :: vec1(:),vec2(:)
+    integer(int32),allocatable :: ret(:)
+
+    if(.not.allocated(vec2).and. .not.allocated(vec1) )then
+        return
+    endif
+
+    if(.not.allocated(vec1) )then
+        ret = vec2
+        return
+    endif
+
+
+    if(.not.allocated(vec2) )then
+        ret = vec1
+        return
+    endif
+
+    allocate(ret(  size(vec1) + size(vec2) ) )
+    ret(1:size(vec1) ) = vec1(:)
+    ret(size(vec1)+1: ) = vec2(:)
+
+end function
+! ##############################################################
+
+! ##############################################################
+function hstackInt32Vector3(vec1, vec2,vec3) result(ret)
+    integer(int32),allocatable,intent(in) :: vec1(:),vec2(:),vec3(:)
+    integer(int32),allocatable :: ret(:)
+
+    if(.not.allocated(vec2).and. .not.allocated(vec1) )then
+        if( .not.allocated(vec3) )then
+            return
+        endif
+    endif
+
+    if(.not.allocated(vec1) )then
+        ret =  hstackInt32Vector2(vec2, vec3)
+        return
+    endif
+
+
+    if(.not.allocated(vec2) )then
+        ret =  hstackInt32Vector2(vec1, vec3)
+        return
+    endif
+
+    if(.not.allocated(vec3) )then
+        ret =  hstackInt32Vector2(vec1, vec2)
+        return
+    endif
+
+    allocate(ret(  size(vec1) + size(vec2)+ size(vec3) ) )
+    ret(           1:size(vec1)            ) = vec1(:)
+    ret(size(vec1)+1:size(vec1)+size(vec2) ) = vec2(:)
+    ret(size(vec1)+size(vec2)+1:           ) = vec3(:)
+
+end function
+! ##############################################################
+
+
+! ##############################################################
+function hstackreal64Vector2(Vec1, vec2) result(ret)
+    real(real64),allocatable,intent(in) :: vec1(:),vec2(:)
+    real(real64),allocatable :: ret(:)
+
+
+    if(.not.allocated(vec2).and. .not.allocated(vec1) )then
+        return
+    endif
+
+    if(.not.allocated(vec1) )then
+        ret = vec2
+        return
+    endif
+
+
+    if(.not.allocated(vec2) )then
+        ret = vec1
+        return
+    endif
+
+    allocate(ret(  size(vec1) + size(vec2) ) )
+    ret(1:size(vec1) ) = vec1(:)
+    ret(size(vec1)+1: ) = vec2(:)
+
+end function
+! ##############################################################
+
+! ##############################################################
+function hstackreal64Vector3(vec1, vec2,vec3) result(ret)
+    real(real64),allocatable,intent(in) :: vec1(:),vec2(:),vec3(:)
+    real(real64),allocatable :: ret(:)
+
+    if(.not.allocated(vec2).and. .not.allocated(vec1) )then
+        if( .not.allocated(vec3) )then
+            return
+        endif
+    endif
+
+    if(.not.allocated(vec1) )then
+        ret =  hstackreal64Vector2(vec2, vec3)
+        return
+    endif
+
+
+    if(.not.allocated(vec2) )then
+        ret =  hstackreal64Vector2(vec1, vec3)
+        return
+    endif
+
+    if(.not.allocated(vec3) )then
+        ret =  hstackreal64Vector2(vec1, vec2)
+        return
+    endif
+
+    allocate(ret(  size(vec1) + size(vec2)+ size(vec3) ) )
+    ret(           1:size(vec1)            ) = vec1(:)
+    ret(size(vec1)+1:size(vec1)+size(vec2) ) = vec2(:)
+    ret(size(vec1)+size(vec2)+1:           ) = vec3(:)
+
+end function
+! ##############################################################
 end module ArrayClass
