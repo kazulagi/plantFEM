@@ -9840,8 +9840,12 @@ function selectFEMDomain(obj,x_min,x_max,y_min,y_max,z_min,z_max) result(NodeLis
 			n=n+1
 		endif
 	enddo
+	
 
 	NodeList = int(zeros(n)  )
+	
+	if(n==0) return
+
 	n=0
 	do i=1,size(CheckList)
 		if(CheckList(i)==1 )then
