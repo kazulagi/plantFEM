@@ -125,7 +125,7 @@ end subroutine
 
 
 !====================================================================================
-subroutine assembleLinearSolver(obj,connectivity,DOF,eMatrix,eVector,DomainIDs)
+recursive subroutine assembleLinearSolver(obj,connectivity,DOF,eMatrix,eVector,DomainIDs)
   class(LinearSolver_),intent(inout) :: obj 
   integer(int32),intent(in) :: connectivity(:) ! connectivity matrix 
   !(global_node_id#1, global_node_id#2, global_node_id#3, . )
@@ -134,7 +134,14 @@ subroutine assembleLinearSolver(obj,connectivity,DOF,eMatrix,eVector,DomainIDs)
   real(real64),optional,intent(in) :: eMatrix(:,:) ! elemental matrix
   real(real64),optional,intent(in) :: eVector(:) ! elemental Vector
   integer(int32) :: i,j,k,l,m,node_id1,node_id2,domain_ID1, domain_ID2
-  
+  integer(int32),allocatable :: domID(:)
+
+  if(.not. present(DomainIDs) )then
+    allocate(domID( size(connectivity) ))
+    domID(:) = 1
+    call obj%assemble(connectivity=connectivity,DOF=DOF,eMatrix=eMatrix,&
+      eVector=eVector,DomainIDs=domID)
+  endif
   
   if(present(eMatrix) )then
     if(present(DomainIDs) )then
@@ -225,6 +232,10 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
   integer(int32) :: i,j, n, offset,m
   type(Time_) :: time
 
+  if(.not. present(row_DomainID) )then
+    call obj%fix(nodeid=nodeid,entryvalue=entryvalue,entryID=entryID,DOF=DOF,&
+      row_DomainID=1,debug=debug)
+  endif
 
   ! too slow
   if(.not.obj%ReadyForFix)then
@@ -247,7 +258,11 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
       stop
     endif
     n = (nodeid-1)*DOF + entryID
-    call obj%fix(nodeid=n,entryvalue=entryvalue,row_DomainID=row_DomainID,debug=debug)
+    if(present(row_DomainID) )then
+      call obj%fix(nodeid=n,entryvalue=entryvalue,row_DomainID=row_DomainID,debug=debug)
+    else
+      call obj%fix(nodeid=n,entryvalue=entryvalue,row_DomainID=1,debug=debug)
+    endif
     return
   endif
 
@@ -458,6 +473,7 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
     
   else
     print *, "ERROR  :: fixLinearSolver >> allocated(obj%row_domain_id) /= present(row_DomainID)"
+    print *, allocated(obj%row_domain_id),present(row_DomainID)
     stop
   endif
   

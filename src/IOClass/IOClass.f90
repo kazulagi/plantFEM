@@ -15,6 +15,8 @@ module IOClass
 
         procedure,public :: numLine => numLineIO
 
+        procedure,public :: flush => flushIO
+
         procedure,pass   :: openIOchar
         procedure,pass   :: openIOstring
         
@@ -1242,5 +1244,11 @@ subroutine splotIO(obj,name,option)
 
 end subroutine
 
+subroutine flushIO(obj)
+    class(IO_),intent(in) :: obj
+
+    flush(obj%fh)
+    
+end subroutine
 
 end module IOClass

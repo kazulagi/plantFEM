@@ -4955,6 +4955,21 @@ function hstackInt32Vector2(Vec1, vec2) result(ret)
         return
     endif
 
+    if( size(vec1)==0 .and. size(vec2)==0 )then
+        return
+    endif
+
+
+    if( size(vec1)==0  )then
+        ret = vec2
+        return
+    endif
+
+    if( size(vec2)==0  )then
+        ret = vec1
+        return
+    endif
+    
     allocate(ret(  size(vec1) + size(vec2) ) )
     ret(1:size(vec1) ) = vec1(:)
     ret(size(vec1)+1: ) = vec2(:)
