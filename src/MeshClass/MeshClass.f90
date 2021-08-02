@@ -3,6 +3,10 @@ module MeshClass
     implicit none
 
 
+    integer(int32) :: PF_GLYCINE_MAX = 1
+    integer(int32) :: PF_GLYCINE_SOJA = 1
+    integer(int32) :: PF_SOYBEAN = 1
+
     type:: Mesh_
         ! Name
         character*200::FileName=" "
@@ -4838,7 +4842,8 @@ end subroutine AdjustCylinderMesh
 !##################################################
 
 recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,&
-    division,smooth,top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz,coordinate)
+    division,smooth,top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz,coordinate,&
+    species,SoyWidthRatio)
     class(Mesh_),intent(inout) :: obj
     type(Mesh_) :: mesh1,mesh2,interface1,interface2
     type(Mesh_),optional,intent(inout) :: master,slave
@@ -4853,7 +4858,9 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     real(real64),optional,intent(in) :: top,margin ! for 3D rectangular
     real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
     real(real64),optional,intent(in) :: x,y,z,dx,dy,dz
-    
+    integer(int32),optional,intent(in) :: species
+    real(real64),optional,intent(in) :: SoyWidthRatio ! width ratio for side leaves of soybean
+
     integer(int32) :: i,j,n,m,xn,yn,smoothedge(8),ini,k,dim_num,node_num,elem_num
     real(real64)::lx,ly,sx,sy,a_val,radius,x_,y_,diflen,Lt,&
         unitx,unity,xm, ym,tp,rx,ry,zc,zl,zm,ysize,ox,oy,dist,rr
@@ -4870,7 +4877,11 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     integer(int32),allocatable :: checked(:),checked_node(:)
     real(real64),allocatable ::nodcoord(:,:)
     real(real64) :: ll,center(3),vector(3),e1(3),e2(3),e3(3),len_val
+    real(real64) :: length,r,alpha,lin_curve_ratio,yy_,swratio
     
+    
+    
+    lin_curve_ratio = 0.50d0
     pi = 3.1415926535d0
     ! this subroutine creates mesh
     obj%meshtype = meshtype
@@ -5713,21 +5724,72 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         !   A   %%                  %%            
         !      <I> %%%%%%%%%%%%%%%%                               
         call obj%clean()
-        do i=1,size(obj%NodCoord,1)
-            zc = obj%NodCoord(i,3)
-            zm = minval(obj%NodCoord(:,3) )
-            width = maxval(obj%NodCoord(:,1) )- minval(obj%NodCoord(:,1) )
-            width = width/2.0d0
-            zl = maxval(obj%NodCoord(:,3) )- minval(obj%NodCoord(:,3) )
-            if(zc <= 1.0d0/20.0d0*zl)then
-                ratio = 1.0d0/10.0d0 
-            elseif(1.0d0/20.0d0*zl < zc .and. zc <= zl*shaperatio )then
-                ratio = 1.0d0/10.0d0 + 0.90d0/(zl*shaperatio - 1.0d0/20.0d0*zl)*(zc - 1.0d0/20.0d0*zl)
+
+        if(present(species) )then
+            if(species == PF_GLYCINE_MAX)then
+                ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+                ! TOMOBE model (Tomobe 2021, in prep.) 
+                zm = minval(obj%NodCoord(:,3) )
+                length =maxval(obj%NodCoord(:,3) )- minval(obj%NodCoord(:,3) )
+                width = maxval(obj%NodCoord(:,1) )- minval(obj%NodCoord(:,1) )
+                zl = maxval(obj%NodCoord(:,3) )- minval(obj%NodCoord(:,3) )
+
+                swratio = input(default=0.50d0,option=SoyWidthRatio)
+                if(swratio>=1.0d0 .or. swratio<=0.0d0 )then
+                    print *, "ERROR  >> mesh%create(leaf3d, PF_SOYBEAN) >> invalid SoyWidthRatio ",SoyWidthRatio
+                    stop 
+                endif
+
+                do i=1,size(obj%nodcoord,1)
+                    xx = obj%nodcoord(i,3)
+                    if(obj%NodCoord(i,1) <= (maxval(obj%NodCoord(:,1) ) + minval(obj%NodCoord(:,1)))*0.50d0  )then
+                        alpha = swratio*width
+                    else
+                        alpha = (1.0d0-swratio)*width
+                    endif
+                    r      = (alpha**2 + (length - alpha)**2)/(2*alpha)*1.20d0 
+                    if(xx <= 1.0d0/25.0d0*length)then
+                        obj%NodCoord(i,1) = obj%NodCoord(i,1)*1.0d0/10.0d0
+                        cycle
+                    elseif(xx < alpha)then
+                        yy = sqrt( alpha**2 - (xx-alpha)**2 )
+                        yy_ = xx
+                        yy = lin_curve_ratio*yy + (1.0d0-lin_curve_ratio)*yy_
+                    else
+                        yy_ = alpha + (-alpha)/(length-alpha)*(xx - alpha)
+                        yy = alpha - r + sqrt(r**2 - (xx - alpha)**2 )
+                        yy = lin_curve_ratio*yy + (1.0d0-lin_curve_ratio)*yy_
+                    endif
+                    yy = abs(yy)
+                    obj%nodcoord(i,1) = obj%nodcoord(i,1)*(yy/alpha)
+                enddo
+
+                ! TOMOBE model (Tomobe 2021, in prep.) 
+                ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             else
-                ratio = 1.0d0 -0.90d0/(zl - shaperatio*zl)*(zc - shaperatio*zl)
+                print *, "[ERROR] Mesh%create =>  No such species as ",species
+                stop
             endif
-            obj%NodCoord(i,1) = obj%NodCoord(i,1)*ratio
-        enddo
+        else
+            do i=1,size(obj%NodCoord,1)
+                zc = obj%NodCoord(i,3)
+                zm = minval(obj%NodCoord(:,3) )
+                width = maxval(obj%NodCoord(:,1) )- minval(obj%NodCoord(:,1) )
+                width = width/2.0d0
+                zl = maxval(obj%NodCoord(:,3) )- minval(obj%NodCoord(:,3) )
+
+                if(zc <= 1.0d0/20.0d0*zl)then
+                    ratio = 1.0d0/10.0d0 
+                elseif(1.0d0/20.0d0*zl < zc .and. zc <= zl*shaperatio )then
+                    ratio = 1.0d0/10.0d0 + 0.90d0/(zl*shaperatio - 1.0d0/20.0d0*zl)*(zc - 1.0d0/20.0d0*zl)
+                else
+                    ratio = 1.0d0 -0.90d0/(zl - shaperatio*zl)*(zc - shaperatio*zl)
+                endif
+
+                obj%NodCoord(i,1) = obj%NodCoord(i,1)*ratio
+
+            enddo
+        endif
     endif
 
     if(meshtype=="HalfSphere3D")then

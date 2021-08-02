@@ -6215,7 +6215,7 @@ end subroutine
 
 ! ##################################################
 subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
-	top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz,coordinate)
+	top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz,coordinate,species,SoyWidthRatio)
 	class(FEMDomain_),intent(inout) :: obj
 	type(FEMDomain_),optional,intent(inout) :: master,slave
 	character(*),intent(in) :: meshtype
@@ -6229,7 +6229,8 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 	real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
     real(real64),optional,intent(in) :: top,margin,inclineRate ! for 3D Ridge and dam
 	real(real64),optional,intent(in) :: x,y,z,dx,dy,dz,coordinate(:,:)
-	
+	integer(int32),optional,intent(in) :: species
+	real(real64),optional,intent(in) :: SoyWidthRatio
 	integer,dimension(3),parameter :: versions_to_test = [0,1,4]
 
 	! create uuid
@@ -6271,17 +6272,17 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 		call obj%Mesh%create(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
 			Lh=Lh,Dr=Dr,thickness=zlen,top=top,margin=margin,shaperatio=shaperatio,&
 			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
-			coordinate=coordinate,division=znum)
+			coordinate=coordinate,division=znum,species=species,SoyWidthRatio=SoyWidthRatio)
 	elseif(present(thickness) )then
 		call obj%Mesh%create(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
 			Lh=Lh,Dr=Dr,thickness=thickness,top=top,margin=margin,shaperatio=shaperatio,&
 			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
-			coordinate=coordinate,division=znum)
+			coordinate=coordinate,division=znum,species=species,SoyWidthRatio=SoyWidthRatio)
 	else
 		call obj%Mesh%create(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
 			Lh=Lh,Dr=Dr,top=top,margin=margin,shaperatio=shaperatio,&
 			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
-			coordinate=coordinate,division=znum)
+			coordinate=coordinate,division=znum,species=species,SoyWidthRatio=SoyWidthRatio)
 	endif
 
 !	if(obj%nd()==2 .or. obj%nd()==3)then

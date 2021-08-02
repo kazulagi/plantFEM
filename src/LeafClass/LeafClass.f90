@@ -8,7 +8,6 @@ module LeafClass
     use AirClass
     implicit none
 
-
     type :: Leaf_
         type(FEMDomain_)    ::  FEMDomain
         real(real64),allocatable ::  LeafSurfaceNode2D(:,:)
@@ -78,6 +77,7 @@ module LeafClass
         procedure, public :: photosynthesis => photosynthesisLeaf
         
         procedure, public :: rescale => rescaleleaf
+        procedure, public :: adjust => adjustLeaf
         procedure, public :: resize => resizeleaf
         procedure, public :: getCoordinate => getCoordinateleaf
         procedure, public :: gmsh => gmshleaf
@@ -89,11 +89,12 @@ contains
 
 ! ########################################
     subroutine initLeaf(obj,config,regacy,Thickness,length,width,ShapeFactor,&
-        MaxThickness,Maxlength,Maxwidth,rotx,roty,rotz,location)
+        MaxThickness,Maxlength,Maxwidth,rotx,roty,rotz,location,species,SoyWidthRatio)
         class(leaf_),intent(inout) :: obj
         real(real64),optional,intent(in) :: Thickness,length,width,ShapeFactor
         real(real64),optional,intent(in) :: MaxThickness,Maxlength,Maxwidth
-        real(real64),optional,intent(in)::  rotx,roty,rotz,location(3)
+        real(real64),optional,intent(in)::  rotx,roty,rotz,location(3),SoyWidthRatio
+        integer(int32),optional,intent(in) :: species
         logical, optional,intent(in) :: regacy
         character(*),optional,intent(in) :: config
         type(IO_) :: leafconf,f
@@ -344,8 +345,13 @@ contains
         !print *, obj%B_PointElementID
 !
         call obj%FEMdomain%remove()
-        call obj%FEMdomain%create(meshtype="Leaf3D",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
-        x_len=obj%minwidth/2.0d0,y_len=obj%minthickness/2.0d0,z_len=obj%minlength,shaperatio=obj%shaperatio)
+        if(present(species) )then
+            call obj%FEMdomain%create(meshtype="Leaf3D",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
+            x_len=obj%minwidth/2.0d0,y_len=obj%minthickness/2.0d0,z_len=obj%minlength,species=species,SoyWidthRatio=SoyWidthRatio)
+        else
+            call obj%FEMdomain%create(meshtype="Leaf3D",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
+            x_len=obj%minwidth/2.0d0,y_len=obj%minthickness/2.0d0,z_len=obj%minlength,shaperatio=obj%shaperatio)
+        endif
     ! デバッグ用
     !    call f%open("I_phaseNodeID.txt")
     !    do i=1,size(obj%I_planeNodeID)
@@ -813,5 +819,15 @@ subroutine photosynthesisLeaf(obj,dt,air)
 !
 end subroutine
 
+
+subroutine adjustLeaf(obj,width)
+    class(Leaf_),intent(inout) :: obj
+    real(real64),intent(in) :: width(:,:)
+
+
+
+
+
+end subroutine
 
 end module 

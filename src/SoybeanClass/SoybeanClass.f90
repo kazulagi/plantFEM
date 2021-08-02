@@ -1265,7 +1265,7 @@ subroutine initsoybean(obj,config,&
             ! add leaves
             do j=1,3
                 num_leaf=num_leaf+1
-                call obj%leaf(num_leaf)%init(config=obj%leafconfig)
+                call obj%leaf(num_leaf)%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
                 call obj%leaf(num_leaf)%resize(&
                     y = random%gauss(mu=obj%leaf_thickness_ave(i),sigma=obj%leaf_thickness_sig(i))  , &
                     z = random%gauss(mu=obj%leaf_length_ave(i)   ,sigma=obj%leaf_length_sig(i)) , &
@@ -1379,9 +1379,9 @@ subroutine initsoybean(obj,config,&
         !allocate(obj%struct%ElemMat(3) )
         ! 子葉結節部=(0,0,0)
         !obj%struct%NodCoord(1,1:3) = 0.0d0
-        call obj%leaf(1)%init(obj%leafconfig)
+        call obj%leaf(1)%init(obj%leafconfig,species=PF_GLYCINE_SOJA)
         call obj%leaf(1)%rotate(x=radian(90.0d0),y=radian(90.0d0),z=radian(10.0d0) )
-        call obj%leaf(2)%init(obj%leafconfig)
+        call obj%leaf(2)%init(obj%leafconfig,species=PF_GLYCINE_SOJA)
         call obj%leaf(2)%rotate(x=radian(90.0d0),y=radian(90.0d0),z=radian(-10.0d0) )
         
         call obj%stem(1)%init(obj%stemconfig)

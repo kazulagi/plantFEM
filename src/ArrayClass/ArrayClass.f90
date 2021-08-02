@@ -12,6 +12,14 @@ module ArrayClass
     !interface newArray
     !    module procedure newArrayReal
     !end interface
+    interface rotationMatrix
+        module procedure :: rotationMatrixReal64
+    end interface
+
+    interface farthestVector
+        module procedure :: farthestVectorReal64 
+    end interface
+
     interface hstack
         module procedure :: hstackInt32Vector2,hstackInt32Vector3, hstackReal64Vector2,hstackReal64Vector3
     end interface
@@ -5075,4 +5083,47 @@ function hstackreal64Vector3(vec1, vec2,vec3) result(ret)
 
 end function
 ! ##############################################################
+
+
+! ##############################################################
+function farthestVectorReal64(array,vector) result(ret)
+    real(real64),intent(in) :: array(:,:),vector(:)
+    real(real64),allocatable :: ret(:),trial(:)
+    real(real64) :: dp,dp_tr
+    integer(int32) :: i, n
+
+    n = size(array,2)
+    allocate(ret(n) )
+
+    ret(:) = array(1,:)
+    dp = dot_product(vector-ret,vector-ret )
+    do i=2,size(array,1)
+        dp_tr = dot_product( array(i,:) -vector(:), array(i,:) -vector(:) )
+        if(dp_tr > dp)then
+            ret(:) = array(i,:)
+            dp = dot_product(vector-ret,vector-ret )
+        endif
+    enddo
+
+end function
+! ##############################################################
+
+function rotationMatrixReal64(rotation_angle1, rotation_angle2) result(ret)
+    real(real64),optional,intent(in) :: rotation_angle1,rotation_angle2
+    real(real64),allocatable :: ret(:,:)
+
+    if(present(rotation_angle1) .and. .not. present(rotation_angle2)  )then
+        ! 2D
+        allocate(ret(2,2) )
+        ret(1,1) = cos(rotation_angle1)
+        ret(2,1) = sin(rotation_angle1)
+        ret(1,2) = -sin(rotation_angle1)
+        ret(2,2) = cos(rotation_angle1)
+    elseif(present(rotation_angle1) .and. present(rotation_angle2) )then
+        print *, "Now implementing!"
+        stop
+    endif
+
+end function
+
 end module ArrayClass
