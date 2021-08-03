@@ -10,6 +10,8 @@ module IOClass
         logical :: EOF=.true.
         character(1) :: state
         character(200)::path,name,extention
+        character(:),allocatable:: title
+        character(:),allocatable:: xlabel,ylabel,zlabel
         character(:),allocatable :: filename
     contains
         procedure,public :: unit => unitIO
@@ -1055,10 +1057,8 @@ subroutine closeIO(obj)
 
     if(obj%active .eqv. .false.)then
         print *, "ERROR :: "//"file is already closed. filename = "//obj%filename
-        obj%filename = " "
         return
     endif
-    obj%filename = " "
     close(obj%fh)
     obj%fh=0
     obj%active=.false.
@@ -1224,40 +1224,54 @@ end subroutine
 
 subroutine plotIO(obj,name,option)
     class(IO_),intent(inout) ::  obj
-    character(*),intent(in) :: name
+    character(*),optional,intent(in) :: name
     character(*),optional,intent(in) :: option
     type(IO_) :: gp_script
 
-    call obj%open(name,"r")
-    call gp_script%open("gp_script.gp","w")
+    if(present(name) )then
+        obj%filename = name
+    endif
+    call obj%open(obj%filename,"r")
+    call gp_script%open(trim(obj%filename)//"_gp_script.gp","w")
+    call gp_script%write("set xlabel '"//obj%xlabel//"'")
+    call gp_script%write("set ylabel '"//obj%ylabel//"'")
+    call gp_script%write("set title '"//obj%title//"'")
     if(present(option) )then
-        call gp_script%write("plot '"//name//"' "//option)
+        call gp_script%write("plot '"//obj%filename//"' "//option)
     else
-        call gp_script%write("plot '"//name//"' ")
+        call gp_script%write("plot '"//obj%filename//"' ")
     endif
 
+
     call gp_script%close()
-    call system("gnuplot gp_script.gp -pause")
+    call system("gnuplot "//trim(obj%filename)//"_gp_script.gp -pause")
     call obj%close()
 end subroutine
 
 
 subroutine splotIO(obj,name,option)
     class(IO_),intent(inout) ::  obj
-    character(*),intent(in) :: name
+    character(*),optional,intent(in) :: name
     character(*),optional,intent(in) :: option
     type(IO_) :: gp_script
 
-    call obj%open(name,"r")
-    call gp_script%open("gp_script.gp","w")
+    if(present(name) )then
+        obj%filename = name
+    endif
+    call obj%open(obj%filename,"r")
+    call gp_script%open(trim(obj%filename)//"_gp_script.gp","w")
+    call gp_script%write("set xlabel '"//obj%xlabel//"'")
+    call gp_script%write("set ylabel '"//obj%ylabel//"'")
+    call gp_script%write("set zlabel '"//obj%zlabel//"'")
+    call gp_script%write("set title '"//obj%title//"'")
     if(present(option) )then
-        call gp_script%write("splot '"//name//"' "//option)
+        call gp_script%write("splot '"//obj%filename//"' "//option)
     else
-        call gp_script%write("splot '"//name//"' ")
+        call gp_script%write("splot '"//obj%filename//"' ")
     endif
 
     call gp_script%close()
-    call system("gnuplot gp_script.gp -pause")
+    call system("gnuplot "//trim(obj%filename)//"_gp_script.gp -pause")
 
 end subroutine
 

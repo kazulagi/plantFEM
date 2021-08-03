@@ -3,7 +3,7 @@ implicit none
 
 type(SeismicAnalysis_) :: seismic(100)
 type(FEMDomain_),target :: cube,original
-type(IO_) :: f,response
+type(IO_) :: f,response,history_A,history_V,history_U,input_wave
 type(Math_) :: math
 type(MPI_) :: mpid
 real(real64),allocatable :: disp_z(:,:)
@@ -35,7 +35,9 @@ do stack_id=1,size(mpid%localstack)
         wave(i,1) = dt*dble(i-1)
         wave(i,2) = sin(2.0d0*math%pi/T*wave(i,1) )
     enddo
-
+    call input_wave%open("input_wave_"//str(cases)//".txt" )
+    call input_wave%write(wave)
+    call input_wave%close()
     original = cube
 
     ! set domain
@@ -65,9 +67,21 @@ do stack_id=1,size(mpid%localstack)
     seismic(cases)%alpha = 0.0d0
     seismic(cases)%beta = 0.0d0
 
+    call history_A%open("history_A"//str(cases)//".txt","w")
+    call history_V%open("history_V"//str(cases)//".txt","w")
+    call history_U%open("history_U"//str(cases)//".txt","w")
     do i=1,999
         call seismic(cases)%run(timestep=[i,i],AccelLimit=10.0d0**8)
+        write(history_A%fh,*) real(dble(i-1)*dt), real(seismic(cases)%A( size(seismic(cases)%A)-2 ))
+        write(history_V%fh,*) real(dble(i-1)*dt), real(seismic(cases)%V( size(seismic(cases)%V)-2 ))
+        write(history_U%fh,*) real(dble(i-1)*dt), real(seismic(cases)%U( size(seismic(cases)%U)-2 )    )
+        call history_A%flush()
+        call history_V%flush()
+        call history_U%flush()
     enddo
+    call history_A%close()
+    call history_V%close()
+    call history_U%close()
 
     print *, maxval(seismic(cases)%U)
 
@@ -78,8 +92,7 @@ do stack_id=1,size(mpid%localstack)
     call seismic(cases)%femdomain%vtk("x10"//str(cases)//"_")
 
     call response%open("T_A"//str(cases)//".txt")
-    call response%write(T,seismic(cases)%maxA(1) )
-    call response%flush()
+    call response%write(T,seismic(cases)%maxA(1))
     call response%close()
 
 enddo
