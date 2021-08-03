@@ -1,6 +1,6 @@
 module MathClass
-	use StringClass
     use, intrinsic :: iso_fortran_env
+	use StringClass
 	implicit none
 	
 
@@ -873,7 +873,7 @@ end function
 
 !================================================================================== 
 function sym(a,n) result(ret)
-	real(real64),intent(in) :: a(n,n)
+	real(real64),intent(in) :: a(:,:)
 	real(real64) :: ret(n,n)
 	integer(int32) :: i,n
 
@@ -884,7 +884,7 @@ end function
 
 !================================================================================== 
 function asym(a,n) result(ret)
-	real(real64),intent(in) :: a(n,n)
+	real(real64),intent(in) :: a(:,:)
 	real(real64) :: ret(n,n)
 	integer(int32) :: i,n
 

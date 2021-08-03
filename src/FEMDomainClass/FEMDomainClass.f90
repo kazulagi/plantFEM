@@ -6,7 +6,7 @@ module FEMDomainClass
     use MeshClass
     use MaterialPropClass
     use BoundaryConditionClass
-	use ControlParaeterClass
+	use ControlParameterClass
 	use std
 	
 	implicit none

@@ -5,23 +5,28 @@ type(SeismicAnalysis_) :: seismic(100)
 type(FEMDomain_),target :: cube,original
 type(IO_) :: f,response
 type(Math_) :: math
+type(MPI_) :: mpid
 real(real64),allocatable :: disp_z(:,:)
 real(real64) :: wave(1000,2),T,Duration,dt
-integer(int32) :: i,j,cases
+integer(int32) :: i,j,cases,stack_id,num_of_cases
+
+num_of_cases = 4
+
+call mpid%start()
+call mpid%createStack(num_of_cases)
 
 
-call response%open("T_A.txt")
 ! create Domain
 call cube%create(meshtype="Cube3D",x_num=2,y_num=2,z_num=20)
 call cube%resize(x=1.0d0,y=1.0d0,z=5.0d0)
 call cube%move(z=-5.0d0)
 
 ! Change T = 0.1, 0.2, 0.3 ... 1 (sec.)
-T = 0.000d0
 
-do cases=1,100
+do stack_id=1,size(mpid%localstack)
+    cases = mpid%localstack(stack_id)
     ! create Wave
-    T = T + 0.0500d0 ! sec.
+    T = 0.0500d0*cases ! sec.
     Duration = T * 10.0d0 ! sec.
     dt = Duration/dble(size(wave,1))
     
@@ -32,12 +37,6 @@ do cases=1,100
     enddo
 
     original = cube
-
-    call f%open("wave.txt","w")
-    call f%write(wave)
-    call f%close()
-    call f%plot("wave.txt","w l")
-
 
     ! set domain
     seismic(cases)%femdomain => cube
@@ -55,22 +54,36 @@ do cases=1,100
 
     call seismic(cases)%fixDisplacement(direction="z")
 
-    call seismic(cases)%femdomain%vtk("mesh")
+    call seismic(cases)%femdomain%vtk("mesh"//str(cases)//"_" )
 
     call seismic(cases)%loadWave(z_max=-4.50d0,direction="x",wavetype=WAVE_ACCEL)
 
-    call seismic(cases)%run(timestep=999,AccelLimit=10.0d0**8)
+    seismic(cases)%Density(:)      = 17000.0d0 !(N/m/m/m)
+    seismic(cases)%YoungModulus(:) = 7000000.0d0 !(N/m/m)
+    seismic(cases)%PoissonRatio(:) = 0.40d0 
+
+    seismic(cases)%alpha = 0.0d0
+    seismic(cases)%beta = 0.0d0
+
+    do i=1,999
+        call seismic(cases)%run(timestep=[i,i],AccelLimit=10.0d0**8)
+    enddo
 
     print *, maxval(seismic(cases)%U)
 
+
     seismic(cases)%femdomain%mesh%nodcoord = seismic(cases)%femdomain%mesh%nodcoord + (10.0d0**6)*&
         reshape(seismic(cases)%U, seismic(cases)%femdomain%nn(),seismic(cases)%femdomain%nd() )
-    call seismic(cases)%femdomain%vtk("x10")
 
+    call seismic(cases)%femdomain%vtk("x10"//str(cases)//"_")
+
+    call response%open("T_A"//str(cases)//".txt")
     call response%write(T,seismic(cases)%maxA(1) )
     call response%flush()
+    call response%close()
 
 enddo
 
+call mpid%end()
 
 end

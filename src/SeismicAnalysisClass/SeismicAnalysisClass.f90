@@ -18,6 +18,10 @@ module SeismicAnalysisClass
         real(real64),allocatable :: wave(:,:)
         real(real64),allocatable :: dwave(:,:)
 
+        real(real64),allocatable :: Density(:)
+        real(real64),allocatable :: YoungModulus(:)
+        real(real64),allocatable :: PoissonRatio(:)
+
         real(real64) :: MaxA(3) = 0.0d0
         real(real64) :: MaxV(3) = 0.0d0
         real(real64) :: MaxU(3) = 0.0d0
@@ -57,7 +61,15 @@ subroutine initSeismicAnalysis(obj)
     obj%U = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
     obj%V = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
     obj%A = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
-    obj%A_ext = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
+
+    if(obj%femdomain%mesh%empty() )then
+        print *, "[ERROR] Seismic % init >> obj%femdomain is empty"
+        stop
+    endif
+    obj%Density = zeros(obj%femdomain%ne() )
+    obj%YoungModulus = zeros(obj%femdomain%ne() )
+    obj%PoissonRatio = zeros(obj%femdomain%ne() )
+    !obj%A_ext = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
 
 end subroutine
 ! ##############################################
@@ -211,8 +223,8 @@ subroutine updateWaveSeismicAnalysis(obj,timestep,direction)
     if(obj%wavetype==WAVE_ACCEL)then
         do i=1,size(obj%WaveNodeList)
             node_id = obj%WaveNodeList(i)
-            !obj%A( dim_num*(node_id-1)+dir ) = obj%wave(timestep ,2)
-            obj%A_ext( dim_num*(node_id-1)+dir ) = obj%wave(timestep ,2)
+            obj%A( dim_num*(node_id-1)+dir ) = obj%wave(timestep ,2)
+            !obj%A_ext( dim_num*(node_id-1)+dir ) = obj%wave(timestep ,2)
         enddo
     elseif(obj%wavetype==WAVE_VELOCITY)then
         do i=1,size(obj%WaveNodeList)
@@ -229,47 +241,33 @@ subroutine updateWaveSeismicAnalysis(obj,timestep,direction)
 end subroutine
 
 ! ##############################################
-subroutine runSeismicAnalysis(obj,t0,timestep,wave,restart,AccelLimit)
+subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit)
     class(SeismicAnalysis_),intent(inout) :: obj
+    integer(int32),intent(in) :: timestep(2)
+
     type(LinearSolver_) :: solver
     type(IO_) :: U, V, A
     real(real64),optional,intent(in) :: t0
-    integer(int32),optional,intent(in) :: timestep
     real(real64),optional,intent(in) :: wave(:,:),AccelLimit
-    logical,optional,intent(in) :: restart
-    integer(int32) :: i,step,j
-
-    if(present(restart) )then
-        obj%restart = restart
-    endif
+    integer(int32) :: i,j
 
     if(present(wave) )then
         obj%wave = wave
     endif
 
-    ! set wave
-    ! wave = a(t)
-    ! dwave = da(t)
-    step = input(default=size(obj%wave,1)-1,option=timestep )
-    if(.not.obj%restart)then
-        obj%dwave = increment(obj%wave,2 )
-        obj%t = input(default=0.0d0,option=t0 )
-        obj%restart = .True. 
-    endif
-
-
-
-    call U%open("U.txt")
-    call V%open("V.txt")
-    call A%open("A.txt")
-
-    do i=1, step
+    do i=timestep(1),timestep(2)
         ! update dt
-        obj%dt = obj%wave(i+1,1) - obj%wave(i,1)
+        if(size(obj%wave,1)==1 )then
+            obj%dt = 1.0d0
+        elseif(size(obj%wave,1)==i )then
+            obj%dt = obj%wave(i,1) - obj%wave(i-1,1)
+        else
+            obj%dt = obj%wave(i+1,1) - obj%wave(i,1)
+        endif
         
         ! update time
-        obj%t = obj%t + obj%dt
-        obj%step = obj%step+1
+        obj%step = i
+        obj%t = obj%dt*obj%step
 
         call obj%updateWave(timestep=obj%step)
         
@@ -289,28 +287,9 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,restart,AccelLimit)
         call obj%recordMaxValues()
         ! Export results
         call obj%save("step_"//str(obj%step),ratio=100.0d0)
-        
-        call obj%femdomain%vtk("seismic_"//str(i) )
-        
-        do j=1,size(obj%femdomain%mesh%nodcoord,1)
-            write(U%fh,*) obj%dt*dble(i-1),obj%femdomain%mesh%nodcoord(j,3),obj%U(j)
-        enddo
-        write(U%fh,*) " "
-        do j=1,size(obj%femdomain%mesh%nodcoord,1)
-            write(V%fh,*) obj%dt*dble(i-1),obj%femdomain%mesh%nodcoord(j,3),obj%V(j)
-        enddo
-        write(V%fh,*) " "
-        do j=1,size(obj%femdomain%mesh%nodcoord,1)
-            write(A%fh,*) obj%dt*dble(i-1),obj%femdomain%mesh%nodcoord(j,3),obj%A(j)
-        enddo
-        write(A%fh,*) " "
-        
 
     enddo 
 
-    call U%close()
-    call V%close()
-    call A%close()
 end subroutine
 ! ##############################################
 
@@ -369,14 +348,14 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
         do i=1,obj%femdomain%ne()
             ! For each element
             ! Ax=b will be installed into solver
-            rho = 17000.0d0
+            rho = obj%Density(i)
             M_ij = rho*obj%femdomain%MassMatrix(ElementID=i,DOF=obj%femdomain%nd() )
-            K_ij = obj%femdomain%StiffnessMatrix(ElementID=i,E=7000000.0d0,v=0.40d0)
+            K_ij = obj%femdomain%StiffnessMatrix(ElementID=i,E=obj%YoungModulus(i),v=obj%PoissonRatio(i) )
             C_ij = obj%alpha * M_ij + obj%beta * K_ij
             U_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%U, DOF=obj%femdomain%nd() )
             V_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%V, DOF=obj%femdomain%nd() )
             A_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A, DOF=obj%femdomain%nd() )
-            A_ext_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A_ext, DOF=obj%femdomain%nd() )
+            !A_ext_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A_ext, DOF=obj%femdomain%nd() )
             
             dim_num = obj%femdomain%nd()
             !center_accel = 0.0d0
@@ -387,13 +366,22 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
             !enddo
             !center_accel = center_accel/dble(obj%femdomain%nne())
 
+            ! If external accelaration is loaded,
+            ! introduce them.
+            !do j=1,size(A_ext_i)
+            !    if(A_ext_i(j)/=0.0d0 )then
+            !        A_i(j) = A_ext_i(j)
+            !    endif
+            !enddo
+
+
             dF_i = obj%femdomain%MassVector(&
                 ElementID=i, &
                 DOF=obj%femdomain%nd(), &
                 Density=rho,&
                 Accel=gravity &
                 )
-            dF_i = dF_i + matmul(M_ij,A_ext_i)
+            dF_i = dF_i !+ matmul(M_ij,A_ext_i)
 
             R_i = zeros(size(dF_i))
 

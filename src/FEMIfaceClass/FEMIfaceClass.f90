@@ -7,7 +7,7 @@ module FEMIfaceClass
     use MeshClass
     use MaterialPropClass
     use BoundaryConditionClass
-    use ControlParaeterClass
+    use ControlParameterClass
     use FEMDomainClass
 
     implicit none

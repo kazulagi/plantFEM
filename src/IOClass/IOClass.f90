@@ -10,6 +10,7 @@ module IOClass
         logical :: EOF=.true.
         character(1) :: state
         character(200)::path,name,extention
+        character(:),allocatable :: filename
     contains
         procedure,public :: unit => unitIO
 
@@ -306,45 +307,55 @@ subroutine openIOchar(obj,path,state,name,extention,fh)
                 if(present(state) )then
                     if(state=="r")then
                         open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='old')
+                        obj%filename=trim(path)//trim(name)//trim(extention)
                     elseif(state=="w")then
                         open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='replace')
+                        obj%filename = trim(path)//trim(name)//trim(extention)
                     else
                         call print("Error :: IOClass % open >> argument <state> should be w or r ")
                         stop
                     endif
                 else
                     open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention) )
+                    obj%filename = trim(path)//trim(name)//trim(extention)
                 endif
             else
                 if(present(state) )then
                     if(state=="r")then
                         open(newunit=obj%fh,file=trim(path)//trim(name),status='old' )
+                        obj%filename = trim(path)//trim(name)
                     elseif(state=="w")then
                         open(newunit=obj%fh,file=trim(path)//trim(name),status='replace' )
+                        obj%filename=trim(path)//trim(name)
                     else
                         call print("Error :: IOClass % open >> argument <state> should be w or r ")
                         stop
                     endif
                 else
                     open(newunit=obj%fh,file=trim(path)//trim(name) )
+                    obj%filename = trim(path)//trim(name)
                 endif
             endif
         else
             if(present(state) )then
                 if(state=="r")then
                     open(newunit=obj%fh,file=trim(path),status='old' )
+                    obj%filename = trim(path)
                 elseif(state=="w")then
                     open(newunit=obj%fh,file=trim(path),status='replace' )
+                    obj%filename = trim(path)
                 else
                     call print("Error :: IOClass % open >> argument <state> should be w or r ")
                     stop
                 endif
             else
                 open(newunit=obj%fh,file=trim(path) )
+                obj%filename = trim(path)
             endif
         endif
     else
         open(newunit=obj%fh,file="./untitled.txt",status="replace" )
+        obj%filename = "./untitled.txt"
     endif
     
     obj%EOF = .false.
@@ -433,8 +444,10 @@ subroutine openIOstring(obj,path_s,state,name_s,extention_s,fh)
     if(present(state) )then
         if(state == "w")then
             open(newunit=obj%fh,file=trim(path_s%str()),status="replace" )
+            obj%filename = trim(path_s%str())
         elseif(state == "r")then
             open(newunit=obj%fh,file=trim(path_s%str()),status="old" )
+            obj%filename = trim(path_s%str())
         else
             call print("Error :: IOClass % open >> argument <state> should be w or r ")
         endif
@@ -446,11 +459,14 @@ subroutine openIOstring(obj,path_s,state,name_s,extention_s,fh)
         if(present(extention_s) )then
             obj%extention=trim(extention_s%str())
             open(newunit=obj%fh,file=trim(path_s%str())//trim(name_s%str())//trim(extention_s%str()) )
+            obj%filename = trim(path_s%str())//trim(name_s%str())//trim(extention_s%str())
         else
             open(newunit=obj%fh,file=trim(path_s%str())//trim(name_s%str()) )
+            obj%filename = trim(path_s%str())//trim(name_s%str()) 
         endif
     else
         open(newunit=obj%fh,file=trim(path_s%str()) )
+        obj%filename = trim(path_s%str())
     endif
     
     obj%EOF = .false.
@@ -1038,10 +1054,11 @@ subroutine closeIO(obj)
     class(IO_),intent(inout) :: obj
 
     if(obj%active .eqv. .false.)then
-        print *, "ERROR :: "//"file is already closed."
-        stop
+        print *, "ERROR :: "//"file is already closed. filename = "//obj%filename
+        obj%filename = " "
+        return
     endif
-
+    obj%filename = " "
     close(obj%fh)
     obj%fh=0
     obj%active=.false.
