@@ -1,0 +1,1 @@
+gfortran -fopenmp -fopenacc -I inc/  inc/*.o server.f90  

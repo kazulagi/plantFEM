@@ -1,6 +1,5 @@
 module FieldClass
     use, intrinsic :: iso_fortran_env
-    use MPIClass
     use FEMDomainClass
     use FEMIfaceClass
     use DictionaryClass
@@ -169,7 +168,6 @@ end subroutine
 subroutine linkDomainToIfaceField(obj)
     class(Field_),target,intent(inout)::obj
     type(Dictionary_)::DomainNameList
-    type(MPI_)::mpidata
     integer(int32) :: i,j,n,m,page1,page2
 
     n=size(obj%FEMIfaceArray,1)
