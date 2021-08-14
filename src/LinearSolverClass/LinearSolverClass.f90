@@ -136,42 +136,41 @@ recursive subroutine assembleLinearSolver(obj,connectivity,DOF,eMatrix,eVector,D
   integer(int32) :: i,j,k,l,m,node_id1,node_id2,domain_ID1, domain_ID2
   integer(int32),allocatable :: domID(:)
 
-  if(.not. present(DomainIDs) )then
-    allocate(domID( size(connectivity) ))
-    domID(:) = 1
-    call obj%assemble(connectivity=connectivity,DOF=DOF,eMatrix=eMatrix,&
-      eVector=eVector,DomainIDs=domID)
-  endif
-  
+
   if(present(eMatrix) )then
     if(present(DomainIDs) )then
-      do j=1, size(connectivity)
-        do k=1, size(connectivity)
+      do j=1, size(connectivity,1)
+        do k=1, size(connectivity,1)
           do l=1, DOF
             do m=1, DOF
               node_id1 = connectivity(j)
               node_id2 = connectivity(k)
+              if(j<1 .or. k<1)then
+                print *, "ERROR :: Assemble solver j<1 .or. k<1"
+                stop
+              endif
+              if(j > size(DomainIDs) .or.k > size(DomainIDs))then
+                print *, j,size(DomainIDs),k
+                print*, DOmainIDs
+                print *, "ERROR :: Assemble solver j >= size(DomainIDs) .or.k >= size(DomainIDs)"
+                stop
+              endif
+
               domain_ID1 = DomainIDs(j)
               domain_ID2 = DomainIDs(k)
-              !print *, "obj%set(&
-              !low=",DOF*(node_id1-1) + l," &
-              !column=", DOF*(node_id2-1) + m," &
-              !entryvalue=",eMatrix( DOF*(j-1) + l  , DOF*(k-1) + m ) ,"&
-              !row_DomainID =", Domain_ID1,"&
-              !column_DomainID =", Domain_ID2 ,")"
               call obj%set(&
                   low=DOF*(node_id1-1) + l, &
                   column= DOF*(node_id2-1) + m, &
                   entryvalue=eMatrix( DOF*(j-1) + l  , DOF*(k-1) + m ) ,&
                   row_DomainID = Domain_ID1,&
-                  column_DomainID = Domain_ID2 )
+                  column_DomainID = Domain_ID2)
             enddo
           enddo
         enddo
       enddo
     else
-      do j=1, size(connectivity)
-        do k=1, size(connectivity)
+      do j=1, size(DomainIDs,1)
+        do k=1, size(DomainIDs,1)
           do l=1, DOF
             do m=1, DOF
               node_id1 = connectivity(j)
@@ -179,12 +178,13 @@ recursive subroutine assembleLinearSolver(obj,connectivity,DOF,eMatrix,eVector,D
               call obj%set(&
                   low=DOF*(node_id1-1) + l, &
                   column= DOF*(node_id2-1) + m, &
-                  entryvalue=eMatrix( DOF*(j-1) + l  , DOF*(k-1) + m ) )
+                  entryvalue=eMatrix( DOF*(j-1) + l  , DOF*(k-1) + m ) ,&
+                  row_DomainID = 1,&
+                  column_DomainID = 1)
             enddo
           enddo
         enddo
       enddo
-      
     endif
   endif
 
@@ -194,26 +194,22 @@ recursive subroutine assembleLinearSolver(obj,connectivity,DOF,eMatrix,eVector,D
           do l=1, DOF
               node_id1 = connectivity(j)
               domain_ID1 = DomainIDs(j)
-              !print *, "obj%set(&
-              !low=",DOF*(node_id1-1) + l," &
-              !entryvalue=",eVector( DOF*(j-1) + l  ) ,"&
-              !row_DomainID =", Domain_ID1,")"
               call obj%set(&
                   low=DOF*(node_id1-1) + l, &
                   entryvalue=eVector( DOF*(j-1) + l ) ,&
                   row_DomainID=Domain_ID1)
-
-          enddo
+        enddo
       enddo
     else
       do j=1, size(connectivity)
-          do l=1, DOF
-              node_id1 = connectivity(j)
-              call obj%set(&
-                  low=DOF*(node_id1-1) + l, &
-                  entryvalue=eVector( DOF*(j-1) + l ) )
-          enddo
+        do l=1, DOF
+            node_id1 = connectivity(j)
+            call obj%set(&
+                low=DOF*(node_id1-1) + l, &
+                entryvalue=eVector( DOF*(j-1) + l ) ,&
+                row_DomainID=1)
       enddo
+    enddo
     endif
   endif
 

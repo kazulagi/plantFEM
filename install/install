@@ -87,7 +87,7 @@ mpif90 -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-module
 echo "Compiling ./src/OpenMPClass/OpenMPClass.f90 "
 echo " >> OpenMPClass.o"
 echo " | ==>                         | (12%)\r\c"
-mpif90 -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/OpenMPClass/OpenMPClass.f90 -o  ./inc/OpenMPClass.o
+mpif90  -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/OpenMPClass/OpenMPClass.f90 -o  ./inc/OpenMPClass.o
 echo "Compiling ./src/LinearSolverClass/LinearSolverClass.f90 " 
 echo " >> LinearSolverClass.o "
 echo " | ===>                        | (16%)\r\c"

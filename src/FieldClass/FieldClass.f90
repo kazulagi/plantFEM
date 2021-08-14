@@ -4,7 +4,6 @@ module FieldClass
     use FEMDomainClass
     use FEMIfaceClass
     use DictionaryClass
-
     use DiffusionEquationClass
     use FiniteDeformationClass
     

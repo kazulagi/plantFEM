@@ -2,8 +2,7 @@ module fem
     use std
     use MeshClass
     use MaterialPropClass
-    use ControlParaeterClass
-    !use ContactClass
+    use ControlParameterClass
     use BoundaryConditionClass
     use StrainClass
     use StressClass

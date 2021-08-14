@@ -1,4 +1,5 @@
 #!/bin/sh
+cp CMakeLists.txt ./bin/
 rm hostfile
 rm ./GetPixcel*.py
 rm ./DBCGetPixcelSize*.py
@@ -34,5 +35,6 @@ rm ./server.f90
 touch ./server.f90
 rm ./inc/*.so
 echo "1" > etc/cpucore
+cp ./bin/CMakeLists.txt CMakeLists.txt
 clear
 ls

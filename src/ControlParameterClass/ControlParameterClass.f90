@@ -1,4 +1,4 @@
-module ControlParaeterClass
+module ControlParameterClass
     use, intrinsic :: iso_fortran_env    
     use std
     implicit none
@@ -147,4 +147,4 @@ subroutine exportControlPara(obj,restart,path)
     
 end subroutine
 
-end module ControlParaeterClass
+end module ControlParameterClass

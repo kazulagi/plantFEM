@@ -10,6 +10,9 @@ module IOClass
         logical :: EOF=.true.
         character(1) :: state
         character(200)::path,name,extention
+        character(:),allocatable:: title
+        character(:),allocatable:: xlabel,ylabel,zlabel
+        character(:),allocatable :: filename
     contains
         procedure,public :: unit => unitIO
 
@@ -306,45 +309,55 @@ subroutine openIOchar(obj,path,state,name,extention,fh)
                 if(present(state) )then
                     if(state=="r")then
                         open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='old')
+                        obj%filename=trim(path)//trim(name)//trim(extention)
                     elseif(state=="w")then
                         open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='replace')
+                        obj%filename = trim(path)//trim(name)//trim(extention)
                     else
                         call print("Error :: IOClass % open >> argument <state> should be w or r ")
                         stop
                     endif
                 else
                     open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention) )
+                    obj%filename = trim(path)//trim(name)//trim(extention)
                 endif
             else
                 if(present(state) )then
                     if(state=="r")then
                         open(newunit=obj%fh,file=trim(path)//trim(name),status='old' )
+                        obj%filename = trim(path)//trim(name)
                     elseif(state=="w")then
                         open(newunit=obj%fh,file=trim(path)//trim(name),status='replace' )
+                        obj%filename=trim(path)//trim(name)
                     else
                         call print("Error :: IOClass % open >> argument <state> should be w or r ")
                         stop
                     endif
                 else
                     open(newunit=obj%fh,file=trim(path)//trim(name) )
+                    obj%filename = trim(path)//trim(name)
                 endif
             endif
         else
             if(present(state) )then
                 if(state=="r")then
                     open(newunit=obj%fh,file=trim(path),status='old' )
+                    obj%filename = trim(path)
                 elseif(state=="w")then
                     open(newunit=obj%fh,file=trim(path),status='replace' )
+                    obj%filename = trim(path)
                 else
                     call print("Error :: IOClass % open >> argument <state> should be w or r ")
                     stop
                 endif
             else
                 open(newunit=obj%fh,file=trim(path) )
+                obj%filename = trim(path)
             endif
         endif
     else
         open(newunit=obj%fh,file="./untitled.txt",status="replace" )
+        obj%filename = "./untitled.txt"
     endif
     
     obj%EOF = .false.
@@ -433,8 +446,10 @@ subroutine openIOstring(obj,path_s,state,name_s,extention_s,fh)
     if(present(state) )then
         if(state == "w")then
             open(newunit=obj%fh,file=trim(path_s%str()),status="replace" )
+            obj%filename = trim(path_s%str())
         elseif(state == "r")then
             open(newunit=obj%fh,file=trim(path_s%str()),status="old" )
+            obj%filename = trim(path_s%str())
         else
             call print("Error :: IOClass % open >> argument <state> should be w or r ")
         endif
@@ -446,11 +461,14 @@ subroutine openIOstring(obj,path_s,state,name_s,extention_s,fh)
         if(present(extention_s) )then
             obj%extention=trim(extention_s%str())
             open(newunit=obj%fh,file=trim(path_s%str())//trim(name_s%str())//trim(extention_s%str()) )
+            obj%filename = trim(path_s%str())//trim(name_s%str())//trim(extention_s%str())
         else
             open(newunit=obj%fh,file=trim(path_s%str())//trim(name_s%str()) )
+            obj%filename = trim(path_s%str())//trim(name_s%str()) 
         endif
     else
         open(newunit=obj%fh,file=trim(path_s%str()) )
+        obj%filename = trim(path_s%str())
     endif
     
     obj%EOF = .false.
@@ -752,9 +770,13 @@ subroutine writeIOre64re64(obj,re64_1,re64_2)
         call print("Nothing is written.")
         return
     endif
-    
-    write(obj%fh, '(A)') trim(str(re64_1))//" "//trim(str(re64_2))
-
+    if( isnan(re64_1) .or. abs(re64_1) > HUGE(real64)  )then
+        write(obj%fh, '(A)') "NaN "//trim(str(re64_2))
+    elseif( isnan(re64_2) .or. abs(re64_2) > HUGE(real64) )then
+        write(obj%fh, '(A)') trim(str(re64_1))//" NaN"
+    else
+        write(obj%fh, '(A)') trim(str(re64_1))//" "//trim(str(re64_2))
+    endif
 end subroutine 
 
 ! ####################################################
@@ -1038,10 +1060,9 @@ subroutine closeIO(obj)
     class(IO_),intent(inout) :: obj
 
     if(obj%active .eqv. .false.)then
-        print *, "ERROR :: "//"file is already closed."
-        stop
+        print *, "ERROR :: "//"file is already closed. filename = "//obj%filename
+        return
     endif
-
     close(obj%fh)
     obj%fh=0
     obj%active=.false.
@@ -1207,40 +1228,54 @@ end subroutine
 
 subroutine plotIO(obj,name,option)
     class(IO_),intent(inout) ::  obj
-    character(*),intent(in) :: name
+    character(*),optional,intent(in) :: name
     character(*),optional,intent(in) :: option
     type(IO_) :: gp_script
 
-    call obj%open(name,"r")
-    call gp_script%open("gp_script.gp","w")
+    if(present(name) )then
+        obj%filename = name
+    endif
+    call obj%open(obj%filename,"r")
+    call gp_script%open(trim(obj%filename)//"_gp_script.gp","w")
+    call gp_script%write("set xlabel '"//obj%xlabel//"'")
+    call gp_script%write("set ylabel '"//obj%ylabel//"'")
+    call gp_script%write("set title '"//obj%title//"'")
     if(present(option) )then
-        call gp_script%write("plot '"//name//"' "//option)
+        call gp_script%write("plot '"//obj%filename//"' "//option)
     else
-        call gp_script%write("plot '"//name//"' ")
+        call gp_script%write("plot '"//obj%filename//"' ")
     endif
 
+
     call gp_script%close()
-    call system("gnuplot gp_script.gp -pause")
+    call system("gnuplot "//trim(obj%filename)//"_gp_script.gp -pause")
     call obj%close()
 end subroutine
 
 
 subroutine splotIO(obj,name,option)
     class(IO_),intent(inout) ::  obj
-    character(*),intent(in) :: name
+    character(*),optional,intent(in) :: name
     character(*),optional,intent(in) :: option
     type(IO_) :: gp_script
 
-    call obj%open(name,"r")
-    call gp_script%open("gp_script.gp","w")
+    if(present(name) )then
+        obj%filename = name
+    endif
+    call obj%open(obj%filename,"r")
+    call gp_script%open(trim(obj%filename)//"_gp_script.gp","w")
+    call gp_script%write("set xlabel '"//obj%xlabel//"'")
+    call gp_script%write("set ylabel '"//obj%ylabel//"'")
+    call gp_script%write("set zlabel '"//obj%zlabel//"'")
+    call gp_script%write("set title '"//obj%title//"'")
     if(present(option) )then
-        call gp_script%write("splot '"//name//"' "//option)
+        call gp_script%write("splot '"//obj%filename//"' "//option)
     else
-        call gp_script%write("splot '"//name//"' ")
+        call gp_script%write("splot '"//obj%filename//"' ")
     endif
 
     call gp_script%close()
-    call system("gnuplot gp_script.gp -pause")
+    call system("gnuplot "//trim(obj%filename)//"_gp_script.gp -pause")
 
 end subroutine
 
