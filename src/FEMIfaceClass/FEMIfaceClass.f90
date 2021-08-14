@@ -1,7 +1,7 @@
 module FEMIfaceClass
     use, intrinsic :: iso_fortran_env
     use MathClass
-    use MPIClass
+    !use MPIClass
     use ArrayClass
     use ShapeFunctionClass
     use MeshClass
@@ -638,7 +638,7 @@ end subroutine
 ! #########################################################
 subroutine GetGlobalNodePointerNTS(obj)
     class(FEMIface_)::obj
-    type(MPI_)::mpidata
+    !type(MPI_)::mpidata
     integer(int32) :: i,j,k,n,m,NumElemIface1,NumElemIface2
     real(real64),allocatable :: x(:),x_tr(:)
 

@@ -131,7 +131,7 @@ module FEMDomainClass
         procedure,public :: delete => DeallocateFEMDomain
 		procedure,public :: display => displayFEMDomain
 		procedure,public :: divide => divideFEMDomain
-		procedure,public :: distribute => distributeFEMDomain
+		!procedure,public :: distribute => distributeFEMDomain
 		procedure,public :: Delaunay3D => Delaunay3DFEMDomain
 		procedure,public :: Delaunay2D => Delaunay2DFEMDomain
 		
@@ -513,36 +513,6 @@ function divideFEMDomain(obj,n) result(FEMDomains)
 	enddo
 
 end function divideFEMDomain
-!##################################################
-
-!##################################################
-subroutine distributeFEMDomain(obj,mpid) 
-	class(FEMDomain_),intent(inout)::obj
-    type(Mesh_),allocatable :: meshes(:)
-	type(MPI_),intent(inout) :: mpid
-	integer(int32) :: n
-	
-	n=mpid%petot
-
-	! split obj into n objects
-	!if(allocated(obj%FEMDomains) )then
-	!	deallocate(obj%FEMDomains)
-	!endif
-	!allocate(obj%FEMDomains(n))
-
-	! Greedy algorithm
-	if(obj%Mesh%empty() .eqv. .true. )then
-		print *, "distributeFEMDomain >> ERROR >> No mesh is imported."
-		stop
-	endif
-	
-	meshes = obj%mesh%divide(n)
-
-	! import mesh
-	call obj%import(Mesh=meshes(mpid%myrank+1))
-
-
-end subroutine distributeFEMDomain
 !##################################################
 
 !##################################################
@@ -8133,12 +8103,12 @@ end function
 
 
 ! ######################################################################
-subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug,mpid)
+subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 	class(FEMDomain_),intent(inout) :: obj
 	character(2),intent(in) :: direction ! "=>, <=, -> or <-"
 	type(FEMDomain_),intent(inout) :: domain
 	type(ShapeFunction_) :: shapefunc
-	type(MPI_),optional,intent(inout) :: mpid
+	!type(MPI_),optional,intent(inout) :: mpid
 	character(*),intent(in) :: PhysicalField
 	logical,optional,intent(in) :: debug
 	logical :: inside
@@ -8240,11 +8210,11 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug,mpid)
 				! for mpi acceralation
 				start_id=1
 				end_id=size(domain%mesh%nodcoord,1)
-				if(present(mpid) )then
-					call mpid%initItr(end_id)
-					start_id = mpid%start_id
-					end_id = mpid%end_id
-				endif
+!				if(present(mpid) )then
+!					call mpid%initItr(end_id)
+!					start_id = mpid%start_id
+!					end_id = mpid%end_id
+!				endif
 
 				do i=start_id, end_id ! for each node
 					do j=1, size(obj%mesh%elemnod,1) ! for each element
@@ -8321,24 +8291,24 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug,mpid)
 				enddo
 
 				! for mpi acceralation
-				! merge data
-				if(present(mpid) )then
-					call mpid%Barrier()
-					do i=1,size(ElemID)
-						n =ElemID(i)
-						from_rank = mpid%start_end_id(i)-1
-						call mpid%Bcast(From=from_rank,val=n)
-						ElemID(i)=n
-
-
-						do j=1,size(LocalCoord,2)
-							val = LocalCoord(i,j)
-							call mpid%Bcast(From=from_rank,val=val)
-							LocalCoord(i,j)=val
-						enddo
-					enddo
-				endif
-
+!				! merge data
+!				if(present(mpid) )then
+!					call mpid%Barrier()
+!					do i=1,size(ElemID)
+!						n =ElemID(i)
+!						from_rank = mpid%start_end_id(i)-1
+!						call mpid%Bcast(From=from_rank,val=n)
+!						ElemID(i)=n
+!
+!
+!						do j=1,size(LocalCoord,2)
+!							val = LocalCoord(i,j)
+!							call mpid%Bcast(From=from_rank,val=val)
+!							LocalCoord(i,j)=val
+!						enddo
+!					enddo
+!				endif
+!
 				
 				! projection先の節点番号iに対応したprojection元の要素ID:ElemID(i)
 				! projection先の節点番号iに対応したprojection元の要素局所座標:LocalCoord(i,1:3)@3D
@@ -8416,11 +8386,11 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug,mpid)
 				! for mpi acceralation
 				start_id=1
 				end_id=size(obj%mesh%nodcoord,1)
-				if(present(mpid) )then
-					call mpid%initItr(end_id)
-					start_id = mpid%start_id
-					end_id = mpid%end_id
-				endif
+!				if(present(mpid) )then
+!					call mpid%initItr(end_id)
+!					start_id = mpid%start_id
+!					end_id = mpid%end_id
+!				endif
 
 				do i=start_id, end_id ! for each node
 					do j=1, size(domain%mesh%elemnod,1) ! for each element
@@ -8498,23 +8468,23 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug,mpid)
 
 				! for mpi acceralation
 				! merge data
-				if(present(mpid) )then
-					call mpid%Barrier()
-					do i=1,size(ElemID)
-						n =ElemID(i)
-						from_rank = mpid%start_end_id(i)-1
-						call mpid%Bcast(From=from_rank,val=n)
-						ElemID(i)=n
-
-
-						do j=1,size(LocalCoord,2)
-							val = LocalCoord(i,j)
-							call mpid%Bcast(From=from_rank,val=val)
-							LocalCoord(i,j)=val
-						enddo
-					enddo
-				endif
-
+!				if(present(mpid) )then
+!					call mpid%Barrier()
+!					do i=1,size(ElemID)
+!						n =ElemID(i)
+!						from_rank = mpid%start_end_id(i)-1
+!						call mpid%Bcast(From=from_rank,val=n)
+!						ElemID(i)=n
+!
+!
+!						do j=1,size(LocalCoord,2)
+!							val = LocalCoord(i,j)
+!							call mpid%Bcast(From=from_rank,val=val)
+!							LocalCoord(i,j)=val
+!						enddo
+!					enddo
+!				endif
+!
 				
 				! projection先の節点番号iに対応したprojection元の要素ID:ElemID(i)
 				! projection先の節点番号iに対応したprojection元の要素局所座標:LocalCoord(i,1:3)@3D

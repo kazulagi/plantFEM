@@ -12,7 +12,7 @@ module WebserverClass
     use CSVClass
     use VectorClass
     use EquationClass
-    use MPIClass
+    !use MPIClass
     use DictionaryClass
     use OpenMPClass
     use LinearSolverClass

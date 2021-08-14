@@ -45,12 +45,12 @@ if __name__ == '__main__':
     if ofiles == False:
         if yes_no_input():
             os.system("python3 install.py")
-            print("[ok] SiCroF has been installed.")
+            print("[ok] plantFEM has been installed.")
         else:
-            print("[Caution] SiCroF is not installed yet.\n")
-            time.sleep(3)
+            print("[Caution] plantFEM is not installed yet.\n")
+            time.sleep(1)
     else:
-        print("[ok] SiCroF has been installed.")
+        print("[ok] plantFEM has been installed.")
 
 
     print("Detecting OS type...")

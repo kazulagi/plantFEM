@@ -3,7 +3,8 @@ module LinearSolverClass
   use omp_lib
   use TimeClass
   use MathClass
-  use MPIClass
+  use ArrayClass
+  !use MPIClass
   implicit none
 
   

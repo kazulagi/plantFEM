@@ -1,12 +1,7 @@
 module PreprocessingClass
     use, intrinsic :: iso_fortran_env
     use std
-    use mpi
-    use termclass
-    use DictionaryClass
-    use MPIClass
     use FEMDomainClass
-    use ArrayClass
     use PostProcessingClass
 
     

@@ -1,7 +1,7 @@
 module ContactMechanicsClass
     use, intrinsic :: iso_fortran_env
 	use MathClass
-	use MPIClass
+!	use MPIClass
     use FEMIfaceClass
 	use FEMDomainClass
 	use FiniteDeformationClass
@@ -1292,7 +1292,7 @@ end subroutine
 subroutine UpdateContactConfiguration(obj,WeakCoupling,StrongCoupling)
 	class(ContactMechanics_),intent(inout)::obj
 	logical,optional,intent(in) :: WeakCoupling,StrongCoupling
-	type(MPI_)::mpidata
+	!type(MPI_)::mpidata
 
 
 
@@ -1316,7 +1316,7 @@ subroutine UpdateContactConfiguration(obj,WeakCoupling,StrongCoupling)
 			call obj%FEMDomain2%export(OptionalProjectName="2ontact_2_",FileHandle=121,SolverType="FiniteDeform_",MeshDimension=3)
 			
 			
-			call mpidata%end()
+			!call mpidata%end()
 			stop "debug update contact"
 			! debug :: Contact-Traction conversion has errors
 
@@ -1369,7 +1369,6 @@ end subroutine
 subroutine deployContactMechanics(obj,IfaceObj)
 	class(ContactMechanics_),intent(inout)::obj
 	class(FEMIface_),target,intent(in)::IfaceObj
-	type(MPI_)::mpidata
 
 	obj%FEMIface => IfaceObj
 
@@ -1409,7 +1408,7 @@ end subroutine
 ! #####################################################
 subroutine GetActiveNTS(obj)
     class(ContactMechanics_),intent(inout)::obj
-	type(MPI_)::mpidata
+	!type(MPI_)::mpidata
     real(real64) :: gap
     real(real64),allocatable :: xs(:),xm(:,:)
 	integer i,j,n,dim_num,mnod_num
@@ -5278,7 +5277,7 @@ end subroutine
 ! #########################################
 subroutine updateContactStressCM(obj)
 	class(ContactMechanics_),intent(inout)::obj
-	type(MPI_)::mpidata
+	!type(MPI_)::mpidata
 	
 	
 
@@ -5323,7 +5322,7 @@ subroutine getGapCM(obj)
 	real(real64),allocatable :: xm5(:),xm6(:),xm7(:),xm8(:),mid(:)
 	real(real64) :: val
 	integer :: i,j,k,n,NumOfNTSelem,dim_num
-	type(MPI_)::mpidata
+	!type(MPI_)::mpidata
 
 	if(.not. allocated(obj%FEMIface%NTS_ElemNod) )then
 		print *, "Error :: ContactMechanics_ >> updateContactStressCM >> not (.not. allocated(obj%NTS_ElemNod) )"
@@ -5627,7 +5626,7 @@ end subroutine
 ! #########################################
 subroutine exportForceAsTractionCM(obj)
 	class(ContactMechanics_),intent(inout)::obj
-	type(mpi_)::mpidata
+	!type(mpi_)::mpidata
 	integer :: nodeid,i,j,k
 	real(real64) :: bcval
 
@@ -5691,7 +5690,7 @@ subroutine exportForceAsTractionCM(obj)
 	
 	call obj%FEMIface%GmshPlotMesh(Name="debugNTS",withNeumannBC=.true.,withDirichletBC=.true.)
 
-	!call mpidata%end()
+	!!call mpidata%end()
 	!stop "debug"	
 end subroutine
 ! #########################################

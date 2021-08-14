@@ -1,6 +1,6 @@
 module SimulatorClass
     use, intrinsic :: iso_fortran_env
-    use MPIClass
+    !use MPIClass
     use TermClass
     use FEMDomainClass
     use DiffusionEquationClass
@@ -29,7 +29,7 @@ contains
 subroutine Simulator(world,OptionalStep,OptionalTime,SolverType)
     class(Field_),target,intent(inout)   :: world
     type(Simulator_),target             :: sim
-    type(MPI_) :: mpidata
+    !type(MPI_) :: mpidata
     integer(int32),intent(in)  :: OptionalStep
     real(real64),intent(in)  :: OptionalTime
     character(*),optional,intent(in)::SolverType
