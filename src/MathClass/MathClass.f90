@@ -967,6 +967,11 @@ function fstring_int_len(x,length) result(a)
 	integer(int32),intent(in) :: length
 	character(len=length)	:: a
 
+	if(x/=x  .or. abs(x) >= HUGE(int32) )then
+		a=""
+		return
+	endif
+
 	write(a,*) x
 	a = adjustl(a)
 end function
@@ -979,6 +984,11 @@ function fstring_real(x) result(a)
 	real(real64),intent(in) :: x
 	character(len=20):: b
 	character(len=:),allocatable	:: a
+
+	if(x/=x .or. abs(x) >= HUGE(real64) )then
+		a=""
+		return
+	endif
 
 	write(b,'(f0.8)') x
 	a = trim(adjustl(b))
@@ -994,6 +1004,11 @@ function fstring_complex(x) result(a)
 	character(len=30):: b
 	character(len=:),allocatable	:: a
 
+	if(x/=x  .or. abs(x) >= HUGE(real64) )then
+		a=""
+		return
+	endif
+
 	write(b,fmt = '(F0.0,SP,F0.0,"i")') x
 	a = trim(adjustl(b))
 end function
@@ -1007,6 +1022,10 @@ function fstring_real_len(x,length) result(a)
 	character(len=60)	:: a
 	character*40						:: form
 
+	if(x/=x .or. abs(x) >= HUGE(real64))then
+		a=""
+		return
+	endif
 	
 	write(a,'(f0.10)') x
 	a = adjustl(a)

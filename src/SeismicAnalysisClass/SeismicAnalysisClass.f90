@@ -12,6 +12,7 @@ module SeismicAnalysisClass
         real(real64),allocatable :: da(:) ! increment of accel.
         real(real64),allocatable :: a(:) ! accel.
         real(real64),allocatable :: a_ext(:) ! External accel.
+        real(real64),allocatable :: a_ext_n(:) ! External accel.
         real(real64),allocatable :: v(:) ! velocity
         real(real64),allocatable :: u(:) ! disp.
         real(real64),allocatable :: du(:) ! increment of disp.
@@ -69,7 +70,8 @@ subroutine initSeismicAnalysis(obj)
     obj%Density = zeros(obj%femdomain%ne() )
     obj%YoungModulus = zeros(obj%femdomain%ne() )
     obj%PoissonRatio = zeros(obj%femdomain%ne() )
-    !obj%A_ext = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
+    obj%A_ext = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
+    obj%A_ext_n = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
 
 end subroutine
 ! ##############################################
@@ -221,11 +223,14 @@ subroutine updateWaveSeismicAnalysis(obj,timestep,direction)
     endif
     dim_num = obj%femdomain%nd()
     if(obj%wavetype==WAVE_ACCEL)then
+        obj%A_ext_n = obj%A_ext
         do i=1,size(obj%WaveNodeList)
             node_id = obj%WaveNodeList(i)
-            obj%A( dim_num*(node_id-1)+dir ) = obj%wave(timestep ,2)
-            !obj%A_ext( dim_num*(node_id-1)+dir ) = obj%wave(timestep ,2)
+            !obj%A( dim_num*(node_id-1)+dir ) = obj%wave(timestep ,2)
+            ! update accel
+            obj%A_ext( dim_num*(node_id-1)+dir ) =  obj%wave(timestep ,2)
         enddo
+        
     elseif(obj%wavetype==WAVE_VELOCITY)then
         do i=1,size(obj%WaveNodeList)
             node_id = obj%WaveNodeList(i)
@@ -255,22 +260,14 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit)
         obj%wave = wave
     endif
 
-    do i=timestep(1),timestep(2)
+    do i=timestep(1),timestep(2)-1
         ! update dt
-        if(size(obj%wave,1)==1 )then
-            obj%dt = 1.0d0
-        elseif(size(obj%wave,1)==i )then
-            obj%dt = obj%wave(i,1) - obj%wave(i-1,1)
-        else
-            obj%dt = obj%wave(i+1,1) - obj%wave(i,1)
-        endif
+        obj%dt = abs(obj%wave(i+1,1) - obj%wave(i,1))
         
         ! update time
         obj%step = i
-        obj%t = obj%dt*obj%step
-
-        call obj%updateWave(timestep=obj%step)
-        
+        obj%t = obj%dt*obj%Step
+        call obj%updateWave(timestep=obj%step+1)
         ! show info.
         call print("SeismicAnalysis >> "//str(obj%t-obj%dt)//"< t <"//str(obj%t)//" sec.")
         
@@ -310,7 +307,10 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
     real(real64),allocatable ::dV_i(:)
     real(real64),allocatable :: A_i(:)
     real(real64),allocatable :: A_ext_i(:)
-    real(real64),allocatable ::dA_i(:)
+    real(real64),allocatable :: A_ext_i_n(:)
+    real(real64),allocatable ::dA(:)
+    real(real64),allocatable ::dV(:)
+    real(real64),allocatable ::dU(:)
 
 
     real(real64),allocatable ::U_n(:)
@@ -319,13 +319,14 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
 
     real(real64),allocatable :: A_ij(:,:)
     integer(int32) :: i,j,k,l,m,dim_num,n
-    integer(int32),allocatable :: FixNodeList(:) 
+    integer(int32),allocatable :: FixNodeList(:) ,DomainIDs(:)
     real(real64),allocatable   :: Coordinate(:,:)
     real(real64),optional,intent(in) :: TOL
-    real(real64) :: TOL_seismic,center_accel(3),rho,gravity(3)
+    real(real64) :: TOL_seismic,center_accel(3),rho,gravity(3),a(0:7)
+
 
     gravity(:)=0.0d0
-    gravity(3) = -9.80d0
+    gravity(3) = -9.81d0
     
     TOL_seismic = input(default=dble(1.0e-14),option=TOL )
 
@@ -344,18 +345,19 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
     !do  ! Newton's Loop
         ! Element matrix
         call solver%init(NumberOfNode=[obj%femdomain%nn()],DOF=3)
-
+        obj%dt = abs(obj%dt)
         do i=1,obj%femdomain%ne()
             ! For each element
-            ! Ax=b will be installed into solver
+            ! Ax=b will be installed into solv -obj%A_ext_n)
             rho = obj%Density(i)
-            M_ij = rho*obj%femdomain%MassMatrix(ElementID=i,DOF=obj%femdomain%nd() )
+            M_ij = obj%femdomain%MassMatrix(ElementID=i,DOF=obj%femdomain%nd(),density=rho )
             K_ij = obj%femdomain%StiffnessMatrix(ElementID=i,E=obj%YoungModulus(i),v=obj%PoissonRatio(i) )
             C_ij = obj%alpha * M_ij + obj%beta * K_ij
             U_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%U, DOF=obj%femdomain%nd() )
             V_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%V, DOF=obj%femdomain%nd() )
             A_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A, DOF=obj%femdomain%nd() )
-            !A_ext_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A_ext, DOF=obj%femdomain%nd() )
+            A_ext_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A_ext, DOF=obj%femdomain%nd() )
+            A_ext_i_n  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A_ext_n, DOF=obj%femdomain%nd() )
             
             dim_num = obj%femdomain%nd()
             !center_accel = 0.0d0
@@ -375,53 +377,132 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
             !enddo
 
 
-            dF_i = obj%femdomain%MassVector(&
-                ElementID=i, &
-                DOF=obj%femdomain%nd(), &
-                Density=rho,&
-                Accel=gravity &
-                )
-            dF_i = dF_i !+ matmul(M_ij,A_ext_i)
-
-            R_i = zeros(size(dF_i))
-
+            !dF_i = obj%femdomain%MassVector(&
+            !    ElementID=i, &
+            !    DOF=obj%femdomain%nd(), &
+            !    Density=rho,&
+            !    Accel=gravity &
+            !    )
+            
+            ! >> original
             ! A_ij dU_j = R_i 
-            A_ij = K_ij &
-                + 1.0d0/(obj%Newmark_beta * obj%dt * obj%dt)*M_ij &
-                + obj%Newmark_gamma/(obj%Newmark_beta*obj%dt)*C_ij
+            !A_ij = K_ij &
+            !    + 1.0d0/(obj%Newmark_beta * obj%dt * obj%dt)*M_ij &
+            !    + obj%Newmark_gamma/(obj%Newmark_beta*obj%dt)*C_ij
 
-            R_i(:) = dF_i(:) &
-                + 1.0d0/(obj%Newmark_beta*obj%dt*obj%dt)*matmul(M_ij, U_i)&
-                + 1.0d0/(obj%Newmark_beta*obj%dt)*matmul(M_ij, V_i)&
-                + (1.0d0/(2.0d0*obj%Newmark_beta) - 1.0d0) *matmul(M_ij, A_i)&
-                + obj%Newmark_gamma/(obj%Newmark_beta*obj%dt)*matmul(C_ij, U_i)&
-                + (obj%Newmark_gamma/obj%Newmark_beta - 1.0d0)*matmul(C_ij, V_i)&
-                + (obj%Newmark_gamma/(2.0d0*obj%Newmark_beta)-1.0d0)*obj%dt*matmul(C_ij, A_i)
+            !R_i(:) = dF_i(:) &
+            !    + 1.0d0/(obj%Newmark_beta*obj%dt*obj%dt)*matmul(M_ij, U_i)&
+            !    + 1.0d0/(obj%Newmark_beta*obj%dt)*matmul(M_ij, V_i)&
+            !    + (1.0d0/(2.0d0*obj%Newmark_beta) - 1.0d0) *matmul(M_ij, A_i)&
+            !    + obj%Newmark_gamma/(obj%Newmark_beta*obj%dt)*matmul(C_ij, U_i)&
+            !    + (obj%Newmark_gamma/obj%Newmark_beta - 1.0d0)*matmul(C_ij, V_i)&
+            !    + (obj%Newmark_gamma/(2.0d0*obj%Newmark_beta)-1.0d0)*obj%dt*matmul(C_ij, A_i)
+            !<<< original
+            
+            ! External Force
+            dF_i = matmul(M_ij,A_ext_i)
+            !dF_i(:) = 0.0d0
+            ! 
+            R_i = zeros(size(dF_i)) 
 
+            ! https://ocw.u-tokyo.ac.jp/lecture_files/fs_01/9/notes/ja/09.PDF
+            a(0) = 1.0d0/(obj%Newmark_beta*obj%dt*obj%dt)
+            a(1) = obj%Newmark_gamma/(obj%Newmark_beta*obj%dt)
+            a(2) = 1.0d0/(obj%Newmark_beta*obj%dt)
+            a(3) = 1.0d0/(2.0d0*obj%Newmark_beta) - 1.0d0
+            a(4) = obj%Newmark_gamma/(obj%Newmark_beta) - 1.0d0
+            a(5) = obj%Newmark_gamma/(2.0d0*obj%Newmark_beta) - 1.0d0
+            a(6) = obj%Newmark_gamma*obj%dt
+            a(7) = (1.0d0-obj%Newmark_gamma)*obj%dt
+
+!            A_ij = K_ij &
+!                + 1.0d0/(obj%Newmark_beta * obj%dt * obj%dt)*M_ij &
+!                + obj%Newmark_gamma/(obj%Newmark_beta*obj%dt)*C_ij
+            A_ij = M_ij
+!            R_i  = dF_i - matmul(K_ij,U_i) + a(2)*matmul(M_ij,V_i) + a(3)*matmul(M_ij,A_i)&
+!                + a(4)*matmul(C_ij, V_i) + a(5)*matmul(C_ij, A_i)
+            R_i  = dF_i - matmul(K_ij,U_i) - matmul(C_ij,V_i) !- matmul(M_ij,A_i) 
+!            R_i(:) = dF_i(:) &
+!                + 1.0d0/(obj%Newmark_beta*obj%dt*obj%dt)*matmul(M_ij, U_i)&
+!                + 1.0d0/(obj%Newmark_beta*obj%dt)*matmul(M_ij, V_i)&
+!                + (1.0d0/(2.0d0*obj%Newmark_beta)-1.0d0) *matmul(M_ij, A_i)&
+!                + (obj%Newmark_gamma/(obj%Newmark_beta*obj%dt) )*matmul(C_ij, U_i)&
+!                + (obj%Newmark_gamma/obj%Newmark_beta - 1.0d0)*matmul(C_ij, V_i)&
+!                + (obj%Newmark_gamma/(2.0d0*obj%Newmark_beta)-1.0d0)*obj%dt*matmul(C_ij, A_i)
+
+!            R_i(:) = dF_i(:) &
+!                + 1.0d0/(obj%Newmark_beta*obj%dt)*matmul(M_ij, V_i)&
+!                + 1.0d0/(2.0d0*obj%Newmark_beta) *matmul(M_ij, A_i)&
+!                + (obj%Newmark_gamma/obj%Newmark_beta)*matmul(C_ij, V_i)&
+!                + (obj%Newmark_gamma/(2.0d0*obj%Newmark_beta)-1.0d0)*obj%dt*matmul(C_ij, A_i)
+            ! checked!
+            !call f%open("debug.txt")
+            !call f%write("M_ij")
+            !call f%write(M_ij)
+            !call f%write("K_ij")
+            !call f%write(K_ij)
+            !call f%write("C_ij")
+            !call f%write(C_ij)
+            !call f%write("A_ij")
+            !call f%write(A_ij)
+            !call f%write("R_i")
+            !call f%write(R_i)
+            !call f%close()
+            !print *, "rho",rho, "dt",obj%dt
+            !stop
+            ! << revision
+
+            ! revision based on https://www.sciencedirect.com/topics/engineering/newmark-method
+            
+            !A_ij = K_ij &
+            !    + 1.0d0/(obj%Newmark_beta * obj%dt * obj%dt)*M_ij &
+            !    + obj%Newmark_gamma/(obj%Newmark_beta*obj%dt)*C_ij
+            !
+            
+            !R_i(:) = dF_i(:) - matmul(M_ij,A_ext_i) &
+            !    + 1.0d0/(obj%Newmark_beta*obj%dt*obj%dt)*matmul(M_ij, U_i)&
+            !    + 1.0d0/(obj%Newmark_beta*obj%dt)*matmul(M_ij, V_i)&
+            !    + (1.0d0/2.0d0/obj%Newmark_beta-1.0d0) *matmul(M_ij, A_i)&
+            !    + (obj%Newmark_gamma/obj%Newmark_beta*obj%dt)*matmul(C_ij, U_i)&
+            !    - (1.0d0 - obj%Newmark_gamma/obj%Newmark_beta)*matmul(C_ij, V_i)&
+            !    - (1.0d0 - obj%Newmark_gamma/(2.0d0*obj%Newmark_beta))*obj%dt*matmul(C_ij, A_i)
+!
             ! Assemble stiffness matrix
+            DomainIDs = zeros(obj%femdomain%nne() )
+            DomainIDs(:) = 1
+            
             call solver%assemble(&
                 connectivity=obj%femdomain%connectivity(ElementID=i), &
                 DOF = obj%femdomain%nd(), &
+                DomainIDs=DomainIDs,&
                 eMatrix = A_ij)
             call solver%assemble(&
                 connectivity=obj%femdomain%connectivity(ElementID=i), &
                 DOF = obj%femdomain%nd(), &
+                DomainIDs=DomainIDs,&
                 eVector = R_i)
         enddo
 
+
         if(allocated(obj%FixNodeList_x) )then
             do i=1,size(obj%FixNodeList_x)
-                call solver%fix( dim_num*(obj%FixNodeList_x(i)-1)+1, 0.0d0 ,row_DomainID=1)
+                call solver%fix( NodeID=obj%FixNodeList_x(i)*3-2,&
+                entryvalue=0.0d0 ,&
+                row_DomainID=1)
             enddo
         endif
         if(allocated(obj%FixNodeList_y) )then
             do i=1,size(obj%FixNodeList_y)
-                call solver%fix( dim_num*(obj%FixNodeList_y(i)-1)+2, 0.0d0,row_DomainID=1 )
+                call solver%fix( NodeID=obj%FixNodeList_y(i)*3-1,&
+                entryvalue=0.0d0,&
+                row_DomainID=1)
             enddo
         endif
         if(allocated(obj%FixNodeList_z) )then
             do i=1,size(obj%FixNodeList_z)
-                call solver%fix( dim_num*(obj%FixNodeList_z(i)-1)+3, 0.0d0,row_DomainID=1 )
+                call solver%fix( NodeID=obj%FixNodeList_z(i)*3,&
+                entryvalue=0.0d0,&
+                row_DomainID=1)
             enddo
         endif
 
@@ -429,57 +510,88 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
         ! Solve
         
         call solver%solve("BiCGSTAB")
-
-        U_n = obj%U
-        V_n = obj%V
+        print *, maxval(solver%val),minval(solver%val)
+        print *, maxval(solver%x),minval(solver%x)
+        
+        
         A_n = obj%A
-        
-        obj%U = solver%x
+        V_n = obj%V
+        U_n = obj%U
 
-        obj%V = obj%Newmark_gamma/(obj%Newmark_beta*obj%dt)*(obj%U - U_n)&
-                + (1.0d0 - obj%Newmark_gamma/2.0d0/obj%Newmark_beta)*V_n&
-                + obj%dt*(1.0d0 - obj%Newmark_gamma/2.0d0/obj%Newmark_beta )*A_n
+        ! revision
+        ! https://ocw.u-tokyo.ac.jp/lecture_files/fs_01/9/notes/ja/09.PDF
+        obj%A = solver%x
         
-        obj%A = 1.0d0/obj%Newmark_beta/obj%dt*(obj%U - U_n)&
-                - 1.0d0/obj%Newmark_beta/obj%dt * V_n &
-                - (1.0d0/obj%Newmark_beta/2.0d0 - 1.0d0)*A_n
-!        do i=1,obj%femdomain%ne()
-!            ! For each element
-!            U_i  = obj%femdomain%ElementVector(ElementID=i,GlobalVector=obj%U, DOF=obj%femdomain%nd())
-!            V_i  = obj%femdomain%ElementVector(ElementID=i,GlobalVector=obj% V, DOF=obj%femdomain%nd())
-!            A_i  = obj%femdomain%ElementVector(ElementID=i,GlobalVector=obj% A, DOF=obj%femdomain%nd())
+        obj%V = V_n + obj%dt * obj%A 
+        
+        obj%U = U_n + obj%V*obj%dt
+            ! >>> original
+        !obj%V = obj%Newmark_gamma/(obj%Newmark_beta*obj%dt)*(obj%U - U_n)&
+        !        + (1.0d0 - obj%Newmark_gamma/2.0d0/obj%Newmark_beta)*V_n&
+        !        + obj%dt*(1.0d0 - obj%Newmark_gamma/2.0d0/obj%Newmark_beta )*A_n
+        !
+        !obj%A = 1.0d0/obj%Newmark_beta/obj%dt*(obj%U - U_n)&
+        !        - 1.0d0/obj%Newmark_beta/obj%dt * V_n &
+        !        - (1.0d0/obj%Newmark_beta/2.0d0 - 1.0d0)*A_n
+        ! <<< original 
+
+
+        ! >>> revision based on IGS 2021        
+        !dA = 1.0d0/obj%Newmark_beta/obj%dt/obj%dt*solver%x &
+        !- 1.0d0/2.0d0/obj%Newmark_beta*obj%A &
+        !- 1.0d0/obj%Newmark_beta/obj%dt*obj%V ! two-checked
+        !obj%V = obj%V  &
+        !    + obj%dt*obj%A &
+        !    + obj%Newmark_gamma*obj%dt*dA
+        !obj%A = obj%A + dA
+        !obj%U = solver%x
+        !obj%V = obj%Newmark_gamma/(obj%Newmark_beta*obj%dt)*(solver%x-U_n)&
+        !        + (1.0d0 - obj%Newmark_gamma/2.0d0/obj%Newmark_beta)*V_n&
+        !        + obj%dt*(1.0d0 - obj%Newmark_gamma/2.0d0/obj%Newmark_beta )*A_n
+        !
+        !obj%A = (solver%x-U_n)/(obj%Newmark_beta*obj%dt*obj%dt)&
+        !    - V_n/(obj%Newmark_beta*obj%dt) &
+        !    + (1.0d0 - 1.0d0/(2.0d0*obj%Newmark_beta) )*A_n 
+        
+        
+        ! >> revision based on https://www.sciencedirect.com/topics/engineering/newmark-method
+        ! Eq. 5.43
+
+        ! Nishioka et al T. Nishioka, in Comprehensive Structural Integrity, 
+        !obj%U = solver%x
+        !obj%V = obj%Newmark_gamma*(obj%U - U_n)/(obj%Newmark_beta*obj%dt)&
+        !    + V_n * (1.0d0 - obj%Newmark_gamma/obj%Newmark_beta)&
+        !    + obj%dt * A_n * (1.0d0 - obj%Newmark_gamma/(2.0d0*obj%Newmark_beta) )
 !
-!            V_i = 
-!            A_i = 
+        !obj%A = (obj%U - U_n)/(obj%Newmark_beta*obj%dt*obj%dt)&
+        !    - V_n/(obj%Newmark_beta*obj%dt) &
+        !    + (1.0d0 - 1.0d0/(2.0d0*obj%Newmark_beta) )*A_n 
 !
-!            ! one for all
-!            call obj%femdomain%GlobalVector(&
-!                ElementID=i, &
-!                ElementVector=U_i, &
-!                GlobalVector=obj%U, &
-!                DOF=obj%femdomain%nd() )
-!            ! one for all
-!            call obj%femdomain%GlobalVector(&
-!                ElementID=i, &
-!                ElementVector=V_i, &
-!                GlobalVector=obj%V, &
-!                DOF=obj%femdomain%nd() )
-!
-!            ! one for all
-!            call obj%femdomain%GlobalVector(&
-!                ElementID=i, &
-!                ElementVector=A_i, &
-!                GlobalVector=obj%A, &
-!                DOF=obj%femdomain%nd() )
-!
-!        enddo
+        ! <<< revision 
+        !if(obj%step <=20)then
+        !    print *,obj%step,maxval(abs(obj%A)),maxval(abs(obj%A_ext)),maxval(abs(obj%A_ext_n))
+        !    call print( [maxval(solver%x),minval(solver%x)] )
+        !
+        !    if(obj%step==20) stop
+        !endif
+                        
 
         print *, "U"
         print *, minval(obj%U),maxval(obj%U)
+        print *, "U_n"
+        print *, minval(U_n), maxval(U_n)
         print *, "V"
         print *, minval(obj%V),maxval(obj%V)
+        print *, "V_n"
+        print *, minval(V_n), maxval(A_n)
         print *, "A"
         print *, minval(obj%A), maxval(obj%A)
+        print *, "A_n"
+        print *, minval(A_n), maxval(A_n)
+
+        !if(obj%step==100000000)then
+        !    stop
+        !endif
         ! obj%error == 0 only if nonlinear elasticity.
         ! if Error <= TOL
 !        if(obj%error <= TOL_seismic)then
@@ -501,21 +613,21 @@ subroutine recordMaxValuesSeismicAnalysis(obj)
     array = reshape( obj%U,obj%femdomain%nn(),obj%femdomain%nd() )
     array = abs(array)
     do i=1,3
-        obj%maxU(i) = maxval( [ obj%maxU(i) , maxval(array(:,i) ) ]  )
+        obj%maxU(i) = maxval( [ abs(obj%maxU(i)) , maxval(array(:,i) ) ]  )
     enddo
     
 
     array = reshape( obj%V,obj%femdomain%nn(),obj%femdomain%nd() )
     array = abs(array)
     do i=1,3
-        obj%maxV(i) = maxval( [ obj%maxV(i) , maxval(array(:,i) ) ]  )
+        obj%maxV(i) = maxval( [ abs(obj%maxV(i)) , maxval(array(:,i) ) ]  )
     enddo
 
 
     array = reshape( obj%A,obj%femdomain%nn(),obj%femdomain%nd() )
     array = abs(array)
     do i=1,3
-        obj%maxA(i) = maxval( [ obj%maxA(i) , maxval(array(:,i) ) ]  )
+        obj%maxA(i) = maxval( [ abs(obj%maxA(i)) , maxval(array(:,i) ) ]  )
     enddo
 
 end subroutine

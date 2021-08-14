@@ -770,9 +770,13 @@ subroutine writeIOre64re64(obj,re64_1,re64_2)
         call print("Nothing is written.")
         return
     endif
-    
-    write(obj%fh, '(A)') trim(str(re64_1))//" "//trim(str(re64_2))
-
+    if( isnan(re64_1) .or. abs(re64_1) > HUGE(real64)  )then
+        write(obj%fh, '(A)') "NaN "//trim(str(re64_2))
+    elseif( isnan(re64_2) .or. abs(re64_2) > HUGE(real64) )then
+        write(obj%fh, '(A)') trim(str(re64_1))//" NaN"
+    else
+        write(obj%fh, '(A)') trim(str(re64_1))//" "//trim(str(re64_2))
+    endif
 end subroutine 
 
 ! ####################################################
