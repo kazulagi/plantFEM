@@ -4,6 +4,9 @@ module IOClass
     use StringClass
     implicit none
 
+    integer(int32),parameter :: PF_JSON=1
+    integer(int32),parameter :: PF_CSV=2
+
     type :: IO_
         integer :: fh=100
         logical :: active=.false.
@@ -22,7 +25,11 @@ module IOClass
 
         procedure,pass   :: openIOchar
         procedure,pass   :: openIOstring
-        
+
+        procedure, pass :: parseIOChar200
+        procedure, pass :: parseIO2keysChar200
+        generic,public :: parse =>parseIOChar200,parseIO2keysChar200
+
         generic,public :: open => openIOchar, openIOstring
         !procedure,public :: open => openIO
         procedure,pass :: writeIOchar,writeIOcharchar,writeIOcharcharchar
@@ -1285,5 +1292,159 @@ subroutine flushIO(obj)
     flush(obj%fh)
     
 end subroutine
+
+
+
+function parseIOChar200(obj,filename,fileformat,key1,debug) result(ret)
+    class(IO_),intent(inout) :: obj
+    integer(int32),optional,intent(in) :: fileformat
+    character(*),intent(in) :: key1
+    character(*),optional,intent(in) :: filename
+    character(:),allocatable :: line
+    integer(int32)::blcount=0
+    integer(int32)::rmc,id,fformat
+    character(200) :: ret
+    logical,optional,intent(in) :: debug
+
+    ret = " "
+    fformat = input(default=1,option=fileformat)
+
+    if(present(filename) )then
+        call obj%open(filename,"r")
+        if(index(filename,".json")/=0 )then
+            fformat = 1
+        endif
+    endif
+
+
+
+    if(fformat==PF_JSON)then 
+        do
+            line = obj%readline()
+            if(present(debug) )then
+                if(debug)then
+                    print *, trim(line)
+                endif
+            endif
+            if( adjustl(trim(line))=="{" )then
+                blcount=1
+                cycle
+            endif
+            if( adjustl(trim(line))=="}" )then
+                exit
+            endif
+
+            if(blcount==1)then
+                if(index(line,trim(key1) )/=0)then
+                    rmc=index(line,",")
+                    ! カンマがあれば除く
+                    if(rmc /= 0)then
+                        line(rmc:rmc)=" "
+                    endif
+                    id = index(line,":")
+                    read(line(id+1:),*) ret
+                    ret = adjustl(ret)
+                    exit
+                else
+                    cycle
+                endif
+            endif
+
+            if(obj%EOF) exit
+
+        enddo
+    endif
+    
+    if(present(filename) )then
+        call obj%close()
+    endif
+    
+
+end function
+
+
+
+function parseIO2keysChar200(obj,filename,fileformat,key1,key2,debug) result(ret)
+    class(IO_),intent(inout) :: obj
+    integer(int32),optional,intent(in) :: fileformat
+    character(*),intent(in) :: key1,key2
+    character(*),optional,intent(in) :: filename
+    character(:),allocatable :: line
+    integer(int32)::blcount=0
+    integer(int32)::rmc,id,fformat
+    character(200) :: ret
+    logical,optional,intent(in) :: debug
+    ret = " "
+
+    fformat = input(default=1,option=fileformat)
+    if(present(filename) )then
+        call obj%open(filename,"r")
+        if(index(filename,".json")/=0 )then
+            fformat = 1
+        endif
+    endif
+
+
+    if(fformat==PF_JSON)then 
+        do
+            line = obj%readline()
+            if(present(debug) )then
+                if(debug)then
+                    print *, trim(line)
+                endif
+            endif
+            if( adjustl(trim(line))=="{" )then
+                blcount=1
+                cycle
+            endif
+            if( adjustl(trim(line))=="}" )then
+                exit
+            endif
+
+            if(blcount==1)then
+                if(index(line,trim(key1) )/=0)then
+                    ! search for the second key
+                    do 
+                        line = obj%readline()
+                        if(present(debug) )then
+                            if(debug)then
+                                print *, trim(line)
+                            endif
+                        endif
+
+                        if( index(line,"}")/=0 )then
+                            exit
+                        endif
+                        
+                        
+                        if(index(line,trim(key2))/=0 )then
+                            rmc=index(line,",")
+                            if(rmc /= 0)then
+                                line(rmc:rmc)=" "
+                            endif
+                            id = index(line,":")
+                            read(line(id+1:),*) ret
+                            ret = adjustl(ret)
+                            exit
+                        endif
+
+                    enddo
+                else
+                    cycle
+                endif
+            endif
+
+            if(obj%EOF) exit
+
+        enddo
+    endif
+    
+    if(present(filename) )then
+        call obj%close()
+    endif
+    
+
+end function
+
 
 end module IOClass
