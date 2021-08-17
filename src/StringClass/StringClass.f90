@@ -2,6 +2,7 @@ module StringClass
   use iso_fortran_env
   implicit none
 
+  integer(int32),parameter :: ascii = selected_char_kind('ASCII')
   type :: string_
     character(len=:),allocatable :: all
 
