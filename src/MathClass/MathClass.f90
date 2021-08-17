@@ -19,6 +19,10 @@ module MathClass
 	!real(real64) :: pi=3.141592653589793238d0
 	!
 
+	interface heapsort
+		module procedure :: heapsortInt32, heapsortReal64
+	end interface
+
 	interface str
 		module procedure fstring_Int, fstring_Real, fstring_complex, fstring_Int_len, fstring_Real_len, fstring_logical, fstring_String
 	end interface str
@@ -204,6 +208,65 @@ end function
 
 
 
+!########################################
+function SearchNearestValueID(Vector,x)  result(id)
+	real(real64),intent(in) :: Vector(:)
+	real(real64),intent(in) :: x
+	integer(int32) :: id,i
+	
+	id = 1
+	do i=1,size(vector)
+		if( abs(vector(id)-x) > abs(vector(i)-x) )then
+			id = i
+			cycle
+		endif
+	enddo
+
+end function
+!########################################
+
+
+!########################################
+function SearchNearestValueIDs(Vector,x,num)  result(id)
+	real(real64),intent(in) :: Vector(:)
+	real(real64),intent(in) :: x
+	integer(int32),intent(in)  :: num
+	integer(int32) :: id(num),i,j
+
+	id(:) = 1		
+	do j=1,num
+		do i=1,size(vector)
+			if(j>=2 )then
+				if(abs(minval(id(1:j-1) - i ))==0) cycle
+			endif
+			if( abs(vector(id(j) )-x) > abs(vector(i)-x) )then
+				id(j) = i
+				cycle
+			endif
+		enddo
+	enddo
+end function
+!########################################
+
+!########################################
+function SearchNearestValue(Vector,x)  result(val)
+	real(real64),intent(in) :: Vector(:)
+	real(real64),intent(in) :: x
+	integer(int32) :: id, i
+	real(real64) :: val
+	
+	id = 1
+	do i=1,size(vector)
+		if( abs(vector(id)-x) > abs(vector(i)-x) )then
+			id = i
+			cycle
+		endif
+	enddo
+
+	val = vector(id)
+end function
+!########################################
+
 
 !########################################
 function SearchNearestCoord(Array,x)  result(id)
@@ -257,13 +320,15 @@ function SearchIDIntVec(Vec,val) result(id_)
 
 end function
 !##################################################
-subroutine heapsort(n,array,val)
+
+!##################################################
+subroutine heapsortReal64(n,array,val)
   	integer(int32),intent(in) :: n
-  	integer(int32),intent(inout) :: array(1:n)! rearrange order by this array
+  	real(real64),intent(inout) :: array(1:n)! rearrange order by this array
 	real(real64),optional,intent(inout) :: val(1:n) ! linked data
 	real(real64) :: t_real
   	integer(int32) ::i,k,j,l
-  	integer(int32) :: t
+  	real(real64) :: t
   
   	if(n.le.0)then
   		write(6,*)"Error, at heapsort"; stop
@@ -323,7 +388,77 @@ subroutine heapsort(n,array,val)
 		 endif
   	enddo
 
-end subroutine heapsort
+end subroutine heapsortReal64
+
+
+!##################################################
+subroutine heapsortInt32(n,array,val)
+	integer(int32),intent(in) :: n
+	integer(int32),intent(inout) :: array(1:n)! rearrange order by this array
+  real(real64),optional,intent(inout) :: val(1:n) ! linked data
+  real(real64) :: t_real
+	integer(int32) ::i,k,j,l
+	integer(int32) :: t
+
+	if(n.le.0)then
+		write(6,*)"Error, at heapsort"; stop
+	endif
+	if(n.eq.1)return
+
+  l=n/2+1
+  k=n
+  do while(k.ne.1)
+	  if(l.gt.1)then
+		  l=l-1
+		  t=array(L)
+		  if(present(val) )then
+			  t_real=val(L)
+		  endif
+	  else
+		  t=array(k)
+		  if(present(val) )then
+			  t_real=val(k)
+		  endif
+
+		  array(k)=array(1)
+		  if(present(val) )then			
+			  val(k) = val(1)
+		  endif
+
+		  k=k-1
+		  if(k.eq.1) then
+				 array(1)=t
+				 if(present(val) )then
+					  val(1) = t_real
+				 endif
+			  exit
+		  endif
+	  endif
+	  i=l
+	  j=l+l
+	  do while(j.le.k)
+		  if(j.lt.k)then
+				 if(array(j).lt.array(j+1))j=j+1
+
+		  endif
+		  if (t.lt.array(j))then
+			  array(i)=array(j)
+			  if(present(val) )then
+			  val(i)=val(j)
+			  endif
+			  i=j
+			  j=j+j
+		  else
+			  j=k+1
+		  endif
+	  enddo
+	   array(i)=t
+	   if(present(val) )then
+	   val(i)=t_real
+	   endif
+	enddo
+
+end subroutine heapsortInt32
 
 !==========================================================
 !calculate cross product

@@ -68,6 +68,7 @@ module LeafClass
         procedure, public :: Init => initLeaf
         procedure, public :: rotate => rotateleaf
         procedure, public :: move => moveleaf
+        procedure, public :: create => createLeaf
         
         procedure,pass :: connectLeafLeaf => connectLeafLeaf
         procedure,pass :: connectLeafStem => connectLeafStem
@@ -86,6 +87,152 @@ module LeafClass
         procedure, public :: stl => stlleaf
     end type
 contains
+
+subroutine createLeaf(obj,SurfacePoints,filename,x_num,y_num,x_len,y_len)
+    class(Leaf_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: SurfacePoints(:,:),x_len,y_len
+    character(*),optional,intent(in) :: filename
+    integer(int32),optional,intent(in) :: x_num,y_num
+
+    type(IO_) :: f
+    type(FEMDomain_) :: domain
+    type(Math_) :: math
+    character(:),allocatable :: line
+    real(real64) :: x, y, r ,theta,x_sum,y_sum,center(2),max_r,coord(2), ret
+    real(real64),allocatable :: r_data(:),theta_data(:),tx(:),tfx(:)
+    integer(int32) :: num_ptr, i,id,ids(5),id_n
+
+    if(present(filename) )then
+        call f%open(filename,"r")
+        ! get brief info
+        num_ptr = 0
+
+        x_sum = 0.0d0
+        y_sum = 0.0d0
+
+        do 
+            line = f%readline()
+            if(f%EOF) exit
+            num_ptr = num_ptr+1
+            ! read x-y
+            read(line,*) x, y
+            x_sum = x_sum + x
+            y_sum = y_sum + y
+        enddo
+        call f%close()
+
+        center(1) = x_sum/dble(num_ptr)
+        center(2) = y_sum/dble(num_ptr)
+
+        r_data = zeros(num_ptr)
+        theta_data = zeros(num_ptr)
+
+        ! get detail
+        call f%open(filename,"r")
+        num_ptr=0
+        do 
+            line = f%readline()
+            if(f%EOF) exit
+            ! read x-y
+            read(line,*) x, y
+
+            coord(1) = x - center(1)
+            coord(2) = y - center(2)
+            r = sqrt( dot_product(coord,coord) )
+            theta = angles( coord )
+
+            num_ptr = num_ptr + 1
+
+            r_data(num_ptr) = r
+            theta_data(num_ptr) = theta 
+        enddo
+        max_r = maxval(r_data)
+        r_data = r_data/max_r
+        call f%close()
+    elseif(present(SurfacePoints) )then
+        num_ptr = size(SurfacePoints,1)
+        center(1) = x_sum/dble(num_ptr)
+        center(2) = y_sum/dble(num_ptr)
+
+        r_data = zeros(num_ptr)
+        theta_data = zeros(num_ptr)
+
+        num_ptr=0
+        do i=1,size(SurfacePoints)
+
+            ! read x-y
+            x = SurfacePoints(i,1)
+            y = SurfacePoints(i,2)
+
+            coord(1) = x - center(1)
+            coord(2) = y - center(2)
+
+            r = sqrt( dot_product(coord,coord) )
+            theta = angles( coord )
+
+            num_ptr = num_ptr + 1
+
+            r_data(num_ptr) = r
+            theta_data(num_ptr) = theta 
+        enddo
+        max_r = maxval(r_data)
+        r_data = r_data/max_r
+
+    else
+        print *, "ERROR :: Leaf%create >> Please import SurfacePoints or Filename"
+        stop
+    endif
+
+    call obj%femdomain%create("Cylinder3D",x_num=x_num,y_num=y_num)
+    call obj%femdomain%resize(x=2.0d0)
+    call obj%femdomain%resize(y=2.0d0)
+    call obj%femdomain%resize(z=0.010d0)
+
+    ! ####################################
+    ! test interpolate
+
+
+    !tx = [0.0d0, 1.0d0, 2.0d0, 3.0d0]
+    !tfx = [0.0d0, 2.0d0, 4.0d0, 8.0d0]
+    !ret = interpolate(x =tx,Fx=tfx,x_value = -0.50d0)
+    !print *, ret
+    !stop
+    ! ####################################
+
+    ! adjust shape
+    do i=1,obj%femdomain%nn()
+        x = obj%femdomain%mesh%nodcoord(i,1)
+        y = obj%femdomain%mesh%nodcoord(i,2)
+        r = sqrt(x**2 + y**2)
+        coord(1:2) = obj%femdomain%mesh%nodcoord(i,1:2)
+        r = norm(coord)
+        theta = angles(coord)
+        ! find nearest theta
+        r = r * interpolate(x=theta_data,Fx=r_data,x_value=theta)
+        x = r*x
+        y = r*y
+        obj%femdomain%mesh%nodcoord(i,1) = x 
+        obj%femdomain%mesh%nodcoord(i,2) = y 
+    enddo
+
+    if(present(x_len) )then
+        call obj%femdomain%resize(x=x_len)
+    endif
+
+    if(present(y_len) )then
+        call obj%femdomain%resize(y=y_len)
+    endif
+
+!    ! export data
+!    call f%open("theta_r_relation.txt","w")
+!    do i=1,size(r_data)
+!        call f%write(theta_data(i),r_data(i) )
+!    enddo
+!    call f%close()
+!    call f%plot("theta_r_relation.txt","w l")
+!    call f%plot(filename,"w l")
+    
+end subroutine
 
 ! ########################################
     subroutine initLeaf(obj,config,regacy,Thickness,length,width,ShapeFactor,&
