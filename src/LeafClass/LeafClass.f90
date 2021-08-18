@@ -182,7 +182,7 @@ subroutine createLeaf(obj,SurfacePoints,filename,x_num,y_num,x_len,y_len)
         print *, "ERROR :: Leaf%create >> Please import SurfacePoints or Filename"
         stop
     endif
-
+    
     call obj%femdomain%create("Cylinder3D",x_num=x_num,y_num=y_num)
     call obj%femdomain%resize(x=2.0d0)
     call obj%femdomain%resize(y=2.0d0)
@@ -214,6 +214,12 @@ subroutine createLeaf(obj,SurfacePoints,filename,x_num,y_num,x_len,y_len)
         obj%femdomain%mesh%nodcoord(i,1) = x 
         obj%femdomain%mesh%nodcoord(i,2) = y 
     enddo
+
+    obj%A_PointNodeID = randi(obj%femdomain%nn())
+    obj%B_PointNodeID = randi(obj%femdomain%nn())
+    obj%A_PointElementID = randi(obj%femdomain%nn())
+    obj%B_PointElementID = randi(obj%femdomain%nn())
+
 
     if(present(x_len) )then
         call obj%femdomain%resize(x=x_len)

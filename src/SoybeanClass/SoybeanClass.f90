@@ -106,6 +106,7 @@ module SoybeanClass
         !procedure,public :: addLeaf => addLeafSoybean
 
         procedure,public :: Init => initsoybean
+        procedure,public :: create => initsoybean
         procedure,public :: new => initsoybean
         procedure,public :: sowing => initsoybean
         procedure,public :: export => exportSoybean
@@ -1239,7 +1240,8 @@ subroutine initsoybean(obj,config,&
         ! peti and leaf
         num_stem_node = k
         num_leaf = 0
-        do i=1, num_stem_node
+        ! bugfix 2021/08/18
+        do i=1, k
             ! ３複葉
             ! add peti
             num_stem_node = num_stem_node +1

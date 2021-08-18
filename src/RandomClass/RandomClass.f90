@@ -34,6 +34,14 @@ module RandomClass
         !procedure :: choiceString => choiceRandomString
     end type
 
+
+    interface randi
+        module procedure :: randi_range_rank2,randi_imax,randi_imax_n
+    end interface
+
+    interface rand
+        module procedure :: rand_n,rand_sz2,rand_sz3
+    end interface
 contains
 
 
@@ -464,6 +472,97 @@ function scalarRandom(obj,size1) result(ret)
 
     ret = obj%random()
     
+
+end function
+!##########################################
+
+!##########################################
+function randi_range_rank2(valrange,size1,size2) result(ret)
+    integer(int32),intent(in) :: valrange(2),size1, size2
+    type(Random_) :: random
+    integer(int32) :: i,j
+    integer(int32),allocatable :: ret(:,:)
+
+    allocate(ret(size1,size2) )
+    do i=1,size2
+        do j=1,size1
+            ret(j,i) = nint(dble(valrange(2)-valrange(1))*random%random()*1.00050d0 + dble(valrange(1)) )
+        enddo
+    enddo
+
+
+end function
+!##########################################
+
+!##########################################
+function randi_imax(imax) result(ret)
+    integer(int32),intent(in) :: imax
+    type(Random_) :: random
+    integer(int32) :: ret
+
+    ret = nint(random%random()*dble(imax-1) + 1.0d0)
+
+end function
+!##########################################
+
+
+!##########################################
+function randi_imax_n(imax,n) result(ret)
+    integer(int32),intent(in) :: imax, n
+    type(Random_) :: random
+    integer(int32) :: ret(n),i
+
+    do i=1,n
+        ret(i) = nint(random%random()*dble(imax-1) + 1.0d0)
+    enddo
+end function
+!##########################################
+
+
+!##########################################
+function rand_n(n) result(ret)
+    integer(int32),intent(in) :: n
+    type(Random_) :: random
+    real(real64) :: ret(n)
+    integer(int32) :: i
+
+    do i=1,n
+        ret(i) = random%random()
+    enddo
+
+end function
+!##########################################
+
+
+!##########################################
+function rand_sz2(sz1,sz2) result(ret)
+    integer(int32),intent(in) :: sz1,sz2
+    type(Random_) :: random
+    real(real64) :: ret(sz1,sz2)
+    integer(int32) :: i,j
+    do j=1,sz2
+        do i=1,sz1
+            ret(i,j) = random%random()
+        enddo
+    enddo
+
+end function
+!##########################################
+
+
+!##########################################
+function rand_sz3(sz1,sz2,sz3) result(ret)
+    integer(int32),intent(in) :: sz1,sz2,sz3
+    type(Random_) :: random
+    real(real64) :: ret(sz1,sz2,sz3)
+    integer(int32) :: i,j,k
+    do k=1,sz3
+        do j=1,sz2
+            do i=1,sz1
+                ret(i,j,k) = random%random()
+            enddo
+        enddo
+    enddo
 
 end function
 !##########################################
