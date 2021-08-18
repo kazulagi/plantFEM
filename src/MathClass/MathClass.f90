@@ -50,6 +50,8 @@ module MathClass
 	interface array
 		module procedure arrayDim1Real64,arrayDim2Real64,arrayDim3Real64
 	end interface
+
+	
 contains
 ! ###############################################
 recursive function FFT(x) result(hatx)
