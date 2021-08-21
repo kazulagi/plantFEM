@@ -82,6 +82,7 @@ module GrapeClass
         procedure,public :: vtk => vtkGrape
         procedure,public :: stl => stlGrape
         procedure,public :: json => jsonGrape
+        procedure,public :: move => moveGrape
     end type
 contains
 
@@ -92,7 +93,7 @@ subroutine createGrape(obj,config)
     character(:),allocatable :: line
     type(IO_) :: grapeconfig
     type(Random_) :: random
-    integer(int32)::i,n,j,k,num_leaf,num_stem_node
+    integer(int32)::i,n,j,k,num_leaf,num_stem_node,num_branch_branch
 
     obj%LeafSurfaceData = trim(grapeconfig%parse(config,key1="LeafSurfaceData"))
     obj%mainstem_length = freal(grapeconfig%parse(config,key1="Mainstem",key2="Length"))
@@ -113,6 +114,13 @@ subroutine createGrape(obj,config)
         else
             obj%num_branch = obj%num_branch  + 1
             obj%num_branch_node = obj%num_branch_node + fint(line)
+            ! Further branch
+            ! line = grapeconfig%parse(config,key1="Branch#"//trim(str(i)),key2="Branch#1")    
+            ! num_branch_branch = fint(line)
+            ! if(num_branch_branch/=0)then
+            !     ! 2nd order branch
+            !     line = grapeconfig%parse(config,key1="Branch#"//trim(str(i)),key2="Branch#1")    
+            ! endif
             cycle
         endif
     enddo

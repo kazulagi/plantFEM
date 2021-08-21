@@ -18,6 +18,7 @@ elif pf == "Darwin":
     os.system("python3 "+str(os.path.abspath("./"))+"/setup.py")
     os.system("sh "+str(os.path.abspath("./"))+"/install/install")
     os.system("ln -si "+str(os.path.abspath("./"))+"/plantfem /usr/local/bin")
+    os.system("sudo ln -si "+str(os.path.abspath("./"))+"/bin/soja.sh /usr/local/bin/soja")
     print("Successfully Installed!!")
 elif pf == "Linux":
     print("OS : Linux")
@@ -26,6 +27,7 @@ elif pf == "Linux":
     os.system("python3 "+str(os.path.abspath("./"))+"/setup.py")
     os.system("sh "+str(os.path.abspath("./"))+"/install/install")
     os.system("sudo ln -si "+str(os.path.abspath("./"))+"/plantfem /usr/local/bin")
+    os.system("sudo ln -si "+str(os.path.abspath("./"))+"/bin/soja.sh /usr/local/bin/soja")
     print("Successfully Installed!!")
 else:
     print("OS : Unknown ")
