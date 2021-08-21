@@ -8,6 +8,7 @@ sudo apt install  -y gmsh
 sudo apt install  -y gnuplot
 #sudo apt install -y jupyter-notebook
 sudo chmod 777 ./plantfem
+sudo chmod 777 ./bin/soja.sh
 #sudo apt-get -yV install liblapack-dev
 #sudo apt-get -yV install liblapack-doc
 #sudo apt-get -yV install liblapack-pic

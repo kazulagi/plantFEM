@@ -32,6 +32,7 @@ rm Home
 rm Desktop
 rm sicrof
 rm ./server.f90
+rm ./tmp/*
 touch ./server.f90
 rm ./inc/*.so
 echo "1" > etc/cpucore

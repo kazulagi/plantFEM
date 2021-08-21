@@ -351,6 +351,13 @@ echo " >> SoybeanClass.o "
 echo " | =========================> |  (99%)\r\c"
 gfortran -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SoybeanClass/SoybeanClass.f90 -o  ./inc/SoybeanClass.o
 
+
+echo "Compiling ./src/GrapeClass/GrapeClass.f90" 
+echo " >> GrapeClass.o "
+echo " | =========================> |  (99%)\r\c"
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/GrapeClass/GrapeClass.f90 -o  ./inc/GrapeClass.o
+
+
 echo "Compiling ./src/RiceClass/RiceClass.f90" 
 echo " >> RiceClass.o "
 echo " | =========================> |  (99%)\r\c"

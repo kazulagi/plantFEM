@@ -16,6 +16,7 @@ module obj
     use SeedClass
     use SoilClass
     use SoybeanClass
+    use GrapeClass
     use FarmClass
     implicit none
 end module obj
