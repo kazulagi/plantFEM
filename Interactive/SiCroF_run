@@ -6,6 +6,9 @@
 #echo "You can debug your code with SiCroF-API"
 #echo "  "
 #echo "Initializing ..."
+
+PF_HOME=$PWD
+
 numcore=1
 exitc="exit"
 man="man"

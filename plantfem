@@ -1,5 +1,7 @@
 #! /bin/bash
 
+PF_HOME=$PWD
+
 if [ $# -eq 0 ]; then
     python3 $PF_HOME/bin/run.py
 fi
@@ -13,4 +15,3 @@ if [ $# -eq 3 ]; then
     python3 $PF_HOME/bin/run.py -s "$1" "$2" "$3"
 fi
 
-source .pf_profile

@@ -8,6 +8,9 @@ echo "  "
 echo ">"
 echo ">"
 echo "Initializing ..."
+
+PF_HOME=$PWD
+
 numcore=1
 exitc="exit"
 man="man"
