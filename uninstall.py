@@ -18,8 +18,9 @@ elif pf == "Darwin":
     os.system("sh "+str(os.path.abspath("./"))+"/bin/compress")
     os.system("unlink /usr/local/bin/plantfem")
     os.system("sudo unlink /usr/local/bin/soja")
+    os.system("unset PF_HOME")
     os.system("*.so")
-    print("Successfully Installed!!")
+    print("Successfully Uninstalled!!")
 elif pf == "Linux":
     print("OS : Linux")
     print("Now installing...")
@@ -27,6 +28,7 @@ elif pf == "Linux":
     os.system("sh "+str(os.path.abspath("./"))+"/bin/compress")
     os.system("sudo unlink /usr/local/bin/plantfem")
     os.system("sudo unlink /usr/local/bin/soja")
-    print("Successfully Installed!!")
+    os.system("unset PF_HOME")
+    print("Successfully Uninstalled!!")
 else:
     print("OS : Unknown ")

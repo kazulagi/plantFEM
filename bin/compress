@@ -7,6 +7,7 @@ rm *.o
 rm *.so
 rm *.mod
 rm *.txt
+rm *.vtk
 rm *.scf
 rm *.json
 rm *.scf~

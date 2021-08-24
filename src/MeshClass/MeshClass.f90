@@ -4197,7 +4197,7 @@ end subroutine
 
 !##################################################
 function GetElemTypeMesh(obj) result(ElemType)
-    class(Mesh_),intent(inout)::obj
+    class(Mesh_),intent(in)::obj
     type(ShapeFunction_)::sobj
     character*200 :: ElemType
     integer(int32) :: i,j,n,m

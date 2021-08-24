@@ -67,8 +67,7 @@ soy.run(path="./plantfem")
 #
 #
 #
-
-![soyfield](https://user-images.githubusercontent.com/54159711/99903052-37d93400-2d05-11eb-841b-cd4d792cbfb3.png)
+![soyfield](https://user-images.githubusercontent.com/54159711/130534646-8bf5797a-f04f-4d05-aa47-6ca79a481a11.png)
 ![soy3d](https://user-images.githubusercontent.com/54159711/99902211-6ce28800-2cff-11eb-9dbc-9983c07ffe7d.png)
 ![soaked_soy_seed](https://user-images.githubusercontent.com/54159711/84125111-0b8f6b00-aa77-11ea-9f79-1acfe37e2b8f.png)
 ![grass_leaf](https://user-images.githubusercontent.com/54159711/84125213-311c7480-aa77-11ea-8c61-e7bbce016f8a.gif)
