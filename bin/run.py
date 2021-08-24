@@ -36,7 +36,7 @@ if __name__ == '__main__':
     #print(args.bravo)
     #print(args.charlie)
     #print(args.delta)
-    expath=os.path.expandvars("$PF_HOME")
+    expath=os.path.expandvars(".")
     ofiles = os.path.exists(expath+"/inc/obj.o") 
 
     
@@ -45,7 +45,7 @@ if __name__ == '__main__':
 
     if ofiles == False:
         if yes_no_input():
-            os.system("python3 $PF_HOME/install.py")
+            os.system("python3 ./install.py")
             print("[ok] plantFEM has been installed.")
         else:
             print("[Caution] plantFEM is not installed yet.\n")
@@ -59,24 +59,24 @@ if __name__ == '__main__':
     if pf == 'Windows':
         print("OS : Windows")
         print("Please use Windows Subsystem Linux(WSL) ")
-        os.system("$PF_HOME/Interactive/SiCroF.bat")
+        os.system("./Interactive/SiCroF.bat")
     elif pf == "Darwin":
         print("OS : macOS")
-        #os.system("sh $PF_HOME/Interactive/SiCroF_macOS")
+        #os.system("sh ./Interactive/SiCroF_macOS")
         aout = os.path.exists("a.out")
         #print(aout)
         if aout == True:
-            os.system("rm $PF_HOME/a.out")
+            os.system("rm ./a.out")
 
         if args.script is None:
             print("Interactive Mode :: \n")
             print("\n")
             if args.mode == "gfortran":
-                os.system("sh $PF_HOME/Interactive/SiCroF_gfortran ")
+                os.system("sh ./Interactive/SiCroF_gfortran ")
             else:
-                os.system("sh $PF_HOME/Interactive/SiCroF ")
+                os.system("sh ./Interactive/SiCroF ")
         else :
-            os.system("sh $PF_HOME/Interactive/SiCroF_run_macOS " + str(args.script))
+            os.system("sh ./Interactive/SiCroF_run_macOS " + str(args.script))
         
     elif pf == "Linux":
         print("OS : Linux")
@@ -84,19 +84,19 @@ if __name__ == '__main__':
         #print(aout)
 
         if aout == True:
-            os.system("rm $PF_HOME/a.out")
+            os.system("rm ./a.out")
 
         if args.script is None:
             print("Interactive Mode :: \n")
             print("\n")
             if args.mode == "gfortran":
-                os.system("sh $PF_HOME/Interactive/SiCroF_gfortran ")
+                os.system("sh ./Interactive/SiCroF_gfortran ")
             else:
-                os.system("sh $PF_HOME/Interactive/SiCroF ")
+                os.system("sh ./Interactive/SiCroF ")
         else :
             if args.filename is None:
-                os.system("sh $PF_HOME/Interactive/SiCroF_run " + str(args.script))
+                os.system("sh ./Interactive/SiCroF_run " + str(args.script))
             else:
-                os.system("sh $PF_HOME/Interactive/SiCroF_run " + str(args.script)+" " + str(args.filename) )
+                os.system("sh ./Interactive/SiCroF_run " + str(args.script)+" " + str(args.filename) )
     else:
         print("OS : Unknown ")
