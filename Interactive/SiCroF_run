@@ -356,7 +356,7 @@ homepath="$PWD"
 
     if [ "$1" = "build" ]; then
         python3 $PF_HOME/bin/check_end.py
-        cp server.f90 $PF_HOME/server.f90
+        #cp server.f90 $PF_HOME/server.f90
         $mpif90 $PF_HOME/inc/*o -I $PF_HOME/inc $PF_HOME/server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path $PF_HOME/inc/  -o server.out
         #echo "Current num of cpu-core is :: $numcore "
         
