@@ -1,0 +1,3 @@
+set PF_HOME $PWD
+PF_HOME=$PWD
+export PF_HOME
