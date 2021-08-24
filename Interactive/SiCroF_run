@@ -57,15 +57,15 @@ homepath="$PWD"
 #    if [-d {"$1"} ]; then
 #        # this is directory
 #
-#        $mpif90 inc/*o "$1/server/server.f90" -g -fcheck=all  -fintrinsic-modules-path inc/
+#        $mpif90 $PF_HOME/inc/*o "$1/server/server.f90" -g -fcheck=all  -fintrinsic-modules-path $PF_HOME/inc/
 #        #echo "Current num of cpu-core is :: $numcore "
 #
 #        #if [ "$hostfile" != "" ]; then
 #        #    echo "hostfile is activated."
-#        #    mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out
+#        #    mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./server.out
 #        #    return 0
 #        #fi
-#        mpirun --allow-run-as-root -np $numcore ./a.out 
+#        mpirun --allow-run-as-root -np $numcore ./server.out 
 #        return 0
 #
 #
@@ -76,7 +76,7 @@ homepath="$PWD"
         echo "===================================="
         echo "Please type"
         echo " "
-        echo "./plantfem search"
+        echo "$PF_HOME/plantfem search"
         echo " "
         echo "And press ENTER key"
         echo "Then, type a keyword."
@@ -95,11 +95,11 @@ homepath="$PWD"
         cat aps.txt
         while read line
         do
-            echo "Compiling ./$addonpath/$line.f90      "
+            echo "Compiling $PF_HOME/$addonpath/$line.f90      "
             echo " >> $line.o"
             echo " | ########################### | (100%)\r\c "
-            mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all  -c ./$addonpath/$line.f90 -o  ./inc/$line.o
-        done < ./aps.txt
+            mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all  -c $PF_HOME/$addonpath/$line.f90 -o  $PF_HOME/inc/$line.o
+        done < $PF_HOME/aps.txt
         echo " "
         rm ap.txt
         rm aps.txt
@@ -121,7 +121,7 @@ homepath="$PWD"
         echo -n ">>> "
         read projectpath
         if [ "x$projectpath" = "x" ]; then
-            #$projectname="./home/"
+            #$projectname="$PF_HOME/home/"
             pan="$homepath/home/"
         else
             pan="$projectpath"
@@ -137,7 +137,7 @@ homepath="$PWD"
         echo "5 : Create Mesh (fem)"
         echo "6 : Diffusion-1D simulation (sim)"
         echo "7 : Create soybean (obj)"
-        echo "For more detail, please check ./Tutorial/*"
+        echo "For more detail, please check $PF_HOME/Tutorial/*"
         echo -n ">>> "
         read temp
         if [ "x$temp" = "x" ]; then
@@ -164,8 +164,8 @@ homepath="$PWD"
         echo "New project is successfully created in $pan$pn"
         echo "You can run the script by:"
         echo " "
-        echo "./plantfem run"
-        ln -f "$pan$pn/main.f90" "./server.f90"
+        echo "$PF_HOME/plantfem run"
+        ln -f "$pan$pn/main.f90" "$PF_HOME/server.f90"
         
         return 0
     fi
@@ -180,9 +180,9 @@ homepath="$PWD"
         echo ">>> Please paste the github directory name."
         echo -n ">>> "
         read command 
-        cd ./addon/github/
+        cd $PF_HOME/addon/github/
         git clone "$command" 
-        cd ../../
+        cd .$PF_HOME/.$PF_HOME/
         return 0
     fi
 
@@ -193,7 +193,7 @@ homepath="$PWD"
     fi
 
     if [ "$1" = "update" ]; then
-        sh bin/update
+        sh $PF_HOME/bin/update
         return 0
     fi
 
@@ -205,21 +205,21 @@ homepath="$PWD"
         grep -ril "$command" Tutorial/*/*.f90
         echo "===================================="
         echo "Please type "
-        echo "./plantfem load [Path to script with .f90 extention]"
+        echo "$PF_HOME/plantfem load [Path to script with .f90 extention]"
         echo "And run by"
-        echo "./plantfem run"
+        echo "$PF_HOME/plantfem run"
         return 0
     fi
 
     if [ "$1" = "setup" ]; then
         python3 setup.py
-        sh ./install/"$install"
+        sh $PF_HOME/install/"$install"
         return 0
     fi
 
     if [ "$1" = "load" ]; then
-        cp "$2" server.f90
-        echo "copied $2 to server.f90"
+        cp "$2" $PF_HOME/server.f90
+        echo "copied $2 to $PF_HOME/server.f90"
         return 0
     fi
 
@@ -260,8 +260,8 @@ homepath="$PWD"
         read keywords
         echo "Input user-name of Windows"
         read username
-        ln -s /mnt/c/Users/$username ./Home
-        ln -s /mnt/c/Users/$username/Desktop ./Desktop
+        ln -s /mnt/c/Users/$username $PF_HOME/Home
+        ln -s /mnt/c/Users/$username/Desktop $PF_HOME/Desktop
         echo "cp $keywords /mnt/c/Users/$username/Desktop/"
         cp $keywords /mnt/c/Users/$username/Desktop/
         return 0
@@ -270,8 +270,8 @@ homepath="$PWD"
     if [ "$1" = "$debugMode" ]; then
         echo "Debug Mode :: Please input keywords of re-compile modules."
         read keywords
-        echo $(cat ./install/install | grep $keywords | grep -m1 mpif90)
-        $(cat ./install/install | grep $keywords| grep -m1 mpif90)
+        echo $(cat $PF_HOME/install/install | grep $keywords | grep -m1 mpif90)
+        $(cat $PF_HOME/install/install | grep $keywords| grep -m1 mpif90)
         return 0
     fi
 
@@ -312,48 +312,49 @@ homepath="$PWD"
         return 0
     fi
     if [ "$1" = "install" ]; then
-        ./install/"$install"
+        $PF_HOME/install/"$install"
         return 0
     fi
     if [ "$1" = "$compress" ]; then
-        ./bin/compress
+        $PF_HOME/bin/compress
         return 0
     fi
     if [ "$1" = "$init" ]; then
-        ./bin/init
+        $PF_HOME/bin/init
         return 0
     fi
     if [ "$command" = "$remove" ]; then
-        ./bin/compress
+        $PF_HOME/bin/compress
         continue
     fi
 
 
     if [ "$1" = "$run" ]; then
-        python3 bin/check_end.py
-        $mpif90 inc/*o -I ./inc ./server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path inc/     
+        python3 $PF_HOME/bin/check_end.py
+        $mpif90 $PF_HOME/inc/*o -I $PF_HOME/inc $PF_HOME/server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path $PF_HOME/inc/     
         #echo "Current num of cpu-core is :: $numcore "
 
         while read line
         do 
             echo "num of process :: "$line && break 
-        done < ./etc/cpucore
+        done < $PF_HOME/etc/cpucore
 
         if [ "$hostfile" != "" ]; then
             echo "hostfile is activated."
-            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out "$2"
+            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./server.out "$2"
             return 0
         fi
 
-        mpirun --allow-run-as-root --hostfile ./etc/hostfile -np $line ./a.out  "$2"
+        mpirun --allow-run-as-root --hostfile $PF_HOME/etc/hostfile -np $line ./server.out  "$2"
         
         return 0
     fi
 
 
     if [ "$1" = "build" ]; then
-        python3 bin/check_end.py
-        $mpif90 inc/*o -I ./inc ./server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path inc/  -o server.out
+        python3 $PF_HOME/bin/check_end.py
+        cp server.f90 $PF_HOME/server.f90
+        $mpif90 $PF_HOME/inc/*o -I $PF_HOME/inc $PF_HOME/server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path $PF_HOME/inc/  -o server.out
         #echo "Current num of cpu-core is :: $numcore "
         
         return 0
@@ -371,7 +372,7 @@ homepath="$PWD"
         echo "Current num of cpu-core is :: $numcore "
         echo "Please input num of cpu-core"
         read numcore
-        echo $numcore > ./etc/cpucore
+        echo $numcore > $PF_HOME/etc/cpucore
         echo "Current num of cpu-core is :: $numcore "
         return 0
     fi
@@ -451,7 +452,7 @@ homepath="$PWD"
     if [ "$EXTENSION" = "$f90" ]; then
 
 
-        if [ "$1" != "./server.f90" ]; then
+        if [ "$1" != "$PF_HOME/server.f90" ]; then
             ln -f $1 "server.f90"
         fi
 
@@ -459,20 +460,20 @@ homepath="$PWD"
             ln -f $1 "server.f90"
         fi
         
-        $mpif90 inc/*o $1  -I ./inc -g -fcheck=all -fopenmp -fopenacc -fintrinsic-modules-path inc/
+        $mpif90 $PF_HOME/inc/*o $1  -I $PF_HOME/inc -g -fcheck=all -fopenmp -fopenacc -fintrinsic-modules-path $PF_HOME/inc/
 
         #echo "Current num of cpu-core is :: $numcore "
 
         if [ "$hostfile" != "" ]; then
             echo "hostfile is activated."
-            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out
+            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./server.out
             return 0
         fi
         while read line
         do 
             echo $line && break
-        done < ./etc/cpucore
-        mpirun --allow-run-as-root --hostfile ./etc/hostfile -np $line ./a.out 
+        done < $PF_HOME/etc/cpucore
+        mpirun --allow-run-as-root --hostfile $PF_HOME/etc/hostfile -np $line ./server.out 
         return 0
     fi
 

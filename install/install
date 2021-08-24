@@ -381,6 +381,9 @@ mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path 
 mv *.mod inc/
 cp *.so inc/
 mkdir -p home
+
+export PF_HOME=$PWD
+
 #echo "Copying input files from INPUT/           " 
 #echo " >> *.txt, *.scf"
 #echo " | ########################### | (100%)\r"

@@ -7080,20 +7080,27 @@ end subroutine
 ! ##################################################
 
 ! ##################################################
-function getVolumeFEMDomain(obj,elem) result(ret)
-	class(FEMDomain_),intent(inout) :: obj
-	integer(int32),intent(in) :: elem
+recursive function getVolumeFEMDomain(obj,elem) result(ret)
+	class(FEMDomain_),intent(in) :: obj
+	type(ShapeFunction_) :: sf
+	integer(int32),optional,intent(in) :: elem
 	real(real64) :: ret
-	integer(int32) :: i,j
+	integer(int32) :: i,j,elemid
 
-
-	obj%ShapeFunction%ElemType=obj%Mesh%GetElemType()
-	call SetShapeFuncType(obj%ShapeFunction)
-	i = elem
-	call GetAllShapeFunc(obj%ShapeFunction,elem_id=i,nod_coord=obj%Mesh%NodCoord,&
-		elem_nod=obj%Mesh%ElemNod,OptionalGpID=1)
-	ret = obj%ShapeFunction%detJ
-
+	if(present(elem) )then
+		sf%ElemType=obj%Mesh%GetElemType()
+		call SetShapeFuncType(sf)
+		i = elem
+		call GetAllShapeFunc(sf,elem_id=i,nod_coord=obj%Mesh%NodCoord,&
+			elem_nod=obj%Mesh%ElemNod,OptionalGpID=1)
+		ret = sf%detJ*((2.0d0)**obj%nd())
+	else
+		! count all
+		ret = 0.0d0
+		do elemid=1,obj%ne()
+			ret = ret + obj%getVolume(elem=elemid)	
+		enddo
+	endif
 end function
 ! ##################################################
 

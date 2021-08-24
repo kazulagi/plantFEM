@@ -19,6 +19,8 @@ module SoybeanClass
         integer(int32) :: MaxLeafNum= 300
         integer(int32) :: MaxRootNum=300
         integer(int32) :: MaxStemNum= 300
+
+        
         
         integer(int32)  :: ms_node,br_node(300),br_from(300)
         real(real64)    :: ms_length,br_length(300)
@@ -112,6 +114,8 @@ module SoybeanClass
         procedure,public :: export => exportSoybean
 
         procedure,public :: grow => growSoybean
+        procedure,public :: getVolume => getVolumeSoybean
+        procedure,public :: getBioMass => getBioMassSoybean
         procedure,public :: deform => deformSoybean
         
         procedure,public :: show => showSoybean
@@ -292,6 +296,7 @@ subroutine initsoybean(obj,config,&
     integer(int32) :: num_leaf
     real(real64)::readvalreal
     integer(int32) :: readvalint
+    logical :: debug=.false.
     type(IO_) :: soyconf
     type(Random_) :: random
 
@@ -421,7 +426,7 @@ subroutine initsoybean(obj,config,&
     blcount=0
     do
         read(soyconf%fh,'(a)') line
-        print *, trim(line)
+        if(debug) print *, trim(line)
         if( adjustl(trim(line))=="{" )then
             blcount=1
             cycle
@@ -445,7 +450,7 @@ subroutine initsoybean(obj,config,&
             if(index(line,"Mainstem")/=0)then
                 do
                     read(soyconf%fh,'(a)') line
-                    print *, trim(line)
+                    if(debug) print *, trim(line)
                     if( index(line,"}")/=0 )then
                         exit
                     endif
@@ -500,12 +505,12 @@ subroutine initsoybean(obj,config,&
                     line(rmc:rmc)=" "
                 endif
                 id = index(line,"#")
-                print *, trim(line)
+                if(debug) print *, trim(line)
                 read(line(id+1:),*) branch_id
 
                 do
                     read(soyconf%fh,'(a)') line
-                    print *, trim(line)
+                    if(debug) print *, trim(line)
                     if( index(line,"}")/=0 )then
                         exit
                     endif
@@ -554,7 +559,7 @@ subroutine initsoybean(obj,config,&
             if(index(line,"Mainroot")/=0)then
                 do
                     read(soyconf%fh,'(a)') line
-                    print *, trim(line)
+                    if(debug) print *, trim(line)
                     if( index(line,"}")/=0 )then
                         exit
                     endif
@@ -609,12 +614,12 @@ subroutine initsoybean(obj,config,&
                     line(rmc:rmc)=" "
                 endif
                 id = index(line,"#")
-                print *, trim(line)
+                if(debug) print *, trim(line)
                 read(line(id+1:),*) branch_id
 
                 do
                     read(soyconf%fh,'(a)') line
-                    print *, trim(line)
+                    if(debug) print *, trim(line)
                     if( index(line,"}")/=0 )then
                         exit
                     endif
@@ -2598,6 +2603,107 @@ subroutine deformSoybean(obj,penaltyparameter,groundLevel,disp,x_min,x_max,y_min
 
 
 end subroutine
+
+function getVolumeSoybean(obj,stem,leaf,root) result(ret)
+    class(Soybean_),intent(in) :: obj
+    logical,optional,intent(in) :: stem, leaf, root
+    logical :: all
+    integer(int32) :: i,j
+    real(real64) :: ret
+
+    all = .false.
+    if(.not.present(stem) .and..not.present(leaf)  )then
+        if(.not. present(root) )then
+            all = .true.
+        endif
+    endif
+
+    ret =0.0d0
+    if(all)then
+        do i=1,size(obj%stem)
+            if( .not.obj%stem(i)%femdomain%mesh%empty() )then
+                do j=1,obj%stem(i)%femdomain%ne()
+                    ret = ret + obj%stem(i)%femdomain%getVolume(elem=j)
+                enddo
+            endif
+        enddo
+        do i=1,size(obj%leaf)
+            if( .not.obj%leaf(i)%femdomain%mesh%empty() )then
+                do j=1,obj%leaf(i)%femdomain%ne()
+                    ret = ret + obj%leaf(i)%femdomain%getVolume(elem=j)
+                enddo
+            endif
+        enddo
+        do i=1,size(obj%root)
+            if( .not.obj%root(i)%femdomain%mesh%empty() )then
+                do j=1,obj%root(i)%femdomain%ne()
+                    ret = ret + obj%root(i)%femdomain%getVolume(elem=j)
+                enddo
+            endif
+        enddo
+        return
+    endif
+
+    if(present(stem))then
+        if(stem  .or. all)then
+            do i=1,size(obj%stem)
+                if( .not.obj%stem(i)%femdomain%mesh%empty() )then
+                    do j=1,obj%stem(i)%femdomain%ne()
+                        ret = ret + obj%stem(i)%femdomain%getVolume(elem=j)
+                    enddo
+                endif
+            enddo
+        endif
+    endif
+    if(present(leaf) )then
+        if(leaf )then
+            do i=1,size(obj%leaf)
+                if( .not.obj%leaf(i)%femdomain%mesh%empty() )then
+                    do j=1,obj%leaf(i)%femdomain%ne()
+                        ret = ret + obj%leaf(i)%femdomain%getVolume(elem=j)
+                    enddo
+                endif
+            enddo
+        endif
+    endif
+    if(present(root))then
+        if(root)then
+            do i=1,size(obj%root)
+                if( .not.obj%root(i)%femdomain%mesh%empty() )then
+                    do j=1,obj%root(i)%femdomain%ne()
+                        ret = ret + obj%root(i)%femdomain%getVolume(elem=j)
+                    enddo
+                endif
+            enddo
+        endif
+    endif
+
+end function
+
+function getBioMassSoybean(obj,stemDensity,leafDensity,rootDensity) result(ret)
+    class(Soybean_),intent(in) :: obj
+    real(real64),optional,intent(in) :: stemDensity,leafDensity,rootDensity
+    logical :: all
+    integer(int32) :: i,j
+    real(real64) :: ret
+
+    ret = 0.0d0
+
+    if(present(stemDensity))then
+        ret = ret + obj%getVolume(stem=.true.) * stemDensity
+    endif
+
+    if(present(leafDensity))then
+        ret = ret + obj%getVolume(leaf=.true.) * leafDensity
+    endif
+
+    if(present(rootDensity))then
+        ret = ret + obj%getVolume(root=.true.) * rootDensity
+    endif
+
+
+
+end function
 
 
 end module
