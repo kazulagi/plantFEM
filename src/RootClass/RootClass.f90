@@ -33,6 +33,9 @@ module RootClass
         integer(int32)  :: ynum = 10
         integer(int32)  :: znum = 10
 
+        ! density
+        real(real64),allocatable :: DryDensity(:)
+        real(real64),allocatable :: WaterContent(:)
 
         integer(int32)             ::  Division
         type(Root_),pointer ::  pRoot
@@ -234,6 +237,12 @@ subroutine initRoot(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     call obj%FEMdomain%create(meshtype="rectangular3D",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
     x_len=obj%mindiameter/2.0d0,y_len=obj%mindiameter/2.0d0,z_len=obj%minlength )
     
+    ! initialize physical parameter
+    obj%DryDensity = zeros( obj%FEMDomain%ne() )
+    obj%watercontent = zeros( obj%FEMDomain%ne() )
+    
+    obj%DryDensity(:) = freal(rootconf%parse(config,key1="drydensity"))
+    obj%watercontent(:) = freal(rootconf%parse(config,key1="watercontent"))
 
     ! <I>面に属する要素番号、節点番号、要素座標、節点座標のリストを生成
     obj%I_planeNodeID = obj%FEMdomain%mesh%getNodeList(zmax=0.0d0)

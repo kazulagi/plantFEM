@@ -4,6 +4,8 @@
     "mindiameter": 0.001,
     "maxlength": 0.07,
     "maxdiameter": 0.01,
+    "drydensity":340.0,
+    "watercontent":0.70,
     "xnum": 10,
     "ynum": 10,
     "znum": 10

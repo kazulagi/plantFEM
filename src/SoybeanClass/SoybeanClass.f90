@@ -116,6 +116,7 @@ module SoybeanClass
         procedure,public :: grow => growSoybean
         procedure,public :: getVolume => getVolumeSoybean
         procedure,public :: getBioMass => getBioMassSoybean
+        procedure,public :: getTotalWeight => getTotalWeightSoybean
         procedure,public :: deform => deformSoybean
         
         procedure,public :: show => showSoybean
@@ -2680,30 +2681,218 @@ function getVolumeSoybean(obj,stem,leaf,root) result(ret)
 
 end function
 
-function getBioMassSoybean(obj,stemDensity,leafDensity,rootDensity) result(ret)
+function getBiomassSoybean(obj,stem,leaf,root) result(ret)
     class(Soybean_),intent(in) :: obj
-    real(real64),optional,intent(in) :: stemDensity,leafDensity,rootDensity
+    logical,optional,intent(in) :: stem, leaf, root
     logical :: all
     integer(int32) :: i,j
-    real(real64) :: ret
+    real(real64) :: ret,volume
 
-    ret = 0.0d0
-
-    if(present(stemDensity))then
-        ret = ret + obj%getVolume(stem=.true.) * stemDensity
+    all = .false.
+    if(.not.present(stem) .and..not.present(leaf)  )then
+        if(.not. present(root) )then
+            all = .true.
+        endif
     endif
 
-    if(present(leafDensity))then
-        ret = ret + obj%getVolume(leaf=.true.) * leafDensity
+    ret =0.0d0
+    if(all)then
+        do i=1,size(obj%stem)
+            if( .not.obj%stem(i)%femdomain%mesh%empty() )then
+                do j=1,obj%stem(i)%femdomain%ne()
+                    volume = obj%stem(i)%femdomain%getVolume(elem=j)
+                    ! total = total + solid(=drydensity * volume)
+                    ret = ret + volume*obj%stem(i)%drydensity(j) 
+                enddo
+                
+            endif
+        enddo
+        do i=1,size(obj%leaf)
+            if( .not.obj%leaf(i)%femdomain%mesh%empty() )then
+                do j=1,obj%leaf(i)%femdomain%ne()
+                    volume = obj%leaf(i)%femdomain%getVolume(elem=j)
+                    ! total = total + solid(=drydensity * volume) 
+                    ret = ret + volume*obj%leaf(i)%drydensity(j) 
+                enddo
+                
+            endif
+        enddo
+        do i=1,size(obj%root)
+            if( .not.obj%root(i)%femdomain%mesh%empty() )then
+                do j=1,obj%root(i)%femdomain%ne()
+                    volume = obj%root(i)%femdomain%getVolume(elem=j)
+                    ! total = total + solid(=drydensity * volume) 
+                    ret = ret + volume*obj%root(i)%drydensity(j) 
+                enddo
+                
+            endif
+        enddo
+        return
     endif
 
-    if(present(rootDensity))then
-        ret = ret + obj%getVolume(root=.true.) * rootDensity
+    if(present(stem))then
+        if(stem  .or. all)then
+            do i=1,size(obj%stem)
+                if( .not.obj%stem(i)%femdomain%mesh%empty() )then
+                    do j=1,obj%stem(i)%femdomain%ne()
+                        volume = obj%stem(i)%femdomain%getVolume(elem=j)
+                        ! total = total + solid(=drydensity * volume) 
+                        ret = ret + volume*obj%stem(i)%drydensity(j) 
+                    enddo 
+                endif
+            enddo
+        endif
     endif
-
-
+    if(present(leaf) )then
+        if(leaf )then
+            do i=1,size(obj%leaf)
+                if( .not.obj%leaf(i)%femdomain%mesh%empty() )then
+                    do j=1,obj%leaf(i)%femdomain%ne()
+                        volume = obj%leaf(i)%femdomain%getVolume(elem=j)
+                        ! total = total + solid(=drydensity * volume) 
+                        ret = ret + volume*obj%leaf(i)%drydensity(j) 
+                    enddo
+                endif
+            enddo
+        endif
+    endif
+    if(present(root))then
+        if(root)then
+            do i=1,size(obj%root)
+                if( .not.obj%root(i)%femdomain%mesh%empty() )then
+                    do j=1,obj%root(i)%femdomain%ne()
+                        volume = obj%root(i)%femdomain%getVolume(elem=j)
+                        ! total = total + solid(=drydensity * volume) 
+                        ret = ret + volume*obj%root(i)%drydensity(j) 
+                    enddo
+                endif
+            enddo
+        endif
+    endif
 
 end function
+
+
+function getTotalWeightSoybean(obj,stem,leaf,root,waterDensity) result(ret)
+    class(Soybean_),intent(in) :: obj
+    logical,optional,intent(in) :: stem, leaf, root
+    real(real64),optional,intent(in) :: waterDensity
+    logical :: all
+    integer(int32) :: i,j
+    real(real64) :: ret,volume,water_density
+
+    ! kg, m
+    water_density=input(default=1000.0d0,option=waterDensity)
+
+    all = .false.
+    if(.not.present(stem) .and..not.present(leaf)  )then
+        if(.not. present(root) )then
+            all = .true.
+        endif
+    endif
+
+    ret =0.0d0
+    if(all)then
+        do i=1,size(obj%stem)
+            if( .not.obj%stem(i)%femdomain%mesh%empty() )then
+                do j=1,obj%stem(i)%femdomain%ne()
+                    volume = obj%stem(i)%femdomain%getVolume(elem=j)
+                    ! total = total + solid(=drydensity * volume) + fluid (=watercontent * volume)
+                    ret = ret + volume*obj%stem(i)%drydensity(j) + volume*obj%stem(i)%watercontent(j)*water_density
+                enddo
+                
+            endif
+        enddo
+        do i=1,size(obj%leaf)
+            if( .not.obj%leaf(i)%femdomain%mesh%empty() )then
+                do j=1,obj%leaf(i)%femdomain%ne()
+                    volume = obj%leaf(i)%femdomain%getVolume(elem=j)
+                    ! total = total + solid(=drydensity * volume) + fluid (=watercontent * volume)
+                    ret = ret + volume*obj%leaf(i)%drydensity(j) + volume*obj%leaf(i)%watercontent(j)*water_density
+                enddo
+                
+            endif
+        enddo
+        do i=1,size(obj%root)
+            if( .not.obj%root(i)%femdomain%mesh%empty() )then
+                do j=1,obj%root(i)%femdomain%ne()
+                    volume = obj%root(i)%femdomain%getVolume(elem=j)
+                    ! total = total + solid(=drydensity * volume) + fluid (=watercontent * volume)
+                    ret = ret + volume*obj%root(i)%drydensity(j) + volume*obj%root(i)%watercontent(j)*water_density
+                enddo
+                
+            endif
+        enddo
+        return
+    endif
+
+    if(present(stem))then
+        if(stem  .or. all)then
+            do i=1,size(obj%stem)
+                if( .not.obj%stem(i)%femdomain%mesh%empty() )then
+                    do j=1,obj%stem(i)%femdomain%ne()
+                        volume = obj%stem(i)%femdomain%getVolume(elem=j)
+                        ! total = total + solid(=drydensity * volume) + fluid (=watercontent * volume)
+                        ret = ret + volume*obj%stem(i)%drydensity(j) + volume*obj%stem(i)%watercontent(j)*water_density
+                    enddo 
+                endif
+            enddo
+        endif
+    endif
+    if(present(leaf) )then
+        if(leaf )then
+            do i=1,size(obj%leaf)
+                if( .not.obj%leaf(i)%femdomain%mesh%empty() )then
+                    do j=1,obj%leaf(i)%femdomain%ne()
+                        volume = obj%leaf(i)%femdomain%getVolume(elem=j)
+                        ! total = total + solid(=drydensity * volume) + fluid (=watercontent * volume)
+                        ret = ret + volume*obj%leaf(i)%drydensity(j) + volume*obj%leaf(i)%watercontent(j)*water_density
+                    enddo
+                endif
+            enddo
+        endif
+    endif
+    if(present(root))then
+        if(root)then
+            do i=1,size(obj%root)
+                if( .not.obj%root(i)%femdomain%mesh%empty() )then
+                    do j=1,obj%root(i)%femdomain%ne()
+                        volume = obj%root(i)%femdomain%getVolume(elem=j)
+                        ! total = total + solid(=drydensity * volume) + fluid (=watercontent * volume)
+                        ret = ret + volume*obj%root(i)%drydensity(j) + volume*obj%root(i)%watercontent(j)*water_density
+                    enddo
+                endif
+            enddo
+        endif
+    endif
+
+end function
+
+
+!function getBioMassSoybean(obj,stemDensity,leafDensity,rootDensity) result(ret)
+!    class(Soybean_),intent(in) :: obj
+!    real(real64),optional,intent(in) :: stemDensity,leafDensity,rootDensity
+!    logical :: all
+!    integer(int32) :: i,j
+!    real(real64) :: ret
+!
+!    ret = 0.0d0
+!
+!    if(present(stemDensity))then
+!        ret = ret + obj%getVolume(stem=.true.) * stemDensity
+!    endif
+!
+!    if(present(leafDensity))then
+!        ret = ret + obj%getVolume(leaf=.true.) * leafDensity
+!    endif
+!
+!    if(present(rootDensity))then
+!        ret = ret + obj%getVolume(root=.true.) * rootDensity
+!    endif
+!
+!
+!
+!end function
 
 
 end module

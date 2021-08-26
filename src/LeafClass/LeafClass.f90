@@ -62,6 +62,9 @@ module LeafClass
     
         real(real64) :: Lambda= 37.430d0 ! 暗呼吸速度を無視した時のCO2補償点ppm
         real(real64) :: temp=303.0d0 ! temp
+
+        real(real64),allocatable :: DryDensity(:)
+        real(real64),allocatable :: WaterContent(:)
     
 
     contains
@@ -447,12 +450,19 @@ end subroutine
         x_len=obj%minwidth/2.0d0,y_len=obj%minwidth/2.0d0,z_len=obj%minlength,shaperatio=obj%shaperatio)
         
 
+        ! physical parameters
         allocate(obj%A(size(obj%FEMDomain%Mesh%ElemNod,1) ) )
         obj%A(:) = 0.0d0
         allocate(obj%source(size(obj%FEMDomain%Mesh%ElemNod,1) ) )
         obj%source(:) = 0.0d0
         allocate(obj%ppfd(size(obj%FEMDomain%Mesh%ElemNod,1) ) )
         obj%ppfd(:) = 0.0d0
+
+        ! initialize physical parameter
+        obj%DryDensity = zeros( obj%FEMDomain%ne() )
+        obj%watercontent = zeros(obj%FEMDomain%ne())
+        obj%DryDensity(:) = freal(leafconf%parse(config,key1="drydensity"))
+        obj%watercontent(:) = freal(leafconf%parse(config,key1="watercontent"))
         
         ! <I>面に属する要素番号、節点番号、要素座標、節点座標のリストを生成
         obj%I_planeNodeID = obj%FEMdomain%mesh%getNodeList(zmax=0.0d0)
