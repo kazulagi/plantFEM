@@ -752,7 +752,7 @@ subroutine initsoybean(obj,config,&
             endif
 
             if(index(line,"length")/=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -763,7 +763,7 @@ subroutine initsoybean(obj,config,&
             endif
 
             if(index(line,"width")/=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -774,7 +774,7 @@ subroutine initsoybean(obj,config,&
             endif
 
             if(index(line,"height")/=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -789,7 +789,7 @@ subroutine initsoybean(obj,config,&
 
             ! stem
             if(index(line,"br_angle_ave") /=0 .and. index(line,"br_angle_ave(") ==0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -801,7 +801,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"br_angle_sig") /=0 .and. index(line,"br_angle_sig(") ==0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -813,7 +813,7 @@ subroutine initsoybean(obj,config,&
             endif
 
             if(index(line,"br_angle_ave(1)")/=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -824,7 +824,7 @@ subroutine initsoybean(obj,config,&
                 obj%br_angle_ave(1) = readvalreal
             endif
             if(index(line,"br_angle_sig(1)")/=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -836,7 +836,7 @@ subroutine initsoybean(obj,config,&
             endif
 
             if(index(line,"ms_angle_ave")/=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -848,7 +848,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"ms_angle_sig")/=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -862,7 +862,7 @@ subroutine initsoybean(obj,config,&
             ! is also stem
             
             if(index(line,"peti_size_ave")  /=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -874,7 +874,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"peti_size_sig")  /=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -886,7 +886,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"peti_width_ave")  /=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -898,7 +898,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"peti_width_sig")  /=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -910,7 +910,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"peti_angle_ave")  /=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -922,7 +922,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"peti_angle_sig")  /=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -935,7 +935,7 @@ subroutine initsoybean(obj,config,&
             ! leaf
             
             if(index(line,"leaf_length_ave")  /=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -947,7 +947,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"leaf_length_sig")  /=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -959,7 +959,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"leaf_width_ave")  /=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -971,7 +971,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"leaf_width_sig")  /=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -983,7 +983,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"leaf_thickness_ave")  /=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -995,7 +995,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"leaf_thickness_sig")  /=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -1007,7 +1007,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"leaf_angle_ave")  /=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -1019,7 +1019,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"leaf_angle_sig")  /=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -1037,7 +1037,7 @@ subroutine initsoybean(obj,config,&
 
 
             if(index(line,"brr_angle_ave") /=0 .and. index(line,"brr_angle_ave(") ==0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -1049,7 +1049,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"brr_angle_sig") /=0 .and. index(line,"brr_angle_sig(") ==0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -1061,7 +1061,7 @@ subroutine initsoybean(obj,config,&
             endif
 
             if(index(line,"brr_angle_ave(1)")/=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -1072,7 +1072,7 @@ subroutine initsoybean(obj,config,&
                 obj%brr_angle_ave(1) = readvalreal
             endif
             if(index(line,"brr_angle_sig(1)")/=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -1084,7 +1084,7 @@ subroutine initsoybean(obj,config,&
             endif
 
             if(index(line,"mr_angle_ave")/=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
@@ -1096,7 +1096,7 @@ subroutine initsoybean(obj,config,&
             endif
             
             if(index(line,"mr_angle_sig")/=0 )then
-                ! 種子の長さ
+                
                 rmc=index(line,",")
                 ! カンマがあれば除く
                 if(rmc /= 0)then
