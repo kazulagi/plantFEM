@@ -4,26 +4,26 @@
     "stemconfig":"Tutorial/playon_obj/soystem.json",
     "rootconfig":"Tutorial/playon_obj/soyroot.json",
     "Mainstem":{
-        "Length":0.90,
-        "Width":0.010,
+        "Length":0.80,
+        "Width":0.008,
         "Node":13
     },
     "Branch#1":{
         "From":2,
         "Length":0.3,
-        "Width":0.01,
+        "Width":0.005,
         "Node":7
     },
     "Branch#2":{
         "From":3,
         "Length":0.35,
-        "Width":0.01,
+        "Width":0.005,
         "Node":7
     },
     "Branch#3":{
         "From":4,
         "Length":0.2,
-        "Width":0.01,
+        "Width":0.005,
         "Node":2
     },
     

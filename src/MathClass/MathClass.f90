@@ -7,6 +7,9 @@ module MathClass
 	integer(int32) :: i_i = 0
 	integer(int32) :: j_j = 0
 	integer(int32) :: k_k = 0
+
+	logical :: true = .True.
+	logical :: False = .False.
 	!integer(int32) :: i_i = 0
 
 
