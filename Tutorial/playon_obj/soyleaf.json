@@ -1,0 +1,13 @@
+ {
+    "type": "leaf",
+    "minlength": 0.005,
+    "minwidth": 0.005,
+    "minthickness": 0.0001,
+    "maxlength": 0.07,
+    "maxwidth": 0.045,
+    "maxthickness": 0.001,
+    "shaperatio": 0.3,
+    "xnum": 10,
+    "ynum": 10,
+    "znum": 20
+ }

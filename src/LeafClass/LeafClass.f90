@@ -255,11 +255,12 @@ end subroutine
         integer(int32),allocatable :: buf(:)
         integer(int32) :: id,rmc,n,node_id,node_id2,elemid,blcount,i,j
         real(real64) :: loc(3)
+        logical :: debug=.false.
 
         ! 節を生成するためのスクリプトを開く
         if(.not.present(config) .or. index(config,".json")==0 )then
             ! デフォルトの設定を生成
-            print *, "New leaf-configuration >> leafconfig.json"
+            if(debug) print *, "New leaf-configuration >> leafconfig.json"
             call leafconf%open("leafconfig.json")
             write(leafconf%fh,*) '{'
             write(leafconf%fh,*) '   "type": "leaf",'
@@ -284,7 +285,7 @@ end subroutine
         blcount=0
         do
             read(leafconf%fh,'(a)') line
-            print *, trim(line)
+            if(debug) print *, trim(line)
             if( adjustl(trim(line))=="{" )then
                 blcount=1
                 cycle

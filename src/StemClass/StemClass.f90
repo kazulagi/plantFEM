@@ -66,11 +66,12 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     integer(int32),allocatable :: buf(:)
     integer(int32) :: id,rmc,n,node_id,node_id2,elemid,blcount,i,j
     real(real64) :: loc(3)
+    logical :: debug=.false.
 
     ! 節を生成するためのスクリプトを開く
     if(.not.present(config)  .or. index(config,"json")==0 )then
         ! デフォルトの設定を生成
-        print *, "New stem-configuration >> stemconfig.json"
+        if(debug) print *, "New stem-configuration >> stemconfig.json"
         call stemconf%open("stemconfig.json")
         write(stemconf%fh,*) '{'
         write(stemconf%fh,*) '   "type": "stem",'
@@ -92,7 +93,7 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     blcount=0
     do
         read(stemconf%fh,'(a)') line
-        print *, trim(line)
+        if(debug) print *, trim(line)
         if( adjustl(trim(line))=="{" )then
             blcount=1
             cycle
@@ -264,10 +265,10 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
         zmin=obj%minlength)
     obj%B_PointElementID = buf(1)
 
-    print *, obj%A_PointNodeID
-    print *, obj%B_PointNodeID
-    print *, obj%A_PointElementID
-    print *, obj%B_PointElementID
+    if(debug) print *, obj%A_PointNodeID
+    if(debug) print *, obj%B_PointNodeID
+    if(debug) print *, obj%A_PointElementID
+    if(debug) print *, obj%B_PointElementID
 ! デバッグ用
 !    call f%open("I_phaseNodeID.txt")
 !    do i=1,size(obj%I_planeNodeID)

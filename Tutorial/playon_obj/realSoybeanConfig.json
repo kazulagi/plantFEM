@@ -1,5 +1,8 @@
 {
     "Name":"soybean",
+    "leafconfig":"Tutorial/playon_obj/soyleaf.json",
+    "stemconfig":"Tutorial/playon_obj/soystem.json",
+    "rootconfig":"Tutorial/playon_obj/soyroot.json",
     "Mainstem":{
         "Length":0.90,
         "Width":0.010,

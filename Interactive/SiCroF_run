@@ -334,7 +334,8 @@ homepath="$PWD"
 
     if [ "$1" = "$run" ]; then
         python3 $PF_HOME/bin/check_end.py
-        $mpif90 $PF_HOME/inc/*o -I $PF_HOME/inc $PF_HOME/server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path $PF_HOME/inc/     
+        plantfem build
+        #$mpif90 $PF_HOME/inc/*o -I $PF_HOME/inc $PF_HOME/server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path $PF_HOME/inc/     
         #echo "Current num of cpu-core is :: $numcore "
 
         while read line
@@ -344,11 +345,11 @@ homepath="$PWD"
 
         if [ "$hostfile" != "" ]; then
             echo "hostfile is activated."
-            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./server.out "$2"
+            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore $PF_HOME/server.out "$2"
             return 0
         fi
 
-        mpirun --allow-run-as-root --hostfile $PF_HOME/etc/hostfile -np $line ./server.out  "$2"
+        mpirun --allow-run-as-root --hostfile $PF_HOME/etc/hostfile -np $line $PF_HOME/server.out  "$2"
         
         return 0
     fi
@@ -356,7 +357,7 @@ homepath="$PWD"
 
     if [ "$1" = "build" ]; then
         python3 $PF_HOME/bin/check_end.py
-        cp server.f90 $PF_HOME/server.f90
+        #cp server.f90 $PF_HOME/server.f90
         $mpif90 $PF_HOME/inc/*o -I $PF_HOME/inc $PF_HOME/server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path $PF_HOME/inc/  -o server.out
         #echo "Current num of cpu-core is :: $numcore "
         
