@@ -108,6 +108,7 @@ module SoybeanClass
         !procedure,public :: addLeaf => addLeafSoybean
 
         procedure,public :: Init => initsoybean
+        procedure,public :: remove => removeSoybean
         procedure,public :: create => initsoybean
         procedure,public :: new => initsoybean
         procedure,public :: sowing => initsoybean
@@ -2894,5 +2895,113 @@ end function
 !
 !end function
 
+subroutine removeSoybean(obj)
+    class(Soybean_),intent(inout) :: obj
+
+    obj%growth_habit = " "
+    obj%growth_stage = " "
+    obj%Num_Of_Node = 0
+    obj%Num_Of_Root = 0
+    
+    obj%MaxLeafNum= 300
+    obj%MaxRootNum=300
+    obj%MaxStemNum= 300
+
+    
+    
+    obj%ms_node=0
+    obj%br_node(:) = 0
+    obj%br_from(:) = 0
+    obj%ms_length=0.0d0
+    obj%br_length(:)=0.0d0
+    obj%ms_width=0.0d0
+    obj%br_width(:)=0.0d0
+    obj%ms_angle_ave=0.0d0
+    obj%br_angle_ave(:)=0.0d0
+    obj%ms_angle_sig=0.0d0
+    obj%br_angle_sig(:)=0.0d0
+    
+
+    obj%mr_node=0
+    obj%brr_node(:)=0
+    obj%brr_from(:)=0
+    obj%mr_length=0.0d0
+    obj%brr_length(:)=0.0d0
+    obj%mr_width=0.0d0
+    obj%brr_width(:)=0.0d0
+    obj%mr_angle_ave=0.0d0
+    obj%brr_angle_ave(:)=0.0d0
+    obj%mr_angle_sig=0.0d0
+    obj%brr_angle_sig(:)=0.0d0
+
+    obj%peti_size_ave(:)=0.0d0
+    obj%peti_size_sig(:)=0.0d0
+    obj%peti_width_ave(:)=0.0d0
+    obj%peti_width_sig(:)=0.0d0
+    obj%peti_angle_ave(:)=0.0d0
+    obj%peti_angle_sig(:)=0.0d0
+
+    obj%leaf_angle_ave(:)=0.0d0
+    obj%leaf_angle_sig(:)=0.0d0
+    obj%leaf_length_ave(:)=0.0d0
+    obj%leaf_length_sig(:)=0.0d0
+    obj%leaf_width_ave(:)=0.0d0
+    obj%leaf_width_sig(:)=0.0d0
+    obj%leaf_thickness_ave(:)=0.0d0
+    obj%leaf_thickness_sig(:)=0.0d0
+    
+    obj%Stage="" ! VE, CV, V1,V2, ..., R1, R2, ..., R8
+    obj%name=""
+    obj%stage_id=0
+    obj%dt=0.0d0
+    !type(Seed_) :: Seed
+    if (allocated(obj%NodeSystem) ) deallocate(obj%NodeSystem)
+    if (allocated(obj%RootSystem) ) deallocate(obj%RootSystem)
+
+    if (allocated(obj%Stem) ) deallocate(obj%Stem)
+    if (allocated(obj%Leaf) ) deallocate(obj%Leaf)
+    if (allocated(obj%Root) ) deallocate(obj%Root)
+    if (allocated(obj%Soil) ) deallocate(obj%Soil)
+
+    ! material info
+    if (allocated(obj%stemYoungModulus) ) deallocate(obj%stemYoungModulus)
+    if (allocated(obj%leafYoungModulus) ) deallocate(obj%leafYoungModulus)
+    if (allocated(obj%rootYoungModulus) ) deallocate(obj%rootYoungModulus)
+
+    if (allocated(obj%stemPoissonRatio) ) deallocate(obj%stemPoissonRatio)
+    if (allocated(obj%leafPoissonRatio) ) deallocate(obj%leafPoissonRatio)
+    if (allocated(obj%rootPoissonRatio) ) deallocate(obj%rootPoissonRatio)
+
+    if (allocated(obj%stemDensity) ) deallocate(obj%stemDensity)
+    if (allocated(obj%leafDensity) ) deallocate(obj%leafDensity)
+    if (allocated(obj%rootDensity) ) deallocate(obj%rootDensity)
+    
+    ! 節-節点データ構造
+    call obj%struct%remove(all=.true.)
+    if (allocated(obj%leaf2stem) ) deallocate(obj%leaf2stem)
+    if (allocated(obj%stem2stem) ) deallocate(obj%stem2stem)
+    if (allocated(obj%root2stem) ) deallocate(obj%root2stem)
+    if (allocated(obj%root2root) ) deallocate(obj%root2root)
+    
+    ! 器官オブジェクト配列
+    if (allocated(obj%leaf_list) ) deallocate(obj%leaf_list)
+    if (allocated(obj%stem_list) ) deallocate(obj%stem_list)
+    if (allocated(obj%root_list) ) deallocate(obj%root_list)
+
+    ! シミュレータ
+    !type(ContactMechanics_) :: contact
+    obj%time=0.0d0
+    obj%seed_length=0.0d0
+    obj%seed_width=0.0d0
+    obj%seed_height=0.0d0
+    if (allocated(obj%stem_angle) ) deallocate(obj%stem_angle)
+    if (allocated(obj%root_angle) ) deallocate(obj%root_angle)
+    if (allocated(obj%leaf_angle) ) deallocate(obj%leaf_angle)
+
+    obj%stemconfig=" "
+    obj%rootconfig=" "
+    obj%leafconfig=" "
+
+end subroutine
 
 end module
