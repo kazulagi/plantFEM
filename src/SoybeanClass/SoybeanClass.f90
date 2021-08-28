@@ -2954,7 +2954,7 @@ subroutine removeSoybean(obj)
     obj%name=""
     obj%stage_id=0
     obj%dt=0.0d0
-    !type(Seed_) :: Seed
+    call obj%Seed%remove()
     if (allocated(obj%NodeSystem) ) deallocate(obj%NodeSystem)
     if (allocated(obj%RootSystem) ) deallocate(obj%RootSystem)
 
@@ -2989,7 +2989,7 @@ subroutine removeSoybean(obj)
     if (allocated(obj%root_list) ) deallocate(obj%root_list)
 
     ! シミュレータ
-    !type(ContactMechanics_) :: contact
+    call obj%contact%remove()
     obj%time=0.0d0
     obj%seed_length=0.0d0
     obj%seed_width=0.0d0

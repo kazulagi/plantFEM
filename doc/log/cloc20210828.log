@@ -1,0 +1,26 @@
+     100 files     200 files     245 text files.
+classified 239 filesDuplicate file check 239 files (230 known unique)Unique:      100 files                                          Unique:      200 files                                               235 unique files.                              
+Counting:  100Counting:  200      33 files ignored.
+
+github.com/AlDanial/cloc v 1.82  T=0.18 s (1206.7 files/s, 491394.5 lines/s)
+-------------------------------------------------------------------------------
+Language                     files          blank        comment           code
+-------------------------------------------------------------------------------
+Fortran 90                     142          15230          10081          57106
+C++                             17            286            182           1759
+Python                          19            464            195           1383
+C                                6            323            393            889
+JavaScript                       6            146            318            432
+Qt                               1              0              0            201
+D                               10              3              0             97
+C/C++ Header                     2             22              4             86
+Markdown                         2             26              0             77
+OpenCL                           3             23             71             42
+JSON                             3              0              0             36
+HTML                             2              4              0             15
+make                             3             18             48             14
+Bourne Shell                     4              2              0              9
+Arduino Sketch                   1              3              0              6
+-------------------------------------------------------------------------------
+SUM:                           221          16550          11292          62152
+-------------------------------------------------------------------------------

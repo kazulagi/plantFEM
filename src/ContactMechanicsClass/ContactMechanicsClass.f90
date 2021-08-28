@@ -9,7 +9,7 @@ module ContactMechanicsClass
     implicit none
 
     type :: ContactMechanics_
-		! Rodern 
+		! Modern 
 		type(FEMDomainp_),allocatable :: FEMDomains(:)
 		type(LinearSolver_) :: solver
 		integer(int32),allocatable :: contactlist(:,:)
@@ -125,6 +125,7 @@ module ContactMechanicsClass
 		procedure :: properties => propertiesCM
 		procedure :: property => propertiesCM
 		procedure :: showProperty   => showPropertyCM
+		procedure :: remove         => removeContactMechanics
 
 
 	
@@ -6061,6 +6062,121 @@ subroutine setDensity(obj,density,DomainID)
 	else
 		obj%density(:) = density
 	endif
+
+end subroutine
+
+
+subroutine removeContactMechanics(obj)
+	class(ContactMechanics_),intent(inout) :: obj
+
+
+		! Modern 
+	if(allocated(obj%FEMDomains)) deallocate(obj%FEMDomains)
+	call obj%solver%init()
+	if(allocated(obj% contactlist)) deallocate(obj% contactlist)
+	if(allocated(obj%YoungModulus)) deallocate(obj%YoungModulus )
+	if(allocated(obj%PoissonRatio)) deallocate(obj%PoissonRatio )
+	if(allocated(obj%Density)) deallocate(obj%Density )
+
+	if(allocated(obj%YoungModulusList)) deallocate(obj%YoungModulusList )
+	if(allocated(obj%PoissonRatioList)) deallocate(obj%PoissonRatioList )
+	if(allocated(obj%DensityList)) deallocate(obj%DensityList )
+
+	obj%initialized = .false.
+
+	obj%gravity(1:3) =[0.0d0, 0.0d0, -9.810d0]
+	
+	obj%penalty = 100000.0d0
+
+	! >>>>>>>>>>>> Regacy >>>>>>>>>>>>>>>>>
+	! >>>>>>>>>>>> Regacy >>>>>>>>>>>>>>>>>
+	! >>>>>>>>>>>> Regacy >>>>>>>>>>>>>>>>>
+	! >>>>>>>>>>>> Regacy >>>>>>>>>>>>>>>>>
+	! 
+	if(associated(obj%FEMDomain1)) nullify(obj%FEMDomain1)
+	if(associated(obj%FEMDomain2)) nullify(obj%FEMDomain2)
+
+	if(associated(obj%FEMIface)) nullify(obj%FEMIface)
+	! common fields
+	if(allocated(obj% NTSGap)) deallocate(obj%  NTSGap)
+	if(allocated(obj% NTSGzi)) deallocate(obj%  NTSGzi)
+	obj%penaltypara=dble(1.0e+5)
+	obj%FrictionalCoefficient=0.30d0
+	obj%Cohesion=0.0d0
+	obj%Tolerance=dble(1.0e-10)
+
+	! for weak coupling contact analysis
+	if(allocated(obj% Domain1Force)) deallocate(obj%  Domain1Force)
+	if(allocated(obj% Domain2Force)) deallocate(obj%  Domain2Force)
+
+
+	! for strong coupling contact analysys
+	if(allocated(obj%KcontactEBE)) deallocate(obj% KcontactEBE)
+	if(allocated(obj%KcontactGlo)) deallocate(obj% KcontactGlo)
+	if(allocated(obj%FcontactEBE)) deallocate(obj% FcontactEBE)
+	if(allocated(obj%FcontactGlo)) deallocate(obj% FcontactGlo)
+	if(allocated(obj%DispVecEBE)) deallocate(obj% DispVecEBE)
+	if(allocated(obj%DispVecGlo)) deallocate(obj% DispVecGlo)
+	if(allocated(obj%NTSvariables)) deallocate(obj% NTSvariables)
+	if(allocated(obj%ContactMatPara)) deallocate(obj% ContactMatPara)
+	if(allocated(obj%GloNodCoord)) deallocate(obj% GloNodCoord)
+	
+	! boundary conditions for lodging simulator 2.5
+	if(allocated(obj%u_nod_x)) deallocate(obj%u_nod_x)
+	if(allocated(obj%u_nod_y)) deallocate(obj%u_nod_y)
+	if(allocated(obj%u_nod_z)) deallocate(obj%u_nod_z)
+	if(allocated(obj%du_nod_dis_x)) deallocate(obj% du_nod_dis_x)
+	if(allocated(obj%du_nod_dis_y)) deallocate(obj% du_nod_dis_y)
+	if(allocated(obj%du_nod_dis_z)) deallocate(obj% du_nod_dis_z)
+	if(allocated(obj%u_nod_dis_x)) deallocate(obj% u_nod_dis_x)
+	if(allocated(obj%u_nod_dis_y)) deallocate(obj% u_nod_dis_y)
+	if(allocated(obj%u_nod_dis_z)) deallocate(obj% u_nod_dis_z)
+	if(allocated(obj% duvec)) deallocate(obj%  duvec)
+	if(allocated(obj%  uvec)) deallocate(obj%   uvec)
+	if(allocated(obj% dfvec)) deallocate(obj%  dfvec)
+	if(allocated(obj%  fvec)) deallocate(obj%   fvec)
+
+	if(allocated(obj%NTSMaterial)) deallocate(obj%NTSMaterial)
+	if(allocated(obj%StickOrSlip)) deallocate(obj%StickOrSlip)
+
+	obj%step=0
+	obj%itr_contact=0
+	obj%itr=0
+	obj%BiCG_ItrMax=10000
+	obj%NR_ItrMax=100
+	obj%control=1 ! 1:displacement-control, 2: traction-control
+	obj%TimeStep=100
+
+	! from lodging-simulatiro 2.5
+
+	if(allocated(obj%nts_elem_nod)) deallocate(obj%nts_elem_nod)
+	if(allocated(obj%old_nts_elem_nod)) deallocate(obj%old_nts_elem_nod)
+	if(allocated(obj%surface_nod)) deallocate(obj%surface_nod)
+	if(allocated(obj%sur_nod_inf)) deallocate(obj%sur_nod_inf)
+	if(allocated(obj%nod_coord)) deallocate(obj% nod_coord)
+	if(allocated(obj%old_nod_coord)) deallocate(obj% old_nod_coord)
+	if(allocated(obj%elem_nod)) deallocate(obj% elem_nod)
+	if(allocated(obj% nts_mat)) deallocate(obj% nts_mat)
+	if(allocated(obj% sur_inf_mat)) deallocate(obj% sur_inf_mat)
+	if(allocated(obj% contact_mat)) deallocate(obj% contact_mat)
+	if(allocated(obj%contact_mat_para)) deallocate(obj% contact_mat_para)
+	if(allocated(obj% active_nts)) deallocate(obj% active_nts)
+
+	if(allocated(obj%k_contact)) deallocate(obj% k_contact)
+	if(allocated(obj%fvec_contact)) deallocate(obj% fvec_contact)
+	if(allocated(obj%nts_amo)) deallocate(obj% nts_amo)
+	if(allocated(obj% stick_slip)) deallocate(obj% stick_slip)
+	if(allocated(obj% old_stick_slip)) deallocate(obj% old_stick_slip)
+	if(allocated(obj%old_nts_amo)) deallocate(obj% old_nts_amo)
+	if(allocated(obj%kmat)) deallocate(obj% kmat)
+	if(allocated(obj%gvec)) deallocate(obj% gvec)
+	if(allocated(obj%rvec)) deallocate(obj% rvec)
+	if(allocated(obj%K_total)) deallocate(obj% K_total)
+	if(allocated(obj%initial_duvec)) deallocate(obj% initial_duvec)
+	if(allocated(obj%dduvec)) deallocate(obj% dduvec)
+	if(allocated(obj%dduvec_nr)) deallocate(obj% dduvec_nr)
+
+
 
 end subroutine
 
