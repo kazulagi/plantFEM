@@ -26,25 +26,26 @@ call cube%move(z=-5.0d0)
 do stack_id=1,size(mpid%localstack)
     cases = mpid%localstack(stack_id)
     ! create Wave
-    T = 0.0500d0*cases ! sec.
+    T = 0.010d0*cases+0.50d0 ! sec.
     Duration = T * 10.0d0 ! sec.
-    dt = Duration/dble(size(wave,1))
+    dt = Duration/dble(size(wave,1))/10.0d0
     
     wave(:,:) = 0.0d0
     do i=1,size(wave,1)
-        wave(i,1) = dt*dble(i-1)
+        wave(i,1) = dt*dble(i)
         wave(i,2) = sin(2.0d0*math%pi/T*wave(i,1) )
     enddo
     call input_wave%open("input_wave_"//str(cases)//".txt" )
     call input_wave%write(wave)
     call input_wave%close()
     original = cube
+    
 
     ! set domain
     seismic(cases)%femdomain => cube
     ! set wave
     seismic(cases)%wave = wave
-
+    seismic(cases)%dt = dt
     ! run simulation
     call seismic(cases)%init()
     call seismic(cases)%fixDisplacement(z_max = -4.99d0,direction="x")
@@ -64,17 +65,18 @@ do stack_id=1,size(mpid%localstack)
     seismic(cases)%YoungModulus(:) = 7000000.0d0 !(N/m/m)
     seismic(cases)%PoissonRatio(:) = 0.40d0 
 
-    seismic(cases)%alpha = 0.0d0
-    seismic(cases)%beta = 0.0d0
+    !seismic(cases)%alpha = 0.0d0
+    !seismic(cases)%beta = 0.0d0
 
     call history_A%open("history_A"//str(cases)//".txt","w")
     call history_V%open("history_V"//str(cases)//".txt","w")
     call history_U%open("history_U"//str(cases)//".txt","w")
+    
     do i=1,999
-        call seismic(cases)%run(timestep=[i,i],AccelLimit=10.0d0**8)
-        write(history_A%fh,*) real(dble(i-1)*dt), real(seismic(cases)%A( size(seismic(cases)%A)-2 ))
-        write(history_V%fh,*) real(dble(i-1)*dt), real(seismic(cases)%V( size(seismic(cases)%V)-2 ))
-        write(history_U%fh,*) real(dble(i-1)*dt), real(seismic(cases)%U( size(seismic(cases)%U)-2 )    )
+        call seismic(cases)%run(timestep=[i,i+1],AccelLimit=10.0d0**8)
+        write(history_A%fh,*) real(dble(i)*dt), real(seismic(cases)%A( size(seismic(cases)%A)-2 ))
+        write(history_V%fh,*) real(dble(i)*dt), real(seismic(cases)%V( size(seismic(cases)%V)-2 ))
+        write(history_U%fh,*) real(dble(i)*dt), real(seismic(cases)%U( size(seismic(cases)%U)-2 )    )
         call history_A%flush()
         call history_V%flush()
         call history_U%flush()
