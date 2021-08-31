@@ -250,16 +250,18 @@ subroutine updateWaveSeismicAnalysis(obj,timestep,direction)
 end subroutine
 
 ! ##############################################
-subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit)
+subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio)
     class(SeismicAnalysis_),intent(inout) :: obj
     integer(int32),intent(in) :: timestep(2)
 
     type(LinearSolver_) :: solver
     type(IO_) :: U, V, A
-    real(real64),optional,intent(in) :: t0
+    real(real64),optional,intent(in) :: t0,disp_magnify_ratio
     real(real64),optional,intent(in) :: wave(:,:),AccelLimit
     integer(int32) :: i,j
+    real(real64) :: ratio
 
+    ratio = input(default=1.0d0,option=disp_magnify_ratio)
     if(present(wave) )then
         obj%wave = wave
     endif
@@ -287,7 +289,7 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit)
 
         call obj%recordMaxValues()
         ! Export results
-        call obj%save("step_"//str(obj%step),ratio=100.0d0)
+        call obj%save("step_"//str(obj%step),ratio=ratio)
 
     enddo 
 
