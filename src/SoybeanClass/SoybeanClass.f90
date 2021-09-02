@@ -20,6 +20,7 @@ module SoybeanClass
         integer(int32) :: MaxRootNum=300
         integer(int32) :: MaxStemNum= 300
 
+        logical :: determinate
         
         
         integer(int32)  :: ms_node,br_node(300),br_from(300)
@@ -424,6 +425,13 @@ subroutine initsoybean(obj,config,&
         conf = trim(config)
     endif
     
+    line = soyconf%parse(trim(conf),key1="Genotype",key2="Dt1")
+    if(index(line,"Dt1")/=0 )then
+        obj%determinate=.False.
+    else
+        obj%determinate=.True.
+    endif
+
     call soyconf%open(trim(conf))
     blcount=0
     do
@@ -663,12 +671,6 @@ subroutine initsoybean(obj,config,&
                     endif
                 
                 enddo
-            endif
-
-
-            if(index(line,"type")/=0 .and. index(line,"soybean")==0 )then
-                print *, "ERROR: This config-file is not for soybean"
-                return
             endif
 
 
