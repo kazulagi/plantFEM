@@ -20,6 +20,7 @@ module std
     use MPIClass
     use DictionaryClass
     use OpenMPClass
+    use LTISystemClass
     use LinearSolverClass
     use GeometryClass
     use TreeClass

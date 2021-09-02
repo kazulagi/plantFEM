@@ -3,6 +3,9 @@
     "leafconfig":"Tutorial/playon_obj/soyleaf.json",
     "stemconfig":"Tutorial/playon_obj/soystem.json",
     "rootconfig":"Tutorial/playon_obj/soyroot.json",
+    "Genotype":{
+        "Dt1":"dt1"
+    },
     "Mainstem":{
         "Length":0.80,
         "Width":0.008,
