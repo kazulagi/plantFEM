@@ -19,6 +19,8 @@ module MathClass
 		complex(kind(0d0))	 :: i = (0.0d0, 1.0d0)
 		complex(kind(0d0))	 :: j = (0.0d0, 1.0d0)
 	end type
+
+	integer(int32),parameter :: complex64 = kind(0d0)
 	!real(real64) :: pi=3.141592653589793238d0
 	!
 

@@ -12,6 +12,9 @@ module ArrayClass
     !interface newArray
     !    module procedure newArrayReal
     !end interface
+
+    ! statistics
+
     interface interpolate
         module procedure :: interpolateReal64
     end interface
@@ -5212,5 +5215,145 @@ function interpolateReal64(x, Fx, x_value) result(ret)
 
 end function
 ! ###############################################################
+
+! ###############################################################
+function correlation(x_t,x_s) result(cor)
+    real(real64),intent(in) :: x_t(:), x_s(:)
+    real(real64) :: cor
+    integer(int32) :: i
+
+    cor = 0.0d0
+    do i=1,size(x_t)
+        cor = cor + x_t(i)*x_s(i)   
+    enddo
+    cor = cor / dble(size(x_t) )
+
+end function
+! ###############################################################
+
+function variance(x) result(ret)
+    real(real64),intent(in) :: x(:)
+    real(real64) :: ret,x_ave
+    integer(int32) :: i
+
+    ret = 0.0d0
+    x_ave = average(x)
+    do i=1,size(x)
+        ret = ret + (x(i) - x_ave)*(x(i) - x_ave)
+    enddo
+    ret = ret/dble( size(x) )
+end function
+
+! ###############################################################
+function standardDeviation(x) result(ret)
+    real(real64),intent(in) :: x(:)
+    real(real64) :: ret
+
+    ret = sqrt(variance(x) )
+
+end function
+! ###############################################################
+
+! ###############################################################
+function correlationCoefficient(x_t,x_s) result(corc)
+    real(real64),intent(in) :: x_t(:), x_s(:)
+    real(real64) :: corc,covc,sigma_t,sigma_s
+    integer(int32) :: i
+    
+    sigma_t = standardDeviation(x_t)
+    sigma_s = standardDeviation(x_s)
+    covc = covariance(x_t,x_s)
+    corc= covc/sigma_t/sigma_s
+
+end function
+! ###############################################################
+
+
+
+! ###############################################################
+function covariance(x_t,x_s) result(cov)
+    real(real64),intent(in) :: x_t(:), x_s(:)
+    real(real64) :: cov,x_t_ave,x_s_ave
+    integer(int32) :: i
+
+    cov = 0.0d0
+    x_t_ave = average(x_t)
+    x_s_ave = average(x_s)
+    do i=1,size(x_t)
+        cov = cov + (x_t(i)-x_t_ave)*(x_s(i) -x_s_ave)
+    enddo
+    cov = cov / dble(size(x_t) )
+
+end function
+! ###############################################################
+
+
+
+! ###############################################################
+function averageVector(x_t,n) result(ret)
+    real(real64),intent(in) :: x_t(:,:)
+    integer(int32),intent(in)::n ! dimension of vector
+    real(real64) :: ret(n),x_t_ave,x_s_ave
+    integer(int32) :: i, j
+
+    ! for vector process
+    ! 1st column :: dimension
+    ! 2nd column :: time
+    ret(:)=0.0d0
+    if(size(x_t,1)==n )then
+        do i=1,size(x_t,2)!num of sample
+            do j=1,n !dim_num
+                ret(j) = ret(j) + x_t(j,i)
+            enddo
+        enddo
+        ret(:) = 1.0d0/size(x_t,2)*ret(:)
+
+    elseif(size(x_t,2)==n )then
+        do i=1,size(x_t,1) !num of sample
+            do j=1,n !dim_num
+                ret(j) = ret(j) + x_t(i,j)
+            enddo
+        enddo
+        ret(:) = 1.0d0/size(x_t,1)*ret(:)
+        
+    else
+        print *, "ERROR :: arrayclass >> invalid dimension size x_t :: size1 or size 2 should be = n"
+        stop
+    endif
+
+end function
+! ###############################################################
+
+! ###############################################################
+function covarianceMatrix(x_t,x_s,n) result(ret)
+    real(real64),intent(in) :: x_t(:,:), x_s(:,:)
+    integer(int32),intent(in)::n ! dimension of vector
+    real(real64) :: ret(n,n),x_t_ave,x_s_ave
+    integer(int32) :: i,j
+
+
+    ! for vector process
+    ! 1st column :: dimension
+    ! 2nd column :: time
+    if(size(x_t,1)==n )then
+        do i=1,n
+            do j=1,n
+                ret(i,j) =  covariance(x_t(i,:),x_s(j,:))
+            enddo
+        enddo
+    elseif(size(x_t,2)==n )then
+        do i=1,n
+            do j=1,n
+                ret(i,j) =  covariance(x_t(:,i),x_s(:,j))
+            enddo
+        enddo
+    else
+        print *, "ERROR :: arrayclass >> invalid dimension size x_{t,s}:: size1 or size 2 should be = n"
+        stop
+    endif
+
+end function
+! ###############################################################
+
 
 end module ArrayClass

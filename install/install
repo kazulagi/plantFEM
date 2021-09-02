@@ -84,10 +84,19 @@ echo "Compiling ./src/DictionaryClass/DictionaryClass.f90      "
 echo " >> DictionaryClass.o"
 echo " | =>                          | (9%)\r\c "
 mpif90 -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/DictionaryClass/DictionaryClass.f90 -o  ./inc/DictionaryClass.o
+
 echo "Compiling ./src/OpenMPClass/OpenMPClass.f90 "
 echo " >> OpenMPClass.o"
 echo " | ==>                         | (12%)\r\c"
 mpif90  -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/OpenMPClass/OpenMPClass.f90 -o  ./inc/OpenMPClass.o
+
+echo "Compiling ./src/LTISystemClass/LTISystemClass.f90 "
+echo " >> LTISystemClass.o"
+echo " | ==>                         | (12%)\r\c"
+mpif90  -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LTISystemClass/LTISystemClass.f90 -o  ./inc/LTISystemClass.o
+
+
+
 echo "Compiling ./src/LinearSolverClass/LinearSolverClass.f90 " 
 echo " >> LinearSolverClass.o "
 echo " | ===>                        | (16%)\r\c"
