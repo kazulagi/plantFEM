@@ -21,6 +21,7 @@ module std
     use DictionaryClass
     use OpenMPClass
     use LTISystemClass
+    use GAClass
     use LinearSolverClass
     use GeometryClass
     use TreeClass

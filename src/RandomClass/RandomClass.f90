@@ -24,7 +24,11 @@ module RandomClass
         procedure :: Lognormal => LognormalRandom
         procedure :: InverseGauss => InverseGaussRandom
         procedure :: save       => saveRandom
-        procedure :: randn      => randnRandom
+        
+        procedure,pass :: randnRandomVector
+        procedure,pass :: randnRandomArray
+        generic :: randn => randnRandomArray,randnRandomvector
+
         procedure :: fill       => fillRandom
         procedure :: histogram      => histogramRandom
         procedure :: scalar          => scalarRandom
@@ -199,14 +203,14 @@ end function
 
 
 !##########################################
-function randnRandom(obj,d0,d1) result(array)
+function randnRandomArray(obj,d0,d1) result(array)
     class(Random_),intent(inout)::obj
     real(real64),allocatable :: array(:,:)
-    integer(int32),optional,intent(in) :: d0,d1
+    integer(int32),intent(in) :: d0,d1
     integer(int32) :: n,m,i,j
 
-    n=input(default=1, option=d0)
-    m=input(default=1, option=d1)
+    n=d0
+    m=d1
 
     allocate(array(n,m) )
 
@@ -221,6 +225,26 @@ function randnRandom(obj,d0,d1) result(array)
 end function
 !##########################################
 
+
+!##########################################
+function randnRandomVector(obj,d0) result(array)
+    class(Random_),intent(inout)::obj
+    real(real64),allocatable :: array(:)
+    integer(int32),intent(in) :: d0
+    integer(int32) :: n,m,i,j
+
+    n=d0
+
+    allocate(array(n) )
+
+    call obj%init()
+
+    do i=1,n
+        array(i) = obj%random() 
+    enddo
+    
+end function
+!##########################################
 
 
 !##########################################

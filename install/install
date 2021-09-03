@@ -96,6 +96,11 @@ echo " | ==>                         | (12%)\r\c"
 mpif90  -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LTISystemClass/LTISystemClass.f90 -o  ./inc/LTISystemClass.o
 
 
+echo "Compiling ./src/GAClass/GAClass.f90 "
+echo " >> GAClass.o"
+echo " | ==>                         | (12%)\r\c"
+mpif90  -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/GAClass/GAClass.f90 -o  ./inc/GAClass.o
+
 
 echo "Compiling ./src/LinearSolverClass/LinearSolverClass.f90 " 
 echo " >> LinearSolverClass.o "
