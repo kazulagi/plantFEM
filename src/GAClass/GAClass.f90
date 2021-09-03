@@ -36,6 +36,7 @@ module GAClass
         procedure, public :: parse => parseGA
         procedure, public :: select => selectGA
         procedure, public :: cross => crossGA
+        procedure, public :: mutate => mutateGA
     end type
 contains
 
@@ -59,13 +60,13 @@ subroutine initGA_Individual(obj,num_real,num_int)
         obj%intRegistered(:) = .false.
     endif
     
-    if(num_real==0) then
-        obj%realRegistered = .true.
-    endif
+    !if(num_real==0) then
+    !    obj%realRegistered = .true.
+    !endif
 
-    if(num_int==0) then
-        obj%intRegistered = .true.
-    endif
+    !if(num_int==0) then
+    !    obj%intRegistered = .true.
+    !endif
 end subroutine
 ! #################################################################
 ! #################################################################
@@ -222,6 +223,7 @@ function parseGA(obj,KeyWord) result(ret)
                 found = .true.
             endif
         enddo
+        return
     endif
 
     if(allocated(obj%plants(1)%intParameter) )then
@@ -233,6 +235,7 @@ function parseGA(obj,KeyWord) result(ret)
                 found = .true.
             endif
         enddo
+        return
     endif
 
     if(.not.found)then
@@ -328,5 +331,48 @@ subroutine crossGA(obj)
 end subroutine
 ! #####################################################################
 
+! #####################################################################
+subroutine mutateGA(obj,KeyWord,sigma)
+    class(GA_),intent(inout) :: obj
+    character(*),intent(in) :: KeyWord
+    real(real64),intent(in) :: sigma
+    type(Random_) :: random
+    logical :: found = .false.
+    integer(int32) :: i,j
+    
+
+    if(allocated(obj%plants(1)%realParameter) )then
+        do i=1,size(obj%plants(1)%realAnnotaton)
+            if( index(obj%plants(1)%realAnnotaton(i)%annotation,KeyWord)/=0)then
+                do j=1,size(obj%plants)
+                    obj%plants(j)%realParameter(i) = &
+                    obj%plants(j)%realParameter(i) + random%gauss(mu=0.0d0,sigma=sigma)
+                enddo
+                found = .true.
+            endif
+        enddo
+        return
+    endif
+
+    if(allocated(obj%plants(1)%intParameter) )then
+        do i=1,size(obj%plants(1)%intParameter)
+            if( index(obj%plants(1)%intAnnotaton(i)%annotation,KeyWord)/=0)then
+                do j=1,size(obj%plants)
+                    obj%plants(j)%intParameter(i) = &
+                    int(dble(obj%plants(j)%intParameter(i))+random%gauss(mu=0.0d0,sigma=sigma))
+                enddo
+                found = .true.
+            endif
+        enddo
+        return
+    endif
+
+    if(.not.found)then
+        print *, "Not Found."
+    endif
+
+    
+end subroutine
+! #####################################################################
 
 end module
