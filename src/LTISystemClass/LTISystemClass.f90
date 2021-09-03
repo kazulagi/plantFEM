@@ -9,6 +9,7 @@ module LTISystemClass
         real(real64),allocatable :: State(:)
         real(real64),allocatable :: ObservVec(:)
         real(real64),allocatable :: PlantNoise(:)
+        real(real64),allocatable :: ObservNoise(:)
         real(real64),allocatable :: StateTransition(:,:)
         real(real64),allocatable :: Driving(:,:)
         real(real64),allocatable :: ObservMat(:,:)
@@ -16,6 +17,7 @@ module LTISystemClass
     contains
         procedure,public :: init => initLTISystem
         procedure,public :: update => updateLTISystem
+        !procedure,public :: covarianceMatrix => covarianceMatrixLTISystem
     end type
 contains    
 ! ######################################################################################
@@ -59,8 +61,30 @@ function updateLTISystem(obj) result(y)
 
     obj%state = x
     obj%ObservVec = y
+    obj%PlantNoise  = w
+    obj%ObservNoise = v
 
 
 end function
 ! ######################################################################################
+
+
+
+! ######################################################################################
+!function covarianceMatrixLTISystem(obj) result(ret)
+!    class(LTISystem_),intent(in) ::  obj
+!    real(real64),allocatable :: ret(:,:)
+!    integer(int32) :: n, m
+!
+!    n = size(obj%PlantNoise)
+!    m = size(obj%ObservNoise)
+!
+!    ret = ret(n+m, n+m)
+!
+!
+!
+!end function
+! ######################################################################################
+
+
 end module
