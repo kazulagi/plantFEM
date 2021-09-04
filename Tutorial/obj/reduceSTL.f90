@@ -16,7 +16,7 @@ program main
     call stl%open("full_soy_root")
     call stl%reduce(ratio=0.07d0)
     call stl%write("full_soy_root_small")
-    !call soy%init(config="Tutorial/playon_obj/realSoybeanConfig.json") 
+    !call soy%init(config="Tutorial/obj/realSoybeanConfig.json") 
     !call soy%stl(name="soy")
 
     !call soy%msh(name="soy")

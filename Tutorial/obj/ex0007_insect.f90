@@ -8,7 +8,7 @@ program main
     integer(int32) :: i
 
 
-    call soy%init(config="Tutorial/playon_obj/realSoybeanConfig.json") 
+    call soy%init(config="Tutorial/obj/realSoybeanConfig.json") 
     
     do i=1,50 ! 50 worms
         call worm(i)%create(eatSpeed = 100.0d0*dble(1.0e-9) ) ! m^3/day

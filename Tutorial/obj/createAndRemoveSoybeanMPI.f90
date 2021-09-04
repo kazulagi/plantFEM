@@ -1,20 +1,21 @@
 program main
-    use plantFEM
+    use SoybeanClass
     implicit none
 
-    integer(int32),parameter :: num_para = 1000
+    integer(int32),parameter :: num_para = 10
 
     type(MPI_) :: mpid
     type(IO_) :: f
-    type(Soybean_) :: soy(num_para)
+    type(Soybean_) :: soy
     integer(int32) :: i
 
     call mpid%start()
     call f%open("SoyVolume_rank_"//str(mpid%myrank)//".txt","w")
     do i=1,num_para
-        call soy(i)%init(config="Tutorial/playon_obj/realSoybeanConfig.json")
-        call f%write(soy(i)%getVolume(leaf=.true.,stem=.true.))
+        call soy%init(config="Tutorial/obj/realSoybeanConfig.json")
+        call f%write(soy%getVolume(leaf=.true.,stem=.true.))
         call f%flush()
+        call soy%remove()
     enddo
     call f%close()
     call mpid%end()

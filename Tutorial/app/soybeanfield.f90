@@ -11,7 +11,7 @@ program main
     call mpid%start()
     i = mpid%myrank+1
     do j=1,20
-      call soy(i,j)%init(config="Tutorial/playon_obj/realSoybeanConfig.json") 
+      call soy(i,j)%init(config="Tutorial/obj/realSoybeanConfig.json") 
       !call soy%stl(name="soy")
       filename = "soy_" // trim(str(i))//"_"//trim(str(j))
       call soy(i,j)%move(x=dble(i-1)*0.750d0,y=dble(j-1)*0.15d0 )

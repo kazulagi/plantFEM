@@ -14,10 +14,10 @@ do
     endif
 
     if(index(line,"init")/=0) then
-        print *, "configuration file :: (default=Tutorial/playon_obj/realSoybeanConfig.json)"
+        print *, "configuration file :: (default=Tutorial/obj/realSoybeanConfig.json)"
         read(*,*) line
         if(index(line,"json")==0 )then
-            line = "Tutorial/playon_obj/realSoybeanConfig.json"
+            line = "Tutorial/obj/realSoybeanConfig.json"
             print *, "Default mode is selected."
         endif
         print *, "creating a soybean object..."
