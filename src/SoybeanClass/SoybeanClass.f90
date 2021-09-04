@@ -8,6 +8,10 @@ module SoybeanClass
     use LightClass
     use PlantNodeClass
     implicit none
+
+    type :: soybean_NodeID_Branch_
+        integer(int32),allocatable :: ID(:)
+    end type
     
     type :: soybean_
         ! growth_habit = determinate, indeterminate, semi-indeterminate, or vine
@@ -103,11 +107,17 @@ module SoybeanClass
         character(200) :: stemconfig=" "
         character(200) :: rootconfig=" "
         character(200) :: leafconfig=" "
+
+        
+        integer(int32),allocatable :: NodeID_MainStem(:)
+        type(soybean_NodeID_Branch_),allocatable :: NodeID_Branch(:)
+
     contains
         procedure,public :: addStem => addStemSoybean
         !procedure,public :: addRoot => addRootSoybean
         !procedure,public :: addLeaf => addLeafSoybean
 
+        ! creation
         procedure,public :: Init => initsoybean
         procedure,public :: remove => removeSoybean
         procedure,public :: create => initsoybean
@@ -115,12 +125,19 @@ module SoybeanClass
         procedure,public :: sowing => initsoybean
         procedure,public :: export => exportSoybean
 
+        ! observation
+        procedure,public :: stemlength => stemlengthSoybean
+        
+
+        ! operation
         procedure,public :: grow => growSoybean
         procedure,public :: getVolume => getVolumeSoybean
         procedure,public :: getBioMass => getBioMassSoybean
         procedure,public :: getTotalWeight => getTotalWeightSoybean
+        procedure,public :: resize => resizeSoybean
         procedure,public :: deform => deformSoybean
         
+        ! visualization
         procedure,public :: show => showSoybean
         procedure,public :: gmsh => gmshSoybean
         procedure,public :: msh => mshSoybean
@@ -129,6 +146,7 @@ module SoybeanClass
         procedure,public :: json => jsonSoybean
         
 
+        ! regacy/experimental
         procedure,public :: WaterAbsorption => WaterAbsorptionSoybean
         procedure,public :: move => moveSoybean
 
@@ -1193,9 +1211,11 @@ subroutine initsoybean(obj,config,&
         obj%root2root(:,:) = 0
 
         ! set mainstem
+        allocate(obj%NodeID_MainStem(obj%ms_node) )
         do i=1,obj%ms_node
 
             call obj%stem(i)%init(config=obj%stemconfig)
+            obj%NodeID_MainStem(i) = i
             call obj%stem(i)%resize(&
                 x = obj%ms_width, &
                 y = obj%ms_width, &
@@ -1215,14 +1235,18 @@ subroutine initsoybean(obj,config,&
 
         ! set branches
         k=obj%ms_node
-        do i=1,size(obj%br_node)
+        allocate(obj%NodeID_Branch( size(obj%br_node) ) )
+        do i=1,size(obj%br_node) ! num branch
+            allocate( obj%NodeID_Branch(i)%ID(obj%br_node(i))  )
             do j=1, obj%br_node(i)
                 k = k + 1
                 call obj%stem(k)%init(config=obj%stemconfig)
+                obj%NodeID_Branch(i)%ID(j) = k
+
                 call obj%stem(k)%resize(&
-                    x = obj%ms_width, &
-                    y = obj%ms_width, &
-                    z = obj%ms_length/dble(obj%ms_node) &
+                    x = obj%br_width(i), &
+                    y = obj%br_width(i), &
+                    z = obj%br_length(i)/dble(obj%br_node(i) ) &
                     )
                     
                 call obj%stem(k)%rotate(&
@@ -1907,8 +1931,8 @@ function numleafsoybean(obj) result(ret)
     integer(int32) :: ret,i
 
     ret=0
-    do i=1,size(obj%leaf_list)
-        if(obj%leaf_list(i)%Mesh%empty() .eqv. .false. )then
+    do i=1,size(obj%leaf)
+        if(obj%leaf(i)%femdomain%Mesh%empty() .eqv. .false. )then
             ret=ret+1
         endif
     enddo
@@ -1922,8 +1946,8 @@ function numstemsoybean(obj) result(ret)
     integer(int32) :: ret,i
 
     ret=0
-    do i=1,size(obj%stem_list)
-        if(obj%stem_list(i)%Mesh%empty() .eqv. .false. )then
+    do i=1,size(obj%stem)
+        if(obj%stem(i)%femdomain%Mesh%empty() .eqv. .false. )then
             ret=ret+1
         endif
     enddo
@@ -1937,8 +1961,8 @@ function numrootsoybean(obj) result(ret)
     integer(int32) :: ret,i
 
     ret=0
-    do i=1,size(obj%root_list)
-        if(obj%root_list(i)%Mesh%empty() .eqv. .false. )then
+    do i=1,size(obj%root)
+        if(obj%root(i)%femdomain%Mesh%empty() .eqv. .false. )then
             ret=ret+1
         endif
     enddo
@@ -2137,6 +2161,11 @@ subroutine stlSoybean(obj,name,num_threads)
     !$OMP end do
     !$OMP end parallel
 
+    call system("cat "//trim(name)//"*_leaf*.stl > "//trim(name)//"_leaf.stl" )
+    call system("cat "//trim(name)//"*_stem*.stl > "//trim(name)//"_stem.stl" )
+    call system("cat "//trim(name)//"*_root*.stl > "//trim(name)//"_root.stl" )
+    call system("cat "//trim(name)//"_leaf.stl "//trim(name)//"_stem.stl "&
+        //trim(name)//"_root.stl > "//trim(name)//".stl" )
 
 end subroutine
 ! ########################################
@@ -3004,6 +3033,77 @@ subroutine removeSoybean(obj)
     obj%rootconfig=" "
     obj%leafconfig=" "
 
+end subroutine
+
+function stemlengthSoybean(obj,StemID) result(ret)
+    class(Soybean_),intent(inout) :: obj
+    integer(int32),intent(in) :: StemID ! 0, 1, 2...
+    integer(int32) :: num_snode,i
+    real(real64),allocatable :: ret(:)
+
+    if(StemID==0)then
+        ! main stem
+        num_snode = size(obj%NodeID_MainStem)
+        allocate(ret(num_snode) )
+        do i=1,num_snode
+            ret(i) = obj%stem(obj%NodeID_MainStem(i))%getLength()
+        enddo
+    else
+        if(StemID >=size(obj%NodeID_Branch)) then
+            print *, "ERROR :: stemlengthSoybean >> StemID >=size(obj%NodeID_Branch)"
+            ret = zeros(1)
+            return
+        endif
+        ! main stem
+        num_snode = size(obj%NodeID_Branch(StemID)%ID)
+        allocate(ret(num_snode) )
+        do i=1,num_snode
+            ret(i) = obj%stem(obj%NodeID_Branch(StemID)%ID(i))%getLength()
+        enddo
+    endif
+
+
+
+end function
+! ###################################################################
+
+! ###################################################################
+subroutine resizeSoybean(obj,StemID,StemLength)
+    class(Soybean_),intent(inout) :: obj
+    integer(int32),optional,intent(in) :: StemID
+    real(real64),optional,intent(in) :: StemLength(:)
+    integer(int32) :: num_snode,i
+
+    if(present(StemID) )then
+        if(.not.present(StemLength) )then
+            print *, "ERROR :: resizeSoybean >> needs StemLength(:) "
+            stop
+        endif
+
+        if(StemID==0)then
+            ! main stem
+            num_snode = size(obj%NodeID_MainStem)
+            
+            do i=1,num_snode
+                call obj%stem(obj%NodeID_MainStem(i))%grow(length=StemLength(i))
+            enddo
+        else
+            if(StemID >=size(obj%NodeID_Branch)) then
+                print *, "ERROR :: resizeSoybean >> StemID >=size(obj%NodeID_Branch)"
+                
+                return
+            endif
+            ! main stem
+            num_snode = size(obj%NodeID_Branch(StemID)%ID)
+            
+            do i=1,num_snode
+                call obj%stem(obj%NodeID_Branch(StemID)%ID(i))%grow(length=StemLength(i) )
+            enddo
+        endif
+        call obj%update()
+    
+
+    endif
 end subroutine
 
 end module

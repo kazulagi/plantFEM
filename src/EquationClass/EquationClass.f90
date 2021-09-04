@@ -3,9 +3,14 @@ module EquationClass
     use MathClass
     implicit none
 
+    type :: Equation_point_
+        real(real64),allocatable :: position(:)
+    end type
+
     type :: Equation_
         real(real64) :: a, b, c, d
         real(real64),allocatable :: x(:)
+        type(Equation_point_),allocatable :: points(:)
         logical :: LinearEquation, QuadraticEquation
     contains
         procedure, public :: setup => setupEquation
@@ -93,5 +98,6 @@ subroutine solveEquation(obj)
     endif
 end subroutine
 ! ####################################
+
 
 end module EquationClass
