@@ -7,7 +7,7 @@ real(real64),allocatable :: stemLength(:)
 integer(int32) :: i
 real(real64) :: a,b
 
-call soy%init(config="Tutorial/playon_obj/realSoybeanConfig.json") 
+call soy%init(config="Tutorial/obj/realSoybeanConfig.json") 
 stemLength = soy%stemLength(StemID=0)
 a = 0.01d0
 do i=1, size(stemLength)

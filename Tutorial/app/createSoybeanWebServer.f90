@@ -7,7 +7,7 @@ program main
     type(Soil_) ::soil
 
 
-    !call soy%init(config="Tutorial/playon_obj/realSoybeanConfig.json") 
+    !call soy%init(config="Tutorial/obj/realSoybeanConfig.json") 
     call soy%init(config="input.json") 
     
     !call soy%stl(name="soy")
@@ -31,7 +31,7 @@ end program main
 !    type(Soybean_) :: soy
 !    type(Soil_) ::soil
 !
-!    call soy%init(config="Tutorial/playon_obj/realSoybeanConfig.json") 
+!    call soy%init(config="Tutorial/obj/realSoybeanConfig.json") 
 !    !call soy%stl(name="soy")
 !    call soy%msh(name="soy")
 !    call soy%json(name="soy")

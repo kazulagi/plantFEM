@@ -7,7 +7,7 @@ integer(int32) :: i
 real(real64)   :: length, coord(3)
 
 ! Initialize soybean
-call soy%init(config="Tutorial/playon_obj/realSoybeanConfig.json") 
+call soy%init(config="Tutorial/obj/realSoybeanConfig.json") 
 
 ! change node-length by its height
 do i=1, size(soy%stem)

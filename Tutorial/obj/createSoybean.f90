@@ -4,7 +4,7 @@ implicit none
 type(Soybean_) :: soy
 real(real64) :: biomass,totalweight
 
-call soy%init(config="Tutorial/playon_obj/realSoybeanConfig.json")
+call soy%init(config="Tutorial/obj/realSoybeanConfig.json")
 
 
 biomass = soy%getBiomass(stem=true)
