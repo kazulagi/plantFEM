@@ -46,11 +46,13 @@ module StemClass
         procedure, public :: move => moveStem
         procedure, public :: connect => connectStem
         procedure, public :: getCoordinate => getCoordinateStem
+        procedure, public :: getLength => getLengthStem
         procedure, public :: gmsh => gmshStem
         procedure, public :: msh => mshStem
         procedure, public :: vtk => vtkStem
         procedure, public :: stl => stlStem
         procedure, public :: export => exportStem
+
     end type
 contains
 
@@ -602,5 +604,19 @@ subroutine rescaleStem(obj,x,y,z)
 end subroutine
 ! ########################################
 
+
+function getLengthStem(obj) result(ret)
+    class(Stem_),intent(in) :: obj
+    real(real64) :: ret
+
+    if(obj%femdomain%mesh%empty() )then
+        ret = 0.0d0
+    else
+        ret = norm(&
+            obj%femdomain%mesh%nodcoord(obj%A_PointNodeID,: ) &
+            - obj%femdomain%mesh%nodcoord(obj%B_PointNodeID,:) )
+    endif
+
+end function
 
 end module
