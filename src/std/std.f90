@@ -5,6 +5,7 @@ module std
     use TimeClass
     use TermClass
     use MathClass
+    use ConsoleClass
     use PhysicsClass
     use HTTPClass
     use IOClass
