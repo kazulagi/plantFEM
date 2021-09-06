@@ -7,6 +7,9 @@
 
 # [Click here!! >> Home page](https://plantfem.org)
 
+# [Documentation](./doc/ford/index.html)
+
+
 # For Windows users:
 
 ### How to install 

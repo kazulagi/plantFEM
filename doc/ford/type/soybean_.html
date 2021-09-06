@@ -1,0 +1,5636 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+   
+   <meta name="description" content="Document for plantFEM">
+    
+    <meta name="author" content="kazulagi" >
+    <link rel="icon" href="../favicon.png">
+
+    <title>soybean_ &ndash; plantFEM </title>
+
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/pygments.css" rel="stylesheet">
+    <link href="../css/font-awesome.min.css" rel="stylesheet">
+    <link href="../css/local.css" rel="stylesheet">
+    
+    <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
+    
+    
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    
+    <script src="../js/jquery-2.1.3.min.js"></script>
+    <script src="../js/svg-pan-zoom.min.js"></script>
+
+  </head>
+
+  <body>
+
+    <!-- Fixed navbar -->
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="../index.html">plantFEM </a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+        
+            <li class="dropdown hidden-xs visible-sm visible-md hidden-lg">
+              <a href="#" class="dropdown-toggle"
+              data-toggle="dropdown" role="button"
+              aria-haspopup="true"
+     aria-expanded="false">Contents <span class="caret"></span></a>
+        <ul class="dropdown-menu">
+          
+              
+            <li><a href="../lists/files.html">Source Files</a></li>
+        
+        
+        
+            <li><a href="../lists/modules.html">Modules</a></li>
+        
+            
+                                
+            <li><a href="../lists/procedures.html">Procedures</a></li>
+        
+               
+            <li><a href="../lists/types.html">Derived Types</a></li>
+        
+        
+            <li><a href="../lists/programs.html">Programs</a></li>
+               
+        
+        
+            </ul>
+        
+            </li>
+
+
+<li class="visible-xs hidden-sm visible-lg"><a href="../lists/files.html">Source Files</a></li>
+
+
+
+<li class="visible-xs hidden-sm visible-lg"><a href="../lists/modules.html">Modules</a></li>
+
+
+
+<li class="visible-xs hidden-sm visible-lg"><a href="../lists/procedures.html">Procedures</a></li>
+
+                             
+<li class="visible-xs hidden-sm visible-lg"><a href="../lists/types.html">Derived Types</a></li>
+
+
+<li class="visible-xs hidden-sm visible-lg"><a href="../lists/programs.html">Programs</a></li>
+
+
+
+          </ul>
+        
+        <form action="../search.html" class="navbar-form navbar-right" role="search">
+        <div class="form-group">
+          <input type="text" class="form-control" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
+        </div>
+<!--
+        <button type="submit" class="btn btn-default">Submit</button>
+-->
+        </form>
+        
+        </div><!--/.nav-collapse -->
+      </div>
+    </nav>
+
+    <div class="container">
+    
+  
+  <div class="row">
+    <h1>soybean_
+    <small>Derived Type</small>
+    
+    </h1>
+    
+<div class="row">
+  <div class="col-lg-12">
+<div class="well well-sm">
+  <ul class="list-inline" style="margin-bottom:0px;display:inline">
+     
+     
+     
+    <li><i class="fa fa-legal"></i> <a rel="license" href="https://opensource.org/licenses/MIT">MIT</a></li> 
+     
+     
+     
+    
+    
+     <li><i class="fa fa-list-ol"></i>
+       <a data-toggle="tooltip"
+    data-placement="bottom" data-html="true"
+    title="<p> 4.1% of total for derived types.</p>Including implementation: 4570 statements,  8.4% of total for derived types.">104 statements</a>
+     </li> 
+     
+     
+     
+    <li><i class="fa fa-code"></i><a href="../src/SoybeanClass.f90"> Source File</a></li>
+     
+     
+  </ul>
+  <ol class="breadcrumb in-well text-right">
+  
+    
+     <li><a href='../sourcefile/soybeanclass.f90.html'>SoybeanClass.f90</a></li>
+    
+     <li><a href='../module/soybeanclass.html'>SoybeanClass</a></li>
+    
+  
+     <li class="active">soybean_</li>
+  </ol>
+</div>
+</div>
+</div>
+<script>
+  $(function () {
+  $('[data-toggle="tooltip"]').tooltip()
+  })
+</script>
+
+  </div>
+  
+  <div class="row">
+    <div class="col-md-3 hidden-xs hidden-sm visible-md visible-lg">
+    
+<div id="sidebar">
+  
+<h3>Contents</h3>
+ 
+
+
+
+<div class="panel panel-primary">
+  <div class="panel-heading text-left"><h3 class="panel-title"><a data-toggle="collapse" href="#vars-0">Variables</a></h3></div>
+  <div id="vars-0" class="panel-collapse collapse">
+    <div class="list-group">
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-growth_habit">growth_habit</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-growth_stage">growth_stage</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-num_of_node">Num_Of_Node</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-num_of_root">Num_Of_Root</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-maxleafnum">MaxLeafNum</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-maxrootnum">MaxRootNum</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-maxstemnum">MaxStemNum</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-determinate">determinate</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-ms_node">ms_node</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-br_node">br_node</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-br_from">br_from</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-ms_length">ms_length</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-br_length">br_length</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-ms_width">ms_width</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-br_width">br_width</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-ms_angle_ave">ms_angle_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-br_angle_ave">br_angle_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-ms_angle_sig">ms_angle_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-br_angle_sig">br_angle_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-mr_node">mr_node</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-brr_node">brr_node</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-brr_from">brr_from</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-mr_length">mr_length</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-brr_length">brr_length</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-mr_width">mr_width</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-brr_width">brr_width</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-mr_angle_ave">mr_angle_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-brr_angle_ave">brr_angle_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-mr_angle_sig">mr_angle_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-brr_angle_sig">brr_angle_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-peti_size_ave">peti_size_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-peti_size_sig">peti_size_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-peti_width_ave">peti_width_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-peti_width_sig">peti_width_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-peti_angle_ave">peti_angle_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-peti_angle_sig">peti_angle_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_angle_ave">leaf_angle_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_angle_sig">leaf_angle_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_length_ave">leaf_length_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_length_sig">leaf_length_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_width_ave">leaf_width_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_width_sig">leaf_width_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_thickness_ave">leaf_thickness_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_thickness_sig">leaf_thickness_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stage">Stage</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-name">name</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stage_id">stage_id</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-dt">dt</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-seed">Seed</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-nodesystem">NodeSystem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-rootsystem">RootSystem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stem">Stem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf">Leaf</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-root">Root</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-soil">Soil</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stemyoungmodulus">stemYoungModulus</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leafyoungmodulus">leafYoungModulus</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-rootyoungmodulus">rootYoungModulus</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stempoissonratio">stemPoissonRatio</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leafpoissonratio">leafPoissonRatio</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-rootpoissonratio">rootPoissonRatio</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stemdensity">stemDensity</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leafdensity">leafDensity</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-rootdensity">rootDensity</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-struct">struct</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf2stem">leaf2stem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stem2stem">stem2stem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-root2stem">root2stem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-root2root">root2root</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_list">leaf_list</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stem_list">stem_list</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-root_list">root_list</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-contact">contact</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-time">time</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-seed_length">seed_length</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-seed_width">seed_width</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-seed_height">seed_height</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stem_angle">stem_angle</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-root_angle">root_angle</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_angle">leaf_angle</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stemconfig">stemconfig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-rootconfig">rootconfig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leafconfig">leafconfig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-nodeid_mainstem">NodeID_MainStem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-nodeid_branch">NodeID_Branch</a>
+      
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="panel panel-primary">
+  <div class="panel-heading text-left"><h3 class="panel-title"><a data-toggle="collapse" href="#boundprocs-0">Type-Bound Procedures</a></h3></div>
+  <div id="boundprocs-0" class="panel-collapse collapse">
+    <div class="list-group">
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-addstem">addStem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-init~2">Init</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-remove">remove</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-create">create</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-new">new</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-sowing">sowing</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-export">export</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-stemlength">stemlength</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-grow">grow</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-getvolume">getVolume</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-getbiomass">getBioMass</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-gettotalweight">getTotalWeight</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-resize">resize</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-deform">deform</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-show">show</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-gmsh">gmsh</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-msh">msh</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-vtk">vtk</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-stl">stl</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-json">json</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-waterabsorption">WaterAbsorption</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-move">move</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-numleaf">numleaf</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-numstem">numstem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-numroot">numroot</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-laytracing">laytracing</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-sinksourceflow">SinkSourceFlow</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-update">update</a>
+      
+    </div>
+  </div>
+</div>
+
+
+
+
+
+</div>
+
+    </div>
+    
+    <div class="col-md-9" id='text'>
+      <h2>type, public :: soybean_</h2>
+    
+    
+    
+    
+    <br>
+
+    <section class="visible-xs visible-sm hidden-md">
+      
+<h3>Contents</h3>
+ 
+
+
+
+<div class="panel panel-primary">
+  <div class="panel-heading text-left"><h3 class="panel-title"><a data-toggle="collapse" href="#vars-1">Variables</a></h3></div>
+  <div id="vars-1" class="panel-collapse collapse">
+    <div class="list-group">
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-growth_habit">growth_habit</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-growth_stage">growth_stage</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-num_of_node">Num_Of_Node</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-num_of_root">Num_Of_Root</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-maxleafnum">MaxLeafNum</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-maxrootnum">MaxRootNum</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-maxstemnum">MaxStemNum</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-determinate">determinate</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-ms_node">ms_node</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-br_node">br_node</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-br_from">br_from</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-ms_length">ms_length</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-br_length">br_length</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-ms_width">ms_width</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-br_width">br_width</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-ms_angle_ave">ms_angle_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-br_angle_ave">br_angle_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-ms_angle_sig">ms_angle_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-br_angle_sig">br_angle_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-mr_node">mr_node</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-brr_node">brr_node</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-brr_from">brr_from</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-mr_length">mr_length</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-brr_length">brr_length</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-mr_width">mr_width</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-brr_width">brr_width</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-mr_angle_ave">mr_angle_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-brr_angle_ave">brr_angle_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-mr_angle_sig">mr_angle_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-brr_angle_sig">brr_angle_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-peti_size_ave">peti_size_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-peti_size_sig">peti_size_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-peti_width_ave">peti_width_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-peti_width_sig">peti_width_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-peti_angle_ave">peti_angle_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-peti_angle_sig">peti_angle_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_angle_ave">leaf_angle_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_angle_sig">leaf_angle_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_length_ave">leaf_length_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_length_sig">leaf_length_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_width_ave">leaf_width_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_width_sig">leaf_width_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_thickness_ave">leaf_thickness_ave</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_thickness_sig">leaf_thickness_sig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stage">Stage</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-name">name</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stage_id">stage_id</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-dt">dt</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-seed">Seed</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-nodesystem">NodeSystem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-rootsystem">RootSystem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stem">Stem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf">Leaf</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-root">Root</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-soil">Soil</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stemyoungmodulus">stemYoungModulus</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leafyoungmodulus">leafYoungModulus</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-rootyoungmodulus">rootYoungModulus</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stempoissonratio">stemPoissonRatio</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leafpoissonratio">leafPoissonRatio</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-rootpoissonratio">rootPoissonRatio</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stemdensity">stemDensity</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leafdensity">leafDensity</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-rootdensity">rootDensity</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-struct">struct</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf2stem">leaf2stem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stem2stem">stem2stem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-root2stem">root2stem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-root2root">root2root</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_list">leaf_list</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stem_list">stem_list</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-root_list">root_list</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-contact">contact</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-time">time</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-seed_length">seed_length</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-seed_width">seed_width</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-seed_height">seed_height</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stem_angle">stem_angle</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-root_angle">root_angle</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leaf_angle">leaf_angle</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-stemconfig">stemconfig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-rootconfig">rootconfig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-leafconfig">leafconfig</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-nodeid_mainstem">NodeID_MainStem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#variable-nodeid_branch">NodeID_Branch</a>
+      
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="panel panel-primary">
+  <div class="panel-heading text-left"><h3 class="panel-title"><a data-toggle="collapse" href="#boundprocs-1">Type-Bound Procedures</a></h3></div>
+  <div id="boundprocs-1" class="panel-collapse collapse">
+    <div class="list-group">
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-addstem">addStem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-init~2">Init</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-remove">remove</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-create">create</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-new">new</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-sowing">sowing</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-export">export</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-stemlength">stemlength</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-grow">grow</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-getvolume">getVolume</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-getbiomass">getBioMass</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-gettotalweight">getTotalWeight</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-resize">resize</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-deform">deform</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-show">show</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-gmsh">gmsh</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-msh">msh</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-vtk">vtk</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-stl">stl</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-json">json</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-waterabsorption">WaterAbsorption</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-move">move</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-numleaf">numleaf</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-numstem">numstem</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-numroot">numroot</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-laytracing">laytracing</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-sinksourceflow">SinkSourceFlow</a>
+      
+      <a class="list-group-item" href="../type/soybean_.html#boundprocedure-update">update</a>
+      
+    </div>
+  </div>
+</div>
+
+
+
+
+
+    </section>
+    <br class="visible-xs visible-sm hidden-md">
+
+    
+    <section>
+    <h2>Components</h2>
+    
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th><th>Visibility</th>
+
+<th>Attributes</th><th></th><th>Name</th><th></th><th>Initial</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-growth_habit"></span>character(len=20),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>growth_habit</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-growth_stage"></span>character(len=2),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>growth_stage</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-num_of_node"></span>integer(kind=int32),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>Num_Of_Node</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-num_of_root"></span>integer(kind=int32),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>Num_Of_Root</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-maxleafnum"></span>integer(kind=int32),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>MaxLeafNum</strong></td><td> =</td><td>300</td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-maxrootnum"></span>integer(kind=int32),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>MaxRootNum</strong></td><td> =</td><td>300</td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-maxstemnum"></span>integer(kind=int32),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>MaxStemNum</strong></td><td> =</td><td>300</td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-determinate"></span>logical,</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>determinate</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-ms_node"></span>integer(kind=int32),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>ms_node</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-br_node"></span>integer(kind=int32),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>br_node</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-br_from"></span>integer(kind=int32),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>br_from</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-ms_length"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>ms_length</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-br_length"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>br_length</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-ms_width"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>ms_width</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-br_width"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>br_width</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-ms_angle_ave"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>ms_angle_ave</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-br_angle_ave"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>br_angle_ave</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-ms_angle_sig"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>ms_angle_sig</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-br_angle_sig"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>br_angle_sig</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-mr_node"></span>integer(kind=int32),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>mr_node</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-brr_node"></span>integer(kind=int32),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>brr_node</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-brr_from"></span>integer(kind=int32),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>brr_from</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-mr_length"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>mr_length</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-brr_length"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>brr_length</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-mr_width"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>mr_width</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-brr_width"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>brr_width</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-mr_angle_ave"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>mr_angle_ave</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-brr_angle_ave"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>brr_angle_ave</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-mr_angle_sig"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>mr_angle_sig</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-brr_angle_sig"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>brr_angle_sig</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-peti_size_ave"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>peti_size_ave</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-peti_size_sig"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>peti_size_sig</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-peti_width_ave"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>peti_width_ave</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-peti_width_sig"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>peti_width_sig</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-peti_angle_ave"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>peti_angle_ave</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-peti_angle_sig"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>peti_angle_sig</strong>(300)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leaf_angle_ave"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>leaf_angle_ave</strong>(300*3)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leaf_angle_sig"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>leaf_angle_sig</strong>(300*3)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leaf_length_ave"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>leaf_length_ave</strong>(300*3)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leaf_length_sig"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>leaf_length_sig</strong>(300*3)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leaf_width_ave"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>leaf_width_ave</strong>(300*3)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leaf_width_sig"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>leaf_width_sig</strong>(300*3)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leaf_thickness_ave"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>leaf_thickness_ave</strong>(300*3)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leaf_thickness_sig"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>leaf_thickness_sig</strong>(300*3)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-stage"></span>character(len=3),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>Stage</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-name"></span>character(len=200),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>name</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-stage_id"></span>integer(kind=int32),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>stage_id</strong></td><td> =</td><td>0</td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-dt"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>dt</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-seed"></span>type(Seed_),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>Seed</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-nodesystem"></span>type(PlantNode_),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>NodeSystem</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-rootsystem"></span>type(PlantRoot_),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>RootSystem</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-stem"></span>type(Stem_),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>Stem</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leaf"></span>type(Leaf_),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>Leaf</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-root"></span>type(Root_),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>Root</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-soil"></span>type(Soil_),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>Soil</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-stemyoungmodulus"></span>real(kind=real64),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>stemYoungModulus</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leafyoungmodulus"></span>real(kind=real64),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>leafYoungModulus</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-rootyoungmodulus"></span>real(kind=real64),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>rootYoungModulus</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-stempoissonratio"></span>real(kind=real64),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>stemPoissonRatio</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leafpoissonratio"></span>real(kind=real64),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>leafPoissonRatio</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-rootpoissonratio"></span>real(kind=real64),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>rootPoissonRatio</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-stemdensity"></span>real(kind=real64),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>stemDensity</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leafdensity"></span>real(kind=real64),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>leafDensity</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-rootdensity"></span>real(kind=real64),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>rootDensity</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-struct"></span>type(Mesh_),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>struct</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leaf2stem"></span>integer(kind=int32),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>leaf2stem</strong>(:,:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-stem2stem"></span>integer(kind=int32),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>stem2stem</strong>(:,:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-root2stem"></span>integer(kind=int32),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>root2stem</strong>(:,:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-root2root"></span>integer(kind=int32),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>root2root</strong>(:,:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leaf_list"></span>type(FEMDomain_),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>leaf_list</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-stem_list"></span>type(FEMDomain_),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>stem_list</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-root_list"></span>type(FEMDomain_),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>root_list</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-contact"></span>type(ContactMechanics_),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>contact</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-time"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>time</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-seed_length"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>seed_length</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-seed_width"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>seed_width</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-seed_height"></span>real(kind=real64),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>seed_height</strong></td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-stem_angle"></span>real(kind=real64),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>stem_angle</strong>(:,:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-root_angle"></span>real(kind=real64),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>root_angle</strong>(:,:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leaf_angle"></span>real(kind=real64),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>leaf_angle</strong>(:,:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-stemconfig"></span>character(len=200),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>stemconfig</strong></td><td> =</td><td>" "</td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-rootconfig"></span>character(len=200),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>rootconfig</strong></td><td> =</td><td>" "</td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-leafconfig"></span>character(len=200),</td>
+  
+  <td>public</td>
+  <td></td><td>::</td>
+  <td><strong>leafconfig</strong></td><td> =</td><td>" "</td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-nodeid_mainstem"></span>integer(kind=int32),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>NodeID_MainStem</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" id="variable-nodeid_branch"></span>type(<a href='../type/soybean_nodeid_branch_.html'>soybean_NodeID_Branch_</a>),</td>
+  
+  <td>public,</td>
+  <td>allocatable</td><td>::</td>
+  <td><strong>NodeID_Branch</strong>(:)</td><td></td><td></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+    </section>
+    <br>
+    
+    
+    
+    
+    
+    
+     
+    <section>
+    <h2>Type-Bound Procedures</h2>
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-addstem"></span><h3>procedure, public :: <strong>addStem</strong>  => <a href='../proc/addstemsoybean.html'>addStemSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/addstemsoybean.html'>addStemSoybean</a>(obj, stemid, rotx, roty, rotz, json)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>stemid</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>rotx</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>roty</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>rotz</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>json</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-init~2"></span><h3>procedure, public :: <strong>Init</strong>  => <a href='../proc/initsoybean.html'>initsoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/initsoybean.html'>initsoybean</a>(obj, config, regacy, mass, water_content, radius, location, x, y, z, PlantRoot_diameter_per_seed_radius, max_PlantNode_num, Variety, FileName, max_leaf_num, max_stem_num, max_root_num)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>config</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>regacy</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>mass</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>water_content</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>radius</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>location</strong>(3)</td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>x</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>y</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>z</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>PlantRoot_diameter_per_seed_radius</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_PlantNode_num</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>Variety</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>FileName</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_leaf_num</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_stem_num</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_root_num</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-remove"></span><h3>procedure, public :: <strong>remove</strong>  => <a href='../proc/removesoybean.html'>removeSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/removesoybean.html'>removeSoybean</a>(obj)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-create"></span><h3>procedure, public :: <strong>create</strong>  => <a href='../proc/initsoybean.html'>initsoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/initsoybean.html'>initsoybean</a>(obj, config, regacy, mass, water_content, radius, location, x, y, z, PlantRoot_diameter_per_seed_radius, max_PlantNode_num, Variety, FileName, max_leaf_num, max_stem_num, max_root_num)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>config</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>regacy</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>mass</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>water_content</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>radius</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>location</strong>(3)</td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>x</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>y</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>z</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>PlantRoot_diameter_per_seed_radius</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_PlantNode_num</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>Variety</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>FileName</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_leaf_num</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_stem_num</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_root_num</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-new"></span><h3>procedure, public :: <strong>new</strong>  => <a href='../proc/initsoybean.html'>initsoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/initsoybean.html'>initsoybean</a>(obj, config, regacy, mass, water_content, radius, location, x, y, z, PlantRoot_diameter_per_seed_radius, max_PlantNode_num, Variety, FileName, max_leaf_num, max_stem_num, max_root_num)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>config</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>regacy</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>mass</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>water_content</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>radius</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>location</strong>(3)</td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>x</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>y</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>z</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>PlantRoot_diameter_per_seed_radius</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_PlantNode_num</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>Variety</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>FileName</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_leaf_num</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_stem_num</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_root_num</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-sowing"></span><h3>procedure, public :: <strong>sowing</strong>  => <a href='../proc/initsoybean.html'>initsoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/initsoybean.html'>initsoybean</a>(obj, config, regacy, mass, water_content, radius, location, x, y, z, PlantRoot_diameter_per_seed_radius, max_PlantNode_num, Variety, FileName, max_leaf_num, max_stem_num, max_root_num)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>config</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>regacy</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>mass</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>water_content</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>radius</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>location</strong>(3)</td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>x</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>y</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>z</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>PlantRoot_diameter_per_seed_radius</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_PlantNode_num</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>Variety</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>FileName</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_leaf_num</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_stem_num</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>max_root_num</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-export"></span><h3>procedure, public :: <strong>export</strong>  => <a href='../proc/exportsoybean.html'>exportSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/exportsoybean.html'>exportSoybean</a>(obj, FilePath, FileName, SeedID, withSTL, withMesh)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>FilePath</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>FileName</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(inout),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>SeedID</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>withSTL</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>withMesh</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-stemlength"></span><h3>procedure, public :: <strong>stemlength</strong>  => <a href='../proc/stemlengthsoybean.html'>stemlengthSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public function <a href='../proc/stemlengthsoybean.html'>stemlengthSoybean</a>(obj, StemID) result(ret)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>StemID</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+  
+  
+  
+  
+     <h4>Return Value <small>real(kind=real64),
+  allocatable, (:)</small></h4>
+  
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-grow"></span><h3>procedure, public :: <strong>grow</strong>  => <a href='../proc/growsoybean.html'>growSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/growsoybean.html'>growSoybean</a>(obj, dt, light, air, temp)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>dt</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>type(Light_),</td>
+  <td>intent(inout),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>light</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>type(air_),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>air</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>temp</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-getvolume"></span><h3>procedure, public :: <strong>getVolume</strong>  => <a href='../proc/getvolumesoybean.html'>getVolumeSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public function <a href='../proc/getvolumesoybean.html'>getVolumeSoybean</a>(obj, stem, leaf, root) result(ret)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>stem</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>leaf</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>root</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+  
+  
+  
+  
+     <h4>Return Value <small>real(kind=real64)
+  </small></h4>
+  
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-getbiomass"></span><h3>procedure, public :: <strong>getBioMass</strong>  => <a href='../proc/getbiomasssoybean.html'>getBiomassSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public function <a href='../proc/getbiomasssoybean.html'>getBiomassSoybean</a>(obj, stem, leaf, root) result(ret)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>stem</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>leaf</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>root</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+  
+  
+  
+  
+     <h4>Return Value <small>real(kind=real64)
+  </small></h4>
+  
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-gettotalweight"></span><h3>procedure, public :: <strong>getTotalWeight</strong>  => <a href='../proc/gettotalweightsoybean.html'>getTotalWeightSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public function <a href='../proc/gettotalweightsoybean.html'>getTotalWeightSoybean</a>(obj, stem, leaf, root, waterDensity) result(ret)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>stem</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>leaf</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>root</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>waterDensity</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+  
+  
+  
+  
+     <h4>Return Value <small>real(kind=real64)
+  </small></h4>
+  
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-resize"></span><h3>procedure, public :: <strong>resize</strong>  => <a href='../proc/resizesoybean.html'>resizeSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/resizesoybean.html'>resizeSoybean</a>(obj, StemID, StemLength)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>StemID</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>StemLength</strong>(:)</td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-deform"></span><h3>procedure, public :: <strong>deform</strong>  => <a href='../proc/deformsoybean.html'>deformSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/deformsoybean.html'>deformSoybean</a>(obj, penaltyparameter, groundLevel, disp, x_min, x_max, y_min, y_max, z_min, z_max)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout),</td>
+  <td></td>
+  
+  <td>target</td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>penaltyparameter</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>groundLevel</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>disp</strong>(3)</td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>x_min</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>x_max</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>y_min</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>y_max</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>z_min</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>z_max</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-show"></span><h3>procedure, public :: <strong>show</strong>  => <a href='../proc/showsoybean.html'>showSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/showsoybean.html'>showSoybean</a>(obj, name)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>name</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-gmsh"></span><h3>procedure, public :: <strong>gmsh</strong>  => <a href='../proc/gmshsoybean.html'>gmshSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/gmshsoybean.html'>gmshSoybean</a>(obj, name)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>name</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-msh"></span><h3>procedure, public :: <strong>msh</strong>  => <a href='../proc/mshsoybean.html'>mshSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/mshsoybean.html'>mshSoybean</a>(obj, name, num_threads)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>name</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>num_threads</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-vtk"></span><h3>procedure, public :: <strong>vtk</strong>  => <a href='../proc/vtksoybean.html'>vtkSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/vtksoybean.html'>vtkSoybean</a>(obj, name)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>name</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-stl"></span><h3>procedure, public :: <strong>stl</strong>  => <a href='../proc/stlsoybean.html'>stlSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/stlsoybean.html'>stlSoybean</a>(obj, name, num_threads)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>name</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>num_threads</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-json"></span><h3>procedure, public :: <strong>json</strong>  => <a href='../proc/jsonsoybean.html'>jsonSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/jsonsoybean.html'>jsonSoybean</a>(obj, name)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>character(len=*),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>name</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-waterabsorption"></span><h3>procedure, public :: <strong>WaterAbsorption</strong>  => <a href='../proc/waterabsorptionsoybean.html'>WaterAbsorptionSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/waterabsorptionsoybean.html'>WaterAbsorptionSoybean</a>(obj, temp, dt)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>temp</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>dt</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-move"></span><h3>procedure, public :: <strong>move</strong>  => <a href='../proc/movesoybean.html'>moveSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/movesoybean.html'>moveSoybean</a>(obj, x, y, z)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>x</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>y</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>real(kind=real64),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>z</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-numleaf"></span><h3>procedure, public :: <strong>numleaf</strong>  => <a href='../proc/numleafsoybean.html'>numleafsoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public function <a href='../proc/numleafsoybean.html'>numleafsoybean</a>(obj) result(ret)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+  
+  
+  
+  
+     <h4>Return Value <small>integer(kind=int32)
+  </small></h4>
+  
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-numstem"></span><h3>procedure, public :: <strong>numstem</strong>  => <a href='../proc/numstemsoybean.html'>numstemsoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public function <a href='../proc/numstemsoybean.html'>numstemsoybean</a>(obj) result(ret)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+  
+  
+  
+  
+     <h4>Return Value <small>integer(kind=int32)
+  </small></h4>
+  
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-numroot"></span><h3>procedure, public :: <strong>numroot</strong>  => <a href='../proc/numrootsoybean.html'>numrootsoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public function <a href='../proc/numrootsoybean.html'>numrootsoybean</a>(obj) result(ret)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+  
+  
+  
+  
+     <h4>Return Value <small>integer(kind=int32)
+  </small></h4>
+  
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-laytracing"></span><h3>procedure, public :: <strong>laytracing</strong>  => <a href='../proc/laytracingsoybean.html'>laytracingsoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/laytracingsoybean.html'>laytracingsoybean</a>(obj, light)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>type(Light_),</td>
+  <td>intent(in)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>light</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-sinksourceflow"></span><h3>procedure, public :: <strong>SinkSourceFlow</strong>  => <a href='../proc/sinksourceflowsoybean.html'>SinkSourceFlowSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public subroutine <a href='../proc/sinksourceflowsoybean.html'>SinkSourceFlowSoybean</a>(obj)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+     
+<div class="panel panel-default">
+  <div class="panel-heading codesum"><span class="anchor" id="boundprocedure-update"></span><h3>procedure, public :: <strong>update</strong>  => <a href='../proc/updatesoybean.html'>updateSoybean</a> 
+    
+  </h3></div>
+  
+  <ul class="list-group">
+    
+      <li class="list-group-item">
+      
+        
+          
+    
+    <h3>
+public recursive subroutine <a href='../proc/updatesoybean.html'>updateSoybean</a>(obj, stem_id, root_id, leaf_id, debug)
+    
+    
+   
+</h3>
+    
+    
+    <h4>Arguments</h4>
+    
+      
+      
+<table class="table table-striped varlist">
+<thead><tr><th>Type</th>
+<th>Intent</th><th>Optional</th>
+<th>Attributes</th><th></th><th>Name</th><th></th></thead>
+
+
+
+<tbody>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>class(<a href='../type/soybean_.html'>soybean_</a>),</td>
+  <td>intent(inout)</td>
+  <td></td>
+  
+  <td></td><td>::</td>
+  <td><strong>obj</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>stem_id</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>root_id</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>integer(kind=int32),</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>leaf_id</strong></td><td></td>
+  
+</tr>
+
+  
+  
+  
+  
+<tr>
+  
+  <td><span class="anchor" ></span>logical,</td>
+  <td>intent(in),</td>
+  <td>optional</td>
+  
+  <td></td><td>::</td>
+  <td><strong>debug</strong></td><td></td>
+  
+</tr>
+
+</tbody>
+</table>
+
+      
+    
+    
+
+        
+      
+      </li>
+    
+  </ul>
+</div>
+
+    
+    </section>
+    
+    
+    
+    
+    </div>
+  </div>
+
+
+    <hr>    
+    </div> <!-- /container -->
+    <footer>
+      <div class="container">
+      <div class="row">
+        <div class="col-xs-6 col-md-6"><p>plantFEM was developed by kazulagi<br>&copy; 2021 <a rel="license" href="https://opensource.org/licenses/MIT">MIT</a>
+                                          </p>
+        </div>
+        <div class="col-xs-6 col-md-6">
+          <p class="text-right">
+            Documentation generated by 
+            <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
+            
+            
+          </p>
+        </div>
+      </div>
+      <br>
+      </div> <!-- /container -->    
+    </footer>
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+<!--
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+-->
+    <script src="../js/bootstrap.min.js"></script>
+    <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+    <script src="../js/ie10-viewport-bug-workaround.js"></script>
+
+    <!-- MathJax JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        TeX: { extensions: ['AMSmath.js','AMSsymbols.js','noErrors.js','noUndefined.js'], equationNumbers: { autoNumber: 'AMS' } },
+        jax: ['input/TeX','input/MathML','output/HTML-CSS'],
+        extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']
+      });
+    </script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+    
+    <script src="../tipuesearch/tipuesearch_content.js"></script>
+    <script src="../tipuesearch/tipuesearch_set.js"></script>
+    <script src="../tipuesearch/tipuesearch.js"></script>
+    
+    
+  </body>
+</html>
