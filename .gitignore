@@ -2,6 +2,8 @@
 *.msh
 /home
 home/
+doc/ford
+doc/ford/
 ./Desktop/
 addon/github/
 tmp/

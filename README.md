@@ -7,7 +7,8 @@
 
 # [Click here!! >> Home page](https://plantfem.org)
 
-# [Documentation](./doc/ford/index.html)
+# [Documentation](doc/ford/index.html)
+You can create document by FORD (```ford ford.md```)
 
 
 # For Windows users:
