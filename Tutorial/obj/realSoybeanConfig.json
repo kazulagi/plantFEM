@@ -1,8 +1,8 @@
 {
     "Name":"soybean",
-    "leafconfig":"Tutorial/playon_obj/soyleaf.json",
-    "stemconfig":"Tutorial/playon_obj/soystem.json",
-    "rootconfig":"Tutorial/playon_obj/soyroot.json",
+    "leafconfig":"Tutorial/obj/soyleaf.json",
+    "stemconfig":"Tutorial/obj/soystem.json",
+    "rootconfig":"Tutorial/obj/soyroot.json",
     "Genotype":{
         "Dt1":"dt1"
     },

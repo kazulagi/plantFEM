@@ -18,6 +18,8 @@ module SoybeanClass
         character*20 :: growth_habit
         character*2  :: growth_stage
         integer(int32) :: Num_Of_Node
+        integer(int32) :: num_leaf
+        integer(int32) :: num_stem_node
         integer(int32) :: Num_Of_Root
         
         integer(int32) :: MaxLeafNum= 300
@@ -127,13 +129,17 @@ module SoybeanClass
 
         ! observation
         procedure,public :: stemlength => stemlengthSoybean
+        procedure,public :: NumberOfBranch => NumberOfBranchSoybean
         
 
         ! operation
+        procedure,public :: findApical => findApicalSoybean
+        
         procedure,public :: grow => growSoybean
         procedure,public :: getVolume => getVolumeSoybean
         procedure,public :: getBioMass => getBioMassSoybean
         procedure,public :: getTotalWeight => getTotalWeightSoybean
+        
         procedure,public :: resize => resizeSoybean
         procedure,public :: deform => deformSoybean
         
@@ -158,7 +164,7 @@ module SoybeanClass
         procedure,public :: SinkSourceFlow => SinkSourceFlowSoybean
 
         procedure,public :: update => updateSoybean
-        !procedure,public :: AddNode => AddNodeSoybean
+        procedure,public :: AddNode => AddNodeSoybean
     end type
 
     type :: SoybeanCanopy_
@@ -314,7 +320,7 @@ subroutine initsoybean(obj,config,&
     integer(int32),optional,intent(in) :: max_PlantNode_num,max_leaf_num,max_stem_num,max_root_num
     real(real64) :: MaxThickness,Maxwidth,loc(3),vec(3),rot(3),zaxis(3),meshloc(3),meshvec(3)
     integer(int32) :: i,j,k,blcount,id,rmc,n,node_id,node_id2,elemid,branch_id,num_stem_node
-    integer(int32) :: num_leaf
+    
     real(real64)::readvalreal
     integer(int32) :: readvalint
     logical :: debug=.false.
@@ -1271,48 +1277,48 @@ subroutine initsoybean(obj,config,&
 
 
         ! peti and leaf
-        num_stem_node = k
-        num_leaf = 0
+        obj%num_stem_node = k
+        obj%num_leaf = 0
         ! bugfix 2021/08/18
         do i=1, k
             ! ３複葉
             ! add peti
-            num_stem_node = num_stem_node +1
-            call obj%stem(num_stem_node)%init(config=obj%stemconfig)
+            obj%num_stem_node = obj%num_stem_node +1
+            call obj%stem(obj%num_stem_node)%init(config=obj%stemconfig)
 
-            call obj%stem(num_stem_node)%resize(&
+            call obj%stem(obj%num_stem_node)%resize(&
                 x = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
                 y = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
                 z = random%gauss(mu=obj%peti_size_ave(i),sigma=obj%peti_size_sig(i)) &
                 )
             
-            call obj%stem(num_stem_node)%rotate(&
+            call obj%stem(obj%num_stem_node)%rotate(&
                 x = radian(random%gauss(mu=obj%peti_angle_ave(i),sigma=obj%peti_angle_sig(i) )),  &
                 y = 0.0d0,  &
                 z = radian(360.0d0*random%random() )   &
                 )      
-            call obj%stem(num_stem_node)%connect("=>",obj%stem(i))
+            call obj%stem(obj%num_stem_node)%connect("=>",obj%stem(i))
             !obj%leaf2stem(num_stem_node,i) = 1   
-            obj%stem2stem(num_stem_node,i) = 1            
+            obj%stem2stem(obj%num_stem_node,i) = 1            
 
             
 
             ! add leaves
             do j=1,3
-                num_leaf=num_leaf+1
-                call obj%leaf(num_leaf)%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
-                call obj%leaf(num_leaf)%resize(&
+                obj%num_leaf=obj%num_leaf+1
+                call obj%leaf(obj%num_leaf)%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
+                call obj%leaf(obj%num_leaf)%resize(&
                     y = random%gauss(mu=obj%leaf_thickness_ave(i),sigma=obj%leaf_thickness_sig(i))  , &
                     z = random%gauss(mu=obj%leaf_length_ave(i)   ,sigma=obj%leaf_length_sig(i)) , &
                     x = random%gauss(mu=obj%leaf_width_ave(i)    ,sigma=obj%leaf_width_sig(i)) &
                 )
-                call obj%leaf(num_leaf)%rotate(&
+                call obj%leaf(obj%num_leaf)%rotate(&
                     x = radian(random%gauss(mu=obj%leaf_angle_ave(i),sigma=obj%leaf_angle_sig(i))), &
                     y = 0.0d0, &
                     z = radian(random%random()*360.0d0) &
                 )
-                call obj%leaf(num_leaf)%connect("=>",obj%stem(num_stem_node))
-                obj%leaf2stem(num_leaf,num_stem_node) = 1
+                call obj%leaf(obj%num_leaf)%connect("=>",obj%stem(obj%num_stem_node))
+                obj%leaf2stem(obj%num_leaf,obj%num_stem_node) = 1
             enddo
             
         enddo
@@ -2112,7 +2118,7 @@ subroutine jsonSoybean(obj,name)
             call obj%leaf(i)%femdomain%json(name=trim(name)//"_leaf"//trim(str(i)),fh=f%fh,endl=.false.)
         endif
     enddo
-    call f%write('"num_leaf":'//str(countnum)//',' )
+    call f%write('"obj%num_leaf":'//str(countnum)//',' )
     call f%write('"return_soybean":0')
     call f%write("}")
     call f%close()
@@ -2402,6 +2408,93 @@ subroutine laytracingsoybean(obj,light)
 end subroutine
 ! ########################################
 
+subroutine addNodeSoybean(obj,StemNodeID,peti_width_ave,peti_width_sig,peti_size_ave &
+    ,peti_size_sig,peti_angle_ave,peti_angle_sig,leaf_thickness_ave,leaf_thickness_sig &
+    ,leaf_length_ave,leaf_length_sig,leaf_width_ave,leaf_width_sig,leaf_angle_sig &
+    ,leaf_angle_ave)
+    class(Soybean_),intent(inout) :: obj
+    integer(int32),intent(in) :: StemNodeID
+    real(real64),optional,intent(in) :: peti_width_ave,peti_width_sig,peti_size_ave &
+    ,peti_size_sig,peti_angle_ave,peti_angle_sig,leaf_thickness_ave,leaf_thickness_sig &
+    ,leaf_length_ave,leaf_length_sig,leaf_width_ave,leaf_width_sig,leaf_angle_sig &
+    ,leaf_angle_ave
+    type(Random_) :: random
+    integer(int32) :: i,j
+
+    i = StemNodeID
+    obj%num_stem_node = obj%num_stem_node +1
+    
+    obj%leaf_thickness_ave(obj%num_leaf)=input(&
+        default=obj%leaf_thickness_ave(obj%num_leaf),&
+        option=leaf_thickness_ave)
+    obj%leaf_thickness_sig(obj%num_leaf)=input(&
+        default=obj%leaf_thickness_sig(obj%num_leaf),&
+        option=leaf_thickness_sig)
+    
+    obj%leaf_length_ave(obj%num_leaf)=input(&
+        default=obj%leaf_length_ave(obj%num_leaf),&
+        option=leaf_length_ave)
+    obj%leaf_length_sig(obj%num_leaf)=input(&
+        default=obj%leaf_length_sig(obj%num_leaf),&
+        option=leaf_length_sig)
+    obj%leaf_width_ave(obj%num_leaf)=input(&
+        default=obj%leaf_width_ave(obj%num_leaf),&
+        option=leaf_width_ave)
+    obj%leaf_width_sig(obj%num_leaf)=input(&
+        default=obj%leaf_width_sig(obj%num_leaf),&
+        option=leaf_width_sig)
+    obj%leaf_angle_sig(obj%num_leaf)=input(&
+        default=obj%leaf_angle_sig(obj%num_leaf),&
+        option=leaf_angle_sig)
+    
+    obj%leaf_angle_ave(obj%num_leaf)=input(&
+        default=obj%leaf_angle_ave(obj%num_leaf),&
+        option=leaf_angle_ave)
+
+    
+    call obj%stem(obj%num_stem_node)%init(config=obj%stemconfig)
+
+    call obj%stem(obj%num_stem_node)%resize(&
+        x = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
+        y = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
+        z = random%gauss(mu=obj%peti_size_ave(i),sigma=obj%peti_size_sig(i)) &
+        )
+    
+    call obj%stem(obj%num_stem_node)%rotate(&
+        x = radian(random%gauss(mu=obj%peti_angle_ave(i),sigma=obj%peti_angle_sig(i) )),  &
+        y = 0.0d0,  &
+        z = radian(360.0d0*random%random() )   &
+        )      
+    call obj%stem(obj%num_stem_node)%connect("=>",obj%stem(i))
+    !obj%leaf2stem(obj%num_stem_node,i) = 1   
+    obj%stem2stem(obj%num_stem_node,i) = 1            
+
+    
+
+    ! add leaves
+    do j=1,3
+        obj%num_leaf=obj%num_leaf+1
+        call obj%leaf(obj%num_leaf)%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
+        call obj%leaf(obj%num_leaf)%resize(&
+            y = random%gauss(mu=obj%leaf_thickness_ave(i),sigma=obj%leaf_thickness_sig(i))  , &
+            z = random%gauss(mu=obj%leaf_length_ave(i)   ,sigma=obj%leaf_length_sig(i)) , &
+            x = random%gauss(mu=obj%leaf_width_ave(i)    ,sigma=obj%leaf_width_sig(i)) &
+        )
+        call obj%leaf(obj%num_leaf)%rotate(&
+            x = radian(random%gauss(mu=obj%leaf_angle_ave(i),sigma=obj%leaf_angle_sig(i))), &
+            y = 0.0d0, &
+            z = radian(random%random()*360.0d0) &
+        )
+        call obj%leaf(obj%num_leaf)%connect("=>",obj%stem(obj%num_stem_node))
+        obj%leaf2stem(obj%num_leaf,obj%num_stem_node) = 1
+        
+    enddo
+    
+end subroutine
+! ########################################
+
+
+! ########################################
 subroutine addStemSoybean(obj,stemid,rotx,roty,rotz,json)
     class(Soybean_),intent(inout) :: obj
     integer(int32),intent(in) :: stemid
@@ -3105,5 +3198,51 @@ subroutine resizeSoybean(obj,StemID,StemLength)
 
     endif
 end subroutine
+! ###################################################################
+
+
+! ###################################################################
+function NumberOfBranchSoybean(obj)  result(ret)
+    class(Soybean_),intent(in) :: obj
+    integer(int32) :: ret,i
+
+    ret = 0
+    do i=1,size(obj%br_length)
+        if(obj%br_length(i)/=0.0d0 )then
+            ret = ret + 1
+        endif
+    enddo
+
+end function
+! ###################################################################
+
+! ###################################################################
+function findApicalSoybean(obj) result(ret)
+    class(Soybean_),intent(in) :: obj
+    integer(int32),allocatable :: ret(:)
+    !integer(int32),optional,intent(in) :: StemID
+    integer(int32),allocatable :: stem
+    integer(int32) :: i,j
+
+    ret = zeros( obj%NumberOfBranch()+1 )
+
+    ret(1)=maxval(obj%NodeID_MainStem(:) )
+    do i=1,obj%NumberOfBranch()
+        ret(i+1) = maxval(obj%NodeID_Branch(i)%ID(:) )
+    enddo
+    
+!    if(present(StemID) )then
+!        if(StemID > size(obj%br_node) )then
+!            print *, "ERROR >> findApicalSoybean >> number of branch is ",size(obj%br_node)
+!            print *, "StemID=",StemID,"is larger than it."
+!            return
+!        endif
+!
+!
+!        return
+!    endif
+
+end function
+! ###################################################################
 
 end module
