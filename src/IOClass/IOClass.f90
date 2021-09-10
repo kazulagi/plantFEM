@@ -254,11 +254,13 @@ end function
 ! #############################################
 
 ! #############################################
-subroutine openIOchar(obj,path,state,name,extention,fh)
+recursive subroutine openIOchar(obj,path,state,name,extention,fh)
     class(IO_),intent(inout) :: obj
     character(1),optional,intent(in) :: state ! w or r
     character(*),optional,intent(in)::path,name,extention
+    character(:),allocatable :: localcp
     integer(int32),optional,intent(in) :: fh
+    integer(int32) :: tag
     logical :: yml=.False.
 
     if(present(state) )then
@@ -267,6 +269,24 @@ subroutine openIOchar(obj,path,state,name,extention,fh)
         obj%state="w"
     endif
     
+    if( index(path,"https://")/=0 .or. index(path,"http://")/=0 )then
+        ! get online file
+        ! read-only
+        if(present(state) )then
+            if(state=="w")then
+                print *, "ERROR :: OpenIOChar :: Online files are read-only."
+                stop
+            endif
+        endif
+        ! download file
+        tag = index(trim(path),"/",back=.true.)
+        call system("mkdir -p ./tmp")
+        call system("wget --no-check-certificate  '"//trim(path)//"' -O ./tmp/"//trim(path(tag+1:)))
+        print *, "[ok] Downloaded > ./tmp/"//trim(path(tag+1:) )
+        localcp = trim("./tmp/"//path(tag+1:) )
+        call obj%open(trim(localcp),"r")
+        return
+    endif
 
 !    if(present(extention) )then
 !        if( trim(extention) == "yml" )then
