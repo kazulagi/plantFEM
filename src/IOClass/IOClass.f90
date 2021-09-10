@@ -16,6 +16,7 @@ module IOClass
         character(:),allocatable:: title
         character(:),allocatable:: xlabel,ylabel,zlabel
         character(:),allocatable :: filename
+        integer(int32) :: lastModifiedTime=0
     contains
         procedure,public :: unit => unitIO
 
@@ -31,6 +32,20 @@ module IOClass
         generic,public :: parse =>parseIOChar200,parseIO2keysChar200
 
         generic,public :: open => openIOchar, openIOstring
+
+        ! file properties
+        procedure,public :: diff => diffIO
+        procedure,public :: updated => diffIO
+        procedure,public :: FileDateTime => FileDateTimeIO
+        procedure,public :: LastModified => FileDateTimeIO
+        procedure,public :: owner => ownerIO ! statb(5)
+        procedure,public :: size => sizeIO ! stab(8)
+
+        ! while reading files,
+        procedure,public :: rewind => rewindIO
+        procedure,public :: goBack => goBackIO
+        procedure,public :: goForward => goForwardIO
+
         !procedure,public :: open => openIO
         procedure,pass :: writeIOchar,writeIOcharchar,writeIOcharcharchar
         procedure,pass :: writeIOstring,writeIOstringstring,writeIOstringstringstring
@@ -1508,6 +1523,138 @@ function parseIO2keysChar200(obj,filename,fileformat,key1,key2,debug) result(ret
     
 
 end function
+! #################################################################
 
+
+! #################################################################
+! get last modified time
+function FileDateTimeIO(obj,name) result(ret)
+    class(IO_),intent(inout) :: obj
+    character(*),optional,intent(in) :: name
+    integer(int32) :: ret, ierr,stat(13)
+
+    if(present(name) )then
+        call obj%open(name,"r")
+        ierr = lstat(name, stat)
+        ret = stat(10)
+        call obj%close()
+    else
+        ierr = lstat(obj%filename, stat)
+        ret = stat(10)
+    endif
+
+end function
+! #################################################################
+
+
+! #################################################################
+! get owner use id
+function ownerIO(obj,name) result(ret)
+    class(IO_),intent(inout) :: obj
+    character(*),optional,intent(in) :: name
+    integer(int32) :: ret, ierr,stat(13)
+
+    if(present(name) )then
+        call obj%open(name,"r")
+        ierr = lstat(name, stat)
+        ret = stat(5)
+        call obj%close()
+    else
+        ierr = lstat(obj%filename, stat)
+        ret = stat(5)
+    endif
+
+end function
+! #################################################################
+
+
+! #################################################################
+! get file size
+function sizeIO(obj,name) result(ret)
+    class(IO_),intent(inout) :: obj
+    character(*),optional,intent(in) :: name
+    integer(int32) :: ret, ierr,stat(13)
+
+    if(present(name) )then
+        call obj%open(name,"r")
+        ierr = lstat(name, stat)
+        ret = stat(8)
+        call obj%close()
+    else
+        ierr = lstat(obj%filename, stat)
+        ret = stat(8)
+    endif
+
+end function
+! #################################################################
+
+
+
+! #################################################################
+! detect diff
+function diffIO(obj,name) result(ret)
+    class(IO_),intent(inout) :: obj
+    character(*),optional,intent(in) ::name
+    logical :: ret
+    integer(int32) :: lastmodified
+    ret=.false.
+    if(present(name) )then
+        if( obj%lastModifiedTime == obj%LastModified( trim(name) ) )then
+            obj%lastModifiedTime = obj%LastModified( trim(name) )
+            ret = .false.
+        else
+            obj%lastModifiedTime = obj%LastModified( trim(name) )
+            ret = .true.
+        endif
+    else
+        if( obj%lastModifiedTime == obj%LastModified() )then
+            obj%lastModifiedTime = obj%LastModified()
+            ret = .false.
+        else
+            obj%lastModifiedTime = obj%LastModified()
+            ret = .true.
+        endif
+    endif
+
+end function
+! #################################################################
+
+
+! #################################################################
+subroutine rewindIO(obj) 
+    class(IO_),intent(inout) :: obj
+
+    rewind(obj%fh)
+    
+end subroutine
+! #################################################################
+
+! #################################################################
+subroutine goBackIO(obj,lines) 
+    class(IO_),intent(inout) :: obj
+    integer(int32),optional,intent(in) :: lines
+    integer(int32) :: numlines,i
+
+    numlines = input(default=1,option=lines)
+    do i=1,numlines
+        backspace(obj%fh)
+    enddo
+    
+end subroutine
+! #################################################################
+
+! #################################################################
+subroutine goForwardIO(obj,lines) 
+    class(IO_),intent(inout) :: obj
+    integer(int32),optional,intent(in) :: lines
+    integer(int32) :: numlines,i
+    character(1):: a
+    numlines = input(default=1,option=lines)
+    do i=1,numlines
+        read(obj%fh,'(A)') a
+    enddo
+    
+end subroutine
+! #################################################################
 
 end module IOClass

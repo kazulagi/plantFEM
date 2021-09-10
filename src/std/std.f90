@@ -13,6 +13,7 @@ module std
     use KinematicClass
     use RandomClass
     use ArrayClass
+    use SDEClass
     use VertexClass
     use GraphClass
     use CSVClass
