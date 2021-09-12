@@ -17,6 +17,8 @@ module IOClass
         character(:),allocatable:: xlabel,ylabel,zlabel
         character(:),allocatable :: filename
         integer(int32) :: lastModifiedTime=0
+
+
     contains
         procedure,public :: unit => unitIO
 
@@ -50,6 +52,10 @@ module IOClass
         procedure,pass :: writeIOchar,writeIOcharchar,writeIOcharcharchar
         procedure,pass :: writeIOstring,writeIOstringstring,writeIOstringstringstring
 
+        ! commandline args
+        procedure,public :: arg => argIO
+
+        ! WRITE
         ! int-char-int
         procedure,pass :: writeIOint32re64
 
@@ -268,7 +274,13 @@ recursive subroutine openIOchar(obj,path,state,name,extention,fh)
     else
         obj%state="w"
     endif
-    
+
+    !if( index(path,"mongo://")/=0  )then
+    !    
+    !    return
+    !endif
+
+
     if( index(path,"https://")/=0 .or. index(path,"http://")/=0 )then
         ! get online file
         ! read-only
@@ -1676,5 +1688,33 @@ subroutine goForwardIO(obj,lines)
     
 end subroutine
 ! #################################################################
+
+! #################################################################
+function argIO(obj,id) result(arg)
+    class(IO_),intent(in) :: obj
+    integer(int32),intent(in) :: id
+    character(200) :: arg
+    integer(int32) :: status,length
+    arg(:)=" "
+    call get_command_argument(id, length = length, status = status)
+
+    if(status==0)then
+        call get_command_argument(id, arg(1:length), status = status)
+    else
+        arg(:)=" "
+    endif
+end function
+! #################################################################
+
+! #################################################################
+function NumberOfArgIO(obj) result(ret)
+    class(IO_),intent(in) :: obj
+    integer(int32) :: ret
+
+    ret = command_argument_count()
+    
+end function
+! #################################################################
+
 
 end module IOClass
