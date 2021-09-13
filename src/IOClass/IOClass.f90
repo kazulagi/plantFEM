@@ -275,6 +275,8 @@ recursive subroutine openIOchar(obj,path,state,name,extention,fh)
         obj%state="w"
     endif
 
+
+    
     !if( index(path,"mongo://")/=0  )then
     !    
     !    return
@@ -359,6 +361,9 @@ recursive subroutine openIOchar(obj,path,state,name,extention,fh)
     obj%path="./"
     obj%name="untitled"
     obj%name=".txt"
+
+    tag = index(trim(path),"/",back=.true.)
+    call system("mkdir -p "//path(1:tag-1) )
 
     if(present(path) )then
         obj%path=trim(path)

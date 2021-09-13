@@ -328,6 +328,7 @@ subroutine initsoybean(obj,config,&
     type(Random_) :: random
 
 
+    call obj%remove()
     ! set default parameters
     ! stem
     obj%br_node(:)=0
@@ -1217,6 +1218,7 @@ subroutine initsoybean(obj,config,&
         obj%root2root(:,:) = 0
 
         ! set mainstem
+        
         allocate(obj%NodeID_MainStem(obj%ms_node) )
         do i=1,obj%ms_node
 
@@ -3100,6 +3102,9 @@ subroutine removeSoybean(obj)
     if (allocated(obj%leafDensity) ) deallocate(obj%leafDensity)
     if (allocated(obj%rootDensity) ) deallocate(obj%rootDensity)
     
+
+    if(allocated(obj%NodeID_MainStem)) deallocate(obj%NodeID_MainStem)
+    if(allocated(obj%NodeID_Branch)) deallocate(obj%NodeID_Branch)
     ! 節-節点データ構造
     call obj%struct%remove(all=.true.)
     if (allocated(obj%leaf2stem) ) deallocate(obj%leaf2stem)
