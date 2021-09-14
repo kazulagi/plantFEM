@@ -363,7 +363,9 @@ recursive subroutine openIOchar(obj,path,state,name,extention,fh)
     obj%name=".txt"
 
     tag = index(trim(path),"/",back=.true.)
-    call system("mkdir -p "//path(1:tag-1) )
+    if(tag/=0)then
+        call system("mkdir -p "//path(1:tag-1) )
+    endif
 
     if(present(path) )then
         obj%path=trim(path)
