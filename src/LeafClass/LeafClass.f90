@@ -71,6 +71,7 @@ module LeafClass
         procedure, public :: Init => initLeaf
         procedure, public :: rotate => rotateleaf
         procedure, public :: move => moveleaf
+        procedure, public :: curve => curveleaf
         procedure, public :: create => createLeaf
         
         procedure,pass :: connectLeafLeaf => connectLeafLeaf
@@ -247,11 +248,12 @@ end subroutine
 
 ! ########################################
     subroutine initLeaf(obj,config,regacy,Thickness,length,width,ShapeFactor,&
-        MaxThickness,Maxlength,Maxwidth,rotx,roty,rotz,location,species,SoyWidthRatio)
+        MaxThickness,Maxlength,Maxwidth,rotx,roty,rotz,location,species,SoyWidthRatio,&
+        curvature)
         class(leaf_),intent(inout) :: obj
         real(real64),optional,intent(in) :: Thickness,length,width,ShapeFactor
         real(real64),optional,intent(in) :: MaxThickness,Maxlength,Maxwidth
-        real(real64),optional,intent(in)::  rotx,roty,rotz,location(3),SoyWidthRatio
+        real(real64),optional,intent(in)::  rotx,roty,rotz,location(3),SoyWidthRatio,curvature
         integer(int32),optional,intent(in) :: species
         logical, optional,intent(in) :: regacy
         character(*),optional,intent(in) :: config
@@ -259,7 +261,7 @@ end subroutine
         character(200) :: fn,conf,line
         integer(int32),allocatable :: buf(:)
         integer(int32) :: id,rmc,n,node_id,node_id2,elemid,blcount,i,j
-        real(real64) :: loc(3)
+        real(real64) :: loc(3),radius,z,leaf_L
         logical :: debug=.false.
 
         ! 節を生成するためのスクリプトを開く
@@ -276,6 +278,8 @@ end subroutine
             write(leafconf%fh,*) '   "maxwidth": 0.045,'
             write(leafconf%fh,*) '   "maxthickness": 0.001,'
             write(leafconf%fh,*) '   "shaperatio": 0.3,'
+            write(leafconf%fh,*) '   "drydensity": 0.0,'
+            write(leafconf%fh,*) '   "watercontent": 0.0,'
             write(leafconf%fh,*) '   "xnum": 10,'
             write(leafconf%fh,*) '   "ynum": 10,'
             write(leafconf%fh,*) '   "znum": 20'
@@ -463,8 +467,8 @@ end subroutine
         ! initialize physical parameter
         obj%DryDensity = zeros( obj%FEMDomain%ne() )
         obj%watercontent = zeros(obj%FEMDomain%ne())
-        obj%DryDensity(:) = freal(leafconf%parse(config,key1="drydensity"))
-        obj%watercontent(:) = freal(leafconf%parse(config,key1="watercontent"))
+        obj%DryDensity(:) = freal(leafconf%parse(conf,key1="drydensity"))
+        obj%watercontent(:) = freal(leafconf%parse(conf,key1="watercontent"))
         
         ! <I>面に属する要素番号、節点番号、要素座標、節点座標のリストを生成
         obj%I_planeNodeID = obj%FEMdomain%mesh%getNodeList(zmax=0.0d0)
@@ -585,7 +589,32 @@ end subroutine
     endif
     
     end subroutine 
-    ! ########################################
+! ########################################
+
+subroutine curveleaf(obj,curvature)
+    ! deform by curvature
+    class(leaf_),intent(inout) :: obj
+    real(real64),intent(in) :: curvature
+    real(real64) :: leaf_L,radius,z
+    integer(int32) :: i
+
+    if(curvature < dble(1.0e-5))then
+        print *, "Caution >> initLeaf >> curvature is too small < 1.0e-5"
+        print *, "Then, ignored."
+        return
+    endif
+    radius = 1.0d0/curvature
+    leaf_L = maxval(obj%femdomain%mesh%nodcoord(:,3)) - minval(obj%femdomain%mesh%nodcoord(:,3))
+    leaf_L = 0.50d0*leaf_L
+    do i=1, obj%femdomain%nn()
+        z = obj%femdomain%mesh%nodcoord(i,3)
+        obj%femdomain%mesh%nodcoord(i,2) = &
+            obj%femdomain%mesh%nodcoord(i,2) &
+            - sqrt(radius*radius - leaf_L*leaf_L ) &
+            + sqrt(radius*radius - (z - leaf_L)*(z - leaf_L)   )
+    enddo
+
+end subroutine
     
     
 ! ########################################

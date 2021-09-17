@@ -377,6 +377,12 @@ echo " >> SoybeanClass.o "
 echo " | =========================> |  (99%)\r\c"
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SoybeanClass/SoybeanClass.f90 -o  ./inc/SoybeanClass.o
 
+echo "Compiling ./src/MaizeClass/MaizeClass.f90" 
+echo " >> MaizeClass.o "
+echo " | =========================> |  (99%)\r\c"
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MaizeClass/MaizeClass.f90 -o  ./inc/MaizeClass.o
+
+
 
 echo "Compiling ./src/GrapeClass/GrapeClass.f90" 
 echo " >> GrapeClass.o "
