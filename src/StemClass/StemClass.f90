@@ -84,6 +84,8 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
         write(stemconf%fh,*) '   "mindiameter": 0.001,'
         write(stemconf%fh,*) '   "maxlength": 0.07,'
         write(stemconf%fh,*) '   "maxdiameter": 0.01,'
+        write(stemconf%fh,*) '   "drydensity": 0.0,'
+        write(stemconf%fh,*) '   "watercontent": 0.0,'
         write(stemconf%fh,*) '   "xnum": 10,'
         write(stemconf%fh,*) '   "ynum": 10,'
         write(stemconf%fh,*) '   "znum": 10'
@@ -93,8 +95,9 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     else
         conf = trim(config)
     endif
+
     
-    call stemconf%open(trim(conf))
+    call stemconf%open(trim(conf),"r")
     blcount=0
     do
         read(stemconf%fh,'(a)') line
@@ -204,7 +207,8 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
 
     enddo
     call stemconf%close()
-
+    
+    
     ! グラフ構造とメッシュ構造を生成する。
 
 
@@ -228,6 +232,7 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     !                                             
 
     ! メッシュを生成
+    
     call obj%FEMdomain%create(meshtype="Cube",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
     x_len=obj%mindiameter/2.0d0,y_len=obj%mindiameter/2.0d0,z_len=obj%minlength )
 
@@ -235,8 +240,8 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     obj%DryDensity = zeros( obj%FEMDomain%ne() )
     obj%watercontent = zeros( obj%FEMDomain%ne() )
     
-    obj%DryDensity(:) = freal(stemconf%parse(config,key1="drydensity"))
-    obj%watercontent(:) = freal(stemconf%parse(config,key1="watercontent"))
+    obj%DryDensity(:) = freal(stemconf%parse(conf,key1="drydensity"))
+    obj%watercontent(:) = freal(stemconf%parse(conf,key1="watercontent"))
 
     ! <I>面に属する要素番号、節点番号、要素座標、節点座標のリストを生成
     obj%I_planeNodeID = obj%FEMdomain%mesh%getNodeList(zmax=0.0d0)
