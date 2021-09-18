@@ -517,7 +517,10 @@ end function
 subroutine gmshRoot(obj,name)
     class(Root_),intent(inout) :: obj
     character(*),intent(in) ::name
-
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
     call obj%femdomain%gmsh(Name=name)
 end subroutine
 ! ########################################
@@ -525,7 +528,10 @@ end subroutine
 subroutine mshRoot(obj,name)
     class(Root_),intent(inout) :: obj
     character(*),intent(in) ::name
-
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
     call obj%femdomain%msh(Name=name)
 end subroutine
 ! ########################################
@@ -533,7 +539,10 @@ end subroutine
 subroutine vtkRoot(obj,name)
     class(Root_),intent(inout) :: obj
     character(*),intent(in) ::name
-
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
     call obj%femdomain%vtk(Name=name)
 end subroutine
 ! ########################################
@@ -541,7 +550,10 @@ end subroutine
 subroutine stlRoot(obj,name)
     class(Root_),intent(inout) :: obj
     character(*),intent(in) ::name
-
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
     call obj%femdomain%stl(Name=name)
 end subroutine
 

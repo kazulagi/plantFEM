@@ -1980,28 +1980,45 @@ end function
 
 
 ! ########################################
-subroutine gmshSoybean(obj,name)
+subroutine gmshSoybean(obj,name,num_threads)
     class(Soybean_),intent(inout) :: obj
     character(*),intent(in) :: name
-    integer(int32) :: i
+    integer(int32),optional,intent(in) :: num_threads
+    integer(int32) :: i,n
+
+    n = input(default=1,option=num_threads)
+    !$OMP parallel num_threads(n) private(i)
+    !$OMP do 
 
     do i=1,size(obj%stem)
-        if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+        !if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%stem(i)%gmsh(name=trim(name)//"_stem"//trim(str(i)))
-        endif
+        !endif
     enddo
+    !$OMP end do
+    !$OMP end parallel
+
+    !$OMP parallel num_threads(n) private(i)
+    !$OMP do 
 
     do i=1,size(obj%root)
-        if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+        !if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%root(i)%gmsh(name=trim(name)//"_root"//trim(str(i)))
-        endif
+        !endif
     enddo
+    !$OMP end do
+    !$OMP end parallel
 
+    !$OMP parallel num_threads(n) private(i)
+    !$OMP do 
     do i=1,size(obj%leaf)
-        if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+        !if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%leaf(i)%gmsh(name=trim(name)//"_leaf"//trim(str(i)))
-        endif
+        !endif
     enddo
+    !$OMP end do
+    !$OMP end parallel
+
 
 end subroutine
 ! ########################################
@@ -2018,9 +2035,9 @@ subroutine mshSoybean(obj,name,num_threads)
     !$OMP parallel num_threads(n) private(i)
     !$OMP do 
     do i=1,size(obj%stem)
-        if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+        !if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%stem(i)%msh(name=trim(name)//"_stem"//trim(str(i)))
-        endif
+        !endif
     enddo
     !$OMP end do
     !$OMP end parallel
@@ -2028,9 +2045,9 @@ subroutine mshSoybean(obj,name,num_threads)
     !$OMP parallel num_threads(n) private(i)
     !$OMP do 
     do i=1,size(obj%root)
-        if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+        !if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%root(i)%msh(name=trim(name)//"_root"//trim(str(i)))
-        endif
+        !endif
     enddo
     !$OMP end do
     !$OMP end parallel
@@ -2038,9 +2055,9 @@ subroutine mshSoybean(obj,name,num_threads)
     !$OMP parallel num_threads(n) private(i)
     !$OMP do 
     do i=1,size(obj%leaf)
-        if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+        !if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%leaf(i)%msh(name=trim(name)//"_leaf"//trim(str(i)))
-        endif
+        !endif
     enddo
     !$OMP end do
     !$OMP end parallel
@@ -2050,34 +2067,55 @@ end subroutine
 
 
 ! ########################################
-subroutine vtkSoybean(obj,name)
+subroutine vtkSoybean(obj,name,num_threads)
     class(Soybean_),intent(inout) :: obj
     character(*),intent(in) :: name
-    integer(int32) :: i
+    integer(int32),optional,intent(in) :: num_threads
+    integer(int32) :: i, n
 
+    n = input(default=1,option=num_threads)
+    
     if(allocated(obj%stem) )then
+        !$OMP parallel num_threads(n) private(i)
+        !$OMP do 
         do i=1,size(obj%stem)
-            if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+            !if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
                 call obj%stem(i)%vtk(name=trim(name)//"_stem"//trim(str(i)))
-            endif
+            !endif
         enddo
+        !$OMP end do
+        !$OMP end parallel
     endif
+
 
     if(allocated(obj%root))then
+
+        !$OMP parallel num_threads(n) private(i)
+        !$OMP do 
         do i=1,size(obj%root)
-            if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+            !if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
                 call obj%root(i)%vtk(name=trim(name)//"_root"//trim(str(i)))
-            endif
+            !endif
         enddo
+
+        !$OMP end do
+        !$OMP end parallel
     endif
 
+
     if(allocated(obj%leaf))then
+
+        !$OMP parallel num_threads(n) private(i)
+        !$OMP do 
         do i=1,size(obj%leaf)
-            if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+            !if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
                 call obj%leaf(i)%vtk(name=trim(name)//"_leaf"//trim(str(i)))
-            endif
+            !endif
         enddo
+        !$OMP end do
+        !$OMP end parallel
     endif
+
 
 end subroutine
 ! ########################################
