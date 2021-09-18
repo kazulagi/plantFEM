@@ -3,10 +3,8 @@ program main
     implicit none
 
     type(FEMDomain_) :: domain1, domain2
-    type(MPI_) :: mpid
     integer(int32)::field_id
 
-    call mpid%start()
 
     call domain1%create(meshtype="Cube")
     call domain2%create(meshtype="Cube")
@@ -26,7 +24,7 @@ program main
     field_id=domain2%getLayerID(name="waterhead")
     domain2%physicalfield(field_id)%scalar(:)=1.0d0
     
-    call domain1%projection("=>",domain=domain2,PhysicalField="waterhead",debug=.true.,mpid=mpid)
+    call domain1%projection("=>",domain=domain2,PhysicalField="waterhead",debug=.true.)
     call domain1%msh(name="domain1")
     call domain1%gmsh(name="domain1")
     call domain1%PhysicalField(1)%msh(name="domain1_waterhead")
@@ -34,6 +32,5 @@ program main
     call domain2%PhysicalField(1)%msh(name="domain2_waterhead")
     print *, maxval(domain2%physicalfield(field_id)%scalar(:)),minval(domain2%physicalfield(field_id)%scalar(:))
 
-    call mpid%end()
 end program main
 

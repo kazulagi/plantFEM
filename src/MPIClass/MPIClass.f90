@@ -316,9 +316,10 @@ end subroutine
 ! All to All 
 
 !################################################################
-subroutine BcastMPIInt(obj,From,val)
+recursive subroutine BcastMPIInt(obj,From,val)
     class(MPI_),intent(inout)::obj
-    integer(int32),intent(inout)::From,val
+    integer(int32),intent(in)::From
+    integer(int32),intent(inout)::val
     integer(int32) :: i
 
     call MPI_Bcast(val, 1, MPI_integer, From, MPI_COMM_WORLD, obj%ierr)
@@ -327,9 +328,9 @@ end subroutine
 
 
 !################################################################
-subroutine BcastMPIIntVec(obj,From,val)
+recursive subroutine BcastMPIIntVec(obj,From,val)
     class(MPI_),intent(inout)::obj
-    integer(int32),intent(inout) :: From
+    integer(int32),intent(in) :: From
     integer(int32),allocatable,intent(inout)::val(:)
     integer(int32) :: i,j,n,vec_size
     integer(int32) :: sendval
@@ -360,9 +361,9 @@ end subroutine
 
 
 !################################################################
-subroutine BcastMPIIntArray(obj,From,val)
+recursive subroutine BcastMPIIntArray(obj,From,val)
     class(MPI_),intent(inout)::obj
-    integer(int32),intent(inout) :: From
+    integer(int32),intent(in) :: From
     integer(int32),allocatable,intent(inout)::val(:,:)
     integer(int32) :: i,j,n,vec_size1,vec_size2
     integer(int32) :: sendval
@@ -399,7 +400,7 @@ end subroutine
 
 
 !################################################################
-subroutine BcastMPIReal(obj,From,val)
+recursive subroutine BcastMPIReal(obj,From,val)
     class(MPI_),intent(inout)::obj
     integer(int32),intent(inout)::From 
     real(real64),intent(inout)::val
@@ -413,9 +414,9 @@ end subroutine
 
 
 !################################################################
-subroutine BcastMPIRealVec(obj,From,val)
+recursive subroutine BcastMPIRealVec(obj,From,val)
     class(MPI_),intent(inout)::obj
-    integer(int32),intent(inout) :: From
+    integer(int32),intent(in) :: From
     real(real64),allocatable,intent(inout)::val(:)
     integer(int32) :: i,j,n,vec_size
     
@@ -446,9 +447,9 @@ end subroutine
 
 
 !################################################################
-subroutine BcastMPIRealArray(obj,From,val)
+recursive subroutine BcastMPIRealArray(obj,From,val)
     class(MPI_),intent(inout)::obj
-    integer(int32),intent(inout) :: From
+    integer(int32),intent(in) :: From
     real(real64),allocatable,intent(inout)::val(:,:)
     integer(int32) :: i,j,n,vec_size1,vec_size2
 
@@ -481,7 +482,7 @@ end subroutine
 !################################################################
 
 
-subroutine BcastMPIChar(obj,From,val)
+recursive subroutine BcastMPIChar(obj,From,val)
     class(MPI_),intent(inout)::obj
     integer(int32),intent(inout)::From 
     character(*),intent(inout)::val

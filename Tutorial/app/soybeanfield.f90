@@ -2,7 +2,7 @@ program main
     use plantFEM
     implicit none
 
-    type(Soybean_) :: soy(4,10)
+    type(Soybean_),allocatable :: soy(:,:)
     type(Soil_) ::soil
     type(MPI_) :: mpid
     character(:),allocatable :: filename
@@ -10,6 +10,7 @@ program main
 
     call mpid%start()
     i = mpid%myrank+1
+    allocate(soy(mpid%petot,20) )
     do j=1,20
       call soy(i,j)%init(config="Tutorial/obj/realSoybeanConfig.json") 
       !call soy%stl(name="soy")

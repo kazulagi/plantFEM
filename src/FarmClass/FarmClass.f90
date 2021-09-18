@@ -43,7 +43,8 @@ subroutine initFarm(obj,crop_name,num_of_ridge, num_of_plant_per_ridge,width_of_
     integer(int32),optional,intent(in) :: num_of_ridge, num_of_plant_per_ridge
     real(real64),optional,intent(in) :: width_of_ridge, width_of_plant_per_ridge,soil_depth
     real(real64),optional,intent(in) :: length_of_farm, width_of_farm,seed_depth,g_per_100seed
-    character(*),intent(in) :: crop_name,Variety
+    character(*),intent(in) :: crop_name
+    character(*),optional,intent(in) :: Variety
     logical,optional,intent(in)      :: meter,single
     integer(int32) :: i,j,k,l,n,m
 

@@ -5,7 +5,7 @@ program main
     type(Random_) :: random
     type(IO_) :: f,f2
     integer(int32) :: i,j,ret(20,5),n
-    real(real64) :: val,id_accel(5),accel(20,5),vel(20,6),disp(20,6),dt,score(20)
+    real(real64) :: val,id_accel(5),accel(20,5),vel(20,6),disp_val(20,6),dt,score(20)
 
 
     dt=0.10d0
@@ -56,14 +56,14 @@ program main
         vel(i,5) = vel(i,4) + accel(i,4)*dt
         vel(i,6) = vel(i,5) + accel(i,5)*dt
 
-        disp(i,1) = 0.0d0
-        disp(i,2) = disp(i,1) + vel(i,1)*dt + accel(i,1)*dt*dt
-        disp(i,3) = disp(i,2) + vel(i,2)*dt + accel(i,2)*dt*dt
-        disp(i,4) = disp(i,3) + vel(i,3)*dt + accel(i,3)*dt*dt
-        disp(i,5) = disp(i,4) + vel(i,4)*dt + accel(i,4)*dt*dt
-        disp(i,6) = disp(i,5) + vel(i,5)*dt + accel(i,5)*dt*dt
+        disp_val(i,1) = 0.0d0
+        disp_val(i,2) = disp_val(i,1) + vel(i,1)*dt + accel(i,1)*dt*dt
+        disp_val(i,3) = disp_val(i,2) + vel(i,2)*dt + accel(i,2)*dt*dt
+        disp_val(i,4) = disp_val(i,3) + vel(i,3)*dt + accel(i,3)*dt*dt
+        disp_val(i,5) = disp_val(i,4) + vel(i,4)*dt + accel(i,4)*dt*dt
+        disp_val(i,6) = disp_val(i,5) + vel(i,5)*dt + accel(i,5)*dt*dt
 
-        score(i) = disp(i,6)
+        score(i) = disp_val(i,6)
 
         ! 速度制限
         if(vel(i,2) > 100.0d0 .or. vel(i,3) > 100.0d0 )then

@@ -31,7 +31,7 @@ program main
     ! Data
     call f%open("./"//"test"//".txt",'w')
     do i=1,size(histogram,1)
-        write(f%fh,*) histogram(i)
+        write(f%fh,*) histogram(i,:)
     enddo
     call f%close()
 
