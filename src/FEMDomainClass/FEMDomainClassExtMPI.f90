@@ -1,6 +1,7 @@
-
 !##################################################
 subroutine distributeFEMDomain(obj,mpid) 
+	use MPIClass
+	use FEMDOmainClass
 	class(FEMDomain_),intent(inout)::obj
     type(Mesh_),allocatable :: meshes(:)
 	type(MPI_),intent(inout) :: mpid

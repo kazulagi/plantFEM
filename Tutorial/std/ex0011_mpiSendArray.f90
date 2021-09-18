@@ -5,11 +5,10 @@ program main
     type(MPI_) :: mpid
 
     real(real64),allocatable :: vector(:)
-    real(real64),allocatable :: Array(:,:)
 
     call mpid%start()
 
-    ! create array
+    ! create vector
     if(mpid%myrank == 0)then
         allocate(vector(3))
         vector(1)=1

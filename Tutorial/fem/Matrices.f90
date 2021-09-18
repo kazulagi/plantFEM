@@ -46,7 +46,7 @@ call f%write(cube%DiffusionMatrix(ElementID=1,D=1.0d0))
 call f%close()
 
 ! create sequential vector (0, 1, 2, ...)
-some_global_vector = arrange(cube%nn())
+some_global_vector = arange(cube%nn())
 ! Element-wize vector for an Element
 ! For example, body force N with 3-D space
 call f%open("ElementVector.txt",'w')

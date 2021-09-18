@@ -8,7 +8,7 @@ program main
 
     ! create seed
     call soy%create(MeshType="Sphere3D",x_num=12,y_num=11,z_num=10,x_len=9.0d0, y_len=8.0d0,z_len=6.50d0,&
-    Permiability=,a_Psi=, a_P=, theta_eq=, Psi_eq=, a_E=, a_v=, E_eq=, v_eq=)
+    Permiability=1.0d0,a_Psi=2.0d0, a_P=3.0d0, theta_eq=0.80d0, Psi_eq=0.20d0, a_E=1.0d0, a_v=1.0d0, E_eq=1.0d0, v_eq=1.0d0)
     
     do i=1,100
         ! create environment
