@@ -769,7 +769,10 @@ end function
 subroutine gmshleaf(obj,name)
     class(leaf_),intent(inout) :: obj
     character(*),intent(in) ::name
-
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
     call obj%femdomain%gmsh(Name=name)
     ! PPFD を出力
     call obj%femdomain%gmsh(Name=name//"_PPFD_",field=obj%PPFD)
@@ -786,7 +789,10 @@ end subroutine
 subroutine mshleaf(obj,name)
     class(leaf_),intent(inout) :: obj
     character(*),intent(in) ::name
-
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
     call obj%femdomain%msh(Name=name)
     ! PPFD を出力
     !call obj%femdomain%msh(Name=name//"_PPFD_",field=obj%PPFD)
@@ -804,7 +810,10 @@ end subroutine
 subroutine vtkleaf(obj,name)
     class(leaf_),intent(inout) :: obj
     character(*),intent(in) ::name
-
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
     call obj%femdomain%vtk(Name=name)
     ! PPFD を出力
     !call obj%femdomain%msh(Name=name//"_PPFD_",field=obj%PPFD)
@@ -822,7 +831,10 @@ end subroutine
 subroutine stlleaf(obj,name)
     class(leaf_),intent(inout) :: obj
     character(*),intent(in) ::name
-
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
     call obj%femdomain%stl(Name=name)
     ! PPFD を出力
     !call obj%femdomain%msh(Name=name//"_PPFD_",field=obj%PPFD)

@@ -513,28 +513,41 @@ end function
 subroutine gmshStem(obj,name)
     class(Stem_),intent(inout) :: obj
     character(*),intent(in) ::name
-
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
     call obj%femdomain%gmsh(Name=name)
 end subroutine
 
 subroutine mshStem(obj,name)
     class(Stem_),intent(inout) :: obj
     character(*),intent(in) ::name
-
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
     call obj%femdomain%msh(Name=name)
 end subroutine
 
 subroutine vtkStem(obj,name)
     class(Stem_),intent(inout) :: obj
     character(*),intent(in) ::name
-
+    
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
     call obj%femdomain%vtk(Name=name)
 end subroutine
 
 subroutine stlStem(obj,name)
     class(Stem_),intent(inout) :: obj
     character(*),intent(in) ::name
-
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
     call obj%femdomain%stl(Name=name)
 end subroutine
 ! ########################################
