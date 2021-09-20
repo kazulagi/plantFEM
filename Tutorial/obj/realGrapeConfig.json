@@ -1,6 +1,6 @@
 {
     "Name":"Grape",
-    "LeafSurfaceData":"Tutorial/playon_obj/grape_leaf.txt",
+    "LeafSurfaceData":"Tutorial/obj/grape_leaf.txt",
     "Mainstem":{
         "Length":0.90,
         "Width":0.030,

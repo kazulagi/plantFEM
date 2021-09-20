@@ -20,11 +20,19 @@ module LinearSolverClass
     real(real64),allocatable :: x_e(:,:)
     
     ! For Sparse 
+    ! COO format
     real(real64),allocatable   :: val(:)
     integer(int32),allocatable :: index_I(:)
     integer(int32),allocatable :: index_J(:)
     integer(int32),allocatable :: row_domain_id(:)
     integer(int32),allocatable :: column_domain_id(:)
+    ! CRS format
+    real(real64),allocatable   :: CRS_val(:)
+    integer(int32),allocatable :: CRS_index_I(:)
+    integer(int32),allocatable :: CRS_index_J(:)
+    integer(int32),allocatable :: CRS_row_domain_id(:)
+    integer(int32),allocatable :: CRS_column_domain_id(:)
+
     integer(int32),allocatable   :: b_Index_J(:)
     integer(int32),allocatable   :: b_Domain_ID(:)
     logical,allocatable   :: Locked(:)
@@ -57,7 +65,12 @@ module LinearSolverClass
     procedure, public :: globalMatrix => globalMatrixLinearSolver
     procedure, public :: globalVector => globalVectorLinearSolver
 
+    procedure, public  :: convertCOOtoCRS => convertCOOtoCRSLinearSolver
+    procedure, public  :: matmulCRS => matmulCRSLinearSolver
+    procedure, public  :: matmulCOO => matmulCOOLinearSolver
+
     procedure, public :: prepareFix => prepareFixLinearSolver
+    
   end type
 contains
 
@@ -1836,5 +1849,75 @@ function globalVectorLinearSolver(obj) result(ret)
   endif
 end function
 !====================================================================================
+
+subroutine convertCOOtoCRSLinearSolver(obj) 
+  class(LinearSolver_),intent(inout) :: obj
+  integer(int32),allocatable :: buf(:)
+  integer(int32) :: n, nnz,i,nrhs
+  !real(real64),allocatable   :: CRS_val(:)
+  !integer(int32),allocatable :: CRS_index_I(:)
+  !integer(int32),allocatable :: CRS_index_J(:)
+  !integer(int32),allocatable :: CRS_row_domain_id(:)
+  !integer(int32),allocatable :: CRS_column_domain_id(:)
+  
+  ! Notice :: COO format data should be created and sorted.
+  ! Further, multi-domain is not supported.
+  n = size(obj%val)
+  obj%CRS_val = obj%val
+  obj%CRS_index_J = obj%index_J
+  obj%CRS_index_I = zeros(n)
+  nrhs = size(obj%b)+1
+  obj%CRS_index_I = int(zeros(nrhs))
+  
+  !$OMP parallel do private(i)
+  do i=1,size(obj%index_I)
+    obj%CRS_index_I( obj%index_I(i) ) =obj%CRS_index_I( obj%index_I(i) ) +1 
+  enddo
+  !$OMP end parallel do
+  buf = obj%CRS_index_I
+
+  !$OMP parallel do private(i)
+  do i=nrhs-1,2,-1
+    obj%CRS_index_I(i) = sum(buf(1:i-1))
+  enddo
+  !$OMP end parallel do
+
+  obj%CRS_index_I(1) = 0
+  obj%CRS_index_I(nrhs) = size(obj%val)
+
+
+end subroutine
+! #######################################################
+function matmulCRSLinearSolver(obj) result(mm)
+  class(LinearSolver_),intent(inout) :: obj
+  real(real64),allocatable :: mm(:)
+  integer(int32) :: i,j
+
+  mm = zeros(size(obj%b))
+  ! Notice :: CRS format data should be created and sorted.
+  !$OMP parallel do private(i)
+  do i=1,size(obj%b)
+    do j=obj%CRS_Index_I(i)+1,obj%CRS_Index_I(i+1)
+        mm(i) = mm(i) + obj%b( obj%CRS_Index_J(j) )*obj%CRS_val(j)
+    enddo
+  enddo
+  !$OMP end parallel do
+end function
+
+! #######################################################
+function matmulCOOLinearSolver(obj) result(mm)
+  class(LinearSolver_),intent(inout) :: obj
+  real(real64),allocatable :: mm(:)
+  integer(int32) :: i,j
+
+  mm = zeros(size(obj%b))
+  ! Notice :: CRS format data should be created and sorted.
+  !$OMP parallel do private(i)
+  do i=1,size(obj%val)
+    mm( obj%index_I(i) ) = mm( obj%index_I(i) ) + obj%val(i)*obj%b(obj%index_J(i) )
+  enddo
+  !$OMP end parallel do
+end function
+
 
 end module
