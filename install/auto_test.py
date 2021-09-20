@@ -11,7 +11,7 @@ with open("auto_test_list.txt","r") as f:
     for line in f:
         print(line)
         err = os.system("plantfem load "+line)
-        err = os.system("mpirun --allow-run-as-root ./server.out ")
+        #err = os.system("mpirun --allow-run-as-root ./server.out ")
         if err < 1:
             print("[ok] Built "+line+" > pass")
         else:
