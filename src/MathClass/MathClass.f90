@@ -1,5 +1,6 @@
 module MathClass
     use, intrinsic :: iso_fortran_env
+	!use OouraFFT
 	use StringClass
 	implicit none
 	
@@ -62,11 +63,23 @@ contains
 recursive function FFT(x) result(hatx)
 	complex(kind(0d0))	,intent(in) :: x(:)
 	complex(kind(0d0))	,allocatable :: hatx(:),W(:),L(:),R(:)
-	integer(int32) :: N, i, itr
+	real(real64),allocatable :: a(:), wo(:)
+	integer(int32),allocatable :: ip(:)
+	integer(int32) :: N, i, itr,isgn
 	integer(int32),allocatable :: k(:)
 	type(Math_) :: Math
 
-
+	!!! call Ooura-FFT
+	!n = size(x)/2
+	!allocate(a(0:2*n-1) )
+	!allocate(wo(0:2*n-1) )
+	!a(0:2*n-1) = x(1:2*n)
+	!isgn = n
+	!call cdft(2*n,isgn,a(0:2*n-1),ip,wo(0:n/2-1) )
+	!hatx = a
+	!
+	!return
+	!!! 
 	N = size(x)
 	allocate(hatx(N))
 
