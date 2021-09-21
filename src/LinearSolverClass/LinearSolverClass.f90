@@ -1314,10 +1314,12 @@ subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug)
   er0=dble(1.00e-14)
   r(:) = b(:)
   if(speak) print *, "BiCGSTAB >> [1] initialize"
+  
   do i=1,size(a)
     if(index_i(i) <=0) cycle
     r( index_i(i) ) = r( index_i(i) ) - a(i)*x( index_j(i) ) 
   enddo
+  
   !r(:) = b - matmul(a,x)
   if(speak) print *, "BiCGSTAB >> [2] dp1"
   c1 = dot_product(r,r)
