@@ -910,7 +910,7 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
   class(LinearSolver_),intent(inout) :: obj
   character(*),intent(in) :: Solver
   logical,optional,intent(in) :: MPI, OpenCL, CUDAC,preconditioning,CRS
-  integer(int32),allocatable :: Index_I(:), Index_J(:),row_domain_id(:),column_Domain_ID(:)
+  integer(int32),allocatable :: Index_I(:),CRS_Index_I(:), Index_J(:),row_domain_id(:),column_Domain_ID(:)
   real(real64),allocatable:: val(:)
   integer(int32) :: i,m,n,rn,rd,cn,cd,same_n,count_reduc,j
 
@@ -950,7 +950,13 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
         elseif(trim(Solver) == "BiCGSTAB" )then
           if(present(CRS) )then
             if(CRS .eqv. .true.)then
-              call bicgstab_CRS(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0,obj%debug)
+              if(.not.allocated(obj%CRS_val))then
+                call obj%convertCOOtoCRS()
+              endif
+              call bicgstab_CRS(obj%val, obj%CRS_index_I, obj%CRS_index_J, obj%x, obj%b, obj%itrmax, obj%er0,obj%debug)
+            elseif(allocated(obj%val) )then
+              ! COO format
+              call bicgstab_COO(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0,obj%debug)
             else
               call bicgstab1d(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0)  
             endif
@@ -999,9 +1005,24 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
         Index_J(i) = Index_J(i) + n
       enddo
       print *, "solveLinearSolver >> start!"
-      call bicgstab_CRS(obj%val, index_I, index_J, obj%x, obj%b, obj%itrmax, obj%er0)
+      if(present(CRS) )then
+        ! create CRS_Index_I from Index_I@COO
+
+        if(CRS)then
+          call bicgstab_CRS(obj%val, CRS_index_I, index_J, obj%x, obj%b, obj%itrmax, obj%er0)
+          return
+        endif
+      endif
+      call bicgstab_COO(obj%val, index_I, index_J, obj%x, obj%b, obj%itrmax, obj%er0)
+
     else
-      call bicgstab_CRS(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0)
+      if(present(CRS) )then
+        if(CRS)then
+          call bicgstab_CRS(obj%val, CRS_index_I, index_J, obj%x, obj%b, obj%itrmax, obj%er0)
+          return
+        endif
+      endif
+      call bicgstab_COO(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0)
     endif
     return
   endif
@@ -1162,7 +1183,118 @@ subroutine gauss_jordan_pv(a0, x, b, n)
  end subroutine bicgstab_diffusion
 !===============================================================
 
-subroutine bicgstab_CRS(a, index_i, index_j, x, b, itrmax, er, debug)
+ subroutine bicgstab_CRS(a, ptr_i, index_j, x, b, itrmax, er, debug)
+  integer(int32), intent(inout) :: ptr_i(:),index_j(:), itrmax
+  real(real64), intent(inout) :: a(:), b(:), er
+  real(real64), intent(inout) :: x(:)
+  logical,optional,intent(in) :: debug
+  logical :: speak = .false.
+  integer(int32) itr,i,j,n
+  real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
+  real(real64),allocatable:: r(:), r0(:), p(:), y(:), e(:), v(:)
+
+  if(present(debug) )then
+    speak = debug
+  endif
+
+  if(speak) print *, "BiCGSTAB STARTED >> DOF:", n
+  n=size(b)
+  allocate(r(n), r0(n), p(n), y(n), e(n), v(n))
+  er0=dble(1.00e-14)
+  r(:) = b(:)
+  if(speak) print *, "BiCGSTAB >> [1] initialize"
+  
+  !do i=1,size(a)
+  !  if(ptr_i(i) <=0) cycle
+  !  r( ptr_i(i) ) = r( ptr_i(i) ) - a(i)*x( index_j(i) ) 
+  !enddo
+  
+  !$OMP parallel do private(i)
+  do i=1,size(b)
+    do j=ptr_I(i)+1,ptr_I(i+1)
+        r(i) = r(i) + x(Index_J(j) )*a(j)
+    enddo
+  enddo
+  !$OMP end parallel do
+  
+
+  !r(:) = b - matmul(a,x)
+  if(speak) print *, "BiCGSTAB >> [2] dp1"
+  
+  c1 = dot_product(r,r)
+	
+  init_rr=c1
+  
+  if (c1 < er0) return
+  
+  p(:) = r(:)
+  r0(:) = r(:)
+  
+  do itr = 1, itrmax   
+    if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] initialize"
+    c1 = dot_product(r0,r)
+    
+    !y(:) = matmul(a,p)
+    !y(:)=0.0d0
+    !do i=1,size(a)
+    !  if(ptr_i(i) <=0) cycle
+    !  y( ptr_i(i) ) = y( ptr_i(i) ) + a(i)*p( index_j(i) ) 
+    !enddo
+    
+    y(:)=0.0d0
+    !$OMP parallel do private(i)
+    do i=1,size(b)
+      do j=ptr_I(i)+1,ptr_I(i+1)
+          y(i) = y(i) + p(Index_J(j) )*a(j)
+      enddo
+    enddo
+    !$OMP end parallel do
+
+    c2 = dot_product(r0,y)
+    alp = c1/c2
+    e(:) = r(:) - alp * y(:)
+    !v(:) = matmul(a,e)
+    
+    if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] half"
+    v(:)=0.0d0
+    
+    !do i=1,size(a)
+    !  if(ptr_i(i) <=0) cycle
+    !  v( ptr_i(i) ) = v( ptr_i(i) ) + a(i)*e( index_j(i) ) 
+    !enddo
+    !$OMP parallel do private(i)
+    do i=1,size(b)
+      do j=ptr_I(i)+1,ptr_I(i+1)
+          v(i) = v(i) + e(Index_J(j) )*a(j)
+      enddo
+    enddo
+    !$OMP end parallel do
+
+    
+    ev = dot_product(e,v)
+    vv = dot_product(v,v)
+
+    if(  vv==0.0d0 ) stop "Bicgstab devide by zero"
+		c3 = ev / vv
+    x(:) = x(:) + alp * p(:) + c3 * e(:)
+    r(:) = e(:) - c3 * v(:)
+    rr = dot_product(r,r)
+    
+    
+    !    write(*,*) 'itr, er =', itr,rr
+    if (rr/init_rr < er0) exit
+    c1 = dot_product(r0,r)
+    bet = c1 / (c2 * c3)
+		if(  (c2 * c3)==0.0d0 ) stop "Bicgstab devide by zero"
+    p(:) = r(:) + bet * (p(:) -c3*y(:) )
+  enddo
+ end subroutine 
+!===============================================================
+
+
+ !===============================================================
+
+subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug)
   integer(int32), intent(inout) :: index_i(:),index_j(:), itrmax
   real(real64), intent(inout) :: a(:), b(:), er
   real(real64), intent(inout) :: x(:)
@@ -1182,10 +1314,12 @@ subroutine bicgstab_CRS(a, index_i, index_j, x, b, itrmax, er, debug)
   er0=dble(1.00e-14)
   r(:) = b(:)
   if(speak) print *, "BiCGSTAB >> [1] initialize"
+  
   do i=1,size(a)
     if(index_i(i) <=0) cycle
     r( index_i(i) ) = r( index_i(i) ) - a(i)*x( index_j(i) ) 
   enddo
+  
   !r(:) = b - matmul(a,x)
   if(speak) print *, "BiCGSTAB >> [2] dp1"
   c1 = dot_product(r,r)
@@ -1850,73 +1984,106 @@ function globalVectorLinearSolver(obj) result(ret)
 end function
 !====================================================================================
 
-subroutine convertCOOtoCRSLinearSolver(obj) 
+subroutine convertCOOtoCRSLinearSolver(obj,OpenMP) 
   class(LinearSolver_),intent(inout) :: obj
   integer(int32),allocatable :: buf(:)
   integer(int32) :: n, nnz,i,nrhs
+  logical,optional,intent(in) :: OpenMP
+  logical :: omp_swich
   !real(real64),allocatable   :: CRS_val(:)
   !integer(int32),allocatable :: CRS_index_I(:)
   !integer(int32),allocatable :: CRS_index_J(:)
   !integer(int32),allocatable :: CRS_row_domain_id(:)
   !integer(int32),allocatable :: CRS_column_domain_id(:)
-  
+  omp_swich = input(default=.false.,option=OpenMP)
   ! Notice :: COO format data should be created and sorted.
   ! Further, multi-domain is not supported.
-  n = size(obj%val)
-  obj%CRS_val = obj%val
-  obj%CRS_index_J = obj%index_J
-  obj%CRS_index_I = zeros(n)
+
   nrhs = size(obj%b)+1
   obj%CRS_index_I = int(zeros(nrhs))
   
-  !$OMP parallel do private(i)
-  do i=1,size(obj%index_I)
-    obj%CRS_index_I( obj%index_I(i) ) =obj%CRS_index_I( obj%index_I(i) ) +1 
-  enddo
-  !$OMP end parallel do
-  buf = obj%CRS_index_I
+  if(omp_swich)then
 
-  !$OMP parallel do private(i)
-  do i=nrhs-1,2,-1
-    obj%CRS_index_I(i) = sum(buf(1:i-1))
-  enddo
-  !$OMP end parallel do
+    !$OMP parallel do private(i)
+    do i=1,size(obj%index_I)
+      obj%CRS_index_I( obj%index_I(i) ) =obj%CRS_index_I( obj%index_I(i) ) +1 
+    enddo
+    !$OMP end parallel do
+    buf = obj%CRS_index_I
 
-  obj%CRS_index_I(1) = 0
-  obj%CRS_index_I(nrhs) = size(obj%val)
+    !$OMP parallel do private(i)
+    do i=nrhs-1,2,-1
+      obj%CRS_index_I(i) = sum(buf(1:i-1))
+    enddo
+    !$OMP end parallel do
 
-
+    obj%CRS_index_I(1) = 0
+    obj%CRS_index_I(nrhs) = size(obj%val)
+  else
+    do i=1,size(obj%index_I)
+      obj%CRS_index_I( obj%index_I(i) ) =obj%CRS_index_I( obj%index_I(i) ) +1 
+    enddo
+    buf = obj%CRS_index_I
+  
+    do i=nrhs-1,2,-1
+      obj%CRS_index_I(i) = sum(buf(1:i-1))
+    enddo
+  
+    obj%CRS_index_I(1) = 0
+    obj%CRS_index_I(nrhs) = size(obj%val)
+  endif
 end subroutine
 ! #######################################################
-function matmulCRSLinearSolver(obj) result(mm)
+function matmulCRSLinearSolver(obj,openMP) result(mm)
   class(LinearSolver_),intent(inout) :: obj
   real(real64),allocatable :: mm(:)
   integer(int32) :: i,j
+  logical,optional,intent(in) :: openMP
+  logical :: omp_swich
+  omp_swich = input(default=.false.,option=OpenMP)
 
   mm = zeros(size(obj%b))
   ! Notice :: CRS format data should be created and sorted.
-  !$OMP parallel do private(i)
-  do i=1,size(obj%b)
-    do j=obj%CRS_Index_I(i)+1,obj%CRS_Index_I(i+1)
-        mm(i) = mm(i) + obj%b( obj%CRS_Index_J(j) )*obj%CRS_val(j)
+  
+  if(omp_swich)then
+    !$OMP parallel do private(i)
+    do i=1,size(obj%b)
+      do j=obj%CRS_Index_I(i)+1,obj%CRS_Index_I(i+1)
+          mm(i) = mm(i) + obj%b( obj%Index_J(j) )*obj%val(j)
+      enddo
     enddo
-  enddo
-  !$OMP end parallel do
+    !$OMP end parallel do
+  else
+    do i=1,size(obj%b)
+      do j=obj%CRS_Index_I(i)+1,obj%CRS_Index_I(i+1)
+          mm(i) = mm(i) + obj%b( obj%Index_J(j) )*obj%val(j)
+      enddo
+    enddo
+  endif
 end function
 
 ! #######################################################
-function matmulCOOLinearSolver(obj) result(mm)
+function matmulCOOLinearSolver(obj,OpenMP) result(mm)
   class(LinearSolver_),intent(inout) :: obj
   real(real64),allocatable :: mm(:)
   integer(int32) :: i,j
+  logical,optional,intent(in) :: openMP
+  logical :: omp_swich
+  omp_swich = input(default=.false.,option=OpenMP)
 
   mm = zeros(size(obj%b))
   ! Notice :: CRS format data should be created and sorted.
-  !$OMP parallel do private(i)
-  do i=1,size(obj%val)
-    mm( obj%index_I(i) ) = mm( obj%index_I(i) ) + obj%val(i)*obj%b(obj%index_J(i) )
-  enddo
-  !$OMP end parallel do
+  if(omp_swich)then
+    !$OMP parallel do private(i)
+    do i=1,size(obj%val)
+      mm( obj%index_I(i) ) = mm( obj%index_I(i) ) + obj%val(i)*obj%b(obj%index_J(i) )
+    enddo
+    !$OMP end parallel do
+  else
+    do i=1,size(obj%val)
+      mm( obj%index_I(i) ) = mm( obj%index_I(i) ) + obj%val(i)*obj%b(obj%index_J(i) )
+    enddo
+  endif
 end function
 
 

@@ -3,12 +3,12 @@ use TimeClass
 use RandomClass
 implicit none
 
-integer(int32),parameter :: n=10000
+integer(int32),parameter :: n=300000
 
 type(LinearSolver_) :: solver
 type(Time_) :: time
 type(Random_) :: random
-real(real64) :: mm(n)
+real(real64) :: mm(n),x(n)
 integer(int32) :: i, j
 
 solver%val = zeros(n)
@@ -36,12 +36,13 @@ enddo
 mm(:) = 0.0d0
 
 call time%start()
-call solver%convertCOOtoCRS()
+call solver%convertCOOtoCRS(OpenMP=false)
 call time%show()
 
+
 call time%start()
-do i=1,10000
-    mm = solver%matmulCRS()
+do i=1,1000
+    mm = solver%matmulCRS(OpenMP=false)
 enddo
 call time%show()
 print *, norm(mm)
@@ -49,9 +50,12 @@ print *, norm(mm)
 ! matmul operation
 mm(:) = 0.0d0
 call time%start()
-do i=1,10000
-    mm = solver%matmulCOO()
+do i=1,1000
+    mm = solver%matmulCOO(OpenMP=false)
 enddo
 call time%show()
 print *, norm(mm)
+
+
+
 end
