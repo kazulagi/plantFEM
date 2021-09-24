@@ -13,6 +13,8 @@ module SoybeanClass
         integer(int32),allocatable :: ID(:)
     end type
     
+    integer(int32),parameter :: PF_DEFAULT_SOYBEAN_ASIZE=300
+
     type :: soybean_
         ! growth_habit = determinate, indeterminate, semi-indeterminate, or vine
         character*20 :: growth_habit
@@ -22,41 +24,41 @@ module SoybeanClass
         integer(int32) :: num_stem_node
         integer(int32) :: Num_Of_Root
         
-        integer(int32) :: MaxLeafNum= 300
-        integer(int32) :: MaxRootNum=300
-        integer(int32) :: MaxStemNum= 300
+        integer(int32) :: MaxLeafNum= PF_DEFAULT_SOYBEAN_ASIZE
+        integer(int32) :: MaxRootNum= PF_DEFAULT_SOYBEAN_ASIZE
+        integer(int32) :: MaxStemNum= PF_DEFAULT_SOYBEAN_ASIZE
 
         logical :: determinate
         
         
-        integer(int32)  :: ms_node,br_node(300),br_from(300)
-        real(real64)    :: ms_length,br_length(300)
-        real(real64)    :: ms_width,br_width(300)
-        real(real64)    :: ms_angle_ave,br_angle_ave(300)
-        real(real64)    :: ms_angle_sig,br_angle_sig(300)
+        integer(int32)  :: ms_node,br_node(PF_DEFAULT_SOYBEAN_ASIZE),br_from(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: ms_length,br_length(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: ms_width,br_width(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: ms_angle_ave,br_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: ms_angle_sig,br_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE)
         
 
-        integer(int32)  :: mr_node,brr_node(300),brr_from(300)
-        real(real64)    :: mr_length,brr_length(300)
-        real(real64)    :: mr_width,brr_width(300)
-        real(real64)    :: mr_angle_ave,brr_angle_ave(300)
-        real(real64)    :: mr_angle_sig,brr_angle_sig(300)
+        integer(int32)  :: mr_node,brr_node(PF_DEFAULT_SOYBEAN_ASIZE),brr_from(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: mr_length,brr_length(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: mr_width,brr_width(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: mr_angle_ave,brr_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: mr_angle_sig,brr_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE)
 
-        real(real64)    :: peti_size_ave(300)
-        real(real64)    :: peti_size_sig(300)
-        real(real64)    :: peti_width_ave(300)
-        real(real64)    :: peti_width_sig(300)
-        real(real64)    :: peti_angle_ave(300)
-        real(real64)    :: peti_angle_sig(300)
+        real(real64)    :: peti_size_ave(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: peti_size_sig(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: peti_width_ave(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: peti_width_sig(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: peti_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: peti_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE)
 
-        real(real64)    :: leaf_angle_ave(300*3)
-        real(real64)    :: leaf_angle_sig(300*3)
-        real(real64)    :: leaf_length_ave(300*3)
-        real(real64)    :: leaf_length_sig(300*3)
-        real(real64)    :: leaf_width_ave(300*3)
-        real(real64)    :: leaf_width_sig(300*3)
-        real(real64)    :: leaf_thickness_ave(300*3)
-        real(real64)    :: leaf_thickness_sig(300*3)
+        real(real64)    :: leaf_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
+        real(real64)    :: leaf_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
+        real(real64)    :: leaf_length_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
+        real(real64)    :: leaf_length_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
+        real(real64)    :: leaf_width_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
+        real(real64)    :: leaf_width_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
+        real(real64)    :: leaf_thickness_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
+        real(real64)    :: leaf_thickness_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
         
         character(3) :: Stage ! VE, CV, V1,V2, ..., R1, R2, ..., R8
         character(200) :: name
@@ -309,13 +311,13 @@ end subroutine
 subroutine initsoybean(obj,config,&
     regacy,mass,water_content,radius,location,x,y,z,&
     PlantRoot_diameter_per_seed_radius,max_PlantNode_num,Variety,FileName,&
-    max_leaf_num,max_stem_num,max_root_num)
+    max_leaf_num,max_stem_num,max_root_num,profiler)
     class(Soybean_),intent(inout) :: obj
 
     real(real64),optional,intent(in) :: mass,water_content,radius,location(3),x,y,z
     real(real64),optional,intent(in) :: PlantRoot_diameter_per_seed_radius
     character(*),optional,intent(in) :: Variety,FileName,config
-    logical,optional,intent(in) :: regacy
+    logical,optional,intent(in) :: regacy, profiler
     character(200) :: fn,conf,line
     integer(int32),optional,intent(in) :: max_PlantNode_num,max_leaf_num,max_stem_num,max_root_num
     real(real64) :: MaxThickness,Maxwidth,loc(3),vec(3),rot(3),zaxis(3),meshloc(3),meshvec(3)
@@ -324,8 +326,20 @@ subroutine initsoybean(obj,config,&
     real(real64)::readvalreal
     integer(int32) :: readvalint
     logical :: debug=.false.
+    logical :: timeOpt = .false.
     type(IO_) :: soyconf
     type(Random_) :: random
+    type(Time_) :: time
+    type(Stem_) :: stem
+    type(Leaf_) :: leaf
+    type(Root_) :: root
+
+
+    timeOpt = input(default=.false.,option=profiler)
+
+    if(timeOpt) then
+        call time%start()
+    endif
 
 
     call obj%remove()
@@ -381,7 +395,12 @@ subroutine initsoybean(obj,config,&
     obj%leaf_angle_sig(:) = 10.0d0
     
 
-
+    
+    if(timeOpt) then
+        print *, "[1] set default values :: "
+        call time%show()
+    endif
+    
 
     
     ! 子葉節、初生葉節、根の第1節まで種子の状態で存在
@@ -450,6 +469,12 @@ subroutine initsoybean(obj,config,&
         conf = trim(config)
     endif
     
+
+    if(timeOpt) then
+        print *, "[2] create default config "
+        call time%show()
+    endif
+
     line = soyconf%parse(trim(conf),key1="Genotype",key2="Dt1")
     if(index(line,"Dt1")/=0 )then
         obj%determinate=.False.
@@ -1152,6 +1177,12 @@ subroutine initsoybean(obj,config,&
         obj%leafconfig=" "
     endif
 
+
+    if(timeOpt) then
+        print *, "[3] read config "
+        call time%show()
+    endif
+
     if(obj%ms_node/=0)then
         ! loaded from Mainstem-Branches relation file format
         ! ex.
@@ -1220,9 +1251,11 @@ subroutine initsoybean(obj,config,&
         ! set mainstem
         
         allocate(obj%NodeID_MainStem(obj%ms_node) )
+        call stem%init(config=obj%stemconfig)
         do i=1,obj%ms_node
 
-            call obj%stem(i)%init(config=obj%stemconfig)
+            !call obj%stem(i)%init(config=obj%stemconfig)
+            obj%stem(i) = stem
             obj%NodeID_MainStem(i) = i
             call obj%stem(i)%resize(&
                 x = obj%ms_width, &
@@ -1236,6 +1269,12 @@ subroutine initsoybean(obj,config,&
                 )                
         enddo
 
+
+        if(timeOpt) then
+            print *, "[4] created Main stem."
+            call time%show()
+        endif
+        
         do i=1,obj%ms_node-1
             call obj%stem(i+1)%connect("=>",obj%stem(i))
             obj%stem2stem(i+1,i) = 1
@@ -1248,7 +1287,8 @@ subroutine initsoybean(obj,config,&
             allocate( obj%NodeID_Branch(i)%ID(obj%br_node(i))  )
             do j=1, obj%br_node(i)
                 k = k + 1
-                call obj%stem(k)%init(config=obj%stemconfig)
+                !call obj%stem(k)%init(config=obj%stemconfig)
+                obj%stem(k) = stem
                 obj%NodeID_Branch(i)%ID(j) = k
 
                 call obj%stem(k)%resize(&
@@ -1274,6 +1314,10 @@ subroutine initsoybean(obj,config,&
             enddo
         enddo
         
+        if(timeOpt) then
+            print *, "[4] created Branches."
+            call time%show()
+        endif
 
 
 
@@ -1282,12 +1326,13 @@ subroutine initsoybean(obj,config,&
         obj%num_stem_node = k
         obj%num_leaf = 0
         ! bugfix 2021/08/18
+        call leaf%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
         do i=1, k
             ! ３複葉
             ! add peti
             obj%num_stem_node = obj%num_stem_node +1
-            call obj%stem(obj%num_stem_node)%init(config=obj%stemconfig)
-
+            !call obj%stem(obj%num_stem_node)%init(config=obj%stemconfig)
+            obj%stem(obj%num_stem_node) = stem
             call obj%stem(obj%num_stem_node)%resize(&
                 x = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
                 y = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
@@ -1308,7 +1353,8 @@ subroutine initsoybean(obj,config,&
             ! add leaves
             do j=1,3
                 obj%num_leaf=obj%num_leaf+1
-                call obj%leaf(obj%num_leaf)%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
+                !call obj%leaf(obj%num_leaf)%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
+                obj%leaf(obj%num_leaf) = leaf
                 call obj%leaf(obj%num_leaf)%resize(&
                     y = random%gauss(mu=obj%leaf_thickness_ave(i),sigma=obj%leaf_thickness_sig(i))  , &
                     z = random%gauss(mu=obj%leaf_length_ave(i)   ,sigma=obj%leaf_length_sig(i)) , &
@@ -1326,10 +1372,16 @@ subroutine initsoybean(obj,config,&
         enddo
 
 
+        if(timeOpt) then
+            print *, "[4] created Peti and Leaves."
+            call time%show()
+        endif
+
         ! set mainroot
+        call root%init(obj%rootconfig)
         do i=1,obj%mr_node
 
-            call obj%root(i)%init(obj%rootconfig)
+            obj%root(i) = root
             call obj%root(i)%resize(&
                 x = obj%mr_width, &
                 y = obj%mr_width, &
@@ -1356,7 +1408,8 @@ subroutine initsoybean(obj,config,&
         do i=1,size(obj%brr_node)
             do j=1, obj%brr_node(i)
                 k = k + 1
-                call obj%root(k)%init(config=obj%rootconfig)
+                !call obj%root(k)%init(config=obj%rootconfig)
+                obj%root(k) = root
                 call obj%root(k)%resize(&
                     x = obj%mr_width, &
                     y = obj%mr_width, &
@@ -1382,6 +1435,12 @@ subroutine initsoybean(obj,config,&
         
 
         obj%stage = "V"//trim(str(obj%ms_node))
+
+
+        if(timeOpt) then
+            print *, "[4] create objects."
+        call time%show()
+    endif
         return
     else
         ! create leaf, root, stem
@@ -1597,6 +1656,9 @@ subroutine initsoybean(obj,config,&
     !    print *, "vec",vec
     !    print *, "rot",rot    
     endif
+
+
+
 
     ! ここからレガシーモード
     if(present(regacy) )then

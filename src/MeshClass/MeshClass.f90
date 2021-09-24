@@ -862,6 +862,10 @@ subroutine resizeMeshobj(obj,x_rate,y_rate,z_rate,x_len,y_len,z_len)
     real(real64),optional,intent(in) :: x_rate,y_rate,z_rate,x_len,y_len,z_len
     real(real64) :: rate, len
 
+
+    ! 2021/09/24 >> Tried to paralelize this by OpenMP, but failed.
+    ! do not use !$OMP parallel do
+
     if(.not.allocated(obj%NodCoord) )then
         print *, "ERROR :: MeshClass resizeMeshObj >> no Nodal coordintates are not found."
         return
