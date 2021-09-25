@@ -2092,7 +2092,35 @@ subroutine mshSoybean(obj,name,num_threads)
     character(*),intent(in) :: name
     integer(int32),optional,intent(in) :: num_threads
     integer(int32) :: i,n
+    type(IO_) :: f
+    ! index file
+    call f%open(trim(name)//"_index.txt","w")
 
+    if(allocated(obj%stem) )then
+        do i=1,size(obj%stem)
+            if( .not.obj%stem(i)%femdomain%mesh%empty() )then
+                call f%write(trim(name)//"_stem"//trim(str(i))//".msh")
+            endif
+        enddo
+    endif
+    
+    if(allocated(obj%root) )then
+        do i=1,size(obj%root)
+            if( .not.obj%root(i)%femdomain%mesh%empty() )then
+                call f%write(trim(name)//"_root"//trim(str(i))//".msh")
+            endif
+        enddo
+    endif
+
+    if(allocated(obj%leaf) )then
+        do i=1,size(obj%leaf)
+            if( .not.obj%leaf(i)%femdomain%mesh%empty() )then
+                call f%write(trim(name)//"_leaf"//trim(str(i))//".msh")
+            endif
+        enddo
+    endif
+    call f%close()
+    
     n = input(default=1,option=num_threads)
     !$OMP parallel num_threads(n) private(i)
     !$OMP do 
@@ -2132,11 +2160,40 @@ end subroutine
 subroutine vtkSoybean(obj,name,num_threads)
     class(Soybean_),intent(inout) :: obj
     character(*),intent(in) :: name
+    type(IO_) :: f
     integer(int32),optional,intent(in) :: num_threads
     integer(int32) :: i, n
 
     n = input(default=1,option=num_threads)
     
+    ! index file
+    call f%open(trim(name)//"_index.txt","w")
+
+    if(allocated(obj%stem) )then
+        do i=1,size(obj%stem)
+            if( .not.obj%stem(i)%femdomain%mesh%empty() )then
+                call f%write(trim(name)//"_stem"//trim(str(i))//".vtk")
+            endif
+        enddo
+    endif
+    
+    if(allocated(obj%root) )then
+        do i=1,size(obj%root)
+            if( .not.obj%root(i)%femdomain%mesh%empty() )then
+                call f%write(trim(name)//"_root"//trim(str(i))//".vtk")
+            endif
+        enddo
+    endif
+
+    if(allocated(obj%leaf) )then
+        do i=1,size(obj%leaf)
+            if( .not.obj%leaf(i)%femdomain%mesh%empty() )then
+                call f%write(trim(name)//"_leaf"//trim(str(i))//".vtk")
+            endif
+        enddo
+    endif
+    call f%close()
+
     if(allocated(obj%stem) )then
         !$OMP parallel num_threads(n) private(i)
         !$OMP do 
@@ -2178,6 +2235,7 @@ subroutine vtkSoybean(obj,name,num_threads)
         !$OMP end parallel
     endif
 
+    
 
 end subroutine
 ! ########################################
@@ -2234,6 +2292,35 @@ subroutine stlSoybean(obj,name,num_threads)
     integer(int32),optional,intent(in) :: num_threads
     integer(int32) :: i,n
 
+    type(IO_) :: f
+    ! index file
+    call f%open(trim(name)//"_index.txt","w")
+
+    if(allocated(obj%stem) )then
+        do i=1,size(obj%stem)
+            if( .not.obj%stem(i)%femdomain%mesh%empty() )then
+                call f%write(trim(name)//"_stem"//trim(str(i))//".stl")
+            endif
+        enddo
+    endif
+    
+    if(allocated(obj%root) )then
+        do i=1,size(obj%root)
+            if( .not.obj%root(i)%femdomain%mesh%empty() )then
+                call f%write(trim(name)//"_root"//trim(str(i))//".stl")
+            endif
+        enddo
+    endif
+
+    if(allocated(obj%leaf) )then
+        do i=1,size(obj%leaf)
+            if( .not.obj%leaf(i)%femdomain%mesh%empty() )then
+                call f%write(trim(name)//"_leaf"//trim(str(i))//".stl")
+            endif
+        enddo
+    endif
+    call f%close()
+    
     n = input(default=1,option=num_threads)
     !call system("echo ' ' > "//trim(name)//".stl")
     !$OMP parallel num_threads(n) private(i)
