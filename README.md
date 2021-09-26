@@ -1,20 +1,117 @@
 ![soyfield](https://user-images.githubusercontent.com/54159711/130534646-8bf5797a-f04f-4d05-aa47-6ca79a481a11.png)
 
+![soaked_soy_seed](https://user-images.githubusercontent.com/54159711/84125111-0b8f6b00-aa77-11ea-9f79-1acfe37e2b8f.png)
+![grass_leaf](https://user-images.githubusercontent.com/54159711/84125213-311c7480-aa77-11ea-8c61-e7bbce016f8a.gif)
+![image931](https://user-images.githubusercontent.com/54159711/84130533-5eb8ec00-aa7e-11ea-92c9-08a49ccc3674.png)
+
+# plantFEM 21.10 will be released soon!
+
+## Specification
+
+| plantFEM | | 
+| ---- | ---- | 
+| Developer | [Haruka Tomobe](https://scholar.google.com/citations?user=aJsSCAYAAAAJ&hl=en) & [plantFEM.org](https://plantfem.org) |
+| Working state | current | 
+| Written in | Fortran 2003, Python 3.x, C89  | 
+|Source model | Open-source |
+| Initial release | 21.10 (20 October 2021)|
+| First Long-Term Surpport (LTS) release | 22.04 (xx April 2022) |
+| Repository | https://github.com/kazulagi/plantfem |
+| Usage | Agricultural CAE,    Digital Twins for Agricultural/Civil Engineering |  
+| Target | Personal computers, HPC-Clusters, Servers |
+| Package Manager | soja (experimental) |
+|Platforms | x86-64 |
+|Default user interface | CLI |
+| Lisence | MIT |
+| Community | Slack (private channel) |
+| Official Website | [plantFEM.org](https://plantfem.org) |
+
+
+
+
+| Objects | Simulation | Simulation (experimental) | 
+| ---- | ---- | ---- |
+| Plane Objects | Pseudo-static Deformation, Diffusion | Contact, Dynamic deformation, Reaction-diffusion | 
+| Soybean | Creation, Measure size, Measure mass | Deformation, Contact, Photosynthesis |
+| Grape | Creation, Measure size, Measure mass | Deformation, Contact, Photosynthesis |
+| Maize | Creation, Measure size, Measure mass | Deformation, Contact, Photosynthesis |
+
+
+| Library structure |  |
+| ---- | ---- |
+| std | Extention of Fortran 2003. Contains fundamental classes for file-IOs and Mathematical operations.|
+| fem | Library for implementing Finite Element Method. You can create meshes (```FEMDomain```), shape-functions, boundary conditions, initial conditions and some elemental matrices.|
+| sim | A set of simulators for ```FEMDomain```. Contains deformation, diffusion, and some experimental implementations. |
+| obj | A set of classes for realistic agricultural high-/low-level objects. High-level objects: Soil, Soybean, Maize, Grape...etc. Low-level objects: stem, leaf, air, light ...etc. |
+
+| IO formats |  |
+| ---- | ---- |
+| Input |  json, vtk, msh, ASCII-text|
+| Output |  json, vtk, msh, stl, ply, ASCII-text|
+
+
+| Commands |  |
+| ---- | ---- |
+| plantfem search | Search sample codes by a keyword |
+| plantfem install | Build library and setting PATH | 
+| plantfem build | Build ```server.f90``` and creates executable file ```server.out``` | 
+| plantfem run | = ```plantfem build && mpirun ./server.out``` |
+| plantfem man | Manual for plantfem command. |
+
+
+| Finite Elements |  |
+| ---- | ---- |
+| 2-node line element | 1D 2D 3D|
+| 4-node isoparametric element | 2D|
+| 8-node isoparametric element | 3D|
+
+
+
+| System Requirements  |  |
+| ---- | ---- | 
+| Operation System | Ubuntu 16.04, Ubuntu 18.04, Ubuntu 20.04, Windows 10/11 (with WSL-Ubuntu), macOS (experimental) | 
+| CPU | 2 cores, 1.4 GHz| 
+| RAM | 2 GB |
+| Storage | 1 GB | 
+
+| Dependancies |  |
+| ---- | ---- | 
+
+| Dependancies (minimal) | version |
+| ---- | ---- | 
+| git |  2.25.1 |
+| Python |  3.4 or later |
+
+
+| Dependancies (Installed by setup.py) | version, info |
+| ---- | ---- | 
+| gcc | 6.4.0 or later |
+| gfortran | 4.8.0 or later (Fortran 2003 or later) |
+| mpif90 | = OpenMPI compiler, 2.x or later |
+| apt |  1.2.35 or later |
+| pip |  pip3 or later |
+| curl |  7.47.0 or later |
+
+
+
+
+
+## 
+
 
 <!-- 
 [![trophy](https://github-profile-trophy.vercel.app/?username=kazulagi&theme=onedark)](https://github.com/ryo-ma/github-profile-trophy)
 -->
 
-# [Click here!! >> Home page](https://plantfem.org)
+# [Home page](https://plantfem.org)
 
 # [Documentation](doc/ford/index.html)
 You can create document by FORD (```ford ford.md```)
 
 
-# For Windows users:
+# How to install 
 
-### How to install 
-
+### For Windows users:
 1. Activate your WSL2 (Windows 10)
 
 
@@ -38,7 +135,46 @@ explorer.exe .
 
 5. Enjoy!
 
-# Sample codes
+
+### For Ubuntu users:
+
+
+## Installation
+
+In Ubuntu 18.04 or later, execute the next one-liner.
+
+```
+git clone https://github.com/kazulagi/plantfem.git && cd plantfem && python3 install.py
+```
+
+If you want to build and run as a docker container,
+
+- (1) Activate "Docker for Windows" (https://docs.docker.com/docker-for-windows/)
+
+
+- (2) Open command-prompt and run
+
+```{.copy}
+git clone https://github.com/kazulagi/plantFEM.git && cd plantFEM/docker
+```
+
+- (3) Build docker-image
+
+```
+docker build github.com/kazulagi/plantfem
+```
+
+- (4) Hop into docker-container
+
+```
+docker run --rm -it kazulagi/plantfem /bin/bash
+```
+
+
+
+# How to Use
+
+1. Search sample codes
 
 You can search sample codes by
 
@@ -48,7 +184,36 @@ plantfem search
 
 and type your keywords.
 
-# Use plantfem by pip (Under develpment)
+2. Open editors (e.g. VSCode) and edit&save it with extention of ```.f90```
+
+3. Build your script (For example, ```test.f90```) by
+
+```
+plantfem load test.f90
+plantfem build
+```
+
+4. Run your script.
+
+```
+./server.out
+```
+
+Or you can run it with multi-core workstations or HPC-clusters.
+
+```
+mpirun --hostfile [your hostfile for OpenMPI] -np [number of process] ./server.out 
+```
+
+Here is an example of hostfile
+
+```hostfile
+192.168.0.1  cpu=6
+192.168.0.2  cpu=6
+192.168.0.3  cpu=6
+```
+
+# Use plantfem by pip (experimental)
 
 ```shellscript
 mkdir your_project
@@ -75,15 +240,9 @@ soy.run(path="./plantfem")
 
 ```
 
-#
-#
-#
 
-![soaked_soy_seed](https://user-images.githubusercontent.com/54159711/84125111-0b8f6b00-aa77-11ea-9f79-1acfe37e2b8f.png)
-![grass_leaf](https://user-images.githubusercontent.com/54159711/84125213-311c7480-aa77-11ea-8c61-e7bbce016f8a.gif)
-![image931](https://user-images.githubusercontent.com/54159711/84130533-5eb8ec00-aa7e-11ea-92c9-08a49ccc3674.png)
 
-# plantFEM
+# Try it now
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1H5cmdKa9MJUC-22dHnvIgo8k6sdQ6NnF?usp=sharing)
 
 
@@ -95,45 +254,23 @@ Plant simulator based on Finite Element Method (FEM).
 [Click here!](https://kazulagi.github.io/pf/)
 
 - Documentation:
-[Click here!](https://kazulagi.github.io/plantfem.github.io/)
 
 
 
-## Installation
 
-On Ubuntu 18.04 or later,
+# Documentation
 
-```
-git clone https://github.com/kazulagi/plantFEM.git && cd plantFEM && ./plantfem setup
-```
+## [Click here!](https://kazulagi.github.io/plantfem.github.io/)
 
-If you want to build and run as a docker container,
-
-- (1) Activate "Docker for Windows" (https://docs.docker.com/docker-for-windows/)
-
-
-- (2) Open command-prompt and run
-
-```{.copy}
-git clone https://github.com/kazulagi/plantFEM.git && cd plantFEM/docker
-```
-
-- (3) Build docker-image
+For detail, you can create documentation by
 
 ```
-docker build github.com/kazulagi/plantfem
+ford ford.md
 ```
 
-- (4) Login into docker-container
-
-```
-docker run --rm -it kazulagi/plantfem /bin/bash
-```
-
-## Documentation of plantFEM
 
 
-
+<!--
 
 
 ![LibraryStruct](https://user-images.githubusercontent.com/54159711/84358395-0e6a9700-ac02-11ea-8b11-6a428004acbb.png)
@@ -142,11 +279,6 @@ docker run --rm -it kazulagi/plantfem /bin/bash
 
 
 [使い方：日本語版 >> ](https://qiita.com/soybean) https://qiita.com/soybean
-
-
-[ New!  simplified class-structure >> ](doc/README/class.pdf)
-
-## New! sample codes and tutorials of module "std" 
 
 
 [ <std #1> Standard math library for plantFEM             >> ](Tutorial/playon_std/ex0001_math.f90)
@@ -164,8 +296,6 @@ docker run --rm -it kazulagi/plantfem /bin/bash
 [ <std #5> Kernel for parallel computing using MPI        >> ](Tutorial/playon_std/ex0005_mpi.f90)
 
 
-[ <std #6> Kernel for RSA-encryption (just for fun)       >> ](Tutorial/playon_std/ex0006_RSAencryption.f90)
-
 ## New! sample codes and tutorials of module "fem" 
 
 [ <fem #1> domain-creation library for plantFEM           >> ](Tutorial/playon_fem/ex0001_mesh.f90)
@@ -175,7 +305,7 @@ docker run --rm -it kazulagi/plantfem /bin/bash
 
 [How to use plantFEM as a blender-addon. >>](doc/BlenderAddon.md)
 
-
+<!--
 ## How to run your *.f90 script with plantFEM.
 ### Command-line mode:
 
@@ -318,15 +448,15 @@ Client API/Example:
 curl-XPOST -d @send.json -H "Content-Type: application/json" https://asia-northeast2-plantfem-api.cloudfunctions.net/plantfem > soy_get3.json
 ```
 
+-->
 
-
-## How to make and use your original add-on.
+## How to add modules for plantFEM?
 
 (1) Create your add-on in plantfem/addon or other places. An example is shown in addon/addon_example.f90
 
 ```Fortran
 module addon_example
-    use SiCroF
+    use plantfem
     type::addon_example_
         ! Member variables
         real(real64),private :: realVal
@@ -370,8 +500,12 @@ end module addon_example
 
 
 ```
-python3 plantfem.py
+plantfem
+```
 
+Then, type ```addon``` and tap ENTER
+
+```
 >>> addon
 installing add-on
 Directory path of your awesome addon is : (default path = addon)
@@ -424,7 +558,7 @@ vi ./etc/cpucore
 
 
 
-
+<!--
 ## Photography
 
 Ex.1 :: 3-D Finite Element model of soybean seed sowed in a field.
@@ -491,7 +625,7 @@ Ex.2 :: 3-D thermal diffusion simulation of a grass leaf.
 
 * [TermClass](doc/TermClass)                    
 
-
+-->
 
 ### logs;
 
@@ -518,6 +652,9 @@ Ex.2 :: 3-D thermal diffusion simulation of a grass leaf.
 - 2019/09/06 :: Bugfix of Simulatior
 - 2019/09/23 :: Source code is opened.Now solvers for diffusion, finite deformation, and diffusion-deformation coupling are available. Contact solver is under debugging.
 - 2021/05/15 :: Now you can install plantFEM by ```install.py``` and can run by ```plantfem run```
+- 2021/10/xx :: Release plantFEM 21.10
+
+<!--
 ### On going;
 - ContactMechanicsClass is created for 3-D, Frictionless contact.
 - automatic documentation program ./doc/upgrade_readme.py
@@ -556,6 +693,8 @@ Ex.2 :: 3-D thermal diffusion simulation of a grass leaf.
 - Fluid solvers (by using src/FEMDomainClass)
 - Functional-structural model for cereals.(like src/LsystemClass)
 
+-->
+
 ## Acknowledgements
 
 This project is financially supported by the following research grants.
@@ -565,6 +704,9 @@ This project is financially supported by the following research grants.
 
 ## Relevant publications
 
-- Haruka Tomobe, Kazunori Fujisawa, Akira Murakami, Experiments and FE-analysis of 2-D root-soil contact problems based on node-to-segment approach, Soils and Foundations, Volume 59, Issue 6, 2019, Pages 1860-1874.
+[1] Haruka Tomobe, Kazunori Fujisawa, Akira Murakami, Experiments and FE-analysis of 2-D root-soil contact problems based on node-to-segment approach, Soils and Foundations, Volume 59, Issue 6, 2019, Pages 1860-1874.
+
+[2] Tomobe H, Fujisawa K, Murakami A (2021) A Mohr-Coulomb-Vilar model for constitutive relationship in root-soil interface under changing suction. Soils Found 61:815–835. 
+
 
 Others are under revision and/or under preparation.
