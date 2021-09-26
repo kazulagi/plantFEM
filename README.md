@@ -77,9 +77,6 @@
 | RAM | 2 GB |
 | Storage | 1 GB | 
 
-| Dependancies |  |
-| ---- | ---- | 
-
 | Dependancies (minimal) | version |
 | ---- | ---- | 
 | git |  2.25.1 |
@@ -106,10 +103,15 @@
 [![trophy](https://github-profile-trophy.vercel.app/?username=kazulagi&theme=onedark)](https://github.com/ryo-ma/github-profile-trophy)
 -->
 
-# [Home page](https://plantfem.org)
+# Documentation
 
-# [Documentation](doc/ford/index.html)
-You can create document by FORD (```ford ford.md```)
+## [Click here!](https://kazulagi.github.io/plantfem.github.io/)
+
+For detail, you can create documentation by
+
+```
+ford ford.md
+```
 
 
 # How to install 
@@ -141,8 +143,6 @@ explorer.exe .
 
 ### For Ubuntu users:
 
-
-## Installation
 
 In Ubuntu 18.04 or later, execute the next one-liner.
 
@@ -216,23 +216,15 @@ Here is an example of hostfile
 192.168.0.3  cpu=6
 ```
 
-# Use plantfem by pip (experimental)
+# call plantfem from Python (experimental)
 
-```shellscript
-mkdir your_project
-cd your_project
-git clone https://github.com/kazulagi/plantfem
-cd plantfem
-python3 install.py
-```
-Then, run your script
 
 ```python
 
 import plantfem as pf
 
 soy = pf.soybean(name="hello_soy")
-soy.create(config="./plantfem/Tutorial/playon_obj/realSoybeanConfig.json")
+soy.create(config="./plantfem/Tutorial/obj/realSoybeanConfig.json")
 soy.msh(name="hello_soy")
 soy.json(name="hello_soy")
 
@@ -256,20 +248,8 @@ Plant simulator based on Finite Element Method (FEM).
 - Tutorial:
 [Click here!](https://kazulagi.github.io/pf/)
 
-- Documentation:
 
 
-
-
-# Documentation
-
-## [Click here!](https://kazulagi.github.io/plantfem.github.io/)
-
-For detail, you can create documentation by
-
-```
-ford ford.md
-```
 
 
 
@@ -455,7 +435,7 @@ curl-XPOST -d @send.json -H "Content-Type: application/json" https://asia-northe
 
 ## How to add modules for plantFEM?
 
-(1) Create your add-on in plantfem/addon or other places. An example is shown in addon/addon_example.f90
+(1) Create your Fortran add-on in plantfem/addon or other places. An example is shown in addon/addon_example.f90. 
 
 ```Fortran
 module addon_example
