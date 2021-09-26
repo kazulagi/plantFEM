@@ -77,9 +77,6 @@
 | RAM | 2 GB |
 | Storage | 1 GB | 
 
-| Dependancies |  |
-| ---- | ---- | 
-
 | Dependancies (minimal) | version |
 | ---- | ---- | 
 | git |  2.25.1 |
@@ -105,11 +102,6 @@
 <!-- 
 [![trophy](https://github-profile-trophy.vercel.app/?username=kazulagi&theme=onedark)](https://github.com/ryo-ma/github-profile-trophy)
 -->
-
-# [Home page](https://plantfem.org)
-
-# [Documentation](doc/ford/index.html)
-You can create document by FORD (```ford ford.md```)
 
 
 # How to install 
