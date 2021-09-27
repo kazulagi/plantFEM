@@ -5355,5 +5355,23 @@ function covarianceMatrix(x_t,x_s,n) result(ret)
 end function
 ! ###############################################################
 
+function linspace(drange,numberOfData) result(ret)
+    real(real64),intent(in) :: drange(2)
+    integer(int32),intent(in) :: numberOfData
+    real(real64) :: dx,x,from,to
+    real(real64),allocatable :: ret(:)
+    integer(int32) :: i
+    
+    allocate(ret(numberOfData) )
+    from = drange(1)
+    to = drange(2)
+    dx = (to - from)/dble(numberOfData-1)
+    x = from
+    do i=1, numberOfData-1
+        ret(i) = x
+        x = x + dx
+    enddo
+    ret(numberOfData) = x
+end function
 
 end module ArrayClass
