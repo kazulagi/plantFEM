@@ -67,10 +67,17 @@ echo " >> RandomClass.o"
 echo " | =>                          | (3%)\r\c "
 mpif90 -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RandomClass/RandomClass.f90 -o  ./inc/RandomClass.o
 
+echo "Compiling ./src/PCAClass/PCAClass.f90 " 
+echo " >> PCAClass.o "
+echo " | =>                          | (4%)\r\c"
+mpif90 -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PCAClass/PCAClass.f90 -o  ./inc/PCAClass.o
+
+
 echo "Compiling ./src/ArrayClass/ArrayClass.f90 " 
 echo " >> ArrayClass.o "
 echo " | =>                          | (4%)\r\c"
 mpif90 -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ArrayClass/ArrayClass.f90 -o  ./inc/ArrayClass.o
+
 
 echo "Compiling ./src/SDEClass/SDEClass.f90   "
 echo " >> SDEClass.o"

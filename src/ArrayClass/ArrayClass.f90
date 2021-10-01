@@ -14,11 +14,17 @@ module ArrayClass
     !end interface
 
     ! statistics
+    
+
 
     interface interpolate
         module procedure :: interpolateReal64
     end interface
 
+    interface convolve
+        module procedure :: convolveComplex64,convolveReal64
+    end interface convolve
+    
     interface rotationMatrix
         module procedure :: rotationMatrixReal64
     end interface
@@ -5373,5 +5379,241 @@ function linspace(drange,numberOfData) result(ret)
     enddo
     ret(numberOfData) = x
 end function
+! ###############################################################
+
+! ###############################################################
+function convolveReal64(f,g) result(ret)
+    real(real64),intent(in) :: f(:),g(:)
+    real(real64),allocatable :: ret(:)
+    integer(int32) :: tau,t
+    ! ret(\tau) = \Sigma f(t)g(\tau-t)
+    if(size(f)/=size(g) )then
+        print *, "ERROR: convolution"
+        stop
+    endif
+    ret = zeros(size(f) )
+    
+    do tau=1,size(f)
+        do t=1,size(g)
+            if(tau-t==0)cycle
+            ret(tau) = ret(tau) + f(t)*g(abs(tau-t))
+        enddo
+    enddo
+end function
+! ###############################################################
+
+! ###############################################################
+function convolveComplex64(f,g) result(ret)
+    complex(complex64),intent(in) :: f(:),g(:)
+    complex(complex64),allocatable :: ret(:)
+    integer(int32) :: tau,t
+    ! ret(\tau) = \Sigma f(t)g(\tau-t)
+    if(size(f)/=size(g) )then
+        print *, "ERROR: convolution"
+        stop
+    endif
+    ret = zeros(size(f) )
+    
+    do tau=1,size(f)
+        do t=size(g),1,-1
+            if(tau-t<0)then
+                ret(tau) = ret(tau) + f(t)*g( size(g) +tau-t )
+            elseif(tau-t>0)then
+                ret(tau) = ret(tau) + f(t)*g( tau-t )
+            else
+                cycle
+            endif
+        enddo
+    enddo
+end function
+! ###############################################################
+
+! ###############################################################
+function EigenValueJacobiMethod(A,x,tol) result(lambda)
+    real(real64),intent(inout) :: A(:,:)
+    real(real64),allocatable :: lambda(:)
+    real(real64),optional,allocatable,intent(inout) :: x(:,:) ! Eigen Vector
+    real(real64),optional,intent(in) :: tol
+    real(real64),allocatable :: Ak(:,:),apj(:),aqj(:),aip(:),aiq(:),Gk(:,:)
+    real(real64)::apq_tr,theta,tan2theta,app,aqq,apq,loop_tol
+    integer(int32) :: n,p,q,i,j
+    logical :: convergence = .false.
+
+    if(present(tol) )then
+        loop_tol = tol
+    else
+        loop_tol = 1.0e-14
+    endif
+    n = size(A,1)
+
+    lambda = zeros(n)
+    
+    apj = zeros(n)
+    aqj = zeros(n) 
+    aip = zeros(n) 
+    aiq = zeros(n) 
+
+    if(present(x) )then
+        Gk = zeros(n,n)
+        x = zeros(n,n)
+        do i=1,n
+            Gk(i,i)=1.0d0
+            x(i,i)=1.0d0
+        enddo
+        print *, "Eigen Value & Eigen Vector"
+    endif
+    
+    Ak = A
+    ! get eigen vector and eigen values
+    ! by Jacobi Method
+    do 
+        ! find maxval
+
+        apq_tr = 0.0d0
+        p=0
+        q=0
+        do i=1,size(Ak,1)
+            do j=1,size(Ak,2)
+                if( abs(Ak(i,j))>abs(apq_tr) .and. i/=j )then
+                    p = i
+                    q = j
+                    apq_tr = Ak(i,j)
+                endif
+            enddo
+        enddo
+
+        print *, p,q,apq_tr
+        if(abs(apq_tr)<= loop_tol)then
+            exit
+        endif
+
+        if(p*q==0)then
+            print *, "ERROR :: JacobiMethod >> q*p =0"
+            return
+        endif
+
+
+        tan2theta = - 2.0d0*Ak(p,q)/( Ak(p,p) - Ak(q,q) )
+        theta = 0.50d0*atan(tan2theta)
+        !theta = 0.50d0*acos(sqrt(1.0d0/(1.0d0+tan2theta*tan2theta) ) )
+
+        apj(:) = Ak(p,:)*cos(theta) - Ak(q,:)*sin(theta)
+        aqj(:) = Ak(p,:)*sin(theta) + Ak(q,:)*cos(theta)
+        aip(:) = Ak(:,p)*cos(theta) - Ak(:,q)*sin(theta) 
+        aiq(:) = Ak(:,p)*sin(theta) + Ak(:,q)*cos(theta) 
+        app = Ak(p,p)*cos(theta)*cos(theta) + Ak(q,q)*sin(theta)*sin(theta)&
+            - 2.0d0*Ak(p,q)*cos(theta)*sin(theta)
+        aqq = Ak(q,q)*cos(theta)*cos(theta) + Ak(p,p)*sin(theta)*sin(theta)&
+            + 2.0d0*Ak(p,q)*cos(theta)*sin(theta)
+        !apq = 0.50d0*(Ak(p,p) - Ak(q,q) )*sin(2.0d0*theta) + Ak(p,q)*cos(2.0d0*theta)
+
+        Ak(p,:) = apj(:)
+        Ak(q,:) = aqj(:)
+        Ak(:,p) = aip(:)
+        Ak(:,q) = aiq(:)
+        Ak(p,p) = app
+        Ak(q,q) = aqq
+        Ak(p,q) = 0.0d0
+        Ak(q,p) = 0.0d0
+
+
+        ! use Gk matrix
+        if(present(x) )then
+            do i=1,n
+                Gk(i,i) = 1.0d0
+            enddo
+            Gk(p,p) = cos(theta)
+            Gk(p,q) = sin(theta)
+            Gk(q,p) = -sin(theta)
+            Gk(q,q) = cos(theta)
+            X = matmul(X,Gk)
+        endif
+
+    enddo
+
+    do i=1,n
+        lambda(i) = Ak(i,i)
+    enddo
+
+end function
+! ###############################################################
+
+function eigenValue(A,tol) result(lambda)
+    real(real64),intent(inout) :: A(:,:)
+    real(real64),allocatable :: lambda(:)
+    real(real64),optional,intent(in) :: tol
+
+    if(symmetric(A) )then
+        lambda = EigenValueJacobiMethod(A,tol=tol)
+    else
+        print *, "skew-symmetric [A] will be implemented."
+        stop
+    endif
+
+end function
+! ###############################################################
+
+subroutine eigenValueAndVector(A,lambda,x,tol) 
+    real(real64),intent(inout) :: A(:,:)
+    real(real64),allocatable,intent(out) :: lambda(:),x(:,:)
+    real(real64),optional,intent(in) :: tol
+
+    if(symmetric(A) )then
+        lambda = EigenValueJacobiMethod(A,x=x,tol=tol)
+    else
+        print *, "skew-symmetric [A] will be implemented."
+        stop
+    endif
+
+end subroutine
+! ###############################################################
+
+!function eigenVector(A,lambda,tol) result(x)
+!    real(real64),intent(inout) :: A(:,:)
+!    real(real64),allocatable :: x(:,:), lambda_vals(:)
+!    real(real64),optional,intent(in) :: lambda(:),tol
+!    integer(int32) :: i,n
+!
+!    n = size(A,1)
+!    x = zeros(n)
+!    if(symmetric(A) )then
+!        if(present(lambda) )then
+!            lambda_vals = lambda
+!        else
+!            lambda_val = eigenValue(A,tol)
+!        endif
+!        do i=1,n
+!            ! for i-th eigen vector
+!            x(:,i) =  
+!        enddo
+!    else
+!        print *, "skew-symmetric [A] will be implemented."
+!        stop
+!    endif
+!
+!end function
+! ###############################################################
+
+function symmetric(A) result(ret)
+    real(real64),intent(in) :: A(:,:)
+    integer(int32) :: i,j
+    logical :: ret
+
+    ret = .true.
+    if(size(A,1)/=size(A,2) )then
+        ret = .false.
+        return
+    endif
+    do i=1,size(A,1)-1
+        do j=i+1,size(A,2)
+            if(A(i,j)/=A(j,i))then
+                ret = .false.
+                return
+            endif
+        enddo
+    enddo
+
+end function
+! ###############################################################
 
 end module ArrayClass

@@ -19,7 +19,7 @@ Ft = zeros(1024)
 do i=1,size(Ft)
     Ft(i) = random%gauss(mu=0.0d0,sigma=0.50d0)
 enddo
-Ft(:) = Ft(:)+5.0d0*sin(2.0d0*Math%PI*t) + sin(1.0d0*Math%PI*t)
+Ft(:) = Ft(:)+5.0d0*sin(2.0d0*Math%PI*t) 
 
 Fw = FFT(Ft)
 
