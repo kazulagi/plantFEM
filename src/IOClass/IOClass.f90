@@ -1400,7 +1400,7 @@ subroutine splotIO(obj,name,option)
 
     call gp_script%close()
     call system("gnuplot "//trim(obj%filename)//"_gp_script.gp -pause")
-
+    call obj%close()
 end subroutine
 
 subroutine flushIO(obj)
