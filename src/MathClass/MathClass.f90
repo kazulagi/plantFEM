@@ -2114,5 +2114,71 @@ function IsItNumber(char) result(res)
 end function IsItNumber
 
 
+! BitInversion
+!recursive function BitInversion(i,numBit) result(ret)
+!	integer(int32),intent(in) :: i
+!	integer(int32),intent(in) :: numBit
+!
+!	if(numBit==1)then
+!		! 1 Bit 0 or 1
+!		
+!	elseif(numBit==2)then
+!	elseif(numBit==3)then
+!	if(numBit > 3) then
+!	endif
+!	
+!end function
+
+! Window functions
+
+function RectangularWindow(Width,DataSize) result(ret)
+	integer(int32),intent(in) :: Width,DataSize
+	real(real64) :: ret(DataSize)
+
+	ret = 0.0d0
+	ret(DataSize/2-Width/2:DataSize/2+Width/2) = 1
+
+end function
+
+function HanningWindow(Width,DataSize) result(ret)
+	integer(int32),intent(in) :: Width,DataSize
+	real(real64) :: ret(DataSize)
+	type(Math_) :: math
+	integer(int32) :: i
+	
+	print *, "[CAUTION] EXPERIMENTAL!"
+	
+	ret = 0.0d0
+	do i=1,width/2
+		ret(DataSize/2-i) &
+		= 0.50d0 - 0.50d0*cos(2.0d0*Math%PI*i/(Width/2) )
+		ret(DataSize/2+i) &
+		= 0.50d0 - 0.50d0*cos(2.0d0*Math%PI*i/(Width/2) )
+	enddo
+
+end function
+
+
+function HammingWindow(Width,DataSize) result(ret)
+	integer(int32),intent(in) :: Width,DataSize
+	real(real64) :: ret(DataSize)
+	type(Math_) :: math
+	integer(int32) :: i
+
+	print *, "[CAUTION] EXPERIMENTAL!"
+	
+
+	ret = 0.0d0
+	do i=1,width/2
+		ret(DataSize/2-i) &
+		= 0.540d0 - 0.46d0*cos(2.0d0*Math%PI*i/(Width/2) )
+		ret(DataSize/2+i) &
+		= 0.540d0 - 0.46d0*cos(2.0d0*Math%PI*i/(Width/2) )
+	enddo
+
+end function
+
+
+
 
 end module MathClass
