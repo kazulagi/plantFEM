@@ -315,7 +315,7 @@ homepath="$PWD"
         return 0
     fi
     if [ "$1" = "install" ]; then
-        $PF_HOME/install/"$install"
+        python3 $PF_HOME/install.py
         return 0
     fi
     if [ "$1" = "$compress" ]; then

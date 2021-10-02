@@ -25,6 +25,11 @@ module ArrayClass
         module procedure :: convolveComplex64,convolveReal64
     end interface convolve
     
+
+    interface windowing
+        module procedure :: windowingComplex64,windowingReal64
+    end interface windowing
+
     interface rotationMatrix
         module procedure :: rotationMatrixReal64
     end interface
@@ -42,7 +47,8 @@ module ArrayClass
     end interface
 
     interface zeros
-        module procedure :: zerosRealArray, zerosRealVector,zerosRealArray3,zerosRealArray4,zerosRealArray5
+        module procedure :: zerosRealArray, zerosRealVector,zerosRealArray3,zerosRealArray4,zerosRealArray5,&
+            zerosRealArray_64, zerosRealVector_64,zerosRealArray3_64,zerosRealArray4_64,zerosRealArray5_64
     end interface
 
     interface increment
@@ -4393,6 +4399,7 @@ function shapeArray4Real(vector) result(ret)
     ret(3) = size(vector,3)
     ret(4) = size(vector,4)
 end function
+
 ! ############################################################
 
 function zerosRealVector(size1) result(vector)
@@ -4453,6 +4460,67 @@ function zerosRealArray5(size1, size2,size3,size4,size5) result(array)
 end function
 
 ! ############################################################
+
+! ############################################################
+
+function zerosRealVector_64(size1) result(vector)
+    integer(int64),intent(in) :: size1
+    real(real64),allocatable :: vector(:)
+
+    allocate(vector(size1) )
+    vector(:) = 0.0d0
+
+end function zerosRealVector_64
+
+!############################################################
+function zerosRealArray_64(size1, size2) result(array)
+    integer(int64),intent(in) :: size1, size2
+    real(real64),allocatable :: array(:,:)
+
+    allocate(array(size1, size2) )
+    array(:,:) = 0.0d0
+
+end function
+
+! ############################################################
+
+
+! ############################################################
+function zerosRealArray3_64(size1, size2,size3) result(array)
+    integer(int64),intent(in) :: size1, size2, size3
+    real(real64),allocatable :: array(:,:,:)
+
+    allocate(array(size1, size2,size3) )
+    array(:,:,:) = 0.0d0
+
+end function
+
+! ############################################################
+
+! ############################################################
+function zerosRealArray4_64(size1, size2,size3,size4) result(array)
+    integer(int64),intent(in) :: size1, size2,size3,size4
+    real(real64),allocatable :: array(:,:,:,:)
+
+    allocate(array(size1, size2, size3, size4) )
+    array(:,:, :, :) = 0.0d0
+
+end function
+
+! ############################################################
+
+! ############################################################
+function zerosRealArray5_64(size1, size2,size3,size4,size5) result(array)
+    integer(int64),intent(in) :: size1, size2,size3,size4,size5
+    real(real64),allocatable :: array(:,:,:,:,:)
+
+    allocate(array(size1, size2,size3,size4,size5) )
+    array(:,:,:,:,:) = 0.0d0
+
+end function
+
+! ############################################################
+
 
 ! ############################################################
 
@@ -5391,16 +5459,19 @@ function convolveReal64(f,g) result(ret)
         print *, "ERROR: convolution"
         stop
     endif
-    ret = zeros(size(f) )
+    ret = zeros(size(f)*2 )
     
-    do tau=1,size(f)
-        do t=1,size(g)
-            if(tau-t==0)cycle
-            ret(tau) = ret(tau) + f(t)*g(abs(tau-t))
+    !$OMP parallel do private(t)
+    do t=1,size(ret)
+        do tau=1,size(f)
+            if(t-tau<1 .or. t-tau>size(g)) cycle
+            ret(t) = ret(t) + f(tau)*g( t - tau )
         enddo
     enddo
+    !$OMP end parallel do
 end function
 ! ###############################################################
+
 
 ! ###############################################################
 function convolveComplex64(f,g) result(ret)
@@ -5412,21 +5483,64 @@ function convolveComplex64(f,g) result(ret)
         print *, "ERROR: convolution"
         stop
     endif
-    ret = zeros(size(f) )
+    ret = zeros(size(f)*2 )
     
-    do tau=1,size(f)
-        do t=size(g),1,-1
-            if(tau-t<0)then
-                ret(tau) = ret(tau) + f(t)*g( size(g) +tau-t )
-            elseif(tau-t>0)then
-                ret(tau) = ret(tau) + f(t)*g( tau-t )
-            else
-                cycle
-            endif
+    !$OMP parallel do private(t)
+    do t=1,size(ret)
+        do tau=1,size(f)
+            if(t-tau<1 .or. t-tau>size(g)) cycle
+            ret(t) = ret(t) + f(tau)*g( t - tau )
         enddo
     enddo
+    !$OMP end parallel do
 end function
 ! ###############################################################
+
+
+
+! ###############################################################
+function windowingReal64(f,g) result(ret)
+    real(real64),intent(in) :: f(:),g(:)
+    real(real64),allocatable :: ret(:)
+    integer(int32) :: tau,t
+    ! ret(\tau) = \Sigma f(t)g(\tau-t)
+    if(size(f)/=size(g) )then
+        print *, "ERROR: convolution"
+        stop
+    endif
+    ret = zeros(size(f))
+    !$OMP parallel do private(t)
+    do t=1,size(ret)
+        ret(t) = f(t)*g(t)
+    enddo
+    !$OMP end parallel do
+end function
+! ###############################################################
+
+
+! ###############################################################
+function windowingComplex64(f,g) result(ret)
+    complex(complex64),intent(in) :: f(:),g(:)
+    complex(complex64),allocatable :: ret(:)
+    integer(int32) :: tau,t
+
+    ! ret(\tau) = \Sigma f(t)g(\tau-t)
+    if(size(f)/=size(g) )then
+        print *, "ERROR: convolution"
+        stop
+    endif
+    ret = zeros(size(f) )
+    
+    !$OMP parallel do private(t)
+    do t=1,size(ret)
+        ret(t) = f(t)*g(t)
+    enddo
+    !$OMP end parallel do
+end function
+! ###############################################################
+
+
+
 
 ! ###############################################################
 function EigenValueJacobiMethod(A,x,tol) result(lambda)
@@ -5615,5 +5729,6 @@ function symmetric(A) result(ret)
 
 end function
 ! ###############################################################
+
 
 end module ArrayClass

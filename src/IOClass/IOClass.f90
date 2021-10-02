@@ -1230,9 +1230,9 @@ end subroutine
 subroutine printint64(in64)
     integer(int64),intent(in) :: in64
 
-    character(20) :: char
+    character(40) :: char
 
-    write(char, '(i15.7)') in64
+    write(char, *) in64
     write(*,'(A)' ) trim(adjustl(char))
 
 end subroutine
