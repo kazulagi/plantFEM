@@ -2177,8 +2177,15 @@ function HammingWindow(Width,DataSize) result(ret)
 	enddo
 
 end function
+! #######################################################################
+function log2(x) result(ret)
+	real(real64),intent(in) :: x
+	real(real64) :: ret
 
+	ret = log(x)/log(2.0d0)
 
+end function
+! #######################################################################
 
 
 end module MathClass

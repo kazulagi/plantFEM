@@ -5730,5 +5730,84 @@ function symmetric(A) result(ret)
 end function
 ! ###############################################################
 
+! ###############################################################
+function d_dx(x,fx) result(d_df)
+    real(real64),intent(in) :: x(:),fx(:)
+    real(real64),allocatable :: d_df(:)
+    !complex(complex64),allocatable :: fx_(:),fw(:),w(:),jwFw(:)
+    !complex(complex64) :: j = (0.0d0, 1.0d0)
+    integer(int32) :: i,n
+    real(real64) :: h
+
+    ! 2nd-order central differential
+    d_df = zeros(size(x) )
+    n = size(x)
+    
+    d_df(1) = 0.50d0*(fx(3) - fx(2) )/(x(3)-x(2) )+0.50d0*(fx(2) - fx(1) )/(x(2)-x(1) )
+    do i=2,size(x)-1
+        d_df(i) = 0.50d0*(fx(i+1) - fx(i) )/(x(i+1)-x(i) )+0.50d0*(fx(i) - fx(i-1) )/(x(i)-x(i-1) )
+    enddo
+    d_df(n) = 0.50d0*(fx(n) - fx(n-1) )/(x(n)-x(n-1) )+0.50d0*(fx(n-1) - fx(n-2) )/(x(n-1)-x(n-2) )
+
+
+!    ! take derivative by Fourier Transformation
+!    n = size(x)
+!    
+!    ! n = 2**m
+!    ! log_2 n = m
+!    a =log2( dble(n)) 
+!    if(a ==dble(int(a)))then
+!        ! n = 2**m
+!        print *, "n = 2**m"
+!        m = dble(int(a))
+!    else
+!        ! n /= 2**m
+!        print *, "n /= 2**m"
+!        m = dble(int(a)) + 1
+!    endif 
+!
+!
+!    fx_ = zeros(2**m)
+!    fw  = zeros(2**m)
+!    jwfw = zeros(2**m)
+!    fx_(1:n) = fx(1:n)
+!    d_df = zeros(n)
+!
+!    ! wmax = m/T, wmin = 0
+!    w = linspace([0.0d0 ,dble(m)/(maxval(x)-minval(x)) ],2**m)
+!
+!    !(1) f(x) -> F(w)
+!    Fw = FFT(fx_)
+!
+!    !(2) F(w) -> i*w*F(w)
+!    jwFw = j*w(:)*Fw(:)
+!
+!    !(3) f(x) <- i*w*F(w) 
+!    fx_ = IFFT(jwFw)
+!
+!    d_df(1:n) = real(fx_(1:n) )
+!
+!
+end function
+! ###############################################################
+
+! ###############################################################
+function I_dx(x,fx,f0) result(I_df)
+    real(real64),intent(in) :: x(:),fx(:),f0
+    real(real64),allocatable :: I_df(:)
+    integer(int32) :: i,n
+    real(real64) :: h
+
+    ! integral by Crank-Nicolson
+    I_df = zeros(size(x) )
+    n = size(x)
+    
+    I_df(1) = f0
+    do i=2,size(x)
+        I_df(i) = I_df(i-1) + 0.50d0*(fx(i) + fx(i-1) )*abs( x(i)-x(i-1) )
+    enddo
+
+end function
+! ###############################################################
 
 end module ArrayClass
