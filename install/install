@@ -19,6 +19,11 @@ mpif90 -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-module
 #echo " >> OouraFFT.o"
 #echo " | >                           | (0%)\r\c "
 #mpif90 -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/OouraFFT/OouraFFT.f90 -o  ./inc/OouraFFT.o
+echo "Compiling ./src/BitClass/BitClass.f90      "
+echo " >> BitClass.o"
+echo " | >                           | (0%)\r\c "
+mpif90 -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/BitClass/BitClass.f90 -o  ./inc/BitClass.o
+
 
 echo "Compiling ./src/StringClass/StringClass.f90      "
 echo " >> StringClass.o"
