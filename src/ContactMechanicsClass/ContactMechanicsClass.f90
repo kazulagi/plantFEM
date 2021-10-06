@@ -475,7 +475,7 @@ subroutine runCM(obj,penaltyparameter,debug,GaussPointProjection)
 	logical,optional,intent(in) :: GaussPointProjection
 	integer(int32) :: i,nod_max,nn,itr,fstep,j,k,l,o,GaussPointID
 	integer(int32) :: node_num_1,node_num_2,converge_check,error
-	type(IO_) :: ErrorLog
+	type(IO_) :: ErrorLog,f
 	real(real64) :: rvec0,u_norm,er,er0,reacforcex,reacforcey
 	
 	integer(int32) :: DomainID, ElementID,InterfaceID,NodeID
@@ -591,20 +591,38 @@ subroutine runCM(obj,penaltyparameter,debug,GaussPointProjection)
 								! For 1st element, create stiffness matrix
 						    	! set global coordinate
 
-								position(:) = domain1%GlobalPositionOfGaussPoint(ElementID,GaussPointID)
+								position = domain1%GlobalPositionOfGaussPoint(ElementID,GaussPointID)
+			
 								
-						    	
+								
 						    	if( domain2%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))<=0 )then
 						    	    cycle
 						    	endif
 								
-								InterConnect(1:domain1%nne() ) = domain1%connectivity(ElementID) 
+								InterConnect(1:domain1%nne() ) = domain1%connectivity(ElementID)
 						    	InterConnect(domain1%nne()+1:) &
 									= domain2%connectivity(domain2%mesh%nearestElementID(x=position(1),y=position(2),z=position(3) ))
-									
+								
+
 								sf = domain1%mesh%getShapeFunction(ElementID,GaussPointID)
-								A_ij = penalty*domain2%connectMatrix(position,DOF=domain2%nd(),shapefunction=sf ) 
+								!print *, "shapefunc"
+								!call print(matmul( transpose(sf%ElemCoord),sf%nmat) )
+
+								sf%ElementID=ElementID
+								
+								A_ij = penalty*domain2%connectMatrix(position,DOF=domain2%nd(),shapefunction=sf) 
+								!A_ij = penalty*domain2%connectMatrix(position,DOF=domain2%nd()) 
 						    	
+								!call f%open("Domain1.txt")
+								!!call f%write(A_ij)
+								!call f%close()
+								!call f%open("Domain1.txt")
+								!!call f%write(A_ij)
+								!call f%close()
+								
+								!stop
+								!stop
+								
 								! assemble them 
 						    	call obj%solver%assemble(&
 						    	    connectivity=InterConnect,&
