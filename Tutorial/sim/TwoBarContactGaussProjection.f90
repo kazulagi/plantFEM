@@ -18,7 +18,7 @@ call domains(2)%move(x=1.9d0)
 
 call domains(3)%create(meshtype="Cube3D",y_num=3,z_num=3)
 call domains(3)%resize(x=2.0d0,y=2.0d0,z=2.0d0)
-call domains(3)%move(x=3.9d0)
+call domains(3)%move(x=3.8d0)
 
 ! contact domain#1 => domain#2
 contactList(1,2) = 1
@@ -32,7 +32,7 @@ contact%YoungModulus(2) = 1000.0d0
 contact%YoungModulus(3) = 1000.0d0
 ! setup solver
 ! Caution >> GaussPointProjection=.true. >> bug exists.
-call contact%setup(penaltyparameter=1000.0d0,GaussPointProjection=.False.)
+call contact%setup(penaltyparameter=100000.0d0,GaussPointProjection=.true.)
 ! fix displacement
 
 call contact%fix(direction="x",disp= 0.0d0, DomainID=1,x_max=0.10d0)
@@ -50,5 +50,6 @@ call contact%updateMesh()
 call domains(1)%vtk("domains(1)_result")
 call domains(2)%vtk("domains(2)_result")
 call domains(3)%vtk("domains(3)_result")
+
 
 end

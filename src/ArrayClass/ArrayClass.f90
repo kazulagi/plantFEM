@@ -5651,22 +5651,186 @@ function EigenValueJacobiMethod(A,x,tol) result(lambda)
 
 end function
 ! ###############################################################
-
-function eigenValue(A,tol) result(lambda)
+function eigenValue(A,tol,ignore_caution) result(lambda)
     real(real64),intent(inout) :: A(:,:)
     real(real64),allocatable :: lambda(:)
     real(real64),optional,intent(in) :: tol
+    logical,optional,intent(in) :: ignore_caution
 
     if(symmetric(A) )then
         lambda = EigenValueJacobiMethod(A,tol=tol)
     else
         print *, "skew-symmetric [A] will be implemented."
+        if(present(ignore_caution) )then
+            if(ignore_caution)then
+                print *, "ignore_caution is true"
+                lambda = EigenValueJacobiMethod(A,tol=tol)
+            endif
+        endif
         stop
     endif
 
 end function
 ! ###############################################################
 
+! ###############################################################
+function eigenValueCOO(val,indexI,indexJ,tol,ignore_caution) result(lambda)
+    real(real64),intent(in) :: val(:),indexI(:),indexJ(:)
+    real(real64),allocatable :: lambda(:)
+    real(real64),optional,intent(in) :: tol
+    logical,optional,intent(in) :: ignore_caution
+
+    print *, "eigenValueCOO is not implemented yet."
+    !if( )then
+    !    lambda = EigenValueJacobiMethodCOO(val,indexI,indexJ,tol=tol)
+    !else
+    !    print *, "skew-symmetric [A] will be implemented."
+    !    if(present(ignore_caution) )then
+    !        if(ignore_caution)then
+    !            print *, "ignore_caution is true"
+    !            lambda = EigenValueJacobiMethod(A,tol=tol)
+    !        endif
+    !    endif
+    !    stop
+    !endif
+
+end function
+! ###############################################################
+
+
+! ###############################################################
+function EigenValueJacobiMethodCOO(val,indexI,indexJ,x,tol) result(lambda)
+    real(real64),intent(in) :: val(:),indexI(:),indexJ(:)
+    real(real64),allocatable :: lambda(:)
+    real(real64),optional,allocatable,intent(inout) :: x(:,:) ! Eigen Vector
+    real(real64),optional,intent(in) :: tol
+    real(real64),allocatable :: Ak(:),apj(:),aqj(:),aip(:),aiq(:),Gk(:,:)
+    real(real64)::apq_tr,theta,tan2theta,app,aqq,apq,loop_tol,akpp,akqq
+    integer(int32) :: n,p,q,i,j
+    logical :: convergence = .false.
+!
+!    if(present(tol) )then
+!        loop_tol = tol
+!    else
+!        loop_tol = 1.0e-14
+!    endif
+!    n = size(A,1)
+!
+!    lambda = zeros(n)
+!    
+!    apj = zeros(n)
+!    aqj = zeros(n) 
+!    aip = zeros(n) 
+!    aiq = zeros(n) 
+!
+!    if(present(x) )then
+!        Gk = zeros(n,n)
+!        x = zeros(n,n)
+!        do i=1,n
+!            Gk(i,i)=1.0d0
+!            x(i,i)=1.0d0
+!        enddo
+!        print *, "Eigen Value & Eigen Vector"
+!    endif
+!    
+!    Ak = val
+!    ! get eigen vector and eigen values
+!    ! by Jacobi Method
+!    do 
+!        ! find maxval
+!
+!        apq_tr = 0.0d0
+!        p=0
+!        q=0
+!        ! find
+!        do i=1,size(Ak,1)
+!            if( abs(Ak(i))>abs(apq_tr) .and. indexI(i)/=indexJ(i) )then
+!                p = indexI(i)
+!                q = indexJ(i)
+!                apq_tr = Ak(i)
+!            endif
+!        enddo
+!
+!        print *, p,q,apq_tr
+!        stop
+!
+!        if(abs(apq_tr)<= loop_tol)then
+!            exit
+!        endif
+!
+!        if(p*q==0)then
+!            print *, "ERROR :: JacobiMethod >> q*p =0"
+!            return
+!        endif
+!
+!        akpp=0.0d0
+!        do i=1,size(indexI)
+!            if(indexI(i)==p .and.indexJ(i)==q  )then
+!                akpp = val(i)        
+!                exit
+!            endif
+!        enddo
+!        akqq=0.0d0
+!        do i=1,size(indexI)
+!            if(indexI(i)==p .and.indexJ(i)==q  )then
+!                akqq = val(i)        
+!                exit
+!            endif
+!        enddo
+!        
+!        tan2theta = - 2.0d0*Ak(i)/( Akpp - Akqq )
+!
+!        theta = 0.50d0*atan(tan2theta)
+!        !theta = 0.50d0*acos(sqrt(1.0d0/(1.0d0+tan2theta*tan2theta) ) )
+!        
+!        do i=1,size(indexI)
+!            if(indexI(i)==p  )then
+!                
+!                exit
+!            endif
+!        enddo
+!
+!        apj(:) = Ak(p,:)*cos(theta) - Ak(q,:)*sin(theta)
+!
+!        aqj(:) = Ak(p,:)*sin(theta) + Ak(q,:)*cos(theta)
+!        aip(:) = Ak(:,p)*cos(theta) - Ak(:,q)*sin(theta) 
+!        aiq(:) = Ak(:,p)*sin(theta) + Ak(:,q)*cos(theta) 
+!        app = Ak(p,p)*cos(theta)*cos(theta) + Ak(q,q)*sin(theta)*sin(theta)&
+!            - 2.0d0*Ak(p,q)*cos(theta)*sin(theta)
+!        aqq = Ak(q,q)*cos(theta)*cos(theta) + Ak(p,p)*sin(theta)*sin(theta)&
+!            + 2.0d0*Ak(p,q)*cos(theta)*sin(theta)
+!        !apq = 0.50d0*(Ak(p,p) - Ak(q,q) )*sin(2.0d0*theta) + Ak(p,q)*cos(2.0d0*theta)
+!
+!        Ak(p,:) = apj(:)
+!        Ak(q,:) = aqj(:)
+!        Ak(:,p) = aip(:)
+!        Ak(:,q) = aiq(:)
+!        Ak(p,p) = app
+!        Ak(q,q) = aqq
+!        Ak(p,q) = 0.0d0
+!        Ak(q,p) = 0.0d0
+!
+!
+!        ! use Gk matrix
+!        if(present(x) )then
+!            do i=1,n
+!                Gk(i,i) = 1.0d0
+!            enddo
+!            Gk(p,p) = cos(theta)
+!            Gk(p,q) = sin(theta)
+!            Gk(q,p) = -sin(theta)
+!            Gk(q,q) = cos(theta)
+!            X = matmul(X,Gk)
+!        endif
+!
+!    enddo
+!
+!    do i=1,n
+!        lambda(i) = Ak(i,i)
+!    enddo
+
+end function
+! ###############################################################
 subroutine eigenValueAndVector(A,lambda,x,tol) 
     real(real64),intent(inout) :: A(:,:)
     real(real64),allocatable,intent(out) :: lambda(:),x(:,:)

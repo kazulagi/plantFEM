@@ -8592,7 +8592,7 @@ function getGlobalPositionOfGaussPointFEMDomain(obj,ElementID,GaussPointID) resu
 	sf = obj%mesh%getShapeFunction(ElementID,GaussPointID)
 
 	ret = zeros(size(center) )
-	ret(:) = matmul( transpose(sf%elemcoord) , sf%nmat ) + center(:)
+	ret(:) = matmul( transpose(sf%elemcoord) , sf%nmat ) !+ center(:)
 	
 end function
 ! ######################################################################
@@ -8644,7 +8644,12 @@ recursive function getShapeFunctionFEMDomain(obj, ElementID,GaussPointID,Reduced
 		sobj%NumOfDim  = obj%nd()  !ok
 		sobj%gzi       = obj%getLocalCoordinate(ElementID=sobj%ElementID,x=x,y=y,z=z)
 		sobj%Nmat      = zeros(obj%nne() )  !ok
+		sobj%ElemCoord = zeros(obj%nne(),obj%nd() )
+		
 		call sobj%getOnlyNvec() !ok
+		do i=1,obj%nne()
+			sobj%ElemCoord(i,1:obj%nd() ) = obj%mesh%nodcoord(obj%mesh%elemnod(sobj%elementID,i),1:obj%nd() )
+		enddo
 	endif
 end function
 ! ######################################################################
@@ -9895,19 +9900,29 @@ end subroutine
 
 
 ! ###################################################################
-function ConnectMatrixFEMDomain(obj,position,DOF,shapefunction) result(connectMatrix)
+function ConnectMatrixFEMDomain(obj,position,DOF,shapefunction,strict) result(connectMatrix)
 	class(FEMDomain_),intent(inout) :: obj
 	type(ShapeFunction_),optional,intent(in) :: shapefunction
 	type(ShapeFunction_) :: sobj
 	real(real64),intent(in) :: position(:)
 	integer(int32),intent(in) :: DOF
+	logical,optional,intent(in) :: strict
 	real(real64),allocatable :: connectMatrix(:,:),cm_DOF1(:,:),Rcvec(:),Bc(:,:)
 	integer(int32) :: i,j,n
 
 	
 	if(present(shapefunction) )then
 		! Gauss-Point Projection
+		! shapefunction=domain1: for 1 gauss point
+		! obj = domain#2, nodes
+		! sobj = domain#2, shape function
+		! position : domain#1 gauss point
+		
+		! 
+
+		! domain#2
 		sobj = obj%getShapeFunction(position=position)
+
 		n = (obj%nne()+size(shapefunction%nmat,1) ) * DOF
 		
 		if(sobj%elementid == -1)then
@@ -9922,25 +9937,58 @@ function ConnectMatrixFEMDomain(obj,position,DOF,shapefunction) result(connectMa
 		!	BC(i,i) = 1.0d0
 		!enddo
 
-		allocate(Rcvec(n) )
+		!allocate(Rcvec(n) )
 		! <    Domain #1    > <    Domain #2    >
-		! (N1 0  0 N2 0  0 ... N1 0  0 N2 0  0 ...   )
-		! (0  N1 0 0  N2 0 ... 0  N1 0 0  N2 0 ...   )
-		! (0  0 N1 0  0 N2 ... 0  0 N1 0  0 N2 ...   )
+		! (N1 0  0 N2 0  0 ... -N1 0  0 -N2 0  0 ...   )
+		! (0  N1 0 0  N2 0 ... 0  -N1 0 0  -N2 0 ...   )
+		! (0  0 N1 0  0 N2 ... 0  0 -N1 0  0 -N2 ...   )
+		if(present(strict) )then
+			if(strict)then
+				if(maxval(shapefunction%nmat(:))>1.0d0 .or. minval(shapefunction%nmat(:))<-1.0d0)then
+					print *, "connectMatrix ERROR :::strict shape function is out of range"
+					stop
+				endif
+			endif
+		endif
+
+		if(present(strict) )then
+			if(strict)then
+				if(maxval(sobj%nmat(:))>1.0d0 .or. minval(sobj%nmat(:))<-1.0d0)then
+					print *, "connectMatrix ERROR :::strict shape function is out of range"
+					stop
+				endif
+			endif
+		endif
 
 		! \epsilon \int_{x_e} Bc^T Bc detJ d x_e = 0
 		do i=1,size(shapefunction%nmat)
 			do j=1,DOF
-				Bc(j, (i-1)*DOF + j ) = shapefunction%nmat(i)
+				Bc(j, (i-1)*DOF + j ) =Bc(j, (i-1)*DOF + j )+ shapefunction%nmat(i)
 			enddo
 		enddo
+		
+
+
 		do i=1,size(sobj%nmat)
 			do j=1,DOF
-				Bc(j, size(shapefunction%nmat)*DOF + (i-1)*DOF + j ) = - sobj%nmat(i)
+				Bc(j, size(shapefunction%nmat)*DOF + (i-1)*DOF + j ) =&
+					Bc(j, size(shapefunction%nmat)*DOF + (i-1)*DOF + j )  - sobj%nmat(i)
 			enddo
 		enddo
+		!print *, "position"
+		!print *, position
+		!print *, "shapefunction #1"
+		!print *,shapefunction%nmat(:)
+		!call print(shapefunction%ElemCoord)
+		!call print(matmul(transpose(shapefunction%ElemCoord),shapefunction%nmat))
+		
+		!print *, "sobj #2"
+		!print *,sobj%nmat(:)
+		!call print(sobj%ElemCoord)
+		!call print(matmul(transpose(sobj%ElemCoord),sobj%nmat))
 
 		connectMatrix = matmul( transpose(Bc),Bc  )*shapefunction%detJ
+		
 		return
 	
 	else
@@ -9958,11 +10006,11 @@ function ConnectMatrixFEMDomain(obj,position,DOF,shapefunction) result(connectMa
 		do i=1,DOF
 			BC(i,i) = 1.0d0
 		enddo
-		allocate(Rcvec(n) )
-		Rcvec(1:DOF) = 1.0d0
+		!allocate(Rcvec(n) )
+		!Rcvec(1:DOF) = 1.0d0
 		do i=1,size(sobj%nmat)
 			do j=1,DOF
-				Rcvec(DOF+ (i-1)*DOF + j) = - sobj%nmat(i)
+				!Rcvec(DOF+ (i-1)*DOF + j) = - sobj%nmat(i)
 				Bc(j, i*DOF + j ) = - sobj%nmat(i)
 			enddo
 		enddo

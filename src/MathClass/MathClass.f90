@@ -17,11 +17,13 @@ module MathClass
 
 	type :: Math_
 		real(real64) :: PI = 3.141592653589793d0
+		real(real64) :: E  = 2.718281828459045d0
 		complex(kind(0d0))	 :: i = (0.0d0, 1.0d0)
 		complex(kind(0d0))	 :: j = (0.0d0, 1.0d0)
 	end type
 
-	integer(int32),parameter :: complex64 = kind(0d0)
+
+	integer(int32),parameter :: complex64 = real64
 	!real(real64) :: pi=3.141592653589793238d0
 	!
 

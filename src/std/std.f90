@@ -1,6 +1,8 @@
 module std
     use, intrinsic :: iso_fortran_env
     use uuid_module
+    use PhysicalConstantsClass
+    use BitClass
     use StringClass
     use TimeClass
     use TermClass
