@@ -71,19 +71,19 @@ class CreateObject(bpy.types.Operator):
         return {'FINISHED'}
 
 # オブジェクト（ICO球）を生成するオペレーション
-class installSiCroF(bpy.types.Operator):
+class installplantFEM(bpy.types.Operator):
 
     bl_idname = "object.create_object3"
     bl_label = "install"
-    bl_description = "install_SiCroF"
+    bl_description = "install_plantFEM"
     bl_options = {'REGISTER', 'UNDO'}
     #bl_region_type= "TOOLS"
 
     # メニューを実行した時に呼ばれる関数
     def execute(self, context):
-        sys.path.append("/home/haruka/SiCroF/")
-        os.chdir("/home/haruka/SiCroF/")
-        exec(open("/home/haruka/SiCroF/install.py").read() )
+        sys.path.append("/home/haruka/plantFEM/")
+        os.chdir("/home/haruka/plantFEM/")
+        exec(open("/home/haruka/plantFEM/install.py").read() )
         os.system("jupyter-notebook")
         return {'FINISHED'} 
 
@@ -109,7 +109,7 @@ def menu_fn(self, context):
     self.layout.separator()
     self.layout.operator(CreateObject.bl_idname)
     self.layout.operator(CreateObject2.bl_idname)
-    self.layout.operator(installSiCroF.bl_idname)
+    self.layout.operator(installplantFEM.bl_idname)
 
 
 # アドオン有効化時の処理

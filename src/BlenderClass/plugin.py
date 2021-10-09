@@ -1,5 +1,5 @@
 import os
 import sys
 
-os.chdir("~/SiCroF")
+os.chdir("~/plantFEM")
 exec(open("install.py").read())

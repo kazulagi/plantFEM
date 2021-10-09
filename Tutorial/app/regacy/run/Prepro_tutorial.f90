@@ -17,10 +17,10 @@ program Preprocessing
 
     ElemType = "LinearRectangularGp4"
 
-    name1="/home/haruka/SiCroF/Tutorial/LeafImageData/grass_traced.png"
-    name2="/home/haruka/SiCroF/Tutorial/LeafImageData/grass_traced.png"
-    name3="/home/haruka/SiCroF/Tutorial/LeafImageData/grass_traced.png"
-    name4="/home/haruka/SiCroF/Tutorial/LeafImageData/grass_traced.png"
+    name1="./your_leaf_picture.png"
+    name2="./your_leaf_picture.png"
+    name3="./your_leaf_picture.png"
+    name4="./your_leaf_picture.png"
 
     ! load file names
     call InfileList%Init(4) ! Constractor

@@ -3,8 +3,7 @@
 echo "-----------------"
 echo "    "
 echo "    "
-echo "SiCroF is installing ..."
-echo "(c) Haruka Tomobe 2020 All Rights Reserved"
+echo "Installing plantFEM (21.10)"
 echo "    "
 echo "    "
 echo "-----------------"
@@ -18,6 +17,17 @@ echo "Compiling ./src/StringClass/StringClass.f90      "
 echo " >> StringClass.o"
 echo " | >                           | (0%)\r\c "
 gfortran -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/StringClass/StringClass.f90 -o  ./inc/StringClass.o
+
+echo "Compiling ./src/BitClass/BitClass.f90      "
+echo " >> BitClass.o"
+echo " | >                           | (0%)\r\c "
+gfortran -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/BitClass/BitClass.f90 -o  ./inc/BitClass.o
+
+echo "Compiling ./src/PhysicalConstantsClass/PhysicalConstantsClass.f90      "
+echo " >> PhysicalConstantsClass.o"
+echo " | >                           | (0%)\r\c "
+gfortran -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PhysicalConstantsClass/PhysicalConstantsClass.f90 -o  ./inc/PhysicalConstantsClass.o
+
 echo "Compiling ./src/TimeClass/TimeClass.f90      "
 echo " >> TimeClass.o"
 echo " | >                           | (0%)\r\c "
@@ -243,10 +253,6 @@ echo "Compiling ./src/SimulatorClass/SimulatorClass.f90"
 echo " >> SimulatorClass.o"
 echo " | ===================>        | (87%)\r\c"
 gfortran -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SimulatorClass/SimulatorClass.f90 -o  ./inc/SimulatorClass.o
-echo "Compiling ./src/SiCroFClass/SiCroFClass.f90" 
-echo " >> SiCroFClass.o"
-echo " | ===================>        | (87%)\r\c"
-gfortran -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SiCroFClass/SiCroFClass.f90 -o  ./inc/SiCroFClass.o
 echo "Compiling ./src/sim/sim.f90" 
 echo " >> sim.o "
 echo " | ===================>        | (88%)\r\c"
@@ -380,9 +386,6 @@ mkdir -p home
 #cp ipynb/* .
 #echo "    "
 
-#echo "#!/bin/sh" > sicrof
-#echo "cd /home/haruka/SiCroF" >> sicrof
-#echo "python3 SiCroF.py" >> sicrof
 end_time=`date +%s%3N`
 time=$((end_time - start_time)) 
 NANOTIME=`echo "scale=3; ($time)/1000" | bc`

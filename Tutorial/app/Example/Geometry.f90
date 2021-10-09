@@ -1,5 +1,5 @@
 program main
-    use SiCroF
+    use plantfem
     implicit none
 
     type(Triangle_) :: tri

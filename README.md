@@ -83,7 +83,7 @@
 | Python |  3.4 or later |
 
 
-| Dependancies (Installed by setup.py) | version, info |
+| Dependancies (Installed by setup/setup.py) | version, info |
 | ---- | ---- | 
 | gcc | 6.4.0 or later |
 | gfortran | 4.8.0 or later (Fortran 2003 or later) |
@@ -243,7 +243,6 @@ soy.run(path="./plantfem")
 
 
 Plant simulator based on Finite Element Method (FEM).
-(Renamed from its old name "SiCroF")
 
 - Tutorial:
 [Click here!](https://kazulagi.github.io/pf/)
@@ -337,7 +336,7 @@ sudo apt install git
 git clone https://gitlab.com/kazulagi/plantfem.git
 cd plantfem
 sudo apt install python3
-python3 setup.py
+python3 setup/setup.py
 jupyter-notebook
 ```
 
@@ -361,7 +360,7 @@ brew install git
 git clone https://gitlab.com/kazulagi/plantfem.git
 cd plantfem
 brew install python3
-python3 setup.py
+python3 setup/setup.py
 jupyter-notebook
 ```
 
@@ -391,7 +390,7 @@ sudo apt install git
 git clone https://gitlab.com/kazulagi/plantfem.git
 cd plantfem
 sudo apt install python3
-python3 setup.py
+python3 setup/setup.py
 ```
 
 (4) Open CLI mode of plantFEM
@@ -654,7 +653,6 @@ Ex.2 :: 3-D thermal diffusion simulation of a grass leaf.
 - Developing Contact Mechanics Class.
 - Developing All shape-functions for the preparation of space-time class
 - Add-on for Blender
-- Bugfix for preprocessingclass & PySiCroF
 - Use opencv-python as a imaging library instead of PIL.
 - Caution:: convertMeshType may have some bags: jacobian may be negative.
 

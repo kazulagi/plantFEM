@@ -1,10 +1,10 @@
 import os
 import sys
-import src.PySiCroFClass.SiCroF
+import src.PyplantFEMClass.plantFEM
 
 
 # Creating instance
-bar1=src.PySiCroFClass.SiCroF.SiCroF()
+bar1=src.PyplantFEMClass.plantFEM.plantFEM()
 bar1.prepro.importDomain("1ontact_1_")
 bar1.prepro.rotate(X=10.0,Y=-20.0, Z=-10.0)
 bar1.prepro.move(X=10.0,Y=-20.0, Z=-10.0)
@@ -45,9 +45,9 @@ for i in range(10):
 #os.system("echo '0' > Debug_Ifacelist.txt")
 #
 #
-## set Domain-List (.scf-formatted input files for SiCroF)
+## set Domain-List (.scf-formatted input files for plantFEM)
 #world.solver.importDomains("Debug_domainlist.txt")
-## set Iinterface-List (.scf-formatted input files for SiCroF)
+## set Iinterface-List (.scf-formatted input files for plantFEM)
 #world.solver.importInterfaces("Debug_Ifacelist.txt")
 ## setup simulation-time
 #world.solver.setSimulationTime(1.00)

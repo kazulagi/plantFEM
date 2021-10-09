@@ -13,6 +13,5 @@ module sim
     use PoromechanicsClass
     use FieldClass
     use SimulatorClass
-    use SiCroF
     implicit none
 end module sim

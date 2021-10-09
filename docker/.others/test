@@ -1,2 +1,0 @@
-RUN apt install -y gfortran
-RUN apt install -y code

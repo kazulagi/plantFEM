@@ -1,3 +1,0 @@
-#!/bin/sh
-
-docker run -it --rm -v $PWD:/home/guest/work --name jupyter_blog -p 8888:8888 jupn

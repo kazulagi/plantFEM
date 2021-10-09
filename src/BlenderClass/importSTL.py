@@ -8,7 +8,7 @@ bl_info = {
     "location" : "3DVIEW > ADD > MESH ",   # Blender内部でのプラグインの位置づけ
     "description" : "importing STL object",   # プラグインの説明
     "warning" : "",
-    "wiki_url" : "https://github.com/kazulagi/SiCroF",                    # プラグインの説明が存在するWikiページのURL
+    "wiki_url" : "https://github.com/kazulagi/plantFEM",                    # プラグインの説明が存在するWikiページのURL
     "tracker_url" : "",                 # Blender Developer OrgのスレッドURL
     "support": "TESTING",
     "category" : "Object"                   # プラグインのカテゴリ名

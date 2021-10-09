@@ -101,7 +101,6 @@ link_directories(${MPI_Fortran_LIBRARIES})
 #add_library(WaterAbsorptionClass ./src/WaterAbsorptionClass/WaterAbsorptionClass.f90)
 #add_library(FieldClass ./src/FieldClass/FieldClass.f90)
 #add_library(SimulatorClass ./src/SimulatorClass/SimulatorClass.f90)
-#add_library(SiCroFClass ./src/SiCroFClass/SiCroFClass.f90)
 #add_library(sim ./src/sim/sim.f90)
 #add_library(DigitalElevationModelClass ./src/DigitalElevationModelClass/DigitalElevationModelClass.f90)
 #add_library(BoringClass ./src/BoringClass/BoringClass.f90)
@@ -189,7 +188,6 @@ add_executable(${EXECUTABLE}
 ./src/WaterAbsorptionClass/WaterAbsorptionClass.f90
 ./src/FieldClass/FieldClass.f90
 ./src/SimulatorClass/SimulatorClass.f90
-./src/SiCroFClass/SiCroFClass.f90
 ./src/sim/sim.f90
 ./src/DigitalElevationModelClass/DigitalElevationModelClass.f90
 ./src/BoringClass/BoringClass.f90

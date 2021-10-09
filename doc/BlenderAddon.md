@@ -1,12 +1,12 @@
-# How to use Blender Add-on for SiCroF
+# How to use Blender Add-on for plantFEM
+(Caution!! It is regacy!)
 
-
-## 0. Install SiCroF. 
+## 0. Install plantFEM. 
 ```
 (i) Click [Scripting] > [Open] 
 
 
-(ii) Select "blSiCroFinstall.py" and click [Open text]
+(ii) Select "blplantFEMinstall.py" and click [Open text]
 
 
 (iii) Click [Run script]
@@ -89,13 +89,13 @@ timestep
 
 
 
-## 6. Export SiCroF script.
+## 6. Export plantFEM script.
 
 ```
 (i) Click [Scripting] > [Open] 
 
 
-(ii) Select "blSiCroFexport.py" and click [Open text]
+(ii) Select "blplantFEMexport.py" and click [Open text]
 
 
 (iii) Click [Run script]
@@ -107,7 +107,7 @@ timestep
 (i) Click [Scripting] > [Open] 
 
 
-(ii) Select "blSiCroFrun.py" and click [Open text]
+(ii) Select "blplantFEMrun.py" and click [Open text]
 
 
 (iii) Click [Run script]

@@ -1,3 +1,0 @@
-/home/haruka/plantFEM/install/CMakeFiles/rebuild_cache.dir
-/home/haruka/plantFEM/install/CMakeFiles/edit_cache.dir
-/home/haruka/plantFEM/install/CMakeFiles/plantfem.dir

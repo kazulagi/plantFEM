@@ -131,7 +131,7 @@ class plantfem:
 #                os.system("git clone https://github.com/kazulagi/plantfem.git")
 #                cdir = os.getcwd()
 #                os.chdir("./plantfem")
-#                os.system("python3 setup.py")
+#                os.system("python3 setup/setup.py")
 #                os.system("./plantfem install")
 #                os.chdir(cdir)
 #                os.system("mpif90 "+path+"/inc/*o server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path "+path+"/inc/")
@@ -141,7 +141,7 @@ class plantfem:
 #                print("Aborted. Please install plantfem by")
 #                print("     git clone https://github.com/kazulagi/plantfem.git")
 #                print("     cd ./plantfem")
-#                print("     python3 setup.py")
+#                print("     python3 setup/setup.py")
 #                print("     ./plantfem install")
 #
 #                
