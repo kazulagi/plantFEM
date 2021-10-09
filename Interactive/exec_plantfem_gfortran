@@ -1,0 +1,125 @@
+#!/bin/zsh 
+
+echo ">"
+echo "plantFEM >> Fortran Interactive mode for Linux & OS X... "
+echo "Here, fortran script runs with  plantFEM-kernel."
+echo "You can debug your code with plantFEM-API"
+echo "  "
+echo ">"
+echo ">"
+echo "Initializing ..."
+numcore=1
+exitc="exit"
+man="man"
+man1="man plantFEM"
+man2="man plantFEM"
+hostfile=""
+cpucore="cpu-core"
+install="install"
+compress="compress"
+mpif90="gfortran"
+intel="intel"
+ls="ls"
+f90="f90"
+run="run"
+
+echo "If this is the first time, please type 'install' and press ENTER"
+echo "Please input fortran script *.f90 | or check manual by 'man'  "
+echo "Compiler :: gfortran >> Not Available NOW"
+echo "  "
+ 
+
+while :
+do
+
+    #echo "Please input fortran script *.f90 | or check manual by 'man'  "
+    echo -n ">>> "
+    read command 
+
+
+    if [ $command = $intel ]; then
+        mpifort="mpiifort"
+        install="install_ifort"
+        echo "Intel fortran will be used."
+        continue
+    fi
+
+    if [ $command = "hostfile" ]; then
+        echo "Filepath of hostfile is : "
+        read hostfile
+        echo "Current hostfile is : $hostfile"
+        continue
+    fi
+
+    if [ $command = "gcc" ]; then
+        mpifort="mpifort"
+        install="install"
+        echo "GCC fortran will be used."
+        continue
+    fi
+
+    if [ $command = $exitc ]; then
+        exit 0
+    fi
+    if [ $command = $man ]; then
+        less ".man_plantFEM"
+        continue
+    fi
+    if [ $command = $man1 ]; then
+        less ".man_plantFEM"
+        continue
+    fi
+    if [ $command = $man2 ]; then
+        less ".man_plantFEM"
+        continue
+    fi
+    if [ $command = "install" ]; then
+        ./install/"$install"
+        echo "Compiled by gfortran"
+        continue
+    fi
+    if [ $command = $compress ]; then
+        ./bin/compress
+        continue
+    fi
+    if [ $command = $run ]; then
+        ./bin/run
+        continue
+    fi
+    if [ $command = $ls ]; then
+        echo " "
+        pwd
+        echo " "
+        ls
+        echo " "
+        continue
+    fi
+    if [ $command = $cpucore ]; then
+        echo "Current num of cpu-core is :: 1 "
+        echo "Please input num of cpu-core"
+        read numcore
+        echo "Current num of cpu-core is :: 1 "
+        continue
+    fi
+
+    EXTENSION=${command##*.}
+    echo "extension is $EXTENSION"
+    if [ $EXTENSION = $f90 ]; then
+        echo ">"
+        $mpif90 inc/*o $command 
+        echo "Current num of cpu-core is :: $numcore "
+
+        if [ $hostfile != "" ]; then
+            echo "hostfile is activated."
+            ./a.out
+            continue
+        fi
+
+        ./a.out 
+        continue
+    fi
+
+    echo "$command"
+    $command
+done    
+

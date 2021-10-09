@@ -1,5 +1,4 @@
 #!/bin/sh
-cp CMakeLists.txt ./bin/
 rm hostfile
 rm ./GetPixcel*.py
 rm ./DBCGetPixcelSize*.py
@@ -14,7 +13,6 @@ rm *.scf~
 rm fort.*
 rm *.ipynb
 rm *.mesh
-rm PySiCroF.py
 mv *.f90 log/
 mv *.geo RESULTS/
 mv *.msh RESULTS/
@@ -31,12 +29,10 @@ rm -f ./inc/*.mod
 rm -f *.gp
 rm Home
 rm Desktop
-rm sicrof
 rm ./server.f90
 rm ./tmp/*
 touch ./server.f90
 rm ./inc/*.so
 echo "1" > etc/cpucore
-cp ./bin/CMakeLists.txt CMakeLists.txt
 clear
 ls

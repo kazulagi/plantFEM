@@ -167,7 +167,7 @@ def add_object_button(self, context):
 
 # This allows you to right click on a button and link to documentation
 def add_object_manual_map():
-    url_manual_prefix = "https://github.com/kazulagi/SiCroF"
+    url_manual_prefix = "https://github.com/kazulagi/plantFEM"
     url_manual_mapping = (
         ("bpy.ops.mesh.add_object", "scene_layout/object/types.html"),
     )

@@ -1,0 +1,50 @@
+This is a brief mannual of the interactive shell of plantFEM.
+
+Commands:
+
+(0) For installation/update >>
+    install :: compile all modules
+    update  :: update plantFEM
+
+(1) Create new script
+    new     :: create a template or a plain script. Give it a try.
+    search  :: search sample codes with a keyword
+    load <filename>   :: load file as a Fortran script
+
+(2) For debug >>
+    - :: compile only 1 module. Type - [Enter], and write your debugged module name.
+    
+
+(3) Initialize plantFEM
+    compress :: remove files and initialize plantFEM
+
+(4) For changing compiler >>
+    intel :: use Intel-Fortran compiler (Not recommended)
+
+(5) Set-up hostfile for MPI >>
+    hostfile :: set hostfile (if just press ENTER, no hostfile is set.)
+
+(6) Exit >>
+    exit :: get out from this mode.
+
+(7) Others >>
+
+    >>>    :: (Only for WSL) send file to Desktop of Windows
+    tutorial :: start tutorial
+    goback :: go back to plantFEM/
+    gb     :: go back to plantFEM/
+    pick   :: copy file to plantFEM/
+    cpu-core :: change number of cpu-core
+
+    The following text-editors are available.
+    vim, vi, emacs, vscode, nano
+
+    The following UNIX commands are available.
+    ls, cp, cd, grep, rm, touch, mkdir
+
+    addon :: Enable your Add-on
+
+
+Press q to close this window.
+    
+

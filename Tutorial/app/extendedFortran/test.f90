@@ -1,5 +1,5 @@
 program main
-    use SiCroF
+    use plantfem
     implicit none
     integer,parameter :: n = 10000
     type(Random_) :: random

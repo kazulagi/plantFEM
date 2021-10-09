@@ -1,5 +1,5 @@
 program rotate
-   use SiCroF
+   use plantfem
    implicit none
    type(FEMDomain_)::obj
    obj%import(OptionalProjectName='1ontact_1_.scf')

@@ -1,9 +1,9 @@
 import os
 import sys
-import src.PySiCroFClass.SiCroF
+import src.PyplantFEMClass.plantFEM
 
 # Creating instance
-world=src.PySiCroFClass.SiCroF.SiCroF()
+world=src.PyplantFEMClass.plantFEM.plantFEM()
 
 #### Pre-Processing ####
 #world.prepro.setNumOfCore(1)
@@ -32,9 +32,9 @@ os.system("echo 'FEMDomain1.scf' >> Debug_domainlist.txt")
 os.system("touch Debug_Ifacelist.txt")
 os.system("echo '0' > Debug_Ifacelist.txt")
 
-# set Domain-List (.scf-formatted input files for SiCroF)
+# set Domain-List (.scf-formatted input files for plantFEM)
 world.solver.importDomains("Debug_domainlist.txt")
-# set Iinterface-List (.scf-formatted input files for SiCroF)
+# set Iinterface-List (.scf-formatted input files for plantFEM)
 world.solver.importInterfaces("Debug_Ifacelist.txt")
 # setup simulation-time
 world.solver.setSimulationTime(1.00)

@@ -1,10 +1,10 @@
 bl_info = {
-    "name": "STL Object",
+    "name": "plantFEM (World)",
     "author": "Haruka Tomobe",
     "version": (1, 0),
     "blender": (2, 80, 0),
-    "location": "View3D > Add > Mesh > STL Object",
-    "description": "Adds a new STL Object",
+    "location": "View3D > Add > Mesh > plantFEM Object",
+    "description": "Adds a new plantFEM Object",
     "warning": "",
     "wiki_url": "",
     "category": "Add Mesh",
@@ -37,13 +37,14 @@ def add_object(self, context):
     # useful for development when the mesh may be invalid.
     # mesh.validate(verbose=True)
     object_data_add(context, mesh, operator=self)
-
+    
 
 class OBJECT_OT_add_object(Operator, AddObjectHelper):
     """Create a new Mesh Object"""
     bl_idname = "mesh.add_object"
-    bl_label = "Add STL Object"
+    bl_label = "Add Mesh Object"
     bl_options = {'REGISTER', 'UNDO'}
+
 
     scale: FloatVectorProperty(
         name="scale",
@@ -54,9 +55,6 @@ class OBJECT_OT_add_object(Operator, AddObjectHelper):
 
     def execute(self, context):
         
-        bpy.ops.import_mesh.stl(filepath="/home/haruka/test/soil.stl")
-        bpy.ops.import_mesh.stl(filepath="/home/haruka/test/seed.stl")
-        bpy.ops.import_mesh.stl(filepath="/home/haruka/test/test.stl")
         #add_object(self, context)
 
         return {'FINISHED'}
@@ -67,13 +65,13 @@ class OBJECT_OT_add_object(Operator, AddObjectHelper):
 def add_object_button(self, context):
     self.layout.operator(
         OBJECT_OT_add_object.bl_idname,
-        text="Add STL-Object",
+        text="plantFEM World",
         icon='PLUGIN')
 
 
 # This allows you to right click on a button and link to documentation
 def add_object_manual_map():
-    url_manual_prefix = "https://github.com/kazulagi/plantFEM"
+    url_manual_prefix = "https://docs.blender.org/manual/en/latest/"
     url_manual_mapping = (
         ("bpy.ops.mesh.add_object", "scene_layout/object/types.html"),
     )
@@ -92,7 +90,10 @@ def unregister():
     bpy.types.VIEW3D_MT_mesh_add.remove(add_object_button)
 
 
-
-
 if __name__ == "__main__":
     register()
+    bpy.context.scene.world["timestep"]=1
+    bpy.context.scene.world["dt"]=float(1)
+    bpy.context.scene.world["Display"]="true"
+    bpy.context.scene.world["nr_tol"]=float(0.01)
+    bpy.context.scene.world["interval"]=int(10)

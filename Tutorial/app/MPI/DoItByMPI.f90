@@ -1,5 +1,5 @@
 program main
-    use std ! use standard libary of SiCroF
+    use std ! use standard libary of plantfem
     implicit none
     ! start
     type(MPI_) :: mpid

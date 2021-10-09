@@ -1,5 +1,5 @@
 program main
-    use std ! standard package of SiCroF library
+    use std ! standard package of plantFEM library
     implicit none
 
     ! This example utilizes Array Class, where

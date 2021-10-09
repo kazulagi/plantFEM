@@ -20,7 +20,6 @@ mv *.scf~ tmp/
 mv fort.* tmp/
 mv *.ipynb tmp/
 mv *.mesh tmp/
-mv PySiCroF.py tmp/
 mv *.f90 tmp/
 mv *.geo tmp/
 mv *.msh tmp/
@@ -37,7 +36,6 @@ mv -f ./inc/*.mod tmp/
 mv -f *.gp tmp/
 mv Home tmp/
 mv Desktop tmp/
-mv sicrof tmp/
 mv ./server.f90 tmp/
 
 mv ./inc/*.so tmp/
@@ -62,7 +60,6 @@ git pull origin master
 #mv tmp/fort.* .
 #mv tmp/*.ipynb .
 #mv tmp/*.mesh .
-#mv tmp/PySiCroF.py .
 #mv tmp/*.f90 .
 #mv tmp/*.geo .
 #mv tmp/*.msh .
@@ -79,7 +76,6 @@ git pull origin master
 #mv tmp/-f *.gp .
 #mv tmp/Home .
 #mv tmp/Desktop .
-#mv tmp/sicrof .
 #mv tmp/./server.f90 .
 #mv tmp/./inc/*.so .
 mv tmp/* .

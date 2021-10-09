@@ -45,12 +45,12 @@ if __name__ == '__main__':
     if ofiles == False:
         if yes_no_input():
             os.system("python3 install.py")
-            print("[ok] SiCroF has been installed.")
+            print("[ok] plantFEM has been installed.")
         else:
-            print("[Caution] SiCroF is not installed yet.\n")
+            print("[Caution] plantFEM is not installed yet.\n")
             time.sleep(3)
     else:
-        print("[ok] SiCroF has been installed.")
+        print("[ok] plantFEM has been installed.")
 
 
     print("Detecting OS type...")
@@ -58,10 +58,10 @@ if __name__ == '__main__':
     if pf == 'Windows':
         print("OS : Windows")
         print("Please use Windows Subsystem Linux(WSL) ")
-        os.system("./Interactive/SiCroF.bat")
+        os.system("./Interactive/plantFEM.bat")
     elif pf == "Darwin":
         print("OS : macOS")
-        #os.system("sh ./Interactive/SiCroF_macOS")
+        #os.system("sh ./Interactive/plantFEM_macOS")
         aout = os.path.exists("a.out")
         #print(aout)
         if aout == True:
@@ -71,11 +71,11 @@ if __name__ == '__main__':
             print("Interactive Mode :: \n")
             print("\n")
             if args.mode == "gfortran":
-                os.system("sh ./Interactive/SiCroF_gfortran ")
+                os.system("sh ./Interactive/plantFEM_gfortran ")
             else:
-                os.system("sh ./Interactive/SiCroF ")
+                os.system("sh ./Interactive/plantFEM ")
         else :
-            os.system("sh ./Interactive/SiCroF_run " + str(args.script))
+            os.system("sh ./Interactive/plantFEM_run " + str(args.script))
         
     elif pf == "Linux":
         print("OS : Linux")
@@ -89,13 +89,13 @@ if __name__ == '__main__':
             print("Interactive Mode :: \n")
             print("\n")
             if args.mode == "gfortran":
-                os.system("sh ./Interactive/SiCroF_gfortran ")
+                os.system("sh ./Interactive/plantFEM_gfortran ")
             else:
-                os.system("sh ./Interactive/SiCroF ")
+                os.system("sh ./Interactive/plantFEM ")
         else :
             if args.filename is None:
-                os.system("sh ./Interactive/SiCroF_run " + str(args.script))
+                os.system("sh ./Interactive/plantFEM_run " + str(args.script))
             else:
-                os.system("sh ./Interactive/SiCroF_run " + str(args.script)+" " + str(args.filename) )
+                os.system("sh ./Interactive/plantFEM_run " + str(args.script)+" " + str(args.filename) )
     else:
         print("OS : Unknown ")

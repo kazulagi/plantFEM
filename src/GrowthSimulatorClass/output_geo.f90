@@ -9,7 +9,7 @@ module output_plant_geo
 	integer i,j,k,itr
 	
 	allocate(x(3),v(3) )
-	open(10,file="Algo_SiCroF_out.geo")
+	open(10,file="plantFEM_sample_out.geo")
 	write(10,*)'SetFactory("OpenCASCADE");'
 	itr=0
 	do i=1,size(d_connect,1)

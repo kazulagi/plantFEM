@@ -20,11 +20,11 @@ bl_info = {
 
 
 def register():
-    os.chdir("/home/haruka/SiCroF")
+    os.chdir("/home/haruka/plantFEM")
     os.getcwd()
     exec(open("./install.py").read() )
-    import src.PySiCroFClass.SiCroF
-    sys.path.append("/home/haruka/SiCroF")
+    import src.PyplantFEMClass.plantFEM
+    sys.path.append("/home/haruka/plantFEM")
     print("hello!")
     print("hello!")
     print("hello!")

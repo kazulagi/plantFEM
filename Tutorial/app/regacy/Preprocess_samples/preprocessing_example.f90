@@ -15,10 +15,10 @@ program Preprocessing
     !!############### Get mesh from images ######################
     !!############### Get mesh from images ######################
     ElemType = "LinearRectangularGp4"
-    name1="/home/haruka/SiCroF/Tutorial/LeafImageData/grass_traced.png"
-    name2="/home/haruka/SiCroF/Tutorial/LeafImageData/grass_traced.png"
-    name3="/home/haruka/SiCroF/Tutorial/LeafImageData/grass_traced.png"
-    name4="/home/haruka/SiCroF/Tutorial/LeafImageData/grass_traced.png"
+    name1="./grass_traced.png"
+    name2="./grass_traced.png"
+    name3="./grass_traced.png"
+    name4="./grass_traced.png"
 
     ! load file names
     call InfileList%Init(4) ! Constractor
