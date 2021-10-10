@@ -9,7 +9,6 @@ echo "    "
 echo "    "
 echo "-----------------"
 
-start_time=`date +%s%3N`
 echo "Compiling ./src/uuid-fortran/uuid_module.f90     "
 echo " >> uuid_module.o"
 echo " | >                           | (0%)\r\c "
@@ -439,9 +438,6 @@ export PF_HOME=$PWD
 #cp ipynb/* .
 #echo "    "
 
-end_time=`date +%s%3N`
-time=$((end_time - start_time)) 
-NANOTIME=`echo "scale=3; ($time)/1000" | bc`
 echo " Total 22 objects are compiled in "${NANOTIME}" sec. "
 echo " plantFEM is successfully installed !!"
 echo "    "

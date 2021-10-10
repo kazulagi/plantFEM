@@ -66,10 +66,10 @@ homepath="$PWD"
 #        #if [ "$hostfile" != "" ]; then
 #        #    echo "hostfile is activated."
 #        #    mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./server.out
-#        #    return 0
+#        #    exit 0
 #        #fi
 #        mpirun --allow-run-as-root -np $numcore ./server.out 
-#        return 0
+#        exit 0
 #
 #
 #    fi 
@@ -84,7 +84,7 @@ homepath="$PWD"
         echo "And press ENTER key"
         echo "Then, type a keyword."
         echo "===================================="
-        return 0
+        exit 0
     fi
     
     if [ "$1" = "addon" ]; then
@@ -106,7 +106,7 @@ homepath="$PWD"
         echo " "
         rm ap.txt
         rm aps.txt
-        return 0
+        exit 0
     fi
 
     if [ "$1" = "new" ]; then
@@ -170,13 +170,13 @@ homepath="$PWD"
         echo "$PF_HOME/plantfem run"
         ln -f "$pan$pn/main.f90" "$PF_HOME/server.f90"
         
-        return 0
+        exit 0
     fi
 
 
     if [ "$1" = "homepath" ]; then
         echo "$homepath"
-        return 0
+        exit 0
     fi
 
     if [ "$1" = "clone" ]; then
@@ -186,18 +186,18 @@ homepath="$PWD"
         cd $PF_HOME/addon/github/
         git clone "$command" 
         cd .$PF_HOME/.$PF_HOME/
-        return 0
+        exit 0
     fi
 
     if [ "$1" = "docker" ]; then
         sudo docker build github.com/kazulagi/plantfem
         sudo docker run --rm -it kazulagi/plantfem /bin/bash
-        return 0
+        exit 0
     fi
 
     if [ "$1" = "update" ]; then
         sh $PF_HOME/bin/update
-        return 0
+        exit 0
     fi
 
     if [ "$1" = "search" ]; then
@@ -211,26 +211,26 @@ homepath="$PWD"
         echo "$PF_HOME/plantfem load [Path to script with .f90 extention]"
         echo "And run by"
         echo "$PF_HOME/plantfem run"
-        return 0
+        exit 0
     fi
 
     if [ "$1" = "setup" ]; then
         python3 setup/setup.py
         sh $PF_HOME/install/"$install"
-        return 0
+        exit 0
     fi
 
     if [ "$1" = "load" ]; then
         cp "$2" $PF_HOME/server.f90
         echo "copied $2 to $PF_HOME/server.f90"
-        return 0
+        exit 0
     fi
 
     if [ "$1" = "goback" ]; then
         echo "Back to plantFEM/"
         cd $homepath
         ls
-        return 0
+        exit 0
     fi
 
 
@@ -239,7 +239,7 @@ homepath="$PWD"
         echo "Input file-name."
         read filename
         cp $filename $homepath
-        return 0
+        exit 0
     fi
 
 
@@ -247,14 +247,14 @@ homepath="$PWD"
         echo "A keyword"
         read keyword
         ls Tutorial/*/*.f90 | grep -i $keyword
-        return 0
+        exit 0
     fi
 
     if [ "$1" = "gb" ]; then
         echo "Back to plantFEM/"
         cd $homepath
         ls
-        return 0
+        exit 0
     fi
 
     if [ "$1" = "$sendToDesktop" ]; then
@@ -267,7 +267,7 @@ homepath="$PWD"
         ln -s /mnt/c/Users/$username/Desktop $PF_HOME/Desktop
         echo "cp $keywords /mnt/c/Users/$username/Desktop/"
         cp $keywords /mnt/c/Users/$username/Desktop/
-        return 0
+        exit 0
     fi
 
     if [ "$1" = "$debugMode" ]; then
@@ -275,28 +275,28 @@ homepath="$PWD"
         read keywords
         echo $(cat $PF_HOME/install/install | grep $keywords | grep -m1 mpif90)
         $(cat $PF_HOME/install/install | grep $keywords| grep -m1 mpif90)
-        return 0
+        exit 0
     fi
 
     if [ "$1" = "$intel" ]; then
         mpifort="mpiifort"
         install="install_ifort"
         echo "Intel fortran will be used."
-        return 0
+        exit 0
     fi
 
     if [ "$1" = "hostfile" ]; then
         echo "Filepath of hostfile is : "
         read hostfile
         echo "Current hostfile is : $hostfile"
-        return 0
+        exit 0
     fi
 
     if [ "$1" = "gcc" ]; then
         mpifort="mpifort"
         install="install"
         echo "GCC fortran will be used."
-        return 0
+        exit 0
     fi
 
     if [ "$1" = $exitc ]; then
@@ -304,27 +304,27 @@ homepath="$PWD"
     fi
     if [ "$1" = "$man" ]; then
         less ".man_plantFEM"
-        return 0
+        exit 0
     fi
     if [ "$1" = "$man1" ]; then
         less ".man_plantFEM"
-        return 0
+        exit 0
     fi
     if [ "$1" = "$man2" ]; then
         less ".man_plantFEM"
-        return 0
+        exit 0
     fi
     if [ "$1" = "install" ]; then
         python3 $PF_HOME/install.py
-        return 0
+        exit 0
     fi
     if [ "$1" = "$compress" ]; then
         $PF_HOME/bin/compress
-        return 0
+        exit 0
     fi
     if [ "$1" = "$init" ]; then
         $PF_HOME/bin/init
-        return 0
+        exit 0
     fi
     if [ "$command" = "$remove" ]; then
         $PF_HOME/bin/compress
@@ -346,12 +346,12 @@ homepath="$PWD"
         if [ "$hostfile" != "" ]; then
             echo "hostfile is activated."
             mpirun --allow-run-as-root --hostfile $hostfile -np $numcore $PF_HOME/server.out "$2"
-            return 0
+            exit 0
         fi
 
         mpirun --allow-run-as-root --hostfile $PF_HOME/etc/hostfile -np $line $PF_HOME/server.out  "$2"
         
-        return 0
+        exit 0
     fi
 
 
@@ -361,7 +361,7 @@ homepath="$PWD"
         $mpif90 -fopenmp -fopenacc $PF_HOME/inc/*o -I $PF_HOME/inc $PF_HOME/server.f90  -g -fcheck=all  -fintrinsic-modules-path $PF_HOME/inc/  -o server.out
         #echo "Current num of cpu-core is :: $numcore "
         
-        return 0
+        exit 0
     fi
 
     if [ "$1" = "$ls" ]; then
@@ -370,7 +370,7 @@ homepath="$PWD"
         echo " "
         ls
         echo " "
-        return 0
+        exit 0
     fi
     if [ "$1" = "$cpucore" ]; then
         echo "Current num of cpu-core is :: $numcore "
@@ -378,7 +378,7 @@ homepath="$PWD"
         read numcore
         echo $numcore > $PF_HOME/etc/cpucore
         echo "Current num of cpu-core is :: $numcore "
-        return 0
+        exit 0
     fi
 
 
@@ -389,7 +389,7 @@ homepath="$PWD"
     if [ ${line} = $nano ]; then
         echo "Editor :: nano"
         $1
-        return 0
+        exit 0
     fi
 
     for line in ${1}
@@ -399,56 +399,56 @@ homepath="$PWD"
     if [ "${line}" = "$vim" ]; then
         echo "Editor :: vim"
         $1
-        return 0
+        exit 0
     fi
 
     if [ "${line}" = "$emacs" ]; then
         echo "Editor :: emacs"
         $1
-        return 0
+        exit 0
     fi
     if [ "${line}" = "$code" ]; then
         echo "Editor :: code"
         $1
-        return 0
+        exit 0
     fi
     if [ "${line}" = "$vi" ]; then
         echo "Editor :: vi"
         $1
-        return 0
+        exit 0
     fi
 
     if [ "${line}" = "$cp" ]; then
         $1
         ls
-        return 0
+        exit 0
     fi
     if [ "${line}" = "$cd" ]; then
         $1
         ls
-        return 0
+        exit 0
     fi
 
     if [ "${line}" = "$ls" ]; then
         $1
-        return 0
+        exit 0
     fi
 
     if [ "${line}" = "$grep" ]; then
         $1
-        return 0
+        exit 0
     fi
 
     if [ "${line}" = "$rm" ]; then
         $1
         ls
-        return 0
+        exit 0
     fi
 
     if [ "${line}" = "$touch" ]; then
         $1
         ls
-        return 0
+        exit 0
     fi
 
     EXTENSION=${1##*.}
@@ -471,14 +471,14 @@ homepath="$PWD"
         if [ "$hostfile" != "" ]; then
             echo "hostfile is activated."
             mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./server.out
-            return 0
+            exit 0
         fi
         while read line
         do 
             echo $line && break
         done < $PF_HOME/etc/cpucore
         mpirun --allow-run-as-root --hostfile $PF_HOME/etc/hostfile -np $line ./server.out 
-        return 0
+        exit 0
     fi
 
     echo "$1"

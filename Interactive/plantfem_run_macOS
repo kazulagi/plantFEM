@@ -1,0 +1,381 @@
+
+
+#!/bin/zsh 
+
+echo ">"
+echo "plantFEM >> Fortran Interactive mode for Linux & OS X... "
+echo "Here, fortran script runs with  plantFEM-kernel."
+echo "You can debug your code with plantFEM-API"
+echo "  "
+echo ">"
+echo ">"
+echo "Initializing ..."
+numcore=1
+exitc="exit"
+man="man"
+man1="man plantFEM"
+man2="man plantFEM"
+hostfile=""
+keywords=""
+cpucore="cpu-core"
+install="install"
+compress="compress"
+mpif90="mpif90"
+intel="intel"
+debugMode="-"
+ls="ls"
+f90="f90"
+run="run"
+nano="nano"
+vim="vim"
+emacs="emacs"
+code="code"
+vi="vi"
+cp="cp"
+cd="cd"
+ls="ls"
+rm="rm"
+grep="grep"
+touch="touch"
+pick="pick"
+NAN=""
+sendToDesktop=">>>"
+command2=""
+ret=0
+addonpath="addon"
+
+echo "If this is the first time, please type 'install' and press ENTER"
+echo "Please input fortran script *.f90 | or check manual by 'man'  "
+echo "  "
+homepath="$PWD"
+while :
+do
+
+    #echo "Please input fortran script *.f90 | or check manual by 'man'  "
+    echo -n ">>> "
+    read command 
+    
+    if [ "$command" = "addon" ]; then
+        echo "installing add-on"
+        echo "Directory path of your awesome addon is : (default path = addon)"
+        echo -n "> "
+        read addonpath
+        echo "installing from $addonpath"
+        ls $addonpath | grep ".f90" > ap.txt
+        sed -e 's/.f90//g' ap.txt > aps.txt
+        cat aps.txt
+        while read line
+        do
+            echo "Compiling ./$addonpath/$line.f90      "
+            echo " >> $line.o"
+            echo " | ########################### | (100%)\r\c "
+            mpif90 -shared -fPIC -g -fcheck=all  -c ./$addonpath/$line.f90 -o  ./inc/$line.o
+        done < ./aps.txt
+        echo " "
+        rm ap.txt
+        rm aps.txt
+        continue
+    fi
+
+
+    if [ "$command" = "homepath" ]; then
+        echo "$homepath"
+        continue
+    fi
+    if [ "$command" = "update" ]; then
+        sh bin/update
+        continue
+    fi
+
+
+    if [ "$command" = "goback" ]; then
+        echo "Back to plantFEM/"
+        cd $homepath
+        ls
+        continue
+    fi
+
+    if [ "$command" = "pick" ]; then
+        echo "copy to plantFEM/"
+        echo "Input file-name."
+        read filename
+        cp $filename $homepath
+        continue
+    fi
+
+    if [ "$command" = "gb" ]; then
+        echo "Back to plantFEM/"
+        cd $homepath
+        ls
+        continue
+    fi
+
+    if [ "$command" = "$sendToDesktop" ]; then
+        echo "only for WSL :: "
+        echo "Input file-name to send it to Desktop"
+        read keywords
+        echo "Input user-name of Windows"
+        read username
+        ln -s /mnt/c/Users/$username ./Home
+        ln -s /mnt/c/Users/$username/Desktop ./Desktop
+        echo "cp $keywords /mnt/c/Users/$username/Desktop/"
+        cp $keywords /mnt/c/Users/$username/Desktop/
+        continue
+    fi
+
+    if [ "$command" = "$debugMode" ]; then
+        echo "Debug Mode :: Please input keywords of re-compile modules."
+        read keywords
+        echo $(cat ./install/install | grep $keywords | grep -m1 mpif90)
+        $(cat ./install/install | grep $keywords| grep -m1 mpif90)
+        continue
+    fi
+
+    if [ "$command" = "$intel" ]; then
+        mpifort="mpiifort"
+        install="install_ifort"
+        echo "Intel fortran will be used."
+        continue
+    fi
+
+    if [ "$command" = "hostfile" ]; then
+        echo "Filepath of hostfile is : "
+        read hostfile
+        echo "Current hostfile is : $hostfile"
+        continue
+    fi
+
+    if [ "$command" = "gcc" ]; then
+        mpifort="mpifort"
+        install="install"
+        echo "GCC fortran will be used."
+        continue
+    fi
+
+    if [ "$command" = $exitc ]; then
+        exit 0
+    fi
+    if [ "$command" = "$man" ]; then
+        less ".man_plantFEM"
+        continue
+    fi
+    if [ "$command" = "$man1" ]; then
+        less ".man_plantFEM"
+        continue
+    fi
+    if [ "$command" = "$man2" ]; then
+        less ".man_plantFEM"
+        continue
+    fi
+    if [ "$command" = "install" ]; then
+        ./install/"$install"
+        continue
+    fi
+    if [ "$command" = "$compress" ]; then
+        ./bin/compress
+        continue
+    fi
+    if [ "$command" = "$run" ]; then
+        ./bin/run
+        continue
+    fi
+    if [ "$command" = "$ls" ]; then
+        echo " "
+        pwd
+        echo " "
+        ls
+        echo " "
+        continue
+    fi
+    if [ "$command" = "$cpucore" ]; then
+        echo "Current num of cpu-core is :: $numcore "
+        echo "Please input num of cpu-core"
+        read numcore
+        echo "Current num of cpu-core is :: $numcore "
+        continue
+    fi
+
+
+    for line in ${command}
+    do
+        break
+    done    
+    if [ ${line} = $nano ]; then
+        echo "Editor :: nano"
+        $command
+        continue
+    fi
+
+    for line in ${command}
+    do
+        break
+    done    
+    if [ "${line}" = "$vim" ]; then
+        echo "Editor :: vim"
+        $command
+        continue
+    fi
+
+    if [ "${line}" = "$emacs" ]; then
+        echo "Editor :: emacs"
+        $command
+        continue
+    fi
+    if [ "${line}" = "$code" ]; then
+        echo "Editor :: code"
+        $command
+        continue
+    fi
+    if [ "${line}" = "$vi" ]; then
+        echo "Editor :: vi"
+        $command
+        continue
+    fi
+
+    if [ "${line}" = "$cp" ]; then
+        $command
+        ls
+        continue
+    fi
+    if [ "${line}" = "$cd" ]; then
+        $command
+        ls
+        continue
+    fi
+
+    if [ "${line}" = "$ls" ]; then
+        $command
+        continue
+    fi
+
+    if [ "${line}" = "$grep" ]; then
+        $command
+        continue
+    fi
+
+    if [ "${line}" = "$rm" ]; then
+        $command
+        ls
+        continue
+    fi
+
+    if [ "${line}" = "$touch" ]; then
+        $command
+        ls
+        continue
+    fi
+
+    EXTENSION=${command##*.}
+    #echo "extension is $EXTENSION"
+    if [ "$EXTENSION" = "$f90" ]; then
+
+
+        echo ">"
+        $mpif90 inc/*o $command -g -fcheck=all 
+        #echo "Current num of cpu-core is :: $numcore "
+
+        if [ "$hostfile" != "" ]; then
+            echo "hostfile is activated."
+            mpirun  --allow-run-as-root --hostfile $hostfile -np $numcore ./a.out
+            continue
+        fi
+
+        mpirun --allow-run-as-root -np $numcore ./a.out 
+        continue
+    fi
+
+    echo "$command"
+    $command
+done    
+
+
+#echo ">"
+#echo "plantFEM >> Fortran Interactive mode for Linux & OS X... "
+#echo "Here, fortran script runs with  plantFEM-kernel."
+#echo "You can debug your code with plantFEM-API"
+#echo "  "
+#echo ">"
+#echo ">"
+#echo "Initializing ..."
+#numcore=1
+#exitc="exit"
+#man="man"
+#man1="man plantFEM"
+#man2="man plantFEM"
+#cpucore="cpu-core"
+#install="install"
+#compress="compress"
+#ls="ls"
+#f90="f90"
+#run="run"
+#
+#echo "Please input fortran script *.f90 | or check manual by 'man'  "
+#echo "  "
+# 
+#
+#while :
+#do
+#
+#    #echo "Please input fortran script *.f90 | or check manual by 'man'  "
+#    echo  ">>> "
+#    read command 
+#
+#
+#
+#    if [ $command = $exitc ]; then
+#        exit 0
+#    fi
+#    if [ $command = $man ]; then
+#        cat ".man_plantFEM"
+#        continue
+#    fi
+#    if [ $command = $man1 ]; then
+#        cat ".man_plantFEM"
+#        continue
+#    fi
+#    if [ $command = $man2 ]; then
+#        cat ".man_plantFEM"
+#        continue
+#    fi
+#    if [ $command = $install ]; then
+#        ./install_macOS
+#        continue
+#    fi
+#    if [ $command = $compress ]; then
+#        ./bin/compress
+#        continue
+#    fi
+#    if [ $command = $run ]; then
+#        ./bin/run
+#        continue
+#    fi
+#    if [ $command = $ls ]; then
+#        echo " "
+#        pwd
+#        echo " "
+#        ls
+#        echo " "
+#        continue
+#    fi
+#    if [ $command = $cpucore ]; then
+#        echo "Current num of cpu-core is :: $numcore "
+#        echo "Please input num of cpu-core"
+#        read numcore
+#        echo "Current num of cpu-core is :: $numcore "
+#        continue
+#    fi
+#
+#    EXTENSION=${command##*.}
+#    echo "extension is $EXTENSION"
+#    if [ $EXTENSION = $f90 ]; then
+#        echo ">"
+#        mpifort inc/*o $command 
+#        mpirun ./a.out        
+#        continue
+#    fi
+#
+#    echo "$command"
+#    $command
+#done    
+#
+#
