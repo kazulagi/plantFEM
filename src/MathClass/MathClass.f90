@@ -1379,7 +1379,7 @@ end function
 !================================================================================== 
 function freal128(ch)	result(a)
 	character(*),intent(in)			:: ch
-	real(real128)				:: a
+	real(real64)				:: a
 
 		read(ch,*,err=1007) a
 	return

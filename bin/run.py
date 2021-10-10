@@ -75,8 +75,13 @@ if __name__ == '__main__':
                 os.system("sh ./Interactive/plantfem_gfortran ")
             else:
                 os.system("sh ./Interactive/plantfem ")
+        #else :
+        #    os.system("sh ./Interactive/plantfem_run_macOS " + str(args.script))
         else :
-            os.system("sh ./Interactive/plantfem_run_macOS " + str(args.script))
+            if args.filename is None:
+                os.system("sh ./Interactive/plantfem_run " + str(args.script))
+            else:
+                os.system("sh ./Interactive/plantfem_run " + str(args.script)+" " + str(args.filename) )
         
     elif pf == "Linux":
         print("OS : Linux")
