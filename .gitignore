@@ -6,5 +6,6 @@ doc/ford
 doc/ford/
 ./Desktop/
 addon/github/
+./*.out.*
 tmp/
 
