@@ -72,7 +72,7 @@
 
 | System Requirements  |  |
 | ---- | ---- | 
-| Operation System | Ubuntu 16.04, Ubuntu 18.04, Ubuntu 20.04, Windows 10/11 (with WSL-Ubuntu), macOS (experimental) | 
+| Operation System | Linux (Ubuntu 16.04+, ElementaryOS, LinuxMint, Debian), Windows 10/11 (with WSL-Ubuntu), macOS | 
 | CPU | 2 cores, 1.4 GHz| 
 | RAM | 2 GB |
 | Storage | 1 GB | 
