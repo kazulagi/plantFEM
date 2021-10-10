@@ -8766,6 +8766,10 @@ function neFEMDomain(obj) result(ret)
 	class(FEMDomain_),intent(in) :: obj
 	integer(int32) :: ret
 
+	if(.not.allocated(obj%mesh%ElemNod) ) then
+		ret = 0
+		return
+	endif
 	ret = size(obj%mesh%ElemNod,1)
 
 end function
