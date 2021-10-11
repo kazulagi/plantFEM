@@ -73,8 +73,10 @@ module IOClass
         
         procedure,pass :: writeIOint32Vector
         procedure,pass :: writeIOint32Vectorint32Vector
+        procedure,pass :: writeIOint32Vectorint32Vectorint32Vector
         procedure,pass :: writeIOint32Vectorre64Vector
         procedure,pass :: writeIOre64Vectorre64Vector
+        procedure,pass :: writeIOre64Vectorre64Vectorre64Vector
         procedure,pass :: writeIOint32Array
 
         procedure,pass :: writeIOre64
@@ -103,7 +105,8 @@ module IOClass
             writeIOcomplex64,writeIOcomplex64Vector,writeIOcomplex64Array,&
             writeIOint32Vectorint32Vector,&
             writeIOint32Vectorre64Vector,&
-            writeIOre64Vectorre64Vector
+            writeIOre64Vectorre64Vector,writeIOre64Vectorre64Vectorre64Vector,&
+            writeIOint32Vectorint32Vectorint32Vector
         !procedure,public :: write => writeIO
         procedure,pass :: readIOchar
         procedure,pass :: readIOInt
@@ -768,6 +771,24 @@ end subroutine
 ! #############################################
 
 ! #############################################
+subroutine writeIOint32VectorInt32vectorInt32Vector(obj,in32,in32_c,in32_cc)
+    class(IO_),intent(inout) :: obj
+    integer(int32),intent(in) :: in32(:),in32_c(:),in32_cc(:)
+    integer(int32) :: i
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    do i=1,size(in32)
+        write(obj%fh, '(A)') trim(str(in32(i) ))//" "//trim(str(in32_c(i) )//" "//trim(str(in32_cc(i) )))
+    enddo
+end subroutine
+! #############################################
+
+
+! #############################################
 subroutine writeIOint32VectorRe64vector(obj,in32,Re64)
     class(IO_),intent(inout) :: obj
     integer(int32),intent(in) :: in32(:)
@@ -800,6 +821,27 @@ subroutine writeIORe64VectorRe64vector(obj,Re64_c,Re64)
     endif
     do i=1,size(Re64_c)
         write(obj%fh, '(A)') trim(str(Re64_c(i) ))//" "//trim(str(Re64(i) ))
+    enddo
+end subroutine
+! #############################################
+
+
+
+! #############################################
+subroutine writeIORe64VectorRe64vectorRe64vector(obj,Re64_cc,Re64_c,Re64)
+    class(IO_),intent(inout) :: obj
+    real(real64),intent(in)  :: Re64_cc(:)
+    real(real64),intent(in)  :: Re64_c(:)
+    real(real64),intent(in) :: Re64(:)
+    integer(int32) :: i
+
+    if(obj%state=="r")then
+        call print("IOClass >> Error >> This file is readonly. ")
+        call print("Nothing is written.")
+        return
+    endif
+    do i=1,size(Re64_c)
+        write(obj%fh, '(A)') trim(str(Re64_cc(i) ))//" "//trim(str(Re64_c(i) ))//" "//trim(str(Re64(i) ))
     enddo
 end subroutine
 ! #############################################

@@ -24,7 +24,10 @@ module ArrayClass
     interface convolve
         module procedure :: convolveComplex64,convolveReal64
     end interface convolve
-    
+
+    interface linspace
+        module procedure :: linspace1D, linspace2D, linspace3D,linspace4D
+    end interface linspace
 
     interface windowing
         module procedure :: windowingComplex64,windowingReal64
@@ -5429,7 +5432,7 @@ function covarianceMatrix(x_t,x_s,n) result(ret)
 end function
 ! ###############################################################
 
-function linspace(drange,numberOfData) result(ret)
+function linspace1D(drange,numberOfData) result(ret)
     real(real64),intent(in) :: drange(2)
     integer(int32),intent(in) :: numberOfData
     real(real64) :: dx,x,from,to
@@ -5446,6 +5449,86 @@ function linspace(drange,numberOfData) result(ret)
         x = x + dx
     enddo
     ret(numberOfData) = x
+end function
+
+! ###############################################################
+
+function linspace2D(xrange,yrange,xnum,ynum) result(ret)
+    real(real64),intent(in) :: xrange(2),yrange(2)
+    integer(int32),intent(in) :: xnum,ynum
+    real(real64),allocatable :: ret(:,:),x(:),y(:)
+    integer(int32) :: i,j,k,l,n
+    
+    allocate(ret(xnum*ynum,2) )
+    x = linspace1D(xrange,xnum)
+    y = linspace1D(yrange,ynum)
+    n = 0
+    do i=1,xnum
+        do j=1,ynum
+            n=n+1
+            ret(n,1) = x(i) 
+            ret(n,2) = y(j)
+        enddo
+    enddo
+    
+end function
+! ###############################################################
+
+! ###############################################################
+
+function linspace3D(xrange,yrange,zrange,xnum,ynum,znum) result(ret)
+    real(real64),intent(in) :: xrange(2),yrange(2),zrange(2)
+    integer(int32),intent(in) :: xnum,ynum,znum
+    real(real64),allocatable :: ret(:,:),x(:),y(:),z(:)
+    integer(int32) :: i,j,k,l,n
+    
+    allocate(ret(xnum*ynum*znum,3) )
+    x = linspace1D(xrange,xnum)
+    y = linspace1D(yrange,ynum)
+    z = linspace1D(zrange,znum)
+    n = 0
+    do i=1,xnum
+        do j=1,ynum
+            do k=1,znum
+                n=n+1
+                ret(n,1) = x(i) 
+                ret(n,2) = y(j) 
+                ret(n,3) = z(k)         
+            enddo
+        enddo
+    enddo
+    
+end function
+! ###############################################################
+
+! ###############################################################
+
+function linspace4D(xrange,yrange,zrange,trange,xnum,ynum,znum,tnum) result(ret)
+    real(real64),intent(in) :: xrange(2),yrange(2),zrange(2),trange(2)
+    integer(int32),intent(in) :: xnum,ynum,znum,tnum
+    real(real64),allocatable :: ret(:,:),x(:),y(:),z(:),t(:)
+    integer(int32) :: i,j,k,l,n
+    
+    allocate(ret(xnum*ynum*znum*tnum,4) )
+    x = linspace1D(xrange,xnum)
+    y = linspace1D(yrange,ynum)
+    z = linspace1D(zrange,znum)
+    t = linspace1D(trange,tnum)
+    n = 0
+    do i=1,xnum
+        do j=1,ynum
+            do k=1,znum
+               do l=1,tnum
+                    n=n+1
+                    ret(n,1) = x(i) 
+                    ret(n,2) = y(j) 
+                    ret(n,3) = z(k) 
+                    ret(n,4) = t(l) 
+                enddo
+            enddo
+        enddo
+    enddo
+    
 end function
 ! ###############################################################
 
