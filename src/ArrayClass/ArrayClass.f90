@@ -249,7 +249,7 @@ module ArrayClass
     end interface
 
     interface countif
-        module procedure ::countifint,countifintvec,countifReal,countifRealvec,countiflogicVec
+        module procedure ::countifint,countifintvec,countifReal,countifRealvec,countiflogicVec,countifChar
     end interface
 
     interface exist
@@ -316,7 +316,8 @@ module ArrayClass
 
     
     interface assignment(=)
-      module procedure assignArrayAlloInt,assignArrayAlloReal, assignAlloArrayInt,assignAlloArrayReal
+      module procedure assignArrayAlloInt,assignArrayAlloReal, assignAlloArrayInt,assignAlloArrayReal,&
+        assignVectorFromChar,assignIntVectorFromChar
     end interface
 
     interface dot
@@ -360,6 +361,86 @@ subroutine assignAlloArrayReal(x, y)
     x = y%reala
 
 end subroutine assignAlloArrayReal
+! ===============================================
+
+! ===============================================
+subroutine assignVectorFromChar(x,chx)
+    implicit none
+    real(real64),allocatable,intent(out) :: x(:)
+    character(*),intent(in) :: chx
+    integer(int32) :: i,j,n,m
+  
+    ! check format 
+    ! if chx = [ 1.000, 2.000, 3.000 ...]then
+    if(index(chx,"[")/=0 .and. index(chx,"]")/=0 )then
+        n = index(chx,"[")
+        m = index(chx,"]")
+        allocate(x(1:countif(from=chx(n+1:m-1),keyword="," )+1 ) )
+        read(chx(n+1:m-1),*) x(:)
+    else
+        read(chx(n+1:m-1),*) x(:)
+    endif
+    
+end subroutine
+! ===============================================
+
+! ===============================================
+subroutine assignIntVectorFromChar(x,chx)
+    implicit none
+    integer(int32),allocatable,intent(out) :: x(:)
+    character(*),intent(in) :: chx
+    integer(int32) :: i,j,n,m
+  
+    ! check format 
+    ! if chx = [ 1.000, 2.000, 3.000 ...]then
+    if(index(chx,"[")/=0 .and. index(chx,"]")/=0 )then
+        n = index(chx,"[")
+        m = index(chx,"]")
+        allocate(x(1:countif(from=chx(n+1:m-1),keyword="," )+1 ) )
+        read(chx(n+1:m-1),*) x(:)
+    else
+        read(chx(n+1:m-1),*) x(:)
+    endif
+    
+end subroutine
+! ===============================================
+
+
+! ===============================================
+!subroutine assignArrayFromChar(x,chx)
+!    implicit none
+!    real(real64),allocatable,intent(out) :: x(:,:)
+!    real(real64),allocatable :: vec(:)
+!    character(*),intent(in) :: chx
+!    integer(int32) :: i,j,n,m,col,row,head_l,tail_l
+!  
+!    ! check format 
+!    ! if chx = [ 1.000, 2.000, 3.000 ...]then
+!    
+!    if(index(chx,"[[")/=0 .and. index(chx,"]]")/=0 )then
+!        row = countif(from=chx,keyword="[") -1
+!        col = (countif(from=chx,keyword=",") - row +1)/row + 1
+!
+!        ! num(,) = (x - 1)*row + (row-1)
+!        !(num(,) - (row-1) )/row +1 = x  
+!        x = zeros(row,col)
+!        
+!        n = index(chx,"[[") ! 1
+!        m = index(chx,"]]") ! end
+!
+!        print *, row, col
+!        do i=1, row
+!            head_l = n+1
+!            tail_l = index(chx(head_l:m),"]" )
+!            vec = chx(head_l:tail_l)
+!            x(i,:) = vec(:)
+!            n = tail_l + 1
+!        enddo
+!    else
+!        read(chx(n+1:m-1),*) x(:,:)
+!    endif
+!    
+!end subroutine
 ! ===============================================
 
 
@@ -2814,6 +2895,25 @@ function countiflogicVec(Vector, tf) result(count_num)
 end function
 !##################################################
 
+function countifChar(from,keyword) result(count_num)
+    character(*),intent(in) :: from, keyword
+    integeR(int32) :: count_num,i,j,n,m
+
+    count_num=0
+    i=1
+    n = len(from)
+    m = len(keyword)
+    if(index(from(i:n),keyword)==0) return
+    
+    do j=1,n-m+1
+        if(index(from(j:j+m-1),keyword)/=0)then
+            count_num = count_num + 1
+        else
+            cycle
+        endif
+    enddo
+
+end function
 
 !##################################################
 function countifint(Array,Equal,notEqual,Value) result(count_num)
