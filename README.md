@@ -34,7 +34,7 @@
 
 | Objects | Simulation | Simulation (experimental) | 
 | ---- | ---- | ---- |
-| Plane Objects | Pseudo-static Deformation, Diffusion | Contact, Dynamic deformation, Reaction-diffusion | 
+| Elementary entities | Pseudo-static Deformation, Diffusion | Contact, Dynamic deformation, Reaction-diffusion | 
 | Soybean | Creation, Measure size, Measure mass | Deformation, Contact, Photosynthesis |
 | Grape | Creation, Measure size, Measure mass | Deformation, Contact, Photosynthesis |
 | Maize | Creation, Measure size, Measure mass | Deformation, Contact, Photosynthesis |
