@@ -32,7 +32,8 @@ module MathClass
 	end interface
 
 	interface str
-		module procedure fstring_Int, fstring_Real, fstring_complex, fstring_Int_len, fstring_Real_len, fstring_logical, fstring_String
+		module procedure fstring_Int, fstring_Real,fstring_Real32, &
+			fstring_complex, fstring_Int_len, fstring_Real_len, fstring_logical, fstring_String
 	end interface str
 
     interface fstring
@@ -1231,6 +1232,25 @@ end function
 !================================================================================== 
 function fstring_real(x) result(a)
 	real(real64),intent(in) :: x
+	character(len=20):: b
+	character(len=:),allocatable	:: a
+
+	if(x/=x .or. abs(x) >= HUGE(real64) )then
+		a=""
+		return
+	endif
+
+	write(b,'(f0.8)') x
+	a = trim(adjustl(b))
+
+
+
+end function
+!================================================================================== 
+
+!================================================================================== 
+function fstring_real32(x) result(a)
+	real(real32),intent(in) :: x
 	character(len=20):: b
 	character(len=:),allocatable	:: a
 

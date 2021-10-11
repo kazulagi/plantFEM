@@ -17,8 +17,7 @@ module IOClass
         character(:),allocatable:: xlabel,ylabel,zlabel
         character(:),allocatable :: filename
         integer(int32) :: lastModifiedTime=0
-
-
+        logical :: json_mode = .false.
     contains
         procedure,public :: unit => unitIO
 
@@ -52,6 +51,23 @@ module IOClass
         procedure,pass :: writeIOchar,writeIOcharchar,writeIOcharcharchar
         procedure,pass :: writeIOstring,writeIOstringstring,writeIOstringstringstring
 
+        ! writer for JSON format
+        procedure,pass :: dumpIOJSON_Key_Vector
+        procedure,pass :: dumpIOJSON_Key_VectorRe32
+        procedure,pass :: dumpIOJSON_Key_VectorInt32
+        procedure,pass :: dumpIOJSON_Key_value
+        procedure,pass :: dumpIOJSON_Key_valueRe32
+        procedure,pass :: dumpIOJSON_Key_valueRe64
+        procedure,pass :: dumpIOJSON_Key_valueChar
+
+        procedure,pass :: dumpIOJSON_Key_ArrayRe64
+        procedure,pass :: dumpIOJSON_Key_ArrayInt32
+
+        generic,public :: dump =>dumpIOJSON_Key_Vector,dumpIOJSON_Key_VectorRe32,&
+        dumpIOJSON_Key_VectorInt32,dumpIOJSON_Key_value,&
+        dumpIOJSON_Key_valueRe32,dumpIOJSON_Key_valueRe64,&
+        dumpIOJSON_Key_valueChar,dumpIOJSON_Key_ArrayRe64,&
+        dumpIOJSON_Key_ArrayInt32
         ! commandline args
         procedure,public :: arg => argIO
 
@@ -549,18 +565,30 @@ end subroutine openIOstring
 
 
 ! #############################################
-subroutine writeIOchar(obj,char)
+subroutine writeIOchar(obj,char,append,advance)
     class(IO_),intent(inout) :: obj
     character(*),intent(in) :: char
-
+    logical,optional,intent(in) :: append,advance
+    logical :: adv
+    
     if(obj%state=="r")then
         call print("IOClass >> Error >> This file is readonly. ")
         call print("Nothing is written.")
         return
     endif
     
-    write(obj%fh, '(A)') char
-
+    adv = .true.
+    if(present(append) )then
+        adv = .not.append
+    endif
+    if(present(advance) )then
+        adv = advance
+    endif
+    if(adv .eqv. .true.)then
+        write(obj%fh, '(A)') char
+    else
+        write(obj%fh, '(A)',advance="no") char
+    endif
 end subroutine writeIOchar
 ! #############################################
 
@@ -1222,6 +1250,12 @@ end subroutine readIOchar
 subroutine closeIO(obj)
     class(IO_),intent(inout) :: obj
 
+    if(obj%json_mode)then
+        call obj%write('    "plantfem_end_signal":true')
+        call obj%write("}")
+        obj%json_mode = .false.
+    endif
+
     if(obj%active .eqv. .false.)then
         print *, "ERROR :: "//"file is already closed. filename = "//obj%filename
         return
@@ -1229,6 +1263,7 @@ subroutine closeIO(obj)
     close(obj%fh)
     obj%fh=0
     obj%active=.false.
+    
     
 end subroutine closeIO
 ! #############################################
@@ -1462,7 +1497,7 @@ function parseIOChar200(obj,filename,fileformat,key1,debug) result(ret)
     character(:),allocatable :: line
     integer(int32)::blcount=0
     integer(int32)::rmc,id,fformat
-    character(200) :: ret
+    character(:),allocatable :: ret
     logical,optional,intent(in) :: debug
 
     ret = " "
@@ -1503,6 +1538,19 @@ function parseIOChar200(obj,filename,fileformat,key1,debug) result(ret)
                     id = index(line,":")
                     read(line(id+1:),*) ret
                     ret = adjustl(ret)
+
+                    ! [があれば]まで読む
+                    if( index(ret, "[")/=0 .and. index(ret, "]")==0 )then
+                        do 
+                            line = obj%readline()
+                            ret = trim(ret) // trim(line)
+                            if(index(ret, "]")/=0) exit
+                        enddo
+                    endif
+
+                    if(index(ret, "],")/=0 )then
+                        ret(index(ret, "],",back=.true.)+1:index(ret, "],",back=.true.)+1) = " "
+                    endif
                     exit
                 else
                     cycle
@@ -1584,6 +1632,17 @@ function parseIO2keysChar200(obj,filename,fileformat,key1,key2,debug) result(ret
                             id = index(line,":")
                             read(line(id+1:),*) ret
                             ret = adjustl(ret)
+                            ! [があれば]まで読む
+                            if( index(ret, "[")/=0 .and. index(ret, "]")==0 )then
+                                do 
+                                    line = obj%readline()
+                                    ret = trim(ret) // trim(line)
+                                    if(index(ret, "]")/=0) exit
+                                enddo
+                            endif
+                            if(index(ret, "],")/=0 )then
+                                ret(index(ret, "],",back=.true.)+1:index(ret, "],",back=.true.)+1) = " "
+                            endif
                             exit
                         endif
 
@@ -1765,5 +1824,295 @@ function NumberOfArgIO(obj) result(ret)
 end function
 ! #################################################################
 
+! Write for json
+! #################################################################
+subroutine dumpIOJSON_Key_Vector(obj,key,valueVector)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: key
+    real(real64),intent(in) :: valueVector(:)
+    integer(int32) :: i, n
+    
+    if( index(obj%filename,".json")==0 )then
+        print *, "writeIOJSON_Key_Vector >> obj%filename should contain .json"
+        return
+    endif
+
+    if(.not.obj%json_mode)then
+        ! first time
+        obj%json_mode = .true.
+        call obj%write("{")
+    endif
+
+    call obj%write('    "'//key//'":[')
+    n =size(valueVector)
+    do i =1,n-1
+        call obj%write("    "//trim(str(valueVector(i)))//","  )
+    enddo
+    call obj%write("    "//trim(str(valueVector( n ))))
+    call obj%write("    ],")
+    
+end subroutine
+! #################################################################
+
+! #################################################################
+subroutine dumpIOJSON_Key_VectorRe32(obj,key,valueVector)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: key
+    real(real32),intent(in) :: valueVector(:)
+    integer(int32) :: i, n
+    
+    if( index(obj%filename,".json")==0 )then
+        print *, "writeIOJSON_Key_Vector >> obj%filename should contain .json"
+        return
+    endif
+
+    if(.not.obj%json_mode)then
+        ! first time
+        obj%json_mode = .true.
+        call obj%write("{")
+    endif
+
+    call obj%write('    "'//key//'":[')
+    n =size(valueVector)
+    do i =1,n-1
+        call obj%write("    "//trim(str(dble(valueVector(i))))//","  )
+    enddo
+    call obj%write("    "//trim(str(dble(valueVector( n )))))
+    call obj%write("    ],")
+    
+end subroutine
+! #################################################################
+
+! #################################################################
+subroutine dumpIOJSON_Key_VectorInt32(obj,key,valueVector)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: key
+    integer(int32),intent(in) :: valueVector(:)
+    integer(int32) :: i, n
+    
+    if( index(obj%filename,".json")==0 )then
+        print *, "writeIOJSON_Key_Vector >> obj%filename should contain .json"
+        return
+    endif
+
+    if(.not.obj%json_mode)then
+        ! first time
+        obj%json_mode = .true.
+        call obj%write("{")
+    endif
+
+    call obj%write('    "'//key//'":[')
+    n =size(valueVector)
+    do i =1,n-1
+        call obj%write("    "//trim(str(valueVector(i)))//","  )
+    enddo
+    call obj%write("    "//trim(str(valueVector( n ))))
+    call obj%write("    ],")
+    
+end subroutine
+! #################################################################
+
+
+! #################################################################
+subroutine dumpIOJSON_Key_ArrayInt32(obj,key,valueVector)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: key
+    integer(int32),intent(in) :: valueVector(:,:)
+    integer(int32) :: i, n,j,m
+    
+    if( index(obj%filename,".json")==0 )then
+        print *, "writeIOJSON_Key_Vector >> obj%filename should contain .json"
+        return
+    endif
+
+    if(.not.obj%json_mode)then
+        ! first time
+        obj%json_mode = .true.
+        call obj%write("{")
+    endif
+
+    n =size(valueVector,2)
+    m = size(valueVector,1)
+
+    call obj%write('    "'//key//'":[',advance=.false.)
+    do j=1, m-1
+        write(obj%fh,'(A)',advance="no")  "["//str(valueVector(j,1))//","
+
+        do i =2,n-1
+            write(obj%fh,'(A)',advance="no")  " "//str(valueVector(j,i))//","
+        enddo
+        write(obj%fh,'(A)',advance="yes")  str(valueVector(j,n))//"],"
+        
+    enddo
+    write(obj%fh,'(A)',advance="no")  "    "//"["//str(valueVector(m,1))//","
+    
+    do i =2,n-1
+        write(obj%fh,'(A)',advance="no")  " "//str(valueVector(m,i))//","    
+    enddo
+    write(obj%fh,'(A)',advance="no")  str(valueVector(m,n))//"]"
+    call obj%write("],")
+    
+    
+end subroutine
+! #################################################################
+
+
+! #################################################################
+subroutine dumpIOJSON_Key_ArrayRe64(obj,key,valueVector)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: key
+    real(real64),intent(in) :: valueVector(:,:)
+    integer(int32) :: i, n,j,m
+    
+    if( index(obj%filename,".json")==0 )then
+        print *, "writeIOJSON_Key_Vector >> obj%filename should contain .json"
+        return
+    endif
+
+    if(.not.obj%json_mode)then
+        ! first time
+        obj%json_mode = .true.
+        call obj%write("{")
+    endif
+
+    n =size(valueVector,2)
+    m = size(valueVector,1)
+    
+    call obj%write('    "'//key//'":[',advance=.false.)
+    do j=1, m-1
+        if(abs(valueVector(j,1))<1.0d0)then
+            write(obj%fh,'(A)',advance="no")  "[0"//str(valueVector(j,1))//","
+        else
+            write(obj%fh,'(A)',advance="no")  "["//str(valueVector(j,1))//","
+        endif
+
+        do i =2,n-1
+            if(abs(valueVector(j,i))<1.0d0)then
+                write(obj%fh,'(A)',advance="no")  " 0"//str(valueVector(j,i))//","
+            else
+                write(obj%fh,'(A)',advance="no")  " "//str(valueVector(j,i))//","
+            endif
+        enddo
+        if(abs(valueVector(j,n))<1.0d0)then
+            write(obj%fh,'(A)',advance="yes")  " 0"//str(valueVector(j,n))//"],"
+        else
+            write(obj%fh,'(A)',advance="yes")  " "//str(valueVector(j,n))//"],"
+        endif
+    enddo
+    if(abs(valueVector(m,1))<1.0d0)then
+        write(obj%fh,'(A)',advance="no")  "    0"//"["//str(valueVector(m,1))//","
+    else
+        write(obj%fh,'(A)',advance="no")  "    "//"["//str(valueVector(m,1))//","
+    endif
+    do i =2,n-1
+        if(abs(valueVector(m,i))<1.0d0)then
+            write(obj%fh,'(A)',advance="no")  " 0"//str(valueVector(m,i))//","
+        else
+            write(obj%fh,'(A)',advance="no")  " "//str(valueVector(m,i))//","
+        endif
+    enddo
+    if(abs(valueVector(m,n))<1.0d0)then
+        write(obj%fh,'(A)',advance="no")  " 0"//str(valueVector(m,n))//"]"
+    else
+        write(obj%fh,'(A)',advance="no")  " "//str(valueVector(m,n))//"]"
+    endif
+    call obj%write("],")
+    
+end subroutine
+! #################################################################
+
+
+! #################################################################
+subroutine dumpIOJSON_Key_value(obj,key,value)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: key
+    integer(int32),intent(in) :: value
+    integer(int32) :: i, n
+    
+    if( index(obj%filename,".json")==0 )then
+        print *, "writeIOJSON_Key_Vector >> obj%filename should contain .json"
+        return
+    endif
+
+    if(.not.obj%json_mode)then
+        ! first time
+        obj%json_mode = .true.
+        call obj%write("{")
+    endif
+
+    call obj%write('    "'//key//'":'//str(value)//",")
+    
+end subroutine
+! #################################################################
+
+
+! #################################################################
+subroutine dumpIOJSON_Key_valueRe64(obj,key,value)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: key
+    real(real64),intent(in) :: value
+    integer(int32) :: i, n
+    
+    if( index(obj%filename,".json")==0 )then
+        print *, "writeIOJSON_Key_Vector >> obj%filename should contain .json"
+        return
+    endif
+
+    if(.not.obj%json_mode)then
+        ! first time
+        obj%json_mode = .true.
+        call obj%write("{")
+    endif
+
+    call obj%write('    "'//key//'":'//str(value)//",")
+    
+end subroutine
+! #################################################################
+
+! #################################################################
+subroutine dumpIOJSON_Key_valueRe32(obj,key,value)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: key
+    real(real32),intent(in) :: value
+    integer(int32) :: i, n
+    
+    if( index(obj%filename,".json")==0 )then
+        print *, "writeIOJSON_Key_Vector >> obj%filename should contain .json"
+        return
+    endif
+
+    if(.not.obj%json_mode)then
+        ! first time
+        obj%json_mode = .true.
+        call obj%write("{")
+    endif
+
+    call obj%write('    "'//key//'":'//str(value)//",")
+    
+end subroutine
+! #################################################################
+
+! #################################################################
+subroutine dumpIOJSON_Key_valueChar(obj,key,value)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: key
+    character(*),intent(in) :: value
+    integer(int32) :: i, n
+    
+    if( index(obj%filename,".json")==0 )then
+        print *, "writeIOJSON_Key_Vector >> obj%filename should contain .json"
+        return
+    endif
+
+    if(.not.obj%json_mode)then
+        ! first time
+        obj%json_mode = .true.
+        call obj%write("{")
+    endif
+
+    call obj%write('    "'//key//'":"'//trim(value)//'",')
+    
+end subroutine
+! #################################################################
 
 end module IOClass
