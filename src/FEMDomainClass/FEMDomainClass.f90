@@ -36,6 +36,11 @@ module FEMDomainClass
 	integer(int32),parameter,public :: MSH_PRISM 	 = 6 !	Edge Lagrange P2
 	integer(int32),parameter,public :: MSH_PYRAMID  = 7 !	Triangle Lagrange P2
 	
+	!integer(int32),parameter,public :: INFO_NUMBER_OF_POINTS  = 1 !	Information id#1 number of node
+	!integer(int32),parameter,public :: INFO_NUMBER_OF_ELEMENTS  = 1 !	Information id#1 number of node
+	!integer(int32),parameter,public :: INFO_NUMBER_OF_ELEMENTS  = 1 !	Information id#1 number of node
+	
+
 	type::Meshp_
 		type(Mesh_),pointer :: Meshp
 	end type
@@ -184,12 +189,22 @@ module FEMDomainClass
 		procedure,public :: msh => mshFEMDomain
 
 
+		! number of points
 		procedure,public :: nn => nnFEMDomain
+		procedure,public :: np => nnFEMDomain
+		! number of dimensions
 		procedure,public :: nd => ndFEMDomain
+		! number of elements
 		procedure,public :: ne => neFEMDomain
+		! number of points per element
 		procedure,public ::	nne => nneFEMDomain
+		! number of Gauss-points 
 		procedure,public ::	ngp => ngpFEMDomain
+
 		procedure,public ::	NodeID => NodeIDFEMDomain
+		procedure,public ::	x => xFEMDomain
+		procedure,public ::	y => yFEMDomain
+		procedure,public ::	z => zFEMDomain
 		
 
 		procedure,public :: open => openFEMDomain
@@ -208,6 +223,7 @@ module FEMDomainClass
 		procedure,public :: removeBoundaries => removeBoundariesFEMDomain
 		procedure,public :: rename => renameFEMDomain
 		procedure,public :: resize => resizeFEMDomain
+		procedure,public :: fat => fatFEMDomain
 		procedure,public :: remove => removeFEMDomain
 		procedure,public :: read => readFEMDomain
 		procedure,public :: remesh => remeshFEMDomain
@@ -1344,6 +1360,29 @@ subroutine resizeFEMDomain(obj,x_rate,y_rate,z_rate,x_len,y_len,z_len,&
 	call obj%Mesh%resize(x_rate=x_rate,y_rate=y_rate,z_rate=z_rate,x_len=x_len,y_len=y_len,z_len=z_len)
 	call obj%Mesh%resize(x_len=x,y_len=y,z_len=z)
 
+end subroutine
+
+
+subroutine fatFEMDomain(obj,ratio)
+	class(FEMDomain_),intent(inout) :: obj
+	real(real64),intent(in) :: ratio
+	real(real64),allocatable :: center(:),dx(:)
+	integer(int32) :: i
+
+	if(ratio < 0.0d0)then
+		print *, "[CAUTION] fatFEMDomain >> ratio should be >= 0"
+	endif
+	
+	center = zeros(obj%nd() )
+	dx = zeros(obj%nd() )
+	do i=1,size(center)
+		center(i) = average(obj%mesh%nodcoord(:,i) )
+	enddo
+
+	do i=1,obj%nn()
+		dx = obj%mesh%nodcoord(i,:) - center
+		obj%mesh%nodcoord(i,:) = center(:) + (1.0d0+ratio)*dx(:)
+	enddo
 end subroutine
 
 
@@ -10369,6 +10408,52 @@ subroutine Delaunay2DFEMDomain(obj)
 	call obj%mesh%meshing(delaunay2d=.true.)
 
 end subroutine
+! ##################################################################
+
+
+! ##################################################################
+function xFEMDomain(obj) result(ret)
+	class(FEMDomain_),intent(in) :: obj
+	real(real64),allocatable :: ret(:)
+
+	if(obj%mesh%empty() )then
+		ret = zeros(1)
+	else
+		allocate(ret(obj%nn() ) )
+		ret(:) = obj%mesh%nodcoord(:,1) 
+	endif
+
+end function
+! ##################################################################
+
+! ##################################################################
+function yFEMDomain(obj) result(ret)
+	class(FEMDomain_),intent(in) :: obj
+	real(real64),allocatable :: ret(:)
+
+	if(obj%mesh%empty() )then
+		ret = zeros(1)
+	else
+		allocate(ret(obj%nn() ) )
+		ret(:) = obj%mesh%nodcoord(:,2) 
+	endif
+
+end function
+! ##################################################################
+
+! ##################################################################
+function zFEMDomain(obj) result(ret)
+	class(FEMDomain_),intent(in) :: obj
+	real(real64),allocatable :: ret(:)
+
+	if(obj%mesh%empty() )then
+		ret = zeros(1)
+	else
+		allocate(ret(obj%nn() ) )
+		ret(:) = obj%mesh%nodcoord(:,3) 
+	endif
+
+end function
 ! ##################################################################
 
 end module FEMDomainClass

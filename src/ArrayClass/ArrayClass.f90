@@ -14,7 +14,10 @@ module ArrayClass
     !end interface
 
     ! statistics
-    
+
+    interface matrix
+        module procedure :: matrixFromVectorsRe64,matrixFromVectorsint32
+    end interface
 
 
     interface interpolate
@@ -6156,5 +6159,192 @@ function I_dx(x,fx,f0) result(I_df)
 
 end function
 ! ###############################################################
+
+! ###############################################################
+function matrixFromVectorsRe64(x1,x2,x3,x4,x5,x6,x7,x8) result(ret)
+    real(real64),intent(in) :: x1(:)
+    real(real64),optional,intent(in) ::  x2(:),x3(:),x4(:),x5(:),x6(:),x7(:),x8(:)
+    real(real64),allocatable :: ret(:,:)
+    integer(int32) :: n
+
+    if(present(x2) )then
+        if(present(x3) )then
+            if(present(x4) )then
+                if(present(x5) )then
+                    if(present(x6) )then
+                        if(present(x7) )then
+                            if(present(x8) )then
+                                n = maxval([size(x1),size(x2),size(x3),&
+                                size(x4),size(x5),size(x6),size(x7),&
+                                size(x8) ])
+                                allocate(ret(n,8) )
+                                ret(:,1) = x1(:)
+                                ret(:,2) = x2(:)
+                                ret(:,3) = x3(:)
+                                ret(:,4) = x4(:)
+                                ret(:,5) = x5(:)
+                                ret(:,6) = x6(:)
+                                ret(:,7) = x7(:)
+                                ret(:,8) = x8(:)
+                            else
+                                n = maxval([size(x1),size(x2),size(x3),&
+                                size(x4),size(x5),size(x6),size(x7) ])
+                                allocate(ret(n,7) )
+                                ret(:,1) = x1(:)
+                                ret(:,2) = x2(:)
+                                ret(:,3) = x3(:)
+                                ret(:,4) = x4(:)
+                                ret(:,5) = x5(:)
+                                ret(:,6) = x6(:)
+                                ret(:,7) = x7(:)
+                            endif
+                        else
+                            n = maxval([size(x1),size(x2),size(x3),&
+                            size(x4),size(x5),size(x6) ])
+                            allocate(ret(n,6) )
+                            ret(:,1) = x1(:)
+                            ret(:,2) = x2(:)
+                            ret(:,3) = x3(:)
+                            ret(:,4) = x4(:)
+                            ret(:,5) = x5(:)
+                            ret(:,6) = x6(:)
+                        endif
+                    else
+                        n = maxval([size(x1),size(x2),size(x3),&
+                        size(x4),size(x5) ])
+                        allocate(ret(n,5) )
+                        ret(:,1) = x1(:)
+                        ret(:,2) = x2(:)
+                        ret(:,3) = x3(:)
+                        ret(:,4) = x4(:)
+                        ret(:,5) = x5(:)
+            
+                    endif
+                else
+                    n = maxval([size(x1),size(x2),size(x3),&
+                    size(x4) ])
+                    allocate(ret(n,4) )
+                    ret(:,1) = x1(:)
+                    ret(:,2) = x2(:)
+                    ret(:,3) = x3(:)
+                    ret(:,4) = x4(:)
+                endif
+            else
+                n = maxval([size(x1),size(x2),size(x3)])
+                allocate(ret(n,3) )
+                ret(:,1) = x1(:)
+                ret(:,2) = x2(:)
+                ret(:,3) = x3(:)
+            endif
+        else
+
+            n = maxval([size(x1),size(x2)])
+            allocate(ret(n,2) )
+            ret(:,1) = x1(:)
+            ret(:,2) = x2(:)
+        endif
+    else
+        n = maxval([size(x1)])
+        allocate(ret(n,1) )
+        ret(:,1) = x1(:)
+    endif
+
+
+end function
+! ###############################################################
+
+
+! ###############################################################
+function matrixFromVectorsInt32(x1,x2,x3,x4,x5,x6,x7,x8) result(ret)
+    integer(int32),intent(in) :: x1(:)
+    integer(int32),optional,intent(in) ::  x2(:),x3(:),x4(:),x5(:),x6(:),x7(:),x8(:)
+    real(real64),allocatable :: ret(:,:)
+    integer(int32) :: n
+
+    if(present(x2) )then
+        if(present(x3) )then
+            if(present(x4) )then
+                if(present(x5) )then
+                    if(present(x6) )then
+                        if(present(x7) )then
+                            if(present(x8) )then
+                                n = maxval([size(x1),size(x2),size(x3),&
+                                size(x4),size(x5),size(x6),size(x7),&
+                                size(x8) ])
+                                allocate(ret(n,8) )
+                                ret(:,1) = x1(:)
+                                ret(:,2) = x2(:)
+                                ret(:,3) = x3(:)
+                                ret(:,4) = x4(:)
+                                ret(:,5) = x5(:)
+                                ret(:,6) = x6(:)
+                                ret(:,7) = x7(:)
+                                ret(:,8) = x8(:)
+                            else
+                                n = maxval([size(x1),size(x2),size(x3),&
+                                size(x4),size(x5),size(x6),size(x7) ])
+                                allocate(ret(n,7) )
+                                ret(:,1) = x1(:)
+                                ret(:,2) = x2(:)
+                                ret(:,3) = x3(:)
+                                ret(:,4) = x4(:)
+                                ret(:,5) = x5(:)
+                                ret(:,6) = x6(:)
+                                ret(:,7) = x7(:)
+                            endif
+                        else
+                            n = maxval([size(x1),size(x2),size(x3),&
+                            size(x4),size(x5),size(x6) ])
+                            allocate(ret(n,6) )
+                            ret(:,1) = x1(:)
+                            ret(:,2) = x2(:)
+                            ret(:,3) = x3(:)
+                            ret(:,4) = x4(:)
+                            ret(:,5) = x5(:)
+                            ret(:,6) = x6(:)
+                        endif
+                    else
+                        n = maxval([size(x1),size(x2),size(x3),&
+                        size(x4),size(x5) ])
+                        allocate(ret(n,5) )
+                        ret(:,1) = x1(:)
+                        ret(:,2) = x2(:)
+                        ret(:,3) = x3(:)
+                        ret(:,4) = x4(:)
+                        ret(:,5) = x5(:)
+            
+                    endif
+                else
+                    n = maxval([size(x1),size(x2),size(x3),&
+                    size(x4) ])
+                    allocate(ret(n,4) )
+                    ret(:,1) = x1(:)
+                    ret(:,2) = x2(:)
+                    ret(:,3) = x3(:)
+                    ret(:,4) = x4(:)
+                endif
+            else
+                n = maxval([size(x1),size(x2),size(x3)])
+                allocate(ret(n,3) )
+                ret(:,1) = x1(:)
+                ret(:,2) = x2(:)
+                ret(:,3) = x3(:)
+            endif
+        else
+
+            n = maxval([size(x1),size(x2)])
+            allocate(ret(n,2) )
+            ret(:,1) = x1(:)
+            ret(:,2) = x2(:)
+        endif
+    else
+        n = maxval([size(x1)])
+        allocate(ret(n,1) )
+        ret(:,1) = x1(:)
+    endif
+
+end function
+! ###############################################################
+
 
 end module ArrayClass

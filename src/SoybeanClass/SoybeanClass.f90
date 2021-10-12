@@ -141,6 +141,10 @@ module SoybeanClass
         procedure,public :: getVolume => getVolumeSoybean
         procedure,public :: getBioMass => getBioMassSoybean
         procedure,public :: getTotalWeight => getTotalWeightSoybean
+        procedure,public :: getSubDomain => getSubDomainSoybean
+        procedure,public :: getSubDomainType => getSubDomainTypeSoybean
+        procedure,public :: setSubDomain => setSubDomainSoybean
+        
         
         procedure,public :: resize => resizeSoybean
         procedure,public :: deform => deformSoybean
@@ -152,6 +156,16 @@ module SoybeanClass
         procedure,public :: vtk => vtkSoybean
         procedure,public :: stl => stlSoybean
         procedure,public :: json => jsonSoybean
+        
+        ! get info
+        !procedure,public :: properties => propertiesSoybean
+        ! number of subdomain
+        procedure,public :: ns => nsSoybean
+        ! number of element
+        procedure,public :: ne => neSoybean
+        ! number of points
+        procedure,public :: nn => nnSoybean
+        procedure,public :: np => nnSoybean
         
 
         ! regacy/experimental
@@ -179,11 +193,11 @@ contains
 ! ########################################
 recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id,debug)
     class(Soybean_),intent(inout) :: obj
-    integer(int32),optional,intent(in) :: stem_id, root_id, leaf_id
+    integer(int32),optional,intent(in) :: stem_id, root_id, leaf_id    
     integer(int32) :: i,j,this_stem_id,next_stem_id,A_id,B_id,itr_tol,itr
     integer(int32) :: this_leaf_id,next_leaf_id
     integer(int32) :: this_root_id,next_root_id
-    real(real64) :: x_A(3),x_B(3),diff(3),error,last_error
+    real(real64) :: x_A(3),x_B(3),diff(3),error,last_error,mgn
     logical,optional,intent(in) :: debug
     ! update connectivity
     if(.not. allocated(obj%stem2stem ))then
@@ -191,6 +205,9 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id,debug)
         return
     endif
 
+
+    ! margin between subdomains
+    
     itr_tol = 100
     itr=0
 
@@ -3437,4 +3454,229 @@ function findApicalSoybean(obj) result(ret)
 end function
 ! ###################################################################
 
+!function propertiesSoybean(obj) result(ret)
+!    class(Soybean_) ,intent(in) :: obj
+!
+!    
+!end function
+
+! ##################################################################
+function nnSoybean(obj) result(ret)
+    class(Soybean_) ,intent(in) :: obj
+    integer(int32) :: ret, i
+
+    ! get number of node (point)
+    ret = 0
+    do i=1,size(obj%stem)
+        if( .not.obj%stem(i)%femdomain%mesh%empty() ) then
+            ret = ret + obj%stem(i)%femdomain%nn()
+        endif
+    enddo
+    do i=1,size(obj%leaf)
+        if( .not.obj%leaf(i)%femdomain%mesh%empty() ) then
+            ret = ret + obj%leaf(i)%femdomain%nn()
+        endif
+    enddo
+    do i=1,size(obj%root)
+        if( .not.obj%root(i)%femdomain%mesh%empty() ) then
+            ret = ret + obj%root(i)%femdomain%nn()
+        endif
+    enddo
+
+end function
+! ##################################################################
+
+
+
+! ##################################################################
+function neSoybean(obj) result(ret)
+    class(Soybean_) ,intent(in) :: obj
+    integer(int32) :: ret, i
+
+    ! get number of element
+    ret = 0
+    do i=1,size(obj%stem)
+        if( .not.obj%stem(i)%femdomain%mesh%empty() ) then
+            ret = ret + obj%stem(i)%femdomain%ne()
+        endif
+    enddo
+    do i=1,size(obj%leaf)
+        if( .not.obj%leaf(i)%femdomain%mesh%empty() ) then
+            ret = ret + obj%leaf(i)%femdomain%ne()
+        endif
+    enddo
+    do i=1,size(obj%root)
+        if( .not.obj%root(i)%femdomain%mesh%empty() ) then
+            ret = ret + obj%root(i)%femdomain%ne()
+        endif
+    enddo
+
+end function
+! ##################################################################
+
+
+! ##################################################################
+function nsSoybean(obj) result(ret)
+    class(Soybean_) ,intent(in) :: obj
+    integer(int32) :: ret, i
+
+    ! get number of subdomain
+    ret = 0
+    do i=1,size(obj%stem)
+        if( .not.obj%stem(i)%femdomain%mesh%empty() ) then
+            ret = ret + 1
+        endif
+    enddo
+    do i=1,size(obj%leaf)
+        if( .not.obj%leaf(i)%femdomain%mesh%empty() ) then
+            ret = ret + 1
+        endif
+    enddo
+    do i=1,size(obj%root)
+        if( .not.obj%root(i)%femdomain%mesh%empty() ) then
+            ret = ret + 1
+        endif
+    enddo
+
+end function
+
+
+! ##################################################################
+
+function getSubDomainSoybean(obj,id) result(ret)
+    class(Soybean_),intent(in) :: obj
+    integer(int32),intent(in) :: id
+    type(FEMDomain_) :: ret
+    integer(int32) :: i,ret_id
+    
+    ! get number of subdomain
+    ret_id = 0
+    do i=1,size(obj%stem)
+        if( .not.obj%stem(i)%femdomain%mesh%empty() ) then
+            ret_id = ret_id + 1
+            if(id==ret_id)then
+                ret = obj%stem(i)%femdomain
+                return
+            endif
+        endif
+    enddo
+    do i=1,size(obj%leaf)
+        if( .not.obj%leaf(i)%femdomain%mesh%empty() ) then
+            ret_id = ret_id + 1
+            if(id==ret_id)then
+                ret = obj%stem(i)%femdomain
+                return
+            endif
+        endif
+    enddo
+    do i=1,size(obj%root)
+        if( .not.obj%root(i)%femdomain%mesh%empty() ) then
+            ret_id = ret_id + 1
+            if(id==ret_id)then
+                ret = obj%stem(i)%femdomain
+                return
+            endif
+        endif
+    enddo
+
+    print *, "Caution >> getSubDomainSoybean >> exceed total number of subdomains",ret_id
+    return
+
+    
+
+end function
+! ##################################################################
+
+! ##################################################################
+
+subroutine setSubDomainSoybean(obj,domain,id) 
+    class(Soybean_),intent(inout) :: obj
+    type(FEMDomain_),intent(in) :: domain
+    integer(int32),intent(in) :: id
+    integer(int32) :: i,domain_id
+    
+    ! get number of subdomain
+    domain_id = 0
+    do i=1,size(obj%stem)
+        if( .not.obj%stem(i)%femdomain%mesh%empty() ) then
+            domain_id = domain_id + 1
+            if(id==domain_id)then
+                obj%stem(i)%femdomain = domain
+                return
+            endif
+        endif
+    enddo
+    do i=1,size(obj%leaf)
+        if( .not.obj%leaf(i)%femdomain%mesh%empty() ) then
+            domain_id = domain_id + 1
+            if(id==domain_id)then
+                obj%stem(i)%femdomain = domain
+                return
+            endif
+        endif
+    enddo
+    do i=1,size(obj%root)
+        if( .not.obj%root(i)%femdomain%mesh%empty() ) then
+            domain_id = domain_id + 1
+            if(id==domain_id)then
+                obj%stem(i)%femdomain = domain
+                return
+            endif
+        endif
+    enddo
+
+    print *, "Caution >> getSubDomainSoybean >> exceed total number of subdomains",domain_id
+    return
+
+    
+
+end subroutine
+! ##################################################################
+
+
+! ##################################################################
+
+function getSubDomainTypeSoybean(obj,id) result(ret)
+    class(Soybean_),intent(in) :: obj
+    integer(int32),intent(in) :: id
+    character(:),allocatable :: ret
+    integer(int32) :: i,ret_id
+    
+    ! get number of subdomain
+    ret_id = 0
+    do i=1,size(obj%stem)
+        if( .not.obj%stem(i)%femdomain%mesh%empty() ) then
+            ret_id = ret_id + 1
+            if(id==ret_id)then
+                ret = "stem"
+                return
+            endif
+        endif
+    enddo
+    do i=1,size(obj%leaf)
+        if( .not.obj%leaf(i)%femdomain%mesh%empty() ) then
+            ret_id = ret_id + 1
+            if(id==ret_id)then
+                ret = "leaf"
+                return
+            endif
+        endif
+    enddo
+    do i=1,size(obj%root)
+        if( .not.obj%root(i)%femdomain%mesh%empty() ) then
+            ret_id = ret_id + 1
+            if(id==ret_id)then
+                ret = "root"
+                return
+            endif
+        endif
+    enddo
+
+    print *, "Caution >> getSubDomainSoybean >> exceed total number of subdomains",ret_id
+    return
+
+    
+
+end function
+! ##################################################################
 end module
