@@ -1846,9 +1846,17 @@ subroutine dumpIOJSON_Key_Vector(obj,key,valueVector)
     call obj%write('    "'//key//'":[')
     n =size(valueVector)
     do i =1,n-1
-        call obj%write("    "//trim(str(valueVector(i)))//","  )
+        if(abs(valueVector(i)) < 1.0d0 )then
+            call obj%write("    0"//trim(str(valueVector(i)))//","  )
+        else
+            call obj%write("    "//trim(str(valueVector(i)))//","  )
+        endif
     enddo
-    call obj%write("    "//trim(str(valueVector( n ))))
+    if(abs(valueVector(n)) < 1.0d0 )then
+        call obj%write("    0"//trim(str(valueVector( n ))))
+    else
+        call obj%write("    "//trim(str(valueVector( n ))))
+    endif
     call obj%write("    ],")
     
 end subroutine
@@ -1875,11 +1883,19 @@ subroutine dumpIOJSON_Key_VectorRe32(obj,key,valueVector)
     call obj%write('    "'//key//'":[')
     n =size(valueVector)
     do i =1,n-1
-        call obj%write("    "//trim(str(dble(valueVector(i))))//","  )
+        if(abs(valueVector(i)) < 1.0d0 )then
+            call obj%write("    0"//trim(str(valueVector(i)))//","  )
+        else
+            call obj%write("    "//trim(str(valueVector(i)))//","  )
+        endif
     enddo
-    call obj%write("    "//trim(str(dble(valueVector( n )))))
+    if(abs(valueVector(n)) < 1.0d0 )then
+        call obj%write("    0"//trim(str(valueVector( n ))))
+    else
+        call obj%write("    "//trim(str(valueVector( n ))))
+    endif
     call obj%write("    ],")
-    
+
 end subroutine
 ! #################################################################
 
