@@ -5,18 +5,31 @@ Commands:
 (0) For installation/update >>
     install :: compile all modules
     update  :: update plantFEM
+    plantfem :: open interactive mode
 
 (1) Create new script
     new     :: create a template or a plain script. Give it a try.
     search  :: search sample codes with a keyword
-    load <filename>   :: load file as a Fortran script
+    load <filename>   :: load file as a Fortran script (as a command)
+    load :: load file as a Fortran script (use this in interactive mode.)
 
 (2) For debug >>
     - :: compile only 1 module. Type - [Enter], and write your debugged module name.
-    
 
-(3) Initialize plantFEM
-    compress :: remove files and initialize plantFEM
+
+(4) Interactive mode
+    plantfem :: open interactive mode
+    use plantfem :: starts scripting. Please type 'end' in the end of the scripting.
+    again :: execute last script again.
+    new     :: create a template or a plain script. Give it a try.
+    search  :: search sample codes with a keyword
+    clone   :: clone git remote repository into addon/
+    docker  :: build a docker container and execute it.
+    load    :: load file as a Fortran script (use this in interactive mode.)
+    cpu-core:: change number of cpu-core
+    man     :: opens this mannual.
+    exit    :: exits from interactive mode.
+
 
 (4) For changing compiler >>
     intel :: use Intel-Fortran compiler (Not recommended)

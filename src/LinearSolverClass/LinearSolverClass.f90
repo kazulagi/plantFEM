@@ -70,6 +70,7 @@ module LinearSolverClass
     procedure, public  :: matmulCOO => matmulCOOLinearSolver
 
     procedure, public :: prepareFix => prepareFixLinearSolver
+    procedure, public :: getCOOFormat => getCOOFormatLinearSolver
     
   end type
 contains
@@ -241,6 +242,21 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
   integer(int32),allocatable :: Index_I(:), Index_J(:),NumNodeBeforeDomainID(:)
   integer(int32) :: i,j, n, offset,m
   type(Time_) :: time
+
+  if(.not.allocated(obj%val) )then
+    if(allocated(obj%a) .and. allocated(obj%b) )then
+      ! it only has obj%a and obj%b
+      !x(nodeid) = entryvalue
+      n = size(obj%b)
+      
+      obj%b(:) = obj%b(:) - obj%a(:,nodeid)*entryvalue
+      obj%a(:,nodeid) = 0.0d0
+      obj%a(nodeid,:) = 0.0d0
+      obj%a(nodeid,nodeid) = 1.0d0
+      obj%b(nodeid) = entryvalue
+      return
+    endif
+  endif
 
   if(.not. present(row_DomainID) )then
     call obj%fix(nodeid=nodeid,entryvalue=entryvalue,entryID=entryID,DOF=DOF,&
@@ -914,6 +930,22 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
   real(real64),allocatable:: val(:)
   integer(int32) :: i,m,n,rn,rd,cn,cd,same_n,count_reduc,j
 
+
+  ! if not allocated COO format
+  if(.not.allocated(obj%val) )then
+    if(allocated(obj%a) .and. allocated(obj%b) )then
+      ! it only has obj%a and obj%b
+      n = size(obj%b)
+      obj%x = zeros(n)
+      if(Solver=="BiCGSTAB")then
+        call bicgstab1d(a=obj%a, b=obj%b, x=obj%x, n=n, itrmax=obj%itrmax, er=obj%er0)
+      else
+        call gauss_jordan_pv(obj%a, obj%x, obj%b, size(obj%b,1) )
+      endif
+      return
+    endif
+  endif
+
   if(.not. allocated(obj%a) .and. .not. allocated(obj%val) )then
     print *, "solveLinearSolver >> ERROR :: .not. allocated(obj%b) "
     stop
@@ -1088,9 +1120,9 @@ subroutine gauss_jordan_pv(a0, x, b, n)
        x(k) = x(m)
        x(m) = t
      endif
-     ! �ȉ��A�ʏ��gauss_jordan
+     ! gauss_jordan
      if (a(k, k) == 0.0d0)  stop  'devide by zero3gauss_jordan_pv'
-	 ar = 1.0d0 / a(k,k)
+	    ar = 1.0d0 / a(k,k)
      a(k,k) = 1.0d0
      a(k,k+1:n) = ar * a(k, k+1:n)
      x(k) = ar * x(k)
@@ -2085,6 +2117,60 @@ function matmulCOOLinearSolver(obj,OpenMP) result(mm)
     enddo
   endif
 end function
+! #######################################################
 
+! #######################################################
+subroutine getCOOFormatLinearSolver(obj) 
+  class(LinearSolver_),intent(inout) :: obj
+  integer(int32) :: i,j,n
+
+  if(.not.allocated(obj%val) )then
+    if(allocated(obj%a) .and. allocated(obj%b) )then
+      ! it only has obj%a and obj%b
+      ! so, convert it to COO format
+      ! count non-zero values
+      n=0
+      do j=1,size(obj%a,2)
+        do i=1, size(obj%a,1)
+          if(obj%a(i,j)/=0.0d0 )then
+            n=n+1
+          endif
+        enddo
+      enddo
+      
+      obj%val             = zeros(n)
+      obj%index_I         = int(zeros(n))
+      obj%index_J         = int(zeros(n))
+
+      obj%row_domain_id   = int(zeros(n))
+      obj%column_domain_id= int(zeros(n))
+      obj%b_Index_J       = int(zeros(size(obj%b)))
+      obj%b_Domain_ID     = int(zeros(size(obj%b)))
+      
+      obj%row_domain_id(:)    = 1
+      obj%column_domain_id(:) = 1
+      obj%b_domain_id(:)      = 1
+      do i=1,size(obj%b)
+        obj%b_Index_J(i) = i
+      enddo
+
+      n=0
+      do j=1,size(obj%a,2)
+        do i=1, size(obj%a,1)
+          if(obj%a(i,j)/=0.0d0 )then
+            n=n+1
+            obj%val(n)     = obj%a(i,j)
+            obj%index_I(n) = i
+            obj%index_J(n) = j
+          endif
+        enddo
+      enddo
+      
+      
+    endif
+  endif
+
+end subroutine
+! #######################################################
 
 end module

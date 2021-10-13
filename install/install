@@ -230,6 +230,11 @@ echo " | ===============>            | (68%)\r\c"
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/fem/fem.f90 -o  ./inc/fem.o
 echo "Modules for FEM (fem) is installed.       "
 
+# Compilation of Solvers
+echo "Compiling ./src/MultiDOFSystemClass/MultiDOFSystemClass.f90" 
+echo " >> MultiDOFSystemClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MultiDOFSystemClass/MultiDOFSystemClass.f90 -o  ./inc/MultiDOFSystemClass.o
 
 
 # Compilation of Solvers

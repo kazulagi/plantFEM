@@ -1,5 +1,6 @@
 module sim
     use fem
+    use multiDOFsystemClass
     use DiffusionEquationClass
     use SpaceTimeDiffusionClass
     use SeismicAnalysisClass

@@ -39,8 +39,8 @@ module SeismicAnalysisClass
         real(real64) :: dt=1.0d0
         real(real64) :: error=0.0d0
         real(real64) :: t=0.0d0
-        real(real64) :: alpha = 0.52400d0
         integer(int32) :: step=0
+        real(real64) :: alpha = 0.52400d0
         real(real64) :: beta  = 0.00129d0 ! Rayleigh damping parameters, h=1%
         real(real64) :: Newmark_beta  = 0.250d0 ! Nemark-beta method parameters
         real(real64) :: Newmark_gamma  = 0.50d0 ! Nemark-beta method parameters
@@ -641,12 +641,17 @@ function updateVelocityNewmarkBetaSeismicAnalysis(obj,u,u_n,v_n,a_n,gamma,beta,d
     integer(int32) :: n
 
     ret = zeros(size(u) )
+    ! usually, gamma=0.5, beta=0.25
+    !ret(:) = gamma/(beta*dt)*u(:) &
+    !    - gamma/(beta*dt)*u_n(:) &
+    !    + (1.0d0 - gamma/beta )*v_n(:) &
+    !    + dt*(1.0d0 - gamma/(2.0d0*beta) )*a_n(:)
 
-    ret(:) = gamma/(beta*dt)*u(:) &
-        - gamma/(beta*dt)*u_n(:) &
+    ret(:) = gamma/(beta*dt)*u(:) & ! modified
+        - gamma/(beta*dt)*u_n(:) &  ! modified
         + (1.0d0 - gamma/beta )*v_n(:) &
         + dt*(1.0d0 - gamma/(2.0d0*beta) )*a_n(:)
-
+    ! confirmed 2021/10/13
 end function
 ! ##########################################################################################
 
@@ -660,11 +665,15 @@ function updateAccelNewmarkBetaSeismicAnalysis(obj,u,u_n,v_n,a_n,gamma,beta,dt) 
 
     ret = zeros(size(u) )
 
+    !ret(:) = 1.0d0/(beta*dt*dt)*u(:) &
+    !    - 1.0d0/(beta*dt*dt)*u_n(:) &
+    !    - 1.0d0/(beta*dt)*v_n(:) &
+    !    + (1.0d0 - 1.0d0/(2.0d0*beta) )*a_n(:)
+    ! confirmed 2021/10/13
     ret(:) = 1.0d0/(beta*dt*dt)*u(:) &
         - 1.0d0/(beta*dt*dt)*u_n(:) &
         - 1.0d0/(beta*dt)*v_n(:) &
         + (1.0d0 - 1.0d0/(2.0d0*beta) )*a_n(:)
-
 end function
 ! ##########################################################################################
 
