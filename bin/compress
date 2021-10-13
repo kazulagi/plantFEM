@@ -2,6 +2,8 @@
 rm hostfile
 rm ./GetPixcel*.py
 rm ./DBCGetPixcelSize*.py
+rm __server__.f90
+rm __server__.out
 rm *.o
 rm *.so
 rm *.mod

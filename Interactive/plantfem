@@ -1,0 +1,430 @@
+#!/bin/zsh 
+
+#echo ">"
+#echo "plantFEM >>  mode for Linux & OS X... "
+#echo "Here, fortran script runs with  plantFEM-kernel."
+#echo "You can debug your code with plantFEM-API"
+#echo "  "
+#echo "Initializing ..."
+
+PF_HOME=$PWD
+
+numcore=`cat etc/cpucore`
+exitc="exit"
+man="man"
+man1="man plantFEM"
+man2="man plantFEM"
+hostfile=""
+keywords=""
+cpucore="cpu-core"
+install="install"
+compress="compress"
+mpif90="mpif90"
+intel="intel"
+debugMode="-"
+ls="ls"
+f90="f90"
+run="run"
+nano="nano"
+vim="vim"
+emacs="emacs"
+code="code"
+vi="vi"
+cp="cp"
+cd="cd"
+ls="ls"
+rm="rm"
+grep="grep"
+touch="touch"
+pick="pick"
+NAN=""
+sendToDesktop=">>>"
+ret=0
+addonpath="addon"
+init="init"
+projectname=""
+projectpath=""
+num=""
+remove="remove"
+
+echo "If this is the first time, please type 'install' and press ENTER"
+echo "Please input fortran script *.f90 | or check manual by 'man'  "
+echo "  "
+homepath="$PWD"
+while :
+do
+
+    #echo "Please input fortran script *.f90 | or check manual by 'man'  "
+    echo -n ">>> "
+    read commandl
+
+
+
+    if [ "$commandl" = "use plantfem" ]; then
+        echo "Interactive mode"
+        echo "type 'end' after writing commands."
+        echo "$commandl" > "__server__.f90"
+        echo "implicit none" >> "__server__.f90"
+        while :
+        do
+            echo -n ">>> "
+            read line
+            echo "$line" >> "__server__.f90"
+            if [ "$line" = "end" ]; then
+                #echo "end" >> "__server__.f90"
+                mpif90 -fopenmp -fopenacc ./inc/*o -I ./inc ./__server__.f90  -g -fcheck=all  -fintrinsic-modules-path ./inc/  -o __server__.out
+                mpirun --allow-run-as-root -np "$numcore" ./__server__.out
+                break
+            fi
+        done
+        
+        continue
+    fi
+
+    if [ "$commandl" = "again" ]; then
+        mpirun --allow-run-as-root -np "$numcore" ./__server__.out
+        continue
+    fi
+#    if [-d {"$commandl"} ]; then
+#        # this is directory
+#
+#        $mpif90 $PF_HOME/inc/*o "$1/server/server.f90" -g -fcheck=all  -fintrinsic-modules-path $PF_HOME/inc/
+#        #echo "Current num of cpu-core is :: $numcore "
+#
+#        #if [ "$hostfile" != "" ]; then
+#        #    echo "hostfile is activated."
+#        #    mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./server.out
+#        #    continue
+#        #fi
+#        mpirun --allow-run-as-root -np $numcore ./server.out 
+#        continue
+#
+#
+#    fi 
+    if [ "$commandl" = "tutorial" ]; then
+        echo "===================================="
+        echo "=====   Welcome to plantFEM   ======"
+        echo "===================================="
+        echo "Please type"
+        echo " "
+        echo "$PF_HOME/plantfem search"
+        echo " "
+        echo "And press ENTER key"
+        echo "Then, type a keyword."
+        echo "===================================="
+        continue
+    fi
+    
+    if [ "$commandl" = "addon" ]; then
+        echo "installing add-on"
+        echo "Directory path of your awesome addon is : (default path = addon)"
+        echo -n "> "
+        read addonpath
+        echo "installing from $addonpath"
+        ls $addonpath | grep ".f90" > ap.txt
+        sed -e 's/.f90//g' ap.txt > aps.txt
+        cat aps.txt
+        while read line
+        do
+            echo "Compiling $PF_HOME/$addonpath/$line.f90      "
+            echo " >> $line.o"
+            echo " | ########################### | (100%)\r\c "
+            mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all  -c $PF_HOME/$addonpath/$line.f90 -o  $PF_HOME/inc/$line.o
+        done < $PF_HOME/aps.txt
+        echo " "
+        rm ap.txt
+        rm aps.txt
+        continue
+    fi
+
+    if [ "$commandl" = "new" ]; then
+        #echo "$homepath"
+        echo "[Your project name:  (default=untitled), if OK, press ENTER]"
+        echo -n ">>> "
+        read projectname
+        num=0
+        if [ "x$projectname" = "x" ]; then
+            pn="untitled"
+        else
+            pn="$projectname"
+        fi
+        echo "[Path of the project (default=$homepath/home/), if OK, press ENTER ]"
+        echo -n ">>> "
+        read projectpath
+        if [ "x$projectpath" = "x" ]; then
+            #$projectname="$PF_HOME/home/"
+            pan="$homepath/home/"
+        else
+            pan="$projectpath"
+        fi
+        echo "$pan$pn"
+
+        mkdir -p $pan$pn
+        echo "Which template do you want to use?"
+        echo "1 : File-IO (std)"
+        echo "2 : Linear solvers (std)"
+        echo "3 ; MPI computing (std)"
+        echo "4 : Array operation (std)"
+        echo "5 : Create Mesh (fem)"
+        echo "6 : Diffusion-1D simulation (sim)"
+        echo "7 : Create soybean (obj)"
+        echo "For more detail, please check $PF_HOME/Tutorial/*"
+        echo -n ">>> "
+        read temp
+        if [ "x$temp" = "x" ]; then
+            cp Tutorial/app/untitled.f90 "$pan$pn/main.f90"
+            echo "Note: a plain script is created. "
+        elif [ "$temp" = "1" ]; then
+            cp Tutorial/playon_std/ex0002_fileIO.f90 "$pan$pn/main.f90"
+        elif [ "$temp" = "2" ]; then
+            cp Tutorial/playon_std/ex0007_easySolver.f90 "$pan$pn/main.f90"
+        elif [ "$temp" = "3" ]; then
+            cp Tutorial/playon_std/ex0005_mpi.f90  "$pan$pn/main.f90"
+        elif [ "$temp" = "4" ]; then
+            cp Tutorial/playon_std/ex0003_array.f90  "$pan$pn/main.f90"
+        elif [ "$temp" = "5" ]; then
+            cp Tutorial/playon_fem/ex0001_mesh.f90  "$pan$pn/main.f90"
+        elif [ "$temp" = "6" ]; then
+            cp Tutorial/playon_sim/ex0001_diffusion1D.f90 "$pan$pn/main.f90"
+        elif [ "$temp" = "7" ]; then
+            cp Tutorial/playon_obj/seed.f90 "$pan$pn/main.f90"
+        else
+            cp Tutorial/app/untitled.f90 "$pan$pn/main.f90"
+            echo "Caution: a plain script is created. "
+        fi
+        echo "New project is successfully created in $pan$pn"
+        echo "You can run the script by:"
+        echo " "
+        echo "$PF_HOME/plantfem run"
+        ln -f "$pan$pn/main.f90" "$PF_HOME/server.f90"
+        
+        continue
+    fi
+
+
+    if [ "$commandl" = "homepath" ]; then
+        echo "$homepath"
+        continue
+    fi
+
+    if [ "$commandl" = "clone" ]; then
+        echo ">>> Please paste the github directory name."
+        echo -n ">>> "
+        read command 
+        cd $PF_HOME/addon/github/
+        git clone "$command" 
+        cd .$PF_HOME/.$PF_HOME/
+        continue
+    fi
+
+    if [ "$commandl" = "docker" ]; then
+        sudo docker build github.com/kazulagi/plantfem
+        sudo docker run --rm -it kazulagi/plantfem /bin/bash
+        continue
+    fi
+
+    if [ "$commandl" = "update" ]; then
+        sh $PF_HOME/bin/update
+        continue
+    fi
+
+    if [ "$commandl" = "search" ]; then
+        echo "Type a keyword and press [ENTER]"
+        read command
+        echo "===================================="
+        echo "These are examples"
+        echo "===================================="
+        grep -ril "$command" Tutorial/*/*.f90
+        echo "===================================="
+        echo "Please type "
+        echo "$PF_HOME/plantfem load [Path to script with .f90 extention]"
+        echo "And run by"
+        echo "$PF_HOME/plantfem run"
+        continue
+    fi
+
+    if [ "$commandl" = "setup" ]; then
+        python3 setup/setup.py
+        sh $PF_HOME/install/"$install"
+        continue
+    fi
+
+    if [ "$commandl" = "load" ]; then
+        echo "These are executable .f90 scripts."
+        echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>"
+        ls *.f90
+        echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>"
+        echo "Type your .f90 script name and press [ENTER]"
+        read line
+        cp "$line" $PF_HOME/server.f90
+        echo "copied $2 to $PF_HOME/server.f90"
+        continue
+    fi
+
+    if [ "$commandl" = "goback" ]; then
+        echo "Back to plantFEM/"
+        cd $homepath
+        ls
+        continue
+    fi
+
+
+    if [ "$commandl" = "pick" ]; then
+        echo "copy to plantFEM/"
+        echo "Input file-name."
+        read filename
+        cp $filename $homepath
+        continue
+    fi
+
+
+    if [ "$commandl" = "search" ]; then
+        echo "A keyword"
+        read keyword
+        ls Tutorial/*/*.f90 | grep -i $keyword
+        continue
+    fi
+
+    if [ "$commandl" = "gb" ]; then
+        echo "Back to plantFEM/"
+        cd $homepath
+        ls
+        continue
+    fi
+
+    if [ "$commandl" = "exit" ]; then
+        echo "bye"
+        break 
+    fi
+
+    if [ "$commandl" = "$sendToDesktop" ]; then
+        echo "only for WSL :: "
+        echo "Input file-name to send it to Desktop"
+        read keywords
+        echo "Input user-name of Windows"
+        read username
+        ln -s /mnt/c/Users/$username $PF_HOME/Home
+        ln -s /mnt/c/Users/$username/Desktop $PF_HOME/Desktop
+        echo "cp $keywords /mnt/c/Users/$username/Desktop/"
+        cp $keywords /mnt/c/Users/$username/Desktop/
+        continue
+    fi
+
+    if [ "$commandl" = "$debugMode" ]; then
+        echo "Debug Mode :: Please input keywords of re-compile modules."
+        read keywords
+        echo $(cat $PF_HOME/install/install | grep $keywords | grep -m1 mpif90)
+        $(cat $PF_HOME/install/install | grep $keywords| grep -m1 mpif90)
+        continue
+    fi
+
+    if [ "$commandl" = "$intel" ]; then
+        mpifort="mpiifort"
+        install="install_ifort"
+        echo "Intel fortran will be used."
+        continue
+    fi
+
+    if [ "$commandl" = "hostfile" ]; then
+        echo "Filepath of hostfile is : "
+        read hostfile
+        echo "Current hostfile is : $hostfile"
+        continue
+    fi
+
+    if [ "$commandl" = "gcc" ]; then
+        mpifort="mpifort"
+        install="install"
+        echo "GCC fortran will be used."
+        continue
+    fi
+
+    if [ "$commandl" = $exitc ]; then
+        continue
+    fi
+    if [ "$commandl" = "$man" ]; then
+        less ".man_plantFEM"
+        continue
+    fi
+    if [ "$commandl" = "$man1" ]; then
+        less ".man_plantFEM"
+        continue
+    fi
+    if [ "$commandl" = "$man2" ]; then
+        less ".man_plantFEM"
+        continue
+    fi
+    if [ "$commandl" = "install" ]; then
+        python3 $PF_HOME/install.py
+        continue
+    fi
+    if [ "$commandl" = "$compress" ]; then
+        $PF_HOME/bin/compress
+        continue
+    fi
+    if [ "$commandl" = "$init" ]; then
+        $PF_HOME/bin/init
+        continue
+    fi
+    if [ "$command" = "$remove" ]; then
+        $PF_HOME/bin/compress
+        continue
+    fi
+
+
+    if [ "$commandl" = "$run" ]; then
+        python3 $PF_HOME/bin/check_end.py
+        plantfem build
+        #$mpif90 $PF_HOME/inc/*o -I $PF_HOME/inc $PF_HOME/server.f90 -fopenmp -fopenacc -g -fcheck=all  -fintrinsic-modules-path $PF_HOME/inc/     
+        #echo "Current num of cpu-core is :: $numcore "
+
+        #while read line
+        #do 
+        #    echo "num of process :: "$line && break 
+        #done < $PF_HOME/etc/cpucore
+
+        if [ "$hostfile" != "" ]; then
+            echo "hostfile is activated."
+            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore $PF_HOME/server.out "$2"
+            continue
+        fi
+
+        mpirun --allow-run-as-root --hostfile $PF_HOME/etc/hostfile -np $line $PF_HOME/server.out  "$2"
+        
+        continue
+    fi
+
+
+    if [ "$commandl" = "build" ]; then
+        python3 $PF_HOME/bin/check_end.py
+        #cp server.f90 $PF_HOME/server.f90
+        $mpif90 -fopenmp -fopenacc $PF_HOME/inc/*o -I $PF_HOME/inc $PF_HOME/server.f90  -g -fcheck=all  -fintrinsic-modules-path $PF_HOME/inc/  -o server.out
+        #echo "Current num of cpu-core is :: $numcore "
+        
+        continue
+    fi
+
+    if [ "$commandl" = "$ls" ]; then
+        echo " "
+        pwd
+        echo " "
+        ls
+        echo " "
+        continue
+    fi
+    if [ "$commandl" = "$cpucore" ]; then
+        numcore=`cat etc/cpucore`
+        echo "Current num of cpu-core is :: $numcore "
+        echo "Please input num of cpu-core"
+        read numcore
+        echo $numcore > $PF_HOME/etc/cpucore
+        echo "Current num of cpu-core is :: $numcore "
+        continue
+    fi
+
+
+
+    echo "Invalid command :: $commandl"
+    echo "Check command by man"
+
+done    
