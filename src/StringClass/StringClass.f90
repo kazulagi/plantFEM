@@ -39,7 +39,8 @@ function ascii_lowercaseString(this) result(ret)
   class(String_),intent(in) :: this
   character(len=:),allocatable :: ret  
 
-
+  ret = this%all
+  print *, "Caution:: ascii_lowercaseString not implemented."
 end function
 !==============================================================
 !
