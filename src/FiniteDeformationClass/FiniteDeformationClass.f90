@@ -123,8 +123,8 @@ subroutine openFiniteDeform(obj,path,name)
 		!	pathi(n:n)= " "
 		!endif
 
-		call system("mkdir -p "//trim(pathi))
-		call system("mkdir -p "//trim(pathi)//"/"//trim(adjustl(name)) )
+		call execute_command_line("mkdir -p "//trim(pathi))
+		call execute_command_line("mkdir -p "//trim(pathi)//"/"//trim(adjustl(name)) )
 		call f%open(trim(pathi)//"/"//trim(adjustl(name)) ,"/"//"FiniteDeform",".prop" )
 	else
 		pathi=path
@@ -132,8 +132,8 @@ subroutine openFiniteDeform(obj,path,name)
 		!	n=index(path, "/", back=.true.)
 		!	pathi(n:n)= " "
 		!endif
-		call system("mkdir -p "//trim(pathi))
-		call system("mkdir -p "//trim(pathi)//"/FiniteDeform")
+		call execute_command_line("mkdir -p "//trim(pathi))
+		call execute_command_line("mkdir -p "//trim(pathi)//"/FiniteDeform")
 		call f%open(trim(pathi)//"/FiniteDeform","/FiniteDeform",".prop" )
 	endif
 	
@@ -182,8 +182,8 @@ subroutine saveFiniteDeform(obj,path,name)
 		!	pathi(n:n)= " "
 		!endif
 
-		call system("mkdir -p "//trim(pathi))
-		call system("mkdir -p "//trim(pathi)//"/"//trim(adjustl(name)) )
+		call execute_command_line("mkdir -p "//trim(pathi))
+		call execute_command_line("mkdir -p "//trim(pathi)//"/"//trim(adjustl(name)) )
 		call f%open(trim(pathi)//"/"//trim(adjustl(name)) ,"/"//"FiniteDeform",".prop" )
 	else
 		pathi=path
@@ -191,8 +191,8 @@ subroutine saveFiniteDeform(obj,path,name)
 		!	n=index(path, "/", back=.true.)
 		!	pathi(n:n)= " "
 		!endif
-		call system("mkdir -p "//trim(pathi))
-		call system("mkdir -p "//trim(pathi)//"/FiniteDeform")
+		call execute_command_line("mkdir -p "//trim(pathi))
+		call execute_command_line("mkdir -p "//trim(pathi)//"/FiniteDeform")
 		call f%open(trim(pathi)//"/FiniteDeform","/FiniteDeform",".prop" )
 	endif
 	
@@ -3054,7 +3054,7 @@ subroutine exportFiniteDeform(obj,restart,path)
 
 	if(present(restart) )then
 		! make new dir 
-		call system("mkdir -p "//trim(path)//"/FiniteDeform")
+		call execute_command_line("mkdir -p "//trim(path)//"/FiniteDeform")
 		
 		if(associated(obj%FEMDomain) )then
     		call obj%FEMDomain%export(path=path//"/FiniteDeform",restart=restart)

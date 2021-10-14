@@ -1,5 +1,6 @@
 #!/bin/sh -eu
 
+
 echo "-----------------"
 echo "    "
 echo "    "
@@ -7,54 +8,6 @@ echo "Installing plantFEM (21.10)"
 echo "    "
 echo "    "
 echo "-----------------"
-
-echo "Pre-install sequence is started... "
-echo "Skip it  y/n ? :"
-read yes_no
-yes="y"
-if [ $yes_no != $yes ]; then
-echo "------------------------"
-echo "gcc --version"
-gcc --version
-echo "------------------------"
-echo "gfortran --version"
-gfortran --version
-echo "------------------------"
-echo "gmsh --version"
-gmsh --version
-echo "------------------------"
-echo "mpiifort --version"
-mpiifort --version
-echo "------------------------"
-#echo "OpenCL --version"
-#clinfo --version
-#sudo apt install ocl-icd-libopencl1 opencl-headers clinfo ocl-icd-opencl-dev beignet
-echo "------------------------"
-echo "python3 --version"
-python3 --version
-echo "------------------------"
-echo "pip3 --version"
-pip3 --version
-echo "------------------------"
-pip3 install pillow
-echo "------------------------"
-pip3 install numpy
-echo "------------------------"
-pip3 install scipy
-echo "------------------------"
-pip3 install matplotlib
-echo "------------------------"
-pip3 install tensorflow
-echo "------------------------"
-pip3 install jupyter
-echo "------------------------"
-
-echo "All pacages are ready. [ok]"
-# Compilation of low-level classes
-fi
-
-
-start_time=`date +%s%3N`
 
 echo "Compiling ./src/uuid-fortran/uuid_module.f90     "
 echo " >> uuid_module.o"
@@ -65,22 +18,19 @@ mpiifort -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modu
 #echo " >> OouraFFT.o"
 #echo " | >                           | (0%)\r\c "
 #mpiifort -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/OouraFFT/OouraFFT.f90 -o  ./inc/OouraFFT.o
-
-echo "Compiling ./src/StringClass/StringClass.f90      "
-echo " >> StringClass.o"
-echo " | >                           | (0%)\r\c "
-mpiifort -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/StringClass/StringClass.f90 -o  ./inc/StringClass.o
-
 echo "Compiling ./src/BitClass/BitClass.f90      "
 echo " >> BitClass.o"
 echo " | >                           | (0%)\r\c "
 mpiifort -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/BitClass/BitClass.f90 -o  ./inc/BitClass.o
-
 echo "Compiling ./src/PhysicalConstantsClass/PhysicalConstantsClass.f90      "
 echo " >> PhysicalConstantsClass.o"
 echo " | >                           | (0%)\r\c "
 mpiifort -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PhysicalConstantsClass/PhysicalConstantsClass.f90 -o  ./inc/PhysicalConstantsClass.o
 
+echo "Compiling ./src/StringClass/StringClass.f90      "
+echo " >> StringClass.o"
+echo " | >                           | (0%)\r\c "
+mpiifort -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/StringClass/StringClass.f90 -o  ./inc/StringClass.o
 echo "Compiling ./src/TimeClass/TimeClass.f90      "
 echo " >> TimeClass.o"
 echo " | >                           | (0%)\r\c "
@@ -109,7 +59,8 @@ mpiifort -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modu
 echo "Compiling ./src/IOClass/IOClass.f90      "
 echo " >> IOClass.o"
 echo " | =>                          | (2%)\r\c "
-mpiifort -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/IOClass/IOClass.f90 -o  ./inc/IOClass.o
+mpiifort -DINTEL -cpp -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/IOClass/IOClass.f90 -o  ./inc/IOClass.o
+
 echo "Compiling ./src/HTMLClass/HTMLClass.f90      "
 echo " >> HTMLClass.o"
 echo " | =>                          | (2%)\r\c "
@@ -124,16 +75,16 @@ echo " >> RandomClass.o"
 echo " | =>                          | (3%)\r\c "
 mpiifort -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RandomClass/RandomClass.f90 -o  ./inc/RandomClass.o
 
+echo "Compiling ./src/ArrayClass/ArrayClass.f90 " 
+echo " >> ArrayClass.o "
+echo " | =>                          | (4%)\r\c"
+mpiifort -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ArrayClass/ArrayClass.f90 -o  ./inc/ArrayClass.o
+
 echo "Compiling ./src/PCAClass/PCAClass.f90 " 
 echo " >> PCAClass.o "
 echo " | =>                          | (4%)\r\c"
 mpiifort -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PCAClass/PCAClass.f90 -o  ./inc/PCAClass.o
 
-
-echo "Compiling ./src/ArrayClass/ArrayClass.f90 " 
-echo " >> ArrayClass.o "
-echo " | =>                          | (4%)\r\c"
-mpiifort -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ArrayClass/ArrayClass.f90 -o  ./inc/ArrayClass.o
 
 
 echo "Compiling ./src/SDEClass/SDEClass.f90   "
@@ -280,7 +231,7 @@ echo " | ===============>            | (68%)\r\c"
 mpiifort -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/fem/fem.f90 -o  ./inc/fem.o
 echo "Modules for FEM (fem) is installed.       "
 
-
+# Compilation of Solvers
 
 # Compilation of Solvers
 echo "Compiling ./src/DiffusionEquationClass/DiffusionEquationClass.f90" 
@@ -297,6 +248,10 @@ echo " >> SeismicAnalysisClass.o "
 echo " | ===============>            | (70%)\r\c"
 mpiifort -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SeismicAnalysisClass/SeismicAnalysisClass.f90 -o  ./inc/SeismicAnalysisClass.o
 
+echo "Compiling ./src/MultiDOFSystemClass/MultiDOFSystemClass.f90" 
+echo " >> MultiDOFSystemClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpiifort -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MultiDOFSystemClass/MultiDOFSystemClass.f90 -o  ./inc/MultiDOFSystemClass.o
 
 echo "Compiling ./src/FiniteDeformationClass/FiniteDeformationClass.f90" 
 echo " >> FiniteDeformationClass.o "
@@ -476,7 +431,6 @@ echo " >> PlantFEM.o       "
 echo " | =========================> |  (99%)\r\c"
 mpiifort -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlantFEM/PlantFEM.f90 -o  ./inc/PlantFEM.o
 
-
 mv *.mod inc/
 cp *.so inc/
 mkdir -p home
@@ -489,9 +443,6 @@ export PF_HOME=$PWD
 #cp ipynb/* .
 #echo "    "
 
-end_time=`date +%s%3N`
-time=$((end_time - start_time)) 
-NANOTIME=`echo "scale=3; ($time)/1000" | bc`
 echo " Total 22 objects are compiled in "${NANOTIME}" sec. "
 echo " plantFEM is successfully installed !!"
 echo "    "

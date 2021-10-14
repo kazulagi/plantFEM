@@ -1,0 +1,189 @@
+#!/bin/sh
+
+echo " " > libplantfem.f90
+cat src/uuid-fortran/uuid_module.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/PhysicalConstantsClass/PhysicalConstantsClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/BitClass/BitClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/StringClass/StringClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/TimeClass/TimeClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/TermClass/TermClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/MathClass/MathClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/ConsoleClass/ConsoleClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/PhysicsClass/PhysicsClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/HTTPClass/HTTPClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/IOClass/IOClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/HTMLClass/HTMLClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/KinematicClass/KinematicClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/RandomClass/RandomClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/ArrayClass/ArrayClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/PCAClass/PCAClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/SDEClass/SDEClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/VertexClass/VertexClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/GraphClass/GraphClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/CSVClass/CSVClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/VectorClass/VectorClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/EquationClass/EquationClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/MPIClass/MPIClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/DictionaryClass/DictionaryClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/OpenMPClass/OpenMPClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/LTISystemClass/LTISystemClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/GAClass/GAClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/LinearSolverClass/LinearSolverClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/GeometryClass/GeometryClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/TreeClass/TreeClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/ShapeFunctionClass/ShapeFunctionClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/RouteOptimizationClass/RouteOptimizationClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/STLClass/STLClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/WebserverClass/WebServerClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/PhysicalFieldClass/PhysicalFieldClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/std/std.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+
+cat src/MeshClass/MeshClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/MaterialPropClass/MaterialPropClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/ControlParameterClass/ControlParameterClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/BoundaryConditionClass/BoundaryConditionClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/StrainClass/StrainClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/StressClass/StressClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/ConstitutiveModelClass/ConstitutiveModelClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/FEMDomainClass/FEMDomainClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/FEMIfaceClass/FEMIfaceClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/PostProcessingClass/PostProcessingClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/PreProcessingClass/PreProcessingClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+
+cat src/fem/fem.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/DiffusionEquationClass/DiffusionEquationClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/SpaceTimeDiffusionClass/SpaceTimeDiffusionClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/SeismicAnalysisClass/SeismicAnalysisClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/MultiDOFSystemClass/MultiDOFSystemClass.f90   >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/FiniteDeformationClass/FiniteDeformationClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/ContactMechanicsClass/ContactMechanicsClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/MultiDiffDeformClass/MultiDiffDeformClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/WaterAbsorptionClass/WaterAbsorptionClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/SoilWaterCouplingClass/SoilWaterCouplingClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/MultiPhysicsClass/MultiPhysicsClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/SpaceTimeDeformClass/SpaceTimeDeformClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/PoromechanicsClass/PoromechanicsClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/FieldClass/FieldClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/SimulatorClass/SimulatorClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/sim/sim.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+
+
+cat src/DigitalElevationModelClass/DigitalElevationModelClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+
+cat src/BoringClass/BoringClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/LightClass/LightClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/FertilizerClass/FertilizerClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/RidgeClass/RidgeClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/AirClass/AirClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/DamClass/DamClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/StemClass/StemClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/PlantRootClass/PlantRootClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/RootClass/RootClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/PetiClass/PetiClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/PodClass/PodClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/FlowerClass/FlowerClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/PanicleClass/PanicleClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/LeafClass/LeafClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/PlantNodeClass/PlantNodeClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/InsectClass/InsectClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/LsystemClass/LsystemClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/SeedClass/SeedClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/SoilClass/SoilClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/SoybeanClass/SoybeanClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/MaizeClass/MaizeClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/GrapeClass/GrapeClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/FarmClass/FarmClass.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+
+echo " " >> libplantfem.f90
+cat src/obj/obj.f90 >> libplantfem.f90
+echo " " >> libplantfem.f90
+cat src/PlantFEM/PlantFEM.f90 >> libplantfem.f90
+
+mpif90 -fopenacc -c -Ofast libplantfem.f90 -o libplantfem.o  

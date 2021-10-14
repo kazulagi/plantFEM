@@ -67,7 +67,7 @@ subroutine openMaterialProp(obj,path,name)
         read(f%fh, '(A)') obj%ErrorMsg
         call f%close()
     else
-        call system("mkdir -p "//trim(path)//"/Material")
+        call execute_command_line("mkdir -p "//trim(path)//"/Material")
         call f%open(trim(path)//"/Material/","Material",".prop")
         call obj%Mesh%open(path=trim(path)//"/"//"Material",name="Mesh")
         call openArray(f%fh,obj%meshPara)
@@ -158,7 +158,7 @@ subroutine saveMaterialProp(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
+        call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
         call f%open(trim(path)//"/"//trim(adjustl(name))//"/","Material",".prop")
         call obj%Mesh%save(path=trim(path)//"/"//trim(adjustl(name)),name="Mesh")
         call writeArray(f%fh, obj%meshPara)
@@ -180,7 +180,7 @@ subroutine saveMaterialProp(obj,path,name)
         write(f%fh, '(A)') trim(obj%ErrorMsg)
         call f%close()
     else
-        call system("mkdir -p "//trim(path)//"/Material")
+        call execute_command_line("mkdir -p "//trim(path)//"/Material")
         call f%open(trim(path)//"/Material/","Material",".prop")
         call obj%Mesh%save(path=trim(path)//"/"//"Material",name="Mesh")
         call writeArray(f%fh, obj%meshPara)
@@ -215,7 +215,7 @@ subroutine exportMaterialProp(obj,restart,path)
     type(IO_) :: f
 
     if(present(restart) )then
-        call system("mkdir -p "//trim(path)//"/Material")
+        call execute_command_line("mkdir -p "//trim(path)//"/Material")
         call f%open(trim(path)//"/Material/","Material",".prop")
         call obj%Mesh%export(path=trim(path)//"/Material",restart=.true.)
         write(f%fh,*) obj%meshPara(:,:)
@@ -468,7 +468,14 @@ subroutine ImportMatPara(obj,mat_para)
     class(MaterialProp_),intent(inout)::obj
     real(real64),intent(in)::mat_para(:,:)
     
-    include "./ImportMatPara.f90"
+    if(allocated(obj%MatPara) )then
+        deallocate(obj%MatPara)
+    endif
+    allocate(obj%MatPara(size(mat_para,1),size(mat_para,2) ) )
+    obj%MatPara(:,:)=mat_para(:,:)
+
+    obj%NumOfMatPara=size(mat_para,1)
+    obj%NumOfMaterial=size(mat_para,2)
 
 end subroutine ImportMatPara
 !##################################################
@@ -478,9 +485,28 @@ end subroutine ImportMatPara
 subroutine MergeMaterialProp(inobj1,inobj2,outobj)
     class(MaterialProp_),intent(in)::inobj1,inobj2
     class(MaterialProp_),intent(out)::outobj
+    integer num1,num2,num3,i
 
-    include "./MergeMaterialProp.f90"
 
+    ! ========= Merge nodes  ============
+    num1=size(inobj1%MatPara,1)
+    num2=size(inobj2%MatPara,1)
+    num3=size(inobj2%MatPara,2)
+    if(num3 /= size(inobj1%MatPara,1) )then
+        outobj%ErrorMsg="MergeMaterialProp >> num3 /= inobj1%MatPara,1"
+    endif
+    allocate(outobj%MatPara(num1+num2, num3))
+    do i=1,num1
+        outobj%MatPara(i,:)=inobj1%MatPara(i,:)
+    enddo
+    do i=1,num2
+        outobj%MatPara(i+num1,:)=inobj2%MatPara(i,:)
+    enddo
+    outobj%NumOfMatPara=inobj1%NumOfMatPara
+    outobj%NumOfMaterial=inobj1%NumOfMaterial+inobj1%NumOfMaterial
+    ! ========= Merge nodes  ============
+    
+    
 end subroutine MergeMaterialProp
 !##################################################
 
@@ -490,7 +516,11 @@ end subroutine MergeMaterialProp
 subroutine ShowMatPara(obj)
     class(MaterialProp_),intent(in)::obj
 
-    include "./ShowMatPara.f90"
+    integer i
+
+    do i=1,size(obj%MatPara,1)
+        print *, "obj%MatPara : ",obj%MatPara(i,:)
+    enddo
 
 end subroutine ShowMatPara
 !##################################################

@@ -327,8 +327,8 @@ subroutine openFEMDomain(obj,path,name)
 		!	pathi(n:n)= " "
 		!endif
 
-		call system("mkdir -p "//trim(pathi))
-		call system("mkdir -p "//trim(pathi)//"/"//trim(adjustl(name)) )
+		call execute_command_line("mkdir -p "//trim(pathi))
+		call execute_command_line("mkdir -p "//trim(pathi)//"/"//trim(adjustl(name)) )
 		call obj%Mesh%open(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="Mesh") !implement!
 		call obj%MaterialProp%open(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="MaterialProp")!implement!
 		call obj%Boundary%open(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="Boundary")!implement!
@@ -355,8 +355,8 @@ subroutine openFEMDomain(obj,path,name)
 		!	pathi(n:n)= " "
 		!endif
 
-		call system("mkdir -p "//trim(pathi))
-		call system("mkdir -p "//trim(pathi)//"/FEMDomain")
+		call execute_command_line("mkdir -p "//trim(pathi))
+		call execute_command_line("mkdir -p "//trim(pathi)//"/FEMDomain")
 		call obj%Mesh%open(path=trim(pathi)//"/"//"FEMDomain",name="Mesh")
 		call obj%MaterialProp%open(path=trim(pathi)//"/"//"FEMDomain",name="MaterialProp")
 		call obj%Boundary%open(path=trim(pathi)//"/"//"FEMDomain",name="Boundary")
@@ -452,8 +452,8 @@ subroutine saveFEMDomain(obj,path,name)
 		!	pathi(n:n)= " "
 		!endif
 
-		call system("mkdir -p "//trim(pathi))
-		call system("mkdir -p "//trim(pathi)//"/"//trim(adjustl(name)) )
+		call execute_command_line("mkdir -p "//trim(pathi))
+		call execute_command_line("mkdir -p "//trim(pathi)//"/"//trim(adjustl(name)) )
 		call obj%Mesh%save(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="Mesh")
 		call obj%MaterialProp%save(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="MaterialProp")
 		call obj%Boundary%save(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="Boundary")
@@ -480,8 +480,8 @@ subroutine saveFEMDomain(obj,path,name)
 		!	pathi(n:n)= " "
 		!endif
 
-		call system("mkdir -p "//trim(pathi))
-		call system("mkdir -p "//trim(pathi)//"/FEMDomain")
+		call execute_command_line("mkdir -p "//trim(pathi))
+		call execute_command_line("mkdir -p "//trim(pathi)//"/FEMDomain")
 		call obj%Mesh%save(path=trim(pathi)//"/"//"FEMDomain",name="Mesh")
 		call obj%MaterialProp%save(path=trim(pathi)//"/"//"FEMDomain",name="MaterialProp")
 		call obj%Boundary%save(path=trim(pathi)//"/"//"FEMDomain",name="Boundary")
@@ -1391,8 +1391,11 @@ subroutine MergeFEMDomain(inobj1,inobj2,outobj)
     class(FEMDomain_),intent(in) ::inobj1,inobj2
     class(FEMDomain_),intent(out)::outobj
     
-    include "./MergeFEMDomain.f90"
-
+	call MergeMesh(inobj1%Mesh,inobj2%Mesh,outobj%Mesh)
+	call MergeMaterialProp(inobj1%MaterialProp,inobj2%MaterialProp,outobj%MaterialProp)
+	call MergeDBound(inobj1%Boundary,inobj1%Mesh,inobj2%Boundary,inobj2%Mesh,outobj%Boundary)
+	call MergeNBound(inobj1%Boundary,inobj1%Mesh,inobj2%Boundary,inobj2%Mesh,outobj%Boundary)
+	
 end subroutine MergeFEMDomain
 !##################################################
 
@@ -1423,8 +1426,8 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 			stop 
 		endif
 
-		call system("mkdir -p "//trim(path))
-		call system("mkdir -p "//trim(path)//"/FEMDomain")
+		call execute_command_line("mkdir -p "//trim(path))
+		call execute_command_line("mkdir -p "//trim(path)//"/FEMDomain")
 		call obj%Mesh%export(path=trim(path)//"/FEMDomain",restart=.true.)
 		call obj%MaterialProp%export(path=trim(path)//"/FEMDomain",restart=.true.)
 		call obj%Boundary%export(path=trim(path)//"/FEMDomain",restart=.true.)
@@ -3666,12 +3669,12 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 	if(present(Name) )then
 		filename=filename0
 		
-		!call system(  "touch "//trim(adjustl(name))//trim(obj%FileName)//trim(filename) )
+		!call execute_command_line(  "touch "//trim(adjustl(name))//trim(obj%FileName)//trim(filename) )
 		open(fh,file=trim(adjustl(name))//trim(filetitle)//trim(filename) )
 		print *, "writing ",trim(adjustl(name))//trim(filetitle)//trim(filename)," step>>",step
 	else
 		filename=filename0
-		!call system(  "touch "//trim(obj%FileName)//trim(filename) )
+		!call execute_command_line(  "touch "//trim(obj%FileName)//trim(filename) )
 		!print *, trim(obj%FileName)//trim(filetitle)//trim(filename)
 		open(fh,file=trim(obj%FileName)//trim(filetitle)//trim(filename) )
 		print *, "writing ",trim(obj%FileName)//trim(filetitle)//trim(filename)," step>>",step
@@ -4432,7 +4435,7 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 	write (filename0, '("_", i6.6, ".pos")') step ! ここでファイル名を生成している
 	filename=filename0
 	!command="touch "//trim(obj%FileName)//trim(filename)
-	!call system("touch "//trim(obj%FileName)//trim(filename))
+	!call execute_command_line("touch "//trim(obj%FileName)//trim(filename))
 
 	open(fh,file=trim(obj%FileName)//trim(filetitle)//trim(filename))
 	print *, "writing ",trim(obj%FileName)//trim(filetitle)//trim(filename)," step>>",step
@@ -5794,7 +5797,7 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 		endif
 	
 		write (filename0, '("_", i6.6, ".stl")') obj%Timestep ! ここでファイル名を生成している
-		call system(  "touch "//trim(FileName)//trim(filename0) )
+		call execute_command_line(  "touch "//trim(FileName)//trim(filename0) )
 		print *, trim(FileName)//trim(filename0)
 	
 		open(fh,file=trim(FileName)//trim(filename0) )
@@ -5939,7 +5942,7 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
     endif
 
 	write (filename0, '("_", i6.6, ".stl")') obj%Timestep ! ここでファイル名を生成している
-	call system(  "touch "//trim(obj%FileName)//trim(filename0) )
+	call execute_command_line(  "touch "//trim(obj%FileName)//trim(filename0) )
 	print *, trim(obj%FileName)//trim(filename0)
 
 	open(fh,file=trim(obj%FileName)//trim(filename0) )

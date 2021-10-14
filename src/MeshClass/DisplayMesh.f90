@@ -29,7 +29,7 @@ if(present(OptionalFormat) )then
         write(102,*) "plot 'SurfaceLine2D.txt' with vector "
         write(102,*) "pause -1"
         close(102)
-        call system("gnuplot SurfaceLine2D.gp")
+        call execute_command_line("gnuplot SurfaceLine2D.gp")
     endif
 endif
 if(present(OptionalFormat) )then
@@ -55,7 +55,7 @@ if(present(OptionalFormat) )then
         write(102,*) "plot 'ElemLine2D.txt' with vector "
         write(102,*) "pause -1"
         close(102)
-        call system("gnuplot ElemLine2D.gp")
+        call execute_command_line("gnuplot ElemLine2D.gp")
 
         return
     endif
@@ -72,7 +72,7 @@ endif
 command_mkdir="mkdir " // trim(FolderName)
 command_mkdir=trim(command_mkdir)
 
-call system(command_mkdir)
+call execute_command_line(command_mkdir)
 surfaceout=trim(FolderName)//"/surface_nod.txt"
 surfaceout=trim(surfaceout)
 open(100,file=surfaceout)

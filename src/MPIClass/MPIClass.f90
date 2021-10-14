@@ -174,7 +174,7 @@ subroutine createFileNameMPI(obj,Path,Name)
     
     i=access(trim(Path)//trim(adjustl(fstring(obj%MyRank)))," ")
     if(i/=0)then
-        call system("mkdir "//trim(Path)//trim(adjustl(fstring(obj%MyRank))))
+        call execute_command_line("mkdir "//trim(Path)//trim(adjustl(fstring(obj%MyRank))))
     endif
     obj%name=trim(Path)//trim(adjustl(fstring(obj%MyRank)))//"/"&
         //Name//trim(adjustl(fstring(obj%MyRank)))

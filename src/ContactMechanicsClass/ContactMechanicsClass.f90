@@ -1122,8 +1122,8 @@ subroutine runCM(obj,penaltyparameter,debug,GaussPointProjection)
 						!close(50)
 						!close(61)
 						!close(70)					
-						!call system("png_script.gp")
-						!call system("stre_png_scr.gp")
+						!call execute_command_line("png_script.gp")
+						!call execute_command_line("stre_png_scr.gp")
 						! stop 'contact loop did not converge'
 						print *, "ERROR :: NR-did not converge"
 						converge_check=0

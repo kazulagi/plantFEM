@@ -60,7 +60,7 @@ subroutine saveControlPara(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
+        call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
         call f%open(trim(path)//"/"//trim(adjustl(name))//"/","ControlPara",".prop")
         write(f%fh,*) obj%Tol
         write(f%fh,*) obj%SimMode
@@ -68,7 +68,7 @@ subroutine saveControlPara(obj,path,name)
         write(f%fh,*) obj%Timestep
         call f%close()
     else
-        call system("mkdir -p "//trim(path)//"/ControlPara")
+        call execute_command_line("mkdir -p "//trim(path)//"/ControlPara")
         call f%open(trim(path)//"/ControlPara/","ControlPara",".prop")
         write(f%fh,*) obj%Tol
         write(f%fh,*) obj%SimMode
@@ -135,7 +135,7 @@ subroutine exportControlPara(obj,restart,path)
     type(IO_) :: f
 
     if(present(restart) )then
-        call system("mkdir -p "//trim(path)//"/ControlPara")
+        call execute_command_line("mkdir -p "//trim(path)//"/ControlPara")
         call f%open(trim(path)//"/ControlPara/","ControlPara",".res")
         write(f%fh,*) obj%Tol
         write(f%fh,*) obj%SimMode

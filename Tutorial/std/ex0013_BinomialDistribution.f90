@@ -43,6 +43,6 @@ program main
     call f%close()
 
     ! plot
-    call system("gnuplot ./test.gp")
+    call execute_command_line("gnuplot ./test.gp")
     
 end program main

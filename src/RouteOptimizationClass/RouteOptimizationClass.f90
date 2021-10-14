@@ -90,7 +90,7 @@ subroutine runRouteOptimization(obj,SolverName, NumOfPoints)
     endif
     command = "mpic++ ./src/RouteOptimizationClass/"//trim(obj%SolverName)//".cpp -o "//trim(obj%SolverName)//".out"
     print *, command
-    call system(trim(command))
+    call execute_command_line(trim(command))
 
     ! create input file for external solver
 
@@ -108,7 +108,7 @@ subroutine runRouteOptimization(obj,SolverName, NumOfPoints)
     command="./"//trim(obj%SolverName)//".out"
     
     ! run!
-    call system(trim(command))
+    call execute_command_line(trim(command))
 end subroutine
 !##########################################
 

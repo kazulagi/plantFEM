@@ -1,9 +1,9 @@
 module sim
     use fem
-    use multiDOFsystemClass
     use DiffusionEquationClass
     use SpaceTimeDiffusionClass
     use SeismicAnalysisClass
+    use multiDOFsystemClass
     use FiniteDeformationClass
     use ContactMechanicsClass
     use MultiDiffDeformClass

@@ -66,6 +66,6 @@ program main
 
     command="sh "//FileName
     print *, command
-    call system(command)
+    call execute_command_line(command)
     call mpi_finalize(ierr)
 end program

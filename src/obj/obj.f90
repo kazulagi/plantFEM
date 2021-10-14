@@ -1,4 +1,8 @@
 module obj
+    use DigitalElevationModelClass
+    use BoringClass
+    use LightClass
+    use FertilizerClass
     use RidgeClass
     use AirClass
     use DamClass

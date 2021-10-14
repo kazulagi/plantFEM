@@ -1,5 +1,6 @@
 module multiDOFsystemClass
-    use plantFEM
+    use fem
+    use SeismicAnalysisClass
     implicit none
 
     type :: multiDOFsystem_

@@ -158,7 +158,7 @@ subroutine GetPixcelSize(obj,MPIData,Name)
 
     command = "python "//trim(python_script)
     print *, trim(command)
-    call system(trim(command))
+    call execute_command_line(trim(command))
 
     ! get pixcel size
     open(fh,file=trim(python_buffer),status="old")
@@ -248,7 +248,7 @@ subroutine GetAllPointCloud(obj,MPIData,Name)
 
     command = "python "//trim(python_script)
     print *, trim(command)
-    call system(trim(command))
+    call execute_command_line(trim(command))
 
 end subroutine
 ! #########################################################
@@ -371,7 +371,7 @@ subroutine GetPixcelByRGB(obj,MPIData,err,onlycoord,Name)
 
     command = "python "//trim(python_script)
     print *, trim(command)
-    call system(trim(command))
+    call execute_command_line(trim(command))
 
 
     open(fh,file=python_buffer_size,status="old")
@@ -759,7 +759,7 @@ subroutine ExportGeoFile(obj,MPIData,Name)
 	close(fh)
 	!print *, "Done !!"
 	!print *, "Generating mesh..."
-	!call system("gmsh.exe pm2.geo -2 -algo del2d -clmin 40")
+	!call execute_command_line("gmsh.exe pm2.geo -2 -algo del2d -clmin 40")
 end subroutine
 ! #########################################################
 
@@ -788,9 +788,9 @@ subroutine ConvertGeo2Msh(obj,MPIData,Name)
 
     writE(*,'(A)') trim(command)
     
-    call system(command)
+    call execute_command_line(command)
 
-    !call system("sh ./MakeMesh.sh")
+    !call execute_command_line("sh ./MakeMesh.sh")
     
 
 
@@ -821,8 +821,8 @@ subroutine ConvertGeo2Inp(obj,MPIData,Name)
 
     writE(*,'(A)') trim(command)
     
-    call system(trim(command))
-    !call system("sh ./MakeMesh.sh")
+    call execute_command_line(trim(command))
+    !call execute_command_line("sh ./MakeMesh.sh")
     
 
 
@@ -863,9 +863,9 @@ subroutine ConvertGeo2Mesh(obj,MPIData,SizePara,Name)
 
     writE(*,'(A)') trim(command)
     
-    call system(command)
+    call execute_command_line(command)
 
-    !call system("./MakeMesh.sh")
+    !call execute_command_line("./MakeMesh.sh")
     
     
 

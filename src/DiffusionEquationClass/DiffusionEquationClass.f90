@@ -295,8 +295,8 @@ subroutine saveDiffusionEq(obj,path,name)
 		!	pathi(n:n)= " "
 		!endif
 
-		call system("mkdir -p "//trim(pathi))
-		call system("mkdir -p "//trim(pathi)//"/"//trim(name) )
+		call execute_command_line("mkdir -p "//trim(pathi))
+		call execute_command_line("mkdir -p "//trim(pathi)//"/"//trim(name) )
 		call f%open(trim(pathi)//"/"//trim(name) ,"/"//"DiffusionEq",".prop" )
 	else
 		pathi=path
@@ -304,8 +304,8 @@ subroutine saveDiffusionEq(obj,path,name)
 		!	n=index(path, "/", back=.true.)
 		!	pathi(n:n)= " "
 		!endif
-		call system("mkdir -p "//trim(pathi))
-		call system("mkdir -p "//trim(pathi)//"/DiffusionEq")
+		call execute_command_line("mkdir -p "//trim(pathi))
+		call execute_command_line("mkdir -p "//trim(pathi)//"/DiffusionEq")
 		call f%open(trim(pathi)//"/DiffusionEq","/DiffusionEq",".prop" )
 	endif
 	
@@ -357,7 +357,7 @@ subroutine exportDiffusionEq(obj,path,restart)
     type(IO_) :: f
     
     if(present(restart) )then
-        call system("mkdir -p "//trim(path)//"/DiffusionEq")
+        call execute_command_line("mkdir -p "//trim(path)//"/DiffusionEq")
 	    call f%open("./",trim(path),"/DiffusionEq/DiffusionEq.res")
         
         if(associated(obj%FEMDomain) )then

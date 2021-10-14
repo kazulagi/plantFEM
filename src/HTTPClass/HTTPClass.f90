@@ -16,7 +16,7 @@ contains
 subroutine posthttp(obj)
     class(http_),intent(in) :: obj
 
-    call system("curl -X POST '"//&
+    call execute_command_line("curl -X POST '"//&
     trim(obj%url)//"' -d 'token="//&
     trim(obj%token)//"' -d 'channel="//&
     trim(obj%channel)//"' -d 'text="//&
@@ -28,7 +28,7 @@ end subroutine
 subroutine gethttp(obj)
     class(http_),intent(in) :: obj
 
-    call system("curl -X POST '"//&
+    call execute_command_line("curl -X POST '"//&
     trim(obj%url)//"' -d 'token="//&
     trim(obj%token)//"' -d 'channel="//&
     trim(obj%channel)//"' -d 'text="//&
