@@ -307,7 +307,7 @@ subroutine flushSeed(obj,path,name)
     endif
 
     ! create directory for save
-    call system("mkdir -p "//trim(obj%path)//trim(obj%name))
+    call execute_command_line("mkdir -p "//trim(obj%path)//trim(obj%name))
     
     call f%open(trim(obj%path)//trim(obj%name)//"/type")
     call f%write("seed")
@@ -322,16 +322,16 @@ subroutine flushSeed(obj,path,name)
     call f%write("           ,which contains .f90 scripts and options.")
     call f%close()
 
-    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input")
-    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/output")
-    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/server")
+    call execute_command_line("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input")
+    call execute_command_line("mkdir -p "//trim(obj%path)//trim(obj%name)//"/output")
+    call execute_command_line("mkdir -p "//trim(obj%path)//trim(obj%name)//"/server")
 
     ! only for SeedClass
-    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+    call execute_command_line("mkdir -p "//trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
         "")
-    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+    call execute_command_line("mkdir -p "//trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
         "")
-    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
+    call execute_command_line("mkdir -p "//trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
         "")
     call obj%water%save(path=trim(obj%path)//trim(obj%name)//"/output/seed"//trim(str(obj%step) ) //&
         "",name="water")
@@ -431,7 +431,7 @@ subroutine saveSeed(obj,path,name)
     endif
 
     ! create directory for save
-    call system("mkdir -p "//trim(obj%path)//trim(obj%name))
+    call execute_command_line("mkdir -p "//trim(obj%path)//trim(obj%name))
     
     call f%open(trim(obj%path)//trim(obj%name)//"/type")
     call f%write("seed")
@@ -446,15 +446,15 @@ subroutine saveSeed(obj,path,name)
     call f%write("           ,which contains .f90 scripts and options.")
     call f%close()
 
-    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input")
-    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/output")
-    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/server")
+    call execute_command_line("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input")
+    call execute_command_line("mkdir -p "//trim(obj%path)//trim(obj%name)//"/output")
+    call execute_command_line("mkdir -p "//trim(obj%path)//trim(obj%name)//"/server")
 
     ! only for SeedClass
-    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input/seed")
-    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input/seed/water")
-    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input/seed/tissue")
-    call system("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain")
+    call execute_command_line("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input/seed")
+    call execute_command_line("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input/seed/water")
+    call execute_command_line("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input/seed/tissue")
+    call execute_command_line("mkdir -p "//trim(obj%path)//trim(obj%name)//"/input/seed/seedDomain")
     
     call obj%water%save(path=trim(obj%path)//trim(obj%name)//"/input/seed",name="water")
     call obj%tissue%save(path=trim(obj%path)//trim(obj%name)//"/input/seed",name="tissue")
@@ -506,11 +506,11 @@ subroutine saveSeed(obj,path,name)
 
     obj%step=obj%step+1
     call obj%seedDomain%result(path=trim(obj%path)//trim(obj%name)//"/output/seed",name="seedDomain",step=obj%step)
-    call system("mv *.pos "//trim(obj%path)//trim(obj%name)//"/output/")
-    call system("mv *.txt "//trim(obj%path)//trim(obj%name)//"/output/")
-    call system("mv *.scf "//trim(obj%path)//trim(obj%name)//"/output/")
-    call system("mv *.msh "//trim(obj%path)//trim(obj%name)//"/output/")
-    call system("mv ./a.out "//trim(obj%path)//trim(obj%name)//"/server/")
+    call execute_command_line("mv *.pos "//trim(obj%path)//trim(obj%name)//"/output/")
+    call execute_command_line("mv *.txt "//trim(obj%path)//trim(obj%name)//"/output/")
+    call execute_command_line("mv *.scf "//trim(obj%path)//trim(obj%name)//"/output/")
+    call execute_command_line("mv *.msh "//trim(obj%path)//trim(obj%name)//"/output/")
+    call execute_command_line("mv ./a.out "//trim(obj%path)//trim(obj%name)//"/server/")
 
 end subroutine
 !########################################################
@@ -927,7 +927,7 @@ subroutine createMeshSeed(obj,FileName,withSTL,ObjType,ElemType)
     call obj%export(FileName=meshFileName)
     command="gmsh "//trim(meshFileName)//" -3 -format mesh" 
     writE(*,'(A)') trim(command)
-    call system(command)
+    call execute_command_line(command)
 
     ! modification
     call mesh%import(FileName=trim(meshFileName_m),extention=".mesh",ElemType=ElemType)

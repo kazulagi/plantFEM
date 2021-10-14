@@ -87,7 +87,7 @@ subroutine openBoundary(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
+        call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
         call obj%DBound%open(path=trim(path)//"/"//trim(adjustl(name)), name="DBound")
         call obj%NBound%open(path=trim(path)//"/"//trim(adjustl(name)), name="NBound")
         call obj%TBound%open(path=trim(path)//"/"//trim(adjustl(name)), name="TBound")
@@ -128,7 +128,7 @@ subroutine openBoundary(obj,path,name)
         call f%close()
     else
 
-        call system("mkdir -p "//trim(path)//"/Boundary")
+        call execute_command_line("mkdir -p "//trim(path)//"/Boundary")
         call obj%DBound%open(path=trim(path), name="Boundary")
         call obj%NBound%open(path=trim(path), name="Boundary")
         call obj%TBound%open(path=trim(path), name="Boundary")
@@ -1047,7 +1047,16 @@ subroutine ImportDBound(obj,Node_ID,DValue)
     real(real64),intent(in)::DValue(:,:)
     integer(int32),intent(in)::Node_ID(:,:)
 
-    include "./ImportDBound.f90"
+    
+    integer :: i,DBoundDimension,DBoundNum
+
+    DBoundNum      =size(DValue,1)
+    DBoundDimension=size(DValue,2)
+
+    allocate(obj%DBoundVal(DBoundNum,DBoundDimension) )
+    allocate(obj%DBoundNodID(DBoundNum,DBoundDimension))
+    obj%DBoundVal(:,:)=DValue(:,:)
+    obj%DBoundNodID(:,:)=Node_ID(:,:)
 
 end subroutine ImportDBound
 !###############  Import D-Boundary Condition ###############
@@ -1061,7 +1070,36 @@ subroutine MergeDBound(BCObj1,MeshObj1,BCObj2,MeshObj2,OutBCObj)
     class(Boundary_),intent(inout)::OutBCObj
 
     
-    include "./MergeDBound.f90"
+    integer :: i,j,n1,n2,n3
+    integer :: NumOfNode1,NumOfNode2,NumOfDim
+
+    NumOfNode1=size(MeshObj1%NodCoord,1)
+    NumOfNode2=size(MeshObj2%NodCoord,1)
+    NumOfDim=size(MeshObj2%NodCoord,2)
+
+    n1 = size(BCObj1%DBoundVal,1)
+    n2 = size(BCObj2%DBoundVal,1)
+    n3 = size(BCObj2%DBoundVal,2)
+    allocate(OutBCObj%DBoundVal(n1+n2,n3) )
+    OutBCObj%DBoundVal(1:n1,:)=BCObj1%DBoundVal(1:n1,:)
+    OutBCObj%DBoundVal(n1+1:n1+n2,:)=BCObj1%DBoundVal(1:n2,:)
+    
+    n1 = size(BCObj1%DBoundNodID,1)
+    n2 = size(BCObj2%DBoundNodID,1)
+    n3 = size(BCObj2%DBoundNodID,2)
+    allocate(OutBCObj%DBoundNodID(n1+n2,n3) )
+    OutBCObj%DBoundNodID(1:n1,:)        =BCObj1%DBoundNodID(1:n1,:)
+    OutBCObj%DBoundNodID(n1+1:n1+n2,:)  =BCObj1%DBoundNodID(1:n2,:)+NumOfNode1
+
+    if(size(BCObj1%DBoundNum)/=size(BCObj2%DBoundNum) )then
+        OutBCObj%ErrorMsg="ERROR :: MergeNBound >> size(BCObj1%DBoundNum)/=size(BCObj2%DBoundNum) )" 
+        print *, "ERROR :: MergeNBound >> size(BCObj1%DBoundNum)/=size(BCObj2%DBoundNum) )"
+        return
+    endif
+    allocate(OutBCObj%DBoundNum(size(BCObj1%DBoundNum ) ))
+    OutBCObj%DBoundNum(:)=0
+    OutBCObj%DBoundNum(:)=BCObj1%DBoundNum(:)+BCObj2%DBoundNum(:)
+
 
 end subroutine MergeDBound
 !###############  Import D-Boundary Condition ###############
@@ -1072,7 +1110,38 @@ subroutine MergeNBound(BCObj1,MeshObj1,BCObj2,MeshObj2,OutBCObj)
     class(Mesh_),intent(in)::MeshObj1,MeshObj2
     class(Boundary_),intent(inout)::OutBCObj
 
-    include "./MergeNBound.f90"
+    integer :: i,j,n1,n2,n3
+    integer :: NumOfNode1,NumOfNode2,NumOfDim
+
+    NumOfNode1=size(MeshObj1%NodCoord,1)
+    NumOfNode2=size(MeshObj2%NodCoord,1)
+    NumOfDim=size(MeshObj2%NodCoord,2)
+
+    n1 = size(BCObj1%NBoundVal,1)
+    n2 = size(BCObj2%NBoundVal,1)
+    n3 = size(BCObj2%NBoundVal,2)
+    allocate(OutBCObj%NBoundVal(n1+n2,n3) )
+    OutBCObj%NBoundVal(1:n1,:)=BCObj1%NBoundVal(1:n1,:)
+    OutBCObj%NBoundVal(n1+1:n1+n2,:)=BCObj1%NBoundVal(1:n2,:)
+    
+    n1 = size(BCObj1%NBoundNodID,1)
+    n2 = size(BCObj2%NBoundNodID,1)
+    n3 = size(BCObj2%NBoundNodID,2)
+    allocate(OutBCObj%NBoundNodID(n1+n2,n3) )
+    OutBCObj%NBoundNodID(1:n1,:)        =BCObj1%NBoundNodID(1:n1,:)
+    OutBCObj%NBoundNodID(n1+1:n1+n2,:)  =BCObj1%NBoundNodID(1:n2,:)+NumOfNode1
+
+
+    if(size(BCObj1%NBoundNum)/=size(BCObj2%NBoundNum) )then
+        OutBCObj%ErrorMsg="ERROR :: MergeNBound >> size(BCObj1%NBoundNum)/=size(BCObj2%NBoundNum) )" 
+        print *, "ERROR :: MergeNBound >> size(BCObj1%NBoundNum)/=size(BCObj2%NBoundNum) )"
+        return
+    endif
+    allocate(OutBCObj%NBoundNum(size(BCObj1%NBoundNum ) ))
+    OutBCObj%NBoundNum(:)=BCObj1%NBoundNum(:)+BCObj2%NBoundNum(:)
+
+
+
 
 end subroutine MergeNBound
 !###############  Import N-Boundary Condition ###############
@@ -1085,7 +1154,15 @@ subroutine ImportNBound(obj,Node_ID,NValue)
     real(real64),intent(in)::NValue(:,:)
     integer(int32),intent(in)::Node_ID(:,:)
 
-    include "./ImportNBound.f90"
+    integer :: i,NBoundDimension,NBoundNum
+
+    NBoundNum      =size(NValue,1)
+    NBoundDimension=size(NValue,2)
+
+    allocate(obj%NBoundVal(NBoundNum,NBoundDimension) )
+    allocate(obj%NBoundNodID(NBoundNum,NBoundDimension))
+    obj%NBoundVal(:,:)=NValue(:,:)
+    obj%NBoundNodID(:,:)=Node_ID(:,:)
 
 end subroutine ImportNBound
 !###############  Import N-Boundary Condition ###############
@@ -1249,7 +1326,7 @@ subroutine exportBoundary(obj,restart,path)
     type(IO_) :: f
 
     if(present(restart) )then
-        call system("mkdir -p "//trim(path)//"/Boundary")
+        call execute_command_line("mkdir -p "//trim(path)//"/Boundary")
         call obj%DBound%export(path=trim(path)//"/Boundary", restart=.true.)
         call obj%NBound%export(path=trim(path)//"/Boundary", restart=.true.)
         call obj%TBound%export(path=trim(path)//"/Boundary", restart=.true.)
@@ -1301,7 +1378,7 @@ subroutine saveBoundary(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
+        call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
         call obj%DBound%save(path=trim(path)//"/"//trim(adjustl(name)), name="DBound")
         call obj%NBound%save(path=trim(path)//"/"//trim(adjustl(name)), name="NBound")
         call obj%TBound%save(path=trim(path)//"/"//trim(adjustl(name)), name="TBound")
@@ -1342,7 +1419,7 @@ subroutine saveBoundary(obj,path,name)
         call f%close()
     else
 
-        call system("mkdir -p "//trim(path)//"/Boundary")
+        call execute_command_line("mkdir -p "//trim(path)//"/Boundary")
         call obj%DBound%save(path=trim(path), name="Boundary")
         call obj%NBound%save(path=trim(path), name="Boundary")
         call obj%TBound%save(path=trim(path), name="Boundary")

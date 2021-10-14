@@ -22,6 +22,6 @@ program main
     call f%open("test.gp")
     call f%write("splot 'test.txt' w l")
     call f%close()
-    call system("gnuplot test.gp -p")
+    call execute_command_line("gnuplot test.gp -p")
 
 end program

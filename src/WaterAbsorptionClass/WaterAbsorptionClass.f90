@@ -214,13 +214,13 @@ subroutine openWaterAbsorption(obj,path,name)
     endif
 
     if(present(name) )then
-        call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)) )
+        call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)) )
 	    fname=trim(path)//"/"//trim(adjustl(name)) 
         call f%open("./",trim(path)//"/"//trim(adjustl(name)) ,"/WaterAbsorption.prop")
         call obj%FiniteDeform%open(path=trim(path)//"/"//trim(adjustl(name)),name="FiniteDeform")
         call obj%DiffusionEq%open(path=trim(path)//"/"//trim(adjustl(name)),name="DiffusionEq")
     else
-        call system("mkdir -p "//trim(path)//"/WaterAbsorption")
+        call execute_command_line("mkdir -p "//trim(path)//"/WaterAbsorption")
         call f%open("./",trim(path)//"/WaterAbsorption","/WaterAbsorption.prop")
         call obj%FiniteDeform%open(path=trim(path)//"/WaterAbsorption",name="FiniteDeform")
         call obj%DiffusionEq%open(path=trim(path)//"/WaterAbsorption",name="DiffusionEq")
@@ -276,7 +276,7 @@ subroutine flushWaterAbsorption(obj,path,name)
 
     if(present(name) )then
         fname=trim(path)//"/"//trim(adjustl(name)) 
-        call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)) )
+        call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)) )
         
         
         if(associated(obj%water) )then
@@ -291,42 +291,42 @@ subroutine flushWaterAbsorption(obj,path,name)
         call obj%FiniteDeform%export(path="./"//trim(fname)//"/FiniteDeform",restart=restart)
 
         if(associated(obj%a_Psi) )then
-            call system("mkdir -p ./"//trim(fname)//"/a_Psi")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_Psi")
             call obj%a_Psi%export(      path=trim(fname)//"/a_Psi"  ,restart=restart)
         endif
         
         if(associated(obj%a_P) )then
-            call system("mkdir -p ./"//trim(fname)//"/a_P")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_P")
             call obj%a_P%export(        path=trim(fname)//"/a_P"    ,restart=restart)
         endif
         
         if(associated(obj%theta_eq) )then
-            call system("mkdir -p ./"//trim(fname)//"/theta_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/theta_eq")
             call obj%theta_eq%export(   path=trim(fname)//"/theta_eq"   ,restart=restart)
         endif
         
         if(associated(obj%Psi_eq) )then
-            call system("mkdir -p ./"//trim(fname)//"/Psi_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/Psi_eq")
             call obj%Psi_eq%export(     path=trim(fname)//"/Psi_eq"     ,restart=restart)
         endif
         
         if(associated(obj%a_E) )then
-            call system("mkdir -p ./"//trim(fname)//"/a_E")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_E")
             call obj%a_E%export(        path=trim(fname)//"/a_E"    ,restart=restart)
         endif
         
         if(associated(obj%a_v) )then
-            call system("mkdir -p ./"//trim(fname)//"/a_v")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_v")
             call obj%a_v%export(        path=trim(fname)//"/a_v"    ,restart=restart)
         endif
         
         if(associated(obj%E_eq) )then
-            call system("mkdir -p ./"//trim(fname)//"/E_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/E_eq")
             call obj%E_eq%export(       path=trim(fname)//"/E_eq"   ,restart=restart)
         endif
         
         if(associated(obj%v_eq) )then
-            call system("mkdir -p ./"//trim(fname)//"/v_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/v_eq")
             call obj%v_eq%export(       path=trim(fname)//"/v_eq"   ,restart=restart)
         endif
 
@@ -356,7 +356,7 @@ subroutine flushWaterAbsorption(obj,path,name)
         write(f%fh,*) obj%dt
         call f%close()
     else
-        call system("mkdir -p "//trim(path)//"/WaterAbsorption")
+        call execute_command_line("mkdir -p "//trim(path)//"/WaterAbsorption")
         call f%open("./",trim(path)//"/WaterAbsorption","/WaterAbsorption.prop")
         fname=trim(path)//"/WaterAbsorption"
         write(f%fh,*) obj%WaterAbsorbingPower(:)
@@ -395,42 +395,42 @@ subroutine flushWaterAbsorption(obj,path,name)
         call obj%FiniteDeform%export(path="./"//trim(fname)//"/FiniteDeform",restart=restart)
 
         if(associated(obj%a_Psi) )then
-            call system("mkdir -p ./"//trim(fname)//"/a_Psi")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_Psi")
             call obj%a_Psi%export(      path=trim(fname)//"/a_Psi"  ,restart=restart)
         endif
         
         if(associated(obj%a_P) )then
-            call system("mkdir -p ./"//trim(fname)//"/a_P")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_P")
             call obj%a_P%export(        path=trim(fname)//"/a_P"    ,restart=restart)
         endif
         
         if(associated(obj%theta_eq) )then
-            call system("mkdir -p ./"//trim(fname)//"/theta_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/theta_eq")
             call obj%theta_eq%export(   path=trim(fname)//"/theta_eq"   ,restart=restart)
         endif
         
         if(associated(obj%Psi_eq) )then
-            call system("mkdir -p ./"//trim(fname)//"/Psi_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/Psi_eq")
             call obj%Psi_eq%export(     path=trim(fname)//"/Psi_eq"     ,restart=restart)
         endif
         
         if(associated(obj%a_E) )then
-            call system("mkdir -p ./"//trim(fname)//"/a_E")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_E")
             call obj%a_E%export(        path=trim(fname)//"/a_E"    ,restart=restart)
         endif
         
         if(associated(obj%a_v) )then
-            call system("mkdir -p ./"//trim(fname)//"/a_v")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_v")
             call obj%a_v%export(        path=trim(fname)//"/a_v"    ,restart=restart)
         endif
         
         if(associated(obj%E_eq) )then
-            call system("mkdir -p ./"//trim(fname)//"/E_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/E_eq")
             call obj%E_eq%export(       path=trim(fname)//"/E_eq"   ,restart=restart)
         endif
         
         if(associated(obj%v_eq) )then
-            call system("mkdir -p ./"//trim(fname)//"/v_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/v_eq")
             call obj%v_eq%export(       path=trim(fname)//"/v_eq"   ,restart=restart)
         endif
 
@@ -458,14 +458,14 @@ subroutine saveWaterAbsorption(obj,path,name)
     endif
 
     if(present(name) )then
-        call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)) )
+        call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)) )
 	    fname=trim(path)//"/"//trim(adjustl(name)) 
         call f%open("./",trim(path)//"/"//trim(adjustl(name)) ,"/WaterAbsorption.prop")
         call obj%FiniteDeform%save(path=trim(path)//"/"//trim(adjustl(name)),name="FiniteDeform")
         call obj%DiffusionEq%save(path=trim(path)//"/"//trim(adjustl(name)),name="DiffusionEq")
         
     else
-        call system("mkdir -p "//trim(path)//"/WaterAbsorption")
+        call execute_command_line("mkdir -p "//trim(path)//"/WaterAbsorption")
         call f%open("./",trim(path)//"/WaterAbsorption","/WaterAbsorption.prop")
         call obj%FiniteDeform%save(path=trim(path)//"/WaterAbsorption",name="FiniteDeform")
         call obj%DiffusionEq%save(path=trim(path)//"/WaterAbsorption",name="DiffusionEq")
@@ -954,7 +954,7 @@ subroutine exportWaterAbsorption(obj,OptionalFileFormat,OptionalProjectName,File
         endif
 
         if(present(name) )then
-            call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)) )
+            call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)) )
 		    call f%open("./",trim(path)//"/"//trim(adjustl(name)) ,"/WaterAbsorption.prop")
             fname=trim(path)//"/"//trim(adjustl(name)) 
             write(f%fh,*) obj%WaterAbsorbingPower(:)
@@ -981,7 +981,7 @@ subroutine exportWaterAbsorption(obj,OptionalFileFormat,OptionalProjectName,File
             call f%close()
 
 
-            call system("mkdir -p ./"//trim(fname)//"/FEMDomain")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/FEMDomain")
             call f%open("./",trim(fname),"/FEMDomain/Water.prop")
             call obj%Water%export(path = "./"//trim(fname)//"/FEMDomain", restart=restart)
             call f%close()
@@ -990,43 +990,43 @@ subroutine exportWaterAbsorption(obj,OptionalFileFormat,OptionalProjectName,File
             call obj%Tissue%export(path = "./"//trim(fname)//"/FEMDomain", restart=restart)
             call f%close()
 
-            call system("mkdir -p ./"//trim(fname)//"/DiffusionEq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/DiffusionEq")
             call f%open("./",trim(fname),"/DiffusionEq/DiffusionEq.prop")
             call obj%DiffusionEq%export(path="./"//trim(fname)//"/DiffusionEq",restart=restart)
             call f%close()
             
-            call system("mkdir -p ./"//trim(fname)//"/FiniteDeform")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/FiniteDeform")
             call f%open("./",trim(fname),"/FiniteDeform/FiniteDeform.prop")
             call obj%FiniteDeform%export(path="./"//trim(fname)//"/FiniteDeform",restart=restart)
             call f%close()
 
-            call system("mkdir -p ./"//trim(fname)//"/a_Psi")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_Psi")
             call obj%a_Psi%export(      path=trim(fname)//"/a_Psi"  ,restart=restart)
             
 
-            call system("mkdir -p ./"//trim(fname)//"/a_P")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_P")
             call obj%a_P%export(        path=trim(fname)//"/a_P"    ,restart=restart)
             
-            call system("mkdir -p ./"//trim(fname)//"/theta_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/theta_eq")
             call obj%theta_eq%export(   path=trim(fname)//"/theta_eq"   ,restart=restart)
             
-            call system("mkdir -p ./"//trim(fname)//"/Psi_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/Psi_eq")
             call obj%Psi_eq%export(     path=trim(fname)//"/Psi_eq"     ,restart=restart)
             
-            call system("mkdir -p ./"//trim(fname)//"/a_E")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_E")
             call obj%a_E%export(        path=trim(fname)//"/a_E"    ,restart=restart)
             
-            call system("mkdir -p ./"//trim(fname)//"/a_v")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_v")
             call obj%a_v%export(        path=trim(fname)//"/a_v"    ,restart=restart)
             
-            call system("mkdir -p ./"//trim(fname)//"/E_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/E_eq")
             call obj%E_eq%export(       path=trim(fname)//"/E_eq"   ,restart=restart)
             
-            call system("mkdir -p ./"//trim(fname)//"/v_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/v_eq")
             call obj%v_eq%export(       path=trim(fname)//"/v_eq"   ,restart=restart)
         
         else
-            call system("mkdir -p "//trim(path)//"/WaterAbsorption")
+            call execute_command_line("mkdir -p "//trim(path)//"/WaterAbsorption")
             call f%open("./",trim(path)//"/WaterAbsorption","/WaterAbsorption.prop")
             fname=trim(path)//"/WaterAbsorption"
             write(f%fh,*) obj%WaterAbsorbingPower(:)
@@ -1053,7 +1053,7 @@ subroutine exportWaterAbsorption(obj,OptionalFileFormat,OptionalProjectName,File
             call f%close()
     
     
-            call system("mkdir -p ./"//trim(fname)//"/FEMDomain")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/FEMDomain")
             call f%open("./",trim(fname),"/FEMDomain/Water.prop")
             call obj%Water%export(path = "./"//trim(fname)//"/FEMDomain", restart=restart)
             call f%close()
@@ -1062,39 +1062,39 @@ subroutine exportWaterAbsorption(obj,OptionalFileFormat,OptionalProjectName,File
             call obj%Tissue%export(path = "./"//trim(fname)//"/FEMDomain", restart=restart)
             call f%close()
     
-            call system("mkdir -p ./"//trim(fname)//"/DiffusionEq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/DiffusionEq")
             call f%open("./",trim(fname),"/DiffusionEq/DiffusionEq.prop")
             call obj%DiffusionEq%export(path="./"//trim(fname)//"/DiffusionEq",restart=restart)
             call f%close()
             
-            call system("mkdir -p ./"//trim(fname)//"/FiniteDeform")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/FiniteDeform")
             call f%open("./",trim(fname),"/FiniteDeform/FiniteDeform.prop")
             call obj%FiniteDeform%export(path="./"//trim(fname)//"/FiniteDeform",restart=restart)
             call f%close()
     
-            call system("mkdir -p ./"//trim(fname)//"/a_Psi")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_Psi")
             call obj%a_Psi%export(      path=trim(fname)//"/a_Psi"  ,restart=restart)
             
     
-            call system("mkdir -p ./"//trim(fname)//"/a_P")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_P")
             call obj%a_P%export(        path=trim(fname)//"/a_P"    ,restart=restart)
             
-            call system("mkdir -p ./"//trim(fname)//"/theta_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/theta_eq")
             call obj%theta_eq%export(   path=trim(fname)//"/theta_eq"   ,restart=restart)
             
-            call system("mkdir -p ./"//trim(fname)//"/Psi_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/Psi_eq")
             call obj%Psi_eq%export(     path=trim(fname)//"/Psi_eq"     ,restart=restart)
             
-            call system("mkdir -p ./"//trim(fname)//"/a_E")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_E")
             call obj%a_E%export(        path=trim(fname)//"/a_E"    ,restart=restart)
             
-            call system("mkdir -p ./"//trim(fname)//"/a_v")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/a_v")
             call obj%a_v%export(        path=trim(fname)//"/a_v"    ,restart=restart)
             
-            call system("mkdir -p ./"//trim(fname)//"/E_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/E_eq")
             call obj%E_eq%export(       path=trim(fname)//"/E_eq"   ,restart=restart)
             
-            call system("mkdir -p ./"//trim(fname)//"/v_eq")
+            call execute_command_line("mkdir -p ./"//trim(fname)//"/v_eq")
             call obj%v_eq%export(       path=trim(fname)//"/v_eq"   ,restart=restart)
             
         endif

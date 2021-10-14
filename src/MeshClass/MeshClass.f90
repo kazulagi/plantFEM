@@ -389,14 +389,14 @@ end function
 
         
         if(present(name) )then
-            call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
+            call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
             call f%open(trim(path)//"/"//trim(adjustl(name))//"/","Mesh",".prop")
             !call obj%gmsh(Name=trim(path)//"/"//trim(adjustl(name))//"/Mesh")
             !call obj%export(path=trim(path)//"/"//trim(adjustl(name))//"/",name="Mesh")
             !print *, trim(path)//"/"//trim(adjustl(name))//"/","Mesh",".prop"
 
         else
-            call system("mkdir -p "//trim(path)//"/Mesh")
+            call execute_command_line("mkdir -p "//trim(path)//"/Mesh")
             call f%open(trim(path)//"/Mesh/","Mesh",".prop")
             !call obj%gmsh(Name=trim(path)//"/Mesh/Mesh")
             !call obj%export(path=trim(path)//"/Mesh/",name="Mesh")
@@ -825,7 +825,21 @@ subroutine ImportElemNod(obj,elem_nod)
     class(Mesh_),intent(inout)::obj
     integer(int32),intent(in)::elem_nod(:,:)
     
-    include "./ImportElemNod.f90"
+    
+    if(allocated(obj%ElemNod) )then
+        deallocate(obj%ElemNod)
+    endif
+    allocate(obj%ElemNod(size(elem_nod,1),size(elem_nod,2) ) )
+    obj%ElemNod(:,:)=elem_nod(:,:)
+
+    
+    if(allocated(obj%SubMeshElemFromTo))then
+        deallocate(obj%SubMeshElemFromTo)
+    endif
+    allocate(obj%SubMeshElemFromTo(1,3 ))
+    obj%SubMeshElemFromTo(1,1)=1
+    obj%SubMeshElemFromTo(1,2)=1
+    obj%SubMeshElemFromTo(1,3)=size(elem_nod,1)
 
 end subroutine ImportElemNod
 !##################################################
@@ -839,7 +853,20 @@ subroutine ImportNodCoord(obj,nod_coord)
     class(Mesh_),intent(inout)::obj
     real(real64),intent(in)::nod_coord(:,:)
 
-    include "./ImportNodCoord.f90"
+    
+    if(allocated(obj%NodCoord) )then
+        deallocate(obj%NodCoord)
+    endif
+    allocate(obj%NodCoord(size(nod_coord,1),size(nod_coord,2) ) )
+    obj%NodCoord(:,:)=nod_coord(:,:)
+
+    if(allocated(obj%SubMeshNodFromTo))then
+        deallocate(obj%SubMeshNodFromTo)
+    endif
+    allocate(obj%SubMeshNodFromTo(1,3 ))
+    obj%SubMeshNodFromTo(1,1)=1
+    obj%SubMeshNodFromTo(1,2)=1
+    obj%SubMeshNodFromTo(1,3)=size(nod_coord,1)
 
 end subroutine ImportNodCoord
 !##################################################
@@ -852,7 +879,11 @@ subroutine ImportElemMat(obj,elem_mat)
     class(Mesh_),intent(inout)::obj
     integer(int32),intent(in)::elem_mat(:)
 
-    include "./ImportElemMat.f90"
+    if(allocated(obj%ElemMat) )then
+        deallocate(obj%ElemMat)
+    endif
+    allocate(obj%ElemMat(size(elem_mat,1) ) )
+    obj%ElemMat(:)=elem_mat(:)
 
 end subroutine ImportElemMat
 !##################################################
@@ -1028,7 +1059,7 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
         return
     endif
 
-    call system("mkdir -p "//trim(path)//"/Mesh")
+    call execute_command_line("mkdir -p "//trim(path)//"/Mesh")
 
     if(obj%empty() .eqv. .true.)then
         return
@@ -1036,7 +1067,7 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
 
 
     if(present(restart) )then
-        call system("mkdir -p "//trim(path)//"/Mesh")
+        call execute_command_line("mkdir -p "//trim(path)//"/Mesh")
         call f%open(trim(path)//"/Mesh/",trim(fieldname),".prop")
         
         call writeArray(f%fh,obj%NodCoord)
@@ -1207,7 +1238,7 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
 	    	write(f%fh,'(A)') " "
         enddo
         
-        call system("mkdir -p "//trim(path)//"/Mesh")
+        call execute_command_line("mkdir -p "//trim(path)//"/Mesh")
         call f%open(trim(path)//"/Mesh/",trim(fieldname),".ply")
     	write(f%fh,'(A)')"ply"
     	write(f%fh,'(A)')"format ascii 1.0"
@@ -1306,7 +1337,7 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
     
 
 
-    call system("mkdir -p "//trim(path)//"/Mesh")
+    call execute_command_line("mkdir -p "//trim(path)//"/Mesh")
     call f%open(trim(path)//"/Mesh/","Mesh",".ply")
 	write(f%fh,'(A)')"ply"
 	write(f%fh,'(A)')"format ascii 1.0"
@@ -1398,7 +1429,7 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
     call f%close()
 
     if(present(stl) )then
-        call system("mkdir -p "//trim(path)//"/Mesh")
+        call execute_command_line("mkdir -p "//trim(path)//"/Mesh")
         call f%open(trim(path)//"/Mesh/","Mesh",".stl")
         call obj%GetSurface()
 	    dim_num = size(obj%NodCoord,2)
@@ -2810,10 +2841,11 @@ end subroutine MergeMesh
 subroutine ExportElemNod(obj,elem_nod)
     class(Mesh_),intent(inout)::obj
     integer(int32),allocatable,intent(inout)::elem_nod(:,:)
-    
-    include "./ExportElemNod.f90"
-
-    
+    if(allocated(elem_nod ))then
+        deallocate(elem_nod)
+    endif
+    allocate(elem_nod(size(obj%ElemNod,1),size(obj%ElemNod,2) ) )
+    elem_nod(:,:)=obj%ElemNod(:,:)
 end subroutine ExportElemNod
 !##################################################
 
@@ -2822,8 +2854,11 @@ subroutine ExportNodCoord(obj,nod_coord)
     class(Mesh_),intent(inout)::obj
     real(real64),allocatable,intent(inout)::nod_coord(:,:)
 
-    include "./ExportNodCoord.f90"
-
+    if(allocated(nod_coord) )then
+        deallocate(nod_coord)
+    endif
+    allocate(nod_coord(size(obj%NodCoord,1),size(obj%NodCoord,2) ) )
+    nod_coord(:,:)=obj%NodCoord(:,:)
     
 
 end subroutine ExportNodCoord
@@ -2836,7 +2871,11 @@ subroutine ExportSurface2D(obj,surface_nod)
     class(Mesh_),intent(inout)::obj
     integer(int32),allocatable,intent(inout)::surface_nod(:)
 
-    include "./ExportSurface2D.f90"
+    if(allocated(surface_nod) )then
+        deallocate(surface_nod)
+    endif
+    allocate(surface_nod(size(obj%SurfaceLine2D,1) ) )
+    surface_nod(:)=obj%SurfaceLine2D(:)
 
 end subroutine ExportSurface2D
 !##################################################
@@ -2898,7 +2937,7 @@ if(present(OptionalFormat) )then
         write(102,*) "plot 'SurfaceLine2D.txt' with vector "
         write(102,*) "pause -1"
         close(102)
-        call system("gnuplot SurfaceLine2D.gp")
+        call execute_command_line("gnuplot SurfaceLine2D.gp")
     endif
 endif
 if(present(OptionalFormat) )then
@@ -2924,7 +2963,7 @@ if(present(OptionalFormat) )then
         write(102,*) "plot 'ElemLine2D.txt' with vector "
         write(102,*) "pause -1"
         close(102)
-        call system("gnuplot ElemLine2D.gp")
+        call execute_command_line("gnuplot ElemLine2D.gp")
 
         return
     endif
@@ -2941,7 +2980,7 @@ endif
 command_mkdir ="mkdir -p " // trim(FolderName)
 command_mkdir =trim(command_mkdir )
 
-call system(command_mkdir )
+call execute_command_line(command_mkdir )
 surfaceout=trim(FolderName)//"/surface_nod.txt"
 surfaceout=trim(surfaceout)
 open(100,file=surfaceout)
@@ -6795,13 +6834,13 @@ subroutine gmshMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeu
 	if(present(Name) )then
 		filename=filetitle//filename0
 		
-		!call system(  "touch "//trim(adjustl(name))//trim(obj%FileName)//trim(filename) )
+		!call execute_command_line(  "touch "//trim(adjustl(name))//trim(obj%FileName)//trim(filename) )
 		print *, trim(adjustl(name))//trim(filename)
 		open(fh,file=trim(adjustl(name))//trim(filename) )
 		print *, "writing ",trim(adjustl(name))//trim(filename)," step>>",step
 	else
 		filename=filetitle//filename0
-		!call system(  "touch "//trim(obj%FileName)//trim(filename) )
+		!call execute_command_line(  "touch "//trim(obj%FileName)//trim(filename) )
 		print *, trim(obj%FileName)//trim(filename)
 		open(fh,file=trim(obj%FileName)//trim(filename) )
 		print *, "writing ",trim(obj%FileName)//trim(filename)," step>>",step

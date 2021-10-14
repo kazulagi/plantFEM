@@ -2339,13 +2339,13 @@ subroutine stlSoybean(obj,name,num_threads)
     call f%close()
     
     n = input(default=1,option=num_threads)
-    !call system("echo ' ' > "//trim(name)//".stl")
+    !call execute_command_line("echo ' ' > "//trim(name)//".stl")
     !$OMP parallel num_threads(n) private(i)
     !$OMP do 
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%stem(i)%stl(name=trim(name)//"_stem"//trim(str(i)))
-            !call system("cat "//trim(name)//"_stem"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            !call execute_command_line("cat "//trim(name)//"_stem"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
         endif
     enddo
     !$OMP end do
@@ -2356,7 +2356,7 @@ subroutine stlSoybean(obj,name,num_threads)
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%root(i)%stl(name=trim(name)//"_root"//trim(str(i)))
-            !call system("cat "//trim(name)//"_root"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            !call execute_command_line("cat "//trim(name)//"_root"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
         endif
     enddo
     !$OMP end do
@@ -2367,16 +2367,16 @@ subroutine stlSoybean(obj,name,num_threads)
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%leaf(i)%stl(name=trim(name)//"_leaf"//trim(str(i)))
-            !call system("cat "//trim(name)//"_leaf"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            !call execute_command_line("cat "//trim(name)//"_leaf"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
         endif
     enddo
     !$OMP end do
     !$OMP end parallel
 
-    call system("cat "//trim(name)//"*_leaf*.stl > "//trim(name)//"_leaf.stl" )
-    call system("cat "//trim(name)//"*_stem*.stl > "//trim(name)//"_stem.stl" )
-    call system("cat "//trim(name)//"*_root*.stl > "//trim(name)//"_root.stl" )
-    call system("cat "//trim(name)//"_leaf.stl "//trim(name)//"_stem.stl "&
+    call execute_command_line("cat "//trim(name)//"*_leaf*.stl > "//trim(name)//"_leaf.stl" )
+    call execute_command_line("cat "//trim(name)//"*_stem*.stl > "//trim(name)//"_stem.stl" )
+    call execute_command_line("cat "//trim(name)//"*_root*.stl > "//trim(name)//"_root.stl" )
+    call execute_command_line("cat "//trim(name)//"_leaf.stl "//trim(name)//"_stem.stl "&
         //trim(name)//"_root.stl > "//trim(name)//".stl" )
 
 end subroutine

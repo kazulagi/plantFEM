@@ -1846,25 +1846,25 @@ subroutine stlRice(obj,name)
     integer(int32) :: i
 
 
-    !call system("echo ' ' > "//trim(name)//".stl")
+    !call execute_command_line("echo ' ' > "//trim(name)//".stl")
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%stem(i)%stl(name=trim(name)//"_stem"//trim(str(i)))
-            !call system("cat "//trim(name)//"_stem"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            !call execute_command_line("cat "//trim(name)//"_stem"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
         endif
     enddo
 
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%root(i)%stl(name=trim(name)//"_root"//trim(str(i)))
-            !call system("cat "//trim(name)//"_root"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            !call execute_command_line("cat "//trim(name)//"_root"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
         endif
     enddo
 
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%leaf(i)%stl(name=trim(name)//"_leaf"//trim(str(i)))
-            !call system("cat "//trim(name)//"_leaf"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            !call execute_command_line("cat "//trim(name)//"_leaf"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
         endif
     enddo
 

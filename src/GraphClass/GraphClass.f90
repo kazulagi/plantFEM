@@ -198,7 +198,7 @@ subroutine showGraph(obj,withname)
     call f%write("pause -1")
     call f%close()
 
-    call system("gnuplot ./showGraph.gp")
+    call execute_command_line("gnuplot ./showGraph.gp")
 end subroutine
 ! ######################################
 

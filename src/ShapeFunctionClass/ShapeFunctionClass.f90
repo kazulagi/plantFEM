@@ -67,7 +67,7 @@ subroutine openShapeFunction(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
+        call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
         
         call f%open(trim(path)//"/"//trim(adjustl(name))//"/","ShapeFunction","prop" )
         
@@ -97,7 +97,7 @@ subroutine openShapeFunction(obj,path,name)
         call f%close()
     else
 
-        call system("mkdir -p "//trim(path)//"/ShapeFunction")
+        call execute_command_line("mkdir -p "//trim(path)//"/ShapeFunction")
         call f%open(trim(path)//"/","ShapeFunction/ShapeFunction","prop" )
         
         call openArray(f%fh,obj%Nmat)
@@ -138,7 +138,7 @@ subroutine saveShapeFunction(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call system("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
+        call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
         
         call f%open(trim(path)//"/"//trim(adjustl(name))//"/","ShapeFunction","prop" )
         
@@ -168,7 +168,7 @@ subroutine saveShapeFunction(obj,path,name)
         call f%close()
     else
 
-        call system("mkdir -p "//trim(path)//"/ShapeFunction")
+        call execute_command_line("mkdir -p "//trim(path)//"/ShapeFunction")
         call f%open(trim(path)//"/","ShapeFunction/ShapeFunction","prop" )
         
         call writeArray(f%fh,obj%Nmat)
@@ -1269,7 +1269,7 @@ subroutine exportShapeFunction(obj,restart,path)
     type(IO_) :: f
 
     if(present(restart) )then
-        call system("mkdir -p "//trim(path)//"/ShapeFunction")
+        call execute_command_line("mkdir -p "//trim(path)//"/ShapeFunction")
         call f%open(trim(path)//"/ShapeFunction/","ShapeFunction",".res")
         write(f%fh,*) obj%Nmat(:)
         write(f%fh,*) obj%dNdgzi(:,:)

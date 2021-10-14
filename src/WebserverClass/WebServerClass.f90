@@ -48,7 +48,7 @@ contains
 subroutine initWebserver(obj)
     class(Webserver_),intent(inout) :: obj
 
-    call system("python3 -m http.server "//trim(str(obj%port))//" &")
+    call execute_command_line("python3 -m http.server "//trim(str(obj%port))//" &")
 
 end subroutine
 
@@ -109,7 +109,7 @@ end subroutine
 !subroutine endWebserver(obj)
 !    class(Webserver_),intent(inout) :: obj
 !
-!    call system("python3 -m http.server "//trim(str(obj%port))//" &")
+!    call execute_command_line("python3 -m http.server "//trim(str(obj%port))//" &")
 !
 !end subroutine
 

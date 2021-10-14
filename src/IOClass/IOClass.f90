@@ -1,9 +1,21 @@
 module IOClass
+
+#ifdef INTEL
+    use IFPORT
+#endif
+
     use iso_fortran_env
     use MathClass
     use StringClass
     implicit none
 
+    integer(int32),parameter :: STAT_ARRAY_SIZE=13
+
+#ifdef INTEL
+    integer(int32),parameter :: STAT_ARRAY_SIZE=12    
+#endif
+    
+    
     integer(int32),parameter :: PF_JSON=1
     integer(int32),parameter :: PF_CSV=2
 
@@ -313,8 +325,8 @@ recursive subroutine openIOchar(obj,path,state,name,extention,fh)
         endif
         ! download file
         tag = index(trim(path),"/",back=.true.)
-        call system("mkdir -p ./tmp")
-        call system("wget --no-check-certificate  '"//trim(path)//"' -O ./tmp/"//trim(path(tag+1:)))
+        call execute_command_line("mkdir -p ./tmp")
+        call execute_command_line("wget --no-check-certificate  '"//trim(path)//"' -O ./tmp/"//trim(path(tag+1:)))
         print *, "[ok] Downloaded > ./tmp/"//trim(path(tag+1:) )
         localcp = trim("./tmp/"//path(tag+1:) )
         call obj%open(trim(localcp),"r")
@@ -383,7 +395,7 @@ recursive subroutine openIOchar(obj,path,state,name,extention,fh)
 
     tag = index(trim(path),"/",back=.true.)
     if(tag/=0)then
-        call system("mkdir -p "//path(1:tag-1) )
+        call execute_command_line("mkdir -p "//path(1:tag-1) )
     endif
 
     if(present(path) )then
@@ -1359,10 +1371,10 @@ subroutine plotRealArray(x,y,z,xr,yr,zr)
         enddo
         call f%close()
     
-        call system("gnuplot __plotRealArray__buf_.gp")
+        call execute_command_line("gnuplot __plotRealArray__buf_.gp")
     
-        call system("rm __plotRealArray__buf_.txt")
-        call system("rm __plotRealArray__buf_.gp")
+        call execute_command_line("rm __plotRealArray__buf_.txt")
+        call execute_command_line("rm __plotRealArray__buf_.gp")
     
         return
     endif
@@ -1388,10 +1400,10 @@ subroutine plotRealArray(x,y,z,xr,yr,zr)
     call f%write("pause 10")
     call f%close()
 
-    call system("gnuplot __plotRealArray__buf_.gp")
+    call execute_command_line("gnuplot __plotRealArray__buf_.gp")
 
-    call system("rm __plotRealArray__buf_.txt")
-    call system("rm __plotRealArray__buf_.gp")
+    call execute_command_line("rm __plotRealArray__buf_.txt")
+    call execute_command_line("rm __plotRealArray__buf_.gp")
 
 end subroutine
 
@@ -1449,7 +1461,7 @@ subroutine plotIO(obj,name,option)
 
 
     call gp_script%close()
-    call system("gnuplot "//trim(obj%filename)//"_gp_script.gp -pause")
+    call execute_command_line("gnuplot "//trim(obj%filename)//"_gp_script.gp -pause")
     call obj%close()
 end subroutine
 
@@ -1476,7 +1488,7 @@ subroutine splotIO(obj,name,option)
     endif
 
     call gp_script%close()
-    call system("gnuplot "//trim(obj%filename)//"_gp_script.gp -pause")
+    call execute_command_line("gnuplot "//trim(obj%filename)//"_gp_script.gp -pause")
     call obj%close()
 end subroutine
 
@@ -1671,16 +1683,16 @@ end function
 function FileDateTimeIO(obj,name) result(ret)
     class(IO_),intent(inout) :: obj
     character(*),optional,intent(in) :: name
-    integer(int32) :: ret, ierr,stat(13)
+    integer(int32) :: ret, ierr,infostat(STAT_ARRAY_SIZE)
 
     if(present(name) )then
         call obj%open(name,"r")
-        ierr = lstat(name, stat)
-        ret = stat(10)
+        ierr = lstat(name, infostat)
+        ret = infostat(10)
         call obj%close()
     else
-        ierr = lstat(obj%filename, stat)
-        ret = stat(10)
+        ierr = lstat(obj%filename, infostat)
+        ret = infostat(10)
     endif
 
 end function
@@ -1692,16 +1704,16 @@ end function
 function ownerIO(obj,name) result(ret)
     class(IO_),intent(inout) :: obj
     character(*),optional,intent(in) :: name
-    integer(int32) :: ret, ierr,stat(13)
+    integer(int32) :: ret, ierr,infostat(STAT_ARRAY_SIZE)
 
     if(present(name) )then
         call obj%open(name,"r")
-        ierr = lstat(name, stat)
-        ret = stat(5)
+        ierr = lstat(name, infostat)
+        ret = infostat(5)
         call obj%close()
     else
-        ierr = lstat(obj%filename, stat)
-        ret = stat(5)
+        ierr = lstat(obj%filename, infostat)
+        ret = infostat(5)
     endif
 
 end function
@@ -1713,16 +1725,16 @@ end function
 function sizeIO(obj,name) result(ret)
     class(IO_),intent(inout) :: obj
     character(*),optional,intent(in) :: name
-    integer(int32) :: ret, ierr,stat(13)
+    integer(int32) :: ret, ierr,infostat(STAT_ARRAY_SIZE)
 
     if(present(name) )then
         call obj%open(name,"r")
-        ierr = lstat(name, stat)
-        ret = stat(8)
+        ierr = lstat(name, infostat)
+        ret = infostat(8)
         call obj%close()
     else
-        ierr = lstat(obj%filename, stat)
-        ret = stat(8)
+        ierr = lstat(obj%filename, infostat)
+        ret = infostat(8)
     endif
 
 end function
