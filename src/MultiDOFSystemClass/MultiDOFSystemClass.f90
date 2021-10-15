@@ -60,15 +60,16 @@ end subroutine
 
 
 ! #####################################################################
-subroutine solvemultiDOFsystem(obj,dt,FixNodeId,displacement,Solver)
+subroutine solvemultiDOFsystem(obj,dt,FixNodeId,displacement,Solver,powerSpectre)
     class(multiDOFsystem_),intent(inout) :: obj
     type(SeismicAnalysis_) :: seismic
     real(real64),intent(in) :: dt
     real(real64),intent(in) :: displacement
     integer(int32),intent(in) :: FixNodeId
     character(*),intent(in) :: Solver
+    logical,optional,intent(in) :: powerSpectre ! compute powerSpectreResponceFunction under no-dumping.
 
-    real(real64),allocatable :: Amat(:,:),bvec(:),u_upd(:),v_upd(:),a_upd(:)
+    real(real64),allocatable :: Amat(:,:),bvec(:),u_upd(:),v_upd(:),a_upd(:),G_j(:),omega(:),power(:)
     real(real64),allocatable :: Mmat(:,:)
     real(real64),allocatable :: Cmat(:,:)
     real(real64),allocatable :: Kmat(:,:)
@@ -113,6 +114,24 @@ subroutine solvemultiDOFsystem(obj,dt,FixNodeId,displacement,Solver)
     Cmat(i,i-1) = - obj%c(i)
     Cmat(i,i  ) = obj%c(i) 
 
+    ! 
+    if(present(powerSpectre) )then
+        if(powerSpectre)then
+            ! compute power-spectre Response function
+            ! (K_ij - w^2 M_ij)^{-1} G_j = I_j
+            omega = linspace([0.0d0,100.0d0],1000)
+            power = zeros(size(omega))
+            do i=1,size(omega)    
+                obj%solver%A = Kmat(:,:) - omega(i)*omega(i)*Mmat(:,:)
+                obj%solver%b = G_j
+                obj%solver%b = 1.0d0
+                call obj%solver%solve("GaussJordan")
+                power(i) = dble(abs(dot_product( obj%solver%x,obj%solver%x )))
+            enddo
+            print *, "Need Debug solvemultiDOFsystem"
+            stop
+        endif
+    endif
 
     ! (2) set matrices and vectors
     

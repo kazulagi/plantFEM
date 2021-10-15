@@ -41,7 +41,8 @@ module MathClass
 	end interface fstring
 
 	interface input
-		module procedure input_Int,input_Real,input_IntVec,input_RealVec,input_IntArray,input_RealArray,input_String,input_logical
+		module procedure input_Int,input_Real,input_Real32,input_Complex,input_IntVec,&
+			input_RealVec,input_IntArray,input_RealArray,input_String,input_logical
 	end interface input
 	
 	interface zeroif
@@ -1445,6 +1446,38 @@ function input_Real(default,option) result(val)
 end function
 !================================================================================== 
 
+
+
+!================================================================================== 
+function input_Real32(default,option) result(val)
+	real(real32),intent(in) :: default
+	real(real32),optional,intent(in)::option
+	real(real32) :: val
+
+	if(present(option) )then
+		val=option
+	else
+		val=default
+	endif
+
+end function
+!================================================================================== 
+
+
+!================================================================================== 
+function input_Complex(default,option) result(val)
+	complex(real64),intent(in) :: default
+	complex(real64),optional,intent(in)::option
+	complex(real64) :: val
+
+	if(present(option) )then
+		val=option
+	else
+		val=default
+	endif
+
+end function
+!================================================================================== 
 
 
 
