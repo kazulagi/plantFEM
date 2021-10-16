@@ -1,3 +1,5 @@
+#!/bin/python3
+
 import os
 import sys
 import platform
@@ -37,7 +39,7 @@ if __name__ == '__main__':
     #print(args.charlie)
     #print(args.delta)
     expath=os.path.expandvars(".")
-    ofiles = os.path.exists(expath+"/inc/obj.o") 
+    ofiles = os.path.exists("/opt/plantfem/inc/obj.o") 
 
     
     if str(args.script) == "install":
@@ -45,7 +47,7 @@ if __name__ == '__main__':
 
     if ofiles == False:
         if yes_no_input():
-            os.system("python3 ./install.py")
+            os.system("python3 /opt/plantfem/install.py")
             print("[ok] plantFEM has been installed.")
         else:
             print("[Caution] plantFEM is not installed yet.\n")
@@ -72,16 +74,16 @@ if __name__ == '__main__':
             print("Interactive Mode :: \n")
             print("\n")
             if args.mode == "gfortran":
-                os.system("sh ./Interactive/plantfem_gfortran ")
+                os.system("sh /opt/plantfem/Interactive/plantfem_gfortran ")
             else:
-                os.system("sh ./Interactive/plantfem ")
+                os.system("sh /opt/plantfem/Interactive/plantfem ")
         #else :
-        #    os.system("sh ./Interactive/plantfem_run_macOS " + str(args.script))
+        #    os.system("sh /opt/plantfem/Interactive/plantfem_run_macOS " + str(args.script))
         else :
             if args.filename is None:
-                os.system("sh ./Interactive/plantfem_run " + str(args.script))
+                os.system("sh /opt/plantfem/Interactive/plantfem_run " + str(args.script))
             else:
-                os.system("sh ./Interactive/plantfem_run " + str(args.script)+" " + str(args.filename) )
+                os.system("sh /opt/plantfem/Interactive/plantfem_run " + str(args.script)+" " + str(args.filename) )
         
     elif pf == "Linux":
         print("OS : Linux")
@@ -95,13 +97,13 @@ if __name__ == '__main__':
             print("Interactive Mode :: \n")
             print("\n")
             if args.mode == "gfortran":
-                os.system("sh ./Interactive/plantfem_gfortran ")
+                os.system("sh /opt/plantfem/Interactive/plantfem_gfortran ")
             else:
-                os.system("sh ./Interactive/plantfem ")
+                os.system("sh /opt/plantfem/Interactive/plantfem ")
         else :
             if args.filename is None:
-                os.system("sh ./Interactive/plantfem_run " + str(args.script))
+                os.system("/opt/plantfem/Interactive/plantfem_run " + str(args.script))
             else:
-                os.system("sh ./Interactive/plantfem_run " + str(args.script)+" " + str(args.filename) )
+                os.system("/opt/plantfem/Interactive/plantfem_run " + str(args.script)+" " + str(args.filename) )
     else:
         print("OS : Unknown ")
