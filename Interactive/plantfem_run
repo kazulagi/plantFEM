@@ -344,11 +344,11 @@ homepath="$PWD"
 
         if [ "$hostfile" != "" ]; then
             echo "hostfile is activated."
-            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore /opt/plantfem/server.out "$2"
+            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./server.out "$2"
             exit 0
         fi
 
-        mpirun --allow-run-as-root --hostfile /opt/plantfem/etc/hostfile -np $line /opt/plantfem/server.out  "$2"
+        mpirun --allow-run-as-root --hostfile /opt/plantfem/etc/hostfile -np $line ./server.out  "$2"
         
         exit 0
     fi
