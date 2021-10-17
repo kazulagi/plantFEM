@@ -49,7 +49,7 @@ class plantfem:
         self.script.write("call "+self.soilname+" "+"%"+" move(z="+str(z)+"d0)\n" )
         
     def run(self):
-        self.script.write("end")
+        #self.script.write("end")
         self.script.close()
         
         

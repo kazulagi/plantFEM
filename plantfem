@@ -1,17 +1,15 @@
 #! /bin/bash
 
-PF_HOME=$PWD
-
 if [ $# -eq 0 ]; then
-    python3 $PF_HOME/bin/run.py
+    /opt/plantfem/bin/plantfem_run.py
 fi
 if [ $# -eq 1 ]; then
-    python3 $PF_HOME/bin/run.py -s "$1" 
+    /opt/plantfem/bin/plantfem_run.py -s "$1" 
 fi
 if [ $# -eq 2 ]; then
-    python3 $PF_HOME/bin/run.py -s "$1" -f "$2" 
+    /opt/plantfem/bin/plantfem_run.py -s "$1" -f "$2" 
 fi
 if [ $# -eq 3 ]; then
-    python3 $PF_HOME/bin/run.py -s "$1" "$2" "$3"
+    /opt/plantfem/bin/plantfem_run.py -s "$1" "$2" "$3"
 fi
 
