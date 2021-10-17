@@ -1,15 +1,15 @@
 #! /bin/bash
 
 if [ $# -eq 0 ]; then
-    /opt/plantfem/bin/plantfem_run.py
+    python3 /opt/plantfem/bin/plantfem_run.py
 fi
 if [ $# -eq 1 ]; then
-    /opt/plantfem/bin/plantfem_run.py -s "$1" 
+    python3 /opt/plantfem/bin/plantfem_run.py -s "$1" 
 fi
 if [ $# -eq 2 ]; then
-    /opt/plantfem/bin/plantfem_run.py -s "$1" -f "$2" 
+    python3 /opt/plantfem/bin/plantfem_run.py -s "$1" -f "$2" 
 fi
 if [ $# -eq 3 ]; then
-    /opt/plantfem/bin/plantfem_run.py -s "$1" "$2" "$3"
+    python3 /opt/plantfem/bin/plantfem_run.py -s "$1" "$2" "$3"
 fi
 

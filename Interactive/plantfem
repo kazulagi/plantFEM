@@ -343,15 +343,15 @@ do
         continue
     fi
     if [ "$commandl" = "$man" ]; then
-        less ".man_plantFEM"
+        less "/opt/plantfem/.man_plantFEM"
         continue
     fi
     if [ "$commandl" = "$man1" ]; then
-        less ".man_plantFEM"
+        less "/opt/plantfem/.man_plantFEM"
         continue
     fi
     if [ "$commandl" = "$man2" ]; then
-        less ".man_plantFEM"
+        less "/opt/plantfem/.man_plantFEM"
         continue
     fi
     if [ "$commandl" = "install" ]; then
