@@ -303,15 +303,15 @@ homepath="$PWD"
         exit 0
     fi
     if [ "$1" = "$man" ]; then
-        less ".man_plantFEM"
+        less "/opt/plantfem/.man_plantFEM"
         exit 0
     fi
     if [ "$1" = "$man1" ]; then
-        less ".man_plantFEM"
+        less "/opt/plantfem/.man_plantFEM"
         exit 0
     fi
     if [ "$1" = "$man2" ]; then
-        less ".man_plantFEM"
+        less "/opt/plantfem/.man_plantFEM"
         exit 0
     fi
     if [ "$1" = "install" ]; then
