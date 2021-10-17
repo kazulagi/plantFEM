@@ -55,7 +55,7 @@ while :
 do
 
     #echo "Please input fortran script *.f90 | or check manual by 'man'  "
-    echo -n ">>> "
+    /bin/echo -n ">>> "
     read commandl
 
 
