@@ -72,8 +72,8 @@ do
             echo "$line" >> "__server__.f90"
             if [ "$line" = "end" ]; then
                 #echo "end" >> "__server__.f90"
-                $mpif90 -fopenmp -fopenacc /opt/plantfem/inc/*o -I /opt/plantfem/inc __server__.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc  -o __server__.out
-                mpirun --allow-run-as-root -np "$numcore" __server__.out
+                $mpif90 -fopenmp -fopenacc /opt/plantfem/inc/*o -I /opt/plantfem/inc __server__.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc  -o  ./__server__.out
+                mpirun   -np "$numcore"  ./__server__.out
                 break
             fi
         done
@@ -82,7 +82,7 @@ do
     fi
 
     if [ "$commandl" = "again" ]; then
-        mpirun --allow-run-as-root -np "$numcore" ./__server__.out
+        mpirun   -np "$numcore" ./__server__.out
         continue
     fi
 #    if [-d {"$commandl"} ]; then
@@ -93,10 +93,10 @@ do
 #
 #        #if [ "$hostfile" != "" ]; then
 #        #    echo "hostfile is activated."
-#        #    mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./server.out
+#        #    mpirun   --hostfile $hostfile -np $numcore ./server.out
 #        #    continue
 #        #fi
-#        mpirun --allow-run-as-root -np $numcore ./server.out 
+#        mpirun   -np $numcore ./server.out 
 #        continue
 #
 #
@@ -385,11 +385,11 @@ do
 
         if [ "$hostfile" != "" ]; then
             echo "hostfile is activated."
-            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./server.out "$2"
+            mpirun   --hostfile $hostfile -np $numcore ./server.out "$2"
             continue
         fi
 
-        mpirun --allow-run-as-root --hostfile /opt/plantfem/etc/hostfile -np $line ./server.out  "$2"
+        mpirun   --hostfile /opt/plantfem/etc/hostfile -np $line ./server.out  "$2"
         
         continue
     fi
