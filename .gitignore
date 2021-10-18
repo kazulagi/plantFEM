@@ -2,6 +2,9 @@
 *.msh
 /home
 home/
+build/
+*.dSYM*
+.DS_Store
 doc/ford
 doc/ford/
 ./Desktop/
