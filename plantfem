@@ -4,6 +4,22 @@ if [ $# -eq 0 ]; then
     python3 /opt/plantfem/bin/plantfem_run.py
 fi
 if [ $# -eq 1 ]; then
+    if [ "$1" == "-v" ]; then
+        echo "plantFEM 21.10"
+        exit
+    fi
+    if [ "$1" == "--version" ]; then
+        echo "plantFEM 21.10"
+        exit
+    fi
+    if [ "$1" == "-h" ]; then
+        less /opt/plantfem/.man_plantFEM
+        exit
+    fi
+    if [ "$1" == "--help" ]; then
+        less /opt/plantfem/.man_plantFEM
+        exit
+    fi
     python3 /opt/plantfem/bin/plantfem_run.py -s "$1" 
 fi
 if [ $# -eq 2 ]; then

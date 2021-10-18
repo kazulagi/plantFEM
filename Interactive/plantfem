@@ -172,32 +172,34 @@ do
         echo -n ">>> "
         read temp
         if [ "x$temp" = "x" ]; then
-            cp Tutorial/app/untitled.f90 "$pan$pn/main.f90"
+            cp Tutorial/app/untitled.f90 server.f90
             echo "Note: a plain script is created. "
         elif [ "$temp" = "1" ]; then
-            cp Tutorial/playon_std/ex0002_fileIO.f90 "$pan$pn/main.f90"
+            cp Tutorial/playon_std/ex0002_fileIO.f90 server.f90
         elif [ "$temp" = "2" ]; then
-            cp Tutorial/playon_std/ex0007_easySolver.f90 "$pan$pn/main.f90"
+            cp Tutorial/playon_std/ex0007_easySolver.f90 server.f90
         elif [ "$temp" = "3" ]; then
-            cp Tutorial/playon_std/ex0005_mpi.f90  "$pan$pn/main.f90"
+            cp Tutorial/playon_std/ex0005_mpi.f90  server.f90
         elif [ "$temp" = "4" ]; then
-            cp Tutorial/playon_std/ex0003_array.f90  "$pan$pn/main.f90"
+            cp Tutorial/playon_std/ex0003_array.f90  server.f90
         elif [ "$temp" = "5" ]; then
-            cp Tutorial/playon_fem/ex0001_mesh.f90  "$pan$pn/main.f90"
+            cp Tutorial/playon_fem/ex0001_mesh.f90  server.f90
         elif [ "$temp" = "6" ]; then
-            cp Tutorial/playon_sim/ex0001_diffusion1D.f90 "$pan$pn/main.f90"
+            cp Tutorial/playon_sim/ex0001_diffusion1D.f90 server.f90
         elif [ "$temp" = "7" ]; then
-            cp Tutorial/playon_obj/seed.f90 "$pan$pn/main.f90"
+            cp Tutorial/playon_obj/seed.f90 server.f90
         else
-            cp Tutorial/app/untitled.f90 "$pan$pn/main.f90"
+            cp Tutorial/app/untitled.f90 server.f90
             echo "Caution: a plain script is created. "
         fi
-        echo "New project is successfully created in $pan$pn"
-        echo "You can run the script by:"
+        echo "New project is successfully created in here"
         echo " "
-        echo "/opt/plantfem/plantfem run"
-        ln -f "$pan$pn/main.f90" "server.f90"
-        
+        echo "Check your script in"
+        echo "./server.f90"
+        echo " "
+        echo "You can run the script by:"
+        echo "plantfem run"
+        echo " "
         continue
     fi
 
