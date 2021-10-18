@@ -1,4 +1,4 @@
-#!/bin/zsh 
+#!/bin/sh
 
 #echo ">"
 #echo "plantFEM >>  mode for Linux & OS X... "
