@@ -65,10 +65,10 @@ homepath="$PWD"
 #
 #        #if [ "$hostfile" != "" ]; then
 #        #    echo "hostfile is activated."
-#        #    mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./server.out
+#        #    mpirun   --hostfile $hostfile -np $numcore ./server.out
 #        #    exit 0
 #        #fi
-#        mpirun --allow-run-as-root -np $numcore ./server.out 
+#        mpirun   -np $numcore ./server.out 
 #        exit 0
 #
 #
@@ -344,11 +344,11 @@ homepath="$PWD"
 
         if [ "$hostfile" != "" ]; then
             echo "hostfile is activated."
-            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./server.out "$2"
+            mpirun   --hostfile $hostfile -np $numcore ./server.out "$2"
             exit 0
         fi
 
-        mpirun --allow-run-as-root --hostfile /opt/plantfem/etc/hostfile -np $line ./server.out  "$2"
+        mpirun   --hostfile /opt/plantfem/etc/hostfile -np $line ./server.out  "$2"
         
         exit 0
     fi
@@ -468,14 +468,14 @@ homepath="$PWD"
 
         if [ "$hostfile" != "" ]; then
             echo "hostfile is activated."
-            mpirun --allow-run-as-root --hostfile $hostfile -np $numcore ./server.out
+            mpirun   --hostfile $hostfile -np $numcore ./server.out
             exit 0
         fi
         while read line
         do 
             echo $line && break
         done < /opt/plantfem/etc/cpucore
-        mpirun --allow-run-as-root --hostfile /opt/plantfem/etc/hostfile -np $line ./server.out 
+        mpirun   --hostfile /opt/plantfem/etc/hostfile -np $line ./server.out 
         exit 0
     fi
 
