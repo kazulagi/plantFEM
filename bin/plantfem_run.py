@@ -26,6 +26,7 @@ def yes_no_input():
 def get_args():
     psr = argparse.ArgumentParser()
     psr.add_argument('-m', '--mode', help='use other compiler instead of mpif90')
+    #psr.add_argument('-v', '--version', help='use other compiler instead of mpif90')
     psr.add_argument('-s', '--script', help='script for mpif90')
     psr.add_argument('-np', '--num_of_process', help='number of process mpif90')
     psr.add_argument('-f', '--filename', help='IO-file name')
@@ -54,7 +55,6 @@ if __name__ == '__main__':
             time.sleep(1)
     else:
         print("[ok] plantFEM has been installed.")
-
 
     print("Detecting OS type...")
     pf=platform.system()
