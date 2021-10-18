@@ -131,10 +131,8 @@ ford ford.md
 3. Run command
 
 ```
-apt update && apt upgrade -y
-git clone https://github.com/kazulagi/plantfem
-cd plantfem
-python3 install.py
+apt update 
+git clone https://github.com/kazulagi/plantfem && cd plantfem && python3 install.py
 ```
 
 4. You can open files by this command
