@@ -149,7 +149,7 @@ explorer.exe .
 In Ubuntu 18.04 or later, execute the next one-liner.
 
 ```
-git clone https://github.com/kazulagi/plantfem.git && cd plantfem && python3 install.py
+git clone https://github.com/kazulagi/plantFEM && cd plantFEM && python3 install.py
 ```
 
 If you want to build and run as a docker container,
@@ -160,7 +160,7 @@ If you want to build and run as a docker container,
 - (2) Open command-prompt and run
 
 ```{.copy}
-git clone https://github.com/kazulagi/plantFEM.git && cd plantFEM/docker
+git clone https://github.com/kazulagi/plantFEM && cd plantFEM/docker
 ```
 
 - (3) Build docker-image
