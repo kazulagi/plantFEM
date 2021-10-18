@@ -93,10 +93,15 @@
 | curl |  7.47.0 or later |
 
 
+# What's next plantFEM 22.04 (LTS)?
+
+## (1) APIs for Python, C/C++, and JavaScript.
+
+## (2) Elasto-dynamic simulator for Soybean, Maize, Rice and soil structures.
+
+## (3) Something cool.
 
 
-
-## 
 
 
 <!-- 
