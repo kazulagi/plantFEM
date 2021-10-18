@@ -55,7 +55,7 @@ homepath="$PWD"
 #do
 
     #echo "Please input fortran script *.f90 | or check manual by 'man'  "
-    echo -n ">>> $1\n"
+    echo ">>> $1\n"
 
 #    if [-d {"$1"} ]; then
 #        # this is directory

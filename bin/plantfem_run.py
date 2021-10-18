@@ -74,16 +74,16 @@ if __name__ == '__main__':
             print("Interactive Mode :: \n")
             print("\n")
             if args.mode == "gfortran":
-                os.system("sh /opt/plantfem/Interactive/plantfem_gfortran ")
+                os.system("/opt/plantfem/Interactive/plantfem_gfortran ")
             else:
-                os.system("sh /opt/plantfem/Interactive/plantfem ")
+                os.system("/opt/plantfem/Interactive/plantfem ")
         #else :
         #    os.system("sh /opt/plantfem/Interactive/plantfem_run_macOS " + str(args.script))
         else :
             if args.filename is None:
-                os.system("sh /opt/plantfem/Interactive/plantfem_run " + str(args.script))
+                os.system("/opt/plantfem/Interactive/plantfem_run " + str(args.script))
             else:
-                os.system("sh /opt/plantfem/Interactive/plantfem_run " + str(args.script)+" " + str(args.filename) )
+                os.system("/opt/plantfem/Interactive/plantfem_run " + str(args.script)+" " + str(args.filename) )
         
     elif pf == "Linux":
         print("OS : Linux")
@@ -97,9 +97,9 @@ if __name__ == '__main__':
             print("Interactive Mode :: \n")
             print("\n")
             if args.mode == "gfortran":
-                os.system("sh /opt/plantfem/Interactive/plantfem_gfortran ")
+                os.system("/opt/plantfem/Interactive/plantfem_gfortran ")
             else:
-                os.system("sh /opt/plantfem/Interactive/plantfem ")
+                os.system("/opt/plantfem/Interactive/plantfem ")
         else :
             if args.filename is None:
                 os.system("/opt/plantfem/Interactive/plantfem_run " + str(args.script))

@@ -434,7 +434,6 @@ mv *.mod inc/
 cp *.so inc/
 mkdir -p home
 
-export PF_HOME=$PWD
 
 #echo "Copying input files from INPUT/           " 
 #echo " >> *.txt, *.scf"
@@ -442,6 +441,5 @@ export PF_HOME=$PWD
 #cp ipynb/* .
 #echo "    "
 
-echo " Total 22 objects are compiled in "${NANOTIME}" sec. "
 echo " plantFEM is successfully installed !!"
 echo "    "
