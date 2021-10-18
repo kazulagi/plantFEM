@@ -55,7 +55,7 @@ while :
 do
 
     #echo "Please input fortran script *.f90 | or check manual by 'man'  "
-    echo  ">>> "
+    /bin/echo -n  ">>> "
     read commandl
 
 
@@ -67,7 +67,7 @@ do
         echo "implicit none" >> "__server__.f90"
         while :
         do
-            echo -n ">>> "
+            /bin/echo -n ">>> "
             read line
             echo "$line" >> "__server__.f90"
             if [ "$line" = "end" ]; then
