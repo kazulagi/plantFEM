@@ -131,7 +131,7 @@ ford ford.md
 3. Run command
 
 ```
-git clone https://github.com/kazulagi/plantfem && cd plantfem && python3 install.py
+git clone https://github.com/kazulagi/plantFEM && cd plantFEM && python3 install.py
 ```
 
 1. You can open files by this command
