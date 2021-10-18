@@ -144,24 +144,24 @@ homepath="$PWD"
         echo -n ">>> "
         read temp
         if [ "x$temp" = "x" ]; then
-            cp Tutorial/app/untitled.f90 server.f90
+            cp /opt/plantfem/Tutorial/app/untitled.f90 server.f90
             echo "Note: a plain script is created. "
         elif [ "$temp" = "1" ]; then
-            cp Tutorial/playon_std/ex0002_fileIO.f90 server.f90
+            cp /opt/plantfem/Tutorial/playon_std/ex0002_fileIO.f90 server.f90
         elif [ "$temp" = "2" ]; then
-            cp Tutorial/playon_std/ex0007_easySolver.f90 server.f90
+            cp /opt/plantfem/Tutorial/playon_std/ex0007_easySolver.f90 server.f90
         elif [ "$temp" = "3" ]; then
-            cp Tutorial/playon_std/ex0005_mpi.f90  server.f90
+            cp /opt/plantfem/Tutorial/playon_std/ex0005_mpi.f90  server.f90
         elif [ "$temp" = "4" ]; then
-            cp Tutorial/playon_std/ex0003_array.f90  server.f90
+            cp /opt/plantfem/Tutorial/playon_std/ex0003_array.f90  server.f90
         elif [ "$temp" = "5" ]; then
-            cp Tutorial/playon_fem/ex0001_mesh.f90  server.f90
+            cp /opt/plantfem/Tutorial/playon_fem/ex0001_mesh.f90  server.f90
         elif [ "$temp" = "6" ]; then
-            cp Tutorial/playon_sim/ex0001_diffusion1D.f90 server.f90
+            cp /opt/plantfem/Tutorial/playon_sim/ex0001_diffusion1D.f90 server.f90
         elif [ "$temp" = "7" ]; then
-            cp Tutorial/playon_obj/seed.f90 server.f90
+            cp /opt/plantfem/Tutorial/playon_obj/seed.f90 server.f90
         else
-            cp Tutorial/app/untitled.f90 server.f90
+            cp /opt/plantfem/Tutorial/app/untitled.f90 server.f90
             echo "Caution: a plain script is created. "
         fi
         echo "New project is successfully created in here"
@@ -184,12 +184,12 @@ homepath="$PWD"
     fi
 
     if [ "$1" = "clone" ]; then
-        echo ">>> Please paste the github directory name."
+        echo ">>> Please paste the remote repository URL."
         echo -n ">>> "
         read command 
         cd /opt/plantfem/addon/github/
         git clone "$command" 
-        cd ./opt/plantfem/./opt/plantfem/
+        cd -
         exit 0
     fi
 
@@ -209,7 +209,7 @@ homepath="$PWD"
         echo "===================================="
         echo "These are examples"
         echo "===================================="
-        grep -ril "$command" Tutorial/*/*.f90
+        grep -ril "$command" /opt/plantfem/Tutorial/*/*.f90
         echo "===================================="
         echo "Please type "
         echo "/usr/local/bin/plantfem load [Path to script with .f90 extention]"
@@ -250,7 +250,7 @@ homepath="$PWD"
     if [ "$1" = "search" ]; then
         echo "A keyword"
         read keyword
-        ls Tutorial/*/*.f90 | grep -i $keyword
+        ls /opt/plantfem/Tutorial/*/*.f90 | grep -i $keyword
         exit 0
     fi
 
