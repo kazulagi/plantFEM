@@ -90,7 +90,7 @@ homepath="$PWD"
     if [ "$1" = "addon" ]; then
         echo "installing add-on"
         echo "Directory path of your awesome addon is : (default path = addon)"
-        echo -n "> "
+       /bin/echo -n "> "
         read addonpath
         echo "installing from $addonpath"
         ls $addonpath | grep ".f90" > ap.txt
@@ -112,7 +112,7 @@ homepath="$PWD"
     if [ "$1" = "new" ]; then
         #echo "$homepath"
         echo "[Your project name:  (default=untitled), if OK, press ENTER]"
-        echo -n ">>> "
+       /bin/echo -n ">>> "
         read projectname
         num=0
         if [ "x$projectname" = "x" ]; then
@@ -121,7 +121,7 @@ homepath="$PWD"
             pn="$projectname"
         fi
         echo "[Path of the project (default=$homepath/home/), if OK, press ENTER ]"
-        echo -n ">>> "
+       /bin/echo -n ">>> "
         read projectpath
         if [ "x$projectpath" = "x" ]; then
             #$projectname="/opt/plantfem/home/"
@@ -141,7 +141,7 @@ homepath="$PWD"
         echo "6 : Diffusion-1D simulation (sim)"
         echo "7 : Create soybean (obj)"
         echo "For more detail, please check /opt/plantfem/Tutorial/*"
-        echo -n ">>> "
+       /bin/echo -n ">>> "
         read temp
         if [ "x$temp" = "x" ]; then
             cp /opt/plantfem/Tutorial/app/untitled.f90 server.f90
@@ -185,7 +185,7 @@ homepath="$PWD"
 
     if [ "$1" = "clone" ]; then
         echo ">>> Please paste the remote repository URL."
-        echo -n ">>> "
+       /bin/echo -n ">>> "
         read command 
         cd /opt/plantfem/addon/github/
         git clone "$command" 
