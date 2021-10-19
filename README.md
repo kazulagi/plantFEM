@@ -131,7 +131,7 @@ ford ford.md
 3. Run command
 
 ```
-git clone https://github.com/kazulagi/plantFEM && cd plantFEM && python3 install.py
+git clone -b 21.10 https://github.com/kazulagi/plantFEM && cd plantFEM && python3 install.py
 ```
 
 1. You can open files by this command
@@ -149,7 +149,7 @@ explorer.exe .
 In Ubuntu 18.04 or later, execute the next one-liner.
 
 ```
-git clone https://github.com/kazulagi/plantFEM && cd plantFEM && python3 install.py
+git clone -b 21.10 https://github.com/kazulagi/plantFEM && cd plantFEM && python3 install.py
 ```
 
 If you want to build and run as a docker container,
@@ -160,7 +160,7 @@ If you want to build and run as a docker container,
 - (2) Open command-prompt and run
 
 ```{.copy}
-git clone https://github.com/kazulagi/plantFEM && cd plantFEM/docker
+git clone -b 21.10 https://github.com/kazulagi/plantFEM && cd plantFEM/docker
 ```
 
 - (3) Build docker-image
@@ -314,7 +314,7 @@ This can run in Google-Colab.
 
 Installation:
 ```
-!git clone https://github.com/kazulagi/plantfem.git
+!git clone -b 21.10 https://github.com/kazulagi/plantfem.git
 %cd plantfem
 %ls
 !python3 install.py
@@ -335,7 +335,7 @@ Execution:
 sudo apt update
 sudo apt upgrade -y
 sudo apt install git
-git clone https://gitlab.com/kazulagi/plantfem.git
+git clone -b 21.10 https://gitlab.com/kazulagi/plantfem.git
 cd plantfem
 sudo apt install python3
 python3 setup/setup.py
@@ -359,7 +359,7 @@ And, install other applications.
 
 ```
 brew install git
-git clone https://gitlab.com/kazulagi/plantfem.git
+git clone -b 21.10 https://gitlab.com/kazulagi/plantfem.git
 cd plantfem
 brew install python3
 python3 setup/setup.py
@@ -389,7 +389,7 @@ cd ~/
 sudo apt update
 sudo apt upgrade -y
 sudo apt install git
-git clone https://gitlab.com/kazulagi/plantfem.git
+git clone -b 21.10 https://gitlab.com/kazulagi/plantfem.git
 cd plantfem
 sudo apt install python3
 python3 setup/setup.py
