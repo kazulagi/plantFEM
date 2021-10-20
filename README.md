@@ -7,7 +7,7 @@
 ![image931](https://user-images.githubusercontent.com/54159711/84130533-5eb8ec00-aa7e-11ea-92c9-08a49ccc3674.png)
 -->
 
-# plantFEM 21.10 will soon be released!
+# [New!] plantFEM 21.10 was released!
 
 ## Specification
 

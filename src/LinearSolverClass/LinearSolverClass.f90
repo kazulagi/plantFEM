@@ -949,6 +949,10 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
       obj%x = zeros(n)
       if(Solver=="BiCGSTAB")then
         call bicgstab1d(a=obj%a, b=obj%b, x=obj%x, n=n, itrmax=obj%itrmax, er=obj%er0)
+      elseif(Solver=="GPBiCG")then
+        call bicgstab1d(a=obj%a, b=obj%b, x=obj%x, n=n, itrmax=obj%itrmax, er=obj%er0)
+      elseif(Solver=="GaussJordan")then
+        call gauss_jordan_pv(obj%a, obj%x, obj%b, size(obj%b,1) )
       else
         call gauss_jordan_pv(obj%a, obj%x, obj%b, size(obj%b,1) )
       endif
