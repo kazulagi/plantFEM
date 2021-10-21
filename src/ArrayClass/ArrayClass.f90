@@ -13,6 +13,13 @@ module ArrayClass
     !    module procedure newArrayReal
     !end interface
 
+    interface exchange
+        module procedure :: exchangeInt32vector,exchangeInt32vector2
+    end interface exchange
+
+    interface shift
+        module procedure :: shiftInt32vector
+    end interface
     ! statistics
 
     interface matrix
@@ -6143,7 +6150,8 @@ end function
 
 ! ###############################################################
 function I_dx(x,fx,f0) result(I_df)
-    real(real64),intent(in) :: x(:),fx(:),f0
+    real(real64),intent(in) :: x(:),fx(:)
+    real(real64),optional,intent(in) :: f0
     real(real64),allocatable :: I_df(:)
     integer(int32) :: i,n
     real(real64) :: h
@@ -6152,7 +6160,11 @@ function I_dx(x,fx,f0) result(I_df)
     I_df = zeros(size(x) )
     n = size(x)
     
-    I_df(1) = f0
+    if(present(f0) )then
+        I_df(1) = f0
+    else
+        I_df(1) = 0.0d0
+    endif
     do i=2,size(x)
         I_df(i) = I_df(i-1) + 0.50d0*(fx(i) + fx(i-1) )*abs( x(i)-x(i-1) )
     enddo
@@ -6346,5 +6358,44 @@ function matrixFromVectorsInt32(x1,x2,x3,x4,x5,x6,x7,x8) result(ret)
 end function
 ! ###############################################################
 
+
+! ###############################################################
+pure function shiftInt32vector(vec) result(ret)
+    integeR(int32),intent(in) :: vec(:)
+    integeR(int32),allocatable :: ret(:)
+    
+    allocate(ret(size(vec)) )
+    ret(2:size(vec)) = vec(1:size(vec)-1)
+    ret(1) = vec(size(vec))
+
+end function
+! ###############################################################
+
+
+! ###############################################################
+pure function exchangeInt32vector(vec,a,b) result(ret)
+    integeR(int32),intent(in) :: vec(:)
+    integeR(int32),intent(in):: a,b
+    integeR(int32)::buf
+    integeR(int32),allocatable :: ret(:)
+    ret = vec
+    ret(a) = vec(b)
+    ret(b) = vec(a)
+
+end function
+! ###############################################################
+
+
+! ###############################################################
+pure function exchangeInt32vector2(vec)  result(ret)
+    integeR(int32),intent(in) :: vec(2)
+    integeR(int32)::buf
+    integeR(int32) :: ret(2)
+
+    ret(2) = vec(1)
+    ret(1) = vec(2)
+
+end function
+! ###############################################################
 
 end module ArrayClass

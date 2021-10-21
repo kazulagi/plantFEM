@@ -67,7 +67,7 @@ do
         echo "implicit none" >> "__server__.f90"
         while :
         do
-            /bin/echo -n ">>> "
+            /bin//bin/echo -n ">>> "
             read line
             echo "$line" >> "__server__.f90"
             if [ "$line" = "end" ]; then
@@ -140,7 +140,7 @@ do
     if [ "$commandl" = "new" ]; then
         #echo "$homepath"
         echo "[Your project name:  (default=untitled), if OK, press ENTER]"
-        echo -n ">>> "
+        /bin/echo -n ">>> "
         read projectname
         num=0
         if [ "x$projectname" = "x" ]; then
@@ -149,7 +149,7 @@ do
             pn="$projectname"
         fi
         echo "[Path of the project (default=$homepath/home/), if OK, press ENTER ]"
-        echo -n ">>> "
+        /bin/echo -n ">>> "
         read projectpath
         if [ "x$projectpath" = "x" ]; then
             #$projectname="/opt/plantfem/home/"
@@ -169,7 +169,7 @@ do
         echo "6 : Diffusion-1D simulation (sim)"
         echo "7 : Create soybean (obj)"
         echo "For more detail, please check /opt/plantfem/Tutorial/*"
-        echo -n ">>> "
+        /bin/echo -n ">>> "
         read temp
         if [ "x$temp" = "x" ]; then
             cp /opt/plantfem/Tutorial/app/untitled.f90 server.f90
@@ -211,7 +211,7 @@ do
 
     if [ "$commandl" = "clone" ]; then
         echo ">>> Please paste the remote repository URL."
-        echo -n ">>> "
+        /bin/echo -n ">>> "
         read command 
         cd /opt/plantfem/addon/github/
         git clone "$command" 
