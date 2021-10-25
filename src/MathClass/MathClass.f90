@@ -28,7 +28,7 @@ module MathClass
 	!
 
 	interface heapsort
-		module procedure :: heapsortInt32, heapsortReal64
+		module procedure :: heapsortInt32, heapsortReal64,heapsortReal32
 	end interface
 
 	interface str
@@ -325,7 +325,7 @@ end function
 
 
 !########################################
-function SearchNearestValueID(Vector,x)  result(id)
+pure function SearchNearestValueID(Vector,x)  result(id)
 	real(real64),intent(in) :: Vector(:)
 	real(real64),intent(in) :: x
 	integer(int32) :: id,i
@@ -505,6 +505,76 @@ subroutine heapsortReal64(n,array,val)
   	enddo
 
 end subroutine heapsortReal64
+
+!##################################################
+subroutine heapsortReal32(n,array,val)
+	integer(int32),intent(in) :: n
+	real(real32),intent(inout) :: array(1:n)! rearrange order by this array
+  real(real32),optional,intent(inout) :: val(1:n) ! linked data
+  real(real32) :: t_real
+	integer(int32) ::i,k,j,l
+	real(real32) :: t
+
+	if(n.le.0)then
+		write(6,*)"Error, at heapsort"; stop
+	endif
+	if(n.eq.1)return
+
+  l=n/2+1
+  k=n
+  do while(k.ne.1)
+	  if(l.gt.1)then
+		  l=l-1
+		  t=array(L)
+		  if(present(val) )then
+			  t_real=val(L)
+		  endif
+	  else
+		  t=array(k)
+		  if(present(val) )then
+			  t_real=val(k)
+		  endif
+
+		  array(k)=array(1)
+		  if(present(val) )then			
+			  val(k) = val(1)
+		  endif
+
+		  k=k-1
+		  if(k.eq.1) then
+				 array(1)=t
+				 if(present(val) )then
+					  val(1) = t_real
+				 endif
+			  exit
+		  endif
+	  endif
+	  i=l
+	  j=l+l
+	  do while(j.le.k)
+		  if(j.lt.k)then
+				 if(array(j).lt.array(j+1))j=j+1
+
+		  endif
+		  if (t.lt.array(j))then
+			  array(i)=array(j)
+			  if(present(val) )then
+			  val(i)=val(j)
+			  endif
+			  i=j
+			  j=j+j
+		  else
+			  j=k+1
+		  endif
+	  enddo
+	   array(i)=t
+	   if(present(val) )then
+	   val(i)=t_real
+	   endif
+	enddo
+
+end subroutine heapsortReal32
+
 
 
 !##################################################

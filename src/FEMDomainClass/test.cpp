@@ -3,6 +3,7 @@
 
 int main(){
     FEMDomain seed;
+
+    seed.create("Cube3D");
     std::cout << seed.setElementType(VTK_VERTEX);
-    std::cout << seed.setElementType(-1000);
 }

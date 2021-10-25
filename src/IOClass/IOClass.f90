@@ -146,7 +146,12 @@ module IOClass
         generic,public :: read => readIOchar,readIOInt,readIOIntVector,readIOIntArray&
             ,readIOReal64,readIOReal64Vector,readIOReal64Array
 
-        procedure,public :: plot => plotIO
+        
+        procedure,pass :: plotIO
+        procedure,pass :: plotIODirect
+        procedure,pass :: plotIODirectReal32
+        generic,public :: plot => plotIO, plotIODirect,plotIODirectReal32
+        
         procedure,public :: splot => splotIO
 
 
@@ -1439,6 +1444,40 @@ subroutine spyRealArray(array)
 
 end subroutine
 
+! ################################################################
+
+! ################################################################
+subroutine plotIODirect(obj,x,Fx,option)
+    class(IO_),intent(inout) ::  obj
+    real(real64),intent(in) :: x(:),Fx(:)
+    character(*),optional,intent(in) :: option
+
+
+    call obj%open("__plotIODirect__.txt")
+    call obj%write(x,Fx)
+    call obj%close()
+
+    call obj%plot(option=option)
+end subroutine
+! ################################################################
+
+! ################################################################
+subroutine plotIODirectReal32(obj,x,Fx,option)
+    class(IO_),intent(inout) ::  obj
+    real(real32),intent(in) :: x(:),Fx(:)
+    character(*),optional,intent(in) :: option
+
+
+    call obj%open("__plotIODirect__.txt")
+    call obj%write(dble(x),dble(Fx))
+    call obj%close()
+
+    call obj%plot(option=option)
+end subroutine
+! ################################################################
+
+
+! ################################################################
 subroutine plotIO(obj,name,option)
     class(IO_),intent(inout) ::  obj
     character(*),optional,intent(in) :: name
@@ -1464,8 +1503,10 @@ subroutine plotIO(obj,name,option)
     call execute_command_line("gnuplot "//trim(obj%filename)//"_gp_script.gp -pause")
     call obj%close()
 end subroutine
+! ################################################################
 
 
+! ################################################################
 subroutine splotIO(obj,name,option)
     class(IO_),intent(inout) ::  obj
     character(*),optional,intent(in) :: name

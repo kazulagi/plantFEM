@@ -56,4 +56,6 @@ class FEMDomain{
 
         };
         int setElementType(int elementType);
+        void create(std::string MeshType,int x_num=1, int y_num=1,int z_num=1, 
+            float x_len=1, float y_len=1, float z_len=1);
 };

@@ -30,7 +30,6 @@ module SoybeanClass
 
         logical :: determinate
         
-        
         integer(int32)  :: ms_node,br_node(PF_DEFAULT_SOYBEAN_ASIZE),br_from(PF_DEFAULT_SOYBEAN_ASIZE)
         real(real64)    :: ms_length,br_length(PF_DEFAULT_SOYBEAN_ASIZE)
         real(real64)    :: ms_width,br_width(PF_DEFAULT_SOYBEAN_ASIZE)
@@ -115,6 +114,9 @@ module SoybeanClass
         
         integer(int32),allocatable :: NodeID_MainStem(:)
         type(soybean_NodeID_Branch_),allocatable :: NodeID_Branch(:)
+
+        logical ::  inLoop = .false.
+        real(real64) :: hours = 0.0d0
 
     contains
         procedure,public :: addStem => addStemSoybean
