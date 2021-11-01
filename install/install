@@ -260,6 +260,10 @@ echo "Compiling ./src/ContactMechanicsClass/ContactMechanicsClass.f90"
 echo " >> ContactMechanicsClass.o "
 echo " | ================>           | (80%)\r\c"
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ContactMechanicsClass/ContactMechanicsClass.f90 -o  ./inc/ContactMechanicsClass.o
+echo "Compiling ./src/ContactDiffusionClass/ContactDiffusionClass.f90" 
+echo " >> ContactDiffusionClass.o "
+echo " | ================>           | (80%)\r\c"
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ContactDiffusionClass/ContactDiffusionClass.f90 -o  ./inc/ContactDiffusionClass.o
 echo "Compiling ./src/MultiDiffDeformClass/MultiDiffDeformClass.f90" 
 echo " >> MultiDiffDeformClass.o "
 echo " | ==================>         | (85%)\r\c"

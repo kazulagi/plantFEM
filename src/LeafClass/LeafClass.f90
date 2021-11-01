@@ -84,7 +84,12 @@ module LeafClass
         procedure, public :: rescale => rescaleleaf
         procedure, public :: adjust => adjustLeaf
         procedure, public :: resize => resizeleaf
+        
+        procedure, public :: getVolume => getVolumeLeaf
+        procedure, public :: getBiomass => getBiomassLeaf
         procedure, public :: getCoordinate => getCoordinateleaf
+
+
         procedure, public :: gmsh => gmshleaf
         procedure, public :: msh => mshleaf
         procedure, public :: vtk => vtkleaf
@@ -1032,10 +1037,46 @@ subroutine adjustLeaf(obj,width)
     real(real64),intent(in) :: width(:,:)
 
 
-
-
-
 end subroutine
+
+
+
+function getVolumeLeaf(obj) result(ret)
+    class(Leaf_),intent(in) :: obj
+    real(real64) :: ret
+    integer(int32) :: i,j
+    
+    ret =0.0d0
+
+    if(obj%femdomain%mesh%empty() ) then
+        return
+    endif
+    
+    do i=1,obj%femdomain%ne()
+        ret = ret + obj%femdomain%getVolume(elem=i)
+    enddo
+
+end function
+
+
+function getBiomassLeaf(obj) result(ret)
+    class(Leaf_),intent(in) :: obj
+    real(real64) :: ret
+    integer(int32) :: i,j
+
+    ret =0.0d0
+
+    if(obj%femdomain%mesh%empty() ) then
+        return
+    endif
+    
+
+    do i=1,obj%femdomain%ne()
+        ret = ret + obj%femdomain%getVolume(elem=i)*obj%drydensity(i)
+    enddo
+
+end function
+
 
 
 end module 

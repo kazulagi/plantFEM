@@ -366,6 +366,22 @@ homepath="$PWD"
         exit 0
     fi
 
+
+    if [ "$1" = "deploy" ]; then
+        #cp server.f90 server.f90
+        $mpif90 -fopenmp -fopenacc $PWD/inc/*o -I $PWD/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path $PWD/inc  -o server.out
+        #echo "Current num of cpu-core is :: $numcore "
+        exit 0
+    fi
+
+    if [ "$1" = "run_" ]; then
+        #cp server.f90 server.f90
+        $mpif90 -fopenmp -fopenacc $PWD/inc/*o -I $PWD/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path $PWD/inc  -o server.out
+        mpirun   --hostfile $hostfile -np $numcore ./server.out
+        #echo "Current num of cpu-core is :: $numcore "
+        exit 0
+    fi
+
     if [ "$1" = "$ls" ]; then
         echo " "
         pwd

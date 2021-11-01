@@ -146,7 +146,12 @@ module IOClass
         generic,public :: read => readIOchar,readIOInt,readIOIntVector,readIOIntArray&
             ,readIOReal64,readIOReal64Vector,readIOReal64Array
 
-        procedure,public :: plot => plotIO
+        
+        procedure,pass :: plotIO
+        procedure,pass :: plotIODirect
+        procedure,pass :: plotIODirectReal32
+        generic,public :: plot => plotIO, plotIODirect,plotIODirectReal32
+        
         procedure,public :: splot => splotIO
 
 
@@ -154,6 +159,10 @@ module IOClass
         procedure,public :: close => closeIO    
     end type
 
+
+    interface lowercase
+        module procedure lowercaseChar, lowercaseString
+    end interface 
     
     interface print
         module procedure printChar, printReal64, printReal32, printInt64, printInt32
@@ -170,6 +179,13 @@ module IOClass
     interface spy
         module procedure spyRealArray
     end interface
+
+
+    interface CaesarCipher
+        module procedure CaesarCipherChar
+    end interface 
+    
+
 contains
 
 ! ===========================================
@@ -1439,6 +1455,40 @@ subroutine spyRealArray(array)
 
 end subroutine
 
+! ################################################################
+
+! ################################################################
+subroutine plotIODirect(obj,x,Fx,option)
+    class(IO_),intent(inout) ::  obj
+    real(real64),intent(in) :: x(:),Fx(:)
+    character(*),optional,intent(in) :: option
+
+
+    call obj%open("__plotIODirect__.txt")
+    call obj%write(x,Fx)
+    call obj%close()
+
+    call obj%plot(option=option)
+end subroutine
+! ################################################################
+
+! ################################################################
+subroutine plotIODirectReal32(obj,x,Fx,option)
+    class(IO_),intent(inout) ::  obj
+    real(real32),intent(in) :: x(:),Fx(:)
+    character(*),optional,intent(in) :: option
+
+
+    call obj%open("__plotIODirect__.txt")
+    call obj%write(dble(x),dble(Fx))
+    call obj%close()
+
+    call obj%plot(option=option)
+end subroutine
+! ################################################################
+
+
+! ################################################################
 subroutine plotIO(obj,name,option)
     class(IO_),intent(inout) ::  obj
     character(*),optional,intent(in) :: name
@@ -1464,8 +1514,10 @@ subroutine plotIO(obj,name,option)
     call execute_command_line("gnuplot "//trim(obj%filename)//"_gp_script.gp -pause")
     call obj%close()
 end subroutine
+! ################################################################
 
 
+! ################################################################
 subroutine splotIO(obj,name,option)
     class(IO_),intent(inout) ::  obj
     character(*),optional,intent(in) :: name
@@ -2142,5 +2194,86 @@ subroutine dumpIOJSON_Key_valueChar(obj,key,value)
     
 end subroutine
 ! #################################################################
+
+! #################################################################
+pure function lowercaseChar(line) result(ret)
+    character(*),intent(in) :: line
+    character(:),allocatable :: ret
+    integer(int32) :: i
+    
+    ret =line
+    do i=1,len(line)
+        if( "A" <= ret(i:i) .and. ret(i:i) <= "Z"  )then
+            ret(i:i) = char(ichar(ret(i:i) )+ 32 )
+        endif
+    enddo
+    
+end function
+! #################################################################
+
+! #################################################################
+pure function lowercaseString(line) result(ret)
+    type(String_),intent(in) :: line
+    character(:),allocatable :: ret
+    integer(int32) :: i
+    
+    ret =line%all
+    do i=1,len(line%all)
+        if(ret(i:i) >= 'A' .and. ret(i:i) <='Z' )then
+            ret(i:i) = char(ichar(ret(i:i) )+ 32 )
+        endif
+    enddo
+    
+end function
+! #################################################################
+
+
+! #################################################################
+function CaesarCipherChar(line,fshift) result(ret)
+    character(*),intent(in) :: line
+    integer(int32),intent(in) :: fshift
+    integer(int32) :: i
+    character(:),allocatable :: ret
+
+    ! 1-26 A-Z
+    ! 27-32 [ \ ] ^ _ `
+    ! 33-59 a-z 
+    ! 60-64 | } ~  
+
+    print *, "[Caution] bug exists"
+    return
+    !
+    ret = line
+    !do concurrent (i=1:len(line) )
+    do i=1,len(line)
+        print *,cyclic(ichar(line(i:i))+ fshift,max=64)
+        print *, char(i=cyclic(ichar(line(i:i))+ fshift,max=64) )
+        ret(i:i) = char(i=cyclic(ichar(line(i:i))+ fshift,max=64) )
+    enddo
+
+end function
+! #################################################################
+
+
+pure function cyclic(num,max) result(ret)
+    integer(int32),intent(in)::num,max
+    integer(int32) :: ret
+
+    if(num>max)then
+        ret = mod(num,max)
+        if(ret==0)then
+            ret = max
+        endif
+        return
+    endif
+
+    if(num<1)then
+        ret = max + mod(num,max)
+        return
+    endif
+
+    ret = num
+
+end function
 
 end module IOClass

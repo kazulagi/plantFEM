@@ -28,7 +28,7 @@ module StringClass
   end interface
 
   interface print
-      module procedure printString
+      module procedure printString,printStringVec,printStringArray
   end interface
 
 
@@ -41,6 +41,7 @@ function ascii_lowercaseString(this) result(ret)
 
   ret = this%all
   print *, "Caution:: ascii_lowercaseString not implemented."
+  
 end function
 !==============================================================
 !
@@ -105,6 +106,37 @@ subroutine printString(this)
   class(string_),intent(in) :: this    
 
   print *, this%all
+
+end subroutine
+!==============================================================
+
+
+!==============================================================
+subroutine printStringVec(this)
+  class(string_),intent(in) :: this(:)
+  integer(int32) :: j
+
+
+  do j=1,size(this,1)
+      write(*,'(A)') this(j)%all//" "
+  enddo
+
+
+end subroutine
+!==============================================================
+
+
+!==============================================================
+subroutine printStringArray(this)
+  class(string_),intent(in) :: this(:,:)
+  integer(int32) :: i,j
+
+  do i=1,size(this,1)
+    do j=1,size(this,2)-1
+      write(*,'(A)',advance="no") this(i,j)%all//" "
+    enddo
+    write(*,'(A)',advance="yes") this(i,size(this,2))%all//" "
+  enddo
 
 end subroutine
 !==============================================================

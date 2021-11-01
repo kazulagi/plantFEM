@@ -12,7 +12,24 @@ module ArrayClass
     !interface newArray
     !    module procedure newArrayReal
     !end interface
+    !interface fit
+    !    module procedure :: fitReal64
+    !end interface 
+    interface I_dx
+        module procedure :: I_dx_real64,I_dx_real32,I_dx_complex64
+    end interface
 
+    interface d_dx
+        module procedure :: d_dx_real64,d_dx_real32,d_dx_complex64
+    end interface
+
+    interface exchange
+        module procedure :: exchangeInt32vector,exchangeInt32vector2
+    end interface exchange
+
+    interface shift
+        module procedure :: shiftInt32vector
+    end interface
     ! statistics
 
     interface matrix
@@ -21,7 +38,12 @@ module ArrayClass
 
 
     interface interpolate
-        module procedure :: interpolateReal64
+        module procedure :: interpolateOneReal64,interpolateOneComplex64,interpolateOneReal32
+    end interface
+    
+
+    interface refine
+        module procedure :: RefineSequenceReal64,RefineSequenceComplex64,RefineSequenceReal32
     end interface
 
     interface convolve
@@ -29,7 +51,8 @@ module ArrayClass
     end interface convolve
 
     interface linspace
-        module procedure :: linspace1D, linspace2D, linspace3D,linspace4D
+        module procedure :: linspace1D, linspace1Dcomplex64,&
+                 linspace1Dreal32, linspace2D, linspace3D,linspace4D
     end interface linspace
 
     interface windowing
@@ -386,6 +409,7 @@ subroutine assignVectorFromChar(x,chx)
     
 end subroutine
 ! ===============================================
+
 
 ! ===============================================
 subroutine assignIntVectorFromChar(x,chx)
@@ -5355,7 +5379,7 @@ end function
 
 
 ! ###############################################################
-function interpolateReal64(x, Fx, x_value) result(ret)
+function interpolateOneReal64(x, Fx, x_value) result(ret)
     real(real64),intent(inout) :: Fx(:), x(:)
     real(real64),intent(in):: x_value
     real(real64) :: ret,alpha,x1,x2,Fx1,Fx2
@@ -5367,7 +5391,7 @@ function interpolateReal64(x, Fx, x_value) result(ret)
     
     call heapsort(n,x,Fx)
     
-    id = SearchNearestValueID(x,x_value)
+    id = SearchNearestValueID(dble(x),dble(x_value))
     if( x_value > x(id) )then
         if(id == n)then
             ret = Fx(n)
@@ -5395,6 +5419,102 @@ function interpolateReal64(x, Fx, x_value) result(ret)
 
 end function
 ! ###############################################################
+
+
+
+! ###############################################################
+function interpolateOneReal32(x, Fx, x_value) result(ret)
+    real(real32),intent(inout) :: Fx(:), x(:)
+    real(real32),intent(in):: x_value
+    real(real32) :: ret,alpha,x1,x2,Fx1,Fx2
+    integer(int32) :: i,n,id
+    
+    ! express F(x_value) by 
+    ! Linear interpolation by discreted space (x_i, F(x_i) )
+    n = size(x)
+    
+    call heapsort(n,x,Fx)
+    
+    id = SearchNearestValueID(dble(x),dble(x_value))
+    if( x_value > x(id) )then
+        if(id == n)then
+            ret = Fx(n)
+            return
+        else
+            x1 = x(id)
+            x2 = x(id+1)
+            Fx1 = Fx(id)
+            Fx2 = Fx(id+1)
+        endif
+    else
+        if(id == 1)then
+            ret = Fx(1)
+            return
+        else
+            x1 = x(id-1)
+            x2 = x(id)
+            Fx1 = Fx(id-1)
+            Fx2 = Fx(id)
+        endif
+    endif
+    alpha = (x_value - x2)/(x1- x2)
+
+    ret = alpha*Fx1 + (1.0d0 - alpha)*Fx2
+
+end function
+! ###############################################################
+
+
+
+! ###############################################################
+function interpolateOnecomplex64(x_c, Fx_c, x_value_c) result(ret)
+    complex(complex64),intent(inout) :: Fx_c(:), x_c(:)
+    real(real64),allocatable :: Fx(:), x(:)
+    complex(complex64),intent(in):: x_value_c
+    complex(complex64) :: ret,alpha,x1,x2,Fx1,Fx2
+    real(real64) :: x_value
+    integer(int32) :: i,n,id
+
+    Fx = dble(Fx_c)
+    x = dble(x_c)
+    x_value = dble(x_value_c)
+    
+    ! express F(x_value) by 
+    ! Linear interpolation by discreted space (x_i, F(x_i) )
+    n = size(x)
+    call heapsort(n,x,Fx)
+    
+    id = SearchNearestValueID(dble(x),dble(x_value))
+    if( x_value > x(id) )then
+        if(id == n)then
+            ret = Fx(n)
+            return
+        else
+            x1 = x(id)
+            x2 = x(id+1)
+            Fx1 = Fx(id)
+            Fx2 = Fx(id+1)
+        endif
+    else
+        if(id == 1)then
+            ret = Fx(1)
+            return
+        else
+            x1 = x(id-1)
+            x2 = x(id)
+            Fx1 = Fx(id-1)
+            Fx2 = Fx(id)
+        endif
+    endif
+    alpha = (x_value - x2)/(x1- x2)
+
+    ret = alpha*Fx1 + (1.0d0 - alpha)*Fx2
+
+    Fx_c = Fx
+    x_c = x
+end function
+! ###############################################################
+
 
 ! ###############################################################
 function correlation(x_t,x_s) result(cor)
@@ -5535,7 +5655,8 @@ function covarianceMatrix(x_t,x_s,n) result(ret)
 end function
 ! ###############################################################
 
-function linspace1D(drange,numberOfData) result(ret)
+! ###############################################################
+pure function linspace1D(drange,numberOfData) result(ret)
     real(real64),intent(in) :: drange(2)
     integer(int32),intent(in) :: numberOfData
     real(real64) :: dx,x,from,to
@@ -5553,10 +5674,58 @@ function linspace1D(drange,numberOfData) result(ret)
     enddo
     ret(numberOfData) = x
 end function
+! ###############################################################
+
+
+
+
+! ###############################################################
+pure function linspace1Dcomplex64(drange,numberOfData) result(ret)
+    complex(complex64),intent(in) :: drange(2)
+    integer(int32),intent(in) :: numberOfData
+    complex(complex64) :: dx,x,from,to
+    complex(complex64),allocatable :: ret(:)
+    integer(int32) :: i
+    
+    allocate(ret(numberOfData) )
+    from = drange(1)
+    to = drange(2)
+    dx = (to - from)/dble(numberOfData-1)
+    x = from
+    do i=1, numberOfData-1
+        ret(i) = x
+        x = x + dx
+    enddo
+    ret(numberOfData) = x
+end function
+! ###############################################################
+
+! ###############################################################
+pure function linspace1Dreal32(drange,numberOfData) result(ret)
+    real(real32),intent(in) :: drange(2)
+    integer(int32),intent(in) :: numberOfData
+    real(real32) :: dx,x,from,to
+    real(real32),allocatable :: ret(:)
+    integer(int32) :: i
+    
+    allocate(ret(numberOfData) )
+    from = drange(1)
+    to = drange(2)
+    dx = (to - from)/dble(numberOfData-1)
+    x = from
+    do i=1, numberOfData-1
+        ret(i) = x
+        x = x + dx
+    enddo
+    ret(numberOfData) = x
+end function
+! ###############################################################
+
+
 
 ! ###############################################################
 
-function linspace2D(xrange,yrange,xnum,ynum) result(ret)
+pure function linspace2D(xrange,yrange,xnum,ynum) result(ret)
     real(real64),intent(in) :: xrange(2),yrange(2)
     integer(int32),intent(in) :: xnum,ynum
     real(real64),allocatable :: ret(:,:),x(:),y(:)
@@ -5579,7 +5748,7 @@ end function
 
 ! ###############################################################
 
-function linspace3D(xrange,yrange,zrange,xnum,ynum,znum) result(ret)
+pure function linspace3D(xrange,yrange,zrange,xnum,ynum,znum) result(ret)
     real(real64),intent(in) :: xrange(2),yrange(2),zrange(2)
     integer(int32),intent(in) :: xnum,ynum,znum
     real(real64),allocatable :: ret(:,:),x(:),y(:),z(:)
@@ -5606,7 +5775,7 @@ end function
 
 ! ###############################################################
 
-function linspace4D(xrange,yrange,zrange,trange,xnum,ynum,znum,tnum) result(ret)
+pure function linspace4D(xrange,yrange,zrange,trange,xnum,ynum,znum,tnum) result(ret)
     real(real64),intent(in) :: xrange(2),yrange(2),zrange(2),trange(2)
     integer(int32),intent(in) :: xnum,ynum,znum,tnum
     real(real64),allocatable :: ret(:,:),x(:),y(:),z(:),t(:)
@@ -6081,7 +6250,7 @@ end function
 ! ###############################################################
 
 ! ###############################################################
-function d_dx(x,fx) result(d_df)
+function d_dx_real64(x,fx) result(d_df)
     real(real64),intent(in) :: x(:),fx(:)
     real(real64),allocatable :: d_df(:)
     !complex(complex64),allocatable :: fx_(:),fw(:),w(:),jwFw(:)
@@ -6142,8 +6311,53 @@ end function
 ! ###############################################################
 
 ! ###############################################################
-function I_dx(x,fx,f0) result(I_df)
-    real(real64),intent(in) :: x(:),fx(:),f0
+function d_dx_real32(x,fx) result(d_df)
+    real(real32),intent(in) :: x(:),fx(:)
+    real(real32),allocatable :: d_df(:)
+    !complex(complex64),allocatable :: fx_(:),fw(:),w(:),jwFw(:)
+    !complex(complex64) :: j = (0.0d0, 1.0d0)
+    integer(int32) :: i,n
+    real(real32) :: h
+
+    ! 2nd-order central differential
+    d_df = zeros(size(x) )
+    n = size(x)
+    
+    d_df(1) = 0.50d0*(fx(3) - fx(2) )/(x(3)-x(2) )+0.50d0*(fx(2) - fx(1) )/(x(2)-x(1) )
+    do i=2,size(x)-1
+        d_df(i) = 0.50d0*(fx(i+1) - fx(i) )/(x(i+1)-x(i) )+0.50d0*(fx(i) - fx(i-1) )/(x(i)-x(i-1) )
+    enddo
+    d_df(n) = 0.50d0*(fx(n) - fx(n-1) )/(x(n)-x(n-1) )+0.50d0*(fx(n-1) - fx(n-2) )/(x(n-1)-x(n-2) )
+
+end function
+! ###############################################################
+
+! ###############################################################
+function d_dx_complex64(x,fx) result(d_df)
+    complex(complex64),intent(in) :: x(:),fx(:)
+    complex(complex64),allocatable :: d_df(:)
+    !complex(complex64),allocatable :: fx_(:),fw(:),w(:),jwFw(:)
+    !complex(complex64) :: j = (0.0d0, 1.0d0)
+    integer(int32) :: i,n
+    complex(complex64) :: h
+
+    ! 2nd-order central differential
+    d_df = zeros(size(x) )
+    n = size(x)
+    
+    d_df(1) = 0.50d0*(fx(3) - fx(2) )/(x(3)-x(2) )+0.50d0*(fx(2) - fx(1) )/(x(2)-x(1) )
+    do i=2,size(x)-1
+        d_df(i) = 0.50d0*(fx(i+1) - fx(i) )/(x(i+1)-x(i) )+0.50d0*(fx(i) - fx(i-1) )/(x(i)-x(i-1) )
+    enddo
+    d_df(n) = 0.50d0*(fx(n) - fx(n-1) )/(x(n)-x(n-1) )+0.50d0*(fx(n-1) - fx(n-2) )/(x(n-1)-x(n-2) )
+
+end function
+! ###############################################################
+
+! ###############################################################
+function I_dx_real64(x,fx,f0) result(I_df)
+    real(real64),intent(in) :: x(:),fx(:)
+    real(real64),optional,intent(in) :: f0
     real(real64),allocatable :: I_df(:)
     integer(int32) :: i,n
     real(real64) :: h
@@ -6152,7 +6366,59 @@ function I_dx(x,fx,f0) result(I_df)
     I_df = zeros(size(x) )
     n = size(x)
     
-    I_df(1) = f0
+    if(present(f0) )then
+        I_df(1) = f0
+    else
+        I_df(1) = 0.0d0
+    endif
+    do i=2,size(x)
+        I_df(i) = I_df(i-1) + 0.50d0*(fx(i) + fx(i-1) )*abs( x(i)-x(i-1) )
+    enddo
+
+end function
+! ###############################################################
+
+! ###############################################################
+function I_dx_real32(x,fx,f0) result(I_df)
+    real(real32),intent(in) :: x(:),fx(:)
+    real(real32),optional,intent(in) :: f0
+    real(real32),allocatable :: I_df(:)
+    integer(int32) :: i,n
+    real(real32) :: h
+
+    ! integral by Crank-Nicolson
+    I_df = zeros(size(x) )
+    n = size(x)
+    
+    if(present(f0) )then
+        I_df(1) = f0
+    else
+        I_df(1) = 0.0d0
+    endif
+    do i=2,size(x)
+        I_df(i) = I_df(i-1) + 0.50d0*(fx(i) + fx(i-1) )*abs( x(i)-x(i-1) )
+    enddo
+
+end function
+! ###############################################################
+
+! ###############################################################
+function I_dx_complex64(x,fx,f0) result(I_df)
+    complex(complex64),intent(in) :: x(:),fx(:)
+    complex(complex64),optional,intent(in) :: f0
+    complex(complex64),allocatable :: I_df(:)
+    integer(int32) :: i,n
+    complex(complex64) :: h
+
+    ! integral by Crank-Nicolson
+    I_df = zeros(size(x) )
+    n = size(x)
+    
+    if(present(f0) )then
+        I_df(1) = f0
+    else
+        I_df(1) = 0.0d0
+    endif
     do i=2,size(x)
         I_df(i) = I_df(i-1) + 0.50d0*(fx(i) + fx(i-1) )*abs( x(i)-x(i-1) )
     enddo
@@ -6345,6 +6611,117 @@ function matrixFromVectorsInt32(x1,x2,x3,x4,x5,x6,x7,x8) result(ret)
 
 end function
 ! ###############################################################
+
+
+! ###############################################################
+pure function shiftInt32vector(vec) result(ret)
+    integeR(int32),intent(in) :: vec(:)
+    integeR(int32),allocatable :: ret(:)
+    
+    allocate(ret(size(vec)) )
+    ret(2:size(vec)) = vec(1:size(vec)-1)
+    ret(1) = vec(size(vec))
+
+end function
+! ###############################################################
+
+
+! ###############################################################
+pure function exchangeInt32vector(vec,a,b) result(ret)
+    integeR(int32),intent(in) :: vec(:)
+    integeR(int32),intent(in):: a,b
+    integeR(int32)::buf
+    integeR(int32),allocatable :: ret(:)
+    ret = vec
+    ret(a) = vec(b)
+    ret(b) = vec(a)
+
+end function
+! ###############################################################
+
+
+! ###############################################################
+pure function exchangeInt32vector2(vec)  result(ret)
+    integeR(int32),intent(in) :: vec(2)
+    integeR(int32)::buf
+    integeR(int32) :: ret(2)
+
+    ret(2) = vec(1)
+    ret(1) = vec(2)
+
+end function
+! ###############################################################
+
+! ###############################################################
+subroutine RefineSequenceReal64(x,Fx,x_range,num_point) 
+    ! in: observation -> out: interpolated
+    real(real64),intent(in) :: x_range(2)
+    real(real64),allocatable,intent(inout) :: x(:), Fx(:)
+    ! observation
+    real(real64),allocatable :: x_o(:), Fx_o(:)
+    integer(int32),intent(in) :: num_point
+    integer(int32) :: i
+    
+    x_o  = x
+    Fx_o = Fx
+
+    x  = linspace(x_range,num_point)
+    Fx = zeros(num_point)
+    
+    do i=1,num_point
+        Fx(i) =  interpolateOneReal64(x=x_o, Fx=Fx_o, x_value=x(i) )
+    enddo
+
+end subroutine
+! ###############################################################
+
+
+! ###############################################################
+subroutine RefineSequenceReal32(x,Fx,x_range,num_point) 
+    ! in: observation -> out: interpolated
+    real(real32),intent(in) :: x_range(2)
+    real(real32),allocatable,intent(inout) :: x(:), Fx(:)
+    ! observation
+    real(real32),allocatable :: x_o(:), Fx_o(:)
+    integer(int32),intent(in) :: num_point
+    integer(int32) :: i
+    
+    x_o  = x
+    Fx_o = Fx
+
+    x  = linspace(x_range,num_point)
+    Fx = zeros(num_point)
+    
+    do i=1,num_point
+        Fx(i) =  interpolateOneReal32(x=x_o, Fx=Fx_o, x_value=x(i) )
+    enddo
+
+end subroutine
+! ###############################################################
+
+! ###############################################################
+subroutine RefineSequencecomplex64(x,Fx,x_range,num_point) 
+    ! in: observation -> out: interpolated
+    complex(complex64),intent(in) :: x_range(2)
+    complex(complex64),allocatable,intent(inout) :: x(:), Fx(:)
+    ! observation
+    complex(complex64),allocatable :: x_o(:), Fx_o(:)
+    integer(int32),intent(in) :: num_point
+    integer(int32) :: i
+    
+    x_o  = x
+    Fx_o = Fx
+
+    x  = linspace(x_range,num_point)
+    Fx = zeros(num_point)
+    
+    do i=1,num_point
+        Fx(i) =  interpolateOneComplex64(x_c=x_o, Fx_c=Fx_o, x_value_c=x(i) )
+    enddo
+
+end subroutine
+! ###############################################################
+
 
 
 end module ArrayClass
