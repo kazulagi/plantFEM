@@ -6,6 +6,7 @@ module sim
     use multiDOFsystemClass
     use FiniteDeformationClass
     use ContactMechanicsClass
+    use ContactDiffusionClass
     use MultiDiffDeformClass
     use WaterAbsorptionClass
     use SoilWaterCouplingClass
@@ -14,5 +15,4 @@ module sim
     use PoromechanicsClass
     use FieldClass
     use SimulatorClass
-    implicit none
 end module sim

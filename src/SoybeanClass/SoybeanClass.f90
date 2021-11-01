@@ -1,6 +1,6 @@
 module SoybeanClass
     use, intrinsic :: iso_fortran_env
-    use MathClass
+    use sim
     use SeedClass
     use LeafClass
     use RootClass
@@ -130,6 +130,8 @@ module SoybeanClass
         procedure,public :: new => initsoybean
         procedure,public :: sowing => initsoybean
         procedure,public :: export => exportSoybean
+        procedure,public :: expanition => expanitionSoybean
+        procedure,public :: development => developmentSoybean
 
         ! observation
         procedure,public :: stemlength => stemlengthSoybean
@@ -182,6 +184,8 @@ module SoybeanClass
         procedure,public :: SinkSourceFlow => SinkSourceFlowSoybean
 
         procedure,public :: update => updateSoybean
+        procedure,public :: updateFlowers => updateFlowersSoybean
+        procedure,public :: updatePods => updatePodsSoybean
         procedure,public :: AddNode => AddNodeSoybean
     end type
 
@@ -1755,7 +1759,7 @@ end subroutine
 ! ########################################
 
 ! ########################################
-subroutine growSoybean(obj,dt,light,air,temp)
+subroutine growSoybean(obj,dt,light,air,temp,simple)
     class(Soybean_),intent(inout) :: obj
     type(Light_),optional,intent(inout) :: light
     type(air_),optional,intent(in) :: air
@@ -1763,8 +1767,19 @@ subroutine growSoybean(obj,dt,light,air,temp)
     real(real64),intent(in) :: dt! time-interval
     real(real64) :: ac_temp ! time-interval
     integer(int32) :: i
+    logical,optional,intent(in) :: simple
+
 
     obj%dt = dt
+
+    if(present(simple) )then
+        if(simple)then
+            ! simple algorithmic growth
+            ! growth by temp by time
+            
+            return
+        endif
+    endif
 
     ! 光量子量を計算
     call obj%laytracing(light=light)
@@ -1777,7 +1792,7 @@ subroutine growSoybean(obj,dt,light,air,temp)
     enddo
 
     ! シンクソース輸送を計算
-    call obj%SinkSourceFlow()
+    !call obj%SinkSourceFlow()
 
     ! ソースの消耗、拡散を計算
     !call obj%source2sink()
@@ -1788,19 +1803,129 @@ subroutine growSoybean(obj,dt,light,air,temp)
     ! 分化を計算、構造の更新
     !call obj%development()
 
+    !限界日長以下>> 花成 & 子実成長
+    !if( obj%DayLengthIsShort() .eqv. .true. )then
+        !call soybean%updateFlowers()
+        !call soybean%updatePods()
+    !endif
+
 
 end subroutine
 ! ########################################
 
-subroutine SinkSourceFlowSoybean(obj)
+! ########################################
+subroutine SinkSourceFlowSoybean(obj,simple)
     class(Soybean_),intent(inout) :: obj
-    type(DiffusionEq_) :: DiffusionEq
+    logical,optional,intent(in) :: simple
+    !type(DiffusionEq_) :: DiffusionEq
 
-    !DiffusionEq%femdomain => obj%femdomain
+    if(present(simple) )then
+        if(simple)then
+            ! simple flow
+            ! for each stem,
+            
+            return
+        endif
+    endif
+    !call obj%lossEnergy()
+
+    ! solve diffusion equation for multi-domains
+    !call DiffusionEq%init(multiDomain=.true.,connectivity=obj%domainConnectivity)
+    !call DiffusionEq%add(domainlist=obj%stem(:)%femdomain)
+    !call DiffusionEq%add(domainlist=obj%leaf(:)%femdomain)
+    !call DiffusionEq%add(domainlist=obj%root(:)%femdomain)
+    !call DiffusionEq%FixValue(&
+        !range=soil%femdonain, projection=true, values=soil%watercontent)
+    
+    !call DiffusionEq%run(dt=obj%dt)
+    !soybean%sourceContent = Diffusion%unknowns
 
     
+end subroutine
+! ########################################
+
+
+! ########################################
+subroutine expanitionSoybean(obj)
+    class(Soybean_),intent(inout) :: obj
+    !type(ContactMechanics_) :: contact
+
+    !contact%init(connectivity=obj%connectivity)
+    !contact%add(domain=obj%stem(:)%domain)
+    !contact%add(domain=obj%leaf(:)%domain)
+    !contact%add(domain=obj%root(:)%domain)
+    !contact%add(domain=soil)
+    !contact%Density = obj%density()
+    !contact%PoissonRatio = obj%PoissonRatio()
+    !contact%PenaltyParameter = obj%PenaltyParameter()
+    !contact%fix(bottom=.true., direction="xyz",displacement=[0.0d0,0.0d0,0.0d0] )
+    !contact%fix(side=.true., direction="xyz",displacement=[0.0d0,0.0d0,0.0d0] )
+    !contact%solve(dt=obj%dt)
+    !soybean%CauchyStress = contact%CauchyStress
+    !soybean%displacement = contact%displacement
 
 end subroutine
+! ########################################
+
+
+! ########################################
+subroutine developmentSoybean(obj)
+    class(Soybean_),intent(inout) :: obj
+    integer(int32) :: i, new_stem_id,new_leaf_id,new_root_id
+    
+    !do i=1, obj%numStemApical
+    !   stemID=obj%StemApical(i) 
+    !   if(obj%stem(stemID)%source => obj%minimalSource )then
+    !       new_stem_id = obj%newStem(from=StemID,how=obj%stem(stemID)%properties)
+    !       new_leaf_id = obj%newLeaf(from=new_stem_id,how=obj%stem(stemID)%properties)
+    !   endif
+    !enddo
+
+    !do i=1, obj%numleaf
+    !   leafID=i
+    !   call obj%leaf(leafID)%grow()
+    !enddo
+
+    !do i=1, obj%numrootApical
+    !   rootID=obj%rootApical(i) 
+    !   if(obj%root(rootID)%source => obj%minimalSource )then
+    !       new_root_id = obj%newroot(from=rootID,how=obj%root(rootID)%properties)
+    !   endif
+    !enddo
+
+end subroutine
+! ########################################
+
+
+
+! ########################################
+subroutine updateFlowersSoybean(obj)
+    class(Soybean_),intent(inout) :: obj
+    integer(int32) :: i
+    
+    !do i=1, obj%numStem() 
+    !   call obj%stem(i)%updateFlowerCapacity()
+    !enddo
+
+end subroutine
+! ########################################
+
+
+! ########################################
+subroutine updatePodsSoybean(obj)
+    class(Soybean_),intent(inout) :: obj
+    integer(int32) :: i
+    
+    !do i=1, obj%numStem() 
+    !   call obj%stem(i)%updatePodCapacity()
+    !   call obj%stem(i)%growPod()
+    !enddo
+
+end subroutine
+! ########################################
+
+
+
 
 
 ! ########################################

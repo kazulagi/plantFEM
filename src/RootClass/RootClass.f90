@@ -53,7 +53,12 @@ module RootClass
         procedure, public :: rescale => rescaleRoot
         procedure, public :: resize => resizeRoot
         procedure, public :: fix => fixRoot
+        
         procedure, public :: getCoordinate => getCoordinateRoot
+
+        procedure, public :: getVolume => getVolumeRoot
+        procedure, public :: getBiomass => getBiomassRoot
+
         procedure, public :: gmsh => gmshRoot
         procedure, public :: vtk => vtkRoot
         procedure, public :: msh => mshRoot
@@ -602,6 +607,44 @@ end subroutine
 ! ########################################
 
 
+
+
+function getVolumeRoot(obj) result(ret)
+    class(Root_),intent(in) :: obj
+    real(real64) :: ret
+    integer(int32) :: i,j
+    
+    ret =0.0d0
+
+    if(obj%femdomain%mesh%empty() ) then
+        return
+    endif
+    
+    
+    do i=1,obj%femdomain%ne()
+        ret = ret + obj%femdomain%getVolume(elem=i)
+    enddo
+
+end function
+
+
+function getBiomassRoot(obj) result(ret)
+    class(Root_),intent(in) :: obj
+    real(real64) :: ret
+    integer(int32) :: i,j
+
+    ret =0.0d0
+
+    if(obj%femdomain%mesh%empty() ) then
+        return
+    endif
+    
+
+    do i=1,obj%femdomain%ne()
+        ret = ret + obj%femdomain%getVolume(elem=i)*obj%drydensity(i)
+    enddo
+
+end function
 
 
 end module

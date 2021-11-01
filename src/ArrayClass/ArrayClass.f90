@@ -5656,7 +5656,7 @@ end function
 ! ###############################################################
 
 ! ###############################################################
-function linspace1D(drange,numberOfData) result(ret)
+pure function linspace1D(drange,numberOfData) result(ret)
     real(real64),intent(in) :: drange(2)
     integer(int32),intent(in) :: numberOfData
     real(real64) :: dx,x,from,to
@@ -5677,8 +5677,10 @@ end function
 ! ###############################################################
 
 
+
+
 ! ###############################################################
-function linspace1Dcomplex64(drange,numberOfData) result(ret)
+pure function linspace1Dcomplex64(drange,numberOfData) result(ret)
     complex(complex64),intent(in) :: drange(2)
     integer(int32),intent(in) :: numberOfData
     complex(complex64) :: dx,x,from,to
@@ -5699,7 +5701,7 @@ end function
 ! ###############################################################
 
 ! ###############################################################
-function linspace1Dreal32(drange,numberOfData) result(ret)
+pure function linspace1Dreal32(drange,numberOfData) result(ret)
     real(real32),intent(in) :: drange(2)
     integer(int32),intent(in) :: numberOfData
     real(real32) :: dx,x,from,to
@@ -5723,7 +5725,7 @@ end function
 
 ! ###############################################################
 
-function linspace2D(xrange,yrange,xnum,ynum) result(ret)
+pure function linspace2D(xrange,yrange,xnum,ynum) result(ret)
     real(real64),intent(in) :: xrange(2),yrange(2)
     integer(int32),intent(in) :: xnum,ynum
     real(real64),allocatable :: ret(:,:),x(:),y(:)
@@ -5746,7 +5748,7 @@ end function
 
 ! ###############################################################
 
-function linspace3D(xrange,yrange,zrange,xnum,ynum,znum) result(ret)
+pure function linspace3D(xrange,yrange,zrange,xnum,ynum,znum) result(ret)
     real(real64),intent(in) :: xrange(2),yrange(2),zrange(2)
     integer(int32),intent(in) :: xnum,ynum,znum
     real(real64),allocatable :: ret(:,:),x(:),y(:),z(:)
@@ -5773,7 +5775,7 @@ end function
 
 ! ###############################################################
 
-function linspace4D(xrange,yrange,zrange,trange,xnum,ynum,znum,tnum) result(ret)
+pure function linspace4D(xrange,yrange,zrange,trange,xnum,ynum,znum,tnum) result(ret)
     real(real64),intent(in) :: xrange(2),yrange(2),zrange(2),trange(2)
     integer(int32),intent(in) :: xnum,ynum,znum,tnum
     real(real64),allocatable :: ret(:,:),x(:),y(:),z(:),t(:)

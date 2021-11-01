@@ -2313,4 +2313,43 @@ end function
 ! #######################################################################
 
 
+! #######################################################################
+pure function day(unit) result(ret)
+	character(*),intent(in):: unit
+	real(real64) :: ret
+	
+	if(unit(1:1)=="S" .or. unit(1:1)=="s")then
+		! day to second
+		ret = 24.0d0*60.0d0*60.0d0
+		return
+	endif
+	
+	if(unit(1:1)=="M" .or. unit(1:1)=="m")then
+		! day to minutes
+		ret = 24.0d0*60.0d0
+		return
+	endif
+	
+	if(unit(1:1)=="H" .or. unit(1:1)=="h")then
+		! hour to minutes
+		ret = 24.0d0
+		return
+	endif
+	
+	if(unit(1:1)=="D" .or. unit(1:1)=="d")then
+		! day to minutes
+		ret = 1.0d0
+		return
+	endif
+	
+	if(unit(1:1)=="Y" .or. unit(1:1)=="y")then
+		! day to year
+		ret = 1.0d0/365.0d0
+		return
+	endif
+
+end function
+! #######################################################################
+
+
 end module MathClass

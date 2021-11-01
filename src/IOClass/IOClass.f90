@@ -159,6 +159,10 @@ module IOClass
         procedure,public :: close => closeIO    
     end type
 
+
+    interface lowercase
+        module procedure lowercaseChar, lowercaseString
+    end interface 
     
     interface print
         module procedure printChar, printReal64, printReal32, printInt64, printInt32
@@ -175,6 +179,13 @@ module IOClass
     interface spy
         module procedure spyRealArray
     end interface
+
+
+    interface CaesarCipher
+        module procedure CaesarCipherChar
+    end interface 
+    
+
 contains
 
 ! ===========================================
@@ -2183,5 +2194,86 @@ subroutine dumpIOJSON_Key_valueChar(obj,key,value)
     
 end subroutine
 ! #################################################################
+
+! #################################################################
+pure function lowercaseChar(line) result(ret)
+    character(*),intent(in) :: line
+    character(:),allocatable :: ret
+    integer(int32) :: i
+    
+    ret =line
+    do i=1,len(line)
+        if( "A" <= ret(i:i) .and. ret(i:i) <= "Z"  )then
+            ret(i:i) = char(ichar(ret(i:i) )+ 32 )
+        endif
+    enddo
+    
+end function
+! #################################################################
+
+! #################################################################
+pure function lowercaseString(line) result(ret)
+    type(String_),intent(in) :: line
+    character(:),allocatable :: ret
+    integer(int32) :: i
+    
+    ret =line%all
+    do i=1,len(line%all)
+        if(ret(i:i) >= 'A' .and. ret(i:i) <='Z' )then
+            ret(i:i) = char(ichar(ret(i:i) )+ 32 )
+        endif
+    enddo
+    
+end function
+! #################################################################
+
+
+! #################################################################
+function CaesarCipherChar(line,fshift) result(ret)
+    character(*),intent(in) :: line
+    integer(int32),intent(in) :: fshift
+    integer(int32) :: i
+    character(:),allocatable :: ret
+
+    ! 1-26 A-Z
+    ! 27-32 [ \ ] ^ _ `
+    ! 33-59 a-z 
+    ! 60-64 | } ~  
+
+    print *, "[Caution] bug exists"
+    return
+    !
+    ret = line
+    !do concurrent (i=1:len(line) )
+    do i=1,len(line)
+        print *,cyclic(ichar(line(i:i))+ fshift,max=64)
+        print *, char(i=cyclic(ichar(line(i:i))+ fshift,max=64) )
+        ret(i:i) = char(i=cyclic(ichar(line(i:i))+ fshift,max=64) )
+    enddo
+
+end function
+! #################################################################
+
+
+pure function cyclic(num,max) result(ret)
+    integer(int32),intent(in)::num,max
+    integer(int32) :: ret
+
+    if(num>max)then
+        ret = mod(num,max)
+        if(ret==0)then
+            ret = max
+        endif
+        return
+    endif
+
+    if(num<1)then
+        ret = max + mod(num,max)
+        return
+    endif
+
+    ret = num
+
+end function
 
 end module IOClass

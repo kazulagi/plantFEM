@@ -52,7 +52,8 @@ module StemClass
         procedure, public :: vtk => vtkStem
         procedure, public :: stl => stlStem
         procedure, public :: export => exportStem
-
+        procedure, public :: getVolume => getVolumeStem
+        procedure, public :: getBiomass => getBiomassStem
     end type
 contains
 
@@ -624,7 +625,7 @@ end subroutine
 
 
 function getLengthStem(obj) result(ret)
-    class(Stem_),intent(in) :: obj
+        class(Stem_),intent(in) :: obj
     real(real64) :: ret
 
     if(obj%femdomain%mesh%empty() )then
@@ -636,5 +637,40 @@ function getLengthStem(obj) result(ret)
     endif
 
 end function
+
+
+function getVolumeStem(obj) result(ret)
+    class(Stem_),intent(in) :: obj
+    real(real64) :: ret
+    integer(int32) :: i,j
+    
+    ret =0.0d0
+    if(obj%femdomain%mesh%empty() ) then
+        return
+    endif
+
+    do i=1,obj%femdomain%ne()
+        ret = ret + obj%femdomain%getVolume(elem=i)
+    enddo
+
+end function
+
+
+function getBiomassStem(obj) result(ret)
+    class(Stem_),intent(in) :: obj
+    real(real64) :: ret
+    integer(int32) :: i,j
+
+    ret =0.0d0
+    if(obj%femdomain%mesh%empty() ) then
+        return
+    endif
+    
+    do i=1,obj%femdomain%ne()
+        ret = ret + obj%femdomain%getVolume(elem=i)*obj%drydensity(i)
+    enddo
+
+end function
+
 
 end module
