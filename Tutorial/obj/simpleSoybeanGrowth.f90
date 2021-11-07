@@ -1,15 +1,20 @@
-! simple growth model
 use SoybeanClass
-implicit none
+implicit None
 
-type(Soybean_)   :: soy
-integer(int32)   :: i
+type(Soybean_) :: soy
+integer(int32) :: n
 
-call soy%init(config="Tutorial/obj/realSoybeanConfig.json") 
+call soy%create("Tutorial/obj/realSoybeanConfig_mini.json")
+call print(soy%getVolume())
+call soy%stl("week0/soy")
 
-! Loop over timesteps
-do i=1,int(day(unit="hour") )
-    ! Write your algorithm @here
+! simple growth simulation
+! for 4 weeks
+! new nodes are generated week by week
+do n=1,4
+    call soy%grow(dt=7*day("sec"), simple=.true.)
+    call print(soy%getVolume())
+    call soy%stl("week"//str(n)//"/soy")
 enddo
 
 end

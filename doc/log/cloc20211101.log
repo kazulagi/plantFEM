@@ -1,0 +1,27 @@
+     100 files     200 files     247 text files.
+classified 241 filesDuplicate file check 241 files (233 known unique)Unique:      100 files                                          Unique:      200 files                                               237 unique files.                              
+Counting:  100Counting:  200      47 files ignored.
+
+github.com/AlDanial/cloc v 1.82  T=0.21 s (1049.6 files/s, 476371.7 lines/s)
+-------------------------------------------------------------------------------
+Language                     files          blank        comment           code
+-------------------------------------------------------------------------------
+Fortran 90                     142          16422          11744          64519
+C++                             17            292            199           1764
+Python                          18            463            195           1378
+C                                7            323            394            904
+JavaScript                       7            275            367            871
+Qt                               1              0              0            201
+D                               10              3              0             97
+Fortran 77                       1              2            190             96
+C/C++ Header                     2             22              4             88
+Markdown                         2             26              0             77
+OpenCL                           3             23             71             42
+JSON                             3              0              0             36
+HTML                             2              4              0             15
+make                             3             18             48             14
+Bourne Shell                     4              2              0              9
+Arduino Sketch                   1              3              0              6
+-------------------------------------------------------------------------------
+SUM:                           223          17878          13212          70117
+-------------------------------------------------------------------------------

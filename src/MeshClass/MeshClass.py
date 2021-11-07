@@ -49,7 +49,6 @@ class Mesh(object):
         self.ElemMat = np.zeros(self.ElemNod.shape[0] )
             
 
-    
     def plot(self):
         self.vtkdata.plot()
         #self['new array'] = np.full(self.vtkdata, 5)
@@ -58,8 +57,9 @@ class Mesh(object):
     def save(self,filename,binary=True):
         self.vtkdata.save(filename,binary)
         #self['new array'] = np.full(self.vtkdata, 5)
-    #def create(this,meshtype="None",x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness, \
-    #    division,smooth,top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz,coordinate):
-    #    if meshtype.lower()=="root" :
+    def create(this,meshtype="None",x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness, \
+        division,smooth,top,margin,inclineRate,shaperatio,master,\
+        slave,x,y,z,dx,dy,dz,coordinate):
+        if meshtype.lower()=="Bar1D" :
     #        # initialize
     #        this = Mesh()
