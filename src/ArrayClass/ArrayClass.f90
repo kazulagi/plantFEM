@@ -283,6 +283,10 @@ module ArrayClass
     end interface
 
 
+    interface exists
+        module procedure :: existIntVec, existIntArray
+    end interface
+
     interface getif
         module procedure ::getifreal,getifrealvec!,getifint,getifintvec
     end interface
@@ -2221,7 +2225,7 @@ subroutine ExtendArrayIntVec(mat,DefaultValue,number)
     if( present(DefaultValue) )then
         val = DefaultValue
     else
-        val = 0.0d0
+        val = 0
     endif
 
     extn=input(default=1,option=number)
@@ -3834,7 +3838,7 @@ end subroutine
 
 
 ! ##########################################################
-function existIntVec(vector,val) result(ret)
+pure function existIntVec(vector,val) result(ret)
     integer(int32),intent(in) :: vector(:)
     integer(int32),intent(in) :: val
     logical :: ret

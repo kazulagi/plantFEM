@@ -242,7 +242,7 @@ module FEMDomainClass
 		procedure,public :: showMaterials => showMaterialsFEMDomain
 		procedure,public :: showBoundaries => showBoundariesFEMDomain
 		procedure,public :: stl => stlFEMDomain
-
+		procedure,public :: obj => objFEMDomain
 		procedure,public :: vtk => vtkFEMDomain
 
 		! matrices
@@ -7392,6 +7392,29 @@ subroutine stlFEMDomain(obj,name)
 	call ExportFEMDomainAsSTL(obj,MeshDimension=size(obj%mesh%Nodcoord,2),FileName=name)
 	!call f%close()
 end subroutine
+! ##################################################
+
+! ##################################################
+subroutine objFEMDomain(obj,name)
+	class(FEMDomain_),intent(inout) :: obj
+	type(IO_) :: f
+	character(*),intent(in) :: name
+	integer(int32) :: i,j,k
+
+	call f%open(trim(name)//".obj")
+	do i=1,obj%nn()
+		write(f%fh,'(A)',advance="no") "v "
+		do j=1,size(obj%mesh%Nodcoord,2)-1
+			write(f%fh,'(A)',advance="no") str(obj%mesh%Nodcoord(i,j) )//" "
+		enddo
+		write(f%fh,'(A)',advance="yes") str(obj%mesh%Nodcoord(i, size(obj%mesh%Nodcoord,2) ) )
+	enddo
+	
+
+
+	call f%close()
+end subroutine
+! ##################################################
 
 ! ##################################################
 subroutine jsonFEMDomain(obj,name,fh,endl)

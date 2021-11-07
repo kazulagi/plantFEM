@@ -1,0 +1,4 @@
+fastapi[all]==0.63
+uvicorn[standard]==0.13
+pydantic==1.7.3
+pytest==6.2.2

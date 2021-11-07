@@ -1,6 +1,7 @@
 module LinearSolverClass
   use, intrinsic :: iso_fortran_env
   use omp_lib
+  use IOClass
   use TimeClass
   use MathClass
   use ArrayClass
@@ -79,9 +80,10 @@ module LinearSolverClass
     procedure, public  :: matmulCRS => matmulCRSLinearSolver
     procedure, public  :: matmulCOO => matmulCOOLinearSolver
 
-    procedure, public :: prepareFix => prepareFixLinearSolver
+    procedure, public :: prepareFix   => prepareFixLinearSolver
     procedure, public :: getCOOFormat => getCOOFormatLinearSolver
-    
+    procedure, public :: exportAsCOO  => exportAsCOOLinearSolver
+    procedure, public :: exportRHS    => exportRHSLinearSolver
   end type
 contains
 
@@ -2579,6 +2581,34 @@ subroutine getCOOFormatLinearSolver(obj)
       
     endif
   endif
+
+end subroutine
+! #######################################################
+
+
+! #######################################################
+subroutine exportAsCOOLinearSolver(obj,name)
+  class(LinearSolver_),intent(inout) :: obj
+  character(*),intent(in) :: name
+  type(IO_) :: f
+
+  call f%open(name,"w")
+  call f%write(obj%Index_I,obj%Index_J, obj%val)
+  call f%close()
+
+end subroutine
+! #######################################################
+
+
+! #######################################################
+subroutine exportRHSLinearSolver(obj,name)
+  class(LinearSolver_),intent(inout) :: obj
+  character(*),intent(in) :: name
+  type(IO_) :: f
+
+  call f%open(name,"w")
+  call f%write(obj%b)
+  call f%close()
 
 end subroutine
 ! #######################################################

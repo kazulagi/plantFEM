@@ -1,0 +1,107 @@
+{
+    "Name":"soybean",
+    "leafconfig":"Tutorial/obj/soyleaf.json",
+    "stemconfig":"Tutorial/obj/soystem.json",
+    "rootconfig":"Tutorial/obj/soyroot.json",
+    "Genotype":{
+        "Dt1":"dt1"
+    },
+    "Mainstem":{
+        "Length":0.15,
+        "Width":0.008,
+        "Node":2
+    },
+    "Branch#1":{
+        "From":2,
+        "Length":0.3,
+        "Width":0.005,
+        "Node":2
+    },
+    "Branch#2":{
+        "From":3,
+        "Length":0.35,
+        "Width":0.005,
+        "Node":2
+    },
+    
+    "Mainroot":{
+        "Length":0.98,
+        "Width":0.010,
+        "Node":13
+    },
+    "Branchroot#1":{
+        "From":1,
+        "Length":0.7,
+        "Width":0.01,
+        "Node":7
+    },
+    "Branchroot#2":{
+        "From":2,
+        "Length":0.65,
+        "Width":0.01,
+        "Node":7
+    },
+    "Branchroot#3":{
+        "From":3,
+        "Length":0.2,
+        "Width":0.01,
+        "Node":2
+    },
+
+    "Branchroot#4":{
+        "From":4,
+        "Length":0.2,
+        "Width":0.01,
+        "Node":2
+    },
+
+    "Branchroot#5":{
+        "From":5,
+        "Length":0.2,
+        "Width":0.01,
+        "Node":2
+    },
+
+    "Branchroot#6":{
+        "From":6,
+        "Length":0.2,
+        "Width":0.01,
+        "Node":2
+    },
+
+    "Comment#1": "This entity and following content is optional.",
+    
+    "ms_angle_ave": 0.00, 
+    "ms_angle_sig": 2.00,
+
+    "br_angle_ave" : 0.00,
+    "br_angle_sig" : 10.00,
+    "br_angle_ave(1)" : 30.00,
+    "br_angle_sig(1)" :  2.00,
+    
+    "mr_angle_ave": 1.00, 
+    "mr_angle_sig": 10.00,
+
+    "brr_angle_ave" : 0.00,
+    "brr_angle_sig" : 20.00,
+    "brr_angle_ave(1)" : 30.00,
+    "brr_angle_sig(1)" : 10.00,
+
+
+    "peti_size_ave"  :  0.200,
+    "peti_size_sig"  :  0.0100,
+    "peti_width_ave"  :  0.00500,
+    "peti_width_sig"  :  0.000100,
+    "peti_angle_ave"  :  30.00,
+    "peti_angle_sig"  :  1.000,
+    
+    "leaf_thickness_ave"  :  0.001000,
+    "leaf_thickness_sig"  :  0.000500,
+
+    "leaf_angle_ave": 70.00,
+    "leaf_angle_sig": 1.00,
+    "leaf_length_ave":   0.200,
+    "leaf_length_sig":   0.030,
+    "leaf_width_ave":  0.1000,
+    "leaf_width_sig":  0.0100
+}
