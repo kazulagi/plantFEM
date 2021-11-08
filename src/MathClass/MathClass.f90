@@ -26,6 +26,22 @@ module MathClass
 	integer(int32),parameter :: complex64 = real64
 	!real(real64) :: pi=3.141592653589793238d0
 	!
+	interface nchoosek
+		module procedure comb
+	end interface
+
+	interface choose
+		module procedure comb
+	end interface
+	
+	interface fact
+		module procedure factorialInt32, factorialReal64
+	end interface
+
+
+	interface factorial
+		module procedure factorialInt32, factorialReal64
+	end interface factorial
 
 	interface heapsort
 		module procedure :: heapsortInt32, heapsortReal64,heapsortReal32
@@ -2351,5 +2367,74 @@ pure function day(unit) result(ret)
 end function
 ! #######################################################################
 
+! #######################################################################
+pure recursive function factorialInt32(n) result(ret)
+	integer(int32),intent(in) :: n
+	integer(int64) :: i,ret			
+
+	ret=1
+	do i=1,n
+		ret = ret*i
+	enddo
+
+end function
+! #######################################################################
+
+! #######################################################################
+pure recursive function factorialReal64(n) result(ret)
+	real(real64),intent(in) :: n
+	real(real64) :: ret			
+	integeR(int32) :: i
+
+	ret=1.0d0
+	do i=1,int(n)
+		ret = ret*dble(i)
+	enddo
+
+end function
+! #######################################################################
+
+pure function comb(n,r) result(ret)
+	integer(int32),intent(in) :: n,r
+	real(real64) :: ret
+	integer(int32) :: i
+	real(real64),allocatable :: buf1(:),buf2(:),buf3(:)
+	
+	if(n-r<0)then
+		ret = 0.0d0
+		return
+	endif
+
+	if(n<=10)then
+		ret = factorial(n)/(factorial(r)*factorial(n-r))
+	else
+		allocate(buf1(n),buf2(n),buf3(n))
+		do concurrent (i=1:n)
+			buf1(i) = i
+		end do
+		do concurrent (i=1:r)
+			buf2(i) = i
+		end do
+		do concurrent (i=1:n-r)
+			buf3(i) = i
+		end do
+		
+		do concurrent (i=1:r)
+			buf1(i) = buf1(i)/buf2(i)
+		end do
+		do concurrent (i=1:n-r)
+			buf1(i) = buf1(i)/buf3(i)
+		end do
+		
+		ret=1.0d0
+		do i=1,n
+			ret = ret * buf1(i)	
+		enddo
+		ret =dble(nint(ret))
+
+		!by array
+	endif
+
+end function
 
 end module MathClass
