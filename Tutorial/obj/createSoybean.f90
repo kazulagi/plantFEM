@@ -9,5 +9,6 @@ call soy%stl(name="soy")
 
 ! measuring volume (m^2)
 call print(soy%getVolume())
+call print(soy%ne())
 
 end

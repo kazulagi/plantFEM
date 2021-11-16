@@ -23,6 +23,10 @@ module MathClass
 	end type
 
 
+	type :: Real64Ptr_
+    	real(real64), pointer :: ptr
+  	end type Real64Ptr_
+
 	integer(int32),parameter :: complex64 = real64
 	!real(real64) :: pi=3.141592653589793238d0
 	!
@@ -49,7 +53,7 @@ module MathClass
 
 	interface str
 		module procedure fstring_Int, fstring_Real,fstring_Real32, &
-			fstring_complex, fstring_Int_len, fstring_Real_len, fstring_logical, fstring_String
+			fstring_complex, fstring_Int_len, fstring_Real_len, fstring_logical, fstring_String,stringFromChar
 	end interface str
 
     interface fstring
@@ -2434,6 +2438,14 @@ pure function comb(n,r) result(ret)
 
 		!by array
 	endif
+
+end function
+
+function stringFromChar(charval) result(ret)
+	character(*),intent(in):: charval
+	type(String_) :: ret
+
+	ret = charval
 
 end function
 
