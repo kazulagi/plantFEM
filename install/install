@@ -233,6 +233,11 @@ echo "Modules for FEM (fem) is installed.       "
 # Compilation of Solvers
 
 # Compilation of Solvers
+echo "Compiling ./src/LoggerClass/LoggerClass.f90" 
+echo " >> LoggerClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LoggerClass/LoggerClass.f90 -o  ./inc/LoggerClass.o
+
 echo "Compiling ./src/ReactorClass/ReactorClass.f90" 
 echo " >> ReactorClass.o "
 echo " | ===============>            | (70%)\r\c"
