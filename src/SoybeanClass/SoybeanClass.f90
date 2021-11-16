@@ -2767,7 +2767,6 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
     if(present(StemNodeID) )then
         i = StemNodeID
         
-        print *, "BUG EXISTS"
         obj%leaf_thickness_ave(obj%num_leaf)=input(&
             default=obj%leaf_thickness_ave(obj%num_leaf),&
             option=leaf_thickness_ave)

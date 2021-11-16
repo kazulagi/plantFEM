@@ -1,5 +1,6 @@
 module sim
     use fem
+    use ReactorClass
     use DiffusionEquationClass
     use SpaceTimeDiffusionClass
     use SeismicAnalysisClass
