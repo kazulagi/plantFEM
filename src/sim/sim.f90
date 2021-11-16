@@ -1,5 +1,6 @@
 module sim
     use fem
+    use LoggerClass
     use ReactorClass
     use DiffusionEquationClass
     use SpaceTimeDiffusionClass

@@ -336,7 +336,7 @@ recursive subroutine openIOchar(obj,path,state,name,extention,fh)
         ! get online file
         ! read-only
         if(present(state) )then
-            if(state=="w")then
+            if(state=="w" .or. state=="a")then
                 print *, "ERROR :: OpenIOChar :: Online files are read-only."
                 stop
             endif
@@ -429,6 +429,9 @@ recursive subroutine openIOchar(obj,path,state,name,extention,fh)
                     elseif(state=="w")then
                         open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='replace')
                         obj%filename = trim(path)//trim(name)//trim(extention)
+                    elseif(state=="a")then
+                        open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),position='append')
+                        obj%filename = trim(path)//trim(name)//trim(extention)
                     else
                         call print("Error :: IOClass % open >> argument <state> should be w or r ")
                         stop
@@ -444,6 +447,9 @@ recursive subroutine openIOchar(obj,path,state,name,extention,fh)
                         obj%filename = trim(path)//trim(name)
                     elseif(state=="w")then
                         open(newunit=obj%fh,file=trim(path)//trim(name),status='replace' )
+                        obj%filename=trim(path)//trim(name)
+                    elseif(state=="a")then
+                        open(newunit=obj%fh,file=trim(path)//trim(name),position='append' )
                         obj%filename=trim(path)//trim(name)
                     else
                         call print("Error :: IOClass % open >> argument <state> should be w or r ")
@@ -461,6 +467,9 @@ recursive subroutine openIOchar(obj,path,state,name,extention,fh)
                     obj%filename = trim(path)
                 elseif(state=="w")then
                     open(newunit=obj%fh,file=trim(path),status='replace' )
+                    obj%filename = trim(path)
+                elseif(state=="a")then
+                    open(newunit=obj%fh,file=trim(path),position='append' )
                     obj%filename = trim(path)
                 else
                     call print("Error :: IOClass % open >> argument <state> should be w or r ")
@@ -1297,8 +1306,9 @@ end subroutine readIOchar
 
 
 ! #############################################
-subroutine closeIO(obj)
+subroutine closeIO(obj,status)
     class(IO_),intent(inout) :: obj
+    character(*),optional,intent(in) :: status
 
     if(obj%json_mode)then
         call obj%write('    "plantfem_end_signal":true')
@@ -1310,7 +1320,11 @@ subroutine closeIO(obj)
         print *, "ERROR :: "//"file is already closed. filename = "//obj%filename
         return
     endif
-    close(obj%fh)
+    if(present(status) )then
+        close(obj%fh,status=status)
+    else
+        close(obj%fh)
+    endif
     obj%fh=0
     obj%active=.false.
     
