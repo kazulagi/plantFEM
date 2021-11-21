@@ -1,7 +1,18 @@
+module test
+contains
+
+
+
+end module test
+
+
+
 program main
     use plantFEM
+    use test
     implicit none
 
+    
     real(real64),parameter :: duration=10.0d0
     integer(int32),parameter :: sampling = 4096
     type(Random_) :: random
@@ -10,19 +21,23 @@ program main
     integer(int32) :: i
     complex(complex64 ),allocatable :: wave(:),spectre(:)
     real(real64),allocatable :: omega(:), t(:)
-    real(real64) :: dt,set_omega
+    real(real64) :: dt,set_omega,set_omega_sub
 
-    set_omega = (20.0d0/2.0d0/math%PI) ! 15.92356687898089
+    set_omega = (100.0d0/2.0d0/math%PI) 
+    set_omega_sub = (1000.0d0/2.0d0/math%PI) 
 
-    print *, set_omega
+    print *, "w1= ", set_omega
+    print *, "w2= ", set_omega_sub
+
     create_input_wave: block
         t    = linspace([0.0d0, duration], sampling)
         dt   = duration/dble(sampling)
         wave = zeros(4096)
         do i=1, size(wave)
             wave(i) = random%gauss(mu=0.0d0, sigma=1.0d0)
-            wave(i) = sin( set_omega*t(i) )!+sin( 3.0d0*dt*dble(i) )!+random%gauss(mu=0.0d0, sigma=1.0d0)
+            wave(i) = sin( set_omega*t(i) )+sin( set_omega_sub*t(i) )+random%gauss(mu=0.0d0, sigma=1.0d0)
         enddo
+        wave = taper(wave,margin=0.050d0)
     end block create_input_wave
 
     show_input_wave: block

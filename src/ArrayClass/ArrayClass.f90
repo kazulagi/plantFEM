@@ -14,7 +14,8 @@ module ArrayClass
     !end interface
     !interface fit
     !    module procedure :: fitReal64
-    !end interface 
+    !end interface
+
     interface I_dx
         module procedure :: I_dx_real64,I_dx_real32,I_dx_complex64
     end interface
@@ -84,6 +85,10 @@ module ArrayClass
         module procedure :: incrementRealVector, incrementIntVector,&
             incrementRealArray, incrementIntArray 
     end interface
+
+    interface taper
+        module procedure :: taperreal64
+    end interface taper
 
     interface average
         module procedure :: averageInt32, averageReal64
@@ -6726,6 +6731,54 @@ subroutine RefineSequencecomplex64(x,Fx,x_range,num_point)
 end subroutine
 ! ###############################################################
 
+function taperReal64(x,margin) result(ret)
+    use iso_fortran_env
+    implicit none
+    complex(real64),intent(in) :: x(:)
+    complex(real64),allocatable :: ret(:)
+    integer(int32) :: i, n, k
+    real(real64),intent(in) :: margin
+    real(real64) :: rate
+
+    ! triangle taper
+    n = size(x)
+
+    ret = x
+    ! 
+    k = int( margin*dble(n) )
+    do i=1,k
+        rate = dble(i-1)/dble(k)
+        ret(i) = ret(i)*rate
+        ret(n-i+1) = ret(n-i+1)*rate
+    enddo
+
+end function
+
+
+function taperComplex64(x,margin) result(ret)
+    use iso_fortran_env
+    implicit none
+
+    complex(complex64),intent(in) :: x(:)
+    complex(complex64),allocatable :: ret(:)
+    integer(int32) :: i, n, k
+    real(real64),intent(in) :: margin
+    real(real64) :: rate
+
+    ! triangle taper
+    n = size(x)
+
+    ret = x
+    ! 
+    k = int( margin*dble(n) )
+    do i=1,k
+        rate = dble(i-1)/dble(k)
+        ret(i) = ret(i)*rate
+        ret(n-i+1) = ret(n-i+1)*rate 
+    enddo
+
+
+end function
 
 
 end module ArrayClass

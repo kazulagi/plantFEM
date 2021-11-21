@@ -67,7 +67,7 @@ do
         echo "implicit none" >> "__server__.f90"
         while :
         do
-            /bin//bin/echo -n ">>> "
+            /bin/echo -n ">>> "
             read line
             echo "$line" >> "__server__.f90"
             if [ "$line" = "end" ]; then

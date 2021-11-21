@@ -18,6 +18,11 @@ module IOClass
     
     integer(int32),parameter :: PF_JSON=1
     integer(int32),parameter :: PF_CSV=2
+    integer(int32),parameter :: PF_real64=1
+    integer(int32),parameter :: PF_int32=2
+    integer(int32),parameter :: PF_char=3
+    
+
 
     type :: IO_
         integer :: fh=100
@@ -30,12 +35,24 @@ module IOClass
         character(:),allocatable :: filename
         integer(int32) :: lastModifiedTime=0
         logical :: json_mode = .false.
+
+        ! if a rule is set
+        logical :: activate_rule=.false.
+        integer(int32) :: header, offset
+        integer(int32),allocatable :: content_type(:)
+
     contains
         procedure,public :: unit => unitIO
 
         procedure,public :: numLine => numLineIO
 
         procedure,public :: flush => flushIO
+
+        !set & reset rule
+        procedure,public :: rule => ruleIO
+        procedure,public :: ResetRule => ResetRuleIO
+        !procedure,public :: import => importIO
+        
 
         procedure,pass   :: openIOchar
         procedure,pass   :: openIOstring
@@ -1494,42 +1511,45 @@ end subroutine
 ! ################################################################
 
 ! ################################################################
-subroutine plotIODirect(obj,x,Fx,option)
+subroutine plotIODirect(obj,x,Fx,option,logscale)
     class(IO_),intent(inout) ::  obj
     real(real64),intent(in) :: x(:),Fx(:)
     character(*),optional,intent(in) :: option
+    logical,optional,intent(in) :: logscale
 
 
     call obj%open("__plotIODirect__.txt")
     call obj%write(x,Fx)
     call obj%close()
 
-    call obj%plot(option=option)
+    call obj%plot(option=option,logscale=logscale)
 end subroutine
 ! ################################################################
 
 ! ################################################################
-subroutine plotIODirectReal32(obj,x,Fx,option)
+subroutine plotIODirectReal32(obj,x,Fx,option,logscale)
     class(IO_),intent(inout) ::  obj
     real(real32),intent(in) :: x(:),Fx(:)
     character(*),optional,intent(in) :: option
+    logical,optional,intent(in) :: logscale
 
 
     call obj%open("__plotIODirect__.txt")
     call obj%write(dble(x),dble(Fx))
     call obj%close()
 
-    call obj%plot(option=option)
+    call obj%plot(option=option,logscale=logscale)
 end subroutine
 ! ################################################################
 
 
 ! ################################################################
-subroutine plotIO(obj,name,option)
+subroutine plotIO(obj,name,option,logscale)
     class(IO_),intent(inout) ::  obj
     character(*),optional,intent(in) :: name
     character(*),optional,intent(in) :: option
     type(IO_) :: gp_script
+    logical,optional,intent(in) :: logscale
 
     if(present(name) )then
         obj%filename = name
@@ -1539,6 +1559,11 @@ subroutine plotIO(obj,name,option)
     call gp_script%write("set xlabel '"//obj%xlabel//"'")
     call gp_script%write("set ylabel '"//obj%ylabel//"'")
     call gp_script%write("set title '"//obj%title//"'")
+    if(present(logscale) )then
+        if(logscale)then
+            call gp_script%write("set logscale")
+        endif
+    endif
     if(present(option) )then
         call gp_script%write("plot '"//obj%filename//"' "//option)
     else
@@ -1554,11 +1579,12 @@ end subroutine
 
 
 ! ################################################################
-subroutine splotIO(obj,name,option)
+subroutine splotIO(obj,name,option,logscale)
     class(IO_),intent(inout) ::  obj
     character(*),optional,intent(in) :: name
     character(*),optional,intent(in) :: option
     type(IO_) :: gp_script
+    logical,optional,intent(in) :: logscale
 
     if(present(name) )then
         obj%filename = name
@@ -1569,6 +1595,11 @@ subroutine splotIO(obj,name,option)
     call gp_script%write("set ylabel '"//obj%ylabel//"'")
     call gp_script%write("set zlabel '"//obj%zlabel//"'")
     call gp_script%write("set title '"//obj%title//"'")
+    if(present(logscale) )then
+        if(logscale)then
+            call gp_script%write("set logscale")
+        endif
+    endif
     if(present(option) )then
         call gp_script%write("splot '"//obj%filename//"' "//option)
     else
@@ -2311,5 +2342,42 @@ pure function cyclic(num,max) result(ret)
     ret = num
 
 end function
+! ##########################################################
+
+subroutine ruleIO(obj,header,offset,content_type)
+    class(IO_),intent(inout) :: obj
+    integer(int32),intent(in) :: header,offset,content_type(:)
+
+    obj%activate_rule = .true.
+    obj%header = header
+    obj%offset = offset
+    obj%content_type = content_type
+    
+
+end subroutine ruleIO
+! ##########################################################
+
+
+subroutine ResetRuleIO(obj,header,offset,content_type)
+    class(IO_),intent(inout) :: obj
+    integer(int32),intent(in) :: header,offset,content_type(:)
+
+    obj%activate_rule = .false.
+    obj%header = 0
+    obj%offset = 0
+    if(allocated(obj%content_type))then
+        deallocate(obj%content_type)
+    endif
+    
+
+end subroutine ResetRuleIO
+! ##########################################################
+
+
+! ##########################################################
+!subroutine importIO(obj,path,realVector1,intArray) 
+!
+!end subroutine
+! ##########################################################
 
 end module IOClass
