@@ -11,8 +11,21 @@ module ConsoleClass
         procedure,public :: read => readConsole
         procedure,public :: readLine => readlineConsole
         procedure,public :: in => inConsole
+        
         procedure,public :: asInt => asIntConsole
+        procedure,public :: asInteger => asIntConsole
+        procedure,public :: as_Int => asIntConsole
+        procedure,public :: as_Integer => asIntConsole
+
         procedure,public :: asReal => asRealConsole
+        procedure,public :: as_Real => asRealConsole
+        procedure,public :: asFloat => asRealConsole
+        procedure,public :: as_Float => asRealConsole
+        procedure,public :: asDouble => asRealConsole
+        procedure,public :: as_Double => asRealConsole
+        
+        
+        procedure,public :: asChar => asCharConsole
     end type
 contains
 
@@ -69,6 +82,17 @@ function asRealConsole(obj) result(ret)
     real(real64) :: ret
     
     ret = freal(obj%line)
+
+end function
+! ###################################################################
+
+
+! ###################################################################
+function asCharConsole(obj) result(ret)
+    class(Console_),intent(inout) :: obj
+    character(:),allocatable :: ret
+    
+    ret = trim(obj%line)
 
 end function
 ! ###################################################################

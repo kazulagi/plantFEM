@@ -13,6 +13,7 @@ module LoggerClass
       integer(int32)   ,allocatable :: channel_id(:)
       logical   ,allocatable :: channel_active(:)
       logical :: initialized = .False.
+      integer(int32)::counter=0
     contains
       procedure :: init => initLogger
       procedure :: numchannel =>numchannelLogger
@@ -111,6 +112,7 @@ module LoggerClass
     type(IO_) :: f
     
     n=0
+    this%counter=0
     do i=1,size(this%channel_active)
       if(this%channel_active(i) )then
         call f%open(trim(this%channel_name(i)%all )//".txt","w") 
@@ -125,16 +127,23 @@ module LoggerClass
   
   
   !------------------------------------------------------
-  subroutine saveLogger(this)
+  subroutine saveLogger(this,t)
     class(Logger_),intent(inout) :: this
     integer(int32) :: i,n
+    real(real64),optional,intent(in) :: t
     type(IO_) :: f
     
     n=0
+    this%counter=this%counter+1
     do i=1,size(this%channel_active)
       if(this%channel_active(i) )then
         call f%open(trim(this%channel_name(i)%all )//".txt","a")
-        call f%write(this%channel_value(i)%ptr )
+        if(present(t) )then
+            call f%write(t, this%channel_value(i)%ptr )
+        else
+            call f%write(this%counter,this%channel_value(i)%ptr )
+        endif
+        
         call f%close()
         n = n + 1
       endif
@@ -154,6 +163,7 @@ module LoggerClass
     type(IO_) :: f
     
     n=0
+    this%counter = 0
     do i=1,size(this%channel_active)
       if(this%channel_active(i) )then
         call f%open(trim(this%channel_name(i)%all )//".txt","w") 

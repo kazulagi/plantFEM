@@ -2448,5 +2448,17 @@ function stringFromChar(charval) result(ret)
 	ret = charval
 
 end function
+! #######################################################################
+
+function zfill(intval, n) result(ret)
+	integer(int32),intent(in) :: intval,n
+	character(n) :: ret
+	character(:),allocatable :: fmt
+	
+	fmt = '(I'//str(n)//'.'//str(n)//')'
+	write(ret(1:n),fmt) intval
+
+end function
+
 
 end module MathClass
