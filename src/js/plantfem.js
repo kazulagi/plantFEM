@@ -20,26 +20,36 @@
             return decodeURIComponent(results[2].replace(/\+/g, " "));
         }
 
-        var inter_row = getParam("inter_row",url)
-        if(inter_row==null){
-            var inter_row= window.prompt("How much inter-row spacing (m)?",0.780);
+        var leaf_path = getParam("leaf_path",url)
+        if(leaf_path==null){
+            var leaf_path= window.prompt("File-name of soybean (stl-formatted","soy_leaf.stl");
         };
-        var intra_row = getParam("intra_row",url)
-        if(intra_row==null){
-            var intra_row= window.prompt("How much intra-row spacing (m)?",0.30);
+
+        var stem_path = getParam("stem_path",url)
+        if(stem_path==null){
+            var stem_path= window.prompt("File-name of soybean (stl-formatted","soy_stem.stl");
         };
-        var pl = getParam("pl",url)
-        if(pl==null){
-            var pl= window.prompt("How many soybean do you plant in a row?",2);
+
+        var root_path = getParam("root_path",url)
+        if(root_path==null){
+            var root_path= window.prompt("File-name of soybean (stl-formatted","soy_root.stl");
         };
-        var row = getParam("row",url)
-        if(row==null){
-            var row= window.prompt("How many rows do you set?",2);
-        };
-        var stage = getParam("stage",url)
-        if(stage==null){
-            var stage= window.prompt("which growth stage?","R1");
-        };
+        //var intra_row = getParam("intra_row",url)
+        //if(intra_row==null){
+        //    var intra_row= window.prompt("How much intra-row spacing (m)?",0.30);
+        //};
+        //var pl = getParam("pl",url)
+        //if(pl==null){
+        //    var pl= window.prompt("How many soybean do you plant in a row?",2);
+        //};
+        //var row = getParam("row",url)
+        //if(row==null){
+        //    var row= window.prompt("How many rows do you set?",2);
+        //};
+        //var stage = getParam("stage",url)
+        //if(stage==null){
+        //    var stage= window.prompt("which growth stage?","R1");
+        //};
 
 
         
@@ -57,8 +67,6 @@
         function init() {
             // create botton
             
-
-
             var stats = new Stats();
             stats.showPanel(0);
               // Align top-left
@@ -372,10 +380,10 @@
     
         var rot =0;
     
+        // load plants
+
         
-        for(let j=0; j<row; j++){
-            for (let i=0; i<pl; i++){
-                loader.load( 'https://plantfem.org/soy_stem_'+stage+'.stl',  function ( geometry1 ) {
+                loader.load( stem_path,  function ( geometry1 ) {
                         var stl_geo_stem = new THREE.Mesh( geometry1, stem_material )
                         stl_geo_stem.rotation.x = 0//Math.PI / 180 * 90
                         stl_geo_stem.rotation.y = 0//Math.PI / 180 * 90
@@ -387,7 +395,7 @@
                         group.add( stl_geo_stem);
                     
                 });
-                loader.load( 'https://plantfem.org/soy_leaf_'+stage+'.stl',  function ( geometry2 ) {
+                loader.load( leaf_path,  function ( geometry2 ) {
                     
                         var stl_geo_leaf = new THREE.Mesh( geometry2, leaf_material )
                         stl_geo_leaf.rotation.x = 0//Math.PI / 180 * 90
@@ -400,7 +408,7 @@
                         group.add( stl_geo_leaf);
                     
                 });
-                loader.load( 'https://plantfem.org/soy_root_'+stage+'.stl',  function ( geometry3 ) {
+                loader.load( root_path,  function ( geometry3 ) {
                     
                         var stl_geo_root = new THREE.Mesh( geometry3, root_material )
                         stl_geo_root.rotation.x = 0//Math.PI / 180 * 90
@@ -413,8 +421,7 @@
                         group.add( stl_geo_root);
                     
                 });
-            };
-        };
+
     
         var lookat = new THREE.Vector3(0, 0, 0);
     
