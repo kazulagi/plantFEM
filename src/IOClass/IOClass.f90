@@ -184,7 +184,7 @@ module IOClass
     end interface 
     
     interface print
-        module procedure printChar, printReal64, printReal32, printInt64, printInt32
+        module procedure printChar, printReal64,printComplex64, printReal32, printInt64, printInt32
     end interface print
 
     interface disp
@@ -1369,6 +1369,16 @@ subroutine printReal64(re64)
 end subroutine
 ! #############################################
 
+
+! #############################################
+subroutine printComplex64(re64)
+    complex(real64),intent(in) :: re64
+    character(20) :: char
+
+    write(*,*) re64
+
+end subroutine
+! #############################################
 
 
 ! #############################################
