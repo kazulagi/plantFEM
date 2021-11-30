@@ -184,7 +184,8 @@ module IOClass
     end interface 
     
     interface print
-        module procedure printChar, printReal64,printComplex64, printReal32, printInt64, printInt32
+        module procedure printChar, printReal64,printComplex64, &
+            printReal32, printInt64, printInt32,printInt32Int32, printCharAndIntVector
     end interface print
 
     interface disp
@@ -1358,6 +1359,17 @@ subroutine printChar(char)
 end subroutine
 ! #############################################
 
+subroutine printCharAndIntVector(char, IntVec)
+    character(*),intent(in) :: char
+    integer(int32),intent(in) :: IntVec(:)
+    integer(int32) :: i
+
+    call print(char)
+    do i=1, size(IntVec)
+        call print(str(i)//":"//str(IntVec(i) )    )
+    enddo
+end subroutine
+
 ! #############################################
 subroutine printReal64(re64)
     real(real64),intent(in) :: re64
@@ -1416,6 +1428,17 @@ subroutine printint32(in32)
 end subroutine
 ! #############################################
 
+! #############################################
+subroutine printint32int32(in32,int32_c)
+    integer(int32),intent(in) :: in32,int32_c
+
+    character(20) :: char,char_c
+
+    write(char, '(i10)') in32
+    write(char_c, '(i10)') int32_c
+    write(*,'(A)' ) trim(adjustl(char))//" "//trim(adjustl(char_c))
+end subroutine
+! #############################################
 subroutine plotRealArray(x,y,z,xr,yr,zr) 
     real(real64),intent(in) :: x(:),y(:)
     real(real64),optional,intent(in) :: z(:)

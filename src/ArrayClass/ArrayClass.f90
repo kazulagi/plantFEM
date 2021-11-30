@@ -16,6 +16,7 @@ module ArrayClass
     !    module procedure :: fitReal64
     !end interface
 
+
     interface I_dx
         module procedure :: I_dx_real64,I_dx_real32,I_dx_complex64
     end interface
@@ -37,7 +38,7 @@ module ArrayClass
         module procedure :: matrixFromVectorsRe64,matrixFromVectorsint32
     end interface
 
-
+    
     interface interpolate
         module procedure :: interpolateOneReal64,interpolateOneComplex64,interpolateOneReal32
     end interface
