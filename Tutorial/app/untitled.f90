@@ -6,9 +6,9 @@ type(Soybean_) :: soy
 type(Soil_) ::soil
 
 call soy%init(config="Tutorial/obj/realSoybeanConfig.json") 
-!call soy%stl(name="soy")
+call soy%stl(name="soy")
 !call soy%json(name="soy")
-call soy%vtk(name="soy")
+!call soy%vtk(name="soy")
 
 
 call soil%create(x_num=3,y_num=3,z_num=1)

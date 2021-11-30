@@ -162,7 +162,12 @@ module FEMDomainClass
 		procedure,public :: getShapeFunction => getShapeFunctionFEMDomain
 		procedure,public :: getNearestNodeID => getNearestNodeIDFEMDomain
 		procedure,public :: getSurface => getSurfaceFEMDomain
+		procedure,public ::	NodeID => NodeIDFEMDomain
+		procedure,public ::	getNodeList =>getNodeListFEMDomain
+		
 		procedure,public :: getElement => getElementFEMDOmain
+		procedure,public :: getElementList => getElementListFEMDomain
+		
 		procedure,public :: getLocalCoordinate => getLocalCoordinateFEMDomain	
 		procedure,public :: GlobalPositionOfGaussPoint => getGlobalPositionOfGaussPointFEMDomain	
 		
@@ -201,11 +206,12 @@ module FEMDomainClass
 		! number of Gauss-points 
 		procedure,public ::	ngp => ngpFEMDomain
 
-		procedure,public ::	NodeID => NodeIDFEMDomain
 		procedure,public ::	x => xFEMDomain
 		procedure,public ::	y => yFEMDomain
 		procedure,public ::	z => zFEMDomain
 		
+		! converter
+		procedure,public :: asGlobalVector=>asGlobalVectorFEMDomain
 
 		procedure,public :: open => openFEMDomain
 
@@ -252,13 +258,16 @@ module FEMDomainClass
 		procedure,public :: Bmatrix => BMatrixFEMDomain
 		procedure,public :: Dmatrix => DMatrixFEMDomain
 		procedure,public :: StrainMatrix => StrainMatrixFEMDomain
+		procedure,public :: StrainVector => StrainVectorFEMDomain
 		procedure,public :: StressMatrix => StressMatrixFEMDomain
+		procedure,public :: StressVector => StressVectorFEMDomain
 		
 		procedure,public :: StiffnessMatrix => StiffnessMatrixFEMDomain 
 		procedure,public :: DiffusionMatrix => DiffusionMatrixFEMDomain 
 		procedure,public :: ConnectMatrix => ConnectMatrixFEMDomain 
 		procedure,public :: ElementVector => ElementVectorFEMDomain 
-		procedure,public :: GlobalVector => GlobalVectorFEMDomain
+		procedure,public :: GlobalVector => GlobalVectorFEMDomain 
+		procedure,public :: TractionVector => TractionVectorFEMDomain
 
     end type FEMDomain_
 
@@ -3448,19 +3457,33 @@ end subroutine
 
 
 !##################################################
-recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname)
+recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname,NodeList)
 	! export as msh format
 	class(FEMDomain_),intent(in)::obj
+	type(FEMDomain_)::mini_obj
 	character(*),intent(in) :: name
 	character(*),optional,intent(in) :: fieldname
 	real(real64),optional,intent(in):: vector(:,:),scalar(:,:),tensor(:,:,:)
 	real(real64),allocatable :: eigenvector(:,:),eigens(:),tens(:,:),vec1(:,:),vec2(:,:),scalar_(:,:)
 	real(real64),allocatable :: vector_(:,:)
-	integer(int32),optional,intent(in) :: step
+	integer(int32),optional,intent(in) :: step,NodeList(:)
 	character(:),allocatable :: fname
 	type(IO_) :: f
 	integer(int32) :: i,j,typeid,n
 
+	if(present(NodeList))then
+		n = size(NodeList,1)
+		mini_obj%mesh%nodcoord = zeros(n,obj%nd())
+		mini_obj%mesh%elemNod = zeros(n,obj%nne())
+		do i=1,n
+			mini_obj%mesh%nodcoord(i,: ) = obj%mesh%nodcoord( NodeList(i),: ) 
+		enddo
+		do i=1,n
+			mini_obj%mesh%elemNod(i,:) = i
+		enddo
+		call mini_obj%msh(name=name)
+		return
+	endif
 
 
 	if(present(tensor) )then
@@ -5578,29 +5601,65 @@ subroutine GnuplotExportStress(obj,uvec,sigma,strain_measure,step )
  !=======================================================================================
 
 ! ################################################
-subroutine moveFEMDomain(obj,x,y,z)
+subroutine moveFEMDomain(obj,x,y,z,NodeList)
 	class(FEMDomain_),intent(inout)::obj
 	real(real64),optional,intent(in)::x,y,z
+	integer(int32),optional,intent(in) :: NodeList(:)
+	integer(int32) :: i, nid
 	
+	if(present(NodeList) )then
+
+		if(present(x) )then
+			do i=1,size(NodeList)
+				nid = NodeList(i)
+				obj%Mesh%NodCoord(nid,1)=obj%Mesh%NodCoord(nid,1)+x
+			enddo
+		endif
+
+
+		if(present(y) )then
+			do i=1,size(NodeList)
+				nid = NodeList(i)
+				obj%Mesh%NodCoord(nid,2)=obj%Mesh%NodCoord(nid,2)+y
+			enddo
+		endif
+
+
+		if(size(obj%Mesh%NodCoord,2) <3 .and. present(z))then
+			print *, "ERROR :: moveFEMDomain >> z cannot be imported"
+			return
+		endif
+
+		if(present(z) )then
+
+			do i=1,size(NodeList)
+				nid = NodeList(i)
+				obj%Mesh%NodCoord(nid,3)=obj%Mesh%NodCoord(nid,3)+z
+			enddo
+		endif
 	
-	if(present(x) )then
-		obj%Mesh%NodCoord(:,1)=obj%Mesh%NodCoord(:,1)+x
+	else
+	
+		if(present(x) )then
+			obj%Mesh%NodCoord(:,1)=obj%Mesh%NodCoord(:,1)+x
+		endif
+
+
+		if(present(y) )then
+			obj%Mesh%NodCoord(:,2)=obj%Mesh%NodCoord(:,2)+y
+		endif
+
+
+		if(size(obj%Mesh%NodCoord,2) <3 .and. present(z))then
+			print *, "ERROR :: moveFEMDomain >> z cannot be imported"
+			return
+		endif
+
+		if(present(z) )then
+			obj%Mesh%NodCoord(:,3)=obj%Mesh%NodCoord(:,3)+z
+		endif
 	endif
 
-
-	if(present(y) )then
-		obj%Mesh%NodCoord(:,2)=obj%Mesh%NodCoord(:,2)+y
-	endif
-
-
-	if(size(obj%Mesh%NodCoord,2) <3 .and. present(z))then
-		print *, "ERROR :: moveFEMDomain >> z cannot be imported"
-		return
-	endif
-
-	if(present(z) )then
-		obj%Mesh%NodCoord(:,3)=obj%Mesh%NodCoord(:,3)+z
-	endif
 end subroutine
 ! ################################################
  
@@ -7165,15 +7224,32 @@ end function
 ! ##################################################
 
 ! ##################################################
-subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementType)
+recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementType,NodeList)
 	class(FEMDomain_),intent(inout) :: obj
+	type(FEMDomain_) :: mini_obj
 	character(*),intent(in) :: name
 	character(*),optional,intent(in) :: field
 	real(real64),optional,intent(in) :: scalar(:),vector(:,:),tensor(:,:,:)
-	integer(int32),optional,intent(in) :: ElementType
+	integer(int32),optional,intent(in) :: ElementType,Nodelist(:)
 	character(len=:),allocatable :: point_scalars,point_vectors,point_tensors,cell_scalars,cell_vectors,cell_tensors
 	type(IO_) :: f
-	integer(int32) ::i,dim_num(3),j,VTK_CELL_TYPE,num_node,k
+	integer(int32) ::i,dim_num(3),j,VTK_CELL_TYPE,num_node,k,n
+
+
+	if(present(NodeList))then
+		n = size(NodeList,1)
+		mini_obj%mesh%nodcoord = zeros(n,obj%nd())
+		mini_obj%mesh%elemNod = zeros(n,obj%nne())
+		do i=1,n
+			mini_obj%mesh%nodcoord(i,: ) = obj%mesh%nodcoord( NodeList(i),: ) 
+		enddo
+		do i=1,n
+			mini_obj%mesh%elemNod(i,:) = i
+		enddo
+		call mini_obj%vtk(name=name)
+		return
+	endif
+
 
 	if(present(field) )then
 		point_scalars = trim(field)
@@ -7365,14 +7441,30 @@ end subroutine
 ! ##################################################
 
 ! ##################################################
-subroutine plyFEMDomain(obj,name)
+subroutine plyFEMDomain(obj,name,NodeList)
 	class(FEMDomain_),intent(inout) :: obj
+	type(FEMDomain_) :: mini_obj
 	character(*),intent(in) :: name
 	type(IO_) :: f
-	integer(int32) ::i
+	integer(int32),optional,intent(in) :: NodeList(:)
+	integer(int32) ::i,n
 
 	if(obj%mesh%empty() .eqv. .true.)then
 		print *, "ERROR :: vtkFEMDomain >> obj%mesh%empty() .eqv. .true., nothing exported"
+		return
+	endif
+
+	if(present(NodeList))then
+		n = size(NodeList,1)
+		mini_obj%mesh%nodcoord = zeros(n,obj%nd())
+		mini_obj%mesh%elemNod = zeros(n,obj%nne())
+		do i=1,n
+			mini_obj%mesh%nodcoord(i,: ) = obj%mesh%nodcoord( NodeList(i),: ) 
+		enddo
+		do i=1,n
+			mini_obj%mesh%elemNod(i,:) = i
+		enddo
+		call mini_obj%stl(name=name)
 		return
 	endif
 
@@ -7383,10 +7475,27 @@ subroutine plyFEMDomain(obj,name)
 end subroutine
 ! ##################################################
 
-subroutine stlFEMDomain(obj,name)
+subroutine stlFEMDomain(obj,name,NodeList)
 	class(FEMDomain_),intent(inout) :: obj
 	type(IO_) :: f
+	type(FEMDomain_) :: mini_obj
+	integer(int32),optional,intent(in) :: NodeList(:)
 	character(*),intent(in) :: name
+	integer(int32) :: i,j,n
+
+	if(present(NodeList))then
+		n = size(NodeList,1)
+		mini_obj%mesh%nodcoord = zeros(n,obj%nd())
+		mini_obj%mesh%elemNod = zeros(n,obj%nne())
+		do i=1,n
+			mini_obj%mesh%nodcoord(i,: ) = obj%mesh%nodcoord( NodeList(i),: ) 
+		enddo
+		do i=1,n
+			mini_obj%mesh%elemNod(i,:) = i
+		enddo
+		call mini_obj%stl(name=name)
+		return
+	endif
 
 	!call f%open(trim(name)//".stl")
 	call ExportFEMDomainAsSTL(obj,MeshDimension=size(obj%mesh%Nodcoord,2),FileName=name)
@@ -9414,6 +9523,97 @@ end function
 
 
 ! ##########################################################################
+function StrainVectorFEMDomain(obj,ElementID,GaussPoint,disp) result(StrainVec)
+	class(FEMDomain_),intent(inout) :: obj
+	type(Shapefunction_) :: shapefunc
+	integer(int32),intent(in) :: ElementID
+	integer(int32),optional,intent(in) :: GaussPoint
+	
+	real(real64),intent(in) :: disp(:,:)
+	real(real64),allocatable :: StrainMatrix(:,:),Bmat(:,:),Dmat(:,:),ElemDisp(:),Strainvec(:)
+	real(real64) :: rho
+	integer(int32) :: node_DOF,i,j,n,ns,vectorsize
+
+	! 線形弾性微小ひずみにおける要素剛性マトリクス
+	! For Element ID = ElementID, create Stiffness Matrix 
+	! in terms of small-strain and return it
+	! Number of Gauss Point = number of node per element, as default.
+	
+	node_DOF = obj%nd() ! Degree of freedom/node = dimension of space
+
+	! For Element ID = ElementID, create Mass Matrix and return it
+	! Number of Gauss Point = number of node per element, as default.
+	vectorsize = obj%nd()
+	do i=1,obj%nd()-1
+		do j=i+1, obj%nd()
+			vectorsize = vectorsize+1
+		enddo
+	enddo
+	strainvec = zeros( vectorsize )
+	! initialize shape-function object
+	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	
+	ElemDisp = zeros(  size( obj%mesh%elemnod,2 ) *node_DOF) 
+	do i=1,obj%nne()
+		do j=1,node_DOF
+			ElemDisp( node_DOF*(i-1) + j ) = Disp(i,j)
+		enddo
+	enddo
+
+	if(present(gausspoint) )then
+		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+		nod_coord=obj%Mesh%NodCoord,&
+		elem_nod=obj%Mesh%ElemNod,OptionalGpID=gausspoint)
+	
+		n=size(shapefunc%dNdgzi,2)*node_DOF
+
+		ns = node_DOF ! For 3D, 3-by-3 matrix.
+		if(.not.allocated(StrainMatrix) ) then
+			allocate(StrainMatrix(ns,ns) )
+			StrainMatrix(:,:)=0.0d0
+		endif
+		if(size(StrainMatrix,1)/=ns .or.size(StrainMatrix,2)/=ns )then
+			if(allocated(StrainMatrix)) then
+				deallocate(StrainMatrix)
+			endif
+			allocate(StrainMatrix(ns,ns) )
+		endif
+
+		! get so-called B-matrix
+		Bmat = obj%Bmatrix(shapefunc)
+		
+		strainvec = strainvec+matmul(Bmat,ElemDisp)
+	else
+		do i=1, shapefunc%NumOfGp
+			call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+			nod_coord=obj%Mesh%NodCoord,&
+			elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+		
+			n=size(shapefunc%dNdgzi,2)*node_DOF
+	
+			ns = node_DOF ! For 3D, 3-by-3 matrix.
+			if(.not.allocated(StrainMatrix) ) then
+				allocate(StrainMatrix(ns,ns) )
+				StrainMatrix(:,:)=0.0d0
+			endif
+			if(size(StrainMatrix,1)/=ns .or.size(StrainMatrix,2)/=ns )then
+				if(allocated(StrainMatrix)) then
+					deallocate(StrainMatrix)
+				endif
+				allocate(StrainMatrix(ns,ns) )
+			endif
+	
+			! get so-called B-matrix
+			Bmat = obj%Bmatrix(shapefunc)
+			
+			strainvec = strainvec + matmul(Bmat,ElemDisp)
+			
+		enddo	
+	endif
+end function
+! ##########################################################################
+
+! ##########################################################################
 function StressMatrixFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressMatrix)
 	class(FEMDomain_),intent(inout) :: obj
 	type(Shapefunction_) :: shapefunc
@@ -9536,6 +9736,103 @@ function StressMatrixFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressM
 
 end function
 ! ##########################################################################
+
+
+! ##########################################################################
+function StressVectorFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressVec)
+	class(FEMDomain_),intent(inout) :: obj
+	type(Shapefunction_) :: shapefunc
+	integer(int32),intent(in) :: ElementID
+	integer(int32),optional,intent(in) :: GaussPoint
+	
+	real(real64),intent(in) :: disp(:,:),E,v
+	real(real64),allocatable :: StressMatrix(:,:),Bmat(:,:),Dmat(:,:),ElemDisp(:),Stressvec(:)
+	real(real64) :: rho
+	integer(int32) :: node_DOF,i,j,n,ns,vectorsize
+
+
+	! 線形弾性微小ひずみにおける要素剛性マトリクス
+	! For Element ID = ElementID, create Stiffness Matrix 
+	! in terms of small-strain and return it
+	! Number of Gauss Point = number of node per element, as default.
+	
+	node_DOF = obj%nd() ! Degree of freedom/node = dimension of space
+	! vector size
+	! if nd == 3 => vectorsize = 6
+	vectorsize = obj%nd()
+	do i=1,obj%nd()-1
+		do j=i+1, obj%nd()
+			vectorsize = vectorsize+1
+		enddo
+	enddo
+	StressVec = zeros( vectorsize )
+	! For Element ID = ElementID, create Mass Matrix and return it
+	! Number of Gauss Point = number of node per element, as default.
+
+	! initialize shape-function object
+	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	
+	ElemDisp = zeros(  size( obj%mesh%elemnod,2 ) *node_DOF) 
+	do i=1,obj%nne()
+		do j=1,node_DOF
+			ElemDisp( node_DOF*(i-1) + j ) = Disp(i,j)
+		enddo
+	enddo
+
+	if(present(gausspoint) )then
+		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+		nod_coord=obj%Mesh%NodCoord,&
+		elem_nod=obj%Mesh%ElemNod,OptionalGpID=gausspoint)
+	
+		n=size(shapefunc%dNdgzi,2)*node_DOF
+
+		ns = node_DOF ! For 3D, 3-by-3 matrix.
+		if(.not.allocated(StressMatrix) ) then
+			allocate(StressMatrix(ns,ns) )
+			StressMatrix(:,:)=0.0d0
+		endif
+		if(size(StressMatrix,1)/=ns .or.size(StressMatrix,2)/=ns )then
+			if(allocated(StressMatrix)) then
+				deallocate(StressMatrix)
+			endif
+			allocate(StressMatrix(ns,ns) )
+		endif
+
+		! get so-called B-matrix
+		Dmat = obj%Dmatrix(E,v)
+		Bmat = obj%Bmatrix(shapefunc)
+		
+		Stressvec = Stressvec + matmul(Dmat,matmul(Bmat,ElemDisp))
+	else
+		do i=1, shapefunc%NumOfGp
+			call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+			nod_coord=obj%Mesh%NodCoord,&
+			elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+		
+			n=size(shapefunc%dNdgzi,2)*node_DOF
+	
+			ns = node_DOF ! For 3D, 3-by-3 matrix.
+			if(.not.allocated(StressMatrix) ) then
+				allocate(StressMatrix(ns,ns) )
+				StressMatrix(:,:)=0.0d0
+			endif
+			if(size(StressMatrix,1)/=ns .or.size(StressMatrix,2)/=ns )then
+				if(allocated(StressMatrix)) then
+					deallocate(StressMatrix)
+				endif
+				allocate(StressMatrix(ns,ns) )
+			endif
+	
+			! get so-called B-matrix
+			Bmat = obj%Bmatrix(shapefunc)
+			
+			Stressvec = Stressvec + matmul(Bmat,ElemDisp)
+		enddo
+	endif
+
+end function
+! ##########################################################################
+
 
 ! ##########################################################################
 recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
@@ -10481,5 +10778,165 @@ function zFEMDomain(obj) result(ret)
 
 end function
 ! ##################################################################
+
+function TractionVectorFEMDomain(obj,displacement,YoungModulus,PoissonRatio) result(Traction)
+	class(FEMDomain_),intent(inout) :: obj
+	real(real64),intent(in) :: displacement(:),YoungModulus(:),PoissonRatio(:)
+	real(real64),allocatable :: Traction(:)
+	real(real64),allocatable :: Dmat(:,:), Bmat(:,:),Te(:),Teg(:)
+	real(real64),allocatable :: StressVector(:)
+	type(ShapeFunction_) :: sf
+	integer(int32) :: i,j
+
+	if(obj%mesh%empty() )then
+		return
+	endif
+
+	Traction = zeros(obj%nn()*obj%nd() ) 
+	
+	! For each element
+	do i=1, obj%ne()
+		! For each integration point
+		do j=1, obj%ngp()
+			! Compute traction vector
+			! (1) get shape function
+			sf = obj%getShapeFunction(&
+				ElementID=i,GaussPointID=j)
+			! get B-matrix
+			Bmat = obj%BMatrix(&
+				shapefunction=sf,ElementID=i)
+			! get Stress vector
+			StressVector = obj%StressVector(&
+				ElementID=i,GaussPoint=j,disp= reshape(Displacement,obj%nn(),obj%nd()),&
+					E = YoungModulus(i),v=PoissonRatio(i) )
+			! get elemental traction vector
+			
+			Te = matmul(transpose(Bmat),StressVector)*sf%detJ
+			
+			
+			! add to global vector
+			Traction = Traction + obj%asGlobalVector(LocalVector=Te,ElementID=i,DOF=obj%nd() )
+		enddo	
+	enddo
+
+end function
+! ##################################################################
+
+!pure function SymmetryMatrixToVector(symmetryMatrix) result(vec)
+!	real(real64),intent(in) :: SymmetryMatrix(:,:)
+!	real(real64),allocatable :: vec(:)
+!	integer(int32) :: dim_mat, dim_vec,k
+!
+!   [Caution] DO NOT USE THIS
+!	! A11  A12  A13
+!	! A12  A22  A23
+!	! A13  A23  A33
+!	! =>
+!	! A11
+!	! A22
+!	! A33
+!	! A12
+!	! A13
+!	! A23
+!	dim_mat = size(SymmetryMatrix,1)
+!	dim_vec = dim_mat
+!	do i=dim_mat-1,1,-1
+!		dim_vec = dim_vec+1
+!	enddo
+!
+!	vec     = zeros(dim_vec)
+!	do i=1,dim_mat
+!		vec(i) = SymmetriMatrix(i,i)
+!	enddo
+!	k=0
+!	do i=1,dim_mat-1
+!		do j=i+1,dim_mat
+!			k = k+1
+!			vec(dim_mat+k) = SymmetriMatrix(i,i)
+!		enddo
+!	enddo
+!	
+!	
+!
+!end function
+function asGlobalVectorFEMDomain(obj,LocalVector,ElementID,DOF) result(globalvec)
+	class(FEMDomain_),intent(in) :: obj
+	real(real64),intent(in):: LocalVector(:)
+	integer(int32),intent(in) :: ElementID,DOF
+	real(real64),allocatable :: globalvec(:)
+	integer(int32) :: i,j,n, ng
+	integer(int32), allocatable :: connectivity(:)
+	
+
+	n = obj%nn()*DOF
+	globalvec = zeros(n)
+
+	! globalvec = (A1x, A1y, A1z, A2x, A2y, A2z, ...  ) 
+
+	connectivity= obj%connectivity(ElementID=ElementID)
+	do i=1,obj%nne()
+		do j=1, DOF
+			n = DOF*(i-1) + j
+			ng= DOF*(connectivity(i)-1) + j
+			globalvec(ng) = globalvec(ng) + LocalVector(n) 
+		enddo
+	enddo
+
+
+
+end function
+! #########################################################################
+
+
+
+! #########################################################################
+function getNodeListFEMDomain(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax) result(NodeList)
+	class(FEMDomain_),intent(inout) :: obj
+	type(FEMDomain_),optional,intent(inout) :: BoundingBox
+	real(real64),optional,intent(in) :: xmin,xmax,ymin,ymax,zmin,zmax
+	integer(int32),allocatable :: NodeList(:)
+
+
+	NodeList = obj%mesh%getNodeList(BoundingBox=BoundingBox%mesh &
+	,xmin=xmin &
+	,xmax=xmax &
+	,ymin=ymin &
+	,ymax=ymax &
+	,zmin=zmin &
+	,zmax=zmax)
+
+end function
+! #########################################################################
+
+! #########################################################################
+function getFacetListFEMDomain(obj,NodeID) result(FacetList)
+    class(FEMDomain_),intent(inout) :: obj
+    integer(int32),intent(in) :: NodeID
+    integer(int32),allocatable :: FacetList(:,:) ! Node-ID =  FacetList(FacetID, LocalNodeID ) 
+
+	FacetList = obj%mesh%getFacetList(NodeID=NodeID)
+
+end function
+! #########################################################################
+
+
+function getElementListFEMDomain(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax,NodeID) result(ElementList)
+    class(FEMDomain_),intent(inout) :: obj
+    type(FEMDomain_),optional,intent(inout) :: BoundingBox
+    real(real64),optional,intent(in) :: xmin,xmax,ymin,ymax,zmin,zmax
+    integer(int32),optional,intent(in) :: NodeID
+    integer(int32),allocatable :: NodeList(:)
+    integer(int32),allocatable :: ElementList(:)
+
+	ElementList= obj%mesh%getElementList(BoundingBox=BoundingBox%mesh &
+		,xmin=xmin &
+		,xmax=xmax &
+		,ymin=ymin &
+		,ymax=ymax &
+		,zmin=zmin &
+		,zmax=zmax &
+		,NodeID=NodeID)
+
+end function
 
 end module FEMDomainClass

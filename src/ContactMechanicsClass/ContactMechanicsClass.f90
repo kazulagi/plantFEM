@@ -20,6 +20,9 @@ module ContactMechanicsClass
 		real(real64),allocatable :: YoungModulusList(:,:)
 		real(real64),allocatable :: PoissonRatioList(:,:)
 		real(real64),allocatable :: DensityList(:,:)
+		real(real64),allocatable :: Displacement(:)
+		real(real64),allocatable :: TractionForce(:,:)
+		
 
 		logical :: initialized = .false.
 
@@ -117,6 +120,7 @@ module ContactMechanicsClass
 		procedure :: Init			=> InitializeContactMechanics
 		procedure :: setup 			=> runCM
 		procedure :: run 			=> runCM
+		procedure :: solve 			=> solveCM
 		procedure :: updateMesh     => updateMeshContactMechanics
 		procedure :: fix     		=> fixContactMechanics
 		procedure :: setDensity     => setDensity
@@ -6196,6 +6200,26 @@ subroutine removeContactMechanics(obj)
 	if(allocated(obj%dduvec_nr)) deallocate(obj% dduvec_nr)
 
 
+
+end subroutine
+
+subroutine solveCM(obj,Algorithm)
+	class(ContactMechanics_),target,intent(inout) :: obj
+	character(*),intent(in) :: Algorithm
+	!integer(int32),intent(in) :: domainID
+	!type(FEMDomain_),pointer :: a_domain
+	
+	call obj%solver%solve(Algorithm)
+
+	!a_domain => obj%femdomains(domainID)%femdomainp
+	!! update displacement
+	obj%displacement = obj%solver%x
+!
+	!! udate traction force
+	!obj%TractionForce = reshape(a_domain%TractionVector(&
+	!	displacement=obj%displacement,&
+	!	YoungModulus=obj%YoungModulus,&
+	!	PoissonRatio=obj%PoissonRatio) ,a_domain%nn(),a_domain%nd() )
 
 end subroutine
 
