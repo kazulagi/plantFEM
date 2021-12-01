@@ -4542,7 +4542,7 @@ end function
 
 ! ############################################################
 
-function zerosRealVector(size1) result(vector)
+pure function zerosRealVector(size1) result(vector)
     integer(int32),intent(in) :: size1
     real(real64),allocatable :: vector(:)
 
@@ -4553,7 +4553,7 @@ end function zerosRealVector
 
 
 ! ############################################################
-function zerosRealArray(size1, size2) result(array)
+pure function zerosRealArray(size1, size2) result(array)
     integer(int32),intent(in) :: size1, size2
     real(real64),allocatable :: array(:,:)
 
@@ -4566,7 +4566,7 @@ end function
 
 
 ! ############################################################
-function zerosRealArray3(size1, size2,size3) result(array)
+pure function zerosRealArray3(size1, size2,size3) result(array)
     integer(int32),intent(in) :: size1, size2, size3
     real(real64),allocatable :: array(:,:,:)
 
@@ -4578,7 +4578,7 @@ end function
 ! ############################################################
 
 ! ############################################################
-function zerosRealArray4(size1, size2,size3,size4) result(array)
+pure function zerosRealArray4(size1, size2,size3,size4) result(array)
     integer(int32),intent(in) :: size1, size2,size3,size4
     real(real64),allocatable :: array(:,:,:,:)
 
@@ -4590,7 +4590,7 @@ end function
 ! ############################################################
 
 ! ############################################################
-function zerosRealArray5(size1, size2,size3,size4,size5) result(array)
+pure function zerosRealArray5(size1, size2,size3,size4,size5) result(array)
     integer(int32),intent(in) :: size1, size2,size3,size4,size5
     real(real64),allocatable :: array(:,:,:,:,:)
 
@@ -4603,7 +4603,7 @@ end function
 
 ! ############################################################
 
-function zerosRealVector_64(size1) result(vector)
+pure function zerosRealVector_64(size1) result(vector)
     integer(int64),intent(in) :: size1
     real(real64),allocatable :: vector(:)
 
@@ -4613,7 +4613,7 @@ function zerosRealVector_64(size1) result(vector)
 end function zerosRealVector_64
 
 !############################################################
-function zerosRealArray_64(size1, size2) result(array)
+pure function zerosRealArray_64(size1, size2) result(array)
     integer(int64),intent(in) :: size1, size2
     real(real64),allocatable :: array(:,:)
 
@@ -4626,7 +4626,7 @@ end function
 
 
 ! ############################################################
-function zerosRealArray3_64(size1, size2,size3) result(array)
+pure function zerosRealArray3_64(size1, size2,size3) result(array)
     integer(int64),intent(in) :: size1, size2, size3
     real(real64),allocatable :: array(:,:,:)
 
@@ -4638,7 +4638,7 @@ end function
 ! ############################################################
 
 ! ############################################################
-function zerosRealArray4_64(size1, size2,size3,size4) result(array)
+pure function zerosRealArray4_64(size1, size2,size3,size4) result(array)
     integer(int64),intent(in) :: size1, size2,size3,size4
     real(real64),allocatable :: array(:,:,:,:)
 
@@ -4650,7 +4650,7 @@ end function
 ! ############################################################
 
 ! ############################################################
-function zerosRealArray5_64(size1, size2,size3,size4,size5) result(array)
+pure function zerosRealArray5_64(size1, size2,size3,size4,size5) result(array)
     integer(int64),intent(in) :: size1, size2,size3,size4,size5
     real(real64),allocatable :: array(:,:,:,:,:)
 

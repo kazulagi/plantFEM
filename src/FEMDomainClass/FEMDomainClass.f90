@@ -9750,6 +9750,8 @@ function StressVectorFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressV
 	real(real64) :: rho
 	integer(int32) :: node_DOF,i,j,n,ns,vectorsize
 
+	! [CAUTION]
+	! disp is local displacement matrix (nne by nd )
 
 	! 線形弾性微小ひずみにおける要素剛性マトリクス
 	! For Element ID = ElementID, create Stiffness Matrix 
@@ -9773,6 +9775,11 @@ function StressVectorFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressV
 	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
 	
 	ElemDisp = zeros(  size( obj%mesh%elemnod,2 ) *node_DOF) 
+	if( size(disp,1)/=obj%nne() )then
+		print *, "[ERROR] StressVectorFEM :: Wrong Argument :: disp"
+		print *, "[ERROR] >> size(disp,1) should be equal to obj%nne()"
+		stop
+	endif
 	do i=1,obj%nne()
 		do j=1,node_DOF
 			ElemDisp( node_DOF*(i-1) + j ) = Disp(i,j)
@@ -10783,7 +10790,7 @@ function TractionVectorFEMDomain(obj,displacement,YoungModulus,PoissonRatio) res
 	class(FEMDomain_),intent(inout) :: obj
 	real(real64),intent(in) :: displacement(:),YoungModulus(:),PoissonRatio(:)
 	real(real64),allocatable :: Traction(:)
-	real(real64),allocatable :: Dmat(:,:), Bmat(:,:),Te(:),Teg(:)
+	real(real64),allocatable :: Dmat(:,:), Bmat(:,:),Te(:),Teg(:),ElemDisp(:,:)
 	real(real64),allocatable :: StressVector(:)
 	type(ShapeFunction_) :: sf
 	integer(int32) :: i,j
@@ -10794,6 +10801,8 @@ function TractionVectorFEMDomain(obj,displacement,YoungModulus,PoissonRatio) res
 
 	Traction = zeros(obj%nn()*obj%nd() ) 
 	
+	ElemDisp = zeros(obj%nne(),obj%nd() )
+
 	! For each element
 	do i=1, obj%ne()
 		! For each integration point
@@ -10805,9 +10814,13 @@ function TractionVectorFEMDomain(obj,displacement,YoungModulus,PoissonRatio) res
 			! get B-matrix
 			Bmat = obj%BMatrix(&
 				shapefunction=sf,ElementID=i)
+			! get Element-wise displacement vector
+			ElemDisp = selectRow(&
+				Matrix=reshape(Displacement,obj%nn(),obj%nd()),  &
+				RowIDs=obj%connectivity(ElementID=i) )
 			! get Stress vector
 			StressVector = obj%StressVector(&
-				ElementID=i,GaussPoint=j,disp= reshape(Displacement,obj%nn(),obj%nd()),&
+				ElementID=i,GaussPoint=j,disp= ElemDisp,&
 					E = YoungModulus(i),v=PoissonRatio(i) )
 			! get elemental traction vector
 			
@@ -10936,6 +10949,22 @@ function getElementListFEMDomain(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax,N
 		,zmin=zmin &
 		,zmax=zmax &
 		,NodeID=NodeID)
+
+end function
+
+
+pure function selectRow(Matrix, RowIDs) result(SelectedRows)
+	real(real64),intent(in) :: Matrix(:,:)
+	integer(int32),intent(in) :: RowIDs(:)
+	real(real64),allocatable :: SelectedRows(:,:)
+	integer(int32) :: i
+	
+	! get rows from Matrix by rowIDs
+	SelectedRows = zeros(size(RowIDs),size(Matrix,2) )
+
+	do concurrent (i=1:size(RowIDs))
+		SelectedRows(i,:) = Matrix(RowIDs(i), : )	
+	enddo
 
 end function
 
