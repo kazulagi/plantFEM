@@ -170,8 +170,14 @@ module IOClass
         procedure,pass :: plotIODirect
         procedure,pass :: plotIODirectReal32
         generic,public :: plot => plotIO, plotIODirect,plotIODirectReal32
+
+        procedure,pass :: replotIO
+        procedure,pass :: replotIODirect
+        generic,public :: replot => replotIO, replotIODirect
         
         procedure,public :: splot => splotIO
+
+
 
 
         procedure,public :: readline => readlineIO
@@ -1559,6 +1565,25 @@ subroutine plotIODirect(obj,x,Fx,option,logscale)
 end subroutine
 ! ################################################################
 
+
+! ################################################################
+subroutine replotIODirect(obj,x,Fx,option,logscale)
+    class(IO_),intent(inout) ::  obj
+    real(real64),intent(in) :: x(:),Fx(:)
+    character(*),optional,intent(in) :: option
+    logical,optional,intent(in) :: logscale
+
+
+    call obj%open("__plotIODirect__.txt","a")
+    call obj%write(" ")
+    call obj%write(x,Fx)
+    call obj%close()
+
+    call obj%plot(option=option,logscale=logscale)
+
+end subroutine
+! ################################################################
+
 ! ################################################################
 subroutine plotIODirectReal32(obj,x,Fx,option,logscale)
     class(IO_),intent(inout) ::  obj
@@ -1589,6 +1614,40 @@ subroutine plotIO(obj,name,option,logscale)
     endif
     call obj%open(obj%filename,"r")
     call gp_script%open(trim(obj%filename)//"_gp_script.gp","w")
+    call gp_script%write("set xlabel '"//obj%xlabel//"'")
+    call gp_script%write("set ylabel '"//obj%ylabel//"'")
+    call gp_script%write("set title '"//obj%title//"'")
+    if(present(logscale) )then
+        if(logscale)then
+            call gp_script%write("set logscale")
+        endif
+    endif
+    if(present(option) )then
+        call gp_script%write("plot '"//obj%filename//"' "//option)
+    else
+        call gp_script%write("plot '"//obj%filename//"' ")
+    endif
+
+
+    call gp_script%close()
+    call execute_command_line("gnuplot "//trim(obj%filename)//"_gp_script.gp -pause")
+    call obj%close()
+end subroutine
+! ################################################################
+
+! ################################################################
+subroutine replotIO(obj,name,option,logscale)
+    class(IO_),intent(inout) ::  obj
+    character(*),optional,intent(in) :: name
+    character(*),optional,intent(in) :: option
+    type(IO_) :: gp_script
+    logical,optional,intent(in) :: logscale
+
+    if(present(name) )then
+        obj%filename = name
+    endif
+    call obj%open(obj%filename,"r")
+    call gp_script%open(trim(obj%filename)//"_gp_script.gp","a")
     call gp_script%write("set xlabel '"//obj%xlabel//"'")
     call gp_script%write("set ylabel '"//obj%ylabel//"'")
     call gp_script%write("set title '"//obj%title//"'")

@@ -482,7 +482,7 @@ homepath="$PWD"
             ln -f $1 "server.f90"
         fi
         
-        $mpif90 /opt/plantfem/inc/*o $1  -I /opt/plantfem/inc -g -fcheck=all -fopenmp -fopenacc -fintrinsic-modules-path /opt/plantfem/inc
+        $mpif90 /opt/plantfem/inc/*o $1  -I /opt/plantfem/inc -g -fcheck=all -fopenmp -fopenacc -fintrinsic-modules-path /opt/plantfem/inc -o server.out
 
         #echo "Current num of cpu-core is :: $numcore "
 

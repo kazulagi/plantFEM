@@ -42,6 +42,9 @@ module MathClass
 		module procedure factorialInt32, factorialReal64
 	end interface
 
+	interface imag
+		module procedure imaginary_partComplex64, imaginary_partComplex32
+	end interface
 
 	interface factorial
 		module procedure factorialInt32, factorialReal64
@@ -2460,5 +2463,26 @@ function zfill(intval, n) result(ret)
 
 end function
 
+! ########################################################################
+pure function imaginary_partComplex64(complexValue) result(imgpart)
+	complex(real64),intent(in) :: complexValue
+	real(real64) :: imgpart
+	type(Math_) :: math
+	
+	imgpart = real(complexvalue*math%i)
+
+end function
+! ########################################################################
+
+! ########################################################################
+pure function imaginary_partComplex32(complexValue) result(imgpart)
+	complex(real32),intent(in) :: complexValue
+	real(real32) :: imgpart
+	type(Math_) :: math
+	
+	imgpart = - real(complexvalue*math%i)
+
+end function
+! ########################################################################
 
 end module MathClass
