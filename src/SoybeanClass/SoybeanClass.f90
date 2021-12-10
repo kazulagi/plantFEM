@@ -13,6 +13,7 @@ module SoybeanClass
         integer(int32),allocatable :: ID(:)
     end type
     
+    integer(int32),parameter :: PF_DEFORMATION_ANALYSIS=100
     integer(int32),parameter :: PF_DEFAULT_SOYBEAN_ASIZE=300
 
     type :: soybean_
@@ -111,6 +112,19 @@ module SoybeanClass
         character(200) :: rootconfig=" "
         character(200) :: leafconfig=" "
 
+        ! for deformation analysis
+        logical :: property_deform_material_density = .false.
+        logical :: property_deform_material_YoungModulus = .false.
+        logical :: property_deform_material_PoissonRatio = .false.
+        logical :: property_deform_initial_Displacement = .false.
+        logical :: property_deform_initial_Stress = .false.
+        logical :: property_deform_boundary_TractionForce = .false.
+        logical :: property_deform_boundary_Displacement = .false.
+        logical :: property_deform_gravity = .false.
+
+        real(real64) :: Gravity_acceralation = 9.810d0
+        
+
         
         integer(int32),allocatable :: NodeID_MainStem(:)
         type(soybean_NodeID_Branch_),allocatable :: NodeID_Branch(:)
@@ -132,6 +146,22 @@ module SoybeanClass
         procedure,public :: export => exportSoybean
         procedure,public :: expanition => expanitionSoybean
         procedure,public :: development => developmentSoybean
+
+        ! simulation
+        procedure,public :: checkProperties => checkPropertiesSoybean
+        procedure,public :: setProperties => setPropertiesSoybean
+        procedure,public :: setPropertiesDensity => setPropertiesDensitySoybean
+        procedure,public :: setPropertiesYoungModulus => setPropertiesYoungModulusSoybean
+        procedure,public :: setPropertiesPoissonRatio => setPropertiesPoissonRatioSoybean
+        procedure,public :: setPropertiesInitialDisplacement => setPropertiesInitialDisplacementSoybean
+        procedure,public :: setPropertiesInitialStress => setPropertiesInitialStressSoybean
+        procedure,public :: setPropertiesBoundaryTractionForce => setPropertiesBoundaryTractionForceSoybean
+        procedure,public :: setPropertiesBoundaryDisplacement => setPropertiesBoundaryDisplacementSoybean
+        procedure,public :: setPropertiesGravity => setPropertiesGravitySoybean
+        ! readyForSoybean
+        procedure,public :: readyFor => readyForSoybean
+
+
 
         ! observation
         procedure,public :: stemlength => stemlengthSoybean
@@ -2932,7 +2962,9 @@ subroutine addStemSoybean(obj,stemid,rotx,roty,rotz,json)
 end subroutine
 ! #############################################################
 
-subroutine deformSoybean(obj,penaltyparameter,groundLevel,disp,x_min,x_max,y_min,y_max,z_min,z_max) 
+subroutine deformSoybean(obj,penaltyparameter,groundLevel,disp,&
+    x_min,x_max,y_min,y_max,z_min,z_max) 
+
     class(Soybean_),target,intent(inout) :: obj
     real(real64),optional,intent(in) :: groundLevel,disp(3)
     real(real64),optional,intent(in) :: penaltyparameter,x_min,x_max,y_min,y_max,z_min,z_max
@@ -3017,6 +3049,8 @@ subroutine deformSoybean(obj,penaltyparameter,groundLevel,disp,x_min,x_max,y_min
         enddo
     endif
 
+    ! (1) create contact-list for all domains
+
     contactlist = zeros(numDomain,numDomain)
     if(allocated(obj%stem2stem))then
         do i=1,stemDomain
@@ -3049,8 +3083,7 @@ subroutine deformSoybean(obj,penaltyparameter,groundLevel,disp,x_min,x_max,y_min
             enddo
         enddo
     endif
-    !call print(contactlist)
-    !stop
+    
     call obj%contact%init(femdomainsp=domainsp,contactlist=contactlist)
 
     ! load material info
@@ -3135,6 +3168,8 @@ subroutine deformSoybean(obj,penaltyparameter,groundLevel,disp,x_min,x_max,y_min
 
 
 end subroutine
+! #####################################################################
+
 
 function getVolumeSoybean(obj,stem,leaf,root) result(ret)
     class(Soybean_),intent(in) :: obj
@@ -3211,7 +3246,11 @@ function getVolumeSoybean(obj,stem,leaf,root) result(ret)
     endif
 
 end function
+! ############################################################################
 
+
+
+! ############################################################################
 function getBiomassSoybean(obj,stem,leaf,root) result(ret)
     class(Soybean_),intent(in) :: obj
     logical,optional,intent(in) :: stem, leaf, root
@@ -3923,5 +3962,985 @@ pure function branchIDSoybean(obj,StemNodeID) result(ret)
     ret = 0
     
 end function
+! ##################################################################
 
+subroutine checkPropertiesSoybean(obj,Simulation)
+    class(Soybean_),intent(in) :: obj
+    integer(int32),intent(in)  :: Simulation
+    type(Time_) :: time
+    type(IO_) :: f
+    
+    call f%open("__soybeanclass__checkPropertiesSoybean.log")
+    if(Simulation == PF_DEFORMATION_ANALYSIS )then
+        call print("---------------------------------------")
+        call print("-- checkProperties @ SoybeanClass  ----")
+        call print("---------------------------------------")
+        call print("Simulation mode :: Deformation analysis")
+        call print("---------------------------------------")
+        call print("Date and time: "//time%DateAndTime())
+        call print("---------------------------------------")
+        call print("Checking datasets for deformation analysis...")
+        ! check if it ready or not.
+        print *, "property_deform_material_density       |",&
+            obj%property_deform_material_density
+        print *, "property_deform_material_YoungModulus  |",&
+            obj%property_deform_material_YoungModulus
+        print *, "property_deform_material_PoissonRatio  |",&
+            obj%property_deform_material_PoissonRatio
+        print *, "property_deform_initial_Displacement   |",&
+            obj%property_deform_initial_Displacement
+        print *, "property_deform_initial_Stress         |",&
+            obj%property_deform_initial_Stress
+        print *, "property_deform_boundary_TractionForce |",&
+            obj%property_deform_boundary_TractionForce
+        print *, "property_deform_boundary_Displacement  |",&
+            obj%property_deform_boundary_Displacement
+        print *, "property_deform_gravity                |",&
+            obj%property_deform_gravity
+        call print("---------------------------------------")
+        ! >>>> export to log
+        call f%write("---------------------------------------")
+        call f%write("-- checkProperties @ SoybeanClass  ----")
+        call f%write("---------------------------------------")
+        call f%write("Simulation mode :: Deformation analysis")
+        call f%write("---------------------------------------")
+        call f%write("Date and time: "//time%DateAndTime())
+        call f%write("---------------------------------------")
+        call f%write("Checking datasets for deformation analysis...")
+        ! check if it ready or not.
+        call f%write("property_deform_material_density       |"// &
+            str(obj%property_deform_material_density)           )
+        call f%write("property_deform_material_YoungModulus  |"// &
+            str(obj%property_deform_material_YoungModulus)      )
+        call f%write("property_deform_material_PoissonRatio  |"// &
+            str(obj%property_deform_material_PoissonRatio)      )
+        call f%write("property_deform_initial_Displacement   |"// &
+            str(obj%property_deform_initial_Displacement)       )
+        call f%write("property_deform_initial_Stress         |"// &
+            str(obj%property_deform_initial_Stress)             )
+        call f%write("property_deform_boundary_TractionForce |"// &
+            str(obj%property_deform_boundary_TractionForce)     )
+        call f%write("property_deform_boundary_Displacement  |"// &
+            str(obj%property_deform_boundary_Displacement)      )
+        call f%write("property_deform_gravity                |"// &
+            str(obj%property_deform_gravity)                    )
+        call f%write("---------------------------------------")
+    else
+        call print("Invalid Simulation ID :: "//str(Simulation) )
+        
+    endif
+    call f%close()
+
+end subroutine
+! ##################################################################
+! ##################################################################
+subroutine setPropertiesDensitySoybean(obj)
+    class(Soybean_),intent(inout) :: obj
+    integer(int32) :: i, j
+    
+            
+    ! default == false
+    obj%property_deform_material_density = .false.
+    
+    ! check 
+    ! Does stem/leaf/root have Density for each element?
+    if(allocated(obj%leaf) )then
+        print *, "[ok] setPropertiesSoybean >> leaf exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%empty() )then
+                cycle
+            else
+                ! exists
+                ! check 
+                !  (1) allocation of density(:)
+                !  (2) size of density(:)
+                !  if invalid, compute from drydensity(:)and watercontent(:)
+                !  if not both do not exists, create all as 0.0
+                if( allocated(obj%leaf(i)%density ))then
+                    ! check size
+                    
+                    !if(size(obj%leaf(i)%density)/=obj%leaf(i)%femdomain%ne() )then
+                        !print *, "[Caution] setPropertiesSoybean >> stem("//str(i)//")%density >> "//&
+                        !"size(obj%leaf(i)%density)/=obj%leaf(i)%femdomain%ne() >> reset by zero!!"
+                        !deallocate(obj%leaf(i)%density)
+                        ! let's go to next
+                    !else
+                        print *, "[ok] setPropertiesSoybean &
+                        >> leaf("//str(i)//")%density >> allocated"
+                        ! then ok. let's return
+                        obj%property_deform_material_density = .true.
+                        
+                    !endif
+                else
+                ! density is not allocated.
+                
+                    obj%leaf(i)%density = zeros(obj%leaf(i)%femdomain%ne())
+                
+                    ! >> try to compute from drydensity(:) and watercontent(:)
+                    ! >> check existatce of drydensity(:) and watercontent(:) 
+                    if(.not.allocated(obj%leaf(i)%drydensity ) )then
+                        obj%leaf(i)%drydensity = zeros( obj%leaf(i)%femdomain%ne() )
+                    endif
+                    if(.not.allocated(obj%leaf(i)%watercontent ) )then
+                        obj%leaf(i)%watercontent = zeros( obj%leaf(i)%femdomain%ne() )
+                    endif
+                    
+                    if(size(obj%leaf(i)%drydensity ) /=obj%leaf(i)%femdomain%ne()  )then
+                        obj%leaf(i)%drydensity = zeros( obj%leaf(i)%femdomain%ne() )
+                    endif
+                    if(size(obj%leaf(i)%watercontent ) /=obj%leaf(i)%femdomain%ne()  )then
+                        obj%leaf(i)%watercontent = zeros( obj%leaf(i)%femdomain%ne() )
+                    endif
+                    
+                    ! compute density from drydensity and water content
+                    ! \rho_t = \rho_d * (1 - w )
+                    !$OMP parallel do private(j)
+                    do j=1,obj%leaf(i)%femdomain%ne()
+                        obj%leaf(i)%density(j) = obj%leaf(i)%drydensity(j) * (1.0d0 - obj%leaf(i)%watercontent(j))
+                    enddo
+                    !$OMP end parallel do
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+        obj%property_deform_material_density = .true.
+    else
+        print *, "[Notice] setPropertiesSoybean >> no leaf"
+    endif
+    !! stem 
+    if(allocated(obj%stem) )then
+        print *, "[ok] setPropertiesSoybean >> stems exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%empty() )then
+                cycle
+            else
+                ! exists
+                ! check 
+                !  (1) allocation of density(:)
+                !  (2) size of density(:)
+                !  if invalid, compute from drydensity(:)and watercontent(:)
+                !  if not both do not exists, create all as 0.0
+                if( allocated(obj%stem(i)%density ))then
+                    ! check size
+                    
+                    !if(size(obj%stem(i)%density)/=obj%stem(i)%femdomain%ne() )then
+                        !print *, "[Caution] setPropertiesSoybean >> stem("//str(i)//")%density >> "//&
+                        !"size(obj%stem(i)%density)/=obj%stem(i)%femdomain%ne() >> reset by zero!!"
+                        !deallocate(obj%stem(i)%density)
+                        ! let's go to next
+                    !else
+                        print *, "[ok] setPropertiesSoybean >> stem("//str(i)//")%density >> allocated"
+                        ! then ok. let's return
+                        obj%property_deform_material_density = .true.
+                        
+                    !endif
+                else
+                ! density is not allocated.
+                
+                    obj%stem(i)%density = zeros(obj%stem(i)%femdomain%ne())
+                
+                    ! >> try to compute from drydensity(:) and watercontent(:)
+                    ! >> check existatce of drydensity(:) and watercontent(:) 
+                    if(.not.allocated(obj%stem(i)%drydensity ) )then
+                        obj%stem(i)%drydensity = zeros( obj%stem(i)%femdomain%ne() )
+                    endif
+                    if(.not.allocated(obj%stem(i)%watercontent ) )then
+                        obj%stem(i)%watercontent = zeros( obj%stem(i)%femdomain%ne() )
+                    endif
+                    
+                    if(size(obj%stem(i)%drydensity ) /=obj%stem(i)%femdomain%ne()  )then
+                        obj%stem(i)%drydensity = zeros( obj%stem(i)%femdomain%ne() )
+                    endif
+                    if(size(obj%stem(i)%watercontent ) /=obj%stem(i)%femdomain%ne()  )then
+                        obj%stem(i)%watercontent = zeros( obj%stem(i)%femdomain%ne() )
+                    endif
+                    
+                    ! compute density from drydensity and water content
+                    ! \rho_t = \rho_d * (1 - w )
+                    !$OMP parallel do private(j)
+                    do j=1,obj%stem(i)%femdomain%ne()
+                        obj%stem(i)%density(j) = obj%stem(i)%drydensity(j) * (1.0d0 - obj%stem(i)%watercontent(j))
+                    enddo
+                    !$OMP end parallel do
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+        obj%property_deform_material_density = .true.
+    else
+        print *, "[Notice] setPropertiesSoybean >> no stems"
+    endif
+    !! root 
+    if(allocated(obj%root) )then
+        print *, "[ok] setPropertiesSoybean >> roots exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%root)
+            if(obj%root(i)%empty() )then
+                cycle
+            else
+                ! exists
+                ! check 
+                !  (1) allocation of density(:)
+                !  (2) size of density(:)
+                !  if invalid, compute from drydensity(:)and watercontent(:)
+                !  if not both do not exists, create all as 0.0
+                if( allocated(obj%root(i)%density ))then
+                    ! check size
+                    
+                    !if(size(obj%root(i)%density)/=obj%root(i)%femdomain%ne() )then
+                        !print *, "[Caution] setPropertiesSoybean >> root("//str(i)//")%density >> "//&
+                        !"size(obj%root(i)%density)/=obj%root(i)%femdomain%ne() >> reset by zero!!"
+                        !deallocate(obj%root(i)%density)
+                        ! let's go to next
+                    !else
+                        print *, "[ok] setPropertiesSoybean >> root("//str(i)//")%density >> allocated"
+                        ! then ok. let's return
+                        obj%property_deform_material_density = .true.
+                        
+                    !endif
+                else
+                ! density is not allocated.
+                
+                    obj%root(i)%density = zeros(obj%root(i)%femdomain%ne())
+                
+                    ! >> try to compute from drydensity(:) and watercontent(:)
+                    ! >> check existatce of drydensity(:) and watercontent(:) 
+                    if(.not.allocated(obj%root(i)%drydensity ) )then
+                        obj%root(i)%drydensity = zeros( obj%root(i)%femdomain%ne() )
+                    endif
+                    if(.not.allocated(obj%root(i)%watercontent ) )then
+                        obj%root(i)%watercontent = zeros( obj%root(i)%femdomain%ne() )
+                    endif
+                    
+                    if(size(obj%root(i)%drydensity ) /=obj%root(i)%femdomain%ne()  )then
+                        obj%root(i)%drydensity = zeros( obj%root(i)%femdomain%ne() )
+                    endif
+                    if(size(obj%root(i)%watercontent ) /=obj%root(i)%femdomain%ne()  )then
+                        obj%root(i)%watercontent = zeros( obj%root(i)%femdomain%ne() )
+                    endif
+                    
+                    ! compute density from drydensity and water content
+                    ! \rho_t = \rho_d * (1 - w )
+                    !$OMP parallel do private(j)
+                    do j=1,obj%root(i)%femdomain%ne()
+                        obj%root(i)%density(j) = obj%root(i)%drydensity(j) * (1.0d0 - obj%root(i)%watercontent(j))
+                    enddo
+                    !$OMP end parallel do
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+        obj%property_deform_material_density = .true.
+    else
+        print *, "[Notice] setPropertiesSoybean >> no roots"
+    endif
+    
+
+end subroutine
+! ##################################################################
+subroutine setPropertiesYoungModulusSoybean(obj,default_value)
+    class(Soybean_),intent(inout) :: obj
+    real(real64),optional, intent(in) :: default_value
+    real(real64) :: defval
+    integer(int32) :: i,j
+    
+
+    defval = input(default=0.0d0,option=default_value)
+
+    if(allocated(obj%stem) )then
+        print *, "[ok] setPropertiesYoungModulusSoybean >> stems exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if stem(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%stem(i)%youngmodulus ))then
+                
+                    print *, "[ok] setPropertiesYoungModulusSoybean >> stem("//str(i)//")%youngmodulus >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_material_youngmodulus = .true.
+                        
+                else
+
+                    ! youngmodulus is not allocated.
+                    
+                    obj%stem(i)%youngmodulus = zeros(obj%stem(i)%femdomain%ne())
+                    obj%stem(i)%youngmodulus = defval
+                endif
+            endif
+        enddo
+    endif   
+    
+    ! same as this
+    if(allocated(obj%root) )then
+        print *, "[ok] setPropertiesYoungModulusSoybean >> roots exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%root)
+            if(obj%root(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if root(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%root(i)%youngmodulus ))then
+                
+                    print *, "[ok] setPropertiesYoungModulusSoybean >> root("//str(i)//")%youngmodulus >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_material_youngmodulus = .true.
+                        
+                else
+
+                    ! youngmodulus is not allocated.
+                    
+                    obj%root(i)%youngmodulus = zeros(obj%root(i)%femdomain%ne())
+                    obj%root(i)%youngmodulus = defval
+                endif
+            endif
+        enddo
+    endif
+
+    ! same for leaf
+    if(allocated(obj%leaf) )then
+        print *, "[ok] setPropertiesYoungModulusSoybean >> leafs exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if leaf(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%leaf(i)%youngmodulus ))then
+            
+                    print *, "[ok] setPropertiesYoungModulusSoybean &
+                    >> leaf("//str(i)//")%youngmodulus >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_material_youngmodulus = .true.
+                        
+                else
+                    ! youngmodulus is not allocated.
+                    
+                    obj%leaf(i)%youngmodulus = zeros(obj%leaf(i)%femdomain%ne())
+                    obj%leaf(i)%youngmodulus = defval
+                endif
+            endif
+        enddo
+    endif
+    obj%property_deform_material_youngmodulus = .true.
+
+end subroutine
+! ##################################################################
+
+! ##################################################################
+!same for poissonratio
+subroutine setPropertiesPoissonRatioSoybean(obj,default_value)
+    class(Soybean_),intent(inout) :: obj
+    real(real64),optional, intent(in) :: default_value
+    real(real64) :: defval
+    integer(int32) :: i,j
+    
+
+    defval = input(default=0.0d0,option=default_value)
+
+    if(allocated(obj%stem) )then
+        print *, "[ok] setPropertiesPoissonRatioSoybean >> stems exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if stem(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%stem(i)%poissonratio ))then
+                
+                    print *, "[ok] setPropertiesPoissonRatioSoybean >> stem("//str(i)//")%poissonratio >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_material_poissonratio = .true.
+                        
+                else
+
+                    ! youngmodulus is not allocated.
+                    
+                    obj%stem(i)%poissonratio = zeros(obj%stem(i)%femdomain%ne())
+                    obj%stem(i)%poissonratio = defval
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+    endif   
+    
+    ! same for leaf
+    if(allocated(obj%leaf) )then
+        print *, "[ok] setPropertiesPoissonRatioSoybean >> leafs exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if leaf(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%leaf(i)%poissonratio ))then
+            
+                    print *, "[ok] setPropertiesPoissonRatioSoybean >> leaf("//str(i)//")%poissonratio >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_material_poissonratio = .true.
+                        
+                else
+                    ! youngmodulus is not allocated.
+                    
+                    obj%leaf(i)%poissonratio = zeros(obj%leaf(i)%femdomain%ne())
+                    obj%leaf(i)%poissonratio = defval
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+
+    ! same for root
+    if(allocated(obj%root) )then
+        print *, "[ok] setPropertiesPoissonRatioSoybean >> roots exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%root)
+            if(obj%root(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if root(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%root(i)%poissonratio ))then
+                
+                    print *, "[ok] setPropertiesPoissonRatioSoybean >> root("//str(i)//")%poissonratio >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_material_poissonratio = .true.
+                        
+                else
+
+                    ! youngmodulus is not allocated.
+                    
+                    obj%root(i)%poissonratio = zeros(obj%root(i)%femdomain%ne())
+                    obj%root(i)%poissonratio = defval
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+    obj%property_deform_material_poissonratio = .true.
+end subroutine
+
+! ##################################################################
+! similar subroutine for Initialdisplacement
+subroutine setPropertiesInitialDisplacementSoybean(obj,default_value)
+    class(Soybean_),intent(inout) :: obj
+    real(real64),optional, intent(in) :: default_value
+    real(real64) :: defval
+    integer(int32) :: i,j
+    
+
+    defval = input(default=0.0d0,option=default_value)
+
+    if(allocated(obj%stem) )then
+        print *, "[ok] setPropertiesInitialDisplacementSoybean >> stems exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if stem(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%stem(i)%Displacement ))then
+                
+                    print *, "[ok] setPropertiesInitialDisplacementSoybean >> &
+                    stem("//str(i)//")%Displacement >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_initial_displacement = .true.
+                        
+                else
+
+                    ! youngmodulus is not allocated.
+                    
+                    obj%stem(i)%Displacement = zeros(obj%stem(i)%femdomain%nn(),3)
+                    obj%stem(i)%Displacement = defval
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+    endif   
+    
+    ! same for leaf
+    if(allocated(obj%leaf) )then
+        print *, "[ok] setPropertiesInitialDisplacementSoybean >> leafs exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if leaf(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%leaf(i)%Displacement ))then
+            
+                    print *, "[ok] setPropertiesInitialDisplacementSoybean >> leaf("//str(i)//")%Displacement >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_initial_displacement = .true.
+                        
+                else
+                    ! youngmodulus is not allocated.
+                    
+                    obj%leaf(i)%Displacement = zeros(obj%leaf(i)%femdomain%nn(),3)
+                    obj%leaf(i)%Displacement = defval
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+
+    ! same for root
+    if(allocated(obj%root) )then
+        print *, "[ok] setPropertiesInitialDisplacementSoybean >> roots exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%root)
+            if(obj%root(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if root(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%root(i)%Displacement ))then
+                
+                    print *, "[ok] setPropertiesInitialDisplacementSoybean >> root("//str(i)//")%Displacement >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_initial_displacement = .true.
+                        
+                else
+
+                    ! youngmodulus is not allocated.
+                    
+                    obj%root(i)%Displacement = zeros(obj%root(i)%femdomain%nn(),3)
+                    obj%root(i)%Displacement = defval
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+    obj%property_deform_initial_displacement = .true.
+
+end subroutine
+
+! same for initialstress but dimension = 3
+subroutine setPropertiesInitialStressSoybean(obj,default_value)
+    class(Soybean_),intent(inout) :: obj
+    real(real64),optional, intent(in) :: default_value
+    real(real64) :: defval
+    integer(int32) :: i,j
+    
+
+    defval = input(default=0.0d0,option=default_value)
+
+    if(allocated(obj%stem) )then
+        print *, "[ok] setPropertiesInitialStressSoybean >> stems exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if stem(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%stem(i)%stress ))then
+                
+                    print *, "[ok] setPropertiesInitialStressSoybean >> &
+                    stem("//str(i)//")%stress >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_initial_stress = .true.
+                        
+                else
+
+                    ! youngmodulus is not allocated.
+                    
+                    obj%stem(i)%stress = zeros(obj%stem(i)%femdomain%ne(),obj%stem(i)%femdomain%nne(),6)
+                    obj%stem(i)%stress = defval
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+    endif   
+    ! same for leaf
+    if(allocated(obj%leaf) )then
+        print *, "[ok] setPropertiesInitialStressSoybean >> leafs exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if leaf(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%leaf(i)%stress ))then
+            
+                    print *, "[ok] setPropertiesInitialStressSoybean >> leaf("//str(i)//")%stress >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_initial_stress = .true.
+                        
+                else
+                    ! youngmodulus is not allocated.
+                    
+                    obj%leaf(i)%stress = zeros(obj%leaf(i)%femdomain%ne(),obj%leaf(i)%femdomain%nne(),6)
+                    obj%leaf(i)%stress = defval
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+
+    ! same for root
+    if(allocated(obj%root) )then
+        print *, "[ok] setPropertiesInitialStressSoybean >> roots exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%root)
+            if(obj%root(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if root(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%root(i)%stress ))then
+                
+                    print *, "[ok] setPropertiesInitialStressSoybean >> root("//str(i)//")%stress >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_initial_stress = .true.
+                        
+                else
+
+                    ! youngmodulus is not allocated.
+                    
+                    obj%root(i)%stress = zeros(obj%root(i)%femdomain%ne(),obj%root(i)%femdomain%nne(),6)
+                    obj%root(i)%stress = defval
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+    obj%property_deform_initial_stress = .true.
+end subroutine
+
+! ################################################################################
+
+! same as initdisplacement for BoundaryTractionForce
+subroutine setPropertiesBoundaryTractionForceSoybean(obj,default_value,xrange,yrange,zrange)
+    class(Soybean_),intent(inout) :: obj
+    real(real64),optional, intent(in) :: default_value,xrange(2),yrange(2),zrange(2)
+    real(real64) :: defval
+    integer(int32) :: i,j
+    
+
+    defval = input(default=0.0d0,option=default_value)
+
+    if(allocated(obj%stem) )then
+        print *, "[ok] setPropertiesBoundaryTractionForceSoybean >> stems exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if stem(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%stem(i)%BoundaryTractionForce ))then
+                
+                    print *, "[ok] setPropertiesBoundaryTractionForceSoybean >> &
+                    stem("//str(i)//")%BoundaryTractionForce >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_boundary_tractionforce = .true.
+                        
+                else
+
+                    ! youngmodulus is not allocated.
+                    
+                    obj%stem(i)%BoundaryTractionForce = zeros(obj%stem(i)%femdomain%nn(),3)
+                    obj%stem(i)%BoundaryTractionForce = defval
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+    endif   
+    ! same for leaf
+    if(allocated(obj%leaf) )then
+        print *, "[ok] setPropertiesBoundaryTractionForceSoybean >> leafs exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if leaf(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%leaf(i)%BoundaryTractionForce ))then
+            
+                    print *, "[ok] setPropertiesBoundaryTractionForceSoybean &
+                    >> leaf("//str(i)//")%BoundaryTractionForce >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_boundary_tractionforce = .true.
+                        
+                else
+                    ! youngmodulus is not allocated.
+                    
+                    obj%leaf(i)%BoundaryTractionForce = zeros(obj%leaf(i)%femdomain%nn(),3)
+                    obj%leaf(i)%BoundaryTractionForce = defval
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+
+    ! same for root
+    if(allocated(obj%root) )then
+        print *, "[ok] setPropertiesBoundaryTractionForceSoybean >> roots exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%root)
+            if(obj%root(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if root(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%root(i)%BoundaryTractionForce ))then
+                
+                    print *, "[ok] setPropertiesBoundaryTractionForceSoybean &
+                    >> root("//str(i)//")%BoundaryTractionForce >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_boundary_tractionforce = .true.
+                        
+                else
+
+                    ! youngmodulus is not allocated.
+                    
+                    obj%root(i)%BoundaryTractionForce = zeros(obj%root(i)%femdomain%nn(),3)
+                    obj%root(i)%BoundaryTractionForce = defval
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+    obj%property_deform_boundary_tractionforce = .true.
+end subroutine
+! ##################################################################
+
+! ################################################################################
+
+! same as initdisplacement for BoundaryTractionForce
+subroutine setPropertiesBoundaryDisplacementSoybean(obj,default_value,xrange,yrange,zrange)
+    class(Soybean_),intent(inout) :: obj
+    real(real64),optional, intent(in) :: default_value,xrange(2),yrange(2),zrange(2)
+    real(real64) :: defval
+    integer(int32) :: i,j
+    
+
+    defval = input(default=0.0d0,option=default_value)
+
+    if(allocated(obj%stem) )then
+        print *, "[ok] setPropertiesBoundaryDisplacementSoybean >> stems exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if stem(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%stem(i)%BoundaryDisplacement ))then
+                
+                    print *, "[ok] setPropertiesBoundaryDisplacementSoybean >> &
+                    stem("//str(i)//")%BoundaryDisplacement >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_boundary_displacement = .true.
+                        
+                else
+
+                    ! youngmodulus is not allocated.
+                    
+                    obj%stem(i)%BoundaryDisplacement = zeros(obj%stem(i)%femdomain%nn(),3)
+                    obj%stem(i)%BoundaryDisplacement = defval
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+    endif   
+    ! same for leaf
+    if(allocated(obj%leaf) )then
+        print *, "[ok] setPropertiesBoundaryDisplacementSoybean >> leafs exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if leaf(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%leaf(i)%BoundaryDisplacement ))then
+            
+                    print *, "[ok] setPropertiesBoundaryDisplacementSoybean &
+                    >> leaf("//str(i)//")%BoundaryDisplacement >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_boundary_Displacement = .true.
+                        
+                else
+                    ! youngmodulus is not allocated.
+                    
+                    obj%leaf(i)%BoundaryDisplacement = zeros(obj%leaf(i)%femdomain%nn(),3)
+                    obj%leaf(i)%BoundaryDisplacement = defval
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+
+    ! same for root
+    if(allocated(obj%root) )then
+        print *, "[ok] setPropertiesBoundaryDisplacementSoybean >> roots exist."
+        ! leaf exists
+        !$OMP parallel do private(i)
+        do i=1,size(obj%root)
+            if(obj%root(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if root(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%root(i)%BoundaryDisplacement ))then
+                
+                    print *, "[ok] setPropertiesBoundaryDisplacementSoybean &
+                    >> root("//str(i)//")%BoundaryDisplacement >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_boundary_displacement = .true.
+                        
+                else
+
+                    ! youngmodulus is not allocated.
+                    
+                    obj%root(i)%BoundaryDisplacement = zeros(obj%root(i)%femdomain%nn(),3)
+                    obj%root(i)%BoundaryDisplacement = defval
+                endif
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+    obj%property_deform_boundary_Displacement = .true.
+end subroutine
+! ##################################################################
+
+subroutine setPropertiesGravitySoybean(obj,default_value,xrange,yrange,zrange)
+    class(Soybean_),intent(inout) :: obj
+    real(real64),optional, intent(in) :: default_value,xrange(2),yrange(2),zrange(2)
+    real(real64) :: defval
+    integer(int32) :: i,j
+    
+
+    defval = input(default=9.810d0,option=default_value)
+
+    obj%Gravity_acceralation = defval
+
+    obj%property_deform_gravity = .true.
+
+end subroutine
+
+
+
+! ##################################################################
+subroutine setPropertiesSoybean(obj,density,YoungModulus,PoissonRatio,&
+    InitialStress,InitialDisplacement,&
+    BoundaryTractionForce,BoundaryDisplacement,Gravity,xr,yr,zr,&
+    default_value)
+    class(Soybean_),intent(inout) :: obj
+    logical,optional,intent(in) :: density,YoungModulus,PoissonRatio,InitialStress,&
+    InitialDisplacement,&
+    BoundaryTractionForce,BoundaryDisplacement,Gravity
+    real(real64),optional,intent(in) :: xr(2),yr(2),zr(2),default_value
+    integer(int32) :: i, j
+    
+    ! set each conditions
+    if(present(density) )then
+        if(density)then
+            call obj%setPropertiesDensity()
+        endif
+    endif
+
+    if(present(YoungModulus) )then
+        if(YoungModulus)then
+            call obj%setPropertiesYoungModulus(default_value=default_value)
+        endif
+    endif
+
+
+    if(present(PoissonRatio) )then
+        if(PoissonRatio)then
+            call obj%setPropertiesPoissonRatio(default_value=default_value)
+        endif
+    endif
+
+    if(present(InitialDisplacement) )then
+        if(InitialDisplacement)then
+            call obj%setPropertiesInitialDisplacement(default_value=default_value)
+        endif
+    endif
+    
+    if(present(InitialStress) )then
+        if(InitialStress)then
+            call obj%setPropertiesInitialStress(default_value=default_value)
+        endif
+    endif
+    
+
+    if(present(BoundaryTractionForce) )then
+        if(BoundaryTractionForce)then
+            call obj%setPropertiesBoundaryTractionForce(default_value=default_value)
+        endif
+    endif
+
+
+    if(present(BoundaryDisplacement) )then
+        if(BoundaryDisplacement)then
+            call obj%setPropertiesBoundaryDisplacement(default_value=default_value)
+        endif
+    endif
+
+
+    if(present(Gravity) )then
+        if(Gravity)then
+            call obj%setPropertiesGravity(default_value=default_value)
+        endif
+    endif
+end subroutine
+! ##################################################################
+
+function readyForSoybean(obj,Simulation) result(ready)
+    class(Soybean_),intent(inout) :: obj
+    integer(int32),intent(in) :: Simulation
+    logical :: ready
+    ! default = ready!
+    ! if all the properties are set, then ready = true
+    if(Simulation == PF_DEFORMATION_ANALYSIS )then
+        ready = .true.
+        ready = ready .and. obj%property_deform_material_density
+        ready = ready .and. obj%property_deform_material_YoungModulus
+        ready = ready .and. obj%property_deform_material_PoissonRatio
+        ready = ready .and. obj%property_deform_initial_Displacement
+        ready = ready .and. obj%property_deform_initial_Stress
+        ready = ready .and. obj%property_deform_boundary_TractionForce
+        ready = ready .and. obj%property_deform_boundary_Displacement
+        ready = ready .and. obj%property_deform_gravity
+    else
+        print *, "[ERROR] readyForSoybean >> invalid simulation type.",simulation
+    endif
+end function
+! ##################################################################
 end module

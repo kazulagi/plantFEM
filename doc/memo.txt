@@ -1,0 +1,22 @@
+2021/12/10
+
+call soybean%deformation()の実装に向けた検討．
+
+method for :: multi-domain
+
+
+情報(attribute)をどこに持つか?
+
+ケース1:
+- Leaf/Stem/Root/にもたせる．
+(全ての植物種に共通)
+sim関連すべて
+
+ケース2:
+- soybean等の個体側にもたせる．
+(特定の植物種のみに必要)
+全体でのsim実行のために
+
+
+>> [原則] 情報はstem/leaf/root側にもたせる．
+

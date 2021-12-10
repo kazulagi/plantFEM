@@ -33,8 +33,21 @@ module StemClass
         integer(int32)  :: znum = 10
 
         ! physical parameter
-        real(real64),allocatable :: DryDensity(:)
-        real(real64),allocatable :: WaterContent(:)
+        real(real64),allocatable :: DryDensity(:)  ! element-wise
+        real(real64),allocatable :: WaterContent(:)! element-wise
+
+        ! For deformation analysis
+        real(real64),allocatable :: YoungModulus(:)! element-wise
+        real(real64),allocatable :: PoissonRatio(:)! element-wise
+        real(real64),allocatable :: Density(:)     ! element-wise
+        real(real64),allocatable :: Stress(:,:,:)     ! Gauss point-wise
+        real(real64),allocatable :: Displacement(:,:) ! node-wise, three dimensional
+
+
+        real(real64),allocatable :: BoundaryTractionForce(:,:) ! node-wise, three dimensional
+        real(real64),allocatable :: BoundaryDisplacement(:,:) ! node-wise, three dimensional
+        
+
 
         integer(int32)             ::  Division
         type(Stem_),pointer ::  pStem
@@ -45,8 +58,14 @@ module StemClass
         procedure, public :: resize => resizeStem
         procedure, public :: move => moveStem
         procedure, public :: connect => connectStem
+        
+        ! check condition
+        ! is it empty?
+        procedure, public :: empty => emptyStem
         procedure, public :: getCoordinate => getCoordinateStem
         procedure, public :: getLength => getLengthStem
+
+
         procedure, public :: gmsh => gmshStem
         procedure, public :: msh => mshStem
         procedure, public :: vtk => vtkStem
@@ -654,8 +673,10 @@ function getVolumeStem(obj) result(ret)
     enddo
 
 end function
+! ####################################################################
 
 
+! ####################################################################
 function getBiomassStem(obj) result(ret)
     class(Stem_),intent(in) :: obj
     real(real64) :: ret
@@ -671,6 +692,17 @@ function getBiomassStem(obj) result(ret)
     enddo
 
 end function
+! ####################################################################
 
+
+! ########################################
+function emptyStem(obj) result(Stem_is_empty)
+    class(Stem_),intent(in) :: obj
+    logical :: Stem_is_empty
+
+    Stem_is_empty = obj%femdomain%empty()
+
+end function
+! ########################################
 
 end module
