@@ -63,10 +63,21 @@ module LeafClass
         real(real64) :: Lambda= 37.430d0 ! 暗呼吸速度を無視した時のCO2補償点ppm
         real(real64) :: temp=303.0d0 ! temp
 
-        real(real64),allocatable :: DryDensity(:)
-        real(real64),allocatable :: WaterContent(:)
-    
 
+        ! physical parameter
+        real(real64),allocatable :: DryDensity(:)  ! element-wise
+        real(real64),allocatable :: WaterContent(:)! element-wise
+
+        ! For deformation analysis
+        real(real64),allocatable :: YoungModulus(:)! element-wise
+        real(real64),allocatable :: PoissonRatio(:)! element-wise
+        real(real64),allocatable :: Density(:)     ! element-wise
+        real(real64),allocatable :: Stress(:,:,:)     ! Gauss point-wise
+        real(real64),allocatable :: Displacement(:,:) ! node-wise, three dimensional
+
+        real(real64),allocatable :: BoundaryTractionForce(:,:) ! node-wise, three dimensional
+        real(real64),allocatable :: BoundaryDisplacement(:,:) ! node-wise, three dimensional
+        
     contains
         procedure, public :: Init => initLeaf
         procedure, public :: rotate => rotateleaf
@@ -85,6 +96,9 @@ module LeafClass
         procedure, public :: adjust => adjustLeaf
         procedure, public :: resize => resizeleaf
         
+        ! check condition
+        ! is it empty?
+        procedure, public :: empty => emptyLeaf
         procedure, public :: getVolume => getVolumeLeaf
         procedure, public :: getBiomass => getBiomassLeaf
         procedure, public :: getCoordinate => getCoordinateleaf
@@ -770,6 +784,8 @@ endif
 end function
 ! ########################################
 
+
+
 ! ########################################
 subroutine gmshleaf(obj,name)
     class(leaf_),intent(inout) :: obj
@@ -1057,8 +1073,9 @@ function getVolumeLeaf(obj) result(ret)
     enddo
 
 end function
+! ########################################
 
-
+! ########################################
 function getBiomassLeaf(obj) result(ret)
     class(Leaf_),intent(in) :: obj
     real(real64) :: ret
@@ -1076,6 +1093,18 @@ function getBiomassLeaf(obj) result(ret)
     enddo
 
 end function
+! ########################################
+
+
+! ########################################
+function emptyLeaf(obj) result(leaf_is_empty)
+    class(Leaf_),intent(in) :: obj
+    logical :: leaf_is_empty
+
+    leaf_is_empty = obj%femdomain%empty()
+
+end function
+! ########################################
 
 
 

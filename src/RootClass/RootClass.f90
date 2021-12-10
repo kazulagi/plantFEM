@@ -33,9 +33,20 @@ module RootClass
         integer(int32)  :: ynum = 10
         integer(int32)  :: znum = 10
 
-        ! density
-        real(real64),allocatable :: DryDensity(:)
-        real(real64),allocatable :: WaterContent(:)
+        ! physical parameter
+        real(real64),allocatable :: DryDensity(:)  ! element-wise
+        real(real64),allocatable :: WaterContent(:)! element-wise
+
+        ! For deformation analysis
+        real(real64),allocatable :: YoungModulus(:)! element-wise
+        real(real64),allocatable :: PoissonRatio(:)! element-wise
+        real(real64),allocatable :: Density(:)     ! element-wise
+        real(real64),allocatable :: Stress(:,:,:)     ! Gauss point-wise
+        real(real64),allocatable :: Displacement(:,:) ! node-wise, three dimensional
+
+        real(real64),allocatable :: BoundaryTractionForce(:,:) ! node-wise, three dimensional
+        real(real64),allocatable :: BoundaryDisplacement(:,:) ! node-wise, three dimensional
+        
 
         integer(int32)             ::  Division
         type(Root_),pointer ::  pRoot
@@ -54,8 +65,11 @@ module RootClass
         procedure, public :: resize => resizeRoot
         procedure, public :: fix => fixRoot
         
-        procedure, public :: getCoordinate => getCoordinateRoot
 
+        ! check condition
+        ! is it empty?
+        procedure, public :: empty => emptyRoot
+        procedure, public :: getCoordinate => getCoordinateRoot
         procedure, public :: getVolume => getVolumeRoot
         procedure, public :: getBiomass => getBiomassRoot
 
@@ -64,6 +78,8 @@ module RootClass
         procedure, public :: msh => mshRoot
         procedure, public :: stl => stlRoot
         procedure, public :: export => exportRoot
+
+
     end type
 contains
 
@@ -645,6 +661,15 @@ function getBiomassRoot(obj) result(ret)
     enddo
 
 end function
+! ########################################
+function emptyRoot(obj) result(Root_is_empty)
+    class(Root_),intent(in) :: obj
+    logical :: Root_is_empty
+
+    Root_is_empty = obj%femdomain%empty()
+
+end function
+! ########################################
 
 
 end module

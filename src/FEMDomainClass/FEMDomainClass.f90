@@ -143,6 +143,8 @@ module FEMDomainClass
 		procedure,public :: export => ExportFEMDomain
 
 		procedure,public :: edit => editFEMDomain
+		procedure,public :: empty => emptyFEMDomain
+		
 		
 		procedure,public :: field => fieldFEMDomain
 		
@@ -10967,5 +10969,18 @@ pure function selectRow(Matrix, RowIDs) result(SelectedRows)
 	enddo
 
 end function
+
+! ########################################
+function emptyFEMDomain(obj) result(FEMDomain_is_empty)
+    class(FEMDomain_),intent(in) :: obj
+    logical :: FEMDomain_is_empty
+
+    FEMDomain_is_empty = obj%mesh%empty()
+
+end function
+! ########################################
+
+
+
 
 end module FEMDomainClass

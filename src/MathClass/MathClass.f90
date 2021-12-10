@@ -86,29 +86,50 @@ module MathClass
 
 	
 contains
+
 ! ###############################################
-recursive function FFT(x) result(hatx)
+function FFT(x,T) result(hatx)
 	complex(kind(0d0))	,intent(in) :: x(:)
+	complex(kind(0d0))	,allocatable :: hatx(:)
+	type(Math_) :: Math
+	real(real64),optional,intent(in) :: T(2) ! range
+	real(real64) :: Trange(1:2),dt
+	integer(int32) :: N
+
+	
+	N = size(x)
+	if(present(T) )then
+		dt = abs(T(2) - T(1) )/dble(N)
+	else
+		dt = 1.0d0
+	endif
+
+	hatx = FFT_core(x)
+
+	hatx = dt*hatx
+	
+end function
+
+! ###############################################
+
+! ###############################################
+recursive function FFT_core(x) result(hatx)
+	complex(kind(0d0))	,intent(in) :: x(:)
+	!real(real64)	,optional,intent(in) :: T(2) ! range
 	complex(kind(0d0))	,allocatable :: hatx(:),W(:),L(:),R(:)
 	real(real64),allocatable :: a(:), wo(:)
+	!real(real64) :: Trange(2) ,dt
 	integer(int32),allocatable :: ip(:)
 	integer(int32) :: N, i, itr,isgn
 	integer(int32),allocatable :: k(:)
 	type(Math_) :: Math
 
-	!!! call Ooura-FFT
-	!n = size(x)/2
-	!allocate(a(0:2*n-1) )
-	!allocate(wo(0:2*n-1) )
-	!a(0:2*n-1) = x(1:2*n)
-	!isgn = n
-	!call cdft(2*n,isgn,a(0:2*n-1),ip,wo(0:n/2-1) )
-	!hatx = a
-	!
-	!return
-	!!! 
+	! This FFT is 
+	! Fw(m dw) = T/N \sum_{n=0}^{N-1} f(n dt) e^{-i 2 \pi k/N m n} 
+	
 	N = size(x)
 	allocate(hatx(N))
+
 
 	hatx(:) = 0.0d0
 	allocate(k(N/2) )
@@ -149,8 +170,8 @@ recursive function FFT(x) result(hatx)
 			R(itr) = x(i)
 		enddo
 		
-		L = FFT(L)
-		R = FFT(R)
+		L = FFT_core(L)
+		R = FFT_core(R)
 		
 		do i=1,N/2
 			hatx(i) = L(i) + W(i)*R(i)
@@ -165,14 +186,27 @@ recursive function FFT(x) result(hatx)
 	endif
 end function
 ! ###############################################
-function IFFT(x) result(hatx)
+function IFFT(x,T) result(hatx)
 	complex(kind(0d0))	,intent(in) :: x(:)
 	complex(kind(0d0))	,allocatable :: hatx(:)
 	type(Math_) :: Math
+	real(real64)	,optional,intent(in) :: T(2) ! range
+	real(real64) :: Trange(2) ,TT
+	integer(int32) :: N
+	
+	! This IFFT is 
+	! ft(n dt) = 1/T \sum_{n=0}^{N-1} Fw(m dw) e^{i 2 \pi k/N m n}
+	
+	N = size(x)
+	if(present(T) )then
+		TT = abs(T(2) - T(1) )
+	else
+		TT = dble(N)
+	endif
 
 	hatx = IFFT_core(x)
 
-	hatx = 1.0d0/dble(size(x))*hatx
+	hatx = 1.0d0/TT*hatx
 	
 end function
 
@@ -198,6 +232,7 @@ recursive function IFFT_core(x) result(hatx)
 	!return
 	!!! 
 	N = size(x)
+	
 	allocate(hatx(N))
 
 	hatx(:) = 0.0d0
