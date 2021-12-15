@@ -10189,16 +10189,19 @@ function selectFEMDomain(obj,x_min,x_max,y_min,y_max,z_min,z_max) result(NodeLis
 	xmax(3) = input(default=maxval(obj%mesh%nodcoord(:,3)),option=z_max )
 
 	n = 0
+
+	!$OMP parallel do private(i)
 	do i=1, obj%nn()
 		x(:)=obj%mesh%nodcoord(i,:)
 		InOut = InOrOut(x=x,xmax=xmax,xmin=xmin,DimNum=obj%nd() )
 		if(InOut)then
 			! inside
 			CheckList(i) = 1
-			n=n+1
+			!n=n+1
 		endif
 	enddo
-	
+	!$OMP end parallel do
+	n = sum(CheckList)
 
 	NodeList = int(zeros(n)  )
 	

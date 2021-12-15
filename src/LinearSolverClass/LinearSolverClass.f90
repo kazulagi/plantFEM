@@ -57,7 +57,7 @@ module LinearSolverClass
     integer(int32) :: itrmax=1000000
     integer(int32) :: currentID=1
     integer(int32) :: b_currentID=1
-    real(real64) :: er0=dble(1.0e-08)
+    real(real64) :: er0=dble(1.0e-10)
     logical :: ReadyForFix = .false.
 
   contains
@@ -792,6 +792,7 @@ subroutine prepareFixLinearSolver(obj,debug)
   integer(int32) :: i,m,n,rn,rd,cn,cd,same_n,count_reduc,j
   integer(int32) :: Index_I_max, Index_J_max,row_domain_id_max,column_Domain_ID_max
   
+  ! It's too slow
   if(obj%ReadyForFix) return
   ! remove overlapped elements
   
@@ -810,6 +811,7 @@ subroutine prepareFixLinearSolver(obj,debug)
   array(:,2) = obj%Index_J
   array(:,3) = obj%row_domain_id
   array(:,4) = obj%column_Domain_ID
+
   call heapsortArray(array, obj%val)
   
   obj%Index_I = array(:,1) 
@@ -1057,20 +1059,28 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
         ! create CRS_Index_I from Index_I@COO
 
         if(CRS)then
-          call bicgstab_CRS(obj%val, CRS_index_I, index_J, obj%x, obj%b, obj%itrmax, obj%er0)
+          call bicgstab_CRS(obj%val, CRS_index_I, index_J, obj%x, obj%b, obj%itrmax, obj%er0, obj%debug)
           return
         endif
-      endif
-      call bicgstab_COO(obj%val, index_I, index_J, obj%x, obj%b, obj%itrmax, obj%er0)
 
+      endif
+      if(Solver=="BiCGSTAB")then
+        call bicgstab_COO(obj%val, index_I, index_J, obj%x, obj%b, obj%itrmax, obj%er0, obj%debug)
+      else
+        call GaussJordan_COO(obj%val, index_I, index_J, obj%x, obj%b)
+      endif
     else
       if(present(CRS) )then
         if(CRS)then
-          call bicgstab_CRS(obj%val, CRS_index_I, index_J, obj%x, obj%b, obj%itrmax, obj%er0)
+          call bicgstab_CRS(obj%val, CRS_index_I, index_J, obj%x, obj%b, obj%itrmax, obj%er0, obj%debug)
           return
         endif
       endif
-      call bicgstab_COO(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0)
+      if(Solver=="BiCGSTAB")then
+        call bicgstab_COO(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0, obj%debug)
+      else
+        call GaussJordan_COO(obj%val, obj%index_I, obj%index_J, obj%x, obj%b)
+      endif
     endif
     return
   endif
@@ -1107,12 +1117,168 @@ subroutine gauss_seidel(a, b, x, n, itrmax, er0)
     endif
   enddo
  end subroutine gauss_seidel
+!===================================================================================
+ subroutine GaussJordan_COO(a0, index_i, index_j, x, b)
+  integer(int32) :: n
+  real(real64), intent(in) :: a0(:), b(:)
+  integer(int32),intent(in) :: index_i(:),index_j(:)
+  real(real64), allocatable,intent(inout) :: x(:)
+  integer(int32) i, j, jj,k, m,nn, mm, id1,id2
+  real(real64),allocatable :: a(:,:), w(:)
+  real(real32) ar, am, t
+
+  print *, "Solver :: GaussJordan"
+  ! CAUTION this code is not optimized.
+  ! It just converts a COO-formatted sparse matrix
+  ! to Dense matrix, and pass them to 
+  ! Gauss_jordan_pv_real64
+  n = size(b)
+  a = zeros(n,n)
+  x = zeros(n)
+  print *, "DOF = ",n
+  do i=1, size(index_i)
+    a( index_i(i),index_j(i) ) = a0(i)
+  enddo
+
+  nn = n
+  x(:) = b(:)
+  do k = 1, n
+     m = k
+     am = abs(a(k,k))
+     do i = k+1, n
+        if (abs(a(i,k)) > am) then
+          am = abs(a(i,k))
+          m = i
+        endif
+     enddo
+     if (am == 0.0d0)   stop  ' A is singular '
+     if ( k /= m) then
+       w(k:n) = a(k, k:n)
+       a(k,k:n) = a(m, k:n)
+       a(m, k:n) =w(k:n)
+       t = x(k)
+       x(k) = x(m)
+       x(m) = t
+     endif
+     ! gauss_jordan
+     if (a(k, k) == 0.0d0)  stop  'devide by zero3gauss_jordan_pv'
+	    ar = 1.0d0 / a(k,k)
+     a(k,k) = 1.0d0
+     a(k,k+1:n) = ar * a(k, k+1:n)
+     x(k) = ar * x(k)
+     do i= 1, n
+       if (i /= k) then
+         a(i, k+1:n) = a(i, K+1:n) - a(i,k) * a(k, k+1:n)
+         x(i) = x(i) - a(i,k) * x(k)
+         a(i,k) = 0.0d0
+       endif
+     enddo
+  enddo
+  
+
+  return
+
+!
+!
+!
+!
+!  nn = size(b,1)
+!  n  = size(b,1)
+!  a = a0
+!  w = zeros(n)
+!  x = b
+!
+!  do k = 1, n
+!     m = k
+!
+!     ! am = A(k,k)
+!     am = 0.0d0
+!     do j=1,size(index_i)
+!      if(index_i(j)==k .and. index_j(j)==k )then
+!        am = abs(a(j))
+!        exit
+!      endif
+!     enddo
+!     
+!     !
+!     !do i = k+1, n
+!     ! if (abs(a(i,k)) > am) then
+!     !   am = abs(a(i,k))
+!     !   m = i
+!     ! endif
+!     !enddo
+!
+!     do j=1,size(index_i)
+!      if(index_i(j)>=k+1 .and.  k == index_j(j) )then
+!        if( abs(a(j)) > am )then
+!          am = abs(a(j) )
+!          m = index_i(j)
+!        endif
+!      endif
+!     enddo
+!     
+!     
+!
+!     if (am == 0.0d0)   stop  ' A is singular '
+!
+!     !if ( k /= m) then 
+!     !  w(k:n) = a(k, k:n)
+!     !  a(k,k:n) = a(m, k:n)
+!     !  a(m, k:n) =w(k:n)
+!     !  t = x(k)
+!     !  x(k) = x(m)
+!     !  x(m) = t
+!     !endif
+!     if( k/=m)then
+!      !(1)  w(k:n) = a(k, k:n)
+!      do j=1,size(index_i)
+!        id1 = index_i(j)
+!        if(id1==k)then
+!          id2 = index_j(j)
+!          if(k<=id2 .and. id2 <= n)then  
+!            w(id2) = a(j)
+!          endif
+!        enddo
+!      enddo
+!      !(2)  a(k,k:n) = a(m, k:n)
+!      do j=1,size(index_i)
+!        id1 = index_i(j)
+!        if(id1==k)then
+!          id2 = index_j(j)
+!          if(k<=id2 .and. id2 <= n)then  
+!            w(id2) = a(j)
+!          endif
+!        enddo
+!      enddo
+!      
+!
+!
+!     endif
+!     
+!     
+!     ! gauss_jordan
+!     if (a(k, k) == 0.0d0)  stop  'devide by zero3gauss_jordan_pv'
+!	    ar = 1.0d0 / a(k,k)
+!     a(k,k) = 1.0d0
+!     a(k,k+1:n) = ar * a(k, k+1:n)
+!     x(k) = ar * x(k)
+!     do i= 1, n
+!       if (i /= k) then
+!         a(i, k+1:n) = a(i, K+1:n) - a(i,k) * a(k, k+1:n)
+!         x(i) = x(i) - a(i,k) * x(k)
+!         a(i,k) = 0.0d0
+!       endif
+!     enddo
+!  enddo
+  
+ end subroutine 
+!===========================================================================
 
 !===================================================================================
 subroutine gauss_jordan_pv_real64(a0, x, b, n)
   integer(int32), intent(in) :: n
   real(real64), intent(in) :: a0(n,n), b(n)
-  real(real64), intent(out) :: x(n)
+  real(real64), intent(inout) :: x(n)
   integer(int32) i, j, k, m,nn, mm
   real(real64) ar, am, t, a(n,n), w(n)
   nn = size(a0,1)
@@ -1343,7 +1509,7 @@ subroutine gauss_jordan_pv_complex64(a0, x, b, n)
   if(speak) print *, "BiCGSTAB STARTED >> DOF:", n
   n=size(b)
   allocate(r(n), r0(n), p(n), y(n), e(n), v(n))
-  er0=dble(1.00e-14)
+  
   r(:) = b(:)
   if(speak) print *, "BiCGSTAB >> [1] initialize"
   
@@ -1447,6 +1613,8 @@ subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug)
   real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
   real(real64),allocatable:: r(:), r0(:), p(:), y(:), e(:), v(:)
 
+  print *, "[ok] BiCGSTAB for COO  started."
+
   if(present(debug) )then
     speak = debug
   endif
@@ -1454,7 +1622,7 @@ subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug)
   if(speak) print *, "BiCGSTAB STARTED >> DOF:", n
   n=size(b)
   allocate(r(n), r0(n), p(n), y(n), e(n), v(n))
-  er0=dble(1.00e-14)
+  er0=er
   r(:) = b(:)
   if(speak) print *, "BiCGSTAB >> [1] initialize"
   
@@ -1471,15 +1639,22 @@ subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug)
   p(:) = r(:)
   r0(:) = r(:)
   do itr = 1, itrmax   
+    
     if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] initialize"
     c1 = dot_product(r0,r)
     
     !y(:) = matmul(a,p)
     y(:)=0.0d0
+
+    !!$OMP parallel do reduction(+:y) private(i)
     do i=1,size(a)
-      if(index_i(i) <=0) cycle
-      y( index_i(i) ) = y( index_i(i) ) + a(i)*p( index_j(i) ) 
+      if(index_i(i) <=0) then
+        ! do nothing
+      else
+        y( index_i(i) ) = y( index_i(i) ) + a(i)*p( index_j(i) ) 
+      endif
     enddo
+    !!$OMP end parallel do
     
     c2 = dot_product(r0,y)
     alp = c1/c2
@@ -1487,11 +1662,20 @@ subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug)
     !v(:) = matmul(a,e)
     
     if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] half"
+
+
     v(:)=0.0d0
+
+    !!$OMP parallel do reduction(+:v) private(i)
     do i=1,size(a)
-      if(index_i(i) <=0) cycle
-      v( index_i(i) ) = v( index_i(i) ) + a(i)*e( index_j(i) ) 
+      if(index_i(i) <=0) then
+        ! do nothing
+      else
+        v( index_i(i) ) = v( index_i(i) ) + a(i)*e( index_j(i) ) 
+      endif
     enddo
+    !!$OMP end parallel do 
+
     ev = dot_product(e,v)
     vv = dot_product(v,v)
 
@@ -1502,13 +1686,16 @@ subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug)
     rr = dot_product(r,r)
     
     
-    !    write(*,*) 'itr, er =', itr,rr
+    if(speak) print *, 'itr, |er|/|er0| =', itr,rr/init_rr
     if (rr/init_rr < er0) exit
     c1 = dot_product(r0,r)
     bet = c1 / (c2 * c3)
 		if(  (c2 * c3)==0.0d0 ) stop "Bicgstab devide by zero"
     p(:) = r(:) + bet * (p(:) -c3*y(:) )
+
   enddo
+
+  print *, "[ok] BiCGSTAB_COO >> error norm",rr/init_rr
  end subroutine 
 !===============================================================
 
@@ -1521,7 +1708,7 @@ subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug)
      integer(int32) itr
      real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
      real(real64) r(n), r0(n), p(n), y(n), e(n), v(n)
-     er0=dble(1.00e-14)
+     er0=er
 
 	 r(:) = b - matmul(a,x)
      c1 = dot_product(r,r)
@@ -1569,7 +1756,7 @@ subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug)
      integer(int32) itr
      real(real32) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
      real(real32) r(n), r0(n), p(n), y(n), e(n), v(n)
-     er0=dble(1.00e-14)
+     er0=er
 
 	 r(:) = b - matmul(a,x)
      c1 = dot_product(r,r)
@@ -1617,7 +1804,7 @@ subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug)
      integer(int32) itr
      complex(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
      complex(real64) r(n), r0(n), p(n), y(n), e(n), v(n)
-     er0=dble(1.00e-14)
+     er0=er
 
 	 r(:) = b - matmul(a,x)
      c1 = dot_product(r,r)
@@ -1666,7 +1853,7 @@ subroutine bicgstab1d(a, b, x, n, itrmax, er)
      integer(int32) itr
      real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
      real(real64) r(n), r0(n), p(n), y(n), e(n), v(n)
-     er0=dble(1.00e-14)
+     er0=er
 
 	 r(:) = b - matmul(a,x)
      c1 = dot_product(r,r)

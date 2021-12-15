@@ -1,0 +1,50 @@
+{
+    "Name":"soybean",
+    "leafconfig":"./soyleaf.json",
+    "stemconfig":"./soystem.json",
+    "rootconfig":"Tutorial/obj/soyroot.json",
+    "Genotype":{
+        "Dt1":"dt1"
+    },
+    "Mainstem":{
+        "Length":0.20,
+        "Width":0.02,
+        "Node":1
+    },
+    
+    "Comment#1": "This entity and following content is optional.",
+    
+    "ms_angle_ave": 0.00, 
+    "ms_angle_sig": 2.00,
+
+    "br_angle_ave" : 0.00,
+    "br_angle_sig" : 10.00,
+    "br_angle_ave(1)" : 30.00,
+    "br_angle_sig(1)" :  2.00,
+    
+    "mr_angle_ave": 1.00, 
+    "mr_angle_sig": 10.00,
+
+    "brr_angle_ave" : 0.00,
+    "brr_angle_sig" : 20.00,
+    "brr_angle_ave(1)" : 30.00,
+    "brr_angle_sig(1)" : 10.00,
+
+
+    "peti_size_ave"  :  0.200,
+    "peti_size_sig"  :  0.0100,
+    "peti_width_ave"  :  0.00900,
+    "peti_width_sig"  :  0.000100,
+    "peti_angle_ave"  :  30.00,
+    "peti_angle_sig"  :  1.000,
+    
+    "leaf_thickness_ave"  :  0.003000,
+    "leaf_thickness_sig"  :  0.000500,
+
+    "leaf_angle_ave": 70.00,
+    "leaf_angle_sig": 1.00,
+    "leaf_length_ave":   0.200,
+    "leaf_length_sig":   0.030,
+    "leaf_width_ave":  0.1000,
+    "leaf_width_sig":  0.0100
+}

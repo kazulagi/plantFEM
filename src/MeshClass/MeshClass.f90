@@ -4923,7 +4923,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     integer(int32),allocatable :: checked(:),checked_node(:)
     real(real64),allocatable ::nodcoord(:,:)
     real(real64) :: ll,center(3),vector(3),e1(3),e2(3),e3(3),len_val
-    real(real64) :: length,r,alpha,lin_curve_ratio,yy_,swratio
+    real(real64) :: length,r,alpha,lin_curve_ratio,yy_,swratio,thickness_ratio,thickness_
     
     
     
@@ -5786,6 +5786,10 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                     stop 
                 endif
 
+                thickness_ = maxval(obj%NodCoord(:,2) )- minval(obj%NodCoord(:,2) )
+                width = maxval(obj%NodCoord(:,1) )- minval(obj%NodCoord(:,1) )
+                thickness_ratio = (width*1.0d0/10.0d0)/thickness_
+
                 do i=1,size(obj%nodcoord,1)
                     xx = obj%nodcoord(i,3)
                     if(obj%NodCoord(i,1) <= (maxval(obj%NodCoord(:,1) ) + minval(obj%NodCoord(:,1)))*0.50d0  )then
@@ -5795,7 +5799,10 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                     endif
                     r      = (alpha**2 + (length - alpha)**2)/(2*alpha)*1.20d0 
                     if(xx <= 1.0d0/25.0d0*length)then
+                        ! base of the leaf
                         obj%NodCoord(i,1) = obj%NodCoord(i,1)*1.0d0/10.0d0
+                        ! fat base of the leaf
+                        obj%NodCoord(i,2) = obj%NodCoord(i,2)*thickness_ratio
                         cycle
                     elseif(xx < alpha)then
                         yy = sqrt( alpha**2 - (xx-alpha)**2 )
@@ -5858,10 +5865,16 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                 stop
             endif
         else
+            ! other shape
+            thickness_ = maxval(obj%NodCoord(:,2) )- minval(obj%NodCoord(:,2) )
+            width = maxval(obj%NodCoord(:,1) )- minval(obj%NodCoord(:,1) )
+            thickness_ratio = (width*1.0d0/10.0d0)/thickness_
+
             do i=1,size(obj%NodCoord,1)
                 zc = obj%NodCoord(i,3)
                 zm = minval(obj%NodCoord(:,3) )
                 width = maxval(obj%NodCoord(:,1) )- minval(obj%NodCoord(:,1) )
+                
                 width = width/2.0d0
                 zl = maxval(obj%NodCoord(:,3) )- minval(obj%NodCoord(:,3) )
 
@@ -5869,11 +5882,15 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                     ratio = 1.0d0/10.0d0 
                 elseif(1.0d0/20.0d0*zl < zc .and. zc <= zl*shaperatio )then
                     ratio = 1.0d0/10.0d0 + 0.90d0/(zl*shaperatio - 1.0d0/20.0d0*zl)*(zc - 1.0d0/20.0d0*zl)
+                    thickness_ratio = 1.0d0
                 else
                     ratio = 1.0d0 -0.90d0/(zl - shaperatio*zl)*(zc - shaperatio*zl)
+                    thickness_ratio = 1.0d0
                 endif
 
                 obj%NodCoord(i,1) = obj%NodCoord(i,1)*ratio
+                ! fat the base of the leaf
+                obj%NodCoord(i,2) = obj%NodCoord(i,2)*thickness_ratio
 
             enddo
         endif

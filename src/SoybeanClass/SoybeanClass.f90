@@ -123,6 +123,8 @@ module SoybeanClass
         logical :: property_deform_gravity = .false.
 
         real(real64) :: Gravity_acceralation = 9.810d0
+        real(real64) :: PenaltyParameter = 100000.0d0
+        logical :: GaussPointProjection = .false.
         
 
         
@@ -147,7 +149,7 @@ module SoybeanClass
         procedure,public :: expanition => expanitionSoybean
         procedure,public :: development => developmentSoybean
 
-        ! simulation
+        !  Simulator
         procedure,public :: checkProperties => checkPropertiesSoybean
         procedure,public :: setProperties => setPropertiesSoybean
         procedure,public :: setPropertiesDensity => setPropertiesDensitySoybean
@@ -158,6 +160,9 @@ module SoybeanClass
         procedure,public :: setPropertiesBoundaryTractionForce => setPropertiesBoundaryTractionForceSoybean
         procedure,public :: setPropertiesBoundaryDisplacement => setPropertiesBoundaryDisplacementSoybean
         procedure,public :: setPropertiesGravity => setPropertiesGravitySoybean
+
+        procedure,public :: runSimulation => runSimulationSoybean
+        procedure,public :: runSimulator => runSimulationSoybean
         ! readyForSoybean
         procedure,public :: readyFor => readyForSoybean
 
@@ -228,13 +233,14 @@ module SoybeanClass
 contains
 
 ! ########################################
-recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id,debug)
+recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin,debug)
     class(Soybean_),intent(inout) :: obj
     integer(int32),optional,intent(in) :: stem_id, root_id, leaf_id    
+    real(real64),optional,intent(in) :: overset_margin
     integer(int32) :: i,j,this_stem_id,next_stem_id,A_id,B_id,itr_tol,itr
     integer(int32) :: this_leaf_id,next_leaf_id
     integer(int32) :: this_root_id,next_root_id
-    real(real64) :: x_A(3),x_B(3),diff(3),error,last_error,mgn
+    real(real64) :: x_A(3),x_B(3),diff(3),error,last_error,mgn,overset_m,error_tol
     logical,optional,intent(in) :: debug
     ! update connectivity
     if(.not. allocated(obj%stem2stem ))then
@@ -242,8 +248,10 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id,debug)
         return
     endif
 
+    error_tol = dble(1.0e-14)
 
     ! margin between subdomains
+    overset_m = input(default=0.01d0, option=overset_margin)
     
     itr_tol = 100
     itr=0
@@ -267,11 +275,21 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id,debug)
                 next_stem_id = i
                 if(obj%stem2stem(i,j)/=0 .and. i /= j)then
                     ! this_stem_id ===>>> next_stem_id, connected!
-                    x_B(:) = obj%stem(this_stem_id)%getCoordinate("B")
-                    x_A(:) = obj%stem(next_stem_id)%getCoordinate("A")
+                    
+                    !x_B(:) = obj%stem(this_stem_id)%getCoordinate("B")
+                    !x_A(:) = obj%stem(next_stem_id)%getCoordinate("A")
+                    ! Overset分食い込ませる
+                    x_B(:) = (1.0d0-overset_m)*obj%stem(this_stem_id)%getCoordinate("B")&
+                        + overset_m*obj%stem(this_stem_id)%getCoordinate("A")
+                    ! Overset分食い込ませる
+                    x_A(:) = (1.0d0-overset_m)*obj%stem(next_stem_id)%getCoordinate("A")&
+                        + overset_m*obj%stem(next_stem_id)%getCoordinate("B")
+
                     diff(:) = x_B(:) - x_A(:)
+                    
                     error = error + dot_product(diff,diff)
                     call obj%stem(next_stem_id)%move(x=diff(1),y=diff(2),z=diff(3) )
+
                 endif
             enddo
         enddo
@@ -285,7 +303,7 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id,debug)
             stop
         endif
         
-        if( abs(error) + abs(last_error) == 0.0d0) exit
+        if( abs(error) + abs(last_error) < error_tol) exit
         last_error = error
     enddo
 
@@ -300,8 +318,16 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id,debug)
                 next_root_id = i
                 if(obj%root2root(i,j)/=0 .and. i /= j)then
                     ! this_root_id ===>>> next_root_id, connected!
-                    x_B(:) = obj%root(this_root_id)%getCoordinate("B")
-                    x_A(:) = obj%root(next_root_id)%getCoordinate("A")
+                    !x_B(:) = obj%root(this_root_id)%getCoordinate("B")
+                    !x_A(:) = obj%root(next_root_id)%getCoordinate("A")
+                    
+                    ! Overset分食い込ませる
+                    x_B(:) = (1.0d0-overset_m)*obj%root(this_root_id)%getCoordinate("B")&
+                        + overset_m*obj%root(this_root_id)%getCoordinate("A")
+                    ! Overset分食い込ませる
+                    x_A(:) = (1.0d0-overset_m)*obj%root(next_root_id)%getCoordinate("A")&
+                        + overset_m*obj%root(next_root_id)%getCoordinate("B")
+
                     diff(:) = x_B(:) - x_A(:)
                     error = error + dot_product(diff,diff)
                     call obj%root(next_root_id)%move(x=diff(1),y=diff(2),z=diff(3) )
@@ -318,7 +344,7 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id,debug)
             stop
         endif
         
-        if( abs(error) + abs(last_error) == 0.0d0) exit
+        if( abs(error) + abs(last_error)  < error_tol) exit
         last_error = error
     enddo
 
@@ -334,8 +360,16 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id,debug)
                 next_leaf_id = i
                 if(obj%leaf2stem(i,j)==1)then
                     ! this_stem_id ===>>> next_leaf_id, connected!
-                    x_B(:) = obj%stem(this_stem_id)%getCoordinate("B")
-                    x_A(:) = obj%leaf(next_leaf_id)%getCoordinate("A")
+                    !x_B(:) = obj%stem(this_stem_id)%getCoordinate("B")
+                    !x_A(:) = obj%leaf(next_leaf_id)%getCoordinate("A")
+
+                    ! Overset分食い込ませる
+                    x_B(:) = (1.0d0-overset_m)*obj%stem(this_stem_id)%getCoordinate("B")&
+                        + overset_m*obj%stem(this_stem_id)%getCoordinate("A")
+                    ! Overset分食い込ませる
+                    x_A(:) = (1.0d0-overset_m)*obj%leaf(next_leaf_id)%getCoordinate("A")&
+                        + overset_m*obj%leaf(next_leaf_id)%getCoordinate("B")
+
                     diff(:) = x_B(:) - x_A(:)
                     error = error + dot_product(diff,diff)
                     call obj%leaf(next_leaf_id)%move(x=diff(1),y=diff(2),z=diff(3) )
@@ -352,7 +386,7 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id,debug)
             stop
         endif
         
-        if( abs(error) + abs(last_error) == 0.0d0) exit
+        if( abs(error) + abs(last_error)  < error_tol) exit
         last_error = error
     enddo
 
@@ -3964,18 +3998,18 @@ pure function branchIDSoybean(obj,StemNodeID) result(ret)
 end function
 ! ##################################################################
 
-subroutine checkPropertiesSoybean(obj,Simulation)
+subroutine checkPropertiesSoybean(obj, Simulator)
     class(Soybean_),intent(in) :: obj
-    integer(int32),intent(in)  :: Simulation
+    integer(int32),intent(in)  ::  Simulator
     type(Time_) :: time
     type(IO_) :: f
     
     call f%open("__soybeanclass__checkPropertiesSoybean.log")
-    if(Simulation == PF_DEFORMATION_ANALYSIS )then
+    if( Simulator == PF_DEFORMATION_ANALYSIS )then
         call print("---------------------------------------")
         call print("-- checkProperties @ SoybeanClass  ----")
         call print("---------------------------------------")
-        call print("Simulation mode :: Deformation analysis")
+        call print(" Simulator mode :: Deformation analysis")
         call print("---------------------------------------")
         call print("Date and time: "//time%DateAndTime())
         call print("---------------------------------------")
@@ -4002,7 +4036,7 @@ subroutine checkPropertiesSoybean(obj,Simulation)
         call f%write("---------------------------------------")
         call f%write("-- checkProperties @ SoybeanClass  ----")
         call f%write("---------------------------------------")
-        call f%write("Simulation mode :: Deformation analysis")
+        call f%write(" Simulator mode :: Deformation analysis")
         call f%write("---------------------------------------")
         call f%write("Date and time: "//time%DateAndTime())
         call f%write("---------------------------------------")
@@ -4026,7 +4060,7 @@ subroutine checkPropertiesSoybean(obj,Simulation)
             str(obj%property_deform_gravity)                    )
         call f%write("---------------------------------------")
     else
-        call print("Invalid Simulation ID :: "//str(Simulation) )
+        call print("Invalid  Simulator ID :: "//str( Simulator) )
         
     endif
     call f%close()
@@ -4922,13 +4956,13 @@ subroutine setPropertiesSoybean(obj,density,YoungModulus,PoissonRatio,&
 end subroutine
 ! ##################################################################
 
-function readyForSoybean(obj,Simulation) result(ready)
+function readyForSoybean(obj, Simulator) result(ready)
     class(Soybean_),intent(inout) :: obj
-    integer(int32),intent(in) :: Simulation
+    integer(int32),intent(in) ::  Simulator
     logical :: ready
     ! default = ready!
     ! if all the properties are set, then ready = true
-    if(Simulation == PF_DEFORMATION_ANALYSIS )then
+    if( Simulator == PF_DEFORMATION_ANALYSIS )then
         ready = .true.
         ready = ready .and. obj%property_deform_material_density
         ready = ready .and. obj%property_deform_material_YoungModulus
@@ -4939,8 +4973,303 @@ function readyForSoybean(obj,Simulation) result(ready)
         ready = ready .and. obj%property_deform_boundary_Displacement
         ready = ready .and. obj%property_deform_gravity
     else
-        print *, "[ERROR] readyForSoybean >> invalid simulation type.",simulation
+        print *, "[ERROR] readyForSoybean >> invalid  Simulator type.", Simulator
     endif
 end function
 ! ##################################################################
+
+subroutine runSimulationSoybean(obj, Simulator,error_tolerance,z_min,debug)
+    class(Soybean_),target,intent(inout) :: obj
+    type(ContactMechanics_) :: contact
+    type(FEMDomainp_),allocatable :: femdomainp(:)
+    type(FEMDomain_),allocatable :: femdomains(:)
+    
+    type(Dictionary_) :: YoungModulusList
+    type(Dictionary_) :: PoissonRatioList
+    type(Dictionary_) :: DensityList
+    real(real64),optional,intent(in) :: error_tolerance
+    real(real64),intent(in) :: z_min
+
+    logical,optional,intent(in) :: debug
+    
+    integer(int32),allocatable :: contactlist(:,:)
+    integer(int32),intent(in) ::  Simulator
+    integer(int32) :: i,j,k,i_offset, j_offset
+    type(IO_)  :: f
+    
+    if( .not.obj%readyFor(Simulator)  )then
+        call obj%checkProperties(Simulator=Simulator)
+        print *, "[ERROR] :: runSimulationSoybean >> .not.obj%readyFor(Simulator) "
+        return
+    endif
+    
+    if( Simulator == PF_DEFORMATION_ANALYSIS )then
+        ! run
+        print *, "[ok] Running PF_DEFORMATION_ANALYSIS..."
+        ! 全てのdomainのpointer
+        allocate(femdomainp( obj%numleaf() + obj%numStem() + obj%numRoot()  ) )
+        allocate(femdomains( obj%numleaf() + obj%numStem() + obj%numRoot()  ) )
+        k = 0
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%empty() )then
+                cycle
+            else
+                k  = k+ 1
+                femdomainp(k)%femdomainp => obj%stem(i)%femdomain
+                femdomains(k) = obj%stem(i)%femdomain
+            endif
+        enddo
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%empty() )then
+                cycle
+            else
+                k  = k+ 1
+                femdomainp(k)%femdomainp => obj%leaf(i)%femdomain
+                femdomains(k) = obj%leaf(i)%femdomain
+            endif
+        enddo
+        do i=1,size(obj%root)
+            if(obj%root(i)%empty() )then
+                cycle
+            else
+                k  = k+ 1
+                femdomainp(k)%femdomainp => obj%root(i)%femdomain
+                femdomains(k)  = obj%root(i)%femdomain
+            endif
+        enddo
+        
+        ! >>>>>>>>>>>>>>>>>>>>>>>
+        ! connectivitylist
+        ! >>>>>>>>>>>>>>>>>>>>>>>
+        
+        
+        k = obj%numStem() + obj%numleaf() + obj%numRoot()
+        contactlist = zeros(k, k)
+
+
+        ! leaf to stem
+        i_offset = obj%numStem()
+        j_offset = 0
+        !!$OMP parallel do private(i,j)
+        do i=1,obj%numleaf()
+            do j=1, obj%numstem()
+                if(obj%leaf2stem(i,j)/=0 )then
+                    contactlist(i+i_offset, j+j_offset) = obj%leaf2stem(i,j)
+                endif
+            enddo
+        enddo
+        !!$OMP end parallel do
+
+        ! stem to stem
+        i_offset = 0
+        j_offset = 0
+        !!$OMP parallel do private(i,j)
+        do i=1,obj%numstem()
+            do j=1, obj%numstem()
+                if(obj%stem2stem(i,j)/=0 )then
+                    contactlist(i+i_offset, j+j_offset) = obj%stem2stem(i,j)
+                endif
+            enddo
+        enddo
+        !!$OMP end parallel do
+
+        ! root to stem
+        i_offset = obj%numstem() + obj%numleaf()
+        j_offset = 0
+        !!$OMP parallel do private(i,j)
+        do i=1,obj%numroot()
+            do j=1, obj%numstem()
+                if(obj%root2stem(i,j)/=0 )then
+                    contactlist(i+i_offset, j+j_offset) = obj%root2stem(i,j)
+                endif
+            enddo
+        enddo
+        !!$OMP end parallel do
+
+        ! root to root
+        i_offset = obj%numstem() + obj%numroot()
+        j_offset = obj%numstem() + obj%numroot()
+        !!$OMP parallel do private(i,j)
+        do i=1,obj%numroot()
+            do j=1, obj%numroot()
+                if(obj%root2root(i,j)/=0 )then
+                    contactlist(i+i_offset, j+j_offset) = obj%root2root(i,j)
+                endif
+            enddo
+        enddo
+        !!$OMP end parallel do
+
+        ! YoungModulusListを作る
+        allocate(YoungModulusList%dictionary(obj%numleaf() + obj%numStem() + obj%numRoot()))
+        k=0
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%empty() )then
+                cycle
+            else
+                k  = k+ 1
+                YoungModulusList%dictionary(k)%realist = obj%stem(i)%YoungModulus
+            endif
+        enddo
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%empty() )then
+                cycle
+            else
+                k  = k+ 1
+                YoungModulusList%dictionary(k)%realist = obj%leaf(i)%YoungModulus
+            endif
+        enddo
+        do i=1,size(obj%root)
+            if(obj%root(i)%empty() )then
+                cycle
+            else
+                k  = k+ 1
+                YoungModulusList%dictionary(k)%realist = obj%root(i)%YoungModulus
+            endif
+        enddo
+
+        ! PoissonRatioListを作る
+        allocate(PoissonRatioList%dictionary(obj%numstem() + obj%numleaf() + obj%numRoot()))
+        k=0
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%empty() )then
+                cycle
+            else
+                k  = k+ 1
+                PoissonRatioList%dictionary(k)%realist = obj%stem(i)%PoissonRatio
+            endif
+        enddo
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%empty() )then
+                cycle
+            else
+                k  = k+ 1
+                PoissonRatioList%dictionary(k)%realist = obj%leaf(i)%PoissonRatio
+            endif
+        enddo
+        do i=1,size(obj%root)
+            if(obj%root(i)%empty() )then
+                cycle
+            else
+                k  = k+ 1
+                PoissonRatioList%dictionary(k)%realist = obj%root(i)%PoissonRatio
+            endif
+        enddo
+
+        ! DensityListを作る
+        allocate(DensityList%dictionary(obj%numStem() + obj%numLeaf() + obj%numRoot()))
+        k=0
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%empty() )then
+                cycle
+            else
+                k  = k+ 1
+                DensityList%dictionary(k)%realist = obj%stem(i)%Density
+            endif
+        enddo
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%empty() )then
+                cycle
+            else
+                k  = k+ 1
+                DensityList%dictionary(k)%realist = obj%leaf(i)%Density
+            endif
+        enddo
+        do i=1,size(obj%root)
+            if(obj%root(i)%empty() )then
+                cycle
+            else
+                k  = k+ 1
+                DensityList%dictionary(k)%realist = obj%root(i)%Density
+            endif
+        enddo
+
+
+        
+
+
+        ! ContactMechanicsClassを呼ぶ
+        call contact%init(femdomains=femdomains, contactlist=contactlist)
+
+        print *, "[ok] Initialized simulator"
+
+        ! 要修正(1) 材料パラメータをElement-wiseに導入する．
+        ! Import material parameters
+        ! Element-wise にする．
+
+        contact%YoungModulusList = YoungModulusList
+        contact%PoissonRatioList = PoissonRatioList
+        contact%DensityList = DensityList
+        contact%gravity = obj%Gravity_acceralation
+
+        ! 
+        call contact%setup(penaltyparameter=obj%PenaltyParameter,&
+            GaussPointProjection=obj%GaussPointProjection)
+
+        ! 要修正(2) 境界条件を課す節点のリスト+値から境界条件を導入．
+        ! Boundary conditions
+        
+        ! fix displacement
+        ! Listから選択
+        print *, "[ok] set up done."
+        call contact%fix(direction="x",disp= 0.0d0, DomainID=1,z_max=0.010d0)
+        call contact%fix(direction="y",disp= 0.0d0, DomainID=1,z_max=0.010d0)
+        call contact%fix(direction="z",disp= 0.0d0, DomainID=1,z_max=0.010d0)
+        
+
+        !do i=1,size(contact%femdomains)
+            call contact%fix(direction="x",disp= -0.02d0, DomainID=5,z_min=0.30d0,z_max=0.410d0)
+        !enddo
+
+        ! traction forceを入れる．
+
+
+        ! solve > get displacement
+        !call f%open("debug.txt")
+        !call f%write(contact%contactlist)
+        !call f%close()
+        !stop
+        contact%solver%er0 = input(default=dble(1.0e-7),option=error_tolerance)
+        if(present(debug) )then
+            contact%solver%debug = debug
+        endif
+        call contact%solver%solve("BiCGSTAB")
+        
+        ! update mesh
+        call contact%updateMesh()
+        k = 0
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%empty() )then
+                cycle
+            else
+                k  = k+ 1
+                obj%stem(i)%femdomain = femdomains(k) 
+            endif
+        enddo
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%empty() )then
+                cycle
+            else
+                k  = k+ 1
+                obj%leaf(i)%femdomain = femdomains(k)
+            endif
+        enddo
+        do i=1,size(obj%root)
+            if(obj%root(i)%empty() )then
+                cycle
+            else
+                k  = k+ 1
+                obj%root(i)%femdomain = femdomains(k)
+            endif
+        enddo
+        
+
+        ! 要修正(3) 変位から応力，等価節点力を計算
+
+
+    else
+        print *, "[ERROR] readyForSoybean >> invalid  Simulator type.", Simulator
+    endif
+end subroutine
+! ##################################################################
+
 end module

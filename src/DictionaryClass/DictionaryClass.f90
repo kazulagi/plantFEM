@@ -14,6 +14,7 @@ module DictionaryClass
 
     type :: Dictionary_
         type(Page_),allocatable :: Dictionary(:)
+        logical :: initialized = .false.
     contains
         procedure :: Init => InitializeDictionary
         procedure :: Input => InputDictionary
@@ -26,7 +27,8 @@ module DictionaryClass
         procedure :: realvalue => realvalueofDictionary
         procedure :: show => showDictionary
         procedure :: export => exportDictionary
-
+        procedure :: destroy => destroyDictionary
+        procedure :: remove => destroyDictionary
     end type
 
     type, extends(Page_) :: FileInfo_
@@ -55,6 +57,7 @@ subroutine InitializeDictionary(obj,NumOfPage)
         deallocate(obj%Dictionary)
     endif
     allocate(obj%Dictionary(NumOfPage) )
+    obj%initialized = .true.
 
 end subroutine
 ! ##############################################
@@ -358,6 +361,16 @@ function GetPageNumDictionary(obj,Content) result(page)
 end function
 ! ##############################################
 
+! ##############################################
+subroutine destroyDictionary(obj)
+    class(Dictionary_),intent(inout) :: obj
+
+    if(allocated(obj%dictionary))then
+        deallocate(obj%Dictionary)
+    endif
+    obj%initialized = .false.
+end subroutine
+! ##############################################
 
 
 end module
