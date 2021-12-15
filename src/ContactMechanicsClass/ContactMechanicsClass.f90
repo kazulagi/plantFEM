@@ -12,14 +12,15 @@ module ContactMechanicsClass
 		! Modern 
 		type(FEMDomainp_),allocatable :: FEMDomains(:)
 		type(LinearSolver_) :: solver
+
 		integer(int32),allocatable :: contactlist(:,:)
 		real(real64),allocatable :: YoungModulus(:)
 		real(real64),allocatable :: PoissonRatio(:)
 		real(real64),allocatable :: Density(:)
 
-		real(real64),allocatable :: YoungModulusList(:,:)
-		real(real64),allocatable :: PoissonRatioList(:,:)
-		real(real64),allocatable :: DensityList(:,:)
+		type(Dictionary_) ::  YoungModulusList
+		type(Dictionary_) ::  PoissonRatioList
+		type(Dictionary_) ::  DensityList
 		real(real64),allocatable :: Displacement(:)
 		real(real64),allocatable :: TractionForce(:,:)
 		
@@ -229,6 +230,8 @@ subroutine InitializeContactMechanics(obj, femdomains, femdomainsp, contactlist,
 
 		obj%ContactList = contactList
 
+
+		
 
 		! initialize solver
 		allocate(NumberOfNode(numDomain))
@@ -488,7 +491,7 @@ subroutine runCM(obj,penaltyparameter,debug,GaussPointProjection)
 	real(real64),allocatable :: A_ij(:,:), x_i(:), b_i(:) ! A x = b
 	real(real64),allocatable :: A_ij_GPP(:,:)
 	real(real64) :: position(3),center(3)
-	real(real64) :: penalty
+	real(real64) :: penalty, YoungModulus,PoissonRatio,Density
 	type(FEMDomain_),pointer :: domain1, domain2
 	type(ShapeFunction_) :: sf
 	logical :: GPP ! enable Gauss-Point projection
@@ -519,16 +522,47 @@ subroutine runCM(obj,penaltyparameter,debug,GaussPointProjection)
 			DomainIDs1(:) = DomainID
 			
 			do ElementID=1, obj%femdomains(DomainID)%femdomainp%ne()
-				
+				!
+				! If type(Dictionary_) :: YoungMoludus_EBE exitsts
 				! For 1st element, create stiffness matrix
+				YoungModulus = obj%YoungModulus(DomainID)
+				if(obj%YoungModulusList%initialized )then
+					if(allocated(obj%YoungModulusList%dictionary ) )then
+						if(allocated(obj%YoungModulusList%dictionary(DomainID)%realist))then
+							YoungModulus = &
+								obj%YoungModulusList%dictionary(DomainID)%realist(ElementID) 
+						endif
+					endif
+				endif
+
+				PoissonRatio = obj%PoissonRatio(DomainID)
+				if(obj%PoissonRatioList%initialized )then
+					if(allocated(obj%PoissonRatioList%dictionary ) )then
+						if(allocated(obj%PoissonRatioList%dictionary(DomainID)%realist))then
+							PoissonRatio = &
+								obj%PoissonRatioList%dictionary(DomainID)%realist(ElementID) 
+						endif
+					endif
+				endif
+
+				Density = obj%Density(DomainID)
+				if(obj%DensityList%initialized )then
+					if(allocated(obj%DensityList%dictionary ) )then
+						if(allocated(obj%DensityList%dictionary(DomainID)%realist))then
+							Density = &
+								obj%DensityList%dictionary(DomainID)%realist(ElementID) 
+						endif
+					endif
+				endif
+
 			    A_ij = obj%femdomains(DomainID)%femdomainp%StiffnessMatrix(&
 					ElementID=ElementID,&
-					E=obj%YoungModulus(DomainID), &
-					v=obj%PoissonRatio(DomainID))
+					E=YoungModulus, &
+					v=PoissonRatio)
 			    b_i  = obj%femdomains(DomainID)%femdomainp%MassVector(&
 			        ElementID=ElementID,&
 			        DOF=obj%femdomains(DomainID)%femdomainp%nd() ,&
-			        Density=obj%Density(DomainID),&
+			        Density=Density,&
 			        Accel=obj%Gravity&
 			        )
 			    ! assemble them 
@@ -657,7 +691,7 @@ subroutine runCM(obj,penaltyparameter,debug,GaussPointProjection)
 				endif
 			enddo
 		enddo
-
+		call print("[ok] Assembled InterConnect matrices")
 		call obj%solver%prepareFix()
 
 		return
@@ -6101,9 +6135,9 @@ subroutine removeContactMechanics(obj)
 	if(allocated(obj%PoissonRatio)) deallocate(obj%PoissonRatio )
 	if(allocated(obj%Density)) deallocate(obj%Density )
 
-	if(allocated(obj%YoungModulusList)) deallocate(obj%YoungModulusList )
-	if(allocated(obj%PoissonRatioList)) deallocate(obj%PoissonRatioList )
-	if(allocated(obj%DensityList)) deallocate(obj%DensityList )
+	call obj%YoungModulusList%destroy()
+	call obj%PoissonRatioList%destroy()
+	call obj%DensityList%destroy()
 
 	obj%initialized = .false.
 
