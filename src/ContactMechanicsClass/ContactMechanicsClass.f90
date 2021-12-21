@@ -141,7 +141,15 @@ module ContactMechanicsClass
 		procedure :: ContactSearch  => ContactSearch 
         procedure :: getKcmat       => getKcmat
         procedure :: getKcmatStick  => getKcmatStick
-		procedure :: getKcmatStickSlip 		=> getKcmatStickSlip 
+		procedure :: getKcmatStickSlip 		=> getKcmatStickSlip
+		
+		procedure :: getAllCoordinate => getAllCoordinateContactMechanics
+
+		procedure :: getDisplacement => getDisplacementContactMechanics
+		procedure :: getStress => getStressContactMechanics
+		procedure :: get => getStressContactMechanics
+
+		
 		procedure :: setPenaltyParameter 	=> setPenaltyParaCM 
 		procedure :: updateContactStress 	=> updateContactStressCM
 		procedure :: updateTimestep => updateTimestepContact
@@ -467,6 +475,7 @@ subroutine updateMeshContactMechanics(obj)
 			From = From + obj%solver%NumberOfNode(i)*DOF
 		enddo
 	endif
+
 end subroutine
 
 ! #####################################################
@@ -6256,5 +6265,134 @@ subroutine solveCM(obj,Algorithm)
 	!	PoissonRatio=obj%PoissonRatio) ,a_domain%nn(),a_domain%nd() )
 
 end subroutine
+! ###########################################################################
+
+
+
+! ###########################################################################
+function getDisplacementContactMechanics(obj,DomainID) result(displacement)
+	class(ContactMechanics_),target,intent(in) :: obj
+	integer(int32),optional,intent(in) :: DomainID
+	integer(int32) :: i,DOF,From,To,total_nn
+	real(real64),allocatable :: displacement(:,:)
+	if(obj%initialized )then
+
+		if(present(DomainID) )then
+			DOF = obj%femdomains(1)%femdomainp%nd()
+			
+			i=DomainID
+			if(i==1)then
+				From = 1
+				To   = obj%solver%NumberOfNode(i)*DOF
+			else
+				From = obj%solver%NumberOfNode(i-1)*DOF + 1
+				To   = obj%solver%NumberOfNode(i)*DOF
+			endif
+
+    		displacement = reshape( obj%solver%x(From:To),obj%femdomains(i)%femdomainp%nn(),DOF )
+		else
+			DOF = obj%femdomains(1)%femdomainp%nd()
+			total_nn = 0
+			do i=1,size(obj%femdomains)
+				total_nn = total_nn + obj%femdomains(i)%femdomainp%nn()
+			enddo
+			displacement = reshape( obj%solver%x,total_nn,DOF)
+		endif
+	else	
+		print *, "[ERROR] getDisplacementContactMechanics >> .not. obj%initialized"
+	endif
+
+end function
+! ###########################################################################
+
+
+! ###########################################################################
+function getAllCoordinateContactMechanics(obj,DomainID) result(Coordinate)
+	class(ContactMechanics_),target,intent(in) :: obj
+	integer(int32),optional,intent(in) :: DomainID ! if present, return coordinates only for the domain
+	integer(int32) :: i,DOF,From,To,total_nn,j
+	real(real64),allocatable :: Coordinate(:,:)
+	integer(int32),allocatable :: number_of_node(:)
+
+
+	if(.not. allocated(obj%femdomains) )then
+		print *, "ERROR >> getAllCoordinateContactMechanics .not. allocated(obj%femdomains)"
+		stop 
+	endif
+
+
+	if(present(DomainID) )then
+		DOF = obj%femdomains(1)%femdomainp%nd()
+		
+		i=DomainID
+		
+		Coordinate = obj%femdomains(i)%femdomainp%mesh%nodcoord
+	else
+		DOF = obj%femdomains(1)%femdomainp%nd()
+		
+		number_of_node = zeros(size(obj%femdomains))
+		
+		do i=1,size(obj%femdomains)
+			number_of_node(i) = obj%femdomains(i)%femdomainp%nn()
+		enddo
+		total_nn = sum(number_of_node)
+		allocate(Coordinate(total_nn,DOF) )
+		
+		!$OMP parallel do private(i)
+		do j = 1, size(obj%femdomains)
+			if(i==1)then
+				From = 1
+				To   = number_of_node(i)
+			else
+				From = sum(number_of_node(1:i-1)) + 1
+				To   = sum(number_of_node(1:i))
+			endif
+			Coordinate(From:To,1:DOF) = obj%femdomains(i)%femdomainp%mesh%nodcoord(:,:)
+		enddo
+		!$OMP end parallel do
+	endif
+
+end function
+! ###########################################################################
+
+
+
+! ###########################################################################
+function getStressContactMechanics(obj,DomainID) result(Stress)
+	class(ContactMechanics_),target,intent(in) :: obj
+	integer(int32),intent(in) :: DomainID
+	integer(int32) :: i,DOF,From,To,n,ngp,j
+	real(real64),allocatable :: Stress(:,:,:,:),displacement(:,:)
+	real(real64),allocatable :: YoungModulus(:),PoissonRatio(:)
+
+	if(obj%initialized )then
+		DOF = obj%solver%DOF
+		n   = obj%femdomains(DomainID)%femdomainp%ne()
+		ngp   = obj%femdomains(DomainID)%femdomainp%ngp()
+		
+		allocate(Stress(n,ngp,DOF,DOF) )
+
+		displacement = obj%getDisplacement(DomainID)
+		YoungModulus = obj%YoungModulusList%dictionary(DomainID)%realist
+		PoissonRatio = obj%YoungModulusList%dictionary(DomainID)%realist
+		!$OMP parallel do private(i,j)
+		do i=1, n
+			do j=1,ngp
+				Stress(i,j,:,:) = obj%femdomains(DomainID)%femdomainp%StressMatrix(&
+					 ElementID= i &
+					,GaussPoint=j &
+					,disp= displacement&
+					,E= YoungModulus(i) &
+					,v= YoungModulus(i) )
+			enddo
+		enddo
+		!$OMP end parallel do
+	else	
+		print *, "[ERROR] getDisplacementContactMechanics >> .not. obj%initialized"
+	endif
+
+end function
+! ###########################################################################
+
 
 end module 

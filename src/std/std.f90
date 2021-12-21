@@ -15,6 +15,7 @@ module std
     use KinematicClass
     use RandomClass
     use ArrayClass
+    use RangeClass
     use PCAClass
     use SDEClass
     use VertexClass

@@ -74,6 +74,7 @@ module LeafClass
         real(real64),allocatable :: Density(:)     ! element-wise
         real(real64),allocatable :: Stress(:,:,:)     ! Gauss point-wise
         real(real64),allocatable :: Displacement(:,:) ! node-wise, three dimensional
+        
 
         real(real64),allocatable :: BoundaryTractionForce(:,:) ! node-wise, three dimensional
         real(real64),allocatable :: BoundaryDisplacement(:,:) ! node-wise, three dimensional

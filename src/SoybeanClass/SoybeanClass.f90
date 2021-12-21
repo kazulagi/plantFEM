@@ -282,8 +282,8 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin
                     x_B(:) = (1.0d0-overset_m)*obj%stem(this_stem_id)%getCoordinate("B")&
                         + overset_m*obj%stem(this_stem_id)%getCoordinate("A")
                     ! Overset分食い込ませる
-                    x_A(:) = (1.0d0-overset_m)*obj%stem(next_stem_id)%getCoordinate("A")&
-                        + overset_m*obj%stem(next_stem_id)%getCoordinate("B")
+                    x_A(:) = obj%stem(next_stem_id)%getCoordinate("A")
+                        
 
                     diff(:) = x_B(:) - x_A(:)
                     
@@ -325,8 +325,8 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin
                     x_B(:) = (1.0d0-overset_m)*obj%root(this_root_id)%getCoordinate("B")&
                         + overset_m*obj%root(this_root_id)%getCoordinate("A")
                     ! Overset分食い込ませる
-                    x_A(:) = (1.0d0-overset_m)*obj%root(next_root_id)%getCoordinate("A")&
-                        + overset_m*obj%root(next_root_id)%getCoordinate("B")
+                    x_A(:) = obj%root(next_root_id)%getCoordinate("A")
+                        
 
                     diff(:) = x_B(:) - x_A(:)
                     error = error + dot_product(diff,diff)
@@ -367,8 +367,8 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin
                     x_B(:) = (1.0d0-overset_m)*obj%stem(this_stem_id)%getCoordinate("B")&
                         + overset_m*obj%stem(this_stem_id)%getCoordinate("A")
                     ! Overset分食い込ませる
-                    x_A(:) = (1.0d0-overset_m)*obj%leaf(next_leaf_id)%getCoordinate("A")&
-                        + overset_m*obj%leaf(next_leaf_id)%getCoordinate("B")
+                    x_A(:) = obj%leaf(next_leaf_id)%getCoordinate("A")
+                        
 
                     diff(:) = x_B(:) - x_A(:)
                     error = error + dot_product(diff,diff)
@@ -411,7 +411,7 @@ subroutine initsoybean(obj,config,&
     real(real64) :: MaxThickness,Maxwidth,loc(3),vec(3),rot(3),zaxis(3),meshloc(3),meshvec(3)
     integer(int32) :: i,j,k,blcount,id,rmc,n,node_id,node_id2,elemid,branch_id,num_stem_node
     
-    real(real64)::readvalreal
+    real(real64)::readvalreal,leaf_z_angles(3)
     integer(int32) :: readvalint
     logical :: debug=.false.
     logical :: timeOpt = .false.
@@ -1439,6 +1439,9 @@ subroutine initsoybean(obj,config,&
             
 
             ! add leaves
+            leaf_z_angles(1) = radian(random%random()*360.0d0)
+            leaf_z_angles(2) = leaf_z_angles(1) - radian(120.0d0)
+            leaf_z_angles(3) = leaf_z_angles(1) + radian(120.0d0)
             do j=1,3
                 obj%num_leaf=obj%num_leaf+1
                 !call obj%leaf(obj%num_leaf)%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
@@ -1451,7 +1454,7 @@ subroutine initsoybean(obj,config,&
                 call obj%leaf(obj%num_leaf)%rotate(&
                     x = radian(random%gauss(mu=obj%leaf_angle_ave(i),sigma=obj%leaf_angle_sig(i))), &
                     y = 0.0d0, &
-                    z = radian(random%random()*360.0d0) &
+                    z = leaf_z_angles(j) &
                 )
                 call obj%leaf(obj%num_leaf)%connect("=>",obj%stem(obj%num_stem_node))
                 obj%leaf2stem(obj%num_leaf,obj%num_stem_node) = 1
@@ -1521,10 +1524,10 @@ subroutine initsoybean(obj,config,&
             enddo
         enddo
         
-
+        
         obj%stage = "V"//trim(str(obj%ms_node))
 
-
+        call obj%update()
         if(timeOpt) then
             print *, "[4] create objects."
         call time%show()
@@ -1743,6 +1746,7 @@ subroutine initsoybean(obj,config,&
     !    print *, "loc",loc
     !    print *, "vec",vec
     !    print *, "rot",rot    
+        call obj%update()
     endif
 
 
@@ -1815,6 +1819,7 @@ subroutine initsoybean(obj,config,&
             Stage=obj%Stage,MaxThickness=MaxThickness,Maxwidth=Maxwidth,location=loc)
 
             obj%time=0.0d0
+            call obj%update()
             return
         endif
     endif
@@ -2374,12 +2379,56 @@ end subroutine
 
 
 ! ########################################
-subroutine vtkSoybean(obj,name,num_threads)
+subroutine vtkSoybean(obj,name,num_threads,single_file,&
+    scalar_field,vector_field,tensor_field)
     class(Soybean_),intent(inout) :: obj
     character(*),intent(in) :: name
     type(IO_) :: f
+    type(FEMDomain_) :: femdomain
     integer(int32),optional,intent(in) :: num_threads
+    real(real64),optional,intent(in) :: scalar_field(:)
+    real(real64),optional,intent(in) :: vector_field(:,:)
+    real(real64),optional,intent(in) :: tensor_field(:,:,:)
     integer(int32) :: i, n
+    logical,optional,intent(in) :: single_file
+
+    if(present(single_file) )then
+        if(single_file)then
+            ! export mesh for a single file
+            do i=1,size(obj%stem)
+                if(.not.obj%stem(i)%femdomain%empty() )then
+                    femdomain = femdomain + obj%stem(i)%femdomain
+                endif
+            enddo
+            do i=1,size(obj%leaf)
+                if(.not.obj%leaf(i)%femdomain%empty() )then
+                    femdomain = femdomain + obj%leaf(i)%femdomain
+                endif
+            enddo
+            do i=1,size(obj%root)
+                if(.not.obj%root(i)%femdomain%empty() )then
+                    femdomain = femdomain + obj%root(i)%femdomain
+                endif
+            enddo
+
+            if(present(scalar_field) )then
+                ! export scalar-valued field 
+                ! as a single file
+                call femdomain%vtk(name=name,scalar=scalar_field)
+            elseif(present(vector_field) )then
+                ! export vector-valued field 
+                ! as a single file
+                call femdomain%vtk(name=name,vector=vector_field)
+            elseif(present(tensor_field) )then
+                ! export tensor-valued field 
+                ! as a single file
+                call femdomain%vtk(name=name,tensor=tensor_field)
+            else
+                call femdomain%vtk(name)
+            endif
+            return
+        endif
+    endif
 
     n = input(default=1,option=num_threads)
     
@@ -4978,7 +5027,7 @@ function readyForSoybean(obj, Simulator) result(ready)
 end function
 ! ##################################################################
 
-subroutine runSimulationSoybean(obj, Simulator,error_tolerance,z_min,debug)
+subroutine runSimulationSoybean(obj, Simulator,error_tolerance,debug,z_min)
     class(Soybean_),target,intent(inout) :: obj
     type(ContactMechanics_) :: contact
     type(FEMDomainp_),allocatable :: femdomainp(:)
@@ -5217,7 +5266,7 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,z_min,debug)
         
 
         !do i=1,size(contact%femdomains)
-            call contact%fix(direction="x",disp= -0.02d0, DomainID=5,z_min=0.30d0,z_max=0.410d0)
+            call contact%fix(direction="x",disp= -0.01d0, DomainID=5,z_min=0.30d0,z_max=0.410d0)
         !enddo
 
         ! traction forceを入れる．
@@ -5264,6 +5313,7 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,z_min,debug)
         
 
         ! 要修正(3) 変位から応力，等価節点力を計算
+        
 
 
     else
@@ -5271,5 +5321,6 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,z_min,debug)
     endif
 end subroutine
 ! ##################################################################
+
 
 end module

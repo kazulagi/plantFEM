@@ -13,8 +13,6 @@ module MathClass
 	logical :: False = .False.
 	!integer(int32) :: i_i = 0
 
-
-
 	type :: Math_
 		real(real64) :: PI = 3.141592653589793d0
 		real(real64) :: E  = 2.718281828459045d0

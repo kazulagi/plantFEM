@@ -1006,7 +1006,11 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
               call bicgstab_CRS(obj%val, obj%CRS_index_I, obj%CRS_index_J, obj%x, obj%b, obj%itrmax, obj%er0,obj%debug)
             elseif(allocated(obj%val) )then
               ! COO format
-              call bicgstab_COO(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0,obj%debug)
+              if(allocated(obj%locked) )then
+                call bicgstab_COO(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0,obj%debug, obj%locked)
+              else
+                call bicgstab_COO(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0,obj%debug)
+              endif
             else
               call bicgstab1d(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0)  
             endif
@@ -1065,7 +1069,11 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
 
       endif
       if(Solver=="BiCGSTAB")then
-        call bicgstab_COO(obj%val, index_I, index_J, obj%x, obj%b, obj%itrmax, obj%er0, obj%debug)
+        if(allocated(obj%locked) )then
+          call bicgstab_COO(obj%val, index_I, index_J, obj%x, obj%b, obj%itrmax, obj%er0, obj%debug,obj%locked)
+        else
+          call bicgstab_COO(obj%val, index_I, index_J, obj%x, obj%b, obj%itrmax, obj%er0, obj%debug)
+        endif
       else
         call GaussJordan_COO(obj%val, index_I, index_J, obj%x, obj%b)
       endif
@@ -1077,7 +1085,12 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
         endif
       endif
       if(Solver=="BiCGSTAB")then
-        call bicgstab_COO(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0, obj%debug)
+        if(allocated(obj%locked) )then
+          call bicgstab_COO(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0, obj%debug&
+            ,obj%locked)
+        else
+          call bicgstab_COO(obj%val, obj%index_I, obj%index_J, obj%x, obj%b, obj%itrmax, obj%er0, obj%debug)
+        endif
       else
         call GaussJordan_COO(obj%val, obj%index_I, obj%index_J, obj%x, obj%b)
       endif
@@ -1603,11 +1616,11 @@ subroutine gauss_jordan_pv_complex64(a0, x, b, n)
 
  !===============================================================
 
-subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug)
+subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug,locked)
   integer(int32), intent(inout) :: index_i(:),index_j(:), itrmax
   real(real64), intent(inout) :: a(:), b(:), er
   real(real64), intent(inout) :: x(:)
-  logical,optional,intent(in) :: debug
+  logical,optional,intent(in) :: debug,locked(:)
   logical :: speak = .false.
   integer(int32) itr,i,j,n
   real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
@@ -1631,6 +1644,18 @@ subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug)
     r( index_i(i) ) = r( index_i(i) ) - a(i)*x( index_j(i) ) 
   enddo
   
+  ! >> if fixed >> r=0, x=b
+  if(present(locked ) )then
+    !$OMP parallel do private(i)
+    do i=1,size(locked)
+      if(locked(i) )then
+        r(i) = 0.0d0
+        x(i) = b(i)
+      endif
+    enddo
+    !$OMP end parallel do
+  endif
+
   !r(:) = b - matmul(a,x)
   if(speak) print *, "BiCGSTAB >> [2] dp1"
   c1 = dot_product(r,r)
@@ -1683,6 +1708,19 @@ subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug)
 		c3 = ev / vv
     x(:) = x(:) + alp * p(:) + c3 * e(:)
     r(:) = e(:) - c3 * v(:)
+    
+    ! >> if fixed >> r=0, x=b
+    if(present(locked ) )then
+      !$OMP parallel do private(i)
+      do i=1,size(locked)
+        if(locked(i) )then
+          r(i) = 0.0d0
+          x(i) = b(i)
+        endif
+      enddo
+      !$OMP end parallel do
+    endif
+    
     rr = dot_product(r,r)
     
     
