@@ -285,6 +285,14 @@ module FEMDomainClass
 	type :: FEMDomainp_
 		type(FEMDomain_),pointer :: femdomainp
 	end type
+
+
+	public :: operator(+)
+	
+	interface operator(+)
+		module procedure appendfemdomain
+	end interface
+
 contains
 
 ! ####################################################################
@@ -10984,6 +10992,35 @@ end function
 ! ########################################
 
 
+! ########################################
+function appendfemdomain(x,y)  result(z)
+	class(FEMDomain_),intent(in) :: x, y
+	type(FEMDomain_) :: z
+	integer(int32) :: n,m
 
+	if(x%empty() )then
+		z = y
+	elseif(y%empty() )then
+		z = x
+	else
+		! add members
+		! F**kin supid algorithm
+
+		n = x%nn() + y%nn()
+		m = maxval([x%nd(),y%nd()])
+		z%mesh%nodcoord = zeros(n,m)
+		z%mesh%nodcoord(       1:         x%nn(),:) = x%mesh%nodcoord(1:x%nn(),:)
+		z%mesh%nodcoord(x%nn()+1: x%nn()+ y%nn(),:) = y%mesh%nodcoord(1:y%nn(),:)
+		
+		n = x%ne() + y%ne()
+		m = maxval([x%nne(),y%nne()])
+		z%mesh%elemnod  = zeros(n,m)
+		z%mesh%elemnod(        1:          x%ne(),:) = x%mesh%elemnod(1:x%ne(),:)
+		z%mesh%elemnod( x%ne()+1: x%ne() + y%ne(),:) = y%mesh%elemnod(1:y%ne(),:) + x%nn()
+
+	endif
+
+end function appendFEMDomain
+! ########################################
 
 end module FEMDomainClass

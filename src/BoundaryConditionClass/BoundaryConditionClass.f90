@@ -1,4 +1,5 @@
 module BoundaryConditionClass
+    ! This guy is becoming regacy.@2021/12/07
     use, intrinsic :: iso_fortran_env
     use std
     use ArrayClass
