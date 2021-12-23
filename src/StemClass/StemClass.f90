@@ -513,7 +513,7 @@ end subroutine
 
 ! ########################################
 function getCoordinateStem(obj,nodetype) result(ret)
-    class(Stem_),intent(inout) :: obj
+    class(Stem_),intent(in) :: obj
     character(*),intent(in) :: nodetype
     real(real64),allocatable :: ret(:)
     integer(int32) :: dimnum

@@ -518,7 +518,7 @@ end subroutine
 
 ! ########################################
 function getCoordinateRoot(obj,nodetype) result(ret)
-    class(Root_),intent(inout) :: obj
+    class(Root_),intent(in) :: obj
     character(*),intent(in) :: nodetype
     real(real64),allocatable :: ret(:)
     integer(int32) :: dimnum

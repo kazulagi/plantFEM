@@ -1,5 +1,6 @@
 module SoybeanClass
     use, intrinsic :: iso_fortran_env
+    
     use sim
     use SeedClass
     use LeafClass
@@ -184,6 +185,14 @@ module SoybeanClass
         procedure,public :: getSubDomain => getSubDomainSoybean
         procedure,public :: getSubDomainType => getSubDomainTypeSoybean
         procedure,public :: setSubDomain => setSubDomainSoybean
+        procedure,public :: getPoints    => getPointsSoybean
+        procedure,public :: getDistanceFromGround    => getDistanceFromGroundSoybean
+        procedure,public :: getNumberOfPoint => getNumberOfPointSoybean
+        procedure,public :: getDistanceToGroundFromStemID &
+            => getDistanceToGroundFromStemIDSoybean
+        procedure,public :: getDistanceToGroundFromRootID &
+            => getDistanceToGroundFromRootIDSoybean
+        
         
         
         procedure,public :: resize => resizeSoybean
@@ -3783,12 +3792,13 @@ end function
 !end function
 
 ! ##################################################################
-function nnSoybean(obj) result(ret)
+pure function nnSoybean(obj) result(ret)
     class(Soybean_) ,intent(in) :: obj
     integer(int32) :: ret, i
 
     ! get number of node (point)
     ret = 0
+    
     do i=1,size(obj%stem)
         if( .not.obj%stem(i)%femdomain%mesh%empty() ) then
             ret = ret + obj%stem(i)%femdomain%nn()
@@ -5322,5 +5332,334 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,debug,z_min)
 end subroutine
 ! ##################################################################
 
+pure function getPointsSoybean(obj) result(points)
+    class(Soybean_),intent(in) :: obj
+    real(real64),allocatable :: points(:,:)
+    integer(int32) :: i,n, id
+    
+    n = obj%nn()
+    points = zeros(n,3)
+    id = 1
+    if(allocated(obj%stem) )then
+        do i=1,size(obj%stem)
+            if( .not. obj%stem(i)%femdomain%empty() )then
+                points(id:id + obj%stem(i)%femdomain%nn()-1  ,1:3) =&
+                 obj%stem(i)%femdomain%mesh%nodcoord(1:obj%stem(i)%femdomain%nn(),1:3)
+                id = id + obj%stem(i)%femdomain%nn()
+            endif
+        enddo    
+    endif
+
+    if(allocated(obj%leaf) )then
+        do i=1,size(obj%leaf)
+            if( .not. obj%leaf(i)%femdomain%empty() )then
+                points(id:id + obj%leaf(i)%femdomain%nn() -1 ,1:3) =&
+                 obj%leaf(i)%femdomain%mesh%nodcoord(:,:)
+                id = id + obj%leaf(i)%femdomain%nn()
+            endif
+        enddo    
+    endif
+
+    if(allocated(obj%root) )then
+        do i=1,size(obj%root)
+            if( .not. obj%root(i)%femdomain%empty() )then
+                points(id:id + obj%root(i)%femdomain%nn() -1 ,1:3) =&
+                 obj%root(i)%femdomain%mesh%nodcoord(:,:)
+                id = id + obj%root(i)%femdomain%nn()
+            endif
+        enddo    
+    endif
+
+
+end function
+! ############################################################################
+function getDistanceFromGroundSoybean(obj) result(distance_per_nodes)
+    class(Soybean_),intent(inout) :: obj
+    real(real64),allocatable :: distance_per_nodes(:),xA(:),xB(:),dist_per_stem(:),&
+        dist_per_root(:)
+    integer(int32),allocatable :: num_of_point(:)
+    real(real64)   :: dist_AB,dist_add,dist_parent
+    integer(int32) :: i,j,k,node_id, num_node,id,from_id, to_id,stem_id
+
+    
+    ! get distance from the intersection between root and stem
+    node_id = 1
+
+    
+    ! get the intersection    
+    num_node = obj%nn()
+    
+    distance_per_nodes = zeros(obj%nn() )
+    dist_per_stem = zeros(size(obj%stem) )
+    dist_per_root = zeros(size(obj%root) )
+
+    num_of_point = obj%getNumberOfPoint()
+    id = 0
+    ! global search
+    ! calculate distance from bottom to "A" node of each stem domains
+    ! 1節目から順番に接いでいったと仮定する．
+
+    !$OMP parallel do private(i)
+    do i=1, size(obj%stem)
+        if(.not. obj%stem(i)%empty() )then
+            dist_per_stem(i) = obj%getDistanceToGroundFromStemID(&
+                dist_in = 0.0d0,&
+                stem_id = i)
+        endif
+    enddo
+    !$OMP end parallel do
+
+
+    ! comupte node-wise data from stem-wise data
+    
+    do i=1,size(num_of_point)
+        if(i==1)then
+            from_id = 1
+            to_id   = num_of_point(1)
+        else
+            from_id = sum(num_of_point(1:i-1))+1
+            to_id   = sum(num_of_point(1:i  ))
+        endif
+
+        distance_per_nodes(from_id:to_id) = &
+        distance_per_nodes(from_id:to_id)   &
+        + dist_per_stem(i)
+
+    enddo
+
+    do i=obj%numStem()+1,obj%numStem()+obj%numLeaf()
+        
+        if(i==1)then
+            from_id = 1
+            to_id   = num_of_point(1)
+        else
+            from_id = sum(num_of_point(1:i-1))+1
+            to_id   = sum(num_of_point(1:i  ))
+        endif
+
+        do j=1,size(obj%leaf2stem,1)
+            if(obj%leaf2stem( i-obj%numStem(), j )/=0)then
+                stem_id = j
+                exit
+            endif
+        enddo
+
+        distance_per_nodes(from_id:to_id) = &
+        distance_per_nodes(from_id:to_id)   &
+        + dist_per_stem(stem_id)
+
+    enddo
+
+    ! 1節目から順番に接いでいったと仮定する．
+    !$OMP parallel do private(i)
+    do i=1, size(obj%Root)
+        if(.not. obj%Root(i)%empty() )then
+            dist_per_Root(i) = obj%getDistanceToGroundFromRootID(&
+                dist_in = 0.0d0,&
+                Root_id = i)
+        endif
+    enddo
+    !$OMP end parallel do
+
+
+    ! comupte node-wise data from root-wise data
+    do i=obj%numstem()+obj%numleaf()+1,obj%numstem()+obj%numleaf()+obj%numRoot()
+        if(i==1)then
+            from_id = 1
+            to_id   = num_of_point(1)
+        else
+            from_id = sum(num_of_point(1:i-1))+1
+            to_id   = sum(num_of_point(1:i  ))
+        endif
+
+        distance_per_nodes(from_id:to_id) = &
+        distance_per_nodes(from_id:to_id)   &
+        + dist_per_root(i-obj%numstem()-obj%numleaf())
+
+    enddo
+
+    ! node-to-node
+    ! @stem
+    id = 0
+    do i=1,size(obj%stem)
+        if( .not. obj%stem(i)%femdomain%empty()  )then
+            id = id + 1
+            do j=1,obj%stem(i)%femdomain%nn()
+                xA = obj%stem(i)%getCoordinate("A")
+                xB = obj%stem(i)%femdomain%mesh%nodcoord(j,:)
+                if(id==1 .and. i==1)then
+                    node_id = j
+                else
+                    node_id = sum( num_of_point(1:id) ) + j
+                endif
+                distance_per_nodes(node_id) = distance_per_nodes(node_id) &
+                    + norm(xA-xB)
+            enddo
+        endif
+    enddo
+    ! for each domain
+    ! @leaf
+    id = obj%numStem() - 1
+    do i=1,size(obj%leaf)
+        if( .not. obj%leaf(i)%femdomain%empty()  )then
+            id = id + 1
+            do j=1,obj%leaf(i)%femdomain%nn()
+                xA = obj%leaf(i)%getCoordinate("A")
+                xB = obj%leaf(i)%femdomain%mesh%nodcoord(j,:)
+                if(id==1 .and. i==1)then
+                    node_id = j
+                else
+                    node_id = sum( num_of_point(1:id) ) + j
+                endif
+                distance_per_nodes(node_id) = distance_per_nodes(node_id) &
+                    + norm(xA-xB)
+            enddo
+        endif
+    enddo
+
+    
+    ! for each domain
+    ! @root
+    id = obj%numStem() + obj%numLeaf() -1
+    do i=1,size(obj%root)
+        if( .not. obj%root(i)%femdomain%empty()  )then
+            id = id + 1
+            do j=1,obj%root(i)%femdomain%nn()
+                xA = obj%root(i)%getCoordinate("A")
+                xB = obj%root(i)%femdomain%mesh%nodcoord(j,:)
+                if(id==1 .and. i==1)then
+                    node_id = j
+                else
+                    node_id = sum( num_of_point(1:id) ) + j
+                endif
+                distance_per_nodes(node_id) = distance_per_nodes(node_id) &
+                    + norm(xA-xB)
+            enddo
+        endif
+    enddo
+    
+
+
+end function
+! ############################################################################
+
+
+! ############################################################################
+function getNumberOfPointSoybean(obj) result(NumberOfPoint)
+    class(Soybean_),intent(in) :: obj
+    integer(int32), allocatable :: NumberOfPoint(:)
+    integer(int32) :: i,id
+    ! order :: stem -> leaf -> root
+
+    NumberOfPoint = zeros(obj%numStem()+obj%numLeaf()+obj%numRoot()  )
+    id = 1
+    do i=1,size(obj%stem)
+        if(.not. obj%stem(i)%empty() )then
+            NumberOfPoint(id) = obj%stem(i)%femdomain%nn()
+            id = id + 1
+        endif
+    enddo
+
+    do i=1,size(obj%leaf)
+        if(.not. obj%leaf(i)%empty() )then
+            NumberOfPoint(id) = obj%leaf(i)%femdomain%nn()
+            id = id + 1
+        endif
+    enddo
+
+    do i=1,size(obj%root)
+        if(.not. obj%root(i)%empty() )then
+            NumberOfPoint(id) = obj%root(i)%femdomain%nn()
+            id = id + 1
+        endif
+    enddo
+    
+end function
+! ############################################################################
+
+! ############################################################################
+recursive function getDistanceToGroundFromStemIDSoybean(obj,dist_in,stem_id) result(dist_ground)
+    class(Soybean_),intent(in) :: obj
+    real(real64),intent(in)    :: dist_in
+    integer(int32),intent(in)  :: stem_id
+    integer(int32) :: j, parent_id
+    real(real64) :: dist_ground
+    real(real64) :: dist_AB,dist_old
+    real(real64),allocatable :: xA(:),xB(:)
+
+    ! check stem-to-stem connectivity
+    dist_ground = dist_in
+    if( maxval(obj%stem2stem(stem_id,:))/=1 )then
+        return
+    endif
+
+    do j=1,size(obj%stem2stem,1)
+        
+        if(obj%stem2stem(stem_id,j)==1)then
+            if(.not. obj%stem(j)%femdomain%empty() )then
+                ! found parent
+                ! number of parent node should be 1
+                parent_id = j
+                xA = obj%stem(parent_id)%getCoordinate("A")
+                xB = obj%stem(parent_id)%getCoordinate("B")
+                dist_AB = sqrt(dot_product(xA-xB,xA-xB))
+                dist_old = dist_in + dist_AB
+                
+                dist_ground = obj%getDistanceToGroundFromStemID(&
+                    dist_in = dist_old,&
+                    stem_id = parent_id  )
+                return
+            endif
+        endif
+
+    enddo
+
+    
+
+end function
+! ############################################################################
+
+
+! ############################################################################
+recursive function getDistanceToGroundFromRootIDSoybean(obj,dist_in,root_id) result(dist_ground)
+    class(Soybean_),intent(in) :: obj
+    real(real64),intent(in)    :: dist_in
+    integer(int32),intent(in)  :: root_id
+    integer(int32) :: j, parent_id
+    real(real64) :: dist_ground
+    real(real64) :: dist_AB,dist_old
+    real(real64),allocatable :: xA(:),xB(:)
+
+    ! check root-to-root connectivity
+    dist_ground = dist_in
+    if( maxval(obj%root2root(root_id,:))/=1 )then
+        return
+    endif
+
+    do j=1,size(obj%root2root,1)
+        
+        if(obj%root2root(root_id,j)==1)then
+            if(.not. obj%root(j)%femdomain%empty() )then
+                ! found parent
+                ! number of parent node should be 1
+                parent_id = j
+                xA = obj%root(parent_id)%getCoordinate("A")
+                xB = obj%root(parent_id)%getCoordinate("B")
+                dist_AB = sqrt(dot_product(xA-xB,xA-xB))
+                dist_old = dist_in + dist_AB
+                
+                dist_ground = obj%getDistanceToGroundFromrootID(&
+                    dist_in = dist_old,&
+                    root_id = parent_id  )
+                return
+            endif
+        endif
+
+    enddo
+
+    
+
+end function
+! ############################################################################
 
 end module

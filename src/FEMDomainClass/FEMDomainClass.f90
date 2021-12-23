@@ -8928,7 +8928,7 @@ end function
 ! ######################################################################
 
 ! ######################################################################
-function nnFEMDomain(obj) result(ret)
+pure function nnFEMDomain(obj) result(ret)
 	class(FEMDomain_),intent(in) :: obj
 	integer(int32) :: ret
 
@@ -8937,7 +8937,7 @@ function nnFEMDomain(obj) result(ret)
 end function
 ! ######################################################################
 ! ######################################################################
-function ndFEMDomain(obj) result(ret)
+pure function ndFEMDomain(obj) result(ret)
 	class(FEMDomain_),intent(in) :: obj
 	integer(int32) :: ret
 
@@ -8946,7 +8946,7 @@ function ndFEMDomain(obj) result(ret)
 end function
 ! ######################################################################
 ! ######################################################################
-function neFEMDomain(obj) result(ret)
+pure function neFEMDomain(obj) result(ret)
 	class(FEMDomain_),intent(in) :: obj
 	integer(int32) :: ret
 
@@ -8960,7 +8960,7 @@ end function
 ! ######################################################################
 
 ! ######################################################################
-function nneFEMDomain(obj) result(ret)
+pure function nneFEMDomain(obj) result(ret)
 	class(FEMDomain_),intent(in) :: obj
 	integer(int32) :: ret
 
@@ -10982,7 +10982,7 @@ pure function selectRow(Matrix, RowIDs) result(SelectedRows)
 end function
 
 ! ########################################
-function emptyFEMDomain(obj) result(FEMDomain_is_empty)
+pure function emptyFEMDomain(obj) result(FEMDomain_is_empty)
     class(FEMDomain_),intent(in) :: obj
     logical :: FEMDomain_is_empty
 
