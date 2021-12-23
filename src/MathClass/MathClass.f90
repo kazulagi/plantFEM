@@ -705,12 +705,13 @@ end subroutine heapsortInt32
 !==========================================================
 !calculate cross product
 !---------------------------
-function cross_product(a,b) result (c)
+pure function cross_product(a,b) result (c)
 	real(real64), intent(in) :: a(:),b(:)
 	real(real64), allocatable :: c(:)
   
     if(size(a) /= 3 .or. size(b)/= 3 ) then
-        stop  "wrong number on size a, b"
+        !stop  "wrong number on size a, b"
+		return
     endif
  
     allocate(c(size(a,1)))
@@ -719,7 +720,8 @@ function cross_product(a,b) result (c)
      	c(2) = a(3)*b(1) - a(1)*b(3)
      	c(3) = a(1)*b(2) - a(2)*b(1)
   	else
-      	stop "wrong number at cross_product"
+      	!stop "wrong number at cross_product"
+		return
   	endif
   
 end function cross_product

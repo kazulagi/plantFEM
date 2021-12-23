@@ -210,7 +210,10 @@ module IOClass
     interface CaesarCipher
         module procedure CaesarCipherChar
     end interface 
-    
+
+    interface as_JSON
+        module procedure as_JSONRealArray2
+    end interface
 
 contains
 
@@ -2471,5 +2474,27 @@ end subroutine ResetRuleIO
 !
 !end subroutine
 ! ##########################################################
+
+function as_JSONRealArray2(real64Array,name) result(json_format_array)
+    real(real64),intent(in) :: real64Array(:,:)
+    character(*),intent(in) :: name
+    character(:),allocatable :: json_format_array
+    character(:),allocatable :: buf
+    integer(int32) :: i,j
+
+    json_format_array ="{"// name // ":"
+    do i=1,size(real64Array,1)
+        buf = str(real64Array(i,1))  
+        do j=2,size(real64Array,2)
+            buf = buf // ", "
+            buf = buf // str(real64Array(i,1))
+        enddo
+        json_format_array = json_format_array// "["//buf // "]"    
+        if(i/=size(real64Array,1))then
+            json_format_array = json_format_array // ","        
+        endif
+    enddo
+    json_format_array = json_format_array // "}"
+end function
 
 end module IOClass

@@ -364,7 +364,7 @@ contains
     
 
 ! ===============================================
-function addArrayClass(x, y) result(z)
+pure function addArrayClass(x, y) result(z)
     implicit none
     type(Array_), intent(in) :: x, y
     type(Array_) :: z

@@ -7483,7 +7483,7 @@ subroutine showRangeMesh(obj)
 end subroutine
 !===========================================================================================
 
-function emptyMesh(obj) result(res)
+pure function emptyMesh(obj) result(res)
     class(Mesh_),intent(in) :: obj
     logical :: res
     integer(int32) :: cn
@@ -7646,7 +7646,7 @@ end function
 
 
 !#######################################################################################
-function HowManyDomainMesh(obj) result(ret)
+pure function HowManyDomainMesh(obj) result(ret)
     class(Mesh_),intent(in) :: obj
     integer(int32) :: ret, i,j,itr,k,n
     integer(int32),allocatable :: domain_id(:)
@@ -7926,7 +7926,7 @@ end function
 
 
 !#######################################################################################
-function numElementsMesh(obj) result(ret)
+pure function numElementsMesh(obj) result(ret)
     class(Mesh_),intent(in) :: obj
     integer(int32) :: ret
 
@@ -7940,7 +7940,7 @@ end function
 
 
 !#######################################################################################
-function numNodesMesh(obj) result(ret)
+pure function numNodesMesh(obj) result(ret)
     class(Mesh_),intent(in) :: obj
     integer(int32) :: ret
 
@@ -7954,7 +7954,7 @@ end function
 
 
 !#######################################################################################
-function numNodesForEachElementMesh(obj) result(ret)
+pure function numNodesForEachElementMesh(obj) result(ret)
     class(Mesh_),intent(in) :: obj
     integer(int32) :: ret
 
@@ -7968,7 +7968,7 @@ end function
 
 
 !#######################################################################################
-function numDimensionMesh(obj) result(ret)
+pure function numDimensionMesh(obj) result(ret)
     class(Mesh_),intent(in) :: obj
     integer(int32) :: ret
 
@@ -8172,7 +8172,7 @@ end function
 !##################################################################################
 
 !##################################################################################
-function InsideOfElementMesh(obj,ElementID,x,y,z) result(Inside)
+pure function InsideOfElementMesh(obj,ElementID,x,y,z) result(Inside)
     class(Mesh_),intent(in) :: obj
     integer(int32),intent(in) :: ElementID
     real(real64),intent(in) :: x,y,z
@@ -8190,7 +8190,7 @@ function InsideOfElementMesh(obj,ElementID,x,y,z) result(Inside)
     ElemCoord(:,:) = 0.0d0
     
     if(size(obj%elemnod,1) < ElementID )then
-        print *, "ERROR :: InsideOfElementMesh >> size(obj%elemnod,1) < ElementID"
+        !print *, "ERROR :: InsideOfElementMesh >> size(obj%elemnod,1) < ElementID"
         Inside = .false.
         return
     endif
@@ -8473,7 +8473,7 @@ function InsideOfElementMesh(obj,ElementID,x,y,z) result(Inside)
         return
 
     else
-        print *, "ERROR :: InsideOfElementMesh >> 4-node box or 8-node cube are acceptable."
+        !print *, "ERROR :: InsideOfElementMesh >> 4-node box or 8-node cube are acceptable."
         stop
     endif
     
@@ -8482,14 +8482,14 @@ end function
 
 
 !##################################################################################
-function getCenterCoordinateMesh(obj, elemid) result(ret)
+pure function getCenterCoordinateMesh(obj, elemid) result(ret)
     class(Mesh_),intent(in) :: obj
     integer(int32),intent(in) :: elemid
     integer(int32) :: dimnum,i
     real(real64),allocatable :: ret(:)
 
     if(obj%empty() .eqv. .true. )then
-        print *, "ERROR :: mesh is empty"
+        !print *, "ERROR :: mesh is empty"
         return
     endif
     dimnum = size(obj%nodcoord,2)
@@ -8794,7 +8794,7 @@ end function
 
 
 ! ##########################################################################
-function positionMesh(obj,id) result(x)
+pure function positionMesh(obj,id) result(x)
     class(Mesh_),intent(in) :: obj
     integer(int32),intent(in) :: id ! node_id
     real(real64) :: x(3)
@@ -8808,7 +8808,7 @@ end function
 ! ##########################################################################
 
 ! ##########################################################################
-function position_xMesh(obj,id) result(x)
+pure function position_xMesh(obj,id) result(x)
     class(Mesh_),intent(in) :: obj
     integer(int32),intent(in) :: id ! node_id
     real(real64) :: x
@@ -8819,7 +8819,7 @@ end function
 ! ##########################################################################
 
 ! ##########################################################################
-function position_yMesh(obj,id) result(x)
+pure function position_yMesh(obj,id) result(x)
     class(Mesh_),intent(in) :: obj
     integer(int32),intent(in) :: id ! node_id
     real(real64) :: x
@@ -8830,7 +8830,7 @@ end function
 ! ##########################################################################
 
 ! ##########################################################################
-function position_zMesh(obj,id) result(x)
+pure function position_zMesh(obj,id) result(x)
     class(Mesh_),intent(in) :: obj
     integer(int32),intent(in) :: id ! node_id
     real(real64) :: x
