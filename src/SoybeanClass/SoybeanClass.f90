@@ -192,6 +192,7 @@ module SoybeanClass
             => getDistanceToGroundFromStemIDSoybean
         procedure,public :: getDistanceToGroundFromRootID &
             => getDistanceToGroundFromRootIDSoybean
+        procedure,public :: getRangeOfNodeID => getRangeOfNodeIDSoybean
         
         
         
@@ -257,10 +258,12 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin
         return
     endif
 
+
+
     error_tol = dble(1.0e-14)
 
     ! margin between subdomains
-    overset_m = input(default=0.01d0, option=overset_margin)
+    overset_m = input(default=0.03d0, option=overset_margin)
     
     itr_tol = 100
     itr=0
@@ -291,7 +294,8 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin
                     x_B(:) = (1.0d0-overset_m)*obj%stem(this_stem_id)%getCoordinate("B")&
                         + overset_m*obj%stem(this_stem_id)%getCoordinate("A")
                     ! Overset分食い込ませる
-                    x_A(:) = obj%stem(next_stem_id)%getCoordinate("A")
+                    x_A(:) = (1.0d0-overset_m)*obj%stem(next_stem_id)%getCoordinate("A") &
+                        + overset_m*obj%stem(next_stem_id)%getCoordinate("B")
                         
 
                     diff(:) = x_B(:) - x_A(:)
@@ -316,6 +320,49 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin
         last_error = error
     enddo
 
+    ! root to stem
+    last_error = 1.0d0
+    do 
+        itr=itr+1
+        error = 0.0d0
+        do i=1, size(obj%root2stem,1)
+            do j=1, size(obj%root2stem,2)
+                this_stem_id = j
+                next_root_id = i
+                if(obj%root2stem(i,j)==1)then
+                    ! this_stem_id ===>>> next_root_id, connected!
+                    !x_B(:) = obj%stem(this_stem_id)%getCoordinate("B")
+                    !x_A(:) = obj%root(next_root_id)%getCoordinate("A")
+
+                    ! Overset分食い込ませる
+                    x_B(:) = (1.0d0-overset_m)*obj%stem(this_stem_id)%getCoordinate("A")&
+                        + overset_m*obj%stem(this_stem_id)%getCoordinate("B")
+                    ! Overset分食い込ませる
+                    x_A(:) = (1.0d0-overset_m)*obj%root(next_root_id)%getCoordinate("A") &
+                        + overset_m*obj%root(next_root_id)%getCoordinate("B")
+                        
+
+                    diff(:) = x_B(:) - x_A(:)
+                    error = error + dot_product(diff,diff)
+                    call obj%root(next_root_id)%move(x=diff(1),y=diff(2),z=diff(3) )
+                endif
+            enddo
+        enddo
+        if(present(debug) )then
+            if(debug)then
+                print *, "soybean % update >> error :: ",error
+            endif
+        endif
+        if(itr > itr_tol) then
+            print *, "soybean % update >> ERROR :: not converged"
+            stop
+        endif
+        
+        if( abs(error) + abs(last_error)  < error_tol) exit
+        last_error = error
+    enddo
+
+    
     ! root to root
     last_error = 1.0d0
     do 
@@ -325,6 +372,9 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin
             do j=1, size(obj%root2root,2)
                 this_root_id = j
                 next_root_id = i
+                if(next_root_id==1)then
+                    cycle
+                endif
                 if(obj%root2root(i,j)/=0 .and. i /= j)then
                     ! this_root_id ===>>> next_root_id, connected!
                     !x_B(:) = obj%root(this_root_id)%getCoordinate("B")
@@ -334,8 +384,9 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin
                     x_B(:) = (1.0d0-overset_m)*obj%root(this_root_id)%getCoordinate("B")&
                         + overset_m*obj%root(this_root_id)%getCoordinate("A")
                     ! Overset分食い込ませる
-                    x_A(:) = obj%root(next_root_id)%getCoordinate("A")
-                        
+                    x_A(:) = (1.0d0-overset_m)*obj%root(next_root_id)%getCoordinate("A") &
+                        + overset_m*obj%root(next_root_id)%getCoordinate("B")
+
 
                     diff(:) = x_B(:) - x_A(:)
                     error = error + dot_product(diff,diff)
@@ -417,7 +468,8 @@ subroutine initsoybean(obj,config,&
     logical,optional,intent(in) :: regacy, profiler
     character(200) :: fn,conf,line
     integer(int32),optional,intent(in) :: max_PlantNode_num,max_leaf_num,max_stem_num,max_root_num
-    real(real64) :: MaxThickness,Maxwidth,loc(3),vec(3),rot(3),zaxis(3),meshloc(3),meshvec(3)
+    real(real64) :: MaxThickness,Maxwidth,loc(3),vec(3),rot(3),zaxis(3),meshloc(3),meshvec(3),&
+        x_val,y_val,z_val
     integer(int32) :: i,j,k,blcount,id,rmc,n,node_id,node_id2,elemid,branch_id,num_stem_node
     
     real(real64)::readvalreal,leaf_z_angles(3)
@@ -1359,6 +1411,12 @@ subroutine initsoybean(obj,config,&
                 y = obj%ms_width, &
                 z = obj%ms_length/dble(obj%ms_node) &
                 )
+            call obj%stem(i)%move(&
+                x = -obj%ms_width/2.0d0, &
+                y = -obj%ms_width/2.0d0, &
+                z = -obj%ms_length/dble(obj%ms_node)/2.0d0 &
+                )
+            
             call obj%stem(i)%rotate(&
                 x = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
                 y = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
@@ -1393,7 +1451,12 @@ subroutine initsoybean(obj,config,&
                     y = obj%br_width(i), &
                     z = obj%br_length(i)/dble(obj%br_node(i) ) &
                     )
-                    
+                
+                call obj%stem(k)%move(&
+                    x = -obj%br_width(i)/2.0d0, &
+                    y = -obj%br_width(i)/2.0d0, &
+                    z = -obj%br_length(i)/dble(obj%br_node(i) )/2.0d0 &
+                    )
                 call obj%stem(k)%rotate(&
                     x = radian(random%gauss(mu=obj%br_angle_ave(j),sigma=obj%br_angle_sig(j) )),  &
                     y = 0.0d0,  &
@@ -1435,7 +1498,6 @@ subroutine initsoybean(obj,config,&
                 y = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
                 z = random%gauss(mu=obj%peti_size_ave(i),sigma=obj%peti_size_sig(i)) &
                 )
-            
             call obj%stem(obj%num_stem_node)%rotate(&
                 x = radian(random%gauss(mu=obj%peti_angle_ave(i),sigma=obj%peti_angle_sig(i) )),  &
                 y = 0.0d0,  &
@@ -1455,11 +1517,20 @@ subroutine initsoybean(obj,config,&
                 obj%num_leaf=obj%num_leaf+1
                 !call obj%leaf(obj%num_leaf)%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
                 obj%leaf(obj%num_leaf) = leaf
+                y_val = random%gauss(mu=obj%leaf_thickness_ave(i),sigma=obj%leaf_thickness_sig(i))  
+                z_val = random%gauss(mu=obj%leaf_length_ave(i)   ,sigma=obj%leaf_length_sig(i)) 
+                x_val = random%gauss(mu=obj%leaf_width_ave(i)    ,sigma=obj%leaf_width_sig(i))
                 call obj%leaf(obj%num_leaf)%resize(&
-                    y = random%gauss(mu=obj%leaf_thickness_ave(i),sigma=obj%leaf_thickness_sig(i))  , &
-                    z = random%gauss(mu=obj%leaf_length_ave(i)   ,sigma=obj%leaf_length_sig(i)) , &
-                    x = random%gauss(mu=obj%leaf_width_ave(i)    ,sigma=obj%leaf_width_sig(i)) &
+                    y =y_val , &
+                    z =z_val , &
+                    x =x_val  &
                 )
+                call obj%leaf(obj%num_leaf)%move(&
+                    y =-y_val/2.0d0 , &
+                    z =-z_val/2.0d0 , &
+                    x =-x_val/2.0d0  &
+                )
+                
                 call obj%leaf(obj%num_leaf)%rotate(&
                     x = radian(random%gauss(mu=obj%leaf_angle_ave(i),sigma=obj%leaf_angle_sig(i))), &
                     y = 0.0d0, &
@@ -1486,6 +1557,11 @@ subroutine initsoybean(obj,config,&
                 x = obj%mr_width, &
                 y = obj%mr_width, &
                 z = obj%mr_length/dble(obj%mr_node) &
+                )
+            call obj%root(i)%move(&
+                x = -obj%mr_width/2.0d0, &
+                y = -obj%mr_width/2.0d0, &
+                z = -obj%mr_length/dble(obj%mr_node)/2.0d0 &
                 )
             call obj%root(i)%rotate(&
                 x = radian(random%gauss(mu=obj%mr_angle_ave,sigma=obj%mr_angle_sig)),  &
@@ -1515,7 +1591,11 @@ subroutine initsoybean(obj,config,&
                     y = obj%mr_width, &
                     z = obj%mr_length/dble(obj%mr_node) &
                     )
-                    
+                call obj%root(k)%move(&
+                    x = -obj%mr_width/2.0d0, &
+                    y = -obj%mr_width/2.0d0, &
+                    z = -obj%mr_length/dble(obj%mr_node)/2.0d0 &
+                    )
                 call obj%root(k)%rotate(&
                     x = radian(random%gauss(mu=obj%brr_angle_ave(j),sigma=obj%brr_angle_sig(j) )),  &
                     y = 0.0d0,  &
@@ -2389,9 +2469,11 @@ end subroutine
 
 ! ########################################
 subroutine vtkSoybean(obj,name,num_threads,single_file,&
-    scalar_field,vector_field,tensor_field)
+    scalar_field,vector_field,tensor_field,field_name)
     class(Soybean_),intent(inout) :: obj
     character(*),intent(in) :: name
+    character(*),optional,intent(in) :: field_name
+    
     type(IO_) :: f
     type(FEMDomain_) :: femdomain
     integer(int32),optional,intent(in) :: num_threads
@@ -2423,17 +2505,17 @@ subroutine vtkSoybean(obj,name,num_threads,single_file,&
             if(present(scalar_field) )then
                 ! export scalar-valued field 
                 ! as a single file
-                call femdomain%vtk(name=name,scalar=scalar_field)
+                call femdomain%vtk(field=field_name,name=name,scalar=scalar_field)
             elseif(present(vector_field) )then
                 ! export vector-valued field 
                 ! as a single file
-                call femdomain%vtk(name=name,vector=vector_field)
+                call femdomain%vtk(field=field_name,name=name,vector=vector_field)
             elseif(present(tensor_field) )then
                 ! export tensor-valued field 
                 ! as a single file
-                call femdomain%vtk(name=name,tensor=tensor_field)
+                call femdomain%vtk(field=field_name,name=name,tensor=tensor_field)
             else
-                call femdomain%vtk(name)
+                call femdomain%vtk(field=field_name,name=name)
             endif
             return
         endif
@@ -2474,7 +2556,7 @@ subroutine vtkSoybean(obj,name,num_threads,single_file,&
         !$OMP do 
         do i=1,size(obj%stem)
             !if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-                call obj%stem(i)%vtk(name=trim(name)//"_stem"//trim(str(i)))
+                call obj%stem(i)%vtk(field_name=field_name,name=trim(name)//"_stem"//trim(str(i)))
             !endif
         enddo
         !$OMP end do
@@ -2488,7 +2570,7 @@ subroutine vtkSoybean(obj,name,num_threads,single_file,&
         !$OMP do 
         do i=1,size(obj%root)
             !if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-                call obj%root(i)%vtk(name=trim(name)//"_root"//trim(str(i)))
+                call obj%root(i)%vtk(field_name=field_name,name=trim(name)//"_root"//trim(str(i)))
             !endif
         enddo
 
@@ -2503,7 +2585,7 @@ subroutine vtkSoybean(obj,name,num_threads,single_file,&
         !$OMP do 
         do i=1,size(obj%leaf)
             !if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-                call obj%leaf(i)%vtk(name=trim(name)//"_leaf"//trim(str(i)))
+                call obj%leaf(i)%vtk(field_name=field_name,name=trim(name)//"_leaf"//trim(str(i)))
             !endif
         enddo
         !$OMP end do
@@ -5658,6 +5740,63 @@ recursive function getDistanceToGroundFromRootIDSoybean(obj,dist_in,root_id) res
     enddo
 
     
+
+end function
+! ############################################################################
+
+
+! ############################################################################
+function getRangeOfNodeIDSoybean(obj,stem,leaf,root) result(id_range)
+    class(Soybean_),intent(in) :: obj
+    integer(int32) :: id_range(2),numStemNode,numLeafNode,numRootNode,i
+    logical,optional,intent(in) :: stem,leaf,root
+
+    id_range(1:2)=[0,0]
+
+
+    numStemNode = 0
+    do i=1,size(obj%stem)
+        if(.not.obj%stem(i)%femdomain%empty() )then
+            numStemNode = numStemNode + obj%stem(i)%femdomain%nn()
+        endif
+    enddo
+
+    if(present(stem) )then
+        if(stem)then
+            id_range(1) = 1
+            id_range(2) = numStemNode
+            return
+        endif
+    endif
+
+    numLeafNode = 0
+    do i=1,size(obj%Leaf)
+        if(.not.obj%Leaf(i)%femdomain%empty() )then
+            numLeafNode = numLeafNode + obj%Leaf(i)%femdomain%nn()
+        endif
+    enddo
+
+    if(present(leaf) )then
+        if(leaf)then
+            id_range = [  numStemNode +1,  numStemNode + numLeafNode   ]
+            return
+        endif
+    endif
+
+    numRootNode = 0
+    do i=1,size(obj%Root)
+        if(.not.obj%Root(i)%femdomain%empty() )then
+            numRootNode = numRootNode + obj%Root(i)%femdomain%nn()
+        endif
+    enddo
+
+    if(present(root) )then
+        if(root)then
+            id_range = [  numStemNode+numLeafNode+1,  &
+            numStemNode + numLeafNode +numRootNode  ]
+            return
+        endif
+    endif
 
 end function
 ! ############################################################################

@@ -277,7 +277,10 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
         ymin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         ymax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         zmax=0.0d0)
-    obj%A_PointNodeID = buf(1)
+    
+    
+    !obj%A_PointNodeID = buf(1)
+    obj%A_PointNodeID = median(buf)
 
     buf   = obj%FEMDomain%mesh%getNodeList(&
         xmin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
@@ -285,14 +288,18 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
         ymin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         ymax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         zmin=obj%minlength)
-    obj%B_PointNodeID = buf(1)
+    
+    !obj%B_PointNodeID = buf(1)
+    obj%B_PointNodeID = median(buf)
+
     buf    = obj%FEMDomain%mesh%getElementList(&
         xmin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
         xmax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
         ymin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         ymax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         zmax=0.0d0)
-    obj%A_PointElementID = buf(1)
+    !obj%A_PointElementID = buf(1)
+    obj%A_PointElementID = median(buf)
 
     buf    = obj%FEMDomain%mesh%getElementList(&
         xmin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
@@ -300,7 +307,9 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
         ymin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         ymax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         zmin=obj%minlength)
-    obj%B_PointElementID = buf(1)
+
+    !obj%B_PointElementID = buf(1)
+    obj%B_PointElementID = median(buf)
 
     if(debug) print *, obj%A_PointNodeID
     if(debug) print *, obj%B_PointNodeID
@@ -519,10 +528,13 @@ function getCoordinateStem(obj,nodetype) result(ret)
     integer(int32) :: dimnum
 
     dimnum = size(obj%femdomain%mesh%nodcoord,2)
+    
     allocate(ret(dimnum) )
+    
     if( trim(nodetype)=="A" .or. trim(nodetype)=="a")then
         ret = obj%femdomain%mesh%nodcoord(obj%A_PointNodeID,:)
     endif
+
     if( trim(nodetype)=="B" .or. trim(nodetype)=="B")then
         ret = obj%femdomain%mesh%nodcoord(obj%B_PointNodeID,:)
     endif
@@ -549,17 +561,20 @@ subroutine mshStem(obj,name)
     
     call obj%femdomain%msh(Name=name)
 end subroutine
+! ##############################################
 
-subroutine vtkStem(obj,name)
+subroutine vtkStem(obj,name,field_name)
     class(Stem_),intent(inout) :: obj
     character(*),intent(in) ::name
+    character(*),optional,intent(in) ::field_name
     
     if(obj%femdomain%mesh%empty() )then
         return
     endif
     
-    call obj%femdomain%vtk(Name=name)
+    call obj%femdomain%vtk(Name=name,field=field_name)
 end subroutine
+! ##############################################
 
 subroutine stlStem(obj,name)
     class(Stem_),intent(inout) :: obj

@@ -279,7 +279,8 @@ subroutine initRoot(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
         ymin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         ymax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         zmax=0.0d0)
-    obj%A_PointNodeID = buf(1)
+    !obj%A_PointNodeID = buf(1)
+    obj%A_PointNodeID = median(buf)
 
     buf   = obj%FEMDomain%mesh%getNodeList(&
         xmin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
@@ -287,14 +288,17 @@ subroutine initRoot(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
         ymin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         ymax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         zmin=obj%minlength)
-    obj%B_PointNodeID = buf(1)
+    !obj%B_PointNodeID = buf(1)
+    obj%B_PointNodeID = median(buf)
+
     buf    = obj%FEMDomain%mesh%getElementList(&
         xmin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
         xmax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
         ymin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         ymax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         zmax=0.0d0)
-    obj%A_PointElementID = buf(1)
+    !obj%A_PointElementID = buf(1)
+    obj%A_PointElementID = median(buf)
 
     buf    = obj%FEMDomain%mesh%getElementList(&
         xmin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
@@ -302,7 +306,8 @@ subroutine initRoot(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
         ymin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         ymax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
         zmin=obj%minlength)
-    obj%B_PointElementID = buf(1)
+    !obj%B_PointElementID = buf(1)
+    obj%B_PointElementID = median(buf)
 
     call obj%FEMdomain%rotate(x=radian(180.0d0) )
 ! デバッグ用
@@ -557,14 +562,15 @@ subroutine mshRoot(obj,name)
 end subroutine
 ! ########################################
 
-subroutine vtkRoot(obj,name)
+subroutine vtkRoot(obj,name,field_name)
     class(Root_),intent(inout) :: obj
     character(*),intent(in) ::name
+    character(*),optional,intent(in) ::field_name
     if(obj%femdomain%mesh%empty() )then
         return
     endif
     
-    call obj%femdomain%vtk(Name=name)
+    call obj%femdomain%vtk(Name=name,field=field_name)
 end subroutine
 ! ########################################
 
