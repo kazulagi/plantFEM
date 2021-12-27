@@ -1,3 +1,6 @@
+![soy_scalar_field](https://user-images.githubusercontent.com/54159711/147451703-cd0ecca3-5a87-4cc7-81e2-4621210dc0c4.jpeg)
+
+
 ![soyfield](https://user-images.githubusercontent.com/54159711/130534646-8bf5797a-f04f-4d05-aa47-6ca79a481a11.png)
 <!--
 ![soaked_soy_seed](https://user-images.githubusercontent.com/54159711/84125111-0b8f6b00-aa77-11ea-9f79-1acfe37e2b8f.png)

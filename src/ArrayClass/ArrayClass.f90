@@ -95,6 +95,10 @@ module ArrayClass
         module procedure :: averageInt32, averageReal64
     end interface
 
+    interface median
+        module procedure :: medianIntVec
+    end interface median
+
     interface arange
         module procedure :: arangeRealVector
     end interface
@@ -287,6 +291,8 @@ module ArrayClass
     interface exist
         module procedure :: existIntVec, existIntArray
     end interface
+
+
 
 
     interface exists
@@ -6780,6 +6786,25 @@ function taperComplex64(x,margin) result(ret)
 
 
 end function
+! ###########################################################
+function medianIntVec(intvec) result(med)
+    integer(int32),intent(in) :: intvec(:)
+    integer(int32) :: med, i, n
+    integer(int32),allocatable :: vec(:)
 
+
+    if(size(intvec)==1 )then
+        med = intvec(1)
+        return
+    endif
+
+    vec = intvec
+    call heapsort(size(vec),vec)
+    
+    n   = size(vec)/2
+    med = vec(n)
+
+end function
+! ###########################################################
 
 end module ArrayClass
