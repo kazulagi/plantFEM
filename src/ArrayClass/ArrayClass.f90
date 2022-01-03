@@ -322,6 +322,10 @@ module ArrayClass
     interface unwindLine
         module procedure :: unwindLineReal
     end interface
+
+    interface minvalID
+        module procedure :: minvalIDInt32, minvalIDReal64
+    end interface
     
     type :: FlexibleChar_
         character(len=:),allocatable :: string
@@ -6807,4 +6811,79 @@ function medianIntVec(intvec) result(med)
 end function
 ! ###########################################################
 
+recursive pure function minvalIDInt32(vec,opt_id) result(id)
+    integer(int32),intent(in) :: vec(:)
+    integer(int32),optional,intent(in) :: opt_id
+    integer(int32) :: id
+    integer(int32) :: min_value, half_size
+
+    if(present(opt_id) )then
+        id = opt_id
+    else
+        id = 0
+    endif
+
+    ! odd and even
+    if(size(vec) == 1)then
+        id = id + 1
+        return
+    elseif(size(vec) == 2)then
+        if(vec(1) > vec(2) )then
+            id = id + 2
+        else
+            id = id + 1
+        endif
+        return
+    else
+        half_size = size(vec)/2
+        if( minval(vec(1:half_size)) > minval(vec(half_size+1:)) )then
+            ! minval exists half_size+1 - end
+            id = id + half_size + minvalID(vec(half_size+1:),id )
+        else
+            ! minval exists 1: half_size
+            id = minvalID(vec(1:half_size),id )
+        endif
+        return
+    endif
+    
+end function
+! ###########################################################
+
+recursive pure function minvalIDReal64(vec,opt_id) result(id)
+    real(real64),intent(in) :: vec(:)
+    integer(int32),optional,intent(in) :: opt_id
+    integer(int32) :: id,half_size
+    
+    
+
+    if(present(opt_id) )then
+        id = opt_id
+    else
+        id = 0
+    endif
+
+    ! odd and even
+    if(size(vec) == 1)then
+        id = id + 1
+        return
+    elseif(size(vec) == 2)then
+        if(vec(1) > vec(2) )then
+            id = id + 2
+        else
+            id = id + 1
+        endif
+        return
+    else
+        half_size = size(vec)/2
+        if( minval(vec(1:half_size)) > minval(vec(half_size+1:)) )then
+            ! minval exists half_size+1 - end
+            id = id + half_size + minvalID(vec(half_size+1:),id )
+        else
+            ! minval exists 1: half_size
+            id = minvalID(vec(1:half_size),id )
+        endif
+        return
+    endif
+    
+end function
 end module ArrayClass
