@@ -188,11 +188,15 @@ module SoybeanClass
         procedure,public :: getPoints    => getPointsSoybean
         procedure,public :: getDistanceFromGround    => getDistanceFromGroundSoybean
         procedure,public :: getNumberOfPoint => getNumberOfPointSoybean
+        procedure,public :: getNumberOfElement => getNumberOfElementSoybean
         procedure,public :: getDistanceToGroundFromStemID &
             => getDistanceToGroundFromStemIDSoybean
         procedure,public :: getDistanceToGroundFromRootID &
             => getDistanceToGroundFromRootIDSoybean
         procedure,public :: getRangeOfNodeID => getRangeOfNodeIDSoybean
+        procedure,public :: getPPFD => getPPFDSoybean
+        !procedure,public :: getPhotoSynthesis => getPhotoSynthesisSoybean
+        
         
         
         
@@ -2360,37 +2364,37 @@ subroutine gmshSoybean(obj,name,num_threads)
     integer(int32) :: i,n
 
     n = input(default=1,option=num_threads)
-    !$OMP parallel num_threads(n) private(i)
-    !$OMP do 
+    !!$OMP parallel num_threads(n) private(i)
+    !!$OMP do 
 
     do i=1,size(obj%stem)
         !if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%stem(i)%gmsh(name=trim(name)//"_stem"//trim(str(i)))
         !endif
     enddo
-    !$OMP end do
-    !$OMP end parallel
+    !!$OMP end do
+    !!$OMP end parallel
 
-    !$OMP parallel num_threads(n) private(i)
-    !$OMP do 
+    !!$OMP parallel num_threads(n) private(i)
+    !!$OMP do 
 
     do i=1,size(obj%root)
         !if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%root(i)%gmsh(name=trim(name)//"_root"//trim(str(i)))
         !endif
     enddo
-    !$OMP end do
-    !$OMP end parallel
+    !!$OMP end do
+    !!$OMP end parallel
 
-    !$OMP parallel num_threads(n) private(i)
-    !$OMP do 
+    !!$OMP parallel num_threads(n) private(i)
+    !!$OMP do 
     do i=1,size(obj%leaf)
         !if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%leaf(i)%gmsh(name=trim(name)//"_leaf"//trim(str(i)))
         !endif
     enddo
-    !$OMP end do
-    !$OMP end parallel
+    !!$OMP end do
+    !!$OMP end parallel
 
 
 end subroutine
@@ -2433,35 +2437,35 @@ subroutine mshSoybean(obj,name,num_threads)
     call f%close()
     
     n = input(default=1,option=num_threads)
-    !$OMP parallel num_threads(n) private(i)
-    !$OMP do 
+    !!$OMP parallel num_threads(n) private(i)
+    !!$OMP do 
     do i=1,size(obj%stem)
         !if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%stem(i)%msh(name=trim(name)//"_stem"//trim(str(i)))
         !endif
     enddo
-    !$OMP end do
-    !$OMP end parallel
+    !!$OMP end do
+    !!$OMP end parallel
 
-    !$OMP parallel num_threads(n) private(i)
-    !$OMP do 
+    !!$OMP parallel num_threads(n) private(i)
+    !!$OMP do 
     do i=1,size(obj%root)
         !if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%root(i)%msh(name=trim(name)//"_root"//trim(str(i)))
         !endif
     enddo
-    !$OMP end do
-    !$OMP end parallel
+    !!$OMP end do
+    !!$OMP end parallel
 
-    !$OMP parallel num_threads(n) private(i)
-    !$OMP do 
+    !!$OMP parallel num_threads(n) private(i)
+    !!$OMP do 
     do i=1,size(obj%leaf)
         !if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%leaf(i)%msh(name=trim(name)//"_leaf"//trim(str(i)))
         !endif
     enddo
-    !$OMP end do
-    !$OMP end parallel
+    !!$OMP end do
+    !!$OMP end parallel
 
 end subroutine
 ! ########################################
@@ -2552,44 +2556,44 @@ subroutine vtkSoybean(obj,name,num_threads,single_file,&
     call f%close()
 
     if(allocated(obj%stem) )then
-        !$OMP parallel num_threads(n) private(i)
-        !$OMP do 
+        !!$OMP parallel num_threads(n) private(i)
+        !!$OMP do 
         do i=1,size(obj%stem)
             !if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
                 call obj%stem(i)%vtk(field_name=field_name,name=trim(name)//"_stem"//trim(str(i)))
             !endif
         enddo
-        !$OMP end do
-        !$OMP end parallel
+        !!$OMP end do
+        !!$OMP end parallel
     endif
 
 
     if(allocated(obj%root))then
 
-        !$OMP parallel num_threads(n) private(i)
-        !$OMP do 
+        !!$OMP parallel num_threads(n) private(i)
+        !!$OMP do 
         do i=1,size(obj%root)
             !if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
                 call obj%root(i)%vtk(field_name=field_name,name=trim(name)//"_root"//trim(str(i)))
             !endif
         enddo
 
-        !$OMP end do
-        !$OMP end parallel
+        !!$OMP end do
+        !!$OMP end parallel
     endif
 
 
     if(allocated(obj%leaf))then
 
-        !$OMP parallel num_threads(n) private(i)
-        !$OMP do 
+        !!$OMP parallel num_threads(n) private(i)
+        !!$OMP do 
         do i=1,size(obj%leaf)
             !if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
                 call obj%leaf(i)%vtk(field_name=field_name,name=trim(name)//"_leaf"//trim(str(i)))
             !endif
         enddo
-        !$OMP end do
-        !$OMP end parallel
+        !!$OMP end do
+        !!$OMP end parallel
     endif
 
     
@@ -2680,38 +2684,38 @@ subroutine stlSoybean(obj,name,num_threads)
     
     n = input(default=1,option=num_threads)
     !call execute_command_line("echo ' ' > "//trim(name)//".stl")
-    !$OMP parallel num_threads(n) private(i)
-    !$OMP do 
+    !!$OMP parallel num_threads(n) private(i)
+    !!$OMP do 
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%stem(i)%stl(name=trim(name)//"_stem"//trim(str(i)))
             !call execute_command_line("cat "//trim(name)//"_stem"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
         endif
     enddo
-    !$OMP end do
-    !$OMP end parallel
+    !!$OMP end do
+    !!$OMP end parallel
 
-    !$OMP parallel num_threads(n) private(i)
-    !$OMP do 
+    !!$OMP parallel num_threads(n) private(i)
+    !!$OMP do 
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%root(i)%stl(name=trim(name)//"_root"//trim(str(i)))
             !call execute_command_line("cat "//trim(name)//"_root"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
         endif
     enddo
-    !$OMP end do
-    !$OMP end parallel
+    !!$OMP end do
+    !!$OMP end parallel
 
-    !$OMP parallel num_threads(n) private(i)
-    !$OMP do 
+    !!$OMP parallel num_threads(n) private(i)
+    !!$OMP do 
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             call obj%leaf(i)%stl(name=trim(name)//"_leaf"//trim(str(i)))
             !call execute_command_line("cat "//trim(name)//"_leaf"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
         endif
     enddo
-    !$OMP end do
-    !$OMP end parallel
+    !!$OMP end do
+    !!$OMP end parallel
 
     call execute_command_line("cat "//trim(name)//"*_leaf*.stl > "//trim(name)//"_leaf.stl" )
     call execute_command_line("cat "//trim(name)//"*_stem*.stl > "//trim(name)//"_stem.stl" )
@@ -2761,6 +2765,7 @@ subroutine laytracingsoybean(obj,light)
     !real(real64),parameter :: radius_ratio = 0.01d0 ! radius_of_gauss_point/element_length
     type(IO_) :: f
     integer(int32) :: i,j,n,num_particle,k,l,nodeid,m,totcount
+    integer(int32) :: num_particle_leaf,tocount_leaf
 
     max_PPFD = light%maxPPFD
     ! 総当りで、総遮蔽長を割り出す
@@ -2883,13 +2888,21 @@ subroutine laytracingsoybean(obj,light)
     
     num_particle = 0
     totcount = 0
+    tocount_leaf = 0
+    num_particle_leaf = 0
+
     do i=1,size(obj%leaf)
+        print *, i,"/",obj%numleaf()
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             ! 葉あり
             obj%leaf(i)%PPFD(:) = max_PPFD
+
+            !!$OMP parallel do private(j)
             do j=1,size(obj%leaf(i)%PPFD)
-                totcount = totcount + 1
-                num_particle = num_particle + 1
+
+                totcount = tocount_leaf + j
+
+                num_particle = num_particle_leaf + j
                 ! それぞれの要素について、遮蔽particleを探索
                 ! 茎：全減衰
                 ! 葉：半減衰
@@ -2933,8 +2946,12 @@ subroutine laytracingsoybean(obj,light)
                         endif
                     endif
                 enddo
-
+                
             enddo
+            !!$OMP end parallel do
+
+            tocount_leaf = tocount_leaf + size(obj%leaf(i)%PPFD)
+            num_particle_leaf = num_particle_leaf + size(obj%leaf(i)%PPFD)
         endif
     enddo
     
@@ -4222,7 +4239,7 @@ subroutine setPropertiesDensitySoybean(obj)
     if(allocated(obj%leaf) )then
         print *, "[ok] setPropertiesSoybean >> leaf exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%leaf)
             if(obj%leaf(i)%empty() )then
                 cycle
@@ -4271,15 +4288,15 @@ subroutine setPropertiesDensitySoybean(obj)
                     
                     ! compute density from drydensity and water content
                     ! \rho_t = \rho_d * (1 - w )
-                    !$OMP parallel do private(j)
+                    !!$OMP parallel do private(j)
                     do j=1,obj%leaf(i)%femdomain%ne()
                         obj%leaf(i)%density(j) = obj%leaf(i)%drydensity(j) * (1.0d0 - obj%leaf(i)%watercontent(j))
                     enddo
-                    !$OMP end parallel do
+                    !!$OMP end parallel do
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
         obj%property_deform_material_density = .true.
     else
         print *, "[Notice] setPropertiesSoybean >> no leaf"
@@ -4288,7 +4305,7 @@ subroutine setPropertiesDensitySoybean(obj)
     if(allocated(obj%stem) )then
         print *, "[ok] setPropertiesSoybean >> stems exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%stem)
             if(obj%stem(i)%empty() )then
                 cycle
@@ -4336,15 +4353,15 @@ subroutine setPropertiesDensitySoybean(obj)
                     
                     ! compute density from drydensity and water content
                     ! \rho_t = \rho_d * (1 - w )
-                    !$OMP parallel do private(j)
+                    !!$OMP parallel do private(j)
                     do j=1,obj%stem(i)%femdomain%ne()
                         obj%stem(i)%density(j) = obj%stem(i)%drydensity(j) * (1.0d0 - obj%stem(i)%watercontent(j))
                     enddo
-                    !$OMP end parallel do
+                    !!$OMP end parallel do
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
         obj%property_deform_material_density = .true.
     else
         print *, "[Notice] setPropertiesSoybean >> no stems"
@@ -4353,7 +4370,7 @@ subroutine setPropertiesDensitySoybean(obj)
     if(allocated(obj%root) )then
         print *, "[ok] setPropertiesSoybean >> roots exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%root)
             if(obj%root(i)%empty() )then
                 cycle
@@ -4401,15 +4418,15 @@ subroutine setPropertiesDensitySoybean(obj)
                     
                     ! compute density from drydensity and water content
                     ! \rho_t = \rho_d * (1 - w )
-                    !$OMP parallel do private(j)
+                    !!$OMP parallel do private(j)
                     do j=1,obj%root(i)%femdomain%ne()
                         obj%root(i)%density(j) = obj%root(i)%drydensity(j) * (1.0d0 - obj%root(i)%watercontent(j))
                     enddo
-                    !$OMP end parallel do
+                    !!$OMP end parallel do
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
         obj%property_deform_material_density = .true.
     else
         print *, "[Notice] setPropertiesSoybean >> no roots"
@@ -4430,7 +4447,7 @@ subroutine setPropertiesYoungModulusSoybean(obj,default_value)
     if(allocated(obj%stem) )then
         print *, "[ok] setPropertiesYoungModulusSoybean >> stems exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%stem)
             if(obj%stem(i)%empty() )then
                 cycle
@@ -4458,7 +4475,7 @@ subroutine setPropertiesYoungModulusSoybean(obj,default_value)
     if(allocated(obj%root) )then
         print *, "[ok] setPropertiesYoungModulusSoybean >> roots exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%root)
             if(obj%root(i)%empty() )then
                 cycle
@@ -4486,7 +4503,7 @@ subroutine setPropertiesYoungModulusSoybean(obj,default_value)
     if(allocated(obj%leaf) )then
         print *, "[ok] setPropertiesYoungModulusSoybean >> leafs exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%leaf)
             if(obj%leaf(i)%empty() )then
                 cycle
@@ -4528,7 +4545,7 @@ subroutine setPropertiesPoissonRatioSoybean(obj,default_value)
     if(allocated(obj%stem) )then
         print *, "[ok] setPropertiesPoissonRatioSoybean >> stems exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%stem)
             if(obj%stem(i)%empty() )then
                 cycle
@@ -4550,14 +4567,14 @@ subroutine setPropertiesPoissonRatioSoybean(obj,default_value)
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     endif   
     
     ! same for leaf
     if(allocated(obj%leaf) )then
         print *, "[ok] setPropertiesPoissonRatioSoybean >> leafs exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%leaf)
             if(obj%leaf(i)%empty() )then
                 cycle
@@ -4578,14 +4595,14 @@ subroutine setPropertiesPoissonRatioSoybean(obj,default_value)
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     endif
 
     ! same for root
     if(allocated(obj%root) )then
         print *, "[ok] setPropertiesPoissonRatioSoybean >> roots exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%root)
             if(obj%root(i)%empty() )then
                 cycle
@@ -4607,7 +4624,7 @@ subroutine setPropertiesPoissonRatioSoybean(obj,default_value)
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     endif
     obj%property_deform_material_poissonratio = .true.
 end subroutine
@@ -4626,7 +4643,7 @@ subroutine setPropertiesInitialDisplacementSoybean(obj,default_value)
     if(allocated(obj%stem) )then
         print *, "[ok] setPropertiesInitialDisplacementSoybean >> stems exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%stem)
             if(obj%stem(i)%empty() )then
                 cycle
@@ -4649,14 +4666,14 @@ subroutine setPropertiesInitialDisplacementSoybean(obj,default_value)
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     endif   
     
     ! same for leaf
     if(allocated(obj%leaf) )then
         print *, "[ok] setPropertiesInitialDisplacementSoybean >> leafs exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%leaf)
             if(obj%leaf(i)%empty() )then
                 cycle
@@ -4677,14 +4694,14 @@ subroutine setPropertiesInitialDisplacementSoybean(obj,default_value)
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     endif
 
     ! same for root
     if(allocated(obj%root) )then
         print *, "[ok] setPropertiesInitialDisplacementSoybean >> roots exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%root)
             if(obj%root(i)%empty() )then
                 cycle
@@ -4706,7 +4723,7 @@ subroutine setPropertiesInitialDisplacementSoybean(obj,default_value)
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     endif
     obj%property_deform_initial_displacement = .true.
 
@@ -4725,7 +4742,7 @@ subroutine setPropertiesInitialStressSoybean(obj,default_value)
     if(allocated(obj%stem) )then
         print *, "[ok] setPropertiesInitialStressSoybean >> stems exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%stem)
             if(obj%stem(i)%empty() )then
                 cycle
@@ -4748,13 +4765,13 @@ subroutine setPropertiesInitialStressSoybean(obj,default_value)
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     endif   
     ! same for leaf
     if(allocated(obj%leaf) )then
         print *, "[ok] setPropertiesInitialStressSoybean >> leafs exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%leaf)
             if(obj%leaf(i)%empty() )then
                 cycle
@@ -4775,14 +4792,14 @@ subroutine setPropertiesInitialStressSoybean(obj,default_value)
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     endif
 
     ! same for root
     if(allocated(obj%root) )then
         print *, "[ok] setPropertiesInitialStressSoybean >> roots exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%root)
             if(obj%root(i)%empty() )then
                 cycle
@@ -4804,7 +4821,7 @@ subroutine setPropertiesInitialStressSoybean(obj,default_value)
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     endif
     obj%property_deform_initial_stress = .true.
 end subroutine
@@ -4824,7 +4841,7 @@ subroutine setPropertiesBoundaryTractionForceSoybean(obj,default_value,xrange,yr
     if(allocated(obj%stem) )then
         print *, "[ok] setPropertiesBoundaryTractionForceSoybean >> stems exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%stem)
             if(obj%stem(i)%empty() )then
                 cycle
@@ -4847,13 +4864,13 @@ subroutine setPropertiesBoundaryTractionForceSoybean(obj,default_value,xrange,yr
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     endif   
     ! same for leaf
     if(allocated(obj%leaf) )then
         print *, "[ok] setPropertiesBoundaryTractionForceSoybean >> leafs exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%leaf)
             if(obj%leaf(i)%empty() )then
                 cycle
@@ -4875,14 +4892,14 @@ subroutine setPropertiesBoundaryTractionForceSoybean(obj,default_value,xrange,yr
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     endif
 
     ! same for root
     if(allocated(obj%root) )then
         print *, "[ok] setPropertiesBoundaryTractionForceSoybean >> roots exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%root)
             if(obj%root(i)%empty() )then
                 cycle
@@ -4905,7 +4922,7 @@ subroutine setPropertiesBoundaryTractionForceSoybean(obj,default_value,xrange,yr
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     endif
     obj%property_deform_boundary_tractionforce = .true.
 end subroutine
@@ -4926,7 +4943,7 @@ subroutine setPropertiesBoundaryDisplacementSoybean(obj,default_value,xrange,yra
     if(allocated(obj%stem) )then
         print *, "[ok] setPropertiesBoundaryDisplacementSoybean >> stems exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%stem)
             if(obj%stem(i)%empty() )then
                 cycle
@@ -4949,13 +4966,13 @@ subroutine setPropertiesBoundaryDisplacementSoybean(obj,default_value,xrange,yra
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     endif   
     ! same for leaf
     if(allocated(obj%leaf) )then
         print *, "[ok] setPropertiesBoundaryDisplacementSoybean >> leafs exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%leaf)
             if(obj%leaf(i)%empty() )then
                 cycle
@@ -4977,14 +4994,14 @@ subroutine setPropertiesBoundaryDisplacementSoybean(obj,default_value,xrange,yra
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     endif
 
     ! same for root
     if(allocated(obj%root) )then
         print *, "[ok] setPropertiesBoundaryDisplacementSoybean >> roots exist."
         ! leaf exists
-        !$OMP parallel do private(i)
+        !!$OMP parallel do private(i)
         do i=1,size(obj%root)
             if(obj%root(i)%empty() )then
                 cycle
@@ -5007,7 +5024,7 @@ subroutine setPropertiesBoundaryDisplacementSoybean(obj,default_value,xrange,yra
                 endif
             endif
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     endif
     obj%property_deform_boundary_Displacement = .true.
 end subroutine
@@ -5191,7 +5208,7 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,debug,z_min)
         ! leaf to stem
         i_offset = obj%numStem()
         j_offset = 0
-        !!$OMP parallel do private(i,j)
+        !!!$OMP parallel do private(i,j)
         do i=1,obj%numleaf()
             do j=1, obj%numstem()
                 if(obj%leaf2stem(i,j)/=0 )then
@@ -5199,12 +5216,12 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,debug,z_min)
                 endif
             enddo
         enddo
-        !!$OMP end parallel do
+        !!!$OMP end parallel do
 
         ! stem to stem
         i_offset = 0
         j_offset = 0
-        !!$OMP parallel do private(i,j)
+        !!!$OMP parallel do private(i,j)
         do i=1,obj%numstem()
             do j=1, obj%numstem()
                 if(obj%stem2stem(i,j)/=0 )then
@@ -5212,12 +5229,12 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,debug,z_min)
                 endif
             enddo
         enddo
-        !!$OMP end parallel do
+        !!!$OMP end parallel do
 
         ! root to stem
         i_offset = obj%numstem() + obj%numleaf()
         j_offset = 0
-        !!$OMP parallel do private(i,j)
+        !!!$OMP parallel do private(i,j)
         do i=1,obj%numroot()
             do j=1, obj%numstem()
                 if(obj%root2stem(i,j)/=0 )then
@@ -5225,12 +5242,12 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,debug,z_min)
                 endif
             enddo
         enddo
-        !!$OMP end parallel do
+        !!!$OMP end parallel do
 
         ! root to root
         i_offset = obj%numstem() + obj%numroot()
         j_offset = obj%numstem() + obj%numroot()
-        !!$OMP parallel do private(i,j)
+        !!!$OMP parallel do private(i,j)
         do i=1,obj%numroot()
             do j=1, obj%numroot()
                 if(obj%root2root(i,j)/=0 )then
@@ -5238,7 +5255,7 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,debug,z_min)
                 endif
             enddo
         enddo
-        !!$OMP end parallel do
+        !!!$OMP end parallel do
 
         ! YoungModulusListを作る
         allocate(YoungModulusList%dictionary(obj%numleaf() + obj%numStem() + obj%numRoot()))
@@ -5481,7 +5498,7 @@ function getDistanceFromGroundSoybean(obj) result(distance_per_nodes)
     ! calculate distance from bottom to "A" node of each stem domains
     ! 1節目から順番に接いでいったと仮定する．
 
-    !$OMP parallel do private(i)
+    !!$OMP parallel do private(i)
     do i=1, size(obj%stem)
         if(.not. obj%stem(i)%empty() )then
             dist_per_stem(i) = obj%getDistanceToGroundFromStemID(&
@@ -5489,7 +5506,7 @@ function getDistanceFromGroundSoybean(obj) result(distance_per_nodes)
                 stem_id = i)
         endif
     enddo
-    !$OMP end parallel do
+    !!$OMP end parallel do
 
 
     ! comupte node-wise data from stem-wise data
@@ -5533,7 +5550,7 @@ function getDistanceFromGroundSoybean(obj) result(distance_per_nodes)
     enddo
 
     ! 1節目から順番に接いでいったと仮定する．
-    !$OMP parallel do private(i)
+    !!$OMP parallel do private(i)
     do i=1, size(obj%Root)
         if(.not. obj%Root(i)%empty() )then
             dist_per_Root(i) = obj%getDistanceToGroundFromRootID(&
@@ -5541,7 +5558,7 @@ function getDistanceFromGroundSoybean(obj) result(distance_per_nodes)
                 Root_id = i)
         endif
     enddo
-    !$OMP end parallel do
+    !!$OMP end parallel do
 
 
     ! comupte node-wise data from root-wise data
@@ -5658,6 +5675,42 @@ function getNumberOfPointSoybean(obj) result(NumberOfPoint)
     
 end function
 ! ############################################################################
+
+
+! ############################################################################
+function getNumberOfElementSoybean(obj) result(NumberOfElement)
+    class(Soybean_),intent(in) :: obj
+    integer(int32), allocatable :: NumberOfElement(:)
+    integer(int32) :: i,id
+    ! order :: stem -> leaf -> root
+
+    NumberOfElement = zeros(obj%numStem()+obj%numLeaf()+obj%numRoot()  )
+    id = 1
+    do i=1,size(obj%stem)
+        if(.not. obj%stem(i)%empty() )then
+            NumberOfElement(id) = obj%stem(i)%femdomain%ne()
+            id = id + 1
+        endif
+    enddo
+
+    do i=1,size(obj%leaf)
+        if(.not. obj%leaf(i)%empty() )then
+            NumberOfElement(id) = obj%leaf(i)%femdomain%ne()
+            id = id + 1
+        endif
+    enddo
+
+    do i=1,size(obj%root)
+        if(.not. obj%root(i)%empty() )then
+            NumberOfElement(id) = obj%root(i)%femdomain%ne()
+            id = id + 1
+        endif
+    enddo
+    
+end function
+! ############################################################################
+
+
 
 ! ############################################################################
 recursive function getDistanceToGroundFromStemIDSoybean(obj,dist_in,stem_id) result(dist_ground)
@@ -5799,6 +5852,136 @@ function getRangeOfNodeIDSoybean(obj,stem,leaf,root) result(id_range)
     endif
 
 end function
+! ############################################################################
+
+
+! ############################################################################
+function getPPFDSoybean(obj,light,Transparency,Resolution)  result(ppfd)
+    class(Soybean_),intent(inout) :: obj 
+    type(Light_),intent(in)    :: light
+    real(real64),optional,intent(in) :: Transparency,Resolution
+
+    real(real64),allocatable :: ppfd(:), NumberOfElement(:), NumberOfPoint(:)
+    real(real64),allocatable :: leaf_pass_num(:),nodcoord(:,:),radius_vec(:)
+    real(real64) ::thickness,center_x(3),xmin(3),xmax(3),radius,radius_tr,coord(3),Transparency_val
+    integer(int32) :: from, to, i,n,j,k,l,element_id
+    logical :: inside, upside
+
+
+    radius = input(default=0.0050d0,option=Resolution)
+    Transparency_val = input(default=0.30d0,option=Transparency)
+    
+    ! ppfdが通過した葉の積算長さで減衰するモデル
+    NumberOfElement = obj%getNumberOfElement()
+    ppfd = zeros(obj%ne() ) 
+    i = sum(NumberOfElement(1:obj%numStem())+1)
+    j = sum(NumberOfElement(1:obj%numStem() + obj%numLeaf()))
+    ppfd( i:j ) = light%maxPPFD
+    leaf_pass_num = zeros(obj%ne() )
+
+    n = sum(NumberOfElement(1:obj%numStem()))
+    from = n
+
+    !$OMP parallel do default(shared), private(j,k,inside,upside,nodcoord,center_x,radius_vec,radius_tr,xmin,n,element_id)
+    do i=1, size(obj%leaf)
+        if(.not. obj%leaf(i)%femdomain%empty() )then
+            print *, i, "/", obj%numLeaf()
+            !$OMP parallel do default(shared), private(k,inside,upside,nodcoord,center_x,radius_vec,radius_tr,xmin,n,element_id)
+            do j=1,obj%leaf(i)%femdomain%ne()
+                ! 中心座標
+                center_x = obj%leaf(i)%femdomain%centerPosition(ElementID=j)
+                ! 枚数のみカウント
+                ! 1枚あたりthicknessだけ距離加算
+                !!$OMP parallel do default(shared), private(inside,upside,nodcoord,radius_vec,radius_tr,xmin,n,element_id)
+                do k=1,size(obj%leaf)
+
+                    if(i==k) cycle
+                    if(.not. obj%leaf(k)%femdomain%empty() )then
+                        !if(obj%leaf(k)%femdomainの中をcenter_x-light%positionが通過していれば
+                        !!!$OMP parallel do private(l)
+                        !do l=1,obj%leaf(k)%femdomain%nn()
+                        !    coord(1:2) =  obj%leaf(k)%femdomain%mesh%nodcoord(l,1:2)
+                        !    radius_tr = norm(coord(1:2)-center_x(1:2) )
+                        !    if(radius_tr < radius)then
+                        !        inside=.true.
+                        !    endif
+                        !enddo
+                        !!!$OMP end parallel do
+                        
+                        inside=.false.
+                        nodcoord = obj%leaf(k)%femdomain%mesh%nodcoord(:,1:2)
+                        nodcoord(:,1) =nodcoord(:,1) - center_x(1)
+                        nodcoord(:,2) =nodcoord(:,2) - center_x(2)
+                        radius_vec = zeros(size(nodcoord,1))
+                        radius_vec =nodcoord(:,1)*nodcoord(:,1) + nodcoord(:,2)*nodcoord(:,2)
+                        radius_vec(:) =sqrt(radius_vec(:) )
+                        radius_tr = minval(radius_vec)
+                        
+                        xmin(:) = 0.0d0
+                        if(radius_tr < radius)then
+                            !print *, inside
+                            
+                            xmin(3) = obj%leaf(k)%femdomain%mesh%nodcoord(minvalID(radius_vec),3)
+                            !print *, xmin(3)
+                            inside=.true.
+                        endif
+                        
+                        !xmin(1) = minval(obj%leaf(k)%femdomain%mesh%nodcoord(:,1))
+                        !xmin(2) = minval(obj%leaf(k)%femdomain%mesh%nodcoord(:,2))
+                        !xmin(3) = minval(obj%leaf(k)%femdomain%mesh%nodcoord(:,3))
+                        !xmax(1) = maxval(obj%leaf(k)%femdomain%mesh%nodcoord(:,1))
+                        !xmax(2) = maxval(obj%leaf(k)%femdomain%mesh%nodcoord(:,2))
+                        !xmax(3) = maxval(obj%leaf(k)%femdomain%mesh%nodcoord(:,3))
+                        !inside = InOrOut(x=center_x(1:2),xmax=xmax(1:2),xmin=xmin(1:2),DimNum=2)
+                        upside = (center_x(3) < xmin(3) )
+                        if(inside .eqv. .true.)then
+                            if(upside .eqv. .true.)then
+                                if(inside .eqv. .false.)then
+                                    cycle
+                                endif
+                                if(upside .eqv. .false.)then
+                                    cycle
+                                endif
+                                n = obj%numStem() + (i-1)
+                                element_id = sum(NumberOfElement(1:n)) + j
+                                !leaf_pass_num(element_id) = leaf_pass_num(element_id) + thickness
+                                leaf_pass_num(element_id) = leaf_pass_num(element_id) + 1.0d0
+                                
+                            endif
+                        endif
+                    endif
+                enddo
+                !!$OMP end parallel do    
+            enddo
+            !$OMP end parallel do
+        endif
+    enddo
+    !$OMP end parallel do
+
+    !print *, maxval(leaf_pass_num),minval(leaf_pass_num)
+    !ppfd = leaf_pass_num
+    ppfd(:) = ppfd(:) * Transparency_val** leaf_pass_num(:)
+    
+
+end function
+! ############################################################################
+
+
+! ############################################################################
+!function getPhotoSynthesisSoybean(obj,light,dt)  result(photosynthesis)
+!    class(Soybean_),intent(in) :: obj 
+!    type(Light_),intent(in)    :: light
+!    real(real64),intent(in) :: dt
+!
+!
+!    ! 光合成量を計算
+!    !do i=1,size(obj%Leaf)
+!    !    if(obj%Leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+!    !        call obj%leaf(i)%photosynthesis(dt=dt,air=air)
+!    !    endif
+!    !enddo
+!    
+!end function
 ! ############################################################################
 
 end module

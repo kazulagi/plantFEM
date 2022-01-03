@@ -169,6 +169,7 @@ module FEMDomainClass
 		
 		procedure,public :: getElement => getElementFEMDOmain
 		procedure,public :: getElementList => getElementListFEMDomain
+		!procedure,public :: getNumberOfPoint => getNumberOfPointFEMDomain
 		
 		procedure,public :: getLocalCoordinate => getLocalCoordinateFEMDomain	
 		procedure,public :: GlobalPositionOfGaussPoint => getGlobalPositionOfGaussPointFEMDomain	
@@ -7371,8 +7372,9 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 				call f%write(str(scalar(i)))
 			enddo
 		else
-			call print("vtkFEMDOmain ERROR ::size(scalar) sould be obj%nn()   ")
-			call print("size(scalar)="//str(size(scalar))//" and obj%nn() = "//str(obj%nn() ) )
+			call print("vtkFEMDOmain ERROR ::size(scalar) should be obj%nn() or obj%ne()  ")
+			call print("size(scalar)="//str(size(scalar))//" <> obj%nn() = "//str(obj%nn() )//&
+				" <> obj%ne() = "//str(obj%ne() ) )
 			call f%close()
 			return
 		endif
@@ -11022,5 +11024,9 @@ function appendfemdomain(x,y)  result(z)
 
 end function appendFEMDomain
 ! ########################################
+
+!function getNumberOfPointFEMDomain(obj,xmin,) result(ret)
+!	class(FEMDomain_),intent(in) :: obj
+!end function
 
 end module FEMDomainClass

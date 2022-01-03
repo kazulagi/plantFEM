@@ -459,7 +459,7 @@ end subroutine
         ! グラフ構造とメッシュ構造を生成する。
     
         !
-        !           %%%%%%%%%%%%%%%%%%%%%%%%%%%%%  B
+        !           D %%%%%%%%%%%%%%%%%%%%%%%%%%%  B
         !         %%                        %   %
         !        %%                    %      %%  
         !      %%                 %          %%    
@@ -467,7 +467,7 @@ end subroutine
         !     %%      %                  %%        
         !     %%                       %%          
         !   A   %%                  %%            
-        !      <I> %%%%%%%%%%%%%%%%                               
+        !      <I> %%%%%%%%%%%%%%%% C                              
     
     
     
@@ -534,10 +534,10 @@ end subroutine
         !obj%B_PointElementID = buf(1)
         obj%B_PointElementID = median(buf)
     
-        !print *, obj%A_PointNodeID
-        !print *, obj%B_PointNodeID
-        !print *, obj%A_PointElementID
-        !print *, obj%B_PointElementID
+        !print *, obj%C_PointNodeID
+        !print *, obj%D_PointNodeID
+        !print *, obj%C_PointElementID
+        !print *, obj%D_PointElementID
 !
         call obj%FEMdomain%remove()
         if(present(species) )then

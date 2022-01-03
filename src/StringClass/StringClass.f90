@@ -32,6 +32,11 @@ module StringClass
   end interface
 
 
+  interface operator(+)
+    module procedure addCharChar
+  end interface
+
+
   
 contains
 !==============================================================
@@ -174,5 +179,13 @@ function upperString(this) result(ret)
 
 end function
 !==============================================================
+
+pure function addCharChar(char1,char2) result(char3)
+  character(*),intent(in) :: char1, char2
+  character(:),allocatable :: char3
+
+  char3 = char1 // char2
+  
+end function
 
 end module 
