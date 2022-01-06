@@ -1,3 +1,6 @@
+![photosynthesis](https://user-images.githubusercontent.com/54159711/148028788-96abff46-e941-4614-8825-8244b4dc8992.jpeg)
+
+
 ![soy_scalar_field](https://user-images.githubusercontent.com/54159711/147451703-cd0ecca3-5a87-4cc7-81e2-4621210dc0c4.jpeg)
 
 

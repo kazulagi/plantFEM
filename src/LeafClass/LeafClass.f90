@@ -92,6 +92,7 @@ module LeafClass
         generic :: connect => connectLeafLeaf, connectLeafStem
         
         procedure, public :: photosynthesis => photosynthesisLeaf
+        procedure, public :: getPhotosynthesisSpeedPerVolume => getPhotosynthesisSpeedPerVolumeLeaf
         
         procedure, public :: rescale => rescaleleaf
         procedure, public :: adjust => adjustLeaf
@@ -1054,7 +1055,98 @@ subroutine photosynthesisLeaf(obj,dt,air)
 !
 end subroutine
 
+! ####################################################################
 
+! ########################################
+function getPhotosynthesisSpeedPerVolumeLeaf(obj,dt,air) result(Speed_PV)
+
+    ! https://eprints.lib.hokudai.ac.jp/dspace/bitstream/2115/39102/1/67-013.pdf
+
+    class(Leaf_),intent(inout) :: obj
+    type(Air_),intent(in) :: air
+    type(IO_) :: f
+    real(real64),intent(in) :: dt
+    ! Farquhar modelのパラメータ
+    real(real64) :: A   ! CO2吸収速度
+    real(real64) :: V_c ! カルボキシル化反応速度
+    real(real64) :: V_o ! 酸素化反応速度
+
+    real(real64) :: W_c! RuBPが飽和している場合のCO2吸収速度
+    real(real64) :: W_j! RuBP供給が律速している場合のCO2吸収速度
+
+    real(real64) :: V_cmax ! 最大カルボキシル化反応速度
+    real(real64) :: V_omax ! 最大酸素化反応速度
+    real(real64) :: O2 ! 酸素濃度
+    real(real64) :: CO2 ! 二酸化炭素濃度
+    real(real64) :: R_d ! なんだっけ
+
+    real(real64) :: K_c ! CO2に対するミカエリス定数
+    real(real64) :: K_o ! O2に対するミカエリス定数
+
+    real(real64) :: J_ ! 電子伝達速度
+    real(real64) :: I_ ! 光強度
+    real(real64) :: phi ! I-J曲線の初期勾配
+    real(real64) :: J_max !最大電子伝達速度
+    real(real64) :: theta_r ! 曲線の凸度
+
+    real(real64) :: pfd
+
+    real(real64) :: Lambda, volume
+    real(real64),allocatable :: Speed_PV(:)
+
+    integer(int32) :: i, element_id
+
+    obj%temp=air%temp
+    obj%CO2 = air%CO2
+    obj%O2 = air%O2
+
+    Speed_PV = zeros(obj%femdomain%ne() )
+    ! TT-model
+    do i=1,size(Speed_PV)
+        ! 要素ごとに電子伝達速度を求める
+        element_id = i
+        pfd = obj%ppfd(element_id)
+        obj%J_ = 0.240d0*pfd/(sqrt(1.0d0 + (0.240d0*0.240d0)*pfd*pfd)/obj%J_max/obj%J_max)
+        
+        ! lambdaからV_omaxを推定
+        obj%V_omax = obj%Lambda*( 2.0d0 * obj%V_cmax*obj%K_o )/(obj%K_c*O2)
+
+        ! CO2固定速度の計算
+        V_c = (obj%V_cmax*obj%CO2)/(obj%CO2 +obj% K_o * (1.0d0+ obj%O2/obj%K_o) )
+        V_o = (obj%V_omax*obj%O2 )/(obj%O2 + obj%K_o * (1.0d0 + obj%CO2/obj%K_c) )
+
+        ! RuBPが飽和している場合のCO2吸収速度
+        W_c = (obj%V_cmax*(obj%CO2 - obj%Lambda))/(obj%CO2 + obj%K_c*(1.0d0 + obj%O2/obj%K_o))
+
+        ! RuBP供給が律速している場合のCO2吸収速度
+        W_j = obj%J_ * (obj%CO2 - obj%Lambda)/(4.0d0 * obj%CO2 + 8.0d0 * obj%Lambda ) - obj%R_d
+
+
+        if(W_j >= W_c )then
+            A = W_c
+        else
+            A = W_j
+        endif
+        ! 要素体積を求める, m^3
+        obj%A(element_id) = A
+        volume = obj%femdomain%getVolume(elem=element_id)
+
+        !CO2固定量　mincro-mol/m-2/s
+        ! ここ、体積あたりにする必要がある
+        ! 一応、通常の葉の厚さを2mmとして、
+        ! 1 micro-mol/m^2/sを、 1 micro-mol/ 0.002m^3/s= 500micro-mol/m^3/sとして計算
+        ! また、ソース量はC6H12O6の質量gramとして換算する。
+        ! CO2の分子量44.01g/mol
+        ! C6H12O6の分子量180.16g/mol
+        ! 6CO2 + 12H2O => C6H12O6 + 6H2O + 6O2
+        ! よって、生成されるソース量は
+        !               {CO2固定量,mol     }× {1/6 してグルコースmol}×グルコース分子量
+        Speed_PV(i) =A*dt/500.0d0 * 1.0d0/6.0d0 * 180.160d0
+        
+    enddo
+end function
+
+! ####################################################################
 subroutine adjustLeaf(obj,width)
     class(Leaf_),intent(inout) :: obj
     real(real64),intent(in) :: width(:,:)
