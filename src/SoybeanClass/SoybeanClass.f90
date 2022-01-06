@@ -180,6 +180,7 @@ module SoybeanClass
         
         procedure,public :: grow => growSoybean
         procedure,public :: getVolume => getVolumeSoybean
+        procedure,public :: getVolumePerElement => getVolumePerElementSoybean
         procedure,public :: getBioMass => getBioMassSoybean
         procedure,public :: getTotalWeight => getTotalWeightSoybean
         procedure,public :: getSubDomain => getSubDomainSoybean
@@ -195,10 +196,11 @@ module SoybeanClass
             => getDistanceToGroundFromRootIDSoybean
         procedure,public :: getRangeOfNodeID => getRangeOfNodeIDSoybean
         procedure,public :: getPPFD => getPPFDSoybean
-        !procedure,public :: getPhotoSynthesis => getPhotoSynthesisSoybean
+        procedure,public :: getPhotoSynthesis => getPhotoSynthesisSoybean
+        procedure,public :: getPhotoSynthesisSpeedPerVolume => getPhotoSynthesisSpeedPerVolumeSoybean
         
         
-        
+        procedure,public :: fixReversedElements => fixReversedElementsSoybean
         
         procedure,public :: resize => resizeSoybean
         procedure,public :: deform => deformSoybean
@@ -1619,8 +1621,10 @@ subroutine initsoybean(obj,config,&
         
         
         obj%stage = "V"//trim(str(obj%ms_node))
-
+        
         call obj%update()
+        call obj%fixReversedElements()
+
         if(timeOpt) then
             print *, "[4] create objects."
         call time%show()
@@ -1840,6 +1844,8 @@ subroutine initsoybean(obj,config,&
     !    print *, "vec",vec
     !    print *, "rot",rot    
         call obj%update()
+        call obj%fixReversedElements()
+        
     endif
 
 
@@ -1913,6 +1919,8 @@ subroutine initsoybean(obj,config,&
 
             obj%time=0.0d0
             call obj%update()
+            call obj%fixReversedElements()
+        
             return
         endif
     endif
@@ -2754,20 +2762,44 @@ end subroutine
 ! ########################################
 
 ! ########################################
-subroutine laytracingsoybean(obj,light)
+subroutine laytracingsoybean(obj,light,Transparency,Resolution)
     class(Soybean_),intent(inout) :: obj
     type(Light_),intent(in) :: light
+    real(real64),optional,intent(in) :: Transparency,Resolution
+    real(real64),allocatable :: ppfd(:)
+    integer(int32),allocatable ::  NumberOfElement(:)
+    integer(int32) :: from, elem_id
+
+    ! >>> regacy
     real(real64),allocatable :: stemcenter(:,:),stemradius(:)
     real(real64),allocatable :: leafcenter(:,:),leafradius(:)
     real(real64),allocatable :: elemnodcoord(:,:),x(:),x2(:)
     real(real64) :: max_PPFD,r,rc,r0
     real(real64),parameter :: extinction_ratio = 100.0d0 ! ratio/m
-    !real(real64),parameter :: radius_ratio = 0.01d0 ! radius_of_gauss_point/element_length
     type(IO_) :: f
     integer(int32) :: i,j,n,num_particle,k,l,nodeid,m,totcount
     integer(int32) :: num_particle_leaf,tocount_leaf
+    ! <<< regacy
 
-    max_PPFD = light%maxPPFD
+    ppfd = obj%getPPFD(Light=Light,Transparency=Transparency,Resolution=Resolution)
+
+    NumberOfElement = obj%getNumberOfElement()
+    from = sum(NumberOfElement(1:obj%numstem() ))
+
+    elem_id = from
+    do i=1, size(obj%leaf)
+        if(.not. obj%leaf(i)%femdomain%empty() )then
+            obj%leaf(i)%ppfd = zeros( obj%leaf(i)%femdomain%ne() )
+            do j=1,obj%leaf(i)%femdomain%ne()
+                elem_id = elem_id + 1
+                obj%leaf(i)%ppfd(j) = ppfd(elem_id)
+            enddo
+        endif
+    enddo
+    return
+
+    ! >>> Regacy
+
     ! 総当りで、総遮蔽長を割り出す
     ! 茎は光を通さない、葉は透過率あり、空間は透過率ゼロ
     ! 要素中心から頂点への平均長さを半径に持ち、要素中心を中心とする球
@@ -3362,6 +3394,7 @@ end subroutine
 ! #####################################################################
 
 
+! #####################################################################
 function getVolumeSoybean(obj,stem,leaf,root) result(ret)
     class(Soybean_),intent(in) :: obj
     logical,optional,intent(in) :: stem, leaf, root
@@ -3439,6 +3472,43 @@ function getVolumeSoybean(obj,stem,leaf,root) result(ret)
 end function
 ! ############################################################################
 
+
+! #####################################################################
+function getVolumePerElementSoybean(obj) result(volume)
+    class(Soybean_),intent(in) :: obj
+    integer(int32) :: i,j,elem_id
+    real(real64),allocatable :: volume(:)
+
+    elem_id = 0
+    volume = zeros(obj%ne() )
+
+    do i=1,size(obj%stem)
+        if( .not.obj%stem(i)%femdomain%mesh%empty() )then
+            do j=1,obj%stem(i)%femdomain%ne()
+                elem_id = elem_id + 1
+                volume(elem_id) = obj%stem(i)%femdomain%getVolume(elem=j)
+            enddo
+        endif
+    enddo
+    do i=1,size(obj%leaf)
+        if( .not.obj%leaf(i)%femdomain%mesh%empty() )then
+            do j=1,obj%leaf(i)%femdomain%ne()
+                elem_id = elem_id + 1
+                volume(elem_id) = obj%leaf(i)%femdomain%getVolume(elem=j)
+            enddo
+        endif
+    enddo
+    do i=1,size(obj%root)
+        if( .not.obj%root(i)%femdomain%mesh%empty() )then
+            do j=1,obj%root(i)%femdomain%ne()
+                elem_id = elem_id + 1
+                volume(elem_id) = obj%root(i)%femdomain%getVolume(elem=j)
+            enddo
+        endif
+    enddo
+    
+end function
+! ############################################################################
 
 
 ! ############################################################################
@@ -5968,20 +6038,182 @@ end function
 
 
 ! ############################################################################
-!function getPhotoSynthesisSoybean(obj,light,dt)  result(photosynthesis)
-!    class(Soybean_),intent(in) :: obj 
-!    type(Light_),intent(in)    :: light
-!    real(real64),intent(in) :: dt
-!
-!
-!    ! 光合成量を計算
-!    !do i=1,size(obj%Leaf)
-!    !    if(obj%Leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-!    !        call obj%leaf(i)%photosynthesis(dt=dt,air=air)
-!    !    endif
-!    !enddo
-!    
-!end function
+function getPhotoSynthesisSoybean(obj,light,air,dt,Transparency,Resolution,ppfd)  result(photosynthesis)
+    class(Soybean_),intent(inout) :: obj 
+    type(Light_),intent(in)    :: light
+    type(Air_),intent(in)    :: Air
+    real(real64),intent(in) :: dt
+    real(real64),optional,intent(in) :: Transparency,Resolution,ppfd(:)
+    real(real64),allocatable :: photosynthesis(:)
+    
+    integer(int32),allocatable :: NumberOfElement(:)
+    integer(int32) :: i,j,offset,elem_id
+    
+    photosynthesis = zeros(obj%ne() )
+    
+    NumberOfElement = obj%getNumberOfElement()
+    offset = sum(NumberOfElement(1:obj%numStem() ) )
+
+    ! before photosynthesis
+    elem_id = offset
+    do i=1,size(obj%leaf)
+        if( .not. obj%leaf(i)%femdomain%empty()  )    then
+            do j=1,obj%leaf(i)%femdomain%ne()
+                elem_id = elem_id + 1
+                photosynthesis(elem_id) = obj%leaf(i)%source(j)
+            enddo
+        endif
+    enddo
+
+    if(.not. present(ppfd) )then
+        
+        call obj%laytracing(light=light,Transparency=Transparency,Resolution=Resolution)
+
+        ! 光合成量を計算
+        do i=1,size(obj%Leaf)
+            if(obj%Leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call obj%leaf(i)%photosynthesis(dt=dt,air=air)
+            endif
+        enddo
+    else
+        elem_id = offset
+    
+        do i=1,size(obj%leaf)
+            if( .not. obj%leaf(i)%femdomain%empty()  )    then
+                do j=1,obj%leaf(i)%femdomain%ne()
+                    elem_id = elem_id + 1
+                    obj%leaf(i)%ppfd(j) = ppfd(elem_id) !- photosynthesis(elem_id)
+                enddo
+            endif
+        enddo
+    
+    endif
+    
+    elem_id = offset
+    do i=1,size(obj%leaf)
+        if( .not. obj%leaf(i)%femdomain%empty()  )    then
+            do j=1,obj%leaf(i)%femdomain%ne()
+                elem_id = elem_id + 1
+                photosynthesis(elem_id) = obj%leaf(i)%source(j) - photosynthesis(elem_id)
+            enddo
+        endif
+    enddo
+
+
+    
+end function
 ! ############################################################################
+
+! ############################################################################
+function getPhotoSynthesisSpeedPerVolumeSoybean(obj,light,air,dt,Transparency,Resolution,ppfd)  result(photosynthesis)
+    class(Soybean_),intent(inout) :: obj 
+    type(Light_),intent(in)    :: light
+    type(Air_),intent(in)    :: Air
+    real(real64),intent(in) :: dt
+    real(real64),optional,intent(in) :: Transparency,Resolution,ppfd(:)
+    real(real64),allocatable :: photosynthesis(:),Speed_PV(:)
+    
+    integer(int32),allocatable :: NumberOfElement(:)
+    integer(int32) :: i,j,offset,elem_id
+    
+    photosynthesis = zeros(obj%ne() )
+    
+    NumberOfElement = obj%getNumberOfElement()
+    offset = sum(NumberOfElement(1:obj%numStem() ) )
+
+
+    if(.not. present(ppfd) )then
+        
+        call obj%laytracing(light=light,Transparency=Transparency,Resolution=Resolution)
+
+    else
+        elem_id = offset
+    
+        do i=1,size(obj%leaf)
+            if( .not. obj%leaf(i)%femdomain%empty()  )    then
+                do j=1,obj%leaf(i)%femdomain%ne()
+                    elem_id = elem_id + 1
+                    obj%leaf(i)%ppfd(j) = ppfd(elem_id) !- photosynthesis(elem_id)
+                enddo
+            endif
+        enddo
+    
+    endif
+    
+    elem_id = offset
+    do i=1,size(obj%leaf)
+        if( .not. obj%leaf(i)%femdomain%empty()  )    then
+            Speed_PV = obj%leaf(i)%getPhotoSynthesisSpeedPerVolume(dt=dt,air=air)
+            do j=1,obj%leaf(i)%femdomain%ne()
+                elem_id = elem_id + 1
+                photosynthesis(elem_id) = Speed_PV(j)
+            enddo
+        endif
+    enddo
+
+
+    
+end function
+! ############################################################################
+
+subroutine fixReversedElementsSoybean(obj)
+    class(Soybean_),intent(inout) :: obj
+    integer(int32) :: i,j
+    real(Real64) :: v
+    
+    
+    do i=1,size(obj%stem)
+        if(obj%stem(i)%femdomain%empty() ) cycle
+
+        do j=1,obj%stem(i)%femdomain%ne()
+            v = obj%stem(i)%femdomain%getvolume(elem=j)
+            if(v<=0)then
+                call obj%stem(i)%femdomain%fixReversedElements()
+                if( obj%stem(i)%femdomain%getvolume(elem=j) < 0.0d0 )then
+                    print *, "[ERROR] >> fixReversedElementsSoybean >> not fixed"
+                    stop
+                endif
+                exit    
+            endif
+        enddo
+
+    enddo
+
+    do i=1,size(obj%leaf)
+        if(obj%leaf(i)%femdomain%empty() ) cycle
+
+        do j=1,obj%Leaf(i)%femdomain%ne()
+            v = obj%Leaf(i)%femdomain%getvolume(elem=j)
+            if(v<=0)then
+                call obj%Leaf(i)%femdomain%fixReversedElements()
+                if( obj%Leaf(i)%femdomain%getvolume(elem=j) < 0.0d0 )then
+                    print *, "[ERROR] >> fixReversedElementsSoybean >> not fixed"
+                    stop
+                endif
+                exit    
+            endif
+        enddo
+
+    enddo
+
+
+    do i=1,size(obj%root)
+        if(obj%root(i)%femdomain%empty() ) cycle
+
+        do j=1,obj%root(i)%femdomain%ne()
+            v = obj%root(i)%femdomain%getvolume(elem=j)
+            if(v<=0)then
+                call obj%root(i)%femdomain%fixReversedElements()
+                if( obj%root(i)%femdomain%getvolume(elem=j) < 0.0d0 )then
+                    print *, "[ERROR] >> fixReversedElementsSoybean >> not fixed"
+                    stop
+                endif
+                exit    
+            endif
+        enddo
+
+    enddo
+
+end subroutine
 
 end module

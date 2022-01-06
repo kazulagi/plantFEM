@@ -129,6 +129,7 @@ module FEMDomainClass
 		procedure,public :: connectivity => connectivityFEMDomain 
 		procedure,public :: copy => copyFEMDomain
 		procedure,public :: convertMeshType => convertMeshTypeFEMDomain
+		
 		procedure,public :: contactdetect => contactdetectFEMDomain
 		procedure,public :: centerPosition => centerPositionFEMDomain
 		procedure,public :: create => createFEMDomain
@@ -147,6 +148,7 @@ module FEMDomainClass
 		
 		
 		procedure,public :: field => fieldFEMDomain
+		procedure,public :: fixReversedElements => fixReversedElementsFEMDomain
 		
 		procedure,public :: gmshPlotMesh => GmshPlotMesh
 		procedure,public :: gmsh => GmshPlotMesh
@@ -7203,9 +7205,12 @@ recursive function getVolumeFEMDomain(obj,elem) result(ret)
 		sf%ElemType=obj%Mesh%GetElemType()
 		call SetShapeFuncType(sf)
 		i = elem
-		call GetAllShapeFunc(sf,elem_id=i,nod_coord=obj%Mesh%NodCoord,&
-			elem_nod=obj%Mesh%ElemNod,OptionalGpID=1)
-		ret = sf%detJ*((2.0d0)**obj%nd())
+		ret = 0.0d0
+		do j=1,sf%numOfGP
+			call GetAllShapeFunc(sf,elem_id=i,nod_coord=obj%Mesh%NodCoord,&
+				elem_nod=obj%Mesh%ElemNod,OptionalGpID=j)
+			ret = ret + sf%detJ*((2.0d0)**obj%nd())
+		enddo
 	else
 		! count all
 		ret = 0.0d0
@@ -11024,6 +11029,57 @@ function appendfemdomain(x,y)  result(z)
 
 end function appendFEMDomain
 ! ########################################
+
+subroutine fixReversedElementsFEMDomain(obj)
+	class(FEMDomain_),intent(inout) :: obj
+	real(real64) :: volume
+    integer(int32) :: i,j
+	integer(int32),allocatable :: elemnod(:)
+
+	if(obj%mesh%empty() )then
+		return
+	else
+		! fix reversed elements
+		!!$OMP parallel do default(shared) private(elemnod,volume)
+		do i=1,obj%mesh%ne()
+			volume = obj%getVolume(elem=i)
+			if(volume < 0.0d0) then
+				elemnod = obj%mesh%elemnod(i,:) 
+				
+				if(obj%nne()==8 .and. obj%nd()==3 )then
+					obj%mesh%elemnod(i,1) = elemnod(4)
+					obj%mesh%elemnod(i,2) = elemnod(3)
+					obj%mesh%elemnod(i,3) = elemnod(2)
+					obj%mesh%elemnod(i,4) = elemnod(1)
+					obj%mesh%elemnod(i,5) = elemnod(8)
+					obj%mesh%elemnod(i,6) = elemnod(7)
+					obj%mesh%elemnod(i,7) = elemnod(6)
+					obj%mesh%elemnod(i,8) = elemnod(5)
+				elseif(obj%nne()==4 .and. obj%nd()==3 )then
+					obj%mesh%elemnod(i,1) = elemnod(3)
+					obj%mesh%elemnod(i,2) = elemnod(2)
+					obj%mesh%elemnod(i,3) = elemnod(1)
+					obj%mesh%elemnod(i,4) = elemnod(4)
+				elseif(obj%nne()==4 .and. obj%nd()==2 )then
+					obj%mesh%elemnod(i,1) = elemnod(4)
+					obj%mesh%elemnod(i,2) = elemnod(3)
+					obj%mesh%elemnod(i,3) = elemnod(2)
+					obj%mesh%elemnod(i,4) = elemnod(1)
+				elseif(obj%nne()==3 .and. obj%nd()==2 )then
+					obj%mesh%elemnod(i,1) = elemnod(3)
+					obj%mesh%elemnod(i,2) = elemnod(2)
+					obj%mesh%elemnod(i,3) = elemnod(1)
+				else
+					print *, "[ERROR] >> fixReversedElementsFEMDomain"
+					print *, "Element with ",obj%nne(),"nne and",obj%nd(),"obj%nd()"
+					print *, "is not impremented yet."
+					stop
+				endif
+			endif
+		enddo
+		!!OMP end parallel do
+	endif
+end subroutine
 
 !function getNumberOfPointFEMDomain(obj,xmin,) result(ret)
 !	class(FEMDomain_),intent(in) :: obj
