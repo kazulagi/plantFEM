@@ -5926,11 +5926,11 @@ end function
 
 
 ! ############################################################################
-function getPPFDSoybean(obj,light,Transparency,Resolution)  result(ppfd)
+function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads)  result(ppfd)
     class(Soybean_),intent(inout) :: obj 
     type(Light_),intent(in)    :: light
     real(real64),optional,intent(in) :: Transparency,Resolution
-
+    integer(int32),optional,intent(in) :: num_threads
     real(real64),allocatable :: ppfd(:), NumberOfElement(:), NumberOfPoint(:)
     real(real64),allocatable :: leaf_pass_num(:),nodcoord(:,:),radius_vec(:)
     real(real64) ::thickness,center_x(3),xmin(3),xmax(3),radius,radius_tr,coord(3),Transparency_val
@@ -5951,58 +5951,49 @@ function getPPFDSoybean(obj,light,Transparency,Resolution)  result(ppfd)
 
     n = sum(NumberOfElement(1:obj%numStem()))
     from = n
-
-    !$OMP parallel do default(shared), private(j,k,inside,upside,nodcoord,center_x,radius_vec,radius_tr,xmin,n,element_id)
+    if(present(num_threads) )then
+        call omp_set_num_threads(num_threads)
+    endif
+    !$OMP parallel do default(shared), private(j,k,inside,upside,center_x,radius_vec,radius_tr,xmin,n,element_id)
     do i=1, size(obj%leaf)
         if(.not. obj%leaf(i)%femdomain%empty() )then
             print *, i, "/", obj%numLeaf()
-            !$OMP parallel do default(shared), private(k,inside,upside,nodcoord,center_x,radius_vec,radius_tr,xmin,n,element_id)
+            !$OMP parallel do default(shared), private(k,inside,upside,center_x,radius_vec,radius_tr,xmin,n,element_id)
             do j=1,obj%leaf(i)%femdomain%ne()
                 ! 中心座標
                 center_x = obj%leaf(i)%femdomain%centerPosition(ElementID=j)
                 ! 枚数のみカウント
                 ! 1枚あたりthicknessだけ距離加算
-                !!$OMP parallel do default(shared), private(inside,upside,nodcoord,radius_vec,radius_tr,xmin,n,element_id)
+                !$OMP parallel do default(shared), private(inside,upside,radius_vec,radius_tr,xmin,n,element_id)
                 do k=1,size(obj%leaf)
 
                     if(i==k) cycle
                     if(.not. obj%leaf(k)%femdomain%empty() )then
-                        !if(obj%leaf(k)%femdomainの中をcenter_x-light%positionが通過していれば
-                        !!!$OMP parallel do private(l)
-                        !do l=1,obj%leaf(k)%femdomain%nn()
-                        !    coord(1:2) =  obj%leaf(k)%femdomain%mesh%nodcoord(l,1:2)
-                        !    radius_tr = norm(coord(1:2)-center_x(1:2) )
-                        !    if(radius_tr < radius)then
-                        !        inside=.true.
-                        !    endif
-                        !enddo
-                        !!!$OMP end parallel do
                         
                         inside=.false.
-                        nodcoord = obj%leaf(k)%femdomain%mesh%nodcoord(:,1:2)
-                        nodcoord(:,1) =nodcoord(:,1) - center_x(1)
-                        nodcoord(:,2) =nodcoord(:,2) - center_x(2)
-                        radius_vec = zeros(size(nodcoord,1))
-                        radius_vec =nodcoord(:,1)*nodcoord(:,1) + nodcoord(:,2)*nodcoord(:,2)
-                        radius_vec(:) =sqrt(radius_vec(:) )
+
+                        !nodcoord = obj%leaf(k)%femdomain%mesh%nodcoord(:,1:2)
+                        !nodcoord(:,1) =nodcoord(:,1) - center_x(1)
+                        !nodcoord(:,2) =nodcoord(:,2) - center_x(2)
+
+                        radius_vec = zeros(obj%leaf(k)%femdomain%nn() )
+                        
+                        !radius_vec =nodcoord(:,1)*nodcoord(:,1) + nodcoord(:,2)*nodcoord(:,2)
+                        
+                        radius_vec =(obj%leaf(k)%femdomain%mesh%nodcoord(:,1)-center_x(1))**2 &
+                        + (obj%leaf(k)%femdomain%mesh%nodcoord(:,2)-center_x(2))**2
+                        
+                        !radius_vec(:) =sqrt(radius_vec(:) )
                         radius_tr = minval(radius_vec)
                         
                         xmin(:) = 0.0d0
-                        if(radius_tr < radius)then
-                            !print *, inside
+                        if(radius_tr < radius*radius)then
                             
                             xmin(3) = obj%leaf(k)%femdomain%mesh%nodcoord(minvalID(radius_vec),3)
-                            !print *, xmin(3)
+                            
                             inside=.true.
                         endif
                         
-                        !xmin(1) = minval(obj%leaf(k)%femdomain%mesh%nodcoord(:,1))
-                        !xmin(2) = minval(obj%leaf(k)%femdomain%mesh%nodcoord(:,2))
-                        !xmin(3) = minval(obj%leaf(k)%femdomain%mesh%nodcoord(:,3))
-                        !xmax(1) = maxval(obj%leaf(k)%femdomain%mesh%nodcoord(:,1))
-                        !xmax(2) = maxval(obj%leaf(k)%femdomain%mesh%nodcoord(:,2))
-                        !xmax(3) = maxval(obj%leaf(k)%femdomain%mesh%nodcoord(:,3))
-                        !inside = InOrOut(x=center_x(1:2),xmax=xmax(1:2),xmin=xmin(1:2),DimNum=2)
                         upside = (center_x(3) < xmin(3) )
                         if(inside .eqv. .true.)then
                             if(upside .eqv. .true.)then
@@ -6014,14 +6005,12 @@ function getPPFDSoybean(obj,light,Transparency,Resolution)  result(ppfd)
                                 endif
                                 n = obj%numStem() + (i-1)
                                 element_id = sum(NumberOfElement(1:n)) + j
-                                !leaf_pass_num(element_id) = leaf_pass_num(element_id) + thickness
                                 leaf_pass_num(element_id) = leaf_pass_num(element_id) + 1.0d0
-                                
                             endif
                         endif
                     endif
                 enddo
-                !!$OMP end parallel do    
+                !$OMP end parallel do    
             enddo
             !$OMP end parallel do
         endif
