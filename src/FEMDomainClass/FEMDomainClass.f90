@@ -7209,7 +7209,7 @@ recursive function getVolumeFEMDomain(obj,elem) result(ret)
 		do j=1,sf%numOfGP
 			call GetAllShapeFunc(sf,elem_id=i,nod_coord=obj%Mesh%NodCoord,&
 				elem_nod=obj%Mesh%ElemNod,OptionalGpID=j)
-			ret = ret + sf%detJ*((2.0d0)**obj%nd())
+			ret = ret + sf%detJ*((2.0d0)**obj%nd())/dble(sf%numOfGP)
 		enddo
 	else
 		! count all

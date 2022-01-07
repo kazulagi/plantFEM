@@ -104,6 +104,7 @@ module LeafClass
         procedure, public :: getVolume => getVolumeLeaf
         procedure, public :: getBiomass => getBiomassLeaf
         procedure, public :: getCoordinate => getCoordinateleaf
+        procedure, public :: getLeafArea => getLeafAreaLeaf
 
 
         procedure, public :: gmsh => gmshleaf
@@ -256,6 +257,9 @@ subroutine createLeaf(obj,SurfacePoints,filename,x_num,y_num,x_len,y_len)
         call obj%femdomain%resize(y=y_len)
     endif
 
+
+    obj%thickness = maxval(obj%femdomain%mesh%nodcoord(:,3)) &
+    - minval(obj%femdomain%mesh%nodcoord(:,3))
 !    ! export data
 !    call f%open("theta_r_relation.txt","w")
 !    do i=1,size(r_data)
@@ -548,6 +552,9 @@ end subroutine
             call obj%FEMdomain%create(meshtype="Leaf3D",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
             x_len=obj%minwidth/2.0d0,y_len=obj%minthickness/2.0d0,z_len=obj%minlength,shaperatio=obj%shaperatio)
         endif
+
+        obj%thickness = maxval(obj%femdomain%mesh%nodcoord(:,2)) &
+            - minval(obj%femdomain%mesh%nodcoord(:,2))
     ! デバッグ用
     !    call f%open("I_phaseNodeID.txt")
     !    do i=1,size(obj%I_planeNodeID)
@@ -972,7 +979,7 @@ subroutine photosynthesisLeaf(obj,dt,air)
 
     real(real64) :: pfd
 
-    real(real64) :: Lambda, volume
+    real(real64) :: Lambda, volume,gs,Ci,Ca
 
 
     integer(int32) :: i, element_id
@@ -996,10 +1003,12 @@ subroutine photosynthesisLeaf(obj,dt,air)
         V_o = (obj%V_omax*obj%O2 )/(obj%O2 + obj%K_o * (1.0d0 + obj%CO2/obj%K_c) )
 
         ! RuBPが飽和している場合のCO2吸収速度
-        W_c = (obj%V_cmax*(obj%CO2 - obj%Lambda))/(obj%CO2 + obj%K_c*(1.0d0 + obj%O2/obj%K_o))
+        Ca  = obj%CO2
+
+        W_c = (obj%V_cmax*(Ca - obj%Lambda))/(Ca + obj%K_c*(1.0d0 + obj%O2/obj%K_o))
 
         ! RuBP供給が律速している場合のCO2吸収速度
-        W_j = obj%J_ * (obj%CO2 - obj%Lambda)/(4.0d0 * obj%CO2 + 8.0d0 * obj%Lambda ) - obj%R_d
+        W_j = obj%J_ * (Ca - obj%Lambda)/(4.0d0 * Ca + 8.0d0 * obj%Lambda ) - obj%R_d
 
 
         if(W_j >= W_c )then
@@ -1007,21 +1016,32 @@ subroutine photosynthesisLeaf(obj,dt,air)
         else
             A = W_j
         endif
+
+        !A = gs(Ca - Ci)
+        !A = gs*Ca - gs*Ci
+        !A = gs*Ca - gs*Ci
+        !gs_max = 0.6
+        
+
         ! 要素体積を求める, m^3
         obj%A(element_id) = A
         volume = obj%femdomain%getVolume(elem=element_id)
 
+        ! CO2拡散が考慮されていない，表皮がない．コンダクタンス∞
+        ! コンダクタンスを光で．
+        ! 水分の関数をあとでいれる
+
         !CO2固定量　mincro-mol/m-2/s
         ! ここ、体積あたりにする必要がある
         ! 一応、通常の葉の厚さを2mmとして、
-        ! 1 micro-mol/m^2/sを、 1 micro-mol/ 0.002m^3/s= 500micro-mol/m^3/sとして計算
+        ! 1 micro-mol/m^2/sを、 1 micro-mol/ 0.0002m^3/s= 5000micro-mol/m^3/sとして計算
         ! また、ソース量はC6H12O6の質量gramとして換算する。
         ! CO2の分子量44.01g/mol
         ! C6H12O6の分子量180.16g/mol
         ! 6CO2 + 12H2O => C6H12O6 + 6H2O + 6O2
         ! よって、生成されるソース量は
         !               {CO2固定量,mol     }× {1/6 してグルコースmol}×グルコース分子量
-        obj%source(i) =obj%source(i)+ A*dt/500.0d0*volume * 1.0d0/6.0d0 * 180.160d0
+        obj%source(i) =obj%source(i)+ A*dt*5000.0d0*volume * 1.0d0/6.0d0 * 180.160d0
         
     enddo
 !    ! For each elements, estimate photosynthesis by Farquhar model
@@ -1131,17 +1151,17 @@ function getPhotosynthesisSpeedPerVolumeLeaf(obj,dt,air) result(Speed_PV)
         obj%A(element_id) = A
         volume = obj%femdomain%getVolume(elem=element_id)
 
-        !CO2固定量　mincro-mol/m-2/s
+        !CO2固定量　mincro-mol/m^2/s
         ! ここ、体積あたりにする必要がある
-        ! 一応、通常の葉の厚さを2mmとして、
+        ! 一応、通常の葉の厚さを0.2mmとして、
         ! 1 micro-mol/m^2/sを、 1 micro-mol/ 0.002m^3/s= 500micro-mol/m^3/sとして計算
         ! また、ソース量はC6H12O6の質量gramとして換算する。
         ! CO2の分子量44.01g/mol
         ! C6H12O6の分子量180.16g/mol
         ! 6CO2 + 12H2O => C6H12O6 + 6H2O + 6O2
-        ! よって、生成されるソース量は
+        ! よって、生成されるソース量(micro-gram)は
         !               {CO2固定量,mol     }× {1/6 してグルコースmol}×グルコース分子量
-        Speed_PV(i) =A*dt/500.0d0 * 1.0d0/6.0d0 * 180.160d0
+        Speed_PV(i) =A*dt*5000.0d0 * 1.0d0/6.0d0 * 180.160d0
         
     enddo
 end function
@@ -1205,6 +1225,13 @@ function emptyLeaf(obj) result(leaf_is_empty)
 end function
 ! ########################################
 
+function getLeafAreaLeaf(obj) result(LeafArea)
+    class(Leaf_),intent(in) :: obj
+    real(real64) :: LeafArea
 
+    LeafArea = obj%getVolume()/obj%thickness    
+
+end function
+! ########################################
 
 end module 

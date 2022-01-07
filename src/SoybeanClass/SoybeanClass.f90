@@ -10,6 +10,8 @@ module SoybeanClass
     use PlantNodeClass
     implicit none
 
+    integer(int32),parameter :: PF_SOY_OBJECT_WISE  = 1
+
     type :: soybean_NodeID_Branch_
         integer(int32),allocatable :: ID(:)
     end type
@@ -198,6 +200,9 @@ module SoybeanClass
         procedure,public :: getPPFD => getPPFDSoybean
         procedure,public :: getPhotoSynthesis => getPhotoSynthesisSoybean
         procedure,public :: getPhotoSynthesisSpeedPerVolume => getPhotoSynthesisSpeedPerVolumeSoybean
+        procedure,public :: getLeafArea => getLeafAreaSoybean
+        ! data-format converter
+        procedure,public :: convertDataFormat => convertDataFormatSoybean
         
         
         procedure,public :: fixReversedElements => fixReversedElementsSoybean
@@ -6204,5 +6209,105 @@ subroutine fixReversedElementsSoybean(obj)
     enddo
 
 end subroutine
+! ################################################################
+function convertDataFormatSoybean(obj,scalar,new_format) result(ret)
+    class(Soybean_),intent(in) :: obj
+    real(real64),intent(in) :: scalar(:)
+    integer(int32),intent(in) :: new_format
+    real(real64),allocatable :: ret(:)
+    integer(int32),allocatable :: NumberOfElement(:),NumberOfPoint(:)
+    integer(int32) :: i,k,j,n
+    logical :: ELEMENT_WISE,POINT_WISE
+    
+    NumberOfPoint = obj%getNumberOfPoint()
+    NumberOfElement = obj%getNumberOfElement()
+    
+    POINT_WISE  = .false.
+    ELEMENT_WISE = .false.
+    if(sum(NumberOfPoint)==size(scalar) )then
+        POINT_WISE = .true.
+    elseif( sum(NumberOfElement)==size(scalar) )then
+        ELEMENT_WISE = .true.
+    else
+        print *, "[ERROR] convertDataFormatSoybean >> "
+        print *, "Invalid vector size",size(scalar)
+        stop
+    endif
+
+    if(new_format==PF_SOY_OBJECT_WISE)then
+        ! for each root/stem/soil object
+        ret = zeros(obj%numStem()+obj%numLeaf()+obj%numRoot() )
+        
+        if(POINT_WISE)then
+            n = 0
+            k = 0
+            do i=1,obj%numStem()
+                k=k+1
+                do j=1,obj%stem(i)%femdomain%nn()
+                    n=n+1
+                    ret(k)=ret(k)+scalar(n)    
+                enddo
+            enddo
+            
+            do i=1,obj%numLeaf()
+                k=k+1
+                do j=1,obj%Leaf(i)%femdomain%nn()
+                    n=n+1
+                    ret(k)=ret(k)+scalar(n)    
+                enddo
+            enddo
+
+            do i=1,obj%numRoot()
+                k=k+1
+                do j=1,obj%Root(i)%femdomain%nn()
+                    n=n+1
+                    ret(k)=ret(k)+scalar(n)    
+                enddo
+            enddo
+
+        elseif(ELEMENT_WISE)then
+            n = 0
+            k = 0
+            do i=1,obj%numStem()
+                k=k+1
+                do j=1,obj%stem(i)%femdomain%ne()
+                    n=n+1
+                    ret(k)=ret(k)+scalar(n)    
+                enddo
+            enddo
+            
+            do i=1,obj%numLeaf()
+                k=k+1
+                do j=1,obj%Leaf(i)%femdomain%ne()
+                    n=n+1
+                    ret(k)=ret(k)+scalar(n)    
+                enddo
+            enddo
+
+            do i=1,obj%numRoot()
+                k=k+1
+                do j=1,obj%Root(i)%femdomain%ne()
+                    n=n+1
+                    ret(k)=ret(k)+scalar(n)    
+                enddo
+            enddo
+        endif
+
+    endif
+end function
+! ################################################################
+function getLeafAreaSoybean(obj) result(LeafArea)
+    class(Soybean_),intent(in) :: obj
+    real(real64) :: LeafArea
+    integer(int32) :: i
+
+    LeafArea = 0.0d0
+    do i=1,obj%numLeaf()
+        LeafArea = LeafArea + obj%leaf(i)%getLeafArea()    
+    enddo
+
+end function
+! ################################################################
+
 
 end module
