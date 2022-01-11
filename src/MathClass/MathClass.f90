@@ -2520,4 +2520,38 @@ pure function imaginary_partComplex32(complexValue) result(imgpart)
 end function
 ! ########################################################################
 
+
+function hilbert(wave) result(h_top_wave)
+    complex(real64),intent(in) :: wave(:)
+    complex(real64),allocatable :: h_top_wave(:),spectre(:)
+
+    spectre = fft(wave)
+    spectre(1:size(spectre)/2 ) = 2.0d0*spectre(1:size(spectre)/2 )
+    spectre(size(spectre)/2+1: ) = 0.0d0
+    h_top_wave = ifft(spectre)
+    
+end function
+! ########################################################################
+
+function short_time_FFT(wave,frame) result(spectre)
+	complex(real64),intent(in) :: wave(:)
+	complex(real64),allocatable :: spectre(:,:)
+	integer(int32),intent(in) :: frame
+	integer(int32) :: i,from,to
+
+	! short-time FFT for n=frame length
+	allocate(spectre(size(wave),2*frame))
+	do i=1,size(wave)
+		from  = i-frame
+		to    = i+frame-1
+		if(from<frame .or. to > size(wave)-frame )then
+			cycle
+		endif
+		spectre(i,:) = fft(wave(i-frame:i+frame-1))
+	enddo
+	
+
+end function
+! ########################################################################
+
 end module MathClass
