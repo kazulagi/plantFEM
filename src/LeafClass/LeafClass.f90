@@ -105,6 +105,8 @@ module LeafClass
         procedure, public :: getBiomass => getBiomassLeaf
         procedure, public :: getCoordinate => getCoordinateleaf
         procedure, public :: getLeafArea => getLeafAreaLeaf
+        procedure, public :: getRadius => getRadiusLeaf
+        procedure, public :: getCenter => getCenterLeaf
 
 
         procedure, public :: gmsh => gmshleaf
@@ -1233,5 +1235,46 @@ function getLeafAreaLeaf(obj) result(LeafArea)
 
 end function
 ! ########################################
+
+
+! ################################################################
+pure function getRadiusLeaf(obj)  result(radius)
+    class(Leaf_),intent(in) :: obj
+    real(real64),allocatable :: Points(:,:)
+    real(real64) :: radius,center(3)
+    
+    Points = obj%femdomain%mesh%nodcoord
+
+    ! search Intersect leaf
+    center(1) = sum(Points(:,1) )/dble(size(Points,1))
+    center(2) = sum(Points(:,2) )/dble(size(Points,1))
+    center(3) = sum(Points(:,3) )/dble(size(Points,1))
+
+    Points(:,1) = Points(:,1) - center(1)
+    Points(:,2) = Points(:,2) - center(2)
+
+    radius = maxval(Points(:,1)*Points(:,1) +Points(:,2)*Points(:,2)   )
+    radius = sqrt(radius)
+
+end function
+! ################################################################
+
+! ################################################################
+pure function getCenterLeaf(obj)  result(Center)
+    class(Leaf_),intent(in) :: obj
+    real(real64),allocatable :: Points(:,:)
+    real(real64) :: center(3)
+    
+    Points = obj%femdomain%mesh%nodcoord
+
+    ! search Intersect leaf
+    center(1) = sum(Points(:,1) )/dble(size(Points,1))
+    center(2) = sum(Points(:,2) )/dble(size(Points,1))
+    center(3) = sum(Points(:,3) )/dble(size(Points,1))
+
+end function
+! ################################################################
+
+
 
 end module 

@@ -66,6 +66,7 @@ elif pf == "Linux":
     #os.system("sudo ln -si "+str(os.path.abspath("./"))+"/bin/plantfem_run.py /usr/local/bin/plantfem_run.py")
     #os.system("sudo ln -si "+str(os.path.abspath("./"))+"/Interactive/plantfem_run /usr/local/bin/plantfem_run")
     os.system("sudo ln -si $PWD /opt/plantfem")
+    os.system("rm plantFEM")
     print("Successfully Installed!!")
 else:
     print("OS : Unknown ")

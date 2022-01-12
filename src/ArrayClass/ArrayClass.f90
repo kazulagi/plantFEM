@@ -108,7 +108,7 @@ module ArrayClass
     end interface
 
     interface loadtxt
-        module procedure loadtxtArrayReal
+        module procedure loadtxtArrayReal,loadtxtVectorReal
     end interface
 
     interface savetxt
@@ -593,6 +593,40 @@ function loadtxtArrayReal(path,name,extention) result(realarray)
 end function 
 !=====================================
 
+!=====================================
+function loadtxtVectorReal(name,column) result(realVec)
+    real(real64),allocatable :: realVec(:)
+
+    character(*),intent(in) :: name
+    integer(int32),intent(in) :: column
+    character(1) :: linebuf
+    character(100) :: linebuf2
+    real(real64) :: realvalbuf(column)
+    integer(int32) :: line,fh,i
+    
+    
+    open(newunit=fh,file =name,status="old" )
+    ! read to end of line
+    line=0
+    do 
+        read (fh, "(A)", end=999 ) linebuf
+        line = line + 1
+    enddo
+
+999 continue
+    close(fh)
+
+
+    allocate(realVec(line) )
+    open(newunit=fh,file =name,status="old" )
+    do i=1, line
+        read(fh,*) realvalbuf(1:column)
+        realVec(i) = realvalbuf(column)
+    enddo
+    close(fh)
+    
+end function 
+!=====================================
 
 subroutine savetxtArrayReal(realarray,path,name,extention) 
     real(real64),allocatable,intent(in) :: realarray(:,:)
