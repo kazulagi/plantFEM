@@ -2541,6 +2541,7 @@ function short_time_FFT(wave,frame) result(spectre)
 
 	! short-time FFT for n=frame length
 	allocate(spectre(size(wave),2*frame))
+	!$OMP parallel do private(from,to)
 	do i=1,size(wave)
 		from  = i-frame
 		to    = i+frame-1
@@ -2549,7 +2550,7 @@ function short_time_FFT(wave,frame) result(spectre)
 		endif
 		spectre(i,:) = fft(wave(i-frame:i+frame-1))
 	enddo
-	
+	!$OMP end parallel do
 
 end function
 ! ########################################################################

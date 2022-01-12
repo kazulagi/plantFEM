@@ -189,6 +189,8 @@ module SoybeanClass
         procedure,public :: getSubDomainType => getSubDomainTypeSoybean
         procedure,public :: setSubDomain => setSubDomainSoybean
         procedure,public :: getPoints    => getPointsSoybean
+        procedure,public :: getRadius    => getRadiusSoybean
+        procedure,public :: getCenter    => getCenterSoybean
         procedure,public :: getDistanceFromGround    => getDistanceFromGroundSoybean
         procedure,public :: getNumberOfPoint => getNumberOfPointSoybean
         procedure,public :: getNumberOfElement => getNumberOfElementSoybean
@@ -201,6 +203,7 @@ module SoybeanClass
         procedure,public :: getPhotoSynthesis => getPhotoSynthesisSoybean
         procedure,public :: getPhotoSynthesisSpeedPerVolume => getPhotoSynthesisSpeedPerVolumeSoybean
         procedure,public :: getLeafArea => getLeafAreaSoybean
+        procedure,public :: getIntersectLeaf => getIntersectLeafSoybean
         ! data-format converter
         procedure,public :: convertDataFormat => convertDataFormatSoybean
         
@@ -5931,11 +5934,15 @@ end function
 
 
 ! ############################################################################
-function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads)  result(ppfd)
+function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  result(ppfd)
     class(Soybean_),intent(inout) :: obj 
     type(Light_),intent(in)    :: light
     real(real64),optional,intent(in) :: Transparency,Resolution
     integer(int32),optional,intent(in) :: num_threads
+    
+    ! leaf of other plants
+    type(Leaf_),optional,intent(in) :: leaf(:)
+
     real(real64),allocatable :: ppfd(:), NumberOfElement(:), NumberOfPoint(:)
     real(real64),allocatable :: leaf_pass_num(:),nodcoord(:,:),radius_vec(:)
     real(real64) ::thickness,center_x(3),xmin(3),xmax(3),radius,radius_tr,coord(3),Transparency_val
@@ -5960,6 +5967,62 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads)  result(p
     if(present(num_threads) )then
         call omp_set_num_threads(num_threads)
     endif
+
+
+    ! leaf of other plants
+    if(present(leaf) )then
+        !$OMP parallel do default(shared), private(j,k,inside,upside,center_x,radius_vec,radius_tr,zmin,n,element_id)
+        do i=1, size(obj%leaf)
+            if(.not. obj%leaf(i)%femdomain%empty() )then
+                print *, i, "/", obj%numLeaf()
+                !$OMP parallel do default(shared), private(k,inside,upside,center_x,radius_vec,radius_tr,zmin,n,element_id)
+                do j=1,obj%leaf(i)%femdomain%ne()
+                    ! 中心座標
+                    center_x = obj%leaf(i)%femdomain%centerPosition(ElementID=j)
+                    ! 枚数のみカウント
+                    ! 1枚あたりthicknessだけ距離加算
+
+                    !$OMP parallel do default(shared), private(inside,upside,radius_vec,radius_tr,zmin,n,element_id)
+                    do k=1,size(leaf)
+                        if(.not. leaf(k)%femdomain%empty() )then
+                            
+                            inside=.false.
+                            radius_vec = zeros(leaf(k)%femdomain%nn() )
+                            radius_vec =(leaf(k)%femdomain%mesh%nodcoord(:,1)-center_x(1))**2 &
+                            + (leaf(k)%femdomain%mesh%nodcoord(:,2)-center_x(2))**2
+                        
+                            radius_tr = minval(radius_vec)
+
+                            if(radius_tr < radius*radius)then
+                                zmin = leaf(k)%femdomain%mesh%nodcoord(minvalID(radius_vec),3)
+                                inside=.true.
+                            endif
+                            !あるいは，zmin,xmax,ymin,ymaxの正負で場合分けできるのでは？
+                            !>>なぜか失敗
+                            upside = (center_x(3) < zmin )
+                            if(inside .eqv. .true.)then
+                                
+                                if(upside .eqv. .true.)then
+                                    !print *, center_x(3) , zmin  
+                                          
+                                    n = obj%numStem() + (i-1)
+                                    
+                                    element_id = sum(NumberOfElement(1:n)) + j
+                                    leaf_pass_num(element_id) = leaf_pass_num(element_id) + 1.0d0
+                                endif
+                            endif
+                        endif
+                    enddo
+                    !$OMP end parallel do    
+                enddo
+                !$OMP end parallel do
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+
+
+
     !$OMP parallel do default(shared), private(j,k,inside,upside,center_x,radius_vec,radius_tr,zmin,n,element_id)
     do i=1, size(obj%leaf)
         if(.not. obj%leaf(i)%femdomain%empty() )then
@@ -6010,7 +6073,6 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads)  result(p
         endif
     enddo
     !$OMP end parallel do
-
     !print *, maxval(leaf_pass_num),minval(leaf_pass_num)
     !ppfd = leaf_pass_num
     ppfd(:) = ppfd(:) * Transparency_val** leaf_pass_num(:)
@@ -6294,6 +6356,129 @@ function getLeafAreaSoybean(obj) result(LeafArea)
     do i=1,obj%numLeaf()
         LeafArea = LeafArea + obj%leaf(i)%getLeafArea()    
     enddo
+
+end function
+! ################################################################
+
+function getIntersectLeafSoybean(obj,soybeans,except)  result(Leaf)
+    class(Soybean_),intent(in) :: obj
+    type(Soybean_),intent(in) :: soybeans(:)
+    type(Leaf_),allocatable :: leaf(:)
+    integer(int32),optional,intent(in) :: except
+    real(real64) :: obj_radius,obj_center(3)
+    real(real64) :: chk_radius,chk_center(3),dist_2
+    integer(int32) :: i,j,k,num_leaf
+    logical,allocatable :: overset(:),overset_leaf(:)
+    ! search Intersect leaf
+    obj_radius = obj%getRadius()
+    obj_center = obj%getCenter()
+
+
+    ! search overlaped soybeans
+    allocate(overset( size(soybeans) ) )
+    overset(:) = .false.
+    do i=1,size(soybeans)
+        if(present(except) )then
+            if(i==except) cycle
+        endif
+        chk_radius = soybeans(i)%getRadius()
+        chk_Center = soybeans(i)%getCenter()
+        dist_2 = norm( obj_center(1:2) - chk_center(1:2) )
+        if(dist_2 <= chk_radius + obj_radius )then
+            overset(i) = .true.
+        else
+            cycle
+        endif
+    enddo
+
+    ! count number of leaf
+    num_leaf = 0
+    do i=1,size(soybeans)
+        if(present(except) )then
+            if(i==except) cycle
+        endif
+        if(overset(i) )then
+            !allocate(overset_leaf(size(soybeans(i)%leaf ) ))
+            !overset_leaf(:) = .false.
+            do j=1,size(soybeans(i)%leaf )
+                if(soybeans(i)%leaf(j)%femdomain%empty() ) cycle
+                chk_radius = soybeans(i)%leaf(j)%getRadius()
+                chk_Center = soybeans(i)%leaf(j)%getCenter()
+
+                dist_2 = norm( obj_center(1:2) - chk_center(1:2) )
+                if(dist_2 <= chk_radius + obj_radius )then
+                    !overset_leaf(k) = .true.
+                    num_leaf = num_leaf + 1
+                else
+                    cycle
+                endif
+            enddo   
+        endif
+    enddo
+
+    allocate(leaf(num_leaf) )
+    num_leaf = 0
+    do i=1,size(soybeans)
+        if(present(except) )then
+            if(i==except) cycle
+        endif
+        if(overset(i) )then
+            do j=1,size(soybeans(i)%leaf )
+                if(soybeans(i)%leaf(j)%femdomain%empty() ) cycle
+                
+                chk_radius = soybeans(i)%leaf(j)%getRadius()
+                chk_Center = soybeans(i)%leaf(j)%getCenter()
+
+                dist_2 = norm( obj_center(1:2) - chk_center(1:2) )
+                if(dist_2 <= chk_radius + obj_radius )then
+                    num_leaf = num_leaf + 1
+                    leaf(num_leaf) = soybeans(i)%leaf(j)
+                else
+                    cycle
+                endif
+            enddo   
+        endif
+    enddo
+
+
+
+
+
+end function
+! ################################################################
+
+! ################################################################
+pure function getRadiusSoybean(obj)  result(radius)
+    class(Soybean_),intent(in) :: obj
+    real(real64),allocatable :: Points(:,:)
+    real(real64) :: radius,center(3)
+    
+    Points = obj%getPoints()
+
+    ! search Intersect leaf
+    center = obj%getCenter() 
+
+    Points(:,1) = Points(:,1) - center(1)
+    Points(:,2) = Points(:,2) - center(2)
+
+    radius = maxval(Points(:,1)*Points(:,1) +Points(:,2)*Points(:,2)   )
+    radius = sqrt(radius)
+
+end function
+! ################################################################
+
+! ################################################################
+pure function getCenterSoybean(obj)  result(Center)
+    class(Soybean_),intent(in) :: obj
+    real(real64),allocatable :: Points(:,:)
+    real(real64) :: center(3)
+    
+    Points = obj%getPoints()
+
+    ! search Intersect leaf
+    center(1) = sum(Points(:,1) )/dble(size(Points,1))
+    center(2) = sum(Points(:,2) )/dble(size(Points,1))
+    center(3) = sum(Points(:,3) )/dble(size(Points,1))
 
 end function
 ! ################################################################
