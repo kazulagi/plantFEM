@@ -79,6 +79,8 @@ module RootClass
         procedure, public :: stl => stlRoot
         procedure, public :: export => exportRoot
 
+        ! MPI
+        procedure, public :: sync => syncRoot
 
     end type
 contains
@@ -676,6 +678,105 @@ function emptyRoot(obj) result(Root_is_empty)
 
 end function
 ! ########################################
+
+subroutine syncRoot(obj,from,mpid)
+    class(Root_),intent(inout) :: obj
+    integer(int32),intent(in) :: from
+    type(MPI_),intent(inout) :: mpid
+
+
+
+    call obj%FEMDomain%sync(from=from,mpid=mpid)
+    call mpid%bcast(from=from,val=obj% Thickness) !
+    call mpid%bcast(from=from,val=obj%length) !
+    call mpid%bcast(from=from,val=obj%width) !
+    call mpid%bcast(from=from,val=obj% MaxThickness) !
+    call mpid%bcast(from=from,val=obj%Maxlength) !
+    call mpid%bcast(from=from,val=obj%Maxwidth) !
+    call mpid%bcast(from=from,val=obj% maxdiameter) !
+    call mpid%bcast(from=from,val=obj%mindiameter) !
+    call mpid%bcast(from=from,val=obj%minlength) !
+    call mpid%bcast(from=from,val=obj% rot_x) ! = 0.0d0
+    call mpid%bcast(from=from,val=obj% rot_y) ! = 0.0d0
+    call mpid%bcast(from=from,val=obj% rot_z) ! = 0.0d0
+    call mpid%bcast(from=from,val=obj% disp_x) ! = 0.0d0
+    call mpid%bcast(from=from,val=obj% disp_y) ! = 0.0d0
+    call mpid%bcast(from=from,val=obj% disp_z) ! = 0.0d0
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% center_bottom) !(3)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj%center_top) !(3)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% radius_bottom) !(3)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj%radius_top) !(3)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% outer_normal_bottom) !(3)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj%outer_normal_top) !(3)
+
+    call mpid%BcastMPIIntVecFixedSize(from=from,val=obj% EdgeNodeID)!(4)
+    call mpid%BcastMPIIntVecFixedSize(from=from,val=obj% EdgeElemID)!(4)
+    call mpid%bcast(from=from,val=obj%I_planeNodeID)!(:)
+    call mpid%bcast(from=from,val=obj%I_planeElementID)!(:)
+    call mpid%bcast(from=from,val=obj%II_planeNodeID)!(:)
+    call mpid%bcast(from=from,val=obj%II_planeElementID)!(:)
+    call mpid%bcast(from=from,val=obj%A_PointNodeID)!
+    call mpid%bcast(from=from,val=obj%B_PointNodeID)!
+    call mpid%bcast(from=from,val=obj%A_PointElementID)!
+    call mpid%bcast(from=from,val=obj%B_PointElementID)!
+    call mpid%bcast(from=from,val=obj%xnum)! = 10
+    call mpid%bcast(from=from,val=obj%ynum)! = 10
+    call mpid%bcast(from=from,val=obj%znum)! = 10
+
+    ! physical parameter
+    call mpid%bcast(from=from,val=obj%DryDensity)!(:)  ! element-wise
+    call mpid%bcast(from=from,val=obj%WaterContent)!(:)! element-wise
+
+    ! For deformation analysis
+    call mpid%bcast(from=from,val=obj%YoungModulus)!(:)! element-wise
+    call mpid%bcast(from=from,val=obj%PoissonRatio)!(:)! element-wise
+    call mpid%bcast(from=from,val=obj%Density)!(:)     ! element-wise
+    call mpid%bcast(from=from,val=obj%Stress)!(:,:,:)     ! Gauss point-wise
+    call mpid%bcast(from=from,val=obj%Displacement)!(:,:) ! node-wise, three dimensional
+
+
+    call mpid%bcast(from=from,val=obj%BoundaryTractionForce)!(:,:) ! node-wise, three dimensional
+    call mpid%bcast(from=from,val=obj%BoundaryDisplacement)!(:,:) ! node-wise, three dimensional
+    
+
+
+    call mpid%bcast(from=from,val=obj%Division)
+
+end subroutine
+
+! ######################################################################
+subroutine syncRootVector(obj,from,mpid)
+	type(Root_),allocatable,intent(inout) :: obj(:)
+	integer(int32),intent(in) :: from
+	type(MPI_),intent(inout) :: mpid
+	integer(int32) :: vec_size, i
+
+	vec_size=0
+	if(mpid%myrank==from)then
+		if(.not.allocated(obj) )then
+			vec_size = -1
+        else
+            vec_size = size(obj)
+		endif
+	endif
+	call mpid%bcast(from=from,val=vec_size)
+	if(vec_size<1)then
+		return
+	endif
+
+	if(from /= mpid%myrank)then
+		if(allocated(obj) )then
+			deallocate(obj)
+		endif
+		allocate(obj(vec_size) )
+	endif
+
+	do i=1,vec_size
+		call obj(i)%sync(from=from, mpid=mpid)
+	enddo
+
+end subroutine
+
 
 
 end module

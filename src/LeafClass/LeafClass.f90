@@ -113,6 +113,8 @@ module LeafClass
         procedure, public :: msh => mshleaf
         procedure, public :: vtk => vtkleaf
         procedure, public :: stl => stlleaf
+
+        procedure, public :: sync => syncleaf
     end type
 contains
 
@@ -1275,6 +1277,129 @@ pure function getCenterLeaf(obj)  result(Center)
 end function
 ! ################################################################
 
+
+subroutine syncleaf(obj,from, mpid)
+    class(Leaf_),intent(inout) :: obj
+    integer(int32),intent(in) :: from
+    type(MPI_),intent(inout) :: mpid
+
+    call obj%FEMDomain%sync(from=from, mpid=mpid)
+    call mpid%bcast(from=from,val=obj%  LeafSurfaceNode2D)
+    call mpid%bcast(from=from,val=obj% ShapeFactor) !
+    call mpid%bcast(from=from,val=obj% Thickness) !
+    call mpid%bcast(from=from,val=obj% length) !
+    call mpid%bcast(from=from,val=obj% width) !
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% center ) !(3)
+    call mpid%bcast(from=from,val=obj% MaxThickness) !
+    call mpid%bcast(from=from,val=obj% Maxlength) !
+    call mpid%bcast(from=from,val=obj% Maxwidth) !
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% center_bottom) !(3)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% center_top) !(3)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% outer_normal_bottom) !(3)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% outer_normal_top) !(3)
+    call mpid%bcast(from=from,val=obj%  source)
+    call mpid%bcast(from=from,val=obj%  ppfd)
+    call mpid%bcast(from=from,val=obj%  A)
+    call mpid%bcast(from=from,val=obj%Division)
+    !type(leaf_),pointer ::  pleaf
+    !type(Peti_),pointer ::  pPeti
+    call mpid%bcast(from=from,val=obj%  rot_x) ! = 0.0d0
+    call mpid%bcast(from=from,val=obj%  rot_y) ! = 0.0d0
+    call mpid%bcast(from=from,val=obj%  rot_z) ! = 0.0d0
+    call mpid%bcast(from=from,val=obj%  disp_x) ! = 0.0d0
+    call mpid%bcast(from=from,val=obj%  disp_y) ! = 0.0d0
+    call mpid%bcast(from=from,val=obj%  disp_z) ! = 0.0d0
+    call mpid%bcast(from=from,val=obj%  shaperatio) ! = 0.30d0
+    call mpid%bcast(from=from,val=obj%  minwidth) !
+    call mpid%bcast(from=from,val=obj% minlength) !
+    call mpid%bcast(from=from,val=obj% MinThickness) !
+
+    call mpid%bcast(from=from,val=obj%I_planeNodeID) !(:)
+    call mpid%bcast(from=from,val=obj%I_planeElementID) !(:)
+    call mpid%bcast(from=from,val=obj%II_planeNodeID) !(:)
+    call mpid%bcast(from=from,val=obj%II_planeElementID) !(:)
+    call mpid%bcast(from=from,val=obj%A_PointNodeID)!
+    call mpid%bcast(from=from,val=obj%B_PointNodeID)!
+    call mpid%bcast(from=from,val=obj%A_PointElementID)!
+    call mpid%bcast(from=from,val=obj%B_PointElementID)!
+    call mpid%bcast(from=from,val=obj%xnum)! = 10
+    call mpid%bcast(from=from,val=obj%ynum)! = 10
+    call mpid%bcast(from=from,val=obj%znum)! = 10
+
+    ! phisiological parameters
+
+
+    call mpid%bcast(from=from,val=obj% V_cmax) ! = 100.0d0 ! 最大カルボキシル化反応速度, mincro-mol/m-2/s
+    call mpid%bcast(from=from,val=obj% V_omax) ! = 100.0d0 ! 最大酸素化反応速度, mincro-mol/m-2/s, lambdaから推定
+    call mpid%bcast(from=from,val=obj% O2) ! = 380.0d0! 酸素濃度, ppm
+    call mpid%bcast(from=from,val=obj% CO2) !=202000.0d0! 二酸化炭素濃度, ppm
+    call mpid%bcast(from=from,val=obj% R_d) !=1.0d0 ! 暗呼吸速度, mincro-mol/m-2/s
+
+    call mpid%bcast(from=from,val=obj% K_c) !=272.380d0 ! CO2に対するミカエリス定数
+    call mpid%bcast(from=from,val=obj% K_o) !=165820.0d0 ! O2に対するミカエリス定数
+
+    call mpid%bcast(from=from,val=obj% J_) !=0.0d0 ! 電子伝達速度
+    call mpid%bcast(from=from,val=obj% I_) !=0.0d0 ! 光強度
+    call mpid%bcast(from=from,val=obj% phi) !=0.0d0 ! I-J曲線の初期勾配
+    call mpid%bcast(from=from,val=obj% J_max) !=180.0d0 !最大電子伝達速度,mincro-mol/m-2/s
+    call mpid%bcast(from=from,val=obj% theta_r) !=0.0d0 ! 曲線の凸度
+
+    call mpid%bcast(from=from,val=obj% maxPPFD) !=1.0d0 ! micro-mol/m^2/s
+
+    call mpid%bcast(from=from,val=obj% Lambda) != 37.430d0 ! 暗呼吸速度を無視した時のCO2補償点ppm
+    call mpid%bcast(from=from,val=obj% temp) !=303.0d0 ! temp
+
+
+    ! physical parameter
+    call mpid%bcast(from=from,val=obj% DryDensity)
+    call mpid%bcast(from=from,val=obj% WaterContent)
+
+    ! For deformation analysis
+    call mpid%bcast(from=from,val=obj% YoungModulus)
+    call mpid%bcast(from=from,val=obj% PoissonRatio)
+    call mpid%bcast(from=from,val=obj% Density)
+    call mpid%bcast(from=from,val=obj% Stress)
+    call mpid%bcast(from=from,val=obj% Displacement)
+    
+
+    call mpid%bcast(from=from,val=obj% BoundaryTractionForce)
+    call mpid%bcast(from=from,val=obj% BoundaryDisplacement)
+    
+
+end subroutine
+
+
+subroutine syncLeafVector(obj,from,mpid)
+	type(Leaf_),allocatable,intent(inout) :: obj(:)
+	integer(int32),intent(in) :: from
+	type(MPI_),intent(inout) :: mpid
+	integer(int32) :: vec_size, i
+
+	vec_size=0
+	if(mpid%myrank==from)then
+		if(.not.allocated(obj) )then
+			vec_size = -1
+        else
+            vec_size = size(obj)
+		endif
+	endif
+	call mpid%bcast(from=from,val=vec_size)
+	if(vec_size<1)then
+		return
+	endif
+
+	if(from /= mpid%myrank)then
+		if(allocated(obj) )then
+			deallocate(obj)
+		endif
+		allocate(obj(vec_size) )
+	endif
+
+	do i=1,vec_size
+		call obj(i)%sync(from=from, mpid=mpid)
+	enddo
+
+end subroutine
 
 
 end module 

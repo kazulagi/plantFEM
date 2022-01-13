@@ -5,7 +5,6 @@ module SoybeanClass
     use SeedClass
     use LeafClass
     use RootClass
-    use SoilClass
     use LightClass
     use PlantNodeClass
     implicit none
@@ -14,6 +13,8 @@ module SoybeanClass
 
     type :: soybean_NodeID_Branch_
         integer(int32),allocatable :: ID(:)
+    contains 
+        procedure, public :: sync => syncsoybean_NodeID_Branch
     end type
     
     integer(int32),parameter :: PF_DEFORMATION_ANALYSIS=100
@@ -74,7 +75,7 @@ module SoybeanClass
         type(Stem_),allocatable :: Stem(:)
         type(Leaf_),allocatable :: Leaf(:)
         type(Root_),allocatable :: Root(:)
-        type(Soil_),allocatable :: Soil
+        
 
         ! material info
         real(real64),allocatable :: stemYoungModulus(:)
@@ -111,9 +112,9 @@ module SoybeanClass
         real(real64),allocatable :: root_angle(:,:)
         real(real64),allocatable :: leaf_angle(:,:)
 
-        character(200) :: stemconfig=" "
-        character(200) :: rootconfig=" "
-        character(200) :: leafconfig=" "
+        character(200) :: stemconfig=""
+        character(200) :: rootconfig=""
+        character(200) :: leafconfig=""
 
         ! for deformation analysis
         logical :: property_deform_material_density = .false.
@@ -212,6 +213,8 @@ module SoybeanClass
         
         procedure,public :: resize => resizeSoybean
         procedure,public :: deform => deformSoybean
+        ! MPI
+        procedure,public :: sync => syncSoybean
         
         ! visualization
         procedure,public :: show => showSoybean
@@ -2503,6 +2506,14 @@ subroutine vtkSoybean(obj,name,num_threads,single_file,&
     integer(int32) :: i, n
     logical,optional,intent(in) :: single_file
 
+    if(.not.allocated(obj%stem) )then
+        if(.not.allocated(obj%leaf) )then
+            if(.not.allocated(obj%root) )then
+                return
+            endif
+        endif
+    endif
+
     if(present(single_file) )then
         if(single_file)then
             ! export mesh for a single file
@@ -3799,7 +3810,7 @@ subroutine removeSoybean(obj)
     if (allocated(obj%Stem) ) deallocate(obj%Stem)
     if (allocated(obj%Leaf) ) deallocate(obj%Leaf)
     if (allocated(obj%Root) ) deallocate(obj%Root)
-    if (allocated(obj%Soil) ) deallocate(obj%Soil)
+    
 
     ! material info
     if (allocated(obj%stemYoungModulus) ) deallocate(obj%stemYoungModulus)
@@ -6483,5 +6494,226 @@ pure function getCenterSoybean(obj)  result(Center)
 end function
 ! ################################################################
 
+
+! ################################################################
+subroutine syncSoybean(obj,mpid,from) 
+    class(Soybean_),intent(inout) :: obj
+    type(MPI_),intent(inout) :: mpid
+    integer(int32),intent(in) :: from
+
+    call mpid%BcastMPIcharN(N=20,from=from,val=obj%growth_habit(1:20))
+    call mpid%BcastMPIcharN(N=2,from=from,val=obj%growth_stage(1:2) )
+
+    call mpid%bcast(from=from,val=obj%Num_Of_Node)
+    call mpid%bcast(from=from,val=obj%num_leaf)
+    call mpid%bcast(from=from,val=obj%num_stem_node)
+    call mpid%bcast(from=from,val=obj%Num_Of_Root)
+        
+    call mpid%bcast(from=from,val=obj%MaxLeafNum)
+    call mpid%bcast(from=from,val=obj%MaxRootNum)
+    call mpid%bcast(from=from,val=obj%MaxStemNum)
+
+    call mpid%bcast(from=from,val=obj%determinate)
+!!        
+    call mpid%bcast(from=from,val=obj% ms_node)
+    call mpid%BcastMPIIntVecFixedSize(from=from,val=obj% br_node)
+    call mpid%BcastMPIIntVecFixedSize(from=from,val=obj% br_from)
+!!    
+    call mpid%bcastMPIReal(from=from,val=obj% ms_length)
+    call mpid%bcastMPIReal(from=from,val=obj% ms_width)
+!
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% br_length)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% br_width)
+!!    
+!!
+    call mpid%bcast(from=from,val=obj% ms_angle_ave)
+    call mpid%bcast(from=from,val=obj% ms_angle_sig)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% br_angle_ave)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% br_angle_sig)
+!!!        
+!!!
+    call mpid%bcast(from=from,val=obj% mr_node)
+    call mpid%bcast(from=from,val=obj% mr_length)
+    call mpid%bcast(from=from,val=obj% mr_width)
+!    
+    call mpid%BcastMPIIntVecFixedSize(from=from,val=obj% brr_node)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% brr_length)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% brr_width)
+!
+    call mpid%bcast(from=from,val=obj% mr_angle_ave)
+    call mpid%bcast(from=from,val=obj% mr_angle_sig)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% brr_angle_ave)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% brr_angle_sig)
+!!
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% peti_size_ave)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% peti_size_sig)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% peti_width_ave)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% peti_width_sig)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% peti_angle_ave)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% peti_angle_sig)
+!
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% leaf_angle_ave)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% leaf_angle_sig)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% leaf_length_ave)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% leaf_length_sig)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% leaf_width_ave)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% leaf_width_sig)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% leaf_thickness_ave)
+    call mpid%BcastMPIRealVecFixedSize(from=from,val=obj% leaf_thickness_sig)
+!!        
+    call mpid%BcastMPICharN(N=3,from=from, val=obj%Stage) ! VE, CV, V1,V2, ..., R1, R2, ..., R8
+    call mpid%BcastMPICharN(N=200,from=from, val=obj%name)
+    call mpid%bcast(from=from,val=obj%stage_id)
+    call mpid%bcast(from=from,val=obj%dt)
+!
+!!
+!!        ! material info
+    call mpid%bcast(from=from,val=obj%stemYoungModulus)
+    call mpid%bcast(from=from,val=obj%leafYoungModulus)
+    call mpid%bcast(from=from,val=obj%rootYoungModulus)
+!!
+    call mpid%bcast(from=from,val=obj%stemPoissonRatio)
+    call mpid%bcast(from=from,val=obj%leafPoissonRatio)
+    call mpid%bcast(from=from,val=obj%rootPoissonRatio)
+!!
+    call mpid%bcast(from=from,val=obj%stemDensity)
+    call mpid%bcast(from=from,val=obj%leafDensity)
+    call mpid%bcast(from=from,val=obj%rootDensity)
+!!        
+    call mpid%bcast(from=from,val=obj%leaf2stem)
+    call mpid%bcast(from=from,val=obj%stem2stem)
+    call mpid%bcast(from=from,val=obj%root2stem)
+    call mpid%bcast(from=from,val=obj%root2root)
+!!        
+!
+    call mpid%bcast(from=from,val=obj%time)
+    call mpid%bcast(from=from,val=obj%seed_length)
+    call mpid%bcast(from=from,val=obj%seed_width)
+    call mpid%bcast(from=from,val=obj%seed_height)
+    call mpid%bcast(from=from,val=obj%stem_angle)
+    call mpid%bcast(from=from,val=obj%root_angle)
+    call mpid%bcast(from=from,val=obj%leaf_angle)
+!!
+    call mpid%BcastMPICharN(N=200,from=from,val=obj%stemconfig)
+    call mpid%BcastMPICharN(N=200,from=from,val=obj%rootconfig)
+    call mpid%BcastMPICharN(N=200,from=from,val=obj%leafconfig)
+!!
+!!        ! for deformation analysis
+    call mpid%bcast(from=from,val=obj%property_deform_material_density )
+    call mpid%bcast(from=from,val=obj%property_deform_material_YoungModulus )
+    call mpid%bcast(from=from,val=obj%property_deform_material_PoissonRatio )
+    call mpid%bcast(from=from,val=obj%property_deform_initial_Displacement )
+    call mpid%bcast(from=from,val=obj%property_deform_initial_Stress )
+    call mpid%bcast(from=from,val=obj%property_deform_boundary_TractionForce )
+    call mpid%bcast(from=from,val=obj%property_deform_boundary_Displacement )
+    call mpid%bcast(from=from,val=obj%property_deform_gravity )
+!!
+    call mpid%bcast(from=from,val=obj%Gravity_acceralation )
+    call mpid%bcast(from=from,val=obj%PenaltyParameter )
+    call mpid%bcast(from=from,val=obj%GaussPointProjection )
+!!        
+!!
+!!        
+    call mpid%bcast(from=from,val=obj%NodeID_MainStem)
+!
+!!
+    call mpid%bcast(from=from,val=  obj%inLoop )
+    call mpid%bcast(from=from,val= obj%hours )
+
+
+!        ! 節-節点データ構造
+    call obj%struct%sync(from=from, mpid=mpid)
+!        ! 器官オブジェクト配列
+    call syncFEMDomainVector(obj=obj%leaf_list,from=from,mpid=mpid)
+    call syncFEMDomainVector(obj=obj%stem_list,from=from,mpid=mpid)
+    call syncFEMDomainVector(obj=obj%root_list,from=from,mpid=mpid)
+!
+
+!        type(Seed_) :: Seed
+!        type(PlantNode_),allocatable :: NodeSystem(:)
+!        type(PlantRoot_),allocatable :: RootSystem(:)
+
+    call syncStemVector(obj=obj%Stem,from=from,mpid=mpid)
+    call syncLeafVector(obj=obj%Leaf,from=from,mpid=mpid)
+    call syncRootVector(obj=obj%Root,from=from,mpid=mpid)
+    
+
+!        ! シミュレータ
+!        type(ContactMechanics_) :: contact
+    call syncsoybean_NodeID_BranchVector(obj%NodeID_Branch,from=from,mpid=mpid)
+
+end subroutine
+
+! ################################################################
+subroutine syncSoybeanVector(mpid,obj) 
+    type(MPI_),intent(inout) :: mpid
+    type(Soybean_),intent(inout) :: obj(:)
+    integer(int32) :: myrank, num_process,process_id,localstack_id,id
+    integer(int32),allocatable :: localstack(:)
+    
+    myrank      = mpid%myrank
+    num_process = mpid%petot
+    localstack  = mpid%localstack
+
+    !全体通信により，関係のあるobj(:)を共有
+    do process_id=1,size(mpid%Stack,1)
+        do localstack_id=1,size(mpid%Stack,2)
+            if(mpid%stack(process_id,localstack_id)==0.0d0 )then
+                cycle
+            else
+                id = mpid%stack(process_id,localstack_id)
+                call syncSoybean(mpid=mpid,from=process_id,obj=obj(id))
+            endif
+        enddo
+    enddo
+
+
+end subroutine
+! ################################################################
+
+subroutine syncsoybean_NodeID_Branch(obj,from,mpid)
+    class(soybean_NodeID_Branch_),intent(inout) :: obj
+    integer(int32),intent(in) :: from
+    type(MPI_),intent(inout) :: mpid
+
+    call mpid%bcast(from=from,val=obj%id)
+
+end subroutine
+! ################################################################
+
+subroutine syncsoybean_NodeID_BranchVector(obj,from,mpid)
+	type(soybean_NodeID_Branch_),allocatable,intent(inout) :: obj(:)
+	integer(int32),intent(in) :: from
+	type(MPI_),intent(inout) :: mpid
+	integer(int32) :: vec_size, i
+
+	vec_size=0
+	if(mpid%myrank==from)then
+		if(.not.allocated(obj) )then
+			vec_size = -1
+        else
+            vec_size = size(obj)
+		endif
+	endif
+	call mpid%bcast(from=from,val=vec_size)
+	if(vec_size<1)then
+		return
+	endif
+
+	if(from /= mpid%myrank)then
+		if(allocated(obj) )then
+			deallocate(obj)
+		endif
+		allocate(obj(vec_size) )
+	endif
+
+	do i=1,vec_size
+		call obj(i)%sync(from=from, mpid=mpid)
+	enddo
+
+end subroutine
+
+
+! ################################################################
 
 end module
