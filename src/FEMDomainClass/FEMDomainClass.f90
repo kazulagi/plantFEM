@@ -274,6 +274,8 @@ module FEMDomainClass
 		procedure,public :: GlobalVector => GlobalVectorFEMDomain 
 		procedure,public :: TractionVector => TractionVectorFEMDomain
 
+		procedure,public :: sync => syncFEMDomain
+		
     end type FEMDomain_
 
 	!type:: FEMDomainp_
@@ -11084,5 +11086,44 @@ end subroutine
 !function getNumberOfPointFEMDomain(obj,xmin,) result(ret)
 !	class(FEMDomain_),intent(in) :: obj
 !end function
+
+subroutine syncFEMDomain(obj,from,mpid)
+	class(FEMDomain_),intent(inout) :: obj
+	integer(int32),intent(in) :: from
+	type(MPI_),intent(inout) :: mpid
+
+	call obj%mesh%sync(from=from, mpid=mpid)
+end subroutine
+
+
+subroutine syncFEMDomainVector(obj,from,mpid)
+	type(FEMDomain_),allocatable,intent(inout) :: obj(:)
+	integer(int32),intent(in) :: from
+	type(MPI_),intent(inout) :: mpid
+	integer(int32) :: vec_size, i
+
+	vec_size=0
+	if(mpid%myrank==from)then
+		if(.not.allocated(obj) )then
+			vec_size = -1
+		endif
+	endif
+	call mpid%bcast(from=from,val=vec_size)
+	if(vec_size<1)then
+		return
+	endif
+
+	if(from /= mpid%myrank)then
+		if(allocated(obj) )then
+			deallocate(obj)
+		endif
+		allocate(obj(vec_size) )
+	endif
+
+	do i=1,vec_size
+		call obj(i)%mesh%sync(from=from, mpid=mpid)
+	enddo
+
+end subroutine
 
 end module FEMDomainClass

@@ -27,8 +27,8 @@ module MeshClass
 
         ! optional data;
         real(real64),allocatable  ::NodCoordInit(:,:)
-        integer(int32),allocatable::BottomElemID
-        integer(int32),allocatable::TopElemID
+        integer(int32)::BottomElemID
+        integer(int32)::TopElemID
         integer(int32),allocatable::FacetElemNod(:,:)
         integer(int32),allocatable::NextFacets(:,:)
         integer(int32),allocatable::SurfaceLine2D(:)
@@ -165,6 +165,7 @@ module MeshClass
         procedure :: showRange => showRangeMesh
         procedure :: showMesh => ShowMesh 
         procedure :: show => ShowMesh 
+        procedure :: sync => syncMeshClass
         
 
     end type Mesh_
@@ -9062,6 +9063,53 @@ subroutine removeElementsMesh(obj,ElementIDs)
 
 end subroutine
 
+! ##########################################################################
+
+! ##########################################################################
+subroutine syncMeshClass(obj,from,mpid)
+    class(Mesh_),intent(inout)::obj
+    type(MPI_),intent(inout) :: mpid
+    integer(int32),intent(in) :: from
+
+
+    ! Name
+    call mpid%BcastMPICharN(N=200, from=from,val=obj%FileName)
+    ! Nodal coordinates
+    call mpid%bcast(from=from,val=obj%NodCoord)
+    ! Connectivity information for FE-mesh
+    call mpid%bcast(from=from,val=obj% ElemNod )
+    ! Material IDs for Finite Elements
+    call mpid%bcast(from=from,val=obj% ElemMat )
+
+    call mpid%bcast(from=from,val=obj% MasterID )
+    call mpid%bcast(from=from,val=obj% SlaveID )
+    call mpid%bcast(from=from,val=obj% NTSMasterFacetID )
+    call mpid%bcast(from=from,val=obj% xi)
+
+    ! optional data;
+    call mpid%bcast(from=from,val=obj%NodCoordInit)
+    call mpid%bcast(from=from,val=obj% BottomElemID )
+    call mpid%bcast(from=from,val=obj% TopElemID )
+    call mpid%bcast(from=from,val=obj% FacetElemNod )
+    call mpid%bcast(from=from,val=obj% NextFacets )
+    call mpid%bcast(from=from,val=obj% SurfaceLine2D )
+    call mpid%bcast(from=from,val=obj% SubMeshNodFromTo )
+    call mpid%bcast(from=from,val=obj% SubMeshElemFromTo )
+    call mpid%bcast(from=from,val=obj% SubMeshSurfFromTo )
+
+
+    call mpid%bcast(from=from,val=obj%surface)
+
+    !for Interfaces
+    call mpid%bcast(from=from,val=obj% GlobalNodID )
+
+    call mpid%BcastMPICharN(N=36,from=from,val=obj% uuid)
+    call mpid%BcastMPICharN(N=70,from=from,val=obj% ElemType)
+    call mpid%BcastMPICharN(N=70,from=from,val=obj%  ErrorMsg)
+    call mpid%BcastMPICharN(N=70,from=from,val=obj%  meshtype)
+
+
+end subroutine
 ! ##########################################################################
 
 

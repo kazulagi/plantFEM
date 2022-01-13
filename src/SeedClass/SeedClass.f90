@@ -79,6 +79,9 @@ module SeedClass
 
         procedure :: convertMeshType => convertMeshTypeSeed
         procedure :: result => resultSeed
+
+        !MPI
+        
         
     end type
 contains

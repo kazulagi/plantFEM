@@ -74,6 +74,9 @@ module SoilClass
         procedure :: fertilize => fertilizeSoil
         procedure :: diagnosis => diagnosisSoil
         procedure :: export => exportSoil
+
+        ! MPI
+        procedure :: sync => syncSoil
     end type
 
 contains
@@ -785,5 +788,64 @@ subroutine deformSoil(obj,disp,x_min,x_max,y_min,y_max,z_min,z_max,BCRangeError)
     
 end subroutine
 
+
+subroutine syncSoil(obj,from,mpid)
+    class(Soil_),intent(inout) :: obj
+    integer(int32),intent(in) :: from
+    type(MPI_),intent(inout) :: mpid
+
+
+    type(FEMDomain_) :: FEMDomain
+    
+    !type(Boring_),allocatable :: Boring(:)
+    !type(LinearSolver_) :: solver
+    
+    call mpid%Bcast(from=from,val=obj%disp) !(:,:)
+        ! soil parameters
+    call mpid%bcast(from=from,val=obj% YoungModulus)!(:)
+    call mpid%bcast(from=from,val=obj% PoissonRatio)!(:)
+    call mpid%bcast(from=from,val=obj% Density)!(:)
+    call mpid%bcast(from=from,val=obj% VoidRatio)!(:)
+    call mpid%bcast(from=from,val=obj% Cohesion)!(:)
+    call mpid%bcast(from=from,val=obj% FrictionAngle)!(:)
+
+    call mpid%bcast(from=from,val=obj%depth)!
+    call mpid%bcast(from=from,val=obj%length)!
+    call mpid%bcast(from=from,val=obj%width)!
+    call mpid%bcast(from=from,val=obj%num_x)
+    call mpid%bcast(from=from,val=obj%num_y)
+    call mpid%bcast(from=from,val=obj%num_z)
+    call mpid%bcast(from=from,val=obj%x)!,y,z ! center coordinate
+
+        ! soil property
+
+        ! ================
+        ! Nutorient
+        !------------
+    call mpid%bcast(from=from,val=obj%N_kg)! = 0.0d0
+    call mpid%bcast(from=from,val=obj%P_kg)! = 0.0d0
+    call mpid%bcast(from=from,val=obj%K_kg)! = 0.0d0
+    call mpid%bcast(from=from,val=obj%Ca_kg)! = 0.0d0
+    call mpid%bcast(from=from,val=obj%Mg_kg)! = 0.0d0
+    call mpid%bcast(from=from,val=obj%S_kg)! = 0.0d0
+        !------------
+    call mpid%bcast(from=from,val=obj%Fe_kg)! = 0.0d0
+    call mpid%bcast(from=from,val=obj%Mn_kg)! = 0.0d0
+    call mpid%bcast(from=from,val=obj%B_kg)! = 0.0d0
+    call mpid%bcast(from=from,val=obj%Zn_kg)! = 0.0d0
+    call mpid%bcast(from=from,val=obj%Mo_kg)! = 0.0d0
+    call mpid%bcast(from=from,val=obj%Cu_kg)! = 0.0d0
+    call mpid%bcast(from=from,val=obj%Cl_kg)! = 0.0d0
+        ! ================
+
+        
+        ! ================
+        ! Soil phyisical parameters
+    call mpid%bcast(from=from,val=obj%C_N_ratio)!
+    call mpid%bcast(from=from,val=obj%EC)!
+        ! ================
+
+
+end subroutine
 
 end module

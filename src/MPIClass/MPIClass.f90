@@ -46,13 +46,20 @@ module MPIClass
         
         procedure, Pass :: BcastMPIInt
         procedure, Pass :: BcastMPIIntVec
+        procedure ::  BcastMPIIntVecFixedSize
         procedure, Pass :: BcastMPIIntArray
+        procedure, Pass :: BcastMPIIntArray3
         procedure, Pass :: BcastMPIReal
         procedure, Pass :: BcastMPIRealVec
+        procedure ::  BcastMPIRealVecFixedSize
         procedure, Pass :: BcastMPIRealArray
+        procedure, Pass :: BcastMPIRealArray3
         procedure, Pass :: BcastMPIChar
+        procedure, Pass :: BcastMPICharN
+        procedure, Pass :: BcastMPILogical
         generic  :: Bcast => BcastMPIInt, BcastMPIReal,BcastMPIChar,BcastMPIIntVec,&
-            BcastMPIIntArray,BcastMPIRealVec,BcastMPIRealArray
+            BcastMPIIntArray,BcastMPIRealVec,BcastMPIRealArray,BcastMPICharN,BcastMPILogical,&
+            BcastMPIRealArray3,BcastMPIIntArray3
 
         procedure, Pass :: GatherMPIInt 
         procedure, Pass :: GatherMPIReal 
@@ -225,7 +232,22 @@ subroutine createStackMPI(obj,total)
 end subroutine
 !################################################################
 
-
+!function whoseLocalStack(obj,id) result(process_id)
+!    class(MPI_),intent(inout) :: obj
+!    integer(int32),intent(in) :: id
+!    integer(int32) :: process_id
+!
+!    if(.not.allocated(obj%localstack) )then
+!        process_id  = -1
+!        return
+!    endif
+!
+!    do i=1,size(obj%stack)
+!        
+!    enddo
+!
+!end function
+!!################################################################
 
 !################################################################
 subroutine showStackMPI(obj)
@@ -328,6 +350,19 @@ end subroutine
 
 
 !################################################################
+recursive subroutine BcastMPILogical(obj,From,val)
+    class(MPI_),intent(inout)::obj
+    integer(int32),intent(in)::From
+    logical,intent(inout)::val
+    
+    call MPI_Bcast(val, 1, MPI_LOGICAL, From, MPI_COMM_WORLD, obj%ierr)
+
+end subroutine
+!################################################################
+
+
+
+!################################################################
 recursive subroutine BcastMPIIntVec(obj,From,val)
     class(MPI_),intent(inout)::obj
     integer(int32),intent(in) :: From
@@ -335,15 +370,32 @@ recursive subroutine BcastMPIIntVec(obj,From,val)
     integer(int32) :: i,j,n,vec_size
     integer(int32) :: sendval
 
-    if(allocated(val) .and. From/=obj%myrank )then
-        deallocate(val)
+    
+
+    !if(allocated(val) .and. From/=obj%myrank )then
+    !    deallocate(val)
+    !endif
+
+    if(allocated(val) )then
+        if(From/=obj%myrank )then
+            deallocate(val)
+        endif
     endif
 
     vec_size=0
     if(From==obj%myrank )then
-        vec_size = size(val)
+        if(allocated(val) )then
+            vec_size = size(val)
+        else
+            vec_size = -1
+        endif
     endif
     call obj%Bcast(From=From, val=vec_size)
+
+    ! if array is empty, return
+    if(vec_size < 1)then
+        return
+    endif
 
     if(From/=obj%myrank )then
         allocate(val(vec_size) )
@@ -358,6 +410,35 @@ end subroutine
 !################################################################
 
 
+!################################################################
+subroutine BcastMPIIntVecFixedSize(obj,From,val)
+    class(MPI_),intent(inout)::obj
+    integer(int32),intent(in) :: From
+    integer(int32),intent(in)::val(:)
+    integer(int32) :: i,j,n,vec_size
+    integer(int32) :: sendval
+
+    do i=1,vec_size
+        call MPI_Bcast(val(i), 1, MPI_integer, From, MPI_COMM_WORLD, obj%ierr)
+    enddo
+
+end subroutine
+!################################################################
+
+!################################################################
+subroutine BcastMPIRealVecFixedSize(obj,From,val)
+    class(MPI_),intent(inout)::obj
+    integer(int32),intent(in) :: From
+    real(real64),intent(in)::val(:)
+    integer(int32) :: i,j,n,vec_size
+    integer(int32) :: sendval
+
+    do i=1,vec_size
+        call MPI_Bcast(val(i), 1, MPI_REAL8, From, MPI_COMM_WORLD, obj%ierr)
+    enddo
+
+end subroutine
+!################################################################
 
 
 !################################################################
@@ -375,7 +456,11 @@ recursive subroutine BcastMPIIntArray(obj,From,val)
     vec_size1=0
     vec_size2=0
     if(From==obj%myrank )then
-        vec_size1 = size(val,1)
+        if(.not.allocated(val) )then
+            vec_size1 = -1
+        else
+            vec_size1 = size(val,1)
+        endif
     endif
     call obj%Bcast(From=From, val=vec_size1)
     if(From==obj%myrank )then
@@ -383,10 +468,18 @@ recursive subroutine BcastMPIIntArray(obj,From,val)
     endif
     call obj%Bcast(From=From, val=vec_size2)
 
+    ! if array is empty, return
+    if(vec_size1 < 1)then
+        return
+    endif
+    
+
     if(From/=obj%myrank )then
         allocate(val(vec_size1, vec_size2) )
     endif
 
+
+    
     sendval=0
     do i=1,vec_size1
         do j=1, vec_size2
@@ -402,7 +495,7 @@ end subroutine
 !################################################################
 recursive subroutine BcastMPIReal(obj,From,val)
     class(MPI_),intent(inout)::obj
-    integer(int32),intent(inout)::From 
+    integer(int32),intent(in)::From 
     real(real64),intent(inout)::val
     integer(int32) :: i
 
@@ -421,16 +514,26 @@ recursive subroutine BcastMPIRealVec(obj,From,val)
     integer(int32) :: i,j,n,vec_size
     
 
-    if(allocated(val) .and. From/=obj%myrank )then
-        deallocate(val)
+    if(allocated(val) )then
+        if(From/=obj%myrank )then
+            deallocate(val)
+        endif
     endif
 
     vec_size=0
     if(From==obj%myrank )then
-        vec_size = size(val)
+        if(.not.allocated(val) )then
+            vec_size = -1
+        else
+            vec_size = size(val)
+        endif
     endif
     call obj%Bcast(From=From, val=vec_size)
-
+! if array is empty, return
+    if(vec_size < 1)then
+        return
+    endif
+    
     if(From/=obj%myrank )then
         allocate(val(vec_size) )
     endif
@@ -453,33 +556,188 @@ recursive subroutine BcastMPIRealArray(obj,From,val)
     real(real64),allocatable,intent(inout)::val(:,:)
     integer(int32) :: i,j,n,vec_size1,vec_size2
 
-    if(allocated(val) .and. From/=obj%myrank )then
-        deallocate(val)
+    if(allocated(val) )then
+        if(From/=obj%myrank )then
+            deallocate(val)
+        endif
     endif
 
     vec_size1=0
     vec_size2=0
     if(From==obj%myrank )then
-        vec_size1 = size(val,1)
+        if(.not.allocated(val) )then
+            vec_size1 = -1
+        else
+            vec_size1 = size(val,1)
+        endif
     endif
     call obj%Bcast(From=From, val=vec_size1)
+    ! if array is empty, return
+    if(vec_size1 < 1)then
+        return
+    endif
+    
     if(From==obj%myrank )then
         vec_size2 = size(val,2)
     endif
     call obj%Bcast(From=From, val=vec_size2)
 
+    ! if array is empty, return
+    if(vec_size2 < 1)then
+        return
+    endif
+
     if(From/=obj%myrank )then
         allocate(val(vec_size1, vec_size2) )
     endif
-
+    
     do i=1,vec_size1
         do j=1, vec_size2
-            call MPI_Bcast(val(i,j), 1, MPI_integer, From, MPI_COMM_WORLD, obj%ierr)
+            call MPI_Bcast(val(i,j), 1, MPI_REAL8, From, MPI_COMM_WORLD, obj%ierr)
         enddo
     enddo
 
 end subroutine
 !################################################################
+
+
+
+!################################################################
+recursive subroutine BcastMPIRealArray3(obj,From,val)
+    class(MPI_),intent(inout)::obj
+    integer(int32),intent(in) :: From
+    real(real64),allocatable,intent(inout)::val(:,:,:)
+    integer(int32) :: i,j,k,n,vec_size1,vec_size2,vec_size3
+
+    !if(allocated(val) .and. From/=obj%myrank )then
+    !    deallocate(val)
+    !endif
+
+    if(allocated(val) )then
+        if(From/=obj%myrank )then
+            deallocate(val)
+        endif
+    endif
+
+    vec_size1=0
+    vec_size2=0
+    vec_size3=0
+    if(From==obj%myrank )then
+        if(.not.allocated(val) )then
+            vec_size1 = -1
+        else
+            vec_size1 = size(val,1)
+        endif
+    endif
+    call obj%Bcast(From=From, val=vec_size1)
+    ! if array is empty, return
+    if(vec_size1 < 1)then
+        return
+    endif
+    
+    if(From==obj%myrank )then
+        vec_size2 = size(val,2)
+    endif
+    call obj%Bcast(From=From, val=vec_size2)
+
+
+    if(From==obj%myrank )then
+        vec_size3 = size(val,3)
+    endif
+    call obj%Bcast(From=From, val=vec_size3)
+
+    ! if array is empty, return
+    if(vec_size2 < 1)then
+        return
+    endif
+    if(vec_size3 < 1)then
+        return
+    endif
+
+    if(From/=obj%myrank )then
+        allocate(val(vec_size1, vec_size2,vec_size3) )
+    endif
+    
+    do i=1,vec_size1
+        do j=1, vec_size2
+            do k=1, vec_size3
+                call MPI_Bcast(val(i,j,k), 1, MPI_REAL8, From, MPI_COMM_WORLD, obj%ierr)
+            enddo
+        enddo
+    enddo
+
+end subroutine
+!################################################################
+
+
+
+!################################################################
+recursive subroutine BcastMPIIntArray3(obj,From,val)
+    class(MPI_),intent(inout)::obj
+    integer(int32),intent(in) :: From
+    integer(int32),allocatable,intent(inout)::val(:,:,:)
+    integer(int32) :: i,j,k,n,vec_size1,vec_size2,vec_size3
+
+    !if(allocated(val) .and. From/=obj%myrank )then
+    !    deallocate(val)
+    !endif
+
+    if(allocated(val) )then
+        if(From/=obj%myrank )then
+            deallocate(val)
+        endif
+    endif
+
+    vec_size1=0
+    vec_size2=0
+    vec_size3=0
+    if(From==obj%myrank )then
+        if(.not.allocated(val) )then
+            vec_size1 = -1
+        else
+            vec_size1 = size(val,1)
+        endif
+    endif
+    call obj%Bcast(From=From, val=vec_size1)
+    ! if array is empty, return
+    if(vec_size1 < 1)then
+        return
+    endif
+    
+    if(From==obj%myrank )then
+        vec_size2 = size(val,2)
+    endif
+    call obj%Bcast(From=From, val=vec_size2)
+
+
+    if(From==obj%myrank )then
+        vec_size3 = size(val,3)
+    endif
+    call obj%Bcast(From=From, val=vec_size3)
+
+    ! if array is empty, return
+    if(vec_size2 < 1)then
+        return
+    endif
+    if(vec_size3 < 1)then
+        return
+    endif
+
+    if(From/=obj%myrank )then
+        allocate(val(vec_size1, vec_size2,vec_size3) )
+    endif
+    
+    do i=1,vec_size1
+        do j=1, vec_size2
+            do k=1, vec_size3
+                call MPI_Bcast(val(i,j,k), 1, MPI_Integer, From, MPI_COMM_WORLD, obj%ierr)
+            enddo
+        enddo
+    enddo
+
+end subroutine
+!################################################################
+
 
 
 recursive subroutine BcastMPIChar(obj,From,val)
@@ -496,6 +754,23 @@ recursive subroutine BcastMPIChar(obj,From,val)
 end subroutine
 
 !################################################################
+
+
+recursive subroutine BcastMPICharN(obj,N,From,val)
+    class(MPI_),intent(inout)::obj
+    integer(int32),intent(in) :: N
+    integer(int32),intent(in)::From 
+    character(len=N),intent(inout)::val(1:N)
+    character(len=N)::valN(1:N)
+    integer(int32) :: i
+
+    call MPI_Bcast(valN(1:N), N, MPI_CHARACTER, From, MPI_COMM_WORLD, obj%ierr)
+    
+
+end subroutine
+
+!################################################################
+
 subroutine GatherMPIInt(obj,sendobj,sendcount,recvobj,recvcount,&
     send_start_id,recv_start_id,To)
     class(MPI_),intent(inout)::obj
