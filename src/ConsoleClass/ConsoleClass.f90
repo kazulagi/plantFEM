@@ -2,6 +2,7 @@ module ConsoleClass
     use MathClass
     implicit none
 
+    integer(int32),parameter ::PF_CONSOLE_ARG_LEN=200
     type :: Console_
         character(:),allocatable :: line
     contains
@@ -10,6 +11,8 @@ module ConsoleClass
         procedure,public :: writeLine => logConsole
         procedure,public :: read => readConsole
         procedure,public :: readLine => readlineConsole
+        procedure,public :: argument => argumentConsole
+
         procedure,public :: in => inConsole
         
         procedure,public :: asInt => asIntConsole
@@ -110,5 +113,16 @@ function inConsole(obj,word) result(ret)
     endif
 end function
 ! ###################################################################
+
+function argumentConsole(obj) result(cmd_arg)
+    class(Console_),intent(inout) :: obj
+    character(PF_CONSOLE_ARG_LEN) :: cmd_arg_PF_CONSOLE_ARG_LEN
+    character(:),allocatable :: cmd_arg
+
+    call get_command_argument(1,cmd_arg_PF_CONSOLE_ARG_LEN)
+    
+    cmd_arg = trim(cmd_arg_PF_CONSOLE_ARG_LEN)
+
+end function
 
 end module

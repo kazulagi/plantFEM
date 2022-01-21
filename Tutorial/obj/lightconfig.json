@@ -1,0 +1,8 @@
+ {
+    "type": "light",
+    "source": "sun",
+    "position_x": 0.00,
+    "position_y": 0.00,
+    "position_z": 1.00e+18,
+    "maxPPFD": 1000.00
+ }
