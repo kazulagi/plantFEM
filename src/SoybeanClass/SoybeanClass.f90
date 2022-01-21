@@ -155,7 +155,9 @@ module SoybeanClass
 
         !  Simulator
         procedure,public :: checkProperties => checkPropertiesSoybean
+        procedure,public :: setPoints    => setPointsSoybean
         procedure,public :: setProperties => setPropertiesSoybean
+        
         procedure,public :: setPropertiesDensity => setPropertiesDensitySoybean
         procedure,public :: setPropertiesYoungModulus => setPropertiesYoungModulusSoybean
         procedure,public :: setPropertiesPoissonRatio => setPropertiesPoissonRatioSoybean
@@ -205,6 +207,7 @@ module SoybeanClass
         procedure,public :: getPhotoSynthesisSpeedPerVolume => getPhotoSynthesisSpeedPerVolumeSoybean
         procedure,public :: getLeafArea => getLeafAreaSoybean
         procedure,public :: getIntersectLeaf => getIntersectLeafSoybean
+        procedure,public :: getOverwrapLeaf => getIntersectLeafSoybean
         ! data-format converter
         procedure,public :: convertDataFormat => convertDataFormatSoybean
         
@@ -238,6 +241,7 @@ module SoybeanClass
         ! regacy/experimental
         procedure,public :: WaterAbsorption => WaterAbsorptionSoybean
         procedure,public :: move => moveSoybean
+        procedure,public :: rotate => rotateSoybean
 
         procedure,public :: numleaf => numleafsoybean
         procedure,public :: numstem => numstemsoybean
@@ -5561,6 +5565,56 @@ pure function getPointsSoybean(obj) result(points)
 
 end function
 ! ############################################################################
+
+! ##################################################################
+
+subroutine setPointsSoybean(obj,points)
+    class(Soybean_),intent(inout) :: obj
+    real(real64),intent(in) :: points(:,:)
+    integer(int32) :: i,n, id
+    
+    if(size(points,1)/=obj%nn() )then
+        print *, "[ERROR] setPointsSoybean >> Invalid size of arg points"
+        print *, "size(points,1)/=obj%nn()",size(points,1),obj%nn()
+        return
+    endif
+
+    id = 1
+    if(allocated(obj%stem) )then
+        do i=1,size(obj%stem)
+            if( .not. obj%stem(i)%femdomain%empty() )then
+                obj%stem(i)%femdomain%mesh%nodcoord(1:obj%stem(i)%femdomain%nn(),1:3) &
+                =points(id:id + obj%stem(i)%femdomain%nn()-1  ,1:3)
+                id = id + obj%stem(i)%femdomain%nn()
+            endif
+        enddo    
+    endif
+
+    if(allocated(obj%leaf) )then
+        do i=1,size(obj%leaf)
+            if( .not. obj%leaf(i)%femdomain%empty() )then
+                obj%leaf(i)%femdomain%mesh%nodcoord(:,:) &
+                =points(id:id + obj%leaf(i)%femdomain%nn() -1 ,1:3)
+                id = id + obj%leaf(i)%femdomain%nn()
+            endif
+        enddo    
+    endif
+
+    if(allocated(obj%root) )then
+        do i=1,size(obj%root)
+            if( .not. obj%root(i)%femdomain%empty() )then
+                obj%root(i)%femdomain%mesh%nodcoord(:,:)&
+                =points(id:id + obj%root(i)%femdomain%nn() -1 ,1:3) 
+                
+                id = id + obj%root(i)%femdomain%nn()
+            endif
+        enddo    
+    endif
+
+
+end subroutine
+! ############################################################################
+
 function getDistanceFromGroundSoybean(obj) result(distance_per_nodes)
     class(Soybean_),intent(inout) :: obj
     real(real64),allocatable :: distance_per_nodes(:),xA(:),xB(:),dist_per_stem(:),&
@@ -5985,7 +6039,7 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
         !$OMP parallel do default(shared), private(j,k,inside,upside,center_x,radius_vec,radius_tr,zmin,n,element_id)
         do i=1, size(obj%leaf)
             if(.not. obj%leaf(i)%femdomain%empty() )then
-                print *, i, "/", obj%numLeaf()
+                !print *, i, "/", obj%numLeaf()
                 !$OMP parallel do default(shared), private(k,inside,upside,center_x,radius_vec,radius_tr,zmin,n,element_id)
                 do j=1,obj%leaf(i)%femdomain%ne()
                     ! 中心座標
@@ -6037,7 +6091,7 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
     !$OMP parallel do default(shared), private(j,k,inside,upside,center_x,radius_vec,radius_tr,zmin,n,element_id)
     do i=1, size(obj%leaf)
         if(.not. obj%leaf(i)%femdomain%empty() )then
-            print *, i, "/", obj%numLeaf()
+            !print *, i, "/", obj%numLeaf()
             !$OMP parallel do default(shared), private(k,inside,upside,center_x,radius_vec,radius_tr,zmin,n,element_id)
             do j=1,obj%leaf(i)%femdomain%ne()
                 ! 中心座標
@@ -6645,24 +6699,24 @@ subroutine syncSoybean(obj,mpid,from)
 end subroutine
 
 ! ################################################################
-subroutine syncSoybeanVector(mpid,obj) 
+subroutine syncSoybeans(soybeans,mpid) 
     type(MPI_),intent(inout) :: mpid
-    type(Soybean_),intent(inout) :: obj(:)
-    integer(int32) :: myrank, num_process,process_id,localstack_id,id
+    type(Soybean_),intent(inout) :: soybeans(:)
+    integer(int32) :: id,slot_id,stack_id
     integer(int32),allocatable :: localstack(:)
     
-    myrank      = mpid%myrank
-    num_process = mpid%petot
-    localstack  = mpid%localstack
+    if(.not. allocated(mpid%localstack))then
+        call mpid%createstack(size(soybeans) )
+    endif
 
-    !全体通信により，関係のあるobj(:)を共有
-    do process_id=1,size(mpid%Stack,1)
-        do localstack_id=1,size(mpid%Stack,2)
-            if(mpid%stack(process_id,localstack_id)==0.0d0 )then
+    ! 同期
+    do slot_id=1,size(mpid%stack,1)
+        do stack_id=1,size(mpid%stack,2)
+            id = mpid%stack(slot_id,stack_id)
+            if(id==0)then
                 cycle
             else
-                id = mpid%stack(process_id,localstack_id)
-                call syncSoybean(mpid=mpid,from=process_id,obj=obj(id))
+                call soybeans(id)%sync(from=slot_id-1,mpid=mpid)
             endif
         enddo
     enddo
@@ -6714,6 +6768,22 @@ subroutine syncsoybean_NodeID_BranchVector(obj,from,mpid)
 end subroutine
 
 
+! ################################################################
+subroutine rotateSoybean(obj,x,y,z)
+    class(Soybean_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x,y,z
+    type(FEMDomain_) :: domain
+    
+    ! get points
+    domain%mesh%nodcoord = obj%getpoints()
+
+    ! rotate points
+    call domain%rotate(x=x,y=y,z=z)
+
+    ! set points
+    call obj%setPoints(domain%mesh%nodcoord)
+    
+end subroutine
 ! ################################################################
 
 end module
