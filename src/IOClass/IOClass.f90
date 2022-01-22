@@ -66,6 +66,12 @@ module IOClass
         generic, public :: import => importIOReal64VectorAsTxt,importIOReal64ArrayAsTxt,&
         importIOReal64VectorAsTxtWithIndex
 
+        procedure, pass :: exportIOReal64ArrayAsTxt
+        procedure, pass :: exportIOReal64VectorAsTxt
+        procedure, pass :: exportIOReal64VectorAsTxtWithIndex
+        generic, public :: export => exportIOReal64VectorAsTxt,exportIOReal64ArrayAsTxt,&
+        exportIOReal64VectorAsTxtWithIndex
+
         generic,public :: parse =>parseIOChar200,parseIO2keysChar200
 
         generic,public :: open => openIOchar, openIOstring
@@ -2586,6 +2592,72 @@ function importIOReal64VectorAsTxtWithIndex(obj,name,with_index) result(real64Ve
         
 
 end function
+
+
+
+! ##########################################################
+subroutine exportIOReal64VectorAsTxt(obj,name,real64Vector)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: name
+    real(real64),intent(in) :: real64Vector(:)
+    integer(int32) :: i
+    
+    ! for both comma and space
+    call obj%open(name,"w")
+    do i=1,size(real64Vector)
+        write(obj%fh, '(A)' ) str(real64Vector(i))+ " ," 
+    enddo
+    call obj%close()
+
+end subroutine
+
+! ##########################################################
+
+subroutine exportIOReal64ArrayAsTxt(obj,name,real64Array,num_column)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: name
+    real(real64),intent(in) :: real64Array(:,:)
+    integer(int32),optional,intent(in) :: num_column
+    integer(int32) :: i,num_lines,nl,j
+    
+    if(present(num_column) )then
+        nl = num_column
+    else
+        nl = size(real64Array,2)
+    endif
+    
+    call obj%open(name,"w")
+    do i=1,size(real64Array,1)
+        do j=1,nl-1
+            write(obj%fh,'(A)',advance='no' ) str(real64Array(i,j))+ " ,"
+        enddo
+        j=nl
+        write(obj%fh,'(A)',advance='yes' ) str(real64Array(i,j))+ " ,"
+    enddo
+    call obj%close()
+end subroutine
+! ##########################################################
+subroutine exportIOReal64VectorAsTxtWithIndex(obj,name,real64Vector,with_index)
+        class(IO_),intent(inout) :: obj
+        character(*),intent(in) :: name
+        logical, intent(in) :: with_index
+        real(real64),allocatable :: real64Vector(:)
+        integer(int32),allocatable :: index_list(:)
+        real(real64) :: val
+        integer(int32) :: i,num_lines,id,index_max,index_min
+        
+        if(.not.with_index)then
+            real64Vector = obj%import(name=name)
+        endif
+
+    ! for both comma and space
+        call obj%open(name,"w")
+        do i=1,size(real64Vector)
+            write(obj%fh, '(A)' ) str(i) + "," + str(real64Vector(i))+ " ," 
+        enddo
+        call obj%close()
+    
+end subroutine
 
 
 end module IOClass
