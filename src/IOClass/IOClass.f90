@@ -59,6 +59,13 @@ module IOClass
 
         procedure, pass :: parseIOChar200
         procedure, pass :: parseIO2keysChar200
+        
+        procedure, pass :: importIOReal64ArrayAsTxt
+        procedure, pass :: importIOReal64VectorAsTxt
+        procedure, pass :: importIOReal64VectorAsTxtWithIndex
+        generic, public :: import => importIOReal64VectorAsTxt,importIOReal64ArrayAsTxt,&
+        importIOReal64VectorAsTxtWithIndex
+
         generic,public :: parse =>parseIOChar200,parseIO2keysChar200
 
         generic,public :: open => openIOchar, openIOstring
@@ -2496,5 +2503,89 @@ function as_JSONRealArray2(real64Array,name) result(json_format_array)
     enddo
     json_format_array = json_format_array // "}"
 end function
+! ##########################################################
+function importIOReal64VectorAsTxt(obj,name) result(real64Vector)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: name
+    real(real64),allocatable :: real64Vector(:)
+    integer(int32) :: i,num_lines
+    
+    ! for both comma and space
+    num_lines = obj%numLine(name=name)
+    
+    allocate(real64Vector(num_lines) )
+    real64vector(:) = 0.0d0
+    call obj%open(name,"r")
+    do i=1,num_lines
+        real64Vector(i) = freal(obj%readline())
+        if(obj%EOF) exit
+    enddo
+    call obj%close()
+
+end function
+
+! ##########################################################
+
+function importIOReal64ArrayAsTxt(obj,name,num_column) result(real64Array)
+    class(IO_),intent(inout) :: obj
+    character(*),intent(in) :: name
+    integer(int32),intent(in) :: num_column
+    real(real64),allocatable :: real64Array(:,:)
+    integer(int32) :: i,num_lines
+    
+    ! for both comma and space
+    num_lines = obj%numLine(name=name)
+    
+    allocate(real64Array(num_lines,num_column) )
+    real64Array(:,:) = 0.0d0
+    call obj%open(name,"r")
+    do i=1,num_lines
+        read(obj%fh,*) real64Array(i,1:num_column)
+        if(obj%EOF) exit
+    enddo
+    call obj%close()
+end function
+! ##########################################################
+function importIOReal64VectorAsTxtWithIndex(obj,name,with_index) result(real64Vector)
+        class(IO_),intent(inout) :: obj
+        character(*),intent(in) :: name
+        logical, intent(in) :: with_index
+        real(real64),allocatable :: real64Vector(:)
+        integer(int32),allocatable :: index_list(:)
+        real(real64) :: val
+        integer(int32) :: i,num_lines,id,index_max,index_min
+        
+        if(.not.with_index)then
+            real64Vector = obj%import(name=name)
+        endif
+
+        ! for both comma and space
+        num_lines = obj%numLine(name=name)
+        
+        allocate(index_list(num_lines) )
+        index_list(:) = 0
+        call obj%open(name,"r")
+        do i=1,num_lines
+            read(obj%fh,*) index_list(i)
+            if(obj%EOF) exit
+        enddo
+        call obj%close()
+    
+        index_min = minval(index_list)
+        index_max = maxval(index_list)
+        
+        allocate(real64Vector(index_min:index_max) )
+        real64Vector(:) = 0.0d0
+        call obj%open(name,"r")
+        do i=1,num_lines
+            read(obj%fh,*) id,val
+            real64Vector(id) = val
+            if(obj%EOF) exit
+        enddo
+        call obj%close()
+        
+
+end function
+
 
 end module IOClass
