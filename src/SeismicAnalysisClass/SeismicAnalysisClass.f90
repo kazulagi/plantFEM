@@ -58,6 +58,7 @@ module SeismicAnalysisClass
         procedure, public :: getNewmarkBetaVector => getNewmarkBetaVectorSeismicAnalysis
         procedure, public :: updateVelocityNewmarkBeta => updateVelocityNewmarkBetaSeismicAnalysis
         procedure, public :: updateAccelNewmarkBeta => updateAccelNewmarkBetaSeismicAnalysis
+        procedure, public :: remove => removeSeismicAnalysis
     end type
 
 contains
@@ -277,7 +278,7 @@ subroutine fixDisplacementSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_ma
         endif
     else
         obj%FixNodeList_x = hstack(obj%FixNodeList_x , &
-         obj%femdomain%select(&
+        obj%femdomain%select(&
             x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
             )
             buf = zeros(size(obj%FixNodeList_x))
@@ -290,7 +291,7 @@ subroutine fixDisplacementSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_ma
             obj%FixNodeList_Disp_x = buf
 
         obj%FixNodeList_y = hstack(obj%FixNodeList_y , &
-         obj%femdomain%select(&
+        obj%femdomain%select(&
             x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
             )
             buf = size(zeros(size(obj%FixNodeList_y)))
@@ -303,7 +304,7 @@ subroutine fixDisplacementSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_ma
             obj%FixNodeList_Disp_y = buf
 
         obj%FixNodeList_z = hstack(obj%FixNodeList_z , &
-         obj%femdomain%select(&
+        obj%femdomain%select(&
             x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
             )
             buf = zeros(size(obj%FixNodeList_z))
@@ -343,12 +344,13 @@ subroutine updateWaveSeismicAnalysis(obj,timestep,direction)
     if(.not. allocated(obj%WaveNodeList) )then
         print *, "Caution >> updateWaveSeismicAnalysis >> no wave"
     endif
+    
     dim_num = obj%femdomain%nd()
     if(obj%wavetype==WAVE_ACCEL)then
         obj%A_ext_n = obj%A_ext
         do i=1,size(obj%WaveNodeList)
             node_id = obj%WaveNodeList(i)
-            !obj%A( dim_num*(node_id-1)+dir ) = obj%wave(timestep ,2)
+            obj%A( dim_num*(node_id-1)+dir ) = obj%wave(timestep ,2)
             ! update accel
             obj%A_ext( dim_num*(node_id-1)+dir ) =  obj%wave(timestep ,2)
         enddo
@@ -471,100 +473,95 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
         allocate(obj%u(n) )
     endif
 
-        ! Element matrix
-        call solver%init(NumberOfNode=[obj%femdomain%nn()],DOF=3)
-        obj%dt = abs(obj%dt)
-        do i=1,obj%femdomain%ne()
-            ! For each element
-            ! Ax=b will be installed into solv -obj%A_ext_n)
-            rho = obj%Density(i)
-            M_ij = obj%femdomain%MassMatrix(ElementID=i,DOF=obj%femdomain%nd(),density=rho )
-            K_ij = obj%femdomain%StiffnessMatrix(ElementID=i,E=obj%YoungModulus(i),v=obj%PoissonRatio(i) )
-            C_ij = obj%alpha * M_ij + obj%beta * K_ij
-            U_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%U, DOF=obj%femdomain%nd() )
-            V_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%V, DOF=obj%femdomain%nd() )
-            A_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A, DOF=obj%femdomain%nd() )
-            A_ext_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A_ext, DOF=obj%femdomain%nd() )
-            A_ext_i_n  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A_ext_n, DOF=obj%femdomain%nd() )
-            
-            dim_num = obj%femdomain%nd()
-            
-            F_i = matmul(M_ij,A_ext_i)
-            
-            A_ij = obj%getNewmarkBetaMatrix(M=M_ij, C=C_ij,K=K_ij,&
-                beta=obj%Newmark_beta,gamma=obj%Newmark_gamma,dt=obj%dt)
-            R_i = obj%getNewmarkBetaVector(M=M_ij,C=C_ij,u_n=U_i,v_n=V_i, a_n=A_i, &
-                force=F_i,beta=obj%Newmark_beta,gamma=obj%Newmark_gamma,dt=obj%dt)
-
-            !print *, maxval(A_ij),minval(A_ij)
-            !print *, maxval(R_i),minval(R_i)
-            !stop
-            ! Assemble stiffness matrix
-            DomainIDs = zeros(obj%femdomain%nne() )
-            DomainIDs(:) = 1
-            
-            call solver%assemble(&
-                connectivity=obj%femdomain%connectivity(ElementID=i), &
-                DOF = obj%femdomain%nd(), &
-                DomainIDs=DomainIDs,&
-                eMatrix = A_ij)
-            call solver%assemble(&
-                connectivity=obj%femdomain%connectivity(ElementID=i), &
-                DOF = obj%femdomain%nd(), &
-                DomainIDs=DomainIDs,&
-                eVector = R_i)
+    ! Element matrix
+    call solver%init(NumberOfNode=[obj%femdomain%nn()],DOF=3)
+    obj%dt = abs(obj%dt)
+    do i=1,obj%femdomain%ne()
+        ! For each element
+        ! Ax=b will be installed into solv -obj%A_ext_n)
+        rho = obj%Density(i)
+        M_ij = obj%femdomain%MassMatrix(ElementID=i,DOF=obj%femdomain%nd(),density=rho )
+        K_ij = obj%femdomain%StiffnessMatrix(ElementID=i,E=obj%YoungModulus(i),v=obj%PoissonRatio(i) )
+        C_ij = obj%alpha * M_ij + obj%beta * K_ij
+        U_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%U, DOF=obj%femdomain%nd() )
+        V_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%V, DOF=obj%femdomain%nd() )
+        A_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A, DOF=obj%femdomain%nd() )
+        A_ext_i  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A_ext, DOF=obj%femdomain%nd() )
+        A_ext_i_n  = obj%femdomain%ElementVector(ElementID=i, GlobalVector=obj%A_ext_n, DOF=obj%femdomain%nd() )
+        
+        dim_num = obj%femdomain%nd()
+        
+        F_i = matmul(M_ij,A_ext_i)
+        
+        A_ij = obj%getNewmarkBetaMatrix(M=M_ij, C=C_ij,K=K_ij,&
+            beta=obj%Newmark_beta,gamma=obj%Newmark_gamma,dt=obj%dt)
+        R_i = obj%getNewmarkBetaVector(M=M_ij,C=C_ij,u_n=U_i,v_n=V_i, a_n=A_i, &
+            force=F_i,beta=obj%Newmark_beta,gamma=obj%Newmark_gamma,dt=obj%dt)
+        !print *, maxval(A_ij),minval(A_ij)
+        !print *, maxval(R_i),minval(R_i)
+        !stop
+        ! Assemble stiffness matrix
+        DomainIDs = zeros(obj%femdomain%nne() )
+        DomainIDs(:) = 1
+        
+        call solver%assemble(&
+            connectivity=obj%femdomain%connectivity(ElementID=i), &
+            DOF = obj%femdomain%nd(), &
+            DomainIDs=DomainIDs,&
+            eMatrix = A_ij)
+        call solver%assemble(&
+            connectivity=obj%femdomain%connectivity(ElementID=i), &
+            DOF = obj%femdomain%nd(), &
+            DomainIDs=DomainIDs,&
+            eVector = R_i)
+    enddo
+    if(allocated(obj%FixNodeList_x) )then
+        do i=1,size(obj%FixNodeList_x)
+            call solver%fix( NodeID=obj%FixNodeList_x(i)*3-2,&
+            entryvalue=obj%FixNodeList_Disp_x(i) ,&
+            row_DomainID=1)
         enddo
-
-
-        if(allocated(obj%FixNodeList_x) )then
-            do i=1,size(obj%FixNodeList_x)
-                call solver%fix( NodeID=obj%FixNodeList_x(i)*3-2,&
-                entryvalue=obj%FixNodeList_Disp_x(i) ,&
-                row_DomainID=1)
-            enddo
-        endif
-        if(allocated(obj%FixNodeList_y) )then
-            do i=1,size(obj%FixNodeList_y)
-                call solver%fix( NodeID=obj%FixNodeList_y(i)*3-1,&
-                entryvalue=obj%FixNodeList_Disp_y(i),&
-                row_DomainID=1)
-            enddo
-        endif
-        if(allocated(obj%FixNodeList_z) )then
-            do i=1,size(obj%FixNodeList_z)
-                call solver%fix( NodeID=obj%FixNodeList_z(i)*3,&
-                entryvalue=obj%FixNodeList_Disp_z(i),&
-                row_DomainID=1)
-            enddo
-        endif
-
-        ! Now [A] {du} = {R} is ready
-        ! Solve
-        
-        
-        call solver%solve("BiCGSTAB")
-        print *, maxval(solver%val),minval(solver%val)
-        print *, maxval(solver%x),minval(solver%x)
-        
-        u_upd = solver%x
-        v_upd = obj%updateVelocityNewmarkBeta(u=u_upd,u_n=obj%U,v_n=obj%V,a_n=obj%A,&
-            gamma=obj%newmark_gamma,beta=obj%newmark_beta,dt=obj%dt)
-        a_upd = obj%updateAccelNewmarkBeta(u=u_upd,u_n=obj%U,v_n=obj%V,a_n=obj%A,&
-            gamma=obj%newmark_gamma,beta=obj%newmark_beta,dt=obj%dt)
-        
-        obj%U = u_upd
-        obj%V = v_upd
-        obj%A = a_upd
-       
-
-        print *, "U"
-        print *, minval(obj%U),maxval(obj%U)
-        
-        print *, "V"
-        print *, minval(obj%V),maxval(obj%V)
-        
-        print *, "A"
-        print *, minval(obj%A), maxval(obj%A)
+    endif
+    if(allocated(obj%FixNodeList_y) )then
+        do i=1,size(obj%FixNodeList_y)
+            call solver%fix( NodeID=obj%FixNodeList_y(i)*3-1,&
+            entryvalue=obj%FixNodeList_Disp_y(i),&
+            row_DomainID=1)
+        enddo
+    endif
+    if(allocated(obj%FixNodeList_z) )then
+        do i=1,size(obj%FixNodeList_z)
+            call solver%fix( NodeID=obj%FixNodeList_z(i)*3,&
+            entryvalue=obj%FixNodeList_Disp_z(i),&
+            row_DomainID=1)
+        enddo
+    endif
+    ! Now [A] {du} = {R} is ready
+    ! Solve
+    
+    
+    call solver%solve("BiCGSTAB")
+    print *, maxval(solver%val),minval(solver%val)
+    print *, maxval(solver%x),minval(solver%x)
+    
+    u_upd = solver%x
+    v_upd = obj%updateVelocityNewmarkBeta(u=u_upd,u_n=obj%U,v_n=obj%V,a_n=obj%A,&
+        gamma=obj%newmark_gamma,beta=obj%newmark_beta,dt=obj%dt)
+    a_upd = obj%updateAccelNewmarkBeta(u=u_upd,u_n=obj%U,v_n=obj%V,a_n=obj%A,&
+        gamma=obj%newmark_gamma,beta=obj%newmark_beta,dt=obj%dt)
+    
+    obj%U = u_upd
+    obj%V = v_upd
+    obj%A = a_upd
+   
+    print *, "U"
+    print *, minval(obj%U),maxval(obj%U)
+    
+    print *, "V"
+    print *, minval(obj%V),maxval(obj%V)
+    
+    print *, "A"
+    print *, minval(obj%A), maxval(obj%A)
     
 end subroutine
 ! ##############################################
@@ -676,5 +673,91 @@ function updateAccelNewmarkBetaSeismicAnalysis(obj,u,u_n,v_n,a_n,gamma,beta,dt) 
         + (1.0d0 - 1.0d0/(2.0d0*beta) )*a_n(:)
 end function
 ! ##########################################################################################
+
+subroutine removeSeismicAnalysis(obj)
+    class(SeismicAnalysis_),intent(inout) :: obj
+
+    if(associated(obj%femdomain))then
+        nullify(obj%femdomain)
+    endif
+    
+    if(allocated(obj%da) )then !(:) ! increment of accel.
+        deallocate(obj%da)
+    endif
+    if(allocated(obj%a) )then !(:) ! accel.
+        deallocate(obj%a)
+    endif
+    if(allocated(obj%a_ext) )then !(:) ! External accel.
+        deallocate(obj%a_ext)
+    endif
+    if(allocated(obj%a_ext_n) )then !(:) ! External accel.
+        deallocate(obj%a_ext_n)
+    endif
+    if(allocated(obj%v) )then !(:) ! velocity
+        deallocate(obj%v)
+    endif
+    if(allocated(obj%u) )then !(:) ! disp.
+        deallocate(obj%u)
+    endif
+    if(allocated(obj%du) )then !(:) ! increment of disp.
+        deallocate(obj%du)
+    endif
+    if(allocated(obj%wave) )then !(:,:)
+        deallocate(obj%wave)
+    endif
+    if(allocated(obj%dwave) )then !(:,:)
+        deallocate(obj%dwave)
+    endif
+
+    if(allocated(obj%Density) )then !(:)
+        deallocate(obj%Density)
+    endif
+    if(allocated(obj%YoungModulus) )then !(:)
+        deallocate(obj%YoungModulus)
+    endif
+    if(allocated(obj%PoissonRatio) )then !(:)
+        deallocate(obj%PoissonRatio)
+    endif
+
+    obj%MaxA(1:3) = 0.0d0
+    obj%MaxV(1:3) = 0.0d0
+    obj%MaxU(1:3) = 0.0d0
+
+    if(allocated(obj%WaveNodeList))then!(:)
+        deallocate(obj%WaveNodeList)
+    endif
+    if(allocated(obj%FixNodeList_x))then!(:)
+        deallocate(obj%FixNodeList_x)
+    endif
+    if(allocated(obj%FixNodeList_y))then!(:)
+        deallocate(obj%FixNodeList_y)
+    endif
+    if(allocated(obj%FixNodeList_z))then!(:)
+        deallocate(obj%FixNodeList_z)
+    endif
+
+    if(allocated(obj%FixNodeList_Disp_x) )then !(:)
+        deallocate(obj%FixNodeList_Disp_x)
+    endif
+    if(allocated(obj%FixNodeList_Disp_y) )then !(:)
+        deallocate(obj%FixNodeList_Disp_y)
+    endif
+    if(allocated(obj%FixNodeList_Disp_z) )then !(:)
+        deallocate(obj%FixNodeList_Disp_z)
+    endif
+    obj%wavedirection="z"
+    obj%wavetype = 0
+    obj%dt=1.0d0
+    obj%error=0.0d0
+    obj%t=0.0d0
+    obj%step=0
+    obj%alpha = 0.52400d0
+    obj%beta  = 0.00129d0 ! Rayleigh damping parameters, h=1%
+    obj%Newmark_beta  = 0.250d0 ! Nemark-beta method parameters
+    obj%Newmark_gamma  = 0.50d0 ! Nemark-beta method parameters
+    obj%restart=.False.
+
+    
+end subroutine
 
 end module SeismicAnalysisClass
