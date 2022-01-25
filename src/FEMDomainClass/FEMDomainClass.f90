@@ -10197,17 +10197,16 @@ function selectFEMDomain(obj,x_min,x_max,y_min,y_max,z_min,z_max) result(NodeLis
 	integer(int32) :: i,j,n
 
 	CheckList = int(zeros(obj%nn()) )
-	xmin(1) = input(default=minval(obj%mesh%nodcoord(:,1)),option=x_min )
-	xmin(2) = input(default=minval(obj%mesh%nodcoord(:,2)),option=y_min )
-	xmin(3) = input(default=minval(obj%mesh%nodcoord(:,3)),option=z_min )
+	xmin(1) = input(default=dble(-1.0e14),option=x_min )
+	xmin(2) = input(default=dble(-1.0e14),option=y_min )
+	xmin(3) = input(default=dble(-1.0e14),option=z_min )
 
-	xmax(1) = input(default=maxval(obj%mesh%nodcoord(:,1)),option=x_max )
-	xmax(2) = input(default=maxval(obj%mesh%nodcoord(:,2)),option=y_max )
-	xmax(3) = input(default=maxval(obj%mesh%nodcoord(:,3)),option=z_max )
+	xmax(1) = input(default=dble(1.0e14),option=x_max )
+	xmax(2) = input(default=dble(1.0e14),option=y_max )
+	xmax(3) = input(default=dble(1.0e14),option=z_max )
 
 	n = 0
 
-	!$OMP parallel do private(i)
 	do i=1, obj%nn()
 		x(:)=obj%mesh%nodcoord(i,:)
 		InOut = InOrOut(x=x,xmax=xmax,xmin=xmin,DimNum=obj%nd() )
@@ -10217,7 +10216,6 @@ function selectFEMDomain(obj,x_min,x_max,y_min,y_max,z_min,z_max) result(NodeLis
 			!n=n+1
 		endif
 	enddo
-	!$OMP end parallel do
 	n = sum(CheckList)
 
 	NodeList = int(zeros(n)  )
