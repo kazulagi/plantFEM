@@ -25,6 +25,9 @@ module ArrayClass
         module procedure :: d_dx_real64,d_dx_real32,d_dx_complex64
     end interface
 
+    interface decimate
+        module procedure :: decimateReal64Vec, decimateInt32Vec
+    end interface 
     interface exchange
         module procedure :: exchangeInt32vector,exchangeInt32vector2
     end interface exchange
@@ -350,6 +353,7 @@ module ArrayClass
     public :: operator(+)
     public :: assignment(=)
     public :: operator(*)
+    public :: operator(//)
     
 
     interface operator(+)
@@ -358,6 +362,10 @@ module ArrayClass
 
     interface operator(*)
         module procedure multArrayClass
+    end interface
+
+    interface operator(//)
+        module procedure appendVectorsInt32,appendVectorsReal64
     end interface
 
     
@@ -369,6 +377,7 @@ module ArrayClass
     interface dot
         module procedure dotArrayClass
     end interface
+
 
 contains
     
@@ -6920,4 +6929,119 @@ recursive pure function minvalIDReal64(vec,opt_id) result(id)
     endif
     
 end function
+
+function decimateReal64Vec(vec,interval) result(ret_vec) 
+    real(real64),intent(in) ::  vec(:)
+    real(real64),allocatable :: ret_vec(:)
+    integer(int32),intent(in) :: interval 
+    integer(int32) :: i,j
+    real(real64) :: long_size,short_size
+
+    if(interval==0)then
+        ret_vec = vec
+        return
+    else
+        long_size = dble(size(vec) )
+        short_size = dble(size(vec) )/dble(interval+1)
+        ret_vec = zeros(int(short_size) )
+        j = 0
+        do i=1,size(vec),interval+1
+            j = j + 1
+            if(j>size(ret_vec) ) exit
+            ret_vec(j) = vec(i)
+        enddo
+    endif
+    
+end function
+
+
+function decimateint32Vec(vec,interval) result(ret_vec) 
+    integer(int32),intent(in) ::  vec(:)
+    integer(int32),allocatable :: ret_vec(:)
+    integer(int32),intent(in) :: interval 
+    integer(int32) :: i,j
+    real(real64) :: long_size,short_size
+
+    if(interval==0)then
+        ret_vec = vec
+        return
+    else
+        long_size = dble(size(vec) )
+        short_size = dble(size(vec) )/dble(interval+1)
+        ret_vec = zeros(int(short_size) )
+        j = 0
+        do i=1,size(vec),interval+1
+            j = j + 1
+            if(j>size(ret_vec) ) exit
+            ret_vec(j) = vec(i)
+        enddo
+    endif
+    
+end function
+
+! ####################################################################
+pure function appendVectorsInt32(vec1,vec2) result(vec12)
+    integer(int32),allocatable,intent(in) :: vec1(:),vec2(:)
+    integer(int32),allocatable :: vec12(:)
+
+    if(.not.allocated(vec1) )then
+        vec12 = vec2
+        return
+    endif
+    
+    if(.not.allocated(vec2) )then
+        vec12 = vec1
+        return
+    endif
+
+    if(size(vec1)==0 )then
+        vec12 = vec2    
+        return
+    endif
+
+    if(size(vec2)==0 )then
+        vec12 = vec1
+        return
+    endif
+
+    allocate(vec12( size(vec1)+size(vec2) ) )
+    vec12(           1:           size(vec1) ) = vec1(1:size(vec1) )
+    vec12(size(vec1)+1:size(vec1)+size(vec2) ) = vec2(1:size(vec2) )
+
+end function
+! ####################################################################
+
+
+! ####################################################################
+pure function appendVectorsReal64(vec1,vec2) result(vec12)
+    real(real64),allocatable,intent(in) :: vec1(:),vec2(:)
+    real(real64),allocatable :: vec12(:)
+
+    if(.not.allocated(vec1) )then
+        vec12 = vec2
+        return
+    endif
+    
+    if(.not.allocated(vec2) )then
+        vec12 = vec1
+        return
+    endif
+    
+    if(size(vec1)==0 )then
+        vec12 = vec2    
+        return
+    endif
+
+    if(size(vec2)==0 )then
+        vec12 = vec1
+        return
+    endif
+
+    allocate(vec12( size(vec1)+size(vec2) ) )
+    vec12(           1:           size(vec1) ) = vec1(1:size(vec1) )
+    vec12(size(vec1)+1:size(vec1)+size(vec2) ) = vec2(1:size(vec2) )
+    
+end function
+! ####################################################################
+
 end module ArrayClass

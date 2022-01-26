@@ -245,18 +245,28 @@ end subroutine
 
 
 !====================================================================================
-recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_DomainID,debug)
+recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_DomainID,&
+    nodeids,entryvalues,debug)
   class(LinearSolver_),intent(inout) :: obj
   logical,optional,intent(in) :: debug
   integer(int32),intent(in) :: nodeid
-  integer(int32),optional,intent(in) :: entryID,DOF,row_DomainID
+  integer(int32),optional,intent(in) :: entryID,DOF,row_DomainID,nodeids(:),entryvalues(:)
   real(real64),intent(in) :: entryvalue
   integer(int32),allocatable :: Index_I(:), Index_J(:),NumNodeBeforeDomainID(:)
   integer(int32) :: i,j, n, offset,m
   type(Time_) :: time
 
+  ! [CASE1] :: single-domain & dense matrix
+  ! [CASE2] :: single-domain & Sparse matrix
+  ! [CASE3] :: multi-domain  & dense matrix 
+  ! [CASE4] :: multi-domain  & Sparse matrix
+  
+  ! [CASE0] :: none of above
+
+  ! [CASE1][CASE0]
   if(.not.allocated(obj%val) )then
     if(allocated(obj%a) .and. allocated(obj%b) )then
+      ! [CASE1]
       ! it only has obj%a and obj%b
       !x(nodeid) = entryvalue
       n = size(obj%b)
@@ -267,17 +277,29 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
       obj%a(nodeid,nodeid) = 1.0d0
       obj%b(nodeid) = entryvalue
       return
+    else
+      ![CASE0]
+      print *, "[ERROR] LinearSolver >> [CASE0] :: No Ax=b is set."
     endif
   endif
 
+  ! Below, cases [CASE2] or [CASE4] 
   if(.not. present(row_DomainID) )then
+    ![CASE2] >> set : row_DomainID = 1 >> [Case4]
     call obj%fix(nodeid=nodeid,entryvalue=entryvalue,entryID=entryID,DOF=DOF,&
       row_DomainID=1,debug=debug)
   endif
 
-  ! too slow
+  if(obj%debug)then
+    print *, "[fixLinearSolver] >> ReadyForFix"
+  endif
+  
   if(.not.obj%ReadyForFix)then
     call obj%prepareFix()
+  endif
+
+  if(obj%debug)then
+    print *, "[Done] >> ReadyForFix"
   endif
 
   if(present(debug) )then
@@ -391,37 +413,12 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
     endif    
     
     allocate(NumNodeBeforeDomainID(size(obj%row_Domain_ID,1) ))
+
     NumNodeBeforeDomainID(1) = 0
+    
     do m=2,size(obj%NumberOfNode)
       NumNodeBeforeDomainID(m) = sum(obj%NumberOfNode(1:m-1))
     enddo
-!
-!    if(present(debug) )then
-!      if(debug)then
-!        print *, "fixLinearSolver  >> [1-2] lock checking"
-!        call time%show()
-!      endif
-!    endif    
-!
-!    ! update other values
-!    Index_I = obj%Index_I
-!    Index_J = obj%Index_J
-!    
-!    do i=1, size(Index_I)
-!      m = obj%row_Domain_ID(i)
-!      if(m==1)then
-!        cycle
-!      endif
-!      Index_I(i) = Index_I(i) + NumNodeBeforeDomainID(m)
-!    enddo
-!
-!    do i=1, size(Index_J)
-!      m = obj%column_Domain_ID(i)
-!      if(m==1)then
-!        cycle
-!      endif
-!      Index_J(i) = Index_J(i) + NumNodeBeforeDomainID(m)
-!    enddo    
 
     if(.not. allocated(obj%val) .or. .not.allocated(obj%b))then
       print *, "ERROR >> fixLinearSolver .not. allocated(val) "
@@ -452,15 +449,11 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
       if(obj%index_J(i)==nodeid  )then  
         
         n = obj%row_Domain_ID(i)
-        !if(n == 1)then
-        !  offset = 0
-        !else
-        !  offset = sum( obj%NumberOfNode(1:n-1) )*obj%DOF
-        !endif
+
         offset = NumNodeBeforeDomainID(n)*obj%DOF
 
         n = obj%Index_I(i)
-        !print *, "obj%b( offset + nodeid )",obj%b( offset + n ), offset, n,offset+ n
+        
         if( .not. obj%Locked(offset + n  )) then
           if(size(obj%NumberOfNode)==1 )then
             obj%b(n ) = obj%b(n ) - obj%val(i) * entryvalue
@@ -468,9 +461,7 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
             obj%b( offset + n ) = obj%b( offset  + n ) - obj%val(i) * entryvalue
           endif
         endif
-        !if(obj%Index_I(i)==nodeid .and. obj%row_domain_id(i)==row_DomainID )then
-        !  obj%b( offset + n ) = entryvalue
-        !endif
+        
         obj%val(i)=0.0d0
       else
         cycle
@@ -488,10 +479,7 @@ recursive subroutine fixLinearSolver(obj,nodeid,entryvalue,entryID,DOF,row_Domai
 
 
     do i=1,size(obj%index_I) ! for all queries of A matrix
-      !if(obj%index_I(i)==nodeid .and. obj%row_Domain_ID(i)==row_DomainID )then
-      !  obj%val(i)=0.0d0
-      !endif
-
+      
       if(obj%index_I(i)==nodeid .and. obj%row_Domain_ID(i)==row_DomainID )then
         obj%val(i)=0.0d0
         if(obj%index_J(i)==nodeid .and. obj%column_Domain_ID(i)==row_DomainID )then

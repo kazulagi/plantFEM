@@ -28,12 +28,19 @@ module SeismicAnalysisClass
         real(real64) :: MaxU(3) = 0.0d0
 
         integer(int32),allocatable :: WaveNodeList(:)
+        
+        ! displacement boundary
         integer(int32),allocatable :: FixNodeList_x(:)
         integer(int32),allocatable :: FixNodeList_y(:)
         integer(int32),allocatable :: FixNodeList_z(:)
         real(real64),allocatable :: FixNodeList_Disp_x(:)
         real(real64),allocatable :: FixNodeList_Disp_y(:)
         real(real64),allocatable :: FixNodeList_Disp_z(:)
+
+        integer(int32),allocatable :: absorbingBoundary_x(:)
+        integer(int32),allocatable :: absorbingBoundary_y(:)
+        integer(int32),allocatable :: absorbingBoundary_z(:)
+
         character(1) :: wavedirection="z"
         integer(int32) :: wavetype = 0
         real(real64) :: dt=1.0d0
@@ -41,10 +48,12 @@ module SeismicAnalysisClass
         real(real64) :: t=0.0d0
         integer(int32) :: step=0
         real(real64) :: alpha = 0.52400d0
-        real(real64) :: beta  = 0.00129d0 ! Rayleigh damping parameters, h=1%
+        real(real64) :: beta  = 0.00129d0 ! Rayleigh dumping parameters, h=1%
         real(real64) :: Newmark_beta  = 0.250d0 ! Nemark-beta method parameters
-        real(real64) :: Newmark_gamma  = 0.50d0 ! Nemark-beta method parameters
+        real(real64) :: Newmark_gamma = 0.50d0 ! Nemark-beta method parameters
+        real(real64) :: boundary_dumping_ratio = 1.0d0
         logical :: restart=.False.
+        logical :: debug=.False.
     contains
         procedure, public :: init => initSeismicAnalysis
         procedure, public :: loadWave => loadWaveSeismicAnalysis
@@ -59,6 +68,9 @@ module SeismicAnalysisClass
         procedure, public :: updateVelocityNewmarkBeta => updateVelocityNewmarkBetaSeismicAnalysis
         procedure, public :: updateAccelNewmarkBeta => updateAccelNewmarkBetaSeismicAnalysis
         procedure, public :: remove => removeSeismicAnalysis
+
+        procedure, public :: absorbingBoundary => absorbingBoundarySeismicAnalysis
+        procedure, public :: getAbsorbingBoundaryForce => getAbsorbingBoundaryForceSeismicAnalysis
     end type
 
 contains
@@ -476,6 +488,10 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
     ! Element matrix
     call solver%init(NumberOfNode=[obj%femdomain%nn()],DOF=3)
     obj%dt = abs(obj%dt)
+
+    if(obj%debug) then
+        print *, '[Seismic] Creating Element Matrices...'
+    endif
     do i=1,obj%femdomain%ne()
         ! For each element
         ! Ax=b will be installed into solv -obj%A_ext_n)
@@ -509,38 +525,73 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
             DOF = obj%femdomain%nd(), &
             DomainIDs=DomainIDs,&
             eMatrix = A_ij)
+
         call solver%assemble(&
             connectivity=obj%femdomain%connectivity(ElementID=i), &
             DOF = obj%femdomain%nd(), &
             DomainIDs=DomainIDs,&
             eVector = R_i)
     enddo
+
+
+    ! absorbing boundary
+    if(obj%debug) then
+        print *, '[Seismic] Setting absorbing boundaries...'
+        print *, size(obj%absorbingBoundary_x)
+        print *, size(obj%absorbingBoundary_y)
+        print *, size(obj%absorbingBoundary_z)
+    endif
+    ! setup absorbing boundary
+
+    ! as dumper
+    !    ----
+    ! --- |  |----
+    !    ----
+    ! with dumping ratio = obj%boundary_dumping_ratio: C
+    ! F_i  = C v_i
+
+    solver % b(:) = solver % b(:) + obj%getAbsorbingBoundaryForce()
+
+    if(obj%debug) then
+        print *, '[Seismic] Fixing Boundaries...'
+        print *, size(obj%FixNodeList_x)
+        print *, size(obj%FixNodeList_y)
+        print *, size(obj%FixNodeList_z)
+        
+    endif
+    solver%debug = obj%debug
     if(allocated(obj%FixNodeList_x) )then
         do i=1,size(obj%FixNodeList_x)
             call solver%fix( NodeID=obj%FixNodeList_x(i)*3-2,&
             entryvalue=obj%FixNodeList_Disp_x(i) ,&
-            row_DomainID=1)
+            row_DomainID=1,&
+            debug=solver%debug)
         enddo
     endif
     if(allocated(obj%FixNodeList_y) )then
         do i=1,size(obj%FixNodeList_y)
             call solver%fix( NodeID=obj%FixNodeList_y(i)*3-1,&
             entryvalue=obj%FixNodeList_Disp_y(i),&
-            row_DomainID=1)
+            row_DomainID=1,&
+            debug=solver%debug)
         enddo
     endif
     if(allocated(obj%FixNodeList_z) )then
         do i=1,size(obj%FixNodeList_z)
             call solver%fix( NodeID=obj%FixNodeList_z(i)*3,&
             entryvalue=obj%FixNodeList_Disp_z(i),&
-            row_DomainID=1)
+            row_DomainID=1,&
+            debug=solver%debug)
         enddo
     endif
     ! Now [A] {du} = {R} is ready
     ! Solve
     
-    
+    if(obj%debug) then
+        print *, '[Seismic] Solving...'
+    endif
     call solver%solve("BiCGSTAB")
+
     print *, maxval(solver%val),minval(solver%val)
     print *, maxval(solver%x),minval(solver%x)
     
@@ -752,12 +803,83 @@ subroutine removeSeismicAnalysis(obj)
     obj%t=0.0d0
     obj%step=0
     obj%alpha = 0.52400d0
-    obj%beta  = 0.00129d0 ! Rayleigh damping parameters, h=1%
+    obj%beta  = 0.00129d0 ! Rayleigh dumping parameters, h=1%
     obj%Newmark_beta  = 0.250d0 ! Nemark-beta method parameters
     obj%Newmark_gamma  = 0.50d0 ! Nemark-beta method parameters
     obj%restart=.False.
 
     
 end subroutine
+
+! #############################################################
+subroutine absorbingBoundarySeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_max,&
+    direction,dumping_ratio)
+    class(SeismicAnalysis_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max,&
+        dumping_ratio
+    character(1) :: direction
+    integer(int32),allocatable :: selected_nodes(:)
+    
+    if(present(dumping_ratio) )then
+        obj%boundary_dumping_ratio = dumping_ratio
+    endif
+
+    selected_nodes = obj%femdomain%select(&
+        x_min = x_min,&
+        x_max = x_max,&
+        y_min = y_min,&
+        y_max = y_max,&
+        z_min = z_min,&
+        z_max = z_max)
+
+    if   ( direction=="x" .or. direction=="X" )then
+        obj%absorbingBoundary_x = obj%absorbingBoundary_x // selected_nodes
+    elseif(direction=="y" .or. direction=="Y")then
+        obj%absorbingBoundary_y = obj%absorbingBoundary_y // selected_nodes
+    elseif(direction=="z" .or. direction=="Z")then
+        obj%absorbingBoundary_z = obj%absorbingBoundary_z // selected_nodes
+    else
+        print *, "ERROR ::absorbingBoundarySeismicAnalysis >> invalid direction: ",direction
+        print *, "direction = {x, X, y, Y, z, Z}"
+    endif
+
+    
+end subroutine
+! #############################################################
+
+
+! #############################################################
+pure function getAbsorbingBoundaryForceSeismicAnalysis(obj) result(force)
+    class(SeismicAnalysis_),intent(in) :: obj
+    real(real64),allocatable :: force(:)
+    integer(int32) :: i
+
+    force = zeros(obj%femdomain%nn()*obj%femdomain%nd() ) 
+    if(allocated(obj%absorbingBoundary_x ) )then
+        do i=1,size(obj%absorbingBoundary_x)
+            force((obj%absorbingBoundary_x(i)-1)*obj%femdomain%nd() + 1 ) &
+             = - obj%boundary_dumping_ratio*&
+             obj%V((obj%absorbingBoundary_x(i)-1)*obj%femdomain%nd() + 1 )
+        enddo
+    endif
+
+    if(allocated(obj%absorbingBoundary_y ) )then
+        do i=1,size(obj%absorbingBoundary_y)
+            force((obj%absorbingBoundary_y(i)-1)*obj%femdomain%nd() + 2 ) &
+             = - obj%boundary_dumping_ratio*&
+             obj%V((obj%absorbingBoundary_y(i)-1)*obj%femdomain%nd() + 2 )
+        enddo
+    endif
+
+    if(allocated(obj%absorbingBoundary_z ) )then
+        do i=1,size(obj%absorbingBoundary_z)
+            force((obj%absorbingBoundary_z(i)-1)*obj%femdomain%nd() + 3 ) &
+             = - obj%boundary_dumping_ratio*&
+             obj%V((obj%absorbingBoundary_z(i)-1)*obj%femdomain%nd() + 3 )
+        enddo
+    endif
+
+end function
+! #############################################################
 
 end module SeismicAnalysisClass
