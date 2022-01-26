@@ -171,6 +171,8 @@ module FEMDomainClass
 		
 		procedure,public :: getElement => getElementFEMDOmain
 		procedure,public :: getElementList => getElementListFEMDomain
+		procedure,public :: getScalarField => getScalarFieldFEMDomain
+		
 		!procedure,public :: getNumberOfPoint => getNumberOfPointFEMDomain
 		
 		procedure,public :: getLocalCoordinate => getLocalCoordinateFEMDomain	
@@ -247,6 +249,7 @@ module FEMDomainClass
         procedure,public :: setUp      => SetUpFEMDomain
 		procedure,public :: setBoundary => setBoundaryFEMDomain
         procedure,public :: setControlPara =>  SetControlParaFEMDomain
+		
 		procedure,public :: select => selectFEMDomain
 		procedure,public :: show => showFEMDomain
 		procedure,public :: showRange => showRangeFEMDomain
@@ -11123,5 +11126,54 @@ subroutine syncFEMDomainVector(obj,from,mpid)
 	enddo
 
 end subroutine
+
+! ###################################################################
+function getScalarFieldFEMDomain(obj,xr,yr,zr,entryvalue,default) result(ScalarField)
+	class(FEMDomain_),intent(in) :: obj
+	real(real64),intent(in) :: xr(2),yr(2),zr(2),default(:),entryvalue
+	real(real64),allocatable:: ScalarField(:)
+	real(real64) :: x(3)
+	integer(int32) :: i,j,n
+	
+	n = size(default)
+	if(n==obj%nn() )then
+		! node-wise
+		ScalarField = default
+		do i=1,obj%nn()
+			if( xr(1) <= obj%position_x(i) .and. obj%position_x(i) <= xr(2)  )then
+				if( yr(1) <= obj%position_y(i) .and. obj%position_y(i) <= yr(2)  )then
+					if( zr(1) <= obj%position_z(i) .and. obj%position_z(i) <= zr(2)  )then
+						ScalarField(i) = entryvalue
+					endif
+				endif
+			endif
+		enddo
+	elseif(n==obj%ne())then
+		! element-wise
+		
+		ScalarField = default
+		do i=1,obj%ne()
+			x = obj%centerPosition(i)
+			if( xr(1) <= x(1) .and. x(1) <= xr(2)  )then
+				if( yr(1) <= x(2) .and. x(2) <= yr(2)  )then
+					if( zr(1) <= x(3) .and. x(3) <= zr(2)  )then
+						ScalarField(i) = entryvalue
+					endif
+				endif
+			endif
+		enddo
+	else
+		! none of above
+		print *, "ERROR :: getScalarFieldFEMDomain >>"
+		print *, "size(default) should be femdomain%ne() or femdomain%nn()"
+		return
+	endif
+
+	
+	
+
+
+end function
+! ###################################################################
 
 end module FEMDomainClass
