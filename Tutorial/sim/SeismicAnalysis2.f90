@@ -11,10 +11,7 @@ type(Logger_) :: logger
 real(real64),allocatable :: disp_z(:,:),accel(:)
 real(real64) :: wave(200*20,2),T,Duration,dt
 real(real64),allocatable :: period(:)
-integer(int32) :: i,j,channel_id
-character(:),allocatable :: channel_name
-integer(int32),allocatable :: logger_point_id(:)
-
+integer(int32) :: i,j,cases,stack_id,num_of_cases
 
 ! create Domain
 call cube%create(meshtype="Cube3D",x_num=20,y_num=20,z_num=20)
@@ -73,36 +70,6 @@ seismic%PoissonRatio(:) = 0.330d0
 seismic%a = 0.0d0
 seismic%v = 0.0d0
 seismic%u = 0.0d0
-
-
-! Switch-ON data-logger
-!(1) initialize with number of channels
-call logger%init(MAX_CHANNEL_NUM=12)
-logger_point_id = zeros(4)
-logger_point_id(1) = cube%getNearestNodeID(x=10.0d0,y=10.0d0,z=  0.0d0)
-logger_point_id(2) = cube%getNearestNodeID(x=10.0d0,y=10.0d0,z=-20.0d0)
-logger_point_id(3) = cube%getNearestNodeID(x=150.0d0,y=150.0d0,z=0.0d0)
-logger_point_id(4) = cube%getNearestNodeID(x=150.0d0,y=150.0d0,z=-20.0d0)
-
-!(2) set number of channels
-channel_id = 0
-do i=1,size(logger_point_id)
-    do j=1,3
-        channel_id = channel_id + 1
-        channel_name = "Point_"+str(i)+"_Direction_"+str(j)
-        call logger%set(&
-            channel_name=channel_name,&
-            channel_value=seismic%A( (logger_point_id(i)-1)*3 + j) ,&
-            channel_id=channel_id)
-    enddo
-enddo
-
-! H/V spectre:
-! BSSA 1964 Harkrider Surface wave in ...
-! Arai and Tokimatsu BSSA, 2004, S-wave velocity profiling
-
-! start data-logger
-call logger%start()
 ! time loop
 do i=1,size(wave,1)
     ! update config
@@ -121,9 +88,6 @@ do i=1,size(wave,1)
         accel(j) = seismic%a( (j-1)*3 + 3  )! z-direction
     enddo
     call seismic%femdomain%vtk("result_az_step_"+str(i),scalar=accel )
-
-    call logger%save(t=dble(i)*seismic%dt )
-
 enddo
 ! end
 call cube%remove()
