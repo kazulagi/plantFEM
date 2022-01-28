@@ -320,6 +320,11 @@ echo "Modules for simulators (sim) is installed."
 
 
 # Compilation of agricultural objects
+echo "Compiling ./src/EarthClass/EarthClass.f90" 
+echo " >> EarthClass.o "
+echo " | =======================>    | (90%)\r\c"
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/EarthClass/EarthClass.f90 -o  ./inc/EarthClass.o
+
 echo "Compiling ./src/DigitalElevationModelClass/DigitalElevationModelClass.f90" 
 echo " >> DigitalElevationModelClass.o "
 echo " | =======================>    | (90%)\r\c"
