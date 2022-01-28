@@ -1,4 +1,5 @@
 module obj
+    use EarthClass
     use DigitalElevationModelClass
     use BoringClass
     use LightClass
