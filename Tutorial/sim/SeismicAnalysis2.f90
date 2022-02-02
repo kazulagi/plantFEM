@@ -57,14 +57,14 @@ call seismic%loadWave(&
     z_max=-50.0d0+3.0d0,direction="x",wavetype=WAVE_ACCEL)
 ! set Material Parameter
 seismic%Density(:)      = 17000.0d0 !(N/m/m/m)
-seismic%YoungModulus(:) = 700000000.0d0 !(N/m/m) Vs=121 m/s
+seismic%YoungModulus(:) = 25372853.0 !(N/m/m) Vs=121 m/s
 
 seismic%YoungModulus = cube%getScalarField(&
     xr=[-10000.0d0,10000.0d0], &
     yr=[-10000.0d0,10000.0d0], &
     zr=[-10000.0d0,-20.0d0], &
     default=seismic%YoungModulus,&
-    entryvalue= 70000000000.0d0) !(N/m/m) Vs1212 m/s
+    entryvalue= 2495520000.0d0) !(N/m/m) Vs1200 m/s)
 seismic%PoissonRatio(:) = 0.330d0 
 ! initialize values
 seismic%a = 0.0d0

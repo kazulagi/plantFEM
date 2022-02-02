@@ -82,6 +82,9 @@ module MathClass
 		module procedure arrayDim1Real64,arrayDim2Real64,arrayDim3Real64
 	end interface
 
+	interface RickerFunction
+		module procedure RickerFunctionReal64
+	end interface
 	
 contains
 
@@ -2551,6 +2554,27 @@ function short_time_FFT(wave,frame) result(spectre)
 		spectre(i,:) = fft(wave(i-frame:i+frame-1))
 	enddo
 	!$OMP end parallel do
+
+end function
+! ########################################################################
+
+pure function RickerFunctionReal64(t, sigma, center)  result(ft)
+	real(real64),intent(in) :: t, sigma
+	real(real64),optional,intent(in) :: center
+	type(Math_)  :: math
+	real(real128) ::ft128
+	real(real64) :: ft, b
+
+	if(present(center) )then
+		b=center
+	else
+		b=0.0d0
+	endif
+	
+	ft128 = 2.0d0/(sqrt(3.0d0*sigma)*math%pi**(0.25) )*&
+		(1.0d0-((t-b)/sigma)*((t-b)/sigma) )*exp(-(t-b)*(t-b)/2.0d0/sigma/sigma)
+
+	ft = dble(ft128)
 
 end function
 ! ########################################################################

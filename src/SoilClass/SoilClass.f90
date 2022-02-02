@@ -6,6 +6,18 @@ module SoilClass
     use DigitalElevationModelClass
     implicit none
 
+    ! N-value to Vs
+    !今井恒夫、殿内啓司：N 値と S 波速度の関係およびその
+    !利用例、基礎工、Vol.16、No.6、pp.70～76、1982
+    integer(int32),parameter :: PF_N2Vs_Imai=1
+    !太田裕、後藤典俊：S 波速度を他の土質諸指標から推定
+    integer(int32),parameter :: PF_N2Vs_OhtaGoto=2
+    !する試み、物理探鉱、第29巻、第4号、pp.31～41、1976
+    !公益社団法人 日本道路協会：道路橋示方書・同解説、
+    !Ⅴ耐震設計編、pp.69、2017 
+    integer(int32),parameter :: PF_N2Vs_JAPANROAD_1=3
+    integer(int32),parameter :: PF_N2Vs_JAPANROAD_2=4
+
 
     type :: Soil_
         type(FEMDomain_) :: FEMDomain
@@ -74,6 +86,8 @@ module SoilClass
         procedure :: fertilize => fertilizeSoil
         procedure :: diagnosis => diagnosisSoil
         procedure :: export => exportSoil
+        procedure :: getNvalue => getNvalueSoil
+        procedure :: convertNvalue2Vs => convertNvalue2VsSoil
 
         ! MPI
         procedure :: sync => syncSoil
@@ -847,5 +861,117 @@ subroutine syncSoil(obj,from,mpid)
 
 
 end subroutine
+! ##############################################################
+function getNvalueSoil(obj,borings,VoronoiRatio) result(Nvalue)
+    class(Soil_),intent(inout) :: obj
+    type(Boring_),optional,intent(in) :: borings(:)
+    real(real64),optional,intent(in) :: VoronoiRatio
+    real(real64),allocatable :: Nvalue(:),boring_position(:,:),dist_xy(:),Nvals(:),w(:)
+    real(real64) :: elem_position(3),min_dist,err,min_w_value,sum_dist,sum_w,&
+        Nval_tr,Vratio
+    integer(int32) :: i,j,n
+    !!! Algorithm for interpolation
+    ! if Vratio=0.0 >> Distance-Weighted avarage
+    ! if Vratio=1.0 >> Voronoi diagram
+    ! if Vratio=0.5 >> Average
+    Vratio=input(default=1.00d0,option=VoronoiRatio)
+
+    err = dble(1.0e-13)
+
+    if(obj%femdomain%empty())then
+        print *, "[ERROR] >> getNvalueSoil >> object not initialized."
+        print *, "call soil % init()"
+        return
+    endif 
+
+    boring_position = zeros( size(borings), 2 )
+    dist_xy = zeros( size(borings))
+    Nvals   = zeros( size(borings))
+    w       = zeros( size(borings))
+    do i=1,size(borings)
+        boring_position(i,1) = borings(i)%x
+        boring_position(i,2) = borings(i)%y
+    enddo
+
+    if(present(borings) )then
+        Nvalue = zeros(obj%femdomain%ne() )
+        ! Element-wise
+        ! interporate values from boring data
+        do i=1, obj%femdomain%ne() ! for each element
+            ! find closest boring
+            elem_position = obj%femdomain%centerPosition(i)
+            dist_xy(:) = (boring_position(:,1) - elem_position(1))&
+                *(boring_position(:,1) - elem_position(1)) + &
+                (boring_position(:,2) - elem_position(2))&
+                *(boring_position(:,2) - elem_position(2)) 
+            
+            dist_xy = sqrt(dist_xy)
+
+
+            n = minvalID(dist_xy) 
+            Nval_tr = borings(n)%getN(depth=elem_position(3))
+
+            !dist_xy = dist_xy*dist_xy
+            min_dist = minval(dist_xy)
+            sum_dist = sum(dist_xy)
+            
+
+            !if( abs(min_dist) < err ) then
+            !    n = minvalID(dist_xy)
+            !    Nvalue(n) = borings(n)%getN(depth=elem_position(3) )
+            !else
+            ! 距離の比による補間
+            
+            !w(:) = min_dist/dist_xy(:)
+            w(:) = sum_dist/dist_xy(:)
+            sum_w = sum(w)
+            w = w/sum_w
+            !print *, w
+            
+            !do n=1,size(w)
+            !    if(w(n) < min_w_value )then
+            !        ! if weight w is smaller than weight,
+            !        ! ignore
+            !        w(n) = 0.0d0
+            !    endif
+            !enddo
+            ! find closest one
+
+            sum_w = sum(w)
+            w = w/sum_w
+            do n = 1, size(borings)
+                Nvals(n) = w(n)*borings(n)%getN(depth=elem_position(3))
+            enddo
+            Nvalue(i) = (1.0d0-VRatio)*sum(Nvals) + VRatio*Nval_tr
+            
+        enddo
+    endif
+
+    
+end function
+! ##############################################################
+pure function convertNvalue2VsSoil(obj,Nvalue,Formula,H,Yg,St) result(Vs)
+    class(Soil_),intent(in) :: obj
+    real(real64),intent(in) :: Nvalue(:)
+    integer(int32),intent(in) :: Formula
+    ! for Ohta-Goto
+    real(real64),optional,intent(in) :: H(:),Yg(:),St(:)
+    real(real64),allocatable :: Vs(:)
+    ! https://www.zenchiren.or.jp/e-Forum/2019/PDF/2019_105.pdf
+    Vs = zeros(size(Nvalue))
+    if(Formula==PF_N2Vs_Imai)then
+        Vs(:) = 97.0d0*(Nvalue(:)**0.314)
+    elseif(Formula==PF_N2Vs_OhtaGoto)then
+        Vs(:) = 68.79d0*(Nvalue(:)**0.717)*H(:)**0.199*Yg(:)*St(:)
+    elseif(Formula==PF_N2Vs_JAPANROAD_1)then
+        Vs(:) =  80.0d0*(Nvalue(:)**0.33333)
+    elseif(Formula==PF_N2Vs_JAPANROAD_1)then
+        Vs(:) = 100.0d0*(Nvalue(:)**0.33333)
+
+    endif
+
+end function
+
+! ##############################################################
 
 end module
