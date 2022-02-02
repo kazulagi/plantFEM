@@ -341,13 +341,14 @@ function getSunTimeEarthClass(this,Now) result(times)
 
 end function
 
-function getSunPositionEarthClass(this,Now,DateTime) result(angles)
+function getSunPositionEarthClass(this,Now,DateTime,dt) result(angles)
     !http://k-ichikawa.blog.enjoy.jp/etc/HP/js/sunShineAngle/ssa.html
     class(Earth_),intent(inout) :: this
     integer(int32),optional,intent(in) :: DateTime(6) ! Year, Month, Day, Hour, Minute, Second
+    logical,optional,intent(in) :: Now
+    integer(int32),optional,intent(in) :: dt
     real(real64) :: angles(2) 
     type(Math_)  :: math
-    logical,optional,intent(in) :: Now
     real(real64) :: delta
     real(real64) :: omega
     real(real64) :: J, e
@@ -377,6 +378,58 @@ function getSunPositionEarthClass(this,Now,DateTime) result(angles)
             this%Minute = fint(d_time(11:12))
             this%Second = fint(d_time(13:14))
         endif
+    endif
+
+    if(present(dt) )then
+        ! dt (sec.)
+        this%Second = this%Second + dt
+        do 
+            if(this%Second>=60)then
+                this%Second = this%Second - 60
+                this%Minute = this%Minute+1
+            else
+                exit
+            endif
+        enddo
+
+        do 
+            if(this%Minute>=60)then
+                this%Minute = this%Minute - 60
+                this%hour = this%hour+1
+            else
+                exit
+            endif
+        enddo
+        
+
+        do 
+            if(this%hour>=24)then
+                this%hour = this%hour - 24
+                this%day = this%day+1
+            else
+                exit
+            endif
+        enddo
+
+
+        do 
+            if(this%day>  this%Day_Per_Month(this%month) )then
+                this%day = this%day - this%Day_Per_Month(this%month)
+                this%Month = this%Month+1
+            else
+                exit
+            endif
+        enddo
+
+
+        do 
+            if(this%month >= 13 )then
+                this%month = this%month - 12
+                this%Year = this%Year + 1
+            else
+                exit
+            endif
+        enddo
     endif
 
     total_days = sum(this%Day_Per_Month(1:this%Month-1)) + this%Day -1
@@ -450,6 +503,10 @@ function getTimeZoneEarthClass(this,name) result(timezone)
             return
         endif
     enddo
+
+    print *, "[ERROR] no such time-zone name as",name
+    stop
+    
 end function
 ! ################################################################
 
@@ -471,6 +528,10 @@ function getTimeZoneOffsetEarthClass(this,name) result(timezoneoffset)
             return
         endif
     enddo
+
+    print *, "[ERROR] no such time-zone name as",name
+    stop
+
 end function
 ! ################################################################
 

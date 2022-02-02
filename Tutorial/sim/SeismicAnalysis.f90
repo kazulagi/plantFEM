@@ -52,8 +52,9 @@ call seismic%loadWave(z_max=-4.50d0,direction="x",wavetype=WAVE_ACCEL)
 
 
 seismic%Density(:)      = 17000.0d0 !(N/m/m/m)
-seismic%YoungModulus(:) = 7000000.0d0 !(N/m/m)
-seismic%PoissonRatio(:) = 0.40d0 
+seismic%PoissonRatio(:) = 0.330d0 
+seismic%YoungModulus(:) = 25372853.0 !(N/m/m) Vs=121 m/s
+
 !seismic%alpha = 0.0d0
 seismic%a = 0.0d0
 seismic%v = 0.0d0

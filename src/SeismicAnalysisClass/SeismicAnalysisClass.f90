@@ -382,9 +382,10 @@ subroutine updateWaveSeismicAnalysis(obj,timestep,direction)
 end subroutine
 
 ! ##############################################
-subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio)
+subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio,use_same_stiffness)
     class(SeismicAnalysis_),intent(inout) :: obj
     integer(int32),intent(in) :: timestep(2)
+    logical,optional,intent(in) :: use_same_stiffness! Use A' for all t_n, A'x=b
 
     type(LinearSolver_) :: solver
     type(IO_) :: U, V, A

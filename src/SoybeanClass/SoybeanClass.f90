@@ -201,6 +201,7 @@ module SoybeanClass
             => getDistanceToGroundFromStemIDSoybean
         procedure,public :: getDistanceToGroundFromRootID &
             => getDistanceToGroundFromRootIDSoybean
+        
         procedure,public :: getRangeOfNodeID => getRangeOfNodeIDSoybean
         procedure,public :: getPPFD => getPPFDSoybean
         procedure,public :: getPhotoSynthesis => getPhotoSynthesisSoybean
@@ -5524,43 +5525,70 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,debug,z_min)
 end subroutine
 ! ##################################################################
 
-pure function getPointsSoybean(obj) result(points)
+pure function getPointsSoybean(obj,leaf,stem,root) result(points)
     class(Soybean_),intent(in) :: obj
-    real(real64),allocatable :: points(:,:)
+    logical,optional,intent(in) :: leaf,stem,root
+    real(real64),allocatable :: points(:,:),buf(:,:)
+    logical :: count_leaf,count_stem,count_root
     integer(int32) :: i,n, id
+
+    if(present(leaf) )then
+        count_leaf = Leaf
+    endif
+    
+    if(present(stem) )then
+        count_stem = Stem
+    endif
+
+    if(present(root) )then
+        count_root = Root
+    endif
     
     n = obj%nn()
     points = zeros(n,3)
+
     id = 1
-    if(allocated(obj%stem) )then
-        do i=1,size(obj%stem)
-            if( .not. obj%stem(i)%femdomain%empty() )then
-                points(id:id + obj%stem(i)%femdomain%nn()-1  ,1:3) =&
-                 obj%stem(i)%femdomain%mesh%nodcoord(1:obj%stem(i)%femdomain%nn(),1:3)
-                id = id + obj%stem(i)%femdomain%nn()
-            endif
-        enddo    
-    endif
+    !if(count_stem)then
+        if(allocated(obj%stem) )then
+            do i=1,size(obj%stem)
+                if( .not. obj%stem(i)%femdomain%empty() )then
+                    points(id:id + obj%stem(i)%femdomain%nn()-1  ,1:3) =&
+                     obj%stem(i)%femdomain%mesh%nodcoord(1:obj%stem(i)%femdomain%nn(),1:3)
+                    id = id + obj%stem(i)%femdomain%nn()
+                endif
+            enddo    
+        endif
+    !endif
 
-    if(allocated(obj%leaf) )then
-        do i=1,size(obj%leaf)
-            if( .not. obj%leaf(i)%femdomain%empty() )then
-                points(id:id + obj%leaf(i)%femdomain%nn() -1 ,1:3) =&
-                 obj%leaf(i)%femdomain%mesh%nodcoord(:,:)
-                id = id + obj%leaf(i)%femdomain%nn()
-            endif
-        enddo    
-    endif
+    !if(count_leaf)then
+        if(allocated(obj%leaf) )then
+            do i=1,size(obj%leaf)
+                if( .not. obj%leaf(i)%femdomain%empty() )then
+                    points(id:id + obj%leaf(i)%femdomain%nn() -1 ,1:3) =&
+                     obj%leaf(i)%femdomain%mesh%nodcoord(:,:)
+                    id = id + obj%leaf(i)%femdomain%nn()
+                endif
+            enddo    
+        endif
+    !endif
 
-    if(allocated(obj%root) )then
-        do i=1,size(obj%root)
-            if( .not. obj%root(i)%femdomain%empty() )then
-                points(id:id + obj%root(i)%femdomain%nn() -1 ,1:3) =&
-                 obj%root(i)%femdomain%mesh%nodcoord(:,:)
-                id = id + obj%root(i)%femdomain%nn()
-            endif
-        enddo    
-    endif
+    !if(count_root)then
+        if(allocated(obj%root) )then
+            do i=1,size(obj%root)
+                if( .not. obj%root(i)%femdomain%empty() )then
+                    points(id:id + obj%root(i)%femdomain%nn() -1 ,1:3) =&
+                     obj%root(i)%femdomain%mesh%nodcoord(:,:)
+                    id = id + obj%root(i)%femdomain%nn()
+                endif
+            enddo    
+        endif
+    !endif
+
+    !if(id /=n)then
+    !    buf = points
+    !    points = zeros(id,3)
+    !    points(1:id,:) = buf(1:id,:)
+    !endif
 
 
 end function
@@ -6004,9 +6032,8 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
     type(Light_),intent(in)    :: light
     real(real64),optional,intent(in) :: Transparency,Resolution
     integer(int32),optional,intent(in) :: num_threads
-    
     ! leaf of other plants
-    type(Leaf_),optional,intent(in) :: leaf(:)
+    type(Leaf_),optional,intent(inout) :: leaf(:)
 
     real(real64),allocatable :: ppfd(:), NumberOfElement(:), NumberOfPoint(:)
     real(real64),allocatable :: leaf_pass_num(:),nodcoord(:,:),radius_vec(:)
@@ -6015,6 +6042,19 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
     integer(int32) :: from, to, i,n,j,k,l,element_id
     logical :: inside, upside
 
+    ! rotate soybean
+    call obj%rotate(z=radian(180.0d0 - light%angles(1)))
+    call obj%rotate(x=radian(90.0d0 - light%angles(2)))
+    if(present(leaf) )then
+        do i=1,size(leaf)
+            call leaf(i)%femdomain%rotate(z=radian(180.0d0 - light%angles(1)))
+            call leaf(i)%femdomain%rotate(x=radian(90.0d0 - light%angles(2)))
+        enddo
+    endif
+    !本当にあってる？？
+    ! after this, rotate this back again
+    
+    
 
     radius = input(default=0.0050d0,option=Resolution)
     Transparency_val = input(default=0.30d0,option=Transparency)
@@ -6141,6 +6181,17 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
     !print *, maxval(leaf_pass_num),minval(leaf_pass_num)
     !ppfd = leaf_pass_num
     ppfd(:) = ppfd(:) * Transparency_val** leaf_pass_num(:)
+    
+    ! get back
+    call obj%rotate(x=-radian(90.0d0 - light%angles(2)))
+    call obj%rotate(z=-radian(180.0d0 - light%angles(1)))
+    if(present(leaf) )then
+        do i=1,size(leaf)
+            call leaf(i)%femdomain%rotate(x=-radian(90.0d0 - light%angles(2)))
+            call leaf(i)%femdomain%rotate(z=-radian(180.0d0 - light%angles(1)))
+        enddo
+    endif
+    !本当にあってる？？
     
 
 end function
@@ -6425,16 +6476,38 @@ function getLeafAreaSoybean(obj) result(LeafArea)
 end function
 ! ################################################################
 
-function getIntersectLeafSoybean(obj,soybeans,except)  result(Leaf)
-    class(Soybean_),intent(in) :: obj
-    type(Soybean_),intent(in) :: soybeans(:)
+function getIntersectLeafSoybean(obj,soybeans,light,except)  result(Leaf)
+    class(Soybean_),intent(inout) :: obj
+    type(Soybean_),intent(inout) :: soybeans(:)
+    type(Light_),optional,intent(in) :: light ! default is z+ direction
     type(Leaf_),allocatable :: leaf(:)
+    real(real64),allocatable :: points(:,:), mypoints(:,:)
+    
     integer(int32),optional,intent(in) :: except
     real(real64) :: obj_radius,obj_center(3)
     real(real64) :: chk_radius,chk_center(3),dist_2
     integer(int32) :: i,j,k,num_leaf
     logical,allocatable :: overset(:),overset_leaf(:)
     ! search Intersect leaf
+    ! considering light position
+    if(present(light))then
+        call obj%rotate(z=radian(180.0d0 - light%angles(1)))
+        call obj%rotate(x=radian(90.0d0 - light%angles(2)))
+        if(present(except) )then
+            do i=1,size(soybeans)
+                if(i==except)cycle
+                call soybeans(i)%rotate(z=radian(180.0d0 - light%angles(1)))
+                call soybeans(i)%rotate(x=radian(90.0d0 - light%angles(2)))
+            enddo
+        else
+            do i=1,size(soybeans)
+                call soybeans(i)%rotate(z=radian(180.0d0 - light%angles(1)))
+                call soybeans(i)%rotate(x=radian(90.0d0 - light%angles(2)))
+            enddo
+        endif
+
+    endif
+
     obj_radius = obj%getRadius()
     obj_center = obj%getCenter()
 
@@ -6450,7 +6523,14 @@ function getIntersectLeafSoybean(obj,soybeans,except)  result(Leaf)
         chk_Center = soybeans(i)%getCenter()
         dist_2 = norm( obj_center(1:2) - chk_center(1:2) )
         if(dist_2 <= chk_radius + obj_radius )then
-            overset(i) = .true.
+            ! added 2022/1/29, trial
+            points=soybeans(i)%getPoints(leaf=.true.,stem=.false.,root=.false.)
+            mypoints=obj%getPoints(leaf=.true.,stem=.false.,root=.false.)
+            ! if a soybean is above mysoy, count
+            ! added 2022/1/29, trial
+            if(minval(points(:,3)) >= maxval(mypoints(:,3) ))then
+                overset(i) = .true.
+            endif
         else
             cycle
         endif
@@ -6505,6 +6585,26 @@ function getIntersectLeafSoybean(obj,soybeans,except)  result(Leaf)
         endif
     enddo
 
+    if(present(light))then
+        call obj%rotate(x=-radian(90.0d0 - light%angles(2)))
+        call obj%rotate(z=-radian(180.0d0 - light%angles(1)))
+        if(present(except) )then
+            do i=1,size(soybeans)
+                if(i==except)cycle
+                call soybeans(i)%rotate(x=-radian(90.0d0 - light%angles(2)))
+                call soybeans(i)%rotate(z=-radian(180.0d0 - light%angles(1)))
+            enddo
+        else
+            do i=1,size(soybeans)
+                call soybeans(i)%rotate(x=-radian(90.0d0 - light%angles(2)))
+                call soybeans(i)%rotate(z=-radian(180.0d0 - light%angles(1)))
+            enddo
+        endif
+        do i=1,size(leaf)
+            call leaf(i)%femdomain%rotate(x=-radian(90.0d0 - light%angles(2)))
+            call leaf(i)%femdomain%rotate(z=-radian(180.0d0 - light%angles(1)))
+        enddo
+    endif
 
 
 
