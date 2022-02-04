@@ -165,10 +165,16 @@ module FEMDomainClass
 		procedure,public :: getLayerDataStyle => getLayerDataStyleFEMDomain
 		procedure,public :: getShapeFunction => getShapeFunctionFEMDomain
 		procedure,public :: getNearestNodeID => getNearestNodeIDFEMDomain
+		procedure,public :: getE2Econnectivity => getE2EconnectivityFEMDomain
+
 		procedure,public :: getSurface => getSurfaceFEMDomain
 		procedure,public ::	NodeID => NodeIDFEMDomain
 		procedure,public ::	getNodeList =>getNodeListFEMDomain
 		
+		! filters
+		procedure,public :: MovingAverageFilter => MovingAverageFilterFEMDomain
+		
+
 		procedure,public :: getElement => getElementFEMDOmain
 		procedure,public :: getElementList => getElementListFEMDomain
 		procedure,public :: getScalarField => getScalarFieldFEMDomain
@@ -11170,7 +11176,119 @@ function getScalarFieldFEMDomain(obj,xr,yr,zr,entryvalue,default) result(ScalarF
 	endif
 
 	
+
+
+end function
+! ###################################################################
+
+function getE2EconnectivityFEMDomain(obj) result(E2Econnect)
+	class(FEMDomain_),intent(in) :: obj
+	integer(int32),allocatable :: E2Econnect(:,:),elemnodid(:)
+	integer(int32) :: i,j,k,efacet_id(6,4),gfacet_id(6,4),l
+	integer(int32) :: exists_count
+	! Element-to-Element connectivity
+	! only for 3-D cube elements
+
+	if(obj%mesh%empty()) then
+		return
+	endif
+
+	allocate(E2Econnect(obj%ne(),6) )
+	E2Econnect(:,:) = -1
+	elemnodid = zeros(obj%nne())
+
+	! only for 8-node isoparametric element
+	efacet_id(1,1:4) = [1,2,6,5]
+	efacet_id(2,1:4) = [2,3,7,6]
+	efacet_id(3,1:4) = [3,4,8,7]
+	efacet_id(4,1:4) = [4,1,5,8]
+	efacet_id(5,1:4) = [1,2,3,4]
+	efacet_id(6,1:4) = [5,6,7,8]
 	
+	do i=1,obj%ne()
+		elemnodid = obj%mesh%elemnod(i,:)
+		do j=1,6
+			do k=1,4
+				gfacet_id(j,k) = obj%mesh%elemnod(i,efacet_id(j,k) )
+			enddo
+		enddo
+
+		!$OMP parallel do 
+		do j=1,obj%ne()
+			if(i==j) cycle
+			if(minval(obj%mesh%elemnod(j,:)) > maxval(gfacet_id) ) cycle
+			if(maxval(obj%mesh%elemnod(j,:)) < minval(gfacet_id) ) cycle
+			do k=1,size(gfacet_id,1)
+				exists_count = 0
+				do l=1,size(gfacet_id,2)
+					if( exists(vector=obj%mesh%elemnod(j,:),val=gfacet_id(k,l) ) )then
+						exists_count = exists_count+1
+					endif
+				enddo
+				if(exists_count==4)then
+					E2Econnect(i,k) = j
+				else
+					cycle
+				endif
+			enddo
+
+		enddo
+		!$OMP end parallel do
+
+	enddo
+	
+
+end function
+! ###################################################################
+
+! ###################################################################
+function MovingAverageFilterFEMDomain(obj,inScalarField,ignore_top_and_bottom) result(outScalarField)
+	class(FEMDomain_),intent(in) :: obj
+	real(real64),intent(in) :: inScalarField(:)
+	real(real64),allocatable:: outScalarField(:),neighborvalue(:) 
+	logical,optional,intent(in) :: ignore_top_and_bottom
+	integer(int32),allocatable :: E2Econnect(:,:),buf(:,:)
+	integer(int32) :: i,j
+	
+	integer(int32) :: count_zero
+
+	if(obj%mesh%empty() )then
+		return
+	endif
+
+	if(obj%ne() /= size(inScalarField) )then
+		!print *, "ERROR :: MovingAverageFilterFEMDomain >> only for element-wise scalar fields"
+		return
+	endif
+
+	E2Econnect = obj%getE2Econnectivity()
+	if(present(ignore_top_and_bottom) )then
+		if(ignore_top_and_bottom)then
+			buf = E2Econnect
+			deallocate(E2Econnect)
+			E2Econnect = buf(:,1:4)
+		endif
+	endif
+	neighborvalue = zeros(size(E2Econnect,2) )
+	outScalarField = inScalarField
+	
+	!移動平均フィルタ
+
+	do i=1,obj%ne()
+		count_zero = 0
+		neighborvalue = 0.0d0
+		do j=1,size(E2Econnect,2)
+			if(E2Econnect(i,j) <1 )then
+				count_zero = count_zero+1
+				cycle
+			endif
+			neighborvalue(j) = inScalarField( E2Econnect(i,j) )	
+		enddo
+		outScalarField(i) = (sum(neighborvalue)+inScalarField(i))&
+			/dble(size(neighborvalue)+1-count_zero)
+		
+	enddo
+
 
 
 end function

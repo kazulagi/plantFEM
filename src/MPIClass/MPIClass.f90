@@ -38,6 +38,7 @@ module MPIClass
         type(Graph_) :: graph
     contains
         procedure :: Start => StartMPI
+        procedure :: init => StartMPI
         procedure :: initItr => initItrMPI
         procedure :: Barrier => BarrierMPI
         procedure, Pass ::  readMPIInt
@@ -96,10 +97,14 @@ module MPIClass
         procedure :: split => splitMPI 
         procedure :: copy  => copyMPI 
         procedure :: End => EndMPI
+        procedure :: finalize => EndMPI
         procedure :: getLapTime => getLapTimeMPI
         procedure :: showLapTime => showLapTimeMPI
         procedure :: GetInfo => GetMPIInfo
         procedure :: createFileName => createFileNameMPI
+
+        procedure :: num_images => num_imagesMPI
+        procedure :: this_image => this_imageMPI
 
 
         procedure, Pass :: syncGraphMPI
@@ -1726,4 +1731,17 @@ subroutine syncGraphMPI(obj,graph)
 end subroutine
 !################################################################
 
+pure function num_imagesMPI(obj) result(ret)
+    class(MPI_),intent(in) :: obj
+    integer(int32) :: ret
+    ret = obj%petot
+end function
+!################################################################
+
+pure function this_imageMPI(obj) result(ret)
+    class(MPI_),intent(in) :: obj
+    integer(int32) :: ret
+    ret = obj%myrank + 1
+end function
+!################################################################
 end module

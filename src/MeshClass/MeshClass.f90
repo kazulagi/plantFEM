@@ -3295,8 +3295,11 @@ subroutine MeshingMesh(obj,Mode,itr_tol,delaunay2d)
             return 
         endif
         print *, "Meshing sequence is started."
-        if(.not. delaunay2d)then
-            return
+
+        if(present(delaunay2d) )then
+            if(.not. delaunay2d)then
+                return
+            endif
         endif
 
         node_num=size(obj%NodCoord,1)
@@ -3933,6 +3936,7 @@ end subroutine
 subroutine DelauneygetNewTriangleMesh(obj,triangle_node_id,new_node_id)
     class(Mesh_),intent(inout)::obj
     integer(int32),intent(in)::triangle_node_id(:),new_node_id
+    integer(int32),allocatable :: buf(:,:)
     integer(int32) :: last_elem_id,i
 
     last_elem_id=0
@@ -3947,15 +3951,31 @@ subroutine DelauneygetNewTriangleMesh(obj,triangle_node_id,new_node_id)
     !print *, "last_elem_id",last_elem_id
 
     ! current Element id = last_elem_id+1
+    if(last_elem_id+1>size(obj%ElemNod,1)  )then
+        buf = obj%ElemNod
+        obj%ElemNod = zeros(last_elem_id+1,3)
+        obj%ElemNod(1:size(buf,1),1:3) = buf(1:size(buf,1),1:3 )
+    endif
+
     obj%ElemNod(last_elem_id+1,1)=triangle_node_id(1)
     obj%ElemNod(last_elem_id+1,2)=triangle_node_id(2)
     obj%ElemNod(last_elem_id+1,3)=new_node_id
-
+    if(last_elem_id+2>size(obj%ElemNod,1)  )then
+        buf = obj%ElemNod
+        obj%ElemNod = zeros(last_elem_id+2,3)
+        obj%ElemNod(1:size(buf,1),1:3) = buf(1:size(buf,1),1:3 )
+    endif
+    
 
     obj%ElemNod(last_elem_id+2,1)=triangle_node_id(2)
     obj%ElemNod(last_elem_id+2,2)=triangle_node_id(3)
     obj%ElemNod(last_elem_id+2,3)=new_node_id
-
+    if(last_elem_id+3>size(obj%ElemNod,1)  )then
+        buf = obj%ElemNod
+        obj%ElemNod = zeros(last_elem_id+3,3)
+        obj%ElemNod(1:size(buf,1),1:3) = buf(1:size(buf,1),1:3 )
+    endif
+    
 
     obj%ElemNod(last_elem_id+3,1)=triangle_node_id(3)
     obj%ElemNod(last_elem_id+3,2)=triangle_node_id(1)
@@ -8541,7 +8561,7 @@ end function
 
 !##################################################################################
 function getNeighboringElementMesh(obj, elemid,withSurfaceID,interfaces) result(ret)
-    class(Mesh_),intent(inout) :: obj
+    class(Mesh_),intent(in) :: obj
     integer(int32),intent(in) :: elemid
     integer(int32),allocatable,optional,intent(inout) :: interfaces(:)
     logical,optional,intent(in) :: withSurfaceID

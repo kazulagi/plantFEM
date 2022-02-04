@@ -862,28 +862,135 @@ subroutine syncSoil(obj,from,mpid)
 
 end subroutine
 ! ##############################################################
-function getNvalueSoil(obj,borings,VoronoiRatio) result(Nvalue)
+function getNvalueSoil(obj,borings,VoronoiRatio,MovingAverageFilter,Delaunay) result(Nvalue)
     class(Soil_),intent(inout) :: obj
     type(Boring_),optional,intent(in) :: borings(:)
     real(real64),optional,intent(in) :: VoronoiRatio
+    logical,optional,intent(in) :: MovingAverageFilter,Delaunay
     real(real64),allocatable :: Nvalue(:),boring_position(:,:),dist_xy(:),Nvals(:),w(:)
     real(real64) :: elem_position(3),min_dist,err,min_w_value,sum_dist,sum_w,&
-        Nval_tr,Vratio
+        Nval_tr,Vratio,xmin,xmax,ymin,ymax
     integer(int32) :: i,j,n
+    type(Mesh_) :: mesh
+    type(FEMDomain_) :: FEMDomain
+    real(real64),allocatable :: dxi_dx(:,:),dxi_dx_inv(:,:),buf(:,:)
+    real(real64) :: xi(2),depth,eNvalue(3)
+    integer(int32) :: NearestBoringID(4),eNodeID(3),k
     !!! Algorithm for interpolation
     ! if Vratio=0.0 >> Distance-Weighted avarage
     ! if Vratio=1.0 >> Voronoi diagram
     ! if Vratio=0.5 >> Average
-    Vratio=input(default=1.00d0,option=VoronoiRatio)
 
+    
+
+    if(present(Delaunay) )then
+        if(Delaunay)then
+            print *,"[Caution!] getNvalueSoil >> Some bugs exist!!"
+
+            !(*) Delaunay Trianglular 
+            Nvalue = zeros(obj%femdomain%ne() )
+            n = size(borings)+4
+            mesh%nodcoord = zeros(n,2)
+                
+            ! set nodes
+            xmin = 1.10d0*minval(obj%femdomain%mesh%NodCoord(:,1))
+            xmax = 1.10d0*maxval(obj%femdomain%mesh%NodCoord(:,1))
+            ymin = 1.10d0*minval(obj%femdomain%mesh%NodCoord(:,2))
+            ymax = 1.10d0*maxval(obj%femdomain%mesh%NodCoord(:,2))
+            mesh%nodcoord(1,:) = [xmin,ymin] 
+            mesh%nodcoord(2,:) = [xmax,ymin] 
+            mesh%nodcoord(3,:) = [xmax,ymax] 
+            mesh%nodcoord(4,:) = [xmin,ymax] 
+            n=0
+            do i=5,mesh%nn()
+                n=n+1
+                mesh%nodcoord(i,1) = borings(n)%x
+                mesh%nodcoord(i,2) = borings(n)%y
+            enddo
+            
+            !call mesh%convert2Dto3D()
+            femdomain%mesh = mesh
+            
+            ! mesh Delaunay 2D
+            call femdomain%meshing()
+            mesh  = femdomain%mesh
+            call femdomain%mesh%convertTriangleToRectangular()
+            call femdomain%mesh%convert2Dto3D()
+            call femdomain%vtk("bmesh")
+            
+            buf = mesh%nodcoord
+            mesh%nodcoord = zeros(size(buf,1),3 )
+            mesh%nodcoord(:,1:2) = buf(:,1:2)
+        
+            dxi_dx = zeros(2,2)
+            !call femdomain%vtk("mesh")
+            !stop
+        
+            do i=1,4
+                NearestBoringID(i) = mesh%getNearestNodeID(&
+                    x=mesh%nodcoord(i,1),&
+                    y=mesh%nodcoord(i,2),&
+                    exceptlist=[1,2,3,4] &
+                )
+            enddo
+            ! for each element
+            do i=1,obj%femdomain%ne()
+                elem_position = obj%femdomain%centerPosition(i)
+                ! check IN/OUT of triangle
+                do j=1,size(mesh%elemnod,1)
+                    dxi_dx(1,1) = mesh%nodcoord(mesh%elemnod(j,2),1)&
+                                 -mesh%nodcoord(mesh%elemnod(j,1),1)
+                    dxi_dx(2,1) = mesh%nodcoord(mesh%elemnod(j,2),2)&
+                                 -mesh%nodcoord(mesh%elemnod(j,1),2)
+                    dxi_dx(1,2) = mesh%nodcoord(mesh%elemnod(j,3),1)&
+                                 -mesh%nodcoord(mesh%elemnod(j,1),1)
+                    dxi_dx(2,2) = mesh%nodcoord(mesh%elemnod(j,3),2)&
+                                 -mesh%nodcoord(mesh%elemnod(j,1),2)
+                    call inverse_rank_2(dxi_dx, dxi_dx_inv) 
+                    xi(1:2) = matmul(dxi_dx_inv, elem_position(1:2) )
+                    if( 0.0d0 <= xi(1) .and. xi(1) <=1.0d0 )then
+                        if( 0.0d0 <= xi(2) .and. xi(2) <=1.0d0 )then
+                            if( xi(1) + xi(2) <= 1.0d0 )then
+                                depth = elem_position(3)
+                                eNodeID(1) = mesh%elemnod(j,1)
+                                eNodeID(2) = mesh%elemnod(j,2)
+                                eNodeID(3) = mesh%elemnod(j,3)
+                                
+                                do k=1,3
+                                    if(eNodeID(k)<=4 )then
+                                        eNvalue(k) = borings(NearestBoringID(eNodeID(k)))%getN(depth=depth)
+                                    else
+                                        n = eNodeID(k)-4
+                                        eNvalue(k) = borings(n)%getN(depth=depth)
+                                    endif
+                                enddo
+                                Nvalue(i) = eNvalue(1) &
+                                    + xi(1)*(eNvalue(2)-eNvalue(1)) &
+                                    + xi(2)*(eNvalue(3)-eNvalue(1)) 
+                                exit
+                            endif
+                        endif
+                    endif
+                enddo
+            enddo
+            return
+        endif
+    endif
+
+    
+
+
+
+
+    ! Interpolate by Voronoi subdivision 
+    ! and apply Gaussian filter
+    Vratio=input(default=1.0d0,option=VoronoiRatio)
     err = dble(1.0e-13)
-
     if(obj%femdomain%empty())then
         print *, "[ERROR] >> getNvalueSoil >> object not initialized."
         print *, "call soil % init()"
         return
     endif 
-
     boring_position = zeros( size(borings), 2 )
     dist_xy = zeros( size(borings))
     Nvals   = zeros( size(borings))
@@ -892,7 +999,6 @@ function getNvalueSoil(obj,borings,VoronoiRatio) result(Nvalue)
         boring_position(i,1) = borings(i)%x
         boring_position(i,2) = borings(i)%y
     enddo
-
     if(present(borings) )then
         Nvalue = zeros(obj%femdomain%ne() )
         ! Element-wise
@@ -904,50 +1010,34 @@ function getNvalueSoil(obj,borings,VoronoiRatio) result(Nvalue)
                 *(boring_position(:,1) - elem_position(1)) + &
                 (boring_position(:,2) - elem_position(2))&
                 *(boring_position(:,2) - elem_position(2)) 
-            
             dist_xy = sqrt(dist_xy)
-
-
             n = minvalID(dist_xy) 
             Nval_tr = borings(n)%getN(depth=elem_position(3))
-
             !dist_xy = dist_xy*dist_xy
             min_dist = minval(dist_xy)
             sum_dist = sum(dist_xy)
-            
-
-            !if( abs(min_dist) < err ) then
-            !    n = minvalID(dist_xy)
-            !    Nvalue(n) = borings(n)%getN(depth=elem_position(3) )
-            !else
             ! 距離の比による補間
-            
-            !w(:) = min_dist/dist_xy(:)
             w(:) = sum_dist/dist_xy(:)
             sum_w = sum(w)
             w = w/sum_w
-            !print *, w
-            
-            !do n=1,size(w)
-            !    if(w(n) < min_w_value )then
-            !        ! if weight w is smaller than weight,
-            !        ! ignore
-            !        w(n) = 0.0d0
-            !    endif
-            !enddo
-            ! find closest one
-
             sum_w = sum(w)
             w = w/sum_w
             do n = 1, size(borings)
                 Nvals(n) = w(n)*borings(n)%getN(depth=elem_position(3))
             enddo
             Nvalue(i) = (1.0d0-VRatio)*sum(Nvals) + VRatio*Nval_tr
-            
         enddo
     endif
 
+    if(present(MovingAverageFilter) )then
+        if(MovingAverageFilter)then
+            ! gaussina filter
+            Nvalue = obj%FEMDomain%MovingAverageFilter(inScalarField=Nvalue,ignore_top_and_bottom=.true.)
+        endif
+    endif
     
+
+
 end function
 ! ##############################################################
 pure function convertNvalue2VsSoil(obj,Nvalue,Formula,H,Yg,St) result(Vs)
@@ -965,7 +1055,7 @@ pure function convertNvalue2VsSoil(obj,Nvalue,Formula,H,Yg,St) result(Vs)
         Vs(:) = 68.79d0*(Nvalue(:)**0.717)*H(:)**0.199*Yg(:)*St(:)
     elseif(Formula==PF_N2Vs_JAPANROAD_1)then
         Vs(:) =  80.0d0*(Nvalue(:)**0.33333)
-    elseif(Formula==PF_N2Vs_JAPANROAD_1)then
+    elseif(Formula==PF_N2Vs_JAPANROAD_2)then
         Vs(:) = 100.0d0*(Nvalue(:)**0.33333)
 
     endif
