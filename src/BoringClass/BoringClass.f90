@@ -32,7 +32,9 @@ module BoringClass
         procedure,public :: create => createBoring
         procedure,public :: example => exampleBoring
         procedure,public :: setN => setNBoring
+        procedure,public :: setLocation => setLocationBoring
         procedure,public :: getN => getNBoring
+        procedure,public :: show => showBoring
     end type
 contains
 
@@ -73,7 +75,8 @@ end subroutine
 pure function getNBoring(obj,depth,elevation) result(Nval)
     class(Boring_),intent(in) :: obj
     real(real64),optional,intent(in) :: depth,elevation
-    real(real64) :: Nval,offset,dpt
+    real(real64) :: Nval,offset,dpt,xi,&
+    depth_up,depth_down,Nvalue_up,Nvalue_down
     integer(int32) :: i,n,layer_id
 
     if(.not.allocated(obj%PTest_NValue) )then
@@ -88,15 +91,36 @@ pure function getNBoring(obj,depth,elevation) result(Nval)
                 Nval = obj%PTest_NValue(1)
                 return
             endif
+            ! linear interpolation
             do i=1,size(obj%PTest_Depth) 
                 layer_id = i
                 
                 Nval = obj%PTest_NValue(layer_id)
 
                 if(depth > obj%PTest_Depth(i) )then
+                    depth_up   = obj%PTest_Depth(i-1)
+                    depth_down = obj%PTest_Depth(i)
+                    Nvalue_up   = obj%PTest_Nvalue(i-1)
+                    Nvalue_down = obj%PTest_Nvalue(i) 
+                    ! x = (1- \xi)*x_{i-1} + \xi*x_{i}
+                    ! x = x_{i-1}- \xi*x_{i-1} + \xi*x_{i}
+                    ! x - x_{i-1} = - \xi*x_{i-1} + \xi*x_{i}
+                    ! x - x_{i-1} = (x_{i}- x_{i-1} )\xi
+                    ! (x - x_{i-1})/(x_{i}- x_{i-1} ) = \xi
+                    xi = (depth  - depth_up)/(depth_down - depth_up)
+                    Nval = (1-xi)*Nvalue_up + xi*Nvalue_down
                     return
                 endif
             enddo
+            !do i=1,size(obj%PTest_Depth) 
+            !    layer_id = i
+            !    
+            !    Nval = obj%PTest_NValue(layer_id)
+            !
+            !    if(depth > obj%PTest_Depth(i) )then
+            !        return
+            !    endif
+            !enddo
         endif
 
 
@@ -190,5 +214,38 @@ subroutine setNBoring(obj,depth,Nvalue)
 end subroutine
 ! #####################################################
 
+subroutine showBoring(obj)
+    class(Boring_),intent(in) :: obj
+    type(IO_) :: f
+    integer(int32) :: i
+    real(real64),allocatable :: depth(:)
+
+    depth = linspace([-0.0d0,minval(obj%PTest_Depth)],400)
+
+    call f%open("__showBoring__.txt","w")
+    do i=1,size(depth)
+        write(f%fh,*) obj%getN(depth=depth(i)), depth(i)
+    enddo
+    call f%close()
+    call f%plot(option="with lines; unset key;set size ratio 3;set xlabel 'N-value';&
+        set ylabel 'Depth (m) '; set title 'x="+str(obj%x)+", y="+str(obj%y)+"';&
+        set xtics 10; replot")
+
+end subroutine
+! #####################################################
+
+subroutine setLocationBoring(obj,x,y)
+    class(Boring_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: x,y
+    
+    if(present(x) )then
+        obj%x = x
+    endif
+
+    if(present(y) )then
+        obj%y = y
+    endif
+
+end subroutine
 
 end module

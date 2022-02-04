@@ -3921,7 +3921,7 @@ end function
 
 ! ##########################################################
 function existIntArray(vector,val,rowid,columnid) result(ret)
-    integer(int32),allocatable,intent(inout) :: vector(:,:)
+    integer(int32),allocatable,intent(in) :: vector(:,:)
     integer(int32),intent(in) :: val
     integer(int32),optional,intent(in) :: columnid,rowid
     logical :: ret
