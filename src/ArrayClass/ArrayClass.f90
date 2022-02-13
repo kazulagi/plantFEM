@@ -330,6 +330,10 @@ module ArrayClass
         module procedure :: minvalIDInt32, minvalIDReal64
     end interface
     
+    interface maxvalID
+        module procedure :: maxvalIDInt32, maxvalIDReal64
+    end interface
+
     type :: FlexibleChar_
         character(len=:),allocatable :: string
     end type
@@ -5992,7 +5996,7 @@ function EigenValueJacobiMethod(A,x,tol) result(lambda)
             Gk(i,i)=1.0d0
             x(i,i)=1.0d0
         enddo
-        print *, "Eigen Value & Eigen Vector"
+        !print *, "Eigen Value & Eigen Vector"
     endif
     
     Ak = A
@@ -6014,7 +6018,7 @@ function EigenValueJacobiMethod(A,x,tol) result(lambda)
             enddo
         enddo
 
-        print *, p,q,apq_tr
+        !print *, p,q,apq_tr
         if(abs(apq_tr)<= loop_tol)then
             exit
         endif
@@ -6051,6 +6055,7 @@ function EigenValueJacobiMethod(A,x,tol) result(lambda)
 
         ! use Gk matrix
         if(present(x) )then
+            Gk(:,:) = 0.0d0
             do i=1,n
                 Gk(i,i) = 1.0d0
             enddo
@@ -6059,6 +6064,7 @@ function EigenValueJacobiMethod(A,x,tol) result(lambda)
             Gk(q,p) = -sin(theta)
             Gk(q,q) = cos(theta)
             X = matmul(X,Gk)
+            !X = matmul(X,transpose(Gk))
         endif
 
     enddo
@@ -6892,6 +6898,44 @@ recursive pure function minvalIDInt32(vec,opt_id) result(id)
 end function
 ! ###########################################################
 
+recursive pure function maxvalIDInt32(vec,opt_id) result(id)
+    integer(int32),intent(in) :: vec(:)
+    integer(int32),optional,intent(in) :: opt_id
+    integer(int32) :: id
+    integer(int32) :: min_value, half_size
+
+    if(present(opt_id) )then
+        id = opt_id
+    else
+        id = 0
+    endif
+
+    ! odd and even
+    if(size(vec) == 1)then
+        id = id + 1
+        return
+    elseif(size(vec) == 2)then
+        if(vec(1) < vec(2) )then
+            id = id + 2
+        else
+            id = id + 1
+        endif
+        return
+    else
+        half_size = size(vec)/2
+        if( maxval(vec(1:half_size)) < maxval(vec(half_size+1:)) )then
+            ! minval exists half_size+1 - end
+            id = id + half_size + maxvalID(vec(half_size+1:),id )
+        else
+            ! minval exists 1: half_size
+            id = maxvalID(vec(1:half_size),id )
+        endif
+        return
+    endif
+    
+end function
+! ###########################################################
+
 recursive pure function minvalIDReal64(vec,opt_id) result(id)
     real(real64),intent(in) :: vec(:)
     integer(int32),optional,intent(in) :: opt_id
@@ -6929,6 +6973,46 @@ recursive pure function minvalIDReal64(vec,opt_id) result(id)
     endif
     
 end function
+! ##############################################################
+
+recursive pure function maxvalIDReal64(vec,opt_id) result(id)
+    real(real64),intent(in) :: vec(:)
+    integer(int32),optional,intent(in) :: opt_id
+    integer(int32) :: id,half_size
+    
+    
+
+    if(present(opt_id) )then
+        id = opt_id
+    else
+        id = 0
+    endif
+
+    ! odd and even
+    if(size(vec) == 1)then
+        id = id + 1
+        return
+    elseif(size(vec) == 2)then
+        if(vec(1) < vec(2) )then
+            id = id + 2
+        else
+            id = id + 1
+        endif
+        return
+    else
+        half_size = size(vec)/2
+        if( maxval(vec(1:half_size)) < maxval(vec(half_size+1:)) )then
+            ! minval exists half_size+1 - end
+            id = id + half_size + maxvalID(vec(half_size+1:),id )
+        else
+            ! minval exists 1: half_size
+            id = maxvalID(vec(1:half_size),id )
+        endif
+        return
+    endif
+    
+end function
+
 
 function decimateReal64Vec(vec,interval) result(ret_vec) 
     real(real64),intent(in) ::  vec(:)

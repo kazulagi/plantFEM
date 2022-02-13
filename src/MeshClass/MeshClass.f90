@@ -110,6 +110,10 @@ module MeshClass
         procedure :: getCenterCoordinate => getCenterCoordinateMesh
         procedure :: getNeighboringNode => getNeighboringNodeMesh
         procedure :: getNeighboringElement => getNeighboringElementMesh
+
+        procedure :: BinaryTreeSearch => BinaryTreeSearchMesh
+        procedure :: getBinaryTreeSearch => BinaryTreeSearchMesh
+
         procedure :: ShapeFunction => getShapeFunctionMesh
         procedure :: gmsh => gmshMesh
         
@@ -9132,5 +9136,432 @@ subroutine syncMeshClass(obj,from,mpid)
 end subroutine
 ! ##########################################################################
 
+
+! ##########################################################################
+recursive function BinaryTreeSearchMesh(obj,old_GroupID,min_elem_num)  result(GroupID)
+    class(Mesh_),intent(in) :: obj
+    integer(int32),allocatable,intent(in) :: old_GroupID(:,:)
+    integer(int32),intent(in) :: min_elem_num
+    integer(int32),allocatable :: GroupID(:,:),GroupID_tr(:,:),category(:),counter(:)
+
+    integer(int32),allocatable :: num_exist(:)
+    real(real64) :: x_min,x_max,y_min,y_max,z_min,z_max,tr
+    real(real64) :: x_half,y_half,z_half
+    integer(int32) :: i,j,k, n,elem_num_in_group,num_large_stack,offset,ii,jj,kk
+
+    ! only for 8-node isoparametric elements
+    if(obj%empty() )then
+        return
+    endif
+    if(obj%nne()/=8 )then
+        return
+    endif
+    if(obj%nd()/=3 )then
+        return
+    endif
+
+    if(.not.allocated(old_GroupID) )then
+        allocate(GroupID(1,size(obj%ElemNod,1)) )
+        ! GroupID(GroupID,)
+        do i=1,size(obj%elemnod,1)
+            GroupID(1,i) =i
+        enddo
+        if(size(GroupID,2) <= min_elem_num)then
+            return
+        else
+            GroupID = obj%BinaryTreeSearch(old_GroupID=GroupID,min_elem_num=min_elem_num)
+            return
+        endif
+    else
+        num_large_stack=0
+        do i=1,size(old_GroupID,1)
+            k=0
+            do j=1,size(old_GroupID,2)
+                if(old_GroupID(i,j)==-1 )then
+                    exit
+                else
+                    k=k+1
+                endif
+            enddo
+
+            if(k>=min_elem_num)then
+                num_large_stack =num_large_stack + 1
+            endif
+        enddo
+
+        ! divide x, y, z
+        allocate(GroupID_tr(size(old_GroupID,1)+ num_large_stack*7,size(old_GroupID,2) ) )
+        
+
+        GroupID_tr(:,:) = -1 ! fill with -1
+        counter = zeros(8)
+        offset = 0
+        do i=1,size(old_GroupID,1)
+            k = 0
+            do j=1,size(old_GroupID,2)
+                if(old_GroupID(i,j)==-1 )then
+                    exit
+                else
+                    k=k+1
+                endif
+            enddo
+
+            if(k<min_elem_num)then
+                ! 十分小さいスタック
+                if(k==0) cycle
+                offset = offset + 1
+                cycle
+            endif
+            ! for each old group
+            !x_min = minval(obj%NodCoord( obj%ElemNod( old_GroupID(i,:) ,:) ,1) )
+            do ii=1,size(old_GroupID,2)
+                if(old_GroupID(i,ii)<1)then
+                    exit
+                endif
+                tr = minval(obj%NodCoord( obj%ElemNod( old_GroupID(i,ii) ,:) ,1) )! HERE
+                if(ii==1)then
+                    x_min=tr
+                    cycle
+                endif
+                if(x_min > tr )then
+                    x_min = tr
+                endif
+            enddo
+            !y_min = minval(obj%NodCoord( obj%ElemNod( old_GroupID(i,:) ,:) ,2) )
+            do ii=1,size(old_GroupID,2)
+                if(old_GroupID(i,ii)<1)then
+                    exit
+                endif
+                tr = minval(obj%NodCoord( obj%ElemNod( old_GroupID(i,ii) ,:) ,2) )
+                if(ii==1)then
+                    y_min=tr
+                    cycle
+                endif
+                if(y_min > tr )then
+                    y_min = tr
+                endif
+            enddo
+            
+            !z_min = minval(obj%NodCoord( obj%ElemNod( old_GroupID(i,:) ,:) ,3) )
+            do ii=1,size(old_GroupID,2)
+                if(old_GroupID(i,ii)<1)then
+                    exit
+                endif
+                tr = minval(obj%NodCoord( obj%ElemNod( old_GroupID(i,ii) ,:) ,3) )
+                if(ii==1)then
+                    z_min=tr
+                    cycle
+                endif
+                if(z_min > tr )then
+                    z_min = tr
+                endif
+            enddo
+            
+            !x_max = maxval(obj%NodCoord( obj%ElemNod( old_GroupID(i,:) ,:) ,1) )
+            do ii=1,size(old_GroupID,2)
+                if(old_GroupID(i,ii)<1)then
+                    exit
+                endif
+                tr = maxval(obj%NodCoord( obj%ElemNod( old_GroupID(i,ii) ,:) ,1) )
+                if(ii==1)then
+                    x_max=tr
+                    cycle
+                endif
+                if(x_max < tr )then
+                    x_max = tr
+                endif
+            enddo
+            !y_max = maxval(obj%NodCoord( obj%ElemNod( old_GroupID(i,:) ,:) ,2) )
+            do ii=1,size(old_GroupID,2)
+                if(old_GroupID(i,ii)<1)then
+                    exit
+                endif
+                tr = maxval(obj%NodCoord( obj%ElemNod( old_GroupID(i,ii) ,:) ,2) )
+                if(ii==1)then
+                    y_max=tr
+                    cycle
+                endif
+                if(y_max < tr )then
+                    y_max = tr
+                endif
+            enddo
+
+            !z_max = maxval(obj%NodCoord( obj%ElemNod( old_GroupID(i,:) ,:) ,3) )
+            do ii=1,size(old_GroupID,2)
+                if(old_GroupID(i,ii)<1)then
+                    exit
+                endif
+                tr = maxval(obj%NodCoord( obj%ElemNod( old_GroupID(i,ii) ,:) ,3) )
+                if(ii==1)then
+                    z_max=tr
+                    cycle
+                endif
+                if(z_max < tr )then
+                    z_max = tr
+                endif
+            enddo
+            
+            x_half = 0.50d0*(x_min + x_max)
+            y_half = 0.50d0*(y_min + y_max)
+            z_half = 0.50d0*(z_min + z_max)
+            ! 1: smaller, 2:larger, 3: both
+            category = zeros(size(old_GroupID,2))
+            do j=1,size(old_GroupID,2)
+                    
+
+                if(old_GroupID(i,j) == -1)exit
+                
+                if(minval(obj%NodCoord( obj%ElemNod( old_GroupID(i,j),: ),1) ) <= x_half ) then
+                    category(j) = category(j) + 1
+                endif
+                if(maxval(obj%NodCoord( obj%ElemNod( old_GroupID(i,j),: ),1) ) >= x_half ) then
+                    category(j) = category(j) + 2
+                endif
+
+                if(minval(obj%NodCoord( obj%ElemNod( old_GroupID(i,j),: ),2) ) <= y_half ) then
+                    category(j) = category(j) + 10
+                endif
+                if(maxval(obj%NodCoord( obj%ElemNod( old_GroupID(i,j),: ),2) ) >= y_half ) then
+                    category(j) = category(j) + 20
+                endif
+                
+                if(minval(obj%NodCoord( obj%ElemNod( old_GroupID(i,j),: ),3) ) <= z_half ) then
+                    category(j) = category(j) + 100
+                endif
+                if(maxval(obj%NodCoord( obj%ElemNod( old_GroupID(i,j),: ),3) ) >= z_half ) then
+                    category(j) = category(j) + 200
+                endif
+                ! here
+                ! [1-3],[1-3],[1-3]
+                ! 
+            enddo
+
+            counter(1:8) = 0
+            do j=1,size(category,1)
+                if    (category(j) == 111 )then
+                    counter(1) = counter(1) + 1
+                    GroupID_tr(offset+1, counter(1) ) = old_GroupID(i,j)  
+                elseif(category(j) == 112 )then
+                    counter(2) = counter(2) + 1
+                    GroupID_tr(offset+2, counter(2) ) = old_GroupID(i,j)  
+                elseif(category(j) == 113 )then
+                    counter(1) = counter(1) + 1
+                    GroupID_tr(offset+1, counter(1) ) = old_GroupID(i,j)  
+                    counter(2) = counter(2) + 1
+                    GroupID_tr(offset+2, counter(2) ) = old_GroupID(i,j)  
+                elseif(category(j) == 121 )then
+                    counter(3) = counter(3) + 1
+                    GroupID_tr(offset+3, counter(3) ) = old_GroupID(i,j)  
+                elseif(category(j) == 122 )then
+                    counter(4) = counter(4) + 1
+                    GroupID_tr(offset+4, counter(4) ) = old_GroupID(i,j)  
+                elseif(category(j) == 123 )then
+                    counter(3) = counter(3) + 1
+                    GroupID_tr(offset+3, counter(3) ) = old_GroupID(i,j)  
+                    counter(4) = counter(4) + 1
+                    GroupID_tr(offset+4, counter(4) ) = old_GroupID(i,j)  
+                elseif(category(j) == 131 )then
+                    counter(1) = counter(1) + 1
+                    GroupID_tr(offset+1, counter(1) ) = old_GroupID(i,j)  
+                    counter(3) = counter(3) + 1
+                    GroupID_tr(offset+3, counter(3) ) = old_GroupID(i,j)  
+                elseif(category(j) == 132 )then
+                    counter(2) = counter(2) + 1
+                    GroupID_tr(offset+2, counter(2) ) = old_GroupID(i,j)  
+                    counter(4) = counter(4) + 1
+                    GroupID_tr(offset+4, counter(4) ) = old_GroupID(i,j)  
+                elseif(category(j) == 133 )then
+                    counter(1) = counter(1) + 1
+                    GroupID_tr(offset+1, counter(1) ) = old_GroupID(i,j)  
+                    counter(2) = counter(2) + 1
+                    GroupID_tr(offset+2, counter(2) ) = old_GroupID(i,j)  
+                    counter(3) = counter(3) + 1
+                    GroupID_tr(offset+3, counter(3) ) = old_GroupID(i,j)  
+                    counter(4) = counter(4) + 1
+                    GroupID_tr(offset+4, counter(4) ) = old_GroupID(i,j)  
+                elseif(category(j) == 211 )then
+                    counter(5) = counter(5) + 1
+                    GroupID_tr(offset+5, counter(5) ) = old_GroupID(i,j)  
+                elseif(category(j) == 212 )then
+                    counter(6) = counter(6) + 1
+                    GroupID_tr(offset+6, counter(6) ) = old_GroupID(i,j)  
+                elseif(category(j) == 213 )then
+                    counter(5) = counter(5) + 1
+                    GroupID_tr(offset+5, counter(5) ) = old_GroupID(i,j)  
+                    counter(6) = counter(6) + 1
+                    GroupID_tr(offset+6, counter(6) ) = old_GroupID(i,j)  
+                elseif(category(j) == 221 )then
+                    counter(7) = counter(7) + 1
+                    GroupID_tr(offset+7, counter(7) ) = old_GroupID(i,j)  
+                elseif(category(j) == 222 )then
+                    counter(8) = counter(8) + 1
+                    GroupID_tr(offset+8, counter(8) ) = old_GroupID(i,j)  
+                elseif(category(j) == 223 )then
+                    counter(7) = counter(7) + 1
+                    GroupID_tr(offset+7, counter(7) ) = old_GroupID(i,j)  
+                    counter(8) = counter(8) + 1
+                    GroupID_tr(offset+8, counter(8) ) = old_GroupID(i,j)  
+                elseif(category(j) == 231 )then
+                    counter(5) = counter(5) + 1
+                    GroupID_tr(offset+5, counter(5) ) = old_GroupID(i,j)  
+                    counter(7) = counter(7) + 1
+                    GroupID_tr(offset+7, counter(7) ) = old_GroupID(i,j)  
+                elseif(category(j) == 232 )then
+                    counter(6) = counter(6) + 1
+                    GroupID_tr(offset+6, counter(6) ) = old_GroupID(i,j)  
+                    counter(8) = counter(8) + 1
+                    GroupID_tr(offset+8, counter(8) ) = old_GroupID(i,j)  
+                elseif(category(j) == 233 )then
+                    counter(6) = counter(6) + 1
+                    GroupID_tr(offset+6, counter(6) ) = old_GroupID(i,j)  
+                    counter(8) = counter(8) + 1
+                    GroupID_tr(offset+8, counter(8) ) = old_GroupID(i,j)  
+                    counter(5) = counter(5) + 1
+                    GroupID_tr(offset+5, counter(5) ) = old_GroupID(i,j)  
+                    counter(7) = counter(7) + 1
+                    GroupID_tr(offset+7, counter(7) ) = old_GroupID(i,j)  
+                elseif(category(j) == 311 )then
+                    counter(1) = counter(1) + 1
+                    GroupID_tr(offset+1, counter(1) ) = old_GroupID(i,j)  
+                    counter(5) = counter(5) + 1
+                    GroupID_tr(offset+5, counter(5) ) = old_GroupID(i,j)  
+                elseif(category(j) == 312 )then
+                    counter(2) = counter(2) + 1
+                    GroupID_tr(offset+2, counter(2) ) = old_GroupID(i,j)  
+                    counter(6) = counter(6) + 1
+                    GroupID_tr(offset+6, counter(6) ) = old_GroupID(i,j)  
+                elseif(category(j) == 313 )then
+                    counter(1) = counter(1) + 1
+                    GroupID_tr(offset+1, counter(1) ) = old_GroupID(i,j)  
+                    counter(5) = counter(5) + 1
+                    GroupID_tr(offset+5, counter(5) ) = old_GroupID(i,j) 
+                    counter(2) = counter(2) + 1
+                    GroupID_tr(offset+2, counter(2) ) = old_GroupID(i,j)  
+                    counter(6) = counter(6) + 1
+                    GroupID_tr(offset+6, counter(6) ) = old_GroupID(i,j)  
+                elseif(category(j) == 321 )then
+                    counter(3) = counter(3) + 1
+                    GroupID_tr(offset+3, counter(3) ) = old_GroupID(i,j)  
+                    counter(7) = counter(7) + 1
+                    GroupID_tr(offset+7, counter(7) ) = old_GroupID(i,j)  
+                elseif(category(j) == 322 )then
+                    counter(4) = counter(4) + 1
+                    GroupID_tr(offset+4, counter(4) ) = old_GroupID(i,j)  
+                    counter(8) = counter(8) + 1
+                    GroupID_tr(offset+8, counter(8) ) = old_GroupID(i,j)  
+                elseif(category(j) == 323 )then
+                    counter(3) = counter(3) + 1
+                    GroupID_tr(offset+3, counter(3) ) = old_GroupID(i,j)  
+                    counter(7) = counter(7) + 1
+                    GroupID_tr(offset+7, counter(7) ) = old_GroupID(i,j)  
+                    counter(4) = counter(4) + 1
+                    GroupID_tr(offset+4, counter(4) ) = old_GroupID(i,j)  
+                    counter(8) = counter(8) + 1
+                    GroupID_tr(offset+8, counter(8) ) = old_GroupID(i,j)  
+                elseif(category(j) == 331 )then
+                    counter(1) = counter(1) + 1
+                    GroupID_tr(offset+1, counter(1) ) = old_GroupID(i,j)  
+                    counter(3) = counter(3) + 1
+                    GroupID_tr(offset+3, counter(3) ) = old_GroupID(i,j)  
+                    counter(5) = counter(5) + 1
+                    GroupID_tr(offset+5, counter(5) ) = old_GroupID(i,j) 
+                    counter(7) = counter(7) + 1
+                    GroupID_tr(offset+7, counter(7) ) = old_GroupID(i,j)  
+                elseif(category(j) == 332 )then
+                    counter(2) = counter(2) + 1
+                    GroupID_tr(offset+2, counter(2) ) = old_GroupID(i,j)  
+                    counter(4) = counter(4) + 1
+                    GroupID_tr(offset+4, counter(4) ) = old_GroupID(i,j)  
+                    counter(6) = counter(6) + 1
+                    GroupID_tr(offset+6, counter(6) ) = old_GroupID(i,j) 
+                    counter(8) = counter(8) + 1
+                    GroupID_tr(offset+8, counter(8) ) = old_GroupID(i,j)  
+                elseif(category(j) == 333 )then
+                    counter(1) = counter(1) + 1
+                    GroupID_tr(offset+1, counter(1) ) = old_GroupID(i,j)  
+                    counter(3) = counter(3) + 1
+                    GroupID_tr(offset+3, counter(3) ) = old_GroupID(i,j)  
+                    counter(5) = counter(5) + 1
+                    GroupID_tr(offset+5, counter(5) ) = old_GroupID(i,j) 
+                    counter(7) = counter(7) + 1
+                    GroupID_tr(offset+7, counter(7) ) = old_GroupID(i,j)  
+                    counter(2) = counter(2) + 1
+                    GroupID_tr(offset+2, counter(2) ) = old_GroupID(i,j)  
+                    counter(4) = counter(4) + 1
+                    GroupID_tr(offset+4, counter(4) ) = old_GroupID(i,j)  
+                    counter(6) = counter(6) + 1
+                    GroupID_tr(offset+6, counter(6) ) = old_GroupID(i,j) 
+                    counter(8) = counter(8) + 1
+                    GroupID_tr(offset+8, counter(8) ) = old_GroupID(i,j)  
+                endif
+                
+                
+            enddo
+            offset = offset + 8
+
+
+        enddo
+
+        ! 分類完了
+        do i=size(GroupID_tr,2),1,-1
+            if(maxval(GroupID_tr(:,i) ) ==-1 )then
+                elem_num_in_group=i
+            else
+                cycle
+            endif
+        enddo
+        ! 全部-1のものをカウント>>しない
+
+        !num_exist = int(zeros(size(GroupID_tr,1) ))
+        !do i=1,size(GroupID_tr,1)
+        !    if(maxval(GroupID_tr(i,:) )<1 )then
+        !        cycle
+        !    else
+        !        num_exist(i) = 1
+        !    endif
+        !enddo
+!
+!
+        !!allocate(GroupID( sum(num_exist),elem_num_in_group-1 ) )
+        !allocate(GroupID( size(GroupID_tr,1),elem_num_in_group-1 ) )
+        !k = 0
+        !do i=1,size(GroupID_tr,1)
+        !    if(num_exist(i)==1 )then
+        !        k = k+1
+        !        GroupID(k,1:elem_num_in_group-1 ) = &
+        !        GroupID_tr(i,1:elem_num_in_group-1 ) 
+        !    else
+        !        cycle
+        !    endif
+        !enddo
+        allocate(GroupID( size(GroupID_tr,1),elem_num_in_group-1 ) )
+        k = 0
+        do i=1,size(GroupID_tr,1)
+            GroupID(i,1:elem_num_in_group-1 ) = &
+            GroupID_tr(i,1:elem_num_in_group-1 ) 
+        enddo
+        
+        !GroupID(1:size(GroupID_tr,1),1:elem_num_in_group-1) = &
+        !GroupID_tr(1:size(GroupID_tr,1),1:elem_num_in_group-1)
+
+
+        !call print(GroupID)
+        !call print(size(GroupID,1) )
+        !call print(size(GroupID,2) )
+        !stop
+
+        if(elem_num_in_group<=min_elem_num)then
+            return
+        else
+            GroupID = obj%BinaryTreeSearch(GroupID,min_elem_num )
+            return
+        endif
+    endif
+
+
+
+
+end function BinaryTreeSearchMesh
+! ##########################################################################
 
 end module MeshClass
