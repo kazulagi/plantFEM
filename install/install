@@ -213,10 +213,17 @@ echo " >> ConstitutiveModelClass.o"
 echo " | =============>              | (65%)\r\c"
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ConstitutiveModelClass/ConstitutiveModelClass.f90 -o  ./inc/ConstitutiveModelClass.o
 # Compilation of high-level classes
+
 echo "Compiling ./src/FEMDomainClass/FEMDomainClass.f90 " 
 echo " >> FEMDomainClass.o  " 
 echo " | =============>              | (65%)\r\c"
 mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FEMDomainClass/FEMDomainClass.f90 -o  ./inc/FEMDomainClass.o 
+echo "Compiling ./src/FEMSolverClass/FEMSolverClass.f90 " 
+echo " >> FEMSolverClass.o  " 
+echo " | =============>              | (65%)\r\c"
+mpif90 -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FEMSolverClass/FEMSolverClass.f90 -o  ./inc/FEMSolverClass.o 
+
+
 echo "Compiling ./src/FEMIfaceClass/FEMIfaceClass.f90" 
 echo " >> FEMIfaceClass.o "
 echo " | ==============>             | (66%)\r\c"

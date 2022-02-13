@@ -9154,15 +9154,16 @@ end function
 
 
 ! ##########################################################################
-function MassMatrixFEMDomain(obj,ElementID,Density,DOF) result(MassMatrix)
+function MassMatrixFEMDomain(obj,ElementID,Density,DOF,Lumped) result(MassMatrix)
 	class(FEMDomain_),intent(inout) :: obj
 	type(ShapeFunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
 	real(real64),optional,intent(in) :: Density
 	real(real64),allocatable :: MassMatrix(:,:), Nmat(:,:)
 	integer(int32),optional,intent(in) :: DOF
-	real(real64) :: rho
+	real(real64) :: rho,center_mass
 	integeR(int32) :: i,n,j,k,node_DOF
+	logical,optional,intent(in) :: Lumped
 
 	rho = input(default=1.0d0, option=Density)
 	node_DOF = input(default=1, option=DOF)
@@ -9222,8 +9223,19 @@ function MassMatrixFEMDomain(obj,ElementID,Density,DOF) result(MassMatrix)
 		
 	enddo
 
+
 	MassMatrix = rho * MassMatrix
 
+	if(present(Lumped) )then
+		if(Lumped)then
+			do i=1,size(MassMatrix,1)
+				center_mass = sum(MassMatrix(i,:))
+				MassMatrix(i,:) = 0.0d0
+				MassMatrix(i,i) = center_mass
+			enddo
+		endif
+	endif
+	
 end function
 ! ##########################################################################
 
@@ -11183,16 +11195,20 @@ end function
 
 function getE2EconnectivityFEMDomain(obj) result(E2Econnect)
 	class(FEMDomain_),intent(in) :: obj
-	integer(int32),allocatable :: E2Econnect(:,:),elemnodid(:)
+	integer(int32),allocatable :: E2Econnect(:,:),elemnodid(:),GroupID(:,:),element_id_list(:)
 	integer(int32) :: i,j,k,efacet_id(6,4),gfacet_id(6,4),l
 	integer(int32) :: exists_count
 	! Element-to-Element connectivity
 	! only for 3-D cube elements
 
+	integer(int32) :: group_id,num_elem,ii,jj
+
 	if(obj%mesh%empty()) then
 		return
 	endif
 
+		
+	! O(1025*1025*NlogN) algorithm
 	allocate(E2Econnect(obj%ne(),6) )
 	E2Econnect(:,:) = -1
 	elemnodid = zeros(obj%nne())
@@ -11205,36 +11221,61 @@ function getE2EconnectivityFEMDomain(obj) result(E2Econnect)
 	efacet_id(5,1:4) = [1,2,3,4]
 	efacet_id(6,1:4) = [5,6,7,8]
 	
-	do i=1,obj%ne()
-		elemnodid = obj%mesh%elemnod(i,:)
-		do j=1,6
-			do k=1,4
-				gfacet_id(j,k) = obj%mesh%elemnod(i,efacet_id(j,k) )
-			enddo
-		enddo
+	GroupID = obj%mesh%BinaryTreeSearch(old_GroupID=GroupID,min_elem_num=2000)
+	! for each group IDs
+	
 
-		!$OMP parallel do 
-		do j=1,obj%ne()
-			if(i==j) cycle
-			if(minval(obj%mesh%elemnod(j,:)) > maxval(gfacet_id) ) cycle
-			if(maxval(obj%mesh%elemnod(j,:)) < minval(gfacet_id) ) cycle
-			do k=1,size(gfacet_id,1)
-				exists_count = 0
-				do l=1,size(gfacet_id,2)
-					if( exists(vector=obj%mesh%elemnod(j,:),val=gfacet_id(k,l) ) )then
-						exists_count = exists_count+1
+	do group_id = 1, size(GroupID,1)
+		num_elem=0
+		do i=1,size(GroupID,2)
+			if(GroupID(group_id,i)<1 )then
+				exit
+			else
+				num_elem = num_elem + 1
+			endif
+		enddo
+		if(num_elem<=1)then
+			cycle
+		endif
+		element_id_list = int(zeros(num_elem) )
+		element_id_list(1:num_elem) = GroupID(group_id,1:num_elem)
+		
+		do ii=1,size(element_id_list)
+			i = element_id_list(ii)
+			elemnodid = obj%mesh%elemnod(i,:)
+
+			do j=1,6
+				do k=1,4
+					gfacet_id(j,k) = obj%mesh%elemnod(i,efacet_id(j,k) )
+				enddo
+			enddo
+
+			do jj=1,size(element_id_list)
+				j = element_id_list(jj)
+				
+				if(i==j) cycle
+				
+				
+				if(minval(obj%mesh%elemnod(j,:)) > maxval(gfacet_id) ) cycle
+				if(maxval(obj%mesh%elemnod(j,:)) < minval(gfacet_id) ) cycle
+				
+				do k=1,size(gfacet_id,1)
+					exists_count = 0
+					do l=1,size(gfacet_id,2)
+						if( exists(vector=obj%mesh%elemnod(j,:),val=gfacet_id(k,l) ) )then
+							exists_count = exists_count+1
+						endif
+					enddo
+					if(exists_count==4)then
+						E2Econnect(i,k) = j
+					else
+						cycle
 					endif
 				enddo
-				if(exists_count==4)then
-					E2Econnect(i,k) = j
-				else
-					cycle
-				endif
+
 			enddo
 
 		enddo
-		!$OMP end parallel do
-
 	enddo
 	
 
@@ -11262,6 +11303,8 @@ function MovingAverageFilterFEMDomain(obj,inScalarField,ignore_top_and_bottom) r
 	endif
 
 	E2Econnect = obj%getE2Econnectivity()
+	!Element_Groups = obj%mesh%BinaryTreeSearch(old_GroupID=GroupID,min_elem_num=10000)
+
 	if(present(ignore_top_and_bottom) )then
 		if(ignore_top_and_bottom)then
 			buf = E2Econnect

@@ -8,6 +8,7 @@ module fem
     use StressClass
     use ConstitutiveModelClass
     use FEMDomainClass
+    use FEMSolverClass
     use FEMIfaceClass
     use PostProcessingClass
     use PreProcessingClass
