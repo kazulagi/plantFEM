@@ -85,6 +85,10 @@ module ArrayClass
             zerosRealArray_64, zerosRealVector_64,zerosRealArray3_64,zerosRealArray4_64,zerosRealArray5_64
     end interface
 
+    interface eyes
+        module procedure :: eyesRealArray
+    end interface
+
     interface increment
         module procedure :: incrementRealVector, incrementIntVector,&
             incrementRealArray, incrementIntArray 
@@ -4616,6 +4620,23 @@ pure function zerosRealArray(size1, size2) result(array)
 
     allocate(array(size1, size2) )
     array(:,:) = 0.0d0
+
+end function
+
+! ############################################################
+
+! ############################################################
+pure function eyesRealArray(size1, size2) result(array)
+    integer(int32),intent(in) :: size1, size2
+    real(real64),allocatable :: array(:,:)
+    integer(int32) :: i
+    allocate(array(size1, size2) )
+    array(:,:) = 0.0d0
+
+    do i=1,size1
+        if(i>size2) exit
+        array(i,i) = 1.0d0
+    enddo
 
 end function
 

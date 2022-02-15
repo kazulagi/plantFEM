@@ -557,163 +557,474 @@ end subroutine
 !    
 !end function
 ! ###################################################################
+function LOBPCG_sparse(A_val,A_col,A_rowptr,lambda_min) result(eigen_vectors)
+    real(real64),intent(in) :: A_val(:)
+    integer(int32),intent(in)::A_col(:),A_rowptr(:)
+    real(real64),allocatable :: eigen_vectors(:,:)
+    real(real64),allocatable :: V(:,:),A_(:,:),xtemp(:,:),&
+        lambda_and_x(:,:),lambda(:),bmin(:),x(:,:),r(:,:),x0s(:,:),p(:,:),w(:),&
+        alpha,beta,gamma,XX(:),WW(:),PP(:),SA(:,:),SB(:,:),w_x_p(:,:),WW_XX_PP(:,:),&
+        SB_inv(:,:),x_(:,:),lambda_mat(:,:),lambda_ids(:),Bm(:,:),residual(:),norms(:)
+    integer(int32) :: num_eigen
+
+    real(real64) :: tol=dble(1.0e-14)
+    real(real64) :: mu,normval
+    real(real64),intent(inout) :: lambda_min(:)
+    type(Random_) :: random
+    integer(int32) :: i,j,n,id,itr
+    integer(int32) :: m
+
+
+    num_eigen = size(lambda_min,1)
+    n = size(A_rowptr,1) -1
+
+    if(num_eigen*3 >= n)then
+        print *, "ERROR :: num_eigen*3 should be < n"
+        allocate(eigen_vectors(0,0))
+        return
+    endif
+    !m = 3*num_eigen
+    residual = zeros(num_eigen)
+    !https://www.researchgate.net/figure/Algorithm-of-LOBPCG-method-for-matrix-A-Here-the-matrix-T-is-a-preconditioner_fig1_323863889
+   !    !x0s = random%randn(n,3)
+    !initial guess x0
+
+    lambda_min = 0.0d0
+
+    
+    x = zeros(n,num_eigen)
+    x = random%randn(n,num_eigen)
+    
+
+    x = x * 10.0d0
+    do i=1,size(x,1)
+        do j=1,size(x,2)
+            if(abs(x(i,j) )<1.0d0 )then
+                x(i,j) =x(i,j) / abs(x(i,j) )  
+            endif
+        enddo
+    enddo
+    itr=0
+    
+    do 
+        itr=itr+1
+        
+        if(itr==1)then
+
+            ! step 1 to make initial values
+            if(num_eigen/=1)then
+                xtemp = X
+                call gram_real(n,num_eigen,Xtemp,X)
+                
+                ! [ok] X(:,:) :: ok!
+                A_ = matmul(transpose(X),crs_matmul(A_val,A_col,A_rowptr,X))
+                
+                A_ = 0.50d0*A_ + 0.50d0*transpose(A_)
+
+                ! [ok] A_(:,:) has correct size
+                call eigenValueAndVector(A=A_,lambda=lambda,x=x_,tol=tol) 
+                
+                
+                lambda_mat = zeros(num_eigen,num_eigen)
+                lambda_mat(:,:) = 0.0d0
+                do i=1,size(lambda_mat,1)
+                    lambda_mat(i,i) = lambda(i)
+                enddo
+                ! [ok] lambda_mat 
+
+                ! [ok] A_ X = X \Lambda
+
+                ! X1 = X0 B
+                x = matmul(x,x_)
+                ![ok] size and content of R 
+                R = crs_matmul(A_val,A_col,A_rowptr,X) - matmul(X,lambda_mat)
+            else
+                mu = dot_product(x(:,1),crs_matvec(A_val,A_col,A_rowptr,x(:,1) ))/dot_product(x(:,1),x(:,1) )
+                R = crs_matmul(A_val,A_col,A_rowptr,X) - mu*X
+            endif
+
+            ! 2m次元固有値問題
+            V = zeros(n,2*num_eigen)
+            V(:,1:num_eigen) = X
+            V(:,num_eigen+1:) = R
+            ! [ok]直交化
+            xtemp = V
+            call gram_real(n,2*num_eigen,xtemp,V)
+            X=V(:,1:num_eigen)  
+            R=V(:,num_eigen+1:) 
+            
+
+            A_ = matmul(transpose( V ),crs_matmul(A_val,A_col,A_rowptr,V ))
+            ! try
+                
+            A_ = 0.50d0*A_ + 0.50d0*transpose(A_)
+            ![ok] size(A_,1) & size(A_,2)
+
+            !2m 次元固有値問題
+            
+            call eigenValueAndVector(A=A_,lambda=lambda,x=x_,tol=tol) 
+            
+            ![ok] 下から m 個の固有値と固有ベクトルからなる行列:
+            lambda_ids = linspace([1.0d0,dble(2*num_eigen) ], 2*num_eigen)
+            call heapsort(n=2*num_eigen,array=lambda,val=lambda_ids)
+            ![ok] sort
+            
+            lambda_mat = zeros(num_eigen,num_eigen)
+            do i=1,num_eigen
+                lambda_mat(i,i) = lambda(i)
+            enddo
+            
+            ! [ok] check eigen values
+            
+            Bm = zeros(2*num_eigen,num_eigen)
+            do i=1,num_eigen
+                Bm(:,i) = x_(:, int(lambda_ids(i)) )
+            enddo
+            ! X2, R2, P2
+            ! V = {X, R}
+            X = matmul(V,Bm)
+
+            !V = zeros(n,num_eigen*2 )
+            V(:,1:num_eigen) =0.0d0
+            
+            V(:,num_eigen+1:2*num_eigen)  = r(:,:)
+            ! R=R1 orR=R2?
+            ! 今はR1と仮定
+            P = matmul(V,Bm)
+
+            R = crs_matmul(A_val,A_col,A_rowptr, X) - matmul(X, lambda_mat)
+            
+            !V(:,1:num_eigen) =0.0d0
+            !V(:,num_eigen+1:2*num_eigen)  = r(:,:)
+            ! R=R1 orR=R2?
+            ! 今はR2と仮定
+            !P = matmul(V,Bm)
+            
+            do i=1,num_eigen
+                Residual(i) = norm(R(:,i))
+            enddo
+            call print("residual: " + str(maxval(Residual) ))
+            cycle
+            
+        else
+            V  = zeros(n,3*num_eigen) 
+            
+            V(:,1:num_eigen)  = x(:,:)
+            V(:,num_eigen+1:2*num_eigen)  = r(:,:)
+            V(:,2*num_eigen+1:)  = p(:,:)
+            
+
+
+            xtemp = V
+            call gram_real(n,3*num_eigen,xtemp,V)
+
+            x(:,:) = V(:,1:num_eigen)              
+            r(:,:) = V(:,num_eigen+1:2*num_eigen)  
+            p(:,:) = V(:,2*num_eigen+1:)           
+            
+
+            A_ = matmul(transpose(V),crs_matmul(A_val,A_col,A_rowptr,V) )! try
+            
+            A_ = 0.50d0*A_ + 0.50d0*transpose(A_)
+            
+            x_ = zeros(3*num_eigen,3*num_eigen)
+            
+            call eigenValueAndVector(A=A_,lambda=lambda,x=x_,tol=tol) 
+            
+            
+            lambda_ids = linspace([1.0d0,dble(3*num_eigen) ],3*num_eigen)
+            lambda_mat = zeros(num_eigen,num_eigen)
+
+            call heapsort(n=3*num_eigen,array=lambda,val=lambda_ids)
+            ![ok] sort of lambda
+            
+            do i=1,num_eigen
+                lambda_mat(i,i) = lambda( i )
+            enddo
+            
+            Bm = zeros(3*num_eigen,num_eigen)
+            do i=1,num_eigen
+                Bm(:,i) = x_(:, int(lambda_ids(i)) )
+            enddo
+
+            
+            X = matmul(V,Bm)
+            
+            
+            !V = zeros(n,3*num_eigen )
+            V(:,1:num_eigen) = 0.0d0
+            P = matmul(V,Bm)
+            !V(:,num_eigen+1:2*num_eigen)  = r(:,:)
+            !V(:,2*num_eigen+1:)  = p(:,:)
+
+            R = crs_matmul(A_val,A_col,A_rowptr, X) - matmul(X, Lambda_mat)
+            
+            do i=1,num_eigen
+                Residual(i) = norm(R(:,i))
+            enddo
+            
+
+            print *, itr,residual(:)
+            
+            
+            
+            
+            if(maxval(Residual) < tol)then
+                exit
+            endif
+            
+        endif
+        !あとは収束判定
+        if(itr==20000)then
+            print *, "ERROR :: LOBPCG >> did not converge!"
+            exit
+        endif
+    enddo
+    print *, "residual:",maxval(residual)
+    print *, "itr=",itr
+    
+   
+    do i=1,num_eigen
+        lambda_min(i) = lambda( i )
+    enddo
+    eigen_vectors = x
+
+
+
+end function
+!! ###################################################################
+
+
+! ###################################################################
 function LOBPCG_dense(A,B,lambda_min) result(eigen_vectors)
     real(real64),intent(in) :: A(:,:),B(:,:)
     real(real64),allocatable :: eigen_vectors(:,:)
     real(real64),allocatable :: V(:,:),A_(:,:),xtemp(:,:),&
         lambda_and_x(:,:),lambda(:),bmin(:),x(:,:),r(:,:),x0s(:,:),p(:,:),w(:),&
         alpha,beta,gamma,XX(:),WW(:),PP(:),SA(:,:),SB(:,:),w_x_p(:,:),WW_XX_PP(:,:),&
-        SB_inv(:,:),x_(:,:),lambda_mat(:,:),lambda_ids(:),Bm(:,:),residual(:)
+        SB_inv(:,:),x_(:,:),lambda_mat(:,:),lambda_ids(:),Bm(:,:),residual(:),norms(:)
     integer(int32) :: num_eigen
 
-    real(real64) :: tol=dble(1.0e-10)
-    real(real64) :: mu
+    real(real64) :: tol=dble(1.0e-14)
+    real(real64) :: mu,normval
     real(real64),intent(inout) :: lambda_min(:)
     type(Random_) :: random
     integer(int32) :: i,j,n,id,itr
     integer(int32) :: m
 
+
     num_eigen = size(lambda_min,1)
-    m = 3*num_eigen
+    n = size(A,1)
+
+    if(num_eigen*3 >= n)then
+        print *, "ERROR :: num_eigen*3 should be < n"
+        allocate(eigen_vectors(0,0))
+        return
+    endif
+    !m = 3*num_eigen
     residual = zeros(num_eigen)
     !https://www.researchgate.net/figure/Algorithm-of-LOBPCG-method-for-matrix-A-Here-the-matrix-T-is-a-preconditioner_fig1_323863889
    !    !x0s = random%randn(n,3)
     !initial guess x0
-    n = size(A,1)
 
     lambda_min = 0.0d0
 
     n = size(A,1)
-    xtemp = zeros(n,3*num_eigen)
-    
-    eigen_vectors = zeros(n,num_eigen)
     
     x = zeros(n,num_eigen)
     x = random%randn(n,num_eigen)
     
-    do i=1,num_eigen
-        x(:,i) = x(:,i)/norm(x(:,i) )
+
+    x = x * 10.0d0
+    do i=1,size(x,1)
+        do j=1,size(x,2)
+            if(abs(x(i,j) )<1.0d0 )then
+                x(i,j) =x(i,j) / abs(x(i,j) )  
+            endif
+        enddo
     enddo
-    r = zeros(n,num_eigen)
-    do i=1,num_eigen
-        mu = dot_product(x(:,i) ,matmul(A,x(:,i) ))/dot_product(x(:,i),x(:,i) )
-        r(:,i) = matmul(A,x(:,i) ) - mu*x(:,i)
-    enddo
-    !r = r/norm(r)
-    p = zeros(n,num_eigen)
-
-    V  = zeros(n,3*num_eigen)
-    V(:,1:num_eigen) = x(:,:)
-    V(:,num_eigen+1:2*num_eigen) = r(:,:)
-    V(:,2*num_eigen+1:3*num_eigen) = p(:,:)
-    xtemp = V
-
-    call gram_real(n,2*num_eigen,xtemp,v)
-    
-    V  = zeros(n,3*num_eigen )
-    x(:,:) = V(:,1:num_eigen) 
-    r(:,:) = V(:,num_eigen+1:2*num_eigen) 
-    p(:,:) = V(:,2*num_eigen+1:3*num_eigen) 
-    
-
     itr=0
-    lambda_mat = zeros(num_eigen,num_eigen)
+    
     do 
         itr=itr+1
         
         if(itr==1)then
+
+            ! step 1 to make initial values
+            if(num_eigen/=1)then
+                xtemp = X
+                call gram_real(n,num_eigen,Xtemp,X)
+                
+                ! [ok] X(:,:) :: ok!
+                A_ = matmul(transpose(X),matmul(A,X))
+                
+                A_ = 0.50d0*A_ + 0.50d0*transpose(A_)
+
+                ! [ok] A_(:,:) has correct size
+                call eigenValueAndVector(A=A_,lambda=lambda,x=x_,tol=tol) 
+                
+                
+                lambda_mat = zeros(num_eigen,num_eigen)
+                lambda_mat(:,:) = 0.0d0
+                do i=1,size(lambda_mat,1)
+                    lambda_mat(i,i) = lambda(i)
+                enddo
+                ! [ok] lambda_mat 
+
+                ! [ok] A_ X = X \Lambda
+
+                ! X1 = X0 B
+                x = matmul(x,x_)
+                ![ok] size and content of R 
+                R = matmul(A,X) - matmul(X,lambda_mat)
+            else
+                mu = dot_product(x(:,1),matmul(A(:,:),x(:,1) ))/dot_product(x(:,1),x(:,1) )
+                R = matmul(A,X) - mu*X
+            endif
+
+            ! 2m次元固有値問題
+            V = zeros(n,2*num_eigen)
+            V(:,1:num_eigen) = X
+            V(:,num_eigen+1:) = R
+            ! [ok]直交化
+            xtemp = V
+            call gram_real(n,2*num_eigen,xtemp,V)
+            X=V(:,1:num_eigen)  
+            R=V(:,num_eigen+1:) 
             
-            A_ = matmul(transpose(X),matmul(A,X))
+
+            A_ = matmul(transpose( V ),matmul(A,V ))
+            ! try
+                
             A_ = 0.50d0*A_ + 0.50d0*transpose(A_)
-            call eigenValueAndVector(A=A_,lambda=lambda,x=x_,tol=tol) 
-            ! X1 = X0 B
-            x = matmul(x,x_)
-            lambda_mat(:,:) = 0.0d0
-            do i=1,size(lambda_mat)
-                lambda_mat(i,i) = lambda(i)
-            enddo
-            R = matmul(A,X) - matmul(X,lambda_mat)
-            !直交化
-            call gram_real(n,num_eigen,X,X)
-            call gram_real(n,num_eigen,R,R)
-            A_ = zeros(n,2*num_eigen)
-            A_(:,1:num_eigen) = X
-            A_(:,num_eigen+1:) = R
-            A_ = matmul(transpose( A_ ),matmul(A,A_ ))
-            A_ = 0.50d0*A_ + 0.50d0*transpose(A_)
+            ![ok] size(A_,1) & size(A_,2)
+
             !2m 次元固有値問題
+            
             call eigenValueAndVector(A=A_,lambda=lambda,x=x_,tol=tol) 
-            !下から m 個の固有値と固有ベクトルからなる行列:
-            lambda_ids = linspace([1.0d0,dble(num_eigen) ],num_eigen)
+            
+            ![ok] 下から m 個の固有値と固有ベクトルからなる行列:
+            lambda_ids = linspace([1.0d0,dble(2*num_eigen) ], 2*num_eigen)
             call heapsort(n=2*num_eigen,array=lambda,val=lambda_ids)
+            ![ok] sort
+            
             lambda_mat = zeros(num_eigen,num_eigen)
             do i=1,num_eigen
-                lambda_mat(i,i) = lambda( int(lambda_ids(i) ) )
+                lambda_mat(i,i) = lambda(i)
             enddo
+            
+            ! [ok] check eigen values
+            
             Bm = zeros(2*num_eigen,num_eigen)
-            do i=1,2*num_eigen
+            do i=1,num_eigen
                 Bm(:,i) = x_(:, int(lambda_ids(i)) )
             enddo
             ! X2, R2, P2
-            X = matmul(A_,Bm)
-            R = matmul(A, X) - matmul(X, Lambda_mat)
-            A_ = zeros(n,size(r,2)*2 )
+            ! V = {X, R}
+            X = matmul(V,Bm)
 
-            A_(:,num_eigen+1:2*num_eigen)  = r(:,:)
+            !V = zeros(n,num_eigen*2 )
+            V(:,1:num_eigen) =0.0d0
             
-            P = matmul(A_,Bm)
+            V(:,num_eigen+1:2*num_eigen)  = r(:,:)
+            ! R=R1 orR=R2?
+            ! 今はR1と仮定
+            P = matmul(V,Bm)
+
+            R = matmul(A, X) - matmul(X, lambda_mat)
+            
+            !V(:,1:num_eigen) =0.0d0
+            !V(:,num_eigen+1:2*num_eigen)  = r(:,:)
+            ! R=R1 orR=R2?
+            ! 今はR2と仮定
+            !P = matmul(V,Bm)
+            
             do i=1,num_eigen
                 Residual(i) = norm(R(:,i))
             enddo
+            call print("residual: " + str(maxval(Residual) ))
+            cycle
             
-            if(minval(Residual) < tol)then
-                exit
-            endif
-
         else
             V  = zeros(n,3*num_eigen) 
             
             V(:,1:num_eigen)  = x(:,:)
             V(:,num_eigen+1:2*num_eigen)  = r(:,:)
-            V(:,2*num_eigen+1:3*num_eigen)  = p(:,:)
-            A_ = matmul(transpose(V),matmul(A,V) )
+            V(:,2*num_eigen+1:)  = p(:,:)
+            
+
+
+            xtemp = V
+            call gram_real(n,3*num_eigen,xtemp,V)
+
+            x(:,:) = V(:,1:num_eigen)              
+            r(:,:) = V(:,num_eigen+1:2*num_eigen)  
+            p(:,:) = V(:,2*num_eigen+1:)           
+            
+
+            A_ = matmul(transpose(V),matmul(A,V) )! try
+            
+            A_ = 0.50d0*A_ + 0.50d0*transpose(A_)
+            
+            x_ = zeros(3*num_eigen,3*num_eigen)
+            
             call eigenValueAndVector(A=A_,lambda=lambda,x=x_,tol=tol) 
-            lambda_ids = linspace([1.0d0,dble(num_eigen) ],num_eigen)
+            
+            
+            lambda_ids = linspace([1.0d0,dble(3*num_eigen) ],3*num_eigen)
             lambda_mat = zeros(num_eigen,num_eigen)
+
+            call heapsort(n=3*num_eigen,array=lambda,val=lambda_ids)
+            ![ok] sort of lambda
+            
             do i=1,num_eigen
-                lambda_mat(i,i) = lambda( int(lambda_ids(i) ) )
+                lambda_mat(i,i) = lambda( i )
             enddo
+            
             Bm = zeros(3*num_eigen,num_eigen)
-            do i=1,2*num_eigen
+            do i=1,num_eigen
                 Bm(:,i) = x_(:, int(lambda_ids(i)) )
             enddo
 
+            
             X = matmul(V,Bm)
-            R = matmul(A, X) - matmul(X, Lambda_mat)
-            A_ = zeros(n,size(r,2)*3 )
+            
+            
+            !V = zeros(n,3*num_eigen )
+            V(:,1:num_eigen) = 0.0d0
+            P = matmul(V,Bm)
+            !V(:,num_eigen+1:2*num_eigen)  = r(:,:)
+            !V(:,2*num_eigen+1:)  = p(:,:)
 
-            V(:,num_eigen+1:2*num_eigen)  = r(:,:)
-            V(:,2*num_eigen+1:3*num_eigen)  = p(:,:)
-            P = matmul(A_,Bm)
+            R = matmul(A, X) - matmul(X, Lambda_mat)
+            
             do i=1,num_eigen
                 Residual(i) = norm(R(:,i))
             enddo
-            if(minval(Residual) < tol)then
+            
+
+            print *, itr,residual(:)
+            
+            
+            
+            
+            if(maxval(Residual) < tol)then
                 exit
             endif
             
         endif
         !あとは収束判定
-        if(itr==10000)then
+        if(itr==20000)then
             print *, "ERROR :: LOBPCG >> did not converge!"
             exit
         endif
     enddo
-    print *, "residual:",minval(residual)
+    print *, "residual:",maxval(residual)
     print *, "itr=",itr
     
+   
     do i=1,num_eigen
-        lambda_min(i) = lambda( int(lambda_ids(i) ) )
+        lambda_min(i) = lambda( i )
     enddo
     eigen_vectors = x
 
@@ -880,7 +1191,17 @@ subroutine gram_real(m,n,mat_v,mat_v_out)
             viold = vi
         end do
         norm = sqrt(dble(dot_product(viold,viold)))
-        mat_v_out(:,j) = viold/norm
+        if(norm==0.0d0)then
+            ! DEBUG Right?
+            print *, "ERROR gram_real :: norm-zero"
+            mat_v_out(j,j) =1.0d0
+            !
+            !stop
+            
+            !mat_v_out(:,j) = viold
+        else
+            mat_v_out(:,j) = viold/norm
+        endif
     end do
     return
 end subroutine gram_real
@@ -928,8 +1249,87 @@ end subroutine gram_real
 !    D = matmul( transpose(S), )
 !
 !end subroutine
+subroutine to_CRS(DenseMatrix,CRS_val,CRS_col,CRS_rowptr) 
+    real(real64),intent(in) :: DenseMatrix(:,:)
+    real(real64),allocatable,intent(inout) :: CRS_val(:)
+    integer(int32),allocatable,intent(inout) :: CRS_col(:),CRS_rowptr(:)
 
-function crs_matmul(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
+    integer(int32) :: nonzero_count,i,j,k,n
+
+    nonzero_count = 0
+    do i=1,size(DenseMatrix,1)
+        do j=1,size(DenseMatrix,2)
+            if(DenseMatrix(i,j)/=0.0d0 ) then
+                nonzero_count = nonzero_count + 1
+            endif
+        enddo
+    enddo
+    CRS_val = zeros(nonzero_count)
+    CRS_col = int(linspace([1.0d0,dble(nonzero_count)],nonzero_count))
+    CRS_rowptr = int(zeros(size(DenseMatrix,1)+1) )
+    
+    nonzero_count = 0
+    do i=1,size(DenseMatrix,1)
+        do j=1,size(DenseMatrix,2)
+            if(DenseMatrix(i,j)/=0.0d0 ) then
+                nonzero_count = nonzero_count + 1
+                CRS_val(nonzero_count) = DenseMatrix(i,j)
+                CRS_col(nonzero_count) = j
+                CRS_rowptr(i) = CRS_rowptr(i) + 1
+            endif
+        enddo
+    enddo
+    
+    n = CRS_rowptr(1) 
+    !CRS_rowptr(1) =0
+    do i=1,size(CRS_rowptr)-1
+        CRS_rowptr(i+1) = CRS_rowptr(i+1) + CRS_rowptr(i) 
+    enddo
+    do i=size(CRS_rowptr)-1,1,-1
+        CRS_rowptr(i+1) = CRS_rowptr(i) 
+    enddo
+    do i=size(CRS_rowptr),1,-1
+        CRS_rowptr(i) = CRS_rowptr(i) +1
+    enddo
+    CRS_rowptr(1) = 1
+    
+    
+end subroutine
+
+function crs_matmul(CRS_value,CRS_col,CRS_row_ptr,old_vectors) result(new_vectors)
+    real(real64),intent(in)  :: CRS_value(:),Old_vectors(:,:)
+    integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
+
+    real(real64),allocatable :: new_vectors(:,:)
+    integer(int32) :: i, j, n,gid,lid,row,CRS_id,col,m
+    !> x_i = A_ij b_j
+
+
+    n = size(CRS_row_ptr)-1
+    m = size(old_vectors,2)
+    if(size(old_vectors,1)/=n )then
+        print *, "ERROR crs_matmul :: inconsistent size for old_vectors"
+        return
+    endif
+
+    new_vectors = zeros(n,m) 
+    !!$OMP parallel do default(shared) private(CRS_id,col)
+    do row=1,n
+        do CRS_id=CRS_row_ptr(row),CRS_row_ptr(row+1)-1
+            col = CRS_col(CRS_id)
+            do j=1,m
+                !!$OMP atomic
+                new_vectors(row,j) = new_vectors(row,j) &
+                    + CRS_value(CRS_id)*old_vectors(col,j)
+            enddo
+        enddo
+    enddo
+    !!$OMP end parallel do 
+    
+end function
+! ###################################################################
+
+function crs_matvec(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
     real(real64),intent(in)  :: CRS_value(:),Old_vector(:)
     integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
 
@@ -940,14 +1340,14 @@ function crs_matmul(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
 
     n = size(CRS_row_ptr)-1
     if(size(old_vector)/=n )then
-        print *, "ERROR crs_matmul :: inconsistent size for old_vector"
+        print *, "ERROR crs_matvec :: inconsistent size for old_vector"
         return
     endif
 
     new_vector = zeros(n) 
     !$OMP parallel do default(shared) private(CRS_id,col)
     do row=1,n
-        do CRS_id=CRS_row_ptr(i),CRS_row_ptr(i+1)-1
+        do CRS_id=CRS_row_ptr(row),CRS_row_ptr(row+1)-1
             col = CRS_col(CRS_id)
             !$OMP atomic
             new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(col)
