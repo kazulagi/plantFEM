@@ -40,14 +40,19 @@ module FEMSolverClass
         procedure,public ::  setMatrix  => setMatrixFEMSolver
         procedure,public ::  setVector  => setVectorFEMSolver
 
-        !(5) fix x=\bar{x}
+        !(5) fix x=\bar{x} (not implemented yet.)
         procedure,public :: fix => fixFEMSolver
 
+        
         !(6) save matrix
         procedure,public :: saveMatrix => saveMatrixFEMSolver
         
+        !(7-1) Modal analysis
+        procedure,public :: eig => eigFEMSolver
         !re-zero matrix
         procedure,public :: zeros => zerosFEMSolver
+        ! M:diag matrix,  A*M^{-1}
+        procedure,public :: matmulDiagMatrix => matmulDiagMatrixFEMSolver
 
     end type
 contains
@@ -545,19 +550,8 @@ subroutine fixFEMSolver(this,DomainID,NodeIDs,DOFs,to)
 
     !
 end subroutine
-! ###################################################################
-!function LOBPCG(A,B,num_eigens,err) result(eigens)
-!    type(FEMSolver_),intent(in) :: A, B
-!    complex(real64),allocatable :: eigens(:,:)
-!    integer(int32),intent(in) :: num_eigens
-!    real(real64),optional,intent(in) :: err
-!    real(real64) :: error_tolerance
-!    integer(int32) :: i,j,m,nx,nv
-!
-!    
-!end function
-! ###################################################################
-function LOBPCG_sparse(A_val,A_col,A_rowptr,lambda_min) result(eigen_vectors)
+
+function LOBPCG_sparse(A_val,A_col,A_rowptr,lambda_min,tolerance) result(eigen_vectors)
     real(real64),intent(in) :: A_val(:)
     integer(int32),intent(in)::A_col(:),A_rowptr(:)
     real(real64),allocatable :: eigen_vectors(:,:)
@@ -566,7 +560,7 @@ function LOBPCG_sparse(A_val,A_col,A_rowptr,lambda_min) result(eigen_vectors)
         alpha,beta,gamma,XX(:),WW(:),PP(:),SA(:,:),SB(:,:),w_x_p(:,:),WW_XX_PP(:,:),&
         SB_inv(:,:),x_(:,:),lambda_mat(:,:),lambda_ids(:),Bm(:,:),residual(:),norms(:)
     integer(int32) :: num_eigen
-
+    real(real64),optional,intent(in) :: tolerance 
     real(real64) :: tol=dble(1.0e-14)
     real(real64) :: mu,normval
     real(real64),intent(inout) :: lambda_min(:)
@@ -574,7 +568,7 @@ function LOBPCG_sparse(A_val,A_col,A_rowptr,lambda_min) result(eigen_vectors)
     integer(int32) :: i,j,n,id,itr
     integer(int32) :: m
 
-
+    tol = input(default=dble(1.0e-14),option=tolerance)
     num_eigen = size(lambda_min,1)
     n = size(A_rowptr,1) -1
 
@@ -622,7 +616,7 @@ function LOBPCG_sparse(A_val,A_col,A_rowptr,lambda_min) result(eigen_vectors)
                 A_ = 0.50d0*A_ + 0.50d0*transpose(A_)
 
                 ! [ok] A_(:,:) has correct size
-                call eigenValueAndVector(A=A_,lambda=lambda,x=x_,tol=tol) 
+                call eigenValueAndVector(A=A_,lambda=lambda,x=x_,tol=tol*dble(1.0e-3) ) 
                 
                 
                 lambda_mat = zeros(num_eigen,num_eigen)
@@ -662,7 +656,7 @@ function LOBPCG_sparse(A_val,A_col,A_rowptr,lambda_min) result(eigen_vectors)
 
             !2m 次元固有値問題
             
-            call eigenValueAndVector(A=A_,lambda=lambda,x=x_,tol=tol) 
+            call eigenValueAndVector(A=A_,lambda=lambda,x=x_,tol=dble(1.0e-14)) 
             
             ![ok] 下から m 個の固有値と固有ベクトルからなる行列:
             lambda_ids = linspace([1.0d0,dble(2*num_eigen) ], 2*num_eigen)
@@ -729,7 +723,7 @@ function LOBPCG_sparse(A_val,A_col,A_rowptr,lambda_min) result(eigen_vectors)
             
             x_ = zeros(3*num_eigen,3*num_eigen)
             
-            call eigenValueAndVector(A=A_,lambda=lambda,x=x_,tol=tol) 
+            call eigenValueAndVector(A=A_,lambda=lambda,x=x_,tol=dble(1.0e-14)) 
             
             
             lambda_ids = linspace([1.0d0,dble(3*num_eigen) ],3*num_eigen)
@@ -764,7 +758,7 @@ function LOBPCG_sparse(A_val,A_col,A_rowptr,lambda_min) result(eigen_vectors)
             enddo
             
 
-            print *, itr,residual(:)
+            print *, "info: ",itr,maxval(residual),minval(residual)
             
             
             
@@ -1001,9 +995,6 @@ function LOBPCG_dense(A,B,lambda_min) result(eigen_vectors)
             do i=1,num_eigen
                 Residual(i) = norm(R(:,i))
             enddo
-            
-
-            print *, itr,residual(:)
             
             
             
@@ -1249,6 +1240,27 @@ end subroutine gram_real
 !    D = matmul( transpose(S), )
 !
 !end subroutine
+subroutine to_Dense(CRS_val,CRS_col,CRS_rowptr,DenseMatrix)
+
+    real(real64),allocatable,intent(inout) :: DenseMatrix(:,:)
+    real(real64),allocatable,intent(in) :: CRS_val(:)
+    integer(int32),allocatable,intent(in) :: CRS_col(:),CRS_rowptr(:)
+
+    integer(int32) :: nonzero_count,i,j,k,n
+
+    n = size(CRS_rowptr) -1
+    
+    allocate(DenseMatrix(n,n) )
+    DenseMatrix(:,:) = 0.0d0
+
+    do i=1,size(CRS_rowptr)-1
+        do j=CRS_rowptr(i) ,CRS_rowptr(i+1)-1
+            
+            DenseMatrix(  i ,CRS_col(j) ) = CRS_val(j)
+        enddo
+    enddo
+end subroutine
+
 subroutine to_CRS(DenseMatrix,CRS_val,CRS_col,CRS_rowptr) 
     real(real64),intent(in) :: DenseMatrix(:,:)
     real(real64),allocatable,intent(inout) :: CRS_val(:)
@@ -1295,12 +1307,59 @@ subroutine to_CRS(DenseMatrix,CRS_val,CRS_col,CRS_rowptr)
     
     
 end subroutine
+!
+function diag(this) result(diag_vector)
+    class(FEMSolver_),intent(in) :: this
+    real(real64),allocatable :: diag_vector(:)
+    integer(int32) :: row,col,id
 
+    ! diagonal components of CRS matrix
+    if(allocated(this%CRS_val) )then
+        diag_vector = zeros(size(this%CRS_Index_row) -1 )
+        do row=1,size(this%CRS_Index_row) -1
+            do id=this%CRS_Index_row(row),this%CRS_Index_row(row+1)-1
+                col = this%CRS_Index_col(id)
+                if(col==row)then
+                    diag_vector(row) = this%CRS_val(id)
+                endif
+            enddo
+        enddo
+    endif
+
+end function
+!
+subroutine matmulDiagMatrixFEMSolver(this,diagMat)
+    class(FEMSolver_),intent(inout) :: this
+    real(real64),intent(in) :: diagMat(:)
+    integer(int32) :: n
+    integer(int32) :: row,col,id
+    
+    n = size(diagMat)
+!> diag is diagonal component of n x n matrix
+
+    ! diagonal components of CRS matrix
+    if(allocated(this%CRS_val) )then
+        do row=1,size(this%CRS_Index_row) -1
+            do id=this%CRS_Index_row(row),this%CRS_Index_row(row+1)-1
+                col = this%CRS_Index_col(id)
+                if(col==row)then
+                    this%CRS_val(id) = this%CRS_val(id)*diagMat(row)
+                endif
+            enddo
+        enddo
+    endif
+
+end subroutine
+
+
+!
 function crs_matmul(CRS_value,CRS_col,CRS_row_ptr,old_vectors) result(new_vectors)
     real(real64),intent(in)  :: CRS_value(:),Old_vectors(:,:)
     integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
 
     real(real64),allocatable :: new_vectors(:,:)
+    
+    
     integer(int32) :: i, j, n,gid,lid,row,CRS_id,col,m
     !> x_i = A_ij b_j
 
@@ -1435,5 +1494,40 @@ end subroutine
 
 ! ###################################################################
 
+function eigFEMSolver(this,num_eigen,tol,eigen_value,as_dense) result(eig_vec)
+    class(FEMSolver_),intent(in)::this
+    real(real64),allocatable :: eig_vec(:,:),dense_mat(:,:)
+    real(real64),optional,allocatable,intent(inout) :: eigen_value(:)
+    real(real64),intent(in) :: tol
+    integer(int32),optional,intent(in) :: num_eigen
+    integer(int32) :: ndim
+    logical,optional,intent(in) :: as_dense
+    !> default =>> get eigen vectors of this%CRS
+    !> eigens(:,0) are eigen values
+    !> eigens(:,n) are n-th eigen vectors
+    if(present(as_Dense))then
+        if(as_Dense)then
+            call to_Dense(this%CRS_val,this%CRS_index_col,this%CRS_index_row,&
+                dense_mat)
+            dense_mat = 0.50d0*(dense_mat + transpose(dense_mat) )
+            call eigenValueAndVector(A=dense_mat,&
+                lambda=eigen_value,x=eig_vec,tol=tol) 
+            return
+        endif
+    endif
+
+    ndim = size(this%CRS_Index_Row) - 1
+
+    eigen_value = zeros(num_eigen)
+    eig_vec =  LOBPCG_sparse(&
+        A_val=this%CRS_val,&
+        A_col=this%CRS_index_col,&
+        A_rowptr=this%CRS_index_row,&
+        lambda_min=eigen_value,&
+        tolerance=tol)
+
+    
+end function
+! ###################################################################
 
 end module 
