@@ -201,6 +201,7 @@ module SoybeanClass
             => getDistanceToGroundFromStemIDSoybean
         procedure,public :: getDistanceToGroundFromRootID &
             => getDistanceToGroundFromRootIDSoybean
+        procedure,public :: getLeafCosValue => getLeafCosValueSoybean
         
         procedure,public :: getRangeOfNodeID => getRangeOfNodeIDSoybean
         procedure,public :: getPPFD => getPPFDSoybean
@@ -6036,11 +6037,16 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
     type(Leaf_),optional,intent(inout) :: leaf(:)
 
     real(real64),allocatable :: ppfd(:), NumberOfElement(:), NumberOfPoint(:)
-    real(real64),allocatable :: leaf_pass_num(:),nodcoord(:,:),radius_vec(:)
+    real(real64),allocatable :: leaf_pass_num(:),nodcoord(:,:),radius_vec(:),elem_cosins(:)
     real(real64) ::thickness,center_x(3),xmin(3),xmax(3),radius,radius_tr,coord(3),Transparency_val
     real(real64) :: zmin
     integer(int32) :: from, to, i,n,j,k,l,element_id
+    
     logical :: inside, upside
+
+
+    ! compute cosin
+    !elem_cosins = obj%getLeafCosValue(light)
 
     ! rotate soybean
     call obj%rotate(z=radian(180.0d0 - light%angles(1)))
@@ -6062,6 +6068,7 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
     ! ppfdが通過した葉の積算長さで減衰するモデル
     NumberOfElement = obj%getNumberOfElement()
     ppfd = zeros(obj%ne() ) 
+    elem_cosins = zeros(obj%ne() ) 
     i = sum(NumberOfElement(1:obj%numStem())+1)
     j = sum(NumberOfElement(1:obj%numStem() + obj%numLeaf()))
     ppfd( i:j ) = light%maxPPFD
@@ -6136,6 +6143,8 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
             do j=1,obj%leaf(i)%femdomain%ne()
                 ! 中心座標
                 center_x = obj%leaf(i)%femdomain%centerPosition(ElementID=j)
+                
+                
                 ! 枚数のみカウント
                 ! 1枚あたりthicknessだけ距離加算
                 !$OMP parallel do default(shared), private(inside,upside,radius_vec,radius_tr,zmin,n,element_id)
@@ -6168,6 +6177,7 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
                                 n = obj%numStem() + (i-1)
                                 element_id = sum(NumberOfElement(1:n)) + j
                                 leaf_pass_num(element_id) = leaf_pass_num(element_id) + 1.0d0
+                                
                             endif
                         endif
                     endif
@@ -6178,9 +6188,13 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
         endif
     enddo
     !$OMP end parallel do
-    !print *, maxval(leaf_pass_num),minval(leaf_pass_num)
-    !ppfd = leaf_pass_num
+
+    
+    !ppfd = ppfd*reduction*cosin-value
     ppfd(:) = ppfd(:) * Transparency_val** leaf_pass_num(:)
+    !ppfd(:) = ppfd(:)*elem_cosins(:)
+    
+
     
     ! get back
     call obj%rotate(x=-radian(90.0d0 - light%angles(2)))
@@ -6191,13 +6205,63 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
             call leaf(i)%femdomain%rotate(z=-radian(180.0d0 - light%angles(1)))
         enddo
     endif
-    !本当にあってる？？
     
 
 end function
 ! ############################################################################
 
+! ############################################################################
+function getLeafCosValueSoybean(obj,light,num_threads)  result(elem_cosins)
+    class(Soybean_),intent(inout) :: obj 
+    type(Light_),intent(in)    :: light
+    integer(int32),optional,intent(in) :: num_threads
 
+    real(real64),allocatable :: cosin_value(:), NumberOfElement(:), NumberOfPoint(:)
+    real(real64),allocatable :: leaf_pass_num(:),nodcoord(:,:),radius_vec(:),elem_cosins(:),&
+        N_Light(:),N_Leaf(:)
+    real(real64) ::thickness,center_x(3),xmin(3),xmax(3),radius,radius_tr,coord(3),Transparency_val
+    real(real64) :: zmin
+    integer(int32) :: from, to, i,n,j,k,l,element_id
+    
+    logical :: inside, upside
+
+    ! rotate soybean
+
+    call obj%rotate(z=radian(180.0d0 - light%angles(1)))
+    call obj%rotate(x=radian(90.0d0 - light%angles(2)))
+
+    NumberOfElement = obj%getNumberOfElement()
+    
+    elem_cosins = zeros(obj%ne() ) 
+    
+
+    if(present(num_threads) )then
+        call omp_set_num_threads(num_threads)
+    endif
+
+
+    !$OMP parallel do default(shared), private(j,k,n,element_id,N_leaf,N_light)
+    do i=1, size(obj%leaf)
+        if(.not. obj%leaf(i)%femdomain%empty() )then
+            !print *, i, "/", obj%numLeaf()
+            !$OMP parallel do default(shared), private(k,n,element_id,N_leaf,N_light)
+            do j=1,obj%leaf(i)%femdomain%ne()
+                ! cosin rule
+                n = obj%numStem() + (i-1)                    
+                element_id = sum(NumberOfElement(1:n)) + j
+                N_leaf = obj%leaf(i)%getNormalVector(ElementID=j)
+                N_light = [0.0d0,0.0d0,1.0d0]
+                elem_cosins(element_id) = dble(dot_product(N_light,N_Leaf))
+            enddo
+            !$OMP end parallel do
+        endif
+    enddo
+    !$OMP end parallel do
+
+    ! get back
+    call obj%rotate(x=-radian(90.0d0 - light%angles(2)))
+    call obj%rotate(z=-radian(180.0d0 - light%angles(1)))
+end function
 ! ############################################################################
 function getPhotoSynthesisSoybean(obj,light,air,dt,Transparency,Resolution,ppfd)  result(photosynthesis)
     class(Soybean_),intent(inout) :: obj 

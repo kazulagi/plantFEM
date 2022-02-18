@@ -7,7 +7,7 @@ module LightClass
         character(200)   :: lighttype="sun"
         real(real64)     :: position(3)
         real(real64)     :: maxPPFD
-        real(real64)     :: angles(1:2)=[180.0d0,0.0d0]
+        real(real64)     :: angles(1:2)=[180.0d0,90.0d0]
         ! [ 方位角(deg.), 太陽高度(deg.)]
         type(Earth_),pointer :: earth
         type(FEMDomain_) :: femdomain 
