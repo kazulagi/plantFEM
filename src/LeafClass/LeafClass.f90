@@ -34,8 +34,12 @@ module LeafClass
         integer(int32),allocatable  :: II_planeElementID(:)
         integer(int32)  :: A_PointNodeID
         integer(int32)  :: B_PointNodeID
+        integer(int32)  :: C_PointNodeID
+        integer(int32)  :: D_PointNodeID
         integer(int32)  :: A_PointElementID
         integer(int32)  :: B_PointElementID
+        integer(int32)  :: C_PointElementID
+        integer(int32)  :: D_PointElementID
         integer(int32)  :: xnum = 10
         integer(int32)  :: ynum = 10
         integer(int32)  :: znum = 10
@@ -107,6 +111,7 @@ module LeafClass
         procedure, public :: getLeafArea => getLeafAreaLeaf
         procedure, public :: getRadius => getRadiusLeaf
         procedure, public :: getCenter => getCenterLeaf
+        procedure, public :: getNormalVector => getNormalVectorLeaf
 
 
         procedure, public :: gmsh => gmshleaf
@@ -525,12 +530,16 @@ end subroutine
         !obj%B_PointNodeID = buf(1)
         obj%B_PointNodeID = median(buf)
 
+
+
         buf    = obj%FEMDomain%mesh%getElementList(&
             xmin=obj%minwidth/2.0d0 - obj%minwidth/dble(obj%xnum)/2.0d0 ,&
             xmax=obj%minwidth/2.0d0 + obj%minwidth/dble(obj%xnum)/2.0d0 ,&
             ymin=obj%minwidth/2.0d0 - obj%minwidth/dble(obj%ynum)/2.0d0 ,&
             ymax=obj%minwidth/2.0d0 + obj%minwidth/dble(obj%ynum)/2.0d0 ,&
             zmax=0.0d0)
+
+            
         !obj%A_PointElementID = buf(1)
         obj%A_PointElementID = median(buf)
     
@@ -559,37 +568,33 @@ end subroutine
 
         obj%thickness = maxval(obj%femdomain%mesh%nodcoord(:,2)) &
             - minval(obj%femdomain%mesh%nodcoord(:,2))
-    ! デバッグ用
-    !    call f%open("I_phaseNodeID.txt")
-    !    do i=1,size(obj%I_planeNodeID)
-    !        write(f%fh,*) obj%femdomain%mesh%NodCoord( obj%I_planeNodeID(i) ,:)
-    !    enddo
-    !    call f%close()
-    !
-    !    call f%open("II_phaseNodeID.txt")
-    !    do i=1,size(obj%II_planeNodeID)
-    !        write(f%fh,*) obj%femdomain%mesh%NodCoord( obj%II_planeNodeID(i) ,:)
-    !    enddo
-    !    call f%close()
-    !
-    !    call f%open("I_phaseElementID.txt")
-    !    do i=1,size(obj%I_planeElementID)
-    !        do j=1,size(obj%femdomain%mesh%elemnod,2)
-    !            write(f%fh,*) obj%femdomain%mesh%NodCoord( &
-    !            obj%femdomain%mesh%elemnod(obj%I_planeElementID(i),j),:)
-    !        enddo
-    !    enddo
-    !    call f%close()
-    !
-    !    call f%open("II_phaseElementID.txt")
-    !    do i=1,size(obj%II_planeElementID)
-    !        do j=1,size(obj%femdomain%mesh%elemnod,2)
-    !            write(f%fh,*) obj%femdomain%mesh%NodCoord( &
-    !            obj%femdomain%mesh%elemnod(obj%II_planeElementID(i),j),:)
-    !        enddo
-    !    enddo
-    !    call f%close()
-    !    return
+        
+        
+        buf   = obj%FEMDomain%mesh%getNodeList(&
+            xmin=maxval(obj%FEMdomain%mesh%nodcoord(:,1) ) &
+        )
+        !obj%A_PointNodeID = buf(1)
+        obj%C_PointNodeID = median(buf)
+    
+        buf   = obj%FEMDomain%mesh%getNodeList(&
+            xmax=minval(obj%FEMdomain%mesh%nodcoord(:,1) ) &
+        )    !obj%B_PointNodeID = median(buf)
+        obj%D_PointNodeID = median(buf)
+
+
+        
+        buf    = obj%FEMDomain%mesh%getElementList(&
+            xmin=maxval(obj%FEMdomain%mesh%nodcoord(:,1) )-obj%minwidth/2.0d0/2.0d0/dble(obj%xnum) &
+        )
+            
+        !obj%A_PointElementID = median(buf)
+        obj%C_PointElementID = median(buf)
+    
+        buf    = obj%FEMDomain%mesh%getElementList(&
+            xmax=minval(obj%FEMdomain%mesh%nodcoord(:,1) )+obj%minwidth/2.0d0/2.0d0/dble(obj%xnum) &
+        )    
+        !obj%B_PointElementID = median(buf)
+        obj%D_PointElementID = median(buf)
     
         ! Aについて、要素番号、節点番号、要素座標、節点座標のリストを生成
     
@@ -1400,6 +1405,80 @@ subroutine syncLeafVector(obj,from,mpid)
 	enddo
 
 end subroutine
+! ##################################################################
+function getNormalVectorLeaf(obj,ElementID) result(ret)
+    class(Leaf_),intent(inout) :: obj
+    integer(int32),intent(in) :: ElementID
+    real(real64),allocatable :: ret(:),x_A(:),x_B(:),x_C(:),x_D(:),x(:),&
+        n_AC(:),n_CB(:),n_BD(:),n_DA(:)
+    real(real64) :: min_norm
+    integer(int32) :: num_effective_norms,nd
 
+    nd = obj%femdomain%nd()
+    allocate(ret(nd) )
+    x_A = obj%femdomain%centerPosition(ElementID=obj%A_PointElementID)
+    x_B = obj%femdomain%centerPosition(ElementID=obj%B_PointElementID)
+    x_C = obj%femdomain%centerPosition(ElementID=obj%C_PointElementID)
+    x_D = obj%femdomain%centerPosition(ElementID=obj%D_PointElementID)
+    x   = obj%femdomain%centerPosition(ElementID=ElementID)
+    
+    n_AC = cross_product(x_C -x_A,x - x_C )
+    n_CB = cross_product(x_B -x_C,x - x_B )
+    n_BD = cross_product(x_D -x_B,x - x_D )
+    n_DA = cross_product(x_A -x_D,x - x_A )
+    
+    num_effective_norms = 0
+    min_norm = dble(1.0e-6)
+    if(norm(n_AC)< min_norm)then
+        n_AC = zeros(nd)
+    else 
+        num_effective_norms = num_effective_norms + 1
+        n_AC = n_AC(:)/norm(n_AC)   
+    endif
+
+    if(norm(n_CB)< min_norm)then
+        n_CB = zeros(nd)
+    else 
+        num_effective_norms = num_effective_norms + 1
+        n_CB = n_CB(:)/norm(n_CB)   
+    endif
+
+    if(norm(n_BD)< min_norm)then
+        n_BD = zeros(nd)
+    else 
+        num_effective_norms = num_effective_norms + 1
+        n_BD = n_BD(:)/norm(n_BD)   
+    endif
+
+    if(norm(n_DA)< dble(1.0e-6))then
+        n_DA = zeros(nd)
+    else 
+        num_effective_norms = num_effective_norms + 1
+        n_DA = n_DA(:)/norm(n_DA)   
+    endif
+
+    if(num_effective_norms==0)then
+        print *, "ERROR :: getNormalVectorLeaf >> no valid normal vector is found"
+        stop 
+    endif
+    ret = (n_AC + n_CB + n_BD + n_DA)/dble(num_effective_norms)
+    ret = ret/norm(ret)*(-1.0d0)
+    ! get outer nomal of the element 
+
+
+    
+        !
+        !           D %%%%%%%%%%%%%%%%%%%%%%%%%%%  B
+        !         %%                        %   %
+        !        %%                    %      %%  
+        !      %%                 %          %%    
+        !     %%            %              %%      
+        !     %%      %                  %%        
+        !     %%                       %%          
+        !   A   %%                  %%            
+        !      <I> %%%%%%%%%%%%%%%% C    
+
+
+end function
 
 end module 
