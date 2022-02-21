@@ -16,6 +16,21 @@ module FEMSolverClass
         integer(int32),allocatable :: CRS_Index_Col(:)
         integer(int32),allocatable :: CRS_Index_Row(:)
         real(real64),allocatable :: CRS_RHS(:)
+        
+        !> General Eigen Value Problem
+        !> [A]{x} = (lambda)[B]{x}
+
+        real(real64),allocatable   :: A_CRS_val(:)
+        integer(int32),allocatable :: A_CRS_Index_Col(:)
+        integer(int32),allocatable :: A_CRS_Index_Row(:)
+        logical                    :: A_empty = .true.
+
+        real(real64),allocatable   :: B_CRS_val(:)
+        integer(int32),allocatable :: B_CRS_Index_Col(:)
+        integer(int32),allocatable :: B_CRS_Index_Row(:)
+        logical                    :: B_empty = .true.
+
+        
         real(real64),allocatable :: CRS_x(:)
         real(real64),allocatable :: CRS_ID_Starts_From(:)
 
@@ -40,12 +55,16 @@ module FEMSolverClass
         procedure,public ::  setMatrix  => setMatrixFEMSolver
         procedure,public ::  setVector  => setVectorFEMSolver
 
+        procedure,public ::  keepThisMatrixAs => keepThisMatrixAsFEMSolver
+
         !(5) fix x=\bar{x} (not implemented yet.)
         procedure,public :: fix => fixFEMSolver
-
         
         !(6) save matrix
         procedure,public :: saveMatrix => saveMatrixFEMSolver
+
+
+        
         
         !(7-1) Modal analysis
         procedure,public :: eig => eigFEMSolver
@@ -1494,39 +1513,194 @@ end subroutine
 
 ! ###################################################################
 
-function eigFEMSolver(this,num_eigen,tol,eigen_value,as_dense) result(eig_vec)
-    class(FEMSolver_),intent(in)::this
-    real(real64),allocatable :: eig_vec(:,:),dense_mat(:,:)
-    real(real64),optional,allocatable,intent(inout) :: eigen_value(:)
-    real(real64),intent(in) :: tol
-    integer(int32),optional,intent(in) :: num_eigen
-    integer(int32) :: ndim
-    logical,optional,intent(in) :: as_dense
-    !> default =>> get eigen vectors of this%CRS
-    !> eigens(:,0) are eigen values
-    !> eigens(:,n) are n-th eigen vectors
-    if(present(as_Dense))then
-        if(as_Dense)then
-            call to_Dense(this%CRS_val,this%CRS_index_col,this%CRS_index_row,&
-                dense_mat)
-            dense_mat = 0.50d0*(dense_mat + transpose(dense_mat) )
-            call eigenValueAndVector(A=dense_mat,&
-                lambda=eigen_value,x=eig_vec,tol=tol) 
-            return
-        endif
-    endif
+!function eigFEMSolver(this,num_eigen,tol,eigen_value,as_dense) result(eig_vec)
+!    class(FEMSolver_),intent(in)::this
+!    real(real64),allocatable :: eig_vec(:,:),dense_mat(:,:)
+!    real(real64),optional,allocatable,intent(inout) :: eigen_value(:)
+!    real(real64),intent(in) :: tol
+!    integer(int32),optional,intent(in) :: num_eigen
+!    integer(int32) :: ndim
+!    logical,optional,intent(in) :: as_dense
+!    !> default =>> get eigen vectors of this%CRS
+!    !> eigens(:,0) are eigen values
+!    !> eigens(:,n) are n-th eigen vectors
+!    if(present(as_Dense))then
+!        if(as_Dense)then
+!            call to_Dense(this%CRS_val,this%CRS_index_col,this%CRS_index_row,&
+!                dense_mat)
+!            dense_mat = 0.50d0*(dense_mat + transpose(dense_mat) )
+!            call eigenValueAndVector(A=dense_mat,&
+!                lambda=eigen_value,x=eig_vec,tol=tol) 
+!            return
+!        endif
+!    endif
+!
+!    ndim = size(this%CRS_Index_Row) - 1
+!
+!    eigen_value = zeros(num_eigen)
+!    eig_vec =  LOBPCG_sparse(&
+!        A_val=this%CRS_val,&
+!        A_col=this%CRS_index_col,&
+!        A_rowptr=this%CRS_index_row,&
+!        lambda_min=eigen_value,&
+!        tolerance=tol)
+!
+!    
+!end function
+! ###################################################################
 
-    ndim = size(this%CRS_Index_Row) - 1
+pure function eyesMatrix(rank1, rank2) result(ret)
+    integer(int32),intent(in) ::rank1, rank2
+    real(real64),allocatable :: ret(:,:)
+    integer(int32) :: i,min_rank
 
-    eigen_value = zeros(num_eigen)
-    eig_vec =  LOBPCG_sparse(&
-        A_val=this%CRS_val,&
-        A_col=this%CRS_index_col,&
-        A_rowptr=this%CRS_index_row,&
-        lambda_min=eigen_value,&
-        tolerance=tol)
+    allocate(ret(rank1, rank2) )
+    ret(:,:) = 0.0d0
+    min_rank = minval([rank1, rank2] )
+    do i=1,min_rank
+        if(rank2 > i)exit
+        ret(i,i) = 1.0d0
+    enddo
 
     
+end function
+
+! ###################################################################
+subroutine LanczosMethod(this,eigen_value,Eigen_vectors,max_itr)
+    clasS(FEMSolver_),intent(inout) :: this
+    real(real64),allocatable :: eigen_value(:),Eigen_vectors(:,:)
+    real(real64),allocatable :: w(:)
+    real(real64)::alpha,beta
+    integer(int32),intent(in) :: max_itr
+    integer(int32) :: num_dim
+    integer(int32) :: i,j
+
+    num_dim = size(this%CRS_index_row) - 1
+    !http://www.slis.tsukuba.ac.jp/~fujisawa.makoto.fu/cgi-bin/wiki/index.php?%CF%A2%CE%A91%BC%A1%CA%FD%C4%F8%BC%B0%A1%A7Lanczos%CB%A1
+
+    eigen_value   = zeros(num_dim)
+    eigen_vectors = eyesMatrix(num_dim,num_dim)
+    print *, "Lanczos method is not implemented."
+    do i=1,max_itr
+
+    enddo
+
+
+
+end subroutine
+! ###################################################################
+
+! ###################################################################
+subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
+    ! solve Ku = \lambda M x by LAPACK
+    clasS(FEMSolver_),intent(inout) :: this
+    integer(int32),intent(in)::num_eigen
+
+    !>>>>>>>>>>>>>> INPUT
+    integer(int32) :: ITYPE = 1   ! A*x = (lambda)*B*x
+    character(1) :: JOBZ  = 'V' ! Compute eigenvalues and eigenvectors.
+    character(1) :: UPLO  = 'U' ! Upper triangles of A and B are stored;
+    !<<<<<<<<<<<<<< INPUT
+
+    integer(int32) :: N ! order of matrix
+    real(real64),allocatable :: AP(:)
+    real(real64),allocatable :: BP(:)
+    real(real64),allocatable :: W(:)
+    real(real64),allocatable :: Z(:,:)
+    real(real64),allocatable :: WORK(:)
+    real(real64),allocatable,intent(inout) :: eigen_value(:)
+    real(real64),allocatable,intent(inout) :: eigen_vectors(:,:)
+    integer(int32),allocatable :: IWORK(:)
+    integer(int32) :: LDZ
+    integer(int32) :: LWORK
+    integer(int32) :: LIWORK 
+    integer(int32) :: INFO
+    
+
+    !>>>>>>>>>>>>>> INPUT
+    LDZ    = num_eigen
+    N      = size(this%CRS_index_row) -1 
+    LWORK  = 1 + 6*N + 2*N**2
+    LIWORK = 3 + 5*N
+    !<<<<<<<<<<<<<< INPUT
+    
+
+    !>>>>>>>>>>>>>>  INPUT/OUTPUT
+    AP = zeros(N*(N+1)/2 )
+    BP = zeros(N*(N+1)/2 )
+    ! Upper triangle matrix
+    AP = UpperTriangularMatrix(CRS_val=this%A_CRS_val,CRS_col=this%A_CRS_index_col,&
+        CRS_rowptr=this%A_CRS_index_row)
+    BP = UpperTriangularMatrix(CRS_val=this%B_CRS_val,CRS_col=this%B_CRS_index_col,&
+        CRS_rowptr=this%B_CRS_index_row)
+    !<<<<<<<<<<<<<< INPUT/OUTPUT
+
+
+    !>>>>>>>>>>>>>>  OUTPUT
+    W     = zeros(N )
+    Z     = zeros(LDZ,N)
+    WORK  = zeros(LWORK)
+    IWORK = zeros(LIWORK)
+    INFO  = 0
+    !<<<<<<<<<<<<<< OUTPUT
+
+    
+    call DSPGVD (ITYPE, JOBZ, UPLO, N, AP, BP, W, Z, LDZ, WORK, &
+    LWORK, IWORK, LIWORK, INFO)
+
+    eigen_value = w
+    eigen_vectors = Z
+
+end subroutine
+! ###################################################################
+
+subroutine keepThisMatrixAsFEMSolver(this,As)
+    class(FEMSolver_),intent(inout) :: this
+    character(1),intent(in) :: As ! [A] or [B]
+
+    if(As == "A")then
+        this%A_CRS_Index_Col = this%CRS_Index_Col
+        this%A_CRS_Index_Row = this%CRS_Index_Row
+        this%A_CRS_val       = this%CRS_val
+        this%A_empty         = .false. 
+        return
+    endif
+    
+    if(As == "B")then
+        this%B_CRS_Index_Col = this%CRS_Index_Col
+        this%B_CRS_Index_Row = this%CRS_Index_Row
+        this%B_CRS_val       = this%CRS_val
+        this%B_empty         = .false.
+        return
+    endif
+    
+    print *, "As = A or B"
+    stop 
+
+end subroutine
+! ###################################################################
+
+function UpperTriangularMatrix(CRS_val,CRS_col,CRS_rowptr) result(UP)
+    real(real64),intent(in) :: CRS_val(:)
+    integer(int32),intent(in) :: CRS_col(:)
+    integer(int32),intent(in) :: CRS_rowptr(:)
+    integer(int32) :: i,j,col,row,N,offset
+    real(real64) :: val
+    real(real64) ,allocatable :: UP(:)
+
+    N  = size(CRS_rowptr) - 1 
+    UP = zeros(N*(N+1)/2)
+
+    do row=1,N
+        do i=CRS_rowptr(row),CRS_rowptr(row+1) - 1
+            col = CRS_col(i)
+            val = CRS_val(i)
+            if(row<=col)then
+                UP( row + (col-1)*col/2 ) = val
+            endif
+        enddo
+    enddo
+
 end function
 ! ###################################################################
 
