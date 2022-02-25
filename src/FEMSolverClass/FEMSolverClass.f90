@@ -1684,7 +1684,7 @@ function UpperTriangularMatrix(CRS_val,CRS_col,CRS_rowptr) result(UP)
     real(real64),intent(in) :: CRS_val(:)
     integer(int32),intent(in) :: CRS_col(:)
     integer(int32),intent(in) :: CRS_rowptr(:)
-    integer(int32) :: i,j,col,row,N,offset
+    integer(int64) :: i,j,col,row,N,offset
     real(real64) :: val
     real(real64) ,allocatable :: UP(:)
 
@@ -1703,5 +1703,35 @@ function UpperTriangularMatrix(CRS_val,CRS_col,CRS_rowptr) result(UP)
 
 end function
 ! ###################################################################
+
+function fillby(element,vec_size,num_repeat) result(new_vec)
+    real(real64),intent(in) :: element(:)
+    integer(int32),optional,intent(in) :: vec_size,num_repeat
+    real(real64),allocatable :: new_vec(:)
+    integer(int32) :: i, j
+    
+    if(present(vec_size) )then
+        allocate(new_vec(vec_size))
+        i=0
+        do 
+            do j=1,3
+                i=i+1
+                if(i>size(new_vec) )then
+                    return
+                endif
+                new_vec(i) = element(j)  
+            enddo
+        enddo
+
+    elseif(present(num_repeat) )then
+        allocate(new_vec( num_repeat*size(element)  ) )
+        do i=1,num_repeat
+            new_vec( (i-1)*size(element)+1: i*size(element)  ) = element(1:size(element))
+        enddo
+    else
+        new_vec = element
+    endif
+
+end function
 
 end module 
