@@ -235,6 +235,20 @@ module FEMDomainClass
         procedure,public :: position_y => position_yFEMDomain
         procedure,public :: position_z => position_zFEMDomain
 
+
+		procedure,public :: xmin => xminFEMDomain
+		procedure,public :: x_min => xminFEMDomain
+		procedure,public :: xmax => xmaxFEMDomain
+		procedure,public :: x_max => xmaxFEMDomain
+		procedure,public :: ymin => yminFEMDomain
+		procedure,public :: y_min => yminFEMDomain
+		procedure,public :: ymax => ymaxFEMDomain
+		procedure,public :: y_max => ymaxFEMDomain
+		procedure,public :: zmin => zminFEMDomain
+		procedure,public :: z_min => zminFEMDomain
+		procedure,public :: zmax => zmaxFEMDomain
+		procedure,public :: z_max => zmaxFEMDomain
+
 		
 
 		procedure,public :: removeMaterials => removeMaterialsFEMDomain
@@ -11337,4 +11351,67 @@ function MovingAverageFilterFEMDomain(obj,inScalarField,ignore_top_and_bottom) r
 end function
 ! ###################################################################
 
+
+! #########################################################
+pure function xminFEMDomain(obj) result(ret)
+    class(FEMDomain_),intent(in) :: obj
+    real(real64) :: ret
+
+    ret = minval(obj%mesh%nodcoord(:,1))
+
+end function
+! #########################################################
+
+
+! #########################################################
+pure function xmaxFEMDomain(obj) result(ret)
+    class(FEMDomain_),intent(in) :: obj
+    real(real64) :: ret
+
+    ret = maxval(obj%mesh%nodcoord(:,1))
+
+end function
+! #########################################################
+
+! #########################################################
+pure function yminFEMDomain(obj) result(ret)
+    class(FEMDomain_),intent(in) :: obj
+    real(real64) :: ret
+
+    ret = minval(obj%mesh%nodcoord(:,2))
+
+end function
+! #########################################################
+
+
+! #########################################################
+pure function ymaxFEMDomain(obj) result(ret)
+    class(FEMDomain_),intent(in) :: obj
+    real(real64) :: ret
+
+    ret = maxval(obj%mesh%nodcoord(:,2))
+
+end function
+! #########################################################
+
+! #########################################################
+pure function zminFEMDomain(obj) result(ret)
+    class(FEMDomain_),intent(in) :: obj
+    real(real64) :: ret
+
+    ret = minval(obj%mesh%nodcoord(:,3))
+
+end function
+! #########################################################
+
+
+! #########################################################
+pure function zmaxFEMDomain(obj) result(ret)
+    class(FEMDomain_),intent(in) :: obj
+    real(real64) :: ret
+
+    ret = maxval(obj%mesh%nodcoord(:,3))
+
+end function
+! #########################################################
 end module FEMDomainClass
