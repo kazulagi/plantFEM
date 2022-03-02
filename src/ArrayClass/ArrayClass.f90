@@ -5247,6 +5247,76 @@ subroutine searchAndRemoveInt(vec,eq,leq,geq)
 
 end subroutine
 
+
+subroutine searchAndRemoveReal(vec,eq,leq,geq)
+    real(real64),allocatable,intent(inout) :: vec(:)
+    integer(int32),optional,intent(in) :: eq,leq,geq
+    real(real64),allocatable :: buf(:)
+    integer(int32):: countnum,i,k
+
+    if(present(eq) )then
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i)==eq )then
+                countnum = countnum + 1
+            endif
+        enddo
+
+        k = size(vec) - countnum
+        allocate(buf( k ) )
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i) /= eq )then
+                countnum=countnum+1
+                buf(countnum) = vec(i)
+            endif
+        enddo
+        vec = buf
+    endif
+
+
+    if(present(leq) )then
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i)<=leq )then
+                countnum = countnum + 1
+            endif
+        enddo
+
+        k = size(vec) - countnum
+        allocate(buf( k ) )
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i) > leq )then
+                countnum=countnum+1
+                buf(countnum) = vec(i)
+            endif
+        enddo
+        vec = buf
+    endif
+
+    if(present(geq) )then
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i)>=geq )then
+                countnum = countnum + 1
+            endif
+        enddo
+
+        k = size(vec) - countnum
+        allocate(buf( k ) )
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i) < geq )then
+                countnum=countnum+1
+                buf(countnum) = vec(i)
+            endif
+        enddo
+        vec = buf
+    endif
+
+end subroutine
+
 function dot_product_omp(a, b, omp) result(dp)
     real(real64),intent(in) :: a(:),b(:)
     real(real64) :: dp

@@ -30,6 +30,7 @@ module FEMSolverClass
         integer(int32),allocatable :: B_CRS_Index_Row(:)
         logical                    :: B_empty = .true.
 
+        integer(int32),allocatable :: fix_eig_IDs(:)
         
         real(real64),allocatable :: CRS_x(:)
         real(real64),allocatable :: CRS_ID_Starts_From(:)
@@ -58,7 +59,12 @@ module FEMSolverClass
         procedure,public ::  keepThisMatrixAs => keepThisMatrixAsFEMSolver
 
         !(5) fix x=\bar{x} (not implemented yet.)
+        ! for Linear Solver
         procedure,public :: fix => fixFEMSolver
+
+        !(5) fix x=\bar{x} (not implemented yet.)
+        ! for eigen solver
+        procedure,public :: fix_eig => fix_eigFEMSolver
         
         !(6) save matrix
         procedure,public :: saveMatrix => saveMatrixFEMSolver
@@ -1590,11 +1596,143 @@ subroutine LanczosMethod(this,eigen_value,Eigen_vectors,max_itr)
 end subroutine
 ! ###################################################################
 
+subroutine reduce_crs_matrix(CRS_val,CRS_col,CRS_rowptr,remove_IDs)
+    real(real64)  ,allocatable,intent(inout) :: CRS_val(:)
+    integer(int32),allocatable,intent(inout) :: CRS_col(:)
+    integer(int32),allocatable,intent(inout) :: CRS_rowptr(:)
+    real(real64),allocatable :: new_CRS_val(:)
+    integer(int32),allocatable :: new_CRS_col(:)
+    integer(int32),allocatable :: new_CRS_rowptr(:)
+    
+    
+    integer(int32),intent(in) :: remove_IDs(:)
+    integer(int32),allocatable :: remove_IDs_sorted(:)
+    integer(int32) :: i,j,old_row_id,old_col_id,old_col_ptr,count_m1
+    integer(int32) :: new_row_id,new_col_id,new_col_ptr,remove_id_ptr,rem_count,k,l,m
+    integer(int32),allocatable :: new_id_from_old_id(:)
+
+    ! remove_ids should be unique and sorted
+    remove_IDs_sorted = remove_IDs
+    remove_IDs_sorted = unique(remove_IDs_sorted)
+    call heapsort(n=size(remove_IDs_sorted),array=remove_IDs_sorted)
+    
+
+    ! allocate
+    new_CRS_val = CRS_val
+    new_CRS_col = CRS_col
+    new_CRS_rowptr = CRS_rowptr
+    
+
+    !new_CRS_val = zeros(size(CRS_val) - size(remove_IDs_sorted) )
+    !new_CRS_col = zeros(size(CRS_col) - size(remove_IDs_sorted) )
+    !new_CRS_rowptr = zeros(size(CRS_rowptr) - size(remove_IDs_sorted) )
+    !!
+    new_id_from_old_id = zeros(size(CRS_rowptr)-1)
+    do i=1,size(CRS_rowptr)-1
+        new_id_from_old_id(i) = i
+    enddo
+
+    do i=1,size(remove_ids_sorted)
+        new_id_from_old_id(remove_ids_sorted(i)+1: )=new_id_from_old_id(remove_ids_sorted(i)+1: )-1
+        new_id_from_old_id(remove_ids_sorted(i) )=-1
+    enddo
+    
+    ! if a id is listed in remove_ids_sorted, ignore
+
+    !
+    new_row_id  =0
+    new_col_id  =0
+    new_col_ptr =0
+    remove_id_ptr = 1
+
+    ! create new_CRS_col
+    ! only for column
+    ! blanks are indicated by -1
+    ! 当該は-1して，前送り
+    do i=1,size(CRS_rowptr)-1
+        do j=CRS_rowptr(i),CRS_rowptr(i+1)-1
+            old_col_ptr = j    
+            old_col_id  = CRS_col(old_col_ptr)
+            new_CRS_col(old_col_ptr) = new_id_from_old_id(old_col_id)
+        enddo
+    enddo
+
+    ! 列に-1
+    do i=1,size(remove_IDs_sorted)
+        do j=CRS_rowptr( remove_IDs_sorted(i) ),CRS_rowptr( remove_IDs_sorted(i) +1)-1
+            old_col_ptr = j
+            new_CRS_col(old_col_ptr) = -1
+        enddo
+    enddo
+
+    ! renew row_ptr
+    new_CRS_rowptr = 0.0d0
+    do i=1,size(CRS_rowptr)-1
+        do j=CRS_rowptr(i),CRS_rowptr(i+1)-1
+            if(new_CRS_col(j)/=-1 )then
+                new_CRS_rowptr(i) = new_CRS_rowptr(i) + 1
+            endif
+        enddo
+    enddo
+
+    do i=1,size(new_CRS_rowptr)-1
+        new_CRS_rowptr(i+1) = new_CRS_rowptr(i+1) + new_CRS_rowptr(i)
+    enddo
+
+    do i=size(new_CRS_rowptr),2,-1
+        new_CRS_rowptr(i) = new_CRS_rowptr(i-1) +1
+    enddo
+    new_CRS_rowptr(1) = 1
+
+    ! set -1 to removable rows
+    do i=1,size(remove_ids_sorted)
+        new_CRS_rowptr( remove_ids_sorted(i) ) = -1
+    enddo
+
+
+    ! renew CRS_val
+    k=0
+    do i=1,sizE(new_CRS_col)
+        if(new_CRS_col(i)==-1 )then
+            k = k+1
+        endif
+    enddo
+
+    new_CRS_val = zeros(  size(CRS_val) - k  )
+    k = 0
+    do i=1,size(new_CRS_col)
+        if(new_CRS_col(i) == -1 )then
+            cycle
+        else
+            k = k + 1
+            new_CRS_val(k) = CRS_val(i)
+        endif
+    enddo
+    
+    call searchAndRemove(new_CRS_col,eq=-1)
+    call searchAndRemove(new_CRS_rowptr,eq=-1)
+    
+    deallocate(CRS_val)
+    deallocate(CRS_col)
+    deallocate(CRS_rowptr)
+
+    
+    CRS_val = new_CRS_val
+    CRS_col = new_CRS_col
+    CRS_rowptr = new_CRS_rowptr
+    
+end subroutine
 ! ###################################################################
-subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
+
+
+
+
+
+recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
     ! solve Ku = \lambda M x by LAPACK
     clasS(FEMSolver_),intent(inout) :: this
-    integer(int32),intent(in)::num_eigen
+    integer(int32),optional,intent(in)::num_eigen
+
 
     !>>>>>>>>>>>>>> INPUT
     integer(int32) :: ITYPE = 1   ! A*x = (lambda)*B*x
@@ -1615,11 +1753,29 @@ subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
     integer(int32) :: LWORK
     integer(int32) :: LIWORK 
     integer(int32) :: INFO
-    
+    integer(int32) :: from,to,k,j,i
+    integer(int32),allocatable :: new_id_from_old_id(:)
+    real(real64),allocatable :: dense_mat(:,:)
+    type(IO_) :: f
+
+    if(allocated(this%fix_eig_IDs) )then
+        ! amplitudes are zero@ this%fix_eig_IDs
+        ! remove from problem [A][U] = w[B][U]
+        ! sort before it
+        
+        
+        ! first, for [A]
+        call heapsort(n=size(this%fix_eig_IDs),array=this%fix_eig_IDs)
+        call reduce_crs_matrix(CRS_val=this%A_CRS_val,CRS_col=this%A_CRS_index_col,&
+        CRS_rowptr=this%A_CRS_index_row,remove_IDs=this%fix_eig_IDs)
+        call reduce_crs_matrix(CRS_val=this%B_CRS_val,CRS_col=this%B_CRS_index_col,&
+        CRS_rowptr=this%B_CRS_index_row,remove_IDs=this%fix_eig_IDs)
+    endif
+
 
     !>>>>>>>>>>>>>> INPUT
-    LDZ    = num_eigen
-    N      = size(this%CRS_index_row) -1 
+    N      = size(this%A_CRS_index_row) -1 
+    LDZ    = input(default=N,option=num_eigen)
     LWORK  = 1 + 6*N + 2*N**2
     LIWORK = 3 + 5*N
     !<<<<<<<<<<<<<< INPUT
@@ -1649,7 +1805,45 @@ subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
     LWORK, IWORK, LIWORK, INFO)
 
     eigen_value = w
-    eigen_vectors = Z
+    
+    if(allocated(this%fix_eig_IDs) )then    
+        ! U(this%fix_eig_IDs(i),: ) = 0.0d0
+        
+        new_id_from_old_id = zeros(N)
+        
+        k = 0
+        do j=1,this%fix_eig_IDs(1)-1
+            k = k + 1
+            new_id_from_old_id(k) = k
+        enddo
+        
+        do i=2,size(this%fix_eig_IDs)
+            from = this%fix_eig_IDs(i-1)+1
+            to   = this%fix_eig_IDs(i)-1
+            do j=from,to
+                k = k + 1
+                if(k > size(new_id_from_old_id) ) cycle
+                new_id_from_old_id(k) = j
+            enddo
+        enddo
+        
+        do j=this%fix_eig_IDs( size(this%fix_eig_IDs) )+1,N+size(this%fix_eig_IDs)
+            k = k + 1
+            if(k > size(new_id_from_old_id) ) cycle
+            new_id_from_old_id(k) = j
+        enddo
+
+        
+        eigen_vectors = zeros(size(Z,1)+size(this%fix_eig_IDs),size(Z,1) ) 
+        do i=1,size(Z,2)
+            do j=1,size(new_id_from_old_id,1)
+                eigen_vectors( new_id_from_old_id(j) ,i) = Z( j  ,i)
+            enddo
+        enddo
+        
+    else
+        eigen_vectors = Z    
+    endif
 
 end subroutine
 ! ###################################################################
@@ -1733,5 +1927,66 @@ function fillby(element,vec_size,num_repeat) result(new_vec)
     endif
 
 end function
+
+
+! ################################################################
+subroutine fix_eigFEMSolver(this,IDs) 
+    class(FEMSolver_),intent(inout) :: this
+    integer(int32),intent(in) :: IDs(:)
+    integer(int32),allocatable :: buf(:)
+
+    ! fix IDs(:)-th amplitudes as zero (Fixed boundary)
+    ! only create list
+    if(.not.allocated(this%fix_eig_IDs) )then
+        this%fix_eig_IDs = IDs
+    else
+        buf = this%fix_eig_IDs
+        this%fix_eig_IDs = zeros(size(buf) + size(IDs) )
+        this%fix_eig_IDs(1:size(buf) ) = buf(:)
+        this%fix_eig_IDs(size(buf)+1:) = IDs(:)
+    endif
+
+    this%fix_eig_IDs = unique(this%fix_eig_IDs)
+    
+
+
+end subroutine
+! ################################################################
+
+function unique(old_vec) result(new_vec)
+    integer(int32),intent(in) :: old_vec(:)
+    integer(int32),allocatable :: new_vec(:),remove_is_one(:)
+    integer(int32) :: n_size,i,id,j
+
+    n_size = size(old_vec)  
+    ! caution; O(N^2)
+
+    remove_is_one = zeros(n_size)
+    do i=1,n_size
+        if(remove_is_one(i) == 1) cycle
+        do j=i+1,n_size
+            if(old_vec(i)==old_vec(j) )then
+                remove_is_one(j) = 1            
+            endif
+        enddo
+    enddo
+
+    new_vec = zeros(n_size - sum(remove_is_one) )
+
+    id = 0
+    do i=1,n_size
+        if(remove_is_one(i) == 1) then
+            cycle
+        else
+            id = id+ 1
+            new_vec(id) = old_vec(i)
+        endif
+        
+    enddo
+
+
+
+end function
+
 
 end module 

@@ -2,7 +2,6 @@ import os
 from src.python.SoybeanClass.SoybeanClass import Soybean
 from src.python.LightClass.LightClass import Light
 
-
 class plantfem:
 
     # create a Light object
