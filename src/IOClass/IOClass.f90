@@ -1,8 +1,8 @@
 module IOClass
 
-#ifdef INTEL
-    use IFPORT
-#endif
+!#ifdef INTEL
+!    use IFPORT
+!#endif
 
     use iso_fortran_env
     use MathClass
@@ -11,9 +11,9 @@ module IOClass
 
     integer(int32),parameter :: STAT_ARRAY_SIZE=13
 
-#ifdef INTEL
-    integer(int32),parameter :: STAT_ARRAY_SIZE=12    
-#endif
+!#ifdef INTEL
+!    integer(int32),parameter :: STAT_ARRAY_SIZE=12    
+!#endif
     
     
     integer(int32),parameter :: PF_JSON=1
