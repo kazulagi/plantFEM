@@ -14,10 +14,6 @@ echo " >> uuid_module.o"
 echo " | >                           | (0%)\r\c "
 mpif90 -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/uuid-fortran/uuid_module.f90 -o  ./inc/uuid_module.o -llapack -lblas
 
-#echo "Compiling ./src/OouraFFT/OouraFFT.f90      "
-#echo " >> OouraFFT.o"
-#echo " | >                           | (0%)\r\c "
-#mpif90 -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/OouraFFT/OouraFFT.f90 -o  ./inc/OouraFFT.o -llapack -lblas
 echo "Compiling ./src/BitClass/BitClass.f90      "
 echo " >> BitClass.o"
 echo " | >                           | (0%)\r\c "

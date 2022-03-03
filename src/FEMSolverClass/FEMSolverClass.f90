@@ -88,6 +88,54 @@ subroutine initFEMSolver(this,NumDomain,NumInterfaceElement,NumNodePerInterfaceE
     integer(int32),optional,intent(in) :: NumNodePerInterfaceElement
 
     this%initialized = .false.
+    if(allocated(this%femdomains)) deallocate(this%femdomains)
+    if(allocated( this%IfaceElemConnectivity)) then
+        deallocate( this%IfaceElemConnectivity)
+    endif! IfaceElemConnectivity(:,:)
+    if(allocated( this%IfaceElemDomainID)) then
+        deallocate( this%IfaceElemDomainID)
+    endif! IfaceElemDomainID(:,:)
+
+    this%initialized = .false.
+    this%InterfaceExist = .false.
+    
+    if(allocated( this%CRS_val)) then
+        deallocate( this%CRS_val)
+    endif! CRS_val(:)
+    if(allocated(this%CRS_Index_Col)) deallocate(this%CRS_Index_Col)!(:)
+    if(allocated(this%CRS_Index_Row)) deallocate(this%CRS_Index_Row)!(:)
+    if(allocated( this%CRS_RHS)) then
+        deallocate( this%CRS_RHS)
+    endif! CRS_RHS(:)
+    
+    !> General Eigen Value Problem
+    !> [A]{x} = (lambda)[B]{x}
+
+    if(allocated(this%A_CRS_val)) deallocate(this%A_CRS_val)!(:)
+    if(allocated(this%A_CRS_Index_Col)) deallocate(this%A_CRS_Index_Col)!(:)
+    if(allocated(this%A_CRS_Index_Row)) deallocate(this%A_CRS_Index_Row)!(:)
+    this%A_empty = .true.
+
+    if(allocated(this%B_CRS_val)) deallocate(this%B_CRS_val)!(:)
+    if(allocated(this%B_CRS_Index_Col)) deallocate(this%B_CRS_Index_Col)!(:)
+    if(allocated(this%B_CRS_Index_Row)) deallocate(this%B_CRS_Index_Row)!(:)
+    this%B_empty = .true.
+
+    if(allocated(this%fix_eig_IDs)) deallocate(this%fix_eig_IDs)!(:)
+    
+    if(allocated( this%CRS_x)) then
+        deallocate( this%CRS_x)
+    endif! CRS_x(:)
+    if(allocated( this%CRS_ID_Starts_From)) then
+        deallocate( this%CRS_ID_Starts_From)
+    endif! CRS_ID_Starts_From(:)
+
+    ! dense matrix
+    if(allocated( this%A_dense)) then
+        deallocate( this%A_dense)
+    endif! A_dense(:,:)
+    if(allocated(this%Num_nodes_in_Domains)) deallocate(this%Num_nodes_in_Domains)! Num_nodes_in_Domains(:)
+
 
     if(numDomain<=0)then
         print *, "ERROR :: Number of element should be greater than 1"

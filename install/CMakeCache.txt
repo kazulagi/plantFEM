@@ -235,6 +235,59 @@ CMAKE_STRIP:FILEPATH=/usr/bin/strip
 // Studio IDE projects all commands are done without /nologo.
 CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 
+//Executable for running MPI programs.
+MPIEXEC_EXECUTABLE:FILEPATH=/usr/bin/mpiexec
+
+//Maximum number of processors available to run MPI applications.
+MPIEXEC_MAX_NUMPROCS:STRING=4
+
+//Flag used by MPI to specify the number of processes for mpiexec;
+// the next option will be the number of processes.
+MPIEXEC_NUMPROC_FLAG:STRING=-n
+
+//These flags will be placed after all flags passed to mpiexec.
+MPIEXEC_POSTFLAGS:STRING=
+
+//These flags will be directly before the executable that is being
+// run by mpiexec.
+MPIEXEC_PREFLAGS:STRING=
+
+//MPI Fortran additional include directories
+MPI_Fortran_ADDITIONAL_INCLUDE_DIRS:STRING=
+
+//MPI compiler for Fortran
+MPI_Fortran_COMPILER:FILEPATH=/usr/bin/mpif90
+
+//MPI Fortran compilation definitions
+MPI_Fortran_COMPILE_DEFINITIONS:STRING=
+
+//MPI Fortran compilation options
+MPI_Fortran_COMPILE_OPTIONS:STRING=-pthread
+
+//Path to a file.
+MPI_Fortran_F77_HEADER_DIR:PATH=/usr/lib/x86_64-linux-gnu/openmpi/include
+
+//MPI Fortran libraries to link against
+MPI_Fortran_LIB_NAMES:STRING=mpi_usempif08;mpi_usempi_ignore_tkr;mpi_mpifh;mpi
+
+//MPI Fortran linker flags
+MPI_Fortran_LINK_FLAGS:STRING=-pthread
+
+//Path to a file.
+MPI_Fortran_MODULE_DIR:PATH=/usr/lib/x86_64-linux-gnu/openmpi/lib
+
+//Location of the mpi library for MPI
+MPI_mpi_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi.so
+
+//Location of the mpi_mpifh library for MPI
+MPI_mpi_mpifh_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_mpifh.so
+
+//Location of the mpi_usempi_ignore_tkr library for MPI
+MPI_mpi_usempi_ignore_tkr_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_usempi_ignore_tkr.so
+
+//Location of the mpi_usempif08 library for MPI
+MPI_mpi_usempif08_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_usempif08.so
+
 //Value Computed by CMake
 plantfem_BINARY_DIR:STATIC=/home/haruka/plantFEM/install
 
@@ -405,4 +458,52 @@ CMAKE_STRIP-ADVANCED:INTERNAL=1
 CMAKE_UNAME:INTERNAL=/usr/bin/uname
 //ADVANCED property for variable: CMAKE_VERBOSE_MAKEFILE
 CMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1
+//Details about finding MPI
+FIND_PACKAGE_MESSAGE_DETAILS_MPI:INTERNAL=[TRUE][c ][v3.1()]
+//Details about finding MPI_Fortran
+FIND_PACKAGE_MESSAGE_DETAILS_MPI_Fortran:INTERNAL=[/usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_usempif08.so][/usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_usempi_ignore_tkr.so][/usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_mpifh.so][/usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi.so][mpi_usempif08;mpi_usempi_ignore_tkr;mpi_mpifh;mpi][TRUE][v3.1()]
+//ADVANCED property for variable: MPIEXEC_EXECUTABLE
+MPIEXEC_EXECUTABLE-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: MPIEXEC_MAX_NUMPROCS
+MPIEXEC_MAX_NUMPROCS-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: MPIEXEC_NUMPROC_FLAG
+MPIEXEC_NUMPROC_FLAG-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: MPIEXEC_POSTFLAGS
+MPIEXEC_POSTFLAGS-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: MPIEXEC_PREFLAGS
+MPIEXEC_PREFLAGS-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: MPI_Fortran_ADDITIONAL_INCLUDE_DIRS
+MPI_Fortran_ADDITIONAL_INCLUDE_DIRS-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: MPI_Fortran_COMPILER
+MPI_Fortran_COMPILER-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: MPI_Fortran_COMPILE_DEFINITIONS
+MPI_Fortran_COMPILE_DEFINITIONS-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: MPI_Fortran_COMPILE_OPTIONS
+MPI_Fortran_COMPILE_OPTIONS-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: MPI_Fortran_F77_HEADER_DIR
+MPI_Fortran_F77_HEADER_DIR-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: MPI_Fortran_LIB_NAMES
+MPI_Fortran_LIB_NAMES-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: MPI_Fortran_LINK_FLAGS
+MPI_Fortran_LINK_FLAGS-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: MPI_Fortran_MODULE_DIR
+MPI_Fortran_MODULE_DIR-ADVANCED:INTERNAL=1
+//Result of TRY_COMPILE
+MPI_RESULT_Fortran_mpiver_F08_MODULE:INTERNAL=TRUE
+//Result of TRY_COMPILE
+MPI_RESULT_Fortran_test_mpi_F08_MODULE:INTERNAL=TRUE
+//Result of TRY_COMPILE
+MPI_RESULT_Fortran_test_mpi_F77_HEADER:INTERNAL=TRUE
+//Result of TRY_COMPILE
+MPI_RESULT_Fortran_test_mpi_F77_HEADER_NOKIND:INTERNAL=FALSE
+//Result of TRY_COMPILE
+MPI_RESULT_Fortran_test_mpi_F90_MODULE:INTERNAL=TRUE
+//ADVANCED property for variable: MPI_mpi_LIBRARY
+MPI_mpi_LIBRARY-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: MPI_mpi_mpifh_LIBRARY
+MPI_mpi_mpifh_LIBRARY-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: MPI_mpi_usempi_ignore_tkr_LIBRARY
+MPI_mpi_usempi_ignore_tkr_LIBRARY-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: MPI_mpi_usempif08_LIBRARY
+MPI_mpi_usempif08_LIBRARY-ADVANCED:INTERNAL=1
 
