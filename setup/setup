@@ -1,5 +1,4 @@
 #!/bin/sh
-
 sudo apt install  -y gcc
 sudo apt install  -y gfortran
 sudo apt install  -y libopenmpi-dev
