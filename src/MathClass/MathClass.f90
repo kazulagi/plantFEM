@@ -85,7 +85,18 @@ module MathClass
 	interface RickerFunction
 		module procedure RickerFunctionReal64
 	end interface
+
+	interface derivative
+		module procedure derivative_scalar,derivative_vector
+	end interface
 	
+	interface der
+		module procedure derivative_scalar,derivative_vector
+	end interface
+	
+	interface d_dx
+		module procedure derivative_scalar,derivative_vector
+	end interface
 contains
 
 ! ###############################################
@@ -2578,5 +2589,79 @@ pure function RickerFunctionReal64(t, sigma, center)  result(ft)
 
 end function
 ! ########################################################################
+
+
+! ########################################################
+real(real64) function derivative_scalar(func,x,eps)
+    ! >>> Define func()
+    interface 
+        real(real64) function func(x)
+            use iso_fortran_env
+            real(real64),intent(in) :: x
+        end function
+    end interface 
+
+    ! <<<
+
+    ! >>> arg
+    real(real64),intent(in) :: x
+    real(real64),optional,intent(in) :: eps
+    ! <<< 
+
+    real(real64)  :: eps_val =dble(1.0e-4)
+    if(present(eps) )then
+        eps_val = eps
+    endif
+    
+    ! >>> operation
+    ! numerical derivative 
+    
+    derivative_scalar = (func(x+eps_val) - func(x-eps_val) )/(2.0d0*eps_val)
+    ! <<<
+
+end function
+! ########################################################
+function derivative_vector(func,x,dim_num,eps) result(ret)
+    integer(int32),intent(in) :: dim_num
+    ! >>> Define func()
+    interface 
+        function func(x) result(ret)
+            use iso_fortran_env
+            real(real64),intent(in) :: x(:)
+            real(real64),allocatable :: ret(:)
+        end function
+    end interface 
+    ! <<<
+
+    ! >>> arg
+    real(real64),intent(in) :: x(1:dim_num)
+    real(real64),optional,intent(in) :: eps
+    ! <<< 
+
+    ! >>> output
+    real(real64),allocatable :: ret(:)
+    ! <<< 
+
+    real(real64) :: x_f(1:dim_num)
+    real(real64) :: x_b(1:dim_num)
+    real(real64)  :: eps_val =dble(1.0e-4)
+    if(present(eps) )then
+        eps_val = eps
+    endif
+    ret = x
+    x_f = x
+    x_f(:) = x_f(:) + eps_val
+    x_b = x
+    x_b(:) = x_b(:) - eps_val
+    
+    ! >>> operation
+    ! numerical derivative 
+    
+    ret = (func(x_f) - func(x_b) )/(2.0d0*eps_val)
+    ! <<<
+
+end function
+
+
 
 end module MathClass
