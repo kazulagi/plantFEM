@@ -2620,6 +2620,7 @@ real(real64) function derivative_scalar(func,x,eps)
     ! <<<
 
 end function
+
 ! ########################################################
 function derivative_vector(func,x,dim_num,eps) result(ret)
     integer(int32),intent(in) :: dim_num
@@ -2645,9 +2646,11 @@ function derivative_vector(func,x,dim_num,eps) result(ret)
     real(real64) :: x_f(1:dim_num)
     real(real64) :: x_b(1:dim_num)
     real(real64)  :: eps_val =dble(1.0e-4)
-    if(present(eps) )then
+    
+	if(present(eps) )then
         eps_val = eps
     endif
+
     ret = x
     x_f = x
     x_f(:) = x_f(:) + eps_val
