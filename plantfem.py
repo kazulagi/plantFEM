@@ -1,4 +1,10 @@
+# prior to this, 
+# please install plantfem
 import os
+import sys
+
+sys.path.append('/opt/plantfem')
+
 from src.python.SoybeanClass.SoybeanClass import Soybean
 from src.python.LightClass.LightClass import Light
 
