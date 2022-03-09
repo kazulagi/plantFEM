@@ -57,6 +57,12 @@ homepath="$PWD"
     #echo "Please input fortran script *.f90 | or check manual by 'man'  "
     echo ">>> $1\n"
 
+
+    if [ "$commandl" = "hello" ]; then
+        return 0
+    fi
+
+
 #    if [-d {"$1"} ]; then
 #        # this is directory
 #

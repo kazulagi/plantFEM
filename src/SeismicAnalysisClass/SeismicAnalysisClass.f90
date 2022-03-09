@@ -9,6 +9,9 @@ module SeismicAnalysisClass
 
     type::SeismicAnalysis_
         type(FEMDomain_),pointer :: femdomain
+        type(FEMSolver_) :: femsolver
+
+        
         real(real64),allocatable :: da(:) ! increment of accel.
         real(real64),allocatable :: a(:) ! accel.
         real(real64),allocatable :: a_ext(:) ! External accel.
@@ -41,6 +44,11 @@ module SeismicAnalysisClass
         integer(int32),allocatable :: absorbingBoundary_y(:)
         integer(int32),allocatable :: absorbingBoundary_z(:)
 
+        ! modal analysis
+        real(real64),allocatable :: Frequency(:)
+        real(real64),allocatable :: ModeVectors(:,:)
+
+
         character(1) :: wavedirection="z"
         integer(int32) :: wavetype = 0
         real(real64) :: dt=1.0d0
@@ -60,6 +68,7 @@ module SeismicAnalysisClass
         procedure, public :: fixDisplacement => fixDisplacementSeismicAnalysis 
         procedure, public :: updateWave => updateWaveSeismicAnalysis
         procedure, public :: run => runSeismicAnalysis
+
         procedure, public :: LinearReyleighNewmark => LinearReyleighNewmarkSeismicAnalysis
         procedure, public :: recordMaxValues => recordMaxValuesSeismicAnalysis
         procedure, public :: save => saveSeismicAnalysis
@@ -71,6 +80,9 @@ module SeismicAnalysisClass
 
         procedure, public :: absorbingBoundary => absorbingBoundarySeismicAnalysis
         procedure, public :: getAbsorbingBoundaryForce => getAbsorbingBoundaryForceSeismicAnalysis
+
+        procedure, public :: modalAnalysis => modalAnalysisSeismicAnalysis
+        procedure, public :: vtk  => vtkSeismicAnalysis
     end type
 
 contains
@@ -882,5 +894,150 @@ pure function getAbsorbingBoundaryForceSeismicAnalysis(obj) result(force)
 
 end function
 ! #############################################################
+
+subroutine modalAnalysisSeismicAnalysis(this,femdomain,YoungModulus,PoissonRatio,Density,&
+    fix_node_list_x,fix_node_list_y,fix_node_list_z)
+    class(SeismicAnalysis_),intent(inout) :: this
+    type(FEMDomain_),intent(inout),target :: femdomain
+    real(real64),intent(in) :: YoungModulus, PoissonRatio,Density
+    
+    type(IO_) :: f
+
+    integer(int32) :: i
+    real(real64) :: Vs,t,dt,E_Al
+    real(real64),allocatable :: Mode_U(:),mode_Ut(:),freq(:),eigen_value(:),eigen_vectors(:,:)
+    integer(int32),allocatable :: node_list(:)
+    integer(int32),optional,intent(in) :: fix_node_list_x(:)
+    integer(int32),optional,intent(in) :: fix_node_list_y(:)
+    integer(int32),optional,intent(in) :: fix_node_list_z(:)
+    
+    ! Modal analysis
+    
+    if(associated(this%femdomain) )then
+        nullify(this%femdomain)
+    endif
+    this%femdomain =>femdomain
+
+    !read file
+    call this%femsolver%init(NumDomain=1,NumInterfaceElement=0)
+    call this%femsolver%setDomain(FEMDomain=femdomain,DomainID=1)
+    call this%femsolver%setCRS(DOF=femdomain%nd() )
+    
+    
+    !$OMP parallel do
+    do i=1,femdomain%ne()
+        call this%femsolver%setMatrix(&
+            DomainID=1,&
+            ElementID=i,&
+            DOF=3,&
+            Matrix=femdomain%MassMatrix(ElementID=i,Density=Density,DOF=3) &
+            )
+    enddo
+    !$OMP end parallel do
+    
+    call this%femsolver%keepThisMatrixAs("B")
+    call this%femsolver%zeros()
+
+    print *, "Save Stiffness Matrix"
+    
+    !$OMP parallel do
+    do i=1,femdomain%ne()
+        call this%femsolver%setMatrix(&
+            DomainID=1,&
+            ElementID=i,&
+            DOF=3,&
+            Matrix=femdomain%StiffnessMatrix(ElementID=i,E=YoungModulus,v=PoissonRatio) &
+            )
+    enddo
+    !$OMP end parallel do
+
+    call this%femsolver%keepThisMatrixAs("A")
+    
+    ! Eigen value problem solver by scipy
+    
+!    print *, "solver%eig"
+    if(present(fix_node_list_x) )then
+        node_list = fix_node_list_x
+        node_list =(node_list(:)-1)*3+1
+        call this%femsolver%fix_eig(IDs=node_list)
+    endif
+
+    if(present(fix_node_list_y) )then
+        node_list = fix_node_list_y
+        node_list =(node_list(:)-1)*3+2
+        call this%femsolver%fix_eig(IDs=node_list)
+    endif
+
+    if(present(fix_node_list_z) )then
+        node_list = fix_node_list_z
+        node_list =(node_list(:)-1)*3+3
+        call this%femsolver%fix_eig(IDs=node_list)
+    endif
+
+    call this%femsolver%eig(eigen_value=eigen_value,eigen_vectors=eigen_vectors)
+    
+    ! read results
+    freq = sqrt(abs(eigen_value))/2.0d0/3.141590d0
+    
+
+    this%frequency = freq
+    this%ModeVectors = eigen_vectors
+
+!    ! 20 modes
+!    do i_i=1,20
+!        mode_U = zeros(size(eigen_vectors,1))
+!        mode_U = eigen_vectors(:,i_i)
+!        dt = 1.0d0/freq(i_i)/100.0d0
+!        do j_j=1,100
+!            t = dt * dble(j_j-1)
+!            mode_Ut = mode_U*cos( 2.0d0*3.140d0*freq(i_i)*t )
+!
+!            domains(1)%mesh%nodcoord = domains(1)%mesh%nodcoord &
+!            +0.00010d0*reshape(mode_Ut,domains(1)%nn(),3 ) 
+!
+!            call domains(1)%vtk("Mode_Fortran_"+str(i_i)+"_t_"+str(j_j))
+!            domains(1)%mesh%nodcoord = domains(1)%mesh%nodcoord &
+!            -0.00010d0*reshape(mode_Ut,domains(1)%nn(),3 ) 
+!        enddo
+!    enddo
+    
+
+
+
+
+end subroutine
+
+subroutine vtkSeismicAnalysis(this,name,num_mode,amp)
+    class(SeismicAnalysis_),intent(in) :: this
+    character(*),intent(in) :: name
+    integer(int32),intent(in) :: num_mode
+    real(real64),intent(in) :: amp
+    integer(int32) :: i,j,n
+    real(real64),allocatable :: Mode_U(:),mode_Ut(:),freq(:)
+    real(real64) :: t, dt
+    ! 20 modes
+    t = 0.0d0
+    dt = 0.0d0
+    
+    do i=1,num_mode
+        mode_U = zeros(size(this%modevectors,1))
+        mode_U = this%modevectors(:,i)
+        dt = 1.0d0/this%frequency(i)/100.0d0
+        do j=1,100
+            t = dt * dble(j-1)
+            mode_Ut = mode_U*cos( 2.0d0*3.140d0*this%frequency(i)*t )
+
+            this%femdomain%mesh%nodcoord = this%femdomain%mesh%nodcoord &
+            +amp*reshape(mode_Ut,this%femdomain%nn(),3 ) 
+
+            call this%femdomain%vtk(name+str(i)+"_t_"+str(j))
+            this%femdomain%mesh%nodcoord = this%femdomain%mesh%nodcoord &
+            -amp*reshape(mode_Ut,this%femdomain%nn(),3 ) 
+        enddo
+    enddo
+    
+
+
+end subroutine
 
 end module SeismicAnalysisClass

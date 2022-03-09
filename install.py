@@ -37,6 +37,8 @@ elif pf == "Darwin":
         print("soja (package manager of plantFEM) is already installed.")
     else:
         os.system("sudo ln -si "+str(os.path.abspath("./"))+"/bin/soja.sh /usr/local/bin/soja")
+    
+    os.system("pip3 install -U plantfem")
     #print("[Next!]  Please type")
     #print("export PATH=$PATH:$PWD")
     #print("export PATH=$PATH:$PWD/bin")
@@ -67,11 +69,11 @@ elif pf == "Linux":
     #os.system("sudo ln -si "+str(os.path.abspath("./"))+"/Interactive/plantfem_run /usr/local/bin/plantfem_run")
     os.system("sudo ln -si $PWD /opt/plantfem")
     os.system("rm -f plantFEM")
+
+    os.system("sudo pip3 install -U plantfem")
     print("Successfully Installed!!")
 else:
     print("OS : Unknown ")
-
-
 
 print("")
 print(">>>")
