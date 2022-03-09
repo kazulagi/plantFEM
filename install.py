@@ -74,9 +74,3 @@ elif pf == "Linux":
     print("Successfully Installed!!")
 else:
     print("OS : Unknown ")
-
-print("")
-print(">>>")
-print("Please add PATH by")
-print("export PYTHONPATH=$PYTHONPATH:/opt/plantfem")
-print("to import plantfem @python")
