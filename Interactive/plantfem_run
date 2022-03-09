@@ -55,10 +55,10 @@ homepath="$PWD"
 #do
 
     #echo "Please input fortran script *.f90 | or check manual by 'man'  "
-    echo ">>> $1\n"
+    echo ">> $1\n"
 
 
-    if [ "$commandl" = "hello" ]; then
+    if [ "$1" = "hello" ]; then
         return 0
     fi
 
