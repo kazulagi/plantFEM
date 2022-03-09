@@ -55,11 +55,11 @@ while :
 do
 
     #echo "Please input fortran script *.f90 | or check manual by 'man'  "
-    /bin/echo -n  ">>> "
+    /bin/echo -n  ">> "
     read commandl
 
     if [ "$commandl" = "hello" ]; then
-        return 0
+        break
     fi
 
     if [ "$commandl" = "use plantfem" ]; then
