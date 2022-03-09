@@ -58,7 +58,9 @@ do
     /bin/echo -n  ">>> "
     read commandl
 
-
+    if [ "$commandl" = "hello" ]; then
+        return 0
+    fi
 
     if [ "$commandl" = "use plantfem" ]; then
         echo "Interactive mode"
