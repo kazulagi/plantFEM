@@ -108,7 +108,8 @@
 
 ## (3) Something cool.
 
-
+http://plantfem.org/.well-known/pki-validation/a926f673e02eece5ec489a1e26d1f8ed.txt
+http://www.plantfem.org/.well-known/pki-validation/a926f673e02eece5ec489a1e26d1f8ed.txt
 
 
 <!-- 
