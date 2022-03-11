@@ -2573,7 +2573,7 @@ pure function RickerFunctionReal64(t, sigma, center)  result(ft)
 	real(real64),intent(in) :: t, sigma
 	real(real64),optional,intent(in) :: center
 	type(Math_)  :: math
-	real(real128) ::ft128
+	real(real64) ::ft128
 	real(real64) :: ft, b
 
 	if(present(center) )then

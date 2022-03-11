@@ -8499,7 +8499,7 @@ pure function InsideOfElementMesh(obj,ElementID,x,y,z) result(Inside)
 
     else
         !print *, "ERROR :: InsideOfElementMesh >> 4-node box or 8-node cube are acceptable."
-        stop
+        !stop
     endif
     
 end function
