@@ -7265,7 +7265,7 @@ end function
 ! ##################################################
 
 ! ##################################################
-recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementType,NodeList)
+recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementType,NodeList,debug)
 	class(FEMDomain_),intent(inout) :: obj
 	type(FEMDomain_) :: mini_obj
 	character(*),intent(in) :: name
@@ -7275,6 +7275,7 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 	character(len=:),allocatable :: point_scalars,point_vectors,point_tensors,cell_scalars,cell_vectors,cell_tensors
 	type(IO_) :: f
 	integer(int32) ::i,dim_num(3),j,VTK_CELL_TYPE,num_node,k,n
+	logical,optional,intent(in) :: debug
 
 
 	if(present(NodeList))then
@@ -7475,7 +7476,11 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 		endif
 	endif	
 
-	print *, trim(name)//".vtk is exported." 
+	if(present(debug) )then
+		if(debug)then
+			print *, trim(name)//".vtk is exported." 
+		endif
+	endif
 
 	call f%close()
 

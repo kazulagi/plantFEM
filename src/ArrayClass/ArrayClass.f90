@@ -7086,18 +7086,9 @@ end function
 
 ! ####################################################################
 pure function appendVectorsInt32(vec1,vec2) result(vec12)
-    integer(int32),allocatable,intent(in) :: vec1(:),vec2(:)
+    integer(int32),intent(in) :: vec1(:),vec2(:)
     integer(int32),allocatable :: vec12(:)
 
-    if(.not.allocated(vec1) )then
-        vec12 = vec2
-        return
-    endif
-    
-    if(.not.allocated(vec2) )then
-        vec12 = vec1
-        return
-    endif
 
     if(size(vec1)==0 )then
         vec12 = vec2    

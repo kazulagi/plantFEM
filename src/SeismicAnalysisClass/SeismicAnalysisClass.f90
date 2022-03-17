@@ -899,7 +899,7 @@ subroutine modalAnalysisSeismicAnalysis(this,femdomain,YoungModulus,PoissonRatio
     fix_node_list_x,fix_node_list_y,fix_node_list_z)
     class(SeismicAnalysis_),intent(inout) :: this
     type(FEMDomain_),intent(inout),target :: femdomain
-    real(real64),intent(in) :: YoungModulus, PoissonRatio,Density
+    real(real64),intent(in) :: YoungModulus(:), PoissonRatio(:),Density(:)
     
     type(IO_) :: f
 
@@ -930,7 +930,7 @@ subroutine modalAnalysisSeismicAnalysis(this,femdomain,YoungModulus,PoissonRatio
             DomainID=1,&
             ElementID=i,&
             DOF=3,&
-            Matrix=femdomain%MassMatrix(ElementID=i,Density=Density,DOF=3) &
+            Matrix=femdomain%MassMatrix(ElementID=i,Density=Density(i),DOF=3) &
             )
     enddo
     !$OMP end parallel do
@@ -946,7 +946,7 @@ subroutine modalAnalysisSeismicAnalysis(this,femdomain,YoungModulus,PoissonRatio
             DomainID=1,&
             ElementID=i,&
             DOF=3,&
-            Matrix=femdomain%StiffnessMatrix(ElementID=i,E=YoungModulus,v=PoissonRatio) &
+            Matrix=femdomain%StiffnessMatrix(ElementID=i,E=YoungModulus(i),v=PoissonRatio(i) ) &
             )
     enddo
     !$OMP end parallel do
@@ -1007,11 +1007,12 @@ subroutine modalAnalysisSeismicAnalysis(this,femdomain,YoungModulus,PoissonRatio
 
 end subroutine
 
-subroutine vtkSeismicAnalysis(this,name,num_mode,amp)
+subroutine vtkSeismicAnalysis(this,name,num_mode,amp,scalar_field)
     class(SeismicAnalysis_),intent(in) :: this
     character(*),intent(in) :: name
     integer(int32),intent(in) :: num_mode
     real(real64),intent(in) :: amp
+    real(real64),optional,intent(in) :: scalar_field(:)
     integer(int32) :: i,j,n
     real(real64),allocatable :: Mode_U(:),mode_Ut(:),freq(:)
     real(real64) :: t, dt
@@ -1030,7 +1031,8 @@ subroutine vtkSeismicAnalysis(this,name,num_mode,amp)
             this%femdomain%mesh%nodcoord = this%femdomain%mesh%nodcoord &
             +amp*reshape(mode_Ut,this%femdomain%nn(),3 ) 
 
-            call this%femdomain%vtk(name+str(i)+"_t_"+str(j))
+            call this%femdomain%vtk(name+str(i)+"_t_"+str(j),scalar=scalar_field)
+            
             this%femdomain%mesh%nodcoord = this%femdomain%mesh%nodcoord &
             -amp*reshape(mode_Ut,this%femdomain%nn(),3 ) 
         enddo

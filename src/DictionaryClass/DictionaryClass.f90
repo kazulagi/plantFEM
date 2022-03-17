@@ -1,20 +1,23 @@
 module DictionaryClass
     use, intrinsic :: iso_fortran_env
     use MathClass
-
+    use IOClass
     implicit none
 
     type ::  Page_
         character*200 :: value
-        integer(int32) :: IntValue
-        real(real64) :: RealValue
-        integer(int32),allocatable :: intlist(:)
-        real(real64),allocatable :: realist(:)
+        character(:),allocatable :: key
+        integer(int32) :: type_id = 0
+        integer(int32) :: IntValue ! type_id=1
+        real(real64) :: RealValue  ! type_id=2
+        integer(int32),allocatable :: intlist(:)! type_id=3
+        real(real64),allocatable :: realist(:)  ! type_id=4
     end type
 
     type :: Dictionary_
         type(Page_),allocatable :: Dictionary(:)
         logical :: initialized = .false.
+        integer(int32) :: num_entity=0
     contains
         procedure :: Init => InitializeDictionary
         procedure :: Input => InputDictionary
@@ -29,7 +32,21 @@ module DictionaryClass
         procedure :: export => exportDictionary
         procedure :: destroy => destroyDictionary
         procedure :: remove => destroyDictionary
+        
+        ! python-like api
+        ! init by dict()
+        procedure,pass :: updateDictionaryInt
+        procedure,pass :: updateDictionaryReal64
+        procedure,pass :: updateDictionaryChar
+        generic :: update => updateDictionaryInt,updateDictionaryReal64,&
+            updateDictionaryChar
+        procedure :: find => findDictionary
+        procedure :: findID => findIDDictionary
+        procedure :: to_csv => to_csvDictionary
+        procedure :: to_json => to_jsonDictionary
+        
     end type
+
 
     type, extends(Page_) :: FileInfo_
         character*200 :: Path
@@ -45,11 +62,161 @@ module DictionaryClass
         procedure :: setFilePath
         procedure :: setDirectoryName
         procedure :: setFileName
+        
     end type
 
+    interface count
+        module procedure count_char_char
+    end interface count
 contains
 
+! ##################################################
+subroutine updateDictionaryInt(this,Key, intvalue)
+    class(Dictionary_),intent(inout)::this
+    character(*),intent(in)  :: key
+    integer(int32),intent(in) :: intvalue
+    integer(int32) :: found_key(2),n
+
+    found_key=this%findID(Key)
+    if(found_key(1)==0 )then
+        this%num_entity = this%num_entity + 1
+        this%Dictionary(this%num_entity)%key = key
+        this%Dictionary(this%num_entity)%intValue = intValue
+        this%Dictionary(this%num_entity)%type_id = 1
+    else
+        n = found_key(1)
+        
+        this%Dictionary(n)%key = key
+        this%Dictionary(n)%intValue = intValue
+        this%Dictionary(n)%type_id = 1
+    endif
+
+end subroutine
+! ##################################################
+
+! ##################################################
+subroutine updateDictionaryReal64(this,Key, realValue)
+    class(Dictionary_),intent(inout)::this
+    character(*),intent(in)  :: key
+    real(real64),intent(in) :: realValue
+    integer(int32) :: found_key(2),n
+
+    found_key=this%findID(Key)
+    if(found_key(1)==0 )then
+        this%num_entity = this%num_entity + 1
+        this%Dictionary(this%num_entity)%key = key
+        this%Dictionary(this%num_entity)%realValue = realValue
+        this%Dictionary(this%num_entity)%type_id = 2
+    else
+        n = found_key(1)
+        
+        this%Dictionary(n)%key = key
+        this%Dictionary(n)%realValue = realValue
+        this%Dictionary(n)%type_id = 2
+    endif
+
+
+
+end subroutine
+! ##################################################
+
+
+! ##################################################
+subroutine updateDictionaryChar(this,Key, Value)
+    class(Dictionary_),intent(inout)::this
+    character(*),intent(in)  :: key
+    character(*),intent(in) :: Value
+    integer(int32) :: found_key(2),n
+
+    found_key=this%findID(Key)
+    if(found_key(1)==0 )then
+        this%num_entity = this%num_entity + 1
+        this%Dictionary(this%num_entity)%key = key
+        this%Dictionary(this%num_entity)%Value = Value
+        this%Dictionary(this%num_entity)%type_id = 3
+    else
+        n = found_key(1)
+        
+        this%Dictionary(n)%key = key
+        this%Dictionary(n)%Value = Value
+        this%Dictionary(n)%type_id = 3
+    endif
+
+
+end subroutine
+! ##################################################
+
+
+! ##################################################
+function to_dict(name) result(ret_dict)
+    type(Dictionary_) :: ret_dict
+    character(*),intent(in) :: name
+    type(IO_) :: f
+    integer(int32) :: i, num_col, id_from, id_to
+    character(:),allocatable :: line, value_,key_
+    
+    ret_dict = dict()
+    call f%open(name)
+    
+    do 
+        if(f%EOF)exit
+        line = f%readline()
+        num_col = count(line,",")
+        id_to   = 1
+        id_from = 1 
+        if(num_col < 2) cycle
+        key_ = ""
+        value_ = ""
+        do i=1, 2
+            id_to  = index(line(id_from:),",") 
+            
+            
+            
+
+            if(id_from+id_to-1>len(line) )exit
+            if(i==1)then
+                key_   = line(id_from:id_to-1)
+                
+            else
+                value_ = line(id_from:id_from+id_to-2)
+                
+            endif
+            id_from = id_to +1
+            
+        enddo
+        key_ = key_(2:)
+        key_ = key_(:len(key_)-1 )
+        
+        if(index(value_,".")/=0 )then
+            call ret_dict%update(key_,freal(value_))
+        else
+            call ret_dict%update(key_,fint(value_))
+        endif
+    enddo
+    call f%close()
+
+end function
 ! ##############################################
+
+
+
+! ##################################################
+function dict(max_num_entity) result(ret_dict)
+    type(Dictionary_) :: ret_dict
+    integer(int32),optional,intent(in) :: max_num_entity
+    integer(int32) :: max_entity
+
+    max_entity = 1000
+    if(present(max_num_entity) )then
+        max_entity = max_num_entity
+    endif
+
+    ret_dict%initialized = .true.
+    allocate(ret_dict%Dictionary(max_entity))
+
+end function
+! ##############################################
+
 subroutine InitializeDictionary(obj,NumOfPage)
     class(Dictionary_),intent(inout)::obj
     integer(int32),intent(in)      :: NumOfPage
@@ -198,7 +365,7 @@ subroutine showDictionary(obj,From,to,Name)
     character(*),optional,intent(in) :: Name
     integer(int32) :: i,n,startp,endp,rl,il
 
-    n=size(obj%Dictionary,1)
+    n=obj%num_entity
 
     
     startp=input(default=1,option=From)
@@ -217,11 +384,18 @@ subroutine showDictionary(obj,From,to,Name)
             rl = 1
         endif
     
-        print *, "Page : ",i,"Content : ",trim(obj%Dictionary(i)%Value ),&
-        "IntValue : ",obj%Dictionary(i)%IntValue,&
-        "RealValue : ",obj%Dictionary(i)%RealValue,&
-        "Intlist(:) : ",obj%Dictionary(i)%Intlist(:),&
-        "Realist(:) : ",obj%Dictionary(i)%Realist(:)
+        if(obj%Dictionary(i)%type_id==1)then
+            print *, '{"'+trim(obj%Dictionary(i)%Key )+'":',&
+                str(obj%Dictionary(i)%IntValue)+"}"
+        elseif(obj%Dictionary(i)%type_id==2)then
+            print *, '{"'+trim(obj%Dictionary(i)%Key )+'":',&
+            str(obj%Dictionary(i)%realValue)+"}"
+        elseif(obj%Dictionary(i)%type_id==3)then
+            print *, '{"'+trim(obj%Dictionary(i)%Key )+'":',&
+            obj%Dictionary(i)%Value+"}"
+        else
+            ! do nothing
+        endif
         
         if(il==1 )then
             deallocate(obj%Dictionary(i)%Intlist )
@@ -372,5 +546,202 @@ subroutine destroyDictionary(obj)
 end subroutine
 ! ##############################################
 
+
+! ##############################################
+recursive function findDictionary(this,key) result(val)
+    class(Dictionary_),intent(in) :: this
+    character(*),intent(in) :: key
+    character(:),allocatable :: val
+    integer(int32) :: i
+    
+    do i=1,this%num_entity
+        if(trim(this%Dictionary(i)%key) == trim(key)  )then
+            ! Found!
+            select case (this%Dictionary(i)%type_id)
+                case(1)
+                    val = str(this%Dictionary(i)%intValue)
+                    return
+                case(2)
+                    val = str(this%Dictionary(i)%realValue)
+                    return
+                case(3)
+                    val = this%Dictionary(i)%Value
+                    return
+            end select
+        endif
+    enddo
+    
+    val = "__None__"
+    
+end function
+
+! ##############################################
+recursive function findIDDictionary(this,key) result(val)
+    class(Dictionary_),intent(in) :: this
+    character(*),intent(in) :: key
+    integer(int32) :: val(2)
+    integer(int32) :: i
+    
+    do i=1,this%num_entity
+        if(trim(this%Dictionary(i)%key) == trim(key)  )then
+            ! Found!
+            val(1) = i
+            val(2) = this%Dictionary(i)%type_id
+            return
+        endif
+    enddo
+    
+    val = 0
+    
+end function
+
+subroutine to_csvDictionary(obj,Name,from,to)
+    class(Dictionary_)::obj
+    integer(int32),optional,intent(in)::From,to
+    character(*),intent(in) :: Name
+    type(IO_) :: f
+    integer(int32) :: i,n,startp,endp,rl,il
+
+    n=obj%num_entity
+
+    
+    startp=input(default=1,option=From)
+    endp  =input(default=n,option=to)
+
+    call f%open(Name+".csv")
+    do i=startp,endp
+        rl = 0
+        il = 0
+        if(.not. allocated(obj%Dictionary(i)%Intlist) )then
+            allocate(obj%Dictionary(i)%Intlist(0) )
+            il = 1
+        endif
+        if(.not. allocated(obj%Dictionary(i)%Realist) )then
+            allocate(obj%Dictionary(i)%Realist(0) )
+            rl = 1
+        endif
+    
+        if(obj%Dictionary(i)%type_id==1)then
+            write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'",',&
+                str(obj%Dictionary(i)%IntValue)+","
+        elseif(obj%Dictionary(i)%type_id==2)then
+            write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'",',&
+            str(obj%Dictionary(i)%realValue)+","
+        elseif(obj%Dictionary(i)%type_id==3)then
+            write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'",',&
+            obj%Dictionary(i)%Value+","
+        else
+            ! do nothing
+        endif
+        
+        if(il==1 )then
+            deallocate(obj%Dictionary(i)%Intlist )
+        endif
+        if(rl == 1 )then
+            deallocate(obj%Dictionary(i)%Realist )
+        endif
+    enddo
+    
+    call f%close()
+
+end subroutine
+
+
+subroutine to_jsonDictionary(obj,Name,from,to)
+    class(Dictionary_)::obj
+    integer(int32),optional,intent(in)::From,to
+    character(*),intent(in) :: Name
+    type(IO_) :: f
+    integer(int32) :: i,n,startp,endp,rl,il
+
+    n=obj%num_entity
+
+    
+    startp=input(default=1,option=From)
+    endp  =input(default=n,option=to)
+
+    call f%open(Name+".json")
+    call f%write("{")
+    do i=startp,endp-1
+        rl = 0
+        il = 0
+        if(.not. allocated(obj%Dictionary(i)%Intlist) )then
+            allocate(obj%Dictionary(i)%Intlist(0) )
+            il = 1
+        endif
+        if(.not. allocated(obj%Dictionary(i)%Realist) )then
+            allocate(obj%Dictionary(i)%Realist(0) )
+            rl = 1
+        endif
+    
+        if(obj%Dictionary(i)%type_id==1)then
+            write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'": ',&
+                str(obj%Dictionary(i)%IntValue)+","
+        elseif(obj%Dictionary(i)%type_id==2)then
+            write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'": ',&
+            str(obj%Dictionary(i)%realValue)+","
+        elseif(obj%Dictionary(i)%type_id==3)then
+            write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'": ',&
+            obj%Dictionary(i)%Value+","
+        else
+            ! do nothing
+        endif
+        
+        if(il==1 )then
+            deallocate(obj%Dictionary(i)%Intlist )
+        endif
+        if(rl == 1 )then
+            deallocate(obj%Dictionary(i)%Realist )
+        endif
+    enddo
+    i=endp
+    if(obj%Dictionary(i)%type_id==1)then
+        write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'": ',&
+            str(obj%Dictionary(i)%IntValue)
+    elseif(obj%Dictionary(i)%type_id==2)then
+        write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'": ',&
+        str(obj%Dictionary(i)%realValue)
+    elseif(obj%Dictionary(i)%type_id==3)then
+        write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'": ',&
+        obj%Dictionary(i)%Value
+    else
+        ! do nothing
+    endif
+
+    call f%write("}")
+    call f%close()
+
+end subroutine
+
+recursive function count_char_char(sentence, key, initialized) result(ret)
+    character(*),intent(in) :: sentence
+    character(*),intent(in) :: key
+    character(:),allocatable :: small_sentence
+    logical,optional,intent(in) :: initialized
+    integer(int32) :: n_len, k
+    integer(int32) :: ret
+
+    n_len = len(sentence)
+    if(present(initialized) )then
+        if(initialized)then
+            ! nothing to do
+        else
+            ret = 0.0d0
+        endif
+    else
+        ret = 0.0d0
+    endif
+    
+    if(index(sentence,key)==0 ) then
+        return
+    else
+        ret = ret + 1
+        if(index(sentence,key)+1>n_len) return
+        small_sentence = sentence(index(sentence,key)+1:)
+        ret = ret + &
+            count_char_char(sentence=small_sentence,key=key,initialized=.true.)
+    endif
+
+end function
 
 end module
