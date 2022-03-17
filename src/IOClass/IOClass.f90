@@ -22,7 +22,9 @@ module IOClass
     integer(int32),parameter :: PF_int32=2
     integer(int32),parameter :: PF_char=3
     
-
+    ! formats
+    integer(int32),parameter :: KNT_ASCII=100 ! K-NET ASCII
+    
 
     type :: IO_
         integer :: fh=100
@@ -63,8 +65,9 @@ module IOClass
         procedure, pass :: importIOReal64ArrayAsTxt
         procedure, pass :: importIOReal64VectorAsTxt
         procedure, pass :: importIOReal64VectorAsTxtWithIndex
+        procedure, pass :: importIODataFromFormatted
         generic, public :: import => importIOReal64VectorAsTxt,importIOReal64ArrayAsTxt,&
-        importIOReal64VectorAsTxtWithIndex
+        importIOReal64VectorAsTxtWithIndex,importIODataFromFormatted
 
         procedure, pass :: exportIOReal64ArrayAsTxt
         procedure, pass :: exportIOReal64VectorAsTxt
@@ -2658,6 +2661,70 @@ subroutine exportIOReal64VectorAsTxtWithIndex(obj,name,real64Vector,with_index)
         call obj%close()
     
 end subroutine
+! ##################################################################
+function importIODataFromFormatted(obj,format,name) result(real64Array)
+    class(IO_),intent(in) :: obj
+    character(*),intent(in) :: name
+    integer(int32),intent(in):: format
+    real(real64),allocatable :: real64Array(:,:)
+    type(IO_) :: f
+    character(:),allocatable :: line
+    real(real64) :: sampling_Hz,duration_time,Scale_factor,t
+    integer(int32) :: i,j,br1,br2,n_data,int_data(8),id
 
+    if(format==KNT_ASCII)then
+        !https://www.kyoshin.bosai.go.jp/kyoshin/man/knetform.html
+        call f%open(name,"r")    
+        ! ignore 10 lines
+        do i=1,10
+            line = f%readline()
+        enddo
+        line = f%readline()
+        line = line(19:)
+        line = line(:len(line)-2 )
+        sampling_Hz = freal(line)
+
+        line = f%readline()
+        line = line(19:)
+        duration_time = freal(line)
+
+        !ignore
+        line = f%readline()
+
+
+        line = f%readline()
+        line = line(19:)
+        br1 = index(line,"(gal)/")
+        br2 = index(line,"(gal)/") + 6
+        Scale_factor = freal(line(1:br1-1))
+        Scale_factor = Scale_factor/freal(line(br2:))
+        n_data = int(sampling_Hz*duration_time)
+
+        ! ignore
+        do i=1,3
+            line = f%readline()
+        enddo
+
+        allocate(real64Array(n_data,2) )
+        t = 0.0d0
+        id = 0
+        do i=1,n_data
+            if(f%EOF) exit
+            line = f%readline()
+            if(f%EOF) exit
+            read(line,*) int_data(1:8)
+            do j=1,8
+                t = t + 1.0d0/sampling_Hz
+                id = id + 1
+                real64Array(id,1) = t
+                real64Array(id,2) = dble(int_data(j))*Scale_factor 
+            enddo
+        enddo
+        
+
+        call f%close()
+    endif
+
+end function
 
 end module IOClass
