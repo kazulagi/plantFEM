@@ -2826,4 +2826,165 @@ subroutine exportRHSLinearSolver(obj,name)
 end subroutine
 ! #######################################################
 
+! #######################################################
+! FITTING by Stochastic Gradient Descend
+function fit(f,training_data,params,eta,error,max_itr,use_ratio,logfile) result(fit_params)
+    
+  interface
+      function f(x,params) result(ret)
+          use iso_fortran_env
+          real(real64),intent(in) :: x
+          real(real64),intent(in) :: params(:) 
+          real(real64) :: ret
+      end function
+  end interface
+
+  real(real64),intent(in) :: training_data(:,:) !(sample, {input=1, output=2})
+  real(real64),intent(in) :: params(:),eta
+  real(real64),optional,intent(inout) :: error
+  real(real64),optional,intent(in) :: use_ratio
+  real(real64),allocatable :: grad_params(:),dp(:)
+  integer(int32),optional,intent(in) :: max_itr
+  character(*),optional,intent(in) :: logfile
+  real(real64),allocatable :: fit_params(:)
+  real(real64) :: error_function,error_function_b,error_function_f,err_0,h
+  integer(int32) :: i,j,n,trial,shuffle_id,param_id
+  real(real64) :: eps_val = dble(1.0e-4)
+  real(real64) :: tol = dble(1.0e-9)
+  real(real64) :: sgd_use_ratio
+
+
+  type(IO_) :: log_file
+  
+
+  real(real64) :: eta_zero 
+  real(real64) :: eta_tr 
+  integer(int32):: max_trial = 1000000
+  integer(int32) :: num_select !
+  type(Random_) :: random
+  integer(int32),allocatable :: selected_data_ids(:)
+
+  sgd_use_ratio = 0.050d0
+  if(present(use_ratio) )then
+    sgd_use_ratio = use_ratio
+  endif
+  
+  num_select = int(dble(size(training_data,1))*sgd_use_ratio) + 1
+  
+  selected_data_ids = zeros(num_select)
+
+  if(present(max_itr) )then
+    max_trial  = max_itr
+  endif
+  if(present(logfile) )then
+      call log_file%open(logfile,"w")
+      call log_file%write("# itr    error-norm")
+  endif
+
+  eta_zero = eta
+  fit_params = params
+  error_function = 0.0d0
+  do i=1,size(training_data,1)
+      error_function = error_function + ( f(x=training_data(i,1),params=fit_params) - training_data(i,2) )**2
+  enddo
+  
+
+  ! compute grad for each params
+  ! by Stochastic Gradient Descend
+  do trial=1,max_trial
+      error_function = 0.0d0
+      do i=1,size(training_data,1)
+          error_function = error_function + ( f(x=training_data(i,1),params=fit_params) - training_data(i,2) )**2
+      enddo
+      if(trial==1)then
+          err_0 = error_function
+      endif
+      
+      if(present(error) )then
+          error = error_function/err_0
+      endif
+      
+
+      if(error_function/err_0 <= tol) then
+          
+          if(present(logfile) )then
+            call log_file%close()
+          endif
+          exit
+      endif
+
+      
+      if(trial==max_trial) then
+          
+          if(present(logfile) )then
+            call log_file%close()
+          endif
+          !print *, "ERROR: fit() > SGD did not converge. "
+          return
+      endif
+
+      ! Robbins-Monro Method
+      eta_tr = eta_zero/dble(trial)
+      
+      ! shuffle training data and select 1
+      shuffle_id = random%randint(from=1,to=size(training_data,1) )
+      do i=1,num_select
+        selected_data_ids(i) = random%randint(from=1,to=size(training_data,1) )
+      enddo
+      
+      ! compute grad
+      grad_params = zeros( size(params) )
+      do j=1,num_select
+        shuffle_id = selected_data_ids(j)
+        dp = zeros( size(params) )
+        do param_id = 1,size(params)
+            dp(:) = 0.0d0
+            dp(param_id) = eps_val
+
+            error_function_f = 0.0d0
+            do i=1,size(training_data,1)
+                error_function_f = error_function_f + ( f(x=training_data(shuffle_id,1),params=fit_params+dp) &
+                    - training_data(shuffle_id,2) )**2
+            enddo
+
+            dp(param_id) = - eps_val
+
+            error_function_b = 0.0d0
+            do i=1,size(training_data,1)
+                error_function_b = error_function_b + ( f(x=training_data(shuffle_id,1),params=fit_params+dp) &
+                     - training_data(shuffle_id,2) )**2
+            enddo
+
+
+            ! numerical derivative
+            grad_params(param_id) = grad_params(param_id) + &
+            (error_function_f - error_function_b )/(2.0d0*eps_val)
+
+
+        enddo
+      enddo
+      !stop
+      
+      ! average_gradient
+      grad_params = grad_params/dble(num_select)
+      !grad_params = grad_params/norm(grad_params)
+      
+      fit_params = fit_params - eta_tr*grad_params
+
+      
+      if(norm(grad_params) <= tol) exit
+      grad_params = 0.0d0
+
+      if(present(logfile) )then
+          write(log_file%fh,*) trial,error
+      endif
+  enddo
+
+  if(present(logfile) )then
+    call log_file%close()
+  endif
+
+
+end function
+
 end module

@@ -2664,7 +2664,23 @@ function derivative_vector(func,x,dim_num,eps) result(ret)
     ! <<<
 
 end function
+! ########################################################
 
+real(real64) function polynomial(x,params)
+    real(real64),intent(in) :: x
+    real(real64),intent(in) :: params(:)
+    integer(int32) :: i , n   ,order_
+    
+    n = size(params)
+    ! (n-1)-order polynomial
+    polynomial = 0.0d0
+    order_ = 0
+    do i=n-1,0,-1
+        order_ = order_ + 1
+        polynomial = polynomial + params(order_) * (x**i)
+    enddo
+    
+end function
 
 
 end module MathClass
