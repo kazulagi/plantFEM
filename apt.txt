@@ -1,3 +1,4 @@
+sudo 
 gcc
 gfortran
 libopenmpi-dev
