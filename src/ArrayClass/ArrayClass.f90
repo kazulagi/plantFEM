@@ -60,6 +60,10 @@ module ArrayClass
                  linspace1Dreal32, linspace2D, linspace3D,linspace4D
     end interface linspace
 
+    interface set
+        module procedure :: setInt32Vector
+    end interface set
+
     interface windowing
         module procedure :: windowingComplex64,windowingReal64
     end interface windowing
@@ -7110,18 +7114,18 @@ end function
 
 ! ####################################################################
 pure function appendVectorsReal64(vec1,vec2) result(vec12)
-    real(real64),allocatable,intent(in) :: vec1(:),vec2(:)
+    real(real64),intent(in) :: vec1(:),vec2(:)
     real(real64),allocatable :: vec12(:)
 
-    if(.not.allocated(vec1) )then
-        vec12 = vec2
-        return
-    endif
-    
-    if(.not.allocated(vec2) )then
-        vec12 = vec1
-        return
-    endif
+!    if(.not.allocated(vec1) )then
+!        vec12 = vec2
+!        return
+!    endif
+!    
+!    if(.not.allocated(vec2) )then
+!        vec12 = vec1
+!        return
+!    endif
     
     if(size(vec1)==0 )then
         vec12 = vec2    
@@ -7139,5 +7143,81 @@ pure function appendVectorsReal64(vec1,vec2) result(vec12)
     
 end function
 ! ####################################################################
+
+function setInt32Vector(int32Vector) result(ret)
+    ! remove dupulicated elements
+    ! Ex> [1, 2, 2, 3] > [1, 2, 3]
+    integer(int32),intent(in) :: int32Vector(:)
+    integer(int32),allocatable :: ret(:)
+
+    ret = RemoveOverwrap(int32Vector)
+
+end function
+
+! ###################################################################
+function RemoveOverwrap(vector) result(new_vector)
+    integeR(int32),intent(in) :: vector(:)
+    integer(int32),allocatable :: new_vector(:),buf(:)
+    integer(int32) :: i,j,null_flag,new_size,new_id
+
+    buf = vector
+    
+    call heapsort(n=size(buf),array=buf)
+    
+    null_flag = minval(buf)-1
+    do i=1,size(buf)-1
+        if(buf(i)==null_flag ) cycle
+        do j=i+1,size(buf)
+            if(buf(j)==null_flag ) cycle
+            ! if same, set null_flag
+            if(buf(i)==buf(j) )then
+                buf(j)=null_flag
+            endif
+        enddo
+    enddo
+    
+    ! remove null_flaged values
+    new_size = 0
+    do i=1,size(buf)
+        if(buf(i)/=null_flag )then
+            new_size = new_size + 1
+        endif
+    enddo
+    new_vector = int(zeros(new_size) )
+    new_id = 0
+    do i=1,size(buf)
+        if(buf(i)/=null_flag )then
+            new_id = new_id + 1
+            new_vector(new_id) = buf(i)
+        endif
+    enddo
+
+end function
+! ###################################################################
+pure function RemoveIF(vector,equal_to) result(new_vector)
+    integeR(int32),intent(in) :: vector(:),equal_to
+    integer(int32),allocatable :: new_vector(:)
+    integer(int32) :: i, num_remove,new_id
+
+    num_remove=0
+    do i=1,size(vector)
+        if(vector(i)==equal_to )then
+            num_remove=num_remove+1
+        endif
+    enddo
+    new_vector = int(zeros(size(vector,1)-num_remove ))
+    new_id=0
+    do i=1,size(vector)
+        if(vector(i)==equal_to )then
+            cycle
+        else
+            new_id = new_id+1
+            new_vector(new_id) = vector(i)
+        endif
+    enddo
+end function
+! ###################################################################
+
+
 
 end module ArrayClass

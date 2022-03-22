@@ -5,7 +5,7 @@ module DictionaryClass
     implicit none
 
     type ::  Page_
-        character*200 :: value
+        character(:),allocatable :: charvalue
         character(:),allocatable :: key
         integer(int32) :: type_id = 0
         integer(int32) :: IntValue ! type_id=1
@@ -76,8 +76,19 @@ subroutine updateDictionaryInt(this,Key, intvalue)
     character(*),intent(in)  :: key
     integer(int32),intent(in) :: intvalue
     integer(int32) :: found_key(2),n
+    type(Dictionary_) :: buf
+
+    if(this%num_entity+1 >= size(this%Dictionary) )then
+        ! copy
+        buf = this
+        ! initialize
+        deallocate(this%Dictionary)
+        allocate(this%Dictionary(buf%num_entity + 1000) )
+        this%Dictionary(1:buf%num_entity) = buf%Dictionary(1:buf%num_entity)
+    endif
 
     found_key=this%findID(Key)
+
     if(found_key(1)==0 )then
         this%num_entity = this%num_entity + 1
         this%Dictionary(this%num_entity)%key = key
@@ -100,6 +111,17 @@ subroutine updateDictionaryReal64(this,Key, realValue)
     character(*),intent(in)  :: key
     real(real64),intent(in) :: realValue
     integer(int32) :: found_key(2),n
+    type(Dictionary_) :: buf
+
+    if(this%num_entity+1 >= size(this%Dictionary) )then
+        ! copy
+        buf = this
+        ! initialize
+        deallocate(this%Dictionary)
+        allocate(this%Dictionary(buf%num_entity + 1000) )
+        this%Dictionary(1:buf%num_entity) = buf%Dictionary(1:buf%num_entity)
+    endif
+
 
     found_key=this%findID(Key)
     if(found_key(1)==0 )then
@@ -122,23 +144,33 @@ end subroutine
 
 
 ! ##################################################
-subroutine updateDictionaryChar(this,Key, Value)
+subroutine updateDictionaryChar(this,Key, charValue)
     class(Dictionary_),intent(inout)::this
     character(*),intent(in)  :: key
-    character(*),intent(in) :: Value
+    character(*),intent(in) :: charValue
     integer(int32) :: found_key(2),n
+    type(Dictionary_) :: buf
+
+    if(this%num_entity+1 >= size(this%Dictionary) )then
+        ! copy
+        buf = this
+        ! initialize
+        deallocate(this%Dictionary)
+        allocate(this%Dictionary(buf%num_entity + 1000) )
+        this%Dictionary(1:buf%num_entity) = buf%Dictionary(1:buf%num_entity)
+    endif
 
     found_key=this%findID(Key)
     if(found_key(1)==0 )then
         this%num_entity = this%num_entity + 1
         this%Dictionary(this%num_entity)%key = key
-        this%Dictionary(this%num_entity)%Value = Value
+        this%Dictionary(this%num_entity)%charValue = charValue
         this%Dictionary(this%num_entity)%type_id = 3
     else
         n = found_key(1)
         
         this%Dictionary(n)%key = key
-        this%Dictionary(n)%Value = Value
+        this%Dictionary(n)%charValue = charValue
         this%Dictionary(n)%type_id = 3
     endif
 
@@ -268,7 +300,7 @@ subroutine InputDictionary(obj,page,content,RealValue,IntValue,Realist,Intlist)
     endif
 
     if(present(content) )then
-        obj%Dictionary(page)%Value = content 
+        obj%Dictionary(page)%charValue = content 
     endif
 end subroutine
 ! ##############################################
@@ -318,7 +350,7 @@ function GetDictionaryValue(obj,page) result(content)
     integer(int32),intent(in)      :: page
     character*200 :: content
 
-    content = obj%Dictionary(page)%Value
+    content = obj%Dictionary(page)%charValue
 
 end function
 ! ##############################################
@@ -392,7 +424,7 @@ subroutine showDictionary(obj,From,to,Name)
             str(obj%Dictionary(i)%realValue)+"}"
         elseif(obj%Dictionary(i)%type_id==3)then
             print *, '{"'+trim(obj%Dictionary(i)%Key )+'":',&
-            obj%Dictionary(i)%Value+"}"
+            obj%Dictionary(i)%charValue+"}"
         else
             ! do nothing
         endif
@@ -421,7 +453,7 @@ subroutine showDictionary(obj,From,to,Name)
                 allocate(obj%Dictionary(i)%Realist(0) )
                 rl = 1
             endif
-            write(1023,*) "Page : ",i,"Content : ",trim(obj%Dictionary(i)%Value ),&
+            write(1023,*) "Page : ",i,"Content : ",trim(obj%Dictionary(i)%charValue ),&
                 "IntValue : ",obj%Dictionary(i)%IntValue,&
                 "RealValue : ",obj%Dictionary(i)%RealValue,&
                 "Intlist(:) : ",obj%Dictionary(i)%Intlist(:),&
@@ -469,7 +501,7 @@ subroutine exportDictionary(obj,FileName,fh,from,to)
             allocate(obj%Dictionary(i)%Realist(0) )
             rl = 1
         endif
-        write(nnn,*) "Page : ",i,"Content : ",trim(obj%Dictionary(i)%Value ),&
+        write(nnn,*) "Page : ",i,"Content : ",trim(obj%Dictionary(i)%charValue ),&
             "IntValue : ",obj%Dictionary(i)%IntValue,&
             "RealValue : ",obj%Dictionary(i)%RealValue,&
             "Intlist(:) : ",obj%Dictionary(i)%Intlist(:),&
@@ -504,7 +536,7 @@ function contentofDictionary(obj,id) result(content)
     integer(int32),intent(in) :: id
     character*200 :: content
  
-    content = obj%Dictionary(id)%value
+    content = obj%Dictionary(id)%charvalue
 
 end function
 ! ##############################################
@@ -521,7 +553,7 @@ function GetPageNumDictionary(obj,Content) result(page)
     n=size(obj%Dictionary,1)
     page=-1
     do i=1,n
-        if(trim(Content)==trim(obj%Dictionary(i)%value) )then
+        if(trim(Content)==trim(obj%Dictionary(i)%charvalue) )then
             page=i
             return
         endif
@@ -565,7 +597,7 @@ recursive function findDictionary(this,key) result(val)
                     val = str(this%Dictionary(i)%realValue)
                     return
                 case(3)
-                    val = this%Dictionary(i)%Value
+                    val = this%Dictionary(i)%charValue
                     return
             end select
         endif
@@ -629,7 +661,7 @@ subroutine to_csvDictionary(obj,Name,from,to)
             str(obj%Dictionary(i)%realValue)+","
         elseif(obj%Dictionary(i)%type_id==3)then
             write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'",',&
-            obj%Dictionary(i)%Value+","
+            trim(obj%Dictionary(i)%charValue)+","
         else
             ! do nothing
         endif
@@ -682,7 +714,7 @@ subroutine to_jsonDictionary(obj,Name,from,to)
             str(obj%Dictionary(i)%realValue)+","
         elseif(obj%Dictionary(i)%type_id==3)then
             write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'": ',&
-            obj%Dictionary(i)%Value+","
+            obj%Dictionary(i)%charValue+","
         else
             ! do nothing
         endif
@@ -703,7 +735,7 @@ subroutine to_jsonDictionary(obj,Name,from,to)
         str(obj%Dictionary(i)%realValue)
     elseif(obj%Dictionary(i)%type_id==3)then
         write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'": ',&
-        obj%Dictionary(i)%Value
+        obj%Dictionary(i)%charValue
     else
         ! do nothing
     endif

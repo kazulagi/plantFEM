@@ -2664,6 +2664,49 @@ function derivative_vector(func,x,dim_num,eps) result(ret)
     ! <<<
 
 end function
+! ########################################################
+
+real(real64) function polynomial(x,params)
+    real(real64),intent(in) :: x
+    real(real64),intent(in) :: params(:)
+    integer(int32) :: i , n   ,order_
+    
+    n = size(params)
+    ! (n-1)-order polynomial
+    polynomial = 0.0d0
+    order_ = 0
+    do i=n-1,0,-1
+        order_ = order_ + 1
+        polynomial = polynomial + params(order_) * (x**i)
+    enddo
+    
+end function
+
+! ###########################################################
+real(real64) function sigmoid(x,params)
+	real(real64),intent(in) :: x,params(:)
+
+	if(size(params)==0 )then
+		sigmoid = 1.0d0/(1.0d0 + exp(- (x) ) )
+	elseif(size(params)==1 )then
+		sigmoid = 1.0d0/(1.0d0 + exp(- params(1)*(x) ) )
+	elseif(size(params)==2 )then
+		sigmoid = 1.0d0/(1.0d0 + exp(- params(1)*(x-params(2)) ) )
+	else
+		sigmoid = 1.0d0/(1.0d0 + exp(- params(1)*(x-params(2)) ) )*params(3)
+	endif
+
+end function
+! ###########################################################
+
+! ###########################################################
+real(real64) function logit(x,params)
+	real(real64),intent(in) :: x,params(:)
+
+	logit = log(x/(1-x) )
+
+end function
+! ###########################################################
 
 
 

@@ -23,6 +23,9 @@ class plantfem:
     def Soybean(self,config):
         return Soybean(config)
 
+
+    def Soybean(self,config):
+        return Soil(config)
     
 
 
