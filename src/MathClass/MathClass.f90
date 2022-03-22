@@ -2682,5 +2682,32 @@ real(real64) function polynomial(x,params)
     
 end function
 
+! ###########################################################
+real(real64) function sigmoid(x,params)
+	real(real64),intent(in) :: x,params(:)
+
+	if(size(params)==0 )then
+		sigmoid = 1.0d0/(1.0d0 + exp(- (x) ) )
+	elseif(size(params)==1 )then
+		sigmoid = 1.0d0/(1.0d0 + exp(- params(1)*(x) ) )
+	elseif(size(params)==2 )then
+		sigmoid = 1.0d0/(1.0d0 + exp(- params(1)*(x-params(2)) ) )
+	else
+		sigmoid = 1.0d0/(1.0d0 + exp(- params(1)*(x-params(2)) ) )*params(3)
+	endif
+
+end function
+! ###########################################################
+
+! ###########################################################
+real(real64) function logit(x,params)
+	real(real64),intent(in) :: x,params(:)
+
+	logit = log(x/(1-x) )
+
+end function
+! ###########################################################
+
+
 
 end module MathClass
