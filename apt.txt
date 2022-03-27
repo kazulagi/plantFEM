@@ -1,9 +1,0 @@
-sudo 
-gcc
-gfortran
-libopenmpi-dev
-python3
-gmsh
-gnuplot
-libatlas3-base
-libatlas-base-dev

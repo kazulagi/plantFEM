@@ -11,6 +11,7 @@ module FEMSolverClass
 
         logical :: initialized = .false.
         logical :: InterfaceExist = .false.
+        logical :: debug = .false.
         
         real(real64),allocatable :: CRS_val(:)
         integer(int32),allocatable :: CRS_Index_Col(:)
@@ -30,7 +31,14 @@ module FEMSolverClass
         integer(int32),allocatable :: B_CRS_Index_Row(:)
         logical                    :: B_empty = .true.
 
+        
         integer(int32),allocatable :: fix_eig_IDs(:)
+        
+        logical,allocatable :: fix_lin_exists(:)
+        real(real64),allocatable :: fix_lin_exists_Values(:)
+        
+        !integer(int32),allocatable :: fix_lin_IDs(:)
+        !real(real64),allocatable :: fix_lin_Values(:)
         
         real(real64),allocatable :: CRS_x(:)
         real(real64),allocatable :: CRS_ID_Starts_From(:)
@@ -38,6 +46,11 @@ module FEMSolverClass
         ! dense matrix
         real(real64),allocatable :: A_dense(:,:)
         integer(int32),allocatable :: Num_nodes_in_Domains(:)
+
+        
+
+        integer(int32) :: itrmax = 100000
+        real(real64)   :: er0 = dble(1.0e-10)
     contains
         !(1) Initialize solver
         procedure,public ::  init => initFEMSolver
@@ -74,6 +87,10 @@ module FEMSolverClass
         
         !(7-1) Modal analysis
         procedure,public :: eig => eigFEMSolver
+
+        !(7-2) linear solver
+        procedure,public :: solve => solveFEMSolver
+
         !re-zero matrix
         procedure,public :: zeros => zerosFEMSolver
         ! M:diag matrix,  A*M^{-1}
@@ -170,6 +187,28 @@ recursive subroutine setDomainFEMSolver(this,FEMDomain,FEMDomains,DomainID,Domai
     type(FEMDomain_),target,optional,intent(in) :: FEMDomain,FEMDomains(:)
     integer(int32),optional,intent(in) :: DomainID,DomainIDs(:)
     integer(int32) :: i
+
+    if(present(DomainID) )then
+        if(DomainID<=0)then
+            print *, "ERROR :: FEMSOlver%setDomain >> DomainID should be >=1"
+        endif
+    endif
+
+    if(present(DomainIDs) )then
+        if(minval(DomainIDs)<=0)then
+            print *, "ERROR :: FEMSOlver%setDomain >> DomainID should be >=1"
+        endif
+    endif
+
+    if(.not. present(DomainID) .and. .not.present(DomainIDs) )then
+        print *, "ERROR :: DomainID or DomainIDs are to be passed."
+        stop
+    endif
+
+    if(.not. present(FEMDomain) .and. .not.present(FEMDomains) )then
+        print *, "ERROR :: FEMDomain or FEMDomains are to be passed."
+        stop
+    endif
 
     if(.not.this%initialized)then
         print *, "ERROR :: this%setDomain should be called after this%init()"
@@ -410,6 +449,7 @@ subroutine setCRSFEMSolver(this,DOF)
 
 
         ! then, this%CRS_Index_Row and this%CRS_Index_Col are filled.
+        this%CRS_Val = zeros(size(this%CRS_Index_Col))
     endif
 
 
@@ -499,6 +539,7 @@ subroutine setValueFEMSolver(this,DomainID,ElementID,DOF,Matrix,Vector,as_Dense)
         call this%setCRS(DOF=DOF)
     endif
 
+    ! bugなし?
     if(present(Matrix) )then
         do i=1,this%femdomains(DomainID)%femdomainp%nne()
             do j=1,DOF
@@ -530,7 +571,7 @@ subroutine setValueFEMSolver(this,DomainID,ElementID,DOF,Matrix,Vector,as_Dense)
                         CRS_id = this%CRS_Index_Row(row_id)-1 + id
                         eRow_id = DOF*(i-1) + j
                         eCol_id = DOF*(ii-1) + jj
-                        !$OMP atomic
+                        !!$OMP atomic
                         this%CRS_val(CRS_id) = this%CRS_val(CRS_id) + Matrix(eRow_id,eCol_id)
                     enddo
                 enddo
@@ -544,7 +585,7 @@ subroutine setValueFEMSolver(this,DomainID,ElementID,DOF,Matrix,Vector,as_Dense)
                 row_node_id=this%femdomains(DomainID)%femdomainp%mesh%elemnod(ElementID,i)
                 row_id = this%CRS_ID_Starts_From(DomainID)-1+DOF*(row_node_id-1)+j
                 eRow_id = DOF*(i-1) + j
-                !$OMP atomic
+                !!$OMP atomic
                 this%CRS_RHS(Row_id) = this%CRS_RHS(Row_id) + Vector(eRow_id)
             enddo
         enddo
@@ -552,12 +593,36 @@ subroutine setValueFEMSolver(this,DomainID,ElementID,DOF,Matrix,Vector,as_Dense)
 
 end subroutine
 ! ###################################################################
-subroutine fixFEMSolver(this,DomainID,NodeIDs,DOFs,to)
+subroutine fixFEMSolver(this,DomainID,IDs,FixValue)
     class(FEMSolver_),intent(inout) :: this
-    integer(int32),intent(in) :: DomainID,NodeIDs(:),DOFs(:)
-    real(real64),intent(in) :: to
 
-    !
+    real(real64),intent(in) :: FixValue
+    integer(int32),intent(in) :: DomainID
+    integer(int32),intent(in) :: IDs(:)
+
+    integer(int32),allocatable :: buf(:)
+    integer(int32),allocatable :: buf_real(:)
+    integer(int32) :: i
+
+    ! fix unknowns for linear solvers
+    ! fix IDs(:)-th amplitudes as zero (Fixed boundary)
+    ! only create list
+    if(.not.allocated(this%fix_lin_exists) )then
+        allocate(this%fix_lin_exists( size(this%CRS_RHS) ) )
+        this%fix_lin_exists_values = zeros( size(this%CRS_RHS) )
+        this%fix_lin_exists(:) = .false.
+        do i=1,size(IDs)
+            this%fix_lin_exists( IDs(i)) = .true.
+            this%fix_lin_exists_values(IDs(i)) = FixValue
+        enddo
+    else
+
+        do i=1,size(IDs)
+            this%fix_lin_exists( IDs(i) ) = .true.
+            this%fix_lin_exists_values( IDs(i) ) = FixValue
+        enddo
+    endif
+    
 end subroutine
 
 !
@@ -917,4 +982,158 @@ subroutine fix_eigFEMSolver(this,IDs)
 end subroutine
 
 
+! #####################################################
+function solveFEMSolver(this) result(x)
+    class(FEMSolver_),intent(inout) :: this
+    real(real64),allocatable :: x(:),dense_mat(:,:),fix_value(:)
+    integer(int32) :: i,j, ElementID,col,row_ptr,col_row_fix
+    logical,allocatable :: need_fix(:)
+
+    type(IO_) :: f
+
+    need_fix = this%fix_lin_exists
+    fix_value= this%fix_lin_exists_values
+
+    do i=1,size(this%CRS_Index_Row)-1 !すべての行
+        do col = this%CRS_index_row(i) ,this%CRS_index_row(i+1)-1
+            
+            if( need_fix( this%CRS_index_col(col) ) )then
+                this%CRS_RHS( i )  = this%CRS_RHS( i ) &
+                        - this%CRS_val( col )*fix_value( this%CRS_index_col(col)) ! 移項
+            endif
+        enddo
+    enddo
+
+    if(allocated(this%fix_lin_exists) )then
+        
+        ! 右辺ベクトルに強制値を導入        
+        ! for each boundary conditioned-node
+        do i=1,size(this%CRS_RHS)
+            if(this%fix_lin_exists(i) )then
+                this%CRS_RHS(i) = this%fix_lin_exists_values(i)
+            endif
+        enddo
+
+        do i=1,size(this%CRS_Index_row)-1
+            do j=this%CRS_Index_row(i),this%CRS_Index_row(i+1)-1
+                if( this%fix_lin_exists(i) )then
+                    this%CRS_val(j) = 0.0d0
+                endif
+
+                if( this%fix_lin_exists( this%CRS_Index_Col(j) ) )then
+                    this%CRS_val(j) = 0.0d0
+                endif
+            enddo
+        enddo
+
+    
+
+        do i=1,size(this%CRS_Index_row)-1
+            do j=this%CRS_Index_row(i),this%CRS_Index_row(i+1)-1
+                if( this%fix_lin_exists(i) .and. &
+                    this%CRS_Index_Col(j) == i ) then
+                    this%CRS_val(j) = 1.0d0
+                else
+                    cycle
+                endif
+                
+            enddo
+        enddo
+
+    endif
+
+    
+
+    if(this%debug)then
+        print *, "[ok] b.c. loaded"
+    endif
+    x = zeros(size(this%CRS_RHS))
+    
+    call  bicgstab_CRS_2(this%CRS_val, this%CRS_index_row, this%CRS_index_col,&
+        x, this%CRS_RHS, this%itrmax, this%er0,this%debug)
+    
+
+end function
+! #####################################################
+
+
+! #####################################################
+subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, debug)
+    integer(int32), intent(inout) :: ptr_i(:),index_j(:), itrmax
+    real(real64), intent(inout) :: a(:), b(:), er
+    real(real64), intent(inout) :: x(:)
+    logical,optional,intent(in) :: debug
+    logical :: speak = .false.
+    integer(int32) itr,i,j,n
+    real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
+    real(real64),allocatable:: r(:), r0(:), p(:), y(:), e(:), v(:),pa(:),ax(:)
+  
+    er0 = er
+    if(present(debug) )then
+      speak = debug
+    endif
+  
+    if(speak) print *, "BiCGSTAB STARTED >> DOF:", n
+    n=size(b)
+    allocate(r(n), r0(n), p(n), y(n), e(n), v(n))
+    
+    r(:) = b(:)
+    if(speak) print *, "BiCGSTAB >> [1] initialize"
+    
+    ax = crs_matvec(CRS_value=a,CRS_col=index_j,&
+        CRS_row_ptr=ptr_i,old_vector=x)
+    r = b - ax
+    
+  
+    if(speak) print *, "BiCGSTAB >> [2] dp1"
+    
+    c1 = dot_product(r,r)
+      
+    init_rr=c1
+    
+    if (c1 < er0) return
+    
+    p(:) = r(:)
+    r0(:) = r(:)
+    
+    do itr = 1, itrmax   
+      if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] initialize"
+      c1 = dot_product(r0,r)
+      
+        y = crs_matvec(CRS_value=a,CRS_col=index_j,&
+        CRS_row_ptr=ptr_i,old_vector=p)
+        
+      c2 = dot_product(r0,y)
+      alp = c1/c2
+      e(:) = r(:) - alp * y(:)
+      v = crs_matvec(CRS_value=a,CRS_col=index_j,&
+      CRS_row_ptr=ptr_i,old_vector=e)
+    
+      if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] half"
+      
+      
+      ev = dot_product(e,v)
+      vv = dot_product(v,v)
+  
+      if(  vv==0.0d0 ) stop "Bicgstab devide by zero"
+          c3 = ev / vv
+      x(:) = x(:) + alp * p(:) + c3 * e(:)
+      r(:) = e(:) - c3 * v(:)
+      rr = dot_product(r,r)
+      
+      if(speak)then
+        print *, rr/init_rr
+      endif
+      
+      !    write(*,*) 'itr, er =', itr,rr
+      if (rr/init_rr < er0) exit
+      c1 = dot_product(r0,r)
+      bet = c1 / (c2 * c3)
+          if(  (c2 * c3)==0.0d0 ) stop "Bicgstab devide by zero"
+      p(:) = r(:) + bet * (p(:) -c3*y(:) )
+    enddo
+   end subroutine 
+  !===============================================================
+  
+  
 end module 

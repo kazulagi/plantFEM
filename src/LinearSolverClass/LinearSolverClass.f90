@@ -1519,13 +1519,14 @@ subroutine gauss_jordan_pv_complex64(a0, x, b, n)
   !  r( ptr_i(i) ) = r( ptr_i(i) ) - a(i)*x( index_j(i) ) 
   !enddo
   
-  !$OMP parallel do private(i)
+  !!$OMP parallel do private(i)
   do i=1,size(b)
-    do j=ptr_I(i)+1,ptr_I(i+1)
-        r(i) = r(i) + x(Index_J(j) )*a(j)
+    do j=ptr_I(i)+1,ptr_I(i+1)-1
+        !!$OMP atomic
+        r(i) = r(i) - x(Index_J(j) )*a(j)
     enddo
   enddo
-  !$OMP end parallel do
+  !!$OMP end parallel do
   
 
   !r(:) = b - matmul(a,x)
@@ -1552,13 +1553,13 @@ subroutine gauss_jordan_pv_complex64(a0, x, b, n)
     !enddo
     
     y(:)=0.0d0
-    !$OMP parallel do private(i)
+    !!$OMP parallel do private(i)
     do i=1,size(b)
-      do j=ptr_I(i)+1,ptr_I(i+1)
-          y(i) = y(i) + p(Index_J(j) )*a(j)
+      do j=ptr_I(i)+1,ptr_I(i+1)-1
+          y(i) = y(i) + p(Index_J(j) )*a( j )
       enddo
     enddo
-    !$OMP end parallel do
+    !!$OMP end parallel do
 
     c2 = dot_product(r0,y)
     alp = c1/c2
@@ -1572,13 +1573,13 @@ subroutine gauss_jordan_pv_complex64(a0, x, b, n)
     !  if(ptr_i(i) <=0) cycle
     !  v( ptr_i(i) ) = v( ptr_i(i) ) + a(i)*e( index_j(i) ) 
     !enddo
-    !$OMP parallel do private(i)
+    !!$OMP parallel do private(i)
     do i=1,size(b)
-      do j=ptr_I(i)+1,ptr_I(i+1)
+      do j=ptr_I(i)+1,ptr_I(i+1)-1
           v(i) = v(i) + e(Index_J(j) )*a(j)
       enddo
     enddo
-    !$OMP end parallel do
+    !!$OMP end parallel do
 
     
     ev = dot_product(e,v)

@@ -90,7 +90,7 @@ module ArrayClass
     end interface
 
     interface eyes
-        module procedure :: eyesRealArray
+        module procedure :: eyesRealArray,eyesRealVector
     end interface
 
     interface increment
@@ -4640,6 +4640,19 @@ pure function eyesRealArray(size1, size2) result(array)
     do i=1,size1
         if(i>size2) exit
         array(i,i) = 1.0d0
+    enddo
+
+end function
+! ############################################################
+pure function eyesRealVector(size1) result(array)
+    integer(int32),intent(in) :: size1
+    real(real64),allocatable :: array(:)
+    integer(int32) :: i
+    allocate(array(size1) )
+    array(:) = 0.0d0
+
+    do i=1,size1
+        array(i) = 1.0d0
     enddo
 
 end function
