@@ -705,3 +705,8 @@ Others are under revision and/or under preparation.
 ### Notes:
 
 2021/11/01 Reaction-Diffusion solver for multi-domain problems are being implemented in order to implement soybean%grow(). 
+
+### TODO:
+
+- Spline curve
+- NURBS curve

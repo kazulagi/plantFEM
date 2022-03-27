@@ -140,6 +140,7 @@ module FEMDomainClass
 		!procedure,public :: distribute => distributeFEMDomain
 		procedure,public :: Delaunay3D => Delaunay3DFEMDomain
 		procedure,public :: Delaunay2D => Delaunay2DFEMDomain
+		procedure,public :: deform => deformFEMDomain
 		
 		procedure,public :: export => ExportFEMDomain
 
@@ -11419,4 +11420,36 @@ pure function zmaxFEMDomain(obj) result(ret)
 
 end function
 ! #########################################################
+
+subroutine deformFEMDomain(obj,disp,velocity,accel,dt)
+    class(FEMDomain_),intent(inout) :: obj
+    real(real64),optional,intent(in) :: disp(:),velocity(:),accel(:),dt
+
+	if(obj%mesh%empty() )then
+		print *, "ERROR :: no mesh is imported."
+		return
+	else
+		if(present(disp) )then
+			obj%mesh%nodcoord(:,:) = obj%mesh%nodcoord(:,:) + reshape(disp,obj%nn(),obj%nd() )
+		endif
+		if(present(velocity) )then
+			if(.not. present(dt) )then
+				print *, "ERROR :: dt shuold be imported."
+				stop
+			endif
+			obj%mesh%nodcoord(:,:) = obj%mesh%nodcoord(:,:) + reshape(velocity,obj%nn(),obj%nd() )*dt
+		endif
+		if(present(accel) )then
+			if(.not. present(dt) )then
+				print *, "ERROR :: dt shuold be imported."
+				stop
+			endif
+			obj%mesh%nodcoord(:,:) = obj%mesh%nodcoord(:,:) + 0.50d0*reshape(accel,obj%nn(),obj%nd() )*dt*dt
+		endif
+
+	endif
+
+	
+end subroutine
+
 end module FEMDomainClass
