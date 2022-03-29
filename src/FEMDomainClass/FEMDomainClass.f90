@@ -35,6 +35,10 @@ module FEMDomainClass
 	integer(int32),parameter,public :: MSH_HEXAHEDRON  = 5 !	Hexahedron Lagrange P1
 	integer(int32),parameter,public :: MSH_PRISM 	 = 6 !	Edge Lagrange P2
 	integer(int32),parameter,public :: MSH_PYRAMID  = 7 !	Triangle Lagrange P2
+
+
+	integer(int32),parameter,public :: FEMDomain_Overset_GPP = 1
+	integer(int32),parameter,public :: FEMDomain_Overset_P2P = 1
 	
 	!integer(int32),parameter,public :: INFO_NUMBER_OF_POINTS  = 1 !	Information id#1 number of node
 	!integer(int32),parameter,public :: INFO_NUMBER_OF_ELEMENTS  = 1 !	Information id#1 number of node
@@ -55,6 +59,13 @@ module FEMDomainClass
 		type(Boundary_),pointer :: Boundaryp
 	end type
 
+	type :: OversetConnect_
+		logical :: active = .false.
+		real(real64),allocatable :: position(:)
+		integer(int32) :: ElementID, GaussPointID, projection
+		integer(int32),allocatable :: InterConnect(:)
+		integer(int32),allocatable :: DomainIDs12(:)
+	end type
 
     type::FEMDomain_
         type(Mesh_)             :: Mesh
@@ -90,6 +101,12 @@ module FEMDomainClass
 		integer(int32) :: NumberOfBoundaries=0
 		integer(int32) ::  NumberOfMaterials=0
 
+		! for overset, optional.
+		type(OversetConnect_),allocatable :: OversetConnect(:)
+		integer(int32),allocatable :: OversetExists(:,:)
+		integer(int32) :: num_oversetconnect = 0
+		! それか，pairingだけを決める．
+		
 		! juncs
 
 		type(Meshp_),allocatable :: Meshes(:)
@@ -219,6 +236,8 @@ module FEMDomainClass
 		procedure,public ::	nne => nneFEMDomain
 		! number of Gauss-points 
 		procedure,public ::	ngp => ngpFEMDomain
+		! number of overset elements
+		procedure, public :: NumOversetElements => NumOversetElementsFEMDomain
 
 		procedure,public ::	x => xFEMDomain
 		procedure,public ::	y => yFEMDomain
@@ -228,6 +247,7 @@ module FEMDomainClass
 		procedure,public :: asGlobalVector=>asGlobalVectorFEMDomain
 
 		procedure,public :: open => openFEMDomain
+		procedure,public :: overset => oversetFEMDomain
 
 		procedure,public :: ply => plyFEMDomain
 		procedure,public :: projection => projectionFEMDomain
@@ -479,6 +499,11 @@ subroutine removeFEMDomain(obj)
 	obj%timestep=1
 	obj%NumberOfBoundaries=0
 	obj% NumberOfMaterials=0
+
+	if(allocated(obj%OversetConnect )) deallocate(obj%OversetConnect)
+	if(allocated(obj%OversetExists) ) deallocate(obj%OversetExists)
+	obj%num_oversetconnect = 0
+
 
 end subroutine
 ! ####################################################################
@@ -11451,5 +11476,149 @@ subroutine deformFEMDomain(obj,disp,velocity,accel,dt)
 
 	
 end subroutine
+! ####################################################################
+
+
+
+subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm,MyDomainID)
+	class(FEMDomain_),intent(inout) :: obj
+	type(FEMDomain_),intent(inout) :: FEMDomain
+	integer(int32),intent(in) :: DomainID, algorithm
+	integer(int32),optional,intent(in) :: MyDomainID
+
+	integer(int32) :: ElementID, GaussPointID, NodeID
+	real(real64),allocatable :: position(:)
+	integer(int32) ,allocatable :: InterConnect(:),DomainIDs12(:) 
+	type(OversetConnect_),allocatable :: buf_oversetConnect(:)
+
+	if(.not. allocated(obj%OversetConnect) )then
+		allocate(obj%OversetConnect(100) )
+	endif
+	position = zeros(obj%nd() )
+
+
+	if(algorithm == FEMDomain_Overset_GPP)then
+
+		if(.not.allocated(obj%OversetExists) )then
+			obj%OversetExists = int(zeros(obj%ne(),obj%ngp() ))
+		endif
+
+		InterConnect = int( zeros(obj%nne()+ femdomain%nne()) )
+						
+		DomainIDs12 = int( zeros(obj%nne()+ femdomain%nne()) ) 
+		DomainIDs12(1:obj%nne() ) = input(default=1, option=MyDomainID)
+		DomainIDs12(obj%nne()+1: ) = DomainID
+
+		do ElementID=1, obj%ne()
+			do GaussPointID = 1, obj%ngp()
+				! For 1st element, create stiffness matrix
+		    	! set global coordinate
+				position = obj%GlobalPositionOfGaussPoint(ElementID,GaussPointID)
+		    	if( femdomain%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))<=0 )then
+		    	    cycle
+				else
+					obj%OversetExists(ElementID, GaussPointID) = obj%OversetExists(ElementID, GaussPointID) +1
+		    	endif
+
+				if(obj%num_oversetconnect + 1 > size(obj%OversetConnect) )then
+					buf_oversetConnect = obj%OversetConnect
+					deallocate(obj%OversetConnect)
+					allocate(obj%OversetConnect(size(buf_oversetConnect)*2 ) )
+					obj%OversetConnect(1: size(buf_oversetConnect)) = buf_oversetConnect(1:size(buf_oversetConnect))
+					deallocate(buf_oversetConnect)
+				endif
+				obj%num_oversetconnect = obj%num_oversetconnect + 1
+
+				InterConnect(1:obj%nne() ) = obj%connectivity(ElementID)
+		    	InterConnect(obj%nne()+1:) &
+					= femdomain%connectivity(femdomain%mesh%nearestElementID(x=position(1),y=position(2),z=position(3) ))
+				
+				obj%OversetConnect(obj%num_oversetconnect)%projection = FEMDomain_Overset_GPP
+				obj%OversetConnect(obj%num_oversetconnect)%position = position
+				obj%OversetConnect(obj%num_oversetconnect)%ElementID =ElementID
+				obj%OversetConnect(obj%num_oversetconnect)%GaussPointID =GaussPointID
+				obj%OversetConnect(obj%num_oversetconnect)%InterConnect = InterConnect
+				obj%OversetConnect(obj%num_oversetconnect)%DomainIDs12 = DomainIDs12
+				obj%OversetConnect(obj%num_oversetconnect)%active = .true.
+				! 何を記憶して，何はもう一度計算するか．
+				
+				!	以下に必要なもの．
+				!   [ElementID, GaussPointID, position(1:3),InterConnect(:),DomainIDs12(:)] for each overset elements
+				!   
+				! ここだけあとで計算
+				!sf = domain1%mesh%getShapeFunction(ElementID,GaussPointID)
+				!sf%ElementID=ElementID
+				!A_ij = penalty*femdomain%connectMatrix(position,DOF=femdomain%nd(),shapefunction=sf) 
+				!! assemble them 
+		    	!call obj%solver%assemble(&
+		    	!    connectivity=InterConnect,&
+		    	!    DOF=femdomain%nd() ,&
+		    	!    eMatrix=A_ij,&
+		    	!    DomainIDs=DomainIDs12)	 
+			enddo
+		enddo
+	elseif(algorithm == FEMDomain_Overset_P2P )then
+
+		if(.not.allocated(obj%OversetExists) )then
+			obj%OversetExists = int(zeros(obj%ne(),1 ))
+		endif
+
+		allocate(DomainIDs12(femdomain%nne()+1 ) )
+		allocate(InterConnect(femdomain%nne()+1 ) )
+
+		do NodeID=1, obj%nn()
+			! For 1st element, create stiffness matrix
+			! set global coordinate
+			position(:) = obj%mesh%nodcoord(NodeID,:)
+			if( femdomain%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))<=0 )then
+				cycle
+			else
+				obj%OversetExists(ElementID, 1) = obj%OversetExists(ElementID, 1) +1
+			endif
+
+			if(obj%num_oversetconnect + 1 > size(obj%OversetConnect) )then
+				buf_oversetConnect = obj%OversetConnect
+				deallocate(obj%OversetConnect)
+				allocate(obj%OversetConnect(size(buf_oversetConnect)*2 ) )
+				obj%OversetConnect(1: size(buf_oversetConnect)) = buf_oversetConnect(1:size(buf_oversetConnect))
+				deallocate(buf_oversetConnect)
+			endif
+			obj%num_oversetconnect = obj%num_oversetconnect + 1
+
+			InterConnect(1) = NodeID
+			InterConnect(2:) = femdomain%connectivity(femdomain%mesh%nearestElementID(x=position(1),y=position(2),z=position(3) ))
+			
+			obj%OversetConnect(obj%num_oversetconnect)%projection = FEMDomain_Overset_P2P
+			obj%OversetConnect(obj%num_oversetconnect)%position = position
+			obj%OversetConnect(obj%num_oversetconnect)%ElementID =ElementID
+			obj%OversetConnect(obj%num_oversetconnect)%GaussPointID =0 ! ignore
+			obj%OversetConnect(obj%num_oversetconnect)%InterConnect = InterConnect
+			obj%OversetConnect(obj%num_oversetconnect)%DomainIDs12 = DomainIDs12
+			obj%OversetConnect(obj%num_oversetconnect)%active = .true.
+			
+			!A_ij = penalty*femdomain%connectMatrix(position,DOF=femdomain%nd() ) 
+			!! assemble them 
+			!call obj%solver%assemble(&
+			!	connectivity=InterConnect,&
+			!	DOF=femdomain%nd() ,&
+			!	eMatrix=A_ij,&
+			!	DomainIDs=DomainIDs12)    
+		enddo
+	else
+		! invalid
+		print  *, "oversetFEMDomain :: invalid algroithm "
+		stop
+	endif
+
+
+end subroutine
+! ----------------------------------------------
+pure function NumOversetElementsFEMDomain(obj) result(ret)
+	class(FEMDomain_),intent(in) :: obj
+	integer(int32) :: ret
+
+	ret = obj%num_oversetconnect
+
+end function
 
 end module FEMDomainClass

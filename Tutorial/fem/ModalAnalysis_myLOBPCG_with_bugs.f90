@@ -20,7 +20,7 @@ program main
     
     call domains(1)%vtk("cube")
 
-    call solver%init(NumDomain=1,NumInterfaceElement=0)
+    call solver%init(NumDomain=1)
     call solver%setDomain(FEMDomain=domains(1),DomainID=1)
     call solver%setCRS(DOF=3)
     
