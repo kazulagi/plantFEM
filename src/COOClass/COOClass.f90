@@ -16,8 +16,17 @@ module COOClass
         procedure,public :: getDenseMatrix => getDenseMatrixCOO
         procedure,public :: remove => removeCOO
         procedure,public :: getAllCol => getAllColCOO
+        procedure,public :: to_CRS => to_CRSCOO
         !procedure,public ::getAllCol_as_row_obj => getAllCol_as_row_objCOO
     end type
+
+
+    type :: CRS_
+        integer(int32),allocatable :: col_idx(:)
+        integer(int32),allocatable :: row_ptr(:)
+        real(real64)  ,allocatable :: val(:)
+    end type
+
 
 contains
 
@@ -26,6 +35,52 @@ subroutine initCOO(this,num_row)
     integer(int32),intent(in) :: num_row
     allocate(this%row(num_row) )
 end subroutine
+
+
+
+
+function to_CRSCOO(this) result(CRS_version)
+    class(COO_),intent(in) :: this
+    type(CRS_) :: CRS_version
+    integer(int32) :: i,j,idx
+    integer(int64) :: n
+
+    
+    CRS_version%col_idx = this%getAllCol()
+
+    CRS_version%row_ptr = int(zeros( size(this%row) + 1 ) )
+    CRS_version%row_ptr(1) = 1
+    do i=2, size(this%row)+1
+        if( .not. allocated(this%row(i-1)%col ))then
+            CRS_version%row_ptr(i) = CRS_version%row_ptr(i-1)
+            cycle
+        endif
+        CRS_version%row_ptr(i) = CRS_version%row_ptr(i-1) + size(this%row(i-1)%col)
+    enddo
+
+    
+    
+    !CRS_version%val      
+    n = size(CRS_version%col_idx)
+    allocate(CRS_version%val(n) )
+    CRS_version%val(:) = 0.0d0
+    
+
+    do i=1, size(this%row)-1
+        if( .not. allocated(this%row(i)%val ))then
+            cycle
+        endif
+        idx = 0
+        do j=CRS_version%row_ptr(i),CRS_version%row_ptr(i+1)-1
+            idx=idx+1
+            CRS_version%val(j) = this%row(i)%val(idx)
+        enddo
+        
+    enddo
+
+    
+end function 
+
 
 subroutine updateCOO(this,row,col,val)
     class(COO_),intent(inout) :: this

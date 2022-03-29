@@ -1413,6 +1413,7 @@ subroutine setEbOMFEMSolver(this,penalty,DOF)
     do DomainID=1,2
         do i = 1, this%FEMDomains(DomainID)%femdomainp&
             %numOversetElements()
+            
             if( this%FEMDomains(DomainID)%femdomainp&
                 %OversetConnect(i)%active )then
 
