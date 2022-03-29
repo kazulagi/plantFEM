@@ -919,7 +919,7 @@ subroutine modalAnalysisSeismicAnalysis(this,femdomain,YoungModulus,PoissonRatio
     this%femdomain =>femdomain
 
     !read file
-    call this%femsolver%init(NumDomain=1,NumInterfaceElement=0)
+    call this%femsolver%init(NumDomain=1)
     call this%femsolver%setDomain(FEMDomain=femdomain,DomainID=1)
     call this%femsolver%setCRS(DOF=femdomain%nd() )
     

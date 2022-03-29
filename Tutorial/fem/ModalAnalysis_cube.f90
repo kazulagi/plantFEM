@@ -23,7 +23,7 @@ program main
     !read file
     !call domains(1) % read("0.vtk")
     
-    call solver%init(NumDomain=1,NumInterfaceElement=0)
+    call solver%init(NumDomain=1)
     call solver%setDomain(FEMDomain=domains(1),DomainID=1)
     call solver%setCRS(DOF=3)
     

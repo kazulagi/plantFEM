@@ -10,7 +10,7 @@ type(IO_) :: f
 
 call cube%create("Cube3D",x_num=100,y_num=3,z_num=3)
 call cube%resize(x=10.0d0)
-call solver%init(NumDomain=1,NumInterfaceElement=0)
+call solver%init(NumDomain=1)
 call solver%setDomain(FEMDomain=cube,DomainID=1)
 call solver%setCRS(DOF=3)
 
