@@ -5,6 +5,7 @@ module LinearSolverClass
   use TimeClass
   use MathClass
   use ArrayClass
+  use COOClass
   !use MPIClass
   implicit none
 
@@ -85,6 +86,16 @@ module LinearSolverClass
     procedure, public :: exportAsCOO  => exportAsCOOLinearSolver
     procedure, public :: exportRHS    => exportRHSLinearSolver
   end type
+
+
+  interface crs_matvec
+      module procedure :: crs_matvec_generic,crs_matvec_for_CRStype
+  end interface crs_matvec
+
+  
+  interface crs_matmul
+      module procedure :: crs_matmul_generic,crs_matmul_for_CRStype
+  end interface crs_matmul
 contains
 
 !====================================================================================
@@ -3766,7 +3777,7 @@ end subroutine
 
 
 !
-function crs_matmul(CRS_value,CRS_col,CRS_row_ptr,old_vectors) result(new_vectors)
+function crs_matmul_generic(CRS_value,CRS_col,CRS_row_ptr,old_vectors) result(new_vectors)
   real(real64),intent(in)  :: CRS_value(:),Old_vectors(:,:)
   integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
 
@@ -3801,7 +3812,22 @@ function crs_matmul(CRS_value,CRS_col,CRS_row_ptr,old_vectors) result(new_vector
 end function
 ! ###################################################################
 
-function crs_matvec(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
+
+function crs_matmul_for_CRStype(CRS,old_vectors) result(new_vectors)
+  type(CRS_),intent(in) :: CRS
+  real(real64),intent(in)  :: Old_vectors(:,:)
+  real(real64),allocatable :: new_vectors(:,:)
+
+  new_vectors = crs_matmul_generic(&
+    CRS_value=CRS%val,&
+    CRS_col=CRS%col_idx,&
+    CRS_row_ptr=CRS%row_ptr,&
+    old_vectors=old_vectors)
+    
+end function
+
+
+function crs_matvec_generic(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
   real(real64),intent(in)  :: CRS_value(:),Old_vector(:)
   integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
 
@@ -3829,6 +3855,20 @@ function crs_matvec(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
   
 end function
 ! ###################################################################
+
+
+function crs_matvec_for_CRStype(CRS,old_vector) result(new_vector)
+  type(CRS_),intent(in) :: CRS
+  real(real64),intent(in)  :: Old_vector(:)
+  real(real64),allocatable :: new_vector(:)
+
+  new_vector = crs_matvec_generic(&
+    CRS_value=CRS%val,&
+    CRS_col=CRS%col_idx,&
+    CRS_row_ptr=CRS%row_ptr,&
+    old_vector=old_vector)
+
+end function
 
 pure function eyesMatrix(rank1, rank2) result(ret)
     integer(int32),intent(in) ::rank1, rank2
