@@ -5,7 +5,7 @@ program main
     type(Array_) :: A, B, C, I, str_array
     real(real64),allocatable :: vector(:),small_vector(:)
     integer(int32),allocatable :: vector_int(:)
-    real(real64),allocatable :: matrix(:,:)
+    real(real64),allocatable :: matrix_real(:,:)
     integer(int32),allocatable :: matrix_int(:,:)
 
     print *, " "
@@ -51,8 +51,8 @@ program main
 
     ! reshape
     print *, "arange : start, stop, step"
-    matrix = reshape(vector, 7, 3 )
-    call print(matrix)
+    matrix_real = reshape(vector, 7, 3 )
+    call print(matrix_real)
 
     ! reshape int
     print *, "arange : start, stop, step"

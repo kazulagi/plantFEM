@@ -244,7 +244,7 @@ module ArrayClass
 
     interface print
         module procedure ::  printArrayInt, printArrayReal,printArrayIntVec, printArrayRealVec, printArrayType,&
-            printReal,printReal32,printInt,printInt64,printLogical,printComplex,printComplex32
+            printLogical
     end interface print
 
     interface shape
