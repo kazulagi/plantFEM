@@ -1506,110 +1506,79 @@ subroutine gauss_jordan_pv_complex64(a0, x, b, n)
 
  subroutine bicgstab_CRS(a, ptr_i, index_j, x, b, itrmax, er, debug)
   integer(int32), intent(inout) :: ptr_i(:),index_j(:), itrmax
-  real(real64), intent(inout) :: a(:), b(:), er
-  real(real64), intent(inout) :: x(:)
-  logical,optional,intent(in) :: debug
-  logical :: speak = .false.
-  integer(int32) itr,i,j,n
-  real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
-  real(real64),allocatable:: r(:), r0(:), p(:), y(:), e(:), v(:)
+    real(real64), intent(inout) :: a(:), b(:), er
+    real(real64), intent(inout) :: x(:)
+    logical,optional,intent(in) :: debug
+    logical :: speak = .false.
+    integer(int32) itr,i,j,n
+    real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
+    real(real64),allocatable:: r(:), r0(:), p(:), y(:), e(:), v(:),pa(:),ax(:)
+    
+    er0 = er
+    if(present(debug) )then
+        speak = debug
+    endif
+    
+    n=size(b)
+    if(speak) print *, "BiCGSTAB STARTED >> DOF:", n
+    allocate(r(n), r0(n), p(n), y(n), e(n), v(n))
 
-  if(present(debug) )then
-    speak = debug
-  endif
+    r(:) = b(:)
+    if(speak) print *, "BiCGSTAB >> [1] initialize"
 
-  if(speak) print *, "BiCGSTAB STARTED >> DOF:", n
-  n=size(b)
-  allocate(r(n), r0(n), p(n), y(n), e(n), v(n))
-  
-  r(:) = b(:)
-  if(speak) print *, "BiCGSTAB >> [1] initialize"
-  
-  !do i=1,size(a)
-  !  if(ptr_i(i) <=0) cycle
-  !  r( ptr_i(i) ) = r( ptr_i(i) ) - a(i)*x( index_j(i) ) 
-  !enddo
-  
-  !!$OMP parallel do private(i)
-  do i=1,size(b)
-    do j=ptr_I(i)+1,ptr_I(i+1)-1
-        !!$OMP atomic
-        r(i) = r(i) - x(Index_J(j) )*a(j)
+    ax = crs_matvec(CRS_value=a,CRS_col=index_j,&
+        CRS_row_ptr=ptr_i,old_vector=x)
+    r = b - ax
+
+    
+    if(speak) print *, "BiCGSTAB >> [2] dp1"
+
+    c1 = dot_product(r,r)
+
+    init_rr=c1
+    if(speak) print *, "BiCGSTAB >>      |r|^2 = ",init_rr
+    
+    if (c1 < er0) return
+
+    p(:) = r(:)
+    r0(:) = r(:)
+
+    do itr = 1, itrmax   
+        if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] initialize"
+        c1 = dot_product(r0,r)
+        
+        y = crs_matvec(CRS_value=a,CRS_col=index_j,&
+        CRS_row_ptr=ptr_i,old_vector=p)
+
+        c2 = dot_product(r0,y)
+        alp = c1/c2
+        e(:) = r(:) - alp * y(:)
+        v = crs_matvec(CRS_value=a,CRS_col=index_j,&
+        CRS_row_ptr=ptr_i,old_vector=e)
+        
+        if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] half"
+        
+        
+        ev = dot_product(e,v)
+        vv = dot_product(v,v)
+        
+        if(  vv==0.0d0 ) stop "Bicgstab devide by zero"
+            c3 = ev / vv
+        x(:) = x(:) + alp * p(:) + c3 * e(:)
+        r(:) = e(:) - c3 * v(:)
+        rr = dot_product(r,r)
+        
+        if(speak)then
+            print *, rr/init_rr
+        endif
+
+        !    write(*,*) 'itr, er =', itr,rr
+        if (rr/init_rr < er0) exit
+        c1 = dot_product(r0,r)
+        bet = c1 / (c2 * c3)
+        if(  (c2 * c3)==0.0d0 ) stop "Bicgstab devide by zero"
+        p(:) = r(:) + bet * (p(:) -c3*y(:) )
     enddo
-  enddo
-  !!$OMP end parallel do
-  
-
-  !r(:) = b - matmul(a,x)
-  if(speak) print *, "BiCGSTAB >> [2] dp1"
-  
-  c1 = dot_product(r,r)
-	
-  init_rr=c1
-  
-  if (c1 < er0) return
-  
-  p(:) = r(:)
-  r0(:) = r(:)
-  
-  do itr = 1, itrmax   
-    if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] initialize"
-    c1 = dot_product(r0,r)
-    
-    !y(:) = matmul(a,p)
-    !y(:)=0.0d0
-    !do i=1,size(a)
-    !  if(ptr_i(i) <=0) cycle
-    !  y( ptr_i(i) ) = y( ptr_i(i) ) + a(i)*p( index_j(i) ) 
-    !enddo
-    
-    y(:)=0.0d0
-    !!$OMP parallel do private(i)
-    do i=1,size(b)
-      do j=ptr_I(i)+1,ptr_I(i+1)-1
-          y(i) = y(i) + p(Index_J(j) )*a( j )
-      enddo
-    enddo
-    !!$OMP end parallel do
-
-    c2 = dot_product(r0,y)
-    alp = c1/c2
-    e(:) = r(:) - alp * y(:)
-    !v(:) = matmul(a,e)
-    
-    if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] half"
-    v(:)=0.0d0
-    
-    !do i=1,size(a)
-    !  if(ptr_i(i) <=0) cycle
-    !  v( ptr_i(i) ) = v( ptr_i(i) ) + a(i)*e( index_j(i) ) 
-    !enddo
-    !!$OMP parallel do private(i)
-    do i=1,size(b)
-      do j=ptr_I(i)+1,ptr_I(i+1)-1
-          v(i) = v(i) + e(Index_J(j) )*a(j)
-      enddo
-    enddo
-    !!$OMP end parallel do
-
-    
-    ev = dot_product(e,v)
-    vv = dot_product(v,v)
-
-    if(  vv==0.0d0 ) stop "Bicgstab devide by zero"
-		c3 = ev / vv
-    x(:) = x(:) + alp * p(:) + c3 * e(:)
-    r(:) = e(:) - c3 * v(:)
-    rr = dot_product(r,r)
-    
-    
-    !    write(*,*) 'itr, er =', itr,rr
-    if (rr/init_rr < er0) exit
-    c1 = dot_product(r0,r)
-    bet = c1 / (c2 * c3)
-		if(  (c2 * c3)==0.0d0 ) stop "Bicgstab devide by zero"
-    p(:) = r(:) + bet * (p(:) -c3*y(:) )
-  enddo
  end subroutine 
 !===============================================================
 
@@ -4105,6 +4074,7 @@ function unique(old_vec) result(new_vec)
 
 
 end function
+
 
 
 end module

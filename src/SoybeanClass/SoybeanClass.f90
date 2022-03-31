@@ -7,6 +7,7 @@ module SoybeanClass
     use RootClass
     use LightClass
     use PlantNodeClass
+    use FEMSolverClass
     implicit none
 
     integer(int32),parameter :: PF_SOY_OBJECT_WISE  = 1
@@ -97,7 +98,7 @@ module SoybeanClass
         integer(int32),allocatable :: root2stem(:,:)
         integer(int32),allocatable :: root2root(:,:)
         
-        ! 器官オブジェクト配列
+        ! 器官オブジェクト配列 (regacy)
         type(FEMDomain_),allocatable :: leaf_list(:)
         type(FEMDomain_),allocatable :: stem_list(:)
         type(FEMDomain_),allocatable :: root_list(:)
@@ -158,6 +159,8 @@ module SoybeanClass
         procedure,public :: setPoints    => setPointsSoybean
         procedure,public :: setProperties => setPropertiesSoybean
         
+
+        ! simple setters
         procedure,public :: setPropertiesDensity => setPropertiesDensitySoybean
         procedure,public :: setPropertiesYoungModulus => setPropertiesYoungModulusSoybean
         procedure,public :: setPropertiesPoissonRatio => setPropertiesPoissonRatioSoybean
@@ -166,6 +169,11 @@ module SoybeanClass
         procedure,public :: setPropertiesBoundaryTractionForce => setPropertiesBoundaryTractionForceSoybean
         procedure,public :: setPropertiesBoundaryDisplacement => setPropertiesBoundaryDisplacementSoybean
         procedure,public :: setPropertiesGravity => setPropertiesGravitySoybean
+        
+        ! alternative setters
+        procedure,public :: setYoungModulus => setYoungModulusSoybean
+        procedure,public :: setPoissonRatio => setPoissonRatioSoybean
+        procedure,public :: setDensity => setDensitySoybean
 
         procedure,public :: runSimulation => runSimulationSoybean
         procedure,public :: runSimulator => runSimulationSoybean
@@ -174,11 +182,27 @@ module SoybeanClass
 
 
 
-        ! observation
+        ! observation/info
         procedure,public :: stemlength => stemlengthSoybean
         procedure,public :: NumberOfBranch => NumberOfBranchSoybean
         procedure,public :: isMainStem => isMainStemSoybean   
         procedure,public :: isBranchStem => isBranchStemSoybean     
+
+        procedure,public :: checkYoungModulus => checkYoungModulusSoybean
+        procedure,public :: checkPoissonRatio => checkPoissonRatioSoybean
+        procedure,public :: checkDensity => checkDensitySoybean
+
+        procedure,public :: checkMemoryRequirement => checkMemoryRequirementSoybean
+        
+        
+        procedure,public :: getYoungModulus => getYoungModulusSoybean
+        procedure,public :: getPoissonRatio => getPoissonRatioSoybean
+        procedure,public :: getDensity => getDensitySoybean
+
+        
+
+
+
 
         ! operation
         procedure,public :: findApical => findApicalSoybean
@@ -204,12 +228,20 @@ module SoybeanClass
         procedure,public :: getLeafCosValue => getLeafCosValueSoybean
         
         procedure,public :: getRangeOfNodeID => getRangeOfNodeIDSoybean
+        procedure,public :: getFEMDomainPointers => getFEMDomainPointersSoybean
+        
+        ! >> simulation 
         procedure,public :: getPPFD => getPPFDSoybean
+        
+        procedure,public :: getDisplacement => getDisplacementSoybean
+        
         procedure,public :: getPhotoSynthesis => getPhotoSynthesisSoybean
         procedure,public :: getPhotoSynthesisSpeedPerVolume => getPhotoSynthesisSpeedPerVolumeSoybean
         procedure,public :: getLeafArea => getLeafAreaSoybean
         procedure,public :: getIntersectLeaf => getIntersectLeafSoybean
         procedure,public :: getOverwrapLeaf => getIntersectLeafSoybean
+        
+        
         ! data-format converter
         procedure,public :: convertDataFormat => convertDataFormatSoybean
         
@@ -2341,6 +2373,10 @@ function numleafsoybean(obj) result(ret)
     integer(int32) :: ret,i
 
     ret=0
+    if(.not.allocated(obj%leaf) )then
+        return
+    endif
+    
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%Mesh%empty() .eqv. .false. )then
             ret=ret+1
@@ -2356,6 +2392,10 @@ function numstemsoybean(obj) result(ret)
     integer(int32) :: ret,i
 
     ret=0
+    if(.not.allocated(obj%stem) )then
+        return
+    endif
+
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%Mesh%empty() .eqv. .false. )then
             ret=ret+1
@@ -2371,6 +2411,11 @@ function numrootsoybean(obj) result(ret)
     integer(int32) :: ret,i
 
     ret=0
+    if(.not.allocated(obj%root) )then
+        return
+    endif
+    
+
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%Mesh%empty() .eqv. .false. )then
             ret=ret+1
@@ -2382,11 +2427,46 @@ end function
 
 
 ! ########################################
-subroutine gmshSoybean(obj,name,num_threads)
+subroutine gmshSoybean(obj,name,num_threads,single_file)
     class(Soybean_),intent(inout) :: obj
     character(*),intent(in) :: name
+    type(FEMDomain_) :: femdomain
     integer(int32),optional,intent(in) :: num_threads
+    logical,optional,intent(in) :: single_file
     integer(int32) :: i,n
+
+
+    if(present(single_file) )then
+        if(single_file)then
+            ! export mesh for a single file
+            if(allocated(obj%stem) )then
+                do i=1,size(obj%stem)
+                    if(.not.obj%stem(i)%femdomain%empty() )then
+                        femdomain = femdomain + obj%stem(i)%femdomain
+                    endif
+                enddo
+            endif
+            
+            if(allocated(obj%leaf) )then
+                do i=1,size(obj%leaf)
+                    if(.not.obj%leaf(i)%femdomain%empty() )then
+                        femdomain = femdomain + obj%leaf(i)%femdomain
+                    endif
+                enddo
+            endif
+
+            if(allocated(obj%root) )then
+                do i=1,size(obj%root)
+                    if(.not.obj%root(i)%femdomain%empty() )then
+                        femdomain = femdomain + obj%root(i)%femdomain
+                    endif
+                enddo
+            endif
+            call femdomain%gmsh(name=name)
+            return
+        endif
+    endif
+
 
     n = input(default=1,option=num_threads)
     !!$OMP parallel num_threads(n) private(i)
@@ -2523,21 +2603,29 @@ subroutine vtkSoybean(obj,name,num_threads,single_file,&
     if(present(single_file) )then
         if(single_file)then
             ! export mesh for a single file
-            do i=1,size(obj%stem)
-                if(.not.obj%stem(i)%femdomain%empty() )then
-                    femdomain = femdomain + obj%stem(i)%femdomain
-                endif
-            enddo
-            do i=1,size(obj%leaf)
-                if(.not.obj%leaf(i)%femdomain%empty() )then
-                    femdomain = femdomain + obj%leaf(i)%femdomain
-                endif
-            enddo
-            do i=1,size(obj%root)
-                if(.not.obj%root(i)%femdomain%empty() )then
-                    femdomain = femdomain + obj%root(i)%femdomain
-                endif
-            enddo
+            if(allocated(obj%stem) )then
+                do i=1,size(obj%stem)
+                    if(.not.obj%stem(i)%femdomain%empty() )then
+                        femdomain = femdomain + obj%stem(i)%femdomain
+                    endif
+                enddo
+            endif
+
+            if(allocated(obj%leaf) )then
+                do i=1,size(obj%leaf)
+                    if(.not.obj%leaf(i)%femdomain%empty() )then
+                        femdomain = femdomain + obj%leaf(i)%femdomain
+                    endif
+                enddo
+            endif
+
+            if(allocated(obj%root) )then
+                do i=1,size(obj%root)
+                    if(.not.obj%root(i)%femdomain%empty() )then
+                        femdomain = femdomain + obj%root(i)%femdomain
+                    endif
+                enddo
+            endif
 
             if(present(scalar_field) )then
                 ! export scalar-valued field 
@@ -2680,13 +2768,49 @@ end subroutine
 ! ########################################
 
 ! ########################################
-subroutine stlSoybean(obj,name,num_threads)
+subroutine stlSoybean(obj,name,num_threads,single_file)
     class(Soybean_),intent(inout) :: obj
     character(*),intent(in) :: name
     integer(int32),optional,intent(in) :: num_threads
+    type(FEMDomain_) :: femdomain
+    logical,optional,intent(in) :: single_file
     integer(int32) :: i,n
 
     type(IO_) :: f
+
+
+    if(present(single_file) )then
+        if(single_file)then
+            ! export mesh for a single file
+            if(allocated(obj%stem) )then
+                do i=1,size(obj%stem)
+                    if(.not.obj%stem(i)%femdomain%empty() )then
+                        femdomain = femdomain + obj%stem(i)%femdomain
+                    endif
+                enddo
+            endif
+            
+            if(allocated(obj%leaf) )then
+                do i=1,size(obj%leaf)
+                    if(.not.obj%leaf(i)%femdomain%empty() )then
+                        femdomain = femdomain + obj%leaf(i)%femdomain
+                    endif
+                enddo
+            endif
+
+            if(allocated(obj%root) )then
+                do i=1,size(obj%root)
+                    if(.not.obj%root(i)%femdomain%empty() )then
+                        femdomain = femdomain + obj%root(i)%femdomain
+                    endif
+                enddo
+            endif
+            call femdomain%stl(name=name)
+            return
+        endif
+    endif
+
+
     ! index file
     call f%open(trim(name)//"_index.txt","w")
 
@@ -3210,18 +3334,85 @@ subroutine addStemSoybean(obj,stemid,rotx,roty,rotz,json)
 end subroutine
 ! #############################################################
 
-subroutine deformSoybean(obj,penaltyparameter,groundLevel,disp,&
+subroutine deformSoybean(obj,displacement,penaltyparameter,groundLevel,disp,&
     x_min,x_max,y_min,y_max,z_min,z_max) 
 
     class(Soybean_),target,intent(inout) :: obj
+
+    ! deform soybean by displacement
+    real(real64),optional,intent(in) :: displacement(:)
+
+    ! >> regacy
     real(real64),optional,intent(in) :: groundLevel,disp(3)
     real(real64),optional,intent(in) :: penaltyparameter,x_min,x_max,y_min,y_max,z_min,z_max
     type(FEMDomainp_),allocatable :: domainsp(:)
     integer(int32),allocatable :: contactList(:,:)
-    integer(int32) :: i,j,numDomain,stemDomain,leafDomain,rootDomain
-    real(real64) :: penalty,displacement(3),GLevel
+    integer(int32) :: i,j,numDomain,stemDomain,leafDomain,rootDomain,from,to,nd,nn
+    real(real64) :: penalty,GLevel
 
+    if(present(displacement) )then
+        if(size(displacement)/=obj%nn()*3 )then
+            print *, "ERROR :: deformSoybean >> size(displacement) should be (obj%numStem() + obj%numLeaf() + obj%numRoot())*3"
+            return
+        endif
 
+        ! order :: stem -> leaf -> root
+        from = 1
+        to   = 0
+        if(allocated(obj%stem) )then
+            do i=1,size(obj%stem)
+                if(.not. obj%stem(i)%femdomain%Mesh%empty() )then
+                    nn = obj%stem(i)%femdomain%nn()
+                    nd = obj%stem(i)%femdomain%nd()
+
+                    to = from + obj%stem(i)%femdomain%nn()*obj%stem(i)%femdomain%nd() -1
+
+                    obj%stem(i)%femdomain%mesh%nodcoord(:,:) = &
+                    obj%stem(i)%femdomain%mesh%nodcoord(:,:) + &
+                    reshape(displacement(from:to),nn,nd )
+
+                    from = to + 1
+                endif
+            enddo
+        endif
+
+        if(allocated(obj%leaf) )then
+            do i=1,size(obj%leaf)
+                if(.not. obj%leaf(i)%femdomain%Mesh%empty() )then
+                    nn = obj%leaf(i)%femdomain%nn()
+                    nd = obj%leaf(i)%femdomain%nd()
+
+                    to = from + obj%leaf(i)%femdomain%nn()*obj%leaf(i)%femdomain%nd() -1
+
+                    obj%leaf(i)%femdomain%mesh%nodcoord(:,:) = &
+                    obj%leaf(i)%femdomain%mesh%nodcoord(:,:) + &
+                    reshape(displacement(from:to),nn,nd )
+
+                    from = to + 1
+                endif
+            enddo
+        endif
+
+        if(allocated(obj%root) )then
+            do i=1,size(obj%root)
+                if(.not. obj%root(i)%femdomain%Mesh%empty() )then
+                    nn = obj%root(i)%femdomain%nn()
+                    nd = obj%root(i)%femdomain%nd()
+
+                    to = from + obj%root(i)%femdomain%nn()*obj%root(i)%femdomain%nd() -1
+
+                    obj%root(i)%femdomain%mesh%nodcoord(:,:) = &
+                    obj%root(i)%femdomain%mesh%nodcoord(:,:) + &
+                    reshape(displacement(from:to),nn,nd )
+
+                    from = to + 1
+                endif
+            enddo
+        endif
+        return
+    endif
+
+    ! >> regacy >>
     if(.not. allocated(obj%Stem) )then
         print *, "ERROR :: deformSoybean >> no soybean is found!"
         return
@@ -3750,8 +3941,43 @@ end function
 !
 !end function
 
-subroutine removeSoybean(obj)
+subroutine removeSoybean(obj,root)
     class(Soybean_),intent(inout) :: obj
+    logical,optional,intent(in) :: root
+
+    if(present(root) )then
+        if(root)then
+            
+            obj%mr_node=0
+            obj%brr_node(:)=0
+            obj%brr_from(:)=0
+            obj%mr_length=0.0d0
+            obj%brr_length(:)=0.0d0
+            obj%mr_width=0.0d0
+            obj%brr_width(:)=0.0d0
+            obj%mr_angle_ave=0.0d0
+            obj%brr_angle_ave(:)=0.0d0
+            obj%mr_angle_sig=0.0d0
+            obj%brr_angle_sig(:)=0.0d0
+            if (allocated(obj%RootSystem) ) deallocate(obj%RootSystem)
+            if (allocated(obj%Root) ) deallocate(obj%Root)
+            if (allocated(obj%rootYoungModulus) ) deallocate(obj%rootYoungModulus)
+            if (allocated(obj%rootPoissonRatio) ) deallocate(obj%rootPoissonRatio)
+            if (allocated(obj%rootDensity) ) deallocate(obj%rootDensity)
+
+
+            if (allocated(obj%root2stem) ) deallocate(obj%root2stem)
+            if (allocated(obj%root2root) ) deallocate(obj%root2root)
+            if (allocated(obj%root_list) ) deallocate(obj%root_list)
+
+            if (allocated(obj%root_angle) ) deallocate(obj%root_angle)
+            obj%rootconfig=" "
+            obj%Num_Of_Root = 0
+
+
+        endif
+        return
+    endif
 
     obj%growth_habit = " "
     obj%growth_stage = " "
@@ -3993,21 +4219,29 @@ pure function nnSoybean(obj) result(ret)
     ! get number of node (point)
     ret = 0
     
-    do i=1,size(obj%stem)
-        if( .not.obj%stem(i)%femdomain%mesh%empty() ) then
-            ret = ret + obj%stem(i)%femdomain%nn()
-        endif
-    enddo
-    do i=1,size(obj%leaf)
-        if( .not.obj%leaf(i)%femdomain%mesh%empty() ) then
-            ret = ret + obj%leaf(i)%femdomain%nn()
-        endif
-    enddo
-    do i=1,size(obj%root)
-        if( .not.obj%root(i)%femdomain%mesh%empty() ) then
-            ret = ret + obj%root(i)%femdomain%nn()
-        endif
-    enddo
+    if(allocated(obj%stem) )then
+        do i=1,size(obj%stem)
+            if( .not.obj%stem(i)%femdomain%mesh%empty() ) then
+                ret = ret + obj%stem(i)%femdomain%nn()
+            endif
+        enddo
+    endif
+
+    if(allocated(obj%leaf) )then
+        do i=1,size(obj%leaf)
+            if( .not.obj%leaf(i)%femdomain%mesh%empty() ) then
+                ret = ret + obj%leaf(i)%femdomain%nn()
+            endif
+        enddo
+    endif
+
+    if(allocated(obj%root) )then
+        do i=1,size(obj%root)
+            if( .not.obj%root(i)%femdomain%mesh%empty() ) then
+                ret = ret + obj%root(i)%femdomain%nn()
+            endif
+        enddo
+    endif
 
 end function
 ! ##################################################################
@@ -6949,5 +7183,720 @@ subroutine rotateSoybean(obj,x,y,z)
     
 end subroutine
 ! ################################################################
+
+
+! ################################################################
+function getDisplacementSoybean(obj, ground_level,penalty,debug,itrmax,tol) result(disp)
+    class(Soybean_),target,intent(inout) :: obj
+    real(real64),intent(in) :: ground_level
+    real(real64),optional,intent(in) :: penalty, tol
+    logical,optional,intent(in) ::debug
+    integer(int32),optional,intent(in) ::itrmax
+    
+
+    type(FEMDomainp_),allocatable :: FEMDomainPointers(:)
+    type(FEMSolver_) :: solver
+
+    real(real64),allocatable :: disp(:)
+
+
+    integer(int32) :: stem_id, leaf_id, root_id,DomainID,ElementID,i,n
+    integer(int32) :: myStemID, yourStemID, myLeafID,myRootID, yourRootID
+    integer(int32),allocatable :: FixBoundary(:)
+    ! linear elasticity with infinitesimal strain theory
+    n = obj%numStem() + obj%numLeaf() + obj%numRoot() 
+    allocate(FEMDomainPointers(n) )
+
+    !(1) >> compute overset
+    ! For stems
+    if(allocated(obj%stem2stem) )then
+        do myStemID = 1,size(obj%stem2stem,1)
+            do yourStemID = 1, size(obj%stem2stem,2)
+                if(obj%stem2stem(myStemID,yourStemID)>=1 )then
+                    ! connected
+                    call obj%stem(myStemID)%femdomain%overset(&
+                        FEMDomain=obj%stem(yourStemID)%femdomain,&
+                        DomainID   = yourStemID    ,& 
+                        MyDomainID = myStemID  ,&
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+
+    if(allocated(obj%leaf2stem) )then
+        do myLeafID = 1,size(obj%leaf2stem,1)
+            do yourStemID = 1, size(obj%leaf2stem,2)
+                if(obj%leaf2stem(myLeafID,yourStemID)>=1 )then
+                    ! connected
+                    call obj%leaf(myLeafID)%femdomain%overset(&
+                        FEMDomain=obj%stem(yourStemID)%femdomain,&
+                        DomainID   = yourStemID    ,& 
+                        MyDomainID = obj%numStem() + myLeafID  , &
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+    
+
+    if(allocated(obj%root2stem) )then
+        do myRootID = 1,size(obj%root2stem,1)
+            do yourStemID = 1, size(obj%root2stem,2)
+                if(obj%root2stem(myRootID,yourStemID)>=1 )then
+                    ! connected
+                    call obj%root(myRootID)%femdomain%overset(&
+                        FEMDomain=obj%stem(yourStemID)%femdomain,&
+                        DomainID   = yourStemID    ,& 
+                        MyDomainID = obj%numStem() +obj%numLeaf() + myRootID  , &
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+
+
+    if(allocated(obj%root2root) )then
+        do myRootID = 1,size(obj%root2root,1)
+            do yourrootID = 1, size(obj%root2root,2)
+                if(obj%root2root(myRootID,yourrootID)>=1 )then
+                    ! connected
+                    call obj%root(myRootID)%femdomain%overset(&
+                        FEMDomain=obj%root(yourrootID)%femdomain,&
+                        DomainID   = obj%numroot() +obj%numLeaf() + yourrootID    ,& 
+                        MyDomainID = obj%numroot() +obj%numLeaf() + myRootID  , &
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] overset >> done."        
+        endif
+    endif
+
+
+
+    call solver%init(NumDomain=obj%numStem() +obj%numLeaf() + obj%numRoot() )
+    
+    FEMDomainPointers = obj%getFEMDomainPointers()
+    call solver%setDomain(FEMDomainPointers=FEMDomainPointers )
+    
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] initSolver >> done."        
+        endif
+    endif
+
+    call solver%setCRS(DOF=3,debug=debug)
+
+    ! CRS ready!
+
+    if( .not. obj%checkYoungModulus())then
+        print *, "[ERROR] YoungModulus(:) is not ready."
+        stop
+    endif
+    if( .not. obj%checkPoissonRatio())then
+        print *, "[ERROR] PoissonRatio(:) is not ready."
+        stop
+    endif
+    if( .not. obj%checkDensity())then
+        print *, "[ERROR] Density(:) is not ready."
+        stop
+    endif
+
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] setCRS >> done."        
+        endif
+    endif
+    
+    !$OMP parallel 
+    !$OMP do
+    do DomainID=1,size(FEMDomainPointers)
+        do ElementID = 1, FEMDomainPointers(DomainID)%femdomainp%ne()
+            call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=3,&
+               Matrix=FEMDomainPointers(DomainID)%femdomainp%StiffnessMatrix(&
+               ElementID=ElementID,&
+               E=obj%getYoungModulus(DomainID=DomainID,ElementID=ElementID), &
+               v=obj%getPoissonRatio(DomainID=DomainID,ElementID=ElementID)  ) )
+
+            call solver%setVector(DomainID=DomainID,ElementID=ElementID,DOF=3,&
+                Vector=FEMDomainPointers(DomainID)%femdomainp%MassVector(&
+                    ElementID=ElementID,&
+                    DOF=FEMDomainPointers(DomainID)%femdomainp%nd() ,&
+                    Density= obj%getDensity(DomainID=DomainID,ElementID=ElementID) ,&
+                    Accel=[0.0d0, 0.0d0, -9.80d0]&
+                    ) & 
+                )
+        enddo
+    enddo
+    !$OMP end do
+    !$OMP end parallel
+    
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] set Matrix & vectors >> done."        
+        endif
+    endif
+    
+
+    call solver%setEbOM(penalty=input(default=10000000.0d0,option=penalty), DOF=3)
+
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] set EbOM >> done."        
+        endif
+    endif
+    
+    ! fix-boundary conditions
+    do i=1,size(FEMDomainPointers)
+        if(FEMDomainPointers(i)%FEMDomainp%z_min() <= ground_level )then
+            FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-2
+            call solver%fix(DomainID=i,IDs=FixBoundary,FixValue=0.0d0)
+            FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-1
+            call solver%fix(DomainID=i,IDs=FixBoundary,FixValue=0.0d0)
+            FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-0
+            call solver%fix(DomainID=i,IDs=FixBoundary,FixValue=0.0d0)
+        endif
+    enddo
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] FixBoundary >> done."        
+        endif
+    endif
+
+    if(present(debug) )then
+        solver%debug = debug
+    endif
+    if(present(itrmax) )then
+        solver%itrmax = itrmax
+    endif
+
+    if(present(tol) )then
+        solver%er0 = tol
+    endif
+
+
+    disp = solver%solve()
+
+
+    
+
+    call solver%remove()
+
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] Solve >> done."        
+        endif
+    endif
+    ! japanese "ato-shimatsu"
+
+
+end function
+! ################################################################
+
+
+! ################################################################
+function getFEMDomainPointersSoybean(obj) result(FEMDomainPointers)
+    class(Soybean_),target,intent(in) :: obj
+    type(FEMDomainp_),allocatable :: FEMDomainPointers(:)
+    integer(int32) :: num_FEMDomain,i, n
+
+    num_FEMDomain = obj%numStem() + obj%numLeaf() + obj%numRoot()
+    allocate(FEMDomainPointers(num_FEMDomain) )
+    n = 0
+    do i=1,obj%numStem()
+        if(.not.obj%stem(i)%femdomain%empty() )then
+            n = n + 1
+            FEMDomainPointers(n)%femdomainp => obj%stem(i)%femdomain
+        endif
+    enddo
+    do i=1,obj%numLeaf()
+        if(.not.obj%leaf(i)%femdomain%empty() )then
+            n = n + 1
+            FEMDomainPointers(n)%femdomainp => obj%leaf(i)%femdomain
+        endif
+    enddo
+    do i=1,obj%numRoot()
+        if(.not.obj%root(i)%femdomain%empty() )then
+            n = n + 1
+            FEMDomainPointers(n)%femdomainp => obj%root(i)%femdomain
+        endif
+    enddo
+end function
+! ################################################################
+
+
+! ################################################################
+function getObjectPointersSoybean(obj) result(FEMDomainPointers)
+    class(Soybean_),target,intent(in) :: obj
+    type(FEMDomainp_),allocatable :: FEMDomainPointers(:)
+    integer(int32) :: num_FEMDomain,i, n
+
+    ! order: stem -> leaf -> root
+    num_FEMDomain = obj%numStem() + obj%numLeaf() + obj%numRoot()
+    allocate(FEMDomainPointers(num_FEMDomain) )
+    n = 0
+    do i=1,obj%numStem()
+        n = n + 1
+        FEMDomainPointers(n)%femdomainp => obj%stem(i)%femdomain
+    enddo
+    do i=1,obj%numLeaf()
+        n = n + 1
+        FEMDomainPointers(n)%femdomainp => obj%leaf(i)%femdomain
+    enddo
+    do i=1,obj%numRoot()
+        n = n + 1
+        FEMDomainPointers(n)%femdomainp => obj%root(i)%femdomain
+    enddo
+end function
+! ################################################################
+
+! ################################################################
+function checkYoungModulusSoybean(obj) result(all_young_modulus_is_set)
+    class(Soybean_),intent(in) :: obj
+    logical :: all_young_modulus_is_set 
+    integer(int32) :: i
+    ! order: stem -> leaf -> root
+
+    all_young_modulus_is_set = .true.
+    do i=1,obj%numStem()
+        if(.not.allocated(obj%stem(i)%YoungModulus) )then
+            all_young_modulus_is_set = .false.
+            print *, "[!Warning!] checkYoungModulusSoybean >> Young Modulus is not set"
+            print *, "@ Stem ID:",i
+            print *, "check it by: allocated(this%stem("+str(i)+")%YoungModulus)"
+            return
+        endif
+    enddo
+
+    do i=1,obj%numLeaf()
+        if(.not.allocated(obj%Leaf(i)%YoungModulus) )then
+            all_young_modulus_is_set = .false.
+            print *, "[!Warning!] checkYoungModulusSoybean >> Young Modulus is not set"
+            print *, "@ Leaf ID:",i
+            print *, "check it by: allocated(this%Leaf("+str(i)+")%YoungModulus)"
+            return
+        endif
+    enddo
+
+    do i=1,obj%numRoot()
+        if(.not.allocated(obj%Root(i)%YoungModulus) )then
+            all_young_modulus_is_set = .false.
+            print *, "[!Warning!] checkYoungModulusSoybean >> Young Modulus is not set"
+            print *, "@ Root ID:",i
+            print *, "check it by: allocated(this%Root("+str(i)+")%YoungModulus)"
+            return
+        endif
+    enddo
+
+end function
+! ################################################################
+
+
+
+! ################################################################
+function checkPoissonRatioSoybean(obj) result(all_young_modulus_is_set)
+    class(Soybean_),intent(in) :: obj
+    logical :: all_young_modulus_is_set 
+    integer(int32) :: i
+    ! order: stem -> leaf -> root
+
+    all_young_modulus_is_set = .true.
+    do i=1,obj%numStem()
+        if(.not.allocated(obj%stem(i)%PoissonRatio) )then
+            all_young_modulus_is_set = .false.
+            print *, "[!Warning!] checkPoissonRatioSoybean >> Young Modulus is not set"
+            print *, "@ Stem ID:",i
+            print *, "check it by: allocated(this%stem("+str(i)+")%PoissonRatio)"
+            return
+        endif
+    enddo
+
+    do i=1,obj%numLeaf()
+        if(.not.allocated(obj%Leaf(i)%PoissonRatio) )then
+            all_young_modulus_is_set = .false.
+            print *, "[!Warning!] checkPoissonRatioSoybean >> Young Modulus is not set"
+            print *, "@ Leaf ID:",i
+            print *, "check it by: allocated(this%Leaf("+str(i)+")%PoissonRatio)"
+            return
+        endif
+    enddo
+
+    do i=1,obj%numRoot()
+        if(.not.allocated(obj%Root(i)%PoissonRatio) )then
+            all_young_modulus_is_set = .false.
+            print *, "[!Warning!] checkPoissonRatioSoybean >> Young Modulus is not set"
+            print *, "@ Root ID:",i
+            print *, "check it by: allocated(this%Root("+str(i)+")%PoissonRatio)"
+            return
+        endif
+    enddo
+
+end function
+! ################################################################
+
+
+! ################################################################
+function checkDensitySoybean(obj) result(all_young_modulus_is_set)
+    class(Soybean_),intent(in) :: obj
+    logical :: all_young_modulus_is_set 
+    integer(int32) :: i
+    ! order: stem -> leaf -> root
+
+    all_young_modulus_is_set = .true.
+    do i=1,obj%numStem()
+        if(.not.allocated(obj%stem(i)%Density) )then
+            all_young_modulus_is_set = .false.
+            print *, "[!Warning!] checkDensitySoybean >> Young Modulus is not set"
+            print *, "@ Stem ID:",i
+            print *, "check it by: allocated(this%stem("+str(i)+")%Density)"
+            return
+        endif
+    enddo
+
+    do i=1,obj%numLeaf()
+        if(.not.allocated(obj%Leaf(i)%Density) )then
+            all_young_modulus_is_set = .false.
+            print *, "[!Warning!] checkDensitySoybean >> Young Modulus is not set"
+            print *, "@ Leaf ID:",i
+            print *, "check it by: allocated(this%Leaf("+str(i)+")%Density)"
+            return
+        endif
+    enddo
+
+    do i=1,obj%numRoot()
+        if(.not.allocated(obj%Root(i)%Density) )then
+            all_young_modulus_is_set = .false.
+            print *, "[!Warning!] checkDensitySoybean >> Young Modulus is not set"
+            print *, "@ Root ID:",i
+            print *, "check it by: allocated(this%Root("+str(i)+")%Density)"
+            return
+        endif
+    enddo
+
+end function
+! ################################################################
+
+
+
+! ################################################################
+function getYoungModulusSoybean(obj,DomainID,ElementID) result(YoungModulus)
+    class(Soybean_),intent(in) :: obj
+    integer(int32),intent(in) :: DomainID, ElementID
+    real(real64) :: YoungModulus 
+    integer(int32) :: i, n
+    
+    if(DomainID > obj%numStem() + obj%numLeaf() + obj%numRoot()  )then
+        print *, "ERROR :: getYoungModulusSoybean >>  DomainID exceeds max_domain_size"
+        return
+    endif
+
+    ! default >> search @ all domains
+    ! order: stem -> leaf -> root
+    if(DomainID <= obj%numStem() )then
+        n = DomainID - 0    
+        YoungModulus = obj%stem(n)%YoungModulus(ElementID)
+        return
+    elseif(obj%numStem() + 1 <= DomainID .and. DomainID <= obj%numStem() + obj%numLeaf()  )then
+        n = DomainID - obj%numStem()
+        YoungModulus = obj%leaf(n)%YoungModulus(ElementID)
+        return
+    else
+        n = DomainID - obj%numStem() - obj%numLeaf()
+        YoungModulus = obj%leaf(n)%YoungModulus(ElementID)
+        return
+    endif
+
+    
+end function
+! ################################################################
+
+! ################################################################
+function getPoissonRatioSoybean(obj,DomainID,ElementID) result(PoissonRatio)
+    class(Soybean_),intent(in) :: obj
+    integer(int32),intent(in) :: DomainID, ElementID
+    real(real64) :: PoissonRatio 
+    integer(int32) :: i, n
+    
+    if(DomainID > obj%numStem() + obj%numLeaf() + obj%numRoot()  )then
+        print *, "ERROR :: getPoissonRatioSoybean >>  DomainID exceeds max_domain_size"
+        return
+    endif
+
+    ! default >> search @ all domains
+    ! order: stem -> leaf -> root
+    if(DomainID <= obj%numStem() )then
+        n = DomainID - 0    
+        PoissonRatio = obj%stem(n)%PoissonRatio(ElementID)
+        return
+    elseif(obj%numStem() + 1 <= DomainID .and. DomainID <= obj%numStem() + obj%numLeaf()  )then
+        n = DomainID - obj%numStem()
+        PoissonRatio = obj%leaf(n)%PoissonRatio(ElementID)
+        return
+    else
+        n = DomainID - obj%numStem() - obj%numLeaf()
+        PoissonRatio = obj%leaf(n)%PoissonRatio(ElementID)
+        return
+    endif
+
+    
+end function
+! ################################################################
+
+
+! ################################################################
+function getDensitySoybean(obj,DomainID,ElementID) result(Density)
+    class(Soybean_),intent(in) :: obj
+    integer(int32),intent(in) :: DomainID, ElementID
+    real(real64) :: Density 
+    integer(int32) :: i, n
+    
+    if(DomainID > obj%numStem() + obj%numLeaf() + obj%numRoot()  )then
+        print *, "ERROR :: getDensitySoybean >>  DomainID exceeds max_domain_size"
+        return
+    endif
+
+    ! default >> search @ all domains
+    ! order: stem -> leaf -> root
+    if(DomainID <= obj%numStem() )then
+        n = DomainID - 0    
+        Density = obj%stem(n)%Density(ElementID)
+        return
+    elseif(obj%numStem() + 1 <= DomainID .and. DomainID <= obj%numStem() + obj%numLeaf()  )then
+        n = DomainID - obj%numStem()
+        Density = obj%leaf(n)%Density(ElementID)
+        return
+    else
+        n = DomainID - obj%numStem() - obj%numLeaf()
+        Density = obj%leaf(n)%Density(ElementID)
+        return
+    endif
+
+    
+end function
+! ################################################################
+subroutine checkMemoryRequirementSoybean(obj)
+    class(Soybean_),intent(in) :: Obj
+    
+    print *, "===================================="
+    print *, "checking Memory (RAM) Requirement..."
+    print *, "------------------------------------"
+    print *, "| Object type                     | Soybean"
+    print *, "| Number of points                | "+str(obj%nn())
+    print *, "| Degree of freedom | Deformation | "+str(obj%nn()*3)
+    print *, "|                   | Diffusion   | "+str(obj%nn())
+    print *, "|                   | Reaction    | "+str(obj%nn())
+    print *, "| DRAM requirement  | Deformation | "+str(obj%nn()*3*40*30/1000/1000)+" (MB)"
+    print *, "|                   | Diffusion   | "+str(obj%nn()*1*20*10/1000/1000)+" (MB)"
+    print *, "|                   | Reaction    | "+str(obj%nn()*1*20*10/1000/1000)+" (MB)"
+    print *, "===================================="
+
+
+end subroutine
+
+! ################################################################
+recursive subroutine setYoungModulusSoybean(obj,YoungModulus,stem,root,leaf)
+    class(Soybean_),intent(inout) :: obj
+    logical,optional,intent(in) :: stem, root, leaf
+    real(real64),intent(in) :: YoungModulus
+    integer(int32) :: i, n
+
+    n = 0
+    if(present(stem) )then
+        if(stem)then
+            n=n+1
+            if(allocated(obj%stem) )then
+                do i=1,size(obj%stem)
+                    if(obj%stem(i)%femdomain%empty() )then
+                        cycle
+                    else
+                        allocate(obj%stem(i)%YoungModulus(obj%stem(i)%femdomain%ne() ))
+                        obj%stem(i)%YoungModulus(:) = YoungModulus
+                    endif
+                enddo
+            endif
+        endif
+    endif
+
+    if(present(leaf) )then
+        if(leaf)then
+            n=n+10
+            if(allocated(obj%leaf) )then
+                do i=1,size(obj%leaf)
+                    if(obj%leaf(i)%femdomain%empty() )then
+                        cycle
+                    else
+                        allocate(obj%leaf(i)%YoungModulus(obj%leaf(i)%femdomain%ne() ))
+                        obj%leaf(i)%YoungModulus(:) = YoungModulus
+                    endif
+                enddo
+            endif
+        endif
+    endif
+
+    if(present(root) )then
+        if(root)then
+            n=n+100
+            if(allocated(obj%root) )then
+                do i=1,size(obj%root)
+                    if(obj%root(i)%femdomain%empty() )then
+                        cycle
+                    else
+                        allocate(obj%root(i)%YoungModulus(obj%root(i)%femdomain%ne() ))
+                        obj%root(i)%YoungModulus(:) = YoungModulus
+                    endif
+                enddo
+            endif
+        endif
+    endif
+
+
+    if(n==0)then
+        call obj%setYoungModulus(YoungModulus=YoungModulus,stem=.true.,root=.true.,leaf=.true.)
+    endif
+    
+end subroutine
+! ################################################################
+
+! ################################################################
+recursive subroutine setPoissonRatioSoybean(obj,PoissonRatio,stem,root,leaf)
+    class(Soybean_),intent(inout) :: obj
+    logical,optional,intent(in) :: stem, root, leaf
+    real(real64),intent(in) :: PoissonRatio
+    integer(int32) :: i, n
+
+    n = 0
+    if(present(stem) )then
+        if(stem)then
+            n=n+1
+            if(allocated(obj%stem) )then
+                do i=1,size(obj%stem)
+                    if(obj%stem(i)%femdomain%empty())then
+                        cycle
+                    else
+                        allocate(obj%stem(i)%PoissonRatio(obj%stem(i)%femdomain%ne() ))
+                        obj%stem(i)%PoissonRatio(:) = PoissonRatio
+                    endif
+                enddo
+            endif
+        endif
+    endif
+
+    if(present(leaf) )then
+        if(leaf)then
+            n=n+10
+            if(allocated(obj%leaf) )then
+                do i=1,size(obj%leaf)
+                    if(obj%leaf(i)%femdomain%empty())then
+                        cycle
+                    else
+                        allocate(obj%leaf(i)%PoissonRatio(obj%leaf(i)%femdomain%ne() ))
+                        obj%leaf(i)%PoissonRatio(:) = PoissonRatio
+                    endif
+                enddo
+            endif
+        endif
+    endif
+
+    if(present(root) )then
+        if(root)then
+            n=n+100
+            if(allocated(obj%root) )then
+                do i=1,size(obj%root)
+                    if(obj%root(i)%femdomain%empty())then
+                        cycle
+                    else
+                        allocate(obj%root(i)%PoissonRatio(obj%root(i)%femdomain%ne() ))
+                        obj%root(i)%PoissonRatio(:) = PoissonRatio
+                    endif
+                enddo
+            endif
+        endif
+    endif
+
+
+    if(n==0)then
+        call obj%setPoissonRatio(PoissonRatio=PoissonRatio,stem=.true.,root=.true.,leaf=.true.)
+    endif
+    
+end subroutine
+! ################################################################
+
+
+! ################################################################
+recursive subroutine setDensitySoybean(obj,Density,stem,root,leaf)
+    class(Soybean_),intent(inout) :: obj
+    logical,optional,intent(in) :: stem, root, leaf
+    real(real64),intent(in) :: Density
+    integer(int32) :: i, n
+
+    n = 0
+    if(present(stem) )then
+        if(stem)then
+            n=n+1
+            if(allocated(obj%stem) )then
+                do i=1,size(obj%stem)
+                    if(obj%stem(i)%femdomain%empty())then
+                        cycle
+                    else
+                        allocate(obj%stem(i)%Density(obj%stem(i)%femdomain%ne() ))
+                        obj%stem(i)%Density(:) = Density
+                    endif
+                enddo
+            endif
+        endif
+    endif
+
+    if(present(leaf) )then
+        if(leaf)then
+            n=n+10
+            if(allocated(obj%leaf) )then
+                do i=1,size(obj%leaf)
+                    if(obj%leaf(i)%femdomain%empty())then
+                        cycle
+                    else
+                        allocate(obj%leaf(i)%Density(obj%leaf(i)%femdomain%ne() ))
+                        obj%leaf(i)%Density(:) = Density
+                    endif
+                enddo
+            endif
+        endif
+    endif
+
+    if(present(root) )then
+        if(root)then
+            n=n+100
+            if(allocated(obj%root) )then
+                do i=1,size(obj%root)
+                    if(obj%root(i)%femdomain%empty())then
+                        cycle
+                    else
+                        allocate(obj%root(i)%Density(obj%root(i)%femdomain%ne() ))
+                        obj%root(i)%Density(:) = Density
+                    endif
+                enddo
+            endif
+        endif
+    endif
+
+
+    if(n==0)then
+        call obj%setDensity(Density=Density,stem=.true.,root=.true.,leaf=.true.)
+    endif
+    
+end subroutine
+! ################################################################
+
+
+
 
 end module

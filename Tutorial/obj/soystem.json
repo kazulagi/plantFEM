@@ -6,7 +6,7 @@
     "maxdiameter": 0.0005,
     "drydensity":40.0,
     "watercontent":0.40,
-    "xnum": 10,
-    "ynum": 10,
-    "znum": 10
+    "xnum": 4,
+    "ynum": 4,
+    "znum": 60
  }

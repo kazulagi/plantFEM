@@ -39,8 +39,9 @@ end subroutine
 
 
 
-function to_CRSCOO(this) result(CRS_version)
-    class(COO_),intent(in) :: this
+function to_CRSCOO(this,remove_coo) result(CRS_version)
+    class(COO_),intent(inout) :: this
+    logical,optional,intent(in) :: remove_coo
     type(CRS_) :: CRS_version
     integer(int32) :: i,j,idx
     integer(int64) :: n
@@ -56,7 +57,17 @@ function to_CRSCOO(this) result(CRS_version)
             cycle
         endif
         CRS_version%row_ptr(i) = CRS_version%row_ptr(i-1) + size(this%row(i-1)%col)
+
+
+        if(present(remove_coo) )then
+            if(remove_coo)then
+                deallocate(this%row(i-1)%col)
+            endif
+        endif
+
     enddo
+
+
 
     
     
@@ -75,9 +86,16 @@ function to_CRSCOO(this) result(CRS_version)
             idx=idx+1
             CRS_version%val(j) = this%row(i)%val(idx)
         enddo
+
+        if(present(remove_coo) )then
+            if(remove_coo)then
+                deallocate(this%row(i)%val)
+            endif
+        endif
         
     enddo
 
+    call this%remove()
     
 end function 
 

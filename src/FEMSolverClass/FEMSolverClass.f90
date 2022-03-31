@@ -52,7 +52,7 @@ module FEMSolverClass
         integer(int32),allocatable :: Num_nodes_in_Domains(:)
 
         ! with MPI
-        type(MPI_),pointer :: MPI_target
+        type(MPI_),pointer :: MPI_target  => null()
 
         
 
@@ -208,9 +208,10 @@ subroutine initFEMSolver(this,NumDomain,MPI_target)
 end subroutine
 
 
-recursive subroutine setDomainFEMSolver(this,FEMDomain,FEMDomains,DomainID,DomainIDs)
+recursive subroutine setDomainFEMSolver(this,FEMDomain,FEMDomains,FEMDomainPointers,DomainID,DomainIDs)
     class(FEMSolver_),intent(inout) :: this
     type(FEMDomain_),target,optional,intent(in) :: FEMDomain,FEMDomains(:)
+    type(FEMDomainp_),target,optional,intent(in) :: FEMDomainPointers(:)
     integer(int32),optional,intent(in) :: DomainID,DomainIDs(:)
     integer(int32) :: i
 
@@ -226,15 +227,15 @@ recursive subroutine setDomainFEMSolver(this,FEMDomain,FEMDomains,DomainID,Domai
         endif
     endif
 
-    if(.not. present(DomainID) .and. .not.present(DomainIDs) )then
-        print *, "ERROR :: DomainID or DomainIDs are to be passed."
-        stop
-    endif
-
-    if(.not. present(FEMDomain) .and. .not.present(FEMDomains) )then
-        print *, "ERROR :: FEMDomain or FEMDomains are to be passed."
-        stop
-    endif
+!    if(.not. present(DomainID) .and. .not.present(DomainIDs) )then
+!        print *, "ERROR :: DomainID or DomainIDs are to be passed."
+!        stop
+!    endif
+!
+!    if(.not. present(FEMDomain) .and. .not.present(FEMDomains) )then
+!        print *, "ERROR :: FEMDomain or FEMDomains are to be passed."
+!        stop
+!    endif
 
     if(.not.this%initialized)then
         print *, "ERROR :: this%setDomain should be called after this%init()"
@@ -274,6 +275,19 @@ recursive subroutine setDomainFEMSolver(this,FEMDomain,FEMDomains,DomainID,Domai
         return
     endif
 
+    if(present(FEMDomainPointers) .and. .not.present(DomainIDs) )then
+        ! see domain_ptr as id
+        this%DomainIDs = int(zeros(size(FEMDomainPointers) ))
+        do i=1,size(FEMDomainPointers)
+            this%DomainIDs(i) = i
+        enddo
+
+        do i=1,size(FEMDomainPointers)
+            call this%setDomain(&
+                FEMDomain=FEMDomainPointers(i)%femdomainp,DomainID= i)
+        enddo
+        return
+    endif
     print *, "ERROR >> setDomainFEMSolver >> invalid combinations for args"
 
 end subroutine
@@ -296,15 +310,24 @@ subroutine setCRSFEMSolver(this,DOF,debug)
     integer(int32) :: row_node_id,col_node_id, row, col,row_domain_id,col_domain_id,&
         row_DOF,col_DOF, k0
     integer(int32),allocatable :: num_nodes_of_domains(:)
-
-
+    logical :: debug_mode_on = .true.
     integer(int32) :: DomainID
     type(FEMSolver_) :: single_domain_solver
     type(COO_)       :: COO
 
+
+    if(present(debug) )then
+        debug_mode_on = debug
+    endif
+
     if(allocated(this%femdomains) .and. size(this%femdomains) >=2 )then
         ! check interface
         itr = 0
+        
+        if(debug_mode_on)then
+            print *, "[ok] setCRS started."
+        endif
+
         do domainID=1,size(this%femdomains)
             if(this%femdomains(domainID)%femdomainp%empty() )then
                 cycle
@@ -341,6 +364,10 @@ subroutine setCRSFEMSolver(this,DOF,debug)
 
 
         enddo
+
+        if(debug_mode_on)then
+            print *, "[ok] setCRS >> CRS-allocation done."
+        endif
         ! <debug> following values are not unnatural
         !print *, size(this%CRS_Index_Col), maxval(this%CRS_Index_Col),minval(this%CRS_Index_Col)
         !print *, size(this%CRS_Index_Row), maxval(this%CRS_Index_Row),minval(this%CRS_Index_Row)
@@ -360,9 +387,9 @@ subroutine setCRSFEMSolver(this,DOF,debug)
                 
                 
                 
-
-                allocate(num_nodes_of_domains(0:size(this%femdomains) ) ) 
-                num_nodes_of_domains(0:size(this%femdomains) ) = 0
+                if(allocated(num_nodes_of_domains) ) deallocate(num_nodes_of_domains)
+                allocate(num_nodes_of_domains(1:size(this%femdomains) ) ) 
+                num_nodes_of_domains(1:size(this%femdomains) ) = 0
                 do i=1,size(this%femdomains)
                     if(associated(this%femdomains(i)%femdomainp )  )then
                         if( .not.this%femdomains(i)%femdomainp%empty() )then
@@ -385,10 +412,26 @@ subroutine setCRSFEMSolver(this,DOF,debug)
                             col_domain_id = this%femdomains(DomainID)%femdomainp%OversetConnect(i)%DomainIDs12(k)
                             do row_DOF=1, DOF
                                 do col_DOF=1, DOF
-                                    row = sum(num_nodes_of_domains(0:row_domain_id-1))*DOF + &
+                                    if(row_domain_id==1)then
+                                        row = (row_node_id-1)*DOF + row_DOF
+                                    else
+                                        row = sum(num_nodes_of_domains(1:row_domain_id-1))*DOF + &
                                         (row_node_id-1)*DOF + row_DOF
-                                    col = sum(num_nodes_of_domains(0:col_domain_id-1))*DOF + &
+                                    endif
+                                    
+
+                                    if(col_domain_id==1)then
+                                        col = (col_node_id-1)*DOF + col_DOF
+                                    else
+                                        col = sum(num_nodes_of_domains(1:col_domain_id-1))*DOF + &
                                         (col_node_id-1)*DOF + col_DOF
+                                    endif
+                                    
+                                    !col = sum(num_nodes_of_domains(0:col_domain_id-1))*DOF + &
+                                    !    (col_node_id-1)*DOF + col_DOF
+                                    ! [ok] num_nodes_of_domains
+                                    ! [ok] row_domain_id
+                                    
                                     call COO%add(row=row,col=col,val=0.0d0)
                                 enddo
                             enddo
@@ -477,16 +520,17 @@ subroutine setCRSFEMSolver(this,DOF,debug)
         this%CRS_Index_Col = new_CRS_Index_Col
         this%CRS_Index_Row = new_CRS_Index_Row
 
-
-        allocate(this%CRS_ID_Starts_From(size(this%FEMDomains) ))
-        this%CRS_ID_Starts_From(1) = 1
-        do i=2,size(this%FEMDomains)
-            if(associated(this%FEMDomains(i)%femdomainp ) )then
-                this%CRS_ID_Starts_From(i) = this%CRS_ID_Starts_From(i-1) + this%FEMDomains(i-1)%femdomainp%nn()*DOF
-            else
-                this%CRS_ID_Starts_From(i) = this%CRS_ID_Starts_From(i-1) + 0
-            endif
-        enddo
+        if(.not.allocated(this%CRS_ID_Starts_From))then
+            allocate(this%CRS_ID_Starts_From(size(this%FEMDomains) ))
+            this%CRS_ID_Starts_From(1) = 1
+            do i=2,size(this%FEMDomains)
+                if(associated(this%FEMDomains(i)%femdomainp ) )then
+                    this%CRS_ID_Starts_From(i) = this%CRS_ID_Starts_From(i-1) + this%FEMDomains(i-1)%femdomainp%nn()*DOF
+                else
+                    this%CRS_ID_Starts_From(i) = this%CRS_ID_Starts_From(i-1) + 0
+                endif
+            enddo
+        endif
 
         return
     else
@@ -1271,13 +1315,16 @@ end subroutine
 
 
 ! #####################################################
-function solveFEMSolver(this) result(x)
+function solveFEMSolver(this,algorithm,preconditioning) result(x)
     class(FEMSolver_),intent(inout) :: this
     real(real64),allocatable :: x(:),dense_mat(:,:),fix_value(:)
     integer(int32) :: i,j, ElementID,col,row_ptr,col_row_fix
     logical,allocatable :: need_fix(:)
+    character(*),optional,intent(in) :: algorithm, preconditioning
 
     type(IO_) :: f
+
+    
 
     need_fix = this%fix_lin_exists
     fix_value= this%fix_lin_exists_values
@@ -1337,8 +1384,36 @@ function solveFEMSolver(this) result(x)
     endif
     x = zeros(size(this%CRS_RHS))
     
-    call  bicgstab_CRS_2(this%CRS_val, this%CRS_index_row, this%CRS_index_col,&
-        x, this%CRS_RHS, this%itrmax, this%er0,this%debug)
+    if(present(preconditioning))then
+        if(preconditioning=="PointJacobi")then
+            call JacobiPreconditionerCRS(val=this%CRS_val,row_ptr=this%CRS_index_row,&
+                col_idx=this%CRS_Index_col,rhs=this%CRS_RHS)
+        elseif(preconditioning=="incompleteLU") then
+            call incompleteLUCRS(val=this%CRS_val,row_ptr=this%CRS_index_row,&
+            col_idx=this%CRS_Index_col,rhs=this%CRS_RHS)
+        else
+            print *, "[Warning!] :: FEMSolver :: invalid preconditioning"
+            stop
+        endif
+    endif
+
+
+    if(present(algorithm) )then
+        if(algorithm=="GaussJordan") then
+            call gauss_jordan_crs(this%CRS_val, this%CRS_index_row, this%CRS_index_col,&
+            x, this%CRS_RHS, size(this%CRS_RHS) )
+            return
+        else
+            call  bicgstab_CRS_2(this%CRS_val, this%CRS_index_row, this%CRS_index_col,&
+                x, this%CRS_RHS, this%itrmax, this%er0,this%debug)
+            return
+        endif
+    else
+        call  bicgstab_CRS_2(this%CRS_val, this%CRS_index_row, this%CRS_index_col,&
+            x, this%CRS_RHS, this%itrmax, this%er0,this%debug)
+        return
+    endif
+    
     
 
 end function
@@ -1520,8 +1595,8 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, debug)
         speak = debug
     endif
     
-    if(speak) print *, "BiCGSTAB STARTED >> DOF:", n
     n=size(b)
+    if(speak) print *, "BiCGSTAB STARTED >> DOF:", n
     allocate(r(n), r0(n), p(n), y(n), e(n), v(n))
 
     r(:) = b(:)
@@ -1537,7 +1612,8 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, debug)
     c1 = dot_product(r,r)
 
     init_rr=c1
-
+    !if(speak) print *, "BiCGSTAB >>      |r|^2 = ",init_rr
+    
     if (c1 < er0) return
 
     p(:) = r(:)
@@ -1569,11 +1645,11 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, debug)
         rr = dot_product(r,r)
         
         if(speak)then
-            print *, rr/init_rr
+            print *, rr
         endif
 
         !    write(*,*) 'itr, er =', itr,rr
-        if (rr/init_rr < er0) exit
+        if (rr < er0) exit
         c1 = dot_product(r0,r)
         bet = c1 / (c2 * c3)
         if(  (c2 * c3)==0.0d0 ) stop "Bicgstab devide by zero"
@@ -1582,5 +1658,219 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, debug)
 end subroutine 
 !===============================================================
 
+!===================================================================================
+subroutine gauss_jordan_crs(a0_val, a0_row_ptr,a0_col_idx, x, b, n)
+    integer(int32), intent(in) :: n
+    real(real64), intent(in) :: a0_val(n), b(n)
+    integer(int32),intent(in) :: a0_row_ptr(:), a0_col_idx(:)
+    real(real64), intent(inout) :: x(n)
+    real(real64) :: a_ik
+    integer(int32) i, j, k, m,nn, mm
 
+
+    integer(int32) :: i_1,i_2,i_3,i_4
+    
+    real(real64) ar, am, t, a_val(n), w(n)
+    
+    nn = size(b)
+  
+    ! Gauss-Jordan method with CRS format
+    !a(:,:)= a0(:,:)
+    a_val = a0_val
+
+    
+    !x(:) = b(:)
+    x(:) = b(:)
+
+    do k = 1, n
+        m = k
+       
+        !am = abs(a(k,k))
+        am = abs(getCRSval(a_val, a0_row_ptr, a0_col_idx, row=k, col=k))
+
+        !do i = k+1, n
+        !    if (abs(a(i,k)) > am) then
+        !        am = abs(a(i,k))
+        !        m = i
+        !    endif
+        !enddo
+
+
+        !do i = k+1, n
+        !    a_ik = abs(getCRSval(a_val, a0_row_ptr, a0_col_idx, row=i, col=k))
+        !    if (abs(a(i,k)) > am) then
+        !        am = abs( a_ik )
+        !        m = i
+        !    endif
+        !enddo
+
+
+        if (am == 0.0d0)   stop  ' A is singular '
+
+        print *, "Under construction :: gauss_jordan_crs"
+        stop
+       
+!        if ( k /= m) then
+!            w(k:n) = a(k, k:n)
+!            a(k,k:n) = a(m, k:n) ! [*] a_val and pointers are to be reallocated.
+!            a(m, k:n) =w(k:n)    ! [*] a_val and pointers are to be reallocated.
+!            t = x(k)
+!            x(k) = x(m)
+!            x(m) = t
+!        endif
+!        
+!
+!       ! gauss_jordan
+!       if (a(k, k) == 0.0d0)  stop  'devide by zero3gauss_jordan_pv'
+!          ar = 1.0d0 / a(k,k)
+!       a(k,k) = 1.0d0
+!       a(k,k+1:n) = ar * a(k, k+1:n) ! [*] a_val and pointers are to be reallocated.
+!       x(k) = ar * x(k)
+!       do i= 1, n
+!         if (i /= k) then
+!           a(i, k+1:n) = a(i, K+1:n) - a(i,k) * a(k, k+1:n) ! [*] a_val and pointers are to be reallocated.
+!           x(i) = x(i) - a(i,k) * x(k)
+!           a(i,k) = 0.0d0 ! [*] a_val and pointers are to be reallocated.
+!         endif
+!       enddo
+    enddo
+    
+   end subroutine 
+!===========================================================================
+  
+function getCRSval(val, row_ptr, col_idx, row, col) result(ret)
+    real(real64),intent(in) :: val(:)
+    integer(int32),intent(in) :: row_ptr(:), col_idx(:),row,col
+    integer(int32) :: j, k
+    real(real64) :: ret
+
+    ret=0.0d0
+    
+    do j = row_ptr(row), row_ptr(row+1)-1
+        if( col_idx(j)==col )then
+            ret = val(j) 
+        endif
+    enddo
+
+end function
+!===========================================================================
+
+
+!===========================================================================
+subroutine JacobiPreconditionerCRS(val,row_ptr,col_idx,rhs)
+    real(real64),intent(inout) :: val(:),rhs(:)
+    integer(int32),intent(inout) :: row_ptr(:),col_idx(:)
+    real(real64) :: A_k_k, A_k_k_inv
+    integer(int32) :: i,j
+
+    !$OMP parallel
+    !$OMP do 
+    do i=1,size(row_ptr) - 1    
+        A_k_k = getCRSval(val=val, row_ptr=row_ptr, col_idx=col_idx, row=i, col=i)
+        A_k_k_inv = 1.0d0/A_k_k
+        rhs(i) = rhs(i) * A_k_k_inv
+        do j=row_ptr(i), row_ptr(i+1)-1
+            !$OMP atomic
+            val(j) = val(j) * A_k_k_inv
+        enddo
+    enddo
+    !$OMP end do
+    !$OMP end parallel
+end subroutine
+!===========================================================================
+
+!===========================================================================
+subroutine incompleteLUCRS(val,row_ptr,col_idx,rhs)
+    real(real64),intent(inout) :: val(:),rhs(:)
+    integer(int32),intent(inout) :: row_ptr(:),col_idx(:)
+    real(real64) :: A_k_k, A_k_k_inv,A_i_k, A_k_j
+    integer(int32) :: i,j,n,m,k,col
+
+    print *, "incompleteLUCRS >> bug exists"
+    stop
+    !$OMP parallel
+    !$OMP do 
+    do k=1,size(row_ptr) - 1    
+        A_k_k = getCRSval(val=val, row_ptr=row_ptr, col_idx=col_idx, row=k, col=k)
+        A_k_k_inv = 1.0d0/A_k_k
+        print *, k
+        do i=1,size(row_ptr) - 1    
+            do n=row_ptr(i), row_ptr(i+1)-1
+                j = col_idx(n)
+                ! a_ij := val(j)
+                if(j > k )then
+                    A_i_k=0.0d0
+                    do m=row_ptr(i), row_ptr(i+1)-1
+                        col = col_idx(m)
+                        if(col==k )then
+                            A_i_k = val(col)
+                        else
+                            cycle
+                        endif
+                    enddo
+                    if(A_i_k==0.0d0)then
+                        cycle
+                    endif
+                    !A_i_k = getCRSval(val=val, row_ptr=row_ptr, col_idx=col_idx, row=i, col=k)
+                    A_k_j = 0.0d0
+                    do m=row_ptr(k), row_ptr(k+1)-1
+                        col = col_idx(m)
+                        if(col==j )then
+                            A_k_j = val(col)
+                        else
+                            cycle
+                        endif
+                    enddo
+                    if(A_k_j==0.0d0)then
+                        cycle
+                    endif
+                    
+                    !A_k_j = getCRSval(val=val, row_ptr=row_ptr, col_idx=col_idx, row=k, col=j)
+                    !!$OMP atomic
+                    val(j) = val(j) - A_i_k*A_k_k_inv*A_k_j
+                    
+                endif
+            enddo
+        enddo
+    enddo
+    !$OMP end do
+    !$OMP end parallel
+end subroutine
+!===========================================================================
+!
+!subroutine incompleteCholesky(val,row_ptr,col_idx,rhs)
+!    real(real64),intent(inout) :: val(:),rhs(:)
+!    integer(int32),intent(inout) :: row_ptr(:),col_idx(:)
+!    real(real64) :: A_k_k, A_k_k_inv,A_i_k, A_k_j
+!    integer(int32) :: i,j,n,m,k,col
+!	
+!    n = size(a,1);
+!
+!	do k=1,n
+!		!a(k,k) = sqrt(a(k,k))
+!        a_k_k  = getCRSval(val=val, row_ptr=row_ptr, col_idx=col_idx, row=k, col=k)
+!        
+!		do i=(k+1),n
+!		    if (a(i,k)/=0)then
+!		        a(i,k) = a(i,k)/a(k,k)            
+!		    endif
+!		enddo
+!
+!		do j=(k+1),n
+!		    do i=j,n
+!		        if (a(i,j)/=0)then
+!		            a(i,j) = a(i,j)-a(i,k)*a(j,k)  
+!		        endif
+!		    enddo
+!		enddo
+!	enddo
+!
+!    do i=1,n
+!        do j=i+1,n
+!            a(i,j) = 0
+!        enddo
+!    enddo   
+!
+!end subroutine
+!
 end module 
