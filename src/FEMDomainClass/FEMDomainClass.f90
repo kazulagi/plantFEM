@@ -46,17 +46,17 @@ module FEMDomainClass
 	
 
 	type::Meshp_
-		type(Mesh_),pointer :: Meshp
+		type(Mesh_),pointer :: Meshp => null()
 	end type
 
 
 	type::Materialp_
-		type(MaterialProp_),pointer :: Materialp
+		type(MaterialProp_),pointer :: Materialp => null()
 	end type
 
 
 	type::Boundaryp_
-		type(Boundary_),pointer :: Boundaryp
+		type(Boundary_),pointer :: Boundaryp => null()
 	end type
 
 	type :: OversetConnect_
@@ -332,7 +332,7 @@ module FEMDomainClass
     end type
 
 	type :: FEMDomainp_
-		type(FEMDomain_),pointer :: femdomainp
+		type(FEMDomain_),pointer :: femdomainp => null()
 	end type
 
 
@@ -11587,7 +11587,9 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm,MyDomainID)
 
 			InterConnect(1) = NodeID
 			InterConnect(2:) = femdomain%connectivity(femdomain%mesh%nearestElementID(x=position(1),y=position(2),z=position(3) ))
-			
+			DomainIDs12(1)   = input(default=1,option=myDomainID)
+			DomainIDs12(2:)  = DomainID
+
 			obj%OversetConnect(obj%num_oversetconnect)%projection = FEMDomain_Overset_P2P
 			obj%OversetConnect(obj%num_oversetconnect)%position = position
 			obj%OversetConnect(obj%num_oversetconnect)%ElementID =ElementID
