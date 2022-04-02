@@ -61,6 +61,7 @@ module IOClass
     
             procedure, pass :: parseIOChar200
             procedure, pass :: parseIO2keysChar200
+        
             
             procedure, pass :: importIOReal64ArrayAsTxt
             procedure, pass :: importIOReal64VectorAsTxt
@@ -234,6 +235,9 @@ module IOClass
             module procedure as_JSONRealArray2
         end interface
     
+        interface parse
+            module procedure parse_fileRealArray
+        end interface
     contains
     
     ! ===========================================
@@ -2740,5 +2744,37 @@ module IOClass
         
     end function
     
+
+    function parse_fileRealArray(name,row,col,num_col) result(ret)
+        character(*),intent(in) :: name
+        integer(int32),intent(in) :: row(2),col(2)
+        integer(int32),intent(in) :: num_col
+        character(1),allocatable :: offset(:)
+        real(real64),allocatable :: ret(:,:)
+        type(IO_) :: f
+        character(:),allocatable :: line
+        integer(int32) :: n,m, i,row_id
+
+        ! read
+        ! row: from row(1) to row(2)
+        ! col: from col(1) to col(2)
+        ! as real(real64) array
+        allocate(offset(col(1)-1 ) )
+        n = row(2) - row(1) +1
+        m = num_col
+        allocate(ret(n,m) )
+        call f%open(name,"r")
+        row_id = 0
+        do i=1,row(2)
+            line = f%readline()
+            if(i < row(1) .or. i>row(2) )then
+                cycle
+            endif
+            row_id = row_id+1
+            read(line(col(1): ),*) ret(row_id,1:m)
+        enddo
+        call f%close()
+
+    end function
     
     end module IOClass

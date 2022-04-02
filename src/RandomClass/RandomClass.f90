@@ -24,6 +24,7 @@ module RandomClass
         procedure :: Lognormal => LognormalRandom
         procedure :: InverseGauss => InverseGaussRandom
         procedure :: save       => saveRandom
+        procedure :: white => whiteRandom
         
         procedure,pass :: randnRandomVector
         procedure,pass :: randnRandomArray
@@ -591,5 +592,21 @@ function rand_sz3(sz1,sz2,sz3) result(ret)
 end function
 !##########################################
 
+function whiteRandom(this,num_sample,mu,sigma) result(ret)
+    class(Random_),intent(inout) :: this
+    real(real64),allocatable :: ret(:)
+    real(real64),optional,intent(in) :: mu, sigma
+    real(real64) :: mu_d, sigma_d
+    integer(int32),intent(in) :: num_sample
+    integer(int32) :: i
+
+    allocate(ret(num_sample) )
+    mu_d    = input(default=0.0d0, option=mu) 
+    sigma_d = input(default=1.0d0, option=sigma) 
+    do i=1,num_sample
+        ret(i) = this%gauss(mu=mu_d, sigma=sigma_d)
+    enddo
+
+end function
 
 end module
