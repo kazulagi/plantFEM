@@ -211,7 +211,7 @@ module ArrayClass
     interface json
         module procedure jsonArrayReal, jsonArrayInt, jsonArrayRealVec, jsonArrayIntVec
     end interface
-
+    
 
     interface Import
         module procedure ImportArrayInt, ImportArrayReal
