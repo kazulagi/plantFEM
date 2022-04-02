@@ -101,15 +101,8 @@
 
 # What's next plantFEM 22.04 (LTS)?
 
-## (1) APIs for Python, C/C++, and JavaScript.
+## APIs for Python, C/C++, and JavaScript (Experimental).
 [![Experimental](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1lPEzZnAS5CGuXjBw-P8VhMkcpoBxV4-k?usp=sharing)
-
-## (2) Elasto-dynamic simulator for Soybean, Maize, Rice and soil structures.
-
-## (3) Something cool.
-
-http://plantfem.org/.well-known/pki-validation/a926f673e02eece5ec489a1e26d1f8ed.txt
-http://www.plantfem.org/.well-known/pki-validation/a926f673e02eece5ec489a1e26d1f8ed.txt
 
 
 <!-- 
