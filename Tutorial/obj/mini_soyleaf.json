@@ -1,0 +1,15 @@
+{
+    "type": "leaf",
+    "minlength": 0.005,
+    "minwidth": 0.005,
+    "minthickness": 0.0002,
+    "maxlength": 0.05,
+    "maxwidth": 0.05,
+    "maxthickness": 0.0002,
+    "shaperatio": 0.3,
+    "drydensity":100.0,
+    "watercontent":0.60,
+    "xnum": 5,
+    "ynum": 1,
+    "znum": 5
+}

@@ -1,0 +1,12 @@
+ {
+    "type": "root",
+    "minlength": 0.002,
+    "mindiameter": 0.001,
+    "maxlength": 0.07,
+    "maxdiameter": 0.01,
+    "drydensity":340.0,
+    "watercontent":0.70,
+    "xnum": 1,
+    "ynum": 1,
+    "znum": 3
+ }
