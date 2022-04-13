@@ -100,10 +100,11 @@ module MathClass
 contains
 
 ! ###############################################
-function FFT(x,T) result(hatx)
+function FFT(x,T,window) result(hatx)
 	complex(kind(0d0))	,intent(in) :: x(:)
 	complex(kind(0d0))	,allocatable :: hatx(:)
 	type(Math_) :: Math
+	character(*),optional,intent(in) :: window
 	real(real64),optional,intent(in) :: T(2) ! range
 	real(real64) :: Trange(1:2),dt
 	integer(int32) :: N
@@ -123,6 +124,21 @@ function FFT(x,T) result(hatx)
 end function
 
 ! ###############################################
+
+! Hanning window
+function hann(L) result(hann_window)
+	integeR(int32),intent(in) :: L
+	real(real64) :: hann_window(1:L)
+	integer(int32) :: i,N
+	type(Math_) :: math
+
+	N =L-1
+	do i=0,L-1
+		hann_window(i+1) = 0.50d0*(1.0d0 - cos(math%PI*2.0d0*i/N) )
+	enddo
+
+	
+end function
 
 ! ###############################################
 recursive function FFT_core(x) result(hatx)

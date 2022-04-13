@@ -359,7 +359,7 @@ module IOClass
     ! #############################################
     
     ! #############################################
-    recursive subroutine openIOchar(obj,path,state,name,extention,fh)
+    recursive subroutine openIOchar(obj,path,state,name,extention,binary,fh)
         class(IO_),intent(inout) :: obj
         character(1),optional,intent(in) :: state ! w or r
         character(*),optional,intent(in)::path,name,extention
@@ -367,6 +367,12 @@ module IOClass
         integer(int32),optional,intent(in) :: fh
         integer(int32) :: tag
         logical :: yml=.False.
+        logical,optional,intent(in) :: binary
+        logical :: use_binary_form=.false.
+
+        if(present(binary) )then
+            use_binary_form = binary
+        endif
     
         if(present(state) )then
             obj%state = state
@@ -397,7 +403,9 @@ module IOClass
             call execute_command_line("wget --no-check-certificate  '"//trim(path)//"' -O ./tmp/"//trim(path(tag+1:)))
             print *, "[ok] Downloaded > ./tmp/"//trim(path(tag+1:) )
             localcp = trim("./tmp/"//path(tag+1:) )
-            call obj%open(trim(localcp),"r")
+
+            call obj%open(trim(localcp),"r",binary=binary)
+
             return
         endif
     
@@ -474,64 +482,130 @@ module IOClass
                     obj%extention=trim(extention)
                     if(present(state) )then
                         if(state=="r")then
-                            open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='old')
+                            if(use_binary_form)then
+                                open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='old',&
+                                    form="UNFORMATTED")
+                            else
+                                open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='old')
+                            endif
                             obj%filename=trim(path)//trim(name)//trim(extention)
                         elseif(state=="w")then
-                            open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='replace')
+                            if(use_binary_form)then
+                                open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='replace',&
+                                    form="UNFORMATTED")
+                            else
+                                open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='replace')
+                            endif
                             obj%filename = trim(path)//trim(name)//trim(extention)
                         elseif(state=="a")then
-                            open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),position='append')
+                            if(use_binary_form)then
+                                open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),position='append',&
+                                    form="UNFORMATTED")
+                            else
+                                open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),position='append')
+                            endif
                             obj%filename = trim(path)//trim(name)//trim(extention)
                         else
                             call print("Error :: IOClass % open >> argument <state> should be w or r ")
                             stop
                         endif
                     else
-                        open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention) )
+                        if(use_binary_form)then
+                            open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),&
+                                form="UNFORMATTED" )
+                        else
+                            open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention) )
+                        endif
                         obj%filename = trim(path)//trim(name)//trim(extention)
                     endif
                 else
                     if(present(state) )then
                         if(state=="r")then
-                            open(newunit=obj%fh,file=trim(path)//trim(name),status='old' )
+                            if(use_binary_form)then
+                                open(newunit=obj%fh,file=trim(path)//trim(name),status='old',&
+                                    form="UNFORMATTED" )
+                            else
+                                open(newunit=obj%fh,file=trim(path)//trim(name),status='old' )
+                            endif
                             obj%filename = trim(path)//trim(name)
                         elseif(state=="w")then
-                            open(newunit=obj%fh,file=trim(path)//trim(name),status='replace' )
+                            if(use_binary_form)then
+                                open(newunit=obj%fh,file=trim(path)//trim(name),status='replace',&
+                                    form="UNFORMATTED" )
+                            else
+                                open(newunit=obj%fh,file=trim(path)//trim(name),status='replace' )
+                            endif
                             obj%filename=trim(path)//trim(name)
                         elseif(state=="a")then
-                            open(newunit=obj%fh,file=trim(path)//trim(name),position='append' )
+                            if(use_binary_form)then
+                                open(newunit=obj%fh,file=trim(path)//trim(name),position='append',&
+                                    form="UNFORMATTED" )
+                            else
+                                open(newunit=obj%fh,file=trim(path)//trim(name),position='append' )
+                            endif
                             obj%filename=trim(path)//trim(name)
                         else
                             call print("Error :: IOClass % open >> argument <state> should be w or r ")
                             stop
                         endif
                     else
-                        open(newunit=obj%fh,file=trim(path)//trim(name) )
+                        if(use_binary_form)then
+                            open(newunit=obj%fh,file=trim(path)//trim(name),&
+                                form="UNFORMATTED" )
+                        else
+                            open(newunit=obj%fh,file=trim(path)//trim(name) )
+                        endif
                         obj%filename = trim(path)//trim(name)
                     endif
                 endif
             else
                 if(present(state) )then
                     if(state=="r")then
-                        open(newunit=obj%fh,file=trim(path),status='old' )
+                        if(use_binary_form)then
+                            open(newunit=obj%fh,file=trim(path),status='old',&
+                                form="UNFORMATTED" )
+                        else
+                            open(newunit=obj%fh,file=trim(path),status='old' )
+                        endif
                         obj%filename = trim(path)
                     elseif(state=="w")then
-                        open(newunit=obj%fh,file=trim(path),status='replace' )
+                        if(use_binary_form)then
+                            open(newunit=obj%fh,file=trim(path),status='replace',&
+                                form="UNFORMATTED" )
+                        else
+                            open(newunit=obj%fh,file=trim(path),status='replace' )
+                        endif
                         obj%filename = trim(path)
                     elseif(state=="a")then
-                        open(newunit=obj%fh,file=trim(path),position='append' )
+                        if(use_binary_form)then
+                            open(newunit=obj%fh,file=trim(path),position='append',&
+                                form="UNFORMATTED" )
+                        else
+                            open(newunit=obj%fh,file=trim(path),position='append' )
+                        endif
+
                         obj%filename = trim(path)
                     else
                         call print("Error :: IOClass % open >> argument <state> should be w or r ")
                         stop
                     endif
                 else
-                    open(newunit=obj%fh,file=trim(path) )
+                    if(use_binary_form)then
+                        open(newunit=obj%fh,file=trim(path),&
+                            form="UNFORMATTED" )
+                    else
+                        open(newunit=obj%fh,file=trim(path) )
+                    endif
                     obj%filename = trim(path)
                 endif
             endif
         else
-            open(newunit=obj%fh,file="./untitled.txt",status="replace" )
+            if(use_binary_form)then
+                open(newunit=obj%fh,file="./untitled.txt",status="replace",&
+                    form="UNFORMATTED" )
+            else
+                open(newunit=obj%fh,file="./untitled.txt",status="replace" )
+            endif
             obj%filename = "./untitled.txt"
         endif
         
@@ -543,7 +617,7 @@ module IOClass
     
     
     ! #############################################
-    subroutine openIOstring(obj,path_s,state,name_s,extention_s,fh)
+    subroutine openIOstring(obj,path_s,state,name_s,extention_s,binary,fh)
         class(IO_),intent(inout) :: obj
         character(1),optional,intent(in) :: state ! w or r
         type(String_),intent(in) ::path_s
@@ -551,7 +625,12 @@ module IOClass
         character(len=:),allocatable::path,name,extention
         integer(int32),optional,intent(in) :: fh
         logical :: yml=.False.
-        
+        logical,optional,intent(in) :: binary
+        logical :: use_binary_form=.false.
+
+        if(present(binary) )then
+            use_binary_form = binary
+        endif
     
         if(present(state) )then
             obj%state = state
@@ -620,10 +699,20 @@ module IOClass
     
         if(present(state) )then
             if(state == "w")then
-                open(newunit=obj%fh,file=trim(path_s%str()),status="replace" )
+                if(use_binary_form)then
+                    open(newunit=obj%fh,file=trim(path_s%str()),status="replace",&
+                        form="UNFORMATTED" )
+                else
+                    open(newunit=obj%fh,file=trim(path_s%str()),status="replace" )
+                endif
                 obj%filename = trim(path_s%str())
             elseif(state == "r")then
-                open(newunit=obj%fh,file=trim(path_s%str()),status="old" )
+                if(use_binary_form)then
+                    open(newunit=obj%fh,file=trim(path_s%str()),status="old",&
+                        form="UNFORMATTED" )
+                else
+                    open(newunit=obj%fh,file=trim(path_s%str()),status="old" )
+                endif
                 obj%filename = trim(path_s%str())
             else
                 call print("Error :: IOClass % open >> argument <state> should be w or r ")
@@ -635,14 +724,29 @@ module IOClass
             obj%name=trim(name_s%str())
             if(present(extention_s) )then
                 obj%extention=trim(extention_s%str())
-                open(newunit=obj%fh,file=trim(path_s%str())//trim(name_s%str())//trim(extention_s%str()) )
+                if(use_binary_form)then
+                    open(newunit=obj%fh,file=trim(path_s%str())//trim(name_s%str())//trim(extention_s%str()),&
+                        form="UNFORMATTED" )
+                else
+                    open(newunit=obj%fh,file=trim(path_s%str())//trim(name_s%str())//trim(extention_s%str()) )
+                endif
                 obj%filename = trim(path_s%str())//trim(name_s%str())//trim(extention_s%str())
             else
-                open(newunit=obj%fh,file=trim(path_s%str())//trim(name_s%str()) )
+                if(use_binary_form)then
+                    open(newunit=obj%fh,file=trim(path_s%str())//trim(name_s%str()),&
+                        form="UNFORMATTED" )
+                else
+                    open(newunit=obj%fh,file=trim(path_s%str())//trim(name_s%str()) )
+                endif
                 obj%filename = trim(path_s%str())//trim(name_s%str()) 
             endif
         else
-            open(newunit=obj%fh,file=trim(path_s%str()) )
+            if(use_binary_form)then
+                open(newunit=obj%fh,file=trim(path_s%str()),&
+                    form="UNFORMATTED" )
+            else
+                open(newunit=obj%fh,file=trim(path_s%str()) )
+            endif
             obj%filename = trim(path_s%str())
         endif
         

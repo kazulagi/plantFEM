@@ -6,6 +6,7 @@ module LinearSolverClass
   use MathClass
   use ArrayClass
   use COOClass
+  use RandomClass
   !use MPIClass
   implicit none
 
@@ -2809,7 +2810,7 @@ end subroutine
 
 ! #######################################################
 ! FITTING by Stochastic Gradient Descend
-function fit(f,training_data,params,eta,error,max_itr,use_ratio,logfile,algorithm) result(fit_params)
+function fit(f,training_data,params,eta,error,max_itr,use_ratio,  logfile,algorithm) result(fit_params)
     
   interface
       function f(x,params) result(ret)
@@ -4075,6 +4076,51 @@ function unique(old_vec) result(new_vec)
 
 end function
 
+subroutine Lanczos(A,V,T) 
+  real(real64),intent(in) :: A(:,:)
+  real(real64),allocatable,intent(inout) :: V(:,:),T(:,:)
+  real(real64),allocatable :: v1(:),w1(:),vj(:),wj(:)
+  real(real64) :: alp1,beta_j,alp_j
+  type(Random_) :: random
+  integer(int32) :: i,N,j,m
+  
+  ! https://en.wikipedia.org/wiki/Lanczos_algorithm
 
+  N = size(A,1)
+  V = zeros(N,N)
+  T = zeros(N,N)
+
+  v1 = 2.0d0*random%randn(N)-1.0d0
+  v1 = v1/norm(v1)
+  w1 = matmul(A,v1)
+  alp1 = dot_product(w1,v1)
+  w1 = w1 - alp1*v1
+  beta_j = norm(w1)
+
+  T(1,1) = alp1 
+  V(:,1) = v1
+  
+  do i=2,N
+      beta_j = norm(w1)
+      if(beta_j/=0.0d0)then
+          vj = w1/beta_j
+      else
+          vj = 2.0d0*random%randn(N)-1.0d0
+          stop
+      endif
+      wj = matmul(A,vj)
+      alp_j = dot_product(wj,vj)
+      wj    = wj - alp_j * vj - beta_j*v1
+      v1 = vj
+      w1 =wj
+
+      T(i,i) = alp_j
+      T(i,i-1) = beta_j
+      T(i-1,i) = beta_j
+      V(:,i) = vj
+  enddo
+
+
+end subroutine
 
 end module
