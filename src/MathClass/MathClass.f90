@@ -53,12 +53,12 @@ module MathClass
 	end interface
 
 	interface str
-		module procedure fstring_Int, fstring_Real,fstring_Real32, &
+		module procedure fstring_Int,fstring_Int64, fstring_Real,fstring_Real32, &
 			fstring_complex, fstring_Int_len, fstring_Real_len, fstring_logical, fstring_String,stringFromChar
 	end interface str
 
     interface fstring
-        module procedure fstring_Int, fstring_Real, fstring_Int_len, fstring_Real_len, fstring_logical
+        module procedure fstring_Int,fstring_Int64, fstring_Real, fstring_Int_len, fstring_Real_len, fstring_logical
 	end interface fstring
 
 	interface input
@@ -1339,6 +1339,18 @@ end function
 function fstring_int(x) result(a)
 	integer(int32),intent(in) :: x
 	character(len=20):: b
+	character(len=:),allocatable	:: a
+
+	write(b,*) x
+	a = trim(adjustl(b))
+
+end function
+!================================================================================== 
+
+!================================================================================== 
+function fstring_int64(x) result(a)
+	integer(int64),intent(in) :: x
+	character(len=40):: b
 	character(len=:),allocatable	:: a
 
 	write(b,*) x
