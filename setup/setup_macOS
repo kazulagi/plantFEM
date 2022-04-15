@@ -7,6 +7,7 @@ brew install  gmsh
 brew install  gnuplot
 brew install  curl
 brew install  lapack
+brew install  opencv
 #curl https://bootstrap.pypa.io/get-pip.py -o ~/get-pip.py
 #python3 ~/get-pip.py
 #pip install pillow

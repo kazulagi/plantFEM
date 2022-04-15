@@ -9,7 +9,7 @@
     "shaperatio": 0.3,
     "drydensity":100.0,
     "watercontent":0.60,
-    "xnum": 5,
+    "xnum": 10,
     "ynum": 1,
-    "znum": 5
+    "znum": 20
 }

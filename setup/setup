@@ -7,6 +7,7 @@ sudo apt install  -y gmsh
 sudo apt install  -y gnuplot
 sudo apt -y install libatlas3-base
 sudo apt -y install libatlas-base-dev
+sudo apt -y install libopencv-dev 
 sudo chmod 777 ./plantfem
 sudo chmod 777 ./bin/soja.sh
 #sudo apt install -y jupyter-notebook

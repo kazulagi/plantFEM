@@ -1672,6 +1672,7 @@ subroutine initsoybean(obj,config,&
         obj%stage = "V"//trim(str(obj%ms_node))
         
         call obj%update()
+
         call obj%fixReversedElements()
 
         if(timeOpt) then
@@ -7905,25 +7906,36 @@ end subroutine
 
 
 ! ################################################################
-function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,num_mode) result(EigenVectors)
+function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algorithm) result(EigenVectors)
     class(Soybean_),target,intent(inout) :: obj
     real(real64),intent(in) :: ground_level
     real(real64),optional,intent(in) :: penalty
     logical,optional,intent(in) :: debug
     real(real64),allocatable,intent(inout) :: Frequency(:)
-    integer(int32),intent(in) :: num_mode
+    character(*),optional,intent(in) :: EbOM_Algorithm
+    !integer(int32),optional,intent(in) :: num_mode
     
 
     type(FEMDomainp_),allocatable :: FEMDomainPointers(:)
     type(FEMSolver_) :: solver
     type(Math_) :: math
 
-    real(real64),allocatable :: EigenVectors(:,:)
+    real(real64),allocatable :: EigenVectors(:,:),buf(:,:),buf_vec(:)
 
     integer(int32) :: stem_id, leaf_id, root_id,DomainID,ElementID,i,n
     integer(int32) :: myStemID, yourStemID, myLeafID,myRootID, yourRootID
     integer(int32),allocatable :: FixBoundary(:)
-    integer(int32) :: nn_domains
+    integer(int32) :: nn_domains,EbOM_Algorithm_id
+    real(real64) :: vec_norm
+
+    EbOM_Algorithm_id = FEMDomain_Overset_GPP
+    if(present(EbOM_Algorithm) )then
+        if(EbOM_Algorithm=="P2P")then
+            EbOM_Algorithm_id=FEMDomain_Overset_P2P
+        elseif(EbOM_Algorithm=="GPP")then
+            EbOM_Algorithm_id=FEMDomain_Overset_P2P
+        endif
+    endif
 
     ! linear elasticity with infinitesimal strain theory
     n = obj%numStem() + obj%numLeaf() + obj%numRoot() 
@@ -7932,65 +7944,95 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,num_mode)
     !(1) >> compute overset
     ! For stems
     if(allocated(obj%stem2stem) )then
-        do myStemID = 1,size(obj%stem2stem,1)
-            do yourStemID = 1, size(obj%stem2stem,2)
-                if(obj%stem2stem(myStemID,yourStemID)>=1 )then
-                    ! connected
-                    call obj%stem(myStemID)%femdomain%overset(&
-                        FEMDomain=obj%stem(yourStemID)%femdomain,&
-                        DomainID   = yourStemID    ,& 
-                        MyDomainID = myStemID  ,&
-                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
-                endif
+        if(allocated(obj%stem) )then
+            do myStemID = 1,size(obj%stem2stem,1)
+                do yourStemID = 1, size(obj%stem2stem,2)
+                    if(obj%stem2stem(myStemID,yourStemID)>=1 )then
+                        ! connected
+                        call obj%stem(myStemID)%femdomain%overset(&
+                            FEMDomain=obj%stem(yourStemID)%femdomain,&
+                            DomainID   = yourStemID    ,& 
+                            MyDomainID = myStemID  ,&
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                        call obj%stem(yourStemID)%femdomain%overset(&
+                            FEMDomain=obj%stem(myStemID)%femdomain,&
+                            DomainID   = myStemID    ,& 
+                            MyDomainID = yourStemID  ,&
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                    endif
+                enddo
             enddo
-        enddo
+        endif
     endif
 
     if(allocated(obj%leaf2stem) )then
-        do myLeafID = 1,size(obj%leaf2stem,1)
-            do yourStemID = 1, size(obj%leaf2stem,2)
-                if(obj%leaf2stem(myLeafID,yourStemID)>=1 )then
-                    ! connected
-                    call obj%leaf(myLeafID)%femdomain%overset(&
-                        FEMDomain=obj%stem(yourStemID)%femdomain,&
-                        DomainID   = yourStemID    ,& 
-                        MyDomainID = obj%numStem() + myLeafID  , &
-                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
-                endif
+        if(allocated(obj%leaf) .and. allocated(obj%stem) )then
+            do myLeafID = 1,size(obj%leaf2stem,1)
+                do yourStemID = 1, size(obj%leaf2stem,2)
+                    if(obj%leaf2stem(myLeafID,yourStemID)>=1 )then
+                        ! connected
+                        call obj%leaf(myLeafID)%femdomain%overset(&
+                            FEMDomain=obj%stem(yourStemID)%femdomain,&
+                            DomainID   = yourStemID    ,& 
+                            MyDomainID = obj%numStem() + myLeafID  , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                        !call obj%stem(yourStemID)%femdomain%overset(&
+                        !    FEMDomain=obj%leaf(myLeafID)%femdomain,
+                        !    DomainID =obj%numStem() + myLeafID,
+                        !    MyDomainID= yourStemID,
+                        !    algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                        
+                    endif
+                enddo
             enddo
-        enddo
+        endif
     endif
     
 
     if(allocated(obj%root2stem) )then
-        do myRootID = 1,size(obj%root2stem,1)
-            do yourStemID = 1, size(obj%root2stem,2)
-                if(obj%root2stem(myRootID,yourStemID)>=1 )then
-                    ! connected
-                    call obj%root(myRootID)%femdomain%overset(&
-                        FEMDomain=obj%stem(yourStemID)%femdomain,&
-                        DomainID   = yourStemID    ,& 
-                        MyDomainID = obj%numStem() +obj%numLeaf() + myRootID  , &
-                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
-                endif
+        if(allocated(obj%stem) .and. allocated(obj%root) )then
+            do myRootID = 1,size(obj%root2stem,1)
+                do yourStemID = 1, size(obj%root2stem,2)
+                    if(obj%root2stem(myRootID,yourStemID)>=1 )then
+                        ! connected
+                        call obj%root(myRootID)%femdomain%overset(&
+                            FEMDomain=obj%stem(yourStemID)%femdomain,&
+                            DomainID   = yourStemID    ,& 
+                            MyDomainID = obj%numStem() +obj%numLeaf() + myRootID  , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                        call obj%stem(yourStemID)%femdomain%overset(&
+                            FEMDomain=  obj%root(myRootID)%femdomain,&
+                            DomainID   = obj%numStem() +obj%numLeaf() + myRootID    ,& 
+                            MyDomainID =  yourStemID , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                    endif
+                enddo
             enddo
-        enddo
+        endif
     endif
 
 
     if(allocated(obj%root2root) )then
-        do myRootID = 1,size(obj%root2root,1)
-            do yourrootID = 1, size(obj%root2root,2)
-                if(obj%root2root(myRootID,yourrootID)>=1 )then
-                    ! connected
-                    call obj%root(myRootID)%femdomain%overset(&
-                        FEMDomain=obj%root(yourrootID)%femdomain,&
-                        DomainID   = obj%numroot() +obj%numLeaf() + yourrootID    ,& 
-                        MyDomainID = obj%numroot() +obj%numLeaf() + myRootID  , &
-                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
-                endif
+        if(allocated(obj%root) )then
+            do myRootID = 1,size(obj%root2root,1)
+                do yourrootID = 1, size(obj%root2root,2)
+                    if(obj%root2root(myRootID,yourrootID)>=1 )then
+                        ! connected
+                        call obj%root(myRootID)%femdomain%overset(&
+                            FEMDomain=obj%root(yourrootID)%femdomain,&
+                            DomainID   = obj%numroot() +obj%numLeaf() + yourrootID    ,& 
+                            MyDomainID = obj%numroot() +obj%numLeaf() + myRootID  , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                    
+                        call obj%root(yourrootID)%femdomain%overset(&
+                            FEMDomain=obj%root(myRootID)%femdomain,&
+                            DomainID   = obj%numroot() +obj%numLeaf() + myRootID    ,& 
+                            MyDomainID =  obj%numroot() +obj%numLeaf() + yourrootID , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                    endif
+                enddo
             enddo
-        enddo
+        endif
     endif
 
 
@@ -8046,15 +8088,6 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,num_mode)
                ElementID=ElementID,&
                E=obj%getYoungModulus(DomainID=DomainID,ElementID=ElementID), &
                v=obj%getPoissonRatio(DomainID=DomainID,ElementID=ElementID)  ) )
-
-            call solver%setVector(DomainID=DomainID,ElementID=ElementID,DOF=3,&
-                Vector=FEMDomainPointers(DomainID)%femdomainp%MassVector(&
-                    ElementID=ElementID,&
-                    DOF=FEMDomainPointers(DomainID)%femdomainp%nd() ,&
-                    Density= obj%getDensity(DomainID=DomainID,ElementID=ElementID) ,&
-                    Accel=[0.0d0, 0.0d0, -9.80d0]&
-                    ) & 
-                )
         enddo
     enddo
     !$OMP end do
@@ -8067,9 +8100,7 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,num_mode)
         endif
     endif
     
-
     call solver%setEbOM(penalty=input(default=10000000.0d0,option=penalty), DOF=3)
-
 
     if(present(debug) )then
         if(debug)then
@@ -8077,6 +8108,7 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,num_mode)
         endif
     endif
     call solver%keepThisMatrixAs("A")
+    !call solver%saveMatrix(name="A",CRS_as_dense=.true.,zero_or_nonzero=.true)
     call solver%zeros()
     
     ! mass matrix
@@ -8119,9 +8151,17 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,num_mode)
         solver%debug = debug
     endif
 
+
+
     call solver%eig(eigen_value=Frequency,eigen_vectors=EigenVectors)
-    Frequency(:) = sqrt(Frequency(:)) /2.0d0/Math%PI
     call solver%remove()
+
+    ! normalize EigenVectors
+    do i=1,size(EigenVectors,2)
+        vec_norm = norm(EigenVectors(:,i) )
+        print *, vec_norm
+        EigenVectors(:,i) = EigenVectors(:,i)/vec_norm
+    enddo
 
 
     if(present(debug) )then
@@ -8129,7 +8169,7 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,num_mode)
             print *, "[ok] Solve >> done."        
         endif
     endif
-    ! japanese "ato-shimatsu"
+    
 
 
 end function

@@ -112,6 +112,13 @@ module FEMSolverClass
         procedure, public :: remove => removeFEMSolver
 
     end type
+
+    interface reverseArray
+        module procedure reverseArrayReal64
+    end interface reverseArray
+    interface reverseVector
+        module procedure reverseVectorReal64
+    end interface reverseVector
 contains
 
 subroutine initFEMSolver(this,NumDomain,MPI_target)
@@ -1003,10 +1010,10 @@ end subroutine
 
 
 ! ###################################################################
-subroutine saveMatrixFEMSolver(this,name,CRS_as_dense, if_dense_exists)
+subroutine saveMatrixFEMSolver(this,name,CRS_as_dense, if_dense_exists,zero_or_nonzero)
     class(FEMSolver_),intent(in) :: this
     character(*),intent(in) :: name
-    logical,optional,intent(in) :: CRS_as_dense,if_dense_exists
+    logical,optional,intent(in) :: CRS_as_dense,if_dense_exists,zero_or_nonzero
     integer(int32) :: i,j,k,n
     real(real64),allocatable :: row_vector(:)
     type(IO_)::f
@@ -1043,8 +1050,28 @@ subroutine saveMatrixFEMSolver(this,name,CRS_as_dense, if_dense_exists)
                     row_vector( this%CRS_Index_Col(j) ) = this%CRS_val(j)
                 enddo
                 do j=1,size(row_vector)-1
+                    if(present(zero_or_nonzero) )then
+                        if(zero_or_nonzero)then
+                            if(row_vector(j) ==0.0d0)then
+                                write(f%fh,'(A)',advance='no') "0"        
+                            else
+                                write(f%fh,'(A)',advance='no')  "*"        
+                            endif
+                            cycle        
+                        endif
+                    endif            
                     write(f%fh,'(A)',advance='no') str(row_vector(j) )+","
                 enddo
+                if(present(zero_or_nonzero) )then
+                    if(zero_or_nonzero)then
+                        if(row_vector(n) ==0.0d0)then
+                            write(f%fh,'(A)',advance='yes') "0"        
+                        else
+                            write(f%fh,'(A)',advance='yes')  "*"        
+                        endif
+                        cycle        
+                    endif
+                endif            
                 write(f%fh,'(A)',advance='yes') str(row_vector(n) )
             enddo
             call f%close()
@@ -1149,6 +1176,8 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
     ! solve Ku = \lambda M x by LAPACK
     clasS(FEMSolver_),intent(inout) :: this
     integer(int32),optional,intent(in)::num_eigen
+    !logical,optional,intent(in) :: Lanczos
+
 
 
     !>>>>>>>>>>>>>> INPUT
@@ -1161,11 +1190,11 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
     real(real64),allocatable :: AP(:)
     real(real64),allocatable :: BP(:)
     real(real64),allocatable :: W(:)
-    real(real64),allocatable :: Z(:,:)
-    real(real64),allocatable :: WORK(:)
+    real(real64),allocatable :: Z(:,:),M(:)
+    real(real64),allocatable :: WORK(:),ID(:)
     real(real64),allocatable,intent(inout) :: eigen_value(:)
     real(real64),allocatable,intent(inout) :: eigen_vectors(:,:)
-    integer(int32),allocatable :: IWORK(:)
+    integer(int32),allocatable :: IWORK(:),IDS(:)
     integer(int32) :: LDZ
     integer(int32) :: LWORK
     integer(int32) :: LIWORK 
@@ -1173,7 +1202,14 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
     integer(int32) :: from,to,k,j,i
     integer(int32),allocatable :: new_id_from_old_id(:)
     real(real64),allocatable :: dense_mat(:,:)
+    logical :: use_lanczos
     type(IO_) :: f
+    type(CRS_) :: crs
+
+    use_lanczos = .false.
+    !if(present(Lanczos) )then
+    !    use_lanczos = Lanczos
+    !endif
 
     if(allocated(this%fix_eig_IDs) )then
         ! amplitudes are zero@ this%fix_eig_IDs
@@ -1188,38 +1224,86 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
         call reduce_crs_matrix(CRS_val=this%B_CRS_val,CRS_col=this%B_CRS_index_col,&
         CRS_rowptr=this%B_CRS_index_row,remove_IDs=this%fix_eig_IDs)
     endif
-
-
+    
     !>>>>>>>>>>>>>> INPUT
     N      = size(this%A_CRS_index_row) -1 
     LDZ    = input(default=N,option=num_eigen)
     LWORK  = 1 + 6*N + 2*N**2
     LIWORK = 3 + 5*N
     !<<<<<<<<<<<<<< INPUT
-    
 
-    !>>>>>>>>>>>>>>  INPUT/OUTPUT
-    AP = zeros(N*(N+1)/2 )
-    BP = zeros(N*(N+1)/2 )
-    ! Upper triangle matrix
-    AP = UpperTriangularMatrix(CRS_val=this%A_CRS_val,CRS_col=this%A_CRS_index_col,&
-        CRS_rowptr=this%A_CRS_index_row)
-    BP = UpperTriangularMatrix(CRS_val=this%B_CRS_val,CRS_col=this%B_CRS_index_col,&
-        CRS_rowptr=this%B_CRS_index_row)
-    !<<<<<<<<<<<<<< INPUT/OUTPUT
+    if(use_lanczos)then
+        crs%val = this%A_CRS_val
+        crs%col_idx = this%A_CRS_index_col
+        crs%row_ptr = this%A_CRS_index_row
+        ! AU = λBU
+        ! assuming B ≒ M, where M is a mass concentration matrix,
+        ! crs = M^{-1} A
+        ! First >> convert AU = λBU to A'y = λy
+        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
+        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
+        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
+        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
+        print *, "ERROR :: bug exists."
+
+        stop
+
+        !M = zeros(N)
+        !do i=1,N
+        !    do j=this%B_CRS_index_row(i),this%B_CRS_index_row(i+1) - 1
+        !        M(i) = M(i) + this%B_CRS_val(j)
+        !    enddo
+        !enddo
+        
+        !do i=1,N
+        !    do j=crs%row_ptr(i),crs%row_ptr(i+1) - 1
+        !        crs%val(j) = crs%val(j) / M(i)
+        !    enddo
+        !enddo
+        ! 
+
+        call crs%eig(Eigen_vectors=Z,eigen_values=w)
+
+        do i=1,size(Z,2)
+            Z(:,i) = Z(:,i)/norm(Z(:,i) )
+        enddo
 
 
-    !>>>>>>>>>>>>>>  OUTPUT
-    W     = zeros(N )
-    Z     = zeros(LDZ,N)
-    WORK  = zeros(LWORK)
-    IWORK = zeros(LIWORK)
-    INFO  = 0
-    !<<<<<<<<<<<<<< OUTPUT
+        !ID = linspace([1.0d0,dble(size(w)) ],size(w))
+        !call heapsort(n=N,array=w,val=ID)
+        !z = sortByIDreal64ColisVector(z,int(ID))
+        
+        
+    else
 
-    
-    call DSPGVD (ITYPE, JOBZ, UPLO, N, AP, BP, W, Z, LDZ, WORK, &
-    LWORK, IWORK, LIWORK, INFO)
+        
+
+        !>>>>>>>>>>>>>>  INPUT/OUTPUT
+        AP = zeros(N*(N+1)/2 )
+        BP = zeros(N*(N+1)/2 )
+        ! Upper triangle matrix
+        AP = UpperTriangularMatrix(CRS_val=this%A_CRS_val,CRS_col=this%A_CRS_index_col,&
+            CRS_rowptr=this%A_CRS_index_row)
+        BP = UpperTriangularMatrix(CRS_val=this%B_CRS_val,CRS_col=this%B_CRS_index_col,&
+            CRS_rowptr=this%B_CRS_index_row)
+        !<<<<<<<<<<<<<< INPUT/OUTPUT
+
+
+        !>>>>>>>>>>>>>>  OUTPUT
+        W     = zeros(N )
+        Z     = zeros(LDZ,N)
+        WORK  = zeros(LWORK)
+        IWORK = zeros(LIWORK)
+        INFO  = 0
+        !<<<<<<<<<<<<<< OUTPUT
+
+        
+        call DSPGVD (ITYPE, JOBZ, UPLO, N, AP, BP, W, Z, LDZ, WORK, &
+        LWORK, IWORK, LIWORK, INFO)
+    endif
+
+    !call DSPGVX (ITYPE, JOBZ, RANGE="I", UPLO, N, AP, BP, VL, VU, IL, IU,
+    !ABSTOL, M, W, Z, LDZ, WORK, IWORK, IFAIL, INFO)
 
     eigen_value = w
     
@@ -1873,4 +1957,44 @@ end subroutine
 !
 !end subroutine
 !
+
+subroutine reverseVectorReal64(A)
+    real(real64),intent(inout) :: A(:)
+    real(real64) :: buf
+    integer(int32) :: i,n
+
+    n = size(A)
+    do i=1,n/2
+        buf = A(i)
+        A(i) = A(n-i+1)
+        A(n-i+1) = buf
+    enddo
+
+end subroutine
+
+subroutine reverseArrayReal64(A)
+    real(real64),intent(inout) :: A(:,:)
+    real(real64),allocatable :: buf(:)
+    integer(int32) :: i,n
+
+    ! see columns as vectors, and reverse order
+    n = size(A,1)
+    buf = zeros(n)
+    do i=1,n
+        call reverseVectorReal64(A(i,:))
+    enddo
+    
+end subroutine
+
+function sortByIDreal64ColisVector(vectors, ID) result(new_vectors)
+    real(real64),intent(in) :: vectors(:,:)
+    integer(int32),intent(in) :: ID(:)
+    real(real64),allocatable :: new_vectors(:,:)
+    integer(int32) :: i
+    new_vectors = zeros( size(vectors,1),size(vectors,2) )
+    do i=1,size(ID)
+        new_vectors(:,i) = vectors(:,ID(i) )
+    enddo
+
+end function
 end module 

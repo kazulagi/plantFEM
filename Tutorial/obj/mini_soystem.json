@@ -1,4 +1,4 @@
- {
+{
     "type": "stem",
     "minlength": 0.003,
     "mindiameter": 0.003,
@@ -6,7 +6,7 @@
     "maxdiameter": 0.0005,
     "drydensity":40.0,
     "watercontent":0.40,
-    "xnum": 1,
-    "ynum": 1,
-    "znum": 4
- }
+    "xnum": 3,
+    "ynum": 3,
+    "znum": 30
+}
