@@ -279,6 +279,8 @@ module FEMDomainClass
 		procedure,public :: resize => resizeFEMDomain
 		procedure,public :: fat => fatFEMDomain
 		procedure,public :: remove => removeFEMDomain
+		procedure,public :: refine => refineFEMDomain
+		
 		procedure,public :: read => readFEMDomain
 		procedure,public :: remesh => remeshFEMDomain
 
@@ -11623,4 +11625,22 @@ pure function NumOversetElementsFEMDomain(obj) result(ret)
 
 end function
 
+subroutine refineFEMDomain(obj,x_min,x_max,y_min,y_max,z_min,z_max)  
+	class(FEMDomain_),intent(inout) :: obj
+	real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
+	real(real64) :: xr(2),yr(2),zr(2)
+
+	! refine mesh
+	xr(1) = input(default=minval(obj%mesh%nodcoord(:,1) ),option=x_min )
+	xr(2) = input(default=maxval(obj%mesh%nodcoord(:,1) ),option=x_max )
+	yr(1) = input(default=minval(obj%mesh%nodcoord(:,2) ),option=y_min )
+	yr(2) = input(default=maxval(obj%mesh%nodcoord(:,2) ),option=y_max )
+	zr(1) = input(default=minval(obj%mesh%nodcoord(:,3) ),option=z_min )
+	zr(2) = input(default=maxval(obj%mesh%nodcoord(:,3) ),option=z_max )
+
+	
+end subroutine
+
 end module FEMDomainClass
+
+

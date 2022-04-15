@@ -18,13 +18,19 @@ module COOClass
         procedure,public :: getAllCol => getAllColCOO
         procedure,public :: to_CRS => to_CRSCOO
         !procedure,public ::getAllCol_as_row_obj => getAllCol_as_row_objCOO
-    end type
-
-
+        end type
+        
+        
     type :: CRS_
         integer(int32),allocatable :: col_idx(:)
         integer(int32),allocatable :: row_ptr(:)
         real(real64)  ,allocatable :: val(:)
+    contains
+        procedure,public :: init => initCRS
+        procedure,public :: Lanczos => LanczosCRS
+        procedure,public :: matmul => matmulCRS
+        procedure,public :: eig => eigCRS
+        procedure,public :: to_dense => to_denseCRS
     end type
 
 
@@ -277,4 +283,176 @@ end function
 !
 !end function
 !
+subroutine LanczosCRS(this,DiagonalVector,subDiagonalVector,V)
+    class(CRS_),intent(in) :: this 
+    
+    real(real64),allocatable,intent(inout) :: V(:,:)!,T(:,:)
+    real(real64),allocatable,intent(inout) :: DiagonalVector(:)
+    real(real64),allocatable,intent(inout) :: subDiagonalVector(:)
+    real(real64),allocatable :: v1(:),w1(:),vj(:),wj(:)
+    real(real64) :: alp1,beta_j,alp_j
+    type(Random_) :: random
+    integer(int32) :: i,N,j,m
+    
+    ! https://en.wikipedia.org/wiki/Lanczos_algorithm
+  
+    !N = size(A,1)
+    N = size(this%row_ptr)-1
+    V = zeros(N,N)
+    !T = zeros(N,N)
+    DiagonalVector    = zeros(N)
+    subDiagonalVector = zeros(N-1)
+  
+    v1 = 2.0d0*random%randn(N)-1.0d0
+    v1 = v1/norm(v1)
+    w1 = this%matmul(v1)
+    alp1 = dot_product(w1,v1)
+    w1 = w1 - alp1*v1
+    beta_j = norm(w1)
+  
+    !T(1,1) = alp1 
+    V(:,1) = v1
+    DiagonalVector(1) = alp1
+    
+    do i=2,N
+        beta_j = norm(w1)
+        if(beta_j/=0.0d0)then
+            vj = w1/beta_j
+        else
+            vj = 2.0d0*random%randn(N)-1.0d0
+            stop
+        endif
+        wj = this%matmul(vj)
+        alp_j = dot_product(wj,vj)
+        wj    = wj - alp_j * vj - beta_j*v1
+        v1 = vj
+        w1 =wj
+  
+        !T(i,i) = alp_j
+        !T(i,i-1) = beta_j
+        !T(i-1,i) = beta_j
+        V(:,i) = vj
+        DiagonalVector(i) = alp_j
+        subDiagonalVector(i-1) = beta_j
+    enddo
+  
+  
+  
+
+end subroutine
+
+function matmulCRS(CRS,old_vector) result(new_vector)
+    class(CRS_),intent(in) :: CRS
+    real(real64),intent(in)  :: Old_vector(:)
+    real(real64),allocatable :: new_vector(:)
+  
+    new_vector = crs_matvec_generic_cooclass(&
+      CRS_value=CRS%val,&
+      CRS_col=CRS%col_idx,&
+      CRS_row_ptr=CRS%row_ptr,&
+      old_vector=old_vector)
+  
+  end function
+  
+
+
+function crs_matvec_generic_cooclass(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
+    real(real64),intent(in)  :: CRS_value(:),Old_vector(:)
+    integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
+  
+    real(real64),allocatable :: new_vector(:)
+    integer(int32) :: i, j, n,gid,lid,row,CRS_id,col
+    !> x_i = A_ij b_j
+  
+  
+    n = size(CRS_row_ptr)-1
+    if(size(old_vector)/=n )then
+        print *, "ERROR crs_matvec :: inconsistent size for old_vector"
+        return
+    endif
+  
+    new_vector = zeros(n) 
+    !$OMP parallel do default(shared) private(CRS_id,col)
+    do row=1,n
+        do CRS_id=CRS_row_ptr(row),CRS_row_ptr(row+1)-1
+            col = CRS_col(CRS_id)
+            !$OMP atomic
+            new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(col)
+        enddo
+    enddo
+    !$OMP end parallel do 
+    
+  end function
+  ! ###################################################################
+  
+subroutine eigCRS(this,Eigen_vectors,eigen_values)
+    class(CRS_),intent(in) :: this
+    real(real64),allocatable :: A(:,:), V(:,:)
+    real(real64),allocatable :: D(:),E(:)
+    real(real64),allocatable :: WORK(:)
+    integer(int32),allocatable :: IWORK(:),IFAIL(:)
+    real(real64),allocatable,intent(inout) :: Eigen_vectors(:,:),eigen_values(:)
+    integer(int32) :: num_eigen,INFO
+    real(real64)  :: VL, VU, ABSTOL
+    integer(int32):: IL, IU 
+    character(1) :: JOBZ="V"
+    character(1) :: RANGE="A"
+
+    call this%Lanczos(DiagonalVector=D,subDiagonalVector=E,V=V)
+
+    !call print("--")
+    !call print(V)
+    
+    num_eigen = size(D)
+    eigen_values = zeros(size(D))
+    eigen_vectors = zeros(size(D),num_eigen )
+    WORK = zeros(5*size(D) )
+    IWORK = int(zeros(5*size(D) ))
+    IFAIL = int(zeros(size(D) ))
+    ABSTOL = dble(1.0e-14)
+    
+    ! LAPACK
+    call DSTEVX( JOBZ, RANGE, size(D),&
+        D, E, VL, VU, IL, IU,ABSTOL,&
+        num_eigen,eigen_values, eigen_vectors, size(D), &
+        WORK, IWORK, IFAIL, INFO )
+    
+    
+    !eigen_Vectors = matmul(V,matmul(eigen_values, transpose(V) ) )
+    eigen_Vectors = matmul(V,eigen_vectors)
+    do i_i=1,3
+        eigen_vectors(:,i_i) = eigen_vectors(:,i_i)/norm( eigen_vectors(:,i_i) )
+        eigen_vectors(:,i_i) =eigen_vectors(:,i_i)/eigen_vectors(3,i_i)   
+    enddo
+
+end subroutine
+
+subroutine initCRS(this,val,col_idx,row_ptr)
+    class(CRS_),intent(inout) :: this
+    integer(int32),intent(in) :: col_idx(:), row_ptr(:)
+    real(real64),intent(in)   :: val(:)
+
+    this%val = val
+    this%col_idx = col_idx
+    this%row_ptr = row_ptr
+
+end subroutine
+
+
+function to_denseCRS(this) result(dense_mat)
+    class(CRS_),intent(inout) :: this
+    real(real64),allocatable  :: dense_mat(:,:)
+    integer(int32) :: i,j,n,row,col
+
+    n = size(this%row_ptr) - 1
+    allocate(dense_mat(n,n) )
+    do row=1, n
+        do j=this%row_ptr(i), this%row_ptr(i+1) - 1
+            col = this%col_idx(j)
+            dense_mat(row,col) = this%val(j)
+        enddo
+    enddo
+
+end function
+
 end module COOClass

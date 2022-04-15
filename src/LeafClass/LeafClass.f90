@@ -793,15 +793,29 @@ function getCoordinateleaf(obj,nodetype) result(ret)
 class(leaf_),intent(inout) :: obj
 character(*),intent(in) :: nodetype
 real(real64),allocatable :: ret(:)
-integer(int32) :: dimnum
+integer(int32) :: dimnum,n,i
 
 dimnum = size(obj%femdomain%mesh%nodcoord,2)
+
 allocate(ret(dimnum) )
+ret(:) = 0.0d0
+
 if( trim(nodetype)=="A" .or. trim(nodetype)=="a")then
-    ret = obj%femdomain%mesh%nodcoord(obj%A_PointNodeID,:)
+    n = size(obj%I_planeNodeID )
+    do i=1,n
+        ret(:) = ret(:) + obj%femdomain%mesh%nodcoord( obj%I_planeNodeID(i),: ) 
+    enddo
+    ret(:) = 1.0d0/dble(n) * ret(:)
+
+    !ret = obj%femdomain%mesh%nodcoord(obj%A_PointNodeID,:)
 endif
 if( trim(nodetype)=="B" .or. trim(nodetype)=="B")then
-    ret = obj%femdomain%mesh%nodcoord(obj%B_PointNodeID,:)
+    !ret = obj%femdomain%mesh%nodcoord(obj%B_PointNodeID,:)
+    n = size(obj%II_planeNodeID )
+    do i=1,n
+        ret(:) = ret(:) + obj%femdomain%mesh%nodcoord( obj%II_planeNodeID(i),: ) 
+    enddo
+    ret(:) = 1.0d0/dble(n) * ret(:)
 endif
 
 end function
