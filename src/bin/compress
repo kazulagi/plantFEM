@@ -1,0 +1,41 @@
+#!/bin/sh
+rm hostfile
+rm ./GetPixcel*.py
+rm ./DBCGetPixcelSize*.py
+rm __server__.f90
+rm __server__.out
+rm libplantfem.f90
+rm *.dSYM
+rm *.o
+rm *.so
+rm *.mod
+rm *.vtk
+rm *.scf
+rm *.json
+rm *.scf~
+rm fort.*
+rm *.ipynb
+rm *.mesh
+mv *.f90 log/
+mv *.geo RESULTS/
+mv *.msh RESULTS/
+rm *.pos 
+rm *.msh 
+rm *.stl 
+mv GetSurface* RESULTS/
+mv *.txt~ RESULTS/
+mv *.blend RESULTS/
+mv *.blend1 RESULTS/
+rm ./*.out
+rm -f ./inc/*.o
+rm -f ./inc/*.mod
+rm -f *.gp
+rm Home
+rm Desktop
+rm ./server.f90
+rm ./tmp/*
+touch ./server.f90
+rm ./inc/*.so
+echo "1" > etc/cpucore
+clear
+ls

@@ -1,0 +1,5 @@
+#!/bin/sh -eu
+
+./install 
+mpifort ./inc/*.o ./src/MainClass/showMesh.f90 -lOpenCL
+./a.out

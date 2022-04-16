@@ -1,0 +1,9 @@
+#!/bin/bash
+
+git add .
+echo "Please write commit comment and press ENTER : "
+read message
+git commit -m "$message"
+echo "Please write branch name and press ENTER : "
+read branchname
+git push origin $branchname
