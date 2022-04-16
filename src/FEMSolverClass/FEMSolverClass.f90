@@ -1298,8 +1298,9 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
         !<<<<<<<<<<<<<< OUTPUT
 
         
-        call DSPGVD (ITYPE, JOBZ, UPLO, N, AP, BP, W, Z, LDZ, WORK, &
-        LWORK, IWORK, LIWORK, INFO)
+        call DSPGVD (ITYPE=ITYPE, JOBZ=JOBZ, UPLO=UPLO, N=N, AP=AP, BP=BP,&
+        W=W, Z=Z, LDZ=LDZ, WORK=WORK, &
+        LWORK=LWORK, IWORK=IWORK, LIWORK=LIWORK, INFO=INFO)
     endif
 
     !call DSPGVX (ITYPE, JOBZ, RANGE="I", UPLO, N, AP, BP, VL, VU, IL, IU,

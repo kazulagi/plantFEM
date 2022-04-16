@@ -8156,6 +8156,7 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
     call solver%eig(eigen_value=Frequency,eigen_vectors=EigenVectors)
     call solver%remove()
 
+    ! simplify this part
     ! normalize EigenVectors
     do i=1,size(EigenVectors,2)
         vec_norm = norm(EigenVectors(:,i) )

@@ -1,0 +1,13 @@
+#!/bin/sh -eu
+
+./install 
+mpifort ./inc/*.o ./src/MainClass/showMesh.f90 -fbacktrace -lOpenCL
+echo "Running Script"
+echo "    "
+echo "How many CPU cores are to be used?"
+read NumCore
+echo "    "
+echo Number of CPU cores are "$NumCore"
+echo "========================"
+echo "    "
+mpirun -np $NumCore ./a.out
