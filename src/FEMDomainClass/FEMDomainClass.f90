@@ -112,6 +112,8 @@ module FEMDomainClass
 		type(Meshp_),allocatable :: Meshes(:)
 		type(Materialp_),allocatable :: Materials(:)
 		type(Boundaryp_),allocatable :: Boundaries(:)
+
+		real(real64),allocatable :: ObjectPosition(:)
 		!type(FEMDomainp_),allocatable :: FEMDomains(:)
     contains
 		procedure,public :: add => addFEMDomain
@@ -6422,10 +6424,7 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 			coordinate=coordinate,division=znum,species=species,SoyWidthRatio=SoyWidthRatio)
 	endif
 
-!	if(obj%nd()==2 .or. obj%nd()==3)then
-!		call obj%getSurface()
-!	endif
-
+	
 end subroutine createFEMDomain
 ! ##################################################
 
@@ -8811,18 +8810,25 @@ end subroutine
 ! ######################################################################
 function centerPositionFEMDomain(obj,ElementID) result(ret)
 	class(FEMDomain_),intent(in) :: obj
-	integer(int32),intent(in) :: ElementID
+	integer(int32),optional,intent(in) :: ElementID
 	real(real64),allocatable :: ret(:)
 	integer(int32) :: i
 	! get center coordinate of the element 
 
+
 	ret = zeros(obj%nd() )
+	if(present(ElementID) )then
+		do i=1,obj%nne()
+			ret = ret + obj%mesh%nodcoord( obj%mesh%elemnod(ElementID,i) ,:)
+		enddo
 
-	do i=1,obj%nne()
-		ret = ret + obj%mesh%nodcoord( obj%mesh%elemnod(ElementID,i) ,:)
-	enddo
-
-	ret = 1.0d0/dble( obj%nne() )* ret
+		ret = 1.0d0/dble( obj%nne() )* ret
+	else
+		do i=1,obj%nd()
+			ret(i) = sum(obj%mesh%nodcoord(:,i) )/dble(obj%nn() )
+		enddo
+	
+	endif
 
 end function
 ! ######################################################################
@@ -9152,14 +9158,23 @@ end function
 ! ##########################################################################
 function positionFEMDomain(obj,id) result(x)
     class(FEMDomain_),intent(in) :: obj
-    integer(int32),intent(in) :: id ! node_id
+    integer(int32),optional,intent(in) :: id ! node_id
     real(real64) :: x(3)
     integer(int32) :: dim_num,i
 
-    dim_num = size(obj%mesh%nodcoord,2)
-    do i=1,dim_num
-        x(i) = obj%mesh%nodcoord(id,i)
-    enddo
+	if(present(id) )then
+    	dim_num = size(obj%mesh%nodcoord,2)
+    	do i=1,dim_num
+    	    x(i) = obj%mesh%nodcoord(id,i)
+    	enddo
+	else
+
+		x = zeros(obj%nd() )
+		do i=1,obj%nd()
+			x(i) = sum(obj%mesh%nodcoord(:,i) )/dble(obj%nn() )
+		enddo
+	
+	endif
 end function
 ! ##########################################################################
 
