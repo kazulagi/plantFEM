@@ -1287,7 +1287,13 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
         BP = UpperTriangularMatrix(CRS_val=this%B_CRS_val,CRS_col=this%B_CRS_index_col,&
             CRS_rowptr=this%B_CRS_index_row)
         !<<<<<<<<<<<<<< INPUT/OUTPUT
-
+        
+        !>>>>>>>>>>>>>> INPUT
+        N      = size(this%A_CRS_index_row) -1 
+        LDZ    = input(default=N,option=num_eigen)
+        LWORK  = 1 + 6*N + 2*N**2
+        LIWORK = 3 + 5*N
+        !<<<<<<<<<<<<<< INPUT
 
         !>>>>>>>>>>>>>>  OUTPUT
         W     = zeros(N )
@@ -1296,6 +1302,7 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
         IWORK = zeros(LIWORK)
         INFO  = 0
         !<<<<<<<<<<<<<< OUTPUT
+        
 
         
         call DSPGVD (ITYPE, JOBZ, UPLO, N, AP, BP, W, Z, LDZ, WORK, &
