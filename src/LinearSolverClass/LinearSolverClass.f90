@@ -944,6 +944,10 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
   real(real64),allocatable:: val(:)
   integer(int32) :: i,m,n,rn,rd,cn,cd,same_n,count_reduc,j
 
+  print *, "[Warning] Please do not use this procedure"
+  print *, "because this procedure has some bugs"
+  print *, "Please use FEMSolverClass instead of this solver."
+  stop
 
   ! if not allocated COO format
   if(.not.allocated(obj%val) )then

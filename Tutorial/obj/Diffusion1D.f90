@@ -4,6 +4,9 @@ program main
 
     type(FEMDomain_)::domain
     type(DiffusionEq_)::DiffusionEq
+
+    ![Warning!] type(LinearSolver_) is not reccomended. 
+    ! Please use FEMSolver instead of it.
     type(LinearSolver_)::LinearSolver
 
     ! 領域 を　読み込む（ファイル名）

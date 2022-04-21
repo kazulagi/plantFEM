@@ -2,7 +2,11 @@ use LinearSolverClass
 use FEMDomainClass
 implicit none
 
+![Warning!] type(LinearSolver_) is not reccomended. 
+! Please use FEMSolver instead of it.
 type(LinearSolver_) :: solver
+
+
 type(FEMDomain_) :: domain
 real(real64),allocatable :: A_ij(:,:), x_i(:), b_i(:) ! A x = b
 

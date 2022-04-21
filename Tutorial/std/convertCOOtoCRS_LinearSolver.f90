@@ -8,6 +8,10 @@ integer(int32),parameter :: n=1000000
 
 logical,parameter :: CRS=.false.
 
+
+![Warning!] type(LinearSolver_) is not reccomended. 
+! Please use FEMSolver instead of it.
+
 type(LinearSolver_) :: solver
 type(Time_) :: time
 type(MPI_) :: mpid

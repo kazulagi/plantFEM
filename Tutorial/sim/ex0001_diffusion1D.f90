@@ -3,6 +3,9 @@ subroutine getDiffusionEquation1D(domain,LinearSolver)
     implicit none
 
     type(FEMDomain_),intent(inout)::domain
+
+    ![Warning!] type(LinearSolver_) is not reccomended. 
+    ! Please use FEMSolver instead of it.
     type(LinearSolver_)::LinearSolver
     integer(int32) :: i,j,n,elemnum,&
         nodeid_1,nodeid_2,elemid,numdirichlet,node_id,dboundid,materialid

@@ -1,7 +1,14 @@
 use FEMDomainClass
 use LinearSolverClass
 implicit none
+
+
 type(FEMDomain_) :: domain1, domain2
+
+
+![Warning!] type(LinearSolver_) is not reccomended. 
+! Please use FEMSolver instead of it.
+
 type(LinearSolver_) :: solver 
 type(ShapeFunction_) :: sf
 integer(int32),allocatable :: domainIDs1(:),domainIDs2(:),domainIDs12(:),InterConnect(:)
