@@ -1613,22 +1613,23 @@ subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug,locked)
     if(index_i(i) <=0) cycle
     r( index_i(i) ) = r( index_i(i) ) - a(i)*x( index_j(i) ) 
   enddo
-  
+  if(speak) print *, dot_product(r,r),size(a)
+
   ! >> if fixed >> r=0, x=b
   if(present(locked ) )then
-    !$OMP parallel do private(i)
+    !!$OMP parallel do private(i)
     do i=1,size(locked)
       if(locked(i) )then
         r(i) = 0.0d0
         x(i) = b(i)
       endif
     enddo
-    !$OMP end parallel do
+    !!$OMP end parallel do
   endif
 
   !r(:) = b - matmul(a,x)
-  if(speak) print *, "BiCGSTAB >> [2] dp1"
   c1 = dot_product(r,r)
+  if(speak) print *, "BiCGSTAB >> [2] dp1",c1
 	init_rr=c1
   if (c1 < er0) return
   p(:) = r(:)
@@ -1681,14 +1682,14 @@ subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug,locked)
     
     ! >> if fixed >> r=0, x=b
     if(present(locked ) )then
-      !$OMP parallel do private(i)
+      !!$OMP parallel do private(i)
       do i=1,size(locked)
         if(locked(i) )then
           r(i) = 0.0d0
           x(i) = b(i)
         endif
       enddo
-      !$OMP end parallel do
+      !!  $OMP end parallel do
     endif
     
     rr = dot_product(r,r)
