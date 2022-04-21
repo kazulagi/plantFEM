@@ -55,7 +55,7 @@ mpif90 -Ofast -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc
 echo "Compiling ./src/IOClass/IOClass.f90      "
 echo " >> IOClass.o"
 echo " | =>                          | (2%)\r\c "
-mpif90 -cpp -Ofast -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/IOClass/IOClass.f90 -o  ./inc/IOClass.o
+mpif90 -cpp -Ofast -fopenmp  -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/IOClass/IOClass.f90 -o  ./inc/IOClass.o
 echo "Compiling ./src/HTMLClass/HTMLClass.f90      "
 echo " >> HTMLClass.o"
 echo " | =>                          | (2%)\r\c "

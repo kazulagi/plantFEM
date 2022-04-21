@@ -88,14 +88,14 @@ module FEMDomainClass
 
 		real(real64) :: RealTime=1.0d0
 		integer(int32) :: NumOfDomain=1
-        character*200 :: FilePath="None"
-        character*200 :: FileName="None"
-        character*200 :: Name="None"
+        character(:),allocatable :: FilePath!="None"
+        character(:),allocatable :: FileName!="None"
+        character(:),allocatable :: Name!="None"
+		character(:),allocatable :: SolverType!="None"
+		character(:),allocatable :: Category1! ="None"
+		character(:),allocatable :: Category2!="None"
+		character(:),allocatable :: Category3!="None"
         character*9 :: Dtype="None"
-		character*200 :: SolverType="None"
-		character*200 :: Category1 ="None"
-		character*200 :: Category2="None"
-		character*200 :: Category3="None"
 		integer(int32) :: DomainID=1
 		integer(int32) :: timestep=1
 		integer(int32) :: NumberOfBoundaries=0
@@ -372,19 +372,19 @@ subroutine openFEMDomain(obj,path,name)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: path
 	character(*),optional,intent(in) :: name
-	character(200) :: pathi
+	character(:),allocatable :: pathi
 	type(IO_) :: f
 	integer(int32) :: n
 
 
 	if(index(path,".vtk")/=0 )then
-		call obj%ImportVTKFile(name=trim(path))
+		call obj%ImportVTKFile(name=path)
 		return
 	endif
 
 	if(present(name) )then
 		if(index(name,".vtk")/=0 )then
-			call obj%ImportVTKFile(name=trim(path)//"/"//trim(name))
+			call obj%ImportVTKFile(name=path//"/"//name)
 			return
 		endif
 	endif
@@ -399,25 +399,25 @@ subroutine openFEMDomain(obj,path,name)
 		!	pathi(n:n)= " "
 		!endif
 
-		call execute_command_line("mkdir -p "//trim(pathi))
-		call execute_command_line("mkdir -p "//trim(pathi)//"/"//trim(adjustl(name)) )
-		call obj%Mesh%open(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="Mesh") !implement!
-		call obj%MaterialProp%open(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="MaterialProp")!implement!
-		call obj%Boundary%open(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="Boundary")!implement!
-		call obj%ControlPara%open(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="ControlPara")!implement!
-		call obj%ShapeFunction%open(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="ShapeFunction")!implement!
+		call execute_command_line("mkdir -p "//pathi)
+		call execute_command_line("mkdir -p "//pathi//"/"//name )
+		call obj%Mesh%open(path=pathi//"/"//name ,name="Mesh") !implement!
+		call obj%MaterialProp%open(path=pathi//"/"//name ,name="MaterialProp")!implement!
+		call obj%Boundary%open(path=pathi//"/"//name ,name="Boundary")!implement!
+		call obj%ControlPara%open(path=pathi//"/"//name ,name="ControlPara")!implement!
+		call obj%ShapeFunction%open(path=pathi//"/"//name ,name="ShapeFunction")!implement!
 
-		call f%open(trim(pathi)//"/"//trim(adjustl(name)) //"/"//"FEMDomain"//".prop" )
+		call f%open(pathi//"/"//name //"/"//"FEMDomain"//".prop" )
 		write(f%fh,*) obj%RealTime
 		write(f%fh,*) obj%NumOfDomain
-		write(f%fh, '(A)' ) trim(obj%FilePath)
-		write(f%fh, '(A)' ) trim(obj%FileName)
-		write(f%fh, '(A)' ) trim(obj%Name)
-		write(f%fh, '(A)' ) trim(obj%Dtype)
-		write(f%fh, '(A)' ) trim(obj%SolverType)
-		write(f%fh, '(A)' ) trim(obj%Category1)
-		write(f%fh, '(A)' ) trim(obj%Category2)
-		write(f%fh, '(A)' ) trim(obj%Category3)
+		write(f%fh, '(A)' ) obj%FilePath
+		write(f%fh, '(A)' ) obj%FileName
+		write(f%fh, '(A)' ) obj%name
+		write(f%fh, '(A)' ) obj%dtype
+		write(f%fh, '(A)' ) obj%SolverType
+		write(f%fh, '(A)' ) obj%Category1
+		write(f%fh, '(A)' ) obj%Category2
+		write(f%fh, '(A)' ) obj%Category3
 		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
 		call f%close()
 	else
@@ -427,25 +427,25 @@ subroutine openFEMDomain(obj,path,name)
 		!	pathi(n:n)= " "
 		!endif
 
-		call execute_command_line("mkdir -p "//trim(pathi))
-		call execute_command_line("mkdir -p "//trim(pathi)//"/FEMDomain")
-		call obj%Mesh%open(path=trim(pathi)//"/"//"FEMDomain",name="Mesh")
-		call obj%MaterialProp%open(path=trim(pathi)//"/"//"FEMDomain",name="MaterialProp")
-		call obj%Boundary%open(path=trim(pathi)//"/"//"FEMDomain",name="Boundary")
-		call obj%ControlPara%open(path=trim(pathi)//"/"//"FEMDomain",name="ControlPara")
-		call obj%ShapeFunction%open(path=trim(pathi)//"/"//"FEMDomain",name="ShapeFunction")
+		call execute_command_line("mkdir -p "//pathi)
+		call execute_command_line("mkdir -p "//pathi//"/FEMDomain")
+		call obj%Mesh%open(path=pathi//"/"//"FEMDomain",name="Mesh")
+		call obj%MaterialProp%open(path=pathi//"/"//"FEMDomain",name="MaterialProp")
+		call obj%Boundary%open(path=pathi//"/"//"FEMDomain",name="Boundary")
+		call obj%ControlPara%open(path=pathi//"/"//"FEMDomain",name="ControlPara")
+		call obj%ShapeFunction%open(path=pathi//"/"//"FEMDomain",name="ShapeFunction")
 
-		call f%open(trim(pathi)//"/FEMDomain"//"/FEMDomain"//".prop" )
+		call f%open(pathi//"/FEMDomain"//"/FEMDomain"//".prop" )
 		write(f%fh,*) obj%RealTime
 		write(f%fh,*) obj%NumOfDomain
-		write(f%fh, '(A)' ) trim(obj%FilePath)
-		write(f%fh, '(A)' ) trim(obj%FileName)
-		write(f%fh, '(A)' ) trim(obj%Name)
-		write(f%fh, '(A)' ) trim(obj%Dtype)
-		write(f%fh, '(A)' ) trim(obj%SolverType)
-		write(f%fh, '(A)' ) trim(obj%Category1)
-		write(f%fh, '(A)' ) trim(obj%Category2)
-		write(f%fh, '(A)' ) trim(obj%Category3)
+		write(f%fh, '(A)' ) obj%FilePath
+		write(f%fh, '(A)' ) obj%FileName
+		write(f%fh, '(A)' ) obj%name
+		write(f%fh, '(A)' ) obj%dtype
+		write(f%fh, '(A)' ) obj%SolverType
+		write(f%fh, '(A)' ) obj%Category1
+		write(f%fh, '(A)' ) obj%Category2
+		write(f%fh, '(A)' ) obj%Category3
 		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
 		call f%close()
 	endif
@@ -518,7 +518,7 @@ subroutine saveFEMDomain(obj,path,name)
 	class(FEMDomain_),intent(inout) :: obj
 	character(*),intent(in) :: path
 	character(*),optional,intent(in) :: name
-	character(200) :: pathi
+	character(:),allocatable :: pathi
 	type(IO_) :: f
 	integer(int32) :: n
 
@@ -529,25 +529,25 @@ subroutine saveFEMDomain(obj,path,name)
 		!	pathi(n:n)= " "
 		!endif
 
-		call execute_command_line("mkdir -p "//trim(pathi))
-		call execute_command_line("mkdir -p "//trim(pathi)//"/"//trim(adjustl(name)) )
-		call obj%Mesh%save(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="Mesh")
-		call obj%MaterialProp%save(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="MaterialProp")
-		call obj%Boundary%save(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="Boundary")
-		call obj%ControlPara%save(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="ControlPara")
-		call obj%ShapeFunction%save(path=trim(pathi)//"/"//trim(adjustl(name)) ,name="ShapeFunction")
+		call execute_command_line("mkdir -p "//pathi)
+		call execute_command_line("mkdir -p "//pathi//"/"//name )
+		call obj%Mesh%save(path=pathi//"/"//name ,name="Mesh")
+		call obj%MaterialProp%save(path=pathi//"/"//name ,name="MaterialProp")
+		call obj%Boundary%save(path=pathi//"/"//name ,name="Boundary")
+		call obj%ControlPara%save(path=pathi//"/"//name ,name="ControlPara")
+		call obj%ShapeFunction%save(path=pathi//"/"//name ,name="ShapeFunction")
 
-		call f%open(trim(pathi)//"/"//trim(adjustl(name)) ,"/"//"FEMDomain",".prop" )
+		call f%open(pathi//"/"//name ,"/"//"FEMDomain",".prop" )
 		write(f%fh,*) obj%RealTime
 		write(f%fh,*) obj%NumOfDomain
-		write(f%fh, '(A)' ) trim(obj%FilePath)
-		write(f%fh, '(A)' ) trim(obj%FileName)
-		write(f%fh, '(A)' ) trim(obj%Name)
-		write(f%fh, '(A)' ) trim(obj%Dtype)
-		write(f%fh, '(A)' ) trim(obj%SolverType)
-		write(f%fh, '(A)' ) trim(obj%Category1)
-		write(f%fh, '(A)' ) trim(obj%Category2)
-		write(f%fh, '(A)' ) trim(obj%Category3)
+		write(f%fh, '(A)' ) obj%FilePath
+		write(f%fh, '(A)' ) obj%FileName
+		write(f%fh, '(A)' ) obj%name
+		write(f%fh, '(A)' ) obj%dtype
+		write(f%fh, '(A)' ) obj%SolverType
+		write(f%fh, '(A)' ) obj%Category1
+		write(f%fh, '(A)' ) obj%Category2
+		write(f%fh, '(A)' ) obj%Category3
 		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
 		call f%close()
 	else
@@ -557,25 +557,25 @@ subroutine saveFEMDomain(obj,path,name)
 		!	pathi(n:n)= " "
 		!endif
 
-		call execute_command_line("mkdir -p "//trim(pathi))
-		call execute_command_line("mkdir -p "//trim(pathi)//"/FEMDomain")
-		call obj%Mesh%save(path=trim(pathi)//"/"//"FEMDomain",name="Mesh")
-		call obj%MaterialProp%save(path=trim(pathi)//"/"//"FEMDomain",name="MaterialProp")
-		call obj%Boundary%save(path=trim(pathi)//"/"//"FEMDomain",name="Boundary")
-		call obj%ControlPara%save(path=trim(pathi)//"/"//"FEMDomain",name="ControlPara")
-		call obj%ShapeFunction%save(path=trim(pathi)//"/"//"FEMDomain",name="ShapeFunction")
+		call execute_command_line("mkdir -p "//pathi)
+		call execute_command_line("mkdir -p "//pathi//"/FEMDomain")
+		call obj%Mesh%save(path=pathi//"/"//"FEMDomain",name="Mesh")
+		call obj%MaterialProp%save(path=pathi//"/"//"FEMDomain",name="MaterialProp")
+		call obj%Boundary%save(path=pathi//"/"//"FEMDomain",name="Boundary")
+		call obj%ControlPara%save(path=pathi//"/"//"FEMDomain",name="ControlPara")
+		call obj%ShapeFunction%save(path=pathi//"/"//"FEMDomain",name="ShapeFunction")
 
-		call f%open(trim(pathi)//"/FEMDomain"//"/FEMDomain"//".prop" )
+		call f%open(pathi//"/FEMDomain"//"/FEMDomain"//".prop" )
 		write(f%fh,*) obj%RealTime
 		write(f%fh,*) obj%NumOfDomain
-		write(f%fh, '(A)' ) trim(obj%FilePath)
-		write(f%fh, '(A)' ) trim(obj%FileName)
-		write(f%fh, '(A)' ) trim(obj%Name)
-		write(f%fh, '(A)' ) trim(obj%Dtype)
-		write(f%fh, '(A)' ) trim(obj%SolverType)
-		write(f%fh, '(A)' ) trim(obj%Category1)
-		write(f%fh, '(A)' ) trim(obj%Category2)
-		write(f%fh, '(A)' ) trim(obj%Category3)
+		write(f%fh, '(A)' ) obj%FilePath
+		write(f%fh, '(A)' ) obj%FileName
+		write(f%fh, '(A)' ) obj%name
+		write(f%fh, '(A)' ) obj%dtype
+		write(f%fh, '(A)' ) obj%SolverType
+		write(f%fh, '(A)' ) obj%Category1
+		write(f%fh, '(A)' ) obj%Category2
+		write(f%fh, '(A)' ) obj%Category3
 		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
 		call f%close()
 	endif
@@ -616,8 +616,8 @@ subroutine displayFEMDomain(obj,path,name,extention,field)
 	real(real64),optional,intent(in) :: field(:)
 	real(real64) :: val
 
-	open(10,file=trim(path)//trim(adjustl(name))//trim(extention) )
-	if( trim(extention) == ".vtk" )then
+	open(10,file=path//name//extention )
+	if( extention == ".vtk" )then
 		write(10,'(A)' ) "# vtk DataFile Version 2.0"
 		write(10,'(A)' ) "Cube example"
 		write(10,'(A)' ) "ASCII"
@@ -696,7 +696,7 @@ subroutine displayFEMDomain(obj,path,name,extention,field)
 			write(10,'(A)') " "
 		enddo
 		write(10,'(A)') "CELL_DATA 6"
-	elseif(trim(extention) == ".ply")then
+	elseif(extention == ".ply")then
 		write(10,'(A)')"ply"
 		write(10,'(A)')"format ascii 1.0"
 		write(10,'(A)',advance="no")"element vertex "
@@ -790,7 +790,7 @@ subroutine displayFEMDomain(obj,path,name,extention,field)
 		enddo
 
 	else
-		print *, "Invalid extention :: ",trim(extention)
+		print *, "Invalid extention :: ",extention
 		stop
 	endif
 	close(10)
@@ -898,7 +898,7 @@ subroutine renameFEMDomain(obj,Name)
 	character(*),intent(in) :: Name
 
 	obj%Name = ""
-	obj%Name = trim(adjustl(name))
+	obj%Name = name
 
 end subroutine renameFEMDomain
 
@@ -908,6 +908,15 @@ subroutine InitializeFEMDomain(obj,Default,FileName,simple)
 	class(FEMDomain_),intent(inout)::obj
 	character(*),optional,intent(in) :: FileName
     logical,optional,intent(in)::Default,simple
+
+
+	obj%FilePath="None"
+	obj%FileName="None"
+	obj%Name="None"
+	obj%SolverType="None"
+	obj%Category1 ="None"
+	obj%Category2="None"
+	obj%Category3="None"
 
 	if(.not. present(FileName) )then
 		obj%FileName="noName"
@@ -943,7 +952,7 @@ subroutine showFEMDomain(obj)
 	integer(int32)::i
 
 	print *, "=========================="
-	print *, "Name :: ",trim(obj%Name)
+	print *, "Name :: ",obj%name
 	print *, "Materials :: "
 	if(.not.allocated(obj%Materials) )then
 		print *, "No material is imported"
@@ -989,27 +998,27 @@ subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
 	character(*),optional,intent(in) :: file
 	character*4::FileFormat
-	character*70::ProjectName
-	character*74 ::FileName
+	character(:),allocatable::ProjectName
+	character(:),allocatable ::FileName
 	character*9  :: DataType
 	integer,allocatable::IntMat(:,:)
 	real(8),allocatable::RealMat(:,:)
 	integer,optional,intent(in)::FileHandle,NumberOfBoundaries,BoundaryID,MaterialID,NumberOfMaterials
 	integer :: fh,i,j,k,NumOfDomain,n,m,DimNum,GpNum,nodenum,matnum, paranum
-	character*70 Msg,name,ch
+	character(:),allocatable ::  Msg,name,ch
 	logical,optional,intent(in) :: Boundaries,Materials
 
 	if(present(file) )then
 		if(index(file,".vtk")/=0 )then
-			call obj%ImportVTKFile(name=trim(file))
-			print *, "imported ",trim(file)
+			call obj%ImportVTKFile(name=file)
+			print *, "imported ",file
 			return
 		endif
 	endif
 
-	if( trim(getext(trim(file)) )=="mesh" )then
+	if( getext(file) =="mesh" )then
 		
-		call f%open(trim(file))
+		call f%open(file)
 		read(f%fh,*) ch
 		read(f%fh,*) ch
 		read(f%fh,*) n
@@ -1021,7 +1030,7 @@ subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 		enddo
 		do
 			read(f%fh,*) ch
-			if(trim(adjustl(ch)) == "Tetrahedra" )then
+			if(ch == "Tetrahedra" )then
 				read(f%fh,*)n
 				allocate(mobj%ElemNod(n,4),mobj%ElemMat(n) )
 				mobj%ElemMat(:) = 1
@@ -1029,7 +1038,7 @@ subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 					read(f%fh,*) mobj%ElemNod(i,1:4)
 				enddo
 				exit
-			elseif(trim(adjustl(ch)) == "End" )then
+			elseif(ch == "End" )then
 				exit
 			else
 				read(f%fh,*)n
@@ -1050,7 +1059,7 @@ if(present(node) )then
 			print *, "Please iput filename"
 			stop
 		endif
-		call f%open(trim(file))
+		call f%open(file)
 		read(f%fh,*) nodenum, dimnum
 		if(allocated(obj%Mesh%NodCoord ) )then
 			deallocate(obj%Mesh%NodCoord)
@@ -1070,7 +1079,7 @@ if(present(Element) )then
 			print *, "Please iput filename"
 			stop
 		endif
-		call f%open(trim(file))
+		call f%open(file)
 		read(f%fh,*) nodenum, dimnum
 		if(allocated(obj%Mesh%ElemNod ) )then
 			deallocate(obj%Mesh%ElemNod)
@@ -1090,7 +1099,7 @@ if(present(materialinfo) )then
 			print *, "Please iput filename"
 			stop
 		endif
-		call f%open(trim(file))
+		call f%open(file)
 		read(f%fh,*) nodenum
 		if(allocated(obj%Mesh%ElemMat ) )then
 			deallocate(obj%Mesh%ElemMat)
@@ -1119,7 +1128,7 @@ if(present(dirichlet) )then
 			print *, "Please iput filename"
 			stop
 		endif
-		call f%open(trim(file))
+		call f%open(file)
 		dimnum=size(obj%mesh%NodCoord,2)
 		if(allocated(obj%Boundary%DboundNum ) )then
 			deallocate(obj%Boundary%DboundNum)
@@ -1153,7 +1162,7 @@ if(present(neumann) )then
 			print *, "Please iput filename"
 			stop
 		endif
-		call f%open(trim(file))
+		call f%open(file)
 		dimnum=size(obj%mesh%NodCoord,2)
 		if(allocated(obj%Boundary%NboundNum ) )then
 			deallocate(obj%Boundary%NboundNum)
@@ -1202,7 +1211,7 @@ endif
 
 !call DeallocateFEMDomain(obj)
 name="untitled"
-obj%FileName=input(default=name,option=trim(OptionalProjectName))
+obj%FileName=input(default=name,option=OptionalProjectName)
 
 if(present(FileHandle) )then
     fh=FileHandle
@@ -1211,19 +1220,19 @@ else
 endif
 
 if(present(OptionalFileFormat) )then
-    FileFormat=trim(OptionalFileFormat)
+    FileFormat=OptionalFileFormat
 else
     FileFormat=".scf"
 endif
 
 
 if(present(OptionalProjectName) )then
-    ProjectName=trim(OptionalProjectName)
+    ProjectName=OptionalProjectName
 else
     ProjectName="untitled"
 endif
 
-FileName = trim(ProjectName)//trim(FileFormat)
+FileName = ProjectName//FileFormat
 
 !!print *, "Project : ",ProjectName
 !!print *, "is Exported as : ",FileFormat," format"
@@ -1232,7 +1241,7 @@ FileName = trim(ProjectName)//trim(FileFormat)
 open(fh,file=FileName,status="old")
 
 
-if(trim(FileFormat)==".scf" )then
+if(FileFormat==".scf" )then
 
     read(fh,*) DataType
     if(DataType/="domain")then
@@ -1487,8 +1496,8 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 	character*4::FileFormat
 	character(*),optional,intent(in) :: Name
 	logical,optional,intent(in) :: regacy,restart
-    character*200::ProjectName
-	character*200 ::iFileName
+    character(:),allocatable::ProjectName
+	character(:),allocatable ::iFileName
 	real(real64),optional,intent(in) :: FieldValue(:,:)
     integer(int32),allocatable::IntMat(:,:)
     real(real64),allocatable::RealMat(:,:)
@@ -1503,25 +1512,25 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 			stop 
 		endif
 
-		call execute_command_line("mkdir -p "//trim(path))
-		call execute_command_line("mkdir -p "//trim(path)//"/FEMDomain")
-		call obj%Mesh%export(path=trim(path)//"/FEMDomain",restart=.true.)
-		call obj%MaterialProp%export(path=trim(path)//"/FEMDomain",restart=.true.)
-		call obj%Boundary%export(path=trim(path)//"/FEMDomain",restart=.true.)
-		call obj%ControlPara%export(path=trim(path)//"/FEMDomain",restart=.true.)
-		call obj%ShapeFunction%export(path=trim(path)//"/FEMDomain",restart=.true.)
+		call execute_command_line("mkdir -p "//path)
+		call execute_command_line("mkdir -p "//path//"/FEMDomain")
+		call obj%Mesh%export(path=path//"/FEMDomain",restart=.true.)
+		call obj%MaterialProp%export(path=path//"/FEMDomain",restart=.true.)
+		call obj%Boundary%export(path=path//"/FEMDomain",restart=.true.)
+		call obj%ControlPara%export(path=path//"/FEMDomain",restart=.true.)
+		call obj%ShapeFunction%export(path=path//"/FEMDomain",restart=.true.)
 
-		call f%open(trim(path)//"/FEMDomain"//"/FEMDomain"//".prop" )
+		call f%open(path//"/FEMDomain"//"/FEMDomain"//".prop" )
 		write(f%fh,*) obj%RealTime
 		write(f%fh,*) obj%NumOfDomain
-		write(f%fh, '(A)' ) trim(obj%FilePath)
-		write(f%fh, '(A)' ) trim(obj%FileName)
-		write(f%fh, '(A)' ) trim(obj%Name)
-		write(f%fh, '(A)' ) trim(obj%Dtype)
-		write(f%fh, '(A)' ) trim(obj%SolverType)
-		write(f%fh, '(A)' ) trim(obj%Category1)
-		write(f%fh, '(A)' ) trim(obj%Category2)
-		write(f%fh, '(A)' ) trim(obj%Category3)
+		write(f%fh, '(A)' ) obj%FilePath
+		write(f%fh, '(A)' ) obj%FileName
+		write(f%fh, '(A)' ) obj%name
+		write(f%fh, '(A)' ) obj%dtype
+		write(f%fh, '(A)' ) obj%SolverType
+		write(f%fh, '(A)' ) obj%Category1
+		write(f%fh, '(A)' ) obj%Category2
+		write(f%fh, '(A)' ) obj%Category3
 		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
 		call f%close()
 		return
@@ -1536,21 +1545,21 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 				stop 
 			endif
 
-			open(100,file=trim(adjustl(name)) )
-				print *, "Exporting .scf file >>> ",trim(adjustl(name))
+			open(100,file=name )
+				print *, "Exporting .scf file >>> ",name
 				if(present(with) )then
 					print *, "Mode :: contact problem"
 					write(100, '(A)' ) "2"
 					write(100, '(A)' ) "  "
 					n=size(obj%Mesh%NodCoord,1)
 					m=size(with%Mesh%NodCoord,1)
-					write(100, '(A)' ) "1  "//trim(adjustl(fstring(n) ) )
-					write(100, '(A)' ) trim(adjustl(fstring(n+1) ) )//"  "//trim(adjustl(fstring(n+m) ) )
+					write(100, '(A)' ) "1  "//fstring(n)
+					write(100, '(A)' ) fstring(n+1)//"  "//fstring(n+m)
 					write(100, '(A)' ) "  "
 					n=size(obj%Mesh%ElemNod,1)
 					m=size(with%Mesh%ElemNod,1)
-					write(100, '(A)' ) trim(adjustl(fstring(n) ) )
-					write(100, '(A)' ) trim(adjustl(fstring(n+m) ) )
+					write(100, '(A)' ) fstring(n)
+					write(100, '(A)' ) fstring(n+m)
 					write(100, '(A)' ) "  "
 					n=size(obj%Mesh%NodCoord,1)
 					m=size(obj%Mesh%NodCoord,2)
@@ -1567,7 +1576,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 					write(100, '(A)' ) "  "
 					n=size(with%Mesh%ElemNod,1)+size(obj%Mesh%ElemNod,1)
 					m=size(obj%Mesh%ElemNod,2)
-					write(100, * ) trim(adjustl(fstring(n) ) ),"  ",trim(adjustl(fstring(m) ) )
+					write(100, * ) fstring(n),"  ",fstring(m) 
 					n=size(obj%Mesh%ElemNod,1)
 					m=size(obj%Mesh%ElemNod,2)
 					write(100, '(A)' ) "  "
@@ -1764,7 +1773,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 		if(OptionalFileFormat=="stl" .or. OptionalFileFormat==".stl")then
 			if(present(Name) )then
 				call ExportFEMDomainAsSTL(obj=obj,&
-			FileHandle=FileHandle,MeshDimension=MeshDimension,FileName=trim(adjustl(name)))
+			FileHandle=FileHandle,MeshDimension=MeshDimension,FileName=name)
 			else
 				call ExportFEMDomainAsSTL(obj=obj,&
 			FileHandle=FileHandle,MeshDimension=MeshDimension,FileName=FileName)
@@ -1788,29 +1797,29 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
 
     if(present(OptionalFileFormat) )then
-        FileFormat=trim(OptionalFileFormat)
+        FileFormat=OptionalFileFormat
     else
         FileFormat=".scf"
     endif
 
     if(present(OptionalProjectName) )then
-        ProjectName=trim(OptionalProjectName)
+        ProjectName=OptionalProjectName
     else
         ProjectName="untitled"
     endif
-    iFileName = trim(ProjectName)//trim(FileFormat)
+    iFileName = ProjectName//FileFormat
 
     !!print *, "Project : ",ProjectName
     !!print *, "is Exported as : ",FileFormat," format"
     !!print *, "File Name is : ",iFileName
 
 	if(present(Name) )then
-		open(fh,file=trim(adjustl(name))//".scf",status="replace")
+		open(fh,file=name//".scf",status="replace")
 	else
-		open(fh,file=trim(iFileName),status="replace")
+		open(fh,file=iFileName,status="replace")
 	endif
 
-    if(trim(FileFormat)==".scf" )then
+    if(FileFormat==".scf" )then
 		
 		if(allocated(obj%Mesh%SubMeshNodFromTo) )then
 			obj%NumOfDomain=size(obj%Mesh%SubMeshNodFromTo,1)
@@ -1820,7 +1829,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
 		obj%Dtype="domain"
         write(fh,'(A)') obj%Dtype
-        write(*,'(A)') obj%Dtype,trim(iFileName)
+        write(*,'(A)') obj%Dtype,iFileName
         write(fh,*) "  "
         write(fh,'(A)') obj%SolverType
         write(fh,*) "  "
@@ -1886,7 +1895,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
         write(fh,*) n,m
 		write(fh,*) "  "
 		
-        write(fh,'(A)') trim(obj%Mesh%getElemType() )
+        write(fh,'(A)') obj%Mesh%getElemType()
         write(fh,*) "  "
         do i=1,n
             write(fh,*) obj%Mesh%ElemNod(i,:)
@@ -1900,7 +1909,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
         print *, " "
         print *, "########### Element info ###########"
-        print *, "Element Type : ",trim(obj%Mesh%GetElemType() )
+        print *, "Element Type : ",obj%Mesh%getElemType()
         print *, "Number of Element : ",n, "Number of node per element : ",m
         print *, "Successfully Exported"
         print *, "########### Element info ###########"
@@ -3300,7 +3309,7 @@ end subroutine AddTBoundCondition
 !##################################################
 subroutine SetSolver(obj,inSolverType)
     class(FEMDomain_),intent(inout)::obj
-    character*200,intent(in) :: inSolverType
+    character(*),intent(in) :: inSolverType
 
     obj%SolverType=inSolverType
 
@@ -3321,7 +3330,7 @@ end subroutine
 !##################################################
 subroutine SetDataType(obj,inDType)
     class(FEMDomain_),intent(inout)::obj
-    character*200,intent(in) :: inDType
+    character(*),intent(in) :: inDType
 
     obj%DType = inDType
 
@@ -3610,7 +3619,7 @@ recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname,N
 	if(present(fieldname) )then
 		! fieldname がどこかのレイヤーの名前と一致した場合
 		do i=1,size(obj%PhysicalField)
-			if(trim(obj%PhysicalField(i)%name)==trim(fieldname) )then
+			if(obj%PhysicalField(i)%name==fieldname )then
 				
 				if(allocated(obj%PhysicalField(i)%scalar))then
 					scalar_ = array(size(obj%PhysicalField(i)%scalar) ,1)
@@ -3632,7 +3641,7 @@ recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname,N
 		enddo
 	endif
 
-	call f%open(trim(name)//".msh",'w')
+	call f%open(name//".msh",'w')
 	write(f%fh, '(a)') "$MeshFormat"
 	! version of gmsh, 0=ASCII, 8=real(8)
 	write(f%fh, '(a)' ) "2.2 0 8"
@@ -3641,18 +3650,18 @@ recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname,N
 	write(f%fh, '(a)' ) "$Nodes"
 	write(f%fh, '(a)' ) str(size(obj%mesh%nodcoord,1) )
 	do i=1,size(obj%mesh%nodcoord,1)
-		write(f%fh,'(a)',advance="no") trim(str(i))//" "
+		write(f%fh,'(a)',advance="no") str(i)//" "
 		do j=1,size(obj%mesh%nodcoord,2)-1
-			write(f%fh,'(a)',advance="no") trim(str(obj%mesh%nodcoord(i,j)))//" "
+			write(f%fh,'(a)',advance="no") str(obj%mesh%nodcoord(i,j))//" "
 		enddo
 		j=size(obj%mesh%nodcoord,2)
 		if(3-j == 0)then
-			write(f%fh,'(a)',advance="yes") trim(str(obj%mesh%nodcoord(i,j)))
+			write(f%fh,'(a)',advance="yes") str(obj%mesh%nodcoord(i,j))
 		elseif(3-j==1)then
-			write(f%fh,'(a)',advance="no") trim(str(obj%mesh%nodcoord(i,j)))//" "
+			write(f%fh,'(a)',advance="no") str(obj%mesh%nodcoord(i,j))//" "
 			write(f%fh,'(a)',advance="yes") "0.00000  "
 		elseif(3-j==2)then
-			write(f%fh,'(a)',advance="no") trim(str(obj%mesh%nodcoord(i,j)))//" "
+			write(f%fh,'(a)',advance="no") str(obj%mesh%nodcoord(i,j))//" "
 			write(f%fh,'(a)',advance="no") "0.00000  "
 			write(f%fh,'(a)',advance="yes") "0.00000  "
 		else
@@ -3663,7 +3672,7 @@ recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname,N
 	write(f%fh,'(a)' ) "$EndNodes"
 
 	write(f%fh, '(a)' ) "$Elements"
-	write(f%fh, '(a)' ) trim(str(size(obj%mesh%elemnod,1) ))
+	write(f%fh, '(a)' ) str(size(obj%mesh%elemnod,1) )
 	! id, type, tag
 	! 1 : 2-node line
 	! 2 : 3-node line
@@ -3687,12 +3696,12 @@ recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname,N
 	endif
 
 	do i=1,size(obj%mesh%elemnod,1)
-		write(f%fh,'(a)',advance="no") trim(str(i))//" "//trim(str(typeid))//" 0 "
+		write(f%fh,'(a)',advance="no") str(i)//" "//str(typeid)//" 0 "
 		do j=1,size(obj%mesh%elemnod,2)-1
-			write(f%fh,'(a)',advance="no") trim(str(obj%mesh%elemnod(i,j)))//" "
+			write(f%fh,'(a)',advance="no") str(obj%mesh%elemnod(i,j))//" "
 		enddo
 		j=size(obj%mesh%elemnod,2)
-		write(f%fh,'(a)',advance="yes") trim(str(obj%mesh%elemnod(i,j)))
+		write(f%fh,'(a)',advance="yes") str(obj%mesh%elemnod(i,j))
 	enddo
 	write(f%fh, '(a)' ) "$EndElements"
 	call f%close()
@@ -3716,9 +3725,9 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 	real(real64),allocatable::x(:,:)
 	integer(int32) i,j,k,l,step,fh,nodeid1,nodeid2
 	character filename0*11,filename0msh*11
-	character filename*200
+	character(:),allocatable ::  filename
 	character filetitle*6
-	character command*200
+	character(:),allocatable ::  command
 	character:: mapname*30,abbmap*6
 	
 
@@ -3726,7 +3735,7 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 	if(present(OptionalContorName) )then
 		mapname=OptionalContorName
 	elseif(present(Tag) )then
-		mapname=trim(Tag)
+		mapname=Tag
 	else
 		mapname="Value"
 	endif
@@ -3760,15 +3769,15 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 	if(present(Name) )then
 		filename=filename0
 		
-		!call execute_command_line(  "touch "//trim(adjustl(name))//trim(obj%FileName)//trim(filename) )
-		open(fh,file=trim(adjustl(name))//trim(filetitle)//trim(filename) )
-		print *, "writing ",trim(adjustl(name))//trim(filetitle)//trim(filename)," step>>",step
+		!call execute_command_line(  "touch "//name//obj%FileName//filename )
+		open(fh,file=name//filetitle//filename )
+		print *, "writing ",name//filetitle//filename," step>>",step
 	else
 		filename=filename0
-		!call execute_command_line(  "touch "//trim(obj%FileName)//trim(filename) )
-		!print *, trim(obj%FileName)//trim(filetitle)//trim(filename)
-		open(fh,file=trim(obj%FileName)//trim(filetitle)//trim(filename) )
-		print *, "writing ",trim(obj%FileName)//trim(filetitle)//trim(filename)," step>>",step
+		!call execute_command_line(  "touch "//obj%FileName//filename )
+		!print *, obj%FileName//filetitle//filename
+		open(fh,file=obj%FileName//filetitle//filename )
+		print *, "writing ",obj%FileName//filetitle//filename," step>>",step
 	endif
 	
 	
@@ -3807,7 +3816,7 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 				print *, "ERROR GmshPlotMesh >> withDirichletBC >> no NBC is found."
 				return
 			else
-				print *, "[ok] GmshPlotMesh",trim(filename)," is exported withDirichletBC. The value is:",maxval(obj%Mesh%ElemMat(:))+40
+				print *, "[ok] GmshPlotMesh",filename," is exported withDirichletBC. The value is:",maxval(obj%Mesh%ElemMat(:))+40
 				
 			endif
 			do i=1,size(obj%Boundary%DBoundNodID,1 )
@@ -3840,7 +3849,7 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 				print *, "ERROR GmshPlotMesh >> withNeumannBC >> no NBC is found."
 				return
 			else
-				print *, "[ok] GmshPlotMesh",trim(filename)," is exported withNeumannBC. The value is:",maxval(obj%Mesh%ElemMat(:))+20
+				print *, "[ok] GmshPlotMesh",filename," is exported withNeumannBC. The value is:",maxval(obj%Mesh%ElemMat(:))+20
 				
 			endif
 			do i=1,size(obj%Boundary%NBoundNodID,1 )
@@ -3874,7 +3883,7 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 				print *, "ERROR GmshPlotMesh >> onlyDirichletBC >> no NBC is found."
 				return
 			else
-				print *, "[ok] GmshPlotMesh",trim(filename)," is exported onlyDirichletBC. The value is:",maxval(obj%Mesh%ElemMat(:))+40
+				print *, "[ok] GmshPlotMesh",filename," is exported onlyDirichletBC. The value is:",maxval(obj%Mesh%ElemMat(:))+40
 				
 			endif
 			do i=1,size(obj%Boundary%DBoundNodID,1 )
@@ -4525,11 +4534,11 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 	!---------------------
 	write (filename0, '("_", i6.6, ".pos")') step ! ここでファイル名を生成している
 	filename=filename0
-	!command="touch "//trim(obj%FileName)//trim(filename)
-	!call execute_command_line("touch "//trim(obj%FileName)//trim(filename))
+	!command="touch "//obj%FileName//filename
+	!call execute_command_line("touch "//obj%FileName//filename)
 
-	open(fh,file=trim(obj%FileName)//trim(filetitle)//trim(filename))
-	print *, "writing ",trim(obj%FileName)//trim(filetitle)//trim(filename)," step>>",step
+	open(fh,file=obj%FileName//filetitle//filename)
+	print *, "writing ",obj%FileName//filetitle//filename," step>>",step
 	
 	!---------------------
 	if( size(obj%Mesh%ElemNod,2)==4 .and. size(obj%Mesh%NodCoord,2)==2 ) then
@@ -5158,7 +5167,7 @@ subroutine GmshPlotVector(obj,Vector,Name,FieldName,Step,fh,withMsh,ElementWize,
 		
 			write(FileHandle,'(A)')  "2.2 0 8"
 			write(FileHandle,'(A)')  "$EndMeshFormat"
-			write(FileHandle,'(A)')  trim(center)
+			write(FileHandle,'(A)')  center
 			write(FileHandle,'(A)')  "1"
 			write(FileHandle,'(A)')  '"'//FieldName//'"'
 			write(FileHandle,'(A)')  "1"
@@ -5242,7 +5251,7 @@ subroutine GmshPlotVector(obj,Vector,Name,FieldName,Step,fh,withMsh,ElementWize,
 
 	write(FileHandle,'(A)')  "2.2 0 8"
 	write(FileHandle,'(A)')  "$EndMeshFormat"
-	write(FileHandle,'(A)')  trim(center)
+	write(FileHandle,'(A)')  center
 	write(FileHandle,'(A)')  "1"
 	write(FileHandle,'(A)')  '"'//FieldName//'"'
 	write(FileHandle,'(A)')  "1"
@@ -5335,8 +5344,8 @@ subroutine GmshPlotContour2D(obj,gp_value,OptionalContorName,OptionalAbb,Optiona
 	filename=filename0
 
 
-	open(40,file=trim(obj%FileName)//trim(filetitle)//filename0)
-	print *, "writing ",trim(obj%FileName)//trim(filetitle)//filename0," step>>",step	
+	open(40,file=obj%FileName//filetitle//filename0)
+	print *, "writing ",obj%FileName//filetitle//filename0," step>>",step	
 
 	!---------------------
 	allocate(x(4,3) )
@@ -5570,7 +5579,7 @@ subroutine GnuplotPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,Option
 	!---------------------
 	write (filename0, '("_", i6.6, ".txt")') step ! ここでファイル名を生成している
 	filename=filename0
-	open(40,file="touch "//trim(obj%FileName)//filename)
+	open(40,file="touch "//obj%FileName//filename)
 	print *, "writing .gnuplot-txt file... step>>",step
 	!---------------------
 
@@ -5924,10 +5933,10 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 		endif
 	
 		write (filename0, '("_", i6.6, ".stl")') obj%Timestep ! ここでファイル名を生成している
-		call execute_command_line(  "touch "//trim(FileName)//trim(filename0) )
-		print *, trim(FileName)//trim(filename0)
+		call execute_command_line(  "touch "//filename//filename0 )
+		print *, filename//filename0
 	
-		open(fh,file=trim(FileName)//trim(filename0) )
+		open(fh,file=filename//filename0 )
 	
 		call obj%Mesh%GetSurface()
 		
@@ -5936,7 +5945,7 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 			close(fh)
 			return
 		endif
-		write(fh,'(A)') "solid "//trim(FileName)
+		write(fh,'(A)') "solid "//filename
 		print *, "Number of facet is",size(obj%Mesh%FacetElemNod,1)
 		do i=1,size(obj%Mesh%FacetElemNod,1)
 			if(size(obj%Mesh%FacetElemNod,2)==4  )then
@@ -5984,9 +5993,9 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 				close(fh)
 			endif
 		enddo
-		write(fh,'(A)') "endsolid "//trim(FileName)
+		write(fh,'(A)') "endsolid "//filename
 	
-		print *, "writing ",trim(FileName)//trim(filename0)," step>>",obj%Timestep
+		print *, "writing ",filename//filename0," step>>",obj%Timestep
 		flush(fh)
 		close(fh)
 		return
@@ -6051,9 +6060,9 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 				close(fh)
 			endif
 		enddo
-		write(fh,'(A)') "endsolid "//trim(FileName)
+		write(fh,'(A)') "endsolid "//filename
 	
-		print *, "writing ",trim(FileName)//trim(filename0)," step>>",obj%Timestep
+		print *, "writing ",filename//filename0," step>>",obj%Timestep
 		flush(fh)
 		return
 		
@@ -6069,10 +6078,10 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
     endif
 
 	write (filename0, '("_", i6.6, ".stl")') obj%Timestep ! ここでファイル名を生成している
-	call execute_command_line(  "touch "//trim(obj%FileName)//trim(filename0) )
-	print *, trim(obj%FileName)//trim(filename0)
+	call execute_command_line(  "touch "//obj%FileName//filename0 )
+	print *, obj%FileName//filename0
 
-	open(fh,file=trim(obj%FileName)//trim(filename0) )
+	open(fh,file=obj%FileName//filename0 )
 
 	call obj%Mesh%GetSurface()
 	
@@ -6081,7 +6090,7 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 		close(fh)
 		return
 	endif
-	write(fh,'(A)') "solid "//trim(obj%FileName)
+	write(fh,'(A)') "solid "//obj%FileName
 	print *, "Number of facet is",size(obj%Mesh%FacetElemNod,1)
 	do i=1,size(obj%Mesh%FacetElemNod,1)
 		if(size(obj%Mesh%FacetElemNod,2)==4  )then
@@ -6114,9 +6123,9 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 			close(fh)
 		endif
 	enddo
-	write(fh,'(A)') "endsolid "//trim(obj%FileName)
+	write(fh,'(A)') "endsolid "//obj%FileName
 
-	print *, "writing ",trim(obj%FileName)//trim(filename0)," step>>",obj%Timestep
+	print *, "writing ",obj%FileName//filename0," step>>",obj%Timestep
 	flush(fh)
 	close(fh)
 
@@ -6296,7 +6305,7 @@ subroutine remeshFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 
 !	! create uuid
 !
-!	obj%meshtype = trim(meshtype)
+!	obj%meshtype = meshtype
 !
 !	obj%uuid = generate_uuid(1)
 !	obj%mesh%uuid = obj%uuid
@@ -6374,7 +6383,7 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 
 	! create uuid
 
-	obj%meshtype = trim(meshtype)
+	obj%meshtype = meshtype
 
 	obj%uuid = generate_uuid(1)
 	obj%mesh%uuid = obj%uuid
@@ -6505,7 +6514,7 @@ subroutine showBoundariesFEMDomain(obj,Name)
 	integer(int32) :: i
 
 	if(present(Name) )then
-		print *, "Domain Name is :: ", trim(adjustl(name))
+		print *, "Domain Name is :: ", name
 	endif
 
 	if(.not. allocated(obj%Boundaries) )then
@@ -6528,7 +6537,7 @@ subroutine removeBoundariesFEMDomain(obj,Name,BoundaryID)
 	integer(int32),optional,intent(in) ::BoundaryID
 
 	if(present(Name) )then
-		print *, "Domain Name is :: ", trim(adjustl(name))
+		print *, "Domain Name is :: ", name
 	endif
 
 	if(.not. allocated(obj%Boundaries) )then
@@ -6598,7 +6607,7 @@ recursive subroutine bakeFEMDomain(obj, template, templateFile,&
 			NodeTDOF = 1
 
 			if(present(templateFile) )then
-				call file%open(trim(templateFile))
+				call file%open(templateFile)
 			
 				do 
 					line = file%readline()
@@ -6653,7 +6662,7 @@ recursive subroutine bakeFEMDomain(obj, template, templateFile,&
 
 	! domain information
 	obj%Dtype="domain"
-	obj%SolverType=trim(template)
+	obj%SolverType=template
 	obj%NumOfDomain=1
 	
 	if(allocated(obj%Mesh%SubMeshNodFromTo))then
@@ -7088,7 +7097,7 @@ subroutine showMaterialsFEMDomain(obj,Name)
 	integer(int32) :: i
 
 	if(present(Name) )then
-		print *, "Domain Name is :: ", trim(adjustl(name))
+		print *, "Domain Name is :: ", name
 	endif
 
 	if(.not. allocated(obj%Materials) )then
@@ -7111,7 +7120,7 @@ subroutine removeMaterialsFEMDomain(obj,Name,BoundaryID)
 	integer(int32),optional,intent(in) ::BoundaryID
 
 	if(present(Name) )then
-		print *, "Domain Name is :: ", trim(adjustl(name))
+		print *, "Domain Name is :: ", name
 	endif
 
 	if(.not. allocated(obj%Materials) )then
@@ -7150,13 +7159,13 @@ subroutine contactdetectFEMDomain(obj1, obj2, ContactModel)
 	m=size(obj1%Mesh%NodCoord,2)
 	allocate(x(m) )
 	
-	if( trim(obj1%name) == "NoName" )then
-		obj1%name=trim( random%name() )
-		print *, "Caution !!! object #1 is not named. New name is "//trim(obj1%name)
+	if( obj1%name == "NoName" )then
+		obj1%name=random%name() 
+		print *, "Caution !!! object #1 is not named. New name is "//obj1%name
 	endif
-	if( trim(obj2%name) == "NoName" )then
-		obj2%name=trim( random%name() )
-		print *, "Caution !!! object #2 is not named. New name is "//trim(obj2%name)
+	if( obj2%name == "NoName" )then
+		obj2%name=random%name() 
+		print *, "Caution !!! object #2 is not named. New name is "//obj2%name
 	endif
 
 	! create Node-To-Node contact elements
@@ -7181,7 +7190,7 @@ subroutine contactdetectFEMDomain(obj1, obj2, ContactModel)
 		deallocate(obj1%Boundary%ContactNameList)
 		allocate(obj1%Boundary%ContactNameList(n+1) )
 		obj1%Boundary%ContactNameList(1:n)%name=cnbuf(1:n)%name
-		obj1%Boundary%ContactNameList(n+1)%name=trim(obj2%name)
+		obj1%Boundary%ContactNameList(n+1)%name=obj2%name
 		domain_id=n+1
 	endif
 	
@@ -7321,12 +7330,12 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 
 
 	if(present(field) )then
-		point_scalars = trim(field)
-		point_vectors = trim(field)
-		point_tensors = trim(field)
-		cell_scalars = trim(field)
-		cell_vectors = trim(field)
-		cell_tensors = trim(field)
+		point_scalars = field
+		point_vectors = field
+		point_tensors = field
+		cell_scalars = field
+		cell_vectors = field
+		cell_tensors = field
 	else
 		point_scalars = "point_scalars"
 		point_vectors = "point_vectors"
@@ -7362,9 +7371,9 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 
 	!call displayFEMDomain(obj,path="./",name=name,extention=".vtk")
 	if(index(name,".vtk")/=0 .or. index(name,".VTK")/=0 )then
-		call f%open(trim(name),'w')
+		call f%open(name,'w')
 	else
-		call f%open(trim(name)//".vtk",'w')
+		call f%open(name//".vtk",'w')
 	endif
 	
 	call f%write("# vtk DataFile Version 2.0")
@@ -7417,14 +7426,14 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 	if(present(scalar) )then
 		if(size(scalar)==obj%nn()  )then
 			call f%write("POINT_DATA "//str(obj%nn() ) )
-			call f%write("SCALARS "//trim(point_scalars)//" float")
+			call f%write("SCALARS "//point_scalars//" float")
 			call f%write("LOOKUP_TABLE default")
 			do i=1,obj%nn()
 				call f%write(str(scalar(i)))
 			enddo
 		elseif(size(scalar)==obj%ne()  )then
 			call f%write("CELL_DATA "//str(obj%ne() ) )
-			call f%write("SCALARS "//trim(cell_scalars)//" float")
+			call f%write("SCALARS "//cell_scalars//" float")
 			call f%write("LOOKUP_TABLE default")
 			do i=1,obj%ne()
 				call f%write(str(scalar(i)))
@@ -7441,7 +7450,7 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 	if(present(vector) )then
 		if(size(vector,1)==obj%nn()  )then
 			call f%write("POINT_DATA "//str(obj%nn() ) )
-			call f%write("VECTORS "//trim(point_vectors)//" float")
+			call f%write("VECTORS "//point_vectors//" float")
 			do i=1,obj%nn()
 				do j=1,size(vector,2)-1
 					write(f%fh,'(A)',advance="no") str(vector(i,j) )//" "
@@ -7450,7 +7459,7 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 			enddo
 		elseif(size(vector,1)==obj%ne()  )then
 			call f%write("CELL_DATA "//str(obj%ne() ) )
-			call f%write("VECTORS "//trim(cell_vectors)//" float")
+			call f%write("VECTORS "//cell_vectors//" float")
 			do i=1,obj%ne()
 				do j=1,size(vector,2)-1
 					write(f%fh,'(A)',advance="no") str(vector(i,j) )//" "
@@ -7470,7 +7479,7 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 	if(present(tensor) )then
 		if(size(tensor,1)==obj%nn()  )then
 			call f%write("POINT_DATA "//str(obj%nn() ) )
-			call f%write("TENSORS "//trim(point_tensors)//" float")
+			call f%write("TENSORS "//point_tensors//" float")
 			do i=1,obj%nn()
 				do j=1,size(tensor,2)
 					do k=1,size(tensor,3)-1
@@ -7482,7 +7491,7 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 			enddo
 		elseif(size(tensor,1)==obj%ne()  )then
 			call f%write("CELL_DATA "//str(obj%ne() ) )
-			call f%write("TENSORS "//trim(cell_tensors)//" float")
+			call f%write("TENSORS "//cell_tensors//" float")
 			do i=1,obj%ne()
 				do j=1,size(tensor,2)
 					do k=1,size(tensor,3)-1
@@ -7505,7 +7514,7 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 
 	if(present(debug) )then
 		if(debug)then
-			print *, trim(name)//".vtk is exported." 
+			print *, name//".vtk is exported." 
 		endif
 	endif
 
@@ -7571,7 +7580,7 @@ subroutine stlFEMDomain(obj,name,NodeList)
 		return
 	endif
 
-	!call f%open(trim(name)//".stl")
+	!call f%open(name//".stl")
 	call ExportFEMDomainAsSTL(obj,MeshDimension=size(obj%mesh%Nodcoord,2),FileName=name)
 	!call f%close()
 end subroutine
@@ -7584,7 +7593,7 @@ subroutine objFEMDomain(obj,name)
 	character(*),intent(in) :: name
 	integer(int32) :: i,j,k
 
-	call f%open(trim(name)//".obj")
+	call f%open(name//".obj")
 	do i=1,obj%nn()
 		write(f%fh,'(A)',advance="no") "v "
 		do j=1,size(obj%mesh%Nodcoord,2)-1
@@ -7617,11 +7626,11 @@ subroutine jsonFEMDomain(obj,name,fh,endl)
 			![ok] file handle
 			!append
 			fileid=fh
-			fname=trim(name)
+			fname=name
 		else
 			call f%open(name)
 			fileid=f%fh
-			fname=trim(name)
+			fname=name
 			![ok] name
 			![--] file handle
 			! > create new file with Name=name
@@ -7646,7 +7655,7 @@ subroutine jsonFEMDomain(obj,name,fh,endl)
 
 	write(fileid,'(A)') '{'
 	if(present(name) )then
-		write(fileid,*) '"name": "'//trim(name)//'",'
+		write(fileid,*) '"name": "'//name//'",'
 	endif
 	write(fileid,*) '"type": "femdomain",'
 
@@ -7686,7 +7695,7 @@ end subroutine
 subroutine readFEMDomain(obj,name,DimNum,ElementType)
 	class(FEMDomain_) ,intent(inout) :: obj
 	character(*),intent(in) :: name
-	character(len=200),allocatable :: line
+	character(:),allocatable :: line
 	integeR(int32),allocatable :: elemnod(:,:),node_list(:),element_list(:),g_node_list(:),cell_types(:)
 	integer(int32),optional,intent(in) :: DimNum,ElementType
 	logical :: ret=.false.
@@ -7697,12 +7706,12 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 	type(IO_) :: f
 
 	if(index(name,".vtk")/=0 )then
-		call obj%ImportVTKFile(name=trim(name))
+		call obj%ImportVTKFile(name=name)
 		return
 	endif
 	
 	if(index(name,"json")/=0 )then
-		call f%open(trim(name) )
+		call f%open(name )
 		
 		! json読み取ります
 
@@ -7712,7 +7721,7 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 
 	
 	if(index(name,"msh")/=0 )then
-		call f%open(trim(name),"r" )
+		call f%open(name,"r" )
 		! get nodal coordinate
 		! For MSH 4.1
 		if(.not. present(DimNum) )then
@@ -7812,7 +7821,7 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 						allocate(obj%mesh%elemnod(m, nne))
 						do i=1, m
 							line = f%readline()
-							print *, trim(line)
+							print *, line
 							read(line,*) element_list(i),obj%mesh%elemnod(i,1:)
 						enddo
 						exit
@@ -7848,7 +7857,7 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 	
 	if(index(name,"vtk")/=0 )then
 		itr=0
-		call f%open(trim(name),"r" )
+		call f%open(name,"r" )
 		
 		! msh読み取ります
 		elem_num=0
@@ -7961,7 +7970,7 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 	endif
 
 	if(ret .eqv. .false.)then
-		print *, "ERROR >> readFEMDomain >> not such file as ",trim(name)
+		print *, "ERROR >> readFEMDomain >> not such file as ",name
 		return
 	endif
 end subroutine
@@ -8001,14 +8010,14 @@ subroutine addLayerFEMDomain(obj,name,attribute,datastyle,vectorrank,tensorrank1
 	endif
 
 
-	obj % PhysicalField(obj%numoflayer) % name   = trim(name)
+	obj % PhysicalField(obj%numoflayer) % name   = name
 	if(obj%mesh%empty() .eqv. .true. )then
 		print *, "ERROR >> addLayerFEMDomain >> mesh should be defined preliminary."
 		return
 	endif
 
 	datasize=0
-	select case( trim(attribute))
+	select case( attribute)
 		case ("Nodal","NODAL","node-wize","Node-Wize","NODEWIZE","Node","node")
 			datasize=size(obj%mesh%nodcoord,1)
 			obj%PhysicalField(obj%numoflayer) %attribute = 1
@@ -8020,7 +8029,7 @@ subroutine addLayerFEMDomain(obj,name,attribute,datastyle,vectorrank,tensorrank1
 			obj%PhysicalField(obj%numoflayer) %attribute = 3
 	end select
 
-	select case( trim(datastyle))
+	select case( datastyle)
 		case ("Scalar","SCALAR","scalar")
 			allocate(obj%PhysicalField(obj%numoflayer) % scalar(datasize) )
 			obj%PhysicalField(obj%numoflayer)%datastyle = 1
@@ -8072,7 +8081,7 @@ subroutine addLayerFEMDomainScalar(obj,name,scalar)
 	endif
 
 
-	obj % PhysicalField(obj%numoflayer) % name   = trim(name)
+	obj % PhysicalField(obj%numoflayer) % name   = name
 	if(obj%mesh%empty() .eqv. .true. )then
 		print *, "ERROR >> addLayerFEMDomain >> mesh should be defined preliminary."
 		return
@@ -8094,7 +8103,7 @@ subroutine addLayerFEMDomainScalar(obj,name,scalar)
 		obj%PhysicalField(obj%numoflayer) %attribute = 3
 	else
 		obj%PhysicalField(obj%numoflayer) %attribute = 0
-		print *, "addLaayerFEMDOmainScalar :: layer ",trim(name),"is not node-wise, not element-wize nor GaussPoint-wise"
+		print *, "addLaayerFEMDOmainScalar :: layer ",name,"is not node-wise, not element-wize nor GaussPoint-wise"
 	endif
 
 
@@ -8129,7 +8138,7 @@ subroutine addLayerFEMDomainVector(obj,name,vector)
 	endif
 
 
-	obj % PhysicalField(obj%numoflayer) % name   = trim(name)
+	obj % PhysicalField(obj%numoflayer) % name   = name
 	if(obj%mesh%empty() .eqv. .true. )then
 		print *, "ERROR >> addLayerFEMDomain >> mesh should be defined preliminary."
 		return
@@ -8149,7 +8158,7 @@ subroutine addLayerFEMDomainVector(obj,name,vector)
 		obj%PhysicalField(obj%numoflayer) %attribute = 3
 	else
 		obj%PhysicalField(obj%numoflayer) %attribute = 0
-		print *, "addLaayerFEMDOmainvector :: layer ",trim(name),"is not node-wise, not element-wize nor GaussPoint-wise"
+		print *, "addLaayerFEMDOmainvector :: layer ",name,"is not node-wise, not element-wize nor GaussPoint-wise"
 	endif
 
 
@@ -8184,7 +8193,7 @@ subroutine addLayerFEMDomaintensor(obj,name,tensor)
 	endif
 
 
-	obj % PhysicalField(obj%numoflayer) % name   = trim(name)
+	obj % PhysicalField(obj%numoflayer) % name   = name
 	if(obj%mesh%empty() .eqv. .true. )then
 		print *, "ERROR >> addLayerFEMDomain >> mesh should be defined preliminary."
 		return
@@ -8204,7 +8213,7 @@ subroutine addLayerFEMDomaintensor(obj,name,tensor)
 		obj%PhysicalField(obj%numoflayer) %attribute = 3
 	else
 		obj%PhysicalField(obj%numoflayer) %attribute = 0
-		print *, "addLaayerFEMDOmaintensor :: layer ",trim(name),"is not node-wise, not element-wize nor GaussPoint-wise"
+		print *, "addLaayerFEMDOmaintensor :: layer ",name,"is not node-wise, not element-wize nor GaussPoint-wise"
 	endif
 
 end subroutine
@@ -8220,7 +8229,7 @@ subroutine importLayerFEMDomain(obj,name,id,scalar,vector,tensor)
 	
 	if(present(name))then
 		do i=1,obj%numoflayer
-			if( trim(obj%PhysicalField(i)%name)==trim(name) )then
+			if( obj%PhysicalField(i)%name==name )then
 				if(present(scalar) )then
 					obj%PhysicalField(i)%scalar = scalar
 				endif
@@ -8258,7 +8267,7 @@ subroutine showLayerFEMDomain(obj)
 	
 	print *, "Number of layers : ",obj%numoflayer
 	do i=1,obj%numoflayer
-		print *, trim(obj%PhysicalField(i)%name)//" : scalar >> "&
+		print *, obj%PhysicalField(i)%name//" : scalar >> "&
 			//str(allocated(obj%PhysicalField(i)%scalar))//" : vector >> "&
 			//str(allocated(obj%PhysicalField(i)%vector))//" : tensor >> "&
 			//str(allocated(obj%PhysicalField(i)%tensor))
@@ -8279,7 +8288,7 @@ function searchLayerFEMDomain(obj,name,id) result(ret)
 	ret =.False.
 	if(present(name) )then
 		do i=1,obj%numoflayer
-			if(trim(obj%PhysicalField(i)%name)==trim(name) )then
+			if(obj%PhysicalField(i)%name==name )then
 				ret=.true.
 				return
 			endif
@@ -8289,7 +8298,7 @@ function searchLayerFEMDomain(obj,name,id) result(ret)
 
 	if(present(id) )then
 		if(id <= obj%numoflayer)then
-			!print *, "Layer-ID : ",id," is : ",trim(obj%PhysicalField(id)%name)
+			!print *, "Layer-ID : ",id," is : ",obj%PhysicalField(id)%name
 			ret = .true.
 		else
 			print *, "id ",id,"is greater than the number of layers",obj%numoflayer
@@ -8308,7 +8317,7 @@ function getLayerIDFEMDomain(obj,name) result(id)
 	integer(int32)::i
 	
 	do i=1,obj%numoflayer
-		if(trim(obj%PhysicalField(i)%name)==trim(name) )then
+		if(obj%PhysicalField(i)%name==name )then
 			id=i
 			return
 		endif
@@ -8327,7 +8336,7 @@ function getLayerAttributeFEMDomain(obj,name) result(id)
 	integer(int32)::i
 	
 	do i=1,obj%numoflayer
-		if(trim(obj%PhysicalField(i)%name)==trim(name) )then
+		if(obj%PhysicalField(i)%name==name )then
 			id = obj%PhysicalField(i)%attribute 
 			return
 		endif
@@ -8346,7 +8355,7 @@ function getLayerDataStyleFEMDomain(obj,name) result(id)
 	integer(int32)::i
 	
 	do i=1,obj%numoflayer
-		if(trim(obj%PhysicalField(i)%name)==trim(name) )then
+		if(obj%PhysicalField(i)%name==name )then
 			id = obj%PhysicalField(i)%DataStyle
 			return
 		endif
@@ -8393,13 +8402,13 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 		endif
 	endif
 
-	if(obj%searchLayer(name=trim(PhysicalField) ) .eqv. .false. )then
-		print *, "ERROR >> projectionFEMDomain >> no such physicalfield as '"//trim(PhysicalField)&
+	if(obj%searchLayer(name=PhysicalField ) .eqv. .false. )then
+		print *, "ERROR >> projectionFEMDomain >> no such physicalfield as '"//PhysicalField&
 			//"' of domain#1"
 		return 
 	endif
-	if(domain%searchLayer(name=trim(PhysicalField) ) .eqv. .false. )then
-		print *, "ERROR >> projectionFEMDomain >> no such physicalfield as '"//trim(PhysicalField)&
+	if(domain%searchLayer(name=PhysicalField ) .eqv. .false. )then
+		print *, "ERROR >> projectionFEMDomain >> no such physicalfield as '"//PhysicalField&
 			//"' of domain#1"
 		return 
 	endif
@@ -8410,18 +8419,18 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 	endif
 
 	! check datastyle and attribute
-	if(obj%getLayerDataStyle(name=trim(PhysicalField)) /= &
-		domain%getLayerDataStyle(name=trim(PhysicalField)) )then
+	if(obj%getLayerDataStyle(name=PhysicalField) /= &
+		domain%getLayerDataStyle(name=PhysicalField) )then
 		print *, "ERROR >> projectionFEMDomain >> INVALID DataStyle >> node=1, element=2, gauss point = 3"
-		print *, "obj%getLayerDataStyle(name=trim(PhysicalField)) :: ",obj%getLayerDataStyle(name=trim(PhysicalField)) 
-		print *, "domain%getLayerDataStyle(name=trim(PhysicalField)) :: ",domain%getLayerDataStyle(name=trim(PhysicalField)) 
+		print *, "obj%getLayerDataStyle(name=PhysicalField) :: ",obj%getLayerDataStyle(name=PhysicalField) 
+		print *, "domain%getLayerDataStyle(name=PhysicalField) :: ",domain%getLayerDataStyle(name=PhysicalField) 
 		return
 	endif
-	if(obj%getLayerAttribute(name=trim(PhysicalField)) /= &
-		domain%getLayerAttribute(name=trim(PhysicalField)) )then
+	if(obj%getLayerAttribute(name=PhysicalField) /= &
+		domain%getLayerAttribute(name=PhysicalField) )then
 		print *, "ERROR >> projectionFEMDomain >> INVALID attribute >> node=1, element=2, gauss point = 3"
-		print *, "obj%getLayerAttribute(name=trim(PhysicalField)) :: ",obj%getLayerAttribute(name=trim(PhysicalField)) 
-		print *, "domain%getLayerAttribute(name=trim(PhysicalField)) :: ",domain%getLayerAttribute(name=trim(PhysicalField)) 
+		print *, "obj%getLayerAttribute(name=PhysicalField) :: ",obj%getLayerAttribute(name=PhysicalField) 
+		print *, "domain%getLayerAttribute(name=PhysicalField) :: ",domain%getLayerAttribute(name=PhysicalField) 
 		return
 	endif
 
@@ -8438,8 +8447,8 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 	endif
 
 	! projection starts
-	! if obj%getLayerAttribute(name=trim(PhysicalField)) == 1 (nodal values)
-	if(obj%getLayerAttribute(name=trim(PhysicalField))==1)then
+	! if obj%getLayerAttribute(name=PhysicalField) == 1 (nodal values)
+	if(obj%getLayerAttribute(name=PhysicalField)==1)then
 		if(present(debug) )then
 			if(debug .eqv. .true.)then
 				print *, "[>>] projectionFEMDomain :: projestion starts."
@@ -8861,7 +8870,7 @@ recursive function getShapeFunctionFEMDomain(obj, ElementID,GaussPointID,Reduced
     logical,optional,intent(in) :: ReducedIntegration
 	real(real64),optional,intent(in) :: position(:)
     type(ShapeFunction_) ::sobj
-    character*200 :: ElemType
+    character(:),allocatable :: ElemType
 	integer(int32) :: i,j,n,m,gpid,elemID
 	real(real64) :: x,y,z
 	
@@ -10514,9 +10523,9 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 	call obj%remove()
 
 	if( index(name,".vtk")==0 .and. index(name,".VTK")==0 )then
-		fullname = trim(name)//".vtk"
+		fullname = name//".vtk"
 	else
-		fullname = trim(name)
+		fullname = name
 	endif
 
 	call f%open(fullname)
@@ -10704,7 +10713,7 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 		if(index( line,"SCALARS") /=0  )then
 			from = index( line,"SCALARS") + 7
 			to = index( line(from+1:)," ")
-			fieldname=trim(adjustl(line(from:to+7)))
+			fieldname=line(from:to+7)
 			if(.not.allocated(obj%PhysicalField) )then
 				allocate(obj%PhysicalField(100) )
 				do i=1,size(obj%physicalfield)
@@ -10720,7 +10729,7 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 					cycle
 				else
 					allocate(obj%PhysicalField(i)%scalar(POINT_DATA) )
-					obj%PhysicalField(i)%name = trim(fieldname)
+					obj%PhysicalField(i)%name = fieldname
 					obj%PhysicalField(i)%scalar(:) = 0.0d0
 					do j=1,POINT_DATA
 						line = f%readline()
@@ -10735,7 +10744,7 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 		if(index( line,"VECTORS") /=0  )then
 			from = index( line,"VECTORS") + 7
 			to = index( line(from+1:)," ")
-			fieldname=trim(adjustl(line(from:to+7) ))
+			fieldname=line(from:to+7)
 			if(.not.allocated(obj%PhysicalField) )then
 				allocate(obj%PhysicalField(100) )
 				do i=1,size(obj%physicalfield)
@@ -10751,7 +10760,7 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 					cycle
 				else
 					allocate(obj%PhysicalField(i)%vector(POINT_DATA,3) )
-					obj%PhysicalField(i)%name = trim(fieldname)
+					obj%PhysicalField(i)%name = fieldname
 					obj%PhysicalField(i)%vector(:,:) = 0.0d0
 					do j=1,POINT_DATA
 						line = f%readline()
@@ -10768,7 +10777,7 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 		if(index( line,"TENSORS") /=0  )then
 			from = index( line,"TENSORS") + 7
 			to = index( line(from+1:)," ")
-			fieldname=trim(adjustl(line(from:to+7)))
+			fieldname=line(from:to+7)
 			if(.not.allocated(obj%PhysicalField) )then
 				allocate(obj%PhysicalField(100) )
 				do i=1,size(obj%physicalfield)
@@ -10784,7 +10793,7 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 					cycle
 				else
 					allocate(obj%PhysicalField(i)%tensor(POINT_DATA,3,3) )
-					obj%PhysicalField(i)%name = trim(fieldname)
+					obj%PhysicalField(i)%name = fieldname
 					obj%PhysicalField(i)%tensor(:,:,:) = 0.0d0
 					do j=1,POINT_DATA
 						do k=1,3

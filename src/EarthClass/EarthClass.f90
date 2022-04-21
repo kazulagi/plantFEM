@@ -496,10 +496,10 @@ function getTimeZoneEarthClass(this,name) result(timezone)
     timezone = ""
     call TimeZoneList%init()
     do i=1,size(TimeZoneList%ID,1)
-        if(index(TimeZoneList%ID(i)%all,trim(name) )==0 )then
+        if(index(TimeZoneList%ID(i)%all,name )==0 )then
             cycle
         else
-            timezone = trim(TimeZoneList%ID(i)%all)
+            timezone = TimeZoneList%ID(i)%all
             return
         endif
     enddo
@@ -521,7 +521,7 @@ function getTimeZoneOffsetEarthClass(this,name) result(timezoneoffset)
 
     call TimeZoneList%init()
     do i=1,size(TimeZoneList%ID,1)
-        if(index(TimeZoneList%ID(i)%all,trim(name) )==0 )then
+        if(index(TimeZoneList%ID(i)%all,name )==0 )then
             cycle
         else
             timezoneoffset = TimeZoneList%offset(i)

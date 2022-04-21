@@ -174,7 +174,7 @@ subroutine importSoil(obj, name, boring, dem,x_num,y_num,z_num,radius,depth)
 
     if(present(name) )then
         if(index(name,".vtk")/=0 )then
-            call obj%femdomain%import(file=trim(name))
+            call obj%femdomain%import(file=name)
             obj%YoungModulus = zeros(obj%femdomain%ne())
             obj%PoissonRatio = zeros(obj%femdomain%ne())
             obj%Density = zeros(obj%femdomain%ne())
@@ -196,7 +196,7 @@ subroutine initSoil(obj,config,x_num,y_num,z_num)
     class(Soil_),intent(inout)::obj
     character(*),optional,intent(in) :: config
     integer(int32),optional,intent(in) :: x_num,y_num,z_num
-    character(200) :: fn,conf,line
+    character(:),allocatable :: fn,conf,line
     real(real64) :: MaxThickness,Maxwidth,loc(3),vec(3),rot(3),zaxis(3),meshloc(3),meshvec(3)
     integer(int32) :: i,j,k,blcount,id,rmc,n,node_id,node_id2,elemid
     type(IO_) :: soilconf
@@ -227,19 +227,19 @@ subroutine initSoil(obj,config,x_num,y_num,z_num)
         conf="soilconfig.json"
         call soilconf%close()
     else
-        conf = trim(config)
+        conf = config
     endif
     
-    call soilconf%open(trim(conf))
+    call soilconf%open(conf)
     blcount=0
     do
         read(soilconf%fh,'(a)') line
-        print *, trim(line)
-        if( adjustl(trim(line))=="{" )then
+        print *, line
+        if( adjustl(line)=="{" )then
             blcount=1
             cycle
         endif
-        if( adjustl(trim(line))=="}" )then
+        if( adjustl(line)=="}" )then
             exit
         endif
         
@@ -440,51 +440,51 @@ subroutine diagnosisSoil(obj,FileName)
     print *, "======================="
     print *, "Soil diagnosis"
     print *, "-----------------------"
-    print *, "Total area ", trim(adjustl(fstring(obj%width*obj%length)))//" (cm^2)"
-    print *, "Total area ",trim(adjustl(fstring(obj%width/100.0d0*obj%length/100.0d0)))//" (m^2)"
-    print *, "Total area ",trim(adjustl(fstring(obj%width/100.0d0*obj%length/100.0d0/100.0d0)))//" (a)"
-    print *, "Total area ",trim(adjustl(fstring(obj%width/100.0d0*obj%length/100.0d0/100.0d0/100.0d0)))//" (ha)"
-    print *, "Total N  ",trim(adjustl(fstring(obj%N_kg )))//" (kg)"   
-    print *, "Total P  ",trim(adjustl(fstring(obj%P_kg )))//" (kg)"   
-    print *, "Total K  ",trim(adjustl(fstring(obj%K_kg )))//" (kg)"   
-    print *, "Total Ca ",trim(adjustl(fstring(obj%Ca_kg)))//" (kg)"   
-    print *, "Total Mg ",trim(adjustl(fstring(obj%Mg_kg)))//" (kg)"   
-    print *, "Total S  ",trim(adjustl(fstring(obj%S_kg )))//" (kg)"   
-    print *, "Total Fe ",trim(adjustl(fstring(obj%Fe_kg)))//" (kg)"   
-    print *, "Total Mn ",trim(adjustl(fstring(obj%Mn_kg)))//" (kg)"   
-    print *, "Total B  ",trim(adjustl(fstring(obj%B_kg )))//" (kg)"   
-    print *, "Total Zn ",trim(adjustl(fstring(obj%Zn_kg)))//" (kg)"   
-    print *, "Total Mo ",trim(adjustl(fstring(obj%Mo_kg)))//" (kg)"   
-    print *, "Total Cu ",trim(adjustl(fstring(obj%Cu_kg)))//" (kg)"   
-    print *, "Total Cl ",trim(adjustl(fstring(obj%Cl_kg)))//" (kg)"   
+    print *, "Total area ", adjustl(fstring(obj%width*obj%length))//" (cm^2)"
+    print *, "Total area ",adjustl(fstring(obj%width/100.0d0*obj%length/100.0d0))//" (m^2)"
+    print *, "Total area ",adjustl(fstring(obj%width/100.0d0*obj%length/100.0d0/100.0d0))//" (a)"
+    print *, "Total area ",adjustl(fstring(obj%width/100.0d0*obj%length/100.0d0/100.0d0/100.0d0))//" (ha)"
+    print *, "Total N  ",adjustl(fstring(obj%N_kg ))//" (kg)"   
+    print *, "Total P  ",adjustl(fstring(obj%P_kg ))//" (kg)"   
+    print *, "Total K  ",adjustl(fstring(obj%K_kg ))//" (kg)"   
+    print *, "Total Ca ",adjustl(fstring(obj%Ca_kg))//" (kg)"   
+    print *, "Total Mg ",adjustl(fstring(obj%Mg_kg))//" (kg)"   
+    print *, "Total S  ",adjustl(fstring(obj%S_kg ))//" (kg)"   
+    print *, "Total Fe ",adjustl(fstring(obj%Fe_kg))//" (kg)"   
+    print *, "Total Mn ",adjustl(fstring(obj%Mn_kg))//" (kg)"   
+    print *, "Total B  ",adjustl(fstring(obj%B_kg ))//" (kg)"   
+    print *, "Total Zn ",adjustl(fstring(obj%Zn_kg))//" (kg)"   
+    print *, "Total Mo ",adjustl(fstring(obj%Mo_kg))//" (kg)"   
+    print *, "Total Cu ",adjustl(fstring(obj%Cu_kg))//" (kg)"   
+    print *, "Total Cl ",adjustl(fstring(obj%Cl_kg))//" (kg)"   
     print *, "-----------------------"
-    print *, "Total N  ", trim(adjustl(fstring(obj%N_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0)))//" (kg/10a)"    
-    print *, "Total P  ", trim(adjustl(fstring(obj%P_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0)))//" (kg/10a)"    
-    print *, "Total K  ", trim(adjustl(fstring(obj%K_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0)))//" (kg/10a)"    
-    print *, "Total Ca ", trim(adjustl(fstring(obj%Ca_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0)))//" (kg/10a)"   
-    print *, "Total Mg ", trim(adjustl(fstring(obj%Mg_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0)))//" (kg/10a)"   
-    print *, "Total S  ", trim(adjustl(fstring(obj%S_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0)))//" (kg/10a)"    
-    print *, "Total Fe ", trim(adjustl(fstring(obj%Fe_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0)))//" (kg/10a)"   
-    print *, "Total Mn ", trim(adjustl(fstring(obj%Mn_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0)))//" (kg/10a)"   
-    print *, "Total B  ", trim(adjustl(fstring(obj%B_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0)))//" (kg/10a)"    
-    print *, "Total Zn ", trim(adjustl(fstring(obj%Zn_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0)))//" (kg/10a)"   
-    print *, "Total Mo ", trim(adjustl(fstring(obj%Mo_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0)))//" (kg/10a)"   
-    print *, "Total Cu ", trim(adjustl(fstring(obj%Cu_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0)))//" (kg/10a)"   
-    print *, "Total Cl ", trim(adjustl(fstring(obj%Cl_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0)))//" (kg/10a)"   
+    print *, "Total N  ", adjustl(fstring(obj%N_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0))//" (kg/10a)"    
+    print *, "Total P  ", adjustl(fstring(obj%P_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0))//" (kg/10a)"    
+    print *, "Total K  ", adjustl(fstring(obj%K_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0))//" (kg/10a)"    
+    print *, "Total Ca ", adjustl(fstring(obj%Ca_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0))//" (kg/10a)"   
+    print *, "Total Mg ", adjustl(fstring(obj%Mg_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0))//" (kg/10a)"   
+    print *, "Total S  ", adjustl(fstring(obj%S_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0))//" (kg/10a)"    
+    print *, "Total Fe ", adjustl(fstring(obj%Fe_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0))//" (kg/10a)"   
+    print *, "Total Mn ", adjustl(fstring(obj%Mn_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0))//" (kg/10a)"   
+    print *, "Total B  ", adjustl(fstring(obj%B_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0))//" (kg/10a)"    
+    print *, "Total Zn ", adjustl(fstring(obj%Zn_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0))//" (kg/10a)"   
+    print *, "Total Mo ", adjustl(fstring(obj%Mo_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0))//" (kg/10a)"   
+    print *, "Total Cu ", adjustl(fstring(obj%Cu_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0))//" (kg/10a)"   
+    print *, "Total Cl ", adjustl(fstring(obj%Cl_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*1000.0))//" (kg/10a)"   
     print *, "-----------------------"
-    print *, "Total N  ",trim(adjustl(fstring(obj%N_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0)))//" (kg/ha)"  
-    print *, "Total P  ",trim(adjustl(fstring(obj%P_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0)))//" (kg/ha)"  
-    print *, "Total K  ",trim(adjustl(fstring(obj%K_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0)))//" (kg/ha)"  
-    print *, "Total Ca ",trim(adjustl(fstring(obj%Ca_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0)))//" (kg/ha)" 
-    print *, "Total Mg ",trim(adjustl(fstring(obj%Mg_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0)))//" (kg/ha)" 
-    print *, "Total S  ",trim(adjustl(fstring(obj%S_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0)))//" (kg/ha)"  
-    print *, "Total Fe ",trim(adjustl(fstring(obj%Fe_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0)))//" (kg/ha)" 
-    print *, "Total Mn ",trim(adjustl(fstring(obj%Mn_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0)))//" (kg/ha)" 
-    print *, "Total B  ",trim(adjustl(fstring(obj%B_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0)))//" (kg/ha)"  
-    print *, "Total Zn ",trim(adjustl(fstring(obj%Zn_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0)))//" (kg/ha)" 
-    print *, "Total Mo ",trim(adjustl(fstring(obj%Mo_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0)))//" (kg/ha)" 
-    print *, "Total Cu ",trim(adjustl(fstring(obj%Cu_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0)))//" (kg/ha)" 
-    print *, "Total Cl ",trim(adjustl(fstring(obj%Cl_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0)))//" (kg/ha)"    
+    print *, "Total N  ",adjustl(fstring(obj%N_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0))//" (kg/ha)"  
+    print *, "Total P  ",adjustl(fstring(obj%P_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0))//" (kg/ha)"  
+    print *, "Total K  ",adjustl(fstring(obj%K_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0))//" (kg/ha)"  
+    print *, "Total Ca ",adjustl(fstring(obj%Ca_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0))//" (kg/ha)" 
+    print *, "Total Mg ",adjustl(fstring(obj%Mg_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0))//" (kg/ha)" 
+    print *, "Total S  ",adjustl(fstring(obj%S_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0))//" (kg/ha)"  
+    print *, "Total Fe ",adjustl(fstring(obj%Fe_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0))//" (kg/ha)" 
+    print *, "Total Mn ",adjustl(fstring(obj%Mn_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0))//" (kg/ha)" 
+    print *, "Total B  ",adjustl(fstring(obj%B_kg /(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0))//" (kg/ha)"  
+    print *, "Total Zn ",adjustl(fstring(obj%Zn_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0))//" (kg/ha)" 
+    print *, "Total Mo ",adjustl(fstring(obj%Mo_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0))//" (kg/ha)" 
+    print *, "Total Cu ",adjustl(fstring(obj%Cu_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0))//" (kg/ha)" 
+    print *, "Total Cl ",adjustl(fstring(obj%Cl_kg/(obj%width/100.0d0)/(obj%length/100.0d0)*10000.0d0))//" (kg/ha)"    
     print *, "======================="
 
     if(present(FileName) )then

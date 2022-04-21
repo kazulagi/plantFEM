@@ -48,7 +48,7 @@ subroutine createVertex(obj, intval,reval,name,Myrank,ID)
         obj%reval = reval
     endif
     if(present(name) )then
-        obj%name = trim(name)
+        obj%name = name
     endif
 
 end subroutine

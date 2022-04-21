@@ -63,7 +63,7 @@ subroutine initStress(obj,StrainTheory)
 
     obj%StrainTheory=StrainTheory
 
-    if(    trim(obj%StrainTheory)=="Finite_Elasticity")then
+    if(    obj%StrainTheory=="Finite_Elasticity")then
         obj%theoryID=1
 
         ! hyper
@@ -83,7 +83,7 @@ subroutine initStress(obj,StrainTheory)
         obj%S(:,:)      = 0.0d0
         obj%P(:,:)      = 0.0d0
 
-    elseif(trim(obj%StrainTheory)=="Finite_ElastoPlasticity")then
+    elseif(obj%StrainTheory=="Finite_ElastoPlasticity")then
         obj%theoryID=2
 
         ! hyper
@@ -104,7 +104,7 @@ subroutine initStress(obj,StrainTheory)
         obj%S(:,:)      = 0.0d0
         obj%P(:,:)      = 0.0d0
         
-    elseif(trim(obj%StrainTheory)=="Infinitesimal_Elasticity")then
+    elseif(obj%StrainTheory=="Infinitesimal_Elasticity")then
         obj%theoryID=3
 
         ! hyper
@@ -127,7 +127,7 @@ subroutine initStress(obj,StrainTheory)
         obj%sigma_o(:,:) = 0.0d0
         obj%sigma_t(:,:) = 0.0d0
         
-    elseif(trim(obj%StrainTheory)=="Infinitesimal_ElastoPlasticity")then
+    elseif(obj%StrainTheory=="Infinitesimal_ElastoPlasticity")then
         obj%theoryID=4
 
         ! hyper
@@ -149,7 +149,7 @@ subroutine initStress(obj,StrainTheory)
         obj%sigma_o(:,:) = 0.0d0
         obj%sigma_t(:,:) = 0.0d0
 
-    elseif(trim(obj%StrainTheory)=="Small_strain")then
+    elseif(obj%StrainTheory=="Small_strain")then
         obj%theoryID=5
 
         ! hyper
@@ -168,7 +168,7 @@ subroutine initStress(obj,StrainTheory)
         obj%sigma_n(:,:)  = 0.0d0
 
     else
-        print *, trim(StrainTheory)
+        print *, StrainTheory
         print *, "Please input one of following keyphrases"
         print *, " ---->"
         print *, "Finite_Elasticity"
@@ -216,15 +216,15 @@ subroutine getStressRate(obj,Strain,Type)
     class(Strain_),intent(inout) :: strain
     character(*),intent(in) :: Type
 
-    if(trim(Type) == "Jaumann" )then
+    if(Type == "Jaumann" )then
         obj%sigma_j = obj%sigma_dot + matmul(obj%sigma, strain%w) - matmul(strain%w, obj%sigma) 
-    elseif(trim(Type) == "Oldroyd" )then
+    elseif(Type == "Oldroyd" )then
         obj%sigma_o = obj%sigma_dot + matmul(strain%l, obj%sigma) + matmul(obj%sigma, transpose(strain%l) )  
-    elseif(trim(Type) == "Truesdell" )then
+    elseif(Type == "Truesdell" )then
         obj%sigma_t = obj%sigma_dot - matmul(strain%l, obj%sigma) &
             - matmul(obj%sigma, transpose(strain%l) ) + trace(strain%l)*obj%sigma
     else
-        print *, "ERROR :: getStressRate :: invalid stress ",trim(Type)
+        print *, "ERROR :: getStressRate :: invalid stress ",Type
         return
     endif
 
@@ -258,18 +258,18 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
         detCp=det_mat(strain%Cp,size(strain%Cp,1) )
         
         
-        if(trim(ConstitutiveModel) == "StVenant" )then
+        if(ConstitutiveModel == "StVenant" )then
             ! Conventional St.Venant 
             obj%S(:,:)=lambda*0.50d0*trace(strain%C - delta )*delta(:,:)+mu*(strain%C(:,:)-delta(:,:) )
             obj%sigma(:,:) = 1.0d0/strain%detF*( matmul(strain%F, matmul(obj%S, transpose(strain%F)  ) ) )
-        elseif(trim(ConstitutiveModel) == "StVenant_Kirchhoff" )then
+        elseif(ConstitutiveModel == "StVenant_Kirchhoff" )then
             ! St.Venant-Kirchhoff (Wallin and Ristinmaa, 2005 )
             print *, "Finite Strain St.Venant-Kirchhoff will be implemented soon."
-        elseif(trim(ConstitutiveModel) == "NeoHookean" )then
+        elseif(ConstitutiveModel == "NeoHookean" )then
             ! Conventional Neo-Hookean
             obj%S(:,:)=lambda*log(strain%detF)*C_inv(:,:)+mu*(delta(:,:) - C_inv(:,:)  )
             obj%sigma(:,:) = 1.0d0/strain%detF*( matmul(strain%F, matmul(obj%S, transpose(strain%F)  ) ) )
-        elseif(trim(ConstitutiveModel) == "MCDP" )then
+        elseif(ConstitutiveModel == "MCDP" )then
             ! elastic part is Modified Neo-Hookean (Vladimirov, 2008; 2010)
             obj%S(:,:)=lambda*0.50d0*(detC/detCp - 1.0d0 )*C_inv(:,:)&
                 - mu*(Cp_inv(:,:) - C_inv(:,:) )
@@ -286,18 +286,18 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
 
             ! Return-mapping
 
-        elseif(trim(ConstitutiveModel) == "CamClay" )then
+        elseif(ConstitutiveModel == "CamClay" )then
             print *, "FeFp Cam-clay will be implemented soon."
             !obj%S(:,:)=P0*( 1.0d0/ )
             !obj%sigma(:,:) = 1.0d0/obj%detF*( matmul(obj%F, matmul(obj%S, transpose(obj%F)  ) ) )
         else
-            print *, "ERROR :: getStressFinitestrain :: invalid stress ",trim(ConstitutiveModel)
+            print *, "ERROR :: getStressFinitestrain :: invalid stress ",ConstitutiveModel
             return
         endif
     else
         if(size(obj%sigma_t,1)==3 )then
             ! Infinitesimal strain theory
-            if(trim(ConstitutiveModel) == "LinearElastic" )then
+            if(ConstitutiveModel == "LinearElastic" )then
                 ! get stiffness matrix
                 allocate(E(3,3,3,3) )
                 E(:,:,:,:)=0.0d0
@@ -322,7 +322,7 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
                         obj%sigma_t(:,:)= lambda*trace(strain%d) + delta(:,:) + 2.0d0*mu*strain%d(:,:)
                         obj%sigma_dot = obj%sigma_t - matmul(obj%sigma, strain%w) + matmul(strain%w, obj%sigma) 
                     else
-                        print *, "ERROR :: getStress :: invalid stress ",trim(ConstitutiveModel)
+                        print *, "ERROR :: getStress :: invalid stress ",ConstitutiveModel
                         return
                     endif
                     obj%sigma(:,:) = obj%sigma_n(:,:) + dt*  obj%sigma_dot(:,:)
@@ -338,7 +338,7 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
                     !    obj%sigma_t(:,:)= lambda*trace(strain%d) + delta(:,:) + 2.0d0*mu*strain%d(:,:)
                     !    obj%sigma_dot = obj%sigma_t - matmul(obj%sigma, strain%w) + matmul(strain%w, obj%sigma) 
                     else
-                        print *, "ERROR :: getStress :: invalid stress ",trim(ConstitutiveModel)
+                        print *, "ERROR :: getStress :: invalid stress ",ConstitutiveModel
                         return
                     endif
                     !obj%sigma(:,:) = obj%sigma_n(:,:) + dt*  obj%sigma_dot(:,:)
@@ -354,7 +354,7 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
                     !    obj%sigma_t(:,:)= lambda*trace(strain%d) + delta(:,:) + 2.0d0*mu*strain%d(:,:)
                     !    obj%sigma_dot = obj%sigma_t - matmul(obj%sigma, strain%w) + matmul(strain%w, obj%sigma) 
                     else
-                        print *, "ERROR :: getStress :: invalid stress ",trim(ConstitutiveModel)
+                        print *, "ERROR :: getStress :: invalid stress ",ConstitutiveModel
                         return
                     endif
                     !obj%sigma(:,:) = obj%sigma_n(:,:) + dt*  obj%sigma_dot(:,:)
@@ -371,7 +371,7 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
                     !    obj%sigma_t(:,:)= lambda*trace(strain%d) + delta(:,:) + 2.0d0*mu*strain%d(:,:)
                     !    obj%sigma_dot = obj%sigma_t - matmul(obj%sigma, strain%w) + matmul(strain%w, obj%sigma) 
                     else
-                        print *, "ERROR :: getStress :: invalid stress ",trim(ConstitutiveModel)
+                        print *, "ERROR :: getStress :: invalid stress ",ConstitutiveModel
                         return
                     endif
                     !obj%sigma(:,:) = obj%sigma_n(:,:) + dt*  obj%sigma_dot(:,:)
@@ -379,7 +379,7 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
                 else
                     print *, "ERROR :: stressClass :: Linear Elastic TimeIntegral = ",TimeIntegral,"is not implemented yet."
                 endif
-            elseif(trim(ConstitutiveModel) == "MCDP" )then
+            elseif(ConstitutiveModel == "MCDP" )then
                 ! get stiffness matrix
                 allocate(E(3,3,3,3) )
                 E(:,:,:,:)=0.0d0
@@ -405,7 +405,7 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
                         obj%sigma_t(:,:)= lambda*trace(strain%de) + delta(:,:) + 2.0d0*mu*strain%de(:,:)
                         obj%sigma_dot = obj%sigma_t - matmul(obj%sigma, strain%w) + matmul(strain%w, obj%sigma) 
                     else
-                        print *, "ERROR :: getStress :: invalid stress ",trim(ConstitutiveModel)
+                        print *, "ERROR :: getStress :: invalid stress ",ConstitutiveModel
                         return
                     endif
                     obj%sigma(:,:) = obj%sigma_n(:,:) + dt*  obj%sigma_dot(:,:)
@@ -423,7 +423,7 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
                     !    obj%sigma_t(:,:)= lambda*trace(strain%d) + delta(:,:) + 2.0d0*mu*strain%d(:,:)
                     !    obj%sigma_dot = obj%sigma_t - matmul(obj%sigma, strain%w) + matmul(strain%w, obj%sigma) 
                     else
-                        print *, "ERROR :: getStress :: invalid stress ",trim(ConstitutiveModel)
+                        print *, "ERROR :: getStress :: invalid stress ",ConstitutiveModel
                         return
                     endif
                     !obj%sigma(:,:) = obj%sigma_n(:,:) + dt*  obj%sigma_dot(:,:)
@@ -439,7 +439,7 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
                     !    obj%sigma_t(:,:)= lambda*trace(strain%d) + delta(:,:) + 2.0d0*mu*strain%d(:,:)
                     !    obj%sigma_dot = obj%sigma_t - matmul(obj%sigma, strain%w) + matmul(strain%w, obj%sigma) 
                     else
-                        print *, "ERROR :: getStress :: invalid stress ",trim(ConstitutiveModel)
+                        print *, "ERROR :: getStress :: invalid stress ",ConstitutiveModel
                         return
                     endif
                     !obj%sigma(:,:) = obj%sigma_n(:,:) + dt*  obj%sigma_dot(:,:)
@@ -456,7 +456,7 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
                     !    obj%sigma_t(:,:)= lambda*trace(strain%d) + delta(:,:) + 2.0d0*mu*strain%d(:,:)
                     !    obj%sigma_dot = obj%sigma_t - matmul(obj%sigma, strain%w) + matmul(strain%w, obj%sigma) 
                     else
-                        print *, "ERROR :: getStress :: invalid stress ",trim(ConstitutiveModel)
+                        print *, "ERROR :: getStress :: invalid stress ",ConstitutiveModel
                         return
                     endif
                     !obj%sigma(:,:) = obj%sigma_n(:,:) + dt*  obj%sigma_dot(:,:)
@@ -464,7 +464,7 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
                 else
                     print *, "ERROR :: stressClass :: MCDP TimeIntegral = ",TimeIntegral,"is not implemented yet."
                 endif
-            elseif(trim(ConstitutiveModel) == "CamClay" )then
+            elseif(ConstitutiveModel == "CamClay" )then
                 ! get stiffness matrix
                 allocate(E(3,3,3,3) )
                 E(:,:,:,:)=0.0d0
@@ -490,7 +490,7 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
                         !obj%sigma_t(:,:)= lambda*trace(strain%de) + delta(:,:) + 2.0d0*mu*strain%de(:,:)
                         !obj%sigma_dot = obj%sigma_t - matmul(obj%sigma, strain%w) + matmul(strain%w, obj%sigma) 
                     else
-                        print *, "ERROR :: getStress :: invalid stress ",trim(ConstitutiveModel)
+                        print *, "ERROR :: getStress :: invalid stress ",ConstitutiveModel
                         return
                     endif
                     !obj%sigma(:,:) = obj%sigma_n(:,:) + dt*  obj%sigma_dot(:,:)
@@ -508,7 +508,7 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
                     !    obj%sigma_t(:,:)= lambda*trace(strain%d) + delta(:,:) + 2.0d0*mu*strain%d(:,:)
                     !    obj%sigma_dot = obj%sigma_t - matmul(obj%sigma, strain%w) + matmul(strain%w, obj%sigma) 
                     else
-                        print *, "ERROR :: getStress :: invalid stress ",trim(ConstitutiveModel)
+                        print *, "ERROR :: getStress :: invalid stress ",ConstitutiveModel
                         return
                     endif
                     !obj%sigma(:,:) = obj%sigma_n(:,:) + dt*  obj%sigma_dot(:,:)
@@ -524,7 +524,7 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
                     !    obj%sigma_t(:,:)= lambda*trace(strain%d) + delta(:,:) + 2.0d0*mu*strain%d(:,:)
                     !    obj%sigma_dot = obj%sigma_t - matmul(obj%sigma, strain%w) + matmul(strain%w, obj%sigma) 
                     else
-                        print *, "ERROR :: getStress :: invalid stress ",trim(ConstitutiveModel)
+                        print *, "ERROR :: getStress :: invalid stress ",ConstitutiveModel
                         return
                     endif
                     !obj%sigma(:,:) = obj%sigma_n(:,:) + dt*  obj%sigma_dot(:,:)
@@ -541,7 +541,7 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
                     !    obj%sigma_t(:,:)= lambda*trace(strain%d) + delta(:,:) + 2.0d0*mu*strain%d(:,:)
                     !    obj%sigma_dot = obj%sigma_t - matmul(obj%sigma, strain%w) + matmul(strain%w, obj%sigma) 
                     else
-                        print *, "ERROR :: getStress :: invalid stress ",trim(ConstitutiveModel)
+                        print *, "ERROR :: getStress :: invalid stress ",ConstitutiveModel
                         return
                     endif
                     !obj%sigma(:,:) = obj%sigma_n(:,:) + dt*  obj%sigma_dot(:,:)
@@ -550,21 +550,21 @@ subroutine getStress(obj,Strain,ConstitutiveModel,lambda,mu,K,G,c,phi,TimeIntegr
                     print *, "ERROR :: stressClass :: MCDP TimeIntegral = ",TimeIntegral,"is not implemented yet."
                 endif
             else
-                print *, "ERROR :: getStressInfinitesimal :: invalid stress ",trim(ConstitutiveModel)
+                print *, "ERROR :: getStressInfinitesimal :: invalid stress ",ConstitutiveModel
                 return
             endif
         else
             ! Small strain
-            if(trim(ConstitutiveModel) == "LinearElastic" )then
+            if(ConstitutiveModel == "LinearElastic" )then
                 obj%sigma(:,:) = lambda*trace(strain%eps)*delta(:,:) + 2*mu*strain%eps(:,:)
-            elseif(trim(ConstitutiveModel) == "MCDP" )then
+            elseif(ConstitutiveModel == "MCDP" )then
                 obj%sigma(:,:) = lambda*trace(strain%eps)*delta(:,:) + 2*mu*strain%eps(:,:)
                 ! return-mapping
-            elseif(trim(ConstitutiveModel) == "CamClay" )then
+            elseif(ConstitutiveModel == "CamClay" )then
                 obj%sigma(:,:) = lambda*trace(strain%eps)*delta(:,:) + 2*mu*strain%eps(:,:)
                 ! return-mapping
             else
-                print *, "ERROR :: getStressSmallStrain :: invalid stress ",trim(ConstitutiveModel)
+                print *, "ERROR :: getStressSmallStrain :: invalid stress ",ConstitutiveModel
                 return
             endif
         endif
@@ -587,41 +587,41 @@ subroutine getStressDerivative(obj,Strain,ConstitutiveModel,lambda,mu)
         ! Finite Strain Theory
         allocate( F_inv(3,3))
         call inverse_rank_2(strain%F,F_inv )
-        if(trim(ConstitutiveModel) == "StVenant" )then
+        if(ConstitutiveModel == "StVenant" )then
 
-        elseif(trim(ConstitutiveModel) == "NeoHookean" )then
+        elseif(ConstitutiveModel == "NeoHookean" )then
         
-        elseif(trim(ConstitutiveModel) == "MCDP" )then
+        elseif(ConstitutiveModel == "MCDP" )then
         
-        elseif(trim(ConstitutiveModel) == "CamClay" )then
+        elseif(ConstitutiveModel == "CamClay" )then
 
         else
-            print *, "ERROR :: getStressFinitestrain :: invalid stress ",trim(ConstitutiveModel)
+            print *, "ERROR :: getStressFinitestrain :: invalid stress ",ConstitutiveModel
             return
         endif
     else
         if(size(obj%sigma_t,1)==3 )then
             ! Infinitesimal strain theory
-            if(trim(ConstitutiveModel) == "LinearElastic" )then
+            if(ConstitutiveModel == "LinearElastic" )then
             
-            elseif(trim(ConstitutiveModel) == "MCDP" )then
+            elseif(ConstitutiveModel == "MCDP" )then
             
-            elseif(trim(ConstitutiveModel) == "CamClay" )then
+            elseif(ConstitutiveModel == "CamClay" )then
     
             else
-                print *, "ERROR :: getStressInfinitesimal :: invalid stress ",trim(ConstitutiveModel)
+                print *, "ERROR :: getStressInfinitesimal :: invalid stress ",ConstitutiveModel
                 return
             endif
         else
             ! Small strain
-            if(trim(ConstitutiveModel) == "LinearElastic" )then
+            if(ConstitutiveModel == "LinearElastic" )then
             
-            elseif(trim(ConstitutiveModel) == "MCDP" )then
+            elseif(ConstitutiveModel == "MCDP" )then
             
-            elseif(trim(ConstitutiveModel) == "CamClay" )then
+            elseif(ConstitutiveModel == "CamClay" )then
     
             else
-                print *, "ERROR :: getStressSmallStrain :: invalid stress ",trim(ConstitutiveModel)
+                print *, "ERROR :: getStressSmallStrain :: invalid stress ",ConstitutiveModel
                 return
             endif
         endif

@@ -431,14 +431,14 @@ subroutine importTriangle(obj,NodCoord,FileName)
     character(*),optional,intent(in)::FileName
 
     if(present(FileName) )then
-        open(30,file=trim(FileName))
+        open(30,file=FileName)
         read(30,*) n 
         call obj%init(dim=n)
         do i=1,size(obj%NodCoord,1)
             read(30,*) obj%NodCoord(i,:)
         enddo
         close(30)
-        print *, "Imported triangle from ",trim(FileName)
+        print *, "Imported triangle from ",FileName
         return
     endif
 
@@ -722,14 +722,14 @@ subroutine importRectangle(obj,NodCoord,FileName)
     character(*),optional,intent(in)::FileName
 
     if(present(FileName) )then
-        open(30,file=trim(FileName))
+        open(30,file=FileName)
         read(30,*) n 
         call obj%init(dim=n)
         do i=1,size(obj%NodCoord,1)
             read(30,*) obj%NodCoord(i,:)
         enddo
         close(30)
-        print *, "Imported rectangle from ",trim(FileName)
+        print *, "Imported rectangle from ",FileName
         return
     endif
 

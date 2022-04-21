@@ -86,7 +86,7 @@ subroutine HyperElasticStress(obj)
         stop "ERROR :: HyperElasticStress >> Please set obj%ModelType"
     endif
 
-    if(trim(obj%ModelType)=="StVenantKirchhoff" )then
+    if(obj%ModelType=="StVenantKirchhoff" )then
         if(.not.allocated(obj%sigma) )then
             allocate(obj%sigma(3,3) )
         endif
@@ -98,7 +98,7 @@ subroutine HyperElasticStress(obj)
             + obj%mu*matmul(obj%b_ij, a )
         obj%sigma(:,:)=1.0d0/det_mat(obj%F_iJ, size(obj%F_iJ,1))*obj%tau(:,:)
         
-    elseif(trim(obj%ModelType)=="NeoHookean" )then
+    elseif(obj%ModelType=="NeoHookean" )then
         if(.not.allocated(obj%sigma) )then
             allocate(obj%sigma(3,3) )
         endif
@@ -107,7 +107,7 @@ subroutine HyperElasticStress(obj)
         endif
         obj%tau(:,:)=obj%lamda*(log(obj%detF) )*delta(:,:) + obj%mu*(obj%b_ij(:,:)-delta(:,:) )
         obj%sigma(:,:)=1.0d0/obj%detF*obj%tau(:,:)
-    elseif(trim(obj%ModelType)=="ModifiedNeoHookean_Simo" )then
+    elseif(obj%ModelType=="ModifiedNeoHookean_Simo" )then
         if(.not.allocated(obj%sigma) )then
             allocate(obj%sigma(3,3) )
         endif
@@ -119,7 +119,7 @@ subroutine HyperElasticStress(obj)
         obj%sigma(:,:)=1.0d0/obj%detF*obj%tau
 
         
-    elseif(trim(obj%ModelType)=="ModifiedNeoHookean_Vlad" )then
+    elseif(obj%ModelType=="ModifiedNeoHookean_Vlad" )then
         if(.not.allocated(obj%sigma) )then
             allocate(obj%sigma(3,3) )
         endif
@@ -131,7 +131,7 @@ subroutine HyperElasticStress(obj)
             + obj%mu*(obj%b_ij(:,:)-delta(:,:) )
         obj%sigma(:,:)=1.0d0/obj%detF*obj%tau
     else
-        print *, "Sorry, the model ",trim(obj%ModelType)," is not implemented yet."
+        print *, "Sorry, the model ",obj%ModelType," is not implemented yet."
         stop
     endif
 end subroutine
@@ -167,11 +167,11 @@ subroutine HyperElasticDer(obj,DerType)
         stop "ERROR :: HyperElasticStress >> Please set obj%ModelType"
     endif
 
-    if(trim(obj%ModelType)=="StVenantKirchhoff" )then
+    if(obj%ModelType=="StVenantKirchhoff" )then
         if(.not.allocated(obj%StressDer) )then
             allocate(obj%StressDer(3,3,3,3) )
         endif
-        if(trim(DerType)=="F" .or. trim(DerType)=="F_iJ"  )then
+        if(DerType=="F" .or. DerType=="F_iJ"  )then
             obj%StressDer(:,:,:,:)=0.0d0
             do i=1,3
                 do j=1,3
@@ -191,7 +191,7 @@ subroutine HyperElasticDer(obj,DerType)
                     enddo
                 enddo
             enddo
-        elseif(trim(DerType)=="c_current" .or. trim(DerType)=="cc"  )then
+        elseif(DerType=="c_current" .or. DerType=="cc"  )then
             obj%StressDer(:,:,:,:)=0.0d0
 
             do i=1,3
@@ -209,11 +209,11 @@ subroutine HyperElasticDer(obj,DerType)
         else
             stop "ERROR :: HyperElasticStress >> no such der"
         endif
-    elseif(trim(obj%ModelType)=="NeoHookean" )then
+    elseif(obj%ModelType=="NeoHookean" )then
         if(.not.allocated(obj%StressDer) )then
             allocate(obj%StressDer(3,3,3,3) )
         endif
-        if(trim(DerType)=="F" .or. trim(DerType)=="F_iJ"  )then
+        if(DerType=="F" .or. DerType=="F_iJ"  )then
             obj%StressDer(:,:,:,:)=0.0d0
             do i=1,3
                 do j=1,3
@@ -230,7 +230,7 @@ subroutine HyperElasticDer(obj,DerType)
                 enddo
             enddo
         
-        elseif(trim(DerType)=="c_current" .or. trim(DerType)=="cc"  )then
+        elseif(DerType=="c_current" .or. DerType=="cc"  )then
             obj%StressDer(:,:,:,:)=0.0d0
 
             do i=1,3
@@ -248,11 +248,11 @@ subroutine HyperElasticDer(obj,DerType)
         else
             stop "ERROR :: HyperElasticStress >> no such der"
         endif
-    elseif(trim(obj%ModelType)=="ModifiedNeoHookean_Simo" )then
+    elseif(obj%ModelType=="ModifiedNeoHookean_Simo" )then
         if(.not.allocated(obj%StressDer) )then
             allocate(obj%StressDer(3,3,3,3) )
         endif
-        if(trim(DerType)=="F" .or. trim(DerType)=="F_iJ"  )then
+        if(DerType=="F" .or. DerType=="F_iJ"  )then
             obj%StressDer(:,:,:,:)=0.0d0
             do i=1,3
                 do j=1,3
@@ -269,11 +269,11 @@ subroutine HyperElasticDer(obj,DerType)
         else
             stop "ERROR :: HyperElasticStress >> no such der"
         endif
-    elseif(trim(obj%ModelType)=="ModifiedNeoHookean_Vlad" )then
+    elseif(obj%ModelType=="ModifiedNeoHookean_Vlad" )then
         if(.not.allocated(obj%StressDer) )then
             allocate(obj%StressDer(3,3,3,3) )
         endif
-        if(trim(DerType)=="F" .or. DerType=="F_iJ"  )then
+        if(DerType=="F" .or. DerType=="F_iJ"  )then
             obj%StressDer(:,:,:,:)=0.0d0
             do i=1,3
                 do j=1,3
@@ -291,7 +291,7 @@ subroutine HyperElasticDer(obj,DerType)
             stop "ERROR :: HyperElasticStress >> no such der"
         endif
     else
-        print *, "Sorry, the model ",trim(obj%ModelType)," is not implemented yet."
+        print *, "Sorry, the model ",obj%ModelType," is not implemented yet."
         stop
     endif
 end subroutine

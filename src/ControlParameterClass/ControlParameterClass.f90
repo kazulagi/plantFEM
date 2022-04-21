@@ -31,14 +31,14 @@ subroutine openControlPara(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","ControlPara",".prop")
+        call f%open(path//"/"//name//"/","ControlPara",".prop")
         read(f%fh,*) obj%Tol
         read(f%fh,*) obj%SimMode
         read(f%fh,*) obj%ItrTol
         read(f%fh,*) obj%Timestep
         call f%close()
     else
-        call f%open(trim(path)//"/ControlPara/","ControlPara",".prop")
+        call f%open(path//"/ControlPara/","ControlPara",".prop")
         read(f%fh,*) obj%Tol
         read(f%fh,*) obj%SimMode
         read(f%fh,*) obj%ItrTol
@@ -60,16 +60,16 @@ subroutine saveControlPara(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
-        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","ControlPara",".prop")
+        call execute_command_line("mkdir -p "//path//"/"//name)
+        call f%open(path//"/"//name//"/","ControlPara",".prop")
         write(f%fh,*) obj%Tol
         write(f%fh,*) obj%SimMode
         write(f%fh,*) obj%ItrTol
         write(f%fh,*) obj%Timestep
         call f%close()
     else
-        call execute_command_line("mkdir -p "//trim(path)//"/ControlPara")
-        call f%open(trim(path)//"/ControlPara/","ControlPara",".prop")
+        call execute_command_line("mkdir -p "//path//"/ControlPara")
+        call f%open(path//"/ControlPara/","ControlPara",".prop")
         write(f%fh,*) obj%Tol
         write(f%fh,*) obj%SimMode
         write(f%fh,*) obj%ItrTol
@@ -135,8 +135,8 @@ subroutine exportControlPara(obj,restart,path)
     type(IO_) :: f
 
     if(present(restart) )then
-        call execute_command_line("mkdir -p "//trim(path)//"/ControlPara")
-        call f%open(trim(path)//"/ControlPara/","ControlPara",".res")
+        call execute_command_line("mkdir -p "//path//"/ControlPara")
+        call f%open(path//"/ControlPara/","ControlPara",".res")
         write(f%fh,*) obj%Tol
         write(f%fh,*) obj%SimMode
         write(f%fh,*) obj%ItrTol

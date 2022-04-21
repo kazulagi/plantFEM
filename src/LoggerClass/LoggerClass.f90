@@ -115,7 +115,7 @@ module LoggerClass
     this%counter=0
     do i=1,size(this%channel_active)
       if(this%channel_active(i) )then
-        call f%open(trim(this%channel_name(i)%all )//".txt","w") 
+        call f%open(this%channel_name(i)%all //".txt","w") 
         call f%close()
         n = n + 1
       endif
@@ -137,7 +137,7 @@ module LoggerClass
     this%counter=this%counter+1
     do i=1,size(this%channel_active)
       if(this%channel_active(i) )then
-        call f%open(trim(this%channel_name(i)%all )//".txt","a")
+        call f%open(this%channel_name(i)%all //".txt","a")
         if(present(t) )then
             call f%write(t, this%channel_value(i)%ptr )
         else
@@ -166,7 +166,7 @@ module LoggerClass
     this%counter = 0
     do i=1,size(this%channel_active)
       if(this%channel_active(i) )then
-        call f%open(trim(this%channel_name(i)%all )//".txt","w") 
+        call f%open(this%channel_name(i)%all //".txt","w") 
         call f%close("delete")
         n = n + 1
       endif

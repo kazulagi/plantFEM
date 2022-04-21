@@ -103,7 +103,7 @@ subroutine AddNodeInTree(obj,NodeObj)
     obj%Node(obj%SortedUntil)%Nodep => NodeObj
     
     print *, "A Node is imported. now number of node is ",obj%SortedUntil &
-        ,"| Name = ",trim(obj%Node(obj%SortedUntil)%Nodep%Name)
+        ,"| Name = ",obj%Node(obj%SortedUntil)%Nodep%Name
     
 
 end subroutine
@@ -122,7 +122,7 @@ subroutine cutNodeInTree(obj,NodeObj)
         if(obj%Node(i)%Nodep%Name == NodeObj%Name)then
             
             print *, "A Node is cut. now number of node is ",obj%SortedUntil &
-            ,"cut node is : ",trim(obj%Node(i)%Nodep%Name),"Node id : ",i
+            ,"cut node is : ",obj%Node(i)%Nodep%Name,"Node id : ",i
             nullify(obj%Node(i)%Nodep )
             num=num-1
         endif
@@ -151,8 +151,8 @@ subroutine showTree(obj)
     call obj%setVisualMap()
 
     do i=1,obj%SortedUntil
-        print *, "child = ",trim(obj%Node(i)%Nodep%Name) &
-            ," | parent = ",trim(obj%Node(i)%Nodep%parent%Name)
+        print *, "child = ",obj%Node(i)%Nodep%Name &
+            ," | parent = ",obj%Node(i)%Nodep%parent%Name
     enddo
 
     do i=1,obj%SortedUntil

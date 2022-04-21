@@ -265,19 +265,19 @@ subroutine initRice(obj,config,&
         conf="soyconfig.json"
         call soyconf%close()
     else
-        conf = trim(config)
+        conf = config
     endif
     
-    call soyconf%open(trim(conf))
+    call soyconf%open(conf)
     blcount=0
     do
         read(soyconf%fh,'(a)') line
-        print *, trim(line)
-        if( adjustl(trim(line))=="{" )then
+        print *, line
+        if( adjustl(line)=="{" )then
             blcount=1
             cycle
         endif
-        if( adjustl(trim(line))=="}" )then
+        if( adjustl(line)=="}" )then
             exit
         endif
         
@@ -296,7 +296,7 @@ subroutine initRice(obj,config,&
             if(index(line,"Mainstem")/=0)then
                 do
                     read(soyconf%fh,'(a)') line
-                    print *, trim(line)
+                    print *, line
                     if( index(line,"}")/=0 )then
                         exit
                     endif
@@ -351,12 +351,12 @@ subroutine initRice(obj,config,&
                     line(rmc:rmc)=" "
                 endif
                 id = index(line,"#")
-                print *, trim(line)
+                print *, line
                 read(line(id+1:),*) branch_id
 
                 do
                     read(soyconf%fh,'(a)') line
-                    print *, trim(line)
+                    print *, line
                     if( index(line,"}")/=0 )then
                         exit
                     endif
@@ -405,7 +405,7 @@ subroutine initRice(obj,config,&
             if(index(line,"Mainroot")/=0)then
                 do
                     read(soyconf%fh,'(a)') line
-                    print *, trim(line)
+                    print *, line
                     if( index(line,"}")/=0 )then
                         exit
                     endif
@@ -460,12 +460,12 @@ subroutine initRice(obj,config,&
                     line(rmc:rmc)=" "
                 endif
                 id = index(line,"#")
-                print *, trim(line)
+                print *, line
                 read(line(id+1:),*) branch_id
 
                 do
                     read(soyconf%fh,'(a)') line
-                    print *, trim(line)
+                    print *, line
                     if( index(line,"}")/=0 )then
                         exit
                     endif
@@ -1165,7 +1165,7 @@ subroutine initRice(obj,config,&
         enddo
         
 
-        obj%stage = "V"//trim(str(obj%ms_node))
+        obj%stage = "V"//str(obj%ms_node)
         return
     else
         ! create leaf, root, stem
@@ -1401,7 +1401,7 @@ subroutine initRice(obj,config,&
                 call obj%Seed%init(mass=mass,width1=9.70d0,width2=8.20d0,&
                     width3=7.70d0,&
                     water_content=water_content,radius=radius,location=loc)    
-                call obj%Seed%createMesh(FileName=trim(fn)//".stl",&
+                call obj%Seed%createMesh(FileName=fn//".stl",&
                 ElemType="Tetrahedra")
 
                 call obj%Seed%convertMeshType(Option="TetraToHexa")
@@ -1549,20 +1549,20 @@ subroutine exportRice(obj,FilePath,FileName,SeedID,withSTL,withMesh)
     if(obj%Seed%num_of_seed>=0)then
         if(present(withSTL) )then
             if(withSTL .eqv. .true.)then
-                call obj%Seed%export(FileName=trim(FileName),SeedID=itr,extention=".stl")    
+                call obj%Seed%export(FileName=FileName,SeedID=itr,extention=".stl")    
             endif
         endif
         if(present(withMesh) )then
             if(withMesh .eqv. .true.)then
-                call obj%Seed%export(FileName=trim(FileName),SeedID=itr,extention=".pos")    
+                call obj%Seed%export(FileName=FileName,SeedID=itr,extention=".pos")    
             endif
         endif
 
             
         if(present(FilePath) )then
-            call obj%Seed%export(FileName=trim(FilePath)//"/seed.geo",SeedID=itr)
+            call obj%Seed%export(FileName=FilePath//"/seed.geo",SeedID=itr)
         else
-            call obj%Seed%export(FileName=trim(FileName),SeedID=itr)
+            call obj%Seed%export(FileName=FileName,SeedID=itr)
         endif
     endif
 
@@ -1571,9 +1571,9 @@ subroutine exportRice(obj,FilePath,FileName,SeedID,withSTL,withMesh)
     do i=1,size(obj%NodeSystem)
             
         if(present(FilePath) )then
-            call obj%NodeSystem(i)%export(FileName=trim(FilePath)//"/Node.geo",objID=itr)
+            call obj%NodeSystem(i)%export(FileName=FilePath//"/Node.geo",objID=itr)
         else
-            call obj%NodeSystem(i)%export(FileName=trim(FileName)//"_Node.geo",objID=itr)
+            call obj%NodeSystem(i)%export(FileName=FileName//"_Node.geo",objID=itr)
         endif
         if(i==obj%num_of_node  )then
             exit
@@ -1585,9 +1585,9 @@ subroutine exportRice(obj,FilePath,FileName,SeedID,withSTL,withMesh)
     do i=1,size(obj%RootSystem)
             
         if(present(FilePath) )then
-            call obj%RootSystem(i)%export(FileName=trim(FilePath)//"/Root.geo",RootID=itr)
+            call obj%RootSystem(i)%export(FileName=FilePath//"/Root.geo",RootID=itr)
         else
-            call obj%RootSystem(i)%export(FileName=trim(FileName)//"_Root.geo",RootID=itr)
+            call obj%RootSystem(i)%export(FileName=FileName//"_Root.geo",RootID=itr)
         endif
         if(i==obj%num_of_root  )then
             exit
@@ -1747,19 +1747,19 @@ subroutine gmshRice(obj,name)
 
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%stem(i)%gmsh(name=trim(name)//"_stem"//trim(str(i)))
+            call obj%stem(i)%gmsh(name=name//"_stem"//str(i))
         endif
     enddo
 
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%root(i)%gmsh(name=trim(name)//"_root"//trim(str(i)))
+            call obj%root(i)%gmsh(name=name//"_root"//str(i))
         endif
     enddo
 
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%leaf(i)%gmsh(name=trim(name)//"_leaf"//trim(str(i)))
+            call obj%leaf(i)%gmsh(name=name//"_leaf"//str(i))
         endif
     enddo
 
@@ -1775,19 +1775,19 @@ subroutine mshRice(obj,name)
 
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%stem(i)%msh(name=trim(name)//"_stem"//trim(str(i)))
+            call obj%stem(i)%msh(name=name//"_stem"//str(i))
         endif
     enddo
 
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%root(i)%msh(name=trim(name)//"_root"//trim(str(i)))
+            call obj%root(i)%msh(name=name//"_root"//str(i))
         endif
     enddo
 
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%leaf(i)%msh(name=trim(name)//"_leaf"//trim(str(i)))
+            call obj%leaf(i)%msh(name=name//"_leaf"//str(i))
         endif
     enddo
 
@@ -1802,14 +1802,14 @@ subroutine jsonRice(obj,name)
     integer(int32) :: i,countnum
     type(IO_) :: f
 
-    call f%open(trim(name)//".json")
+    call f%open(name//".json")
     call f%write("{")
     countnum=0
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
             countnum=countnum+1
-            call f%write('"'//"stem"//trim(str(i))//'":')
-            call obj%stem(i)%femdomain%json(name=trim(name)//"_stem"//trim(str(i)),fh=f%fh,endl=.false.)
+            call f%write('"'//"stem"//str(i)//'":')
+            call obj%stem(i)%femdomain%json(name=name//"_stem"//str(i),fh=f%fh,endl=.false.)
         endif
     enddo
     call f%write('"num_stem":'//str(countnum)//',' )
@@ -1818,8 +1818,8 @@ subroutine jsonRice(obj,name)
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
             countnum=countnum+1
-            call f%write('"'//"root"//trim(str(i))//'":')
-            call obj%root(i)%femdomain%json(name=trim(name)//"_root"//trim(str(i)),fh=f%fh,endl=.false.)
+            call f%write('"'//"root"//str(i)//'":')
+            call obj%root(i)%femdomain%json(name=name//"_root"//str(i),fh=f%fh,endl=.false.)
         endif
     enddo
     call f%write('"num_root":'//str(countnum)//',' )
@@ -1828,8 +1828,8 @@ subroutine jsonRice(obj,name)
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             countnum=countnum+1
-            call f%write('"'//"leaf"//trim(str(i))//'":')
-            call obj%leaf(i)%femdomain%json(name=trim(name)//"_leaf"//trim(str(i)),fh=f%fh,endl=.false.)
+            call f%write('"'//"leaf"//str(i)//'":')
+            call obj%leaf(i)%femdomain%json(name=name//"_leaf"//str(i),fh=f%fh,endl=.false.)
         endif
     enddo
     call f%write('"num_leaf":'//str(countnum)//',' )
@@ -1846,25 +1846,25 @@ subroutine stlRice(obj,name)
     integer(int32) :: i
 
 
-    !call execute_command_line("echo ' ' > "//trim(name)//".stl")
+    !call execute_command_line("echo ' ' > "//name//".stl")
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%stem(i)%stl(name=trim(name)//"_stem"//trim(str(i)))
-            !call execute_command_line("cat "//trim(name)//"_stem"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            call obj%stem(i)%stl(name=name//"_stem"//str(i))
+            !call execute_command_line("cat "//name//"_stem"//str(i)//"_000001.stl >> "//name//".stl")
         endif
     enddo
 
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%root(i)%stl(name=trim(name)//"_root"//trim(str(i)))
-            !call execute_command_line("cat "//trim(name)//"_root"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            call obj%root(i)%stl(name=name//"_root"//str(i))
+            !call execute_command_line("cat "//name//"_root"//str(i)//"_000001.stl >> "//name//".stl")
         endif
     enddo
 
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%leaf(i)%stl(name=trim(name)//"_leaf"//trim(str(i)))
-            !call execute_command_line("cat "//trim(name)//"_leaf"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            call obj%leaf(i)%stl(name=name//"_leaf"//str(i))
+            !call execute_command_line("cat "//name//"_leaf"//str(i)//"_000001.stl >> "//name//".stl")
         endif
     enddo
 

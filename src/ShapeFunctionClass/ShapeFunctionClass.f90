@@ -67,9 +67,9 @@ subroutine openShapeFunction(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
+        call execute_command_line("mkdir -p "//path//"/"//name)
         
-        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","ShapeFunction","prop" )
+        call f%open(path//"/"//name//"/","ShapeFunction","prop" )
         
         call openArray(f%fh,obj%Nmat)
         call openArray(f%fh,obj%dNdgzi)
@@ -97,8 +97,8 @@ subroutine openShapeFunction(obj,path,name)
         call f%close()
     else
 
-        call execute_command_line("mkdir -p "//trim(path)//"/ShapeFunction")
-        call f%open(trim(path)//"/","ShapeFunction/ShapeFunction","prop" )
+        call execute_command_line("mkdir -p "//path//"/ShapeFunction")
+        call f%open(path//"/","ShapeFunction/ShapeFunction","prop" )
         
         call openArray(f%fh,obj%Nmat)
         call openArray(f%fh,obj%dNdgzi)
@@ -138,9 +138,9 @@ subroutine saveShapeFunction(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
+        call execute_command_line("mkdir -p "//path//"/"//name)
         
-        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","ShapeFunction","prop" )
+        call f%open(path//"/"//name//"/","ShapeFunction","prop" )
         
         call writeArray(f%fh,obj%Nmat)
         call writeArray(f%fh,obj%dNdgzi)
@@ -162,14 +162,14 @@ subroutine saveShapeFunction(obj,path,name)
         write(f%fh,*)obj%ierr
         write(f%fh,*)obj%currentGpID
         write(f%fh,*)obj%ReducedIntegration
-        write(f%fh,*)trim(obj%ElemType)
-        write(f%fh,*)trim(obj%ErrorMsg)
+        write(f%fh,*)obj%ElemType
+        write(f%fh,*)obj%ErrorMsg
         
         call f%close()
     else
 
-        call execute_command_line("mkdir -p "//trim(path)//"/ShapeFunction")
-        call f%open(trim(path)//"/","ShapeFunction/ShapeFunction","prop" )
+        call execute_command_line("mkdir -p "//path//"/ShapeFunction")
+        call f%open(path//"/","ShapeFunction/ShapeFunction","prop" )
         
         call writeArray(f%fh,obj%Nmat)
         call writeArray(f%fh,obj%dNdgzi)
@@ -191,8 +191,8 @@ subroutine saveShapeFunction(obj,path,name)
         write(f%fh,*) obj%ierr
         write(f%fh,*) obj%currentGpID
         write(f%fh,*) obj%ReducedIntegration
-        write(f%fh,*) trim(obj%ElemType)
-        write(f%fh,*) trim(obj%ErrorMsg)
+        write(f%fh,*) obj%ElemType
+        write(f%fh,*) obj%ErrorMsg
         
         call f%close()
     endif
@@ -281,7 +281,7 @@ end subroutine
 subroutine SetShapeFuncType(obj,NumOfDim,NumOfNodePerElem,ReducedIntegration)
     class(ShapeFunction_),intent(inout)::obj
     logical,optional,intent(in) :: ReducedIntegration
-    character*70 ::  TrimedElemType
+    character(:),allocatable ::  TrimedElemType
     integer(int32),optional,intent(in) :: NumOfDim,NumOfNodePerElem
 
     if(present(NumOfDim) )then
@@ -294,8 +294,8 @@ subroutine SetShapeFuncType(obj,NumOfDim,NumOfNodePerElem,ReducedIntegration)
         obj%ReducedIntegration=ReducedIntegration
     endif
     
-    TrimedElemType=trim(obj%ElemType)
-    if(trim(TrimedElemType)=="LinearRectangularGp4")then
+    TrimedElemType=obj%ElemType
+    if(TrimedElemType=="LinearRectangularGp4")then
 
         obj%NumOfNode   = 4
         obj%NumOfOrder  = 1
@@ -303,18 +303,18 @@ subroutine SetShapeFuncType(obj,NumOfDim,NumOfNodePerElem,ReducedIntegration)
         obj%NumOfGp     = 4
         
 
-    elseif(trim(TrimedElemType)=="LinearHexahedralGp8")then
+    elseif(TrimedElemType=="LinearHexahedralGp8")then
         obj%NumOfNode   = 8
         obj%NumOfOrder  = 1
         obj%NumOfDim    = 3
         obj%NumOfGp     = 8
         
-    elseif(trim(TrimedElemType)=="Triangular")then
+    elseif(TrimedElemType=="Triangular")then
         obj%NumOfNode   = 3
         obj%NumOfOrder  = 1
         obj%NumOfDim    = 2
         obj%NumOfGp     = 1
-    elseif(trim(TrimedElemType)=="LinearTetrahedral")then
+    elseif(TrimedElemType=="LinearTetrahedral")then
         obj%NumOfNode   = 4
         obj%NumOfOrder  = 1
         obj%NumOfDim    = 3
@@ -1269,8 +1269,8 @@ subroutine exportShapeFunction(obj,restart,path)
     type(IO_) :: f
 
     if(present(restart) )then
-        call execute_command_line("mkdir -p "//trim(path)//"/ShapeFunction")
-        call f%open(trim(path)//"/ShapeFunction/","ShapeFunction",".res")
+        call execute_command_line("mkdir -p "//path//"/ShapeFunction")
+        call f%open(path//"/ShapeFunction/","ShapeFunction",".res")
         write(f%fh,*) obj%Nmat(:)
         write(f%fh,*) obj%dNdgzi(:,:)
         write(f%fh,*) obj%dNdgzidgzi(:,:)
@@ -1291,8 +1291,8 @@ subroutine exportShapeFunction(obj,restart,path)
         write(f%fh,*) obj%ierr
         write(f%fh,*) obj%currentGpID
         write(f%fh,*) obj%ReducedIntegration
-        write(f%fh,'(A)' ) trim(obj%elemType)
-        write(f%fh,'(A)' ) trim(obj%ErrorMsg)
+        write(f%fh,'(A)' ) obj%ElemType
+        write(f%fh,'(A)' ) obj%ErrorMsg
         call f%close()
     endif
 

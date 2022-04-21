@@ -96,8 +96,8 @@ subroutine createMaize(obj,config)
     ! get number of leaf
     obj%num_leaf=1
     do 
-        line = Maizeconfig%parse(config,key1="Leaf#"//trim(str(obj%num_leaf)),key2="From" )
-        if(len(trim(line))==0)then
+        line = Maizeconfig%parse(config,key1="Leaf#"//str(obj%num_leaf),key2="From" )
+        if(len(line)==0)then
             obj%num_leaf = obj%num_leaf -1
             exit
         else
@@ -123,33 +123,33 @@ subroutine createMaize(obj,config)
 
     do i=1,obj%num_leaf
         obj%leaf_From(i)= fint(Maizeconfig%parse(&
-            config,key1="Leaf#"//trim(str(i)),key2="From"))
+            config,key1="Leaf#"//str(i),key2="From"))
         obj%leaf_Length(i)= freal(Maizeconfig%parse(&
-            config,key1="Leaf#"//trim(str(i)),key2="Length"))
+            config,key1="Leaf#"//str(i),key2="Length"))
         obj%leaf_Width(i)= freal(Maizeconfig%parse(&
-            config,key1="Leaf#"//trim(str(i)),key2="Width"))
+            config,key1="Leaf#"//str(i),key2="Width"))
         obj%leaf_curvature(i)= freal(Maizeconfig%parse(&
-            config,key1="Leaf#"//trim(str(i)),key2="leaf_curvature"))
+            config,key1="Leaf#"//str(i),key2="leaf_curvature"))
         obj%leaf_thickness_ave(i)= freal(Maizeconfig%parse(&
-            config,key1="Leaf#"//trim(str(i)),key2="leaf_thickness_ave"))
+            config,key1="Leaf#"//str(i),key2="leaf_thickness_ave"))
         obj%leaf_thickness_sig(i)= freal(Maizeconfig%parse(&
-            config,key1="Leaf#"//trim(str(i)),key2="leaf_thickness_sig"))
+            config,key1="Leaf#"//str(i),key2="leaf_thickness_sig"))
         obj%leaf_angle_ave_x(i)= freal(Maizeconfig%parse(&
-            config,key1="Leaf#"//trim(str(i)),key2="leaf_angle_ave_x"))
+            config,key1="Leaf#"//str(i),key2="leaf_angle_ave_x"))
         obj%leaf_angle_sig_x(i)= freal(Maizeconfig%parse(&
-            config,key1="Leaf#"//trim(str(i)),key2="leaf_angle_sig_x"))
+            config,key1="Leaf#"//str(i),key2="leaf_angle_sig_x"))
         obj%leaf_angle_ave_z(i)= freal(Maizeconfig%parse(&
-            config,key1="Leaf#"//trim(str(i)),key2="leaf_angle_ave_z"))
+            config,key1="Leaf#"//str(i),key2="leaf_angle_ave_z"))
         obj%leaf_angle_sig_z(i)= freal(Maizeconfig%parse(&
-            config,key1="Leaf#"//trim(str(i)),key2="leaf_angle_sig_z"))
+            config,key1="Leaf#"//str(i),key2="leaf_angle_sig_z"))
         obj%leaf_length_ave(i)= freal(Maizeconfig%parse(&
-            config,key1="Leaf#"//trim(str(i)),key2="leaf_length_ave"))
+            config,key1="Leaf#"//str(i),key2="leaf_length_ave"))
         obj%leaf_length_sig(i)= freal(Maizeconfig%parse(&
-            config,key1="Leaf#"//trim(str(i)),key2="leaf_length_sig"))
+            config,key1="Leaf#"//str(i),key2="leaf_length_sig"))
         obj%leaf_width_ave(i)= freal(Maizeconfig%parse(&
-            config,key1="Leaf#"//trim(str(i)),key2="leaf_width_ave"))
+            config,key1="Leaf#"//str(i),key2="leaf_width_ave"))
         obj%leaf_width_sig(i)= freal(Maizeconfig%parse(&
-            config,key1="Leaf#"//trim(str(i)),key2="leaf_width_sig"))
+            config,key1="Leaf#"//str(i),key2="leaf_width_sig"))
     enddo
 
     obj%mainroot_length = freal(Maizeconfig%parse(config,key1="Mainroot",key2="Length"))
@@ -162,8 +162,8 @@ subroutine createMaize(obj,config)
     obj%num_branch_root=1
     obj%num_branch_root_node=0
     do 
-        line = Maizeconfig%parse(config,key1="Branchroot#"//trim(str(obj%num_branch_root)),key2="Node" )
-        if(len(trim(line))==0)then
+        line = Maizeconfig%parse(config,key1="Branchroot#"//str(obj%num_branch_root),key2="Node" )
+        if(len(line)==0)then
             obj%num_branch_root = obj%num_branch_root -1
             exit
         else
@@ -220,7 +220,7 @@ subroutine createMaize(obj,config)
         ! add leaves
         
         num_leaf=num_leaf+1
-        !call obj%leaf(num_leaf)%create(filename=trim(obj%LeafSurfaceData))
+        
         call obj%leaf(num_leaf)%init(species=PF_MAIZE)
         call obj%leaf(num_leaf)%femdomain%resize(&
                 y = random%gauss(mu=obj%leaf_thickness_ave(i),sigma=obj%leaf_thickness_sig(i))  , &
@@ -257,7 +257,7 @@ subroutine mshMaize(obj,name,num_threads)
     !$OMP do 
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%stem(i)%msh(name=trim(name)//"_stem"//trim(str(i)))
+            call obj%stem(i)%msh(name=name//"_stem"//str(i))
         endif
     enddo
     !$OMP end do
@@ -267,7 +267,7 @@ subroutine mshMaize(obj,name,num_threads)
     !$OMP do 
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%root(i)%msh(name=trim(name)//"_root"//trim(str(i)))
+            call obj%root(i)%msh(name=name//"_root"//str(i))
         endif
     enddo
     !$OMP end do
@@ -277,7 +277,7 @@ subroutine mshMaize(obj,name,num_threads)
     !$OMP do 
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%leaf(i)%msh(name=trim(name)//"_leaf"//trim(str(i)))
+            call obj%leaf(i)%msh(name=name//"_leaf"//str(i))
         endif
     enddo
     !$OMP end do
@@ -300,7 +300,7 @@ subroutine vtkMaize(obj,name,num_threads)
         !$OMP do 
         do i=1,size(obj%stem)
             if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-                call obj%stem(i)%vtk(name=trim(name)//"_stem"//trim(str(i)))
+                call obj%stem(i)%vtk(name=name//"_stem"//str(i))
             endif
         enddo
         !$OMP end do
@@ -312,7 +312,7 @@ subroutine vtkMaize(obj,name,num_threads)
         !$OMP do 
         do i=1,size(obj%root)
             if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-                call obj%root(i)%vtk(name=trim(name)//"_root"//trim(str(i)))
+                call obj%root(i)%vtk(name=name//"_root"//str(i))
             endif
         enddo
         !$OMP end do
@@ -325,7 +325,7 @@ subroutine vtkMaize(obj,name,num_threads)
         !$OMP do 
         do i=1,size(obj%leaf)
             if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-                call obj%leaf(i)%vtk(name=trim(name)//"_leaf"//trim(str(i)))
+                call obj%leaf(i)%vtk(name=name//"_leaf"//str(i))
             endif
         enddo
         !$OMP end do
@@ -343,14 +343,14 @@ subroutine jsonMaize(obj,name)
     integer(int32) :: i,countnum
     type(IO_) :: f
 
-    call f%open(trim(name)//".json")
+    call f%open(name//".json")
     call f%write("{")
     countnum=0
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
             countnum=countnum+1
-            call f%write('"'//"stem"//trim(str(i))//'":')
-            call obj%stem(i)%femdomain%json(name=trim(name)//"_stem"//trim(str(i)),fh=f%fh,endl=.false.)
+            call f%write('"'//"stem"//str(i)//'":')
+            call obj%stem(i)%femdomain%json(name=name//"_stem"//str(i),fh=f%fh,endl=.false.)
         endif
     enddo
     call f%write('"num_stem":'//str(countnum)//',' )
@@ -359,8 +359,8 @@ subroutine jsonMaize(obj,name)
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
             countnum=countnum+1
-            call f%write('"'//"root"//trim(str(i))//'":')
-            call obj%root(i)%femdomain%json(name=trim(name)//"_root"//trim(str(i)),fh=f%fh,endl=.false.)
+            call f%write('"'//"root"//str(i)//'":')
+            call obj%root(i)%femdomain%json(name=name//"_root"//str(i),fh=f%fh,endl=.false.)
         endif
     enddo
     call f%write('"num_root":'//str(countnum)//',' )
@@ -369,8 +369,8 @@ subroutine jsonMaize(obj,name)
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             countnum=countnum+1
-            call f%write('"'//"leaf"//trim(str(i))//'":')
-            call obj%leaf(i)%femdomain%json(name=trim(name)//"_leaf"//trim(str(i)),fh=f%fh,endl=.false.)
+            call f%write('"'//"leaf"//str(i)//'":')
+            call obj%leaf(i)%femdomain%json(name=name//"_leaf"//str(i),fh=f%fh,endl=.false.)
         endif
     enddo
     call f%write('"num_leaf":'//str(countnum)//',' )
@@ -388,13 +388,13 @@ subroutine stlMaize(obj,name,num_threads)
     integer(int32) :: i,n
 
     n = input(default=1,option=num_threads)
-    !call execute_command_line("echo ' ' > "//trim(name)//".stl")
+    !call execute_command_line("echo ' ' > "//name//".stl")
     !$OMP parallel num_threads(n) private(i)
     !$OMP do 
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%stem(i)%stl(name=trim(name)//"_stem"//trim(str(i)))
-            !call execute_command_line("cat "//trim(name)//"_stem"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            call obj%stem(i)%stl(name=name//"_stem"//str(i))
+            !call execute_command_line("cat "//name//"_stem"//str(i)//"_000001.stl >> "//name//".stl")
         endif
     enddo
     !$OMP end do
@@ -404,8 +404,8 @@ subroutine stlMaize(obj,name,num_threads)
     !$OMP do 
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%root(i)%stl(name=trim(name)//"_root"//trim(str(i)))
-            !call execute_command_line("cat "//trim(name)//"_root"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            call obj%root(i)%stl(name=name//"_root"//str(i))
+            !call execute_command_line("cat "//name//"_root"//str(i)//"_000001.stl >> "//name//".stl")
         endif
     enddo
     !$OMP end do
@@ -415,8 +415,8 @@ subroutine stlMaize(obj,name,num_threads)
     !$OMP do 
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%leaf(i)%stl(name=trim(name)//"_leaf"//trim(str(i)))
-            !call execute_command_line("cat "//trim(name)//"_leaf"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            call obj%leaf(i)%stl(name=name//"_leaf"//str(i))
+            !call execute_command_line("cat "//name//"_leaf"//str(i)//"_000001.stl >> "//name//".stl")
         endif
     enddo
     !$OMP end do

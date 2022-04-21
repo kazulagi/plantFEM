@@ -247,14 +247,14 @@ subroutine openDiffusionEq(obj,path,name)
 		!	pathi(n:n)= " "
 		!endif
 
-		call f%open(trim(pathi)//"/"//trim(name) ,"/"//"DiffusionEq",".prop" )
+		call f%open(pathi//"/"//name ,"/"//"DiffusionEq",".prop" )
 	else
 		pathi=path
 		!if( index(path, "/", back=.true.) == len(path) )then
 		!	n=index(path, "/", back=.true.)
 		!	pathi(n:n)= " "
 		!endif
-		call f%open(trim(pathi)//"/DiffusionEq","/DiffusionEq",".prop" )
+		call f%open(pathi//"/DiffusionEq","/DiffusionEq",".prop" )
 	endif
 	
 	! write smt at here!
@@ -295,18 +295,18 @@ subroutine saveDiffusionEq(obj,path,name)
 		!	pathi(n:n)= " "
 		!endif
 
-		call execute_command_line("mkdir -p "//trim(pathi))
-		call execute_command_line("mkdir -p "//trim(pathi)//"/"//trim(name) )
-		call f%open(trim(pathi)//"/"//trim(name) ,"/"//"DiffusionEq",".prop" )
+		call execute_command_line("mkdir -p "//pathi)
+		call execute_command_line("mkdir -p "//pathi//"/"//name )
+		call f%open(pathi//"/"//name ,"/"//"DiffusionEq",".prop" )
 	else
 		pathi=path
 		!if( index(path, "/", back=.true.) == len(path) )then
 		!	n=index(path, "/", back=.true.)
 		!	pathi(n:n)= " "
 		!endif
-		call execute_command_line("mkdir -p "//trim(pathi))
-		call execute_command_line("mkdir -p "//trim(pathi)//"/DiffusionEq")
-		call f%open(trim(pathi)//"/DiffusionEq","/DiffusionEq",".prop" )
+		call execute_command_line("mkdir -p "//pathi)
+		call execute_command_line("mkdir -p "//pathi//"/DiffusionEq")
+		call f%open(pathi//"/DiffusionEq","/DiffusionEq",".prop" )
 	endif
 	
 	! write smt at here!
@@ -357,11 +357,11 @@ subroutine exportDiffusionEq(obj,path,restart)
     type(IO_) :: f
     
     if(present(restart) )then
-        call execute_command_line("mkdir -p "//trim(path)//"/DiffusionEq")
-	    call f%open("./",trim(path),"/DiffusionEq/DiffusionEq.res")
+        call execute_command_line("mkdir -p "//path//"/DiffusionEq")
+	    call f%open("./",path,"/DiffusionEq/DiffusionEq.res")
         
         if(associated(obj%FEMDomain) )then
-            call obj%FEMDomain%export(path = trim(path)//"/FEMDomain",FileHandle=f%fh+1,restart=.true.)
+            call obj%FEMDomain%export(path = path//"/FEMDomain",FileHandle=f%fh+1,restart=.true.)
         endif
 
         write(f%fh,*) obj%UnknownValue(:,:)
@@ -400,20 +400,20 @@ subroutine ImportFEMDomainDiff(obj,OptionalFileFormat,OptionalProjectName)
 
     fh =104
     if(present(OptionalFileFormat) )then
-        FileFormat=trim(OptionalFileFormat)
+        FileFormat=OptionalFileFormat
     else
         FileFormat=".scf"
     endif
 
 
     if(present(OptionalProjectName) )then
-        ProjectName=trim(OptionalProjectName)
+        ProjectName=OptionalProjectName
     else
         ProjectName="untitled"
     endif
 
-    FileName = trim(ProjectName)//trim(FileFormat)
-    obj%FileName = trim(FileName)
+    FileName = ProjectName//FileFormat
+    obj%FileName = FileName
     obj%FilePath = "./"
     !!print *, "Project : ",ProjectName
     !!print *, "is Exported as : ",FileFormat," format"
@@ -421,7 +421,7 @@ subroutine ImportFEMDomainDiff(obj,OptionalFileFormat,OptionalProjectName)
 
     open(fh,file=FileName,status="old")
 
-    if(trim(FileFormat)==".scf" )then
+    if(FileFormat==".scf" )then
 
         read(fh,*) NumOfDomain
         allocate(IntMat(NumOfDomain,2))
@@ -696,10 +696,10 @@ subroutine SolveDiffusionEq(obj,Solvertype,restart)
     n=size(bvec)
     
 
-    if(trim(solver)=="GaussJordan")then
+    if(solver=="GaussJordan")then
         print *, "Solver type :: GaussJordan" 
         call  gauss_jordan_pv(Amat, xvec, bvec,size(xvec) )
-    elseif(trim(solver)=="BiCGSTAB")then
+    elseif(solver=="BiCGSTAB")then
         print *, "Solver type :: BiCGSTAB"
         call bicgstab_Diffusion(Amat, bvec, xvec, size(xvec), itrmax, er,obj%FEMDomain%Boundary%DBoundNodID,&
         obj%FEMDomain%Boundary%DBoundVal)
@@ -1216,20 +1216,20 @@ subroutine DisplayDiffusionEq(obj,OptionalProjectName,DisplayMode,OptionalStep,N
     endif
 
     if(present(DisplayMode) )then
-        if(trim(DisplayMode)=="Terminal" .or. trim(DisplayMode)=="terminal")then
+        if(DisplayMode=="Terminal" .or. DisplayMode=="terminal")then
             do i=1,size(obj%UnknownValue,1)
                 print *, obj%UnknownValue(i,:)
             enddo
-        elseif(trim(DisplayMode)=="gmsh" .or. trim(DisplayMode)=="Gmsh" )then   
+        elseif(DisplayMode=="gmsh" .or. DisplayMode=="Gmsh" )then   
             call GmshPlotContour(obj%FEMDomain,gp_value=obj%UnknownValue,OptionalStep=step)
-            call GmshPlotVector(obj%FEMDomain,Vector=obj%FluxVector3D,Name=trim(obj%FEMDomain%FileName),&
+            call GmshPlotVector(obj%FEMDomain,Vector=obj%FluxVector3D,Name=obj%FEMDomain%FileName,&
             FieldName="Flux", Step=step,ElementWize=.true.,withMsh=withMsh)
-        elseif(trim(DisplayMode)=="gnuplot" .or. trim(DisplayMode)=="Gnuplot" )then
+        elseif(DisplayMode=="gnuplot" .or. DisplayMode=="Gnuplot" )then
             call GnuplotPlotContour(obj%FEMDomain,obj%UnknownValue,OptionalStep=step)
             
         else
             print *, "Invalid DisplayMode >> DisplayDiffusionEq "
-            print *, "DisplayMode '",trim(DisplayMode),"' is not defined" 
+            print *, "DisplayMode '",DisplayMode,"' is not defined" 
         endif
         return
     endif

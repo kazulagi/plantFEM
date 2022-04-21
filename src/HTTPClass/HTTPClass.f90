@@ -17,10 +17,10 @@ subroutine posthttp(obj)
     class(http_),intent(in) :: obj
 
     call execute_command_line("curl -X POST '"//&
-    trim(obj%url)//"' -d 'token="//&
-    trim(obj%token)//"' -d 'channel="//&
-    trim(obj%channel)//"' -d 'text="//&
-    trim(obj%body)//"'"&
+    obj%url//"' -d 'token="//&
+    obj%token//"' -d 'channel="//&
+    obj%channel//"' -d 'text="//&
+    obj%body//"'"&
     )
 
 end subroutine
@@ -29,10 +29,10 @@ subroutine gethttp(obj)
     class(http_),intent(in) :: obj
 
     call execute_command_line("curl -X POST '"//&
-    trim(obj%url)//"' -d 'token="//&
-    trim(obj%token)//"' -d 'channel="//&
-    trim(obj%channel)//"' -d 'text="//&
-    trim(obj%body)//"'"&
+    obj%url//"' -d 'token="//&
+    obj%token//"' -d 'channel="//&
+    obj%channel//"' -d 'text="//&
+    obj%body//"'"&
     )
 
 end subroutine

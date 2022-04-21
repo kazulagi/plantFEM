@@ -12,7 +12,7 @@ module MeshClass
 
     type:: Mesh_
         ! Name
-        character*200::FileName=" "
+        character(:),allocatable::FileName
         ! Nodal coordinates
         real(real64),allocatable  ::NodCoord(:,:)
         ! Connectivity information for FE-mesh
@@ -43,9 +43,9 @@ module MeshClass
         integer(int32),allocatable::GlobalNodID(:)
 
         character(len=36) :: uuid
-        character*70::ElemType=" "
-        character*70:: ErrorMsg=" "
-        character*70:: meshtype
+        character(:),allocatable::ElemType
+        character(:),allocatable:: ErrorMsg
+        character(:),allocatable:: meshtype
 
     contains
         procedure :: add => addMesh
@@ -287,6 +287,8 @@ end function
         integer(int32),allocatable :: list(:)
         integer(int32) :: itr, i,j,k,l,n,node_id,m
 
+        call print("detectIfaceMesh >> Not implemented yet.")
+        list = zeros(1)
 !        if(present(,material1) .and.  present(,material2))then
 !            ! rip between material 1 and material 2
 !            
@@ -394,18 +396,18 @@ end function
 
         
         if(present(name) )then
-            call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
-            call f%open(trim(path)//"/"//trim(adjustl(name))//"/","Mesh",".prop")
-            !call obj%gmsh(Name=trim(path)//"/"//trim(adjustl(name))//"/Mesh")
-            !call obj%export(path=trim(path)//"/"//trim(adjustl(name))//"/",name="Mesh")
-            !print *, trim(path)//"/"//trim(adjustl(name))//"/","Mesh",".prop"
+            call execute_command_line("mkdir -p "//path//"/"//name)
+            call f%open(path//"/"//name//"/","Mesh",".prop")
+            !call obj%gmsh(Name=path//"/"//name//"/Mesh")
+            !call obj%export(path=path//"/"//name//"/",name="Mesh")
+            !print *, path//"/"//name//"/","Mesh",".prop"
 
         else
-            call execute_command_line("mkdir -p "//trim(path)//"/Mesh")
-            call f%open(trim(path)//"/Mesh/","Mesh",".prop")
-            !call obj%gmsh(Name=trim(path)//"/Mesh/Mesh")
-            !call obj%export(path=trim(path)//"/Mesh/",name="Mesh")
-            !print *, trim(path)//"/Mesh/","Mesh",".prop"
+            call execute_command_line("mkdir -p "//path//"/Mesh")
+            call f%open(path//"/Mesh/","Mesh",".prop")
+            !call obj%gmsh(Name=path//"/Mesh/Mesh")
+            !call obj%export(path=path//"/Mesh/",name="Mesh")
+            !print *, path//"/Mesh/","Mesh",".prop"
         endif
 
     
@@ -433,9 +435,9 @@ end function
         
         write(f%fh,*) obj%surface
         
-        write(f%fh,'(A)') trim(obj%FileName)
-        write(f%fh,'(A)') trim(obj%ElemType)
-        write(f%fh,'(A)') trim(obj%ErrorMsg)
+        write(f%fh,'(A)') obj%FileName
+        write(f%fh,'(A)') obj%ElemType
+        write(f%fh,'(A)') obj%ErrorMsg
         call f%close()        
     end subroutine
 
@@ -448,9 +450,9 @@ subroutine openMesh(obj,path,name)
     integer(int32) :: i,j,dim_num,n,m
     
     if(present(name) )then
-        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","Mesh",".prop")
+        call f%open(path//"/"//name//"/","Mesh",".prop")
     else
-        call f%open(trim(path)//"/Mesh/","Mesh",".prop")
+        call f%open(path//"/Mesh/","Mesh",".prop")
     endif
         
 
@@ -945,8 +947,8 @@ subroutine importMeshObj(obj,FileName,extention,ElemType,Mesh)
     type(Mesh_),optional,intent(in) :: Mesh
     type(IO_) :: f
     character(*),optional,intent(in)::FileName,extention,ElemType
-    character(200) :: MeshVersionFormatted,Dim,Vertices,Edges,Triangles
-    character(200) :: Tetrahedra,ex,ch
+    character(:),allocatable :: MeshVersionFormatted,Dim,Vertices,Edges,Triangles
+    character(:),allocatable :: Tetrahedra,ex,ch
     real(real64) :: null_num_real
     integer(int32) :: dim_num,node_num,elem_num,elemnod_num,i,j
     integer(int32) :: edge_num,null_num_int,num_of_triangles
@@ -960,13 +962,13 @@ subroutine importMeshObj(obj,FileName,extention,ElemType,Mesh)
 
     if(present(FileName) )then
         ex=getext(FileName)
-        if(  trim(ex)=="stl")then
+        if(  ex=="stl")then
             
             return
         endif
     endif
 
-    if(trim(extention) == ".mesh")then
+    if(extention == ".mesh")then
         open(17,file=FileName)
         read(17,*) MeshVersionFormatted,null_num_int
         read(17,*) Dim
@@ -985,9 +987,9 @@ subroutine importMeshObj(obj,FileName,extention,ElemType,Mesh)
         enddo
         read(17,*) Triangles
         read(17,*) num_of_triangles
-        if(trim(adjustl(ElemType))=="Triangles"  )then    
+        if(ElemType=="Triangles"  )then    
             allocate(obj%ElemNod(num_of_triangles,3) )
-            print *, "MeshClass >> importMeshobj >> Reading ", trim(Triangles)
+            print *, "MeshClass >> importMeshobj >> Reading ", Triangles
             do i=1,num_of_triangles
                 read(17,*) obj%ElemNod(i,1:3)
             enddo
@@ -999,9 +1001,9 @@ subroutine importMeshObj(obj,FileName,extention,ElemType,Mesh)
 
         read(17,*) Tetrahedra
         read(17,*) num_of_Tetrahedra
-        if(trim(adjustl(ElemType))=="Tetrahedra"  )then    
+        if(ElemType=="Tetrahedra"  )then    
             allocate(obj%ElemNod(num_of_Tetrahedra,4) )
-            print *, "MeshClass >> importMeshobj >> Reading ", trim(Tetrahedra)
+            print *, "MeshClass >> importMeshobj >> Reading ", Tetrahedra
             do i=1,num_of_Tetrahedra
                 read(17,*) obj%ElemNod(i,1:4)
             enddo
@@ -1030,20 +1032,20 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
     logical,optional,intent(in) :: restart,stl
     character(*),optional,intent(in) :: path
     character(*),optional,intent(in) :: name
-    character(200) :: fieldname
+    character(:),allocatable :: fieldname
     type(IO_) :: f
     integer(int32) :: i,j,dim_num
 	real(real64) :: x1(3),x2(3),x3(3),x,y,z
     
     if(present(name) )then
-        fieldname=trim(adjustl(name))
+        fieldname=name
     else
         fieldname="Mesh"
     endif
 
     if(size(obj%ElemNod,2)==2 )then
 
-        call f%open(trim(fieldname)//".msh" )
+        call f%open(fieldname//".msh" )
         call f%write("$MeshFormat") 
         call f%write("2.2 0 8")
         call f%write("$EndMeshFormat\n")
@@ -1064,7 +1066,7 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
         return
     endif
 
-    call execute_command_line("mkdir -p "//trim(path)//"/Mesh")
+    call execute_command_line("mkdir -p "//path//"/Mesh")
 
     if(obj%empty() .eqv. .true.)then
         return
@@ -1072,8 +1074,8 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
 
 
     if(present(restart) )then
-        call execute_command_line("mkdir -p "//trim(path)//"/Mesh")
-        call f%open(trim(path)//"/Mesh/",trim(fieldname),".prop")
+        call execute_command_line("mkdir -p "//path//"/Mesh")
+        call f%open(path//"/Mesh/",fieldname,".prop")
         
         call writeArray(f%fh,obj%NodCoord)
 
@@ -1099,15 +1101,15 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
         
         write(f%fh,*) obj%surface
 
-        write(f%fh,'(A)') trim(obj%FileName)
-        write(f%fh,'(A)') trim(obj%ElemType)
-        write(f%fh,'(A)') trim(obj%ErrorMsg)
+        write(f%fh,'(A)') obj%FileName
+        write(f%fh,'(A)') obj%ElemType
+        write(f%fh,'(A)') obj%ErrorMsg
         call f%close()
         return
     endif
 
     ! export mesh 
-    call f%open(trim(path)//"/Mesh/","Mesh",".vtk")
+    call f%open(path//"/Mesh/","Mesh",".vtk")
 	write(f%fh,'(A)' ) "# vtk DataFile Version 2.0"
 	write(f%fh,'(A)' ) "Cube example"
 	write(f%fh,'(A)' ) "ASCII"
@@ -1162,7 +1164,7 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
     ! export mesh with scalar
     if(present(scalar) )then
 
-        call f%open(trim(path)//"/Mesh/",trim(fieldname),".vtk")
+        call f%open(path//"/Mesh/",fieldname,".vtk")
     	write(f%fh,'(A)' ) "# vtk DataFile Version 2.0"
     	write(f%fh,'(A)' ) "Cube example"
     	write(f%fh,'(A)' ) "ASCII"
@@ -1243,8 +1245,8 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
 	    	write(f%fh,'(A)') " "
         enddo
         
-        call execute_command_line("mkdir -p "//trim(path)//"/Mesh")
-        call f%open(trim(path)//"/Mesh/",trim(fieldname),".ply")
+        call execute_command_line("mkdir -p "//path//"/Mesh")
+        call f%open(path//"/Mesh/",fieldname,".ply")
     	write(f%fh,'(A)')"ply"
     	write(f%fh,'(A)')"format ascii 1.0"
     	write(f%fh,'(A)',advance="no")"element vertex "
@@ -1342,8 +1344,8 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
     
 
 
-    call execute_command_line("mkdir -p "//trim(path)//"/Mesh")
-    call f%open(trim(path)//"/Mesh/","Mesh",".ply")
+    call execute_command_line("mkdir -p "//path//"/Mesh")
+    call f%open(path//"/Mesh/","Mesh",".ply")
 	write(f%fh,'(A)')"ply"
 	write(f%fh,'(A)')"format ascii 1.0"
 	write(f%fh,'(A)',advance="no")"element vertex "
@@ -1434,8 +1436,8 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
     call f%close()
 
     if(present(stl) )then
-        call execute_command_line("mkdir -p "//trim(path)//"/Mesh")
-        call f%open(trim(path)//"/Mesh/","Mesh",".stl")
+        call execute_command_line("mkdir -p "//path//"/Mesh")
+        call f%open(path//"/Mesh/","Mesh",".stl")
         call obj%GetSurface()
 	    dim_num = size(obj%NodCoord,2)
         if(dim_num/=3)then
@@ -1443,7 +1445,7 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
             close(f%fh)
             return
         endif
-        write(f%fh,'(A)') "solid "//trim(path)//"/Mesh"
+        write(f%fh,'(A)') "solid "//path//"/Mesh"
         print *, "Number of facet is",size(obj%FacetElemNod,1)
         do i=1,size(obj%FacetElemNod,1)
             if(size(obj%FacetElemNod,2)==4  )then
@@ -1491,7 +1493,7 @@ subroutine exportMeshObj(obj,restart,path,stl,scalar,vector,tensor,name)
                 close(f%fh)
             endif
         enddo
-        write(f%fh,'(A)') "endsolid "//trim(path)//"/Mesh"
+        write(f%fh,'(A)') "endsolid "//path//"/Mesh"
         call f%close()
     endif
 
@@ -2919,7 +2921,7 @@ subroutine DisplayMesh(obj,OptionalFolderName,OptionalFormat,FileHandle,Name)
 
     
 if(present(OptionalFormat) )then
-    if(trim(OptionalFormat)==".gp")then
+    if(OptionalFormat==".gp")then
         ! Export Mesh as .gp
         open(102,file="SurfaceLine2D.txt")
         ! Surface line
@@ -2946,7 +2948,7 @@ if(present(OptionalFormat) )then
     endif
 endif
 if(present(OptionalFormat) )then
-    if(trim(OptionalFormat)==".gp")then
+    if(OptionalFormat==".gp")then
         ! Export Mesh as .gp
         open(102,file="ElemLine2D.txt")
         
@@ -2982,12 +2984,12 @@ if(present(OptionalFolderName) )then
 else
     FolderName=DefaultFolderName
 endif
-command_mkdir ="mkdir -p " // trim(FolderName)
-command_mkdir =trim(command_mkdir )
+command_mkdir ="mkdir -p " // FolderName
+
 
 call execute_command_line(command_mkdir )
-surfaceout=trim(FolderName)//"/surface_nod.txt"
-surfaceout=trim(surfaceout)
+surfaceout=FolderName//"/surface_nod.txt"
+surfaceout=surfaceout
 open(100,file=surfaceout)
 
 do i=1,size(obj%SurfaceLine2D,1)
@@ -2996,8 +2998,8 @@ do i=1,size(obj%SurfaceLine2D,1)
 enddo
 close(100)
 
-surfaceout=trim(FolderName)//"/surface_ids.txt"
-surfaceout=trim(surfaceout)
+surfaceout=FolderName//"/surface_ids.txt"
+surfaceout=surfaceout
 open(100,file=surfaceout)
 
 do i=1,size(obj%SurfaceLine2D,1)
@@ -3006,8 +3008,8 @@ do i=1,size(obj%SurfaceLine2D,1)
 enddo
 close(100)
 
-surfaceout=trim(FolderName)//"/element_nod.txt"
-surfaceout=trim(surfaceout)
+surfaceout=FolderName//"/element_nod.txt"
+surfaceout=surfaceout
 open(100,file=surfaceout)
 
 do i=1,size(obj%SurfaceLine2D,1)
@@ -4270,7 +4272,7 @@ end subroutine
 function GetElemTypeMesh(obj) result(ElemType)
     class(Mesh_),intent(in)::obj
     type(ShapeFunction_)::sobj
-    character*200 :: ElemType
+    character(:),allocatable :: ElemType
     integer(int32) :: i,j,n,m
 
     n=size(obj%NodCoord,2)
@@ -4292,7 +4294,7 @@ function getShapeFunctionMesh(obj, ElementID,GaussPointID,ReducedIntegration) re
     integer(int32),intent(in) :: GaussPointID, ElementID
     logical,optional,intent(in) :: ReducedIntegration
     type(ShapeFunction_)::sobj
-    character*200 :: ElemType
+    character(:),allocatable :: ElemType
     integer(int32) :: i,j,n,m,gpid,elemID
 
 
@@ -4787,7 +4789,7 @@ subroutine AdjustSphereMesh(obj,rx,ry,rz,debug)
             endif
         enddo
         !call showArray(mat=mesh%NodCoord,IndexArray=mesh%ElemNod,&
-        !    Name=trim(adjustl( fstring(itr) ))//".txt")
+        !    Name=fstring(itr)//".txt")
     enddo
     
     
@@ -4905,7 +4907,7 @@ subroutine AdjustCylinderMesh(obj,rx,ry,rz,debug)
 
         
         !call showArray(mat=mesh%NodCoord,IndexArray=mesh%ElemNod,&
-        !    Name=trim(adjustl( fstring(itr) ))//".txt")
+        !    Name=fstring(itr)//".txt")
     enddo
     
     
@@ -6185,7 +6187,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             endif
         enddo
         if(present(meshtype) .and. validmeshtype .eqv. .false. )then
-            print *, "createMesh%error :: no such mesh as ", trim(meshtype)
+            print *, "createMesh%error :: no such mesh as ", meshtype
             return
         endif
 
@@ -6687,7 +6689,7 @@ subroutine remeshMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,&
     
     ! remesh
     ! only for build-in meshtypes
-    if(trim(obj%meshtype)=="")then
+    if(obj%meshtype=="")then
         print *, "ERROR :: remeshMesh >> only for build-in meshtypes, &
             so the object should have created by createMesh"
         return
@@ -6877,16 +6879,16 @@ subroutine gmshMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeu
 	if(present(Name) )then
 		filename=filetitle//filename0
 		
-		!call execute_command_line(  "touch "//trim(adjustl(name))//trim(obj%FileName)//trim(filename) )
-		print *, trim(adjustl(name))//trim(filename)
-		open(fh,file=trim(adjustl(name))//trim(filename) )
-		print *, "writing ",trim(adjustl(name))//trim(filename)," step>>",step
+		!call execute_command_line(  "touch "//name//obj%FileName//filename )
+		print *, name//filename
+		open(fh,file=name//filename )
+		print *, "writing ",name//filename," step>>",step
 	else
 		filename=filetitle//filename0
-		!call execute_command_line(  "touch "//trim(obj%FileName)//trim(filename) )
-		print *, trim(obj%FileName)//trim(filename)
-		open(fh,file=trim(obj%FileName)//trim(filename) )
-		print *, "writing ",trim(obj%FileName)//trim(filename)," step>>",step
+		!call execute_command_line(  "touch "//obj%FileName//filename )
+		print *, obj%FileName//filename
+		open(fh,file=obj%FileName//filename )
+		print *, "writing ",obj%FileName//filename," step>>",step
 	endif
 	
 	
@@ -7671,10 +7673,14 @@ end function
 
 
 !#######################################################################################
-pure function HowManyDomainMesh(obj) result(ret)
+function HowManyDomainMesh(obj) result(ret)
     class(Mesh_),intent(in) :: obj
     integer(int32) :: ret, i,j,itr,k,n
     integer(int32),allocatable :: domain_id(:)
+
+
+    print *, "ERROR :: HowManyDomainMesh >> not implemented."
+    ret = -1
 
 !    if(obj%empty() .eqv. .true.)then
 !        print *, "HowManyDomainMesh :: obj%empty() .eqv. .true."
@@ -8026,7 +8032,7 @@ subroutine jsonMesh(obj,name,fh,endl)
     
     if(present(name) )then
         call f%write('{')
-		write(fileid,*) '"name": "'//trim(name)//'",'
+		write(fileid,*) '"name": "'//name//'",'
 	endif
     write(fileid,*) '"mesh":{'
     
@@ -8070,7 +8076,7 @@ subroutine jsonMesh(obj,name,fh,endl)
 !    integer(int32) :: surface=1
 !
 !
-!    character*200::FileName=" "
+!    character(:),allocatable::FileName=" "
 !    character*70::ElemType=" "
 !    character*70:: ErrorMsg=" "
     

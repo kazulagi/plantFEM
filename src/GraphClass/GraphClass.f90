@@ -154,21 +154,21 @@ subroutine showGraph(obj,withname)
     if(present(withname) )then
         if(withname .eqv. .False.)then
             do i=1,n
-                command = "set label 'vertex:"//trim(str(i))//"' at "//str(obj%vertex(i)%x)//","//str(obj%vertex(i)%y)
-                call f%write(trim(command) )        
+                command = "set label 'vertex:"//str(i)//"' at "//str(obj%vertex(i)%x)//","//str(obj%vertex(i)%y)
+                call f%write(command )        
             enddo
         else
             do i=1,n
-                command = "set label 'ID:"//trim(str(i))//" Name: "//trim(obj%vertex(i)%name)&
+                command = "set label 'ID:"//str(i)//" Name: "//obj%vertex(i)%name&
                 //"' at "//str(obj%vertex(i)%x)//","//str(obj%vertex(i)%y)
-                call f%write(trim(command) )        
+                call f%write(command )        
             enddo
         endif
     else
         do i=1,n
-            command = "set label 'ID:"//trim(str(i))//" Name: "//trim(obj%vertex(i)%name)&
+            command = "set label 'ID:"//str(i)//" Name: "//obj%vertex(i)%name&
             //"' at "//str(obj%vertex(i)%x)//","//str(obj%vertex(i)%y)
-            call f%write(trim(command) )        
+            call f%write(command )        
         enddo
     endif
 
@@ -177,17 +177,17 @@ subroutine showGraph(obj,withname)
         do j=1,n
             if(obj%AdjacencyMatrix (i,j) > 0)then
                 id=id+1
-                command = "set arrow "//trim(str(id))//" head filled from "&
+                command = "set arrow "//str(id)//" head filled from "&
                 //str(obj%vertex(i)%x)//","//str(obj%vertex(i)%y)//" to "&
                 //str(obj%vertex(j)%x)//","//str(obj%vertex(j)%y)
-                call f%write(trim(command) )
+                call f%write(command )
                 
             elseif(obj%AdjacencyMatrix (i,j) < 0)then
                 id=id+1
-                command = "set arrow "//trim(str(id))//" head filled from "&
+                command = "set arrow "//str(id)//" head filled from "&
                 //str(obj%vertex(j)%x)//","//str(obj%vertex(j)%y)//" to "&
                 //str(obj%vertex(i)%x)//","//str(obj%vertex(i)%y)
-                call f%write(trim(command) )
+                call f%write(command )
             else
                 cycle
             endif

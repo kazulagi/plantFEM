@@ -993,11 +993,11 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
     if(allocated(obj%b) )then
       if(allocated(obj%x))then
         ! run as non EBE-mode
-        if(trim(Solver) == "GaussSeidel" )then
+        if(Solver == "GaussSeidel" )then
           call gauss_seidel(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0 )
-        elseif(trim(Solver) == "GaussJordanPV" .or. trim(Solver) == "GaussJordan" )then
+        elseif(Solver == "GaussJordanPV" .or. Solver == "GaussJordan" )then
           call gauss_jordan_pv(obj%a, obj%x, obj%b, size(obj%a,1) )
-        elseif(trim(Solver) == "BiCGSTAB" )then
+        elseif(Solver == "BiCGSTAB" )then
           if(present(CRS) )then
             if(CRS .eqv. .true.)then
               if(.not.allocated(obj%CRS_val))then
@@ -1017,7 +1017,7 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
           else
             call bicgstab1d(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0)
           endif
-        elseif(trim(Solver) == "GPBiCG" )then
+        elseif(Solver == "GPBiCG" )then
           if(present(preconditioning) )then
             if(preconditioning .eqv. .true.)then
               call preconditioned_GPBiCG(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0)
@@ -1028,7 +1028,7 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
             call GPBiCG(obj%a, obj%b, obj%x, size(obj%a,1), obj%itrmax, obj%er0)
           endif
         else
-          print *, "LinearSolver_ ERROR:: no such solver as :: ",trim(Solver)
+          print *, "LinearSolver_ ERROR:: no such solver as :: ",Solver
         endif
         return
       endif

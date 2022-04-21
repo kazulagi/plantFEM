@@ -11,16 +11,16 @@ module MaterialPropClass
         integer(int32) :: Mcount
         
         integer(int32) :: layer
-        character(200) :: Name= " "
+        character(:),allocatable :: Name
 
 
         real(real64),allocatable::MatPara(:,:)
         integer(int32) :: NumOfMatPara
         integer(int32) :: NumOfMaterial    
         
-        character*40 :: MaterialType= " "
+        character(:),allocatable :: MaterialType
 
-        character*70 :: ErrorMsg= " "
+        character(:),allocatable :: ErrorMsg
     contains
         procedure :: Init => initializeMaterial
         procedure :: export => exportMaterialProp
@@ -46,8 +46,8 @@ subroutine openMaterialProp(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","Material",".prop")
-        call obj%Mesh%open(path=trim(path)//"/"//trim(adjustl(name)),name="Mesh")
+        call f%open(path//"/"//name//"/","Material",".prop")
+        call obj%Mesh%open(path=path//"/"//name,name="Mesh")
         call openArray(f%fh,obj%meshPara)
         read(f%fh,*) obj%x_max
         read(f%fh,*) obj%x_min
@@ -67,9 +67,9 @@ subroutine openMaterialProp(obj,path,name)
         read(f%fh, '(A)') obj%ErrorMsg
         call f%close()
     else
-        call execute_command_line("mkdir -p "//trim(path)//"/Material")
-        call f%open(trim(path)//"/Material/","Material",".prop")
-        call obj%Mesh%open(path=trim(path)//"/"//"Material",name="Mesh")
+        call execute_command_line("mkdir -p "//path//"/Material")
+        call f%open(path//"/Material/","Material",".prop")
+        call obj%Mesh%open(path=path//"/"//"Material",name="Mesh")
         call openArray(f%fh,obj%meshPara)
         read(f%fh,*) obj%x_max
         read(f%fh,*) obj%x_min
@@ -139,7 +139,7 @@ subroutine createMaterialProp(obj,Name,x_max,x_min,y_max,y_min,z_max,z_min,t_max
     real(real64),optional,intent(in) :: ParaValue
     integer(int32),optional,intent(in) :: Layer
     if(present(Name) )then
-        obj%Name=trim(adjustl(name))
+        obj%Name=name
     else
         obj%Name="NoName"
     endif
@@ -158,9 +158,9 @@ subroutine saveMaterialProp(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
-        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","Material",".prop")
-        call obj%Mesh%save(path=trim(path)//"/"//trim(adjustl(name)),name="Mesh")
+        call execute_command_line("mkdir -p "//path//"/"//name)
+        call f%open(path//"/"//name//"/","Material",".prop")
+        call obj%Mesh%save(path=path//"/"//name,name="Mesh")
         call writeArray(f%fh, obj%meshPara)
         write(f%fh,*) obj%x_max
         write(f%fh,*) obj%x_min
@@ -172,17 +172,17 @@ subroutine saveMaterialProp(obj,path,name)
         write(f%fh,*) obj%t_min
         write(f%fh,*) obj%Mcount
         write(f%fh,*) obj%layer
-        write(f%fh, '(A)' ) trim(obj%Name)
+        write(f%fh, '(A)' ) obj%Name
         call writeArray(f%fh, obj%MatPara)
         write(f%fh,*) obj%NumOfMatPara
         write(f%fh,*) obj%NumOfMaterial    
-        write(f%fh, '(A)') trim(obj%MaterialType)
-        write(f%fh, '(A)') trim(obj%ErrorMsg)
+        write(f%fh, '(A)') obj%MaterialType
+        write(f%fh, '(A)') obj%ErrorMsg
         call f%close()
     else
-        call execute_command_line("mkdir -p "//trim(path)//"/Material")
-        call f%open(trim(path)//"/Material/","Material",".prop")
-        call obj%Mesh%save(path=trim(path)//"/"//"Material",name="Mesh")
+        call execute_command_line("mkdir -p "//path//"/Material")
+        call f%open(path//"/Material/","Material",".prop")
+        call obj%Mesh%save(path=path//"/"//"Material",name="Mesh")
         call writeArray(f%fh, obj%meshPara)
         write(f%fh,*) obj%x_max
         write(f%fh,*) obj%x_min
@@ -194,12 +194,12 @@ subroutine saveMaterialProp(obj,path,name)
         write(f%fh,*) obj%t_min
         write(f%fh,*) obj%Mcount
         write(f%fh,*) obj%layer
-        write(f%fh, '(A)' ) trim(obj%Name)
+        write(f%fh, '(A)' ) obj%Name
         call writeArray(f%fh, obj%MatPara)
         write(f%fh,*) obj%NumOfMatPara
         write(f%fh,*) obj%NumOfMaterial    
-        write(f%fh, '(A)') trim(obj%MaterialType)
-        write(f%fh, '(A)') trim(obj%ErrorMsg)
+        write(f%fh, '(A)') obj%MaterialType
+        write(f%fh, '(A)') obj%ErrorMsg
         call f%close()
     endif
 
@@ -215,9 +215,9 @@ subroutine exportMaterialProp(obj,restart,path)
     type(IO_) :: f
 
     if(present(restart) )then
-        call execute_command_line("mkdir -p "//trim(path)//"/Material")
-        call f%open(trim(path)//"/Material/","Material",".prop")
-        call obj%Mesh%export(path=trim(path)//"/Material",restart=.true.)
+        call execute_command_line("mkdir -p "//path//"/Material")
+        call f%open(path//"/Material/","Material",".prop")
+        call obj%Mesh%export(path=path//"/Material",restart=.true.)
         write(f%fh,*) obj%meshPara(:,:)
         write(f%fh,*) obj%x_max
         write(f%fh,*) obj%x_min
@@ -229,12 +229,12 @@ subroutine exportMaterialProp(obj,restart,path)
         write(f%fh,*) obj%t_min
         write(f%fh,*) obj%Mcount
         write(f%fh,*) obj%layer
-        write(f%fh, '(A)' ) trim(obj%Name)
+        write(f%fh, '(A)' ) obj%Name
         write(f%fh,*) obj%MatPara(:,:)
         write(f%fh,*) obj%NumOfMatPara
         write(f%fh,*) obj%NumOfMaterial    
-        write(f%fh, '(A)') trim(obj%MaterialType)
-        write(f%fh, '(A)') trim(obj%ErrorMsg)
+        write(f%fh, '(A)') obj%MaterialType
+        write(f%fh, '(A)') obj%ErrorMsg
         call f%close()
     endif
 
@@ -249,7 +249,7 @@ subroutine showMaterialProp(obj)
 
     n=size(obj%Mesh%ElemNod,1)
 
-    print *, trim(obj%Name)
+    print *, obj%Name
     do i=1,n
         if(i==n)then
             print *, "  L _ Zone #",i,"Parameters : ",obj%meshPara(i,:)
@@ -401,10 +401,10 @@ subroutine gmshMaterialProp(obj, Name, Tag)
         ElemValue(:,1)=obj%MeshPara(:,i)
         if(present(tag) )then
             call obj%Mesh%gmsh(Name=Name//"Material",ElemValue=ElemValue,&
-                OptionalContorName=trim(Tag))
+                OptionalContorName=tag)
         else
             call obj%Mesh%gmsh(Name=Name//"Material",ElemValue=ElemValue,&
-                OptionalContorName="Material Value :: ID = "//trim(adjustl(fstring(i))))
+                OptionalContorName="Material Value :: ID = "//adjustl(fstring(i)))
         endif
     enddo
     deallocate(ElemValue)

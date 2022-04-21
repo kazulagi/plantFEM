@@ -117,7 +117,7 @@ subroutine initFarm(obj,crop_name,num_of_ridge, num_of_plant_per_ridge,width_of_
     endif
     allocate(obj%soybean(obj%num_of_ridge, obj%num_of_plant_per_ridge) )
 
-    if( trim(crop_name) == "soybean" .or. trim(crop_name) == "Soybean" )then
+    if( crop_name == "soybean" .or. crop_name == "Soybean" )then
         do i=1,obj%num_of_ridge
             do j=1, obj%num_of_plant_per_ridge
                 call obj%soybean(i,j)%sowing(x=obj%width_of_ridge*dble(i-1)  ,&
@@ -178,24 +178,24 @@ subroutine exportFarm(obj,FileName,withSTL,withMesh,TimeStep)
     do i=1,obj%num_of_ridge
         do j=1,obj%num_of_plant_per_ridge
             plant_id = plant_id + 1
-            id=trim(  adjustl(fstring( plant_id ) ))
+            id=fstring( plant_id )
             if( present(withSTL) )then
                 if(withSTL .eqv. .true. )then
-                    call obj%soybean(i,j)%export(FileName=FileName//trim(id)//".geo",SeedID=obj_id,withSTL=withSTL)   
+                    call obj%soybean(i,j)%export(FileName=FileName//id//".geo",SeedID=obj_id,withSTL=withSTL)   
                 endif
             endif
             if( present(withMesh) )then
                 if(withMesh .eqv. .true. )then
-                    call obj%soybean(i,j)%export(FileName=FileName//trim(id)//".geo",SeedID=obj_id,withMesh=withMesh)   
+                    call obj%soybean(i,j)%export(FileName=FileName//id//".geo",SeedID=obj_id,withMesh=withMesh)   
                 endif
             endif
-            call obj%soybean(i,j)%export(FileName=FileName//trim(id)//".geo",SeedID=obj_id )
+            call obj%soybean(i,j)%export(FileName=FileName//id//".geo",SeedID=obj_id )
         enddo
     enddo
-    print *, "Total "//trim(id)//" plants are exported."
+    print *, "Total "//id//" plants are exported."
 
     ! export soil
-    call obj%soil%export(FileName=FileName//trim(id)//"soil",format=".geo",objID=obj_id)
+    call obj%soil%export(FileName=FileName//id//"soil",format=".geo",objID=obj_id)
 
 end subroutine
 ! ############################################

@@ -123,18 +123,18 @@ subroutine openFiniteDeform(obj,path,name)
 		!	pathi(n:n)= " "
 		!endif
 
-		call execute_command_line("mkdir -p "//trim(pathi))
-		call execute_command_line("mkdir -p "//trim(pathi)//"/"//trim(adjustl(name)) )
-		call f%open(trim(pathi)//"/"//trim(adjustl(name)) ,"/"//"FiniteDeform",".prop" )
+		call execute_command_line("mkdir -p "//pathi)
+		call execute_command_line("mkdir -p "//pathi//"/"//name )
+		call f%open(pathi//"/"//name ,"/"//"FiniteDeform",".prop" )
 	else
 		pathi=path
 		!if( index(path, "/", back=.true.) == len(path) )then
 		!	n=index(path, "/", back=.true.)
 		!	pathi(n:n)= " "
 		!endif
-		call execute_command_line("mkdir -p "//trim(pathi))
-		call execute_command_line("mkdir -p "//trim(pathi)//"/FiniteDeform")
-		call f%open(trim(pathi)//"/FiniteDeform","/FiniteDeform",".prop" )
+		call execute_command_line("mkdir -p "//pathi)
+		call execute_command_line("mkdir -p "//pathi//"/FiniteDeform")
+		call f%open(pathi//"/FiniteDeform","/FiniteDeform",".prop" )
 	endif
 	
 	! write smt at here!
@@ -182,18 +182,18 @@ subroutine saveFiniteDeform(obj,path,name)
 		!	pathi(n:n)= " "
 		!endif
 
-		call execute_command_line("mkdir -p "//trim(pathi))
-		call execute_command_line("mkdir -p "//trim(pathi)//"/"//trim(adjustl(name)) )
-		call f%open(trim(pathi)//"/"//trim(adjustl(name)) ,"/"//"FiniteDeform",".prop" )
+		call execute_command_line("mkdir -p "//pathi)
+		call execute_command_line("mkdir -p "//pathi//"/"//name )
+		call f%open(pathi//"/"//name ,"/"//"FiniteDeform",".prop" )
 	else
 		pathi=path
 		!if( index(path, "/", back=.true.) == len(path) )then
 		!	n=index(path, "/", back=.true.)
 		!	pathi(n:n)= " "
 		!endif
-		call execute_command_line("mkdir -p "//trim(pathi))
-		call execute_command_line("mkdir -p "//trim(pathi)//"/FiniteDeform")
-		call f%open(trim(pathi)//"/FiniteDeform","/FiniteDeform",".prop" )
+		call execute_command_line("mkdir -p "//pathi)
+		call execute_command_line("mkdir -p "//pathi//"/FiniteDeform")
+		call f%open(pathi//"/FiniteDeform","/FiniteDeform",".prop" )
 	endif
 	
 	! write smt at here!
@@ -483,20 +483,20 @@ call DeallocateFEMDomain(obj)
 
 fh =104
 if(present(OptionalFileFormat) )then
-    FileFormat=trim(OptionalFileFormat)
+    FileFormat=OptionalFileFormat
 else
     FileFormat=".scf"
 endif
 
 
 if(present(OptionalProjectName) )then
-    ProjectName=trim(OptionalProjectName)
+    ProjectName=OptionalProjectName
 else
     ProjectName="untitled"
 endif
 
-FileName = trim(ProjectName)//trim(FileFormat)
-obj%FileName = trim(FileName)
+FileName = ProjectName//FileFormat
+obj%FileName = FileName
 obj%FilePath = "./"
 !!print *, "Project : ",ProjectName
 !!print *, "is Exported as : ",FileFormat," format"
@@ -504,7 +504,7 @@ obj%FilePath = "./"
 
 open(fh,file=FileName,status="old")
 
-if(trim(FileFormat)==".scf" )then
+if(FileFormat==".scf" )then
 
     read(fh,*) NumOfDomain
     allocate(IntMat(NumOfDomain,2))
@@ -2483,7 +2483,7 @@ subroutine SolveFiniteDeform(obj,OptionItr,Solvertype,nr_tol)
 	integer(int32),optional,intent(in)::OptionItr
     character(*),optional,intent(in)::Solvertype
     real(real64) ,optional,intent(in) :: nr_tol
-	character*70 ::solver,defaultsolver
+	character(:),allocatable ::solver,defaultsolver
 	type(IO_) :: f
 
     real(real64),allocatable::Amat(:,:),bvec(:),xvec(:)
@@ -2595,15 +2595,15 @@ subroutine SolveFiniteDeform(obj,OptionItr,Solvertype,nr_tol)
     n=size(bvec)
 	xvec(:)=0.0d0
 
-    if(trim(solver(1:11) )=="GaussJordan")then
+    if(solver=="GaussJordan")then
         print *, "Solver type :: GaussJordan"
         call  gauss_jordan_pv(Amat, xvec, bvec, n)
-    elseif(trim(solver(1:8) )=="BiCGSTAB")then
+    elseif(solver=="BiCGSTAB")then
 		print *, "Solver type :: BiCGSTAB"
 		call bicgstab_dirichlet(Amat, bvec, xvec, size(xvec), itrmax, er,&
 			obj%FEMDomain%Boundary%DBoundNodID,obj%FEMDomain%Boundary%DBoundValInc,SetBC)
 	else
-		print *, "Solver Name :",trim(solver)
+		print *, "Solver Name :",solver
         print *, "Critical ERROR :: No solvers are selected in FiniteDeform_"
         stop 
     endif
@@ -2667,10 +2667,10 @@ subroutine resultFiniteDeform(obj,path,name,step)
 
 
 		call GmshExportStress(obj%FEMDomain,obj%DeformVecGloTot,obj%DeformStress,&
-		obj%DeformStrain,fstep,Name=trim(path)//"/"//trim(adjustl(name)))
+		obj%DeformStrain,fstep,Name=path//"/"//name)
 		call obj%getDispVector(DispVector)
-		call GmshPlotVector(obj%FEMDomain,Vector=DispVector,Name=trim(path)//"/"&
-		//trim(adjustl(name)),FieldName="Displacement",&
+		call GmshPlotVector(obj%FEMDomain,Vector=DispVector,Name=path//"/"&
+		//name,FieldName="Displacement",&
 		Step=step,withMsh=.true.,NodeWize=.true.,onlyDirichlet=.true.)
 
 	elseif(size(obj%FEMDomain%Mesh%NodCoord,2)==3)then
@@ -2682,10 +2682,10 @@ subroutine resultFiniteDeform(obj,path,name,step)
     	    fstep=1
     	endif
 		call GmshExportStress(obj%FEMDomain,obj%DeformVecGloTot,obj%DeformStress,&
-		obj%DeformStrain,step,Name=trim(path)//"/"//trim(adjustl(name)) )
+		obj%DeformStrain,step,Name=path//"/"//name )
 		call obj%getDBCVector(DBCvec)
-		call GmshPlotVector(obj=obj%FEMDomain,Vector=DBCvec,Name=trim(path)//"/"&
-		//trim(adjustl(name)),Step=fstep,FieldName="DispBoundary",&
+		call GmshPlotVector(obj=obj%FEMDomain,Vector=DBCvec,Name=path//"/"&
+		//name,Step=fstep,FieldName="DispBoundary",&
 		NodeWize=.true. )
 		!call obj%exportAsPly()
 
@@ -2729,21 +2729,21 @@ subroutine DisplayDeformStress(obj,DisplayMode,OptionalStep,Name,withDirichlet)
     	endif
 
     	if(present(DisplayMode) )then
-    	    if(trim(DisplayMode)=="Terminal" .or. trim(DisplayMode)=="terminal")then
+    	    if(DisplayMode=="Terminal" .or. DisplayMode=="terminal")then
     	        do i=1,size(obj%DeformVecEBEInc,1)
     	            print *, obj%DeformVecEBEInc(i,:)
     	        enddo
-    	    elseif(trim(DisplayMode)=="gmsh" .or. trim(DisplayMode)=="Gmsh" )then   
+    	    elseif(DisplayMode=="gmsh" .or. DisplayMode=="Gmsh" )then   
 				call GmshExportStress(obj%FEMDomain,obj%DeformVecGloTot,obj%DeformStress,obj%DeformStrain,step,Name=Name)
 				call obj%getDispVector(DispVector)
 				call GmshPlotVector(obj%FEMDomain,Vector=DispVector,Name=Name,FieldName="Displacement",&
 				Step=step,withMsh=.true.,NodeWize=.true.,onlyDirichlet=.true.)
 
-    	    elseif(trim(DisplayMode)=="gnuplot" .or. trim(DisplayMode)=="Gnuplot" )then
+    	    elseif(DisplayMode=="gnuplot" .or. DisplayMode=="Gnuplot" )then
 				call GnuplotExportStress(obj%FEMDomain,obj%DeformVecGloTot,obj%DeformStress,obj%DeformStrain,step )
     	    else
     	        print *, "Invalid DisplayMode >> DisplayDiffusionEq "
-    	        print *, "DisplayMode '",trim(DisplayMode),"' is not defined" 
+    	        print *, "DisplayMode '",DisplayMode,"' is not defined" 
     	    endif
     	    return
 		endif
@@ -2757,11 +2757,11 @@ subroutine DisplayDeformStress(obj,DisplayMode,OptionalStep,Name,withDirichlet)
     	endif
 
     	if(present(DisplayMode) )then
-    	    if(trim(DisplayMode)=="Terminal" .or. trim(DisplayMode)=="terminal")then
+    	    if(DisplayMode=="Terminal" .or. DisplayMode=="terminal")then
     	        do i=1,size(obj%DeformVecEBEInc,1)
     	            print *, obj%DeformVecEBEInc(i,:)
     	        enddo
-			elseif(trim(DisplayMode)=="gmsh" .or. trim(DisplayMode)=="Gmsh" )then   
+			elseif(DisplayMode=="gmsh" .or. DisplayMode=="Gmsh" )then   
 	
 				call GmshExportStress(obj%FEMDomain,obj%DeformVecGloTot,obj%DeformStress,obj%DeformStrain,step,Name=Name )
 				if(present(withDirichlet) )then
@@ -2771,11 +2771,11 @@ subroutine DisplayDeformStress(obj,DisplayMode,OptionalStep,Name,withDirichlet)
 						call GmshPlotVector(obj=obj%FEMDomain,Vector=DBCvec,Name=Name,Step=step,FieldName="DispBoundary",NodeWize=.true. )
 					endif
 				endif
-    	    elseif(trim(DisplayMode)=="gnuplot" .or. trim(DisplayMode)=="Gnuplot" )then
+    	    elseif(DisplayMode=="gnuplot" .or. DisplayMode=="Gnuplot" )then
 				call GnuplotExportStress(obj%FEMDomain,obj%DeformVecGloTot,obj%DeformStress,obj%DeformStrain,step )
     	    else
     	        print *, "Invalid DisplayMode >> DisplayDiffusionEq "
-    	        print *, "DisplayMode '",trim(DisplayMode),"' is not defined" 
+    	        print *, "DisplayMode '",DisplayMode,"' is not defined" 
     	    endif
     	    return
 		endif
@@ -2966,19 +2966,19 @@ subroutine DisplayReactionForce(obj,id)
 	enddo
 
 	k=input(default=0,option=id)
-	filename="ReactionForce"//trim(str(k))//"_wall.txt"
+	filename="ReactionForce"//str(k)//"_wall.txt"
 	if(obj%Step==1)then
-		open(101,file="all_"//trim(filename),status="replace")
+		open(101,file="all_"//FileName,status="replace")
 	else
-		open(101,file="all_"//trim(filename),position="append")
+		open(101,file="all_"//FileName,position="append")
 	endif
 	write(101,*) obj%Step,ReactionForce(:)
 	close(101)
 
 	if(obj%Step==1)then
-		open(101,file=trim(filename),status="replace")
+		open(101,file=FileName,status="replace")
 	else
-		open(101,file=trim(filename),position="append")
+		open(101,file=FileName,position="append")
 	endif
 	write(101,*) obj%Step,ReactionForce_wall(:)
 	close(101)
@@ -3054,13 +3054,13 @@ subroutine exportFiniteDeform(obj,restart,path)
 
 	if(present(restart) )then
 		! make new dir 
-		call execute_command_line("mkdir -p "//trim(path)//"/FiniteDeform")
+		call execute_command_line("mkdir -p "//path//"/FiniteDeform")
 		
 		if(associated(obj%FEMDomain) )then
     		call obj%FEMDomain%export(path=path//"/FiniteDeform",restart=restart)
 		endif
 
-		call f%open("./",trim(path)//"/FiniteDeform","/FiniteDeform.prop")
+		call f%open("./",path//"/FiniteDeform","/FiniteDeform.prop")
 		write(f%fh, *) obj%DeformStress(:,:,:)
 		write(f%fh, *) obj%DeformStrain(:,:,:)
 		write(f%fh, *) obj%DeformStressInit(:,:,:)

@@ -70,7 +70,7 @@ subroutine InitStrain(obj,StrainTheory)
 
     obj%StrainTheory=StrainTheory
 
-    if(    trim(obj%StrainTheory)=="Finite_Elasticity")then
+    if(    obj%StrainTheory=="Finite_Elasticity")then
         obj%theoryID=1
 
         ! Finite strain theory
@@ -105,7 +105,7 @@ subroutine InitStrain(obj,StrainTheory)
         obj%   Cp(:,:) = delta(:,:)
         obj% Cp_n(:,:) = delta(:,:)
 
-    elseif(trim(obj%StrainTheory)=="Finite_ElastoPlasticity")then
+    elseif(obj%StrainTheory=="Finite_ElastoPlasticity")then
         obj%theoryID=2
 
         ! Finite strain theory
@@ -140,7 +140,7 @@ subroutine InitStrain(obj,StrainTheory)
         obj% Cp_n(:,:) = delta(:,:)
 
 
-    elseif(trim(obj%StrainTheory)=="Infinitesimal_Elasticity")then
+    elseif(obj%StrainTheory=="Infinitesimal_Elasticity")then
         obj%theoryID=3
 
 
@@ -179,7 +179,7 @@ subroutine InitStrain(obj,StrainTheory)
         obj%  eps_p(:,:) =0.0d0
         obj%  eps_p_n(:,:) =0.0d0
 
-    elseif(trim(obj%StrainTheory)=="Infinitesimal_ElastoPlasticity")then
+    elseif(obj%StrainTheory=="Infinitesimal_ElastoPlasticity")then
         obj%theoryID=4
 
 
@@ -220,7 +220,7 @@ subroutine InitStrain(obj,StrainTheory)
         obj%  eps_p(:,:) =0.0d0
         obj%  eps_p_n(:,:) =0.0d0
 
-    elseif(trim(obj%StrainTheory)=="Small_strain")then
+    elseif(obj%StrainTheory=="Small_strain")then
         obj%theoryID=5
 
 
@@ -256,7 +256,7 @@ subroutine InitStrain(obj,StrainTheory)
         obj%  eps_p_n(:,:) =0.0d0
 
     else
-        print *, trim(StrainTheory)
+        print *, StrainTheory
         print *, "Please input one of following keyphrases"
         print *, " ---->"
         print *, "Finite_Elasticity"

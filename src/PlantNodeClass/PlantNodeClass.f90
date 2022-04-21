@@ -54,7 +54,7 @@ subroutine initNode(obj,regacy,PlantName,Stage,&
                 loc(:)=location(:)
             endif
         
-            if(trim(PlantName) == "soybean" .or. trim(PlantName) == "Soybean")then
+            if(PlantName == "soybean" .or. PlantName == "Soybean")then
                 if(Stage == "VE")then
                     allocate(obj%Leaf(2) )
                     allocate(obj%Peti(2) )
@@ -125,11 +125,11 @@ subroutine exportNode(obj,FileName,ObjID)
     max_num_of_peti_per_node=5
 
     do i=1,size(obj%Stem,1)
-        call obj%Stem(i)%export(FileName=FileName//"_Stem"//trim(adjustl(fstring(i)))//".geo",StemID=objID)
+        call obj%Stem(i)%export(FileName=FileName//"_Stem"//adjustl(fstring(i))//".geo",StemID=objID)
     enddo
 
     do i=1,size(obj%Peti,1)
-        call obj%Peti(i)%export(FileName=FileName//"_Peti"//trim(adjustl(fstring(i)))//".geo",PetiID=ObjID)
+        call obj%Peti(i)%export(FileName=FileName//"_Peti"//adjustl(fstring(i))//".geo",PetiID=ObjID)
     enddo
 
 

@@ -55,7 +55,7 @@ subroutine initHTML(obj)
         !call obj%file%write('<script type="text/javascript" src="src/HTMLClass/plantfem.js"></script>')
         
     else
-        print *, "The mode ",trim(obj%mode), " is not supported. (only text or 3D)"
+        print *, "The mode ",obj%mode, " is not supported. (only text or 3D)"
     endif
 
 end subroutine

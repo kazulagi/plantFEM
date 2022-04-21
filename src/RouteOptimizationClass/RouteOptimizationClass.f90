@@ -50,7 +50,7 @@ subroutine importRouteOptimization(obj,Name)
         FileName=Name
     endif
 
-    open(100,file=trim(FileName))
+    open(100,file=FileName)
     read(100,*) obj%NumOfPoint, dim
     call obj%init(NumOfPoint=obj%NumOfPoint,Dim=dim)
     do i=1,obj%NumOfPoint
@@ -69,7 +69,7 @@ end subroutine
 subroutine setSolverRouteOptimization(obj,SolverName)
     class(RouteOptimization_),intent(inout) :: obj
     character(*),intent(in) :: SolverName
-    obj%SolverName =trim(SolverName)
+    obj%SolverName =SolverName
 end subroutine
 !##########################################
 
@@ -86,11 +86,11 @@ subroutine runRouteOptimization(obj,SolverName, NumOfPoints)
 
     ! compile external solver
     if(present(SolverName) )then
-        obj%SolverName=trim(SolverName)
+        obj%SolverName=SolverName
     endif
-    command = "mpic++ ./src/RouteOptimizationClass/"//trim(obj%SolverName)//".cpp -o "//trim(obj%SolverName)//".out"
+    command = "mpic++ ./src/RouteOptimizationClass/"//obj%SolverName//".cpp -o "//obj%SolverName//".out"
     print *, command
-    call execute_command_line(trim(command))
+    call execute_command_line(command)
 
     ! create input file for external solver
 
@@ -105,10 +105,10 @@ subroutine runRouteOptimization(obj,SolverName, NumOfPoints)
     enddo
     close(120)
     command=""
-    command="./"//trim(obj%SolverName)//".out"
+    command="./"//obj%SolverName//".out"
     
     ! run!
-    call execute_command_line(trim(command))
+    call execute_command_line(command)
 end subroutine
 !##########################################
 
@@ -116,7 +116,7 @@ end subroutine
 subroutine exportRouteOptimization(obj,Repository)
     class(RouteOptimization_),intent(inout) :: obj
     character(*),optional,intent(in) :: Repository
-    character*200 :: RepositoryName
+    character(:),allocatable :: RepositoryName
     integer(int32) :: i,n,old_id
     real(real64) :: x,y
     
@@ -133,24 +133,24 @@ subroutine exportRouteOptimization(obj,Repository)
     close(120)
 
     ! print initial route
-    open(120, file=trim(RepositoryName)//"/RouteOpt_InitialRoute.csv")
+    open(120, file=RepositoryName//"/RouteOpt_InitialRoute.csv")
     write(120,*) 'latitude",longitude,Field Name'
     do i=1,n
         write(120,* ) obj%PointList(i)%coord(1),',', &
-        obj%PointList(i)%coord(2),',', trim(obj%PointList(i)%Name)
+        obj%PointList(i)%coord(2),',', obj%PointList(i)%Name
     enddo
     close(120)
 
     ! import optimal route
     ! print initial route
-    open(121, file=trim(RepositoryName)//"/RouteOpt_OptimalRoute.csv")
+    open(121, file=RepositoryName//"/RouteOpt_OptimalRoute.csv")
     !open(121, file="RouteOpt_OptimalRoute.txt", status="replace")
     write(121,*) 'latitude,longitude,Field Name'
     open(120, file="solution.txt", status="old")
     do i=1,n
         read(120,* ) x,y, old_id
         write(121,* ) obj%PointList(old_id+1)%coord(1),',', &
-        obj%PointList(old_id+1)%coord(2),',', trim(obj%PointList(old_id+1)%Name)
+        obj%PointList(old_id+1)%coord(2),',', obj%PointList(old_id+1)%Name
     enddo
     close(120)
     close(121)

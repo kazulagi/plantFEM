@@ -54,37 +54,37 @@ subroutine ImportField(obj,OptionalDomainListName,OptionalIfaceListName,Optional
     endif
 
     if(present(OptionalProjectName) )then
-        obj%FolderName=trim(OptionalProjectName)//"/"
+        obj%FolderName=OptionalProjectName//"/"
     else
         obj%FolderName=""
         print *, "Current Directory is used as Project Directory."
     endif
 
     if(present(OptionalDomainListName) )then
-        obj%DomainListName=trim(OptionalDomainListName)
+        obj%DomainListName=OptionalDomainListName
     else
         obj%DomainListName="DomainList.txt"
         print *, "Current Directory is used as Project Directory."
     endif
 
     if(present(OptionalIfaceListName) )then
-        obj%IfaceListName=trim(OptionalIfaceListName)
+        obj%IfaceListName=OptionalIfaceListName
     else
         obj%IfaceListName="IfaceList.txt"
         print *, "Current Directory is used as Project Directory."
     endif
 
-    pathd=trim(obj%FolderName)//trim(obj%DomainListName)
-    pathi=trim(obj%FolderName)//trim(obj%IfaceListName)
+    pathd=obj%FolderName//obj%DomainListName
+    pathi=obj%FolderName//obj%IfaceListName
 
-    open(fh,file=trim(pathd),status="old")
+    open(fh,file=pathd,status="old")
     read(fh,*) obj%NumberOfObject
-    print *, "Domainlist : ",trim(pathd)," is imported."
+    print *, "Domainlist : ",pathd," is imported."
     print *, "Number of Domains    : ",obj%NumberOfObject," is imported."
     
-    open(fh_i,file=trim(pathi),status="old")
+    open(fh_i,file=pathi,status="old")
     read(fh_i,*) obj%NumberOfIface
-    print *, "Ifacelist : ",trim(pathd)," is imported."
+    print *, "Ifacelist : ",pathd," is imported."
     print *, "Number of Iface     : ",obj%NumberOfIface," is imported."
     
     
@@ -99,14 +99,14 @@ subroutine ImportField(obj,OptionalDomainListName,OptionalIfaceListName,Optional
     do i=1,obj%NumberOfObject
         read(fh, '(A)' ) pathd
 
-        obj%FieldList(i)%FieldObjName=trim(pathd)
+        obj%FieldList(i)%FieldObjName=pathd
         !read(fh,*) obj%FieldList(i)%FieldObjName
-        !pathd=trim(obj%FolderName)//trim(obj%FieldList(i)%FieldObjName )
+        !pathd=obj%FolderName//obj%FieldList(i)%FieldObjName 
 
         !call removeWord(str=pathd,keyword=".scf",itr=1)
-        print *, "Now Importing Domain id : ",i,"File path : ",trim(pathd),".scf"
+        print *, "Now Importing Domain id : ",i,"File path : ",pathd,".scf"
         call ImportFEMDomain(obj%FEMDomainArray(i),OptionalProjectName=pathd,FileHandle=fh2)
-        obj%FEMDomainArray(i)%FileName=trim(obj%FieldList(i)%FieldObjName)
+        obj%FEMDomainArray(i)%FileName=obj%FieldList(i)%FieldObjName
         
     enddo
     ! ###### Domain ############
@@ -114,11 +114,11 @@ subroutine ImportField(obj,OptionalDomainListName,OptionalIfaceListName,Optional
     ! ###### Interface ############
     do i=obj%NumberOfObject+1,obj%NumberOfObject+obj%NumberOfIface
         read(fh_i, '(A)' ) obj%FieldList(i)%FieldObjName
-        pathi=trim(obj%FolderName)//trim(obj%FieldList(i)%FieldObjName )
+        pathi=obj%FolderName//obj%FieldList(i)%FieldObjName 
         
         !call removeWord(str=pathi,keyword=".scf",itr=1)
         call ImportFEMIface(obj%FEMIfaceArray(i-obj%NumberOfObject),OptionalProjectName=pathi,FileHandle=fh2)
-        print *, "Imported ",trim(pathi),".scf  >> IFace ID :",i-obj%NumberOfObject,"/",obj%NumberOfIface
+        print *, "Imported ",pathi,".scf  >> IFace ID :",i-obj%NumberOfObject,"/",obj%NumberOfIface
         
     enddo
     ! ###### Interface ############
@@ -247,50 +247,50 @@ subroutine ExportField(obj,OptionalDomainListName,OptionalIfaceListName,&
     endif
 
     if(present(OptionalProjectName) )then
-        obj%FolderName=trim(OptionalProjectName)//"/"
+        obj%FolderName=OptionalProjectName//"/"
     else
         obj%FolderName=""
         print *, "Current Directory is used as Project Directory."
     endif
 
     if(present(OptionalDomainListName) )then
-        obj%DomainListName=trim(OptionalDomainListName)
+        obj%DomainListName=OptionalDomainListName
     else
         obj%DomainListName="DomainList.txt"
         print *, "Current Directory is used as Project Directory."
     endif
 
     if(present(OptionalIfaceListName) )then
-        obj%IfaceListName=trim(OptionalIfaceListName)
+        obj%IfaceListName=OptionalIfaceListName
     else
         obj%IfaceListName="IfaceList.txt"
         print *, "Current Directory is used as Project Directory."
     endif
 
 
-    pathd=trim(obj%FolderName)//trim(obj%DomainListName)
-    pathi=trim(obj%FolderName)//trim(obj%IfaceListName)
+    pathd=obj%FolderName//obj%DomainListName
+    pathi=obj%FolderName//obj%IfaceListName
 
-    open(fh,file=trim(pathd),status="replace")
-    open(fh_i,file=trim(pathi),status="replace")
+    open(fh,file=pathd,status="replace")
+    open(fh_i,file=pathi,status="replace")
     write(fh,*) size(obj%FEMDomainArray,1)
     write(fh_i,*) size(obj%FEMIfaceArray,1)
     
     do i=1,obj%NumberOfObject
-        write(fh,'(A)') trim(obj%FieldList(i)%FieldObjName)
-        pathd=trim(obj%FolderName)//trim(obj%FieldList(i)%FieldObjName )
-        print *, "Now Exporting ",trim(pathd),".scf"
+        write(fh,'(A)') obj%FieldList(i)%FieldObjName
+        pathd=obj%FolderName//obj%FieldList(i)%FieldObjName 
+        print *, "Now Exporting ",pathd,".scf"
         call ExportFEMDomain(obj%FEMDomainArray(i),OptionalProjectName=pathd,FileHandle=fh2)
     enddo
     
 
     
     do i=obj%NumberOfObject+1,obj%NumberOfObject+obj%NumberOfIface
-        write(fh_i,'(A)') trim(obj%FieldList(i)%FieldObjName)
+        write(fh_i,'(A)') obj%FieldList(i)%FieldObjName
         
-        pathi=trim(obj%FolderName)//trim(obj%FieldList(i)%FieldObjName )
+        pathi=obj%FolderName//obj%FieldList(i)%FieldObjName 
         
-        print *, "Now Exporting ",trim(pathi),".scf"
+        print *, "Now Exporting ",pathi,".scf"
         call ExportFEMIface(obj%FEMIfaceArray(i-obj%NumberOfObject),OptionalProjectName=pathi,FileHandle=fh2)
     enddo
     close(fh)

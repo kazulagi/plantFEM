@@ -91,7 +91,7 @@ subroutine mshPhysicalField(obj,name,caption)
     type(IO_) :: f
     ! doc: http://gmsh.info/doc/texinfo/gmsh.html#MSH-file-format-version-2-_0028Legacy_0029
     if(present(caption) ) then
-        cap=trim(caption)
+        cap=caption
     else
         cap="untitled"
     endif
@@ -114,47 +114,47 @@ subroutine mshPhysicalField(obj,name,caption)
     
     ! まずはスカラー
     if(nb_scalar_points/=0 .and. obj%attribute==1)then
-        call f%open(trim(name)//"_node_scalar.msh" )
+        call f%open(name//"_node_scalar.msh" )
         write(f%fh,'(a)' ) "$MeshFormat"
         write(f%fh,'(a)' ) "2.2 0 8"
         write(f%fh,'(a)' ) "$EndMeshFormat"
         write(f%fh,'(a)' ) "$NodeData"
         write(f%fh,'(a)' ) "1" ! one string tag
-        write(f%fh,'(a)' ) trim(cap) ! the name of the view
+        write(f%fh,'(a)' ) cap ! the name of the view
         write(f%fh,'(a)' ) "1" ! one real tag
         write(f%fh,'(a)' ) "0.0" ! time value
         write(f%fh,'(a)' ) "3"   ! three integer tag
         write(f%fh,'(a)' ) "0"   ! the timestep (starts from 0)
         write(f%fh,'(a)' ) "1"! 1-component (scalar) field
-        write(f%fh,'(a)' ) trim(str(size(obj%scalar,1) ) )
+        write(f%fh,'(a)' ) str(size(obj%scalar,1) ) 
         do i=1,size(obj%scalar,1)
-            write(f%fh,'(a)' ) trim(str(i))//" "//trim(str(obj%scalar(i)))
+            write(f%fh,'(a)' ) str(i)//" "//str(obj%scalar(i))
         enddo
         write(f%fh,'(a)' ) "$EndNodeData"
         call f%close()
     endif
     ! 次にベクトル
     if(nb_vector_points/=0 .and. obj%attribute==1)then
-        call f%open(trim(name)//"_node_vector.msh" )
+        call f%open(name//"_node_vector.msh" )
         write(f%fh,'(a)' ) "$MeshFormat"
         write(f%fh,'(a)' ) "2.2 0 8"
         write(f%fh,'(a)' ) "$EndMeshFormat"
         write(f%fh,'(a)' ) "$NodeData"
         write(f%fh,'(a)' ) "1" ! one string tag
-        write(f%fh,'(a)' ) trim(cap) ! the name of the view
+        write(f%fh,'(a)' ) cap ! the name of the view
         write(f%fh,'(a)' ) "1" ! one real tag
         write(f%fh,'(a)' ) "0.0" ! time value
         write(f%fh,'(a)' ) "3"   ! three integer tag
         write(f%fh,'(a)' ) "0"   ! the timestep (starts from 0)
-        write(f%fh,'(a)' ) trim(str(size(obj%vector,2)))! n-component (vector) field
-        write(f%fh,'(a)' ) trim(str(size(obj%vector,1) ) )
+        write(f%fh,'(a)' ) str(size(obj%vector,2))! n-component (vector) field
+        write(f%fh,'(a)' ) str(size(obj%vector,1))
         do i=1,size(obj%vector,1)
-            write(f%fh,'(a)',advance="no" ) trim(str(i))//" "
+            write(f%fh,'(a)',advance="no" ) str(i)//" "
             do j=1,size(obj%vector,2)-1
-                write(f%fh,'(a)',advance="no" ) trim(str(obj%vector(i,j)))//" "
+                write(f%fh,'(a)',advance="no" ) str(obj%vector(i,j))//" "
             enddo
             j=size(obj%vector,2)
-            write(f%fh,'(a)',advance="yes" ) trim(str(obj%vector(i,j)))
+            write(f%fh,'(a)',advance="yes" ) str(obj%vector(i,j))
         enddo
         write(f%fh,'(a)' ) "$EndNodeData"
         call f%close()
@@ -163,47 +163,47 @@ subroutine mshPhysicalField(obj,name,caption)
     ! for element-data
 
     if(nb_scalar_points/=0 .and. obj%attribute==2)then
-        call f%open(trim(name)//"_elem_scalar.msh" )
+        call f%open(name//"_elem_scalar.msh" )
         write(f%fh,'(a)' ) "$MeshFormat"
         write(f%fh,'(a)' ) "2.2 0 8"
         write(f%fh,'(a)' ) "$EndMeshFormat"
         write(f%fh,'(a)' ) "$ElementData"
         write(f%fh,'(a)' ) "1" ! one string tag
-        write(f%fh,'(a)' ) trim(cap) ! the name of the view
+        write(f%fh,'(a)' ) cap ! the name of the view
         write(f%fh,'(a)' ) "1" ! one real tag
         write(f%fh,'(a)' ) "0.0" ! time value
         write(f%fh,'(a)' ) "3"   ! three integer tag
         write(f%fh,'(a)' ) "0"   ! the timestep (starts from 0)
         write(f%fh,'(a)' ) "1"! 1-component (scalar) field
-        write(f%fh,'(a)' ) trim(str(size(obj%scalar,1) ) )
+        write(f%fh,'(a)' ) str(size(obj%scalar,1) ) 
         do i=1,size(obj%scalar,1)
-            write(f%fh,'(a)' ) trim(str(i))//" "//trim(str(obj%scalar(i)))
+            write(f%fh,'(a)' ) str(i)//" "//str(obj%scalar(i))
         enddo
         write(f%fh,'(a)' ) "$EndElementData"
         call f%close()
     endif
     ! 次にベクトル
     if(nb_vector_points/=0 .and. obj%attribute==2)then
-        call f%open(trim(name)//"_elem_vector.msh" )
+        call f%open(name//"_elem_vector.msh" )
         write(f%fh,'(a)' ) "$MeshFormat"
         write(f%fh,'(a)' ) "2.2 0 8"
         write(f%fh,'(a)' ) "$EndMeshFormat"
         write(f%fh,'(a)' ) "$ElementData"
         write(f%fh,'(a)' ) "1" ! one string tag
-        write(f%fh,'(a)' ) trim(cap) ! the name of the view
+        write(f%fh,'(a)' ) cap ! the name of the view
         write(f%fh,'(a)' ) "1" ! one real tag
         write(f%fh,'(a)' ) "0.0" ! time value
         write(f%fh,'(a)' ) "3"   ! three integer tag
         write(f%fh,'(a)' ) "0"   ! the timestep (starts from 0)
-        write(f%fh,'(a)' ) trim(str(size(obj%vector,2)))! n-component (vector) field
-        write(f%fh,'(a)' ) trim(str(size(obj%vector,1) ) )
+        write(f%fh,'(a)' ) str(size(obj%vector,2))! n-component (vector) field
+        write(f%fh,'(a)' ) str(size(obj%vector,1))
         do i=1,size(obj%vector,1)
-            write(f%fh,'(a)',advance="no" ) trim(str(i))//" "
+            write(f%fh,'(a)',advance="no" ) str(i)//" "
             do j=1,size(obj%vector,2)-1
-                write(f%fh,'(a)',advance="no" ) trim(str(obj%vector(i,j)))//" "
+                write(f%fh,'(a)',advance="no" ) str(obj%vector(i,j))//" "
             enddo
             j=size(obj%vector,2)
-            write(f%fh,'(a)',advance="yes" ) trim(str(obj%vector(i,j)))
+            write(f%fh,'(a)',advance="yes" ) str(obj%vector(i,j))
         enddo
         write(f%fh,'(a)' ) "$EndElementData"
         call f%close()

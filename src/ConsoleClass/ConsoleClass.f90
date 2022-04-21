@@ -38,7 +38,7 @@ subroutine logConsole(obj,line)
     character(*),intent(in) :: line
 
     
-    write(*,*) trim(line)
+    write(*,*) line
     obj%line = line
 
 end subroutine
@@ -50,7 +50,7 @@ subroutine readConsole(obj)
     class(Console_),intent(inout) :: obj
     character(3000) :: aline
     read(*,*) aline
-    obj%line = trim(aline)
+    obj%line = aline
 end subroutine
 ! ###################################################################
 
@@ -62,7 +62,7 @@ function readLineConsole(obj) result(line)
     character(:),allocatable :: line
 
     read(*,*) aline
-    line = trim(aline)
+    line = aline
     obj%line = line
 
 end function
@@ -95,7 +95,7 @@ function asCharConsole(obj) result(ret)
     class(Console_),intent(inout) :: obj
     character(:),allocatable :: ret
     
-    ret = trim(obj%line)
+    ret = obj%line
 
 end function
 ! ###################################################################
@@ -106,7 +106,7 @@ function inConsole(obj,word) result(ret)
     character(*),intent(in) :: word
     logical :: ret
 
-    if( index(obj%line,trim(word))/=0 )then
+    if( index(obj%line,word)/=0 )then
         ret = .true.
     else
         ret = .false.
@@ -121,7 +121,7 @@ function argumentConsole(obj) result(cmd_arg)
 
     call get_command_argument(1,cmd_arg_PF_CONSOLE_ARG_LEN)
     
-    cmd_arg = trim(cmd_arg_PF_CONSOLE_ARG_LEN)
+    cmd_arg = cmd_arg_PF_CONSOLE_ARG_LEN
 
 end function
 

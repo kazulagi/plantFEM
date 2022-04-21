@@ -49,7 +49,7 @@ function BridgeGirderCivilItem(this,From,To,Thickness,Width,Divisions,fitPiers) 
     real(real64),intent(in) :: Thickness,Width
     real(real64),allocatable :: origins_direct(:)
     integer(int32),intent(in) :: divisions(1:3)
-    logical,optional,intent(in) :: fitPiers
+    logical,optional,intent(in) :: fitPiers(2)
 
     type(FEMDomain_) :: femdomain
     integer(int32) :: i
@@ -81,16 +81,19 @@ function BridgeGirderCivilItem(this,From,To,Thickness,Width,Divisions,fitPiers) 
     call femdomain%rotate(x=acos(theta_x),z=-acos(theta_z))
 
     if(present(fitPiers) )then
-        if(fitPiers)then
+        if(fitPiers(1) )then
+            
             origins_direct = from%position()
             call From%move(x=-origins_direct(1),y=-origins_direct(2),z=-origins_direct(3) )
             call From%rotate(z=-acos(theta_z))
             call From%move(x=origins_direct(1),y=origins_direct(2),z=origins_direct(3) )
-
-            !origins_direct = to%position()
-            !call to%move(x=-origins_direct(1),y=-origins_direct(2),z=-origins_direct(3) )
-            !call to%rotate(z=-acos(theta_z))
-            !call to%move(x=origins_direct(1),y=origins_direct(2),z=origins_direct(3) )
+        endif
+        
+        if(fitPiers(2) )then
+            origins_direct = to%position()
+            call to%move(x=-origins_direct(1),y=-origins_direct(2),z=-origins_direct(3) )
+            call to%rotate(z=-acos(theta_z))
+            call to%move(x=origins_direct(1),y=origins_direct(2),z=origins_direct(3) )
             
         endif
     endif

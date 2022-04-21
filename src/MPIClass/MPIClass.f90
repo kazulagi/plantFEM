@@ -184,12 +184,12 @@ subroutine createFileNameMPI(obj,Path,Name)
     character(*),intent(in) :: Path,Name
     integer :: i, access
     
-    i=access(trim(Path)//trim(adjustl(fstring(obj%MyRank)))," ")
+    i=access(Path//adjustl(fstring(obj%MyRank))," ")
     if(i/=0)then
-        call execute_command_line("mkdir "//trim(Path)//trim(adjustl(fstring(obj%MyRank))))
+        call execute_command_line("mkdir "//Path//adjustl(fstring(obj%MyRank)))
     endif
-    obj%name=trim(Path)//trim(adjustl(fstring(obj%MyRank)))//"/"&
-        //Name//trim(adjustl(fstring(obj%MyRank)))
+    obj%name=Path//adjustl(fstring(obj%MyRank))//"/"&
+        //Name//adjustl(fstring(obj%MyRank))
 
 end subroutine
 !################################################################
@@ -749,12 +749,12 @@ recursive subroutine BcastMPIChar(obj,From,val)
     class(MPI_),intent(inout)::obj
     integer(int32),intent(inout)::From 
     character(*),intent(inout)::val
-    character(200)::val200
+    character(:),allocatable::val200
     integer(int32) :: i
 
-    val200=trim(val)
+    val200=val
     call MPI_Bcast(val200(1:200), 200, MPI_CHARACTER, From, MPI_COMM_WORLD, obj%ierr)
-    val=trim(val200)
+    val=val200
 
 end subroutine
 

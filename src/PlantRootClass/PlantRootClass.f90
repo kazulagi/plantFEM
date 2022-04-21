@@ -39,7 +39,7 @@ subroutine initPlantRoot(obj,PlantName,Stage,&
     if(present(location) )then
         loc(:)=location(:)
     endif
-    if(trim(PlantName) == "soybean" .or. trim(PlantName) == "Soybean")then
+    if(PlantName == "soybean" .or. PlantName == "Soybean")then
         if(Stage == "VE")then
             
 

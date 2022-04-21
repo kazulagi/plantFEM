@@ -80,8 +80,8 @@ subroutine importCSV(obj,path,name,extention)
     integer(int32) :: n,i,j,k,itr,m,in,ii,jj
     real(real64) :: re
     character(max_line_len)::line
-    character(200)::word=""
-    character(20)::miniword=""
+    character(:),allocatable::word
+    character(:),allocatable::miniword
     logical :: tf
     n = 0
 
@@ -90,7 +90,7 @@ subroutine importCSV(obj,path,name,extention)
         line=" "
         read (f%fh,  '(A)', end=100) line(1:4000)
         n = n + 1
-        !print *, n, trim(line)
+        
 
         ! get info from line
         i=1
@@ -101,43 +101,25 @@ subroutine importCSV(obj,path,name,extention)
             !jj= index( line(j:),"," )
             !print *, j, jj
 !
-            !if(j==0 )then
-            !    if(jj==0)then
-            !        word = trim( line(j+1:) )
-            !    else
-            !        word = trim( line(j+1:jj-1) )
-            !        !word = trim( line(k:) )
-            !    endif
-            !else
-            !    if(jj==0)then
-            !        word = trim( line(j+1:) )
-            !    else
-            !        word = trim( line(j+1:jj-1) )
-            !        !word = trim( line(k:) )
-            !    endif
-            !    !word = trim( line(k:i) )
-            !endif
-            !print *, "k,j",k,j,"/",line(k:j)
-
             if(j==0 )then
-                word(1:200) = trim( line(k:) )
+                word =  line(k:)
                 
             else
                 if(j>i)then
-                    word(1:200) = trim( line(k:j) )
+                    word =  line(k:j) 
                 else
-                    word(1:200) = trim( line(k:i) )
+                    word = line(k:i)
                 endif
             endif
-            !print *, k,i,trim(word(1:200) )
+            
             ! got word
 
-            if(trim(word) /= "," .and. trim(word) /= "" )then
-                !print *, "id",n,",",itr," : ",trim(word)
+            if(word /= "," .and. word /= "" )then
+                !print *, "id",n,",",itr," : ",word
                 !if(.not. allocated(obj%info) )then
                 !    allocate(obj%info(0,1) )
                 !endif
-                !print *, trim(word),i,j,k
+                !print *, word,i,j,k
 
                 if(.not. allocated(obj%rval) )then
                     allocate(obj%rval(0,1) )
@@ -154,10 +136,10 @@ subroutine importCSV(obj,path,name,extention)
 
                 in = 0
                 re = 0.0d0
-                !print *, trim(word)
+                !print *, word
                 if(IsItNumber(Word) .eqv. .true. )then
                     ! need bugdix
-                    !print *, "bugfix",trim(word)
+                    !print *, "bugfix",word
                     read( word, *) re
                     in=int(re)
                 endif
@@ -168,9 +150,9 @@ subroutine importCSV(obj,path,name,extention)
                 m=size(obj%position,1)
                 obj%position(m,1)=n
                 obj%position(m,2)=itr
-                write( obj%cval(m,1)(1:200),* ) trim(word)
+                write( obj%cval(m,1)(1:200),* ) word
                 !obj%cval(m,1)(1:200)=word
-                !print *, len(obj%cval(m,1)(1:200)),obj%cval(m,1)(1:200),trim(word)
+                !print *, len(obj%cval(m,1)(1:200)),obj%cval(m,1)(1:200),word
 
             endif
             i=i+j
@@ -187,7 +169,7 @@ subroutine importCSV(obj,path,name,extention)
     m=size(obj%position,1)
     !print *, size(obj%rval,1),size(obj%ival,1),size(obj%cval,1),size(obj%position,1)
     do i=1,m
-        print *, obj%rval(i,1), obj%ival(i,1),trim(obj%cval(i,1) ),obj%position(i,1:2)
+        print *, obj%rval(i,1), obj%ival(i,1),obj%cval(i,1) ,obj%position(i,1:2)
     enddo
 
 
@@ -207,7 +189,7 @@ subroutine exportCSV(obj,path,name,extention)
         do j=1, xsize
             do k=1,size(obj%position,1)
                 if( obj%position(k,1) == i .and. obj%position(k,2) == j  )then
-                    write(f%fh,'(A)',advance="no") trim(obj%cval(k,1) )
+                    write(f%fh,'(A)',advance="no") obj%cval(k,1) 
                 endif
             enddo
             write(f%fh,'(A)',advance="no") ","

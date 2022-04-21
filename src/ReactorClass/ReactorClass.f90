@@ -83,7 +83,7 @@ module ReactorClass
   
     ret = 0
     do i=1,this%n_substances
-      if(trim(this%substance_names(i)%all)==trim(name) )then
+      if(this%substance_names(i)%all==name )then
         ret = i
         return
       endif
@@ -128,13 +128,13 @@ module ReactorClass
     ! INPUT
     do i=1,size(input_list)
       ! search substance id
-      this%input_list(this%n_reaction,i) = this%SearchSubstanceID( trim(input_list(i)%all))
+      this%input_list(this%n_reaction,i) = this%SearchSubstanceID( input_list(i)%all)
     enddo
   
   
     do i=1,size(output_list)
       ! search substance id
-      this%output_list(this%n_reaction,i) = this%SearchSubstanceID( trim(output_list(i)%all ))
+      this%output_list(this%n_reaction,i) = this%SearchSubstanceID( output_list(i)%all )
     enddo
   
     this%reaction_order(this%n_reaction,1:size(mrate) ) = mrate(1:size(mrate) )

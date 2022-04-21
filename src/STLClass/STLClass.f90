@@ -88,10 +88,10 @@ contains
         type(String_) :: string
 
         if(index(name, ".stl")==0 .and. index(name, ".STL")==0 )then
-            print *, "open ",trim(name)//".stl"
-            call f%open(trim(name)//".stl")
+            print *, "open ",name//".stl"
+            call f%open(name//".stl")
         else
-            call f%open(trim(name))
+            call f%open(name)
         endif
         
 
@@ -101,7 +101,7 @@ contains
         do
             if(f%EOF .eqv. .true.) exit
             string = f%readline()
-            ch =trim(adjustl(string%all) )
+            ch =adjustl(string%all) 
 
             if( index(ch,"outer")/=0 .and.index(ch,"loop") /=0 )then
                 numoffacet=numoffacet+1
@@ -116,9 +116,9 @@ contains
         call f%close()
 
         if(index(name, ".stl")==0 .and. index(name, ".STL")==0 )then
-            call f%open(trim(name)//".stl")
+            call f%open(name//".stl")
         else
-            call f%open(trim(name))
+            call f%open(name)
         endif
         n=numoffacet
         numoffacet=0
@@ -127,7 +127,7 @@ contains
 
             if(f%EOF .eqv. .true.) exit
             string = f%readline()
-            ch =trim(adjustl(string%all) )
+            ch =adjustl(string%all) 
             if(index(ch,"facet")/=0 .and. index(ch,"normal")/=0  )then
                 read(ch,*) facet, normal, x,y,z
                 numnorm=numnorm+1
@@ -194,12 +194,12 @@ contains
         type(IO_) :: f
 
         if(index(name, ".stl")==0 .and. index(name, ".STL")==0 )then
-            call f%open(trim(name)//".stl")
+            call f%open(name//".stl")
         else
-            call f%open(trim(name))
+            call f%open(name)
         endif
 
-        write (f%fh,'(A)' ) "solid "//trim(name)
+        write (f%fh,'(A)' ) "solid "//name
 
         do i=1,size(obj%facet,1)
             write (f%fh,'(A, f10.4, f10.4, f10.4)') "facet normal ",real(obj%normal(i,1)),&
@@ -212,7 +212,7 @@ contains
             write (f%fh,'(A)') "endfacet"
         enddo
 
-        write (f%fh,'(A)') "endsolid "//trim(name)
+        write (f%fh,'(A)') "endsolid "//name
         call f%close()
     end subroutine
 

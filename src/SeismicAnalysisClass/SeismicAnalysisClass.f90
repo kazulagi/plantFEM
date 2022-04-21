@@ -215,11 +215,17 @@ subroutine fixDisplacementSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_ma
     endif
 
     if(present(direction) )then
-        if( trim(direction) == "x" .or.  trim(direction) == "X")then
-            obj%FixNodeList_x = hstack(obj%FixNodeList_x , &
-             obj%femdomain%select(&
-                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
-                )
+        if( direction == "x" .or.  direction == "X")then
+            if(allocated(obj%FixNodeList_x) )then
+                obj%FixNodeList_x = obj%FixNodeList_x // &
+                obj%femdomain%select(&
+                    x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            else
+
+                obj%FixNodeList_x = &
+                obj%femdomain%select(&
+                    x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            endif
             buf = zeros(size(obj%FixNodeList_x))
             buf(:) = disp
             if(.not. allocated(obj%FixNodeList_Disp_x) )then
@@ -229,26 +235,38 @@ subroutine fixDisplacementSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_ma
             endif
             obj%FixNodeList_Disp_x = buf
 
-        elseif( trim(direction) == "y" .or.  trim(direction) == "Y")then
-            obj%FixNodeList_y = hstack(obj%FixNodeList_y , &
-             obj%femdomain%select(&
-                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
-                )
-                buf = zeros(size(obj%FixNodeList_y))
-                buf(:) = disp
-                if(.not. allocated(obj%FixNodeList_Disp_y) )then
-                else
-                    buf(1:size(obj%FixNodeList_Disp_y) ) = obj%FixNodeList_Disp_y(:)
-                endif
-                obj%FixNodeList_Disp_y = buf
+        elseif( direction == "y" .or.  direction == "Y")then
+            if(allocated(obj%FixNodeList_y) )then
+                obj%FixNodeList_y = obj%FixNodeList_y //&
+                obj%femdomain%select(&
+                    x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            else
 
-        elseif( trim(direction) == "z" .or.  trim(direction) == "Z")then
-            obj%FixNodeList_z = hstack(obj%FixNodeList_z , &
-             obj%femdomain%select(&
-                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
-                )
-                buf = zeros(size(obj%FixNodeList_z))
-                buf(:) = disp
+                obj%FixNodeList_y = &
+                obj%femdomain%select(&
+                    x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            endif
+            buf = zeros(size(obj%FixNodeList_y))
+            buf(:) = disp
+            if(.not. allocated(obj%FixNodeList_Disp_y) )then
+            else
+                buf(1:size(obj%FixNodeList_Disp_y) ) = obj%FixNodeList_Disp_y(:)
+            endif
+            obj%FixNodeList_Disp_y = buf
+
+        elseif( direction == "z" .or.  direction == "Z")then
+            if(allocated(obj%FixNodeList_z) )then
+                obj%FixNodeList_z = obj%FixNodeList_z //&
+                obj%femdomain%select(&
+                    x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            else
+
+                obj%FixNodeList_z = &
+                obj%femdomain%select(&
+                    x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            endif
+            buf = zeros(size(obj%FixNodeList_z))
+            buf(:) = disp
 
             if(.not. allocated(obj%FixNodeList_Disp_z) )then
             else
@@ -256,12 +274,18 @@ subroutine fixDisplacementSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_ma
             endif
             obj%FixNodeList_Disp_z = buf
     
-        elseif( trim(direction) == "all" .or.  trim(direction) == "ALL")then
+        elseif( direction == "all" .or.  direction == "ALL")then
         
-            obj%FixNodeList_x = hstack(obj%FixNodeList_x , &
-             obj%femdomain%select(&
-            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
-            )
+            if(allocated(obj%FixNodeList_x) )then
+                obj%FixNodeList_x = obj%FixNodeList_x //&
+                 obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            else
+
+                obj%FixNodeList_x = &
+                 obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            endif
             buf = zeros(size(obj%FixNodeList_x))
             buf(:) = disp
 
@@ -271,24 +295,35 @@ subroutine fixDisplacementSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_ma
             endif
             obj%FixNodeList_Disp_x = buf
         
-            obj%FixNodeList_y = hstack(obj%FixNodeList_y , &
-             obj%femdomain%select(&
-                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
-                )
-                buf = size(zeros(size(obj%FixNodeList_y)))
-                buf(:) = disp
+            if(allocated(obj%FixNodeList_y) )then
+                obj%FixNodeList_y = obj%FixNodeList_y //&
+                 obj%femdomain%select(&
+                    x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            else
 
-                if(.not. allocated(obj%FixNodeList_Disp_y) )then
-                else
-                    buf(1:size(obj%FixNodeList_Disp_y) ) = obj%FixNodeList_Disp_y(:)
-                endif
-                obj%FixNodeList_Disp_y = buf    
+                obj%FixNodeList_y = &
+                obj%femdomain%select(&
+                    x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            endif
+            buf = size(zeros(size(obj%FixNodeList_y)))
+            buf(:) = disp
+            if(.not. allocated(obj%FixNodeList_Disp_y) )then
+            else
+                buf(1:size(obj%FixNodeList_Disp_y) ) = obj%FixNodeList_Disp_y(:)
+            endif
+            obj%FixNodeList_Disp_y = buf    
 
-            obj%FixNodeList_z = hstack(obj%FixNodeList_z , &
-             obj%femdomain%select(&
-                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
-                )
-                buf = zeros(size(obj%FixNodeList_z))
+            if(allocated(obj%FixNodeList_z) )then
+                obj%FixNodeList_z = obj%FixNodeList_z //&
+                obj%femdomain%select(&
+                    x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            else
+
+                obj%FixNodeList_z = &
+                obj%femdomain%select(&
+                    x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+            endif
+            buf = zeros(size(obj%FixNodeList_z))
             buf(:) = disp
 
             if(.not. allocated(obj%FixNodeList_Disp_z) )then
@@ -301,10 +336,16 @@ subroutine fixDisplacementSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_ma
             stop 
         endif
     else
-        obj%FixNodeList_x = hstack(obj%FixNodeList_x , &
-        obj%femdomain%select(&
-            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
-            )
+        if(allocated(obj%FixNodeList_x) )then
+            obj%FixNodeList_x = obj%FixNodeList_x //&
+            obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+        else
+
+            obj%FixNodeList_x = &
+            obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+        endif
             buf = zeros(size(obj%FixNodeList_x))
             buf(:) = disp
         
@@ -314,31 +355,42 @@ subroutine fixDisplacementSeismicAnalysis(obj,x_min,x_max,y_min,y_max,z_min,z_ma
             endif
             obj%FixNodeList_Disp_x = buf
 
-        obj%FixNodeList_y = hstack(obj%FixNodeList_y , &
-        obj%femdomain%select(&
-            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
-            )
-            buf = size(zeros(size(obj%FixNodeList_y)))
-            buf(:) = disp
+        if(allocated(obj%FixNodeList_y) )then
+            obj%FixNodeList_y = obj%FixNodeList_y //&
+            obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+        else
 
-            if(.not. allocated(obj%FixNodeList_Disp_y) )then
-            else
-                buf(1:size(obj%FixNodeList_Disp_y) ) = obj%FixNodeList_Disp_y(:)
-            endif
-            obj%FixNodeList_Disp_y = buf
+            obj%FixNodeList_y = &
+            obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+        endif
+        buf = size(zeros(size(obj%FixNodeList_y)))
+        buf(:) = disp
+        if(.not. allocated(obj%FixNodeList_Disp_y) )then
+        else
+            buf(1:size(obj%FixNodeList_Disp_y) ) = obj%FixNodeList_Disp_y(:)
+        endif
+        obj%FixNodeList_Disp_y = buf
 
-        obj%FixNodeList_z = hstack(obj%FixNodeList_z , &
-        obj%femdomain%select(&
-            x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)&
-            )
-            buf = zeros(size(obj%FixNodeList_z))
-            buf(:) = disp
-            
-            if(.not. allocated(obj%FixNodeList_Disp_z) )then
-            else
-                buf(1:size(obj%FixNodeList_Disp_z) ) = obj%FixNodeList_Disp_z(:)
-            endif
-            obj%FixNodeList_Disp_z = buf
+        if(allocated(obj%FixNodeList_z) )then
+            obj%FixNodeList_z = obj%FixNodeList_z //&
+            obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+        else
+
+            obj%FixNodeList_z = &
+            obj%femdomain%select(&
+                x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max,z_min=z_min,z_max=z_max)
+        endif
+        buf = zeros(size(obj%FixNodeList_z))
+        buf(:) = disp
+        
+        if(.not. allocated(obj%FixNodeList_Disp_z) )then
+        else
+            buf(1:size(obj%FixNodeList_Disp_z) ) = obj%FixNodeList_Disp_z(:)
+        endif
+        obj%FixNodeList_Disp_z = buf
 
     endif
 end subroutine

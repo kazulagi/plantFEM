@@ -847,7 +847,7 @@ function loadtxtArrayInt(path,name,extention) result(intArray)
     character(*),intent(in) :: path,name,extention
     integer(int32) :: fh, n,m,x,i
     fh = 9
-!    open(fh,file = trim(path)//trim(name)//trim(extention),status="old" )
+!    open(fh,file = path//name//extention,status="old" )
 !    do
 !        read(fh, * , end=100 ) x
 !        n=n+1
@@ -861,7 +861,7 @@ function loadtxtArrayInt(path,name,extention) result(intArray)
 !200 continue
 !    close(fh)
     
-    open(fh,file = trim(path)//trim(name)//trim(extention),status="old" )
+    open(fh,file = path//name//extention,status="old" )
     read(fh,*) n,m
     allocate(intArray(n,m) )
     do i=1, n
@@ -880,7 +880,7 @@ function loadtxtArrayReal(path,name,extention) result(realarray)
     character(len=:),allocatable :: nm,ex 
     integer(int32) :: fh, n,m,x,i
     fh = 9
-!    open(fh,file = trim(path)//trim(name)//trim(extention),status="old" )
+!    open(fh,file = path//name//extention,status="old" )
 !    do
 !        read(fh, * , end=100 ) x
 !        n=n+1
@@ -905,7 +905,7 @@ function loadtxtArrayReal(path,name,extention) result(realarray)
     endif
     
     
-    open(fh,file = trim(path)//trim(nm)//trim(ex),status="old" )
+    open(fh,file = path//nm//ex,status="old" )
     read(fh,*) n,m
     allocate(realArray(n,m) )
     do i=1, n
@@ -958,7 +958,7 @@ subroutine savetxtArrayReal(realarray,path,name,extention)
     fh = 9
 
 
-    open(fh,file = trim(path)//trim(name)//trim(extention),status="replace" )
+    open(fh,file = path//name//extention,status="replace" )
     n = size(realArray,1)
     m = size(realArray,2)
 
@@ -967,15 +967,15 @@ subroutine savetxtArrayReal(realarray,path,name,extention)
         m=0
     endif
 
-    if(trim(extention) == ".csv")then
+    if(extention == ".csv")then
         write(fh,*) n,",",m,","
         do i=1, n
             do j=1,m-1
-                write(fh, '(A)',advance='no') trim(str(realArray(i,j)))//","
+                write(fh, '(A)',advance='no') str(realArray(i,j))//","
             enddo
-            write(fh,'(A)',advance='yes') trim(str(realArray(i,m)))
+            write(fh,'(A)',advance='yes') str(realArray(i,m))
         enddo
-    elseif(trim(extention) == ".html")then
+    elseif(extention == ".html")then
         write(fh,'(A)',advance='yes') "<!DOCTYPE html>"
         write(fh,'(A)',advance='yes') "<html>"
         write(fh,'(A)',advance='yes') "<head>"
@@ -990,7 +990,7 @@ subroutine savetxtArrayReal(realarray,path,name,extention)
             write(fh, '(A)',advance='yes') "<tr>"
             do j=1,m
                 write(fh, '(A)',advance='no')  "<td><div contenteditable>"
-                write(fh, '(A)',advance='no') trim(str(realArray(i,j)))
+                write(fh, '(A)',advance='no') str(realArray(i,j))
                 write(fh, '(A)',advance='yes') "</td></div>"
             enddo
             write(fh, '(A)',advance='yes') "</tr>"
@@ -1016,7 +1016,7 @@ subroutine savetxtArrayint(realarray,path,name,extention)
     fh = 9
 
 
-    open(fh,file = trim(path)//trim(name)//trim(extention),status="replace" )
+    open(fh,file = path//name//extention,status="replace" )
     n = size(realArray,1)
     m = size(realArray,2)
 
@@ -1025,15 +1025,15 @@ subroutine savetxtArrayint(realarray,path,name,extention)
         m=0
     endif
 
-    if(trim(extention) == ".csv")then
+    if(extention == ".csv")then
         write(fh,*) n,",",m,","
         do i=1, n
             do j=1,m-1
-                write(fh, '(A)',advance='no') trim(str(realArray(i,j)))//","
+                write(fh, '(A)',advance='no') str(realArray(i,j))//","
             enddo
-            write(fh,'(A)',advance='yes') trim(str(realArray(i,m)))
+            write(fh,'(A)',advance='yes') str(realArray(i,m))
         enddo
-    elseif(trim(extention) == ".html")then
+    elseif(extention == ".html")then
         write(fh,'(A)',advance='yes') "<!DOCTYPE html>"
         write(fh,'(A)',advance='yes') "<html>"
         write(fh,'(A)',advance='yes') "<head>"
@@ -1048,7 +1048,7 @@ subroutine savetxtArrayint(realarray,path,name,extention)
             write(fh, '(A)',advance='yes') "<tr>"
             do j=1,m
                 write(fh, '(A)',advance='no')  "<td><div contenteditable>"
-                write(fh, '(A)',advance='no') trim(str(realArray(i,j)))
+                write(fh, '(A)',advance='no') str(realArray(i,j))
                 write(fh, '(A)',advance='yes') "</td></div>"
             enddo
             write(fh, '(A)',advance='yes') "</tr>"
@@ -4669,29 +4669,29 @@ subroutine jsonArrayReal(array,fh,name,endl)
         return
     endif
 
-    write(fh,'(a)') '"'//trim(name)//'" : ['
+    write(fh,'(a)') '"'//name//'" : ['
     do i=1,size(array,1)
         write(fh,'(a)',advance='no') '['
         do j=1,size(array,2)
             if(j==size(array,2))then
                 if(abs(array(i,j)) < 1.0d0 )then
                     if(array(i,j)<=0.0d0)then
-                        write(fh,'(a)',advance='no') "-0"//trim(str(abs(array(i,j))))
+                        write(fh,'(a)',advance='no') "-0"//str(abs(array(i,j)))
                     else
-                        write(fh,'(a)',advance='no') "0"//trim(str(array(i,j)))
+                        write(fh,'(a)',advance='no') "0"//str(array(i,j))
                     endif
                 else
-                    write(fh,'(a)',advance='no') trim(str(array(i,j)))
+                    write(fh,'(a)',advance='no') str(array(i,j))
                 endif
             else
                 if(abs(array(i,j)) < 1.0d0 )then
                     if(array(i,j)<=0.0d0)then
-                        write(fh,'(a)',advance='no') "-0"//trim(str(abs(array(i,j))))//','
+                        write(fh,'(a)',advance='no') "-0"//str(abs(array(i,j)))//','
                     else
-                        write(fh,'(a)',advance='no') "0"//trim(str(array(i,j)))//','
+                        write(fh,'(a)',advance='no') "0"//str(array(i,j))//','
                     endif
                 else
-                    write(fh,'(a)',advance='no') trim(str(array(i,j)))//','
+                    write(fh,'(a)',advance='no') str(array(i,j))//','
                 endif
             endif
         enddo
@@ -4723,14 +4723,14 @@ subroutine jsonArrayInt(array,fh,name,endl)
     if(size(array,1)==0 )then
         return
     endif
-    write(fh,'(a)') '"'//trim(name)//'" : ['
+    write(fh,'(a)') '"'//name//'" : ['
     do i=1,size(array,1)
         write(fh,'(a)',advance='no') '['
         do j=1,size(array,2)
             if(j==size(array,2))then
-                write(fh,'(a)',advance='no') trim(str(array(i,j)))
+                write(fh,'(a)',advance='no') str(array(i,j))
             else
-                write(fh,'(a)',advance='no') trim(str(array(i,j)))//','
+                write(fh,'(a)',advance='no') str(array(i,j))//','
             endif
         enddo
         if(i==size(array,1))then
@@ -4763,16 +4763,16 @@ subroutine jsonArrayRealVec(array,fh,name,endl)
         return
     endif
 
-    write(fh,'(a)',advance='no') '"'//trim(name)//'" : ['
+    write(fh,'(a)',advance='no') '"'//name//'" : ['
     do i=1,size(array,1)
         if(abs(array(i)) < 1.0d0 )then
             if(array(i)<=0.0d0)then
-                write(fh,'(a)',advance='no') "-0"//trim(str(abs(array(i))))
+                write(fh,'(a)',advance='no') "-0"//str(abs(array(i)))
             else
-                write(fh,'(a)',advance='no') "0"//trim(str(array(i)))
+                write(fh,'(a)',advance='no') "0"//str(array(i))
             endif
         else
-            write(fh,'(a)',advance='no') trim(str(array(i)))
+            write(fh,'(a)',advance='no') str(array(i))
         endif
         if(i/=size(array,1) )then
             write(fh,'(a)',advance='yes') ","
@@ -4801,9 +4801,9 @@ subroutine jsonArrayIntVec(array,fh,name,endl)
     if(size(array,1)==0 )then
         return
     endif
-    write(fh,'(a)',advance='no') '"'//trim(name)//'" : ['
+    write(fh,'(a)',advance='no') '"'//name//'" : ['
     do i=1,size(array,1)
-        write(fh,'(a)',advance='no') trim(str(array(i)))
+        write(fh,'(a)',advance='no') str(array(i))
         if(i/=size(array,1) )then
             write(fh,'(a)',advance='yes') ","
         endif
@@ -5265,9 +5265,9 @@ subroutine printArrayClass(obj)
     if(allocated(obj%list) )then
         do i=1,size(obj%list,1)
             do j=1,size(obj%list,2)-1
-                write(*,'(A)',advance='no') trim(obj%list(i,j)%string)// "  "
+                write(*,'(A)',advance='no') obj%list(i,j)%string// "  "
             enddo
-            write(*,'(A)',advance='yes') trim(obj%list(i,size(obj%list,2))%string)
+            write(*,'(A)',advance='yes') obj%list(i,size(obj%list,2))%string
         enddo
         return
     endif

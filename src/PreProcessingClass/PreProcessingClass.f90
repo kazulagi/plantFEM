@@ -10,8 +10,8 @@ module PreprocessingClass
     type :: PreProcessing_
         type(FEMDomain_) :: FEMDomain
         type(FEMDomain_),pointer :: pFEMDomain
-        character*200   :: PictureName
-        character*200   :: RGBDataName,PixcelSizeDataName
+        character(:),allocatable   :: PictureName
+        character(:),allocatable   :: RGBDataName,PixcelSizeDataName
         integer(int32)         :: PixcelSize(2),num_of_pixcel
         integer(int32)         :: ColorRGB(3)
     contains
@@ -80,7 +80,7 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
     integer(int32),optional,intent(in) :: sR,SG,sB
     real(real64),intent(in) :: scalex,scaley
     real(real64) :: Dbound_val,Nbound_val,xratio,yratio
-    character(200)         :: name,name1,name2,name3,name4,str_id,&
+    character(:),allocatable         :: name,name1,name2,name3,name4,str_id,&
         sname,dirichlet,neumann,materials,parameters
     integer(int32) :: NumOfImages,i,id,num_d,num_n,DBoundRGB(3),Dbound_xyz,NBoundRGB(3),Nbound_xyz
     integer(int32) :: NumOfMaterial,NumOfparameter,matid,MaterialRGB(3)
@@ -88,25 +88,25 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
 
     
 
-    if(trim(ElemType) /= "LinearRectangularGp4")then
+    if(ElemType /= "LinearRectangularGp4")then
         print *, "ERROR :: now only LinearRectangularGp4 is available."
         return
     endif
 
 
     ! get paths for Image lists
-    open(50,file=trim(project)//"filenamelist.txt")
+    open(50,file=project//"filenamelist.txt")
     read(50,*) NumOfImages
     call InfileList%Init(NumOfImages)
     do i=1,NumOfImages
         read(50,'(A)' ) name
-        call InfileList%Input(i, trim(name) )
+        call InfileList%Input(i, name )
     enddo
     close(50)
     call MPIData%createStack(total=NumOfImages)
 
     ! get boundary information list
-    open(60, file=trim(project)//"boundcondlist.txt")
+    open(60, file=project//"boundcondlist.txt")
     read(60,*) dirichlet
     read(60,*) num_d
     call DBoundlist%Init(num_d)
@@ -114,7 +114,7 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
         read(60,'(A)' ) name
         read(60,*)  DBoundRGB(1:3)
         read(60,*)  Dbound_xyz, Dbound_val
-        call DBoundlist%Input(i, content=trim(name) )
+        call DBoundlist%Input(i, content=name )
         call DBoundlist%Input(i, intlist=DBoundRGB )
         call DBoundlist%Input(i, IntValue=Dbound_xyz )
         call DBoundlist%Input(i, RealValue=Dbound_val )
@@ -125,7 +125,7 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
         read(60,'(A)' ) name
         read(60,*)  NBoundRGB(1:3)
         read(60,*)  Nbound_xyz, Nbound_val
-        call NBoundlist%Input(i, content=trim(name) )
+        call NBoundlist%Input(i, content=name )
         call NBoundlist%Input(i, Intlist=NBoundRGB )
         call NBoundlist%Input(i, IntValue=Nbound_xyz )
         call NBoundlist%Input(i, RealValue=Nbound_val )
@@ -134,7 +134,7 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
 
 
     ! get paths for material information lists
-    open(70,file=trim(project)//"materialist.txt")
+    open(70,file=project//"materialist.txt")
     read(70, '(A)' ) materials
     read(70,*) NumOfMaterial
     read(70, '(A)' ) parameters
@@ -146,10 +146,10 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
         read(70,'(A)' ) name
         read(70,*) MaterialRGB(1:3)
         read(70,*) matpara(1:NumOfparameter)
-        call materialist%Input(i, content=trim(name) )
+        call materialist%Input(i, content=name )
         call materialist%Input(i, Intlist=materialRGB )
         call materialist%Input(i, Realist=matpara )
-    !    call Materialist%Input(i, trim(name) )
+    !    call Materialist%Input(i, name )
     enddo
     close(70)
 
@@ -157,9 +157,9 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
     
     do i=1,size(MPIData%LocalStack)
         id=MPIData%LocalStack(i)
-        str_id= trim(adjustl(fstring(id)))
-        name=trim(InfileList%get( MPIData%LocalStack(i)) )
-        print *, "MyRank",MPIData%MyRank,"|",trim(name)
+        str_id= adjustl(fstring(id))
+        name=InfileList%get( MPIData%LocalStack(i)) 
+        print *, "MyRank",MPIData%MyRank,"|",name
         
         ! Get Pixcel
         call leaf%ImportPictureName(name)
@@ -171,17 +171,17 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
         call leaf%AssembleSurfaceElement(MPIData,dim=2,threshold=5,DelRange=5)
         
         ! Convert SurfaceNod to .geo
-        call leaf%ExportGeoFile(MPIData,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
+        call leaf%ExportGeoFile(MPIData,Name=project//"mesh"//str_id//".geo" )
         
         ! Run Gmsh to convert .geo to .msh
-        call leaf%ConvertGeo2Msh(MPIData ,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
-        call leaf%ConvertGeo2Inp(MPIData ,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
-        call leaf%ConvertGeo2Mesh(MPIData,Name=trim(project)//"mesh"//trim(str_id)//".geo" )
+        call leaf%ConvertGeo2Msh(MPIData ,Name=project//"mesh"//str_id//".geo" )
+        call leaf%ConvertGeo2Inp(MPIData ,Name=project//"mesh"//str_id//".geo" )
+        call leaf%ConvertGeo2Mesh(MPIData,Name=project//"mesh"//str_id//".geo" )
         
         ! Convert .msh to .scf
         
         call leaf%ConvertMesh2Scf(MPIData,ElementType=ElemType,&
-            Name=trim(project)//"mesh"//trim(str_id)//".mesh" )
+            Name=project//"mesh"//str_id//".mesh" )
         call leaf%FEMDomain%checkconnectivity(fix=.true.)
 
         !call leaf%Convert3Dto2D()
@@ -197,11 +197,11 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
         call leaf%SetControlPara(OptionalItrTol=100,OptionalTimestep=100,OptionalSimMode=1)
         
         
-        !call leaf%Export(Name=trim(project)//"root"//trim(str_id)//".geo")
+        !call leaf%Export(Name=project//"root"//str_id//".geo")
 
         ! get soil mesh
         if(present(Soilfile) )then
-            sname=trim(Soilfile)
+            sname=Soilfile
             call soil%ImportPictureName(sname)
             call soil%GetPixcelSize(MPIData)
             call soil%SetColor(sR,sG,sB)
@@ -213,15 +213,15 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
             call soil%modifySuefaceNode(Mesh=leaf%FEMDomain%Mesh,boolean="diff")
             
             ! Convert SurfaceNod to .geo
-            call soil%ExportGeoFile(MPIData,Name=trim(project)//"soil"//trim(str_id)//".geo" )
+            call soil%ExportGeoFile(MPIData,Name=project//"soil"//str_id//".geo" )
             
             ! Run Gmsh to convert .geo to .msh
-            call soil%ConvertGeo2Msh(MPIData ,Name=trim(project)//"soil"//trim(str_id)//".geo" )
-            call soil%ConvertGeo2Inp(MPIData ,Name=trim(project)//"soil"//trim(str_id)//".geo" )
-            call soil%ConvertGeo2Mesh(MPIData,Name=trim(project)//"soil"//trim(str_id)//".geo" )
+            call soil%ConvertGeo2Msh(MPIData ,Name=project//"soil"//str_id//".geo" )
+            call soil%ConvertGeo2Inp(MPIData ,Name=project//"soil"//str_id//".geo" )
+            call soil%ConvertGeo2Mesh(MPIData,Name=project//"soil"//str_id//".geo" )
             ! Convert .msh to .scf
             call soil%ConvertMesh2Scf(MPIData,ElementType=ElemType,&
-            Name=trim(project)//"soil"//trim(str_id)//".mesh")
+            Name=project//"soil"//str_id//".mesh")
             
             call soil%FEMDomain%checkconnectivity(fix=.true.)
             
@@ -237,7 +237,7 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
 
             call soil%SetControlPara(OptionalItrTol=100,OptionalTimestep=100,OptionalSimMode=1)
             
-            !call soil%Export(Name=trim(project)//"soil"//trim(str_id)//".geo")
+            !call soil%Export(Name=project//"soil"//str_id//".geo")
 
         endif
         xratio=scalex/leaf%PixcelSize(1)
@@ -246,7 +246,7 @@ subroutine getScfFromImagePreProcessing(obj,project,ElemType,MPIData,R,G,B,scale
         call leaf%SetScale(xratio=xratio,yratio=yratio)
         call soil%Reverse()
         call leaf%Reverse()
-        call leaf%Export(with=soil,Name=trim(project)//"rootandsoil"//trim(str_id)//".scf",regacy=.true.)
+        call leaf%Export(with=soil,Name=project//"rootandsoil"//str_id//".scf",regacy=.true.)
         
         
 
@@ -302,14 +302,14 @@ end subroutine
 subroutine ImportPictureName(obj,Name)
     class(PreProcessing_)::obj
     character(*),intent(in)::Name
-    obj%PictureName=trim(Name)
+    obj%PictureName=name
 end subroutine
 ! #########################################################
 
 ! #########################################################
 subroutine ShowPictureName(obj)
     class(PreProcessing_)::obj
-    print *, trim(obj%PictureName)
+    print *, obj%PictureName
 end subroutine 
 ! #########################################################
 
@@ -322,8 +322,8 @@ subroutine ShowPixcelSize(obj)
     write(pix_x,*) obj%PixcelSize(1)
     write(pix_y,*) obj%PixcelSize(2)
     
-    print *, "Pixcel size is :: ",trim(adjustl(pix_x) )," x ",&
-    trim(adjustl(pix_y) )
+    print *, "Pixcel size is :: ",adjustl(pix_x) ," x ",&
+    adjustl(pix_y) 
 end subroutine 
 ! #########################################################
 
@@ -334,90 +334,90 @@ subroutine GetPixcelSize(obj,MPIData,Name)
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
     character(*),optional,intent(in)   :: Name
-    character *30       :: pid
-    character *200      :: python_script
-    character *200      :: python_buffer
-    character *200      :: command
+    character(:),allocatable       :: pid
+    character(:),allocatable      :: python_script
+    character(:),allocatable      :: python_buffer
+    character(:),allocatable      :: command
     integer(int32)              :: fh
 
 
     call MPIData%GetInfo()
 
-    pid = trim(adjustl(fstring(MPIData%MyRank)))
-    python_script="GetPixcelSize_pid_"//trim(adjustl(pid))//".py"
-    python_buffer="GetPixcelSize_pid_"//trim(adjustl(pid))//".txt"
+    pid = adjustl(fstring(MPIData%MyRank))
+    python_script="GetPixcelSize_pid_"//pid//".py"
+    python_buffer="GetPixcelSize_pid_"//pid//".txt"
 
 
 
 
     if(present(Name) )then
-        python_script=Name//"GetPixcelSize_pid_"//trim(adjustl(pid))//".py"
-        python_buffer=Name//"GetPixcelSize_pid_"//trim(adjustl(pid))//".txt"
+        python_script=Name//"GetPixcelSize_pid_"//pid//".py"
+        python_buffer=Name//"GetPixcelSize_pid_"//pid//".txt"
     endif
 
 
 
 
     obj%PixcelSizeDataName=python_buffer
-    !print *, trim(python_script)
+    !print *, python_script
     
     ! using python script
     ! python imaging library is to be installed.
     fh=MPIData%MyRank+100
 
 
-    open(fh,file=trim(python_script),status="replace")
+    open(fh,file=python_script,status="replace")
     command = "from PIL import Image"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "import sys"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "import os"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
 
     ! open file
-    command = 'img_in = Image.open("'//trim(obj%PictureName)//'")'
+    command = 'img_in = Image.open("'//obj%PictureName//'")'
     !print *, command
-    write(fh,'(A)') adjustl(trim(command))
-    command = 'python_buffer = open("'//trim(python_buffer)//'","w")'
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
+    command = 'python_buffer = open("'//python_buffer//'","w")'
+    write(fh,'(A)') adjustl(obj%PictureName)
     !print *, command
     ! get pixcel size
     command = "rgb_im = img_in.convert('RGB')"
     !print *, command
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "size = rgb_im.size"
     !print *, command
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "print( str(size[0]), ' ',str(size[1])  ) "
     !print *, command
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     
     ! write size
     command = "python_buffer.write( str(size[0]))"
     !print *, command
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "python_buffer.write('\n')"
     !print *, command
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "python_buffer.write( str(size[1]))"
     !print *, command
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     
     ! close
     command = "img_in.close()"
     !print *, command
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "python_buffer.close()"
     !print *, command
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     close(fh)
 
-    command = "python3 "//trim(python_script)
-    !print *, trim(command)
-    call execute_command_line(trim(command))
+    command = "python3 "//python_script
+    !print *, obj%PictureName
+    call execute_command_line(obj%PictureName)
 
     ! get pixcel size
-    open(fh,file=trim(python_buffer),status="old")
+    open(fh,file=python_buffer,status="old")
     read(fh,*) obj%PixcelSize(1)
     read(fh,*) obj%PixcelSize(2)
     close(fh)
@@ -441,70 +441,70 @@ subroutine GetAllPointCloud(obj,MPIData,Name)
     call MPIData%GetInfo()
     write(pid,*) MPIData%MyRank
     
-    python_script="GetAllPointCloud_pid_"//trim(adjustl(pid))//".py"
-    python_buffer="GetAllPointCloud_pid_"//trim(adjustl(pid))//".txt"
+    python_script="GetAllPointCloud_pid_"//pid//".py"
+    python_buffer="GetAllPointCloud_pid_"//pid//".txt"
     if(present(Name) )then
-        python_script=Name//"GetAllPointCloud_pid_"//trim(adjustl(pid))//".py"
-        python_buffer=Name//"GetAllPointCloud_pid_"//trim(adjustl(pid))//".txt"
+        python_script=Name//"GetAllPointCloud_pid_"//pid//".py"
+        python_buffer=Name//"GetAllPointCloud_pid_"//pid//".txt"
     endif
 
-    print *, trim(python_script)
+    print *, python_script
 
     ! using python script
     ! python imaging library is to be installed.
     fh=MPIData%MyRank+10
-    open(fh,file=trim(python_script),status="replace")
+    open(fh,file=python_script,status="replace")
     command = "from PIL import Image"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "import sys"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "import os"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
 
     ! open file
-    command = 'img_in = Image.open("'//trim(obj%PictureName)//'")'
-    write(fh,'(A)') adjustl(trim(command))
-    command = 'python_buffer = open("'//trim(python_buffer)//'","w")'
-    write(fh,'(A)') adjustl(trim(command))
+    command = 'img_in = Image.open("'//obj%PictureName//'")'
+    write(fh,'(A)') adjustl(obj%PictureName)
+    command = 'python_buffer = open("'//python_buffer//'","w")'
+    write(fh,'(A)') adjustl(obj%PictureName)
 
     ! get pixcel size
     command = "rgb_im = img_in.convert('RGB')"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "size = rgb_im.size"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "print( str(size[0]), ' ',str(size[1])  ) "
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     
     ! get rgb pixcel coordinates
     command = "width,height =img_in.size"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "for i in range(width):"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "for j in range(height):"
-    write(fh,'(A)') "   "//adjustl(trim(command))
+    write(fh,'(A)') "   "//adjustl(obj%PictureName)
     command = "R,G,B=rgb_im.getpixel((i,j))"
-    write(fh,'(A)') "       "//adjustl(trim(command))
+    write(fh,'(A)') "       "//adjustl(obj%PictureName)
     command = "python_buffer.write(str(i)+'\t')"
-    write(fh,'(A)') "       "//adjustl(trim(command))
+    write(fh,'(A)') "       "//adjustl(obj%PictureName)
     command = "python_buffer.write(str(j)+'\t')"
-    write(fh,'(A)') "       "//adjustl(trim(command))
+    write(fh,'(A)') "       "//adjustl(obj%PictureName)
     command = "python_buffer.write(str(R)+'\t')"
-    write(fh,'(A)') "       "//adjustl(trim(command))
+    write(fh,'(A)') "       "//adjustl(obj%PictureName)
     command = "python_buffer.write(str(G)+'\t')"
-    write(fh,'(A)') "       "//adjustl(trim(command))
+    write(fh,'(A)') "       "//adjustl(obj%PictureName)
     command = "python_buffer.write(str(B)+'\n')"
-    write(fh,'(A)') "       "//adjustl(trim(command))
+    write(fh,'(A)') "       "//adjustl(obj%PictureName)
     
     ! close
     command = "img_in.close()"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "python_buffer.close()"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     close(fh)
 
-    command = "python3 "//trim(python_script)
-    print *, trim(command)
-    call execute_command_line(trim(command))
+    command = "python3 "//python_script
+    print *, obj%PictureName
+    call execute_command_line(obj%PictureName)
 
 end subroutine
 ! #########################################################
@@ -516,13 +516,13 @@ subroutine GetPixcelByRGB(obj,MPIData,err,onlycoord,Name)
     integer(int32),optional,intent(in)        :: err
     logical,optional,intent(in)        :: onlycoord
     character(*),optional,intent(in)   :: Name
-    character *20       :: pid
-    character *20       :: Red,Green,Blue
-    character *20       :: er
-    character *200      :: python_script
-    character *200      :: python_buffer
-    character *200      :: python_buffer_size
-    character *200      :: command
+    character(:),allocatable :: pid
+    character(:),allocatable :: Red,Green,Blue
+    character(:),allocatable :: er
+    character(:),allocatable :: python_script
+    character(:),allocatable :: python_buffer
+    character(:),allocatable :: python_buffer_size
+    character(:),allocatable :: command
     integer(int32)              :: fh,error,sizeofpc,i
 
     if(present(err) )then
@@ -538,96 +538,96 @@ subroutine GetPixcelByRGB(obj,MPIData,err,onlycoord,Name)
     write(Blue,*) obj%ColorRGB(3)
     write(er,*) error
 
-    python_script="GetPixcelByRGB_pid_"//trim(adjustl(pid))//".py"
-    python_buffer="GetPixcelByRGB_pid_"//trim(adjustl(pid))//".txt"
-    python_buffer_size="GetPixcelByRGB_size_pid_"//trim(adjustl(pid))//".txt"
+    python_script="GetPixcelByRGB_pid_"//pid//".py"
+    python_buffer="GetPixcelByRGB_pid_"//pid//".txt"
+    python_buffer_size="GetPixcelByRGB_size_pid_"//pid//".txt"
     obj%RGBDataName=python_buffer
     if(present(Name) )then
-        python_script       =Name//"GetPixcelByRGB_pid_"//trim(adjustl(pid))//".py"
-        python_buffer       =Name//"GetPixcelByRGB_pid_"//trim(adjustl(pid))//".txt"
-        python_buffer_size  =Name//"GetPixcelByRGB_size_pid_"//trim(adjustl(pid))//".txt"
+        python_script       =Name//"GetPixcelByRGB_pid_"//pid//".py"
+        python_buffer       =Name//"GetPixcelByRGB_pid_"//pid//".txt"
+        python_buffer_size  =Name//"GetPixcelByRGB_size_pid_"//pid//".txt"
     endif
-    print *, trim(python_script)
+    print *, python_script
 
     ! using python script
     ! python imaging library is to be installed.
     fh=MPIData%MyRank+10
-    open(fh,file=trim(python_script),status="replace")
+    open(fh,file=python_script,status="replace")
     command = "from PIL import Image"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "import sys"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "import os"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
 
     ! open file
-    command = 'img_in = Image.open("'//trim(obj%PictureName)//'")'
-    write(fh,'(A)') adjustl(trim(command))
-    command = 'python_buffer = open("'//trim(python_buffer)//'","w")'
-    write(fh,'(A)') adjustl(trim(command))
-    command = 'python_buffer_size = open("'//trim(python_buffer_size)//'","w")'
-    write(fh,'(A)') adjustl(trim(command))
+    command = 'img_in = Image.open("'//obj%PictureName//'")'
+    write(fh,'(A)') adjustl(obj%PictureName)
+    command = 'python_buffer = open("'//python_buffer//'","w")'
+    write(fh,'(A)') adjustl(obj%PictureName)
+    command = 'python_buffer_size = open("'//python_buffer_size//'","w")'
+    write(fh,'(A)') adjustl(obj%PictureName)
 
     ! get pixcel size
     command = "rgb_im = img_in.convert('RGB')"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "size = rgb_im.size"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "print( str(size[0]), ' ',str(size[1])  ) "
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     
     ! get rgb pixcel coordinates
 
     command = "itr = 0"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
 
     command = "width,height =img_in.size"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "for i in range(width):"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "for j in range(height):"
-    write(fh,'(A)') "   "//adjustl(trim(command))
+    write(fh,'(A)') "   "//adjustl(obj%PictureName)
     command = "R,G,B=rgb_im.getpixel((i,j))"
-    write(fh,'(A)') "       "//adjustl(trim(command))
-    command = "er=abs(R-"//adjustl(trim(Red))//&
-        ")+abs(G-"//adjustl(trim(Green))//&
-        ")+abs(B-"//adjustl(trim(Blue))//")"
-    write(fh,'(A)') "       "//adjustl(trim(command))
-    command = "if er <= "//adjustl(trim(er))// " :"
-    write(fh,'(A)') "       "//adjustl(trim(command))
+    write(fh,'(A)') "       "//adjustl(obj%PictureName)
+    command = "er=abs(R-"//adjustl(Red)//&
+        ")+abs(G-"//adjustl(Green)//&
+        ")+abs(B-"//adjustl(Blue)//")"
+    write(fh,'(A)') "       "//adjustl(obj%PictureName)
+    command = "if er <= "//adjustl(er)// " :"
+    write(fh,'(A)') "       "//adjustl(obj%PictureName)
 
     command = "python_buffer.write(str(i)+'\t')"
-    write(fh,'(A)') "           "//adjustl(trim(command))
+    write(fh,'(A)') "           "//adjustl(obj%PictureName)
     command = "itr=itr+1"
-    write(fh,'(A)') "           "//adjustl(trim(command))
+    write(fh,'(A)') "           "//adjustl(obj%PictureName)
     if( onlycoord .eqv. .true. )then
         command = "python_buffer.write(str(j)+'\n')"
-        write(fh,'(A)') "           "//adjustl(trim(command))
+        write(fh,'(A)') "           "//adjustl(obj%PictureName)
     else
         command = "python_buffer.write(str(j)+'\t')"
-        write(fh,'(A)') "           "//adjustl(trim(command))
+        write(fh,'(A)') "           "//adjustl(obj%PictureName)
         command = "python_buffer.write(str(R)+'\t')"
-        write(fh,'(A)') "           "//adjustl(trim(command))
+        write(fh,'(A)') "           "//adjustl(obj%PictureName)
         command = "python_buffer.write(str(G)+'\t')"
-        write(fh,'(A)') "           "//adjustl(trim(command))
+        write(fh,'(A)') "           "//adjustl(obj%PictureName)
         command = "python_buffer.write(str(B)+'\n')"
-        write(fh,'(A)') "           "//adjustl(trim(command))
+        write(fh,'(A)') "           "//adjustl(obj%PictureName)
     endif
     
     ! close
     command = "python_buffer_size.write(str(itr)+'\n')"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "img_in.close()"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "python_buffer.close()"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     command = "python_buffer_size.close()"
-    write(fh,'(A)') adjustl(trim(command))
+    write(fh,'(A)') adjustl(obj%PictureName)
     close(fh)
 
-    command = "python3 "//trim(python_script)
-    print *, trim(command)
-    call execute_command_line(trim(command))
+    command = "python3 "//python_script
+    print *, obj%PictureName
+    call execute_command_line(obj%PictureName)
 
 
     open(fh,file=python_buffer_size,status="old")
@@ -668,7 +668,7 @@ end subroutine
 subroutine ShowColor(obj)
     class(PreProcessing_),intent(inout):: obj
     
-    print *, "Object Name is : ",trim(obj%PictureName)
+    print *, "Object Name is : ",obj%PictureName
     print *, "Red   : ",obj%ColorRGB(1)
     print *, "Green : ",obj%ColorRGB(2)
     print *, "Blue  : ",obj%ColorRGB(3)
@@ -685,8 +685,8 @@ subroutine GetPixcelSurfaceNode(obj,MPIData,r,NumOfMaxNod,Name,convex,division,b
     integer(int32),optional,intent(in)        :: r,NumOfMaxNod,division
     logical,optional,intent(in)        :: convex,box
 
-    character*200   :: python_buffer
-    character*20    :: pid
+    character(:),allocatable   :: python_buffer
+    character(:),allocatable    :: pid
     
     integer(int32),allocatable :: KilledPixcel(:)
     
@@ -863,9 +863,9 @@ subroutine GetPixcelSurfaceNode(obj,MPIData,r,NumOfMaxNod,Name,convex,division,b
     call MPIData%GetInfo()
     write(pid,*) MPIData%MyRank
     fh=MPIData%MyRank+10
-    python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".txt"
+    python_buffer="GetSurface_pid_"//pid//".txt"
     if(present(Name) )then
-        python_buffer=Name//"GetSurface_pid_"//trim(adjustl(pid))//".txt"    
+        python_buffer=Name//"GetSurface_pid_"//pid//".txt"    
     endif
 
     open(fh,file=python_buffer,status="replace")
@@ -925,8 +925,8 @@ subroutine AssembleSurfaceElement(obj,MPIData,dim,threshold,DelRange,Name)
     class(MPI_),intent(inout)          :: MPIData
     integer(int32),optional,intent(in)        :: dim,threshold,DelRange
     character(*),optional,intent(in)   :: Name
-    character*200   :: python_buffer
-    character*20    :: pid
+    character(:),allocatable   :: python_buffer
+    character(:),allocatable   :: pid
     real(real64),allocatable     :: buffer(:,:),r_value(:),line_segment_len(:)
     integer(int32),allocatable     :: checked(:),line_segment(:,:),kill(:)
     real(real64)                 :: x(3),x_tr(3),r_tr,r_ref,a1(2),a2(2),b1(2),b2(2),c1,c2,c3
@@ -1034,9 +1034,9 @@ subroutine AssembleSurfaceElement(obj,MPIData,dim,threshold,DelRange,Name)
 
     write(pid,*) MPIData%MyRank
     fh=MPIData%MyRank+10
-    python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".txt"
+    python_buffer="GetSurface_pid_"//pid//".txt"
     if(present(Name) )then
-        python_buffer=Name//"GetSurface_pid_"//trim(adjustl(pid))//".txt"    
+        python_buffer=Name//"GetSurface_pid_"//pid//".txt"    
     endif
 
 
@@ -1203,8 +1203,8 @@ subroutine ReduceSize(obj,MPIData,interval,Name,auto,curvetol)
     class(MPI_),intent(inout)          :: MPIData
     character(*),optional,intent(in)    :: Name
     integer(int32),optional,intent(in) :: interval
-    character*200   :: python_buffer
-    character*20    :: pid
+    character(:),allocatable   :: python_buffer
+    character(:),allocatable   :: pid
     real(real64),allocatable:: buffer(:,:)
     integer(int32),allocatable:: chosen(:),kill(:)
     logical,optional,intent(in) :: auto
@@ -1293,10 +1293,10 @@ subroutine ReduceSize(obj,MPIData,interval,Name,auto,curvetol)
 
     write(pid,*) MPIData%MyRank
     fh=MPIData%MyRank+10
-    python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".txt"
+    python_buffer="GetSurface_pid_"//pid//".txt"
 
     if(present(Name) )then
-        python_buffer=Name//"GetSurface_pid_"//trim(adjustl(pid))//".txt"    
+        python_buffer=Name//"GetSurface_pid_"//pid//".txt"    
     endif
     open(fh,file=python_buffer,status="replace")
     do i=1,size(obj%FEMDomain%Mesh%NodCoord,1)
@@ -1317,17 +1317,17 @@ subroutine ExportGeoFile(obj,MPIData,Name)
     class(PreProcessing_),intent(inout):: obj
     character(*),optional,intent(in)    :: Name
     class(MPI_),intent(inout)          :: MPIData
-    character*200   :: python_buffer
-    character*20    :: pid
+    character(:),allocatable   :: python_buffer
+    character(:),allocatable   :: pid
     integer(int32) :: i,j,k,n,fh,xsize
     real(real64) :: x_p,y_p
 
     write(pid,*) MPIData%MyRank
     fh=MPIData%MyRank+10
-    python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".geo"
+    python_buffer="GetSurface_pid_"//pid//".geo"
 
     if(present(Name) )then
-        python_buffer=trim(Name)
+        python_buffer=name
         
     endif
 
@@ -1366,9 +1366,9 @@ subroutine ConvertGeo2Msh(obj,MPIData,Name,clmin,clmax)
     class(MPI_),intent(inout)          :: MPIData
     character(*),optional,intent(in)    :: Name
     real(real64),optional,intent(in) :: clmin,clmax
-    character*200   :: python_buffer
-    character*200   :: command
-    character*20    :: pid
+    character(:),allocatable   :: python_buffer
+    character(:),allocatable   :: command
+    character(:),allocatable    :: pid
     integer(int32) :: i,j,k,n,fh
     real(real64) :: cmin,cmax
 
@@ -1379,14 +1379,14 @@ subroutine ConvertGeo2Msh(obj,MPIData,Name,clmin,clmax)
     fh=MPIData%MyRank+10
     python_buffer=" "
     command  = " "
-    python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".geo"
+    python_buffer="GetSurface_pid_"//pid//".geo"
     if(present(Name) )then
-        python_buffer=trim(Name)
+        python_buffer=name
     endif
-    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin "//trim(fstring(cmin))&
-        //" -clmax "//trim(fstring(cmax))
+    command="gmsh "//python_buffer//" -2 -algo del2d -clmin "//fstring(cmin)&
+        //" -clmax "//fstring(cmax)
 
-    writE(*,'(A)') trim(command)
+    writE(*,'(A)') obj%PictureName
     
     call execute_command_line(command)
 
@@ -1404,9 +1404,9 @@ subroutine ConvertGeo2VTK(obj,MPIData,Name,clmin,clmax)
     class(MPI_),intent(inout)          :: MPIData
     character(*),optional,intent(in)    :: Name
     real(real64),optional,intent(in) :: clmin,clmax
-    character*200   :: python_buffer
-    character*200   :: command
-    character*20    :: pid
+    character(:),allocatable   :: python_buffer
+    character(:),allocatable   :: command
+    character(:),allocatable  :: pid
     integer(int32) :: i,j,k,n,fh
     real(real64) :: cmin,cmax
 
@@ -1417,14 +1417,14 @@ subroutine ConvertGeo2VTK(obj,MPIData,Name,clmin,clmax)
     fh=MPIData%MyRank+10
     python_buffer=" "
     command  = " "
-    python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".geo"
+    python_buffer="GetSurface_pid_"//pid//".geo"
     if(present(Name) )then
-        python_buffer=trim(Name)
+        python_buffer=name
     endif
-    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin "//trim(fstring(cmin))&
-        //" -clmax "//trim(fstring(cmax))//" -format vtk"
+    command="gmsh "//python_buffer//" -2 -algo del2d -clmin "//fstring(cmin)&
+        //" -clmax "//fstring(cmax)//" -format vtk"
 
-    writE(*,'(A)') trim(command)
+    writE(*,'(A)') obj%PictureName
     
     call execute_command_line(command)
 
@@ -1441,9 +1441,9 @@ subroutine ConvertGeo2Inp(obj,MPIData,Name,clmin,clmax)
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
     character(*),optional,intent(in)    :: Name
-    character*200   :: python_buffer
-    character*200   :: command
-    character*20    :: pid
+    character(:),allocatable   :: python_buffer
+    character(:),allocatable   :: command
+    character(:),allocatable    :: pid
     integer(int32) :: i,j,k,n,fh
     real(real64) :: cmin,cmax
     real(real64),optional,intent(in) :: clmin,clmax
@@ -1455,17 +1455,17 @@ subroutine ConvertGeo2Inp(obj,MPIData,Name,clmin,clmax)
     fh=MPIData%MyRank+10
     python_buffer=" "
     command  = " "
-    python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".geo"
+    python_buffer="GetSurface_pid_"//pid//".geo"
     if(present(Name) )then
-        python_buffer=trim(Name)
+        python_buffer=name
     endif
-    !command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin 100 -clmax 100000 -format inp" 
-    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin "//trim(fstring(cmin))//&
-        " -clmax "//trim(fstring(cmax))//" -format inp"
+    !command="gmsh "//python_buffer//" -2 -algo del2d -clmin 100 -clmax 100000 -format inp" 
+    command="gmsh "//python_buffer//" -2 -algo del2d -clmin "//fstring(cmin)//&
+        " -clmax "//fstring(cmax)//" -format inp"
 
-    writE(*,'(A)') trim(command)
+    writE(*,'(A)') obj%PictureName
     
-    call execute_command_line(trim(command))
+    call execute_command_line(obj%PictureName)
     !call execute_command_line("sh ./MakeMesh.sh")
     
 
@@ -1479,9 +1479,9 @@ subroutine ConvertGeo2Mesh(obj,MPIData,SizePara,Name,clmin,clmax)
     class(MPI_),intent(inout)          :: MPIData
     integer(int32),optional,intent(in) :: SizePara
     character(*),optional,intent(in)    :: Name
-    character*200   :: python_buffer
-    character*200   :: command
-    character*20    :: pid,a
+    character(:),allocatable   :: python_buffer
+    character(:),allocatable   :: command
+    character(:),allocatable    :: pid,a
     integer(int32) :: i,j,k,n,fh,sp
     real(real64) :: cmin,cmax
     real(real64),optional,intent(in) :: clmin,clmax
@@ -1502,15 +1502,14 @@ subroutine ConvertGeo2Mesh(obj,MPIData,SizePara,Name,clmin,clmax)
     fh=MPIData%MyRank+10
     python_buffer=" "
     command  = " "
-    python_buffer="GetSurface_pid_"//trim(adjustl(pid))//".geo"
+    python_buffer="GetSurface_pid_"//pid//".geo"
     if(present(Name) )then
-        python_buffer=trim(Name)
+        python_buffer=name
     endif
-    !command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin"//trim(a)//" -clmax 100000  -format mesh" 
-    command="gmsh "//trim(python_buffer)//" -2 -algo del2d -clmin "//trim(fstring(cmin))&
-        //" -clmax "//trim(fstring(cmax))//" -format mesh"
+    command="gmsh "//python_buffer//" -2 -algo del2d -clmin "//fstring(cmin)&
+        //" -clmax "//fstring(cmax)//" -format mesh"
 
-    writE(*,'(A)') trim(command)
+    writE(*,'(A)') obj%PictureName
     
     call execute_command_line(command)
 
@@ -1526,16 +1525,16 @@ end subroutine
 subroutine ConvertMsh2Scf(obj,MPIData,ElementType,Name)
     class(PreProcessing_),intent(inout):: obj
     class(MPI_),intent(inout)          :: MPIData
-    character*200   :: python_buffer
-    character*200   :: command,infile,outfile
-    character*200,optional,intent(in) :: ElementType
+    character(:),allocatable   :: python_buffer
+    character(:),allocatable   :: command,infile,outfile
+    character(*),optional,intent(in) :: ElementType
     character(*),optional,intent(in)    :: Name
-    character*20    :: pid
-    character*11 MeshFormat
-	character*14 EndMeshFormat
-	character*6  Nodes
-	character*9  EndNodes,Elements
-    character*12  EndElements	
+    character(:),allocatable ::  pid
+    character(:),allocatable ::  MeshFormat
+	character(:),allocatable ::  EndMeshFormat
+	character(:),allocatable ::   Nodes
+	character(:),allocatable ::   EndNodes,Elements
+    character(:),allocatable ::   EndElements	
     integer(int32),allocatable :: elem1(:),surface_nod(:)
     integer(int32) :: i,j,k,n,n1,n2,fh,a,nm,mm,nod_num,nn,elem_num,surf_num
     integer(int32) :: elem_num_all,n3,n4,n5,n6,n7,elemnod_num,startfrom
@@ -1558,16 +1557,16 @@ subroutine ConvertMsh2Scf(obj,MPIData,ElementType,Name)
     ! ======================================================
     write(pid,*) MPIData%MyRank
     fh=MPIData%MyRank+10
-    infile="GetSurface_pid_"//trim(adjustl(pid))//".msh"
-	outfile = "GetSurface_pid_"//trim(adjustl(pid))//".scf"
+    infile="GetSurface_pid_"//pid//".msh"
+	outfile = "GetSurface_pid_"//pid//".scf"
     
     if(present(Name) )then
-        infile  = Name//"GetSurface_pid_"//trim(adjustl(pid))//".msh"
-	    outfile = Name//"GetSurface_pid_"//trim(adjustl(pid))//".scf"
+        infile  = Name//"GetSurface_pid_"//pid//".msh"
+	    outfile = Name//"GetSurface_pid_"//pid//".scf"
     endif
     
     open(fh,file=infile,status="old")
-    print *, "Opening ",trim(infile)
+    print *, "Opening ",infile
 	! ======================================================
     
     ! ======================================================
@@ -1619,9 +1618,9 @@ subroutine ConvertMsh2Scf(obj,MPIData,ElementType,Name)
 	
     read(fh,*)elem_num
     if(present(ElementType) )then
-        if(trim(ElementType)=="LinearRectangularGp4")then
+        if(ElementType=="LinearRectangularGp4")then
             elemnod_num=  4
-        elseif(trim(ElementType)=="LinearHexahedralGp8")then
+        elseif(ElementType=="LinearHexahedralGp8")then
             elemnod_num= 8
         else
             print *, "PreProcessingClass.f90  >> Element : ",ElementType,"is not defined."
@@ -1657,12 +1656,12 @@ subroutine ConvertMsh2Scf(obj,MPIData,ElementType,Name)
     ! ======================================================
     write(pid,*) MPIData%MyRank
     fh=MPIData%MyRank+10
-    infile="GetSurface_pid_"//trim(adjustl(pid))//".msh"
-	outfile = "GetSurface_pid_"//trim(adjustl(pid))//".scf"
+    infile="GetSurface_pid_"//pid//".msh"
+	outfile = "GetSurface_pid_"//pid//".scf"
     if(present(Name) )then
         
-        infile  = Name//"GetSurface_pid_"//trim(adjustl(pid))//".msh"
-	    outfile = Name//"GetSurface_pid_"//trim(adjustl(pid))//".scf"
+        infile  = Name//"GetSurface_pid_"//pid//".msh"
+	    outfile = Name//"GetSurface_pid_"//pid//".scf"
     
     endif
     
@@ -1710,9 +1709,9 @@ subroutine ConvertMsh2Scf(obj,MPIData,ElementType,Name)
 	
     read(fh,*)elem_num
     if(present(ElementType) )then
-        if(trim(ElementType)=="LinearRectangularGp4")then
+        if(ElementType=="LinearRectangularGp4")then
             elemnod_num=  4  
-        elseif(trim(ElementType)=="LinearHexahedralGp8")then
+        elseif(ElementType=="LinearHexahedralGp8")then
             elemnod_num= 8
         else
             print *, "PreProcessingClass.f90  >> Element : ",ElementType,"is not defined."
@@ -1770,15 +1769,15 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
     class(MPI_),optional,intent(inout)          :: MPIData
     type(Mesh_) :: tobj
     character(*),optional,intent(in) :: Name
-    character*200   :: python_buffer
-    character*200   :: command,infile,outfile
+    character(:),allocatable   :: python_buffer
+    character(:),allocatable   :: command,infile,outfile
     character(*),optional,intent(in) :: ElementType
-    character*20    :: pid
-    character*200 MeshFormat
-	character*14 EndMeshFormat
-	character*6  Nodes
-	character*200  EndNodes,Elements
-    character*12  EndElements	
+    character(:),allocatable ::  pid
+    character(:),allocatable ::  MeshFormat
+	character(:),allocatable ::  EndMeshFormat
+	character(:),allocatable ::   Nodes
+	character(:),allocatable ::   EndNodes,Elements
+    character(:),allocatable ::   EndElements	
     integer(int32),allocatable :: elem1(:),surface_nod(:),triangle(:,:),devide_line(:,:),buffer(:,:)
     integer(int32) :: i,j,k,n,n1,n2,fh,a,nm,mm,nod_num,nn,elem_num,surf_num,l,numnum
     integer(int32) :: elem_num_all,n3,n4,n5,n6,n7,elemnod_num,startfrom,node1,node2,tr1,tr2
@@ -1804,8 +1803,8 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
     numnum=input(default=1,option=MPIData%MyRank)
     write(pid,*) numnum
     fh=input(default=1,option=MPIData%MyRank+10)
-    infile="GetSurface_pid_"//trim(adjustl(pid))//".mesh"
-    outfile = "GetSurface_pid_"//trim(adjustl(pid))//".scf"
+    infile="GetSurface_pid_"//pid//".mesh"
+    outfile = "GetSurface_pid_"//pid//".scf"
     if(present(Name) )then
         infile  = Name
         outfile = Name//".scf"
@@ -1813,13 +1812,13 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
     endif
 	
     open(fh,file=infile,status="old")
-    print *, "Opening ",trim(infile)
+    print *, "Opening ",infile
 	! ======================================================
     
     ! ======================================================
 	!read file to get nod and elem number
     read(fh,*)MeshFormat
-    if( trim(adjustl(MeshFormat) )/= "MeshVersionFormatted")then
+    if( MeshFormat/= "MeshVersionFormatted")then
         print *, "ConvertMesh2Scf ERROR :: ",MeshFormat
     endif
     read(fh,*) MeshFormat
@@ -1827,8 +1826,8 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
     do 
         MeshFormat=" "
         read(fh,*) MeshFormat
-        if( trim(adjustl(MeshFormat) ) == "Vertices" )then
-            print *, "ConvertMesh2Scf reading ",trim(adjustl(MeshFormat) )
+        if( MeshFormat == "Vertices" )then
+            print *, "ConvertMesh2Scf reading ",MeshFormat
             ! ======================================================
 	        ! Number of nodes
 	        read(fh,*)nod_num
@@ -1844,9 +1843,9 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
 
             cycle
             ! ======================================================
-        elseif( trim(adjustl(MeshFormat) ) == "Quadrilaterals" )then
+        elseif( MeshFormat == "Quadrilaterals" )then
             ! ======================================================
-            print *, "ConvertMesh2Scf reading ",trim(adjustl(MeshFormat) )
+            print *, "ConvertMesh2Scf reading ",MeshFormat
             read(fh,*)elem_num
             allocate(obj%FEMDomain%Mesh%ElemNod(elem_num,4))
             obj%FEMDomain%Mesh%ElemNod(:,:)=-1
@@ -1855,10 +1854,10 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
             enddo
             exit
             ! ======================================================
-        elseif( trim(adjustl(MeshFormat) ) == "Triangles" )then
+        elseif( MeshFormat == "Triangles" )then
             
             ! ======================================================
-            print *, "ConvertMesh2Scf reading ",trim(adjustl(MeshFormat) )
+            print *, "ConvertMesh2Scf reading ",MeshFormat
             read(fh,*)mm
             allocate(tobj%ElemNod(mm,3) )
 
@@ -1867,8 +1866,8 @@ subroutine ConvertMesh2Scf(obj,MPIData,ElementType,Name)
             enddo
             ! ======================================================
         else
-            print *, "ConvertMesh2Scf Skipped",trim(adjustl(MeshFormat))
-            if(trim(adjustl(MeshFormat)) == "End")then
+            print *, "ConvertMesh2Scf Skipped",MeshFormat
+            if(MeshFormat == "End")then
                 exit
             endif
             read(fh,*)mm
@@ -1978,13 +1977,13 @@ subroutine ExportPreProcessing(obj,MPIData,FileName,MeshDimension,Name,regacy,wi
     class(PreProcessing_),intent(inout):: obj
     class(PreProcessing_),optional,intent(inout):: with
     class(MPI_),optional,intent(inout) :: MPIData
-    character*200,optional,intent(in)  :: FileName
+    character(*),optional,intent(in)  :: FileName
     character(*),optional,intent(in)   :: Name
     integer(int32),optional,intent(in) :: MeshDimension
     logical,optional,intent(in)::regacy
-    character*200   :: python_buffer
-    character*200   :: command
-    character*20    :: pid
+    character(:),allocatable   :: python_buffer
+    character(:),allocatable   :: command
+    character(:),allocatable    :: pid
     integer(int32) :: i,j,k,n,fh
 
     fh=11
@@ -1992,16 +1991,16 @@ subroutine ExportPreProcessing(obj,MPIData,FileName,MeshDimension,Name,regacy,wi
         write(pid,*) MPIData%MyRank
         fh=MPIData%MyRank+120
         if(present(Name) )then
-            python_buffer=Name//"GetSurface_pid_"//trim(adjustl(pid))
+            python_buffer=Name//"GetSurface_pid_"//pid
         else
-            python_buffer="GetSurface_pid_"//trim(adjustl(pid))
+            python_buffer="GetSurface_pid_"//pid
         
         endif
     elseif(present(FileName) )then
         if(present(Name) )then
-            python_buffer=Name//trim(FileName)
+            python_buffer=Name//FileName
         else
-            python_buffer=trim(FileName)
+            python_buffer=FileName
         endif
     else
         if(present(Name) )then
@@ -2021,8 +2020,8 @@ end subroutine
 !##################################################
 subroutine SetSolverPreProcessing(obj,inSolverType)
     class(PreProcessing_),intent(inout)::obj
-    character*200,optional,intent(in) :: inSolverType
-    character*200 ::sn
+    character(*),optional,intent(in) :: inSolverType
+    character(:),allocatable ::sn
 
     if( present(inSolverType) )then
         sn = inSolverType
@@ -2042,8 +2041,8 @@ end subroutine
 !##################################################
 subroutine SetDataTypeFEMDomain(obj,inDType)
     class(PreProcessing_),intent(inout)::obj
-    character*200,optional,intent(in) :: inDType
-    character*200 :: sn
+    character(*),optional,intent(in) :: inDType
+    character(:),allocatable :: sn
 
     sn=""
 
@@ -2053,7 +2052,7 @@ subroutine SetDataTypeFEMDomain(obj,inDType)
         sn = inDType
     endif
     
-    call obj%FEMDomain%SetDataType(trim(sn) )
+    call obj%FEMDomain%SetDataType(sn )
 
 end subroutine
 
@@ -2063,12 +2062,12 @@ end subroutine
 !##################################################
 subroutine SetUpPreprocessing(obj,DataType,SolverType,NoFacetMode,MatPara)
     class(PreProcessing_),intent(inout)::obj
-    character*200,optional,intent(in) :: DataType
-    character*200,optional,intent(in) :: SolverType
+    character(*),optional,intent(in) :: DataType
+    character(*),optional,intent(in) :: SolverType
     logical,optional,intent(in) :: NoFacetMode
     real(real64),allocatable,optional,intent(inout)::MatPara(:,:)
     real(real64),allocatable::MatParaDef(:,:)
-    character*200 :: sn
+    character(:),allocatable :: sn
 
 
     if(present(DataType) )then
@@ -2197,9 +2196,9 @@ subroutine SetBoundaryConditionPrePro(obj,Dirichlet,Neumann,Initial,xmin,xmax,ym
                 print *, "ERROR :: setBC :: MPIData should be imported."
                 return
             endif
-            print *,trim(BoundInfo%content(i) )
+            print *,BoundInfo%content(i) 
 
-            call DBC%ImportPictureName( trim(BoundInfo%content(i) ) )
+            call DBC%ImportPictureName( BoundInfo%content(i)  )
             call DBC%GetPixcelSize(MPIData, name="DBC")
             call DBC%SetColor(BoundInfo%IntList(i,1),&
                 BoundInfo%IntList(i,2),BoundInfo%IntList(i,3))
@@ -3145,7 +3144,7 @@ subroutine showMeshPreProcessing(obj,Step,Name,withNeumannBC,withDirichletBC,wit
         stp=0
     endif
 
-    call GmshPlotMesh(obj%FEMDomain,OptionalStep=stp,Name=trim(Name),withNeumannBC=withNeumannBC,&
+    call GmshPlotMesh(obj%FEMDomain,OptionalStep=stp,Name=name,withNeumannBC=withNeumannBC,&
         withDirichletBC=withDirichletBC,withMaterial=withMaterial)
 
 end subroutine

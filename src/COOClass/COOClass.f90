@@ -18,7 +18,7 @@ module COOClass
         procedure,public :: getAllCol => getAllColCOO
         procedure,public :: to_CRS => to_CRSCOO
         !procedure,public ::getAllCol_as_row_obj => getAllCol_as_row_objCOO
-        end type
+    end type
         
         
     type :: CRS_

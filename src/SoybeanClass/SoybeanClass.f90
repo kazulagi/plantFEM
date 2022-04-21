@@ -521,7 +521,7 @@ subroutine initsoybean(obj,config,&
     real(real64),optional,intent(in) :: PlantRoot_diameter_per_seed_radius
     character(*),optional,intent(in) :: Variety,FileName,config
     logical,optional,intent(in) :: regacy, profiler
-    character(200) :: fn,conf,line
+    character(:),allocatable :: fn,conf,line
     integer(int32),optional,intent(in) :: max_PlantNode_num,max_leaf_num,max_stem_num,max_root_num
     real(real64) :: MaxThickness,Maxwidth,loc(3),vec(3),rot(3),zaxis(3),meshloc(3),meshvec(3),&
         x_val,y_val,z_val
@@ -670,7 +670,7 @@ subroutine initsoybean(obj,config,&
         conf="soyconfig.json"
         call soyconf%close()
     else
-        conf = trim(config)
+        conf = config
     endif
     
 
@@ -679,23 +679,23 @@ subroutine initsoybean(obj,config,&
         call time%show()
     endif
 
-    line = soyconf%parse(trim(conf),key1="Genotype",key2="Dt1")
+    line = soyconf%parse(conf,key1="Genotype",key2="Dt1")
     if(index(line,"Dt1")/=0 )then
         obj%determinate=.False.
     else
         obj%determinate=.True.
     endif
 
-    call soyconf%open(trim(conf))
+    call soyconf%open(conf)
     blcount=0
     do
         read(soyconf%fh,'(a)') line
-        if(debug) print *, trim(line)
-        if( adjustl(trim(line))=="{" )then
+        if(debug) print *, line
+        if( adjustl(line)=="{" )then
             blcount=1
             cycle
         endif
-        if( adjustl(trim(line))=="}" )then
+        if( adjustl(line)=="}" )then
             exit
         endif
         
@@ -714,7 +714,7 @@ subroutine initsoybean(obj,config,&
             if(index(line,"Mainstem")/=0)then
                 do
                     read(soyconf%fh,'(a)') line
-                    if(debug) print *, trim(line)
+                    if(debug) print *, line
                     if( index(line,"}")/=0 )then
                         exit
                     endif
@@ -769,12 +769,12 @@ subroutine initsoybean(obj,config,&
                     line(rmc:rmc)=" "
                 endif
                 id = index(line,"#")
-                if(debug) print *, trim(line)
+                if(debug) print *, line
                 read(line(id+1:),*) branch_id
 
                 do
                     read(soyconf%fh,'(a)') line
-                    if(debug) print *, trim(line)
+                    if(debug) print *, line
                     if( index(line,"}")/=0 )then
                         exit
                     endif
@@ -823,7 +823,7 @@ subroutine initsoybean(obj,config,&
             if(index(line,"Mainroot")/=0)then
                 do
                     read(soyconf%fh,'(a)') line
-                    if(debug) print *, trim(line)
+                    if(debug) print *, line
                     if( index(line,"}")/=0 )then
                         exit
                     endif
@@ -878,12 +878,12 @@ subroutine initsoybean(obj,config,&
                     line(rmc:rmc)=" "
                 endif
                 id = index(line,"#")
-                if(debug) print *, trim(line)
+                if(debug) print *, line
                 read(line(id+1:),*) branch_id
 
                 do
                     read(soyconf%fh,'(a)') line
-                    if(debug) print *, trim(line)
+                    if(debug) print *, line
                     if( index(line,"}")/=0 )then
                         exit
                     endif
@@ -1669,7 +1669,7 @@ subroutine initsoybean(obj,config,&
         enddo
         
         
-        obj%stage = "V"//trim(str(obj%ms_node))
+        obj%stage = "V"//str(obj%ms_node)
         
         call obj%update()
 
@@ -1944,7 +1944,7 @@ subroutine initsoybean(obj,config,&
                 call obj%Seed%init(mass=mass,width1=9.70d0,width2=8.20d0,&
                     width3=7.70d0,&
                     water_content=water_content,radius=radius,location=loc)    
-                call obj%Seed%createMesh(FileName=trim(fn)//".stl",&
+                call obj%Seed%createMesh(FileName=fn//".stl",&
                 ElemType="Tetrahedra")
 
                 call obj%Seed%convertMeshType(Option="TetraToHexa")
@@ -2224,20 +2224,20 @@ subroutine exportSoybean(obj,FilePath,FileName,SeedID,withSTL,withMesh)
     if(obj%Seed%num_of_seed>=0)then
         if(present(withSTL) )then
             if(withSTL .eqv. .true.)then
-                call obj%Seed%export(FileName=trim(FileName),SeedID=itr,extention=".stl")    
+                call obj%Seed%export(FileName=FileName,SeedID=itr,extention=".stl")    
             endif
         endif
         if(present(withMesh) )then
             if(withMesh .eqv. .true.)then
-                call obj%Seed%export(FileName=trim(FileName),SeedID=itr,extention=".pos")    
+                call obj%Seed%export(FileName=FileName,SeedID=itr,extention=".pos")    
             endif
         endif
 
             
         if(present(FilePath) )then
-            call obj%Seed%export(FileName=trim(FilePath)//"/seed.geo",SeedID=itr)
+            call obj%Seed%export(FileName=FilePath//"/seed.geo",SeedID=itr)
         else
-            call obj%Seed%export(FileName=trim(FileName),SeedID=itr)
+            call obj%Seed%export(FileName=FileName,SeedID=itr)
         endif
     endif
 
@@ -2246,9 +2246,9 @@ subroutine exportSoybean(obj,FilePath,FileName,SeedID,withSTL,withMesh)
     do i=1,size(obj%NodeSystem)
             
         if(present(FilePath) )then
-            call obj%NodeSystem(i)%export(FileName=trim(FilePath)//"/Node.geo",objID=itr)
+            call obj%NodeSystem(i)%export(FileName=FilePath//"/Node.geo",objID=itr)
         else
-            call obj%NodeSystem(i)%export(FileName=trim(FileName)//"_Node.geo",objID=itr)
+            call obj%NodeSystem(i)%export(FileName=FileName//"_Node.geo",objID=itr)
         endif
         if(i==obj%num_of_node  )then
             exit
@@ -2260,9 +2260,9 @@ subroutine exportSoybean(obj,FilePath,FileName,SeedID,withSTL,withMesh)
     do i=1,size(obj%RootSystem)
             
         if(present(FilePath) )then
-            call obj%RootSystem(i)%export(FileName=trim(FilePath)//"/Root.geo",RootID=itr)
+            call obj%RootSystem(i)%export(FileName=FilePath//"/Root.geo",RootID=itr)
         else
-            call obj%RootSystem(i)%export(FileName=trim(FileName)//"_Root.geo",RootID=itr)
+            call obj%RootSystem(i)%export(FileName=FileName//"_Root.geo",RootID=itr)
         endif
         if(i==obj%num_of_root  )then
             exit
@@ -2475,7 +2475,7 @@ subroutine gmshSoybean(obj,name,num_threads,single_file)
 
     do i=1,size(obj%stem)
         !if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%stem(i)%gmsh(name=trim(name)//"_stem"//trim(str(i)))
+            call obj%stem(i)%gmsh(name=name//"_stem"//str(i))
         !endif
     enddo
     !!$OMP end do
@@ -2486,7 +2486,7 @@ subroutine gmshSoybean(obj,name,num_threads,single_file)
 
     do i=1,size(obj%root)
         !if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%root(i)%gmsh(name=trim(name)//"_root"//trim(str(i)))
+            call obj%root(i)%gmsh(name=name//"_root"//str(i))
         !endif
     enddo
     !!$OMP end do
@@ -2496,7 +2496,7 @@ subroutine gmshSoybean(obj,name,num_threads,single_file)
     !!$OMP do 
     do i=1,size(obj%leaf)
         !if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%leaf(i)%gmsh(name=trim(name)//"_leaf"//trim(str(i)))
+            call obj%leaf(i)%gmsh(name=name//"_leaf"//str(i))
         !endif
     enddo
     !!$OMP end do
@@ -2515,12 +2515,12 @@ subroutine mshSoybean(obj,name,num_threads)
     integer(int32) :: i,n
     type(IO_) :: f
     ! index file
-    call f%open(trim(name)//"_index.txt","w")
+    call f%open(name//"_index.txt","w")
 
     if(allocated(obj%stem) )then
         do i=1,size(obj%stem)
             if( .not.obj%stem(i)%femdomain%mesh%empty() )then
-                call f%write(trim(name)//"_stem"//trim(str(i))//".msh")
+                call f%write(name//"_stem"//str(i)//".msh")
             endif
         enddo
     endif
@@ -2528,7 +2528,7 @@ subroutine mshSoybean(obj,name,num_threads)
     if(allocated(obj%root) )then
         do i=1,size(obj%root)
             if( .not.obj%root(i)%femdomain%mesh%empty() )then
-                call f%write(trim(name)//"_root"//trim(str(i))//".msh")
+                call f%write(name//"_root"//str(i)//".msh")
             endif
         enddo
     endif
@@ -2536,7 +2536,7 @@ subroutine mshSoybean(obj,name,num_threads)
     if(allocated(obj%leaf) )then
         do i=1,size(obj%leaf)
             if( .not.obj%leaf(i)%femdomain%mesh%empty() )then
-                call f%write(trim(name)//"_leaf"//trim(str(i))//".msh")
+                call f%write(name//"_leaf"//str(i)//".msh")
             endif
         enddo
     endif
@@ -2547,7 +2547,7 @@ subroutine mshSoybean(obj,name,num_threads)
     !!$OMP do 
     do i=1,size(obj%stem)
         !if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%stem(i)%msh(name=trim(name)//"_stem"//trim(str(i)))
+            call obj%stem(i)%msh(name=name//"_stem"//str(i))
         !endif
     enddo
     !!$OMP end do
@@ -2557,7 +2557,7 @@ subroutine mshSoybean(obj,name,num_threads)
     !!$OMP do 
     do i=1,size(obj%root)
         !if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%root(i)%msh(name=trim(name)//"_root"//trim(str(i)))
+            call obj%root(i)%msh(name=name//"_root"//str(i))
         !endif
     enddo
     !!$OMP end do
@@ -2567,7 +2567,7 @@ subroutine mshSoybean(obj,name,num_threads)
     !!$OMP do 
     do i=1,size(obj%leaf)
         !if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%leaf(i)%msh(name=trim(name)//"_leaf"//trim(str(i)))
+            call obj%leaf(i)%msh(name=name//"_leaf"//str(i))
         !endif
     enddo
     !!$OMP end do
@@ -2650,12 +2650,12 @@ subroutine vtkSoybean(obj,name,num_threads,single_file,&
     n = input(default=1,option=num_threads)
     
     ! index file
-    call f%open(trim(name)//"_index.txt","w")
+    call f%open(name//"_index.txt","w")
 
     if(allocated(obj%stem) )then
         do i=1,size(obj%stem)
             if( .not.obj%stem(i)%femdomain%mesh%empty() )then
-                call f%write(trim(name)//"_stem"//trim(str(i))//".vtk")
+                call f%write(name//"_stem"//str(i)//".vtk")
             endif
         enddo
     endif
@@ -2663,7 +2663,7 @@ subroutine vtkSoybean(obj,name,num_threads,single_file,&
     if(allocated(obj%root) )then
         do i=1,size(obj%root)
             if( .not.obj%root(i)%femdomain%mesh%empty() )then
-                call f%write(trim(name)//"_root"//trim(str(i))//".vtk")
+                call f%write(name//"_root"//str(i)//".vtk")
             endif
         enddo
     endif
@@ -2671,7 +2671,7 @@ subroutine vtkSoybean(obj,name,num_threads,single_file,&
     if(allocated(obj%leaf) )then
         do i=1,size(obj%leaf)
             if( .not.obj%leaf(i)%femdomain%mesh%empty() )then
-                call f%write(trim(name)//"_leaf"//trim(str(i))//".vtk")
+                call f%write(name//"_leaf"//str(i)//".vtk")
             endif
         enddo
     endif
@@ -2682,7 +2682,7 @@ subroutine vtkSoybean(obj,name,num_threads,single_file,&
         !!$OMP do 
         do i=1,size(obj%stem)
             !if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-                call obj%stem(i)%vtk(field_name=field_name,name=trim(name)//"_stem"//trim(str(i)))
+                call obj%stem(i)%vtk(field_name=field_name,name=name//"_stem"//str(i))
             !endif
         enddo
         !!$OMP end do
@@ -2696,7 +2696,7 @@ subroutine vtkSoybean(obj,name,num_threads,single_file,&
         !!$OMP do 
         do i=1,size(obj%root)
             !if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-                call obj%root(i)%vtk(field_name=field_name,name=trim(name)//"_root"//trim(str(i)))
+                call obj%root(i)%vtk(field_name=field_name,name=name//"_root"//str(i))
             !endif
         enddo
 
@@ -2711,7 +2711,7 @@ subroutine vtkSoybean(obj,name,num_threads,single_file,&
         !!$OMP do 
         do i=1,size(obj%leaf)
             !if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-                call obj%leaf(i)%vtk(field_name=field_name,name=trim(name)//"_leaf"//trim(str(i)))
+                call obj%leaf(i)%vtk(field_name=field_name,name=name//"_leaf"//str(i))
             !endif
         enddo
         !!$OMP end do
@@ -2731,14 +2731,14 @@ subroutine jsonSoybean(obj,name)
     integer(int32) :: i,countnum
     type(IO_) :: f
 
-    call f%open(trim(name)//".json")
+    call f%open(name//".json")
     call f%write("{")
     countnum=0
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
             countnum=countnum+1
-            call f%write('"'//"stem"//trim(str(i))//'":')
-            call obj%stem(i)%femdomain%json(name=trim(name)//"_stem"//trim(str(i)),fh=f%fh,endl=.false.)
+            call f%write('"'//"stem"//str(i)//'":')
+            call obj%stem(i)%femdomain%json(name=name//"_stem"//str(i),fh=f%fh,endl=.false.)
         endif
     enddo
     call f%write('"num_stem":'//str(countnum)//',' )
@@ -2747,8 +2747,8 @@ subroutine jsonSoybean(obj,name)
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
             countnum=countnum+1
-            call f%write('"'//"root"//trim(str(i))//'":')
-            call obj%root(i)%femdomain%json(name=trim(name)//"_root"//trim(str(i)),fh=f%fh,endl=.false.)
+            call f%write('"'//"root"//str(i)//'":')
+            call obj%root(i)%femdomain%json(name=name//"_root"//str(i),fh=f%fh,endl=.false.)
         endif
     enddo
     call f%write('"num_root":'//str(countnum)//',' )
@@ -2757,8 +2757,8 @@ subroutine jsonSoybean(obj,name)
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             countnum=countnum+1
-            call f%write('"'//"leaf"//trim(str(i))//'":')
-            call obj%leaf(i)%femdomain%json(name=trim(name)//"_leaf"//trim(str(i)),fh=f%fh,endl=.false.)
+            call f%write('"'//"leaf"//str(i)//'":')
+            call obj%leaf(i)%femdomain%json(name=name//"_leaf"//str(i),fh=f%fh,endl=.false.)
         endif
     enddo
     call f%write('"obj%num_leaf":'//str(countnum)//',' )
@@ -2813,12 +2813,12 @@ subroutine stlSoybean(obj,name,num_threads,single_file)
 
 
     ! index file
-    call f%open(trim(name)//"_index.txt","w")
+    call f%open(name//"_index.txt","w")
 
     if(allocated(obj%stem) )then
         do i=1,size(obj%stem)
             if( .not.obj%stem(i)%femdomain%mesh%empty() )then
-                call f%write(trim(name)//"_stem"//trim(str(i))//".stl")
+                call f%write(name//"_stem"//str(i)//".stl")
             endif
         enddo
     endif
@@ -2826,7 +2826,7 @@ subroutine stlSoybean(obj,name,num_threads,single_file)
     if(allocated(obj%root) )then
         do i=1,size(obj%root)
             if( .not.obj%root(i)%femdomain%mesh%empty() )then
-                call f%write(trim(name)//"_root"//trim(str(i))//".stl")
+                call f%write(name//"_root"//str(i)//".stl")
             endif
         enddo
     endif
@@ -2834,20 +2834,20 @@ subroutine stlSoybean(obj,name,num_threads,single_file)
     if(allocated(obj%leaf) )then
         do i=1,size(obj%leaf)
             if( .not.obj%leaf(i)%femdomain%mesh%empty() )then
-                call f%write(trim(name)//"_leaf"//trim(str(i))//".stl")
+                call f%write(name//"_leaf"//str(i)//".stl")
             endif
         enddo
     endif
     call f%close()
     
     n = input(default=1,option=num_threads)
-    !call execute_command_line("echo ' ' > "//trim(name)//".stl")
+    !call execute_command_line("echo ' ' > "//name//".stl")
     !!$OMP parallel num_threads(n) private(i)
     !!$OMP do 
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%stem(i)%stl(name=trim(name)//"_stem"//trim(str(i)))
-            !call execute_command_line("cat "//trim(name)//"_stem"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            call obj%stem(i)%stl(name=name//"_stem"//str(i))
+            !call execute_command_line("cat "//name//"_stem"//str(i)//"_000001.stl >> "//name//".stl")
         endif
     enddo
     !!$OMP end do
@@ -2857,8 +2857,8 @@ subroutine stlSoybean(obj,name,num_threads,single_file)
     !!$OMP do 
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%root(i)%stl(name=trim(name)//"_root"//trim(str(i)))
-            !call execute_command_line("cat "//trim(name)//"_root"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            call obj%root(i)%stl(name=name//"_root"//str(i))
+            !call execute_command_line("cat "//name//"_root"//str(i)//"_000001.stl >> "//name//".stl")
         endif
     enddo
     !!$OMP end do
@@ -2868,18 +2868,18 @@ subroutine stlSoybean(obj,name,num_threads,single_file)
     !!$OMP do 
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%leaf(i)%stl(name=trim(name)//"_leaf"//trim(str(i)))
-            !call execute_command_line("cat "//trim(name)//"_leaf"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            call obj%leaf(i)%stl(name=name//"_leaf"//str(i))
+            !call execute_command_line("cat "//name//"_leaf"//str(i)//"_000001.stl >> "//name//".stl")
         endif
     enddo
     !!$OMP end do
     !!$OMP end parallel
 
-    call execute_command_line("cat "//trim(name)//"*_leaf*.stl > "//trim(name)//"_leaf.stl" )
-    call execute_command_line("cat "//trim(name)//"*_stem*.stl > "//trim(name)//"_stem.stl" )
-    call execute_command_line("cat "//trim(name)//"*_root*.stl > "//trim(name)//"_root.stl" )
-    call execute_command_line("cat "//trim(name)//"_leaf.stl "//trim(name)//"_stem.stl "&
-        //trim(name)//"_root.stl > "//trim(name)//".stl" )
+    call execute_command_line("cat "//name//"*_leaf*.stl > "//name//"_leaf.stl" )
+    call execute_command_line("cat "//name//"*_stem*.stl > "//name//"_stem.stl" )
+    call execute_command_line("cat "//name//"*_root*.stl > "//name//"_root.stl" )
+    call execute_command_line("cat "//name//"_leaf.stl "//name//"_stem.stl "&
+        //name//"_root.stl > "//name//".stl" )
 
 end subroutine
 ! ########################################

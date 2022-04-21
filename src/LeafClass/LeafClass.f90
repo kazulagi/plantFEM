@@ -321,19 +321,19 @@ end subroutine
             conf="leafconfig.json"
             call leafconf%close()
         else
-            conf = trim(config)
+            conf = config
         endif
         
-        call leafconf%open(trim(conf))
+        call leafconf%open(conf)
         blcount=0
         do
             read(leafconf%fh,'(a)') line
-            if(debug) print *, trim(line)
-            if( adjustl(trim(line))=="{" )then
+            if(debug) print *, line
+            if( adjustl(line)=="{" )then
                 blcount=1
                 cycle
             endif
-            if( adjustl(trim(line))=="}" )then
+            if( adjustl(line)=="}" )then
                 exit
             endif
             
@@ -800,7 +800,7 @@ dimnum = size(obj%femdomain%mesh%nodcoord,2)
 allocate(ret(dimnum) )
 ret(:) = 0.0d0
 
-if( trim(nodetype)=="A" .or. trim(nodetype)=="a")then
+if( nodetype=="A" .or. nodetype=="a")then
     n = size(obj%I_planeNodeID )
     do i=1,n
         ret(:) = ret(:) + obj%femdomain%mesh%nodcoord( obj%I_planeNodeID(i),: ) 
@@ -809,7 +809,7 @@ if( trim(nodetype)=="A" .or. trim(nodetype)=="a")then
 
     !ret = obj%femdomain%mesh%nodcoord(obj%A_PointNodeID,:)
 endif
-if( trim(nodetype)=="B" .or. trim(nodetype)=="B")then
+if( nodetype=="B" .or. nodetype=="B")then
     !ret = obj%femdomain%mesh%nodcoord(obj%B_PointNodeID,:)
     n = size(obj%II_planeNodeID )
     do i=1,n

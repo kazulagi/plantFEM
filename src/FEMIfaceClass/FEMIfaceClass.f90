@@ -133,15 +133,15 @@ subroutine GmshPlotMeshFEMIface(obj,Name,withNeumannBC,withDirichletBC)
 
     do i=1,size(obj%FEMDomains,1)
         if(present(Name) )then
-            call obj%FEMDomains(i)%FEMDomainp%GmshPlotMesh(Name=trim(Name)//trim( adjustl(fstring(i)) ) ,&
+            call obj%FEMDomains(i)%FEMDomainp%GmshPlotMesh(Name=Name//fstring(i) ,&
                 withNeumannBC=withNeumannBC,withDirichletBC=withDirichletBC)
         else
-            call obj%FEMDomains(i)%FEMDomainp%GmshPlotMesh(Name=trim( adjustl(fstring(i)) ) ,&
+            call obj%FEMDomains(i)%FEMDomainp%GmshPlotMesh(Name=fstring(i) ,&
                 withNeumannBC=withNeumannBC,withDirichletBC=withDirichletBC)
         endif
     enddo
     if(present(Name) )then
-        call obj%GmshPlotNTS(Name=trim(Name)//"interface")
+        call obj%GmshPlotNTS(Name=Name//"interface")
     else
         call obj%GmshPlotNTS(Name="interface")
     endif
@@ -212,34 +212,34 @@ subroutine ImportFEMIface(obj,OptionalFileFormat,OptionalProjectName,FileHandle)
     endif
 
     if(present(OptionalFileFormat) )then
-        FileFormat=trim(OptionalFileFormat)
+        FileFormat=OptionalFileFormat
     else
         FileFormat=".scf"
     endif
 
 
     if(present(OptionalProjectName) )then
-        ProjectName=trim(OptionalProjectName)
+        ProjectName=OptionalProjectName
     else
         ProjectName="untitled"
     endif
 
     obj%FileName=ProjectName
-    FileName = trim(ProjectName)//trim(FileFormat)
+    FileName = ProjectName//FileFormat
 
 
     open(fh,file=FileName,status="old")
 
-    if(trim(FileFormat)==".scf" )then
+    if(FileFormat==".scf" )then
 
 
         read(fh,*) DataType 
 
-        if(trim(DataType)/="interface" .and. trim(DataType)/=" interface" )then
+        if(DataType/="interface" .and. DataType/=" interface" )then
             return
         endif
 
-        obj%Dtype=trim(DataType)
+        obj%Dtype=DataType
         read(fh,*) obj%FileNameDomain1
         read(fh,*) obj%FileNameDomain2
         read(fh,*) obj%SolverType
@@ -267,8 +267,8 @@ subroutine GetFEMIfaceFromFEMDomains(obj,obj1,obj2,MasterID,SlaveID)
         return
     endif
 
-    print *, "object names #1 : ",trim(obj1%FileName)
-    print *, "object names #2 : ",trim(obj2%FileName)
+    print *, "object names #1 : ",obj1%FileName
+    print *, "object names #2 : ",obj2%FileName
     
 
 
@@ -280,13 +280,13 @@ subroutine GetFEMIfaceFromFEMDomains(obj,obj1,obj2,MasterID,SlaveID)
         print *, "no contact"
         return
     endif
-    n1 = index(trim(obj1%FileName),".scf", back=.true. )
-    obj%FilePathDomain1=trim(obj1%FilePath)
-    obj%FilePathDomain2=trim(obj2%FilePath)
-    obj%FilePath       =trim(obj1%FilePath)
-    obj%FileNameDomain1=trim(obj1%FileName)
-    obj%FileNameDomain2=trim(obj2%FileName)
-    obj%FileName       ="Iface_"//obj1%FileName(1:n1-1)//"_"//trim(obj2%FileName)
+    n1 = index(obj1%FileName,".scf", back=.true. )
+    obj%FilePathDomain1=obj1%FilePath
+    obj%FilePathDomain2=obj2%FilePath
+    obj%FilePath       =obj1%FilePath
+    obj%FileNameDomain1=obj1%FileName
+    obj%FileNameDomain2=obj2%FileName
+    obj%FileName       ="Iface_"//obj1%FileName(1:n1-1)//"_"//obj2%FileName
 
     call obj%GetNTNelement()
     call obj%GetNTSelement()
@@ -325,8 +325,8 @@ subroutine GetFEMIfaceFromPointer(obj,MasterID,SlaveID)
     obj1 => obj%FEMDomains(i)%FEMDomainp
     obj2 => obj%FEMDomains(j)%FEMDomainp
     
-    print *, "object names #1 : ",trim(obj1%FileName)
-    print *, "object names #2 : ",trim(obj2%FileName)
+    print *, "object names #1 : ",obj1%FileName
+    print *, "object names #2 : ",obj2%FileName
     
 
 
@@ -338,13 +338,13 @@ subroutine GetFEMIfaceFromPointer(obj,MasterID,SlaveID)
     !    print *, "no contact"
     !    return
     !endif
-    !n1 = index(trim(obj1%FileName),".scf", back=.true. )
-    !obj%FilePathDomain1=trim(obj1%FilePath)
-    !obj%FilePathDomain2=trim(obj2%FilePath)
-    !obj%FilePath       =trim(obj1%FilePath)
-    !obj%FileNameDomain1=trim(obj1%FileName)
-    !obj%FileNameDomain2=trim(obj2%FileName)
-    !obj%FileName       ="Iface_"//obj1%FileName(1:n1-1)//"_"//trim(obj2%FileName)
+    !n1 = index(obj1%FileName,".scf", back=.true. )
+    !obj%FilePathDomain1=obj1%FilePath
+    !obj%FilePathDomain2=obj2%FilePath
+    !obj%FilePath       =obj1%FilePath
+    !obj%FileNameDomain1=obj1%FileName
+    !obj%FileNameDomain2=obj2%FileName
+    !obj%FileName       ="Iface_"//obj1%FileName(1:n1-1)//"_"//obj2%FileName
 
     call obj%GetNTNelement()
     call obj%GetNTSelement()
@@ -525,33 +525,33 @@ subroutine ExportFEMIface(obj,OptionalFileFormat,OptionalProjectName,FileHandle)
     endif
 
     if(present(OptionalFileFormat) )then
-        FileFormat=trim(OptionalFileFormat)
+        FileFormat=OptionalFileFormat
     else
         FileFormat=".scf"
     endif
 
 
     if(present(OptionalProjectName) )then
-        ProjectName=trim(OptionalProjectName)
+        ProjectName=OptionalProjectName
     else
         ProjectName="untitled"
     endif
 
-    FileName = trim(ProjectName)//trim(FileFormat)
+    FileName = ProjectName//FileFormat
 
     open(fh,file=FileName,status="replace")
 
 
-    if(trim(FileFormat)==".scf" )then
+    if(FileFormat==".scf" )then
 
 
-        if(trim(obj%Dtype)/="interface")then
+        if(obj%Dtype/="interface")then
             return
         endif
-        write(fh,'(A)') trim(obj%Dtype)  
-        write(fh,'(A)') trim(obj%FileNameDomain1)
-        write(fh,'(A)') trim(obj%FileNameDomain2)
-        write(fh,'(A)') trim(obj%SolverType)
+        write(fh,'(A)') obj%Dtype  
+        write(fh,'(A)') obj%FileNameDomain1
+        write(fh,'(A)') obj%FileNameDomain2
+        write(fh,'(A)') obj%SolverType
         
         
     endif

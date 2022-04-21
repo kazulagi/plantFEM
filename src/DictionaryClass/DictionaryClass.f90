@@ -417,13 +417,13 @@ subroutine showDictionary(obj,From,to,Name)
         endif
     
         if(obj%Dictionary(i)%type_id==1)then
-            print *, '{"'+trim(obj%Dictionary(i)%Key )+'":',&
+            print *, '{"'+obj%Dictionary(i)%Key +'":',&
                 str(obj%Dictionary(i)%IntValue)+"}"
         elseif(obj%Dictionary(i)%type_id==2)then
-            print *, '{"'+trim(obj%Dictionary(i)%Key )+'":',&
+            print *, '{"'+obj%Dictionary(i)%Key +'":',&
             str(obj%Dictionary(i)%realValue)+"}"
         elseif(obj%Dictionary(i)%type_id==3)then
-            print *, '{"'+trim(obj%Dictionary(i)%Key )+'":',&
+            print *, '{"'+obj%Dictionary(i)%Key +'":',&
             obj%Dictionary(i)%charValue+"}"
         else
             ! do nothing
@@ -439,7 +439,7 @@ subroutine showDictionary(obj,From,to,Name)
     
 
     if(present(Name) )then
-        open(1023,file=trim(Name))
+        open(1023,file=Name)
         
         
         do i=startp,endp
@@ -453,7 +453,7 @@ subroutine showDictionary(obj,From,to,Name)
                 allocate(obj%Dictionary(i)%Realist(0) )
                 rl = 1
             endif
-            write(1023,*) "Page : ",i,"Content : ",trim(obj%Dictionary(i)%charValue ),&
+            write(1023,*) "Page : ",i,"Content : ",obj%Dictionary(i)%charValue ,&
                 "IntValue : ",obj%Dictionary(i)%IntValue,&
                 "RealValue : ",obj%Dictionary(i)%RealValue,&
                 "Intlist(:) : ",obj%Dictionary(i)%Intlist(:),&
@@ -487,7 +487,7 @@ subroutine exportDictionary(obj,FileName,fh,from,to)
     endp  =input(default=n,option=to)
 
     nnn=input(default=1000,option=fh)
-    open(nnn,file=trim(FileName))
+    open(nnn,file=FileName)
     
     
     do i=startp,endp
@@ -501,7 +501,7 @@ subroutine exportDictionary(obj,FileName,fh,from,to)
             allocate(obj%Dictionary(i)%Realist(0) )
             rl = 1
         endif
-        write(nnn,*) "Page : ",i,"Content : ",trim(obj%Dictionary(i)%charValue ),&
+        write(nnn,*) "Page : ",i,"Content : ",obj%Dictionary(i)%charValue ,&
             "IntValue : ",obj%Dictionary(i)%IntValue,&
             "RealValue : ",obj%Dictionary(i)%RealValue,&
             "Intlist(:) : ",obj%Dictionary(i)%Intlist(:),&
@@ -553,13 +553,13 @@ function GetPageNumDictionary(obj,Content) result(page)
     n=size(obj%Dictionary,1)
     page=-1
     do i=1,n
-        if(trim(Content)==trim(obj%Dictionary(i)%charvalue) )then
+        if(Content==obj%Dictionary(i)%charvalue )then
             page=i
             return
         endif
     enddo
     if(page==-1)then
-        print *, "ERROR ::",trim(Content)," is a word to be found only in the dictionary of fools."
+        print *, "ERROR ::",Content," is a word to be found only in the dictionary of fools."
     endif
 
 
@@ -587,7 +587,7 @@ recursive function findDictionary(this,key) result(val)
     integer(int32) :: i
     
     do i=1,this%num_entity
-        if(trim(this%Dictionary(i)%key) == trim(key)  )then
+        if(this%Dictionary(i)%key == Key  )then
             ! Found!
             select case (this%Dictionary(i)%type_id)
                 case(1)
@@ -615,7 +615,7 @@ recursive function findIDDictionary(this,key) result(val)
     integer(int32) :: i
     
     do i=1,this%num_entity
-        if(trim(this%Dictionary(i)%key) == trim(key)  )then
+        if(this%Dictionary(i)%key == Key  )then
             ! Found!
             val(1) = i
             val(2) = this%Dictionary(i)%type_id
@@ -654,14 +654,14 @@ subroutine to_csvDictionary(obj,Name,from,to)
         endif
     
         if(obj%Dictionary(i)%type_id==1)then
-            write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'",',&
+            write(f%fh,*) '"'+obj%Dictionary(i)%Key +'",',&
                 str(obj%Dictionary(i)%IntValue)+","
         elseif(obj%Dictionary(i)%type_id==2)then
-            write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'",',&
+            write(f%fh,*) '"'+obj%Dictionary(i)%Key +'",',&
             str(obj%Dictionary(i)%realValue)+","
         elseif(obj%Dictionary(i)%type_id==3)then
-            write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'",',&
-            trim(obj%Dictionary(i)%charValue)+","
+            write(f%fh,*) '"'+obj%Dictionary(i)%Key +'",',&
+            obj%Dictionary(i)%charvalue+","
         else
             ! do nothing
         endif
@@ -707,13 +707,13 @@ subroutine to_jsonDictionary(obj,Name,from,to)
         endif
     
         if(obj%Dictionary(i)%type_id==1)then
-            write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'": ',&
+            write(f%fh,*) '"'+obj%Dictionary(i)%Key +'": ',&
                 str(obj%Dictionary(i)%IntValue)+","
         elseif(obj%Dictionary(i)%type_id==2)then
-            write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'": ',&
+            write(f%fh,*) '"'+obj%Dictionary(i)%Key +'": ',&
             str(obj%Dictionary(i)%realValue)+","
         elseif(obj%Dictionary(i)%type_id==3)then
-            write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'": ',&
+            write(f%fh,*) '"'+obj%Dictionary(i)%Key +'": ',&
             obj%Dictionary(i)%charValue+","
         else
             ! do nothing
@@ -728,13 +728,13 @@ subroutine to_jsonDictionary(obj,Name,from,to)
     enddo
     i=endp
     if(obj%Dictionary(i)%type_id==1)then
-        write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'": ',&
+        write(f%fh,*) '"'+obj%Dictionary(i)%Key +'": ',&
             str(obj%Dictionary(i)%IntValue)
     elseif(obj%Dictionary(i)%type_id==2)then
-        write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'": ',&
+        write(f%fh,*) '"'+obj%Dictionary(i)%Key +'": ',&
         str(obj%Dictionary(i)%realValue)
     elseif(obj%Dictionary(i)%type_id==3)then
-        write(f%fh,*) '"'+trim(obj%Dictionary(i)%Key )+'": ',&
+        write(f%fh,*) '"'+obj%Dictionary(i)%Key +'": ',&
         obj%Dictionary(i)%charValue
     else
         ! do nothing

@@ -36,9 +36,9 @@ subroutine updateDeformation(obj,itrmax)
     character(40):: StainTheory,ConstitutiveModel,TimeIntegral
     integer :: i,j,k,NumOfElement,NumOfGaussPoint,itr
     
-    StainTheory = trim(obj%FEMDomain%Category1)
-    ConstitutiveModel = trim(obj%FEMDomain%Category2)
-    TimeIntegral = trim(obj%FEMDomain%Category3)
+    StainTheory = obj%FEMDomain%Category1
+    ConstitutiveModel = obj%FEMDomain%Category2
+    TimeIntegral = obj%FEMDomain%Category3
 
     do itr=1,itrmax
         ! update Ax=b
@@ -48,19 +48,19 @@ subroutine updateDeformation(obj,itrmax)
                 ! Which is better, (GetStress + get EBE) or (getEbE)?
                 call obj%Stress%update(FEMDomain=obj%FEMDomain,&
                     Stress=obj%Stress,Strain=obj%Strain,&
-                    StrainTheory=trim(StainTheory),&
-                    ConstitutiveModel=trim(ConstitutiveModel),
-                    TimeIntegral=trim(TimeIntegral) ) ! get Stress
+                    StrainTheory=StainTheory,&
+                    ConstitutiveModel=ConstitutiveModel,
+                    TimeIntegral=TimeIntegral ) ! get Stress
                 call obj%StifMat%update(FEMDomain=obj%FEMDomain,&
                     Stress=obj%Stress,Strain=obj%Strain,&
-                    StrainTheory=trim(StainTheory),&
-                    ConstitutiveModel=trim(ConstitutiveModel),
-                    TimeIntegral=trim(TimeIntegral) ) ! get EbE matrices
+                    StrainTheory=StainTheory,&
+                    ConstitutiveModel=ConstitutiveModel,
+                    TimeIntegral=TimeIntegral ) ! get EbE matrices
             enddo
         enddo
 
         ! solve x=A^(-1)b and update kinetic field
-        call obj%solve(StrainTheory=trim(StainTheory),TimeIntegral=trim(TimeIntegral) )
+        call obj%solve(StrainTheory=StainTheory,TimeIntegral=TimeIntegral )
 
         ! check convergence
         if( obj%Converge() .eqv. .true.)then

@@ -88,12 +88,12 @@ subroutine openBoundary(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
-        call obj%DBound%open(path=trim(path)//"/"//trim(adjustl(name)), name="DBound")
-        call obj%NBound%open(path=trim(path)//"/"//trim(adjustl(name)), name="NBound")
-        call obj%TBound%open(path=trim(path)//"/"//trim(adjustl(name)), name="TBound")
+        call execute_command_line("mkdir -p "//path//"/"//name)
+        call obj%DBound%open(path=path//"/"//name, name="DBound")
+        call obj%NBound%open(path=path//"/"//name, name="NBound")
+        call obj%TBound%open(path=path//"/"//name, name="TBound")
         
-        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","Boundary","prop" )
+        call f%open(path//"/"//name//"/","Boundary","prop" )
         call openArray(f%fh, obj%DBoundPara)
         call openArray(f%fh, obj%NBoundPara)
         call openArray(f%fh, obj%TBoundPara)
@@ -129,12 +129,12 @@ subroutine openBoundary(obj,path,name)
         call f%close()
     else
 
-        call execute_command_line("mkdir -p "//trim(path)//"/Boundary")
-        call obj%DBound%open(path=trim(path), name="Boundary")
-        call obj%NBound%open(path=trim(path), name="Boundary")
-        call obj%TBound%open(path=trim(path), name="Boundary")
+        call execute_command_line("mkdir -p "//path//"/Boundary")
+        call obj%DBound%open(path=path, name="Boundary")
+        call obj%NBound%open(path=path, name="Boundary")
+        call obj%TBound%open(path=path, name="Boundary")
         
-        call f%open(trim(path)//"/","Boundary/Boundary","prop" )
+        call f%open(path//"/","Boundary/Boundary","prop" )
         call openArray(f%fh, obj%DBoundPara)
         call openArray(f%fh, obj%NBoundPara)
         call openArray(f%fh, obj%TBoundPara)
@@ -303,7 +303,7 @@ subroutine showBoundary(obj,onlyRange)
 
         if(allocated(obj%Dbound%ElemNod) )then
             n=size(obj%Dbound%ElemNod,1)
-            print *, trim(obj%Name), " as Dirichlet Boundary"
+            print *, obj%Name, " as Dirichlet Boundary"
             do i=1,n
                 if(i==n)then
                     print *, "  L _ Zone #",i,"Parameters : ",obj%DboundPara(i,:)
@@ -315,7 +315,7 @@ subroutine showBoundary(obj,onlyRange)
 
         if(allocated(obj%Nbound%ElemNod) )then
             n=size(obj%Nbound%ElemNod,1)
-            print *, trim(obj%Name), " as Neumann Boundary"
+            print *, obj%Name, " as Neumann Boundary"
             do i=1,n
                 if(i==n)then
                     print *, "  L _ Zone #",i,"Parameters : ",obj%NboundPara(i,:)
@@ -327,7 +327,7 @@ subroutine showBoundary(obj,onlyRange)
 
         if(allocated(obj%Tbound%ElemNod))then
             n=size(obj%Tbound%ElemNod,1)
-            print *, trim(obj%Name), " as Time Boundary"
+            print *, obj%Name, " as Time Boundary"
             do i=1,n
                 if(i==n)then
                     print *, "  L _ Zone #",i,"Parameters : ",obj%TboundPara(i,:)
@@ -1259,10 +1259,10 @@ subroutine gmshBoundary(obj,Dirichlet, Neumann, Time, Name, Tag)
                 ElemValue(:,1)=obj%DBoundPara(:,i)
                 if(present(tag) )then
                     call obj%DBound%gmsh(Name=Name//"Dirichlet",ElemValue=ElemValue,&
-                        OptionalContorName=trim(Tag))
+                        OptionalContorName=Tag)
                 else
                     call obj%DBound%gmsh(Name=Name//"Dirichlet",ElemValue=ElemValue,&
-                        OptionalContorName="Dirichlet Boundary Value :: ID = "//trim(adjustl(fstring(i))))
+                        OptionalContorName="Dirichlet Boundary Value :: ID = "//fstring(i))
                 endif
             enddo
             deallocate(ElemValue)
@@ -1281,10 +1281,10 @@ subroutine gmshBoundary(obj,Dirichlet, Neumann, Time, Name, Tag)
                 ElemValue(:,1)=obj%NBoundPara(:,i)
                 if(present(tag) )then
                     call obj%NBound%gmsh(Name=Name//"Neumann",ElemValue=ElemValue,&
-                        OptionalContorName=trim(Tag))
+                        OptionalContorName=Tag)
                 else
                     call obj%NBound%gmsh(Name=Name//"Neumann",ElemValue=ElemValue,&
-                        OptionalContorName="Neumann Boundary Value :: ID = "//trim(adjustl(fstring(i))))
+                        OptionalContorName="Neumann Boundary Value :: ID = "//fstring(i))
                 endif
             enddo
             deallocate(ElemValue)
@@ -1303,10 +1303,10 @@ subroutine gmshBoundary(obj,Dirichlet, Neumann, Time, Name, Tag)
                 ElemValue(:,1)=obj%TBoundPara(:,i)
                 if(present(tag) )then
                     call obj%TBound%gmsh(Name=Name//"Time",ElemValue=ElemValue,&
-                        OptionalContorName=trim(Tag))
+                        OptionalContorName=Tag)
                 else
                     call obj%TBound%gmsh(Name=Name//"Time",ElemValue=ElemValue,&
-                        OptionalContorName="Time Boundary Value :: ID = "//trim(adjustl(fstring(i))))
+                        OptionalContorName="Time Boundary Value :: ID = "//fstring(i))
                 endif
             enddo
             deallocate(ElemValue)
@@ -1327,12 +1327,12 @@ subroutine exportBoundary(obj,restart,path)
     type(IO_) :: f
 
     if(present(restart) )then
-        call execute_command_line("mkdir -p "//trim(path)//"/Boundary")
-        call obj%DBound%export(path=trim(path)//"/Boundary", restart=.true.)
-        call obj%NBound%export(path=trim(path)//"/Boundary", restart=.true.)
-        call obj%TBound%export(path=trim(path)//"/Boundary", restart=.true.)
+        call execute_command_line("mkdir -p "//path//"/Boundary")
+        call obj%DBound%export(path=path//"/Boundary", restart=.true.)
+        call obj%NBound%export(path=path//"/Boundary", restart=.true.)
+        call obj%TBound%export(path=path//"/Boundary", restart=.true.)
         
-        call f%open(trim(path)//"/","Boundary/Boundary","prop" )
+        call f%open(path//"/","Boundary/Boundary","prop" )
         write(f%fh,*) obj%DBoundPara(:,:)
         write(f%fh,*) obj%NBoundPara(:,:)
         write(f%fh,*) obj%TBoundPara(:,:)
@@ -1363,8 +1363,8 @@ subroutine exportBoundary(obj,restart,path)
         write(f%fh,*) obj%Ncount
         write(f%fh,*) obj%Tcount
         write(f%fh,*) obj%layer
-        write(f%fh, '(A)' ) trim(obj%Name)
-        write(f%fh, '(A)' ) trim(obj%ErrorMsg)
+        write(f%fh, '(A)' ) obj%Name
+        write(f%fh, '(A)' ) obj%ErrorMsg
         call f%close()
     endif
 
@@ -1379,12 +1379,12 @@ subroutine saveBoundary(obj,path,name)
     type(IO_) :: f
 
     if(present(name) )then
-        call execute_command_line("mkdir -p "//trim(path)//"/"//trim(adjustl(name)))
-        call obj%DBound%save(path=trim(path)//"/"//trim(adjustl(name)), name="DBound")
-        call obj%NBound%save(path=trim(path)//"/"//trim(adjustl(name)), name="NBound")
-        call obj%TBound%save(path=trim(path)//"/"//trim(adjustl(name)), name="TBound")
+        call execute_command_line("mkdir -p "//path//"/"//name)
+        call obj%DBound%save(path=path//"/"//name, name="DBound")
+        call obj%NBound%save(path=path//"/"//name, name="NBound")
+        call obj%TBound%save(path=path//"/"//name, name="TBound")
         
-        call f%open(trim(path)//"/"//trim(adjustl(name))//"/","Boundary","prop" )
+        call f%open(path//"/"//name//"/","Boundary","prop" )
         call writeArray(f%fh, obj%DBoundPara)
         call writeArray(f%fh, obj%NBoundPara)
         call writeArray(f%fh, obj%TBoundPara)
@@ -1415,17 +1415,17 @@ subroutine saveBoundary(obj,path,name)
         write(f%fh,*) obj%Ncount
         write(f%fh,*) obj%Tcount
         write(f%fh,*) obj%layer
-        write(f%fh, '(A)' ) trim(obj%Name)
-        write(f%fh, '(A)' ) trim(obj%ErrorMsg)
+        write(f%fh, '(A)' ) obj%Name
+        write(f%fh, '(A)' ) obj%ErrorMsg
         call f%close()
     else
 
-        call execute_command_line("mkdir -p "//trim(path)//"/Boundary")
-        call obj%DBound%save(path=trim(path), name="Boundary")
-        call obj%NBound%save(path=trim(path), name="Boundary")
-        call obj%TBound%save(path=trim(path), name="Boundary")
+        call execute_command_line("mkdir -p "//path//"/Boundary")
+        call obj%DBound%save(path=path, name="Boundary")
+        call obj%NBound%save(path=path, name="Boundary")
+        call obj%TBound%save(path=path, name="Boundary")
         
-        call f%open(trim(path)//"/","Boundary/Boundary","prop" )
+        call f%open(path//"/","Boundary/Boundary","prop" )
         call writeArray(f%fh, obj%DBoundPara)
         call writeArray(f%fh, obj%NBoundPara)
         call writeArray(f%fh, obj%TBoundPara)
@@ -1456,8 +1456,8 @@ subroutine saveBoundary(obj,path,name)
         write(f%fh,*) obj%Ncount
         write(f%fh,*) obj%Tcount
         write(f%fh,*) obj%layer
-        write(f%fh, '(A)' ) trim(obj%Name)
-        write(f%fh, '(A)' ) trim(obj%ErrorMsg)
+        write(f%fh, '(A)' ) obj%Name
+        write(f%fh, '(A)' ) obj%ErrorMsg
         call f%close()
     endif
 

@@ -1,7 +1,8 @@
 module IOClass
 
-    !#ifdef INTEL
+    !#if "INTEL"
     !    use IFPORT
+    !#elif
     !#endif
     
         use iso_fortran_env
@@ -9,10 +10,11 @@ module IOClass
         use StringClass
         implicit none
     
-        integer(int32),parameter :: STAT_ARRAY_SIZE=13
-    
-    !#ifdef INTEL
-    !    integer(int32),parameter :: STAT_ARRAY_SIZE=12    
+        
+    !#ifdef "INTEL"
+    !    integer(int32),parameter :: STAT_ARRAY_SIZE=12
+    !#elif
+    !    integer(int32),parameter :: STAT_ARRAY_SIZE=13
     !#endif
         
         
@@ -81,12 +83,17 @@ module IOClass
             generic,public :: open => openIOchar, openIOstring
     
             ! file properties
-            procedure,public :: diff => diffIO
-            procedure,public :: updated => diffIO
-            procedure,public :: FileDateTime => FileDateTimeIO
-            procedure,public :: LastModified => FileDateTimeIO
-            procedure,public :: owner => ownerIO ! statb(5)
-            procedure,public :: size => sizeIO ! stab(8)
+            !procedure,public :: diff => diffIO
+            !procedure,public :: updated => diffIO
+            
+            !> Due to stupidness of GNU and Intel,
+            !> We cannot use lstat by single code without ifdef
+            !> so I expired them.
+            
+            !procedure,public :: FileDateTime => FileDateTimeIO
+            !procedure,public :: LastModified => FileDateTimeIO
+            !procedure,public :: owner => ownerIO ! statb(5)
+            !procedure,public :: size => sizeIO ! stab(8)
     
             ! while reading files,
             procedure,public :: rewind => rewindIO
@@ -2021,95 +2028,95 @@ module IOClass
     
     ! #################################################################
     ! get last modified time
-    function FileDateTimeIO(obj,name) result(ret)
-        class(IO_),intent(inout) :: obj
-        character(*),optional,intent(in) :: name
-        integer(int32) :: ret, ierr,infostat(STAT_ARRAY_SIZE)
-    
-        if(present(name) )then
-            call obj%open(name,"r")
-            ierr = lstat(name, infostat)
-            ret = infostat(10)
-            call obj%close()
-        else
-            ierr = lstat(obj%filename, infostat)
-            ret = infostat(10)
-        endif
-    
-    end function
+    !function FileDateTimeIO(obj,name) result(ret)
+    !    class(IO_),intent(inout) :: obj
+    !    character(*),optional,intent(in) :: name
+    !    integer(int32) :: ret, ierr,infostat(STAT_ARRAY_SIZE)
+    !
+    !    if(present(name) )then
+    !        call obj%open(name,"r")
+    !        ierr = lstat(name, infostat)
+    !        ret = infostat(10)
+    !        call obj%close()
+    !    else
+    !        ierr = lstat(obj%filename, infostat)
+    !        ret = infostat(10)
+    !    endif
+    !
+    !end function
     ! #################################################################
     
     
     ! #################################################################
     ! get owner use id
-    function ownerIO(obj,name) result(ret)
-        class(IO_),intent(inout) :: obj
-        character(*),optional,intent(in) :: name
-        integer(int32) :: ret, ierr,infostat(STAT_ARRAY_SIZE)
-    
-        if(present(name) )then
-            call obj%open(name,"r")
-            ierr = lstat(name, infostat)
-            ret = infostat(5)
-            call obj%close()
-        else
-            ierr = lstat(obj%filename, infostat)
-            ret = infostat(5)
-        endif
-    
-    end function
+    !function ownerIO(obj,name) result(ret)
+    !    class(IO_),intent(inout) :: obj
+    !    character(*),optional,intent(in) :: name
+    !    integer(int32) :: ret, ierr,infostat(STAT_ARRAY_SIZE)
+    !
+    !    if(present(name) )then
+    !        call obj%open(name,"r")
+    !        ierr = lstat(name, infostat)
+    !        ret = infostat(5)
+    !        call obj%close()
+    !    else
+    !        ierr = lstat(obj%filename, infostat)
+    !        ret = infostat(5)
+    !    endif
+    !
+    !end function
     ! #################################################################
     
     
     ! #################################################################
     ! get file size
-    function sizeIO(obj,name) result(ret)
-        class(IO_),intent(inout) :: obj
-        character(*),optional,intent(in) :: name
-        integer(int32) :: ret, ierr,infostat(STAT_ARRAY_SIZE)
-    
-        if(present(name) )then
-            call obj%open(name,"r")
-            ierr = lstat(name, infostat)
-            ret = infostat(8)
-            call obj%close()
-        else
-            ierr = lstat(obj%filename, infostat)
-            ret = infostat(8)
-        endif
-    
-    end function
+    !function sizeIO(obj,name) result(ret)
+    !    class(IO_),intent(inout) :: obj
+    !    character(*),optional,intent(in) :: name
+    !    integer(int32) :: ret, ierr,infostat(STAT_ARRAY_SIZE)
+    !
+    !    if(present(name) )then
+    !        call obj%open(name,"r")
+    !        ierr = lstat(name, infostat)
+    !        ret = infostat(8)
+    !        call obj%close()
+    !    else
+    !        ierr = lstat(obj%filename, infostat)
+    !        ret = infostat(8)
+    !    endif
+    !
+    !end function
     ! #################################################################
     
     
     
     ! #################################################################
     ! detect diff
-    function diffIO(obj,name) result(ret)
-        class(IO_),intent(inout) :: obj
-        character(*),optional,intent(in) ::name
-        logical :: ret
-        integer(int32) :: lastmodified
-        ret=.false.
-        if(present(name) )then
-            if( obj%lastModifiedTime == obj%LastModified( trim(name) ) )then
-                obj%lastModifiedTime = obj%LastModified( trim(name) )
-                ret = .false.
-            else
-                obj%lastModifiedTime = obj%LastModified( trim(name) )
-                ret = .true.
-            endif
-        else
-            if( obj%lastModifiedTime == obj%LastModified() )then
-                obj%lastModifiedTime = obj%LastModified()
-                ret = .false.
-            else
-                obj%lastModifiedTime = obj%LastModified()
-                ret = .true.
-            endif
-        endif
-    
-    end function
+    !function diffIO(obj,name) result(ret)
+    !    class(IO_),intent(inout) :: obj
+    !    character(*),optional,intent(in) ::name
+    !    logical :: ret
+    !    integer(int32) :: lastmodified
+    !    ret=.false.
+    !    if(present(name) )then
+    !        if( obj%lastModifiedTime == obj%LastModified( trim(name) ) )then
+    !            obj%lastModifiedTime = obj%LastModified( trim(name) )
+    !            ret = .false.
+    !        else
+    !            obj%lastModifiedTime = obj%LastModified( trim(name) )
+    !            ret = .true.
+    !        endif
+    !    else
+    !        if( obj%lastModifiedTime == obj%LastModified() )then
+    !            obj%lastModifiedTime = obj%LastModified()
+    !            ret = .false.
+    !        else
+    !            obj%lastModifiedTime = obj%LastModified()
+    !            ret = .true.
+    !        endif
+    !    endif
+    !
+    !end function
     ! #################################################################
     
     

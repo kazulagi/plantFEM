@@ -95,7 +95,7 @@ subroutine createGrape(obj,config)
     type(Random_) :: random
     integer(int32)::i,n,j,k,num_leaf,num_stem_node,num_branch_branch
 
-    obj%LeafSurfaceData = trim(grapeconfig%parse(config,key1="LeafSurfaceData"))
+    obj%LeafSurfaceData = grapeconfig%parse(config,key1="LeafSurfaceData")
     obj%mainstem_length = freal(grapeconfig%parse(config,key1="Mainstem",key2="Length"))
     obj%mainstem_width = freal(grapeconfig%parse(config,key1="Mainstem",key2="Width"))
     obj%mainstem_node = fint(grapeconfig%parse(config,key1="Mainstem",key2="Node"))
@@ -107,20 +107,14 @@ subroutine createGrape(obj,config)
     obj%num_branch=1
     obj%num_branch_node=0
     do 
-        line = grapeconfig%parse(config,key1="Branch#"//trim(str(obj%num_branch)),key2="Node" )
-        if(len(trim(line))==0)then
+        line = grapeconfig%parse(config,key1="Branch#"//str(obj%num_branch),key2="Node" )
+        if(len(line)==0)then
             obj%num_branch = obj%num_branch -1
             exit
         else
             obj%num_branch = obj%num_branch  + 1
             obj%num_branch_node = obj%num_branch_node + fint(line)
             ! Further branch
-            ! line = grapeconfig%parse(config,key1="Branch#"//trim(str(i)),key2="Branch#1")    
-            ! num_branch_branch = fint(line)
-            ! if(num_branch_branch/=0)then
-            !     ! 2nd order branch
-            !     line = grapeconfig%parse(config,key1="Branch#"//trim(str(i)),key2="Branch#1")    
-            ! endif
             cycle
         endif
     enddo
@@ -153,51 +147,51 @@ subroutine createGrape(obj,config)
 
 
     do i=1,obj%num_branch
-        line = grapeconfig%parse(config,key1="Branch#"//trim(str(i)),key2="Node" )    
+        line = grapeconfig%parse(config,key1="Branch#"//str(i),key2="Node" )    
         obj%br_node(i) = fint(line)
-        line = grapeconfig%parse(config,key1="Branch#"//trim(str(i)),key2="From" )    
+        line = grapeconfig%parse(config,key1="Branch#"//str(i),key2="From" )    
         obj%br_from(i) = fint(line)
-        line = grapeconfig%parse(config,key1="Branch#"//trim(str(i)),key2="Length" )    
+        line = grapeconfig%parse(config,key1="Branch#"//str(i),key2="Length" )    
         obj%br_length(i) = freal(line)
-        line = grapeconfig%parse(config,key1="Branch#"//trim(str(i)),key2="Width" )    
+        line = grapeconfig%parse(config,key1="Branch#"//str(i),key2="Width" )    
         obj%br_width(i) = freal(line)
         obj%br_angle_ave_x(i) = freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="br_angle_ave_x"))
+            config,key1="Branch#"//str(i),key2="br_angle_ave_x"))
         obj%br_angle_ave_z(i) = freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="br_angle_ave_z"))
+            config,key1="Branch#"//str(i),key2="br_angle_ave_z"))
         obj%br_angle_sig_x(i) = freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="br_angle_sig_x"))
+            config,key1="Branch#"//str(i),key2="br_angle_sig_x"))
         obj%br_angle_sig_z(i) = freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="br_angle_sig_z"))
+            config,key1="Branch#"//str(i),key2="br_angle_sig_z"))
         obj%peti_size_ave(i)  = freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="peti_size_ave"))
+            config,key1="Branch#"//str(i),key2="peti_size_ave"))
         obj%peti_size_sig(i)  = freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="peti_size_sig"))
+            config,key1="Branch#"//str(i),key2="peti_size_sig"))
         obj%peti_width_ave(i) = freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="peti_width_ave"))
+            config,key1="Branch#"//str(i),key2="peti_width_ave"))
         obj%peti_width_sig(i) = freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="peti_width_sig"))
+            config,key1="Branch#"//str(i),key2="peti_width_sig"))
         obj%peti_angle_ave(i) = freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="peti_angle_ave"))
+            config,key1="Branch#"//str(i),key2="peti_angle_ave"))
         obj%peti_angle_sig(i) = freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="peti_angle_sig"))
+            config,key1="Branch#"//str(i),key2="peti_angle_sig"))
 
         obj%leaf_thickness_ave(i)= freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="leaf_thickness_ave"))
+            config,key1="Branch#"//str(i),key2="leaf_thickness_ave"))
         obj%leaf_thickness_sig(i)= freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="leaf_thickness_sig"))
+            config,key1="Branch#"//str(i),key2="leaf_thickness_sig"))
         obj%leaf_angle_ave(i)= freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="leaf_angle_ave"))
+            config,key1="Branch#"//str(i),key2="leaf_angle_ave"))
         obj%leaf_angle_sig(i)= freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="leaf_angle_sig"))
+            config,key1="Branch#"//str(i),key2="leaf_angle_sig"))
         obj%leaf_length_ave(i)= freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="leaf_length_ave"))
+            config,key1="Branch#"//str(i),key2="leaf_length_ave"))
         obj%leaf_length_sig(i)= freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="leaf_length_sig"))
+            config,key1="Branch#"//str(i),key2="leaf_length_sig"))
         obj%leaf_width_ave(i)= freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="leaf_width_ave"))
+            config,key1="Branch#"//str(i),key2="leaf_width_ave"))
         obj%leaf_width_sig(i)= freal(grapeconfig%parse(&
-            config,key1="Branch#"//trim(str(i)),key2="leaf_width_sig"))
+            config,key1="Branch#"//str(i),key2="leaf_width_sig"))
         
     enddo
 
@@ -211,8 +205,8 @@ subroutine createGrape(obj,config)
     obj%num_branch_root=1
     obj%num_branch_root_node=0
     do 
-        line = grapeconfig%parse(config,key1="Branchroot#"//trim(str(obj%num_branch_root)),key2="Node" )
-        if(len(trim(line))==0)then
+        line = grapeconfig%parse(config,key1="Branchroot#"//str(obj%num_branch_root),key2="Node" )
+        if(len(line)==0)then
             obj%num_branch_root = obj%num_branch_root -1
             exit
         else
@@ -328,8 +322,8 @@ subroutine createGrape(obj,config)
             ! add leaves
             
             num_leaf=num_leaf+1
-            !call obj%leaf(num_leaf)%create(filename=trim(obj%LeafSurfaceData))
-            call obj%leaf(num_leaf)%create(filename=trim(obj%LeafSurfaceData) )
+            !call obj%leaf(num_leaf)%create(filename=obj%LeafSurfaceData)
+            call obj%leaf(num_leaf)%create(filename=obj%LeafSurfaceData )
             call obj%leaf(num_leaf)%femdomain%resize(&
                     z = random%gauss(mu=obj%leaf_thickness_ave(i),sigma=obj%leaf_thickness_sig(i))  , &
                     x = random%gauss(mu=obj%leaf_length_ave(i)   ,sigma=obj%leaf_length_sig(i)) , &
@@ -363,7 +357,7 @@ subroutine mshGrape(obj,name,num_threads)
     !$OMP do 
     do i=1,size(obj%stem)
         !if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%stem(i)%msh(name=trim(name)//"_stem"//trim(str(i)))
+            call obj%stem(i)%msh(name=name//"_stem"//str(i))
         !endif
     enddo
     !$OMP end do
@@ -373,7 +367,7 @@ subroutine mshGrape(obj,name,num_threads)
     !$OMP do 
     do i=1,size(obj%root)
         !if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%root(i)%msh(name=trim(name)//"_root"//trim(str(i)))
+            call obj%root(i)%msh(name=name//"_root"//str(i))
         !endif
     enddo
     !$OMP end do
@@ -383,7 +377,7 @@ subroutine mshGrape(obj,name,num_threads)
     !$OMP do 
     do i=1,size(obj%leaf)
         !if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%leaf(i)%msh(name=trim(name)//"_leaf"//trim(str(i)))
+            call obj%leaf(i)%msh(name=name//"_leaf"//str(i))
         !endif
     enddo
     !$OMP end do
@@ -406,7 +400,7 @@ subroutine vtkGrape(obj,name,num_threads)
         !$OMP do 
         do i=1,size(obj%stem)
             !if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-                call obj%stem(i)%vtk(name=trim(name)//"_stem"//trim(str(i)))
+                call obj%stem(i)%vtk(name=name//"_stem"//str(i))
             !endif
         enddo
         !$OMP end do
@@ -419,7 +413,7 @@ subroutine vtkGrape(obj,name,num_threads)
         !$OMP do 
         do i=1,size(obj%root)
             !if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-                call obj%root(i)%vtk(name=trim(name)//"_root"//trim(str(i)))
+                call obj%root(i)%vtk(name=name//"_root"//str(i))
             !endif
         enddo
         !$OMP end do
@@ -433,7 +427,7 @@ subroutine vtkGrape(obj,name,num_threads)
         !$OMP do 
         do i=1,size(obj%leaf)
             !if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-                call obj%leaf(i)%vtk(name=trim(name)//"_leaf"//trim(str(i)))
+                call obj%leaf(i)%vtk(name=name//"_leaf"//str(i))
             !endif
         enddo
         !$OMP end do
@@ -451,14 +445,14 @@ subroutine jsonGrape(obj,name)
     integer(int32) :: i,countnum
     type(IO_) :: f
 
-    call f%open(trim(name)//".json")
+    call f%open(name//".json")
     call f%write("{")
     countnum=0
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
             countnum=countnum+1
-            call f%write('"'//"stem"//trim(str(i))//'":')
-            call obj%stem(i)%femdomain%json(name=trim(name)//"_stem"//trim(str(i)),fh=f%fh,endl=.false.)
+            call f%write('"'//"stem"//str(i)//'":')
+            call obj%stem(i)%femdomain%json(name=name//"_stem"//str(i),fh=f%fh,endl=.false.)
         endif
     enddo
     call f%write('"num_stem":'//str(countnum)//',' )
@@ -467,8 +461,8 @@ subroutine jsonGrape(obj,name)
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
             countnum=countnum+1
-            call f%write('"'//"root"//trim(str(i))//'":')
-            call obj%root(i)%femdomain%json(name=trim(name)//"_root"//trim(str(i)),fh=f%fh,endl=.false.)
+            call f%write('"'//"root"//str(i)//'":')
+            call obj%root(i)%femdomain%json(name=name//"_root"//str(i),fh=f%fh,endl=.false.)
         endif
     enddo
     call f%write('"num_root":'//str(countnum)//',' )
@@ -477,8 +471,8 @@ subroutine jsonGrape(obj,name)
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             countnum=countnum+1
-            call f%write('"'//"leaf"//trim(str(i))//'":')
-            call obj%leaf(i)%femdomain%json(name=trim(name)//"_leaf"//trim(str(i)),fh=f%fh,endl=.false.)
+            call f%write('"'//"leaf"//str(i)//'":')
+            call obj%leaf(i)%femdomain%json(name=name//"_leaf"//str(i),fh=f%fh,endl=.false.)
         endif
     enddo
     call f%write('"num_leaf":'//str(countnum)//',' )
@@ -496,13 +490,13 @@ subroutine stlGrape(obj,name,num_threads)
     integer(int32) :: i,n
 
     n = input(default=1,option=num_threads)
-    !call execute_command_line("echo ' ' > "//trim(name)//".stl")
+    !call execute_command_line("echo ' ' > "//name//".stl")
     !$OMP parallel num_threads(n) private(i)
     !$OMP do 
     do i=1,size(obj%stem)
         if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%stem(i)%stl(name=trim(name)//"_stem"//trim(str(i)))
-            !call execute_command_line("cat "//trim(name)//"_stem"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            call obj%stem(i)%stl(name=name//"_stem"//str(i))
+            !call execute_command_line("cat "//name//"_stem"//str(i)//"_000001.stl >> "//name//".stl")
         endif
     enddo
     !$OMP end do
@@ -512,8 +506,8 @@ subroutine stlGrape(obj,name,num_threads)
     !$OMP do 
     do i=1,size(obj%root)
         if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%root(i)%stl(name=trim(name)//"_root"//trim(str(i)))
-            !call execute_command_line("cat "//trim(name)//"_root"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            call obj%root(i)%stl(name=name//"_root"//str(i))
+            !call execute_command_line("cat "//name//"_root"//str(i)//"_000001.stl >> "//name//".stl")
         endif
     enddo
     !$OMP end do
@@ -523,8 +517,8 @@ subroutine stlGrape(obj,name,num_threads)
     !$OMP do 
     do i=1,size(obj%leaf)
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%leaf(i)%stl(name=trim(name)//"_leaf"//trim(str(i)))
-            !call execute_command_line("cat "//trim(name)//"_leaf"//trim(str(i))//"_000001.stl >> "//trim(name)//".stl")
+            call obj%leaf(i)%stl(name=name//"_leaf"//str(i))
+            !call execute_command_line("cat "//name//"_leaf"//str(i)//"_000001.stl >> "//name//".stl")
         endif
     enddo
     !$OMP end do
