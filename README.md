@@ -13,7 +13,8 @@
 ![image931](https://user-images.githubusercontent.com/54159711/84130533-5eb8ec00-aa7e-11ea-92c9-08a49ccc3674.png)
 -->
 
-# [New!] plantFEM 21.10 was released!
+
+# [New!] plantFEM 22.04(LTS) will soon be released!
 
 ## Specification
 
@@ -24,7 +25,7 @@
 | Written in | Fortran 2003, Python 3.x, C89  | 
 |Source model | Open-source |
 | Initial release | 21.10 (20 October 2021)|
-| First Long-Term Surpport (LTS) release | 22.04 (xx April 2022) |
+| First Long-Term Surpport (LTS) release | 22.04 (23 April 2022) |
 | Repository | https://github.com/kazulagi/plantfem |
 | Usage | Agricultural CAE,    Digital Twins for Agricultural/Civil Engineering |  
 | Target | Personal computers, HPC-Clusters, Servers |
@@ -99,7 +100,7 @@
 | curl |  7.47.0 or later |
 
 
-# What's next plantFEM 22.04 (LTS)?
+# What's next plantFEM 22.10 ?
 
 ## APIs for Python, C/C++, and JavaScript (Experimental).
 [![Experimental](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1lPEzZnAS5CGuXjBw-P8VhMkcpoBxV4-k?usp=sharing)
@@ -132,7 +133,7 @@ ford ford.md
 3. Run command
 
 ```
-git clone -b 21.10 https://github.com/kazulagi/plantFEM && cd plantFEM && python3 install.py
+git clone -b 22.04 https://github.com/kazulagi/plantFEM && cd plantFEM && python3 install.py
 ```
 
 1. You can open files by this command
@@ -150,7 +151,7 @@ explorer.exe .
 In Ubuntu 18.04 or later, execute the next one-liner.
 
 ```
-git clone -b 21.10 https://github.com/kazulagi/plantFEM && cd plantFEM && python3 install.py
+git clone -b 22.04 https://github.com/kazulagi/plantFEM && cd plantFEM && python3 install.py
 ```
 
 If you want to build and run as a docker container,
@@ -161,19 +162,7 @@ If you want to build and run as a docker container,
 - (2) Open command-prompt and run
 
 ```{.copy}
-git clone -b 21.10 https://github.com/kazulagi/plantFEM && cd plantFEM/docker
-```
-
-- (3) Build docker-image
-
-```
-docker build github.com/kazulagi/plantfem
-```
-
-- (4) Hop into docker-container
-
-```
-docker run --rm -it kazulagi/plantfem /bin/bash
+git clone -b 22.04 https://github.com/kazulagi/plantFEM && cd plantFEM/docker
 ```
 
 
@@ -637,7 +626,8 @@ Ex.2 :: 3-D thermal diffusion simulation of a grass leaf.
 - 2019/09/06 :: Bugfix of Simulatior
 - 2019/09/23 :: Source code is opened.Now solvers for diffusion, finite deformation, and diffusion-deformation coupling are available. Contact solver is under debugging.
 - 2021/05/15 :: Now you can install plantFEM by ```install.py``` and can run by ```plantfem run```
-- 2021/10/xx :: Release plantFEM 21.10
+- 2021/10/21 :: Release plantFEM 21.10
+- 2022/04/21 :: Beat-release: plantFEM 22.04
 
 <!--
 ### On going;
@@ -695,11 +685,8 @@ This project is financially supported by the following research grants.
 
 Others are under revision and/or under preparation.
 
-### Notes:
-
-2021/11/01 Reaction-Diffusion solver for multi-domain problems are being implemented in order to implement soybean%grow(). 
 
 ### TODO:
-
+- Python-interface
 - Spline curve
 - NURBS curve
