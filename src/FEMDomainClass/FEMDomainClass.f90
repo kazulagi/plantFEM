@@ -9753,7 +9753,7 @@ function StressMatrixFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressM
 	ElemDisp = zeros(  size( obj%mesh%elemnod,2 ) *node_DOF) 
 	do i=1,obj%nne()
 		do j=1,node_DOF
-			ElemDisp( node_DOF*(i-1) + j ) = Disp(i,j)
+			ElemDisp( node_DOF*(i-1) + j ) = Disp( obj%mesh%elemnod(ElementID,i) ,j)
 		enddo
 	enddo
 
@@ -9843,6 +9843,8 @@ function StressMatrixFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressM
 			endif
 			
 		enddo	
+		! cell-averaged
+		StressMatrix = StressMatrix/dble(shapefunc%NumOfGp)
 	endif
 
 end function
