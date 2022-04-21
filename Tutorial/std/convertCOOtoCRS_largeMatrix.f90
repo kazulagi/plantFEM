@@ -5,6 +5,8 @@ implicit none
 
 integer(int32),parameter :: n=300000
 
+![Warning!] type(LinearSolver_) is not reccomended. 
+! Please use FEMSolver instead of it.
 type(LinearSolver_) :: solver
 type(Time_) :: time
 type(Random_) :: random

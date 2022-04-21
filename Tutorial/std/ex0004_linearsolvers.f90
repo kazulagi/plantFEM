@@ -8,6 +8,9 @@ program main
     real(real64) :: A(1:N,1:N), B(1:N), X(1:N) ! A, x and B
     real(real64) :: Val(1:10) 
     integer(int32) :: index_i(1:10),index_j(1:10)
+
+![Warning!] type(LinearSolver_) is not reccomended. 
+! Please use FEMSolver instead of it.
     type(LinearSolver_) :: solver ! linear solver instance.
 
     ! creating A, x, and B

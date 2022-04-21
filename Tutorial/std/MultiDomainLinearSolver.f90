@@ -1,5 +1,7 @@
 use LinearSolverClass
 
+![Warning!] type(LinearSolver_) is not reccomended. 
+! Please use FEMSolver instead of it.
 type(LinearSolver_) :: solver
 
 ! 2 unknowns for 1st domain, 2 unknowns for 2nd domain

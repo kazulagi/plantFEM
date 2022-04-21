@@ -2,6 +2,9 @@ program main
     use std
     implicit none
 
+
+![Warning!] type(LinearSolver_) is not reccomended. 
+! Please use FEMSolver instead of it.
     type(LinearSolver_) :: app
     type(time_) :: time
     integer(int32) :: i

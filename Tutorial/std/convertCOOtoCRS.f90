@@ -2,6 +2,10 @@ use LinearSolverClass
 use TimeClass
 implicit none
 
+
+![Warning!] type(LinearSolver_) is not reccomended. 
+! Please use FEMSolver or COOClass instead of it.
+
 type(LinearSolver_) :: solver
 type(Time_) :: time
 real(real64) :: Amat(5,5),mm(5)
