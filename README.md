@@ -14,7 +14,7 @@
 -->
 
 
-# [New!] plantFEM 22.04(LTS) will soon be released!
+# [New!] plantFEM 22.04(LTS) is released!
 
 ## Specification
 
@@ -680,11 +680,11 @@ This project is financially supported by the following research grants.
 
 [1] Haruka Tomobe, Kazunori Fujisawa, Akira Murakami, Experiments and FE-analysis of 2-D root-soil contact problems based on node-to-segment approach, Soils and Foundations, Volume 59, Issue 6, 2019, Pages 1860-1874.
 
-[2] Tomobe H, Fujisawa K, Murakami A (2021) A Mohr-Coulomb-Vilar model for constitutive relationship in root-soil interface under changing suction. Soils Found 61:815–835. 
+[2] Haruka Tomobe, Kazunori Fujisawa, Akira Murakami, A Mohr-Coulomb-Vilar model for constitutive relationship in root-soil interface under changing suction, Soils and Foundations, Volume 61,2021, Pages 815–835. 
 
+[3] plantFEM: A Numerical Platform for Multi-physical Simulation of Plants, Third International Workshop on Machine Learning for Cyber-Agricultural Systems (MLCAS2021), Page 22.
 
 Others are under revision and/or under preparation.
-
 
 ### TODO:
 - Python-interface
