@@ -1576,7 +1576,9 @@ subroutine setEbOMFEMSolver(this,penalty,DOF)
     real(real64),allocatable :: A_ij(:,:),position(:)
     type(ShapeFunction_) :: sf
 
-    do DomainID=1,2
+    ! it was
+    ! do DomainID=1,2
+    do DomainID=1,size(this%FEMDomains)
         do i = 1, this%FEMDomains(DomainID)%femdomainp&
             %numOversetElements()
             

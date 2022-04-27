@@ -6458,10 +6458,6 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 			coordinate=coordinate,division=znum,species=species,SoyWidthRatio=SoyWidthRatio)
 	endif
 
-	call obj%move(&
-		x=-obj%position_x(),&
-		y=-obj%position_y(),&
-		z=-obj%position_z() )
 end subroutine createFEMDomain
 ! ##################################################
 
@@ -11604,11 +11600,11 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm,MyDomainID)
 					= femdomain%connectivity(femdomain%mesh%nearestElementID(x=position(1),y=position(2),z=position(3) ))
 				
 				obj%OversetConnect(obj%num_oversetconnect)%projection = FEMDomain_Overset_GPP
-				obj%OversetConnect(obj%num_oversetconnect)%position = position
-				obj%OversetConnect(obj%num_oversetconnect)%ElementID =ElementID
-				obj%OversetConnect(obj%num_oversetconnect)%GaussPointID =GaussPointID
+				obj%OversetConnect(obj%num_oversetconnect)%position   = position
+				obj%OversetConnect(obj%num_oversetconnect)%ElementID  = ElementID
+				obj%OversetConnect(obj%num_oversetconnect)%GaussPointID = GaussPointID
 				obj%OversetConnect(obj%num_oversetconnect)%InterConnect = InterConnect
-				obj%OversetConnect(obj%num_oversetconnect)%DomainIDs12 = DomainIDs12
+				obj%OversetConnect(obj%num_oversetconnect)%DomainIDs12  = DomainIDs12
 				obj%OversetConnect(obj%num_oversetconnect)%active = .true.
 				! 何を記憶して，何はもう一度計算するか．
 				
