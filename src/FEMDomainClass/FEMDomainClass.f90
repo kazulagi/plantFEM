@@ -39,6 +39,8 @@ module FEMDomainClass
 
 	integer(int32),parameter,public :: FEMDomain_Overset_GPP = 1
 	integer(int32),parameter,public :: FEMDomain_Overset_P2P = 1
+
+	
 	
 	!integer(int32),parameter,public :: INFO_NUMBER_OF_POINTS  = 1 !	Information id#1 number of node
 	!integer(int32),parameter,public :: INFO_NUMBER_OF_ELEMENTS  = 1 !	Information id#1 number of node
@@ -114,6 +116,8 @@ module FEMDomainClass
 		type(Boundaryp_),allocatable :: Boundaries(:)
 
 		real(real64),allocatable :: ObjectPosition(:)
+
+		real(real64) :: total_rotation(1:3) = 0.0d0
 		!type(FEMDomainp_),allocatable :: FEMDomains(:)
     contains
 		procedure,public :: add => addFEMDomain
@@ -169,6 +173,7 @@ module FEMDomainClass
 		
 		procedure,public :: field => fieldFEMDomain
 		procedure,public :: fixReversedElements => fixReversedElementsFEMDomain
+		procedure,public :: fit =>  fitFEMDomain
 		
 		procedure,public :: gmshPlotMesh => GmshPlotMesh
 		procedure,public :: gmsh => GmshPlotMesh
@@ -179,6 +184,7 @@ module FEMDomainClass
 		procedure,public :: gnuplotExportStress => GnuplotExportStress  
 		procedure,public :: getDBCVector => getDBCVectorFEMDomain
 		procedure,public :: getVolume => getVolumeFEMDomain
+
 		procedure,public :: getJacobiMatrix => getJacobiMatrixFEMDomain
 		procedure,public :: getLayerID => getLayerIDFEMDomain
 		procedure,public :: getLayerAttribute => getLayerAttributeFEMDomain
@@ -186,6 +192,7 @@ module FEMDomainClass
 		procedure,public :: getShapeFunction => getShapeFunctionFEMDomain
 		procedure,public :: getNearestNodeID => getNearestNodeIDFEMDomain
 		procedure,public :: getE2Econnectivity => getE2EconnectivityFEMDomain
+		procedure,public :: getElementCauchyStress => getElementCauchyStressFEMDomain
 
 		procedure,public :: getSurface => getSurfaceFEMDomain
 		procedure,public ::	NodeID => NodeIDFEMDomain
@@ -224,6 +231,8 @@ module FEMDomainClass
 		procedure,public :: move => moveFEMDomain
 		procedure,public :: meshing => meshingFEMDomain
 		procedure,public :: merge  => MergeFEMDomain
+
+
 		procedure,public :: msh => mshFEMDomain
 
 
@@ -251,6 +260,7 @@ module FEMDomainClass
 		procedure,public :: open => openFEMDomain
 		procedure,public :: overset => oversetFEMDomain
 
+		procedure,public :: PCAvector => PCAvectorFEMDomain
 		procedure,public :: ply => plyFEMDomain
 		procedure,public :: projection => projectionFEMDomain
         procedure,public :: position => positionFEMDomain
@@ -285,6 +295,7 @@ module FEMDomainClass
 		
 		procedure,public :: read => readFEMDomain
 		procedure,public :: remesh => remeshFEMDomain
+		procedure,public :: randomDance => randomDanceFEMDomain
 
 		procedure,public :: save => saveFEMDomain
 
@@ -303,6 +314,7 @@ module FEMDomainClass
 		procedure,public :: stl => stlFEMDomain
 		procedure,public :: obj => objFEMDomain
 		procedure,public :: vtk => vtkFEMDomain
+		procedure,public :: csv => csvFEMDomain
 
 		! matrices
 
@@ -508,6 +520,7 @@ subroutine removeFEMDomain(obj)
 	if(allocated(obj%OversetExists) ) deallocate(obj%OversetExists)
 	obj%num_oversetconnect = 0
 
+	obj%total_rotation = 0.0d0
 
 end subroutine
 ! ####################################################################
@@ -5757,7 +5770,19 @@ subroutine rotateFEMDomain(obj,x,y,z,deg)
 	allocate(rotmat(n,n) )
 	allocate(coord(n) )
 	allocate(rotation(n) )
+
+	if(present(x) )then
+		obj%total_rotation(1) = obj%total_rotation(1) + x
+	endif
 	
+	if(present(y) )then
+		obj%total_rotation(2) = obj%total_rotation(2)+ y
+	endif
+
+	if(present(z) )then
+		obj%total_rotation(3) = obj%total_rotation(3) + z
+	endif
+
 	midpoint(:)=0.0d0
 
 	do i=1,m
@@ -6433,7 +6458,10 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 			coordinate=coordinate,division=znum,species=species,SoyWidthRatio=SoyWidthRatio)
 	endif
 
-	
+	call obj%move(&
+		x=-obj%position_x(),&
+		y=-obj%position_y(),&
+		z=-obj%position_z() )
 end subroutine createFEMDomain
 ! ##################################################
 
@@ -9190,10 +9218,15 @@ end function
 ! ##########################################################################
 function position_xFEMDomain(obj,id) result(x)
     class(FEMDomain_),intent(in) :: obj
-    integer(int32),intent(in) :: id ! node_id
+    integer(int32),optional,intent(in) :: id ! node_id
     real(real64) :: x
     
-    x = obj%mesh%nodcoord(id,1)
+	if(present(id) )then
+    	x = obj%mesh%nodcoord(id,1)
+	else
+		x = sum(obj%mesh%nodcoord(:,1))/dble(obj%nn() )
+	endif
+
 
 end function
 ! ##########################################################################
@@ -9201,21 +9234,30 @@ end function
 ! ##########################################################################
 function position_yFEMDomain(obj,id) result(x)
     class(FEMDomain_),intent(in) :: obj
-    integer(int32),intent(in) :: id ! node_id
+    integer(int32),optional,intent(in) :: id ! node_id
     real(real64) :: x
     
-    x = obj%mesh%nodcoord(id,2)
-
+    
+	if(present(id) )then
+    	x = obj%mesh%nodcoord(id,2)
+	else
+		x = sum(obj%mesh%nodcoord(:,2))/dble(obj%nn() )
+	endif
+	
 end function
 ! ##########################################################################
 
 ! ##########################################################################
 function position_zFEMDomain(obj,id) result(x)
     class(FEMDomain_),intent(in) :: obj
-    integer(int32),intent(in) :: id ! node_id
+    integer(int32),optional,intent(in) :: id ! node_id
     real(real64) :: x
     
-    x = obj%mesh%nodcoord(id,3)
+	if(present(id) )then
+    	x = obj%mesh%nodcoord(id,3)
+	else
+		x = sum(obj%mesh%nodcoord(:,3))/dble(obj%nn() )
+	endif
 
 end function
 ! ##########################################################################
@@ -11666,6 +11708,350 @@ subroutine refineFEMDomain(obj,x_min,x_max,y_min,y_max,z_min,z_max)
 
 	
 end subroutine
+
+subroutine csvFEMDomain(this,name)
+	! export as point cloud
+	class(FEMDomain_),intent(in) :: this
+	character(*),intent(in) :: name
+	integer(int32) :: i,j
+	type(IO_) :: f
+
+	if(this%empty() ) stop "ERROR :: csvFEMDomain >> no data"
+
+	call f%open(name//".csv","w")
+	do i=1,this%nn()
+		write(f%fh,*) this%mesh%nodcoord(i,1),",",this%mesh%nodcoord(i,2),","	,this%mesh%nodcoord(i,3),","
+	enddo
+	call f%close()
+
+end subroutine
+
+
+subroutine fitFEMDomain(this,point_cloud,itr_max)
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),intent(in) :: point_cloud(:,:)
+	integer(int32),intent(in) :: itr_max
+	real(real64),allocatable :: center(:),min_xyz(:),max_xyz(:),this_center(:)
+	
+	integer(int32) :: i,j,n,itr
+
+	n = size(point_cloud,2)
+	center  = zeros(n)
+	this_center  = zeros(n)
+	min_xyz = zeros(n)
+	max_xyz = zeros(n)
+
+	
+	if(n==3)then
+		do i=1,n
+			center(i)  = sum(point_cloud(:,i) )/size(point_cloud,1)
+			min_xyz(i) = minval( point_cloud(:,i) )
+			max_xyz(i) = maxval( point_cloud(:,i) )
+			
+		enddo
+
+		this_center = this%centerPosition()
+
+		call this%move(&
+			x=- this_center(1) + center(1),&
+			y=- this_center(2) + center(2),&
+			z=- this_center(3) + center(3) &
+		)
+		
+		do itr=1,itr_max
+			
+		enddo
+
+
+
+
+	else
+		print *, "fitFEMDomain >> only size(point_cloud,2)==3 is implemented. "
+		stop
+	endif
+
+
+
+end subroutine
+
+subroutine randomDanceFEMDomain(this,move,rotate,resize)
+	class(FEMDomain_),intent(inout) :: this
+	! 1st and 2nd moment
+	real(real64),optional,intent(in) :: move(1:2),rotate(1:2),resize(1:2)
+	type(Random_) :: random
+	real(real64) :: rot_angle(1:3),center(1:3)
+	if(present(resize) )then
+	
+		rot_angle = this%total_rotation
+		center(1) = this%Position_x()
+		center(2) = this%Position_y()
+		center(3) = this%Position_z()
+
+		call this%move(&
+			x = -center(1)	, &
+			y = -center(2)	, &
+			z = -center(3)	  &
+		)
+
+		call this%rotate(&
+			x = -rot_angle(1)	, &
+			y = -rot_angle(2)	, &
+			z = -rot_angle(3)	  &
+		)
+
+
+		call this%resize(&
+			x_rate = random%gauss(mu=resize(1),sigma=resize(2) )	, &
+			y_rate = random%gauss(mu=resize(1),sigma=resize(2) )	, &
+			z_rate = random%gauss(mu=resize(1),sigma=resize(2) )	  &
+		)
+
+		call this%rotate(&
+			x = rot_angle(1)	, &
+			y = rot_angle(2)	, &
+			z = rot_angle(3)	  &
+		)
+		call this%move(&
+			x = center(1)	, &
+			y = center(2)	, &
+			z = center(3)	  &
+		)
+	endif
+
+
+	if(present(rotate) )then
+		center(1) = this%Position_x()
+		center(2) = this%Position_y()
+		center(3) = this%Position_z()
+		call this%move(&
+			x = -center(1)	, &
+			y = -center(2)	, &
+			z = -center(3)	  &
+		)
+		call this%rotate(&
+			x = random%gauss(mu=rotate(1),sigma=rotate(2) )	, &
+			y = random%gauss(mu=rotate(1),sigma=rotate(2) )	, &
+			z = random%gauss(mu=rotate(1),sigma=rotate(2) )	  &
+		)
+		call this%move(&
+			x = center(1)	, &
+			y = center(2)	, &
+			z = center(3)	  &
+		)
+	endif
+
+	if(present(move) )then
+		call this%move(&
+			x = random%gauss(mu=move(1),sigma=move(2) )	, &
+			y = random%gauss(mu=move(1),sigma=move(2) )	, &
+			z = random%gauss(mu=move(1),sigma=move(2) )	  &
+		)
+	endif
+	
+	
+end subroutine
+
+function PCAvectorFEMDomain(this,eigen_values)  result(vectors)
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),optional,allocatable,intent(inout) :: eigen_values(:)
+	real(real64),allocatable :: vectors(:,:),center(:),A(:,:)
+
+    !>>>>>>>>>>>>>> INPUT
+    integer(int32) :: ITYPE = 1   ! A*x = (lambda)*B*x
+    character(1) :: JOBZ  = 'V' ! Compute eigenvalues and eigenvectors.
+    character(1) :: UPLO  = 'U' ! Upper triangles of A and B are stored;
+    !<<<<<<<<<<<<<< INPUT
+
+    integer(int32) :: N = 3 ! order of matrix
+    real(real64),allocatable :: AP(:)
+    real(real64),allocatable :: BP(:)
+    real(real64),allocatable :: W(:)
+    real(real64),allocatable :: Z(:,:),M(:)
+    real(real64),allocatable :: WORK(:),ID(:)
+
+	integer(int32),allocatable :: IWORK(:),IDS(:)
+    integer(int32) :: LDZ
+    integer(int32) :: LWORK
+    integer(int32) :: LIWORK 
+    integer(int32) :: INFO
+
+    
+
+	center = this%position()
+	call this%move(&
+		x= -center(1),&
+		y= -center(2),&
+		z= -center(3) )
+		
+	A = matmul( transpose(this%mesh%nodcoord ),this%mesh%nodcoord)
+	A = A/dble(this%nn()-1 )
+
+
+    !>>>>>>>>>>>>>> INPUT
+    N      = 3
+    LDZ    = 3
+    LWORK  = 1 + 6*N + 2*N**2
+    LIWORK = 3 + 5*N
+    !<<<<<<<<<<<<<< INPUT
+
+        !>>>>>>>>>>>>>>  INPUT/OUTPUT
+	AP = zeros(N*(N+1)/2 )
+	BP = zeros(N*(N+1)/2 )
+	! Upper triangle matrix
+	AP = [A(1,1),A(1,2),A(2,2),A(1,3),A(2,3),A(3,3)]
+	BP = [1.0d0,0.0d0,1.0d0,0.0d0,0.0d0,1.0d0]
+	!<<<<<<<<<<<<<< INPUT/OUTPUT
+	
+	!>>>>>>>>>>>>>>  OUTPUT
+	W     = zeros(N )
+	Z     = zeros(LDZ,N)
+	WORK  = zeros(LWORK)
+	IWORK = zeros(LIWORK)
+	INFO  = 0
+	!<<<<<<<<<<<<<< OUTPUT
+	
+	call DSPGVD (ITYPE, JOBZ, UPLO, N, AP, BP, W, Z, LDZ, WORK, &
+        LWORK, IWORK, LIWORK, INFO)
+
+	
+	vectors = Z
+	if(present(eigen_values) )then
+		eigen_values = W	
+	endif
+
+	call this%move(&
+		x=  center(1),&
+		y=  center(2),&
+		z=  center(3) )
+
+end function
+
+function getElementCauchyStressFEMDomain(this,displacement,E,v,i,j,option) result(sigma)
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),intent(in) :: displacement(:)
+	real(real64),intent(in) :: E(:), v(:)
+	real(real64),allocatable :: sigma(:),sigma_tensor(:,:)
+	integer(int32),optional,intent(in) :: i, j
+	character(*),optional,intent(in) :: option
+
+	real(real64) :: YM, PR
+	integer(int32) :: n,m
+
+	if(present(i) .and. present(j) )then
+	
+		! get cell-avaraged Cauchy stress \sigma(i,j)
+		sigma = zeros(this%ne() )
+		do n=1,this%ne()
+			if(size(E)==1 )then
+				YM=E(1)
+			elseif(size(E)==this%ne() )then
+				YM=E(n)
+			else
+				print *, "ERROR :: getElementCauchyStressFEMDomain >> Invalid vector size of E(:)"
+				print *, "size(E) should be 1 or number_of_element  "
+				stop
+			endif
+			if(size(v)==1 )then
+				PR=v(1)
+			elseif(size(v)==this%ne() )then
+				PR=v(n)
+			else
+				print *, "ERROR :: getElementCauchyStressFEMDomain >> Invalid vector size of v(:)"
+				print *, "size(v) should be 1 or number_of_element  "
+				stop
+			endif
+
+			sigma_tensor = this%StressMatrix(ElementID=n,&
+				disp=reshape(displacement,this%nn(),this%nd() ),E=YM,v=PR)
+			sigma(n) = sigma_tensor(i,j)
+
+		enddo
+	elseif(present(option) )then
+		sigma = zeros(this%ne() )
+		do n=1,this%ne()
+			if(size(E)==1 )then
+				YM=E(1)
+			elseif(size(E)==this%ne() )then
+				YM=E(n)
+			else
+				print *, "ERROR :: getElementCauchyStressFEMDomain >> Invalid vector size of E(:)"
+				print *, "size(E) should be 1 or number_of_element  "
+				stop
+			endif
+			if(size(v)==1 )then
+				PR=v(1)
+			elseif(size(v)==this%ne() )then
+				PR=v(n)
+			else
+				print *, "ERROR :: getElementCauchyStressFEMDomain >> Invalid vector size of v(:)"
+				print *, "size(v) should be 1 or number_of_element  "
+				stop
+			endif
+
+			sigma_tensor = this%StressMatrix(ElementID=n,&
+				disp=reshape(displacement,this%nn(),this%nd() ),E=YM,v=PR)
+
+			select case (option)
+
+				case("p","P")
+					sigma(n) = trace(sigma_tensor)/3.0d0
+				
+				case("I",'I1',"i1","trace","tr","TRACE","TR")
+					sigma(n) = trace(sigma_tensor)
+				
+				case("II","I2","i2","ii")
+					sigma(n) = ( trace(sigma_tensor)*trace(sigma_tensor) &
+					- trace(matmul(sigma_tensor,sigma_tensor) ) )*0.50d0
+				
+				case("III","I3","i3","iii")
+					sigma(n) = det_mat(sigma_tensor,n=size(sigma_tensor,1) )
+
+				case("J",'J1',"j1","j")
+					sigma_tensor = sigma_tensor &
+						- trace(sigma_tensor)/3.0d0*eyes(size(sigma_tensor,1),size(sigma_tensor,2) )
+					sigma(n) = trace(sigma_tensor)
+				
+				case("JJ","J2","j2","jj")
+					sigma_tensor = sigma_tensor &
+						- trace(sigma_tensor)/3.0d0*eyes(size(sigma_tensor,1),size(sigma_tensor,2) )
+					sigma(n) = ( trace(sigma_tensor)*trace(sigma_tensor) &
+					- trace(matmul(sigma_tensor,sigma_tensor) ) )*0.50d0
+				
+				case("JJJ","J3","j3","jjj")
+					sigma_tensor = sigma_tensor &
+						- trace(sigma_tensor)/3.0d0*eyes(size(sigma_tensor,1),size(sigma_tensor,2) )
+					sigma(n) = det_mat(sigma_tensor,n=size(sigma_tensor,1) )
+
+				case("1,1","(1,1)","_{1,1}")
+					sigma(n) = sigma_tensor(1,1)
+				
+				case("2,2","(2,2)","_{2,2}")
+					sigma(n) = sigma_tensor(2,2)
+				
+				case("3,3","(3,3)","_{3,3}")
+					sigma(n) = sigma_tensor(3,3)
+
+				case("1,2","(1,2)","_{1,2}","2,1","(2,1)","_{2,1}")
+					sigma(n) = sigma_tensor(1,2)
+
+				case("1,3","(1,3)","_{1,3}","3,1","(3,1)","_{3,1}")
+					sigma(n) = sigma_tensor(1,3)
+				
+				case("3,2","(3,2)","_{3,2}","2,3","(2,3)","_{2,3}")
+					sigma(n) = sigma_tensor(2,3)
+
+			end select
+			
+			
+
+		enddo
+
+	endif
+
+end function
+
+
+
 
 end module FEMDomainClass
 
