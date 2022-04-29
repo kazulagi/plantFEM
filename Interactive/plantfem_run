@@ -368,8 +368,17 @@ homepath="$PWD"
         #cp server.f90 server.f90
         $mpif90  -fopenmp -fopenacc /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc  -o server.out -llapack -lblas
         #echo "Current num of cpu-core is :: $numcore "
+        if [ $? -ne 0 ]
+        then 
+            echo "[ERROR] Compile failed!"
+            echo "1" > compile_log.txt
+            exit 1
+        else
+            echo "[ok] Compile succeed!"
+            echo "0" > compile_log.txt
+            exit 0 
+        fi
         
-        exit 0
     fi
 
 

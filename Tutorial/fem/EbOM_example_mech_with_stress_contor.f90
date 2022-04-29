@@ -23,7 +23,7 @@ program main
     call cube(2)%create("Cube3D",x_num=5,y_num=5,z_num=5)
     call cube(1)%resize(x=10.0d0)
     call cube(2)%resize(x=10.0d0)
-    call cube(2)%move(x=cube(1)%x_max()-0.10d0 )
+    call cube(2)%move(x=cube(1)%x_max()-1.0d0 )
     call cube(1)%vtk("cube_no1")
     call cube(2)%vtk("cube_no2")
     
@@ -58,7 +58,7 @@ program main
     !$OMP end do
     !$OMP end parallel
     print *, "[ok]Element-matrices done"
-    call solver%setEbOM(penalty=10000000.0d0, DOF=3)
+    call solver%setEbOM(penalty=100000.0d0, DOF=3)
     !
     !print *, "matrices imported."
     ! disp. boundary
