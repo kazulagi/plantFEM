@@ -9361,9 +9361,8 @@ function MassVectorFEMDomain(obj,ElementID,Density,DOF,Accel) result(MassVector)
 	integer(int32) :: i,j,k,n,node_DOF,dim_num
 	real(real64),allocatable :: Nmat(:,:)
 
-	! 注意：拡散方程式用
-	! 2次元、3次元変形解析or流体解析用の質量マトリクスへは
-	! 改良が必要
+	! density :: (unit: t/m^3)
+	! accelerator :: m/s/s
 	dim_num = size(obj%mesh%nodcoord,2)
 	rho = input(default=1.0d0, option=Density)
 	node_DOF = input(default=1, option=DOF)
@@ -9371,7 +9370,7 @@ function MassVectorFEMDomain(obj,ElementID,Density,DOF,Accel) result(MassVector)
 		accel_vec = accel
 	else
 		allocate(accel_vec(dim_num) )
-		accel_vec(:) = 1.0d0
+		accel_vec(:) = 0.0d0
 	endif
 	
 	! For Element ID = ElementID, create Mass Matrix and return it
@@ -9424,6 +9423,8 @@ function MassVectorFEMDomain(obj,ElementID,Density,DOF,Accel) result(MassVector)
 
 			enddo
 		enddo
+
+
 
     	MassVector(:)=MassVector(:)+matmul(Nmat,accel_vec) &
 			*det_mat(shapefunc%Jmat,size(shapefunc%Jmat,1) )
@@ -9819,6 +9820,7 @@ function StressMatrixFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressM
 		Bmat = obj%Bmatrix(shapefunc)
 		
 		Stressvec = matmul(Dmat,matmul(Bmat,ElemDisp))
+		
 		if(node_DOF==3)then
 			StressMatrix(1,1) = StressMatrix(1,1)+Stressvec(1)
 			StressMatrix(2,2) = StressMatrix(2,2)+Stressvec(2)
@@ -9859,8 +9861,8 @@ function StressMatrixFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressM
 	
 			! get so-called B-matrix
 			Bmat = obj%Bmatrix(shapefunc)
-			
-			Stressvec = matmul(Bmat,ElemDisp)
+			Dmat = obj%Dmatrix(E,v)
+			Stressvec = matmul(Dmat,matmul(Bmat,ElemDisp))
 			if(node_DOF==3)then
 				StressMatrix(1,1) = StressMatrix(1,1)+Stressvec(1)
 				StressMatrix(2,2) = StressMatrix(2,2)+Stressvec(2)

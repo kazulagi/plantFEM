@@ -20,7 +20,7 @@ program main
     call mpid%start()
     
     call cube(1)%create("Cube3D",x_num=10,y_num=10,z_num=10)
-    call cube(2)%create("Cube3D",x_num=5,y_num=5,z_num=5)
+    call cube(2)%create("Cube3D",x_num=50,y_num=5,z_num=5)
     call cube(1)%resize(x=10.0d0)
     call cube(2)%resize(x=10.0d0)
     call cube(2)%move(x=cube(1)%x_max()-1.0d0 )
