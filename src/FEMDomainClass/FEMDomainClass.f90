@@ -205,6 +205,7 @@ module FEMDomainClass
 		procedure,public :: getElement => getElementFEMDOmain
 		procedure,public :: getElementList => getElementListFEMDomain
 		procedure,public :: getScalarField => getScalarFieldFEMDomain
+		procedure,public :: getSingleFacetNodeID => getSingleFacetNodeIDFEMDomain
 		
 		!procedure,public :: getNumberOfPoint => getNumberOfPointFEMDomain
 		
@@ -314,6 +315,7 @@ module FEMDomainClass
 		procedure,public :: stl => stlFEMDomain
 		procedure,public :: obj => objFEMDomain
 		procedure,public :: vtk => vtkFEMDomain
+		procedure,public :: x3d => x3dFEMDomain
 		procedure,public :: csv => csvFEMDomain
 
 		! matrices
@@ -7324,6 +7326,95 @@ function getJacobiMatrixFEMDomain(obj,elem) result(ret)
 end function
 ! ##################################################
 
+
+function getSingleFacetNodeIDFEMDomain(obj,ElementID) result(facet)
+	class(FEMDomain_),intent(in) :: obj
+	integer(int32),intent(in) :: ElementID
+	integer(int32),allocatable :: facet(:,:)
+	integer(int32) :: i, j
+
+	if(obj%nd()==3 .and. obj%nne()==8 )then
+		allocate(Facet(6,4) )
+		Facet(1,1:4) = [4,3,2,1]
+		Facet(2,1:4) = [1,2,6,5]
+		Facet(3,1:4) = [2,3,7,6]
+		Facet(4,1:4) = [3,4,8,7]
+		Facet(5,1:4) = [4,1,5,8]
+		Facet(6,1:4) = [5,6,7,8] 
+	elseif(obj%nd()==3 .and. obj%nne()==4 )then
+		allocate(Facet(4,3) )
+		Facet(1,1:3) = [3,2,1]
+		Facet(2,1:3) = [1,2,4]
+		Facet(3,1:3) = [2,3,4]
+		Facet(4,1:3) = [3,1,4]
+	elseif(obj%nd()==2 .and. obj%nne()==4 )then
+		allocate(Facet(4,2) )
+		Facet(1,1:2) = [1,2]
+		Facet(2,1:2) = [2,3]
+		Facet(3,1:2) = [3,4]
+		Facet(4,1:2) = [4,1]
+	else
+		print *, "ERROR :: getSingleFacetNodeIDFEMDomain >> "
+		print *, "No implementation for such element type"
+		print *, "Please send issue on the Github."
+		stop
+	endif
+	
+
+	do i=1,size(Facet,1)
+		do j=1,size(Facet,2)
+			Facet(i,j) = obj%mesh%elemnod(ElementID, Facet(i,j) )
+		enddo
+	enddo
+
+end function
+
+subroutine x3dFEMDomain(obj,name)
+	class(FEMDomain_),intent(inout) :: obj
+	character(*),intent(in) :: name
+	type(IO_) :: f
+	integer(int32),allocatable ::Facet(:,:)
+	integer(int32) :: ElementID,FacetID,PointID
+
+	! export as X3D
+	call f%open(name + ".x3d","w")
+	!write(f%fh,*) '<X3D version="3.0" profile="Immersive" xmlns:xsd="http://www.w3.org/2001/XMLSchema-instance" xsd:noNamespaceSchemaLocation="http://www.web3d.org/specifications/x3d-3.0.xsd">'
+	write(f%fh,*) '<X3D version="3.0">'
+	write(f%fh,*) '<Scene>'
+	write(f%fh,*) '<Shape>'
+	write(f%fh,*) '<IndexedFaceSet'
+	write(f%fh,*) 'solid="false"'
+	write(f%fh,*) 'coordIndex="'
+	
+	do ElementID = 1,obj%ne()
+		facet = obj%getSingleFacetNodeID(ElementID=ElementID)
+		facet(:,:) = facet(:,:) -1
+		do FacetID = 1, size(Facet,1)
+			write(f%fh,*) Facet(FacetID,:),"-1"
+		enddo
+	enddo
+	
+	write(f%fh,*) '">'
+
+	write(f%fh,*) '<Coordinate DEF="coords_ME_Cube" point="'
+
+	do PointID = 1,obj%nn()
+		write(f%fh,*) obj%mesh%nodcoord(PointID,:)
+	enddo
+
+	write(f%fh,*) '"/>'
+	write(f%fh,*) '</IndexedFaceSet>'
+
+
+
+	write(f%fh,*) '</Shape>'
+	write(f%fh,*) '</Scene>'
+	write(f%fh,*) '</X3D>'
+
+
+end subroutine
+
+
 ! ##################################################
 recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementType,NodeList,debug)
 	class(FEMDomain_),intent(inout) :: obj
@@ -11966,6 +12057,8 @@ function getElementCauchyStressFEMDomain(this,displacement,E,v,i,j,option) resul
 		enddo
 	elseif(present(option) )then
 		sigma = zeros(this%ne() )
+		!$OMP parallel default(shared) private(YM,PR,sigma_tensor)
+		!$OMP do
 		do n=1,this%ne()
 			if(size(E)==1 )then
 				YM=E(1)
@@ -12043,6 +12136,8 @@ function getElementCauchyStressFEMDomain(this,displacement,E,v,i,j,option) resul
 			
 
 		enddo
+		!$OMP end do
+		!$OMP end parallel
 
 	endif
 
