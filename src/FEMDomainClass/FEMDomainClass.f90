@@ -5760,119 +5760,167 @@ end subroutine
 subroutine rotateFEMDomain(obj,x,y,z,deg)
 	class(FEMDomain_),intent(inout)::obj
 	real(real64),optional,intent(in)::x,y,z
-	real(real64) ::xd,yd,zd
-	real(real64),allocatable :: midpoint(:),rotmat(:,:),rotation(:),coord(:)
+	real(real64) ::xd,yd,zd,x_u,y_u,z_u
+	real(real64),allocatable :: midpoint(:),&
+	rotmat_x(:,:),rotmat_y(:,:),rotmat_z(:,:),&
+	all_rotmat(:,:),rotation(:),coord(:),total_rot(:)
+
 	integer(int32) :: i,j,n,m
 	logical,optional,intent(in) :: deg
+	logical :: xyz_nonzero(3)
 
+	! Euler-XYZ
+	xyz_nonzero(1:3) = .true.
 
 	n=size(obj%Mesh%NodCoord,2)
 	m=size(obj%Mesh%NodCoord,1)
-	allocate(midpoint(n) )
-	allocate(rotmat(n,n) )
-	allocate(coord(n) )
-	allocate(rotation(n) )
 
-	if(present(x) )then
-		obj%total_rotation(1) = obj%total_rotation(1) + x
-	endif
-	
-	if(present(y) )then
-		obj%total_rotation(2) = obj%total_rotation(2)+ y
-	endif
 
-	if(present(z) )then
-		obj%total_rotation(3) = obj%total_rotation(3) + z
-	endif
+	if(obj%nd()==2 )then
 
-	midpoint(:)=0.0d0
+		! unroll from Y to X
 
-	do i=1,m
-		midpoint(:)=midpoint(:)+1.0d0/dble(m)*obj%Mesh%NodCoord(i,:)
-	enddo
-
-	if(present(x) )then
-		do i=1,m
-
-			coord(:)=obj%Mesh%NodCoord(i,:)-midpoint(:)
-
-			rotmat(:,:)=0.0d0
-			if(n==2)then
-				rotmat(1,1)=cos(x)  ;rotmat(1,2) =-sin(x)    
-				rotmat(2,1)=sin(x)   ;rotmat(2,2)= cos(x)  
-			elseif(n==3)then
-				rotmat(1,1)=1.0d0	;rotmat(1,2)=0.0d0		;rotmat(1,3)=0.0d0			;
-				rotmat(2,1)=0.0d0	;rotmat(2,2)=cos(x)		;rotmat(2,3)=-sin(x)		;
-				rotmat(3,1)=0.0d0	;rotmat(3,2)=sin(x)		;rotmat(3,3)= cos(x)		;
-			else
-				print *,"Error :: rotateFEMDomain:: size(obj%Mesh%NodCoord,2)=",n
-				stop 
-			endif
-
-			rotation(:)=matmul(rotmat,coord)
-
-			obj%Mesh%NodCoord(i,:)=midpoint(:)+rotation(:)
-			
+		midpoint = obj%centerPosition()
+		do i=1,obj%nn()
+			obj%Mesh%NodCoord(i,:)=obj%Mesh%NodCoord(i,:)-midpoint(:)
 		enddo
+		all_rotmat = eyes(obj%nd(),obj%nd() )
+
+		rotmat_x = eyes(obj%nd(),obj%nd() )
+		rotmat_y = eyes(obj%nd(),obj%nd() )
 		
-	endif
-
-
-	if(present(y) )then
-		do i=1,m
-			coord(:)=obj%Mesh%NodCoord(i,:)-midpoint(:)
-
-			rotmat(:,:)=0.0d0
-			if(n==2)then
-				rotmat(1,1)=cos(y)  ;rotmat(1,2) =-sin(y)    
-				rotmat(2,1)=sin(y)   ;rotmat(2,2)= cos(y)  
-			elseif(n==3)then
-				rotmat(1,1)=cos(y)	;rotmat(1,2)=0.0d0		;rotmat(1,3)=sin(y)			;
-				rotmat(2,1)=0.0d0	;rotmat(2,2)=1.0d0		;rotmat(2,3)=0.0d0		;
-				rotmat(3,1)=-sin(y)	;rotmat(3,2)=0.0d0		;rotmat(3,3)= cos(y)		;
-			else
-				print *,"Error :: rotateFEMDomain:: size(obj%Mesh%NodCoord,2)=",n
-				stop 
-			endif
-
-			rotation(:)=matmul(rotmat,coord)
-
-			obj%Mesh%NodCoord(i,:)=midpoint(:)+rotation(:)
-			
-		enddo
+		all_rotmat = eyes(2,2)
 		
-	endif
+		total_rot = obj%total_rotation
+		
+		x_u = - total_rot(1)
+		y_u = - total_rot(2)
+		
+		rotmat_x(1,1)=cos(x_u)  ;rotmat_x(1,2) =-sin(x_u)    
+		rotmat_x(2,1)=sin(x_u)   ;rotmat_x(2,2)= cos(x_u)  
+		rotmat_y(1,1)=cos(y_u)  ;rotmat_y(1,2) =-sin(y_u)    
+		rotmat_y(2,1)=sin(y_u)   ;rotmat_y(2,2)= cos(y_u)  
 
+		! roll back
+		all_rotmat = matmul(rotmat_z,all_rotmat)
+		all_rotmat = matmul(rotmat_y,all_rotmat)
 
-	if(size(obj%Mesh%NodCoord,2) <3 .and. present(z))then
-		print *, "ERROR :: moveFEMDomain >> z cannot be imported"
-		return
-	endif
+		if(present(x) )then
+			obj%total_rotation(1) = obj%total_rotation(1) + x
+		endif
 
-	if(present(z) )then
-		do i=1,m
-			coord(:)=obj%Mesh%NodCoord(i,:)-midpoint(:)
+		if(present(y) )then
+			obj%total_rotation(2) = obj%total_rotation(2)+ y
+		endif
 
-			rotmat(:,:)=0.0d0
-			if(n==2)then
-				rotmat(1,1)=cos(z)  ;rotmat(1,2) =-sin(z)    
-				rotmat(2,1)=sin(z)   ;rotmat(2,2)= cos(z)  
-			elseif(n==3)then
-				rotmat(1,1)=cos(z)	;rotmat(1,2)=-sin(z)	;rotmat(1,3)=0.0d0		;
-				rotmat(2,1)=sin(z)	;rotmat(2,2)=cos(z)		;rotmat(2,3)=0.0d0		;
-				rotmat(3,1)=0.0d0	;rotmat(3,2)=0.0d0		;rotmat(3,3)=1.0d0 		;
-			else
-				print *,"Error :: rotateFEMDomain:: size(obj%Mesh%NodCoord,2)=",n
-				stop 
-			endif
+		total_rot = obj%total_rotation
+		
+		x_u = total_rot(1)
+		y_u = total_rot(2)
 
-			rotation(:)=matmul(rotmat,coord)
+		rotmat_x(1,1)=cos(x_u)  ;rotmat_x(1,2) =-sin(x_u)    
+		rotmat_x(2,1)=sin(x_u)   ;rotmat_x(2,2)= cos(x_u)  
+		rotmat_y(1,1)=cos(y_u)  ;rotmat_y(1,2) =-sin(y_u)    
+		rotmat_y(2,1)=sin(y_u)   ;rotmat_y(2,2)= cos(y_u) 
 
-			obj%Mesh%NodCoord(i,:)=midpoint(:)+rotation(:)
-			
+		all_rotmat = matmul(rotmat_x,all_rotmat)
+		all_rotmat = matmul(rotmat_y,all_rotmat)
+
+		!$OMP parallel do
+		do i=1,obj%nn()
+			obj%Mesh%NodCoord(i,:)=matmul(all_rotmat,obj%Mesh%NodCoord(i,:))	
 		enddo
-	endif
+		!$OMP end parallel do
 
+		!$OMP parallel do
+		do i=1,obj%nn()
+			obj%Mesh%NodCoord(i,:)=obj%Mesh%NodCoord(i,:)+midpoint(:)
+		enddo
+		!$OMP end parallel do
+
+	elseif(obj%nd()==3 )then
+		! unroll from Z to X
+
+		midpoint = obj%centerPosition()
+		do i=1,obj%nn()
+			obj%Mesh%NodCoord(i,:)=obj%Mesh%NodCoord(i,:)-midpoint(:)
+		enddo
+		all_rotmat = eyes(obj%nd(),obj%nd() )
+
+		rotmat_x = eyes(obj%nd(),obj%nd() )
+		rotmat_y = eyes(obj%nd(),obj%nd() )
+		rotmat_z = eyes(obj%nd(),obj%nd() )
+		
+		all_rotmat = eyes(3,3)
+		
+		total_rot = obj%total_rotation
+		
+		x_u = - total_rot(1)
+		y_u = - total_rot(2)
+		z_u = - total_rot(3)
+		
+		rotmat_x(1,1)=1.0d0	;rotmat_x(1,2)=0.0d0		;rotmat_x(1,3)=0.0d0			;
+		rotmat_x(2,1)=0.0d0	;rotmat_x(2,2)=cos(x_u)		;rotmat_x(2,3)=-sin(x_u)		;
+		rotmat_x(3,1)=0.0d0	;rotmat_x(3,2)=sin(x_u)		;rotmat_x(3,3)= cos(x_u)		;
+		rotmat_y(1,1)=cos(y_u)	;rotmat_y(1,2)=0.0d0		;rotmat_y(1,3)=sin(y_u)			;
+		rotmat_y(2,1)=0.0d0	;rotmat_y(2,2)=1.0d0		;rotmat_y(2,3)=0.0d0		;
+		rotmat_y(3,1)=-sin(y_u)	;rotmat_y(3,2)=0.0d0		;rotmat_y(3,3)= cos(y_u)		;
+		rotmat_z(1,1)=cos(z_u)	;rotmat_z(1,2)=-sin(z_u)	;rotmat_z(1,3)=0.0d0		;
+		rotmat_z(2,1)=sin(z_u)	;rotmat_z(2,2)=cos(z_u)		;rotmat_z(2,3)=0.0d0		;
+		rotmat_z(3,1)=0.0d0	;rotmat_z(3,2)=0.0d0		;rotmat_z(3,3)=1.0d0 		;	
+		
+		! roll back
+		all_rotmat = matmul(rotmat_z,all_rotmat)
+		all_rotmat = matmul(rotmat_y,all_rotmat)
+		all_rotmat = matmul(rotmat_x,all_rotmat)
+
+		if(present(x) )then
+			obj%total_rotation(1) = obj%total_rotation(1) + x
+		endif
+
+		if(present(y) )then
+			obj%total_rotation(2) = obj%total_rotation(2)+ y
+		endif
+
+		if(present(z) )then
+			obj%total_rotation(3) = obj%total_rotation(3) + z
+		endif
+
+		total_rot = obj%total_rotation
+		
+		x_u = total_rot(1)
+		y_u = total_rot(2)
+		z_u = total_rot(3)
+
+		rotmat_x(1,1)=1.0d0	;rotmat_x(1,2)=0.0d0		;rotmat_x(1,3)=0.0d0			;
+		rotmat_x(2,1)=0.0d0	;rotmat_x(2,2)=cos(x_u)		;rotmat_x(2,3)=-sin(x_u)		;
+		rotmat_x(3,1)=0.0d0	;rotmat_x(3,2)=sin(x_u)		;rotmat_x(3,3)= cos(x_u)		;
+		
+		rotmat_y(1,1)=cos(y_u)	;rotmat_y(1,2)=0.0d0		;rotmat_y(1,3)=sin(y_u)			;
+		rotmat_y(2,1)=0.0d0	;rotmat_y(2,2)=1.0d0		;rotmat_y(2,3)=0.0d0		;
+		rotmat_y(3,1)=-sin(y_u)	;rotmat_y(3,2)=0.0d0		;rotmat_y(3,3)= cos(y_u)		;
+		
+		rotmat_z(1,1)=cos(z_u)	;rotmat_z(1,2)=-sin(z_u)	;rotmat_z(1,3)=0.0d0		;
+		rotmat_z(2,1)=sin(z_u)	;rotmat_z(2,2)=cos(z_u)		;rotmat_z(2,3)=0.0d0		;
+		rotmat_z(3,1)=0.0d0	;    rotmat_z(3,2)=0.0d0		;rotmat_z(3,3)=1.0d0 	
+
+		all_rotmat = matmul(rotmat_x,all_rotmat)
+		all_rotmat = matmul(rotmat_y,all_rotmat)
+		all_rotmat = matmul(rotmat_z,all_rotmat)
+
+		!$OMP parallel do
+		do i=1,obj%nn()
+			obj%Mesh%NodCoord(i,:)=matmul(all_rotmat,obj%Mesh%NodCoord(i,:))	
+		enddo
+		!$OMP end parallel do
+
+		!$OMP parallel do
+		do i=1,obj%nn()
+			obj%Mesh%NodCoord(i,:)=obj%Mesh%NodCoord(i,:)+midpoint(:)
+		enddo
+		!$OMP end parallel do
+
+	endif
 end subroutine
 ! ################################################
 
@@ -11816,28 +11864,23 @@ subroutine csvFEMDomain(this,name)
 end subroutine
 
 
-subroutine fitFEMDomain(this,point_cloud,itr_max)
+subroutine fitFEMDomain(this,x,y,z)
 	class(FEMDomain_),intent(inout) :: this
-	real(real64),intent(in) :: point_cloud(:,:)
-	integer(int32),intent(in) :: itr_max
-	real(real64),allocatable :: center(:),min_xyz(:),max_xyz(:),this_center(:)
-	
-	integer(int32) :: i,j,n,itr
+	real(real64),intent(in) :: x(:),y(:),z(:)
+	real(real64),allocatable :: center(:),min_xyz(:),max_xyz(:),this_center(:),&
+	cov_mat(:,:),W(:),WORK(:),xyz(:,:),v1(:),v2(:),v3(:)
+	character :: JOBZ, UPLO
+	real(real64) :: v_per_v0
+	integer(int32) :: i,j,n,itr,INFO,LDA,LWORK
 
-	n = size(point_cloud,2)
-	center  = zeros(n)
-	this_center  = zeros(n)
-	min_xyz = zeros(n)
-	max_xyz = zeros(n)
-
+	n = this%nd()
 	
 	if(n==3)then
-		do i=1,n
-			center(i)  = sum(point_cloud(:,i) )/size(point_cloud,1)
-			min_xyz(i) = minval( point_cloud(:,i) )
-			max_xyz(i) = maxval( point_cloud(:,i) )
-			
-		enddo
+		center  = zeros(n)
+
+		center(1)  = sum(x)/size(x)
+		center(2)  = sum(y)/size(y)
+		center(3)  = sum(z)/size(z)
 
 		this_center = this%centerPosition()
 
@@ -11847,13 +11890,77 @@ subroutine fitFEMDomain(this,point_cloud,itr_max)
 			z=- this_center(3) + center(3) &
 		)
 		
-		do itr=1,itr_max
-			
+		xyz = zeros(3,size(x) )
+		xyz(1,:) = x(:)
+		xyz(2,:) = y(:)
+		xyz(3,:) = z(:)
+		! long-side finder
+		! by PCA
+		! 3 dimensions, 20 samples
+		cov_mat = covarianceMatrix(xyz,xyz,n=3)
+		
+		WORK=zeros(3*3-1)
+		W = zeros(3)
+		JOBZ='V'
+		UPLO='U'
+		LWORK=3*3-1
+		N = 3
+		LDA = 3
+		W = zeros(3)		
+		call dsyev(JOBZ,&
+			UPLO,&
+			N,&
+			cov_mat,&
+			LDA,&
+			W,&
+			WORK,&
+			LWORK,&
+			INFO)
+!
+		! eigenvalues
+		! w(1:3)
+
+		! eigenvectors
+		v1 = cov_mat(:,1)
+		v2 = cov_mat(:,2)
+		v3 = cov_mat(:,3)
+		v1 = v1(:)/norm(v1)
+		v2 = v2(:)/norm(v2)
+		v3 = v3(:)/norm(v3)
+		cov_mat(:,1) = v1 * sqrt(w(1))
+		cov_mat(:,2) = v2 * sqrt(w(2))
+		cov_mat(:,3) = v3 * sqrt(w(3))
+		! x -> v1, times(w(1))
+		! y -> v2
+		! z -> v3
+		!$OMP parallel do
+		do i=1,this%nn()
+			this%mesh%nodcoord(i,:)  = matmul(cov_mat,this%mesh%nodcoord(i,:) )
 		enddo
+		!$OMP end parallel do
+		v_per_v0 = ( maxval(x) - minval(x) )/(this%xmax() - this%xmin())
+		this%mesh%nodcoord(:,1)  = this%mesh%nodcoord(:,1) * v_per_v0
+		this%mesh%nodcoord(:,2)  = this%mesh%nodcoord(:,2) * v_per_v0
+		this%mesh%nodcoord(:,3)  = this%mesh%nodcoord(:,3) * v_per_v0
+		
+		
+		
+		
 
+		center  = zeros(n)
 
+		center(1)  = sum(x)/size(x)
+		center(2)  = sum(y)/size(y)
+		center(3)  = sum(z)/size(z)
 
+		this_center = this%centerPosition()
 
+		call this%move(&
+			x=- this_center(1) + center(1),&
+			y=- this_center(2) + center(2),&
+			z=- this_center(3) + center(3) &
+		)
+		
 	else
 		print *, "fitFEMDomain >> only size(point_cloud,2)==3 is implemented. "
 		stop
