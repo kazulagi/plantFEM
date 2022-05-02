@@ -1202,11 +1202,11 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
     integer(int32) :: from,to,k,j,i
     integer(int32),allocatable :: new_id_from_old_id(:)
     real(real64),allocatable :: dense_mat(:,:)
-    logical :: use_lanczos
+    !logical :: use_lanczos
     type(IO_) :: f
     type(CRS_) :: crs
 
-    use_lanczos = .false.
+    !use_lanczos = .false.
     !if(present(Lanczos) )then
     !    use_lanczos = Lanczos
     !endif
@@ -1232,49 +1232,49 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
     LIWORK = 3 + 5*N
     !<<<<<<<<<<<<<< INPUT
 
-    if(use_lanczos)then
-        crs%val = this%A_CRS_val
-        crs%col_idx = this%A_CRS_index_col
-        crs%row_ptr = this%A_CRS_index_row
-        ! AU = λBU
-        ! assuming B ≒ M, where M is a mass concentration matrix,
-        ! crs = M^{-1} A
-        ! First >> convert AU = λBU to A'y = λy
-        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
-        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
-        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
-        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
-        print *, "ERROR :: bug exists."
-
-        stop
-
-        !M = zeros(N)
-        !do i=1,N
-        !    do j=this%B_CRS_index_row(i),this%B_CRS_index_row(i+1) - 1
-        !        M(i) = M(i) + this%B_CRS_val(j)
-        !    enddo
-        !enddo
-        
-        !do i=1,N
-        !    do j=crs%row_ptr(i),crs%row_ptr(i+1) - 1
-        !        crs%val(j) = crs%val(j) / M(i)
-        !    enddo
-        !enddo
-        ! 
-
-        call crs%eig(Eigen_vectors=Z,eigen_values=w)
-
-        do i=1,size(Z,2)
-            Z(:,i) = Z(:,i)/norm(Z(:,i) )
-        enddo
-
-
-        !ID = linspace([1.0d0,dble(size(w)) ],size(w))
-        !call heapsort(n=N,array=w,val=ID)
-        !z = sortByIDreal64ColisVector(z,int(ID))
-        
-        
-    else
+!    if(use_lanczos)then
+!        crs%val = this%A_CRS_val
+!        crs%col_idx = this%A_CRS_index_col
+!        crs%row_ptr = this%A_CRS_index_row
+!        ! AU = λBU
+!        ! assuming B ≒ M, where M is a mass concentration matrix,
+!        ! crs = M^{-1} A
+!        ! First >> convert AU = λBU to A'y = λy
+!        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
+!        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
+!        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
+!        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
+!        print *, "ERROR :: bug exists."
+!
+!        stop
+!
+!        !M = zeros(N)
+!        !do i=1,N
+!        !    do j=this%B_CRS_index_row(i),this%B_CRS_index_row(i+1) - 1
+!        !        M(i) = M(i) + this%B_CRS_val(j)
+!        !    enddo
+!        !enddo
+!        
+!        !do i=1,N
+!        !    do j=crs%row_ptr(i),crs%row_ptr(i+1) - 1
+!        !        crs%val(j) = crs%val(j) / M(i)
+!        !    enddo
+!        !enddo
+!        ! 
+!
+!        call crs%eig(Eigen_vectors=Z,eigen_values=w)
+!
+!        do i=1,size(Z,2)
+!            Z(:,i) = Z(:,i)/norm(Z(:,i) )
+!        enddo
+!
+!
+!        !ID = linspace([1.0d0,dble(size(w)) ],size(w))
+!        !call heapsort(n=N,array=w,val=ID)
+!        !z = sortByIDreal64ColisVector(z,int(ID))
+!        
+!        
+!    else
 
         
 
@@ -1307,7 +1307,7 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
         
         call DSPGVD (ITYPE, JOBZ, UPLO, N, AP, BP, W, Z, LDZ, WORK, &
         LWORK, IWORK, LIWORK, INFO)
-    endif
+!    endif
 
     !call DSPGVX (ITYPE, JOBZ, RANGE="I", UPLO, N, AP, BP, VL, VU, IL, IU,
     !ABSTOL, M, W, Z, LDZ, WORK, IWORK, IFAIL, INFO)
