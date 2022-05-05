@@ -336,6 +336,9 @@ module FEMDomainClass
 		procedure,public :: GlobalVector => GlobalVectorFEMDomain 
 		procedure,public :: TractionVector => TractionVectorFEMDomain
 
+		procedure,public :: loadPoints => loadPointsFEMDomain
+		procedure,public :: particles  => particlesFEMDomain
+
 		procedure,public :: sync => syncFEMDomain
 		
     end type FEMDomain_
@@ -11864,9 +11867,10 @@ subroutine csvFEMDomain(this,name)
 end subroutine
 
 
-subroutine fitFEMDomain(this,x,y,z)
+subroutine fitFEMDomain(this,x,y,z,debug)
 	class(FEMDomain_),intent(inout) :: this
 	real(real64),intent(in) :: x(:),y(:),z(:)
+	logical,optional,intent(in) :: debug
 	real(real64),allocatable :: center(:),min_xyz(:),max_xyz(:),this_center(:),&
 	cov_mat(:,:),W(:),WORK(:),xyz(:,:),v1(:),v2(:),v3(:)
 	character :: JOBZ, UPLO
@@ -11938,12 +11942,23 @@ subroutine fitFEMDomain(this,x,y,z)
 			this%mesh%nodcoord(i,:)  = matmul(cov_mat,this%mesh%nodcoord(i,:) )
 		enddo
 		!$OMP end parallel do
-		v_per_v0 = ( maxval(x) - minval(x) )/(this%xmax() - this%xmin())
+		v_per_v0 = &
+			( maxval(x) - minval(x) )/(this%xmax() - this%xmin())/3.0d0 &
+		 +  ( maxval(y) - minval(y) )/(this%ymax() - this%ymin())/3.0d0 &
+		 +  ( maxval(z) - minval(z) )/(this%zmax() - this%zmin())/3.0d0 
+
 		this%mesh%nodcoord(:,1)  = this%mesh%nodcoord(:,1) * v_per_v0
 		this%mesh%nodcoord(:,2)  = this%mesh%nodcoord(:,2) * v_per_v0
 		this%mesh%nodcoord(:,3)  = this%mesh%nodcoord(:,3) * v_per_v0
 		
-		
+		if(present(debug) )	then
+			if(debug)then
+				call print(">>> eigenvalue >>>")
+				call print(w)
+				call print(">>> eigenvector >>>")
+				call print(cov_mat)
+			endif
+		endif
 		
 		
 
@@ -12251,7 +12266,40 @@ function getElementCauchyStressFEMDomain(this,displacement,E,v,i,j,option) resul
 end function
 
 
+subroutine loadPointsFEMDomain(this,x,y,z)
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),intent(in) :: x(:),y(:),z(:)
 
+	if(.not.allocated(this%mesh%nodcoord))then
+		this%mesh%nodcoord = zeros(size(x),3)
+	endif
+	this%mesh%nodcoord(:,1) = x(:)
+	this%mesh%nodcoord(:,2) = y(:)
+	this%mesh%nodcoord(:,3) = z(:)
+	
+end subroutine
+
+
+subroutine particlesFEMDomain(this,name)
+	class(FEMDomain_),intent(inout) :: this
+	character(*),intent(in) :: name
+	type(IO_) :: f
+	integer(int32) :: i
+
+	if(.not.allocated(this%mesh%nodcoord))then
+		print *, "[Warning] no point is loaded."
+		return
+	endif
+
+
+	call f%open(name + ".particles","w")
+	do i=1,size(this%mesh%nodcoord,1)
+		write(f%fh,*) this%mesh%nodcoord(i,1),","&
+			,this%mesh%nodcoord(i,2),",",this%mesh%nodcoord(i,3)
+	enddo
+	call f%close()
+	
+end subroutine
 
 end module FEMDomainClass
 

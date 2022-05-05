@@ -10,6 +10,8 @@ module CivilItemClass
         procedure, public :: BridgeGirder => BridgeGirderCivilItem
         procedure, public :: BridgeShoe => BridgeShoeCivilItem
         procedure, public :: BridgeShoes => BridgeShoesCivilItem
+
+        procedure, public :: RigidFrameViaduct => RigidFrameViaductCivilItem
     end type
 
 contains
@@ -163,6 +165,291 @@ function BridgeShoesCivilItem(this,pier,num_shoes,Thickness,Width,Divisions) res
 
 end function
 
+function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,division,height,MiddlePierHeights,debug) result(RFV)
+    class(CivilItem_),intent(inout) :: this
+    integer(int32),intent(in) :: NumPiers(1:2) ! n by m, total n*m piers
+    integer(int32),intent(in) :: division(1:3)
+    real(real64),intent(in) :: length
+    real(real64),intent(in) :: width
+    real(real64),intent(in) :: height
+    real(real64),intent(in) :: PierThickness
+    real(real64),optional,intent(in) :: MiddlePierHeights(:)
+    logical,optional,intent(in) :: debug
 
+    real(real64) :: dx,dy,dz,thickness
+    real(real64),allocatable :: point(:)
+    type(FEMDomain_) :: RFV
+    integer(int32) :: i, n , m 
+    real(real64),allocatable :: remove_zone_x(:,:)
+    real(real64),allocatable :: remove_zone_y(:,:)
+    real(real64),allocatable :: remove_zone_z(:,:)
+
+    integer(int32) :: ElementID, remove_count, j
+    integer(int32),allocatable :: remove_elem(:),buf(:,:),remove_node(:),new_node_id(:)
+    real(real64),allocatable :: realbuf(:,:)
+    logical :: debug_mode_requested = .false.
+
+    if(present(debug) )then
+        debug_mode_requested = debug
+    endif
+
+    thickness = PierThickness
+
+    if(maxval(NumPiers) <= 1 )then
+        print *, "ERROR :: RigidFrameViaductCivilItem :: for single pier,"
+        print *, "please use %BridgePier()"
+        return
+    endif
+
+
+    call RFV%create("Cube3D",&
+            x_num = division(1) ,&
+            y_num = division(2) ,&
+            z_num = division(3)  &
+        )
+    call RFV%resize(x=width, y=length, z=height)
+
+
+    ! remove_zone
+    if(NumPiers(1) <= 1 )then
+        n = 1
+        ! y
+        ! |
+        ! ---------------------------> x
+        allocate(remove_zone_x(1,2 ))
+        remove_zone_x(1,1:2) = [RFV%xmin(), RFV%xmax() ]
+
+        allocate(remove_zone_y(NumPiers(2)-1,2 ))
+
+        remove_zone_y(1,1) = thickness  ! from
+        remove_zone_y(1,2) = thickness + ( Width - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
+        ! y-direction
+        do i=2,NumPiers(2)-1
+            remove_zone_y(i,1) = remove_zone_y(i-1,2) +  thickness  ! from
+            remove_zone_y(i,2) = remove_zone_y(i  ,1) +  ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
+        enddo
+
+        ! z-direction
+        if(present (MiddlePierHeights) )then
+            allocate(remove_zone_z(size(MiddlePierHeights,1)+1,2) )
+            remove_zone_z(1,1) = 0.0d0! from
+            remove_zone_z(1,2) = MiddlePierHeights(1) - thickness/2.0d0! to
+            do i=2,size(MiddlePierHeights,1)
+                remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
+                remove_zone_z(i,2) = remove_zone_z(i,1)   + MiddlePierHeights(i) - thickness/2.0d0  ! to
+            enddo
+            i = size(remove_zone_z,1)
+            remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
+            remove_zone_z(i,2) = height - thickness  ! to
+            
+        else
+            allocate(remove_zone_z(1,2) )
+            remove_zone_z(1,1) = 0.0d0 ! from
+            remove_zone_z(1,2) = height - thickness  ! to
+        endif
+
+    elseif(NumPiers(2) <= 1 )then
+        m = 1
+        ! y
+        ! |
+        ! ---------------------------> x
+
+        allocate(remove_zone_x(NumPiers(1)-1,2 ))
+
+        remove_zone_x(1,1) = thickness  ! from
+        remove_zone_x(1,2) = thickness + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
+        ! y-direction
+        do i=2,NumPiers(1)-1
+            remove_zone_x(i,1) = remove_zone_x(i-1,2) +  thickness  ! from
+            remove_zone_x(i,2) = remove_zone_x(i  ,1) + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
+        enddo
+
+
+
+        allocate(remove_zone_y(1,2 ))
+        remove_zone_y(1,1:2) = [ RFV%ymin(), RFV%ymax() ]
+
+        ! z-direction
+        if(present (MiddlePierHeights) )then
+            allocate(remove_zone_z(size(MiddlePierHeights,1)+1,2) )
+            remove_zone_z(1,1) = 0.0d0! from
+            remove_zone_z(1,2) = MiddlePierHeights(1) - thickness/2.0d0! to
+            do i=2,size(MiddlePierHeights,1)
+                remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
+                remove_zone_z(i,2) = remove_zone_z(i,1)   + MiddlePierHeights(i) - thickness/2.0d0  ! to
+            enddo
+            i = size(remove_zone_z,1)
+            remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
+            remove_zone_z(i,2) = height - thickness  ! to
+            
+        else
+            allocate(remove_zone_z(1,2) )
+            remove_zone_z(1,1) = 0.0d0 ! from
+            remove_zone_z(1,2) = height - thickness  ! to
+        endif
+
+    else
+        ! y
+        ! |
+        ! ---------------------------> x
+
+        allocate(remove_zone_x(NumPiers(1)-1,2 ))
+        
+        remove_zone_x(1,1) = thickness  ! from
+        remove_zone_x(1,2) = thickness + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
+        ! y-direction
+        do i=2,NumPiers(1)-1
+            remove_zone_x(i,1) = remove_zone_x(i-1,2) +  thickness  ! from
+            remove_zone_x(i,2) = remove_zone_x(i  ,1) +  thickness + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
+        enddo
+
+        
+
+        allocate(remove_zone_y(NumPiers(2)-1,2 ))
+
+        remove_zone_y(1,1) = thickness  ! from
+        remove_zone_y(1,2) = thickness + ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
+        ! y-direction
+        do i=2,NumPiers(2)-1
+            remove_zone_y(i,1) = remove_zone_y(i-1,2) +  thickness  ! from
+            remove_zone_y(i,2) = remove_zone_y(i  ,1) + ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
+        enddo
+
+
+        ! z-direction
+        if(present (MiddlePierHeights) )then
+            allocate(remove_zone_z(size(MiddlePierHeights,1)+1,2) )
+            remove_zone_z(1,1) = 0.0d0! from
+            remove_zone_z(1,2) = MiddlePierHeights(1) - thickness/2.0d0! to
+            do i=2,size(MiddlePierHeights,1)
+                remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
+                remove_zone_z(i,2) = remove_zone_z(i,1)   + MiddlePierHeights(i) - thickness/2.0d0  ! to
+            enddo
+            i = size(remove_zone_z,1)
+            remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
+            remove_zone_z(i,2) = height - thickness  ! to
+            
+        else
+            allocate(remove_zone_z(1,2) )
+            remove_zone_z(1,1) = 0.0d0 ! from
+            remove_zone_z(1,2) = height - thickness  ! to
+        endif
+        
+    endif
+
+    if(debug_mode_requested )then
+        print *, "[ok] remove_box set"
+    endif
+
+
+    allocate(remove_elem(RFV%ne() ))
+    allocate(remove_node(RFV%nn() )  )
+    remove_elem(:) = 0
+    remove_node(:) = 0
+    
+    !$OMP parallel do default(shared) private(point)
+    do ElementID=1, RFV%ne()
+            
+        point = RFV%centerPosition(ElementID=ElementID)
+        do i=1,size(remove_zone_x,1)
+            if(remove_zone_x(i,1) < point(1) .and. point(1) < remove_zone_x(i,2)  )then
+                remove_elem(ElementID) = remove_elem(ElementID) + 1
+                exit
+            endif
+        enddo
+
+        do i=1,size(remove_zone_y,1)
+            if(remove_zone_y(i,1) < point(2) .and. point(2) < remove_zone_y(i,2)  )then
+                remove_elem(ElementID) = remove_elem(ElementID) + 1
+                exit
+            endif
+        enddo
+
+        do i=1,size(remove_zone_z,1)
+            if(remove_zone_z(i,1) < point(3) .and. point(3) < remove_zone_z(i,2)  )then
+                remove_elem(ElementID) = remove_elem(ElementID) + 1
+                exit
+            endif
+        enddo
+
+    enddo
+    !$OMP end parallel do
+    
+    if(debug_mode_requested )then
+        print *, "[ok] remove_elem ready"
+    endif
+
+    remove_count = 0
+    do i=1,size(remove_elem)
+        if(remove_elem(i) >=2)then
+            remove_count = remove_count + 1
+        endif
+    enddo
+    buf = RFV%mesh%elemnod
+
+    deallocate(RFV%mesh%elemnod)
+    allocate(RFV%mesh%elemnod( size(buf,1)-remove_count,size(buf,2) ) )
+
+    j = 0
+
+    do i=1,size(buf,1)
+        if(remove_elem(i) < 2)then
+            j = j + 1
+            RFV%mesh%elemnod(j,:) = buf(i,:)
+        endif
+    enddo
+
+    deallocate(remove_elem )
+    deallocate(buf)
+
+
+    if(debug_mode_requested )then
+        print *, "[ok] remove_elem done"
+    endif
+
+
+    remove_node(:) = 1
+    
+    do i=1, size(RFV%mesh%elemnod,1)
+        do j = 1,size(RFV%mesh%elemnod,2)
+            remove_node(RFV%mesh%elemnod(i,j) ) = 0
+        enddo
+    enddo
+    
+    allocate(new_node_id(size(RFV%mesh%nodcoord,1) ))
+    j = 0
+    do i=1,size(RFV%mesh%nodcoord,1)
+        if(remove_node(i)==0 )then
+            ! not removed
+            j=j+1
+            new_node_id(i)=j
+        else
+            ! removed
+            new_node_id(i) = j
+            cycle
+        endif
+    enddo
+    
+    realbuf = RFV%mesh%nodcoord(:,:)
+    RFV%mesh%nodcoord = zeros(size(realbuf,1)-sum(remove_node),size(realbuf,2) )
+    j = 0
+    do i=1, size(realbuf,1)
+        if(remove_node(i) /=1)then
+            j = j + 1
+            RFV%mesh%nodcoord(j,:) = realbuf(i,:)
+        endif
+    enddo
+    
+    !$OMP parallel do
+    do i=1, size(RFV%mesh%elemnod,1)
+        do j = 1,size(RFV%mesh%elemnod,2)
+            RFV%mesh%elemnod(i,j) = new_node_id(RFV%mesh%elemnod(i,j) )
+        enddo
+    enddo
+    !$OMP end parallel do
+
+
+
+end function
 
 end module
