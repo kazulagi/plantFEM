@@ -236,7 +236,7 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
             remove_zone_z(1,2) = MiddlePierHeights(1) - thickness/2.0d0! to
             do i=2,size(MiddlePierHeights,1)
                 remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
-                remove_zone_z(i,2) = remove_zone_z(i,1)   + MiddlePierHeights(i) - thickness/2.0d0  ! to
+                remove_zone_z(i,2) = MiddlePierHeights(i) - thickness/2.0d0  ! to
             enddo
             i = size(remove_zone_z,1)
             remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
@@ -378,7 +378,7 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
             remove_zone_z(1,2) = MiddlePierHeights(1) - thickness/2.0d0! to
             do i=2,size(MiddlePierHeights,1)
                 remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
-                remove_zone_z(i,2) = remove_zone_z(i,1)   + MiddlePierHeights(i) - thickness/2.0d0  ! to
+                remove_zone_z(i,2) = MiddlePierHeights(i) - thickness/2.0d0  ! to
             enddo
             i = size(remove_zone_z,1)
             remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
