@@ -216,13 +216,13 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
         ! y
         ! |
         ! ---------------------------> x
-        allocate(remove_zone_x(1,2 ))
-        remove_zone_x(1,1:2) = [RFV%xmin(), RFV%xmax() ]
+        call RFV%resize(x=thickness, y=length, z=height)
+
 
         allocate(remove_zone_y(NumPiers(2)-1,2 ))
 
         remove_zone_y(1,1) = thickness  ! from
-        remove_zone_y(1,2) = thickness + ( Width - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
+        remove_zone_y(1,2) = thickness + ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
         ! y-direction
         do i=2,NumPiers(2)-1
             remove_zone_y(i,1) = remove_zone_y(i-1,2) +  thickness  ! from
@@ -248,11 +248,118 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
             remove_zone_z(1,2) = height - thickness  ! to
         endif
 
+        ! debug
+
+        if(debug_mode_requested )then
+            print *, "[ok] remove_box set"
+        endif
+        
+        allocate(remove_elem(RFV%ne() ))
+        allocate(remove_node(RFV%nn() )  )
+        remove_elem(:) = 0
+        remove_node(:) = 0
+        
+        !$OMP parallel do default(shared) private(point)
+        do ElementID=1, RFV%ne()
+                
+            point = RFV%centerPosition(ElementID=ElementID)
+            
+            do i=1,size(remove_zone_y,1)
+                if(remove_zone_y(i,1) < point(2) .and. point(2) < remove_zone_y(i,2)  )then
+                    remove_elem(ElementID) = remove_elem(ElementID) + 1
+                    exit
+                endif
+            enddo
+    
+            do i=1,size(remove_zone_z,1)
+                if(remove_zone_z(i,1) < point(3) .and. point(3) < remove_zone_z(i,2)  )then
+                    remove_elem(ElementID) = remove_elem(ElementID) + 1
+                    exit
+                endif
+            enddo
+        enddo
+        !$OMP end parallel do
+        
+        if(debug_mode_requested )then
+            print *, "[ok] remove_elem ready"
+        endif
+    
+        remove_count = 0
+        do i=1,size(remove_elem)
+            if(remove_elem(i) >=2)then
+                remove_count = remove_count + 1
+            endif
+        enddo
+        buf = RFV%mesh%elemnod
+    
+        deallocate(RFV%mesh%elemnod)
+        allocate(RFV%mesh%elemnod( size(buf,1)-remove_count,size(buf,2) ) )
+    
+        j = 0
+    
+        do i=1,size(buf,1)
+            if(remove_elem(i) < 2)then
+                j = j + 1
+                RFV%mesh%elemnod(j,:) = buf(i,:)
+            endif
+        enddo
+    
+        deallocate(remove_elem )
+        deallocate(buf)
+    
+    
+        if(debug_mode_requested )then
+            print *, "[ok] remove_elem done"
+        endif
+    
+    
+        remove_node(:) = 1
+        
+        do i=1, size(RFV%mesh%elemnod,1)
+            do j = 1,size(RFV%mesh%elemnod,2)
+                remove_node(RFV%mesh%elemnod(i,j) ) = 0
+            enddo
+        enddo
+        
+        allocate(new_node_id(size(RFV%mesh%nodcoord,1) ))
+        j = 0
+        do i=1,size(RFV%mesh%nodcoord,1)
+            if(remove_node(i)==0 )then
+                ! not removed
+                j=j+1
+                new_node_id(i)=j
+            else
+                ! removed
+                new_node_id(i) = j
+                cycle
+            endif
+        enddo
+        
+        realbuf = RFV%mesh%nodcoord(:,:)
+        RFV%mesh%nodcoord = zeros(size(realbuf,1)-sum(remove_node),size(realbuf,2) )
+        j = 0
+        do i=1, size(realbuf,1)
+            if(remove_node(i) /=1)then
+                j = j + 1
+                RFV%mesh%nodcoord(j,:) = realbuf(i,:)
+            endif
+        enddo
+        
+        !$OMP parallel do
+        do i=1, size(RFV%mesh%elemnod,1)
+            do j = 1,size(RFV%mesh%elemnod,2)
+                RFV%mesh%elemnod(i,j) = new_node_id(RFV%mesh%elemnod(i,j) )
+            enddo
+        enddo
+        !$OMP end parallel do
+
+
     elseif(NumPiers(2) <= 1 )then
         m = 1
         ! y
         ! |
         ! ---------------------------> x
+        call RFV%resize(x=Width, y=thickness, z=height)
 
         allocate(remove_zone_x(NumPiers(1)-1,2 ))
 
@@ -261,13 +368,8 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
         ! y-direction
         do i=2,NumPiers(1)-1
             remove_zone_x(i,1) = remove_zone_x(i-1,2) +  thickness  ! from
-            remove_zone_x(i,2) = remove_zone_x(i  ,1) + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
+            remove_zone_x(i,2) = remove_zone_x(i  ,1) +  ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
         enddo
-
-
-
-        allocate(remove_zone_y(1,2 ))
-        remove_zone_y(1,1:2) = [ RFV%ymin(), RFV%ymax() ]
 
         ! z-direction
         if(present (MiddlePierHeights) )then
@@ -288,6 +390,112 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
             remove_zone_z(1,2) = height - thickness  ! to
         endif
 
+        ! debug
+
+        if(debug_mode_requested )then
+            print *, "[ok] remove_box set"
+        endif
+        
+        allocate(remove_elem(RFV%ne() ))
+        allocate(remove_node(RFV%nn() )  )
+        remove_elem(:) = 0
+        remove_node(:) = 0
+        
+        !$OMP parallel do default(shared) private(point)
+        do ElementID=1, RFV%ne()
+                
+            point = RFV%centerPosition(ElementID=ElementID)
+            
+            do i=1,size(remove_zone_x,1)
+                if(remove_zone_x(i,1) < point(1) .and. point(1) < remove_zone_x(i,2)  )then
+                    remove_elem(ElementID) = remove_elem(ElementID) + 1
+                    exit
+                endif
+            enddo
+    
+            do i=1,size(remove_zone_z,1)
+                if(remove_zone_z(i,1) < point(3) .and. point(3) < remove_zone_z(i,2)  )then
+                    remove_elem(ElementID) = remove_elem(ElementID) + 1
+                    exit
+                endif
+            enddo
+        enddo
+        !$OMP end parallel do
+        
+        if(debug_mode_requested )then
+            print *, "[ok] remove_elem ready"
+        endif
+    
+        remove_count = 0
+        do i=1,size(remove_elem)
+            if(remove_elem(i) >=2)then
+                remove_count = remove_count + 1
+            endif
+        enddo
+        buf = RFV%mesh%elemnod
+    
+        deallocate(RFV%mesh%elemnod)
+        allocate(RFV%mesh%elemnod( size(buf,1)-remove_count,size(buf,2) ) )
+    
+        j = 0
+    
+        do i=1,size(buf,1)
+            if(remove_elem(i) < 2)then
+                j = j + 1
+                RFV%mesh%elemnod(j,:) = buf(i,:)
+            endif
+        enddo
+    
+        deallocate(remove_elem )
+        deallocate(buf)
+    
+    
+        if(debug_mode_requested )then
+            print *, "[ok] remove_elem done"
+        endif
+    
+    
+        remove_node(:) = 1
+        
+        do i=1, size(RFV%mesh%elemnod,1)
+            do j = 1,size(RFV%mesh%elemnod,2)
+                remove_node(RFV%mesh%elemnod(i,j) ) = 0
+            enddo
+        enddo
+        
+        allocate(new_node_id(size(RFV%mesh%nodcoord,1) ))
+        j = 0
+        do i=1,size(RFV%mesh%nodcoord,1)
+            if(remove_node(i)==0 )then
+                ! not removed
+                j=j+1
+                new_node_id(i)=j
+            else
+                ! removed
+                new_node_id(i) = j
+                cycle
+            endif
+        enddo
+        
+        realbuf = RFV%mesh%nodcoord(:,:)
+        RFV%mesh%nodcoord = zeros(size(realbuf,1)-sum(remove_node),size(realbuf,2) )
+        j = 0
+        do i=1, size(realbuf,1)
+            if(remove_node(i) /=1)then
+                j = j + 1
+                RFV%mesh%nodcoord(j,:) = realbuf(i,:)
+            endif
+        enddo
+        
+        !$OMP parallel do
+        do i=1, size(RFV%mesh%elemnod,1)
+            do j = 1,size(RFV%mesh%elemnod,2)
+                RFV%mesh%elemnod(i,j) = new_node_id(RFV%mesh%elemnod(i,j) )
+            enddo
+        enddo
+        !$OMP end parallel do
+        print *, "debug"
+
     else
         ! y
         ! |
@@ -300,7 +508,7 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
         ! y-direction
         do i=2,NumPiers(1)-1
             remove_zone_x(i,1) = remove_zone_x(i-1,2) +  thickness  ! from
-            remove_zone_x(i,2) = remove_zone_x(i  ,1) +  thickness + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
+            remove_zone_x(i,2) = remove_zone_x(i  ,1) + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
         enddo
 
         
@@ -323,7 +531,7 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
             remove_zone_z(1,2) = MiddlePierHeights(1) - thickness/2.0d0! to
             do i=2,size(MiddlePierHeights,1)
                 remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
-                remove_zone_z(i,2) = remove_zone_z(i,1)   + MiddlePierHeights(i) - thickness/2.0d0  ! to
+                remove_zone_z(i,2) = MiddlePierHeights(i) - thickness/2.0d0  ! to
             enddo
             i = size(remove_zone_z,1)
             remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
@@ -335,120 +543,119 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
             remove_zone_z(1,2) = height - thickness  ! to
         endif
         
-    endif
 
-    if(debug_mode_requested )then
-        print *, "[ok] remove_box set"
-    endif
-
-
-    allocate(remove_elem(RFV%ne() ))
-    allocate(remove_node(RFV%nn() )  )
-    remove_elem(:) = 0
-    remove_node(:) = 0
+        if(debug_mode_requested )then
+            print *, "[ok] remove_box set"
+        endif
+        
+        allocate(remove_elem(RFV%ne() ))
+        allocate(remove_node(RFV%nn() )  )
+        remove_elem(:) = 0
+        remove_node(:) = 0
+        
+        !$OMP parallel do default(shared) private(point)
+        do ElementID=1, RFV%ne()
+                
+            point = RFV%centerPosition(ElementID=ElementID)
+            do i=1,size(remove_zone_x,1)
+                if(remove_zone_x(i,1) < point(1) .and. point(1) < remove_zone_x(i,2)  )then
+                    remove_elem(ElementID) = remove_elem(ElementID) + 1
+                    exit
+                endif
+            enddo
     
-    !$OMP parallel do default(shared) private(point)
-    do ElementID=1, RFV%ne()
-            
-        point = RFV%centerPosition(ElementID=ElementID)
-        do i=1,size(remove_zone_x,1)
-            if(remove_zone_x(i,1) < point(1) .and. point(1) < remove_zone_x(i,2)  )then
-                remove_elem(ElementID) = remove_elem(ElementID) + 1
-                exit
+            do i=1,size(remove_zone_y,1)
+                if(remove_zone_y(i,1) < point(2) .and. point(2) < remove_zone_y(i,2)  )then
+                    remove_elem(ElementID) = remove_elem(ElementID) + 1
+                    exit
+                endif
+            enddo
+    
+            do i=1,size(remove_zone_z,1)
+                if(remove_zone_z(i,1) < point(3) .and. point(3) < remove_zone_z(i,2)  )then
+                    remove_elem(ElementID) = remove_elem(ElementID) + 1
+                    exit
+                endif
+            enddo
+        enddo
+        !$OMP end parallel do
+        
+        if(debug_mode_requested )then
+            print *, "[ok] remove_elem ready"
+        endif
+    
+        remove_count = 0
+        do i=1,size(remove_elem)
+            if(remove_elem(i) >=2)then
+                remove_count = remove_count + 1
             endif
         enddo
-
-        do i=1,size(remove_zone_y,1)
-            if(remove_zone_y(i,1) < point(2) .and. point(2) < remove_zone_y(i,2)  )then
-                remove_elem(ElementID) = remove_elem(ElementID) + 1
-                exit
+        buf = RFV%mesh%elemnod
+    
+        deallocate(RFV%mesh%elemnod)
+        allocate(RFV%mesh%elemnod( size(buf,1)-remove_count,size(buf,2) ) )
+    
+        j = 0
+    
+        do i=1,size(buf,1)
+            if(remove_elem(i) < 2)then
+                j = j + 1
+                RFV%mesh%elemnod(j,:) = buf(i,:)
             endif
         enddo
-
-        do i=1,size(remove_zone_z,1)
-            if(remove_zone_z(i,1) < point(3) .and. point(3) < remove_zone_z(i,2)  )then
-                remove_elem(ElementID) = remove_elem(ElementID) + 1
-                exit
+    
+        deallocate(remove_elem )
+        deallocate(buf)
+    
+    
+        if(debug_mode_requested )then
+            print *, "[ok] remove_elem done"
+        endif
+    
+    
+        remove_node(:) = 1
+        
+        do i=1, size(RFV%mesh%elemnod,1)
+            do j = 1,size(RFV%mesh%elemnod,2)
+                remove_node(RFV%mesh%elemnod(i,j) ) = 0
+            enddo
+        enddo
+        
+        allocate(new_node_id(size(RFV%mesh%nodcoord,1) ))
+        j = 0
+        do i=1,size(RFV%mesh%nodcoord,1)
+            if(remove_node(i)==0 )then
+                ! not removed
+                j=j+1
+                new_node_id(i)=j
+            else
+                ! removed
+                new_node_id(i) = j
+                cycle
             endif
         enddo
-
-    enddo
-    !$OMP end parallel do
-    
-    if(debug_mode_requested )then
-        print *, "[ok] remove_elem ready"
+        
+        realbuf = RFV%mesh%nodcoord(:,:)
+        RFV%mesh%nodcoord = zeros(size(realbuf,1)-sum(remove_node),size(realbuf,2) )
+        j = 0
+        do i=1, size(realbuf,1)
+            if(remove_node(i) /=1)then
+                j = j + 1
+                RFV%mesh%nodcoord(j,:) = realbuf(i,:)
+            endif
+        enddo
+        
+        !$OMP parallel do
+        do i=1, size(RFV%mesh%elemnod,1)
+            do j = 1,size(RFV%mesh%elemnod,2)
+                RFV%mesh%elemnod(i,j) = new_node_id(RFV%mesh%elemnod(i,j) )
+            enddo
+        enddo
+        !$OMP end parallel do
+        
     endif
 
-    remove_count = 0
-    do i=1,size(remove_elem)
-        if(remove_elem(i) >=2)then
-            remove_count = remove_count + 1
-        endif
-    enddo
-    buf = RFV%mesh%elemnod
-
-    deallocate(RFV%mesh%elemnod)
-    allocate(RFV%mesh%elemnod( size(buf,1)-remove_count,size(buf,2) ) )
-
-    j = 0
-
-    do i=1,size(buf,1)
-        if(remove_elem(i) < 2)then
-            j = j + 1
-            RFV%mesh%elemnod(j,:) = buf(i,:)
-        endif
-    enddo
-
-    deallocate(remove_elem )
-    deallocate(buf)
-
-
-    if(debug_mode_requested )then
-        print *, "[ok] remove_elem done"
-    endif
-
-
-    remove_node(:) = 1
     
-    do i=1, size(RFV%mesh%elemnod,1)
-        do j = 1,size(RFV%mesh%elemnod,2)
-            remove_node(RFV%mesh%elemnod(i,j) ) = 0
-        enddo
-    enddo
-    
-    allocate(new_node_id(size(RFV%mesh%nodcoord,1) ))
-    j = 0
-    do i=1,size(RFV%mesh%nodcoord,1)
-        if(remove_node(i)==0 )then
-            ! not removed
-            j=j+1
-            new_node_id(i)=j
-        else
-            ! removed
-            new_node_id(i) = j
-            cycle
-        endif
-    enddo
-    
-    realbuf = RFV%mesh%nodcoord(:,:)
-    RFV%mesh%nodcoord = zeros(size(realbuf,1)-sum(remove_node),size(realbuf,2) )
-    j = 0
-    do i=1, size(realbuf,1)
-        if(remove_node(i) /=1)then
-            j = j + 1
-            RFV%mesh%nodcoord(j,:) = realbuf(i,:)
-        endif
-    enddo
-    
-    !$OMP parallel do
-    do i=1, size(RFV%mesh%elemnod,1)
-        do j = 1,size(RFV%mesh%elemnod,2)
-            RFV%mesh%elemnod(i,j) = new_node_id(RFV%mesh%elemnod(i,j) )
-        enddo
-    enddo
-    !$OMP end parallel do
-
-
 
 end function
 
