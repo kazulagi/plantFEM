@@ -17,7 +17,7 @@ rigidFrames = ci%RigidFrameViaduct(&
     width =  10.0d0 ,&
     height = 5.0d0  ,&
     PierThickness = 1.0d0  ,&
-    division = [20,200,20]  &
+    divisions = [20,200,20]  &
 )
 call rigidFrames%vtk("RigidFrames_2")
 

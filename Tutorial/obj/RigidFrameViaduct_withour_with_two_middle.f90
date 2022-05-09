@@ -17,7 +17,7 @@ rigidFrames = ci%RigidFrameViaduct(&
         length = 50.0d0 , & ! 200 m
         height = 20.0d0  ,&
         PierThickness =2.0d0  ,&
-        division = [14,50,20]*2 ,&
+        divisions = [14,50,20]*2 ,&
         MiddlePierHeights = [7.0d0,11.0d0]  &
     )
 

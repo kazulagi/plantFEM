@@ -6,15 +6,102 @@ module CivilItemClass
     type :: CivilItem_
     
     contains
-        procedure, public :: BridgePier => BridgePierCivilItem
+        !procedure, public :: BridgePier => BridgePierCivilItem
+        procedure, pass :: BridgePierCivilItem
+        procedure, pass :: BridgePierCivilItem_JSON
+        
+        generic :: BridgePier => BridgePierCivilItem, BridgePierCivilItem_JSON
+
         procedure, public :: BridgeGirder => BridgeGirderCivilItem
         procedure, public :: BridgeShoe => BridgeShoeCivilItem
         procedure, public :: BridgeShoes => BridgeShoesCivilItem
 
-        procedure, public :: RigidFrameViaduct => RigidFrameViaductCivilItem
+        procedure, pass :: RigidFrameViaductCivilItem
+        procedure, pass :: RigidFrameViaductCivilItem_JSON
+        generic :: RigidFrameViaduct => RigidFrameViaductCivilItem,RigidFrameViaductCivilItem_JSON
     end type
 
 contains
+
+
+! #######################################################################
+function BridgePierCivilItem_JSON(this,config,debug) result(femdomain)
+    class(CivilItem_),intent(in) :: this
+    character(*),intent(in) :: config
+    logical,optional,intent(in) :: debug
+    real(real64) :: Bottom(1:2),Top(1:2),height
+    real(real64) :: Transition(1:2)
+    integer(int32) :: divisions(1:3)
+    type(FEMDomain_) :: femdomain
+    integer(int32) :: i, nf, nt
+    type(IO_) :: f
+    character(:),allocatable :: line
+
+    Bottom(1:2) = 0.0d0
+    Top(1:2)= 0.0d0
+    Transition(1:2)= 0.0d0
+    divisions(1:3)=0
+    height= 0.0d0
+
+    call f%open(config,"r")
+    do
+        if(f%EOF) exit
+
+        line = f%readline()
+        
+        if(index(line,"Bottom")/=0 )then
+            nf = index(line, "[")
+            nt = index(line, "]")
+            read(line(nf+1:nt-1),* ) Bottom(1:2)
+            cycle
+        endif
+
+
+        if(index(line,"Top")/=0 )then
+            nf = index(line, "[")
+            nt = index(line, "]")
+            read(line(nf+1:nt-1),* ) Top(1:2)
+            cycle
+        endif
+
+        if(index(line,"Transition")/=0 )then
+            nf = index(line, "[")
+            nt = index(line, "]")
+            read(line(nf+1:nt-1),* ) Transition(1:2)
+            cycle
+        endif
+
+        if(index(line,"Divisions")/=0 )then
+            nf = index(line, "[")
+            nt = index(line, "]")
+            read(line(nf+1:nt-1),* ) Divisions(1:3)
+            cycle
+        endif
+
+        if(index(line,"Height")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) Height
+            cycle
+        endif
+        
+    enddo
+    call f%close()
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "Bottom :: ",Bottom
+            print *, "Top :: ",Top
+            print *, "Transition :: ",Transition
+            print *, "Divisions :: ",Divisions
+            print *, "Height :: ",Height
+            
+        endif
+    endif
+    femdomain = this%BridgePier(Bottom=Bottom,Top=Top,Transition=Transition,&
+        divisions=divisions,height=height)
+
+end function
+! #######################################################################
 
 function BridgePierCivilItem(this,Bottom,Top,Transition,divisions,height) result(femdomain)
     class(CivilItem_),intent(in) :: this
@@ -103,7 +190,7 @@ function BridgeGirderCivilItem(this,From,To,Thickness,Width,Divisions,fitPiers) 
     endif
     
 end function
-
+! ###########################################################
 
 function BridgeShoeCivilItem(this,pier,Thickness,Width,Divisions) result(femdomain)
     class(CivilItem_),intent(in) :: this
@@ -164,11 +251,131 @@ function BridgeShoesCivilItem(this,pier,num_shoes,Thickness,Width,Divisions) res
     enddo
 
 end function
+! #############################################################################
+function RigidFrameViaductCivilItem_JSON(this,config,debug) result(RFV)
+    class(CivilItem_),intent(inout) :: this
+    character(*),intent(in) :: config
+    integer(int32) :: NumPiers(1:2) ! n by m, total n*m piers
+    integer(int32) :: divisions(1:3)
+    real(real64) :: length
+    real(real64) :: width
+    real(real64) :: height
+    real(real64) :: PierThickness
+    real(real64),allocatable :: MiddlePierHeights(:)
+    logical,optional,intent(in) :: debug
 
-function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,division,height,MiddlePierHeights,debug) result(RFV)
+    type(FEMDomain_) :: RFV
+    integer(int32) :: i, n , m ,NumMiddlePier,nt,nf
+    character(:),allocatable :: line
+
+    type(IO_) :: f
+
+
+    call f%open(config,"r")
+    do
+        if(f%EOF) exit
+
+        line = f%readline()
+        
+        if(index(line,"NumPiers")/=0 )then
+            nf = index(line, "[")
+            nt = index(line, "]")
+            read(line(nf+1:nt-1),* ) NumPiers(1:2)
+            cycle
+        endif
+
+
+        if(index(line,"Width")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) Width
+            cycle
+        endif
+
+        if(index(line,"Length")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) Length
+            cycle
+        endif
+
+
+        if(index(line,"Height")/=0 .and. index(line,"Middle")==0)then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) Height
+            cycle
+        endif
+
+        if(index(line,"Divisions")/=0 )then
+            nf = index(line, "[")
+            nt = index(line, "]")
+            read(line(nf+1:nt-1),* ) Divisions(1:3)
+            cycle
+        endif
+
+        if(index(line,"PierThickness")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) PierThickness
+            cycle
+        endif
+        
+        if(index(line,"NumMiddlePier")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) NumMiddlePier
+            cycle
+        endif
+
+        if(index(line,"MiddlePierHeights")/=0 .and. index(line,"Middle")/=0)then
+            nf = index(line, "[")
+            nt = index(line, "]")
+            MiddlePierHeights = zeros(NumMiddlePier)
+            read(line(nf+1:nt-1),* ) MiddlePierHeights(1:NumMiddlePier)
+            cycle
+        endif
+    enddo
+    call f%close()
+
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "NumPiers ::   ",NumPiers
+            print *, "Width ::      ",Width
+            print *, "Length ::     ",Length
+            print *, "Height ::     ",Height
+            print *, "PierThickness ::  ",PierThickness
+            print *, "Divisions ::      ",Divisions
+            print *, "NumMiddlePier ::  ",NumMiddlePier
+            print *, "MiddlePierHeights ::  ",MiddlePierHeights
+        endif
+    endif
+
+    if(allocated(MiddlePierHeights) )then
+        RFV = this%RigidFrameViaduct(NumPiers=NumPiers,&
+            length=length,&
+            width=width,&
+            PierThickness=PierThickness,&
+            divisions=divisions,&
+            height=height,&
+            MiddlePierHeights=MiddlePierHeights,&
+            debug=debug)
+    else
+        RFV = this%RigidFrameViaduct(NumPiers=NumPiers,&
+            length=length,&
+            width=width,&
+            PierThickness=PierThickness,&
+            divisions=divisions,&
+            height=height,&
+            debug=debug)
+    endif
+
+end function
+! #############################################################################
+
+
+
+! #############################################################################
+function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,divisions,height,MiddlePierHeights,debug) result(RFV)
     class(CivilItem_),intent(inout) :: this
     integer(int32),intent(in) :: NumPiers(1:2) ! n by m, total n*m piers
-    integer(int32),intent(in) :: division(1:3)
+    integer(int32),intent(in) :: divisions(1:3)
     real(real64),intent(in) :: length
     real(real64),intent(in) :: width
     real(real64),intent(in) :: height
@@ -203,9 +410,9 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
 
 
     call RFV%create("Cube3D",&
-            x_num = division(1) ,&
-            y_num = division(2) ,&
-            z_num = division(3)  &
+            x_num = divisions(1) ,&
+            y_num = divisions(2) ,&
+            z_num = divisions(3)  &
         )
     call RFV%resize(x=width, y=length, z=height)
 
@@ -655,6 +862,7 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
         
     endif
 
+    call RFV%move(x = -(RFV%xmax()-RFV%xmin())*0.50d0  )
     
 
 end function
