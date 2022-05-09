@@ -1,0 +1,10 @@
+{
+    "NumPiers" : [2, 5] ,
+    "Width" :  14.00 ,
+    "Length" : 50.00 ,  
+    "Height" : 20.00 ,
+    "PierThickness" : 2.00  ,
+    "Divisions" : [28,100,40] ,
+    "NumMiddlePier" : 2,
+    "MiddlePierHeights" : [7.00,11.00]  
+}

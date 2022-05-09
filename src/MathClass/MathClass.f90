@@ -168,7 +168,7 @@ recursive function FFT_core(x) result(hatx)
 	do i=1,size(k)
 		k(i) = i-1
 		!print *, exp(-1*Math%i * 2.0d0* Math%PI * k(i)/dble(N))
-		W(i) = exp(-1*Math%i * 2.0d0* Math%PI * k(i) /dble(N) )
+		W(i) = exp(-1.0d0*Math%i * 2.0d0* Math%PI * k(i) /dble(N) )
 	enddo
 	
 	if(N==2)then
