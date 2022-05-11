@@ -21,6 +21,7 @@ integer(int32) :: nn = 1000000.0
 
 call mpid%start()
 
+! mesh
 call cube(1)%create("Cube3D",x_num=30,y_num=3,z_num=3)
 call cube(2)%create("Cube3D",x_num=30,y_num=3,z_num=3)
 call cube(3)%create("Cube3D",x_num=30,y_num=3,z_num=3)
