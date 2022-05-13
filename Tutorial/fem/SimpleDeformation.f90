@@ -53,7 +53,6 @@ solver%debug = .true.
 displ = solver%solve()
 call cube%deform(disp=displ )
 
-
 !compute cell-averaged mean stress
 !trace(sigma)
 tr_sigma = zeros(cube%ne() )

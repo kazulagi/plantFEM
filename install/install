@@ -257,6 +257,12 @@ echo " >> ReactorClass.o "
 echo " | ===============>            | (70%)\r\c"
 mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ReactorClass/ReactorClass.f90 -o  ./inc/ReactorClass.o
 
+echo "Compiling ./src/SeepageFlowClass/SeepageFlowClass.f90" 
+echo " >> SeepageFlowClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SeepageFlowClass/SeepageFlowClass.f90 -o  ./inc/SeepageFlowClass.o
+
+
 echo "Compiling ./src/DiffusionEquationClass/DiffusionEquationClass.f90" 
 echo " >> DiffusionEquationClass.o "
 echo " | ===============>            | (70%)\r\c"

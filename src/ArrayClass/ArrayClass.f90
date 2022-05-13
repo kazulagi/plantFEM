@@ -116,6 +116,11 @@ module ArrayClass
         module procedure :: eyesRealArray,eyesRealVector
     end interface
 
+
+    interface full
+        module procedure full_Real64, full_int32,full_Real64Dim2, full_int32Dim2
+    end interface full
+
     interface increment
         module procedure :: incrementRealVector, incrementIntVector,&
             incrementRealArray, incrementIntArray 
@@ -7747,5 +7752,54 @@ subroutine setArrayClass(array, row, col,val)
         endif
     endif
 end subroutine
+
+
+
+function full_Real64(vec_size, fill_value) result(vec)
+    integer(int32),intent(in) :: vec_size
+    real(real64),intent(in) :: fill_value
+    real(real64),allocatable :: vec(:)
+
+    allocate(vec(vec_size))
+    vec(:) = fill_value
+
+end function
+
+
+
+function full_Int32(vec_size, fill_value) result(vec)
+    integer(int32),intent(in) :: vec_size
+    integer(int32),intent(in) :: fill_value
+    integer(int32),allocatable :: vec(:)
+
+    allocate(vec(vec_size))
+    vec(:) = fill_value
+
+end function
+
+
+function full_Real64Dim2(vec_size, fill_value) result(vec)
+    integer(int32),intent(in) :: vec_size(1:2)
+    real(real64),intent(in) :: fill_value
+    real(real64),allocatable :: vec(:,:)
+
+    allocate(vec(vec_size(1),vec_size(2) ))
+    vec(:,:) = fill_value
+
+end function
+
+
+
+function full_Int32Dim2(vec_size, fill_value) result(vec)
+    integer(int32),intent(in) :: vec_size(1:2)
+    integer(int32),intent(in) :: fill_value
+    integer(int32),allocatable :: vec(:,:)
+
+    allocate(vec(vec_size(1),vec_size(2) ))
+    vec(:,:) = fill_value
+
+end function
+
+
 
 end module ArrayClass
