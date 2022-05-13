@@ -13,7 +13,8 @@ module ShapeFunctionClass
         real(real64),allocatable::gzi(:)
         real(real64),allocatable::GaussPoint(:,:)
         real(real64),allocatable::GaussIntegWei(:)
-        real(real64),allocatable::Jmat(:,:),JmatInv(:,:)
+        real(real64),allocatable::Jmat(:,:) ! d x/d xi
+        real(real64),allocatable::JmatInv(:,:)! d xi/d x
         real(real64),allocatable::ElemCoord(:,:)
         real(real64),allocatable::ElemCoord_n(:,:)
         real(real64),allocatable::du(:,:)
@@ -45,6 +46,7 @@ module ShapeFunctionClass
         procedure :: save => saveShapeFunction
         procedure :: open => openShapeFunction
         procedure :: getNvec => getNvecShapeFunction
+
     end type ShapeFunction_
 
 contains

@@ -331,10 +331,12 @@ module FEMDomainClass
 		
 		procedure,public :: StiffnessMatrix => StiffnessMatrixFEMDomain 
 		procedure,public :: DiffusionMatrix => DiffusionMatrixFEMDomain 
+
 		procedure,public :: ConnectMatrix => ConnectMatrixFEMDomain 
 		procedure,public :: ElementVector => ElementVectorFEMDomain 
 		procedure,public :: GlobalVector => GlobalVectorFEMDomain 
 		procedure,public :: TractionVector => TractionVectorFEMDomain
+		procedure,public :: FlowVector => FlowVectorFEMDomain
 
 		procedure,public :: loadPoints => loadPointsFEMDomain
 		procedure,public :: particles  => particlesFEMDomain
@@ -9490,6 +9492,50 @@ function MassMatrixFEMDomain(obj,ElementID,Density,DOF,Lumped) result(MassMatrix
 end function
 ! ##########################################################################
 
+!######################## Get Flow-vector ##########################
+function FlowVectorFEMDomain(this,pressure,Permiability,ElementID) result(FlowVector)
+    !class(DiffusionEq_),intent(inout)::obj
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),intent(in) :: Pressure(:),Permiability
+	integer(int32),intent(in) :: ElementID
+	real(real64),allocatable :: Flowvector(:),p_elem_nodes(:),dNdx(:,:)
+	type(ShapeFunction_) :: shapefunc
+    
+	integer(int32) ::  i,j,k,n,m
+    
+    
+    
+	Flowvector=zeros(this%nd() )    
+	
+	p_elem_nodes = this%ElementVector(ElementID=ElementID,GlobalVector=Pressure,DOF=1)
+	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() )
+
+	do j=1, shapefunc%NumOfGp
+		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+		nod_coord=this%Mesh%NodCoord,&
+		elem_nod=this%Mesh%ElemNod,OptionalGpID=j)
+
+        call GetAllShapeFunc(this%ShapeFunction,elem_id=ElementID,nod_coord=this%Mesh%NodCoord,&
+            elem_nod=this%Mesh%ElemNod,OptionalGpID=j)
+
+		dNdx = matmul(transpose(this%ShapeFunction%dNdgzi),this%ShapeFunction%JmatInv) * &
+		this%ShapeFunction%detJ*this%ShapeFunction%GaussIntegWei(j) 
+		
+
+		FlowVector(:) = FlowVector(:) - Permiability* &
+			matmul( &
+				transpose(dNdx), &
+				p_elem_nodes(:) )
+		
+    enddo
+
+
+end function
+!######################## Get Flow-vector ##########################
+
+
+
+
 
 ! ##########################################################################
 function MassVectorFEMDomain(obj,ElementID,Density,DOF,Accel) result(MassVector)
@@ -10370,6 +10416,67 @@ function DiffusionMatrixFEMDomain(obj,ElementID,D) result(DiffusionMatrix)
 	enddo
 end function
 ! ##########################################################################
+
+! ##########################################################################
+function GradMatrixFEMDomain(obj,ElementID) result(DiffusionMatrix)
+	! This matrix G_{A B}
+	
+	! \int_{\omega_e} N_A \frac{\partial N_B}{\partial x_i} d \Omega_e
+
+	class(FEMDomain_),intent(inout) :: obj
+	type(ShapeFunction_) :: shapefunc
+	integer(int32),intent(in) :: ElementID
+
+	real(real64)::	err = dble(1.0e-14)
+	real(real64),allocatable :: DiffusionMatrix(:,:)
+	integeR(int32) :: i,j,n
+
+	! For Element ID = ElementID, create Mass Matrix and return it
+	! Number of Gauss Point = number of node per element, as default.
+
+	! initialize shape-function object
+    !obj%ShapeFunction%ElemType=obj%Mesh%ElemType
+	
+	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	
+	do i=1, shapefunc%NumOfGp
+		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+		nod_coord=obj%Mesh%NodCoord,&
+		elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+	
+    	n=size(shapefunc%dNdgzi,2)
+    	if(.not.allocated(DiffusionMatrix) ) then
+			allocate(DiffusionMatrix(n,n) )
+			DiffusionMatrix(:,:)=0.0d0
+		endif
+
+    	if(size(DiffusionMatrix,1)/=n .or.size(DiffusionMatrix,2)/=n )then
+    	    if(allocated(DiffusionMatrix)) then
+    	        deallocate(DiffusionMatrix)
+    	    endif
+    	    allocate(DiffusionMatrix(n,n) )
+    	endif
+
+
+    	DiffusionMatrix(:,:)=DiffusionMatrix(:,:)+&
+		matmul( transpose(matmul(shapefunc%JmatInv,shapefunc%dNdgzi)),&
+    	matmul(shapefunc%JmatInv,shapefunc%dNdgzi))&
+		*diff_coeff &
+		*det_mat(shapefunc%JmatInv,size(shapefunc%JmatInv,1) )
+
+	enddo
+
+	! if Rounding error >> fix 0 
+	do i=1,size(DiffusionMatrix,1)
+		do j=1,size(DiffusionMatrix,1)
+			if(abs(DiffusionMatrix(i,j)) < err*abs(maxval(DiffusionMatrix)))then
+				DiffusionMatrix(i,j) = 0.0d0
+			endif
+		enddo
+	enddo
+end function
+! ##########################################################################
+
 
 ! ##########################################################################
 function ElementVectorFEMDomain(obj,ElementID,GlobalVector,DOF) result(ElementVector)

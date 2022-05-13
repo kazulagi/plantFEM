@@ -253,6 +253,7 @@ recursive subroutine setDomainFEMSolver(this,FEMDomain,FEMDomains,FEMDomainPoint
             nullify(this%FEMDomains(DomainID)%FEMDomainp)
         endif
         this%FEMDomains(DomainID)%FEMDomainp => FEMDomain
+        
         return    
     endif
 
@@ -322,7 +323,7 @@ subroutine setCRSFEMSolver(this,DOF,debug)
     type(FEMSolver_) :: single_domain_solver
     type(COO_)       :: COO
 
-
+    
     if(present(debug) )then
         debug_mode_on = debug
     endif
@@ -470,6 +471,7 @@ subroutine setCRSFEMSolver(this,DOF,debug)
         endif
                 
         do i=1, size(COO%row)
+            
             call heapsort(n=size(COO%row(i)%col) ,array=COO%row(i)%col )
         enddo
 
@@ -592,10 +594,12 @@ subroutine setCRSFEMSolver(this,DOF,debug)
             !DomainID -> NodeID -> DOF(x-y-z, etc.)
             !CRSだが，重複を許し大目に見積もる
             ! 本当のCRS_INdex_Rowではない．あくまで，各Rowに最大いくつのcolumnが非ゼロとなりうるか．
+            
             do i=1,size(Num_nodes_in_Domains)
-    
+                
                 if(i==1)then
                     if(associated(this%FEMDomains(i)%femdomainp ))then
+                        
                         offset=0
                         do j=1,this%FEMDomains(i)%femdomainp%ne()
                             do k=1,this%FEMDomains(i)%femdomainp%nne()
@@ -609,7 +613,7 @@ subroutine setCRSFEMSolver(this,DOF,debug)
                             enddo
                         enddo
                     endif
-    
+                    
                 else
                     if(associated(this%FEMDomains(i)%femdomainp ))then
                         offset=sum(Num_nodes_in_Domains(1:i-1))
@@ -628,7 +632,7 @@ subroutine setCRSFEMSolver(this,DOF,debug)
                     
                 endif
             enddo
-    
+            
     
             !this%CRS_Index_Rowに，あと，Interfaceのconnectivityのぶんを足す（あとで）
     
@@ -703,18 +707,22 @@ subroutine setCRSFEMSolver(this,DOF,debug)
                 endif
             enddo
     
-    
             ! crs_index_colに被っているものがあるので，それを省く
             !print *,"! crs_index_colに被っているものがあるので，それを省く"
             
             num_entry_in_row(:) = 0
+            
             !$OMP parallel do default(shared) private(col_local,new_col_local)
             do i=1,size(this%CRS_Index_Row)-1
+
                 col_local = int(zeros(this%CRS_Index_Row(i+1)-this%CRS_Index_Row(i)))
                 col_local(1:this%CRS_Index_Row(i+1)-this%CRS_Index_Row(i) ) = &
                 this%CRS_Index_Col(this%CRS_Index_Row(i):this%CRS_Index_Row(i+1)-1 )
+
                 new_col_local = RemoveIF(col_local,equal_to=0)
                 new_col_local = RemoveOverwrap(new_col_local)
+                
+                
                 col_local(:)  = 0
                 col_local(1:size(new_col_local) ) = new_col_local(:)
                 this%CRS_Index_Col(this%CRS_Index_Row(i):this%CRS_Index_Row(i+1)-1 ) = &
@@ -724,6 +732,7 @@ subroutine setCRSFEMSolver(this,DOF,debug)
             !$OMP end parallel do
     
             !print *, "Final"
+            
             this%CRS_Index_Col = RemoveIF(this%CRS_Index_Col,equal_to=0)
             
     
@@ -746,6 +755,7 @@ subroutine setCRSFEMSolver(this,DOF,debug)
     
             ! then, this%CRS_Index_Row and this%CRS_Index_Col are filled.
             this%CRS_Val = zeros(size(this%CRS_Index_Col))
+            
         endif
     
     endif
@@ -841,7 +851,6 @@ subroutine setValueFEMSolver(this,DomainID,ElementID,DOF,Matrix,Vector,as_Dense)
                         this%Num_nodes_in_Domains(i) = this%femdomains(i)%femdomainp%nn()
                     endif
                 enddo
-                print *,this%Num_nodes_in_Domains
                 this%A_dense = zeros(sum(this%Num_nodes_in_Domains)*DOF,sum(this%Num_nodes_in_Domains)*DOF )
             endif
 
@@ -941,16 +950,22 @@ subroutine fixFEMSolver(this,DomainID,IDs,FixValue)
 
     integer(int32),allocatable :: buf(:)
     integer(int32),allocatable :: buf_real(:)
-    integer(int32) :: i
+    integer(int32) :: i, n
 
     ! fix unknowns for linear solvers
     ! fix IDs(:)-th amplitudes as zero (Fixed boundary)
     ! only create list
     if(.not.allocated(this%fix_lin_exists) )then
-        allocate(this%fix_lin_exists( size(this%CRS_RHS) ) )
-        this%fix_lin_exists_values = zeros( size(this%CRS_RHS) )
+        n = size(this%CRS_RHS)
+        allocate(this%fix_lin_exists( n ) )
+        
+        this%fix_lin_exists_values = zeros( n )
         this%fix_lin_exists(:) = .false.
+        
         do i=1,size(IDs)
+            if(IDs(i) > size(this%fix_lin_exists) ) cycle
+            if(IDs(i) <= 0 ) cycle
+            
             this%fix_lin_exists( IDs(i)) = .true.
             this%fix_lin_exists_values(IDs(i)) = FixValue
         enddo
@@ -1023,7 +1038,7 @@ subroutine saveMatrixFEMSolver(this,name,CRS_as_dense, if_dense_exists,zero_or_n
             if(.not.allocated(this%A_dense) ) return
             call f%open(name+"_dense.csv","w")
             n = size(this%A_dense,1)
-            print *, n
+            
             do i=1,n
                 do j=1,n-1
                     write(f%fh,'(A)',advance='no') str(this%A_dense(i,j) )+","
@@ -1886,7 +1901,7 @@ subroutine incompleteLUCRS(val,row_ptr,col_idx,rhs)
     do k=1,size(row_ptr) - 1    
         A_k_k = getCRSval(val=val, row_ptr=row_ptr, col_idx=col_idx, row=k, col=k)
         A_k_k_inv = 1.0d0/A_k_k
-        print *, k
+        
         do i=1,size(row_ptr) - 1    
             do n=row_ptr(i), row_ptr(i+1)-1
                 j = col_idx(n)

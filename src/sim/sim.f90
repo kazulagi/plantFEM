@@ -2,6 +2,7 @@ module sim
     use fem
     use LoggerClass
     use ReactorClass
+    use SeepageFlowClass
     use DiffusionEquationClass
     use SpaceTimeDiffusionClass
     use SeismicAnalysisClass
