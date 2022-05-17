@@ -147,6 +147,8 @@ module FEMDomainClass
 		procedure,public :: bakeDBoundaries => bakeDBoundariesFEMDomain
 		procedure,public :: bakeNBoundaries => bakeNBoundariesFEMDomain
 		procedure,public :: bakeTBoundaries => bakeTBoundariesFEMDomain
+		procedure,public :: Boolean => BooleanFEMDomain
+
 		
 		procedure,public :: checkConnectivity => CheckConnedctivityFEMDomain
 		procedure,public :: connectivity => connectivityFEMDomain 
@@ -221,10 +223,12 @@ module FEMDomainClass
         procedure,public :: initDBC => InitDBC
         procedure,public :: initNBC => InitNBC
 		procedure,public :: initTBC => InitTBC
+		procedure,public :: inside_of_element => inside_of_elementFEMDomain
 
 		procedure,public :: json => jsonFEMDomain
 
 		procedure,public :: killElement => killElementFEMDomain
+		procedure,public :: killNodes => killNodesFEMDomain
 
 		procedure,public :: length => lengthFEMDomain
 
@@ -8985,22 +8989,61 @@ end subroutine
 
 
 ! ######################################################################
-function centerPositionFEMDomain(obj,ElementID) result(ret)
+function centerPositionFEMDomain(obj,ElementID,max,min) result(ret)
 	class(FEMDomain_),intent(in) :: obj
 	integer(int32),optional,intent(in) :: ElementID
+	logical,optional,intent(in) :: max, min
 	real(real64),allocatable :: ret(:)
 	integer(int32) :: i
+
+	
 	! get center coordinate of the element 
-
-
 	ret = zeros(obj%nd() )
 	if(present(ElementID) )then
+
+		if(present(max) )then
+			if(max)then
+				ret = zeros(obj%nn() )
+				do i=1,obj%nn()
+					ret(i) = maxval(obj%mesh%nodcoord( obj%mesh%elemnod(ElementID,:) ,i))
+				enddo
+				return
+			endif
+		elseif(present(min) )then
+			if(min)then
+				ret = zeros(obj%nn() )
+				do i=1,obj%nn()
+					ret(i) = minval(obj%mesh%nodcoord( obj%mesh%elemnod(ElementID,:) ,i))
+				enddo
+				return
+			endif
+		endif
+		
 		do i=1,obj%nne()
 			ret = ret + obj%mesh%nodcoord( obj%mesh%elemnod(ElementID,i) ,:)
 		enddo
-
 		ret = 1.0d0/dble( obj%nne() )* ret
+		
 	else
+
+		if(present(max) )then
+			if(max)then
+				ret = zeros(obj%nn() )
+				do i=1,obj%nn()
+					ret(i) = maxval(obj%mesh%nodcoord( : ,i))
+				enddo
+				return
+			endif
+		elseif(present(min) )then
+			if(min)then
+				ret = zeros(obj%nn() )
+				do i=1,obj%nn()
+					ret(i) = minval(obj%mesh%nodcoord( : ,i))
+				enddo
+				return
+			endif
+		endif
+
 		do i=1,obj%nd()
 			ret(i) = sum(obj%mesh%nodcoord(:,i) )/dble(obj%nn() )
 		enddo
@@ -10418,63 +10461,52 @@ end function
 ! ##########################################################################
 
 ! ##########################################################################
-function GradMatrixFEMDomain(obj,ElementID) result(DiffusionMatrix)
-	! This matrix G_{A B}
-	
-	! \int_{\omega_e} N_A \frac{\partial N_B}{\partial x_i} d \Omega_e
-
-	class(FEMDomain_),intent(inout) :: obj
-	type(ShapeFunction_) :: shapefunc
-	integer(int32),intent(in) :: ElementID
-
-	real(real64)::	err = dble(1.0e-14)
-	real(real64),allocatable :: DiffusionMatrix(:,:)
-	integeR(int32) :: i,j,n
-
-	! For Element ID = ElementID, create Mass Matrix and return it
-	! Number of Gauss Point = number of node per element, as default.
-
-	! initialize shape-function object
-    !obj%ShapeFunction%ElemType=obj%Mesh%ElemType
-	
-	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
-	
-	do i=1, shapefunc%NumOfGp
-		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
-		nod_coord=obj%Mesh%NodCoord,&
-		elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
-	
-    	n=size(shapefunc%dNdgzi,2)
-    	if(.not.allocated(DiffusionMatrix) ) then
-			allocate(DiffusionMatrix(n,n) )
-			DiffusionMatrix(:,:)=0.0d0
-		endif
-
-    	if(size(DiffusionMatrix,1)/=n .or.size(DiffusionMatrix,2)/=n )then
-    	    if(allocated(DiffusionMatrix)) then
-    	        deallocate(DiffusionMatrix)
-    	    endif
-    	    allocate(DiffusionMatrix(n,n) )
-    	endif
-
-
-    	DiffusionMatrix(:,:)=DiffusionMatrix(:,:)+&
-		matmul( transpose(matmul(shapefunc%JmatInv,shapefunc%dNdgzi)),&
-    	matmul(shapefunc%JmatInv,shapefunc%dNdgzi))&
-		*diff_coeff &
-		*det_mat(shapefunc%JmatInv,size(shapefunc%JmatInv,1) )
-
-	enddo
-
-	! if Rounding error >> fix 0 
-	do i=1,size(DiffusionMatrix,1)
-		do j=1,size(DiffusionMatrix,1)
-			if(abs(DiffusionMatrix(i,j)) < err*abs(maxval(DiffusionMatrix)))then
-				DiffusionMatrix(i,j) = 0.0d0
-			endif
-		enddo
-	enddo
-end function
+!function GradMatrixFEMDomain(obj,ElementID,DOF) result(GradMatrix)
+!	! This matrix G_{A B}
+!	
+!	! \int_{\omega_e} N_A \frac{\partial N_B}{\partial x_i} d \Omega_e
+!	! \int_{\omega_e} N_A  d N_B/d xi  (d xi/d x) det(d x/d Xi) d \Xi
+!
+!	class(FEMDomain_),intent(inout) :: obj
+!	type(ShapeFunction_) :: shapefunc
+!	integer(int32),intent(in) :: ElementID,DOF
+!
+!	real(real64)::	err = dble(1.0e-14)
+!	real(real64),allocatable :: GradMatrix(:,:)
+!	integeR(int32) :: i,j,n
+!
+!	! For Element ID = ElementID, create Mass Matrix and return it
+!	! Number of Gauss Point = number of node per element, as default.
+!
+!	! initialize shape-function object
+!    !obj%ShapeFunction%ElemType=obj%Mesh%ElemType
+!	
+!	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+!	n = obj%nne()
+!	GradMatrix = zeros(n,n*DOF)
+!	do i=1, shapefunc%NumOfGp
+!		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+!		nod_coord=obj%Mesh%NodCoord,&
+!		elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+!	
+!    	n=size(shapefunc%dNdgzi,2)
+!
+!    	GradMatrix(:,:)=GradMatrix(:,:)+&
+!		matmul( transpose(matmul(shapefunc%JmatInv,shapefunc%dNdgzi)),&
+!		)&
+!		*det_mat(shapefunc%Jmat,size(shapefunc%Jmat,1) )
+!
+!	enddo
+!
+!	! if Rounding error >> fix 0 
+!	do i=1,size(GradMatrix,1)
+!		do j=1,size(GradMatrix,1)
+!			if(abs(GradMatrix(i,j)) < err*abs(maxval(GradMatrix)))then
+!				GradMatrix(i,j) = 0.0d0
+!			endif
+!		enddo
+!	enddo
+!end function
 ! ##########################################################################
 
 
@@ -12406,6 +12438,198 @@ subroutine particlesFEMDomain(this,name)
 	enddo
 	call f%close()
 	
+end subroutine
+
+
+subroutine BooleanFEMDomain(this, object, difference) 
+	class(FEMDomain_),intent(inout) :: this
+	type(FEMDomain_),intent(in)  :: object
+	logical,optional,intent(in) :: difference
+	integer(int32),allocatable  :: removed_nodes(:), buf(:)
+	integer(int32) :: i,j,k,num_zeros,ElementID,NodeID
+	logical :: inside
+	
+	
+	if(present(difference) )then
+		if(difference)then
+			! default = keep all nodes 
+			removed_nodes = int(zeros(this%nn()) )
+			
+			!$OMP parallel do
+			do i=1,this%nn()
+				! detect in or out
+				if(object%x_min() <=  this%position_x(i) &
+								.and. this%position_x(i) <= object%x_max() )then
+					if(object%y_min() <=  this%position_y(i) &
+									.and. this%position_y(i) <= object%y_max() )then
+						if(object%z_min() <=  this%position_z(i) &
+										.and. this%position_z(i) <= object%z_max() )then
+							removed_nodes(i)=1
+						endif	
+					endif	
+				endif
+			enddo
+			!$OMP end parallel do
+			
+			buf = removed_nodes
+			deallocate(removed_nodes)
+			allocate(removed_nodes(sum(buf)))
+			if(sum(buf)==0 )then
+				return
+			endif
+			j=0
+			do i=1,size(buf)
+				if(buf(i) == 1 )then
+					j=j+1
+					removed_nodes(j) = i
+				endif
+			enddo
+			deallocate(buf)
+			
+
+
+			num_zeros = 0
+			do ElementID=1,object%ne()
+				inside=.false.
+				do NodeID =1,size(removed_nodes)
+					if( object%inside_of_element(point=this%position(NodeID) ,ElementID=ElementID) )then			
+						inside=.true.
+						exit
+					endif
+				enddo 
+				if(.not. inside)then
+					removed_nodes(NodeID) = 0 ! remove
+					num_zeros = num_zeros + 1
+				endif
+			enddo
+
+			buf = removed_nodes
+			deallocate(removed_nodes)
+			allocate(removed_nodes(size(buf,1) - num_zeros ) )
+			
+			j=0
+			do i=1,size(buf)
+				if(buf(i)/=0)then
+					j = j+1
+					removed_nodes(j)=buf(i)
+				endif
+			enddo
+
+			call this%killNodes(NodeList=removed_nodes)
+
+		endif
+	endif
+
+
+end subroutine
+
+
+function inside_of_elementFEMDomain(this,point,ElementID) result(inside)
+	class(FEMDomain_),intent(in) :: this
+	real(real64),intent(in)::point(:)
+	real(real64)::a1(3),a2(3),n(3)
+	integer(int32),intent(in)::ElementID
+	integer(int32),allocatable :: facet(:,:)
+	integer(int32) :: i
+	logical :: inside
+
+	! get facet
+	facet = this%getSingleFacetNodeID(ElementID)
+	do i=1, size(facet,1)
+		a1(1:3) = this%position(facet(i,2) ) - this%position(facet(i,1) )
+		a2(1:3) = this%position(facet(i,4) ) - this%position(facet(i,1) ) 
+		n  = cross_product(a1,a2)
+		! compute outer-nomal n
+		if(dot_product(n,point) > 0.0d0 )then
+			inside=.false.
+			return
+		else
+			cycle
+		endif
+	enddo
+
+	inside = .true.
+	
+	! for all facet,dot_product(n,point)<=0 >> inside
+	! otherwise :: inside=.false.
+
+
+end function
+
+subroutine killNodesFEMDomain(this,NodeList) 
+    class(FEMDomain_),intent(inout)::this
+    integer(int32),intent(in) :: NodeList(:)
+	integer(int32),allocatable:: Kill_or_not(:),new_Node_ID(:)
+	real(real64),allocatable :: rebuf(:,:)
+	integer(int32),allocatable :: intbuf(:,:)
+	integer(int32) :: i,j,n_remove_elem
+	
+	!e.g. [1, 3, 6]
+	Kill_or_not = int(zeros(this%nn() ) )
+
+	![0,0,0,0,0,0]
+	new_node_id = int(zeros(this%nn() ) )
+
+	![1,0,1,0,0,1]
+	do i=1,size(NodeList)
+		Kill_or_not( NodeList(i) ) = 1
+	enddo
+
+	if(Kill_or_not(1)==1 )then
+		new_node_id(1)=0
+	else
+		new_node_id(1)=1
+	endif
+	do i=1, size(new_node_id)-1
+		new_node_id(i+1) = new_node_id(i) + 1 - Kill_or_not(i+1)
+	enddo
+	!>> [0,1,1,2,3,3]
+
+	rebuf = this%mesh%nodcoord
+
+	deallocate(this%mesh%nodcoord)
+
+	this%mesh%nodcoord = zeros( size(rebuf,1)-sum(Kill_or_not),size(rebuf,2)  )
+
+	j = 0
+	do i =1,size(rebuf,1)
+		if(Kill_or_not(i)==0 )then
+			j = j + 1
+			this%mesh%nodcoord(j,:) = rebuf(i,:)
+		endif
+	enddo
+
+	deallocate(rebuf)
+
+	n_remove_elem = 0
+	do i=1, size(this%mesh%elemnod,1)
+		do j=1, size(this%mesh%elemnod,2)
+			if( kill_or_not(this%mesh%elemnod(i,j))==1)then
+				this%mesh%elemnod(i,:) = 0
+				n_remove_elem = n_remove_elem + 1
+				exit
+			endif
+		enddo
+	enddo
+
+	intbuf = this%mesh%elemnod
+	this%mesh%elemnod = int(zeros( size(intbuf,1)-n_remove_elem, size(intbuf,2) ) )
+	
+	j = 0
+	do i=1,size(intbuf,1)
+		if(intbuf(i,1)/=0 )then
+			j = j + 1
+			this%mesh%elemnod(j,:) = intbuf(i,:)	
+		endif
+	enddo
+
+	do i=1,size(this%mesh%elemnod,1)
+		do j=1,size(this%mesh%elemnod,2)
+			this%mesh%elemnod(i,j) = new_node_id( this%mesh%elemnod(i,j) )
+		enddo
+	enddo
+
+
 end subroutine
 
 end module FEMDomainClass
