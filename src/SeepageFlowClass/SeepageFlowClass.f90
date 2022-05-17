@@ -7,6 +7,8 @@ module SeepageFlowClass
         type(FEMDomain_),pointer :: FEMDomain => null()
         type(FEMSolver_) :: solver
         character(:),allocatable :: model
+        real(real64) :: rho = 1.0d0 ! 1t/m^3
+        real(real64) :: g   = 9.80d0! m/s/s
     contains
         procedure,public :: init => initSeepageFlow
         procedure,public :: fixPressureBoundary => fixPressureBoundarySeepageFlow
@@ -21,7 +23,8 @@ subroutine initSeepageFlow(this,femdomain,model,Permiability)
     type(FEMDomain_),target,intent(in) :: femdomain
     real(real64),intent(in) :: Permiability(:)
     character(*),intent(in) :: model
-
+    real(real64) :: rho, gravity
+    real(real64),allocatable :: hvec(:)
     integer(int32) :: ElementID
     
     if(associated(this%femdomain) )then
@@ -39,20 +42,25 @@ subroutine initSeepageFlow(this,femdomain,model,Permiability)
             call this%solver%setCRS(DOF=1)
             
 
-            !$OMP parallel 
+            rho = this%rho ! 1.0d0  1t/m^3
+            gravity   = this%g   ! 9.80d0 m/s/s
+            !$OMP parallel default(shared) private(hvec)
             !$OMP do
             do ElementID = 1, this%femdomain%ne()
+                
+                !hvec = - this%femdomain%ElementVector(&
+                !    ElementID=ElementID,&
+                !    GlobalVector=this%femdomain%z(),&
+                !    DOF=1)
                 call this%solver%setMatrix(DomainID=1,ElementID=ElementID,DOF=1,&
                    Matrix=this%femdomain%DiffusionMatrix(ElementID=ElementID,&
                     D=Permiability(ElementID) ) )
+
                 !call this%solver%setVector(DomainID=1,ElementID=ElementID,DOF=1,&
-                !    Vector=this%femdomain%FlowVector(&
-                !        ElementID=ElementID,&
-                !        DOF=this%femdomain%nd() ,&
-                !        Density=1.700d0,&
-                !        Accel=[0.0d0, 0.0d0, -9.80d0]&
-                !        ) & 
-                !)
+                !    Vector=matmul(this%femdomain%DiffusionMatrix(ElementID=ElementID,&
+                !    D=rho*gravity ) ,&
+                !    hvec) )
+                
             enddo
             !$OMP end do
             !$OMP end parallel
