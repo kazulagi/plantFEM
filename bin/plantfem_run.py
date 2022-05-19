@@ -88,7 +88,8 @@ if __name__ == '__main__':
     elif pf == "Linux":
         print("OS : Linux")
         aout = os.path.exists("a.out")
-        
+        #print(aout)
+
         if aout == True:
             os.system("rm ./a.out")
 

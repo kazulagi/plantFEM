@@ -1243,7 +1243,6 @@ subroutine GetJmat(obj)
     class(ShapeFunction_),intent(inout)::obj
     integer(int32) n
 
-    ! dx/dxi
 
     n=size(obj%ElemCoord,2)
     if(allocated(obj%Jmat) )then
