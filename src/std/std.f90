@@ -15,6 +15,7 @@ module std
     use KinematicClass
     use RandomClass
     use ArrayClass
+    use SpectreAnalysisClass
     use COOClass
     use RangeClass
     use PCAClass
