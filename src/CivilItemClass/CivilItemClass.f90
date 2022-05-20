@@ -373,7 +373,7 @@ end function
 
 ! #############################################################################
 function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,divisions,height,MiddlePierHeights,&
-        debug) result(RFV)
+        GirderThickness,debug) result(RFV)
     class(CivilItem_),intent(inout) :: this
     integer(int32),intent(in) :: NumPiers(1:2) ! n by m, total n*m piers
     integer(int32),optional,intent(in) :: divisions(1:3)
@@ -382,6 +382,7 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
     real(real64),intent(in) :: height
     real(real64),intent(in) :: PierThickness
     real(real64),optional,intent(in) :: MiddlePierHeights(:)
+    real(real64),optional,intent(in) :: GirderThickness
     logical,optional,intent(in) :: debug
 
     real(real64) :: dx,dy,dz,thickness,interval
@@ -401,10 +402,14 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
     real(real64),allocatable :: y_axis_origin(:)
     real(real64),allocatable :: z_axis_origin(:)
 
-    integer(int32) :: ElementID, remove_count,j,k
+    integer(int32) :: ElementID, remove_count,j,k,last_n
     integer(int32),allocatable :: remove_elem(:),buf(:,:),remove_node(:),new_node_id(:),killElemList(:)
     real(real64),allocatable :: realbuf(:,:),center_coord(:),shift_x(:)
     logical :: debug_mode_requested = .false.
+    last_n = 0
+    if(present(GirderThickness) )then
+        last_n = -1
+    endif
 
     if(present(debug) )then
         debug_mode_requested = debug
@@ -457,11 +462,13 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
                 j=j+1
                 z_axis(j) = MiddlePierHeights(i) + PierThickness/2.0d0
             enddo
+            
             z_axis(size(z_axis)-1:size(z_axis)  ) =[Height-PierThickness,Height]
             
+            if(present(GirderThickness) )then
+                z_axis = z_axis // [ maxval(z_axis)+GirderThickness ]
+            endif
 
-
-            
             x_axis_origin = x_axis
             y_axis_origin = y_axis
             z_axis_origin = z_axis
@@ -493,6 +500,9 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
                         center_coord = RFV%centerPosition(ElementID=j)
                         if(x_axis(2*i) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1))then
                             if(z_axis(2*k-1) < center_coord(3) .and. center_coord(3) < z_axis(2*k) )then
+                                if(present(GirderThickness) .and. center_coord(3) >height )then
+                                    cycle
+                                endif
                                 killElemList(j) =  1
                             endif
                         endif
@@ -505,6 +515,9 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
                         center_coord = RFV%centerPosition(ElementID=j)
                         if(y_axis(2*i) < center_coord(2) .and. center_coord(2) < y_axis(2*i+1))then
                             if(z_axis(2*k-1) < center_coord(3) .and. center_coord(3) < z_axis(2*k) )then
+                                if(present(GirderThickness) .and. center_coord(3) >height )then
+                                    cycle
+                                endif
                                 killElemList(j) =  1
                             endif
                         endif
@@ -524,6 +537,9 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
                     center_coord = RFV%centerPosition(ElementID=j)
                     if(x_axis(2*i) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1))then
                         !if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                        if(present(GirderThickness) .and. center_coord(3) >height )then
+                            cycle
+                        endif
                         killElemList(j) = killElemList(j) + 1
                         !endif
                     endif
@@ -536,6 +552,9 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
                     center_coord = RFV%centerPosition(ElementID=j)
                     if(y_axis(2*i) < center_coord(2) .and. center_coord(2) < y_axis(2*i+1))then
                         !if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                        if(present(GirderThickness) .and. center_coord(3) >height )then
+                            cycle
+                        endif
                         killElemList(j) = killElemList(j) + 1
                         !endif
                     endif
@@ -550,7 +569,9 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
 
         else
             z_axis = [0.0d0,Height-PierThickness,Height]
-
+            if(present(GirderThickness) )then
+                z_axis = z_axis // [ maxval(z_axis)+GirderThickness ]
+            endif
             
             x_axis_origin = x_axis
             y_axis_origin = y_axis
@@ -580,7 +601,10 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
                 do j=1,RFV%ne()
                     center_coord = RFV%centerPosition(ElementID=j)
                     if(x_axis(2*i) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1))then
-                        if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                        if(center_coord(3) < z_axis( size(z_axis)-1+ last_n) )then
+                            if(present(GirderThickness) .and. center_coord(3) >height )then
+                                cycle
+                            endif
                             killElemList(j) =  1
                         endif
                     endif
@@ -592,7 +616,10 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
                 do j=1,RFV%ne()
                     center_coord = RFV%centerPosition(ElementID=j)
                     if(y_axis(2*i) < center_coord(2) .and. center_coord(2) < y_axis(2*i+1))then
-                        if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                        if(center_coord(3) < z_axis( size(z_axis)-1 + last_n) )then
+                            if(present(GirderThickness) .and. center_coord(3) >height )then
+                                cycle
+                            endif
                             killElemList(j) =  1
                         endif
                     endif
@@ -612,6 +639,9 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
                     center_coord = RFV%centerPosition(ElementID=j)
                     if(x_axis(2*i) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1))then
                         !if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                        if(present(GirderThickness) .and. center_coord(3) >height )then
+                            cycle
+                        endif
                         killElemList(j) = killElemList(j) + 1
                         !endif
                     endif
@@ -624,6 +654,9 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
                     center_coord = RFV%centerPosition(ElementID=j)
                     if(y_axis(2*i) < center_coord(2) .and. center_coord(2) < y_axis(2*i+1))then
                         !if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                        if(present(GirderThickness) .and. center_coord(3) >height )then
+                            cycle
+                        endif
                         killElemList(j) = killElemList(j) + 1
                         !endif
                     endif
