@@ -4,6 +4,7 @@ implicit none
 
 type(CivilItem_) :: ci
 type(FEMdomain_) :: rigidFrames(3), ground, Piers(5), Girders(4)
+real(real64) :: height
 
 call ground%create("Cube3D",x_num=30,y_num=30,z_num=30)
 call ground%resize(x=600.0d0,y=600.0d0,z=400.0d0)

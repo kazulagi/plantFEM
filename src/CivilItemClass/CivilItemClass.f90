@@ -372,10 +372,11 @@ end function
 
 
 ! #############################################################################
-function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,divisions,height,MiddlePierHeights,debug) result(RFV)
+function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,divisions,height,MiddlePierHeights,&
+        debug) result(RFV)
     class(CivilItem_),intent(inout) :: this
     integer(int32),intent(in) :: NumPiers(1:2) ! n by m, total n*m piers
-    integer(int32),intent(in) :: divisions(1:3)
+    integer(int32),optional,intent(in) :: divisions(1:3)
     real(real64),intent(in) :: length
     real(real64),intent(in) :: width
     real(real64),intent(in) :: height
@@ -383,17 +384,26 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
     real(real64),optional,intent(in) :: MiddlePierHeights(:)
     logical,optional,intent(in) :: debug
 
-    real(real64) :: dx,dy,dz,thickness
+    real(real64) :: dx,dy,dz,thickness,interval
     real(real64),allocatable :: point(:)
     type(FEMDomain_) :: RFV
+    type(FEMDomain_) :: remove_zone
     integer(int32) :: i, n , m 
     real(real64),allocatable :: remove_zone_x(:,:)
     real(real64),allocatable :: remove_zone_y(:,:)
     real(real64),allocatable :: remove_zone_z(:,:)
 
-    integer(int32) :: ElementID, remove_count, j
-    integer(int32),allocatable :: remove_elem(:),buf(:,:),remove_node(:),new_node_id(:)
-    real(real64),allocatable :: realbuf(:,:)
+    real(real64),allocatable :: x_axis(:)
+    real(real64),allocatable :: y_axis(:)
+    real(real64),allocatable :: z_axis(:)
+    
+    real(real64),allocatable :: x_axis_origin(:)
+    real(real64),allocatable :: y_axis_origin(:)
+    real(real64),allocatable :: z_axis_origin(:)
+
+    integer(int32) :: ElementID, remove_count,j,k
+    integer(int32),allocatable :: remove_elem(:),buf(:,:),remove_node(:),new_node_id(:),killElemList(:)
+    real(real64),allocatable :: realbuf(:,:),center_coord(:),shift_x(:)
     logical :: debug_mode_requested = .false.
 
     if(present(debug) )then
@@ -408,460 +418,675 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
         return
     endif
 
-
-    call RFV%create("Cube3D",&
-            x_num = divisions(1) ,&
-            y_num = divisions(2) ,&
-            z_num = divisions(3)  &
-        )
-    call RFV%resize(x=width, y=length, z=height)
-
-
-    ! remove_zone
-    if(NumPiers(1) <= 1 )then
-        n = 1
-        ! y
-        ! |
-        ! ---------------------------> x
-        call RFV%resize(x=thickness, y=length, z=height)
-
-
-        allocate(remove_zone_y(NumPiers(2)-1,2 ))
-
-        remove_zone_y(1,1) = thickness  ! from
-        remove_zone_y(1,2) = thickness + ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
-        ! y-direction
-        do i=2,NumPiers(2)-1
-            remove_zone_y(i,1) = remove_zone_y(i-1,2) +  thickness  ! from
-            remove_zone_y(i,2) = remove_zone_y(i  ,1) +  ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
+!    if(present(divisions) )then
+!
+!        call RFV%create("Cube3D",&
+!            x_num = divisions(1) ,&
+!            y_num = divisions(2) ,&
+!            z_num = divisions(3)  &
+!        )
+!        call RFV%resize(x=width, y=length, z=height)
+!
+!    else
+        x_axis = zeros( NumPiers(2)*2 ) 
+        interval = (Length - PierThickness*NumPiers(2))/dble(NumPiers(2) -1  )
+        x_axis(1 ) = 0.0d0 
+        x_axis(2 ) = PierThickness
+        do i=2,NumPiers(2)
+            x_axis(2*i -1 ) = x_axis(2*(i-1) -1 ) + interval + PierThickness
+            x_axis(2*i    ) = x_axis(2*(i-1)    ) + interval + PierThickness
         enddo
 
-        ! z-direction
-        if(present (MiddlePierHeights) )then
-            allocate(remove_zone_z(size(MiddlePierHeights,1)+1,2) )
-            remove_zone_z(1,1) = 0.0d0! from
-            remove_zone_z(1,2) = MiddlePierHeights(1) - thickness/2.0d0! to
-            do i=2,size(MiddlePierHeights,1)
-                remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
-                remove_zone_z(i,2) = MiddlePierHeights(i) - thickness/2.0d0  ! to
-            enddo
-            i = size(remove_zone_z,1)
-            remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
-            remove_zone_z(i,2) = height - thickness  ! to
-            
-        else
-            allocate(remove_zone_z(1,2) )
-            remove_zone_z(1,1) = 0.0d0 ! from
-            remove_zone_z(1,2) = height - thickness  ! to
-        endif
 
-        ! debug
+        y_axis = zeros( NumPiers(1)*2 ) 
+        interval = (Width - PierThickness*NumPiers(1))/dble(NumPiers(1) -1  )
+        y_axis(1 ) = 0.0d0 
+        y_axis(2 ) = PierThickness
+        do i=2,NumPiers(1)
+            y_axis(2*i -1 ) = y_axis(2*(i-1) -1 ) + interval + PierThickness
+            y_axis(2*i    ) = y_axis(2*(i-1)    ) + interval + PierThickness
+        enddo
 
-        if(debug_mode_requested )then
-            print *, "[ok] remove_box set"
-        endif
-        
-        allocate(remove_elem(RFV%ne() ))
-        allocate(remove_node(RFV%nn() )  )
-        remove_elem(:) = 0
-        remove_node(:) = 0
-        
-        !$OMP parallel do default(shared) private(point)
-        do ElementID=1, RFV%ne()
-                
-            point = RFV%centerPosition(ElementID=ElementID)
-            
-            do i=1,size(remove_zone_y,1)
-                if(remove_zone_y(i,1) < point(2) .and. point(2) < remove_zone_y(i,2)  )then
-                    remove_elem(ElementID) = remove_elem(ElementID) + 1
-                    exit
-                endif
-            enddo
-    
-            do i=1,size(remove_zone_z,1)
-                if(remove_zone_z(i,1) < point(3) .and. point(3) < remove_zone_z(i,2)  )then
-                    remove_elem(ElementID) = remove_elem(ElementID) + 1
-                    exit
-                endif
-            enddo
-        enddo
-        !$OMP end parallel do
-        
-        if(debug_mode_requested )then
-            print *, "[ok] remove_elem ready"
-        endif
-    
-        remove_count = 0
-        do i=1,size(remove_elem)
-            if(remove_elem(i) >=2)then
-                remove_count = remove_count + 1
-            endif
-        enddo
-        buf = RFV%mesh%elemnod
-    
-        deallocate(RFV%mesh%elemnod)
-        allocate(RFV%mesh%elemnod( size(buf,1)-remove_count,size(buf,2) ) )
-    
-        j = 0
-    
-        do i=1,size(buf,1)
-            if(remove_elem(i) < 2)then
-                j = j + 1
-                RFV%mesh%elemnod(j,:) = buf(i,:)
-            endif
-        enddo
-    
-        deallocate(remove_elem )
-        deallocate(buf)
-    
-    
-        if(debug_mode_requested )then
-            print *, "[ok] remove_elem done"
-        endif
-    
-    
-        remove_node(:) = 1
-        
-        do i=1, size(RFV%mesh%elemnod,1)
-            do j = 1,size(RFV%mesh%elemnod,2)
-                remove_node(RFV%mesh%elemnod(i,j) ) = 0
-            enddo
-        enddo
-        
-        allocate(new_node_id(size(RFV%mesh%nodcoord,1) ))
-        j = 0
-        do i=1,size(RFV%mesh%nodcoord,1)
-            if(remove_node(i)==0 )then
-                ! not removed
+        if(present(MiddlePierHeights) )then
+            z_axis = zeros(size(MiddlePierHeights)*2 + 3 )
+            z_axis(1) = 0.0d0
+            j=1
+            do i=1,size(MiddlePierHeights)
                 j=j+1
-                new_node_id(i)=j
-            else
-                ! removed
-                new_node_id(i) = j
-                cycle
-            endif
-        enddo
-        
-        realbuf = RFV%mesh%nodcoord(:,:)
-        RFV%mesh%nodcoord = zeros(size(realbuf,1)-sum(remove_node),size(realbuf,2) )
-        j = 0
-        do i=1, size(realbuf,1)
-            if(remove_node(i) /=1)then
-                j = j + 1
-                RFV%mesh%nodcoord(j,:) = realbuf(i,:)
-            endif
-        enddo
-        
-        !$OMP parallel do
-        do i=1, size(RFV%mesh%elemnod,1)
-            do j = 1,size(RFV%mesh%elemnod,2)
-                RFV%mesh%elemnod(i,j) = new_node_id(RFV%mesh%elemnod(i,j) )
-            enddo
-        enddo
-        !$OMP end parallel do
-
-
-    elseif(NumPiers(2) <= 1 )then
-        m = 1
-        ! y
-        ! |
-        ! ---------------------------> x
-        call RFV%resize(x=Width, y=thickness, z=height)
-
-        allocate(remove_zone_x(NumPiers(1)-1,2 ))
-
-        remove_zone_x(1,1) = thickness  ! from
-        remove_zone_x(1,2) = thickness + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
-        ! y-direction
-        do i=2,NumPiers(1)-1
-            remove_zone_x(i,1) = remove_zone_x(i-1,2) +  thickness  ! from
-            remove_zone_x(i,2) = remove_zone_x(i  ,1) +  ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
-        enddo
-
-        ! z-direction
-        if(present (MiddlePierHeights) )then
-            allocate(remove_zone_z(size(MiddlePierHeights,1)+1,2) )
-            remove_zone_z(1,1) = 0.0d0! from
-            remove_zone_z(1,2) = MiddlePierHeights(1) - thickness/2.0d0! to
-            do i=2,size(MiddlePierHeights,1)
-                remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
-                remove_zone_z(i,2) = MiddlePierHeights(i) - thickness/2.0d0  ! to
-            enddo
-            i = size(remove_zone_z,1)
-            remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
-            remove_zone_z(i,2) = height - thickness  ! to
-            
-        else
-            allocate(remove_zone_z(1,2) )
-            remove_zone_z(1,1) = 0.0d0 ! from
-            remove_zone_z(1,2) = height - thickness  ! to
-        endif
-
-        ! debug
-
-        if(debug_mode_requested )then
-            print *, "[ok] remove_box set"
-        endif
-        
-        allocate(remove_elem(RFV%ne() ))
-        allocate(remove_node(RFV%nn() )  )
-        remove_elem(:) = 0
-        remove_node(:) = 0
-        
-        !$OMP parallel do default(shared) private(point)
-        do ElementID=1, RFV%ne()
-                
-            point = RFV%centerPosition(ElementID=ElementID)
-            
-            do i=1,size(remove_zone_x,1)
-                if(remove_zone_x(i,1) < point(1) .and. point(1) < remove_zone_x(i,2)  )then
-                    remove_elem(ElementID) = remove_elem(ElementID) + 1
-                    exit
-                endif
-            enddo
-    
-            do i=1,size(remove_zone_z,1)
-                if(remove_zone_z(i,1) < point(3) .and. point(3) < remove_zone_z(i,2)  )then
-                    remove_elem(ElementID) = remove_elem(ElementID) + 1
-                    exit
-                endif
-            enddo
-        enddo
-        !$OMP end parallel do
-        
-        if(debug_mode_requested )then
-            print *, "[ok] remove_elem ready"
-        endif
-    
-        remove_count = 0
-        do i=1,size(remove_elem)
-            if(remove_elem(i) >=2)then
-                remove_count = remove_count + 1
-            endif
-        enddo
-        buf = RFV%mesh%elemnod
-    
-        deallocate(RFV%mesh%elemnod)
-        allocate(RFV%mesh%elemnod( size(buf,1)-remove_count,size(buf,2) ) )
-    
-        j = 0
-    
-        do i=1,size(buf,1)
-            if(remove_elem(i) < 2)then
-                j = j + 1
-                RFV%mesh%elemnod(j,:) = buf(i,:)
-            endif
-        enddo
-    
-        deallocate(remove_elem )
-        deallocate(buf)
-    
-    
-        if(debug_mode_requested )then
-            print *, "[ok] remove_elem done"
-        endif
-    
-    
-        remove_node(:) = 1
-        
-        do i=1, size(RFV%mesh%elemnod,1)
-            do j = 1,size(RFV%mesh%elemnod,2)
-                remove_node(RFV%mesh%elemnod(i,j) ) = 0
-            enddo
-        enddo
-        
-        allocate(new_node_id(size(RFV%mesh%nodcoord,1) ))
-        j = 0
-        do i=1,size(RFV%mesh%nodcoord,1)
-            if(remove_node(i)==0 )then
-                ! not removed
+                z_axis(j) = MiddlePierHeights(i) - PierThickness/2.0d0
                 j=j+1
-                new_node_id(i)=j
-            else
-                ! removed
-                new_node_id(i) = j
-                cycle
-            endif
-        enddo
-        
-        realbuf = RFV%mesh%nodcoord(:,:)
-        RFV%mesh%nodcoord = zeros(size(realbuf,1)-sum(remove_node),size(realbuf,2) )
-        j = 0
-        do i=1, size(realbuf,1)
-            if(remove_node(i) /=1)then
-                j = j + 1
-                RFV%mesh%nodcoord(j,:) = realbuf(i,:)
-            endif
-        enddo
-        
-        !$OMP parallel do
-        do i=1, size(RFV%mesh%elemnod,1)
-            do j = 1,size(RFV%mesh%elemnod,2)
-                RFV%mesh%elemnod(i,j) = new_node_id(RFV%mesh%elemnod(i,j) )
+                z_axis(j) = MiddlePierHeights(i) + PierThickness/2.0d0
             enddo
-        enddo
-        !$OMP end parallel do
-        print *, "debug"
-
-    else
-        ! y
-        ! |
-        ! ---------------------------> x
-
-        allocate(remove_zone_x(NumPiers(1)-1,2 ))
-        
-        remove_zone_x(1,1) = thickness  ! from
-        remove_zone_x(1,2) = thickness + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
-        ! y-direction
-        do i=2,NumPiers(1)-1
-            remove_zone_x(i,1) = remove_zone_x(i-1,2) +  thickness  ! from
-            remove_zone_x(i,2) = remove_zone_x(i  ,1) + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
-        enddo
-
-        
-
-        allocate(remove_zone_y(NumPiers(2)-1,2 ))
-
-        remove_zone_y(1,1) = thickness  ! from
-        remove_zone_y(1,2) = thickness + ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
-        ! y-direction
-        do i=2,NumPiers(2)-1
-            remove_zone_y(i,1) = remove_zone_y(i-1,2) +  thickness  ! from
-            remove_zone_y(i,2) = remove_zone_y(i  ,1) + ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
-        enddo
-
-
-        ! z-direction
-        if(present (MiddlePierHeights) )then
-            allocate(remove_zone_z(size(MiddlePierHeights,1)+1,2) )
-            remove_zone_z(1,1) = 0.0d0! from
-            remove_zone_z(1,2) = MiddlePierHeights(1) - thickness/2.0d0! to
-            do i=2,size(MiddlePierHeights,1)
-                remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
-                remove_zone_z(i,2) = MiddlePierHeights(i) - thickness/2.0d0  ! to
-            enddo
-            i = size(remove_zone_z,1)
-            remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
-            remove_zone_z(i,2) = height - thickness  ! to
+            z_axis(size(z_axis)-1:size(z_axis)  ) =[Height-PierThickness,Height]
             
+
+
+            
+            x_axis_origin = x_axis
+            y_axis_origin = y_axis
+            z_axis_origin = z_axis
+
+            if(present(Divisions)  )then
+                do i=1,Divisions(1)
+                    call Refine(x_axis_origin,1)
+                enddo
+                do i=1,Divisions(2)
+                    call Refine(y_axis_origin,1)
+                enddo
+                do i=1,Divisions(3)
+                    call Refine(z_axis_origin,1)
+                enddo
+            endif
+
+            call RFV%create("Cube3D",&
+                x_axis = x_axis_origin ,&
+                y_axis = y_axis_origin ,&
+                z_axis = z_axis_origin  &
+            )
+
+            ! x-direction (Length)
+            
+            killElemList = int(zeros(RFV%ne()))
+            do k = 1, size(MiddlePierHeights)+1
+                do i=1,NumPiers(2)-1
+                    do j=1,RFV%ne()
+                        center_coord = RFV%centerPosition(ElementID=j)
+                        if(x_axis(2*i) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1))then
+                            if(z_axis(2*k-1) < center_coord(3) .and. center_coord(3) < z_axis(2*k) )then
+                                killElemList(j) =  1
+                            endif
+                        endif
+                    enddo
+                enddo
+
+                do i=1,NumPiers(1)-1
+
+                    do j=1,RFV%ne()
+                        center_coord = RFV%centerPosition(ElementID=j)
+                        if(y_axis(2*i) < center_coord(2) .and. center_coord(2) < y_axis(2*i+1))then
+                            if(z_axis(2*k-1) < center_coord(3) .and. center_coord(3) < z_axis(2*k) )then
+                                killElemList(j) =  1
+                            endif
+                        endif
+                    enddo
+                enddo
+            enddo
+
+            if(allocated(killElemList) )then
+                call RFV%killElement(blacklist=killElemList,flag=1)
+            endif
+
+            ! cut top
+            ! x-direction (Length)
+            killElemList = int(zeros(RFV%ne()))
+            do i=1,NumPiers(2)-1
+                do j=1,RFV%ne()
+                    center_coord = RFV%centerPosition(ElementID=j)
+                    if(x_axis(2*i) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1))then
+                        !if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                        killElemList(j) = killElemList(j) + 1
+                        !endif
+                    endif
+                enddo
+            enddo
+            
+            do i=1,NumPiers(1)-1
+
+                do j=1,RFV%ne()
+                    center_coord = RFV%centerPosition(ElementID=j)
+                    if(y_axis(2*i) < center_coord(2) .and. center_coord(2) < y_axis(2*i+1))then
+                        !if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                        killElemList(j) = killElemList(j) + 1
+                        !endif
+                    endif
+                enddo
+            enddo
+
+
+            if(allocated(killElemList) )then
+                call RFV%killElement(blacklist=killElemList,flag=2)
+            endif
+
+
         else
-            allocate(remove_zone_z(1,2) )
-            remove_zone_z(1,1) = 0.0d0 ! from
-            remove_zone_z(1,2) = height - thickness  ! to
-        endif
-        
+            z_axis = [0.0d0,Height-PierThickness,Height]
 
-        if(debug_mode_requested )then
-            print *, "[ok] remove_box set"
-        endif
-        
-        allocate(remove_elem(RFV%ne() ))
-        allocate(remove_node(RFV%nn() )  )
-        remove_elem(:) = 0
-        remove_node(:) = 0
-        
-        !$OMP parallel do default(shared) private(point)
-        do ElementID=1, RFV%ne()
-                
-            point = RFV%centerPosition(ElementID=ElementID)
-            do i=1,size(remove_zone_x,1)
-                if(remove_zone_x(i,1) < point(1) .and. point(1) < remove_zone_x(i,2)  )then
-                    remove_elem(ElementID) = remove_elem(ElementID) + 1
-                    exit
-                endif
-            enddo
-    
-            do i=1,size(remove_zone_y,1)
-                if(remove_zone_y(i,1) < point(2) .and. point(2) < remove_zone_y(i,2)  )then
-                    remove_elem(ElementID) = remove_elem(ElementID) + 1
-                    exit
-                endif
-            enddo
-    
-            do i=1,size(remove_zone_z,1)
-                if(remove_zone_z(i,1) < point(3) .and. point(3) < remove_zone_z(i,2)  )then
-                    remove_elem(ElementID) = remove_elem(ElementID) + 1
-                    exit
-                endif
-            enddo
-        enddo
-        !$OMP end parallel do
-        
-        if(debug_mode_requested )then
-            print *, "[ok] remove_elem ready"
-        endif
-    
-        remove_count = 0
-        do i=1,size(remove_elem)
-            if(remove_elem(i) >=2)then
-                remove_count = remove_count + 1
-            endif
-        enddo
-        buf = RFV%mesh%elemnod
-    
-        deallocate(RFV%mesh%elemnod)
-        allocate(RFV%mesh%elemnod( size(buf,1)-remove_count,size(buf,2) ) )
-    
-        j = 0
-    
-        do i=1,size(buf,1)
-            if(remove_elem(i) < 2)then
-                j = j + 1
-                RFV%mesh%elemnod(j,:) = buf(i,:)
-            endif
-        enddo
-    
-        deallocate(remove_elem )
-        deallocate(buf)
-    
-    
-        if(debug_mode_requested )then
-            print *, "[ok] remove_elem done"
-        endif
-    
-    
-        remove_node(:) = 1
-        
-        do i=1, size(RFV%mesh%elemnod,1)
-            do j = 1,size(RFV%mesh%elemnod,2)
-                remove_node(RFV%mesh%elemnod(i,j) ) = 0
-            enddo
-        enddo
-        
-        allocate(new_node_id(size(RFV%mesh%nodcoord,1) ))
-        j = 0
-        do i=1,size(RFV%mesh%nodcoord,1)
-            if(remove_node(i)==0 )then
-                ! not removed
-                j=j+1
-                new_node_id(i)=j
-            else
-                ! removed
-                new_node_id(i) = j
-                cycle
-            endif
-        enddo
-        
-        realbuf = RFV%mesh%nodcoord(:,:)
-        RFV%mesh%nodcoord = zeros(size(realbuf,1)-sum(remove_node),size(realbuf,2) )
-        j = 0
-        do i=1, size(realbuf,1)
-            if(remove_node(i) /=1)then
-                j = j + 1
-                RFV%mesh%nodcoord(j,:) = realbuf(i,:)
-            endif
-        enddo
-        
-        !$OMP parallel do
-        do i=1, size(RFV%mesh%elemnod,1)
-            do j = 1,size(RFV%mesh%elemnod,2)
-                RFV%mesh%elemnod(i,j) = new_node_id(RFV%mesh%elemnod(i,j) )
-            enddo
-        enddo
-        !$OMP end parallel do
-        
-    endif
+            
+            x_axis_origin = x_axis
+            y_axis_origin = y_axis
+            z_axis_origin = z_axis
 
+            if(present(Divisions)  )then
+                do i=1,Divisions(1)
+                    call Refine(x_axis_origin,1)
+                enddo
+                do i=1,Divisions(2)
+                    call Refine(y_axis_origin,1)
+                enddo
+                do i=1,Divisions(3)
+                    call Refine(z_axis_origin,1)
+                enddo
+            endif
+
+            call RFV%create("Cube3D",&
+                x_axis = x_axis_origin ,&
+                y_axis = y_axis_origin ,&
+                z_axis = z_axis_origin  &
+            )
+
+            ! x-direction (Length)
+            killElemList = int(zeros(RFV%ne()))
+            do i=1,NumPiers(2)-1
+                do j=1,RFV%ne()
+                    center_coord = RFV%centerPosition(ElementID=j)
+                    if(x_axis(2*i) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1))then
+                        if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                            killElemList(j) =  1
+                        endif
+                    endif
+                enddo
+            enddo
+            
+            do i=1,NumPiers(1)-1
+
+                do j=1,RFV%ne()
+                    center_coord = RFV%centerPosition(ElementID=j)
+                    if(y_axis(2*i) < center_coord(2) .and. center_coord(2) < y_axis(2*i+1))then
+                        if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                            killElemList(j) =  1
+                        endif
+                    endif
+                enddo
+            enddo
+
+
+            if(allocated(killElemList) )then
+                call RFV%killElement(blacklist=killElemList,flag=1)
+            endif
+
+            ! cut top
+            ! x-direction (Length)
+            killElemList = int(zeros(RFV%ne()))
+            do i=1,NumPiers(2)-1
+                do j=1,RFV%ne()
+                    center_coord = RFV%centerPosition(ElementID=j)
+                    if(x_axis(2*i) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1))then
+                        !if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                        killElemList(j) = killElemList(j) + 1
+                        !endif
+                    endif
+                enddo
+            enddo
+            
+            do i=1,NumPiers(1)-1
+
+                do j=1,RFV%ne()
+                    center_coord = RFV%centerPosition(ElementID=j)
+                    if(y_axis(2*i) < center_coord(2) .and. center_coord(2) < y_axis(2*i+1))then
+                        !if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                        killElemList(j) = killElemList(j) + 1
+                        !endif
+                    endif
+                enddo
+            enddo
+
+
+            if(allocated(killElemList) )then
+                call RFV%killElement(blacklist=killElemList,flag=2)
+            endif
+
+
+        endif
+
+!    endif
+!
+!
+!
+!    ! remove_zone
+!    if(NumPiers(1) <= 1 )then
+!        n = 1
+!        ! y
+!        ! |
+!        ! ---------------------------> x
+!        call RFV%resize(x=thickness, y=length, z=height)
+!
+!
+!        allocate(remove_zone_y(NumPiers(2)-1,2 ))
+!
+!        remove_zone_y(1,1) = thickness  ! from
+!        remove_zone_y(1,2) = thickness + ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
+!        ! y-direction
+!        do i=2,NumPiers(2)-1
+!            remove_zone_y(i,1) = remove_zone_y(i-1,2) +  thickness  ! from
+!            remove_zone_y(i,2) = remove_zone_y(i  ,1) +  ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
+!        enddo
+!
+!        ! z-direction
+!        if(present (MiddlePierHeights) )then
+!            allocate(remove_zone_z(size(MiddlePierHeights,1)+1,2) )
+!            remove_zone_z(1,1) = 0.0d0! from
+!            remove_zone_z(1,2) = MiddlePierHeights(1) - thickness/2.0d0! to
+!            do i=2,size(MiddlePierHeights,1)
+!                remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
+!                remove_zone_z(i,2) = MiddlePierHeights(i) - thickness/2.0d0  ! to
+!            enddo
+!            i = size(remove_zone_z,1)
+!            remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
+!            remove_zone_z(i,2) = height - thickness  ! to
+!            
+!        else
+!            allocate(remove_zone_z(1,2) )
+!            remove_zone_z(1,1) = 0.0d0 ! from
+!            remove_zone_z(1,2) = height - thickness  ! to
+!        endif
+!
+!        ! debug
+!
+!        if(debug_mode_requested )then
+!            print *, "[ok] remove_box set"
+!        endif
+!        
+!        allocate(remove_elem(RFV%ne() ))
+!        allocate(remove_node(RFV%nn() )  )
+!        remove_elem(:) = 0
+!        remove_node(:) = 0
+!        
+!        !$OMP parallel do default(shared) private(point)
+!        do ElementID=1, RFV%ne()
+!                
+!            point = RFV%centerPosition(ElementID=ElementID)
+!            
+!            do i=1,size(remove_zone_y,1)
+!                if(remove_zone_y(i,1) < point(2) .and. point(2) < remove_zone_y(i,2)  )then
+!                    remove_elem(ElementID) = remove_elem(ElementID) + 1
+!                    exit
+!                endif
+!            enddo
+!    
+!            do i=1,size(remove_zone_z,1)
+!                if(remove_zone_z(i,1) < point(3) .and. point(3) < remove_zone_z(i,2)  )then
+!                    remove_elem(ElementID) = remove_elem(ElementID) + 1
+!                    exit
+!                endif
+!            enddo
+!        enddo
+!        !$OMP end parallel do
+!        
+!        if(debug_mode_requested )then
+!            print *, "[ok] remove_elem ready"
+!        endif
+!    
+!        remove_count = 0
+!        do i=1,size(remove_elem)
+!            if(remove_elem(i) >=2)then
+!                remove_count = remove_count + 1
+!            endif
+!        enddo
+!        buf = RFV%mesh%elemnod
+!    
+!        deallocate(RFV%mesh%elemnod)
+!        allocate(RFV%mesh%elemnod( size(buf,1)-remove_count,size(buf,2) ) )
+!    
+!        j = 0
+!    
+!        do i=1,size(buf,1)
+!            if(remove_elem(i) < 2)then
+!                j = j + 1
+!                RFV%mesh%elemnod(j,:) = buf(i,:)
+!            endif
+!        enddo
+!    
+!        deallocate(remove_elem )
+!        deallocate(buf)
+!    
+!    
+!        if(debug_mode_requested )then
+!            print *, "[ok] remove_elem done"
+!        endif
+!    
+!    
+!        remove_node(:) = 1
+!        
+!        do i=1, size(RFV%mesh%elemnod,1)
+!            do j = 1,size(RFV%mesh%elemnod,2)
+!                remove_node(RFV%mesh%elemnod(i,j) ) = 0
+!            enddo
+!        enddo
+!        
+!        allocate(new_node_id(size(RFV%mesh%nodcoord,1) ))
+!        j = 0
+!        do i=1,size(RFV%mesh%nodcoord,1)
+!            if(remove_node(i)==0 )then
+!                ! not removed
+!                j=j+1
+!                new_node_id(i)=j
+!            else
+!                ! removed
+!                new_node_id(i) = j
+!                cycle
+!            endif
+!        enddo
+!        
+!        realbuf = RFV%mesh%nodcoord(:,:)
+!        RFV%mesh%nodcoord = zeros(size(realbuf,1)-sum(remove_node),size(realbuf,2) )
+!        j = 0
+!        do i=1, size(realbuf,1)
+!            if(remove_node(i) /=1)then
+!                j = j + 1
+!                RFV%mesh%nodcoord(j,:) = realbuf(i,:)
+!            endif
+!        enddo
+!        
+!        !$OMP parallel do
+!        do i=1, size(RFV%mesh%elemnod,1)
+!            do j = 1,size(RFV%mesh%elemnod,2)
+!                RFV%mesh%elemnod(i,j) = new_node_id(RFV%mesh%elemnod(i,j) )
+!            enddo
+!        enddo
+!        !$OMP end parallel do
+!
+!
+!    elseif(NumPiers(2) <= 1 )then
+!        m = 1
+!        ! y
+!        ! |
+!        ! ---------------------------> x
+!        call RFV%resize(x=Width, y=thickness, z=height)
+!
+!        allocate(remove_zone_x(NumPiers(1)-1,2 ))
+!
+!        remove_zone_x(1,1) = thickness  ! from
+!        remove_zone_x(1,2) = thickness + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
+!        ! y-direction
+!        do i=2,NumPiers(1)-1
+!            remove_zone_x(i,1) = remove_zone_x(i-1,2) +  thickness  ! from
+!            remove_zone_x(i,2) = remove_zone_x(i  ,1) +  ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
+!        enddo
+!
+!        ! z-direction
+!        if(present (MiddlePierHeights) )then
+!            allocate(remove_zone_z(size(MiddlePierHeights,1)+1,2) )
+!            remove_zone_z(1,1) = 0.0d0! from
+!            remove_zone_z(1,2) = MiddlePierHeights(1) - thickness/2.0d0! to
+!            do i=2,size(MiddlePierHeights,1)
+!                remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
+!                remove_zone_z(i,2) = MiddlePierHeights(i) - thickness/2.0d0  ! to
+!            enddo
+!            i = size(remove_zone_z,1)
+!            remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
+!            remove_zone_z(i,2) = height - thickness  ! to
+!            
+!        else
+!            allocate(remove_zone_z(1,2) )
+!            remove_zone_z(1,1) = 0.0d0 ! from
+!            remove_zone_z(1,2) = height - thickness  ! to
+!        endif
+!
+!        ! debug
+!
+!        if(debug_mode_requested )then
+!            print *, "[ok] remove_box set"
+!        endif
+!        
+!        allocate(remove_elem(RFV%ne() ))
+!        allocate(remove_node(RFV%nn() )  )
+!        remove_elem(:) = 0
+!        remove_node(:) = 0
+!        
+!        !$OMP parallel do default(shared) private(point)
+!        do ElementID=1, RFV%ne()
+!                
+!            point = RFV%centerPosition(ElementID=ElementID)
+!            
+!            do i=1,size(remove_zone_x,1)
+!                if(remove_zone_x(i,1) < point(1) .and. point(1) < remove_zone_x(i,2)  )then
+!                    remove_elem(ElementID) = remove_elem(ElementID) + 1
+!                    exit
+!                endif
+!            enddo
+!    
+!            do i=1,size(remove_zone_z,1)
+!                if(remove_zone_z(i,1) < point(3) .and. point(3) < remove_zone_z(i,2)  )then
+!                    remove_elem(ElementID) = remove_elem(ElementID) + 1
+!                    exit
+!                endif
+!            enddo
+!        enddo
+!        !$OMP end parallel do
+!        
+!        if(debug_mode_requested )then
+!            print *, "[ok] remove_elem ready"
+!        endif
+!    
+!        remove_count = 0
+!        do i=1,size(remove_elem)
+!            if(remove_elem(i) >=2)then
+!                remove_count = remove_count + 1
+!            endif
+!        enddo
+!        buf = RFV%mesh%elemnod
+!    
+!        deallocate(RFV%mesh%elemnod)
+!        allocate(RFV%mesh%elemnod( size(buf,1)-remove_count,size(buf,2) ) )
+!    
+!        j = 0
+!    
+!        do i=1,size(buf,1)
+!            if(remove_elem(i) < 2)then
+!                j = j + 1
+!                RFV%mesh%elemnod(j,:) = buf(i,:)
+!            endif
+!        enddo
+!    
+!        deallocate(remove_elem )
+!        deallocate(buf)
+!    
+!    
+!        if(debug_mode_requested )then
+!            print *, "[ok] remove_elem done"
+!        endif
+!    
+!    
+!        remove_node(:) = 1
+!        
+!        do i=1, size(RFV%mesh%elemnod,1)
+!            do j = 1,size(RFV%mesh%elemnod,2)
+!                remove_node(RFV%mesh%elemnod(i,j) ) = 0
+!            enddo
+!        enddo
+!        
+!        allocate(new_node_id(size(RFV%mesh%nodcoord,1) ))
+!        j = 0
+!        do i=1,size(RFV%mesh%nodcoord,1)
+!            if(remove_node(i)==0 )then
+!                ! not removed
+!                j=j+1
+!                new_node_id(i)=j
+!            else
+!                ! removed
+!                new_node_id(i) = j
+!                cycle
+!            endif
+!        enddo
+!        
+!        realbuf = RFV%mesh%nodcoord(:,:)
+!        RFV%mesh%nodcoord = zeros(size(realbuf,1)-sum(remove_node),size(realbuf,2) )
+!        j = 0
+!        do i=1, size(realbuf,1)
+!            if(remove_node(i) /=1)then
+!                j = j + 1
+!                RFV%mesh%nodcoord(j,:) = realbuf(i,:)
+!            endif
+!        enddo
+!        
+!        !$OMP parallel do
+!        do i=1, size(RFV%mesh%elemnod,1)
+!            do j = 1,size(RFV%mesh%elemnod,2)
+!                RFV%mesh%elemnod(i,j) = new_node_id(RFV%mesh%elemnod(i,j) )
+!            enddo
+!        enddo
+!        !$OMP end parallel do
+!        print *, "debug"
+!
+!    else
+!        ! y
+!        ! |
+!        ! ---------------------------> x
+!
+!        allocate(remove_zone_x(NumPiers(1)-1,2 ))
+!        
+!        remove_zone_x(1,1) = thickness  ! from
+!        remove_zone_x(1,2) = thickness + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
+!        ! y-direction
+!        do i=2,NumPiers(1)-1
+!            remove_zone_x(i,1) = remove_zone_x(i-1,2) +  thickness  ! from
+!            remove_zone_x(i,2) = remove_zone_x(i  ,1) + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
+!        enddo
+!
+!        
+!
+!        allocate(remove_zone_y(NumPiers(2)-1,2 ))
+!
+!        remove_zone_y(1,1) = thickness  ! from
+!        remove_zone_y(1,2) = thickness + ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
+!        ! y-direction
+!        do i=2,NumPiers(2)-1
+!            remove_zone_y(i,1) = remove_zone_y(i-1,2) +  thickness  ! from
+!            remove_zone_y(i,2) = remove_zone_y(i  ,1) + ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
+!        enddo
+!
+!
+!        ! z-direction
+!        if(present (MiddlePierHeights) )then
+!            allocate(remove_zone_z(size(MiddlePierHeights,1)+1,2) )
+!            remove_zone_z(1,1) = 0.0d0! from
+!            remove_zone_z(1,2) = MiddlePierHeights(1) - thickness/2.0d0! to
+!            do i=2,size(MiddlePierHeights,1)
+!                remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
+!                remove_zone_z(i,2) = MiddlePierHeights(i) - thickness/2.0d0  ! to
+!            enddo
+!            i = size(remove_zone_z,1)
+!            remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
+!            remove_zone_z(i,2) = height - thickness  ! to
+!            
+!        else
+!            allocate(remove_zone_z(1,2) )
+!            remove_zone_z(1,1) = 0.0d0 ! from
+!            remove_zone_z(1,2) = height - thickness  ! to
+!        endif
+!        
+!
+!        if(debug_mode_requested )then
+!            print *, "[ok] remove_box set"
+!        endif
+!        
+!        allocate(remove_elem(RFV%ne() ))
+!        allocate(remove_node(RFV%nn() )  )
+!        remove_elem(:) = 0
+!        remove_node(:) = 0
+!        
+!        !$OMP parallel do default(shared) private(point)
+!        do ElementID=1, RFV%ne()
+!                
+!            point = RFV%centerPosition(ElementID=ElementID)
+!            do i=1,size(remove_zone_x,1)
+!                if(remove_zone_x(i,1) < point(1) .and. point(1) < remove_zone_x(i,2)  )then
+!                    remove_elem(ElementID) = remove_elem(ElementID) + 1
+!                    exit
+!                endif
+!            enddo
+!    
+!            do i=1,size(remove_zone_y,1)
+!                if(remove_zone_y(i,1) < point(2) .and. point(2) < remove_zone_y(i,2)  )then
+!                    remove_elem(ElementID) = remove_elem(ElementID) + 1
+!                    exit
+!                endif
+!            enddo
+!    
+!            do i=1,size(remove_zone_z,1)
+!                if(remove_zone_z(i,1) < point(3) .and. point(3) < remove_zone_z(i,2)  )then
+!                    remove_elem(ElementID) = remove_elem(ElementID) + 1
+!                    exit
+!                endif
+!            enddo
+!        enddo
+!        !$OMP end parallel do
+!        
+!        if(debug_mode_requested )then
+!            print *, "[ok] remove_elem ready"
+!        endif
+!    
+!        remove_count = 0
+!        do i=1,size(remove_elem)
+!            if(remove_elem(i) >=2)then
+!                remove_count = remove_count + 1
+!            endif
+!        enddo
+!        buf = RFV%mesh%elemnod
+!    
+!        deallocate(RFV%mesh%elemnod)
+!        allocate(RFV%mesh%elemnod( size(buf,1)-remove_count,size(buf,2) ) )
+!    
+!        j = 0
+!    
+!        do i=1,size(buf,1)
+!            if(remove_elem(i) < 2)then
+!                j = j + 1
+!                RFV%mesh%elemnod(j,:) = buf(i,:)
+!            endif
+!        enddo
+!    
+!        deallocate(remove_elem )
+!        deallocate(buf)
+!    
+!    
+!        if(debug_mode_requested )then
+!            print *, "[ok] remove_elem done"
+!        endif
+!    
+!    
+!        remove_node(:) = 1
+!        
+!        do i=1, size(RFV%mesh%elemnod,1)
+!            do j = 1,size(RFV%mesh%elemnod,2)
+!                remove_node(RFV%mesh%elemnod(i,j) ) = 0
+!            enddo
+!        enddo
+!        
+!        allocate(new_node_id(size(RFV%mesh%nodcoord,1) ))
+!        j = 0
+!        do i=1,size(RFV%mesh%nodcoord,1)
+!            if(remove_node(i)==0 )then
+!                ! not removed
+!                j=j+1
+!                new_node_id(i)=j
+!            else
+!                ! removed
+!                new_node_id(i) = j
+!                cycle
+!            endif
+!        enddo
+!        
+!        realbuf = RFV%mesh%nodcoord(:,:)
+!        RFV%mesh%nodcoord = zeros(size(realbuf,1)-sum(remove_node),size(realbuf,2) )
+!        j = 0
+!        do i=1, size(realbuf,1)
+!            if(remove_node(i) /=1)then
+!                j = j + 1
+!                RFV%mesh%nodcoord(j,:) = realbuf(i,:)
+!            endif
+!        enddo
+!        
+!        !$OMP parallel do
+!        do i=1, size(RFV%mesh%elemnod,1)
+!            do j = 1,size(RFV%mesh%elemnod,2)
+!                RFV%mesh%elemnod(i,j) = new_node_id(RFV%mesh%elemnod(i,j) )
+!            enddo
+!        enddo
+!        !$OMP end parallel do
+!        
+!    endif
+!
     call RFV%move(x = -(RFV%xmax()-RFV%xmin())*0.50d0  )
     
 

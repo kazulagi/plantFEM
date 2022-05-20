@@ -6447,7 +6447,8 @@ end subroutine
 
 ! ##################################################
 subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
-	top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz,coordinate,species,SoyWidthRatio)
+	top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz,coordinate,species,SoyWidthRatio,&
+	x_axis,y_axis,z_axis)
 	class(FEMDomain_),intent(inout) :: obj
 	type(FEMDomain_),optional,intent(inout) :: master,slave
 	character(*),intent(in) :: meshtype
@@ -6461,6 +6462,7 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 	real(real64),optional,intent(in) :: shaperatio ! for 3D leaf
     real(real64),optional,intent(in) :: top,margin,inclineRate ! for 3D Ridge and dam
 	real(real64),optional,intent(in) :: x,y,z,dx,dy,dz,coordinate(:,:)
+	real(real64),optional,intent(in) :: x_axis(:),y_axis(:),z_axis(:)
 	integer(int32),optional,intent(in) :: species
 	real(real64),optional,intent(in) :: SoyWidthRatio
 	integer,dimension(3),parameter :: versions_to_test = [0,1,4]
@@ -6479,6 +6481,7 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 	xlen=input(default=1.0d0,option=x_len)
 	ylen=input(default=1.0d0,option=y_len)
 	zlen=input(default=1.0d0,option=z_len)
+
 
 	if(present(Name) )then
 		obj%Name=Name
@@ -6499,6 +6502,19 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 	if(present(slave) )then
 		obj%link(2) = slave%uuid
 	endif
+
+
+	select case(meshtype)
+		case("Cube","Cube3D")
+			if(present(x_axis) .and. present(y_axis) )then
+				if(present(z_axis) )then
+					call obj%mesh%cube(x=x_axis,y=y_axis,z=z_axis)
+				else
+					call obj%mesh%cube(x=x_axis,y=y_axis,z=[0.0d0,1.0d0])
+				endif
+				return
+			endif
+	end select
 
 	if(present(z_num) .or. present(z_len) )then
 		call obj%Mesh%create(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
@@ -10662,8 +10678,10 @@ end function
 
 subroutine killElementFEMDomain(obj,blacklist,flag)
 	class(FEMDomain_),intent(inout) :: obj
-	integer(int32),allocatable :: elemnod_old(:,:)
+	real(real64),allocatable :: new_nod_coord(:,:)
+	integer(int32),allocatable :: elemnod_old(:,:),non_remove_node(:),new_node_id(:)
 	integer(int32),optional,intent(in) :: blacklist(:),flag
+	
 	integer(int32) :: i,J,n,m,k
 	logical :: survive
 
@@ -10702,6 +10720,45 @@ subroutine killElementFEMDomain(obj,blacklist,flag)
 			obj%mesh%elemnod(n,:) = elemnod_old(i,:)
 		endif
 	enddo
+
+	! if there are uncounted nodes, kill nodes
+	non_remove_node = zeros(obj%nn() )
+	new_node_id = zeros(obj%nn() )
+	do i=1,obj%ne()
+		do j=1,obj%nne()
+			non_remove_node( obj%mesh%elemnod(i,j) ) = 1
+		enddo
+	enddo
+
+	if(non_remove_node(1)==1)then
+		new_node_id(1) = 1
+	else
+		new_node_id(1) = 0
+	endif
+
+	do i=2,obj%nn()
+		new_node_id(i) = new_node_id(i-1) + non_remove_node(i) 
+	enddo
+
+
+	new_nod_coord = zeros( sum(non_remove_node),obj%nd() )
+	j=0
+	do i=1,size(new_node_id)
+		if(non_remove_node(i)==1 )then
+			j = j + 1
+			new_nod_coord( j,: ) = obj%mesh%nodcoord(i,:)
+		endif
+	enddo
+
+	do i=1,obj%ne()
+		do j=1,obj%nne()
+			obj%mesh%elemnod(i,j) = new_node_id( obj%mesh%elemnod(i,j) )
+		enddo
+	enddo
+	obj%mesh%nodcoord = new_nod_coord
+
+
+
 
 end subroutine
 ! ###################################################################
