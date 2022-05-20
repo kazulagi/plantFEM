@@ -4,7 +4,7 @@
     "Length" : 50.00 ,  
     "Height" : 20.00 ,
     "PierThickness" : 2.00  ,
-    "Divisions" : [28,100,40] ,
+    "Divisions" : [3,3,3] ,
     "NumMiddlePier" : 2,
     "MiddlePierHeights" : [7.00,11.00]  
 }

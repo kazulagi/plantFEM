@@ -71,7 +71,7 @@ module ArrayClass
     
 
     interface refine
-        module procedure :: RefineSequenceReal64,RefineSequenceComplex64,RefineSequenceReal32
+        module procedure :: RefineSequenceReal64,RefineSequenceComplex64,RefineSequenceReal32, refineReal64Vec
     end interface
 
     interface convolve
@@ -5788,6 +5788,54 @@ function averageReal64(vec) result(ret)
     ret = sum(vec)/dble(size(vec))
 
 end function
+! ###############################################################
+
+recursive subroutine refineReal64Vec(x,n) 
+    real(real64),allocatable,intent(inout) :: x(:)
+    integer(int32),intent(in) :: n
+    !real(real64),optional,intent(in) :: ignore(1:2) ! ignore refinement in this range
+
+    real(real64),allocatable :: ret(:),buf(:)
+    real(real64) :: max_len
+    integer(int32) :: i, j,max_len_num
+
+    if(size(x)<=1 )then
+        print *, "[ERROR] refineReal64Vec"
+        print *, "size(x) should be >= 2 and sorted."
+        return
+    endif
+
+    ! make it finer!
+    buf = zeros(size(x)-1 )
+    
+    !$OMP parallel do
+    do i=1,size(x)-1
+        buf(i) = abs(x(i+1) - x(i))
+    enddo
+    !$OMP end parallel do
+    max_len = maxval(buf)
+    max_len_num = countif(Array=buf,Equal=.true.,value=max_len)
+    
+    ret = zeros(size(x) + max_len_num  )
+    j=0
+    do i=1,size(x)-1
+        j = j + 1
+        ret(j) = x(i)
+        if(buf(i)>=max_len )then
+            j = j + 1
+            ret(j) = x(i) + max_len*0.50d0
+        endif
+    enddo
+    ret(size(ret) ) = x(size(x) )
+
+    x = ret
+    if(n==1)then
+        return
+    else
+        call refineReal64Vec(x,n-1)
+    endif
+
+end subroutine
 
 
 ! ###############################################################
