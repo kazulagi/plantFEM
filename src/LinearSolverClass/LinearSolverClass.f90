@@ -4001,15 +4001,20 @@ function UpperTriangularMatrix(CRS_val,CRS_col,CRS_rowptr) result(UP)
   N  = size(CRS_rowptr) - 1 
   UP = zeros(N*(N+1)/2)
 
+  !$OMP parallel default(shared) private(col,val,i)
+  !$OMP do
   do row=1,N
       do i=CRS_rowptr(row),CRS_rowptr(row+1) - 1
           col = CRS_col(i)
           val = CRS_val(i)
           if(row<=col)then
-              UP( row + (col-1)*col/2 ) = val
+            !!$OMP atomic
+            UP( row + (col-1)*col/2 ) = val
           endif
       enddo
   enddo
+  !$OMP end do
+  !$OMP end parallel 
 
 end function
 ! ###################################################################

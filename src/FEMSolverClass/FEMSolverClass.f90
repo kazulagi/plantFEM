@@ -1319,7 +1319,7 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
         !<<<<<<<<<<<<<< OUTPUT
         
 
-        
+        print *, ">> Solver :: LAPACK/DSPGVD"
         call DSPGVD (ITYPE, JOBZ, UPLO, N, AP, BP, W, Z, LDZ, WORK, &
         LWORK, IWORK, LIWORK, INFO)
 !    endif
