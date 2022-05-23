@@ -154,6 +154,7 @@ module FEMDomainClass
 		procedure,public :: connectivity => connectivityFEMDomain 
 		procedure,public :: copy => copyFEMDomain
 		procedure,public :: convertMeshType => convertMeshTypeFEMDomain
+		procedure,public :: clipVector => clipVectorFEMDomain
 		
 		procedure,public :: contactdetect => contactdetectFEMDomain
 		procedure,public :: centerPosition => centerPositionFEMDomain
@@ -369,6 +370,7 @@ module FEMDomainClass
 		module procedure appendfemdomain
 	end interface
 
+	
 contains
 
 ! ####################################################################
@@ -12688,6 +12690,33 @@ subroutine killNodesFEMDomain(this,NodeList)
 
 
 end subroutine
+
+function clipVectorFEMDomain(this,vector,femdomains,DomainID) result(ret_vec)
+	class(FEMDomain_),intent(in) :: this
+	type(FEMDomain_),intent(in) :: femdomains(:)
+	real(real64),intent(in) :: vector(:)
+	real(real64),allocatable :: ret_vec(:)
+	integer(int32),intent(in) :: DomainID
+	integer(int32) :: i,j,k,DOF,n,total_nn
+	
+	! Assuming vector(:) is a set of
+	! node-wise value
+	total_nn = 0
+	do i=1,size(femdomains)
+		total_nn = total_nn + femdomains(i)%nn()
+	enddo
+
+	DOF = size(vector)/total_nn
+
+	total_nn = 0
+	do i=1,DomainID-1
+		total_nn = total_nn + femdomains(i)%nn()
+	enddo
+
+	ret_vec = zeros(this%nn()*DOF )
+	ret_vec(:) = vector(  total_nn*DOF+1 : total_nn*DOF+ this%nn()*DOF )
+
+end function
 
 end module FEMDomainClass
 
