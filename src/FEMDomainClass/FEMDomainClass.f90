@@ -38,7 +38,7 @@ module FEMDomainClass
 
 
 	integer(int32),parameter,public :: FEMDomain_Overset_GPP = 1
-	integer(int32),parameter,public :: FEMDomain_Overset_P2P = 1
+	integer(int32),parameter,public :: FEMDomain_Overset_P2P = 2
 
 	
 	
@@ -11968,7 +11968,7 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID)
 	elseif(algorithm == FEMDomain_Overset_P2P )then
 
 		if(.not.allocated(obj%OversetExists) )then
-			obj%OversetExists = int(zeros(obj%ne(),1 ))
+			obj%OversetExists = int(zeros(obj%nn(),1 ))
 		endif
 
 		allocate(DomainIDs12(femdomain%nne()+1 ) )
@@ -11978,10 +11978,11 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID)
 			! For 1st element, create stiffness matrix
 			! set global coordinate
 			position(:) = obj%mesh%nodcoord(NodeID,:)
-			if( femdomain%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))<=0 )then
+			ElementID = femdomain%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))
+			if( ElementID<=0 )then
 				cycle
 			else
-				obj%OversetExists(ElementID, 1) = obj%OversetExists(ElementID, 1) +1
+				obj%OversetExists(NodeID, 1) = obj%OversetExists(NodeID, 1) +1
 			endif
 
 			if(obj%num_oversetconnect + 1 > size(obj%OversetConnect) )then
