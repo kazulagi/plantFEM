@@ -373,7 +373,8 @@ end function
 
 ! #############################################################################
 function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,divisions,height,MiddlePierHeights,&
-        GirderThickness,debug) result(RFV)
+        GirderThickness,& ! >> From here, args are optional!!
+        GirderWidth, GirderEdgeHeight, GirderEdgeThickness, JointHeight, JointThickness, JointLength,debug) result(RFV)
     class(CivilItem_),intent(inout) :: this
     integer(int32),intent(in) :: NumPiers(1:2) ! n by m, total n*m piers
     integer(int32),optional,intent(in) :: divisions(1:3)
@@ -381,10 +382,23 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
     real(real64),intent(in) :: width
     real(real64),intent(in) :: height
     real(real64),intent(in) :: PierThickness
+
+    ! Lv. 1:: with Middle Piers and Girders
     real(real64),optional,intent(in) :: MiddlePierHeights(:)
     real(real64),optional,intent(in) :: GirderThickness
+
+    ! Lv. 2:: Detail
+    real(real64),optional,intent(in) ::GirderWidth
+    real(real64),optional,intent(in) ::GirderEdgeHeight
+    real(real64),optional,intent(in) ::GirderEdgeThickness
+    real(real64),optional,intent(in) ::JointHeight
+    real(real64),optional,intent(in) ::JointThickness
+    real(real64),optional,intent(in) ::JointLength
+    
+    ! debug option
     logical,optional,intent(in) :: debug
 
+    ! internal variables
     real(real64) :: dx,dy,dz,thickness,interval
     real(real64),allocatable :: point(:)
     type(FEMDomain_) :: RFV
@@ -402,10 +416,16 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
     real(real64),allocatable :: y_axis_origin(:)
     real(real64),allocatable :: z_axis_origin(:)
 
-    integer(int32) :: ElementID, remove_count,j,k,last_n
+
+    real(real64) :: z_init_max
+    integer(int32) :: girderedge_offset
+    integer(int32) :: ElementID, remove_count,j,k,last_n,girder_offset,joint_offset
+    real(real64) :: present_width,extra_half_width,op_GirderEdgeHeight,w_center
     integer(int32),allocatable :: remove_elem(:),buf(:,:),remove_node(:),new_node_id(:),killElemList(:)
-    real(real64),allocatable :: realbuf(:,:),center_coord(:),shift_x(:)
+    real(real64),allocatable :: realbuf(:,:),center_coord(:),shift_x(:),bufvec(:)
     logical :: debug_mode_requested = .false.
+
+    op_GirderEdgeHeight = input(default=0.0d0,option=GirderEdgeHeight)
     last_n = 0
     if(present(GirderThickness) )then
         last_n = -1
@@ -423,188 +443,203 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
         return
     endif
 
-!    if(present(divisions) )then
-!
-!        call RFV%create("Cube3D",&
-!            x_num = divisions(1) ,&
-!            y_num = divisions(2) ,&
-!            z_num = divisions(3)  &
-!        )
-!        call RFV%resize(x=width, y=length, z=height)
-!
-!    else
-        x_axis = zeros( NumPiers(2)*2 ) 
-        interval = (Length - PierThickness*NumPiers(2))/dble(NumPiers(2) -1  )
-        x_axis(1 ) = 0.0d0 
-        x_axis(2 ) = PierThickness
-        do i=2,NumPiers(2)
-            x_axis(2*i -1 ) = x_axis(2*(i-1) -1 ) + interval + PierThickness
-            x_axis(2*i    ) = x_axis(2*(i-1)    ) + interval + PierThickness
+    ! cut axis
+    ! x-direction (Length)
+    x_axis = zeros( NumPiers(2)*2 ) 
+    interval = (Length - PierThickness*NumPiers(2))/dble(NumPiers(2) -1  )
+    x_axis(1 ) = 0.0d0 
+    x_axis(2 ) = PierThickness
+
+    do i=2,NumPiers(2)
+        x_axis(2*i -1 ) = x_axis(2*(i-1) -1 ) + interval + PierThickness
+        x_axis(2*i    ) = x_axis(2*(i-1)    ) + interval + PierThickness
+    enddo
+
+    ! x-direction (width)
+    y_axis = zeros( NumPiers(1)*2 ) 
+    interval = (Width - PierThickness*NumPiers(1))/dble(NumPiers(1) -1  )
+    y_axis(1 ) = 0.0d0 
+    y_axis(2 ) = PierThickness
+    
+    do i=2,NumPiers(1)
+        y_axis(2*i -1 ) = y_axis(2*(i-1) -1 ) + interval + PierThickness
+        y_axis(2*i    ) = y_axis(2*(i-1)    ) + interval + PierThickness
+    enddo
+    if(present(GirderWidth) )then
+        if(.not. present(GirderThickness))then
+            print *, "ERROR :: CivilItem%rigidframeciaduct >> "
+            print *, "GirderThickness shoud be passed when GirderWidth is present."
+            stop
+        endif
+        ! both GirderWidth and GirderThickness are present.
+        
+        present_width    = maxval(y_axis) - minval(y_axis)
+        extra_half_width = GirderWidth/2.0d0 - present_width*0.50d0 
+        y_axis = [-extra_half_width+minval(y_axis)] // y_axis
+        y_axis = y_axis // [extra_half_width + maxval(y_axis) ]
+    endif
+
+    
+    ! Lv. 1
+    if(present(MiddlePierHeights) )then
+        z_axis = zeros(size(MiddlePierHeights)*2 + 3 )
+        z_axis(1) = 0.0d0
+        j=1
+        do i=1,size(MiddlePierHeights)
+            j=j+1
+            z_axis(j) = MiddlePierHeights(i) - PierThickness/2.0d0
+            j=j+1
+            z_axis(j) = MiddlePierHeights(i) + PierThickness/2.0d0
         enddo
+        
+        z_axis(size(z_axis)-1:size(z_axis)  ) =[Height-PierThickness,Height]
+        
+        if(present(GirderThickness) )then
+            z_axis = z_axis // [ maxval(z_axis)+GirderThickness ]
+        endif
+        
+        
+        z_init_max = maxval(z_axis)
 
+        if(present(GirderEdgeHeight) .or. present(GirderEdgeThickness) )then
+            if(present(GirderEdgeHeight) .and. present(GirderEdgeThickness) )then
+                y_axis = [- GirderEdgeThickness + minval(y_axis) ] // y_axis
+                y_axis = y_axis // [maxval(y_axis)]
+                y_axis(size(y_axis)-1 ) = maxval(y_axis) - GirderEdgeThickness 
+                
+                z_axis = z_axis // [ maxval(z_axis) + GirderEdgeHeight]
+                !z_axis = z_axis // [ maxval(z_axis) + GirderEdgeHeight]
 
-        y_axis = zeros( NumPiers(1)*2 ) 
-        interval = (Width - PierThickness*NumPiers(1))/dble(NumPiers(1) -1  )
-        y_axis(1 ) = 0.0d0 
-        y_axis(2 ) = PierThickness
-        do i=2,NumPiers(1)
-            y_axis(2*i -1 ) = y_axis(2*(i-1) -1 ) + interval + PierThickness
-            y_axis(2*i    ) = y_axis(2*(i-1)    ) + interval + PierThickness
-        enddo
-
-        if(present(MiddlePierHeights) )then
-            z_axis = zeros(size(MiddlePierHeights)*2 + 3 )
-            z_axis(1) = 0.0d0
-            j=1
-            do i=1,size(MiddlePierHeights)
-                j=j+1
-                z_axis(j) = MiddlePierHeights(i) - PierThickness/2.0d0
-                j=j+1
-                z_axis(j) = MiddlePierHeights(i) + PierThickness/2.0d0
-            enddo
-            
-            z_axis(size(z_axis)-1:size(z_axis)  ) =[Height-PierThickness,Height]
-            
-            if(present(GirderThickness) )then
-                z_axis = z_axis // [ maxval(z_axis)+GirderThickness ]
+    
+            else
+                print *, "ERROR :: CivilItem%rigidframeciaduct >> "
+                print *, "GirderEdgeHeight shoud be passed with GirderEdgeThickness"
+                stop
             endif
-
-            x_axis_origin = x_axis
-            y_axis_origin = y_axis
-            z_axis_origin = z_axis
-
-            if(present(Divisions)  )then
-                do i=1,Divisions(1)
-                    call Refine(x_axis_origin,1)
-                enddo
-                do i=1,Divisions(2)
-                    call Refine(y_axis_origin,1)
-                enddo
-                do i=1,Divisions(3)
-                    call Refine(z_axis_origin,1)
-                enddo
+        endif
+        
+        ! for joint
+        if(present(JointLength) .or. present(JointThickness) )then
+            if(present(JointLength) .and. present(JointThickness) )then
+                x_axis = [minval(x_axis) -JointLength] // x_axis
+                x_axis =  x_axis // [maxval(x_axis) + JointLength ]
+            else
+                print *, "ERROR :: CivilItem%rigidframeciaduct >> "
+                print *, "JointLength,JointHeight,JointThickness shoud be passed at the same time!"
+                stop
             endif
+        endif
+        
 
-            call RFV%create("Cube3D",&
-                x_axis = x_axis_origin ,&
-                y_axis = y_axis_origin ,&
-                z_axis = z_axis_origin  &
-            )
-
-            ! x-direction (Length)
-            
-            killElemList = int(zeros(RFV%ne()))
-            do k = 1, size(MiddlePierHeights)+1
-                do i=1,NumPiers(2)-1
-                    do j=1,RFV%ne()
-                        center_coord = RFV%centerPosition(ElementID=j)
-                        if(x_axis(2*i) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1))then
-                            if(z_axis(2*k-1) < center_coord(3) .and. center_coord(3) < z_axis(2*k) )then
-                                if(present(GirderThickness) .and. center_coord(3) >height )then
-                                    cycle
-                                endif
-                                killElemList(j) =  1
-                            endif
-                        endif
-                    enddo
-                enddo
-
-                do i=1,NumPiers(1)-1
-
-                    do j=1,RFV%ne()
-                        center_coord = RFV%centerPosition(ElementID=j)
-                        if(y_axis(2*i) < center_coord(2) .and. center_coord(2) < y_axis(2*i+1))then
-                            if(z_axis(2*k-1) < center_coord(3) .and. center_coord(3) < z_axis(2*k) )then
-                                if(present(GirderThickness) .and. center_coord(3) >height )then
-                                    cycle
-                                endif
-                                killElemList(j) =  1
-                            endif
-                        endif
-                    enddo
-                enddo
+        ! joint
+        joint_offset = 0
+        if(present(JointLength) )then
+            do n=1,size(x_axis)
+                if(x_axis(n) < 0.0d0)then
+                    joint_offset = joint_offset + 1
+                else
+                    exit
+                endif
             enddo
 
-            if(allocated(killElemList) )then
-                call RFV%killElement(blacklist=killElemList,flag=1)
+            n = 0
+            do i=1,size(z_axis)
+                if(z_axis(i) > JointHeight )then
+                    n = i
+                    exit
+                endif
+            enddo
+            if(n==0)then
+                print *, "ERROR :: RFV :: JointHeight >= Height!"
+                stop
             endif
 
-            ! cut top
-            ! x-direction (Length)
-            killElemList = int(zeros(RFV%ne()))
+            bufvec = z_axis
+            z_axis = bufvec(1:n-1) // [JointHeight] 
+            z_axis = z_axis // bufvec(n:)
+            deallocate(bufvec)
+            
+            n = 0
+            do i=1,size(z_axis)
+                if(z_axis(i) > JointHeight + JointThickness )then
+                    n = i
+                    exit
+                endif
+            enddo
+            if(n==0)then
+                print *, "ERROR :: RFV :: JointHeight + JointThickness<= Height!"
+                stop
+            endif
+
+            bufvec = z_axis
+            z_axis = bufvec(1:n-1) // [JointHeight + JointThickness] 
+            z_axis = z_axis // bufvec(n:)
+            deallocate(bufvec)
+            
+           
+        endif
+
+
+
+
+        x_axis_origin = x_axis
+        y_axis_origin = y_axis
+        z_axis_origin = z_axis
+        if(present(Divisions)  )then
+            do i=1,Divisions(1)
+                call Refine(x_axis_origin,1)
+            enddo
+            do i=1,Divisions(2)
+                call Refine(y_axis_origin,1)
+            enddo
+            do i=1,Divisions(3)
+                call Refine(z_axis_origin,1)
+            enddo
+        endif
+        girder_offset = 0
+        if(present(GirderWidth) )then
+            do n=1,size(y_axis)
+                if(y_axis(n) < 0.0d0)then
+                    girder_offset = girder_offset + 1
+                else
+                    exit
+                endif
+            enddo
+        endif
+
+        
+        girderedge_offset = 0
+        if(present(GirderEdgeThickness) )then
+            do n=size(z_axis),1,-1
+                if(z_axis(n) > z_init_max)then
+                    girderedge_offset = girderedge_offset + 0
+                else
+                    exit
+                endif
+            enddo
+        endif
+
+        call RFV%create("Cube3D",&
+            x_axis = x_axis_origin ,&
+            y_axis = y_axis_origin ,&
+            z_axis = z_axis_origin  &
+        )
+        ! x-direction (Length)
+        
+        killElemList = int(zeros(RFV%ne()))
+        do k = 1, size(MiddlePierHeights)+3
             do i=1,NumPiers(2)-1
                 do j=1,RFV%ne()
                     center_coord = RFV%centerPosition(ElementID=j)
-                    if(x_axis(2*i) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1))then
-                        !if(center_coord(3) < z_axis( size(z_axis)-1) )then
-                        if(present(GirderThickness) .and. center_coord(3) >height )then
-                            cycle
-                        endif
-                        killElemList(j) = killElemList(j) + 1
-                        !endif
-                    endif
-                enddo
-            enddo
-            
-            do i=1,NumPiers(1)-1
-
-                do j=1,RFV%ne()
-                    center_coord = RFV%centerPosition(ElementID=j)
-                    if(y_axis(2*i) < center_coord(2) .and. center_coord(2) < y_axis(2*i+1))then
-                        !if(center_coord(3) < z_axis( size(z_axis)-1) )then
-                        if(present(GirderThickness) .and. center_coord(3) >height )then
-                            cycle
-                        endif
-                        killElemList(j) = killElemList(j) + 1
-                        !endif
-                    endif
-                enddo
-            enddo
-
-
-            if(allocated(killElemList) )then
-                call RFV%killElement(blacklist=killElemList,flag=2)
-            endif
-
-
-        else
-            z_axis = [0.0d0,Height-PierThickness,Height]
-            if(present(GirderThickness) )then
-                z_axis = z_axis // [ maxval(z_axis)+GirderThickness ]
-            endif
-            
-            x_axis_origin = x_axis
-            y_axis_origin = y_axis
-            z_axis_origin = z_axis
-
-            if(present(Divisions)  )then
-                do i=1,Divisions(1)
-                    call Refine(x_axis_origin,1)
-                enddo
-                do i=1,Divisions(2)
-                    call Refine(y_axis_origin,1)
-                enddo
-                do i=1,Divisions(3)
-                    call Refine(z_axis_origin,1)
-                enddo
-            endif
-
-            call RFV%create("Cube3D",&
-                x_axis = x_axis_origin ,&
-                y_axis = y_axis_origin ,&
-                z_axis = z_axis_origin  &
-            )
-
-            ! x-direction (Length)
-            killElemList = int(zeros(RFV%ne()))
-            do i=1,NumPiers(2)-1
-                do j=1,RFV%ne()
-                    center_coord = RFV%centerPosition(ElementID=j)
-                    if(x_axis(2*i) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1))then
-                        if(center_coord(3) < z_axis( size(z_axis)-1+ last_n) )then
-                            if(present(GirderThickness) .and. center_coord(3) >height )then
+                    if(x_axis(2*i + joint_offset) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1 + joint_offset))then
+                        if(z_axis(2*k-1) < center_coord(3) .and. center_coord(3) < z_axis(2*k) )then
+                            if(present(GirderThickness) .and. center_coord(3) >height - PierThickness )then
                                 cycle
                             endif
+
+                    if(center_coord(1)<0.0d0 .or. center_coord(1) > length )then
+                        cycle
+                    endif
                             killElemList(j) =  1
                         endif
                     endif
@@ -612,12 +647,16 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
             enddo
             
             do i=1,NumPiers(1)-1
-
                 do j=1,RFV%ne()
                     center_coord = RFV%centerPosition(ElementID=j)
-                    if(y_axis(2*i) < center_coord(2) .and. center_coord(2) < y_axis(2*i+1))then
-                        if(center_coord(3) < z_axis( size(z_axis)-1 + last_n) )then
-                            if(present(GirderThickness) .and. center_coord(3) >height )then
+                    if(y_axis(2*i + girder_offset) < center_coord(2) .and. &
+                        center_coord(2) < y_axis(2*i+1 + girder_offset))then
+                        if(z_axis(2*k-1) < center_coord(3) .and. center_coord(3) < z_axis(2*k) )then
+                            if(present(GirderThickness) .and. center_coord(3) >height- PierThickness )then
+                                cycle
+                            endif
+
+                            if(center_coord(1)<0.0d0 .or. center_coord(1) > length )then
                                 cycle
                             endif
                             killElemList(j) =  1
@@ -625,501 +664,447 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
                     endif
                 enddo
             enddo
+        enddo
 
+        ! for last pier
+        if(present(JointHeight) )then
+            
+            do i=1,NumPiers(2)-1
+            do j=1,RFV%ne()
+                center_coord = RFV%centerPosition(ElementID=j)
+                if(x_axis(2*i + joint_offset) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1 + joint_offset))then
+                    if(MiddlePierHeights(size(MiddlePierHeights))+PierThickness/2.0d0 < center_coord(3) &
+                        .and. center_coord(3) < height - PierThickness )then
+                        if(present(GirderThickness) .and. center_coord(3) >height - PierThickness )then
+                            cycle
+                        endif
+
+                if(center_coord(1)<0.0d0 .or. center_coord(1) > length )then
+                    cycle
+                endif
+                        killElemList(j) =  1
+                    endif
+                endif
+            enddo
+            enddo
+
+            do i=1,NumPiers(1)-1
+            do j=1,RFV%ne()
+                center_coord = RFV%centerPosition(ElementID=j)
+                if(y_axis(2*i + girder_offset) < center_coord(2) .and. &
+                    center_coord(2) < y_axis(2*i+1 + girder_offset))then
+                    if(MiddlePierHeights(size(MiddlePierHeights))+PierThickness/2.0d0 < center_coord(3) &
+                        .and. center_coord(3) < height - PierThickness )then
+                        if(present(GirderThickness) .and. center_coord(3) >height- PierThickness )then
+                            cycle
+                        endif
+
+                        if(center_coord(1)<0.0d0 .or. center_coord(1) > length )then
+                            cycle
+                        endif
+                        killElemList(j) =  1
+                    endif
+                endif
+            enddo
+            enddo
+        endif
+
+
+
+
+        if(allocated(killElemList) )then
+            call RFV%killElement(blacklist=killElemList,flag=1)
+        endif
+        ! cut top
+        ! x-direction (Length)
+        killElemList = int(zeros(RFV%ne()))
+        do i=1,NumPiers(2)-1
+            do j=1,RFV%ne()
+                center_coord = RFV%centerPosition(ElementID=j)
+                if(x_axis(2*i + joint_offset) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1 + joint_offset))then
+                    !if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                    if(present(GirderThickness) .and. center_coord(3) > height )then
+                        cycle
+                    endif
+                    if(center_coord(1)<0.0d0 .or. center_coord(1) > length )then
+                        cycle
+                    endif
+                    killElemList(j) = killElemList(j) + 1
+                    !endif
+                endif
+            enddo
+        enddo
+        
+        do i=1,NumPiers(1)-1
+            do j=1,RFV%ne()
+                center_coord = RFV%centerPosition(ElementID=j)
+                if(y_axis(2*i+girder_offset) < center_coord(2) .and. &
+                    center_coord(2) < y_axis(2*i+1+girder_offset))then
+                    !if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                    if(present(GirderThickness) .and. center_coord(3) > height )then
+                        cycle
+                    endif
+                    if(center_coord(1)<0.0d0 .or. center_coord(1) > length )then
+                        cycle
+                    endif
+                    killElemList(j) = killElemList(j) + 1
+                    !endif
+                endif
+            enddo
+        enddo
+        if(allocated(killElemList) )then
+            call RFV%killElement(blacklist=killElemList,flag=2)
+        endif
+
+        if(present(GirderWidth) )then
+            ! below-girder
+            ! x-direction (Length)
+            killElemList = int(zeros(RFV%ne()))
+            do j=1,RFV%ne()
+                center_coord = RFV%centerPosition(ElementID=j)
+                if( center_coord(2) < 0.0d0 .or. &
+                    center_coord(2) > RFV%y_max()-extra_half_width  )then
+                    if( center_coord(3) < RFV%z_max() - GirderThickness - op_GirderEdgeHeight )then
+                        if(center_coord(1)<0.0d0 .or. center_coord(1) > length )then
+                            cycle
+                        endif
+                        killElemList(j) = 1
+                    endif
+                endif
+            enddo
 
             if(allocated(killElemList) )then
                 call RFV%killElement(blacklist=killElemList,flag=1)
-            endif
-
-            ! cut top
-            ! x-direction (Length)
-            killElemList = int(zeros(RFV%ne()))
-            do i=1,NumPiers(2)-1
-                do j=1,RFV%ne()
-                    center_coord = RFV%centerPosition(ElementID=j)
-                    if(x_axis(2*i) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1))then
-                        !if(center_coord(3) < z_axis( size(z_axis)-1) )then
-                        if(present(GirderThickness) .and. center_coord(3) >height )then
-                            cycle
-                        endif
-                        killElemList(j) = killElemList(j) + 1
-                        !endif
-                    endif
-                enddo
-            enddo
-            
-            do i=1,NumPiers(1)-1
-
-                do j=1,RFV%ne()
-                    center_coord = RFV%centerPosition(ElementID=j)
-                    if(y_axis(2*i) < center_coord(2) .and. center_coord(2) < y_axis(2*i+1))then
-                        !if(center_coord(3) < z_axis( size(z_axis)-1) )then
-                        if(present(GirderThickness) .and. center_coord(3) >height )then
-                            cycle
-                        endif
-                        killElemList(j) = killElemList(j) + 1
-                        !endif
-                    endif
-                enddo
-            enddo
-
-
-            if(allocated(killElemList) )then
-                call RFV%killElement(blacklist=killElemList,flag=2)
             endif
 
 
         endif
 
-!    endif
-!
-!
-!
-!    ! remove_zone
-!    if(NumPiers(1) <= 1 )then
-!        n = 1
-!        ! y
-!        ! |
-!        ! ---------------------------> x
-!        call RFV%resize(x=thickness, y=length, z=height)
-!
-!
-!        allocate(remove_zone_y(NumPiers(2)-1,2 ))
-!
-!        remove_zone_y(1,1) = thickness  ! from
-!        remove_zone_y(1,2) = thickness + ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
-!        ! y-direction
-!        do i=2,NumPiers(2)-1
-!            remove_zone_y(i,1) = remove_zone_y(i-1,2) +  thickness  ! from
-!            remove_zone_y(i,2) = remove_zone_y(i  ,1) +  ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
-!        enddo
-!
-!        ! z-direction
-!        if(present (MiddlePierHeights) )then
-!            allocate(remove_zone_z(size(MiddlePierHeights,1)+1,2) )
-!            remove_zone_z(1,1) = 0.0d0! from
-!            remove_zone_z(1,2) = MiddlePierHeights(1) - thickness/2.0d0! to
-!            do i=2,size(MiddlePierHeights,1)
-!                remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
-!                remove_zone_z(i,2) = MiddlePierHeights(i) - thickness/2.0d0  ! to
-!            enddo
-!            i = size(remove_zone_z,1)
-!            remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
-!            remove_zone_z(i,2) = height - thickness  ! to
-!            
-!        else
-!            allocate(remove_zone_z(1,2) )
-!            remove_zone_z(1,1) = 0.0d0 ! from
-!            remove_zone_z(1,2) = height - thickness  ! to
-!        endif
-!
-!        ! debug
-!
-!        if(debug_mode_requested )then
-!            print *, "[ok] remove_box set"
-!        endif
-!        
-!        allocate(remove_elem(RFV%ne() ))
-!        allocate(remove_node(RFV%nn() )  )
-!        remove_elem(:) = 0
-!        remove_node(:) = 0
-!        
-!        !$OMP parallel do default(shared) private(point)
-!        do ElementID=1, RFV%ne()
-!                
-!            point = RFV%centerPosition(ElementID=ElementID)
-!            
-!            do i=1,size(remove_zone_y,1)
-!                if(remove_zone_y(i,1) < point(2) .and. point(2) < remove_zone_y(i,2)  )then
-!                    remove_elem(ElementID) = remove_elem(ElementID) + 1
-!                    exit
-!                endif
-!            enddo
-!    
-!            do i=1,size(remove_zone_z,1)
-!                if(remove_zone_z(i,1) < point(3) .and. point(3) < remove_zone_z(i,2)  )then
-!                    remove_elem(ElementID) = remove_elem(ElementID) + 1
-!                    exit
-!                endif
-!            enddo
-!        enddo
-!        !$OMP end parallel do
-!        
-!        if(debug_mode_requested )then
-!            print *, "[ok] remove_elem ready"
-!        endif
-!    
-!        remove_count = 0
-!        do i=1,size(remove_elem)
-!            if(remove_elem(i) >=2)then
-!                remove_count = remove_count + 1
-!            endif
-!        enddo
-!        buf = RFV%mesh%elemnod
-!    
-!        deallocate(RFV%mesh%elemnod)
-!        allocate(RFV%mesh%elemnod( size(buf,1)-remove_count,size(buf,2) ) )
-!    
-!        j = 0
-!    
-!        do i=1,size(buf,1)
-!            if(remove_elem(i) < 2)then
-!                j = j + 1
-!                RFV%mesh%elemnod(j,:) = buf(i,:)
-!            endif
-!        enddo
-!    
-!        deallocate(remove_elem )
-!        deallocate(buf)
-!    
-!    
-!        if(debug_mode_requested )then
-!            print *, "[ok] remove_elem done"
-!        endif
-!    
-!    
-!        remove_node(:) = 1
-!        
-!        do i=1, size(RFV%mesh%elemnod,1)
-!            do j = 1,size(RFV%mesh%elemnod,2)
-!                remove_node(RFV%mesh%elemnod(i,j) ) = 0
-!            enddo
-!        enddo
-!        
-!        allocate(new_node_id(size(RFV%mesh%nodcoord,1) ))
-!        j = 0
-!        do i=1,size(RFV%mesh%nodcoord,1)
-!            if(remove_node(i)==0 )then
-!                ! not removed
-!                j=j+1
-!                new_node_id(i)=j
-!            else
-!                ! removed
-!                new_node_id(i) = j
-!                cycle
-!            endif
-!        enddo
-!        
-!        realbuf = RFV%mesh%nodcoord(:,:)
-!        RFV%mesh%nodcoord = zeros(size(realbuf,1)-sum(remove_node),size(realbuf,2) )
-!        j = 0
-!        do i=1, size(realbuf,1)
-!            if(remove_node(i) /=1)then
-!                j = j + 1
-!                RFV%mesh%nodcoord(j,:) = realbuf(i,:)
-!            endif
-!        enddo
-!        
-!        !$OMP parallel do
-!        do i=1, size(RFV%mesh%elemnod,1)
-!            do j = 1,size(RFV%mesh%elemnod,2)
-!                RFV%mesh%elemnod(i,j) = new_node_id(RFV%mesh%elemnod(i,j) )
-!            enddo
-!        enddo
-!        !$OMP end parallel do
-!
-!
-!    elseif(NumPiers(2) <= 1 )then
-!        m = 1
-!        ! y
-!        ! |
-!        ! ---------------------------> x
-!        call RFV%resize(x=Width, y=thickness, z=height)
-!
-!        allocate(remove_zone_x(NumPiers(1)-1,2 ))
-!
-!        remove_zone_x(1,1) = thickness  ! from
-!        remove_zone_x(1,2) = thickness + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
-!        ! y-direction
-!        do i=2,NumPiers(1)-1
-!            remove_zone_x(i,1) = remove_zone_x(i-1,2) +  thickness  ! from
-!            remove_zone_x(i,2) = remove_zone_x(i  ,1) +  ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
-!        enddo
-!
-!        ! z-direction
-!        if(present (MiddlePierHeights) )then
-!            allocate(remove_zone_z(size(MiddlePierHeights,1)+1,2) )
-!            remove_zone_z(1,1) = 0.0d0! from
-!            remove_zone_z(1,2) = MiddlePierHeights(1) - thickness/2.0d0! to
-!            do i=2,size(MiddlePierHeights,1)
-!                remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
-!                remove_zone_z(i,2) = MiddlePierHeights(i) - thickness/2.0d0  ! to
-!            enddo
-!            i = size(remove_zone_z,1)
-!            remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
-!            remove_zone_z(i,2) = height - thickness  ! to
-!            
-!        else
-!            allocate(remove_zone_z(1,2) )
-!            remove_zone_z(1,1) = 0.0d0 ! from
-!            remove_zone_z(1,2) = height - thickness  ! to
-!        endif
-!
-!        ! debug
-!
-!        if(debug_mode_requested )then
-!            print *, "[ok] remove_box set"
-!        endif
-!        
-!        allocate(remove_elem(RFV%ne() ))
-!        allocate(remove_node(RFV%nn() )  )
-!        remove_elem(:) = 0
-!        remove_node(:) = 0
-!        
-!        !$OMP parallel do default(shared) private(point)
-!        do ElementID=1, RFV%ne()
-!                
-!            point = RFV%centerPosition(ElementID=ElementID)
-!            
-!            do i=1,size(remove_zone_x,1)
-!                if(remove_zone_x(i,1) < point(1) .and. point(1) < remove_zone_x(i,2)  )then
-!                    remove_elem(ElementID) = remove_elem(ElementID) + 1
-!                    exit
-!                endif
-!            enddo
-!    
-!            do i=1,size(remove_zone_z,1)
-!                if(remove_zone_z(i,1) < point(3) .and. point(3) < remove_zone_z(i,2)  )then
-!                    remove_elem(ElementID) = remove_elem(ElementID) + 1
-!                    exit
-!                endif
-!            enddo
-!        enddo
-!        !$OMP end parallel do
-!        
-!        if(debug_mode_requested )then
-!            print *, "[ok] remove_elem ready"
-!        endif
-!    
-!        remove_count = 0
-!        do i=1,size(remove_elem)
-!            if(remove_elem(i) >=2)then
-!                remove_count = remove_count + 1
-!            endif
-!        enddo
-!        buf = RFV%mesh%elemnod
-!    
-!        deallocate(RFV%mesh%elemnod)
-!        allocate(RFV%mesh%elemnod( size(buf,1)-remove_count,size(buf,2) ) )
-!    
-!        j = 0
-!    
-!        do i=1,size(buf,1)
-!            if(remove_elem(i) < 2)then
-!                j = j + 1
-!                RFV%mesh%elemnod(j,:) = buf(i,:)
-!            endif
-!        enddo
-!    
-!        deallocate(remove_elem )
-!        deallocate(buf)
-!    
-!    
-!        if(debug_mode_requested )then
-!            print *, "[ok] remove_elem done"
-!        endif
-!    
-!    
-!        remove_node(:) = 1
-!        
-!        do i=1, size(RFV%mesh%elemnod,1)
-!            do j = 1,size(RFV%mesh%elemnod,2)
-!                remove_node(RFV%mesh%elemnod(i,j) ) = 0
-!            enddo
-!        enddo
-!        
-!        allocate(new_node_id(size(RFV%mesh%nodcoord,1) ))
-!        j = 0
-!        do i=1,size(RFV%mesh%nodcoord,1)
-!            if(remove_node(i)==0 )then
-!                ! not removed
-!                j=j+1
-!                new_node_id(i)=j
-!            else
-!                ! removed
-!                new_node_id(i) = j
-!                cycle
-!            endif
-!        enddo
-!        
-!        realbuf = RFV%mesh%nodcoord(:,:)
-!        RFV%mesh%nodcoord = zeros(size(realbuf,1)-sum(remove_node),size(realbuf,2) )
-!        j = 0
-!        do i=1, size(realbuf,1)
-!            if(remove_node(i) /=1)then
-!                j = j + 1
-!                RFV%mesh%nodcoord(j,:) = realbuf(i,:)
-!            endif
-!        enddo
-!        
-!        !$OMP parallel do
-!        do i=1, size(RFV%mesh%elemnod,1)
-!            do j = 1,size(RFV%mesh%elemnod,2)
-!                RFV%mesh%elemnod(i,j) = new_node_id(RFV%mesh%elemnod(i,j) )
-!            enddo
-!        enddo
-!        !$OMP end parallel do
-!        print *, "debug"
-!
-!    else
-!        ! y
-!        ! |
-!        ! ---------------------------> x
-!
-!        allocate(remove_zone_x(NumPiers(1)-1,2 ))
-!        
-!        remove_zone_x(1,1) = thickness  ! from
-!        remove_zone_x(1,2) = thickness + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
-!        ! y-direction
-!        do i=2,NumPiers(1)-1
-!            remove_zone_x(i,1) = remove_zone_x(i-1,2) +  thickness  ! from
-!            remove_zone_x(i,2) = remove_zone_x(i  ,1) + ( Width - dble(NumPiers(1))*thickness)/dble(NumPiers(1)-1 ) ! to
-!        enddo
-!
-!        
-!
-!        allocate(remove_zone_y(NumPiers(2)-1,2 ))
-!
-!        remove_zone_y(1,1) = thickness  ! from
-!        remove_zone_y(1,2) = thickness + ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
-!        ! y-direction
-!        do i=2,NumPiers(2)-1
-!            remove_zone_y(i,1) = remove_zone_y(i-1,2) +  thickness  ! from
-!            remove_zone_y(i,2) = remove_zone_y(i  ,1) + ( Length - dble(NumPiers(2))*thickness)/dble(NumPiers(2)-1 ) ! to
-!        enddo
-!
-!
-!        ! z-direction
-!        if(present (MiddlePierHeights) )then
-!            allocate(remove_zone_z(size(MiddlePierHeights,1)+1,2) )
-!            remove_zone_z(1,1) = 0.0d0! from
-!            remove_zone_z(1,2) = MiddlePierHeights(1) - thickness/2.0d0! to
-!            do i=2,size(MiddlePierHeights,1)
-!                remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
-!                remove_zone_z(i,2) = MiddlePierHeights(i) - thickness/2.0d0  ! to
-!            enddo
-!            i = size(remove_zone_z,1)
-!            remove_zone_z(i,1) = remove_zone_z(i-1,2) + thickness ! from
-!            remove_zone_z(i,2) = height - thickness  ! to
-!            
-!        else
-!            allocate(remove_zone_z(1,2) )
-!            remove_zone_z(1,1) = 0.0d0 ! from
-!            remove_zone_z(1,2) = height - thickness  ! to
-!        endif
-!        
-!
-!        if(debug_mode_requested )then
-!            print *, "[ok] remove_box set"
-!        endif
-!        
-!        allocate(remove_elem(RFV%ne() ))
-!        allocate(remove_node(RFV%nn() )  )
-!        remove_elem(:) = 0
-!        remove_node(:) = 0
-!        
-!        !$OMP parallel do default(shared) private(point)
-!        do ElementID=1, RFV%ne()
-!                
-!            point = RFV%centerPosition(ElementID=ElementID)
-!            do i=1,size(remove_zone_x,1)
-!                if(remove_zone_x(i,1) < point(1) .and. point(1) < remove_zone_x(i,2)  )then
-!                    remove_elem(ElementID) = remove_elem(ElementID) + 1
-!                    exit
-!                endif
-!            enddo
-!    
-!            do i=1,size(remove_zone_y,1)
-!                if(remove_zone_y(i,1) < point(2) .and. point(2) < remove_zone_y(i,2)  )then
-!                    remove_elem(ElementID) = remove_elem(ElementID) + 1
-!                    exit
-!                endif
-!            enddo
-!    
-!            do i=1,size(remove_zone_z,1)
-!                if(remove_zone_z(i,1) < point(3) .and. point(3) < remove_zone_z(i,2)  )then
-!                    remove_elem(ElementID) = remove_elem(ElementID) + 1
-!                    exit
-!                endif
-!            enddo
-!        enddo
-!        !$OMP end parallel do
-!        
-!        if(debug_mode_requested )then
-!            print *, "[ok] remove_elem ready"
-!        endif
-!    
-!        remove_count = 0
-!        do i=1,size(remove_elem)
-!            if(remove_elem(i) >=2)then
-!                remove_count = remove_count + 1
-!            endif
-!        enddo
-!        buf = RFV%mesh%elemnod
-!    
-!        deallocate(RFV%mesh%elemnod)
-!        allocate(RFV%mesh%elemnod( size(buf,1)-remove_count,size(buf,2) ) )
-!    
-!        j = 0
-!    
-!        do i=1,size(buf,1)
-!            if(remove_elem(i) < 2)then
-!                j = j + 1
-!                RFV%mesh%elemnod(j,:) = buf(i,:)
-!            endif
-!        enddo
-!    
-!        deallocate(remove_elem )
-!        deallocate(buf)
-!    
-!    
-!        if(debug_mode_requested )then
-!            print *, "[ok] remove_elem done"
-!        endif
-!    
-!    
-!        remove_node(:) = 1
-!        
-!        do i=1, size(RFV%mesh%elemnod,1)
-!            do j = 1,size(RFV%mesh%elemnod,2)
-!                remove_node(RFV%mesh%elemnod(i,j) ) = 0
-!            enddo
-!        enddo
-!        
-!        allocate(new_node_id(size(RFV%mesh%nodcoord,1) ))
-!        j = 0
-!        do i=1,size(RFV%mesh%nodcoord,1)
-!            if(remove_node(i)==0 )then
-!                ! not removed
-!                j=j+1
-!                new_node_id(i)=j
-!            else
-!                ! removed
-!                new_node_id(i) = j
-!                cycle
-!            endif
-!        enddo
-!        
-!        realbuf = RFV%mesh%nodcoord(:,:)
-!        RFV%mesh%nodcoord = zeros(size(realbuf,1)-sum(remove_node),size(realbuf,2) )
-!        j = 0
-!        do i=1, size(realbuf,1)
-!            if(remove_node(i) /=1)then
-!                j = j + 1
-!                RFV%mesh%nodcoord(j,:) = realbuf(i,:)
-!            endif
-!        enddo
-!        
-!        !$OMP parallel do
-!        do i=1, size(RFV%mesh%elemnod,1)
-!            do j = 1,size(RFV%mesh%elemnod,2)
-!                RFV%mesh%elemnod(i,j) = new_node_id(RFV%mesh%elemnod(i,j) )
-!            enddo
-!        enddo
-!        !$OMP end parallel do
-!        
-!    endif
-!
+    else
+        z_axis = [0.0d0,Height-PierThickness,Height]
+
+        if(present(GirderThickness) )then
+            z_axis = z_axis // [ maxval(z_axis)+GirderThickness ]
+        endif
+        z_init_max = maxval(z_axis)
+    
+        if(present(GirderEdgeHeight) .or. present(GirderEdgeThickness) )then
+            if(present(GirderEdgeHeight) .and. present(GirderEdgeThickness) )then
+                y_axis = [- GirderEdgeThickness + minval(y_axis) ] // y_axis
+                y_axis = y_axis // [maxval(y_axis)]
+                y_axis(size(y_axis)-1 ) = maxval(y_axis) - GirderEdgeThickness 
+                
+                z_axis = z_axis // [ maxval(z_axis) + GirderEdgeHeight]
+                !z_axis = z_axis // [ maxval(z_axis) + GirderEdgeHeight]
+
+    
+            else
+                print *, "ERROR :: CivilItem%rigidframeciaduct >> "
+                print *, "GirderEdgeHeight shoud be passed with GirderEdgeThickness"
+                stop
+            endif
+        endif
+        
+        ! for joint
+        if(present(JointLength) .or. present(JointThickness) )then
+            if(present(JointLength) .and. present(JointThickness) )then
+                x_axis = [minval(x_axis) -JointLength] // x_axis
+                x_axis =  x_axis // [maxval(x_axis) + JointLength ]
+            else
+                print *, "ERROR :: CivilItem%rigidframeciaduct >> "
+                print *, "JointLength,JointHeight,JointThickness shoud be passed at the same time!"
+                stop
+            endif
+        endif
+
+
+        ! joint
+        joint_offset = 0
+        if(present(JointLength) )then
+            do n=1,size(x_axis)
+                if(x_axis(n) < 0.0d0)then
+                    joint_offset = joint_offset + 1
+                else
+                    exit
+                endif
+            enddo
+
+            n = 0
+            do i=1,size(z_axis)
+                if(z_axis(i) > JointHeight )then
+                    n = i
+                    exit
+                endif
+            enddo
+            if(n==0)then
+                print *, "ERROR :: RFV :: JointHeight >= Height!"
+                stop
+            endif
+
+            bufvec = z_axis
+            z_axis = bufvec(1:n-1) // [JointHeight] 
+            z_axis = z_axis // bufvec(n:)
+            deallocate(bufvec)
+            
+            n = 0
+            do i=1,size(z_axis)
+                if(z_axis(i) > JointHeight + JointThickness )then
+                    n = i
+                    exit
+                endif
+            enddo
+            if(n==0)then
+                print *, "ERROR :: RFV :: JointHeight + JointThickness<= Height!"
+                stop
+            endif
+
+            bufvec = z_axis
+            z_axis = bufvec(1:n-1) // [JointHeight + JointThickness] 
+            z_axis = z_axis // bufvec(n:)
+            deallocate(bufvec)
+            
+           
+        endif
+
+
+
+        x_axis_origin = x_axis
+        y_axis_origin = y_axis
+        z_axis_origin = z_axis
+        if(present(Divisions)  )then
+            do i=1,Divisions(1)
+                call Refine(x_axis_origin,1)
+            enddo
+            do i=1,Divisions(2)
+                call Refine(y_axis_origin,1)
+            enddo
+            do i=1,Divisions(3)
+                call Refine(z_axis_origin,1)
+            enddo
+        endif
+
+        girder_offset = 0
+        if(present(GirderWidth) )then
+            do n=1,size(y_axis)
+                if(y_axis(n) < 0.0d0)then
+                    girder_offset = girder_offset + 1
+                else
+                    exit
+                endif
+            enddo
+        endif
+        
+
+
+        girderedge_offset = 0
+        if(present(GirderEdgeThickness) )then
+            do n=size(z_axis),1,-1
+                if(z_axis(n) > z_init_max)then
+                    girderedge_offset = girderedge_offset + 0
+                else
+                    exit
+                endif
+            enddo
+        endif
+
+        call RFV%create("Cube3D",&
+            x_axis = x_axis_origin ,&
+            y_axis = y_axis_origin ,&
+            z_axis = z_axis_origin  &
+        )
+
+        ! x-direction (Length)
+        killElemList = int(zeros(RFV%ne()))
+        do i=1,NumPiers(2)-1
+            do j=1,RFV%ne()
+                center_coord = RFV%centerPosition(ElementID=j)
+                if(x_axis(2*i + joint_offset) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1 + joint_offset) )then
+                    if(center_coord(3) < z_axis( size(z_axis)-1+ last_n - girderedge_offset) )then
+                        if(present(GirderThickness) .and. center_coord(3) >height -PierThickness)then
+                            cycle
+                        endif
+                        if(center_coord(1)<0.0d0 .or. center_coord(1) > length )then
+                            cycle
+                        endif
+                        killElemList(j) =  1
+                    endif
+                endif
+            enddo
+        enddo
+        
+        do i=1,NumPiers(1)-1
+            do j=1,RFV%ne()
+                center_coord = RFV%centerPosition(ElementID=j)
+                if(y_axis(2*i+girder_offset) < center_coord(2) .and. &
+                    center_coord(2) < y_axis(2*i+1+girder_offset))then
+                    if(center_coord(3) < z_axis( size(z_axis)-1 + last_n - girderedge_offset) )then
+                        if(present(GirderThickness) .and. center_coord(3) >height -PierThickness )then
+                            cycle
+                        endif
+                        if(center_coord(1)<0.0d0 .or. center_coord(1) > length )then
+                            cycle
+                        endif
+                        killElemList(j) =  1
+                    endif
+                endif
+            enddo
+        enddo
+        if(allocated(killElemList) )then
+            call RFV%killElement(blacklist=killElemList,flag=1)
+        endif
+
+        ! cut top
+        ! x-direction (Length)
+        killElemList = int(zeros(RFV%ne()))
+        do i=1,NumPiers(2)-1
+            do j=1,RFV%ne()
+                center_coord = RFV%centerPosition(ElementID=j)
+                if(x_axis(2*i+ joint_offset) < center_coord(1) .and. center_coord(1) < x_axis(2*i+1+ joint_offset))then
+                    !if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                    if(present(GirderThickness) .and. center_coord(3) >height )then
+                        cycle
+                    endif
+                    if(present(GirderEdgeThickness)  )then
+                        if(center_coord(2) > RFV%ymax() - GirderEdgeThickness .or. &
+                            center_coord(2) < RFV%ymin() + GirderEdgeThickness)then
+                            cycle
+                        endif
+                    endif
+                    if(center_coord(1)<0.0d0 .or. center_coord(1) > length )then
+                        cycle
+                    endif
+                    
+                    killElemList(j) = killElemList(j) + 1
+                    !endif
+                endif
+            enddo
+        enddo
+        
+        do i=1,NumPiers(1)-1
+            do j=1,RFV%ne()
+                center_coord = RFV%centerPosition(ElementID=j)
+                if(y_axis(2*i+girder_offset) < center_coord(2) .and. &
+                    center_coord(2) < y_axis(2*i+1+girder_offset))then
+                    !if(center_coord(3) < z_axis( size(z_axis)-1) )then
+                    if(present(GirderThickness) .and. center_coord(3) > height )then
+                        cycle
+                    endif
+                    if(present(GirderEdgeThickness)  )then
+                        if( center_coord(2) > RFV%ymax() - GirderEdgeThickness .or. &
+                            center_coord(2) < RFV%ymin() + GirderEdgeThickness)then
+                            cycle
+                        endif
+                    endif
+                    if(center_coord(1)<0.0d0 .or. center_coord(1) > length )then
+                        cycle
+                    endif
+                    killElemList(j) = killElemList(j) + 1
+                    !endif
+                endif
+            enddo
+        enddo
+        if(allocated(killElemList) )then
+            call RFV%killElement(blacklist=killElemList,flag=2)
+        endif
+        
+
+
+    endif
+
+
+    if(present(GirderWidth) )then
+        if(.not.present(GirderEdgeHeight) )then
+            ! below-girder
+            ! x-direction (Length)
+            killElemList = int(zeros(RFV%ne()))
+            do j=1,RFV%ne()
+                center_coord = RFV%centerPosition(ElementID=j)
+                if( center_coord(2) < 0.0d0 .or. &
+                    center_coord(2) > RFV%y_max()-extra_half_width  )then
+                    if( center_coord(3) < RFV%z_max() - GirderThickness )then
+
+                        if(center_coord(1)<0.0d0 .or. center_coord(1) > length )then
+                            cycle
+                        endif
+                        killElemList(j) = 1
+                    endif
+                endif
+            enddo
+
+            if(allocated(killElemList) )then
+                call RFV%killElement(blacklist=killElemList,flag=1)
+            endif
+        else
+            ! below-girder
+            killElemList = int(zeros(RFV%ne()))
+            do j=1,RFV%ne()
+                center_coord = RFV%centerPosition(ElementID=j)
+                if( center_coord(2) < 0.0d0 .or. &
+                    center_coord(2) > RFV%y_max()-extra_half_width  )then
+                    if( center_coord(3) < RFV%z_max() - GirderThickness - GirderEdgeHeight )then
+
+                        if(center_coord(1)<0.0d0 .or. center_coord(1) > length )then
+                            cycle
+                        endif
+                        killElemList(j) = 1
+                    endif
+                endif
+            enddo
+
+            if(allocated(killElemList) )then
+                call RFV%killElement(blacklist=killElemList,flag=1)
+            endif
+            ! upper
+
+            killElemList = int(zeros(RFV%ne()))
+            do j=1,RFV%ne()
+                center_coord = RFV%centerPosition(ElementID=j)
+                if( RFV%y_min() + GirderEdgeThickness < center_coord(2)  .and. &
+                    center_coord(2) < RFV%y_max()-GirderEdgeThickness  )then
+                    if( center_coord(3) > RFV%z_max() - GirderEdgeHeight )then
+
+                        if(center_coord(1)<0.0d0 .or. center_coord(1) > length )then
+                            cycle
+                        endif
+                        killElemList(j) = 1
+                    endif
+                endif
+            enddo
+
+            if(allocated(killElemList) )then
+                call RFV%killElement(blacklist=killElemList,flag=1)
+            endif
+        endif
+    endif
+
+    if(present(JointHeight) )then
+        killElemList = int(zeros(RFV%ne()))
+        w_center = (RFV%ymax() + RFV%ymin())*0.50d0
+        do j=1,RFV%ne()
+            center_coord = RFV%centerPosition(ElementID=j)
+            if(center_coord(1) > 0.0d0 .and. center_coord(1) < Length )then
+                cycle
+            endif
+
+            if(center_coord(3) < JointHeight .or. center_coord(3) > JointHeight + JointThickness  )then
+                killElemList(j) = 1
+                cycle
+            endif
+
+            if(center_coord(2) > w_center + Width/2.0d0 .or. center_coord(2) < w_center - Width/2.0d0  )then
+                killElemList(j) = 1
+                cycle
+            endif
+
+        enddo
+
+        if(allocated(killElemList) )then
+            call RFV%killElement(blacklist=killElemList,flag=1)
+        endif
+
+
+    endif
+
     call RFV%move(x = -(RFV%xmax()-RFV%xmin())*0.50d0  )
     
 
