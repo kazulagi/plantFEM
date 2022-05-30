@@ -258,6 +258,13 @@ echo " >> LoggerClass.o "
 echo " | ===============>            | (70%)\r\c"
 mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LoggerClass/LoggerClass.f90 -o  ./inc/LoggerClass.o
 
+echo "Compiling ./src/ModalAnalysisClass/ModalAnalysisClass.f90" 
+echo " >> ModalAnalysisClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ModalAnalysisClass/ModalAnalysisClass.f90 -o  ./inc/ModalAnalysisClass.o
+
+
+
 echo "Compiling ./src/ReactorClass/ReactorClass.f90" 
 echo " >> ReactorClass.o "
 echo " | ===============>            | (70%)\r\c"

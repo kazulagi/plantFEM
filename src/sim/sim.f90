@@ -1,5 +1,6 @@
 module sim
     use fem
+    use FEMSolverClass
     use LoggerClass
     use ReactorClass
     use SeepageFlowClass
