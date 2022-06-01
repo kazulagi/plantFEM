@@ -121,11 +121,62 @@ module FEMSolverClass
     end interface reverseVector
 contains
 
-subroutine initFEMSolver(this,NumDomain,MPI_target)
+recursive subroutine initFEMSolver(this,NumDomain,FEMDomains,DomainIDs,DOF,MPI_target)
     class(FEMSolver_),intent(inout) :: this
-    integer(int32),intent(in) :: numDomain
+    ! two-way
+    integer(int32),optional,intent(in) :: numDomain
+    ! optional
+    ! you can bypass solver%setDomain and solver%setCRS
+    type(FEMDomain_),optional,intent(in) :: FEMDomains(:)
+    integer(int32),optional,intent(in) :: DomainIDs(:), DOF
+    
+
+    ! useless
     type(MPI_),optional,target,intent(in) :: MPI_target
     integer(int32) :: i
+    integeR(int32),allocatable :: default_DomainIDs(:)
+
+    if(present(FEMDomains) )then
+        if(present(DomainIDs) .and. present(DOF) )then
+            ! bypass mode
+            call this%init(NumDomain=size(FEMDomains) )
+            call this%setDomain(FEMDomains=FEMDomains(:),DomainIDs=DomainIDs)
+            call this%setCRS(DOF=DOF)
+            return
+        elseif( present(DOF) )then
+            default_DomainIDs = zeros(size(FEMDomains) )
+            do i=1,size(FEMDomains)
+                default_DomainIDs(i) = i
+            enddo
+
+            call this%init(NumDomain=size(FEMDomains) )
+            call this%setDomain(FEMDomains=FEMDomains(:),DomainIDs=default_DomainIDs)
+            call this%setCRS(DOF=DOF)
+            return
+        else
+            print *, "ERROR :: initFEMSolver >> "
+            print *, "You are trying to use ByPass-mode,"
+            print *, "which requires at least following two arguments"
+            print *, "(1) type(FEMDomain_) :: FEMDomains(:)  "
+            print *, "(2) Integer(int32)   :: DOF <DEGREE OF FREEDOM> " 
+            print *, " "
+            print *, "and, if you give original domain-ids,"
+            print *, "(2) Integer(int32)   :: DomainIDs(:) "
+            print *, "is also necessary."
+            stop 
+        endif
+    endif
+
+
+    if(.not. present(numDomain) )then
+        print *, "ERROR :: initFEMSolver >> "
+        print *, "Please input "
+        print *, "integer(int32) :: numDomain "
+        print *, "or  "
+        print *, "type(FEMDomains_) :: femdomains(:) "
+        print *, "integer(int32) :: DOF <DEGREE OF FREEDOM> "
+        stop
+    endif
 
     nullify(this%MPI_target)
 

@@ -171,17 +171,20 @@ subroutine solveModalAnalysis(this,penalty)
 end subroutine
 
 ! #################################################################
-subroutine vtkModalAnalysis(this,name,num_mode)
+subroutine vtkModalAnalysis(this,name,num_mode,amp,stress_scale)
     class(ModalAnalysis_),intent(in) :: this
     integer(int32),intent(in) :: num_mode
     character(*),intent(in) :: name
+    real(real64),intent(in) :: amp
+    real(real64),optional,intent(in) :: stress_scale
+    
     type(IO_) :: f
-    real(real64) :: dt,t
+    real(real64) :: dt,t,st_scale
     real(real64),allocatable :: Mode_U(:),mode_U_total (:),&
         mode_Ut(:),YoungModulus(:),PoissonRatio(:)
     integer(int32) :: mode_id,step,DOF,DomainID,ElementID,i,j,offset
     
-
+    st_scale = input(default=1.0d0,option=stress_scale)
     dt = 0.10d0
     DOF = this%solver%femdomains(1)%femdomainp%nd()
     ! num_mode modes
@@ -207,16 +210,17 @@ subroutine vtkModalAnalysis(this,name,num_mode)
 
                 this%solver%femdomains(DomainID)%femdomainp%mesh%nodcoord =&
                  this%solver%femdomains(DomainID)%femdomainp%mesh%nodcoord &
-                +50.0d0*reshape(mode_Ut,this%solver%femdomains(DomainID)%femdomainp%nn(),3 ) 
+                +amp*reshape(mode_Ut,this%solver%femdomains(DomainID)%femdomainp%nn(),3 ) 
 
                 call this%solver%femdomains(DomainID)%femdomainp%vtk&
                 (name+"_Mode_"+str(mode_id)+"_Domain_"+str(DomainID)+"_I1_t_"+str(step),&
-                scalar = this%solver%femdomains(DomainID)%femdomainp%getElementCauchyStress(&
+                scalar = 1.0d0/st_scale*this%solver%femdomains(DomainID)%femdomainp%getElementCauchyStress(&
                     option="I1", displacement=mode_Ut,E=YoungModulus,v=PoissonRatio &
                     ) )
+                
                 this%solver%femdomains(DomainID)%femdomainp%mesh%nodcoord =&
                  this%solver%femdomains(DomainID)%femdomainp%mesh%nodcoord &
-                -50.0d0*reshape(mode_Ut,this%solver%femdomains(DomainID)%femdomainp%nn(),3 ) 
+                -amp*reshape(mode_Ut,this%solver%femdomains(DomainID)%femdomainp%nn(),3 ) 
             enddo
         enddo
     enddo
