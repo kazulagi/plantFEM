@@ -113,14 +113,19 @@ subroutine setBoundaryModalAnalysis(this,DomainID,NodeList)
 
 end subroutine
 
-subroutine solveModalAnalysis(this,penalty)
+subroutine solveModalAnalysis(this,penalty,only_matrix)
     class(ModalAnalysis_),intent(inout) :: this
-    real(real64),intent(in) :: penalty
+    real(real64),optional,intent(in) :: penalty
+    logical,optional,intent(in) :: only_matrix
     integer(int32) :: i,DomainID,offset
 
 
     ! create matrices
+    call this%solver%zeros()
+    
     do DomainID=1,size(this%solver%femdomains )
+
+        !$OMP parallel do private(offset)
         do i=1,this%solver%femdomains(DomainID)%femdomainp%ne()
             offset = this%DomainElemID(DomainID,1) - 1
             call this%solver%setMatrix(&
@@ -132,14 +137,17 @@ subroutine solveModalAnalysis(this,penalty)
                 DOF=this%solver%femdomains(DomainID)%femdomainp%nd()  ) &
                 )
         enddo
+        !$OMP end parallel do 
     enddo
+    
     
     call this%solver%keepThisMatrixAs("B")
     call this%solver%zeros()
 
     print *, "Save Stiffness Matrix"
-
+    
     do DomainID=1,size(this%solver%femdomains )
+        !$OMP parallel do private(offset)
         do i=1,this%solver%femdomains(DomainID)%femdomainp%ne()
             offset = this%DomainElemID(DomainID,1) - 1
             call this%solver%setMatrix(&
@@ -151,15 +159,27 @@ subroutine solveModalAnalysis(this,penalty)
                 v=this%PoissonRatio(i+offset)  ) &
                 )
         enddo
+        !$OMP end parallel do 
     enddo
     
     print *, "[ok]Element-matrices done"
     if(size(this%solver%femdomains)/=1 )then
+        if(.not.present(penalty) )then
+            print *, "ERROR >> Multi-domain mode needs argument "
+            print *, "Real(real64) :: penalty"
+            stop
+        endif
         call this%solver%setEbOM(penalty=penalty, DOF=this%solver%femdomains(1)%femdomainp%nd()) 
     endif
     
     call this%solver%keepThisMatrixAs("A")
     
+    if(present(only_matrix) )then
+        if(only_matrix)then
+        return
+        endif
+    endif
+
     call this%solver%eig(eigen_value=this%EigenFrequency,eigen_vectors=this%EigenMode)
     
 

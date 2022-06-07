@@ -14,6 +14,7 @@ module COOClass
         procedure,public :: update => updateCOO
         procedure,public :: add => addCOO
         procedure,public :: getDenseMatrix => getDenseMatrixCOO
+        procedure,public :: to_dense => getDenseMatrixCOO
         procedure,public :: remove => removeCOO
         procedure,public :: getAllCol => getAllColCOO
         procedure,public :: to_CRS => to_CRSCOO
@@ -33,6 +34,22 @@ module COOClass
         procedure,public :: to_dense => to_denseCRS
     end type
 
+
+    public :: operator(+)
+    public :: operator(-)
+    public :: operator(*)
+    
+    interface operator(+)
+      module procedure addCRS_and_CRS
+    end interface
+
+    interface operator(-)
+      module procedure diffCRS_and_CRS
+    end interface
+
+    interface operator(*)
+      module procedure multReal64_and_CRS, multCRS_and_Real64
+    end interface
 
 contains
 
@@ -74,16 +91,13 @@ function to_CRSCOO(this,remove_coo) result(CRS_version)
     enddo
 
 
-
-    
-    
     !CRS_version%val      
     n = size(CRS_version%col_idx)
     allocate(CRS_version%val(n) )
     CRS_version%val(:) = 0.0d0
     
 
-    do i=1, size(this%row)-1
+    do i=1, size(this%row)
         if( .not. allocated(this%row(i)%val ))then
             cycle
         endif
@@ -189,7 +203,9 @@ function getDenseMatrixCOO(this) result(dense_matrix)
     integer(int32) :: i, j
     
     dense_matrix = zeros( size(this%row),size(this%row))
+    
     do i=1, size(this%row)
+        print *, i
         if(allocated(this%row(i)%col) )then
             do j=1,size(this%row(i)%col)
                 dense_matrix(i, this%row(i)%col(j) ) =this%row(i)%val(j)
@@ -446,13 +462,100 @@ function to_denseCRS(this) result(dense_mat)
 
     n = size(this%row_ptr) - 1
     allocate(dense_mat(n,n) )
+    dense_mat(:,:) = 0.0d0
     do row=1, n
-        do j=this%row_ptr(i), this%row_ptr(i+1) - 1
+        do j=this%row_ptr(row), this%row_ptr(row+1) - 1
             col = this%col_idx(j)
             dense_mat(row,col) = this%val(j)
         enddo
     enddo
 
 end function
+
+
+pure function addCRS_and_CRS(CRS1,CRS2) result(CRS_ret)
+    type(CRS_),intent(in) :: CRS1,CRS2
+    type(CRS_) :: CRS_ret
+    integer(int32) :: i, j, row, col_2,col_1
+    
+    ! sum : CRS_ret = CRS1 + CRS2
+    CRS_ret = CRS1
+
+    ! ignore fill-in
+    !!$OMP parallel do private(col_2,col_1)
+    do row = 1,size(CRS2%row_ptr)-1
+        ! for each row
+        do col_2 = CRS2%row_ptr(row),CRS2%row_ptr(row+1)-1
+            ! search same col
+            do col_1 = CRS1%row_ptr(row),CRS1%row_ptr(row+1)-1
+                if( CRS1%col_idx(col_1) == CRS2%col_idx(col_2) )then
+                    !!$OMP atomic
+                    CRS_ret%val(col_1) = CRS_ret%val(col_1) + CRS2%val(col_2) 
+                    exit
+                endif
+            enddo
+        enddo
+    enddo
+    !!$OMP end parallel do
+
+end function
+
+
+pure function diffCRS_and_CRS(CRS1,CRS2) result(CRS_ret)
+    type(CRS_),intent(in) :: CRS1,CRS2
+    type(CRS_) :: CRS_ret
+    integer(int32) :: i, j, row, col_2,col_1
+    
+    ! sum : CRS_ret = CRS1 + CRS2
+    CRS_ret = CRS1
+
+    ! ignore fill-in
+    do row = 1,size(CRS2%row_ptr)-1
+        ! for each row
+        do col_2 = CRS2%row_ptr(row),CRS2%row_ptr(row+1)-1
+            ! search same col
+            do col_1 = CRS1%row_ptr(row),CRS1%row_ptr(row+1)-1
+                if( CRS1%col_idx(col_1) == CRS2%col_idx(col_2) )then
+                    CRS_ret%val(col_1) = CRS_ret%val(col_1) - CRS2%val(col_2) 
+                    exit
+                endif
+            enddo
+        enddo
+    enddo
+    
+
+end function
+
+function multReal64_and_CRS(scalar64,CRS1) result(CRS_ret)
+    real(real64),intent(in) :: scalar64
+    type(CRS_),intent(in) :: CRS1
+    type(CRS_) :: CRS_ret
+    integer(int32) :: i
+
+    CRS_ret = CRS1
+    !$OMP parallel do 
+    do i=1,size(CRS_ret%val)
+        CRS_ret%val(i) = scalar64 * CRS_ret%val(i)
+    enddo
+    !$OMP end parallel do
+
+end function
+
+
+function multCRS_and_Real64(CRS1,scalar64) result(CRS_ret)
+    type(CRS_),intent(in) :: CRS1
+    real(real64),intent(in) :: scalar64
+    type(CRS_) :: CRS_ret
+
+    CRS_ret = CRS1
+
+    !$OMP parallel do 
+    do i=1,size(CRS_ret%val)
+        CRS_ret%val = scalar64 * CRS_ret%val
+    enddo
+    !$OMP end parallel do
+end function
+
+
 
 end module COOClass
