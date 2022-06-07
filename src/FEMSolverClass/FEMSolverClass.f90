@@ -58,6 +58,8 @@ module FEMSolverClass
 
         integer(int32) :: itrmax = 100000
         real(real64)   :: er0 = dble(1.0e-10)
+        real(real64)   :: relative_er = dble(1.0e-10)
+        
     contains
         !(1) Initialize solver
         procedure,public ::  init => initFEMSolver
@@ -67,7 +69,11 @@ module FEMSolverClass
         procedure,public ::  setDomains=> setDomainFEMSolver
 
         !(3) setup Ax=b as CRS format
-        procedure,public ::  setCRS  => setCRSFEMSolver
+        procedure,pass :: setCRS_CRSobjFEMSolver
+        procedure,pass :: setCRSFEMSolver
+        procedure,public :: setRHS => setRHSFEMSolver
+        generic ::  setCRS  => setCRSFEMSolver,setCRS_CRSobjFEMSolver
+        procedure,public ::  getCRS  => getCRSFEMSolver
 
         !(4) set Ax=b as CRS format
         procedure,public ::  setValue  => setValueFEMSolver
@@ -89,6 +95,7 @@ module FEMSolverClass
         
         !(6) save matrix
         procedure,public :: saveMatrix => saveMatrixFEMSolver
+        procedure,public :: loadMatrix => loadMatrixFEMSolver
 
 
         
@@ -103,6 +110,7 @@ module FEMSolverClass
         procedure,public :: zeros => zerosFEMSolver
         ! M:diag matrix,  A*M^{-1}
         procedure,public :: matmulDiagMatrix => matmulDiagMatrixFEMSolver
+        procedure,public :: diag =>diagFEMSolver
         
         ! others:
         ! Energy-based Overset Mesh (Tomobe et al., under review)
@@ -351,6 +359,25 @@ recursive subroutine setDomainFEMSolver(this,FEMDomain,FEMDomains,FEMDomainPoint
 
 end subroutine
 
+
+subroutine setCRS_CRSobjFEMSolver(this,CRS)
+    class(FEMSolver_),intent(inout) :: this
+    type(CRS_),intent(in) :: CRS
+
+
+    this%CRS_Index_Col = CRS%col_idx
+    this%CRS_Index_Row = CRS%row_ptr
+    this%CRS_Val = CRS%val
+
+end subroutine 
+
+subroutine setRHSFEMSolver(this,RHS)
+    class(FEMSolver_),intent(inout) :: this
+    real(real64),intent(in) :: RHS(:)
+
+    this%CRS_RHS = RHS
+
+end subroutine
 
 subroutine setCRSFEMSolver(this,DOF,debug)
     class(FEMSolver_),intent(inout) :: this
@@ -1031,10 +1058,27 @@ subroutine fixFEMSolver(this,DomainID,IDs,FixValue)
 end subroutine
 
 !
-function diag(this) result(diag_vector)
+function diagFEMSolver(this,cell_centered) result(diag_vector)
     class(FEMSolver_),intent(in) :: this
+    logical,optional,intent(in)  :: cell_centered
     real(real64),allocatable :: diag_vector(:)
+    
     integer(int32) :: row,col,id
+
+    if(present(cell_centered) )then
+        if(cell_centered)then
+            
+        ! diagonal components of CRS matrix
+        if(allocated(this%CRS_val) )then
+            diag_vector = zeros(size(this%CRS_Index_row) -1 )
+            do row=1,size(this%CRS_Index_row) -1
+                do id=this%CRS_Index_row(row),this%CRS_Index_row(row+1)-1
+                    diag_vector(row) = diag_vector(row) + this%CRS_val(id)
+                enddo
+            enddo
+        endif
+        endif
+    endif
 
     ! diagonal components of CRS matrix
     if(allocated(this%CRS_val) )then
@@ -1050,6 +1094,10 @@ function diag(this) result(diag_vector)
     endif
 
 end function
+
+
+! ####################################################
+
 !
 subroutine matmulDiagMatrixFEMSolver(this,diagMat)
     class(FEMSolver_),intent(inout) :: this
@@ -1073,7 +1121,28 @@ subroutine matmulDiagMatrixFEMSolver(this,diagMat)
     endif
 
 end subroutine
+! ###################################################################
+subroutine loadMatrixFEMSolver(this,from)
+    class(FEMSolver_),intent(inout) :: this
+    character(1),intent(in) :: from
 
+    ! overwrite this%CRS_*
+    select case(from)
+        case("A")
+            this%CRS_val = this%A_CRS_val
+            this%CRS_Index_Col = this%A_CRS_Index_Col
+            this%CRS_Index_Row = this%A_CRS_Index_Row
+        case("B")
+            this%CRS_val = this%B_CRS_val
+            this%CRS_Index_Col = this%B_CRS_Index_Col
+            this%CRS_Index_Row = this%B_CRS_Index_Row
+        case default
+            print *, "ERROR :: loadMatrixFEMSolver >> from should be A or B."
+            stop
+    end select
+
+
+end subroutine
 
 ! ###################################################################
 subroutine saveMatrixFEMSolver(this,name,CRS_as_dense, if_dense_exists,zero_or_nonzero)
@@ -1472,9 +1541,10 @@ end subroutine
 
 
 ! #####################################################
-function solveFEMSolver(this,algorithm,preconditioning) result(x)
+function solveFEMSolver(this,algorithm,preconditioning,x0) result(x)
     class(FEMSolver_),intent(inout) :: this
     real(real64),allocatable :: x(:),dense_mat(:,:),fix_value(:)
+    real(real64),optional,intent(in) :: x0(:)
     integer(int32) :: i,j, ElementID,col,row_ptr,col_row_fix
     logical,allocatable :: need_fix(:)
     character(*),optional,intent(in) :: algorithm, preconditioning
@@ -1482,19 +1552,20 @@ function solveFEMSolver(this,algorithm,preconditioning) result(x)
     type(IO_) :: f
 
     
-
-    need_fix = this%fix_lin_exists
-    fix_value= this%fix_lin_exists_values
-
-    do i=1,size(this%CRS_Index_Row)-1 !すべての行
-        do col = this%CRS_index_row(i) ,this%CRS_index_row(i+1)-1
-            
-            if( need_fix( this%CRS_index_col(col) ) )then
-                this%CRS_RHS( i )  = this%CRS_RHS( i ) &
-                        - this%CRS_val( col )*fix_value( this%CRS_index_col(col)) ! 移項
-            endif
+    if(allocated(this%fix_lin_exists) )then
+        need_fix = this%fix_lin_exists
+        fix_value= this%fix_lin_exists_values
+        
+        do i=1,size(this%CRS_Index_Row)-1 !すべての行
+            do col = this%CRS_index_row(i) ,this%CRS_index_row(i+1)-1
+                
+                if( need_fix( this%CRS_index_col(col) ) )then
+                    this%CRS_RHS( i )  = this%CRS_RHS( i ) &
+                            - this%CRS_val( col )*fix_value( this%CRS_index_col(col)) ! 移項
+                endif
+            enddo
         enddo
-    enddo
+    endif
 
     if(allocated(this%fix_lin_exists) )then
         
@@ -1539,8 +1610,13 @@ function solveFEMSolver(this,algorithm,preconditioning) result(x)
     if(this%debug)then
         print *, "[ok] b.c. loaded"
     endif
-    x = zeros(size(this%CRS_RHS))
-    
+
+    if(present(x0) )then
+        x = x0
+    else
+        x = zeros(size(this%CRS_RHS))
+    endif
+
     if(present(preconditioning))then
         if(preconditioning=="PointJacobi")then
             call JacobiPreconditionerCRS(val=this%CRS_val,row_ptr=this%CRS_index_row,&
@@ -1562,12 +1638,12 @@ function solveFEMSolver(this,algorithm,preconditioning) result(x)
             return
         else
             call  bicgstab_CRS_2(this%CRS_val, this%CRS_index_row, this%CRS_index_col,&
-                x, this%CRS_RHS, this%itrmax, this%er0,this%debug)
+                x, this%CRS_RHS, this%itrmax, this%er0,this%relative_er,this%debug)
             return
         endif
     else
         call  bicgstab_CRS_2(this%CRS_val, this%CRS_index_row, this%CRS_index_col,&
-            x, this%CRS_RHS, this%itrmax, this%er0,this%debug)
+            x, this%CRS_RHS, this%itrmax, this%er0, this%relative_er, this%debug)
         return
     endif
     
@@ -1575,20 +1651,11 @@ function solveFEMSolver(this,algorithm,preconditioning) result(x)
 
 end function
 ! #####################################################
-subroutine removeFEMSolver(this)
+subroutine removeFEMSolver(this,only_matrices)
     class(FEMSolver_),intent(inout) :: this
+    logical,optional,intent(in) :: only_matrices
 
-
-    if(allocated( this%femdomains)) deallocate(this%femdomains)!(:)  
-    if(allocated( this%DomainIDs)) deallocate(this%DomainIDs)!(:)
-
-    if(allocated( this%IfaceElemConnectivity)) deallocate(this%IfaceElemConnectivity)!(:,:)
-    if(allocated( this%IfaceElemDomainID)) deallocate(this%IfaceElemDomainID)!(:,:)
-
-    this%initialized = .false.
-    this%InterfaceExist = .false.
-    this%debug = .false.
-    
+ 
     if(allocated( this%CRS_val)) deallocate(this%CRS_val)!(:)
     if(allocated( this%CRS_Index_Col)) deallocate(this%CRS_Index_Col)!(:)
     if(allocated( this%CRS_Index_Row)) deallocate(this%CRS_Index_Row)!(:)
@@ -1606,6 +1673,22 @@ subroutine removeFEMSolver(this)
     if(allocated( this%B_CRS_Index_Col)) deallocate(this%B_CRS_Index_Col)!(:)
     if(allocated( this%B_CRS_Index_Row)) deallocate(this%B_CRS_Index_Row)!(:)
     this%B_empty = .true.
+
+    if(present(only_matrices) )then
+        if(only_matrices)then
+            return
+        endif
+    endif
+    if(allocated( this%femdomains)) deallocate(this%femdomains)!(:)  
+    if(allocated( this%DomainIDs)) deallocate(this%DomainIDs)!(:)
+
+    if(allocated( this%IfaceElemConnectivity)) deallocate(this%IfaceElemConnectivity)!(:,:)
+    if(allocated( this%IfaceElemDomainID)) deallocate(this%IfaceElemDomainID)!(:,:)
+
+    this%initialized = .false.
+    this%InterfaceExist = .false.
+    this%debug = .false.
+   
 
     
     if(allocated( this%fix_eig_IDs)) deallocate(this%fix_eig_IDs)!(:)
@@ -1739,14 +1822,15 @@ subroutine setEbOMFEMSolver(this,penalty,DOF)
 end subroutine
 
 ! #####################################################
-subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, debug)
+subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug)
     integer(int32), intent(inout) :: ptr_i(:),index_j(:), itrmax
     real(real64), intent(inout) :: a(:), b(:), er
+    real(real64),optional,intent(in) :: relative_er
     real(real64), intent(inout) :: x(:)
     logical,optional,intent(in) :: debug
     logical :: speak = .false.
     integer(int32) itr,i,j,n
-    real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr
+    real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr,re_er0
     real(real64),allocatable:: r(:), r0(:), p(:), y(:), e(:), v(:),pa(:),ax(:)
     
     er0 = er
@@ -1802,13 +1886,20 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, debug)
         x(:) = x(:) + alp * p(:) + c3 * e(:)
         r(:) = e(:) - c3 * v(:)
         rr = dot_product(r,r)
-        
-        if(speak)then
-            print *, rr
+        if(itr==1)then
+            re_er0 = rr
         endif
 
+        if(speak)then
+            print *, sqrt(rr)
+        endif
+        if(present(relative_er) )then
+            if(sqrt(rr/re_er0)<relative_er )then
+                exit
+            endif
+        endif
         !    write(*,*) 'itr, er =', itr,rr
-        if (rr < er0) exit
+        if (sqrt(rr) < er0) exit
         c1 = dot_product(r0,r)
         bet = c1 / (c2 * c3)
         if(  (c2 * c3)==0.0d0 ) stop "Bicgstab devide by zero"
@@ -2072,4 +2163,29 @@ function sortByIDreal64ColisVector(vectors, ID) result(new_vectors)
     enddo
 
 end function
+
+pure function getCRSFEMSolver(this,name) result(ret)
+    class(FEMSolver_),intent(in) :: this
+    character(*),optional,intent(in) :: name
+    type(CRS_) :: ret
+
+    if(present(name) )then
+        select case(name)
+            case("A","a","K","StiffnessMatrix")
+                ret%col_idx = this%A_CRS_Index_Col
+                ret%row_ptr = this%A_CRS_Index_Row
+                ret%val     = this%A_CRS_val
+            
+            case("B","b","M","MassMatrix")
+                ret%col_idx = this%B_CRS_Index_Col
+                ret%row_ptr = this%B_CRS_Index_Row
+                ret%val     = this%B_CRS_val
+        end select
+    else
+        ret%col_idx = this%CRS_Index_Col
+        ret%row_ptr = this%CRS_Index_Row
+        ret%val     = this%CRS_val
+    endif
+end function
+
 end module 

@@ -1,5 +1,6 @@
 module SeismicAnalysisClass
     use fem
+    use ModalAnalysisClass
     implicit none
 
     integer(int32) :: WAVE_DISP = 1
@@ -8,46 +9,86 @@ module SeismicAnalysisClass
 
 
     type::SeismicAnalysis_
+        ! only for single-domain >> 
         type(FEMDomain_),pointer :: femdomain
         type(FEMSolver_) :: femsolver
+        type(CRS_) :: M_matrix,K_matrix
+        ! <<<
 
+        ! for multi-domain, use >>>
+        type(ModalAnalysis_) :: modal
+        ! <<<
         
+        ! common for single/multi domain >>>
         real(real64),allocatable :: da(:) ! increment of accel.
-        real(real64),allocatable :: a(:) ! accel.
+        
         real(real64),allocatable :: a_ext(:) ! External accel.
         real(real64),allocatable :: a_ext_n(:) ! External accel.
+        
+        real(real64),allocatable :: a(:) ! accel.
+        real(real64),allocatable :: a_half(:) ! for RK4
+        real(real64),allocatable :: a_n(:) ! for RK4
+        
         real(real64),allocatable :: v(:) ! velocity
+        real(real64),allocatable :: v_half(:) ! for RK4
+        real(real64),allocatable :: v_n(:)
+        
         real(real64),allocatable :: u(:) ! disp.
+        real(real64),allocatable :: u_n(:) ! disp.
+        
         real(real64),allocatable :: du(:) ! increment of disp.
         real(real64),allocatable :: wave(:,:)
         real(real64),allocatable :: dwave(:,:)
+        ! <<<
 
+        ! >>> only for single-domain
         real(real64),allocatable :: Density(:)
         real(real64),allocatable :: YoungModulus(:)
         real(real64),allocatable :: PoissonRatio(:)
-
+        
         real(real64) :: MaxA(3) = 0.0d0
         real(real64) :: MaxV(3) = 0.0d0
         real(real64) :: MaxU(3) = 0.0d0
 
         integer(int32),allocatable :: WaveNodeList(:)
+        ! <<<
         
         ! displacement boundary
+
+        ! only for single-domain >> 
         integer(int32),allocatable :: FixNodeList_x(:)
         integer(int32),allocatable :: FixNodeList_y(:)
         integer(int32),allocatable :: FixNodeList_z(:)
+        ! in case of multi-domain, use this%modal
+        ! <<<
+
+        ! only for single-domain >> 
         real(real64),allocatable :: FixNodeList_Disp_x(:)
         real(real64),allocatable :: FixNodeList_Disp_y(:)
         real(real64),allocatable :: FixNodeList_Disp_z(:)
+        ! in case of multi-domain, use 
+        real(real64),allocatable :: FixNodeList_Disp(:)
+        ! <<<
 
+
+        real(real64),allocatable :: Traction(:)
+
+        ! only for single-domain >>>
         integer(int32),allocatable :: absorbingBoundary_x(:)
         integer(int32),allocatable :: absorbingBoundary_y(:)
         integer(int32),allocatable :: absorbingBoundary_z(:)
+        ! <<< 
+
+        integer(int32),allocatable :: absorbingBoundary_xyz(:)
+        real(real64) :: absorbingBoundary_elasticity = 0.0d0
+        real(real64) :: absorbingBoundary_viscosity  = 0.0d0
+        
+
 
         ! modal analysis
         real(real64),allocatable :: Frequency(:)
         real(real64),allocatable :: ModeVectors(:,:)
-
+        ! <<<
 
         character(1) :: wavedirection="z"
         integer(int32) :: wavetype = 0
@@ -62,12 +103,21 @@ module SeismicAnalysisClass
         real(real64) :: boundary_dumping_ratio = 1.0d0
         logical :: restart=.False.
         logical :: debug=.False.
+
+        logical :: multi_domain_mode = .false.
     contains
+        ! multi-domain mode
         procedure, public :: init => initSeismicAnalysis
+        procedure, public :: setMaterial => setMaterialSeismicAnalysis
+        procedure, public :: setBoundary => setBoundarySeismicAnalysis
+        procedure, public :: solve       => runSeismicAnalysis
+
+        ! single-doamin mode
         procedure, public :: loadWave => loadWaveSeismicAnalysis
         procedure, public :: fixDisplacement => fixDisplacementSeismicAnalysis 
         procedure, public :: updateWave => updateWaveSeismicAnalysis
         procedure, public :: run => runSeismicAnalysis
+        
 
         procedure, public :: LinearReyleighNewmark => LinearReyleighNewmarkSeismicAnalysis
         procedure, public :: recordMaxValues => recordMaxValuesSeismicAnalysis
@@ -88,23 +138,237 @@ module SeismicAnalysisClass
 contains
 
 ! ##############################################
-subroutine initSeismicAnalysis(obj)
+subroutine initSeismicAnalysis(obj,femdomains)
     class(SeismicAnalysis_),intent(inout) :: obj
+    type(FEMDomain_),optional,intent(in) :: femdomains(:)
+    integer(int32) :: i, n
 
-    obj%U = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
-    obj%V = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
-    obj%A = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
+    if(present(femdomains) ) then
+        call obj%modal%init(domains=femdomains)
+        obj%multi_domain_mode = .true.
+        n = 0
+        do i=1,size(femdomains)
+            n = n + femdomains(i)%nn()*femdomains(i)%nd()
+        enddo
+        obj%U = zeros(n)
+        obj%V = zeros(n)
+        obj%A = zeros(n)
+    else
+        ! Regacy mode
+        obj%U = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
+        obj%V = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
+        obj%A = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
 
-    if(obj%femdomain%mesh%empty() )then
-        print *, "[ERROR] Seismic % init >> obj%femdomain is empty"
+        if(obj%femdomain%mesh%empty() )then
+            print *, "[ERROR] Seismic % init >> obj%femdomain is empty"
+            stop
+        endif
+        obj%Density = zeros(obj%femdomain%ne() )
+        obj%YoungModulus = zeros(obj%femdomain%ne() )
+        obj%PoissonRatio = zeros(obj%femdomain%ne() )
+        obj%A_ext = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
+        obj%A_ext_n = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
+        obj%multi_domain_mode = .false.
+    endif
+end subroutine
+! ##############################################
+subroutine setMaterialSeismicAnalysis(this, DomainID, Density, YoungModulus, PoissonRatio)
+    class(SeismicAnalysis_),intent(inout) :: this
+    integer(int32),intent(in) :: DomainID
+    real(real64),intent(in)   :: YoungModulus(:),PoissonRatio(:),Density(:)
+
+    if(.not. this%multi_domain_mode)then
+        print *, "ERROR :: setMaterialSeismicAnalysis >> this%multi_domain_mode should be .true."
+        print *, "please redo %init(femdomain=your_fem_domains)"
         stop
     endif
-    obj%Density = zeros(obj%femdomain%ne() )
-    obj%YoungModulus = zeros(obj%femdomain%ne() )
-    obj%PoissonRatio = zeros(obj%femdomain%ne() )
-    obj%A_ext = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
-    obj%A_ext_n = zeros(obj%femdomain%nn()*obj%femdomain%nd() )
+    call this%modal%setMaterial(DomainID=DomainID,&
+        density=Density,YoungModulus=YoungModulus,PoissonRatio=PoissonRatio)
+    
+end subroutine
+! ##############################################
 
+
+! ##############################################
+subroutine setBoundarySeismicAnalysis(this, DomainID, NodeList, condition,boundaryValue,overwrite)
+    class(SeismicAnalysis_),intent(inout) :: this
+    integer(int32),intent(in) :: DomainID,NodeList(:)
+    character(*),intent(in) :: condition
+    real(real64),intent(in) :: boundaryValue(:)
+    logical,optional,intent(in) :: overwrite
+
+    integer(int32) :: i,j,domain_node_offset,nd,n,m
+
+
+    if(.not. this%multi_domain_mode)then
+        print *, "ERROR :: setBoundarySeismicAnalysis >> this%multi_domain_mode should be .true."
+        print *, "please redo %init(femdomain=your_fem_domains)"
+        stop
+    endif
+
+    select case(condition)
+
+        case("fix","FIX","Fix","Dirichlet","First","U","Displacement","u")
+            call this%modal%setBoundary(DomainID=DomainID, NodeList=NodeList)
+
+            nd = this%modal%solver%femdomains(1)%femdomainp%nd()
+            if(.not. allocated(this%FixNodeList_Disp) )then
+                this%FixNodeList_Disp = zeros(maxval(this%modal%DomainNodeID(:,2))&
+                    *nd)
+            endif
+            domain_node_offset = this%modal%DomainNodeID(DomainID,1) - 1
+            do i=1, size(NodeList)
+                if(nd /= 3)then
+                    print *, "setBoundarySeismicAnalysis >> only for 3D"
+                    print *, "Please revise this part for 1/2 D"
+                    stop
+                endif
+                n = size(boundaryValue)
+                m = size(NodeList)
+                
+                if (n==1)then
+                    this%FixNodeList_Disp( (domain_node_offset+NodeList(i))*nd - 2 ) = boundaryValue(1)
+                    this%FixNodeList_Disp( (domain_node_offset+NodeList(i))*nd - 1 ) = boundaryValue(1)
+                    this%FixNodeList_Disp( (domain_node_offset+NodeList(i))*nd - 0 ) = boundaryValue(1)
+                elseif (n==3)then
+                    this%FixNodeList_Disp( (domain_node_offset+NodeList(i))*nd - 2 ) = boundaryValue(1)
+                    this%FixNodeList_Disp( (domain_node_offset+NodeList(i))*nd - 1 ) = boundaryValue(2)
+                    this%FixNodeList_Disp( (domain_node_offset+NodeList(i))*nd - 0 ) = boundaryValue(3)
+                elseif (n==m )then
+                    this%FixNodeList_Disp( (domain_node_offset+NodeList(i))*nd - 2 ) = boundaryValue(i)
+                    this%FixNodeList_Disp( (domain_node_offset+NodeList(i))*nd - 1 ) = boundaryValue(i)
+                    this%FixNodeList_Disp( (domain_node_offset+NodeList(i))*nd - 0 ) = boundaryValue(i)
+                elseif( n == m*nd )then
+                    this%FixNodeList_Disp( (domain_node_offset+NodeList(i))*nd - 2 ) = boundaryValue(nd*i - 2)
+                    this%FixNodeList_Disp( (domain_node_offset+NodeList(i))*nd - 1 ) = boundaryValue(nd*i - 1)
+                    this%FixNodeList_Disp( (domain_node_offset+NodeList(i))*nd - 0 ) = boundaryValue(nd*i - 0)
+                else
+                    print *, "setBoundarySeismicAnalysis >> invalid size(boundaryValue) "
+                    print *, "it should be 1, 3, size(NodeList) or size(NodeList)*num_dimension"
+                    stop
+                end if
+            enddo
+
+        case("traction","TRACTION","Neumann","t","TractionForce","Second")
+            nd = this%modal%solver%femdomains(1)%femdomainp%nd()
+            if(.not. allocated(this%Traction) )then
+                this%Traction = zeros(maxval(this%modal%DomainNodeID(:,2))&
+                    *nd)
+            endif
+            domain_node_offset = this%modal%DomainNodeID(DomainID,1) - 1
+            do i=1, size(NodeList)
+                if(nd /= 3)then
+                    print *, "setBoundarySeismicAnalysis >> only for 3D"
+                    print *, "Please revise this part for 1/2 D"
+                    stop
+                endif
+                n = size(boundaryValue)
+                m = size(NodeList)
+                
+                if(n==1)then
+                    this%Traction( (domain_node_offset+NodeList(i))*nd - 2 ) = boundaryValue(1)
+                    this%Traction( (domain_node_offset+NodeList(i))*nd - 1 ) = boundaryValue(1)
+                    this%Traction( (domain_node_offset+NodeList(i))*nd - 0 ) = boundaryValue(1)
+                elseif(n==3)then
+                    this%Traction( (domain_node_offset+NodeList(i))*nd - 2 ) = boundaryValue(1)
+                    this%Traction( (domain_node_offset+NodeList(i))*nd - 1 ) = boundaryValue(2)
+                    this%Traction( (domain_node_offset+NodeList(i))*nd - 0 ) = boundaryValue(3)
+                elseif(n==m) then
+                    this%Traction( (domain_node_offset+NodeList(i))*nd - 2 ) = boundaryValue(i)
+                    this%Traction( (domain_node_offset+NodeList(i))*nd - 1 ) = boundaryValue(i)
+                    this%Traction( (domain_node_offset+NodeList(i))*nd - 0 ) = boundaryValue(i)
+                elseif(n==m*nd) then
+                    this%Traction( (domain_node_offset+NodeList(i))*nd - 2 ) = boundaryValue(nd*i - 2)
+                    this%Traction( (domain_node_offset+NodeList(i))*nd - 1 ) = boundaryValue(nd*i - 1)
+                    this%Traction( (domain_node_offset+NodeList(i))*nd - 0 ) = boundaryValue(nd*i - 0)
+                else
+                    print *, "setBoundarySeismicAnalysis >> invalid size(boundaryValue) "
+                    print *, "it should be 1, 3, size(NodeList) or size(NodeList)*num_dimension"
+                    stop
+                end if
+            enddo
+
+        case("Absorb","Absorbing Boundary")
+            nd = this%modal%solver%femdomains(1)%femdomainp%nd()
+            if(.not. allocated(this%Traction) )then
+                this%Traction = zeros(maxval(this%modal%DomainNodeID(:,2))&
+                    *nd)
+            endif
+            domain_node_offset = this%modal%DomainNodeID(DomainID,1) - 1
+            
+            n = size(boundaryValue)
+            m = size(NodeList)
+            
+            if(n==2)then
+                if(.not. allocated(this%absorbingBoundary_xyz ) )then
+                    this%absorbingBoundary_xyz  = NodeList(:)
+                else
+                    if(present(overwrite) )then
+                        if(overwrite)then
+                            this%absorbingBoundary_xyz  = NodeList(:)
+                        else
+                            this%absorbingBoundary_xyz  = this%absorbingBoundary_xyz  // NodeList(:)
+                        endif
+                    else
+                        this%absorbingBoundary_xyz = this%absorbingBoundary_xyz // NodeList(:)
+                    endif
+                    this%absorbingBoundary_elasticity = boundaryValue(1)
+                    this%absorbingBoundary_viscosity = boundaryValue(2)
+                endif
+
+            else
+                print *, "setBoundarySeismicAnalysis >> invalid size(boundaryValue) "
+                print *, "it should be 2 (viscosity and elasticity)"
+                stop
+            end if
+        
+        case("A","Acceleration","a","dv/dt","d^2 u/dt^2")
+
+            nd = this%modal%solver%femdomains(1)%femdomainp%nd()
+            if(.not. allocated(this%a_ext) )then
+                this%a_ext = zeros(maxval(this%modal%DomainNodeID(:,2))&
+                    *nd)
+            endif
+            domain_node_offset = this%modal%DomainNodeID(DomainID,1) - 1
+            do i=1, size(NodeList)
+                if(nd /= 3)then
+                    print *, "setBoundarySeismicAnalysis >> only for 3D"
+                    print *, "Please revise this part for 1/2 D"
+                    stop
+                endif
+                n = size(boundaryValue)
+                m = size(NodeList)
+                
+                if(n==1)then
+                    this%a_ext( (domain_node_offset+NodeList(i))*nd - 2 ) = boundaryValue(1)
+                    this%a_ext( (domain_node_offset+NodeList(i))*nd - 1 ) = boundaryValue(1)
+                    this%a_ext( (domain_node_offset+NodeList(i))*nd - 0 ) = boundaryValue(1)
+                elseif(n==3)then
+                    this%a_ext( (domain_node_offset+NodeList(i))*nd - 2 ) = boundaryValue(1)
+                    this%a_ext( (domain_node_offset+NodeList(i))*nd - 1 ) = boundaryValue(2)
+                    this%a_ext( (domain_node_offset+NodeList(i))*nd - 0 ) = boundaryValue(3)
+                elseif(n==m)then
+                    this%a_ext( (domain_node_offset+NodeList(i))*nd - 2 ) = boundaryValue(i)
+                    this%a_ext( (domain_node_offset+NodeList(i))*nd - 1 ) = boundaryValue(i)
+                    this%a_ext( (domain_node_offset+NodeList(i))*nd - 0 ) = boundaryValue(i)
+                elseif(n==m*nd) then
+                    this%a_ext( (domain_node_offset+NodeList(i))*nd - 2 ) = boundaryValue(nd*i - 2)
+                    this%a_ext( (domain_node_offset+NodeList(i))*nd - 1 ) = boundaryValue(nd*i - 1)
+                    this%a_ext( (domain_node_offset+NodeList(i))*nd - 0 ) = boundaryValue(nd*i - 0)
+                else
+                    print *, "setBoundarySeismicAnalysis >> invalid size(boundaryValue) "
+                    print *, "it should be 1, 3, size(NodeList) or size(NodeList)*num_dimension"
+                    stop
+                end if
+            enddo
+
+        !case("V","Velocity","v","du/dt")
+
+        
+        case default
+            print *, "setBoundarySeismicAnalysis >> invalid boundary condition",condition
+    end select
+    
 end subroutine
 ! ##############################################
 
@@ -446,49 +710,226 @@ subroutine updateWaveSeismicAnalysis(obj,timestep,direction)
 end subroutine
 
 ! ##############################################
-subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio,use_same_stiffness)
+subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio,use_same_stiffness,&
+    dt,timeIntegral,use_same_matrix)
     class(SeismicAnalysis_),intent(inout) :: obj
-    integer(int32),intent(in) :: timestep(2)
+    ! >> for multi-domain
+    real(real64),optional,intent(in) :: dt
+    logical,optional,intent(in) :: use_same_matrix
+
+    character(*),intent(in) :: timeIntegral
+    ! << 
+
+    ! >> for single-domain
+    integer(int32),optional,intent(in) :: timestep(2)
     logical,optional,intent(in) :: use_same_stiffness! Use A' for all t_n, A'x=b
+    real(real64),optional,intent(in) :: t0,disp_magnify_ratio
+    real(real64),optional,intent(in) :: wave(:,:),AccelLimit
+    real(real64),allocatable :: mass_diag(:),R(:),boundary_force(:),F_vec(:),new_U(:),new_V(:),new_A(:)
+    real(real64),allocatable :: diag(:),bar_A(:),bar_V(:)
+    ! <<<
 
     type(LinearSolver_) :: solver
     type(IO_) :: U, V, A
-    real(real64),optional,intent(in) :: t0,disp_magnify_ratio
-    real(real64),optional,intent(in) :: wave(:,:),AccelLimit
+    type(CRS_) :: M_matrix, K_matrix, A_matrix
+    
     integer(int32) :: i,j
     real(real64) :: ratio
 
-    ratio = input(default=1.0d0,option=disp_magnify_ratio)
-    if(present(wave) )then
-        obj%wave = wave
-    endif
 
-    do i=timestep(1),timestep(2)-1
-        ! update dt
-        obj%dt = abs(obj%wave(i+1,1) - obj%wave(i,1))
+    if(obj%multi_domain_mode)then
+        if(.not.present(dt) )then
+            print *, "Need real(real64) :: dt for multi-domain"
+            stop
+        endif
         
-        ! update time
-        obj%step = i
-        obj%t = obj%dt*obj%Step
-        call obj%updateWave(timestep=obj%step+1)
-        ! show info.
-        call print("SeismicAnalysis >> "//str(obj%t-obj%dt)//"< t <"//str(obj%t)//" sec.")
-        
-        ! solve Linear-ElastoDynamic problem with Reyleigh dumping and Newmark Beta
-        if(present(AccelLimit) )then
-            if(maxval(obj%A)>=AccelLimit)then
-                print *, "[Caution] :: runSeismicAnalysis >> exceeds AccelLimit!"
-                return    
-            endif
+        select case(timeIntegral)
+            case("Nemwark-beta","Nemwark-Beta")
+
+                if(.not.allocated(obj%a_n) )then
+                    obj%a_n = obj%a
+                endif
+                if(.not.allocated(obj%v_n) )then
+                    obj%v_n = obj%v    
+                endif
+                if(.not.allocated(obj%u_n) )then
+                    obj%u_n = obj%u    
+                endif
+
+
+                obj%modal%solver%CRS_val = 0.0d0
+
+                ! multiplication/summersion of CRS matrices
+                
+                if(present(use_same_matrix))then
+                    if(use_same_matrix)then
+                        if(.not.allocated(obj%M_matrix%val) )then
+                            print *, "[ok] use_same_matrix >> enabled "
+                            call obj%modal%solve(only_matrix=.true.)
+                            obj%M_matrix = obj%modal%solver%getCRS("B")
+                            obj%K_matrix = obj%modal%solver%getCRS("A")
+                            M_matrix = obj%M_matrix
+                            K_matrix = obj%K_matrix
+                        else
+                            print *, "[ok] use_same_matrix >> active "
+                            M_matrix = obj%M_matrix
+                            K_matrix = obj%K_matrix
+                        endif
+                        
+                    else
+                        call obj%modal%solve(only_matrix=.true.)
+                        M_matrix = obj%modal%solver%getCRS("B")
+                        K_matrix = obj%modal%solver%getCRS("A")
+                    endif
+                else
+                    call obj%modal%solve(only_matrix=.true.)
+                    M_matrix = obj%modal%solver%getCRS("B")
+                    K_matrix = obj%modal%solver%getCRS("A")
+                endif
+
+                A_matrix = (1.0d0/dt/dt/obj%Newmark_beta + &
+                    obj%Newmark_gamma/dt/obj%Newmark_beta*obj%alpha)*M_matrix &
+                    + (obj%Newmark_gamma/dt/obj%Newmark_beta*obj%beta + 1.0d0)*K_matrix
+                
+                bar_A = - 1.0d0/dt/obj%Newmark_beta*obj%V_n(:) -1.0d0/2.0d0/obj%Newmark_beta &
+                    *(1.0d0 - 2.0d0*obj%Newmark_beta)*obj%A_n(:)
+
+                bar_V = obj%V_n + dt*(1.0d0-obj%Newmark_gamma)*obj%A_n &
+                    - obj%Newmark_gamma/obj%Newmark_beta*obj%V_n - dt*obj%Newmark_gamma/2.0d0 &
+                    /obj%Newmark_beta*(1.0d0 - 2.0d0*obj%Newmark_beta)*obj%A_n
+                
+                
+                F_vec = obj%Traction + M_matrix%matmul(obj%A_ext)&
+                    + obj%getAbsorbingBoundaryForce() &
+                    -K_matrix%matmul(obj%U_n) &
+                    -M_matrix%matmul(bar_A)&
+                    -obj%alpha*M_matrix%matmul(bar_V)&
+                    -obj%beta*K_matrix%matmul(bar_V)
+                
+                
+                call obj%modal%solver%setCRS(A_matrix)
+                call obj%modal%solver%setRHS(F_vec)
+                
+                
+               
+                new_U = obj%modal%solver%solve()
+
+                New_A   = 1.0d0/dt/dt/obj%Newmark_beta*new_U  + bar_A
+
+                New_V   = obj%newmark_gamma/dt/obj%newmark_beta*new_U + bar_V
+ 
+                
+                new_U = new_U + obj%U_n
+                
+                obj%U   = new_U
+                obj%U_n = obj%U
+                
+                obj%V   = new_V
+                obj%V_n = obj%V
+                
+                obj%A   = new_A  
+                obj%A_n = obj%A
+                
+                
+
+
+            case("RK4")
+                print *, "[STOP] Forward Euler >> Buggy"
+                stop
+                if(.not.allocated(obj%a_n) )then
+                    obj%a_n = obj%a
+                endif
+                if(.not.allocated(obj%v_n) )then
+                    obj%v_n = obj%v    
+                endif
+
+                if(.not.allocated(obj%a_half) )then
+                    obj%a_half = obj%a_n
+                endif
+                if(.not.allocated(obj%v_half) )then
+                    obj%v_half = obj%v_n    
+                endif
+
+                if(.not.allocated(obj%U_n) )then
+                    obj%U_n = obj%U
+                endif
+
+                call obj%modal%solve(only_matrix=.true.)
+                ! multiplication/summersion of CRS matrices
+                M_matrix = obj%modal%solver%getCRS("B")
+                K_matrix = obj%modal%solver%getCRS("A")
+                A_matrix = (obj%beta * 6.0d0/dt + 1.0d0)* K_matrix + &
+                    (36.0d0/dt/dt + obj%alpha*6.0d0/dt)*M_matrix 
+                    
+                F_vec = obj%Traction + M_matrix%matmul(obj%A_ext)&
+                    + obj%getAbsorbingBoundaryForce() &
+                    + (36.0d0/dt/dt + obj%alpha*6.0d0/dt)*M_matrix%matmul(obj%u_n) &
+                    + obj%beta*6.0d0/dt*K_matrix%matmul(obj%u_n) &
+                    + (12.0d0/dt+obj%alpha)*M_matrix%matmul(obj%v_n) &
+                    + obj%beta *K_matrix%matmul(obj%v_n)  &
+                    + (12.0d0/dt + 2.0d0*obj%alpha)*M_matrix%matmul(obj%v_half) & 
+                    + (2.0d0*obj%beta)*K_matrix%matmul(obj%v_half) &
+                    + 2.0d0*M_matrix%matmul(obj%a_n) & 
+                    + 2.0d0*M_matrix%matmul(obj%a_half) 
+                ! diag
+                
+                
+                call obj%modal%solver%setCRS(A_matrix)
+                call obj%modal%solver%setRHS(F_vec)
+                
+           
+                new_U = obj%modal%solver%solve()
+
+                new_V = 6.0d0/dt*new_U - 6.0d0/dt*obj%U_n - (obj%v_n + 2.0d0*obj%v_half)
+
+                new_A = 6.0d0/dt*new_V - 6.0d0/dt*obj%V_n - (obj%a_n + 2.0d0*obj%a_half)
+                
+                ! update valiables
+                obj%U_n = new_U
+                obj%U   = new_U
+
+                obj%V_n    = obj%V_half
+                obj%V_half = obj%V
+                obj%V      = new_V
+
+                obj%A_n    = obj%A_half
+                obj%A_half = obj%A
+                obj%A      = new_A
+
+        end select
+    else
+        ratio = input(default=1.0d0,option=disp_magnify_ratio)
+        if(present(wave) )then
+            obj%wave = wave
         endif
 
-        call obj%LinearReyleighNewmark()
+        do i=timestep(1),timestep(2)-1
+            ! update dt
+            obj%dt = abs(obj%wave(i+1,1) - obj%wave(i,1))
 
-        call obj%recordMaxValues()
-        ! Export results
-        call obj%save("step_"//str(obj%step),ratio=ratio)
+            ! update time
+            obj%step = i
+            obj%t = obj%dt*obj%Step
+            call obj%updateWave(timestep=obj%step+1)
+            ! show info.
+            call print("SeismicAnalysis >> "//str(obj%t-obj%dt)//"< t <"//str(obj%t)//" sec.")
 
-    enddo 
+            ! solve Linear-ElastoDynamic problem with Reyleigh dumping and Newmark Beta
+            if(present(AccelLimit) )then
+                if(maxval(obj%A)>=AccelLimit)then
+                    print *, "[Caution] :: runSeismicAnalysis >> exceeds AccelLimit!"
+                    return    
+                endif
+            endif
+
+            call obj%LinearReyleighNewmark()
+
+            call obj%recordMaxValues()
+            ! Export results
+            call obj%save("step_"//str(obj%step),ratio=ratio)
+
+        enddo 
+    endif
 
 end subroutine
 ! ##############################################
@@ -917,31 +1358,46 @@ end subroutine
 pure function getAbsorbingBoundaryForceSeismicAnalysis(obj) result(force)
     class(SeismicAnalysis_),intent(in) :: obj
     real(real64),allocatable :: force(:)
-    integer(int32) :: i
+    integer(int32) :: i, node_id
 
-    force = zeros(obj%femdomain%nn()*obj%femdomain%nd() ) 
-    if(allocated(obj%absorbingBoundary_x ) )then
-        do i=1,size(obj%absorbingBoundary_x)
-            force((obj%absorbingBoundary_x(i)-1)*obj%femdomain%nd() + 1 ) &
-             = - obj%boundary_dumping_ratio*&
-             obj%V((obj%absorbingBoundary_x(i)-1)*obj%femdomain%nd() + 1 )
+    if(allocated(obj%absorbingBoundary_xyz) )then
+        ! for multi-domain
+        force = zeros(size(obj%U) )
+        do i=1,size(obj%absorbingBoundary_xyz)
+            node_id = obj%absorbingBoundary_xyz(i)
+            force(3*node_id-2) =  - obj%absorbingBoundary_elasticity *obj%U(3*node_id-2) &
+                - obj%absorbingBoundary_viscosity*obj%V(3*node_id-2) 
+            force(3*node_id-1) =  - obj%absorbingBoundary_elasticity *obj%U(3*node_id-1) &
+                - obj%absorbingBoundary_viscosity*obj%V(3*node_id-1) 
+            force(3*node_id-0) =  - obj%absorbingBoundary_elasticity *obj%U(3*node_id-0) &
+                - obj%absorbingBoundary_viscosity*obj%V(3*node_id-0) 
         enddo
-    endif
+    else
+        ! for single-domain
+        force = zeros(obj%femdomain%nn()*obj%femdomain%nd() ) 
+        if(allocated(obj%absorbingBoundary_x ) )then
+            do i=1,size(obj%absorbingBoundary_x)
+                force((obj%absorbingBoundary_x(i)-1)*obj%femdomain%nd() + 1 ) &
+                 = - obj%boundary_dumping_ratio*&
+                 obj%V((obj%absorbingBoundary_x(i)-1)*obj%femdomain%nd() + 1 )
+            enddo
+        endif
 
-    if(allocated(obj%absorbingBoundary_y ) )then
-        do i=1,size(obj%absorbingBoundary_y)
-            force((obj%absorbingBoundary_y(i)-1)*obj%femdomain%nd() + 2 ) &
-             = - obj%boundary_dumping_ratio*&
-             obj%V((obj%absorbingBoundary_y(i)-1)*obj%femdomain%nd() + 2 )
-        enddo
-    endif
+        if(allocated(obj%absorbingBoundary_y ) )then
+            do i=1,size(obj%absorbingBoundary_y)
+                force((obj%absorbingBoundary_y(i)-1)*obj%femdomain%nd() + 2 ) &
+                 = - obj%boundary_dumping_ratio*&
+                 obj%V((obj%absorbingBoundary_y(i)-1)*obj%femdomain%nd() + 2 )
+            enddo
+        endif
 
-    if(allocated(obj%absorbingBoundary_z ) )then
-        do i=1,size(obj%absorbingBoundary_z)
-            force((obj%absorbingBoundary_z(i)-1)*obj%femdomain%nd() + 3 ) &
-             = - obj%boundary_dumping_ratio*&
-             obj%V((obj%absorbingBoundary_z(i)-1)*obj%femdomain%nd() + 3 )
-        enddo
+        if(allocated(obj%absorbingBoundary_z ) )then
+            do i=1,size(obj%absorbingBoundary_z)
+                force((obj%absorbingBoundary_z(i)-1)*obj%femdomain%nd() + 3 ) &
+                 = - obj%boundary_dumping_ratio*&
+                 obj%V((obj%absorbingBoundary_z(i)-1)*obj%femdomain%nd() + 3 )
+            enddo
+        endif
     endif
 
 end function

@@ -7848,6 +7848,4 @@ function full_Int32Dim2(vec_size, fill_value) result(vec)
 
 end function
 
-
-
 end module ArrayClass
