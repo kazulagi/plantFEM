@@ -546,6 +546,7 @@ function multCRS_and_Real64(CRS1,scalar64) result(CRS_ret)
     type(CRS_),intent(in) :: CRS1
     real(real64),intent(in) :: scalar64
     type(CRS_) :: CRS_ret
+    integer(int32)::i
 
     CRS_ret = CRS1
 
