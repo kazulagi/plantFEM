@@ -1,9 +1,14 @@
 module FEMSolverClass
     !Linear soler for FEMDomainClass
-
+    use iso_fortran_env
     use COOClass
     use FEMDomainClass
     implicit none
+
+    type :: M_Link_Item_
+        integer(int32) :: rank_and_rowID_1(1:2) = [0,0]
+        integer(int32) :: rank_and_rowID_2(1:2) = [0,0]
+    end type
 
 
     type :: FEMSolver_
@@ -53,9 +58,11 @@ module FEMSolverClass
 
         ! with MPI
         type(MPI_),pointer :: MPI_target  => null()
+        type(M_Link_Item_),allocatable :: Link_Table(:)
 
+        integer(int32) :: LINK_TABLE_INIT_SIZE = 1000
+        integer(int32) :: Link_num=0
         
-
         integer(int32) :: itrmax = 100000
         real(real64)   :: er0 = dble(1.0e-10)
         real(real64)   :: relative_er = dble(1.0e-10)
@@ -115,6 +122,12 @@ module FEMSolverClass
         ! others:
         ! Energy-based Overset Mesh (Tomobe et al., under review)
         procedure, public :: setEbOM => setEbOMFEMSolver
+
+        ! FOR MPI 
+        procedure, public :: MPI_link => MPI_linkFEMSolver
+        procedure, public :: MPI_dot_product => MPI_dot_productFEMSolver
+        procedure, public :: MPI_matmul => MPI_matmulFEMSolver
+        procedure, public :: MPI_BICGSTAB => MPI_BICGSTABFEMSolver
 
         ! destractor
         procedure, public :: remove => removeFEMSolver
@@ -1631,22 +1644,25 @@ function solveFEMSolver(this,algorithm,preconditioning,x0) result(x)
     endif
 
 
-    if(present(algorithm) )then
-        if(algorithm=="GaussJordan") then
-            call gauss_jordan_crs(this%CRS_val, this%CRS_index_row, this%CRS_index_col,&
-            x, this%CRS_RHS, size(this%CRS_RHS) )
-            return
+    if(associated(this%mpi_target) )then
+        call this%MPI_BICGSTAB(x)
+    else
+        if(present(algorithm) )then
+            if(algorithm=="GaussJordan") then
+                call gauss_jordan_crs(this%CRS_val, this%CRS_index_row, this%CRS_index_col,&
+                x, this%CRS_RHS, size(this%CRS_RHS) )
+                return
+            else
+                call  bicgstab_CRS_2(this%CRS_val, this%CRS_index_row, this%CRS_index_col,&
+                    x, this%CRS_RHS, this%itrmax, this%er0,this%relative_er,this%debug)
+                return
+            endif
         else
             call  bicgstab_CRS_2(this%CRS_val, this%CRS_index_row, this%CRS_index_col,&
-                x, this%CRS_RHS, this%itrmax, this%er0,this%relative_er,this%debug)
+                x, this%CRS_RHS, this%itrmax, this%er0, this%relative_er, this%debug)
             return
         endif
-    else
-        call  bicgstab_CRS_2(this%CRS_val, this%CRS_index_row, this%CRS_index_col,&
-            x, this%CRS_RHS, this%itrmax, this%er0, this%relative_er, this%debug)
-        return
-    endif
-    
+    endif   
     
 
 end function
@@ -1708,9 +1724,14 @@ subroutine removeFEMSolver(this,only_matrices)
 
     ! with MPI
     if(associated(this%MPI_target)) nullify(this%MPI_target)
+    if(allocated(this%Link_Table)) deallocate(this%Link_Table)
 
+    
+    this%LINK_TABLE_INIT_SIZE = 1000
+    this%Link_num=0
     this%itrmax = 100000
     this%er0 = dble(1.0e-10)
+    this%relative_er = dble(1.0e-10)
     
 end subroutine
 ! #####################################################
@@ -1861,6 +1882,7 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug
 
     p(:) = r(:)
     r0(:) = r(:)
+    
 
     do itr = 1, itrmax   
         if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] initialize"
@@ -1907,6 +1929,125 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug
     enddo
 end subroutine 
 !===============================================================
+
+
+! #####################################################
+subroutine MPI_BiCGSTABFEMSolver(this,x)
+    class(FEMSolver_),intent(inout) :: this
+    !integer(int32), intent(inout) :: ptr_i(:),index_j(:), itrmax
+    !real(real64), intent(inout) :: a(:), b(:), er
+    !real(real64),optional,intent(in) :: relative_er
+    ! MPI
+    !type(M_Link_Item_),intent(in) :: link_table(:)
+    !type(MPI_) :: mpi_target
+
+    real(real64), allocatable, intent(inout) :: x(:)
+    
+    logical :: speak = .false.
+    integer(int32) itr,i,j,n
+    real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr,re_er0
+    real(real64),allocatable:: r(:), r0(:), p(:), y(:), e(:), v(:),pa(:),ax(:)
+    
+
+    er0 = this%er0
+    speak = this%debug
+    if(.not.allocated(this%CRS_RHS) )then
+        print *, "[ERROR] >> bicgstab_CRS_MPIFEMSolver :: detected .not.allocated(this%CRS_RHS)"
+        stop
+    endif
+    n=size(this%CRS_RHS)
+    if(speak) print *, "BiCGSTAB STARTED >> DOF:", n
+
+    if(.not.allocated(x) )then
+        x = zeros(n)
+    endif
+
+    allocate(r(n), r0(n), p(n), y(n), e(n), v(n))
+
+    r(:) = this%CRS_RHS(:)
+
+    if(speak) print *, "BiCGSTAB >> [1] initialize"
+
+    ! matrix-vector multiplication
+    !ax = crs_matvec(CRS_value=a,CRS_col=index_j,&
+    !    CRS_row_ptr=ptr_i,old_vector=x)
+    ax = this%MPI_matmul(b=x)
+    r = this%CRS_RHS - ax
+    
+    
+    if(speak) print *, "BiCGSTAB >> [2] dp1"
+    
+    ! dot_product
+    c1 = this%mpi_dot_product(r,r)
+
+    init_rr=c1
+    !if(speak) print *, "BiCGSTAB >>      |r|^2 = ",init_rr
+    
+    if (c1 < er0) return
+
+    p(:) = r(:)
+    r0(:) = r(:)
+
+    do itr = 1, this%itrmax 
+        if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] initialize"
+        c1 = this%mpi_dot_product(r0,r)
+        
+        !y = crs_matvec(CRS_value=a,CRS_col=index_j,&
+        !CRS_row_ptr=ptr_i,old_vector=p)
+        y = this%MPI_matmul(b=p)
+
+        c2 = this%mpi_dot_product(r0,y)
+
+        alp = c1/c2
+        
+        e(:) = r(:) - alp * y(:)
+        
+        !v = crs_matvec(CRS_value=a,CRS_col=index_j,&
+        !CRS_row_ptr=ptr_i,old_vector=e)
+        v = this%MPI_matmul(b=e)
+
+        if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] half"
+        
+        
+        ev = this%mpi_dot_product(e,v)
+        vv = this%mpi_dot_product(v,v)
+        
+        if(  vv==0.0d0 ) stop "Bicgstab devide by zero"
+        
+        c3 = ev / vv
+        
+        x(:) = x(:) + alp * p(:) + c3 * e(:)
+        
+        r(:) = e(:) - c3 * v(:)
+        
+        rr = this%mpi_dot_product(r,r)
+        
+        if(itr==1)then
+            re_er0 = rr
+        endif
+
+        if(speak)then
+            print *, sqrt(rr)
+        endif
+        if(sqrt(rr/re_er0)<this%relative_er )then
+            exit
+        endif
+        !    write(*,*) 'itr, er =', itr,rr
+        if (sqrt(rr) < er0) exit
+        c1 = this%mpi_dot_product(r0,r)
+
+        
+        bet = c1 / (c2 * c3)
+        
+        if(  (c2 * c3)==0.0d0 ) stop "Bicgstab devide by zero"
+        
+        p(:) = r(:) + bet * (p(:) -c3*y(:) )
+    enddo
+end subroutine 
+!===============================================================
+
+
+
 
 !===================================================================================
 subroutine gauss_jordan_crs(a0_val, a0_row_ptr,a0_col_idx, x, b, n)
@@ -2186,6 +2327,162 @@ pure function getCRSFEMSolver(this,name) result(ret)
         ret%row_ptr = this%CRS_Index_Row
         ret%val     = this%CRS_val
     endif
+end function
+
+
+subroutine MPI_linkFEMSolver(this,rank_and_rowID_1,rank_and_rowID_2)
+    class(FEMSolver_),intent(inout) :: this
+    integer(int32),intent(in) :: rank_and_rowID_1(1:2),rank_and_rowID_2(1:2)
+    type(M_Link_Item_),allocatable :: buf_table(:) 
+    integer(int32) :: i
+
+    ! if not allocated, allocate
+    if(.not.allocated(this%Link_Table) )then
+        allocate(this%Link_Table(this%LINK_TABLE_INIT_SIZE) )
+        this%Link_num=0
+    endif
+
+    ! if not related, return
+    if(rank_and_rowID_1(1)/=this%MPI_target%myrank &
+        .and. rank_and_rowID_2(1)/=this%MPI_target%myrank )then
+        return
+    endif
+
+    ! related. but table is full
+    if(this%Link_num >=size(this%Link_Table) )then
+        buf_table = this%Link_Table
+        deallocate(this%Link_Table)
+        allocate(this%Link_Table(2*size(buf_table) )  )
+        do i=1,size(buf_table)
+            this%Link_Table(i) = buf_table(i)
+        enddo
+    endif
+
+    ! related and buffer has enough space
+    this%Link_num = this%Link_num + 1
+
+    if(rank_and_rowID_1(1)==this%mpi_target%myrank )then
+        this%Link_Table(this%Link_num)%rank_and_rowID_1 = rank_and_rowID_1
+        this%Link_Table(this%Link_num)%rank_and_rowID_2 = rank_and_rowID_2
+    elseif(rank_and_rowID_2(1)==this%mpi_target%myrank )then
+        this%Link_Table(this%Link_num)%rank_and_rowID_1 = rank_and_rowID_2
+        this%Link_Table(this%Link_num)%rank_and_rowID_2 = rank_and_rowID_1
+    else
+        ! do nothing
+        return
+    endif
+
+end subroutine
+
+function MPI_dot_productFEMSolver(this,a, b) result(dp)
+    class(FEMSolver_),intent(in) :: this
+    real(real64),intent(in) :: a(:),b(:)
+    integer(int32),allocatable :: num_link(:)
+    integer(int32) :: i,j,n,m
+    real(real64) :: dp, my_dp,sendobj(1),recvobj(1)
+
+    if(.not. associated(this%MPI_target) )then
+        print *, "ERROR ::MPI_dot_productFEMSolver >> please associate this%mpi_target "
+        print *, "this%mpi_target => your_mpi_object"
+        stop
+    endif
+
+    n = size(a)
+    num_link = int( eyes(n) )
+    if(allocated(this%Link_Table) )then
+        do i=1,this%Link_num
+            
+            m = this%Link_Table(i)%rank_and_rowID_1(2)
+            if(this%Link_Table(i)%rank_and_rowID_2(1) > this%MPI_target%petot-1 ) cycle
+            if(m > n ) cycle
+            num_link(m) = num_link(m) + 1
+        enddo
+    endif
+
+    my_dp = 0.0d0
+    !$OMP parallel 
+    !$OMP do reduction(+:my_dp)
+    do i=1,n
+        my_dp = my_dp + a(i)*b(i)/dble(num_link(i) )
+    enddo
+    !$OMP end do
+    !$OMP end parallel
+
+
+    sendobj(1) = my_dp
+    recvobj(1) = 0.0d0
+    call this%MPI_target%AllReduce(sendobj=sendobj,recvobj=recvobj,count=1,sum=.true.)
+    dp = recvobj(1)
+
+end function
+
+function MPI_matmulFEMSolver(this,A,b) result(my_c)
+    class(FEMSolver_),intent(in) :: this
+    type(CRS_),optional,intent(in) :: A
+    real(real64),intent(in) :: b(:)
+    real(real64),allocatable :: sendbuf(:),recvbuf(:),my_c(:)
+    integer(int32),allocatable :: send_recv_rank(:)
+    integer(int32) :: i,j,n,cor_rank,my_row_id
+
+    if(.not. associated(this%MPI_target) )then
+        print *, "ERROR ::MPI_matmulFEMSolver >> please associate this%mpi_target "
+        print *, "this%mpi_target => your_mpi_object"
+        stop
+    endif
+
+!    ! create sendbuf and recvbuf 
+!    sendbuf  = zeros(this%Link_num)
+!    send_recv_rank = int(zeros(this%Link_num))
+!    do i=1,this%Link_num
+!        my_row_id  = this%Link_Table(i)%rank_and_rowID_1(2)
+!        cor_rank   = this%Link_Table(i)%rank_and_rowID_2(1)
+!        sendbuf(i)  = b_copy(my_row_id) 
+!        send_recv_rank(i) = cor_rank
+!    enddo
+!    recvbuf  = zeros(this%Link_num)
+!    
+!    ! MPI COMMUNICATION
+!    ! ISEND :: >>> NON-BLOCKING
+!    call this%mpi_target%isend_irecv(sendobj=sendbuf,recvobj=recvbuf,send_recv_rank=send_recv_rank)
+!
+!
+!    do i=1,this%Link_num
+!        my_row_id  = this%Link_Table(i)%rank_and_rowID_1(2)
+!        cor_rank   = this%Link_Table(i)%rank_and_rowID_2(1)
+!        b_copy(my_row_id) = b_copy(my_row_id) + recvbuf(i)  
+!    enddo
+    if(present(A) )then
+        my_c = A%matmul(b)
+    else
+        my_c = crs_matvec(CRS_value=this%CRS_val,CRS_col=this%CRS_Index_Col,&
+            CRS_row_ptr=this%CRS_Index_Row,old_vector=b)
+    endif
+    
+    ! create sendbuf and recvbuf 
+
+    sendbuf  = zeros(this%Link_num)
+    send_recv_rank = int(zeros(this%Link_num))
+    recvbuf  = zeros(this%Link_num)
+
+    do i=1,this%Link_num
+        my_row_id  = this%Link_Table(i)%rank_and_rowID_1(2)
+        cor_rank   = this%Link_Table(i)%rank_and_rowID_2(1)
+        sendbuf(i)  = my_c(my_row_id) 
+        send_recv_rank(i) = cor_rank
+    enddo
+    recvbuf  = zeros(this%Link_num)
+
+
+    call this%mpi_target%isend_irecv(sendobj=sendbuf,recvobj=recvbuf,send_recv_rank=send_recv_rank)
+    
+    do i=1,this%Link_num
+        my_row_id  = this%Link_Table(i)%rank_and_rowID_1(2)
+        cor_rank   = this%Link_Table(i)%rank_and_rowID_2(1)
+        my_c(my_row_id) = my_c(my_row_id) + recvbuf(i)  
+    enddo
+
+
+
 end function
 
 end module 
