@@ -17,6 +17,7 @@ module COOClass
         procedure,public :: to_dense => getDenseMatrixCOO
         procedure,public :: remove => removeCOO
         procedure,public :: getAllCol => getAllColCOO
+        procedure,public :: DOF => DOFCOO 
         procedure,public :: to_CRS => to_CRSCOO
         !procedure,public ::getAllCol_as_row_obj => getAllCol_as_row_objCOO
     end type
@@ -32,6 +33,7 @@ module COOClass
         procedure,public :: matmul => matmulCRS
         procedure,public :: eig => eigCRS
         procedure,public :: to_dense => to_denseCRS
+        procedure,public :: DOF => DOFCRS
     end type
 
 
@@ -127,6 +129,9 @@ subroutine updateCOO(this,row,col,val)
     real(real64),intent(in)   :: val
     integer(int32) :: i, col_id
     
+    if(row > this%DOF() .or. row < 1 ) return
+    if(col > this%DOF() .or. col < 1 ) return
+
     if(.not. allocated(this%row) )then
         print *, "ERROR :: initCOO"
         print *, "Please call [COO]%init() before this operation."
@@ -137,7 +142,8 @@ subroutine updateCOO(this,row,col,val)
         this%row(row)%val = [val]
         this%row(row)%col = [col]
     else
-
+        
+        
         ! check duplication
         if(minval(abs(this%row(row)%col(:) - col ) )==0 ) then
             ! duplication
@@ -164,6 +170,9 @@ subroutine addCOO(this,row,col,val)
     integer(int32),intent(in)   :: col
     real(real64),intent(in)   :: val
     integer(int32) :: i, col_id
+    
+    if(row > this%DOF() .or. row < 1 ) return
+    if(col > this%DOF() .or. col < 1 ) return
     
     if(.not. allocated(this%row) )then
         print *, "ERROR :: initCOO"
@@ -558,5 +567,27 @@ function multCRS_and_Real64(CRS1,scalar64) result(CRS_ret)
 end function
 
 
+pure function DOFCOO(this) result(Degree_of_freedom)
+    class(COO_),intent(in) :: this
+    integer(int32) :: Degree_of_freedom
+
+    if(allocated(this%row) )then
+        Degree_of_freedom = size(this%row)
+    else
+        Degree_of_freedom = 0
+    endif
+end function
+
+
+pure function DOFCRS(this) result(Degree_of_freedom)
+    class(CRS_),intent(in) :: this
+    integer(int32) :: Degree_of_freedom
+
+    if(allocated(this%row_ptr) )then
+        Degree_of_freedom = size(this%row_ptr) - 1
+    else
+        Degree_of_freedom = 0
+    endif
+end function
 
 end module COOClass

@@ -91,6 +91,9 @@ module MPIClass
         procedure, Pass :: AllReduceMPIReal 
         generic :: AllReduce => AllReduceMPIInt, AllReduceMPIReal 
 
+        procedure, pass :: isend_irecvRealVectorMPI
+        generic :: isend_irecv => isend_irecvRealVectorMPI
+
         procedure :: createStack => createStackMPI
         procedure :: showStack   => showStackMPI
         procedure :: free  => freeMPI 
@@ -1744,4 +1747,65 @@ pure function this_imageMPI(obj) result(ret)
     ret = obj%myrank + 1
 end function
 !################################################################
+
+subroutine isend_irecvRealVectorMPI(this,sendobj,recvobj,send_recv_rank,debug)
+    class(MPI_),intent(inout) :: this
+    real(real64),intent(in)    :: sendobj(:)
+    real(real64),intent(inout) :: recvobj(:)
+    integer(int32),intent(in)  :: send_recv_rank(:)
+    integer(int32) :: i, n,ireq,ierr,tag
+    integer(int32) :: mpistat(MPI_STATUS_SIZE)
+    logical,optional,intent(in) :: debug
+
+    call this%barrier()
+    if(present(debug) )then
+        if(debug)then
+            if(size(send_recv_rank) > 100000 )then 
+                print *, "[CAUTION!] isend_irecv >> communication cost increases O(N^2)/ "
+                print *, "           For hevy workflow, please consider to use MPI_BCAST"
+            endif
+        endif
+    endif
+
+
+    ! ISEND :: >>> NON-BLOCKING
+    n = size(sendobj)
+    tag = 0
+
+    do i=1, n
+        !tag = tag+1
+        if(send_recv_rank(i) > this%petot-1 ) cycle
+        call MPI_IRECV(recvobj(i), 1, MPI_REAL8, send_recv_rank(i),&
+                       0, MPI_COMM_WORLD, ireq, ierr)
+    enddo
+
+
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] isend_irecv >> RANK :: ",this%myrank,"[IRECV:DONE]"        
+        endif
+    endif
+
+    do i=1, n
+        !tag = tag+1
+        if(send_recv_rank(i) > this%petot-1 ) cycle
+        call MPI_ISEND(sendobj(i), 1, MPI_REAL8, send_recv_rank(i),&
+                       tag, MPI_COMM_WORLD, ireq, ierr)
+        
+    enddo
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] isend_isend >> RANK :: ",this%myrank,"[ISEND:DONE]"        
+        endif
+    endif
+    
+
+    call MPI_WAIT(ireq,mpistat,ierr)
+    
+    call this%barrier()
+    this%ierr= ierr
+end subroutine
+
 end module
