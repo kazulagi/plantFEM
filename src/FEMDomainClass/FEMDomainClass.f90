@@ -10381,7 +10381,7 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 			   Bmat(6,dim_num*(q-1) + 1 )=JPsy(3,q); Bmat(6, dim_num*(q-1) + 2 )=0.0d0    ;Bmat(6, dim_num*(q-1) + 3 )=JPsy(1,q);
 		   enddo
 
-		   Bmat(4:6,:)=0.50d0*Bmat(4:6,:)
+		   !Bmat(4:6,:)=0.50d0*Bmat(4:6,:)
 
 
 
