@@ -7925,11 +7925,13 @@ function getElementListMesh(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax,NodeID
     real(real64),optional,intent(in) :: xmin,xmax,ymin,ymax,zmin,zmax
     integer(int32),optional,intent(in) :: NodeID
     integer(int32),allocatable :: NodeList(:)
-    integer(int32),allocatable :: ElementList(:)
+    integer(int32),allocatable :: ElementList(:),HitCount(:)
 
-    integer(int32) :: i,j,n,num_of_node,m,counter,k
+    integer(int32) :: i,j,n,num_of_node,m,counter,k,count_check
     logical ,allocatable:: tf(:),exist
     real(real64),allocatable :: x(:),x_min(:),x_max(:)
+    real(real64) :: center_x,center_y,center_z
+
     
     if(present(NodeID) )then
         if(obj%empty() .eqv. .true. )then
@@ -7937,6 +7939,7 @@ function getElementListMesh(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax,NodeID
             allocate(ElementList(0))
             return
         endif
+        
         n = 0
         do i=1,size(obj%elemnod,1)
             do j=1,size(obj%elemnod,2)
@@ -7960,51 +7963,191 @@ function getElementListMesh(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax,NodeID
         return
     endif
     
-    NodeList =  obj%getNodeList(BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax)
 
-    counter=0
-    do i=1,size(obj%ElemNod,1)
-        exist=.false.
-        do j=1,size(obj%ElemNod,2)
-            do k=1,size(NodeList,1)
-                if( obj%ElemNod(i,j) == Nodelist(k) )then
-                    exist=.true.
-                    exit
-                endif
-            enddo    
-            if(exist .eqv. .true.)then
-                exit
-            endif
-        enddo
-        if(exist .eqv. .true. )then
-            counter=counter+1
-        else
-            cycle
-        endif
-    enddo
-    allocate(ElementList(counter) )
+    ! new algorithm
+    allocate(HitCount( size(obj%elemnod,1) ) )
     
-    counter=0
-    do i=1,size(obj%ElemNod,1)
-        exist=.false.
-        do j=1,size(obj%ElemNod,2)
-            do k=1,size(NodeList,1)
-                if( obj%ElemNod(i,j) == Nodelist(k) )then
-                    exist=.true.
-                    exit
-                endif
-            enddo    
-            if(exist .eqv. .true.)then
-                exit
+    HitCount(:) = 0
+    count_check = 0
+    if(present(xmin) )then
+        count_check = count_check + 1
+        !$OMP parallel do private(center_x,j)
+        do i=1,size(obj%elemnod,1)
+            center_x = 0.0d0
+            do j=1,size(obj%elemnod,2)
+                center_x = center_x + obj%nodcoord(obj%ElemNod( i,j ), 1)
+            enddo
+            center_x = center_x/dble(size(obj%elemnod,2))
+            if(center_x >= xmin)then
+                HitCount(i) = HitCount(i) + 1 
             endif
         enddo
-        if(exist .eqv. .true. )then
-            counter=counter+1
-            ElementList(counter) = i
-        else
-            cycle
+        !$OMP end parallel do
+    else
+        ! ignore
+    endif
+
+
+    if(present(xmax) )then
+        count_check = count_check + 1
+        !$OMP parallel do private(center_x,j)
+        do i=1,size(obj%elemnod,1)
+            center_x = 0.0d0
+            do j=1,size(obj%elemnod,2)
+                center_x = center_x + obj%nodcoord(obj%ElemNod( i,j ), 1)
+            enddo
+            center_x = center_x/dble(size(obj%elemnod,2))
+            if(center_x <= xmax)then
+                HitCount(i) = HitCount(i) + 1 
+            endif
+        enddo
+        !$OMP end parallel do
+    else
+        ! ignore
+    endif
+
+
+    if(present(ymin) )then
+        count_check = count_check + 1
+        !$OMP parallel do private(center_y,j)
+        do i=1,size(obj%elemnod,1)
+            center_y = 0.0d0
+            do j=1,size(obj%elemnod,2)
+                center_y = center_y + obj%nodcoord(obj%ElemNod( i,j ), 2)
+            enddo
+            center_y = center_y/dble(size(obj%elemnod,2))
+            if(center_y >= ymin)then
+                HitCount(i) = HitCount(i) + 1 
+            endif
+        enddo
+        !$OMP end parallel do
+    else
+        ! ignore
+    endif
+
+
+    if(present(ymax) )then
+        count_check = count_check + 1
+        !$OMP parallel do private(center_y,j)
+        do i=1,size(obj%elemnod,1)
+            center_y = 0.0d0
+            do j=1,size(obj%elemnod,2)
+                center_y = center_y + obj%nodcoord(obj%ElemNod( i,j ), 2)
+            enddo
+            center_y = center_y/dble(size(obj%elemnod,2))
+            if(center_y <= ymax)then
+                HitCount(i) = HitCount(i) + 1 
+            endif
+        enddo
+        !$OMP end parallel do
+    else
+        ! ignore
+    endif
+
+
+
+    if(present(zmin) )then
+        count_check = count_check + 1
+        !$OMP parallel do private(center_z,j)
+        do i=1,size(obj%elemnod,1)
+            center_z = 0.0d0
+            do j=1,size(obj%elemnod,2)
+                center_z = center_z + obj%nodcoord(obj%ElemNod( i,j ), 3)
+            enddo
+            center_z = center_z/dble(size(obj%elemnod,2))
+            if(center_z >= zmin)then
+                HitCount(i) = HitCount(i) + 1 
+            endif
+        enddo
+        !$OMP end parallel do
+    else
+        ! ignore
+    endif
+
+
+    if(present(zmax) )then
+        count_check = count_check + 1
+        !$OMP parallel do private(center_z,j)
+        do i=1,size(obj%elemnod,1)
+            center_z = 0.0d0
+            do j=1,size(obj%elemnod,2)
+                center_z = center_z + obj%nodcoord(obj%ElemNod( i,j ), 3)
+            enddo
+            center_z = center_z/dble(size(obj%elemnod,2))
+            if(center_z <= zmax)then
+                HitCount(i) = HitCount(i) + 1 
+            endif
+        enddo
+        !$OMP end parallel do
+    else
+        ! ignore
+    endif
+
+    n = 0
+    do i=1,size(HitCount)
+        if(HitCount(i)==count_check )then
+            n = n + 1
         endif
     enddo
+
+    allocate(ElementList(n) )
+    k = 0
+    do i=1,size(HitCount)
+        if(HitCount(i)==count_check )then
+            k = k + 1
+            ElementList(k) = i
+        endif
+    enddo
+
+    return
+
+    ! Regacy code: 
+
+!    NodeList =  obj%getNodeList(BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax)
+!
+!    counter=0
+!    do i=1,size(obj%ElemNod,1)
+!        exist=.false.
+!        do j=1,size(obj%ElemNod,2)
+!            do k=1,size(NodeList,1)
+!                if( obj%ElemNod(i,j) == Nodelist(k) )then
+!                    exist=.true.
+!                    exit
+!                endif
+!            enddo    
+!            if(exist .eqv. .true.)then
+!                exit
+!            endif
+!        enddo
+!        if(exist .eqv. .true. )then
+!            counter=counter+1
+!        else
+!            cycle
+!        endif
+!    enddo
+!    allocate(ElementList(counter) )
+!    
+!    counter=0
+!    do i=1,size(obj%ElemNod,1)
+!        exist=.false.
+!        do j=1,size(obj%ElemNod,2)
+!            do k=1,size(NodeList,1)
+!                if( obj%ElemNod(i,j) == Nodelist(k) )then
+!                    exist=.true.
+!                    exit
+!                endif
+!            enddo    
+!            if(exist .eqv. .true.)then
+!                exit
+!            endif
+!        enddo
+!        if(exist .eqv. .true. )then
+!            counter=counter+1
+!            ElementList(counter) = i
+!        else
+!            cycle
+!        endif
+!    enddo
     
 
 end function
