@@ -11,7 +11,9 @@ module LoggerClass
       type(String_),allocatable     :: channel_name(:)
       type(Real64Ptr_) ,allocatable :: channel_value(:)
       integer(int32)   ,allocatable :: channel_id(:)
+      real(real64) :: position(1:3) = 0.0d0
       logical   ,allocatable :: channel_active(:)
+
       logical :: initialized = .False.
       integer(int32)::counter=0
     contains
@@ -21,6 +23,7 @@ module LoggerClass
       procedure :: start => startLogger
       procedure :: save => saveLogger
       procedure :: reset => resetLogger
+      procedure :: vtk => vtkLogger
       
     end type
   contains
@@ -77,11 +80,12 @@ module LoggerClass
   
   
   !------------------------------------------------------
-  subroutine setLogger(this,channel_name,channel_value,channel_id)
+  subroutine setLogger(this,channel_name,channel_value,channel_id,position)
     class(Logger_),intent(inout) :: this
     character(*),intent(in) :: channel_name
     real(real64),target,intent(in) :: channel_value
     integer(int32),optional,intent(in) :: channel_id  
+    real(real64),optional,intent(in) :: position(:)
     integer(int32) :: n
     
     if(.not. this%initialized) then
@@ -99,6 +103,10 @@ module LoggerClass
     this%channel_value(n)%ptr => channel_value
     this%channel_id(n)   = n
     this%channel_active(n)=.true.
+
+    if(present(position) )then
+      this%position(1:size(position) ) = position(1:size(position) )
+    endif
   
   end subroutine
   !------------------------------------------------------
@@ -176,7 +184,24 @@ module LoggerClass
   end subroutine
   !------------------------------------------------------
   
+subroutine vtkLogger(this,name)
+    class(Logger_),intent(in) :: this
+    character(*),intent(in) :: name
+    type(IO_) :: f
+
+    call f%open(name+".vtk","w")
+    call f%write("# vtk DataFile Version 2.0")
+    call f%write(name)
+    call f%write("ASCII")
+    call f%write("DATASET UNSTRUCTURED_GRID")
+    call f%write("POINTS 1 float")
+    call f%write(str(this%position(1)) + " " + str(this%position(2)) + " "+str(this%position(3)) )
+    call f%flush()
+    call f%close()
+
+end subroutine
+
   
-  end module LoggerClass
+end module LoggerClass
   
   
