@@ -31,13 +31,13 @@ program main
     ! Mesh-generation process
     x_axis = [0.0d0,Length]
     y_axis = [0.0d0,Width]
-    call Refine(x_axis,6)
-    call Refine(y_axis,6)
+    call Refine(x_axis,5)
+    call Refine(y_axis,5)
 
     z_axis = [-100.0d0,0.0d0]
-    call Refine(z_axis,3)
+    call Refine(z_axis,2)
     z_axis = [-Thickness] // z_axis
-    call Refine(z_axis,5)
+    call Refine(z_axis,2)
 
     call domains(1)%create("Cube3D",x_axis=x_axis,y_axis=y_axis,z_axis=z_axis)
 
@@ -50,6 +50,10 @@ program main
     
     YoungModulus(domains(1)%getElementList(zmax=-20.0d0) ) = (Vs(2)*Vs(2)*density)*2.0d0*(1.0d0+0.300d0)
     
+    call domains(1)%rotate(y=radian(30.0d0) )
+    YoungModulus(domains(1)%getElementList(zmax=0.0d0) ) = (Vs(3)*Vs(3)*density)*2.0d0*(1.0d0+0.300d0)
+    call domains(1)%rotate(y=radian(-30.0d0) )
+
     call domains(1)%rotate(x=radian(30.0d0) )
     YoungModulus(domains(1)%getElementList(zmax=0.0d0) ) = (Vs(3)*Vs(3)*density)*2.0d0*(1.0d0+0.300d0)
     call domains(1)%rotate(x=radian(-30.0d0) )
@@ -131,20 +135,18 @@ program main
     call sim%remove()
     
     ![Sim.]
-    ! P-wave
-    !> 100.0 m / (44 - 26) ms = 5555.6 m/s
-    ! S-wave
-    !  100.0 m / (156 - 90)ms = 1515.2 m/s 
-    !> 50 m/s
-    !Vp/Vs = 3.6665 
-
-
     ! [Theor]
     ! Vp = 3000.0d0 * 1.871 = 5612.5 m/s ! ok
-    ! Vs = 3000.0d0 ?
+    ! Vs = 3000.0d0 
     ! Vp/Vs = 1.871
 
-    ! ベンチマーク結果:
-    ! Vpは一致，Vsは計算の方が2倍遅い．
-    ! >> デバッグ
+    ! P-wave
+    !> 100.0 m / (44 - 26) ms = 5555.6 m/s [ok!]
+    ! S-wave
+    !  100.0 m / (132 - 89)ms = 3333.3 m/s [ok!]
+    !> 50 m/s
+    !Vp/Vs = 1.875                         [ok!]
+
+    ! Varification completed.
+    
 end program main

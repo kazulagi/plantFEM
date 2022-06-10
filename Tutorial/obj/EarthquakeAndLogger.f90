@@ -1,5 +1,6 @@
 
 program main
+    use LoggerClass
     use SeismicAnalysisClass
     implicit none
 
@@ -15,7 +16,12 @@ program main
     real(real64) :: Vs(1:3)
     real(real64),allocatable :: v(:,:)
     
+
     real(real64) :: dt,t
+
+    ! Data logger
+    type(Logger_) :: logger(1:20)
+    integer(int32),allocatable :: LoggerNodeID(:)
 
     ! simple earthquake simulation
 
@@ -88,19 +94,40 @@ program main
     call sim%setBoundary(DomainID=1,NodeList=domains(1)%getNodeList(&
         ymin = domains(1)%ymax() ),condition="Absorbing Boundary", boundaryValue=[100.0d0, 1.00d0])
 
+    
+    ! non-damping
+
+    
+    ! setup logger
+    LoggerNodeID = [9673,9641,9609,9577,9513,9481,9417,9385,9257,9097]
+    do j_j=1,size(LoggerNodeID)
+        call Logger(j_j)%set(&
+            channel_name="Ax_"+str(LoggerNodeID(j_j)),&
+            channel_value=sim%A(LoggerNodeID(j_j)*3-2),&
+            position=domains(1)%position(LoggerNodeID(j_j) ) )
+        call Logger(j_j)%set(&
+            channel_name="Ay_"+str(LoggerNodeID(j_j)),&
+            channel_value=sim%A(LoggerNodeID(j_j)*3-1) )
+        call Logger(j_j)%set(&
+            channel_name="Az_"+str(LoggerNodeID(j_j)),&
+            channel_value=sim%A(LoggerNodeID(j_j)*3-0) )
+        call logger(j_j)%vtk("A"+str(LoggerNodeID(j_j)))
+    enddo
+
+    do j_j=1,size(LoggerNodeID)
+        call logger(j_j)%start()
+    enddo
+
     print *, "Solve >> "
 
     sim%modal%solver%debug= .true.
     !sim%modal%solver%er0  = dble(1.0e-15)
     !sim%modal%solver%relative_er  = dble(1.0e-10)
     ! 1 kHz sampling
-    dt = 1.0d0/1000.0d0
+    dt = 1.0d0/100.0d0
     
-    ! non-damping
-
     sim%alpha = 0.0d0
     sim%beta = 0.0d0
-    
     t = 0.0d0
     do i_i=1,10000
         
@@ -126,10 +153,14 @@ program main
         
         v = reshape(sim%v,domains(1)%nn(),domains(1)%nd() )
         
-        call domains(1)%vtk("x_step_"+zfill(i_i,4), v(:,1) )
-        call domains(1)%vtk("y_step_"+zfill(i_i,4), v(:,2) )
-        call domains(1)%vtk("z_step_"+zfill(i_i,4), v(:,3) )
+        !call domains(1)%vtk("x_step_"+zfill(i_i,4), v(:,1) )
+        !call domains(1)%vtk("y_step_"+zfill(i_i,4), v(:,2) )
+        !call domains(1)%vtk("z_step_"+zfill(i_i,4), v(:,3) )
         
+        do j_j=1,10
+            call logger(j_j)%save(t=t)
+        enddo
+
     enddo
     ! destroy
     call sim%remove()
@@ -148,5 +179,5 @@ program main
     !Vp/Vs = 1.875                         [ok!]
 
     ! Varification completed.
-    
+
 end program main
