@@ -3,6 +3,7 @@ module LoggerClass
     use StringClass
     use IOClass
     use ArrayClass
+    use FEMDomainClass
     implicit none
   
     integer(int32) :: PF_MAX_CHANNEL_NUM=100
@@ -16,14 +17,24 @@ module LoggerClass
 
       logical :: initialized = .False.
       integer(int32)::counter=0
+
+      ! for generic obervation point
+      integer(int32) :: point_DOF = 0
+      integer(int32) :: elementID = 0
+      real(real64),allocatable :: weight(:)
+      type(Real64Ptr_) ,allocatable :: source_values(:,:)
+
     contains
       procedure :: init => initLogger
       procedure :: numchannel =>numchannelLogger
-      procedure :: set => setLogger
+      procedure,pass ::  setLogger_byvalue, setLogger_byDomain
+      generic :: set =>  setLogger_byvalue,setLogger_byDomain
       procedure :: start => startLogger
       procedure :: save => saveLogger
       procedure :: reset => resetLogger
       procedure :: vtk => vtkLogger
+      procedure :: move => moveLogger
+      
       
     end type
   contains
@@ -80,7 +91,7 @@ module LoggerClass
   
   
   !------------------------------------------------------
-  subroutine setLogger(this,channel_name,channel_value,channel_id,position)
+  subroutine setLogger_byvalue(this,channel_name,channel_value,channel_id,position)
     class(Logger_),intent(inout) :: this
     character(*),intent(in) :: channel_name
     real(real64),target,intent(in) :: channel_value
@@ -137,27 +148,47 @@ module LoggerClass
   !------------------------------------------------------
   subroutine saveLogger(this,t)
     class(Logger_),intent(inout) :: this
-    integer(int32) :: i,n
+    integer(int32) :: i,n,j
     real(real64),optional,intent(in) :: t
+    real(real64) :: channel_val
     type(IO_) :: f
-    
-    n=0
-    this%counter=this%counter+1
-    do i=1,size(this%channel_active)
-      if(this%channel_active(i) )then
-        call f%open(this%channel_name(i)%all //".txt","a")
+
+    if(allocated(this%source_values) )then
+      ! with setLogger_byDomain()
+      ! it may have some bugs.
+      do i=1,this%point_DOF
+        call f%open(this%channel_name(1)%all+"_dim_"+str(i)+".txt","a")
+        channel_val = 0.0d0
+        do j=1, size(this%source_values)
+          channel_val = channel_val + this%weight(j)*this%source_values(j,i)%ptr
+        enddo
+
         if(present(t) )then
-            call f%write(t, this%channel_value(i)%ptr )
+            call f%write(t, channel_val )
         else
-            call f%write(this%counter,this%channel_value(i)%ptr )
+            call f%write(this%counter,channel_val )
         endif
-        
         call f%close()
-        n = n + 1
-      endif
-      if(n==this%numchannel() ) return
-    enddo
-  
+      enddo  
+    else
+      ! without setLogger_byDomain()
+      n=0
+      this%counter=this%counter+1
+      do i=1,size(this%channel_active)
+        if(this%channel_active(i) )then
+          call f%open(this%channel_name(i)%all //".txt","a")
+          if(present(t) )then
+              call f%write(t, this%channel_value(i)%ptr )
+          else
+              call f%write(this%counter,this%channel_value(i)%ptr )
+          endif
+
+          call f%close()
+          n = n + 1
+        endif
+        if(n==this%numchannel() ) return
+      enddo
+    endif
   
   end subroutine
   !------------------------------------------------------
@@ -196,12 +227,99 @@ subroutine vtkLogger(this,name)
     call f%write("DATASET UNSTRUCTURED_GRID")
     call f%write("POINTS 1 float")
     call f%write(str(this%position(1)) + " " + str(this%position(2)) + " "+str(this%position(3)) )
+    call f%write("CELLS 1 9 8 0 0 0 0 0 0 0 0")
     call f%flush()
     call f%close()
 
 end subroutine
 
-  
+subroutine moveLogger(this,x,y,z)
+  class(Logger_),intent(inout) :: this
+  real(real64),optional,intent(in) :: x,y,z
+
+  if(present(x) )then
+    this%position(1) = this%position(1) + x
+  endif
+
+  if(present(y) )then
+    this%position(2) = this%position(2) + y
+  endif
+
+  if(present(z) )then
+    this%position(3) = this%position(3) + z
+  endif
+
+end subroutine
+
+subroutine setLogger_byDomain(this,femdomain,position,dataset,name)
+  class(Logger_),intent(inout) :: this
+  type(FEMDomain_),intent(inout) :: femdomain
+  real(real64),intent(in) :: position(1:3)
+  real(real64),target,intent(in) :: dataset(:)
+  character(*),intent(in) :: name
+
+  real(real64) :: localCoord(1:3)
+  integer(int32) :: i,j,dof,node_id
+  type(ShapeFunction_) :: sf
+  type(IO_) :: f
+  ! only single channel
+  this%channel_name(1)%all = name
+  ! detect dataset-type
+  if(mod(size(dataset),femdomain%nn())==0 )then
+    ! node-wise value
+    this%point_DOF = size(dataset)/femdomain%nn()
+    if(allocated(this%source_values) )then
+      deallocate(this%source_values)
+    endif
+
+    this%ElementID = femdomain%mesh%nearestElementID(&
+      x=position(1),y=position(2),z=position(3))
+    localCoord =  femdomain%getLocalCoordinate(ElementID=this%ElementID,&
+      x=position(1),y=position(2),z=position(3))
+    sf = femdomain%getShapeFunction(ElementID=this%ElementID,position=localCoord)
+    this%weight = sf%nmat 
+
+    allocate(this%source_values(femdomain%nne(),this%point_DOF) )
+    do i=1,femdomain%nne()
+      do dof=1,this%point_DOF
+        node_id = femdomain%mesh%elemnod(this%ElementID,i)
+        this%source_values(i,dof)%ptr => dataset(this%point_DOF*(node_id-1) + dof )
+      enddo
+    enddo
+
+  elseif(mod(size(dataset),femdomain%ne())==0 )then
+    ! element-wise value
+    this%point_DOF = size(dataset)/femdomain%ne()
+    
+    if(allocated(this%source_values) )then
+      deallocate(this%source_values)
+    endif
+
+    this%ElementID = femdomain%mesh%nearestElementID(&
+      x=position(1),y=position(2),z=position(3))
+    ! same value  
+    this%weight = eyes(1)
+
+    allocate(this%source_values(1,this%point_DOF) )
+    
+    do dof=1,this%point_DOF
+      this%source_values(1 ,dof)%ptr => &
+        dataset(this%point_DOF*(this%ElementID-1) + dof )  
+    enddo
+
+  else
+    print *, "[ERROR] setLogger_byDomain >> size(dataset) should be %nn()*n or %ne()*n"
+    return
+  endif
+
+
+  do i=1,this%point_DOF
+    call f%open(this%channel_name(1)%all+"_dim_"+str(i)+".txt","w")
+    call f%close()
+  enddo
+
+end subroutine
+
 end module LoggerClass
   
   
