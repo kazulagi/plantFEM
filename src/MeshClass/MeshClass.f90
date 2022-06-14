@@ -7973,11 +7973,7 @@ function getElementListMesh(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax,NodeID
         count_check = count_check + 1
         !$OMP parallel do private(center_x,j)
         do i=1,size(obj%elemnod,1)
-            center_x = 0.0d0
-            do j=1,size(obj%elemnod,2)
-                center_x = center_x + obj%nodcoord(obj%ElemNod( i,j ), 1)
-            enddo
-            center_x = center_x/dble(size(obj%elemnod,2))
+            center_x = maxval(obj%nodcoord(obj%ElemNod( i,: ), 1))
             if(center_x >= xmin)then
                 HitCount(i) = HitCount(i) + 1 
             endif
@@ -7992,11 +7988,7 @@ function getElementListMesh(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax,NodeID
         count_check = count_check + 1
         !$OMP parallel do private(center_x,j)
         do i=1,size(obj%elemnod,1)
-            center_x = 0.0d0
-            do j=1,size(obj%elemnod,2)
-                center_x = center_x + obj%nodcoord(obj%ElemNod( i,j ), 1)
-            enddo
-            center_x = center_x/dble(size(obj%elemnod,2))
+            center_x = minval(obj%nodcoord(obj%ElemNod( i,: ), 1))
             if(center_x <= xmax)then
                 HitCount(i) = HitCount(i) + 1 
             endif
@@ -8011,11 +8003,7 @@ function getElementListMesh(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax,NodeID
         count_check = count_check + 1
         !$OMP parallel do private(center_y,j)
         do i=1,size(obj%elemnod,1)
-            center_y = 0.0d0
-            do j=1,size(obj%elemnod,2)
-                center_y = center_y + obj%nodcoord(obj%ElemNod( i,j ), 2)
-            enddo
-            center_y = center_y/dble(size(obj%elemnod,2))
+            center_y = maxval(obj%nodcoord(obj%ElemNod( i,: ), 2))
             if(center_y >= ymin)then
                 HitCount(i) = HitCount(i) + 1 
             endif
@@ -8030,11 +8018,7 @@ function getElementListMesh(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax,NodeID
         count_check = count_check + 1
         !$OMP parallel do private(center_y,j)
         do i=1,size(obj%elemnod,1)
-            center_y = 0.0d0
-            do j=1,size(obj%elemnod,2)
-                center_y = center_y + obj%nodcoord(obj%ElemNod( i,j ), 2)
-            enddo
-            center_y = center_y/dble(size(obj%elemnod,2))
+            center_y = minval(obj%nodcoord(obj%ElemNod( i,: ), 2))
             if(center_y <= ymax)then
                 HitCount(i) = HitCount(i) + 1 
             endif
@@ -8050,11 +8034,7 @@ function getElementListMesh(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax,NodeID
         count_check = count_check + 1
         !$OMP parallel do private(center_z,j)
         do i=1,size(obj%elemnod,1)
-            center_z = 0.0d0
-            do j=1,size(obj%elemnod,2)
-                center_z = center_z + obj%nodcoord(obj%ElemNod( i,j ), 3)
-            enddo
-            center_z = center_z/dble(size(obj%elemnod,2))
+            center_z = maxval(obj%nodcoord(obj%ElemNod( i,: ), 3))
             if(center_z >= zmin)then
                 HitCount(i) = HitCount(i) + 1 
             endif
@@ -8069,11 +8049,7 @@ function getElementListMesh(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax,NodeID
         count_check = count_check + 1
         !$OMP parallel do private(center_z,j)
         do i=1,size(obj%elemnod,1)
-            center_z = 0.0d0
-            do j=1,size(obj%elemnod,2)
-                center_z = center_z + obj%nodcoord(obj%ElemNod( i,j ), 3)
-            enddo
-            center_z = center_z/dble(size(obj%elemnod,2))
+            center_z = minval(obj%nodcoord(obj%ElemNod( i,: ), 3))
             if(center_z <= zmax)then
                 HitCount(i) = HitCount(i) + 1 
             endif

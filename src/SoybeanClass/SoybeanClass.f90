@@ -1455,7 +1455,9 @@ subroutine initsoybean(obj,config,&
         ! set mainstem
         
         allocate(obj%NodeID_MainStem(obj%ms_node) )
+
         call stem%init(config=obj%stemconfig)
+
         do i=1,obj%ms_node
 
             !call obj%stem(i)%init(config=obj%stemconfig)

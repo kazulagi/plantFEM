@@ -282,8 +282,9 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     
     
     !obj%A_PointNodeID = buf(1)
+    
     obj%A_PointNodeID = median(buf)
-
+    
     buf   = obj%FEMDomain%mesh%getNodeList(&
         xmin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
         xmax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
@@ -293,6 +294,7 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     
     !obj%B_PointNodeID = buf(1)
     obj%B_PointNodeID = median(buf)
+    
 
     buf    = obj%FEMDomain%mesh%getElementList(&
         xmin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
@@ -302,7 +304,7 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
         zmax=0.0d0)
     !obj%A_PointElementID = buf(1)
     obj%A_PointElementID = median(buf)
-
+    
     buf    = obj%FEMDomain%mesh%getElementList(&
         xmin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
         xmax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%xnum)/2.0d0 ,&

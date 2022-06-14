@@ -7238,7 +7238,7 @@ function medianIntVec(intvec) result(med)
     integer(int32) :: med, i, n
     integer(int32),allocatable :: vec(:)
 
-
+    
     if(size(intvec)==1 )then
         med = intvec(1)
         return
