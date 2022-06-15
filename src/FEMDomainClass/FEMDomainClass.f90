@@ -199,6 +199,7 @@ module FEMDomainClass
 
 		procedure,public :: getSurface => getSurfaceFEMDomain
 		procedure,public ::	NodeID => NodeIDFEMDomain
+		procedure,public ::	getElementID => getElementIDFEMDomain
 		procedure,public ::	getNodeList =>getNodeListFEMDomain
 		
 		! filters
@@ -12716,6 +12717,18 @@ function clipVectorFEMDomain(this,vector,femdomains,DomainID) result(ret_vec)
 
 	ret_vec = zeros(this%nn()*DOF )
 	ret_vec(:) = vector(  total_nn*DOF+1 : total_nn*DOF+ this%nn()*DOF )
+
+end function
+
+function getElementIDFEMDomain(this,x,debug,info) result(ElementID)
+	class(FEMDomain_),intent(in) :: this
+    real(real64),intent(in) :: x(:)
+	logical,optional,intent(in) :: debug
+    integer(int32),optional,allocatable,intent(inout) :: info(:)
+    integer(int32) :: ElementID
+
+	ElementID = this%mesh%getElementID(x=x,debug=debug,info=info)
+
 
 end function
 

@@ -1,4 +1,5 @@
 module MeshClass
+    use omp_lib
     use std
     implicit none
 
@@ -82,6 +83,8 @@ module MeshClass
         procedure :: exportSurface2D => ExportSurface2D
         procedure :: empty => emptyMesh
         procedure :: edit => editMesh
+
+        procedure :: getElementID => getElementIDMesh
         
         procedure :: getCoordinate => getCoordinateMesh
         procedure :: getNodeIDinElement => getNodeIDinElementMesh
@@ -6398,6 +6401,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         allocate(obj%ElemNod( xn*yn,4) )
         allocate(obj%ElemMat(xn*yn) )
         n=0
+
         do j=1, yn+1
             do i=1, xn+1
                 n=n+1
@@ -6678,6 +6682,7 @@ subroutine Convert2Dto3DMesh(obj,Thickness,division,smooth,z_points)
 
     allocate(buffer(n*(NumOfLayer+1),3))
 
+    !$OMP parallel do private(i)
     do j=1,NumOfLayer+1
         do i=1,n
             buffer( n*(j-1) + i ,1:2) = obj%NodCoord(i,1:2)
@@ -6688,6 +6693,7 @@ subroutine Convert2Dto3DMesh(obj,Thickness,division,smooth,z_points)
             endif
         enddo
     enddo
+    !$OMP end parallel do
 
     deallocate(obj%NodCoord)
     allocate(obj%NodCoord( size(buffer,1) ,size(buffer,2) ) )
@@ -6706,12 +6712,14 @@ subroutine Convert2Dto3DMesh(obj,Thickness,division,smooth,z_points)
 
     allocate(buffer(n*NumOfLayer,m*2))
 
+    !$OMP parallel do private(i)
     do j=1,NumOfLayer
         do i=1,n
             buffer( n*(j-1)+i, 1:m      ) = obj%ElemNod(i,1:m)+numnod*(j-1)
             buffer( n*(j-1)+i, m+1:2*m  ) = obj%ElemNod(i,1:m)+numnod*(j)
         enddo
     enddo
+    !$OMP end parallel do
 
     deallocate(obj%ElemNod)
     allocate(obj%ElemNod( size(buffer,1) ,size(buffer,2) ) )
@@ -6727,11 +6735,14 @@ subroutine Convert2Dto3DMesh(obj,Thickness,division,smooth,z_points)
 
     allocate(buffer(n*NumOfLayer,1))
 
+
+    !$OMP parallel do private(i)
     do j=1,NumOfLayer
         do i=1,n
             buffer( n*(j-1)+i, 1      ) = obj%ElemMat(i)
         enddo
     enddo
+    !$OMP end parallel do
 
     deallocate(obj%ElemMat)
     allocate(obj%ElemMat( size(buffer,1) ) )
@@ -9780,5 +9791,196 @@ recursive function BinaryTreeSearchMesh(obj,old_GroupID,min_elem_num)  result(Gr
 
 end function BinaryTreeSearchMesh
 ! ##########################################################################
+
+
+function getElementIDMesh(this,x,debug,info) result(ElementID)
+    class(Mesh_),intent(in) :: this
+    real(real64),intent(in) :: x(:)
+    integer(int32),optional,allocatable,intent(inout) :: info(:)
+    integer(int32) :: ElementID,dim_num,i,j,n,fw,bw,flg
+    logical,optional,intent(in) :: debug
+    integer(int32),allocatable :: candidates(:),buf(:),elemnodid(:),local_faset_id(:,:)
+    real(real64),allocatable :: x1(:), x2(:), x3(:)
+    
+    ElementID=-404
+    
+    if(this%empty() )then
+        ElementID = -10
+        print *, "[ERROR] :: getElementIDMesh >> Mesh is empty!"
+        return
+    endif
+
+
+    ! select Element Type
+    dim_num = size(this%nodcoord,2)
+
+    if(dim_num/=size(x) )then
+        ElementID = -20
+        print *, "[ERROR] :: getElementIDMesh >> Mesh-dimension is not same as that of x(:)"
+        return
+    endif
+
+    do i=1,dim_num
+        if(x(i) < minval(this%nodcoord(i,:) )  .or. maxval(this%nodcoord(i,:) ) < x(i) )then
+            ElementID = -5
+            if(present(debug) )then
+                if(debug)then
+                    print *, "[Caution] :: getElementIDMesh >> outside!"
+                endif
+            endif
+        endif
+    enddo
+
+
+
+    ! maybe in the element
+    ! initialize
+    ElementID = -1
+
+    ! search
+    candidates = zeros(size(this%elemnod,1) )
+    flg = dim_num
+
+    do j=1,dim_num
+        !$OMP parallel 
+        !$OMP do
+        do i=1,size(this%elemnod,1)    
+            
+            if(candidates(i) < j-1 ) cycle
+
+            if(maxval(this%nodcoord(this%elemnod(i,:) ,j )) >= x(j) &
+                .and. minval(this%nodcoord(this%elemnod(i,:) ,j )) <= x(j) )then
+                candidates(i) = candidates(i) + 1 
+            else
+                !candidates(i) = candidates(i) - 1 
+            endif
+        enddo
+        !$OMP end do
+        !$OMP end parallel
+    enddo
+
+
+    do i=1,size(this%elemnod,1)
+        if(candidates(i) == flg )then
+            ElementID = i
+        endif
+    enddo
+
+    if(present(info) )then
+        if(ElementID==-1)then
+            if(present(info) )then
+                info = [maxval(candidates),dim_num]
+            endif
+            return
+        endif
+        info = maxval(candidates)
+    endif
+
+    if(maxval(candidates)==flg )then
+        if(present(debug) )then
+            if(debug)then
+                print *, "[Caution] :: getElementIDMesh >> outside!"
+            endif
+        endif
+        return
+    endif
+
+    
+    if(maxval(candidates) < flg )then
+        return
+    endif
+
+    
+
+    ! 2 or more candidates
+    buf = candidates
+    candidates = zeros(sum(candidates)  )
+    
+    j = 0
+    do i=1,size(buf)
+        if(buf(i)==flg )then
+            j = j + 1
+            candidates(j) = i
+        endif
+    enddo
+
+    deallocate(buf)
+    ! deep detection
+    if(dim_num==3 .and. size(this%elemnod,2)==8 )then
+        local_faset_id = zeros(6,4)
+        local_faset_id(1, 1:4) = [4, 3, 2, 1]
+        local_faset_id(2, 1:4) = [1, 2, 6, 5]
+        local_faset_id(3, 1:4) = [2, 3, 7, 6]
+        local_faset_id(4, 1:4) = [3, 4, 8, 7]
+        local_faset_id(5, 1:4) = [4, 1, 5, 8]
+        local_faset_id(6, 1:4) = [5, 6, 7, 8]
+        
+    elseif(dim_num==3 .and. size(this%elemnod,2)==4 )then
+        local_faset_id = zeros(4,3)
+        local_faset_id(1, 1:3) = [3, 2, 1]
+        local_faset_id(2, 1:3) = [1, 2, 4]
+        local_faset_id(3, 1:3) = [2, 3, 4]
+        local_faset_id(4, 1:3) = [3, 1, 4]
+        
+    elseif(dim_num==2 .and. size(this%elemnod,2)==4 )then
+        local_faset_id = zeros(4,2)
+        local_faset_id(1, 1:2) = [1, 2]
+        local_faset_id(2, 1:2) = [2, 3]
+        local_faset_id(3, 1:2) = [3, 4]
+        local_faset_id(4, 1:2) = [4, 1]
+        
+    elseif(dim_num==2 .and. size(this%elemnod,2)==3 )then
+        local_faset_id = zeros(3,2)
+        local_faset_id(1, 1:2) = [1, 2]
+        local_faset_id(2, 1:2) = [2, 3]
+        local_faset_id(3, 1:2) = [3, 1]
+        
+    else
+        print *, "ERROR :: getElementIDMesh unsupported element"
+        stop
+    endif
+    
+
+    if(present(info) )then
+        info = candidates
+    endif
+
+    do i=1, size(candidates)
+        n = 0
+        do j=1,size(local_faset_id,1)
+            if(dim_num==3)then
+                
+                x1 = zeros(dim_num)
+                x2 = zeros(dim_num)
+                x3 = zeros(dim_num)
+
+                x1 = this%nodcoord( this%elemnod( i,local_faset_id(j,1)),:) &
+                    - this%nodcoord( this%elemnod( i,local_faset_id(j,2)),:)
+                x2 = this%nodcoord( this%elemnod( i,local_faset_id(j,3)),:) &
+                    - this%nodcoord( this%elemnod( i,local_faset_id(j,2)),:)
+                x3 = x - &
+                    this%nodcoord( this%elemnod( i,local_faset_id(j,2)),:)
+                if(dot_product(cross_product(x1,x2),x3 ) <= 0.0d0)then
+                    n = n + 1
+                endif
+                
+            else
+                print *, "ERROR :: getElementIDMesh unsupported element"
+                stop 
+            endif
+        enddo
+        if(n ==size(local_faset_id,1) )then
+            ElementID  = candidates(i)
+            return
+        else
+            cycle
+        endif
+    enddo
+
+    ! not found
+    ElementID = -404
+
+
+end function
 
 end module MeshClass
