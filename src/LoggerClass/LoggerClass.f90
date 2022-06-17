@@ -159,7 +159,7 @@ module LoggerClass
       do i=1,this%point_DOF
         call f%open(this%channel_name(1)%all+"_dim_"+str(i)+".txt","a")
         channel_val = 0.0d0
-        do j=1, size(this%source_values)
+        do j=1, size(this%source_values,1)
           channel_val = channel_val + this%weight(j)*this%source_values(j,i)%ptr
         enddo
 
@@ -254,7 +254,7 @@ end subroutine
 subroutine setLogger_byDomain(this,femdomain,position,dataset,name)
   class(Logger_),intent(inout) :: this
   type(FEMDomain_),intent(inout) :: femdomain
-  real(real64),intent(in) :: position(1:3)
+  real(real64),intent(in) :: position(:)
   real(real64),target,intent(in) :: dataset(:)
   character(*),intent(in) :: name
 
@@ -262,8 +262,16 @@ subroutine setLogger_byDomain(this,femdomain,position,dataset,name)
   integer(int32) :: i,j,dof,node_id
   type(ShapeFunction_) :: sf
   type(IO_) :: f
+
+  if(.not. this%initialized) then
+    call this%init()
+  endif
+
+
   ! only single channel
   this%channel_name(1)%all = name
+  this%position = position
+  
   ! detect dataset-type
   if(mod(size(dataset),femdomain%nn())==0 )then
     ! node-wise value
@@ -272,11 +280,17 @@ subroutine setLogger_byDomain(this,femdomain,position,dataset,name)
       deallocate(this%source_values)
     endif
 
-    this%ElementID = femdomain%mesh%nearestElementID(&
-      x=position(1),y=position(2),z=position(3))
+
+    this%ElementID = femdomain%getElementID(x=position )
+    if(this%ElementID <=0)then
+      print *, "setLogger_byDomain >> invalid element position"
+      print *, "ERROR code: ",this%ElementID
+      stop
+    endif
     localCoord =  femdomain%getLocalCoordinate(ElementID=this%ElementID,&
-      x=position(1),y=position(2),z=position(3))
-    sf = femdomain%getShapeFunction(ElementID=this%ElementID,position=localCoord)
+      x=position(1),y=position(2),z=position(3) )
+    
+    sf = femdomain%getShapeFunction(ElementID=this%ElementID,position=position)
     this%weight = sf%nmat 
 
     allocate(this%source_values(femdomain%nne(),this%point_DOF) )
@@ -294,9 +308,7 @@ subroutine setLogger_byDomain(this,femdomain,position,dataset,name)
     if(allocated(this%source_values) )then
       deallocate(this%source_values)
     endif
-
-    this%ElementID = femdomain%mesh%nearestElementID(&
-      x=position(1),y=position(2),z=position(3))
+    this%ElementID = femdomain%getElementID(x=position )
     ! same value  
     this%weight = eyes(1)
 
