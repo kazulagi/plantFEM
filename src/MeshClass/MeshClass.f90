@@ -60,6 +60,7 @@ module MeshClass
         procedure :: cut => cutMesh
         procedure :: convertMeshType => ConvertMeshTypeMesh
         procedure :: convertTetraToHexa => convertTetraToHexaMesh 
+        procedure :: convertHigherOrder => convertHigherOrderMesh
         procedure :: convertTriangleToRectangular => convertTriangleToRectangularMesh 
         procedure :: create=>createMesh
         procedure :: cube => cubeMesh
@@ -4331,6 +4332,8 @@ subroutine ConvertMeshTypeMesh(obj,Option)
         call obj%convertTetraToHexa()
     elseif(Option=="convertTriangleToRectangular" .or. Option=="TriangleToRectangule")then
         call obj%convertTriangleToRectangular()
+    elseif(Option=="HigherOrder" .or. Option=="Higher")then
+        call obj%convertHigherOrder()    
     else
         print *, "Option :: ",Option,"is not valid, what if TetraToHexa ?"
     endif
@@ -9982,5 +9985,116 @@ function getElementIDMesh(this,x,debug,info) result(ElementID)
 
 
 end function
+
+
+subroutine convertHigherOrderMesh(this)
+    class(Mesh_),intent(inout) :: this
+    integer(int32),allocatable :: elemnod(:,:)
+    real(real64),allocatable :: nodcoord(:,:) 
+    real(real64) :: buf
+    integer(int32),allocatable :: segment_n(:,:),all_edges(:,:,:)
+    integer(int32),allocatable  :: same_node_id(:)
+    integer(int32) :: ElementID,NodeID,nne,nn,itr,i,j
+    type(COO_) :: COO
+
+    ! higher order
+    ! check element
+    if(this%empty() )then
+        print *, "[ERROR]convertHigherOrderMesh >> mesh is empty!"
+        return
+    endif
+
+    if( size(this%nodcoord,2)==3 .and. size(this%elemnod,2)==8 )then
+        ! linear cube element
+        ! add mid-points
+        segment_n = zeros(12,2)
+        segment_n(1,1:2) = [  1, 2]
+        segment_n(2,1:2) = [  2, 3]
+        segment_n(3,1:2) = [  3, 4]
+        segment_n(4,1:2) = [  4, 1]
+        segment_n(5,1:2) = [  1, 5]
+        segment_n(6,1:2) = [  2, 6]
+        segment_n(7,1:2) = [  3, 7]
+        segment_n(8,1:2) = [  4, 8]
+        segment_n(9,1:2) = [  5, 6]
+        segment_n(10,1:2) = [  6, 7]
+        segment_n(11,1:2) = [  7, 8]
+        segment_n(12,1:2) = [  8, 5]
+
+        !elemnod = zeros(size(this%elemnod,1),12 )
+        !nodcoord= zeros(size(this%elemnod,1)*12 ,size(this%nodcoord,2) )
+
+        all_edges = zeros(size(this%elemnod,1),12,2 )
+        !$OMP parallel do private(j)
+        do i=1,size(this%elemnod,1)
+            do j=1, size(segment_n,1)
+                all_edges(i,j,1:2) = this%elemnod( i, segment_n(j,1:2))
+                if(all_edges(i,j,2) < all_edges(i,j,1))then
+                    buf = all_edges(i,j,2)
+                    all_edges(i,j,2) = all_edges(i,j,1)
+                    all_edges(i,j,1) = buf
+                endif
+            enddo
+        enddo
+        !$OMP end parallel do
+
+        ! detect edges
+        ! 節点番号が小さいほうがmain，大きいほうがサブ
+        call COO%init(num_row = size(this%nodcoord,1) )
+        do i=1, size(all_edges,1)
+            do j=1,size(all_edges,2)
+                if(all_edges(i,j,1) > all_edges(i,j,2))then
+                    cycle
+                endif
+                call COO%add(row=all_edges(i,j,1),col=all_edges(i,j,2),val=1.0d0 )
+            enddo
+        enddo
+
+        itr = 0
+        do i=1, size(COO%row)
+            if(.not.allocated(COO%row(i)%val ) )then
+                cycle
+            endif
+            do j=1, size(COO%row(i)%col)
+                itr = itr + 1
+                COO%row(i)%val(j) = dble(itr) + dble(size(this%nodcoord,1))
+            enddo
+        enddo
+
+        elemnod = zeros(size(this%elemnod,1),12+size(this%elemnod,2) )
+        elemnod(1:size(this%elemnod,1),1:size(this%elemnod,2)) = this%elemnod
+        this%elemnod = elemnod
+        deallocate(elemnod)
+
+        nne = size(this%elemnod,2)
+        do i=1, size(all_edges,1)
+            do j=1, size(all_edges,2)
+                this%elemnod(i,nne+j) = int(COO%get(row=all_edges(i,j,1),col=all_edges(i,j,2)))
+            enddo
+        enddo
+
+        nn = size(this%nodcoord,1)
+        nodcoord = zeros(size(this%nodcoord,1)+int(COO%maxval()  ),size(this%nodcoord,2) )
+        nodcoord(1:size(this%nodcoord,1),1:size(this%nodcoord,2) ) = this%nodcoord
+        this%nodcoord = nodcoord
+        deallocate(nodcoord)
+
+        itr = 0
+        do i=1,size(COO%row,1)
+            do j=1,size(COO%row(i)%col,1)
+                itr = itr + 1
+                this%nodcoord(nn + itr,:) = &
+                    0.50d0*this%nodcoord(i,:) + 0.50d0*this%nodcoord(COO%row(i)%col(j),:) 
+            enddo 
+        enddo
+        
+    else
+        print *, "[ERROR]convertHigherOrderMesh >> not supported for this type of element"
+        print *, "       only for this%nd()==3 .and. this%nne()==8 "
+        return
+    endif
+
+end subroutine
+
 
 end module MeshClass

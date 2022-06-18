@@ -19,6 +19,9 @@ module CivilItemClass
         procedure, pass :: RigidFrameViaductCivilItem
         procedure, pass :: RigidFrameViaductCivilItem_JSON
         generic :: RigidFrameViaduct => RigidFrameViaductCivilItem,RigidFrameViaductCivilItem_JSON
+
+        procedure, pass :: EarthDam_with_ground_CivilItem
+        generic :: EarthDam => EarthDam_with_ground_CivilItem
     end type
 
 contains
@@ -1107,6 +1110,97 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
 
     call RFV%move(x = -(RFV%xmax()-RFV%xmin())*0.50d0  )
     
+
+end function
+
+
+function EarthDam_with_ground_CivilItem(this, height, length, width, depth, margin,angles,top_width,refine_level,&
+    depth_cut,margin_cut) result(dam)
+    class(CivilItem_),intent(in) :: this
+    real(real64),intent(in) :: height, length, width, depth, margin  ,top_width
+    real(real64),intent(in) :: angles(1:2)
+    integer(int32),intent(in) :: refine_level(1:3),depth_cut,margin_cut
+    real(real64),allocatable :: x_axis(:),y_axis(:),z_axis(:)
+    real(real64) :: center_coord(1:3),h,w,a,x,z,xmax
+    integer(int32),allocatable :: killElemList(:)
+    integer(int32) :: i,j
+    type(FEMDomain_) :: dam
+
+
+    x_axis = [&
+        -top_width/2.0d0-height/tan(radian(angles(2))),&
+        -top_width/2.0d0,top_width/2.0d0,top_width/2.0d0+height/tan(radian(angles(1))) &
+        ]
+
+    call Refine(x_axis,refine_level(1) )
+
+    x_axis = [-margin-top_width/2.0d0-height/tan(radian(angles(2)))]//x_axis// &
+        [margin+top_width/2.0d0+height/tan(radian(angles(1))) ]
+    call Refine(x_axis,margin_cut )
+    
+    y_axis = [-length/2.0d0,length/2.0d0]
+
+    
+    call Refine(y_axis,refine_level(2) )
+
+
+    z_axis = [-height, 0.0d0, height]
+    call Refine(z_axis,refine_level(3) )
+    z_axis = [-depth] // z_axis
+    call Refine(z_axis,depth_cut )
+    
+    call dam%create("Cube3D",&
+        x_axis = x_axis ,&
+        y_axis = y_axis ,&
+        z_axis = z_axis  &
+    )
+
+    ! remove
+    killElemList = int(zeros(dam%ne()))
+    do j=1,dam%ne()
+        center_coord = dam%centerPosition(ElementID=j)
+        if( 0.0d0 < center_coord(3)  .and. &
+            center_coord(1) <  -top_width/2.0d0-height/tan(radian(angles(2))) )then    
+            killElemList(j) = 1
+        endif
+    enddo
+
+    do j=1,dam%ne()
+        center_coord = dam%centerPosition(ElementID=j)
+        if( 0.0d0 < center_coord(3)  .and. &
+            center_coord(1) >  top_width/2.0d0+height/tan(radian(angles(1))) )then    
+            killElemList(j) = 1
+        endif
+    enddo
+
+    if(allocated(killElemList) )then
+        call dam%killElement(blacklist=killElemList,flag=1)
+    endif
+
+
+    ! reshape
+    h = height
+    w = top_width/2.0d0
+    
+    do i=1,dam%nn()
+        center_coord = dam%position(i)
+        if(center_coord(3)>0.0d0 )then
+            if(center_coord(1)>0.0d0 )then
+                a = height/tan(radian(angles(1))) + (top_width/2.0d0)
+                x = center_coord(1)
+                z = center_coord(3)
+                xmax = a + (w-a)/h*z
+                dam%mesh%nodcoord(i,1) = x*xmax/a
+            else
+                a = height/tan(radian(angles(2))) + (top_width/2.0d0)
+                x = center_coord(1)
+                z = center_coord(3)
+                xmax = a + (w-a)/h*z
+                dam%mesh%nodcoord(i,1) = x*xmax/a
+            endif
+        endif
+    enddo
+
 
 end function
 
