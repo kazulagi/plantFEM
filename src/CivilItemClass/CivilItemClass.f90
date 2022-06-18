@@ -1115,13 +1115,14 @@ end function
 
 
 function EarthDam_with_ground_CivilItem(this, height, length, width, depth, margin,angles,top_width,refine_level,&
-    depth_cut,margin_cut) result(dam)
+    depth_cut,margin_cut,R) result(dam)
     class(CivilItem_),intent(in) :: this
     real(real64),intent(in) :: height, length, width, depth, margin  ,top_width
     real(real64),intent(in) :: angles(1:2)
     integer(int32),intent(in) :: refine_level(1:3),depth_cut,margin_cut
     real(real64),allocatable :: x_axis(:),y_axis(:),z_axis(:)
-    real(real64) :: center_coord(1:3),h,w,a,x,z,xmax
+    real(real64),optional,intent(in) :: R
+    real(real64) :: center_coord(1:3),h,w,a,x,y,z,xmax,ym,xm,dx,xmm
     integer(int32),allocatable :: killElemList(:)
     integer(int32) :: i,j
     type(FEMDomain_) :: dam
@@ -1201,6 +1202,32 @@ function EarthDam_with_ground_CivilItem(this, height, length, width, depth, marg
         endif
     enddo
 
+    if(present(R) )then
+        if(R>0.0d0)then
+            xm = dam%xmax()
+            xmm = dam%xmin()
+            
+            do i=1,dam%nn()
+                
+                center_coord = dam%position(i)
+                x = center_coord(1)
+
+                if(x>0.0d0)then
+                    y = center_coord(2)
+                    dx = (R - sqrt(R*R - y*y) )
+                    dam%mesh%nodcoord(i,1) = dx + x - dx/xm*x
+                else
+                    y = center_coord(2)
+                    dx = (R - sqrt(R*R - y*y) )
+                    dam%mesh%nodcoord(i,1) = dx + x - dx/xmm*x
+                endif
+                
+            enddo
+
+        else
+
+        endif
+    endif
 
 end function
 
