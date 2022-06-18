@@ -19,6 +19,9 @@ module COOClass
         procedure,public :: getAllCol => getAllColCOO
         procedure,public :: DOF => DOFCOO 
         procedure,public :: to_CRS => to_CRSCOO
+        procedure,public :: get => getCOO
+        procedure,public :: ne => neCOO
+        procedure,public :: maxval => maxvalCOO
         !procedure,public ::getAllCol_as_row_obj => getAllCol_as_row_objCOO
     end type
         
@@ -589,5 +592,71 @@ pure function DOFCRS(this) result(Degree_of_freedom)
         Degree_of_freedom = 0
     endif
 end function
+
+
+! #######################################################
+pure function getCOO(this,row,col) result(ret)
+    class(COO_),intent(in) :: this
+    integer(int32),intent(in) :: row,col
+    real(real64) :: ret
+    integer(int32) :: i
+    
+    ret = 0.0d0
+    if(.not.allocated(this%row(row)%col) )then
+        return
+    endif
+
+    do i=1,size(this%row(row)%col,1 )
+        if(this%row(row)%col(i)==col )then
+            ret = this%row(row)%val(i)
+        endif
+    enddo
+
+end function
+
+
+pure function neCOO(this) result(ret)
+    class(COO_),intent(in) :: this
+    real(real64) :: ret
+    integer(int32) :: i
+
+    ! get number of entity
+    ret = 0.0d0
+    do i=1,size(this%row)
+        if(allocated(this%row(i)%col) )then
+            ret = ret + size(this%row(i)%col)
+        endif
+    enddo
+
+end function
+
+pure function maxvalCOO(this) result(ret)
+    class(COO_),intent(in) :: this
+    real(real64) :: ret
+    real(real64),allocatable :: val(:)
+    integer(int32) :: i,itr
+
+    ! get number of entity
+    ret = 0.0d0
+    itr = 0
+    do i=1,size(this%row)
+        if(allocated(this%row(i)%col) )then
+            if(itr==0)then
+                val = this%row(i)%val(:)
+                ret = maxval(val)
+                itr = itr + 1
+            else
+                val = this%row(i)%val(:)
+                if(ret < maxval(val ))then
+                    ret = maxval(val )
+                else
+                    cycle
+                endif
+            endif
+        endif
+    enddo
+    
+end function
+
 
 end module COOClass
