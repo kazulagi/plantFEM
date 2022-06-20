@@ -22,6 +22,9 @@ module CivilItemClass
 
         procedure, pass :: EarthDam_with_ground_CivilItem
         generic :: EarthDam => EarthDam_with_ground_CivilItem
+
+        procedure :: PaddyField => PaddyFieldCivilItem
+        procedure :: OpenChannel => OpenChannelCivilItem
     end type
 
 contains
@@ -1230,5 +1233,184 @@ function EarthDam_with_ground_CivilItem(this, height, length, width, depth, marg
     endif
 
 end function
+
+! #################################################
+function PaddyFieldCivilItem(this,Length,Width,Depth,RidgeWidth,RidgeHeight,refine_level) result(PaddyField)
+    class(CivilItem_),intent(inout) :: this
+    real(real64),intent(in) :: Length,Width,Depth,RidgeWidth,RidgeHeight
+    real(real64),allocatable :: x_axis(:),y_axis(:),z_axis(:),center_coord(:)
+    integer(int32),intent(in) :: refine_level(1:3)
+    integer(int32),allocatable :: killElemList(:)
+    integer(int32) :: i,j
+    type(FEMDomain_) :: paddyfield
+
+    x_axis = [-Length/2.0d0,-Length/2.0d0+RidgeWidth/2.0d0,0.0d0,Length/2.0d0-RidgeWidth/2.0d0,Length/2.0d0]
+    y_axis = [-Width/2.0d0,-Width/2.0d0+RidgeWidth/2.0d0,0.0d0,Width/2.0d0-RidgeWidth/2.0d0,Width/2.0d0]
+    z_axis = [-depth,0.0d0,RidgeHeight]
+    
+    call refine(x_axis,refine_level(1) )
+    call refine(y_axis,refine_level(2) )
+    call refine(z_axis,refine_level(3) )
+
+    call paddyfield%create("Cube3D",&
+        x_axis = x_axis ,&
+        y_axis = y_axis ,&
+        z_axis = z_axis  &
+    )
+
+    ! remove
+    killElemList = int(zeros(PaddyField%ne()))
+    do j=1,PaddyField%ne()
+        center_coord = PaddyField%centerPosition(ElementID=j)
+        if( 0.0d0 < center_coord(3)  )then  
+            if( -Length/2.0d0+RidgeWidth/2.0d0 < center_coord(1) .and. &
+                center_coord(1) < Length/2.0d0-RidgeWidth/2.0d0 )then
+                if( -Width/2.0d0+RidgeWidth/2.0d0 < center_coord(2) .and. &
+                    center_coord(2) < Width/2.0d0-RidgeWidth/2.0d0 )then
+                    
+                    killElemList(j) = 1
+                endif
+            endif
+        endif
+    enddo
+
+    if(allocated(killElemList) )then
+        call PaddyField%killElement(blacklist=killElemList,flag=1)
+    endif
+
+
+
+    ! reshape
+
+!    h = height
+!    w = top_width/2.0d0
+!    do i=1,PaddyField%nn()
+!        center_coord = PaddyField%position(i)
+!        if(center_coord(3)>0.0d0 )then
+!            if(center_coord(1) > 0.0d0 )then
+!                a = height/tan(radian(RidgeAngle)) + (top_width/2.0d0)
+!                x = center_coord(1)
+!                z = center_coord(3)
+!                xmax = a + (w-a)/h*z
+!                PaddyField%mesh%nodcoord(i,1) = x*xmax/a
+!            else
+!                a = height/tan(radian(RidgeAngle)) + (top_width/2.0d0)
+!                x = center_coord(1)
+!                z = center_coord(3)
+!                xmax = a + (w-a)/h*z
+!                PaddyField%mesh%nodcoord(i,1) = x*xmax/a
+!            endif
+!        endif
+!    enddo
+end function
+
+! ########################################################
+function OpenChannelCivilItem(this,Length,Width,Depth,ChannelWidth,ChannelDepth,SlopeAngle, &
+        SlopeDepth,refine_level) result(channel)
+    class(CivilItem_),intent(inout) :: this
+    real(real64),intent(in) :: Length,Width,Depth,ChannelWidth,ChannelDepth
+    real(real64),optional,intent(in) :: SlopeAngle,SlopeDepth
+    real(real64),allocatable :: x_axis(:),y_axis(:),z_axis(:),center_coord(:),point_coord(:)
+    integer(int32),intent(in) :: refine_level(1:3)
+    integer(int32),allocatable :: killElemList(:)
+    integer(int32) :: i,j
+    type(FEMDomain_) :: channel
+    real(real64) :: xm,x,z,dx,w,cw
+
+    if(present(SlopeAngle) .or. present(SlopeDepth)  )then
+        if(present(SlopeAngle) .and. present(SlopeDepth)  )then
+            x_axis = [-Length/2.0d0,0.0d0,Length/2.0d0]
+            y_axis = [-Width/2.0d0,-ChannelWidth/2.0d0,0.0d0,ChannelWidth/2.0d0,Width/2.0d0]
+            z_axis = [-abs(depth),-abs(ChannelDepth),-abs(SlopeDepth),0.0d0]
+            
+            call refine(x_axis,refine_level(1) )
+            call refine(y_axis,refine_level(2) )
+            call refine(z_axis,refine_level(3) )
+            
+            call channel%create("Cube3D",&
+                x_axis = x_axis ,&
+                y_axis = y_axis ,&
+                z_axis = z_axis  &
+            )
+            
+            ! remove
+            killElemList = int(zeros(channel%ne()))
+            do j=1,channel%ne()
+                center_coord = channel%centerPosition(ElementID=j)
+                if( -abs(ChannelDepth) -abs(SlopeDepth) < center_coord(3)  )then  
+                    if( -ChannelWidth/2.0d0 < center_coord(2) .and. &
+                        center_coord(2) < ChannelWidth/2.0d0 )then
+                        
+                        killElemList(j) = 1
+                        
+                    endif
+                endif
+            enddo
+        
+            if(allocated(killElemList) )then
+                call channel%killElement(blacklist=killElemList,flag=1)
+            endif
+            
+            ! reshape slope
+            w = abs(Width/2.0d0)
+            cw = abs(ChannelWidth/2.0d0)
+            
+            do j=1,channel%nn()
+                point_coord = channel%Position(j)
+                if(  -abs(SlopeDepth) < point_coord(3)  )then  
+                    x = point_coord(2)
+                    z = abs(abs(slopeDepth) - abs(point_coord(3)) )
+                    dx = z/tan(radian(SlopeAngle))
+
+                    channel%mesh%nodcoord(j,2)=x/abs(x)*&
+                    ( (dx+cw )*(w- abs(x) ) + w*(abs(x) - cw ) )/(abs(w)-abs(cw) )
+                    
+                endif
+            enddo
+            
+        else
+            print *, "[ERROR] OpenChannelCivilItem >> slope shape needs both of SlopeAngle and SlopeDepth"
+        endif
+    else
+        x_axis = [-Length/2.0d0,0.0d0,Length/2.0d0]
+        y_axis = [-Width/2.0d0,-ChannelWidth/2.0d0,0.0d0,ChannelWidth/2.0d0,Width/2.0d0]
+        z_axis = [-abs(depth),-abs(ChannelDepth),0.0d0]
+        
+        call refine(x_axis,refine_level(1) )
+        call refine(y_axis,refine_level(2) )
+        call refine(z_axis,refine_level(3) )
+
+        call channel%create("Cube3D",&
+            x_axis = x_axis ,&
+            y_axis = y_axis ,&
+            z_axis = z_axis  &
+        )
+
+        ! remove
+        killElemList = int(zeros(channel%ne()))
+        do j=1,channel%ne()
+            center_coord = channel%centerPosition(ElementID=j)
+            if( -abs(ChannelDepth) < center_coord(3)  )then  
+                if( -ChannelWidth/2.0d0 < center_coord(2) .and. &
+                    center_coord(2) < ChannelWidth/2.0d0 )then
+                    
+                    killElemList(j) = 1
+                    
+                endif
+            endif
+        enddo
+
+        if(allocated(killElemList) )then
+            call channel%killElement(blacklist=killElemList,flag=1)
+        endif
+
+
+
+    endif
+
+
+
+end function
+
 
 end module
