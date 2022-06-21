@@ -535,4 +535,213 @@ function getTimeZoneOffsetEarthClass(this,name) result(timezoneoffset)
 end function
 ! ################################################################
 
+function JP_Cartesian_Origin(ID) result(lat_lon)
+    integer(int32),intent(in) :: ID
+    real(real64) :: lat_lon(1:2)
+
+    ! https://www.gsi.go.jp/LAW/heimencho.html
+
+    select case(ID)
+        case (1)
+            lat_lon(1) = to_DecimalDegree([ 33., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([129.,30.,0.])
+
+        case (2)
+            lat_lon(1) = to_DecimalDegree([ 33., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([131., 0.,0.])
+
+        case (3)
+            lat_lon(1) = to_DecimalDegree([ 36., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([132.,10.,0.])
+
+        case (4)
+            lat_lon(1) = to_DecimalDegree([ 33., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([133.,30.,0.])
+    
+        case (5)
+            lat_lon(1) = to_DecimalDegree([ 36., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([134.,20.,0.])
+
+    
+        case (6)
+            lat_lon(1) = to_DecimalDegree([ 36., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([136., 0.,0.])
+
+
+        case (7)
+            lat_lon(1) = to_DecimalDegree([ 36., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([137.,10.,0.])
+
+    
+        case (8)
+            lat_lon(1) = to_DecimalDegree([ 36., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([138.,30.,0.])
+
+
+        case (9)
+            lat_lon(1) = to_DecimalDegree([ 36., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([139.,50.,0.])
+
+        case (10)
+            lat_lon(1) = to_DecimalDegree([ 40., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([140.,50.,0.])
+
+        case (11)
+            lat_lon(1) = to_DecimalDegree([ 44., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([140.,15.,0.])
+
+        case (12)
+            lat_lon(1) = to_DecimalDegree([ 44., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([142.,15.,0.])
+
+        case (13)
+            lat_lon(1) = to_DecimalDegree([ 44., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([144.,15.,0.])
+
+        
+        case (14)
+            lat_lon(1) = to_DecimalDegree([ 26., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([142., 0.,0.])
+
+    
+        case (15)
+            lat_lon(1) = to_DecimalDegree([ 26., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([127.,30.,0.])
+
+        case (16)
+            lat_lon(1) = to_DecimalDegree([ 26., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([124., 0.,0.])
+    
+        case (17)
+            lat_lon(1) = to_DecimalDegree([ 26., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([131., 0.,0.])
+
+
+        case (18)
+            lat_lon(1) = to_DecimalDegree([ 20., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([136., 0.,0.])
+
+
+        case (19)
+            lat_lon(1) = to_DecimalDegree([ 26., 0.,0.])
+            lat_lon(2) = to_DecimalDegree([154., 0.,0.])
+
+        case default 
+            print *, "ERROR :: ID should be 1 <= id <= 19"
+            stop
+    end select
+end function
+
+function JP_to_World(lat, lon) result(ret)
+    real(Real64),intent(in) :: lat, lon
+    real(real64) :: ret(1:2)
+
+    ret(2) = lon - lat * 0.000046038 - lon * 0.000083043 + 0.010040
+    ret(2) = lat - lat * 0.00010695 + lon * 0.000017464 + 0.0046017
+
+end function
+
+function to_Cartesian(longitude,latitude,origin) result(xy )
+    real(real64),intent(in) :: longitude,latitude
+    real(real64),intent(in) :: origin(1:2)
+    real(real64) :: xy(1:2)
+    real(real64) :: x,y,x1,alp(1:5),A_bar,eta,gma,m0,a,F,phi,lambda &
+        ,phi_0,lambda_0,t,lambda_c,lambda_s,sigma,S,A_(0:5),n,t_bar,rho,m,tau,xi
+    integer(int32) :: j
+    type(Math_) :: math
+
+    ! GRS80
+    !https://vldb.gsi.go.jp/sokuchi/surveycalc/surveycalc/algorithm/bl2xy/bl2xy.htm
+    m0 = 0.9999d0
+    a  = 6377.397155d0*1000.0d0 ! m
+    F  =  299.152813d0
+    n = 1.0d0/(2.0d0*F-1.0d0)
+    
+
+
+    phi    = radian(latitude)
+    lambda = radian(longitude)
+
+    phi_0    = radian(origin(1))
+    lambda_0 = radian(origin(2))
+
+
+
+    rho = 180.0d0/math%pi
+
+    t = sinh(atanh(sin(phi))  - 2.0d0*sqrt(n)/(1.0d0+n)&
+        *atanh(2.0d0*sqrt(n)/(1.0d0+n)*sin(phi) ) )
+    t_bar = sqrt(1.0d0+t*t)
+
+    lambda_c = cos(lambda-lambda_0)
+    lambda_s = sin(lambda-lambda_0)
+    
+    xi = atan(t/lambda_c)
+    eta = atanh(lambda_s/t_bar)
+    
+    
+    alp(1) = 1.0d0/2.0d0*n - 2.0d0/3.0d0*n*n + 5.0d0/16.0d0*n**3&
+         + 41.0d0/180.0d0*n**4 &
+        -127.0d0/288.00d0*n**5
+    alp(2) = 13.0d0/48.0d0*n**2 - 3.0d0/5.0d0*n**3 &
+        + 557.0d0/1440.0d0*n**4 + 281.0d0/630.0d0*n**5
+    alp(3) = 61.0d0/240.0d0*n**3 - 103.0d0/140.0d0*n**4 + 15061/26880*n**5
+    alp(4) = 49561.0d0/161280.0d0*n**4 - 179.0d0/168.0d0*n**5
+    alp(5) = 34729.0d0/80640.0d0*n**5
+
+    A_(0) = 1.0d0 + (n**2)/4.0d0 +(n**4)/64.0d0
+    A_(1) = -3.0d0/2.0d0*(n - (n**3)/8.0d0 - (n**5)/64.0d0)
+    A_(2) = 15.0d0/16.0d0*(n**2 - (n**4)/4.0d0)
+    A_(3) = -35.0d0/48.0d0*(n**3 - 5.0d0/16.0d0*(n**5))
+    A_(4) = 315.0d0/512.0d0*(n**4)
+    A_(5) = -693.0d0/1280.0d0*(n**5)
+
+    A_bar = m0*a/(1.0d0+n)*A_(0)
+
+    S = m0*a/(1.0d0+n)*(A_(0)*phi_0 )
+    do j=1,5
+        S = S + m0*a/(1.0d0+n)*A_(j)*sin(2.0d0*j*phi_0)
+    enddo
+    
+
+    sigma = 1.0d0 
+    tau   = 0.0d0
+    do j=1,5
+        sigma = sigma + 2.0d0*j*alp(j)*cos(2.0d0*j*xi)*cosh(2.0d0*j*eta)
+        tau = tau + 2.0d0*j*alp(j)*sin(2.0d0*j*xi)*sinh(2.0d0*j*eta)
+    enddo
+
+    gma = atan((tau*t_bar*lambda_c + sigma*t*lambda_s)&
+        /(sigma*t_bar*lambda_c - tau*t*lambda_s))
+
+    m = A_bar/a * sqrt((sigma**2 + tau**2)/(t**2 + lambda_c**2)*(1.0d0 + &
+        ( (1.0d0-n)/(1.0d0+n)*tan(phi)  )**2  )  )
+    
+    x = A_bar*(xi )
+    do j=1,5
+        x = x + A_bar*alp(j)*sin(2.0d0*j*xi)*cosh(2.0d0*j*eta)
+    enddo
+    x = x - S
+
+    y = A_bar*(eta )
+    do j=1,5
+        y = y + A_bar*alp(j)*cos(2.0d0*j*xi)*sinh(2.0d0*j*eta)
+    enddo
+
+    ! JP
+    xy(1) = x
+    xy(2) = y
+    
+end function
+
+
+pure function to_DecimalDegree(dd_mm_ss) result(ret)
+    real(real32),intent(in) :: dd_mm_ss(1:3)
+    real(real64) :: ret
+
+    ret = dd_mm_ss(1) + dd_mm_ss(2)/60.0d0 + dd_mm_ss(3)/60.0d0/60.0d0 
+end function
+
+
+
 end module 
