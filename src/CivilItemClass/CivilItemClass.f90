@@ -631,9 +631,12 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
             z_axis = z_axis_origin  &
         )
         ! x-direction (Length)
-        
+        !real(Real64) :: z_from,z_to
+
         killElemList = int(zeros(RFV%ne()))
-        do k = 1, size(MiddlePierHeights)+3
+        !do k = 1, size(MiddlePierHeights)+3
+        do k = 1, size(z_axis)/2
+            
             do i=1,NumPiers(2)-1
                 do j=1,RFV%ne()
                     center_coord = RFV%centerPosition(ElementID=j)

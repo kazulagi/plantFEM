@@ -15,6 +15,7 @@ call ground%vtk("ground")
 do i_i=1,3
     rigidFrames(i_i) = ci%RigidFrameViaduct("Tutorial/obj/RigidFrameViaduct.json")
     call rigidFrames(i_i)%move(y=60.0d0*(i_i-1) )
+    call rigidFrames(i_i)%rotate(z=radian(90.0d0) )
     call rigidFrames(i_i)%vtk("RigidFrames_" +str(i_i) )
 enddo
 
