@@ -35,6 +35,7 @@ module SoybeanClass
         integer(int32) :: MaxStemNum= PF_DEFAULT_SOYBEAN_ASIZE
 
         logical :: determinate
+        integer(int32) :: max_num_leaf_per_petiole = 3 ! as default
         
         integer(int32)  :: ms_node,br_node(PF_DEFAULT_SOYBEAN_ASIZE),br_from(PF_DEFAULT_SOYBEAN_ASIZE)
         real(real64)    :: ms_length,br_length(PF_DEFAULT_SOYBEAN_ASIZE)
@@ -237,7 +238,8 @@ module SoybeanClass
         procedure,public :: getIntersectLeaf => getIntersectLeafSoybean
         procedure,public :: getOverwrapLeaf => getIntersectLeafSoybean
         procedure,public :: searchStem => searchStemSoybean
-        
+        procedure,public :: searchPetiole =>searchPetioleSoybean
+        procedure,public :: searchLeaf => searchLeafSoybean
         ! data-format converter
         procedure,public :: convertDataFormat => convertDataFormatSoybean
         
@@ -528,7 +530,8 @@ subroutine initsoybean(obj,config,&
         x_val,y_val,z_val
     integer(int32) :: i,j,k,blcount,id,rmc,n,node_id,node_id2,elemid,branch_id,num_stem_node
     
-    real(real64)::readvalreal,leaf_z_angles(3)
+    real(real64)::readvalreal
+    real(real64),allocatable :: leaf_z_angles(:)
     integer(int32) :: readvalint
     logical :: debug=.false.
     logical :: timeOpt = .false.
@@ -1560,6 +1563,7 @@ subroutine initsoybean(obj,config,&
             obj%num_stem_node = obj%num_stem_node +1
             !call obj%stem(obj%num_stem_node)%init(config=obj%stemconfig)
             obj%stem(obj%num_stem_node) = stem
+            
             call obj%stem(obj%num_stem_node)%resize(&
                 x = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
                 y = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
@@ -1577,13 +1581,20 @@ subroutine initsoybean(obj,config,&
             
 
             ! add leaves
-            leaf_z_angles(1) = radian(random%random()*360.0d0)
-            leaf_z_angles(2) = leaf_z_angles(1) - radian(120.0d0)
-            leaf_z_angles(3) = leaf_z_angles(1) + radian(120.0d0)
-            do j=1,3
+            
+            
+            leaf_z_angles = linspace([0.0d0,360.0d0],obj%max_num_leaf_per_petiole+1 )
+            do j = 1, obj%max_num_leaf_per_petiole
+                leaf_z_angles(j) = radian(leaf_z_angles(j))
+            enddo
+            leaf_z_angles(:) = leaf_z_angles(:) + radian(random%random()*360.0d0)
+
+            do j=1,obj%max_num_leaf_per_petiole
                 obj%num_leaf=obj%num_leaf+1
                 !call obj%leaf(obj%num_leaf)%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
                 obj%leaf(obj%num_leaf) = leaf
+                obj%leaf(obj%num_leaf)%LeafID = j
+
                 y_val = random%gauss(mu=obj%leaf_thickness_ave(i),sigma=obj%leaf_thickness_sig(i))  
                 z_val = random%gauss(mu=obj%leaf_length_ave(i)   ,sigma=obj%leaf_length_sig(i)) 
                 x_val = random%gauss(mu=obj%leaf_width_ave(i)    ,sigma=obj%leaf_width_sig(i))
@@ -8271,6 +8282,75 @@ function searchStemSoybean(this,StemID,InterNodeID) result(node_id)
             endif
         endif
     enddo
+    
+end function
+
+function searchPetioleSoybean(this,StemID,InterNodeID,PetioleID) result(node_id)
+    class(Soybean_),intent(inout) :: this
+    integer(int32),intent(in) :: stemID,InterNodeID,PetioleID
+    real(real64) :: current_length
+    integer(int32) :: i,j,node_id,n
+
+    node_id = -404
+    do i=1,size(this%stem,1)
+        if(this%stem(i)%stemID==StemID)then
+            if(this%stem(i)%InterNodeID==InterNodeID)then
+                node_id = i
+            endif
+        endif
+    enddo
+
+    if(node_id < 0)then
+        return
+    endif
+
+    n = 0
+    do i=1,size(this%stem2stem,1)
+        if(this%stem2stem(i,node_id)==1 &
+            .and. this%stem(i)%StemID==-1 )then
+            n = n + 1
+            if(n==PetioleID)then
+                node_id = i
+                return
+            endif
+        endif
+    enddo
+
+    node_id = -404404
+
+    
+end function
+
+
+
+function searchLeafSoybean(this,StemID,InterNodeID,PetioleID,LeafID) result(leaf_id)
+    class(Soybean_),intent(inout) :: this
+    integer(int32),intent(in) :: stemID,InterNodeID,PetioleID,LeafID
+    real(real64) :: current_length
+    integer(int32) :: i,j,node_id,n,petiole_id,leaf_id
+
+    leaf_id    = -404404404
+    petiole_id = -404404
+    node_id    = -404
+
+    petiole_id = this%searchPetiole(&
+        StemID=StemID,& ! main=0, branch=1,2 ...
+        InterNodeID=InterNodeID,& ! 1,2,3...
+        PetioleID=PetioleID &
+    )
+
+    if(petiole_id<0)then
+        leaf_id = -404
+        return
+    endif
+
+    do i=1,size(this%leaf2stem,1)
+        if(this%leaf2stem(i,petiole_id)==1 )then
+            if(this%leaf(i)%leafID==LeafID )then
+                leaf_id =  i
+            endif
+        endif
+    enddo    
     
 end function
 
