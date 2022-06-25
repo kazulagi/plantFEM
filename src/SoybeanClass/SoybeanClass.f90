@@ -6,6 +6,7 @@ module SoybeanClass
     use RootClass
     use LightClass
     use PlantNodeClass
+    use StemClass
     use FEMSolverClass
     implicit none
 
@@ -197,12 +198,7 @@ module SoybeanClass
         procedure,public :: getYoungModulus => getYoungModulusSoybean
         procedure,public :: getPoissonRatio => getPoissonRatioSoybean
         procedure,public :: getDensity => getDensitySoybean
-
         
-
-
-
-
         ! operation
         procedure,public :: findApical => findApicalSoybean
         
@@ -240,7 +236,7 @@ module SoybeanClass
         procedure,public :: getLeafArea => getLeafAreaSoybean
         procedure,public :: getIntersectLeaf => getIntersectLeafSoybean
         procedure,public :: getOverwrapLeaf => getIntersectLeafSoybean
-        
+        procedure,public :: searchStem => searchStemSoybean
         
         ! data-format converter
         procedure,public :: convertDataFormat => convertDataFormatSoybean
@@ -288,6 +284,11 @@ module SoybeanClass
         procedure,public :: updateFlowers => updateFlowersSoybean
         procedure,public :: updatePods => updatePodsSoybean
         procedure,public :: AddNode => AddNodeSoybean
+
+        ! structure editor/analyzer
+        procedure, pass ::  resizeStem => resizeStemSoybean
+        procedure, pass ::  rotateStem => rotateStemSoybean
+        
     end type
 
     type :: SoybeanCanopy_
@@ -1461,7 +1462,12 @@ subroutine initsoybean(obj,config,&
         do i=1,obj%ms_node
 
             !call obj%stem(i)%init(config=obj%stemconfig)
+
             obj%stem(i) = stem
+            
+            obj%stem(i)%stemID = 0
+            obj%stem(i)%InterNodeID = i
+
             obj%NodeID_MainStem(i) = i
             call obj%stem(i)%resize(&
                 x = obj%ms_width, &
@@ -1498,9 +1504,13 @@ subroutine initsoybean(obj,config,&
         do i=1,size(obj%br_node) ! num branch
             allocate( obj%NodeID_Branch(i)%ID(obj%br_node(i))  )
             do j=1, obj%br_node(i)
+
                 k = k + 1
                 !call obj%stem(k)%init(config=obj%stemconfig)
                 obj%stem(k) = stem
+                obj%stem(k)%stemID = i
+                obj%stem(k)%InterNodeID = j
+
                 obj%NodeID_Branch(i)%ID(j) = k
 
                 call obj%stem(k)%resize(&
@@ -4122,6 +4132,18 @@ function stemlengthSoybean(obj,StemID) result(ret)
 
 end function
 ! ###################################################################
+
+
+! object editor
+
+! rotateStem
+! rotateRoot
+! rotateLeaf
+
+! resizeStem(MainStem)
+! resizeRoot
+! resizeLeaf
+
 
 ! ###################################################################
 subroutine resizeSoybean(obj,StemID,StemLength)
@@ -8177,6 +8199,80 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
 
 end function
 ! ################################################################
+
+subroutine resizeStemSoybean(this,StemID,InterNodeID,Length,Width)
+    class(Soybean_),intent(inout) :: this
+    integer(int32),intent(in) :: stemID,InterNodeID
+    real(real64),optional,intent(in) :: Length,Width
+    real(real64) :: current_length
+    integer(int32) :: i,j,node_id
+
+    node_id = 0
+    do i=1,size(this%stem,1)
+        if(this%stem(i)%stemID==StemID)then
+            if(this%stem(i)%InterNodeID==InterNodeID)then
+               node_id = i 
+            endif
+        endif
+    enddo
+    if(node_id==0)then
+        print *, "resizeStemSoybean 404 Not Found."
+        return
+    endif
+    
+    call this%stem(node_id)%grow(length=Length,Width=Width)
+    call this%update()
+
+
+
+end subroutine
+
+
+subroutine rotateStemSoybean(this,StemID,InterNodeID,Angles)
+    class(Soybean_),intent(inout) :: this
+    integer(int32),intent(in) :: stemID,InterNodeID
+    real(real64),intent(in) :: Angles(1:3)
+    real(real64) :: current_length
+    integer(int32) :: i,j,node_id
+
+    do i=1,size(this%stem,1)
+        if(this%stem(i)%stemID==StemID)then
+            if(this%stem(i)%InterNodeID==InterNodeID)then
+                node_id = i
+            endif
+        endif
+    enddo
+    
+
+    if(node_id==0)then
+        print *, "resizeStemSoybean 404 Not Found."
+        return
+    endif
+    
+    call this%stem(node_id)%femdomain%rotate(x=Angles(1),y=Angles(2),z=Angles(3),deg=.true. )
+    call this%update()
+
+
+
+end subroutine
+
+
+function searchStemSoybean(this,StemID,InterNodeID) result(node_id)
+    class(Soybean_),intent(inout) :: this
+    integer(int32),intent(in) :: stemID,InterNodeID
+    real(real64) :: current_length
+    integer(int32) :: i,j,node_id
+
+    node_id = -404
+    do i=1,size(this%stem,1)
+        if(this%stem(i)%stemID==StemID)then
+            if(this%stem(i)%InterNodeID==InterNodeID)then
+                node_id = i
+            endif
+        endif
+    enddo
+    
+end function
 
 
 
