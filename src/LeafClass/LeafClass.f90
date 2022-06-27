@@ -920,6 +920,7 @@ subroutine resizeleaf(obj,x,y,z)
     origin2 = obj%getCoordinate("A")
     disp = origin1 - origin2
     call obj%move(x=disp(1),y=disp(2),z=disp(3) )
+    
 end subroutine
 ! ########################################
 
