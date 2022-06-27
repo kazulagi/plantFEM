@@ -240,6 +240,9 @@ module SoybeanClass
         procedure,public :: searchStem => searchStemSoybean
         procedure,public :: searchPetiole =>searchPetioleSoybean
         procedure,public :: searchLeaf => searchLeafSoybean
+        
+        procedure,public :: maxInterNodeID => maxInterNodeIDSoybean
+
         ! data-format converter
         procedure,public :: convertDataFormat => convertDataFormatSoybean
         
@@ -290,6 +293,8 @@ module SoybeanClass
         ! structure editor/analyzer
         procedure, pass ::  resizeStem => resizeStemSoybean
         procedure, pass ::  rotateStem => rotateStemSoybean
+        procedure, pass ::  resizePetiole => resizePetioleSoybean
+        procedure, pass ::  rotatePetiole => rotatePetioleSoybean
         
     end type
 
@@ -1587,6 +1592,7 @@ subroutine initsoybean(obj,config,&
             do j = 1, obj%max_num_leaf_per_petiole
                 leaf_z_angles(j) = radian(leaf_z_angles(j))
             enddo
+
             leaf_z_angles(:) = leaf_z_angles(:) + radian(random%random()*360.0d0)
 
             do j=1,obj%max_num_leaf_per_petiole
@@ -8269,7 +8275,7 @@ end subroutine
 
 
 function searchStemSoybean(this,StemID,InterNodeID) result(node_id)
-    class(Soybean_),intent(inout) :: this
+    class(Soybean_),intent(in) :: this
     integer(int32),intent(in) :: stemID,InterNodeID
     real(real64) :: current_length
     integer(int32) :: i,j,node_id
@@ -8286,7 +8292,7 @@ function searchStemSoybean(this,StemID,InterNodeID) result(node_id)
 end function
 
 function searchPetioleSoybean(this,StemID,InterNodeID,PetioleID) result(node_id)
-    class(Soybean_),intent(inout) :: this
+    class(Soybean_),intent(in) :: this
     integer(int32),intent(in) :: stemID,InterNodeID,PetioleID
     real(real64) :: current_length
     integer(int32) :: i,j,node_id,n
@@ -8323,8 +8329,10 @@ end function
 
 
 
+
+
 function searchLeafSoybean(this,StemID,InterNodeID,PetioleID,LeafID) result(leaf_id)
-    class(Soybean_),intent(inout) :: this
+    class(Soybean_),intent(in) :: this
     integer(int32),intent(in) :: stemID,InterNodeID,PetioleID,LeafID
     real(real64) :: current_length
     integer(int32) :: i,j,node_id,n,petiole_id,leaf_id
@@ -8355,5 +8363,63 @@ function searchLeafSoybean(this,StemID,InterNodeID,PetioleID,LeafID) result(leaf
 end function
 
 
+subroutine resizePetioleSoybean(this,StemID,InterNodeID,PetioleID,Length,Width)
+    class(Soybean_),intent(inout) :: this
+    integer(int32),intent(in) :: stemID,InterNodeID,PetioleID
+    real(real64),optional,intent(in) :: Length,Width
+    real(real64) :: current_length
+    integer(int32) :: i,j,node_id
+
+    node_id = this%searchPetiole(StemID=StemID,InterNodeID=InterNodeID,PetioleID=PetioleID) 
+
+    if(node_id<1)then
+        print *, "resizePetioleSoybean 404 Not Found."
+        return
+    endif
+
+    call this%stem(node_id)%grow(length=Length,Width=Width)
+    call this%update()
+
+end subroutine
+
+
+subroutine rotatePetioleSoybean(this,StemID,InterNodeID,PetioleID,Angles)
+    class(Soybean_),intent(inout) :: this
+    integer(int32),intent(in) :: stemID,InterNodeID,PetioleID
+    real(real64),intent(in) :: Angles(1:3)
+    real(real64) :: current_length
+    integer(int32) :: i,j,node_id
+
+    node_id = this%searchPetiole(StemID=StemID,InterNodeID=InterNodeID,PetioleID=PetioleID)
+    
+    if(node_id<1)then
+        print *, "rotatePetioleSoybean 404 Not Found."
+        return
+    endif
+    
+    call this%stem(node_id)%femdomain%rotate(x=Angles(1),y=Angles(2),z=Angles(3),deg=.true. )
+    call this%update()
+
+
+
+end subroutine
+
+
+function maxInterNodeIDSoybean(this,StemID) result(ret)
+    class(Soybean_),intent(in) :: this
+    integer(int32),intent(in) :: StemID
+    integer(int32) :: ret,i,buf
+
+    ret = 0
+    do i=1, size(this%Stem,1)
+        buf = this%searchStem(StemID=StemID,InterNodeID=i)
+        if(buf >=1)then
+            ret = ret + 1
+        else
+            return
+        endif
+    enddo
+
+end function
 
 end module
