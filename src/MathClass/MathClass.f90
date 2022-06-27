@@ -2356,14 +2356,41 @@ end function IsItNumber
 
 ! Window functions
 
-function RectangularWindow(Width,DataSize) result(ret)
-	integer(int32),intent(in) :: Width,DataSize
-	real(real64) :: ret(DataSize)
+function RectangularWindow(original_data,Width) result(ret)
+	real(real64),intent(in) :: original_data(:)
+	integer(int32),intent(in) :: Width
+	real(real64),allocatable :: ret(:)
+	integer(int32) :: i,j,n
 
-	ret = 0.0d0
-	ret(DataSize/2-Width/2:DataSize/2+Width/2) = 1
+	allocate(ret(size(original_data)))
+
+	do i=1,size(original_data)
+		n=0
+		do j=-Width/2,Width/2
+			if(i+j > size(original_data) .or. i+j < 1 ) cycle
+			n = n + 1
+			ret(i) = original_data(i) + original_data(i+j)
+		enddo
+		ret(i) = ret(i)/dble(n)
+	enddo
 
 end function
+
+function DigitalWindow(original_data) result(ret)
+	real(real64),intent(in) :: original_data(:)
+	
+	real(real64),allocatable :: ret(:)
+	integer(int32) :: i,j,n
+
+	allocate(ret(size(original_data)))
+
+	do i=2,size(original_data)-1
+		ret(i) = 0.250d0*original_data(i-1) +0.50d0*original_data(i) +&
+			0.250d0*original_data(i+1)
+	enddo
+
+end function
+
 
 function HanningWindow(Width,DataSize) result(ret)
 	integer(int32),intent(in) :: Width,DataSize

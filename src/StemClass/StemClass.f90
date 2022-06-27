@@ -26,11 +26,19 @@ module StemClass
         integer(int32),allocatable  :: II_planeElementID(:)
         integer(int32)  :: A_PointNodeID
         integer(int32)  :: B_PointNodeID
+        integer(int32)  :: C_PointNodeID
+        integer(int32)  :: D_PointNodeID
+        
         integer(int32)  :: A_PointElementID
         integer(int32)  :: B_PointElementID
         integer(int32)  :: xnum = 10
         integer(int32)  :: ynum = 10
         integer(int32)  :: znum = 10
+
+        ! position in a whole structure (single plant)
+        integer(int32) :: StemID = -1
+        integer(int32) :: InterNodeID = -1
+        
 
         ! physical parameter
         real(real64),allocatable :: DryDensity(:)  ! element-wise
@@ -55,6 +63,7 @@ module StemClass
         procedure, public :: Init => initStem
         procedure, public :: rotate => rotateStem
         procedure, public :: grow => growStem
+        procedure, public :: change_length_or_width => growStem
         procedure, public :: resize => resizeStem
         procedure, public :: move => moveStem
         procedure, public :: connect => connectStem
@@ -64,6 +73,7 @@ module StemClass
         procedure, public :: empty => emptyStem
         procedure, public :: getCoordinate => getCoordinateStem
         procedure, public :: getLength => getLengthStem
+        procedure, public :: getWidth => getWidthStem
 
 
         procedure, public :: gmsh => gmshStem
@@ -91,6 +101,7 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     type(IO_) :: stemconf,f
     character(200) :: fn,conf,line
     integer(int32),allocatable :: buf(:)
+    real(real64) :: center_coord(1:3),dist_val
     integer(int32) :: id,rmc,n,node_id,node_id2,elemid,blcount,i,j
     real(real64) :: loc(3)
     logical :: debug=.false.
@@ -273,27 +284,117 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     obj%II_planeNodeID = obj%FEMdomain%mesh%getNodeList(zmin=obj%minlength)
     obj%II_planeElementID = obj%FEMdomain%mesh%getElementList(zmin=obj%minlength)
     
-    buf   = obj%FEMDomain%mesh%getNodeList(&
-        xmin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
-        xmax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
-        ymin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
-        ymax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
-        zmax=0.0d0)
+    !buf   = obj%FEMDomain%mesh%getNodeList(&
+    !    xmin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
+    !    xmax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
+    !    ymin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
+    !    ymax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
+    !    zmax=0.0d0)
     
+    center_coord(1) = sum(obj%FEMDomain%mesh%nodcoord(obj%I_planeNodeID(:),1) )&
+        /size(obj%I_planeNodeID)
+    center_coord(2) = sum(obj%FEMDomain%mesh%nodcoord(obj%I_planeNodeID(:),2) )&
+        /size(obj%I_planeNodeID)
+    center_coord(3) = sum(obj%FEMDomain%mesh%nodcoord(obj%I_planeNodeID(:),3) )&
+        /size(obj%I_planeNodeID)
+
+    dist_val = norm(obj%FEMDomain%mesh%nodcoord(obj%I_planeNodeID(1),:)-center_coord)
+    obj%A_PointNodeID = obj%I_planeNodeID(1)
     
-    !obj%A_PointNodeID = buf(1)
+    do i=2, size(obj%I_planeNodeID)
+        if(  norm(obj%FEMDomain%mesh%nodcoord(obj%I_planeNodeID(i),:)-center_coord) < dist_val  )then
+            obj%A_PointNodeID = obj%I_planeNodeID(i)
+            dist_val = norm(obj%FEMDomain%mesh%nodcoord(obj%I_planeNodeID(i),:)-center_coord)
+        endif
+    enddo
     
-    obj%A_PointNodeID = median(buf)
+    !obj%A_PointNodeID = median(buf)
     
-    buf   = obj%FEMDomain%mesh%getNodeList(&
-        xmin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
-        xmax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
-        ymin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
-        ymax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
-        zmin=obj%minlength)
+!    buf   = obj%FEMDomain%mesh%getNodeList(&
+!        xmin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
+!        xmax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
+!        ymin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
+!        ymax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
+!        zmin=obj%minlength)
     
     !obj%B_PointNodeID = buf(1)
-    obj%B_PointNodeID = median(buf)
+
+    !obj%B_PointNodeID = median(buf)
+
+    center_coord(1) = sum(obj%FEMDomain%mesh%nodcoord(obj%II_planeNodeID(:),1) )&
+        /size(obj%I_planeNodeID)
+    center_coord(2) = sum(obj%FEMDomain%mesh%nodcoord(obj%II_planeNodeID(:),2) )&
+        /size(obj%I_planeNodeID)
+    center_coord(3) = sum(obj%FEMDomain%mesh%nodcoord(obj%II_planeNodeID(:),3) )&
+        /size(obj%I_planeNodeID)
+
+    dist_val = norm(obj%FEMDomain%mesh%nodcoord(obj%II_planeNodeID(1),:)-center_coord)
+    obj%B_PointNodeID = obj%II_planeNodeID(1)
+    
+    do i=2, size(obj%II_planeNodeID)
+        if(  norm(obj%FEMDomain%mesh%nodcoord(obj%II_planeNodeID(i),:)-center_coord) < dist_val  )then
+            obj%B_PointNodeID = obj%II_planeNodeID(i)
+            dist_val = norm(obj%FEMDomain%mesh%nodcoord(obj%II_planeNodeID(i),:)-center_coord)
+        endif
+    enddo
+    
+    
+
+    center_coord(1) = maxval(obj%FEMDomain%mesh%nodcoord(obj%I_planeNodeID(:),1) )
+
+    center_coord(2) = sum(obj%FEMDomain%mesh%nodcoord(obj%I_planeNodeID(:),2) )&
+        /size(obj%I_planeNodeID)
+
+    center_coord(3) = sum(obj%FEMDomain%mesh%nodcoord(obj%I_planeNodeID(:),3) )&
+        /size(obj%I_planeNodeID)
+
+    dist_val = norm(obj%FEMDomain%mesh%nodcoord(obj%I_planeNodeID(1),:)-center_coord)
+    obj%C_PointNodeID = obj%I_planeNodeID(1)
+    
+    do i=2, size(obj%I_planeNodeID)
+        if(  norm(obj%FEMDomain%mesh%nodcoord(obj%I_planeNodeID(i),:)-center_coord) < dist_val  )then
+            obj%C_PointNodeID = obj%I_planeNodeID(i)
+            dist_val = norm(obj%FEMDomain%mesh%nodcoord(obj%I_planeNodeID(i),:)-center_coord)
+        endif
+    enddo
+    
+    
+
+    !buf = obj%FEMDomain%mesh%getNodeList(&
+    !xmin=obj%FEMDomain%xmax() ,&
+    !ymin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
+    !ymax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
+    !zmax=obj%FEMDomain%zmin() )
+    !
+    !obj%C_PointNodeID = median(buf)
+    
+
+    center_coord(1) = sum(obj%FEMDomain%mesh%nodcoord(obj%II_planeNodeID(:),1) )&
+        /size(obj%II_planeNodeID)
+
+    center_coord(2) = maxval(obj%FEMDomain%mesh%nodcoord(obj%II_planeNodeID(:),2) )
+
+
+    center_coord(3) = sum(obj%FEMDomain%mesh%nodcoord(obj%II_planeNodeID(:),3) )&
+        /size(obj%II_planeNodeID)
+
+    dist_val = norm(obj%FEMDomain%mesh%nodcoord(obj%II_planeNodeID(1),:)-center_coord)
+    obj%D_PointNodeID = obj%II_planeNodeID(1)
+    
+    do i=2, size(obj%II_planeNodeID)
+        if(  norm(obj%FEMDomain%mesh%nodcoord(obj%II_planeNodeID(i),:)-center_coord) < dist_val  )then
+            obj%D_PointNodeID = obj%II_planeNodeID(i)
+            dist_val = norm(obj%FEMDomain%mesh%nodcoord(obj%II_planeNodeID(i),:)-center_coord)
+        endif
+    enddo
+
+    !buf = obj%FEMDomain%mesh%getNodeList(&
+    !ymin=obj%FEMDomain%ymax() ,&
+    !xmin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
+    !xmax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%ynum)/2.0d0 ,&
+    !zmax=obj%FEMDomain%zmin() )
+    !
+    !obj%D_PointNodeID = median(buf)
     
 
     buf    = obj%FEMDomain%mesh%getElementList(&
@@ -304,6 +405,7 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
         zmax=0.0d0)
     !obj%A_PointElementID = buf(1)
     obj%A_PointElementID = median(buf)
+    
     
     buf    = obj%FEMDomain%mesh%getElementList(&
         xmin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%xnum)/2.0d0 ,&
@@ -615,9 +717,9 @@ end subroutine
 ! ########################################
 
 ! ########################################
-subroutine growStem(obj,length,length_rate,width_rate)
+subroutine growStem(obj,length,length_rate,Width,width_rate)
     class(Stem_),intent(inout) :: obj 
-    real(real64),optional,intent(in) :: length,length_rate,width_rate
+    real(real64),optional,intent(in) :: length,length_rate,width_rate,Width
     real(real64) :: length_r,width_r,l_0,w_0,clength
     real(real64),allocatable :: origin(:),top(:),n1(:),coord(:),center(:),vert(:)
     integer(int32) :: i
@@ -639,7 +741,11 @@ subroutine growStem(obj,length,length_rate,width_rate)
         length_r = 1.0d0
     endif
 
-    width_r = input(default=1.0d0, option=width_rate)
+    if(present(Width) )then
+        width_r = Width/obj%getWidth()
+    else
+        width_r = input(default=1.0d0, option=width_rate)
+    endif
 
     ! enlong & fatten
     do i=1,obj%femdomain%nn()
@@ -684,6 +790,21 @@ function getLengthStem(obj) result(ret)
             obj%femdomain%mesh%nodcoord(obj%A_PointNodeID,: ) &
             - obj%femdomain%mesh%nodcoord(obj%B_PointNodeID,:) )
     endif
+
+end function
+
+
+function getWidthStem(obj) result(ret)
+    class(Stem_),intent(in) :: obj
+real(real64) :: ret
+
+if(obj%femdomain%mesh%empty() )then
+    ret = 0.0d0
+else
+    ret = 2.0d0*norm(&
+        obj%femdomain%mesh%nodcoord(obj%C_PointNodeID,: ) &
+        - obj%femdomain%mesh%nodcoord(obj%A_PointNodeID,:) )
+endif
 
 end function
 

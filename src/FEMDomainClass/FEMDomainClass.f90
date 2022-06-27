@@ -5818,11 +5818,28 @@ subroutine rotateFEMDomain(obj,x,y,z,deg)
 		all_rotmat = matmul(rotmat_y,all_rotmat)
 
 		if(present(x) )then
-			obj%total_rotation(1) = obj%total_rotation(1) + x
+			if(present(deg) )then
+				if(deg)then
+					obj%total_rotation(1) = obj%total_rotation(1) + radian(x)
+				else
+					obj%total_rotation(1) = obj%total_rotation(1) + x
+				endif
+			else
+				obj%total_rotation(1) = obj%total_rotation(1) + x
+			endif
 		endif
 
 		if(present(y) )then
-			obj%total_rotation(2) = obj%total_rotation(2)+ y
+			!obj%total_rotation(2) = obj%total_rotation(2)+ y
+			if(present(deg) )then
+				if(deg)then
+					obj%total_rotation(2) = obj%total_rotation(2) + radian(y)
+				else
+					obj%total_rotation(2) = obj%total_rotation(2) + y
+				endif
+			else
+				obj%total_rotation(2) = obj%total_rotation(2) + y
+			endif
 		endif
 
 		total_rot = obj%total_rotation
@@ -5886,17 +5903,57 @@ subroutine rotateFEMDomain(obj,x,y,z,deg)
 		all_rotmat = matmul(rotmat_y,all_rotmat)
 		all_rotmat = matmul(rotmat_x,all_rotmat)
 
+
 		if(present(x) )then
-			obj%total_rotation(1) = obj%total_rotation(1) + x
+			if(present(deg) )then
+				if(deg)then
+					obj%total_rotation(1) = obj%total_rotation(1) + radian(x)
+				else
+					obj%total_rotation(1) = obj%total_rotation(1) + x
+				endif
+			else
+				obj%total_rotation(1) = obj%total_rotation(1) + x
+			endif
 		endif
 
 		if(present(y) )then
-			obj%total_rotation(2) = obj%total_rotation(2)+ y
+			!obj%total_rotation(2) = obj%total_rotation(2)+ y
+			if(present(deg) )then
+				if(deg)then
+					obj%total_rotation(2) = obj%total_rotation(2) + radian(y)
+				else
+					obj%total_rotation(2) = obj%total_rotation(2) + y
+				endif
+			else
+				obj%total_rotation(2) = obj%total_rotation(2) + y
+			endif
+		endif
+
+
+		if(present(x) )then
+			if(present(deg) )then
+				if(deg)then
+					obj%total_rotation(1) = obj%total_rotation(1) + radian(x)
+				else
+					obj%total_rotation(1) = obj%total_rotation(1) + x
+				endif
+			else
+				obj%total_rotation(1) = obj%total_rotation(1) + x
+			endif
 		endif
 
 		if(present(z) )then
-			obj%total_rotation(3) = obj%total_rotation(3) + z
+			if(present(deg) )then
+				if(deg)then
+					obj%total_rotation(3) = obj%total_rotation(3) + radian(z)
+				else
+					obj%total_rotation(3) = obj%total_rotation(3) + z
+				endif
+			else
+				obj%total_rotation(3) = obj%total_rotation(3) + z
+			endif
 		endif
+
 
 		total_rot = obj%total_rotation
 		

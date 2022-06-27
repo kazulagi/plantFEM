@@ -28,6 +28,9 @@ module LeafClass
         real(real64)             ::  shaperatio = 0.30d0
         real(real64)             ::  minwidth,minlength,MinThickness
 
+        ! id in multi-leaf
+        integer(int32) :: LeafID = -1
+
         integer(int32),allocatable  :: I_planeNodeID(:)
         integer(int32),allocatable  :: I_planeElementID(:)
         integer(int32),allocatable  :: II_planeNodeID(:)
