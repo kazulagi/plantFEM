@@ -47,6 +47,8 @@ module RootClass
         real(real64),allocatable :: BoundaryTractionForce(:,:) ! node-wise, three dimensional
         real(real64),allocatable :: BoundaryDisplacement(:,:) ! node-wise, three dimensional
         
+        ! for growth simulation
+        logical :: already_grown = .false.
 
         integer(int32)             ::  Division
         type(Root_),pointer ::  pRoot

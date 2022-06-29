@@ -30,6 +30,7 @@ module LeafClass
 
         ! id in multi-leaf
         integer(int32) :: LeafID = -1
+        logical :: already_grown = .false.
 
         integer(int32),allocatable  :: I_planeNodeID(:)
         integer(int32),allocatable  :: I_planeElementID(:)
@@ -93,8 +94,8 @@ module LeafClass
         real(real64)  :: initial_length = 0.0010d0 ! 1.0 mm
         real(real64)  :: final_width  = 0.060d0   !  60.0 mm
         real(real64)  :: final_length = 0.100d0   ! 100.0 mm
-        real(real64)  :: width_growth_ratio = 1.0d0/7.0d0   ! 
-        real(real64)  :: length_growth_ratio = 1.0d0/7.0d0   ! 
+        real(real64)  :: width_growth_ratio = 1.0d0/4.0d0   ! 
+        real(real64)  :: length_growth_ratio = 1.0d0/4.0d0   ! 
 
     contains
         procedure, public :: Init => initLeaf
@@ -1588,6 +1589,11 @@ subroutine growLeaf(this,dt)
     real(real64) :: Length,Width
 
 
+    if(this%already_grown)then
+        ! ignore growth for this
+        return
+    endif
+
     if(this%femdomain%empty() ) then
         return
     endif
@@ -1605,6 +1611,7 @@ subroutine growLeaf(this,dt)
         /(1.0d0 + &
             (this%final_Width/this%initial_Width - 1.0d0)&
                 *exp(-this%Width_growth_ratio*this%my_time) )
+    
     call this%resize(Length=Length,Width=Width)
     return
 

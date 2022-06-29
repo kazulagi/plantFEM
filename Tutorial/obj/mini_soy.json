@@ -15,7 +15,7 @@
     "Comment#1": "This entity and following content is optional.",
     
     "ms_angle_ave": 0.00, 
-    "ms_angle_sig": 2.00,
+    "ms_angle_sig": 5.00,
 
     "br_angle_ave" : 0.00,
     "br_angle_sig" : 10.00,
@@ -43,8 +43,8 @@
 
     "leaf_angle_ave": 40.00,
     "leaf_angle_sig": 1.00,
-    "leaf_length_ave":   0.200,
-    "leaf_length_sig":   0.030,
-    "leaf_width_ave":  0.1000,
-    "leaf_width_sig":  0.0100
+    "leaf_length_ave":   0.040,
+    "leaf_length_sig":   0.010,
+    "leaf_width_ave":  0.03000,
+    "leaf_width_sig":  0.00100
 }
