@@ -58,6 +58,16 @@ module StemClass
 
 
         integer(int32)             ::  Division
+
+        ! growth parameters
+        real(real64)  :: my_time = 0.0d0
+        real(real64)  :: initial_width  = 0.0010d0 ! 1.0 mm
+        real(real64)  :: initial_length = 0.0010d0 ! 1.0 mm
+        real(real64)  :: final_width  = 0.0040d0   ! 4.0 mm
+        real(real64)  :: final_length = 0.040d0   ! 40.0 mm
+        real(real64)  :: width_growth_ratio = 1.0d0/10.0d0   ! 
+        real(real64)  :: length_growth_ratio = 1.0d0/10.0d0   ! 
+
         type(Stem_),pointer ::  pStem
     contains
         procedure, public :: Init => initStem
@@ -74,6 +84,7 @@ module StemClass
         procedure, public :: getCoordinate => getCoordinateStem
         procedure, public :: getLength => getLengthStem
         procedure, public :: getWidth => getWidthStem
+        procedure, public :: FullyExpanded => FullyExpandedStem
 
 
         procedure, public :: gmsh => gmshStem
@@ -106,6 +117,7 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     real(real64) :: loc(3)
     logical :: debug=.false.
 
+    obj%my_time = 0.0d0
     ! 節を生成するためのスクリプトを開く
     if(.not.present(config)  .or. index(config,"json")==0 )then
         ! デフォルトの設定を生成
@@ -717,12 +729,34 @@ end subroutine
 ! ########################################
 
 ! ########################################
-subroutine growStem(obj,length,length_rate,Width,width_rate)
+recursive subroutine growStem(obj,length,length_rate,Width,width_rate,dt)
     class(Stem_),intent(inout) :: obj 
-    real(real64),optional,intent(in) :: length,length_rate,width_rate,Width
+    real(real64),optional,intent(in) :: length,length_rate,width_rate,Width,dt
+    real(real64) :: new_width,new_length
     real(real64) :: length_r,width_r,l_0,w_0,clength
     real(real64),allocatable :: origin(:),top(:),n1(:),coord(:),center(:),vert(:)
     integer(int32) :: i
+
+    if(present(dt) )then
+        ! logistic curve
+        ! automatic growth
+        if(obj%femdomain%empty() ) then
+            return
+        endif
+        obj%my_time = obj%my_time + dt
+        ! growth curve: logistic function
+        new_Length = obj%final_length&
+            /(1.0d0 +&
+                (obj%final_length/obj%initial_length - 1.0d0)&
+                    *exp(-obj%length_growth_ratio*obj%my_time) )
+    
+        new_Width = obj%final_Width&
+            /(1.0d0 +&
+                (obj%final_Width/obj%initial_Width - 1.0d0)&
+                    *exp(-obj%Width_growth_ratio*obj%my_time) )
+        call obj%grow(Length=new_Length,Width=new_Width)
+        return
+    endif
 
     origin = obj%getCoordinate("A")
     top    = obj%getCoordinate("B")
@@ -958,4 +992,19 @@ subroutine syncStemVector(obj,from,mpid)
 end subroutine
 
 
+! ########################################
+function FullyExpandedStem(obj,threshold) result(ret_expanded)
+    class(Stem_),optional,intent(inout) :: obj
+    real(real64),intent(in) :: threshold
+    logical :: ret_expanded
+    real(real64) :: length, full_length
+
+    if(obj%getLength()/obj%final_length > threshold)then
+        ret_expanded = .true.
+    else
+        ret_expanded = .false.
+    endif
+
+end function
+! ########################################
 end module

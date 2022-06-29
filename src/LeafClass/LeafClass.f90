@@ -86,8 +86,20 @@ module LeafClass
         real(real64),allocatable :: BoundaryTractionForce(:,:) ! node-wise, three dimensional
         real(real64),allocatable :: BoundaryDisplacement(:,:) ! node-wise, three dimensional
         
+
+        ! growth parameters
+        real(real64)  :: my_time = 0.0d0
+        real(real64)  :: initial_width  = 0.0010d0 ! 1.0 mm
+        real(real64)  :: initial_length = 0.0010d0 ! 1.0 mm
+        real(real64)  :: final_width  = 0.060d0   !  60.0 mm
+        real(real64)  :: final_length = 0.100d0   ! 100.0 mm
+        real(real64)  :: width_growth_ratio = 1.0d0/7.0d0   ! 
+        real(real64)  :: length_growth_ratio = 1.0d0/7.0d0   ! 
+
     contains
         procedure, public :: Init => initLeaf
+        procedure, public :: grow => growLeaf
+
         procedure, public :: rotate => rotateleaf
         procedure, public :: move => moveleaf
         procedure, public :: curve => curveleaf
@@ -109,6 +121,7 @@ module LeafClass
         ! is it empty?
         procedure, public :: empty => emptyLeaf
         procedure, public :: getVolume => getVolumeLeaf
+        procedure, public :: getLength => getLengthLeaf
         procedure, public :: getBiomass => getBiomassLeaf
         procedure, public :: getCoordinate => getCoordinateleaf
         procedure, public :: getLeafArea => getLeafAreaLeaf
@@ -116,11 +129,14 @@ module LeafClass
         procedure, public :: getCenter => getCenterLeaf
         procedure, public :: getNormalVector => getNormalVectorLeaf
 
+        procedure, public :: FullyExpanded => FullyExpandedLeaf
 
         procedure, public :: gmsh => gmshleaf
         procedure, public :: msh => mshleaf
         procedure, public :: vtk => vtkleaf
         procedure, public :: stl => stlleaf
+
+
 
         procedure, public :: sync => syncleaf
     end type
@@ -910,19 +926,86 @@ end subroutine
 ! ########################################
 
 ! ########################################
-subroutine resizeleaf(obj,x,y,z)
+subroutine resizeleaf(obj,x,y,z,Length,Width)
     class(Leaf_),optional,intent(inout) :: obj
-    real(real64),optional,intent(in) :: x,y,z
-    real(real64),allocatable :: origin1(:), origin2(:),disp(:)
+    real(real64),optional,intent(in) :: x,y,z,Length,Width
+    real(real64),allocatable :: origin1(:), origin2(:),disp(:),total_rot(:)
 
-    origin1 = obj%getCoordinate("A")
-    call obj%femdomain%resize(x_len=x,y_len=y,z_len=z)
-    origin2 = obj%getCoordinate("A")
-    disp = origin1 - origin2
-    call obj%move(x=disp(1),y=disp(2),z=disp(3) )
-    
+    if(present(Length).or. present(Width) )then
+
+        total_rot = zeros(3)
+        total_rot(1) = obj%rot_x
+        total_rot(2) = obj%rot_y
+        total_rot(3) = obj%rot_z
+        call obj%rotate(z=-total_rot(3) )
+        call obj%rotate(y=-total_rot(2) )
+        call obj%rotate(x=-total_rot(1) )
+
+        if(present(Length) )then
+            call obj%femdomain%resize(z=Length)
+        endif
+
+        if(present(Width) )then
+            call obj%femdomain%resize(x=Width)
+        endif
+
+        call obj%rotate(x=total_rot(1) )
+        call obj%rotate(y=total_rot(2) )
+        call obj%rotate(z=total_rot(3) )
+
+    else
+        origin1 = obj%getCoordinate("A")
+        call obj%femdomain%resize(x_len=x,y_len=y,z_len=z)
+        origin2 = obj%getCoordinate("A")
+        disp = origin1 - origin2
+        call obj%move(x=disp(1),y=disp(2),z=disp(3) )
+    endif
 end subroutine
 ! ########################################
+
+
+! ########################################
+function getLengthLeaf(obj) result(Length)
+    class(Leaf_),optional,intent(inout) :: obj
+    real(real64) :: Length
+    real(real64),allocatable :: origin1(:), origin2(:),disp(:),total_rot(:)
+
+
+    total_rot = zeros(3)
+    total_rot(1) = obj%rot_x
+    total_rot(2) = obj%rot_y
+    total_rot(3) = obj%rot_z
+    call obj%rotate(z=-total_rot(3) )
+    call obj%rotate(y=-total_rot(2) )
+    call obj%rotate(x=-total_rot(1) )
+
+    Length = obj%femdomain%zmax() - obj%femdomain%zmin()
+    
+    call obj%rotate(x=total_rot(1) )
+    call obj%rotate(y=total_rot(2) )
+    call obj%rotate(z=total_rot(3) )
+
+
+end function
+! ########################################
+
+! ########################################
+function FullyExpandedLeaf(obj,threshold) result(ret_expanded)
+    class(Leaf_),optional,intent(inout) :: obj
+    real(real64),intent(in) :: threshold
+    logical :: ret_expanded
+    real(real64) :: length, full_length
+
+    if(obj%getLength()/obj%final_length > threshold)then
+        ret_expanded = .true.
+    else
+        ret_expanded = .false.
+    endif
+
+end function
+! ########################################
+
+
 
 ! ########################################
 subroutine rescaleleaf(obj,x,y,z)
@@ -1498,5 +1581,34 @@ function getNormalVectorLeaf(obj,ElementID) result(ret)
 
 
 end function
+! #################################################################
+subroutine growLeaf(this,dt)
+    class(Leaf_),intent(inout)::this
+    real(real64),intent(in) :: dt
+    real(real64) :: Length,Width
+
+
+    if(this%femdomain%empty() ) then
+        return
+    endif
+
+    ! logistic curve
+    ! automatic growth
+    this%my_time = this%my_time + dt
+    ! growth curve: logistic function
+    Length = this%final_length &
+        /(1.0d0 +&
+            (this%final_length/this%initial_length - 1.0d0)&
+                *exp(-this%length_growth_ratio*this%my_time) )
+
+    Width = this%final_Width &
+        /(1.0d0 + &
+            (this%final_Width/this%initial_Width - 1.0d0)&
+                *exp(-this%Width_growth_ratio*this%my_time) )
+    call this%resize(Length=Length,Width=Width)
+    return
+
+end subroutine
+
 
 end module 
