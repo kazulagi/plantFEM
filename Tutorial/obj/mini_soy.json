@@ -9,7 +9,7 @@
     "Mainstem":{
         "Length":0.10,
         "Width":0.008,
-        "Node":2
+        "Node":1
     },
     
     "Comment#1": "This entity and following content is optional.",
@@ -41,7 +41,7 @@
     "leaf_thickness_ave"  :  0.0001000,
     "leaf_thickness_sig"  :  0.00000500,
 
-    "leaf_angle_ave": 70.00,
+    "leaf_angle_ave": 40.00,
     "leaf_angle_sig": 1.00,
     "leaf_length_ave":   0.200,
     "leaf_length_sig":   0.030,

@@ -132,7 +132,7 @@ module SoybeanClass
         real(real64) :: PenaltyParameter = 100000.0d0
         logical :: GaussPointProjection = .false.
         
-
+        real(real64) :: FullyExpanded_stem_threshold = 0.30d0
         
         integer(int32),allocatable :: NodeID_MainStem(:)
         type(soybean_NodeID_Branch_),allocatable :: NodeID_Branch(:)
@@ -241,11 +241,15 @@ module SoybeanClass
         procedure,public :: searchPetiole =>searchPetioleSoybean
         procedure,public :: searchLeaf => searchLeafSoybean
         
+        ! max *** ID
+        procedure,public :: maxleafID => maxleafIDSoybean
         procedure,public :: maxInterNodeID => maxInterNodeIDSoybean
+        procedure,public :: maxPetioleID   => maxPetioleIDSoybean
+        procedure,public :: maxStemID      => maxStemIDSoybean
+
 
         ! data-format converter
         procedure,public :: convertDataFormat => convertDataFormatSoybean
-        
         
         procedure,public :: fixReversedElements => fixReversedElementsSoybean
         
@@ -295,6 +299,8 @@ module SoybeanClass
         procedure, pass ::  rotateStem => rotateStemSoybean
         procedure, pass ::  resizePetiole => resizePetioleSoybean
         procedure, pass ::  rotatePetiole => rotatePetioleSoybean
+        procedure, pass ::  resizeLeaf => resizeLeafSoybean
+
         
     end type
 
@@ -2009,19 +2015,21 @@ end subroutine
 ! ########################################
 
 ! ########################################
-subroutine growSoybean(obj,dt,light,air,temp,simple)
+subroutine growSoybean(obj,dt,light,air,temp,simple,add_apical)
     class(Soybean_),intent(inout) :: obj
     type(Light_),optional,intent(inout) :: light
     type(air_),optional,intent(in) :: air
     real(real64),optional,intent(in) :: temp
     real(real64),intent(in) :: dt! time-interval
     real(real64) :: ac_temp ! time-interval
-    integer(int32) :: i
+    logical,optional,intent(in) :: add_apical
+    integer(int32) :: i, j
     logical,optional,intent(in) :: simple
     integer(int32),allocatable :: apicals(:)
     integer(int32),allocatable :: last_apicals(:)
     integer(int32),allocatable :: last_last_apicals(:)
-
+    integer(int32) :: StemID, InterNodeID,PetioleID, LeafID,N_StemID
+    logical :: add_node = .false.
 
     obj%dt = dt
 
@@ -2029,11 +2037,82 @@ subroutine growSoybean(obj,dt,light,air,temp,simple)
         if(simple)then
             ! simple algorithmic growth
             ! growth by temp by time
-            apicals = obj%findApical()
-            do i=1,size(apicals)
-                ! add stem&leaf
-                call obj%addNode(StemNodeID=apicals(i) )
+
+            do i=1,size(obj%stem)
+                call obj%stem(i)%grow(dt=dt)
             enddo
+            call obj%update()
+            do i=1,size(obj%leaf)
+                call obj%leaf(i)%grow(dt=dt)
+            enddo
+            call obj%update()
+
+            if(present(add_apical) )then
+                if(add_apical)then
+                    apicals = obj%findApical()
+                    i=1
+                    ! add stem&leaf
+                    StemID = apicals(i)
+                    add_node = .false.
+                    
+                    j=size(obj%NodeID_MainStem)
+                    if(j >= 1 )then
+                        N_StemID = obj%NodeID_MainStem(j)
+                        print *, N_StemID
+                        if(N_StemID >= 1)then
+                            
+                        
+                            if( obj%stem(N_StemID)%FullyExpanded(threshold=obj%FullyExpanded_stem_threshold ))then
+
+                                add_node = .true.
+                                
+                            endif
+                        endif
+                    endif
+                    
+
+                    if(add_node)then
+                        call obj%addNode(StemNodeID=apicals(i))
+                    endif
+                endif
+            endif
+
+
+!            if(present(add_apical) )then
+!                if(add_apical)then
+!                    apicals = obj%findApical()
+!                    do i=1,size(apicals)-1
+!                        ! add stem&leaf
+!                        StemID = apicals(i+1)
+!                        add_node = .false.
+!
+!                        do j=size(obj%NodeID_Branch(i)%ID)-4,size(obj%NodeID_Branch(i)%ID)-1
+!                            
+!                            if(j < 0 )then
+!                                cycle
+!                            else
+!                                N_StemID = obj%NodeID_Branch(i)%ID(j)
+!                                LeafID = obj%searchLeaf(StemID=i,InterNodeID=j,PetioleID=1,LeafID=1)
+!                        
+!                                if(LeafID < 1)then
+!                                    cycle
+!                                endif
+!
+!                                if( obj%leaf(LeafID)%FullyExpanded(threshold=0.90d0 ))then
+!
+!                                    add_node = .true.
+!                                    exit
+!                                endif
+!
+!                            endif
+!                        enddo
+!                        if(add_node)then
+!                            call obj%addNode(StemNodeID=apicals(i))
+!                        endif
+!                    enddo
+!                endif
+!            endif
+
             call obj%update()
             return
         endif
@@ -3245,7 +3324,8 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
                 x = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
                 y = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
                 z = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig))   &
-                )                
+                )           
+            call obj%stem(i)%grow(dt = 0.0d0)     
         else
             ! branch
             i = StemNodeID
@@ -3263,31 +3343,34 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
                 x = radian(random%gauss(mu=obj%br_angle_ave(branch_id),sigma=obj%br_angle_sig(branch_id) )),  &
                 y = radian(random%gauss(mu=obj%br_angle_ave(branch_id),sigma=obj%br_angle_sig(branch_id) )),  &
                 z = radian(random%gauss(mu=obj%br_angle_ave(branch_id),sigma=obj%br_angle_sig(branch_id) ))   &
-                )                
+                )               
+            call obj%stem(i)%grow(dt = 0.0d0) 
         endif
         
         call obj%stem( obj%numStem() )%connect("=>",obj%stem(StemNodeID))
         obj%stem2stem( obj%numStem() , StemNodeID ) = 1
 
+        call obj%stem(obj%numStem()+1 )%init(config=obj%stemconfig)
+
+        call obj%stem(obj%numStem() )%resize(&
+            x = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
+            y = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
+            z = random%gauss(mu=obj%peti_size_ave(i),sigma=obj%peti_size_sig(i)) &
+            )
+        call obj%stem(obj%numStem() )%grow(dt = 0.0d0)
+        
+        call obj%stem(obj%numStem() )%rotate(&
+            x = radian(random%gauss(mu=obj%peti_angle_ave(i),sigma=obj%peti_angle_sig(i) )),  &
+            y = 0.0d0,  &
+            z = radian(360.0d0*random%random() )   &
+            )      
+        call obj%stem(obj%numStem() )%connect("=>",obj%stem(i))
+        obj%stem2stem(obj%numStem() ,i) = 1         
+
+
+
         ! add leaves
-        do j=1,3
-
-            call obj%stem(obj%numStem()+1 )%init(config=obj%stemconfig)
-
-            call obj%stem(obj%numStem() )%resize(&
-                x = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
-                y = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
-                z = random%gauss(mu=obj%peti_size_ave(i),sigma=obj%peti_size_sig(i)) &
-                )
-            
-            call obj%stem(obj%numStem() )%rotate(&
-                x = radian(random%gauss(mu=obj%peti_angle_ave(i),sigma=obj%peti_angle_sig(i) )),  &
-                y = 0.0d0,  &
-                z = radian(360.0d0*random%random() )   &
-                )      
-            call obj%stem(obj%numStem() )%connect("=>",obj%stem(i))
-            obj%stem2stem(obj%numStem() ,i) = 1         
-
+        do j=1,obj%max_num_leaf_per_petiole
             obj%num_leaf=obj%num_leaf+1
             call obj%leaf(obj%num_leaf)%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
             call obj%leaf(obj%num_leaf)%resize(&
@@ -3302,6 +3385,8 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
             )
             call obj%leaf(obj%num_leaf)%connect("=>",obj%stem(obj%numStem() ))
             obj%leaf2stem(obj%num_leaf,obj%numStem() ) = 1
+            
+            call obj%leaf(obj%num_leaf)%grow(dt = 0.0d0)
 
         enddo
     elseif(present(RootNodeID) )then
@@ -8362,7 +8447,7 @@ function searchLeafSoybean(this,StemID,InterNodeID,PetioleID,LeafID) result(leaf
     
 end function
 
-
+! #############################################################################
 subroutine resizePetioleSoybean(this,StemID,InterNodeID,PetioleID,Length,Width)
     class(Soybean_),intent(inout) :: this
     integer(int32),intent(in) :: stemID,InterNodeID,PetioleID
@@ -8381,8 +8466,10 @@ subroutine resizePetioleSoybean(this,StemID,InterNodeID,PetioleID,Length,Width)
     call this%update()
 
 end subroutine
+! #############################################################################
 
 
+! #############################################################################
 subroutine rotatePetioleSoybean(this,StemID,InterNodeID,PetioleID,Angles)
     class(Soybean_),intent(inout) :: this
     integer(int32),intent(in) :: stemID,InterNodeID,PetioleID
@@ -8403,8 +8490,53 @@ subroutine rotatePetioleSoybean(this,StemID,InterNodeID,PetioleID,Angles)
 
 
 end subroutine
+! #########################################################
+
+subroutine resizeLeafSoybean(this,StemID,InterNodeID,PetioleID,LeafID,Length,Width)
+    class(Soybean_),intent(inout) :: this
+    integer(int32),intent(in) :: stemID,InterNodeID,PetioleID,LeafID
+    real(real64),optional,intent(in) :: Length,Width
+    real(real64) :: current_length
+    integer(int32) :: i,j,leaf_id
+
+    leaf_id = this%searchLeaf(StemID=StemID,InterNodeID=InterNodeID,PetioleID=PetioleID,&
+        LeafID=LeafID) 
+
+    if(leaf_id<1)then
+        print *, "resizeLeafSoybean 404 Not Found."
+        return
+    endif
 
 
+    call this%leaf(leaf_id)%resize(length=Length,Width=Width)
+    
+    
+    call this%update()
+
+end subroutine
+
+! #########################################################
+function maxStemIDSoybean(this) result(ret)
+    class(Soybean_),intent(in) :: this
+    integer(int32) :: ret,i,buf
+
+    ret = 0
+    do i=1, size(this%Stem,1)
+        buf = this%maxInterNodeID(StemID=i)
+        if(buf >=1)then
+            ret = ret + 1
+        else
+            return
+        endif
+    enddo
+
+end function
+! #########################################################
+
+
+
+
+! #########################################################
 function maxInterNodeIDSoybean(this,StemID) result(ret)
     class(Soybean_),intent(in) :: this
     integer(int32),intent(in) :: StemID
@@ -8421,5 +8553,85 @@ function maxInterNodeIDSoybean(this,StemID) result(ret)
     enddo
 
 end function
+! #########################################################
 
-end module
+
+
+
+
+
+
+! #########################################################
+function maxPetioleIDSoybean(this,StemID,InterNodeID) result(ret)
+    class(Soybean_),intent(in) :: this
+    integer(int32),intent(in) :: StemID,InterNodeID
+    integer(int32) :: ret,i,buf,PerioleID
+
+    ret = 0
+    do i=1, size(this%Stem,1)
+        buf = this%searchPetiole(StemID=StemID,InterNodeID=InterNodeID,PetioleID=i)
+        if(buf >=1)then
+            ret = ret + 1
+        else
+            return
+        endif
+    enddo
+
+end function
+! #########################################################
+
+
+
+
+! #########################################################
+function maxleafIDSoybean(this,StemID,InterNodeID,PetioleID) result(ret)
+    class(Soybean_),intent(in) :: this
+    integer(int32),intent(in) :: StemID,InterNodeID,PetioleID
+    integer(int32) :: ret,i,buf,PerioleID
+
+    ret = 0
+    do i=1, size(this%Leaf,1)
+        buf = this%searchLeaf(StemID=StemID,InterNodeID=InterNodeID,PetioleID=PetioleID,&
+            LeafID=i)
+        if(buf >=1)then
+            ret = ret + 1
+        else
+            return
+        endif
+    enddo
+
+end function
+! #########################################################
+
+! ################################################################
+
+subroutine growStemSoybean(this,StemID,InterNodeID,dt)
+    class(Soybean_),intent(inout) :: this
+    integer(int32),intent(in) :: stemID,InterNodeID
+    real(real64),intent(in) :: dt
+    real(real64) :: current_length
+    integer(int32) :: i,j,node_id
+
+    node_id = 0
+    do i=1,size(this%stem,1)
+        if(this%stem(i)%stemID==StemID)then
+            if(this%stem(i)%InterNodeID==InterNodeID)then
+               node_id = i 
+            endif
+        endif
+    enddo
+    if(node_id==0)then
+        print *, "resizeStemSoybean 404 Not Found."
+        return
+    endif
+    
+
+    call this%stem(node_id)%grow(dt)
+    call this%update()
+
+
+
+end subroutine
+
+
+end module  
