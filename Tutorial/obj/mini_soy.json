@@ -19,8 +19,8 @@
 
     "br_angle_ave" : 0.00,
     "br_angle_sig" : 10.00,
-    "br_angle_ave(1)" : 30.00,
-    "br_angle_sig(1)" :  2.00,
+    "br_angle_ave(1)" : 0.00,
+    "br_angle_sig(1)" : 10.00,
     
     "mr_angle_ave": 1.00, 
     "mr_angle_sig": 10.00,
