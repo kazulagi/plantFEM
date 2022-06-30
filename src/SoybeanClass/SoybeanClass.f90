@@ -156,6 +156,9 @@ module SoybeanClass
         type(soybean_internode_info_),allocatable :: InterNodeInfo(:)
         real(real64) :: default_Leaf_growth_ratio = 1.0d0/3.0d0
         real(real64) :: default_Stem_growth_ratio = 1.0d0/3.0d0
+        integer(int32),allocatable :: MainStem_num_branch(:)
+        real(real64) :: apical_dominance_distance = 1.0d0
+
 
         contains
         procedure,public :: addStem => addStemSoybean
@@ -311,6 +314,7 @@ module SoybeanClass
         procedure,public :: updateFlowers => updateFlowersSoybean
         procedure,public :: updatePods => updatePodsSoybean
         procedure,public :: AddNode => AddNodeSoybean
+        procedure,public :: AddPhytomere => AddNodeSoybean
 
         ! structure editor/analyzer
         procedure, pass ::  resizeStem => resizeStemSoybean
@@ -669,6 +673,17 @@ subroutine initsoybean(obj,config,&
 
     timeOpt = input(default=.false.,option=profiler)
 
+    !if(.not.allocated(obj%InterNodeInfo) )then
+    !    allocate(this%InterNodeInfo(0:obj%MaxBranchNum) )
+    !    ! default value
+    !    do i=0,size(obj%InterNodeInfo)
+    !        obj%InterNodeInfo(i)%FinalInterNodeLength = linspace([0.030d0,0.060d0],30)
+    !        obj%InterNodeInfo(i)%FinalLeafLength      = linspace([0.050d0,0.20d0],30)
+    !        obj%InterNodeInfo(i)%FinalLeafWidth       = linspace([0.020d0,0.25d0],30)
+    !        obj%InterNodeInfo(i)%FinalPetioleLength   = linspace([0.050d0,0.25d0],30)
+    !    enddo
+    !endif
+
     if(timeOpt) then
         call time%start()
     endif
@@ -683,8 +698,8 @@ subroutine initsoybean(obj,config,&
 
     obj%br_angle_ave(:)= 0.0d0
     obj%br_angle_sig(:)=10.0d0
-    obj%br_angle_ave(1)=30.0d0
-    obj%br_angle_sig(1)=2.0d0
+    !obj%br_angle_ave(1)=10.0d0
+    !obj%br_angle_sig(1)=2.0d0
     
     obj%ms_angle_ave=0.0d0
     obj%ms_angle_sig=2.0d0
@@ -761,8 +776,8 @@ subroutine initsoybean(obj,config,&
         write(soyconf%fh,*) '   "br_length" : 0.00,'
         write(soyconf%fh,*) '   "br_angle_ave" : 0.00,'
         write(soyconf%fh,*) '   "br_angle_sig" : 10.00,'
-        write(soyconf%fh,*) '   "br_angle_ave(1)": 360.00,'
-        write(soyconf%fh,*) '   "br_angle_sig(1)": 2.00,'
+        write(soyconf%fh,*) '   "br_angle_ave(1)": 0.00,'
+        write(soyconf%fh,*) '   "br_angle_sig(1)": 10.00,'
         write(soyconf%fh,*) '   "ms_angle_ave": 0.00,'
         write(soyconf%fh,*) '   "ms_angle_sig": 2.00,'
 
@@ -2158,8 +2173,10 @@ subroutine growSoybean(obj,dt,light,air,temp,simple,add_apical)
     integer(int32),allocatable :: apicals(:)
     integer(int32),allocatable :: last_apicals(:)
     integer(int32),allocatable :: last_last_apicals(:)
+    integer(int32),allocatable :: has_branch(:)
     integer(int32) :: StemID, InterNodeID,PetioleID, LeafID,N_StemID
     logical :: add_node = .false.
+    real(real64) :: count_dist
 
     obj%dt = dt
     call obj%update()
@@ -2181,30 +2198,82 @@ subroutine growSoybean(obj,dt,light,air,temp,simple,add_apical)
             if(present(add_apical) )then
                 if(add_apical)then
                     apicals = obj%findApical()
-                    i=1
-                    ! add stem&leaf
-                    StemID = apicals(i)
-                    add_node = .false.
-                    
-                    j=size(obj%NodeID_MainStem)
-                    if(j >= 1 )then
-                        N_StemID = obj%NodeID_MainStem(j)
-                        
-                        if(N_StemID >= 1)then
+                    do i=1,size(apicals)
+                        ! add stem&leaf
+                        if(i==1)then
+                            ! main stem
+                            StemID = apicals(i)
+                            add_node = .false.
                             
-                        
-                            if( obj%stem(N_StemID)%FullyExpanded(threshold=obj%FullyExpanded_stem_threshold ))then
+                            j=size(obj%NodeID_MainStem)
+                            if(j >= 1 )then
+                                N_StemID = obj%NodeID_MainStem(j)
 
+                                if(N_StemID >= 1)then
+
+                                
+                                    if( obj%stem(N_StemID)%FullyExpanded(threshold=obj%FullyExpanded_stem_threshold ))then
+
+                                        add_node = .true.
+
+                                    endif
+                                endif
+                            endif
+                        else
+                            ! branch to
+                            StemID = apicals(i)
+                            add_node = .false.
+                            
+                            N_StemID = maxval(obj%NodeID_Branch(i-1)%ID)
+                            ! 1個前の節ID
+                            
+                            if( obj%stem(N_StemID)%FullyExpanded(threshold=obj%FullyExpanded_stem_threshold ))then
                                 add_node = .true.
+                            endif
+                            
+                        endif
+
+
+                        if(add_node)then
+                            call obj%addNode(StemNodeID=apicals(i),mainstem_to_branch=.false.)
+                        endif
+                        call obj%update()
+                    enddo
+
+                    ! branch
+                    has_branch = zeros(size(obj%NodeID_MainStem) )
+                    if(allocated(obj%MainStem_num_branch) )then
+                        has_branch(1:size(obj%MainStem_num_branch) ) = obj%MainStem_num_branch(:)
+                    endif
+                    obj%MainStem_num_branch = has_branch
+                        
+
+                    ! we introduced an apploximation of the apical dominance.
+                    do i=1, size(obj%NodeID_MainStem)-1
+                        if(obj%MainStem_num_branch(i)>=1 )then
+                            cycle
+                        else
+                            count_dist = 0.0d0
+                            do j=i+1,size(obj%NodeID_MainStem)
+                                count_dist = count_dist + obj%stem( obj%NodeID_MainStem(j) )%getLength()
+                            enddo
+                            if(count_dist > obj%apical_dominance_distance)then
+                                ! add Node
+                                if( obj%stem(i)%StemID /= 0 ) cycle
+                                !debug
+                                call obj%addNode(StemNodeID=i,mainstem_to_branch=.true.)
+                                !has_branch(i) = has_branch(i) + 1
+                                obj%MainStem_num_branch(i) = obj%MainStem_num_branch(i) + 1
+                                call obj%update()
                                 
                             endif
+
                         endif
-                    endif
+                    enddo
+                    
                     
 
-                    if(add_node)then
-                        call obj%addNode(StemNodeID=apicals(i))
-                    endif
+
                 endif
             endif
 
@@ -3395,17 +3464,23 @@ end subroutine
 subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_sig,peti_size_ave &
     ,peti_size_sig,peti_angle_ave,peti_angle_sig,leaf_thickness_ave,leaf_thickness_sig &
     ,leaf_length_ave,leaf_length_sig,leaf_width_ave,leaf_width_sig,leaf_angle_sig &
-    ,leaf_angle_ave)
+    ,leaf_angle_ave,mainstem_to_branch)
     class(Soybean_),intent(inout) :: obj
     integer(int32),optional,intent(in) :: StemNodeID,RootNodeID
     real(real64),optional,intent(in) :: peti_width_ave,peti_width_sig,peti_size_ave &
     ,peti_size_sig,peti_angle_ave,peti_angle_sig,leaf_thickness_ave,leaf_thickness_sig &
     ,leaf_length_ave,leaf_length_sig,leaf_width_ave,leaf_width_sig,leaf_angle_sig &
     ,leaf_angle_ave
+    logical,optional,intent(in) :: mainstem_to_branch
+    logical :: mainstem_2_branch = .false.
     real(real64),allocatable :: leaf_z_angles(:)
     type(Random_) :: random
+    type(soybean_NodeID_Branch_),allocatable :: old_NodeID_Branch(:)
+    integer(int32) :: i,j,branch_id,My_StemID
 
-    integer(int32) :: i,j,branch_id
+    if(present(mainstem_to_branch) )then    
+        mainstem_2_branch = mainstem_to_branch
+    endif
 
     call obj%update()
 
@@ -3440,8 +3515,9 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
             option=leaf_angle_ave)
 
         
-
-        if(obj%isMainStem(StemNodeID) )then
+        ! main stem -> main stem
+        if(obj%isMainStem(StemNodeID) .and. .not.mainstem_2_branch)then
+            print *, "Main -> Main", StemNodeID
             ! main stem
             i = StemNodeID
             call obj%stem(obj%numStem()+1 )%init(config=obj%stemconfig)
@@ -3458,40 +3534,106 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
             call obj%stem(i)%rotate(&
                 x = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
                 y = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
-                z = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig))   &
+                z = obj%stem(StemNodeID)%femdomain%total_rotation(3) + radian((random%random()-0.50d0)*90.0d0)    &
                 )           
             call obj%stem(i)%grow(dt = 0.0d0)    
             obj%stem(i)%StemID=0 
             obj%stem(i)%InterNodeID = size(obj%NodeID_MainStem)
-        else
-            ! branch
+        ! branch -> branch
+        elseif(.not.obj%isMainStem(StemNodeID) .and. .not.mainstem_2_branch)then
+            
             i = StemNodeID
-            call obj%stem(obj%numStem()+1 )%init(config=obj%stemconfig)
-            branch_id = obj%branchID(i)
-            call extend(obj%NodeID_Branch(branch_id)%ID)
-            obj%NodeID_Branch(branch_id)%ID( size(obj%NodeID_Branch(branch_id)%ID) ) = obj%numStem()
 
-            call obj%stem(i)%resize(&
-                x = obj%br_width(branch_id), &
-                y = obj%br_width(branch_id), &
-                z = obj%br_length(branch_id)/dble(obj%br_node(branch_id) ) & 
-                )
-            call obj%stem(i)%rotate(&
-                x = radian(random%gauss(mu=obj%br_angle_ave(branch_id),sigma=obj%br_angle_sig(branch_id) )),  &
-                y = radian(random%gauss(mu=obj%br_angle_ave(branch_id),sigma=obj%br_angle_sig(branch_id) )),  &
-                z = radian(random%gauss(mu=obj%br_angle_ave(branch_id),sigma=obj%br_angle_sig(branch_id) ))   &
-                )            
-            call obj%stem(i)%grow(dt = 0.0d0) 
-            obj%stem(i)%StemID=branch_id
-            obj%stem(i)%InterNodeID = size(obj%NodeID_Branch(branch_id)%ID)
+            branch_id = obj%BranchID(i)
+            print *, "Branch -> Branch branch id", branch_id
+
+            call obj%stem(obj%numStem()+1 )%init(config=obj%stemconfig)
+            
+
+            if(.not. allocated(obj%NodeID_Branch(branch_id)%ID) )then
+                obj%NodeID_Branch(branch_id)%ID = [obj%numStem()]
+            else
+                obj%NodeID_Branch(branch_id)%ID = obj%NodeID_Branch(branch_id)%ID // [obj%numStem()]
+            endif
+
+            My_StemID = obj%numStem()
+            call obj%stem(My_StemID)%rotate(&
+            x = radian(random%gauss(mu=obj%br_angle_ave(branch_id),sigma=obj%br_angle_sig(branch_id) )),  &
+            y = radian(random%gauss(mu=obj%br_angle_ave(branch_id),sigma=obj%br_angle_sig(branch_id) )),  &
+            z = obj%stem(StemNodeID)%femdomain%total_rotation(3) + radian((random%random()-0.50d0)*90.0d0)   &
+            )
+            
+            call obj%stem(My_StemID)%grow(dt = 0.0d0)    
+            obj%stem(My_StemID)%StemID=branch_id 
+            obj%stem(My_StemID)%InterNodeID = size(obj%NodeID_Branch(branch_id)%ID)
+        ! main stem -> branch
+        elseif(obj%isMainStem(StemNodeID) .and. mainstem_2_branch)then
+            ! branch
+            i = StemNodeID ! 1 : stem ID of main stem
+            My_StemID = i
+
+            ! create new internode
+            call obj%stem(obj%numStem()+1 )%init(config=obj%stemconfig)
+            
+            ! if mainstem -> branch
+            
+            
+            if(allocated(obj%MainStem_num_branch) )then
+                branch_id = 1
+                do j=1,size(obj%NodeID_MainStem)
+                    if(obj%NodeID_MainStem(j)==StemNodeID )then
+                        exit
+                    elseif(obj%MainStem_num_branch(j)/=0 )then
+                        branch_id = branch_id + obj%MainStem_num_branch(j)
+                        cycle
+                    else
+                        cycle
+                    endif
+                enddo
+            else
+                branch_id = 1
+            endif
+
+            print *, "Main -> Branch branch id", branch_id
+                
+            if(.not.allocated(obj%NodeID_Branch) )then
+                allocate(obj%NodeID_Branch(obj%MaxStemNum) )
+            endif
+
+            if(.not. allocated(obj%NodeID_Branch(branch_id)%ID) )then
+                obj%NodeID_Branch(branch_id)%ID = [obj%numStem()]
+            else
+                obj%NodeID_Branch(branch_id)%ID = obj%NodeID_Branch(branch_id)%ID // [obj%numStem()]
+            endif
+            
+            My_StemID = obj%numStem()
+
+            obj%stem(obj%numStem() )%StemID = branch_id
+
+            call obj%stem(My_StemID)%rotate(&
+            x = radian(random%gauss(mu=obj%br_angle_ave(branch_id),sigma=obj%br_angle_sig(branch_id) )),  &
+            y = radian(random%gauss(mu=obj%br_angle_ave(branch_id),sigma=obj%br_angle_sig(branch_id) )),  &
+            z = radian(random%random()*360.0d0)    &
+            )
+            
+            call obj%stem(My_StemID)%grow(dt = 0.0d0)
+            obj%stem(My_StemID)%StemID=branch_id
+            obj%stem(My_StemID)%InterNodeID = 1
+        else
+            print *, obj%isMainStem(StemNodeID) 
+            print *, mainstem_2_branch
+            print *, "[ERROR] addNode"
+            stop
         endif
         
-        ! petiole 
-
         call obj%stem( obj%numStem() )%connect("=>",obj%stem(StemNodeID))
         obj%stem2stem( obj%numStem() , StemNodeID ) = 1
+        ! petiole 
+
 
         call obj%stem(obj%numStem()+1 )%init(config=obj%stemconfig)
+
+        obj%stem(obj%numStem() )%StemID = -1
 
         call obj%stem(obj%numStem() )%resize(&
             x = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
@@ -4449,9 +4591,11 @@ function NumberOfBranchSoybean(obj)  result(ret)
     integer(int32) :: ret,i
 
     ret = 0
-    do i=1,size(obj%br_length)
-        if(obj%br_length(i)/=0.0d0 )then
-            ret = ret + 1
+    do i=1,size(obj%NodeID_Branch)
+        if(allocated(obj%NodeID_Branch(i)%ID ))then
+            if(size(obj%NodeID_Branch(i)%ID) >= 1)then
+                ret = ret + 1
+            endif
         endif
     enddo
 
@@ -4464,13 +4608,18 @@ function findApicalSoybean(obj) result(ret)
     integer(int32),allocatable :: ret(:)
     !integer(int32),optional,intent(in) :: StemID
     integer(int32),allocatable :: stem
-    integer(int32) :: i,j
+    integer(int32) :: i,j,itr
 
     ret = zeros( obj%NumberOfBranch()+1 )
 
     ret(1)=maxval(obj%NodeID_MainStem(:) )
+
+    itr = 1
     do i=1,obj%NumberOfBranch()
-        ret(i+1) = maxval(obj%NodeID_Branch(i)%ID(:) )
+        if(allocated(obj%NodeID_Branch(i)%ID))then
+            itr = itr + 1
+            ret(itr) = maxval(obj%NodeID_Branch(i)%ID(:) )
+        endif
     enddo
     
 !    if(present(StemID) )then
