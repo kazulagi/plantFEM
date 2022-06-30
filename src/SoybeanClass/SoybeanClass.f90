@@ -12,80 +12,91 @@ module SoybeanClass
 
     integer(int32),parameter :: PF_SOY_OBJECT_WISE  = 1
 
+    type :: soybean_internode_info_
+        real(real64),allocatable :: FinalInterNodeLength(:)
+        real(real64),allocatable :: FinalPetioleLength(:)
+        real(real64),allocatable :: FinalLeafLength(:)
+        real(real64),allocatable :: FinalLeafWidth(:)
+
+        
+        
+
+    end type
+    
     type :: soybean_NodeID_Branch_
-        integer(int32),allocatable :: ID(:)
+    integer(int32),allocatable :: ID(:)
     contains 
-        procedure, public :: sync => syncsoybean_NodeID_Branch
+    procedure, public :: sync => syncsoybean_NodeID_Branch
     end type
     
     integer(int32),parameter :: PF_DEFORMATION_ANALYSIS=100
     integer(int32),parameter :: PF_DEFAULT_SOYBEAN_ASIZE=300
-
+    
     type :: soybean_
-        ! growth_habit = determinate, indeterminate, semi-indeterminate, or vine
-        character*20 :: growth_habit
-        character*2  :: growth_stage
-        integer(int32) :: Num_Of_Node
-        integer(int32) :: num_leaf
-        integer(int32) :: num_stem_node
-        integer(int32) :: Num_Of_Root
-        
-        integer(int32) :: MaxLeafNum= PF_DEFAULT_SOYBEAN_ASIZE
-        integer(int32) :: MaxRootNum= PF_DEFAULT_SOYBEAN_ASIZE
-        integer(int32) :: MaxStemNum= PF_DEFAULT_SOYBEAN_ASIZE
-
-        logical :: determinate
-        integer(int32) :: max_num_leaf_per_petiole = 3 ! as default
-        
-        integer(int32)  :: ms_node,br_node(PF_DEFAULT_SOYBEAN_ASIZE),br_from(PF_DEFAULT_SOYBEAN_ASIZE)
-        real(real64)    :: ms_length,br_length(PF_DEFAULT_SOYBEAN_ASIZE)
-        real(real64)    :: ms_width,br_width(PF_DEFAULT_SOYBEAN_ASIZE)
-        real(real64)    :: ms_angle_ave,br_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE)
-        real(real64)    :: ms_angle_sig,br_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE)
-        
-
-        integer(int32)  :: mr_node,brr_node(PF_DEFAULT_SOYBEAN_ASIZE),brr_from(PF_DEFAULT_SOYBEAN_ASIZE)
-        real(real64)    :: mr_length,brr_length(PF_DEFAULT_SOYBEAN_ASIZE)
-        real(real64)    :: mr_width,brr_width(PF_DEFAULT_SOYBEAN_ASIZE)
-        real(real64)    :: mr_angle_ave,brr_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE)
-        real(real64)    :: mr_angle_sig,brr_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE)
-
-        real(real64)    :: peti_size_ave(PF_DEFAULT_SOYBEAN_ASIZE)
-        real(real64)    :: peti_size_sig(PF_DEFAULT_SOYBEAN_ASIZE)
-        real(real64)    :: peti_width_ave(PF_DEFAULT_SOYBEAN_ASIZE)
-        real(real64)    :: peti_width_sig(PF_DEFAULT_SOYBEAN_ASIZE)
-        real(real64)    :: peti_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE)
-        real(real64)    :: peti_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE)
-
-        real(real64)    :: leaf_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
-        real(real64)    :: leaf_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
-        real(real64)    :: leaf_length_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
-        real(real64)    :: leaf_length_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
-        real(real64)    :: leaf_width_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
-        real(real64)    :: leaf_width_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
-        real(real64)    :: leaf_thickness_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
-        real(real64)    :: leaf_thickness_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
-        
-        character(3) :: Stage ! VE, CV, V1,V2, ..., R1, R2, ..., R8
-        character(200) :: name
-        integer(int32)::stage_id=0
-        real(real64) :: dt
-        type(Seed_) :: Seed
-        type(PlantNode_),allocatable :: NodeSystem(:)
-        type(PlantRoot_),allocatable :: RootSystem(:)
-
-        type(Stem_),allocatable :: Stem(:)
-        type(Leaf_),allocatable :: Leaf(:)
-        type(Root_),allocatable :: Root(:)
-        
-
-        ! material info
-        real(real64),allocatable :: stemYoungModulus(:)
-        real(real64),allocatable :: leafYoungModulus(:)
-        real(real64),allocatable :: rootYoungModulus(:)
-
-        real(real64),allocatable :: stemPoissonRatio(:)
-        real(real64),allocatable :: leafPoissonRatio(:)
+    ! growth_habit = determinate, indeterminate, semi-indeterminate, or vine
+    character*20 :: growth_habit
+    character*2  :: growth_stage
+    integer(int32) :: Num_Of_Node
+    integer(int32) :: num_leaf
+    integer(int32) :: num_stem_node
+    integer(int32) :: Num_Of_Root
+    
+    integer(int32) :: MaxLeafNum= PF_DEFAULT_SOYBEAN_ASIZE
+    integer(int32) :: MaxRootNum= PF_DEFAULT_SOYBEAN_ASIZE
+    integer(int32) :: MaxStemNum= PF_DEFAULT_SOYBEAN_ASIZE
+    
+    logical :: determinate
+    integer(int32) :: max_num_leaf_per_petiole = 3 ! as default
+    
+    integer(int32)  :: ms_node,br_node(PF_DEFAULT_SOYBEAN_ASIZE),br_from(PF_DEFAULT_SOYBEAN_ASIZE)
+    real(real64)    :: ms_length,br_length(PF_DEFAULT_SOYBEAN_ASIZE)
+    real(real64)    :: ms_width,br_width(PF_DEFAULT_SOYBEAN_ASIZE)
+    real(real64)    :: ms_angle_ave,br_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE)
+    real(real64)    :: ms_angle_sig,br_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE)
+    
+    
+    integer(int32)  :: mr_node,brr_node(PF_DEFAULT_SOYBEAN_ASIZE),brr_from(PF_DEFAULT_SOYBEAN_ASIZE)
+    real(real64)    :: mr_length,brr_length(PF_DEFAULT_SOYBEAN_ASIZE)
+    real(real64)    :: mr_width,brr_width(PF_DEFAULT_SOYBEAN_ASIZE)
+    real(real64)    :: mr_angle_ave,brr_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE)
+    real(real64)    :: mr_angle_sig,brr_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE)
+    
+    real(real64)    :: peti_size_ave(PF_DEFAULT_SOYBEAN_ASIZE)
+    real(real64)    :: peti_size_sig(PF_DEFAULT_SOYBEAN_ASIZE)
+    real(real64)    :: peti_width_ave(PF_DEFAULT_SOYBEAN_ASIZE)
+    real(real64)    :: peti_width_sig(PF_DEFAULT_SOYBEAN_ASIZE)
+    real(real64)    :: peti_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE)
+    real(real64)    :: peti_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE)
+    
+    real(real64)    :: leaf_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
+    real(real64)    :: leaf_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
+    real(real64)    :: leaf_length_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
+    real(real64)    :: leaf_length_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
+    real(real64)    :: leaf_width_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
+    real(real64)    :: leaf_width_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
+    real(real64)    :: leaf_thickness_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
+    real(real64)    :: leaf_thickness_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
+    
+    character(3) :: Stage ! VE, CV, V1,V2, ..., R1, R2, ..., R8
+    character(200) :: name
+    integer(int32)::stage_id=0
+    real(real64) :: dt
+    type(Seed_) :: Seed
+    type(PlantNode_),allocatable :: NodeSystem(:)
+    type(PlantRoot_),allocatable :: RootSystem(:)
+    
+    type(Stem_),allocatable :: Stem(:)
+    type(Leaf_),allocatable :: Leaf(:)
+    type(Root_),allocatable :: Root(:)
+    
+    
+    ! material info
+    real(real64),allocatable :: stemYoungModulus(:)
+    real(real64),allocatable :: leafYoungModulus(:)
+    real(real64),allocatable :: rootYoungModulus(:)
+    
+    real(real64),allocatable :: stemPoissonRatio(:)
+    real(real64),allocatable :: leafPoissonRatio(:)
         real(real64),allocatable :: rootPoissonRatio(:)
 
         real(real64),allocatable :: stemDensity(:)
@@ -103,7 +114,7 @@ module SoybeanClass
         type(FEMDomain_),allocatable :: leaf_list(:)
         type(FEMDomain_),allocatable :: stem_list(:)
         type(FEMDomain_),allocatable :: root_list(:)
-
+        
         ! シミュレータ
         type(ContactMechanics_) :: contact
         real(real64) :: time
@@ -113,11 +124,11 @@ module SoybeanClass
         real(real64),allocatable :: stem_angle(:,:)
         real(real64),allocatable :: root_angle(:,:)
         real(real64),allocatable :: leaf_angle(:,:)
-
+        
         character(200) :: stemconfig=""
         character(200) :: rootconfig=""
         character(200) :: leafconfig=""
-
+        
         ! for deformation analysis
         logical :: property_deform_material_density = .false.
         logical :: property_deform_material_YoungModulus = .false.
@@ -127,24 +138,30 @@ module SoybeanClass
         logical :: property_deform_boundary_TractionForce = .false.
         logical :: property_deform_boundary_Displacement = .false.
         logical :: property_deform_gravity = .false.
-
+        
         real(real64) :: Gravity_acceralation = 9.810d0
         real(real64) :: PenaltyParameter = 100000.0d0
         logical :: GaussPointProjection = .false.
         
-        real(real64) :: FullyExpanded_stem_threshold = 0.30d0
         
         integer(int32),allocatable :: NodeID_MainStem(:)
         type(soybean_NodeID_Branch_),allocatable :: NodeID_Branch(:)
-
+        
         logical ::  inLoop = .false.
         real(real64) :: hours = 0.0d0
+        
+        ! growth simulation
+        real(real64) :: FullyExpanded_stem_threshold = 0.10d0
+        integer(int32) :: MaxBranchNum = 20
+        type(soybean_internode_info_),allocatable :: InterNodeInfo(:)
+        real(real64) :: default_Leaf_growth_ratio = 1.0d0/3.0d0
+        real(real64) :: default_Stem_growth_ratio = 1.0d0/3.0d0
 
-    contains
+        contains
         procedure,public :: addStem => addStemSoybean
         !procedure,public :: addRoot => addRootSoybean
         !procedure,public :: addLeaf => addLeafSoybean
-
+        
         ! creation
         procedure,public :: Init => initsoybean
         procedure,public :: remove => removeSoybean
@@ -154,13 +171,13 @@ module SoybeanClass
         procedure,public :: export => exportSoybean
         procedure,public :: expanition => expanitionSoybean
         procedure,public :: development => developmentSoybean
-
+        
         !  Simulator
         procedure,public :: checkProperties => checkPropertiesSoybean
         procedure,public :: setPoints    => setPointsSoybean
         procedure,public :: setProperties => setPropertiesSoybean
         
-
+        
         ! simple setters
         procedure,public :: setPropertiesDensity => setPropertiesDensitySoybean
         procedure,public :: setPropertiesYoungModulus => setPropertiesYoungModulusSoybean
@@ -237,6 +254,7 @@ module SoybeanClass
         procedure,public :: getLeafArea => getLeafAreaSoybean
         procedure,public :: getIntersectLeaf => getIntersectLeafSoybean
         procedure,public :: getOverwrapLeaf => getIntersectLeafSoybean
+        
         procedure,public :: searchStem => searchStemSoybean
         procedure,public :: searchPetiole =>searchPetioleSoybean
         procedure,public :: searchLeaf => searchLeafSoybean
@@ -301,6 +319,12 @@ module SoybeanClass
         procedure, pass ::  rotatePetiole => rotatePetioleSoybean
         procedure, pass ::  resizeLeaf => resizeLeafSoybean
 
+        ! growth parameters
+        procedure, pass :: setFinalInterNodeLength => setFinalInterNodeLengthSoybean
+        procedure, pass :: setFinalPetioleLength   => setFinalPetioleLengthSoybean
+        procedure, pass :: setFinalLeafLength      => setFinalLeafLengthSoybean
+        procedure, pass :: setFinalLeafWidth       => setFinalLeafWidthSoybean
+
         
     end type
 
@@ -316,11 +340,100 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin
     class(Soybean_),intent(inout) :: obj
     integer(int32),optional,intent(in) :: stem_id, root_id, leaf_id    
     real(real64),optional,intent(in) :: overset_margin
-    integer(int32) :: i,j,this_stem_id,next_stem_id,A_id,B_id,itr_tol,itr
+    integer(int32) :: i,j,this_stem_id,next_stem_id,A_id,B_id,itr_tol,itr,k,kk
     integer(int32) :: this_leaf_id,next_leaf_id
-    integer(int32) :: this_root_id,next_root_id
+    integer(int32) :: this_root_id,next_root_id,InterNodeID,PetioleID,StemID,LeafID
     real(real64) :: x_A(3),x_B(3),diff(3),error,last_error,mgn,overset_m,error_tol
     logical,optional,intent(in) :: debug
+
+    if(obj%default_Leaf_growth_ratio > 0.0d0)then
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%empty() ) cycle
+            obj%leaf(i)%length_growth_ratio = obj%default_Leaf_growth_ratio
+            obj%leaf(i)%Width_growth_ratio = obj%default_Leaf_growth_ratio
+        enddo
+    endif
+
+
+    if(obj%default_stem_growth_ratio > 0.0d0)then
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%empty() ) cycle
+            obj%stem(i)%length_growth_ratio = obj%default_stem_growth_ratio
+            obj%stem(i)%Width_growth_ratio = obj%default_stem_growth_ratio
+        enddo
+    endif
+
+    ! if soybean_internode_info_ is active
+    ! update parameters
+    if(allocated(obj%InterNodeInfo) )then
+        do i=0,obj%MaxBranchNum
+            if(allocated(obj%InterNodeInfo(i)%FinalInterNodeLength ) )then
+                do j=1,obj%maxInterNodeID(StemID=i)
+                    InterNodeID = obj%searchStem(StemID=i,InterNodeID=j)
+                    if(size(obj%InterNodeInfo(i)%FinalInterNodeLength) < j ) then
+                        print *, "ERROR :: updateSoybean >> "
+                        print *, "size(obj%InterNodeInfo(i)%FinalInterNodeLength) is not enough"
+                        stop
+                    endif
+                    if(InterNodeID<1)then
+                        cycle
+                    endif
+                    obj%stem(InterNodeID)%final_length = obj%InterNodeInfo(i)%FinalInterNodeLength(j)
+                enddo
+            endif
+            
+            if(allocated(obj%InterNodeInfo(i)%FinalPetioleLength) )then
+                do j=1,obj%maxInterNodeID(StemID=i)
+                    do k=1,obj%maxPetioleID(StemID=i,InterNodeID=j)
+                        if(size(obj%InterNodeInfo(i)%FinalPetioleLength) < j ) then
+                            print *, "ERROR :: updateSoybean >> "
+                            print *, "size(obj%InterNodeInfo(i)%FinalInterNodeLength) is not enough"
+                            stop
+                        endif
+
+                        PetioleID = obj%searchPetiole(StemID=i,InterNodeID=j,PetioleID=k)
+                        
+                        obj%stem(PetioleID)%final_length = obj%InterNodeInfo(i)%FinalPetioleLength(j)
+                    enddo
+                enddo
+            endif
+
+                if(allocated(obj%InterNodeInfo(i)%FinalLeafLength) )then
+                    do j=1,obj%maxInterNodeID(StemID=i)
+                        do k=1,obj%maxPetioleID(StemID=i,InterNodeID=j)
+                            do kk = 1, obj%maxleafID(StemID=i,InterNodeID=j,PetioleID=k)
+                                if(size(obj%InterNodeInfo(i)%FinalLeafLength) < j ) then
+                                    print *, "ERROR :: updateSoybean >> "
+                                    print *, "size(obj%InterNodeInfo(i)%FinalInterNodeLength) is not enough"
+                                    stop
+                                endif
+                                LeafID = obj%searchleaf(StemID=i,InterNodeID=j,PetioleID=k,LeafID=kk)
+                                obj%leaf(LeafID)%final_length = obj%InterNodeInfo(i)%FinalLeafLength(j)
+                            enddo
+                        enddo
+                    enddo
+                endif
+
+
+                if(allocated(obj%InterNodeInfo(i)%FinalLeafWidth) )then
+                    do j=1,obj%maxInterNodeID(StemID=i)
+                        do k=1,obj%maxPetioleID(StemID=i,InterNodeID=j)
+                            do kk = 1, obj%maxleafID(StemID=i,InterNodeID=j,PetioleID=k)
+                                if(size(obj%InterNodeInfo(i)%FinalLeafWidth) < j ) then
+                                    print *, "ERROR :: updateSoybean >> "
+                                    print *, "size(obj%InterNodeInfo(i)%FinalInterNodeLength) is not enough"
+                                    stop
+                                endif
+                                LeafID = obj%searchleaf(StemID=i,InterNodeID=j,PetioleID=k,LeafID=kk)
+                                obj%leaf(LeafID)%final_Width = obj%InterNodeInfo(i)%FinalLeafWidth(j)
+                            enddo
+                        enddo
+                    enddo
+                endif
+            
+        enddo
+    endif
+
     ! update connectivity
     if(.not. allocated(obj%stem2stem ))then
         print *, "updateSoybean >> ERROR :: .not. allocated(obj%stem2stem )"
@@ -1481,6 +1594,7 @@ subroutine initsoybean(obj,config,&
             
             obj%stem(i)%stemID = 0
             obj%stem(i)%InterNodeID = i
+            obj%stem(i)%already_grown = .true.
 
             obj%NodeID_MainStem(i) = i
             call obj%stem(i)%resize(&
@@ -1498,7 +1612,8 @@ subroutine initsoybean(obj,config,&
                 x = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
                 y = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
                 z = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig))   &
-                )                
+                )     
+            
         enddo
 
 
@@ -1524,6 +1639,7 @@ subroutine initsoybean(obj,config,&
                 obj%stem(k) = stem
                 obj%stem(k)%stemID = i
                 obj%stem(k)%InterNodeID = j
+                obj%stem(k)%already_grown = .true.
 
                 obj%NodeID_Branch(i)%ID(j) = k
 
@@ -1574,6 +1690,7 @@ subroutine initsoybean(obj,config,&
             obj%num_stem_node = obj%num_stem_node +1
             !call obj%stem(obj%num_stem_node)%init(config=obj%stemconfig)
             obj%stem(obj%num_stem_node) = stem
+            obj%stem(obj%num_stem_node)%already_grown = .true.
             
             call obj%stem(obj%num_stem_node)%resize(&
                 x = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
@@ -1610,6 +1727,9 @@ subroutine initsoybean(obj,config,&
                 y_val = random%gauss(mu=obj%leaf_thickness_ave(i),sigma=obj%leaf_thickness_sig(i))  
                 z_val = random%gauss(mu=obj%leaf_length_ave(i)   ,sigma=obj%leaf_length_sig(i)) 
                 x_val = random%gauss(mu=obj%leaf_width_ave(i)    ,sigma=obj%leaf_width_sig(i))
+                
+                obj%leaf(obj%num_leaf)%already_grown = .true.
+                
                 call obj%leaf(obj%num_leaf)%resize(&
                     y =y_val , &
                     z =z_val , &
@@ -1643,6 +1763,8 @@ subroutine initsoybean(obj,config,&
         do i=1,obj%mr_node
 
             obj%root(i) = root
+            obj%root(i)%already_grown = .true.
+
             call obj%root(i)%resize(&
                 x = obj%mr_width, &
                 y = obj%mr_width, &
@@ -1676,6 +1798,8 @@ subroutine initsoybean(obj,config,&
                 k = k + 1
                 !call obj%root(k)%init(config=obj%rootconfig)
                 obj%root(k) = root
+                obj%root(k)%already_grown = .true.
+
                 call obj%root(k)%resize(&
                     x = obj%mr_width, &
                     y = obj%mr_width, &
@@ -1756,18 +1880,24 @@ subroutine initsoybean(obj,config,&
         !obj%struct%NodCoord(1,1:3) = 0.0d0
         call obj%leaf(1)%init(obj%leafconfig,species=PF_GLYCINE_SOJA)
         call obj%leaf(1)%rotate(x=radian(90.0d0),y=radian(90.0d0),z=radian(10.0d0) )
+        obj%leaf(1)%already_grown = .true.
+
         call obj%leaf(2)%init(obj%leafconfig,species=PF_GLYCINE_SOJA)
         call obj%leaf(2)%rotate(x=radian(90.0d0),y=radian(90.0d0),z=radian(-10.0d0) )
-        
+        obj%leaf(2)%already_grown = .true.
+
         call obj%stem(1)%init(obj%stemconfig)
         call obj%stem(1)%rotate(x=radian(40.0d0) )
+        obj%stem(1)%already_grown = .true.
         
         call obj%stem(2)%init(obj%stemconfig)
         call obj%stem(2)%rotate(x=radian(80.0d0) )
+        obj%stem(2)%already_grown = .true.
     
         call obj%root(1)%init(obj%rootconfig)
         call obj%root(1)%fix(x=0.0d0,y=0.0d0,z=0.0d0)
         call obj%root(1)%rotate(x=radian(-60.0d0) )
+        obj%root(1)%already_grown = .true.
     
         call obj%leaf(1)%connect("=>",obj%stem(1))
         obj%leaf2stem(1,1) = 1
@@ -2032,6 +2162,7 @@ subroutine growSoybean(obj,dt,light,air,temp,simple,add_apical)
     logical :: add_node = .false.
 
     obj%dt = dt
+    call obj%update()
 
     if(present(simple) )then
         if(simple)then
@@ -2058,7 +2189,7 @@ subroutine growSoybean(obj,dt,light,air,temp,simple,add_apical)
                     j=size(obj%NodeID_MainStem)
                     if(j >= 1 )then
                         N_StemID = obj%NodeID_MainStem(j)
-                        print *, N_StemID
+                        
                         if(N_StemID >= 1)then
                             
                         
@@ -2303,7 +2434,7 @@ subroutine WaterAbsorptionSoybean(obj,temp,dt)
     wx = maxval(obj%Seed%FEMDomain%Mesh%NodCoord(:,1))-minval(obj%Seed%FEMDomain%Mesh%NodCoord(:,1)) 
     wy = maxval(obj%Seed%FEMDomain%Mesh%NodCoord(:,2))-minval(obj%Seed%FEMDomain%Mesh%NodCoord(:,2)) 
     wz = maxval(obj%Seed%FEMDomain%Mesh%NodCoord(:,3))-minval(obj%Seed%FEMDomain%Mesh%NodCoord(:,3)) 
-    print *, wx,wy,wz
+    !print *, wx,wy,wz
     x_rate =  1.0d0/wx
     y_rate =  1.0d0/wy
     z_rate =  1.0d0/wz
@@ -3182,7 +3313,7 @@ subroutine laytracingsoybean(obj,light,Transparency,Resolution)
     num_particle_leaf = 0
 
     do i=1,size(obj%leaf)
-        print *, i,"/",obj%numleaf()
+        !print *, i,"/",obj%numleaf()
         if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
             ! 葉あり
             obj%leaf(i)%PPFD(:) = max_PPFD
@@ -3271,9 +3402,12 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
     ,peti_size_sig,peti_angle_ave,peti_angle_sig,leaf_thickness_ave,leaf_thickness_sig &
     ,leaf_length_ave,leaf_length_sig,leaf_width_ave,leaf_width_sig,leaf_angle_sig &
     ,leaf_angle_ave
+    real(real64),allocatable :: leaf_z_angles(:)
     type(Random_) :: random
 
     integer(int32) :: i,j,branch_id
+
+    call obj%update()
 
     if(present(StemNodeID) )then
         i = StemNodeID
@@ -3312,6 +3446,7 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
             i = StemNodeID
             call obj%stem(obj%numStem()+1 )%init(config=obj%stemconfig)
             
+            
             call extend(obj%NodeID_MainStem)
             obj%NodeID_MainStem( size(obj%NodeID_MainStem) ) = obj%numStem()
             
@@ -3325,7 +3460,9 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
                 y = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
                 z = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig))   &
                 )           
-            call obj%stem(i)%grow(dt = 0.0d0)     
+            call obj%stem(i)%grow(dt = 0.0d0)    
+            obj%stem(i)%StemID=0 
+            obj%stem(i)%InterNodeID = size(obj%NodeID_MainStem)
         else
             ! branch
             i = StemNodeID
@@ -3343,10 +3480,14 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
                 x = radian(random%gauss(mu=obj%br_angle_ave(branch_id),sigma=obj%br_angle_sig(branch_id) )),  &
                 y = radian(random%gauss(mu=obj%br_angle_ave(branch_id),sigma=obj%br_angle_sig(branch_id) )),  &
                 z = radian(random%gauss(mu=obj%br_angle_ave(branch_id),sigma=obj%br_angle_sig(branch_id) ))   &
-                )               
+                )            
             call obj%stem(i)%grow(dt = 0.0d0) 
+            obj%stem(i)%StemID=branch_id
+            obj%stem(i)%InterNodeID = size(obj%NodeID_Branch(branch_id)%ID)
         endif
         
+        ! petiole 
+
         call obj%stem( obj%numStem() )%connect("=>",obj%stem(StemNodeID))
         obj%stem2stem( obj%numStem() , StemNodeID ) = 1
 
@@ -3363,15 +3504,28 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
             x = radian(random%gauss(mu=obj%peti_angle_ave(i),sigma=obj%peti_angle_sig(i) )),  &
             y = 0.0d0,  &
             z = radian(360.0d0*random%random() )   &
-            )      
-        call obj%stem(obj%numStem() )%connect("=>",obj%stem(i))
-        obj%stem2stem(obj%numStem() ,i) = 1         
+            ) 
+        
+        !call obj%stem(obj%numStem() )%connect("=>",obj%stem(i))
+        !obj%stem2stem(obj%numStem() ,i) = 1     
+        call obj%stem(obj%numStem() )%connect("=>",obj%stem(obj%numStem()-1 ))
+        obj%stem2stem(obj%numStem() ,obj%numStem()-1 ) = 1             
 
 
+            
+        leaf_z_angles = linspace([0.0d0,360.0d0],obj%max_num_leaf_per_petiole+1 )
+        do j = 1, obj%max_num_leaf_per_petiole
+            leaf_z_angles(j) = radian(leaf_z_angles(j))
+        enddo
+
+        leaf_z_angles(:) = leaf_z_angles(:) + radian(random%random()*360.0d0)
+
+        
 
         ! add leaves
         do j=1,obj%max_num_leaf_per_petiole
             obj%num_leaf=obj%num_leaf+1
+
             call obj%leaf(obj%num_leaf)%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
             call obj%leaf(obj%num_leaf)%resize(&
                 y = random%gauss(mu=obj%leaf_thickness_ave(i),sigma=obj%leaf_thickness_sig(i))  , &
@@ -3381,7 +3535,7 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
             call obj%leaf(obj%num_leaf)%rotate(&
                 x = radian(random%gauss(mu=obj%leaf_angle_ave(i),sigma=obj%leaf_angle_sig(i))), &
                 y = 0.0d0, &
-                z = radian(random%random()*360.0d0) &
+                z = leaf_z_angles(j)  &
             )
             call obj%leaf(obj%num_leaf)%connect("=>",obj%stem(obj%numStem() ))
             obj%leaf2stem(obj%num_leaf,obj%numStem() ) = 1
@@ -3413,6 +3567,7 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
         stop
     endif
     
+    call obj%update()
 end subroutine
 ! ########################################
 
@@ -8366,13 +8521,31 @@ function searchStemSoybean(this,StemID,InterNodeID) result(node_id)
     integer(int32) :: i,j,node_id
 
     node_id = -404
-    do i=1,size(this%stem,1)
-        if(this%stem(i)%stemID==StemID)then
-            if(this%stem(i)%InterNodeID==InterNodeID)then
-                node_id = i
+
+    if(StemID==0)then
+        if(1 <=InterNodeID .and. InterNodeID <= size(this%NodeID_MainStem) )then
+            node_id = this%NodeID_MainStem(InterNodeID)
+        else
+            return
+        endif
+    else
+        if(.not. allocated(this%NodeID_Branch)  )then
+            return
+        endif
+        if(1 <=StemID .and. StemID <= size(this%NodeID_Branch) )then
+            if(allocated(this%NodeID_Branch(StemID)%ID ) )then
+                node_id = this%NodeID_Branch(StemID)%ID(InterNodeID)
             endif
         endif
-    enddo
+    endif
+    
+!    do i=1,size(this%stem,1)
+!        if(this%stem(i)%stemID==StemID)then
+!            if(this%stem(i)%InterNodeID==InterNodeID)then
+!                node_id = i
+!            endif
+!        endif
+!    enddo
     
 end function
 
@@ -8383,17 +8556,14 @@ function searchPetioleSoybean(this,StemID,InterNodeID,PetioleID) result(node_id)
     integer(int32) :: i,j,node_id,n
 
     node_id = -404
-    do i=1,size(this%stem,1)
-        if(this%stem(i)%stemID==StemID)then
-            if(this%stem(i)%InterNodeID==InterNodeID)then
-                node_id = i
-            endif
-        endif
-    enddo
+
+    node_id = this%searchStem(StemID=StemID,InterNodeID=InterNodeID)
 
     if(node_id < 0)then
         return
     endif
+
+
 
     n = 0
     do i=1,size(this%stem2stem,1)
@@ -8543,14 +8713,28 @@ function maxInterNodeIDSoybean(this,StemID) result(ret)
     integer(int32) :: ret,i,buf
 
     ret = 0
-    do i=1, size(this%Stem,1)
-        buf = this%searchStem(StemID=StemID,InterNodeID=i)
-        if(buf >=1)then
-            ret = ret + 1
+    if(StemID==0)then
+        if(allocated(this%NodeID_MainStem) )then
+            ret = size(this%NodeID_MainStem)
         else
-            return
+            ret = 0
         endif
-    enddo
+    else
+        if(allocated(this%NodeID_Branch) )then
+            ret = size(this%NodeID_Branch(StemID)%ID )
+        else
+            ret = 0
+        endif
+    endif
+
+!    do i=1, size(this%Stem,1)
+!        buf = this%searchStem(StemID=StemID,InterNodeID=i)
+!        if(buf >=1)then
+!            ret = ret + 1
+!        else
+!            cycle
+!        endif
+!    enddo
 
 end function
 ! #########################################################
@@ -8632,6 +8816,60 @@ subroutine growStemSoybean(this,StemID,InterNodeID,dt)
 
 
 end subroutine
+! #############################################
+subroutine setFinalInternodeLengthSoybean(this,Length,StemID)
+    class(Soybean_),intent(inout) :: this
+    integer(int32),intent(in) :: StemID
+    real(real64),intent(in)   :: Length(:)
 
+    if(.not.allocated(this%InterNodeInfo) )then
+        allocate(this%InterNodeInfo(0:this%MaxBranchNum) )
+    endif
+
+    this%InterNodeInfo(StemID)%FinalInterNodeLength = Length
+
+end subroutine
+
+! #############################################
+subroutine setFinalPetioleLengthSoybean(this,Length,StemID)
+    class(Soybean_),intent(inout) :: this
+    integer(int32),intent(in) :: StemID
+    real(real64),intent(in)   :: Length(:)
+
+    if(.not.allocated(this%InterNodeInfo) )then
+        allocate(this%InterNodeInfo(0:this%MaxBranchNum) )
+    endif
+
+    this%InterNodeInfo(StemID)%FinalPetioleLength = Length
+
+end subroutine
+
+! #############################################
+subroutine setFinalLeafLengthSoybean(this,Length,StemID)
+    class(Soybean_),intent(inout) :: this
+    integer(int32),intent(in) :: StemID
+    real(real64),intent(in)   :: Length(:)
+
+    if(.not.allocated(this%InterNodeInfo) )then
+        allocate(this%InterNodeInfo(0:this%MaxBranchNum) )
+    endif
+
+    this%InterNodeInfo(StemID)%FinalLeafLength = Length
+
+end subroutine
+
+! #############################################
+subroutine setFinalLeafWidthSoybean(this,Width,StemID)
+    class(Soybean_),intent(inout) :: this
+    integer(int32),intent(in) :: StemID
+    real(real64),intent(in)   :: Width(:)
+
+    if(.not.allocated(this%InterNodeInfo) )then
+        allocate(this%InterNodeInfo(0:this%MaxBranchNum) )
+    endif
+
+    this%InterNodeInfo(StemID)%FinalLeafWidth = Width
+
+end subroutine
 
 end module  

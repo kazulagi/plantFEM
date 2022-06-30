@@ -1,0 +1,114 @@
+#!/bin/sh -eu
+
+
+echo "-----------------"
+echo "    "
+echo "    "
+echo "Installing plantFEM (21.10)"
+echo " --- only sim ---   "
+echo "    "
+echo "    "
+echo "-----------------"
+
+# Compilation of Solvers
+
+# Compilation of Solvers
+echo "Compiling ./src/LoggerClass/LoggerClass.f90" 
+echo " >> LoggerClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LoggerClass/LoggerClass.f90 -o  ./inc/LoggerClass.o
+
+echo "Compiling ./src/ModalAnalysisClass/ModalAnalysisClass.f90" 
+echo " >> ModalAnalysisClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ModalAnalysisClass/ModalAnalysisClass.f90 -o  ./inc/ModalAnalysisClass.o
+
+
+
+echo "Compiling ./src/ReactorClass/ReactorClass.f90" 
+echo " >> ReactorClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ReactorClass/ReactorClass.f90 -o  ./inc/ReactorClass.o
+
+echo "Compiling ./src/SeepageFlowClass/SeepageFlowClass.f90" 
+echo " >> SeepageFlowClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SeepageFlowClass/SeepageFlowClass.f90 -o  ./inc/SeepageFlowClass.o
+
+
+echo "Compiling ./src/DiffusionEquationClass/DiffusionEquationClass.f90" 
+echo " >> DiffusionEquationClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/DiffusionEquationClass/DiffusionEquationClass.f90 -o  ./inc/DiffusionEquationClass.o
+
+echo "Compiling ./src/SpaceTimeDiffusionClass/SpaceTimeDiffusionClass.f90" 
+echo " >> SpaceTimeDiffusionClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SpaceTimeDiffusionClass/SpaceTimeDiffusionClass.f90 -o  ./inc/SpaceTimeDiffusionClass.o
+echo "Compiling ./src/SeismicAnalysisClass/SeismicAnalysisClass.f90" 
+echo " >> SeismicAnalysisClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SeismicAnalysisClass/SeismicAnalysisClass.f90 -o  ./inc/SeismicAnalysisClass.o
+
+echo "Compiling ./src/MultiDOFSystemClass/MultiDOFSystemClass.f90" 
+echo " >> MultiDOFSystemClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MultiDOFSystemClass/MultiDOFSystemClass.f90 -o  ./inc/MultiDOFSystemClass.o
+
+echo "Compiling ./src/FiniteDeformationClass/FiniteDeformationClass.f90" 
+echo " >> FiniteDeformationClass.o "
+echo " | ===============>            | (75%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FiniteDeformationClass/FiniteDeformationClass.f90 -o  ./inc/FiniteDeformationClass.o
+echo "Compiling ./src/ContactMechanicsClass/ContactMechanicsClass.f90" 
+echo " >> ContactMechanicsClass.o "
+echo " | ================>           | (80%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ContactMechanicsClass/ContactMechanicsClass.f90 -o  ./inc/ContactMechanicsClass.o
+echo "Compiling ./src/ContactDiffusionClass/ContactDiffusionClass.f90" 
+echo " >> ContactDiffusionClass.o "
+echo " | ================>           | (80%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ContactDiffusionClass/ContactDiffusionClass.f90 -o  ./inc/ContactDiffusionClass.o
+echo "Compiling ./src/MultiDiffDeformClass/MultiDiffDeformClass.f90" 
+echo " >> MultiDiffDeformClass.o "
+echo " | ==================>         | (85%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MultiDiffDeformClass/MultiDiffDeformClass.f90 -o  ./inc/MultiDiffDeformClass.o
+echo "Compiling ./src/MultiPhysicsClass/MultiPhysicsClass.f90" 
+echo " >> MultiPhysicsClass.o "
+echo " | ==================>         | (85%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MultiPhysicsClass/MultiPhysicsClass.f90 -o  ./inc/MultiPhysicsClass.o
+echo "Compiling ./src/SpaceTimeDeformClass/SpaceTimeDeformClass.f90" 
+echo " >> SpaceTimeDeformClass.o "
+echo " | ===================>        | (86%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SpaceTimeDeformClass/SpaceTimeDeformClass.f90 -o  ./inc/SpaceTimeDeformClass.o
+echo "Compiling ./src/PoromechanicsClass/PoromechanicsClass.f90" 
+echo " >> PoromechanicsClass.o "
+echo " | ===================>        | (86%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PoromechanicsClass/PoromechanicsClass.f90 -o  ./inc/PoromechanicsClass.o
+echo "Compiling ./src/SoilWaterCouplingClass/SoilWaterCouplingClass.f90" 
+echo " >> SoilWaterCouplingClass.o "
+echo " | ===================>        | (86%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SoilWaterCouplingClass/SoilWaterCouplingClass.f90 -o  ./inc/SoilWaterCouplingClass.o
+echo "Compiling ./src/WaterAbsorptionClass/WaterAbsorptionClass.f90" 
+echo " >> WaterAbsorptionClass.o "
+echo " | ===================>        | (86%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/WaterAbsorptionClass/WaterAbsorptionClass.f90 -o  ./inc/WaterAbsorptionClass.o
+# Compilation of Fields 
+echo "Compiling ./src/FieldClass/FieldClass.f90" 
+echo " >> FieldClass.o"
+echo " | ===================>        | (87%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FieldClass/FieldClass.f90 -o  ./inc/FieldClass.o
+echo "Compiling ./src/SimulatorClass/SimulatorClass.f90" 
+echo " >> SimulatorClass.o"
+echo " | ===================>        | (87%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SimulatorClass/SimulatorClass.f90 -o  ./inc/SimulatorClass.o
+echo "Compiling ./src/sim/sim.f90" 
+echo " >> sim.o "
+echo " | ===================>        | (88%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/sim/sim.f90 -o  ./inc/sim.o
+echo "Modules for simulators (sim) is installed."
+
+
+mv *.mod inc/
+mkdir -p home
+
+echo "[plantFEM/sim] is successfully installed !!"
+echo "    "

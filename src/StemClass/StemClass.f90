@@ -38,6 +38,7 @@ module StemClass
         ! position in a whole structure (single plant)
         integer(int32) :: StemID = -1
         integer(int32) :: InterNodeID = -1
+        logical :: already_grown = .false.
         
 
         ! physical parameter
@@ -65,8 +66,8 @@ module StemClass
         real(real64)  :: initial_length = 0.0010d0 ! 1.0 mm
         real(real64)  :: final_width  = 0.0040d0   ! 4.0 mm
         real(real64)  :: final_length = 0.040d0   ! 40.0 mm
-        real(real64)  :: width_growth_ratio = 1.0d0/10.0d0   ! 
-        real(real64)  :: length_growth_ratio = 1.0d0/10.0d0   ! 
+        real(real64)  :: width_growth_ratio = 1.0d0/4.0d0   ! 
+        real(real64)  :: length_growth_ratio = 1.0d0/4.0d0   ! 
 
         type(Stem_),pointer ::  pStem
     contains
@@ -736,6 +737,12 @@ recursive subroutine growStem(obj,length,length_rate,Width,width_rate,dt)
     real(real64) :: length_r,width_r,l_0,w_0,clength
     real(real64),allocatable :: origin(:),top(:),n1(:),coord(:),center(:),vert(:)
     integer(int32) :: i
+
+
+    if(obj%already_grown)then
+        ! ignore growth for this
+        return
+    endif
 
     if(present(dt) )then
         ! logistic curve
