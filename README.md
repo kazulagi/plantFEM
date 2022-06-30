@@ -124,6 +124,8 @@ ford ford.md
 
 # How to install 
 
+
+
 ### For Windows users:
 1. Activate your WSL2 (Windows 10)
 
@@ -134,7 +136,8 @@ ford ford.md
 3. Run command
 
 ```
-git clone -b 22.04 https://github.com/kazulagi/plantFEM && cd plantFEM && python3 install.py
+wget https://plantfem.org/download/plantfem_22.04-ubuntu2004_amd64.deb
+sudo apt install plantfem_22.04-ubuntu2004_amd64.deb
 ```
 
 1. You can open files by this command
@@ -148,11 +151,21 @@ explorer.exe .
 
 ### For Ubuntu users:
 
+You can download pre-build packages for
 
-In Ubuntu 18.04 or later, execute the next one-liner.
+## [[Click to download] Ubuntu 18.04](https://plantfem.org/download/plantfem_22.04-ubuntu2004_amd64.deb)
+## [[Click to download] Ubuntu 20.04](https://plantfem.org/download/plantfem_22.04-ubuntu2004_amd64.deb)
+
+In case you are using Ubuntu 18.04, execute the next one-liner.
 
 ```
-git clone -b 22.04 https://github.com/kazulagi/plantFEM && cd plantFEM && python3 install.py
+wget https://plantfem.org/download/plantfem_22.04-ubuntu1804_amd64.deb && sudo apt install plantfem_22.04-ubuntu1804_amd64.deb
+```
+
+If you are using Ubuntu 20.04, execute the next one-liner.
+
+```
+wget https://plantfem.org/download/plantfem_22.04-ubuntu2004_amd64.deb && sudo apt install plantfem_22.04-ubuntu2004_amd64.deb
 ```
 
 If you want to build and run as a docker container,

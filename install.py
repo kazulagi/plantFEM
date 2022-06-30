@@ -1,5 +1,4 @@
 import os
-import sys
 import platform
 
 def install_plantFEM():
@@ -70,7 +69,7 @@ def install_plantFEM():
         os.system("sudo ln -si $PWD /opt/plantfem")
         os.system("rm -f plantFEM")
 
-        os.system("sudo pip3 install -U plantfem")
+        #os.system("sudo pip3 install -U plantfem")
         print("Successfully Installed!!")
     else:
         print("OS : Unknown ")
