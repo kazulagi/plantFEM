@@ -87,7 +87,6 @@ module LeafClass
         real(real64),allocatable :: BoundaryTractionForce(:,:) ! node-wise, three dimensional
         real(real64),allocatable :: BoundaryDisplacement(:,:) ! node-wise, three dimensional
         
-
         ! growth parameters
         real(real64)  :: my_time = 0.0d0
         real(real64)  :: initial_width  = 0.0010d0 ! 1.0 mm

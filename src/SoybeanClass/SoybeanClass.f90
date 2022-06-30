@@ -17,6 +17,10 @@ module SoybeanClass
         real(real64),allocatable :: FinalPetioleLength(:)
         real(real64),allocatable :: FinalLeafLength(:)
         real(real64),allocatable :: FinalLeafWidth(:)
+
+        
+        
+
     end type
     
     type :: soybean_NodeID_Branch_
@@ -150,6 +154,8 @@ module SoybeanClass
         real(real64) :: FullyExpanded_stem_threshold = 0.10d0
         integer(int32) :: MaxBranchNum = 20
         type(soybean_internode_info_),allocatable :: InterNodeInfo(:)
+        real(real64) :: default_Leaf_growth_ratio = 1.0d0/3.0d0
+        real(real64) :: default_Stem_growth_ratio = 1.0d0/3.0d0
 
         contains
         procedure,public :: addStem => addStemSoybean
@@ -340,6 +346,22 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin
     real(real64) :: x_A(3),x_B(3),diff(3),error,last_error,mgn,overset_m,error_tol
     logical,optional,intent(in) :: debug
 
+    if(obj%default_Leaf_growth_ratio > 0.0d0)then
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%empty() ) cycle
+            obj%leaf(i)%length_growth_ratio = obj%default_Leaf_growth_ratio
+            obj%leaf(i)%Width_growth_ratio = obj%default_Leaf_growth_ratio
+        enddo
+    endif
+
+
+    if(obj%default_stem_growth_ratio > 0.0d0)then
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%empty() ) cycle
+            obj%stem(i)%length_growth_ratio = obj%default_stem_growth_ratio
+            obj%stem(i)%Width_growth_ratio = obj%default_stem_growth_ratio
+        enddo
+    endif
 
     ! if soybean_internode_info_ is active
     ! update parameters
