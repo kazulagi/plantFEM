@@ -8,6 +8,7 @@ module LeafClass
     use AirClass
     implicit none
 
+    integer(int32) :: PF_SOYBEAN_CV = 100
     type :: Leaf_
         type(FEMDomain_)    ::  FEMDomain
         real(real64),allocatable ::  LeafSurfaceNode2D(:,:)
@@ -314,6 +315,8 @@ end subroutine
         character(200) :: fn,conf,line
         integer(int32),allocatable :: buf(:)
         integer(int32) :: id,rmc,n,node_id,node_id2,elemid,blcount,i,j
+
+        integer(int32),allocatable :: killElementList(:),killElementIDs(:)
         real(real64) :: loc(3),radius,z,leaf_L
         logical :: debug=.false.
 
@@ -578,8 +581,26 @@ end subroutine
 !
         call obj%FEMdomain%remove()
         if(present(species) )then
-            call obj%FEMdomain%create(meshtype="Leaf3D",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
-            x_len=obj%minwidth/2.0d0,y_len=obj%minthickness/2.0d0,z_len=obj%minlength,species=species,SoyWidthRatio=SoyWidthRatio)
+            if(species==PF_SOYBEAN_CV)then
+                call obj%FEMdomain%create(meshtype="Sphere3D",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%xnum,&
+                    x_len=10.0d0,y_len=10.0d0,z_len=10.0d0)
+                killElementIDs = obj%FEMdomain%getElementList(ymin= obj%FEMdomain%ymax()*1.0d0/2.0d0)
+                killElementList = zeros(obj%FEMdomain%ne() )
+                killElementList(killElementIDs(:) ) = 1
+                call obj%FEMDomain%killElement(blacklist=killElementList,flag=1)
+                
+                call obj%resize(x=obj%minwidth/2.0d0,y=obj%minthickness/2.0d0,&
+                    z=obj%minlength)
+                call obj%FEMdomain%move(z=-obj%FEMdomain%zmin() )
+                call obj%FEMdomain%move(x=-(obj%FEMdomain%xmax()+obj%FEMdomain%xmin()) )
+                call obj%FEMdomain%move(y=-(obj%FEMdomain%ymax()+obj%FEMdomain%ymin()) )
+                
+                
+            else
+                call obj%FEMdomain%create(meshtype="Leaf3D",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
+                x_len=obj%minwidth/2.0d0,y_len=obj%minthickness/2.0d0,&
+                z_len=obj%minlength,species=species,SoyWidthRatio=SoyWidthRatio)
+            endif
         else
             call obj%FEMdomain%create(meshtype="Leaf3D",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
             x_len=obj%minwidth/2.0d0,y_len=obj%minthickness/2.0d0,z_len=obj%minlength,shaperatio=obj%shaperatio)

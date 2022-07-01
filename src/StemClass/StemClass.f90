@@ -651,7 +651,23 @@ function getCoordinateStem(obj,nodetype) result(ret)
     allocate(ret(dimnum) )
     ret(:) = 0.0d0
     if( nodetype=="A" .or. nodetype=="a")then
+        
+        
+        ! 20220701 this may be correct
+        ret = obj%femdomain%mesh%nodcoord( obj%A_PointNodeID,: ) 
+        return
+
+
+
         n = size(obj%I_planeNodeID )
+        if(n==0)then
+            print *, "ERROR >> getCoordinateStem >> size(obj%I_planeNodeID) = 0"
+        endif
+        if(.not.allocated(obj%I_planeNodeID))then
+            
+            print *, "ERROR >> getCoordinateStem >> .not. allocated(obj%I_planeNodeID) "
+            
+        endif
         do i=1,n
             ret(:) = ret(:) + obj%femdomain%mesh%nodcoord( obj%I_planeNodeID(i),: ) 
         enddo
@@ -662,7 +678,21 @@ function getCoordinateStem(obj,nodetype) result(ret)
 
     if( nodetype=="B" .or. nodetype=="b")then
         !ret = obj%femdomain%mesh%nodcoord(obj%B_PointNodeID,:)
+
+
+        ! 20220701 this may be correct
+        ret = obj%femdomain%mesh%nodcoord( obj%B_PointNodeID,: ) 
+        return
+
         n = size(obj%II_planeNodeID )
+        if(n==0)then
+            print *, "ERROR >> getCoordinateStem >> size(obj%II_planeNodeID) = 0"
+        endif
+        if(.not.allocated(obj%I_planeNodeID))then
+            
+            print *, "ERROR >> getCoordinateStem >> .not. allocated(obj%II_planeNodeID) "
+            
+        endif
         do i=1,n
             ret(:) = ret(:) + obj%femdomain%mesh%nodcoord( obj%II_planeNodeID(i),: ) 
         enddo
