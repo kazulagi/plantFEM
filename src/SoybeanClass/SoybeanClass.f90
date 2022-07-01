@@ -17,92 +17,88 @@ module SoybeanClass
         real(real64),allocatable :: FinalPetioleLength(:)
         real(real64),allocatable :: FinalLeafLength(:)
         real(real64),allocatable :: FinalLeafWidth(:)
-
-        
-        
-
     end type
     
     type :: soybean_NodeID_Branch_
-    integer(int32),allocatable :: ID(:)
+        integer(int32),allocatable :: ID(:)
     contains 
-    procedure, public :: sync => syncsoybean_NodeID_Branch
+        procedure, public :: sync => syncsoybean_NodeID_Branch
     end type
     
     integer(int32),parameter :: PF_DEFORMATION_ANALYSIS=100
     integer(int32),parameter :: PF_DEFAULT_SOYBEAN_ASIZE=300
     
     type :: soybean_
-    ! growth_habit = determinate, indeterminate, semi-indeterminate, or vine
-    character*20 :: growth_habit
-    character*2  :: growth_stage
-    integer(int32) :: Num_Of_Node
-    integer(int32) :: num_leaf
-    integer(int32) :: num_stem_node
-    integer(int32) :: Num_Of_Root
-    
-    integer(int32) :: MaxLeafNum= PF_DEFAULT_SOYBEAN_ASIZE
-    integer(int32) :: MaxRootNum= PF_DEFAULT_SOYBEAN_ASIZE
-    integer(int32) :: MaxStemNum= PF_DEFAULT_SOYBEAN_ASIZE
-    
-    logical :: determinate
-    integer(int32) :: max_num_leaf_per_petiole = 3 ! as default
-    
-    integer(int32)  :: ms_node,br_node(PF_DEFAULT_SOYBEAN_ASIZE),br_from(PF_DEFAULT_SOYBEAN_ASIZE)
-    real(real64)    :: ms_length,br_length(PF_DEFAULT_SOYBEAN_ASIZE)
-    real(real64)    :: ms_width,br_width(PF_DEFAULT_SOYBEAN_ASIZE)
-    real(real64)    :: ms_angle_ave,br_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE)
-    real(real64)    :: ms_angle_sig,br_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE)
-    
-    
-    integer(int32)  :: mr_node,brr_node(PF_DEFAULT_SOYBEAN_ASIZE),brr_from(PF_DEFAULT_SOYBEAN_ASIZE)
-    real(real64)    :: mr_length,brr_length(PF_DEFAULT_SOYBEAN_ASIZE)
-    real(real64)    :: mr_width,brr_width(PF_DEFAULT_SOYBEAN_ASIZE)
-    real(real64)    :: mr_angle_ave,brr_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE)
-    real(real64)    :: mr_angle_sig,brr_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE)
-    
-    real(real64)    :: peti_size_ave(PF_DEFAULT_SOYBEAN_ASIZE)
-    real(real64)    :: peti_size_sig(PF_DEFAULT_SOYBEAN_ASIZE)
-    real(real64)    :: peti_width_ave(PF_DEFAULT_SOYBEAN_ASIZE)
-    real(real64)    :: peti_width_sig(PF_DEFAULT_SOYBEAN_ASIZE)
-    real(real64)    :: peti_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE)
-    real(real64)    :: peti_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE)
-    
-    real(real64)    :: leaf_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
-    real(real64)    :: leaf_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
-    real(real64)    :: leaf_length_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
-    real(real64)    :: leaf_length_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
-    real(real64)    :: leaf_width_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
-    real(real64)    :: leaf_width_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
-    real(real64)    :: leaf_thickness_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
-    real(real64)    :: leaf_thickness_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
-    
-    character(3) :: Stage ! VE, CV, V1,V2, ..., R1, R2, ..., R8
-    character(200) :: name
-    integer(int32)::stage_id=0
-    real(real64) :: dt
-    type(Seed_) :: Seed
-    type(PlantNode_),allocatable :: NodeSystem(:)
-    type(PlantRoot_),allocatable :: RootSystem(:)
-    
-    type(Stem_),allocatable :: Stem(:)
-    type(Leaf_),allocatable :: Leaf(:)
-    type(Root_),allocatable :: Root(:)
-    
-    
-    ! material info
-    real(real64),allocatable :: stemYoungModulus(:)
-    real(real64),allocatable :: leafYoungModulus(:)
-    real(real64),allocatable :: rootYoungModulus(:)
-    
-    real(real64),allocatable :: stemPoissonRatio(:)
-    real(real64),allocatable :: leafPoissonRatio(:)
+        ! growth_habit = determinate, indeterminate, semi-indeterminate, or vine
+        character*20 :: growth_habit
+        character*2  :: growth_stage
+        integer(int32) :: Num_Of_Node
+        integer(int32) :: num_leaf
+        integer(int32) :: num_stem_node
+        integer(int32) :: Num_Of_Root
+
+        integer(int32) :: MaxLeafNum= PF_DEFAULT_SOYBEAN_ASIZE
+        integer(int32) :: MaxRootNum= PF_DEFAULT_SOYBEAN_ASIZE
+        integer(int32) :: MaxStemNum= PF_DEFAULT_SOYBEAN_ASIZE
+
+        logical :: determinate
+        integer(int32) :: max_num_leaf_per_petiole = 3 ! as default
+
+        integer(int32)  :: ms_node,br_node(PF_DEFAULT_SOYBEAN_ASIZE),br_from(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: ms_length,br_length(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: ms_width,br_width(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: ms_angle_ave,br_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: ms_angle_sig,br_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE)
+
+
+        integer(int32)  :: mr_node,brr_node(PF_DEFAULT_SOYBEAN_ASIZE),brr_from(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: mr_length,brr_length(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: mr_width,brr_width(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: mr_angle_ave,brr_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: mr_angle_sig,brr_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE)
+
+        real(real64)    :: peti_size_ave(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: peti_size_sig(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: peti_width_ave(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: peti_width_sig(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: peti_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE)
+        real(real64)    :: peti_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE)
+
+        real(real64)    :: leaf_angle_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
+        real(real64)    :: leaf_angle_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
+        real(real64)    :: leaf_length_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
+        real(real64)    :: leaf_length_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
+        real(real64)    :: leaf_width_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
+        real(real64)    :: leaf_width_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
+        real(real64)    :: leaf_thickness_ave(PF_DEFAULT_SOYBEAN_ASIZE*3)
+        real(real64)    :: leaf_thickness_sig(PF_DEFAULT_SOYBEAN_ASIZE*3)
+
+        character(3) :: Stage ! VE, CV, V1,V2, ..., R1, R2, ..., R8
+        character(200) :: name
+        integer(int32)::stage_id=0
+        real(real64) :: dt
+        type(Seed_) :: Seed
+        type(PlantNode_),allocatable :: NodeSystem(:)
+        type(PlantRoot_),allocatable :: RootSystem(:)
+
+        type(Stem_),allocatable :: Stem(:)
+        type(Leaf_),allocatable :: Leaf(:)
+        type(Root_),allocatable :: Root(:)
+
+
+        ! material info
+        real(real64),allocatable :: stemYoungModulus(:)
+        real(real64),allocatable :: leafYoungModulus(:)
+        real(real64),allocatable :: rootYoungModulus(:)
+
+        real(real64),allocatable :: stemPoissonRatio(:)
+        real(real64),allocatable :: leafPoissonRatio(:)
         real(real64),allocatable :: rootPoissonRatio(:)
 
         real(real64),allocatable :: stemDensity(:)
         real(real64),allocatable :: leafDensity(:)
         real(real64),allocatable :: rootDensity(:)
-        
+
         ! 節-節点データ構造
         type(Mesh_) :: struct 
         integer(int32),allocatable :: leaf2stem(:,:)
@@ -160,45 +156,72 @@ module SoybeanClass
         real(real64) :: apical_dominance_distance = 1.0d0
 
 
-        contains
-        procedure,public :: addStem => addStemSoybean
-        !procedure,public :: addRoot => addRootSoybean
-        !procedure,public :: addLeaf => addLeafSoybean
-        
-        ! creation
-        procedure,public :: Init => initsoybean
-        procedure,public :: remove => removeSoybean
-        procedure,public :: create => initsoybean
-        procedure,public :: new => initsoybean
-        procedure,public :: sowing => initsoybean
-        procedure,public :: export => exportSoybean
-        procedure,public :: expanition => expanitionSoybean
-        procedure,public :: development => developmentSoybean
-        
-        !  Simulator
-        procedure,public :: checkProperties => checkPropertiesSoybean
-        procedure,public :: setPoints    => setPointsSoybean
-        procedure,public :: setProperties => setPropertiesSoybean
-        
-        
-        ! simple setters
-        procedure,public :: setPropertiesDensity => setPropertiesDensitySoybean
-        procedure,public :: setPropertiesYoungModulus => setPropertiesYoungModulusSoybean
-        procedure,public :: setPropertiesPoissonRatio => setPropertiesPoissonRatioSoybean
-        procedure,public :: setPropertiesInitialDisplacement => setPropertiesInitialDisplacementSoybean
-        procedure,public :: setPropertiesInitialStress => setPropertiesInitialStressSoybean
-        procedure,public :: setPropertiesBoundaryTractionForce => setPropertiesBoundaryTractionForceSoybean
-        procedure,public :: setPropertiesBoundaryDisplacement => setPropertiesBoundaryDisplacementSoybean
-        procedure,public :: setPropertiesGravity => setPropertiesGravitySoybean
-        
-        ! alternative setters
-        procedure,public :: setYoungModulus => setYoungModulusSoybean
-        procedure,public :: setPoissonRatio => setPoissonRatioSoybean
-        procedure,public :: setDensity => setDensitySoybean
+        ! create CV
+        real(real64) :: CV_stem_length_ave    = 0.03d0
+        real(real64) :: CV_stem_length_sig    = 0.001d0
+        real(real64) :: CV_stem_width_ave     = 0.003d0
+        real(real64) :: CV_stem_width_sig     = 0.00001d0
+        real(real64) :: CV_leaf_length_ave    = 0.03d0
+        real(real64) :: CV_leaf_length_sig    = 0.001d0
+        real(real64) :: CV_leaf_width_ave     = 0.02d0
+        real(real64) :: CV_leaf_width_sig     = 0.0005d0
+        real(real64) :: CV_leaf_thickness_ave = 0.005d0
+        real(real64) :: CV_leaf_thickness_sig = 0.0001d0
 
-        procedure,public :: runSimulation => runSimulationSoybean
-        procedure,public :: runSimulator => runSimulationSoybean
-        ! readyForSoybean
+        real(real64) :: VC_stem_length_ave    = 0.04d0
+        real(real64) :: VC_stem_length_sig    = 0.001d0
+        real(real64) :: VC_stem_width_ave     = 0.004d0
+        real(real64) :: VC_stem_width_sig     = 0.0001d0
+
+        real(real64) :: VC_leaf_length_ave    = 0.03d0
+        real(real64) :: VC_leaf_length_sig    = 0.001d0
+        real(real64) :: VC_leaf_width_ave     = 0.03d0
+        real(real64) :: VC_leaf_width_sig     = 0.0005d0
+        real(real64) :: VC_leaf_thickness_ave = 0.001d0
+        real(real64) :: VC_leaf_thickness_sig = 0.00001d0
+
+    contains
+    !procedure,public :: addRoot => addRootSoybean
+    !procedure,public :: addLeaf => addLeafSoybean
+    
+    ! creation
+    procedure,public :: Init => initsoybean
+    procedure,public :: VC => VCSoybean
+    
+    
+    procedure,public :: remove => removeSoybean
+    procedure,public :: create => initsoybean
+    procedure,public :: new => initsoybean
+    procedure,public :: sowing => initsoybean
+    procedure,public :: export => exportSoybean
+    procedure,public :: expanition => expanitionSoybean
+    procedure,public :: development => developmentSoybean
+    
+    !  Simulator
+    procedure,public :: checkProperties => checkPropertiesSoybean
+    procedure,public :: setPoints    => setPointsSoybean
+    procedure,public :: setProperties => setPropertiesSoybean
+    
+    
+    ! simple setters
+    procedure,public :: addStem => addStemSoybean
+    procedure,public :: setPropertiesDensity => setPropertiesDensitySoybean
+    procedure,public :: setPropertiesYoungModulus => setPropertiesYoungModulusSoybean
+    procedure,public :: setPropertiesPoissonRatio => setPropertiesPoissonRatioSoybean
+    procedure,public :: setPropertiesInitialDisplacement => setPropertiesInitialDisplacementSoybean
+    procedure,public :: setPropertiesInitialStress => setPropertiesInitialStressSoybean
+    procedure,public :: setPropertiesBoundaryTractionForce => setPropertiesBoundaryTractionForceSoybean
+    procedure,public :: setPropertiesBoundaryDisplacement => setPropertiesBoundaryDisplacementSoybean
+    procedure,public :: setPropertiesGravity => setPropertiesGravitySoybean
+    
+    ! alternative setters
+    procedure,public :: setYoungModulus => setYoungModulusSoybean
+    procedure,public :: setPoissonRatio => setPoissonRatioSoybean
+    procedure,public :: setDensity => setDensitySoybean
+    
+    procedure,public :: runSimulation => runSimulationSoybean
+    procedure,public :: runSimulator => runSimulationSoybean
+    ! readyForSoybean
         procedure,public :: readyFor => readyForSoybean
 
 
@@ -339,6 +362,246 @@ module SoybeanClass
 
 contains
 
+! 
+subroutine VCSoybean(this) 
+    class(Soybean_),intent(inout) :: this
+    type(Random_) :: random
+    integer(int32) :: i
+    real(real64) :: y_val, z_val, x_val,leaf_z_angles(4)
+
+    !initialize
+
+    call this%remove()
+
+    ! set default parameters
+
+    ! set default parameters
+    ! stem
+    this%br_node(:)=0
+    this%br_from(:)=0
+    this%br_length(:)=0.0d0
+
+    this%br_angle_ave(:)= 0.0d0
+    this%br_angle_sig(:)=10.0d0
+    !this%br_angle_ave(1)=10.0d0
+    !this%br_angle_sig(1)=2.0d0
+    
+    this%ms_angle_ave=0.0d0
+    this%ms_angle_sig=2.0d0
+
+    ! for roots
+    this%brr_node(:)=0
+    this%brr_from(:)=0
+    this%brr_length(:)=0.0d0
+
+    this%brr_angle_ave(:)= 0.0d0
+    this%brr_angle_sig(:)=10.0d0
+    this%brr_angle_ave(1)=30.0d0
+    this%brr_angle_sig(1)=2.0d0
+    
+    this%mr_angle_ave=0.0d0
+    this%mr_angle_sig=2.0d0
+    ! peti
+    ! is also stem
+    
+    this%peti_size_ave(:) = 0.20d0
+    this%peti_size_sig(:) = 0.010d0
+
+    this%peti_width_ave(:) = 0.0050d0
+    this%peti_width_sig(:) = 0.00010d0
+
+    this%peti_angle_ave(:) = 30.0d0
+    this%peti_angle_sig(:) = 1.00d0
+
+    ! leaf
+    this%leaf_length_ave(:) = 0.20d0
+    this%leaf_length_sig(:) = 0.01d0
+
+    this%leaf_width_ave(:) = 0.050d0
+    this%leaf_width_sig(:) = 0.010d0
+
+    this%leaf_thickness_ave(:) = 0.00100d0
+    this%leaf_thickness_sig(:) = 0.00050d0
+
+    this%leaf_angle_ave(:) = 80.0d0
+    this%leaf_angle_sig(:) = 10.0d0
+    
+
+    allocate(this%leaf(this%MaxLeafNum) )
+    allocate(this%root(this%MaxrootNum) )
+    allocate(this%stem(this%MaxstemNum) )
+
+    allocate(this%leafYoungModulus(this%MaxLeafNum) )
+    allocate(this%rootYoungModulus(this%MaxrootNum) )
+    allocate(this%stemYoungModulus(this%MaxstemNum) )
+    ! default value
+    this%leafYoungModulus(:) = 1000.0d0
+    this%rootYoungModulus(:) = 1000.0d0
+    this%stemYoungModulus(:) = 1000.0d0
+    
+    allocate(this%leafPoissonRatio(this%MaxLeafNum) )
+    allocate(this%rootPoissonRatio(this%MaxrootNum) )
+    allocate(this%stemPoissonRatio(this%MaxstemNum) )
+    this%leafPoissonRatio(:) = 0.30d0
+    this%rootPoissonRatio(:) = 0.30d0
+    this%stemPoissonRatio(:) = 0.30d0
+    
+    allocate(this%leafDensity(this%MaxLeafNum) )
+    allocate(this%rootDensity(this%MaxrootNum) )
+    allocate(this%stemDensity(this%MaxstemNum) )
+
+    this%leafDensity(:) = 0.0d0
+    this%rootDensity(:) = 0.0d0
+    this%stemDensity(:) = 0.0d0
+
+    allocate(this%stem2stem(this%MaxstemNum,this%MaxstemNum) )
+    allocate(this%leaf2stem(this%MaxstemNum,this%MaxLeafNum) )
+    allocate(this%root2stem(this%MaxrootNum,this%MaxstemNum) )
+    allocate(this%root2root(this%MaxrootNum,this%MaxrootNum) )
+    this%stem2stem(:,:) = 0
+    this%leaf2stem(:,:) = 0
+    this%root2stem(:,:) = 0
+    this%root2root(:,:) = 0
+
+    ! create VC plant
+    ! create stage CV
+    this%NodeID_MainStem = eyes(1)
+    call this%stem(1)%init()
+    
+    this%stem(1)%stemID = 0
+    this%stem(1)%InterNodeID = 1
+    this%stem(1)%already_grown = .true.
+
+    call this%stem(1)%resize(&
+        x = random%gauss(mu=this%CV_stem_width_ave,sigma=this%CV_stem_width_sig) ,&
+        y = random%gauss(mu=this%CV_stem_width_ave,sigma=this%CV_stem_width_sig) ,&
+        z = random%gauss(mu=this%CV_stem_length_ave,sigma=this%CV_stem_length_sig) &
+        )
+    call this%stem(1)%move(&
+        x = -this%stem(1)%femdomain%xmax()/2.0d0 ,&
+        y = -this%stem(1)%femdomain%ymax()/2.0d0 ,&
+        z = 0.0d0 &
+        )
+    
+    call this%stem(1)%rotate( &
+        z = radian( 360.0d0*random%random() )   &
+        )     
+    
+    ! end of primary growth
+    this%stem(1)%already_grown = .true.
+    
+    
+
+    
+    leaf_z_angles(1)  = random%random()*360.0d0
+    leaf_z_angles(2)  = leaf_z_angles(1)+180.0d0
+    leaf_z_angles(3)  = random%random()*360.0d0
+    leaf_z_angles(4)  = leaf_z_angles(3)+180.0d0
+    this%num_leaf = 0
+
+    do i=1, 2
+        this%num_leaf=this%num_leaf+1
+        call this%leaf(i)%init(species=PF_SOYBEAN_CV)
+
+        y_val = random%gauss(mu=this%CV_leaf_thickness_ave,sigma=this%CV_leaf_thickness_sig)  
+        z_val = random%gauss(mu=this%CV_leaf_length_ave   ,sigma=this%CV_leaf_length_sig) 
+        x_val = random%gauss(mu=this%CV_leaf_width_ave    ,sigma=this%CV_leaf_width_sig)
+        
+        this%leaf(i)%already_grown = .true.
+        
+        call this%leaf(i)%resize(&
+            y =y_val , &
+            z =z_val , &
+            x =x_val  &
+        )
+        call this%leaf(i)%move(&
+            y =-y_val/2.0d0 , &
+            z =-z_val/2.0d0 , &
+            x =-x_val/2.0d0  &
+        )
+        call this%leaf(i)%rotate(&
+            x = radian(90.0d0), &
+            y = 0.0d0, &
+            z = radian(leaf_z_angles(i)) ,reset=.true.&
+        )
+        call this%leaf(i)%connect("=>",this%stem(1))
+        this%leaf2stem(i,1) = 1
+    enddo
+    call this%update()
+
+    ! create stage VC
+    if(allocated(this%NodeID_Branch))then
+        deallocate(this%NodeID_Branch)
+    endif
+    this%NodeID_MainStem = this%NodeID_MainStem // [2] 
+    
+    call this%stem(2)%init()
+    this%stem(2)%stemID = 0
+    this%stem(2)%InterNodeID = 1
+    this%stem(2)%already_grown = .true.
+
+    call this%stem(2)%resize(&
+        x = random%gauss(mu=this%VC_stem_width_ave,sigma=this%VC_stem_width_sig) ,&
+        y = random%gauss(mu=this%VC_stem_width_ave,sigma=this%VC_stem_width_sig) ,&
+        z = random%gauss(mu=this%VC_stem_length_ave,sigma=this%VC_stem_length_sig) &
+        )
+    call this%stem(2)%move(&
+        x = -this%stem(2)%femdomain%xmax()/2.0d0 ,&
+        y = -this%stem(2)%femdomain%ymax()/2.0d0 ,&
+        z = 0.0d0 &
+        )
+    
+    call this%stem(2)%rotate( &
+        z = radian( 360.0d0*random%random() )   &
+        )     
+    
+    ! end of primary growth
+    this%stem(2)%already_grown = .true.
+
+    this%stem2stem(2,1) = 1
+
+
+
+    
+    
+    do i=3,4
+        this%num_leaf=this%num_leaf+1
+        call this%leaf(i)%init(SoyWidthRatio=0.50d0)
+
+        y_val = random%gauss(mu=this%VC_leaf_thickness_ave,sigma=this%VC_leaf_thickness_sig)  
+        z_val = random%gauss(mu=this%VC_leaf_length_ave   ,sigma=this%VC_leaf_length_sig) 
+        x_val = random%gauss(mu=this%VC_leaf_width_ave    ,sigma=this%VC_leaf_width_sig)
+        
+        this%leaf(i)%already_grown = .true.
+        
+        call this%leaf(i)%resize(&
+            y =y_val , &
+            z =z_val , &
+            x =x_val  &
+        )
+        call this%leaf(i)%move(&
+            y =-y_val/2.0d0 , &
+            z =-z_val/2.0d0 , &
+            x =-x_val/2.0d0  &
+        )
+        
+        call this%leaf(i)%rotate(&
+            x = radian(90.0d0), &
+            y = 0.0d0, &
+            z = radian(leaf_z_angles(i)) ,reset=.true.&
+        )
+        call this%leaf(i)%connect("=>",this%stem(2))
+        this%leaf2stem(i,2) = 1
+    enddo
+
+    call this%update()
+    ! no root
+
+    this%stem2stem(2,1) = 1
+
+
+end subroutine
+
 ! ########################################
 recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin,debug)
     class(Soybean_),intent(inout) :: obj
@@ -371,6 +634,7 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin
     ! update parameters
     if(allocated(obj%InterNodeInfo) )then
         do i=0,obj%MaxBranchNum
+            
             if(allocated(obj%InterNodeInfo(i)%FinalInterNodeLength ) )then
                 do j=1,obj%maxInterNodeID(StemID=i)
                     InterNodeID = obj%searchStem(StemID=i,InterNodeID=j)
@@ -464,49 +728,54 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin
 
     ! stem to stem
     last_error = 1.0d0
-    do 
-        itr=itr+1
-        error = 0.0d0
-        do i=1, size(obj%stem2stem,1)
-            do j=1, size(obj%stem2stem,2)
-                this_stem_id = j
-                next_stem_id = i
-                if(obj%stem2stem(i,j)/=0 .and. i /= j)then
-                    ! this_stem_id ===>>> next_stem_id, connected!
-                    
-                    !x_B(:) = obj%stem(this_stem_id)%getCoordinate("B")
-                    !x_A(:) = obj%stem(next_stem_id)%getCoordinate("A")
-                    ! Overset分食い込ませる
-                    x_B(:) = (1.0d0-overset_m)*obj%stem(this_stem_id)%getCoordinate("B")&
-                        + overset_m*obj%stem(this_stem_id)%getCoordinate("A")
-                    ! Overset分食い込ませる
-                    x_A(:) = (1.0d0-overset_m)*obj%stem(next_stem_id)%getCoordinate("A") &
-                        + overset_m*obj%stem(next_stem_id)%getCoordinate("B")
-                        
-
-                    diff(:) = x_B(:) - x_A(:)
-                    
-                    error = error + dot_product(diff,diff)
-                    call obj%stem(next_stem_id)%move(x=diff(1),y=diff(2),z=diff(3) )
-
-                endif
-            enddo
-        enddo
-        if(present(debug) )then
-            if(debug)then
-                print *, "soybean % update >> error :: ",error
-            endif
-        endif
-        if(itr > itr_tol) then
-            print *, "soybean % update >> ERROR :: not converged"
-            stop
-        endif
+    if(maxval(obj%stem2stem)/=0) then
         
-        if( abs(error) + abs(last_error) < error_tol) exit
-        last_error = error
-    enddo
+
+        do 
+            itr=itr+1
+            error = 0.0d0
+            do i=1, size(obj%stem2stem,1)
+                do j=1, size(obj%stem2stem,2)
+                    this_stem_id = j
+                    next_stem_id = i
+                    if(obj%stem2stem(i,j)/=0 .and. i /= j)then
+                        ! this_stem_id ===>>> next_stem_id, connected!
+
+                        !x_B(:) = obj%stem(this_stem_id)%getCoordinate("B")
+                        !x_A(:) = obj%stem(next_stem_id)%getCoordinate("A")
+                        ! Overset分食い込ませる
+                        x_B(:) = (1.0d0-overset_m)*obj%stem(this_stem_id)%getCoordinate("B")&
+                            + overset_m*obj%stem(this_stem_id)%getCoordinate("A")
+                        ! Overset分食い込ませる
+                        x_A(:) = (1.0d0-overset_m)*obj%stem(next_stem_id)%getCoordinate("A") &
+                            + overset_m*obj%stem(next_stem_id)%getCoordinate("B")
+
+
+                        diff(:) = x_B(:) - x_A(:)
+                        
+                        error = error + dot_product(diff,diff)
+                        call obj%stem(next_stem_id)%move(x=diff(1),y=diff(2),z=diff(3) )
+
+                    endif
+                enddo
+            enddo
+            if(present(debug) )then
+                if(debug)then
+                    print *, "soybean % update s2s >> error :: ",error
+                endif
+            endif
+            if(itr > itr_tol) then
+                print *, "soybean % update s2s >> ERROR :: not converged"
+                stop
+            endif
+
+            if( abs(error) + abs(last_error) < error_tol) exit
+            last_error = error
+        enddo
+    endif
 
     ! root to stem
+    if(allocated(obj%root2stem) )then
     last_error = 1.0d0
     do 
         itr=itr+1
@@ -536,19 +805,21 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin
         enddo
         if(present(debug) )then
             if(debug)then
-                print *, "soybean % update >> error :: ",error
+                print *, "soybean % update r2s >> error :: ",error
             endif
         endif
         if(itr > itr_tol) then
-            print *, "soybean % update >> ERROR :: not converged"
+            print *, "soybean % update r2s  >> ERROR :: not converged"
             stop
         endif
         
         if( abs(error) + abs(last_error)  < error_tol) exit
         last_error = error
     enddo
+    endif
 
     
+    if(allocated(obj%root2root) )then
     ! root to root
     last_error = 1.0d0
     do 
@@ -582,18 +853,18 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin
         enddo
         if(present(debug) )then
             if(debug)then
-                print *, "soybean % update >> error :: ",error
+                print *, "soybean % update r2r >> error :: ",error
             endif
         endif
         if(itr > itr_tol) then
-            print *, "soybean % update >> ERROR :: not converged"
+            print *, "soybean % update r2r >> ERROR :: not converged"
             stop
         endif
         
         if( abs(error) + abs(last_error)  < error_tol) exit
         last_error = error
     enddo
-
+    endif
 
     ! leaf to stem
     last_error = 1.0d0
@@ -624,11 +895,11 @@ recursive subroutine updateSoybean(obj,stem_id, root_id, leaf_id, overset_margin
         enddo
         if(present(debug) )then
             if(debug)then
-                print *, "soybean % update >> error :: ",error
+                print *, "soybean % update l2s >> error :: ",error
             endif
         endif
         if(itr > itr_tol) then
-            print *, "soybean % update >> ERROR :: not converged"
+            print *, "soybean % update l2s  >> ERROR :: not converged"
             stop
         endif
         
@@ -738,7 +1009,7 @@ subroutine initsoybean(obj,config,&
     obj%leaf_thickness_ave(:) = 0.00100d0
     obj%leaf_thickness_sig(:) = 0.00050d0
 
-    obj%leaf_angle_ave(:) = 40.0d0
+    obj%leaf_angle_ave(:) = 80.0d0
     obj%leaf_angle_sig(:) = 10.0d0
     
 
@@ -807,7 +1078,7 @@ subroutine initsoybean(obj,config,&
         write(soyconf%fh,*) '   "leaf_width_sig"  :  0.0100,'
         write(soyconf%fh,*) '   "leaf_thickness_ave"  :  0.001000,'
         write(soyconf%fh,*) '   "leaf_thickness_sig"  :  0.000500,'
-        write(soyconf%fh,*) '   "leaf_angle_ave"  :  40.00,'
+        write(soyconf%fh,*) '   "leaf_angle_ave"  :  80.00,'
         write(soyconf%fh,*) '   "leaf_angle_sig"  :  10.00'
         write(soyconf%fh,*) '}'
         conf="soyconfig.json"
@@ -1627,7 +1898,7 @@ subroutine initsoybean(obj,config,&
                 x = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
                 y = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
                 z = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig))   &
-                )     
+                )
             
         enddo
 
@@ -3526,11 +3797,14 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
             call extend(obj%NodeID_MainStem)
             obj%NodeID_MainStem( size(obj%NodeID_MainStem) ) = obj%numStem()
             
-            call obj%stem(i)%resize(&
-                x = obj%ms_width, &
-                y = obj%ms_width, &
-                z = obj%ms_length/dble(obj%ms_node) &
-                )
+            if(obj%ms_node > 0.0d0)then
+                call obj%stem(i)%resize(&
+                    x = obj%ms_width, &
+                    y = obj%ms_width, &
+                    z = obj%ms_length/dble(obj%ms_node) &
+                    )
+            endif
+            
             call obj%stem(i)%rotate(&
                 x = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
                 y = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
@@ -3539,6 +3813,7 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
             call obj%stem(i)%grow(dt = 0.0d0)    
             obj%stem(i)%StemID=0 
             obj%stem(i)%InterNodeID = size(obj%NodeID_MainStem)
+            
         ! branch -> branch
         elseif(.not.obj%isMainStem(StemNodeID) .and. .not.mainstem_2_branch)then
             
@@ -4591,14 +4866,15 @@ function NumberOfBranchSoybean(obj)  result(ret)
     integer(int32) :: ret,i
 
     ret = 0
-    do i=1,size(obj%NodeID_Branch)
-        if(allocated(obj%NodeID_Branch(i)%ID ))then
-            if(size(obj%NodeID_Branch(i)%ID) >= 1)then
-                ret = ret + 1
+    if(allocated(obj%NodeID_Branch) )then
+        do i=1,size(obj%NodeID_Branch)
+            if(allocated(obj%NodeID_Branch(i)%ID ))then
+                if(size(obj%NodeID_Branch(i)%ID) >= 1)then
+                    ret = ret + 1
+                endif
             endif
-        endif
-    enddo
-
+        enddo
+    endif
 end function
 ! ###################################################################
 
@@ -9020,5 +9296,7 @@ subroutine setFinalLeafWidthSoybean(this,Width,StemID)
     this%InterNodeInfo(StemID)%FinalLeafWidth = Width
 
 end subroutine
+
+
 
 end module  

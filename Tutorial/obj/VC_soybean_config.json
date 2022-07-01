@@ -1,0 +1,22 @@
+{
+    "CV_stem_length_ave":0.03,
+    "CV_stem_length_sig":0.01,
+    "CV_stem_width_ave" :0.005,
+    "CV_stem_width_sig" :0.001,
+    "CV_leaf_length_ave":0.03,
+    "CV_leaf_length_sig":0.01,
+    "CV_leaf_width_ave" :0.02,
+    "CV_leaf_width_sig" :0.005,
+    "CV_leaf_thickness_ave":0.005,
+    "CV_leaf_thickness_sig":0.001,
+    "VC_stem_length_ave":0.04,
+    "VC_stem_length_sig":0.01,
+    "VC_stem_width_ave" :0.005,
+    "VC_stem_width_sig" :0.001,
+    "VC_leaf_length_ave":0.03,
+    "VC_leaf_length_sig":0.01,
+    "VC_leaf_width_ave" :0.02,
+    "VC_leaf_width_sig" :0.005,
+    "VC_leaf_thickness_ave":0.001,
+    "VC_leaf_thickness_sig":0.0001
+}

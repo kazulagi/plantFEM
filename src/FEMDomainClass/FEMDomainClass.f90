@@ -5930,18 +5930,6 @@ subroutine rotateFEMDomain(obj,x,y,z,deg)
 		endif
 
 
-		if(present(x) )then
-			if(present(deg) )then
-				if(deg)then
-					obj%total_rotation(1) = obj%total_rotation(1) + radian(x)
-				else
-					obj%total_rotation(1) = obj%total_rotation(1) + x
-				endif
-			else
-				obj%total_rotation(1) = obj%total_rotation(1) + x
-			endif
-		endif
-
 		if(present(z) )then
 			if(present(deg) )then
 				if(deg)then

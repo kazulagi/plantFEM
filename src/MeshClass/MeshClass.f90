@@ -556,7 +556,7 @@ subroutine removeMesh(obj,all,x_min,x_max,y_min,y_max,z_min,z_max)
 
     ! remove only element
     if(obj%empty() .eqv. .true. )then
-        print *, "ERROR obj%empty() .eqv. .true."
+        print *, "removeMesh >> ERROR obj%empty() .eqv. .true."
         stop
     endif
 
@@ -4714,7 +4714,9 @@ subroutine AdjustSphereMesh(obj,rx,ry,rz,debug)
         endif
         n=size(mesh%ElemNod,1)
         if(present(debug) )then
-            print *, "itr :",itr,"Number of element",n
+            if(debug)then
+                print *, "itr :",itr,"Number of element",n
+            endif
         endif
         
         if(n==0)then
@@ -4749,8 +4751,12 @@ subroutine AdjustSphereMesh(obj,rx,ry,rz,debug)
                 endif
             enddo
         enddo
-        print *, r_x,r_y,r_z
-        
+        if(present(debug) )then
+            if(debug)then
+                print *, r_x,r_y,r_z
+            endif
+        endif
+
         do i=1,size(mesh%FacetElemNod,1)
             do j=1,size(mesh%FacetElemNod,2)
                 node_id=mesh%FacetElemNod(i,j)
@@ -4781,15 +4787,18 @@ subroutine AdjustSphereMesh(obj,rx,ry,rz,debug)
                 enddo
             enddo
         enddo
-        
-        if(minval(elem)==1 )then
-            print *, "ERROR :: AdjustSphereMesh minval(elem)==1"
-            stop 
-        endif
-        if(maxval(elem)==0 )then
-            print *, "converged"
-            exit
-        endif
+                if(minval(elem)==1 )then
+                    print *, "ERROR :: AdjustSphereMesh minval(elem)==1"
+                    stop 
+                endif
+                if(maxval(elem)==0 )then
+                    if(present(debug) )then
+                        if(debug)then
+                            print *, "converged"
+                        endif
+                    endif
+                    exit
+                endif
         ! remove elems
         do i=size(elem),1,-1
             if(elem(i)==0 )then
@@ -6192,7 +6201,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             n=size(obj%ElemNod,1)
             allocate(obj%ElemMat(n) )
         endif
-        call obj%AdjustSphere(debug=.true.)
+        call obj%AdjustSphere(debug=.false.)
         call obj%clean()
         call obj%resize(x_rate=x_len,&
             y_rate=y_len,&
@@ -6211,7 +6220,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             allocate(obj%ElemMat(n) )
         endif
         
-        call obj%AdjustSphere(debug=.true.)
+        call obj%AdjustSphere(debug=.false.)
         call obj%resize(x_rate=x_len,&
             y_rate=y_len,&
             z_rate=thickness)
