@@ -1,0 +1,30 @@
+     100 files     200 files     293 text files.
+classified 287 filesDuplicate file check 287 files (276 known unique)Unique:      100 files                                          Unique:      200 files                                               283 unique files.                              
+Counting:  100Counting:  200      59 files ignored.
+
+github.com/AlDanial/cloc v 1.82  T=0.21 s (1247.9 files/s, 587544.7 lines/s)
+--------------------------------------------------------------------------------
+Language                      files          blank        comment           code
+--------------------------------------------------------------------------------
+Fortran 90                      150          20090          14112          77691
+Python                           27            560            281           1803
+C++                              18            294            202           1779
+C                                 8            370            430           1050
+JavaScript                        7            277            384            859
+Bourne Shell                     16             29             35            364
+Qt                                1              0              0            201
+D                                10              3              0             97
+Fortran 77                        1              2            190             96
+CMake                             1             11            116             91
+C/C++ Header                      2             22              4             88
+Markdown                          2             26              0             77
+OpenCL                            5             23             71             67
+JSON                              3              0              0             36
+HTML                              2              4              0             15
+make                              3             18             48             14
+Bourne Again Shell                1              1              0              8
+Arduino Sketch                    1              3              0              6
+DOS Batch                         1              0              0              1
+--------------------------------------------------------------------------------
+SUM:                            259          21733          15873          84343
+--------------------------------------------------------------------------------
