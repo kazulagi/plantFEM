@@ -75,7 +75,7 @@ module MathClass
 	end interface 
 
 	interface radian
-		module procedure radianreal32,radianreal64, radianint
+		module procedure radianreal32,radianreal64,radianreal64Vec, radianint
 	end interface
 
 	interface array
@@ -374,6 +374,22 @@ function radianreal64(deg) result(ret)
 	real(real64),intent(in) :: deg
 	real(real64) :: ret
 	ret = deg/180.0d0*3.1415926535d0
+end function
+! ###############################################
+
+
+! ###############################################
+function radianreal64Vec(degs) result(ret)
+	real(real64),intent(in) :: degs(:)
+	integer(int32) :: i
+	real(real64),allocatable :: ret(:)
+	
+	ret = degs
+	
+	do i=1,size(degs)
+		ret(i) = degs(i)/180.0d0*3.1415926535d0
+	enddo
+
 end function
 ! ###############################################
 
