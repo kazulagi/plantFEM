@@ -1,4 +1,4 @@
-![Growth](https://user-images.githubusercontent.com/54159711/176829382-91296115-b4b8-4d6a-b6e8-fcfe315e6d55.mp4)
+![Growth](https://user-images.githubusercontent.com/54159711/177001085-9ecd60a8-94b9-4848-b33e-af51545e1c9c.gif)
 
 
 ![soy_scalar_field](https://user-images.githubusercontent.com/54159711/147451703-cd0ecca3-5a87-4cc7-81e2-4621210dc0c4.jpeg)
