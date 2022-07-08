@@ -10194,7 +10194,7 @@ function StressVectorFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressV
 	integer(int32),optional,intent(in) :: GaussPoint
 	
 	real(real64),intent(in) :: disp(:,:),E,v
-	real(real64),allocatable :: StressMatrix(:,:),Bmat(:,:),Dmat(:,:),ElemDisp(:),Stressvec(:)
+	real(real64),allocatable :: StressMatrix(:,:),Bmat(:,:),Dmat(:,:),ElemDisp_m(:,:),ElemDisp(:),Stressvec(:)
 	real(real64) :: rho
 	integer(int32) :: node_DOF,i,j,n,ns,vectorsize
 
@@ -10220,68 +10220,58 @@ function StressVectorFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressV
 	! Number of Gauss Point = number of node per element, as default.
 
 	! initialize shape-function object
-	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	!call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
 	
-	ElemDisp = zeros(  size( obj%mesh%elemnod,2 ) *node_DOF) 
+	!ElemDisp = zeros(  size( obj%mesh%elemnod,2 ) *node_DOF) 
 	if( size(disp,1)/=obj%nne() )then
 		print *, "[ERROR] StressVectorFEM :: Wrong Argument :: disp"
 		print *, "[ERROR] >> size(disp,1) should be equal to obj%nne()"
 		stop
 	endif
-	do i=1,obj%nne()
-		do j=1,node_DOF
-			ElemDisp( node_DOF*(i-1) + j ) = Disp(i,j)
-		enddo
-	enddo
+	ElemDisp_m = reshape(transpose(Disp),[ size(Disp,1)*size(Disp,2),1 ])
+	ElemDisp = ElemDisp_m(:,1)
+	!do i=1,obj%nne()
+	!	do j=1,node_DOF
+	!		ElemDisp( node_DOF*(i-1) + j ) = Disp(i,j)
+	!	enddo
+	!enddo
 
 	if(present(gausspoint) )then
-		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
-		nod_coord=obj%Mesh%NodCoord,&
-		elem_nod=obj%Mesh%ElemNod,OptionalGpID=gausspoint)
+		!call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+		!nod_coord=obj%Mesh%NodCoord,&
+		!elem_nod=obj%Mesh%ElemNod,OptionalGpID=gausspoint)
 	
-		n=size(shapefunc%dNdgzi,2)*node_DOF
+		shapefunc = obj%getShapeFunction(&
+		ElementID=ElementID,GaussPointID=GaussPoint)
 
-		ns = node_DOF ! For 3D, 3-by-3 matrix.
-		if(.not.allocated(StressMatrix) ) then
-			allocate(StressMatrix(ns,ns) )
-			StressMatrix(:,:)=0.0d0
-		endif
-		if(size(StressMatrix,1)/=ns .or.size(StressMatrix,2)/=ns )then
-			if(allocated(StressMatrix)) then
-				deallocate(StressMatrix)
-			endif
-			allocate(StressMatrix(ns,ns) )
-		endif
+		!n=size(shapefunc%dNdgzi,2)*node_DOF
+
+		!ns = node_DOF ! For 3D, 3-by-3 matrix.
 
 		! get so-called B-matrix
 		Dmat = obj%Dmatrix(E,v)
 		Bmat = obj%Bmatrix(shapefunc)
 		
-		Stressvec = Stressvec + matmul(Dmat,matmul(Bmat,ElemDisp))
+		Stressvec = matmul(Dmat,matmul(Bmat,ElemDisp))
 	else
 		do i=1, shapefunc%NumOfGp
-			call getAllShapeFunc(shapefunc,elem_id=ElementID,&
-			nod_coord=obj%Mesh%NodCoord,&
-			elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+			
+			shapefunc = obj%getShapeFunction(&
+			ElementID=ElementID,GaussPointID=i)
 		
 			n=size(shapefunc%dNdgzi,2)*node_DOF
 	
 			ns = node_DOF ! For 3D, 3-by-3 matrix.
-			if(.not.allocated(StressMatrix) ) then
-				allocate(StressMatrix(ns,ns) )
-				StressMatrix(:,:)=0.0d0
-			endif
-			if(size(StressMatrix,1)/=ns .or.size(StressMatrix,2)/=ns )then
-				if(allocated(StressMatrix)) then
-					deallocate(StressMatrix)
-				endif
-				allocate(StressMatrix(ns,ns) )
-			endif
+			
 	
 			! get so-called B-matrix
+			!Bmat = obj%Bmatrix(shapefunc)
+			!Stressvec = Stressvec + matmul(Bmat,ElemDisp)
+
+			Dmat = obj%Dmatrix(E,v)
 			Bmat = obj%Bmatrix(shapefunc)
-			
-			Stressvec = Stressvec + matmul(Bmat,ElemDisp)
+		
+			Stressvec = Stressvec + matmul(Dmat,matmul(Bmat,ElemDisp))
 		enddo
 	endif
 
@@ -11326,13 +11316,15 @@ function zFEMDomain(obj) result(ret)
 end function
 ! ##################################################################
 
-function TractionVectorFEMDomain(obj,displacement,YoungModulus,PoissonRatio) result(Traction)
+function TractionVectorFEMDomain(obj,displacement,YoungModulus,PoissonRatio,debug_elementID) result(Traction)
 	class(FEMDomain_),intent(inout) :: obj
 	real(real64),intent(in) :: displacement(:),YoungModulus(:),PoissonRatio(:)
 	real(real64),allocatable :: Traction(:)
-	real(real64),allocatable :: Dmat(:,:), Bmat(:,:),Te(:),Teg(:),ElemDisp(:,:)
+	real(real64),allocatable :: Dmat(:,:), Bmat(:,:),Te(:),Teg(:),ElemDisp(:,:),Tem(:,:),Disp_vec(:,:)
 	real(real64),allocatable :: StressVector(:)
+	integer(int32),optional,intent(in) :: debug_elementID
 	type(ShapeFunction_) :: sf
+	type(IO_) :: f
 	integer(int32) :: i,j
 
 	if(obj%mesh%empty() )then
@@ -11345,6 +11337,11 @@ function TractionVectorFEMDomain(obj,displacement,YoungModulus,PoissonRatio) res
 
 	! For each element
 	do i=1, obj%ne()
+		if(present(debug_elementID) )then
+			if(debug_elementID==i)then
+				call f%open("TractionVector___debug_msg.txt")
+			endif
+		endif
 		! For each integration point
 		do j=1, obj%ngp()
 			! Compute traction vector
@@ -11358,18 +11355,66 @@ function TractionVectorFEMDomain(obj,displacement,YoungModulus,PoissonRatio) res
 			ElemDisp = selectRow(&
 				Matrix=reshape(Displacement,obj%nn(),obj%nd()),  &
 				RowIDs=obj%connectivity(ElementID=i) )
+			
 			! get Stress vector
+!  <<<<bug>>>>>
 			StressVector = obj%StressVector(&
 				ElementID=i,GaussPoint=j,disp= ElemDisp,&
 					E = YoungModulus(i),v=PoissonRatio(i) )
 			! get elemental traction vector
+!  <<<<bug>>>>>
+			!Tem = matmul(transpose(Bmat),matmul(obj%Dmatrix(E = YoungModulus(i),v=PoissonRatio(i)),&
+			!matmul(Bmat,reshape(transpose(ElemDisp),[size(ElemDisp,1)*size(ElemDisp,2),1] )  )))*sf%detJ
 			
 			Te = matmul(transpose(Bmat),StressVector)*sf%detJ
-			
+			!Te = reshape(Tem,[size(Tem,1)*size(Tem,2)])
 			
 			! add to global vector
 			Traction = Traction + obj%asGlobalVector(LocalVector=Te,ElementID=i,DOF=obj%nd() )
+			if(present(debug_elementID) )then
+				if(debug_elementID==i)then
+				
+					write(f%fh,*) "TractionVector >> debug mode:"
+					write(f%fh,*) "ElementID, GaussPointID",i,j
+					write(f%fh,*) "ElemDisp"
+					call f%write(ElemDisp)
+					write(f%fh,*) "ElemDisp(vector form)"
+					Disp_vec =  reshape(transpose(ElemDisp),[size(ElemDisp,1)*size(ElemDisp,2),1 ])
+					call f%write(Disp_vec)
+					write(f%fh,*) "Bmat"
+					call f%write(Bmat)
+					write(f%fh,*) "StressVector"
+					call f%write(StressVector)
+					write(f%fh,*) "%StressVector"
+					call f%write(obj%StressVector(&
+						ElementID=i,GaussPoint=j,disp= ElemDisp,&
+							E = YoungModulus(i),v=PoissonRatio(i) ))
+					write(f%fh,*) "Tem"
+					call f%write(Tem)
+					call f%write("Dmat")
+					call f%write(obj%Dmatrix(E = YoungModulus(i),v=PoissonRatio(i)) )
+					write(f%fh,*) "Traction(element)"
+					call f%write(Te)
+
+					write(f%fh,*) "*matmul(Bmat,ElemDisp)"
+					call f%write(matmul(Bmat,Disp_vec  ))					
+
+					write(f%fh,*) "*matmul(Dmat,matmul(Bmat,ElemDisp))"
+					call f%write(matmul(obj%Dmatrix(E = YoungModulus(i),v=PoissonRatio(i)),&
+						matmul(Bmat,Disp_vec  )))
+					
+					write(f%fh,*) "*sf%detJ*matmul(Dmat,matmul(Bmat,ElemDisp))"
+					call f%write(sf%detJ*matmul(obj%Dmatrix(E = YoungModulus(i),v=PoissonRatio(i)),&
+						matmul(Bmat,Disp_vec  )))
+				endif
+			endif
+
 		enddo	
+		if(present(debug_elementID) )then
+			if(debug_elementID==i)then
+				call f%close()
+			endif
+		endif
 	enddo
 
 end function
