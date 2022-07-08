@@ -947,7 +947,6 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
   print *, "[Warning] Please do not use this procedure"
   print *, "because this procedure has some bugs"
   print *, "Please use FEMSolverClass instead of this solver."
-  stop
 
   ! if not allocated COO format
   if(.not.allocated(obj%val) )then
