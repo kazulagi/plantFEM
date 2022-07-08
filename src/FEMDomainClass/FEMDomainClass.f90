@@ -10895,6 +10895,7 @@ function ConnectMatrixFEMDomain(obj,position,DOF,shapefunction,strict) result(co
 		return
 	
 	else
+		! P2P
 		sobj = obj%getShapeFunction(position=position)
 		n = (obj%nne()+1) * DOF
 		

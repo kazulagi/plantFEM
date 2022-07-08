@@ -1783,7 +1783,7 @@ subroutine setEbOMFEMSolver(this,penalty,DOF)
                         shapefunction=sf) 
                 else
                     ! P2P
-                    A_ij = penalty*this%FEMDomains(DomainID)%femdomainp&
+                    A_ij = penalty*this%FEMDomains(pairDomainID)%femdomainp&
                     %connectMatrix(position=position,DOF=this%FEMDomains(DomainID)%femdomainp&
                     %nd() ) 
                 endif
