@@ -36,6 +36,7 @@ module FEMDomainClass
 	integer(int32),parameter,public :: MSH_PRISM 	 = 6 !	Edge Lagrange P2
 	integer(int32),parameter,public :: MSH_PYRAMID  = 7 !	Triangle Lagrange P2
 
+	
 
 	integer(int32),parameter,public :: FEMDomain_Overset_GPP = 1
 	integer(int32),parameter,public :: FEMDomain_Overset_P2P = 2
@@ -119,6 +120,10 @@ module FEMDomainClass
 
 		real(real64) :: total_rotation(1:3) = 0.0d0
 		!type(FEMDomainp_),allocatable :: FEMDomains(:)
+
+		! pyhsical modifiers
+		integer(int32),allocatable :: grub_NodeList(:)
+
     contains
 		procedure,public :: add => addFEMDomain
 		procedure,public :: addNBC => AddNBCFEMDomain 
@@ -196,6 +201,8 @@ module FEMDomainClass
 		procedure,public :: getNearestNodeID => getNearestNodeIDFEMDomain
 		procedure,public :: getE2Econnectivity => getE2EconnectivityFEMDomain
 		procedure,public :: getElementCauchyStress => getElementCauchyStressFEMDomain
+
+		procedure,public :: getValue => getValueFEMDomain
 
 		procedure,public :: getSurface => getSurfaceFEMDomain
 		procedure,public ::	NodeID => NodeIDFEMDomain
@@ -289,6 +296,17 @@ module FEMDomainClass
 		procedure,public :: zmax => zmaxFEMDomain
 		procedure,public :: z_max => zmaxFEMDomain
 
+		procedure,public :: xrange  => xrangeFEMDomain
+		procedure,public :: x_range => xrangeFEMDomain
+		procedure,public :: xr      => xrangeFEMDomain
+
+		procedure,public :: yrange  => yrangeFEMDomain
+		procedure,public :: y_range => yrangeFEMDomain
+		procedure,public :: yr      => yrangeFEMDomain
+
+		procedure,public :: zrange  => zrangeFEMDomain
+		procedure,public :: z_range => zrangeFEMDomain
+		procedure,public :: zr      => zrangeFEMDomain
 		
 
 		procedure,public :: removeMaterials => removeMaterialsFEMDomain
@@ -297,6 +315,8 @@ module FEMDomainClass
 		procedure,public :: rename => renameFEMDomain
 		procedure,public :: resize => resizeFEMDomain
 		procedure,public :: fat => fatFEMDomain
+		procedure,public :: removeElement => removeElementFEMDomain
+		procedure,public :: removeElements=> removeElementFEMDomain
 		procedure,public :: remove => removeFEMDomain
 		procedure,public :: refine => refineFEMDomain
 		
@@ -348,6 +368,13 @@ module FEMDomainClass
 		procedure,public :: particles  => particlesFEMDomain
 
 		procedure,public :: sync => syncFEMDomain
+
+
+		!# physical modifiers
+		! Is it necessary?
+		!procedure :: grub    => grubFEMDomain ! grub some part of object in range
+		!procedure :: hold    => holdFEMDomain ! hold some part of object in range
+		!procedure :: release => releaseFEMDomain ! 
 		
     end type FEMDomain_
 
@@ -480,9 +507,59 @@ end subroutine
 ! ####################################################################
 
 
+recursive subroutine removeElementFEMDomain(this,x_min,x_max,y_min,y_max,z_min,z_max,&
+	xr,yr,zr)
+
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max,&
+		xr(1:2),yr(1:2),zr(1:2)
+	real(real64) :: xr_(1:2),yr_(1:2),zr_(1:2)
+	real(real64) :: xr__(1:2),yr__(1:2),zr__(1:2)
+	real(real64),allocatable :: x(:)
+	integer(int32),allocatable :: killElemList(:)
+	integer(int32) :: i
+
+	killElemList = zeros(this%ne())
+	xr_(1) = input(default=this%x_min(),option=x_min )
+	xr_(2) = input(default=this%x_max(),option=x_max )
+	yr_(1) = input(default=this%y_min(),option=y_min )
+	yr_(2) = input(default=this%y_max(),option=y_max )
+	zr_(1) = input(default=this%z_min(),option=z_min )
+	zr_(2) = input(default=this%z_max(),option=z_max )
+
+	if(present(xr) )then
+		xr_ = xr
+	endif
+	
+
+	if(present(yr) )then
+		yr_ = yr
+	endif
+
+
+	if(present(zr) )then
+		zr_ = zr
+	endif
+
+	do i=1,this%ne()
+		x = this%centerPosition(ElementID=i)
+		if(xr_(1) <= x(1) .and. x(1) <= xr_(2) )then
+			if(yr_(1) <= x(2) .and. x(2) <= yr_(2) )then
+				if(zr_(1) <= x(3) .and. x(3) <= zr_(2) )then
+					killElemList(i) = 1
+				endif
+			endif
+		endif
+	enddo
+
+	call this%killElement(blacklist=killElemList,flag=1)
+
+end subroutine
+
 ! ####################################################################
 subroutine removeFEMDomain(obj)
 	class(FEMDomain_),intent(inout) :: obj
+	
 
 	! remove all objects
 
@@ -5704,12 +5781,75 @@ subroutine GnuplotExportStress(obj,uvec,sigma,strain_measure,step )
  end subroutine
  !=======================================================================================
 
+pure function xrangeFEMDomain(this) result(xrange)
+	class(FEMDomain_),intent(in) :: this
+ 	real(real64) :: xrange(1:2)
+
+	if(.not.allocated(this%mesh%nodcoord) )then
+		xrange = 0.0d0
+	else
+		xrange(1) = minval(this%mesh%nodcoord(:,1) )
+		xrange(2) = maxval(this%mesh%nodcoord(:,1) )
+	endif
+
+end function
+
 ! ################################################
-subroutine moveFEMDomain(obj,x,y,z,NodeList)
+
+pure function yrangeFEMDomain(this) result(yrange)
+	class(FEMDomain_),intent(in) :: this
+ 	real(real64) :: yrange(1:2)
+
+	if(.not.allocated(this%mesh%nodcoord) )then
+		yrange = 0.0d0
+	else
+		yrange(1) = minval(this%mesh%nodcoord(:,2) )
+		yrange(2) = maxval(this%mesh%nodcoord(:,2) )
+	endif
+
+end function
+
+! ################################################
+
+pure function zrangeFEMDomain(this) result(zrange)
+	class(FEMDomain_),intent(in) :: this
+ 	real(real64) :: zrange(1:2)
+
+	if(.not.allocated(this%mesh%nodcoord) )then
+		zrange = 0.0d0
+	else
+		zrange(1) = minval(this%mesh%nodcoord(:,3) )
+		zrange(2) = maxval(this%mesh%nodcoord(:,3) )
+	endif
+
+end function
+
+! ################################################
+subroutine moveFEMDomain(obj,x,y,z,NodeList,to)
 	class(FEMDomain_),intent(inout)::obj
 	real(real64),optional,intent(in)::x,y,z
+	real(real64),allocatable :: center(:)
 	integer(int32),optional,intent(in) :: NodeList(:)
+	character(*),optional,intent(in) :: to
 	integer(int32) :: i, nid
+
+	if(present(to) )then
+		select case(to)
+		case("center","CENTER","Center")
+			center = obj%centerPosition()
+			call obj%move(x=-center(1),y=-center(2),z=-center(3) )
+		case("origin","ORIGIN","Origin")
+			center = zeros(obj%nd() )
+			do i=1,obj%nd()
+				center(i) = minval(obj%mesh%nodcoord(:,i))
+			enddo
+			call obj%move(x=-center(1),y=-center(2),z=-center(3) )
+		case default
+			print *, "ERROR :: moveFEMDomain + arg :: to >> invalid keyword"
+			print *, "select center or origin"
+		end select
+		return
+	endif
 	
 	if(present(NodeList) )then
 
@@ -11697,6 +11837,7 @@ function getScalarFieldFEMDomain(obj,xr,yr,zr,entryvalue,default) result(ScalarF
 	real(real64),allocatable:: ScalarField(:)
 	real(real64) :: x(3)
 	integer(int32) :: i,j,n
+	logical :: empty_field
 	
 	n = size(default)
 	if(n==obj%nn() )then
@@ -12822,6 +12963,73 @@ function getElementIDFEMDomain(this,x,debug,info) result(ElementID)
 
 
 end function
+
+! ##########################################################
+function getValueFEMDomain(this,scalar_field,position) result(retval)
+	class(FEMDomain_),intent(inout) :: this	
+	real(real64),intent(in) :: scalar_field(:),position(1:3)
+	real(real64) :: retval,localCoord(1:3)
+	type(ShapeFunction_) :: sf
+	integer(int32) :: ElementID,i
+	
+	ElementID = this%getElementID(x=position)
+
+    if(ElementID <=0)then
+		print *, "getValueFEMDomain >> invalid element position"
+		print *, "ERROR code: ",ElementID
+		stop
+	endif
+	
+	sf = this%getShapeFunction(ElementID=ElementID,position=position)
+	retval = 0.0d0
+	do i=1,this%nne()
+		retval = retval + sf%Nmat(i)*scalar_field(this%mesh%elemnod(ElementID,i) )
+	enddo
+
+  
+end function
+
+
+!## physical operator
+
+!! ####################################################
+!subroutine grubFEMDomain(this,x_min,x_max,y_min,y_max,z_min,z_max) 
+!	class(FEMDomain_),intent(in) :: this
+!	real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
+!	
+!
+!	if(allocated(this%grub_NodeList) )then
+!		this%grub_NodeList = this%select(x_min,x_max,y_min,y_max,z_min,z_max)
+!	else
+!		this%grub_NodeList = this%grub_NodeList // this%select(x_min,x_max,y_min,y_max,z_min,z_max)
+!	endif
+!
+!end subroutine
+!! ####################################################
+!
+!
+!! ####################################################
+!subroutine fixFEMDomain(this) 
+!	class(FEMDomain_),intent(in) :: this
+!	
+!	if(allocated(this%grub_NodeList) )then
+!		deallocate(this%grub_NodeList)
+!	endif
+!	
+!end subroutine
+!! ####################################################
+!
+!
+!! ####################################################
+!subroutine releaseFEMDomain(this) 
+!	class(FEMDomain_),intent(in) :: this
+!	
+!	if(allocated(this%grub_NodeList) )then
+!		deallocate(this%grub_NodeList)
+!	endif
+!	
+!end subroutine
+!! ####################################################
 
 end module FEMDomainClass
 
