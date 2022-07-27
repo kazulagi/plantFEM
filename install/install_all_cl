@@ -91,7 +91,7 @@ g++ -c ./src/COOClass/COOClass-cl.c -o inc/COOClass-c.o
 echo "Compiling ./src/COOClass/COOClass.f90 " 
 echo " >> COOClass.o "
 echo " | =>                          | (4%)\r\c"
-mpif90 -Ofast -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c COOClass-c.o ./src/COOClass/COOClass.f90 -o  ./inc/COOClass.o -llapack -lblas
+mpif90 -Ofast -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c  ./inc/COOClass-c.o ./src/COOClass/COOClass.f90 -o  ./inc/COOClass.o -llapack -lblas
 
 
 echo "Compiling ./src/RangeClass/RangeClass.f90 " 
