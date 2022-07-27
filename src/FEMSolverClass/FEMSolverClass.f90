@@ -113,6 +113,9 @@ module FEMSolverClass
         !(7-2) linear solver
         procedure,public :: solve => solveFEMSolver
 
+        !(7-3) condition number
+        procedure,public :: conditionNumber => conditionNumberFEMSolver
+
         !re-zero matrix
         procedure,public :: zeros => zerosFEMSolver
         ! M:diag matrix,  A*M^{-1}
@@ -1874,7 +1877,8 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug
     if(speak) print *, "BiCGSTAB >> [2] dp1"
 
     c1 = dot_product(r,r)
-
+    !call omp_dot_product(r,r,c1)
+    
     init_rr=c1
     !if(speak) print *, "BiCGSTAB >>      |r|^2 = ",init_rr
     
@@ -1887,11 +1891,14 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug
     do itr = 1, itrmax   
         if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] initialize"
         c1 = dot_product(r0,r)
+        !call omp_dot_product(r0,r,c1)
         
         y = crs_matvec(CRS_value=a,CRS_col=index_j,&
         CRS_row_ptr=ptr_i,old_vector=p)
 
         c2 = dot_product(r0,y)
+        !call omp_dot_product(r0,y,c2)
+        
         alp = c1/c2
         e(:) = r(:) - alp * y(:)
         v = crs_matvec(CRS_value=a,CRS_col=index_j,&
@@ -1902,12 +1909,17 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug
         
         ev = dot_product(e,v)
         vv = dot_product(v,v)
+        !call omp_dot_product(e,v,ev)
+        !call omp_dot_product(v,v,vv)
         
         if(  vv==0.0d0 ) stop "Bicgstab devide by zero"
             c3 = ev / vv
         x(:) = x(:) + alp * p(:) + c3 * e(:)
         r(:) = e(:) - c3 * v(:)
+
         rr = dot_product(r,r)
+        !call omp_dot_product(r,r,rr)
+        
         if(itr==1)then
             re_er0 = rr
         endif
@@ -1922,7 +1934,11 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug
         endif
         !    write(*,*) 'itr, er =', itr,rr
         if (sqrt(rr) < er0) exit
+        
         c1 = dot_product(r0,r)
+        !call omp_dot_product(r0,r,c1)
+        
+
         bet = c1 / (c2 * c3)
         if(  (c2 * c3)==0.0d0 ) stop "Bicgstab devide by zero"
         p(:) = r(:) + bet * (p(:) -c3*y(:) )
@@ -2484,5 +2500,33 @@ function MPI_matmulFEMSolver(this,A,b) result(my_c)
 
 
 end function
+
+! ################################################
+function conditionNumberFEMSolver(this) result(RCOND)
+    class(FEMSolver_),intent(in) :: this
+    integer(int32) :: N, LDA, INFO
+    real(real64),allocatable :: A(:,:)
+    real(real64) :: ANORM, RCOND
+    real(real64),allocatable :: WORK(:)
+    integer(int32),allocatable :: IWORK(:)
+    character(1) :: NORM
+    type(CRS_) :: crs
+
+    N = size(this%CRS_Index_Row)-1
+    LDA = N
+    CRS = this%getCRS()
+    A   = CRS%to_Dense()
+    NORM = "1"
+    ANORM = sqrt(dot_product(this%CRS_val,this%CRS_val))
+
+    allocate(WORK(4*N),IWORK(N) )
+    call dgecon(NORM,N,A,LDA,ANORM,RCOND,WORK,IWORK,INFO)
+
+    if(INFO <0)then
+        print *, "ERROR >> DEGCON failed."
+    endif
+
+end function
+! ################################################
 
 end module 

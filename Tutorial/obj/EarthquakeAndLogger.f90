@@ -28,7 +28,7 @@ program main
     ! Info: 
     Vs(1) = 150.0d0  !  150 m/s
     Vs(2) = 300.0d0  !  300 m/s
-    Vs(3) = 3000.0d0 ! 3000 m/s
+    Vs(3) = 1000.0d0 ! 1000 m/s
     density = 17.00d0/9.80d0
     Length    = 1000.00d0 ! 1 km
     Width     = 1000.00d0 ! 1 km
@@ -60,10 +60,7 @@ program main
     YoungModulus(domains(1)%getElementList(zmax=0.0d0) ) = (Vs(3)*Vs(3)*density)*2.0d0*(1.0d0+0.300d0)
     call domains(1)%rotate(y=radian(-30.0d0) )
 
-    call domains(1)%rotate(x=radian(30.0d0) )
     YoungModulus(domains(1)%getElementList(zmax=0.0d0) ) = (Vs(3)*Vs(3)*density)*2.0d0*(1.0d0+0.300d0)
-    call domains(1)%rotate(x=radian(-30.0d0) )
-
     YoungModulus(domains(1)%getElementList(zmax=-100.0d0) ) = (Vs(3)*Vs(3)*density)*2.0d0*(1.0d0+0.300d0)
     
     call domains(1)%vtk("YoungModulus",scalar=YoungModulus)

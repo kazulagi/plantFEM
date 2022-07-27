@@ -25,6 +25,8 @@ module CivilItemClass
 
         procedure :: PaddyField => PaddyFieldCivilItem
         procedure :: OpenChannel => OpenChannelCivilItem
+
+        procedure :: beam => beamCivilItem
     end type
 
 contains
@@ -1414,6 +1416,37 @@ function OpenChannelCivilItem(this,Length,Width,Depth,ChannelWidth,ChannelDepth,
 
 
 end function
+! ##########################################################
 
+function beamCivilItem(this,from,to,width,height,division) result(beam)
+    class(CivilItem_),intent(in) :: this
+    real(real64),intent(in) :: from(1:3),to(1:3),width,height
+    integer(int32),intent(in) :: division(1:3)
+    real(real64) :: beam_length,angles(1:3),vec(1:3),xa(1:3),ya(1:3),za(1:3)
+    type(FEMDomain_) :: beam
+
+    angles(:) = 0.0d0
+    beam_length = norm(to - from)
+    vec = to - from
+    xa = [1.0d0, 0.0d0, 0.0d0]
+    ya = [0.0d0, 1.0d0, 0.0d0]
+    za = [0.0d0, 0.0d0, 1.0d0]
+
+    call beam%create("Cube3D",x_num=division(1),y_num=division(2),z_num=division(3) )
+    call beam%resize(x=width,y=height,z=beam_length)
+    call beam%move(x=-0.50d0*width,y=-0.50d0*height)
+    
+    if(norm(vec)==0.0d0 )then
+        return
+    endif
+    angles(1) = acos(dot_product(vec,xa)/norm(vec)/norm(xa) )
+    angles(2) = acos(dot_product(vec,ya)/norm(vec)/norm(ya) )
+    angles(3) = acos(dot_product(vec,za)/norm(vec)/norm(za) )
+    
+    call beam%rotate(x=angles(1),y=angles(2),z=angles(3) )
+    call beam%move(to="center")
+    call beam%move(x=0.50d0*(from(1)+to(1)),y=0.50d0*(from(2)+to(2)),z=0.50d0*(from(3)+to(3)) )
+
+end function
 
 end module
