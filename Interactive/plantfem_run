@@ -475,6 +475,12 @@ homepath="$PWD"
         exit 0
     fi
 
+    if [ "${line}" = "build_command" ]; then
+        echo "mpif90  -llapack -lblas -fopenmp -fopenacc /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc/  -o server.out -llapack -lblas "
+        exit 0
+    fi
+
+
     EXTENSION=${1##*.}
     #echo "extension is $EXTENSION"
     if [ "$EXTENSION" = "$f90" ]; then

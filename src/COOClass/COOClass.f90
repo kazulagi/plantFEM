@@ -1,6 +1,27 @@
 module COOClass
+    use iso_c_binding
     use ArrayClass
     implicit none
+
+
+    interface
+      Subroutine c_dot_product(a,b,n,ret) bind(C,Name='c_dot_product')
+        import
+        integer(C_size_t),value :: n
+        real(c_double),intent(in) :: a(n),b(n)
+        real(c_double),intent(out) :: ret(1)
+      End Subroutine
+    End Interface
+
+    interface
+      Subroutine c_sparse_matvec(row_ptr,col_idx,val,x,n,n_col,ret) bind(C,Name='c_sparse_matvec')
+        import
+        integer(C_size_t),value :: n,n_col
+        integer(c_int),intent(in) :: row_ptr(n),col_idx(n_col)
+        real(c_double),intent(in) :: val(n-1),x(n-1)
+        real(c_double),intent(out) :: ret(n-1)
+      End Subroutine
+    End Interface
 
     type :: COO_Row_
         real(real64),allocatable :: val(:)
@@ -400,19 +421,39 @@ function crs_matvec_generic_cooclass(CRS_value,CRS_col,CRS_row_ptr,old_vector) r
     endif
   
     new_vector = zeros(n) 
-    !$OMP parallel do default(shared) private(CRS_id,col)
-    do row=1,n
-        do CRS_id=CRS_row_ptr(row),CRS_row_ptr(row+1)-1
-            col = CRS_col(CRS_id)
-            !$OMP atomic
-            new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(col)
+
+! accerelation
+
+    !$OMP parallel default(shared) private(CRS_id,col)
+    !$OMP do reduction(+:new_vector)
+    do row = 1 , n
+        do CRS_id = CRS_row_ptr(row), CRS_row_ptr(row+1)-1
+            new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(CRS_col(CRS_id))
         enddo
     enddo
-    !$OMP end parallel do 
+    !$OMP end do
+    !$OMP end parallel 
+    
+
+!    !$OMP parallel do default(shared) private(CRS_id,col)
+!    do row = 1 , n
+!        do CRS_id = CRS_row_ptr(row), CRS_row_ptr(row+1)-1
+!            col = CRS_col(CRS_id)
+!            !$OMP atomic
+!            new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(col)
+!        enddo
+!    enddo
+!    !$OMP end parallel do 
     
   end function
-  ! ###################################################################
-  
+! ###################################################################
+!function crs_opencl_matvec(CRS_row_ptr,CRS_col,CRS_value,old_vector) result(new_vector)
+!    integer(int32), intent(in)  :: CRS_row_ptr(:),CRS_col(:)
+!    real(real64),intent(in) :: CRS_value(:), old_vector(:)
+!
+!    
+!end function
+! ###################################################################
 subroutine eigCRS(this,Eigen_vectors,eigen_values)
     class(CRS_),intent(in) :: this
     real(real64),allocatable :: A(:,:), V(:,:)

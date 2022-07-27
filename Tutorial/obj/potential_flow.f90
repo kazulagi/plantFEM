@@ -2,7 +2,7 @@ program main
     use SeepageFlowClass
     implicit none
 
-    type(SeepageFlow_) :: sim
+    type(SeepageFlow_) :: solver
     type(FEMDomain_) :: soil
     real(real64),allocatable :: PorePressure(:),Velocity(:,:)
 
@@ -11,23 +11,23 @@ program main
     ! or you can read 
     !call soil%read("your_awesome_mesh.vtk")
     
-    ! initialize simulator
-    call sim%init(soil,model="Darcy",Permiability=full(soil%nn(),1.0d0 ))
+    ! initialize solverulator
+    call solver%init(soil,model="Darcy",Permiability=full(soil%nn(),1.0d0 ))
 
     ! Boundary condition
-    call sim%fixPressureBoundary(&
+    call solver%fixPressureBoundary(&
             NodeList = soil%select(x_max=soil%x_min()+ 0.10d0) , &
             pressure = -1.0d0 &
         )
-    call sim%fixPressureBoundary(&
+    call solver%fixPressureBoundary(&
         NodeList = soil%select(x_min=soil%x_max() - 0.10d0) ,  &
         pressure = 1.0d0 &
     )
 
     print *, "solve"
     
-    PorePressure = sim%getPressure(debug=.true.)
-    Velocity     = sim%getVelocity(Pressure=PorePressure,Permiability=1.0d0)
+    PorePressure = solver%getPressure(debug=.true.)
+    Velocity     = solver%getVelocity(Pressure=PorePressure,Permiability=1.0d0)
     
     ! Compute pore-pressure
     ! visualization

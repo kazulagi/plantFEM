@@ -108,6 +108,7 @@ module FEMDomainClass
 		type(OversetConnect_),allocatable :: OversetConnect(:)
 		integer(int32),allocatable :: OversetExists(:,:)
 		integer(int32) :: num_oversetconnect = 0
+		
 		! それか，pairingだけを決める．
 		
 		! juncs

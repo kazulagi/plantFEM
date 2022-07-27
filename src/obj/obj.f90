@@ -1,4 +1,5 @@
 module obj
+    use sim
     use EarthClass
     use CivilItemClass
     use DigitalElevationModelClass
@@ -9,6 +10,7 @@ module obj
     use AirClass
     use DamClass
 
+    use LoggerClass
     use StemClass
     use PlantRootClass
     use RootClass

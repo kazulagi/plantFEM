@@ -812,7 +812,7 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio
                 
                 
                
-                new_U = obj%modal%solver%solve()
+                new_U = obj%modal%solver%solve(x0=obj%U)
 
                 New_A   = 1.0d0/dt/dt/obj%Newmark_beta*new_U  + bar_A
 
@@ -878,7 +878,7 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio
                 call obj%modal%solver%setRHS(F_vec)
                 
            
-                new_U = obj%modal%solver%solve()
+                new_U = obj%modal%solver%solve(x0=obj%U_n)
 
                 new_V = 6.0d0/dt*new_U - 6.0d0/dt*obj%U_n - (obj%v_n + 2.0d0*obj%v_half)
 
