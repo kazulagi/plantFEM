@@ -1,4 +1,4 @@
-module PanicleClass
+module EarClass
     use, intrinsic :: iso_fortran_env
     use KinematicClass
     use StemClass
@@ -6,7 +6,7 @@ module PanicleClass
 
     implicit none
 
-    type :: Panicle_
+    type :: Ear_
         type(FEMDomain_)    ::  FEMDomain
         real(real64)        :: Length,Width,Angle
         type(Stem_),pointer ::  pStem
@@ -30,94 +30,55 @@ module PanicleClass
         real(real64) :: disp_z
 
     contains
-        procedure, public :: Init => initPanicle
-        procedure, public :: move => movePanicle
-        procedure, public :: getCoordinate => getCoordinatePanicle
-        procedure, public :: connect => connectPanicle
-        procedure, public :: vtk => vtkPanicle
+        procedure, public :: Init => initEar
+        procedure, public :: move => moveEar
+        procedure, public :: getCoordinate => getCoordinateEar
+        procedure, public :: connect => connectEar
+        procedure, public :: vtk => vtkEar
     end type
 
 contains
 
 ! #####################################################
-subroutine initPanicle(this,Length,Width,Node,shape_factor,debug)
-    class(Panicle_),intent(inout) :: this
-    real(real64),intent(in) :: Length, width
-    integer(int32),intent(in) :: Node
-    real(real64),optional,intent(in) :: shape_factor
-    
-    real(real64):: Angle
+subroutine initEar(this,Length,Width,Angle,debug)
+    class(Ear_),intent(inout) :: this
+    real(real64),intent(in) :: Length, width, Angle
     type(Math_) :: math
     type(Random_) :: random
     real(real64) :: x,y,z,r,theta,alpha,dist_val
-    real(real64),allocatable :: x_axis(:),y_axis(:),z_axis(:),z_axis0(:)
-    integer(int32) :: i,j
-    integer(int32),allocatable :: buf(:), kill_element_list(:)
+    integer(int32) :: i
+    integer(int32),allocatable :: buf(:)
     logical,optional,intent(in) :: debug
 
     real(real64) :: center_coord(1:3)
-    real(real64) :: shape_factor_val 
 
-    shape_factor_val = input(default=0.40d0,option=shape_factor)
-    
-
-
-
-    Angle = 0.0d0 ! vertical panicle
     this%Length = length
     this%Width = Width
     this%Angle = Angle
 
-    x_axis = [-Length*shape_factor_val,-width/2.0d0,0.0d0,width/2.0d0,Length*shape_factor_val]
-    call refine(x_axis,5)
-
-    y_axis=[-width/2.0d0,0.0d0,width/2.0d0]
-    call refine(y_axis,1)
-
-    z_axis = [0.0d0]
-    do i=1,Node
-        z_axis = z_axis // [ this%Length*shape_factor_val/dble(Node)*dble(i)]
-        z_axis = z_axis // [ z_axis(size(z_axis) )+this%width ]
-    enddo
-    z_axis = z_axis // [this%Length]
-    z_axis0 = z_axis
-    call refine(z_axis,5)
-
     call this%FEMDomain%create("Cube3D",&
-        x_axis=x_axis,y_axis=y_axis,z_axis=z_axis)
-    kill_element_list = zeros(this%FEMDomain%ne() ) 
-    do i=1,this%FEMDomain%ne()
-        center_coord = this%FEMDomain%centerPosition(ElementID=i)
-        do j=1,size(z_axis0)-1,2
-            if( z_axis0(j)< center_coord(3) .and. center_coord(3) < z_axis0(j+1) )then
-                if( abs(center_coord(1)) > width/2.0d0  )then
-                    kill_element_list(i)  = 1
-                endif
-            endif
-        enddo
-    enddo
-    call this%FEMDomain%killElement(blacklist=kill_element_list,flag=1)
+        x_num=this%division(1),y_num=this%division(2),z_num=this%division(3) )
+    call this%FEMDomain%resize(x=Width,y=width,z=Length)
     
+    x = 0.50d0*(Width)
+    y = 0.50d0*(Width)
+    z = this%FEMDomain%zmin()
     
-
-    ! edit
+    call this%FEMDomain%move(x=-x,y=-y,z=-z)
+    
     do i=1,this%FEMDomain%nn()
-        center_coord = this%FEMDomain%mesh%nodcoord(i,:)
-        if(abs(center_coord(1))>width/2.0d0 )then
-            alpha = center_coord(3)/Length
-            if(alpha==1.0d0) cycle
-            theta = radian(alpha*90.0d0) ! angle:: alpha=0 => 0, alpha=1 => radian(90.0)
-            
-            ! new x
-            this%FEMDomain%mesh%nodcoord(i,1) = this%FEMDomain%mesh%nodcoord(i,1)*cos(theta)
-            ! new z
-            this%FEMDomain%mesh%nodcoord(i,3) = this%FEMDomain%mesh%nodcoord(i,3) + abs(center_coord(1))*tan(theta)  ! x * tan(theta)
-            
+        z = this%FEMDomain%mesh%nodcoord(i,3)
+        if(z < Length*1.0d0/3.0d0)then
+            theta = z/(Length*1.0d0/3.0d0)
+            alpha = 0.30d0 + (1.0d0-0.30d0)*theta !0.3 at theta=0.0, 1.0 at theta = 1.0
+            this%FEMDomain%mesh%nodcoord(i,1:2) = this%FEMDomain%mesh%nodcoord(i,1:2)*alpha 
+        else
+            theta = (z-Length*1.0d0/3.0d0)/(Length*2.0d0/3.0d0)
+            alpha = 1.00d0 + (0.30d0-1.0d0)*theta !1.0 at theta=0.0, 0.30 at theta = 1.0
+            this%FEMDomain%mesh%nodcoord(i,1:2) = this%FEMDomain%mesh%nodcoord(i,1:2)*alpha 
         endif
     enddo
 
-    
-    call this%FEMDomain%rotate(z=math%PI*2.0d0*random%random() )
 
 !    ! <I>面に属する要素番号、節点番号、要素座標、節点座標のリストを生成
 !    this%I_planeNodeID = this%FEMdomain%mesh%getNodeList(zmax=0.0d0)
@@ -230,15 +191,16 @@ subroutine initPanicle(this,Length,Width,Node,shape_factor,debug)
 !    if(debug) print *, this%A_PointElementID
 !    if(debug) print *, this%B_PointElementID
 !
-    this%A_PointNodeID = this%FEMDomain%getNearestNodeID(x=0.0d0,y=0.0d0,z=0.0d0)
-    this%B_PointNodeID = this%FEMDomain%getNearestNodeID(x=0.0d0,y=0.0d0,z=Length)
+    this%A_PointNodeID = (this%division(1)+1)*(this%division(2)+1)/2
+    this%B_PointNodeID = this%FEMDomain%nn()- (this%division(1)+1)*(this%division(2)+1)/2
+    call this%FEMDomain%rotate(x=radian(Angle),z=math%PI*2.0d0*random%random() )
 
 end subroutine
 ! #####################################################
 
 ! #####################################################
-subroutine vtkPanicle(this,name)
-    class(Panicle_),intent(inout) :: this
+subroutine vtkEar(this,name)
+    class(Ear_),intent(inout) :: this
     character(*),intent(in) :: name
 
     call this%FEMDomain%vtk(name=name)
@@ -248,8 +210,8 @@ end subroutine
 
 
 ! ########################################
-recursive subroutine movePanicle(this,x,y,z,reset)
-    class(Panicle_),intent(inout) :: this
+recursive subroutine moveEar(this,x,y,z,reset)
+    class(Ear_),intent(inout) :: this
     real(real64),optional,intent(in) :: x,y,z
     logical,optional,intent(in) :: reset
     real(real64),allocatable :: origin1(:),origin2(:),disp(:)
@@ -274,8 +236,8 @@ end subroutine
 
 
 ! ########################################
-function getCoordinatePanicle(this,nodetype) result(ret)
-    class(Panicle_),intent(in) :: this
+function getCoordinateEar(this,nodetype) result(ret)
+    class(Ear_),intent(in) :: this
     character(*),intent(in) :: nodetype
     real(real64),allocatable :: ret(:)
     integer(int32) :: dimnum,n,i
@@ -297,11 +259,11 @@ function getCoordinatePanicle(this,nodetype) result(ret)
 
         n = size(this%I_planeNodeID )
         if(n==0)then
-            print *, "ERROR >> getCoordinatePanicle >> size(this%I_planeNodeID) = 0"
+            print *, "ERROR >> getCoordinateEar >> size(this%I_planeNodeID) = 0"
         endif
         if(.not.allocated(this%I_planeNodeID))then
             
-            print *, "ERROR >> getCoordinatePanicle >> .not. allocated(this%I_planeNodeID) "
+            print *, "ERROR >> getCoordinateEar >> .not. allocated(this%I_planeNodeID) "
             
         endif
         do i=1,n
@@ -322,11 +284,11 @@ function getCoordinatePanicle(this,nodetype) result(ret)
 
         n = size(this%II_planeNodeID )
         if(n==0)then
-            print *, "ERROR >> getCoordinatePanicle >> size(this%II_planeNodeID) = 0"
+            print *, "ERROR >> getCoordinateEar >> size(this%II_planeNodeID) = 0"
         endif
         if(.not.allocated(this%I_planeNodeID))then
             
-            print *, "ERROR >> getCoordinatePanicle >> .not. allocated(this%II_planeNodeID) "
+            print *, "ERROR >> getCoordinateEar >> .not. allocated(this%II_planeNodeID) "
             
         endif
         do i=1,n
@@ -340,8 +302,8 @@ end function
 
 ! ########################################
 
-subroutine connectPanicle(obj,direct,stem)
-    class(Panicle_),intent(inout) :: obj
+subroutine connectEar(obj,direct,stem)
+    class(Ear_),intent(inout) :: obj
     class(Stem_),intent(inout) :: stem
 
     character(2),intent(in) :: direct

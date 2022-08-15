@@ -16,7 +16,9 @@ module ArrayClass
     contains
         procedure, public :: array => arrayarrayReal
         procedure, public :: init => zerosRealArrayArrayClass
+        
         procedure, public :: zeros => zerosRealArrayArrayClass
+
         procedure, public :: eye => eyeRealArrayArrayClass
         procedure, public :: unit => eyeRealArrayArrayClass
         procedure, public :: random => randomRealArrayArrayClass

@@ -411,6 +411,13 @@ echo " >> RootClass.o "
 echo " | =======================>    | (90%)\r\c"
 mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RootClass/RootClass.f90 -o  ./inc/RootClass.o
 
+
+echo "Compiling ./src/EarClass/EarClass.f90" 
+echo " >> EarClass.o "
+echo " | =======================>    | (90%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/EarClass/EarClass.f90 -o  ./inc/EarClass.o
+
+
 echo "Compiling ./src/PetiClass/PetiClass.f90" 
 echo " >> PetiClass.o "
 echo " | =======================>    | (90%)\r\c"
