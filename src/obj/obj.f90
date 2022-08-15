@@ -14,6 +14,8 @@ module obj
     use StemClass
     use PlantRootClass
     use RootClass
+    use EarClass
+    
     use PetiClass
     use PodClass
     use FlowerClass

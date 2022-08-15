@@ -2779,5 +2779,4 @@ real(real64) function logit(x,params)
 end function
 ! ###########################################################
 
-
 end module MathClass
