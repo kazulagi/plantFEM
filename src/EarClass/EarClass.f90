@@ -32,6 +32,7 @@ module EarClass
     contains
         procedure, public :: Init => initEar
         procedure, public :: move => moveEar
+        procedure, public :: rotate => rotateEar
         procedure, public :: getCoordinate => getCoordinateEar
         procedure, public :: connect => connectEar
         procedure, public :: vtk => vtkEar
@@ -232,6 +233,17 @@ recursive subroutine moveEar(this,x,y,z,reset)
     
 end subroutine
 ! ########################################
+
+
+! ########################################
+recursive subroutine rotateEar(this,x,y,z)
+    class(Ear_),intent(inout) :: this
+    real(real64),optional,intent(in) :: x,y,z
+
+    call this%FEMDomain%rotate(x=x,y=y,z=z)
+end subroutine
+! ########################################
+
 
 
 
