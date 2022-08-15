@@ -32,8 +32,10 @@ module PanicleClass
     contains
         procedure, public :: Init => initPanicle
         procedure, public :: move => movePanicle
+        procedure, public :: rotate => rotatePanicle
         procedure, public :: getCoordinate => getCoordinatePanicle
         procedure, public :: connect => connectPanicle
+
         procedure, public :: vtk => vtkPanicle
     end type
 
@@ -368,5 +370,13 @@ end subroutine
 
 ! ########################################
 
+! ########################################
+recursive subroutine rotatePanicle(this,x,y,z)
+    class(Panicle_),intent(inout) :: this
+    real(real64),optional,intent(in) :: x,y,z
+
+    call this%FEMDomain%rotate(x=x,y=y,z=z)
+end subroutine
+! ########################################
 
 end module
