@@ -3,7 +3,7 @@ implicit none
 
 
 type(Soybean_) :: soy
-real(real64),allocatable :: displacement(:),a(:),Modes(:,:), Freq(:)
+real(real64),allocatable :: displacement(:),Modes(:,:), Freq(:)
 
 
 call soy%init("Tutorial/obj/mini_soy.json")
@@ -17,7 +17,7 @@ call soy%setPoissonRatio(0.30d0)
 call soy%setDensity(1.200d0)
 
 Modes = soy%getEigenMode(ground_level=0.020d0,penalty=10000000.0d0,&
-    debug=.true., Frequency=Freq,num_mode=20)
+    debug=.true., Frequency=Freq,EbOM_Algorithm = "P2P")
 
 ! fundamental
 displacement = Modes(:,1)

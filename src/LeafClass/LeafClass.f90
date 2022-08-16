@@ -303,12 +303,12 @@ end subroutine
 ! ########################################
     subroutine initLeaf(obj,config,regacy,Thickness,length,width,ShapeFactor,&
         MaxThickness,Maxlength,Maxwidth,rotx,roty,rotz,location,species,SoyWidthRatio,&
-        curvature)
+        curvature,x_num,y_num,z_num)
         class(leaf_),intent(inout) :: obj
         real(real64),optional,intent(in) :: Thickness,length,width,ShapeFactor
         real(real64),optional,intent(in) :: MaxThickness,Maxlength,Maxwidth
         real(real64),optional,intent(in)::  rotx,roty,rotz,location(3),SoyWidthRatio,curvature
-        integer(int32),optional,intent(in) :: species
+        integer(int32),optional,intent(in) :: species, x_num,y_num,z_num
         logical, optional,intent(in) :: regacy
         character(*),optional,intent(in) :: config
         type(IO_) :: leafconf,f
@@ -489,9 +489,12 @@ end subroutine
     
         enddo
         call leafconf%close()
-    
+        
             
-    
+        obj%xnum = input(default=obj%xnum,option=x_num)
+        obj%ynum = input(default=obj%ynum,option=y_num)
+        obj%znum = input(default=obj%znum,option=z_num)
+        
         ! グラフ構造とメッシュ構造を生成する。
     
         !

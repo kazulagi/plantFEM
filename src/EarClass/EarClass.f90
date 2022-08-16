@@ -29,6 +29,14 @@ module EarClass
         real(real64) :: disp_y
         real(real64) :: disp_z
 
+        ! For deformation analysis
+        real(real64),allocatable :: YoungModulus(:)! element-wise
+        real(real64),allocatable :: PoissonRatio(:)! element-wise
+        real(real64),allocatable :: Density(:)     ! element-wise
+        real(real64),allocatable :: Stress(:,:,:)     ! Gauss point-wise
+        real(real64),allocatable :: Displacement(:,:) ! node-wise, three dimensional
+
+
     contains
         procedure, public :: Init => initEar
         procedure, public :: move => moveEar
@@ -36,14 +44,16 @@ module EarClass
         procedure, public :: getCoordinate => getCoordinateEar
         procedure, public :: connect => connectEar
         procedure, public :: vtk => vtkEar
+        procedure, public :: stl => stlEar
     end type
 
 contains
 
 ! #####################################################
-subroutine initEar(this,Length,Width,Angle,debug)
+subroutine initEar(this,Length,Width,Angle,debug,x_num,y_num,z_num)
     class(Ear_),intent(inout) :: this
     real(real64),intent(in) :: Length, width, Angle
+    integer(int32),optional,intent(in) :: x_num,y_num,z_num
     type(Math_) :: math
     type(Random_) :: random
     real(real64) :: x,y,z,r,theta,alpha,dist_val
@@ -56,6 +66,9 @@ subroutine initEar(this,Length,Width,Angle,debug)
     this%Length = length
     this%Width = Width
     this%Angle = Angle
+    this%division(1) = input(default=this%division(1),option=x_num )
+    this%division(2) = input(default=this%division(2),option=y_num )
+    this%division(3) = input(default=this%division(3),option=z_num )
 
     call this%FEMDomain%create("Cube3D",&
         x_num=this%division(1),y_num=this%division(2),z_num=this%division(3) )
@@ -332,6 +345,8 @@ subroutine connectEar(obj,direct,stem)
 
     if(direct=="<-" .or. direct=="<=")then
         ! move obj to connect stem (stem is not moved.)
+
+
         x1 = stem%getCoordinate("A")
         x2 =  obj%getCoordinate("B")
         disp = x2 - x1
@@ -342,5 +357,18 @@ end subroutine
 
 ! ########################################
 
+
+! ##############################################
+
+subroutine stlEar(obj,name)
+    class(Ear_),intent(inout) :: obj
+    character(*),intent(in) ::name
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
+    call obj%femdomain%stl(Name=name)
+end subroutine
+! ########################################
 
 end module

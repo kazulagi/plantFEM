@@ -97,7 +97,7 @@
         "leaf_curvature": 1.2000,
         "leaf_thickness_ave"  :  0.001000,
         "leaf_thickness_sig"  :  0.000500,
-        "leaf_angle_ave_x": 60.00,
+        "leaf_angle_ave_x": 70.00,
         "leaf_angle_sig_x": 4.00,
         "leaf_angle_ave_z": 0.00,
         "leaf_angle_sig_z": 4.00,
@@ -111,7 +111,7 @@
         "leaf_curvature": 1.2000,
         "leaf_thickness_ave"  :  0.001000,
         "leaf_thickness_sig"  :  0.000500,
-        "leaf_angle_ave_x": 60.00,
+        "leaf_angle_ave_x": 70.00,
         "leaf_angle_sig_x": 4.00,
         "leaf_angle_ave_z": 180.00,
         "leaf_angle_sig_z": 4.00,
@@ -125,7 +125,7 @@
         "leaf_curvature": 1.2000,
         "leaf_thickness_ave"  :  0.001000,
         "leaf_thickness_sig"  :  0.000500,
-        "leaf_angle_ave_x": 40.00,
+        "leaf_angle_ave_x": 60.00,
         "leaf_angle_sig_x": 1.00,
         "leaf_angle_ave_z": 0.00,
         "leaf_angle_sig_z": 4.00,
@@ -140,7 +140,7 @@
         "leaf_curvature": 1.2000,
         "leaf_thickness_ave"  :  0.001000,
         "leaf_thickness_sig"  :  0.000500,
-        "leaf_angle_ave_x": 40.00,
+        "leaf_angle_ave_x": 60.00,
         "leaf_angle_sig_x": 1.00,
         "leaf_angle_ave_z": 180.00,
         "leaf_angle_sig_z": 4.00,
@@ -171,7 +171,9 @@
         "Node":5,
         "shape_factor":0.40
     },
-
+    
+    "COMMENT" :"[Root] are not implemented yet.",
+    
     "Mainroot":{
         "Length":0.98,
         "Width":0.010,
