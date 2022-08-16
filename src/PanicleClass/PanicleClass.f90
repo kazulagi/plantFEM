@@ -10,7 +10,7 @@ module PanicleClass
         type(FEMDomain_)    ::  FEMDomain
         real(real64)        :: Length,Width,Angle
         type(Stem_),pointer ::  pStem
-        integer(int32) :: division(1:3) = [6,6,30]
+        integer(int32) :: division(1:3) = [5,1,5]
 
 
         integer(int32),allocatable  :: I_planeNodeID(:)
@@ -29,23 +29,32 @@ module PanicleClass
         real(real64) :: disp_y
         real(real64) :: disp_z
 
+        ! For deformation analysis
+        real(real64),allocatable :: YoungModulus(:)! element-wise
+        real(real64),allocatable :: PoissonRatio(:)! element-wise
+        real(real64),allocatable :: Density(:)     ! element-wise
+        real(real64),allocatable :: Stress(:,:,:)     ! Gauss point-wise
+        real(real64),allocatable :: Displacement(:,:) ! node-wise, three dimensional
+
+
     contains
         procedure, public :: Init => initPanicle
         procedure, public :: move => movePanicle
         procedure, public :: rotate => rotatePanicle
         procedure, public :: getCoordinate => getCoordinatePanicle
         procedure, public :: connect => connectPanicle
-
         procedure, public :: vtk => vtkPanicle
+        procedure, public :: stl => stlPanicle
     end type
 
 contains
 
 ! #####################################################
-subroutine initPanicle(this,Length,Width,Node,shape_factor,debug)
+subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num,y_num,z_num)
     class(Panicle_),intent(inout) :: this
     real(real64),intent(in) :: Length, width
     integer(int32),intent(in) :: Node
+    integer(int32),optional,intent(in) :: x_num,y_num,z_num
     real(real64),optional,intent(in) :: shape_factor
     
     real(real64):: Angle
@@ -62,19 +71,22 @@ subroutine initPanicle(this,Length,Width,Node,shape_factor,debug)
 
     shape_factor_val = input(default=0.40d0,option=shape_factor)
     
-
+    
 
 
     Angle = 0.0d0 ! vertical panicle
     this%Length = length
     this%Width = Width
     this%Angle = Angle
+    this%division(1) = input(default=this%division(1),option=x_num )
+    this%division(2) = input(default=this%division(2),option=y_num )
+    this%division(3) = input(default=this%division(3),option=z_num )
 
     x_axis = [-Length*shape_factor_val,-width/2.0d0,0.0d0,width/2.0d0,Length*shape_factor_val]
-    call refine(x_axis,5)
+    call refine(x_axis,this%division(1) )
 
     y_axis=[-width/2.0d0,0.0d0,width/2.0d0]
-    call refine(y_axis,1)
+    call refine(y_axis,this%division(2))
 
     z_axis = [0.0d0]
     do i=1,Node
@@ -83,7 +95,7 @@ subroutine initPanicle(this,Length,Width,Node,shape_factor,debug)
     enddo
     z_axis = z_axis // [this%Length]
     z_axis0 = z_axis
-    call refine(z_axis,5)
+    call refine(z_axis,this%division(3))
 
     call this%FEMDomain%create("Cube3D",&
         x_axis=x_axis,y_axis=y_axis,z_axis=z_axis)
@@ -376,6 +388,19 @@ recursive subroutine rotatePanicle(this,x,y,z)
     real(real64),optional,intent(in) :: x,y,z
 
     call this%FEMDomain%rotate(x=x,y=y,z=z)
+end subroutine
+! ########################################
+
+! ##############################################
+
+subroutine stlPanicle(obj,name)
+    class(Panicle_),intent(inout) :: obj
+    character(*),intent(in) ::name
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
+    call obj%femdomain%stl(Name=name)
 end subroutine
 ! ########################################
 

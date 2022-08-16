@@ -103,13 +103,15 @@ contains
 
 
 ! ########################################
-subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlength,Maxwidth,rotx,roty,rotz,location)
+subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,&
+    Maxlength,Maxwidth,rotx,roty,rotz,location, x_num,y_num,z_num)
     class(Stem_),intent(inout) :: obj
     real(real64),optional,intent(in)::  Thickness,length,width
     real(real64),optional,intent(in)::  MaxThickness,Maxlength,MaxWidth
     real(real64),optional,intent(in)::  rotx,roty,rotz,location(3)
     logical, optional,intent(in) :: regacy
     character(*),optional,intent(in) :: config
+    integer(int32),optional,intent(in) :: x_num,y_num,z_num
     type(IO_) :: stemconf,f
     character(200) :: fn,conf,line
     integer(int32),allocatable :: buf(:)
@@ -278,6 +280,11 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     !                                             
 
     ! メッシュを生成
+    
+        
+    obj%xnum = input(default=obj%xnum,option=x_num)
+    obj%ynum = input(default=obj%ynum,option=y_num)
+    obj%znum = input(default=obj%znum,option=z_num)
     
     call obj%FEMdomain%create(meshtype="Cube",x_num=obj%xnum,y_num=obj%ynum,z_num=obj%znum,&
     x_len=obj%mindiameter/2.0d0,y_len=obj%mindiameter/2.0d0,z_len=obj%minlength )

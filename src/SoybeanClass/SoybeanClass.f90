@@ -181,47 +181,47 @@ module SoybeanClass
         real(real64) :: VC_leaf_thickness_sig = 0.00001d0
 
     contains
-    !procedure,public :: addRoot => addRootSoybean
-    !procedure,public :: addLeaf => addLeafSoybean
-    
-    ! creation
-    procedure,public :: Init => initsoybean
-    procedure,public :: VC => VCSoybean
-    
-    
-    procedure,public :: remove => removeSoybean
-    procedure,public :: create => initsoybean
-    procedure,public :: new => initsoybean
-    procedure,public :: sowing => initsoybean
-    procedure,public :: export => exportSoybean
-    procedure,public :: expanition => expanitionSoybean
-    procedure,public :: development => developmentSoybean
-    
-    !  Simulator
-    procedure,public :: checkProperties => checkPropertiesSoybean
-    procedure,public :: setPoints    => setPointsSoybean
-    procedure,public :: setProperties => setPropertiesSoybean
-    
-    
-    ! simple setters
-    procedure,public :: addStem => addStemSoybean
-    procedure,public :: setPropertiesDensity => setPropertiesDensitySoybean
-    procedure,public :: setPropertiesYoungModulus => setPropertiesYoungModulusSoybean
-    procedure,public :: setPropertiesPoissonRatio => setPropertiesPoissonRatioSoybean
-    procedure,public :: setPropertiesInitialDisplacement => setPropertiesInitialDisplacementSoybean
-    procedure,public :: setPropertiesInitialStress => setPropertiesInitialStressSoybean
-    procedure,public :: setPropertiesBoundaryTractionForce => setPropertiesBoundaryTractionForceSoybean
-    procedure,public :: setPropertiesBoundaryDisplacement => setPropertiesBoundaryDisplacementSoybean
-    procedure,public :: setPropertiesGravity => setPropertiesGravitySoybean
-    
-    ! alternative setters
-    procedure,public :: setYoungModulus => setYoungModulusSoybean
-    procedure,public :: setPoissonRatio => setPoissonRatioSoybean
-    procedure,public :: setDensity => setDensitySoybean
-    
-    procedure,public :: runSimulation => runSimulationSoybean
-    procedure,public :: runSimulator => runSimulationSoybean
-    ! readyForSoybean
+        !procedure,public :: addRoot => addRootSoybean
+        !procedure,public :: addLeaf => addLeafSoybean
+
+        ! creation
+        procedure,public :: Init => initsoybean
+        procedure,public :: VC => VCSoybean
+
+
+        procedure,public :: remove => removeSoybean
+        procedure,public :: create => initsoybean
+        procedure,public :: new => initsoybean
+        procedure,public :: sowing => initsoybean
+        procedure,public :: export => exportSoybean
+        procedure,public :: expanition => expanitionSoybean
+        procedure,public :: development => developmentSoybean
+
+        !  Simulator
+        procedure,public :: checkProperties => checkPropertiesSoybean
+        procedure,public :: setPoints    => setPointsSoybean
+        procedure,public :: setProperties => setPropertiesSoybean
+
+
+        ! simple setters
+        procedure,public :: addStem => addStemSoybean
+        procedure,public :: setPropertiesDensity => setPropertiesDensitySoybean
+        procedure,public :: setPropertiesYoungModulus => setPropertiesYoungModulusSoybean
+        procedure,public :: setPropertiesPoissonRatio => setPropertiesPoissonRatioSoybean
+        procedure,public :: setPropertiesInitialDisplacement => setPropertiesInitialDisplacementSoybean
+        procedure,public :: setPropertiesInitialStress => setPropertiesInitialStressSoybean
+        procedure,public :: setPropertiesBoundaryTractionForce => setPropertiesBoundaryTractionForceSoybean
+        procedure,public :: setPropertiesBoundaryDisplacement => setPropertiesBoundaryDisplacementSoybean
+        procedure,public :: setPropertiesGravity => setPropertiesGravitySoybean
+
+        ! alternative setters
+        procedure,public :: setYoungModulus => setYoungModulusSoybean
+        procedure,public :: setPoissonRatio => setPoissonRatioSoybean
+        procedure,public :: setDensity => setDensitySoybean
+
+        procedure,public :: runSimulation => runSimulationSoybean
+        procedure,public :: runSimulator => runSimulationSoybean
+        ! readyForSoybean
         procedure,public :: readyFor => readyForSoybean
 
 
@@ -8319,7 +8319,7 @@ function getYoungModulusSoybean(obj,DomainID,ElementID) result(YoungModulus)
         return
     else
         n = DomainID - obj%numStem() - obj%numLeaf()
-        YoungModulus = obj%leaf(n)%YoungModulus(ElementID)
+        YoungModulus = obj%root(n)%YoungModulus(ElementID)
         return
     endif
 
@@ -8351,7 +8351,7 @@ function getPoissonRatioSoybean(obj,DomainID,ElementID) result(PoissonRatio)
         return
     else
         n = DomainID - obj%numStem() - obj%numLeaf()
-        PoissonRatio = obj%leaf(n)%PoissonRatio(ElementID)
+        PoissonRatio = obj%root(n)%PoissonRatio(ElementID)
         return
     endif
 
@@ -8384,7 +8384,7 @@ function getDensitySoybean(obj,DomainID,ElementID) result(Density)
         return
     else
         n = DomainID - obj%numStem() - obj%numLeaf()
-        Density = obj%leaf(n)%Density(ElementID)
+        Density = obj%root(n)%Density(ElementID)
         return
     endif
 
@@ -8433,8 +8433,7 @@ recursive subroutine setYoungModulusSoybean(obj,YoungModulus,stem,root,leaf)
                     if(obj%stem(i)%femdomain%empty() )then
                         cycle
                     else
-                        allocate(obj%stem(i)%YoungModulus(obj%stem(i)%femdomain%ne() ))
-                        obj%stem(i)%YoungModulus(:) = YoungModulus
+                        obj%stem(i)%YoungModulus = YoungModulus*eyes(obj%stem(i)%femdomain%ne())
                     endif
                 enddo
             endif
@@ -8449,8 +8448,7 @@ recursive subroutine setYoungModulusSoybean(obj,YoungModulus,stem,root,leaf)
                     if(obj%leaf(i)%femdomain%empty() )then
                         cycle
                     else
-                        allocate(obj%leaf(i)%YoungModulus(obj%leaf(i)%femdomain%ne() ))
-                        obj%leaf(i)%YoungModulus(:) = YoungModulus
+                        obj%leaf(i)%YoungModulus = YoungModulus*eyes(obj%leaf(i)%femdomain%ne())
                     endif
                 enddo
             endif
@@ -8465,8 +8463,7 @@ recursive subroutine setYoungModulusSoybean(obj,YoungModulus,stem,root,leaf)
                     if(obj%root(i)%femdomain%empty() )then
                         cycle
                     else
-                        allocate(obj%root(i)%YoungModulus(obj%root(i)%femdomain%ne() ))
-                        obj%root(i)%YoungModulus(:) = YoungModulus
+                        obj%root(i)%YoungModulus = YoungModulus*eyes(obj%root(i)%femdomain%ne())
                     endif
                 enddo
             endif
@@ -8497,8 +8494,8 @@ recursive subroutine setPoissonRatioSoybean(obj,PoissonRatio,stem,root,leaf)
                     if(obj%stem(i)%femdomain%empty())then
                         cycle
                     else
-                        allocate(obj%stem(i)%PoissonRatio(obj%stem(i)%femdomain%ne() ))
-                        obj%stem(i)%PoissonRatio(:) = PoissonRatio
+                        
+                        obj%stem(i)%PoissonRatio = PoissonRatio*eyes(obj%stem(i)%femdomain%ne())
                     endif
                 enddo
             endif
@@ -8513,8 +8510,8 @@ recursive subroutine setPoissonRatioSoybean(obj,PoissonRatio,stem,root,leaf)
                     if(obj%leaf(i)%femdomain%empty())then
                         cycle
                     else
-                        allocate(obj%leaf(i)%PoissonRatio(obj%leaf(i)%femdomain%ne() ))
-                        obj%leaf(i)%PoissonRatio(:) = PoissonRatio
+                        
+                        obj%leaf(i)%PoissonRatio = PoissonRatio*eyes(obj%leaf(i)%femdomain%ne())
                     endif
                 enddo
             endif
@@ -8529,8 +8526,8 @@ recursive subroutine setPoissonRatioSoybean(obj,PoissonRatio,stem,root,leaf)
                     if(obj%root(i)%femdomain%empty())then
                         cycle
                     else
-                        allocate(obj%root(i)%PoissonRatio(obj%root(i)%femdomain%ne() ))
-                        obj%root(i)%PoissonRatio(:) = PoissonRatio
+                        
+                        obj%root(i)%PoissonRatio = PoissonRatio*eyes(obj%root(i)%femdomain%ne())
                     endif
                 enddo
             endif
@@ -8562,8 +8559,7 @@ recursive subroutine setDensitySoybean(obj,Density,stem,root,leaf)
                     if(obj%stem(i)%femdomain%empty())then
                         cycle
                     else
-                        allocate(obj%stem(i)%Density(obj%stem(i)%femdomain%ne() ))
-                        obj%stem(i)%Density(:) = Density
+                        obj%stem(i)%Density = Density*eyes(obj%stem(i)%femdomain%ne())
                     endif
                 enddo
             endif
@@ -8578,8 +8574,7 @@ recursive subroutine setDensitySoybean(obj,Density,stem,root,leaf)
                     if(obj%leaf(i)%femdomain%empty())then
                         cycle
                     else
-                        allocate(obj%leaf(i)%Density(obj%leaf(i)%femdomain%ne() ))
-                        obj%leaf(i)%Density(:) = Density
+                        obj%leaf(i)%Density = Density*eyes(obj%leaf(i)%femdomain%ne())
                     endif
                 enddo
             endif
@@ -8594,8 +8589,7 @@ recursive subroutine setDensitySoybean(obj,Density,stem,root,leaf)
                     if(obj%root(i)%femdomain%empty())then
                         cycle
                     else
-                        allocate(obj%root(i)%Density(obj%root(i)%femdomain%ne() ))
-                        obj%root(i)%Density(:) = Density
+                        obj%root(i)%Density = Density*eyes(obj%root(i)%femdomain%ne())
                     endif
                 enddo
             endif
