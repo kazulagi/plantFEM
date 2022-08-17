@@ -104,137 +104,147 @@ subroutine initRoot(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     real(real64) :: loc(3)
     logical :: debug=.false.
 
-    ! 節を生成するためのスクリプトを開く
-    if(.not.present(config) .or. index(config,".json")==0 )then
-        ! デフォルトの設定を生成
-        if(debug) print *, "New Root-configuration >> Rootconfig.json"
-        call Rootconf%open("rootconfig.json")
-        write(Rootconf%fh,*) '{'
-        write(Rootconf%fh,*) '   "type": "root",'
-        write(Rootconf%fh,*) '   "minlength": 0.002,'
-        write(Rootconf%fh,*) '   "mindiameter": 0.001,'
-        write(Rootconf%fh,*) '   "maxlength": 0.07,'
-        write(Rootconf%fh,*) '   "maxdiameter": 0.01,'
-        write(Rootconf%fh,*) '   "xnum": 10,'
-        write(Rootconf%fh,*) '   "ynum": 10,'
-        write(Rootconf%fh,*) '   "znum": 10'
-        write(Rootconf%fh,*) '}'
-        conf="rootconfig.json"
-        call Rootconf%close()
-    else
-        conf = config
-    endif
+    obj%minlength = 0.002d0
+    obj%mindiameter = 0.001d0
+    obj%maxlength = 0.07d0
+    obj%maxdiameter = 0.01d0
+    obj%xnum = 10
+    obj%ynum = 10
+    obj%znum = 10
     
-    call Rootconf%open(conf)
-    blcount=0
-    do
-        read(Rootconf%fh,'(a)') line
-        if(debug) print *, line
-        if( adjustl(line)=="{" )then
-            blcount=1
-            cycle
-        endif
-        if( adjustl(line)=="}" )then
-            exit
-        endif
-        
-        if(blcount==1)then
+    ! 節を生成するためのスクリプトを開く
+!    if(.not.present(config) .or. index(config,".json")==0 )then
+!        ! デフォルトの設定を生成
+!        if(debug) print *, "New Root-configuration >> Rootconfig.json"
+!        call Rootconf%open("rootconfig.json")
+!        write(Rootconf%fh,*) '{'
+!        write(Rootconf%fh,*) '   "type": "root",'
+!        write(Rootconf%fh,*) '   "minlength": 0.002,'
+!        write(Rootconf%fh,*) '   "mindiameter": 0.001,'
+!        write(Rootconf%fh,*) '   "maxlength": 0.07,'
+!        write(Rootconf%fh,*) '   "maxdiameter": 0.01,'
+!        write(Rootconf%fh,*) '   "xnum": 10,'
+!        write(Rootconf%fh,*) '   "ynum": 10,'
+!        write(Rootconf%fh,*) '   "znum": 10'
+!        write(Rootconf%fh,*) '}'
+!        conf="rootconfig.json"
+!        call Rootconf%close()
+!    else
+!        conf = config
+!    endif
+    if(present(config) )then
+        conf = config
+        call Rootconf%open(conf)
+        blcount=0
+        do
+            read(Rootconf%fh,'(a)') line
+            if(debug) print *, line
+            if( adjustl(line)=="{" )then
+                blcount=1
+                cycle
+            endif
+            if( adjustl(line)=="}" )then
+                exit
+            endif
             
-            if(index(line,"type")/=0 .and. index(line,"root")==0 )then
-                print *, "ERROR: This config-file is not for Root"
-                return
-            endif
-
-            if(index(line,"maxlength")/=0 )then
-                ! 生育ステージ
-                rmc=index(line,",")
-                ! カンマがあれば除く
-                if(rmc /= 0)then
-                    line(rmc:rmc)=" "
+            if(blcount==1)then
+                
+                if(index(line,"type")/=0 .and. index(line,"root")==0 )then
+                    print *, "ERROR: This config-file is not for Root"
+                    return
                 endif
-                id = index(line,":")
-                read(line(id+1:),*) obj%maxlength
-            endif
-
-
-            if(index(line,"maxdiameter")/=0 )then
-                ! 種子の長さ
-                rmc=index(line,",")
-                ! カンマがあれば除く
-                if(rmc /= 0)then
-                    line(rmc:rmc)=" "
+            
+                if(index(line,"maxlength")/=0 )then
+                    ! 生育ステージ
+                    rmc=index(line,",")
+                    ! カンマがあれば除く
+                    if(rmc /= 0)then
+                        line(rmc:rmc)=" "
+                    endif
+                    id = index(line,":")
+                    read(line(id+1:),*) obj%maxlength
                 endif
-                id = index(line,":")
-                read(line(id+1:),*) obj%maxdiameter
-            endif
-
-            if(index(line,"minlength")/=0 )then
-                ! 生育ステージ
-                rmc=index(line,",")
-                ! カンマがあれば除く
-                if(rmc /= 0)then
-                    line(rmc:rmc)=" "
+            
+            
+                if(index(line,"maxdiameter")/=0 )then
+                    ! 種子の長さ
+                    rmc=index(line,",")
+                    ! カンマがあれば除く
+                    if(rmc /= 0)then
+                        line(rmc:rmc)=" "
+                    endif
+                    id = index(line,":")
+                    read(line(id+1:),*) obj%maxdiameter
                 endif
-                id = index(line,":")
-                read(line(id+1:),*) obj%minlength
-            endif
-
-
-            if(index(line,"mindiameter")/=0 )then
-                ! 種子の長さ
-                rmc=index(line,",")
-                ! カンマがあれば除く
-                if(rmc /= 0)then
-                    line(rmc:rmc)=" "
+            
+                if(index(line,"minlength")/=0 )then
+                    ! 生育ステージ
+                    rmc=index(line,",")
+                    ! カンマがあれば除く
+                    if(rmc /= 0)then
+                        line(rmc:rmc)=" "
+                    endif
+                    id = index(line,":")
+                    read(line(id+1:),*) obj%minlength
                 endif
-                id = index(line,":")
-                read(line(id+1:),*) obj%mindiameter
-            endif
-
-
-
-            if(index(line,"xnum")/=0 )then
-                ! 種子の長さ
-                rmc=index(line,",")
-                ! カンマがあれば除く
-                if(rmc /= 0)then
-                    line(rmc:rmc)=" "
+            
+            
+                if(index(line,"mindiameter")/=0 )then
+                    ! 種子の長さ
+                    rmc=index(line,",")
+                    ! カンマがあれば除く
+                    if(rmc /= 0)then
+                        line(rmc:rmc)=" "
+                    endif
+                    id = index(line,":")
+                    read(line(id+1:),*) obj%mindiameter
                 endif
-                id = index(line,":")
-                read(line(id+1:),*) obj%xnum
-            endif
-
-
-
-            if(index(line,"ynum")/=0 )then
-                ! 種子の長さ
-                rmc=index(line,",")
-                ! カンマがあれば除く
-                if(rmc /= 0)then
-                    line(rmc:rmc)=" "
+            
+            
+            
+                if(index(line,"xnum")/=0 )then
+                    ! 種子の長さ
+                    rmc=index(line,",")
+                    ! カンマがあれば除く
+                    if(rmc /= 0)then
+                        line(rmc:rmc)=" "
+                    endif
+                    id = index(line,":")
+                    read(line(id+1:),*) obj%xnum
                 endif
-                id = index(line,":")
-                read(line(id+1:),*) obj%ynum
-            endif
-
-
-
-            if(index(line,"znum")/=0 )then
-                ! 種子の長さ
-                rmc=index(line,",")
-                ! カンマがあれば除く
-                if(rmc /= 0)then
-                    line(rmc:rmc)=" "
+            
+            
+            
+                if(index(line,"ynum")/=0 )then
+                    ! 種子の長さ
+                    rmc=index(line,",")
+                    ! カンマがあれば除く
+                    if(rmc /= 0)then
+                        line(rmc:rmc)=" "
+                    endif
+                    id = index(line,":")
+                    read(line(id+1:),*) obj%ynum
                 endif
-                id = index(line,":")
-                read(line(id+1:),*) obj%znum
+            
+            
+            
+                if(index(line,"znum")/=0 )then
+                    ! 種子の長さ
+                    rmc=index(line,",")
+                    ! カンマがあれば除く
+                    if(rmc /= 0)then
+                        line(rmc:rmc)=" "
+                    endif
+                    id = index(line,":")
+                    read(line(id+1:),*) obj%znum
+                endif
+                cycle
+            
             endif
-            cycle
-
-        endif
-
-    enddo
-    call Rootconf%close()
+        
+        enddo
+        call Rootconf%close()
+    endif
 
     ! グラフ構造とメッシュ構造を生成する。
 
@@ -265,10 +275,10 @@ subroutine initRoot(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     ! initialize physical parameter
     obj%DryDensity = zeros( obj%FEMDomain%ne() )
     obj%watercontent = zeros( obj%FEMDomain%ne() )
-    
-    obj%DryDensity(:) = freal(rootconf%parse(config,key1="drydensity"))
-    obj%watercontent(:) = freal(rootconf%parse(config,key1="watercontent"))
-
+    if(present(config) )then
+        obj%DryDensity(:) = freal(rootconf%parse(config,key1="drydensity"))
+        obj%watercontent(:) = freal(rootconf%parse(config,key1="watercontent"))
+    endif
     ! <I>面に属する要素番号、節点番号、要素座標、節点座標のリストを生成
     obj%I_planeNodeID = obj%FEMdomain%mesh%getNodeList(zmax=0.0d0)
     obj%I_planeElementID = obj%FEMdomain%mesh%getElementList(zmax=0.0d0)
