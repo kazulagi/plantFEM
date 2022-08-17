@@ -320,177 +320,193 @@ end subroutine
         real(real64) :: loc(3),radius,z,leaf_L
         logical :: debug=.false.
 
-        ! 節を生成するためのスクリプトを開く
-        if(.not.present(config) .or. index(config,".json")==0 )then
-            ! デフォルトの設定を生成
-            if(debug) print *, "New leaf-configuration >> leafconfig.json"
-            call leafconf%open("leafconfig.json")
-            write(leafconf%fh,*) '{'
-            write(leafconf%fh,*) '   "type": "leaf",'
-            write(leafconf%fh,*) '   "minlength": 0.005,'
-            write(leafconf%fh,*) '   "minwidth": 0.005,'
-            write(leafconf%fh,*) '   "minthickness": 0.0001,'
-            write(leafconf%fh,*) '   "maxlength": 0.07,'
-            write(leafconf%fh,*) '   "maxwidth": 0.045,'
-            write(leafconf%fh,*) '   "maxthickness": 0.001,'
-            write(leafconf%fh,*) '   "shaperatio": 0.3,'
-            write(leafconf%fh,*) '   "drydensity": 0.0,'
-            write(leafconf%fh,*) '   "watercontent": 0.0,'
-            write(leafconf%fh,*) '   "xnum": 10,'
-            write(leafconf%fh,*) '   "ynum": 10,'
-            write(leafconf%fh,*) '   "znum": 20'
-            write(leafconf%fh,*) '}'
-            conf="leafconfig.json"
-            call leafconf%close()
-        else
-            conf = config
-        endif
+        obj%minlength =  0.005d0
+        obj%minwidth =  0.005d0
+        obj%minthickness =  0.0001d0
+        obj%maxlength =  0.07d0
+        obj%maxwidth =  0.045d0
+        obj%maxthickness =  0.001d0
+        obj%shaperatio =  0.3d0
+        !obj%drydensity =  0.0
+        !obj%watercontent =  0.0
+        obj%xnum =  10
+        obj%ynum =  10
+        obj%znum =  20
+
+!        ! 節を生成するためのスクリプトを開く
+!        if(.not.present(config) .or. index(config,".json")==0 )then
+!            ! デフォルトの設定を生成
+!            if(debug) print *, "New leaf-configuration >> leafconfig.json"
+!            call leafconf%open("leafconfig.json")
+!            write(leafconf%fh,*) '{'
+!            write(leafconf%fh,*) '   "type": "leaf",'
+!            write(leafconf%fh,*) '   "minlength": 0.005,'
+!            write(leafconf%fh,*) '   "minwidth": 0.005,'
+!            write(leafconf%fh,*) '   "minthickness": 0.0001,'
+!            write(leafconf%fh,*) '   "maxlength": 0.07,'
+!            write(leafconf%fh,*) '   "maxwidth": 0.045,'
+!            write(leafconf%fh,*) '   "maxthickness": 0.001,'
+!            write(leafconf%fh,*) '   "shaperatio": 0.3,'
+!            write(leafconf%fh,*) '   "drydensity": 0.0,'
+!            write(leafconf%fh,*) '   "watercontent": 0.0,'
+!            write(leafconf%fh,*) '   "xnum": 10,'
+!            write(leafconf%fh,*) '   "ynum": 10,'
+!            write(leafconf%fh,*) '   "znum": 20'
+!            write(leafconf%fh,*) '}'
+!            conf="leafconfig.json"
+!            call leafconf%close()
+!        else
+!            conf = config
+!        endif
         
-        call leafconf%open(conf)
-        blcount=0
-        do
-            read(leafconf%fh,'(a)') line
-            if(debug) print *, line
-            if( adjustl(line)=="{" )then
-                blcount=1
-                cycle
-            endif
-            if( adjustl(line)=="}" )then
-                exit
-            endif
-            
-            if(blcount==1)then
-                
-                if(index(line,"type")/=0 .and. index(line,"leaf")==0 )then
-                    print *, "ERROR: This config-file is not for leaf"
-                    return
+        if(present(config) )then
+            conf = config
+            call leafconf%open(conf)
+            blcount=0
+            do
+                read(leafconf%fh,'(a)') line
+                if(debug) print *, line
+                if( adjustl(line)=="{" )then
+                    blcount=1
+                    cycle
                 endif
-    
-                if(index(line,"maxlength")/=0 )then
-                    ! 生育ステージ
-                    rmc=index(line,",")
-                    ! カンマがあれば除く
-                    if(rmc /= 0)then
-                        line(rmc:rmc)=" "
-                    endif
-                    id = index(line,":")
-                    read(line(id+1:),*) obj%maxlength
-                endif
-    
-    
-                if(index(line,"maxwidth")/=0 )then
-                    ! 種子の長さ
-                    rmc=index(line,",")
-                    ! カンマがあれば除く
-                    if(rmc /= 0)then
-                        line(rmc:rmc)=" "
-                    endif
-                    id = index(line,":")
-                    read(line(id+1:),*) obj%maxwidth
+                if( adjustl(line)=="}" )then
+                    exit
                 endif
 
-                if(index(line,"maxthickness")/=0 )then
-                    ! 種子の長さ
-                    rmc=index(line,",")
-                    ! カンマがあれば除く
-                    if(rmc /= 0)then
-                        line(rmc:rmc)=" "
+                if(blcount==1)then
+
+                    if(index(line,"type")/=0 .and. index(line,"leaf")==0 )then
+                        print *, "ERROR: This config-file is not for leaf"
+                        return
                     endif
-                    id = index(line,":")
-                    read(line(id+1:),*) obj%maxthickness
-                endif
-    
-    
-                if(index(line,"minlength")/=0 )then
-                    ! 生育ステージ
-                    rmc=index(line,",")
-                    ! カンマがあれば除く
-                    if(rmc /= 0)then
-                        line(rmc:rmc)=" "
+                
+                    if(index(line,"maxlength")/=0 )then
+                        ! 生育ステージ
+                        rmc=index(line,",")
+                        ! カンマがあれば除く
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%maxlength
                     endif
-                    id = index(line,":")
-                    read(line(id+1:),*) obj%minlength
-                endif
-    
-                if(index(line,"shaperatio")/=0 )then
-                    ! 生育ステージ
-                    rmc=index(line,",")
-                    ! カンマがあれば除く
-                    if(rmc /= 0)then
-                        line(rmc:rmc)=" "
+                
+                
+                    if(index(line,"maxwidth")/=0 )then
+                        ! 種子の長さ
+                        rmc=index(line,",")
+                        ! カンマがあれば除く
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%maxwidth
                     endif
-                    id = index(line,":")
-                    read(line(id+1:),*) obj%shaperatio
-                endif
-    
-                if(index(line,"minwidth")/=0 )then
-                    ! 種子の長さ
-                    rmc=index(line,",")
-                    ! カンマがあれば除く
-                    if(rmc /= 0)then
-                        line(rmc:rmc)=" "
+
+                    if(index(line,"maxthickness")/=0 )then
+                        ! 種子の長さ
+                        rmc=index(line,",")
+                        ! カンマがあれば除く
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%maxthickness
                     endif
-                    id = index(line,":")
-                    read(line(id+1:),*) obj%minwidth
-                endif
-    
-                if(index(line,"minthickness")/=0 )then
-                    ! 種子の長さ
-                    rmc=index(line,",")
-                    ! カンマがあれば除く
-                    if(rmc /= 0)then
-                        line(rmc:rmc)=" "
+                
+                
+                    if(index(line,"minlength")/=0 )then
+                        ! 生育ステージ
+                        rmc=index(line,",")
+                        ! カンマがあれば除く
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%minlength
                     endif
-                    id = index(line,":")
-                    read(line(id+1:),*) obj%minthickness
-                endif
-    
-    
-    
-                if(index(line,"xnum")/=0 )then
-                    ! 種子の長さ
-                    rmc=index(line,",")
-                    ! カンマがあれば除く
-                    if(rmc /= 0)then
-                        line(rmc:rmc)=" "
+                
+                    if(index(line,"shaperatio")/=0 )then
+                        ! 生育ステージ
+                        rmc=index(line,",")
+                        ! カンマがあれば除く
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%shaperatio
                     endif
-                    id = index(line,":")
-                    read(line(id+1:),*) obj%xnum
-                endif
-    
-    
-    
-                if(index(line,"ynum")/=0 )then
-                    ! 種子の長さ
-                    rmc=index(line,",")
-                    ! カンマがあれば除く
-                    if(rmc /= 0)then
-                        line(rmc:rmc)=" "
+                
+                    if(index(line,"minwidth")/=0 )then
+                        ! 種子の長さ
+                        rmc=index(line,",")
+                        ! カンマがあれば除く
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%minwidth
                     endif
-                    id = index(line,":")
-                    read(line(id+1:),*) obj%ynum
-                endif
-    
-    
-    
-                if(index(line,"znum")/=0 )then
-                    ! 種子の長さ
-                    rmc=index(line,",")
-                    ! カンマがあれば除く
-                    if(rmc /= 0)then
-                        line(rmc:rmc)=" "
+                
+                    if(index(line,"minthickness")/=0 )then
+                        ! 種子の長さ
+                        rmc=index(line,",")
+                        ! カンマがあれば除く
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%minthickness
                     endif
-                    id = index(line,":")
-                    read(line(id+1:),*) obj%znum
+                
+                
+                
+                    if(index(line,"xnum")/=0 )then
+                        ! 種子の長さ
+                        rmc=index(line,",")
+                        ! カンマがあれば除く
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%xnum
+                    endif
+                
+                
+                
+                    if(index(line,"ynum")/=0 )then
+                        ! 種子の長さ
+                        rmc=index(line,",")
+                        ! カンマがあれば除く
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%ynum
+                    endif
+                
+                
+                
+                    if(index(line,"znum")/=0 )then
+                        ! 種子の長さ
+                        rmc=index(line,",")
+                        ! カンマがあれば除く
+                        if(rmc /= 0)then
+                            line(rmc:rmc)=" "
+                        endif
+                        id = index(line,":")
+                        read(line(id+1:),*) obj%znum
+                    endif
+                    cycle
+                
                 endif
-                cycle
-    
-            endif
-    
-        enddo
-        call leafconf%close()
-        
             
+            enddo
+            call leafconf%close()
+        endif
+
+
         obj%xnum = input(default=obj%xnum,option=x_num)
         obj%ynum = input(default=obj%ynum,option=y_num)
         obj%znum = input(default=obj%znum,option=z_num)
@@ -526,9 +542,10 @@ end subroutine
         ! initialize physical parameter
         obj%DryDensity = zeros( obj%FEMDomain%ne() )
         obj%watercontent = zeros(obj%FEMDomain%ne())
-        obj%DryDensity(:) = freal(leafconf%parse(conf,key1="drydensity"))
-        obj%watercontent(:) = freal(leafconf%parse(conf,key1="watercontent"))
-        
+        if(present(config) )then
+            obj%DryDensity(:) = freal(leafconf%parse(config,key1="drydensity"))
+            obj%watercontent(:) = freal(leafconf%parse(config,key1="watercontent"))
+        endif
         ! <I>面に属する要素番号、節点番号、要素座標、節点座標のリストを生成
         obj%I_planeNodeID = obj%FEMdomain%mesh%getNodeList(zmax=0.0d0)
         obj%I_planeElementID = obj%FEMdomain%mesh%getElementList(zmax=0.0d0)
