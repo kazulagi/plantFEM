@@ -121,141 +121,130 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,&
     logical :: debug=.false.
 
     obj%my_time = 0.0d0
-    ! 節を生成するためのスクリプトを開く
-    if(.not.present(config)  .or. index(config,"json")==0 )then
-        ! デフォルトの設定を生成
-        if(debug) print *, "New stem-configuration >> stemconfig.json"
-        call stemconf%open("stemconfig.json")
-        write(stemconf%fh,*) '{'
-        write(stemconf%fh,*) '   "type": "stem",'
-        write(stemconf%fh,*) '   "minlength": 0.001,'
-        write(stemconf%fh,*) '   "mindiameter": 0.001,'
-        write(stemconf%fh,*) '   "maxlength": 0.07,'
-        write(stemconf%fh,*) '   "maxdiameter": 0.01,'
-        write(stemconf%fh,*) '   "drydensity": 0.0,'
-        write(stemconf%fh,*) '   "watercontent": 0.0,'
-        write(stemconf%fh,*) '   "xnum": 10,'
-        write(stemconf%fh,*) '   "ynum": 10,'
-        write(stemconf%fh,*) '   "znum": 10'
-        write(stemconf%fh,*) '}'
-        conf="stemconfig.json"
-        call stemconf%close()
-    else
+
+    ! default value
+    obj%minlength= 0.001
+    obj%mindiameter= 0.001
+    obj%maxlength= 0.07
+    obj%maxdiameter= 0.01
+    obj%xnum= 10
+    obj%ynum= 10
+    obj%znum= 10
+    
+    if(present(config))then
+    
         conf = config
+        call stemconf%open(conf,"r")
+        blcount=0
+        do
+            read(stemconf%fh,'(a)') line
+            if(debug) print *, line
+            if( adjustl(line)=="{" )then
+                blcount=1
+                cycle
+            endif
+            if( adjustl(line)=="}" )then
+                exit
+            endif
+
+            if(blcount==1)then
+
+                if(index(line,"type")/=0 .and. index(line,"stem")==0 )then
+                    print *, "ERROR: This config-file is not for stem"
+                    return
+                endif
+
+                if(index(line,"maxlength")/=0 )then
+                    ! 生育ステージ
+                    rmc=index(line,",")
+                    ! カンマがあれば除く
+                    if(rmc /= 0)then
+                        line(rmc:rmc)=" "
+                    endif
+                    id = index(line,":")
+                    read(line(id+1:),*) obj%maxlength
+                endif
+
+
+                if(index(line,"maxdiameter")/=0 )then
+                    ! 種子の長さ
+                    rmc=index(line,",")
+                    ! カンマがあれば除く
+                    if(rmc /= 0)then
+                        line(rmc:rmc)=" "
+                    endif
+                    id = index(line,":")
+                    read(line(id+1:),*) obj%maxdiameter
+                endif
+
+                if(index(line,"minlength")/=0 )then
+                    ! 生育ステージ
+                    rmc=index(line,",")
+                    ! カンマがあれば除く
+                    if(rmc /= 0)then
+                        line(rmc:rmc)=" "
+                    endif
+                    id = index(line,":")
+                    read(line(id+1:),*) obj%minlength
+                endif
+
+
+                if(index(line,"mindiameter")/=0 )then
+                    ! 種子の長さ
+                    rmc=index(line,",")
+                    ! カンマがあれば除く
+                    if(rmc /= 0)then
+                        line(rmc:rmc)=" "
+                    endif
+                    id = index(line,":")
+                    read(line(id+1:),*) obj%mindiameter
+                endif
+
+
+
+                if(index(line,"xnum")/=0 )then
+                    ! 種子の長さ
+                    rmc=index(line,",")
+                    ! カンマがあれば除く
+                    if(rmc /= 0)then
+                        line(rmc:rmc)=" "
+                    endif
+                    id = index(line,":")
+                    read(line(id+1:),*) obj%xnum
+                endif
+
+
+
+                if(index(line,"ynum")/=0 )then
+                    ! 種子の長さ
+                    rmc=index(line,",")
+                    ! カンマがあれば除く
+                    if(rmc /= 0)then
+                        line(rmc:rmc)=" "
+                    endif
+                    id = index(line,":")
+                    read(line(id+1:),*) obj%ynum
+                endif
+
+
+
+                if(index(line,"znum")/=0 )then
+                    ! 種子の長さ
+                    rmc=index(line,",")
+                    ! カンマがあれば除く
+                    if(rmc /= 0)then
+                        line(rmc:rmc)=" "
+                    endif
+                    id = index(line,":")
+                    read(line(id+1:),*) obj%znum
+                endif
+                cycle
+
+            endif
+
+        enddo
+        call stemconf%close()
     endif
-
-    
-    call stemconf%open(conf,"r")
-    blcount=0
-    do
-        read(stemconf%fh,'(a)') line
-        if(debug) print *, line
-        if( adjustl(line)=="{" )then
-            blcount=1
-            cycle
-        endif
-        if( adjustl(line)=="}" )then
-            exit
-        endif
-        
-        if(blcount==1)then
-            
-            if(index(line,"type")/=0 .and. index(line,"stem")==0 )then
-                print *, "ERROR: This config-file is not for stem"
-                return
-            endif
-
-            if(index(line,"maxlength")/=0 )then
-                ! 生育ステージ
-                rmc=index(line,",")
-                ! カンマがあれば除く
-                if(rmc /= 0)then
-                    line(rmc:rmc)=" "
-                endif
-                id = index(line,":")
-                read(line(id+1:),*) obj%maxlength
-            endif
-
-
-            if(index(line,"maxdiameter")/=0 )then
-                ! 種子の長さ
-                rmc=index(line,",")
-                ! カンマがあれば除く
-                if(rmc /= 0)then
-                    line(rmc:rmc)=" "
-                endif
-                id = index(line,":")
-                read(line(id+1:),*) obj%maxdiameter
-            endif
-
-            if(index(line,"minlength")/=0 )then
-                ! 生育ステージ
-                rmc=index(line,",")
-                ! カンマがあれば除く
-                if(rmc /= 0)then
-                    line(rmc:rmc)=" "
-                endif
-                id = index(line,":")
-                read(line(id+1:),*) obj%minlength
-            endif
-
-
-            if(index(line,"mindiameter")/=0 )then
-                ! 種子の長さ
-                rmc=index(line,",")
-                ! カンマがあれば除く
-                if(rmc /= 0)then
-                    line(rmc:rmc)=" "
-                endif
-                id = index(line,":")
-                read(line(id+1:),*) obj%mindiameter
-            endif
-
-
-
-            if(index(line,"xnum")/=0 )then
-                ! 種子の長さ
-                rmc=index(line,",")
-                ! カンマがあれば除く
-                if(rmc /= 0)then
-                    line(rmc:rmc)=" "
-                endif
-                id = index(line,":")
-                read(line(id+1:),*) obj%xnum
-            endif
-
-
-
-            if(index(line,"ynum")/=0 )then
-                ! 種子の長さ
-                rmc=index(line,",")
-                ! カンマがあれば除く
-                if(rmc /= 0)then
-                    line(rmc:rmc)=" "
-                endif
-                id = index(line,":")
-                read(line(id+1:),*) obj%ynum
-            endif
-
-
-
-            if(index(line,"znum")/=0 )then
-                ! 種子の長さ
-                rmc=index(line,",")
-                ! カンマがあれば除く
-                if(rmc /= 0)then
-                    line(rmc:rmc)=" "
-                endif
-                id = index(line,":")
-                read(line(id+1:),*) obj%znum
-            endif
-            cycle
-
-        endif
-
-    enddo
-    call stemconf%close()
-    
     
     ! グラフ構造とメッシュ構造を生成する。
 
@@ -293,9 +282,10 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,&
     obj%DryDensity = zeros( obj%FEMDomain%ne() )
     obj%watercontent = zeros( obj%FEMDomain%ne() )
     
-    obj%DryDensity(:) = freal(stemconf%parse(conf,key1="drydensity"))
-    obj%watercontent(:) = freal(stemconf%parse(conf,key1="watercontent"))
-
+    if(present(config) )then
+        obj%DryDensity(:) = freal(stemconf%parse(conf,key1="drydensity"))
+        obj%watercontent(:) = freal(stemconf%parse(conf,key1="watercontent"))
+    endif
     ! <I>面に属する要素番号、節点番号、要素座標、節点座標のリストを生成
     obj%I_planeNodeID = obj%FEMdomain%mesh%getNodeList(zmax=0.0d0)
     obj%I_planeElementID = obj%FEMdomain%mesh%getElementList(zmax=0.0d0)
