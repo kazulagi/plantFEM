@@ -71,7 +71,7 @@ subroutine addSpectreAnalysis(this,name,lines,BOL)
     integer(int32),intent(in) :: lines(1:2), BOL !Beginning of line
 
     if(.not. this%initialized)then
-        print *, "Please initialize SpectreAnalysis, by %init(sampling_Hz)"
+        print *, "[ERROR] Please initialize SpectreAnalysis, by %init(sampling_Hz)"
         stop
     endif
 
@@ -163,6 +163,12 @@ function FFTSpectreAnalysis(this,channel,Taper,Stacking,window_size) result(FFT_
 
     complex(complex64),allocatable :: FFT_result(:), wave(:),total_wave(:),fft_loc(:)
 
+
+    if(.not. this%initialized)then
+        print *, "[ERROR] Please initialize SpectreAnalysis, by %init(sampling_Hz)"
+        stop
+    endif
+
     ! get all data
     total_wave = this%channel(channel)
 
@@ -213,6 +219,8 @@ end function
 
 ! ##########################################################
 function PowerSpectrumSpectreAnalysis(this,channel,Taper,Stacking,window_size) result(PowerSpectrum)
+
+
     class(SpectreAnalysis_),intent(inout) :: this
     integer(int32),intent(in) :: channel
     integer(int32),intent(in) :: Taper    ! taper-ratio (0 to 100 )
@@ -223,6 +231,12 @@ function PowerSpectrumSpectreAnalysis(this,channel,Taper,Stacking,window_size) r
 
     complex(complex64),allocatable :: FFT_result(:), wave(:)
     real(real64),allocatable :: PowerSpectrum(:)
+
+
+    if(.not. this%initialized)then
+        print *, "[ERROR] Please initialize SpectreAnalysis, by %init(sampling_Hz)"
+        stop
+    endif
 
     FFT_result = this%FFT(&        
             channel = channel,&
@@ -277,6 +291,11 @@ subroutine FDD_SpectreAnalysis(this,wave_data,window_size,channel,taper,stacking
     real(real64) :: df
     df   = 1.0d0/(window_size/this%sampling_Hz)
 
+
+    if(.not. this%initialized)then
+        print *, "[ERROR] Please initialize SpectreAnalysis, by %init(sampling_Hz)"
+        stop
+    endif
 
     ! PSD用のFunction作ったほうがよいか？
     PSD = this%PSD(channel,Taper,Stacking,window_size,wave_data)

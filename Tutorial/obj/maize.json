@@ -1,0 +1,221 @@
+{
+    "Name":"Maize",
+    "Mainstem":{
+        "Length":1.80,
+        "Width":0.020,
+        "Node":13,
+        "ms_angle_ave": 0.00, 
+        "ms_angle_sig": 5.00
+    },
+    "Leaf_1_":{
+        "From":4,
+        "leaf_curvature": 1.2000,
+        "leaf_thickness_ave"  :  0.001000,
+        "leaf_thickness_sig"  :  0.000500,
+        "leaf_angle_ave_x": 70.00,
+        "leaf_angle_sig_x": 4.00,
+        "leaf_angle_ave_z": 0.00,
+        "leaf_angle_sig_z": 4.00,
+        "leaf_length_ave":   0.600,
+        "leaf_length_sig":   0.05,
+        "leaf_width_ave":  0.0800,
+        "leaf_width_sig":  0.0100
+    },
+    "Leaf_2_":{
+        "From":5,
+        "leaf_curvature": 1.2000,
+        "leaf_thickness_ave"  :  0.001000,
+        "leaf_thickness_sig"  :  0.000500,
+        "leaf_angle_ave_x": 70.00,
+        "leaf_angle_sig_x": 4.00,
+        "leaf_angle_ave_z": 180.00,
+        "leaf_angle_sig_z": 4.00,
+        "leaf_length_ave":   0.700,
+        "leaf_length_sig":   0.05,
+        "leaf_width_ave":  0.0800,
+        "leaf_width_sig":  0.0100
+    },
+    "Leaf_3_":{
+        "From":6,
+        "leaf_curvature": 1.2000,
+        "leaf_thickness_ave"  :  0.001000,
+        "leaf_thickness_sig"  :  0.000500,
+        "leaf_angle_ave_x": 80.00,
+        "leaf_angle_sig_x": 4.00,
+        "leaf_angle_ave_z": 0.00,
+        "leaf_angle_sig_z": 4.00,
+        "leaf_length_ave":   0.800,
+        "leaf_length_sig":   0.05,
+        "leaf_width_ave":  0.0800,
+        "leaf_width_sig":  0.0100
+    },
+    "Leaf_4_":{
+        "From":7,
+        "leaf_curvature": 1.2000,
+        "leaf_thickness_ave"  :  0.001000,
+        "leaf_thickness_sig"  :  0.000500,
+        "leaf_angle_ave_x": 80.00,
+        "leaf_angle_sig_x": 4.00,
+        "leaf_angle_ave_z": 180.00,
+        "leaf_angle_sig_z": 4.00,
+        "leaf_length_ave":   0.850,
+        "leaf_length_sig":   0.05,
+        "leaf_width_ave":  0.0800,
+        "leaf_width_sig":  0.0100
+    },
+    "Leaf_5_":{
+        "From":8,
+        "leaf_curvature": 1.2000,
+        "leaf_thickness_ave"  :  0.001000,
+        "leaf_thickness_sig"  :  0.000500,
+        "leaf_angle_ave_x": 90.00,
+        "leaf_angle_sig_x": 4.00,
+        "leaf_angle_ave_z": 0.00,
+        "leaf_angle_sig_z": 4.00,
+        "leaf_length_ave":   0.800,
+        "leaf_length_sig":   0.05,
+        "leaf_width_ave":  0.0800,
+        "leaf_width_sig":  0.0100
+    },
+    "Leaf_6_":{
+        "From":9,
+        "leaf_curvature": 1.2000,
+        "leaf_thickness_ave"  :  0.001000,
+        "leaf_thickness_sig"  :  0.000500,
+        "leaf_angle_ave_x": 90.00,
+        "leaf_angle_sig_x": 4.00,
+        "leaf_angle_ave_z": 180.00,
+        "leaf_angle_sig_z": 4.00,
+        "leaf_length_ave":   0.700,
+        "leaf_length_sig":   0.05,
+        "leaf_width_ave":  0.0800,
+        "leaf_width_sig":  0.0100
+    },
+
+    "Leaf_7_":{
+        "From":10,
+        "leaf_curvature": 1.2000,
+        "leaf_thickness_ave"  :  0.001000,
+        "leaf_thickness_sig"  :  0.000500,
+        "leaf_angle_ave_x": 70.00,
+        "leaf_angle_sig_x": 4.00,
+        "leaf_angle_ave_z": 0.00,
+        "leaf_angle_sig_z": 4.00,
+        "leaf_length_ave":   0.600,
+        "leaf_length_sig":   0.05,
+        "leaf_width_ave":  0.0800,
+        "leaf_width_sig":  0.0100
+    },
+    "Leaf_8_":{
+        "From":11,
+        "leaf_curvature": 1.2000,
+        "leaf_thickness_ave"  :  0.001000,
+        "leaf_thickness_sig"  :  0.000500,
+        "leaf_angle_ave_x": 70.00,
+        "leaf_angle_sig_x": 4.00,
+        "leaf_angle_ave_z": 180.00,
+        "leaf_angle_sig_z": 4.00,
+        "leaf_length_ave":   0.5500,
+        "leaf_length_sig":   0.05,
+        "leaf_width_ave":  0.0800,
+        "leaf_width_sig":  0.0100
+    },
+    "Leaf_9_":{
+        "From":12,
+        "leaf_curvature": 1.2000,
+        "leaf_thickness_ave"  :  0.001000,
+        "leaf_thickness_sig"  :  0.000500,
+        "leaf_angle_ave_x": 60.00,
+        "leaf_angle_sig_x": 1.00,
+        "leaf_angle_ave_z": 0.00,
+        "leaf_angle_sig_z": 4.00,
+        "leaf_length_ave":   0.500,
+        "leaf_length_sig":   0.05,
+        "leaf_width_ave":  0.0800,
+        "leaf_width_sig":  0.0100
+    },
+
+    "Leaf_10_":{
+        "From":13,
+        "leaf_curvature": 1.2000,
+        "leaf_thickness_ave"  :  0.001000,
+        "leaf_thickness_sig"  :  0.000500,
+        "leaf_angle_ave_x": 60.00,
+        "leaf_angle_sig_x": 1.00,
+        "leaf_angle_ave_z": 180.00,
+        "leaf_angle_sig_z": 4.00,
+        "leaf_length_ave":   0.400,
+        "leaf_length_sig":   0.05,
+        "leaf_width_ave":  0.0800,
+        "leaf_width_sig":  0.0100
+    },
+        
+    "Ear_1_":{
+        "From":5,
+        "Length":0.30,
+        "Width":0.05,
+        "Angle":10
+    },
+  
+    "Ear_2_":{
+        "From":4,
+        "Length":0.20,
+        "Width":0.04,
+        "Angle":10
+    },
+      
+    "Panicle_1_":{
+        "From":13,
+        "Length":0.30,
+        "Width":0.005,
+        "Node":5,
+        "shape_factor":0.40
+    },
+    
+    "COMMENT" :"[Root] are not implemented yet.",
+    
+    "Mainroot":{
+        "Length":0.98,
+        "Width":0.010,
+        "Node":13
+    },
+    "Branchroot_1_":{
+        "From":1,
+        "Length":0.7,
+        "Width":0.01,
+        "Node":7
+    },
+    "Branchroot_2_":{
+        "From":2,
+        "Length":0.65,
+        "Width":0.01,
+        "Node":7
+    },
+    "Branchroot_3_":{
+        "From":3,
+        "Length":0.2,
+        "Width":0.01,
+        "Node":2
+    },
+
+    "Branchroot_4_":{
+        "From":4,
+        "Length":0.2,
+        "Width":0.01,
+        "Node":2
+    },
+
+    "Branchroot_5_":{
+        "From":5,
+        "Length":0.2,
+        "Width":0.01,
+        "Node":2
+    },
+
+    "Branchroot_6_":{
+        "From":6,
+        "Length":0.2,
+        "Width":0.01,
+        "Node":2
+    }
+}

@@ -10,7 +10,7 @@ module PanicleClass
         type(FEMDomain_)    ::  FEMDomain
         real(real64)        :: Length,Width,Angle
         type(Stem_),pointer ::  pStem
-        integer(int32) :: division(1:3) = [5,1,5]
+        integer(int32) :: division(1:3) = [5,5,5]
 
 
         integer(int32),allocatable  :: I_planeNodeID(:)
@@ -69,7 +69,7 @@ subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num,y_num,z_n
     real(real64) :: center_coord(1:3)
     real(real64) :: shape_factor_val 
 
-    shape_factor_val = input(default=0.40d0,option=shape_factor)
+    shape_factor_val = input(default=0.33d0,option=shape_factor)
     
     
 
@@ -85,7 +85,10 @@ subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num,y_num,z_n
     x_axis = [-Length*shape_factor_val,-width/2.0d0,0.0d0,width/2.0d0,Length*shape_factor_val]
     call refine(x_axis,this%division(1) )
 
-    y_axis=[-width/2.0d0,0.0d0,width/2.0d0]
+    !y_axis=[-width/2.0d0,0.0d0,width/2.0d0]
+    !call refine(y_axis,this%division(2))
+    ! debug
+    y_axis = [-Length*shape_factor_val,-width/2.0d0,0.0d0,width/2.0d0,Length*shape_factor_val]
     call refine(y_axis,this%division(2))
 
     z_axis = [0.0d0]
@@ -93,6 +96,7 @@ subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num,y_num,z_n
         z_axis = z_axis // [ this%Length*shape_factor_val/dble(Node)*dble(i)]
         z_axis = z_axis // [ z_axis(size(z_axis) )+this%width ]
     enddo
+
     z_axis = z_axis // [this%Length]
     z_axis0 = z_axis
     call refine(z_axis,this%division(3))
@@ -100,24 +104,42 @@ subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num,y_num,z_n
     call this%FEMDomain%create("Cube3D",&
         x_axis=x_axis,y_axis=y_axis,z_axis=z_axis)
     kill_element_list = zeros(this%FEMDomain%ne() ) 
+    !do i=1,this%FEMDomain%ne()
+    !    center_coord = this%FEMDomain%centerPosition(ElementID=i)
+    !    do j=1,size(z_axis0)-1,2
+    !        if( z_axis0(j)< center_coord(3) .and. center_coord(3) < z_axis0(j+1) )then
+    !            if( abs(center_coord(1)) > width/2.0d0  )then
+    !                kill_element_list(i)  = 1
+    !            endif
+    !        endif
+    !    enddo
+    !enddo
     do i=1,this%FEMDomain%ne()
         center_coord = this%FEMDomain%centerPosition(ElementID=i)
+        if( abs(center_coord(1)) > width/2.0d0  .and. abs(center_coord(2)) > width/2.0d0 )then
+            kill_element_list(i)  = 1
+        endif
         do j=1,size(z_axis0)-1,2
+            
             if( z_axis0(j)< center_coord(3) .and. center_coord(3) < z_axis0(j+1) )then
-                if( abs(center_coord(1)) > width/2.0d0  )then
+                if( abs(center_coord(1)) > width/2.0d0  .and. abs(center_coord(2)) < width/2.0d0 )then
                     kill_element_list(i)  = 1
                 endif
+
+                if( abs(center_coord(1)) < width/2.0d0  .and. abs(center_coord(2)) > width/2.0d0 )then
+                    kill_element_list(i)  = 1
+                endif
+                
             endif
         enddo
     enddo
+
     call this%FEMDomain%killElement(blacklist=kill_element_list,flag=1)
     
-    
-
     ! edit
     do i=1,this%FEMDomain%nn()
         center_coord = this%FEMDomain%mesh%nodcoord(i,:)
-        if(abs(center_coord(1))>width/2.0d0 )then
+        if(abs(center_coord(1))>width/2.0d0  )then
             alpha = center_coord(3)/Length
             if(alpha==1.0d0) cycle
             theta = radian(alpha*90.0d0) ! angle:: alpha=0 => 0, alpha=1 => radian(90.0)
@@ -126,6 +148,18 @@ subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num,y_num,z_n
             this%FEMDomain%mesh%nodcoord(i,1) = this%FEMDomain%mesh%nodcoord(i,1)*cos(theta)
             ! new z
             this%FEMDomain%mesh%nodcoord(i,3) = this%FEMDomain%mesh%nodcoord(i,3) + abs(center_coord(1))*tan(theta)  ! x * tan(theta)
+            
+        endif
+
+        if(abs(center_coord(2))>width/2.0d0  )then
+            alpha = center_coord(3)/Length
+            if(alpha==1.0d0) cycle
+            theta = radian(alpha*90.0d0) ! angle:: alpha=0 => 0, alpha=1 => radian(90.0)
+            
+            ! new x
+            this%FEMDomain%mesh%nodcoord(i,2) = this%FEMDomain%mesh%nodcoord(i,2)*cos(theta)
+            ! new z
+            this%FEMDomain%mesh%nodcoord(i,3) = this%FEMDomain%mesh%nodcoord(i,3) + abs(center_coord(2))*tan(theta)  ! x * tan(theta)
             
         endif
     enddo
