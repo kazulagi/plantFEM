@@ -13,21 +13,22 @@ program main
     integer(int32) :: data_idx
 
     
+    call speana%init(sampling_Hz=1000.0) ! 100 Hz
     ! >>>>>>>>>>>>>>>>>
     ! create data
     freq_sample(1) = 10.0d0
     freq_sample(2) = 20.0d0
     freq_sample(3) = 30.0d0
     freq_sample(4) = 13.0d0
-    freq_sample(5) = 1.0d0
+    freq_sample(5) = 10.0d0
     do i=1,5
         call test_wave%open("test_wave" + zfill(i,4) + ".txt" )
-        dt = 1.0d0/100.0d0 ! 100 Hz
+        dt = 1.0d0/1000.0d0 ! 100 Hz
         tn = 0.0d0
         do j=1,1024*1000
             tn = tn + dt
             write(test_wave%fh,*) tn, sin( freq_sample(i)/math%PI * tn &
-            + random%gauss(mu=0.0d0,sigma=0.10d0) ) + sin(freq_sample(2)/math%PI*tn )
+            + random%gauss(mu=0.0d0,sigma=0.10d0) ) !+ sin(freq_sample(2)/math%PI*tn )
         enddo
         call test_wave%close()
     enddo
@@ -36,12 +37,12 @@ program main
 
     ! >>>>>>>>>>>>>>>>
     ! read data
-    n_frame=1024*4
+    n_frame=1024
     n_sample = 1024*1000
     allocate(wave_data(5) )
     do data_idx = 1, size(wave_data)
         ! 100 Hz sampling
-        call wave_data(data_idx)%init(sampling_Hz = 100.0) 
+        call wave_data(data_idx)%init(sampling_Hz = 1000.0) 
         ! filepath is
         filepath = "test_wave" + zfill(data_idx,4) + ".txt" 
         ! add wave
@@ -62,6 +63,7 @@ program main
         window_size = n_frame, &
         wave_data=wave_data &
     )
+    
     
     call speana%export("FDD")
     
