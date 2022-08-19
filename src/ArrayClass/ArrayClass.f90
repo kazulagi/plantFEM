@@ -101,6 +101,10 @@ module ArrayClass
         module procedure :: farthestVectorReal64 
     end interface
 
+    interface Removeif
+        module procedure :: RemoveIFintvec, RemoveIFintArray2
+    end interface
+
     interface hstack
         module procedure :: hstackInt32Vector2,hstackInt32Vector3, hstackReal64Vector2,hstackReal64Vector3
     end interface
@@ -7564,7 +7568,7 @@ function RemoveOverwrap(vector) result(new_vector)
 
 end function
 ! ###################################################################
-pure function RemoveIF(vector,equal_to) result(new_vector)
+pure function RemoveIFintvec(vector,equal_to) result(new_vector)
     integeR(int32),intent(in) :: vector(:),equal_to
     integer(int32),allocatable :: new_vector(:)
     integer(int32) :: i, num_remove,new_id
@@ -7587,6 +7591,63 @@ pure function RemoveIF(vector,equal_to) result(new_vector)
     enddo
 end function
 ! ###################################################################
+
+
+! ###################################################################
+pure function RemoveIFintArray2(array2,column,equal_to,not_equal_to) result(new_array2)
+    integeR(int32),intent(in) :: array2(:,:),column
+    integeR(int32),optional,intent(in) :: equal_to,not_equal_to
+    integer(int32),allocatable :: new_array2(:,:)
+    integer(int32) :: i, num_remove,new_id
+
+    if(present(equal_to) )then
+        num_remove=0
+        do i=1,size(array2,1)
+            if(array2(i,column)==equal_to )then
+                num_remove=num_remove + 1
+            endif
+        enddo
+        new_array2 = int(zeros(size(array2,1)-num_remove,size(array2,2) ))
+        new_id = 0
+        if(size(new_array2,1)==0) return
+        do i=1,size(array2,1)
+            if(array2(i,column)==equal_to )then
+                cycle
+            else
+                new_id = new_id+1
+                new_array2(new_id,:) = array2(i,:)
+            endif
+        enddo
+        return
+    endif
+
+
+    if(present(not_equal_to) )then
+        num_remove=0
+        do i=1,size(array2,1)
+            if(array2(i,column)/=not_equal_to )then
+                num_remove = num_remove+1
+            endif
+        enddo
+        new_array2 = int(zeros(size(array2,1)-num_remove,size(array2,2) ))
+        if(size(new_array2,1)==0) return
+        new_id = 0
+        
+        do i=1,size(array2,1)
+            if(array2(i,column)/=not_equal_to )then
+                cycle
+            else
+                new_id = new_id+1
+                new_array2(new_id,:) = array2(i,:)
+            endif
+        enddo
+        return
+    endif
+
+end function
+! ###################################################################
+
+
 
 subroutine printArrayType(in_array)
     type(Array_),intent(in) :: in_array

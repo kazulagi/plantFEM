@@ -23,7 +23,11 @@ module MaizeClass
 
 
     type :: Maize_
-
+        integer(int32) :: TYPE_STEM    = 1
+        integer(int32) :: TYPE_LEAF    = 2
+        integer(int32) :: TYPE_ROOT    = 3
+        integer(int32) :: TYPE_EAR     = 4
+        integer(int32) :: TYPE_PANICLE = 5
         ! 節-節点データ構造
         type(Mesh_) :: struct 
         integer(int32),allocatable :: leaf2stem(:,:)
@@ -132,6 +136,7 @@ module MaizeClass
         procedure,public :: rotate => rotateMaize
         procedure,public :: move => moveMaize
 
+        procedure,public :: getElementList => getElementListMaize
         ! Info
         !procedure,public :: properties => propertiesMaize
         ! number of subdomain
@@ -155,10 +160,14 @@ module MaizeClass
         procedure,public :: checkPoissonRatio => checkPoissonRatioMaize
         procedure,public :: checkDensity => checkDensityMaize
         ! get data
-        procedure,public :: getYoungModulus => getYoungModulusMaize
+        procedure,public :: getYoungModulus => getYoungModulusMaize 
         procedure,public :: getPoissonRatio => getPoissonRatioMaize
         procedure,public :: getDensity => getDensityMaize
-
+        
+        procedure,public :: getYoungModulusField => getYoungModulusFieldMaize
+        procedure,public :: getPoissonRatioField => getPoissonRatioFieldMaize
+        procedure,public :: getDensityField => getDensityFieldMaize
+        
         ! alternative setters
         procedure,public :: setYoungModulus => setYoungModulusMaize
         procedure,public :: setPoissonRatio => setPoissonRatioMaize
@@ -1682,11 +1691,17 @@ end function
 
 
 ! ################################################################
-recursive subroutine setYoungModulusMaize(this,YoungModulus,stem,root,leaf,ear,panicle)
+recursive subroutine setYoungModulusMaize(this,YoungModulus,stem,root,leaf,ear,panicle,ElementList)
     class(Maize_),intent(inout) :: this
     logical,optional,intent(in) :: stem, root, leaf, ear, panicle
+    
+    ! ElementList(Idx, [TYPE, DOMAIN, ELEMENT]) 
+    integer(int32),optional,intent(in) :: ElementList(:,:)
+
     real(real64),intent(in) :: YoungModulus
-    integer(int32) :: i, n
+    integer(int32) :: i, j, n, domain_idx, elem_idx
+
+
 
     n = 0
     if(present(stem) )then
@@ -1696,6 +1711,14 @@ recursive subroutine setYoungModulusMaize(this,YoungModulus,stem,root,leaf,ear,p
                 do i=1,size(this%stem)
                     if(this%stem(i)%femdomain%empty() )then
                         cycle
+                    elseif(present(ElementList) )then
+                        do j=1, size(ElementList,1)
+                            if(ElementList(j,1) == this%TYPE_STEM )then
+                                domain_idx = ElementList(j,2)  
+                                elem_idx = ElementList(j,3) 
+                                this%stem(domain_idx)%YoungModulus(elem_idx) = YoungModulus
+                            endif
+                        enddo
                     else
                         this%stem(i)%YoungModulus = YoungModulus*eyes(this%stem(i)%femdomain%ne())
                     endif
@@ -1711,6 +1734,14 @@ recursive subroutine setYoungModulusMaize(this,YoungModulus,stem,root,leaf,ear,p
                 do i=1,size(this%leaf)
                     if(this%leaf(i)%femdomain%empty() )then
                         cycle
+                    elseif(present(ElementList) )then
+                        do j=1, size(ElementList,1)
+                            if(ElementList(j,1) == this%TYPE_LEAF )then
+                                domain_idx = ElementList(j,2)  
+                                elem_idx = ElementList(j,3) 
+                                this%LEAF(domain_idx)%YoungModulus(elem_idx) = YoungModulus
+                            endif
+                        enddo
                     else
                         this%leaf(i)%YoungModulus = YoungModulus*eyes(this%leaf(i)%femdomain%ne())
                     endif
@@ -1726,6 +1757,14 @@ recursive subroutine setYoungModulusMaize(this,YoungModulus,stem,root,leaf,ear,p
                 do i=1,size(this%root)
                     if(this%root(i)%femdomain%empty() )then
                         cycle
+                    elseif(present(ElementList) )then
+                        do j=1, size(ElementList,1)
+                            if(ElementList(j,1) == this%TYPE_ROOT )then
+                                domain_idx = ElementList(j,2)  
+                                elem_idx = ElementList(j,3) 
+                                this%ROOT(domain_idx)%YoungModulus(elem_idx) = YoungModulus
+                            endif
+                        enddo
                     else
                         this%root(i)%YoungModulus = YoungModulus*eyes(this%root(i)%femdomain%ne())
                     endif
@@ -1742,6 +1781,14 @@ recursive subroutine setYoungModulusMaize(this,YoungModulus,stem,root,leaf,ear,p
                 do i=1,size(this%Ear)
                     if(this%Ear(i)%femdomain%empty() )then
                         cycle
+                    elseif(present(ElementList) )then
+                        do j=1, size(ElementList,1)
+                            if(ElementList(j,1) == this%TYPE_EAR )then
+                                domain_idx = ElementList(j,2)  
+                                elem_idx = ElementList(j,3) 
+                                this%EAR(domain_idx)%YoungModulus(elem_idx) = YoungModulus
+                            endif
+                        enddo
                     else
                         this%Ear(i)%YoungModulus = YoungModulus*eyes(this%Ear(i)%femdomain%ne())
                     endif
@@ -1757,6 +1804,14 @@ recursive subroutine setYoungModulusMaize(this,YoungModulus,stem,root,leaf,ear,p
                 do i=1,size(this%panicle)
                     if(this%panicle(i)%femdomain%empty() )then
                         cycle
+                    elseif(present(ElementList) )then
+                        do j=1, size(ElementList,1)
+                            if(ElementList(j,1) == this%TYPE_PANICLE )then
+                                domain_idx = ElementList(j,2)  
+                                elem_idx = ElementList(j,3) 
+                                this%PANICLE(domain_idx)%YoungModulus(elem_idx) = YoungModulus
+                            endif
+                        enddo
                     else
                         this%panicle(i)%YoungModulus = YoungModulus*eyes(this%panicle(i)%femdomain%ne())
                     endif
@@ -2035,6 +2090,11 @@ function getEigenModeMaize(this, ground_level,penalty,debug,Frequency,EbOM_Algor
                             DomainID   = yourStemID    ,& 
                             MyDomainID = this%numStem() + myLeafID  , &
                             algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                        call this%stem(yourStemID)%femdomain%overset(&
+                            FEMDomain=this%leaf(myLeafID)%femdomain,&
+                            DomainID   = this%numStem() + myLeafID    ,& 
+                            MyDomainID = yourStemID  , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
                     endif
                 enddo
             enddo
@@ -2102,6 +2162,12 @@ function getEigenModeMaize(this, ground_level,penalty,debug,Frequency,EbOM_Algor
                             DomainID   = yourStemID    ,& 
                             MyDomainID = this%numStem() + this%numLeaf() + this%numRoot() + myEarID  , &
                             algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                        call this%stem(yourStemID)%femdomain%overset(&
+                            FEMDomain=this%Ear(myEarID)%femdomain,&
+                            DomainID   = this%numStem() + this%numLeaf() + this%numRoot() + myEarID    ,& 
+                            MyDomainID = yourStemID  , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                        
                     endif
                 enddo
             enddo
@@ -2119,6 +2185,13 @@ function getEigenModeMaize(this, ground_level,penalty,debug,Frequency,EbOM_Algor
                             DomainID   = yourStemID    ,& 
                             MyDomainID = this%numStem() + this%numLeaf() + this%numRoot() + &
                                 this%numEar() + myPanicleID  , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                        
+                        call this%stem(yourStemID)%femdomain%overset(&
+                            FEMDomain=this%Panicle(myPanicleID)%femdomain,&
+                            DomainID   = this%numStem() + this%numLeaf() + this%numRoot() + &
+                            this%numEar() + myPanicleID    ,& 
+                            MyDomainID = yourStemID  , &
                             algorithm=EbOM_Algorithm_id ) ! or "P2P"
                     endif
                 enddo
@@ -2414,6 +2487,7 @@ function getFEMDomainPointersMaize(this) result(FEMDomainPointers)
 end function
 ! ################################################################
 
+
 ! ################################################################
 function checkYoungModulusMaize(this) result(all_young_modulus_is_set)
     class(Maize_),intent(in) :: this
@@ -2600,11 +2674,101 @@ function checkDensityMaize(this) result(all_young_modulus_is_set)
 end function
 ! ################################################################
 
+function getYoungModulusFieldMaize(this) result(YoungModulus)
+    class(Maize_),intent(inout) :: this
+    real(real64),allocatable :: YoungModulus(:)
+    integer(int32),allocatable :: ElementList(:,:)
+    integer(int32) :: TYPE_IDX, DOMAIN_IDX, ELEMENT_IDX, i
+
+    ElementList = this%getElementList()
+    YoungModulus = zeros(size(ElementList,1))
+
+    do i=1,size(ElementList,1)
+        TYPE_IDX = ElementList(i,1)
+        DOMAIN_IDX = ElementList(i,2)
+        ELEMENT_IDX = ElementList(i,3)
+        if(TYPE_IDX == this%TYPE_STEM)then
+            YoungModulus(i) = this%stem(DOMAIN_IDX)%YoungModulus(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_LEAF)then
+            YoungModulus(i) = this%LEAF(DOMAIN_IDX)%YoungModulus(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_ROOT)then
+            YoungModulus(i) = this%ROOT(DOMAIN_IDX)%YoungModulus(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_EAR)then
+            YoungModulus(i) = this%EAR(DOMAIN_IDX)%YoungModulus(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_PANICLE)then
+            YoungModulus(i) = this%PANICLE(DOMAIN_IDX)%YoungModulus(ELEMENT_IDX)
+        endif
+    enddo
+    
+end function
 
 ! ################################################################
+
+! ################################################################
+function getPoissonRatioFieldMaize(this) result(PoissonRatio)
+    class(Maize_),intent(inout) :: this
+    real(real64),allocatable :: PoissonRatio(:)
+    integer(int32),allocatable :: ElementList(:,:)
+    integer(int32) :: TYPE_IDX, DOMAIN_IDX, ELEMENT_IDX, i
+
+    ElementList = this%getElementList()
+    PoissonRatio = zeros(size(ElementList,1))
+
+    do i=1,size(ElementList,1)
+        TYPE_IDX = ElementList(i,1)
+        DOMAIN_IDX = ElementList(i,2)
+        ELEMENT_IDX = ElementList(i,3)
+        if(TYPE_IDX == this%TYPE_STEM)then
+            PoissonRatio(i) = this%stem(DOMAIN_IDX)%PoissonRatio(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_LEAF)then
+            PoissonRatio(i) = this%LEAF(DOMAIN_IDX)%PoissonRatio(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_ROOT)then
+            PoissonRatio(i) = this%ROOT(DOMAIN_IDX)%PoissonRatio(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_EAR)then
+            PoissonRatio(i) = this%EAR(DOMAIN_IDX)%PoissonRatio(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_PANICLE)then
+            PoissonRatio(i) = this%PANICLE(DOMAIN_IDX)%PoissonRatio(ELEMENT_IDX)
+        endif
+    enddo
+    
+end function
+
+! ################################################################
+
+! ################################################################
+function getDensityFieldMaize(this) result(Density)
+    class(Maize_),intent(inout) :: this
+    real(real64),allocatable :: Density(:)
+    integer(int32),allocatable :: ElementList(:,:)
+    integer(int32) :: TYPE_IDX, DOMAIN_IDX, ELEMENT_IDX, i
+
+    ElementList = this%getElementList()
+    Density = zeros(size(ElementList,1))
+
+    do i=1,size(ElementList,1)
+        TYPE_IDX = ElementList(i,1)
+        DOMAIN_IDX = ElementList(i,2)
+        ELEMENT_IDX = ElementList(i,3)
+        if(TYPE_IDX == this%TYPE_STEM)then
+            Density(i) = this%stem(DOMAIN_IDX)%Density(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_LEAF)then
+            Density(i) = this%LEAF(DOMAIN_IDX)%Density(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_ROOT)then
+            Density(i) = this%ROOT(DOMAIN_IDX)%Density(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_EAR)then
+            Density(i) = this%EAR(DOMAIN_IDX)%Density(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_PANICLE)then
+            Density(i) = this%PANICLE(DOMAIN_IDX)%Density(ELEMENT_IDX)
+        endif
+    enddo
+    
+end function
+
+! ################################################################
+
 function getYoungModulusMaize(this,DomainID,ElementID) result(YoungModulus)
     class(Maize_),intent(in) :: this
-    integer(int32),intent(in) :: DomainID, ElementID
+    integer(int32),optional,intent(in) :: DomainID, ElementID
     real(real64) :: YoungModulus 
     integer(int32) :: i, n
     
@@ -2876,5 +3040,139 @@ subroutine deformMaize(this,displacement)
 end subroutine
 ! #####################################################################
 
+function getElementListMaize(this,x_min,x_max,y_min,y_max,z_min,z_max,debug) result(ElementList)
+    class(Maize_),intent(inout) :: this
+    integer(int32),allocatable :: ElementList(:,:)
+    integer(int32),allocatable :: obj_type(:),obj_idx(:),elem_idx(:)
+    real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
+    logical,optional,intent(in) :: debug
+    logical :: do_debug
+    integer(int32) :: idx,n,m
+
+    do_debug = input(default=.false.,option=debug)
+
+    !ElementList(idx, [ObjType, ObjID, ElementID] )
+    allocate(elem_idx(0) )
+    allocate(obj_type(0) )
+    allocate(obj_idx(0) )
+
+    if(allocated(this%stem) )then
+        do idx=1,size(this%stem)
+            if(this%stem(idx)%femdomain%empty() )cycle
+            m = size(elem_idx)
+            elem_idx = &
+                elem_idx // this%stem(idx)%femdomain%mesh%getElementList(&
+                xmin=x_min,xmax=x_max,ymin=y_min,ymax=y_max,zmin=z_min,zmax=z_max)
+
+            obj_idx = obj_idx // idx*int(eyes( size(elem_idx)- m))
+        enddo
+
+        if(do_debug)then
+            print *, "[o] STEM"
+        endif
+    else
+        if(do_debug)then
+            print *, "NO STEM"
+        endif
+    endif
+    
+    ! debug
+
+    
+    obj_type = obj_type // this%TYPE_STEM*int(eyes(size(elem_idx)))
+
+    if(allocated(this%leaf) )then
+        do idx=1,size(this%leaf)
+            if(this%leaf(idx)%femdomain%empty() )cycle
+            m = size(elem_idx)
+            elem_idx = &
+                elem_idx // this%leaf(idx)%femdomain%mesh%getElementList(&
+                xmin=x_min,xmax=x_max,ymin=y_min,ymax=y_max,zmin=z_min,zmax=z_max)
+            obj_idx = obj_idx // idx*int(eyes( size(elem_idx)- m))
+        enddo
+
+        if(do_debug)then
+            print *, "[o] LEAF"
+        endif
+    else
+        if(do_debug)then
+            print *, "NO LEAF"
+        endif
+    endif
+
+    n = size(obj_type)
+    obj_type = obj_type // this%TYPE_LEAF*int(eyes(size(elem_idx)-n))
+    
+
+    if(allocated(this%root) )then
+        do idx=1,size(this%root)
+            if(this%root(idx)%femdomain%empty() )cycle
+            m = size(elem_idx)
+            elem_idx = &
+                elem_idx // this%root(idx)%femdomain%mesh%getElementList(&
+                xmin=x_min,xmax=x_max,ymin=y_min,ymax=y_max,zmin=z_min,zmax=z_max)
+            obj_idx = obj_idx // idx*int(eyes( size(elem_idx)- m))
+        enddo
+
+        if(do_debug)then
+            print *, "[o] ROOT"
+        endif
+    else
+        if(do_debug)then
+            print *, "NO ROOT"
+        endif
+    endif
+    n = size(obj_type)
+    obj_type = obj_type // this%TYPE_ROOT*int(eyes(size(elem_idx)-n))
+    
+
+    if(allocated(this%Ear) )then
+        do idx=1,size(this%Ear)
+            if(this%Ear(idx)%femdomain%empty() )cycle
+            m = size(elem_idx)
+            elem_idx = &
+                elem_idx // this%Ear(idx)%femdomain%mesh%getElementList(&
+                xmin=x_min,xmax=x_max,ymin=y_min,ymax=y_max,zmin=z_min,zmax=z_max)
+            obj_idx = obj_idx // idx*int(eyes( size(elem_idx)- m))
+        enddo
+
+        if(do_debug)then
+            print *, "[o] EAR"
+        endif
+    else
+        if(do_debug)then
+            print *, "NO EAR"
+        endif
+    endif
+    n = size(obj_type)
+    obj_type = obj_type // this%TYPE_EAR*int(eyes(size(elem_idx)-n))
+    
+    if(allocated(this%Panicle) )then
+        do idx=1,size(this%Panicle)
+            if(this%Panicle(idx)%femdomain%empty() )cycle
+            m = size(elem_idx)
+            elem_idx = &
+                elem_idx // this%Panicle(idx)%femdomain%mesh%getElementList(&
+                xmin=x_min,xmax=x_max,ymin=y_min,ymax=y_max,zmin=z_min,zmax=z_max)
+            obj_idx = obj_idx // idx*int(eyes( size(elem_idx)- m))
+        enddo
+
+        if(do_debug)then
+            print *, "[o] PANICLE"
+        endif
+    else
+        if(do_debug)then
+            print *, "NO PANICLE"
+        endif
+    endif
+    n = size(obj_type)
+    obj_type = obj_type // this%TYPE_PANICLE*int(eyes(size(elem_idx)-n))
+    
+    ElementList = zeros( size(elem_idx),3 )
+    ElementList(:,1) = obj_type
+    ElementList(:,2) = obj_idx
+    ElementList(:,3) = elem_idx
+
+end function
 
 end module MaizeClass

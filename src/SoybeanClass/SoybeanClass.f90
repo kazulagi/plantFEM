@@ -37,6 +37,10 @@ module SoybeanClass
         integer(int32) :: num_stem_node
         integer(int32) :: Num_Of_Root
 
+        integer(int32) :: TYPE_STEM    = 1
+        integer(int32) :: TYPE_LEAF    = 2
+        integer(int32) :: TYPE_ROOT    = 3
+
         integer(int32) :: MaxLeafNum= PF_DEFAULT_SOYBEAN_ASIZE
         integer(int32) :: MaxRootNum= PF_DEFAULT_SOYBEAN_ASIZE
         integer(int32) :: MaxStemNum= PF_DEFAULT_SOYBEAN_ASIZE
@@ -242,6 +246,12 @@ module SoybeanClass
         procedure,public :: getYoungModulus => getYoungModulusSoybean
         procedure,public :: getPoissonRatio => getPoissonRatioSoybean
         procedure,public :: getDensity => getDensitySoybean
+
+        procedure,public :: getYoungModulusField => getYoungModulusFieldSoybean
+        procedure,public :: getPoissonRatioField => getPoissonRatioFieldSoybean
+        procedure,public :: getDensityField => getDensityFieldSoybean
+
+        procedure,public :: getElementList => getElementListSoybean
         
         ! operation
         procedure,public :: findApical => findApicalSoybean
@@ -9290,6 +9300,182 @@ subroutine setFinalLeafWidthSoybean(this,Width,StemID)
     this%InterNodeInfo(StemID)%FinalLeafWidth = Width
 
 end subroutine
+
+! ################################################################
+
+function getYoungModulusFieldSoybean(this) result(YoungModulus)
+    class(Soybean_),intent(inout) :: this
+    real(real64),allocatable :: YoungModulus(:)
+    integer(int32),allocatable :: ElementList(:,:)
+    integer(int32) :: TYPE_IDX, DOMAIN_IDX, ELEMENT_IDX, i
+
+    ElementList = this%getElementList()
+    YoungModulus = zeros(size(ElementList,1))
+
+    do i=1,size(ElementList,1)
+        TYPE_IDX = ElementList(i,1)
+        DOMAIN_IDX = ElementList(i,2)
+        ELEMENT_IDX = ElementList(i,3)
+        if(TYPE_IDX == this%TYPE_STEM)then
+            YoungModulus(i) = this%stem(DOMAIN_IDX)%YoungModulus(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_LEAF)then
+            YoungModulus(i) = this%LEAF(DOMAIN_IDX)%YoungModulus(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_ROOT)then
+            YoungModulus(i) = this%ROOT(DOMAIN_IDX)%YoungModulus(ELEMENT_IDX)
+        endif
+    enddo
+    
+end function
+
+! ################################################################
+
+! ################################################################
+function getPoissonRatioFieldSoybean(this) result(PoissonRatio)
+    class(Soybean_),intent(inout) :: this
+    real(real64),allocatable :: PoissonRatio(:)
+    integer(int32),allocatable :: ElementList(:,:)
+    integer(int32) :: TYPE_IDX, DOMAIN_IDX, ELEMENT_IDX, i
+
+    ElementList = this%getElementList()
+    PoissonRatio = zeros(size(ElementList,1))
+
+    do i=1,size(ElementList,1)
+        TYPE_IDX = ElementList(i,1)
+        DOMAIN_IDX = ElementList(i,2)
+        ELEMENT_IDX = ElementList(i,3)
+        if(TYPE_IDX == this%TYPE_STEM)then
+            PoissonRatio(i) = this%stem(DOMAIN_IDX)%PoissonRatio(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_LEAF)then
+            PoissonRatio(i) = this%LEAF(DOMAIN_IDX)%PoissonRatio(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_ROOT)then
+            PoissonRatio(i) = this%ROOT(DOMAIN_IDX)%PoissonRatio(ELEMENT_IDX)
+        endif
+    enddo
+    
+end function
+
+! ################################################################
+
+! ################################################################
+function getDensityFieldSoybean(this) result(Density)
+    class(Soybean_),intent(inout) :: this
+    real(real64),allocatable :: Density(:)
+    integer(int32),allocatable :: ElementList(:,:)
+    integer(int32) :: TYPE_IDX, DOMAIN_IDX, ELEMENT_IDX, i
+
+    ElementList = this%getElementList()
+    Density = zeros(size(ElementList,1))
+
+    do i=1,size(ElementList,1)
+        TYPE_IDX = ElementList(i,1)
+        DOMAIN_IDX = ElementList(i,2)
+        ELEMENT_IDX = ElementList(i,3)
+        if(TYPE_IDX == this%TYPE_STEM)then
+            Density(i) = this%stem(DOMAIN_IDX)%Density(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_LEAF)then
+            Density(i) = this%LEAF(DOMAIN_IDX)%Density(ELEMENT_IDX)
+        elseif(TYPE_IDX == this%TYPE_ROOT)then
+            Density(i) = this%ROOT(DOMAIN_IDX)%Density(ELEMENT_IDX)
+        endif
+    enddo
+    
+end function
+! #####################################################################
+
+function getElementListSoybean(this,x_min,x_max,y_min,y_max,z_min,z_max,debug) result(ElementList)
+    class(Soybean_),intent(inout) :: this
+    integer(int32),allocatable :: ElementList(:,:)
+    integer(int32),allocatable :: obj_type(:),obj_idx(:),elem_idx(:)
+    real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
+    logical,optional,intent(in) :: debug
+    logical :: do_debug
+    integer(int32) :: idx,n,m
+
+    do_debug = input(default=.false.,option=debug)
+
+    !ElementList(idx, [ObjType, ObjID, ElementID] )
+    allocate(elem_idx(0) )
+    allocate(obj_type(0) )
+    allocate(obj_idx(0) )
+
+    if(allocated(this%stem) )then
+        do idx=1,size(this%stem)
+            if(this%stem(idx)%femdomain%empty() )cycle
+            m = size(elem_idx)
+            elem_idx = &
+                elem_idx // this%stem(idx)%femdomain%mesh%getElementList(&
+                xmin=x_min,xmax=x_max,ymin=y_min,ymax=y_max,zmin=z_min,zmax=z_max)
+
+            obj_idx = obj_idx // idx*int(eyes( size(elem_idx)- m))
+        enddo
+
+        if(do_debug)then
+            print *, "[o] STEM"
+        endif
+    else
+        if(do_debug)then
+            print *, "NO STEM"
+        endif
+    endif
+    
+    ! debug
+
+    
+    obj_type = obj_type // this%TYPE_STEM*int(eyes(size(elem_idx)))
+
+    if(allocated(this%leaf) )then
+        do idx=1,size(this%leaf)
+            if(this%leaf(idx)%femdomain%empty() )cycle
+            m = size(elem_idx)
+            elem_idx = &
+                elem_idx // this%leaf(idx)%femdomain%mesh%getElementList(&
+                xmin=x_min,xmax=x_max,ymin=y_min,ymax=y_max,zmin=z_min,zmax=z_max)
+            obj_idx = obj_idx // idx*int(eyes( size(elem_idx)- m))
+        enddo
+
+        if(do_debug)then
+            print *, "[o] LEAF"
+        endif
+    else
+        if(do_debug)then
+            print *, "NO LEAF"
+        endif
+    endif
+
+    n = size(obj_type)
+    obj_type = obj_type // this%TYPE_LEAF*int(eyes(size(elem_idx)-n))
+    
+
+    if(allocated(this%root) )then
+        do idx=1,size(this%root)
+            if(this%root(idx)%femdomain%empty() )cycle
+            m = size(elem_idx)
+            elem_idx = &
+                elem_idx // this%root(idx)%femdomain%mesh%getElementList(&
+                xmin=x_min,xmax=x_max,ymin=y_min,ymax=y_max,zmin=z_min,zmax=z_max)
+            obj_idx = obj_idx // idx*int(eyes( size(elem_idx)- m))
+        enddo
+
+        if(do_debug)then
+            print *, "[o] ROOT"
+        endif
+    else
+        if(do_debug)then
+            print *, "NO ROOT"
+        endif
+    endif
+    n = size(obj_type)
+    obj_type = obj_type // this%TYPE_ROOT*int(eyes(size(elem_idx)-n))
+    
+    
+    ElementList = zeros( size(elem_idx),3 )
+    ElementList(:,1) = obj_type
+    ElementList(:,2) = obj_idx
+    ElementList(:,3) = elem_idx
+
+end function
+
+! ################################################################
 
 
 
