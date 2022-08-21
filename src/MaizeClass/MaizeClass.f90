@@ -175,6 +175,7 @@ module MaizeClass
 
         ! simulator
         procedure,public :: getEigenMode => getEigenModeMaize
+        procedure,public :: getDisplacement => getDisplacementMaize
         procedure,public :: deform => deformMaize
         
     end type
@@ -829,38 +830,43 @@ subroutine moveMaize(this,x,y,z)
     class(Maize_),intent(inout) :: this
     real(real64),optional,intent(in) :: x,y,z
     integer(int32) :: i
-
-    do i=1,size(this%stem)
-        if(this%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%stem(i)%move(x=x,y=y,z=z)
-        endif
-    enddo
-
-    do i=1,size(this%root)
-        if(this%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%root(i)%move(x=x,y=y,z=z)
-        endif
-    enddo
-
-    do i=1,size(this%leaf)
-        if(this%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%leaf(i)%move(x=x,y=y,z=z)
-        endif
-    enddo
-
-
-    do i=1,size(this%Ear)
-        if(this%Ear(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%Ear(i)%move(x=x,y=y,z=z)
-        endif
-    enddo
-
-
-    do i=1,size(this%panicle)
-        if(this%panicle(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%panicle(i)%move(x=x,y=y,z=z)
-        endif
-    enddo
+    if(allocated(this%stem) )then
+        do i=1,size(this%stem)
+            if(this%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%stem(i)%move(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
+    if(allocated(this%root) )then
+        do i=1,size(this%root)
+            if(this%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%root(i)%move(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
+    if(allocated(this%leaf) )then
+        do i=1,size(this%leaf)
+            if(this%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%leaf(i)%move(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
+    
+    if(allocated(this%Ear) )then
+        do i=1,size(this%Ear)
+            if(this%Ear(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%Ear(i)%move(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
+    
+    if(allocated(this%panicle) )then
+        do i=1,size(this%panicle)
+            if(this%panicle(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%panicle(i)%move(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
 
 end subroutine
 ! ########################################
@@ -1530,6 +1536,105 @@ subroutine removeMaize(this,root)
 !    this%rootconfig=" "
 !    this%leafconfig=" "
 
+    this%TYPE_STEM    = 1
+    this%TYPE_LEAF    = 2
+    this%TYPE_ROOT    = 3
+    this%TYPE_EAR     = 4
+    this%TYPE_PANICLE = 5
+    ! 節-節点データ構造
+    call this % struct % remove()
+    if(allocated(this%leaf2stem)) deallocate(this%leaf2stem)! (:,:)
+    if(allocated(this%stem2stem)) deallocate(this%stem2stem)! (:,:)
+    if(allocated(this%ear2stem)) deallocate(this%ear2stem)! (:,:)
+    if(allocated(this%panicle2stem)) deallocate(this%panicle2stem)! (:,:)
+    if(allocated(this%root2stem)) deallocate(this%root2stem)! (:,:)
+    if(allocated(this%root2root)) deallocate(this%root2root)! (:,:)
+
+    this%mainstem_length = 0.0d0
+    this%mainstem_width = 0.0d0
+    this%mainstem_node=0
+
+    this%mainroot_length = 0.0d0
+    this%mainroot_width = 0.0d0
+    this%mainroot_node=0
+
+
+    this%num_branch_root=0
+    this%num_branch_root_node=0
+
+    this%ms_angle_ave = 0.0d0
+    this%ms_angle_sig = 0.0d0
+
+    if(allocated(this%Leaf_From)) deallocate(this%Leaf_From)! (:)
+
+    !real(real64),allocatable :: leaf_Length(:)
+    !real(real64),allocatable :: leaf_Width(:)
+
+    if(allocated(this%leaf_curvature) )deallocate(this%leaf_curvature)! (:)
+
+    if(allocated(this%leaf_thickness_ave) )deallocate(this%leaf_thickness_ave)! (:)
+    if(allocated(this%leaf_thickness_sig) )deallocate(this%leaf_thickness_sig)! (:)
+
+    if(allocated(this%leaf_angle_ave_x) )deallocate(this%leaf_angle_ave_x)! (:)
+    if(allocated(this%leaf_angle_sig_x) )deallocate(this%leaf_angle_sig_x)! (:)
+    if(allocated(this%leaf_angle_ave_z) )deallocate(this%leaf_angle_ave_z)! (:)
+    if(allocated(this%leaf_angle_sig_z) )deallocate(this%leaf_angle_sig_z)! (:)
+
+    if(allocated(this%leaf_length_ave) )deallocate(this%leaf_length_ave)! (:)
+    if(allocated(this%leaf_length_sig) )deallocate(this%leaf_length_sig)! (:)
+    if(allocated(this%leaf_width_ave) )deallocate(this%leaf_width_ave)! (:)
+    if(allocated(this%leaf_width_sig) )deallocate(this%leaf_width_sig)! (:)
+    
+    this%num_leaf=0
+    this%num_stem=0
+    this%num_ear = 1
+    this%num_panicle = 1
+    this%num_root=0
+
+
+    ! 器官オブジェクト配列
+    if(allocated(this%leaf_list)) deallocate(this%leaf_list)! (:)
+    if(allocated(this%stem_list)) deallocate(this%stem_list)! (:)
+    if(allocated(this%root_list)) deallocate(this%root_list)! (:)
+
+    this%LeafSurfaceData = ""
+    if(allocated(this % Leaf)) deallocate(this % Leaf)! (:)
+    if(allocated(this % Stem)) deallocate(this % Stem)! (:)
+    if(allocated(this % Ear)) deallocate(this % Ear)! (:)
+    if(allocated(this % Panicle)) deallocate(this % Panicle)! (:)
+    if(allocated(this % Root)) deallocate(this % Root)! (:)
+
+
+
+    
+    if(allocated(this%NodeID_MainStem)) deallocate(this%NodeID_MainStem)! (:)
+    if(allocated(this%NodeID_Branch)) deallocate(this%NodeID_Branch)! (:)
+    
+    this%inLoop = .false.
+    this%hours = 0.0d0
+    
+    ! growth simulation
+    this%FullyExpanded_stem_threshold = 0.10d0
+    this%MaxBranchNum = 20
+    if(allocated(this%InterNodeInfo)) deallocate(this%InterNodeInfo)! (:)
+    this%default_Leaf_growth_ratio = 1.0d0/3.0d0
+    this%default_Stem_growth_ratio = 1.0d0/3.0d0
+    if(allocated(this%MainStem_num_branch)) deallocate(this%MainStem_num_branch)! (:)
+    this%apical_dominance_distance = 1.0d0
+    
+
+    ! シミュレータ
+    call this%contact%remove()
+    this%Gravity_acceralation = 9.810d0
+    this%PenaltyParameter = 100000.0d0
+    this%GaussPointProjection = .false.
+
+    ! setting
+    this%stem_division(1:3) = [10, 10, 10]
+    this%leaf_division(1:3) = [10, 10, 10]
+    this%ear_division(1:3)  = [10, 10, 10]
+    this%panicle_division(1:3) = [10, 10, 10]
+
 end subroutine
 ! ################################################################
 subroutine checkMemoryRequirementMaize(this)
@@ -1822,7 +1927,7 @@ recursive subroutine setYoungModulusMaize(this,YoungModulus,stem,root,leaf,ear,p
 
     if(n==0)then
         call this%setYoungModulus(YoungModulus=YoungModulus,stem=.true.,root=.true.,leaf=.true.&
-        ,Ear=.true., Panicle=.true.)
+        ,Ear=.true., Panicle=.true.,ElementList=ElementList)
     endif
     
 end subroutine
@@ -2016,13 +2121,16 @@ end subroutine
 
 
 ! ################################################################
-function getEigenModeMaize(this, ground_level,penalty,debug,Frequency,EbOM_Algorithm) result(EigenVectors)
+function getEigenModeMaize(this, ground_level,penalty,debug,Frequency,EbOM_Algorithm,num_mode) result(EigenVectors)
     class(Maize_),target,intent(inout) :: this
     real(real64),intent(in) :: ground_level
     real(real64),optional,intent(in) :: penalty
     logical,optional,intent(in) :: debug
     real(real64),allocatable,intent(inout) :: Frequency(:)
     character(*),optional,intent(in) :: EbOM_Algorithm
+
+    integer(int32),optional,intent(in) :: num_mode
+    integer(int32) :: num_freq
     !integer(int32),optional,intent(in) :: num_mode
     
 
@@ -2039,7 +2147,10 @@ function getEigenModeMaize(this, ground_level,penalty,debug,Frequency,EbOM_Algor
     real(real64) :: vec_norm
 
     integer(int32) :: myEarID, myPanicleID
+    real(real64),allocatable :: all_frequency(:),All_EigenVectors(:,:)
 
+    num_freq = input(default=10,option=num_mode)
+    
     EbOM_Algorithm_id = FEMDomain_Overset_GPP
     if(present(EbOM_Algorithm) )then
         if(EbOM_Algorithm=="P2P")then
@@ -2319,18 +2430,37 @@ function getEigenModeMaize(this, ground_level,penalty,debug,Frequency,EbOM_Algor
 
 
 
-    call solver%eig(eigen_value=Frequency,eigen_vectors=EigenVectors)
+    call solver%eig(eigen_value=All_Frequency,eigen_vectors=All_EigenVectors)
     call solver%remove()
 
     ! simplify this part
     ! normalize EigenVectors
-    do i=1,size(EigenVectors,2)
-        vec_norm = norm(EigenVectors(:,i) )
-        print *, vec_norm
-        EigenVectors(:,i) = EigenVectors(:,i)/vec_norm
+    do i=1,size(All_EigenVectors,2)
+        vec_norm = norm(All_EigenVectors(:,i) )
+        
+        All_EigenVectors(:,i) = All_EigenVectors(:,i)/vec_norm
     enddo
 
+    Frequency = zeros(num_freq)
+    EigenVectors = zeros(size(All_EigenVectors,1),num_freq)
 
+    do i=1,num_freq
+        n = minvalID(All_Frequency)
+        EigenVectors(:,i) = All_EigenVectors(:,n)
+        Frequency(i)      = All_Frequency(n)
+        All_Frequency(n) = maxval(All_Frequency) 
+    enddo
+
+    do i=1,size(Frequency)
+        if(Frequency(i)<0.0d0)then
+            Frequency(i)=0.0d0
+        endif
+    enddo
+    Frequency = sqrt((Frequency))/(2.0d0*math%PI)
+
+
+
+    
     if(present(debug) )then
         if(debug)then
             print *, "[ok] Solve >> done."        
@@ -3174,5 +3304,329 @@ function getElementListMaize(this,x_min,x_max,y_min,y_max,z_min,z_max,debug) res
     ElementList(:,3) = elem_idx
 
 end function
+! ###########################################################################
+
+
+! ################################################################
+function getDisplacementMaize(this, ground_level,penalty,debug,EbOM_Algorithm) result(displacement)
+    class(Maize_),target,intent(inout) :: this
+    real(real64),intent(in) :: ground_level
+    real(real64),optional,intent(in) :: penalty
+    logical,optional,intent(in) :: debug
+    real(real64),allocatable :: Frequency(:)
+    character(*),optional,intent(in) :: EbOM_Algorithm
+    !integer(int32),optional,intent(in) :: num_mode
+    
+    real(real64),allocatable :: displacement(:)
+
+    type(FEMDomainp_),allocatable :: FEMDomainPointers(:)
+    type(FEMSolver_) :: solver
+    type(Math_) :: math
+
+    real(real64),allocatable :: EigenVectors(:,:),buf(:,:),buf_vec(:)
+
+    integer(int32) :: stem_id, leaf_id, root_id,DomainID,ElementID,i,n
+    integer(int32) :: myStemID, yourStemID, myLeafID,myRootID, yourRootID
+    integer(int32),allocatable :: FixBoundary(:)
+    integer(int32) :: nn_domains,EbOM_Algorithm_id
+    real(real64) :: vec_norm
+
+    integer(int32) :: myEarID, myPanicleID
+
+    EbOM_Algorithm_id = FEMDomain_Overset_GPP
+    if(present(EbOM_Algorithm) )then
+        if(EbOM_Algorithm=="P2P")then
+            EbOM_Algorithm_id=FEMDomain_Overset_P2P
+        elseif(EbOM_Algorithm=="GPP")then
+            EbOM_Algorithm_id=FEMDomain_Overset_P2P
+        endif
+    endif
+
+    ! linear elasticity with infinitesimal strain theory
+    n = this%numStem() + this%numLeaf() + this%numRoot() + this%numEar() + this%numPanicle()
+    
+    allocate(FEMDomainPointers(n) )
+    ! ORDER 
+    ! [STEM] => [LEAF] => [ROOT] => [Ear] => [PANICLE]
+    !(1) >> compute overset
+    ! For stems
+    if(allocated(this%stem2stem) )then
+        if(allocated(this%stem) )then
+            do myStemID = 1,size(this%stem2stem,1)
+                do yourStemID = 1, size(this%stem2stem,2)
+                    if(this%stem2stem(myStemID,yourStemID)>=1 )then
+                        ! connected
+                        call this%stem(myStemID)%femdomain%overset(&
+                            FEMDomain=this%stem(yourStemID)%femdomain,&
+                            DomainID   = yourStemID    ,& 
+                            MyDomainID = myStemID  ,&
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                        call this%stem(yourStemID)%femdomain%overset(&
+                            FEMDomain=this%stem(myStemID)%femdomain,&
+                            DomainID   = myStemID    ,& 
+                            MyDomainID = yourStemID  ,&
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                    endif
+                enddo
+            enddo
+        endif
+    endif
+
+    if(allocated(this%leaf2stem) )then
+        if(allocated(this%leaf) .and. allocated(this%stem) )then
+            do myLeafID = 1,size(this%leaf2stem,1)
+                do yourStemID = 1, size(this%leaf2stem,2)
+                    if(this%leaf2stem(myLeafID,yourStemID)>=1 )then
+                        ! connected
+                        call this%leaf(myLeafID)%femdomain%overset(&
+                            FEMDomain=this%stem(yourStemID)%femdomain,&
+                            DomainID   = yourStemID    ,& 
+                            MyDomainID = this%numStem() + myLeafID  , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                        call this%stem(yourStemID)%femdomain%overset(&
+                            FEMDomain=this%leaf(myLeafID)%femdomain,&
+                            DomainID   = this%numStem() + myLeafID    ,& 
+                            MyDomainID = yourStemID  , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                    endif
+                enddo
+            enddo
+        endif
+    endif
+    
+
+
+
+    if(allocated(this%root2stem) )then
+        if(allocated(this%stem) .and. allocated(this%root) )then
+            do myRootID = 1,size(this%root2stem,1)
+                do yourStemID = 1, size(this%root2stem,2)
+                    if(this%root2stem(myRootID,yourStemID)>=1 )then
+                        ! connected
+                        call this%root(myRootID)%femdomain%overset(&
+                            FEMDomain=this%stem(yourStemID)%femdomain,&
+                            DomainID   = yourStemID    ,& 
+                            MyDomainID = this%numStem() +this%numLeaf() + myRootID  , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                        call this%stem(yourStemID)%femdomain%overset(&
+                            FEMDomain=  this%root(myRootID)%femdomain,&
+                            DomainID   = this%numStem() +this%numLeaf() + myRootID    ,& 
+                            MyDomainID =  yourStemID , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                    endif
+                enddo
+            enddo
+        endif
+    endif
+
+
+    if(allocated(this%root2root) )then
+        if(allocated(this%root) )then
+            do myRootID = 1,size(this%root2root,1)
+                do yourrootID = 1, size(this%root2root,2)
+                    if(this%root2root(myRootID,yourrootID)>=1 )then
+                        ! connected
+                        call this%root(myRootID)%femdomain%overset(&
+                            FEMDomain=this%root(yourrootID)%femdomain,&
+                            DomainID   = this%numroot() +this%numLeaf() + yourrootID    ,& 
+                            MyDomainID = this%numroot() +this%numLeaf() + myRootID  , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                    
+                        call this%root(yourrootID)%femdomain%overset(&
+                            FEMDomain=this%root(myRootID)%femdomain,&
+                            DomainID   = this%numroot() +this%numLeaf() + myRootID    ,& 
+                            MyDomainID =  this%numroot() +this%numLeaf() + yourrootID , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                    endif
+                enddo
+            enddo
+        endif
+    endif
+
+
+    if(allocated(this%Ear2stem) )then
+        if(allocated(this%Ear) .and. allocated(this%stem) )then
+            do myEarID = 1,size(this%Ear2stem,1)
+                do yourStemID = 1, size(this%Ear2stem,2)
+                    if(this%Ear2stem(myEarID,yourStemID)>=1 )then
+                        ! connected
+                        call this%Ear(myEarID)%femdomain%overset(&
+                            FEMDomain=this%stem(yourStemID)%femdomain,&
+                            DomainID   = yourStemID    ,& 
+                            MyDomainID = this%numStem() + this%numLeaf() + this%numRoot() + myEarID  , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                        call this%stem(yourStemID)%femdomain%overset(&
+                            FEMDomain=this%Ear(myEarID)%femdomain,&
+                            DomainID   = this%numStem() + this%numLeaf() + this%numRoot() + myEarID    ,& 
+                            MyDomainID = yourStemID  , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                        
+                    endif
+                enddo
+            enddo
+        endif
+    endif
+    
+    if(allocated(this%Panicle2stem) )then
+        if(allocated(this%Panicle) .and. allocated(this%stem) )then
+            do myPanicleID = 1,size(this%Panicle2stem,1)
+                do yourStemID = 1, size(this%Panicle2stem,2)
+                    if(this%Panicle2stem(myPanicleID,yourStemID)>=1 )then
+                        ! connected
+                        call this%Panicle(myPanicleID)%femdomain%overset(&
+                            FEMDomain=this%stem(yourStemID)%femdomain,&
+                            DomainID   = yourStemID    ,& 
+                            MyDomainID = this%numStem() + this%numLeaf() + this%numRoot() + &
+                                this%numEar() + myPanicleID  , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                        
+                        call this%stem(yourStemID)%femdomain%overset(&
+                            FEMDomain=this%Panicle(myPanicleID)%femdomain,&
+                            DomainID   = this%numStem() + this%numLeaf() + this%numRoot() + &
+                            this%numEar() + myPanicleID    ,& 
+                            MyDomainID = yourStemID  , &
+                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+                    endif
+                enddo
+            enddo
+        endif
+    endif
+    
+
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] overset >> done."        
+        endif
+    endif
+
+
+
+    call solver%init(NumDomain=this%numStem() +this%numLeaf() + this%numRoot() &
+        + this%numEar() + this%numPanicle() )
+    
+    FEMDomainPointers = this%getFEMDomainPointers()
+    call solver%setDomain(FEMDomainPointers=FEMDomainPointers )
+    
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] initSolver >> done."        
+        endif
+    endif
+
+    call solver%setCRS(DOF=3,debug=debug)
+
+    ! CRS ready!
+
+    if( .not. this%checkYoungModulus())then
+        print *, "[ERROR] YoungModulus(:) is not ready."
+        stop
+    endif
+    if( .not. this%checkPoissonRatio())then
+        print *, "[ERROR] PoissonRatio(:) is not ready."
+        stop
+    endif
+    if( .not. this%checkDensity())then
+        print *, "[ERROR] Density(:) is not ready."
+        stop
+    endif
+
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] setCRS >> done."        
+        endif
+    endif
+    
+    !$OMP parallel 
+    !$OMP do
+    do DomainID=1,size(FEMDomainPointers)
+        do ElementID = 1, FEMDomainPointers(DomainID)%femdomainp%ne()
+            call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=3,&
+                Matrix=FEMDomainPointers(DomainID)%femdomainp%StiffnessMatrix(&
+                ElementID=ElementID,&
+                E=this%getYoungModulus(DomainID=DomainID,ElementID=ElementID), &
+                v=this%getPoissonRatio(DomainID=DomainID,ElementID=ElementID)  ) )
+            call solver%setVector(DomainID=DomainID,ElementID=ElementID,DOF=3,&
+                Vector=FEMDomainPointers(DomainID)%femdomainp%massVector(&
+                ElementID=ElementID,&
+                Density=this%getDensity(DomainID=DomainID,ElementID=ElementID), &
+                Accel=[0.0d0, 0.0d0, -this%Gravity_acceralation], &
+                DOF=3 ) )
+        enddo
+    enddo
+    !$OMP end do
+    !$OMP end parallel
+    
+    
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] set Matrix & vectors >> done."        
+        endif
+    endif
+    
+    call solver%setEbOM(penalty=input(default=10000000.0d0,option=penalty), DOF=3)
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] set EbOM >> done."        
+        endif
+    endif
+    
+    ! mass matrix
+    !$OMP parallel 
+    !$OMP do
+    do DomainID=1,size(FEMDomainPointers)
+        do ElementID = 1, FEMDomainPointers(DomainID)%femdomainp%ne()
+            call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=3,&
+               Matrix=FEMDomainPointers(DomainID)%femdomainp%massMatrix(&
+                ElementID=ElementID,&
+                Density=this%getDensity(DomainID=DomainID,ElementID=ElementID), &
+                DOF=3 ) )
+        enddo
+    enddo
+    !$OMP end do
+    !$OMP end parallel
+    
+    ! fix-boundary conditions
+    nn_domains = 0
+    do i=1,size(FEMDomainPointers)
+        if(FEMDomainPointers(i)%FEMDomainp%z_min() <= ground_level )then
+            FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-2 !+ nn_domains*3
+            call solver%fix(DomainID=i,IDs=FixBoundary,FixValue=0.0d0)
+            FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-1 !+ nn_domains*3
+            call solver%fix(DomainID=i,IDs=FixBoundary,FixValue=0.0d0)
+            FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-0 !+ nn_domains*3
+            call solver%fix(DomainID=i,IDs=FixBoundary,FixValue=0.0d0)
+        endif
+        !nn_domains = nn_domains + FEMDomainPointers(i)%FEMDomainp%nn()
+    enddo
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] FixBoundary >> done."        
+        endif
+    endif
+
+    if(present(debug) )then
+        solver%debug = debug
+    endif
+
+
+
+    displacement = solver%solve(algorithm="BiCGSTAB")
+    call solver%remove()
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] Solve >> done."        
+        endif
+    endif
+    
+
+
+end function
+! ################################################################
+
 
 end module MaizeClass

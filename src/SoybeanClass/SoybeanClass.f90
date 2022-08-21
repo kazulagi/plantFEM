@@ -3479,23 +3479,29 @@ subroutine moveSoybean(obj,x,y,z)
     real(real64),optional,intent(in) :: x,y,z
     integer(int32) :: i
 
-    do i=1,size(obj%stem)
-        if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%stem(i)%move(x=x,y=y,z=z)
-        endif
-    enddo
+    if(allocated(obj%stem) )then
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call obj%stem(i)%move(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
 
-    do i=1,size(obj%root)
-        if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%root(i)%move(x=x,y=y,z=z)
-        endif
-    enddo
+    if(allocated(obj%leaf) )then
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call obj%leaf(i)%move(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
 
-    do i=1,size(obj%leaf)
-        if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%leaf(i)%move(x=x,y=y,z=z)
-        endif
-    enddo
+    if(allocated(obj%root) )then
+        do i=1,size(obj%root)
+            if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call obj%root(i)%move(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
 
 end subroutine
 ! ########################################
@@ -8428,11 +8434,15 @@ subroutine checkMemoryRequirementSoybean(obj)
 end subroutine
 
 ! ################################################################
-recursive subroutine setYoungModulusSoybean(obj,YoungModulus,stem,root,leaf)
+recursive subroutine setYoungModulusSoybean(obj,YoungModulus,stem,root,leaf,ElementList)
     class(Soybean_),intent(inout) :: obj
     logical,optional,intent(in) :: stem, root, leaf
+
+    ! ElementList(Idx, [TYPE, DOMAIN, ELEMENT]) 
+    integer(int32),optional,intent(in) :: ElementList(:,:)
+
     real(real64),intent(in) :: YoungModulus
-    integer(int32) :: i, n
+    integer(int32) :: i, j,  n, domain_idx, elem_idx
 
     n = 0
     if(present(stem) )then
@@ -8442,6 +8452,14 @@ recursive subroutine setYoungModulusSoybean(obj,YoungModulus,stem,root,leaf)
                 do i=1,size(obj%stem)
                     if(obj%stem(i)%femdomain%empty() )then
                         cycle
+                    elseif(present(ElementList) )then
+                        do j=1, size(ElementList,1)
+                            if(ElementList(j,1) == obj%TYPE_STEM )then
+                                domain_idx = ElementList(j,2)  
+                                elem_idx = ElementList(j,3) 
+                                obj%stem(domain_idx)%YoungModulus(elem_idx) = YoungModulus
+                            endif
+                        enddo
                     else
                         obj%stem(i)%YoungModulus = YoungModulus*eyes(obj%stem(i)%femdomain%ne())
                     endif
@@ -8457,6 +8475,14 @@ recursive subroutine setYoungModulusSoybean(obj,YoungModulus,stem,root,leaf)
                 do i=1,size(obj%leaf)
                     if(obj%leaf(i)%femdomain%empty() )then
                         cycle
+                    elseif(present(ElementList) )then
+                        do j=1, size(ElementList,1)
+                            if(ElementList(j,1) == obj%TYPE_LEAF )then
+                                domain_idx = ElementList(j,2)  
+                                elem_idx = ElementList(j,3) 
+                                obj%LEAF(domain_idx)%YoungModulus(elem_idx) = YoungModulus
+                            endif
+                        enddo
                     else
                         obj%leaf(i)%YoungModulus = YoungModulus*eyes(obj%leaf(i)%femdomain%ne())
                     endif
@@ -8472,6 +8498,14 @@ recursive subroutine setYoungModulusSoybean(obj,YoungModulus,stem,root,leaf)
                 do i=1,size(obj%root)
                     if(obj%root(i)%femdomain%empty() )then
                         cycle
+                    elseif(present(ElementList) )then
+                        do j=1, size(ElementList,1)
+                            if(ElementList(j,1) == obj%TYPE_ROOT )then
+                                domain_idx = ElementList(j,2)  
+                                elem_idx = ElementList(j,3) 
+                                obj%ROOT(domain_idx)%YoungModulus(elem_idx) = YoungModulus
+                            endif
+                        enddo
                     else
                         obj%root(i)%YoungModulus = YoungModulus*eyes(obj%root(i)%femdomain%ne())
                     endif
@@ -8482,18 +8516,22 @@ recursive subroutine setYoungModulusSoybean(obj,YoungModulus,stem,root,leaf)
 
 
     if(n==0)then
-        call obj%setYoungModulus(YoungModulus=YoungModulus,stem=.true.,root=.true.,leaf=.true.)
+        call obj%setYoungModulus(YoungModulus=YoungModulus,stem=.true.,root=.true.,leaf=.true.,&
+            ElementList=ElementList)
     endif
     
 end subroutine
 ! ################################################################
-
 ! ################################################################
-recursive subroutine setPoissonRatioSoybean(obj,PoissonRatio,stem,root,leaf)
+recursive subroutine setPoissonRatioSoybean(obj,PoissonRatio,stem,root,leaf,ElementList)
     class(Soybean_),intent(inout) :: obj
     logical,optional,intent(in) :: stem, root, leaf
+
+    ! ElementList(Idx, [TYPE, DOMAIN, ELEMENT]) 
+    integer(int32),optional,intent(in) :: ElementList(:,:)
+
     real(real64),intent(in) :: PoissonRatio
-    integer(int32) :: i, n
+    integer(int32) :: i, j,  n, domain_idx, elem_idx
 
     n = 0
     if(present(stem) )then
@@ -8501,10 +8539,17 @@ recursive subroutine setPoissonRatioSoybean(obj,PoissonRatio,stem,root,leaf)
             n=n+1
             if(allocated(obj%stem) )then
                 do i=1,size(obj%stem)
-                    if(obj%stem(i)%femdomain%empty())then
+                    if(obj%stem(i)%femdomain%empty() )then
                         cycle
+                    elseif(present(ElementList) )then
+                        do j=1, size(ElementList,1)
+                            if(ElementList(j,1) == obj%TYPE_STEM )then
+                                domain_idx = ElementList(j,2)  
+                                elem_idx = ElementList(j,3) 
+                                obj%stem(domain_idx)%PoissonRatio(elem_idx) = PoissonRatio
+                            endif
+                        enddo
                     else
-                        
                         obj%stem(i)%PoissonRatio = PoissonRatio*eyes(obj%stem(i)%femdomain%ne())
                     endif
                 enddo
@@ -8517,10 +8562,17 @@ recursive subroutine setPoissonRatioSoybean(obj,PoissonRatio,stem,root,leaf)
             n=n+10
             if(allocated(obj%leaf) )then
                 do i=1,size(obj%leaf)
-                    if(obj%leaf(i)%femdomain%empty())then
+                    if(obj%leaf(i)%femdomain%empty() )then
                         cycle
+                    elseif(present(ElementList) )then
+                        do j=1, size(ElementList,1)
+                            if(ElementList(j,1) == obj%TYPE_LEAF )then
+                                domain_idx = ElementList(j,2)  
+                                elem_idx = ElementList(j,3) 
+                                obj%LEAF(domain_idx)%PoissonRatio(elem_idx) = PoissonRatio
+                            endif
+                        enddo
                     else
-                        
                         obj%leaf(i)%PoissonRatio = PoissonRatio*eyes(obj%leaf(i)%femdomain%ne())
                     endif
                 enddo
@@ -8533,10 +8585,17 @@ recursive subroutine setPoissonRatioSoybean(obj,PoissonRatio,stem,root,leaf)
             n=n+100
             if(allocated(obj%root) )then
                 do i=1,size(obj%root)
-                    if(obj%root(i)%femdomain%empty())then
+                    if(obj%root(i)%femdomain%empty() )then
                         cycle
+                    elseif(present(ElementList) )then
+                        do j=1, size(ElementList,1)
+                            if(ElementList(j,1) == obj%TYPE_ROOT )then
+                                domain_idx = ElementList(j,2)  
+                                elem_idx = ElementList(j,3) 
+                                obj%ROOT(domain_idx)%PoissonRatio(elem_idx) = PoissonRatio
+                            endif
+                        enddo
                     else
-                        
                         obj%root(i)%PoissonRatio = PoissonRatio*eyes(obj%root(i)%femdomain%ne())
                     endif
                 enddo
@@ -8546,19 +8605,23 @@ recursive subroutine setPoissonRatioSoybean(obj,PoissonRatio,stem,root,leaf)
 
 
     if(n==0)then
-        call obj%setPoissonRatio(PoissonRatio=PoissonRatio,stem=.true.,root=.true.,leaf=.true.)
+        call obj%setPoissonRatio(PoissonRatio=PoissonRatio,stem=.true.,root=.true.,leaf=.true.,&
+            ElementList=ElementList)
     endif
     
 end subroutine
 ! ################################################################
 
-
 ! ################################################################
-recursive subroutine setDensitySoybean(obj,Density,stem,root,leaf)
+recursive subroutine setDensitySoybean(obj,Density,stem,root,leaf,ElementList)
     class(Soybean_),intent(inout) :: obj
     logical,optional,intent(in) :: stem, root, leaf
+
+    ! ElementList(Idx, [TYPE, DOMAIN, ELEMENT]) 
+    integer(int32),optional,intent(in) :: ElementList(:,:)
+
     real(real64),intent(in) :: Density
-    integer(int32) :: i, n
+    integer(int32) :: i, j,  n, domain_idx, elem_idx
 
     n = 0
     if(present(stem) )then
@@ -8566,8 +8629,16 @@ recursive subroutine setDensitySoybean(obj,Density,stem,root,leaf)
             n=n+1
             if(allocated(obj%stem) )then
                 do i=1,size(obj%stem)
-                    if(obj%stem(i)%femdomain%empty())then
+                    if(obj%stem(i)%femdomain%empty() )then
                         cycle
+                    elseif(present(ElementList) )then
+                        do j=1, size(ElementList,1)
+                            if(ElementList(j,1) == obj%TYPE_STEM )then
+                                domain_idx = ElementList(j,2)  
+                                elem_idx = ElementList(j,3) 
+                                obj%stem(domain_idx)%Density(elem_idx) = Density
+                            endif
+                        enddo
                     else
                         obj%stem(i)%Density = Density*eyes(obj%stem(i)%femdomain%ne())
                     endif
@@ -8581,8 +8652,16 @@ recursive subroutine setDensitySoybean(obj,Density,stem,root,leaf)
             n=n+10
             if(allocated(obj%leaf) )then
                 do i=1,size(obj%leaf)
-                    if(obj%leaf(i)%femdomain%empty())then
+                    if(obj%leaf(i)%femdomain%empty() )then
                         cycle
+                    elseif(present(ElementList) )then
+                        do j=1, size(ElementList,1)
+                            if(ElementList(j,1) == obj%TYPE_LEAF )then
+                                domain_idx = ElementList(j,2)  
+                                elem_idx = ElementList(j,3) 
+                                obj%LEAF(domain_idx)%Density(elem_idx) = Density
+                            endif
+                        enddo
                     else
                         obj%leaf(i)%Density = Density*eyes(obj%leaf(i)%femdomain%ne())
                     endif
@@ -8596,8 +8675,16 @@ recursive subroutine setDensitySoybean(obj,Density,stem,root,leaf)
             n=n+100
             if(allocated(obj%root) )then
                 do i=1,size(obj%root)
-                    if(obj%root(i)%femdomain%empty())then
+                    if(obj%root(i)%femdomain%empty() )then
                         cycle
+                    elseif(present(ElementList) )then
+                        do j=1, size(ElementList,1)
+                            if(ElementList(j,1) == obj%TYPE_ROOT )then
+                                domain_idx = ElementList(j,2)  
+                                elem_idx = ElementList(j,3) 
+                                obj%ROOT(domain_idx)%Density(elem_idx) = Density
+                            endif
+                        enddo
                     else
                         obj%root(i)%Density = Density*eyes(obj%root(i)%femdomain%ne())
                     endif
@@ -8608,7 +8695,8 @@ recursive subroutine setDensitySoybean(obj,Density,stem,root,leaf)
 
 
     if(n==0)then
-        call obj%setDensity(Density=Density,stem=.true.,root=.true.,leaf=.true.)
+        call obj%setDensity(Density=Density,stem=.true.,root=.true.,leaf=.true.,&
+            ElementList=ElementList)
     endif
     
 end subroutine
@@ -8616,7 +8704,7 @@ end subroutine
 
 
 ! ################################################################
-function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algorithm) result(EigenVectors)
+function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algorithm,num_mode) result(EigenVectors)
     class(Soybean_),target,intent(inout) :: obj
     real(real64),intent(in) :: ground_level
     real(real64),optional,intent(in) :: penalty
@@ -8625,6 +8713,8 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
     character(*),optional,intent(in) :: EbOM_Algorithm
     !integer(int32),optional,intent(in) :: num_mode
     
+    integer(int32),optional,intent(in) :: num_mode
+    integer(int32) :: num_freq
 
     type(FEMDomainp_),allocatable :: FEMDomainPointers(:)
     type(FEMSolver_) :: solver
@@ -8637,6 +8727,9 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
     integer(int32),allocatable :: FixBoundary(:)
     integer(int32) :: nn_domains,EbOM_Algorithm_id
     real(real64) :: vec_norm
+    real(real64),allocatable :: all_frequency(:),All_EigenVectors(:,:)
+
+    num_freq = input(default=10,option=num_mode)
 
     EbOM_Algorithm_id = FEMDomain_Overset_GPP
     if(present(EbOM_Algorithm) )then
@@ -8868,11 +8961,29 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
 
     ! simplify this part
     ! normalize EigenVectors
-    do i=1,size(EigenVectors,2)
-        vec_norm = norm(EigenVectors(:,i) )
-        print *, vec_norm
-        EigenVectors(:,i) = EigenVectors(:,i)/vec_norm
+    do i=1,size(All_EigenVectors,2)
+        vec_norm = norm(All_EigenVectors(:,i) )
+        
+        All_EigenVectors(:,i) = All_EigenVectors(:,i)/vec_norm
     enddo
+
+    Frequency = zeros(num_freq)
+    EigenVectors = zeros(size(All_EigenVectors,1),num_freq)
+
+    do i=1,num_freq
+        n = minvalID(All_Frequency)
+        EigenVectors(:,i) = All_EigenVectors(:,n)
+        Frequency(i)      = All_Frequency(n)
+        All_Frequency(n) = maxval(All_Frequency) 
+    enddo
+
+    do i=1,size(Frequency)
+        if(Frequency(i)<0.0d0)then
+            Frequency(i)=0.0d0
+        endif
+    enddo
+    Frequency = sqrt((Frequency))/(2.0d0*math%PI)
+
 
 
     if(present(debug) )then
