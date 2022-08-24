@@ -167,6 +167,7 @@ module MaizeClass
         procedure,public :: getYoungModulusField => getYoungModulusFieldMaize
         procedure,public :: getPoissonRatioField => getPoissonRatioFieldMaize
         procedure,public :: getDensityField => getDensityFieldMaize
+        procedure,public :: getStressField => getStressFieldMaize
         
         ! alternative setters
         procedure,public :: setYoungModulus => setYoungModulusMaize
@@ -177,6 +178,9 @@ module MaizeClass
         procedure,public :: getEigenMode => getEigenModeMaize
         procedure,public :: getDisplacement => getDisplacementMaize
         procedure,public :: deform => deformMaize
+
+        ! export eigen modes and frequency
+        procedure,public :: export_eig => export_eigMaize
         
     end type
 contains
@@ -879,38 +883,45 @@ subroutine rotateMaize(this,x,y,z)
     real(real64),optional,intent(in) :: x,y,z
     integer(int32) :: i
 
-    do i=1,size(this%stem)
-        if(this%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%stem(i)%rotate(x=x,y=y,z=z)
-        endif
-    enddo
+    if(allocated(this%stem) )then
+        do i=1,size(this%stem)
+            if(this%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%stem(i)%rotate(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
 
-    do i=1,size(this%root)
-        if(this%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%root(i)%rotate(x=x,y=y,z=z)
-        endif
-    enddo
+    if(allocated(this%leaf) )then
+        do i=1,size(this%leaf)
+            if(this%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%leaf(i)%rotate(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
 
-    do i=1,size(this%leaf)
-        if(this%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%leaf(i)%rotate(x=x,y=y,z=z)
-        endif
-    enddo
+    if(allocated(this%root) )then
+        do i=1,size(this%root)
+            if(this%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%root(i)%rotate(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
 
+    if(allocated(this%Ear) )then
+        do i=1,size(this%Ear)
+            if(this%Ear(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%Ear(i)%rotate(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
 
-    do i=1,size(this%Ear)
-        if(this%Ear(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%Ear(i)%rotate(x=x,y=y,z=z)
-        endif
-    enddo
-
-
-    do i=1,size(this%panicle)
-        if(this%panicle(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%panicle(i)%rotate(x=x,y=y,z=z)
-        endif
-    enddo
-
+    if(allocated(this%panicle) )then
+        do i=1,size(this%panicle)
+            if(this%panicle(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%panicle(i)%rotate(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
 end subroutine
 ! ########################################
 
@@ -1765,32 +1776,45 @@ function neMaize(this) result(ret)
 
     ! get number of element
     ret = 0
-    do i=1,size(this%stem)
-        if( .not.this%stem(i)%femdomain%mesh%empty() ) then
-            ret = ret + this%stem(i)%femdomain%ne()
-        endif
-    enddo
-    do i=1,size(this%leaf)
-        if( .not.this%leaf(i)%femdomain%mesh%empty() ) then
-            ret = ret + this%leaf(i)%femdomain%ne()
-        endif
-    enddo
-    do i=1,size(this%root)
-        if( .not.this%root(i)%femdomain%mesh%empty() ) then
-            ret = ret + this%root(i)%femdomain%ne()
-        endif
-    enddo
-    do i=1,size(this%Ear)
-        if( .not.this%Ear(i)%femdomain%mesh%empty() ) then
-            ret = ret + this%Ear(i)%femdomain%ne()
-        endif
-    enddo
-    do i=1,size(this%Panicle)
-        if( .not.this%Panicle(i)%femdomain%mesh%empty() ) then
-            ret = ret + this%Panicle(i)%femdomain%ne()
-        endif
-    enddo
+    if(allocated(this%stem) )then
+        do i=1,size(this%stem)
+            if( .not.this%stem(i)%femdomain%mesh%empty() ) then
+                ret = ret + this%stem(i)%femdomain%ne()
+            endif
+        enddo
+    endif
 
+    if(allocated(this%leaf) )then
+        do i=1,size(this%leaf)
+            if( .not.this%leaf(i)%femdomain%mesh%empty() ) then
+                ret = ret + this%leaf(i)%femdomain%ne()
+            endif
+        enddo
+    endif
+
+    if(allocated(this%root) )then
+        do i=1,size(this%root)
+            if( .not.this%root(i)%femdomain%mesh%empty() ) then
+                ret = ret + this%root(i)%femdomain%ne()
+            endif
+        enddo
+    endif
+
+    if(allocated(this%Ear) )then
+        do i=1,size(this%Ear)
+            if( .not.this%Ear(i)%femdomain%mesh%empty() ) then
+                ret = ret + this%Ear(i)%femdomain%ne()
+            endif
+        enddo
+    endif
+
+    if(allocated(this%Panicle) )then
+        do i=1,size(this%Panicle)
+            if( .not.this%Panicle(i)%femdomain%mesh%empty() ) then
+                ret = ret + this%Panicle(i)%femdomain%ne()
+            endif
+        enddo
+    endif
 end function
 ! ##################################################################
 
@@ -3624,9 +3648,130 @@ function getDisplacementMaize(this, ground_level,penalty,debug,EbOM_Algorithm) r
     endif
     
 
+end function
+
+! ################################################################
+function getStressFieldMaize(this,displacement,i,j,option) result(StressField)
+    class(Maize_),intent(inout) :: this
+    real(real64),intent(in) :: displacement(:)
+    integer(int32),optional,intent(in) :: i,j
+    character(*),optional,intent(in) :: option
+
+    real(real64),allocatable :: StressField(:)
+    integer(int32) :: ii,jj, n, obj_idx
+
+    StressField = zeros(0)
+    n = 1
+    if(allocated(this%stem) )then
+        do obj_idx=1,size(this%stem)
+            if(this%stem(obj_idx)%femdomain%mesh%empty() ) cycle
+            StressField = StressField // &
+                this%stem(obj_idx)%femdomain%getElementCauchyStress(&
+                displacement=displacement(n:n+this%stem(obj_idx)%femdomain%nn()&
+                    *this%stem(obj_idx)%femdomain%nd()-1 ),&
+                E = this%stem(obj_idx)%YoungModulus(:),&
+                v = this%stem(obj_idx)%PoissonRatio(:) ,i=i,j=j,option=option)
+                n = n + this%stem(obj_idx)%femdomain%nn()&
+                *this%stem(obj_idx)%femdomain%nd()
+        enddo
+    endif
+
+
+    if(allocated(this%leaf) )then
+        do obj_idx=1,size(this%leaf)
+            if(this%leaf(obj_idx)%femdomain%mesh%empty() ) cycle
+            StressField = StressField // &
+                this%leaf(obj_idx)%femdomain%getElementCauchyStress(&
+                displacement=displacement(n:n+this%leaf(obj_idx)%femdomain%nn()&
+                *this%leaf(obj_idx)%femdomain%nd()-1 ),&
+                E = this%leaf(obj_idx)%YoungModulus(:),&
+                v = this%leaf(obj_idx)%PoissonRatio(:) ,i=i,j=j,option=option)
+                n = n + this%leaf(obj_idx)%femdomain%nn()&
+                *this%leaf(obj_idx)%femdomain%nd()
+        enddo
+    endif
+
+    if(allocated(this%root) )then
+        do obj_idx=1,size(this%root)
+            if(this%root(obj_idx)%femdomain%mesh%empty() ) cycle
+            StressField = StressField // &
+                this%root(obj_idx)%femdomain%getElementCauchyStress(&
+                displacement=displacement(n:n+this%root(obj_idx)%femdomain%nn()&
+                *this%root(obj_idx)%femdomain%nd()-1 ),&
+                E = this%root(obj_idx)%YoungModulus(:),&
+                v = this%root(obj_idx)%PoissonRatio(:) ,i=i,j=j,option=option)
+                n = n + this%root(obj_idx)%femdomain%nn()&
+                *this%root(obj_idx)%femdomain%nd()
+        enddo
+    endif
+
+    if(allocated(this%Ear) )then
+        do obj_idx=1,size(this%Ear)
+            if(this%Ear(obj_idx)%femdomain%mesh%empty() ) cycle
+            StressField = StressField // &
+                this%Ear(obj_idx)%femdomain%getElementCauchyStress(&
+                displacement=displacement(n:n+this%Ear(obj_idx)%femdomain%nn()&
+                *this%Ear(obj_idx)%femdomain%nd()-1 ),&
+                E = this%Ear(obj_idx)%YoungModulus(:),&
+                v = this%Ear(obj_idx)%PoissonRatio(:) ,i=i,j=j,option=option)
+                n = n + this%Ear(obj_idx)%femdomain%nn()&
+                *this%Ear(obj_idx)%femdomain%nd()
+        enddo
+    endif
+
+
+    if(allocated(this%panicle) )then
+        do obj_idx=1,size(this%panicle)
+            if(this%panicle(obj_idx)%femdomain%mesh%empty() ) cycle
+            StressField = StressField // &
+                this%panicle(obj_idx)%femdomain%getElementCauchyStress(&
+                displacement=displacement(n:n+this%panicle(obj_idx)%femdomain%nn()&
+                *this%panicle(obj_idx)%femdomain%nd()-1 ),&
+                E = this%panicle(obj_idx)%YoungModulus(:),&
+                v = this%panicle(obj_idx)%PoissonRatio(:) ,i=i,j=j,option=option)
+                n = n + this%panicle(obj_idx)%femdomain%nn()&
+                *this%panicle(obj_idx)%femdomain%nd()
+        enddo
+    endif
+
+
+
 
 end function
 ! ################################################################
+
+subroutine export_eigMaize(this,name,Frequency,ModeVectors,stress_type)
+    class(Maize_),intent(inout) :: this
+    character(*),intent(in) :: Name
+    character(*),optional,intent(in) :: stress_type
+    real(real64),intent(in) :: Frequency(:),ModeVectors(:,:)
+    real(real64),allocatable :: displacement(:),stress(:)
+    integer(int32) :: i,j 
+    type(IO_) :: f
+
+    call f%open(name + ".csv","w")
+    call f%write("# Mode, Eigenfrequency (Hz)")
+    do i=1,10
+        displacement = ModeVectors(:,i)
+        do j=1,36
+            call this%deform(displacement =  cos(radian(j*10.0d0) ) * displacement )
+
+            if(present(stress_type) )then
+                stress = this%getStressField(Displacement=cos(radian(j*10.0d0) ) * displacement,option=stress_type)
+                call this%vtk(name + zfill(i,3)+"_"+zfill(j,4),single_file = .true.,scalar_field=stress)
+            else
+                call this%vtk(name + zfill(i,3)+"_"+zfill(j,4),single_file = .true.)
+            endif
+            call this%deform(displacement = -cos(radian(j*10.0d0) ) *  displacement)
+        enddo
+        write(f%fh,*) str(i) +" , " , Frequency(i)
+    enddo
+    call f%close()
+    
+end subroutine
+
+! ################################################################
+
 
 
 end module MaizeClass

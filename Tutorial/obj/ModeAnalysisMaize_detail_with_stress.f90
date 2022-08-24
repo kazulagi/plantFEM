@@ -11,7 +11,7 @@ integer(int32),allocatable :: elementList(:,:),stem_elementList(:,:),list(:)
 maize%stem_division(1:3) = [2,2,10]
 maize%leaf_division(1:3) = [4,1,10]
 maize%ear_division(1:3) = [3,3,8]
-maize%panicle_division(1:3) = [3,2,3]
+maize%panicle_division(1:3) = [2,2,2]
 call maize%create(config="Tutorial/obj/realMaizeConfig.json")
 call maize%remove(root=.true.)
 call maize%vtk("maize",single_file=.true.)
@@ -35,6 +35,7 @@ call maize%setPoissonRatio(0.30d0)
 call maize%setDensity(0.9300d0)
 call maize%setDensity(0.9800d0,Ear=.true.)
 
+
 call maize%vtk("maize_E",  single_file=.true.,scalar_field=maize%getYoungModulusField() )
 call maize%vtk("maize_v",  single_file=.true.,scalar_field=maize%getPoissonRatioField() )
 call maize%vtk("maize_rho",single_file=.true.,scalar_field=maize%getDensityField() )
@@ -44,16 +45,7 @@ Modes = maize%getEigenMode(ground_level=0.020d0,penalty=1000000.0d0,&
 
 
 ! fundamental
-do i_i=1,10
-    displacement = Modes(:,i_i)
-
-    do j_j=1,36
-        call maize%deform(displacement =  cos(radian(j_j*10.0d0) ) * displacement )
-        call maize%vtk("maize_deform"+zfill(i_i,3)+"_"+zfill(j_j,4),single_file = .true.)
-        call maize%deform(displacement = -cos(radian(j_j*10.0d0) ) *  displacement)
-    enddo
-enddo
-
-call print(Freq(1:10) )
+call maize%export_eig(name="maize_modes",Frequency=Freq, ModeVectors=Modes,&
+    stress_type="I1")
 
 end

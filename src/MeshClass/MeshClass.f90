@@ -9,6 +9,7 @@ module MeshClass
     integer(int32) :: PF_SOYBEAN = 1
     
     integer(int32) :: PF_MAIZE = 2
+    integer(int32) :: PF_RICE  = 3
     
 
     type:: Mesh_
@@ -5985,6 +5986,47 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
                 ! TOMOBE model (Tomobe 2021, in prep.) 
                 ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             
+            elseif(species == PF_RICE)then
+                ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+                ! TOMOBE model (Tomobe 2021, in prep.) 
+                zm = minval(obj%NodCoord(:,3) )
+                length =maxval(obj%NodCoord(:,3) )- minval(obj%NodCoord(:,3) )
+                width = maxval(obj%NodCoord(:,1) )- minval(obj%NodCoord(:,1) )
+                zl = maxval(obj%NodCoord(:,3) )- minval(obj%NodCoord(:,3) )
+
+                swratio = input(default=0.50d0,option=SoyWidthRatio)
+                if(swratio>=1.0d0 .or. swratio<=0.0d0 )then
+                    print *, "ERROR  >> mesh%create(leaf3d, PF_SOYBEAN) >> invalid SoyWidthRatio ",SoyWidthRatio
+                    stop 
+                endif
+
+                do i=1,size(obj%nodcoord,1)
+                    xx = obj%nodcoord(i,3)
+                    if(obj%NodCoord(i,1) <= (maxval(obj%NodCoord(:,1) ) + minval(obj%NodCoord(:,1)))*0.50d0  )then
+                        alpha = swratio*width
+                    else
+                        alpha = (1.0d0-swratio)*width
+                    endif
+                    r      = (alpha**2 + (length - alpha)**2)/(2*alpha)*1.20d0 
+                    if(xx <= 1.0d0/25.0d0*length)then
+                        obj%NodCoord(i,1) = obj%NodCoord(i,1)*1.0d0/10.0d0
+                        cycle
+                    elseif(xx < alpha)then
+                        yy = sqrt( alpha**2 - (xx-alpha)**2 )
+                        yy_ = xx
+                        yy = lin_curve_ratio*yy + (1.0d0-lin_curve_ratio)*yy_
+                    else
+                        yy_ = alpha + (-alpha)/(length-alpha)*(xx - alpha)
+                        yy = alpha - r + sqrt(r**2 - (xx - alpha)**2 )
+                        yy = lin_curve_ratio*yy + (1.0d0-lin_curve_ratio)*yy_
+                    endif
+                    yy = abs(yy)
+                    obj%nodcoord(i,1) = obj%nodcoord(i,1)*(yy/alpha)
+                enddo
+
+                ! TOMOBE model (Tomobe 2021, in prep.) 
+                ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                
             else
                 print *, "[ERROR] Mesh%create =>  No such species as ",species
                 stop

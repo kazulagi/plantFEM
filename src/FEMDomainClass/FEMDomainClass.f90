@@ -173,7 +173,8 @@ module FEMDomainClass
 		procedure,public :: Delaunay3D => Delaunay3DFEMDomain
 		procedure,public :: Delaunay2D => Delaunay2DFEMDomain
 		procedure,public :: deform => deformFEMDomain
-		
+		procedure,public :: Deduplicate => DeduplicateFEMDomain
+
 		procedure,public :: export => ExportFEMDomain
 
 		procedure,public :: edit => editFEMDomain
@@ -1589,6 +1590,74 @@ subroutine MergeFEMDomain(inobj1,inobj2,outobj)
 	
 end subroutine MergeFEMDomain
 !##################################################
+
+subroutine DeduplicateFEMDomain(this,error,num_removed_node)
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),intent(in) :: error
+	real(real64),allocatable :: nodcoord(:,:)
+	integer(int32),optional,intent(inout) :: num_removed_node
+	integer(int32) :: i,j,n
+	logical,allocatable :: dup(:)
+	integer(int32),allocatable :: num_dup
+	integer(int32),allocatable :: old_id_to_new(:),same_as(:)
+	! if dupulicate node exists, merge them
+	allocate(dup(this%nn()) )
+	allocate(same_as(this%nn()) )
+	old_id_to_new = int(zeros(this%nn() ) )
+	dup(:) = .false.
+	num_dup = 0
+	! O(n^2)
+	do i=1,this%nn()-1
+		if(dup(i)) cycle
+		do j=i+1,this%nn()
+			if(dup(j)) cycle
+			if(norm(this%mesh%nodcoord(i,:)-this%mesh%nodcoord(j,:) ) < error )then
+				dup(j) = .true.
+				num_dup =num_dup + 1
+				same_as(j)=i
+			endif
+		enddo
+	enddo
+
+	j = 0
+	do i=1,this%nn()
+		if(dup(i) )then
+			old_id_to_new(i) = old_id_to_new(same_as(i))
+		else
+			j = j + 1
+			old_id_to_new(i) = j
+		endif
+	enddo
+
+	do i=1,this%ne()
+		do j=1,this%nne()
+			this%mesh%elemnod(i,j) = &
+			old_id_to_new( this%mesh%elemnod(i,j) )
+		enddo
+	enddo
+
+
+
+	nodcoord = zeros(this%nn()-num_dup,this%nd() )
+
+	j = 0
+	do i=1,this%nn()
+		if( dup(i) )then
+			cycle
+		else
+			j = j + 1
+			nodcoord(j,:) = this%mesh%nodcoord(i,:)
+		endif
+	enddo
+	if(present(num_removed_node) )then
+		num_removed_node = num_dup
+	endif
+	this%mesh%nodcoord = nodcoord
+
+
+end subroutine
+
+
 
 
 !##################################################
