@@ -55,6 +55,7 @@ module SeedClass
         integer(int32) :: step=0
     contains
         procedure :: create  => createSeed
+        !procedure :: create_seed_shape  => create_seed_shapeSeed
         procedure :: env     => envSeed
         procedure :: material=> materialSeed
         procedure :: grow    => growSeed
@@ -1009,5 +1010,19 @@ subroutine showSeed(obj)
 
 end subroutine
 !########################################################
+
+!function create_seed_shapeSeed(this,x_num,y_num,z_num,width,length,thickness,seed_type) result(FEMDomain)
+!    class(Seed_),intent(in)   :: this
+!    integer(int32),intent(in) :: x_num,y_num,z_num
+!    real(real64),intent(in)   :: width,length,thickness,
+!    character(*),intent(in)   :: seed_type
+!    type(FEMDomain_) :: FEMDomain
+!
+!    select case(seed_type)
+!        case("RICE","rice")
+!            call FEMDomain%init("Cube3D")
+!
+!    end select
+!end function
 
 end module SeedClass

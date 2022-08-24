@@ -883,38 +883,45 @@ subroutine rotateMaize(this,x,y,z)
     real(real64),optional,intent(in) :: x,y,z
     integer(int32) :: i
 
-    do i=1,size(this%stem)
-        if(this%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%stem(i)%rotate(x=x,y=y,z=z)
-        endif
-    enddo
+    if(allocated(this%stem) )then
+        do i=1,size(this%stem)
+            if(this%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%stem(i)%rotate(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
 
-    do i=1,size(this%root)
-        if(this%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%root(i)%rotate(x=x,y=y,z=z)
-        endif
-    enddo
+    if(allocated(this%leaf) )then
+        do i=1,size(this%leaf)
+            if(this%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%leaf(i)%rotate(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
 
-    do i=1,size(this%leaf)
-        if(this%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%leaf(i)%rotate(x=x,y=y,z=z)
-        endif
-    enddo
+    if(allocated(this%root) )then
+        do i=1,size(this%root)
+            if(this%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%root(i)%rotate(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
 
+    if(allocated(this%Ear) )then
+        do i=1,size(this%Ear)
+            if(this%Ear(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%Ear(i)%rotate(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
 
-    do i=1,size(this%Ear)
-        if(this%Ear(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%Ear(i)%rotate(x=x,y=y,z=z)
-        endif
-    enddo
-
-
-    do i=1,size(this%panicle)
-        if(this%panicle(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%panicle(i)%rotate(x=x,y=y,z=z)
-        endif
-    enddo
-
+    if(allocated(this%panicle) )then
+        do i=1,size(this%panicle)
+            if(this%panicle(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%panicle(i)%rotate(x=x,y=y,z=z)
+            endif
+        enddo
+    endif
 end subroutine
 ! ########################################
 

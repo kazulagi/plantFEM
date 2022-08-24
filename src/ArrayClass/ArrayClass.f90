@@ -395,7 +395,7 @@ module ArrayClass
     end interface
 
     interface operator(//)
-        module procedure appendVectorsInt32,appendVectorsReal64
+        module procedure appendVectorsInt32,appendVectorsReal64,appendMatrixInt32,appendMatrixReal64
     end interface
 
     
@@ -7515,6 +7515,54 @@ pure function appendVectorsReal64(vec1,vec2) result(vec12)
     vec12(           1:           size(vec1) ) = vec1(1:size(vec1) )
     vec12(size(vec1)+1:size(vec1)+size(vec2) ) = vec2(1:size(vec2) )
     
+end function
+! ####################################################################
+
+
+! ####################################################################
+pure function appendMatrixInt32(mat1,mat2) result(mat12)
+    integer(int32),intent(in) :: mat1(:,:),mat2(:,:)
+    integer(int32),allocatable :: mat12(:,:)
+
+
+    if(size(mat1,1)==0 )then
+        mat12 = mat2    
+        return
+    endif
+
+    if(size(mat2,1)==0 )then
+        mat12 = mat1
+        return
+    endif
+
+    allocate(mat12( size(mat1,1)+size(mat2,1),maxval([size(mat1,2),size(mat2,2)]) ) )
+    mat12(           1:           size(mat1,1),:    ) = mat1(1:size(mat1,1),1:size(mat1,2) )
+    mat12(size(mat1,1)+1:size(mat1,1)+size(mat2,1),:) = mat2(1:size(mat2,1),1:size(mat2,2) )
+
+end function
+! ####################################################################
+
+
+! ####################################################################
+pure function appendMatrixReal64(mat1,mat2) result(mat12)
+    real(real64),intent(in) :: mat1(:,:),mat2(:,:)
+    real(real64),allocatable :: mat12(:,:)
+
+
+    if(size(mat1,1)==0 )then
+        mat12 = mat2    
+        return
+    endif
+
+    if(size(mat2,1)==0 )then
+        mat12 = mat1
+        return
+    endif
+
+    allocate(mat12( size(mat1,1)+size(mat2,1),maxval([size(mat1,2),size(mat2,2)]) ) )
+    mat12(           1:           size(mat1,1),:    ) = mat1(1:size(mat1,1),1:size(mat1,2) )
+    mat12(size(mat1,1)+1:size(mat1,1)+size(mat2,1),:) = mat2(1:size(mat2,1),1:size(mat2,2) )
+
 end function
 ! ####################################################################
 
