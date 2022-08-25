@@ -10,7 +10,8 @@ module PanicleClass
         type(FEMDomain_)    ::  FEMDomain
         real(real64)        :: Length,Width,Angle
         type(Stem_),pointer ::  pStem
-        integer(int32) :: division(1:3) = [5,5,5]
+        integer(int32) :: division(1:3) = [5,5,5] ! for maize
+        integer(int32) :: rice_seed_division(1:3) = [3,3,3] ! for rice
 
 
         integer(int32),allocatable  :: I_planeNodeID(:)
@@ -125,14 +126,11 @@ recursive subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num
             option=rice_panicle_curvature)
 
         if(present(rice_seed_division) )then
-            nx = rice_seed_division(1)
-            ny = rice_seed_division(2)
-            nz = rice_seed_division(3)
-        else
-            nx = 3
-            ny = 3
-            nz = 3    
+            this%rice_seed_division = rice_seed_division
         endif
+        nx = this%rice_seed_division(1)
+        ny = this%rice_seed_division(2)
+        nz = this%rice_seed_division(3)    
         
         
         
