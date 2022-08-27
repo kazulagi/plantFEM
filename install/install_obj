@@ -139,10 +139,18 @@ echo " | =========================> |  (99%)\r\c"
 mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/GrapeClass/GrapeClass.f90 -o  ./inc/GrapeClass.o
 
 
+echo "Compiling ./src/ArabidopsisClass/ArabidopsisClass.f90" 
+echo " >> ArabidopsisClass.o "
+echo " | =========================> |  (99%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ArabidopsisClass/ArabidopsisClass.f90 -o  ./inc/ArabidopsisClass.o
+
+
 echo "Compiling ./src/RiceClass/RiceClass.f90" 
 echo " >> RiceClass.o "
 echo " | =========================> |  (99%)\r\c"
 mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RiceClass/RiceClass.f90 -o  ./inc/RiceClass.o
+
+
 
 echo "Compiling ./src/FarmClass/FarmClass.f90" 
 echo " >> FarmClass.o "
