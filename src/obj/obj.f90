@@ -27,6 +27,8 @@ module obj
     use SeedClass
     use SoilClass
     use SoybeanClass
+    use ArabidopsisClass
+    use RiceClass
     
     use MaizeClass
     use GrapeClass

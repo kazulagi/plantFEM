@@ -164,9 +164,11 @@ module LoggerClass
         enddo
 
         if(present(t) )then
-            call f%write(t, channel_val )
+            write(f%fh,*) t, channel_val
         else
-            call f%write(this%counter,channel_val )
+            !call f%write(this%counter,channel_val )
+            write(f%fh,*) this%counter,channel_val
+            
         endif
         call f%close()
       enddo  
@@ -178,9 +180,9 @@ module LoggerClass
         if(this%channel_active(i) )then
           call f%open(this%channel_name(i)%all //".txt","a")
           if(present(t) )then
-              call f%write(t, this%channel_value(i)%ptr )
+              write(f%fh,*) t, this%channel_value(i)%ptr
           else
-              call f%write(this%counter,this%channel_value(i)%ptr )
+              write(f%fh,*) this%counter,this%channel_value(i)%ptr 
           endif
 
           call f%close()

@@ -62,7 +62,8 @@ contains
 recursive subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num,y_num,z_num,rice,&
     rice_seed_interval,rice_seed_branch_length,&
     rice_seed_length,rice_seed_width,rice_seed_thickness,&
-    rice_panicle_curvature,rice_seed_division)
+    rice_panicle_curvature,rice_seed_division,&
+    Arabidopsis)
     class(Panicle_),intent(inout) :: this
     real(real64),intent(in) :: Length, width ! need for all panicle type
 
@@ -75,6 +76,8 @@ recursive subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num
     real(real64),optional,intent(in) :: shape_factor ! only for Maize
     !integer(int32),optional,intent(in) :: rice_panicle_branch_num  ! for rice
     
+    logical,optional,intent(in) :: Arabidopsis ! for Arabidopsis
+
     real(real64):: Angle
     type(Math_) :: math
     type(Random_) :: random
@@ -107,10 +110,11 @@ recursive subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num
 
 
 
-    logical :: rice_mode
+    logical :: rice_mode,Arabidopsis_mode
 
 
     rice_mode = input(default=.false.,option=rice)
+    Arabidopsis_mode = input(default=.false.,option=Arabidopsis)
     if(rice_mode)then
         seed_interval  =input(default=this%default_rice_seed_interval,&
             option=rice_seed_interval)
@@ -331,6 +335,9 @@ recursive subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num
         !endif
 
         
+        return
+    elseif(Arabidopsis_mode)then
+        print *, "No Arabidopsis-mode is implemented for Panicle"
         return
     else
         !<<<< MAIZE MODE >>>>>
