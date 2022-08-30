@@ -210,6 +210,25 @@ plantfem build
 
 Or you can run it with multi-core workstations or HPC-clusters.
 
+1. Execute
+
+```
+plantfem init
+```
+
+to initialize directory.
+
+2. Edit ```server.f90```
+
+
+3. Build the project by
+
+```
+plantfem deploy
+```
+
+4. Run it by
+
 ```
 mpirun --hostfile [your hostfile for OpenMPI] -np [number of process] ./server.out 
 ```

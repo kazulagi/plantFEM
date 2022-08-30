@@ -1,3 +1,17 @@
-ln -f ./Tutorial/app/untitled.f90 ./server.f90
-echo "ln -f ./Tutorial/app/untitled.f90 ./server.f90"
-echo "Done."
+#ln -f ./Tutorial/app/untitled.f90 ./server.f90
+if [ -d "inc" ];then
+    # do noting about inc/
+    echo " " > server.f90
+else
+    cp -rfv /opt/plantfem/inc inc
+    echo " " > server.f90
+fi
+
+if [ -d "Tutorial" ];then
+    echo " " > server.f90
+    # do noting about Tutorial/
+else
+    cp -rfv /opt/plantfem/Tutorial Tutorial
+    echo " " > server.f90
+fi
+
