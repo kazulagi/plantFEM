@@ -53,8 +53,10 @@
 
     "peti_size_ave"  :  0.200,
     "peti_size_sig"  :  0.0100,
+
     "peti_width_ave"  :  0.00500,
     "peti_width_sig"  :  0.000100,
+    
     "peti_angle_ave"  :  30.00,
     "peti_angle_sig"  :  1.000,
     

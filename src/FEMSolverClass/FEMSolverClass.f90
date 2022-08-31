@@ -1845,6 +1845,7 @@ subroutine setEbOMFEMSolver(this,penalty,DOF)
 
 end subroutine
 
+
 ! #####################################################
 subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug)
     integer(int32), intent(inout) :: ptr_i(:),index_j(:), itrmax
@@ -1869,8 +1870,8 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug
     r(:) = b(:)
     if(speak) print *, "BiCGSTAB >> [1] initialize"
 
-    ax = crs_matvec(CRS_value=a,CRS_col=index_j,&
-        CRS_row_ptr=ptr_i,old_vector=x)
+    call sub_crs_matvec(CRS_value=a,CRS_col=index_j,&
+        CRS_row_ptr=ptr_i,old_vector=x,new_vector=ax)
     r = b - ax
 
     
@@ -1893,16 +1894,16 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug
         c1 = dot_product(r0,r)
         !call omp_dot_product(r0,r,c1)
         
-        y = crs_matvec(CRS_value=a,CRS_col=index_j,&
-        CRS_row_ptr=ptr_i,old_vector=p)
+        call sub_crs_matvec(CRS_value=a,CRS_col=index_j,&
+        CRS_row_ptr=ptr_i,old_vector=p,new_vector=y)
 
         c2 = dot_product(r0,y)
         !call omp_dot_product(r0,y,c2)
         
         alp = c1/c2
         e(:) = r(:) - alp * y(:)
-        v = crs_matvec(CRS_value=a,CRS_col=index_j,&
-        CRS_row_ptr=ptr_i,old_vector=e)
+        call sub_crs_matvec(CRS_value=a,CRS_col=index_j,&
+        CRS_row_ptr=ptr_i,old_vector=e,new_vector=v)
         
         if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] half"
         
@@ -2470,8 +2471,8 @@ function MPI_matmulFEMSolver(this,A,b) result(my_c)
     if(present(A) )then
         my_c = A%matmul(b)
     else
-        my_c = crs_matvec(CRS_value=this%CRS_val,CRS_col=this%CRS_Index_Col,&
-            CRS_row_ptr=this%CRS_Index_Row,old_vector=b)
+        call sub_crs_matvec(CRS_value=this%CRS_val,CRS_col=this%CRS_Index_Col,&
+            CRS_row_ptr=this%CRS_Index_Row,old_vector=b,new_vector=my_c)
     endif
     
     ! create sendbuf and recvbuf 
