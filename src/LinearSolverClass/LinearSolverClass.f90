@@ -93,6 +93,13 @@ module LinearSolverClass
       module procedure :: crs_matvec_generic,crs_matvec_for_CRStype
   end interface crs_matvec
 
+
+
+  interface sub_crs_matvec
+      module procedure :: sub_crs_matvec_generic,sub_crs_matvec_for_CRStype
+  end interface sub_crs_matvec
+
+  
   
   interface crs_matmul
       module procedure :: crs_matmul_generic,crs_matmul_for_CRStype
@@ -3831,6 +3838,42 @@ end function
 ! ###################################################################
 
 
+subroutine sub_crs_matvec_generic(CRS_value,CRS_col,CRS_row_ptr,old_vector,new_vector)
+  real(real64),intent(in)  :: CRS_value(:),Old_vector(:)
+  integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
+
+  real(real64),allocatable,intent(inout) :: new_vector(:)
+  integer(int32) :: i, j, n,gid,lid,row,CRS_id,col
+  !> x_i = A_ij b_j
+
+
+  n = size(CRS_row_ptr)-1
+  if(size(old_vector)/=n )then
+      print *, "ERROR crs_matvec :: inconsistent size for old_vector"
+      return
+  endif
+
+  if(.not.allocated(new_vector) )then
+    new_vector = zeros(n) 
+  else
+    new_vector(:) = 0.0d0
+  endif
+
+  !$OMP parallel do default(shared) private(CRS_id,col)
+  do row=1,n
+      do CRS_id=CRS_row_ptr(row),CRS_row_ptr(row+1)-1
+          col = CRS_col(CRS_id)
+          !$OMP atomic
+          new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(col)
+      enddo
+  enddo
+  !$OMP end parallel do 
+  
+end subroutine
+! ###################################################################
+
+
+
 function crs_matvec_for_CRStype(CRS,old_vector) result(new_vector)
   type(CRS_),intent(in) :: CRS
   real(real64),intent(in)  :: Old_vector(:)
@@ -3843,6 +3886,24 @@ function crs_matvec_for_CRStype(CRS,old_vector) result(new_vector)
     old_vector=old_vector)
 
 end function
+
+
+
+subroutine sub_crs_matvec_for_CRStype(CRS,old_vector,new_vector)
+  type(CRS_),intent(in) :: CRS
+  real(real64),intent(in)  :: Old_vector(:)
+  real(real64),allocatable,intent(inout) :: new_vector(:)
+
+  call sub_crs_matvec_generic(&
+    CRS_value=CRS%val,&
+    CRS_col=CRS%col_idx,&
+    CRS_row_ptr=CRS%row_ptr,&
+    old_vector=old_vector,&
+    new_vector = new_vector)
+
+end subroutine
+
+
 
 pure function eyesMatrix(rank1, rank2) result(ret)
     integer(int32),intent(in) ::rank1, rank2
