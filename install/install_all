@@ -12,7 +12,14 @@ echo "-----------------"
 echo "Compiling ./src/uuid-fortran/uuid_module.f90     "
 echo " >> uuid_module.o"
 echo " | >                           | (0%)\r\c "
-mpif90 -Ofast -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/uuid-fortran/uuid_module.f90 -o  ./inc/uuid_module.o -llapack -lblas
+mpif90 -Ofast -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/uuid-fortran/uuid_module.f90 -o  ./inc/uuid_module.o -llapack -lblas
+
+
+echo "Compiling ./src/OpenACCClass/OpenACCClass.f90     "
+echo " >> OpenACCClass.o"
+echo " | >                           | (0%)\r\c "
+mpif90 -Ofast -fopenacc -shared -fPIC -g -fcheck=all  -c ./src/OpenACCClass/OpenACCClass.f90 -o  ./inc/OpenACCClass.o 
+
 
 echo "Compiling ./src/BitClass/BitClass.f90      "
 echo " >> BitClass.o"
@@ -500,11 +507,11 @@ echo " >> obj.o       "
 echo " | =========================> |  (99%)\r\c"
 mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/obj/obj.f90 -o  ./inc/obj.o
 echo "Modules for field-objects (obj) is installed."
-mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -o obj.so ./inc/*.o 
+mpif90  -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -o obj.so ./inc/*.o 
 echo "Compiling ./src/PlantFEM/PlantFEM.f90            " 
 echo " >> PlantFEM.o       "
 echo " | =========================> |  (99%)\r\c"
-mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlantFEM/PlantFEM.f90 -o  ./inc/PlantFEM.o
+mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlantFEM/PlantFEM.f90 -o  ./inc/PlantFEM.o
 
 mv *.mod inc/
 cp *.so inc/

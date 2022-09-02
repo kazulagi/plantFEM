@@ -1,6 +1,7 @@
 module std
     use, intrinsic :: iso_fortran_env
     use uuid_module
+    use OpenACCClass
     use PhysicalConstantsClass
     use BitClass
     use StringClass

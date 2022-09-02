@@ -278,7 +278,7 @@ module SoybeanClass
         
         procedure,public :: getRangeOfNodeID => getRangeOfNodeIDSoybean
         procedure,public :: getFEMDomainPointers => getFEMDomainPointersSoybean
-        
+        procedure,public :: fall_leaf => fall_leafSoybean
         ! >> simulation 
         procedure,public :: getPPFD => getPPFDSoybean
         
@@ -4643,6 +4643,54 @@ end function
 !
 !
 !end function
+subroutine fall_leafSoybean(obj,BranchID,InterNodeID,with_petiole)
+    class(Soybean_),intent(inout) :: obj
+    integer(int32),intent(in) :: BranchID, InterNodeID
+    logical,optional,intent(in) :: with_petiole
+    integer(int32) :: i, j,stemID
+    integer(int32),allocatable :: petioleIDs(:)
+
+    ! fall leaves
+    do i=1, size(obj%stem)
+        if(obj%stem(i)%empty() )cycle
+        if(obj%stem(i)%stemID == branchID .and.&
+            obj%stem(i)%InterNodeID == InterNodeID   )then
+            stemID = i
+        endif
+    enddo
+
+    allocate(petioleIDs(0) )
+    do i=1,size(obj%stem2stem,1)
+        ! stem id i -> stemID 
+        if(obj%stem2stem(i,StemID) /=0 .and. obj%stem(i)%InterNodeID < 1 )then
+            ! petiole
+            petioleIDs = petioleIDs // [i]
+        endif
+    enddo
+
+    print *, "petioleIDs",petioleIDs
+    ! remove leaves
+    do i=1,size(petioleIDs)
+        do j=1,size(obj%leaf2stem,1)
+            if(obj%leaf2stem(j, petioleIDs(i) )/=0 )then
+                obj%leaf2stem(j, petioleIDs(i) ) =0
+                call obj%leaf(j)%remove()
+            endif
+        enddo
+    enddo
+
+    if(present(with_petiole) )then
+        if(with_petiole)then
+            do i=1,size(petioleIDs)
+                obj%stem2stem(petioleIDs(i),: ) =0
+                call obj%stem( petioleIDs(i) )%remove()
+            enddo
+        endif
+    endif
+
+end subroutine
+
+
 
 subroutine removeSoybean(obj,root)
     class(Soybean_),intent(inout) :: obj

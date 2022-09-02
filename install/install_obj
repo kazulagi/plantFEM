@@ -159,14 +159,14 @@ mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c .
 echo "Compiling ./src/obj/obj.f90            " 
 echo " >> obj.o       "
 echo " | =========================> |  (99%)\r\c"
-mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/obj/obj.f90 -o  ./inc/obj.o
+mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/obj/obj.f90 -o  ./inc/obj.o
 echo "Modules for field-objects (obj) is installed."
 
 echo "Compiling ./src/PlantFEM/PlantFEM.f90            " 
 echo " >> PlantFEM.o       "
 echo " | =========================> |  (99%)\r\c"
-mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlantFEM/PlantFEM.f90 -o  ./inc/PlantFEM.o
-mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -o libplantfem.so ./inc/*.o 
+mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlantFEM/PlantFEM.f90 -o  ./inc/PlantFEM.o
+mpif90 -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -o libplantfem.so ./inc/*.o 
 
 mv *.mod inc/
 cp *.so inc/
