@@ -1737,7 +1737,7 @@ subroutine bicgstab_COO(a, index_i, index_j, x, b, itrmax, er, debug,locked)
      r0(:) = r(:)
      do itr = 1, itrmax
         c1 = dot_product(r0,r)
-
+        
 
         y(:) = matmul(a,p)
 

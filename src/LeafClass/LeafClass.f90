@@ -140,6 +140,9 @@ module LeafClass
 
 
         procedure, public :: sync => syncleaf
+
+        ! remove
+        procedure, public :: remove => removeLeaf
     end type
 contains
 
@@ -1657,5 +1660,109 @@ subroutine growLeaf(this,dt)
 
 end subroutine
 
+! ###############################################################
+subroutine removeLeaf(this)
+    class(Leaf_),intent(inout) :: this
+
+    call this%FEMDomain%remove()
+        if(allocated(this%  LeafSurfaceNode2D)) deallocate( this%  LeafSurfaceNode2D)
+        this%ShapeFactor = 0.0d0
+        this%Thickness = 0.0d0
+        this%length = 0.0d0
+        this%width = 0.0d0
+        this%center = 0.0d0
+        this%MaxThickness = 0.0d0
+        this%Maxlength = 0.0d0
+        this%Maxwidth = 0.0d0
+        this%center_bottom = 0.0d0
+        this%center_top = 0.0d0
+        this%outer_normal_bottom = 0.0d0
+        this%outer_normal_top = 0.0d0
+        if(allocated(this%  source)) deallocate( this%  source)
+
+        this % Division = 0
+        if(associated(this%pleaf)) nullify(this%pleaf)
+        if(associated(this%pPeti)) nullify(this%pPeti)
+
+        this % rot_x = 0.0d0
+        this % rot_y = 0.0d0
+        this % rot_z = 0.0d0
+        this % disp_x = 0.0d0
+        this % disp_y = 0.0d0
+        this % disp_z = 0.0d0
+        this % shaperatio = 0.30d0
+        this % minwidth = 0.0d0
+        this % minlength = 0.0d0
+        this % MinThickness = 0.0d0
+
+        ! id in multi-leaf
+        this % LeafID = -1
+        this % already_grown = .false.
+
+        if(allocated(this% I_planeNodeID)) deallocate( this% I_planeNodeID)
+        if(allocated(this% I_planeElementID)) deallocate( this% I_planeElementID)
+        if(allocated(this% II_planeNodeID)) deallocate( this% II_planeNodeID)
+        if(allocated(this% II_planeElementID)) deallocate( this% II_planeElementID)
+        this % A_PointNodeID = 0
+        this % B_PointNodeID = 0
+        this % C_PointNodeID = 0
+        this % D_PointNodeID = 0
+        this % A_PointElementID = 0
+        this % B_PointElementID = 0
+        this % C_PointElementID = 0
+        this % D_PointElementID = 0
+        this % xnum = 10
+        this % ynum = 10
+        this % znum = 10
+
+        ! phisiological parameters
+
+
+        this % V_cmax = 100.0d0 ! 最大カルボキシル化反応速度, mincro-mol/m-2/s
+        this % V_omax = 100.0d0 ! 最大酸素化反応速度, mincro-mol/m-2/s, lambdaから推定
+        this % O2 = 380.0d0! 酸素濃度, ppm
+        this % CO2=202000.0d0! 二酸化炭素濃度, ppm
+        this % R_d=1.0d0 ! 暗呼吸速度, mincro-mol/m-2/s
+    
+        this % K_c=272.380d0 ! CO2に対するミカエリス定数
+        this % K_o=165820.0d0 ! O2に対するミカエリス定数
+    
+        this % J_=0.0d0 ! 電子伝達速度
+        this % I_=0.0d0 ! 光強度
+        this % phi=0.0d0 ! I-J曲線の初期勾配
+        this % J_max=180.0d0 !最大電子伝達速度,mincro-mol/m-2/s
+        this % theta_r=0.0d0 ! 曲線の凸度
+    
+        this % maxPPFD=1.0d0 ! micro-mol/m^2/s
+    
+        this % Lambda= 37.430d0 ! 暗呼吸速度を無視した時のCO2補償点ppm
+        this % temp=303.0d0 ! temp
+
+
+        ! physical parameter
+        if(allocated(this% DryDensity)) deallocate( this% DryDensity)
+        if(allocated(this% WaterContent)) deallocate( this% WaterContent)
+
+        ! For deformation analysis
+        if(allocated(this% YoungModulus)) deallocate( this% YoungModulus)
+        if(allocated(this% PoissonRatio)) deallocate( this% PoissonRatio)
+        if(allocated(this% Density)) deallocate( this% Density)
+        if(allocated(this% Stress)) deallocate( this% Stress)
+        if(allocated(this% Displacement)) deallocate( this% Displacement)
+        
+
+        if(allocated(this% BoundaryTractionForce)) deallocate( this% BoundaryTractionForce)
+        if(allocated(this% BoundaryDisplacement)) deallocate( this% BoundaryDisplacement)
+        
+        ! growth parameters
+        this % my_time = 0.0d0
+        this % initial_width  = 0.0010d0 ! 1.0 mm
+        this % initial_length = 0.0010d0 ! 1.0 mm
+        this % final_width  = 0.060d0   !  60.0 mm
+        this % final_length = 0.100d0   ! 100.0 mm
+        this % width_growth_ratio = 1.0d0/4.0d0   ! 
+        this % length_growth_ratio = 1.0d0/4.0d0   ! 
+
+end subroutine
 
 end module 

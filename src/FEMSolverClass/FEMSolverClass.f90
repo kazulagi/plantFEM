@@ -1894,6 +1894,7 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug
         c1 = dot_product(r0,r)
         !call omp_dot_product(r0,r,c1)
         
+        y(:) = 0.0d0
         call sub_crs_matvec(CRS_value=a,CRS_col=index_j,&
         CRS_row_ptr=ptr_i,old_vector=p,new_vector=y)
 
@@ -1902,6 +1903,7 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug
         
         alp = c1/c2
         e(:) = r(:) - alp * y(:)
+        v(:) = 0.0d0
         call sub_crs_matvec(CRS_value=a,CRS_col=index_j,&
         CRS_row_ptr=ptr_i,old_vector=e,new_vector=v)
         
@@ -2471,6 +2473,7 @@ function MPI_matmulFEMSolver(this,A,b) result(my_c)
     if(present(A) )then
         my_c = A%matmul(b)
     else
+        my_c = zeros(size(b) )
         call sub_crs_matvec(CRS_value=this%CRS_val,CRS_col=this%CRS_Index_Col,&
             CRS_row_ptr=this%CRS_Index_Row,old_vector=b,new_vector=my_c)
     endif

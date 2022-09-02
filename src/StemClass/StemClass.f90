@@ -97,6 +97,8 @@ module StemClass
         procedure, public :: getBiomass => getBiomassStem
 
         procedure,public :: sync => syncStem
+
+        procedure,public :: remove => removeStem
     end type
 contains
 
@@ -1041,4 +1043,87 @@ function FullyExpandedStem(obj,threshold) result(ret_expanded)
 
 end function
 ! ########################################
+
+subroutine removeStem(this)
+    class(Stem_),intent(inout) :: this
+
+
+    call this%FEMDomain%remove()
+    this%  Thickness = 0.0d0
+    this%  length = 0.0d0
+    this%  width = 0.0d0
+    this%  MaxThickness = 0.0d0
+    this%  Maxlength = 0.0d0
+    this%  Maxwidth = 0.0d0
+    this%  center_bottom = 0.0d0
+    this%  center_top = 0.0d0
+    this%  radius_bottom = 0.0d0
+    this%  radius_top = 0.0d0
+    this%  outer_normal_bottom = 0.0d0
+    this%  outer_normal_top = 0.0d0
+    this%  rot_x = 0.0d0
+    this%  rot_y = 0.0d0
+    this%  rot_z = 0.0d0
+    this%  disp_x = 0.0d0
+    this%  disp_y = 0.0d0
+    this%  disp_z = 0.0d0
+
+    this % EdgeNodeID = 0
+    this % EdgeElemID = 0
+    this%  maxdiameter = 0.0d0
+    this % mindiameter = 0.0d0
+    this % minlength = 0.0d0
+    if(allocated(this% I_planeNodeID) )deallocate(this% I_planeNodeID)! (:)
+    if(allocated(this% I_planeElementID) )deallocate(this% I_planeElementID)! (:)
+    if(allocated(this% II_planeNodeID) )deallocate(this% II_planeNodeID)! (:)
+    if(allocated(this% II_planeElementID) )deallocate(this% II_planeElementID)! (:)
+    this %A_PointNodeID =0
+    this %B_PointNodeID=0
+    this %C_PointNodeID=0
+    this %D_PointNodeID=0
+    
+    this %A_PointElementID = 0
+    this %B_PointElementID = 0
+    this %xnum = 10
+    this %ynum = 10
+    this %znum = 10
+
+    ! position in a whole structure (single plant)
+    this % StemID = -1
+    this % InterNodeID = -1
+    this % already_grown = .false.
+    
+
+    ! physical parameter
+    if(allocated(this% DryDensity) )deallocate(this% DryDensity)! (:)  ! element-wise
+    if(allocated(this% WaterContent) )deallocate(this% WaterContent)! (:)! element-wise
+
+    ! For deformation analysis
+    if(allocated(this% YoungModulus) )deallocate(this% YoungModulus)! (:)! element-wise
+    if(allocated(this% PoissonRatio) )deallocate(this% PoissonRatio)! (:)! element-wise
+    if(allocated(this% Density) )deallocate(this% Density)! (:)     ! element-wise
+    if(allocated(this% Stress) )deallocate(this% Stress)! (:,:,:)     ! Gauss point-wise
+    if(allocated(this% Displacement) )deallocate(this% Displacement)! (:,:) ! node-wise, three dimensional
+
+
+    if(allocated(this% BoundaryTractionForce) )deallocate(this% BoundaryTractionForce)! (:,:) ! node-wise, three dimensional
+    if(allocated(this% BoundaryDisplacement) )deallocate(this% BoundaryDisplacement)! (:,:) ! node-wise, three dimensional
+    
+
+
+    this % Division = 0
+
+    ! growth parameters
+    this % my_time = 0.0d0
+    this % initial_width  = 0.0010d0 ! 1.0 mm
+    this % initial_length = 0.0010d0 ! 1.0 mm
+    this % final_width  = 0.0040d0   ! 4.0 mm
+    this % final_length = 0.040d0   ! 40.0 mm
+    this % width_growth_ratio = 1.0d0/4.0d0   ! 
+    this % length_growth_ratio = 1.0d0/4.0d0   ! 
+
+    if(associated(this%pStem) ) nullify(this%pStem)
+
+end subroutine
+
 end module
