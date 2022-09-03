@@ -29,6 +29,14 @@ module SoybeanClass
     integer(int32),parameter :: PF_DEFAULT_SOYBEAN_ASIZE=300
     
     type :: soybean_
+
+
+        ! setting
+        integer(int32) :: stem_division(1:3) = [3, 3, 30]
+        integer(int32) :: peti_division(1:3) = [3, 3, 30]
+        integer(int32) :: leaf_division(1:3) = [10, 1, 20]
+        integer(int32) :: root_division(1:3)  = [2, 2, 20]
+
         ! growth_habit = determinate, indeterminate, semi-indeterminate, or vine
         character*20 :: growth_habit
         character*2  :: growth_stage
@@ -279,6 +287,7 @@ module SoybeanClass
         procedure,public :: getRangeOfNodeID => getRangeOfNodeIDSoybean
         procedure,public :: getFEMDomainPointers => getFEMDomainPointersSoybean
         procedure,public :: fall_leaf => fall_leafSoybean
+
         ! >> simulation 
         procedure,public :: getPPFD => getPPFDSoybean
         
@@ -295,6 +304,10 @@ module SoybeanClass
         procedure,public :: searchPetiole =>searchPetioleSoybean
         procedure,public :: searchLeaf => searchLeafSoybean
         
+        ! post-processing
+        procedure,public :: export_eig => export_eigSoybean
+        procedure,public :: getStressField => getStressFieldSoybean
+
         ! max *** ID
         procedure,public :: maxleafID => maxleafIDSoybean
         procedure,public :: maxInterNodeID => maxInterNodeIDSoybean
@@ -1040,9 +1053,6 @@ subroutine initsoybean(obj,config,&
         call soyconf%open("soyconfig.json")
         write(soyconf%fh,*) '{'
         write(soyconf%fh,*) '   "type": "soybean",'
-        write(soyconf%fh,*) '   "stemconfig": "stemconfig.json",'
-        write(soyconf%fh,*) '   "rootconfig": "rootconfig.json",'
-        write(soyconf%fh,*) '   "leafconfig": "leafconfig.json",'
         write(soyconf%fh,*) '   "stage": 0,'
         write(soyconf%fh,*) '   "length": 0.0090,'
         write(soyconf%fh,*) '   "width" : 0.0081,'
@@ -1880,7 +1890,16 @@ subroutine initsoybean(obj,config,&
         
         allocate(obj%NodeID_MainStem(obj%ms_node) )
 
-        call stem%init(config=obj%stemconfig)
+        
+        if( index(obj%stemconfig,".json")==0 )then
+            call stem%init( &
+                x_num = obj%stem_division(1),&
+                y_num = obj%stem_division(2),&
+                z_num = obj%stem_division(3) &
+            )
+        else
+            call stem%init(config=obj%stemconfig)
+        endif
 
         do i=1,obj%ms_node
 
@@ -1979,7 +1998,34 @@ subroutine initsoybean(obj,config,&
         obj%num_stem_node = k
         obj%num_leaf = 0
         ! bugfix 2021/08/18
-        call leaf%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
+        !call leaf%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
+
+        if( index(obj%leafconfig,".json")==0 )then
+            call leaf%init(species=PF_GLYCINE_SOJA, &
+                x_num = obj%leaf_division(1),&
+                y_num = obj%leaf_division(2),&
+                z_num = obj%leaf_division(3) &
+            )
+        else
+            call leaf%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
+        endif
+
+
+        if(.not.stem%empty())then
+            call stem%remove()
+        endif
+
+        if( index(obj%stemconfig,".json")==0 )then
+            
+            call stem%init( &
+                x_num = obj%peti_division(1),&
+                y_num = obj%peti_division(2),&
+                z_num = obj%peti_division(3) &
+            )
+        else
+            call stem%init(config=obj%stemconfig)
+        endif
+
         do i=1, k
             ! ３複葉
             ! add peti
@@ -2055,7 +2101,19 @@ subroutine initsoybean(obj,config,&
         endif
 
         ! set mainroot
-        call root%init(obj%rootconfig)
+        !call root%init(obj%rootconfig)
+
+        if( index(obj%rootconfig,".json")==0 )then
+            call root%init( &
+                x_num = obj%root_division(1),&
+                y_num = obj%root_division(2),&
+                z_num = obj%root_division(3) &
+            )
+        else
+            call root%init(config=obj%rootconfig)
+        endif
+
+        
         do i=1,obj%mr_node
 
             obj%root(i) = root
@@ -9636,6 +9694,97 @@ function getElementListSoybean(this,x_min,x_max,y_min,y_max,z_min,z_max,debug) r
     ElementList(:,3) = elem_idx
 
 end function
+
+! ################################################################
+
+
+! ################################################################
+function getStressFieldSoybean(this,displacement,i,j,option) result(StressField)
+    class(Soybean_),intent(inout) :: this
+    real(real64),intent(in) :: displacement(:)
+    integer(int32),optional,intent(in) :: i,j
+    character(*),optional,intent(in) :: option
+
+    real(real64),allocatable :: StressField(:)
+    integer(int32) :: ii,jj, n, obj_idx
+
+    StressField = zeros(0)
+    n = 1
+    if(allocated(this%stem) )then
+        do obj_idx=1,size(this%stem)
+            if(this%stem(obj_idx)%femdomain%mesh%empty() ) cycle
+            StressField = StressField // &
+                this%stem(obj_idx)%femdomain%getElementCauchyStress(&
+                displacement=displacement(n:n+this%stem(obj_idx)%femdomain%nn()&
+                    *this%stem(obj_idx)%femdomain%nd()-1 ),&
+                E = this%stem(obj_idx)%YoungModulus(:),&
+                v = this%stem(obj_idx)%PoissonRatio(:) ,i=i,j=j,option=option)
+                n = n + this%stem(obj_idx)%femdomain%nn()&
+                *this%stem(obj_idx)%femdomain%nd()
+        enddo
+    endif
+
+
+    if(allocated(this%leaf) )then
+        do obj_idx=1,size(this%leaf)
+            if(this%leaf(obj_idx)%femdomain%mesh%empty() ) cycle
+            StressField = StressField // &
+                this%leaf(obj_idx)%femdomain%getElementCauchyStress(&
+                displacement=displacement(n:n+this%leaf(obj_idx)%femdomain%nn()&
+                *this%leaf(obj_idx)%femdomain%nd()-1 ),&
+                E = this%leaf(obj_idx)%YoungModulus(:),&
+                v = this%leaf(obj_idx)%PoissonRatio(:) ,i=i,j=j,option=option)
+                n = n + this%leaf(obj_idx)%femdomain%nn()&
+                *this%leaf(obj_idx)%femdomain%nd()
+        enddo
+    endif
+
+    if(allocated(this%root) )then
+        do obj_idx=1,size(this%root)
+            if(this%root(obj_idx)%femdomain%mesh%empty() ) cycle
+            StressField = StressField // &
+                this%root(obj_idx)%femdomain%getElementCauchyStress(&
+                displacement=displacement(n:n+this%root(obj_idx)%femdomain%nn()&
+                *this%root(obj_idx)%femdomain%nd()-1 ),&
+                E = this%root(obj_idx)%YoungModulus(:),&
+                v = this%root(obj_idx)%PoissonRatio(:) ,i=i,j=j,option=option)
+                n = n + this%root(obj_idx)%femdomain%nn()&
+                *this%root(obj_idx)%femdomain%nd()
+        enddo
+    endif
+
+end function
+! ################################################################
+
+subroutine export_eigSoybean(this,name,Frequency,ModeVectors,stress_type)
+    class(Soybean_),intent(inout) :: this
+    character(*),intent(in) :: Name
+    character(*),optional,intent(in) :: stress_type
+    real(real64),intent(in) :: Frequency(:),ModeVectors(:,:)
+    real(real64),allocatable :: displacement(:),stress(:)
+    integer(int32) :: i,j 
+    type(IO_) :: f
+
+    call f%open(name + ".csv","w")
+    call f%write("# Mode, Eigenfrequency (Hz)")
+    do i=1,10
+        displacement = ModeVectors(:,i)
+        do j=1,36
+            call this%deform(displacement =  cos(radian(j*10.0d0) ) * displacement )
+
+            if(present(stress_type) )then
+                stress = this%getStressField(Displacement=cos(radian(j*10.0d0) ) * displacement,option=stress_type)
+                call this%vtk(name + zfill(i,3)+"_"+zfill(j,4),single_file = .true.,scalar_field=stress)
+            else
+                call this%vtk(name + zfill(i,3)+"_"+zfill(j,4),single_file = .true.)
+            endif
+            call this%deform(displacement = -cos(radian(j*10.0d0) ) *  displacement)
+        enddo
+        write(f%fh,*) str(i) +" , " , Frequency(i)
+    enddo
+    call f%close()
+    
+end subroutine
 
 ! ################################################################
 

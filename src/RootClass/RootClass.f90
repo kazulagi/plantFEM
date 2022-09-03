@@ -84,19 +84,22 @@ module RootClass
         ! MPI
         procedure, public :: sync => syncRoot
 
+        procedure, public :: remove => removeRoot
     end type
 contains
 
 
 
 ! ########################################
-subroutine initRoot(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlength,Maxwidth,rotx,roty,rotz,location)
+subroutine initRoot(obj,config,regacy,Thickness,length,width,MaxThickness,&
+    Maxlength,Maxwidth,rotx,roty,rotz,location,x_num,y_num,z_num)
     class(Root_),intent(inout) :: obj
     real(real64),optional,intent(in)::  Thickness,length,width
     real(real64),optional,intent(in)::  MaxThickness,Maxlength,MaxWidth
     real(real64),optional,intent(in)::  rotx,roty,rotz,location(3)
     logical, optional,intent(in) :: regacy
     character(*),optional,intent(in) :: config
+    integer(int32),optional,intent(in) :: x_num,y_num,z_num
     type(IO_) :: Rootconf,f
     character(200) :: fn,conf,line
     integer(int32),allocatable :: buf(:)
@@ -111,6 +114,10 @@ subroutine initRoot(obj,config,regacy,Thickness,length,width,MaxThickness,Maxlen
     obj%xnum = 10
     obj%ynum = 10
     obj%znum = 10
+
+    obj%xnum = input(default=obj%xnum,option=x_num)
+    obj%ynum = input(default=obj%ynum,option=y_num)
+    obj%znum = input(default=obj%znum,option=z_num)
     
     ! 節を生成するためのスクリプトを開く
 !    if(.not.present(config) .or. index(config,".json")==0 )then
@@ -813,6 +820,67 @@ subroutine syncRootVector(obj,from,mpid)
 
 end subroutine
 
+! #######################################################
+subroutine removeRoot(this)
+    class(Root_),intent(inout) :: this
 
+    call this % FEMDomain % remove()
+    this % Thickness = 0.0d0
+    this % length = 0.0d0
+    this % width = 0.0d0
+    this % MaxThickness = 0.0d0
+    this % Maxlength = 0.0d0
+    this % Maxwidth = 0.0d0
+    this % center_bottom(1:3) = 0.0d0
+    this % center_top(1:3) = 0.0d0
+    this % radius_bottom(1:3) = 0.0d0
+    this % radius_top(1:3) = 0.0d0
+    this % outer_normal_bottom(1:3) = 0.0d0
+    this % outer_normal_top(1:3) = 0.0d0
+    this % rot_x = 0.0d0
+    this % rot_y = 0.0d0
+    this % rot_z = 0.0d0
+    this % disp_x = 0.0d0
+    this % disp_y = 0.0d0
+    this % disp_z = 0.0d0
+    this % EdgeNodeID(1:4) = 0
+    this % EdgeElemID(1:4) = 0
+    this % maxdiameter = 0.0d0
+    this % mindiameter = 0.0d0
+    this % minlength = 0.0d0
+    if(allocated(this%I_planeNodeID)) deallocate(this%I_planeNodeID)! (:)
+    if(allocated(this%I_planeElementID)) deallocate(this%I_planeElementID)! (:)
+    if(allocated(this%II_planeNodeID)) deallocate(this%II_planeNodeID)! (:)
+    if(allocated(this%II_planeElementID)) deallocate(this%II_planeElementID)! (:)
+    this % A_PointNodeID = 0
+    this % B_PointNodeID = 0
+    this % A_PointElementID = 0
+    this % B_PointElementID = 0
+    this % xnum = 10
+    this % ynum = 10
+    this % znum = 10
+
+    ! physical parameter
+    if(allocated(this%DryDensity)) deallocate(this%DryDensity)! (:)  ! element-wise
+    if(allocated(this%WaterContent)) deallocate(this%WaterContent)! (:)! element-wise
+
+    ! For deformation analysis
+    if(allocated(this%YoungModulus)) deallocate(this%YoungModulus)! (:)! element-wise
+    if(allocated(this%PoissonRatio)) deallocate(this%PoissonRatio)! (:)! element-wise
+    if(allocated(this%Density)) deallocate(this%Density)! (:)     ! element-wise
+    if(allocated(this%Stress)) deallocate(this%Stress)! (:,:,:)     ! Gauss point-wise
+    if(allocated(this%Displacement)) deallocate(this%Displacement)! (:,:) ! node-wise, three dimensional
+
+    if(allocated(this%BoundaryTractionForce)) deallocate(this%BoundaryTractionForce)! (:,:) ! node-wise, three dimensional
+    if(allocated(this%BoundaryDisplacement)) deallocate(this%BoundaryDisplacement)! (:,:) ! node-wise, three dimensional
+    
+    ! for growth simulation
+    this % already_grown = .false.
+
+    this %  Division = 1
+    if(associated(this%pRoot)) nullify(this%pRoot)
+
+
+end subroutine
 
 end module
