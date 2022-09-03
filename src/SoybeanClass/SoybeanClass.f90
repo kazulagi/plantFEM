@@ -9016,6 +9016,7 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
             print *, "[ok] set EbOM >> done."        
         endif
     endif
+
     call solver%keepThisMatrixAs("A")
     !call solver%saveMatrix(name="A",CRS_as_dense=.true.,zero_or_nonzero=.true)
     call solver%zeros()
@@ -9062,7 +9063,7 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
 
 
 
-    call solver%eig(eigen_value=Frequency,eigen_vectors=EigenVectors)
+    call solver%eig(eigen_value=All_Frequency,eigen_vectors=All_EigenVectors)
     call solver%remove()
 
     if(Frequency(1)<=0.0d0 )then
