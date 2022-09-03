@@ -3,12 +3,15 @@ implicit none
 
 type(Soybean_) :: soy
 
-call soy%init(config="Tutorial/obj/realSoybeanConfig.json")
-call soy%stl(name="soy")
+! set mesh resolution
+soy%stem_division = [2,2,10]
+soy%peti_division = [2,2,20]
+soy%leaf_division = [5,1,8]
+call soy%init("Tutorial/obj/soy.json")
+call soy%vtk("soy",single_file=.true.)
 
+! check size
+call soy%checkMemoryRequirement()
 
-! measuring volume (m^2)
-call print(soy%getVolume())
-call print(soy%ne())
 
 end

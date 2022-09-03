@@ -1,8 +1,5 @@
 {
     "Name":"soybean",
-    "leafconfig":"Tutorial/obj/soyleaf.json",
-    "stemconfig":"Tutorial/obj/soystem.json",
-    "rootconfig":"Tutorial/obj/soyroot.json",
     "Genotype":{
         "Dt1":"dt1"
     },

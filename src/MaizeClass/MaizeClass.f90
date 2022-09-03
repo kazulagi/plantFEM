@@ -124,6 +124,7 @@ module MaizeClass
         
 
     contains
+        procedure :: init => createMaize    
         procedure :: create => createMaize
         procedure,public :: msh => mshMaize
         procedure,public :: vtk => vtkMaize
