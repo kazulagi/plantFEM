@@ -9066,7 +9066,7 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
     call solver%eig(eigen_value=All_Frequency,eigen_vectors=All_EigenVectors)
     call solver%remove()
 
-    if(Frequency(1)<=0.0d0 )then
+    if(All_Frequency(1)<=0.0d0 )then
         return
     endif
 
