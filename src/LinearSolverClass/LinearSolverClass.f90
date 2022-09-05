@@ -3838,11 +3838,12 @@ end function
 ! ###################################################################
 
 
-subroutine sub_crs_matvec_generic(CRS_value,CRS_col,CRS_row_ptr,old_vector,new_vector)
+subroutine sub_crs_matvec_generic(CRS_value,CRS_col,CRS_row_ptr,old_vector,new_vector,precondition)
   real(real64),intent(in)  :: CRS_value(:),Old_vector(:)
   integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
-
+  type(CRS_),optional,intent(in) :: precondition
   real(real64),allocatable,intent(inout) :: new_vector(:)
+  real(real64),allocatable :: precon_old_vector(:)
   integer(int32) :: i, j, n,gid,lid,row,CRS_id,col
   !> x_i = A_ij b_j
 
@@ -3859,16 +3860,33 @@ subroutine sub_crs_matvec_generic(CRS_value,CRS_col,CRS_row_ptr,old_vector,new_v
     new_vector(:) = 0.0d0
   endif
 
-  !$OMP parallel do default(shared) private(CRS_id,col)
-  do row=1,n
+
+  if(present(precondition) )then
+    call precondition%ILU_matvec(old_vector=old_vector,new_vector=precon_old_vector)
+    
+    !$OMP parallel do default(shared) private(CRS_id,col)
+    do row=1,n
       do CRS_id=CRS_row_ptr(row),CRS_row_ptr(row+1)-1
           col = CRS_col(CRS_id)
           !$OMP atomic
-          new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(col)
+          new_vector(row) = new_vector(row) + CRS_value(CRS_id)*precon_old_vector(col)
       enddo
-  enddo
-  !$OMP end parallel do 
+    enddo
+    !$OMP end parallel do 
+  else
+
+    !$OMP parallel do default(shared) private(CRS_id,col)
+      do row=1,n
+        do CRS_id=CRS_row_ptr(row),CRS_row_ptr(row+1)-1
+            col = CRS_col(CRS_id)
+            !$OMP atomic
+            new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(col)
+        enddo
+    enddo
+    !$OMP end parallel do 
   
+  endif
+
 end subroutine
 ! ###################################################################
 
@@ -3889,8 +3907,9 @@ end function
 
 
 
-subroutine sub_crs_matvec_for_CRStype(CRS,old_vector,new_vector)
+subroutine sub_crs_matvec_for_CRStype(CRS,old_vector,new_vector,precondition)
   type(CRS_),intent(in) :: CRS
+  type(CRS_),optional,intent(in) :: precondition
   real(real64),intent(in)  :: Old_vector(:)
   real(real64),allocatable,intent(inout) :: new_vector(:)
 
@@ -3899,7 +3918,8 @@ subroutine sub_crs_matvec_for_CRStype(CRS,old_vector,new_vector)
     CRS_col=CRS%col_idx,&
     CRS_row_ptr=CRS%row_ptr,&
     old_vector=old_vector,&
-    new_vector = new_vector)
+    new_vector = new_vector,&
+    precondition= precondition)
 
 end subroutine
 
@@ -4192,6 +4212,141 @@ subroutine Lanczos(A,V,T)
 
 
 end subroutine
+! #####################################################
+subroutine PBiCGSTAB_CRS(CRS,x,b,itrmax, er, relative_er,debug)
+  type(CRS_),intent(inout) :: CRS
+  integer(int32), intent(inout) :: itrmax
+  real(real64), intent(inout) ::  b(:), er
+  real(real64),optional,intent(in) :: relative_er
+  real(real64), intent(inout) :: x(:)
+  logical,optional,intent(in) :: debug
+  
+  call bicgstab_CRS_ILU(a=CRS%val, ptr_i=CRS%row_ptr, index_j=CRS%col_idx,&
+     x=x, b=b, itrmax=itrmax, er=er, relative_er=relative_er,debug=debug)
+
+end subroutine
+
+! #####################################################
+subroutine bicgstab_CRS_ILU(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug)
+  integer(int32), intent(inout) :: ptr_i(:),index_j(:), itrmax
+  real(real64), intent(inout) :: a(:), b(:), er
+  real(real64),optional,intent(in) :: relative_er
+  real(real64), intent(inout) :: x(:)
+  logical,optional,intent(in) :: debug
+  type(CRS_) :: Pmat
+  logical :: speak = .false.
+  integer(int32) itr,i,j,n
+  real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr,re_er0
+  real(real64),allocatable:: r(:), r0(:), p(:), y(:), e(:), v(:),pa(:),ax(:),pd(:),ps(:)
+  
+  er0 = er
+  if(present(debug) )then
+      speak = debug
+  endif
+  
+  call Pmat%init(val=a,row_ptr=ptr_i,col_idx=index_j)
+  call Pmat%ILU(0)
+  
+
+  n=size(b)
+  if(speak) print *, "BiCGSTAB STARTED >> DOF:", n
+  allocate(r(n), r0(n), p(n), y(n), e(n), v(n))
+
+  r(:) = b(:)
+  if(speak) print *, "BiCGSTAB >> [1] initialize"
+
+  call sub_crs_matvec(CRS_value=a,CRS_col=index_j,&
+      CRS_row_ptr=ptr_i,old_vector=x,new_vector=ax)
+  r = b - ax
+
+
+  
+  if(speak) print *, "BiCGSTAB >> [2] dp1"
+
+  c1 = dot_product(r,r)
+  !call omp_dot_product(r,r,c1)
+  
+  init_rr=c1
+  !if(speak) print *, "BiCGSTAB >>      |r|^2 = ",init_rr
+  
+  if (c1 < er0) return
+
+  p(:) = r(:)
+  r0(:) = r(:)
+  
+  
+  do itr = 1, itrmax   
+      if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] initialize"
+      c1 = dot_product(r0,r)
+      !call omp_dot_product(r0,r,c1)
+      
+      y(:) = 0.0d0
+  
+      ! compute y = A P^{-1} d (p:=d)
+      call sub_crs_matvec(CRS_value=a,CRS_col=index_j,&
+      CRS_row_ptr=ptr_i,old_vector=p,new_vector=y,precondition=Pmat)
+      
+      c2 = dot_product(r0,y)
+      !call omp_dot_product(r0,y,c2)
+      
+      alp = c1/c2
+
+      ! compute e := s = r - alpa * A P^{-1} d (p:=d)
+      e(:) = r(:) - alp * y(:)
+      
+
+      v(:) = 0.0d0
+      ! v = A P^{-1} e = A P^{-1} s
+      call sub_crs_matvec(CRS_value=a,CRS_col=index_j,&
+      CRS_row_ptr=ptr_i,old_vector=e,new_vector=v,precondition=Pmat)
+      
+      if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] half"
+      
+      
+      ev = dot_product(e,v)
+      vv = dot_product(v,v)
+      !call omp_dot_product(e,v,ev)
+      !call omp_dot_product(v,v,vv)
+      
+      if(  vv==0.0d0 ) stop "Bicgstab devide by zero"
+      ! w = c3 = 
+      c3 = ev / vv
+      !https://cattech-lab.com/science-tools/simulation-lecture-mini-cg/
+      call Pmat%ILU_matvec(old_vector=p,new_vector=pd)
+      call Pmat%ILU_matvec(old_vector=e,new_vector=ps)
+      x(:) = x(:) + alp * pd(:) + c3 * ps(:)
+      !x(:) = x(:) + alp * p(:) + c3 * e(:)
+      r(:) = e(:) - c3 * v(:)
+
+      rr = dot_product(r,r)
+      !call omp_dot_product(r,r,rr)
+      
+      if(itr==1)then
+          re_er0 = rr
+      endif
+
+      if(speak)then
+          print *, sqrt(rr)
+      endif
+      if(present(relative_er) )then
+          if(sqrt(rr/re_er0)<relative_er )then
+              exit
+          endif
+      endif
+      !    write(*,*) 'itr, er =', itr,rr
+      if (sqrt(rr) < er0) exit
+      
+      c1 = dot_product(r0,r)
+      !call omp_dot_product(r0,r,c1)
+      
+
+      bet = c1 / (c2 * c3)
+      if(  (c2 * c3)==0.0d0 ) stop "Bicgstab devide by zero"
+      p(:) = r(:) + bet * (p(:) -c3*y(:) )
+
+  enddo
+end subroutine 
+!===============================================================
 
 
 

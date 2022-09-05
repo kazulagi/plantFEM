@@ -1635,11 +1635,21 @@ function solveFEMSolver(this,algorithm,preconditioning,x0) result(x)
 
     if(present(preconditioning))then
         if(preconditioning=="PointJacobi")then
+
+            if(this%debug)then
+                print *, "PBiCGSTAB (PointJacobi)"
+            endif
             call JacobiPreconditionerCRS(val=this%CRS_val,row_ptr=this%CRS_index_row,&
                 col_idx=this%CRS_Index_col,rhs=this%CRS_RHS)
-        elseif(preconditioning=="incompleteLU") then
-            call incompleteLUCRS(val=this%CRS_val,row_ptr=this%CRS_index_row,&
-            col_idx=this%CRS_Index_col,rhs=this%CRS_RHS)
+            
+        elseif(preconditioning=="incompleteLU" .or. preconditioning=="ILU") then
+
+            if(this%debug)then
+                print *, "PBiCGSTAB (ILU(0))"
+            endif
+            call bicgstab_CRS_ILU(this%CRS_val, this%CRS_index_row, this%CRS_index_col,&
+                    x, this%CRS_RHS, this%itrmax, this%er0,this%relative_er,this%debug)
+            return
         else
             print *, "[Warning!] :: FEMSolver :: invalid preconditioning"
             stop
@@ -1949,7 +1959,6 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug
 end subroutine 
 !===============================================================
 
-
 ! #####################################################
 subroutine MPI_BiCGSTABFEMSolver(this,x)
     class(FEMSolver_),intent(inout) :: this
@@ -2173,79 +2182,105 @@ subroutine JacobiPreconditionerCRS(val,row_ptr,col_idx,rhs)
     real(real64) :: A_k_k, A_k_k_inv
     integer(int32) :: i,j
 
-    !$OMP parallel
-    !$OMP do 
+    !!$OMP parallel
+    !!$OMP do 
     do i=1,size(row_ptr) - 1    
         A_k_k = getCRSval(val=val, row_ptr=row_ptr, col_idx=col_idx, row=i, col=i)
+        if(A_k_k ==0.0d0) cycle
         A_k_k_inv = 1.0d0/A_k_k
         rhs(i) = rhs(i) * A_k_k_inv
         do j=row_ptr(i), row_ptr(i+1)-1
-            !$OMP atomic
+            !!$OMP atomic
             val(j) = val(j) * A_k_k_inv
         enddo
     enddo
-    !$OMP end do
-    !$OMP end parallel
+    !!$OMP end do
+    !!$OMP end parallel
 end subroutine
 !===========================================================================
 
 !===========================================================================
-subroutine incompleteLUCRS(val,row_ptr,col_idx,rhs)
-    real(real64),intent(inout) :: val(:),rhs(:)
-    integer(int32),intent(inout) :: row_ptr(:),col_idx(:)
-    real(real64) :: A_k_k, A_k_k_inv,A_i_k, A_k_j
-    integer(int32) :: i,j,n,m,k,col
+!subroutine incompleteLUCRS(val,row_ptr,col_idx,rhs)
+!    real(real64),intent(inout) :: val(:),rhs(:)
+!    integer(int32),intent(inout) :: row_ptr(:),col_idx(:)
+!    real(real64),allocatable :: diag_vec(:)
+!    real(real64) :: A_k_k, A_k_k_inv,A_i_k, A_k_j
+!    integer(int32) :: i,j,n,m,k,col,col_id,col_id_2,col_2
+!    type(CRS_) :: crs
+!    print *, "incompleteLUCRS >> bug exists"
+!    stop
+!
+!    ! ILU(0)
+!    call crs%init(val=val,row_ptr=row_ptr,col_idx=col_idx)
+!    call crs%ILU(0,rhs=rhs)
 
-    print *, "incompleteLUCRS >> bug exists"
-    stop
-    !$OMP parallel
-    !$OMP do 
-    do k=1,size(row_ptr) - 1    
-        A_k_k = getCRSval(val=val, row_ptr=row_ptr, col_idx=col_idx, row=k, col=k)
-        A_k_k_inv = 1.0d0/A_k_k
-        
-        do i=1,size(row_ptr) - 1    
-            do n=row_ptr(i), row_ptr(i+1)-1
-                j = col_idx(n)
-                ! a_ij := val(j)
-                if(j > k )then
-                    A_i_k=0.0d0
-                    do m=row_ptr(i), row_ptr(i+1)-1
-                        col = col_idx(m)
-                        if(col==k )then
-                            A_i_k = val(col)
-                        else
-                            cycle
-                        endif
-                    enddo
-                    if(A_i_k==0.0d0)then
-                        cycle
-                    endif
-                    !A_i_k = getCRSval(val=val, row_ptr=row_ptr, col_idx=col_idx, row=i, col=k)
-                    A_k_j = 0.0d0
-                    do m=row_ptr(k), row_ptr(k+1)-1
-                        col = col_idx(m)
-                        if(col==j )then
-                            A_k_j = val(col)
-                        else
-                            cycle
-                        endif
-                    enddo
-                    if(A_k_j==0.0d0)then
-                        cycle
-                    endif
-                    
-                    !A_k_j = getCRSval(val=val, row_ptr=row_ptr, col_idx=col_idx, row=k, col=j)
-                    !!$OMP atomic
-                    val(j) = val(j) - A_i_k*A_k_k_inv*A_k_j
-                    
-                endif
-            enddo
-        enddo
-    enddo
-    !$OMP end do
-    !$OMP end parallel
-end subroutine
+
+
+!    do row=2,n
+!        do col_id = row_ptr(row),row_ptr(row+1)-1
+!            col = col_idx(col_id)
+!            if(1<= col .and. col <= row - 1)then
+!                val(col_id) = val(col_id) / diag_vec(row) 
+!                A_i_k = val(col_id)
+!            endif
+!
+!            do col_id_2 = row_ptr(row),row_ptr(row+1)-1
+!                col_2 = col_idx(col_id_2)
+!                if(col + 1<= col_2 .and. col_2 <= row - 1)then
+!                    val(col_id_2) = val(col_id_2) - A_i_k*A_k_j
+!                endif
+!            enddo
+!        enddo
+!    enddo
+
+!    !$OMP parallel
+!    !$OMP do 
+!    do k=1,size(row_ptr) - 1    
+!        A_k_k = getCRSval(val=val, row_ptr=row_ptr, col_idx=col_idx, row=k, col=k)
+!        A_k_k_inv = 1.0d0/A_k_k
+!        
+!        do i=1,size(row_ptr) - 1    
+!            do n=row_ptr(i), row_ptr(i+1)-1
+!                j = col_idx(n)
+!                ! a_ij := val(j)
+!                if(j > k )then
+!                    A_i_k=0.0d0
+!                    do m=row_ptr(i), row_ptr(i+1)-1
+!                        col = col_idx(m)
+!                        if(col==k )then
+!                            A_i_k = val(col)
+!                        else
+!                            cycle
+!                        endif
+!                    enddo
+!                    if(A_i_k==0.0d0)then
+!                        cycle
+!                    endif
+!                    !A_i_k = getCRSval(val=val, row_ptr=row_ptr, col_idx=col_idx, row=i, col=k)
+!                    A_k_j = 0.0d0
+!                    do m=row_ptr(k), row_ptr(k+1)-1
+!                        col = col_idx(m)
+!                        if(col==j )then
+!                            A_k_j = val(col)
+!                        else
+!                            cycle
+!                        endif
+!                    enddo
+!                    if(A_k_j==0.0d0)then
+!                        cycle
+!                    endif
+!                    
+!                    !A_k_j = getCRSval(val=val, row_ptr=row_ptr, col_idx=col_idx, row=k, col=j)
+!                    !!$OMP atomic
+!                    val(j) = val(j) - A_i_k*A_k_k_inv*A_k_j
+!                    
+!                endif
+!            enddo
+!        enddo
+!    enddo
+!    !$OMP end do
+!    !$OMP end parallel
+!end subroutine
 !===========================================================================
 !
 !subroutine incompleteCholesky(val,row_ptr,col_idx,rhs)
