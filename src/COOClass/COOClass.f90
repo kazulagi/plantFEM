@@ -33,6 +33,7 @@ module COOClass
     contains
         procedure,public :: init => initCOO
         procedure,public :: update => updateCOO
+        procedure,public :: set => updateCOO
         procedure,public :: add => addCOO
         procedure,public :: getDenseMatrix => getDenseMatrixCOO
         procedure,public :: to_dense => getDenseMatrixCOO
@@ -58,6 +59,15 @@ module COOClass
         procedure,public :: eig => eigCRS
         procedure,public :: to_dense => to_denseCRS
         procedure,public :: DOF => DOFCRS
+
+        procedure,public :: size   => sizeCRS
+        procedure,public :: update => updateCRS
+        procedure,public :: get    => getCRS
+        procedure,public :: is_nonzero => is_nonzeroCRS
+        procedure,public :: diag => diagCRS
+
+        procedure,public :: ILU => ILUCRS
+        procedure,public :: ILU_matvec => ILU_matvecCRS
     end type
 
 
@@ -76,7 +86,7 @@ module COOClass
     interface operator(*)
       module procedure multReal64_and_CRS, multCRS_and_Real64
     end interface
-
+    
 contains
 
 subroutine initCOO(this,num_row)
@@ -699,5 +709,208 @@ pure function maxvalCOO(this) result(ret)
     
 end function
 
+! ##################################################
+function sizeCRS(this) result(n)
+    class(CRS_),intent(in) :: this
+    integer(int32) :: n
+
+    if( allocated(this%row_ptr) )then
+        n = size(this%row_ptr)-1
+    else
+        n = 0
+    endif
+
+end function
+! ##################################################
+
+
+! ##################################################
+subroutine updateCRS(this,row,col,val)
+    class(CRS_),intent(inout) :: this
+    integer(int32),intent(in) :: row, col
+    real(real64),intent(in) :: val
+    integer(int32) :: i,j
+    
+    ! update but ignore fill-in
+    do i=this%row_ptr(row),this%row_ptr(row+1)-1
+        if(this%col_idx(i)==col )then
+            this%val(i) = val
+            return
+        endif
+    enddo
+
+end subroutine
+! ##################################################
+
+
+! ##################################################
+function getCRS(this,row,col) result(val)
+    class(CRS_),intent(in) :: this
+    integer(int32),intent(in) :: row, col
+    real(real64) :: val
+    integer(int32) :: i
+    
+    ! update but ignore fill-in
+    val = 0.0d0
+    do i=this%row_ptr(row),this%row_ptr(row+1)-1
+        if(this%col_idx(i)==col )then
+            val = this%val(i) 
+            return
+        endif
+    enddo
+    
+
+end function
+! ##################################################
+
+
+! ##################################################
+logical function is_nonzeroCRS(this,row,col) 
+    class(CRS_),intent(in) :: this
+    integer(int32),intent(in) :: row, col
+    real(real64) :: val
+    integer(int32) :: i
+    
+    is_nonzeroCRS = .false.
+    if(row > this%size() ) return
+    
+    do i=this%row_ptr(row),this%row_ptr(row+1)-1
+        if(this%col_idx(i)==col )then
+            is_nonzeroCRS = .true.
+            return
+        endif
+    enddo
+    
+
+end function
+! ##################################################
+function diagCRS(this) result(diag_vec)
+    class(CRS_),intent(in) :: this
+    real(real64),allocatable  :: diag_vec(:)
+    integeR(int32) :: i,j
+
+    diag_vec = zeros(this%size() )
+    do i=1,this%size()
+        do j=this%row_ptr(i),this%row_ptr(i+1)-1
+            if(this%col_idx(j)==i )then
+                diag_vec(i) = this%val(j)
+                exit
+            endif
+        enddo
+    enddo
+
+
+end function
+! ##################################################
+
+recursive subroutine ILUCRS(this,fill_in_order,RHS)
+    class(CRS_),intent(inout) :: this
+    integer(int32),intent(in) :: fill_in_order ! 
+    real(real64),optional,intent(inout)   :: RHS(:) ! RHS vector
+    real(real64),allocatable  :: diag_vec(:)
+    integer(int32) :: i,j,k,n
+
+    if(present(RHS) )then
+        ! Given: Ax = y
+        
+        ! A = LU
+        call this%ILU(fill_in_order)
+        
+        ! Forward substitution
+        do i=2,this%size()
+            do j=this%row_ptr(i),this%row_ptr(i+1)-1
+                if(this%col_idx(j)<i )then
+                    ! execute Forward substitution
+                    !print *, i, this%col_idx(j),this%val(j)
+                    RHS(i) = RHS(i) - this%val(j)*RHS(this%col_idx(j))  
+                endif
+            enddo
+        enddo
+
+        ! Backward substitution
+        diag_vec = this%diag()
+        do i=this%size(),1,-1
+            if(diag_vec(i)==0.0d0 )cycle
+            RHS(i) = RHS(i)/diag_vec(i)
+        enddo
+
+        ! Forward substitution
+        do i=this%size(),1,-1
+            do j=this%row_ptr(i),this%row_ptr(i+1)-1
+                if(this%col_idx(j)>i )then
+                    ! execute Forward substitution
+                    RHS(i) = RHS(i) - this%val(j)/diag_vec(i) *RHS(this%col_idx(j))  
+                endif
+            enddo
+        enddo
+        
+        return
+    endif
+
+    select case(fill_in_order)
+        case default 
+            print *, "fill-in order",fill_in_order,"is not implemented. Try 0"
+            stop
+        case(0)
+            n = this%size()
+
+            do i=2,n
+                do k=1, i-1
+                    if( this%is_nonzero(i,k) )then
+                        call this%update(row=i,col=k,&
+                            val=this%get(i,k)/this%get(k,k) )
+
+                    endif
+                    do j=k+1,n
+                        if( this%is_nonzero(i,j) )then
+                            call this%update(row=i,col=j,&
+                                val=this%get(i,j) - this%get(i,k)*this%get(k,j) )
+                        endif
+                    enddo
+                enddo
+            enddo
+    
+    end select
+
+end subroutine
+
+! ################################################
+subroutine ILU_matvecCRS(this,old_vector,new_vector)
+    class(CRS_),intent(in) :: this ! ILU factorlized matrix
+    integer(int32) :: i, j
+    real(real64),intent(in) :: old_vector(:)
+    real(real64),allocatable,intent(inout) :: new_vector(:)
+    real(real64),allocatable :: diag_vec(:)
+
+    new_vector = old_vector
+
+    ! Forward substitution
+    do i=2,this%size()
+        do j=this%row_ptr(i),this%row_ptr(i+1)-1
+            if(this%col_idx(j)<i )then
+                ! execute Forward substitution
+                !print *, i, this%col_idx(j),this%val(j)
+                new_vector(i) = new_vector(i) - this%val(j)*new_vector(this%col_idx(j))  
+            endif
+        enddo
+    enddo
+    ! Backward substitution
+    diag_vec = this%diag()
+    do i=this%size(),1,-1
+        if(diag_vec(i)==0.0d0 )cycle
+        new_vector(i) = new_vector(i)/diag_vec(i)
+    enddo
+    ! Forward substitution
+    do i=this%size(),1,-1
+        do j=this%row_ptr(i),this%row_ptr(i+1)-1
+            if(this%col_idx(j)>i )then
+                ! execute Forward substitution
+                new_vector(i) = new_vector(i) - this%val(j)/diag_vec(i) *new_vector(this%col_idx(j))  
+            endif
+        enddo
+    enddo
+    
+
+end subroutine
 
 end module COOClass

@@ -711,13 +711,14 @@ end subroutine
 
 ! ##############################################
 subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio,use_same_stiffness,&
-    dt,timeIntegral,use_same_matrix)
+    dt,timeIntegral,use_same_matrix,preconditioning)
     class(SeismicAnalysis_),intent(inout) :: obj
     ! >> for multi-domain
     real(real64),optional,intent(in) :: dt
     logical,optional,intent(in) :: use_same_matrix
 
     character(*),intent(in) :: timeIntegral
+    character(*),optional,intent(in) :: preconditioning ! preconditioning algorithm for linear solver
     ! << 
 
     ! >> for single-domain
@@ -812,7 +813,7 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio
                 
                 
                
-                new_U = obj%modal%solver%solve(x0=obj%U)
+                new_U = obj%modal%solver%solve(x0=obj%U,preconditioning=preconditioning)
 
                 New_A   = 1.0d0/dt/dt/obj%Newmark_beta*new_U  + bar_A
 
@@ -878,7 +879,7 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio
                 call obj%modal%solver%setRHS(F_vec)
                 
            
-                new_U = obj%modal%solver%solve(x0=obj%U_n)
+                new_U = obj%modal%solver%solve(x0=obj%U_n,preconditioning=preconditioning)
 
                 new_V = 6.0d0/dt*new_U - 6.0d0/dt*obj%U_n - (obj%v_n + 2.0d0*obj%v_half)
 
