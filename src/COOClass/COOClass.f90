@@ -731,13 +731,18 @@ subroutine updateCRS(this,row,col,val)
     real(real64),intent(in) :: val
     integer(int32) :: i,j
     
+    
     ! update but ignore fill-in
+    if (col > maxval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))  ) return
+    if (col < minval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))  ) return
+    
     do i=this%row_ptr(row),this%row_ptr(row+1)-1
         if(this%col_idx(i)==col )then
             this%val(i) = val
             return
         endif
     enddo
+
 
 end subroutine
 ! ##################################################
@@ -752,6 +757,10 @@ function getCRS(this,row,col) result(val)
     
     ! update but ignore fill-in
     val = 0.0d0
+    if (col > maxval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))  ) return
+    
+    if (col < minval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))  ) return
+    
     do i=this%row_ptr(row),this%row_ptr(row+1)-1
         if(this%col_idx(i)==col )then
             val = this%val(i) 
@@ -773,6 +782,11 @@ logical function is_nonzeroCRS(this,row,col)
     
     is_nonzeroCRS = .false.
     if(row > this%size() ) return
+
+    if (col > maxval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))  ) return
+    
+    if (col < minval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))  ) return
+    
     
     do i=this%row_ptr(row),this%row_ptr(row+1)-1
         if(this%col_idx(i)==col )then
@@ -803,16 +817,23 @@ function diagCRS(this) result(diag_vec)
 end function
 ! ##################################################
 
-recursive subroutine ILUCRS(this,fill_in_order,RHS)
+recursive subroutine ILUCRS(this,fill_in_order,RHS,debug)
     class(CRS_),intent(inout) :: this
     integer(int32),intent(in) :: fill_in_order ! 
     real(real64),optional,intent(inout)   :: RHS(:) ! RHS vector
     real(real64),allocatable  :: diag_vec(:)
-    integer(int32) :: i,j,k,n
+    integer(int32),allocatable  :: col_line(:),range_col(:,:)
+    logical,optional,intent(in) :: debug
+    real(real64) :: A_k_j
+    integer(int32) :: i,j,k,n,row,col,col_idx
+    logical :: debug_mode_on = .false.
+
+    if(present(debug) )then
+        debug_mode_on = debug
+    endif
 
     if(present(RHS) )then
         ! Given: Ax = y
-        
         ! A = LU
         call this%ILU(fill_in_order)
         
@@ -853,22 +874,67 @@ recursive subroutine ILUCRS(this,fill_in_order,RHS)
             stop
         case(0)
             n = this%size()
+            if(debug_mode_on)then
+                print *, "[ILU(0)] >> started"
+            endif
+            diag_vec = this%diag()
+
+!            ! 高速バージョン
+!            do i=2,n
+!                if(debug_mode_on)then
+!                    print *, "[ILU(0)] >> L",i,"/",n
+!                endif
+!
+!                ! Lower Triangle
+!                do col_idx = this%row_ptr(i),this%row_ptr(i+1)-1
+!                    !a(i,k) = a(i,k) / a(k,k) 
+!                    if(this%col_idx(col_idx) < i)then
+!                        !(1)
+!                        this%val(col_idx) = this%val(col_idx)/diag_vec(this%col_idx(col_idx))
+!
+!                    endif
+!                enddo
+!                !A_k_j = this%get(k,j)
+!            enddo 
+
+!           return
+            range_col = zeros(n,2)
+
+            !$OMP parallel do
+            do row=1,n
+                range_col(row,1) = minval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))
+                range_col(row,2) = maxval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))
+            enddo
+            !$OMP end parallel do
 
             do i=2,n
-                do k=1, i-1
-                    if( this%is_nonzero(i,k) )then
+                if(debug_mode_on)then
+                    print *, "[ILU(0)] >> U",i,"/",n
+                endif
+                ! >>>>>>> slow
+                do k = range_col(i,1) , i-1
+                    !(1)
+                    
+                    if( this%is_nonzero(i,k) ) then
                         call this%update(row=i,col=k,&
                             val=this%get(i,k)/this%get(k,k) )
-
+                    else
+                        cycle
                     endif
-                    do j=k+1,n
-                        if( this%is_nonzero(i,j) )then
+
+
+                    do j=k+1,range_col(i,2)
+
+                        if( this%is_nonzero(i,j) .and. this%is_nonzero(k,j) ) then
                             call this%update(row=i,col=j,&
                                 val=this%get(i,j) - this%get(i,k)*this%get(k,j) )
                         endif
                     enddo
+                    
                 enddo
+
             enddo
+            ! <<<<<<<<< slow
     
     end select
 
