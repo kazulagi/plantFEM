@@ -4213,26 +4213,28 @@ subroutine Lanczos(A,V,T)
 
 end subroutine
 ! #####################################################
-subroutine PBiCGSTAB_CRS(CRS,x,b,itrmax, er, relative_er,debug)
+subroutine PBiCGSTAB_CRS(CRS,x,b,itrmax, er, relative_er,debug,ILU_MATRIX)
   type(CRS_),intent(inout) :: CRS
   integer(int32), intent(inout) :: itrmax
   real(real64), intent(inout) ::  b(:), er
   real(real64),optional,intent(in) :: relative_er
   real(real64), intent(inout) :: x(:)
   logical,optional,intent(in) :: debug
+  type(CRS_),optional,intent(inout) :: ILU_MATRIX
   
   call bicgstab_CRS_ILU(a=CRS%val, ptr_i=CRS%row_ptr, index_j=CRS%col_idx,&
-     x=x, b=b, itrmax=itrmax, er=er, relative_er=relative_er,debug=debug)
+     x=x, b=b, itrmax=itrmax, er=er, relative_er=relative_er,debug=debug,ILU_MATRIX=ILU_MATRIX)
 
 end subroutine
 
 ! #####################################################
-subroutine bicgstab_CRS_ILU(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug)
+subroutine bicgstab_CRS_ILU(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug,ILU_MATRIX)
   integer(int32), intent(inout) :: ptr_i(:),index_j(:), itrmax
   real(real64), intent(inout) :: a(:), b(:), er
   real(real64),optional,intent(in) :: relative_er
   real(real64), intent(inout) :: x(:)
   logical,optional,intent(in) :: debug
+  type(CRS_),optional,intent(inout) :: ILU_MATRIX
   type(CRS_) :: Pmat
   logical :: speak = .false.
   integer(int32) itr,i,j,n
@@ -4245,7 +4247,18 @@ subroutine bicgstab_CRS_ILU(a, ptr_i, index_j, x, b, itrmax, er, relative_er,deb
   endif
   
   call Pmat%init(val=a,row_ptr=ptr_i,col_idx=index_j)
-  call Pmat%ILU(0)
+
+  if(speak) print *, "BiCGSTAB ILU(0) STARTED >> "
+  if(present(ILU_MATRIX) )then
+    if(allocated(ILU_MATRIX%val) )then
+      Pmat = ILU_MATRIX
+    else
+      call Pmat%ILU(0,debug=debug)
+      ILU_MATRIX = Pmat
+    endif
+  else
+    call Pmat%ILU(0,debug=debug)
+  endif
   
 
   n=size(b)

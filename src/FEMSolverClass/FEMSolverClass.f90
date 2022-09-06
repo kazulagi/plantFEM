@@ -63,6 +63,8 @@ module FEMSolverClass
         integer(int32) :: LINK_TABLE_INIT_SIZE = 1000
         integer(int32) :: Link_num=0
         
+        type(CRS_) :: ILU_MATRIX
+
         integer(int32) :: itrmax = 100000
         real(real64)   :: er0 = dble(1.0e-10)
         real(real64)   :: relative_er = dble(1.0e-10)
@@ -1648,7 +1650,8 @@ function solveFEMSolver(this,algorithm,preconditioning,x0) result(x)
                 print *, "PBiCGSTAB (ILU(0))"
             endif
             call bicgstab_CRS_ILU(this%CRS_val, this%CRS_index_row, this%CRS_index_col,&
-                    x, this%CRS_RHS, this%itrmax, this%er0,this%relative_er,this%debug)
+                    x, this%CRS_RHS, this%itrmax, this%er0,this%relative_er,this%debug,&
+                    this%ILU_MATRIX)
             return
         else
             print *, "[Warning!] :: FEMSolver :: invalid preconditioning"
