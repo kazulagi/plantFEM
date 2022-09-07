@@ -44,10 +44,16 @@ module COOClass
         procedure,public :: get => getCOO
         procedure,public :: ne => neCOO
         procedure,public :: maxval => maxvalCOO
+
         !procedure,public ::getAllCol_as_row_obj => getAllCol_as_row_objCOO
     end type
         
-        
+    type :: CCS_
+        integer(int32),allocatable :: col_ptr(:)
+        integer(int32),allocatable :: row_idx(:)
+        real(real64)  ,allocatable :: val(:)
+    end type
+    
     type :: CRS_
         integer(int32),allocatable :: col_idx(:)
         integer(int32),allocatable :: row_ptr(:)
@@ -62,12 +68,19 @@ module COOClass
 
         procedure,public :: size   => sizeCRS
         procedure,public :: update => updateCRS
+        procedure,public :: add => addCRS
         procedure,public :: get    => getCRS
         procedure,public :: is_nonzero => is_nonzeroCRS
         procedure,public :: diag => diagCRS
 
+        procedure,public :: to_CCS => to_CCSCRS
+        
+        procedure,public :: load => loadCRS 
+
         procedure,public :: ILU => ILUCRS
         procedure,public :: ILU_matvec => ILU_matvecCRS
+
+
     end type
 
 
@@ -747,6 +760,30 @@ subroutine updateCRS(this,row,col,val)
 end subroutine
 ! ##################################################
 
+! ##################################################
+subroutine addCRS(this,row,col,val)
+    class(CRS_),intent(inout) :: this
+    integer(int32),intent(in) :: row, col
+    real(real64),intent(in) :: val
+    integer(int32) :: i,j
+    
+    
+    ! update but ignore fill-in
+    if (col > maxval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))  ) return
+    if (col < minval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))  ) return
+    
+    do i=this%row_ptr(row),this%row_ptr(row+1)-1
+        if(this%col_idx(i)==col )then
+            this%val(i) = this%val(i) + val
+            return
+        endif
+    enddo
+
+
+end subroutine
+! ##################################################
+
+
 
 ! ##################################################
 function getCRS(this,row,col) result(val)
@@ -823,9 +860,10 @@ recursive subroutine ILUCRS(this,fill_in_order,RHS,debug)
     real(real64),optional,intent(inout)   :: RHS(:) ! RHS vector
     real(real64),allocatable  :: diag_vec(:)
     integer(int32),allocatable  :: col_line(:),range_col(:,:)
+    type(CCS_) :: ccs
     logical,optional,intent(in) :: debug
-    real(real64) :: A_k_j
-    integer(int32) :: i,j,k,n,row,col,col_idx
+    real(real64) :: A_k_j,A_ik
+    integer(int32) :: i,j,k,l,n,m,row,col,col_idx,row_idx
     logical :: debug_mode_on = .false.
 
     if(present(debug) )then
@@ -879,25 +917,63 @@ recursive subroutine ILUCRS(this,fill_in_order,RHS,debug)
             endif
             diag_vec = this%diag()
 
-!            ! 高速バージョン
+!            !! ccs
+            !ccs = this%to_CCS()
+
+            ! [5,  6,  7]
+            ! [2,  8,  9]
+            ! [3,  4, 10]
+
+            ! [   5,  6,  7]
+            ! [10/5, 20, 23]
+            ! [15/5, 50, 67]
+
+!!          ! 高速バージョン
+
 !            do i=2,n
 !                if(debug_mode_on)then
-!                    print *, "[ILU(0)] >> L",i,"/",n
+!                    print *, "[ILU(0)] >> U",i,"/",n
 !                endif
-!
-!                ! Lower Triangle
-!                do col_idx = this%row_ptr(i),this%row_ptr(i+1)-1
-!                    !a(i,k) = a(i,k) / a(k,k) 
-!                    if(this%col_idx(col_idx) < i)then
-!                        !(1)
-!                        this%val(col_idx) = this%val(col_idx)/diag_vec(this%col_idx(col_idx))
-!
+!                ! >>>>>>> slow
+!                k = i-1
+!                do row_idx = ccs%col_ptr(i-1),ccs%col_ptr(i)-1
+!                    if(ccs%row_idx(row_idx) < i ) cycle
+!                    if(i==3 ) then
+!                        print *,"dbg",ccs%row_idx(row_idx),i-1,ccs%val(row_idx), diag_vec(i-1)
+!                        
+!                    endif
+!                    
+!                    ccs%val(row_idx) = ccs%val(row_idx)/diag_vec(i-1)
+!                    if(ccs%row_idx(row_idx) == i ) then
+!                        A_ik = ccs%val(row_idx)
 !                    endif
 !                enddo
-!                !A_k_j = this%get(k,j)
-!            enddo 
+!                if(i==3 ) stop
+!
+!                do j = this%row_ptr(i),this%row_ptr(i+1)-1
+!                    if(this%col_idx(j) < i ) then
+!                        cycle
+!                    elseif(this%col_idx(j) == i ) then
+!                        diag_vec(i) = diag_vec(i) - A_ik*this%get( k,i )
+!                        call this%update(i,i,diag_vec(i) )
+!                    else
+!                        call this%update(row=i,col= this%col_idx(j) ,&
+!                            val=this%get(i,this%col_idx(j) ) - A_ik*this%get(k,this%col_idx(j) ) )
+!                    endif
+!                enddo
+!
+!            enddo
+!            ! [   5,  6,  7]
+!            ! [10/5, 20, 23]
+!            ! [15/5, 50, 67]
+!            call this%load(ccs=ccs,position="L")
+!            return
 
-!           return
+!
+!            
+!            
+!
+
             range_col = zeros(n,2)
 
             !$OMP parallel do
@@ -914,25 +990,27 @@ recursive subroutine ILUCRS(this,fill_in_order,RHS,debug)
                 ! >>>>>>> slow
                 do k = range_col(i,1) , i-1
                     !(1)
-                    
                     if( this%is_nonzero(i,k) ) then
-                        call this%update(row=i,col=k,&
-                            val=this%get(i,k)/this%get(k,k) )
+                        !A_ik = this%get(i,k)/this%get(k,k)
+                        A_ik = this%get(i,k)/diag_vec(k)
+                        ! this guy is heavy
+                        call this%update(row=i,col=k,val=A_ik )
                     else
                         cycle
                     endif
 
-
+                    !!$OMP parallel do
                     do j=k+1,range_col(i,2)
-
-                        if( this%is_nonzero(i,j) .and. this%is_nonzero(k,j) ) then
-                            call this%update(row=i,col=j,&
-                                val=this%get(i,j) - this%get(i,k)*this%get(k,j) )
+                        if( this%is_nonzero(i,j)  ) then
+                            ! this guy is heavy
+                            call this%add(row=i,col=j,val= - A_ik*this%get(k,j) )
                         endif
                     enddo
+                    !!$OMP end parallel do
+                    
+                    diag_vec(i) = this%get(i,i)
                     
                 enddo
-
             enddo
             ! <<<<<<<<< slow
     
@@ -977,6 +1055,82 @@ subroutine ILU_matvecCRS(this,old_vector,new_vector)
     enddo
     
 
+end subroutine
+! ##################################################
+
+function to_CCSCRS(this) result(CCS)
+    class(CRS_),intent(in) :: this
+    type(CCS_) :: CCS
+    integer(int32) :: i,j,n,col
+    integer(int32),allocatable :: inst_counter(:)
+
+    inst_counter = int(zeros(this%size() ) )
+    CCS%col_ptr = int(zeros(size(this%row_ptr) ))
+    CCS%row_idx = int(zeros(size(this%col_idx) ))
+    CCS%val     = zeros(size(this%val) )
+
+    
+    do i=1,size(this%col_idx)
+        CCS%col_ptr(this%col_idx(i) ) = CCS%col_ptr(this%col_idx(i) ) + 1
+    enddo
+
+    ![2,3,3, 3, 2, 0]
+    do i=1,size(CCS%col_ptr)-1
+        CCS%col_ptr(i+1) = CCS%col_ptr(i+1) + CCS%col_ptr(i) 
+    enddo
+    ! [2,3,3, 3, 2,  0]
+    !>[2,5,8,11,13, 13]
+    do i=size(CCS%col_ptr),2,-1
+        CCS%col_ptr(i) = CCS%col_ptr(i-1)
+    enddo
+    ! [2,5,8,11,13, 13]
+    !>[2,2,5, 8,11, 13]
+    CCS%col_ptr(:) = CCS%col_ptr(:) + 1
+
+    ! [2,2,5, 8,11, 13]
+    !>[2,3,6, 9,12, 14]
+    CCS%col_ptr(1) =  1
+    ! [2,3,6, 9,12, 14]
+    !>[1,3,6, 9,12, 14]
+
+    do i=1,size(this%row_ptr)-1
+        do j=this%row_ptr(i),this%row_ptr(i+1)-1
+            col = this%col_idx(j)
+            CCS%row_idx( CCS%col_ptr(col) + inst_counter(col)  ) = i
+            CCS%val( CCS%col_ptr(col) + inst_counter(col) ) = this%val(j)
+            inst_counter(col) = inst_counter(col) + 1
+        enddo
+    enddo
+    
+
+end function
+!####################################################
+subroutine loadCRS(this,CCS,Position)
+    class(CRS_),intent(inout) :: this
+    type(CCS_),optional,intent(in) :: CCS
+    character(*),optional,intent(in) :: Position
+    integer(int32) :: i,j
+
+    if(present(CCS) )then
+        if(Position=="L")then
+            print *, CCS%col_ptr
+            print *, CCS%row_idx
+            print *, CCS%val
+            
+            do i=1,size(CCS%col_ptr)-1
+                do j=ccs%col_ptr(i),ccs%col_ptr(i+1)-1
+                    
+
+                    if( ccs%row_idx(j) <= i ) then
+                        cycle
+                    else
+                        print *, ccs%row_idx(j),i
+                        call this%update(row=ccs%row_idx(j),col=i,val=ccs%val(j) )
+                    endif
+                enddo
+            enddo 
+        endif
+    endif
 end subroutine
 
 end module COOClass
