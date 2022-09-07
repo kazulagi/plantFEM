@@ -820,9 +820,9 @@ logical function is_nonzeroCRS(this,row,col)
     is_nonzeroCRS = .false.
     if(row > this%size() ) return
 
-    if (col > maxval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))  ) return
+    !if (col > maxval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))  ) return
     
-    if (col < minval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))  ) return
+    !if (col < minval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))  ) return
     
     
     do i=this%row_ptr(row),this%row_ptr(row+1)-1
@@ -863,7 +863,8 @@ recursive subroutine ILUCRS(this,fill_in_order,RHS,debug)
     type(CCS_) :: ccs
     logical,optional,intent(in) :: debug
     real(real64) :: A_k_j,A_ik
-    integer(int32) :: i,j,k,l,n,m,row,col,col_idx,row_idx
+    integer(int32) :: i,j,k,l,n,m,row,col,col_idx,row_idx,kk,jj
+    integer(int32),allocatable :: nonzero_k_list(:),nonzero_j_list(:)
     logical :: debug_mode_on = .false.
 
     if(present(debug) )then
@@ -917,6 +918,50 @@ recursive subroutine ILUCRS(this,fill_in_order,RHS,debug)
             endif
             diag_vec = this%diag()
 
+            range_col = zeros(n,2)
+
+            !!$OMP parallel do
+            !do row=1,n
+            !    range_col(row,1) = minval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))
+            !    range_col(row,2) = maxval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))
+            !enddo
+            !!$OMP end parallel do
+            
+            do i=2,n
+                if(debug_mode_on)then
+                    print *, "[ILU(0)] >> U",i,"/",n
+                endif
+                ! >>>>>>> slow
+                nonzero_k_list = this%col_idx(this%row_ptr(i):this%row_ptr(i+1)-1)
+                !! >> notice!!
+                !! each col should be sorted.
+                
+                !do k = range_col(i,1) , i-1
+                do kk = 1,size(nonzero_k_list)
+                    k = nonzero_k_list(kk)
+                    
+                    if(k >= i)cycle
+
+                    A_ik = this%get(i,k)/diag_vec(k)
+                    call this%update(row=i,col=k,val=A_ik )
+                    
+                    !$OMP parallel default(shared) private(j)
+                    !$OMP do
+                    do jj=1,size(nonzero_k_list)
+                        j = nonzero_k_list(jj)
+                        if(j<k+1)cycle
+                        call this%add(row=i,col=j,val= - A_ik*this%get(k,j) )
+                    enddo
+                    !$OMP end do
+                    !$OMP end parallel 
+                    
+                    diag_vec(i) = this%get(i,i)
+                    
+                enddo
+
+            enddo
+            ! <<<<<<<<< slow
+
 !            !! ccs
             !ccs = this%to_CCS()
 
@@ -969,51 +1014,7 @@ recursive subroutine ILUCRS(this,fill_in_order,RHS,debug)
 !            call this%load(ccs=ccs,position="L")
 !            return
 
-!
-!            
-!            
-!
-
-            range_col = zeros(n,2)
-
-            !$OMP parallel do
-            do row=1,n
-                range_col(row,1) = minval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))
-                range_col(row,2) = maxval(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1))
-            enddo
-            !$OMP end parallel do
-
-            do i=2,n
-                if(debug_mode_on)then
-                    print *, "[ILU(0)] >> U",i,"/",n
-                endif
-                ! >>>>>>> slow
-                do k = range_col(i,1) , i-1
-                    !(1)
-                    if( this%is_nonzero(i,k) ) then
-                        !A_ik = this%get(i,k)/this%get(k,k)
-                        A_ik = this%get(i,k)/diag_vec(k)
-                        ! this guy is heavy
-                        call this%update(row=i,col=k,val=A_ik )
-                    else
-                        cycle
-                    endif
-
-                    !!$OMP parallel do
-                    do j=k+1,range_col(i,2)
-                        if( this%is_nonzero(i,j)  ) then
-                            ! this guy is heavy
-                            call this%add(row=i,col=j,val= - A_ik*this%get(k,j) )
-                        endif
-                    enddo
-                    !!$OMP end parallel do
-                    
-                    diag_vec(i) = this%get(i,i)
-                    
-                enddo
-            enddo
-            ! <<<<<<<<< slow
-    
+!    
     end select
 
 end subroutine
