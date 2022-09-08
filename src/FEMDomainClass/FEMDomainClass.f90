@@ -10867,10 +10867,10 @@ function allconnectivityFEMDomain(obj) result(ret)
 end function
 ! ##########################################################################
 
-function selectFEMDomain(obj,x_min,x_max,y_min,y_max,z_min,z_max) result(NodeList)
+function selectFEMDomain(obj,x_min,x_max,y_min,y_max,z_min,z_max,center,radius_range) result(NodeList)
 	class(FEMDomain_),intent(in) :: obj
-	real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
-	real(real64) :: x(3),xmax(3),xmin(3)
+	real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max,center(:),radius_range(1:2)
+	real(real64) :: x(3),xmax(3),xmin(3),r
 	integer(int32),allocatable :: NodeList(:),CheckList(:)
 	logical :: InOut
 	integer(int32) :: i,j,n
@@ -10888,11 +10888,32 @@ function selectFEMDomain(obj,x_min,x_max,y_min,y_max,z_min,z_max) result(NodeLis
 
 	do i=1, obj%nn()
 		x(:)=obj%mesh%nodcoord(i,:)
-		InOut = InOrOut(x=x,xmax=xmax,xmin=xmin,DimNum=obj%nd() )
-		if(InOut)then
-			! inside
-			CheckList(i) = 1
-			!n=n+1
+
+
+		if(present(center) .and. present(radius_range)  )then
+			if(size(center)==2 )then
+				!cylindrical
+				r = norm( x(1:2) - center(1:2) )
+				if( radius_range(1) <= r .and. r <= radius_range(2) )then
+					if(xmin(3) <= x(3) .and. x(3) <= xmax(3) )then
+						CheckList(i) = 1
+					endif
+				endif
+			else
+				!spherical
+				r = norm(x-center)
+				r = norm( x(1:2) - center(1:2) )
+				if( radius_range(1) <= r .and. r <= radius_range(2) )then
+					CheckList(i) = 1	
+				endif
+			endif
+		else
+			InOut = InOrOut(x=x,xmax=xmax,xmin=xmin,DimNum=obj%nd() )
+			if(InOut)then
+				! inside
+				CheckList(i) = 1
+				!n=n+1
+			endif
 		endif
 	enddo
 	n = sum(CheckList)
