@@ -1026,33 +1026,54 @@ subroutine ILU_matvecCRS(this,old_vector,new_vector)
     real(real64),intent(in) :: old_vector(:)
     real(real64),allocatable,intent(inout) :: new_vector(:)
     real(real64),allocatable :: diag_vec(:)
-
+    real(real64) :: new_vector_i
     new_vector = old_vector
 
     ! Forward substitution
     do i=2,this%size()
+        new_vector_i = new_vector(i)
+        !$OMP parallel 
+        !$OMP do reduction(+:new_vector_i)
         do j=this%row_ptr(i),this%row_ptr(i+1)-1
             if(this%col_idx(j)<i )then
                 ! execute Forward substitution
-                !print *, i, this%col_idx(j),this%val(j)
-                new_vector(i) = new_vector(i) - this%val(j)*new_vector(this%col_idx(j))  
+                new_vector_i = new_vector_i - this%val(j)*new_vector(this%col_idx(j))  
             endif
         enddo
+        !$OMP end do
+        !$OMP end parallel 
+        new_vector(i) = new_vector_i
     enddo
     ! Backward substitution
     diag_vec = this%diag()
+
+    !$OMP parallel 
+    !$OMP do     
     do i=this%size(),1,-1
-        if(diag_vec(i)==0.0d0 )cycle
+        if(diag_vec(i)==0.0d0 )then
+            diag_vec(i)=1.0d0
+        endif
         new_vector(i) = new_vector(i)/diag_vec(i)
     enddo
+    !$OMP end do
+    !$OMP end parallel 
+    
     ! Forward substitution
     do i=this%size(),1,-1
+
+        new_vector_i = new_vector(i)
+        !$OMP parallel 
+        !$OMP do reduction(+:new_vector_i)
         do j=this%row_ptr(i),this%row_ptr(i+1)-1
             if(this%col_idx(j)>i )then
                 ! execute Forward substitution
                 new_vector(i) = new_vector(i) - this%val(j)/diag_vec(i) *new_vector(this%col_idx(j))  
             endif
         enddo
+        !$OMP end do
+        !$OMP end parallel 
+        new_vector(i) = new_vector_i
+
     enddo
     
 
