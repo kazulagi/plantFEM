@@ -33,14 +33,14 @@ subroutine initModalAnalysis(this,domains)
     n = size(domains)
 
     allocate(domainIDs(n) )
-    !$OMP parallel do
+    
     do i=1,n
         domainIDs(i) = i
     enddo
-    !$OMP end parallel do
+    
 
     call this%solver%init(NumDomain=n )
-    call this%solver%setDomain(FEMDomains=domains(:),DomainIDs=DomainIDs)
+    call this%solver%setDomain(FEMDomains=domains,DomainIDs=DomainIDs)
     call this%solver%setCRS(DOF=domains(1)%nd() )
     
     this%DomainElemID = zeros( n,2 )

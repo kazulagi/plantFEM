@@ -743,89 +743,121 @@ subroutine stlMaize(this,name,num_threads,single_file)
     class(Maize_),intent(inout) :: this
     character(*),intent(in) :: name
     integer(int32),optional,intent(in) :: num_threads
-    integer(int32) :: i,n
     logical,optional,intent(in) :: single_file
-    logical :: save_as_single_file
-    n = input(default=1,option=num_threads)
-    save_as_single_file = input(default=.false.,option=single_file)
+    integer(int32) :: i,n
+    type(FEMDomain_) :: femdomain
 
-    if(save_as_single_file)then
-        call execute_command_line("echo ' ' > "//name//".stl")
+    if(present(single_file) )then
+        if(single_file)then
+            ! export mesh for a single file
+            if(allocated(this%stem) )then
+                do i=1,size(this%stem)
+                    if(.not.this%stem(i)%femdomain%empty() )then
+                        femdomain = femdomain + this%stem(i)%femdomain
+                    endif
+                enddo
+            endif
+
+            if(allocated(this%leaf) )then
+                do i=1,size(this%leaf)
+                    if(.not.this%leaf(i)%femdomain%empty() )then
+                        femdomain = femdomain + this%leaf(i)%femdomain
+                    endif
+                enddo
+            endif
+
+            if(allocated(this%Ear) )then
+                do i=1,size(this%Ear)
+                    if(.not.this%Ear(i)%femdomain%empty() )then
+                        femdomain = femdomain + this%Ear(i)%femdomain
+                    endif
+                enddo
+            endif
+
+            if(allocated(this%Panicle) )then
+                do i=1,size(this%Panicle)
+                    if(.not.this%Panicle(i)%femdomain%empty() )then
+                        femdomain = femdomain + this%Panicle(i)%femdomain
+                    endif
+                enddo
+            endif
+
+            if(allocated(this%root) )then
+                do i=1,size(this%root)
+                    if(.not.this%root(i)%femdomain%empty() )then
+                        femdomain = femdomain + this%root(i)%femdomain
+                    endif
+                enddo
+            endif
+            call femdomain%stl(name=name)
+            return
+        endif
     endif
-    
-    !$OMP parallel num_threads(n) private(i)
-    !$OMP do 
-    do i=1,size(this%stem)
-        if(this%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%stem(i)%stl(name=name//"_stem"//str(i))
-            if(save_as_single_file)then
-                call execute_command_line("cat "//name//"_stem"//str(i)//".stl >> "//name//".stl")
-                call execute_command_line("rm "//name//"_stem"//str(i)//".stl")
+
+
+    n = input(default=1,option=num_threads)
+    if(allocated(this%stem) )then
+        !$OMP parallel num_threads(n) private(i)
+        !$OMP do 
+        do i=1,size(this%stem)
+            if(this%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%stem(i)%stl(name=name//"_stem"//str(i))
             endif
-        endif
-    enddo
-    !$OMP end do
-    !$OMP end parallel
+        enddo
+        !$OMP end do
+        !$OMP end parallel
+    endif
 
-    !$OMP parallel num_threads(n) private(i)
-    !$OMP do 
-    do i=1,size(this%root)
-        if(this%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%root(i)%stl(name=name//"_root"//str(i))
-            if(save_as_single_file)then
-                call execute_command_line("cat "//name//"_root"//str(i)//".stl >> "//name//".stl")
-                call execute_command_line("rm "//name//"_root"//str(i)//".stl")
+    if(allocated(this%root))then
+        !$OMP parallel num_threads(n) private(i)
+        !$OMP do 
+        do i=1,size(this%root)
+            if(this%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%root(i)%stl(name=name//"_root"//str(i))
             endif
-        endif
-    enddo
-    !$OMP end do
-    !$OMP end parallel
+        enddo
+        !$OMP end do
+        !$OMP end parallel
+    endif
 
-    !$OMP parallel num_threads(n) private(i)
-    !$OMP do 
-    do i=1,size(this%leaf)
-        if(this%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%leaf(i)%stl(name=name//"_leaf"//str(i))
-            if(save_as_single_file)then
-                call execute_command_line("cat "//name//"_leaf"//str(i)//".stl >> "//name//".stl")
-                call execute_command_line("rm "//name//"_leaf"//str(i)//".stl")
+
+    if(allocated(this%leaf))then
+        !$OMP parallel num_threads(n) private(i)
+        !$OMP do 
+        do i=1,size(this%leaf)
+            if(this%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%leaf(i)%stl(name=name//"_leaf"//str(i))
             endif
-        endif
-    enddo
-    !$OMP end do
-    !$OMP end parallel
+        enddo
+        !$OMP end do
+        !$OMP end parallel
+    endif
 
 
-    !$OMP parallel num_threads(n) private(i)
-    !$OMP do 
-    do i=1,size(this%Ear)
-        if(this%Ear(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%Ear(i)%stl(name=name//"_Ear"//str(i))
-            if(save_as_single_file)then
-                call execute_command_line("cat "//name//"_Ear"//str(i)//".stl >> "//name//".stl")
-                call execute_command_line("rm "//name//"_Ear"//str(i)//".stl")
+    if(allocated(this%ear))then
+        !$OMP parallel num_threads(n) private(i)
+        !$OMP do 
+        do i=1,size(this%ear)
+            if(this%ear(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%ear(i)%stl(name=name//"_ear"//str(i))
             endif
-        endif
-    enddo
-    !$OMP end do
-    !$OMP end parallel
+        enddo
+        !$OMP end do
+        !$OMP end parallel
+    endif
 
 
-
-    !$OMP parallel num_threads(n) private(i)
-    !$OMP do 
-    do i=1,size(this%Panicle)
-        if(this%Panicle(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call this%Panicle(i)%stl(name=name//"_Panicle"//str(i))
-            if(save_as_single_file)then
-                call execute_command_line("cat "//name//"_Panicle"//str(i)//".stl >> "//name//".stl")
-                call execute_command_line("rm "//name//"_Panicle"//str(i)//".stl")
+    if(allocated(this%panicle))then
+        !$OMP parallel num_threads(n) private(i)
+        !$OMP do 
+        do i=1,size(this%panicle)
+            if(this%panicle(i)%femdomain%mesh%empty() .eqv. .false. )then
+                call this%panicle(i)%stl(name=name//"_panicle"//str(i))
             endif
-        endif
-    enddo
-    !$OMP end do
-    !$OMP end parallel
-
+        enddo
+        !$OMP end do
+        !$OMP end parallel
+    endif
 
 end subroutine
 ! ########################################

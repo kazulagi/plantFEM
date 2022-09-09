@@ -567,7 +567,10 @@ subroutine setCRSFEMSolver(this,DOF,debug)
         endif
                 
         do i=1, size(COO%row)
-            
+            if(.not.allocated(COO%row(i)%col ) )then
+                print *, "[CAUTION] >> some of doamins are not overset"
+                cycle
+            endif
             call heapsort(n=size(COO%row(i)%col) ,array=COO%row(i)%col )
         enddo
 
@@ -1894,9 +1897,10 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug
     !call omp_dot_product(r,r,c1)
     
     init_rr=c1
+    if(speak) print *, "BiCGSTAB >> [2] init_rr",c1
     !if(speak) print *, "BiCGSTAB >>      |r|^2 = ",init_rr
     
-    if (c1 < er0) return
+    !if (c1 < er0) return
 
     p(:) = r(:)
     r0(:) = r(:)
@@ -1929,7 +1933,8 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug
         !call omp_dot_product(v,v,vv)
         
         if(  vv==0.0d0 ) stop "Bicgstab devide by zero"
-            c3 = ev / vv
+        c3 = ev / vv
+        if(speak) print *, "BiCGSTAB >> c3 = ev/vv",c3
         x(:) = x(:) + alp * p(:) + c3 * e(:)
         r(:) = e(:) - c3 * v(:)
 
@@ -1943,6 +1948,7 @@ subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug
         if(speak)then
             print *, sqrt(rr)
         endif
+        
         if(present(relative_er) )then
             if(sqrt(rr/re_er0)<relative_er )then
                 exit

@@ -70,6 +70,7 @@ module SeismicAnalysisClass
         real(real64),allocatable :: FixNodeList_Disp(:)
         ! <<<
 
+        integer(int32),allocatable :: num_nodes_in_domains(:)
 
         real(real64),allocatable :: Traction(:)
 
@@ -93,7 +94,8 @@ module SeismicAnalysisClass
         character(1) :: wavedirection="z"
         integer(int32) :: wavetype = 0
         real(real64) :: dt=1.0d0
-        real(real64) :: error=0.0d0
+        real(real64) :: error=dble(1.0e-14)
+        real(real64) :: tolerance =dble(1.0e-14)
         real(real64) :: t=0.0d0
         integer(int32) :: step=0
         real(real64) :: alpha = 0.52400d0
@@ -101,16 +103,21 @@ module SeismicAnalysisClass
         real(real64) :: Newmark_beta  = 0.250d0 ! Nemark-beta method parameters
         real(real64) :: Newmark_gamma = 0.50d0 ! Nemark-beta method parameters
         real(real64) :: boundary_dumping_ratio = 1.0d0
+
         logical :: restart=.False.
         logical :: debug=.False.
 
         logical :: multi_domain_mode = .false.
+        real(real64) :: overset_penalty = 1000.0d0*1000.0d0 ! default
     contains
         ! multi-domain mode
         procedure, public :: init => initSeismicAnalysis
         procedure, public :: setMaterial => setMaterialSeismicAnalysis
         procedure, public :: setBoundary => setBoundarySeismicAnalysis
+        procedure, public :: setSolverParameters => setSolverParametersSeismicAnalysis
         procedure, public :: solve       => runSeismicAnalysis
+
+
 
         ! single-doamin mode
         procedure, public :: loadWave => loadWaveSeismicAnalysis
@@ -126,11 +133,12 @@ module SeismicAnalysisClass
         procedure, public :: getNewmarkBetaVector => getNewmarkBetaVectorSeismicAnalysis
         procedure, public :: updateVelocityNewmarkBeta => updateVelocityNewmarkBetaSeismicAnalysis
         procedure, public :: updateAccelNewmarkBeta => updateAccelNewmarkBetaSeismicAnalysis
+
         procedure, public :: remove => removeSeismicAnalysis
 
         procedure, public :: absorbingBoundary => absorbingBoundarySeismicAnalysis
         procedure, public :: getAbsorbingBoundaryForce => getAbsorbingBoundaryForceSeismicAnalysis
-
+        procedure, public :: velocity => velocitySeismicAnalysis
         procedure, public :: modalAnalysis => modalAnalysisSeismicAnalysis
         procedure, public :: vtk  => vtkSeismicAnalysis
     end type
@@ -142,6 +150,13 @@ subroutine initSeismicAnalysis(obj,femdomains)
     class(SeismicAnalysis_),intent(inout) :: obj
     type(FEMDomain_),optional,intent(in) :: femdomains(:)
     integer(int32) :: i, n
+
+    n = size(femdomains)
+    allocate(obj%num_nodes_in_domains(n) )
+    do i=1,n
+        obj%num_nodes_in_domains(i) = femdomains(i)%nn() 
+    enddo
+    obj%femsolver%num_nodes_in_domains = obj%num_nodes_in_domains
 
     if(present(femdomains) ) then
         call obj%modal%init(domains=femdomains)
@@ -325,6 +340,7 @@ subroutine setBoundarySeismicAnalysis(this, DomainID, NodeList, condition,bounda
         case("A","Acceleration","a","dv/dt","d^2 u/dt^2")
 
             nd = this%modal%solver%femdomains(1)%femdomainp%nd()
+
             if(.not. allocated(this%a_ext) )then
                 this%a_ext = zeros(maxval(this%modal%DomainNodeID(:,2))&
                     *nd)
@@ -766,7 +782,7 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio
                     if(use_same_matrix)then
                         if(.not.allocated(obj%M_matrix%val) )then
                             print *, "[ok] use_same_matrix >> enabled "
-                            call obj%modal%solve(only_matrix=.true.)
+                            call obj%modal%solve(only_matrix=.true.,penalty=obj%overset_penalty)
                             obj%M_matrix = obj%modal%solver%getCRS("B")
                             obj%K_matrix = obj%modal%solver%getCRS("A")
                             M_matrix = obj%M_matrix
@@ -778,12 +794,12 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio
                         endif
                         
                     else
-                        call obj%modal%solve(only_matrix=.true.)
+                        call obj%modal%solve(only_matrix=.true.,penalty=obj%overset_penalty)
                         M_matrix = obj%modal%solver%getCRS("B")
                         K_matrix = obj%modal%solver%getCRS("A")
                     endif
                 else
-                    call obj%modal%solve(only_matrix=.true.)
+                    call obj%modal%solve(only_matrix=.true.,penalty=obj%overset_penalty)
                     M_matrix = obj%modal%solver%getCRS("B")
                     K_matrix = obj%modal%solver%getCRS("A")
                 endif
@@ -806,8 +822,7 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio
                     -M_matrix%matmul(bar_A)&
                     -obj%alpha*M_matrix%matmul(bar_V)&
                     -obj%beta*K_matrix%matmul(bar_V)
-                
-                
+!debug
                 call obj%modal%solver%setCRS(A_matrix)
                 call obj%modal%solver%setRHS(F_vec)
                 
@@ -1306,7 +1321,7 @@ subroutine removeSeismicAnalysis(obj)
     obj%wavedirection="z"
     obj%wavetype = 0
     obj%dt=1.0d0
-    obj%error=0.0d0
+    obj%error=dble(1.0e-14)
     obj%t=0.0d0
     obj%step=0
     obj%alpha = 0.52400d0
@@ -1548,6 +1563,56 @@ subroutine vtkSeismicAnalysis(this,name,num_mode,amp,scalar_field)
     enddo
     
 
+
+end subroutine
+! ######################################################
+function velocitySeismicAnalysis(this,domainID,Direction) result(v)
+    class(SeismicAnalysis_),intent(in) :: this
+    integer(int32),intent(in) :: DomainID, Direction
+    real(real64),allocatable :: v(:),v_xyz(:,:)
+    integer(int32) :: from, to,i
+    integer(int32) :: DOF  = 3
+    
+    from = 1
+    do i=1,domainID-1
+        from = from + this%femsolver%Num_nodes_in_Domains(i)*DOF
+    enddo
+    to = from + this%femsolver%Num_nodes_in_Domains(DomainID)*DOF - 1
+    v_xyz = reshape(this%v(from:to),this%femsolver%Num_nodes_in_Domains(i),DOF)
+    v = v_xyz(:,direction)
+
+end function
+! ######################################################
+
+subroutine setSolverParametersSeismicAnalysis(this,error,debug)
+    class(SeismicAnalysis_),intent(inout) :: this
+    real(real64),optional,intent(in) :: error
+    logical,optional,intent(in) :: debug
+
+    if(present(error) )then
+        this%modal%solver%er0 = error
+        this%femsolver%er0    = error
+        this%modal%solver%relative_er = error
+        this%femsolver%relative_er    = error
+        this%error            = error
+    else
+        this%modal%solver%er0 = this%error
+        this%femsolver%er0    = this%error
+        this%modal%solver%relative_er = this%error
+        this%femsolver%relative_er    = this%error
+    endif
+
+    if(present(debug) )then
+        this%modal%solver%debug = debug
+        this%femsolver%debug    = debug
+        this%debug        = debug
+    else
+        this%modal%solver%debug = this%debug
+        this%femsolver%debug    = this%debug
+    endif
+
+    
+    
 
 end subroutine
 

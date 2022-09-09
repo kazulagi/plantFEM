@@ -27,8 +27,8 @@ module LoggerClass
     contains
       procedure :: init => initLogger
       procedure :: numchannel =>numchannelLogger
-      procedure,pass ::  setLogger_byvalue, setLogger_byDomain
-      generic :: set =>  setLogger_byvalue,setLogger_byDomain
+      procedure,pass ::  setLogger_byvalue, setLogger_byDomain,setLogger_byDomains
+      generic :: set =>  setLogger_byvalue,setLogger_byDomain,setLogger_byDomains
       procedure :: start => startLogger
       procedure :: save => saveLogger
       procedure :: reset => resetLogger
@@ -252,7 +252,41 @@ subroutine moveLogger(this,x,y,z)
   endif
 
 end subroutine
+! ###################################################################
 
+
+subroutine setLogger_byDomains(this,femdomains,position,dataset,DOF,name)
+  class(Logger_),intent(inout) :: this
+  type(FEMDomain_),intent(inout) :: femdomains(:)
+  real(real64),intent(in) :: position(:)
+  real(real64),target,intent(in) :: dataset(:)
+  character(*),intent(in) :: name
+
+  real(real64) :: localCoord(1:3)
+  integer(int32) :: i,j,dof,node_id,from,to
+  type(ShapeFunction_) :: sf
+  type(IO_) :: f
+  
+  from = 1
+  do i=1,size(femdomains)
+    if(femdomains(i)%empty() ) then
+      cycle
+    else
+      if( femdomains(i)%has(position) )then 
+        to = from + femdomains(i)%nn()*DOF-1
+        call this%set(femdomain=femdomains(i),position=position,&
+        dataset=dataset( from : to ),name=name )
+        return
+      endif
+      from = from + femdomains(i)%nn()*DOF
+    endif
+    
+  enddo
+
+
+end subroutine
+
+! ###################################################################
 subroutine setLogger_byDomain(this,femdomain,position,dataset,name)
   class(Logger_),intent(inout) :: this
   type(FEMDomain_),intent(inout) :: femdomain
