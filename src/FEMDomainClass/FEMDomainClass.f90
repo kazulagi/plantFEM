@@ -203,7 +203,7 @@ module FEMDomainClass
 		procedure,public :: getNearestNodeID => getNearestNodeIDFEMDomain
 		procedure,public :: getE2Econnectivity => getE2EconnectivityFEMDomain
 		procedure,public :: getElementCauchyStress => getElementCauchyStressFEMDomain
-
+		procedure,public :: getMyID => getMyIDFEMDomain
 		procedure,public :: getValue => getValueFEMDomain
 
 		procedure,public :: getSurface => getSurfaceFEMDomain
@@ -211,6 +211,8 @@ module FEMDomainClass
 		procedure,public ::	getElementID => getElementIDFEMDomain
 		procedure,public ::	getNodeList =>getNodeListFEMDomain
 		
+		procedure,public :: has  => hasFEMDomain
+		procedure,public :: have => hasFEMDomain
 		! filters
 		procedure,public :: MovingAverageFilter => MovingAverageFilterFEMDomain
 		
@@ -274,7 +276,12 @@ module FEMDomainClass
 		procedure,public :: asGlobalVector=>asGlobalVectorFEMDomain
 
 		procedure,public :: open => openFEMDomain
-		procedure,public :: overset => oversetFEMDomain
+		
+		procedure, pass  :: oversetFEMDomain
+		procedure, pass  :: oversetFEMDomains
+		generic :: overset => oversetFEMDomain,oversetFEMDomains
+		generic :: overlap => oversetFEMDomain,oversetFEMDomains
+		generic :: chimera => oversetFEMDomain,oversetFEMDomains
 
 		procedure,public :: PCAvector => PCAvectorFEMDomain
 		procedure,public :: ply => plyFEMDomain
@@ -9497,6 +9504,10 @@ pure function nnFEMDomain(obj) result(ret)
 	class(FEMDomain_),intent(in) :: obj
 	integer(int32) :: ret
 
+	if(obj%empty() )then
+		ret = 0
+		return
+	endif
 	ret = size(obj%mesh%nodcoord,1)
 
 end function
@@ -9506,6 +9517,11 @@ pure function ndFEMDomain(obj) result(ret)
 	class(FEMDomain_),intent(in) :: obj
 	integer(int32) :: ret
 
+
+	if(obj%empty() )then
+		ret = 0
+		return
+	endif
 	ret = size(obj%mesh%nodcoord,2)
 
 end function
@@ -9514,6 +9530,12 @@ end function
 pure function neFEMDomain(obj) result(ret)
 	class(FEMDomain_),intent(in) :: obj
 	integer(int32) :: ret
+
+
+	if(obj%empty() )then
+		ret = 0
+		return
+	endif
 
 	if(.not.allocated(obj%mesh%ElemNod) ) then
 		ret = 0
@@ -9529,6 +9551,12 @@ pure function nneFEMDomain(obj) result(ret)
 	class(FEMDomain_),intent(in) :: obj
 	integer(int32) :: ret
 
+
+	if(obj%empty() )then
+		ret = 0
+		return
+	endif
+
 	ret = size(obj%mesh%ElemNod,2)
 
 end function
@@ -9541,6 +9569,12 @@ function ngpFEMDomain(obj) result(ret)
 	type(ShapeFunction_) :: sf
 	integer(int32) :: ret
 
+
+	if(obj%empty() )then
+		ret = 0
+		return
+	endif
+	
 	sf = obj%mesh%getShapeFunction(ElementID=1, GaussPointID=1)
 	ret = sf%NumOfGP
 
@@ -12210,6 +12244,57 @@ subroutine deformFEMDomain(obj,disp,velocity,accel,dt)
 end subroutine
 ! ####################################################################
 
+function getMyIDFEMDomain(this,FEMDomains) result(id)
+	class(FEMDOmain_),intent(in) :: this
+	type(FEMDOmain_),intent(in) :: FEMDomains(:)
+	integer(int32) :: id,i
+
+	id = 0
+	do i=1,size(FEMDomains)
+		if(FEMDomains(i)%uuid == this%uuid )then
+			if(id/=0)then
+				id = -1 ! Crushed!
+			else
+				id = i
+			endif
+		endif
+	enddo
+
+end function
+
+
+subroutine oversetFEMDomains(obj,FEMDomains,to,by)
+	class(FEMDomain_),intent(inout) :: obj
+	type(FEMDomain_),intent(inout) :: FEMDomains(:)
+	integer(int32),intent(in) :: to
+	character(*),intent(in) :: by
+	integer(int32) :: from, MyID, algorithm
+
+	myID = obj%getMyID(FEMDomains)
+	select case(by)
+		case default
+			algorithm = FEMDomain_Overset_GPP
+		case("GPP","gpp")
+			algorithm = FEMDomain_Overset_GPP
+		case("P2P","PP","p2p","PointToPoint")
+			algorithm = FEMDomain_Overset_P2P
+	end select
+
+	if(MyID == 0 )then
+		print *, "[ERROR] oversetFEMDomain >> 404 Not Found."
+		return
+	endif
+
+
+	if(MyID == -1 )then
+		print *, "[ERROR] oversetFEMDomain >> uuids are crushed!"
+		return
+	endif
+
+	call FEMDomains(MyID)%overset(femdomains(to),DomainID=to, &
+		algorithm=algorithm,MyDomainID=MyID)
+
+end subroutine
 
 
 subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID)
@@ -12274,21 +12359,10 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID)
 				obj%OversetConnect(obj%num_oversetconnect)%active = .true.
 				! 何を記憶して，何はもう一度計算するか．
 				
-				!	以下に必要なもの．
-				!   [ElementID, GaussPointID, position(1:3),InterConnect(:),DomainIDs12(:)] for each overset elements
-				!   
-				! ここだけあとで計算
-				!sf = domain1%mesh%getShapeFunction(ElementID,GaussPointID)
-				!sf%ElementID=ElementID
-				!A_ij = penalty*femdomain%connectMatrix(position,DOF=femdomain%nd(),shapefunction=sf) 
-				!! assemble them 
-		    	!call obj%solver%assemble(&
-		    	!    connectivity=InterConnect,&
-		    	!    DOF=femdomain%nd() ,&
-		    	!    eMatrix=A_ij,&
-		    	!    DomainIDs=DomainIDs12)	 
 			enddo
 		enddo
+
+
 	elseif(algorithm == FEMDomain_Overset_P2P )then
 
 		if(.not.allocated(obj%OversetExists) )then
@@ -12906,8 +12980,29 @@ subroutine BooleanFEMDomain(this, object, difference)
 
 
 end subroutine
+! ##################################################################
+function hasFEMDomain(this,position) result(inside)
+	class(FEMDomain_),intent(in) :: this
+	real(real64),intent(in)::position(:)
+	real(real64) :: min_max_x(3,1:2)
+	logical :: inside
+	integer(int32) :: counter,i
 
+	min_max_x(1,1:2) = [this%xmin(), this%xmax() ]
+	min_max_x(2,1:2) = [this%ymin(), this%ymax() ]
+	min_max_x(3,1:2) = [this%zmin(), this%zmax() ]
 
+	counter = 0
+	do i=1,size(position)
+		if( (min_max_x(i,1) <= position(i) ).and.(position(i) <= min_max_x(i,2) ))then
+			counter = counter + 1
+		endif
+	enddo
+	inside = (counter == size(position) )
+
+end function
+
+! ##################################################################
 function inside_of_elementFEMDomain(this,point,ElementID) result(inside)
 	class(FEMDomain_),intent(in) :: this
 	real(real64),intent(in)::point(:)

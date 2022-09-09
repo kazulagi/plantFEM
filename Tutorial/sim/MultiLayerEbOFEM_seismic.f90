@@ -1,3 +1,4 @@
+
 program main
     use SeismicAnalysisClass
     use LoggerClass
@@ -22,9 +23,6 @@ program main
     integer(int32) :: layer
     type(Random_) :: random
     type(Logger_),allocatable :: loggers(:)
-
-    integer(int32),allocatable :: impact_point_candidate(:),current_impact_point(:)
-
     call mpid%start()
     ! 常時微動アレイ観測の再現シミュレーション
 
@@ -45,7 +43,7 @@ program main
     Width     = 100.00d0 ! 1 km
     Thickness = 17.00d0!  300 m
     !call domains(1)%create("Cube3D",x_num=300,y_num=300,z_num=30)
-    call domains(1)%create("Cube3D",x_num=50,y_num=50,z_num=17)
+    call domains(1)%create("Cube3D",x_num=10,y_num=10,z_num=17)
     call domains(1)%resize(x=Length,y=width,z=Thickness)
     call domains(1)%move(z = - domains(1)%z_max() )
 
@@ -97,8 +95,10 @@ program main
 
     
     ! mesh creation done!
-
-    ! overlap mesh
+    
+    !call domain(1)%overset(domains,2,"GPP")
+    !call domain(2)%overset(domains,1,"GPP")
+    
     call domains(1)%overset(domains,2,"GPP") !
     call domains(2)%overset(domains,1,"GPP") !
 
@@ -137,8 +137,11 @@ program main
 
     print *, "Solve >> "
 
+    siml%modal%solver%debug= .true.
+    siml%modal%solver%er0  = dble(1.0e-14)
+    siml%modal%solver%relative_er  = dble(1.0e-14)
     ! 1 kHz sampling
-    dt = 1.0d0/500.0d0
+    dt = 1.0d0/100.0d0
 
     allocate(loggers(37) )
     v = zeros(domains(1)%nn(),domains(1)%nd() )
@@ -168,17 +171,8 @@ program main
     ! damping :: default
     !siml%alpha = 0.0d0
     !siml%beta = 0.0d0
-    
-    impact_point_candidate = domains(1)%select(&
-        center=[Length/2.0d0,Width/2.0d0],&
-        radius_range=[Length/2-5.d0,Length/2+5.d0],&
-        z_min=-0.10d0)
-    current_impact_point = int(zeros(100))
-    do i_i=1,size(current_impact_point)
-        current_impact_point(i_i) = random%choiceInt(vector=impact_point_candidate)
-    enddo
-
-    call siml%setSolverParameters(error=dble(1.0e-14),debug=.true.)
+    siml%femsolver%er0 = dble(1.0e-14)
+    siml%femsolver%relative_er = dble(1.0e-14)    
     t = 0.0d0
     do i_i=1,200000
         
@@ -187,14 +181,25 @@ program main
         ! m/s
         ! 加速度，ホワイトノイズで遠方(0,0,0),(300,0,0),(0,300,0),(300,3000,0)を上下に揺らす.
         ! σ=1,平均0,倍率50.0d0/1000.0d0 (m/s/s)
-        do j_j=1,100
-            call siml%setBoundary(DomainID=1,NodeList=[current_impact_point(i_i) ]&
-                ,condition="A",boundaryValue=[0.0d0,0.0d0,500.0d0/1000.0d0*random%gauss(mu=0.0d0,sigma=1.0d0) ])
-        enddo
-
+        call siml%setBoundary(DomainID=1,NodeList=domains(1)%getNodeList(&
+            xmax=1.0d0,ymax=1.0d0,zmin=-0.0010d0)&
+            ,condition="A",boundaryValue=[0.0d0,0.0d0,500.0d0/1000.0d0*random%gauss(mu=0.0d0,sigma=1.0d0) ])
+        
+        call siml%setBoundary(DomainID=1,NodeList=domains(1)%getNodeList(&
+            xmin=Length-1.0d0,ymax=1.0d0,zmin=-0.0010d0)&
+            ,condition="A",boundaryValue=[0.0d0,0.0d0,500.0d0/1000.0d0*random%gauss(mu=0.0d0,sigma=1.0d0) ])
+        
+        call siml%setBoundary(DomainID=1,NodeList=domains(1)%getNodeList(&
+            xmax=1.0d0,ymin=Width-1.0d0,zmin=-0.0010d0)&
+            ,condition="A",boundaryValue=[0.0d0,0.0d0,500.0d0/1000.0d0*random%gauss(mu=0.0d0,sigma=1.0d0) ])
+        
+        call siml%setBoundary(DomainID=1,NodeList=domains(1)%getNodeList(&
+            xmin=Length-1.0d0,ymin=Width-1.0d0,zmin=-0.0010d0)&
+            ,condition="A",boundaryValue=[0.0d0,0.0d0,500.0d0/1000.0d0*random%gauss(mu=0.0d0,sigma=1.0d0) ])
         t = t + dt
 
         ! ILU is too slow!
+        siml%femsolver%debug = .true.
         !call siml%solve(dt=dt,timeIntegral="Nemwark-beta",use_same_matrix=.true.,&
         !    preconditioning="PointJacobi")
         siml%overset_penalty=100.0d0*1000.0d0*1000.0d0
@@ -219,7 +224,9 @@ program main
     call siml%remove()
     call mpid%end()
 
-    
+    ! [EXIT] BiCGSTAB >> [246] half
+
+
 end program main
 
 
