@@ -12263,12 +12263,13 @@ function getMyIDFEMDomain(this,FEMDomains) result(id)
 end function
 
 
-subroutine oversetFEMDomains(obj,FEMDomains,to,by)
+subroutine oversetFEMDomains(obj,FEMDomains,to,by,debug)
 	class(FEMDomain_),intent(inout) :: obj
 	type(FEMDomain_),intent(inout) :: FEMDomains(:)
 	integer(int32),intent(in) :: to
 	character(*),intent(in) :: by
 	integer(int32) :: from, MyID, algorithm
+	logical,optional,intent(in) :: debug
 
 	myID = obj%getMyID(FEMDomains)
 	select case(by)
@@ -12292,12 +12293,12 @@ subroutine oversetFEMDomains(obj,FEMDomains,to,by)
 	endif
 
 	call FEMDomains(MyID)%overset(femdomains(to),DomainID=to, &
-		algorithm=algorithm,MyDomainID=MyID)
+		algorithm=algorithm,MyDomainID=MyID,debug=debug)
 
 end subroutine
 
 
-subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID)
+subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID, debug)
 	class(FEMDomain_),intent(inout) :: obj
 	type(FEMDomain_),intent(inout) :: FEMDomain
 	integer(int32),intent(in) :: DomainID, algorithm
@@ -12305,8 +12306,12 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID)
 
 	integer(int32) :: ElementID, GaussPointID, NodeID
 	real(real64),allocatable :: position(:)
-	integer(int32) ,allocatable :: InterConnect(:),DomainIDs12(:) 
+	integer(int32) ,allocatable :: InterConnect(:),DomainIDs12(:) ,ElementIDList(:)
+	logical,allocatable :: InsideElement(:)
 	type(OversetConnect_),allocatable :: buf_oversetConnect(:)
+	logical,optional,intent(in) :: debug
+	integer(int32) :: kk
+	
 
 	if(.not. allocated(obj%OversetConnect) )then
 		allocate(obj%OversetConnect(100) )
@@ -12326,7 +12331,30 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID)
 		DomainIDs12(1:obj%nne() ) = input(default=1, option=MyDomainID)
 		DomainIDs12(obj%nne()+1: ) = DomainID
 
-		do ElementID=1, obj%ne()
+
+		if(present(debug) )then
+			if(debug)then
+				print *, "FEMDomain%overset >> "
+			endif
+		endif
+
+		! ElementIDList
+		ElementIDList = obj%getElementList(&
+			xmin=FEMDomain%x_min(),&
+			ymin=FEMDomain%y_min(),&
+			zmin=FEMDomain%z_min(),&
+			xmax=FEMDomain%x_max(),&
+			ymax=FEMDomain%y_max(),&
+			zmax=FEMDomain%z_max() )
+		
+
+		do kk=1, size(ElementIDList)
+			ElementID = ElementIDList(kk)
+			if(present(debug) )then
+				if(debug)then
+					print *, "Elem",kk,"/",size(ElementIDList)
+				endif
+			endif
 			do GaussPointID = 1, obj%ngp()
 				! For 1st element, create stiffness matrix
 		    	! set global coordinate
@@ -12344,6 +12372,7 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID)
 					obj%OversetConnect(1: size(buf_oversetConnect)) = buf_oversetConnect(1:size(buf_oversetConnect))
 					deallocate(buf_oversetConnect)
 				endif
+
 				obj%num_oversetconnect = obj%num_oversetconnect + 1
 
 				InterConnect(1:obj%nne() ) = obj%connectivity(ElementID)

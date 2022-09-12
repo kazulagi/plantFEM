@@ -7978,8 +7978,6 @@ function getFacetListMesh(obj,NodeID) result(FacetList)
     integer(int32),allocatable :: ElementList(:),NodeList(:,:),CountNodeList(:,:)
 
     ! Facetとってからcheckのほうが簡単
-
-
     
     ! search facets, in which a node is in
     ElementList = obj%getElementList(NodeID=NodeID)

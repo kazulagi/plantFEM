@@ -87,15 +87,21 @@ module GrapeClass
 contains
 
 ! #############################################################
-subroutine createGrape(obj,config)
+subroutine createGrape(obj,config,LeafSurfaceData)
     class(Grape_),intent(inout) :: obj
     character(*),intent(in) :: config
+    character(*),optional,intent(in) ::LeafSurfaceData
     character(:),allocatable :: line
     type(IO_) :: grapeconfig
     type(Random_) :: random
     integer(int32)::i,n,j,k,num_leaf,num_stem_node,num_branch_branch
 
-    obj%LeafSurfaceData = grapeconfig%parse(config,key1="LeafSurfaceData")
+    if(present(LeafSurfaceData))then
+        obj%LeafSurfaceData = LeafSurfaceData 
+    else
+        obj%LeafSurfaceData = grapeconfig%parse(config,key1="LeafSurfaceData")
+        print *, "LeafSurfaceData >> ",obj%LeafSurfaceData
+    endif
     obj%mainstem_length = freal(grapeconfig%parse(config,key1="Mainstem",key2="Length"))
     obj%mainstem_width = freal(grapeconfig%parse(config,key1="Mainstem",key2="Width"))
     obj%mainstem_node = fint(grapeconfig%parse(config,key1="Mainstem",key2="Node"))
@@ -108,12 +114,12 @@ subroutine createGrape(obj,config)
     obj%num_branch_node=0
     do 
         line = grapeconfig%parse(config,key1="Branch#"//str(obj%num_branch),key2="Node" )
-        if(len(line)==0)then
+        if(len(trim(line))==0)then
             obj%num_branch = obj%num_branch -1
             exit
         else
             obj%num_branch = obj%num_branch  + 1
-            obj%num_branch_node = obj%num_branch_node + fint(line)
+            obj%num_branch_node = obj%num_branch_node + fint( line  )
             ! Further branch
             cycle
         endif
@@ -206,7 +212,7 @@ subroutine createGrape(obj,config)
     obj%num_branch_root_node=0
     do 
         line = grapeconfig%parse(config,key1="Branchroot#"//str(obj%num_branch_root),key2="Node" )
-        if(len(line)==0)then
+        if(len(trim(line))==0)then
             obj%num_branch_root = obj%num_branch_root -1
             exit
         else
