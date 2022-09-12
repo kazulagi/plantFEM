@@ -68,6 +68,11 @@ module DictionaryClass
     interface count
         module procedure count_char_char
     end interface count
+
+
+    interface split
+        module procedure splitChar_Dict
+    end interface
 contains
 
 ! ##################################################
@@ -348,8 +353,12 @@ end function
 function GetDictionaryValue(obj,page) result(content)
     class(Dictionary_),intent(in)::obj
     integer(int32),intent(in)      :: page
-    character*200 :: content
+    character(:),allocatable :: content
 
+    if(page > size(obj%Dictionary) ) then
+        content = ""
+        return
+    endif
     content = obj%Dictionary(page)%charValue
 
 end function
@@ -773,6 +782,26 @@ recursive function count_char_char(sentence, key, initialized) result(ret)
         ret = ret + &
             count_char_char(sentence=small_sentence,key=key,initialized=.true.)
     endif
+
+end function
+
+! ###########################################################
+function splitChar_Dict(line,splitter) result(ret_dict)
+    character(*),intent(in) :: line,splitter
+    integer(int32) :: i, n, from
+    type(Dictionary_) :: ret_dict
+
+    n = count(line,splitter)
+    call ret_dict%init(n+1)
+    
+    from = 1
+    ret_dict%Dictionary(1)%charvalue = line(:index(line,splitter)-1 )
+    from = from + len(ret_dict%Dictionary(1)%charvalue) + len(splitter)
+    do i=2,n
+        ret_dict%Dictionary(i)%charvalue = line(:index(line(from:),splitter)-1 )
+        from = from + len(ret_dict%Dictionary(1)%charvalue) + len(splitter)
+    enddo
+    ret_dict%Dictionary(n+1)%charvalue = line(from:)
 
 end function
 

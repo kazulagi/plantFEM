@@ -1895,9 +1895,14 @@ module IOClass
                         if(rmc /= 0)then
                             line(rmc:rmc)=" "
                         endif
+                        
                         id = index(line,":")
-                        read(line(id+1:),*) ret
+                        ret =line(id+1:) 
+                        !read(line(id+1:),*) ret
                         ret = adjustl(ret)
+
+                        call replace(ret,'"','')
+                        call replace(ret,"'","")
     
                         ! [があれば]まで読む
                         if( index(ret, "[")/=0 .and. index(ret, "]")==0 )then
@@ -1955,6 +1960,7 @@ module IOClass
         if(fformat==PF_JSON)then 
             do
                 line = obj%readline()
+                
                 if(present(debug) )then
                     if(debug)then
                         print *, trim(line)
@@ -1990,8 +1996,11 @@ module IOClass
                                     line(rmc:rmc)=" "
                                 endif
                                 id = index(line,":")
-                                read(line(id+1:),*) ret
+                                ret = line(id+1:)
+                                !read(line(id+1:),*) ret
                                 ret = adjustl(ret)
+                                call replace(ret,'"','')
+                                call replace(ret,"'","")
                                 ! [があれば]まで読む
                                 if( index(ret, "[")/=0 .and. index(ret, "]")==0 )then
                                     do 

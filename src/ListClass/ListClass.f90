@@ -6,6 +6,8 @@ module ListClass
     implicit none
 
     type :: List_content_
+        character(:),allocatable :: char
+        
         real(real64) :: Real64Scalar
         real(real64),allocatable :: Real64Vector(:)
         real(real64),allocatable :: Real64Tensor(:,:)
