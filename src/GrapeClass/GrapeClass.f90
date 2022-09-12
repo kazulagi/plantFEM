@@ -100,7 +100,7 @@ subroutine createGrape(obj,config,LeafSurfaceData)
         obj%LeafSurfaceData = LeafSurfaceData 
     else
         obj%LeafSurfaceData = grapeconfig%parse(config,key1="LeafSurfaceData")
-        print *, "LeafSurfaceData >> ",obj%LeafSurfaceData
+        
     endif
     obj%mainstem_length = freal(grapeconfig%parse(config,key1="Mainstem",key2="Length"))
     obj%mainstem_width = freal(grapeconfig%parse(config,key1="Mainstem",key2="Width"))
@@ -340,6 +340,10 @@ subroutine createGrape(obj,config,LeafSurfaceData)
                     y = 0.0d0, &
                     z = radian(random%random()*360.0d0) &
                 )
+            if(.not.allocated(obj%leaf(num_leaf)%i_planenodeid) )then
+                obj%leaf(num_leaf)%i_planenodeid = [1]
+            endif
+
             call obj%leaf(num_leaf)%connect("=>",obj%stem(num_stem_node))
                 obj%leaf2stem(num_leaf,num_stem_node) = 1
         enddo

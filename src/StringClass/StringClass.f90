@@ -19,6 +19,11 @@ module StringClass
   public :: operator(+)
   public :: assignment(=)
 
+  interface replace
+    module procedure replaceChar
+  end interface
+
+
   interface operator(+)
       module procedure addstring, addstringchar,addcharstring
   end interface
@@ -187,5 +192,22 @@ pure function addCharChar(char1,char2) result(char3)
   char3 = char1 // char2
   
 end function
+
+! ############################################################
+recursive subroutine replaceChar(word,keyword,to)
+  character(*),intent(inout) :: word
+  character(*),intent(in) ::keyword,to
+  character(:),allocatable :: old_word
+  integer(int32) :: n,from
+
+  n = len(keyword)
+  old_word = word
+  from = index(word,keyword)
+  if(from==0 ) return
+
+  word = old_word(:from-1) // to // old_word(from+n:)
+  call replaceChar(word,keyword,to)
+  
+end subroutine
 
 end module 
