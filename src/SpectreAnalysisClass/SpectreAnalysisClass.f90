@@ -28,7 +28,10 @@ module SpectreAnalysisClass
         procedure,public :: freq_axis => freq_axisSpectreAnalysis
         procedure,public :: FDD => FDD_SpectreAnalysis
         procedure,public :: export => exportSpectreAnalysis
-        
+        procedure,public :: bandpath => bandpathSpectreAnalysis
+        ! create wave
+        procedure,public :: whiteNoize => whiteNoizeSpectreAnalysis
+        procedure,public :: time => timeSpectreAnalysis
     end type
 
 contains
@@ -441,5 +444,117 @@ subroutine exportSpectreAnalysis(this,name)
 
 end subroutine
 ! ##########################################################
+
+function bandpathSpectreAnalysis(this,x,freq_range) result(ft)
+    class(SpectreAnalysis_),intent(in) :: this
+    real(real64),allocatable :: ft(:)
+    real(real32),intent(in) :: freq_range(1:2)
+    real(real64),intent(in) :: x(:)
+    type(Math_) :: math
+    real(real64) :: omega
+    real(real64) :: alpha
+    real(real64) :: a0
+    real(real64) :: a1
+    real(real64) :: a2
+    real(real64) :: b0
+    real(real64) :: b1
+    real(real64) :: b2,samplerate,freq,bw
+
+    real(real64) :: in1 = 0.0d0
+    real(real64) :: in2 = 0.0d0
+    real(real64) :: out1 = 0.0d0
+    real(real64) :: out2 = 0.0d0
+    integer(int32) :: i
+    
+    freq = minval(freq_range)
+    bw = maxval(freq_range) - minval(freq_range)
+
+    if(.not. this%initialized)then
+        print *, "ERROR >> bandpathSpectreAnalysis >> please call %init(sampling_Hz)"
+        return
+    endif
+
+    samplerate = this%sampling_Hz
+
+    ! それぞれの変数は下記のとおりとする
+    ! float samplerate … サンプリング周波数
+    ! float freq … カットオフ周波数
+    ! float bw   … 帯域幅
+
+
+    omega = 2.0d0 * math%pi *  freq/samplerate;
+    alpha = sin(omega) * sinh(log(2.0d0) / 2.0d0 * bw * omega / sin(omega));
+    a0 =  1.0d0 + alpha;
+    a1 = -2.0d0 * cos(omega);
+    a2 =  1.0d0 - alpha;
+    b0 =  alpha;
+    b1 =  0.0d0;
+    b2 = -alpha;
+
+    ! https://www.utsbox.com/?page_id=523
+    ! それぞれの変数は下記のとおりとする
+    ! 　float input[]  …入力信号の格納されたバッファ。
+    ! 　flaot output[] …フィルタ処理した値を書き出す出力信号のバッファ。
+    ! 　int   size     …入力信号・出力信号のバッファのサイズ。
+    ! 　float in1, in2, out1, out2  …フィルタ計算用のバッファ変数。初期値は0。
+    ! 　float a0, a1, a2, b0, b1, b2 …フィルタの係数。 別途算出する。
+    !for(int i = 0; i < size; i++)
+    ft = zeros(size(x))
+    do i=1,size(x)
+    	! 入力信号にフィルタを適用し、出力信号として書き出す。
+    	ft(i) = b0/a0 * x(i) + b1/a0 * in1  + b2/a0 * in2 - a1/a0 * out1 - a2/a0 * out2
+
+        in2  = in1;       ! 2つ前の入力信号を更新
+        in1  = x(i);  ! 1つ前の入力信号を更新
+
+        out2 = out1;      ! 2つ前の出力信号を更新
+        out1 = ft(i); ! 1つ前の出力信号を更新
+
+    enddo
+end function
+! ##########################################################
+function whiteNoizeSpectreAnalysis(this,n,t) result(x)
+    class(SpectreAnalysis_),intent(in) :: this
+    real(real64),allocatable,optional,intent(inout) :: t(:)
+    real(real64),allocatable :: x(:)
+
+    integer(int32),intent(in) :: n
+
+    integer(int32) :: i
+    type(Random_) :: random
+    
+    if(.not. this%initialized)then
+        print *, "ERROR >> whiteNoizeSpectreAnalysis >> please call %init(sampling_Hz)"
+        return
+    endif
+
+    x = zeros(n)
+    if(present(t) )then
+        t = linspace([0.0d0,dble(size(x))/dble(this%sampling_Hz)],size(x) )
+    endif
+
+    do i=1,size(x)
+        x(i) = random%gauss(mu=0.0d0,sigma=1.0d0)
+    enddo
+
+end function
+! ##########################################################
+function timeSpectreAnalysis(this,n) result(t)
+    class(SpectreAnalysis_),intent(in) :: this
+    real(real64),allocatable :: t(:)
+
+    integer(int32),intent(in) :: n
+
+    integer(int32) :: i
+    type(Random_) :: random
+    
+    if(.not. this%initialized)then
+        print *, "ERROR >> whiteNoizeSpectreAnalysis >> please call %init(sampling_Hz)"
+        return
+    endif
+
+    t = linspace([0.0d0,dble(n)/dble(this%sampling_Hz)],n)
+    
+end function
 
 end module SpectreAnalysisClass
