@@ -185,9 +185,10 @@ module IOClass
             procedure,pass :: readIOIntArray
             procedure,pass :: readIOReal64
             procedure,pass :: readIOReal64Vector
+            procedure,pass :: readIOReal64VectorVector
             procedure,pass :: readIOReal64Array
             generic,public :: read => readIOchar,readIOInt,readIOIntVector,readIOIntArray&
-                ,readIOReal64,readIOReal64Vector,readIOReal64Array
+                ,readIOReal64,readIOReal64Vector,readIOReal64VectorVector,readIOReal64Array
     
             
             procedure,pass :: plotIO
@@ -300,6 +301,33 @@ module IOClass
     end subroutine
     ! ===========================================
     
+
+    ! ===========================================
+    subroutine readIOReal64VectorVector(obj,val,val2)
+        class(IO_),intent(in) :: obj
+        real(real64),allocatable,intent(inout) :: val(:),val2(:)
+        real(real64) :: a
+        integer :: i,io
+
+        i = 0
+        do
+            read(obj%fh, *, iostat=io) a
+            if(io < 0) exit
+            i = i + 1
+        end do
+        rewind(obj%fh)
+        
+        if(allocated(val) ) deallocate(val)
+        if(allocated(val2) ) deallocate(val2)
+        allocate(val(i) )
+        allocate(val2(i) )
+        
+        do i=1,size(val)
+            read(obj%fh,*) val(i),val2(i)
+        enddo
+
+    end subroutine
+    ! ===========================================
     
     ! ===========================================
     subroutine readIOReal64Array(obj,val)

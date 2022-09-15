@@ -164,6 +164,7 @@ module FEMDomainClass
 		
 		procedure,public :: contactdetect => contactdetectFEMDomain
 		procedure,public :: centerPosition => centerPositionFEMDomain
+		procedure,public :: getCenter => centerPositionFEMDomain
 		procedure,public :: create => createFEMDomain
 
         procedure,public :: delete => DeallocateFEMDomain
@@ -227,9 +228,13 @@ module FEMDomainClass
 		procedure,public :: getLocalCoordinate => getLocalCoordinateFEMDomain	
 		procedure,public :: GlobalPositionOfGaussPoint => getGlobalPositionOfGaussPointFEMDomain	
 		
+		procedure,public :: getElevation => getElevationFEMDomain
+
         procedure,public :: init   => InitializeFEMDomain
 		procedure,public :: import => ImportFEMDomain
 		procedure,public :: importVTKFile => ImportVTKFileFEMDomain
+		procedure,public :: importSTLFile => ImportSTLFileFEMDomain
+		
 		procedure,public :: importMesh => ImportMeshFEMDomain
 		procedure,public :: importMaterials => ImportMaterialsFEMDomain
 		procedure,public :: importBoundaries => ImportBoundariesFEMDomain
@@ -271,6 +276,8 @@ module FEMDomainClass
 		procedure,public ::	x => xFEMDomain
 		procedure,public ::	y => yFEMDomain
 		procedure,public ::	z => zFEMDomain
+		procedure,public ::	xyz => xyzFEMDomain
+
 		
 		! converter
 		procedure,public :: asGlobalVector=>asGlobalVectorFEMDomain
@@ -290,6 +297,7 @@ module FEMDomainClass
         procedure,public :: position_x => position_xFEMDomain
         procedure,public :: position_y => position_yFEMDomain
         procedure,public :: position_z => position_zFEMDomain
+		procedure,public ::	points => xyzFEMDomain
 
 
 		procedure,public :: xmin => xminFEMDomain
@@ -316,6 +324,11 @@ module FEMDomainClass
 		procedure,public :: zrange  => zrangeFEMDomain
 		procedure,public :: z_range => zrangeFEMDomain
 		procedure,public :: zr      => zrangeFEMDomain
+
+		
+		procedure,public ::	x_len => x_lenFEMDomain
+		procedure,public ::	y_len => y_lenFEMDomain
+		procedure,public ::	z_len => z_lenFEMDomain
 		
 
 		procedure,public :: removeMaterials => removeMaterialsFEMDomain
@@ -429,6 +442,38 @@ function lengthFEMDomain(obj) result(length)
 end function
 
 ! ####################################################################
+
+
+! ####################################################################
+function x_lenFEMDomain(obj) result(length)
+	class(FEMDomain_),intent(in) :: obj
+	real(real64) :: length
+
+	length = obj%xmax()-obj%xmin()
+end function
+
+! ####################################################################
+
+
+! ####################################################################
+function y_lenFEMDomain(obj) result(length)
+	class(FEMDomain_),intent(in) :: obj
+	real(real64) :: length
+
+	length = obj%ymax()-obj%ymin()
+end function
+
+! ####################################################################
+
+! ####################################################################
+function z_lenFEMDomain(obj) result(length)
+	class(FEMDomain_),intent(in) :: obj
+	real(real64) :: length
+
+	length = obj%zmax()-obj%zmin()
+end function
+
+! ####################################################################
 subroutine openFEMDomain(obj,path,name)
 
 	class(FEMDomain_),intent(inout) :: obj
@@ -441,6 +486,12 @@ subroutine openFEMDomain(obj,path,name)
 
 	if(index(path,".vtk")/=0 )then
 		call obj%ImportVTKFile(name=path)
+		return
+	endif
+
+
+	if(index(path,".stl")/=0 )then
+		call obj%ImportSTLFile(name=path)
 		return
 	endif
 
@@ -1555,7 +1606,7 @@ subroutine resizeFEMDomain(obj,x_rate,y_rate,z_rate,x_len,y_len,z_len,&
 	class(FEMDomain_),intent(inout) :: obj
 	real(real64),optional,intent(in) :: x_rate,y_rate,z_rate,x_len,y_len,z_len
 	real(real64),optional,intent(in) :: x ,y ,z 
-
+	
 	call obj%Mesh%resize(x_rate=x_rate,y_rate=y_rate,z_rate=z_rate,x_len=x_len,y_len=y_len,z_len=z_len)
 	call obj%Mesh%resize(x_len=x,y_len=y,z_len=z)
 
@@ -12203,15 +12254,104 @@ end function
 
 
 ! #########################################################
-pure function zmaxFEMDomain(obj) result(ret)
-    class(FEMDomain_),intent(in) :: obj
-    real(real64) :: ret
+function zmaxFEMDomain(this,x,y, debug) result(ret)
+    class(FEMDomain_),intent(in) :: this
+    real(real64),optional,intent(in) :: x, y
+	real(real64) :: ret
+	integer(int32) :: i
+	real(real64),allocatable :: z_coord(:),xy_minmax(:,:)
+	real(real64) :: z_min
+	logical,allocatable :: inside(:)
+	logical,optional,intent(in) :: debug
+	logical :: debug_mode = .true.
 
-    ret = maxval(obj%mesh%nodcoord(:,3))
+	debug_mode = input(default=.false.,option=debug)
+	if(present(x) .and. (present(y) ) )then
+		xy_minmax = zeros(this%ne(),4 ) !xmin,ymin,xmax,ymax
+		z_coord = zeros(this%ne() )
+		allocate(inside(this%ne()) )
+		inside(:) = .false.
+		z_min = this%zmin()
+
+		if(debug_mode) then
+			print *, "[0] zmax >> started"
+		endif
+		!$OMP parallel default(shared) 
+		!$OMP do
+		do i=1,this%ne()
+			xy_minmax(i,1) = minval(this%mesh%nodcoord( this%mesh%elemnod(i,:),1))!xmin
+			xy_minmax(i,2) = minval(this%mesh%nodcoord( this%mesh%elemnod(i,:),2))!ymin
+			xy_minmax(i,3) = maxval(this%mesh%nodcoord( this%mesh%elemnod(i,:),1))!xmax
+			xy_minmax(i,4) = maxval(this%mesh%nodcoord( this%mesh%elemnod(i,:),2))!ymax
+			z_coord(i)   = maxval(this%mesh%nodcoord( this%mesh%elemnod(i,:),3))!ymax
+		enddo
+		!$OMP end do
+		!$OMP end parallel
+
+
+		if(debug_mode) then
+			print *, "[1] zmax >> xy_minmax solved."
+		endif
+		!$OMP parallel default(shared) 
+		!$OMP do
+		do i=1,this%ne()
+			if( xy_minmax(i,1)  <= x .and. x <= xy_minmax(i,3)   )then
+				if( xy_minmax(i,2)  <= y .and. y <= xy_minmax(i,4)   )then
+					inside(i) = .true.
+				endif
+			endif
+		enddo
+		!$OMP end do
+		!$OMP end parallel
+		
+		if(debug_mode) then
+			print *, "[2] zmax >> inside solved."
+		endif
+
+		!$OMP parallel
+		!$OMP do
+		do i=1,this%ne()
+			if(.not.inside(i) )then
+				z_coord(i) = z_min
+			endif
+		enddo
+		!$OMP end do
+		!$OMP end parallel
+
+
+		if(debug_mode) then
+			print *, "[3] zmax >> z_coord solved."
+		endif
+		ret = maxval(z_coord)
+
+
+
+	else
+    	ret = maxval(this%mesh%nodcoord(:,3))
+	endif
 
 end function
 ! #########################################################
 
+! #########################################################
+function getElevationFEMDomain(this,x_num,y_num,x_len,y_len) result(ret)
+    class(FEMDomain_),intent(in) :: this
+    integer(int32),intent(in) :: x_num, y_num
+	real(real64),intent(in) :: x_len,y_len
+	real(real64) :: ret(x_num+1,y_num+1),dx,dy
+	integer(int32) :: i
+	
+	ret(:,:) = this%zmin()
+	dx = x_len/x_num
+	dy = y_len/y_num
+	do i=1,this%nn()
+		ret( int(this%position_x(i)/dx+1),int(this%position_y(i)/dy+1) ) = &
+		maxval([ ret( int(this%position_x(i)/dx+1),int(this%position_y(i)/dy+1) ) ,&
+			this%position_z(i) ])
+	enddo
+
+end function
+! #########################################################
 subroutine deformFEMDomain(obj,disp,velocity,accel,dt)
     class(FEMDomain_),intent(inout) :: obj
     real(real64),optional,intent(in) :: disp(:),velocity(:),accel(:),dt
@@ -13245,6 +13385,48 @@ end function
 !	
 !end subroutine
 !! ####################################################
+subroutine ImportSTLFileFEMDomain(this,name)
+	class(FEMDomain_),intent(inout) :: this
+	character(*),intent(in) :: name
+	type(STL_) :: stl
+	integer(int32) :: num_facet,num_point,num_dim,i,j,k
+	
+	if( .not.this%empty() )then
+		call this%remove()
+	endif
+
+	call stl%import(name)
+	num_facet = size(stl%facet,1)
+	num_point = size(stl%facet,2)
+	num_dim   = size(stl%facet,3)
+
+	this%mesh%nodcoord = zeros(num_facet*num_point,num_dim)
+	this%mesh%elemnod  = zeros(num_facet,8)
+	do i=1, num_facet
+		do j=1, num_point
+			this%mesh%nodcoord( (i-1)*num_point + j,1:num_dim ) = stl%facet(i,j,1:num_dim)		
+		enddo
+	enddo
+
+	do i=1, num_facet
+		do j=1, num_point
+			this%mesh%elemnod( i,j ) =  (i-1)*num_point + j
+		enddo
+		do j=num_point+1,8
+			this%mesh%elemnod( i,j ) =  (i-1)*num_point + num_point
+		enddo
+	enddo
+
+end subroutine
+
+function xyzFEMDomain(this) result(nodcoord)
+	class(FEMDOmain_),intent(in) :: this
+	real(real64),allocatable :: nodcoord(:,:)
+
+	nodcoord = this%mesh%nodcoord
+	
+end function
+! ###################################################################
 
 end module FEMDomainClass
 

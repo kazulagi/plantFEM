@@ -62,6 +62,10 @@ module ArrayClass
     end interface
     ! statistics
 
+    interface reverse
+        module procedure :: reverseInt32vector,reverseReal64vector,reverseLogicalvector
+    end interface
+
     interface matrix
         module procedure :: matrixFromVectorsRe64,matrixFromVectorsint32
     end interface
@@ -7956,6 +7960,50 @@ function full_Int32Dim2(vec_size, fill_value) result(vec)
 
     allocate(vec(vec_size(1),vec_size(2) ))
     vec(:,:) = fill_value
+
+end function
+
+! #######################################################
+function reverseint32vector(old_vec) result(new_vec)
+    integer(int32) :: old_vec(:)
+    integer(int32),allocatable :: new_vec(:)
+    integer(int32) :: i,counter
+
+    allocate(new_vec(size(old_vec )) )
+    counter = 0
+    do i=size(old_vec),1,-1
+        counter = counter + 1
+        new_vec(counter) = old_vec(i)
+    enddo
+
+end function
+! #######################################################
+function reverseReal64vector(old_vec) result(new_vec)
+    real(real64) :: old_vec(:)
+    real(real64),allocatable :: new_vec(:)
+    integer(int32) :: i,counter
+
+    allocate(new_vec(size(old_vec )) )
+    counter = 0
+    do i=size(old_vec),1,-1
+        counter = counter + 1
+        new_vec(counter) = old_vec(i)
+    enddo
+
+end function
+
+! #######################################################
+function reverselogicalvector(old_vec) result(new_vec)
+    logical :: old_vec(:)
+    logical,allocatable :: new_vec(:)
+    integer(int32) :: i,counter
+
+    allocate(new_vec(size(old_vec )) )
+    counter = 0
+    do i=size(old_vec),1,-1
+        counter = counter + 1
+        new_vec(counter) = old_vec(i)
+    enddo
 
 end function
 
