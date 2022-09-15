@@ -1040,10 +1040,11 @@ subroutine setValueFEMSolver(this,DomainID,ElementID,DOF,Matrix,Vector,as_Dense)
 
 end subroutine
 ! ###################################################################
-subroutine fixFEMSolver(this,DomainID,IDs,FixValue)
+subroutine fixFEMSolver(this,DomainID,IDs,FixValue,FixValues)
     class(FEMSolver_),intent(inout) :: this
 
-    real(real64),intent(in) :: FixValue
+    real(real64),optional,intent(in) :: FixValue
+    real(real64),optional,intent(in) :: FixValues(:)
     integer(int32),intent(in) :: DomainID
     integer(int32),intent(in) :: IDs(:)
 
@@ -1062,17 +1063,33 @@ subroutine fixFEMSolver(this,DomainID,IDs,FixValue)
         this%fix_lin_exists(:) = .false.
         
         do i=1,size(IDs)
+            if(IDs(i)< 1 ) cycle
+            
             if(IDs(i) > size(this%fix_lin_exists) ) cycle
             if(IDs(i) <= 0 ) cycle
             
             this%fix_lin_exists( IDs(i)) = .true.
-            this%fix_lin_exists_values(IDs(i)) = FixValue
+            if(present(FixValue) )then
+                this%fix_lin_exists_values(IDs(i)) = FixValue
+            elseif(present(FixValues) )then
+                this%fix_lin_exists_values(IDs(i)) = FixValues(i)
+            else
+                this%fix_lin_exists_values( IDs(i) ) = 0.0d0
+            endif
+
         enddo
     else
 
         do i=1,size(IDs)
+            if(IDs(i)< 1 ) cycle
             this%fix_lin_exists( IDs(i) ) = .true.
-            this%fix_lin_exists_values( IDs(i) ) = FixValue
+            if(present(FixValue) )then
+                this%fix_lin_exists_values( IDs(i) ) = FixValue
+            elseif(present(FixValues) )then
+                this%fix_lin_exists_values( IDs(i) ) = FixValues(i)
+            else
+                this%fix_lin_exists_values( IDs(i) ) = 0.0d0
+            endif
         enddo
     endif
     

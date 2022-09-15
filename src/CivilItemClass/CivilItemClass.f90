@@ -1,6 +1,7 @@
 
 module CivilItemClass
     use FEMDomainClass
+    use FEMSolverClass
     implicit none
     
     type :: CivilItem_
@@ -26,6 +27,8 @@ module CivilItemClass
         procedure :: PaddyField => PaddyFieldCivilItem
         procedure :: OpenChannel => OpenChannelCivilItem
 
+
+        procedure :: ground => groundCivilItem
         procedure :: beam => beamCivilItem
     end type
 
@@ -1448,5 +1451,102 @@ function beamCivilItem(this,from,to,width,height,division) result(beam)
     call beam%move(x=0.50d0*(from(1)+to(1)),y=0.50d0*(from(2)+to(2)),z=0.50d0*(from(3)+to(3)) )
 
 end function
+
+! ############################################################
+function groundCivilItem(this,femdomain,surface_point,radius,debug,er) result(ret)
+    class(CivilItem_),intent(in) :: this
+    type(FEMDomain_),intent(in)  :: femdomain
+    real(real64),intent(in)      :: surface_point(:,:) !(point-id,[x, y, z])
+    real(real64),optional,intent(in)      :: radius,er
+    logical,optional,intent(in) :: debug
+
+    type(FEMDomain_) :: ground(1),ret
+    real(real64),allocatable :: my_point(:),ref_point(:),&
+        all_disp(:),FixValues(:)
+    integer(int32),allocatable :: bottom(:),top(:),side(:),IDs(:)
+    real(real64) :: r,z_diff
+    type(FEMSolver_) :: solver
+    integer(int32) :: i, j, ElementID
+
+
+    ground(1) = femdomain
+
+    bottom = ground(1)%select(z_max = ground(1)%zmin() )
+    top    = ground(1)%select(z_min = ground(1)%zmax() )
+
+    r = norm(ground(1)%mesh%nodcoord(1,:)-ground(1)%mesh%nodcoord(2,:))
+    r = input(default=r,option=radius)
+
+    side   =         ground(1)%select(x_max = ground(1)%xmin() )
+    side   = side // ground(1)%select(x_min = ground(1)%xmax() )
+    side   = side // ground(1)%select(y_max = ground(1)%ymin() )
+    side   = side // ground(1)%select(y_min = ground(1)%ymax() )
+
+
+    ! setup solver
+    call solver%init(NumDomain=1 )
+    call solver%setDomain(FEMDomains=ground(:),DomainIDs=[1])
+    call solver%setCRS(DOF=3)
+
+    !$OMP parallel 
+    !$OMP do
+    do ElementID = 1, ground(1)%ne()
+        call solver%setMatrix(DomainID=1,ElementID=ElementID,DOF=3,&
+           Matrix=ground(1)%StiffnessMatrix(ElementID=ElementID,E=1.0d0, v=0.450d0) )
+    enddo
+    !$OMP end do
+    !$OMP end parallel
+
+    ! x,y,z -> fix
+    call solver%fix(DomainID=1,IDs=bottom*3-2,FixValue=0.0d0)
+    call solver%fix(DomainID=1,IDs=bottom*3-1,FixValue=0.0d0)
+    call solver%fix(DomainID=1,IDs=bottom*3-0,FixValue=0.0d0)
+
+    ! x,y -> fix, z: free
+    call solver%fix(DomainID=1,IDs=side*3-2,  FixValue=0.0d0)
+    call solver%fix(DomainID=1,IDs=side*3-1,  FixValue=0.0d0)
+
+    ! top -> move
+    IDs = int(zeros(size(top) ) )
+    FixValues = zeros(size(top) ) 
+    !$OMP parallel default(shared) private(my_point,j,ref_point,z_diff)
+    !$OMP do
+    do i=1,size(top)
+        my_point = ground(1)%mesh%nodcoord(top(i),1:2 )
+        do j=1, size(surface_point,1)
+            ref_point = surface_point(j,1:2)
+            if(norm( my_point - ref_point ) <= r )then
+                z_diff = surface_point(j,3) - ground(1)%mesh%nodcoord(top(i),3 )
+                if(present(debug) )then
+                    if(debug)then
+                        print *, "node,",i,"/",size(top),"u_z",z_diff
+                    endif
+                endif
+                IDs(i) = top(i)*3-0
+                FixValues(i) = z_diff
+                !call solver%fix(DomainID=1,IDs=[top(i)*3-0],  FixValue=z_diff)
+                exit
+            endif
+        enddo
+    enddo
+    !$OMP end do
+    !$OMP end parallel 
+    
+
+    call solver%fix(DomainID=1,IDs=IDs,  FixValues=FixValues)
+    
+
+    solver%debug = input(default=.true.,option= debug)
+    solver%er0 = input(default=dble(1.0e-5),option= er)
+    solver%relative_er = input(default=dble(1.0e-5),option= er)
+    
+    all_disp = solver%solve()
+    
+    call ground(1)%deform(disp=all_disp)
+
+    ret = ground(1)
+
+end function
+! ############################################################
 
 end module
