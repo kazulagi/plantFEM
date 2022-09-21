@@ -113,7 +113,11 @@ module FEMSolverClass
         procedure,public :: eig => eigFEMSolver
 
         !(7-2) linear solver
-        procedure,public :: solve => solveFEMSolver
+        procedure,pass :: solveFEMSolver
+        procedure,pass :: solveFEMSolver_UserDefinedLinearSolver
+        procedure,pass :: solveFEMSolver_UserDefinedLinearSolverAsFunc
+        generic :: solve => solveFEMSolver,solveFEMSolver_UserDefinedLinearSolver,&
+            solveFEMSolver_UserDefinedLinearSolverAsFunc
 
         !(7-3) condition number
         procedure,public :: conditionNumber => conditionNumberFEMSolver
@@ -1576,6 +1580,71 @@ subroutine fix_eigFEMSolver(this,IDs)
 
 
 end subroutine
+! #####################################################
+
+! #####################################################
+function solveFEMSolver_UserDefinedLinearSolver(this,LinearSolver,x0) result(x)
+    class(FEMSolver_),intent(inout) :: this
+    real(real64),optional,intent(in) :: x0(:)
+    real(real64),allocatable :: x(:)
+
+    ! CRS formatted Linear solver
+    interface 
+        subroutine LinearSolver(row_ptr,col_idx,val,rhs,x) 
+            use iso_fortran_env
+            implicit none
+            real(real64),intent(in) :: val(:),rhs(:)
+            real(real64),intent(inout) :: x(:)
+            integer(int32),intent(in) :: row_ptr(:),col_idx(:)
+
+        end subroutine
+    end interface
+
+    if(present(x0) )then
+        x = x0 
+    else
+        x = zeros(size(this%CRS_index_row)-1 )
+    endif
+
+    ! 外部ソルバの利用(ただし，subroutineのみ)
+    call LinearSolver(this%CRS_index_row,this%CRS_Index_Col,this%CRS_val,&
+        this%CRS_RHS,x)
+
+    this%CRS_x = x
+
+end function
+
+! #####################################################
+
+
+! #####################################################
+function solveFEMSolver_UserDefinedLinearSolverAsFunc(this,LinearSolver,x0) result(x)
+    class(FEMSolver_),intent(inout) :: this
+    real(real64),intent(in) :: x0(:)
+    real(real64),allocatable :: x(:)
+
+    ! CRS formatted Linear solver
+    interface 
+        function LinearSolver(row_ptr,col_idx,val,rhs,x0) result(x)
+            use iso_fortran_env
+            implicit none
+            real(real64),intent(in) :: val(:),rhs(:)
+            real(real64),intent(in) :: x0(:)
+            real(real64),allocatable :: x(:)
+            integer(int32),intent(in) :: row_ptr(:),col_idx(:)
+
+        end function
+    end interface
+    
+    ! 外部ソルバの利用(ただし，subroutineのみ)
+    x = LinearSolver(this%CRS_index_row,this%CRS_Index_Col,this%CRS_val,&
+        this%CRS_RHS,x0)
+
+    this%CRS_x = x
+
+end function
+
+! #####################################################
 
 
 ! #####################################################
