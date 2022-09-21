@@ -81,6 +81,7 @@ module IOClass
             generic,public :: parse =>parseIOChar200,parseIO2keysChar200
     
             generic,public :: open => openIOchar, openIOstring
+
     
             ! file properties
             !procedure,public :: diff => diffIO
@@ -206,6 +207,7 @@ module IOClass
     
     
             procedure,public :: readline => readlineIO
+            
             procedure,public :: close => closeIO    
         end type
     
@@ -1715,31 +1717,45 @@ module IOClass
     ! ################################################################
     
     ! ################################################################
-    subroutine plotIODirect(obj,x,Fx,option,logscale)
+    subroutine plotIODirect(obj,x,Fx,option,logscale,name)
         class(IO_),intent(inout) ::  obj
         real(real64),intent(in) :: x(:),Fx(:)
-        character(*),optional,intent(in) :: option
+        character(*),optional,intent(in) :: option,name
         logical,optional,intent(in) :: logscale
-    
-    
-        call obj%open("__plotIODirect__.txt")
+        character(:),allocatable :: fname
+        
+        if(present(name) )then
+            fname = name
+        else
+            fname = "__plotIODirect__.txt"
+        endif
+
+        call obj%open(fname)
         call obj%write(x,Fx)
         call obj%close()
     
         call obj%plot(option=option,logscale=logscale)
+
     end subroutine
     ! ################################################################
     
     
     ! ################################################################
-    subroutine replotIODirect(obj,x,Fx,option,logscale)
+    subroutine replotIODirect(obj,x,Fx,option,logscale,name)
         class(IO_),intent(inout) ::  obj
         real(real64),intent(in) :: x(:),Fx(:)
-        character(*),optional,intent(in) :: option
+        character(*),optional,intent(in) :: option,name
         logical,optional,intent(in) :: logscale
     
+        character(:),allocatable :: fname
+        
+        if(present(name) )then
+            fname = name
+        else
+            fname = "__plotIODirect__.txt"
+        endif
     
-        call obj%open("__plotIODirect__.txt","a")
+        call obj%open(fname,"a")
         call obj%write(" ")
         call obj%write(x,Fx)
         call obj%close()
@@ -1750,14 +1766,20 @@ module IOClass
     ! ################################################################
     
     ! ################################################################
-    subroutine plotIODirectReal32(obj,x,Fx,option,logscale)
+    subroutine plotIODirectReal32(obj,x,Fx,option,logscale,name)
         class(IO_),intent(inout) ::  obj
         real(real32),intent(in) :: x(:),Fx(:)
-        character(*),optional,intent(in) :: option
+        character(*),optional,intent(in) :: option,name
         logical,optional,intent(in) :: logscale
+        character(:),allocatable :: fname
+        
+        if(present(name) )then
+            fname = name
+        else
+            fname = "__plotIODirect__.txt"
+        endif
     
-    
-        call obj%open("__plotIODirect__.txt")
+        call obj%open(fname,"w")
         call obj%write(dble(x),dble(Fx))
         call obj%close()
     
@@ -2925,4 +2947,5 @@ module IOClass
 
     end function
     
+
     end module IOClass

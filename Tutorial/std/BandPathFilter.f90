@@ -25,7 +25,7 @@ x_b = speana%bandpath(x=x,freq_range=[12.0,12.1])
 call f%open("x_b.txt","w")
 call f%write(t,x_b)
 call f%close()
-!call f%plot(option="with lines")
+call f%plot(option="with lines")
 
 call speana%add("x_b.txt",lines=[1,n],BOL=1)
 !call speana%add("x.txt",lines=[1,n],BOL=1)
