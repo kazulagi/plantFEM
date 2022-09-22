@@ -45,6 +45,11 @@ module COOClass
         procedure,public :: ne => neCOO
         procedure,public :: maxval => maxvalCOO
 
+
+        ! typical matrix
+        procedure,public :: eyes => eyesCOO
+        procedure,public :: poisson => poissonCOO
+
         !procedure,public ::getAllCol_as_row_obj => getAllCol_as_row_objCOO
     end type
         
@@ -99,7 +104,7 @@ module COOClass
     interface operator(*)
       module procedure multReal64_and_CRS, multCRS_and_Real64
     end interface
-    
+
 contains
 
 subroutine initCOO(this,num_row)
@@ -1154,5 +1159,37 @@ subroutine loadCRS(this,CCS,Position)
         endif
     endif
 end subroutine
+
+subroutine eyesCOO(this,n)
+    class(COO_) :: this
+    integer(int32),intent(in) :: n
+    integer(int32) :: i
+
+    call this%init(n)
+    do i=1,n
+        call this%set(i,i,1.0d0)
+    enddo
+
+end subroutine
+
+
+subroutine poissonCOO(this,n)
+    class(COO_) :: this
+    integer(int32),intent(in) :: n
+    integer(int32) :: i
+
+    call this%init(n)
+    call this%set(1,1  ,-1.0d0)
+    call this%set(1,1+1, 1.0d0)
+    do i=2,n-1
+        call this%set(i,i-1,1.0d0)
+        call this%set(i,i  ,-2.0d0)
+        call this%set(i,i+1,1.0d0)
+    enddo
+    call this%set(n,n-1,-1.0d0)
+    call this%set(n,n  , 1.0d0)
+    
+end subroutine
+
 
 end module COOClass
