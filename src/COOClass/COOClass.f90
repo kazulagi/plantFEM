@@ -1175,19 +1175,19 @@ end subroutine
 
 subroutine poissonCOO(this,n)
     class(COO_) :: this
-    integer(int32),intent(in) :: n
+    integer(int32),intent(in) :: n 
     integer(int32) :: i
 
     call this%init(n)
-    call this%set(1,1  ,-1.0d0)
+    call this%set(1,1  ,-2.0d0)
     call this%set(1,1+1, 1.0d0)
     do i=2,n-1
-        call this%set(i,i-1,1.0d0)
-        call this%set(i,i  ,-2.0d0)
-        call this%set(i,i+1,1.0d0)
+        call this%set(i,i-1, 1.0d0)
+        call this%set(i,i  ,-4.0d0)
+        call this%set(i,i+1, 1.0d0)
     enddo
-    call this%set(n,n-1,-1.0d0)
-    call this%set(n,n  , 1.0d0)
+    call this%set(n,n-1, 1.0d0)
+    call this%set(n,n  ,-2.0d0)
     
 end subroutine
 

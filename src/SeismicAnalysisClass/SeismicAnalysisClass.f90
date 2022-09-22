@@ -115,15 +115,20 @@ module SeismicAnalysisClass
         procedure, public :: setMaterial => setMaterialSeismicAnalysis
         procedure, public :: setBoundary => setBoundarySeismicAnalysis
         procedure, public :: setSolverParameters => setSolverParametersSeismicAnalysis
-        procedure, public :: solve       => runSeismicAnalysis
+        
 
-
+        procedure,pass :: runSeismicAnalysis_user_function
+        procedure,pass :: runSeismicAnalysis
+        
+        generic :: solve       => runSeismicAnalysis, runSeismicAnalysis_user_function
+        
 
         ! single-doamin mode
         procedure, public :: loadWave => loadWaveSeismicAnalysis
         procedure, public :: fixDisplacement => fixDisplacementSeismicAnalysis 
         procedure, public :: updateWave => updateWaveSeismicAnalysis
-        procedure, public :: run => runSeismicAnalysis
+        
+        generic :: run       => runSeismicAnalysis, runSeismicAnalysis_user_function
         
 
         procedure, public :: LinearReyleighNewmark => LinearReyleighNewmarkSeismicAnalysis
@@ -895,6 +900,245 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio
                 
            
                 new_U = obj%modal%solver%solve(x0=obj%U_n,preconditioning=preconditioning)
+
+                new_V = 6.0d0/dt*new_U - 6.0d0/dt*obj%U_n - (obj%v_n + 2.0d0*obj%v_half)
+
+                new_A = 6.0d0/dt*new_V - 6.0d0/dt*obj%V_n - (obj%a_n + 2.0d0*obj%a_half)
+                
+                ! update valiables
+                obj%U_n = new_U
+                obj%U   = new_U
+
+                obj%V_n    = obj%V_half
+                obj%V_half = obj%V
+                obj%V      = new_V
+
+                obj%A_n    = obj%A_half
+                obj%A_half = obj%A
+                obj%A      = new_A
+
+        end select
+    else
+        ratio = input(default=1.0d0,option=disp_magnify_ratio)
+        if(present(wave) )then
+            obj%wave = wave
+        endif
+
+        do i=timestep(1),timestep(2)-1
+            ! update dt
+            obj%dt = abs(obj%wave(i+1,1) - obj%wave(i,1))
+
+            ! update time
+            obj%step = i
+            obj%t = obj%dt*obj%Step
+            call obj%updateWave(timestep=obj%step+1)
+            ! show info.
+            call print("SeismicAnalysis >> "//str(obj%t-obj%dt)//"< t <"//str(obj%t)//" sec.")
+
+            ! solve Linear-ElastoDynamic problem with Reyleigh dumping and Newmark Beta
+            if(present(AccelLimit) )then
+                if(maxval(obj%A)>=AccelLimit)then
+                    print *, "[Caution] :: runSeismicAnalysis >> exceeds AccelLimit!"
+                    return    
+                endif
+            endif
+
+            call obj%LinearReyleighNewmark()
+
+            call obj%recordMaxValues()
+            ! Export results
+            call obj%save("step_"//str(obj%step),ratio=ratio)
+
+        enddo 
+    endif
+
+end subroutine
+! ##############################################
+
+
+! ##############################################
+subroutine runSeismicAnalysis_user_function(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio,use_same_stiffness,&
+    dt,timeIntegral,use_same_matrix,LinearSolver)
+    class(SeismicAnalysis_),intent(inout) :: obj
+    ! >> for multi-domain
+    real(real64),optional,intent(in) :: dt
+    logical,optional,intent(in) :: use_same_matrix
+
+
+    character(*),intent(in) :: timeIntegral
+    
+    ! CRS formatted Linear solver
+    interface 
+        subroutine LinearSolver(row_ptr,col_idx,val,rhs,x) 
+            use iso_fortran_env
+            implicit none
+            real(real64),intent(in) :: val(:),rhs(:)
+            real(real64),intent(inout) :: x(:)
+            integer(int32),intent(in) :: row_ptr(:),col_idx(:)
+
+        end subroutine
+    end interface
+    
+    ! << 
+
+    ! >> for single-domain
+    integer(int32),optional,intent(in) :: timestep(2)
+    logical,optional,intent(in) :: use_same_stiffness! Use A' for all t_n, A'x=b
+    real(real64),optional,intent(in) :: t0,disp_magnify_ratio
+    real(real64),optional,intent(in) :: wave(:,:),AccelLimit
+    real(real64),allocatable :: mass_diag(:),R(:),boundary_force(:),F_vec(:),new_U(:),new_V(:),new_A(:)
+    real(real64),allocatable :: diag(:),bar_A(:),bar_V(:)
+    ! <<<
+
+    type(LinearSolver_) :: solver
+    type(IO_) :: U, V, A
+    type(CRS_) :: M_matrix, K_matrix, A_matrix
+    
+    integer(int32) :: i,j
+    real(real64) :: ratio
+
+
+    if(obj%multi_domain_mode)then
+        if(.not.present(dt) )then
+            print *, "Need real(real64) :: dt for multi-domain"
+            stop
+        endif
+        
+        select case(timeIntegral)
+            case("Nemwark-beta","Nemwark-Beta")
+
+                if(.not.allocated(obj%a_n) )then
+                    obj%a_n = obj%a
+                endif
+                if(.not.allocated(obj%v_n) )then
+                    obj%v_n = obj%v    
+                endif
+                if(.not.allocated(obj%u_n) )then
+                    obj%u_n = obj%u    
+                endif
+
+
+                obj%modal%solver%CRS_val = 0.0d0
+
+                ! multiplication/summersion of CRS matrices
+                
+                if(present(use_same_matrix))then
+                    if(use_same_matrix)then
+                        if(.not.allocated(obj%M_matrix%val) )then
+                            print *, "[ok] use_same_matrix >> enabled "
+                            call obj%modal%solve(only_matrix=.true.,penalty=obj%overset_penalty)
+                            obj%M_matrix = obj%modal%solver%getCRS("B")
+                            obj%K_matrix = obj%modal%solver%getCRS("A")
+                            M_matrix = obj%M_matrix
+                            K_matrix = obj%K_matrix
+                        else
+                            print *, "[ok] use_same_matrix >> active "
+                            M_matrix = obj%M_matrix
+                            K_matrix = obj%K_matrix
+                        endif
+                        
+                    else
+                        call obj%modal%solve(only_matrix=.true.,penalty=obj%overset_penalty)
+                        M_matrix = obj%modal%solver%getCRS("B")
+                        K_matrix = obj%modal%solver%getCRS("A")
+                    endif
+                else
+                    call obj%modal%solve(only_matrix=.true.,penalty=obj%overset_penalty)
+                    M_matrix = obj%modal%solver%getCRS("B")
+                    K_matrix = obj%modal%solver%getCRS("A")
+                endif
+
+                A_matrix = (1.0d0/dt/dt/obj%Newmark_beta + &
+                    obj%Newmark_gamma/dt/obj%Newmark_beta*obj%alpha)*M_matrix &
+                    + (obj%Newmark_gamma/dt/obj%Newmark_beta*obj%beta + 1.0d0)*K_matrix
+                
+                bar_A = - 1.0d0/dt/obj%Newmark_beta*obj%V_n(:) -1.0d0/2.0d0/obj%Newmark_beta &
+                    *(1.0d0 - 2.0d0*obj%Newmark_beta)*obj%A_n(:)
+
+                bar_V = obj%V_n + dt*(1.0d0-obj%Newmark_gamma)*obj%A_n &
+                    - obj%Newmark_gamma/obj%Newmark_beta*obj%V_n - dt*obj%Newmark_gamma/2.0d0 &
+                    /obj%Newmark_beta*(1.0d0 - 2.0d0*obj%Newmark_beta)*obj%A_n
+                
+                
+                F_vec = obj%Traction + M_matrix%matmul(obj%A_ext)&
+                    + obj%getAbsorbingBoundaryForce() &
+                    -K_matrix%matmul(obj%U_n) &
+                    -M_matrix%matmul(bar_A)&
+                    -obj%alpha*M_matrix%matmul(bar_V)&
+                    -obj%beta*K_matrix%matmul(bar_V)
+!debug
+                call obj%modal%solver%setCRS(A_matrix)
+                call obj%modal%solver%setRHS(F_vec)
+                
+                
+               
+                new_U = obj%modal%solver%solve(x0=obj%U,LinearSolver=LinearSolver)
+
+                New_A   = 1.0d0/dt/dt/obj%Newmark_beta*new_U  + bar_A
+
+                New_V   = obj%newmark_gamma/dt/obj%newmark_beta*new_U + bar_V
+ 
+                
+                new_U = new_U + obj%U_n
+                
+                obj%U   = new_U
+                obj%U_n = obj%U
+                
+                obj%V   = new_V
+                obj%V_n = obj%V
+                
+                obj%A   = new_A  
+                obj%A_n = obj%A
+                
+                
+
+
+            case("RK4")
+                print *, "[STOP] Forward Euler >> Buggy"
+                stop
+                if(.not.allocated(obj%a_n) )then
+                    obj%a_n = obj%a
+                endif
+                if(.not.allocated(obj%v_n) )then
+                    obj%v_n = obj%v    
+                endif
+
+                if(.not.allocated(obj%a_half) )then
+                    obj%a_half = obj%a_n
+                endif
+                if(.not.allocated(obj%v_half) )then
+                    obj%v_half = obj%v_n    
+                endif
+
+                if(.not.allocated(obj%U_n) )then
+                    obj%U_n = obj%U
+                endif
+
+                call obj%modal%solve(only_matrix=.true.)
+                ! multiplication/summersion of CRS matrices
+                M_matrix = obj%modal%solver%getCRS("B")
+                K_matrix = obj%modal%solver%getCRS("A")
+                A_matrix = (obj%beta * 6.0d0/dt + 1.0d0)* K_matrix + &
+                    (36.0d0/dt/dt + obj%alpha*6.0d0/dt)*M_matrix 
+                    
+                F_vec = obj%Traction + M_matrix%matmul(obj%A_ext)&
+                    + obj%getAbsorbingBoundaryForce() &
+                    + (36.0d0/dt/dt + obj%alpha*6.0d0/dt)*M_matrix%matmul(obj%u_n) &
+                    + obj%beta*6.0d0/dt*K_matrix%matmul(obj%u_n) &
+                    + (12.0d0/dt+obj%alpha)*M_matrix%matmul(obj%v_n) &
+                    + obj%beta *K_matrix%matmul(obj%v_n)  &
+                    + (12.0d0/dt + 2.0d0*obj%alpha)*M_matrix%matmul(obj%v_half) & 
+                    + (2.0d0*obj%beta)*K_matrix%matmul(obj%v_half) &
+                    + 2.0d0*M_matrix%matmul(obj%a_n) & 
+                    + 2.0d0*M_matrix%matmul(obj%a_half) 
+                ! diag
+                
+                
+                call obj%modal%solver%setCRS(A_matrix)
+                call obj%modal%solver%setRHS(F_vec)
+                
+           
+                new_U = obj%modal%solver%solve(x0=obj%U_n,LinearSolver=LinearSolver)
 
                 new_V = 6.0d0/dt*new_U - 6.0d0/dt*obj%U_n - (obj%v_n + 2.0d0*obj%v_half)
 
