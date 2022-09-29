@@ -39,6 +39,8 @@ module MaizeClass
 
         real(real64)   :: mainstem_length
         real(real64)   :: mainstem_width
+        real(real64)   :: mainstem_bottom_width
+        real(real64)   :: mainstem_top_width
         integer(int32) :: mainstem_node
 
         real(real64)   :: mainroot_length
@@ -207,6 +209,8 @@ subroutine createMaize(this,config,debug)
     endif
     this%mainstem_length = freal(Maizeconfig%parse(config,key1="Mainstem",key2="Length"))
     this%mainstem_width = freal(Maizeconfig%parse(config,key1="Mainstem",key2="Width"))
+    this%mainstem_bottom_width = freal(Maizeconfig%parse(config,key1="Mainstem",key2="BottomWidth"))
+    this%mainstem_top_width = freal(Maizeconfig%parse(config,key1="Mainstem",key2="TopWidth"))
     this%mainstem_node = fint(Maizeconfig%parse(config,key1="Mainstem",key2="Node"))
     this%ms_angle_ave = freal(Maizeconfig%parse(config,key1="Mainstem",key2="ms_angle_ave"))
     this%ms_angle_sig = freal(Maizeconfig%parse(config,key1="Mainstem",key2="ms_angle_sig"))
@@ -360,7 +364,10 @@ subroutine createMaize(this,config,debug)
             y_num = this%stem_division(2),&
             z_num = this%stem_division(3) &
             )
-             
+        if(this%mainstem_bottom_width/=0.0d0 .and. this%mainstem_top_width/=0)then
+            this%mainstem_width = (this%mainstem_top_width-this%mainstem_bottom_width)/this%mainstem_node &
+                *(i-1) + this%mainstem_bottom_width
+        endif
         call this%stem(i)%resize(&
             x = this%mainstem_width, &
             y = this%mainstem_width, &
@@ -1596,6 +1603,8 @@ subroutine removeMaize(this,root)
 
     this%mainstem_length = 0.0d0
     this%mainstem_width = 0.0d0
+    this%mainstem_bottom_width = 0.0d0
+    this%mainstem_top_width = 0.0d0
     this%mainstem_node=0
 
     this%mainroot_length = 0.0d0
