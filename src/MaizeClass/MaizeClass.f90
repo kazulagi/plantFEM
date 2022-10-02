@@ -199,6 +199,7 @@ subroutine createMaize(this,config,debug)
     type(Random_) :: random
     integer(int32)::i,n,j,k,num_leaf,num_stem_node,num_branch_branch,cpid
     real(real64) :: x_A(1:3)
+    real(real64),allocatable ::  Leaf_angle_z(:)
 
     debug_log = input(default=.false.,option=debug)
     cpid = 0
@@ -357,6 +358,7 @@ subroutine createMaize(this,config,debug)
     endif
 
     ! set mainstem
+    Leaf_angle_z = zeros(this%mainstem_node)
     do i=1,this%mainstem_node
 
         call this%stem(i)%init(&
@@ -416,6 +418,7 @@ subroutine createMaize(this,config,debug)
                 y = 0.0d0, &
                 z = radian(random%gauss(mu=this%leaf_angle_ave_z(i),sigma=this%leaf_angle_sig_z(i)) ) &
             )
+        Leaf_angle_z(this%Leaf_From(i))=radian(random%gauss(mu=this%leaf_angle_ave_z(i),sigma=this%leaf_angle_sig_z(i)))
         call this%leaf(num_leaf)%connect("=>",this%stem( this%Leaf_From(i) ))
             this%leaf2stem(num_leaf, this%Leaf_From(i) ) = 1
     enddo
@@ -489,15 +492,17 @@ subroutine createMaize(this,config,debug)
     allocate(this%ear(this%num_ear) )
     this%ear2stem = zeros(this%num_ear, size(this%stem2stem,1 ) )
     do i=1,this%num_ear
+        n = fint(Maizeconfig%parse(config,key1="Ear_"//str(i)//"_",key2="From"))
+        
         call this%ear(i)%init(&
             x_num = this%ear_division(1),&
             y_num = this%ear_division(2),&
             z_num = this%ear_division(3),&
             Length=freal(Maizeconfig%parse(config,key1="Ear_"//str(i)//"_",key2="Length")),&
             Width= freal(Maizeconfig%parse(config,key1="Ear_"//str(i)//"_",key2="Width")),&
-            Angle= freal(Maizeconfig%parse(config,key1="Ear_"//str(i)//"_",key2="Angle")) & ! deg.
+            Angle= freal(Maizeconfig%parse(config,key1="Ear_"//str(i)//"_",key2="Angle")), & ! deg.
+            Leaf_angle_z=Leaf_angle_z(n) &
             )
-        n = fint(Maizeconfig%parse(config,key1="Ear_"//str(i)//"_",key2="From"))
         this%ear2stem(i,n) = 1
         
         ! こいつを実装する．

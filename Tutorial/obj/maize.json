@@ -2,7 +2,7 @@
     "Name":"Maize",
     "Mainstem":{
         "Length":1.80,
-        "BottomWidth":0.034,
+        "BottomWidth":0.030,
         "TopWidth":   0.007,
         "Node":13,
         "ms_angle_ave": 0.00, 

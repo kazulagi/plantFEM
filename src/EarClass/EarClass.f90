@@ -50,9 +50,10 @@ module EarClass
 contains
 
 ! #####################################################
-subroutine initEar(this,Length,Width,Angle,debug,x_num,y_num,z_num)
+subroutine initEar(this,Length,Width,Angle,debug,x_num,y_num,z_num,Leaf_angle_z)
     class(Ear_),intent(inout) :: this
     real(real64),intent(in) :: Length, width, Angle
+    real(real64),optional,intent(in) ::  Leaf_angle_z
     integer(int32),optional,intent(in) :: x_num,y_num,z_num
     type(Math_) :: math
     type(Random_) :: random
@@ -207,7 +208,12 @@ subroutine initEar(this,Length,Width,Angle,debug,x_num,y_num,z_num)
 !
     this%A_PointNodeID = (this%division(1)+1)*(this%division(2)+1)/2
     this%B_PointNodeID = this%FEMDomain%nn()- (this%division(1)+1)*(this%division(2)+1)/2
-    call this%FEMDomain%rotate(x=radian(Angle),z=math%PI*2.0d0*random%random() )
+    
+    if(present(Leaf_angle_z) )then
+        call this%FEMDomain%rotate(x=radian(Angle),z=Leaf_angle_z )
+    else
+        call this%FEMDomain%rotate(x=radian(Angle),z=math%PI*2.0d0*random%random() )
+    endif
 
 end subroutine
 ! #####################################################
