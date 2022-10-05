@@ -89,6 +89,8 @@ module SeismicAnalysisClass
         ! modal analysis
         real(real64),allocatable :: Frequency(:)
         real(real64),allocatable :: ModeVectors(:,:)
+        integer(int32),allocatable :: NodeID_range(:,:)
+        integer(int32),allocatable :: ElementID_range(:,:)
         ! <<<
 
         character(1) :: wavedirection="z"
@@ -144,7 +146,16 @@ module SeismicAnalysisClass
         procedure, public :: absorbingBoundary => absorbingBoundarySeismicAnalysis
         procedure, public :: getAbsorbingBoundaryForce => getAbsorbingBoundaryForceSeismicAnalysis
         procedure, public :: velocity => velocitySeismicAnalysis
-        procedure, public :: modalAnalysis => modalAnalysisSeismicAnalysis
+        procedure,pass :: modalAnalysisSeismicAnalysis_single_domain
+        procedure,pass :: modalAnalysisSeismicAnalysis_multi_domain
+        
+        
+        generic :: modalAnalysis => modalAnalysisSeismicAnalysis_single_domain, &
+                                    modalAnalysisSeismicAnalysis_multi_domain
+        
+        procedure, public :: getModeVector => getModeVectorSeismicAnalysis
+        procedure, public :: exportModeShape => exportModeShapeSeismicAnalysis
+
         procedure, public :: vtk  => vtkSeismicAnalysis
     end type
 
@@ -1358,8 +1369,8 @@ subroutine LinearReyleighNewmarkSeismicAnalysis(obj,TOL)
     endif
     call solver%solve("BiCGSTAB")
 
-    print *, maxval(solver%val),minval(solver%val)
-    print *, maxval(solver%x),minval(solver%x)
+!    print *, maxval(solver%val),minval(solver%val)
+!    print *, maxval(solver%x),minval(solver%x)
     
     u_upd = solver%x
     v_upd = obj%updateVelocityNewmarkBeta(u=u_upd,u_n=obj%U,v_n=obj%V,a_n=obj%A,&
@@ -1663,7 +1674,7 @@ pure function getAbsorbingBoundaryForceSeismicAnalysis(obj) result(force)
 end function
 ! #############################################################
 
-subroutine modalAnalysisSeismicAnalysis(this,femdomain,YoungModulus,PoissonRatio,Density,&
+subroutine modalAnalysisSeismicAnalysis_single_domain(this,femdomain,YoungModulus,PoissonRatio,Density,&
     fix_node_list_x,fix_node_list_y,fix_node_list_z)
     class(SeismicAnalysis_),intent(inout) :: this
     type(FEMDomain_),intent(inout),target :: femdomain
@@ -1746,6 +1757,167 @@ subroutine modalAnalysisSeismicAnalysis(this,femdomain,YoungModulus,PoissonRatio
     
     ! read results
     freq = sqrt(abs(eigen_value))/2.0d0/3.141590d0
+    !$OMP parallel do
+    do i=1,size(freq)
+        if(freq(i)==0.0d0 )cycle
+        eigen_vectors(:,i) = eigen_vectors(:,i)/norm(eigen_vectors(:,i) )
+    enddo
+    !$OMP end parallel do
+
+    this%frequency = freq
+    this%ModeVectors = eigen_vectors
+
+!    ! 20 modes
+!    do i_i=1,20
+!        mode_U = zeros(size(eigen_vectors,1))
+!        mode_U = eigen_vectors(:,i_i)
+!        dt = 1.0d0/freq(i_i)/100.0d0
+!        do j_j=1,100
+!            t = dt * dble(j_j-1)
+!            mode_Ut = mode_U*cos( 2.0d0*3.140d0*freq(i_i)*t )
+!
+!            domains(1)%mesh%nodcoord = domains(1)%mesh%nodcoord &
+!            +0.00010d0*reshape(mode_Ut,domains(1)%nn(),3 ) 
+!
+!            call domains(1)%vtk("Mode_Fortran_"+str(i_i)+"_t_"+str(j_j))
+!            domains(1)%mesh%nodcoord = domains(1)%mesh%nodcoord &
+!            -0.00010d0*reshape(mode_Ut,domains(1)%nn(),3 ) 
+!        enddo
+!    enddo
+    
+
+
+
+
+end subroutine
+
+
+
+
+subroutine modalAnalysisSeismicAnalysis_multi_domain(this,femdomains,connectivity,&
+    YoungModulus,PoissonRatio,Density,&
+    fix_node_list_x,fix_node_list_y,fix_node_list_z,&
+    overset_algorithm,penalty)
+    class(SeismicAnalysis_),intent(inout) :: this
+
+    type(FEMDomain_),intent(inout) :: femdomains(:)
+    integer(int32),intent(in) :: connectivity(:,:),overset_algorithm
+    real(real64),intent(in) :: YoungModulus(:), PoissonRatio(:),Density(:)
+    real(real64),optional,intent(in) ::penalty
+    
+    type(IO_) :: f
+
+    integer(int32) :: i,DomainID
+    real(real64) :: Vs,t,dt,E_Al
+    real(real64),allocatable :: Mode_U(:),mode_Ut(:),freq(:),eigen_value(:),eigen_vectors(:,:)
+    integer(int32),allocatable :: node_list(:)
+    integer(int32),optional,intent(in) :: fix_node_list_x(:)
+    integer(int32),optional,intent(in) :: fix_node_list_y(:)
+    integer(int32),optional,intent(in) :: fix_node_list_z(:)
+    
+    integer(int32),allocatable :: DomainIDs(:)
+    !read file
+
+    DomainIDs = arange(start_val=1,stop_val=size(femdomains),step=1,dtype=int32 )
+
+
+    ! overset
+    do i=1,size(connectivity,1)
+        call femdomains(  connectivity(i,1)  )%overset(&
+            FEMDomain=femdomains(connectivity(i,2)) ,&
+            DomainID   = connectivity(i,2)    ,& 
+            MyDomainID = connectivity(i,1)  ,&
+            algorithm=overset_algorithm ) 
+    enddo
+
+
+    call this%femsolver%init(NumDomain=size(femdomains) )
+    call this%femsolver%setDomain(FEMDomains=femdomains,DomainIDs=DomainIDs)
+    call this%femsolver%setCRS(DOF=femdomains(1)%nd() )
+    
+    if(allocated(this%NodeID_range)) deallocate(this%NodeID_range)
+    allocate(this%NodeID_range(0:size(femdomains),1:2 ) )
+    this%NodeID_range(0,1) =0
+    this%NodeID_range(0,2) =0
+    this%NodeID_range(1,1) = 1
+    this%NodeID_range(1,2) = femdomains(1)%nn()
+    do domainID=2,size(femdomains)
+        this%NodeID_range(domainID,1) = this%NodeID_range(DomainID-1,2) + 1 
+        this%NodeID_range(domainID,2) = this%NodeID_range(DomainID-1,2) &
+                                    + femdomains(DomainID)%nn()
+    enddo
+
+    if(allocated(this%ElementID_range)) deallocate(this%ElementID_range)
+    allocate(this%ElementID_range(0:size(femdomains),1:2 ) )
+    this%ElementID_range(0,1) =0
+    this%ElementID_range(0,2) =0
+    this%ElementID_range(1,1) = 1
+    this%ElementID_range(1,2) = femdomains(1)%ne()
+    do domainID=2,size(femdomains)
+        this%ElementID_range(domainID,1) = this%ElementID_range(DomainID-1,2) + 1 
+        this%ElementID_range(domainID,2) = this%ElementID_range(DomainID-1,2) &
+                                    + femdomains(DomainID)%ne()
+    enddo
+
+    do domainID=1,size(femdomains)
+        do i=1,femdomains(domainID)%ne()
+            call this%femsolver%setMatrix(&
+                DomainID=DomainID,&
+                ElementID=i,&
+                DOF=3,&
+                Matrix=femdomains(domainID)%MassMatrix(&
+                ElementID=i,&
+                Density=Density( this%ElementID_range(DomainID-1, 2 ) +  i  ),DOF=3) &
+                )
+        enddo
+    enddo
+    
+    call this%femsolver%keepThisMatrixAs("B")
+    call this%femsolver%zeros()
+
+    print *, "Save Stiffness Matrix"
+    do domainID=1,size(femdomains)
+        do i=1,femdomains(domainID)%ne()
+            call this%femsolver%setMatrix(&
+                DomainID=DomainID,&
+                ElementID=i,&
+                DOF=3,&
+                Matrix=femdomains(domainID)%StiffnessMatrix(&
+                ElementID=i,&
+                E=YoungModulus(this%ElementID_range(DomainID-1, 2 ) +i),&
+                v=PoissonRatio(this%ElementID_range(DomainID-1, 2 ) +i) ) &
+                )
+        enddo
+    enddo
+    call this%femsolver%setEbOM(penalty=input(default=10000000.0d0,option=penalty), DOF=3)
+    
+    call this%femsolver%keepThisMatrixAs("A")
+    
+    ! Eigen value problem solver by scipy
+    
+!    print *, "solver%eig"
+    if(present(fix_node_list_x) )then
+        node_list = fix_node_list_x
+        node_list =(node_list(:)-1)*3+1
+        call this%femsolver%fix_eig(IDs=node_list)
+    endif
+
+    if(present(fix_node_list_y) )then
+        node_list = fix_node_list_y
+        node_list =(node_list(:)-1)*3+2
+        call this%femsolver%fix_eig(IDs=node_list)
+    endif
+
+    if(present(fix_node_list_z) )then
+        node_list = fix_node_list_z
+        node_list =(node_list(:)-1)*3+3
+        call this%femsolver%fix_eig(IDs=node_list)
+    endif
+
+    call this%femsolver%eig(eigen_value=eigen_value,eigen_vectors=eigen_vectors)
+    
+    ! read results
+    freq = sqrt(abs(eigen_value))/2.0d0/3.141590d0
     
 
     this%frequency = freq
@@ -1774,6 +1946,8 @@ subroutine modalAnalysisSeismicAnalysis(this,femdomain,YoungModulus,PoissonRatio
 
 
 end subroutine
+
+
 
 subroutine vtkSeismicAnalysis(this,name,num_mode,amp,scalar_field)
     class(SeismicAnalysis_),intent(in) :: this
@@ -1857,6 +2031,52 @@ subroutine setSolverParametersSeismicAnalysis(this,error,debug)
 
     
     
+
+end subroutine
+
+
+function getModeVectorSeismicAnalysis(this,domainID,ModeID) result(mode_vector)
+    class(SeismicAnalysis_),intent(in) :: this
+    integer(int32),intent(in) :: domainID,ModeID
+    real(real64),allocatable :: mode_vector(:)
+    integer(int32) :: i,n,nn
+
+    if(.not.allocated(this%ModeVectors) )then
+        print *, "ERROR >> getModeVectorSeismicAnalysis >> Please call %modalAnalysis"
+        return
+    endif
+
+    if(allocated(this%NodeID_range)  )then
+        n = this%NodeID_range(domainID-1,2)
+        nn = this%NodeID_range(domainID,2) - this%NodeID_range(domainID-1,2)
+        mode_vector = this%ModeVectors(3*n + 1:3*n + nn*3,ModeID)
+    else
+        mode_vector = this%ModeVectors(:,ModeID)
+    endif
+
+
+end function
+
+subroutine exportModeShapeSeismicAnalysis(this,domainID,femdomain,name,MAX_MODE_NUM,amp)
+    class(SeismicAnalysis_),intent(in) :: this
+    integer(int32),intent(in) :: domainID
+    type(FEMDomain_),intent(inout) :: femdomain
+    character(*),intent(in) :: name
+    integer(int32),optional,intent(in) :: MAX_MODE_NUM
+    real(real64),optional,intent(in) :: amp
+
+    real(real64),allocatable :: mode_vector(:), disp(:)
+    integer(int32) :: i,n,nn
+    integer(int32) :: MAX_MODE_ID = 10
+    real(real64) :: amp_val
+
+    amp_val = input(default=1.0d0,option=amp)
+    do i=1,MAX_MODE_ID
+        disp = this%getModeVector(domainID=domainID,ModeID=i)
+        call femdomain%deform(disp=disp*amp_val)
+        call femdomain%vtk(name + "_mode_" + zfill(i,4) )
+        call femdomain%deform(disp=-disp*amp_val)
+    enddo
 
 end subroutine
 
