@@ -149,7 +149,7 @@ module ArrayClass
     end interface median
 
     interface arange
-        module procedure :: arangeRealVector
+        module procedure :: arangeRealVector,arangeIntVector
     end interface
 
     interface reshape
@@ -5168,6 +5168,27 @@ function arangeRealVector(size1,stop_val,step) result(vector)
     endif
 end function arangeRealVector
 ! ############################################################
+function arangeIntVector(start_val,stop_val,step,dtype) result(vec)
+    integer(int32),intent(in) :: start_val,stop_val,step,dtype
+    integer(int32),allocatable :: vec(:)
+    integer(int32) :: i,n
+
+    if(dtype/=int32)then
+        print *, "arangeIntVector >> use arangeRealVector(size1,stop_val,step)"
+    endif
+    n = 0
+    do i=start_val,stop_val,step
+        n = n + 1
+    enddo
+    allocate(vec(n) )
+
+    n=0
+    do i=start_val,stop_val,step
+       n=n+1
+       vec(n) = i 
+    enddo
+end function
+
 
 
 ! ############################################################
@@ -6507,6 +6528,7 @@ function eigenValueCOO(val,indexI,indexJ,tol,ignore_caution) result(lambda)
     real(real64),optional,intent(in) :: tol
     logical,optional,intent(in) :: ignore_caution
 
+    lambda = zeros(1)
     print *, "eigenValueCOO is not implemented yet."
     !if( )then
     !    lambda = EigenValueJacobiMethodCOO(val,indexI,indexJ,tol=tol)
@@ -6526,16 +6548,16 @@ end function
 
 
 ! ###############################################################
-function EigenValueJacobiMethodCOO(val,indexI,indexJ,x,tol) result(lambda)
-    real(real64),intent(in) :: val(:),indexI(:),indexJ(:)
-    real(real64),allocatable :: lambda(:)
-    real(real64),optional,allocatable,intent(inout) :: x(:,:) ! Eigen Vector
-    real(real64),optional,intent(in) :: tol
-    real(real64),allocatable :: Ak(:),apj(:),aqj(:),aip(:),aiq(:),Gk(:,:)
-    real(real64)::apq_tr,theta,tan2theta,app,aqq,apq,loop_tol,akpp,akqq
-    integer(int32) :: n,p,q,i,j
-    logical :: convergence = .false.
-!
+!function EigenValueJacobiMethodCOO(val,indexI,indexJ,x,tol) result(lambda)
+!    real(real64),intent(in) :: val(:),indexI(:),indexJ(:)
+!    real(real64),allocatable :: lambda(:)
+!    real(real64),optional,allocatable,intent(inout) :: x(:,:) ! Eigen Vector
+!    real(real64),optional,intent(in) :: tol
+!    real(real64),allocatable :: Ak(:),apj(:),aqj(:),aip(:),aiq(:),Gk(:,:)
+!    real(real64)::apq_tr,theta,tan2theta,app,aqq,apq,loop_tol,akpp,akqq
+!    integer(int32) :: n,p,q,i,j
+!    logical :: convergence = .false.
+!!
 !    if(present(tol) )then
 !        loop_tol = tol
 !    else
@@ -6656,7 +6678,7 @@ function EigenValueJacobiMethodCOO(val,indexI,indexJ,x,tol) result(lambda)
 !        lambda(i) = Ak(i,i)
 !    enddo
 
-end function
+!end function
 ! ###############################################################
 subroutine eigenValueAndVector(A,lambda,x,tol) 
     real(real64),intent(inout) :: A(:,:)

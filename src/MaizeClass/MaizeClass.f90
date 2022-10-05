@@ -2449,7 +2449,7 @@ function getEigenModeMaize(this, ground_level,penalty,debug,Frequency,EbOM_Algor
     endif
     
     call solver%setEbOM(penalty=input(default=10000000.0d0,option=penalty), DOF=3)
-
+    
     if(present(debug) )then
         if(debug)then
             print *, "[ok] set EbOM >> done."        
