@@ -2074,7 +2074,7 @@ subroutine exportModeShapeSeismicAnalysis(this,domainID,femdomain,name,MAX_MODE_
     do i=1,MAX_MODE_ID
         disp = this%getModeVector(domainID=domainID,ModeID=i)
         call femdomain%deform(disp=disp*amp_val)
-        call femdomain%vtk(name + "_mode_" + zfill(i,4) )
+        call femdomain%vtk(name + "_mode_" + zfill(i,4)+".vtk" )
         call femdomain%deform(disp=-disp*amp_val)
     enddo
 
