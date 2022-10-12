@@ -1,0 +1,13 @@
+{
+    "NumPiers_x" : 2,
+    "NumPiers_y" : 3,
+    "Width" :  14.00 ,
+    "Length" : 50.00 ,  
+    "Height" : 20.00 ,
+    "PierThickness" : 2.00  ,
+    "Divisions_x" : 3 ,
+    "Divisions_y" : 3 ,
+    "Divisions_z" : 3 ,
+    "NumMiddlePier" : 1,
+    "MiddlePierHeights" : [7.00]  
+}

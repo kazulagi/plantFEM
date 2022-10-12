@@ -184,7 +184,9 @@ module MaizeClass
 
         ! export eigen modes and frequency
         procedure,public :: export_eig => export_eigMaize
-        
+
+        ! editor
+        procedure,public :: resizeLeaf => resizeLeafMaize
     end type
 contains
 
@@ -3818,7 +3820,15 @@ subroutine export_eigMaize(this,name,Frequency,ModeVectors,stress_type)
 end subroutine
 
 ! ################################################################
+subroutine resizeLeafMaize(this,LeafID,Length)
+    class(Maize_),intent(inout) :: this
+    integer(int32),intent(in) :: LeafID
+    real(real64),intent(in) :: Length
 
+    call this%leaf(leafID)%resize(Length=Length)
+    call this%update()
 
+end subroutine
+! ################################################################
 
 end module MaizeClass

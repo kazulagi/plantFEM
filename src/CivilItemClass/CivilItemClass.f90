@@ -288,13 +288,25 @@ function RigidFrameViaductCivilItem_JSON(this,config,debug) result(RFV)
 
         line = f%readline()
         
-        if(index(line,"NumPiers")/=0 )then
+        if(index(line,"NumPiers")/=0 .and. index(line,"NumPiers_")==0)then
             nf = index(line, "[")
             nt = index(line, "]")
             read(line(nf+1:nt-1),* ) NumPiers(1:2)
             cycle
         endif
 
+        if(index(line,"NumPiers_x")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) NumPiers(1) 
+            cycle
+        endif
+
+
+        if(index(line,"NumPiers_y")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) NumPiers(2) 
+            cycle
+        endif
 
         if(index(line,"Width")/=0 )then
             nf = index(line, ":")
@@ -315,10 +327,31 @@ function RigidFrameViaductCivilItem_JSON(this,config,debug) result(RFV)
             cycle
         endif
 
-        if(index(line,"Divisions")/=0 )then
+        if(index(line,"Divisions")/=0 .and. index(line,"Divisions_")==0)then
             nf = index(line, "[")
             nt = index(line, "]")
             read(line(nf+1:nt-1),* ) Divisions(1:3)
+            cycle
+        endif
+
+
+        if(index(line,"Divisions_x")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) Divisions(1)
+            cycle
+        endif
+
+
+        if(index(line,"Divisions_y")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) Divisions(2)
+            cycle
+        endif
+
+
+        if(index(line,"Divisions_z")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) Divisions(3)
             cycle
         endif
 
