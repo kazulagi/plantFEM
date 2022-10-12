@@ -1,0 +1,19 @@
+{
+    "height":2.200, 
+    "width" :11.00, 
+    "length":117.00,
+    "depth" :30.00,
+    "margin":50.00,
+    "top":4.00,  
+    "angles":[
+        20.00, 
+        20.00
+    ], 
+    "division_v"    : 10, 
+    "division_h"   : 10,
+    "refine_level" : [
+        5,
+        5,
+        3
+    ] 
+}

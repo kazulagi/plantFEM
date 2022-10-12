@@ -90,20 +90,20 @@ async def main():
       <h5 class="my-0 mr-md-auto font-weight-normal">Solvers</h5>
 
       <nav class="my-2 my-md-0 mr-md-3">
-        <a class="btn btn-outline-success" href="/static_analysis">Static analysis</a>
+        <a class="btn btn-outline-dark" disabled>Static analysis</a>
       </nav>
 
 
       <nav class="my-2 my-md-0 mr-md-3">
-        <a class="btn btn-outline-success" href="/modal_analysis">modal analysis</a>
+        <a class="btn btn-outline-dark" disabled>modal analysis</a>
       </nav>
 
       <nav class="my-2 my-md-0 mr-md-3">
-        <a class="btn btn-outline-success" href="/dynamic_analysis">Dynamic analysis</a>
+        <a class="btn btn-outline-dark" disabled>Dynamic analysis</a>
       </nav>
 
       <nav class="my-2 my-md-0 mr-md-3">
-        <a class="btn btn-outline-success" href="/fluid_analysis">Fluid analysis</a>
+        <a class="btn btn-outline-dark" disabled>Fluid analysis</a>
       </nav>
 
 
@@ -147,7 +147,7 @@ async def main():
       <nav class="my-2 my-md-0 mr-md-3">
         <a class="btn btn btn-primary" href="/bridge_creator">Bridge</a>
         <a class="btn btn btn-primary" href="/dam_creator">Dam</a>
-        <a class="btn btn btn-primary" href="/embankment_creator">Embankment</a>
+        
       </nav>
 
     </div>
@@ -157,7 +157,7 @@ async def main():
       <h5 class="my-0 mr-md-auto font-weight-normal">Solvers</h5>
 
       <nav class="my-2 my-md-0 mr-md-3">
-        <a class="btn btn-outline-success" href="/static_analysis">Static analysis</a>
+        <a class="btn btn-outline-dark" disabled>Static analysis</a>
       </nav>
 
       <nav class="my-2 my-md-0 mr-md-3">
@@ -165,11 +165,11 @@ async def main():
       </nav>
 
       <nav class="my-2 my-md-0 mr-md-3">
-        <a class="btn btn-outline-success" href="/dynamic_analysis">Dynamic analysis</a>
+        <a class="btn btn-outline-dark" disabled>Dynamic analysis</a>
       </nav>
 
       <nav class="my-2 my-md-0 mr-md-3">
-        <a class="btn btn-outline-success" href="/fluid_analysis">Fluid analysis</a>
+        <a class="btn btn-outline-dark" disabled>Fluid analysis</a>
       </nav>
 
 
@@ -675,7 +675,7 @@ async def get_file(filename: str):
 @app.get("/bridge_creator/download_new_json/")
 async def download_new_json(Width: str, NumPiers_x: str, NumPiers_y: str,
     Length: str, Height: str, PierThickness: str, Divisions_x: str,
-    Divisions_y: str,Divisions_z: str,GirderWidth,
+    Divisions_y: str,Divisions_z: str,GirderWidth: str,
     GirderThickness:str,
     GirderEdgeHeight:str,
     GirderEdgeThickness:str):
@@ -733,7 +733,7 @@ async def get_json_form():
       <nav class="my-2 my-md-0 mr-md-3">
         <a class="btn btn btn-primary" href="/bridge_creator">Bridge</a>
         <a class="btn btn btn-primary" href="/dam_creator">Dam</a>
-        <a class="btn btn btn-primary" href="/embankment_creator">Embankment</a>
+        
       </nav>
 
       <nav class="my-2 my-md-0 mr-md-3">
@@ -870,7 +870,7 @@ async def create_upload_files(files: List[UploadFile] = File(...),
       <nav class="my-2 my-md-0 mr-md-3">
         <a class="btn btn btn-primary" href="/bridge_creator">Bridge</a>
         <a class="btn btn btn-primary" href="/dam_creator">Dam</a>
-        <a class="btn btn btn-primary" href="/embankment_creator">Embankment</a>
+        
       </nav>
 
       <nav class="my-2 my-md-0 mr-md-3">
@@ -924,7 +924,7 @@ async def main():
       <nav class="my-2 my-md-0 mr-md-3">
         <a class="btn btn btn-primary" href="/bridge_creator">Bridge</a>
         <a class="btn btn btn-primary" href="/dam_creator">Dam</a>
-        <a class="btn btn btn-primary" href="/embankment_creator">Embankment</a>
+        
       </nav>
 
       <nav class="my-2 my-md-0 mr-md-3">
@@ -969,6 +969,321 @@ async def main():
     """
     return HTMLResponse(content=content)
 
+
+###### Dam ######
+
+
+@app.get("/dam_creator/downloadfile")
+async def get_file(filename: str):
+    current = Path()
+    if not filename.endswith(".json"):
+        if not filename.endswith(".vtk"):
+            return {"status": "error"}
+    file_path = current / filename
+    
+    response = FileResponse(
+        path=file_path,
+        filename=f"download_{filename}"
+        )
+    
+    return response
+
+
+@app.get("/dam_creator/download_new_json/")
+async def download_new_json(height: str, width: str, length: str,
+    depth: str, margin: str, top: str, angle_up: str,
+    angle_down: str,division_v: str,division_h: str,
+    refine_level_x:str,
+    refine_level_y:str,
+    refine_level_z:str):
+
+    current = Path()
+    filename = "dam.json"
+    file_path = current / filename
+    
+    with open(file_path, 'r') as fcc_file:
+        fcc_data = json.load(fcc_file)
+        fcc_data["height"] = float(height)
+        fcc_data["width"] = float(width)
+        fcc_data["length"] = float(length)
+        fcc_data["depth"] = float(depth)
+        fcc_data["margin"] = float(margin)
+        fcc_data["top"] = float(top)
+        fcc_data["angles"][0]     = float(angle_up)
+        fcc_data["angles"][1]     = float(angle_up)
+        fcc_data["division_v"]     = int(division_v)
+        fcc_data["division_h"]     = int(division_h)
+        fcc_data["refine_level"][0]     = int(refine_level_x)
+        fcc_data["refine_level"][1]     = int(refine_level_y)
+        fcc_data["refine_level"][2]     = int(refine_level_z)
+        
+    new_filename = "download_"+str(uuid.uuid4())+"_dam.json"
+    f = open(new_filename,"w")
+    f.write((json.dumps(fcc_data, indent=4)))
+    f.close()
+
+    file_path = current / new_filename
+    response = FileResponse(
+        path=file_path,
+        filename=f"{new_filename}"
+        )
+    
+    return response
+
+@app.get("/dam_creator/createjsonfile")
+async def get_json_form():
+    content = """
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <title>plantFEM-webAPI</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  </head>
+
+<body>
+
+    <div class="d-flex flex-column flex-md-row align-items-center p-3 px-md-4 mb-3 border-bottom shadow-sm">
+      <h5 class="my-0 mr-md-auto font-weight-normal">plantFEM APIs</h5>
+      <nav class="my-2 my-md-0 mr-md-3">
+        <a class="btn btn btn-primary" href="/bridge_creator">Bridge</a>
+        <a class="btn btn btn-primary" href="/dam_creator">Dam</a>
+        
+      </nav>
+
+      <nav class="my-2 my-md-0 mr-md-3">
+        <a class="btn btn btn-secondary" href="#" onclick="history.back(-1);return false;">Go back</a>
+      </nav>
+
+      <nav class="my-2 my-md-0 mr-md-3">
+        <a class="btn btn btn-secondary" href="/">Top page</a>
+      </nav>
+    </div>
+
+
+<h2>Online bridge editor </h2><br>
+<form class="form-group" action="/dam_creator/download_new_json" method="get">
+
+    <div class="col-auto">
+        Height (m)
+        <input name="height" type="text"  class="form-control" value="2.200">
+    </div>
+
+
+    <div class="col-auto">
+        Width (m)
+        <input name="width" type="text"  class="form-control" value="11.00">
+    </div>
+
+    <div class="col-auto">
+        Length (m)
+        <input name="length" type="text"  class="form-control" value="117.00">
+    </div>
+    
+    <div class="col-auto">
+        Depth of ground (m)
+        <input name="depth" type="text"  class="form-control" value="30.00">
+    </div>
+
+
+    <div class="col-auto">
+        Margin (m)
+        <input name="margin" type="text"  class="form-control" value="50.00">
+    </div>
+
+    <div class="col-auto">
+        Width of top (m)
+        <input name="top" type="text"  class="form-control" value="3.00">
+    </div>
+
+    <div class="col-auto">
+        Angles of upstream side (deg.)
+        <input name="angle_up" type="text"  class="form-control" value="20.00">
+    </div>
+
+    <div class="col-auto">
+        Angles of downstream side (deg.)
+        <input name="angle_down" type="text"  class="form-control" value="20.00">
+    </div>
+
+    <div class="col-auto">
+        Mesh division for vertial direction 
+        <input name="division_v" type="text"  class="form-control" value="10">
+    </div>
+
+    <div class="col-auto">
+        Mesh division for horizontal direction 
+        <input name="division_h" type="text"  class="form-control" value="10">
+    </div>
+
+    <div class="col-auto">
+        Mesh refinement level for x-direction 
+        <input name="refine_level_x" type="text"  class="form-control" value="5">
+    </div>
+    <div class="col-auto">
+        Mesh refinement level for y-direction 
+        <input name="refine_level_y" type="text"  class="form-control" value="5">
+    </div>
+
+    <div class="col-auto">
+        Mesh refinement level for z-direction 
+        <input name="refine_level_z" type="text"  class="form-control" value="3">
+    </div>
+
+    <div class="col-auto">
+        Download from here!
+        <input type="submit" class="btn btn-primary mb-2" value="Download">
+    </div>
+
+</form>
+    """
+    return HTMLResponse(content=content)
+
+#    current = Path()
+#    if not filename.endswith(".json"):
+#        if not filename.endswith(".vtk"):
+#            return {"status": "error"}
+#    file_path = current / filename
+#    
+#    response = FileResponse(
+#        path=file_path,
+#        filename=f"download_{filename}"
+#        )
+#    
+#    return response
+
+@app.post("/dam_creator/uploadfile/")
+async def create_upload_files(files: List[UploadFile] = File(...),
+    ):
+    for file in files:
+        filename = 'uploaded_'+str(uuid.uuid4()) +'.json'
+        f = open(filename, 'wb+')
+        print(type(file.file) )
+        fileobj = file.file
+        shutil.copyfileobj(fileobj, f)
+        f.close()
+        #os.system("./server_dam_creator.out "+filename)
+        sts = subprocess.run("./server_dam_creator.out " + filename , shell=True)
+    content = """
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <title>plantFEM-webAPI</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  </head>
+
+<body>
+
+
+
+    <div class="d-flex flex-column flex-md-row align-items-center p-3 px-md-4 mb-3 border-bottom shadow-sm">
+      <h5 class="my-0 mr-md-auto font-weight-normal">plantFEM APIs</h5>
+      <nav class="my-2 my-md-0 mr-md-3">
+        <a class="btn btn btn-primary" href="/bridge_creator">Bridge</a>
+        <a class="btn btn btn-primary" href="/dam_creator">Dam</a>
+        
+      </nav>
+
+      <nav class="my-2 my-md-0 mr-md-3">
+        <a class="btn btn btn-secondary" href="#" onclick="history.back(-1);return false;">Go back</a>
+      </nav>
+      <nav class="my-2 my-md-0 mr-md-3">
+        <a class="btn btn btn-secondary" href="/">Top page</a>
+      </nav>
+    </div>
+
+Download your 3-D bridge ! <br>
+<form class="row g-3" action="/dam_creator/downloadfile/" method="get">
+    <div class="col-auto">
+        <input name="filename" type="text"  class="form-control" value="""+filename+".vtk"+ """>
+    </div>
+    <div class="col-auto">
+        <input type="submit" class="btn btn-primary mb-2" value="Download">
+    </div>
+</form>
+
+
+
+</body>
+</html>
+    """    
+    return HTMLResponse(content=content)
+
+@app.get("/dam_creator")
+async def main():
+    content = """
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <title>plantFEM-webAPI</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  </head>
+
+
+
+<body>
+
+
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.15.0/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+    <div class="d-flex flex-column flex-md-row align-items-center p-3 px-md-4 mb-3 border-bottom shadow-sm">
+      <h5 class="my-0 mr-md-auto font-weight-normal">plantFEM APIs</h5>
+      <nav class="my-2 my-md-0 mr-md-3">
+        <a class="btn btn btn-primary" href="/bridge_creator">Bridge</a>
+        <a class="btn btn btn-primary" href="/dam_creator">Dam</a>
+        
+      </nav>
+
+      <nav class="my-2 my-md-0 mr-md-3">
+        <a class="btn btn btn-secondary" href="#" onclick="history.back(-1);return false;">Go back</a>
+      </nav>
+      <nav class="my-2 my-md-0 mr-md-3">
+        <a class="btn btn btn-secondary" href="/">Top page</a>
+      </nav>
+    </div>
+
+<div class="container-fluid">
+    
+    If you want an example of the *.json file, please type bridge.json and edit it! <br>
+    <form class="row g-3" action="/dam_creator/downloadfile/" method="get">
+        <div class="col-auto">
+            <input name="filename" type="text" value="dam.json"  class="form-control">
+        </div>
+        <div class="col-auto">
+            <input type="submit" class="btn btn-primary mb-3" value="Get template file">
+        </div>
+    </form>
+
+    If you want to create a *.json file, please type the name and click the botton! <br>
+    <form class="row g-3" action="/dam_creator/createjsonfile/" method="get">
+        <div class="col-auto">
+            <input type="submit" class="btn btn-primary mb-3" value="Create .json file">
+        </div>
+    </form>
+
+ If you have an *.json file for bridge, please upload from here!<br>
+<form class="row g-3" action="/dam_creator/uploadfile/" enctype="multipart/form-data" method="post">
+    <div class="col-auto">
+        <input name="files"  class="form-control" type="file" multiple>
+    </div>
+    <div class="col-auto">
+        <input type="submit"  class="btn btn-primary mb-2" value="Create">
+    </div>
+</form>
+
+</body>
+</html>
+    """
+    return HTMLResponse(content=content)
+
+
+##########################
 
 
 @app.get("/view_graph")
@@ -1131,7 +1446,7 @@ async def modal_analysis_info():
       <nav class="my-2 my-md-0 mr-md-3">
         <a class="btn btn btn-primary" href="/bridge_creator">Bridge</a>
         <a class="btn btn btn-primary" href="/dam_creator">Dam</a>
-        <a class="btn btn btn-primary" href="/embankment_creator">Embankment</a>
+        
       </nav>
 
       <nav class="my-2 my-md-0 mr-md-3">
@@ -1331,10 +1646,6 @@ async def create_modal_analysis_upload_files(YoungModulus: str, PoissonRatio:str
 
     <div class="d-flex flex-column flex-md-row align-items-center p-3 px-md-4 mb-3 border-bottom shadow-sm">
       <h5 class="my-0 mr-md-auto font-weight-normal">plantFEM APIs</h5>
-      <nav class="my-2 my-md-0 mr-md-3">
-        <a class="btn btn btn-primary" href="/maize_creator">Maize</a>
-        <a class="btn btn btn-primary" href="/soybean_creator">Soybean</a>
-      </nav>
 
       <nav class="my-2 my-md-0 mr-md-3">
         <a class="btn btn btn-secondary" href="#" onclick="history.back(-1);return false;">Go back</a>

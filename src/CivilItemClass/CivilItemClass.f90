@@ -22,7 +22,8 @@ module CivilItemClass
         generic :: RigidFrameViaduct => RigidFrameViaductCivilItem,RigidFrameViaductCivilItem_JSON
 
         procedure, pass :: EarthDam_with_ground_CivilItem
-        generic :: EarthDam => EarthDam_with_ground_CivilItem
+        procedure, pass :: EarthDam_with_ground_CivilItem_JSON
+        generic :: EarthDam => EarthDam_with_ground_CivilItem,EarthDam_with_ground_CivilItem_JSON
 
         procedure :: PaddyField => PaddyFieldCivilItem
         procedure :: OpenChannel => OpenChannelCivilItem
@@ -1227,7 +1228,64 @@ function RigidFrameViaductCivilItem(this,NumPiers,length,width,PierThickness,div
 
 end function
 
+! ############################################
+function EarthDam_with_ground_CivilItem_JSON(this,config) result(femdomain)
+    class(CivilItem_),intent(in) :: this
+    character(*),intent(in) :: config
+    type(FEMDomain_) :: femdomain
 
+    real(real64) :: height = 2.200d0
+    real(real64) :: width = 11.00d0
+    real(real64) :: length = 117.00d0
+    real(real64) :: depth = 30.00d0
+    real(real64) :: margin = 50.00d0
+    real(real64) :: angles(1:2)  =[20.00d0, 20.00d0]
+    real(real64) :: top_width = 4.0d0
+
+    integer(int32) :: refine_level(1:3) = [5,5,3]
+    integer(int32) :: depth_cut = 10
+    integer(int32) :: margin_cut= 10
+
+    type(IO_) :: json_file
+    ! check json
+    if(index(config,".json")==0 )then
+        ! not json file
+        return
+    endif
+
+    angles = to_vector(json_file%parse(filename=config,key1="angles"),2)
+    
+    height = freal(json_file%parse(filename=config,key1="height"))
+    width  = freal(json_file%parse(filename=config,key1="width"))
+    length = freal(json_file%parse(filename=config,key1="length"))
+    depth  = freal(json_file%parse(filename=config,key1="depth"))
+    margin = freal(json_file%parse(filename=config,key1="margin"))
+    top_width  = freal(json_file%parse(filename=config,key1="top"))
+
+    depth_cut  = fint(json_file%parse(filename=config,key1="division_v"))
+    margin_cut  = fint(json_file%parse(filename=config,key1="division_h"))
+
+    refine_level = to_list(json_file%parse(filename=config,key1="refine_level"),3)
+
+
+    femdomain = this%EarthDam(&
+        height=height,&!=2.20d0, &
+        width=width,&! =11.0d0, &
+        length=length,&!=117.0d0,&
+        depth=depth,&! =30.0d0,&
+        margin=margin,&!=50.0d0,&
+        angles=angles,&!=[20.0d0, 20.0d0],& ! 20.0 degrees & 15.0d0 degrees
+        top_width=top_width,&!=4.0d0, & ! top width
+        refine_level=refine_level,&! = [5,5,3] ,& ! refinement level
+        depth_cut=depth_cut,&!    = 10, &
+        margin_cut=margin_cut &!   = 10 &
+    )
+
+end function
+! ############################################
+
+
+! ############################################
 function EarthDam_with_ground_CivilItem(this, height, length, width, depth, margin,angles,top_width,refine_level,&
     depth_cut,margin_cut,R) result(dam)
     class(CivilItem_),intent(in) :: this
