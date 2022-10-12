@@ -1909,8 +1909,10 @@ module IOClass
         integer(int32)::rmc,id,fformat
         character(:),allocatable :: ret
         logical,optional,intent(in) :: debug
+        integer(int32) :: n
+        
+        ret = ""
     
-        ret = " "
         fformat = input(default=1,option=fileformat)
     
         if(present(filename) )then
@@ -1949,7 +1951,7 @@ module IOClass
                         id = index(line,":")
                         ret =line(id+1:) 
                         !read(line(id+1:),*) ret
-                        ret = adjustl(ret)
+                        ret = trim(adjustl(ret))
 
                         call replace(ret,'"','')
                         call replace(ret,"'","")
@@ -1964,6 +1966,7 @@ module IOClass
                         endif
     
                         if(index(ret, "],")/=0 )then
+                            ret = trim(ret)
                             ret(index(ret, "],",back=.true.)+1:index(ret, "],",back=.true.)+1) = " "
                         endif
                         exit
@@ -1976,6 +1979,7 @@ module IOClass
     
             enddo
         endif
+     
         
         if(present(filename) )then
             call obj%close()
@@ -2946,6 +2950,74 @@ module IOClass
         call f%close()
 
     end function
-    
+
+
+    ! ######################################################
+    function to_vector(line,num_entity) result(ret)
+        character(*),intent(in) :: line 
+        integer(int32),optional,intent(in) :: num_entity
+        character(:),allocatable :: line_buf 
+        real(real64),allocatable :: ret(:)
+        integer(int32) :: n, s,e, i
+
+        if( len(trim(line))==0 )then
+            allocate(ret(0) )
+            return
+        endif
+
+        s = index(line,"[")
+        e = index(line,"]")
+        line_buf = line(s+1:e-1)
+
+        n = 0
+        do i=1, len(line_buf)
+            if(line_buf(i:i)==",")then
+                n = n + 1
+            endif
+        enddo
+        if(present(num_entity) )then
+            allocate(ret(num_entity) )
+        else
+            allocate(ret(n+1) )
+        endif
+        read(line_buf,*) ret(:)
+
+    end function 
+    ! ######################################################
+
+    ! ######################################################
+    function to_list(line,num_entity) result(ret)
+        character(*),intent(in) :: line 
+        integer(int32),optional,intent(in) :: num_entity
+        character(:),allocatable :: line_buf 
+        integer(int32),allocatable :: ret(:)
+        integer(int32) :: n, s,e, i
+
+        line_buf = trim(line)
+        if( len(trim(line_buf))==0 )then
+            allocate(ret(0) )
+            return
+        endif
+
+        s = index(line_buf,"[")
+        e = index(line_buf,"]")
+        line_buf = trim(line_buf(s+1:e-1))
+        
+
+        n = 0
+        do i=1, len(line_buf)
+            if(line_buf(i:i)==",")then
+                n = n + 1
+            endif
+        enddo
+        if(present(num_entity) )then
+            allocate(ret(num_entity) )
+        else
+            allocate(ret(n+1) )
+        endif
+        read(line_buf,*) ret(:)
+
+    end function 
+    ! ######################################################
 
     end module IOClass

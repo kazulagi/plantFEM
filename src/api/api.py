@@ -5,6 +5,7 @@ from typing import List
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.responses import HTMLResponse
+import subprocess
 import shutil
 import uuid
 from pathlib import Path
@@ -672,17 +673,21 @@ async def get_file(filename: str):
 
 
 @app.get("/bridge_creator/download_new_json/")
-async def download_new_json(Width: str, NumPier_x: str, NumPier_y: str,
+async def download_new_json(Width: str, NumPiers_x: str, NumPiers_y: str,
     Length: str, Height: str, PierThickness: str, Divisions_x: str,
-    Divisions_y: str,Divisions_z: str):
+    Divisions_y: str,Divisions_z: str,GirderWidth,
+    GirderThickness:str,
+    GirderEdgeHeight:str,
+    GirderEdgeThickness:str):
+
     current = Path()
     filename = "bridge.json"
     file_path = current / filename
     
     with open(file_path, 'r') as fcc_file:
         fcc_data = json.load(fcc_file)
-        fcc_data["NumPier_x"] = int(NumPier_x)
-        fcc_data["NumPier_y"] = int(NumPier_y)
+        fcc_data["NumPiers_x"] = int(NumPiers_x)
+        fcc_data["NumPiers_y"] = int(NumPiers_y)
         fcc_data["Width"] = float(Width)
         fcc_data["Length"] = float(Length)
         fcc_data["Height"] = float(Height)
@@ -690,6 +695,10 @@ async def download_new_json(Width: str, NumPier_x: str, NumPier_y: str,
         fcc_data["Divisions_x"]     = int(Divisions_x)
         fcc_data["Divisions_y"]     = int(Divisions_y)
         fcc_data["Divisions_z"]     = int(Divisions_z) 
+        fcc_data["GirderWidth"]     = float(GirderWidth)
+        fcc_data["GirderThickness"]     = float(GirderThickness)
+        fcc_data["GirderEdgeHeight"]     = float(GirderEdgeHeight) 
+        fcc_data["GirderEdgeThickness"]     = float(GirderEdgeThickness) 
         fcc_data.pop("NumMiddlePier")
         fcc_data.pop("MiddlePierHeights")
         
@@ -742,49 +751,70 @@ async def get_json_form():
 
     <div class="col-auto">
         Number of piers for Length-direction
-        <input name="NumPier_x" type="text"  class="form-control" value="2">
+        <input name="NumPiers_x" type="text"  class="form-control" value="2">
     </div>
 
 
     <div class="col-auto">
         Number of piers for width-direction
-        <input name="NumPier_y" type="text"  class="form-control" value="5">
+        <input name="NumPiers_y" type="text"  class="form-control" value="3">
     </div>
 
     <div class="col-auto">
         Width of bridge (m)
-        <input name="Width" type="text"  class="form-control" value="14.00">
+        <input name="Width" type="text"  class="form-control" value="10.00">
     </div>
     
     <div class="col-auto">
         Length of bridge (m)
-        <input name="Length" type="text"  class="form-control" value="50.00">
+        <input name="Length" type="text"  class="form-control" value="35.00">
     </div>
 
 
     <div class="col-auto">
         Height of bridge (m)
-        <input name="Height" type="text"  class="form-control" value="20.00">
+        <input name="Height" type="text"  class="form-control" value="12.00">
     </div>
 
     <div class="col-auto">
         Thickness of piers (m)
-        <input name="PierThickness" type="text"  class="form-control" value="2.00">
+        <input name="PierThickness" type="text"  class="form-control" value="1.00">
     </div>
 
     <div class="col-auto">
-        Mesh divisions for length-direction (m)
+        Mesh divisions for length-direction 
         <input name="Divisions_x" type="text"  class="form-control" value="3">
     </div>
 
     <div class="col-auto">
-        Mesh divisions for width-direction (m)
+        Mesh divisions for width-direction 
         <input name="Divisions_y" type="text"  class="form-control" value="3">
     </div>
 
     <div class="col-auto">
-        Mesh divisions for height-direction (m)
+        Mesh divisions for height-direction 
         <input name="Divisions_z" type="text"  class="form-control" value="3">
+    </div>    
+
+
+    <div class="col-auto">
+        Width of girder (m) (In case of no girder, please set 0.00)
+        <input name="GirderWidth" type="text"  class="form-control" value="11.000">
+    </div>    
+
+    <div class="col-auto">
+        Thickness of girder (m) (In case of no girder, please set 0.00)
+        <input name="GirderThickness" type="text"  class="form-control" value="0.3000">
+    </div>    
+
+    <div class="col-auto">
+        Height of edge in girder (m) (In case of no girder, please set 0.00)
+        <input name="GirderEdgeHeight" type="text"  class="form-control" value="1.000">
+    </div>    
+
+    <div class="col-auto">
+        Thickness of edge in girder (m) (In case of no girder, please set 0.00)
+        <input name="GirderEdgeThickness" type="text"  class="form-control" value="0.25000">
     </div>    
 
     <div class="col-auto">
@@ -819,7 +849,8 @@ async def create_upload_files(files: List[UploadFile] = File(...),
         fileobj = file.file
         shutil.copyfileobj(fileobj, f)
         f.close()
-        os.system("./server_bridge_creator.out "+filename)
+        #os.system("./server_bridge_creator.out "+filename)
+        sts = subprocess.Popen("./server_bridge_creator.out " + filename , shell=True)
     content = """
 <html>
   <head>

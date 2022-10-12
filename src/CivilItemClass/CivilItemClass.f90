@@ -271,15 +271,20 @@ function RigidFrameViaductCivilItem_JSON(this,config,debug) result(RFV)
     real(real64) :: length
     real(real64) :: width
     real(real64) :: height
-    real(real64) :: PierThickness
+    real(real64) :: PierThickness,GirderExists_01
+    real(real64) :: GirderWidth = 0.0d0! option
+    real(real64) :: GirderThickness = 0.0d0! option
+    real(real64) :: GirderEdgeHeight = 0.0d0! option
+    real(real64) :: GirderEdgeThickness = 0.0d0! option
     real(real64),allocatable :: MiddlePierHeights(:)
     logical,optional,intent(in) :: debug
+    logical :: GirderExists = .false.
 
     type(FEMDomain_) :: RFV
     integer(int32) :: i, n , m ,NumMiddlePier,nt,nf
     character(:),allocatable :: line
 
-    type(IO_) :: f
+    type(IO_) :: f, json_file
 
 
     call f%open(config,"r")
@@ -305,25 +310,6 @@ function RigidFrameViaductCivilItem_JSON(this,config,debug) result(RFV)
         if(index(line,"NumPiers_y")/=0 )then
             nf = index(line, ":")
             read(line(nf+1:),* ) NumPiers(2) 
-            cycle
-        endif
-
-        if(index(line,"Width")/=0 )then
-            nf = index(line, ":")
-            read(line(nf+1:),* ) Width
-            cycle
-        endif
-
-        if(index(line,"Length")/=0 )then
-            nf = index(line, ":")
-            read(line(nf+1:),* ) Length
-            cycle
-        endif
-
-
-        if(index(line,"Height")/=0 .and. index(line,"Middle")==0)then
-            nf = index(line, ":")
-            read(line(nf+1:),* ) Height
             cycle
         endif
 
@@ -367,13 +353,56 @@ function RigidFrameViaductCivilItem_JSON(this,config,debug) result(RFV)
             cycle
         endif
 
-        if(index(line,"MiddlePierHeights")/=0 .and. index(line,"Middle")/=0)then
-            nf = index(line, "[")
-            nt = index(line, "]")
-            MiddlePierHeights = zeros(NumMiddlePier)
-            read(line(nf+1:nt-1),* ) MiddlePierHeights(1:NumMiddlePier)
+        MiddlePierHeights = int(zeros(NumMiddlePier))
+        MiddlePierHeights(1:NumMiddlePier) = to_vector(&
+            json_file%parse(filename=config,key1="MiddlePierHeights"),NumMiddlePier)
+
+        if(index(line,"GirderWidth")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) GirderWidth
             cycle
         endif
+
+        if(index(line,"GirderThickness")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) GirderThickness
+            cycle
+        endif
+
+        if(index(line,"GirderEdgeHeight")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) GirderEdgeHeight
+            cycle
+        endif
+
+        if(index(line,"GirderEdgeThickness")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) GirderEdgeThickness
+            cycle
+        endif
+
+
+        if(index(line,"Width")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) Width
+            cycle
+        endif
+
+        if(index(line,"Length")/=0 )then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) Length
+            cycle
+        endif
+
+
+        if(index(line,"Height")/=0 .and. index(line,"Middle")==0)then
+            nf = index(line, ":")
+            read(line(nf+1:),* ) Height
+            cycle
+        endif
+
+
+
     enddo
     call f%close()
 
@@ -388,26 +417,67 @@ function RigidFrameViaductCivilItem_JSON(this,config,debug) result(RFV)
             print *, "Divisions ::      ",Divisions
             print *, "NumMiddlePier ::  ",NumMiddlePier
             print *, "MiddlePierHeights ::  ",MiddlePierHeights
+            print *, "GirderWidth :: " , GirderWidth
+            print *, "GirderThickness :: " ,GirderThickness
+            print *, "GirderEdgeHeight :: " ,GirderEdgeHeight
+            print *, "GirderEdgeThickness :: " ,GirderEdgeThickness
         endif
     endif
 
-    if(allocated(MiddlePierHeights) )then
-        RFV = this%RigidFrameViaduct(NumPiers=NumPiers,&
-            length=length,&
-            width=width,&
-            PierThickness=PierThickness,&
-            divisions=divisions,&
-            height=height,&
-            MiddlePierHeights=MiddlePierHeights,&
-            debug=debug)
+    GirderExists_01 = GirderWidth*GirderThickness*GirderEdgeHeight*GirderEdgeThickness
+    print *, GirderExists_01
+    if(GirderExists_01==0.0d0)then
+        GirderExists = .false.
     else
-        RFV = this%RigidFrameViaduct(NumPiers=NumPiers,&
-            length=length,&
-            width=width,&
-            PierThickness=PierThickness,&
-            divisions=divisions,&
-            height=height,&
-            debug=debug)
+        GirderExists = .true.
+    endif
+
+    if(allocated(MiddlePierHeights) )then
+        if(GirderExists)then
+            RFV = this%RigidFrameViaduct(NumPiers=NumPiers,&
+                length=length,&
+                width=width,&
+                PierThickness=PierThickness,&
+                divisions=divisions,&
+                height=height,&
+                MiddlePierHeights=MiddlePierHeights,&
+                GirderWidth=GirderWidth,&
+                GirderThickness=GirderThickness,&
+                GirderEdgeHeight=GirderEdgeHeight,&
+                GirderEdgeThickness=GirderEdgeThickness,&
+                debug=debug)
+        else
+            RFV = this%RigidFrameViaduct(NumPiers=NumPiers,&
+                length=length,&
+                width=width,&
+                PierThickness=PierThickness,&
+                divisions=divisions,&
+                height=height,&
+                MiddlePierHeights=MiddlePierHeights,&
+                debug=debug)
+        endif
+    else
+        if(GirderExists)then
+            RFV = this%RigidFrameViaduct(NumPiers=NumPiers,&
+                length=length,&
+                width=width,&
+                PierThickness=PierThickness,&
+                divisions=divisions,&
+                height=height,&
+                GirderWidth=GirderWidth,&
+                GirderThickness=GirderThickness,&
+                GirderEdgeHeight=GirderEdgeHeight,&
+                GirderEdgeThickness=GirderEdgeThickness,&
+                debug=debug)
+        else
+            RFV = this%RigidFrameViaduct(NumPiers=NumPiers,&
+                length=length,&
+                width=width,&
+                PierThickness=PierThickness,&
+                divisions=divisions,&
+                height=height,&
+                debug=debug)
+        endif
     endif
 
 end function
