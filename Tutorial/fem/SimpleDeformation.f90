@@ -20,14 +20,14 @@ call solver%setCRS(DOF=3)
 do i = 1, cube%ne()
     call solver%setMatrix(DomainID=1,ElementID=i,DOF=3,&
        Matrix=cube%StiffnessMatrix(ElementID=i,E=300000.0d0, v=0.330d0) )
-    !call solver%setVector(DomainID=1,ElementID=i,DOF=3,&
-    !    Vector=cube%MassVector(&
-    !    ElementID=i,&
-    !    DOF=cube%nd() ,&
-    !    Density=1.700d0,&
-    !    Accel=[0.0d0, 0.0d0, -9.80d0]&
-    !    ) &    
-    !)
+    call solver%setVector(DomainID=1,ElementID=i,DOF=3,&
+        Vector=cube%MassVector(&
+        ElementID=i,&
+        DOF=cube%nd() ,&
+        Density=1.700d0,&
+        Accel=[0.0d0, 0.0d0, -9.80d0]&
+        ) &    
+    )
 enddo
 !$OMP end do
 !$OMP end parallel

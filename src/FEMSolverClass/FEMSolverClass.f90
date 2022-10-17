@@ -1568,6 +1568,8 @@ subroutine fix_eigFEMSolver(this,IDs)
     ! only create list
     if(.not.allocated(this%fix_eig_IDs) )then
         this%fix_eig_IDs = IDs
+    elseif(size(this%fix_eig_IDs)==0)then
+        this%fix_eig_IDs = IDs
     else
         buf = this%fix_eig_IDs
         this%fix_eig_IDs = zeros(size(buf) + size(IDs) )

@@ -1,0 +1,28 @@
+{
+    "Width": 2.00,
+    "Height": 1.50,
+    "Length": 4.00,
+    "Top_thickness": 0.100,
+    "Side_thickness": 0.100,
+    "Bottom_thickness": 0.100,
+    "Edge_thickness": 0.080,
+    "Divisions": [
+        2,
+        2,
+        2
+    ],
+    "Cut_angles": [
+        0.00,
+        0.00
+    ],
+    "Position": [
+        0.000,
+        0.000,
+        0.000
+    ], 
+    "Rotation": [
+        0.000,
+        0.000,
+        0.000
+    ] 
+}

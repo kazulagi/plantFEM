@@ -6313,7 +6313,7 @@ subroutine AddNBCFEMDomain(obj,NodID,DimID,Val,FastMode)
 
 end subroutine
 ! ################################################
-
+! too slow
 subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 	class(FEMDomain_),intent(inout)::obj
 	integer(int32),optional,intent(in)::FileHandle,MeshDimension
@@ -6337,8 +6337,8 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 		print *, filename//filename0
 	
 		open(fh,file=filename//filename0 )
-	
-		call obj%Mesh%GetSurface()
+		! hot-splot
+		call obj%Mesh%GetSurface(sorting=.false.)
 		
 		if(dim_num/=3)then
 			print *, "Sorry, Export stl is supported only for 3-D mesh"

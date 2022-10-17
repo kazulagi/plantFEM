@@ -34,22 +34,22 @@
         if(root_path==null){
             var root_path= window.prompt("File-name of soybean (stl-formatted","soy_root.stl");
         };
-        //var intra_row = getParam("intra_row",url)
-        //if(intra_row==null){
-        //    var intra_row= window.prompt("How much intra-row spacing (m)?",0.30);
-        //};
-        //var pl = getParam("pl",url)
-        //if(pl==null){
-        //    var pl= window.prompt("How many soybean do you plant in a row?",2);
-        //};
-        //var row = getParam("row",url)
-        //if(row==null){
-        //    var row= window.prompt("How many rows do you set?",2);
-        //};
-        //var stage = getParam("stage",url)
-        //if(stage==null){
-        //    var stage= window.prompt("which growth stage?","R1");
-        //};
+        var intra_row = getParam("intra_row",url)
+        if(intra_row==null){
+            var intra_row= window.prompt("How much intra-row spacing (m)?",0.30);
+        };
+        var pl = getParam("pl",url)
+        if(pl==null){
+            var pl= window.prompt("How many soybean do you plant in a row?",2);
+        };
+        var row = getParam("row",url)
+        if(row==null){
+            var row= window.prompt("How many rows do you set?",2);
+        };
+        var stage = getParam("stage",url)
+        if(stage==null){
+            var stage= window.prompt("which growth stage?","R1");
+        };
 
 
         
