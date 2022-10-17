@@ -11,6 +11,7 @@ character(256) :: fpath
 call get_command_argument(number=1,value=fpath)
 bridge = ci%RigidFrameViaduct(config=trim(adjustl(fpath)))
 call bridge%vtk(trim(fpath))
+call bridge%stl(trim(fpath)+".vtk")
 
 
 

@@ -1574,7 +1574,8 @@ end function
 !##################################################
 subroutine GetFacetElement(obj)
     class(Mesh_),intent(inout)::obj
-    logical,parameter :: fast=.true.
+    logical :: faster=.true.
+    logical :: fast=.true.
 
     integer(int32) :: i,j,k,l,n,m
     integer(int32) :: NumOfElem,NumOfDim,NumNodePerElem
@@ -1585,12 +1586,19 @@ subroutine GetFacetElement(obj)
     real(real64):: dx(3),x(3)
     logical,allocatable :: overlap(:)
 
+
+    real(real64),allocatable :: angle_on_point(:)
+    integer(int32),allocatable :: point_count(:)
+    logical,allocatable :: elem_candidate(:)
+    type(Mesh_) :: mini_mesh
+
     ! From 1 -> 2 -> -> 3 -> 4, outer normal vector is obtained  
 
 
     if(allocated(obj%FacetElemNod) )then
         deallocate(obj%FacetElemNod)
     endif
+
     NumOfElem = size(obj%ElemNod,1) 
     NumOfDim  = size(obj%NodCoord,2)
     NumNodePerElem = size(obj%ElemNod,2)
@@ -1675,7 +1683,187 @@ subroutine GetFacetElement(obj)
 
         
     elseif(NumOfDim==3 )then
-            ! New algorithm
+        
+        ! New algorithm
+        ! angles around points
+        
+        faster = faster .and. (size(obj%elemnod,2)==8) .and. (size(obj%nodcoord,2)==3)
+        if(faster)then
+            ! only for Hexahedral mesh
+            fast=.false.
+            !angle_on_point = zeros(size(obj%nodcoord,1),3 ) ! point by [x,y,z]
+            point_count = int(zeros(size(obj%nodcoord,1))  )
+            ! count number of overlapping
+            
+            do i=1,size(obj%elemnod,1)
+                do j=1,size(obj%elemnod,2)
+                    point_count( obj%elemnod(i,j) )=point_count( obj%elemnod(i,j) )+1
+                enddo
+            enddo
+            ! if mesh is regular
+            ! point_count ==8 @ inside
+            ! point_count /=8 @ surface
+            allocate(elem_candidate(size(obj%elemnod,1 )))
+            elem_candidate(:) = .false.
+            n = 0
+            do i=1,size(obj%elemnod,1)
+                do j=1,size(obj%elemnod,2)
+                    if(point_count( obj%elemnod(i,j) )/=8 )then
+                        ! the point belongs surface
+                        elem_candidate(i)= .true.
+                        n = n + 1
+                        exit
+                    endif
+                enddo
+            enddo
+
+            ! あとは，elem_candidate = .true.の要素についてのみfacetを構成すればよい
+            allocate(mini_mesh%elemnod(n,size(obj%elemnod,2) ) )
+            n=0
+            do i=1,size(elem_candidate)
+                if(elem_candidate(i) )then
+                    n=n+1
+                    mini_mesh%elemnod(n,:) = obj%elemnod(i,:)
+                endif
+            enddo
+            NumOfElem = size(mini_mesh%elemnod,1)
+
+            ! 
+            allocate(ElementGroup(size(mini_mesh%elemnod,1),3) )
+            !div_num = size(mini_mesh%elemnod,1)/200 + 1
+            div_num=10
+            dx(1) = (maxval(obj%nodcoord(:,1) ) - minval(obj%nodcoord(:,1) ))/dble(div_num)
+            div_num=10
+            dx(2) = (maxval(obj%nodcoord(:,2) ) - minval(obj%nodcoord(:,2) ))/dble(div_num)
+            div_num=10
+            dx(3) = (maxval(obj%nodcoord(:,3) ) - minval(obj%nodcoord(:,3) ))/dble(div_num)
+            do i=1, size(mini_mesh%elemnod,1)
+                x(1) = obj%nodcoord(mini_mesh%elemnod(i,1) ,1 )
+                x(2) = obj%nodcoord(mini_mesh%elemnod(i,1) ,2 )
+                x(3) = obj%nodcoord(mini_mesh%elemnod(i,1) ,3 )
+                ElementGroup(i,1) = int((x(1) -minval(obj%nodcoord(:,1) ))/dx(1))
+                ElementGroup(i,2) = int((x(2) -minval(obj%nodcoord(:,2) ))/dx(2))
+                ElementGroup(i,3) = int((x(3) -minval(obj%nodcoord(:,3) ))/dx(3))
+            enddo
+
+            n = size(mini_mesh%ElemNod,1)
+            NumNodePerElem = size(mini_mesh%ElemNod,2)
+            
+        
+            if(NumNodePerElem==4)then
+                num_face = 4
+                allocate(mini_mesh%FacetElemNod(NumOfElem*4,3),id(3),idr(3) )
+                do i=1,size(mini_mesh%ElemNod,1)
+                    mini_mesh%FacetElemNod(  (i-1)*4+1 ,1) = mini_mesh%ElemNod(i,3)
+                    mini_mesh%FacetElemNod(  (i-1)*4+1 ,2) = mini_mesh%ElemNod(i,2)
+                    mini_mesh%FacetElemNod(  (i-1)*4+1 ,3) = mini_mesh%ElemNod(i,1)
+                    
+                    mini_mesh%FacetElemNod(  (i-1)*4+2 ,1) = mini_mesh%ElemNod(i,1)
+                    mini_mesh%FacetElemNod(  (i-1)*4+2 ,2) = mini_mesh%ElemNod(i,2)
+                    mini_mesh%FacetElemNod(  (i-1)*4+2 ,3) = mini_mesh%ElemNod(i,4)
+                    
+                    mini_mesh%FacetElemNod(  (i-1)*4+3 ,1) = mini_mesh%ElemNod(i,2)
+                    mini_mesh%FacetElemNod(  (i-1)*4+3 ,2) = mini_mesh%ElemNod(i,3)
+                    mini_mesh%FacetElemNod(  (i-1)*4+3 ,3) = mini_mesh%ElemNod(i,4)
+                    
+                    mini_mesh%FacetElemNod(  (i-1)*4+4 ,1) = mini_mesh%ElemNod(i,3)
+                    mini_mesh%FacetElemNod(  (i-1)*4+4 ,2) = mini_mesh%ElemNod(i,1)
+                    mini_mesh%FacetElemNod(  (i-1)*4+4 ,3) = mini_mesh%ElemNod(i,4)
+                enddo
+            elseif(NumNodePerElem==8)then
+                num_face = 6
+                allocate(mini_mesh%FacetElemNod(NumOfElem*6,4),id(4),idr(4) )
+                do i=1,size(mini_mesh%ElemNod,1)
+                    mini_mesh%FacetElemNod(  (i-1)*6+1 ,1) = mini_mesh%ElemNod(i,4)
+                    mini_mesh%FacetElemNod(  (i-1)*6+1 ,2) = mini_mesh%ElemNod(i,3)
+                    mini_mesh%FacetElemNod(  (i-1)*6+1 ,3) = mini_mesh%ElemNod(i,2)
+                    mini_mesh%FacetElemNod(  (i-1)*6+1 ,4) = mini_mesh%ElemNod(i,1)
+
+                    mini_mesh%FacetElemNod(  (i-1)*6+2 ,1) = mini_mesh%ElemNod(i,1)
+                    mini_mesh%FacetElemNod(  (i-1)*6+2 ,2) = mini_mesh%ElemNod(i,2)
+                    mini_mesh%FacetElemNod(  (i-1)*6+2 ,3) = mini_mesh%ElemNod(i,6)
+                    mini_mesh%FacetElemNod(  (i-1)*6+2 ,4) = mini_mesh%ElemNod(i,5)
+                    
+                    mini_mesh%FacetElemNod(  (i-1)*6+3 ,1) = mini_mesh%ElemNod(i,2)
+                    mini_mesh%FacetElemNod(  (i-1)*6+3 ,2) = mini_mesh%ElemNod(i,3)
+                    mini_mesh%FacetElemNod(  (i-1)*6+3 ,3) = mini_mesh%ElemNod(i,7)
+                    mini_mesh%FacetElemNod(  (i-1)*6+3 ,4) = mini_mesh%ElemNod(i,6)
+                    
+                    mini_mesh%FacetElemNod(  (i-1)*6+4 ,1) = mini_mesh%ElemNod(i,3)
+                    mini_mesh%FacetElemNod(  (i-1)*6+4 ,2) = mini_mesh%ElemNod(i,4)
+                    mini_mesh%FacetElemNod(  (i-1)*6+4 ,3) = mini_mesh%ElemNod(i,8)
+                    mini_mesh%FacetElemNod(  (i-1)*6+4 ,4) = mini_mesh%ElemNod(i,7)
+                    
+                    mini_mesh%FacetElemNod(  (i-1)*6+5 ,1) = mini_mesh%ElemNod(i,4)
+                    mini_mesh%FacetElemNod(  (i-1)*6+5 ,2) = mini_mesh%ElemNod(i,1)
+                    mini_mesh%FacetElemNod(  (i-1)*6+5 ,3) = mini_mesh%ElemNod(i,5)
+                    mini_mesh%FacetElemNod(  (i-1)*6+5 ,4) = mini_mesh%ElemNod(i,8)
+                    
+                    mini_mesh%FacetElemNod(  (i-1)*6+6 ,1) = mini_mesh%ElemNod(i,5)
+                    mini_mesh%FacetElemNod(  (i-1)*6+6 ,2) = mini_mesh%ElemNod(i,6)
+                    mini_mesh%FacetElemNod(  (i-1)*6+6 ,3) = mini_mesh%ElemNod(i,7)
+                    mini_mesh%FacetElemNod(  (i-1)*6+6 ,4) = mini_mesh%ElemNod(i,8)
+                enddo
+            else
+                stop "ERROR :: GetFacetElement :: only for  Hexahedral/tetrahedron ##"
+            endif
+            allocate(overlap(size(mini_mesh%FacetElemNod,1) ) )
+            overlap(:) = .false.
+            
+            id = int( zeros(size(mini_mesh%FacetElemNod,2) )  )
+            idr= int( zeros(size(mini_mesh%FacetElemNod,2) )  )
+
+            ! Most time-consuming part
+            elementID_I=0
+            do i=1,size(overlap)-1
+                if(mod(i-1,num_face)==0 )then
+                    elementID_I = elementID_I + 1
+                endif
+
+                if(overlap(i) ) cycle
+                ! 全然違うやつをすばやく弾きたい
+                elementID_J = elementID_I
+                do j=i+1,size(overlap)
+                    if(mod(j-1,num_face)==0 )then
+                        elementID_J = elementID_J + 1
+                    endif
+                    if( abs(ElementGroup(elementID_I,1)-ElementGroup(elementID_J,1))>=2 ) cycle
+                    if( abs(ElementGroup(elementID_I,2)-ElementGroup(elementID_J,2))>=2 ) cycle
+                    if( abs(ElementGroup(elementID_I,3)-ElementGroup(elementID_J,3))>=2 ) cycle
+
+                    id = mini_mesh%FacetElemNod(i,:)
+                    idr= mini_mesh%FacetElemNod(j,:)
+                    if( sameAsGroup(id,idr) )then
+                        overlap(i) = .true.
+                        overlap(j) = .true.
+                        exit
+                    endif
+                enddo
+            enddo
+            ! to here.
+            
+            j = 0
+            do i=1,size(overlap)
+                if(.not.overlap(i) )then
+                    j = j+1
+                endif    
+            enddo
+            buffer = mini_mesh%FacetElemNod
+            mini_mesh%FacetElemNod = int(zeros( j,size(buffer,2) ) )
+            j=0
+            do i=1,size(overlap)
+                if(.not.overlap(i) )then
+                    j = j+1
+                    mini_mesh%FacetElemNod(j,:) = buffer(i,:)
+                endif    
+            enddo
+            obj%FacetElemNod = mini_mesh%FacetElemNod
+            return
+            
+        endif
+
+        
+        ! Old algorithm
         if(fast)then
             allocate(ElementGroup(size(obj%elemnod,1),3) )
             !div_num = size(obj%elemnod,1)/200 + 1
@@ -1999,8 +2187,9 @@ end subroutine GetSurface2D
 
 
 !##################################################
-subroutine GetSurface(obj)
+subroutine GetSurface(obj,sorting)
     class(Mesh_),intent(inout)::obj
+    logical,optional,intent(in) :: sorting
     integer(int32) :: i,j,k,n
     integer(int32) :: NumOfElem,NumOfDim,NumNodePerElem
     integer(int32) :: id_1,id_2
@@ -2032,8 +2221,14 @@ subroutine GetSurface(obj)
         call GetSurface2D(obj)
         obj%surface=1
     elseif(NumOfDim==3)then
+
         call GetFacetElement(obj)
 
+        if(present(sorting) )then
+            if(.not.sorting)then
+                return
+            endif
+        endif
         call GetNextFacets(obj)
         obj%surface=1
 

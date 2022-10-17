@@ -31,6 +31,11 @@ module CivilItemClass
 
         procedure :: ground => groundCivilItem
         procedure :: beam => beamCivilItem
+
+        procedure,pass :: BoxCulvertCivilItem
+        procedure,pass :: BoxCulvertCivilItem_JSON
+        generic :: BoxCulvert => BoxCulvertCivilItem,BoxCulvertCivilItem_JSON
+
     end type
 
 contains
@@ -354,9 +359,6 @@ function RigidFrameViaductCivilItem_JSON(this,config,debug) result(RFV)
             cycle
         endif
 
-        MiddlePierHeights = int(zeros(NumMiddlePier))
-        MiddlePierHeights(1:NumMiddlePier) = to_vector(&
-            json_file%parse(filename=config,key1="MiddlePierHeights"),NumMiddlePier)
 
         if(index(line,"GirderWidth")/=0 )then
             nf = index(line, ":")
@@ -406,6 +408,10 @@ function RigidFrameViaductCivilItem_JSON(this,config,debug) result(RFV)
 
     enddo
     call f%close()
+
+    MiddlePierHeights = int(zeros(NumMiddlePier))
+    MiddlePierHeights(1:NumMiddlePier) = to_vector(&
+        json_file%parse(filename=config,key1="MiddlePierHeights"),NumMiddlePier)
 
 
     if(present(debug) )then
@@ -1708,6 +1714,209 @@ function groundCivilItem(this,femdomain,surface_point,radius,debug,er) result(re
     ret = ground(1)
 
 end function
+! ############################################################
+
+function BoxCulvertCivilItem(this,width,height,length,&
+    top_thickness,side_thickness,bottom_thickness,&
+    edge_thickness,divisions,&
+    cut_angles) result(culvert)
+    class(CivilItem_),intent(in) :: this
+    type(FEMDomain_) :: culvert
+    real(real64),intent(in) :: width,height,length,&
+    top_thickness,side_thickness,bottom_thickness,&
+    edge_thickness
+    integer(int32),allocatable :: killElemList(:)
+    integer(int32),intent(in) :: divisions(1:3)
+    real(real64),optional,intent(in) :: cut_angles(1:2)
+
+    real(real64) :: W, y_bar, B, T,alpha
+    integer(int32) :: i,j
+    real(real64),allocatable :: x_axis(:),y_axis(:),z_axis(:),center_coord(:),coord(:)
+
+
+    x_axis = [-Length/2.0d0,0.0d0,Length/2.0d0]
+    y_axis = [-Width/2.0d0,-Width/2.0d0+side_thickness,-Width/2.0d0+side_thickness+edge_thickness,&
+        0.0d0,Width/2.0d0-side_thickness-edge_thickness,Width/2.0d0-side_thickness,Width/2.0d0]
+    z_axis = [-Height/2.0d0,-Height/2.0d0+bottom_thickness,&
+        -Height/2.0d0+bottom_thickness+edge_thickness,&
+        0.0d0,Height/2.0d0-top_thickness-edge_thickness,&
+         Height/2.0d0-top_thickness,Height/2.0d0]
+
+    call refine(x_axis,divisions(1) )
+    call refine(y_axis,divisions(2) )
+    call refine(z_axis,divisions(3) )
+
+    call culvert%create(meshtype="Cube3D",&
+        x_axis=x_axis,&
+        y_axis=y_axis,&
+        z_axis=z_axis)
+
+    killElemList = int(zeros(culvert%ne() ) )
+
+
+    
+    do j=1,culvert%ne()
+        center_coord = culvert%centerPosition(ElementID=j)
+        !if( abs(center_coord(2)) < Width/2.0d0-side_thickness )then    
+        !    if( -Height/2.0d0+bottom_thickness+edge_thickness < center_coord(3) .and.&
+        !        center_coord(3) < Height/2.0d0-top_thickness-edge_thickness )then    
+        !        killElemList(j) = 1
+        !    endif
+        !endif
+        if( abs(center_coord(2)) < Width/2.0d0-side_thickness-edge_thickness )then    
+            if( -Height/2.0d0+bottom_thickness < center_coord(3) .and.&
+                center_coord(3) < Height/2.0d0-top_thickness )then    
+                killElemList(j) = 1
+            endif
+        endif
+    enddo
+    call culvert%killElement(blacklist=killElemList,flag=1)
+
+    do i=1,culvert%nn()
+        coord = culvert%mesh%nodcoord(i,:)
+        if( -Height/2.0d0 + bottom_thickness < coord(3) .and.&
+            coord(3) < Height/2.0d0 - top_thickness  )then
+            if(Height/2.0d0 - top_thickness> coord(3) .and. &
+                coord(3) > Height/2.0d0 - top_thickness - edge_thickness)then
+                alpha = (Height/2.0d0 - top_thickness) - coord(3)
+                alpha = alpha/edge_thickness
+                
+                if(coord(2)>0.0d0)then
+                    ! 0 < z < Height/2 - top_thickness 
+                    W = Width/2.0d0
+                    y_bar = coord(2)
+                    B = Width/2.0d0-side_thickness-edge_thickness
+                    T = Width/2.0d0-side_thickness
+                    culvert%mesh%nodcoord(i,2) = alpha*(  (y_bar-B)*W + (W-y_bar)*T  )/(W -B) &
+                        + (1-alpha)*culvert%mesh%nodcoord(i,2)
+                endif
+
+                if(coord(2)<0.0d0)then
+                    ! 0 < z < Height/2 - top_thickness 
+                    W = Width/2.0d0
+                    y_bar = abs(coord(2))
+                    B = Width/2.0d0-side_thickness-edge_thickness
+                    T = Width/2.0d0-side_thickness
+                    culvert%mesh%nodcoord(i,2) = -alpha*abs((  (y_bar-B)*W + (W-y_bar)*T  )/(W -B)) &
+                        + (1-alpha)*culvert%mesh%nodcoord(i,2)
+                endif
+            elseif(- Height/2.0d0 + bottom_thickness< coord(3) .and. &
+                coord(3) < -Height/2.0d0 + bottom_thickness + edge_thickness)then
+                alpha = abs(coord(3) - (-Height/2.0d0 + bottom_thickness) )
+                alpha = alpha/edge_thickness
+                
+                if(coord(2)>0.0d0)then
+                    ! 0 < z < Height/2 - bottom_thickness 
+                    W = Width/2.0d0
+                    y_bar = coord(2)
+                    B = Width/2.0d0-side_thickness-edge_thickness
+                    T = Width/2.0d0-side_thickness
+                    culvert%mesh%nodcoord(i,2) = alpha*(  (y_bar-B)*W + (W-y_bar)*T  )/(W -B) &
+                        + (1-alpha)*culvert%mesh%nodcoord(i,2)
+                endif
+
+                if(coord(2)<0.0d0)then
+                    ! 0 < z < Height/2 - bottom_thickness 
+                    W = Width/2.0d0
+                    y_bar = abs(coord(2))
+                    B = Width/2.0d0-side_thickness-edge_thickness
+                    T = Width/2.0d0-side_thickness
+                    culvert%mesh%nodcoord(i,2) = -alpha*abs((  (y_bar-B)*W + (W-y_bar)*T  )/(W -B)) &
+                        + (1-alpha)*culvert%mesh%nodcoord(i,2)
+                endif
+            else
+                if(coord(2)>0.0d0)then
+                    ! 0 < z < Height/2 - top_thickness 
+                    W = Width/2.0d0
+                    y_bar = coord(2)
+                    B = Width/2.0d0-side_thickness-edge_thickness
+                    T = Width/2.0d0-side_thickness
+                    culvert%mesh%nodcoord(i,2) = (  (y_bar-B)*W + (W-y_bar)*T  )/(W -B)
+                endif
+
+                if(coord(2)<0.0d0)then
+                    ! 0 < z < Height/2 - top_thickness 
+                    W = Width/2.0d0
+                    y_bar = abs(coord(2))
+                    B = Width/2.0d0-side_thickness-edge_thickness
+                    T = Width/2.0d0-side_thickness
+                    culvert%mesh%nodcoord(i,2) = -abs((  (y_bar-B)*W + (W-y_bar)*T  )/(W -B))
+                endif
+            endif
+        endif
+    enddo
+
+    if(present(cut_angles) )then
+        ! cut-off edges
+        do i=1, culvert%nn()
+            coord = culvert%mesh%nodcoord(i,:)
+            if(coord(1)<0.0d0)then
+                alpha = coord(2)/(Width/2.0d0) ! alpha = [-1,1]
+                alpha = (alpha + 1.0d0)*0.50d0 ! alpha = [0,1]
+                culvert%mesh%nodcoord(i,1) = culvert%mesh%nodcoord(i,1)  &
+                 - alpha*Width/(Length/2.0d0)*tan(radian(cut_angles(1)))*culvert%mesh%nodcoord(i,1)
+            else
+                alpha = coord(2)/(Width/2.0d0) ! alpha = [-1,1]
+                alpha = (alpha + 1.0d0)*0.50d0 ! alpha = [0,1]
+                culvert%mesh%nodcoord(i,1) = culvert%mesh%nodcoord(i,1)  &
+                 - alpha*Width/(Length/2.0d0)*tan(radian(cut_angles(2)))*culvert%mesh%nodcoord(i,1)
+            endif
+        enddo
+    endif
+
+end function
+! ############################################################
+
+
+function BoxCulvertCivilItem_JSON(this,config) result(culvert)
+    class(CivilItem_),intent(in) :: this
+    character(*),intent(in) :: config
+    type(FEMDomain_) :: culvert
+
+    real(real64) :: width,height,length,&
+    top_thickness,side_thickness,bottom_thickness,&
+    edge_thickness,Cut_angles(1:2),position(1:3),rotation(1:3)
+    integer(int32) :: divisions(1:3)
+
+    type(IO_) :: json_file
+
+    Width = freal(json_file%parse(filename=config,key1="Width"))
+    Height = freal(json_file%parse(filename=config,key1="Height"))
+    Length = freal(json_file%parse(filename=config,key1="Length"))
+    Top_thickness = freal(json_file%parse(filename=config,key1="Top_thickness"))
+    Side_thickness = freal(json_file%parse(filename=config,key1="Side_thickness"))
+    Bottom_thickness = freal(json_file%parse(filename=config,key1="Bottom_thickness"))
+    Edge_thickness = freal(json_file%parse(filename=config,key1="Edge_thickness"))
+
+
+    divisions = to_list(&
+        json_file%parse(filename=config,key1="Divisions"),3)
+
+    cut_angles = to_vector(&
+        json_file%parse(filename=config,key1="Cut_angles"),2)
+    
+    position = to_vector(&
+        json_file%parse(filename=config,key1="Position"),3)
+
+    rotation = to_vector(&
+        json_file%parse(filename=config,key1="Rotation"),3)
+
+    culvert = this%BoxCulvert(&
+        width=width,&
+        height=height,&
+        length=length,&
+        top_thickness=top_thickness,&
+        side_thickness=side_thickness,&
+        bottom_thickness=bottom_thickness,&
+        edge_thickness=edge_thickness,&
+        divisions=divisions, &
+        cut_angles=cut_angles)
+    call culvert%move(x=position(1),y=position(2),z=position(3))
+    call culvert%rotate(x=radian(rotation(1)),&
+        y=radian(rotation(2)),&
+        z=radian(rotation(3)))
+
+end function 
 ! ############################################################
 
 end module

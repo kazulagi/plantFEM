@@ -9,11 +9,11 @@
         20.00, 
         20.00
     ], 
-    "division_v"    : 10, 
-    "division_h"   : 10,
+    "division_v"    : 4, 
+    "division_h"   : 4,
     "refine_level" : [
-        5,
-        5,
+        3,
+        3,
         3
     ] 
 }
