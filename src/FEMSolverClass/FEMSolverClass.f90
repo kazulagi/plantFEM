@@ -1,7 +1,7 @@
 module FEMSolverClass
     !Linear soler for FEMDomainClass
     use iso_fortran_env
-    use COOClass
+    use SparseClass
     use FEMDomainClass
     implicit none
 
@@ -1393,13 +1393,14 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
         ! remove from problem [A][U] = w[B][U]
         ! sort before it
         
-        
-        ! first, for [A]
-        call heapsort(n=size(this%fix_eig_IDs),array=this%fix_eig_IDs)
-        call reduce_crs_matrix(CRS_val=this%A_CRS_val,CRS_col=this%A_CRS_index_col,&
-        CRS_rowptr=this%A_CRS_index_row,remove_IDs=this%fix_eig_IDs)
-        call reduce_crs_matrix(CRS_val=this%B_CRS_val,CRS_col=this%B_CRS_index_col,&
-        CRS_rowptr=this%B_CRS_index_row,remove_IDs=this%fix_eig_IDs)
+        if(size(this%fix_eig_IDs)>=1 )then
+            ! first, for [A]
+            call heapsort(n=size(this%fix_eig_IDs),array=this%fix_eig_IDs)
+            call reduce_crs_matrix(CRS_val=this%A_CRS_val,CRS_col=this%A_CRS_index_col,&
+            CRS_rowptr=this%A_CRS_index_row,remove_IDs=this%fix_eig_IDs)
+            call reduce_crs_matrix(CRS_val=this%B_CRS_val,CRS_col=this%B_CRS_index_col,&
+            CRS_rowptr=this%B_CRS_index_row,remove_IDs=this%fix_eig_IDs)
+        endif
     endif
     
     !>>>>>>>>>>>>>> INPUT
@@ -1493,39 +1494,44 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
     
     if(allocated(this%fix_eig_IDs) )then    
         ! U(this%fix_eig_IDs(i),: ) = 0.0d0
-        
-        new_id_from_old_id = zeros(N)
-        
-        k = 0
-        do j=1,this%fix_eig_IDs(1)-1
-            k = k + 1
-            new_id_from_old_id(k) = k
-        enddo
-        
-        do i=2,size(this%fix_eig_IDs)
-            from = this%fix_eig_IDs(i-1)+1
-            to   = this%fix_eig_IDs(i)-1
-            do j=from,to
+        if(size(this%fix_eig_IDs)>=1 )then
+            new_id_from_old_id = zeros(N)
+            
+            !new_id_from_old_id(Dirichlet境界を除いた固有ベクトルzのj番成分が，もとの何番目に対応するか)
+
+            k = 0
+            do j=1,this%fix_eig_IDs(1)-1
+                k = k + 1
+                new_id_from_old_id(k) = k
+            enddo
+            
+            do i=2,size(this%fix_eig_IDs)
+                from = this%fix_eig_IDs(i-1)+1
+                to   = this%fix_eig_IDs(i)-1
+                do j=from,to
+                    k = k + 1
+                    if(k > size(new_id_from_old_id) ) cycle
+                    new_id_from_old_id(k) = j
+                enddo
+            enddo
+            
+            do j=this%fix_eig_IDs( size(this%fix_eig_IDs) )+1,N+size(this%fix_eig_IDs)
                 k = k + 1
                 if(k > size(new_id_from_old_id) ) cycle
                 new_id_from_old_id(k) = j
             enddo
-        enddo
         
-        do j=this%fix_eig_IDs( size(this%fix_eig_IDs) )+1,N+size(this%fix_eig_IDs)
-            k = k + 1
-            if(k > size(new_id_from_old_id) ) cycle
-            new_id_from_old_id(k) = j
-        enddo
-
-        
-        eigen_vectors = zeros(size(Z,1)+size(this%fix_eig_IDs),size(Z,1) ) 
-        do i=1,size(Z,2)
-            do j=1,size(new_id_from_old_id,1)
-                eigen_vectors( new_id_from_old_id(j) ,i) = Z( j  ,i)
+            
+            eigen_vectors = zeros(size(Z,1)+size(this%fix_eig_IDs),size(Z,1) ) 
+            do i=1,size(Z,2)
+                do j=1,size(new_id_from_old_id,1)
+                    eigen_vectors( new_id_from_old_id(j) ,i) = Z( j  ,i)
+                enddo
             enddo
-        enddo
-        
+            
+        else
+            eigen_vectors = Z    
+        endif
     else
         eigen_vectors = Z    
     endif
@@ -1571,6 +1577,7 @@ subroutine fix_eigFEMSolver(this,IDs)
     elseif(size(this%fix_eig_IDs)==0)then
         this%fix_eig_IDs = IDs
     else
+        
         buf = this%fix_eig_IDs
         this%fix_eig_IDs = zeros(size(buf) + size(IDs) )
         this%fix_eig_IDs(1:size(buf) ) = buf(:)

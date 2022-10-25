@@ -1,5 +1,5 @@
 program main
-    use COOClass
+    use SparseClass
     implicit none
     real(real64),allocatable :: Eigen_vectors(:,:),eigen_values(:)
     type(CRS_) :: CRS

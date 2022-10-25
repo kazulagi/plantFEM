@@ -1,5 +1,5 @@
 Program real_array_example
-    use COOClass
+    use SparseClass
     use iso_fortran_env
     Implicit none
   

@@ -1686,9 +1686,9 @@ subroutine modalAnalysisSeismicAnalysis_single_domain(this,femdomain,YoungModulu
     real(real64) :: Vs,t,dt,E_Al
     real(real64),allocatable :: Mode_U(:),mode_Ut(:),freq(:),eigen_value(:),eigen_vectors(:,:)
     integer(int32),allocatable :: node_list(:)
-    integer(int32),optional,intent(in) :: fix_node_list_x(:)
-    integer(int32),optional,intent(in) :: fix_node_list_y(:)
-    integer(int32),optional,intent(in) :: fix_node_list_z(:)
+    integer(int32),optional,allocatable,intent(in) :: fix_node_list_x(:)
+    integer(int32),optional,allocatable,intent(in) :: fix_node_list_y(:)
+    integer(int32),optional,allocatable,intent(in) :: fix_node_list_z(:)
     
     ! Modal analysis
     
@@ -1736,21 +1736,27 @@ subroutine modalAnalysisSeismicAnalysis_single_domain(this,femdomain,YoungModulu
     
 !    print *, "solver%eig"
     if(present(fix_node_list_x) )then
-        node_list = fix_node_list_x
-        node_list =(node_list(:)-1)*3+1
-        call this%femsolver%fix_eig(IDs=node_list)
+        if(allocated(fix_node_list_x) )then
+            node_list = fix_node_list_x
+            node_list =(node_list(:)-1)*3+1
+            call this%femsolver%fix_eig(IDs=node_list)
+        endif
     endif
 
     if(present(fix_node_list_y) )then
-        node_list = fix_node_list_y
-        node_list =(node_list(:)-1)*3+2
-        call this%femsolver%fix_eig(IDs=node_list)
+        if(allocated(fix_node_list_y) )then
+            node_list = fix_node_list_y
+            node_list =(node_list(:)-1)*3+2
+            call this%femsolver%fix_eig(IDs=node_list)
+        endif
     endif
 
     if(present(fix_node_list_z) )then
-        node_list = fix_node_list_z
-        node_list =(node_list(:)-1)*3+3
-        call this%femsolver%fix_eig(IDs=node_list)
+        if(allocated(fix_node_list_z) )then
+            node_list = fix_node_list_z
+            node_list =(node_list(:)-1)*3+3
+            call this%femsolver%fix_eig(IDs=node_list)
+        endif
     endif
 
     call this%femsolver%eig(eigen_value=eigen_value,eigen_vectors=eigen_vectors)
@@ -1830,7 +1836,7 @@ subroutine modalAnalysisSeismicAnalysis_multi_domain(this,femdomains,connectivit
             algorithm=overset_algorithm ) 
     enddo
 
-
+    
     call this%femsolver%init(NumDomain=size(femdomains) )
     call this%femsolver%setDomain(FEMDomains=femdomains,DomainIDs=DomainIDs)
     call this%femsolver%setCRS(DOF=femdomains(1)%nd() )
@@ -1847,6 +1853,8 @@ subroutine modalAnalysisSeismicAnalysis_multi_domain(this,femdomains,connectivit
                                     + femdomains(DomainID)%nn()
     enddo
 
+
+
     if(allocated(this%ElementID_range)) deallocate(this%ElementID_range)
     allocate(this%ElementID_range(0:size(femdomains),1:2 ) )
     this%ElementID_range(0,1) =0
@@ -1858,6 +1866,7 @@ subroutine modalAnalysisSeismicAnalysis_multi_domain(this,femdomains,connectivit
         this%ElementID_range(domainID,2) = this%ElementID_range(DomainID-1,2) &
                                     + femdomains(DomainID)%ne()
     enddo
+    
 
     do domainID=1,size(femdomains)
         do i=1,femdomains(domainID)%ne()
@@ -1897,22 +1906,23 @@ subroutine modalAnalysisSeismicAnalysis_multi_domain(this,femdomains,connectivit
     
 !    print *, "solver%eig"
     if(present(fix_node_list_x) )then
-        node_list = fix_node_list_x
-        node_list =(node_list(:)-1)*3+1
-        call this%femsolver%fix_eig(IDs=node_list)
+            node_list = fix_node_list_x
+            node_list =(node_list(:)-1)*3+1
+            call this%femsolver%fix_eig(IDs=node_list)
     endif
 
     if(present(fix_node_list_y) )then
-        node_list = fix_node_list_y
-        node_list =(node_list(:)-1)*3+2
-        call this%femsolver%fix_eig(IDs=node_list)
+            node_list = fix_node_list_y
+            node_list =(node_list(:)-1)*3+2
+            call this%femsolver%fix_eig(IDs=node_list)
     endif
 
     if(present(fix_node_list_z) )then
-        node_list = fix_node_list_z
-        node_list =(node_list(:)-1)*3+3
-        call this%femsolver%fix_eig(IDs=node_list)
+            node_list = fix_node_list_z
+            node_list =(node_list(:)-1)*3+3
+            call this%femsolver%fix_eig(IDs=node_list)
     endif
+
 
     call this%femsolver%eig(eigen_value=eigen_value,eigen_vectors=eigen_vectors)
     
@@ -2048,8 +2058,8 @@ function getModeVectorSeismicAnalysis(this,domainID,ModeID) result(mode_vector)
 
     if(allocated(this%NodeID_range)  )then
         n = this%NodeID_range(domainID-1,2)
-        nn = this%NodeID_range(domainID,2) - this%NodeID_range(domainID-1,2)
-        mode_vector = this%ModeVectors(3*n + 1:3*n + nn*3,ModeID)
+        nn = this%NodeID_range(domainID,2)! - this%NodeID_range(domainID-1,2)
+        mode_vector = this%ModeVectors(3*n + 1: nn*3, ModeID)
     else
         mode_vector = this%ModeVectors(:,ModeID)
     endif

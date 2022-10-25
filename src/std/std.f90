@@ -18,7 +18,7 @@ module std
     use ArrayClass
     use ElasticityClass
     use SpectreAnalysisClass
-    use COOClass
+    use SparseClass
     use RangeClass
     use PCAClass
     use SDEClass

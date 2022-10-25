@@ -95,15 +95,15 @@ echo " | =>                          | (4%)\r\c"
 mpiifort -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/SpectreAnalysisClass/SpectreAnalysisClass.f90 -o  ./inc/SpectreAnalysisClass.o -llapack -lblas
 
 
-echo "Compiling ./src/COOClass/COOClass.c " 
-echo " >> COOClass-c.o "
+echo "Compiling ./src/SparseClass/SparseClass.c " 
+echo " >> SparseClass-c.o "
 echo " | =>                          | (4%)\r\c"
-gcc -c ./src/COOClass/COOClass-c.c -o inc/COOClass-c.o
+gcc -c ./src/SparseClass/SparseClass-c.c -o inc/SparseClass-c.o
 
-echo "Compiling ./src/COOClass/COOClass.f90 " 
-echo " >> COOClass.o "
+echo "Compiling ./src/SparseClass/SparseClass.f90 " 
+echo " >> SparseClass.o "
 echo " | =>                          | (4%)\r\c"
-mpiifort -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./inc/COOClass-c.o ./src/COOClass/COOClass.f90 -o  ./inc/COOClass.o -llapack -lblas
+mpiifort -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./inc/SparseClass-c.o ./src/SparseClass/SparseClass.f90 -o  ./inc/SparseClass.o -llapack -lblas
 
 
 echo "Compiling ./src/RangeClass/RangeClass.f90 " 

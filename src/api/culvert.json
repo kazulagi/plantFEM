@@ -6,8 +6,10 @@
     "Side_thickness": 0.100,
     "Bottom_thickness": 0.100,
     "Edge_thickness": 0.080,
+    "Spigot_length": 0.080,
+    "Socket_length": 0.080,
     "Divisions": [
-        2,
+        5,
         2,
         2
     ],

@@ -1718,7 +1718,7 @@ end function
 
 function BoxCulvertCivilItem(this,width,height,length,&
     top_thickness,side_thickness,bottom_thickness,&
-    edge_thickness,divisions,&
+    edge_thickness,divisions,Spigot_length,Socket_length,&
     cut_angles) result(culvert)
     class(CivilItem_),intent(in) :: this
     type(FEMDomain_) :: culvert
@@ -1727,20 +1727,33 @@ function BoxCulvertCivilItem(this,width,height,length,&
     edge_thickness
     integer(int32),allocatable :: killElemList(:)
     integer(int32),intent(in) :: divisions(1:3)
-    real(real64),optional,intent(in) :: cut_angles(1:2)
+    real(real64),optional,intent(in) :: cut_angles(1:2),Spigot_length,Socket_length
 
     real(real64) :: W, y_bar, B, T,alpha
     integer(int32) :: i,j
     real(real64),allocatable :: x_axis(:),y_axis(:),z_axis(:),center_coord(:),coord(:)
 
+    if(present(Socket_length) )then
+        x_axis = [-Length/2.0d0,-Length/2.0d0+Socket_length,0.0d0,Length/2.0d0]
+    else
+        x_axis = [-Length/2.0d0,0.0d0,Length/2.0d0]
+    endif
 
-    x_axis = [-Length/2.0d0,0.0d0,Length/2.0d0]
-    y_axis = [-Width/2.0d0,-Width/2.0d0+side_thickness,-Width/2.0d0+side_thickness+edge_thickness,&
-        0.0d0,Width/2.0d0-side_thickness-edge_thickness,Width/2.0d0-side_thickness,Width/2.0d0]
-    z_axis = [-Height/2.0d0,-Height/2.0d0+bottom_thickness,&
+    if(present(Spigot_length) )then
+        x_axis = x_axis // [Length/2.0d0+Spigot_length]
+    endif
+
+
+    y_axis = [-Width/2.0d0,-Width/2.0d0+side_thickness/2.0d0,-Width/2.0d0+side_thickness,&
+        -Width/2.0d0+side_thickness+edge_thickness,&
+        0.0d0,Width/2.0d0-side_thickness-edge_thickness,&
+        Width/2.0d0-side_thickness,Width/2.0d0-side_thickness/2.0d0,Width/2.0d0]
+    z_axis = [-Height/2.0d0,-Height/2.0d0+bottom_thickness/2.0d0,&
+        -Height/2.0d0+bottom_thickness,&
         -Height/2.0d0+bottom_thickness+edge_thickness,&
         0.0d0,Height/2.0d0-top_thickness-edge_thickness,&
-         Height/2.0d0-top_thickness,Height/2.0d0]
+         Height/2.0d0-top_thickness,&
+         Height/2.0d0-top_thickness/2.0d0,Height/2.0d0]
 
     call refine(x_axis,divisions(1) )
     call refine(y_axis,divisions(2) )
@@ -1774,6 +1787,8 @@ function BoxCulvertCivilItem(this,width,height,length,&
 
     do i=1,culvert%nn()
         coord = culvert%mesh%nodcoord(i,:)
+        if(abs(coord(2)) > Width/2.0d0-Side_thickness/2.0d0 ) cycle
+        
         if( -Height/2.0d0 + bottom_thickness < coord(3) .and.&
             coord(3) < Height/2.0d0 - top_thickness  )then
             if(Height/2.0d0 - top_thickness> coord(3) .and. &
@@ -1783,7 +1798,7 @@ function BoxCulvertCivilItem(this,width,height,length,&
                 
                 if(coord(2)>0.0d0)then
                     ! 0 < z < Height/2 - top_thickness 
-                    W = Width/2.0d0
+                    W = Width/2.0d0-Side_thickness/2.0d0
                     y_bar = coord(2)
                     B = Width/2.0d0-side_thickness-edge_thickness
                     T = Width/2.0d0-side_thickness
@@ -1793,7 +1808,7 @@ function BoxCulvertCivilItem(this,width,height,length,&
 
                 if(coord(2)<0.0d0)then
                     ! 0 < z < Height/2 - top_thickness 
-                    W = Width/2.0d0
+                    W = Width/2.0d0-Side_thickness/2.0d0
                     y_bar = abs(coord(2))
                     B = Width/2.0d0-side_thickness-edge_thickness
                     T = Width/2.0d0-side_thickness
@@ -1807,7 +1822,7 @@ function BoxCulvertCivilItem(this,width,height,length,&
                 
                 if(coord(2)>0.0d0)then
                     ! 0 < z < Height/2 - bottom_thickness 
-                    W = Width/2.0d0
+                    W = Width/2.0d0-Side_thickness/2.0d0
                     y_bar = coord(2)
                     B = Width/2.0d0-side_thickness-edge_thickness
                     T = Width/2.0d0-side_thickness
@@ -1817,7 +1832,7 @@ function BoxCulvertCivilItem(this,width,height,length,&
 
                 if(coord(2)<0.0d0)then
                     ! 0 < z < Height/2 - bottom_thickness 
-                    W = Width/2.0d0
+                    W = Width/2.0d0-Side_thickness/2.0d0
                     y_bar = abs(coord(2))
                     B = Width/2.0d0-side_thickness-edge_thickness
                     T = Width/2.0d0-side_thickness
@@ -1827,7 +1842,7 @@ function BoxCulvertCivilItem(this,width,height,length,&
             else
                 if(coord(2)>0.0d0)then
                     ! 0 < z < Height/2 - top_thickness 
-                    W = Width/2.0d0
+                    W = Width/2.0d0-Side_thickness/2.0d0
                     y_bar = coord(2)
                     B = Width/2.0d0-side_thickness-edge_thickness
                     T = Width/2.0d0-side_thickness
@@ -1836,7 +1851,7 @@ function BoxCulvertCivilItem(this,width,height,length,&
 
                 if(coord(2)<0.0d0)then
                     ! 0 < z < Height/2 - top_thickness 
-                    W = Width/2.0d0
+                    W = Width/2.0d0-Side_thickness/2.0d0
                     y_bar = abs(coord(2))
                     B = Width/2.0d0-side_thickness-edge_thickness
                     T = Width/2.0d0-side_thickness
@@ -1863,6 +1878,42 @@ function BoxCulvertCivilItem(this,width,height,length,&
             endif
         enddo
     endif
+    
+    if(present(Socket_length) )then
+        killElemList = int(zeros(culvert%ne() ))
+        do j=1,culvert%ne()
+            center_coord = culvert%centerPosition(ElementID=j)
+            if( - Length/2.0d0 < center_coord(1) .and. center_coord(1) <-Length/2.0d0+Socket_length  )then    
+                if( - Width/2.0d0 + side_thickness/2.0d0 < center_coord(2) &
+                    .and. center_coord(2) <Width/2.0d0 - side_thickness/2.0d0  )then    
+                    if( - Height/2.0d0 + bottom_thickness/2.0d0 < center_coord(3) &
+                        .and. center_coord(3) <Height/2.0d0 - top_thickness/2.0d0  )then    
+                        killElemList(j) = 1
+                    endif
+                endif
+            endif
+        enddo
+        call culvert%killElement(blacklist=killElemList,flag=1)
+    endif
+    
+    if(present(Spigot_length) )then
+        killElemList = int(zeros(culvert%ne() ))
+        do j=1,culvert%ne()
+            center_coord = culvert%centerPosition(ElementID=j)
+            if( center_coord(1) >  Length/2.0d0  )then    
+                if( - Width/2.0d0 + side_thickness/2.0d0 > center_coord(2) &
+                    .or. center_coord(2) > Width/2.0d0 - side_thickness/2.0d0  )then    
+                    killElemList(j) = 1
+                endif
+                if( - Height/2.0d0 + bottom_thickness/2.0d0 > center_coord(3) &
+                    .or. center_coord(3) > Height/2.0d0 - top_thickness/2.0d0  )then    
+                    killElemList(j) = 1
+                endif
+            endif
+        enddo
+        call culvert%killElement(blacklist=killElemList,flag=1)
+    endif
+
 
 end function
 ! ############################################################
@@ -1875,7 +1926,8 @@ function BoxCulvertCivilItem_JSON(this,config) result(culvert)
 
     real(real64) :: width,height,length,&
     top_thickness,side_thickness,bottom_thickness,&
-    edge_thickness,Cut_angles(1:2),position(1:3),rotation(1:3)
+    edge_thickness,Cut_angles(1:2),position(1:3),rotation(1:3),&
+    Socket_length,Spigot_length
     integer(int32) :: divisions(1:3)
 
     type(IO_) :: json_file
@@ -1887,6 +1939,8 @@ function BoxCulvertCivilItem_JSON(this,config) result(culvert)
     Side_thickness = freal(json_file%parse(filename=config,key1="Side_thickness"))
     Bottom_thickness = freal(json_file%parse(filename=config,key1="Bottom_thickness"))
     Edge_thickness = freal(json_file%parse(filename=config,key1="Edge_thickness"))
+    Socket_length = freal(json_file%parse(filename=config,key1="Socket_length"))
+    Spigot_length = freal(json_file%parse(filename=config,key1="Spigot_length"))
 
 
     divisions = to_list(&
@@ -1910,6 +1964,8 @@ function BoxCulvertCivilItem_JSON(this,config) result(culvert)
         bottom_thickness=bottom_thickness,&
         edge_thickness=edge_thickness,&
         divisions=divisions, &
+        Socket_length=Socket_length,&
+        Spigot_length=Spigot_length,&
         cut_angles=cut_angles)
     call culvert%move(x=position(1),y=position(2),z=position(3))
     call culvert%rotate(x=radian(rotation(1)),&

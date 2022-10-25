@@ -7,7 +7,6 @@ character(256) :: fpath
 type(MPI_) :: mpid
 
 call mpid%start()
-fpath = "boxculvert.json"
 call get_command_argument(number=1,value=fpath)
 boxculvert = ci%BoxCulvert(trim(adjustl(fpath)))
 call boxculvert%vtk(trim(adjustl(fpath)))

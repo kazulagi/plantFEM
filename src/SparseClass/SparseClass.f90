@@ -1,4 +1,4 @@
-module COOClass
+module SparseClass
     use iso_c_binding
     use ArrayClass
     implicit none
@@ -423,7 +423,7 @@ function matmulCRS(CRS,old_vector) result(new_vector)
     real(real64),intent(in)  :: Old_vector(:)
     real(real64),allocatable :: new_vector(:)
   
-    new_vector = crs_matvec_generic_cooclass(&
+    new_vector = crs_matvec_generic_SparseClass(&
       CRS_value=CRS%val,&
       CRS_col=CRS%col_idx,&
       CRS_row_ptr=CRS%row_ptr,&
@@ -433,7 +433,7 @@ function matmulCRS(CRS,old_vector) result(new_vector)
   
 
 
-function crs_matvec_generic_cooclass(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
+function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
     real(real64),intent(in)  :: CRS_value(:),Old_vector(:)
     integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
   
@@ -1192,4 +1192,4 @@ subroutine poissonCOO(this,n)
 end subroutine
 
 
-end module COOClass
+end module SparseClass

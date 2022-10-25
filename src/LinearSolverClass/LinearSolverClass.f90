@@ -5,7 +5,7 @@ module LinearSolverClass
   use TimeClass
   use MathClass
   use ArrayClass
-  use COOClass
+  use SparseClass
   use RandomClass
   !use MPIClass
   implicit none
