@@ -1,4 +1,4 @@
-use COOClass
+use SparseClass
 implicit none
 
 type(COO_) :: A

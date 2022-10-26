@@ -1,4 +1,4 @@
-use COOClass
+use SparseClass
 
 type(COO_) :: coo
 type(CRS_) :: CRS

@@ -1,6 +1,6 @@
 program main
     use MPIClass
-    use COOClass
+    use SparseClass
     use FEMSolverClass
     implicit none
 

@@ -1,5 +1,5 @@
 program main
-    use COOClass
+    use SparseClass
     use FEMDomainClass
     use FEMSolverClass
     use CivilItemClass

@@ -4,7 +4,7 @@ implicit none
 
 
 ![Warning!] type(LinearSolver_) is not reccomended. 
-! Please use FEMSolver or COOClass instead of it.
+! Please use FEMSolver or SparseClass instead of it.
 
 type(LinearSolver_) :: solver
 type(Time_) :: time

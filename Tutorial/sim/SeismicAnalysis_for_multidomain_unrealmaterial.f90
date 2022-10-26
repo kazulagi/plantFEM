@@ -12,7 +12,7 @@
 
 program main
     !use WaveClass
-    use COOClass
+    use SparseClass
     use SeismicAnalysisClass
     implicit none
 

@@ -1,7 +1,7 @@
 module FEMSolverClass
     !Linear soler for FEMDomainClass
     use iso_fortran_env
-    use COOClass
+    use SparseClass
     use FEMDomainClass
     implicit none
 
@@ -68,7 +68,10 @@ module FEMSolverClass
         integer(int32) :: itrmax = 100000
         real(real64)   :: er0 = dble(1.0e-10)
         real(real64)   :: relative_er = dble(1.0e-10)
-        
+
+        logical        :: use_LOBPCG     = .true.
+        integer(int32) :: LOBPCG_MAX_ITR = 100000
+        real(real64)   :: LOBPCG_TOL     = dble(1.0e-8)
     contains
         !(1) Initialize solver
         procedure,public ::  init => initFEMSolver
@@ -137,6 +140,7 @@ module FEMSolverClass
         procedure, public :: MPI_dot_product => MPI_dot_productFEMSolver
         procedure, public :: MPI_matmul => MPI_matmulFEMSolver
         procedure, public :: MPI_BICGSTAB => MPI_BICGSTABFEMSolver
+        
 
         ! destractor
         procedure, public :: remove => removeFEMSolver
@@ -1393,13 +1397,14 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
         ! remove from problem [A][U] = w[B][U]
         ! sort before it
         
-        
-        ! first, for [A]
-        call heapsort(n=size(this%fix_eig_IDs),array=this%fix_eig_IDs)
-        call reduce_crs_matrix(CRS_val=this%A_CRS_val,CRS_col=this%A_CRS_index_col,&
-        CRS_rowptr=this%A_CRS_index_row,remove_IDs=this%fix_eig_IDs)
-        call reduce_crs_matrix(CRS_val=this%B_CRS_val,CRS_col=this%B_CRS_index_col,&
-        CRS_rowptr=this%B_CRS_index_row,remove_IDs=this%fix_eig_IDs)
+        if(size(this%fix_eig_IDs)>=1 )then
+            ! first, for [A]
+            call heapsort(n=size(this%fix_eig_IDs),array=this%fix_eig_IDs)
+            call reduce_crs_matrix(CRS_val=this%A_CRS_val,CRS_col=this%A_CRS_index_col,&
+            CRS_rowptr=this%A_CRS_index_row,remove_IDs=this%fix_eig_IDs)
+            call reduce_crs_matrix(CRS_val=this%B_CRS_val,CRS_col=this%B_CRS_index_col,&
+            CRS_rowptr=this%B_CRS_index_row,remove_IDs=this%fix_eig_IDs)
+        endif
     endif
     
     !>>>>>>>>>>>>>> INPUT
@@ -1409,52 +1414,18 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
     LIWORK = 3 + 5*N
     !<<<<<<<<<<<<<< INPUT
 
-!    if(use_lanczos)then
-!        crs%val = this%A_CRS_val
-!        crs%col_idx = this%A_CRS_index_col
-!        crs%row_ptr = this%A_CRS_index_row
-!        ! AU = λBU
-!        ! assuming B ≒ M, where M is a mass concentration matrix,
-!        ! crs = M^{-1} A
-!        ! First >> convert AU = λBU to A'y = λy
-!        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
-!        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
-!        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
-!        ! 3重対角行列で一般化固有値問題を解くソルバが出てくるまでは塩漬け．
-!        print *, "ERROR :: bug exists."
-!
-!        stop
-!
-!        !M = zeros(N)
-!        !do i=1,N
-!        !    do j=this%B_CRS_index_row(i),this%B_CRS_index_row(i+1) - 1
-!        !        M(i) = M(i) + this%B_CRS_val(j)
-!        !    enddo
-!        !enddo
-!        
-!        !do i=1,N
-!        !    do j=crs%row_ptr(i),crs%row_ptr(i+1) - 1
-!        !        crs%val(j) = crs%val(j) / M(i)
-!        !    enddo
-!        !enddo
-!        ! 
-!
-!        call crs%eig(Eigen_vectors=Z,eigen_values=w)
-!
-!        do i=1,size(Z,2)
-!            Z(:,i) = Z(:,i)/norm(Z(:,i) )
-!        enddo
-!
-!
-!        !ID = linspace([1.0d0,dble(size(w)) ],size(w))
-!        !call heapsort(n=N,array=w,val=ID)
-!        !z = sortByIDreal64ColisVector(z,int(ID))
-!        
-!        
-!    else
+    if(this%use_LOBPCG)then
+        print *, ">> Solver :: LOBPCG"
+        call LOBPCG(&
+            A=this%getCRS("A"),&
+            B=this%getCRS("B"),&
+            X=Z, lambda=W,&
+            m=input(default=5,option=num_eigen ),&
+            MAX_ITR=this%LOBPCG_MAX_ITR,&
+            TOL=this%LOBPCG_TOL,&
+            debug=this%debug)
 
-        
-
+    else
         !>>>>>>>>>>>>>>  INPUT/OUTPUT
         AP = zeros(N*(N+1)/2 )
         BP = zeros(N*(N+1)/2 )
@@ -1484,48 +1455,50 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
         print *, ">> Solver :: LAPACK/DSPGVD"
         call DSPGVD (ITYPE, JOBZ, UPLO, N, AP, BP, W, Z, LDZ, WORK, &
         LWORK, IWORK, LIWORK, INFO)
-!    endif
 
-    !call DSPGVX (ITYPE, JOBZ, RANGE="I", UPLO, N, AP, BP, VL, VU, IL, IU,
-    !ABSTOL, M, W, Z, LDZ, WORK, IWORK, IFAIL, INFO)
-
-    eigen_value = w
+    endif
     
+    eigen_value = w
     if(allocated(this%fix_eig_IDs) )then    
         ! U(this%fix_eig_IDs(i),: ) = 0.0d0
-        
-        new_id_from_old_id = zeros(N)
-        
-        k = 0
-        do j=1,this%fix_eig_IDs(1)-1
-            k = k + 1
-            new_id_from_old_id(k) = k
-        enddo
-        
-        do i=2,size(this%fix_eig_IDs)
-            from = this%fix_eig_IDs(i-1)+1
-            to   = this%fix_eig_IDs(i)-1
-            do j=from,to
+        if(size(this%fix_eig_IDs)>=1 )then
+            new_id_from_old_id = zeros(N)
+            
+            !new_id_from_old_id(Dirichlet境界を除いた固有ベクトルzのj番成分が，もとの何番目に対応するか)
+
+            k = 0
+            do j=1,this%fix_eig_IDs(1)-1
+                k = k + 1
+                new_id_from_old_id(k) = k
+            enddo
+            
+            do i=2,size(this%fix_eig_IDs)
+                from = this%fix_eig_IDs(i-1)+1
+                to   = this%fix_eig_IDs(i)-1
+                do j=from,to
+                    k = k + 1
+                    if(k > size(new_id_from_old_id) ) cycle
+                    new_id_from_old_id(k) = j
+                enddo
+            enddo
+            
+            do j=this%fix_eig_IDs( size(this%fix_eig_IDs) )+1,N+size(this%fix_eig_IDs)
                 k = k + 1
                 if(k > size(new_id_from_old_id) ) cycle
                 new_id_from_old_id(k) = j
             enddo
-        enddo
         
-        do j=this%fix_eig_IDs( size(this%fix_eig_IDs) )+1,N+size(this%fix_eig_IDs)
-            k = k + 1
-            if(k > size(new_id_from_old_id) ) cycle
-            new_id_from_old_id(k) = j
-        enddo
-
-        
-        eigen_vectors = zeros(size(Z,1)+size(this%fix_eig_IDs),size(Z,1) ) 
-        do i=1,size(Z,2)
-            do j=1,size(new_id_from_old_id,1)
-                eigen_vectors( new_id_from_old_id(j) ,i) = Z( j  ,i)
+            
+            eigen_vectors = zeros(size(Z,1)+size(this%fix_eig_IDs),size(Z,2) ) 
+            do i=1,size(Z,2)
+                do j=1,size(new_id_from_old_id,1)
+                    eigen_vectors( new_id_from_old_id(j) ,i) = Z( j  ,i)
+                enddo
             enddo
-        enddo
-        
+            
+        else
+            eigen_vectors = Z    
+        endif
     else
         eigen_vectors = Z    
     endif
@@ -1571,6 +1544,7 @@ subroutine fix_eigFEMSolver(this,IDs)
     elseif(size(this%fix_eig_IDs)==0)then
         this%fix_eig_IDs = IDs
     else
+        
         buf = this%fix_eig_IDs
         this%fix_eig_IDs = zeros(size(buf) + size(IDs) )
         this%fix_eig_IDs(1:size(buf) ) = buf(:)
@@ -2664,5 +2638,7 @@ function conditionNumberFEMSolver(this) result(RCOND)
 
 end function
 ! ################################################
+
+
 
 end module 
