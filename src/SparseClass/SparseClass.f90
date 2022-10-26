@@ -67,6 +67,7 @@ module SparseClass
         procedure,public :: init => initCRS
         procedure,public :: Lanczos => LanczosCRS
         procedure,public :: matmul => matmulCRS
+        procedure,public :: SpMV => matmulCRS
         procedure,public :: eig => eigCRS
         procedure,public :: to_dense => to_denseCRS
         procedure,public :: DOF => DOFCRS
@@ -104,6 +105,10 @@ module SparseClass
     interface operator(*)
       module procedure multReal64_and_CRS, multCRS_and_Real64
     end interface
+
+    interface LOBPCG
+        module procedure LOBPCG_CRS,LOBPCG_SINGLE_CRS
+    end interface LOBPCG
 
 contains
 
@@ -454,7 +459,7 @@ function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector
 
     !$OMP parallel default(shared) private(CRS_id,col)
     !$OMP do reduction(+:new_vector)
-    do row = 1 , n
+    do row = 1, n
         do CRS_id = CRS_row_ptr(row), CRS_row_ptr(row+1)-1
             new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(CRS_col(CRS_id))
         enddo
@@ -1191,5 +1196,390 @@ subroutine poissonCOO(this,n)
     
 end subroutine
 
+
+
+subroutine LOBPCG_single_CRS(A,B,lambda,X,alpha,tol,debug)
+    type(CRS_),intent(in) :: A, B
+    real(real64),allocatable,intent(inout) :: X(:)
+    real(real64),allocatable,intent(inout) :: lambda
+    real(real64),intent(in) :: alpha
+    logical,optional,intent(in) :: debug
+    logical :: debug_mode
+    
+    type(Random_) :: random
+
+    real(real64),allocatable :: r(:),rho
+    integer(int32) :: n,i
+    integer(int32) :: MAX_ITR = 1000000
+    real(real64),intent(in) :: tol
+    
+    debug_mode = input(default=.false.,option=debug)
+    ! BLOPEX IN HYPRE AND PETSC, SIAM Eq. (2.2) 
+    ! number of eigen value :: m
+    ! initialize X and lambda
+    n = A%size()
+    X = random%randn(n)
+    
+    lambda = 0.0d0
+    
+    !Single-vector version
+    do i=1,MAX_ITR
+        rho = dot_product(x, A%matmul(x) )/dot_product(x,B%matmul(x))
+        r = A%matmul(x) - rho*B%matmul(x) 
+        x = x - alpha*r
+        if(debug_mode)then
+            print *, i, norm(r)
+        endif
+        if(norm(r) < tol )then
+            if(debug_mode)then
+                print *, "[OK] converged."
+            endif
+            exit
+        else
+            cycle
+        endif
+    enddo
+    if(i==MAX_ITR) print *, "[ERROR] LOBPCG NOT CONVERGED."
+    lambda = rho
+end subroutine
+
+
+
+subroutine LOBPCG_CRS(A,B,lambda,X,m,MAX_ITR,TOL,debug)
+    type(CRS_),intent(in) :: A, B
+    real(real64),allocatable,intent(out) :: X(:,:)
+    real(real64),allocatable,intent(out) :: lambda(:)
+    real(real64),intent(in) :: TOL
+    integer(int32),intent(in) :: m,MAX_ITR
+    logical,optional,intent(in) :: debug    
+    logical :: debug_mode
+
+    type(Random_) :: random
+
+    real(real64),allocatable :: r(:,:), p(:,:),V(:,:),A_small(:,:),AV(:,:),&
+        b_small(:,:),lambda_small(:), XAX(:,:),AX(:,:),OR(:,:),BX(:,:),XBX(:,:),&
+        Bm_small(:,:),BV(:,:)
+    real(real64)   :: initial_R
+    integer(int32) :: n,i,j
+    !integer(int32) :: MAX_ITR = 1000000
+    
+    ! References:
+    ! Knyazev, A. V., Argentati, M. E., Lashuk, I. & Ovtchinnikov, E. E. Block Locally Optimal Preconditioned Eigenvalue Xolvers (BLOPEX) in hypre and PETSc. SIAM J. Sci. Comput. 29, 2224–2239 (2007).
+    ! https://en.wikipedia.org/wiki/LOBPCG
+    ! https://webpark1378.sakura.ne.jp/nagai/note_141009_LOBPCG.pdf
+    
+    debug_mode = input(default=.false.,option=debug)
+    ! BLOPEX IN HYPRE AND PETSC, SIAM Eq. (2.2) 
+    ! number of eigen value :: m
+
+    ! initialize X and lambda
+    n = A%size()
+    X = random%randn(n,m)
+    call GramSchmidt(X,size(X,1),size(X,2),X )
+    lambda = zeros(m)
+
+    R = zeros(n,m)
+    P = zeros(n,m)
+    AV = zeros(n,3*m)
+    AX = zeros(n,m)
+    A_small = zeros(3*m,3*m)
+    V = zeros(n,3*m)
+    
+
+    ! m x m 固有値問題
+
+    do i=1,m
+        AX(:,i) = A%matmul(X(:,i) )
+    enddo
+
+    BX = zeros(size(AX,1),size(AX,2) ) 
+    do i=1,m
+        BX(:,i) = B%matmul(X(:,i) )
+    enddo
+    
+    XAX = matmul(transpose(X(:,1:m) ),AX)
+    XBX = matmul(transpose(X(:,1:m) ),BX)
+    call LAPACK_EIG(XAX, XBX, b_small,lambda_small)
+    X = matmul(X,b_small)
+    
+    do i=1,m
+        AX(:,i) = A%matmul(X(:,i) )
+    enddo
+    BX = zeros(size(AX,1),size(AX,2) ) 
+    do i=1,m
+        BX(:,i) = B%matmul(X(:,i) )
+    enddo
+    
+    do i=1,m
+        R(:,i) = AX(:,i) - BX(:,i)*lambda_small(i)
+    enddo
+    
+    
+
+    V = zeros(n,2*m)
+
+    V(:,1     : m ) = X(:,:)
+    V(:,m+1   : 2*m ) = R(:,:)
+
+    call GramSchmidt(V,size(V,1),size(V,2),V )
+
+    X(:,:) = V(:,1     : m )
+    R(:,:) = V(:,m+1   : 2*m )
+
+    AV = zeros(n,2*m)
+    do j=1,2*m  ! n x n, n x 2m
+        AV(:,j)= A%matmul(V(:,j) )
+    enddo
+
+    BV = zeros(n,2*m)
+    do j=1,2*m  ! n x n, n x 2m
+        BV(:,j)= B%matmul(V(:,j) )
+    enddo
+    
+    
+    A_small = matmul(transpose(V),AV)
+    Bm_small = matmul(transpose(V),BV)
+    
+
+    call LAPACK_EIG(A_small,Bm_small, b_small,lambda_small)
+    
+    do j=1,m
+        X(:,j) = matmul(V,b_small(:,j) )
+    enddo
+    AX = zeros(n,m)
+    do i=1,m
+        AX(:,i) = A%matmul(X(:,i) )
+    enddo
+
+    BX = zeros(size(AX,1),size(AX,2) ) 
+    do j=1,m
+        BX(:,j) = B%matmul(X(:,j) )
+    enddo
+
+    R = zeros(n,m)
+    do j=1,m
+        R(:,j) = AX(:,j) - BX(:,j)*lambda_small(j) 
+    enddo
+
+    OR = zeros(n,2*m)
+    OR(:,1:m) = 0.0d0
+    OR(:,m+1:2*m) = R(:,:)
+
+    P = zeros(n,m)
+    do i=1,m
+        P(:,i) = matmul(OR,b_small(:,i) )
+    enddo
+    
+    V = zeros(n,3*m)
+    AV = zeros(n,3*m)
+    BV = zeros(n,3*m)
+
+    AX = zeros(n,m)
+    BX = zeros(n,m)
+
+    do i=1,MAX_ITR
+        V(:,1     : m ) = X(:,:)
+        V(:,m+1   : 2*m ) = R(:,:)
+        V(:,2*m+1 : 3*m ) = P(:,:)
+
+        ! Gram-Scmidtを計算する．
+        call GramSchmidt(V,size(V,1),size(V,2),V )
+
+        X(:,:) = V(:,1     : m )   
+        R(:,:) = V(:,m+1   : 2*m ) 
+        P(:,:) = V(:,2*m+1 : 3*m ) 
+        
+        !$OMP parallel do
+        do j=1,3*m
+            AV(:,j)=A%matmul(V(:,j) )
+        enddo
+        !$OMP end parallel do
+
+        !$OMP parallel do
+        do j=1,3*m
+            BV(:,j)=B%matmul(V(:,j) )
+        enddo
+        !$OMP end parallel do
+
+        A_small = matmul(transpose(V),AV)
+        Bm_small = matmul(transpose(V),BV)
+        
+        ! LAPACKの固有値求めるやつを呼ぶ
+        call LAPACK_EIG(A_small,Bm_small,b_small,lambda_small)
+        
+        X = matmul(V,b_small(:,1:m) )
+        
+        !$OMP parallel do
+        do j=1,m
+            AX(:,j) = A%matmul(X(:,j) )
+        enddo
+        !$OMP end parallel do
+
+        !$OMP parallel do
+        do j=1,m
+            BX(:,j) = B%matmul(X(:,j) )
+        enddo
+        !$OMP end parallel do
+
+        !$OMP parallel do
+        do j=1,m
+            R(:,j) = AX(:,j) - BX(:,j)*lambda_small(j)
+        enddo
+        !$OMP end parallel do
+
+        V(:,1 : m ) = 0.0d0 
+        
+        ! matmul:: (n,3*m) x (n,3*m)
+        P = matmul(V,b_small(:,1:m) )
+        
+        ! Detect convergence
+        if(i==1)then
+            initial_R = maxval(abs(R) )
+        endif
+
+        if(debug_mode)then
+            print *, i, maxval(abs(R) )/initial_R
+        endif
+        if(maxval(abs(R) )/initial_R < tol )then
+            if(debug_mode)then
+                print *, "[OK] converged."
+            endif
+            lambda = lambda_small(1:m)
+            
+            exit
+        else
+            cycle
+        endif
+    enddo
+
+    if(i==MAX_ITR) print *, "[ERROR] LOBPCG NOT CONVERGED."
+
+
+end subroutine
+! #################################################
+
+subroutine GramSchmidt(mat_v,m,n,mat_v_out)
+    integer,intent(in)::m,n
+    real(real64),intent(in)::mat_v(1:m,1:n)
+    real(real64),intent(inout)::mat_v_out(1:m,1:n)
+    integer::i,j
+    real(real64)::v(1:m),nai,vi(1:m),viold(1:m)
+    real(real64)::norm_v
+    
+    mat_v_out = mat_v
+    do i = 1,n
+        viold = mat_v_out(:,i)
+        if( dot_product(viold,viold)==0.0d0) cycle
+
+        do j = 1,i-1
+            nai = dot_product(mat_v_out(1:m,j),viold(1:m))
+            vi = viold - nai*mat_v_out(:,j)
+            viold = vi
+        end do
+
+        norm_v = sqrt(dble(dot_product(viold,viold)))
+        mat_v_out(:,j) = viold/norm_v
+    end do
+
+end subroutine
+! #################################################
+
+! #################################################
+subroutine LAPACK_EIG(A,B,x,lambda,debug)
+    real(real64),intent(in) :: A(:,:),B(:,:)
+    real(real64),allocatable,intent(inout):: x(:,:), lambda(:)
+    logical,optional,intent(in) :: debug
+    logical :: debug_mode
+    !>>>>>>>>>>>>>> INPUT
+    integer(int32) :: ITYPE = 1   ! A*x = (lambda)*B*x
+    character(1) :: JOBZ  = 'V' ! Compute eigenvalues and eigenvectors.
+    character(1) :: UPLO  = 'U' ! Upper triangles of A and B are stored;
+    !<<<<<<<<<<<<<< INPUT
+
+    integer(int32) :: N ! order of matrix
+    real(real64),allocatable :: AP(:)
+    real(real64),allocatable :: BP(:)
+    real(real64),allocatable :: W(:)
+    real(real64),allocatable :: Z(:,:),M(:)
+    real(real64),allocatable :: WORK(:),ID(:)
+    integer(int32),allocatable :: IWORK(:),IDS(:)
+    integer(int32) :: LDZ
+    integer(int32) :: LWORK
+    integer(int32) :: LIWORK 
+    integer(int32) :: INFO
+    integer(int32) :: from,to,k,j,i
+    integer(int32),allocatable :: new_id_from_old_id(:)
+    real(real64),allocatable :: dense_mat(:,:)
+    !logical :: use_lanczos
+
+    type(CRS_) :: crs
+
+    debug_mode = input(default=.false.,option=debug)
+    !>>>>>>>>>>>>>> INPUT
+    N      = size(A,1) 
+    LDZ    = N
+    LWORK  = 1 + 6*N + 2*N**2
+    LIWORK = 3 + 5*N
+    !<<<<<<<<<<<<<< INPUT
+        
+
+        !>>>>>>>>>>>>>>  INPUT/OUTPUT
+        AP = zeros(N*(N+1)/2 )
+        BP = zeros(N*(N+1)/2 )
+        ! Upper triangle matrix
+
+        AP = to_UpperTriangle(A)!UpperTriangularMatrix(CRS_val=this%A_CRS_val,CRS_col=this%A_CRS_index_col,&
+            !CRS_rowptr=this%A_CRS_index_row)
+        BP = to_UpperTriangle(B )!UpperTriangularMatrix(CRS_val=this%B_CRS_val,CRS_col=this%B_CRS_index_col,&
+            !CRS_rowptr=this%B_CRS_index_row)
+        !<<<<<<<<<<<<<< INPUT/OUTPUT
+        
+        !>>>>>>>>>>>>>> INPUT
+        N      = size(A,1)
+        LDZ    = N
+        LWORK  = 1 + 6*N + 2*N**2
+        LIWORK = 3 + 5*N
+        !<<<<<<<<<<<<<< INPUT
+
+        !>>>>>>>>>>>>>>  OUTPUT
+        W     = zeros(N )
+        Z     = zeros(LDZ,N)
+        WORK  = zeros(LWORK)
+        IWORK = zeros(LIWORK)
+        INFO  = 0
+        !<<<<<<<<<<<<<< OUTPUT
+        
+        if(debug_mode)then
+            print *, ">> Solver :: LAPACK/DSPGVD"
+        endif
+        call DSPGVD (ITYPE, JOBZ, UPLO, N, AP, BP, W, Z, LDZ, WORK, &
+        LWORK, IWORK, LIWORK, INFO)
+
+        
+
+        X = Z
+        lambda = W
+
+end subroutine
+! #################################################
+
+
+function to_UpperTriangle(A) result(ret)
+    real(real64),intent(in) :: A(:,:)
+    real(real64),allocatable :: ret(:)
+    integer(int32) :: i,j,n,m
+
+    n = size(A,1)
+    ret = zeros(n*(n+1)/2 )
+    
+    m = 0
+    do i=1,size(A,2)
+        do j=1,i
+            m = m + 1
+            ret(m) = A(j,i)
+        enddo
+    enddo
+
+end function
 
 end module SparseClass

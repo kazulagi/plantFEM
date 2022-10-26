@@ -1,89 +1,61 @@
-program main
-    use FEMSolverClass
-    implicit none
+use SeismicAnalysisClass
+implicit none
 
-    type(FEMSolver_) :: solver
-    type(FEMDomain_),target :: domains(1)
-    type(IO_) :: f
-    integer(int32) :: i
-    real(real64) :: Vs,t,dt,E_Al
-    real(real64),allocatable :: Mode_U(:),mode_Ut(:),freq(:)
+! simple example of modal analysis for EbO-FEM.
 
-    ! Modal analysis
+type(SeismicAnalysis_) :: seis
+type(FEMDomain_),allocatable :: femdomains(:)
+integer(int32),allocatable :: connectivity(:,:)
 
-    call domains(1)%create("Cube3D",x_num=2,y_num=6,z_num=40)
-    call domains(1)%resize(x=1.0d0)
-    call domains(1)%resize(y=5.0d0)
-    call domains(1)%resize(z=50.0d0)
-    
-    call domains(1)%vtk("AlminiumBar")
-    
-    call solver%init(NumDomain=1)
-    call solver%setDomain(FEMDomain=domains(1),DomainID=1)
-    call solver%setCRS(DOF=3)
-    
-    print *, "Save Mass Matrix"
-    
-    !$OMP parallel do
-    do i=1,domains(1)%ne()
-        call solver%setMatrix(&
-            DomainID=1,&
-            ElementID=i,&
-            DOF=3,&
-            Matrix=domains(1)%MassMatrix(ElementID=i,Density=2.70d0,DOF=3) &
-            )
-    enddo
-    !$OMP end parallel do
-    
-    call solver%saveMatrix("M",CRS_as_dense=.true.)
-    ! fill zero >> matrix
-    call solver%zeros()
+real(real64) :: YoungModulus1, YoungModulus2
+real(real64) :: PoissonRatio1, PoissonRatio2
+real(real64) :: Density1, Density2
 
-    print *, "Save Stiffness Matrix"
-    
-    E_Al = 70.0d0*1000.0d0*1000.0d0
-    !$OMP parallel do
-    do i=1,domains(1)%ne()
-        call solver%setMatrix(&
-            DomainID=1,&
-            ElementID=i,&
-            DOF=3,&
-            Matrix=domains(1)%StiffnessMatrix(ElementID=i,E=70.0d0*1000.0d0*1000.0d0,v=0.300d0) &
-            )
-    enddo
-    !$OMP end parallel do
+allocate(femdomains(2) )
 
-    call solver%saveMatrix("K",CRS_as_dense=.true.)
-    
-    
-    ! Eigen value problem solver by scipy
-    call system("python3 Tutorial/fem/eigen.py")
-    
-    
-    ! read results
-    freq = f%import("eigen_val.txt")
-    freq = sqrt(abs(freq))/2.0d0/3.141590d0
-    dt = 0.10d0
+! Mesh generation
+call femdomains(1)%create("Cube3D",x_num=30,y_num=4,z_num=2)
+call femdomains(1)%resize(x=0.30d0,y=0.040d0,z=0.010d0)
+call femdomains(1)%vtk("bar1")
 
-    ! 20 modes
-    do i_i=1,20
-        mode_U = f%import("U_"+str(i_i-1)+".txt")
-        dt = 1.0d0/freq(i_i)/100.0d0
-        do j_j=1,100
-            t = dt * dble(j_j-1)
-            mode_Ut = mode_U*cos( 2.0d0*3.140d0*freq(i_i)*t )
+call femdomains(2)%create("Cube3D",x_num=30,y_num=4,z_num=2)
+call femdomains(2)%resize(x=0.30d0,y=0.040d0,z=0.010d0)
+call femdomains(2)%move(x=0.250d0)
+call femdomains(2)%vtk("bar2")
 
-            domains(1)%mesh%nodcoord = domains(1)%mesh%nodcoord &
-            +10.0d0*reshape(mode_Ut,domains(1)%nn(),3 ) 
+! overlapping connectivity
+connectivity = zeros(2,2)
+connectivity(1,1:2) = [1, 2] !domain 1 to domain 2
+connectivity(2,1:2) = [2, 1] !domain 2 to domain 1
 
-            call domains(1)%vtk("Mode"+str(i_i)+"_t_"+str(j_j))
-            domains(1)%mesh%nodcoord = domains(1)%mesh%nodcoord &
-            -10.0d0*reshape(mode_Ut,domains(1)%nn(),3 ) 
-        enddo
-    enddo
-    do i=1,60
-        print *, freq(i),"Hz"
-    enddo
-    
-        
-end program main
+! Material parameters
+YoungModulus1 = 10000.0d0*1000.0d0
+YoungModulus2 = 10000.0d0*1000.0d0
+PoissonRatio1 = 0.30d0
+PoissonRatio2 = 0.30d0
+Density1 = 1.0d0
+Density2 = 1.0d0
+
+
+call seis%modalAnalysis(&
+    femdomains=femdomains,&
+    connectivity=connectivity,&
+    YoungModulus=YoungModulus1*eyes(femdomains(1)%ne() ) &
+                // YoungModulus2*eyes(femdomains(2)%ne() ),&
+    PoissonRatio=PoissonRatio1*eyes(femdomains(1)%ne() ) &
+                // PoissonRatio2*eyes(femdomains(2)%ne() ),&
+    Density=Density1*eyes(femdomains(1)%ne() ) &
+                // Density2*eyes(femdomains(2)%ne() ),&
+    fix_node_list_x=femdomains(1)%select(x_max=0.0010d0),&
+    fix_node_list_y=femdomains(1)%select(x_max=0.0010d0),&
+    fix_node_list_z=femdomains(1)%select(x_max=0.0010d0),&
+    overset_algorithm=FEMDomain_Overset_GPP, &
+    penalty = YoungModulus1*100000.0d0 &
+)
+
+call print(seis%frequency(1:10) )
+call seis%exportModeShape(DomainID=1,femdomain=femdomains(1),amp=0.00020d0,name="bar_1_" )
+call seis%exportModeShape(DomainID=2,femdomain=femdomains(2),amp=0.00020d0,name="bar_2_" )
+
+
+end

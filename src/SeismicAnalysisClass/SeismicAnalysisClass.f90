@@ -2081,6 +2081,7 @@ subroutine exportModeShapeSeismicAnalysis(this,domainID,femdomain,name,MAX_MODE_
     real(real64) :: amp_val
 
     amp_val = input(default=1.0d0,option=amp)
+    MAX_MODE_ID = minval([ size(this%ModeVectors,2) ,MAX_MODE_ID ] )
     do i=1,MAX_MODE_ID
         disp = this%getModeVector(domainID=domainID,ModeID=i)
         call femdomain%deform(disp=disp*amp_val)
