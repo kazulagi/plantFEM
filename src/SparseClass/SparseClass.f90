@@ -1272,11 +1272,19 @@ subroutine LOBPCG_CRS(A,B,lambda,X,m,MAX_ITR,TOL,debug)
     ! BLOPEX IN HYPRE AND PETSC, SIAM Eq. (2.2) 
     ! number of eigen value :: m
 
+
+    ! debug
+    
     ! initialize X and lambda
     n = A%size()
+    
     X = random%randn(n,m)
+
     call GramSchmidt(X,size(X,1),size(X,2),X )
+
     lambda = zeros(m)
+
+
 
     R = zeros(n,m)
     P = zeros(n,m)
@@ -1458,18 +1466,30 @@ subroutine LOBPCG_CRS(A,B,lambda,X,m,MAX_ITR,TOL,debug)
 end subroutine
 ! #################################################
 
+
+
+! #################################################
 subroutine GramSchmidt(mat_v,m,n,mat_v_out)
     integer,intent(in)::m,n
     real(real64),intent(in)::mat_v(1:m,1:n)
     real(real64),intent(inout)::mat_v_out(1:m,1:n)
     integer::i,j
-    real(real64)::v(1:m),nai,vi(1:m),viold(1:m)
+    real(real64) :: nai
+    real(real64),allocatable :: v(:),vi(:)
+    real(real64),allocatable :: viold(:)
     real(real64)::norm_v
     
     mat_v_out = mat_v
+    allocate(viold(1:m) )
+    allocate(v(1:m) )
+    allocate(vi(1:m) )
+
+
     do i = 1,n
         viold = mat_v_out(:,i)
+        
         if( dot_product(viold,viold)==0.0d0) cycle
+
 
         do j = 1,i-1
             nai = dot_product(mat_v_out(1:m,j),viold(1:m))
@@ -1477,8 +1497,10 @@ subroutine GramSchmidt(mat_v,m,n,mat_v_out)
             viold = vi
         end do
 
+
         norm_v = sqrt(dble(dot_product(viold,viold)))
         mat_v_out(:,j) = viold/norm_v
+
     end do
 
 end subroutine
