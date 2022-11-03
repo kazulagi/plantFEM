@@ -823,6 +823,8 @@ subroutine initElastoPlasticity(this,femdomains,&
         this%ep_domain(i)%CauchyStress_field = zeros(6,ngp,ne)  
         this%ep_domain(i)%Strain_field       = zeros(6,ngp,ne)        
         this%ep_domain(i)%PlasticStrain_field = zeros(6,ngp,ne) 
+        this%ep_domain(i)%displacement = &
+            zeros(this%ep_domain(i)%femdomain%nn()*this%ep_domain(i)%femdomain%nd() ) 
     enddo
 
 
@@ -889,9 +891,14 @@ subroutine solveElastoPlasticity(this,  &
         this%ep_domain(1)%ElasticPotential_params(:,1) = YoungModulus(:)*PoissonRatio(:)/(1.0d0+PoissonRatio(:) )&
             /(1.0d0-2.0d0*PoissonRatio(:) )
         this%ep_domain(1)%ElasticPotential_params(:,2) = YoungModulus(:)/2.0d0/(1.0d0+PoissonRatio(:))
-        call this%femsolver%init(NumDomain=1)
-        call this%femsolver%setDomain(FEMDomain=this%ep_domain(1)%femdomain,DomainID=1)
-        call this%femsolver%setCRS(DOF=3)
+        
+        if(.not.this%femsolver%initialized)then
+            call this%femsolver%init(NumDomain=1)
+            call this%femsolver%setDomain(FEMDomain=this%ep_domain(1)%femdomain,DomainID=1)
+            call this%femsolver%setCRS(DOF=3)
+        else
+            call this%femsolver%zeros()
+        endif
 
 
         !$OMP parallel 
@@ -912,16 +919,14 @@ subroutine solveElastoPlasticity(this,  &
         enddo
         !$OMP end do
         !$OMP end parallel
-        
         call this%femsolver%fix(DomainID=1,IDs=fix_node_list_x*3-2,FixValues=fix_value_list_x)
         call this%femsolver%fix(DomainID=1,IDs=fix_node_list_y*3-1,FixValues=fix_value_list_y)
         call this%femsolver%fix(DomainID=1,IDs=fix_node_list_z*3-0,FixValues=fix_value_list_z)
-
+        
         disp_tr = this%femsolver%solve()
         
         K_matrix = this%femsolver%getCRS()
-        
-        
+
         d_disp = disp_tr
 
         ! perform modified Newton-Raphson method
@@ -946,7 +951,7 @@ subroutine solveElastoPlasticity(this,  &
             endif
         enddo
 
-        this%ep_domain(1)%displacement = disp_tr
+        this%ep_domain(1)%displacement = this%ep_domain(1)%displacement + disp_tr
         
     else
         print *, "[ERROR] solveElastoPlasticity >> only for single-domain problem"
@@ -1200,39 +1205,84 @@ end subroutine
 
 
 
-
-
 ! ###################################################
-subroutine exportElastoPlasticity(this,name)
+subroutine exportElastoPlasticity(this,name,step)
     class(ElastoPlasticity_),intent(inout) :: this
     character(*),intent(in) :: name
-    integer(int32) :: i
+    integer(int32),optional,intent(in) :: step
+    integer(int32) :: i,n
 
     do i=1,size(this%ep_domain)
-        call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
-             )
-        call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
-             // "_s11",scalar=this%ep_domain(1)%CauchyStress_field(1,1,:) )
-        call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
-             // "_s22",scalar=this%ep_domain(1)%CauchyStress_field(2,1,:) )
-        call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
-             // "_s33",scalar=this%ep_domain(1)%CauchyStress_field(3,1,:) )
-        call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
-             // "_s12",scalar=this%ep_domain(1)%CauchyStress_field(4,1,:) )
-        call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
-             // "_s23",scalar=this%ep_domain(1)%CauchyStress_field(5,1,:) )
-        call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
-             // "_s13",scalar=this%ep_domain(1)%CauchyStress_field(6,1,:) )
-        
-        call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
-             // "_I1",scalar=this%I1() )
-        call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
-             // "_J2",scalar=this%J2() )
-        
-        call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
-             // "_eI1",scalar=this%I1_e() )
-        call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
-             // "_eJ2",scalar=this%J2_e() )
+        call this%ep_domain(i)%femdomain%deform(disp=this%ep_domain(i)%displacement)
+    enddo
+    if(present(step) )then
+        do i=1,size(this%ep_domain)
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 //"_step_"//zfill(step,5) )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_s11" //"_step_"//zfill(step,5),&
+                 scalar=this%ep_domain(1)%CauchyStress_field(1,1,:) )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_s22" //"_step_"//zfill(step,5),&
+                 scalar=this%ep_domain(1)%CauchyStress_field(2,1,:) )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_s33" //"_step_"//zfill(step,5),&
+                 scalar=this%ep_domain(1)%CauchyStress_field(3,1,:) )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_s12" //"_step_"//zfill(step,5),&
+                 scalar=this%ep_domain(1)%CauchyStress_field(4,1,:) )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_s23" //"_step_"//zfill(step,5),&
+                 scalar=this%ep_domain(1)%CauchyStress_field(5,1,:) )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_s13" //"_step_"//zfill(step,5),&
+                 scalar=this%ep_domain(1)%CauchyStress_field(6,1,:) )
+
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_I1" //"_step_"//zfill(step,5),&
+                 scalar=this%I1() )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_J2" //"_step_"//zfill(step,5),&
+                 scalar=this%J2() )
+
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_eI1" //"_step_"//zfill(step,5),&
+                 scalar=this%I1_e() )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_eJ2" //"_step_"//zfill(step,5),&
+                 scalar=this%J2_e() )
+        enddo
+    else
+        do i=1,size(this%ep_domain)
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_s11",scalar=this%ep_domain(1)%CauchyStress_field(1,1,:) )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_s22",scalar=this%ep_domain(1)%CauchyStress_field(2,1,:) )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_s33",scalar=this%ep_domain(1)%CauchyStress_field(3,1,:) )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_s12",scalar=this%ep_domain(1)%CauchyStress_field(4,1,:) )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_s23",scalar=this%ep_domain(1)%CauchyStress_field(5,1,:) )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_s13",scalar=this%ep_domain(1)%CauchyStress_field(6,1,:) )
+
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_I1",scalar=this%I1() )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_J2",scalar=this%J2() )
+
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_eI1",scalar=this%I1_e() )
+            call this%ep_domain(i)%femdomain%vtk( name // "_domain_"// zfill(i,5)&
+                 // "_eJ2",scalar=this%J2_e() )
+        enddo
+    endif
+
+    do i=1,size(this%ep_domain)
+        call this%ep_domain(i)%femdomain%deform(disp=-this%ep_domain(i)%displacement)
     enddo
 end subroutine
 ! ###################################################
