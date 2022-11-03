@@ -90,6 +90,7 @@ echo " | =>                          | (4%)\r\c"
 mpif90 -Ofast -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ElasticityClass/ElasticityClass.f90 -o  ./inc/ElasticityClass.o -llapack -lblas
 
 
+
 echo "Compiling ./src/SpectreAnalysisClass/SpectreAnalysisClass.f90 " 
 echo " >> SpectreAnalysisClass.o "
 echo " | =>                          | (4%)\r\c"
@@ -205,6 +206,7 @@ echo " >> PhysicalFieldClass.o "
 echo " | ======>                     | (30%)\r\c"
 echo "Standard library (PhysicalFieldClass) is compiled."
 mpif90 -Ofast -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PhysicalFieldClass/PhysicalFieldClass.f90 -o  ./inc/PhysicalFieldClass.o -llapack -lblas
+
 echo "Compiling ./src/std/std.f90 " 
 echo " >> std.o "
 echo " | ======>                     | (30%)\r\c"

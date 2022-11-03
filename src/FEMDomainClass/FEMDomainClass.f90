@@ -206,6 +206,7 @@ module FEMDomainClass
 		procedure,public :: getElementCauchyStress => getElementCauchyStressFEMDomain
 		procedure,public :: getMyID => getMyIDFEMDomain
 		procedure,public :: getValue => getValueFEMDomain
+		procedure,public :: getStrainTensor => getStrainTensorFEMDomain
 
 		procedure,public :: getSurface => getSurfaceFEMDomain
 		procedure,public ::	NodeID => NodeIDFEMDomain
@@ -13419,6 +13420,8 @@ subroutine ImportSTLFileFEMDomain(this,name)
 
 end subroutine
 
+
+! ###################################################################
 function xyzFEMDomain(this) result(nodcoord)
 	class(FEMDOmain_),intent(in) :: this
 	real(real64),allocatable :: nodcoord(:,:)
@@ -13427,6 +13430,60 @@ function xyzFEMDomain(this) result(nodcoord)
 	
 end function
 ! ###################################################################
+
+
+
+! ###################################################################
+
+function getStrainTensorFEMDomain(this,displacement,ElementID,GaussPointID,debug) result(StrainTensor)
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),intent(in)   :: displacement(:,:)
+	integer(int32),intent(in) :: ElementID, GaussPointID
+	logical,optional,intent(in) :: debug
+	real(real64),allocatable :: StrainTensor(:,:),Bmat(:,:),ElemDisp(:),StrainVector(:)
+	type(ShapeFunction_) :: shapefunc
+	integer(int32) :: i,j
+	StrainTensor = zeros(3,3)
+
+	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() )
+
+	call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+		nod_coord=this%Mesh%NodCoord,&
+		elem_nod=this%Mesh%ElemNod,OptionalGpID=GaussPointID)
+	
+	ElemDisp = zeros(  size( this%mesh%elemnod,2 ) *3) 
+	do i=1,this%nne()
+		do j=1,3
+			ElemDisp( 3*(i-1) + j ) = &
+				Displacement( this%mesh%elemnod(ElementID,i) ,j)
+		enddo
+	enddo
+	Bmat = this%Bmatrix(shapefunc)
+	
+
+	StrainVector = matmul(Bmat,ElemDisp)
+	StrainTensor(1,1) = StrainVector(1)
+	StrainTensor(2,2) = StrainVector(2)
+	StrainTensor(3,3) = StrainVector(3)
+	StrainTensor(1,2) = StrainVector(4)
+	StrainTensor(2,3) = StrainVector(5)
+	StrainTensor(1,3) = StrainVector(6)
+	StrainTensor(2,1) = StrainVector(4)
+	StrainTensor(3,2) = StrainVector(5)
+	StrainTensor(3,1) = StrainVector(6)
+
+
+	if(present(debug) )then
+		print *, "StrainVector"
+		call print(StrainVector)
+		print *, "Bmat"
+		call print(Bmat)
+		print *, "ElemDisp"
+		call print(ElemDisp)
+	endif
+
+end function
+
 
 end module FEMDomainClass
 

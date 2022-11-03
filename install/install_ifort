@@ -205,6 +205,8 @@ echo " >> PhysicalFieldClass.o "
 echo " | ======>                     | (30%)\r\c"
 echo "Standard library (PhysicalFieldClass) is compiled."
 mpiifort -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/PhysicalFieldClass/PhysicalFieldClass.f90 -o  ./inc/PhysicalFieldClass.o -llapack -lblas
+
+
 echo "Compiling ./src/std/std.f90 " 
 echo " >> std.o "
 echo " | ======>                     | (30%)\r\c"
@@ -282,6 +284,10 @@ echo " >> ModalAnalysisClass.o "
 echo " | ===============>            | (70%)\r\c"
 mpiifort -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/ModalAnalysisClass/ModalAnalysisClass.f90 -o  ./inc/ModalAnalysisClass.o
 
+echo "Compiling ./src/ElastoPlasticityClass/ElastoPlasticityClass.f90" 
+echo " >> ElastoPlasticityClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpiifort -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/ElastoPlasticityClass/ElastoPlasticityClass.f90 -o  ./inc/ElastoPlasticityClass.o
 
 
 echo "Compiling ./src/ReactorClass/ReactorClass.f90" 

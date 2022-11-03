@@ -128,6 +128,24 @@ homepath="$PWD"
         exit 0
     fi
 
+    if [ "$1" = "-version" ]; then
+        cat /opt/plantfem/etc/version
+        echo " "
+        exit 0
+    fi
+
+
+    if [ "$1" = "renew" ]; then
+        rm -rf ./inc
+        rm -rf ./Tutorial
+        cp -rf /opt/plantfem/inc inc
+        cp -rf /opt/plantfem/Tutorial Tutorial
+        plantfem -v
+        echo "[ok] Successfully updated local repository"
+
+        exit 0
+    fi
+
     if [ "$1" = "new" ]; then
         if [ "x$2" = "x" ]; then
             mkdir -p untitled

@@ -44,6 +44,11 @@ module MathClass
 		module procedure imaginary_partComplex64, imaginary_partComplex32
 	end interface
 
+	
+	interface norm
+		module procedure norm_mat,norm_vec
+	end interface
+
 	interface factorial
 		module procedure factorialInt32, factorialReal64
 	end interface factorial
@@ -411,7 +416,7 @@ end function
 
 
 !########################################
-function norm(vec) result(a)
+function norm_vec(vec) result(a)
 	real(real64),intent(in)::vec(:)
 	integer(int32) :: n
 	real(real64) :: a
@@ -422,6 +427,17 @@ function norm(vec) result(a)
 end function
 !########################################
 
+
+!########################################
+function norm_mat(vec) result(a)
+	real(real64),intent(in)::vec(:,:)
+	integer(int32) :: n
+	real(real64) :: a
+
+	a = dsqrt(sum(vec*vec))
+
+end function
+!########################################
 
 
 

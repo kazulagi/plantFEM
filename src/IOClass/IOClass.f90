@@ -211,6 +211,9 @@ module IOClass
             procedure,public :: close => closeIO    
         end type
     
+        interface to_vector
+            module procedure to_vector_char
+        end interface 
     
         interface lowercase
             module procedure lowercaseChar, lowercaseString
@@ -2953,7 +2956,7 @@ module IOClass
 
 
     ! ######################################################
-    function to_vector(line,num_entity) result(ret)
+    function to_vector_char(line,num_entity) result(ret)
         character(*),intent(in) :: line 
         integer(int32),optional,intent(in) :: num_entity
         character(:),allocatable :: line_buf 

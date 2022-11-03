@@ -72,6 +72,7 @@ module FEMSolverClass
         logical        :: use_LOBPCG     = .true.
         integer(int32) :: LOBPCG_MAX_ITR = 100000
         real(real64)   :: LOBPCG_TOL     = dble(1.0e-8)
+        integer(int32) :: LOBPCG_NUM_MODE= 5
     contains
         !(1) Initialize solver
         procedure,public ::  init => initFEMSolver
@@ -1420,7 +1421,7 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
             A=this%getCRS("A"),&
             B=this%getCRS("B"),&
             X=Z, lambda=W,&
-            m=input(default=5,option=num_eigen ),&
+            m=input(default=this%LOBPCG_NUM_MODE,option=num_eigen ),&
             MAX_ITR=this%LOBPCG_MAX_ITR,&
             TOL=this%LOBPCG_TOL,&
             debug=this%debug)

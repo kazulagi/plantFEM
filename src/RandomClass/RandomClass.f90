@@ -18,7 +18,9 @@ module RandomClass
         procedure :: choiceInt  => choiceRandomInt
         procedure :: choiceReal => choiceRandomReal
         procedure :: uniform    => uniformRandom
-        procedure :: gauss    => gaussRandom
+        procedure,pass :: gauss_scalar_Random
+        procedure,pass :: gauss_vector_Random
+        generic :: gauss => gauss_scalar_Random, gauss_vector_Random
         procedure :: ChiSquared => ChiSquaredRandom
         procedure :: Chauchy => ChauchyRandom
         procedure :: Lognormal => LognormalRandom
@@ -326,7 +328,7 @@ end function
 ! Reference: omitakahiro.github.io
 
 !##########################################
-function gaussRandom(obj,mu,sigma) result(ret)
+function gauss_scalar_Random(obj,mu,sigma) result(ret)
     class(Random_),intent(inout) :: obj
     real(real64),intent(in) :: mu,sigma
     real(real64) :: ret
@@ -340,6 +342,23 @@ function gaussRandom(obj,mu,sigma) result(ret)
 end function 
 !##########################################
 
+
+!##########################################
+function gauss_vector_Random(obj,mu,sigma,n) result(ret)
+    class(Random_),intent(inout) :: obj
+    real(real64),intent(in) :: mu,sigma
+    real(real64) :: ret(n)
+    real(real64) :: pi = 3.141592653d0
+    integer(int32),intent(in) :: n
+    integer(int32) :: i
+
+    do i=1,n
+        ret(i) = obj%gauss(mu=mu,sigma=sigma)
+    enddo
+
+
+end function 
+!##########################################
 
 !##########################################
 function ChiSquaredRandom(obj,k) result(ret)

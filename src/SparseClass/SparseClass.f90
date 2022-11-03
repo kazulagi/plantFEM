@@ -85,6 +85,7 @@ module SparseClass
 
         procedure,public :: ILU => ILUCRS
         procedure,public :: ILU_matvec => ILU_matvecCRS
+        procedure,public :: BICGSTAB => BICGSTAB_CRSSparse
 
 
     end type
@@ -1475,6 +1476,7 @@ subroutine GramSchmidt(mat_v,m,n,mat_v_out)
     real(real64),intent(inout)::mat_v_out(1:m,1:n)
     integer::i,j
     real(real64) :: nai
+    !real(real64) :: v(1:m),vi(1:m),viold(1:m)
     real(real64),allocatable :: v(:),vi(:)
     real(real64),allocatable :: viold(:)
     real(real64)::norm_v
@@ -1604,4 +1606,194 @@ function to_UpperTriangle(A) result(ret)
 
 end function
 
+! #################################################
+
+subroutine BICGSTAB_CRSSparse(this,x,b)
+    class(CRS_),intent(inout) :: this
+    real(real64),allocatable,intent(inout) :: x(:)
+    real(real64),intent(in) :: b(:)
+
+    if(.not.allocated(x) )then
+        x = zeros(size(b) ) 
+    endif
+
+    call bicgstab_CRS_SparseClass(&
+        a=this%val,&
+        ptr_i=this%row_ptr,&
+        index_j=this%col_idx,&
+        x=x, &
+        b=b, &
+        itrmax=1000000, &
+        er=dble(1.0e-14),&
+        relative_er=dble(1.0e-14)&
+        )
+
+end subroutine
+! #################################################
+
+
+! #####################################################
+subroutine bicgstab_CRS_SparseClass(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug)
+    integer(int32), intent(in) :: ptr_i(:),index_j(:)
+    integer(int32), intent(in) :: itrmax
+    real(real64), intent(in) :: a(:)
+    real(real64), intent(in) :: b(:)
+    real(real64),intent(in) :: er
+    real(real64),optional,intent(in) :: relative_er
+    real(real64),intent(inout) :: x(:)
+    logical,optional,intent(in) :: debug
+    logical :: speak = .false.
+    integer(int32) itr,i,j,n
+    real(real64) alp, bet, c1,c2, c3, ev, vv, rr,er0,init_rr,re_er0
+    real(real64),allocatable:: r(:), r0(:), p(:), y(:), e(:), v(:),pa(:),ax(:)
+    
+    er0 = er
+    if(present(debug) )then
+        speak = debug
+    endif
+    
+    n=size(b)
+    if(speak) print *, "BiCGSTAB STARTED >> DOF:", n
+    allocate(r(n), r0(n), p(n), y(n), e(n), v(n))
+
+    r(:) = b(:)
+    if(speak) print *, "BiCGSTAB >> [1] initialize"
+
+    call SpMV_CRS_Sparse(CRS_value=a,CRS_col=index_j,&
+        CRS_row_ptr=ptr_i,old_vector=x,new_vector=ax)
+    r = b - ax
+
+    
+    if(speak) print *, "BiCGSTAB >> [2] dp1"
+
+    c1 = dot_product(r,r)
+    !call omp_dot_product(r,r,c1)
+    
+    init_rr=c1
+    if(speak) print *, "BiCGSTAB >> [2] init_rr",c1
+    !if(speak) print *, "BiCGSTAB >>      |r|^2 = ",init_rr
+    
+    !if (c1 < er0) return
+
+    p(:) = r(:)
+    r0(:) = r(:)
+    
+
+    do itr = 1, itrmax   
+        if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] initialize"
+        c1 = dot_product(r0,r)
+        !call omp_dot_product(r0,r,c1)
+        
+        y(:) = 0.0d0
+        call SpMV_CRS_Sparse(CRS_value=a,CRS_col=index_j,&
+        CRS_row_ptr=ptr_i,old_vector=p,new_vector=y)
+
+        c2 = dot_product(r0,y)
+        !call omp_dot_product(r0,y,c2)
+        
+        alp = c1/c2
+        e(:) = r(:) - alp * y(:)
+        v(:) = 0.0d0
+        call SpMV_CRS_Sparse(CRS_value=a,CRS_col=index_j,&
+        CRS_row_ptr=ptr_i,old_vector=e,new_vector=v)
+        
+        if(speak) print *, "BiCGSTAB >> ["//str(itr)//"] half"
+        
+        
+        ev = dot_product(e,v)
+        vv = dot_product(v,v)
+        !call omp_dot_product(e,v,ev)
+        !call omp_dot_product(v,v,vv)
+        
+        if(  vv==0.0d0 ) stop "Bicgstab devide by zero"
+        c3 = ev / vv
+        if(speak) print *, "BiCGSTAB >> c3 = ev/vv",c3
+        x(:) = x(:) + alp * p(:) + c3 * e(:)
+        r(:) = e(:) - c3 * v(:)
+
+        rr = dot_product(r,r)
+        !call omp_dot_product(r,r,rr)
+        
+        if(itr==1)then
+            re_er0 = rr
+        endif
+
+        if(speak)then
+            print *, sqrt(rr)
+        endif
+        
+        if(present(relative_er) )then
+            if(sqrt(rr/re_er0)<relative_er )then
+                exit
+            endif
+        endif
+        !    write(*,*) 'itr, er =', itr,rr
+        if (sqrt(rr) < er0) exit
+        
+        c1 = dot_product(r0,r)
+        !call omp_dot_product(r0,r,c1)
+        
+
+        bet = c1 / (c2 * c3)
+        if(  (c2 * c3)==0.0d0 ) stop "Bicgstab devide by zero"
+        p(:) = r(:) + bet * (p(:) -c3*y(:) )
+    enddo
+end subroutine 
+!===============================================================
+
+
+
+subroutine SpMV_CRS_Sparse(CRS_value,CRS_col,CRS_row_ptr,old_vector,new_vector,precondition)
+    real(real64),intent(in)  :: CRS_value(:),Old_vector(:)
+    integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
+    type(CRS_),optional,intent(in) :: precondition
+    real(real64),allocatable,intent(inout) :: new_vector(:)
+    real(real64),allocatable :: precon_old_vector(:)
+    integer(int32) :: i, j, n,gid,lid,row,CRS_id,col
+    !> x_i = A_ij b_j
+  
+  
+    n = size(CRS_row_ptr)-1
+    if(size(old_vector)/=n )then
+        print *, "ERROR crs_matvec :: inconsistent size for old_vector"
+        return
+    endif
+  
+    if(.not.allocated(new_vector) )then
+      new_vector = zeros(n) 
+    else
+      new_vector(:) = 0.0d0
+    endif
+  
+  
+    if(present(precondition) )then
+      call precondition%ILU_matvec(old_vector=old_vector,new_vector=precon_old_vector)
+      
+      !$OMP parallel do default(shared) private(CRS_id,col)
+      do row=1,n
+        do CRS_id=CRS_row_ptr(row),CRS_row_ptr(row+1)-1
+            col = CRS_col(CRS_id)
+            !$OMP atomic
+            new_vector(row) = new_vector(row) + CRS_value(CRS_id)*precon_old_vector(col)
+        enddo
+      enddo
+      !$OMP end parallel do 
+    else
+  
+      !$OMP parallel do default(shared) private(CRS_id,col)
+        do row=1,n
+          do CRS_id=CRS_row_ptr(row),CRS_row_ptr(row+1)-1
+              col = CRS_col(CRS_id)
+              !$OMP atomic
+              new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(col)
+          enddo
+      enddo
+      !$OMP end parallel do 
+    
+    endif
+  
+  end subroutine
+  ! ###################################################################
+  
+  
 end module SparseClass
