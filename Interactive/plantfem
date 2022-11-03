@@ -151,6 +151,16 @@ do
         continue
     fi
 
+    if [ "$commandl" = "renew" ]; then
+        rm -rf ./inc
+        rm -rf ./Tutorial
+        cp -rfv /opt/plantfem/inc inc
+        cp -rfv /opt/plantfem/Tutorial Tutorial
+        echo "[ok] Successfully updated local repository"
+        exit 0
+    fi
+
+
     if [ "$commandl" = "new" ]; then
 
         if [ "x$2" = "x" ]; then

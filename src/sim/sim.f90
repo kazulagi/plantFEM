@@ -1,7 +1,8 @@
 module sim
     use fem
-    use FEMSolverClass
     use LoggerClass
+    use ModalAnalysisClass
+    use ElastoPlasticityClass
     use ReactorClass
     use SeepageFlowClass
     use DiffusionEquationClass

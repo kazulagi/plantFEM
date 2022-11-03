@@ -424,6 +424,10 @@ module ArrayClass
             to_Array_from_keyword
     end interface to_array
 
+    interface to_vector
+        module procedure to_vector_array_real64
+    end interface
+
     interface dot_product
         module procedure dot_productArray_ret_real
     end interface
@@ -8025,6 +8029,20 @@ function reverselogicalvector(old_vec) result(new_vec)
     do i=size(old_vec),1,-1
         counter = counter + 1
         new_vec(counter) = old_vec(i)
+    enddo
+
+end function
+! #######################################################
+pure function to_vector_array_real64(Array) result(vector)
+    real(real64),intent(in) :: Array(:,:)
+    real(real64),allocatable :: vector(:)
+    integer(int32) :: i,j
+
+    vector = zeros(size(Array,1)*size(Array,2))
+    do i=1,size(Array,2)
+        do j=1,size(Array,1)
+            vector( (j-1)*size(Array,2) + i ) = Array(j,i)
+        enddo
     enddo
 
 end function

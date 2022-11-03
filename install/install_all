@@ -89,6 +89,7 @@ echo " | =>                          | (4%)\r\c"
 mpif90 -Ofast -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ElasticityClass/ElasticityClass.f90 -o  ./inc/ElasticityClass.o -llapack -lblas
 
 
+
 echo "Compiling ./src/SpectreAnalysisClass/SpectreAnalysisClass.f90 " 
 echo " >> SpectreAnalysisClass.o "
 echo " | =>                          | (4%)\r\c"
@@ -205,6 +206,7 @@ echo " >> PhysicalFieldClass.o "
 echo " | ======>                     | (30%)\r\c"
 echo "Standard library (PhysicalFieldClass) is compiled."
 mpif90 -Ofast -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PhysicalFieldClass/PhysicalFieldClass.f90 -o  ./inc/PhysicalFieldClass.o -llapack -lblas
+
 echo "Compiling ./src/std/std.f90 " 
 echo " >> std.o "
 echo " | ======>                     | (30%)\r\c"
@@ -282,7 +284,10 @@ echo " >> ModalAnalysisClass.o "
 echo " | ===============>            | (70%)\r\c"
 mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ModalAnalysisClass/ModalAnalysisClass.f90 -o  ./inc/ModalAnalysisClass.o
 
-
+echo "Compiling ./src/ElastoPlasticityClass/ElastoPlasticityClass.f90 " 
+echo " >> ElastoPlasticityClass.o "
+echo " | =>                          | (4%)\r\c"
+mpif90 -Ofast -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ElastoPlasticityClass/ElastoPlasticityClass.f90 -o  ./inc/ElastoPlasticityClass.o -llapack -lblas
 
 echo "Compiling ./src/ReactorClass/ReactorClass.f90" 
 echo " >> ReactorClass.o "
@@ -359,6 +364,8 @@ echo "Compiling ./src/SimulatorClass/SimulatorClass.f90"
 echo " >> SimulatorClass.o"
 echo " | ===================>        | (87%)\r\c"
 mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SimulatorClass/SimulatorClass.f90 -o  ./inc/SimulatorClass.o
+
+
 echo "Compiling ./src/sim/sim.f90" 
 echo " >> sim.o "
 echo " | ===================>        | (88%)\r\c"

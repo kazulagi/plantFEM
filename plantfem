@@ -5,11 +5,13 @@ if [ $# -eq 0 ]; then
 fi
 if [ $# -eq 1 ]; then
     if [ "$1" == "-v" ]; then
-        echo "plantFEM 21.10"
+        cat /opt/plantfem/etc/version
+        echo " "
         exit
     fi
     if [ "$1" == "--version" ]; then
-        echo "plantFEM 21.10"
+        cat /opt/plantfem/etc/version
+        echo " "
         exit
     fi
     if [ "$1" == "-h" ]; then
