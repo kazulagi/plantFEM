@@ -1282,6 +1282,10 @@ subroutine zerosFEMSolver(this)
     class(FEMSolver_),intent(inout)::this
 
     this%CRS_val(:) = 0.0d0
+    if(allocated(this%CRS_RHS) )then
+        this%CRS_RHS(:) = 0.0d0
+    endif
+    
     if(allocated(this%A_dense) )then
         this%A_dense(:,:) = 0.0d0
     endif
