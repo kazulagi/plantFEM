@@ -22,13 +22,16 @@ module SpectreAnalysisClass
         procedure,public :: add  => addSpectreAnalysis
         procedure,public :: channel => channelSpectreAnalysis
         procedure,public :: plot    => plotSpectreAnalysis
-        procedure,public :: FFT => FFTSpectreAnalysis
+        procedure,pass :: FFTSpectreAnalysis
+        procedure,pass :: FFT_for_vector_SpectreAnalysis
+        generic :: FFT => FFTSpectreAnalysis, FFT_for_vector_SpectreAnalysis
         procedure,public :: PSD => PSDSpectreAnalysis
         procedure,public :: PowerSpectrum => PowerSpectrumSpectreAnalysis
         procedure,public :: freq_axis => freq_axisSpectreAnalysis
         procedure,public :: FDD => FDD_SpectreAnalysis
         procedure,public :: export => exportSpectreAnalysis
         procedure,public :: bandpath => bandpathSpectreAnalysis
+         
         ! create wave
         procedure,public :: whiteNoize => whiteNoizeSpectreAnalysis
         procedure,public :: time => timeSpectreAnalysis
@@ -162,6 +165,7 @@ function FFTSpectreAnalysis(this,channel,Taper,Stacking,window_size) result(FFT_
     integer(int32),intent(in) :: Taper    ! taper-ratio (0 to 100 )
     real(real32),intent(in)   :: Stacking(:)! size=number of stacking, i-th dataframes starts from stacking(i)
     integer(int32),intent(in) :: window_size ! 2^n
+
     integer(int32) :: i,j,n,data_id
 
     complex(complex64),allocatable :: FFT_result(:), wave(:),total_wave(:),fft_loc(:)
@@ -206,6 +210,60 @@ function FFTSpectreAnalysis(this,channel,Taper,Stacking,window_size) result(FFT_
     FFT_result = FFT_result/dble(size(stacking))
 end function
 ! ##########################################################
+
+! ##########################################################
+function FFT_for_vector_SpectreAnalysis(this,vector,Taper,Stacking,window_size) result(FFT_result)
+    class(SpectreAnalysis_),intent(inout) :: this
+    real(real64),intent(in) :: vector(:)
+    integer(int32),intent(in) :: Taper    ! taper-ratio (0 to 100 )
+    real(real32),intent(in)   :: Stacking(:)! size=number of stacking, i-th dataframes starts from stacking(i)
+    integer(int32),intent(in) :: window_size ! 2^n
+
+    integer(int32) :: i,j,n,data_id
+
+    complex(complex64),allocatable :: FFT_result(:), wave(:),total_wave(:),fft_loc(:)
+
+
+    if(.not. this%initialized)then
+        print *, "[ERROR] Please initialize SpectreAnalysis, by %init(sampling_Hz)"
+        stop
+    endif
+
+    ! get all data
+    total_wave = vector
+
+    if(window_size > size(total_wave) )then
+        print *, "ERROR :: FFTSpectreAnalysis >>  window size",window_size," is too large"
+        print *, "Data size is ",size(total_wave)
+        stop
+    endif
+
+    if(window_size+int(maxval(stacking)*this%sampling_Hz) > size(total_wave) )then
+        print *, "ERROR :: FFTSpectreAnalysis >>  window size",window_size," is too large"
+        print *, "this operation needs",window_size+int(maxval(stacking)*this%sampling_Hz)," samples"
+        print *, "but you only have",size(total_wave)," data plots"
+        stop
+    endif
+
+    FFT_result = zeros(window_size)
+    
+    do i=1,size(stacking)
+        data_id = int(Stacking(i)*this%sampling_Hz)
+        if(data_id<=0)then
+            data_id = 1
+        endif
+        wave = total_wave(data_id:data_id+window_size-1)
+        wave(:) = wave(:) - average(dble(wave))
+        wave = wave(:)*taper_function(n=size(wave),percent=taper)
+        fft_loc = FFT(wave )
+        FFT_result = FFT_result + sqrt( dble(fft_loc*conjg(fft_loc)) ) 
+    enddo
+
+    FFT_result = FFT_result(1:window_size/2)
+    FFT_result = FFT_result/dble(size(stacking))
+end function
+! ##########################################################
+
 
 function taper_function(n,percent) result(taper_f)
     integer(int32),intent(in) :: n, percent

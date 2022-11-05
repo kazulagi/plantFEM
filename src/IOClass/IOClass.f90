@@ -163,6 +163,7 @@ module IOClass
             procedure,pass :: writeIOcomplex64
             procedure,pass :: writeIOcomplex64Vector
             procedure,pass :: writeIOcomplex64Array
+            procedure,pass :: writeIOchar_real64Array_real64Array
             generic,public :: write => writeIOchar,writeIOstring,writeIOre64,writeIOre64Vector,writeIOre64Array,&
                 writeIOint32,writeIOint32Vector,writeIOint32Array,&
                 writeIOre64re64,writeIOre64re64re64,writeIOre64re64re64re64,&
@@ -178,7 +179,8 @@ module IOClass
                 writeIOint32Vectorre64Vector,&
                 writeIOre64Vectorre64Vector,writeIOre64Vectorre64Vectorre64Vector,&
                 writeIOint32Vectorint32Vectorint32Vector,&
-                writeIOint32Vectorint32Vectorre64Vector
+                writeIOint32Vectorint32Vectorre64Vector,&
+                writeIOchar_real64Array_real64Array
             !procedure,public :: write => writeIO
             procedure,pass :: readIOchar
             procedure,pass :: readIOInt
@@ -825,6 +827,42 @@ module IOClass
     end subroutine writeIOchar
     ! #############################################
     
+
+
+    ! #############################################
+    subroutine writeIOchar_real64Array_real64Array(obj,char,vec1,vec2,append,advance)
+        class(IO_),intent(inout) :: obj
+        character(*),intent(in) :: char
+        real(real64),intent(in) :: vec1(:),vec2(:)
+        logical,optional,intent(in) :: append,advance
+        logical :: adv
+        integer(int32) :: i
+
+        if(obj%state=="r")then
+            call print("IOClass >> Error >> This file is readonly. ")
+            call print("Nothing is written.")
+            return
+        endif
+        
+        adv = .true.
+        if(present(append) )then
+            adv = .not.append
+        endif
+        if(present(advance) )then
+            adv = advance
+        endif
+
+        if(adv .eqv. .true.)then
+            do i=1,size(vec1)
+                write(obj%fh, '(A)') char + "," + str(vec1(i)) + "," + str(vec2(i))
+            enddo
+        else
+            do i=1,size(vec1)
+                write(obj%fh, '(A)',advance="no") char + "," + str(vec1(i)) + "," + str(vec2(i))
+            enddo
+        endif
+    end subroutine writeIOchar_real64Array_real64Array
+    ! #############################################
     
     ! #############################################
     subroutine writeIOcharchar(obj,char1,char2)
@@ -3023,4 +3061,5 @@ module IOClass
     end function 
     ! ######################################################
 
+    
     end module IOClass

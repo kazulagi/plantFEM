@@ -24,10 +24,12 @@ module ElastoPlasticityClass
         real(real64),allocatable :: YieldFunction_params(:,:) 
         real(real64),allocatable :: PlasticPotential_params(:,:)
         real(real64),allocatable :: ElasticPotential_params(:,:)
+
         real(real64),allocatable :: CauchyStress_field(:,:,:)  ! (stressid, gpid, elemid)
         real(real64),allocatable :: Strain_field(:,:,:)        ! (stressid, gpid, elemid)
         real(real64),allocatable :: PlasticStrain_field(:,:,:) ! (stressid, gpid, elemid)
         real(real64),allocatable :: displacement(:)
+
     end type
     
     type :: ElastoPlasticity_
@@ -56,9 +58,15 @@ module ElastoPlasticityClass
         procedure,public :: getPlasticStrain => getPlasticStrain_ElastoPlasticity
         procedure,public :: getStrain => getStrain_ElastoPlasticity
         procedure,public :: getCauchyStress => getCauchyStress_ElastoPlasticity
+        procedure,public :: getTractionForce => getTractionForce_ElastoPlasticity
+        
         procedure,public :: setPlasticStrain => setPlasticStrain_ElastoPlasticity
         procedure,public :: setCauchyStress => setCauchyStress_ElastoPlasticity
+        
         procedure,public :: addStrain => addStrain_ElastoPlasticity
+
+        procedure,public :: reset => rezeroElastoPlasticity
+        procedure,public :: rezero => rezeroElastoPlasticity
 
         procedure,public :: I1 => I1ElastoPlasticity
         procedure,public :: J2 => J2ElastoPlasticity
@@ -928,15 +936,20 @@ subroutine solveElastoPlasticity(this,  &
         K_matrix = this%femsolver%getCRS()
 
         d_disp = disp_tr
-
+        print *, "[ok] trial disp done!"
         ! perform modified Newton-Raphson method
         do newton_loop_itr=1,this%MAX_NEWTON_LOOP_ITR
+            !F_int = this%get_internal_force(dU=d_disp) ! \int_{\Omega} B \sigma d \Omega
+            !dU -> d_eps -> 
             F_int = this%get_internal_force(dU=d_disp) ! \int_{\Omega} B \sigma d \Omega
             
             F_ext = this%get_external_force() ! Traction force
-            F_ext = 0.0d0
+            F_ext=0.0d0
 
-            Residual_vector = F_ext - F_int 
+            Residual_vector = F_ext - F_int
+            if(norm(Residual_vector) == 0.0d0)then
+                exit
+            endif
             call this%fill_zero_at_DBC(values=Residual_vector,&
                 idx= (fix_node_list_x*3-2) &
                 // (fix_node_list_y*3-1) // (fix_node_list_z*3-0)  )
@@ -951,7 +964,7 @@ subroutine solveElastoPlasticity(this,  &
             endif
         enddo
 
-        this%ep_domain(1)%displacement = this%ep_domain(1)%displacement + disp_tr
+        this%ep_domain(1)%displacement = disp_tr
         
     else
         print *, "[ERROR] solveElastoPlasticity >> only for single-domain problem"
@@ -1206,14 +1219,17 @@ end subroutine
 
 
 ! ###################################################
-subroutine exportElastoPlasticity(this,name,step)
+subroutine exportElastoPlasticity(this,name,step,amp)
     class(ElastoPlasticity_),intent(inout) :: this
     character(*),intent(in) :: name
+    real(real64),optional,intent(in) :: amp
+    real(real64) :: mag
     integer(int32),optional,intent(in) :: step
     integer(int32) :: i,n
 
+    mag = input(default=1.0d0,option=amp)
     do i=1,size(this%ep_domain)
-        call this%ep_domain(i)%femdomain%deform(disp=this%ep_domain(i)%displacement)
+        call this%ep_domain(i)%femdomain%deform(disp=mag*this%ep_domain(i)%displacement)
     enddo
     if(present(step) )then
         do i=1,size(this%ep_domain)
@@ -1282,7 +1298,7 @@ subroutine exportElastoPlasticity(this,name,step)
     endif
 
     do i=1,size(this%ep_domain)
-        call this%ep_domain(i)%femdomain%deform(disp=-this%ep_domain(i)%displacement)
+        call this%ep_domain(i)%femdomain%deform(disp=-mag*this%ep_domain(i)%displacement)
     enddo
 end subroutine
 ! ###################################################
@@ -1375,6 +1391,43 @@ function J2_e_ElastoPlasticity(this) result(J2)
     enddo
 
 end function
+! ##################################################
+
+function getTractionForce_ElastoPlasticity(this,NodeList) result(ret)
+    class(ElastoPlasticity_),intent(inout) :: this
+    integer(int32),intent(in) :: NodeList(:)
+    real(real64),allocatable :: t(:)
+    real(real64) :: ret(1:3) ! kN
+    integer(int32) :: nn,i
+    
+    nn = 0
+    do i=1,size(this%ep_domain)
+        nn = nn + this%ep_domain(i)%femdomain%nn()
+    enddo
+
+    t = this%get_internal_force(dU=zeros(nn*3 ) ) 
+
+    ret(1) = sum(t(3*NodeList(:)-2))
+    ret(2) = sum(t(3*NodeList(:)-1))
+    ret(3) = sum(t(3*NodeList(:)-0))
+
+end function
+! ######################################################
+
+! ######################################################
+subroutine rezeroElastoPlasticity(this)
+    class(ElastoPlasticity_),intent(inout) :: this
+    integer(int32) :: i
+
+    do i=1,size(this%ep_domain)
+        this%ep_domain(i)%CauchyStress_field = 0.0d0
+        this%ep_domain(i)%Strain_field = 0.0d0
+        this%ep_domain(i)%PlasticStrain_field = 0.0d0
+        this%ep_domain(i)%displacement = 0.0d0
+    enddo
+
+end subroutine
+! ######################################################
 
 end module ElastoPlasticityClass
 
