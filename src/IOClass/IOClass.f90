@@ -253,6 +253,15 @@ module IOClass
         interface parse
             module procedure parse_fileRealArray
         end interface
+
+    interface to_csv
+        module procedure  to_csv_real_array2,to_csv_real_array3, to_csv_real_vector
+    end interface to_csv
+
+
+    interface from_csv
+        module procedure  from_csv_real_array2,from_csv_real_array3,from_csv_real_vector
+    end interface from_csv
     contains
     
     ! ===========================================
@@ -3062,4 +3071,176 @@ module IOClass
     ! ######################################################
 
     
+    ! ######################################################
+subroutine to_csv_real_array3(name,a) 
+    real(real64),intent(in) :: a(:,:,:)
+    character(*),intent(in)  :: name
+    type(IO_) :: f
+    integer(int32) :: i,j,k,n1,n2,n3
+
+    n1 = size(a,1)
+    n2 = size(a,2)
+    n3 = size(a,3)
+    if(index(name,".csv")==0 )then
+        call f%open(name+".csv","w")
+    else
+        call f%open(name,"w")
+    endif
+    write(f%fh,*) n1, n2, n3
+    do k=1,n3
+        do j=1,n2
+            do i=1,n1 
+                write(f%fh,'(A)',advance="no") str(a(i,j,k)) + ","
+            enddo
+        enddo
+        write(f%fh,'(A)',advance="yes") ","
+    enddo
+    call f%close()
+
+end subroutine
+
+    
+! ######################################################
+subroutine to_csv_real_array2(name,a) 
+    real(real64),intent(in) :: a(:,:)
+    character(*),intent(in)  :: name
+    type(IO_) :: f
+    integer(int32) :: i,j,k,n1,n2
+
+    n1 = size(a,1)
+    n2 = size(a,2)
+    if(index(name,".csv")==0 )then
+        call f%open(name+".csv","w")
+    else
+        call f%open(name,"w")
+    endif
+    write(f%fh,*) n1, n2
+    do j=1,n2
+        do i=1,n1 - 1
+            write(f%fh,'(A)',advance="no") str(a(i,j)) + ","
+        enddo
+        write(f%fh,'(A)',advance="yes") str(a(n1,j)) + ","
+    enddo
+    call f%close()
+
+end subroutine
+
+! ###########################################
+
+! ###########################################
+subroutine to_csv_real_vector(name,a) 
+    real(real64),intent(in) :: a(:)
+    character(*),intent(in)  :: name
+    type(IO_) :: f
+    integer(int32) :: i,j,k,n1,n2,n3
+
+    n1 = size(a,1)
+    if(index(name,".csv")==0 )then
+        call f%open(name+".csv","w")
+    else
+        call f%open(name,"w")
+    endif
+    write(f%fh,*) n1
+    do i=1,n1 
+        write(f%fh,'(A)') str(a(i)) + ","
+    enddo
+    call f%close()
+
+end subroutine
+
+! ######################################################
+
+function from_csv_real_array3(name,n1,n2,n3,header)  result(a)
+    real(real64),allocatable :: a(:,:,:)
+    character(*),intent(in)  :: name
+    type(IO_) :: f
+    integer(int32),intent(in) :: n1,n2,n3
+    integer(int32),optional,intent(in) :: header ! number of line for header
+    integer(int32) :: n(1:3)
+    integer(int32) :: i,j,k
+    character(1) :: buf 
+
+    if(index(name,".csv")==0 )then
+        call f%open(name+".csv","r")
+    else
+        call f%open(name,"r")
+    endif
+
+    if(present(header) )then
+        read(f%fh,*) buf
+    endif
+    read(f%fh,*) n(1:3)
+    allocate(a(n1,n2,n3) )
+    a(:,:,:) = 0.0d0
+    do k=1,n3
+        read(f%fh,*) a(:,:,k)        
+    enddo
+    call f%close()
+
+end function
+! ######################################################
+
+function from_csv_real_array2(name,n1,n2,header)  result(a)
+    real(real64),allocatable :: a(:,:)
+    character(*),intent(in)  :: name
+    type(IO_) :: f
+    integer(int32),intent(in) :: n1,n2
+    integer(int32) :: n(1:3)
+    integer(int32) :: i,j,k
+    integer(int32),optional,intent(in) :: header ! number of line for header
+    character(1) :: buf
+    if(index(name,".csv")==0 )then
+        call f%open(name+".csv","r")
+    else
+        call f%open(name,"r")
+    endif
+
+    if(present(header) )then
+        read(f%fh,*) buf
+    endif
+    read(f%fh,*) n(1:2)
+    allocate(a(n1,n2) )
+    a(:,:) = 0.0d0
+    do j=1,n2
+        read(f%fh,*) a(:,j)    
+    enddo
+    
+    call f%close()
+
+end function
+! ######################################################
+
+
+! ######################################################
+
+function from_csv_real_vector(name,n1,header)  result(a)
+    real(real64),allocatable :: a(:)
+    character(*),intent(in)  :: name
+    type(IO_) :: f
+    integer(int32),intent(in) :: n1
+    integer(int32) :: n
+    integer(int32),optional,intent(in) :: header ! number of line for header
+    character(1) :: buf
+
+    integer(int32) :: i
+    if(index(name,".csv")==0 )then
+        call f%open(name+".csv","r")
+    else
+        call f%open(name,"r")
+    endif
+    if(present(header) )then
+        read(f%fh,*) buf
+    endif
+
+    read(f%fh,*) n
+    allocate(a(n1) )
+    a(:) = 0.0d0
+    do i=1,n1 
+        read(f%fh,*) a(i)
+    enddo
+    call f%close()
+
+end function
+! ######################################################
+
     end module IOClass

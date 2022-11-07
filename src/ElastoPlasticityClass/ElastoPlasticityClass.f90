@@ -17,6 +17,7 @@ module ElastoPlasticityClass
         end function
     end interface
 
+
     type :: EP_Domain_
         procedure(PotentialFunction),nopass,pointer :: YieldFunction    => null()
         procedure(PotentialFunction),nopass,pointer :: PlasticPotential => null()
@@ -25,11 +26,20 @@ module ElastoPlasticityClass
         real(real64),allocatable :: PlasticPotential_params(:,:)
         real(real64),allocatable :: ElasticPotential_params(:,:)
 
+        ! basic fields
         real(real64),allocatable :: CauchyStress_field(:,:,:)  ! (stressid, gpid, elemid)
         real(real64),allocatable :: Strain_field(:,:,:)        ! (stressid, gpid, elemid)
         real(real64),allocatable :: PlasticStrain_field(:,:,:) ! (stressid, gpid, elemid)
-        real(real64),allocatable :: displacement(:)
+        
+        ! incremental form (working mem.)
+        real(real64),allocatable :: dCauchyStress_field(:,:,:)  ! (stressid, gpid, elemid)
+        real(real64),allocatable :: dStrain_field(:,:,:)  ! (stressid, gpid, elemid)
+        real(real64),allocatable :: PlasticStrain_field_n(:,:,:) ! (stressid, gpid, elemid)
 
+        real(real64),allocatable :: displacement(:)
+    contains
+        procedure,public :: importField => importFieldEpDomain
+        procedure,public :: exportField => exportFieldEpDomain
     end type
     
     type :: ElastoPlasticity_
@@ -43,27 +53,44 @@ module ElastoPlasticityClass
     contains
         procedure,public :: init  => initElastoPlasticity
         procedure,public :: solve => solveElastoPlasticity
+        procedure,public :: solve_increment => solve_increment_ElastoPlasticity
 
         procedure,pass :: edit_YF_PP_ElastoPlasticity
         generic :: edit => edit_YF_PP_ElastoPlasticity
 
         procedure,public :: export => exportElastoPlasticity
-
+        procedure,public :: exportField => exportFieldElastoPlasticity
+        procedure,public :: importField => importFieldElastoPlasticity
+        
+        
 
         procedure,public :: get_internal_force =>get_internal_forceElastoPlasticity
+        
+        procedure,public :: update_stress_for_increment &
+            => update_stress_for_incrementElastoPlasticity
+        procedure,public :: get_delta_internal_force =>get_delta_internal_forceElastoPlasticity
+
+
         procedure,public :: get_external_force =>get_external_forceElastoPlasticity
         procedure,public :: fill_zero_at_DBC =>fill_zero_at_DBCElastoPlasticity
         procedure,public :: getYieldFunctionTemplate => getYieldFunctionTemplateElastoPlasticity
+        
 
         procedure,public :: getPlasticStrain => getPlasticStrain_ElastoPlasticity
+       procedure,public :: getPlasticStrain_n => getPlasticStrain_n_ElastoPlasticity
+
         procedure,public :: getStrain => getStrain_ElastoPlasticity
         procedure,public :: getCauchyStress => getCauchyStress_ElastoPlasticity
+        procedure,public :: getdCauchyStress => getdCauchyStress_ElastoPlasticity
+        
         procedure,public :: getTractionForce => getTractionForce_ElastoPlasticity
         
         procedure,public :: setPlasticStrain => setPlasticStrain_ElastoPlasticity
         procedure,public :: setCauchyStress => setCauchyStress_ElastoPlasticity
+        procedure,public :: setdCauchyStress => setdCauchyStress_ElastoPlasticity
         
         procedure,public :: addStrain => addStrain_ElastoPlasticity
+        procedure,public :: setdStrain => setdStrain_ElastoPlasticity
 
         procedure,public :: reset => rezeroElastoPlasticity
         procedure,public :: rezero => rezeroElastoPlasticity
@@ -167,106 +194,9 @@ function to_StressTensor(YieldFunction,PlasticPotential,Strain,dStrain,CauchyStr
                 PlasticStrain=PlasticStrain,params=YieldParams)
 
             PlasticStrain = PlasticStrain + dgamma*dgds
-            !print *, "dgamma",dgamma, f_n
-            
-            !stop
+ 
             return
-                
-            
-            ! 降伏関数の塑性ひずみ依存性がない場合に限る．
-!            do i=1,max_itr
-!                    
-!                
-!                
-!                ! Newton法により
-!                ! dγを最適化する．
-!
-!                ! (4)
-!                eps = dble(1.0e-3)
-!                
-!                tr_f_CauchyStress = tr_CauchyStress - (dgamma + eps/2.0d0)*dfds
-!                f_forward  = PlasticPotential(CauchyStress=tr_f_CauchyStress, &
-!                    PlasticStrain=PlasticStrain,params=PlasticParams)
-!
-!                tr_b_CauchyStress = tr_CauchyStress - (dgamma - eps/2.0d0)*dfds
-!                f_backward = PlasticPotential(CauchyStress=tr_b_CauchyStress, &
-!                    PlasticStrain=PlasticStrain,params=PlasticParams)
-!
-!                dfdgamma = (f_forward - f_backward)/eps
-!                ! (5), (6)
-!                dgamma = dgamma - f_n/dfdgamma 
-!
-!                !print *, dgamma
-!                !eps = 1000.0d0 
-!                !do j=1,17
-!                !    eps = eps/10.0d0
-!                !    
-!                !    tr_f_CauchyStress = tr_CauchyStress - (dgamma + eps/2.0d0)*dfds
-!                !    f_forward  = PlasticPotential(CauchyStress=tr_f_CauchyStress, &
-!                !        PlasticStrain=PlasticStrain,params=PlasticParams)
-!                !
-!                !    tr_b_CauchyStress = tr_CauchyStress - (dgamma - eps/2.0d0)*dfds
-!                !    f_backward = PlasticPotential(CauchyStress=tr_b_CauchyStress, &
-!                !        PlasticStrain=PlasticStrain,params=PlasticParams)
-!                !
-!                !    dfdgamma = (f_forward - f_backward)/eps
-!                !    print *, "dfds epsilon = ",eps,"dfdgamma",dfdgamma 
-!                !enddo
-!                !stop
-!                !print *, "dgamma*dfds"
-!                !call print(dgamma*dfds)
-!                !print *, "dStrain"
-!                !call print(dStrain)
-!                
-!                ! (1)
-!                dCauchyStress = StVenant(ElasticStrain=dStrain - dgamma*dfds,params=ElasticParams)
-!
-!                ! (2)
-!                tr_CauchyStress = CauchyStress + dCauchyStress
-!                !print *, "Ede"
-!                !call print(StVenant(ElasticStrain=dStrain ,params=ElasticParams))
-!                !print *, "E(de-dep)"
-!                !call print(StVenant(ElasticStrain=dStrain - dgamma*dfds,params=ElasticParams))
-!                !stop
-!
-!
-!                dfds = d_dSigma(PlasticPotential=PlasticPotential,CauchyStress=tr_CauchyStress,&
-!                    PlasticStrain=PlasticStrain,params=PlasticParams,epsilon=epsilon)
-!                dfds = dfds/norm(dfds)
-!                !PlasticStrain = PlasticStrain - f_n/dfdgamma*dfds
-!                
-!                !tr_CauchyStress = tr_0_sigma - PlasticStrain
-!
-!                ! (3)
-!                f_n = YieldFunction(CauchyStress=tr_CauchyStress, &
-!                    PlasticStrain=PlasticStrain,params=YieldParams)
-!
-!                print *, "dgamma",dgamma, dfdgamma, f_n, f_n/dfdgamma
-!                stop
-!                !dfds = d_dSigma(PlasticPotential=PlasticPotential,CauchyStress=tr_CauchyStress,&
-!                !    PlasticStrain=PlasticStrain,params=PlasticParams,epsilon=epsilon)
-!                !dfds = dfds/norm(dfds)
-!                 
-!
-!                if(abs(f_n/f_n_0) < 1.0e-14)then
-!                    print *, "[Stress] Before"
-!                    call print(tr_0_sigma)
-!                    print *, "[Stress] After"
-!                    call print(tr_CauchyStress)
-!                    print *, " "
-!                    print *, "[Strian] Before"
-!                    call print(old_PlasticStrain)
-!                    print *, "[Strian] After"
-!                    call print(PlasticStrain)
-!                    exit
-!                endif
-!                if(i==max_itr)then
-!                    print *, "[ERROR] Return mapping did not converge."
-!                endif
-!            enddo
-!            stop
-!            return
-!
+ 
         elseif(algorithm=="ForwardEuler")then
             ! Forward Euler
             dfds = d_dSigma(PlasticPotential=PlasticPotential,CauchyStress=tr_CauchyStress,&
@@ -303,6 +233,112 @@ function to_StressTensor(YieldFunction,PlasticPotential,Strain,dStrain,CauchyStr
     endif
 
 end function to_StressTensor
+! #############################################
+
+
+
+! #############################################
+function to_dStressTensor(YieldFunction,PlasticPotential,dStrain,CauchyStress,PlasticStrain,&
+    YieldParams,PlasticParams,ElasticParams,pval,epsilon,new_PlasticStrain)&
+     result(dCauchyStress)
+procedure(PotentialFunction) :: YieldFunction
+procedure(PotentialFunction) :: PlasticPotential
+
+!! return increment of Cauchy tensor
+
+real(real64),intent(in) :: dStrain(:,:),ElasticParams(:),&
+    YieldParams(:),PlasticParams(:),CauchyStress(:,:)
+real(real64),intent(in) :: PlasticStrain(:,:)
+real(real64),intent(in) :: epsilon
+
+real(real64),optional,intent(inout) :: pval
+real(real64),optional,allocatable,intent(inout) :: new_PlasticStrain(:,:)
+
+
+! local variables
+real(real64),allocatable :: tr_CauchyStress(:,:),dfds(:,:),E(:,:,:,:),dCauchyStress(:,:),&
+old_PlasticStrain(:,:),J_mat(:,:),X_vec(:),Y_vec(:),E_dfds(:,:),dX_vec(:),E_ee(:,:),&
+E11_epsilon(:,:),dfds_inv(:,:),dfds_forward(:,:),dfds_backward(:,:),ds(:,:),dE_e(:,:),&
+tr_sigma_vec(:),D_mat(:,:),tr_0_sigma(:,:),tr_f_CauchyStress(:,:),tr_b_CauchyStress(:,:),&
+E_ijkl(:,:,:,:),En(:,:),Ee(:,:),dgds(:,:)
+
+real(real64) :: f_val, dGamma,dGamma_lower,dGamma_upper,ddgamma, buf,G_val,K_val,eps,f_n_0,dg1,dg2
+integer(int32) :: i,j,k,l,n,m
+character(:),allocatable :: algorithm 
+real(real64) :: f_n,f_n1,dfdgamma,f_forward,f_backward
+integer(int32) :: max_itr
+type(IO_) :: f
+
+
+new_PlasticStrain = PlasticStrain
+algorithm="ReturnMapping"
+
+tr_CauchyStress = zeros(3,3)
+! (1)
+dCauchyStress = StVenant(ElasticStrain=dStrain,params=ElasticParams)
+
+
+! (2)
+tr_CauchyStress = CauchyStress + dCauchyStress
+
+! (3) 
+f_val = YieldFunction(CauchyStress=tr_CauchyStress, &
+    PlasticStrain=new_PlasticStrain,params=YieldParams)
+dgamma = 0.0d0
+f_n_0 = f_val
+f_n   = f_val
+if(present(pval) )then
+    pval = f_val
+endif
+
+
+dfds = zeros(3,3)
+if(is_elastic(f_val) )then    
+    return
+else
+    ! [Caution!]
+    ! only for plastic potential with no hardening/softerning parameters associated with the plastic strain
+    ! For such cases, Return mapping is required.
+    if(algorithm=="ReturnMapping")then
+        ! only for f(\sigma), not for f(\sigma, K, Hm ...etc.)
+        
+        max_itr = 4
+
+        dgamma = 0.0d0
+        dfdgamma = 0.0d0
+
+        f_n = f_val
+
+        dgds = d_dSigma(PlasticPotential=PlasticPotential,CauchyStress=tr_CauchyStress,&
+            PlasticStrain=new_PlasticStrain,params=PlasticParams,epsilon=epsilon)
+        dgds = dgds/norm(dgds)  
+
+        En = StVenant(ElasticStrain=dgds,params=ElasticParams)
+        Ee = StVenant(ElasticStrain=dStrain,params=ElasticParams)
+        
+
+        dfds = d_dSigma(PlasticPotential=YieldFunction,CauchyStress=tr_CauchyStress,&
+            PlasticStrain=new_PlasticStrain,params=YieldParams,epsilon=epsilon)
+
+        dgamma = tensordot(dfds,Ee)/tensordot(dfds,En)
+        
+        dCauchyStress = StVenant(ElasticStrain=dStrain - dgamma*dgds,params=ElasticParams)
+
+        tr_CauchyStress = CauchyStress + dCauchyStress
+
+        f_n = YieldFunction(CauchyStress=tr_CauchyStress, &
+            PlasticStrain=new_PlasticStrain,params=YieldParams)
+
+        new_PlasticStrain = new_PlasticStrain + dgamma*dgds
+        !dCauchyStress = tr_CauchyStress - CauchyStress
+        return
+    else
+        print *, "ERROR :: to_dStressTensor >> no such algorithm as",algorithm
+        stop
+    endif
+endif
+
+end function to_dStressTensor
 ! #############################################
 
 function StVenant(ElasticStrain,params) result(CauchyStress)
@@ -861,115 +897,272 @@ end subroutine
 ! ###################################################
 
 
-
 subroutine solveElastoPlasticity(this,  &
-        YoungModulus,PoissonRatio,Density, &
-        fix_node_list_x, &
-        fix_node_list_y, &
-        fix_node_list_z, &
-        fix_value_list_x, &
-        fix_value_list_y, &
-        fix_value_list_z) 
+    YoungModulus,PoissonRatio,Density, &
+    fix_node_list_x, &
+    fix_node_list_y, &
+    fix_node_list_z, &
+    fix_value_list_x, &
+    fix_value_list_y, &
+    fix_value_list_z) 
+
+class(ElastoPlasticity_),intent(inout) :: this
+real(real64),intent(in) :: YoungModulus(:)
+real(real64),intent(in) :: PoissonRatio(:)
+real(real64),intent(in) :: Density(:)
+
+
+integer(int32),optional,intent(in) :: fix_node_list_x(:)
+integer(int32),optional,intent(in) :: fix_node_list_y(:)
+integer(int32),optional,intent(in) :: fix_node_list_z(:)
+real(real64),optional,intent(in) :: fix_value_list_x(:)
+real(real64),optional,intent(in) :: fix_value_list_y(:)
+real(real64),optional,intent(in) :: fix_value_list_z(:)
+
+
+real(real64),allocatable :: disp_tr(:),d_disp(:),&
+    F_int(:), &
+    F_ext(:), &
+    Residual_vector(:)
+
+integer(int32) :: newton_loop_itr
+integer(int32) :: ElementID
+type(CRS_) :: K_matrix
+
+if(size(this%ep_domain)==1 )then
+
+    this%ep_domain(1)%ElasticPotential_params(:,1) = YoungModulus(:)*PoissonRatio(:)/(1.0d0+PoissonRatio(:) )&
+        /(1.0d0-2.0d0*PoissonRatio(:) )
+    this%ep_domain(1)%ElasticPotential_params(:,2) = YoungModulus(:)/2.0d0/(1.0d0+PoissonRatio(:))
     
-    class(ElastoPlasticity_),intent(inout) :: this
-    real(real64),intent(in) :: YoungModulus(:)
-    real(real64),intent(in) :: PoissonRatio(:)
-    real(real64),intent(in) :: Density(:)
+    if(.not.this%femsolver%initialized)then
+        call this%femsolver%init(NumDomain=1)
+        call this%femsolver%setDomain(FEMDomain=this%ep_domain(1)%femdomain,DomainID=1)
+        call this%femsolver%setCRS(DOF=3)
+    else
+        call this%femsolver%zeros()
+    endif
+
+
+    !$OMP parallel 
+    !$OMP do
+    do ElementID = 1, this%ep_domain(1)%femdomain%ne()
+        call this%femsolver%setMatrix(DomainID=1,ElementID=ElementID,DOF=3,&
+            Matrix=this%ep_domain(1)%femdomain%StiffnessMatrix(ElementID=ElementID,&
+            E=YoungModulus(ElementID),&
+            v=PoissonRatio(ElementID) ) )
+        call this%femsolver%setVector(DomainID=1,ElementID=ElementID,DOF=3,&
+            Vector=this%ep_domain(1)%femdomain%MassVector(&
+                ElementID=ElementID,&
+                DOF=this%ep_domain(1)%femdomain%nd() ,&
+                Density=Density(ElementID),&
+                Accel=this%gravity_accel&
+                ) &    
+            )
+    enddo
+    !$OMP end do
+    !$OMP end parallel
+    call this%femsolver%fix(DomainID=1,IDs=fix_node_list_x*3-2,FixValues=fix_value_list_x)
+    call this%femsolver%fix(DomainID=1,IDs=fix_node_list_y*3-1,FixValues=fix_value_list_y)
+    call this%femsolver%fix(DomainID=1,IDs=fix_node_list_z*3-0,FixValues=fix_value_list_z)
     
+    disp_tr = this%femsolver%solve()
+    
+    K_matrix = this%femsolver%getCRS()
 
-    integer(int32),optional,intent(in) :: fix_node_list_x(:)
-    integer(int32),optional,intent(in) :: fix_node_list_y(:)
-    integer(int32),optional,intent(in) :: fix_node_list_z(:)
-    real(real64),optional,intent(in) :: fix_value_list_x(:)
-    real(real64),optional,intent(in) :: fix_value_list_y(:)
-    real(real64),optional,intent(in) :: fix_value_list_z(:)
-
-
-    real(real64),allocatable :: disp_tr(:),d_disp(:),&
-        F_int(:), &
-        F_ext(:), &
-        Residual_vector(:)
-
-    integer(int32) :: newton_loop_itr
-    integer(int32) :: ElementID
-    type(CRS_) :: K_matrix
-
-    if(size(this%ep_domain)==1 )then
-
-        this%ep_domain(1)%ElasticPotential_params(:,1) = YoungModulus(:)*PoissonRatio(:)/(1.0d0+PoissonRatio(:) )&
-            /(1.0d0-2.0d0*PoissonRatio(:) )
-        this%ep_domain(1)%ElasticPotential_params(:,2) = YoungModulus(:)/2.0d0/(1.0d0+PoissonRatio(:))
+    d_disp = disp_tr
+    print *, "[ok] trial disp done!"
+    ! perform modified Newton-Raphson method
+    do newton_loop_itr=1,this%MAX_NEWTON_LOOP_ITR
+        !F_int = this%get_internal_force(dU=d_disp) ! \int_{\Omega} B \sigma d \Omega
+        !dU -> d_eps -> 
+        F_int = this%get_internal_force(dU=d_disp) ! \int_{\Omega} B \sigma d \Omega
         
-        if(.not.this%femsolver%initialized)then
-            call this%femsolver%init(NumDomain=1)
-            call this%femsolver%setDomain(FEMDomain=this%ep_domain(1)%femdomain,DomainID=1)
-            call this%femsolver%setCRS(DOF=3)
-        else
-            call this%femsolver%zeros()
+        F_ext = this%get_external_force() ! Traction force
+        F_ext=0.0d0
+
+        Residual_vector = F_ext - F_int
+        if(norm(Residual_vector) == 0.0d0)then
+            exit
+        endif
+        call this%fill_zero_at_DBC(values=Residual_vector,&
+            idx= (fix_node_list_x*3-2) &
+            // (fix_node_list_y*3-1) // (fix_node_list_z*3-0)  )
+        
+        ! solve [K]{du} = {R}
+        call K_matrix%BiCGSTAB(x=d_disp, b=Residual_vector)
+        
+        disp_tr = disp_tr - d_disp
+        print *, newton_loop_itr,norm(d_disp),norm(Residual_vector),norm(F_int)
+        if(norm(d_disp)<this%TOL )then
+            exit
+        endif
+    enddo
+
+    this%ep_domain(1)%displacement = disp_tr
+    
+else
+    print *, "[ERROR] solveElastoPlasticity >> only for single-domain problem"
+    stop
+endif
+end subroutine
+
+! ###################################################
+
+! ###################################################
+
+
+subroutine solve_increment_ElastoPlasticity(this,  &
+    YoungModulus,PoissonRatio,delta_Density, &
+    fix_node_list_x, &
+    fix_node_list_y, &
+    fix_node_list_z, &
+    fix_value_list_x, &
+    fix_value_list_y, &
+    fix_value_list_z) 
+
+class(ElastoPlasticity_),intent(inout) :: this
+real(real64),intent(in) :: YoungModulus(:)
+real(real64),intent(in) :: PoissonRatio(:)
+real(real64),intent(in) :: delta_Density(:)
+
+
+integer(int32),optional,intent(in) :: fix_node_list_x(:)
+integer(int32),optional,intent(in) :: fix_node_list_y(:)
+integer(int32),optional,intent(in) :: fix_node_list_z(:)
+real(real64),optional,intent(in) :: fix_value_list_x(:)
+real(real64),optional,intent(in) :: fix_value_list_y(:)
+real(real64),optional,intent(in) :: fix_value_list_z(:)
+
+
+real(real64),allocatable :: d_disp_tr(:),d_d_disp(:),&
+    dF_int(:), &
+    dF_ext(:), &
+    Residual_vector(:)
+
+integer(int32) :: newton_loop_itr
+integer(int32) :: ElementID,DomainID
+type(CRS_) :: K_matrix
+
+DomainID = 1 ! only for single-domain
+
+if(.not.allocated(this%ep_domain(domainID)%PlasticStrain_field_n) )then
+    this%ep_domain(domainID)%PlasticStrain_field_n = this%ep_domain(domainID)%PlasticStrain_field
+endif
+
+if(.not.allocated(this%ep_domain(DomainID)%dCauchyStress_field) )then
+    this%ep_domain(DomainID)%dCauchyStress_field = this%ep_domain(DomainID)%CauchyStress_field
+endif
+
+
+if(.not.allocated(this%ep_domain(DomainID)%dStrain_field) )then
+    this%ep_domain(DomainID)%dStrain_field = this%ep_domain(DomainID)%Strain_field
+endif
+
+this%ep_domain(domainID)%PlasticStrain_field = this%ep_domain(domainID)%PlasticStrain_field_n
+this%ep_domain(DomainID)%dCauchyStress_field(:,:,:) = 0.0d0
+this%ep_domain(DomainID)%dStrain_field(:,:,:) = 0.0d0
+
+if(size(this%ep_domain)==1 )then
+
+    this%ep_domain(1)%ElasticPotential_params(:,1) = YoungModulus(:)*PoissonRatio(:)/(1.0d0+PoissonRatio(:) )&
+        /(1.0d0-2.0d0*PoissonRatio(:) )
+    this%ep_domain(1)%ElasticPotential_params(:,2) = YoungModulus(:)/2.0d0/(1.0d0+PoissonRatio(:))
+    
+    if(.not.this%femsolver%initialized)then
+        call this%femsolver%init(NumDomain=1)
+        call this%femsolver%setDomain(FEMDomain=this%ep_domain(1)%femdomain,DomainID=1)
+        call this%femsolver%setCRS(DOF=3)
+    else
+        call this%femsolver%zeros()
+    endif
+
+
+    !$OMP parallel 
+    !$OMP do
+    do ElementID = 1, this%ep_domain(1)%femdomain%ne()
+        call this%femsolver%setMatrix(DomainID=1,ElementID=ElementID,DOF=3,&
+            Matrix=this%ep_domain(1)%femdomain%StiffnessMatrix(ElementID=ElementID,&
+            E=YoungModulus(ElementID),&
+            v=PoissonRatio(ElementID) ) )
+        call this%femsolver%setVector(DomainID=1,ElementID=ElementID,DOF=3,&
+            Vector=this%ep_domain(1)%femdomain%MassVector(&
+                ElementID=ElementID,&
+                DOF=this%ep_domain(1)%femdomain%nd() ,&
+                Density=delta_Density(ElementID),&
+                Accel=this%gravity_accel&
+                ) &    
+            )
+    enddo
+    !$OMP end do
+    !$OMP end parallel
+    call this%femsolver%fix(DomainID=1,IDs=fix_node_list_x*3-2,FixValues=fix_value_list_x)
+    call this%femsolver%fix(DomainID=1,IDs=fix_node_list_y*3-1,FixValues=fix_value_list_y)
+    call this%femsolver%fix(DomainID=1,IDs=fix_node_list_z*3-0,FixValues=fix_value_list_z)
+    
+    d_disp_tr = this%femsolver%solve()
+    
+    K_matrix = this%femsolver%getCRS()
+
+    d_d_disp = d_disp_tr
+    dF_int = zeros(size(d_disp_tr) )
+    print *, "[ok] trial delta-disp done!"
+    ! perform modified Newton-Raphson method
+    do newton_loop_itr=1,this%MAX_NEWTON_LOOP_ITR
+        !dF_int = this%get_internal_force(dU=d_d_disp) ! \int_{\Omega} B \sigma d \Omega
+        !dU -> d_eps -> 
+        
+        call this%update_stress_for_increment(dU=d_d_disp) ! \int_{\Omega} B \sigma d \Omega
+        dF_int = this%get_delta_internal_force()
+
+        
+        dF_ext = this%get_external_force() ! Traction force
+        dF_ext = 0.0d0
+
+        call this%fill_zero_at_DBC(values=dF_ext,&
+            idx= (fix_node_list_x*3-2) &
+            // (fix_node_list_y*3-1) // (fix_node_list_z*3-0)  )
+        !print *, "norm(dF_ext)",norm(dF_ext)
+
+        Residual_vector = dF_ext - dF_int
+        if(norm(Residual_vector) == 0.0d0)then
+            exit
         endif
 
-
-        !$OMP parallel 
-        !$OMP do
-        do ElementID = 1, this%ep_domain(1)%femdomain%ne()
-            call this%femsolver%setMatrix(DomainID=1,ElementID=ElementID,DOF=3,&
-                Matrix=this%ep_domain(1)%femdomain%StiffnessMatrix(ElementID=ElementID,&
-                E=YoungModulus(ElementID),&
-                v=PoissonRatio(ElementID) ) )
-            call this%femsolver%setVector(DomainID=1,ElementID=ElementID,DOF=3,&
-                Vector=this%ep_domain(1)%femdomain%MassVector(&
-                    ElementID=ElementID,&
-                    DOF=this%ep_domain(1)%femdomain%nd() ,&
-                    Density=Density(ElementID),&
-                    Accel=this%gravity_accel&
-                    ) &    
-                )
-        enddo
-        !$OMP end do
-        !$OMP end parallel
-        call this%femsolver%fix(DomainID=1,IDs=fix_node_list_x*3-2,FixValues=fix_value_list_x)
-        call this%femsolver%fix(DomainID=1,IDs=fix_node_list_y*3-1,FixValues=fix_value_list_y)
-        call this%femsolver%fix(DomainID=1,IDs=fix_node_list_z*3-0,FixValues=fix_value_list_z)
+        call this%fill_zero_at_DBC(values=Residual_vector,&
+            idx= (fix_node_list_x*3-2) &
+            // (fix_node_list_y*3-1) // (fix_node_list_z*3-0)  )
         
-        disp_tr = this%femsolver%solve()
+        ! solve [K]{du} = {R}
+        call K_matrix%BiCGSTAB(x=d_d_disp, b=Residual_vector)
         
-        K_matrix = this%femsolver%getCRS()
+        d_disp_tr = d_disp_tr - d_d_disp
+        print *, newton_loop_itr,norm(d_d_disp),norm(Residual_vector),norm(dF_int)
+        if(norm(d_d_disp)<this%TOL )then
+            exit
+        endif
+    enddo
 
-        d_disp = disp_tr
-        print *, "[ok] trial disp done!"
-        ! perform modified Newton-Raphson method
-        do newton_loop_itr=1,this%MAX_NEWTON_LOOP_ITR
-            !F_int = this%get_internal_force(dU=d_disp) ! \int_{\Omega} B \sigma d \Omega
-            !dU -> d_eps -> 
-            F_int = this%get_internal_force(dU=d_disp) ! \int_{\Omega} B \sigma d \Omega
-            
-            F_ext = this%get_external_force() ! Traction force
-            F_ext=0.0d0
+    this%ep_domain(1)%displacement = this%ep_domain(1)%displacement + d_disp_tr
+    
+else
+    print *, "[ERROR] solveElastoPlasticity >> only for single-domain problem"
+    stop
+endif
 
-            Residual_vector = F_ext - F_int
-            if(norm(Residual_vector) == 0.0d0)then
-                exit
-            endif
-            call this%fill_zero_at_DBC(values=Residual_vector,&
-                idx= (fix_node_list_x*3-2) &
-                // (fix_node_list_y*3-1) // (fix_node_list_z*3-0)  )
-            
-            ! solve [K]{du} = {R}
-            call K_matrix%BiCGSTAB(x=d_disp, b=Residual_vector)
-            
-            disp_tr = disp_tr - d_disp
-            print *, newton_loop_itr,norm(d_disp),norm(Residual_vector),norm(F_int)
-            if(norm(d_disp)<this%TOL )then
-                exit
-            endif
-        enddo
+this%ep_domain(DomainID)%Strain_field = this%ep_domain(DomainID)%Strain_field&
+     + this%ep_domain(DomainID)%dStrain_field
+    
+this%ep_domain(domainID)%PlasticStrain_field_n = &
+    this%ep_domain(domainID)%PlasticStrain_field
 
-        this%ep_domain(1)%displacement = disp_tr
-        
-    else
-        print *, "[ERROR] solveElastoPlasticity >> only for single-domain problem"
-        stop
-    endif
+this%ep_domain(DomainID)%CauchyStress_field = &
+    this%ep_domain(DomainID)%CauchyStress_field  &
+    + this%ep_domain(DomainID)%dCauchyStress_field 
+
+this%ep_domain(DomainID)%dCauchyStress_field(:,:,:) = 0.0d0
+this%ep_domain(DomainID)%dStrain_field(:,:,:) = 0.0d0
+
 end subroutine
 
 ! ###################################################
@@ -993,52 +1186,54 @@ function get_internal_forceElastoPlasticity(this,dU) result(ret)
 
 
     if( size(this%ep_domain)==1)then
+        if(norm(dU)/=0.0d0)then
+            
+            ! Update stress and plastic strain
+            !$OMP parallel default(shared) private(GaussPointID,PlasticStrain,dStrain,CauchyStress)
+            !$OMP do
+            do ElementID = 1, this%ep_domain(1)%femdomain%ne()
+                do GaussPointID = 1, this%ep_domain(1)%femdomain%ngp()
+
+                    PlasticStrain = this%getPlasticStrain(ElementID=ElementID,GaussPointID=GaussPointID)
+                    dStrain = this%ep_domain(1)%femdomain%getStrainTensor(&
+                        ElementID=ElementID,GaussPointID=GaussPointID,&
+                        displacement=dU_mat)
+
+                    !print *, minval(dU_mat),maxval(dU_mat)
+                    CauchyStress = to_StressTensor(&
+                        YieldFunction=this%ep_domain(1)%YieldFunction ,&
+                        PlasticPotential=this%ep_domain(1)%PlasticPotential,&
+                        Strain=this%getStrain(ElementID=ElementID,GaussPointID=GaussPointID),&
+                        dStrain=dStrain,&
+                        CauchyStress=this%getCauchyStress(ElementID=ElementID,GaussPointID=GaussPointID),&
+                        PlasticStrain=PlasticStrain,&
+                        YieldParams=this%ep_domain(1)%YieldFunction_params(ElementID,:),&
+                        PlasticParams=this%ep_domain(1)%PlasticPotential_params(ElementID,:),&
+                        ElasticParams=this%ep_domain(1)%ElasticPotential_params(ElementID,:),&
+                        epsilon=dble(1.0e-4) &
+                        )
+
+                    call this%setPlasticStrain(&
+                        ElementID=ElementID,&
+                        GaussPointID=GaussPointID,&
+                        PlasticStrain=PlasticStrain)
+
+                    call this%setCauchyStress(&
+                        ElementID=ElementID,&
+                        GaussPointID=GaussPointID,&
+                        CauchyStress=CauchyStress)
+
+                    call this%addStrain(&
+                        ElementID=ElementID,&
+                        GaussPointID=GaussPointID,&
+                        dStrain=dStrain)
+                enddo
+            enddo
+            !$OMP end do
+            !$OMP end parallel 
+        endif
 
         ret = zeros(this%ep_domain(1)%femdomain%nn()*this%ep_domain(1)%femdomain%nd() )
-        ! Update stress and plastic strain
-        !$OMP parallel default(shared) private(GaussPointID,PlasticStrain,dStrain,CauchyStress)
-        !$OMP do
-        do ElementID = 1, this%ep_domain(1)%femdomain%ne()
-            do GaussPointID = 1, this%ep_domain(1)%femdomain%ngp()
-                
-                PlasticStrain = this%getPlasticStrain(ElementID=ElementID,GaussPointID=GaussPointID)
-                dStrain = this%ep_domain(1)%femdomain%getStrainTensor(&
-                    ElementID=ElementID,GaussPointID=GaussPointID,&
-                    displacement=dU_mat)
-                
-                !print *, minval(dU_mat),maxval(dU_mat)
-                CauchyStress = to_StressTensor(&
-                    YieldFunction=this%ep_domain(1)%YieldFunction ,&
-                    PlasticPotential=this%ep_domain(1)%PlasticPotential,&
-                    Strain=this%getStrain(ElementID=ElementID,GaussPointID=GaussPointID),&
-                    dStrain=dStrain,&
-                    CauchyStress=this%getCauchyStress(ElementID=ElementID,GaussPointID=GaussPointID),&
-                    PlasticStrain=PlasticStrain,&
-                    YieldParams=this%ep_domain(1)%YieldFunction_params(ElementID,:),&
-                    PlasticParams=this%ep_domain(1)%PlasticPotential_params(ElementID,:),&
-                    ElasticParams=this%ep_domain(1)%ElasticPotential_params(ElementID,:),&
-                    epsilon=dble(1.0e-4) &
-                    )
-
-                call this%setPlasticStrain(&
-                    ElementID=ElementID,&
-                    GaussPointID=GaussPointID,&
-                    PlasticStrain=PlasticStrain)
-                
-                call this%setCauchyStress(&
-                    ElementID=ElementID,&
-                    GaussPointID=GaussPointID,&
-                    CauchyStress=CauchyStress)
-                
-                call this%addStrain(&
-                    ElementID=ElementID,&
-                    GaussPointID=GaussPointID,&
-                    dStrain=dStrain)
-            enddo
-        enddo
-        !$OMP end do
-        !$OMP end parallel 
-
         !$OMP parallel default(shared) private(GaussPointID,sf,Bmat,StressVector,Te)
         !$OMP do reduction(+:ret)
         ! Perform gauss integral to compute ret(:)
@@ -1075,6 +1270,144 @@ end function
 ! ###################################################
 
 
+! ###################################################
+! ###################################################
+
+subroutine update_stress_for_incrementElastoPlasticity(this,dU) 
+    class(ElastoPlasticity_),intent(inout) :: this
+    real(real64),intent(in) :: dU(:)
+    real(real64),allocatable :: ret(:),PlasticStrain(:,:),PlasticStrain_n(:,:),dStrain(:,:),dTe(:),&
+        dStressVector(:),Bmat(:,:),dCauchyStress(:,:),CauchyStress(:,:),dU_mat(:,:),new_PlasticStrain(:,:)
+    type(ShapeFunction_) :: sf
+        
+    integer(int32) :: ElementID,GaussPointID,num_node,i,j
+
+    num_node = size(dU)/3
+    dU_mat = zeros( num_node, 3 )
+    do i=1,num_node
+        do j=1,3
+            dU_mat(i,j) = dU(  (i-1)*3 + j )
+        enddo
+    enddo
+
+
+    if( size(this%ep_domain)==1)then
+        if(norm(dU)/=0.0d0 )then
+            ! Update stress and plastic strain
+            !$OMP parallel default(shared) private(GaussPointID,PlasticStrain_n,new_PlasticStrain,dStrain,dCauchyStress)
+            !$OMP do
+            do ElementID = 1, this%ep_domain(1)%femdomain%ne()
+                do GaussPointID = 1, this%ep_domain(1)%femdomain%ngp()
+
+                    PlasticStrain_n = this%getPlasticStrain_n(ElementID=ElementID,GaussPointID=GaussPointID)
+                    dStrain = this%ep_domain(1)%femdomain%getStrainTensor(&
+                        ElementID=ElementID,GaussPointID=GaussPointID,&
+                        displacement=dU_mat)
+
+                    !print *, minval(dU_mat),maxval(dU_mat)
+                    dCauchyStress = to_dStressTensor(&
+                        YieldFunction=this%ep_domain(1)%YieldFunction ,&
+                        PlasticPotential=this%ep_domain(1)%PlasticPotential,&
+                        dStrain=dStrain,&
+                        CauchyStress=this%getCauchyStress(ElementID=ElementID,GaussPointID=GaussPointID) &
+                            + this%getdCauchyStress(ElementID=ElementID,GaussPointID=GaussPointID) ,&
+                        PlasticStrain=PlasticStrain_n,&
+                        YieldParams=this%ep_domain(1)%YieldFunction_params(ElementID,:),&
+                        PlasticParams=this%ep_domain(1)%PlasticPotential_params(ElementID,:),&
+                        ElasticParams=this%ep_domain(1)%ElasticPotential_params(ElementID,:),&
+                        epsilon=dble(1.0e-4), &
+                        new_PlasticStrain=new_PlasticStrain &
+                        )
+
+                    call this%setPlasticStrain(&
+                        ElementID=ElementID,&
+                        GaussPointID=GaussPointID,&
+                        PlasticStrain=new_PlasticStrain)
+
+                    !call this%setdCauchyStress(&
+                    !    ElementID=ElementID,&
+                    !    GaussPointID=GaussPointID,&
+                    !    dCauchyStress=&
+                    !    this%getdCauchyStress(ElementID=ElementID,GaussPointID=GaussPointID) &
+                    !     + dCauchyStress)
+
+                    call this%setdCauchyStress(&
+                        ElementID=ElementID,&
+                        GaussPointID=GaussPointID,&
+                        dCauchyStress=&
+                        this%getdCauchyStress(ElementID=ElementID,GaussPointID=GaussPointID) &
+                         + dCauchyStress)
+
+                    call this%setdStrain(&
+                        ElementID=ElementID,&
+                        GaussPointID=GaussPointID,&
+                        dStrain=dStrain)
+                
+
+                enddo
+            enddo
+            !$OMP end do
+            !$OMP end parallel 
+        endif
+        
+    else
+        print *, "[ERROR] get_internal_forceElastoPlasticity >> only for single-domain problem"
+        stop
+    endif
+
+end subroutine
+
+! ###################################################
+
+
+function get_delta_internal_forceElastoPlasticity(this) result(ret)
+    class(ElastoPlasticity_),intent(inout) :: this
+    
+    real(real64),allocatable :: ret(:),PlasticStrain(:,:),PlasticStrain_n(:,:),dStrain(:,:),dTe(:),&
+        dStressVector(:),Bmat(:,:),dCauchyStress(:,:),CauchyStress(:,:),dU_mat(:,:),new_PlasticStrain(:,:)
+    type(ShapeFunction_) :: sf
+        
+    integer(int32) :: ElementID,GaussPointID,num_node,i,j
+
+
+    if( size(this%ep_domain)==1)then
+        
+        ret = zeros(this%ep_domain(1)%femdomain%nn()*this%ep_domain(1)%femdomain%nd() )
+        !$OMP parallel default(shared) private(GaussPointID,sf,Bmat,dStressVector,dTe)
+        !$OMP do reduction(+:ret)
+        ! Perform gauss integral to compute ret(:)
+        do ElementID = 1, this%ep_domain(1)%femdomain%ne()
+            do GaussPointID = 1, this%ep_domain(1)%femdomain%ngp()
+                ! get shape function
+			    sf = this%ep_domain(1)%FEMdomain%getShapeFunction(&
+                    ElementID=ElementID,GaussPointID=GaussPointID)
+                ! get B-matrix
+			    Bmat = this%ep_domain(1)%FEMdomain%BMatrix(&
+                    shapefunction=sf,ElementID=ElementID)
+                ! get Stress vector
+                dStressVector = this%ep_domain(1)%dCauchyStress_field(:,GaussPointID,ElementID)
+
+                dTe = matmul(transpose(Bmat),dStressVector)*sf%detJ
+
+                ret = ret + &
+                this%ep_domain(1)%FEMdomain%asGlobalVector(LocalVector=dTe,ElementID=ElementID,&
+                    DOF=this%ep_domain(1)%FEMdomain%nd() )
+
+            enddo
+        enddo
+        !$OMP end do
+        !$OMP end parallel 
+
+    else
+        print *, "[ERROR] get_internal_forceElastoPlasticity >> only for single-domain problem"
+        stop
+    endif
+
+end function
+
+! ###################################################
+
+
 ! ##################################################
 function getPlasticStrain_ElastoPlasticity(this,GaussPointID,ElementID) result(ret)
     class(ElastoPlasticity_),intent(in) :: this
@@ -1095,6 +1428,28 @@ function getPlasticStrain_ElastoPlasticity(this,GaussPointID,ElementID) result(r
 end function
 ! ##################################################
 
+
+! ##################################################
+function getPlasticStrain_n_ElastoPlasticity(this,GaussPointID,ElementID) result(ret)
+    class(ElastoPlasticity_),intent(in) :: this
+    integer(int32),intent(in) :: GaussPointID,ElementID
+    real(real64),allocatable :: ret(:,:),ret_vec(:)
+
+    ret_vec = this%ep_domain(1)%PlasticStrain_field_n(:,GaussPointID,ElementID)
+    ret = zeros(3,3)
+    ret(1,1) = ret_vec(1)
+    ret(2,2) = ret_vec(2)
+    ret(3,3) = ret_vec(3)
+    ret(1,2) = ret_vec(4)
+    ret(2,3) = ret_vec(5)
+    ret(1,3) = ret_vec(6)
+    ret(2,1) = ret_vec(4)
+    ret(3,2) = ret_vec(5)
+    ret(3,1) = ret_vec(6)
+end function
+! ##################################################
+
+
 ! ##################################################
 function getStrain_ElastoPlasticity(this,GaussPointID,ElementID) result(ret)
     class(ElastoPlasticity_),intent(in) :: this
@@ -1114,6 +1469,8 @@ function getStrain_ElastoPlasticity(this,GaussPointID,ElementID) result(ret)
     ret(3,1) = ret_vec(6)
 end function
 ! ##################################################
+
+
 ! ##################################################
 function getCauchyStress_ElastoPlasticity(this,GaussPointID,ElementID) result(ret)
     class(ElastoPlasticity_),intent(in) :: this
@@ -1133,6 +1490,26 @@ function getCauchyStress_ElastoPlasticity(this,GaussPointID,ElementID) result(re
     ret(3,1) = ret_vec(6)
 end function
 ! ##################################################
+! ##################################################
+function getdCauchyStress_ElastoPlasticity(this,GaussPointID,ElementID) result(ret)
+    class(ElastoPlasticity_),intent(in) :: this
+    integer(int32),intent(in) :: GaussPointID,ElementID
+    real(real64),allocatable :: ret(:,:),ret_vec(:)
+
+    ret_vec = this%ep_domain(1)%dCauchyStress_field(:,GaussPointID,ElementID)
+    ret = zeros(3,3)
+    ret(1,1) = ret_vec(1)
+    ret(2,2) = ret_vec(2)
+    ret(3,3) = ret_vec(3)
+    ret(1,2) = ret_vec(4)
+    ret(2,3) = ret_vec(5)
+    ret(1,3) = ret_vec(6)
+    ret(2,1) = ret_vec(4)
+    ret(3,2) = ret_vec(5)
+    ret(3,1) = ret_vec(6)
+end function
+! ##################################################
+
 
 
 subroutine setPlasticStrain_ElastoPlasticity(this,ElementID,GaussPointID,PlasticStrain) 
@@ -1166,6 +1543,21 @@ subroutine setCauchyStress_ElastoPlasticity(this,ElementID,GaussPointID,CauchySt
 end subroutine
 
 
+subroutine setdCauchyStress_ElastoPlasticity(this,ElementID,GaussPointID,dCauchyStress) 
+    class(ElastoPlasticity_),intent(inout) :: this
+    integer(int32),intent(in) :: ElementID, GaussPointID
+    real(real64),intent(in) :: dCauchyStress(:,:)
+
+    this%ep_domain(1)%dCauchyStress_field(1,GaussPointID,ElementID) = dCauchyStress(1,1)
+    this%ep_domain(1)%dCauchyStress_field(2,GaussPointID,ElementID) = dCauchyStress(2,2)
+    this%ep_domain(1)%dCauchyStress_field(3,GaussPointID,ElementID) = dCauchyStress(3,3)
+    this%ep_domain(1)%dCauchyStress_field(4,GaussPointID,ElementID) = dCauchyStress(1,2)
+    this%ep_domain(1)%dCauchyStress_field(5,GaussPointID,ElementID) = dCauchyStress(2,3)
+    this%ep_domain(1)%dCauchyStress_field(6,GaussPointID,ElementID) = dCauchyStress(1,3)
+    
+
+end subroutine
+
 
 subroutine addStrain_ElastoPlasticity(this,ElementID,GaussPointID,dStrain) 
     class(ElastoPlasticity_),intent(inout) :: this
@@ -1184,6 +1576,21 @@ subroutine addStrain_ElastoPlasticity(this,ElementID,GaussPointID,dStrain)
         + dStrain(2,3)
     this%ep_domain(1)%Strain_field(6,GaussPointID,ElementID) = this%ep_domain(1)%Strain_field(6,GaussPointID,ElementID) &
         + dStrain(1,3)
+    
+
+end subroutine
+
+subroutine setdStrain_ElastoPlasticity(this,ElementID,GaussPointID,dStrain) 
+    class(ElastoPlasticity_),intent(inout) :: this
+    integer(int32),intent(in) :: ElementID, GaussPointID
+    real(real64),intent(in) :: dStrain(:,:)
+
+    this%ep_domain(1)%dStrain_field(1,GaussPointID,ElementID)  = dStrain(1,1)
+    this%ep_domain(1)%dStrain_field(2,GaussPointID,ElementID)  = dStrain(2,2)
+    this%ep_domain(1)%dStrain_field(3,GaussPointID,ElementID)  = dStrain(3,3)
+    this%ep_domain(1)%dStrain_field(4,GaussPointID,ElementID)  = dStrain(1,2)
+    this%ep_domain(1)%dStrain_field(5,GaussPointID,ElementID)  = dStrain(2,3)
+    this%ep_domain(1)%dStrain_field(6,GaussPointID,ElementID)  = dStrain(1,3)
     
 
 end subroutine
@@ -1296,6 +1703,8 @@ subroutine exportElastoPlasticity(this,name,step,amp)
                  // "_eJ2",scalar=this%J2_e() )
         enddo
     endif
+
+    call this%exportField(name=name)
 
     do i=1,size(this%ep_domain)
         call this%ep_domain(i)%femdomain%deform(disp=-mag*this%ep_domain(i)%displacement)
@@ -1428,6 +1837,67 @@ subroutine rezeroElastoPlasticity(this)
 
 end subroutine
 ! ######################################################
+
+subroutine exportFieldElastoPlasticity(this,name)
+    class(ElastoPlasticity_),intent(in) :: this
+    character(*),intent(in) :: name
+    integeR(int32):: DomainID
+    
+    if(.not.allocated(this%ep_domain) )then
+        return
+    else
+        do DomainID=1,size(this%ep_domain)
+            call this%ep_domain(DomainID)%exportField(name+"_"+str(DomainID)+"_")
+        enddo
+    endif
+end subroutine
+! ######################################################
+
+subroutine importFieldElastoPlasticity(this,name,num_domain)
+    class(ElastoPlasticity_),intent(inout) :: this
+    character(*),intent(in) :: name
+    integer(int32),intent(in) :: num_domain
+    integeR(int32):: DomainID
+
+    if(.not.allocated(this%ep_domain) ) then
+        allocate(this%ep_domain(DomainID) )
+    endif
+
+    do DomainID=1,size(this%ep_domain)
+        call this%ep_domain(DomainID)%importField(name+"_"+str(DomainID)+"_")
+    enddo
+    
+end subroutine
+! ######################################################
+
+subroutine exportFieldEpDomain(this,name)
+    class(EP_Domain_),intent(in) :: this
+    character(*),intent(in)  :: name
+    type(IO_) :: f
+
+    call to_csv(name+"_CauchyStress_field",this%CauchyStress_field)
+    call to_csv(name+"_displacement"      ,this%displacement)
+
+end subroutine
+! ######################################################
+
+! ######################################################
+
+subroutine importFieldEpDomain(this,name)
+    class(EP_Domain_),intent(inout) :: this
+    character(*),intent(in)  :: name
+    type(IO_) :: f
+    integer(int32) :: n1,n2,n3
+
+    n1 = 6
+    n2 = this%femdomain%ngp()
+    n3 = this%femdomain%ne()
+    this%CauchyStress_field = from_csv(name+"_CauchyStress_field",n1,n2,n3)
+    
+    n1 = this%femdomain%nd()*this%femdomain%nn()
+    this%displacement       = from_csv(name+"_displacement",n1)
+
+end subroutine
 
 end module ElastoPlasticityClass
 
