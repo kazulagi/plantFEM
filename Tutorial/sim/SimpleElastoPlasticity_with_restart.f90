@@ -1,3 +1,4 @@
+use IOClass
 use ElastoPlasticityClass
 use CivilItemClass
 implicit none
@@ -24,6 +25,7 @@ type(IO_) :: file
 integer(int32) :: upd_mode
 real(real64) :: load_displacement
 integer(int32) :: step
+real(real64),allocatable :: a(:,:,:),b(:,:,:),c(:,:)
 
 call cube%create("Cylinder3D",x_num=8,y_num=8,z_num=16)
 call cube%resize(x=0.020d0,y=0.020d0,z=0.040d0)
@@ -38,7 +40,7 @@ fix_value_y = zeros(size(fix_nodes_y))
 fix_value_z = zeros(size(fix_nodes_z))
 
 
-z_disp = 0.00000040d0 ! m
+z_disp = 0.00000040d0
 !fix_nodes_x = fix_nodes_x // cube%getNodeList(zmin=cube%zmax() )
 !fix_value_x = fix_value_x // zeros(size(cube%getNodeList(zmin=cube%zmax() )))
 !!
@@ -77,95 +79,51 @@ call ep%init(&
 !    random%gauss(mu=0.0d0        ,sigma=5.0d0,n=cube%ne() )
 
 ep%tol = 1.0e-7
+
 call file%open("Force_curve.txt","w")
 load_displacement = 0.0d0
 step = 0
-write(file%fh,*) load_displacement,zeros(4)
-do i_i=1,15
-    step = step + 1
-    load_displacement = load_displacement + z_disp
-    call ep%solve_increment(&
-            delta_Density = 0.0d0*eyes(cube%ne() )        ,& ! material info
-            YoungModulus=YoungModulus,& ! material info
-            PoissonRatio=PoissonRatio*eyes(cube%ne() ),& ! material info
-            fix_node_list_x=fix_nodes_x, & ! boundary conditions
-            fix_node_list_y=fix_nodes_y, & ! boundary conditions
-            fix_node_list_z=fix_nodes_z, & ! boundary conditions
-            fix_value_list_x=fix_value_x,& ! boundary conditions
-            fix_value_list_y=fix_value_y,& ! boundary conditions
-            fix_value_list_z=fix_value_z & ! boundary conditions
-        )
-        print *, load_displacement,ep%getTractionForce(NodeList=cube%getNodeList(zmin=cube%zmax() ))
-        write(file%fh,*) load_displacement,ep%getTractionForce(NodeList=cube%getNodeList(zmin=cube%zmax() ))
-        call file%flush()
-    call ep%export(name="UT",step=step,amp=10.0d0)
-    print *, "sigma",maxval(ep%ep_domain(1)%CauchyStress_field ),minval(ep%ep_domain(1)%CauchyStress_field )
-    !call ep%reset()
-enddo
-do i_i=1,15
-    load_displacement = load_displacement - z_disp
-    step = step + 1
-    call ep%solve_increment(&
-            delta_Density = 0.0d0*eyes(cube%ne() )        ,& ! material info
-            YoungModulus=YoungModulus,& ! material info
-            PoissonRatio=PoissonRatio*eyes(cube%ne() ),& ! material info
-            fix_node_list_x=fix_nodes_x, & ! boundary conditions
-            fix_node_list_y=fix_nodes_y, & ! boundary conditions
-            fix_node_list_z=fix_nodes_z, & ! boundary conditions
-            fix_value_list_x=fix_value_x,& ! boundary conditions
-            fix_value_list_y=fix_value_y,& ! boundary conditions
-            fix_value_list_z=-fix_value_z & ! boundary conditions
-        )
-        print *, load_displacement,ep%getTractionForce(NodeList=cube%getNodeList(zmin=cube%zmax() ))
-        write(file%fh,*) load_displacement,ep%getTractionForce(NodeList=cube%getNodeList(zmin=cube%zmax() ))
-        call file%flush()
-    call ep%export(name="UT",step=step,amp=10.0d0)
-    print *, "sigma",maxval(ep%ep_domain(1)%CauchyStress_field ),minval(ep%ep_domain(1)%CauchyStress_field )
-    !call ep%reset()
-enddo
-do i_i=1,15
-    load_displacement = load_displacement + z_disp
-    step = step + 1
-    call ep%solve_increment(&
-            delta_Density = 0.0d0*eyes(cube%ne() )        ,& ! material info
-            YoungModulus=YoungModulus,& ! material info
-            PoissonRatio=PoissonRatio*eyes(cube%ne() ),& ! material info
-            fix_node_list_x=fix_nodes_x, & ! boundary conditions
-            fix_node_list_y=fix_nodes_y, & ! boundary conditions
-            fix_node_list_z=fix_nodes_z, & ! boundary conditions
-            fix_value_list_x=fix_value_x,& ! boundary conditions
-            fix_value_list_y=fix_value_y,& ! boundary conditions
-            fix_value_list_z=fix_value_z & ! boundary conditions
-        )
-        print *, load_displacement,ep%getTractionForce(NodeList=cube%getNodeList(zmin=cube%zmax() ))
-        write(file%fh,*) load_displacement,ep%getTractionForce(NodeList=cube%getNodeList(zmin=cube%zmax() ))
-        call file%flush()
-    call ep%export(name="UT",step=step,amp=10.0d0)
-    print *, "sigma",maxval(ep%ep_domain(1)%CauchyStress_field ),minval(ep%ep_domain(1)%CauchyStress_field )
-    !call ep%reset()
-enddo
-do i_i=1,15
-    load_displacement = load_displacement - z_disp
-    step = step + 1
-    call ep%solve_increment(&
-            delta_Density = 0.0d0*eyes(cube%ne() )        ,& ! material info
-            YoungModulus=YoungModulus,& ! material info
-            PoissonRatio=PoissonRatio*eyes(cube%ne() ),& ! material info
-            fix_node_list_x=fix_nodes_x, & ! boundary conditions
-            fix_node_list_y=fix_nodes_y, & ! boundary conditions
-            fix_node_list_z=fix_nodes_z, & ! boundary conditions
-            fix_value_list_x=fix_value_x,& ! boundary conditions
-            fix_value_list_y=fix_value_y,& ! boundary conditions
-            fix_value_list_z=-fix_value_z & ! boundary conditions
-        )
-        print *, load_displacement,ep%getTractionForce(NodeList=cube%getNodeList(zmin=cube%zmax() ))
-        write(file%fh,*) load_displacement,ep%getTractionForce(NodeList=cube%getNodeList(zmin=cube%zmax() ))
-        call file%flush()
-    call ep%export(name="UT",step=step,amp=10.0d0)
-    print *, "sigma",maxval(ep%ep_domain(1)%CauchyStress_field ),minval(ep%ep_domain(1)%CauchyStress_field )
-    !call ep%reset()
-enddo
-call file%close()
 
+do i_i=1,15
+    step = step + 1
+    load_displacement = load_displacement + z_disp
+    call ep%solve_increment(&
+            delta_Density = 0.0d0*eyes(cube%ne() )        ,& ! material info
+            YoungModulus=YoungModulus,& ! material info
+            PoissonRatio=PoissonRatio*eyes(cube%ne() ),& ! material info
+            fix_node_list_x=fix_nodes_x, & ! boundary conditions
+            fix_node_list_y=fix_nodes_y, & ! boundary conditions
+            fix_node_list_z=fix_nodes_z, & ! boundary conditions
+            fix_value_list_x=fix_value_x,& ! boundary conditions
+            fix_value_list_y=fix_value_y,& ! boundary conditions
+            fix_value_list_z=fix_value_z & ! boundary conditions
+        )
+        print *, load_displacement,ep%getTractionForce(NodeList=cube%getNodeList(zmin=cube%zmax() ))
+        write(file%fh,*) load_displacement,ep%getTractionForce(NodeList=cube%getNodeList(zmin=cube%zmax() ))
+        call file%flush()
+    call ep%export(name="UT_first",step=step,amp=10.0d0)
+enddo
+
+call ep%importField(name="UT_first",num_domain=1)
+
+do i_i=1,15
+    load_displacement = load_displacement - z_disp
+    step = step + 1
+    call ep%solve_increment(&
+            delta_Density = 0.0d0*eyes(cube%ne() )        ,& ! material info
+            YoungModulus=YoungModulus,& ! material info
+            PoissonRatio=PoissonRatio*eyes(cube%ne() ),& ! material info
+            fix_node_list_x=fix_nodes_x, & ! boundary conditions
+            fix_node_list_y=fix_nodes_y, & ! boundary conditions
+            fix_node_list_z=fix_nodes_z, & ! boundary conditions
+            fix_value_list_x=fix_value_x,& ! boundary conditions
+            fix_value_list_y=fix_value_y,& ! boundary conditions
+            fix_value_list_z=-fix_value_z & ! boundary conditions
+        )
+        print *, load_displacement,ep%getTractionForce(NodeList=cube%getNodeList(zmin=cube%zmax() ))
+        write(file%fh,*) load_displacement,ep%getTractionForce(NodeList=cube%getNodeList(zmin=cube%zmax() ))
+        call file%flush()
+    call ep%export(name="UT_second",step=step,amp=10.0d0)
+enddo
 
 end
