@@ -3155,7 +3155,7 @@ function from_csv_real_array3(name,n1,n2,n3,header)  result(a)
     character(*),intent(in)  :: name
     type(IO_) :: f
     integer(int32),intent(in) :: n1,n2,n3
-    integer(int32),optional,intent(in) :: header ! number of line for header
+    integer(int32),optional,intent(in) :: header(1:2) ! number of line for header
     integer(int32) :: n(1:3)
     integer(int32) :: i,j,k
     character(1) :: buf 
@@ -3167,7 +3167,9 @@ function from_csv_real_array3(name,n1,n2,n3,header)  result(a)
     endif
 
     if(present(header) )then
-        read(f%fh,*) buf
+        do i=header(1),header(2)
+            read(f%fh,*) buf
+        enddo
     endif
     read(f%fh,*) n(1:3)
     allocate(a(n1,n2,n3) )
@@ -3187,7 +3189,7 @@ function from_csv_real_array2(name,n1,n2,header)  result(a)
     integer(int32),intent(in) :: n1,n2
     integer(int32) :: n(1:3)
     integer(int32) :: i,j,k
-    integer(int32),optional,intent(in) :: header ! number of line for header
+    integer(int32),optional,intent(in) :: header(1:2) ! number of line for header
     character(1) :: buf
     if(index(name,".csv")==0 )then
         call f%open(name+".csv","r")
@@ -3196,8 +3198,11 @@ function from_csv_real_array2(name,n1,n2,header)  result(a)
     endif
 
     if(present(header) )then
-        read(f%fh,*) buf
+        do i=header(1),header(2)
+            read(f%fh,*) buf
+        enddo
     endif
+
     read(f%fh,*) n(1:2)
     allocate(a(n1,n2) )
     a(:,:) = 0.0d0
@@ -3219,7 +3224,7 @@ function from_csv_real_vector(name,n1,header)  result(a)
     type(IO_) :: f
     integer(int32),intent(in) :: n1
     integer(int32) :: n
-    integer(int32),optional,intent(in) :: header ! number of line for header
+    integer(int32),optional,intent(in) :: header(1:2) ! number of line for header
     character(1) :: buf
 
     integer(int32) :: i
@@ -3228,8 +3233,11 @@ function from_csv_real_vector(name,n1,header)  result(a)
     else
         call f%open(name,"r")
     endif
+
     if(present(header) )then
-        read(f%fh,*) buf
+        do i=header(1),header(2)
+            read(f%fh,*) buf
+        enddo
     endif
 
     read(f%fh,*) n
