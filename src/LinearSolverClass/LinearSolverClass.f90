@@ -3034,7 +3034,7 @@ function LOBPCG_sparse(A_val,A_col,A_rowptr,lambda_min,tolerance) result(eigen_v
 
   
   x = zeros(n,num_eigen)
-  x = random%randn(n,num_eigen)
+  x = (random%randn(n,num_eigen)-0.50d0)*2.0d0
   
 
   x = x * 10.0d0
@@ -3055,6 +3055,7 @@ function LOBPCG_sparse(A_val,A_col,A_rowptr,lambda_min,tolerance) result(eigen_v
           ! step 1 to make initial values
           if(num_eigen/=1)then
               xtemp = X
+              
               call gram_real(n,num_eigen,Xtemp,X)
               
               ! [ok] X(:,:) :: ok!
@@ -3273,7 +3274,7 @@ function LOBPCG_dense(A,B,lambda_min) result(eigen_vectors)
   n = size(A,1)
   
   x = zeros(n,num_eigen)
-  x = random%randn(n,num_eigen)
+  x = (random%randn(n,num_eigen)-0.50d0)*2.0d0
   
 
   x = x * 10.0d0
@@ -3501,7 +3502,7 @@ function LOBPCG_dense_single(A,B,lambda_min) result(eigen_vector)
   do i=1,n
       x(i) = 1.0d0
   enddo
-  x = random%randn(n)
+  x = (random%randn(n)-0.50d0)*2.0d0
   
   
   x = x/norm(x)
