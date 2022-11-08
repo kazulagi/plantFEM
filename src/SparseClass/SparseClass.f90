@@ -1219,7 +1219,7 @@ subroutine LOBPCG_single_CRS(A,B,lambda,X,alpha,tol,debug)
     ! number of eigen value :: m
     ! initialize X and lambda
     n = A%size()
-    X = random%randn(n)
+    X = 2.0d0*random%randn(n)-1.0d0
     
     lambda = 0.0d0
     
@@ -1261,7 +1261,7 @@ subroutine LOBPCG_CRS(A,B,lambda,X,m,MAX_ITR,TOL,debug)
         b_small(:,:),lambda_small(:), XAX(:,:),AX(:,:),OR(:,:),BX(:,:),XBX(:,:),&
         Bm_small(:,:),BV(:,:)
     real(real64)   :: initial_R
-    integer(int32) :: n,i,j
+    integer(int32) :: n,i,j,k
     !integer(int32) :: MAX_ITR = 1000000
     
     ! References:
@@ -1279,7 +1279,13 @@ subroutine LOBPCG_CRS(A,B,lambda,X,m,MAX_ITR,TOL,debug)
     ! initialize X and lambda
     n = A%size()
     
-    X = random%randn(n,m)
+    !X = random%randn(n,m)
+    X = random%randn(n,m)! + random%randn(n,m) !+ random%randn(n,m)
+    do i=1,m
+        X(:,i) = X(:,i) / norm(X(:,i) )
+    enddo
+
+
 
     call GramSchmidt(X,size(X,1),size(X,2),X )
 
@@ -1331,6 +1337,9 @@ subroutine LOBPCG_CRS(A,B,lambda,X,m,MAX_ITR,TOL,debug)
     V(:,m+1   : 2*m ) = R(:,:)
 
     call GramSchmidt(V,size(V,1),size(V,2),V )
+    do k=1,size(V,2)
+        V(:,k) = V(:,k) / norm(V(:,k) )
+    enddo
 
     X(:,:) = V(:,1     : m )
     R(:,:) = V(:,m+1   : 2*m )
@@ -1393,7 +1402,10 @@ subroutine LOBPCG_CRS(A,B,lambda,X,m,MAX_ITR,TOL,debug)
 
         ! Gram-Scmidtを計算する．
         call GramSchmidt(V,size(V,1),size(V,2),V )
-
+        do k=1,size(V,2)
+            V(:,k) = V(:,k) / norm(V(:,k) )
+        enddo
+        
         X(:,:) = V(:,1     : m )   
         R(:,:) = V(:,m+1   : 2*m ) 
         P(:,:) = V(:,2*m+1 : 3*m ) 

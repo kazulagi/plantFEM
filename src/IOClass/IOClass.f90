@@ -51,6 +51,8 @@ module IOClass
             procedure,public :: numLine => numLineIO
     
             procedure,public :: flush => flushIO
+
+            procedure,public :: exists => existsIO
     
             !set & reset rule
             procedure,public :: rule => ruleIO
@@ -2663,6 +2665,7 @@ module IOClass
     end function
     ! #################################################################
     
+
     
     pure function cyclic(num,max) result(ret)
         integer(int32),intent(in)::num,max
@@ -3251,4 +3254,16 @@ function from_csv_real_vector(name,n1,header)  result(a)
 end function
 ! ######################################################
 
-    end module IOClass
+function existsIO(this,filename) result(exist_then_true)
+    class(IO_) :: this
+    character(*),intent(in) :: filename
+    logical :: exist_then_true
+
+    if(access(filename," ")==0 )then
+        exist_then_true = .true.
+    else
+        exist_then_true = .false.
+    endif
+end function
+
+end module IOClass

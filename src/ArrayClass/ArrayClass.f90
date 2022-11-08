@@ -441,6 +441,9 @@ module ArrayClass
         module procedure TransposeArrayClass
     end interface transpose
 
+    interface distance
+        module procedure distance_real64_vectorArray
+    end interface distance
 contains
     
 function to_Array_real64_array(real64_array,dtype) result(ret_array)
@@ -8042,6 +8045,68 @@ pure function to_vector_array_real64(Array) result(vector)
     do i=1,size(Array,2)
         do j=1,size(Array,1)
             vector( (j-1)*size(Array,2) + i ) = Array(j,i)
+        enddo
+    enddo
+
+end function
+! ########################################################
+function distance_real64_vectorArray(master_seq,slave_seq) result(ret)
+    real(real64),intent(in) :: master_seq(:,:),slave_seq(:,:)
+    real(real64),allocatable:: proj_xy(:,:)
+    real(real64) :: x_n, x_nn,y_n,y_nn,x,y,x_min_true,x_max_true,theta
+    real(real64) :: ret
+    integer(int32) :: n,last_tr_id,i
+    ! Project master_seq <- slave_seq
+    ! scheme : linear interpolation
+    ret = 0.0d0
+
+    allocate(proj_xy( size(slave_seq,1),size(slave_seq,2) ) )
+    proj_xy = project_real64_vectorArray(master_seq=master_seq,slave_seq=slave_seq)
+    n = size(proj_xy,1)
+    ret = dot_product( slave_seq(:n-1,2) - proj_xy(:n-1,2),slave_seq(:n-1,2) - proj_xy(:n-1,2) )
+    
+end function
+
+! ########################################################
+function project_real64_vectorArray(master_seq,slave_seq) result(proj_xy)
+    real(real64),intent(in) :: master_seq(:,:),slave_seq(:,:)
+    real(real64),allocatable:: proj_xy(:,:)
+    real(real64) :: x_n, x_nn,y_n,y_nn,x,y,theta
+    
+    integer(int32) :: n,tr_master_id,i
+    ! Project master_seq <- slave_seq
+    ! scheme : linear interpolation
+    
+
+    allocate(proj_xy( size(slave_seq,1),size(slave_seq,2) ) )
+    proj_xy(:,1) = slave_seq(:,1)
+    proj_xy(:,2) = 0.0d0
+
+    n = size(slave_seq,1)
+    
+    !    .-----.------.------.
+    !    |     |      |      |
+    ! .---------.------.------.
+ 
+    tr_master_id = 1
+    
+    do i=1,n
+        x  = slave_seq(i,1)
+        ! project x to master surface
+        if(x < minval(master_seq(:,1) ) .or. maxval(master_seq(:,1) ) < x ) cycle
+
+        do  
+            if(tr_master_id + 1>= size(master_seq,1) ) exit
+            x_n  = master_seq(tr_master_id  ,1)
+            x_nn = master_seq(tr_master_id+1,1)
+            
+            if( x_n <= x .and. x <= x_nn )then
+                ! bingo
+                theta = (x-x_n)/(x_nn - x_n)
+                proj_xy(i,2) = (1.0d0-theta)*master_seq(tr_master_id,2) + (theta)*master_seq(tr_master_id+1,2)
+                exit
+            endif
+            tr_master_id = tr_master_id + 1
         enddo
     enddo
 
