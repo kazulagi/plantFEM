@@ -1337,7 +1337,7 @@ subroutine LOBPCG_CRS(A,B,lambda,X,m,MAX_ITR,TOL,debug)
     V(:,m+1   : 2*m ) = R(:,:)
 
     call GramSchmidt(V,size(V,1),size(V,2),V )
-    do k=1,size(V,2)
+    do k=1,size(X,2)
         V(:,k) = V(:,k) / norm(V(:,k) )
     enddo
 
@@ -1402,7 +1402,10 @@ subroutine LOBPCG_CRS(A,B,lambda,X,m,MAX_ITR,TOL,debug)
 
         ! Gram-Scmidtを計算する．
         call GramSchmidt(V,size(V,1),size(V,2),V )
-        do k=1,size(V,2)
+        do k=1,size(X,2)
+            V(:,k) = V(:,k) / norm(V(:,k) )
+        enddo
+        do k=size(X,2)+size(R,2)+1,size(V,2)
             V(:,k) = V(:,k) / norm(V(:,k) )
         enddo
         

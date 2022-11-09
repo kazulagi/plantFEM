@@ -3008,7 +3008,7 @@ function LOBPCG_sparse(A_val,A_col,A_rowptr,lambda_min,tolerance) result(eigen_v
       SB_inv(:,:),x_(:,:),lambda_mat(:,:),lambda_ids(:),Bm(:,:),residual(:),norms(:)
   integer(int32) :: num_eigen
   real(real64),optional,intent(in) :: tolerance 
-  real(real64) :: tol=dble(1.0e-14)
+  real(real64) :: tol=dble(1.0e-6)
   real(real64) :: mu,normval
   real(real64),intent(inout) :: lambda_min(:)
   type(Random_) :: random
