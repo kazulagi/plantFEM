@@ -71,7 +71,7 @@ module FEMSolverClass
 
         logical        :: use_LOBPCG     = .true.
         integer(int32) :: LOBPCG_MAX_ITR = 100000
-        real(real64)   :: LOBPCG_TOL     = dble(1.0e-8)
+        real(real64)   :: LOBPCG_TOL     = dble(1.0e-6)
         integer(int32) :: LOBPCG_NUM_MODE= 5
     contains
         !(1) Initialize solver

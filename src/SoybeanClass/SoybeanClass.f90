@@ -8810,7 +8810,8 @@ end subroutine
 
 
 ! ################################################################
-function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algorithm,num_mode) result(EigenVectors)
+function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algorithm,&
+    num_mode,femsolver) result(EigenVectors)
     class(Soybean_),target,intent(inout) :: obj
     real(real64),intent(in) :: ground_level
     real(real64),optional,intent(in) :: penalty
@@ -8820,9 +8821,12 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
     !integer(int32),optional,intent(in) :: num_mode
     
     integer(int32),optional,intent(in) :: num_mode
+    type(FEMSolver_),optional,intent(inout):: femsolver
+    
     integer(int32) :: num_freq
 
     type(FEMDomainp_),allocatable :: FEMDomainPointers(:)
+
     type(FEMSolver_) :: solver
     type(Math_) :: math
 
@@ -8834,6 +8838,10 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
     integer(int32) :: nn_domains,EbOM_Algorithm_id
     real(real64) :: vec_norm
     real(real64),allocatable :: all_frequency(:),All_EigenVectors(:,:)
+
+    if(present(femsolver) )then
+        solver = femsolver
+    endif
 
     num_freq = input(default=10,option=num_mode)
 
@@ -9064,6 +9072,12 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
 
 
     call solver%eig(eigen_value=All_Frequency,eigen_vectors=All_EigenVectors)
+    
+    
+    if(present(femsolver) )then
+        femsolver = solver
+    endif
+
     call solver%remove()
 
     if(All_Frequency(1)<=0.0d0 )then
@@ -9102,7 +9116,6 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
         endif
     endif
     
-
 
 end function
 ! ################################################################
