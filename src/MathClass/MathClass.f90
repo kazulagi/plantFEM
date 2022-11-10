@@ -79,6 +79,10 @@ module MathClass
 		module procedure removeWord_String 
 	end interface 
 
+	interface tensor_product
+		module procedure :: tensor_product_complex,tensor_product_real64
+	end interface
+
 	interface radian
 		module procedure radianreal32,radianreal64,radianreal64Vec, radianint
 	end interface
@@ -808,7 +812,7 @@ end function diadic
 !=========================================================
 !calculate diadic
 !----------------------
-function tensor_product(a,b) result(c)
+function tensor_product_real64(a,b) result(c)
 	real(real64), intent(in) :: a(:), b(:)
 	  real(real64), allocatable :: c(:,:)
 	  
@@ -821,9 +825,29 @@ function tensor_product(a,b) result(c)
 		  enddo
 	  enddo
   
-  end function tensor_product	
+  end function 
   !==========================================================
-!calculate gz
+
+!=========================================================
+!calculate diadic
+!----------------------
+  function tensor_product_complex(a,b) result(c)
+	complex(real64), intent(in) :: a(:), b(:)
+	  complex(real64), allocatable :: c(:,:)
+	  
+	  integer(int32) n,i,j
+		 
+	  allocate(c(size(a),size(b) ) )
+	  do i=1,size(a)
+		  do j=1,size(b)
+			  c(i,j)=a(i)*b(j)		
+		  enddo
+	  enddo
+  
+  end function 
+  !==========================================================
+
+  !calculate gz
 !--------------
 subroutine calcgz(x2,x11,x12,nod_coord,gzi)
 	real(real64), intent(in) :: nod_coord(:,:)

@@ -374,11 +374,11 @@ module ArrayClass
     end interface
 
     interface minvalID
-        module procedure :: minvalIDInt32, minvalIDReal64
+        module procedure :: minvalIDInt32, minvalIDReal64,minvalIDReal64_Array
     end interface
     
     interface maxvalID
-        module procedure :: maxvalIDInt32, maxvalIDReal64
+        module procedure :: maxvalIDInt32, maxvalIDReal64,maxvalIDReal64_Array
     end interface
 
 
@@ -7446,6 +7446,42 @@ recursive pure function maxvalIDReal64(vec,opt_id) result(id)
 end function
 
 
+pure function maxvalIDReal64_Array(value_list) result(ret)
+    real(real64),intenT(in) :: value_list(:,:)
+    integer(int32) :: ret(1:2)
+    integer(int32) :: n,i,j
+    
+    ret = [1,1]
+    do i=1,size(value_list,1)
+        do j=1,size(value_list,2)
+            if( value_list(ret(1),ret(2) ) < value_list(i,j ) )then
+                ret = [i,j]
+            endif
+        enddo
+    enddo
+
+end function
+
+
+
+pure function minvalIDReal64_Array(value_list) result(ret)
+    real(real64),intenT(in) :: value_list(:,:)
+    integer(int32) :: ret(1:2)
+    integer(int32) :: n,i,j
+    
+    ret = [1,1]
+    do i=1,size(value_list,1)
+        do j=1,size(value_list,2)
+            if( value_list(ret(1),ret(2) ) > value_list(i,j ) )then
+                ret = [i,j]
+            endif
+        enddo
+    enddo
+
+end function
+
+
+
 function decimateReal64Vec(vec,interval) result(ret_vec) 
     real(real64),intent(in) ::  vec(:)
     real(real64),allocatable :: ret_vec(:)
@@ -8050,11 +8086,13 @@ pure function to_vector_array_real64(Array) result(vector)
 
 end function
 ! ########################################################
-function distance_real64_vectorArray(master_seq,slave_seq) result(ret)
+function distance_real64_vectorArray(master_seq,slave_seq,scope) result(ret)
     real(real64),intent(in) :: master_seq(:,:),slave_seq(:,:)
+    real(real64),optional,intent(in) :: scope(:)
     real(real64),allocatable:: proj_xy(:,:)
     real(real64) :: x_n, x_nn,y_n,y_nn,x,y,x_min_true,x_max_true,theta
     real(real64) :: ret
+    real(real64),allocatable :: weight(:)
     integer(int32) :: n,last_tr_id,i
     ! Project master_seq <- slave_seq
     ! scheme : linear interpolation
@@ -8063,7 +8101,17 @@ function distance_real64_vectorArray(master_seq,slave_seq) result(ret)
     allocate(proj_xy( size(slave_seq,1),size(slave_seq,2) ) )
     proj_xy = project_real64_vectorArray(master_seq=master_seq,slave_seq=slave_seq)
     n = size(proj_xy,1)
-    ret = dot_product( slave_seq(:n-1,2) - proj_xy(:n-1,2),slave_seq(:n-1,2) - proj_xy(:n-1,2) )
+
+    weight = eyes(n-1)
+    if(present(scope) )then
+        do i=1,size(weight)
+            if(slave_seq(i,1)<scope(1) .or. scope(2)< slave_seq(i,1))then
+                weight(i) = 0.0d0
+            endif
+        enddo
+    endif
+    ret = dot_product( weight(:)*slave_seq(:n-1,2) - weight(:)*proj_xy(:n-1,2),&
+        weight(:)*slave_seq(:n-1,2) - weight(:)*proj_xy(:n-1,2) )
     
 end function
 
@@ -8110,6 +8158,9 @@ function project_real64_vectorArray(master_seq,slave_seq) result(proj_xy)
         enddo
     enddo
 
+
 end function
+
+
 
 end module ArrayClass

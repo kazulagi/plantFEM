@@ -254,7 +254,7 @@ recursive subroutine initFEMSolver(this,NumDomain,FEMDomains,DomainIDs,DOF,MPI_t
     if(allocated(this%B_CRS_Index_Col)) deallocate(this%B_CRS_Index_Col)!(:)
     if(allocated(this%B_CRS_Index_Row)) deallocate(this%B_CRS_Index_Row)!(:)
     this%B_empty = .true.
-
+    
     if(allocated(this%fix_eig_IDs)) deallocate(this%fix_eig_IDs)!(:)
     
     if(allocated( this%CRS_x)) then
