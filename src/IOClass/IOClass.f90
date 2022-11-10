@@ -262,7 +262,8 @@ module IOClass
 
 
     interface from_csv
-        module procedure  from_csv_real_array2,from_csv_real_array3,from_csv_real_vector
+        module procedure  from_csv_real_array2,from_csv_real_array3,from_csv_real_vector,&
+            from_CSV_to_vector_simple
     end interface from_csv
     contains
     
@@ -3217,6 +3218,31 @@ function from_csv_real_array2(name,n1,n2,header)  result(a)
 
 end function
 ! ######################################################
+!
+function from_CSV_to_vector_simple(name,column) result(column_value)
+    character(*),intent(in) ::  name
+    integer(int32),intent(in) :: column
+    real(real64),allocatable :: column_value(:),line(:)
+    type(IO_) :: f
+    integer(int32) :: n,i
+
+    n = f%numLine(name)
+    allocate(column_value(n) )
+    column_value = 0.0d0
+    
+    allocate(line(column) )
+    line = 0.0d0
+
+    call f%open(name,"r")
+    do i=1,n
+        read(f%fh,*) line(:)
+        column_value(i) = line(column)
+    enddo
+    call f%close()
+
+
+end function
+
 
 
 ! ######################################################
@@ -3227,7 +3253,7 @@ function from_csv_real_vector(name,n1,header)  result(a)
     type(IO_) :: f
     integer(int32),intent(in) :: n1
     integer(int32) :: n
-    integer(int32),optional,intent(in) :: header(1:2) ! number of line for header
+    integer(int32),intent(in) :: header(1:2) ! number of line for header
     character(1) :: buf
 
     integer(int32) :: i
@@ -3237,11 +3263,9 @@ function from_csv_real_vector(name,n1,header)  result(a)
         call f%open(name,"r")
     endif
 
-    if(present(header) )then
-        do i=header(1),header(2)
-            read(f%fh,*) buf
-        enddo
-    endif
+    do i=header(1),header(2)
+        read(f%fh,*) buf
+    enddo
 
     read(f%fh,*) n
     allocate(a(n1) )
