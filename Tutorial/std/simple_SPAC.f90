@@ -78,10 +78,8 @@ program main
         FFT_SIZE        =FFT_SIZE,&
         radius          =radius,&
         sampling_Hz     =sampling_Hz,&
-        learning_rate   =dble(1.0e-2), &
-        tolerance       =dble(1.0e-5), &
-        max_iter        =2000, &
-        initial_phase_velocity =70.0d0 ,&
+        max_c           = 3000.0d0, & ! m/s
+        max_itr         = 10000, &
         debug           =.true. )
         
     ! smoothing

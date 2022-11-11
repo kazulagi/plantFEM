@@ -40,6 +40,7 @@ module std
     use STLClass
     use WebserverClass
     use PhysicalFieldClass
+    use SPACClass
     implicit none
 
 end module std
