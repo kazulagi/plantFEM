@@ -100,19 +100,19 @@ end function
 
 ! ##############################################################
 function to_phase_velocity(Center_x,Circle_x,FFT_SIZE,radius, sampling_Hz,debug,&
-    learning_rate,tolerance,max_iter,initial_phase_velocity,wave_type) result(c)
+    max_c,max_itr,wave_type) result(c)
     real(real64),intent(in) :: Center_x(:),Circle_x(:,:),radius
     real(real64),allocatable :: rho(:),c(:),freq(:),k(:)
     character(*),optional,intent(in) :: wave_type
     character(:),allocatable :: target_wave_type
     logical,optional,intent(in) :: debug
 
-    real(real64),optional,intent(in) :: learning_rate,tolerance,initial_phase_velocity
-    integer(int32),optional,intent(in) :: max_iter
+    real(real64),intent(in) :: max_c
+    integer(int32),intent(in) :: max_itr
 
-    real(real64) :: residual,tangent_value,epsilon_val,tol,rf,rb
+    real(real64) :: residual,tangent_value,epsilon_val,tol,rf,rb,tr1,tr2,tr0,ctr
     integer(int32),intent(in) :: FFT_SIZE,sampling_Hz
-    integer(int32) :: i,NUM_SAMPLE,max_itr,itr
+    integer(int32) :: i,NUM_SAMPLE,itr
     type(Math_) ::math
 
     if(present(wave_type) )then
@@ -121,43 +121,40 @@ function to_phase_velocity(Center_x,Circle_x,FFT_SIZE,radius, sampling_Hz,debug,
         target_wave_type = "Rayleigh"
     endif
 
+
     if(index(target_wave_type,"Rayleigh")/=0)then
 
         rho = to_SPAC_COEFF(Center_x=Center_x,Circle_x=Circle_x,FFT_SIZE=FFT_SIZE)
 
         ! fitting by gradient descent method
         freq = to_frequency_axis(FFT_SIZE=FFT_SIZE,sampling_Hz=sampling_Hz)
-        c = input(default=100.0d0,option=initial_phase_velocity)*eyes(FFT_SIZE)
+        c = eyes(FFT_SIZE)
         
         k = zeros(FFT_SIZE)
         k = freq*2.0d0*math%PI/c
         
-        max_itr = input(default=1000,option=max_iter)
-        epsilon_val=input(default=dble(1.0e-2),option=learning_rate)
-        tol  = input(default=dble(1.0e-4),option=tolerance)
-
+        
         do i=1,FFT_SIZE
             ! gradient descent
+            
+            
+            c(i) = (max_c)/max_itr
+            ! grid search
             do itr=1,max_itr
+                ctr = itr*(max_c)/max_itr
+                k(i) = freq(i)*2.0d0*math%PI/ctr
                 residual = (rho(i) - Bessel_J0(radius*k(i) ) )**2
-                if(abs(residual) < tol)then
-                    c(i) = freq(i)*2.0d0*math%PI/k(i)
-                    exit
-                elseif(i==max_itr)then
-                    c(i) = freq(i)*2.0d0*math%PI/k(i)
-                    exit
+                if( itr==1 )then
+                    tr0 = residual
+                else
+                    if(residual < tr0 )then
+                        c(i) = ctr
+                        tr0 = residual
+                    endif
                 endif
-                rf = (rho(i) - Bessel_J0(radius*(k(i)+epsilon_val) ) )**2
-                rb = (rho(i) - Bessel_J0(radius*(k(i)-epsilon_val) ) )**2
-                tangent_value = &
-                    (rf - rb )/ &
-                    (2.0d0*epsilon_val)
-                if(debug)then
-                    print *, i,itr,residual,k(i),rho(i) , Bessel_J0(radius*k(i) )
-                endif
-                k(i) = k(i) - epsilon_val*tangent_value
-
             enddo
+
+
         enddo
     else
         print *, "[ERROR] to_phase_velocity >> only for Rayleigh wave"
@@ -178,7 +175,7 @@ function to_time_axis(sampling_Hz,NUM_SAMPLE) result(t_axis)
     integer(int32),intent(in) :: sampling_Hz,NUM_SAMPLE
     real(real64),allocatable:: t_axis(:)
 
-    t_axis = linspace( [ 0.0d0 , sampling_Hz*NUM_SAMPLE*1.0d0],NUM_SAMPLE )
+    t_axis = linspace( [ 0.0d0 , NUM_SAMPLE*1.0d0/dble(sampling_Hz)],NUM_SAMPLE )
 
 end function
 

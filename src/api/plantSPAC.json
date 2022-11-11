@@ -1,0 +1,10 @@
+{
+    "sampling_hz" : 250,
+    "radius"      : 4.0,
+    "num_logger"  : 4,
+    "fft_size"    : 4096,
+    "maximum_phase_velocity": 5000.0,
+    "maximum_itr" : 100000,
+    "num_smoothing" : 100,
+    "comment":".csv has t[], UD1[], NS1[], EW1[], UD2[], NS2[], EW2[] ...etc."
+}
