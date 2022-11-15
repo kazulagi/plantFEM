@@ -1392,7 +1392,7 @@ end function
 
 
 !================================================================================== 
-function fstring_int(x) result(a)
+pure function fstring_int(x) result(a)
 	integer(int32),intent(in) :: x
 	character(len=20):: b
 	character(len=:),allocatable	:: a
@@ -1404,7 +1404,7 @@ end function
 !================================================================================== 
 
 !================================================================================== 
-function fstring_int64(x) result(a)
+pure function fstring_int64(x) result(a)
 	integer(int64),intent(in) :: x
 	character(len=40):: b
 	character(len=:),allocatable	:: a
@@ -1416,7 +1416,7 @@ end function
 !================================================================================== 
 
 !================================================================================== 
-function fstring_logical(x) result(a)
+pure function fstring_logical(x) result(a)
 	logical,intent(in) :: x
 	character(len=5)	:: a
 
@@ -1428,7 +1428,7 @@ end function
 
 
 !================================================================================== 
-function fstring_String(x) result(a)
+pure function fstring_String(x) result(a)
 	type(String_),intent(in) :: x
 	character(len=:),allocatable :: a
 
@@ -1439,7 +1439,7 @@ end function
 
 
 !================================================================================== 
-function fstring_int_len(x,length) result(a)
+pure function fstring_int_len(x,length) result(a)
 	integer(int32),intent(in) :: x
 	integer(int32),intent(in) :: length
 	character(len=length)	:: a
@@ -1457,7 +1457,7 @@ end function
 
 
 !================================================================================== 
-function fstring_real(x) result(a)
+pure function fstring_real(x) result(a)
 	real(real64),intent(in) :: x
 	character(len=20):: b
 	character(len=:),allocatable	:: a
@@ -1476,7 +1476,7 @@ end function
 !================================================================================== 
 
 !================================================================================== 
-function fstring_real32(x) result(a)
+pure function fstring_real32(x) result(a)
 	real(real32),intent(in) :: x
 	character(len=20):: b
 	character(len=:),allocatable	:: a
@@ -1495,7 +1495,7 @@ end function
 !================================================================================== 
 
 !================================================================================== 
-function fstring_complex(x) result(a)
+pure function fstring_complex(x) result(a)
 	complex(kind(0d0) ),intent(in) :: x
 	character(len=30):: b
 	character(len=:),allocatable	:: a
@@ -1512,7 +1512,7 @@ end function
 
 
 !================================================================================== 
-function fstring_real_len(x,length) result(a)
+pure function fstring_real_len(x,length) result(a)
 	real(real64),intent(in) :: x
 	integer(int32),intent(in) :: length
 	character(len=60)	:: a
@@ -2613,14 +2613,17 @@ function stringFromChar(charval) result(ret)
 end function
 ! #######################################################################
 
-function zfill(intval, n) result(ret)
+pure function zfill(intval, n) result(ret)
 	integer(int32),intent(in) :: intval,n
 	character(n) :: ret
-	character(:),allocatable :: fmt
+	!character(:),allocatable :: fmt
+	character(len=20) :: zfill_fmt
+	character(len=20):: b
+	write(b,*) n
 	
-	fmt = '(I'//str(n)//'.'//str(n)//')'
-	write(ret(1:n),fmt) intval
-
+	zfill_fmt = '(I'//trim(adjustl(b))//'.'//trim(adjustl(b))//')'
+	write(ret(1:n),trim(adjustl(zfill_fmt))) intval
+	
 end function
 
 ! ########################################################################

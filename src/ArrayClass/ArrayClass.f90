@@ -57,6 +57,10 @@ module ArrayClass
         module procedure :: exchangeInt32vector,exchangeInt32vector2
     end interface exchange
 
+    interface exchange_column
+        module procedure :: exchange_columnReal64Array2
+    end interface
+
     interface shift
         module procedure :: shiftInt32vector
     end interface
@@ -7152,6 +7156,18 @@ pure function exchangeInt32vector2(vec)  result(ret)
 
 end function
 ! ###############################################################
+
+pure subroutine exchange_columnReal64Array2(array,column)
+    real(real64),intent(inout) :: array(:,:)
+    integer(int32),intent(in) :: column(1:2)
+    real(real64),allocatable :: col_buf(:)
+
+    col_buf = array(:,column(2) )
+    array(:,column(2) ) = array(:,column(1) )
+    array(:,column(1) ) = col_buf
+    
+end subroutine
+
 
 ! ###############################################################
 subroutine RefineSequenceReal64(x,Fx,x_range,num_point) 
