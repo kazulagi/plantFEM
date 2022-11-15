@@ -31,6 +31,10 @@ module SpectreAnalysisClass
         procedure,public :: FDD => FDD_SpectreAnalysis
         procedure,public :: export => exportSpectreAnalysis
         procedure,public :: bandpath => bandpathSpectreAnalysis
+
+        procedure,pass :: cutifSpectreAnalysis
+        procedure,pass :: cutif_loggers_SpectreAnalysis
+        generic ::  cutif => cutifSpectreAnalysis,cutif_loggers_SpectreAnalysis
          
         ! create wave
         procedure,public :: whiteNoize => whiteNoizeSpectreAnalysis
@@ -59,9 +63,18 @@ subroutine initSpectreAnalysis(this,sampling_Hz,max_file_num)
         deallocate(this%num_lines)
     endif
     
+    if(allocated(this%files) ) deallocate(this%files)
+    if(allocated(this%num_lines) ) deallocate(this%num_lines)
+    if(allocated(this%BOL) ) deallocate(this%BOL)
+    if(allocated(this%FDD_S) ) deallocate(this%FDD_S)
+    if(allocated(this%FDD_Phi) ) deallocate(this%FDD_Phi)
+
     allocate(this%files(this%max_file_num) )
     allocate(this%num_lines(this%max_file_num,2) )
     allocate(this%BOL(this%max_file_num) )
+
+    
+
     this%last_file_id = 0
 
     this%initialized = .true.
@@ -614,5 +627,128 @@ function timeSpectreAnalysis(this,n) result(t)
     t = linspace([0.0d0,dble(n)/dble(this%sampling_Hz)],n)
     
 end function
+
+
+! ##########################################################
+function cutifSpectreAnalysis(this,x_t,window_size,sigma) result(x_r)
+    class(SpectreAnalysis_),intent(in) :: this
+    real(real64),intent(in) :: x_t(:)
+    
+    real(real64),allocatable :: dummy_x(:),x_r(:)
+    integer(int32),intent(in) :: window_size
+    real(real64),optional,intent(in) :: sigma
+    real(real64) :: sd,ave
+    integer(int32),allocatable :: active_segment(:)
+    integer(int32) :: i,from,to
+    type(Random_) :: random
+
+    if(present(sigma))then
+        ! remove if 
+        ! 全体のsdをとり，
+        sd  = standardDeviation(x_t)
+        ave = average(x_t)
+        ! ホワイトガウスノイズ生成
+        
+        do i=1,size(x_t)/window_size
+            from = (i-1)*window_size + 1
+            to =  i   *window_size 
+            dummy_x = x_t( from:to )
+            if(standardDeviation(dummy_x) > sigma*sd )then 
+                cycle
+            else
+                if(.not.allocated(x_r) )then
+                    x_r = dummy_x
+                else
+                    x_r = x_r // dummy_x
+                endif
+            endif
+        enddo
+    endif
+
+
+
+end function
+
+
+! ##########################################################
+function cutif_loggers_SpectreAnalysis(this,x_t,window_size,sigma) result(x_r)
+    class(SpectreAnalysis_),intent(in) :: this
+    real(real64),intent(in) :: x_t(:,:) ! t, channel
+    
+    real(real64),allocatable :: dummy_x(:),x_r(:,:)
+    integer(int32),intent(in) :: window_size
+    real(real64),optional,intent(in) :: sigma
+    
+    integer(int32),allocatable :: active_segment(:),remove_segment_ids(:)
+    integer(int32) :: i,from,to,itr,j
+    type(Random_) :: random
+    real(real64),allocatable :: sd_data(:,:),sd(:),ave(:),sd_vector(:)
+
+    if(present(sigma))then
+        ! remove if 
+        ! 全体のsdをとり，
+        remove_segment_ids = int(zeros(size(x_t,1)/window_size ) )
+        sd  = zeros(size(x_t,2 ))
+        ave = zeros(size(x_t,2 ))
+        do i=1,size(x_t,2)
+            sd(i)  = standardDeviation(x_t(:,i) )
+            ave(i) = average(x_t(:,i) )
+        enddo
+
+        sd_data = zeros(size(x_t)/window_size,size(x_t,2))
+        
+        do i=1,size(x_t,1)/window_size
+            from = (i-1)*window_size + 1
+            to =  i   *window_size 
+            
+            do j=1,size(x_t,2)
+                dummy_x = x_t( from:to,j )
+                sd_data(i,j) = standardDeviation(dummy_x)
+            enddo
+        enddo
+
+        do i=1,size(x_t,1)/window_size
+            from = (i-1)*window_size + 1
+            to =  i   *window_size 
+            
+            sd_vector = sd_data(i,:)
+            if( maxval(sd_vector-sd*sigma) > 0.0d0 )then
+                remove_segment_ids(i) = 1
+            endif
+        enddo
+        
+
+        if(maxval(remove_segment_ids)==0 )then
+            deallocate(remove_segment_ids)
+        endif
+
+        
+        if(allocated(remove_segment_ids) )then
+            x_r = eyes( size(x_t,1)-window_size*sum(remove_segment_ids),size(x_t,2)  )
+            
+            from = 1
+            to   = 0
+            do i=1,size(x_t,1)/window_size
+                if( remove_segment_ids(i)==1 )then
+                    cycle
+                else
+                    to = from -1 +window_size
+                    x_r(from:to,:)= x_t( window_size*(i-1)+1:window_size*i , :) 
+                    from = from + window_size
+                endif
+            enddo
+            
+            
+            x_r(from:,:) = x_t(window_size*int(size(x_t,1)/window_size)+1:,:)
+            
+        else
+            x_r = x_t
+        endif
+    endif
+
+
+
+end function
+
 
 end module SpectreAnalysisClass

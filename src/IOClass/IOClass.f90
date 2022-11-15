@@ -54,6 +54,7 @@ module IOClass
 
             procedure,public :: exists => existsIO
     
+            procedure,public :: download => downloadIO
             !set & reset rule
             procedure,public :: rule => ruleIO
             procedure,public :: ResetRule => ResetRuleIO
@@ -162,11 +163,13 @@ module IOClass
             
             procedure,pass :: writeIOre64Vector
             procedure,pass :: writeIOre64Array
+            procedure,pass :: writeIO_re64Vector_re64Array
             procedure,pass :: writeIOcomplex64
             procedure,pass :: writeIOcomplex64Vector
             procedure,pass :: writeIOcomplex64Array
             procedure,pass :: writeIOchar_real64Array_real64Array
-            generic,public :: write => writeIOchar,writeIOstring,writeIOre64,writeIOre64Vector,writeIOre64Array,&
+            generic,public :: write => writeIOchar,writeIOstring,writeIOre64,writeIOre64Vector,&
+                writeIOre64Array,&
                 writeIOint32,writeIOint32Vector,writeIOint32Array,&
                 writeIOre64re64,writeIOre64re64re64,writeIOre64re64re64re64,&
                 writeIOre64re64re64re64re64,writeIOre64re64re64re64re64re64,&
@@ -182,7 +185,8 @@ module IOClass
                 writeIOre64Vectorre64Vector,writeIOre64Vectorre64Vectorre64Vector,&
                 writeIOint32Vectorint32Vectorint32Vector,&
                 writeIOint32Vectorint32Vectorre64Vector,&
-                writeIOchar_real64Array_real64Array
+                writeIOchar_real64Array_real64Array,&
+                writeIO_re64Vector_re64Array
             !procedure,public :: write => writeIO
             procedure,pass :: readIOchar
             procedure,pass :: readIOInt
@@ -817,6 +821,7 @@ module IOClass
         character(*),intent(in) :: char
         logical,optional,intent(in) :: append,advance
         logical :: adv
+
         
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -842,13 +847,21 @@ module IOClass
 
 
     ! #############################################
-    subroutine writeIOchar_real64Array_real64Array(obj,char,vec1,vec2,append,advance)
+    subroutine writeIOchar_real64Array_real64Array(obj,char,vec1,vec2,append,advance,separator)
         class(IO_),intent(inout) :: obj
         character(*),intent(in) :: char
         real(real64),intent(in) :: vec1(:),vec2(:)
         logical,optional,intent(in) :: append,advance
         logical :: adv
         integer(int32) :: i
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
 
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -866,11 +879,12 @@ module IOClass
 
         if(adv .eqv. .true.)then
             do i=1,size(vec1)
-                write(obj%fh, '(A)') char + "," + str(vec1(i)) + "," + str(vec2(i))
+                write(obj%fh, '(A)') char + sep + str(vec1(i)) + sep + str(vec2(i))
             enddo
         else
             do i=1,size(vec1)
-                write(obj%fh, '(A)',advance="no") char + "," + str(vec1(i)) + "," + str(vec2(i))
+                write(obj%fh, '(A)',advance="no") char + sep + str(vec1(i)) + sep &
+                + str(vec2(i))
             enddo
         endif
     end subroutine writeIOchar_real64Array_real64Array
@@ -887,16 +901,25 @@ module IOClass
             return
         endif
         
-        write(obj%fh, '(A)') char1//" "//char2
+        write(obj%fh, '(A)') char1//", "//char2
     
     end subroutine writeIOcharchar
     ! #############################################
     
     
     ! #############################################
-    subroutine writeIOcharcharchar(obj,char1,char2,char3)
+    subroutine writeIOcharcharchar(obj,char1,char2,char3,separator)
         class(IO_),intent(inout) :: obj
         character(*),intent(in) :: char1,char2,char3
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
+
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -904,7 +927,7 @@ module IOClass
             return
         endif
         
-        write(obj%fh, '(A)') char1//" "//char2//" "//char3
+        write(obj%fh, '(A)') char1//sep//char2//sep//char3
     
     end subroutine writeIOcharcharchar
     ! #############################################
@@ -913,9 +936,17 @@ module IOClass
     
     
     ! #############################################
-    subroutine writeIOint32(obj,in32)
+    subroutine writeIOint32(obj,in32,separator)
         class(IO_),intent(inout) :: obj
         integer(int32),intent(in) :: in32
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -923,16 +954,24 @@ module IOClass
             return
         endif
         
-        write(obj%fh, '(A)') trim(str(in32))
+        write(obj%fh, '(A)') trim(str(in32))//sep
     
     end subroutine writeIOint32
     ! #############################################
     
     ! #############################################
-    subroutine writeIOint32re64(obj,in32,re64)
+    subroutine writeIOint32re64(obj,in32,re64,separator)
         class(IO_),intent(inout) :: obj
         integer(int32),intent(in) :: in32
         real(real64),intent(in) :: re64
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -940,7 +979,7 @@ module IOClass
             return
         endif
         
-        write(obj%fh, '(A)') trim(str(in32))//" "//trim(str(re64))
+        write(obj%fh, '(A)') trim(str(in32))//sep//trim(str(re64))//sep
     
     end subroutine writeIOint32re64
     ! #############################################
@@ -948,9 +987,17 @@ module IOClass
     ! #############################################
     
     
-    subroutine writeIOint32int32(obj,in32_1,in32_2)
+    subroutine writeIOint32int32(obj,in32_1,in32_2,separator)
         class(IO_),intent(inout) :: obj
         integer(int32),intent(in) :: in32_1,in32_2
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -958,7 +1005,7 @@ module IOClass
             return
         endif
         
-        write(obj%fh, '(A)') trim(str(in32_1))//" "//trim(str(in32_2))
+        write(obj%fh, '(A)') trim(str(in32_1))//sep//trim(str(in32_2))//sep
     
     end subroutine 
     
@@ -967,9 +1014,17 @@ module IOClass
     ! #############################################
     
     
-    subroutine writeIOint32int32int32(obj,in32_1,in32_2,in32_3)
+    subroutine writeIOint32int32int32(obj,in32_1,in32_2,in32_3,separator)
         class(IO_),intent(inout) :: obj
         integer(int32),intent(in) :: in32_1,in32_2,in32_3
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -977,7 +1032,8 @@ module IOClass
             return
         endif
         
-        write(obj%fh, '(A)') trim(str(in32_1))//" "//trim(str(in32_2))//" "//trim(str(in32_3))
+        write(obj%fh, '(A)') trim(str(in32_1))//sep//&
+            trim(str(in32_2))//sep//trim(str(in32_3))
     
     end subroutine 
     
@@ -986,9 +1042,17 @@ module IOClass
     ! #############################################
     
     
-    subroutine writeIOint32int32int32int32(obj,in32_1,in32_2,in32_3,in32_4)
+    subroutine writeIOint32int32int32int32(obj,in32_1,in32_2,in32_3,in32_4,separator)
         class(IO_),intent(inout) :: obj
         integer(int32),intent(in) :: in32_1,in32_2,in32_3,in32_4
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -996,7 +1060,8 @@ module IOClass
             return
         endif
         
-        write(obj%fh, '(A)') trim(str(in32_1))//" "//trim(str(in32_2))//" "//trim(str(in32_3))//" "//trim(str(in32_4))
+        write(obj%fh, '(A)') trim(str(in32_1))//sep//&
+            trim(str(in32_2))//sep//trim(str(in32_3))//sep//trim(str(in32_4))
     
     end subroutine 
     
@@ -1006,9 +1071,18 @@ module IOClass
     ! #############################################
     
     
-    subroutine writeIOint32int32int32int32int32(obj,in32_1,in32_2,in32_3,in32_4,in32_5)
+    subroutine writeIOint32int32int32int32int32(obj,in32_1,in32_2,&
+        in32_3,in32_4,in32_5,separator)
         class(IO_),intent(inout) :: obj
         integer(int32),intent(in) :: in32_1,in32_2,in32_3,in32_4,in32_5
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1016,8 +1090,8 @@ module IOClass
             return
         endif
         
-        write(obj%fh, '(A)') trim(str(in32_1))//" "//trim(str(in32_2))//" "&
-            //trim(str(in32_3))//" "//trim(str(in32_4))//" "//trim(str(in32_5))
+        write(obj%fh, '(A)') trim(str(in32_1))//sep//trim(str(in32_2))//sep&
+            //trim(str(in32_3))//sep//trim(str(in32_4))//sep//trim(str(in32_5))
     
     end subroutine 
     
@@ -1027,19 +1101,28 @@ module IOClass
     ! #############################################
     
     
-    subroutine writeIOint32int32int32int32int32int32(obj,in32_1,in32_2,in32_3,in32_4,in32_5,in32_6)
+    subroutine writeIOint32int32int32int32int32int32(obj,in32_1,&
+        in32_2,in32_3,in32_4,in32_5,in32_6,separator)
         class(IO_),intent(inout) :: obj
         integer(int32),intent(in) :: in32_1,in32_2,in32_3,in32_4,in32_5,in32_6
-    
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
+
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
             call print("Nothing is written.")
             return
         endif
         
-        write(obj%fh, '(A)') trim(str(in32_1))//" "//trim(str(in32_2))//" "&
-            //trim(str(in32_3))//" "//trim(str(in32_4))//" "//trim(str(in32_5))&
-            //" "//trim(str(in32_6))
+        write(obj%fh, '(A)') trim(str(in32_1))//sep//trim(str(in32_2))//sep&
+            //trim(str(in32_3))//sep//trim(str(in32_4))//sep//trim(str(in32_5))&
+            //sep//trim(str(in32_6))
     
     end subroutine 
     
@@ -1048,10 +1131,18 @@ module IOClass
     
     
     ! #############################################
-    subroutine writeIOint32Vector(obj,in32)
+    subroutine writeIOint32Vector(obj,in32,separator)
         class(IO_),intent(inout) :: obj
         integer(int32),intent(in) :: in32(:)
         integer(int32) :: i
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1059,16 +1150,24 @@ module IOClass
             return
         endif
         do i=1,size(in32)
-            write(obj%fh, '(A)') trim(str(in32(i) ))
+            write(obj%fh, '(A)') trim(str(in32(i) ))//sep
         enddo
     end subroutine
     ! #############################################
     
     ! #############################################
-    subroutine writeIOint32VectorInt32vector(obj,in32,in32_c)
+    subroutine writeIOint32VectorInt32vector(obj,in32,in32_c,separator)
         class(IO_),intent(inout) :: obj
         integer(int32),intent(in) :: in32(:),in32_c(:)
         integer(int32) :: i
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1076,16 +1175,24 @@ module IOClass
             return
         endif
         do i=1,size(in32)
-            write(obj%fh, '(A)') trim(str(in32(i) ))//" "//trim(str(in32_c(i) ))
+            write(obj%fh, '(A)') trim(str(in32(i) ))//sep//trim(str(in32_c(i) ))
         enddo
     end subroutine
     ! #############################################
     
     ! #############################################
-    subroutine writeIOint32VectorInt32vectorInt32Vector(obj,in32,in32_c,in32_cc)
+    subroutine writeIOint32VectorInt32vectorInt32Vector(obj,in32,in32_c,in32_cc,separator)
         class(IO_),intent(inout) :: obj
         integer(int32),intent(in) :: in32(:),in32_c(:),in32_cc(:)
         integer(int32) :: i
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1093,18 +1200,27 @@ module IOClass
             return
         endif
         do i=1,size(in32)
-            write(obj%fh, '(A)') trim(str(in32(i) ))//" "//trim(str(in32_c(i) )//" "//trim(str(in32_cc(i) )))
+            write(obj%fh, '(A)') trim(str(in32(i) ))//sep//&
+                trim(str(in32_c(i) )//sep//trim(str(in32_cc(i) )))//sep
         enddo
     end subroutine
     ! #############################################
     
     
     ! #############################################
-    subroutine writeIOint32VectorInt32vectorre64Vector(obj,in32,in32_c,re64_cc)
+    subroutine writeIOint32VectorInt32vectorre64Vector(obj,in32,in32_c,re64_cc,separator)
         class(IO_),intent(inout) :: obj
         integer(int32),intent(in) :: in32(:),in32_c(:)
         real(real64),intent(in) :: re64_cc(:)
         integer(int32) :: i
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1112,7 +1228,8 @@ module IOClass
             return
         endif
         do i=1,size(in32)
-            write(obj%fh, '(A)') trim(str(in32(i) ))//" "//trim(str(in32_c(i) )//" "//trim(str(re64_cc(i) )))
+            write(obj%fh, '(A)') trim(str(in32(i) ))//sep//&
+                trim(str(in32_c(i) )//sep//trim(str(re64_cc(i) )))//sep
         enddo
     end subroutine
     ! #############################################
@@ -1120,11 +1237,19 @@ module IOClass
     
     
     ! #############################################
-    subroutine writeIOint32VectorRe64vector(obj,in32,Re64)
+    subroutine writeIOint32VectorRe64vector(obj,in32,Re64,separator)
         class(IO_),intent(inout) :: obj
         integer(int32),intent(in) :: in32(:)
         real(real64),intent(in) :: Re64(:)
         integer(int32) :: i
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1132,18 +1257,26 @@ module IOClass
             return
         endif
         do i=1,size(in32)
-            write(obj%fh, '(A)') trim(str(in32(i) ))//" "//trim(str(Re64(i) ))
+            write(obj%fh, '(A)') trim(str(in32(i) ))//sep//trim(str(Re64(i) ))//sep
         enddo
     end subroutine
     ! #############################################
     
     
     ! #############################################
-    subroutine writeIORe64VectorRe64vector(obj,Re64_c,Re64)
+    subroutine writeIORe64VectorRe64vector(obj,Re64_c,Re64,separator)
         class(IO_),intent(inout) :: obj
         real(real64),intent(in)  :: Re64_c(:)
         real(real64),intent(in) :: Re64(:)
         integer(int32) :: i
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1151,7 +1284,7 @@ module IOClass
             return
         endif
         do i=1,size(Re64_c)
-            write(obj%fh, '(A)') trim(str(Re64_c(i) ))//" "//trim(str(Re64(i) ))
+            write(obj%fh, '(A)') trim(str(Re64_c(i) ))//sep//trim(str(Re64(i) ))
         enddo
     end subroutine
     ! #############################################
@@ -1159,12 +1292,20 @@ module IOClass
     
     
     ! #############################################
-    subroutine writeIORe64VectorRe64vectorRe64vector(obj,Re64_cc,Re64_c,Re64)
+    subroutine writeIORe64VectorRe64vectorRe64vector(obj,Re64_cc,Re64_c,Re64,separator)
         class(IO_),intent(inout) :: obj
         real(real64),intent(in)  :: Re64_cc(:)
         real(real64),intent(in)  :: Re64_c(:)
         real(real64),intent(in) :: Re64(:)
         integer(int32) :: i
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1172,17 +1313,25 @@ module IOClass
             return
         endif
         do i=1,size(Re64_c)
-            write(obj%fh, '(A)') trim(str(Re64_cc(i) ))//" "//trim(str(Re64_c(i) ))//" "//trim(str(Re64(i) ))
+            write(obj%fh, '(A)') trim(str(Re64_cc(i) ))//sep//trim(str(Re64_c(i) ))//sep//trim(str(Re64(i) ))
         enddo
     end subroutine
     ! #############################################
     
     
     ! #############################################
-    subroutine writeIOint32int32vector(obj,in32_1,in32)
+    subroutine writeIOint32int32vector(obj,in32_1,in32,separator)
         class(IO_),intent(inout) :: obj
         integer(int32),intent(in) :: in32_1,in32(:)
         integer(int32) :: i
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1192,19 +1341,27 @@ module IOClass
     
         write(obj%fh, '(A)',advance="no") trim(str(in32_1))
         do i=1,size(in32)
-            write(obj%fh, '(A)',advance="no") " "//trim(str(in32(i) ))
+            write(obj%fh, '(A)',advance="no") sep//trim(str(in32(i) ))
         enddo
-        write(obj%fh, '(A)',advance="yes") " "
+        write(obj%fh, '(A)',advance="yes") sep
     end subroutine
     ! #############################################
     
     
     ! #############################################
-    subroutine writeIOint32re64Vector(obj,in32_1,re64)
+    subroutine writeIOint32re64Vector(obj,in32_1,re64,separator)
         class(IO_),intent(inout) :: obj
         integer(int32),intent(in) :: in32_1
         real(real64),intent(in) :: re64(:)
         integer(int32) :: i
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1214,17 +1371,25 @@ module IOClass
     
         write(obj%fh, '(A)',advance="no") trim(str(in32_1))
         do i=1,size(re64)
-            write(obj%fh, '(A)',advance="no") " "//trim(str(re64(i) ))
+            write(obj%fh, '(A)',advance="no") sep//trim(str(re64(i) ))
         enddo
-        write(obj%fh, '(A)',advance="yes") " "
+        write(obj%fh, '(A)',advance="yes") sep
     end subroutine
     ! #############################################
     
     ! #############################################
-    subroutine writeIOint32Array(obj,in32)
+    subroutine writeIOint32Array(obj,in32,separator)
         class(IO_),intent(inout) :: obj
         integer(int32),intent(in) :: in32(:,:)
         integer(int32) :: i
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1232,32 +1397,48 @@ module IOClass
             return
         endif
         do i=1,size(in32,1)
-            write(obj%fh, *) in32(i,:) 
+            write(obj%fh, *) in32(i,:) , sep
         enddo
     end subroutine
     ! #############################################
     
     
     ! #############################################
-    subroutine writeIOre64(obj,re64)
+    subroutine writeIOre64(obj,re64,separator)
         class(IO_),intent(inout) :: obj
         real(real64),intent(in) :: re64
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
         
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
             call print("Nothing is written.")
             return
         endif
-        write(obj%fh, '(A)') trim(str(re64))
+        write(obj%fh, '(A)') trim(str(re64))//sep
     
     end subroutine writeIOre64
     ! #############################################
     
     
     
-    subroutine writeIOre64re64(obj,re64_1,re64_2)
+    subroutine writeIOre64re64(obj,re64_1,re64_2,separator)
         class(IO_),intent(inout) :: obj
         real(real64),intent(in) :: re64_1,re64_2
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1265,11 +1446,11 @@ module IOClass
             return
         endif
         if( isnan(re64_1) .or. abs(re64_1) > HUGE(real64)  )then
-            write(obj%fh, '(A)') "NaN "//trim(str(re64_2))
+            write(obj%fh, '(A)') "NaN "//sep//trim(str(re64_2))
         elseif( isnan(re64_2) .or. abs(re64_2) > HUGE(real64) )then
-            write(obj%fh, '(A)') trim(str(re64_1))//" NaN"
+            write(obj%fh, '(A)') trim(str(re64_1))//sep//"NaN"
         else
-            write(obj%fh, '(A)') trim(str(re64_1))//" "//trim(str(re64_2))
+            write(obj%fh, '(A)') trim(str(re64_1))//sep//trim(str(re64_2))
         endif
     end subroutine 
     
@@ -1278,17 +1459,26 @@ module IOClass
     ! #############################################
     
     
-    subroutine writeIOre64re64re64(obj,re64_1,re64_2,re64_3)
+    subroutine writeIOre64re64re64(obj,re64_1,re64_2,re64_3,separator)
         class(IO_),intent(inout) :: obj
         real(real64),intent(in) :: re64_1,re64_2,re64_3
     
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
+
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
             call print("Nothing is written.")
             return
         endif
         
-        write(obj%fh, '(A)') trim(str(re64_1))//" "//trim(str(re64_2))//" "//trim(str(re64_3))
+        write(obj%fh, '(A)') trim(str(re64_1))//sep//trim(str(re64_2))//sep//trim(str(re64_3))
     
     end subroutine 
     
@@ -1297,17 +1487,25 @@ module IOClass
     ! #############################################
     
     
-    subroutine writeIOre64re64re64re64(obj,re64_1,re64_2,re64_3,re64_4)
+    subroutine writeIOre64re64re64re64(obj,re64_1,re64_2,re64_3,re64_4,separator)
         class(IO_),intent(inout) :: obj
         real(real64),intent(in) :: re64_1,re64_2,re64_3,re64_4
-    
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
+
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
             call print("Nothing is written.")
             return
         endif
         
-        write(obj%fh, '(A)') trim(str(re64_1))//" "//trim(str(re64_2))//" "//trim(str(re64_3))//" "//trim(str(re64_4))
+        write(obj%fh, '(A)') trim(str(re64_1))//sep//trim(str(re64_2))//sep//trim(str(re64_3))//sep//trim(str(re64_4))
     
     end subroutine 
     
@@ -1317,9 +1515,17 @@ module IOClass
     ! #############################################
     
     
-    subroutine writeIOre64re64re64re64re64(obj,re64_1,re64_2,re64_3,re64_4,re64_5)
+    subroutine writeIOre64re64re64re64re64(obj,re64_1,re64_2,re64_3,re64_4,re64_5,separator)
         class(IO_),intent(inout) :: obj
         real(real64),intent(in) :: re64_1,re64_2,re64_3,re64_4,re64_5
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1327,8 +1533,8 @@ module IOClass
             return
         endif
         
-        write(obj%fh, '(A)') trim(str(re64_1))//" "//trim(str(re64_2))//" "&
-            //trim(str(re64_3))//" "//trim(str(re64_4))//" "//trim(str(re64_5))
+        write(obj%fh, '(A)') trim(str(re64_1))//sep//trim(str(re64_2))//sep&
+            //trim(str(re64_3))//sep//trim(str(re64_4))//sep//trim(str(re64_5))
     
     end subroutine 
     
@@ -1338,19 +1544,28 @@ module IOClass
     ! #############################################
     
     
-    subroutine writeIOre64re64re64re64re64re64(obj,re64_1,re64_2,re64_3,re64_4,re64_5,re64_6)
+    subroutine writeIOre64re64re64re64re64re64(obj,re64_1,re64_2,re64_3,&
+        re64_4,re64_5,re64_6,separator)
         class(IO_),intent(inout) :: obj
         real(real64),intent(in) :: re64_1,re64_2,re64_3,re64_4,re64_5,re64_6
-    
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
+
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
             call print("Nothing is written.")
             return
         endif
         
-        write(obj%fh, '(A)') trim(str(re64_1))//" "//trim(str(re64_2))//" "&
-            //trim(str(re64_3))//" "//trim(str(re64_4))//" "//trim(str(re64_5))&
-            //" "//trim(str(re64_6))
+        write(obj%fh, '(A)') trim(str(re64_1))//sep//trim(str(re64_2))//sep&
+            //trim(str(re64_3))//sep//trim(str(re64_4))//sep//trim(str(re64_5))&
+            //sep//trim(str(re64_6))
     
     end subroutine 
     
@@ -1396,12 +1611,19 @@ module IOClass
     
     
     ! #############################################
-    subroutine writeIOre64Array(obj,re64,sparse)
+    subroutine writeIOre64Array(obj,re64,sparse,separator)
         class(IO_),intent(inout) :: obj
         real(real64),intent(in) :: re64(:,:)
         logical,optional,intent(in) :: sparse
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
         integer(int32) :: i,j
     
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
             call print("Nothing is written.")
@@ -1413,18 +1635,73 @@ module IOClass
                 do i=1,size(re64,1)
                     do j=1,size(re64,2)
                         if(re64(i,j)==0.0d0)then
-                            write(obj%fh, '(A)', advance='no') '0 '
+                            write(obj%fh, '(A)', advance='no') '0 '+sep
                         else
-                            write(obj%fh, '(A)', advance='no') '* '
+                            write(obj%fh, '(A)', advance='no') '* '+sep
                         endif
                     enddo 
-                    write(obj%fh, '(A)', advance='yes') ' '
+                    write(obj%fh, '(A)', advance='yes') sep
                 enddo
                 return
             endif
         endif
+        
         do i=1,size(re64,1)
-            write(obj%fh, *) re64(i,:) 
+            do j=1,size(re64,2)
+                if(j/=size(re64,2))then
+                    write(obj%fh, '(A)', advance='no') str(re64(i,j))+ sep
+                else
+                    write(obj%fh, '(A)', advance='yes')str( re64(i,j))+ sep
+                endif
+            enddo
+        enddo
+    end subroutine
+    ! #############################################
+    ! #############################################
+    subroutine writeIO_re64Vector_re64Array(obj,re64v,re64,sparse,separator)
+        class(IO_),intent(inout) :: obj
+        real(real64),intent(in) :: re64(:,:),re64v(:)
+        logical,optional,intent(in) :: sparse
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+        integer(int32) :: i,j
+    
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
+        if(obj%state=="r")then
+            call print("IOClass >> Error >> This file is readonly. ")
+            call print("Nothing is written.")
+            return
+        endif
+        if(present(sparse) )then
+            if(sparse)then
+                do i=1,size(re64,1)
+                    write(obj%fh, '(A)', advance='no') str(re64v(i))+sep
+                    do j=1,size(re64,2)
+                        if(re64(i,j)==0.0d0)then
+                            write(obj%fh, '(A)', advance='no') '0 '+sep
+                        else
+                            write(obj%fh, '(A)', advance='no') '* '+sep
+                        endif
+                    enddo 
+                    write(obj%fh, '(A)', advance='yes') sep
+                enddo
+                return
+            endif
+        endif
+        
+        do i=1,size(re64,1)
+            write(obj%fh, '(A)', advance='no') str(re64v(i))+sep
+            do j=1,size(re64,2)
+                if(j/=size(re64,2))then
+                    write(obj%fh, '(A)', advance='no') str(re64(i,j))+ sep
+                else
+                    write(obj%fh, '(A)', advance='yes')str( re64(i,j))+ sep
+                endif
+            enddo
         enddo
     end subroutine
     ! #############################################
@@ -3289,5 +3566,15 @@ function existsIO(this,filename) result(exist_then_true)
         exist_then_true = .false.
     endif
 end function
+! ######################################################
+
+
+subroutine downloadIO(this,from) 
+    class(IO_),intent(in) :: this
+    character(*),intent(in) :: from
+
+    call system("wget "+from)
+
+end subroutine
 
 end module IOClass
