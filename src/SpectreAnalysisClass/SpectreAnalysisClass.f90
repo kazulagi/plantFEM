@@ -671,9 +671,10 @@ end function
 
 
 ! ##########################################################
-function cutif_loggers_SpectreAnalysis(this,x_t,window_size,sigma) result(x_r)
+function cutif_loggers_SpectreAnalysis(this,x_t,window_size,sigma,log) result(x_r)
     class(SpectreAnalysis_),intent(in) :: this
     real(real64),intent(in) :: x_t(:,:) ! t, channel
+    character(*),optional,intent(in) :: log
     
     real(real64),allocatable :: dummy_x(:),x_r(:,:)
     integer(int32),intent(in) :: window_size
@@ -682,8 +683,8 @@ function cutif_loggers_SpectreAnalysis(this,x_t,window_size,sigma) result(x_r)
     integer(int32),allocatable :: active_segment(:),remove_segment_ids(:)
     integer(int32) :: i,from,to,itr,j
     type(Random_) :: random
-    real(real64),allocatable :: sd_data(:,:),sd(:),ave(:),sd_vector(:)
-
+    real(real64),allocatable :: sd_data(:,:),sd(:),ave(:),sd_vector(:),zero_window(:,:)
+    type(IO_) :: log_original,log_remained
     if(present(sigma))then
         ! remove if 
         ! 全体のsdをとり，
@@ -722,27 +723,52 @@ function cutif_loggers_SpectreAnalysis(this,x_t,window_size,sigma) result(x_r)
             deallocate(remove_segment_ids)
         endif
 
+        if(present(log) )then
+            call log_original%open(log+"_original_wave.csv")
+            call log_remained%open(log+"_remained_wave.csv")
+        endif
         
         if(allocated(remove_segment_ids) )then
             x_r = eyes( size(x_t,1)-window_size*sum(remove_segment_ids),size(x_t,2)  )
-            
+            zero_window = zeros( window_size,size(x_t,2) )
             from = 1
             to   = 0
             do i=1,size(x_t,1)/window_size
                 if( remove_segment_ids(i)==1 )then
+                    if(present(log) )then
+                        call log_remained%write(zero_window,separator=", ")
+                    endif
                     cycle
                 else
                     to = from -1 +window_size
                     x_r(from:to,:)= x_t( window_size*(i-1)+1:window_size*i , :) 
                     from = from + window_size
+                    if(present(log) )then
+                        call log_remained%write(x_r(from:to,:),separator=", ")
+                    endif
                 endif
             enddo
             
             
             x_r(from:,:) = x_t(window_size*int(size(x_t,1)/window_size)+1:,:)
-            
+            if(present(log) )then
+                call log_original%write(x_t,separator=", ")
+            endif
+
         else
             x_r = x_t
+            if(present(log) )then
+                call log_original%write(x_t,separator=", ")
+                call log_remained%write(x_r,separator=", ")
+            endif
+        endif
+
+
+        if(present(log) )then
+            call log_original%flush()
+            call log_remained%flush()
+            call log_original%close()
+            call log_remained%close()
         endif
     endif
 

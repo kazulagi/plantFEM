@@ -81,6 +81,7 @@ module LeafClass
         real(real64),allocatable :: YoungModulus(:)! element-wise
         real(real64),allocatable :: PoissonRatio(:)! element-wise
         real(real64),allocatable :: Density(:)     ! element-wise
+        real(real64),allocatable :: CarbonDiffusionCoefficient(:)
         real(real64),allocatable :: Stress(:,:,:)     ! Gauss point-wise
         real(real64),allocatable :: Displacement(:,:) ! node-wise, three dimensional
         
@@ -96,6 +97,9 @@ module LeafClass
         real(real64)  :: final_length = 0.100d0   ! 100.0 mm
         real(real64)  :: width_growth_ratio = 1.0d0/4.0d0   ! 
         real(real64)  :: length_growth_ratio = 1.0d0/4.0d0   ! 
+
+        !Sink-source flow parameter
+        real(real64) :: default_CarbonDiffusionCoefficient=0.0010d0 ! ソースの拡散係数 mincro-mol/m^2/m/s
 
     contains
         procedure, public :: Init => initLeaf
@@ -140,6 +144,10 @@ module LeafClass
 
 
         procedure, public :: sync => syncleaf
+
+
+        procedure,public :: nn => nnLeaf
+        procedure,public :: ne => neLeaf
 
         ! remove
         procedure, public :: remove => removeLeaf
@@ -692,6 +700,7 @@ end subroutine
             obj%center_top(:) = obj%center_bottom(:) + obj%length*obj%outer_normal_bottom(:)
         endif
     endif
+    obj%CarbonDiffusionCoefficient = obj%default_CarbonDiffusionCoefficient*ones(obj%femdomain%ne() )
     
     end subroutine 
 ! ########################################
@@ -1266,6 +1275,7 @@ function getPhotosynthesisSpeedPerVolumeLeaf(obj,dt,air) result(Speed_PV)
     real(real64) :: pfd
 
     real(real64) :: Lambda, volume
+    real(real128) :: buf
     real(real64),allocatable :: Speed_PV(:)
 
     integer(int32) :: i, element_id
@@ -1283,7 +1293,9 @@ function getPhotosynthesisSpeedPerVolumeLeaf(obj,dt,air) result(Speed_PV)
         obj%J_ = 0.240d0*pfd/(sqrt(1.0d0 + (0.240d0*0.240d0)*pfd*pfd)/obj%J_max/obj%J_max)
         
         ! lambdaからV_omaxを推定
-        obj%V_omax = obj%Lambda*( 2.0d0 * obj%V_cmax*obj%K_o )/(obj%K_c*O2)
+        !obj%V_omax = obj%Lambda* 2.0d0 * obj%V_cmax*obj%K_o/(obj%K_c*O2) 
+        buf = obj%Lambda* 2.0d0 * obj%V_cmax*obj%K_o
+        obj%V_omax = dble(buf/obj%K_c/obj%O2) 
 
         ! CO2固定速度の計算
         V_c = (obj%V_cmax*obj%CO2)/(obj%CO2 +obj% K_o * (1.0d0+ obj%O2/obj%K_o) )
@@ -1506,7 +1518,9 @@ subroutine syncleaf(obj,from, mpid)
 
     ! For deformation analysis
     call mpid%bcast(from=from,val=obj% YoungModulus)
+    
     call mpid%bcast(from=from,val=obj% PoissonRatio)
+    call mpid%bcast(from=from,val=obj% CarbonDiffusionCoefficient)
     call mpid%bcast(from=from,val=obj% Density)
     call mpid%bcast(from=from,val=obj% Stress)
     call mpid%bcast(from=from,val=obj% Displacement)
@@ -1747,6 +1761,7 @@ subroutine removeLeaf(this)
         if(allocated(this% YoungModulus)) deallocate( this% YoungModulus)
         if(allocated(this% PoissonRatio)) deallocate( this% PoissonRatio)
         if(allocated(this% Density)) deallocate( this% Density)
+        if(allocated(this% CarbonDiffusionCoefficient)) deallocate( this% CarbonDiffusionCoefficient)
         if(allocated(this% Stress)) deallocate( this% Stress)
         if(allocated(this% Displacement)) deallocate( this% Displacement)
         
@@ -1764,5 +1779,23 @@ subroutine removeLeaf(this)
         this % length_growth_ratio = 1.0d0/4.0d0   ! 
 
 end subroutine
+
+
+
+function nnLeaf(this) result(ret)
+    class(Leaf_),intent(in) :: this
+    integer(int32) :: ret
+
+    ret = this%femdomain%nn()
+end function
+
+
+
+function neLeaf(this) result(ret)
+    class(Leaf_),intent(in) :: this
+    integer(int32) :: ret
+
+    ret = this%femdomain%ne()
+end function
 
 end module 

@@ -26,6 +26,7 @@ module ArrayClass
         procedure, public :: T => TransposeArrayClass
         procedure, public :: get => getArrayClass
         procedure, public :: set => setArrayClass
+
         
         
     end type
@@ -117,6 +118,19 @@ module ArrayClass
         module procedure :: hstackInt32Vector2,hstackInt32Vector3, hstackReal64Vector2,hstackReal64Vector3
     end interface
 
+
+    interface operator(.v.)
+        module procedure vstack_real64A2_real64A2,vstack_int32A2_int32A2,&
+            vstack_real64V_real64A2,vstack_real64A2_real64V,vstack_real64V_real64V
+    end interface
+
+    interface operator(.h.)
+        module procedure hstack_real64A2_real64A2,hstack_int32A2_int32A2,&
+            hstack_real64V_real64A2,hstack_real64A2_real64V,hstack_real64V_real64V,&
+            hstack_int32V_int32A2,hstack_int32A2_int32V
+    end interface
+
+
     interface dot_product_omp
         module procedure :: dot_product_omp
     end interface
@@ -124,6 +138,11 @@ module ArrayClass
     interface zeros
         module procedure :: zerosRealArray, zerosRealVector,zerosRealArray3,zerosRealArray4,zerosRealArray5,&
             zerosRealArray_64, zerosRealVector_64,zerosRealArray3_64,zerosRealArray4_64,zerosRealArray5_64
+    end interface
+
+    interface ones
+        module procedure :: onesRealArray, onesRealVector,onesRealArray3,onesRealArray4,onesRealArray5,&
+            onesRealArray_64, onesRealVector_64,onesRealArray3_64,onesRealArray4_64,onesRealArray5_64
     end interface
 
     interface eyes
@@ -4944,6 +4963,17 @@ pure function zerosRealVector(size1) result(vector)
 
 end function zerosRealVector
 
+! ############################################################
+
+pure function onesRealVector(size1) result(vector)
+    integer(int32),intent(in) :: size1
+    real(real64),allocatable :: vector(:)
+
+    allocate(vector(size1) )
+    vector(:) = 1.0d0
+
+end function onesRealVector
+
 
 ! ############################################################
 pure function zerosRealArray(size1, size2) result(array)
@@ -4956,6 +4986,19 @@ pure function zerosRealArray(size1, size2) result(array)
 end function
 
 ! ############################################################
+! ############################################################
+pure function onesRealArray(size1, size2) result(array)
+    integer(int32),intent(in) :: size1, size2
+    real(real64),allocatable :: array(:,:)
+
+    allocate(array(size1, size2) )
+    array(:,:) = 1.0d0
+
+end function
+
+! ############################################################
+
+
 
 ! ############################################################
 pure function eyesRealArray(size1, size2) result(array)
@@ -5000,6 +5043,19 @@ end function
 
 ! ############################################################
 
+
+! ############################################################
+pure function onesRealArray3(size1, size2,size3) result(array)
+    integer(int32),intent(in) :: size1, size2, size3
+    real(real64),allocatable :: array(:,:,:)
+
+    allocate(array(size1, size2,size3) )
+    array(:,:,:) = 1.0d0
+
+end function
+
+! ############################################################
+
 ! ############################################################
 pure function zerosRealArray4(size1, size2,size3,size4) result(array)
     integer(int32),intent(in) :: size1, size2,size3,size4
@@ -5011,6 +5067,21 @@ pure function zerosRealArray4(size1, size2,size3,size4) result(array)
 end function
 
 ! ############################################################
+
+
+! ############################################################
+pure function onesRealArray4(size1, size2,size3,size4) result(array)
+    integer(int32),intent(in) :: size1, size2,size3,size4
+    real(real64),allocatable :: array(:,:,:,:)
+
+    allocate(array(size1, size2, size3, size4) )
+    array(:,:, :, :) = 1.0d0
+
+end function
+
+! ############################################################
+
+
 
 ! ############################################################
 pure function zerosRealArray5(size1, size2,size3,size4,size5) result(array)
@@ -5024,6 +5095,20 @@ end function
 
 ! ############################################################
 
+
+! ############################################################
+pure function onesRealArray5(size1, size2,size3,size4,size5) result(array)
+    integer(int32),intent(in) :: size1, size2,size3,size4,size5
+    real(real64),allocatable :: array(:,:,:,:,:)
+
+    allocate(array(size1, size2,size3,size4,size5) )
+    array(:,:,:,:,:) = 1.0d0
+
+end function
+
+! ############################################################
+
+
 ! ############################################################
 
 pure function zerosRealVector_64(size1) result(vector)
@@ -5035,6 +5120,16 @@ pure function zerosRealVector_64(size1) result(vector)
 
 end function zerosRealVector_64
 
+! ############################################################
+
+pure function onesRealVector_64(size1) result(vector)
+    integer(int64),intent(in) :: size1
+    real(real64),allocatable :: vector(:)
+
+    allocate(vector(size1) )
+    vector(:) = 1.0d0
+
+end function onesRealVector_64
 !############################################################
 pure function zerosRealArray_64(size1, size2) result(array)
     integer(int64),intent(in) :: size1, size2
@@ -5047,6 +5142,17 @@ end function
 
 ! ############################################################
 
+!############################################################
+pure function onesRealArray_64(size1, size2) result(array)
+    integer(int64),intent(in) :: size1, size2
+    real(real64),allocatable :: array(:,:)
+
+    allocate(array(size1, size2) )
+    array(:,:) = 1.0d0
+
+end function
+
+! ############################################################
 
 ! ############################################################
 pure function zerosRealArray3_64(size1, size2,size3) result(array)
@@ -5055,6 +5161,18 @@ pure function zerosRealArray3_64(size1, size2,size3) result(array)
 
     allocate(array(size1, size2,size3) )
     array(:,:,:) = 0.0d0
+
+end function
+
+! ############################################################
+
+! ############################################################
+pure function onesRealArray3_64(size1, size2,size3) result(array)
+    integer(int64),intent(in) :: size1, size2, size3
+    real(real64),allocatable :: array(:,:,:)
+
+    allocate(array(size1, size2,size3) )
+    array(:,:,:) = 1.0d0
 
 end function
 
@@ -5073,12 +5191,36 @@ end function
 ! ############################################################
 
 ! ############################################################
+pure function onesRealArray4_64(size1, size2,size3,size4) result(array)
+    integer(int64),intent(in) :: size1, size2,size3,size4
+    real(real64),allocatable :: array(:,:,:,:)
+
+    allocate(array(size1, size2, size3, size4) )
+    array(:,:, :, :) = 1.0d0
+
+end function
+
+! ############################################################
+
+! ############################################################
 pure function zerosRealArray5_64(size1, size2,size3,size4,size5) result(array)
     integer(int64),intent(in) :: size1, size2,size3,size4,size5
     real(real64),allocatable :: array(:,:,:,:,:)
 
     allocate(array(size1, size2,size3,size4,size5) )
     array(:,:,:,:,:) = 0.0d0
+
+end function
+
+! ############################################################
+
+! ############################################################
+pure function onesRealArray5_64(size1, size2,size3,size4,size5) result(array)
+    integer(int64),intent(in) :: size1, size2,size3,size4,size5
+    real(real64),allocatable :: array(:,:,:,:,:)
+
+    allocate(array(size1, size2,size3,size4,size5) )
+    array(:,:,:,:,:) = 1.0d0
 
 end function
 
@@ -5258,6 +5400,24 @@ subroutine zerosRealArrayArrayClass(array,size1, size2)
 
     allocate(array%reala(n,m) )
     array%reala(:,:) = 0.0d0
+
+end subroutine
+! ############################################################
+
+
+! ############################################################
+subroutine onesRealArrayArrayClass(array,size1, size2)
+    class(Array_),intent(inout) :: array
+    integer(int32),optional,intent(in) :: size1, size2
+    integer(int32) :: n,m
+
+    n=input(default=1,option=size1)
+    m=input(default=1,option=size2)
+    
+    if(allocated(array%reala) ) deallocate(array%reala)
+
+    allocate(array%reala(n,m) )
+    array%reala(:,:) = 1.0d0
 
 end subroutine
 ! ############################################################
@@ -6876,6 +7036,7 @@ function I_dx_real64(x,fx,f0) result(I_df)
     else
         I_df(1) = 0.0d0
     endif
+    
     do i=2,size(x)
         I_df(i) = I_df(i-1) + 0.50d0*(fx(i) + fx(i-1) )*abs( x(i)-x(i-1) )
     enddo
@@ -8177,6 +8338,375 @@ function project_real64_vectorArray(master_seq,slave_seq) result(proj_xy)
 
 end function
 
+
+! ######################################################
+function select_id_if(vec,condition,threshold) result(ids)
+    real(real64),intent(in) :: vec(:)
+    character(*),intent(in) :: condition
+    real(real64),intent(in) :: threshold
+    integer(int32),allocatable :: ids(:)
+    integer(int32) :: i,n
+    
+    select case(condition)
+        case default
+            print *, "ERROR >> select_id_if >>  no such condition as",condition 
+        case(">")
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)>threshold )then
+                    n = n + 1
+                endif
+            enddo
+            ids = [(0,i=1,n)]
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)>threshold )then
+                    n = n + 1
+                    ids(n) = i
+                endif
+            enddo
+        case(">=")
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)>=threshold )then
+                    n = n + 1
+                endif
+            enddo
+            ids = [(0,i=1,n)]
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)>=threshold )then
+                    n = n + 1
+                    ids(n) = i
+                endif
+            enddo
+        case("<")
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)<threshold )then
+                    n = n + 1
+                endif
+            enddo
+            ids = [(0,i=1,n)]
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)<threshold )then
+                    n = n + 1
+                    ids(n) = i
+                endif
+            enddo
+            
+        case("<=")
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)<=threshold )then
+                    n = n + 1
+                endif
+            enddo
+            ids = [(0,i=1,n)]
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)<=threshold )then
+                    n = n + 1
+                    ids(n) = i
+                endif
+            enddo
+    end select
+end function
+    
+
+
+function select_if(vec,condition,threshold) result(values)
+    real(real64),intent(in) :: vec(:)
+    character(*),intent(in) :: condition
+    real(real64),intent(in) :: threshold
+    real(real64),allocatable :: values(:)
+    integer(int32) :: i,n
+    
+    select case(condition)
+        case default
+            print *, "ERROR >> select_id_if >>  no such condition as",condition 
+        case(">")
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)>threshold )then
+                    n = n + 1
+                endif
+            enddo
+            values = zeros(n)
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)>threshold )then
+                    n = n + 1
+                    values(n) = vec(i)
+                endif
+            enddo
+        case(">=")
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)>=threshold )then
+                    n = n + 1
+                endif
+            enddo
+            values = zeros(n)
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)>=threshold )then
+                    n = n + 1
+                    values(n) = vec(i)
+                endif
+            enddo
+        case("<")
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)<threshold )then
+                    n = n + 1
+                endif
+            enddo
+            values = zeros(n)
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)<threshold )then
+                    n = n + 1
+                    values(n) = vec(i)
+                endif
+            enddo
+            
+        case("<=")
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)<=threshold )then
+                    n = n + 1
+                endif
+            enddo
+            values = zeros(n)
+            n = 0
+            do i=1,size(vec)
+                if(vec(i)<=threshold )then
+                    n = n + 1
+                    values(n) = vec(i)
+                endif
+            enddo
+    end select
+end function
+
+! ########################################################
+function hstack_real64A2_real64A2(a,b) result(a_b)
+    real(real64),intent(in) :: a(:,:), b(:,:)
+    real(real64),allocatable :: a_b(:,:)
+    integer(int32) :: row,col
+
+    row = maxval([ size(a,1),size(b,1)  ])
+    col =    sum([ size(a,2),size(b,2)  ])
+    allocate(a_b(row,col)  )
+    a_b(:,:) = 0.0d0
+    a_b( 1:size(a,1),1:size(a,2) ) = a(:,:)
+    a_b( 1:size(b,1),size(a,2)+1:size(a,2)+size(b,2) ) = b(:,:)
+    
+
+end function
+! ########################################################
+
+! ########################################################
+function hstack_real64V_real64A2(a,b) result(a_b)
+    real(real64),intent(in) :: a(:), b(:,:)
+    real(real64),allocatable :: a_b(:,:),aa(:,:)
+    integer(int32) :: row,col
+
+    allocate(aa(size(a,1),1 ) )
+    aa(:,1) = a(:)
+    a_b = aa .h. b
+    
+
+end function
+! ########################################################
+
+! ########################################################
+function hstack_real64A2_real64V(a,b) result(a_b)
+    real(real64),intent(in) :: a(:,:), b(:)
+    real(real64),allocatable :: a_b(:,:),bb(:,:)
+    integer(int32) :: row,col
+
+    allocate(bb(size(b,1),1 ) )
+    bb(:,1) = b(:)
+    a_b = a .h. bb
+    
+
+end function
+! ########################################################
+
+
+! ########################################################
+function hstack_real64V_real64V(a,b) result(a_b)
+    real(real64),intent(in) :: a(:), b(:)
+    real(real64),allocatable :: a_b(:,:)
+    integer(int32) :: n,m
+
+    n = maxval([size(a),size(b) ])
+    m = 2
+    allocate(a_b(n,m))
+    
+    a_b(:,:) = 0.0d0
+    a_b(1:size(a),1) = a(:)
+    a_b(1:size(b),2) = b(:)
+
+
+end function
+! ########################################################
+
+! ########################################################
+function hstack_int32A2_int32A2(a,b) result(a_b)
+    integer(int32),intent(in) :: a(:,:), b(:,:)
+    integer(int32),allocatable :: a_b(:,:)
+    integer(int32) :: row,col
+
+    row = maxval([ size(a,1),size(b,1)  ])
+    col =    sum([ size(a,2),size(b,2)  ])
+    allocate(a_b(row,col)  )
+    a_b(:,:) = 0
+    a_b( 1:size(a,1),1:size(a,2) ) = a(:,:)
+    a_b( 1:size(b,1),size(a,2)+1:size(a,2)+size(b,2) ) = b(:,:)
+    
+
+end function
+! ########################################################
+
+
+! ########################################################
+function hstack_int32V_int32A2(a,b) result(a_b)
+    integer(int32),intent(in) :: a(:), b(:,:)
+    integer(int32),allocatable :: a_b(:,:),aa(:,:)
+    integer(int32) :: row,col
+
+    allocate(aa(size(a,1),1 ) )
+    aa(:,1) = a(:)
+    a_b = aa .h. b
+    
+
+end function
+! ########################################################
+
+! ########################################################
+function hstack_int32A2_int32V(a,b) result(a_b)
+    integer(int32),intent(in) :: a(:,:), b(:)
+    integer(int32),allocatable :: a_b(:,:),bb(:,:)
+    integer(int32) :: row,col
+
+    allocate(bb(size(b,1),1 ) )
+    bb(:,1) = b(:)
+    a_b = a .h. bb
+    
+
+end function
+! ########################################################
+
+
+
+
+
+
+! ########################################################
+function vstack_real64A2_real64A2(a,b) result(a_b)
+    real(real64),intent(in) :: a(:,:), b(:,:)
+    real(real64),allocatable :: a_b(:,:)
+    integer(int32) :: row,col
+
+    row =    sum([ size(a,1),size(b,1)  ])
+    col = maxval([ size(a,2),size(b,2)  ])
+    allocate(a_b(row,col)  )
+    a_b(:,:) = 0.0d0
+    a_b(           1:          size(a,1),1:size(a,2) ) = a(:,:)
+    a_b( size(a,1)+1:size(a,1)+size(b,1),1:size(b,2) ) = b(:,:)
+    
+
+end function
+! ########################################################
+
+
+! ########################################################
+function vstack_real64V_real64A2(a,b) result(a_b)
+    real(real64),intent(in) :: a(:), b(:,:)
+    real(real64),allocatable :: a_b(:,:),aa(:,:)
+    integer(int32) :: row,col
+
+    allocate(aa(size(a,1),1 ) )
+    aa(:,1) = a(:)
+    a_b = aa .v. b
+    
+
+end function
+! ########################################################
+
+! ########################################################
+function vstack_real64A2_real64V(a,b) result(a_b)
+    real(real64),intent(in) :: a(:,:), b(:)
+    real(real64),allocatable :: a_b(:,:),bb(:,:)
+    integer(int32) :: row,col
+
+    allocate(bb(size(b,1),1 ) )
+    bb(:,1) = b(:)
+    a_b = a .v. bb
+    
+
+end function
+! ########################################################
+
+
+! ########################################################
+function vstack_real64V_real64V(a,b) result(a_b)
+    real(real64),intent(in) :: a(:), b(:)
+    real(real64),allocatable :: a_b(:)
+    
+    a_b = a // b
+
+end function
+! ########################################################
+
+function vstack_int32A2_int32A2(a,b) result(a_b)
+    integer(int32),intent(in) :: a(:,:), b(:,:)
+    integer(int32),allocatable :: a_b(:,:)
+    integer(int32) :: row,col
+
+    row =    sum([ size(a,1),size(b,1)  ])
+    col = maxval([ size(a,2),size(b,2)  ])
+    allocate(a_b(row,col)  )
+    a_b(:,:) = 0
+    a_b(           1:          size(a,1),1:size(a,2) ) = a(:,:)
+    a_b( size(a,1)+1:size(a,1)+size(b,1),1:size(b,2) ) = b(:,:)
+    
+
+end function
+! ########################################################
+
+
+
+! ########################################################
+function vstack_int32V_int32A2(a,b) result(a_b)
+    integer(int32),intent(in) :: a(:), b(:,:)
+    integer(int32),allocatable :: a_b(:,:),aa(:,:)
+    integer(int32) :: row,col
+
+    allocate(aa(size(a,1),1 ) )
+    aa(:,1) = a(:)
+    a_b = aa .v. b
+    
+
+end function
+! ########################################################
+
+! ########################################################
+function vstack_int32A2_int32V(a,b) result(a_b)
+    integer(int32),intent(in) :: a(:,:), b(:)
+    integer(int32),allocatable :: a_b(:,:),bb(:,:)
+    integer(int32) :: row,col
+
+    allocate(bb(size(b,1),1 ) )
+    bb(:,1) = b(:)
+    a_b = a .v. bb
+    
+
+end function
+! ########################################################
 
 
 end module ArrayClass

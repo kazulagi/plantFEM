@@ -41,11 +41,17 @@ module RootClass
         real(real64),allocatable :: YoungModulus(:)! element-wise
         real(real64),allocatable :: PoissonRatio(:)! element-wise
         real(real64),allocatable :: Density(:)     ! element-wise
+        real(real64),allocatable :: CarbonDiffusionCoefficient(:)
         real(real64),allocatable :: Stress(:,:,:)     ! Gauss point-wise
         real(real64),allocatable :: Displacement(:,:) ! node-wise, three dimensional
 
+
         real(real64),allocatable :: BoundaryTractionForce(:,:) ! node-wise, three dimensional
         real(real64),allocatable :: BoundaryDisplacement(:,:) ! node-wise, three dimensional
+        
+        ! physiological factor
+        real(real64) :: R_d=1.0d0 ! 暗呼吸速度, mincro-mol/m-2/s
+        real(real64) :: default_CarbonDiffusionCoefficient=0.0010d0 ! ソースの拡散係数 mincro-mol/m^2/m/s
         
         ! for growth simulation
         logical :: already_grown = .false.
@@ -83,6 +89,10 @@ module RootClass
 
         ! MPI
         procedure, public :: sync => syncRoot
+
+
+        procedure,public :: nn => nnRoot
+        procedure,public :: ne => neRoot
 
         procedure, public :: remove => removeRoot
     end type
@@ -403,6 +413,7 @@ subroutine initRoot(obj,config,regacy,Thickness,length,width,MaxThickness,&
         endif
     endif
 
+    obj%CarbonDiffusionCoefficient = obj%default_CarbonDiffusionCoefficient*ones(obj%femdomain%ne() )
 
 end subroutine 
 ! ########################################
@@ -774,6 +785,8 @@ subroutine syncRoot(obj,from,mpid)
     call mpid%bcast(from=from,val=obj%YoungModulus)!(:)! element-wise
     call mpid%bcast(from=from,val=obj%PoissonRatio)!(:)! element-wise
     call mpid%bcast(from=from,val=obj%Density)!(:)     ! element-wise
+    call mpid%bcast(from=from,val=obj%CarbonDiffusionCoefficient)!(:)     ! element-wise
+    
     call mpid%bcast(from=from,val=obj%Stress)!(:,:,:)     ! Gauss point-wise
     call mpid%bcast(from=from,val=obj%Displacement)!(:,:) ! node-wise, three dimensional
 
@@ -868,6 +881,7 @@ subroutine removeRoot(this)
     if(allocated(this%YoungModulus)) deallocate(this%YoungModulus)! (:)! element-wise
     if(allocated(this%PoissonRatio)) deallocate(this%PoissonRatio)! (:)! element-wise
     if(allocated(this%Density)) deallocate(this%Density)! (:)     ! element-wise
+    if(allocated(this%CarbonDiffusionCoefficient)) deallocate(this%CarbonDiffusionCoefficient)! (:)     ! element-wise
     if(allocated(this%Stress)) deallocate(this%Stress)! (:,:,:)     ! Gauss point-wise
     if(allocated(this%Displacement)) deallocate(this%Displacement)! (:,:) ! node-wise, three dimensional
 
@@ -882,5 +896,22 @@ subroutine removeRoot(this)
 
 
 end subroutine
+
+
+function nnRoot(this) result(ret)
+    class(Root_),intent(in) :: this
+    integer(int32) :: ret
+
+    ret = this%femdomain%nn()
+end function
+
+
+
+function neRoot(this) result(ret)
+    class(Root_),intent(in) :: this
+    integer(int32) :: ret
+
+    ret = this%femdomain%ne()
+end function
 
 end module

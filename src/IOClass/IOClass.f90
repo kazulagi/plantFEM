@@ -217,6 +217,8 @@ module IOClass
             procedure,public :: readline => readlineIO
             
             procedure,public :: close => closeIO    
+
+            procedure,public :: to_Array =>to_Array_real64_ArrayClass
         end type
     
         interface to_vector
@@ -369,6 +371,11 @@ module IOClass
         integer(int32) :: line
         character(len=1) :: content
     
+        if(.not.f%exists(name) )then
+            print *, "[ERROR] numLineIO >> no such file named ",name
+            stop
+        endif
+
         call f%open(name)
         
         line=1
@@ -3576,5 +3583,87 @@ subroutine downloadIO(this,from)
     call system("wget "+from)
 
 end subroutine
+
+! #######################################################
+
+! #####################################
+function to_Array_real64_ArrayClass(this,name,column,header,upsampling) result(ret)
+    class(IO_),intent(inout) :: this
+    character(*),intent(in) :: name
+    integer(int32),intent(in) :: column(:),header
+    integer(int32),optional,intent(in) :: upsampling
+    real(real64),allocatable :: ret(:,:),col(:),buf(:,:)
+    character(200) :: charbuf
+    integer(int32) :: i,j,k,n
+
+    if(this%active)then
+        ! opened
+        print *, "[ERROR] to_Array_real64_ArrayClass >> this should be closed." 
+        stop
+    else
+
+        n = this%numLine(name)   
+
+        if(.not.this%exists(name) )then
+            print *, "[ERROR] numLineIO >> no such file named ",name
+            stop
+        endif
+        allocate(ret(n-header,size(column) ))
+        allocate(col(maxval(column)) )
+        call this%open(name,"r")
+        ! read header
+        do i=1,header
+            read(this%fh,*) charbuf
+        enddo
+        do i=1,n-header
+            read(this%fh,*) col(:)
+            do j=1,size(column)
+                ret(i,j) = col(column(j))
+            enddo
+        enddo
+        call this%close()
+
+        if(present(upsampling) )then
+            buf = ret
+            ret = to_upsampling_ioclass(buf,upsampling=upsampling)
+        endif
+        
+    endif
+
+
+end function
+
+! #############################################################
+function to_upsampling_ioclass(dataframe,upsampling) result(ret)
+    real(Real64),intent(in) :: dataframe(:,:)
+    integer(int32),intent(in) :: upsampling
+    integer(int32) :: i,j,n
+    real(real64),allocatable :: ret(:,:)
+
+    allocate(ret( size(dataframe,1)*upsampling,size(dataframe,2)  ) )
+    if(upsampling==1)then
+        ret = dataframe
+    elseif(upsampling==2)then
+        ! double
+        n = size(dataframe,1)
+        
+        i = 1
+        ret(  i*2,: ) = dataframe(i,:)
+        ret(  i*2-1,: ) = (dataframe(i,:)+dataframe(n,:))/2
+        !$OMP parallel do 
+        do i=2,size(dataframe,1)
+            ret(  i*2,: ) = dataframe(i,:)
+            ret(  i*2-1,: ) = (dataframe(i,:)+dataframe(i-1,:))/2
+        enddo
+        !$OMP end parallel do
+    else
+        print *, "[ERROR] to_upsampling_ioclass >> NOT implemented yet."
+        stop
+    endif
+
+    
+
+
+end function
 
 end module IOClass

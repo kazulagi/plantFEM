@@ -74,7 +74,7 @@ do
             echo "$line" >> "__server__.f90"
             if [ "$line" = "end" ]; then
                 #echo "end" >> "__server__.f90"
-                $mpif90  -llapack -lblas -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc __server__.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc  -o  ./__server__.out -llapack -lblas
+                $mpif90  -llapack -lblas -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc __server__.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc  -o  ./__server__.out -llapack -lblas  
                 mpirun   -np "$numcore"  ./__server__.out
                 break
             fi
@@ -143,7 +143,7 @@ do
             echo "Compiling /opt/plantfem/$addonpath/$line.f90      "
             echo " >> $line.o"
             echo " | ########################### | (100%)\r\c "
-            mpif90  -llapack -lblas -fopenmp -shared -fPIC -g -fcheck=all  -c /opt/plantfem/$addonpath/$line.f90 -o  /opt/plantfem/inc/$line.o -llapack -lblas
+            mpif90  -llapack -lblas -fopenmp -shared -fPIC -g -fcheck=all  -c /opt/plantfem/$addonpath/$line.f90 -o  /opt/plantfem/inc/$line.o -llapack -lblas  
         done < /opt/plantfem/aps.txt
         echo " "
         rm ap.txt
@@ -442,7 +442,7 @@ do
     if [ "$commandl" = "build" ]; then
         python3 /opt/plantfem/bin/check_end.py
         #cp server.f90 /opt/plantfem/server.f90
-        $mpif90  -llapack -lblas -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc/  -o server.out -llapack -lblas 
+        $mpif90  -llapack -lblas -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc/  -o server.out -llapack -lblas  
         #echo "Current num of cpu-core is :: $numcore "
         
         continue

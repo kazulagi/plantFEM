@@ -26,6 +26,9 @@ module FEMSolverClass
         integer(int32),allocatable :: CRS_Index_Col(:)
         integer(int32),allocatable :: CRS_Index_Row(:)
         real(real64),allocatable :: CRS_RHS(:)
+
+        integer(int32),allocatable :: number_of_element_per_domain(:)
+        integer(int32),allocatable :: number_of_point_per_domain(:)
         
         !> General Eigen Value Problem
         !> [A]{x} = (lambda)[B]{x}
@@ -73,6 +76,12 @@ module FEMSolverClass
         integer(int32) :: LOBPCG_MAX_ITR = 100000
         real(real64)   :: LOBPCG_TOL     = dble(1.0e-6)
         integer(int32) :: LOBPCG_NUM_MODE= 5
+
+        !!! stack for CRS matrices
+        type(CRS_),allocatable :: CRS_matrix_stack(:)
+        type(Dictionary_)      :: CRS_matrix_stack_key
+        integer(int32) :: LAST_CRS_MATRIX_STACK=0
+
     contains
         !(1) Initialize solver
         procedure,public ::  init => initFEMSolver
@@ -156,21 +165,38 @@ module FEMSolverClass
     end interface reverseVector
 contains
 
-recursive subroutine initFEMSolver(this,NumDomain,FEMDomains,DomainIDs,DOF,MPI_target)
+recursive subroutine initFEMSolver(this,NumDomain,FEMDomains,DomainIDs,DOF,MPI_target,&
+    NUM_CRS_MATRIX_STACK)
     class(FEMSolver_),intent(inout) :: this
     ! two-way
     integer(int32),optional,intent(in) :: numDomain
     ! optional
     ! you can bypass solver%setDomain and solver%setCRS
     type(FEMDomain_),optional,intent(in) :: FEMDomains(:)
-    integer(int32),optional,intent(in) :: DomainIDs(:), DOF
+    integer(int32),optional,intent(in) :: DomainIDs(:), DOF,NUM_CRS_MATRIX_STACK
     
 
     ! useless
     type(MPI_),optional,target,intent(in) :: MPI_target
-    integer(int32) :: i
+    integer(int32) :: i,np
     integeR(int32),allocatable :: default_DomainIDs(:)
 
+    if(present(FEMDomains) )then
+        this%number_of_element_per_domain = int(zeros(size(FEMDomains) ))
+        do i=1,size(FEMDomains)
+            this%number_of_element_per_domain(i) = FEMDomains(i)%ne()
+            this%number_of_point_per_domain(i) = FEMDomains(i)%nn()
+        enddo
+    endif
+
+    if(allocated(this%CRS_matrix_stack)) deallocate(this%CRS_matrix_stack)
+    
+    np = input(default=10,option=NUM_CRS_MATRIX_STACK)
+    allocate(this%CRS_matrix_stack(np) )
+    call this%CRS_matrix_stack_key%init(np)
+    this%LAST_CRS_MATRIX_STACK=0
+
+    
     if(present(FEMDomains) )then
         if(present(DomainIDs) .and. present(DOF) )then
             ! bypass mode
@@ -1017,7 +1043,7 @@ subroutine setValueFEMSolver(this,DomainID,ElementID,DOF,Matrix,Vector,as_Dense)
                             endif
                         enddo
                         if(id==-1)then
-                            print *, "[ERROR] :: No memory is allocated in CRS format for "
+                            print *, "[ERROR] ::setValueFEMSolver (fill-in request) No memory is allocated in CRS format for "
                             print *, "Domain  : ",DomainID
                             print *, "Element : ",ElementID
                             print *, "Nodes    : ",i,ii
@@ -1054,12 +1080,22 @@ subroutine fixFEMSolver(this,DomainID,IDs,FixValue,FixValues)
 
     real(real64),optional,intent(in) :: FixValue
     real(real64),optional,intent(in) :: FixValues(:)
-    integer(int32),intent(in) :: DomainID
+    integer(int32),optional,intent(in) :: DomainID
     integer(int32),intent(in) :: IDs(:)
 
     integer(int32),allocatable :: buf(:)
-    integer(int32),allocatable :: buf_real(:)
-    integer(int32) :: i, n
+    integer(int32),allocatable :: buf_real(:),ned(:)
+    integer(int32) :: i, n, offset
+
+    offset = 0
+    if(present(DomainID) )then
+        ned = this%number_of_point_per_domain
+        if(DomainID>=2)then
+            do i=1,DomainID-1
+                offset = offset + ned(i)
+            enddo
+        endif
+    endif
 
     ! fix unknowns for linear solvers
     ! fix IDs(:)-th amplitudes as zero (Fixed boundary)
@@ -1079,11 +1115,11 @@ subroutine fixFEMSolver(this,DomainID,IDs,FixValue,FixValues)
             
             this%fix_lin_exists( IDs(i)) = .true.
             if(present(FixValue) )then
-                this%fix_lin_exists_values(IDs(i)) = FixValue
+                this%fix_lin_exists_values(IDs(i)+offset) = FixValue
             elseif(present(FixValues) )then
-                this%fix_lin_exists_values(IDs(i)) = FixValues(i)
+                this%fix_lin_exists_values(IDs(i)+offset) = FixValues(i)
             else
-                this%fix_lin_exists_values( IDs(i) ) = 0.0d0
+                this%fix_lin_exists_values( IDs(i)+offset ) = 0.0d0
             endif
 
         enddo
@@ -1093,11 +1129,11 @@ subroutine fixFEMSolver(this,DomainID,IDs,FixValue,FixValues)
             if(IDs(i)< 1 ) cycle
             this%fix_lin_exists( IDs(i) ) = .true.
             if(present(FixValue) )then
-                this%fix_lin_exists_values( IDs(i) ) = FixValue
+                this%fix_lin_exists_values( IDs(i)+offset) = FixValue
             elseif(present(FixValues) )then
-                this%fix_lin_exists_values( IDs(i) ) = FixValues(i)
+                this%fix_lin_exists_values( IDs(i)+offset ) = FixValues(i)
             else
-                this%fix_lin_exists_values( IDs(i) ) = 0.0d0
+                this%fix_lin_exists_values( IDs(i)+offset ) = 0.0d0
             endif
         enddo
     endif
@@ -1513,26 +1549,60 @@ end subroutine
 
 subroutine keepThisMatrixAsFEMSolver(this,As)
     class(FEMSolver_),intent(inout) :: this
-    character(1),intent(in) :: As ! [A] or [B]
+    character(*),intent(in) :: As ! any length
+    integer(int32) :: i
+    !character(1),intent(in) :: As ! [A] or [B]
 
-    if(As == "A")then
-        this%A_CRS_Index_Col = this%CRS_Index_Col
-        this%A_CRS_Index_Row = this%CRS_Index_Row
-        this%A_CRS_val       = this%CRS_val
-        this%A_empty         = .false. 
-        return
+
+!    if(As == "A")then
+!        this%A_CRS_Index_Col = this%CRS_Index_Col
+!        this%A_CRS_Index_Row = this%CRS_Index_Row
+!        this%A_CRS_val       = this%CRS_val
+!        this%A_empty         = .false. 
+!        return
+!    endif
+!    
+!    if(As == "B")then
+!        this%B_CRS_Index_Col = this%CRS_Index_Col
+!        this%B_CRS_Index_Row = this%CRS_Index_Row
+!        this%B_CRS_val       = this%CRS_val
+!        this%B_empty         = .false.
+!        return
+!    endif
+
+    ! for other cases:
+
+    if(this%LAST_CRS_MATRIX_STACK==0)then
+        this%CRS_matrix_stack(1)%row_ptr = this%CRS_Index_Row
+        this%CRS_matrix_stack(1)%col_idx = this%CRS_Index_Col
+        this%CRS_matrix_stack(1)%val     = this%CRS_Val
+        this%CRS_matrix_stack_key%Dictionary(1)%charvalue = As
+        this%LAST_CRS_MATRIX_STACK = 1
+    else
+        do i=1,this%LAST_CRS_MATRIX_STACK
+            if(this%CRS_matrix_stack_key%Dictionary(i)%charvalue == As)then
+                this%CRS_matrix_stack(i)%row_ptr = this%CRS_Index_Row
+                this%CRS_matrix_stack(i)%col_idx = this%CRS_Index_Col
+                this%CRS_matrix_stack(i)%val     = this%CRS_Val
+                return
+            else
+                cycle
+            endif
+        enddo
+        this%LAST_CRS_MATRIX_STACK = this%LAST_CRS_MATRIX_STACK + 1
+
+        if(size(this%CRS_matrix_stack)<this%LAST_CRS_MATRIX_STACK) then
+            print *, "[ERROR] keepThisMatrixAsFEMSolver size(this%CRS_matrix_stack)<this%LAST_CRS_MATRIX_STACK)" 
+            stop 
+        else
+            i = this%LAST_CRS_MATRIX_STACK
+            this%CRS_matrix_stack(i)%row_ptr = this%CRS_Index_Row
+            this%CRS_matrix_stack(i)%col_idx = this%CRS_Index_Col
+            this%CRS_matrix_stack(i)%val     = this%CRS_Val
+            this%CRS_matrix_stack_key%Dictionary(i)%charvalue = As
+        endif
+
     endif
-    
-    if(As == "B")then
-        this%B_CRS_Index_Col = this%CRS_Index_Col
-        this%B_CRS_Index_Row = this%CRS_Index_Row
-        this%B_CRS_val       = this%CRS_val
-        this%B_empty         = .false.
-        return
-    endif
-    
-    print *, "As = A or B"
-    stop 
 
 end subroutine
 
@@ -2439,19 +2509,35 @@ pure function getCRSFEMSolver(this,name) result(ret)
     class(FEMSolver_),intent(in) :: this
     character(*),optional,intent(in) :: name
     type(CRS_) :: ret
+    integer(int32) :: i
+
 
     if(present(name) )then
-        select case(name)
-            case("A","a","K","StiffnessMatrix")
-                ret%col_idx = this%A_CRS_Index_Col
-                ret%row_ptr = this%A_CRS_Index_Row
-                ret%val     = this%A_CRS_val
-            
-            case("B","b","M","MassMatrix")
-                ret%col_idx = this%B_CRS_Index_Col
-                ret%row_ptr = this%B_CRS_Index_Row
-                ret%val     = this%B_CRS_val
-        end select
+!        select case(name)
+!            case("A","a","K","StiffnessMatrix")
+!                ret%col_idx = this%A_CRS_Index_Col
+!                ret%row_ptr = this%A_CRS_Index_Row
+!                ret%val     = this%A_CRS_val
+!                return
+!            
+!            case("B","b","M","MassMatrix")
+!                ret%col_idx = this%B_CRS_Index_Col
+!                ret%row_ptr = this%B_CRS_Index_Row
+!                ret%val     = this%B_CRS_val
+!                return
+!
+!            case default
+                do i=1,this%LAST_CRS_MATRIX_STACK
+                    if(this%CRS_matrix_stack_key%Dictionary(i)%charvalue == name)then
+                        ret =  this%CRS_matrix_stack(i)
+                        return
+                    else
+                        cycle
+                    endif
+                enddo
+!                stop
+!
+!        end select
     else
         ret%col_idx = this%CRS_Index_Col
         ret%row_ptr = this%CRS_Index_Row

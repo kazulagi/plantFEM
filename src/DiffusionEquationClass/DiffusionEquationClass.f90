@@ -1,6 +1,7 @@
 module DiffusionEquationClass
     use, intrinsic :: iso_fortran_env
     use FEMDomainClass
+    use FEMSolverClass
     use PostProcessingClass
     use LinearSolverClass
     implicit none
@@ -8,6 +9,8 @@ module DiffusionEquationClass
     type:: DiffusionEq_
         ! For single-domain problem
         type(FEMDomain_),pointer ::FEMDomain
+        type(FEMDomainp_),allocatable :: FEMDomains
+        type(FEMSolver_) :: solver
         
         real(real64),allocatable ::UnknownValue(:,:)
         real(real64),allocatable ::UnknownVec(:)
@@ -24,7 +27,11 @@ module DiffusionEquationClass
         logical :: explicit = .false.
     contains
         procedure :: Setup => SetupDiffusionEq
-        procedure :: Solve => SolveDiffusionEq
+        
+        procedure,pass :: SolveDiffusionEq
+        generic :: solve => SolveDiffusionEq 
+        procedure,public :: getDiffusionField => Solve_oneline_DiffusionEq
+        
         procedure :: Update => UpdateDiffusionEq
 
         procedure :: GetMat => GetDiffusionMat
@@ -1237,7 +1244,84 @@ end subroutine
 !################## Elemental Entities ##################
 
 
+function Solve_oneline_DiffusionEq(this,FEMDomains,DiffusionCoeff,Reaction,penalty,&
+    FixBoundary,FixValue,C_n,dCdt,dt) result(C_field)
+    class(DiffusionEq_),intent(inout) :: this
+    type(FEMDomain_),intent(inout) :: FEMDomains(:)
+    real(real64),intent(in) :: DiffusionCoeff(:),Reaction(:),penalty,FixValue(:),&
+        C_n(:), dCdt(:),dt
+    integer(int32),intent(in) :: FixBoundary(:)    
+    real(real64),allocatable :: C_field(:),bvector(:)
+    integer(int32),allocatable :: NumberOfElement(:),overset_coeff(:)
 
+    integer(int32) :: total_ElementID,DomainID,ElementID,offset
+    type(CRS_) :: Mmatrix,Kmatrix,Amatrix
+
+    call this%solver%init(NumDomain=size(FEMDomains))
+    call this%solver%setDomain(FEMDomains=FEMDomains)
+    call this%solver%setCRS(DOF=1)
+
+    offset = 0
+    do DomainID=1,size(FEMDomains)
+        if(FEMDomains(DomainID)%empty() ) cycle
+        overset_coeff = FEMDomains(DomainID)%getNumberOfOversetForElement()
+        overset_coeff = overset_coeff + 1
+        do ElementID = 1, femdomains(DomainID)%ne()
+            call this%solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=1,&
+               Matrix=femdomains(DomainID)%MassMatrix(&
+                    ElementID=ElementID,&
+                    Density=1.0d0/overset_coeff(ElementID),&
+                    DOF=1 &
+               ) )
+        enddo
+        offset = offset + femdomains(DomainID)%ne()
+    enddo
+
+    call this%solver%keepThisMatrixAs("M")
+    call this%solver%zeros()
+    
+    offset = 0
+    do DomainID=1,size(FEMDomains)
+        overset_coeff = FEMDomains(DomainID)%getNumberOfOversetForElement()
+        overset_coeff = overset_coeff + 1
+        do ElementID = 1, FEMDomains(DomainID)%ne()
+            call this%solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=1,&
+               Matrix=FEMDomains(DomainID)%DiffusionMatrix(&
+                    ElementID=ElementID,&
+                    D=DiffusionCoeff( offset + ElementID)/overset_coeff(ElementID)    &
+               ) )
+            call this%solver%setVector(DomainID=DomainID,ElementID=ElementID,DOF=1,&
+                Vector=FEMDomains(DomainID)%MassVector(&
+                    ElementID=ElementID,&
+                    DOF=1,&
+                    Density= - Reaction( offset + ElementID )/overset_coeff(ElementID),&
+                    Accel=[1.0d0]/overset_coeff(ElementID)&
+                    ) & 
+                )
+        enddo
+        offset = offset + femdomains(DomainID)%ne()
+    enddo
+    
+    call this%solver%setEbOM(penalty=penalty, DOF=1)
+    call this%solver%keepThisMatrixAs("K")
+    call this%solver%zeros()
+    
+    Mmatrix = this%solver%getCRS("M")
+    Kmatrix = this%solver%getCRS("K")
+
+    ! Crank-Nicolson method
+    Amatrix = 2.0d0/dt*Mmatrix + Kmatrix
+    bvector = this%solver%CRS_RHS + Mmatrix%matmul(2.0d0/dt*C_n - dCdt) 
+    
+    call this%solver%setCRS(Amatrix)
+    call this%solver%setRHS(bvector)
+
+    call this%solver%fix(IDs=FixBoundary,FixValues=FixValue)
+    
+
+    C_field = this%solver%solve()
+    call this%solver%remove()
+end function
 
 
 end module DiffusionEquationClass

@@ -9,7 +9,7 @@ module obj
     use RidgeClass
     use AirClass
     use DamClass
-
+    use EnvironmentClass
     use LoggerClass
     use StemClass
     use PlantRootClass
