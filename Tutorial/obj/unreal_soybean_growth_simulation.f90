@@ -10,7 +10,6 @@ real(real64),allocatable :: Final_Length(:)
 
 call soy%init("Tutorial/obj/mini_soy.json")
 
-
 ! FinalLength:: InterNode
 Final_Length = linspace([0.030d0,0.060d0],30)
 call soy%setFinalInterNodeLength(Length=Final_Length,StemID=0)

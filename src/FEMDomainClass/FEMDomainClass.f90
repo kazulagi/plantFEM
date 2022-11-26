@@ -130,6 +130,7 @@ module FEMDomainClass
 		procedure,public :: addNBC => AddNBCFEMDomain 
 		procedure,public :: importLayer => importLayerFEMDomain
 
+
 		procedure,pass :: addLayerFEMDomain
 		procedure,pass :: addLayerFEMDomainScalar
 		procedure,pass :: addLayerFEMDomainVector
@@ -207,6 +208,8 @@ module FEMDomainClass
 		procedure,public :: getMyID => getMyIDFEMDomain
 		procedure,public :: getValue => getValueFEMDomain
 		procedure,public :: getStrainTensor => getStrainTensorFEMDomain
+		procedure,public :: getNumberOfOversetForElement => getNumberOfOversetForElementFEMDomain
+		
 
 		procedure,public :: getSurface => getSurfaceFEMDomain
 		procedure,public ::	NodeID => NodeIDFEMDomain
@@ -13484,6 +13487,20 @@ function getStrainTensorFEMDomain(this,displacement,ElementID,GaussPointID,debug
 
 end function
 
+function getNumberOfOversetForElementFEMDomain(this) result(ret)
+	class(FEMDomain_),intent(in) :: this
+	integer(int32),allocatable :: ret(:)
+	integer(int32) :: i,n
+
+	ret = int(zeros(this%ne() ) )
+	
+	if(.not.allocated(this%OversetConnect) ) return
+
+	do i=1,size(this%OversetConnect)
+		ret(this%OversetConnect(i)%ElementID)=ret(this%OversetConnect(i)%ElementID)+1
+	enddo
+
+end function
 
 end module FEMDomainClass
 

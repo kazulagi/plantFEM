@@ -8,6 +8,7 @@ module SoybeanClass
     use PlantNodeClass
     use StemClass
     use FEMSolverClass
+    use EnvironmentClass
     implicit none
 
     integer(int32),parameter :: PF_SOY_OBJECT_WISE  = 1
@@ -141,6 +142,7 @@ module SoybeanClass
         logical :: property_deform_material_density = .false.
         logical :: property_deform_material_YoungModulus = .false.
         logical :: property_deform_material_PoissonRatio = .false.
+        logical :: property_deform_material_CarbonDiffusionCoefficient = .false.
         logical :: property_deform_initial_Displacement = .false.
         logical :: property_deform_initial_Stress = .false.
         logical :: property_deform_boundary_TractionForce = .false.
@@ -191,6 +193,15 @@ module SoybeanClass
         real(real64) :: VC_leaf_width_sig     = 0.0005d0
         real(real64) :: VC_leaf_thickness_ave = 0.001d0
         real(real64) :: VC_leaf_thickness_sig = 0.00001d0
+
+        character(36) :: UUID
+
+
+        ! carbon flow and photosynthesis
+        ! carbon concentration (micro-gram/m^3) at apical
+        real(real64) :: apical_carbon_concentration = 0.01d0
+        real(real64),allocatable :: Photosynthate_n(:),&
+            delta_Photosynthate_dt_n(:)
 
     contains
         !procedure,public :: addRoot => addRootSoybean
@@ -268,6 +279,7 @@ module SoybeanClass
         procedure,public :: getVolume => getVolumeSoybean
         procedure,public :: getVolumePerElement => getVolumePerElementSoybean
         procedure,public :: getBioMass => getBioMassSoybean
+        procedure,public :: getElementBiomass => getElementBiomassSoybean
         procedure,public :: getTotalWeight => getTotalWeightSoybean
         procedure,public :: getSubDomain => getSubDomainSoybean
         procedure,public :: getSubDomainType => getSubDomainTypeSoybean
@@ -294,7 +306,11 @@ module SoybeanClass
         procedure,public :: getDisplacement => getDisplacementSoybean
         procedure,public :: getEigenMode => getEigenModeSoybean
         
-        procedure,public :: getPhotoSynthesis => getPhotoSynthesisSoybean
+        procedure,pass :: getPhotoSynthesisSoybean
+        procedure,pass :: getPhotoSynthesis_by_env_soybean
+        generic :: getPhotoSynthesis => getPhotoSynthesis_by_env_soybean,getPhotoSynthesisSoybean
+        
+
         procedure,public :: getPhotoSynthesisSpeedPerVolume => getPhotoSynthesisSpeedPerVolumeSoybean
         procedure,public :: getLeafArea => getLeafAreaSoybean
         procedure,public :: getIntersectLeaf => getIntersectLeafSoybean
@@ -376,6 +392,11 @@ module SoybeanClass
         procedure, pass :: setFinalLeafWidth       => setFinalLeafWidthSoybean
 
         
+
+        ! essential routines for growth simulation
+        procedure, pass :: getcarbon_concentration => getCarbon_concentrationSoybean
+        procedure, pass :: getRespiration => getRespirationSoybean
+        procedure, pass :: getCarbonFlow => getCarbonFlowSoybean
     end type
 
     type :: SoybeanCanopy_
@@ -462,6 +483,7 @@ subroutine VCSoybean(this)
     this%rootYoungModulus(:) = 1000.0d0
     this%stemYoungModulus(:) = 1000.0d0
     
+
     allocate(this%leafPoissonRatio(this%MaxLeafNum) )
     allocate(this%rootPoissonRatio(this%MaxrootNum) )
     allocate(this%stemPoissonRatio(this%MaxstemNum) )
@@ -963,7 +985,9 @@ subroutine initsoybean(obj,config,&
     type(Stem_) :: stem
     type(Leaf_) :: leaf
     type(Root_) :: root
+    
 
+    obj%UUID = generate_uuid(1)
 
     timeOpt = input(default=.false.,option=profiler)
 
@@ -2414,6 +2438,7 @@ subroutine initsoybean(obj,config,&
     !    print *, "rot",rot    
         call obj%update()
         call obj%fixReversedElements()
+
         
     endif
 
@@ -4580,6 +4605,52 @@ function getBiomassSoybean(obj,stem,leaf,root) result(ret)
 
 end function
 
+! ############################################################################
+function getElementBiomassSoybean(obj) result(ret)
+    class(Soybean_),intent(in) :: obj
+    integer(int32) :: i,j,itr
+    real(real64),allocatable :: ret(:)
+    real(real64) :: volume
+
+    ret = zeros(obj%ne())
+
+    itr = 0
+    do i=1,size(obj%stem)
+        if( .not.obj%stem(i)%femdomain%mesh%empty() )then
+            do j=1,obj%stem(i)%femdomain%ne()
+                volume = obj%stem(i)%femdomain%getVolume(elem=j)
+                ! total = total + solid(=drydensity * volume)
+                itr = itr + 1
+                ret(itr) = volume*obj%stem(i)%drydensity(j) 
+            enddo
+            
+        endif
+    enddo
+    do i=1,size(obj%leaf)
+        if( .not.obj%leaf(i)%femdomain%mesh%empty() )then
+            do j=1,obj%leaf(i)%femdomain%ne()
+                volume = obj%leaf(i)%femdomain%getVolume(elem=j)
+                ! total = total + solid(=drydensity * volume) 
+                itr = itr + 1
+                ret(itr) = volume*obj%leaf(i)%drydensity(j) 
+            enddo
+            
+        endif
+    enddo
+    do i=1,size(obj%root)
+        if( .not.obj%root(i)%femdomain%mesh%empty() )then
+            do j=1,obj%root(i)%femdomain%ne()
+                volume = obj%root(i)%femdomain%getVolume(elem=j)
+                ! total = total + solid(=drydensity * volume) 
+                itr = itr + 1
+                ret(itr) = volume*obj%root(i)%drydensity(j) 
+            enddo
+            
+        endif
+    enddo
+
+end function
+
 
 function getTotalWeightSoybean(obj,stem,leaf,root,waterDensity) result(ret)
     class(Soybean_),intent(in) :: obj
@@ -5335,6 +5406,8 @@ subroutine checkPropertiesSoybean(obj, Simulator)
             obj%property_deform_material_density
         print *, "property_deform_material_YoungModulus  |",&
             obj%property_deform_material_YoungModulus
+        print *, "property_deform_material_CarbonDiffusionCoefficient|",&
+            obj%property_deform_material_CarbonDiffusionCoefficient
         print *, "property_deform_material_PoissonRatio  |",&
             obj%property_deform_material_PoissonRatio
         print *, "property_deform_initial_Displacement   |",&
@@ -5362,6 +5435,8 @@ subroutine checkPropertiesSoybean(obj, Simulator)
             str(obj%property_deform_material_density)           )
         call f%write("property_deform_material_YoungModulus  |"// &
             str(obj%property_deform_material_YoungModulus)      )
+        call f%write("property_deform_material_CarbonDiffusionCoefficient  |"// &
+            str(obj%property_deform_material_CarbonDiffusionCoefficient)      )
         call f%write("property_deform_material_PoissonRatio  |"// &
             str(obj%property_deform_material_PoissonRatio)      )
         call f%write("property_deform_initial_Displacement   |"// &
@@ -5688,6 +5763,108 @@ subroutine setPropertiesYoungModulusSoybean(obj,default_value)
 
 end subroutine
 ! ##################################################################
+
+
+! ##################################################################
+subroutine setPropertiesCarbonDiffusionCoefficientSoybean(obj,default_value)
+    class(Soybean_),intent(inout) :: obj
+    real(real64),optional, intent(in) :: default_value
+    real(real64) :: defval
+    integer(int32) :: i,j
+    
+
+    defval = input(default=0.0d0,option=default_value)
+
+    if(allocated(obj%stem) )then
+        print *, "[ok] setPropertiesCarbonDiffusionCoefficientSoybean >> stems exist."
+        ! leaf exists
+        !!$OMP parallel do private(i)
+        do i=1,size(obj%stem)
+            if(obj%stem(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if stem(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%stem(i)%CarbonDiffusionCoefficient ))then
+                
+                    print *, "[ok] setPropertiesCarbonDiffusionCoefficientSoybean >> &
+                    stem("//str(i)//")%CarbonDiffusionCoefficient >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_material_CarbonDiffusionCoefficient = .true.
+                        
+                else
+
+                    ! CarbonDiffusionCoefficient is not allocated.
+                    
+                    obj%stem(i)%CarbonDiffusionCoefficient = zeros(obj%stem(i)%femdomain%ne())
+                    obj%stem(i)%CarbonDiffusionCoefficient = defval
+                endif
+            endif
+        enddo
+    endif   
+    
+    ! same as this
+    if(allocated(obj%root) )then
+        print *, "[ok] setPropertiesCarbonDiffusionCoefficientSoybean >> roots exist."
+        ! leaf exists
+        !!$OMP parallel do private(i)
+        do i=1,size(obj%root)
+            if(obj%root(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if root(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%root(i)%CarbonDiffusionCoefficient ))then
+                
+                    print *, "[ok] setPropertiesCarbonDiffusionCoefficientSoybean &
+                    >> root("//str(i)//")%CarbonDiffusionCoefficient >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_material_CarbonDiffusionCoefficient = .true.
+                        
+                else
+
+                    ! CarbonDiffusionCoefficient is not allocated.
+                    
+                    obj%root(i)%CarbonDiffusionCoefficient = zeros(obj%root(i)%femdomain%ne())
+                    obj%root(i)%CarbonDiffusionCoefficient = defval
+                endif
+            endif
+        enddo
+    endif
+
+    ! same for leaf
+    if(allocated(obj%leaf) )then
+        print *, "[ok] setPropertiesCarbonDiffusionCoefficientSoybean >> leafs exist."
+        ! leaf exists
+        !!$OMP parallel do private(i)
+        do i=1,size(obj%leaf)
+            if(obj%leaf(i)%empty() )then
+                cycle
+            else
+                ! allocate youngmoludus if leaf(i) exists and not allocated
+                ! the default value is defval
+                if( allocated(obj%leaf(i)%CarbonDiffusionCoefficient ))then
+            
+                    print *, "[ok] setPropertiesCarbonDiffusionCoefficientSoybean &
+                    >> leaf("//str(i)//")%CarbonDiffusionCoefficient >> allocated"
+                    ! then ok. let's return
+                    obj%property_deform_material_CarbonDiffusionCoefficient = .true.
+                        
+                else
+                    ! CarbonDiffusionCoefficient is not allocated.
+                    
+                    obj%leaf(i)%CarbonDiffusionCoefficient = zeros(obj%leaf(i)%femdomain%ne())
+                    obj%leaf(i)%CarbonDiffusionCoefficient = defval
+                endif
+            endif
+        enddo
+    endif
+    obj%property_deform_material_CarbonDiffusionCoefficient = .true.
+
+end subroutine
+! ##################################################################
+
+
 
 ! ##################################################################
 !same for poissonratio
@@ -6284,6 +6461,7 @@ function readyForSoybean(obj, Simulator) result(ready)
         ready = ready .and. obj%property_deform_material_YoungModulus
         ready = ready .and. obj%property_deform_material_PoissonRatio
         ready = ready .and. obj%property_deform_initial_Displacement
+        ready = ready .and. obj%property_deform_material_CarbonDiffusionCoefficient
         ready = ready .and. obj%property_deform_initial_Stress
         ready = ready .and. obj%property_deform_boundary_TractionForce
         ready = ready .and. obj%property_deform_boundary_Displacement
@@ -7100,7 +7278,8 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
     type(Leaf_),optional,intent(inout) :: leaf(:)
 
     real(real64),allocatable :: ppfd(:), NumberOfElement(:), NumberOfPoint(:)
-    real(real64),allocatable :: leaf_pass_num(:),nodcoord(:,:),radius_vec(:),elem_cosins(:)
+    real(real64),allocatable :: nodcoord(:,:),radius_vec(:),elem_cosins(:)
+    integer(int32),allocatable :: leaf_pass_num(:)
     real(real64) ::thickness,center_x(3),xmin(3),xmax(3),radius,radius_tr,coord(3),Transparency_val
     real(real64) :: zmin
     integer(int32) :: from, to, i,n,j,k,l,element_id
@@ -7132,17 +7311,17 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
     NumberOfElement = obj%getNumberOfElement()
     ppfd = zeros(obj%ne() ) 
     elem_cosins = zeros(obj%ne() ) 
-    i = sum(NumberOfElement(1:obj%numStem())+1)
+    !i = sum(NumberOfElement(1:obj%numStem())+1)
+    i = sum(NumberOfElement(1:obj%numStem()))+1
     j = sum(NumberOfElement(1:obj%numStem() + obj%numLeaf()))
     ppfd( i:j ) = light%maxPPFD
-    leaf_pass_num = zeros(obj%ne() )
+    leaf_pass_num = int(zeros(obj%ne() ))
 
     n = sum(NumberOfElement(1:obj%numStem()))
     from = n
     if(present(num_threads) )then
         call omp_set_num_threads(num_threads)
     endif
-
 
     ! leaf of other plants
     if(present(leaf) )then
@@ -7174,16 +7353,16 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
                             endif
                             !あるいは，zmin,xmax,ymin,ymaxの正負で場合分けできるのでは？
                             !>>なぜか失敗
-                            upside = (center_x(3) < zmin )
+                            !upside = (center_x(3) < zmin )
                             if(inside .eqv. .true.)then
                                 
-                                if(upside .eqv. .true.)then
+                                if( center_x(3) <= zmin  )then
                                     !print *, center_x(3) , zmin  
                                           
                                     n = obj%numStem() + (i-1)
                                     
                                     element_id = sum(NumberOfElement(1:n)) + j
-                                    leaf_pass_num(element_id) = leaf_pass_num(element_id) + 1.0d0
+                                    leaf_pass_num(element_id) = leaf_pass_num(element_id) + 1
                                 endif
                             endif
                         endif
@@ -7196,13 +7375,18 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
         !$OMP end parallel do
     endif
 
+    
 
-
-    !$OMP parallel do default(shared), private(j,k,inside,upside,center_x,radius_vec,radius_tr,zmin,n,element_id)
+    
+    !$OMP parallel private(j,k,inside,upside,center_x,radius_vec,radius_tr,zmin,n,element_id) 
+    !$OMP do reduction(+:leaf_pass_num)
     do i=1, size(obj%leaf)
-        if(.not. obj%leaf(i)%femdomain%empty() )then
+        if(obj%leaf(i)%femdomain%empty() )then
+            cycle
+        else
             !print *, i, "/", obj%numLeaf()
-            !$OMP parallel do default(shared), private(k,inside,upside,center_x,radius_vec,radius_tr,zmin,n,element_id)
+            !!$OMP parallel do default(shared), private(k,inside,upside,center_x,radius_vec,radius_tr,zmin,n,element_id)
+            
             do j=1,obj%leaf(i)%femdomain%ne()
                 ! 中心座標
                 center_x = obj%leaf(i)%femdomain%centerPosition(ElementID=j)
@@ -7210,11 +7394,13 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
                 
                 ! 枚数のみカウント
                 ! 1枚あたりthicknessだけ距離加算
-                !$OMP parallel do default(shared), private(inside,upside,radius_vec,radius_tr,zmin,n,element_id)
+                !!$OMP parallel do default(shared), private(inside,upside,radius_vec,radius_tr,zmin,n,element_id)
                 do k=1,size(obj%leaf)
 
                     if(i==k) cycle
-                    if(.not. obj%leaf(k)%femdomain%empty() )then
+                    if( obj%leaf(k)%femdomain%empty() )then
+                        cycle
+                    else
                         
                         inside=.false.
                         radius_vec = zeros(obj%leaf(k)%femdomain%nn() )
@@ -7228,33 +7414,37 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
                         endif
                         !あるいは，zmin,xmax,ymin,ymaxの正負で場合分けできるのでは？
                         !>>なぜか失敗
-                        upside = (center_x(3) < zmin )
+                        
                         if(inside .eqv. .true.)then
-                            if(upside .eqv. .true.)then
+                            if(center_x(3) <= zmin)then
                                 if(inside .eqv. .false.)then
                                     cycle
                                 endif
-                                if(upside .eqv. .false.)then
+                                if(center_x(3) > zmin)then
                                     cycle
                                 endif
                                 n = obj%numStem() + (i-1)
                                 element_id = sum(NumberOfElement(1:n)) + j
-                                leaf_pass_num(element_id) = leaf_pass_num(element_id) + 1.0d0
+                                leaf_pass_num(element_id) = leaf_pass_num(element_id) + 1
                                 
                             endif
                         endif
                     endif
                 enddo
-                !$OMP end parallel do    
+                !!$OMP end parallel do    
+                
             enddo
-            !$OMP end parallel do
+            !!$OMP end parallel do
+            
         endif
     enddo
-    !$OMP end parallel do
-
-    
+    !$OMP end do
+    !$OMP end parallel 
     !ppfd = ppfd*reduction*cosin-value
-    ppfd(:) = ppfd(:) * Transparency_val** leaf_pass_num(:)
+    do i=1,obj%ne()
+        ppfd(i) = ppfd(i) * Transparency_val**leaf_pass_num(i)
+    enddo
+    
     !ppfd(:) = ppfd(:)*elem_cosins(:)
     
 
@@ -7262,6 +7452,7 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
     ! get back
     call obj%rotate(x=-radian(90.0d0 - light%angles(2)))
     call obj%rotate(z=-radian(180.0d0 - light%angles(1)))
+    
     if(present(leaf) )then
         do i=1,size(leaf)
             call leaf(i)%femdomain%rotate(x=-radian(90.0d0 - light%angles(2)))
@@ -7337,6 +7528,14 @@ function getPhotoSynthesisSoybean(obj,light,air,dt,Transparency,Resolution,ppfd)
     integer(int32),allocatable :: NumberOfElement(:)
     integer(int32) :: i,j,offset,elem_id
     
+    if(.not.allocated(obj%Photosynthate_n) )then
+        obj%Photosynthate_n = zeros(obj%nn() )
+    endif
+
+    if(.not.allocated(obj%delta_Photosynthate_dt_n) )then
+        obj%delta_Photosynthate_dt_n = zeros(obj%nn() )
+    endif
+
     photosynthesis = zeros(obj%ne() )
     
     NumberOfElement = obj%getNumberOfElement()
@@ -7392,6 +7591,48 @@ function getPhotoSynthesisSoybean(obj,light,air,dt,Transparency,Resolution,ppfd)
 end function
 ! ############################################################################
 
+function getPhotoSynthesis_by_env_soybean(this,env,dt,Transparency,soybean_canopy) result(elem_photosynthesis)
+    class(Soybean_),intent(inout) :: this
+    class(Environment_),intent(in):: env
+    real(real64),intent(in) :: dt ! sec.
+    type(Soybean_),optional,intent(inout) :: soybean_canopy(:)
+    type(Leaf_),allocatable :: leaf(:)
+    real(real64),optional,intent(in) :: Transparency
+    real(real64),allocatable :: elem_ppfd(:),elem_volume(:),&
+        elem_photospeed(:),elem_photosynthesis(:)
+    
+    if(.not.allocated(this%Photosynthate_n) )then
+        this%Photosynthate_n = zeros(this%nn() )
+    endif
+
+    if(.not.allocated(this%delta_Photosynthate_dt_n) )then
+        this%delta_Photosynthate_dt_n = zeros(this%nn() )
+    endif
+
+    elem_volume = this%getVolumePerElement()
+    if(present(soybean_canopy) )then
+        
+        leaf = this%getIntersectLeaf(soybeans=soybean_canopy)
+        elem_ppfd    = this%getPPFD(&
+            Light=env%Light,&
+            Transparency=input(default=0.10d0,option=Transparency),&
+            leaf=leaf)
+    else
+        elem_ppfd    = this%getPPFD(&
+            Light=env%Light,&
+            Transparency=input(default=0.10d0,option=Transparency) )
+        
+    endif
+    
+    elem_photospeed = this%getPhotoSynthesisSpeedPerVolume(&
+        Light=env%Light,Air=env%Air,dt=dt,&
+        Transparency=input(default=0.10d0,option=Transparency),&
+        ppfd=elem_ppfd)
+
+    elem_photosynthesis = elem_photospeed * elem_volume
+
+end function
+
 ! ############################################################################
 function getPhotoSynthesisSpeedPerVolumeSoybean(obj,light,air,dt,Transparency,Resolution,ppfd)  result(photosynthesis)
     class(Soybean_),intent(inout) :: obj 
@@ -7404,6 +7645,15 @@ function getPhotoSynthesisSpeedPerVolumeSoybean(obj,light,air,dt,Transparency,Re
     integer(int32),allocatable :: NumberOfElement(:)
     integer(int32) :: i,j,offset,elem_id
     
+        
+    if(.not.allocated(obj%Photosynthate_n) )then
+        obj%Photosynthate_n = zeros(obj%nn() )
+    endif
+
+    if(.not.allocated(obj%delta_Photosynthate_dt_n) )then
+        obj%delta_Photosynthate_dt_n = zeros(obj%nn() )
+    endif
+
     photosynthesis = zeros(obj%ne() )
     
     NumberOfElement = obj%getNumberOfElement()
@@ -7615,6 +7865,8 @@ function getIntersectLeafSoybean(obj,soybeans,light,except)  result(Leaf)
     real(real64) :: chk_radius,chk_center(3),dist_2
     integer(int32) :: i,j,k,num_leaf
     logical,allocatable :: overset(:),overset_leaf(:)
+
+
     ! search Intersect leaf
     ! considering light position
     if(present(light))then
@@ -7638,11 +7890,11 @@ function getIntersectLeafSoybean(obj,soybeans,light,except)  result(Leaf)
     obj_radius = obj%getRadius()
     obj_center = obj%getCenter()
 
-
     ! search overlaped soybeans
     allocate(overset( size(soybeans) ) )
     overset(:) = .false.
     do i=1,size(soybeans)
+        if( soybeans(i)%uuid == obj%uuid ) cycle
         if(present(except) )then
             if(i==except) cycle
         endif
@@ -7882,6 +8134,7 @@ subroutine syncSoybean(obj,mpid,from)
 !!        ! for deformation analysis
     call mpid%bcast(from=from,val=obj%property_deform_material_density )
     call mpid%bcast(from=from,val=obj%property_deform_material_YoungModulus )
+    call mpid%bcast(from=from,val=obj%property_deform_material_CarbonDiffusionCoefficient)
     call mpid%bcast(from=from,val=obj%property_deform_material_PoissonRatio )
     call mpid%bcast(from=from,val=obj%property_deform_initial_Displacement )
     call mpid%bcast(from=from,val=obj%property_deform_initial_Stress )
@@ -8029,7 +8282,7 @@ function getDisplacementSoybean(obj, ground_level,penalty,debug,itrmax,tol) resu
     real(real64),allocatable :: disp(:)
 
 
-    integer(int32) :: stem_id, leaf_id, root_id,DomainID,ElementID,i,n
+    integer(int32) :: stem_id, leaf_id, root_id,DomainID,ElementID,i,n,offset
     integer(int32) :: myStemID, yourStemID, myLeafID,myRootID, yourRootID
     integer(int32),allocatable :: FixBoundary(:)
     ! linear elasticity with infinitesimal strain theory
@@ -8184,15 +8437,20 @@ function getDisplacementSoybean(obj, ground_level,penalty,debug,itrmax,tol) resu
     endif
     
     ! fix-boundary conditions
+    offset = 0
     do i=1,size(FEMDomainPointers)
         if(FEMDomainPointers(i)%FEMDomainp%z_min() <= ground_level )then
             FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-2
-            call solver%fix(DomainID=i,IDs=FixBoundary,FixValue=0.0d0)
+            FixBoundary = FixBoundary + offset
+            call solver%fix(IDs=FixBoundary,FixValue=0.0d0)
             FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-1
-            call solver%fix(DomainID=i,IDs=FixBoundary,FixValue=0.0d0)
+            FixBoundary = FixBoundary + offset
+            call solver%fix(IDs=FixBoundary,FixValue=0.0d0)
             FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-0
-            call solver%fix(DomainID=i,IDs=FixBoundary,FixValue=0.0d0)
+            FixBoundary = FixBoundary + offset
+            call solver%fix(IDs=FixBoundary,FixValue=0.0d0)
         endif
+        offset = offset + FEMDomainPointers(i)%femdomainp%nn()*3
     enddo
 
     if(present(debug) )then
@@ -9779,6 +10037,7 @@ subroutine export_eigSoybean(this,name,Frequency,ModeVectors,stress_type)
     integer(int32) :: i,j 
     type(IO_) :: f
 
+    
     call f%open(name + ".csv","w")
     call f%write("# Mode, Eigenfrequency (Hz)")
     do i=1,10
@@ -9802,6 +10061,446 @@ end subroutine
 
 ! ################################################################
 
+function getCarbon_concentrationSoybean(this,env,target_element_list) result(ret)
+    class(Soybean_),intent(in) :: this
+    type(Environment_),intent(in) :: env
+    integer(int32),allocatable,optional,intent(inout) :: target_element_list(:)
+    real(real64),allocatable :: ret(:)
+    integer(int32),allocatable :: apicals(:),NumberOfElement(:)
+    integer(int32) :: stemID,apical_id,from,to,itr,i
+    ! getCarbon_concentrationSoybean 
+    
+    ! Unit ::  ___________micro-gram/m^3/s_____________
+
+    ! reaction term
+
+    ! 濃度勾配駆動で流れるとして，その固定濃度，負値は無視
+    ret = -1.0d0*eyes(this%ne() )
+    apicals = this%findApical()
+    NumberOfElement = this%getNumberOfElement()
+    !itr = 0
+    do apical_id=1,size(apicals)
+        if(this%stem( apicals(apical_id) )%empty() )then
+            cycle
+        else
+            to = sum(NumberOfElement(1:apicals(apical_id) )) 
+            from   = to + 1 - this%stem( apicals(apical_id) )%ne()
+            ret(from:to) = this%apical_carbon_concentration
+            if(present(target_element_list))then
+                if(itr==0)then
+                    target_element_list = [(i, i=from,to)]
+                else
+                    target_element_list = target_element_list // [(i, i=from,to)]
+                endif
+            endif
+            itr = itr + 1
+        endif
+    enddo
+end function
+
+! ################################################################
+
+function getRespirationSoybean(this,env) result(ret)
+    class(Soybean_),intent(in) :: this
+    type(Environment_),intent(in) :: env
+    integer(int32) :: stemid,rootid,from,to
+    real(real64),allocatable :: ret(:)
+    integer(int32),allocatable :: NumberOfElement(:)
+
+    ! getCarbon_concentrationSoybean micro-gram/m^3
+    ! reaction term
+    ! Unit ::  ___________micro-gram/m^3/s_____________
+
+    NumberOfElement = this%getNumberOfElement()
+
+    ret = zeros(this%ne() )
+    do stemid = 1, this%numStem()
+        
+        if(this%stem(stemid)%empty() )cycle
+        
+        to = sum(NumberOfElement(1:stemID )) 
+        from = to - this%stem( stemID )%ne() + 1
+        ret(from:to) = this%stem(stemid)%R_d
+    enddo
+    ! ignore leaf since it is contained in the %GetPhotosynthesis
+    
+
+    if(allocated(this%root) )then
+        do rootID = 1, this%numRoot()
+
+            if(this%root(rootID)%empty() )cycle
+
+            to = sum(NumberOfElement(1:this%numStem()+this%numLeaf()+ rootID )) 
+            from = to - this%root( rootID )%ne() + 1
+
+            ret(from:to) = this%root(rootID)%R_d
+        enddo
+    endif
+    
+
+    
+    
 
 
+end function
+! ######################################################
+function getCarbonFlowSoybean(this,photosynthesis,respiration,carbon_concentration,Photosynthate_n,&
+        delta_Photosynthate_dt_n,dt) &
+    result(Photosynthate)
+    class(Soybean_),target,intent(inout) :: this
+    type(FEMSolver_) :: solver
+    real(real64),intent(in) :: photosynthesis(:),respiration(:),carbon_concentration(:),Photosynthate_n(:),&
+        dt,delta_Photosynthate_dt_n(:)
+    real(real64),allocatable :: Photosynthate(:),FixValues(:),domain_carbo_fix(:)
+    type(FEMDomainp_),allocatable :: domains(:)
+    integer(int32) :: i,j,n,stemID_p,stemID_c,itr,eid,from,to,DomainID,ElementID,&
+        rootID,leafID,stemID,myLeafID,myRootID,myStemID,yourRootID,yourStemID
+    integer(int32),allocatable :: NumberOfElement(:),FixBoundary(:)
+    type(CRS_) :: Mmatrix,Kmatrix,Amatrix
+    real(real64),allocatable :: bvector(:)
+    
+
+    NumberOfElement = this%getNumberOfElement()
+
+    Photosynthate = zeros(this%ne() ) 
+
+    ! solve
+    ! dC/dt = - D d^2/dx^2 c + P - R 
+    ! reaction term (P)
+    ! reaction term (R)
+    ! with 
+    ! initial condition :: c = c(0)
+    ! time-domain :: 0 <= t <= dt
+
+    ! by EbO-FEM
+
+    ! overset
+    n = this%numStem() +this%numLeaf() + this%numRoot()
+    itr = 0
+    allocate(domains(n) )
+    if(allocated(this%stem) )then
+        do i=1,size(this%stem)
+            if(this%stem(i)%empty() ) cycle
+            itr = itr + 1
+            domains(itr)%femdomainp => this%stem(i)%femdomain
+        enddo
+    endif
+    if(allocated(this%leaf) )then
+        do i=1,size(this%leaf)
+            if(this%leaf(i)%empty() ) cycle
+            itr = itr + 1
+            domains(itr)%femdomainp => this%leaf(i)%femdomain
+        enddo
+    endif
+    if(allocated(this%root) )then
+        do i=1,size(this%root)
+            if(this%root(i)%empty() ) cycle
+            itr = itr + 1
+            domains(itr)%femdomainp => this%root(i)%femdomain
+        enddo
+    endif
+
+
+    ! overset 
+    if(allocated(this%stem2stem) )then
+        do myStemID = 1,size(this%stem2stem,1)
+            do yourStemID = 1, size(this%stem2stem,2)
+                if(this%stem2stem(myStemID,yourStemID)>=1 )then
+                    ! connected
+                    call this%stem(myStemID)%femdomain%overset(&
+                        FEMDomain=this%stem(yourStemID)%femdomain,&
+                        DomainID   = yourStemID    ,& 
+                        MyDomainID = myStemID  ,&
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+
+    if(allocated(this%leaf2stem) )then
+        do myLeafID = 1,size(this%leaf2stem,1)
+            do yourStemID = 1, size(this%leaf2stem,2)
+                if(this%leaf2stem(myLeafID,yourStemID)>=1 )then
+                    ! connected
+                    call this%leaf(myLeafID)%femdomain%overset(&
+                        FEMDomain=this%stem(yourStemID)%femdomain,&
+                        DomainID   = yourStemID    ,& 
+                        MyDomainID = this%numStem() + myLeafID  , &
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+    
+
+    if(allocated(this%root2stem) )then
+        do myRootID = 1,size(this%root2stem,1)
+            do yourStemID = 1, size(this%root2stem,2)
+                if(this%root2stem(myRootID,yourStemID)>=1 )then
+                    ! connected
+                    call this%root(myRootID)%femdomain%overset(&
+                        FEMDomain=this%stem(yourStemID)%femdomain,&
+                        DomainID   = yourStemID    ,& 
+                        MyDomainID = this%numStem() +this%numLeaf() + myRootID  , &
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+
+
+    if(allocated(this%root2root) )then
+        do myRootID = 1,size(this%root2root,1)
+            do yourrootID = 1, size(this%root2root,2)
+                if(this%root2root(myRootID,yourrootID)>=1 )then
+                    ! connected
+                    call this%root(myRootID)%femdomain%overset(&
+                        FEMDomain=this%root(yourrootID)%femdomain,&
+                        DomainID   = this%numroot() +this%numLeaf() + yourrootID    ,& 
+                        MyDomainID = this%numroot() +this%numLeaf() + myRootID  , &
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+
+
+    
+    call solver%init(NumDomain=n)
+    call solver%setDomain(FEMDomainPointers=domains(:))
+    call solver%setCRS(DOF=1)
+
+
+    ! mass matrix
+
+    DomainID = 0
+    eid = 0
+    if(allocated(this%stem ) )then
+        
+        do itr=1,size(this%stem)
+            
+            if(this%stem(itr)%empty() ) cycle
+            DomainID = DomainID + 1
+            do ElementID = 1, domains(DomainID)%femdomainp%ne()
+                eid = eid + 1
+                call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=1,&
+                   Matrix=domains(DomainID)%femdomainp%MassMatrix(&
+                        ElementID=ElementID,&
+                        Density=1.0d0,&
+                        DOF=1 &
+                   ) )
+            enddo
+        enddo
+        
+    endif
+    if(allocated(this%leaf ) )then
+        do itr=1,size(this%leaf)
+            
+            if(this%leaf(itr)%empty() ) cycle
+            DomainID = DomainID + 1
+            do ElementID = 1, domains(DomainID)%femdomainp%ne()
+                eid = eid + 1
+                call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=1,&
+                    Matrix=domains(DomainID)%femdomainp%MassMatrix(&
+                        ElementID=ElementID,&
+                        Density=1.0d0,&
+                        DOF=1 &   
+                    ) )
+            enddo
+        enddo
+        
+    endif
+    if(allocated(this%root ) )then
+        do itr=1,size(this%root)
+            
+            if(this%root(itr)%empty() ) cycle
+            DomainID = DomainID + 1
+            do ElementID = 1, domains(DomainID)%femdomainp%ne()
+                eid = eid + 1
+                call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=1,&
+                        Matrix=domains(DomainID)%femdomainp%MassMatrix(&
+                            ElementID=ElementID,&
+                            Density=1.0d0,&
+                            DOF=1 &   
+                        )&
+                    )
+            enddo
+        enddo
+        
+    endif
+
+    
+    call solver%keepThisMatrixAs("M")
+    call solver%zeros()
+    
+
+    DomainID = 0
+    eid = 0
+
+    itr = 1
+    
+
+    if(allocated(this%stem ) )then
+        do itr=1,size(this%stem)
+            
+            if(this%stem(itr)%empty() ) cycle
+            DomainID = DomainID + 1
+            do ElementID = 1, domains(DomainID)%femdomainp%ne()
+                eid = eid + 1
+                call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=1,&
+                   Matrix=domains(DomainID)%femdomainp%DiffusionMatrix(&
+                        ElementID=ElementID,&
+                        D=this%stem(itr)%CarbonDiffusionCoefficient(ElementID)    &
+                   ) )
+                call solver%setVector(DomainID=DomainID,ElementID=ElementID,DOF=1,&
+                    Vector=domains(DomainID)%femdomainp%MassVector(&
+                        ElementID=ElementID,&
+                        DOF=1,&
+                        Density= - respiration(eid) + photosynthesis(eid),&
+                        Accel=[1.0d0]&
+                        ) & 
+                    )
+            enddo
+        enddo
+    endif
+    if(allocated(this%leaf ) )then
+        do itr=1,size(this%leaf)
+            
+            if(this%leaf(itr)%empty() ) cycle
+            DomainID = DomainID + 1
+            do ElementID = 1, domains(DomainID)%femdomainp%ne()
+                eid = eid + 1
+                call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=1,&
+                   Matrix=domains(DomainID)%femdomainp%DiffusionMatrix(&
+                        ElementID=ElementID,&
+                        D=this%leaf(itr)%CarbonDiffusionCoefficient(ElementID)    &
+                   ) )
+                call solver%setVector(DomainID=DomainID,ElementID=ElementID,DOF=1,&
+                    Vector=domains(DomainID)%femdomainp%MassVector(&
+                        ElementID=ElementID,&
+                        DOF=1,&
+                        Density= - respiration(eid) + photosynthesis(eid),&
+                        Accel=[1.0d0]&
+                        ) & 
+                    )
+            enddo
+        enddo
+    endif
+    if(allocated(this%root ) )then
+        do itr=1,size(this%root)
+            
+            if(this%root(itr)%empty() ) cycle
+            DomainID = DomainID + 1
+            do ElementID = 1, domains(DomainID)%femdomainp%ne()
+                eid = eid + 1
+                call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=1,&
+                   Matrix=domains(DomainID)%femdomainp%DiffusionMatrix(&
+                        ElementID=ElementID,&
+                        D=this%root(itr)%CarbonDiffusionCoefficient(ElementID)    &
+                   ) )
+                call solver%setVector(DomainID=DomainID,ElementID=ElementID,DOF=1,&
+                    Vector=domains(DomainID)%femdomainp%MassVector(&
+                        ElementID=ElementID,&
+                        DOF=1,&
+                        Density= - respiration(eid) + photosynthesis(eid),&
+                        Accel=[1.0d0]&
+                        ) & 
+                    )
+            enddo
+        enddo
+
+    endif
+    
+    print *, "[ok]Element-matrices done"
+
+    call solver%setEbOM(penalty=1000.0d0, DOF=1)
+    call solver%keepThisMatrixAs("K")
+    call solver%zeros()
+    
+    Mmatrix = solver%getCRS("M")
+    Kmatrix = solver%getCRS("K")
+    
+    ! In case of first step
+    
+    ! Crank-Nicolson method
+    Amatrix = 2.0d0/dt*Mmatrix + Kmatrix
+    
+    bvector = solver%CRS_RHS + Mmatrix%matmul(2.0d0/dt*Photosynthate_n- delta_Photosynthate_dt_n) 
+    
+
+    call solver%setCRS(Amatrix)
+    call solver%setRHS(bvector)
+
+
+
+    print *, "matrices imported."
+    
+    ! if concentration is positive, fix
+    NumberOfElement = this%getNumberOfElement()
+    
+    DomainID = 0
+    if(allocated(this%stem ) )then
+        do stemID=1,size(this%stem)
+            if(this%stem(stemID)%empty() ) cycle
+            
+            DomainID=DomainID+1
+            
+            to = sum(NumberOfElement(1:DomainID )) 
+            from = to - this%stem( stemID )%ne() + 1 
+            
+            domain_carbo_fix = carbon_concentration(from:to)
+            FixBoundary = select_id_if(domain_carbo_fix, ">", 0.0d0 )
+            FixValues   = select_if(   domain_carbo_fix, ">", 0.0d0 )
+            call solver%fix(IDs=FixBoundary,FixValues=FixValues)
+        enddo
+    endif
+    if(allocated(this%leaf ) )then
+        do leafID=1,size(this%leaf)
+            if(this%leaf(leafID)%empty() ) cycle
+            
+            DomainID=DomainID+1
+            
+            to = sum(NumberOfElement(1:DomainID )) 
+            from = to - this%leaf( leafID )%ne() + 1 
+            
+            domain_carbo_fix = carbon_concentration(from:to)
+            FixBoundary = select_id_if(domain_carbo_fix, ">", 0.0d0 )
+            FixValues   = select_if(   domain_carbo_fix, ">", 0.0d0 )
+            call solver%fix(IDs=FixBoundary,FixValues=FixValues)
+        enddo
+    endif
+    if(allocated(this%root ) )then
+        do rootID=1,size(this%root)
+            if(this%root(rootID)%empty() ) cycle
+        
+            DomainID=DomainID+1
+            
+            to = sum(NumberOfElement(1:DomainID )) 
+            from = to - this%root( rootID )%ne() + 1 
+            
+            domain_carbo_fix = carbon_concentration(from:to)
+            FixBoundary = select_id_if(domain_carbo_fix, ">", 0.0d0 )
+            FixValues   = select_if(   domain_carbo_fix, ">", 0.0d0 )
+            call solver%fix(IDs=FixBoundary,FixValues=FixValues)
+        enddo
+    endif
+    
+    print *, "b.c. imported."
+        
+    !! solve
+    !solver%debug = .true.
+    !
+    !solver%er0 = 
+    !solver%itrmax = 10000
+    !!$omp parallel num_threads(4) 
+    solver%debug=True
+    solver%itrmax=1000
+    Photosynthate = solver%solve()
+
+
+end function
+! ######################################################
+
+
+    
 end module  

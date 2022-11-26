@@ -19,14 +19,16 @@ module SPACClass
         integer(int32) :: num_smoothing    !!= fint(f
         ![new!]
         real(real64)   :: cutoff_sd        != !freal(f
-        integer(int32) :: taper_parcent        !!= fint(f
+        integer(int32) :: taper_percent        !!= fint(f
         real(real32)   :: bandpath_low         != !freal(f
         real(real32)   :: bandpath_high        != !freal(f
         real(real64),allocatable :: observation(:,:)
         logical :: initialized = .false.
         logical :: inversion_is_done = .false.
 
+        character(:),allocatable :: d_unit
         character(:),allocatable :: Rayleigh_Dispersion
+
 
         character(:),allocatable :: best_1
         character(:),allocatable :: best_2
@@ -78,24 +80,26 @@ module SPACClass
 contains
 
 
-function to_FOURIER_SPECTRUM(A,frequency,FFT_SIZE,log,num_block,taper_parcent,NUM_MOVING_AVERAGE) result(FourierSpectrum)
+function to_FOURIER_SPECTRUM(A,frequency,FFT_SIZE,log,num_block,taper_percent,NUM_MOVING_AVERAGE,delta_f) result(FourierSpectrum)
     real(real64),intent(in) :: A(:),frequency(:)
 
     integer(int32),intent(in) :: FFT_SIZE
     complex(real64),allocatable :: FFT_A(:),FFT_B(:),A_c(:),B_c(:)
     
     real(real64),allocatable :: FourierSpectrum(:),F_A(:)
-    integer(int32),optional,intent(in) :: taper_parcent,NUM_MOVING_AVERAGE
-    integer(int32) :: taper_parcent_i,NUM_MOVING_AVERAGE_i
+    integer(int32),optional,intent(in) :: taper_percent,NUM_MOVING_AVERAGE
+    real(real64),optional,intent(in) :: delta_f
+    integer(int32) :: taper_percent_i,NUM_MOVING_AVERAGE_i
     integer(int32) :: n,num_bl,i,from,to
     character(*),optional,intent(in) :: log
     integer(int32),optional,intent(inout) :: num_block
+    real(real64) :: dt
 
     
     ! Taper :: 5%
     type(IO_) :: f
     
-    taper_parcent_i = input(default=5,option=taper_parcent)
+    taper_percent_i = input(default=5,option=taper_percent)
     NUM_MOVING_AVERAGE_i = input(default=5,option=NUM_MOVING_AVERAGE)
     FourierSpectrum = zeros(FFT_SIZE)
     num_bl = int(dble(size(A))/dble(FFT_SIZE*2) )
@@ -118,15 +122,17 @@ function to_FOURIER_SPECTRUM(A,frequency,FFT_SIZE,log,num_block,taper_parcent,NU
         to   = i*FFT_SIZE*2
         
         A_c = A_c(from:to)
-        A_c(:)= A_c(:) * taper_function(size(A_c),percent=taper_parcent_i)
+        A_c(:)= A_c(:) * taper_function(size(A_c),percent=taper_percent_i)
         
         FFT_A = FFT( A_c(:) )
         FFT_A = FFT_A(1:FFT_SIZE)
         
         F_A = sqrt(dble(FFT_A*conjg(FFT_A)))
         F_A = moving_average(F_A,NUM_MOVING_AVERAGE_i)
+        if(present(delta_f) )then
+            F_A = F_A*(FFT_SIZE*dt)/2.0d0
+        endif
         if(present(log) )then
-            
             call f%write(frequency,F_A,separator=", ")
             call f%write(" ")
             call f%write(" ")
@@ -143,24 +149,24 @@ end function
 
 
 
-function to_HoverV_spectra(H,V,FFT_SIZE,frequency,taper_parcent) result(HoverV)
+function to_HoverV_spectra(H,V,FFT_SIZE,frequency,taper_percent) result(HoverV)
     real(real64),intent(in) :: H(:),V(:),frequency(:)
-    integer(int32),intent(in) :: FFT_SIZE,taper_parcent
+    integer(int32),intent(in) :: FFT_SIZE
+    integer(int32),optional,intent(in) :: taper_percent
     real(real64),allocatable :: HoverV(:)
-
     
     HoverV = &
         to_FOURIER_SPECTRUM(&
             A = H, &
             frequency=frequency, &
             FFT_SIZE=FFT_SIZE,&
-            taper_parcent=taper_parcent) &
+            taper_percent=input(default=5,option=taper_percent)) &
             / &
         to_FOURIER_SPECTRUM(&
             A = V, &
             frequency=frequency, &
             FFT_SIZE=FFT_SIZE,&
-            taper_parcent=taper_parcent)
+            taper_percent=input(default=5,option=taper_percent))
 
 end function
 
@@ -224,14 +230,14 @@ function to_SPAC_COEFF(Center_x,Circle_x,FFT_SIZE) result(rho)
     !allocate(phi(0:size(Angle) ) )
     !phi(0) = 0
     !phi(1:) = Angle(:)
-    !$OMP parallel do default(shared) reduction(+:rho)
+    !!!$OMP parallel do default(shared) reduction(+:rho)
     do i=1, NUM_SAMPLE
         ! rho(r, omega) 
         !delta_angle = phi(i) - phi(i-1)
         !rho(:) = rho(:) + dble(to_CCF(Center_x,Circle_x(:,i),FFT_SIZE=FFT_SIZE ))*radian(delta_angle)
         rho(:) = rho(:) + dble(to_CCF(Center_x,Circle_x(:,i),FFT_SIZE=FFT_SIZE ))
     enddo
-    !$OMP end parallel do
+    !!!$OMP end parallel do
     
     rho(:) = rho(:)/NUM_SAMPLE
     
@@ -349,6 +355,7 @@ end function
 subroutine init_SPAC(this,csv_wave_file,json_metadata_file)
     class(SPAC_),intent(inout) :: this
     character(*),intent(in) :: csv_wave_file,json_metadata_file
+    type(IO_)::f
 
     this%wave_data_format   = "t,UD,EW,NS"
     this%csv_wave_file      = csv_wave_file
@@ -358,25 +365,31 @@ subroutine init_SPAC(this,csv_wave_file,json_metadata_file)
 
     this%initialized = .true.
 
+    this%num_logger  = fint(f%parse(this%json_metadata_file,key1="num_logger")) != 4
 end subroutine
 
-subroutine run_SPAC(this)
+subroutine run_SPAC(this,only_FFT)
     class(SPAC_),intent(inout) :: this
-
+    logical,optional,intent(in) :: only_FFT
     real(real64),allocatable :: Angle(:),A(:),All_data(:,:),buf(:,:)
     real(real64),allocatable :: t(:),freq(:),SPAC_COEFF(:),phase_velocity(:),HoverV_spectra(:),&
-        FourierSpectrum(:)
+        FourierSpectrum(:),A_buf(:),vbuf(:)
     real(real64) :: radius,Maximum_phase_velocity,cutoff_sd
     integer(int32) :: FFT_SIZE,NUM_SAMPLE,num_logger,Maximum_itr,&
-        num_smoothing,NUM_MOVING_AVERAGE,i,j,logger_id,taper_parcent
+        num_smoothing,NUM_MOVING_AVERAGE,i,j,logger_id,taper_percent
     type(IO_) :: f
     real(real32) :: sampling_Hz,bandpath_high,bandpath_low
-    character(50) :: fpath
+    character(50) :: fpath,data_unit
     character(:),allocatable :: filepath,config
     character(:),allocatable :: HoverV_spectra_EW
     character(:),allocatable :: HoverV_spectra_NS
+    integer(int32),allocatable :: ids(:)
     type(IO_) :: logfile
     type(SpectreAnalysis_) :: speana
+
+    logical :: stop_before_spac
+
+    stop_before_spac = input(default=.false.,option=only_FFT)
 
     if(.not.this%initialized)then
         print *, "[ERROR] run this%init() prior to this operation."
@@ -402,11 +415,12 @@ subroutine run_SPAC(this)
     num_smoothing    = fint(f%parse(config,key1="num_smoothing")) != 10
     ![new!]
     cutoff_sd        = freal(f%parse(config,key1="cutoff_sd")) != 10
-    taper_parcent        = fint(f%parse(config,key1="taper_percent")) != 10
+    taper_percent        = fint(f%parse(config,key1="taper_percent")) != 10
     bandpath_low         = freal(f%parse(config,key1="bandpath_low")) != 10
     bandpath_high        = freal(f%parse(config,key1="bandpath_high")) != 10
-
-
+    data_unit            = f%parse(config,key1="data_unit")
+    this%d_unit = trim(data_unit)
+    
     this%sampling_Hz =      sampling_Hz
     this%radius =       radius
     this%num_logger =       num_logger
@@ -415,7 +429,7 @@ subroutine run_SPAC(this)
     this%Maximum_itr =      Maximum_itr
     this%num_smoothing =        num_smoothing
     this%cutoff_sd =        cutoff_sd
-    this%taper_parcent =        taper_parcent
+    this%taper_percent =        taper_percent
     this%bandpath_low =         bandpath_low
     this%bandpath_high =        bandpath_high
     ! >>>>>>>> INPUT DATA INFO >>>>>>>>>>>
@@ -429,7 +443,7 @@ subroutine run_SPAC(this)
     write(logfile%fh,*) "Maximum_itr",Maximum_itr
     write(logfile%fh,*) "num_smoothing",num_smoothing
     write(logfile%fh,*) "cutoff_sd",cutoff_sd
-    write(logfile%fh,*) "taper_parcent",taper_parcent
+    write(logfile%fh,*) "taper_percent",taper_percent
     write(logfile%fh,*) "bandpath_low",bandpath_low
     write(logfile%fh,*) "bandpath_high",bandpath_high
 
@@ -451,29 +465,35 @@ subroutine run_SPAC(this)
     
     ! >>>>>>>> READ DATA INFO >>>>>>>>>>>
     freq =  to_frequency_axis(FFT_SIZE=FFT_SIZE,sampling_Hz=int(sampling_Hz))
-    buf  =speana%cutif(All_data,sigma=cutoff_sd,window_size=FFT_SIZE/2)
+    
+    buf  =speana%cutif(All_data,sigma=cutoff_sd,window_size=FFT_SIZE/2,log=filepath)
+
     call logfile%write("[ok] n : "+str(size(All_data,1))+"=>"+str(size(buf,1) ))
     All_data = buf
     
     ! >>>>>>>> READ DATA INFO >>>>>>>>>>>
     call logfile%write("[ok] PREPROCESSING DONE!")
     call logfile%flush()
-    
     ! >>>>>>>> Fourier spectra >>>>>>>>
     do j=1,num_logger*3
         call speana%init(sampling_Hz=sampling_Hz)
-        A = All_data(:,j)
-        A = speana%bandpath(A,[bandpath_low,bandpath_high])
+        A_buf = All_data(:,j)
+        
+        !stop
+        A = speana%bandpath(A_buf,[bandpath_low,bandpath_high])
         
         ! >>>>>>>> Fourier spectra >>>>>>>>
         FourierSpectrum  = to_FOURIER_SPECTRUM(&
             A = A, &
             frequency=freq, &
             FFT_SIZE=FFT_SIZE,&
-            taper_parcent=taper_parcent,&
+            taper_percent=taper_percent,&
             log=filepath+"_"+zfill(j,3) )
         ! >>>>>>>> Fourier spectra >>>>>>>>
-        FourierSpectrum = moving_average(FourierSpectrum,num_smoothing)
+        
+        A_buf = moving_average(FourierSpectrum,num_smoothing)
+        FourierSpectrum = A_buf
+        
         call f%open(filepath+"_"+zfill(j,3)+"_FFT.csv","w")
         call f%write(freq(:),FourierSpectrum(:),separator=",")
         call f%flush()
@@ -493,10 +513,10 @@ subroutine run_SPAC(this)
                 V = All_data(:,3*(i-1)+1  ), &
                 frequency=freq, &
                 FFT_SIZE=FFT_SIZE,&
-                taper_parcent=0 ) 
+                taper_percent=0 ) 
         
-        HoverV_spectra = moving_average(HoverV_spectra,num_smoothing)
-        
+        vbuf = moving_average(HoverV_spectra,num_smoothing)
+        HoverV_spectra = vbuf
         call f%open(filepath+"_"+zfill(i,3)+"_HoverV-spectra_EW.csv","w")
         call f%write(freq(:),HoverV_spectra(:),separator=",")
         call f%close()
@@ -514,30 +534,43 @@ subroutine run_SPAC(this)
             V = All_data(:,3*(i-1)+1  ), &
             frequency=freq, &
             FFT_SIZE=FFT_SIZE,&
-            taper_parcent=0 ) 
+            taper_percent=0 ) 
 
         
-        HoverV_spectra = moving_average(HoverV_spectra,num_smoothing)
-        
+        vbuf = moving_average(HoverV_spectra,num_smoothing)
+        HoverV_spectra = vbuf
         call f%open(filepath+"_"+zfill(i,3)+"_HoverV-spectra_NS.csv","w")
         call f%write(freq(:),HoverV_spectra(:),separator=", ")
         call f%close()
     enddo
     ! >>>>>>>> H/V spectra (NS) >>>>>>>>
+    call logfile%write("debug")
     call logfile%write("[ok] H/V (NS) DONE!")
     call logfile%flush()
+    if(stop_before_spac)then
+        return
+    endif
 
+
+    ! debug
+    !ids = [(i,i=4,num_logger*3,3)]
+    ids = int(zeros(num_logger-1) )
+    ids(1) = 4
+    do i=1,num_logger-2
+        ids(i+1) = ids(i) + 3
+    enddo
+    
 
     ! >>>>>>>> SPAC coefficient >>>>>>>> 
     SPAC_COEFF = to_SPAC_COEFF(&
         Center_x=All_data(:,1),&
-        Circle_x=All_data(: ,[(i,i=4,num_logger*3,3)]),&
+        Circle_x=All_data(: ,ids(:) ),&
         FFT_SIZE=FFT_SIZE)
     
     ! smoothing
     
-    SPAC_COEFF = moving_average(SPAC_COEFF,num_smoothing)
-    
+    !vbuf = moving_average(SPAC_COEFF,num_smoothing)
+    !SPAC_COEFF = vb
     
     call f%open(filepath+"_SPAC_COEFF.csv","w")
     call f%write(freq(:),SPAC_COEFF(:),separator=", ")
@@ -560,7 +593,7 @@ subroutine run_SPAC(this)
         
     ! smoothing
     
-    phase_velocity = moving_average(phase_velocity,num_smoothing)
+    !phase_velocity = moving_average(phase_velocity,num_smoothing)
     
     call f%open(filepath+"_Rayl-Dispersion.csv","w")    
     call f%write(freq(:),phase_velocity(:) ,separator=", ")
@@ -613,19 +646,19 @@ subroutine pdf_SPAC(this,name)
         do j=1,2
             call f%write('set title "L'+str(logger_id)+' (UD)"')
             call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
-            call f%write('set ylabel "Fourier spectrum " font "Times,10"')
+            call f%write('set ylabel "Fourier spectrum ('+trim(this%d_unit)+') " font "Times,10"')
             call f%write('plot   "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+1,3 )+'_FFT_blocks.csv" u 1:2 w l,&
                  "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+1,3 )+'_FFT.csv" u 1:2 w l ')
             
             call f%write('set title "L'+str(logger_id)+' (EW)"')
             call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
-            call f%write('set ylabel "Fourier spectrum " font "Times,10"')
+            call f%write('set ylabel "Fourier spectrum ('+trim(this%d_unit)+') " font "Times,10"')
             call f%write('plot   "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+2,3 )+'_FFT_blocks.csv" u 1:2 w l,&
                  "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+2,3 )+'_FFT.csv" u 1:2 w l ')
             
             call f%write('set title "L'+str(logger_id)+' (NS)"')
             call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
-            call f%write('set ylabel "Fourier spectrum " font "Times,10"')
+            call f%write('set ylabel "Fourier spectrum ('+trim(this%d_unit)+') " font "Times,10"')
             call f%write('plot   "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+3,3 )+'_FFT_blocks.csv" u 1:2 w l,&
                  "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+3,3 )+'_FFT.csv" u 1:2 w l ')
             logger_id = logger_id + 1
@@ -666,114 +699,116 @@ subroutine pdf_SPAC(this,name)
     call f%write('"'+this%csv_wave_file+'_'+zfill(this%num_logger,3)+'_HoverV-spectra_NS.csv" u 1:2 w l')
     call f%write('unset multiplot')
 
-
-    call f%write('set multiplot layout 1,2 rowsfirst title "SPAC" font "Times,10"')
-    call f%write('set xtics font "Times,10" ')
-    call f%write('set ytics font "Times,10" ')
-    call f%write('set title font "Times,10"')
-    call f%write('unset logscale')
-    call f%write('unset format y')
-    call f%write('unset key')
-    call f%write('set title "SPAC coefficient" font "Times,10"')
-    call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
-    call f%write('set ylabel "SPAC coefficient"')
-    call f%write('plot   "'+this%csv_wave_file+'_SPAC_COEFF.csv" u 1:2  pointsize 0.2')
-    call f%write('set title "Phase velocity" font "Times,10"')
-    call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
-    call f%write('set ylabel "Phase velocity (m/s)"')
-
-    if(this%inversion_is_done)then
-        call f%write('plot   "'+this%csv_wave_file+'_Rayl-Dispersion.csv" u 1:2 pointsize 0.2 \')
-        call f%write(", '"+this%best_1+"' u 1:2 lt 12 w l \" )
-        call f%write(", '"+this%best_2+"' u 1:2 lt 13 w l \" )
-        call f%write(", '"+this%best_3+"' u 1:2 lt 14 w l " )
-
-        call f%write('unset multiplot')
-
-        
-        ! H/V
-        call f%write('set multiplot layout 1,2 rowsfirst title "H/V spectral ratio" font "Times,10"')
+    if(f%exists(this%csv_wave_file+'_SPAC_COEFF.csv' ) )then
+        call f%write('set multiplot layout 1,2 rowsfirst title "SPAC" font "Times,10"')
         call f%write('set xtics font "Times,10" ')
         call f%write('set ytics font "Times,10" ')
         call f%write('set title font "Times,10"')
         call f%write('unset logscale')
         call f%write('unset format y')
         call f%write('unset key')
-        call f%write('set title "H/V (EW)"')
-        call f%write('set logscale')
+        call f%write('set title "SPAC coefficient" font "Times,10"')
         call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
-        call f%write('set ylabel "Spectral ratio" font "Times,10"')
-        
-        call f%write('plot  \')
-        call f%write('"'+this%csv_wave_file+'_001_HoverV-spectra_EW.csv" u 1:2 w l,\')
-        do i=2,this%num_logger-1
-            call f%write('"'+this%csv_wave_file+'_'+zfill(i,3)+'_HoverV-spectra_EW.csv" u 1:2 w l,\')
-        enddo
-        call f%write('"'+this%csv_wave_file+'_'+zfill(this%num_logger,3)+'_HoverV-spectra_EW.csv" u 1:2 w l \')
-        call f%write(", '"+this%best_1_HoverV+"' u 1:2 lt 12 w l \" )
-        call f%write(", '"+this%best_2_HoverV+"' u 1:2 lt 13 w l \" )
-        call f%write(", '"+this%best_3_HoverV+"' u 1:2 lt 14 w l " )
-
-        call f%write('set title "H/V (NS)"')
-        call f%write('set logscale')
+        call f%write('set ylabel "SPAC coefficient"')
+        call f%write('plot   "'+this%csv_wave_file+'_SPAC_COEFF.csv" u 1:2  pointsize 0.2')
+        call f%write('set title "Phase velocity" font "Times,10"')
         call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
-        call f%write('set ylabel "Spectral ratio" font "Times,10"')
-        call f%write('plot  \')
-        call f%write('"'+this%csv_wave_file+'_001_HoverV-spectra_NS.csv" u 1:2 w l,\')
-        do i=2,this%num_logger-1
-            call f%write('"'+this%csv_wave_file+'_'+zfill(i,3)+'_HoverV-spectra_NS.csv" u 1:2 w l,\')
-        enddo
-        call f%write('"'+this%csv_wave_file+'_'+zfill(this%num_logger,3)+'_HoverV-spectra_NS.csv" u 1:2 w l \')
-        call f%write(", '"+this%best_1_HoverV+"' u 1:2 lt 12 w l \" )
-        call f%write(", '"+this%best_2_HoverV+"' u 1:2 lt 13 w l \" )
-        call f%write(", '"+this%best_3_HoverV+"' u 1:2 lt 14 w l " )
-        call f%write('unset multiplot')
+        call f%write('set ylabel "Phase velocity (m/s)"')
+    
+
+        if(this%inversion_is_done)then
+            call f%write('plot   "'+this%csv_wave_file+'_Rayl-Dispersion.csv" u 1:2 pointsize 0.2 \')
+            call f%write(", '"+this%best_1+"' u 1:2 lt 12 w l \" )
+            call f%write(", '"+this%best_2+"' u 1:2 lt 13 w l \" )
+            call f%write(", '"+this%best_3+"' u 1:2 lt 14 w l " )
+
+            call f%write('unset multiplot')
+
+
+            ! H/V
+            call f%write('set multiplot layout 1,2 rowsfirst title "H/V spectral ratio" font "Times,10"')
+            call f%write('set xtics font "Times,10" ')
+            call f%write('set ytics font "Times,10" ')
+            call f%write('set title font "Times,10"')
+            call f%write('unset logscale')
+            call f%write('unset format y')
+            call f%write('unset key')
+            call f%write('set title "H/V (EW)"')
+            call f%write('set logscale')
+            call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
+            call f%write('set ylabel "Spectral ratio" font "Times,10"')
+
+            call f%write('plot  \')
+            call f%write('"'+this%csv_wave_file+'_001_HoverV-spectra_EW.csv" u 1:2 w l,\')
+            do i=2,this%num_logger-1
+                call f%write('"'+this%csv_wave_file+'_'+zfill(i,3)+'_HoverV-spectra_EW.csv" u 1:2 w l,\')
+            enddo
+            call f%write('"'+this%csv_wave_file+'_'+zfill(this%num_logger,3)+'_HoverV-spectra_EW.csv" u 1:2 w l \')
+            call f%write(", '"+this%best_1_HoverV+"' u 1:2 lt 12 w l \" )
+            call f%write(", '"+this%best_2_HoverV+"' u 1:2 lt 13 w l \" )
+            call f%write(", '"+this%best_3_HoverV+"' u 1:2 lt 14 w l " )
+
+            call f%write('set title "H/V (NS)"')
+            call f%write('set logscale')
+            call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
+            call f%write('set ylabel "Spectral ratio" font "Times,10"')
+            call f%write('plot  \')
+            call f%write('"'+this%csv_wave_file+'_001_HoverV-spectra_NS.csv" u 1:2 w l,\')
+            do i=2,this%num_logger-1
+                call f%write('"'+this%csv_wave_file+'_'+zfill(i,3)+'_HoverV-spectra_NS.csv" u 1:2 w l,\')
+            enddo
+            call f%write('"'+this%csv_wave_file+'_'+zfill(this%num_logger,3)+'_HoverV-spectra_NS.csv" u 1:2 w l \')
+            call f%write(", '"+this%best_1_HoverV+"' u 1:2 lt 12 w l \" )
+            call f%write(", '"+this%best_2_HoverV+"' u 1:2 lt 13 w l \" )
+            call f%write(", '"+this%best_3_HoverV+"' u 1:2 lt 14 w l " )
+            call f%write('unset multiplot')
 
 
 
 
 
 
-        call f%write('set multiplot layout 1,3 rowsfirst title "Estimated layer structure" font "Times,10"')
-        call f%write('set xtics font "Times,7" ')
-        call f%write('set ytics font "Times,7" ')
-        call f%write('set title font "Times,7"')
-        call f%write('unset logscale')
-        call f%write('unset format y')
-        call f%write('unset key')
-        call f%write('set title "Vs (m/s)" font "Times,10"')
-        call f%write('set xlabel "Vs (m/s)" font "Times,10"')
-        call f%write('set ylabel "Depth (m)"')
-        call f%write('unset xr')
-        call f%write('set xr[0:]')
-        call f%write('plot "'+this%best_1_layer_csv+'" u 1:2 lt 12 w l, \')
-        call f%write(' "'+this%best_2_layer_csv+'" u 1:2 lt 13 w l, \')
-        call f%write(' "'+this%best_3_layer_csv+'" u 1:2 lt 14 w l ')
-        
-        call f%write('set title "Vp (m/s)" font "Times,10"')
-        call f%write('set xlabel "Vp (m/s)" font "Times,10"')
-        call f%write('set ylabel "Depth (m)"')
-        call f%write('unset xr')
-        call f%write('set xr[0:]')
-        call f%write('plot "'+this%best_1_layer_csv+'" u 3:2 lt 12 w l, \')
-        call f%write(' "'+this%best_2_layer_csv+'" u 3:2 lt 13 w l, \')
-        call f%write(' "'+this%best_3_layer_csv+'" u 3:2 lt 14 w l ')
+            call f%write('set multiplot layout 1,3 rowsfirst title "Estimated layer structure" font "Times,10"')
+            call f%write('set xtics font "Times,7" ')
+            call f%write('set ytics font "Times,7" ')
+            call f%write('set title font "Times,7"')
+            call f%write('unset logscale')
+            call f%write('unset format y')
+            call f%write('unset key')
+            call f%write('set title "Vs (m/s)" font "Times,10"')
+            call f%write('set xlabel "Vs (m/s)" font "Times,10"')
+            call f%write('set ylabel "Depth (m)"')
+            call f%write('unset xr')
+            call f%write('set xr[0:]')
+            call f%write('plot "'+this%best_1_layer_csv+'" u 1:2 lt 12 w l, \')
+            call f%write(' "'+this%best_2_layer_csv+'" u 1:2 lt 13 w l, \')
+            call f%write(' "'+this%best_3_layer_csv+'" u 1:2 lt 14 w l ')
 
-        call f%write('set title "Density (t/m^3)" font "Times,10"')
-        call f%write('set xlabel "Density (t/m^3)" font "Times,10"')
-        call f%write('set ylabel "Depth (m)"')
-        call f%write('unset xr')
-        call f%write('set xr[0:]')
-        call f%write('plot "'+this%best_1_layer_csv+'" u 4:2 lt 12 w l, \')
-        call f%write(' "'+this%best_2_layer_csv+'" u 4:2 lt 13 w l, \')
-        call f%write(' "'+this%best_3_layer_csv+'" u 4:2 lt 14 w l ')
+            call f%write('set title "Vp (m/s)" font "Times,10"')
+            call f%write('set xlabel "Vp (m/s)" font "Times,10"')
+            call f%write('set ylabel "Depth (m)"')
+            call f%write('unset xr')
+            call f%write('set xr[0:]')
+            call f%write('plot "'+this%best_1_layer_csv+'" u 3:2 lt 12 w l, \')
+            call f%write(' "'+this%best_2_layer_csv+'" u 3:2 lt 13 w l, \')
+            call f%write(' "'+this%best_3_layer_csv+'" u 3:2 lt 14 w l ')
 
-        call f%write('unset multiplot')
+            call f%write('set title "Density (t/m^3)" font "Times,10"')
+            call f%write('set xlabel "Density (t/m^3)" font "Times,10"')
+            call f%write('set ylabel "Depth (m)"')
+            call f%write('unset xr')
+            call f%write('set xr[0:]')
+            call f%write('plot "'+this%best_1_layer_csv+'" u 4:2 lt 12 w l, \')
+            call f%write(' "'+this%best_2_layer_csv+'" u 4:2 lt 13 w l, \')
+            call f%write(' "'+this%best_3_layer_csv+'" u 4:2 lt 14 w l ')
 
-        
-    else
-        call f%write('plot   "'+this%csv_wave_file+'_Rayl-Dispersion.csv" u 1:2 pointsize 0.2')
-        call f%write('unset multiplot')
+            call f%write('unset multiplot')
+
+
+        else
+            call f%write('plot   "'+this%csv_wave_file+'_Rayl-Dispersion.csv" u 1:2 pointsize 0.2')
+            call f%write('unset multiplot')
+        endif
     endif
     
     

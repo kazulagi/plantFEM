@@ -44,10 +44,17 @@ echo "Compiling ./src/DamClass/DamClass.f90"
 echo " >> DamClass.o "
 echo " | =======================>    | (90%)\r\c"
 mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/DamClass/DamClass.f90 -o  ./inc/DamClass.o
+
 echo "Compiling ./src/LightClass/LightClass.f90" 
 echo " >> LightClass.o "
 echo " | =======================>    | (90%)\r\c"
-mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LightClass/LightClass.f90 -o  ./inc/DamClass.o
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LightClass/LightClass.f90 -o  ./inc/LightClass.o
+
+
+echo "Compiling ./src/LightClass/LightClass.f90" 
+echo " >> EnvironmentClass.o "
+echo " | =======================>    | (90%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/EnvironmentClass/EnvironmentClass.f90 -o  ./inc/EnvironmentClass.o
 
 echo "Compiling ./src/FertilizerClass/FertilizerClass.f90" 
 echo " >> FertilizerClass.o "
