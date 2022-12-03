@@ -44,6 +44,7 @@ module IOClass
             logical :: activate_rule=.false.
             integer(int32) :: header, offset
             integer(int32),allocatable :: content_type(:)
+            logical :: binary = .false.
     
         contains
             procedure,public :: unit => unitIO
@@ -437,6 +438,7 @@ module IOClass
 
         if(present(binary) )then
             use_binary_form = binary
+            obj%binary = binary
         endif
     
         if(present(state) )then
@@ -829,6 +831,10 @@ module IOClass
         logical,optional,intent(in) :: append,advance
         logical :: adv
 
+        if(obj%binary)then
+            write(obj%fh) char
+            return
+        endif
         
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -863,6 +869,14 @@ module IOClass
         integer(int32) :: i
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
+
+
+        if(obj%binary)then
+            write(obj%fh) char
+            write(obj%fh) vec1
+            write(obj%fh) vec2
+            return
+        endif
 
         if(present(separator) )then
             sep = separator
@@ -902,6 +916,13 @@ module IOClass
         class(IO_),intent(inout) :: obj
         character(*),intent(in) :: char1,char2
     
+
+        if(obj%binary)then
+            write(obj%fh) char1
+            write(obj%fh) char2
+            return
+        endif
+
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
             call print("Nothing is written.")
@@ -920,6 +941,15 @@ module IOClass
         character(*),intent(in) :: char1,char2,char3
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
+
+
+        if(obj%binary)then
+            write(obj%fh) char1
+            write(obj%fh) char2
+            write(obj%fh) char3
+
+            return
+        endif
 
         if(present(separator) )then
             sep = separator
@@ -949,6 +979,13 @@ module IOClass
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
 
+
+        if(obj%binary)then
+            write(obj%fh) in32
+            return
+        endif
+
+
         if(present(separator) )then
             sep = separator
         else
@@ -973,6 +1010,13 @@ module IOClass
         real(real64),intent(in) :: re64
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
+
+        if(obj%binary)then
+            write(obj%fh) in32
+            write(obj%fh) re64
+            return
+        endif
+
 
         if(present(separator) )then
             sep = separator
@@ -1000,6 +1044,14 @@ module IOClass
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
 
+        if(obj%binary)then
+            write(obj%fh) in32_1
+            write(obj%fh) in32_2
+            return
+        endif
+
+
+
         if(present(separator) )then
             sep = separator
         else
@@ -1026,6 +1078,13 @@ module IOClass
         integer(int32),intent(in) :: in32_1,in32_2,in32_3
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
+        
+        if(obj%binary)then
+            write(obj%fh) in32_1
+            write(obj%fh) in32_2
+            write(obj%fh) in32_3
+            return
+        endif
 
         if(present(separator) )then
             sep = separator
@@ -1054,6 +1113,13 @@ module IOClass
         integer(int32),intent(in) :: in32_1,in32_2,in32_3,in32_4
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
+
+        if(obj%binary)then
+            write(obj%fh) in32_1,in32_2,in32_3,in32_4
+            return
+        endif
+
+
 
         if(present(separator) )then
             sep = separator
@@ -1085,6 +1151,13 @@ module IOClass
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
 
+
+        if(obj%binary)then
+            write(obj%fh) in32_1,in32_2,&
+            in32_3,in32_4,in32_5
+            return
+        endif
+
         if(present(separator) )then
             sep = separator
         else
@@ -1114,6 +1187,12 @@ module IOClass
         integer(int32),intent(in) :: in32_1,in32_2,in32_3,in32_4,in32_5,in32_6
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
+
+        if(obj%binary)then
+            write(obj%fh) in32_1,&
+            in32_2,in32_3,in32_4,in32_5,in32_6
+            return
+        endif
 
         if(present(separator) )then
             sep = separator
@@ -1145,6 +1224,12 @@ module IOClass
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
 
+
+        if(obj%binary)then
+            write(obj%fh) in32
+            return
+        endif
+
         if(present(separator) )then
             sep = separator
         else
@@ -1170,6 +1255,12 @@ module IOClass
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
 
+
+        if(obj%binary)then
+            write(obj%fh) in32,in32_c
+            return
+        endif
+
         if(present(separator) )then
             sep = separator
         else
@@ -1194,6 +1285,12 @@ module IOClass
         integer(int32) :: i
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
+
+
+        if(obj%binary)then
+            write(obj%fh) in32, in32_c,in32_cc
+            return
+        endif
 
         if(present(separator) )then
             sep = separator
@@ -1222,6 +1319,12 @@ module IOClass
         integer(int32) :: i
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
+
+
+        if(obj%binary)then
+            write(obj%fh) in32,in32_c,re64_cc
+            return
+        endif
 
         if(present(separator) )then
             sep = separator
@@ -1252,6 +1355,12 @@ module IOClass
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
 
+
+        if(obj%binary)then
+            write(obj%fh) in32, re64
+            return
+        endif
+
         if(present(separator) )then
             sep = separator
         else
@@ -1278,6 +1387,12 @@ module IOClass
         integer(int32) :: i
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
+
+
+        if(obj%binary)then
+            write(obj%fh) Re64_c,Re64
+            return
+        endif
 
         if(present(separator) )then
             sep = separator
@@ -1308,6 +1423,11 @@ module IOClass
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
 
+        if(obj%binary)then
+            write(obj%fh) Re64_cc,Re64_c,Re64
+            return
+        endif
+
         if(present(separator) )then
             sep = separator
         else
@@ -1333,6 +1453,12 @@ module IOClass
         integer(int32) :: i
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
+
+
+        if(obj%binary)then
+            write(obj%fh) in32_1,in32
+            return
+        endif
 
         if(present(separator) )then
             sep = separator
@@ -1364,6 +1490,12 @@ module IOClass
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
 
+
+        if(obj%binary)then
+            write(obj%fh) in32_1,re64
+            return
+        endif
+
         if(present(separator) )then
             sep = separator
         else
@@ -1392,6 +1524,12 @@ module IOClass
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
 
+
+        if(obj%binary)then
+            write(obj%fh) in32
+            return
+        endif
+
         if(present(separator) )then
             sep = separator
         else
@@ -1417,6 +1555,11 @@ module IOClass
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
 
+        if(obj%binary)then
+            write(obj%fh) re64
+            return
+        endif
+
         if(present(separator) )then
             sep = separator
         else
@@ -1440,6 +1583,12 @@ module IOClass
         real(real64),intent(in) :: re64_1,re64_2
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
+
+
+        if(obj%binary)then
+            write(obj%fh) re64_1,re64_2
+            return
+        endif
 
         if(present(separator) )then
             sep = separator
@@ -1473,6 +1622,12 @@ module IOClass
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
 
+
+        if(obj%binary)then
+            write(obj%fh) re64_1,re64_2,re64_3
+            return
+        endif
+
         if(present(separator) )then
             sep = separator
         else
@@ -1499,6 +1654,12 @@ module IOClass
         real(real64),intent(in) :: re64_1,re64_2,re64_3,re64_4
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
+
+
+        if(obj%binary)then
+            write(obj%fh) re64_1,re64_2,re64_3,re64_4
+            return
+        endif
 
         if(present(separator) )then
             sep = separator
@@ -1527,6 +1688,13 @@ module IOClass
         real(real64),intent(in) :: re64_1,re64_2,re64_3,re64_4,re64_5
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
+
+
+        if(obj%binary)then
+            write(obj%fh) re64_1,re64_2,re64_3,re64_4,re64_5
+            return
+        endif
+
 
         if(present(separator) )then
             sep = separator
@@ -1558,6 +1726,12 @@ module IOClass
         character(*),optional,intent(in) :: separator
         character(:),allocatable :: sep
 
+
+        if(obj%binary)then
+            write(obj%fh) re64_1,re64_2,re64_3,re64_4,re64_5,re64_6
+            return
+        endif
+
         if(present(separator) )then
             sep = separator
         else
@@ -1587,6 +1761,12 @@ module IOClass
         real(real64),intent(in) :: re64(:)
         logical,optional,intent(in) :: sparse
         integer(int32) :: i
+
+        if(obj%binary)then
+            write(obj%fh) re64
+            return
+        endif
+
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1610,7 +1790,8 @@ module IOClass
     
     
         do i=1,size(re64)
-            write(obj%fh, '(A)') trim(str(re64(i) ))
+            !write(obj%fh, '(A)') trim(str(re64(i) ))
+            write(obj%fh, *) re64(i)
         enddo
     end subroutine
     ! #############################################
@@ -1626,6 +1807,13 @@ module IOClass
         character(:),allocatable :: sep
         integer(int32) :: i,j
     
+
+        if(obj%binary)then
+            write(obj%fh) re64
+            return
+        endif
+
+
         if(present(separator) )then
             sep = separator
         else
@@ -1673,6 +1861,11 @@ module IOClass
         character(:),allocatable :: sep
         integer(int32) :: i,j
     
+        if(obj%binary)then
+            write(obj%fh) re64v,re64
+            return
+        endif
+
         if(present(separator) )then
             sep = separator
         else
@@ -1718,6 +1911,11 @@ module IOClass
         class(IO_),intent(inout) :: obj
         complex(kind(0d0) ),intent(in) :: complex64
         
+        if(obj%binary)then
+            write(obj%fh) complex64
+            return
+        endif
+
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
             call print("Nothing is written.")
@@ -1734,6 +1932,12 @@ module IOClass
         class(IO_),intent(inout) :: obj
         complex(kind(0d0) ),intent(in) :: complex64(:)
         integer(int32) :: i
+
+        if(obj%binary)then
+            write(obj%fh) complex64
+            return
+        endif
+
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1751,6 +1955,12 @@ module IOClass
         class(IO_),intent(inout) :: obj
         complex(kind(0d0) ),intent(in) :: complex64(:,:)
         integer(int32) :: i
+
+
+        if(obj%binary)then
+            write(obj%fh) complex64
+            return
+        endif
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1767,6 +1977,8 @@ module IOClass
     subroutine writeIOstring(obj,string)
         class(IO_),intent(inout) :: obj
         type(String_),intent(in) :: string
+
+
     
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
@@ -1801,6 +2013,7 @@ module IOClass
         class(IO_),intent(inout) :: obj
         type(String_),intent(in) :: string1,string2,string3
     
+
         if(obj%state=="r")then
             call print("IOClass >> Error >> This file is readonly. ")
             call print("Nothing is written.")
@@ -1855,6 +2068,7 @@ module IOClass
         endif
         obj%fh=0
         obj%active=.false.
+        obj%binary = .false.
         
         
     end subroutine closeIO
@@ -2592,6 +2806,7 @@ module IOClass
         real(real64),intent(in) :: valueVector(:)
         integer(int32) :: i, n
         
+
         if( index(obj%filename,".json")==0 )then
             print *, "writeIOJSON_Key_Vector >> obj%filename should contain .json"
             return

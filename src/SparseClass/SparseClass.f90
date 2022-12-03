@@ -1,6 +1,7 @@
 module SparseClass
     use iso_c_binding
     use ArrayClass
+    use RandomClass
     implicit none
 
 
@@ -44,6 +45,7 @@ module SparseClass
         procedure,public :: get => getCOO
         procedure,public :: ne => neCOO
         procedure,public :: maxval => maxvalCOO
+        procedure,public :: random => randomCOO ! create random sparse matrix
 
 
         ! typical matrix
@@ -57,6 +59,8 @@ module SparseClass
         integer(int32),allocatable :: col_ptr(:)
         integer(int32),allocatable :: row_idx(:)
         real(real64)  ,allocatable :: val(:)
+    contains
+      procedure,public :: get_column => get_column_CCS
     end type
     
     type :: CRS_
@@ -65,6 +69,7 @@ module SparseClass
         real(real64)  ,allocatable :: val(:)
     contains
         procedure,public :: init => initCRS
+        procedure,public :: eyes => eyesCRS
         procedure,public :: Lanczos => LanczosCRS
         procedure,public :: matmul => matmulCRS
         procedure,public :: SpMV => matmulCRS
@@ -79,6 +84,9 @@ module SparseClass
         procedure,public :: is_nonzero => is_nonzeroCRS
         procedure,public :: diag => diagCRS
 
+        procedure,public :: divide_by => divide_by_CRS
+        procedure,public :: mult_by => mult_by_CRS
+
         procedure,public :: to_CCS => to_CCSCRS
         
         procedure,public :: load => loadCRS 
@@ -86,6 +94,7 @@ module SparseClass
         procedure,public :: ILU => ILUCRS
         procedure,public :: ILU_matvec => ILU_matvecCRS
         procedure,public :: BICGSTAB => BICGSTAB_CRSSparse
+        procedure,public :: tensor_exponential => tensor_exponential_crs
 
 
     end type
@@ -103,10 +112,16 @@ module SparseClass
       module procedure diffCRS_and_CRS
     end interface
 
+
+
     interface operator(*)
       module procedure multReal64_and_CRS, multCRS_and_Real64
     end interface
 
+    interface matmul
+        module procedure :: matmul_CRS_CRS,matmul_CRS_vec
+    end interface
+    
     interface LOBPCG
         module procedure LOBPCG_CRS,LOBPCG_SINGLE_CRS
     end interface LOBPCG
@@ -846,10 +861,27 @@ logical function is_nonzeroCRS(this,row,col)
 
 end function
 ! ##################################################
-function diagCRS(this) result(diag_vec)
+
+
+! ##################################################
+function diagCRS(this,cell_centered) result(diag_vec)
     class(CRS_),intent(in) :: this
     real(real64),allocatable  :: diag_vec(:)
+    logical,optional,intent(in) :: cell_centered
     integeR(int32) :: i,j
+
+    if(present(cell_centered) )then
+        if(cell_centered)then
+        
+            diag_vec = zeros(this%size() )
+            do i=1,this%size() ! for rows
+                do j=this%row_ptr(i),this%row_ptr(i+1)-1 ! for columns
+                    diag_vec(i) = diag_vec(i) + this%val(j)                
+                enddo
+            enddo
+            return
+        endif
+    endif
 
     diag_vec = zeros(this%size() )
     do i=1,this%size()
@@ -1810,5 +1842,258 @@ subroutine SpMV_CRS_Sparse(CRS_value,CRS_col,CRS_row_ptr,old_vector,new_vector,p
   end subroutine
   ! ###################################################################
   
+function divide_by_CRS(this,diag_vector) result(ret_crs)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in) :: diag_vector(:)
+    type(CRS_) :: ret_crs
+    integer(int32) :: i,j
+    ret_crs = this
+
+    if(size(diag_vector)==1)then
+        ret_crs%val(:) = ret_crs%val(:)/diag_vector(1)
+        return
+    endif
+
+    if(this%size()/=size(diag_vector) ) then
+        print *, "ERROR >> divide_by_CRS >> this%size()/=size(diag_vector) "
+        stop
+    endif
+
+    do i=1,ret_crs%size()
+        do j=ret_crs%row_ptr(i),ret_crs%row_ptr(i+1)-1
+            ret_crs%val(j) = ret_crs%val(j) / diag_vector(i)
+        enddo
+    enddo
+
+end function
+! ###################################################################
   
+function mult_by_CRS(this,diag_vector) result(ret_crs)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in) :: diag_vector(:)
+    type(CRS_) :: ret_crs
+    integer(int32) :: i,j
+    ret_crs = this
+
+    if(size(diag_vector)==1)then
+        ret_crs%val(:) = ret_crs%val(:)/diag_vector(1)
+        return
+    endif
+
+    if(this%size()/=size(diag_vector) ) then
+        print *, "ERROR >> divide_by_CRS >> this%size()/=size(diag_vector) "
+        stop
+    endif
+
+    do i=1,ret_crs%size()
+        do j=ret_crs%row_ptr(i),ret_crs%row_ptr(i+1)-1
+            ret_crs%val(j) = ret_crs%val(j) * diag_vector(i)
+        enddo
+    enddo
+
+end function
+! ######################################################
+function matmul_CRS_vec(A,b) result(vec)
+    type(CRS_),intent(in) :: A
+    real(real64),intent(in) :: b(:)
+    real(real64),allocatable :: vec(:)
+
+    vec = A%matmul(b)
+
+end function
+
+! ######################################################
+function matmul_CRS_CRS(A,B) result(CRS)
+    type(CRS_),intent(in) :: A, B
+    type(COO_) :: COO
+    type(CRS_) :: CRS
+    type(CCS_) :: B_CCS
+    real(real64),allocatable :: col_vec(:)
+    integer(int32) :: col,row,col_ptr,i,j
+    integer(int32),allocatable :: A_col_idx(:),B_row_idx(:)
+    real(real64),allocatable :: A_col_val(:),B_row_val(:)
+
+    ! Considerably slow!! DO NOT USE!
+    ! Considerably slow!! DO NOT USE!
+    ! Considerably slow!! DO NOT USE!
+    ! Considerably slow!! DO NOT USE!
+    ! Considerably slow!! DO NOT USE!
+    ! Considerably slow!! DO NOT USE!
+    ! Considerably slow!! DO NOT USE!
+    ! Considerably slow!! DO NOT USE!
+    ! Considerably slow!! DO NOT USE!
+    ! Considerably slow!! DO NOT USE!
+    ! Considerably slow!! DO NOT USE!
+
+    ! matrix multiplication
+    ! C_ij = A_ik B_kj 
+    call COO%init(A%size() )
+    B_CCS = B%to_CCS()
+
+
+
+
+!    ! avoiding fill-in (inaccurate)
+!    if(A%size() > B%size() )then
+!        CRS = A
+!        CRS%val(:) = 0.0d0
+!    else
+!        CRS = B
+!        CRS%val(:) = 0.0d0
+!    endif
+!
+!    do row=1,size(CRS%row_ptr)-1
+!        do col_ptr=CRS%row_ptr(row),CRS%row_ptr(row+1)-1
+!            col = CRS%col_idx(col_ptr)
+!            A_col_idx = A%col_idx( A%row_ptr(row):A%row_ptr(row+1)-1 )
+!            B_row_idx = B_CCS%row_idx( B_CCS%col_ptr(col):B_CCS%col_ptr(col+1)-1 )
+!            A_col_val = A%val( A%row_ptr(row):A%row_ptr(row+1)-1 )
+!            B_row_val = B_CCS%val( B_CCS%col_ptr(col):B_CCS%col_ptr(col+1)-1 )
+!            if(minval(A_col_idx) > maxval(B_row_idx))cycle
+!            if(maxval(A_col_idx) < minval(B_row_idx))cycle
+!            do i=1,size(A_col_idx)
+!                do j=1, size(B_row_idx)
+!                    if(A_col_idx(i)==B_row_idx(j) )then
+!                        CRS%val(col) = CRS%val(col) + A_col_val(i)*B_row_val(j)
+!                    endif
+!                enddo
+!            enddo
+!        enddo
+!    enddo
+
+    do col=1,size(B_CCS%col_ptr)-1
+        col_vec = A%matmul(B_CCS%get_column(col) )
+        !!$OMP parallel do
+        do row=1,size(col_vec)
+            if(col_vec(row)/=0.0d0 )then
+                !!$OMP atomic
+                call COO%set(row,col,col_vec(row))
+            endif
+        enddo
+        !!$OMP end parallel do
+    enddo
+    CRS = COO%to_CRS()
+
+
+end function
+! ###################################################
+function get_column_CCS(this,col) result(ret)
+    class(CCS_),intent(in) :: this
+    integer(int32),intent(in) :: col
+    real(real64),allocatable :: ret(:)
+    integer(int32) :: row,n
+
+    n = size(this%col_ptr,1)-1
+    ret = zeros(n)
+
+    do row=this%col_ptr(col),this%col_ptr(col+1)-1
+        ret( this%row_idx(row) ) = this%val(row)
+    enddo
+
+end function
+
+! #####################################################
+subroutine randomCOO(this,n,percent) 
+    class(COO_),intent(inout) :: this
+    integer(int32),intent(in) :: n
+    real(real32),optional,intent(in) :: percent
+    real(real32) :: fill_percent
+    integer(int32) :: m,i,row,col
+    real(real64) :: val
+    type(Random_) :: random
+
+    fill_percent = input(default=10.0,option=percent)
+    m = maxval([int(dble(n)*dble(n)*dble(percent)/100.0d0 ),1 ])
+    call this%init(n)
+    do i=1,m
+        row = int(n*random%random())+1
+        col = int(n*random%random())+1
+        val = random%gauss(mu=0.0d0,sigma=1.0d0)
+        call this%set(row,col,val)
+        call this%set(col,row,val)
+    enddo
+
+
+
+end subroutine
+! #####################################################
+
+subroutine eyesCRS(this,n)
+    class(CRS_),intent(inout) :: This
+    type(COO_) :: coo
+    type(CRS_) :: buf
+    integer(int32),intent(in) :: n
+    integer(int32) :: i
+
+    call coo%init(n)
+    do i=1,n
+        call coo%set(i,i,1.0d0)
+    enddo
+    buf = coo%to_CRS()
+    this%row_ptr = buf%row_ptr
+    this%col_idx = buf%col_idx
+    this%val = buf%val
+end subroutine
+
+! ###################################################
+function tensor_exponential_crs(this,itr_tol,tol,x,dt) result(expA_v)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in) :: x(:)
+    real(real64),optional,intent(in) :: dt
+    real(real64),allocatable :: expA_v(:),increA_v(:)
+
+    real(real64),intent(in) :: tol
+    integer(int32), intent(in)::itr_tol
+!    real(real64),allocatable::increA(:,:)
+    real(real64)   :: increment,NN,t
+    integer(int32) :: i,j,n
+!  
+!    if(.not. allocated(expA) )allocate(expA(size(A,1),size(A,2) ))
+!    allocate(increA(size(A,1),size(A,2) ))
+!    if(size(A,1)/=size(A,2)) stop "ERROR:tensor exp is not a square matrix"
+    
+!    expA_v = x
+!    do n=1,size(expA,1)
+!        expA(n,n)=1.0d0
+!    enddo
+    t = input(default=1.0d0,option=dt)
+    ! exp(At) = I + At + 1/2*(At)^2 + 1/6*(At)^3 + ....
+    ! exp(At)v = Iv + (At)v + 1/2*(At)^2 v + 1/6*(At)^3 v+ ....
+    ! exp(At)v = v + (At)v + 1/2*(At)^2 v + 1/6*(At)^3 v+ ....
+!    expA_v = x
+!    do i=1,itr_tol
+!        increA_v = x
+!        do j=1,i
+!            increA_v = t/dble(j)*this%matmul(increA_v)
+!        enddo
+!        expA_v = expA_v + increA_v
+!        if(dot_product(increA_v,increA_v) < tol )exit
+!        
+!    enddo
+!    return
+
+    ! i==1,2
+    ! 0-th order term
+    
+    increA_v = x
+    expA_v = zeros(size(x) )
+    expA_v = expA_v + increA_v
+    ! 1-st order term
+    increA_v = this%matmul(t*increA_v)
+    expA_v = expA_v + increA_v
+    
+    do i=2,itr_tol
+        if(i==1)then
+            
+            cycle
+        endif
+        
+        increA_v = 1.0d0/(i)*this%matmul(t*increA_v)
+        expA_v = expA_v + increA_v
+
+        if(dot_product(increA_v,increA_v) < tol )exit
+    enddo
+    
+end function
+
 end module SparseClass

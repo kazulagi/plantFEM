@@ -4,6 +4,7 @@ module SoilClass
     use FertilizerClass
     use BoringClass
     use DigitalElevationModelClass
+    use EarthClass
     implicit none
 
     ! N-value to Vs
@@ -71,10 +72,14 @@ module SoilClass
 
 
     contains
-        procedure :: init => initSoil
+        procedure,pass :: initSoil
+        procedure,pass :: init_by_latlon_Soil
+        generic :: init   => initSoil,init_by_latlon_Soil
+        generic :: create => initSoil,init_by_latlon_Soil
+        generic :: new    => initSoil,init_by_latlon_Soil
+
+
         procedure :: import => importSoil
-        procedure :: create => initSoil
-        procedure :: new => initSoil
         procedure :: resize => resizeSoil
         procedure :: rotate => rotateSoil
         procedure :: move => moveSoil
@@ -189,7 +194,57 @@ subroutine importSoil(obj, name, boring, dem,x_num,y_num,z_num,radius,depth)
 
 end subroutine
 ! ################################################################
+subroutine init_by_latlon_Soil(this,latitude,longitude,depth,division)
+    class(Soil_),intent(inout)::this
+    real(real64),intent(in) :: latitude(1:4),longitude(1:4),depth
+    integer(int32),intent(in) :: division(1:3)
+    real(real64),allocatable :: xy(:,:),XXYY(:,:),dxdxi(:,:),F(:,:),coord(:)
+    real(real64) :: r, theta, alpha, beta,theta_1,theta_2,theta_3,rot_mat_1(2,2),&
+    rot_mat_2(2,2)
+    integer(int32) :: elemnod(1,4),i,j
+    type(Math_) :: math
 
+    xy = zeros(size(latitude),2 ) 
+    do i=2,size(latitude)
+        xy(i,1:2) = to_Cartesian(longitude=longitude(i),latitude=latitude(i),origin=[latitude(1),longitude(1)])
+    enddo
+
+    call this%femdomain%create(meshtype="Cube3D",x_num=division(1),&
+        y_num=division(2),z_num=division(3))
+    call this%femdomain%resize(x=1.0d0,y=1.0d0,z=abs(depth))
+    call this%femdomain%move(x=this%femdomain%xmin(),y=this%femdomain%ymin(),z=-abs(depth))
+
+    coord = zeros(2)
+    XXYY = zeros(4,2)
+    
+    XXYY(1,1:2) = [0.0d0,0.0d0]
+    XXYY(2,1:2) = [1.0d0,0.0d0]
+    XXYY(3,1:2) = [1.0d0,1.0d0]
+    XXYY(4,1:2) = [0.0d0,1.0d0]    
+
+    rot_mat_1(1:2,1) = xy(2,1:2) 
+    rot_mat_1(1:2,2) = xy(3,1:2) - xy(2,1:2) 
+    
+    rot_mat_2(1:2,1) = xy(3,1:2) - xy(4,1:2)
+    rot_mat_2(1:2,2) = xy(4,1:2) 
+
+    do i=1,this%femdomain%nn()
+        coord = this%femdomain%mesh%nodcoord(i,1:2)
+        r     = norm(coord)
+        if(coord(1)==0.0d0)then
+            theta = Math%PI/2.0d0
+        else
+            theta = atan(coord(2)/coord(1)  )
+        endif
+        
+        if(theta <=Math%PI/4.0d0 )then
+            this%femdomain%mesh%nodcoord(i,1:2) = matmul(rot_mat_1,coord)
+        else
+            this%femdomain%mesh%nodcoord(i,1:2) = matmul(rot_mat_2,coord)
+        endif
+    enddo
+
+end subroutine
 
 ! ################################################################
 subroutine initSoil(obj,config,x_num,y_num,z_num)

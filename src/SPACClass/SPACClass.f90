@@ -373,12 +373,12 @@ subroutine run_SPAC(this,only_FFT)
     logical,optional,intent(in) :: only_FFT
     real(real64),allocatable :: Angle(:),A(:),All_data(:,:),buf(:,:)
     real(real64),allocatable :: t(:),freq(:),SPAC_COEFF(:),phase_velocity(:),HoverV_spectra(:),&
-        FourierSpectrum(:),A_buf(:),vbuf(:)
+        FourierSpectrum(:),A_buf(:),vbuf(:),position_xy(:,:)
     real(real64) :: radius,Maximum_phase_velocity,cutoff_sd
     integer(int32) :: FFT_SIZE,NUM_SAMPLE,num_logger,Maximum_itr,&
         num_smoothing,NUM_MOVING_AVERAGE,i,j,logger_id,taper_percent
     type(IO_) :: f
-    real(real32) :: sampling_Hz,bandpath_high,bandpath_low
+    real(real32) :: sampling_Hz,bandpath_high,bandpath_low,theta
     character(50) :: fpath,data_unit
     character(:),allocatable :: filepath,config
     character(:),allocatable :: HoverV_spectra_EW
@@ -386,6 +386,7 @@ subroutine run_SPAC(this,only_FFT)
     integer(int32),allocatable :: ids(:)
     type(IO_) :: logfile
     type(SpectreAnalysis_) :: speana
+    type(Math_) :: math
 
     logical :: stop_before_spac
 
@@ -561,21 +562,55 @@ subroutine run_SPAC(this,only_FFT)
     enddo
     
 
+    ! >>>>>>>> create position >>>>>>>> 
+    allocate(position_xy(num_logger,1:2) )
+    position_xy(1,1:2) = 0.0d0
+    do i=2,num_logger
+        theta = 2.0d0*math%pi/(num_logger-1)*(i-2)
+        position_xy(i,1) = this%radius*cos(theta)
+        position_xy(i,2) = this%radius*sin(theta)
+    enddo
+    ! >>>>>>>> create position >>>>>>>> 
+    
     ! >>>>>>>> SPAC coefficient >>>>>>>> 
+    ! two-point SPAC
+    do i=1,num_logger
+        do j=1,i-1
+            SPAC_COEFF = to_SPAC_COEFF(&
+                Center_x=All_data(:, i),&
+                Circle_x=All_data(:, [j]),&
+                FFT_SIZE=FFT_SIZE)
+            call f%open(filepath+"_SPAC_COEFF_2pt_"+zfill(i,3)+"_"+zfill(j,3)+".csv","w")
+            call f%write(freq(:),SPAC_COEFF(:),separator=", ")
+            call f%close()
+            phase_velocity = to_phase_velocity(&
+                Center_x        =All_data(:,i),&
+                Circle_x        =All_data( :,[j]),&
+                FFT_SIZE        =FFT_SIZE,&
+                radius          =norm(position_xy(i,:)-position_xy(j,:) ) ,&
+                sampling_Hz     =int(sampling_Hz),&
+                max_c           = Maximum_phase_velocity, & ! m/s
+                max_itr         = Maximum_itr, &
+                debug           =.true. )
+                
+            call f%open(filepath+"_Rayl-Dispersion_2pt_"+zfill(i,3)+"_"+zfill(j,3)+".csv","w")    
+            call f%write(freq(:),phase_velocity(:) ,separator=", ")
+            call f%close()
+        enddo
+    enddo
+    
+    ! 4-point SPAC
     SPAC_COEFF = to_SPAC_COEFF(&
         Center_x=All_data(:,1),&
         Circle_x=All_data(: ,ids(:) ),&
         FFT_SIZE=FFT_SIZE)
-    
-    ! smoothing
-    
-    !vbuf = moving_average(SPAC_COEFF,num_smoothing)
-    !SPAC_COEFF = vb
-    
     call f%open(filepath+"_SPAC_COEFF.csv","w")
     call f%write(freq(:),SPAC_COEFF(:),separator=", ")
     call f%close()
+
     ! >>>>>>>> SPAC coefficient >>>>>>>> 
+
+
     call logfile%write("[ok] SPAC COEFFICIENT DONE!")
     call logfile%flush()
 
@@ -698,6 +733,31 @@ subroutine pdf_SPAC(this,name)
     enddo
     call f%write('"'+this%csv_wave_file+'_'+zfill(this%num_logger,3)+'_HoverV-spectra_NS.csv" u 1:2 w l')
     call f%write('unset multiplot')
+
+    do i=1,this%num_logger
+        do j=1,i-1
+            if(f%exists(this%csv_wave_file+'_SPAC_COEFF_2pt_'+zfill(i,3)+'_'+zfill(j,3)+'.csv' ) )then
+                call f%write('set multiplot layout 1,2 rowsfirst title "Two-point SPAC" font "Times,10"')
+                call f%write('set xtics font "Times,10" ')
+                call f%write('set ytics font "Times,10" ')
+                call f%write('set title font "Times,10"')
+                call f%write('unset logscale')
+                call f%write('unset format y')
+                call f%write('unset key')
+                call f%write('set title "SPAC coefficient from two points (L'+str(i)+' and L'+str(j)+') " font "Times,10"')
+                call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
+                call f%write('set ylabel "SPAC coefficient"')
+                call f%write('plot   "'+this%csv_wave_file+'_SPAC_COEFF_2pt_'&
+                    +zfill(i,3)+'_'+zfill(j,3)+'.csv" u 1:2  pointsize 0.2')
+                call f%write('set title "Phase velocity from two points (L'+str(i)+' and L'+str(j)+') " font "Times,10"')
+                call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
+                call f%write('set ylabel "Phase velocity (m/s)"')
+                call f%write('plot   "'+this%csv_wave_file+'_Rayl-Dispersion_2pt_'&
+                    +zfill(i,3)+'_'+zfill(j,3)+'.csv" u 1:2 pointsize 0.2')
+                call f%write('unset multiplot')
+            endif
+        enddo
+    enddo
 
     if(f%exists(this%csv_wave_file+'_SPAC_COEFF.csv' ) )then
         call f%write('set multiplot layout 1,2 rowsfirst title "SPAC" font "Times,10"')

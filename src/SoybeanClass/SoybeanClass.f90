@@ -200,8 +200,8 @@ module SoybeanClass
         ! carbon flow and photosynthesis
         ! carbon concentration (micro-gram/m^3) at apical
         real(real64) :: apical_carbon_concentration = 0.01d0
-        real(real64),allocatable :: Photosynthate_n(:),&
-            delta_Photosynthate_dt_n(:)
+        real(real64),allocatable :: Photosynthate_n(:),reaction_n(:)
+            
 
     contains
         !procedure,public :: addRoot => addRootSoybean
@@ -236,6 +236,8 @@ module SoybeanClass
         procedure,public :: setPropertiesBoundaryTractionForce => setPropertiesBoundaryTractionForceSoybean
         procedure,public :: setPropertiesBoundaryDisplacement => setPropertiesBoundaryDisplacementSoybean
         procedure,public :: setPropertiesGravity => setPropertiesGravitySoybean
+        procedure,public :: setFEMDomains => setFEMDomainsSoybean
+        procedure,public :: setFEMDomain  => setFEMDomainsSoybean
 
         ! alternative setters
         procedure,public :: setYoungModulus => setYoungModulusSoybean
@@ -269,6 +271,7 @@ module SoybeanClass
         procedure,public :: getYoungModulusField => getYoungModulusFieldSoybean
         procedure,public :: getPoissonRatioField => getPoissonRatioFieldSoybean
         procedure,public :: getDensityField => getDensityFieldSoybean
+        procedure,public :: getDiffusionCoefficient => getDiffusionCoefficientSoybean
 
         procedure,public :: getElementList => getElementListSoybean
         
@@ -299,6 +302,8 @@ module SoybeanClass
         procedure,public :: getRangeOfNodeID => getRangeOfNodeIDSoybean
         procedure,public :: getFEMDomainPointers => getFEMDomainPointersSoybean
         procedure,public :: fall_leaf => fall_leafSoybean
+        procedure,public :: getFEMDomains => to_FEMDomainsSoybean
+        procedure,public :: to_FEMDomains => to_FEMDomainsSoybean
 
         ! >> simulation 
         procedure,public :: getPPFD => getPPFDSoybean
@@ -385,18 +390,25 @@ module SoybeanClass
         procedure, pass ::  rotatePetiole => rotatePetioleSoybean
         procedure, pass ::  resizeLeaf => resizeLeafSoybean
 
+
         ! growth parameters
         procedure, pass :: setFinalInterNodeLength => setFinalInterNodeLengthSoybean
         procedure, pass :: setFinalPetioleLength   => setFinalPetioleLengthSoybean
         procedure, pass :: setFinalLeafLength      => setFinalLeafLengthSoybean
         procedure, pass :: setFinalLeafWidth       => setFinalLeafWidthSoybean
 
-        
+        ! converter
+        procedure,public :: ElementID2NodeID => ElementID2NodeIDSoybean
 
         ! essential routines for growth simulation
         procedure, pass :: getcarbon_concentration => getCarbon_concentrationSoybean
         procedure, pass :: getRespiration => getRespirationSoybean
         procedure, pass :: getCarbonFlow => getCarbonFlowSoybean
+    end type
+
+    
+	type :: soybeanp_
+        type(soybean_),pointer :: soybeanp => null()
     end type
 
     type :: SoybeanCanopy_
@@ -7532,9 +7544,6 @@ function getPhotoSynthesisSoybean(obj,light,air,dt,Transparency,Resolution,ppfd)
         obj%Photosynthate_n = zeros(obj%nn() )
     endif
 
-    if(.not.allocated(obj%delta_Photosynthate_dt_n) )then
-        obj%delta_Photosynthate_dt_n = zeros(obj%nn() )
-    endif
 
     photosynthesis = zeros(obj%ne() )
     
@@ -7605,9 +7614,6 @@ function getPhotoSynthesis_by_env_soybean(this,env,dt,Transparency,soybean_canop
         this%Photosynthate_n = zeros(this%nn() )
     endif
 
-    if(.not.allocated(this%delta_Photosynthate_dt_n) )then
-        this%delta_Photosynthate_dt_n = zeros(this%nn() )
-    endif
 
     elem_volume = this%getVolumePerElement()
     if(present(soybean_canopy) )then
@@ -7650,9 +7656,6 @@ function getPhotoSynthesisSpeedPerVolumeSoybean(obj,light,air,dt,Transparency,Re
         obj%Photosynthate_n = zeros(obj%nn() )
     endif
 
-    if(.not.allocated(obj%delta_Photosynthate_dt_n) )then
-        obj%delta_Photosynthate_dt_n = zeros(obj%nn() )
-    endif
 
     photosynthesis = zeros(obj%ne() )
     
@@ -10061,41 +10064,101 @@ end subroutine
 
 ! ################################################################
 
-function getCarbon_concentrationSoybean(this,env,target_element_list) result(ret)
+function getCarbon_concentrationSoybean(this,env,FixBoundary,FixValue) result(ret)
     class(Soybean_),intent(in) :: this
     type(Environment_),intent(in) :: env
-    integer(int32),allocatable,optional,intent(inout) :: target_element_list(:)
+    integer(int32),allocatable,intent(inout) :: FixBoundary(:)
+    real(real64),allocatable,intent(inout) ::  FixValue(:)
     real(real64),allocatable :: ret(:)
-    integer(int32),allocatable :: apicals(:),NumberOfElement(:)
-    integer(int32) :: stemID,apical_id,from,to,itr,i
+    integer(int32),allocatable :: apicals(:),NumberOfElement(:),NumberOfPoint(:)
+    integer(int32) :: stemID,apical_id,from,to,itr,i,k
     ! getCarbon_concentrationSoybean 
     
+    if(allocated(FixValue) ) deallocate(FixValue)
+    if(allocated(FixBoundary) ) deallocate(FixBoundary)
     ! Unit ::  ___________micro-gram/m^3/s_____________
 
     ! reaction term
 
     ! 濃度勾配駆動で流れるとして，その固定濃度，負値は無視
     ret = -1.0d0*eyes(this%ne() )
+    allocate(FixValue(0))
+    allocate(FixBoundary(0))
+
     apicals = this%findApical()
     NumberOfElement = this%getNumberOfElement()
+    NumberOfPoint = this%getNumberOfPoint()
+    
     !itr = 0
     do apical_id=1,size(apicals)
         if(this%stem( apicals(apical_id) )%empty() )then
             cycle
         else
+            ! element-wise values
             to = sum(NumberOfElement(1:apicals(apical_id) )) 
             from   = to + 1 - this%stem( apicals(apical_id) )%ne()
-            ret(from:to) = this%apical_carbon_concentration
-            if(present(target_element_list))then
-                if(itr==0)then
-                    target_element_list = [(i, i=from,to)]
-                else
-                    target_element_list = target_element_list // [(i, i=from,to)]
-                endif
-            endif
+            ret(from+this%stem( apicals(apical_id) )%B_PointElementID ) = this%apical_carbon_concentration
+
+            ! node-wise values
+            to = sum(NumberOfPoint(1:apicals(apical_id) )) 
+            from   = to + 1 - this%stem( apicals(apical_id) )%nn()
+            FixBoundary = FixBoundary // [from + this%stem( apicals(apical_id) )%B_PointNodeID]
+            FixValue = FixValue // [this%apical_carbon_concentration]
+            
             itr = itr + 1
         endif
     enddo
+    
+end function
+! ################################################################
+function ElementID2NodeIDSoybean(this,ElementIDs) result(NodeIDs)
+    class(Soybean_),intent(in) :: this 
+    integer(int32),intent(in) :: ElementIDs(:)
+    integer(int32),allocatable :: NodeIDs(:),numberOfElement(:),domain_in(:),idx(:),nidx(:)
+    integer(int32) :: offset,domainID,i,j
+    
+    numberOfElement = this%getNumberOfElement()
+
+    domain_in = ElementIDs
+    domain_in(:) = 0
+
+    offset = 0
+    do i=1,size(numberOfElement)    
+        do j = 1,size(ElementIDs)
+            if( offset + 1 <= ElementIDs(j) .and. ElementIDs(j) <= offset + numberOfElement(i) )then
+                domain_in(j) = i
+            else
+                cycle
+            endif
+        enddo
+        offset = offset + numberOfElement(i)
+    enddo
+    
+
+    offset = 0
+    domainID = 0
+    if(allocated(this%stem) )then
+        do i=1,size(this%stem)
+            if(this%stem(i)%empty() ) cycle
+            
+            domainID = domainID + 1
+            idx = getIdx(domain_in,equal_to=DomainID)
+            if(size(idx)==0 )then
+                cycle
+            else
+                nidx = this%stem(i)%femdomain%ElementID2NodeID(ElementID=idx)
+                if( .not.allocated(nodeIDs ))then
+                    nodeIDs = nidx(:)+offset
+                else
+                    nodeIDs = nodeIDs // (nidx(:)+offset)
+                endif
+            endif
+            offset = offset + this%stem(i)%nn()
+            
+        enddo
+    endif
+        
+
 end function
 
 ! ################################################################
@@ -10109,7 +10172,7 @@ function getRespirationSoybean(this,env) result(ret)
 
     ! getCarbon_concentrationSoybean micro-gram/m^3
     ! reaction term
-    ! Unit ::  ___________micro-gram/m^3/s_____________
+    ! Unit ::  ___________micro-gram/m^3/s_____from mincro-mol/m-2/s
 
     NumberOfElement = this%getNumberOfElement()
 
@@ -10120,7 +10183,7 @@ function getRespirationSoybean(this,env) result(ret)
         
         to = sum(NumberOfElement(1:stemID )) 
         from = to - this%stem( stemID )%ne() + 1
-        ret(from:to) = this%stem(stemid)%R_d
+        ret(from:to) = this%stem(stemid)%R_d*180.160d0/6.0d0/0.00020d0
     enddo
     ! ignore leaf since it is contained in the %GetPhotosynthesis
     
@@ -10133,7 +10196,7 @@ function getRespirationSoybean(this,env) result(ret)
             to = sum(NumberOfElement(1:this%numStem()+this%numLeaf()+ rootID )) 
             from = to - this%root( rootID )%ne() + 1
 
-            ret(from:to) = this%root(rootID)%R_d
+            ret(from:to) = this%root(rootID)%R_d*180.160d0/6.0d0/0.00020d0
         enddo
     endif
     
@@ -10144,362 +10207,255 @@ function getRespirationSoybean(this,env) result(ret)
 
 end function
 ! ######################################################
-function getCarbonFlowSoybean(this,photosynthesis,respiration,carbon_concentration,Photosynthate_n,&
-        delta_Photosynthate_dt_n,dt) &
+function getCarbonFlowSoybean(this,photosynthesis,respiration,FixBoundary,FixValue,&
+        Photosynthate_n,dt,penalty,DiffusionCoeff,debug,RHS,Matrix,&
+        tol) &
     result(Photosynthate)
     class(Soybean_),target,intent(inout) :: this
-    type(FEMSolver_) :: solver
-    real(real64),intent(in) :: photosynthesis(:),respiration(:),carbon_concentration(:),Photosynthate_n(:),&
-        dt,delta_Photosynthate_dt_n(:)
-    real(real64),allocatable :: Photosynthate(:),FixValues(:),domain_carbo_fix(:)
-    type(FEMDomainp_),allocatable :: domains(:)
-    integer(int32) :: i,j,n,stemID_p,stemID_c,itr,eid,from,to,DomainID,ElementID,&
-        rootID,leafID,stemID,myLeafID,myRootID,myStemID,yourRootID,yourStemID
-    integer(int32),allocatable :: NumberOfElement(:),FixBoundary(:)
-    type(CRS_) :: Mmatrix,Kmatrix,Amatrix
-    real(real64),allocatable :: bvector(:)
+    type(CRS_),optional,intent(inout ) :: Matrix
+    real(real64),intent(in) :: photosynthesis(:),respiration(:),Photosynthate_n(:),&
+        dt,DiffusionCoeff(:),FixValue(:)
+    integer(int32),intent(in) :: FixBoundary(:)
+    real(real64),intent(in) :: penalty
+    real(real64),optional,intent(in) :: tol
+    real(real64) :: dx
+    real(real64),allocatable :: c(:)
+    logical,optional,intent(in) :: debug
+    real(real64),allocatable :: Photosynthate(:)
+    real(real64),allocatable,optional,intent(inout) :: RHS(:)
+    logical :: passed
+    type(FEMDomain_),allocatable :: FEMDomains(:) 
+    type(DiffusionEq_) :: solver
+    integer(int32) :: i,n,num_fix_bound,total_nn
+    type(IO_) :: f
+
+
+!    num_fix_bound = 0
+!    do i=1,size(carbon_concentration)
+!        if(carbon_concentration(i) > 0.0d0 ) then
+!            num_fix_bound = num_fix_bound + 1
+!        endif
+!    enddo
+!
+!    FixValue    = zeros(num_fix_bound)
+!    FixBoundary = int(zeros(num_fix_bound))
+!    
+!
+!    num_fix_bound = 0
+!    do i=1,size(carbon_concentration)
+!        if(carbon_concentration(i) > 0.0d0 ) then
+!            num_fix_bound = num_fix_bound + 1
+!            FixBoundary(num_fix_bound) = i 
+!            FixValue(num_fix_bound)    = carbon_concentration(i)
+!        endif
+!    enddo
     
+    FEMDomains = this%to_FEMDomains()
+    if(present(debug) )then
+        solver%solver%debug = debug
+    endif
 
-    NumberOfElement = this%getNumberOfElement()
+    do i=1,size(femdomains)
+        call femdomains(i)%vtk("mesh_"+zfill(i,4) )
+        if(femdomains(i)%empty() ) stop
+    enddo
 
-    Photosynthate = zeros(this%ne() ) 
+    if(present(tol) )then
+        solver%solver%er0 = tol
+        solver%solver%relative_er = tol
+    endif
+    if(allocated(this%reaction_n) )then
+        solver%CRS_RHS_n = this%reaction_n
+    endif
 
-    ! solve
-    ! dC/dt = - D d^2/dx^2 c + P - R 
-    ! reaction term (P)
-    ! reaction term (R)
-    ! with 
-    ! initial condition :: c = c(0)
-    ! time-domain :: 0 <= t <= dt
+    dx = abs(FEMDomains(1)%position_x(1)-FEMDomains(1)%position_x(2))
+    call solver%check_stability_condition(dt=dt,dx=dx,coefficient=average(DiffusionCoeff),passed=passed ) 
+    if(.not.passed)then
+        print *, "[getCarbonFlowSoybean] >> dt is too large!"
+        stop
+    endif
 
-    ! by EbO-FEM
+    Photosynthate = solver%getDiffusionField(&
+            FEMDomains=FEMDomains , &
+            DiffusionCoeff=DiffusionCoeff, &
+            Reaction=photosynthesis - respiration, &
+            Penalty=penalty ,&
+            FixBoundary=FixBoundary,   &
+            FixValue=FixValue   ,    &
+            C_n=Photosynthate_n,&
+            RHS=RHS,&
+            Matrix=Matrix,&
+            dt=dt &
+        )
+    this%reaction_n = solver%CRS_RHS_n
+    
+end function
+! ######################################################
 
-    ! overset
-    n = this%numStem() +this%numLeaf() + this%numRoot()
-    itr = 0
-    allocate(domains(n) )
+
+! ######################################################
+function getDiffusionCoefficientSoybean(this) result(DiffusionCoefficient)
+    class(Soybean_),intent(inout) :: this
+    real(real64),allocatable :: DiffusionCoefficient(:)
+    integer(int32) :: i,n,domainID
+
+    
+    allocate(DiffusionCoefficient(0) )
+    
     if(allocated(this%stem) )then
         do i=1,size(this%stem)
             if(this%stem(i)%empty() ) cycle
-            itr = itr + 1
-            domains(itr)%femdomainp => this%stem(i)%femdomain
+            DiffusionCoefficient = DiffusionCoefficient // this%stem(i)%CarbonDiffusionCoefficient
         enddo
     endif
     if(allocated(this%leaf) )then
         do i=1,size(this%leaf)
             if(this%leaf(i)%empty() ) cycle
-            itr = itr + 1
-            domains(itr)%femdomainp => this%leaf(i)%femdomain
+            DiffusionCoefficient = DiffusionCoefficient // this%leaf(i)%CarbonDiffusionCoefficient
         enddo
     endif
     if(allocated(this%root) )then
         do i=1,size(this%root)
             if(this%root(i)%empty() ) cycle
-            itr = itr + 1
-            domains(itr)%femdomainp => this%root(i)%femdomain
+            DiffusionCoefficient = DiffusionCoefficient // this%root(i)%CarbonDiffusionCoefficient
         enddo
     endif
-
-
-    ! overset 
-    if(allocated(this%stem2stem) )then
-        do myStemID = 1,size(this%stem2stem,1)
-            do yourStemID = 1, size(this%stem2stem,2)
-                if(this%stem2stem(myStemID,yourStemID)>=1 )then
-                    ! connected
-                    call this%stem(myStemID)%femdomain%overset(&
-                        FEMDomain=this%stem(yourStemID)%femdomain,&
-                        DomainID   = yourStemID    ,& 
-                        MyDomainID = myStemID  ,&
-                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
-                endif
-            enddo
-        enddo
-    endif
-
-    if(allocated(this%leaf2stem) )then
-        do myLeafID = 1,size(this%leaf2stem,1)
-            do yourStemID = 1, size(this%leaf2stem,2)
-                if(this%leaf2stem(myLeafID,yourStemID)>=1 )then
-                    ! connected
-                    call this%leaf(myLeafID)%femdomain%overset(&
-                        FEMDomain=this%stem(yourStemID)%femdomain,&
-                        DomainID   = yourStemID    ,& 
-                        MyDomainID = this%numStem() + myLeafID  , &
-                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
-                endif
-            enddo
-        enddo
-    endif
-    
-
-    if(allocated(this%root2stem) )then
-        do myRootID = 1,size(this%root2stem,1)
-            do yourStemID = 1, size(this%root2stem,2)
-                if(this%root2stem(myRootID,yourStemID)>=1 )then
-                    ! connected
-                    call this%root(myRootID)%femdomain%overset(&
-                        FEMDomain=this%stem(yourStemID)%femdomain,&
-                        DomainID   = yourStemID    ,& 
-                        MyDomainID = this%numStem() +this%numLeaf() + myRootID  , &
-                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
-                endif
-            enddo
-        enddo
-    endif
-
-
-    if(allocated(this%root2root) )then
-        do myRootID = 1,size(this%root2root,1)
-            do yourrootID = 1, size(this%root2root,2)
-                if(this%root2root(myRootID,yourrootID)>=1 )then
-                    ! connected
-                    call this%root(myRootID)%femdomain%overset(&
-                        FEMDomain=this%root(yourrootID)%femdomain,&
-                        DomainID   = this%numroot() +this%numLeaf() + yourrootID    ,& 
-                        MyDomainID = this%numroot() +this%numLeaf() + myRootID  , &
-                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
-                endif
-            enddo
-        enddo
-    endif
-
-
-    
-    call solver%init(NumDomain=n)
-    call solver%setDomain(FEMDomainPointers=domains(:))
-    call solver%setCRS(DOF=1)
-
-
-    ! mass matrix
-
-    DomainID = 0
-    eid = 0
-    if(allocated(this%stem ) )then
-        
-        do itr=1,size(this%stem)
-            
-            if(this%stem(itr)%empty() ) cycle
-            DomainID = DomainID + 1
-            do ElementID = 1, domains(DomainID)%femdomainp%ne()
-                eid = eid + 1
-                call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=1,&
-                   Matrix=domains(DomainID)%femdomainp%MassMatrix(&
-                        ElementID=ElementID,&
-                        Density=1.0d0,&
-                        DOF=1 &
-                   ) )
-            enddo
-        enddo
-        
-    endif
-    if(allocated(this%leaf ) )then
-        do itr=1,size(this%leaf)
-            
-            if(this%leaf(itr)%empty() ) cycle
-            DomainID = DomainID + 1
-            do ElementID = 1, domains(DomainID)%femdomainp%ne()
-                eid = eid + 1
-                call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=1,&
-                    Matrix=domains(DomainID)%femdomainp%MassMatrix(&
-                        ElementID=ElementID,&
-                        Density=1.0d0,&
-                        DOF=1 &   
-                    ) )
-            enddo
-        enddo
-        
-    endif
-    if(allocated(this%root ) )then
-        do itr=1,size(this%root)
-            
-            if(this%root(itr)%empty() ) cycle
-            DomainID = DomainID + 1
-            do ElementID = 1, domains(DomainID)%femdomainp%ne()
-                eid = eid + 1
-                call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=1,&
-                        Matrix=domains(DomainID)%femdomainp%MassMatrix(&
-                            ElementID=ElementID,&
-                            Density=1.0d0,&
-                            DOF=1 &   
-                        )&
-                    )
-            enddo
-        enddo
-        
-    endif
-
-    
-    call solver%keepThisMatrixAs("M")
-    call solver%zeros()
-    
-
-    DomainID = 0
-    eid = 0
-
-    itr = 1
-    
-
-    if(allocated(this%stem ) )then
-        do itr=1,size(this%stem)
-            
-            if(this%stem(itr)%empty() ) cycle
-            DomainID = DomainID + 1
-            do ElementID = 1, domains(DomainID)%femdomainp%ne()
-                eid = eid + 1
-                call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=1,&
-                   Matrix=domains(DomainID)%femdomainp%DiffusionMatrix(&
-                        ElementID=ElementID,&
-                        D=this%stem(itr)%CarbonDiffusionCoefficient(ElementID)    &
-                   ) )
-                call solver%setVector(DomainID=DomainID,ElementID=ElementID,DOF=1,&
-                    Vector=domains(DomainID)%femdomainp%MassVector(&
-                        ElementID=ElementID,&
-                        DOF=1,&
-                        Density= - respiration(eid) + photosynthesis(eid),&
-                        Accel=[1.0d0]&
-                        ) & 
-                    )
-            enddo
-        enddo
-    endif
-    if(allocated(this%leaf ) )then
-        do itr=1,size(this%leaf)
-            
-            if(this%leaf(itr)%empty() ) cycle
-            DomainID = DomainID + 1
-            do ElementID = 1, domains(DomainID)%femdomainp%ne()
-                eid = eid + 1
-                call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=1,&
-                   Matrix=domains(DomainID)%femdomainp%DiffusionMatrix(&
-                        ElementID=ElementID,&
-                        D=this%leaf(itr)%CarbonDiffusionCoefficient(ElementID)    &
-                   ) )
-                call solver%setVector(DomainID=DomainID,ElementID=ElementID,DOF=1,&
-                    Vector=domains(DomainID)%femdomainp%MassVector(&
-                        ElementID=ElementID,&
-                        DOF=1,&
-                        Density= - respiration(eid) + photosynthesis(eid),&
-                        Accel=[1.0d0]&
-                        ) & 
-                    )
-            enddo
-        enddo
-    endif
-    if(allocated(this%root ) )then
-        do itr=1,size(this%root)
-            
-            if(this%root(itr)%empty() ) cycle
-            DomainID = DomainID + 1
-            do ElementID = 1, domains(DomainID)%femdomainp%ne()
-                eid = eid + 1
-                call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=1,&
-                   Matrix=domains(DomainID)%femdomainp%DiffusionMatrix(&
-                        ElementID=ElementID,&
-                        D=this%root(itr)%CarbonDiffusionCoefficient(ElementID)    &
-                   ) )
-                call solver%setVector(DomainID=DomainID,ElementID=ElementID,DOF=1,&
-                    Vector=domains(DomainID)%femdomainp%MassVector(&
-                        ElementID=ElementID,&
-                        DOF=1,&
-                        Density= - respiration(eid) + photosynthesis(eid),&
-                        Accel=[1.0d0]&
-                        ) & 
-                    )
-            enddo
-        enddo
-
-    endif
-    
-    print *, "[ok]Element-matrices done"
-
-    call solver%setEbOM(penalty=1000.0d0, DOF=1)
-    call solver%keepThisMatrixAs("K")
-    call solver%zeros()
-    
-    Mmatrix = solver%getCRS("M")
-    Kmatrix = solver%getCRS("K")
-    
-    ! In case of first step
-    
-    ! Crank-Nicolson method
-    Amatrix = 2.0d0/dt*Mmatrix + Kmatrix
-    
-    bvector = solver%CRS_RHS + Mmatrix%matmul(2.0d0/dt*Photosynthate_n- delta_Photosynthate_dt_n) 
-    
-
-    call solver%setCRS(Amatrix)
-    call solver%setRHS(bvector)
-
-
-
-    print *, "matrices imported."
-    
-    ! if concentration is positive, fix
-    NumberOfElement = this%getNumberOfElement()
-    
-    DomainID = 0
-    if(allocated(this%stem ) )then
-        do stemID=1,size(this%stem)
-            if(this%stem(stemID)%empty() ) cycle
-            
-            DomainID=DomainID+1
-            
-            to = sum(NumberOfElement(1:DomainID )) 
-            from = to - this%stem( stemID )%ne() + 1 
-            
-            domain_carbo_fix = carbon_concentration(from:to)
-            FixBoundary = select_id_if(domain_carbo_fix, ">", 0.0d0 )
-            FixValues   = select_if(   domain_carbo_fix, ">", 0.0d0 )
-            call solver%fix(IDs=FixBoundary,FixValues=FixValues)
-        enddo
-    endif
-    if(allocated(this%leaf ) )then
-        do leafID=1,size(this%leaf)
-            if(this%leaf(leafID)%empty() ) cycle
-            
-            DomainID=DomainID+1
-            
-            to = sum(NumberOfElement(1:DomainID )) 
-            from = to - this%leaf( leafID )%ne() + 1 
-            
-            domain_carbo_fix = carbon_concentration(from:to)
-            FixBoundary = select_id_if(domain_carbo_fix, ">", 0.0d0 )
-            FixValues   = select_if(   domain_carbo_fix, ">", 0.0d0 )
-            call solver%fix(IDs=FixBoundary,FixValues=FixValues)
-        enddo
-    endif
-    if(allocated(this%root ) )then
-        do rootID=1,size(this%root)
-            if(this%root(rootID)%empty() ) cycle
-        
-            DomainID=DomainID+1
-            
-            to = sum(NumberOfElement(1:DomainID )) 
-            from = to - this%root( rootID )%ne() + 1 
-            
-            domain_carbo_fix = carbon_concentration(from:to)
-            FixBoundary = select_id_if(domain_carbo_fix, ">", 0.0d0 )
-            FixValues   = select_if(   domain_carbo_fix, ">", 0.0d0 )
-            call solver%fix(IDs=FixBoundary,FixValues=FixValues)
-        enddo
-    endif
-    
-    print *, "b.c. imported."
-        
-    !! solve
-    !solver%debug = .true.
-    !
-    !solver%er0 = 
-    !solver%itrmax = 10000
-    !!$omp parallel num_threads(4) 
-    solver%debug=True
-    solver%itrmax=1000
-    Photosynthate = solver%solve()
-
-
 end function
 ! ######################################################
+
+
+
+! ######################################################
+function to_FEMDomainsSoybean(this) result(femdomains)
+    class(Soybean_),intent(inout) :: this
+    type(FEMDomain_),allocatable :: femdomains(:)
+    integer(int32) :: i,j,n,domainID
+    integer(int32) :: stem_offset,leaf_offset,root_offset
+
+    n = this%numStem() + this%numLeaf() + this%numRoot() 
+
+    allocate(femdomains(n) )
+    
+    DomainID  = 0
+    if(allocated(this%stem) )then
+        do i=1,size(this%stem)
+            if(this%stem(i)%empty() ) cycle
+            DomainID = DomainID + 1   
+            femdomains(DomainID) = this%stem(i)%femdomain
+        enddo
+    endif
+    if(allocated(this%leaf) )then
+        do i=1,size(this%leaf)
+            if(this%leaf(i)%empty() ) cycle
+            DomainID = DomainID + 1   
+            femdomains(DomainID) = this%leaf(i)%femdomain
+        enddo
+    endif
+    if(allocated(this%root) )then
+        do i=1,size(this%root)
+            if(this%root(i)%empty() ) cycle
+            DomainID = DomainID + 1   
+            femdomains(DomainID) = this%root(i)%femdomain
+        enddo
+    endif
+
+    ! overset 
+    stem_offset = 0
+    leaf_offset = this%numStem()
+    root_offset = this%numStem() + this%numLeaf()
+
+    do i=1,size(femdomains)
+        femdomains(i)%uuid = generate_uuid(1)
+    enddo
+
+    if(allocated(this%Stem2Stem) )then
+        do i=1,size(this%Stem2Stem,1)
+            do j=1,size(this%Stem2Stem,2)
+                if(this%Stem2Stem(i,j) == 1 )then
+                    call femdomains(i+stem_offset)%overset(&
+                        FEMDomains=femdomains,to=j+stem_offset,by="GPP")
+                    call femdomains(j+stem_offset)%overset(&
+                        FEMDomains=femdomains,to=i+stem_offset,by="GPP")
+                endif
+            enddo
+        enddo
+    endif
+
+    if(allocated(this%Leaf2Stem) )then
+        do i=1,size(this%Leaf2Stem,1)
+            do j=1,size(this%Leaf2Stem,2)
+                if(this%Leaf2Stem(i,j) > 0 )then
+                    call femdomains(i+leaf_offset)%overset(&
+                        FEMDomains=femdomains,to=j+stem_offset,by="GPP")
+                    call femdomains(j+stem_offset)%overset(&
+                        FEMDomains=femdomains,to=i+leaf_offset,by="GPP")
+                endif
+            enddo
+        enddo
+    endif
+    if(allocated(this%root2Stem) )then
+        do i=1,size(this%root2Stem,1)
+            do j=1,size(this%root2Stem,2)
+                if(this%root2Stem(i,j) > 0 )then
+                    call femdomains(i+root_offset)%overset(&
+                        FEMDomains=femdomains,to=j+stem_offset,by="GPP")
+                    call femdomains(j+stem_offset)%overset(&
+                        FEMDomains=femdomains,to=i+root_offset,by="GPP")
+                endif
+            enddo
+        enddo
+    endif
+    if(allocated(this%root2root) )then
+        do i=1,size(this%root2root,1)
+            do j=1,size(this%root2root,2)
+                if(this%root2root(i,j) > 0 )then
+                    call femdomains(i+root_offset)%overset(&
+                        FEMDomains=femdomains,to=j+root_offset,by="GPP")
+                    call femdomains(j+root_offset)%overset(&
+                        FEMDomains=femdomains,to=i+root_offset,by="GPP")
+                endif
+            enddo
+        enddo
+    endif
+    
+end function
+! ######################################################
+
+
+! ######################################################
+subroutine setFEMDomainsSoybean(this,femdomains) 
+    class(Soybean_),intent(inout) :: this
+    type(FEMDomain_),intent(in) :: femdomains(:)
+    integer(int32) :: i,n,domainID
+
+
+    DomainID  = 0
+    if(allocated(this%stem) )then
+        do i=1,size(this%stem)
+            if(this%stem(i)%empty() ) cycle
+            DomainID = DomainID + 1   
+            this%stem(i)%femdomain = femdomains(DomainID) 
+        enddo
+    endif
+    if(allocated(this%leaf) )then
+        do i=1,size(this%leaf)
+            if(this%leaf(i)%empty() ) cycle
+            DomainID = DomainID + 1   
+            this%leaf(i)%femdomain = femdomains(DomainID) 
+        enddo
+    endif
+    if(allocated(this%root) )then
+        do i=1,size(this%root)
+            if(this%root(i)%empty() ) cycle
+            DomainID = DomainID + 1   
+            this%root(i)%femdomain = femdomains(DomainID) 
+        enddo
+    endif
+
+end subroutine
+! ######################################################
+
+
 
 
     

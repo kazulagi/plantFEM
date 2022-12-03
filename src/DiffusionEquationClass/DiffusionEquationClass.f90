@@ -21,6 +21,8 @@ module DiffusionEquationClass
         real(real64),allocatable ::Flowvector(:,:)
         real(real64),allocatable ::FluxVector3D(:,:)
 
+        real(real64),allocatable :: CRS_RHS_n(:)
+
         real(real64),allocatable ::Permiability(:)  ! directly give parameter #1
         real(real64)             ::dt
         integer(int32)           :: step
@@ -46,6 +48,8 @@ module DiffusionEquationClass
         procedure :: open => openDiffusionEq
         procedure :: remove => removeDiffusionEq
         procedure :: updateByRK4 => updateByRK4DiffusionEq
+
+        procedure :: check_stability_condition => check_stability_conditionDiffusionEq
 
     end type
 
@@ -1245,17 +1249,23 @@ end subroutine
 
 
 function Solve_oneline_DiffusionEq(this,FEMDomains,DiffusionCoeff,Reaction,penalty,&
-    FixBoundary,FixValue,C_n,dCdt,dt) result(C_field)
+    FixBoundary,FixValue,C_n,dt,RHS,Matrix,algorithm) result(C_field)
     class(DiffusionEq_),intent(inout) :: this
     type(FEMDomain_),intent(inout) :: FEMDomains(:)
     real(real64),intent(in) :: DiffusionCoeff(:),Reaction(:),penalty,FixValue(:),&
-        C_n(:), dCdt(:),dt
-    integer(int32),intent(in) :: FixBoundary(:)    
-    real(real64),allocatable :: C_field(:),bvector(:)
-    integer(int32),allocatable :: NumberOfElement(:),overset_coeff(:)
+        C_n(:),dt
 
-    integer(int32) :: total_ElementID,DomainID,ElementID,offset
+    integer(int32),intent(in) :: FixBoundary(:)    
+    real(real64),allocatable :: C_field(:),bvector(:),bvector_n(:),cell_centered_diag(:),&
+        k1(:),k2(:),k3(:),k4(:),expA_Cn(:)
+    real(real64),allocatable,optional,intent(inout) :: RHS(:) 
+    type(CRS_),optional,intent(inout) :: Matrix
+    integer(int32),allocatable :: NumberOfElement(:),overset_coeff(:)
+    character(*),optional,intent(in) :: algorithm
+    real(real64) :: h
+    integer(int32) :: total_ElementID,DomainID,ElementID,offset,i
     type(CRS_) :: Mmatrix,Kmatrix,Amatrix
+    type(IO_) :: f
 
     call this%solver%init(NumDomain=size(FEMDomains))
     call this%solver%setDomain(FEMDomains=FEMDomains)
@@ -1284,17 +1294,18 @@ function Solve_oneline_DiffusionEq(this,FEMDomains,DiffusionCoeff,Reaction,penal
     do DomainID=1,size(FEMDomains)
         overset_coeff = FEMDomains(DomainID)%getNumberOfOversetForElement()
         overset_coeff = overset_coeff + 1
+
         do ElementID = 1, FEMDomains(DomainID)%ne()
             call this%solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=1,&
                Matrix=FEMDomains(DomainID)%DiffusionMatrix(&
                     ElementID=ElementID,&
-                    D=DiffusionCoeff( offset + ElementID)/overset_coeff(ElementID)    &
+                    D=DiffusionCoeff(offset + ElementID)/overset_coeff(ElementID)    &
                ) )
             call this%solver%setVector(DomainID=DomainID,ElementID=ElementID,DOF=1,&
                 Vector=FEMDomains(DomainID)%MassVector(&
                     ElementID=ElementID,&
                     DOF=1,&
-                    Density= - Reaction( offset + ElementID )/overset_coeff(ElementID),&
+                    Density= Reaction( offset + ElementID )/overset_coeff(ElementID),&
                     Accel=[1.0d0]/overset_coeff(ElementID)&
                     ) & 
                 )
@@ -1304,24 +1315,138 @@ function Solve_oneline_DiffusionEq(this,FEMDomains,DiffusionCoeff,Reaction,penal
     
     call this%solver%setEbOM(penalty=penalty, DOF=1)
     call this%solver%keepThisMatrixAs("K")
-    call this%solver%zeros()
+    !call this%solver%zeros()
     
     Mmatrix = this%solver%getCRS("M")
     Kmatrix = this%solver%getCRS("K")
 
+    if(.not.allocated(this%CRS_RHS_n) )then
+        this%CRS_RHS_n = this%solver%CRS_RHS 
+    endif
+    if(present(algorithm))then
+        if(algorithm=="RK4")then
+            ! solve by 4th order Runge-Kutta
+            !(1) M => M-(cell-centered)
+            cell_centered_diag = Mmatrix%diag(cell_centered=.true.)
+            Amatrix = Kmatrix%divide_by(cell_centered_diag)
+
+            bvector_n = this%CRS_RHS_n/cell_centered_diag
+            bvector   = this%solver%CRS_RHS/cell_centered_diag
+            ! {dc/dt} = [M^-1][K]{c} + [M^-1]{R}
+            ! {dc/dt} = [A]{c} + {b}
+            ! Ready for RK4
+            h  = dt
+            k1 = - 1.0d0* Amatrix%matmul(C_n) + bvector_n
+            k2 = - 1.0d0* Amatrix%matmul(C_n + h/2*k1) + (bvector_n+bvector)
+            k3 = - 1.0d0* Amatrix%matmul(C_n + h/2*k2) + (bvector_n+bvector)
+            k4 = - 1.0d0* Amatrix%matmul(C_n + h*k3) + bvector
+            C_field = C_n + h/6*(k1 + 2*k2 + 2*k3 + k4)
+            C_field(FixBoundary(:) ) = FixValue(:)
+            call this%solver%remove()
+            return
+        elseif(algorithm=="ForwardEuler")then
+            ! solve by 4th order Runge-Kutta
+            !(1) M => M-(cell-centered)
+            cell_centered_diag = Mmatrix%diag(cell_centered=.true.)
+            !Amatrix = Mmatrix
+            Amatrix = Kmatrix%divide_by(cell_centered_diag)
+            bvector = this%solver%CRS_RHS/cell_centered_diag
+            ! {dc/dt} = [M^-1][K]{c} + [M^-1]{R}
+            ! {dc/dt} = [A]{c} + {b}
+            ! Ready for RK4
+            
+            C_field = C_n - dt*Amatrix%matmul(C_n) + dt*bvector
+
+            C_field(FixBoundary(:) ) = FixValue(:)
+            call this%solver%remove()
+            return
+        endif
+    endif
+    ! sparse matrix 
+    ! exponential integral    
+    cell_centered_diag = Mmatrix%diag(cell_centered=.true.)
+    Amatrix =(-1.0d0)*Kmatrix%divide_by(cell_centered_diag)
+
+
+    expA_Cn = Amatrix%tensor_exponential(x=C_n,dt=dt,itr_tol=1000000,tol=dble(1.0e-30))
+    C_field = expA_Cn + this%solver%CRS_RHS/cell_centered_diag*dt
+    C_field(FixBoundary(:) ) = FixValue(:)
+    
+    
+
+
     ! Crank-Nicolson method
-    Amatrix = 2.0d0/dt*Mmatrix + Kmatrix
-    bvector = this%solver%CRS_RHS + Mmatrix%matmul(2.0d0/dt*C_n - dCdt) 
-    
-    call this%solver%setCRS(Amatrix)
-    call this%solver%setRHS(bvector)
+    !Amatrix = Mmatrix + dt/2.0d0 * matmul(Mmatrix, Kmatrix)
+    !cell_centered_diag = Mmatrix%diag(cell_centered=.true.)
+    !Amatrix = 
+    !Amatrix = Mmatrix + dt/2.0d0 * matmul(Mmatrix, Kmatrix)
+    !call Amatrix%eyes(Mmatrix%size() )
+    !cell_centered_diag = Mmatrix%diag(cell_centered=.true.)
+    !Amatrix = Amatrix + dt/2.0d0 * Kmatrix%divide_by(cell_centered_diag)
+    ! assuming
+    ! [K]_{n+1} = [K]_{n} 
+    ! [M]_{n+1} = [M]_{n} 
+    !  
+!    ! tensor exponential
+!    
+!
+!
+!
+!    !bvector = this%solver%CRS_RHS + Mmatrix%matmul(2.0d0/dt*C_n) - Mmatrix%matmul(dCdt)
+!    if(.not.allocated(this%CRS_RHS_n) )then
+!        this%CRS_RHS_n = this%solver%CRS_RHS
+!    endif
+!
+!    bvector = C_n - dt/2.0d0*matmul(Kmatrix%divide_by(cell_centered_diag),C_n) &
+!        + dt/2.0d0*this%CRS_RHS_n/cell_centered_diag &
+!        + dt/2.0d0*this%solver%CRS_RHS/cell_centered_diag
+!    ! save RHS without Dicichlet boundary condition
+!    this%CRS_RHS_n = this%solver%CRS_RHS
+!
+!    call this%solver%setCRS(Amatrix)
+!    call this%solver%setRHS(bvector)
+!
+!
+!    call this%solver%fix(IDs=FixBoundary,FixValues=FixValue)
+!    
+!    !C_field = this%solver%solve(x0 =C_n)
+!    C_field = this%solver%solve()
+    !call f%open("debug_diff.csv","w")
+    !do i=1,size(this%solver%fix_lin_exists)
+    !    call f%write( int(this%solver%fix_lin_exists(i)), this%solver%fix_lin_exists_values(i) )
+    !enddo
+    !call f%close()
 
-    call this%solver%fix(IDs=FixBoundary,FixValues=FixValue)
+    if(present(RHS) )then
+        RHS = this%solver%CRS_RHS
+    endif
+    if(present(Matrix) )then
+        Matrix =  this%solver%getCRS()
+    endif
     
-
-    C_field = this%solver%solve()
+    
     call this%solver%remove()
 end function
+! #######################################################
+subroutine check_stability_conditionDiffusionEq(this,dt,dx,coefficient,passed)
+    class(DiffusionEq_),intent(in) :: this
+    real(real64),intent(in) :: dt,dx,coefficient
+    logical :: passed
+    !http://es.ris.ac.jp/~yoshizaki/lecture/2013_1st/SynopticMet/S_05.pdf
+    print *, ">>>>>>>>>>>>>>>>>>>>>>>>"
+    print *, ">>[checking stability condition...]>>"
+    if(dt<= dx*dx/2.0d0/coefficient )then
+        print *, "[ok] dt <= dxdx/2/a"
+        print *, dt,"<=", dx*dx/2.0d0/coefficient 
+        passed = .true.
+    else
+        print *, "[WARNING] dt > dxdx/2/a"
+        print *, dt,">", dx*dx/2.0d0/coefficient 
+        passed = .false.
+    endif
+    print *, ">>>>>>>>>>>>>>>>>>>>>>>>"
 
+
+end subroutine
 
 end module DiffusionEquationClass
