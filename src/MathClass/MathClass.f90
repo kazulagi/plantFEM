@@ -66,6 +66,10 @@ module MathClass
         module procedure fstring_Int,fstring_Int64, fstring_Real, fstring_Int_len, fstring_Real_len, fstring_logical
 	end interface fstring
 
+	interface int
+		module procedure int_from_logical,int_from_logical_vector
+	end interface int
+
 	interface input
 		module procedure input_Int,input_Real,input_Real32,input_Complex,input_IntVec,&
 			input_RealVec,input_IntArray,input_RealArray,input_String,input_logical
@@ -2821,5 +2825,31 @@ real(real64) function logit(x,params)
 
 end function
 ! ###########################################################
+
+function int_from_logical(logical_value) result(ret)
+	logical,intent(in) :: logical_value
+	integer(int32) :: ret
+	if(logical_value)then
+		ret = 0
+	else
+		ret = 1
+	endif
+end function
+
+function int_from_logical_vector(logical_value ) result(ret)
+	logical,intent(in) :: logical_value(:)
+	integer(int32),allocatable :: ret(:)
+	integer(int32) :: i
+	
+
+	allocate(ret(size(logical_value) ) )
+	do i=1,size(ret)
+		if(logical_value(i) )then
+			ret(i) = 0
+		else
+			ret(i) = 1
+		endif
+	enddo
+end function
 
 end module MathClass

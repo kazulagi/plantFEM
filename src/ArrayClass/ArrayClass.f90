@@ -127,7 +127,7 @@ module ArrayClass
     interface operator(.h.)
         module procedure hstack_real64A2_real64A2,hstack_int32A2_int32A2,&
             hstack_real64V_real64A2,hstack_real64A2_real64V,hstack_real64V_real64V,&
-            hstack_int32V_int32A2,hstack_int32A2_int32V
+            hstack_int32V_int32A2,hstack_int32A2_int32V,hstack_int32V_int32V
     end interface
 
 
@@ -404,7 +404,10 @@ module ArrayClass
         module procedure :: maxvalIDInt32, maxvalIDReal64,maxvalIDReal64_Array
     end interface
 
-
+    interface getIdx
+        module procedure :: getIdxIntVec
+    end interface
+    
 
 
     public :: operator(+)
@@ -8601,6 +8604,22 @@ end function
 ! ########################################################
 
 
+! ########################################################
+function hstack_int32V_int32V(a,b) result(a_b)
+    integer(int32),intent(in) :: a(:), b(:)
+    integer(int32),allocatable :: a_b(:,:),bb(:,:),aa(:,:)
+    integer(int32) :: row,col
+
+    allocate(aa(size(a,1),1 ) )
+    allocate(bb(size(b,1),1 ) )
+    aa(:,1) = a(:)
+    bb(:,1) = b(:)
+    a_b = aa .h. bb
+    
+
+end function
+! ########################################################
+
 
 
 
@@ -8707,6 +8726,33 @@ function vstack_int32A2_int32V(a,b) result(a_b)
 
 end function
 ! ########################################################
+function getIdxIntVec(vec,equal_to) result(idx)
+    integer(int32),intent(in) :: vec(:),equal_to
+    integer(int32),allocatable :: idx(:)
+    integer(int32) :: i,count_num
+
+    count_num=0
+    do i=1,size(vec)
+        if(vec(i) == equal_to )then
+            count_num = count_num + 1
+        endif
+    enddo
+
+    if(count_num==0)then
+        allocate(idx(0) ) 
+        return
+    else
+        allocate(idx(count_num) )
+        count_num=0
+        do i=1,size(vec)
+            if(vec(i) == equal_to )then
+                count_num = count_num + 1
+                idx(count_num) = i
+            endif
+        enddo
+    endif
 
 
+end function
+! ########################################################
 end module ArrayClass

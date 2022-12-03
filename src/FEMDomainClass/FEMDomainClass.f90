@@ -65,7 +65,7 @@ module FEMDomainClass
 	type :: OversetConnect_
 		logical :: active = .false.
 		real(real64),allocatable :: position(:)
-		integer(int32) :: ElementID, GaussPointID, projection
+		integer(int32) :: ElementID, GaussPointID, projection,MyElementID
 		integer(int32),allocatable :: InterConnect(:)
 		integer(int32),allocatable :: DomainIDs12(:)
 	end type
@@ -285,7 +285,7 @@ module FEMDomainClass
 		
 		! converter
 		procedure,public :: asGlobalVector=>asGlobalVectorFEMDomain
-
+		procedure,public :: ElementID2NodeID => ElementID2NodeIDFEMDomain
 		procedure,public :: open => openFEMDomain
 		
 		procedure, pass  :: oversetFEMDomain
@@ -7937,14 +7937,14 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 			call f%write("SCALARS "//point_scalars//" float")
 			call f%write("LOOKUP_TABLE default")
 			do i=1,obj%nn()
-				call f%write(str(scalar(i)))
+				write(f%fh,*) real(scalar(i))
 			enddo
 		elseif(size(scalar)==obj%ne()  )then
 			call f%write("CELL_DATA "//str(obj%ne() ) )
 			call f%write("SCALARS "//cell_scalars//" float")
 			call f%write("LOOKUP_TABLE default")
 			do i=1,obj%ne()
-				call f%write(str(scalar(i)))
+				write(f%fh,*) real(scalar(i))
 			enddo
 		else
 			call print("vtkFEMDOmain ERROR ::size(scalar) should be obj%nn() or obj%ne()  ")
@@ -10793,13 +10793,20 @@ function DiffusionMatrixFEMDomain(obj,ElementID,D) result(DiffusionMatrix)
     	    allocate(DiffusionMatrix(n,n) )
     	endif
 
-
+		if(det_mat(shapefunc%Jmat,size(shapefunc%Jmat,1) )<0.0d0)then
+			print *, "STOP DiffusionMatrixFEMDomain>>mesh is inversed!"
+		endif
     	DiffusionMatrix(:,:)=DiffusionMatrix(:,:)+&
 		matmul( transpose(matmul(shapefunc%JmatInv,shapefunc%dNdgzi)),&
     	matmul(shapefunc%JmatInv,shapefunc%dNdgzi))&
 		*diff_coeff &
-		*det_mat(shapefunc%JmatInv,size(shapefunc%JmatInv,1) )
+		*det_mat(shapefunc%Jmat,size(shapefunc%Jmat,1) )! it was JmatInv, but should be Jmat, revised @ 20221201
 
+    	!DiffusionMatrix(:,:)=DiffusionMatrix(:,:)+&
+		!matmul( transpose(shapefunc%dNdgzi),&
+    	!shapefunc%dNdgzi)&
+		!*diff_coeff &
+		!*det_mat(shapefunc%Jmatinv,size(shapefunc%Jmatinv,1) )! it was JmatInv, but should be Jmat, revised @ 20221201
 	enddo
 
 	! if Rounding error >> fix 0 
@@ -12448,7 +12455,7 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID, deb
 	integer(int32),intent(in) :: DomainID, algorithm
 	integer(int32),optional,intent(in) :: MyDomainID
 
-	integer(int32) :: ElementID, GaussPointID, NodeID
+	integer(int32) :: ElementID, GaussPointID, NodeID, MyElementID
 	real(real64),allocatable :: position(:)
 	integer(int32) ,allocatable :: InterConnect(:),DomainIDs12(:) ,ElementIDList(:)
 	logical,allocatable :: InsideElement(:)
@@ -12458,7 +12465,7 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID, deb
 	
 
 	if(.not. allocated(obj%OversetConnect) )then
-		allocate(obj%OversetConnect(100) )
+		allocate(obj%OversetConnect(300) )
 	endif
 	position = zeros(obj%nd() )
 
@@ -12499,6 +12506,7 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID, deb
 					print *, "Elem",kk,"/",size(ElementIDList)
 				endif
 			endif
+			MyElementID = ElementIDList(kk)
 			do GaussPointID = 1, obj%ngp()
 				! For 1st element, create stiffness matrix
 		    	! set global coordinate
@@ -12526,6 +12534,7 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID, deb
 				obj%OversetConnect(obj%num_oversetconnect)%projection = FEMDomain_Overset_GPP
 				obj%OversetConnect(obj%num_oversetconnect)%position   = position
 				obj%OversetConnect(obj%num_oversetconnect)%ElementID  = ElementID
+				obj%OversetConnect(obj%num_oversetconnect)%MyElementID  = MyElementID
 				obj%OversetConnect(obj%num_oversetconnect)%GaussPointID = GaussPointID
 				obj%OversetConnect(obj%num_oversetconnect)%InterConnect = InterConnect
 				obj%OversetConnect(obj%num_oversetconnect)%DomainIDs12  = DomainIDs12
@@ -12550,6 +12559,7 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID, deb
 			! set global coordinate
 			position(:) = obj%mesh%nodcoord(NodeID,:)
 			ElementID = femdomain%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))
+			MyElementID = obj%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))
 			if( ElementID<=0 )then
 				cycle
 			else
@@ -12573,6 +12583,7 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID, deb
 			obj%OversetConnect(obj%num_oversetconnect)%projection = FEMDomain_Overset_P2P
 			obj%OversetConnect(obj%num_oversetconnect)%position = position
 			obj%OversetConnect(obj%num_oversetconnect)%ElementID =ElementID
+			obj%OversetConnect(obj%num_oversetconnect)%MyElementID = MyElementID
 			obj%OversetConnect(obj%num_oversetconnect)%GaussPointID =0 ! ignore
 			obj%OversetConnect(obj%num_oversetconnect)%InterConnect = InterConnect
 			obj%OversetConnect(obj%num_oversetconnect)%DomainIDs12 = DomainIDs12
@@ -13492,13 +13503,40 @@ function getNumberOfOversetForElementFEMDomain(this) result(ret)
 	integer(int32),allocatable :: ret(:)
 	integer(int32) :: i,n
 
+	if(this%empty()) then
+		allocate(ret(0) )
+		return
+	endif
 	ret = int(zeros(this%ne() ) )
 	
-	if(.not.allocated(this%OversetConnect) ) return
-
-	do i=1,size(this%OversetConnect)
-		ret(this%OversetConnect(i)%ElementID)=ret(this%OversetConnect(i)%ElementID)+1
+	if(.not.allocated(this%OversetConnect) ) then
+		ret(:) = 0
+		return
+	endif
+	
+	
+	do i=1,this%num_oversetconnect
+		if(this%OversetConnect(i)%MyElementID < 0) cycle
+		ret(this%OversetConnect(i)%MyElementID)=ret(this%OversetConnect(i)%MyElementID)+1
 	enddo
+
+end function
+
+
+function ElementID2NodeIDFEMDomain(this,ElementID) result(NodeID)
+	class(FEMDomain_),intent(in) :: this
+	integeR(int32),intent(in) :: ElementID(:)
+	integeR(int32),allocatable :: NodeID(:),nodecount(:)
+	integeR(int32) :: i,j
+	nodecount = int(zeros(this%nn() ))
+
+	do i=1,size(ElementID)
+		do j=1,	this%nne()
+			nodecount(this%mesh%elemnod( ElementID(i),j ))  = 1
+		enddo
+	enddo
+
+	NodeID = getIDx(nodecount,equal_to=1)
 
 end function
 

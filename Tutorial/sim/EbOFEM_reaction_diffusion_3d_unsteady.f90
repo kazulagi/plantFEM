@@ -11,6 +11,7 @@ real(real64),allocatable :: C_n(:)
 real(real64),allocatable :: dCdt(:)
 integer(int32),allocatable :: FixBoundary(:)
 integer(int32) :: itr
+type(Random_) :: random
 
 ! EbO-FEM diffusion
 
@@ -47,10 +48,12 @@ C_n   = zeros( cube(1)%nn()+ cube(2)%nn()+ cube(3)%nn()+cube(4)%nn() )
 dCdt  = zeros( cube(1)%nn()+ cube(2)%nn()+ cube(3)%nn()+cube(4)%nn() )
 DiffusionCoeff &
     = eyes( cube(1)%ne()+ cube(2)%ne()+ cube(3)%ne()+cube(4)%ne() )
-Reaction &
-    = zeros( cube(1)%ne()+ cube(2)%ne()+ cube(3)%ne()+cube(4)%ne() )
 
 do itr=1,100
+
+    Reaction &
+        = zeros( cube(1)%ne()+ cube(2)%ne()+ cube(3)%ne()+cube(4)%ne() )
+    Reaction(1000:1100) = random%gauss(mu=3000.0d0,sigma=100.0d0)
 
     solver%solver%debug=True
     solver%solver%itrmax=100000
@@ -62,7 +65,6 @@ do itr=1,100
         FixBoundary=FixBoundary,   &
         FixValue=FixValue   ,    &
         C_n=C_n,&
-        dCdt=dCdt,&
         dt=1.0d0 &
         )
     C_n = c

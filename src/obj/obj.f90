@@ -33,5 +33,7 @@ module obj
     use MaizeClass
     use GrapeClass
     use FarmClass
+    use FactoryClass
+    use SceneClass
     implicit none
 end module obj

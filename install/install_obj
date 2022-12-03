@@ -158,11 +158,23 @@ echo " | =========================> |  (99%)\r\c"
 mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RiceClass/RiceClass.f90 -o  ./inc/RiceClass.o
 
 
-
 echo "Compiling ./src/FarmClass/FarmClass.f90" 
 echo " >> FarmClass.o "
 echo " | =========================> |  (99%)\r\c"
 mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FarmClass/FarmClass.f90 -o  ./inc/FarmClass.o
+
+
+echo "Compiling ./src/FactoryClass/FactoryClass.f90" 
+echo " >> FactoryClass.o "
+echo " | =========================> |  (99%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FactoryClass/FactoryClass.f90 -o  ./inc/FactoryClass.o
+
+echo "Compiling ./src/SceneClass/SceneClass.f90" 
+echo " >> SceneClass.o "
+echo " | =========================> |  (99%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SceneClass/SceneClass.f90 -o  ./inc/SceneClass.o
+
+
 echo "Compiling ./src/obj/obj.f90            " 
 echo " >> obj.o       "
 echo " | =========================> |  (99%)\r\c"
