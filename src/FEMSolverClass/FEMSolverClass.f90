@@ -144,6 +144,10 @@ module FEMSolverClass
         ! others:
         ! Energy-based Overset Mesh (Tomobe et al., under review)
         procedure, public :: setEbOM => setEbOMFEMSolver
+        procedure, public :: get_gap_function => get_gap_function_FEMSolver
+        procedure, public :: argumented_Lagrangian_RHS => argumented_Lagrangian_RHS_FEMSolver
+        procedure, public :: num_EbOFEM_projection_point &
+            => num_EbOFEM_projection_point_FEMSolver
 
         ! FOR MPI 
         procedure, public :: MPI_link => MPI_linkFEMSolver
@@ -1313,6 +1317,8 @@ subroutine saveMatrixFEMSolver(this,name,CRS_as_dense, if_dense_exists,zero_or_n
 
 
 end subroutine
+
+
 ! ###################################################################
 subroutine zerosFEMSolver(this)
     class(FEMSolver_),intent(inout)::this
@@ -1940,8 +1946,7 @@ subroutine setEbOMFEMSolver(this,penalty,DOF)
                 else
                     ! P2P
                     A_ij = penalty*this%FEMDomains(pairDomainID)%femdomainp&
-                    %connectMatrix(position=position,DOF=this%FEMDomains(DomainID)%femdomainp&
-                    %nd() ) 
+                        %connectMatrix(position=position,DOF=DOF) 
                 endif
             
                 
@@ -1997,8 +2002,223 @@ subroutine setEbOMFEMSolver(this,penalty,DOF)
     
 
 end subroutine
+! #####################################################
+function num_EbOFEM_projection_point_FEMSolver(this) result(ret)
+    class(FEMSolver_),intent(in) :: this
+    integer(int32) :: ret, DomainID,i
+    
+    ! count number of projection points
+    ret = 0
+    do DomainID=1,size(this%FEMDomains)
+        do i = 1, this%FEMDomains(DomainID)%femdomainp&
+            %numOversetElements()
+            if( this%FEMDomains(DomainID)%femdomainp%OversetConnect(i)%active )then
+                ret = ret + 1
+            endif
+        enddo
+    enddo
+
+end function
+
+! #####################################################
+function get_gap_function_FEMSolver(this,DOF,X) result(gap_function) ! projection point-wise vector
+    class(FEMSolver_),intent(in) :: this
+    integer(int32),intent(in) :: DOF
+    real(real64),intent(in) :: X(:)
+
+    real(real64),allocatable :: gap_function(:)
+
+    ! compute g(x) = \Sigma [N]{x}
+    integer(int32) :: DomainID,ElementID,GaussPointID,myDomainID, pairDomainID
+    integer(int32) :: i,j,k,m,n,row_id,col_id,row_Domain_id,col_domain_id,itr,node_id
+    real(real64) :: singleValue
+    real(real64),allocatable :: N_I(:),position(:),Cvec(:)
+    type(ShapeFunction_) :: sf
+
+    ! projection point-wise vector
+    gap_function = zeros(this%num_EbOFEM_projection_point() )
+
+    ! do DomainID=1,2
+    itr = 0
+    do DomainID=1,size(this%FEMDomains)
+        do i = 1, this%FEMDomains(DomainID)%femdomainp&
+            %numOversetElements()
+            
+            if( this%FEMDomains(DomainID)%femdomainp&
+                %OversetConnect(i)%active )then
+
+                ElementID    = this%FEMDomains(DomainID)%femdomainp&
+                %OversetConnect(i)%ElementID
+                GaussPointID = this%FEMDomains(DomainID)%femdomainp&
+                %OversetConnect(i)%GaussPointID
+                
+                position = this%FEMDomains(DomainID)%femdomainp&
+                    %OversetConnect(i)%position
+                
+                myDomainID   = this%FEMDomains(DomainID)%femdomainp&
+                    %OversetConnect(i)%DomainIDs12(1)
+                n = size(this%FEMDomains(DomainID)%femdomainp&
+                    %OversetConnect(i)%DomainIDs12)
+                pairDomainID = this%FEMDomains(DomainID)%femdomainp&
+                    %OversetConnect(i)%DomainIDs12( n )
+                
+                itr = itr + 1
+                if(GaussPointID>0)then
+                    ! GPP
+                    
+                    sf = this%FEMDomains(myDomainID)%femdomainp%mesh%getShapeFunction(ElementID,GaussPointID)
+                
+                    sf%ElementID=ElementID
+
+                    N_I = this%FEMDomains(pairDomainID)%femdomainp%connectVector(&
+                        position=position,&
+                        DOF=DOF,&
+                        shapefunction=sf) 
+                    Cvec = zeros( &
+                        size(this%FEMDomains(DomainID)%femdomainp%OversetConnect(i)%InterConnect)*DOF &
+                    ) 
+                    
+                    do k=1,size(this%FEMDomains(DomainID)%femdomainp&
+                        %OversetConnect(i)%InterConnect)
+                        node_id = this%FEMDomains(DomainID)%femdomainp%OversetConnect(i)%InterConnect(k)
+                        node_id = node_id + this%CRS_ID_Starts_From(&
+                            this%FEMDomains(DomainID)%femdomainp%OversetConnect(i)%DomainIDs12(k) &
+                            ) - 1 
+                        do n=1,DOF
+                            Cvec( DOF*(k-1)+n ) = X( DOF*(node_id-1) + n )
+                        enddo
+                    enddo
+                        
+                    
+                    gap_function(itr) = dot_product(N_I,Cvec)
+
+                else
+                    ! P2P
+                    N_I = this%FEMDomains(pairDomainID)%femdomainp&
+                        %connectVector(position=position,DOF=DOF) 
+                    Cvec = zeros( &
+                        size(this%FEMDomains(DomainID)%femdomainp%OversetConnect(i)%InterConnect)*DOF &
+                    ) 
+                    do k=1,size(this%FEMDomains(DomainID)%femdomainp&
+                        %OversetConnect(i)%InterConnect)
+                        node_id = this%FEMDomains(DomainID)%femdomainp%OversetConnect(i)%InterConnect(k)
+                        node_id = node_id + this%CRS_ID_Starts_From(&
+                            this%FEMDomains(DomainID)%femdomainp%OversetConnect(i)%DomainIDs12(k) &
+                            ) - 1 
+                        do n=1,DOF
+                            Cvec( DOF*(k-1)+n ) = X( DOF*(node_id-1) + n )
+                        enddo
+                    enddo
+                    
+                    gap_function(itr) = dot_product(N_I,Cvec)
+
+                endif
+                
+            endif
+        enddo
+    enddo
+    
 
 
+
+end function
+! #####################################################
+function argumented_Lagrangian_RHS_FEMSolver(this,DOF,lambda) result(aL_RHS)
+    class(FEMSolver_),intent(in) :: this
+    real(real64),intent(in) :: lambda(:)
+    real(real64),allocatable :: aL_RHS(:)
+
+    integer(int32),intent(in) :: DOF
+
+    real(real64),allocatable :: gap_function(:)
+
+    ! compute g(x) = \Sigma [N]{x}
+    integer(int32) :: DomainID,ElementID,GaussPointID,myDomainID, pairDomainID
+    integer(int32) :: i,j,k,m,n,row_id,col_id,row_Domain_id,col_domain_id,itr,node_id
+    real(real64) :: singleValue
+    real(real64),allocatable :: N_I(:),position(:),Cvec(:)
+    type(ShapeFunction_) :: sf
+
+
+    aL_RHS = this%CRS_RHS
+    aL_RHS(:) = 0.0d0
+
+
+    ! do DomainID=1,2
+    itr = 0
+    do DomainID=1,size(this%FEMDomains)
+        do i = 1, this%FEMDomains(DomainID)%femdomainp&
+            %numOversetElements()
+            
+            if( this%FEMDomains(DomainID)%femdomainp&
+                %OversetConnect(i)%active )then
+
+                ElementID    = this%FEMDomains(DomainID)%femdomainp&
+                %OversetConnect(i)%ElementID
+                GaussPointID = this%FEMDomains(DomainID)%femdomainp&
+                %OversetConnect(i)%GaussPointID
+                
+                position = this%FEMDomains(DomainID)%femdomainp&
+                    %OversetConnect(i)%position
+                
+                myDomainID   = this%FEMDomains(DomainID)%femdomainp&
+                    %OversetConnect(i)%DomainIDs12(1)
+                n = size(this%FEMDomains(DomainID)%femdomainp&
+                    %OversetConnect(i)%DomainIDs12)
+                pairDomainID = this%FEMDomains(DomainID)%femdomainp&
+                    %OversetConnect(i)%DomainIDs12( n )
+                
+                itr = itr + 1
+                if(GaussPointID>0)then
+                    ! GPP
+                    
+                    sf = this%FEMDomains(myDomainID)%femdomainp%mesh%getShapeFunction(ElementID,GaussPointID)
+                
+                    sf%ElementID=ElementID
+
+                    N_I = this%FEMDomains(pairDomainID)%femdomainp%connectVector(&
+                        position=position,&
+                        DOF=DOF,&
+                        shapefunction=sf) 
+                    
+                    do k=1,size(this%FEMDomains(DomainID)%femdomainp&
+                        %OversetConnect(i)%InterConnect)
+                        node_id = this%FEMDomains(DomainID)%femdomainp%OversetConnect(i)%InterConnect(k)
+                        node_id = node_id + this%CRS_ID_Starts_From(&
+                            this%FEMDomains(DomainID)%femdomainp%OversetConnect(i)%DomainIDs12(k) &
+                            ) - 1 
+                        do n=1,DOF
+                            aL_RHS( DOF*(node_id-1) + n ) = aL_RHS( DOF*(node_id-1) + n ) + lambda(i)*N_I( DOF*(k-1)+n ) 
+                        enddo
+                    enddo
+                        
+                    
+
+                else
+                    ! P2P
+                    N_I = this%FEMDomains(pairDomainID)%femdomainp&
+                        %connectVector(position=position,DOF=DOF) 
+                    
+                    do k=1,size(this%FEMDomains(DomainID)%femdomainp&
+                        %OversetConnect(i)%InterConnect)
+                        node_id = this%FEMDomains(DomainID)%femdomainp%OversetConnect(i)%InterConnect(k)
+                        node_id = node_id + this%CRS_ID_Starts_From(&
+                            this%FEMDomains(DomainID)%femdomainp%OversetConnect(i)%DomainIDs12(k) &
+                            ) - 1 
+                        do n=1,DOF
+                            aL_RHS( DOF*(node_id-1) + n ) = aL_RHS( DOF*(node_id-1) + n ) + lambda(i)*N_I( DOF*(k-1)+n ) 
+                        enddo
+                    enddo
+                    
+
+                endif
+                
+            endif
+        enddo
+    enddo
+    
+
+end function
 ! #####################################################
 subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug)
     integer(int32), intent(inout) :: ptr_i(:),index_j(:), itrmax

@@ -54,6 +54,8 @@ module IOClass
             procedure,public :: flush => flushIO
 
             procedure,public :: exists => existsIO
+
+            procedure,public :: cp => cpIO
     
             procedure,public :: download => downloadIO
             !set & reset rule
@@ -3880,5 +3882,14 @@ function to_upsampling_ioclass(dataframe,upsampling) result(ret)
 
 
 end function
+! ######################################################
+subroutine cpIO(this,from,to)
+    class(IO_) :: this
+    character(*),intent(in) :: from,to
+
+    call system("cp "+from+" "+to)
+
+end subroutine
+
 
 end module IOClass

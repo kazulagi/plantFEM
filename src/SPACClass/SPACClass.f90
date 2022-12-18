@@ -555,11 +555,7 @@ subroutine run_SPAC(this,only_FFT)
 
     ! debug
     !ids = [(i,i=4,num_logger*3,3)]
-    ids = int(zeros(num_logger-1) )
-    ids(1) = 4
-    do i=1,num_logger-2
-        ids(i+1) = ids(i) + 3
-    enddo
+
     
 
     ! >>>>>>>> create position >>>>>>>> 
@@ -574,18 +570,23 @@ subroutine run_SPAC(this,only_FFT)
     
     ! >>>>>>>> SPAC coefficient >>>>>>>> 
     ! two-point SPAC
+    ids = int(zeros(num_logger) )
+    ids(1) = 1
+    do i=1,num_logger-1
+        ids(i+1) = ids(i) + 3
+    enddo
     do i=1,num_logger
         do j=1,i-1
             SPAC_COEFF = to_SPAC_COEFF(&
-                Center_x=All_data(:, i),&
-                Circle_x=All_data(:, [j]),&
+                Center_x=All_data(:, ids(i)),&
+                Circle_x=All_data(:, [ids(j)]),&
                 FFT_SIZE=FFT_SIZE)
             call f%open(filepath+"_SPAC_COEFF_2pt_"+zfill(i,3)+"_"+zfill(j,3)+".csv","w")
             call f%write(freq(:),SPAC_COEFF(:),separator=", ")
             call f%close()
             phase_velocity = to_phase_velocity(&
-                Center_x        =All_data(:,i),&
-                Circle_x        =All_data( :,[j]),&
+                Center_x        =All_data(:,ids(i)),&
+                Circle_x        =All_data( :,[ids(j)]),&
                 FFT_SIZE        =FFT_SIZE,&
                 radius          =norm(position_xy(i,:)-position_xy(j,:) ) ,&
                 sampling_Hz     =int(sampling_Hz),&
@@ -599,6 +600,11 @@ subroutine run_SPAC(this,only_FFT)
         enddo
     enddo
     
+    ids = int(zeros(num_logger-1) )
+    ids(1) = 4
+    do i=1,num_logger-2
+        ids(i+1) = ids(i) + 3
+    enddo
     ! 4-point SPAC
     SPAC_COEFF = to_SPAC_COEFF(&
         Center_x=All_data(:,1),&
