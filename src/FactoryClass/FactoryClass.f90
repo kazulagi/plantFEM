@@ -216,7 +216,7 @@ end subroutine
 subroutine resize_forall_Factory(this,objects,x,y,z) 
     class(Factory_),intent(in) :: this
     type(FEMDomain_),intent(inout) :: objects(:)
-    real(real64),intent(in) :: x,y,z
+    real(real64),optional,intent(in) :: x,y,z
     integer(int32) :: i
     
     !!$OMP parallel do

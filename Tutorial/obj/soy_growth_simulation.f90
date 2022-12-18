@@ -7,7 +7,7 @@ program main
     type(Soybean_) :: soy
     type(Environment_) :: env
     type(FEMDomain_),allocatable :: domains(:)
-    integer(int32) :: hour
+    integer(int32) :: step,sampling_Hz
     real(real64),allocatable :: photosynthesis(:),carbon_concentration(:),&
         respiration(:),Photosynthate(:),internal_pressure(:),struct_vs_nonstruct(:),&
         void_ratio(:),DiffusionCoeff(:),volume(:),RHS(:),FixValue(:)
@@ -15,7 +15,7 @@ program main
     real(real64) :: dt
     type(CRS_) :: crs
     type(IO_)  :: f
-    
+    sampling_Hz = 200
 
     ! initialize environment
     ! senario.csv: table data and time series
@@ -25,62 +25,73 @@ program main
     
     ! initialize soybean
     ! morphological data
-    !soy%stem_division(1:3) = [2, 2, 20]
-    !soy%peti_division(1:3) = [2, 2, 20]
-    call soy%init(config="Tutorial/obj/soy.json")
+    soy%stem_division(1:3) = [2, 2, 10]
+    soy%peti_division(1:3) = [2, 2, 10]
+    soy%leaf_division(1:3) = [5, 1, 10]
+    call soy%init(config="Tutorial/obj/mini_soy.json")
 
     call soy%vtk("day"+zfill(0,4) )
 
 
     !call soy%setPropertiesCarbonDiffusionCoefficient(default_value=0.00010d0)
     ! grow soybean
-    dt = 1.d0 ! 1 sec
-    do hour = 1, 100
+    dt = 1.0d0/dble(sampling_Hz) ! 1 sec
+
+    
+    do step = 1, 1000000
         ! (1-1) compute photosynthesis ratio (g/s)
         photosynthesis     = soy%getPhotoSynthesis(env=env,dt=dt) ! unit: micro-gram
-        call soy%vtk("photosyn_"+zfill(hour,4),scalar_field=photosynthesis,single_file=.true. )
+        !call soy%vtk("photosyn_"+zfill(step,4),scalar_field=photosynthesis,single_file=.true. )
         
         volume     = soy%getVolumePerElement() ! unit: micro-gram
-        call soy%vtk("vol_"+zfill(hour,4),scalar_field=volume,single_file=.true. )
+        !call soy%vtk("vol_"+zfill(step,4),scalar_field=volume,single_file=.true. )
 
-        call soy%vtk("photosyn_vol_"+zfill(hour,4),scalar_field=photosynthesis/volume,single_file=.true. )
+        !call soy%vtk("photosyn_vol_"+zfill(step,4),scalar_field=photosynthesis/volume,single_file=.true. )
         ! (1-2) search carbon requirement(sink capacity) (g/s)
         ! Fix carbo concentration (micro-g/m^3) at sink
         carbon_concentration = soy%getCarbon_concentration(env=env,&
             FixBoundary=FixBoundary,FixValue=FixValue) ! micro-gram/m^3/s
-        call soy%vtk("carb_conc_"+zfill(hour,4),scalar_field=carbon_concentration,single_file=.true. )
+        !call soy%vtk("carb_conc_"+zfill(step,4),scalar_field=carbon_concentration,single_file=.true. )
         
         ! get respiration (micro-g/m^3)
         respiration = soy%getRespiration(env=env) ! micro-gram/m^3/s
-        call soy%vtk("carb_req_"+zfill(hour,4),scalar_field=respiration,single_file=.true. )
+        !call soy%vtk("carb_req_"+zfill(step,4),scalar_field=respiration,single_file=.true. )
         
         DiffusionCoeff = soy%getDiffusionCoefficient()
-        call soy%vtk("diff_coef_"+zfill(hour,4),scalar_field=DiffusionCoeff,single_file=.true. )
+        !call soy%vtk("diff_coef_"+zfill(step,4),scalar_field=DiffusionCoeff,single_file=.true. )
         ! (2) reaction-diffusion (g/s for each point)
         ! dC/dt = - D d^2/dx^2 c + P - R 
         ! ソースの拡散係数(μg/m^3/m/s)
-        DiffusionCoeff = dble(1.0e-15) ! 
-        
+
+        DiffusionCoeff = dble(5.0e-7) ! 
+        if(step==1)then
+            soy%Photosynthate_n = 20.0d0
+            soy%Photosynthate_n([(i_i,i_i=1,50)]) = 1.0d0
+            photosynthesis = 0.0d0
+        endif
         Photosynthate = soy%getCarbonFlow( &
             dt = dt,&
             DiffusionCoeff = DiffusionCoeff,&
-            photosynthesis=photosynthesis/volume,& ! reaction term (P)
+            photosynthesis=photosynthesis/volume/1000.0d0/1000.0d0,& ! reaction term (P)
             respiration = respiration,&     ! reaction term (R)
-            FixBoundary=[(i_i,i_i=1,10)],&
-            FixValue=ones(10),&
+            FixBoundary=[(i_i,i_i=1,50)],&
+            FixValue=ones(50),&
             Photosynthate_n=soy%Photosynthate_n,&
-            penalty = maxval(DiffusionCoeff)*(1.0),&
+            penalty = maxval(DiffusionCoeff)*1000.0d0,&
             RHS = RHS, &
             Matrix = CRS, &
-            tol = dble(1.0e-1), &
+            tol = dble(5.0e-8), &
             debug=.true. &
             ) ! initial condition
         soy%Photosynthate_n = Photosynthate
-        call soy%vtk("biomass_"+zfill(hour,4),scalar_field=Photosynthate,single_file=.true. )
-        print *, size(RHS),maxval(RHS),minval(RHS)
+        if(soy%Photosynthate_n(size(soy%Photosynthate_n) ) /=soy%Photosynthate_n(size(soy%Photosynthate_n)) ) stop
+        !call soy%vtk("biomass_"+zfill(step,4),scalar_field=Photosynthate,single_file=.true. )
+        if(mod(step,sampling_Hz)==0 )then
+            call soy%vtk("biomass_"+zfill(step/sampling_Hz,4) ,scalar_field=Photosynthate,single_file=.true. )
+        endif
         
-        print *, soy%nn(),soy%ne()
-        call soy%vtk("RHS_"+zfill(hour,4),scalar_field=RHS,single_file=.true. )
+        
+        !call soy%vtk("RHS_"+zfill(step,4),scalar_field=RHS,single_file=.true. )
 
 
         

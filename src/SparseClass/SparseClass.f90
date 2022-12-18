@@ -71,7 +71,12 @@ module SparseClass
         procedure,public :: init => initCRS
         procedure,public :: eyes => eyesCRS
         procedure,public :: Lanczos => LanczosCRS
-        procedure,public :: matmul => matmulCRS
+        
+        procedure,pass :: matmulCRS
+        procedure,pass :: matmul_complex_CRS
+        generic :: matmul => matmulCRS,matmul_complex_CRS
+
+
         procedure,public :: SpMV => matmulCRS
         procedure,public :: eig => eigCRS
         procedure,public :: to_dense => to_denseCRS
@@ -94,7 +99,27 @@ module SparseClass
         procedure,public :: ILU => ILUCRS
         procedure,public :: ILU_matvec => ILU_matvecCRS
         procedure,public :: BICGSTAB => BICGSTAB_CRSSparse
-        procedure,public :: tensor_exponential => tensor_exponential_crs
+
+        procedure,pass :: tensor_exponential_crs
+        procedure,pass :: tensor_sqrt_crs
+        procedure,pass :: tensor_exp_sqrt_crs
+        procedure,pass :: tensor_log_crs
+        procedure,pass :: fixCRS
+
+        procedure,pass :: tensor_exponential_complex64_crs
+        procedure,pass :: tensor_exp_sqrt_complex64_crs
+        procedure,pass :: tensor_sqrt_complex64_crs
+        procedure,pass :: tensor_log_complex64_crs
+        procedure,pass :: fix_complex64_CRS
+        
+
+
+        generic,public :: tensor_exponential => tensor_exponential_complex64_crs,tensor_exponential_crs
+        generic,public :: tensor_exp_sqrt => tensor_exp_sqrt_complex64_crs,tensor_exp_sqrt_crs
+        generic,public :: tensor_sqrt => tensor_sqrt_complex64_crs,tensor_sqrt_crs
+        generic,public :: tensor_log => tensor_log_complex64_crs,tensor_log_crs
+        generic,public :: fix => fix_complex64_CRS,fixCRS
+
 
 
     end type
@@ -453,6 +478,20 @@ function matmulCRS(CRS,old_vector) result(new_vector)
   end function
   
 
+  function matmul_complex_CRS(CRS,old_vector) result(new_vector)
+    class(CRS_),intent(in) :: CRS
+    complex(real64),intent(in)  :: Old_vector(:)
+    complex(real64),allocatable :: new_vector(:)
+  
+    new_vector = crs_matvec_generic_complex_SparseClass(&
+      CRS_value= dcmplx(CRS%val),&
+      CRS_col=CRS%col_idx,&
+      CRS_row_ptr=CRS%row_ptr,&
+      old_vector=old_vector)
+  
+  end function
+  
+
 
 function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
     real(real64),intent(in)  :: CRS_value(:),Old_vector(:)
@@ -503,7 +542,61 @@ function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector
 !    
 !end function
 ! ###################################################################
-subroutine eigCRS(this,Eigen_vectors,eigen_values)
+
+
+
+  function crs_matvec_generic_complex_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
+    complex(real64),intent(in)  :: CRS_value(:),Old_vector(:)
+    integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
+  
+    complex(real64),allocatable :: new_vector(:)
+    integer(int32) :: i, j, n,gid,lid,row,CRS_id,col
+    !> x_i = A_ij b_j
+  
+  
+    n = size(CRS_row_ptr)-1
+    if(size(old_vector)/=n )then
+        print *, "ERROR crs_matvec :: inconsistent size for old_vector"
+        return
+    endif
+  
+    new_vector = zeros(n) 
+
+! accerelation
+
+    !$OMP parallel default(shared) private(CRS_id,col)
+    !$OMP do reduction(+:new_vector)
+    do row = 1, n
+        do CRS_id = CRS_row_ptr(row), CRS_row_ptr(row+1)-1
+            new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(CRS_col(CRS_id))
+        enddo
+    enddo
+    !$OMP end do
+    !$OMP end parallel 
+    
+
+!    !$OMP parallel do default(shared) private(CRS_id,col)
+!    do row = 1 , n
+!        do CRS_id = CRS_row_ptr(row), CRS_row_ptr(row+1)-1
+!            col = CRS_col(CRS_id)
+!            !$OMP atomic
+!            new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(col)
+!        enddo
+!    enddo
+!    !$OMP end parallel do 
+    
+  end function
+! ###################################################################
+!function crs_opencl_matvec(CRS_row_ptr,CRS_col,CRS_value,old_vector) result(new_vector)
+!    integer(int32), intent(in)  :: CRS_row_ptr(:),CRS_col(:)
+!    real(real64),intent(in) :: CRS_value(:), old_vector(:)
+!
+!    
+!end function
+! ###################################################################
+
+
+  subroutine eigCRS(this,Eigen_vectors,eigen_values)
     class(CRS_),intent(in) :: this
     real(real64),allocatable :: A(:,:), V(:,:)
     real(real64),allocatable :: D(:),E(:)
@@ -1655,13 +1748,21 @@ end function
 
 ! #################################################
 
-subroutine BICGSTAB_CRSSparse(this,x,b)
+subroutine BICGSTAB_CRSSparse(this,x,b,debug,tol)
     class(CRS_),intent(inout) :: this
     real(real64),allocatable,intent(inout) :: x(:)
+    logical,optional,intent(in) :: debug
+    real(real64),optional,intent(in) :: tol
+    real(real64) :: er
     real(real64),intent(in) :: b(:)
 
     if(.not.allocated(x) )then
         x = zeros(size(b) ) 
+    endif
+
+    er  = dble(1.0e-14)
+    if(present(tol) )then
+        er = tol
     endif
 
     call bicgstab_CRS_SparseClass(&
@@ -1671,8 +1772,9 @@ subroutine BICGSTAB_CRSSparse(this,x,b)
         x=x, &
         b=b, &
         itrmax=1000000, &
-        er=dble(1.0e-14),&
-        relative_er=dble(1.0e-14)&
+        er=er,&
+        relative_er=er,&
+        debug=debug &
         )
 
 end subroutine
@@ -2034,20 +2136,31 @@ subroutine eyesCRS(this,n)
     this%col_idx = buf%col_idx
     this%val = buf%val
 end subroutine
+! ###################################################
+
+
+
+
+
+
+
 
 ! ###################################################
-function tensor_exponential_crs(this,itr_tol,tol,x,dt) result(expA_v)
+function tensor_exponential_crs(this,itr_tol,tol,x,dt,fix_idx,fix_val) result(expA_v)
     class(CRS_),intent(in) :: this
     real(real64),intent(in) :: x(:)
     real(real64),optional,intent(in) :: dt
-    real(real64),allocatable :: expA_v(:),increA_v(:)
+    real(real64),allocatable :: expA_v(:),increA_v(:),bhat(:)
 
     real(real64),intent(in) :: tol
     integer(int32), intent(in)::itr_tol
 !    real(real64),allocatable::increA(:,:)
     real(real64)   :: increment,NN,t
     integer(int32) :: i,j,n
-!  
+
+    real(real64),optional,intent(in) :: fix_val(:)
+    integer(int32), optional,intent(in)::fix_idx(:)
+    type(CRS_) :: Amatrix
 !    if(.not. allocated(expA) )allocate(expA(size(A,1),size(A,2) ))
 !    allocate(increA(size(A,1),size(A,2) ))
 !    if(size(A,1)/=size(A,2)) stop "ERROR:tensor exp is not a square matrix"
@@ -2074,26 +2187,514 @@ function tensor_exponential_crs(this,itr_tol,tol,x,dt) result(expA_v)
 
     ! i==1,2
     ! 0-th order term
-    
-    increA_v = x
-    expA_v = zeros(size(x) )
-    expA_v = expA_v + increA_v
-    ! 1-st order term
-    increA_v = this%matmul(t*increA_v)
-    expA_v = expA_v + increA_v
-    
-    do i=2,itr_tol
-        if(i==1)then
+    if(present(fix_idx) )then
+        Amatrix = this
+        bhat = zeros(this%size() )
+        call Amatrix%fix(idx=fix_idx,RHS=bhat,val=fix_val)
+
+        increA_v = x
+        expA_v = zeros(size(x) )
+        expA_v = expA_v + increA_v
+        ! 1-st order term
+        increA_v = Amatrix%matmul(t*increA_v) - bhat*dt
+        expA_v = expA_v + increA_v
+        
+        do i=2,itr_tol
+            if(i==1)then
+                cycle
+            endif
+
+            increA_v = 1.0d0/(i)*Amatrix%matmul(t*increA_v) !- bhat*dt
+            expA_v = expA_v + increA_v
             
+            if(dot_product(increA_v,increA_v) < tol )exit
+        enddo
+    else
+
+        increA_v = x
+        expA_v = zeros(size(x) )
+        expA_v = expA_v + increA_v
+        ! 1-st order term
+        increA_v = this%matmul(t*increA_v)
+        expA_v = expA_v + increA_v
+        
+        do i=2,itr_tol
+            if(i==1)then
+
+                cycle
+            endif
+
+            increA_v = 1.0d0/(i)*this%matmul(t*increA_v)
+            expA_v = expA_v + increA_v
+
+            if(dot_product(increA_v,increA_v) < tol )exit
+        enddo
+    endif
+end function
+
+
+! ###################################################
+function tensor_exp_sqrt_crs(this,v,tol,itrmax) result(exp_sqrtA_v)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in) :: v(:)
+    real(real64),allocatable :: dv(:),exp_sqrtA_v(:)
+    integer(int32) :: i
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol
+
+    
+    dv = v
+    exp_sqrtA_v = zeros(size(v) )
+    exp_sqrtA_v = exp_sqrtA_v + dv
+
+    ! 1-st order term
+    dv = this%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax)
+    exp_sqrtA_v = exp_sqrtA_v + dv
+    
+    do i=2,itrmax
+        if(i==1)then
             cycle
         endif
-        
-        increA_v = 1.0d0/(i)*this%matmul(t*increA_v)
-        expA_v = expA_v + increA_v
 
-        if(dot_product(increA_v,increA_v) < tol )exit
+        dv = 1.0d0/(i)*this%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax)
+        exp_sqrtA_v = exp_sqrtA_v + dv
+
+        if(dot_product(dv,dv) < tol )exit
+    enddo
+
+end function
+! #####################################################
+
+
+
+
+! ###################################################
+function tensor_sqrt_crs(this,v,tol,itrmax) result(sqrtA_v)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in) :: v(:)
+    real(real64),allocatable :: dv(:),sqrtA_v(:),logA_v(:)
+    integer(int32) :: k
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol
+
+
+    dv = v
+    sqrtA_v = zeros(size(v) )
+    sqrtA_v = sqrtA_v + dv
+    ! 1-st order term
+    dv = 0.50d0*this%tensor_log(v=dv,tol=tol,itrmax=itrmax)
+    sqrtA_v = sqrtA_v + dv
+    
+    do k=2,itrmax
+        if(k==1)then
+
+            cycle
+        endif
+
+        dv = 1.0d0/dble(k)*0.50d0*this%tensor_log(v=dv,tol=tol,itrmax=itrmax)
+        sqrtA_v = sqrtA_v + dv
+
+        if(dot_product(dv,dv) < tol )exit
     enddo
     
 end function
+! #####################################################
+
+
+
+! ###################################################
+function tensor_log_crs(this,v,tol,itrmax) result(sqrtA_v)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in) :: v(:)
+    real(real64),allocatable :: dv(:),sqrtA_v(:)
+    integer(int32) :: k
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol
+    !real(real64) :: c
+    real(real64),allocatable :: c(:)
+
+    !c = maxval(this%val)*1.0d0
+    c = this%diag() ! テイラー展開中心をdiagで決める．
+    !c = 1.0d0
+    ! k = 0  
+    sqrtA_v = log(c)*v 
+
+    do k=1,itrmax
+        if(k==1)then
+            dv = k/c*(-c*v + this%matmul(v)  )
+        else
+            dv = (-1.0d0)/c*dble(k)/dble(k+1)*(- c*dv + this%matmul(dv) )
+        endif
+        sqrtA_v = sqrtA_v + dv
+
+        if(maxval(abs(dv)) < tol) return
+    enddo
+     
+end function
+! #####################################################
+
+
+
+
+
+! #####################################################
+subroutine fixCRS(this,idx,val,RHS) 
+    class(CRS_),intent(inout) :: this
+    integer(int32),intent(in) :: idx(:)
+    real(real64),intent(inout) :: RHS(:)
+    real(real64),intent(in) :: val(:)
+    integer(int32) :: i,j,k,id
+
+    do i=1,size(idx)
+        id = idx(i)
+        do j=1,size(this%row_ptr)-1
+            if(j==id)then
+                do k=this%row_ptr(j),this%row_ptr(j+1)-1
+                    if( this%col_idx(k)==id  )then
+                        this%val(k) = 0.0d0
+                    else
+                        this%val(k) = 0.0d0
+                    endif
+                enddo
+            else
+                do k=this%row_ptr(j),this%row_ptr(j+1)-1
+                    if( this%col_idx(k)==id  )then
+                        RHS(j) = RHS(j) - this%val(k)*val(i)
+                        this%val(k) = 0.0d0
+                    endif
+                enddo
+            endif
+        enddo
+    enddo
+
+
+    do i=1,size(idx)
+        id = idx(i)
+        do j=1,size(this%row_ptr)-1
+            if(j==id)then
+                do k=this%row_ptr(j),this%row_ptr(j+1)-1
+                    if( this%col_idx(k)==id  )then
+                        this%val(k) = 1.0d0
+                    endif
+                enddo
+            endif
+        enddo
+    enddo
+
+    do i=1,size(idx)
+        RHS(id) = val(i)
+    enddo
+end subroutine
+! #####################################################
+
+! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> complex >>>>>>>>>>>>>>>>>>>>>>>
+
+
+! ###################################################
+function tensor_exponential_complex64_crs(this,itr_tol,tol,x,dt,fix_idx,fix_val) result(expA_v)
+    class(CRS_),intent(in) :: this
+    complex(real64),intent(in) :: x(:)
+    real(real64),optional,intent(in) :: dt
+    complex(real64),allocatable :: expA_v(:),increA_v(:),bhat(:)
+
+    real(real64),intent(in) :: tol
+    integer(int32), intent(in)::itr_tol
+!    complex(real64),allocatable::increA(:,:)
+    real(real64)   :: increment,NN,t
+    integer(int32) :: i,j,n
+
+    complex(real64),optional,intent(in) :: fix_val(:)
+    integer(int32), optional,intent(in)::fix_idx(:)
+    type(CRS_) :: Amatrix
+!    if(.not. allocated(expA) )allocate(expA(size(A,1),size(A,2) ))
+!    allocate(increA(size(A,1),size(A,2) ))
+!    if(size(A,1)/=size(A,2)) stop "ERROR:tensor exp is not a square matrix"
+    
+!    expA_v = x
+!    do n=1,size(expA,1)
+!        expA(n,n)=1.0d0
+!    enddo
+    t = input(default=1.0d0,option=dt)
+    ! exp(At) = I + At + 1/2*(At)^2 + 1/6*(At)^3 + ....
+    ! exp(At)v = Iv + (At)v + 1/2*(At)^2 v + 1/6*(At)^3 v+ ....
+    ! exp(At)v = v + (At)v + 1/2*(At)^2 v + 1/6*(At)^3 v+ ....
+!    expA_v = x
+!    do i=1,itr_tol
+!        increA_v = x
+!        do j=1,i
+!            increA_v = t/dble(j)*this%matmul(increA_v)
+!        enddo
+!        expA_v = expA_v + increA_v
+!        if(dot_product(increA_v,increA_v) < tol )exit
+!        
+!    enddo
+!    return
+
+    ! i==1,2
+    ! 0-th order term
+    if(present(fix_idx) )then
+        Amatrix = this
+        bhat = zeros(this%size() )
+        call Amatrix%fix(idx=fix_idx,RHS=bhat,val=fix_val)
+
+        increA_v = x
+        expA_v = zeros(size(x) )
+        expA_v = expA_v + increA_v
+        ! 1-st order term
+        increA_v = Amatrix%matmul(t*increA_v) - bhat*dt
+        expA_v = expA_v + increA_v
+        
+        do i=2,itr_tol
+            if(i==1)then
+                cycle
+            endif
+
+            increA_v = 1.0d0/(i)*Amatrix%matmul(t*increA_v) !- bhat*dt
+            expA_v = expA_v + increA_v
+            
+            if(abs(dot_product(increA_v,increA_v)) < tol )exit
+        enddo
+    else
+
+        increA_v = x
+        expA_v = zeros(size(x) )
+        expA_v = expA_v + increA_v
+        ! 1-st order term
+        increA_v = this%matmul(t*increA_v)
+        expA_v = expA_v + increA_v
+        
+        do i=2,itr_tol
+            if(i==1)then
+
+                cycle
+            endif
+
+            increA_v = 1.0d0/(i)*this%matmul(t*increA_v)
+            expA_v = expA_v + increA_v
+
+            if(abs(dot_product(increA_v,increA_v)) < tol )exit
+        enddo
+    endif
+end function
+
+
+! ###################################################
+function tensor_exp_sqrt_complex64_crs(this,v,tol,itrmax,coeff,fix_idx,fix_val) result(exp_sqrtA_v)
+    class(CRS_),intent(in) :: this
+    complex(real64),intent(in) :: v(:)
+    complex(real64),optional,intent(in) :: coeff
+    complex(real64),allocatable :: dv(:),exp_sqrtA_v(:),bhat(:)
+    integer(int32) :: i
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol
+
+    complex(real64),optional,intent(in) :: fix_val(:)
+    integer(int32), optional,intent(in)::fix_idx(:)
+    complex(real64) :: coeffi
+
+    type(CRS_) :: Amatrix
+
+    if(present(coeff) )then
+        coeffi = coeff
+    else
+        coeffi = 1.0d0
+    endif
+
+
+    if(present(fix_idx) )then
+        !Amatrix = this
+        !bhat = zeros(this%size() )
+        !call Amatrix%fix(idx=fix_idx,RHS=bhat,val=fix_val)
+
+        !increA_v = x
+        !expA_v = zeros(size(x) )
+        !expA_v = expA_v + increA_v
+        ! 1-st order term
+        !increA_v = Amatrix%matmul(t*increA_v) - bhat*dt
+        !expA_v = expA_v + increA_v
+        
+        !do i=2,itr_tol
+        !    if(i==1)then
+        !        cycle
+        !    endif
+        !    increA_v = 1.0d0/(i)*Amatrix%matmul(t*increA_v) !- bhat*dt
+        !    expA_v = expA_v + increA_v
+        !    
+        !    if(abs(dot_product(increA_v,increA_v)) < tol )exit
+        !enddo
+
+        Amatrix = this
+        bhat = zeros(Amatrix%size() )
+        call Amatrix%fix(idx=fix_idx,RHS=bhat,val=fix_val)
+
+        dv = v
+        exp_sqrtA_v = zeros(size(v) )
+        exp_sqrtA_v = exp_sqrtA_v + dv
+        
+        ! 1-st order term
+        dv = coeffi*Amatrix%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax) - coeffi*bhat
+        dv(fix_idx) = 0.0d0
+        exp_sqrtA_v = exp_sqrtA_v + dv
+        exp_sqrtA_v(fix_idx) = fix_val
+        
+        do i=2,itrmax
+            if(i==1)then
+                cycle
+            endif
+        
+            dv = 1.0d0/(i)*coeffi*Amatrix%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax)
+            dv(fix_idx) = 0.0d0
+            exp_sqrtA_v = exp_sqrtA_v + dv
+            exp_sqrtA_v(fix_idx) = fix_val
+            if(abs(dot_product(dv,dv)) < tol )exit
+        enddo
+
+    else
+    
+        dv = v
+        exp_sqrtA_v = zeros(size(v) )
+        exp_sqrtA_v = exp_sqrtA_v + dv
+
+        ! 1-st order term
+        dv = coeffi*this%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax)
+        exp_sqrtA_v = exp_sqrtA_v + dv
+        
+        do i=2,itrmax
+            if(i==1)then
+                cycle
+            endif
+
+            dv = 1.0d0/(i)*coeffi*this%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax)
+            exp_sqrtA_v = exp_sqrtA_v + dv
+
+            if(abs(dot_product(dv,dv)) < tol )exit
+        enddo
+    endif
+
+end function
+! #####################################################
+
+
+
+
+! ###################################################
+function tensor_sqrt_complex64_crs(this,v,tol,itrmax) result(sqrtA_v)
+    class(CRS_),intent(in) :: this
+    complex(real64),intent(in) :: v(:)
+    complex(real64),allocatable :: dv(:),sqrtA_v(:),logA_v(:)
+    integer(int32) :: k
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol
+
+
+    dv = v
+    sqrtA_v = zeros(size(v) )
+    sqrtA_v = sqrtA_v + dv
+    ! 1-st order term
+    dv = 0.50d0*this%tensor_log(v=dv,tol=tol,itrmax=itrmax)
+    sqrtA_v = sqrtA_v + dv
+    
+    do k=2,itrmax
+        if(k==1)then
+
+            cycle
+        endif
+
+        dv = 1.0d0/dble(k)*0.50d0*this%tensor_log(v=dv,tol=tol,itrmax=itrmax)
+        sqrtA_v = sqrtA_v + dv
+
+        if(abs(dot_product(dv,dv)) < tol )exit
+    enddo
+    
+end function
+! #####################################################
+
+
+
+! ###################################################
+function tensor_log_complex64_crs(this,v,tol,itrmax) result(sqrtA_v)
+    class(CRS_),intent(in) :: this
+    complex(real64),intent(in) :: v(:)
+    complex(real64),allocatable :: dv(:),sqrtA_v(:)
+    integer(int32) :: k
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol
+    !complex(real64) :: c
+    real(real64),allocatable :: c(:)
+
+    !c = maxval(this%val)*1.0d0
+    c = this%diag() ! テイラー展開中心をdiagで決める．
+    !c = 1.0d0
+    ! k = 0  
+    sqrtA_v = log(c)*v 
+
+    do k=1,itrmax
+        if(k==1)then
+            dv = k/c*(-c*v + this%matmul(v)  )
+        else
+            dv = (-1.0d0)/c*dble(k)/dble(k+1)*(- c*dv + this%matmul(dv) )
+        endif
+        sqrtA_v = sqrtA_v + dv
+
+        if(maxval(abs(dv)) < tol) return
+    enddo
+     
+end function
+! #####################################################
+
+
+
+
+! #####################################################
+subroutine fix_complex64_CRS(this,idx,val,RHS) 
+    class(CRS_),intent(inout) :: this
+    integer(int32),intent(in) :: idx(:)
+    complex(real64),intent(inout) :: RHS(:)
+    complex(real64),intent(in) :: val(:)
+    integer(int32) :: i,j,k,id
+
+    do i=1,size(idx)
+        id = idx(i)
+        do j=1,size(this%row_ptr)-1
+            if(j==id)then
+                do k=this%row_ptr(j),this%row_ptr(j+1)-1
+                    if( this%col_idx(k)==id  )then
+                        this%val(k) = 0.0d0
+                    else
+                        this%val(k) = 0.0d0
+                    endif
+                enddo
+            else
+                do k=this%row_ptr(j),this%row_ptr(j+1)-1
+                    if( this%col_idx(k)==id  )then
+                        RHS(j) = RHS(j) - this%val(k)*val(i)
+                        this%val(k) = 0.0d0
+                    endif
+                enddo
+            endif
+        enddo
+    enddo
+
+
+    do i=1,size(idx)
+        id = idx(i)
+        do j=1,size(this%row_ptr)-1
+            if(j==id)then
+                do k=this%row_ptr(j),this%row_ptr(j+1)-1
+                    if( this%col_idx(k)==id  )then
+                        this%val(k) = 1.0d0
+                    endif
+                enddo
+            endif
+        enddo
+    enddo
+
+    do i=1,size(idx)
+        RHS(id) = val(i)
+    enddo
+end subroutine
+! #####################################################
+
+
 
 end module SparseClass

@@ -10209,7 +10209,7 @@ end function
 ! ######################################################
 function getCarbonFlowSoybean(this,photosynthesis,respiration,FixBoundary,FixValue,&
         Photosynthate_n,dt,penalty,DiffusionCoeff,debug,RHS,Matrix,&
-        tol) &
+        tol,algorithm) &
     result(Photosynthate)
     class(Soybean_),target,intent(inout) :: this
     type(CRS_),optional,intent(inout ) :: Matrix
@@ -10218,6 +10218,7 @@ function getCarbonFlowSoybean(this,photosynthesis,respiration,FixBoundary,FixVal
     integer(int32),intent(in) :: FixBoundary(:)
     real(real64),intent(in) :: penalty
     real(real64),optional,intent(in) :: tol
+    character(*),optional,intent(in) :: algorithm
     real(real64) :: dx
     real(real64),allocatable :: c(:)
     logical,optional,intent(in) :: debug
@@ -10275,6 +10276,7 @@ function getCarbonFlowSoybean(this,photosynthesis,respiration,FixBoundary,FixVal
         stop
     endif
 
+    if(present(algorithm ))then
     Photosynthate = solver%getDiffusionField(&
             FEMDomains=FEMDomains , &
             DiffusionCoeff=DiffusionCoeff, &
@@ -10284,9 +10286,24 @@ function getCarbonFlowSoybean(this,photosynthesis,respiration,FixBoundary,FixVal
             FixValue=FixValue   ,    &
             C_n=Photosynthate_n,&
             RHS=RHS,&
+            algorithm=algorithm,&
             Matrix=Matrix,&
             dt=dt &
         )
+    else
+        Photosynthate = solver%getDiffusionField(&
+        FEMDomains=FEMDomains , &
+        DiffusionCoeff=DiffusionCoeff, &
+        Reaction=photosynthesis - respiration, &
+        Penalty=penalty ,&
+        FixBoundary=FixBoundary,   &
+        FixValue=FixValue   ,    &
+        C_n=Photosynthate_n,&
+        RHS=RHS,&
+        Matrix=Matrix,&
+        dt=dt &
+        )
+    endif
     this%reaction_n = solver%CRS_RHS_n
     
 end function

@@ -186,6 +186,7 @@ module FEMDomainClass
 		procedure,public :: field => fieldFEMDomain
 		procedure,public :: fixReversedElements => fixReversedElementsFEMDomain
 		procedure,public :: fit =>  fitFEMDomain
+		procedure,public :: full => fullFEMDomain
 		
 		procedure,public :: gmshPlotMesh => GmshPlotMesh
 		procedure,public :: gmsh => GmshPlotMesh
@@ -385,6 +386,7 @@ module FEMDomainClass
 		procedure,public :: DiffusionMatrix => DiffusionMatrixFEMDomain 
 
 		procedure,public :: ConnectMatrix => ConnectMatrixFEMDomain 
+		procedure,public :: ConnectVector => ConnectVectorFEMDomain 
 		procedure,public :: ElementVector => ElementVectorFEMDomain 
 		procedure,public :: GlobalVector => GlobalVectorFEMDomain 
 		procedure,public :: TractionVector => TractionVectorFEMDomain
@@ -415,6 +417,9 @@ module FEMDomainClass
 
 	type :: FEMDomainp_
 		type(FEMDomain_),pointer :: femdomainp => null()
+	contains
+		procedure,public :: getMyID => getMyIDFEMDomainp
+		procedure,public :: overset => overset_FEMDomainp
 	end type
 
 
@@ -11253,6 +11258,129 @@ end function
 ! ##################################################################
 
 
+! ###################################################################
+function ConnectVectorFEMDomain(obj,position,DOF,shapefunction,strict) result(Connectvector)
+	class(FEMDomain_),intent(inout) :: obj
+	type(ShapeFunction_),optional,intent(in) :: shapefunction
+	type(ShapeFunction_) :: sobj
+	real(real64),intent(in) :: position(:)
+	integer(int32),intent(in) :: DOF
+	logical,optional,intent(in) :: strict
+	real(real64),allocatable :: Connectvector(:),cm_DOF1(:,:),Rcvec(:),Bc(:,:)
+	integer(int32) :: i,j,n
+
+	
+	if(present(shapefunction) )then
+		! Gauss-Point Projection
+		! shapefunction=domain1: for 1 gauss point
+		! obj = domain#2, nodes
+		! sobj = domain#2, shape function
+		! position : domain#1 gauss point
+		
+		! 
+
+		! domain#2
+		sobj = obj%getShapeFunction(position=position)
+
+		n = (obj%nne()+size(shapefunction%nmat,1) ) * DOF
+		
+		if(sobj%elementid == -1)then
+			! no contact
+			Connectvector = zeros(n)
+			return
+		endif
+		
+		Bc = zeros(DOF, n)
+
+		!do i=1,DOF
+		!	BC(i,i) = 1.0d0
+		!enddo
+
+		!allocate(Rcvec(n) )
+		! <    Domain #1    > <    Domain #2    >
+		! (N1 0  0 N2 0  0 ... -N1 0  0 -N2 0  0 ...   )
+		! (0  N1 0 0  N2 0 ... 0  -N1 0 0  -N2 0 ...   )
+		! (0  0 N1 0  0 N2 ... 0  0 -N1 0  0 -N2 ...   )
+		if(present(strict) )then
+			if(strict)then
+				if(maxval(shapefunction%nmat(:))>1.0d0 .or. minval(shapefunction%nmat(:))<-1.0d0)then
+					print *, "Connectvector ERROR :::strict shape function is out of range"
+					stop
+				endif
+			endif
+		endif
+
+		if(present(strict) )then
+			if(strict)then
+				if(maxval(sobj%nmat(:))>1.0d0 .or. minval(sobj%nmat(:))<-1.0d0)then
+					print *, "Connectvector ERROR :::strict shape function is out of range"
+					stop
+				endif
+			endif
+		endif
+
+		! \epsilon \int_{x_e} Bc^T Bc detJ d x_e = 0
+		do i=1,size(shapefunction%nmat)
+			do j=1,DOF
+				Bc(j, (i-1)*DOF + j ) =Bc(j, (i-1)*DOF + j )+ shapefunction%nmat(i)
+			enddo
+		enddo
+		
+
+
+		do i=1,size(sobj%nmat)
+			do j=1,DOF
+				Bc(j, size(shapefunction%nmat)*DOF + (i-1)*DOF + j ) =&
+					Bc(j, size(shapefunction%nmat)*DOF + (i-1)*DOF + j )  - sobj%nmat(i)
+			enddo
+		enddo
+		!print *, "position"
+		!print *, position
+		!print *, "shapefunction #1"
+		!print *,shapefunction%nmat(:)
+		!call print(shapefunction%ElemCoord)
+		!call print(matmul(transpose(shapefunction%ElemCoord),shapefunction%nmat))
+		
+		!print *, "sobj #2"
+		!print *,sobj%nmat(:)
+		!call print(sobj%ElemCoord)
+		!call print(matmul(transpose(sobj%ElemCoord),sobj%nmat))
+
+		Connectvector = reshape(Bc,[size(Bc,1)*size(Bc,2) ] )*shapefunction%detJ
+		
+		return
+	
+	else
+		! P2P
+		sobj = obj%getShapeFunction(position=position)
+		n = (obj%nne()+1) * DOF
+		
+		if(sobj%elementid == -1)then
+			! no contact
+			Connectvector = zeros(n)
+			return
+		endif
+	
+		n = (size(sobj%nmat)+1) * DOF
+		Bc = zeros(DOF, n)
+		do i=1,DOF
+			BC(i,i) = 1.0d0
+		enddo
+		!allocate(Rcvec(n) )
+		!Rcvec(1:DOF) = 1.0d0
+		do i=1,size(sobj%nmat)
+			do j=1,DOF
+				!Rcvec(DOF+ (i-1)*DOF + j) = - sobj%nmat(i)
+				Bc(j, i*DOF + j ) = - sobj%nmat(i)
+			enddo
+		enddo
+		Connectvector = reshape(Bc,[size(Bc,1)*size(Bc,2) ] )
+		return
+	endif
+	
+end function
+! ##################################################################
+
 ! ##################################################################
 subroutine ImportVTKFileFEMDomain(obj,name)
 	class(FEMDomain_),intent(inout) :: Obj
@@ -12413,6 +12541,60 @@ function getMyIDFEMDomain(this,FEMDomains) result(id)
 
 end function
 
+function getMyIDFEMDomainp(this,FEMDomainp) result(id)
+	class(FEMDOmainp_),intent(in) :: this
+	type(FEMDOmainp_),intent(in) :: femdomainp(:)
+	integer(int32) :: id,i
+
+	id = 0
+	do i=1,size(femdomainp)
+		if(femdomainp(i)%femdomainp%uuid == this%femdomainp%uuid )then
+			if(id/=0)then
+				id = -1 ! Crushed!
+			else
+				id = i
+			endif
+		endif
+	enddo
+
+end function
+
+
+
+subroutine overset_FEMDomainp(obj,FEMDomainp,to,by,debug)
+	class(FEMDomainp_),intent(inout) :: obj
+	type(FEMDomainp_),intent(inout) :: femdomainp(:)
+	integer(int32),intent(in) :: to
+	character(*),intent(in) :: by
+	integer(int32) :: from, MyID, algorithm
+	logical,optional,intent(in) :: debug
+
+	myID = obj%getMyID(femdomainp)
+	select case(by)
+		case default
+			algorithm = FEMDomain_Overset_GPP
+		case("GPP","gpp")
+			algorithm = FEMDomain_Overset_GPP
+		case("P2P","PP","p2p","PointToPoint")
+			algorithm = FEMDomain_Overset_P2P
+	end select
+
+	if(MyID == 0 )then
+		print *, "[ERROR] oversetFEMDomain >> 404 Not Found."
+		return
+	endif
+
+
+	if(MyID == -1 )then
+		print *, "[ERROR] oversetFEMDomain >> uuids are crushed!"
+		return
+	endif
+
+	call femdomainp(MyID)%femdomainp%overset(femdomainp(to)%femdomainp,DomainID=to, &
+		algorithm=algorithm,MyDomainID=MyID,debug=debug)
+
+end subroutine
+
 
 subroutine oversetFEMDomains(obj,FEMDomains,to,by,debug)
 	class(FEMDomain_),intent(inout) :: obj
@@ -12589,7 +12771,7 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID, deb
 			obj%OversetConnect(obj%num_oversetconnect)%DomainIDs12 = DomainIDs12
 			obj%OversetConnect(obj%num_oversetconnect)%active = .true.
 			
-			!A_ij = penalty*femdomain%connectMatrix(position,DOF=femdomain%nd() ) 
+			!A_ij = penalty*femdomain%ConnectMatrix(position,DOF=femdomain%nd() ) 
 			!! assemble them 
 			!call obj%solver%assemble(&
 			!	connectivity=InterConnect,&
@@ -13537,6 +13719,30 @@ function ElementID2NodeIDFEMDomain(this,ElementID) result(NodeID)
 	enddo
 
 	NodeID = getIDx(nodecount,equal_to=1)
+
+end function
+
+! ###############################################################
+function fullFEMDomain(this,func,params) result(scalar_field)
+	class(FEMDomain_),intent(in) :: this
+	interface 
+		function func(x,params) result(scalar_value)
+			use iso_fortran_env
+			real(real64),intent(in) :: x(:)
+			real(real64),optional,intent(in) :: params(:)
+			real(real64) :: scalar_value
+		end function
+	end interface 
+	real(real64),optional,intent(in) :: params(:)
+	real(real64),allocatable :: scalar_field(:)
+	real(real64) :: x(1:3)
+	integer(int32) :: NodeID
+
+	scalar_field = zeros(this%nn() )
+	do NodeID=1,this%nn()
+		x = [this%position_x(NodeID),this%position_y(NodeID),this%position_z(NodeID)]
+		scalar_field(NodeID) = func(x=x,params=params)
+	enddo
 
 end function
 

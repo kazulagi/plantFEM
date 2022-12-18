@@ -110,10 +110,82 @@ module MathClass
 	interface d_dx
 		module procedure derivative_scalar,derivative_vector
 	end interface
+
+	interface FFT
+		module procedure FFT1D,FFT2D_real,FFT2D_comp
+	end interface 
 contains
 
 ! ###############################################
-function FFT(x,T,window) result(hatx)
+function FFT2D_real(xy) result(hatx)
+	real(real64)	,intent(in) :: xy(:,:)
+	complex(real64)	,allocatable :: hatx(:,:),buf(:)
+	integer(int32) :: row, i
+	! type(Math_) :: Math
+	! character(*),optional,intent(in) :: window
+	! real(real64),optional,intent(in) :: T(2) ! range
+	! real(real64) :: Trange(1:2),dt_x,dt_y
+	! integer(int32) :: Nx, Ny
+
+	
+	hatx = xy
+	do row = 1,size(xy,1) 
+		hatx(row,:) = FFT_core( hatx(row,:) )
+	enddo
+	do row = 1,size(xy,1) 
+		buf = hatx(row,:)
+		hatx(row,size(xy,1)/2+1:size(xy,1)) = buf(1:size(xy,1)/2)
+		do i=1,size(xy,1)/2
+			hatx(row,i) = buf(size(xy,1)/2-i+1)
+		enddo
+	enddo
+	
+	hatx = transpose(hatx)
+	do row = 1,size(xy,2) 
+		hatx(row,:) = FFT_core(hatx(row,:) )
+	enddo
+	do row = 1,size(xy,2) 
+		buf = hatx(row,:)
+		hatx(row,size(xy,2)/2+1:size(xy,2)) = buf(1:size(xy,2)/2)
+		do i=1,size(xy,2)/2
+			hatx(row,i) = buf(size(xy,2)/2-i+1)
+		enddo
+	enddo
+	hatx = transpose(hatx)
+	
+end function
+
+! ###############################################
+
+! ###############################################
+function FFT2D_comp(xy) result(hatx)
+	complex(real64)	,intent(in) :: xy(:,:)
+	complex(real64)	,allocatable :: hatx(:,:)
+	integer(int32) :: row
+	! type(Math_) :: Math
+	! character(*),optional,intent(in) :: window
+	! real(real64),optional,intent(in) :: T(2) ! range
+	! real(real64) :: Trange(1:2),dt_x,dt_y
+	! integer(int32) :: Nx, Ny
+
+	
+	allocate(hatx(size(xy,1),size(xy,2) ))
+	do row = 1,size(xy,1) 
+		hatx(row,:) = FFT_core(xy(row,:)) 
+	enddo
+	hatx = transpose(hatx)
+	do row = 1,size(xy,2) 
+		hatx(row,:) = FFT_core(hatx(row,:) )
+	enddo
+	hatx = transpose(hatx)
+	
+end function
+
+! ###############################################
+
+
+! ###############################################
+function FFT1D(x,T,window) result(hatx)
 	complex(kind(0d0))	,intent(in) :: x(:)
 	complex(kind(0d0))	,allocatable :: hatx(:)
 	type(Math_) :: Math
@@ -155,42 +227,33 @@ end function
 
 ! ###############################################
 recursive function FFT_core(x) result(hatx)
-	complex(kind(0d0))	,intent(in) :: x(:)
-	!real(real64)	,optional,intent(in) :: T(2) ! range
-	complex(kind(0d0))	,allocatable :: hatx(:),W(:),L(:),R(:)
+	complex(real64)	,intent(in) :: x(:)
+	complex(real64)	,allocatable :: hatx(:),W(:),L(:),R(:)
 	real(real64),allocatable :: a(:), wo(:)
-	!real(real64) :: Trange(2) ,dt
 	integer(int32),allocatable :: ip(:)
 	integer(int32) :: N, i, itr,isgn
 	integer(int32),allocatable :: k(:)
 	type(Math_) :: Math
-
 	! This FFT is 
 	! Fw(m dw) = T/N \sum_{n=0}^{N-1} f(n dt) e^{-i 2 \pi k/N m n} 
-	
 	N = size(x)
 	allocate(hatx(N))
-
-
 	hatx(:) = 0.0d0
 	allocate(k(N/2) )
 	allocate(W(N/2) )
 	allocate(L(N/2) )
 	allocate(R(N/2) )
-	
 	do i=1,size(k)
 		k(i) = i-1
 		!print *, exp(-1*Math%i * 2.0d0* Math%PI * k(i)/dble(N))
 		W(i) = exp(-1.0d0*Math%i * 2.0d0* Math%PI * k(i) /dble(N) )
 	enddo
-	
 	if(N==2)then
 		! butterfly operation
 		hatx(1) = x(1) + x(2)
 		hatx(2) = x(1) - x(2)
 		return
 	endif
-	
 	if(N>=4)then
 		itr=0
 		do i=1, N, 2
@@ -201,7 +264,6 @@ recursive function FFT_core(x) result(hatx)
 			endif
 			L(itr) = x(i)
 		enddo 
-
 		itr=0
 		do i=2, N, 2
 			itr=itr+1
@@ -210,10 +272,8 @@ recursive function FFT_core(x) result(hatx)
 			endif
 			R(itr) = x(i)
 		enddo
-		
 		L = FFT_core(L)
 		R = FFT_core(R)
-		
 		do i=1,N/2
 			hatx(i) = L(i) + W(i)*R(i)
 		enddo
