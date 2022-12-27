@@ -115,6 +115,9 @@ module FEMSolverClass
         ! for eigen solver
         procedure,public :: fix_eig => fix_eigFEMSolver
         
+
+        
+
         !(6) save matrix
         procedure,public :: saveMatrix => saveMatrixFEMSolver
         procedure,public :: loadMatrix => loadMatrixFEMSolver
@@ -148,6 +151,9 @@ module FEMSolverClass
         procedure, public :: argumented_Lagrangian_RHS => argumented_Lagrangian_RHS_FEMSolver
         procedure, public :: num_EbOFEM_projection_point &
             => num_EbOFEM_projection_point_FEMSolver
+
+        procedure, public :: get_fix_idx => get_fix_idx_FEMSolver
+        procedure, public :: get_fix_value => get_fix_value_FEMSolver
 
         ! FOR MPI 
         procedure, public :: MPI_link => MPI_linkFEMSolver
@@ -2950,6 +2956,68 @@ function conditionNumberFEMSolver(this) result(RCOND)
 end function
 ! ################################################
 
+! ################################################
+function get_fix_idx_FEMSolver(this) result(fix_idx)
+    class(FEMSolver_),intent(in) :: this
+    integer(int32),allocatable :: fix_idx(:)
+
+    integer(int32) :: i, num_fix_idx
+
+    if(.not.allocated(this%fix_lin_exists) )then
+        allocate(fix_idx(0) )
+        return
+    endif
+
+    num_fix_idx = 0
+    do i=1,size(this%fix_lin_exists)
+        if(this%fix_lin_exists(i) ) then
+            num_fix_idx = num_fix_idx + 1
+        endif
+    enddo
+    fix_idx = int(zeros(num_fix_idx))
+    num_fix_idx = 0
+    do i=1,size(this%fix_lin_exists)
+        if(this%fix_lin_exists(i) ) then
+            num_fix_idx = num_fix_idx + 1
+            fix_idx(num_fix_idx) = i
+        endif
+    enddo
+
+
+end function
+! ################################################
+
+! ################################################
+function get_fix_value_FEMSolver(this) result(fix_value)
+    class(FEMSolver_),intent(in) :: this
+    integer(int32),allocatable :: fix_value(:)
+
+    integer(int32) :: i, num_fix_value
+
+    if(.not.allocated(this%fix_lin_exists) )then
+        allocate(fix_value(0) )
+        return
+    endif
+
+    num_fix_value = 0
+    do i=1,size(this%fix_lin_exists)
+        if(this%fix_lin_exists(i) ) then
+            num_fix_value = num_fix_value + 1
+        endif
+    enddo
+    fix_value = zeros(num_fix_value)
+
+    num_fix_value = 0
+    do i=1,size(this%fix_lin_exists)
+        if(this%fix_lin_exists(i) ) then
+            num_fix_value = num_fix_value + 1
+            fix_value(num_fix_value) = this%fix_lin_exists_Values(i)
+        endif
+    enddo
+    
+
+end function
+! ################################################
 
 
 end module 

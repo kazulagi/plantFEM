@@ -373,7 +373,6 @@ module FEMDomainClass
 
 		! matrices
 
-        procedure,public :: MassMatrix => MassMatrixFEMDomain
         procedure,public :: MassVector => MassVectorFEMDomain
 		procedure,public :: Bmatrix => BMatrixFEMDomain
 		procedure,public :: Dmatrix => DMatrixFEMDomain
@@ -382,8 +381,11 @@ module FEMDomainClass
 		procedure,public :: StressMatrix => StressMatrixFEMDomain
 		procedure,public :: StressVector => StressVectorFEMDomain
 		
-		procedure,public :: StiffnessMatrix => StiffnessMatrixFEMDomain 
-		procedure,public :: DiffusionMatrix => DiffusionMatrixFEMDomain 
+		! Element-wize matrix
+		procedure,pass :: DiffusionMatrixFEMDomain 
+		procedure,pass :: StiffnessMatrixFEMDomain 
+        procedure,pass :: MassMatrixFEMDomain
+
 
 		procedure,public :: ConnectMatrix => ConnectMatrixFEMDomain 
 		procedure,public :: ConnectVector => ConnectVectorFEMDomain 
@@ -391,6 +393,24 @@ module FEMDomainClass
 		procedure,public :: GlobalVector => GlobalVectorFEMDomain 
 		procedure,public :: TractionVector => TractionVectorFEMDomain
 		procedure,public :: FlowVector => FlowVectorFEMDomain
+
+		! Domain-wize matrix (as CRS-format)
+
+		procedure,pass :: DiffusionMatrix_as_CRS_FEMDomain
+		procedure,pass :: StiffnessMatrix_as_CRS_FEMDomain
+		procedure,pass :: MassMatrix_as_CRS_FEMDomain
+		procedure,pass :: ZeroMatrix_as_CRS_FEMDomain
+		procedure,pass :: ZeroMatrix_as_COO_FEMDomain
+
+		generic ::DiffusionMatrix => DiffusionMatrixFEMDomain,DiffusionMatrix_as_CRS_FEMDomain
+		generic ::StiffnessMatrix => StiffnessMatrixFEMDomain,StiffnessMatrix_as_CRS_FEMDomain
+		generic ::MassMatrix => MassMatrixFEMDomain,MassMatrix_as_CRS_FEMDomain
+		generic ::ZeroMatrix => ZeroMatrix_as_CRS_FEMDomain
+		generic ::ZeroMatrix_as_COO => ZeroMatrix_as_COO_FEMDomain
+		
+		
+
+
 
 		procedure,public :: loadPoints => loadPointsFEMDomain
 		procedure,public :: particles  => particlesFEMDomain
@@ -9815,6 +9835,157 @@ end function
 
 
 ! Basic matrices and vectors 
+! ##########################################################################
+function MassMatrix_as_CRS_FEMDomain(this,Density,DOF,omp) result(MassMatrix)
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),intent(in) :: Density(:)
+	integer(int32),intent(in) :: DOF
+	logical,optional,intent(in) :: omp
+	
+	type(CRS_) :: MassMatrix
+	type(COO_) :: COO
+	integer(int32) :: ElementID,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,&
+		pid_1,pid_2,DOF_1,DOF_2,loc_pid_1,loc_pid_2,i,col_id
+	real(real64),allocatable :: eDiffMat(:,:),val(:)
+
+
+
+	if(present(omp) )then
+		if(.not.omp)then
+			call COO%init(this%nn()*DOF)
+			do ElementID=1,this%ne()
+				eDiffMat = this%MassMatrix(&
+					ElementID=ElementID,&
+					Density=Density(ElementID) , &
+					DOF=DOF  &
+   				) 
+				do LocElemID_1=1,this%nne()
+					do LocElemID_2=1,this%nne()
+						do DOF_1=1,DOF
+							do DOF_2=1,DOF
+								nodeid_1 = this%mesh%elemnod(ElementID,LocElemID_1)
+								nodeid_2 = this%mesh%elemnod(ElementID,LocElemID_2)
+								pid_1 = DOF*(nodeid_1-1) + DOF_1
+								pid_2 = DOF*(nodeid_2-1) + DOF_2
+								loc_pid_1 = DOF*(LocElemID_1-1) + DOF_1
+								loc_pid_2 = DOF*(LocElemID_2-1) + DOF_2
+								call COO%add(pid_1,pid_2,eDiffMat(loc_pid_1,loc_pid_2)  )
+							enddo
+						enddo
+					enddo
+				enddo
+			enddo
+			MassMatrix = COO%to_CRS()
+			return
+		endif
+	endif
+
+
+
+	!call COO%init(this%nn()*DOF)
+
+	MassMatrix = this%ZeroMatrix(DOF=DOF)
+	val = MassMatrix%val
+	!$OMP parallel do private(eDiffMat,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,col_id,i,pid_1,pid_2,loc_pid_1,loc_pid_2,DOF_1,DOF_2) reduction(+:val) 
+	do ElementID=1,this%ne()
+		eDiffMat = this%MassMatrix(&
+			ElementID=ElementID,&
+			Density=Density(ElementID) , &
+			DOF=DOF  &
+		   ) 
+		do LocElemID_1=1,this%nne()
+			do LocElemID_2=1,this%nne()
+				do DOF_1=1,DOF
+					do DOF_2=1,DOF
+						nodeid_1 = this%mesh%elemnod(ElementID,LocElemID_1)
+						nodeid_2 = this%mesh%elemnod(ElementID,LocElemID_2)
+						pid_1 = DOF*(nodeid_1-1) + DOF_1
+						pid_2 = DOF*(nodeid_2-1) + DOF_2
+						loc_pid_1 = DOF*(LocElemID_1-1) + DOF_1
+						loc_pid_2 = DOF*(LocElemID_2-1) + DOF_2
+						!call COO%add(pid_1,pid_2,eDiffMat(loc_pid_1,loc_pid_2)  )
+						
+						do i=MassMatrix%row_ptr(pid_1),MassMatrix%row_ptr(pid_1+1)-1
+							if(MassMatrix%col_idx(i)==pid_2 )then
+								val(i) = val(i) + eDiffMat(loc_pid_1,loc_pid_2)  
+								exit
+							endif
+						enddo
+
+					enddo
+				enddo
+			enddo
+		enddo
+	enddo
+	!$OMP end parallel do
+	MassMatrix%val = val
+
+end function
+
+! ##########################################################################
+
+! ##########################################################################
+function ZeroMatrix_as_CRS_FEMDomain(this,DOF) result(MassMatrix)
+	class(FEMDomain_),intent(inout) :: this
+	integer(int32),intent(in) :: DOF
+	type(CRS_) :: MassMatrix
+	type(COO_) :: COO
+	integer(int32) :: ElementID,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,&
+		pid_1,pid_2,DOF_1,DOF_2,loc_pid_1,loc_pid_2
+	real(real64),allocatable :: eDiffMat(:,:)
+
+	call COO%init(this%nn()*DOF)
+	do ElementID=1,this%ne()
+		do LocElemID_1=1,this%nne()
+			do LocElemID_2=1,this%nne()
+				do DOF_1=1,DOF
+					do DOF_2=1,DOF
+						nodeid_1 = this%mesh%elemnod(ElementID,LocElemID_1)
+						nodeid_2 = this%mesh%elemnod(ElementID,LocElemID_2)
+						pid_1 = DOF*(nodeid_1-1) + DOF_1
+						pid_2 = DOF*(nodeid_2-1) + DOF_2
+						loc_pid_1 = DOF*(LocElemID_1-1) + DOF_1
+						loc_pid_2 = DOF*(LocElemID_2-1) + DOF_2
+						call COO%add(pid_1,pid_2,0.0d0 )
+					enddo
+				enddo
+			enddo
+		enddo
+	enddo
+	MassMatrix = COO%to_CRS()
+
+end function
+
+! ##########################################################################
+function ZeroMatrix_as_COO_FEMDomain(this,DOF) result(ZeroMatrix)
+	class(FEMDomain_),intent(inout) :: this
+	integer(int32),intent(in) :: DOF
+	type(COO_) :: ZeroMatrix
+	integer(int32) :: ElementID,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,&
+		pid_1,pid_2,DOF_1,DOF_2,loc_pid_1,loc_pid_2
+	real(real64),allocatable :: eDiffMat(:,:)
+
+	call ZeroMatrix%init(this%nn()*DOF)
+	do ElementID=1,this%ne()
+		do LocElemID_1=1,this%nne()
+			do LocElemID_2=1,this%nne()
+				do DOF_1=1,DOF
+					do DOF_2=1,DOF
+						nodeid_1 = this%mesh%elemnod(ElementID,LocElemID_1)
+						nodeid_2 = this%mesh%elemnod(ElementID,LocElemID_2)
+						pid_1 = DOF*(nodeid_1-1) + DOF_1
+						pid_2 = DOF*(nodeid_2-1) + DOF_2
+						loc_pid_1 = DOF*(LocElemID_1-1) + DOF_1
+						loc_pid_2 = DOF*(LocElemID_2-1) + DOF_2
+						call ZeroMatrix%add(pid_1,pid_2,0.0d0 )
+					enddo
+				enddo
+			enddo
+		enddo
+	enddo
+
+end function
+! ##########################################################################
 
 
 ! ##########################################################################
@@ -10035,6 +10206,96 @@ function MassVectorFEMDomain(obj,ElementID,Density,DOF,Accel) result(MassVector)
 end function
 ! ##########################################################################
 
+
+
+! ##########################################################################
+
+
+function StiffnessMatrix_as_CRS_FEMDomain(this,YoungModulus,PoissonRatio,omp) result(StiffnessMatrix)
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),intent(in) :: YoungModulus(:),PoissonRatio(:)
+	logical,optional,intent(in) :: omp
+	type(CRS_) :: StiffnessMatrix
+	type(COO_) :: COO
+	integer(int32) :: ElementID,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,&
+		pid_1,pid_2,DOF_1,DOF_2,DOF,loc_pid_1,loc_pid_2,i,col_id
+	real(real64),allocatable :: val(:)
+	real(real64),allocatable :: eDiffMat(:,:)
+
+
+	if(present(omp) )then
+		if(.not.omp)then
+			DOF = this%nd()
+			call COO%init(this%nn()*DOF)
+			do ElementID=1,this%ne()
+				eDiffMat = this%StiffnessMatrix(&
+					ElementID=ElementID,&
+					E=YoungModulus(ElementID) , &
+					v=PoissonRatio(ElementID)  &
+		   		) 
+				do LocElemID_1=1,this%nne()
+					do LocElemID_2=1,this%nne()
+						do DOF_1=1,DOF
+							do DOF_2=1,DOF
+								nodeid_1 = this%mesh%elemnod(ElementID,LocElemID_1)
+								nodeid_2 = this%mesh%elemnod(ElementID,LocElemID_2)
+								pid_1 = DOF*(nodeid_1-1) + DOF_1
+								pid_2 = DOF*(nodeid_2-1) + DOF_2
+								loc_pid_1 = DOF*(LocElemID_1-1) + DOF_1
+								loc_pid_2 = DOF*(LocElemID_2-1) + DOF_2
+								call COO%add(pid_1,pid_2,eDiffMat(loc_pid_1,loc_pid_2)  )
+							enddo
+						enddo
+					enddo
+				enddo
+			enddo
+			StiffnessMatrix = COO%to_CRS()
+			return
+		endif
+	endif
+
+	DOF = this%nd()
+	!call COO%init(this%nn()*DOF)
+	!COO = this%ZeroMatrix_as_COO(DOF=DOF)
+	StiffnessMatrix = this%ZeroMatrix(DOF=DOF)
+	val = StiffnessMatrix%val
+	!$OMP parallel do private(eDiffMat,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,col_id,i,pid_1,pid_2,loc_pid_1,loc_pid_2,DOF_1,DOF_2) reduction(+:val) 
+	do ElementID=1,this%ne()
+		eDiffMat = this%StiffnessMatrix(&
+			ElementID=ElementID,&
+			E=YoungModulus(ElementID) , &
+			v=PoissonRatio(ElementID)  &
+		) 
+		do LocElemID_1=1,this%nne()
+			do LocElemID_2=1,this%nne()
+				do DOF_1=1,DOF
+					do DOF_2=1,DOF
+						nodeid_1 = this%mesh%elemnod(ElementID,LocElemID_1)
+						nodeid_2 = this%mesh%elemnod(ElementID,LocElemID_2)
+						pid_1 = DOF*(nodeid_1-1) + DOF_1
+						pid_2 = DOF*(nodeid_2-1) + DOF_2
+						loc_pid_1 = DOF*(LocElemID_1-1) + DOF_1
+						loc_pid_2 = DOF*(LocElemID_2-1) + DOF_2
+						!call COO%add(pid_1,pid_2,eDiffMat(loc_pid_1,loc_pid_2)  )
+
+						do i=StiffnessMatrix%row_ptr(pid_1),StiffnessMatrix%row_ptr(pid_1+1)-1
+							if(StiffnessMatrix%col_idx(i)==pid_2 )then
+								val(i) = val(i) + eDiffMat(loc_pid_1,loc_pid_2)  
+								exit
+							endif
+						enddo
+
+					enddo
+				enddo
+			enddo
+		enddo
+	enddo
+	!$OMP end parallel do
+	StiffnessMatrix%val = val
+	
+end function
+
+! ##########################################################################
 
 
 ! ##########################################################################
@@ -10755,6 +11016,68 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 end function
 ! ##########################################################################
 
+
+function DiffusionMatrix_as_CRS_FEMDomain(this,Coefficient,omp) result(DiffusionMatrix)
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),intent(in) :: Coefficient(:)
+	type(CRS_) :: DiffusionMatrix
+	type(COO_) :: COO
+	logical,optional,intent(in) :: omp
+	integer(int32) :: ElementID,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,i,col_id
+	real(real64),allocatable :: val(:)
+	real(real64),allocatable :: eDiffMat(:,:)
+
+	if(present(omp) )then
+		if(.not.omp)then
+			call COO%init(this%nn())
+			do ElementID=1,this%ne()
+				eDiffMat = this%DiffusionMatrix(&
+					ElementID=ElementID,&
+					D=coefficient(ElementID) &
+		   		) 
+				do LocElemID_1=1,this%nne()
+					do LocElemID_2=1,this%nne()
+						nodeid_1 = this%mesh%elemnod(ElementID,LocElemID_1)
+						nodeid_2 = this%mesh%elemnod(ElementID,LocElemID_2)
+						call COO%add(nodeid_1,nodeid_2,eDiffMat(LocElemID_1,LocElemID_2)  )
+					enddo
+				enddo
+			enddo
+			DiffusionMatrix = COO%to_CRS()
+			return
+		endif
+	endif
+
+	! parallelized
+	
+	DiffusionMatrix = this%ZeroMatrix(DOF=1)
+	val = DiffusionMatrix%val
+	!$OMP parallel do private(eDiffMat,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,col_id,i) reduction(+:val) 
+	do ElementID=1,this%ne()
+		eDiffMat = this%DiffusionMatrix(&
+			ElementID=ElementID,&
+			D=coefficient(ElementID) &
+   		) 
+		do LocElemID_1=1,this%nne()
+			do LocElemID_2=1,this%nne()
+				nodeid_1 = this%mesh%elemnod(ElementID,LocElemID_1)
+				nodeid_2 = this%mesh%elemnod(ElementID,LocElemID_2)
+				! COO%add
+				do i=DiffusionMatrix%row_ptr(nodeid_1),DiffusionMatrix%row_ptr(nodeid_1+1)-1
+					if(DiffusionMatrix%col_idx(i)==nodeid_2 )then
+						val(i) = val(i) + eDiffMat(LocElemID_1,LocElemID_2)
+						exit
+					endif
+				enddo
+			enddo
+		enddo
+	enddo
+	!$OMP end parallel do
+	DiffusionMatrix%val = val
+
+
+end function
+
 ! ##########################################################################
 function DiffusionMatrixFEMDomain(obj,ElementID,D) result(DiffusionMatrix)
 	! 拡散係数マトリクス
@@ -10824,6 +11147,8 @@ function DiffusionMatrixFEMDomain(obj,ElementID,D) result(DiffusionMatrix)
 	enddo
 end function
 ! ##########################################################################
+
+
 
 ! ##########################################################################
 !function GradMatrixFEMDomain(obj,ElementID,DOF) result(GradMatrix)

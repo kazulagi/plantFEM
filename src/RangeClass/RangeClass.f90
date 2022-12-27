@@ -23,7 +23,59 @@ module RangeClass
 
         procedure :: inside   =>    insideRange
     end type
+
+
+
+    
+    interface to_range
+        module procedure :: to_range_int32, to_range_real64
+    end interface
+
+    interface operator(.in.)
+        module procedure :: in_detect_by_range_int32,in_detect_by_range_real64
+    end interface
+
 contains
+
+
+function in_detect_by_range_int32(intval,in_range) result(ret)
+    integer(int32),intent(in) :: intval
+    type(Range_),intent(in) :: in_range
+    logical :: ret
+
+    ret = (in_range%x_range(1) <= dble(intval) ) .and. (dble(intval) <= in_range%x_range(2)  )
+
+end function
+
+
+function in_detect_by_range_real64(intval,in_range) result(ret)
+    real(real64),intent(in) :: intval
+    type(Range_),intent(in) :: in_range
+    logical :: ret
+
+    ret = (in_range%x_range(1) <= intval ) .and. (intval <= in_range%x_range(2)  )
+
+end function
+
+
+
+function to_range_int32(from,to) result(ret_range)
+    type(Range_) :: ret_range
+    integer(int32),intent(in) :: from,to
+
+    ret_range%x_range(1:2) = dble([from,to])
+
+end function
+
+
+function to_range_real64(from,to) result(ret_range)
+    type(Range_) :: ret_range
+    real(real64),intent(in) :: from,to
+
+    ret_range%x_range(1:2) = [from,to]
+    
+end function
+
 
 ! #########################################################
 subroutine initRange(this,MaxRange) 
