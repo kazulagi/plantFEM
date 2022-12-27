@@ -130,7 +130,6 @@ module ArrayClass
             hstack_int32V_int32A2,hstack_int32A2_int32V,hstack_int32V_int32V
     end interface
 
-
     interface dot_product_omp
         module procedure :: dot_product_omp
     end interface
@@ -428,6 +427,7 @@ module ArrayClass
         module procedure appendVectorsInt32,appendVectorsReal64,appendMatrixInt32,appendMatrixReal64
     end interface
 
+    
     
     interface assignment(=)
       module procedure assignArrayAlloInt,assignArrayAlloReal, assignAlloArrayInt,assignAlloArrayReal,&

@@ -1,4 +1,5 @@
 module TimeClass
+    use omp_lib
     use iso_fortran_env
     implicit none
 
@@ -26,7 +27,8 @@ contains
 subroutine starttime(obj)
     class(time_) ,intent(inout) :: obj
 
-    call cpu_time(obj%t1)
+    !call cpu_time(obj%t1)
+    obj%t1 = omp_get_wtime()
 
 end subroutine
 ! ########################################
@@ -36,7 +38,9 @@ end subroutine
 subroutine showtime(obj)
     class(time_) ,intent(inout) :: obj
 
-    call cpu_time(obj%t2)
+    !call cpu_time(obj%t2)
+    obj%t2 = omp_get_wtime()
+
     print *, obj%t2-obj%t1
 
 end subroutine

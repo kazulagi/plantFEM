@@ -3,8 +3,7 @@ module SparseClass
     use ArrayClass
     use RandomClass
     implicit none
-
-
+    
     interface
       Subroutine c_dot_product(a,b,n,ret) bind(C,Name='c_dot_product')
         import
@@ -2488,11 +2487,12 @@ function tensor_exp_sqrt_complex64_crs(this,v,tol,itrmax,coeff,fix_idx,fix_val) 
     integer(int32),intent(in) :: itrmax
     real(real64),intent(in) :: tol
 
-    complex(real64),optional,intent(in) :: fix_val(:)
+    real(real64),optional,intent(in) :: fix_val(:)
     integer(int32), optional,intent(in)::fix_idx(:)
     complex(real64) :: coeffi
 
     type(CRS_) :: Amatrix
+    type(Math_) :: math
 
     if(present(coeff) )then
         coeffi = coeff
@@ -2525,17 +2525,22 @@ function tensor_exp_sqrt_complex64_crs(this,v,tol,itrmax,coeff,fix_idx,fix_val) 
 
         Amatrix = this
         bhat = zeros(Amatrix%size() )
-        call Amatrix%fix(idx=fix_idx,RHS=bhat,val=fix_val)
-
         dv = v
+        call Amatrix%fix(idx=fix_idx,RHS=bhat,val=fix_val+0.0d0*math%i)
+        !call Amatrix%fix(idx=fix_idx,RHS=dv,val=fix_val+0.0d0*math%i)
+        dv = dv - bhat
+        !<test>
+        !dv(fix_idx) = fix_val
+        
         exp_sqrtA_v = zeros(size(v) )
         exp_sqrtA_v = exp_sqrtA_v + dv
+        !exp_sqrtA_v(fix_idx) = fix_val
         
         ! 1-st order term
-        dv = coeffi*Amatrix%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax) - coeffi*bhat
-        dv(fix_idx) = 0.0d0
+        dv = coeffi*Amatrix%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax)! - coeffi*bhat
+        !dv(fix_idx) = 0.0d0
         exp_sqrtA_v = exp_sqrtA_v + dv
-        exp_sqrtA_v(fix_idx) = fix_val
+        !exp_sqrtA_v(fix_idx) = fix_val
         
         do i=2,itrmax
             if(i==1)then
@@ -2543,11 +2548,12 @@ function tensor_exp_sqrt_complex64_crs(this,v,tol,itrmax,coeff,fix_idx,fix_val) 
             endif
         
             dv = 1.0d0/(i)*coeffi*Amatrix%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax)
-            dv(fix_idx) = 0.0d0
+            !dv(fix_idx) = 0.0d0
             exp_sqrtA_v = exp_sqrtA_v + dv
-            exp_sqrtA_v(fix_idx) = fix_val
+            !exp_sqrtA_v(fix_idx) = fix_val
             if(abs(dot_product(dv,dv)) < tol )exit
         enddo
+        exp_sqrtA_v(fix_idx) = fix_val
 
     else
     

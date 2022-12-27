@@ -35,6 +35,9 @@ module SeismicAnalysisClass
         
         real(real64),allocatable :: u(:) ! disp.
         real(real64),allocatable :: u_n(:) ! disp.
+
+        complex(real64),allocatable :: u_p(:)
+        complex(real64),allocatable :: u_m(:)
         
         real(real64),allocatable :: du(:) ! increment of disp.
         real(real64),allocatable :: wave(:,:)
@@ -102,6 +105,9 @@ module SeismicAnalysisClass
         integer(int32) :: step=0
         real(real64) :: alpha = 0.52400d0
         real(real64) :: beta  = 0.00129d0 ! Rayleigh dumping parameters, h=1%
+
+        real(real64) :: damping_ratio_h = 0.010d0! damping ratio regarding ma+2hwv+w^2 u = f
+
         real(real64) :: Newmark_beta  = 0.250d0 ! Nemark-beta method parameters
         real(real64) :: Newmark_gamma = 0.50d0 ! Nemark-beta method parameters
         real(real64) :: boundary_dumping_ratio = 1.0d0
@@ -759,15 +765,21 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio
     real(real64),optional,intent(in) :: t0,disp_magnify_ratio
     real(real64),optional,intent(in) :: wave(:,:),AccelLimit
     real(real64),allocatable :: mass_diag(:),R(:),boundary_force(:),F_vec(:),new_U(:),new_V(:),new_A(:)
-    real(real64),allocatable :: diag(:),bar_A(:),bar_V(:)
+    real(real64),allocatable :: diag(:),bar_A(:),bar_V(:),K_inv_F(:)
+
+    integer(int32),allocatable :: fix_idx(:)
+    real(real64),allocatable :: fix_val(:)
     ! <<<
 
     type(LinearSolver_) :: solver
     type(IO_) :: U, V, A
-    type(CRS_) :: M_matrix, K_matrix, A_matrix
+    type(CRS_) :: M_matrix, K_matrix, A_matrix,crs
+    type(Math_) :: math
+    complex(real64) :: alpha
+    
     
     integer(int32) :: i,j
-    real(real64) :: ratio
+    real(real64) :: ratio,h
 
 
     if(obj%multi_domain_mode)then
@@ -777,6 +789,98 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio
         endif
         
         select case(timeIntegral)
+            case("Exponential-Integrator","AEI","EI")
+                ! Use augmented exponential integrator (Tomobe, in prep.)
+                
+                ! load last values
+                if(.not.allocated(obj%a_n) )then
+                    obj%a_n = obj%a
+                endif
+                if(.not.allocated(obj%v_n) )then
+                    obj%v_n = obj%v    
+                endif
+                if(.not.allocated(obj%u_n) )then
+                    obj%u_n = obj%u    
+                endif
+
+                obj%modal%solver%CRS_val = 0.0d0
+
+                ! multiplication/summersion of CRS matrices
+                
+                if(present(use_same_matrix))then
+                    if(use_same_matrix)then
+                        if(.not.allocated(obj%M_matrix%val) )then
+                            print *, "[ok] use_same_matrix >> enabled "
+                            call obj%modal%solve(only_matrix=.true.,penalty=obj%overset_penalty)
+                            obj%M_matrix = obj%modal%solver%getCRS("B")
+                            obj%K_matrix = obj%modal%solver%getCRS("A")
+                            M_matrix = obj%M_matrix
+                            K_matrix = obj%K_matrix
+                        else
+                            print *, "[ok] use_same_matrix >> active "
+                            M_matrix = obj%M_matrix
+                            K_matrix = obj%K_matrix
+                        endif
+                        
+                    else
+                        call obj%modal%solve(only_matrix=.true.,penalty=obj%overset_penalty)
+                        M_matrix = obj%modal%solver%getCRS("B")
+                        K_matrix = obj%modal%solver%getCRS("A")
+                    endif
+                else
+                    call obj%modal%solve(only_matrix=.true.,penalty=obj%overset_penalty)
+                    M_matrix = obj%modal%solver%getCRS("B")
+                    K_matrix = obj%modal%solver%getCRS("A")
+                endif
+
+                crs = K_matrix%divide_by(diag_vector=M_matrix%diag(cell_centered=.true.))
+                F_vec = obj%Traction + M_matrix%matmul(obj%A_ext)&
+                    + obj%getAbsorbingBoundaryForce() 
+
+                h = obj%damping_ratio_h
+                if(h<1.0d0)then
+                    alpha = sqrt(sqrt(abs(1.0d0-h*h)))*math%i
+                else
+                    alpha = sqrt(h*h-1.0d0)
+                endif
+                ! boundary conditions
+                if(norm(F_vec)==0.0d0 )then
+                    F_vec(:) = 0.0d0
+                else
+                    call K_matrix%BICGSTAB(x=K_inv_F,b=F_vec)
+                endif
+                
+                fix_idx = obj%modal%solver%get_fix_idx()
+                fix_val = obj%modal%solver%get_fix_value()
+
+                if(.not.allocated(obj%u_p))then
+                    obj%u_p = 0.50d0*obj%U_n(:)
+                endif
+
+                if(.not.allocated(obj%u_m))then
+                    obj%u_m = 0.50d0*obj%U_n(:)
+                endif
+
+                obj%u_p = crs%tensor_exp_sqrt(v=obj%u_p,&
+                    tol = dble(1.0e-10),coeff= dt*alpha - dt*h,&
+                    itrmax=100,fix_idx=fix_idx,fix_val=fix_val)+K_inv_F/2.0d0
+                obj%u_m = crs%tensor_exp_sqrt(v=obj%u_m,&
+                    tol = dble(1.0e-10),coeff=-dt*alpha - dt*h,&
+                    itrmax=100,fix_idx=fix_idx,fix_val=fix_val)+K_inv_F/2.0d0
+                                
+                obj%U   = dble(obj%u_p) + dble(obj%u_m)
+                obj%U_n = obj%U
+                
+                ! how to update velocity and acceleration
+                obj%V   = (-h+alpha)*crs%tensor_sqrt(v=obj%u_p,tol=dble(1.0e-10),itrmax=100) &
+                    + (-h-alpha)*crs%tensor_sqrt(v=obj%u_m,tol=dble(1.0e-10),itrmax=100) 
+                obj%V_n = obj%V
+                
+                obj%A   = ((-h+alpha)**2)*crs%matmul(obj%u_p)+((-h-alpha)**2)*crs%matmul(obj%u_m)
+                obj%A_n = obj%A
+                
+
+
             case("Nemwark-beta","Nemwark-Beta")
 
                 if(.not.allocated(obj%a_n) )then
