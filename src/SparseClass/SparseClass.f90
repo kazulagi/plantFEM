@@ -2237,6 +2237,7 @@ function tensor_exp_sqrt_crs(this,v,tol,itrmax) result(exp_sqrtA_v)
     class(CRS_),intent(in) :: this
     real(real64),intent(in) :: v(:)
     real(real64),allocatable :: dv(:),exp_sqrtA_v(:)
+
     integer(int32) :: i
     integer(int32),intent(in) :: itrmax
     real(real64),intent(in) :: tol
@@ -2248,6 +2249,7 @@ function tensor_exp_sqrt_crs(this,v,tol,itrmax) result(exp_sqrtA_v)
 
     ! 1-st order term
     dv = this%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax)
+
     exp_sqrtA_v = exp_sqrtA_v + dv
     
     do i=2,itrmax
@@ -2286,7 +2288,6 @@ function tensor_sqrt_crs(this,v,tol,itrmax) result(sqrtA_v)
     
     do k=2,itrmax
         if(k==1)then
-
             cycle
         endif
 
@@ -2337,12 +2338,30 @@ end function
 
 
 ! #####################################################
-subroutine fixCRS(this,idx,val,RHS) 
+subroutine fixCRS(this,idx,val,RHS,only_row) 
     class(CRS_),intent(inout) :: this
     integer(int32),intent(in) :: idx(:)
-    real(real64),intent(inout) :: RHS(:)
+    real(real64),optional,intent(inout) :: RHS(:)
     real(real64),intent(in) :: val(:)
     integer(int32) :: i,j,k,id
+    logical,optional,intent(in) :: only_row
+
+    if(present(only_row) )then
+        if(only_row)then
+            
+            do i=1,size(idx)
+                id = idx(i)
+                do j=this%row_ptr(id),this%row_ptr(id+1)-1
+                    if( this%col_idx(j) ==id)then
+                        this%val(j) = 1.0d0
+                    else
+                        this%val(j) = 0.0d0
+                    endif
+                enddo
+            enddo
+            return
+        endif
+    endif
 
     do i=1,size(idx)
         id = idx(i)
@@ -2478,7 +2497,7 @@ end function
 
 
 ! ###################################################
-function tensor_exp_sqrt_complex64_crs(this,v,tol,itrmax,coeff,fix_idx,fix_val) result(exp_sqrtA_v)
+function tensor_exp_sqrt_complex64_crs(this,v,tol,itrmax,coeff,fix_idx) result(exp_sqrtA_v)
     class(CRS_),intent(in) :: this
     complex(real64),intent(in) :: v(:)
     complex(real64),optional,intent(in) :: coeff
@@ -2487,7 +2506,7 @@ function tensor_exp_sqrt_complex64_crs(this,v,tol,itrmax,coeff,fix_idx,fix_val) 
     integer(int32),intent(in) :: itrmax
     real(real64),intent(in) :: tol
 
-    real(real64),optional,intent(in) :: fix_val(:)
+    !real(real64),optional,intent(in) :: fix_val(:) ! only 0-fix is available
     integer(int32), optional,intent(in)::fix_idx(:)
     complex(real64) :: coeffi
 
@@ -2526,19 +2545,22 @@ function tensor_exp_sqrt_complex64_crs(this,v,tol,itrmax,coeff,fix_idx,fix_val) 
         Amatrix = this
         bhat = zeros(Amatrix%size() )
         dv = v
-        call Amatrix%fix(idx=fix_idx,RHS=bhat,val=fix_val+0.0d0*math%i)
+        !dv(fix_idx(:) ) = fix_val(:)!/exp(1.0d0)
+        
+        !call Amatrix%fix(idx=fix_idx,RHS=bhat,val=fix_val+0.0d0*math%i)
+        call Amatrix%fix(idx=fix_idx,RHS=bhat,val=0.0d0*zeros(size(fix_idx) ) +0.0d0*math%i)
+        !call Amatrix%fix(idx=fix_idx,val=fix_val+0.0d0*math%i,only_row=.true.)
         !call Amatrix%fix(idx=fix_idx,RHS=dv,val=fix_val+0.0d0*math%i)
-        dv = dv - bhat
+        !dv = dv + bhat
         !<test>
         !dv(fix_idx) = fix_val
         
-        exp_sqrtA_v = zeros(size(v) )
+        exp_sqrtA_v = zeros(size(v))
         exp_sqrtA_v = exp_sqrtA_v + dv
-        !exp_sqrtA_v(fix_idx) = fix_val
+        !exp_sqrtA_v(fix_idx(:) ) = fix_val(:)
         
         ! 1-st order term
-        dv = coeffi*Amatrix%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax)! - coeffi*bhat
-        !dv(fix_idx) = 0.0d0
+        dv = coeffi*Amatrix%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax) 
         exp_sqrtA_v = exp_sqrtA_v + dv
         !exp_sqrtA_v(fix_idx) = fix_val
         
@@ -2553,8 +2575,7 @@ function tensor_exp_sqrt_complex64_crs(this,v,tol,itrmax,coeff,fix_idx,fix_val) 
             !exp_sqrtA_v(fix_idx) = fix_val
             if(abs(dot_product(dv,dv)) < tol )exit
         enddo
-        exp_sqrtA_v(fix_idx) = fix_val
-
+        !exp_sqrtA_v(fix_idx(:) ) = fix_val(:)
     else
     
         dv = v
@@ -2652,12 +2673,32 @@ end function
 
 
 ! #####################################################
-subroutine fix_complex64_CRS(this,idx,val,RHS) 
+subroutine fix_complex64_CRS(this,idx,val,RHS,only_row) 
     class(CRS_),intent(inout) :: this
     integer(int32),intent(in) :: idx(:)
-    complex(real64),intent(inout) :: RHS(:)
+    complex(real64),optional,intent(inout) :: RHS(:)
     complex(real64),intent(in) :: val(:)
     integer(int32) :: i,j,k,id
+
+    logical,optional,intent(in) :: only_row
+
+    if(present(only_row) )then
+        if(only_row)then
+            
+            do i=1,size(idx)
+                id = idx(i)
+                do j=this%row_ptr(id),this%row_ptr(id+1)-1
+                    if( this%col_idx(j) ==id)then
+                        this%val(j) = 1.0d0
+                    else
+                        this%val(j) = 0.0d0
+                    endif
+                enddo
+            enddo
+            return
+        endif
+    endif
+    
 
     do i=1,size(idx)
         id = idx(i)

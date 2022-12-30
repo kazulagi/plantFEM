@@ -9925,34 +9925,230 @@ end function
 ! ##########################################################################
 
 ! ##########################################################################
-function ZeroMatrix_as_CRS_FEMDomain(this,DOF) result(MassMatrix)
+recursive function ZeroMatrix_as_CRS_FEMDomain(this,DOF,regacy) result(ZeroMatrix)
 	class(FEMDomain_),intent(inout) :: this
 	integer(int32),intent(in) :: DOF
-	type(CRS_) :: MassMatrix
+	type(CRS_) :: ZeroMatrix
 	type(COO_) :: COO
 	integer(int32) :: ElementID,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,&
-		pid_1,pid_2,DOF_1,DOF_2,loc_pid_1,loc_pid_2
-	real(real64),allocatable :: eDiffMat(:,:)
+		pid_1,pid_2,DOF_1,DOF_2,loc_pid_1,loc_pid_2,DOF_as_1
+	integer(int32) :: i,j,k,l,n,thread_num,m
+	integer(int32),allocatable :: count_appear(:),col_idx(:),row_ptr(:),ELL_col_idx(:,:),nonzero_idx(:),&
+		ELL_elem(:,:)
+	logical,optional,intent(in) :: regacy
 
-	call COO%init(this%nn()*DOF)
-	do ElementID=1,this%ne()
-		do LocElemID_1=1,this%nne()
-			do LocElemID_2=1,this%nne()
-				do DOF_1=1,DOF
-					do DOF_2=1,DOF
-						nodeid_1 = this%mesh%elemnod(ElementID,LocElemID_1)
-						nodeid_2 = this%mesh%elemnod(ElementID,LocElemID_2)
-						pid_1 = DOF*(nodeid_1-1) + DOF_1
-						pid_2 = DOF*(nodeid_2-1) + DOF_2
-						loc_pid_1 = DOF*(LocElemID_1-1) + DOF_1
-						loc_pid_2 = DOF*(LocElemID_2-1) + DOF_2
-						call COO%add(pid_1,pid_2,0.0d0 )
+
+
+	if(present(regacy) )then
+		if(regacy  )then
+			
+			DOF_as_1 = 1
+			call COO%init(this%nn()*DOF_as_1)
+			do ElementID=1,this%ne()
+				do LocElemID_1=1,this%nne()
+					do LocElemID_2=1,this%nne()
+						do DOF_1=1,DOF_as_1
+							do DOF_2=1,DOF_as_1
+								nodeid_1 = this%mesh%elemnod(ElementID,LocElemID_1)
+								nodeid_2 = this%mesh%elemnod(ElementID,LocElemID_2)
+								pid_1 = DOF_as_1*(nodeid_1-1) + DOF_1
+								pid_2 = DOF_as_1*(nodeid_2-1) + DOF_2
+								loc_pid_1 = DOF_as_1*(LocElemID_1-1) + DOF_1
+								loc_pid_2 = DOF_as_1*(LocElemID_2-1) + DOF_2
+								call COO%add(pid_1,pid_2,0.0d0 )
+							enddo
+						enddo
+					enddo
+				enddo
+			enddo
+			ZeroMatrix = COO%to_CRS()
+			call COO%remove()
+
+			if(DOF>1)then
+				! extend!
+				row_ptr = ZeroMatrix%row_ptr
+				col_idx = ZeroMatrix%col_idx
+				ZeroMatrix%row_ptr = int(zeros( (size(row_ptr)-1)*DOF + 1 ) )
+
+
+				ZeroMatrix%row_ptr(1) = 1 
+				do i=1,size(row_ptr)-1
+					do j=1,DOF
+						ZeroMatrix%row_ptr( DOF*(i-1) + j + 1 ) = ZeroMatrix%row_ptr( DOF*(i-1) + j ) &
+							+  DOF*( row_ptr(i+1) - row_ptr(i))
+					enddo
+				enddo
+				ZeroMatrix%col_idx = int(zeros( ( ZeroMatrix%row_ptr(size(ZeroMatrix%row_ptr) ) )-1 ))
+
+
+				m = 0
+				do i=1,size(row_ptr)-1
+					do k=1,DOF
+						do j=row_ptr(i),row_ptr(i+1)-1
+							n = row_ptr(i+1) - row_ptr(i)
+							do l=1,DOF
+								m = m + 1
+								ZeroMatrix%col_idx( m) =  DOF*(col_idx(j)-1) + l
+							enddo
+						enddo
+					enddo
+				enddo
+				ZeroMatrix%val = zeros(size(ZeroMatrix%col_idx) )
+			endif
+
+
+			return
+		endif
+
+	endif
+
+
+	!if(DOF/=1)then
+	!	ZeroMatrix = this%ZeroMatrix(DOF=DOF,regacy=.true.)
+	!	return
+	!endif
+	! DOF=3とかに対応できるよう，以下を変更
+
+	
+	!(i) count max-connect
+	count_appear = int(zeros(this%nn()))
+	!$OMP parallel do reduction(+:count_appear)
+	do i=1,this%ne()
+		count_appear(this%mesh%elemnod(i,:) ) = count_appear(this%mesh%elemnod(i,:) )  + 1
+	enddo
+	!$OMP end parallel do
+	ELL_elem = int(zeros( this%nn(),maxval(count_appear) ) )
+	count_appear = count_appear*this%nne()
+
+
+	!(ii) Create ELL format
+	! ここを並列化！！
+	! NodeID vs ElementID
+	ELL_col_idx = int(zeros( this%nn(),maxval(count_appear) ) )
+	count_appear(:) = 0
+	do i=1,this%ne()
+		do j=1,this%nne()
+			count_appear(this%mesh%elemnod(i,j) ) = count_appear(this%mesh%elemnod(i,j) )  + 1
+			ELL_elem(this%mesh%elemnod(i,j),count_appear(this%mesh%elemnod(i,j)) ) &
+				= i
+		enddo
+	enddo
+	
+	count_appear(:) = 0
+	!$OMP parallel do private(j,k) reduction(+:count_appear)
+	do i=1,size(ELL_elem,1)
+		do j=1,size(ELL_elem,2)
+			if(ELL_elem(i,j)==0 ) exit
+			do k=1,this%nne()
+				count_appear(i) = count_appear(i) + 1
+				ELL_col_idx(i,count_appear(i)) = this%mesh%elemnod(ELL_elem(i,j),k )
+			enddo
+		enddo
+	enddo
+	!$OMP end parallel do
+
+	!(iii) overlap should be 0
+	nonzero_idx = int(zeros(size(ELL_col_idx,2)))
+	!$OMP parallel do private(j,k)
+	do i=1,size(ELL_col_idx,1)
+		do j=1,count_appear(i)
+			if(ELL_col_idx(i,j) == 0  )then
+				cycle
+			else
+				do k=j+1,count_appear(i)
+					if(ELL_col_idx(i,j)==ELL_col_idx(i,k) )then
+						ELL_col_idx(i,k) = 0
+					endif
+				enddo
+			endif
+		enddo
+
+
+	enddo
+	!$OMP end parallel do
+
+	!(iv) shift zero to right
+	!count_appear(:) = 0
+	!$OMP parallel do private(j,k,nonzero_idx)
+	do i=1,size(ELL_col_idx,1)
+		nonzero_idx(:) = 0
+		k = 0
+		do j=1,count_appear(i)
+			if(ELL_col_idx(i,j)/=0 )then
+				k = k +1
+				nonzero_idx(k) = ELL_col_idx(i,j)
+			endif
+		enddo
+		ELL_col_idx(i,:) = nonzero_idx(:)
+	enddo
+	!$OMP end parallel do
+
+	!print *, "v"
+	!(v) count non-zero
+	count_appear(:) = 0
+	!$OMP parallel do private(j)
+	do i=1,size(ELL_col_idx,1)
+		do j=1,size(ELL_col_idx,2)
+			if(ELL_col_idx(i,j)/=0 )then
+				count_appear(i) = count_appear(i) + 1
+			endif
+		enddo
+	enddo
+	!$OMP end parallel do
+	
+	ZeroMatrix%row_ptr = int(zeros(this%nn()+1))
+	ZeroMatrix%col_idx = int(zeros(sum(count_appear) ))
+	!print *, "vi"
+	! (vi) create row_ptr
+	ZeroMatrix%row_ptr(1) = 1 
+	do i=1,size(ELL_col_idx,1)
+		ZeroMatrix%row_ptr(i+1) = ZeroMatrix%row_ptr(i)  + count_appear(i)
+	enddo
+
+	!$OMP parallel do private(j,k)
+	do i=1,size(ZeroMatrix%row_ptr)-1
+		k=0
+		do j=ZeroMatrix%row_ptr(i),ZeroMatrix%row_ptr(i+1)-1
+			k = k + 1
+			ZeroMatrix%col_idx(j) = ELL_col_idx(i,k)
+		enddo
+	enddo
+	!$OMP end parallel do
+	deallocate(ELL_col_idx,ELL_elem,count_appear,nonzero_idx)
+
+	ZeroMatrix%val = zeros(size(ZeroMatrix%col_idx) )
+
+	if(DOF>1)then
+		! extend!
+		row_ptr = ZeroMatrix%row_ptr
+		col_idx = ZeroMatrix%col_idx
+		ZeroMatrix%row_ptr = int(zeros( (size(row_ptr)-1)*DOF + 1 ) )
+		
+		! update row-pointers
+		ZeroMatrix%row_ptr(1) = 1 
+		do i=1,size(row_ptr)-1
+			do j=1,DOF
+				ZeroMatrix%row_ptr( DOF*(i-1) + j + 1 ) = ZeroMatrix%row_ptr( DOF*(i-1) + j ) &
+					+  DOF*( row_ptr(i+1) - row_ptr(i))
+			enddo
+		enddo
+		ZeroMatrix%col_idx = int(zeros( ( ZeroMatrix%row_ptr(size(ZeroMatrix%row_ptr) ) )-1 ))
+		
+		! update column-indices
+		m = 0
+		do i=1,size(row_ptr)-1
+			do k=1,DOF
+				do j=row_ptr(i),row_ptr(i+1)-1
+					n = row_ptr(i+1) - row_ptr(i)
+					do l=1,DOF
+						m = m + 1
+						ZeroMatrix%col_idx( m) =  DOF*(col_idx(j)-1) + l
 					enddo
 				enddo
 			enddo
 		enddo
-	enddo
-	MassMatrix = COO%to_CRS()
+		ZeroMatrix%val = zeros(size(ZeroMatrix%col_idx) )
+	endif
 
 end function
 
