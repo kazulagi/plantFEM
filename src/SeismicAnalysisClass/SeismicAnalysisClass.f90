@@ -863,10 +863,10 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio
 
                 obj%u_p = crs%tensor_exp_sqrt(v=obj%u_p,&
                     tol = dble(1.0e-10),coeff= dt*alpha - dt*h,&
-                    itrmax=100,fix_idx=fix_idx,fix_val=fix_val)+K_inv_F/2.0d0
+                    itrmax=100,fix_idx=fix_idx)+K_inv_F/2.0d0
                 obj%u_m = crs%tensor_exp_sqrt(v=obj%u_m,&
                     tol = dble(1.0e-10),coeff=-dt*alpha - dt*h,&
-                    itrmax=100,fix_idx=fix_idx,fix_val=fix_val)+K_inv_F/2.0d0
+                    itrmax=100,fix_idx=fix_idx)+K_inv_F/2.0d0
                                 
                 obj%U   = dble(obj%u_p) + dble(obj%u_m)
                 obj%U_n = obj%U
