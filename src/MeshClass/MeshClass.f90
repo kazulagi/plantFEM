@@ -135,6 +135,8 @@ module MeshClass
         
         procedure :: json => jsonMesh
 
+        procedure :: killElement => killElementMesh
+
         procedure :: length => lengthMesh
         procedure :: Laplacian => LaplacianMesh
         
@@ -180,6 +182,8 @@ module MeshClass
         procedure :: show => ShowMesh 
         procedure :: sync => syncMeshClass
         
+        procedure :: to_HollowTube => to_HollowTube_MESH
+        procedure :: to_culm => to_culm_MESH
 
     end type Mesh_
 
@@ -6526,16 +6530,32 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         return
     endif
 
+    if(meshtype=="HollowTube" .or. meshtype=="tube")then
+        validmeshtype=.true.
+        call obj%to_HollowTube(r_num=x_num,theta_num=y_num,z_num=division,&
+            thickness=thickness,radius=radius,length=length)
+        return
+    endif
+
     if(meshtype=="Circle2D" .or. meshtype=="Circle")then
         validmeshtype=.true.
         ! create mesh by scheme-circle method
         ! https://support.jpmandt.com/mesh/create-mesh/surface-create-mesh/scheme-circle/
         ! fraction:interval = 1:1
-        xn = input(default=10,option=x_num/2+1)
-        yn = input(default=10,option=y_num/2+1)
+        if(present(x_num) )then
+            xn = x_num/2+1
+        else
+            xn = 10
+        endif
+
+        if(present(y_num) )then
+            yn = y_num/2+1
+        else
+            yn = 10
+        endif
         ! x方向とy方向のうち、より分割数が多い方に合わせる
-        if(xn <= ym)then
-            xn = ym
+        if(xn <= yn)then
+            xn = yn
         else
             yn = xn
         endif
@@ -6594,7 +6614,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
 
         ! 要素
         ! Starts from ElementID: (2*xn+1)*(2*xn+1)
-        allocate(mesh1%elemnod(8*xn*(xn+1),4) )
+        allocate(mesh1%elemnod(8*(xn)*(xn+2),4) )
         mesh1%elemnod(:,:)=0
         j=0
         do i=1,xn
@@ -6634,7 +6654,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         enddo
         mesh1%elemnod(j,3)= (2*xn+1)*(2*xn+1) +1
         
-        do i=1,xn
+        do i=1,xn+1
             ini=j+1
             do k=1,8*xn-1
                 j=j+1
@@ -6661,18 +6681,6 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         mesh2%elemnod(1:size(obj%elemnod,1),1:4)=obj%elemnod(1:size(obj%elemnod,1),1:4)
         mesh2%elemnod(size(obj%elemnod,1)+1:size(obj%elemnod,1)+size(mesh1%elemnod,1),1:4)&
             =mesh1%elemnod(1:size(mesh1%elemnod,1),1:4)
-        !call print(mat=mesh2%elemnod,name="elem2.txt")
-        !call print(mat=mesh2%nodcoord,IndexArray=mesh2%elemnod,name="mesh2.txt")
-
-        !call f%open("mesh2.txt")
-        !do i=1,size(mesh2%elemnod,1)
-        !    do j=1,size(mesh2%elemnod,2)
-        !        write(f%fh,*) mesh2%nodcoord(mesh2%elemnod(i,j),:)
-        !    enddo
-        !    write(f%fh,*) mesh2%nodcoord(mesh2%elemnod(i,1),:)
-        !    write(f%fh,*) " "
-        !enddo
-        !call f%close()
 
         allocate(mesh2%elemmat(size(mesh2%elemnod,1) ) )
         mesh2%elemmat(:)=1
@@ -10385,5 +10393,200 @@ subroutine convertHigherOrderMesh(this)
 
 end subroutine
 
+! ##################################################################
+subroutine to_HollowTube_MESH(this,r_num,theta_num,z_num,thickness,radius,length)
+    class(Mesh_),intent(inout) :: this
+    integer(int32),optional,intent(in) :: r_num,z_num,theta_num
+    real(real64),optional,intent(in) :: thickness, radius, length
+    real(real64) :: t,l,r
+    real(real64) :: a,dr,dtheta
+    integer(int32) :: division(1:3)
+    integer(int32) :: m,n
+    type(Math_) :: math
 
+    division(1) = input(default=3,option=r_num)
+    division(2) = input(default=36,option=theta_num)
+    division(3) = input(default=20,option=z_num)
+    t = input(default=0.10d0,option=thickness)
+    r = input(default=0.50d0,option=radius)
+    l = input(default=1.0d0,option=length)
+    
+    this%nodcoord = zeros( (division(1)+1)*division(2),2 )
+    
+    dr = t/division(1)
+    dtheta = 2.0d0*math%PI/division(2)
+    !$OMP parallel do private(a,n)
+    do m=1,division(1)+1
+        a = dr*(m-1) + (r - t)
+        do n=1,division(2)
+            this%nodcoord( division(2)*(m-1)+n,1 ) = a*cos(dtheta*(n-1) )
+            this%nodcoord( division(2)*(m-1)+n,2 ) = a*sin(dtheta*(n-1) )
+        enddo
+    enddo
+    !$OMP end parallel do
+
+    this%elemnod = int(zeros(division(1)*division(2),4 ) )
+
+    do m=1,division(1)
+        do n=1,division(2)
+            if(n==division(2))then
+                this%elemnod( (m-1)*division(2) + n, 1 ) = (m-1)*division(2) + n
+                this%elemnod( (m-1)*division(2) + n, 2 ) = (m  )*division(2) + n 
+                this%elemnod( (m-1)*division(2) + n, 3 ) = (m  )*division(2) + 1
+                this%elemnod( (m-1)*division(2) + n, 4 ) = (m-1)*division(2) + 1
+            else
+                this%elemnod( (m-1)*division(2) + n, 1 ) = (m-1)*division(2) + n
+                this%elemnod( (m-1)*division(2) + n, 2 ) = (m  )*division(2) + n 
+                this%elemnod( (m-1)*division(2) + n, 3 ) = (m  )*division(2) + n + 1
+                this%elemnod( (m-1)*division(2) + n, 4 ) = (m-1)*division(2) + n + 1
+            endif
+        enddo
+    enddo
+    this%elemmat = int(zeros(size(this%elemnod,1) ))
+
+    call this%convert2Dto3D(thickness=l,division=division(3) )
+end subroutine
+! ##################################################################
+
+! ##################################################################
+subroutine to_culm_MESH(this,r_num,theta_num,z_num,thickness,radius,length,&
+    node_thickness)
+    class(Mesh_),intent(inout) :: this
+    integer(int32),optional,intent(in) :: r_num,z_num,theta_num
+    real(real64),optional,intent(in) :: thickness, radius, length, node_thickness
+    real(real64) :: t,l,r,interior_r ,nt,zmin
+    real(real64) :: a,dr,dtheta,center(1:3)
+    integer(int32) :: division(1:3)
+    integer(int32),allocatable :: killElementList(:)
+    integer(int32) :: m,n,i
+    type(Math_) :: math
+
+    division(1) = input(default=5,option=r_num)
+    division(2) = input(default=5,option=theta_num)
+    division(3) = input(default=30,option=z_num)
+
+    t = input(default=0.10d0,option=thickness)
+    nt= input(default=0.10d0,option=node_thickness)
+    r = input(default=0.50d0,option=radius)
+    l = input(default=5.0d0,option=length)
+    
+    !interior_r = (1.0d0 + 1.0d0/dble( (2*division(1) )) ) 
+    call this%create(meshtype="Circle2D",&
+        x_num=division(1),y_num=division(2),x_len=1.0d0,y_len=1.0d0)
+    
+
+    call this%convert2Dto3D(thickness=l,division=division(3) )
+    call this%resize(x_len=2*r,y_len=2*r,z_len=l)
+    zmin = minval(this%nodcoord(:,3))
+    this%nodcoord(:,3) = this%nodcoord(:,3) - zmin
+
+    ! remove internal part
+    killElementList = int(zeros(size(this%elemnod,1)) )
+    
+    do i=1,size(this%elemnod,1)
+        center(1) = average(this%nodcoord( this%elemnod(i,:),1 ))
+        center(2) = average(this%nodcoord( this%elemnod(i,:),2 ))
+        center(3) = average(this%nodcoord( this%elemnod(i,:),3 ))
+        
+        if( nt < center(3) .and. center(3) < l - nt )then
+            if( norm(center(1:2) ) < r - t)then
+                killElementList(i) = 1
+            endif
+        endif
+    enddo
+
+    call this%killElement(blacklist=killElementList,flag=1)
+
+end subroutine
+! ##################################################################
+
+
+! ##########################################################################
+
+subroutine killElementMesh(obj,blacklist,flag)
+	class(mesh_),intent(inout) :: obj
+	real(real64),allocatable :: new_nod_coord(:,:)
+	integer(int32),allocatable :: elemnod_old(:,:),non_remove_node(:),new_node_id(:)
+	integer(int32),optional,intent(in) :: blacklist(:),flag
+	
+	integer(int32) :: i,J,n,m,k
+	logical :: survive
+
+	! if(blacklist(i) == flag ) => kill ethe element
+	elemnod_old = obj%elemnod
+	
+	m = size(obj%elemnod,2)
+	k = size(obj%elemnod,1)
+
+	if(size(blacklist)/=k )then
+		print *, "ERROR :: killElementFEMDomain >> should be size(blacklist)==k"
+		return
+	endif
+	
+	n=0
+	do i=1,size(blacklist)
+		if(blacklist(i)==flag )then
+			n = n + 1
+		endif
+	enddo
+	
+	if(n==0)then
+		return
+	endif
+	
+	deallocate(obj%elemnod)
+	allocate(obj%elemnod(k-n,m) )
+	obj%elemnod(:,:) = 0
+	n=0
+	do i=1, size(elemnod_old,1)
+		
+		if( blacklist(i)==flag )then
+			cycle
+		else
+			n=n+1
+			obj%elemnod(n,:) = elemnod_old(i,:)
+		endif
+	enddo
+
+	! if there are uncounted nodes, kill nodes
+	non_remove_node = zeros(size(obj%nodcoord,1) )
+	new_node_id = zeros(size(obj%nodcoord,1) )
+	do i=1,size(obj%elemnod,1)
+		do j=1,size(obj%elemnod,2)
+			non_remove_node( obj%elemnod(i,j) ) = 1
+		enddo
+	enddo
+
+	if(non_remove_node(1)==1)then
+		new_node_id(1) = 1
+	else
+		new_node_id(1) = 0
+	endif
+
+	do i=2,size(obj%nodcoord,1)
+		new_node_id(i) = new_node_id(i-1) + non_remove_node(i) 
+	enddo
+
+
+	new_nod_coord = zeros( sum(non_remove_node),size(obj%nodcoord,2) )
+	j=0
+	do i=1,size(new_node_id)
+		if(non_remove_node(i)==1 )then
+			j = j + 1
+			new_nod_coord( j,: ) = obj%nodcoord(i,:)
+		endif
+	enddo
+
+	do i=1,size(obj%elemnod,1)
+		do j=1,size(obj%elemnod,2)
+			obj%elemnod(i,j) = new_node_id( obj%elemnod(i,j) )
+		enddo
+	enddo
+	obj%nodcoord = new_nod_coord
+
+
+
+
+end subroutine
+! ###################################################################
 end module MeshClass

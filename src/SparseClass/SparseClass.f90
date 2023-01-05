@@ -136,7 +136,9 @@ module SparseClass
       module procedure diffCRS_and_CRS
     end interface
 
-
+    interface LAPACK_EIG
+        module procedure LAPACK_EIG_DENSE, LAPACK_EIG_SPARSE
+    end interface
 
     interface operator(*)
       module procedure multReal64_and_CRS, multCRS_and_Real64
@@ -1648,7 +1650,7 @@ end subroutine
 ! #################################################
 
 ! #################################################
-subroutine LAPACK_EIG(A,B,x,lambda,debug)
+subroutine LAPACK_EIG_DENSE(A,B,x,lambda,debug)
     real(real64),intent(in) :: A(:,:),B(:,:)
     real(real64),allocatable,intent(inout):: x(:,:), lambda(:)
     logical,optional,intent(in) :: debug
@@ -1699,6 +1701,87 @@ subroutine LAPACK_EIG(A,B,x,lambda,debug)
         
         !>>>>>>>>>>>>>> INPUT
         N      = size(A,1)
+        LDZ    = N
+        LWORK  = 1 + 6*N + 2*N**2
+        LIWORK = 3 + 5*N
+        !<<<<<<<<<<<<<< INPUT
+
+        !>>>>>>>>>>>>>>  OUTPUT
+        W     = zeros(N )
+        Z     = zeros(LDZ,N)
+        WORK  = zeros(LWORK)
+        IWORK = zeros(LIWORK)
+        INFO  = 0
+        !<<<<<<<<<<<<<< OUTPUT
+        
+        if(debug_mode)then
+            print *, ">> Solver :: LAPACK/DSPGVD"
+        endif
+        call DSPGVD (ITYPE, JOBZ, UPLO, N, AP, BP, W, Z, LDZ, WORK, &
+        LWORK, IWORK, LIWORK, INFO)
+
+        
+
+        X = Z
+        lambda = W
+
+end subroutine
+! #################################################
+! #################################################
+subroutine LAPACK_EIG_SPARSE(A,B,x,lambda,debug)
+    type(CRS_),intent(inout) :: A, B
+    real(real64),allocatable :: Ad(:,:),Bd(:,:)
+    real(real64),allocatable,intent(inout):: x(:,:), lambda(:)
+    logical,optional,intent(in) :: debug
+    logical :: debug_mode
+    !>>>>>>>>>>>>>> INPUT
+    integer(int32) :: ITYPE = 1   ! A*x = (lambda)*B*x
+    character(1) :: JOBZ  = 'V' ! Compute eigenvalues and eigenvectors.
+    character(1) :: UPLO  = 'U' ! Upper triangles of A and B are stored;
+    !<<<<<<<<<<<<<< INPUT
+
+    integer(int32) :: N ! order of matrix
+    real(real64),allocatable :: AP(:)
+    real(real64),allocatable :: BP(:)
+    real(real64),allocatable :: W(:)
+    real(real64),allocatable :: Z(:,:),M(:)
+    real(real64),allocatable :: WORK(:),ID(:)
+    integer(int32),allocatable :: IWORK(:),IDS(:)
+    integer(int32) :: LDZ
+    integer(int32) :: LWORK
+    integer(int32) :: LIWORK 
+    integer(int32) :: INFO
+    integer(int32) :: from,to,k,j,i
+    integer(int32),allocatable :: new_id_from_old_id(:)
+    real(real64),allocatable :: dense_mat(:,:)
+    !logical :: use_lanczos
+
+    type(CRS_) :: crs
+
+    Ad = A%to_dense()
+    Bd = B%to_dense()
+    debug_mode = input(default=.false.,option=debug)
+    !>>>>>>>>>>>>>> INPUT
+    N      = size(Ad,1) 
+    LDZ    = N
+    LWORK  = 1 + 6*N + 2*N**2
+    LIWORK = 3 + 5*N
+    !<<<<<<<<<<<<<< INPUT
+        
+
+        !>>>>>>>>>>>>>>  INPUT/OUTPUT
+        AP = zeros(N*(N+1)/2 )
+        BP = zeros(N*(N+1)/2 )
+        ! Upper triangle matrix
+
+        AP = to_UpperTriangle(Ad)!UpperTriangularMatrix(CRS_val=this%A_CRS_val,CRS_col=this%A_CRS_index_col,&
+            !CRS_rowptr=this%A_CRS_index_row)
+        BP = to_UpperTriangle(Bd)!UpperTriangularMatrix(CRS_val=this%B_CRS_val,CRS_col=this%B_CRS_index_col,&
+            !CRS_rowptr=this%B_CRS_index_row)
+        !<<<<<<<<<<<<<< INPUT/OUTPUT
+        
+        !>>>>>>>>>>>>>> INPUT
+        N      = size(Ad,1)
         LDZ    = N
         LWORK  = 1 + 6*N + 2*N**2
         LIWORK = 3 + 5*N

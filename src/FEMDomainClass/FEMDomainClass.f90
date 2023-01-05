@@ -304,6 +304,14 @@ module FEMDomainClass
         procedure,public :: position_z => position_zFEMDomain
 		procedure,public ::	points => xyzFEMDomain
 
+		procedure,public :: span => spanFEMDomain
+
+		! editor
+		procedure,public :: to_HollowTube => to_HollowTube_FEMDomain
+		procedure,public :: to_Tube => to_HollowTube_FEMDomain
+		procedure,public :: to_culm => to_culm_FEMDomain
+		procedure,public :: to_multi_culm => to_multi_culm_FEMDomain
+		procedure,public :: to_cylinder => to_cylinder_FEMDomain
 
 		procedure,public :: xmin => xminFEMDomain
 		procedure,public :: x_min => xminFEMDomain
@@ -345,6 +353,7 @@ module FEMDomainClass
 		procedure,public :: removeElement => removeElementFEMDomain
 		procedure,public :: removeElements=> removeElementFEMDomain
 		procedure,public :: remove => removeFEMDomain
+		procedure,public :: remove_duplication => remove_duplication_FEMDomain
 		procedure,public :: refine => refineFEMDomain
 		
 		procedure,public :: read => readFEMDomain
@@ -449,7 +458,9 @@ module FEMDomainClass
 		module procedure appendfemdomain
 	end interface
 
-	
+	interface ZeroMatrix_as_CRS
+		module procedure ZeroMatrix_as_CRS_FEMDomains
+	end interface ZeroMatrix_as_CRS
 contains
 
 ! ####################################################################
@@ -9848,11 +9859,10 @@ function MassMatrix_as_CRS_FEMDomain(this,Density,DOF,omp) result(MassMatrix)
 		pid_1,pid_2,DOF_1,DOF_2,loc_pid_1,loc_pid_2,i,col_id
 	real(real64),allocatable :: eDiffMat(:,:),val(:)
 
-
-
+	
 	if(present(omp) )then
 		if(.not.omp)then
-			call COO%init(this%nn()*DOF)
+			MassMatrix = this%ZeroMatrix(DOF=DOF)
 			do ElementID=1,this%ne()
 				eDiffMat = this%MassMatrix(&
 					ElementID=ElementID,&
@@ -9869,13 +9879,12 @@ function MassMatrix_as_CRS_FEMDomain(this,Density,DOF,omp) result(MassMatrix)
 								pid_2 = DOF*(nodeid_2-1) + DOF_2
 								loc_pid_1 = DOF*(LocElemID_1-1) + DOF_1
 								loc_pid_2 = DOF*(LocElemID_2-1) + DOF_2
-								call COO%add(pid_1,pid_2,eDiffMat(loc_pid_1,loc_pid_2)  )
+								call MassMatrix%add(pid_1,pid_2,eDiffMat(loc_pid_1,loc_pid_2)  )
 							enddo
 						enddo
 					enddo
 				enddo
 			enddo
-			MassMatrix = COO%to_CRS()
 			return
 		endif
 	endif
@@ -10150,6 +10159,7 @@ recursive function ZeroMatrix_as_CRS_FEMDomain(this,DOF,regacy) result(ZeroMatri
 		ZeroMatrix%val = zeros(size(ZeroMatrix%col_idx) )
 	endif
 
+	ZeroMatrix%val(:) = 0.0d0
 end function
 
 ! ##########################################################################
@@ -14266,6 +14276,244 @@ function fullFEMDomain(this,func,params) result(scalar_field)
 	enddo
 
 end function
+
+!#################################################################
+function ZeroMatrix_as_CRS_FEMDomains(femdomains,DOF) result(ret)
+	type(FEMDomain_),intent(inout) :: femdomains(:)
+	integer(int32),intent(in) :: DOF
+	type(CRS_) :: ret, buf
+	integer(int32) :: i,n,ncol
+
+	!n = 0
+	!do i=1,size(femdomains)
+	!	n = n + femdomains(i)%nn()*DOF
+	!enddo
+	! ignore overlap
+	do i=1,size(femdomains)
+		buf = femdomains(i)%ZeroMatrix(DOF=DOF)
+		if(i==1)then
+			ret%row_ptr = buf%row_ptr
+			ret%col_idx = buf%col_idx
+			ret%val     = buf%val    
+			n = size(ret%row_ptr)-1
+			ncol = maxval(buf%row_ptr)-1
+		else
+			buf%row_ptr(:) = buf%row_ptr(:) + ncol
+			buf%col_idx(:) = buf%col_idx(:) + n
+
+			ret%row_ptr = ret%row_ptr(:) // buf%row_ptr(2:) 
+			ret%col_idx = ret%col_idx(:) // buf%col_idx(:)
+			ret%val     = ret%val     // buf%val    
+			n = size(ret%row_ptr)-1
+			ncol = maxval(buf%row_ptr)-1
+		endif
+	enddo
+
+end function
+! #####################################################
+subroutine spanFEMDomain(this,p1,p2) 
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),intent(in) :: p1(:),p2(:)
+	real(real64) :: center(1:3),this_center(1:3),X(3,3),xbuf(1:3)
+	real(real64) :: angle(1:3) = 0.0d0
+	real(real64) :: z(1:3) = [0.0d0,0.0d0,1.0d0]
+	real(real64) :: length,alpha,beta,gamma,n(1:3)
+	integer(int32) :: i
+	type(Random_) :: random
+	
+
+	center = 0.50d0*p1 + 0.50d0*p2
+	this_center = this%centerPosition()
+	length = norm(p1-p2)
+	call this%move(&
+		x=-this_center(1) ,&
+		y=-this_center(2) ,&
+		z=-this_center(3)  &
+		)
+	X(:,1) = p2-p1
+	X(:,2) = random%randn(3)
+	X(:,3) = random%randn(3)
+	X(:,1) = X(:,1)/norm(X(:,1))
+	X(:,2) = X(:,2)/norm(X(:,2))
+	X(:,3) = X(:,3)/norm(X(:,3))
+	call GramSchmidt(X,size(X,1),size(X,2),X )
+	xbuf(:)=X(:,1)
+	X(:,1) = X(:,3) 
+	X(:,2) = X(:,2) 
+	X(:,3) = xbuf(:)
+
+	call this%resize(z=length)
+
+	if(norm(p1-p2)==0.0d0 ) return
+	
+	do i=1,this%nn()
+		this%mesh%nodcoord(i,:) = &
+			  this%mesh%nodcoord(i,1)*X(:,1) &
+			+ this%mesh%nodcoord(i,2)*X(:,2) &
+			+ this%mesh%nodcoord(i,3)*X(:,3) 
+	enddo
+	call this%move(&
+		x=center(1) ,&
+		y=center(2) ,&
+		z=center(3)  &
+		)
+
+
+	
+
+end subroutine 
+
+! #################################################
+subroutine to_HollowTube_FEMDomain(this,r_num,theta_num,z_num,thickness,radius,length)
+	class(FEMDomain_),intent(inout) :: this
+    integer(int32),optional,intent(in) :: r_num,z_num,theta_num
+    real(real64),optional,intent(in) :: thickness, radius, length
+
+	call this%mesh%to_HollowTube(r_num=r_num,&
+	theta_num=theta_num,&
+	z_num=z_num,&
+	thickness=thickness,&
+	radius=radius,&
+	length=length)
+end subroutine
+! #################################################
+
+
+! #################################################
+subroutine to_culm_FEMDomain(this,r_num,theta_num,z_num,thickness,radius,length,&
+		node_thickness)
+	class(FEMDomain_),intent(inout) :: this
+    integer(int32),optional,intent(in) :: r_num,z_num,theta_num
+    real(real64),optional,intent(in) :: thickness, radius, length, node_thickness
+
+	call this%mesh%to_culm(r_num=r_num,&
+		theta_num=theta_num,&
+		z_num=z_num,&
+		thickness=thickness,&
+		radius=radius,&
+		length=length,&
+		node_thickness=node_thickness)
+end subroutine
+! #################################################
+
+
+! #################################################
+subroutine to_multi_culm_FEMDomain(this,r_num,theta_num,z_num,thickness,radius,length,&
+	node_thickness,n)
+class(FEMDomain_),intent(inout) :: this
+type(FEMDomain_) :: single_culm
+integer(int32),optional,intent(in) :: r_num,z_num,theta_num
+real(real64),optional,intent(in) :: thickness, radius, length, node_thickness
+integer(int32),intent(in) :: n
+integer(int32) :: i
+real(real64) :: L
+
+	call single_culm%mesh%to_culm(r_num=r_num,&
+		theta_num=theta_num,&
+		z_num=z_num,&
+		thickness=thickness,&
+		radius=radius,&
+		length=length,&
+		node_thickness=node_thickness)
+
+	! copy and joint
+	L = single_culm%zmax() - single_culm%zmin()
+	do i=1,n
+		if(i==1)then
+			this%mesh%nodcoord = single_culm%mesh%nodcoord
+			this%mesh%elemnod = single_culm%mesh%elemnod
+			this%mesh%elemmat = single_culm%mesh%elemmat
+		else
+			single_culm%mesh%nodcoord(:,3) = single_culm%mesh%nodcoord(:,3)+ L
+			this%mesh%nodcoord = this%mesh%nodcoord .v. single_culm%mesh%nodcoord  
+			this%mesh%elemnod = this%mesh%elemnod .v. (single_culm%mesh%elemnod + single_culm%nn()*(i-1) )
+			this%mesh%elemmat = this%mesh%elemmat // single_culm%mesh%elemmat 
+		endif
+	enddo
+
+	! kill overlap nodes
+	call this%remove_duplication()
+
+end subroutine
+! #################################################
+
+! #################################################
+subroutine to_cylinder_FEMDomain(this,x_num,y_num,z_num,radius,length)
+class(FEMDomain_),intent(inout) :: this
+integer(int32),optional,intent(in) :: x_num,z_num,y_num
+real(real64),optional,intent(in) :: radius(1:2), length
+real(real64) :: r(1:2),l
+integer(int32) :: xn,yn,zn
+
+r = input(default=[1.0d0,1.0d0],option=radius)
+l = input(default=1.0d0,option=length)
+xn = input(default=20,option=x_num)
+yn = input(default=20,option=y_num)
+zn = input(default=20,option=z_num)
+call this%create("Cylinder3D",x_num=x_num,y_num=y_num,division=z_num,&
+	thickness=l,x_len=r(1),y_len=r(2) )
+
+end subroutine
+! #################################################
+
+! #################################################
+subroutine remove_duplication_FEMDomain(this)
+	class(FEMDomain_),intent(inout) :: this
+	integer(int32),allocatable :: same_node_as(:),kill_node_list(:)
+	integer(int32) :: i,j,n
+
+	! remove duplicated points
+	same_node_as = int(zeros(this%nn() ) )
+	n=0
+	!!$OMP parallel do private(j) reduction(+:n)
+	do i=1,this%nn()
+		if(same_node_as(i)>=1)cycle
+		!!$OMP parallel do private(j) reduction(+:n)
+		do j=i+1,this%nn()
+			if(same_node_as(j)>=1)cycle
+			if(norm(this%mesh%nodcoord(i,:)-this%mesh%nodcoord(j,:))<=1.0e-18 )then
+				same_node_as(j)=i
+				n = n + 1
+				cycle
+			endif
+		enddo
+		!!$OMP end parallel do
+	enddo
+	!!$OMP end parallel do
+
+	if(n==0)then
+		print *, "no duplicated nodes"
+		return
+	endif
+
+	! remove nodes
+	do i=1,this%ne()
+		do j=1,this%nne()
+			if(same_node_as(this%mesh%elemnod(i,j))==0 )then
+				cycle
+			else
+				this%mesh%elemnod(i,j) = same_node_as(this%mesh%elemnod(i,j))
+			endif
+		enddo
+	enddo
+
+	allocate(kill_node_list(n) )
+	kill_node_list(:) = 0
+	n=0
+	do i=1,size(same_node_as)
+		if(same_node_as(i)/=0 )then
+			n=n+1
+			kill_node_list(n) = i
+		endif
+	enddo
+
+	call this%killNodes(NodeList=kill_node_list)
+
+
+
+end subroutine
+! #################################################
+
 
 end module FEMDomainClass
 
