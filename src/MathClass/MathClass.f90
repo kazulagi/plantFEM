@@ -114,6 +114,10 @@ module MathClass
 	interface FFT
 		module procedure FFT1D,FFT2D_real,FFT2D_comp,FFT_file_to_file
 	end interface 
+
+	interface PSD
+		module procedure PSD_file_to_file
+	end interface
 contains
 
 ! 
@@ -152,6 +156,52 @@ function FFT_file_to_file(infile,outfile,window_size,dt,column) result(FourierSp
 	open(newunit=ofile,file=outfile,status='replace')
 	do i=1,window_size/2
 		write(ofile,*) dble(FourierSpectrum(i,1)),dble(FourierSpectrum(i,2)),imag(FourierSpectrum(i,2))
+	enddo
+	close(ofile)
+	
+
+	
+
+
+
+end function
+
+! ###############################################
+function PSD_file_to_file(infile,outfile,window_size,dt,column) result(FourierSpectrum)
+	character(*),intent(in) :: infile,outfile
+	integer(int32),intent(in) :: window_size,column
+	real(real64) :: dt,max_freq,min_freq
+
+	complex(real64),allocatable :: FourierSpectrum(:,:),x(:),FFT_X(:)
+
+	integer(int32) :: ifile,ofile,i
+	real(real64),allocatable :: line(:)
+
+
+	allocate(line(column))
+
+	open(newunit=ifile,file=infile,status='old')
+	allocate(x(window_size) ) 
+	do i=1,window_size
+		read(ifile,*)line(1:column)
+		x(i) = line(column)
+	enddo
+	close(ifile)
+	
+	allocate(FourierSpectrum(window_size/2,2) )
+	! frequency axis
+	max_freq = (1.0d0/dt)/2.0d0
+	min_freq = 1.0d0/(window_size/(1.0d0/dt)  )
+	do i=1,window_size/2
+		FourierSpectrum(i,1) = min_freq + (i-1)*(max_freq-min_freq)/(window_size/2)
+	enddo
+
+	FFT_X = FFT(X)
+	FourierSpectrum(:,2) = FFT_X(1:window_size/2)
+	
+	open(newunit=ofile,file=outfile,status='replace')
+	do i=1,window_size/2
+		write(ofile,*) dble(FourierSpectrum(i,1)),abs(FourierSpectrum(i,2)*conjg(FourierSpectrum(i,2)))
 	enddo
 	close(ofile)
 	

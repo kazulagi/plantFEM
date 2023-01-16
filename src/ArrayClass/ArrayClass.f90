@@ -65,6 +65,7 @@ module ArrayClass
     interface shift
         module procedure :: shiftInt32vector
     end interface
+
     ! statistics
 
     interface reverse

@@ -32,11 +32,25 @@ module RangeClass
     end interface
 
     interface operator(.in.)
-        module procedure :: in_detect_by_range_int32,in_detect_by_range_real64
+        module procedure :: in_detect_by_range_int32,in_detect_by_range_real64,in_int32_int32vector
     end interface
 
 contains
 
+function in_int32_int32vector(intval,intlist) result(ret)
+    integer(int32),intent(in) :: intval,intlist(:)
+    integer(int32) :: i
+    logical :: ret 
+
+    ret = .false.
+    do i=1,size(intlist)
+        if(intlist(i)==intval )then
+            ret = .true.
+            return
+        endif
+    enddo
+
+end function
 
 function in_detect_by_range_int32(intval,in_range) result(ret)
     integer(int32),intent(in) :: intval

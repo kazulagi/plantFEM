@@ -1862,7 +1862,7 @@ subroutine modalAnalysisSeismicAnalysis_single_domain(this,femdomain,YoungModulu
             call this%femsolver%fix_eig(IDs=node_list)
         endif
     endif
-
+    
     call this%femsolver%eig(eigen_value=eigen_value,eigen_vectors=eigen_vectors)
     
     ! read results
