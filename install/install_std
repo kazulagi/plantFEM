@@ -89,6 +89,10 @@ echo " >> ElasticityClass.o "
 echo " | =>                          | (4%)\r\c"
 mpif90 -Ofast -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ElasticityClass/ElasticityClass.f90 -o  ./inc/ElasticityClass.o -llapack -lblas
 
+echo "Compiling ./src/RangeClass/RangeClass.f90 " 
+echo " >> RangeClass.o "
+echo " | =>                          | (4%)\r\c"
+mpif90 -Ofast -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RangeClass/RangeClass.f90 -o  ./inc/RangeClass.o -llapack -lblas
 
 
 echo "Compiling ./src/SpectreAnalysisClass/SpectreAnalysisClass.f90 " 
@@ -107,10 +111,6 @@ echo " | =>                          | (4%)\r\c"
 mpif90 -Ofast -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c  ./inc/SparseClass-c.o ./src/SparseClass/SparseClass.f90 -o  ./inc/SparseClass.o -llapack -lblas
 
 
-echo "Compiling ./src/RangeClass/RangeClass.f90 " 
-echo " >> RangeClass.o "
-echo " | =>                          | (4%)\r\c"
-mpif90 -Ofast -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RangeClass/RangeClass.f90 -o  ./inc/RangeClass.o -llapack -lblas
 
 echo "Compiling ./src/PCAClass/PCAClass.f90 " 
 echo " >> PCAClass.o "
