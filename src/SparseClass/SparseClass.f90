@@ -2,6 +2,7 @@ module SparseClass
     use iso_c_binding
     use ArrayClass
     use RandomClass
+    use RangeClass
     implicit none
     
     interface
@@ -23,6 +24,10 @@ module SparseClass
       End Subroutine
     End Interface
 
+    interface sinc
+        module procedure sinc_complex64,sinc_real64
+    end interface
+    
     type :: COO_Row_
         real(real64),allocatable :: val(:)
         integer(int32),allocatable :: col(:)
@@ -81,6 +86,7 @@ module SparseClass
         procedure,public :: to_dense => to_denseCRS
         procedure,public :: DOF => DOFCRS
 
+        procedure,public :: remove => removeCRS
         procedure,public :: size   => sizeCRS
         procedure,public :: update => updateCRS
         procedure,public :: add => addCRS
@@ -103,20 +109,40 @@ module SparseClass
         procedure,pass :: tensor_sqrt_crs
         procedure,pass :: tensor_exp_sqrt_crs
         procedure,pass :: tensor_log_crs
+        procedure,public :: tensor_log_crs_modified => tensor_log_crs_modified_Sparse
         procedure,pass :: fixCRS
 
         procedure,pass :: tensor_exponential_complex64_crs
         procedure,pass :: tensor_exp_sqrt_complex64_crs
+        procedure,pass :: tensor_cos_sqrt_complex64_crs
+        procedure,pass :: tensor_sinc_sqrt_complex64_crs
         procedure,pass :: tensor_sqrt_complex64_crs
         procedure,pass :: tensor_log_complex64_crs
         procedure,pass :: fix_complex64_CRS
-        
+        procedure,pass :: tensor_d1_wave_kernel_complex64_crs
+
+        procedure,pass :: tensor_cos_sqrt_cos_sqrt_complex64_crs
+        procedure,pass :: tensor_cos_sqrt_sinc_sqrt_complex64_crs
+        procedure,pass :: tensor_sinc_sqrt_cos_sqrt_complex64_crs
+        procedure,pass :: tensor_sinc_sqrt_sinc_sqrt_complex64_crs
 
 
         generic,public :: tensor_exponential => tensor_exponential_complex64_crs,tensor_exponential_crs
+        generic,public :: tensor_exp => tensor_exponential_complex64_crs,tensor_exponential_crs
         generic,public :: tensor_exp_sqrt => tensor_exp_sqrt_complex64_crs,tensor_exp_sqrt_crs
+        generic,public :: tensor_cos_sqrt => tensor_cos_sqrt_complex64_crs
+        generic,public :: tensor_sinc_sqrt => tensor_sinc_sqrt_complex64_crs
         generic,public :: tensor_sqrt => tensor_sqrt_complex64_crs,tensor_sqrt_crs
         generic,public :: tensor_log => tensor_log_complex64_crs,tensor_log_crs
+        
+        !>>> not verified.
+        generic,public :: tensor_cos_sqrt_cos_sqrt => tensor_cos_sqrt_cos_sqrt_complex64_crs
+        generic,public :: tensor_cos_sqrt_sinc_sqrt => tensor_cos_sqrt_sinc_sqrt_complex64_crs
+        generic,public :: tensor_sinc_sqrt_cos_sqrt => tensor_sinc_sqrt_cos_sqrt_complex64_crs
+        generic,public :: tensor_sinc_sqrt_sinc_sqrt => tensor_sinc_sqrt_sinc_sqrt_complex64_crs
+        !<<< not verified.
+
+        generic,public :: tensor_d1_wave_kernel => tensor_d1_wave_kernel_complex64_crs
         generic,public :: fix => fix_complex64_CRS,fixCRS
 
 
@@ -652,7 +678,7 @@ end subroutine
 
 
 function to_denseCRS(this) result(dense_mat)
-    class(CRS_),intent(inout) :: this
+    class(CRS_),intent(in) :: this
     real(real64),allocatable  :: dense_mat(:,:)
     integer(int32) :: i,j,n,row,col
 
@@ -1729,7 +1755,7 @@ end subroutine
 ! #################################################
 ! #################################################
 subroutine LAPACK_EIG_SPARSE(A,B,x,lambda,debug)
-    type(CRS_),intent(inout) :: A, B
+    type(CRS_),intent(in) :: A, B
     real(real64),allocatable :: Ad(:,:),Bd(:,:)
     real(real64),allocatable,intent(inout):: x(:,:), lambda(:)
     logical,optional,intent(in) :: debug
@@ -2282,10 +2308,6 @@ function tensor_exponential_crs(this,itr_tol,tol,x,dt,fix_idx,fix_val) result(ex
         expA_v = expA_v + increA_v
         
         do i=2,itr_tol
-            if(i==1)then
-                cycle
-            endif
-
             increA_v = 1.0d0/(i)*Amatrix%matmul(t*increA_v) !- bhat*dt
             expA_v = expA_v + increA_v
             
@@ -2301,11 +2323,6 @@ function tensor_exponential_crs(this,itr_tol,tol,x,dt,fix_idx,fix_val) result(ex
         expA_v = expA_v + increA_v
         
         do i=2,itr_tol
-            if(i==1)then
-
-                cycle
-            endif
-
             increA_v = 1.0d0/(i)*this%matmul(t*increA_v)
             expA_v = expA_v + increA_v
 
@@ -2316,14 +2333,22 @@ end function
 
 
 ! ###################################################
-function tensor_exp_sqrt_crs(this,v,tol,itrmax) result(exp_sqrtA_v)
+function tensor_exp_sqrt_crs(this,v,tol,coeff,itrmax,binomial) result(exp_sqrtA_v)
     class(CRS_),intent(in) :: this
     real(real64),intent(in) :: v(:)
     real(real64),allocatable :: dv(:),exp_sqrtA_v(:)
-
+    logical,optional,intent(in) :: binomial
+    complex(real64),optional,intent(in) :: coeff
     integer(int32) :: i
     integer(int32),intent(in) :: itrmax
     real(real64),intent(in) :: tol
+    complex(real64) :: coeffi
+
+    if(present(coeff) )then
+        coeffi = coeff
+    else
+        coeffi = 1.0d0
+    endif
 
     
     dv = v
@@ -2331,7 +2356,7 @@ function tensor_exp_sqrt_crs(this,v,tol,itrmax) result(exp_sqrtA_v)
     exp_sqrtA_v = exp_sqrtA_v + dv
 
     ! 1-st order term
-    dv = this%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax)
+    dv = coeffi*this%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax,binomial=binomial)
 
     exp_sqrtA_v = exp_sqrtA_v + dv
     
@@ -2340,7 +2365,7 @@ function tensor_exp_sqrt_crs(this,v,tol,itrmax) result(exp_sqrtA_v)
             cycle
         endif
 
-        dv = 1.0d0/(i)*this%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax)
+        dv = 1.0d0/(i)*coeffi*this%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax,binomial=binomial)
         exp_sqrtA_v = exp_sqrtA_v + dv
 
         if(dot_product(dv,dv) < tol )exit
@@ -2353,13 +2378,40 @@ end function
 
 
 ! ###################################################
-function tensor_sqrt_crs(this,v,tol,itrmax) result(sqrtA_v)
+function tensor_sqrt_crs(this,v,tol,itrmax,binomial,r) result(sqrtA_v)
     class(CRS_),intent(in) :: this
     real(real64),intent(in) :: v(:)
     real(real64),allocatable :: dv(:),sqrtA_v(:),logA_v(:)
     integer(int32) :: k
     integer(int32),intent(in) :: itrmax
     real(real64),intent(in) :: tol
+    real(real64) :: coeff,nCr
+    logical,optional,intenT(in) :: binomial
+    real(real64),optional,intent(in) :: r
+
+    if(present(binomial) )then
+        if(binomial)then
+            
+            !  二項係数によるsqrt(A)の近似
+            if(present(r) )then
+                coeff = 1.0d0/maxval(this%val*r )
+            else
+                coeff = 1.0d0/maxval(this%val*5 )
+            endif
+            
+            
+            sqrtA_v = 0.0d0*v
+            dv = v
+            do k=0,itrmax
+                nCr = gamma(0.50d0+1.0d0)/gamma(k+1.0d0)/gamma(0.50d0-k+1)
+                sqrtA_v = sqrtA_v + nCr*dv
+                dv = ( - dv + coeff*this%matmul(dv) )
+                if(norm(dv)/size(dv) < tol )exit
+            enddo
+            sqrtA_v = sqrtA_v/sqrt(coeff)
+            return
+        endif
+    endif
 
 
     dv = v
@@ -2386,7 +2438,70 @@ end function
 
 
 ! ###################################################
-function tensor_log_crs(this,v,tol,itrmax) result(sqrtA_v)
+function tensor_log_crs_modified_Sparse(this,v,tol,itrmax,r) result(sqrtA_v)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in) :: v(:)
+    real(real64),allocatable :: dv(:),sqrtA_v(:)
+    integer(int32) :: k,i
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol
+    real(real64),optional,intent(in) :: r
+    
+    !real(real64) :: c
+    real(real64),allocatable :: c(:),lambda_mat(:,:),X(:,:),lambda(:)
+    real(real64) :: c_val
+
+    type(CRS_) :: I_CRS
+
+!    call I_CRS%eyes(this%size() )
+!    call LAPACK_EIG(A=this,B=I_CRS,x=x,lambda=lambda)
+!    lambda_mat = zeros(this%size(),this%size())
+!    do i=1,this%size()
+!        lambda_mat(i,i) = log(lambda(i))
+!    enddo
+!    
+!    ! shor algorithm
+!    sqrtA_v = matmul(matmul( x, matmul(lambda_mat,transpose(x)) ),v )
+!    return
+    
+
+    !c = maxval(this%val)*1.0d0
+    !c = this%diag()*10.0d0 ! テイラー展開中心をdiagで決める．
+    if(present(r) )then
+        c_val = r
+    else
+        c_val = maxval(abs(this%val))
+    endif
+    !c = ones(this%size() )
+    !c = 1.0d0
+    ! k = 0  
+    ! Martin, J. F. P. On the exponential representation of solutions of linear differential equations. J. Differ. Equ. 4, 257–279 (1968).
+    ! ln(this) = Ln(this) = ln(exp(C) X ) - C
+    sqrtA_v = - (c_val)*v 
+
+    do k=1,itrmax
+        if(k==1)then
+            !dv = k/c_val*(-c_val*v + this%matmul(v)  )
+            dv = 1.0d0/k*( exp(c_val)*this%matmul(v) - v )
+        else
+            dv = (-1.0d0)*dble(k)/dble(k+1)*( exp(c_val)*this%matmul(dv) - dv )
+        endif
+        sqrtA_v = sqrtA_v + dv
+        
+
+        if(maxval(abs(dv)) < tol) return
+    enddo
+     
+end function
+! #####################################################
+
+
+
+! ###################################################
+function tensor_log_crs(this,v,tol,itrmax,r) result(sqrtA_v)
+
+    ! wikipedia's difinition
+    ! it is accurate only when "this" is a diagonally dominant matrix
     class(CRS_),intent(in) :: this
     real(real64),intent(in) :: v(:)
     real(real64),allocatable :: dv(:),sqrtA_v(:)
@@ -2394,27 +2509,35 @@ function tensor_log_crs(this,v,tol,itrmax) result(sqrtA_v)
     integer(int32),intent(in) :: itrmax
     real(real64),intent(in) :: tol
     !real(real64) :: c
-    real(real64),allocatable :: c(:)
-
+    real(real64) :: c
+    real(real64),optional,intent(in) :: r
+    !real(real64) :: c
+    !c = maxval(this%diag())
     !c = maxval(this%val)*1.0d0
-    c = this%diag() ! テイラー展開中心をdiagで決める．
+    c = maxval(abs(this%diag()))*2.0d0 ! テイラー展開中心をdiagで決める．
     !c = 1.0d0
     ! k = 0  
+    if(present(r) )then
+        c = r
+    endif
+    
+    
     sqrtA_v = log(c)*v 
 
     do k=1,itrmax
         if(k==1)then
-            dv = k/c*(-c*v + this%matmul(v)  )
+            dv = (1.0d0)/k*(v - 1.0d0/c*this%matmul(v)  )
         else
-            dv = (-1.0d0)/c*dble(k)/dble(k+1)*(- c*dv + this%matmul(dv) )
+            dv = (1.0d0)*dble(k)/dble(k+1)*(dv - 1.0d0/c*this%matmul(dv) )
         endif
-        sqrtA_v = sqrtA_v + dv
+        sqrtA_v = sqrtA_v - dv
 
         if(maxval(abs(dv)) < tol) return
     enddo
      
 end function
 ! #####################################################
+
 
 
 
@@ -2580,14 +2703,16 @@ end function
 
 
 ! ###################################################
-function tensor_exp_sqrt_complex64_crs(this,v,tol,itrmax,coeff,fix_idx) result(exp_sqrtA_v)
+function tensor_exp_sqrt_complex64_crs(this,v,tol,itrmax,coeff,fix_idx,binomial,r) result(exp_sqrtA_v)
     class(CRS_),intent(in) :: this
     complex(real64),intent(in) :: v(:)
     complex(real64),optional,intent(in) :: coeff
-    complex(real64),allocatable :: dv(:),exp_sqrtA_v(:),bhat(:)
-    integer(int32) :: i
+    complex(real64),allocatable :: dv(:),exp_sqrtA_v(:),bhat(:),buf(:)
+    integer(int32) :: i,k
     integer(int32),intent(in) :: itrmax
     real(real64),intent(in) :: tol
+    logical,optional,intent(in) :: binomial
+    real(real64),optional,intent(in) :: r
 
     !real(real64),optional,intent(in) :: fix_val(:) ! only 0-fix is available
     integer(int32), optional,intent(in)::fix_idx(:)
@@ -2595,6 +2720,7 @@ function tensor_exp_sqrt_complex64_crs(this,v,tol,itrmax,coeff,fix_idx) result(e
 
     type(CRS_) :: Amatrix
     type(Math_) :: math
+    
 
     if(present(coeff) )then
         coeffi = coeff
@@ -2626,39 +2752,65 @@ function tensor_exp_sqrt_complex64_crs(this,v,tol,itrmax,coeff,fix_idx) result(e
         !enddo
 
         Amatrix = this
-        bhat = zeros(Amatrix%size() )
-        dv = v
+        
+        dv = zeros(size(v)-size(fix_idx) )
+
+        k = 0
+        do i=1,size(v)
+            if( i .in. fix_idx )then
+                cycle
+            else
+                k = k + 1
+                dv(k) = v(i)
+            endif
+        enddo
+
         !dv(fix_idx(:) ) = fix_val(:)!/exp(1.0d0)
         
         !call Amatrix%fix(idx=fix_idx,RHS=bhat,val=fix_val+0.0d0*math%i)
-        call Amatrix%fix(idx=fix_idx,RHS=bhat,val=0.0d0*zeros(size(fix_idx) ) +0.0d0*math%i)
+        
+        !call Amatrix%fix(idx=fix_idx,RHS=bhat,val=0.0d0*zeros(size(fix_idx) ) +0.0d0*math%i)
+        
+        call Amatrix%remove(idx=fix_idx) ! remove row and columns
+        
         !call Amatrix%fix(idx=fix_idx,val=fix_val+0.0d0*math%i,only_row=.true.)
         !call Amatrix%fix(idx=fix_idx,RHS=dv,val=fix_val+0.0d0*math%i)
         !dv = dv + bhat
         !<test>
         !dv(fix_idx) = fix_val
         
-        exp_sqrtA_v = zeros(size(v))
+        ! ignore row and columns
+        exp_sqrtA_v = zeros(size(v)-size(fix_idx) )
         exp_sqrtA_v = exp_sqrtA_v + dv
         !exp_sqrtA_v(fix_idx(:) ) = fix_val(:)
         
         ! 1-st order term
-        dv = coeffi*Amatrix%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax) 
+        dv = coeffi*Amatrix%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax,binomial=binomial,r=r) 
         exp_sqrtA_v = exp_sqrtA_v + dv
         !exp_sqrtA_v(fix_idx) = fix_val
         
         do i=2,itrmax
-            if(i==1)then
-                cycle
-            endif
-        
-            dv = 1.0d0/(i)*coeffi*Amatrix%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax)
+            
+            dv = 1.0d0/(i)*coeffi*Amatrix%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax,binomial=binomial,r=r)
             !dv(fix_idx) = 0.0d0
             exp_sqrtA_v = exp_sqrtA_v + dv
             !exp_sqrtA_v(fix_idx) = fix_val
             if(abs(dot_product(dv,dv)) < tol )exit
         enddo
         !exp_sqrtA_v(fix_idx(:) ) = fix_val(:)
+        buf = exp_sqrtA_v
+        exp_sqrtA_v = 0.0d0*v
+        
+        k = 0
+        do i=1,size(v)
+            if( i .in. fix_idx )then
+                exp_sqrtA_v(i) = 0.0d0
+            else
+                k = k + 1
+                exp_sqrtA_v(i) = buf(k)
+            endif
+        enddo
+        
     else
     
         dv = v
@@ -2666,15 +2818,12 @@ function tensor_exp_sqrt_complex64_crs(this,v,tol,itrmax,coeff,fix_idx) result(e
         exp_sqrtA_v = exp_sqrtA_v + dv
 
         ! 1-st order term
-        dv = coeffi*this%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax)
+        dv = coeffi*this%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax,binomial=binomial,r=r)
         exp_sqrtA_v = exp_sqrtA_v + dv
         
         do i=2,itrmax
-            if(i==1)then
-                cycle
-            endif
-
-            dv = 1.0d0/(i)*coeffi*this%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax)
+            
+            dv = 1.0d0/(i)*coeffi*this%tensor_sqrt(v=dv,tol=tol,itrmax=itrmax,binomial=binomial,r=r)
             exp_sqrtA_v = exp_sqrtA_v + dv
 
             if(abs(dot_product(dv,dv)) < tol )exit
@@ -2688,14 +2837,38 @@ end function
 
 
 ! ###################################################
-function tensor_sqrt_complex64_crs(this,v,tol,itrmax) result(sqrtA_v)
+function tensor_sqrt_complex64_crs(this,v,tol,itrmax,binomial,r) result(sqrtA_v)
     class(CRS_),intent(in) :: this
     complex(real64),intent(in) :: v(:)
     complex(real64),allocatable :: dv(:),sqrtA_v(:),logA_v(:)
     integer(int32) :: k
     integer(int32),intent(in) :: itrmax
     real(real64),intent(in) :: tol
-
+    real(real64) :: coeff,nCr
+    logical,optional,intenT(in) :: binomial
+    real(real64),optional,intent(in) :: r
+    if(present(binomial) )then
+        if(binomial)then
+            
+            !  二項係数によるsqrt(A)の近似
+            if(present(r) )then
+                coeff = 1.0d0/maxval(this%val*r )
+            else
+                coeff = 1.0d0/maxval(this%val*5 )
+            endif
+            
+            sqrtA_v = 0.0d0*v
+            dv = v
+            do k=0,itrmax
+                nCr = gamma(0.50d0+1.0d0)/gamma(k+1.0d0)/gamma(0.50d0-k+1)
+                sqrtA_v = sqrtA_v + nCr*dv
+                dv = ( - dv + coeff*this%matmul(dv) )
+                if(norm(dble(dv))/size(dv) < tol )exit
+            enddo
+            sqrtA_v = sqrtA_v/sqrt(coeff)
+            return
+        endif
+    endif
 
     dv = v
     sqrtA_v = zeros(size(v) )
@@ -2732,10 +2905,14 @@ function tensor_log_complex64_crs(this,v,tol,itrmax) result(sqrtA_v)
     !complex(real64) :: c
     real(real64),allocatable :: c(:)
 
-    !c = maxval(this%val)*1.0d0
+    !c = maxval(this%val)*1.
     c = this%diag() ! テイラー展開中心をdiagで決める．
+    !c = maxval(this%diag())*3.0d0*ones(size(v)) ! テイラー展開中心をdiagで決める．
+    !c = maxval(this%diag(cell_centered=.true.))*ones(size(v)) ! テイラー展開中心をdiagで決める．
+
     !c = 1.0d0
     ! k = 0  
+    sqrtA_v = zeros(size(v) )
     sqrtA_v = log(c)*v 
 
     do k=1,itrmax
@@ -2746,6 +2923,151 @@ function tensor_log_complex64_crs(this,v,tol,itrmax) result(sqrtA_v)
         endif
         sqrtA_v = sqrtA_v + dv
 
+        if(maxval(abs(dv)) < tol) return
+    enddo
+     
+end function
+! #####################################################
+
+
+
+! ###################################################
+function tensor_sinc_sqrt_complex64_crs(this,v,tol,itrmax,coeff) result(retA_v)
+    class(CRS_),intent(in) :: this
+    complex(real64),intent(in) :: v(:)
+    complex(real64),optional,intent(in) :: coeff
+    complex(real64),allocatable :: dv(:),retA_v(:)
+    integer(int32) :: k
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol
+    type(Math_) :: math
+    complex(real64) :: a
+
+    if(present(coeff) )then
+        a=coeff
+    else
+        a=1.0d0
+    endif
+    ! sinc(sqrt(A) ) = \sum_{n=0}^{\infty} 
+    !c = 1.0d0
+    ! k = 0  
+    
+    
+    !k=0
+    k=0
+    retA_v = v
+    
+    ! k=1
+    k=1
+    dv = a*a*this%matmul(v)
+    retA_v = retA_v  + ((-1.0d0)**k)*(sqrt(math%pi)*2.0d0**(-1-2*k) )&
+    /gamma(1.0d0+k)/gamma(1.5d0+k)*dv
+
+    do k=2,itrmax
+        
+        
+        dv = a*a*this%matmul(dv)
+
+        retA_v = retA_v  + ((-1.0d0)**k)*(sqrt(math%pi)*2.0d0**(-1-2*k) )&
+        /gamma(1.0d0+k)/gamma(1.5d0+k)*dv
+
+        if(maxval(abs(dv)) < tol) return
+    enddo
+     
+end function
+! #####################################################
+
+
+
+! ###################################################
+function tensor_d1_wave_kernel_complex64_crs(this,u,v,tol,itrmax,coeff) result(retA_v)
+    class(CRS_),intent(in) :: this
+    complex(real64),intent(in) :: u(:),v(:)
+    complex(real64),optional,intent(in) :: coeff
+    complex(real64),allocatable :: dv(:),retA_v(:),du(:)
+    integer(int32) :: k
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol
+    type(Math_) :: math
+    complex(real64) :: a
+
+    ! first derivative of wave kernel function
+    ! v - t u w^2 - 1/2 t^2 (v w^2) + 1/6 t^3 u w^4 + 1/24 t^4 v w^4 - 1/120 t^5 (u w^6) + O(t^6)
+    !(テイラー級数)
+    ! sinc(sqrt(A) ) = \sum_{n=0}^{\infty} 
+    !c = 1.0d0
+    ! k = 0  
+    
+    
+    if(present(coeff) )then
+        a=coeff
+    else
+        a=1.0d0
+    endif
+
+    !1,2
+    du = this%matmul(u) 
+    retA_v = v - a*du
+    
+    !3
+    dv = this%matmul(v)
+    retA_v = retA_v - 1.0d0/2.0d0*a*a*dv
+
+    !4
+    du = this%matmul(du)
+    retA_v = retA_v + 1.0d0/6.0d0*a*a*a*du
+
+    !5
+    dv = this%matmul(dv)
+    retA_v = retA_v + 1.0d0/24.0d0*a*a*a*a*dv
+    
+    !6
+    du = this%matmul(du)
+    retA_v = retA_v - 1.0d0/120.0d0*a*a*a*a*a*du
+    
+
+    ! 6th-order apploximation
+
+end function
+! #####################################################
+
+
+! ###################################################
+function tensor_cos_sqrt_complex64_crs(this,v,tol,itrmax,coeff) result(retA_v)
+    class(CRS_),intent(in) :: this
+    complex(real64),intent(in) :: v(:)
+    complex(real64),allocatable :: dv(:),retA_v(:)
+    complex(real64),optional,intent(in) :: coeff
+    integer(int32) :: k
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol
+    type(Math_) :: math
+    complex(real64) :: a
+
+    if(present(coeff) )then
+        a=coeff
+    else
+        a=1.0d0
+    endif
+    ! sinc(sqrt(A) ) = \sum_{n=0}^{\infty} 
+    !c = 1.0d0
+    ! k = 0  
+    
+    
+    !k=0
+    k=0
+    retA_v = v
+    
+
+    ! k=1
+    k=1
+    dv = -0.50d0*a*a*this%matmul(v)
+    retA_v = retA_v + dv
+
+    do k=2,itrmax
+        ! k = k + 1
+        dv = a*a*this%matmul(dv)/(2*k)/(2*k-1)*(-1.0d0)
+        retA_v = retA_v + dv 
         if(maxval(abs(dv)) < tol) return
     enddo
      
@@ -2825,6 +3147,323 @@ subroutine fix_complex64_CRS(this,idx,val,RHS,only_row)
 end subroutine
 ! #####################################################
 
+subroutine removeCRS(this,idx)
+    class(CRS_),intent(inout) :: this
+    integer(int32),intent(in) :: idx(:)
+    integer(int32),allocatable :: num_col(:),col_idx(:),only_k(:),&
+        copy_idx(:),row_ptr(:)
+    real(real64),allocatable :: val(:)
+    integer(int32) :: row, col_id,count_id,n,k,i,j
+    
 
+    copy_idx = idx
+
+    ! remove row and column listed in idx(:)
+    do i=1,size(idx)
+        k = maxval(copy_idx)
+        
+        num_col = int(zeros(this%size() ) )
+        
+        ! zerofill col_idx if row==k or col==k
+        do row=1,size(this%row_ptr)-1
+            num_col(row) = this%row_ptr(row+1)-this%row_ptr(row)
+            do col_id = this%row_ptr(row),this%row_ptr(row+1)-1
+                if(row==k .or. this%col_idx(col_id)==k )then
+                    this%col_idx(col_id) = 0
+                    num_col(row) = num_col(row) - 1
+                endif
+            enddo
+        enddo
+        !call print(num_col)
+        ! create new row_ptr
+        row_ptr = int(zeros(this%size()-1+1) )
+        row_ptr(1) = 1 
+        n=0
+        do row=1,size(this%row_ptr)-1
+            if(row==k)then
+                cycle
+            else
+                n = n + 1
+                row_ptr(n+1) = row_ptr(n) + num_col(row)
+            endif
+        enddo
+        
+
+        ! remove zero
+        col_idx = int(zeros(sum(num_col) ) )
+        val = zeros(sum(num_col) ) 
+        n = 0
+        do row=1,k-1
+            do col_id = this%row_ptr(row),this%row_ptr(row+1)-1
+                if(this%col_idx(col_id)/=0 )then
+                
+                    n = n + 1
+                    col_idx(n) = this%col_idx(col_id)
+                    val(n) = this%val(col_id)
+                endif
+            enddo
+        enddo
+
+        do row=k+1,size(this%row_ptr)-1
+            do col_id = this%row_ptr(row),this%row_ptr(row+1)-1
+                if(this%col_idx(col_id)/=0 )then
+                    n = n + 1
+                    col_idx(n) = this%col_idx(col_id)
+                    val(n) = this%val(col_id)
+                endif
+            enddo
+        enddo
+        
+        this%col_idx = col_idx
+        do j=1,size(this%col_idx)
+            if(this%col_idx(j)>=k )then
+                this%col_idx(j) = this%col_idx(j) - 1
+            endif
+        enddo
+        this%val = val
+        this%row_ptr = row_ptr
+        if(size(copy_idx)==1) then
+            exit
+        else
+            copy_idx = removeif(copy_idx,equal_to=k)
+            cycle
+        endif
+    
+    enddo
+
+end subroutine
+
+function sum_sum(a,b,a_params,b_params,i_plus_j,ir,jr) result(ret)
+    interface ! coefficient #1
+        function a(k,params) result(ret)
+            use iso_fortran_env
+            integer(int32),intent(in) :: k
+            complex(real64),intent(in) :: params(:)
+            complex(real64) :: ret
+
+        end function
+    end interface
+
+    interface ! coefficient #2
+        function b(k,params) result(ret)
+            use iso_fortran_env
+            integer(int32),intent(in) :: k
+            complex(real64),intent(in) :: params(:)
+            complex(real64) :: ret
+
+        end function
+    end interface
+    integer(int32),intent(in) :: i_plus_j ! i+j
+    complex(real64),intent(in) :: a_params(:),b_params(:)
+    integer(int32),intent(in) :: ir(1:2) ! range of i
+    integer(int32),intent(in) :: jr(1:2) ! range of j
+    integer(int32) :: i,j
+    complex(real64) :: ret
+
+    ret = 0.0d0
+    
+    do i=ir(1),i_plus_j
+        j = i_plus_j - i
+        if(j<jr(1) .or. jr(2)<j  )cycle
+        ret = ret + a(i,a_params)*b(j,b_params)    
+    enddo
+
+end function
+
+! ###################################################
+function tensor_cos_sqrt_cos_sqrt_complex64_crs(this,v,tol,itrmax,coeff_1,coeff_2) result(retA_v)
+    class(CRS_),intent(in) :: this
+    complex(real64),intent(in) :: v(:)
+    complex(real64),allocatable :: dv(:),retA_v(:)
+    complex(real64),intent(in) :: coeff_1,coeff_2
+    integer(int32) :: k
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol
+    type(Math_) :: math
+    complex(real64) :: coeff
+
+    do k=0,itrmax
+        ! k = k + 1
+        coeff = sum_sum(&
+                a=cos_sqrt_Taylor,&
+                b=cos_sqrt_Taylor,&
+                a_params=[coeff_1],&
+                b_params=[coeff_2],&
+                i_plus_j=k,&
+                ir=[0,itrmax],&
+                jr=[0,itrmax] &
+            )
+        if(k==0)then
+            dv = v
+            retA_v = coeff*dv
+        else
+            dv = this%matmul(dv)
+            retA_v = retA_v +coeff* dv 
+        endif
+        
+        if(maxval(abs(dv)) < tol) return
+    enddo
+     
+end function
+! #####################################################
+
+! ###################################################
+function tensor_sinc_sqrt_cos_sqrt_complex64_crs(this,v,tol,itrmax,coeff_1,coeff_2) result(retA_v)
+    class(CRS_),intent(in) :: this
+    complex(real64),intent(in) :: v(:)
+    complex(real64),allocatable :: dv(:),retA_v(:)
+    complex(real64),intent(in) :: coeff_1,coeff_2
+    integer(int32) :: k
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol
+    type(Math_) :: math
+    complex(real64) :: coeff
+
+    do k=0,itrmax
+        ! k = k + 1
+        coeff = sum_sum(&
+                a=sinc_sqrt_Taylor,&
+                b=cos_sqrt_Taylor,&
+                a_params=[coeff_1],&
+                b_params=[coeff_2],&
+                i_plus_j=k,&
+                ir=[0,itrmax],&
+                jr=[0,itrmax] &
+            )
+        if(k==0)then
+            dv = v
+            retA_v = coeff*dv
+        else
+            dv = this%matmul(dv)
+            retA_v = retA_v + coeff*dv 
+        endif
+        
+        if(maxval(abs(dv)) < tol) return
+    enddo
+     
+end function
+! #####################################################
+
+! ###################################################
+function tensor_cos_sqrt_sinc_sqrt_complex64_crs(this,v,tol,itrmax,coeff_1,coeff_2) result(retA_v)
+    class(CRS_),intent(in) :: this
+    complex(real64),intent(in) :: v(:)
+    complex(real64),allocatable :: dv(:),retA_v(:)
+    complex(real64),intent(in) :: coeff_1,coeff_2
+    integer(int32) :: k
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol
+    type(Math_) :: math
+    complex(real64) :: coeff
+
+    do k=0,itrmax
+        ! k = k + 1
+        coeff = sum_sum(&
+                a=cos_sqrt_Taylor,&
+                b=sinc_sqrt_Taylor,&
+                a_params=[coeff_1],&
+                b_params=[coeff_2],&
+                i_plus_j=k,&
+                ir=[0,itrmax],&
+                jr=[0,itrmax] &
+            )
+        if(k==0)then
+            dv = v
+            retA_v = coeff*dv
+        else
+            dv = this%matmul(dv)
+            retA_v = retA_v + coeff*dv 
+        endif
+        
+        if(maxval(abs(dv)) < tol) return
+    enddo
+     
+end function
+! #####################################################
+
+! ###################################################
+function tensor_sinc_sqrt_sinc_sqrt_complex64_crs(this,v,tol,itrmax,coeff_1,coeff_2) result(retA_v)
+    class(CRS_),intent(in) :: this
+    complex(real64),intent(in) :: v(:)
+    complex(real64),allocatable :: dv(:),retA_v(:)
+    complex(real64),intent(in) :: coeff_1,coeff_2
+    integer(int32) :: k
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol
+    type(Math_) :: math
+    complex(real64) :: coeff
+
+    do k=0,itrmax
+        ! k = k + 1
+        coeff = sum_sum(&
+                a=sinc_sqrt_Taylor,&
+                b=sinc_sqrt_Taylor,&
+                a_params=[coeff_1],&
+                b_params=[coeff_2],&
+                i_plus_j=k,&
+                ir=[0,itrmax],&
+                jr=[0,itrmax] &
+            )
+        if(k==0)then
+            dv = v
+            retA_v = coeff*dv
+        else
+            dv = this%matmul(dv)
+            retA_v = retA_v + coeff* dv 
+        endif
+        
+        if(maxval(abs(dv)) < tol) return
+    enddo
+     
+end function
+! #####################################################
+
+function cos_sqrt_Taylor(k,params) result(ret)
+    integer(int32) ,intent(in) :: k
+    complex(real64),intent(in) :: params(:)
+    complex(real64) :: ret
+    ! Taylor expanision coefficient for cos(a*sqrt(x) ) around x=0
+    ret = ((-1.0d0)**k)*(params(1)**(2*k))/gamma(2.0d0*k+1.0d0)
+
+end function
+
+! #####################################################
+
+function sinc_sqrt_Taylor(k,params) result(ret)
+    integer(int32),intent(in) :: k
+    complex(real64),intent(in) :: params(:)
+    complex(real64) :: ret
+    type(Math_) :: math
+    ! a = params(1)
+    ! Taylor expanision coefficient for sinc(a*sqrt(x) ) around x=0
+    ret = dble(2.0d0**(-1-2*k))*dble((-1.0d0)**k)*(params(1)**(2*k) )*sqrt(math%pi)&
+        /Gamma(1.0d0+k*1.0d0)/Gamma(1.50d0+k*1.0d0)
+    !ret = dble(2.0d0**(-1-2*k))*dble((-1.0d0)**k)!*(params(1)**(2*k) )
+        
+end function
+
+! #####################################################
+
+function sinc_complex64(x) result(ret)
+    complex(real64),intent(in) :: x
+    complex(real64) :: ret
+    if(abs(x)==0.0d0)then
+        ret = 1.0d0
+    else
+        ret = sin(x)/x
+    endif
+end function
+
+! #####################################################
+
+function sinc_real64(x) result(ret)
+    real(real64),intent(in) :: x
+    real(real64) :: ret
+    if(abs(x)==0.0d0)then
+        ret = 1.0d0
+    else
+        ret = sin(x)/x
+    endif
+end function
 
 end module SparseClass

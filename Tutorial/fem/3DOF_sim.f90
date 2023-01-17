@@ -44,8 +44,6 @@ program main
     
     DOF = 3
     
-    
-    
     call coo%init(DOF)
     call Kmatrix_COO%init(DOF)
     call Mmatrix_COO%init(DOF)

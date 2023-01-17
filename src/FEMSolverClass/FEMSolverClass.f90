@@ -1438,12 +1438,15 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
     real(real64),allocatable :: dense_mat(:,:)
     !logical :: use_lanczos
     type(IO_) :: f
-    type(CRS_) :: crs
+    type(CRS_) :: crs,A,B
 
     !use_lanczos = .false.
     !if(present(Lanczos) )then
     !    use_lanczos = Lanczos
     !endif
+
+    A = this%getCRS("A")
+    B = this%getCRS("B")
 
     if(allocated(this%fix_eig_IDs) )then
         ! amplitudes are zero@ this%fix_eig_IDs
@@ -1452,16 +1455,18 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
         
         if(size(this%fix_eig_IDs)>=1 )then
             ! first, for [A]
+            
             call heapsort(n=size(this%fix_eig_IDs),array=this%fix_eig_IDs)
-            call reduce_crs_matrix(CRS_val=this%A_CRS_val,CRS_col=this%A_CRS_index_col,&
-            CRS_rowptr=this%A_CRS_index_row,remove_IDs=this%fix_eig_IDs)
-            call reduce_crs_matrix(CRS_val=this%B_CRS_val,CRS_col=this%B_CRS_index_col,&
-            CRS_rowptr=this%B_CRS_index_row,remove_IDs=this%fix_eig_IDs)
+            call reduce_crs_matrix(CRS_val=A%val,CRS_col=A%col_idx,&
+            CRS_rowptr=A%row_ptr,remove_IDs=this%fix_eig_IDs)
+            call reduce_crs_matrix(CRS_val=B%val,CRS_col=B%col_idx,&
+            CRS_rowptr=B%row_ptr,remove_IDs=this%fix_eig_IDs)
+
         endif
     endif
     
     !>>>>>>>>>>>>>> INPUT
-    N      = size(this%A_CRS_index_row) -1 
+    N      = size(A%row_ptr) -1 
     LDZ    = input(default=N,option=num_eigen)
     LWORK  = 1 + 6*N + 2*N**2
     LIWORK = 3 + 5*N
@@ -1470,8 +1475,8 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
     if(this%use_LOBPCG)then
         print *, ">> Solver :: LOBPCG"
         call LOBPCG(&
-            A=this%getCRS("A"),&
-            B=this%getCRS("B"),&
+            A=A,&
+            B=B,&
             X=Z, lambda=W,&
             m=input(default=this%LOBPCG_NUM_MODE,option=num_eigen ),&
             MAX_ITR=this%LOBPCG_MAX_ITR,&
@@ -1483,14 +1488,14 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
         AP = zeros(N*(N+1)/2 )
         BP = zeros(N*(N+1)/2 )
         ! Upper triangle matrix
-        AP = UpperTriangularMatrix(CRS_val=this%A_CRS_val,CRS_col=this%A_CRS_index_col,&
-            CRS_rowptr=this%A_CRS_index_row)
-        BP = UpperTriangularMatrix(CRS_val=this%B_CRS_val,CRS_col=this%B_CRS_index_col,&
-            CRS_rowptr=this%B_CRS_index_row)
+        AP = UpperTriangularMatrix(CRS_val=A%val,CRS_col=A%col_idx,&
+            CRS_rowptr=A%row_ptr)
+        BP = UpperTriangularMatrix(CRS_val=B%val,CRS_col=B%col_idx,&
+            CRS_rowptr=B%row_ptr)
         !<<<<<<<<<<<<<< INPUT/OUTPUT
         
         !>>>>>>>>>>>>>> INPUT
-        N      = size(this%A_CRS_index_row) -1 
+        N      = size(A%row_ptr) -1 
         LDZ    = input(default=N,option=num_eigen)
         LWORK  = 1 + 6*N + 2*N**2
         LIWORK = 3 + 5*N
@@ -1506,11 +1511,12 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
         
 
         print *, ">> Solver :: LAPACK/DSPGVD"
+        
         call DSPGVD (ITYPE, JOBZ, UPLO, N, AP, BP, W, Z, LDZ, WORK, &
-        LWORK, IWORK, LIWORK, INFO)
+            LWORK, IWORK, LIWORK, INFO)
 
     endif
-    
+
     eigen_value = w
     if(allocated(this%fix_eig_IDs) )then    
         ! U(this%fix_eig_IDs(i),: ) = 0.0d0
@@ -1567,7 +1573,7 @@ subroutine keepThisMatrixAsFEMSolver(this,As)
 
 
 !    if(As == "A")then
-!        this%A_CRS_Index_Col = this%CRS_Index_Col
+!        this%A_CRS_Index_%CRS_Index_Col
 !        this%A_CRS_Index_Row = this%CRS_Index_Row
 !        this%A_CRS_val       = this%CRS_val
 !        this%A_empty         = .false. 
