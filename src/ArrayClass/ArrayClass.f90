@@ -427,12 +427,11 @@ module ArrayClass
     interface operator(//)
         module procedure appendVectorsInt32,appendVectorsReal64,appendMatrixInt32,appendMatrixReal64
     end interface
-
-    
     
     interface assignment(=)
       module procedure assignArrayAlloInt,assignArrayAlloReal, assignAlloArrayInt,assignAlloArrayReal,&
-        assignVectorFromChar,assignIntVectorFromChar,assignArrayAllointVec
+        assignVectorFromChar,assignIntVectorFromChar,assignArrayAllointVec,&
+        assignArrayFromVector_real64,assignArrayFromVector_int32
     end interface
 
     interface dot
@@ -860,6 +859,34 @@ subroutine assignArrayAlloint(x, y)
 
 end subroutine assignArrayAlloint
 ! ===============================================
+
+
+! ===============================================
+subroutine assignArrayFromVector_int32(x,y)
+    implicit none
+    integer(int32),allocatable, intent(out) :: x(:,:)
+    integer(int32), intent(in)  :: y(:)
+  
+    allocate(x(size(y),1 ) )
+    x(:,1) = y(:)
+
+end subroutine
+! ===============================================
+
+
+
+! ===============================================
+subroutine assignArrayFromVector_real64(x,y)
+    implicit none
+    real(real64),allocatable, intent(out) :: x(:,:)
+    real(real64), intent(in)  :: y(:)
+  
+    allocate(x(size(y),1 ) )
+    x(:,1) = y(:)
+
+end subroutine
+! ===============================================
+
 
 ! ===============================================
 subroutine assignArrayAllointVec(x, y)

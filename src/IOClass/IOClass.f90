@@ -3606,11 +3606,14 @@ end subroutine
 
     
 ! ######################################################
-subroutine to_csv_real_array2(name,a) 
+subroutine to_csv_real_array2(name,a,no_header) 
     real(real64),intent(in) :: a(:,:)
     character(*),intent(in)  :: name
-    type(IO_) :: f
     integer(int32) :: i,j,k,n1,n2
+    type(IO_) :: f
+    logical,optional,intent(in) :: no_header
+    logical :: ignore_header
+    ignore_header = input(default=.true.,option=no_header)
 
     n1 = size(a,1)
     n2 = size(a,2)
@@ -3619,12 +3622,15 @@ subroutine to_csv_real_array2(name,a)
     else
         call f%open(name,"w")
     endif
-    write(f%fh,*) n1, n2
-    do j=1,n2
-        do i=1,n1 - 1
+    if(.not.ignore_header)then
+        write(f%fh,*) n1, n2
+    endif
+    do i=1,n1 
+        do j=1,n2-1
             write(f%fh,'(A)',advance="no") str(a(i,j)) + ","
         enddo
-        write(f%fh,'(A)',advance="yes") str(a(n1,j)) + ","
+        j = n2
+        write(f%fh,'(A)',advance="yes") str(a(i,j)) + ","
     enddo
     call f%close()
 
@@ -3633,11 +3639,15 @@ end subroutine
 ! ###########################################
 
 ! ###########################################
-subroutine to_csv_real_vector(name,a) 
+subroutine to_csv_real_vector(name,a,no_header) 
     real(real64),intent(in) :: a(:)
     character(*),intent(in)  :: name
     type(IO_) :: f
     integer(int32) :: i,j,k,n1,n2,n3
+    
+    logical,optional,intent(in) :: no_header
+    logical :: ignore_header
+    ignore_header = input(default=.true.,option=no_header)
 
     n1 = size(a,1)
     if(index(name,".csv")==0 )then
@@ -3645,7 +3655,11 @@ subroutine to_csv_real_vector(name,a)
     else
         call f%open(name,"w")
     endif
-    write(f%fh,*) n1
+    
+    if(.not.ignore_header)then
+        write(f%fh,*) n1
+    endif
+    
     do i=1,n1 
         write(f%fh,'(A)') str(a(i)) + ","
     enddo

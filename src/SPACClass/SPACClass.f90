@@ -20,8 +20,8 @@ module SPACClass
         ![new!]
         real(real64)   :: cutoff_sd        != !freal(f
         integer(int32) :: taper_percent        !!= fint(f
-        real(real32)   :: bandpath_low         != !freal(f
-        real(real32)   :: bandpath_high        != !freal(f
+        real(real32)   :: bandpass_low         != !freal(f
+        real(real32)   :: bandpass_high        != !freal(f
         real(real64),allocatable :: observation(:,:)
         logical :: initialized = .false.
         logical :: inversion_is_done = .false.
@@ -378,7 +378,7 @@ subroutine run_SPAC(this,only_FFT)
     integer(int32) :: FFT_SIZE,NUM_SAMPLE,num_logger,Maximum_itr,&
         num_smoothing,NUM_MOVING_AVERAGE,i,j,logger_id,taper_percent
     type(IO_) :: f
-    real(real32) :: sampling_Hz,bandpath_high,bandpath_low,theta
+    real(real32) :: sampling_Hz,bandpass_high,bandpass_low,theta
     character(50) :: fpath,data_unit
     character(:),allocatable :: filepath,config
     character(:),allocatable :: HoverV_spectra_EW
@@ -417,8 +417,8 @@ subroutine run_SPAC(this,only_FFT)
     ![new!]
     cutoff_sd        = freal(f%parse(config,key1="cutoff_sd")) != 10
     taper_percent        = fint(f%parse(config,key1="taper_percent")) != 10
-    bandpath_low         = freal(f%parse(config,key1="bandpath_low")) != 10
-    bandpath_high        = freal(f%parse(config,key1="bandpath_high")) != 10
+    bandpass_low         = freal(f%parse(config,key1="bandpass_low")) != 10
+    bandpass_high        = freal(f%parse(config,key1="bandpass_high")) != 10
     data_unit            = f%parse(config,key1="data_unit")
     this%d_unit = trim(data_unit)
     
@@ -431,8 +431,8 @@ subroutine run_SPAC(this,only_FFT)
     this%num_smoothing =        num_smoothing
     this%cutoff_sd =        cutoff_sd
     this%taper_percent =        taper_percent
-    this%bandpath_low =         bandpath_low
-    this%bandpath_high =        bandpath_high
+    this%bandpass_low =         bandpass_low
+    this%bandpass_high =        bandpass_high
     ! >>>>>>>> INPUT DATA INFO >>>>>>>>>>>
     call logfile%write("[ok] META DATA LOADED")
     call logfile%flush()
@@ -445,8 +445,8 @@ subroutine run_SPAC(this,only_FFT)
     write(logfile%fh,*) "num_smoothing",num_smoothing
     write(logfile%fh,*) "cutoff_sd",cutoff_sd
     write(logfile%fh,*) "taper_percent",taper_percent
-    write(logfile%fh,*) "bandpath_low",bandpath_low
-    write(logfile%fh,*) "bandpath_high",bandpath_high
+    write(logfile%fh,*) "bandpass_low",bandpass_low
+    write(logfile%fh,*) "bandpass_high",bandpass_high
 
     ! >>>>>>>> READ DATA INFO >>>>>>>>>>>
     NUM_SAMPLE = f%numLine(filepath)
@@ -481,7 +481,7 @@ subroutine run_SPAC(this,only_FFT)
         A_buf = All_data(:,j)
         
         !stop
-        A = speana%bandpath(A_buf,[bandpath_low,bandpath_high])
+        A = speana%bandpass(A_buf,[bandpass_low,bandpass_high])
         
         ! >>>>>>>> Fourier spectra >>>>>>>>
         FourierSpectrum  = to_FOURIER_SPECTRUM(&
@@ -671,7 +671,7 @@ subroutine pdf_SPAC(this,name)
 
     call f%write('Hsize = 210.0 ') ! A4
     call f%write('Vsize = 297.0 ') ! A4
-    call f%write('set xr['+str(this%bandpath_low)+':'+str(this%bandpath_high)+']')
+    call f%write('set xr['+str(this%bandpass_low)+':'+str(this%bandpass_high)+']')
     call f%write('set size Vsize, Hsize')
 
     logger_id = 1
@@ -685,19 +685,19 @@ subroutine pdf_SPAC(this,name)
         call f%write('unset key')
         call f%write('set logscale')
         do j=1,2
-            call f%write('set title "L'+str(logger_id)+' (UD)"')
+            call f%write('set title "L'+str(logger_id)+' (CH1)"')
             call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
             call f%write('set ylabel "Fourier spectrum ('+trim(this%d_unit)+') " font "Times,10"')
             call f%write('plot   "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+1,3 )+'_FFT_blocks.csv" u 1:2 w l,&
                  "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+1,3 )+'_FFT.csv" u 1:2 w l ')
             
-            call f%write('set title "L'+str(logger_id)+' (EW)"')
+            call f%write('set title "L'+str(logger_id)+' (CH2)"')
             call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
             call f%write('set ylabel "Fourier spectrum ('+trim(this%d_unit)+') " font "Times,10"')
             call f%write('plot   "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+2,3 )+'_FFT_blocks.csv" u 1:2 w l,&
                  "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+2,3 )+'_FFT.csv" u 1:2 w l ')
             
-            call f%write('set title "L'+str(logger_id)+' (NS)"')
+            call f%write('set title "L'+str(logger_id)+' (CH3)"')
             call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
             call f%write('set ylabel "Fourier spectrum ('+trim(this%d_unit)+') " font "Times,10"')
             call f%write('plot   "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+3,3 )+'_FFT_blocks.csv" u 1:2 w l,&

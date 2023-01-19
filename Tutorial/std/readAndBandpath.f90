@@ -19,9 +19,9 @@ call f%read(t,z)
 call f%close()
 call f%plot(option="with lines")
 
-z_b = speana%bandpath(x=z,freq_range=[0.50,0.60])
+z_b = speana%bandpass(x=z,freq_range=[0.50,0.60])
 
-call f%open("z_bandpath.txt","w")
+call f%open("z_bandpass.txt","w")
 call f%write(t,z_b)
 call f%close()
 call f%plot(option="with lines")
