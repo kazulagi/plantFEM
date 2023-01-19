@@ -30,7 +30,7 @@ module SpectreAnalysisClass
         procedure,public :: freq_axis => freq_axisSpectreAnalysis
         procedure,public :: FDD => FDD_SpectreAnalysis
         procedure,public :: export => exportSpectreAnalysis
-        procedure,public :: bandpath => bandpathSpectreAnalysis
+        procedure,public :: bandpass => bandpassSpectreAnalysis
 
         procedure,pass :: cutifSpectreAnalysis
         procedure,pass :: cutif_loggers_SpectreAnalysis
@@ -516,7 +516,7 @@ subroutine exportSpectreAnalysis(this,name)
 end subroutine
 ! ##########################################################
 
-function bandpathSpectreAnalysis(this,x,freq_range) result(ft)
+function bandpassSpectreAnalysis(this,x,freq_range) result(ft)
     class(SpectreAnalysis_),intent(in) :: this
     real(real64),allocatable :: ft(:)
     real(real32),intent(in) :: freq_range(1:2)
@@ -541,7 +541,7 @@ function bandpathSpectreAnalysis(this,x,freq_range) result(ft)
     bw = maxval(freq_range) - minval(freq_range)
 
     if(.not. this%initialized)then
-        print *, "ERROR >> bandpathSpectreAnalysis >> please call %init(sampling_Hz)"
+        print *, "ERROR >> bandpassSpectreAnalysis >> please call %init(sampling_Hz)"
         return
     endif
 
