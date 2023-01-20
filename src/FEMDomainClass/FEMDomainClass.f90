@@ -224,7 +224,12 @@ module FEMDomainClass
 		
 
 		procedure,public :: getElement => getElementFEMDOmain
-		procedure,public :: getElementList => getElementListFEMDomain
+		
+		procedure,pass   :: getElementListFEMDomain
+		procedure,pass   :: getElementList_by_radiusFEMDomain
+
+		generic,public :: getElementList => getElementList_by_radiusFEMDomain,getElementListFEMDomain
+
 		procedure,public :: getScalarField => getScalarFieldFEMDomain
 		procedure,public :: getSingleFacetNodeID => getSingleFacetNodeIDFEMDomain
 		
@@ -12523,7 +12528,43 @@ function getElementListFEMDomain(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax,N
 		,NodeID=NodeID)
 
 end function
+! #########################################################################
 
+
+function getElementList_by_radiusFEMDomain(obj,center,radius,zmin,zmax) result(ElementList)
+    class(FEMDomain_),intent(inout) :: obj
+    real(real64),intent(in) :: center(1:2),radius,zmin,zmax
+    real(real64),allocatable :: elem_center(:)
+
+    integer(int32),allocatable :: checklist(:)
+    integer(int32),allocatable :: ElementList(:)
+	integer(int32) :: i,j,k
+	
+	CheckList = int(zeros(obj%ne() ))
+	do i=1, obj%ne() 
+		elem_center = obj%centerPosition(i)
+		if(norm(elem_center(1:2)-center(1:2))<=radius ) then
+			if(zmin <= elem_center(3) .and. elem_center(3) <=zmax )then
+				CheckList(i) = 1
+			endif
+		endif
+	enddo
+
+	ElementList = int(zeros(sum(CheckList) ) )
+	k=0
+	do i=1,size(checklist)
+		if(checklist(i)==1)then
+			k = k + 1
+			ElementList(k) = i
+		else
+			cycle
+		endif
+	enddo
+
+
+end function
+
+! #########################################################################
 
 pure function selectRow(Matrix, RowIDs) result(SelectedRows)
 	real(real64),intent(in) :: Matrix(:,:)
@@ -12541,6 +12582,9 @@ pure function selectRow(Matrix, RowIDs) result(SelectedRows)
 end function
 
 ! ########################################
+
+
+
 pure function emptyFEMDomain(obj) result(FEMDomain_is_empty)
     class(FEMDomain_),intent(in) :: obj
     logical :: FEMDomain_is_empty

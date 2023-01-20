@@ -939,7 +939,7 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio
                 F_vec = obj%Traction + M_matrix%matmul(obj%A_ext)&
                     + obj%getAbsorbingBoundaryForce() &
                     -K_matrix%matmul(obj%U_n) &
-                    -M_matrix%matmul(bar_A)&
+                    -M_matrix%matmul(bar_A)   &
                     -obj%alpha*M_matrix%matmul(bar_V)&
                     -obj%beta*K_matrix%matmul(bar_V)
 !debug
