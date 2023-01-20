@@ -470,6 +470,12 @@ module ArrayClass
     interface distance
         module procedure distance_real64_vectorArray
     end interface distance
+
+    interface operator(.and.)
+        module procedure and_int32vector_int32vector
+    end interface 
+    
+
 contains
     
 function to_Array_real64_array(real64_array,dtype) result(ret_array)
@@ -8783,4 +8789,34 @@ function getIdxIntVec(vec,equal_to) result(idx)
 
 end function
 ! ########################################################
+
+function and_int32vector_int32vector(intv1,intv2) result(intv_ret)
+    integer(int32),intent(in) :: intv1(:),intv2(:)
+    integer(int32),allocatable :: intv_ret(:),buf(:)
+    integer(int32) :: i,j,k
+
+    buf = int(zeros(maxval([ maxval(intv1) , maxval(intv2) ])))
+    buf(intv1(:) ) = buf(intv1(:) )  + 1
+    buf(intv2(:) ) = buf(intv2(:) )  + 1
+    k=0
+    do i=1,size(buf)
+        if(buf(i)==2 )then
+            k=k+1
+        endif
+    enddo
+    if(k==0)then
+        allocate(intv_ret(0) )
+        return
+    endif
+    intv_ret = int(zeros(k) )
+
+    do i=1,size(buf)
+        if(buf(i)==2 )then
+            k=k+1
+            intv_ret(k) = i
+        endif
+    enddo
+    
+end function
+
 end module ArrayClass

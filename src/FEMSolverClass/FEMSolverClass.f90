@@ -463,8 +463,8 @@ subroutine setCRSFEMSolver(this,DOF,debug)
     integer(int32) :: DomainID
     type(FEMSolver_) :: single_domain_solver
     type(COO_)       :: COO
+    type(CRS_)       :: ZeroMatrix
 
-    
     if(present(debug) )then
         debug_mode_on = debug
     endif
@@ -687,219 +687,225 @@ subroutine setCRSFEMSolver(this,DOF,debug)
 
         return
     else
+        
 
-
+        
         if(.not. allocated(this%CRS_val))then
+            ! single-domain
+            ZeroMatrix = this%femdomains(1)%femdomainp%ZeroMatrix(DOF=DOF)
             ! allocate CRS-formatted Matrix-vector (Ax = b)
             ![A]
-            if(allocated(this%CRS_Index_Col ) ) deallocate(this%CRS_Index_Col)
-            if(allocated(this%CRS_Index_Row ) ) deallocate(this%CRS_Index_Row)
+            this%CRS_Index_Col = ZeroMatrix%col_idx
+            this%CRS_Index_Row = ZeroMatrix%row_ptr
+            this%CRS_val = ZeroMatrix%val
             
             ![b]
-            if(allocated(this%CRS_RHS ) ) deallocate(this%CRS_RHS)
+            this%CRS_RHS       = zeros(size(this%CRS_Index_Row)-1)
+            this%CRS_x       = zeros(size(this%CRS_Index_Row)-1)
+            
             
             ![x]
-            if(allocated(this%CRS_x ) ) deallocate(this%CRS_x)
-            if(allocated(this%CRS_ID_Starts_From) ) deallocate(this%CRS_ID_Starts_From)
-    
-            !通し番号を振る
-            !First, For Domains
-            !DomainID -> NodeID -> DOF(x-y-z, etc.)
-            ! count number of global unknowns
-            size_of_global_matrix = 0
-            Num_nodes_in_Domains = int(zeros(size(this%FEMDomains)) )
-            do i=1,size(this%FEMDomains)
-                if(associated(this%FEMDomains(i)%femdomainp ) )then
-                    size_of_global_matrix = size_of_global_matrix &
-                        + this%FEMDomains(i)%femdomainp%nn()*DOF
-                    Num_nodes_in_Domains(i)=this%FEMDomains(i)%femdomainp%nn()
-                endif
-            enddo
-    
-            allocate(this%CRS_ID_Starts_From(size(this%FEMDomains) ))
-            this%CRS_ID_Starts_From(1) = 1
-            do i=2,size(this%FEMDomains)
-                if(associated(this%FEMDomains(i)%femdomainp ) )then
-                    this%CRS_ID_Starts_From(i) = this%CRS_ID_Starts_From(i-1) + this%FEMDomains(i-1)%femdomainp%nn()*DOF
-                else
-                    this%CRS_ID_Starts_From(i) = this%CRS_ID_Starts_From(i-1) + 0
-                endif
-            enddo
-            !
-            this%CRS_Index_Row = int(zeros(size_of_global_matrix+1))
-            this%CRS_RHS       = int(zeros(size_of_global_matrix))
-            this%CRS_x         = int(zeros(size_of_global_matrix))
-    
-            num_entry_in_row   = int(zeros(size_of_global_matrix))
-            
-    
-            ! First, create CRS-Index-Row
-            !print *, "! First, create CRS-Index-Row"
-            !DomainID -> NodeID -> DOF(x-y-z, etc.)
-            !CRSだが，重複を許し大目に見積もる
-            ! 本当のCRS_INdex_Rowではない．あくまで，各Rowに最大いくつのcolumnが非ゼロとなりうるか．
-            
-            do i=1,size(Num_nodes_in_Domains)
-                
-                if(i==1)then
-                    if(associated(this%FEMDomains(i)%femdomainp ))then
-                        
-                        offset=0
-                        do j=1,this%FEMDomains(i)%femdomainp%ne()
-                            do k=1,this%FEMDomains(i)%femdomainp%nne()
-                                do l=1,DOF
-                                    node_id = this%FEMDomains(i)%femdomainp%mesh%elemnod(j,k)
-                                    this%CRS_Index_Row(DOF*Offset + DOF*(node_id-1)+l ) = &
-                                    this%CRS_Index_Row(DOF*Offset + DOF*(node_id-1)+l ) &
-                                        + (this%FEMDomains(i)%femdomainp%nne())*DOF
-                                    !最大でも，この数までの未知数としか係数行列を持たない
-                                enddo
-                            enddo
-                        enddo
-                    endif
-                    
-                else
-                    if(associated(this%FEMDomains(i)%femdomainp ))then
-                        offset=sum(Num_nodes_in_Domains(1:i-1))
-                        do j=1,this%FEMDomains(i)%femdomainp%ne()
-                            do k=1,this%FEMDomains(i)%femdomainp%nne()
-                                do l=1,DOF
-                                    node_id = this%FEMDomains(i)%femdomainp%mesh%elemnod(j,k)
-                                    this%CRS_Index_Row(DOF*Offset + DOF*(node_id-1)+l ) = &
-                                    this%CRS_Index_Row(DOF*Offset + DOF*(node_id-1)+l ) &
-                                        + (this%FEMDomains(i)%femdomainp%nne())*DOF
-                                    !最大でも，この数までの未知数としか係数行列を持たない
-                                enddo
-                            enddo
-                        enddo
-                    endif
-                    
-                endif
-            enddo
-            
-    
-            !this%CRS_Index_Rowに，あと，Interfaceのconnectivityのぶんを足す（あとで）
-    
-    
-            ! CRS-Index-colを作成
-            !print *, "! CRS-Index-colをAllocate"
-            this%CRS_Index_Col = int(zeros(sum(this%CRS_Index_Row(:)) ))
-            this%CRS_Val = zeros(  sum(this%CRS_Index_Row(:)) )
-    
-            ! 本当のCRS_INdex_Rowにする．
-            buf_1 = this%CRS_Index_Row(1)
-            do i=2,size(this%CRS_Index_Row)
-                this%CRS_Index_Row(i) =this%CRS_Index_Row(i-1)+ this%CRS_Index_Row(i)
-            enddo
-            do i=size(this%CRS_Index_Row),2,-1
-                this%CRS_Index_Row(i) =this%CRS_Index_Row(i-1)+1
-            enddo
-            this%CRS_Index_Row(1)=1
-    
-            !print *, "! CRS-Index-colを作成"
-            num_entry_in_row(:) = 0
-            do i=1,size(Num_nodes_in_Domains)
-    
-                if(i==1)then
-                    if(associated(this%FEMDomains(i)%femdomainp ))then
-                        offset=0
-                        do j=1,this%FEMDomains(i)%femdomainp%ne()
-                            do k=1,this%FEMDomains(i)%femdomainp%nne()
-                                do l=1,DOF
-                                    node_id = this%FEMDomains(i)%femdomainp%mesh%elemnod(j,k)
-                                    row_id = DOF*Offset+DOF*(node_id-1)+l
-                                    do kk=1,this%FEMDomains(i)%femdomainp%nne()
-                                        do ll=1,DOF
-                                            node_id_p=this%FEMDomains(i)%femdomainp%mesh%elemnod(j,kk)
-                                            col_id =DOF*Offset+DOF*(node_id_p-1)+ll
-                                            num_entry_in_row(row_id) = num_entry_in_row(row_id) + 1
-                                            drow_offset = this%CRS_Index_Row(row_id)-1
-                                            
-                                            this%CRS_Index_Col( drow_offset  &
-                                            + num_entry_in_row(row_id)) = col_id
-                                        enddo
-                                    enddo
-                                enddo
-                            enddo
-                        enddo
-                    endif
-    
-                else
-                    if(associated(this%FEMDomains(i)%femdomainp ))then
-                        offset=sum(Num_nodes_in_Domains(1:i-1))
-                        do j=1,this%FEMDomains(i)%femdomainp%ne()
-                            do k=1,this%FEMDomains(i)%femdomainp%nne()
-                                do l=1,DOF
-                                    node_id = this%FEMDomains(i)%femdomainp%mesh%elemnod(j,k)
-                                    row_id = DOF*Offset+DOF*(node_id-1)+l
-                                    do kk=1,this%FEMDomains(i)%femdomainp%nne()
-                                        do ll=1,DOF
-                                            node_id_p=this%FEMDomains(i)%femdomainp%mesh%elemnod(j,kk)
-                                            col_id =DOF*Offset+DOF*(node_id_p-1)+ll
-                                            num_entry_in_row(row_id) = num_entry_in_row(row_id) + 1
-                                            drow_offset = this%CRS_Index_Row(row_id)-1
-                                            
-                                            this%CRS_Index_Col( drow_offset  &
-                                            + num_entry_in_row(row_id)) = col_id
-                                        enddo
-                                    enddo
-                                enddo
-                            enddo
-                        enddo
-                    endif
-                    
-                endif
-            enddo
-    
-            ! crs_index_colに被っているものがあるので，それを省く
-            !print *,"! crs_index_colに被っているものがあるので，それを省く"
-            
-            num_entry_in_row(:) = 0
-            
-            !$OMP parallel do default(shared) private(col_local,new_col_local)
-            do i=1,size(this%CRS_Index_Row)-1
+            this%CRS_ID_Starts_From = int(ones(1))
+            !if(allocated(this%CRS_ID_Starts_From) ) deallocate(this%CRS_ID_Starts_From)
 
-                col_local = int(zeros(this%CRS_Index_Row(i+1)-this%CRS_Index_Row(i)))
-                col_local(1:this%CRS_Index_Row(i+1)-this%CRS_Index_Row(i) ) = &
-                this%CRS_Index_Col(this%CRS_Index_Row(i):this%CRS_Index_Row(i+1)-1 )
-
-                new_col_local = RemoveIF(col_local,equal_to=0)
-                new_col_local = RemoveOverwrap(new_col_local)
-                
-                
-                col_local(:)  = 0
-                col_local(1:size(new_col_local) ) = new_col_local(:)
-                this%CRS_Index_Col(this%CRS_Index_Row(i):this%CRS_Index_Row(i+1)-1 ) = &
-                col_local(1:this%CRS_Index_Row(i+1)-this%CRS_Index_Row(i) ) 
-                num_entry_in_row(i) = size(new_col_local)
-            enddo
-            !$OMP end parallel do
-    
-            !print *, "Final"
-            
-            this%CRS_Index_Col = RemoveIF(this%CRS_Index_Col,equal_to=0)
-            
-    
-            buf_1 = num_entry_in_row(size(num_entry_in_row)  )
-            do i=2,size(num_entry_in_row)
-                num_entry_in_row(i) =num_entry_in_row(i-1)+ num_entry_in_row(i)
-            enddo
-            do i=size(num_entry_in_row),2,-1
-                num_entry_in_row(i) =num_entry_in_row(i-1)+1
-            enddo
-            num_entry_in_row(1)=1
-            
-            this%CRS_Index_Row(1:size(num_entry_in_row )) = num_entry_in_row(:)
-            this%CRS_Index_Row(size(num_entry_in_row )+1) = num_entry_in_row(size(num_entry_in_row) ) + buf_1
-            
-            !do i=1,size(num_entry_in_row)
-            !    this%CRS_Index_Row(i) = sum(num_entry_in_row(1:i)) -num_entry_in_row(i) +  1
-            !enddo
-    
-    
-            ! then, this%CRS_Index_Row and this%CRS_Index_Col are filled.
-            this%CRS_Val = zeros(size(this%CRS_Index_Col))
-            
+!            !通し番号を振る
+!            !First, For Domains
+!            !DomainID -> NodeID -> DOF(x-y-z, etc.)
+!            ! count number of global unknowns
+!            size_of_global_matrix = 0
+!            Num_nodes_in_Domains = int(zeros(size(this%FEMDomains)) )
+!            do i=1,size(this%FEMDomains)
+!                if(associated(this%FEMDomains(i)%femdomainp ) )then
+!                    size_of_global_matrix = size_of_global_matrix &
+!                        + this%FEMDomains(i)%femdomainp%nn()*DOF
+!                    Num_nodes_in_Domains(i)=this%FEMDomains(i)%femdomainp%nn()
+!                endif
+!            enddo
+!    
+!            allocate(this%CRS_ID_Starts_From(size(this%FEMDomains) ))
+!            this%CRS_ID_Starts_From(1) = 1
+!            do i=2,size(this%FEMDomains)
+!                if(associated(this%FEMDomains(i)%femdomainp ) )then
+!                    this%CRS_ID_Starts_From(i) = this%CRS_ID_Starts_From(i-1) + this%FEMDomains(i-1)%femdomainp%nn()*DOF
+!                else
+!                    this%CRS_ID_Starts_From(i) = this%CRS_ID_Starts_From(i-1) + 0
+!                endif
+!            enddo
+!            !
+!            this%CRS_Index_Row = int(zeros(size_of_global_matrix+1))
+!            this%CRS_RHS       = int(zeros(size_of_global_matrix))
+!            this%CRS_x         = int(zeros(size_of_global_matrix))
+!    
+!            num_entry_in_row   = int(zeros(size_of_global_matrix))
+!            
+!    
+!            ! First, create CRS-Index-Row
+!            !print *, "! First, create CRS-Index-Row"
+!            !DomainID -> NodeID -> DOF(x-y-z, etc.)
+!            !CRSだが，重複を許し大目に見積もる
+!            ! 本当のCRS_INdex_Rowではない．あくまで，各Rowに最大いくつのcolumnが非ゼロとなりうるか．
+!            
+!            do i=1,size(Num_nodes_in_Domains)
+!                
+!                if(i==1)then
+!                    if(associated(this%FEMDomains(i)%femdomainp ))then
+!                        
+!                        offset=0
+!                        do j=1,this%FEMDomains(i)%femdomainp%ne()
+!                            do k=1,this%FEMDomains(i)%femdomainp%nne()
+!                                do l=1,DOF
+!                                    node_id = this%FEMDomains(i)%femdomainp%mesh%elemnod(j,k)
+!                                    this%CRS_Index_Row(DOF*Offset + DOF*(node_id-1)+l ) = &
+!                                    this%CRS_Index_Row(DOF*Offset + DOF*(node_id-1)+l ) &
+!                                        + (this%FEMDomains(i)%femdomainp%nne())*DOF
+!                                    !最大でも，この数までの未知数としか係数行列を持たない
+!                                enddo
+!                            enddo
+!                        enddo
+!                    endif
+!                    
+!                else
+!                    if(associated(this%FEMDomains(i)%femdomainp ))then
+!                        offset=sum(Num_nodes_in_Domains(1:i-1))
+!                        do j=1,this%FEMDomains(i)%femdomainp%ne()
+!                            do k=1,this%FEMDomains(i)%femdomainp%nne()
+!                                do l=1,DOF
+!                                    node_id = this%FEMDomains(i)%femdomainp%mesh%elemnod(j,k)
+!                                    this%CRS_Index_Row(DOF*Offset + DOF*(node_id-1)+l ) = &
+!                                    this%CRS_Index_Row(DOF*Offset + DOF*(node_id-1)+l ) &
+!                                        + (this%FEMDomains(i)%femdomainp%nne())*DOF
+!                                    !最大でも，この数までの未知数としか係数行列を持たない
+!                                enddo
+!                            enddo
+!                        enddo
+!                    endif
+!                    
+!                endif
+!            enddo
+!            
+!    
+!            !this%CRS_Index_Rowに，あと，Interfaceのconnectivityのぶんを足す（あとで）
+!    
+!    
+!            ! CRS-Index-colを作成
+!            !print *, "! CRS-Index-colをAllocate"
+!            this%CRS_Index_Col = int(zeros(sum(this%CRS_Index_Row(:)) ))
+!            this%CRS_Val = zeros(  sum(this%CRS_Index_Row(:)) )
+!    
+!            ! 本当のCRS_INdex_Rowにする．
+!            buf_1 = this%CRS_Index_Row(1)
+!            do i=2,size(this%CRS_Index_Row)
+!                this%CRS_Index_Row(i) =this%CRS_Index_Row(i-1)+ this%CRS_Index_Row(i)
+!            enddo
+!            do i=size(this%CRS_Index_Row),2,-1
+!                this%CRS_Index_Row(i) =this%CRS_Index_Row(i-1)+1
+!            enddo
+!            this%CRS_Index_Row(1)=1
+!    
+!            !print *, "! CRS-Index-colを作成"
+!            num_entry_in_row(:) = 0
+!            do i=1,size(Num_nodes_in_Domains)
+!    
+!                if(i==1)then
+!                    if(associated(this%FEMDomains(i)%femdomainp ))then
+!                        offset=0
+!                        do j=1,this%FEMDomains(i)%femdomainp%ne()
+!                            do k=1,this%FEMDomains(i)%femdomainp%nne()
+!                                do l=1,DOF
+!                                    node_id = this%FEMDomains(i)%femdomainp%mesh%elemnod(j,k)
+!                                    row_id = DOF*Offset+DOF*(node_id-1)+l
+!                                    do kk=1,this%FEMDomains(i)%femdomainp%nne()
+!                                        do ll=1,DOF
+!                                            node_id_p=this%FEMDomains(i)%femdomainp%mesh%elemnod(j,kk)
+!                                            col_id =DOF*Offset+DOF*(node_id_p-1)+ll
+!                                            num_entry_in_row(row_id) = num_entry_in_row(row_id) + 1
+!                                            drow_offset = this%CRS_Index_Row(row_id)-1
+!                                            
+!                                            this%CRS_Index_Col( drow_offset  &
+!                                            + num_entry_in_row(row_id)) = col_id
+!                                        enddo
+!                                    enddo
+!                                enddo
+!                            enddo
+!                        enddo
+!                    endif
+!    
+!                else
+!                    if(associated(this%FEMDomains(i)%femdomainp ))then
+!                        offset=sum(Num_nodes_in_Domains(1:i-1))
+!                        do j=1,this%FEMDomains(i)%femdomainp%ne()
+!                            do k=1,this%FEMDomains(i)%femdomainp%nne()
+!                                do l=1,DOF
+!                                    node_id = this%FEMDomains(i)%femdomainp%mesh%elemnod(j,k)
+!                                    row_id = DOF*Offset+DOF*(node_id-1)+l
+!                                    do kk=1,this%FEMDomains(i)%femdomainp%nne()
+!                                        do ll=1,DOF
+!                                            node_id_p=this%FEMDomains(i)%femdomainp%mesh%elemnod(j,kk)
+!                                            col_id =DOF*Offset+DOF*(node_id_p-1)+ll
+!                                            num_entry_in_row(row_id) = num_entry_in_row(row_id) + 1
+!                                            drow_offset = this%CRS_Index_Row(row_id)-1
+!                                            
+!                                            this%CRS_Index_Col( drow_offset  &
+!                                            + num_entry_in_row(row_id)) = col_id
+!                                        enddo
+!                                    enddo
+!                                enddo
+!                            enddo
+!                        enddo
+!                    endif
+!                    
+!                endif
+!            enddo
+!    
+!            ! crs_index_colに被っているものがあるので，それを省く
+!            !print *,"! crs_index_colに被っているものがあるので，それを省く"
+!            
+!            num_entry_in_row(:) = 0
+!            
+!            !$OMP parallel do default(shared) private(col_local,new_col_local)
+!            do i=1,size(this%CRS_Index_Row)-1
+!
+!                col_local = int(zeros(this%CRS_Index_Row(i+1)-this%CRS_Index_Row(i)))
+!                col_local(1:this%CRS_Index_Row(i+1)-this%CRS_Index_Row(i) ) = &
+!                this%CRS_Index_Col(this%CRS_Index_Row(i):this%CRS_Index_Row(i+1)-1 )
+!
+!                new_col_local = RemoveIF(col_local,equal_to=0)
+!                new_col_local = RemoveOverwrap(new_col_local)
+!                
+!                
+!                col_local(:)  = 0
+!                col_local(1:size(new_col_local) ) = new_col_local(:)
+!                this%CRS_Index_Col(this%CRS_Index_Row(i):this%CRS_Index_Row(i+1)-1 ) = &
+!                col_local(1:this%CRS_Index_Row(i+1)-this%CRS_Index_Row(i) ) 
+!                num_entry_in_row(i) = size(new_col_local)
+!            enddo
+!            !$OMP end parallel do
+!    
+!            !print *, "Final"
+!            
+!            this%CRS_Index_Col = RemoveIF(this%CRS_Index_Col,equal_to=0)
+!            
+!    
+!            buf_1 = num_entry_in_row(size(num_entry_in_row)  )
+!            do i=2,size(num_entry_in_row)
+!                num_entry_in_row(i) =num_entry_in_row(i-1)+ num_entry_in_row(i)
+!            enddo
+!            do i=size(num_entry_in_row),2,-1
+!                num_entry_in_row(i) =num_entry_in_row(i-1)+1
+!            enddo
+!            num_entry_in_row(1)=1
+!            
+!            this%CRS_Index_Row(1:size(num_entry_in_row )) = num_entry_in_row(:)
+!            this%CRS_Index_Row(size(num_entry_in_row )+1) = num_entry_in_row(size(num_entry_in_row) ) + buf_1
+!            
+!            !do i=1,size(num_entry_in_row)
+!            !    this%CRS_Index_Row(i) = sum(num_entry_in_row(1:i)) -num_entry_in_row(i) +  1
+!            !enddo
+!    
+!    
+!            ! then, this%CRS_Index_Row and this%CRS_Index_Col are filled.
+!            this%CRS_Val = zeros(size(this%CRS_Index_Col))
+!            
         endif
     
     endif

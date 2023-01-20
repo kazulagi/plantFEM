@@ -506,7 +506,7 @@ subroutine run_SPAC(this,only_FFT)
 
 
 
-    ! >>>>>>>> H/V spectra (EW)>>>>>>>>
+    ! >>>>>>>> H/V spectra (Ch2/Ch1)>>>>>>>>
     do i=1,num_logger
         HoverV_spectra = &
             to_HoverV_spectra( &
@@ -518,16 +518,16 @@ subroutine run_SPAC(this,only_FFT)
         
         vbuf = moving_average(HoverV_spectra,num_smoothing)
         HoverV_spectra = vbuf
-        call f%open(filepath+"_"+zfill(i,3)+"_HoverV-spectra_EW.csv","w")
+        call f%open(filepath+"_"+zfill(i,3)+"_HoverV-spectra_Ch2_Ch1.csv","w")
         call f%write(freq(:),HoverV_spectra(:),separator=",")
         call f%close()
     enddo
-    ! >>>>>>>> H/V spectra (EW) >>>>>>>>
-    call logfile%write("[ok] H/V (EW) DONE!")
+    ! >>>>>>>> H/V spectra (Ch2/Ch1) >>>>>>>>
+    call logfile%write("[ok] H/V (Ch2/Ch1) DONE!")
     call logfile%flush()
 
 
-    ! >>>>>>>> H/V spectra (NS) >>>>>>>>
+    ! >>>>>>>> H/V spectra (Ch3/Ch1) >>>>>>>>
     
     do i=1,num_logger
         HoverV_spectra = to_HoverV_spectra( &
@@ -540,13 +540,13 @@ subroutine run_SPAC(this,only_FFT)
         
         vbuf = moving_average(HoverV_spectra,num_smoothing)
         HoverV_spectra = vbuf
-        call f%open(filepath+"_"+zfill(i,3)+"_HoverV-spectra_NS.csv","w")
+        call f%open(filepath+"_"+zfill(i,3)+"_HoverV-spectra_Ch3_Ch1.csv","w")
         call f%write(freq(:),HoverV_spectra(:),separator=", ")
         call f%close()
     enddo
-    ! >>>>>>>> H/V spectra (NS) >>>>>>>>
+    ! >>>>>>>> H/V spectra (Ch3/Ch1) >>>>>>>>
     call logfile%write("debug")
-    call logfile%write("[ok] H/V (NS) DONE!")
+    call logfile%write("[ok] H/V (Ch3/Ch1) DONE!")
     call logfile%flush()
     if(stop_before_spac)then
         return
@@ -717,27 +717,27 @@ subroutine pdf_SPAC(this,name)
     call f%write('unset format y')
     call f%write('unset key')
     call f%write('set logscale')
-    call f%write('set title "H/V (EW)"')
+    call f%write('set title "H/V (NS)"')
     call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
     call f%write('set ylabel "Spectral ratio" font "Times,10"')
     
     call f%write('plot  \')
-    call f%write('"'+this%csv_wave_file+'_001_HoverV-spectra_EW.csv" u 1:2 w l,\')
+    call f%write('"'+this%csv_wave_file+'_001_HoverV-spectra_Ch2_Ch1.csv" u 1:2 w l,\')
     do i=2,this%num_logger-1
-        call f%write('"'+this%csv_wave_file+'_'+zfill(i,3)+'_HoverV-spectra_EW.csv" u 1:2 w l,\')
+        call f%write('"'+this%csv_wave_file+'_'+zfill(i,3)+'_HoverV-spectra_Ch2_Ch1.csv" u 1:2 w l,\')
     enddo
-    call f%write('"'+this%csv_wave_file+'_'+zfill(this%num_logger,3)+'_HoverV-spectra_EW.csv" u 1:2 w l')
+    call f%write('"'+this%csv_wave_file+'_'+zfill(this%num_logger,3)+'_HoverV-spectra_Ch2_Ch1.csv" u 1:2 w l')
 
-    call f%write('set title "H/V (NS)"')
+    call f%write('set title "H/V (EW)"')
     call f%write('set logscale')
     call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
     call f%write('set ylabel "Spectral ratio" font "Times,10"')
     call f%write('plot  \')
-    call f%write('"'+this%csv_wave_file+'_001_HoverV-spectra_NS.csv" u 1:2 w l,\')
+    call f%write('"'+this%csv_wave_file+'_001_HoverV-spectra_Ch3_Ch1.csv" u 1:2 w l,\')
     do i=2,this%num_logger-1
-        call f%write('"'+this%csv_wave_file+'_'+zfill(i,3)+'_HoverV-spectra_NS.csv" u 1:2 w l,\')
+        call f%write('"'+this%csv_wave_file+'_'+zfill(i,3)+'_HoverV-spectra_Ch3_Ch1.csv" u 1:2 w l,\')
     enddo
-    call f%write('"'+this%csv_wave_file+'_'+zfill(this%num_logger,3)+'_HoverV-spectra_NS.csv" u 1:2 w l')
+    call f%write('"'+this%csv_wave_file+'_'+zfill(this%num_logger,3)+'_HoverV-spectra_Ch3_Ch1.csv" u 1:2 w l')
     call f%write('unset multiplot')
 
     do i=1,this%num_logger
@@ -799,17 +799,17 @@ subroutine pdf_SPAC(this,name)
             call f%write('unset logscale')
             call f%write('unset format y')
             call f%write('unset key')
-            call f%write('set title "H/V (EW)"')
+            call f%write('set title "H/V (Ch1/Ch2)"')
             call f%write('set logscale')
             call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
             call f%write('set ylabel "Spectral ratio" font "Times,10"')
 
             call f%write('plot  \')
-            call f%write('"'+this%csv_wave_file+'_001_HoverV-spectra_EW.csv" u 1:2 w l,\')
+            call f%write('"'+this%csv_wave_file+'_001_HoverV-spectra_Ch2_Ch1.csv" u 1:2 w l,\')
             do i=2,this%num_logger-1
-                call f%write('"'+this%csv_wave_file+'_'+zfill(i,3)+'_HoverV-spectra_EW.csv" u 1:2 w l,\')
+                call f%write('"'+this%csv_wave_file+'_'+zfill(i,3)+'_HoverV-spectra_Ch2_Ch1.csv" u 1:2 w l,\')
             enddo
-            call f%write('"'+this%csv_wave_file+'_'+zfill(this%num_logger,3)+'_HoverV-spectra_EW.csv" u 1:2 w l \')
+            call f%write('"'+this%csv_wave_file+'_'+zfill(this%num_logger,3)+'_HoverV-spectra_Ch2_Ch1.csv" u 1:2 w l \')
             call f%write(", '"+this%best_1_HoverV+"' u 1:2 lt 12 w l \" )
             call f%write(", '"+this%best_2_HoverV+"' u 1:2 lt 13 w l \" )
             call f%write(", '"+this%best_3_HoverV+"' u 1:2 lt 14 w l " )
@@ -819,11 +819,11 @@ subroutine pdf_SPAC(this,name)
             call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
             call f%write('set ylabel "Spectral ratio" font "Times,10"')
             call f%write('plot  \')
-            call f%write('"'+this%csv_wave_file+'_001_HoverV-spectra_NS.csv" u 1:2 w l,\')
+            call f%write('"'+this%csv_wave_file+'_001_HoverV-spectra_CH3_Ch1.csv" u 1:2 w l,\')
             do i=2,this%num_logger-1
-                call f%write('"'+this%csv_wave_file+'_'+zfill(i,3)+'_HoverV-spectra_NS.csv" u 1:2 w l,\')
+                call f%write('"'+this%csv_wave_file+'_'+zfill(i,3)+'_HoverV-spectra_CH3_Ch1.csv" u 1:2 w l,\')
             enddo
-            call f%write('"'+this%csv_wave_file+'_'+zfill(this%num_logger,3)+'_HoverV-spectra_NS.csv" u 1:2 w l \')
+            call f%write('"'+this%csv_wave_file+'_'+zfill(this%num_logger,3)+'_HoverV-spectra_CH3_Ch1.csv" u 1:2 w l \')
             call f%write(", '"+this%best_1_HoverV+"' u 1:2 lt 12 w l \" )
             call f%write(", '"+this%best_2_HoverV+"' u 1:2 lt 13 w l \" )
             call f%write(", '"+this%best_3_HoverV+"' u 1:2 lt 14 w l " )
