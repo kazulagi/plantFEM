@@ -13,6 +13,18 @@ module SpectreAnalysisClass
         integer(int32) :: last_file_id 
         real(real64),allocatable :: Freq(:)
 
+        real(real64) :: in1 = 0.0d0
+        real(real64) :: in2 = 0.0d0
+        real(real64) :: out1 = 0.0d0
+        real(real64) :: out2 = 0.0d0
+
+
+        complex(real64) :: in1_cmplx = 0.0d0
+        complex(real64) :: in2_cmplx = 0.0d0
+        complex(real64) :: out1_cmplx = 0.0d0
+        complex(real64) :: out2_cmplx = 0.0d0
+
+        
         complex(real64),allocatable :: FDD_S(:,:) !(singular-value idx,frequency)
         complex(real64),allocatable :: FDD_Phi(:,:,:) !(mode-idx, point-idx,frequency)
 
@@ -30,7 +42,16 @@ module SpectreAnalysisClass
         procedure,public :: freq_axis => freq_axisSpectreAnalysis
         procedure,public :: FDD => FDD_SpectreAnalysis
         procedure,public :: export => exportSpectreAnalysis
-        procedure,public :: bandpass => bandpassSpectreAnalysis
+
+        procedure,pass   :: bandpass_complex64_scalar_SpectreAnalysis
+        procedure,pass   :: bandpass_complex64_SpectreAnalysis 
+        procedure,pass   :: bandpass_real64_scalar_SpectreAnalysis
+        procedure,pass   :: bandpass_real64_SpectreAnalysis
+
+        generic,public :: bandpass => bandpass_complex64_scalar_SpectreAnalysis &
+            ,bandpass_complex64_SpectreAnalysis  &
+            ,bandpass_real64_scalar_SpectreAnalysis &
+            ,bandpass_real64_SpectreAnalysis 
 
         procedure,pass :: cutifSpectreAnalysis
         procedure,pass :: cutif_loggers_SpectreAnalysis
@@ -73,7 +94,15 @@ subroutine initSpectreAnalysis(this,sampling_Hz,max_file_num)
     allocate(this%num_lines(this%max_file_num,2) )
     allocate(this%BOL(this%max_file_num) )
 
-    
+    this % in1 = 0.0d0
+    this % in2 = 0.0d0
+    this % out1 = 0.0d0
+    this % out2 = 0.0d0
+
+    this % in1_cmplx = 0.0d0
+    this % in2_cmplx = 0.0d0
+    this % out1_cmplx = 0.0d0
+    this % out2_cmplx = 0.0d0
 
     this%last_file_id = 0
 
@@ -515,9 +544,10 @@ subroutine exportSpectreAnalysis(this,name)
 
 end subroutine
 ! ##########################################################
+! ##########################################################
 
-function bandpassSpectreAnalysis(this,x,freq_range) result(ft)
-    class(SpectreAnalysis_),intent(in) :: this
+function bandpass_real64_SpectreAnalysis(this,x,freq_range) result(ft)
+    class(SpectreAnalysis_),intent(inout) :: this
     real(real64),allocatable :: ft(:)
     real(real32),intent(in) :: freq_range(1:2)
     real(real64),intent(in) :: x(:)
@@ -531,10 +561,6 @@ function bandpassSpectreAnalysis(this,x,freq_range) result(ft)
     real(real64) :: b1
     real(real64) :: b2,samplerate,freq,bw
 
-    real(real64) :: in1 = 0.0d0
-    real(real64) :: in2 = 0.0d0
-    real(real64) :: out1 = 0.0d0
-    real(real64) :: out2 = 0.0d0
     integer(int32) :: i
     
     freq = minval(freq_range)
@@ -573,17 +599,211 @@ function bandpassSpectreAnalysis(this,x,freq_range) result(ft)
     ft = zeros(size(x))
     do i=1,size(x)
     	! 入力信号にフィルタを適用し、出力信号として書き出す。
-    	ft(i) = b0/a0 * x(i) + b1/a0 * in1  + b2/a0 * in2 - a1/a0 * out1 - a2/a0 * out2
+    	ft(i) = b0/a0 * x(i) + b1/a0 * this%in1  + b2/a0 * this%in2 - a1/a0 * this%out1 - a2/a0 * this%out2
 
-        in2  = in1;       ! 2つ前の入力信号を更新
-        in1  = x(i);  ! 1つ前の入力信号を更新
+        this%in2  = this%in1;       ! 2つ前の入力信号を更新
+        this%in1  = x(i);  ! 1つ前の入力信号を更新
 
-        out2 = out1;      ! 2つ前の出力信号を更新
-        out1 = ft(i); ! 1つ前の出力信号を更新
+        this%out2 = this%out1;      ! 2つ前の出力信号を更新
+        this%out1 = ft(i); ! 1つ前の出力信号を更新
 
     enddo
 end function
 ! ##########################################################
+function bandpass_complex64_SpectreAnalysis(this,x,freq_range) result(ft)
+    class(SpectreAnalysis_),intent(inout) :: this
+    complex(real64),allocatable :: ft(:)
+    real(real32),intent(in) :: freq_range(1:2)
+    complex(real64),intent(in) :: x(:)
+    type(Math_) :: math
+    real(real64) :: omega
+    real(real64) :: alpha
+    real(real64) :: a0
+    real(real64) :: a1
+    real(real64) :: a2
+    real(real64) :: b0
+    real(real64) :: b1
+    real(real64) :: b2,samplerate,freq,bw
+
+    integer(int32) :: i
+    
+    freq = minval(freq_range)
+    bw = maxval(freq_range) - minval(freq_range)
+
+    if(.not. this%initialized)then
+        print *, "ERROR >> bandpassSpectreAnalysis >> please call %init(sampling_Hz)"
+        return
+    endif
+
+    samplerate = this%sampling_Hz
+
+    ! それぞれの変数は下記のとおりとする
+    ! float samplerate … サンプリング周波数
+    ! float freq … カットオフ周波数
+    ! float bw   … 帯域幅
+
+
+    omega = 2.0d0 * math%pi *  freq/samplerate;
+    alpha = sin(omega) * sinh(log(2.0d0) / 2.0d0 * bw * omega / sin(omega));
+    a0 =  1.0d0 + alpha;
+    a1 = -2.0d0 * cos(omega);
+    a2 =  1.0d0 - alpha;
+    b0 =  alpha;
+    b1 =  0.0d0;
+    b2 = -alpha;
+
+    ! https://www.utsbox.com/?page_id=523
+    ! それぞれの変数は下記のとおりとする
+    ! 　float input[]  …入力信号の格納されたバッファ。
+    ! 　flaot output[] …フィルタ処理した値を書き出す出力信号のバッファ。
+    ! 　int   size     …入力信号・出力信号のバッファのサイズ。
+    ! 　float in1, in2, out1, out2  …フィルタ計算用のバッファ変数。初期値は0。
+    ! 　float a0, a1, a2, b0, b1, b2 …フィルタの係数。 別途算出する。
+    !for(int i = 0; i < size; i++)
+    ft = zeros(size(x))
+    do i=1,size(x)
+    	! 入力信号にフィルタを適用し、出力信号として書き出す。
+    	ft(i) = b0/a0 * x(i) + b1/a0 * this%in1_cmplx  + b2/a0 * this%in2_cmplx - a1/a0 * this%out1_cmplx - a2/a0 * this%out2_cmplx
+
+        this%in2_cmplx  = this%in1_cmplx;       ! 2つ前の入力信号を更新
+        this%in1_cmplx  = x(i);  ! 1つ前の入力信号を更新
+
+        this%out2_cmplx = this%out1_cmplx;      ! 2つ前の出力信号を更新
+        this%out1_cmplx = ft(i); ! 1つ前の出力信号を更新
+
+    enddo
+end function
+! ##########################################################
+
+! ##########################################################
+function bandpass_complex64_scalar_SpectreAnalysis(this,x,freq_range) result(ft)
+    class(SpectreAnalysis_),intent(inout) :: this
+    complex(real64) :: ft
+    real(real32),intent(in) :: freq_range(1:2)
+    complex(real64),intent(in) :: x
+    type(Math_) :: math
+    real(real64) :: omega
+    real(real64) :: alpha
+    real(real64) :: a0
+    real(real64) :: a1
+    real(real64) :: a2
+    real(real64) :: b0
+    real(real64) :: b1
+    real(real64) :: b2,samplerate,freq,bw
+
+    integer(int32) :: i
+    
+    freq = minval(freq_range)
+    bw = maxval(freq_range) - minval(freq_range)
+
+    if(.not. this%initialized)then
+        print *, "ERROR >> bandpassSpectreAnalysis >> please call %init(sampling_Hz)"
+        return
+    endif
+
+    samplerate = this%sampling_Hz
+
+    ! それぞれの変数は下記のとおりとする
+    ! float samplerate … サンプリング周波数
+    ! float freq … カットオフ周波数
+    ! float bw   … 帯域幅
+
+
+    omega = 2.0d0 * math%pi *  freq/samplerate;
+    alpha = sin(omega) * sinh(log(2.0d0) / 2.0d0 * bw * omega / sin(omega));
+    a0 =  1.0d0 + alpha;
+    a1 = -2.0d0 * cos(omega);
+    a2 =  1.0d0 - alpha;
+    b0 =  alpha;
+    b1 =  0.0d0;
+    b2 = -alpha;
+
+    ! https://www.utsbox.com/?page_id=523
+    ! それぞれの変数は下記のとおりとする
+    ! 　float input[]  …入力信号の格納されたバッファ。
+    ! 　flaot output[] …フィルタ処理した値を書き出す出力信号のバッファ。
+    ! 　int   size     …入力信号・出力信号のバッファのサイズ。
+    ! 　float in1, in2, out1, out2  …フィルタ計算用のバッファ変数。初期値は0。
+    ! 　float a0, a1, a2, b0, b1, b2 …フィルタの係数。 別途算出する。
+    !for(int i = 0; i < size; i++)
+    
+    
+	! 入力信号にフィルタを適用し、出力信号として書き出す。
+	ft = b0/a0 * x + b1/a0 * this%in1_cmplx  + b2/a0 * this%in2_cmplx - a1/a0 * this%out1_cmplx - a2/a0 * this%out2_cmplx
+    this%in2_cmplx  = this%in1_cmplx;       ! 2つ前の入力信号を更新
+    this%in1_cmplx  = x;  ! 1つ前の入力信号を更新
+    this%out2_cmplx = this%out1_cmplx;      ! 2つ前の出力信号を更新
+    this%out1_cmplx = ft; ! 1つ前の出力信号を更新
+
+    
+end function
+! ##########################################################
+
+! ##########################################################
+function bandpass_real64_scalar_SpectreAnalysis(this,x,freq_range) result(ft)
+    class(SpectreAnalysis_),intent(inout) :: this
+    real(real64) :: ft
+    real(real32),intent(in) :: freq_range(1:2)
+    real(real64),intent(in) :: x
+    type(Math_) :: math
+    real(real64) :: omega
+    real(real64) :: alpha
+    real(real64) :: a0
+    real(real64) :: a1
+    real(real64) :: a2
+    real(real64) :: b0
+    real(real64) :: b1
+    real(real64) :: b2,samplerate,freq,bw
+
+    integer(int32) :: i
+    
+    freq = minval(freq_range)
+    bw = maxval(freq_range) - minval(freq_range)
+
+    if(.not. this%initialized)then
+        print *, "ERROR >> bandpassSpectreAnalysis >> please call %init(sampling_Hz)"
+        return
+    endif
+
+    samplerate = this%sampling_Hz
+
+    ! それぞれの変数は下記のとおりとする
+    ! float samplerate … サンプリング周波数
+    ! float freq … カットオフ周波数
+    ! float bw   … 帯域幅
+
+
+    omega = 2.0d0 * math%pi *  freq/samplerate;
+    alpha = sin(omega) * sinh(log(2.0d0) / 2.0d0 * bw * omega / sin(omega));
+    a0 =  1.0d0 + alpha;
+    a1 = -2.0d0 * cos(omega);
+    a2 =  1.0d0 - alpha;
+    b0 =  alpha;
+    b1 =  0.0d0;
+    b2 = -alpha;
+
+    ! https://www.utsbox.com/?page_id=523
+    ! それぞれの変数は下記のとおりとする
+    ! 　float input[]  …入力信号の格納されたバッファ。
+    ! 　flaot output[] …フィルタ処理した値を書き出す出力信号のバッファ。
+    ! 　int   size     …入力信号・出力信号のバッファのサイズ。
+    ! 　float in1, in2, out1, out2  …フィルタ計算用のバッファ変数。初期値は0。
+    ! 　float a0, a1, a2, b0, b1, b2 …フィルタの係数。 別途算出する。
+    !for(int i = 0; i < size; i++)
+    
+    
+	! 入力信号にフィルタを適用し、出力信号として書き出す。
+	ft = b0/a0 * x + b1/a0 * this%in1_cmplx  + b2/a0 * this%in2_cmplx - a1/a0 * this%out1_cmplx - a2/a0 * this%out2_cmplx
+    this%in2_cmplx  = this%in1_cmplx;       ! 2つ前の入力信号を更新
+    this%in1_cmplx  = x;  ! 1つ前の入力信号を更新
+    this%out2_cmplx = this%out1_cmplx;      ! 2つ前の出力信号を更新
+    this%out1_cmplx = ft; ! 1つ前の出力信号を更新
+
+    
+end function
+! ##########################################################
+
+
 function whiteNoizeSpectreAnalysis(this,n,t) result(x)
     class(SpectreAnalysis_),intent(in) :: this
     real(real64),allocatable,optional,intent(inout) :: t(:)

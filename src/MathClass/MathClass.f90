@@ -44,6 +44,9 @@ module MathClass
 		module procedure imaginary_partComplex64, imaginary_partComplex32
 	end interface
 
+	interface arg
+		module procedure arg_complex64,arg_complex64_vector,arg_complex64_tensor
+	end interface
 	
 	interface norm
 		module procedure norm_mat,norm_vec
@@ -121,11 +124,13 @@ module MathClass
 contains
 
 ! 
-function FFT_file_to_file(infile,outfile,window_size,dt,column) result(FourierSpectrum)
+function FFT_file_to_file(infile,outfile,window_size,dt,column,as_abs) result(FourierSpectrum)
 	character(*),intent(in) :: infile,outfile
 	integer(int32),intent(in) :: window_size,column
-	real(real64) :: dt,max_freq,min_freq
-
+	real(real64),intent(in) :: dt
+	real(real64) :: max_freq,min_freq
+	logical,optional,intent(in) :: as_abs
+	logical :: export_as_abs
 	complex(real64),allocatable :: FourierSpectrum(:,:),x(:),FFT_X(:)
 
 	integer(int32) :: ifile,ofile,i
@@ -153,11 +158,21 @@ function FFT_file_to_file(infile,outfile,window_size,dt,column) result(FourierSp
 	FFT_X = FFT(X)
 	FourierSpectrum(:,2) = FFT_X(1:window_size/2)
 	
-	open(newunit=ofile,file=outfile,status='replace')
-	do i=1,window_size/2
-		write(ofile,*) dble(FourierSpectrum(i,1)),dble(FourierSpectrum(i,2)),imag(FourierSpectrum(i,2))
-	enddo
-	close(ofile)
+	export_as_abs = input(default=.false.,option=as_abs)
+
+	if(export_as_abs )then
+		open(newunit=ofile,file=outfile,status='replace')
+		do i=1,window_size/2
+			write(ofile,*) dble(FourierSpectrum(i,1)),abs(FourierSpectrum(i,2))
+		enddo
+		close(ofile)
+	else
+		open(newunit=ofile,file=outfile,status='replace')
+		do i=1,window_size/2
+			write(ofile,*) dble(FourierSpectrum(i,1)),dble(FourierSpectrum(i,2)),imag(FourierSpectrum(i,2))
+		enddo
+		close(ofile)
+	endif
 	
 
 	
@@ -1034,8 +1049,8 @@ subroutine calcgz(x2,x11,x12,nod_coord,gzi)
 	 
 end subroutine calcgz
 !==========================================================
-function arg(comp) result(theta)
-	complex,intent(in) :: comp
+function arg_complex64(comp) result(theta)
+	complex(real64),intent(in) :: comp
 	real(real64) :: theta,re,im
 	real(real64) ::pi=3.141592653589793d0
 
@@ -1053,10 +1068,39 @@ function arg(comp) result(theta)
 	elseif(re==0.0d0 .and. im<0.0d0)then
 		theta = -pi/2.0d0
 	else
-		print *, "arg :: indeterminate"
-		stop 
+		theta=0.0d0
 	endif
 
+
+end function
+!==========================================================
+!==========================================================
+function arg_complex64_vector(comp) result(theta)
+	complex(real64),intent(in) :: comp(:)
+	real(real64),allocatable :: theta(:)
+	integer(int32) :: i
+
+	allocate(theta(size(comp) ))
+	do i=1,size(comp)
+		theta(i) = arg_complex64(comp(i) )
+	enddo
+
+end function
+!==========================================================
+
+
+!==========================================================
+function arg_complex64_tensor(comp) result(theta)
+	complex(real64),intent(in) :: comp(:,:)
+	real(real64),allocatable :: theta(:,:)
+	integer(int32) :: i,j
+
+	allocate(theta(size(comp,1),size(comp,2) ))
+	do i=1,size(comp,2)
+		do j=1,size(comp,1)
+			theta(j,i) = arg_complex64(comp(j,i) )
+		enddo
+	enddo
 
 end function
 !==========================================================
@@ -1067,7 +1111,7 @@ function cubic_equation(a,b,c,d) result(x)
 	real(real64) :: x(3),theta
 	real(real64) ::Deq,A_,B_,C_,p,q
 	real(real64) ::pi=3.141592653589793d0
-	complex  :: comp
+	complex(real64)  :: comp
 	!https://qiita.com/yotapoon/items/42b1749b69c264d6f486
 
 	A_ = b/a
@@ -3007,5 +3051,30 @@ function int_from_logical_vector(logical_value ) result(ret)
 		endif
 	enddo
 end function
+! ###########################################################
+
+!function arg_complex64(z) result(theta)
+!	complex(real64),intent(in) :: z
+!	real(real64) ::  theta, x, y
+!	type(Math_) :: math
+!
+!	x = dble(z)
+!	y = imag(z)
+!
+!	if(x>0.0d0)then
+!		theta = atan(y/x) 
+!	elseif(x<0.0d0 .and. y>=0.0d0)then
+!		theta = atan(y/x) + math%pi
+!	elseif(x<0.0d0 .and. y<0.0d0)then
+!		theta = atan(y/x) - math%pi
+!	elseif(x==0.0d0 .and. y>0.0d0)then
+!		theta = math%pi/2.0d0
+!	elseif(x==0.0d0 .and. y<0.0d0)then
+!		theta = - math%pi/2.0d0
+!	else
+!		theta = 0.0d0
+!	endif
+!end function
+
 
 end module MathClass

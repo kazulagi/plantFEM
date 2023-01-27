@@ -120,6 +120,7 @@ module SparseClass
         procedure,pass :: tensor_log_complex64_crs
         procedure,pass :: fix_complex64_CRS
         procedure,pass :: tensor_d1_wave_kernel_complex64_crs
+        procedure,pass :: tensor_wave_kernel_complex_64_crs
 
         procedure,pass :: tensor_cos_sqrt_cos_sqrt_complex64_crs
         procedure,pass :: tensor_cos_sqrt_sinc_sqrt_complex64_crs
@@ -142,6 +143,7 @@ module SparseClass
         generic,public :: tensor_sinc_sqrt_sinc_sqrt => tensor_sinc_sqrt_sinc_sqrt_complex64_crs
         !<<< not verified.
 
+        generic,public :: tensor_wave_kernel => tensor_wave_kernel_complex_64_crs
         generic,public :: tensor_d1_wave_kernel => tensor_d1_wave_kernel_complex64_crs
         generic,public :: fix => fix_complex64_CRS,fixCRS
 
@@ -2977,6 +2979,39 @@ function tensor_sinc_sqrt_complex64_crs(this,v,tol,itrmax,coeff) result(retA_v)
 end function
 ! #####################################################
 
+
+function tensor_wave_kernel_complex_64_crs(this,u0,v0,tol,itrmax,h,t) result(u)
+    class(CRS_),intent(in) :: this
+    complex(real64),intent(in) :: u0(:),v0(:)
+    complex(real64),allocatable:: Adu(:),Adv(:),u(:)
+    complex(real64) :: cos_coeff,sinc_coeff
+    real(real64),intent(in) :: h,t
+
+    integer(int32),optional,intent(in) :: itrmax
+    real(real64),optional,intent(in) :: tol
+
+    integer(int32) :: itr_max=100
+    real(real64)   :: itr_tol=dble(1.0e-16)
+
+    type(Math_) :: math
+    integer(int32) :: n
+
+    if(present(itrmax) )then
+        itr_max = itrmax
+    endif
+
+    if(present(tol) )then
+        itr_tol = tol
+    endif
+    ! a + 2 h M^{-1} v + M^{-1} K u = 0
+    ! u(t) = exp(-ht)( cos(t*sqrt(M^{-1} K - h^2 I)  ) u 
+    !      + t*sinc( t*sqrt(M^{-1} K - h^2 I) ) v
+    
+    u =  exp(-h*t)*this%tensor_cos_sqrt(   v=u0,tol=itr_tol,itrmax=itr_max,coeff=t+0*math%i ) &
+      +  exp(-h*t)*t*this%tensor_sinc_sqrt(v=v0,tol=itr_tol,itrmax=itr_max,coeff=t+0*math%i) 
+
+
+end function
 
 
 ! ###################################################
