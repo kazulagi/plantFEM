@@ -9900,7 +9900,10 @@ function MassMatrix_as_CRS_FEMDomain(this,Density,DOF,omp) result(MassMatrix)
 
 	MassMatrix = this%ZeroMatrix(DOF=DOF)
 	val = MassMatrix%val
-	!$OMP parallel do private(eDiffMat,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,col_id,i,pid_1,pid_2,loc_pid_1,loc_pid_2,DOF_1,DOF_2) reduction(+:val) 
+	!$OMP parallel do &
+	!$OMP private(eDiffMat,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,&
+	!$OMP col_id,i,pid_1,pid_2,loc_pid_1,loc_pid_2,DOF_1,DOF_2) &
+	!$OMP reduction(+:val) 
 	do ElementID=1,this%ne()
 		eDiffMat = this%MassMatrix(&
 			ElementID=ElementID,&
@@ -10470,7 +10473,10 @@ function StiffnessMatrix_as_CRS_FEMDomain(this,YoungModulus,PoissonRatio,omp) re
 	!COO = this%ZeroMatrix_as_COO(DOF=DOF)
 	StiffnessMatrix = this%ZeroMatrix(DOF=DOF)
 	val = StiffnessMatrix%val
-	!$OMP parallel do private(eDiffMat,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,col_id,i,pid_1,pid_2,loc_pid_1,loc_pid_2,DOF_1,DOF_2) reduction(+:val) 
+	!$OMP parallel do &
+	!$OMP private(eDiffMat,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,col_id,i,&
+	!$OMP pid_1,pid_2,loc_pid_1,loc_pid_2,DOF_1,DOF_2)&
+	!$OMP  reduction(+:val) 
 	do ElementID=1,this%ne()
 		eDiffMat = this%StiffnessMatrix(&
 			ElementID=ElementID,&
