@@ -789,7 +789,7 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio
         endif
         
         select case(timeIntegral)
-            case("Exponential-Integrator","AEI","EI")
+            case("Exponential-Integrator","AEI","EI","WKF")
                 ! Use augmented exponential integrator (Tomobe, in prep.)
                 
                 ! load last values
@@ -838,45 +838,30 @@ subroutine runSeismicAnalysis(obj,t0,timestep,wave,AccelLimit,disp_magnify_ratio
                     + obj%getAbsorbingBoundaryForce() 
 
                 h = obj%damping_ratio_h
-                if(h<1.0d0)then
-                    alpha = sqrt(sqrt(abs(1.0d0-h*h)))*math%i
-                else
-                    alpha = sqrt(h*h-1.0d0)
-                endif
-                ! boundary conditions
-                if(norm(F_vec)==0.0d0 )then
-                    F_vec(:) = 0.0d0
-                else
-                    call K_matrix%BICGSTAB(x=K_inv_F,b=F_vec)
-                endif
+                
                 
                 fix_idx = obj%modal%solver%get_fix_idx()
                 fix_val = obj%modal%solver%get_fix_value()
 
-                if(.not.allocated(obj%u_p))then
-                    obj%u_p = 0.50d0*obj%U_n(:)
-                endif
-
-                if(.not.allocated(obj%u_m))then
-                    obj%u_m = 0.50d0*obj%U_n(:)
-                endif
-
-                obj%u_p = crs%tensor_exp_sqrt(v=obj%u_p,&
-                    tol = dble(1.0e-10),coeff= dt*alpha - dt*h,&
-                    itrmax=100,fix_idx=fix_idx)+K_inv_F/2.0d0
-                obj%u_m = crs%tensor_exp_sqrt(v=obj%u_m,&
-                    tol = dble(1.0e-10),coeff=-dt*alpha - dt*h,&
-                    itrmax=100,fix_idx=fix_idx)+K_inv_F/2.0d0
+                ! under revision
+                ! no boundary conditions are considered.
                                 
-                obj%U   = dble(obj%u_p) + dble(obj%u_m)
-                obj%U_n = obj%U
-                
+                obj%U   = crs%tensor_wave_kernel(u0=obj%u_n,v0=obj%v_n,&
+                    h=h,t=dt,itrmax=100)
+                    
                 ! how to update velocity and acceleration
-                obj%V   = (-h+alpha)*crs%tensor_sqrt(v=obj%u_p,tol=dble(1.0e-10),itrmax=100) &
-                    + (-h-alpha)*crs%tensor_sqrt(v=obj%u_m,tol=dble(1.0e-10),itrmax=100) 
+                obj%V   = crs%tensor_wave_kernel(&
+                    u0=-h*dt*obj%u_n+obj%v_n,&
+                    v0=-crs%matmul(obj%u_n)-h*dt*obj%v_n,&
+                    h=h,t=dt,itrmax=100)
+                    
+                obj%A   = crs%tensor_wave_kernel(&
+                    u0=-h*dt*(-h*dt*obj%u_n+obj%v_n)+(-crs%matmul(obj%u_n)-h*dt*obj%v_n),&
+                    v0=-crs%matmul(-h*dt*obj%u_n+obj%v_n )-h*dt*(-crs%matmul(obj%u_n)-h*dt*obj%v_n),&
+                    h=h,t=dt,itrmax=100)
+
                 obj%V_n = obj%V
-                
-                obj%A   = ((-h+alpha)**2)*crs%matmul(obj%u_p)+((-h-alpha)**2)*crs%matmul(obj%u_m)
+                obj%U_n = obj%U
                 obj%A_n = obj%A
                 
 
