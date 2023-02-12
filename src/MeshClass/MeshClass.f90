@@ -138,6 +138,7 @@ module MeshClass
         procedure :: killElement => killElementMesh
 
         procedure :: length => lengthMesh
+        procedure :: Line => Line_1D_Mesh
         procedure :: Laplacian => LaplacianMesh
         
         procedure :: mergeMesh => MergeMesh
@@ -10589,4 +10590,31 @@ subroutine killElementMesh(obj,blacklist,flag)
 
 end subroutine
 ! ###################################################################
+
+
+recursive subroutine Line_1D_Mesh(this,x_num,x_axis,x_len)
+    class(Mesh_),intent(inout) :: this
+
+    integer(int32),optional,intent(in) :: x_num
+    real(real64),optional,intent(in)::x_len, x_axis(:)
+    real(real64),allocatable :: xaxis(:)
+    integer(int32) :: i
+
+    if(present(x_num) )then
+        xaxis = linspace([0.0d0,1.0d0],x_num+1)
+        xaxis = xaxis*input(default=1.0d0,option=x_len)
+        call this%Line(x_axis=xaxis)
+        return
+    endif
+
+    this%nodcoord = zeros(size(x_axis),3)
+    this%nodcoord(:,1) = x_axis(:)
+
+    this%elemnod = int(zeros(size(x_axis)-1,2) )
+    do i=1,size(x_axis)-1
+        this%elemnod(i,1:2) = [i,i+1]
+    enddo
+
+end subroutine
+
 end module MeshClass

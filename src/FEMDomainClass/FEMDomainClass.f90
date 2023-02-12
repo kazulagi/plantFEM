@@ -6875,6 +6875,10 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 				endif
 				return
 			endif
+		case ("Line","Line1D")
+			call obj%mesh%line(x_num=x_num,x_axis=x_axis)
+			return
+
 	end select
 
 	if(present(z_num) .or. present(z_len) )then
@@ -7900,6 +7904,8 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 	endif
 
 	if( .not.allocated(obj%mesh%elemnod) )then
+		VTK_CELL_TYPE=1 ! point
+	elseif(obj%nd()==3 .and. obj%nne()==2 )then
 		VTK_CELL_TYPE=1 ! point
 	elseif(obj%nd()==2 .and. obj%nne()==3 )then
 		VTK_CELL_TYPE=5 ! triangle
@@ -9855,7 +9861,7 @@ end function
 function MassMatrix_as_CRS_FEMDomain(this,Density,DOF,omp) result(MassMatrix)
 	class(FEMDomain_),intent(inout) :: this
 	real(real64),intent(in) :: Density(:)
-	integer(int32),intent(in) :: DOF
+	integer(int32),optional,intent(in) :: DOF
 	logical,optional,intent(in) :: omp
 	
 	type(CRS_) :: MassMatrix
@@ -9863,8 +9869,34 @@ function MassMatrix_as_CRS_FEMDomain(this,Density,DOF,omp) result(MassMatrix)
 	integer(int32) :: ElementID,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,&
 		pid_1,pid_2,DOF_1,DOF_2,loc_pid_1,loc_pid_2,i,col_id
 	real(real64),allocatable :: eDiffMat(:,:),val(:)
+	real(real64) :: Length,entry_val
 
 	
+
+	! >>>>>>>> FOR 1-D case >>>>>>>> 
+	if(this%nne()==2 )then
+		! stiffness matrix for 1-D
+		call coo%init(this%nn())
+		do ElementID=1,this%ne() 
+			Length = norm( this%mesh%nodcoord(this%mesh%elemnod(ElementID,1),:) &
+				- this%mesh%nodcoord(this%mesh%elemnod(ElementID,2),:)  )
+			entry_val = Density(ElementID)*Length/2.0d0
+			call coo%add( this%mesh%elemnod(ElementID,1),this%mesh%elemnod(ElementID,1), entry_val )
+			call coo%add( this%mesh%elemnod(ElementID,1),this%mesh%elemnod(ElementID,2), entry_val )
+			call coo%add( this%mesh%elemnod(ElementID,2),this%mesh%elemnod(ElementID,1), entry_val )
+			call coo%add( this%mesh%elemnod(ElementID,2),this%mesh%elemnod(ElementID,2), entry_val )
+		enddo
+		MassMatrix = coo%to_crs()
+		return
+	endif
+	! <<<<<<<< FOR 1-D case <<<<<<<<
+
+
+	if(.not.present(DOF) )then
+		print *, "ERROR >> MassMatrix_as_CRS_FEMDomain should have arg [DOF]"
+		stop
+	endif
+
 	if(present(omp) )then
 		if(.not.omp)then
 			MassMatrix = this%ZeroMatrix(DOF=DOF)
@@ -10427,15 +10459,40 @@ end function
 
 function StiffnessMatrix_as_CRS_FEMDomain(this,YoungModulus,PoissonRatio,omp) result(StiffnessMatrix)
 	class(FEMDomain_),intent(inout) :: this
-	real(real64),intent(in) :: YoungModulus(:),PoissonRatio(:)
+	real(real64),intent(in) :: YoungModulus(:)
+	real(real64),optional,intent(in) :: PoissonRatio(:)
 	logical,optional,intent(in) :: omp
 	type(CRS_) :: StiffnessMatrix
 	type(COO_) :: COO
 	integer(int32) :: ElementID,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,&
 		pid_1,pid_2,DOF_1,DOF_2,DOF,loc_pid_1,loc_pid_2,i,col_id
+	real(real64) :: Length,entry_val
 	real(real64),allocatable :: val(:)
 	real(real64),allocatable :: eDiffMat(:,:)
 
+	! >>>>>>>> FOR 1-D case >>>>>>>> 
+	if(this%nne()==2 )then
+		! stiffness matrix for 1-D
+		call coo%init(this%nn())
+		do ElementID=1,this%ne() 
+			Length = norm( this%mesh%nodcoord(this%mesh%elemnod(ElementID,1),:) &
+				- this%mesh%nodcoord(this%mesh%elemnod(ElementID,2),:)  )
+			entry_val = YoungModulus(ElementID)/Length
+			call coo%add( this%mesh%elemnod(ElementID,1),this%mesh%elemnod(ElementID,1),entry_val )
+			call coo%add( this%mesh%elemnod(ElementID,1),this%mesh%elemnod(ElementID,2), - entry_val )
+			call coo%add( this%mesh%elemnod(ElementID,2),this%mesh%elemnod(ElementID,1), - entry_val )
+			call coo%add( this%mesh%elemnod(ElementID,2),this%mesh%elemnod(ElementID,2),entry_val )
+		enddo
+		StiffnessMatrix = coo%to_crs()
+		return
+	endif
+	! <<<<<<<< FOR 1-D case <<<<<<<<
+
+
+	if(.not.present(PoissonRatio) )then
+		print *, "ERROR >> MassMatrix_as_CRS_FEMDomain should have arg [DOF]"
+		stop
+	endif
 
 	if(present(omp) )then
 		if(.not.omp)then

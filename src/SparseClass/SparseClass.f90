@@ -114,13 +114,22 @@ module SparseClass
 
         procedure,pass :: tensor_exponential_complex64_crs
         procedure,pass :: tensor_exp_sqrt_complex64_crs
+
         procedure,pass :: tensor_cos_sqrt_complex64_crs
+        procedure,pass :: tensor_cos_sqrt_real64_crs
+
         procedure,pass :: tensor_sinc_sqrt_complex64_crs
+        procedure,pass :: tensor_sinc_sqrt_real64_crs
+
         procedure,pass :: tensor_sqrt_complex64_crs
         procedure,pass :: tensor_log_complex64_crs
         procedure,pass :: fix_complex64_CRS
         procedure,pass :: tensor_d1_wave_kernel_complex64_crs
         procedure,pass :: tensor_wave_kernel_complex_64_crs
+        procedure,pass :: tensor_wave_kernel_real_64_crs
+        procedure,pass :: tensor_wave_kernel_RHS_real_64_crs
+        procedure,pass :: tensor_wave_kernel_RHS_complex_64_crs
+
 
         procedure,pass :: tensor_cos_sqrt_cos_sqrt_complex64_crs
         procedure,pass :: tensor_cos_sqrt_sinc_sqrt_complex64_crs
@@ -131,8 +140,12 @@ module SparseClass
         generic,public :: tensor_exponential => tensor_exponential_complex64_crs,tensor_exponential_crs
         generic,public :: tensor_exp => tensor_exponential_complex64_crs,tensor_exponential_crs
         generic,public :: tensor_exp_sqrt => tensor_exp_sqrt_complex64_crs,tensor_exp_sqrt_crs
-        generic,public :: tensor_cos_sqrt => tensor_cos_sqrt_complex64_crs
-        generic,public :: tensor_sinc_sqrt => tensor_sinc_sqrt_complex64_crs
+        
+        generic,public :: tensor_cos_sqrt => tensor_cos_sqrt_complex64_crs,&
+            tensor_cos_sqrt_real64_crs
+        generic,public :: tensor_sinc_sqrt => tensor_sinc_sqrt_complex64_crs,&
+            tensor_sinc_sqrt_real64_crs
+
         generic,public :: tensor_sqrt => tensor_sqrt_complex64_crs,tensor_sqrt_crs
         generic,public :: tensor_log => tensor_log_complex64_crs,tensor_log_crs
         
@@ -143,7 +156,11 @@ module SparseClass
         generic,public :: tensor_sinc_sqrt_sinc_sqrt => tensor_sinc_sqrt_sinc_sqrt_complex64_crs
         !<<< not verified.
 
-        generic,public :: tensor_wave_kernel => tensor_wave_kernel_complex_64_crs
+        generic,public :: tensor_wave_kernel => tensor_wave_kernel_complex_64_crs,&
+            tensor_wave_kernel_real_64_crs
+        generic,public :: tensor_wave_kernel_RHS => tensor_wave_kernel_RHS_real_64_crs,&
+            tensor_wave_kernel_RHS_complex_64_crs
+        
         generic,public :: tensor_d1_wave_kernel => tensor_d1_wave_kernel_complex64_crs
         generic,public :: fix => fix_complex64_CRS,fixCRS
 
@@ -511,12 +528,36 @@ function matmulCRS(CRS,old_vector) result(new_vector)
     class(CRS_),intent(in) :: CRS
     complex(real64),intent(in)  :: Old_vector(:)
     complex(real64),allocatable :: new_vector(:)
+    integer(int32) :: n,row,CRS_id
+
   
-    new_vector = crs_matvec_generic_complex_SparseClass(&
-      CRS_value= dcmplx(CRS%val),&
-      CRS_col=CRS%col_idx,&
-      CRS_row_ptr=CRS%row_ptr,&
-      old_vector=old_vector)
+    n = size(CRS%row_ptr)-1
+    if(size(old_vector)/=n )then
+        print *, "ERROR crs_matvec :: inconsistent size for old_vector"
+        return
+    endif
+  
+    new_vector = zeros(n) 
+
+    ! accerelation
+    !$OMP parallel default(shared) private(CRS_id,row)
+    !$OMP do reduction(+:new_vector)
+    do row = 1, n
+        do CRS_id = CRS%row_ptr(row), CRS%row_ptr(row+1)-1
+            new_vector(row) = new_vector(row) + CRS%val(CRS_id)*old_vector(CRS%col_idx(CRS_id))
+        enddo
+    enddo
+    !$OMP end do
+    !$OMP end parallel 
+    
+!    new_vector = crs_matvec_generic_complex_SparseClass(&
+!      CRS_value= dcmplx(CRS%val),&
+!      CRS_col=CRS%col_idx,&
+!      CRS_row_ptr=CRS%row_ptr,&
+!      old_vector=old_vector)
+
+
+
   
   end function
   
@@ -593,7 +634,7 @@ function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector
 
 ! accerelation
 
-    !$OMP parallel default(shared) private(CRS_id,col)
+    !$OMP parallel default(shared) private(CRS_id,row,col)
     !$OMP do reduction(+:new_vector)
     do row = 1, n
         do CRS_id = CRS_row_ptr(row), CRS_row_ptr(row+1)-1
@@ -2491,7 +2532,7 @@ function tensor_log_crs_modified_Sparse(this,v,tol,itrmax,r) result(sqrtA_v)
         sqrtA_v = sqrtA_v + dv
         
 
-        if(maxval(abs(dv)) < tol) return
+        if(norm(abs(dv)) < tol) return
     enddo
      
 end function
@@ -2534,7 +2575,7 @@ function tensor_log_crs(this,v,tol,itrmax,r) result(sqrtA_v)
         endif
         sqrtA_v = sqrtA_v - dv
 
-        if(maxval(abs(dv)) < tol) return
+        if(norm(abs(dv)) < tol) return
     enddo
      
 end function
@@ -2925,7 +2966,7 @@ function tensor_log_complex64_crs(this,v,tol,itrmax) result(sqrtA_v)
         endif
         sqrtA_v = sqrtA_v + dv
 
-        if(maxval(abs(dv)) < tol) return
+        if(norm(abs(dv)) < tol) return
     enddo
      
 end function
@@ -2934,16 +2975,18 @@ end function
 
 
 ! ###################################################
-function tensor_sinc_sqrt_complex64_crs(this,v,tol,itrmax,coeff) result(retA_v)
+function tensor_sinc_sqrt_complex64_crs(this,v,tol,itrmax,coeff,debug,fix_idx) result(retA_v)
     class(CRS_),intent(in) :: this
     complex(real64),intent(in) :: v(:)
     complex(real64),optional,intent(in) :: coeff
     complex(real64),allocatable :: dv(:),retA_v(:)
+    integer(int32),optional,intent(in) :: fix_idx(:)
     integer(int32) :: k
     integer(int32),intent(in) :: itrmax
+    logical,optional,intent(in) :: debug
     real(real64),intent(in) :: tol
     type(Math_) :: math
-    complex(real64) :: a
+    complex(real64) :: a,b
 
     if(present(coeff) )then
         a=coeff
@@ -2958,10 +3001,21 @@ function tensor_sinc_sqrt_complex64_crs(this,v,tol,itrmax,coeff) result(retA_v)
     !k=0
     k=0
     retA_v = v
+
+    ! zero-fixed Dirichlet boundary
+    if(present(fix_idx) )then
+        retA_v(fix_idx)=0 
+    endif
     
     ! k=1
     k=1
     dv = a*a*this%matmul(v)
+
+    ! zero-fixed Dirichlet boundary
+    if(present(fix_idx) )then
+        dv(fix_idx)=0 
+    endif
+
     retA_v = retA_v  + ((-1.0d0)**k)*(sqrt(math%pi)*2.0d0**(-1-2*k) )&
     /gamma(1.0d0+k)/gamma(1.5d0+k)*dv
 
@@ -2970,29 +3024,115 @@ function tensor_sinc_sqrt_complex64_crs(this,v,tol,itrmax,coeff) result(retA_v)
         
         dv = a*a*this%matmul(dv)
 
-        retA_v = retA_v  + ((-1.0d0)**k)*(sqrt(math%pi)*2.0d0**(-1-2*k) )&
-        /gamma(1.0d0+k)/gamma(1.5d0+k)*dv
+        ! zero-fixed Dirichlet boundary
+        if(present(fix_idx) )then
+            dv(fix_idx)=0 
+        endif
+        b = ((-1.0d0)**k)*(sqrt(math%pi)*2.0d0**(-1-2*k) )&
+            /gamma(1.0d0+k)/gamma(1.5d0+k)
+        retA_v = retA_v  + b*dv
 
-        if(maxval(abs(dv)) < tol) return
+        if(norm(abs(b*dv)) < tol) return
+
+        if(present(debug) )then
+            if(debug)then
+                print *, k, norm(abs(b*dv))
+            endif
+        endif
+        
     enddo
      
 end function
 ! #####################################################
 
 
-function tensor_wave_kernel_complex_64_crs(this,u0,v0,tol,itrmax,h,t) result(u)
+
+! ###################################################
+function tensor_sinc_sqrt_real64_crs(this,v,tol,itrmax,coeff,debug,fix_idx) result(retA_v)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in) :: v(:)
+    real(real64),optional,intent(in) :: coeff
+    real(real64),allocatable :: dv(:),retA_v(:)
+    integer(int32),optional,intent(in) :: fix_idx(:)
+    integer(int32) :: k
+    integer(int32),intent(in) :: itrmax
+    logical,optional,intent(in) :: debug
+    real(real64),intent(in) :: tol
+    type(Math_) :: math
+    real(real64) :: a,b
+
+    if(present(coeff) )then
+        a=coeff
+    else
+        a=1.0d0
+    endif
+    ! sinc(sqrt(A) ) = \sum_{n=0}^{\infty} 
+    !c = 1.0d0
+    ! k = 0  
+    
+    
+    !k=0
+    k=0
+    retA_v = v
+
+    ! zero-fixed Dirichlet boundary
+    if(present(fix_idx) )then
+        retA_v(fix_idx)=0 
+    endif
+    
+    ! k=1
+    k=1
+    dv = a*a*this%matmul(v)
+
+    ! zero-fixed Dirichlet boundary
+    if(present(fix_idx) )then
+        dv(fix_idx)=0 
+    endif
+
+    retA_v = retA_v  + ((-1.0d0)**k)*(sqrt(math%pi)*2.0d0**(-1-2*k) )&
+    /gamma(1.0d0+k)/gamma(1.5d0+k)*dv
+
+    do k=2,itrmax
+        
+        
+        dv = a*a*this%matmul(dv)
+
+        ! zero-fixed Dirichlet boundary
+        if(present(fix_idx) )then
+            dv(fix_idx)=0 
+        endif
+        b = ((-1.0d0)**k)*(sqrt(math%pi)*2.0d0**(-1-2*k) )&
+            /gamma(1.0d0+k)/gamma(1.5d0+k)
+        retA_v = retA_v  + b*dv
+
+        if(norm(abs(b*dv)) < tol) return
+
+        if(present(debug) )then
+            if(debug)then
+                print *, k, norm(abs(b*dv))
+            endif
+        endif
+        
+    enddo
+     
+end function
+! #####################################################
+
+function tensor_wave_kernel_complex_64_crs(this,u0,v0,tol,itrmax,h,t,fix_idx,debug) result(u)
     class(CRS_),intent(in) :: this
     complex(real64),intent(in) :: u0(:),v0(:)
     complex(real64),allocatable:: Adu(:),Adv(:),u(:)
     complex(real64) :: cos_coeff,sinc_coeff
     real(real64),intent(in) :: h,t
+    logical,optional,intent(in) :: debug
 
     integer(int32),optional,intent(in) :: itrmax
     real(real64),optional,intent(in) :: tol
+    integer(int32),optional,intent(in) :: fix_idx(:)
 
     integer(int32) :: itr_max=100
     real(real64)   :: itr_tol=dble(1.0e-16)
-
+    logical :: debug_mode
     type(Math_) :: math
     integer(int32) :: n
 
@@ -3003,15 +3143,154 @@ function tensor_wave_kernel_complex_64_crs(this,u0,v0,tol,itrmax,h,t) result(u)
     if(present(tol) )then
         itr_tol = tol
     endif
-    ! a + 2 h M^{-1} v + M^{-1} K u = 0
-    ! u(t) = exp(-ht)( cos(t*sqrt(M^{-1} K - h^2 I)  ) u 
-    !      + t*sinc( t*sqrt(M^{-1} K - h^2 I) ) v
-    
-    u =  exp(-h*t)*this%tensor_cos_sqrt(   v=u0,tol=itr_tol,itrmax=itr_max,coeff=t+0*math%i ) &
-      +  exp(-h*t)*t*this%tensor_sinc_sqrt(v=v0,tol=itr_tol,itrmax=itr_max,coeff=t+0*math%i) 
 
+        ! a + 2 h M^{-1} v + M^{-1} K u = 0
+        ! u(t) = exp(-ht)( cos(t*sqrt(M^{-1} K - h^2 I)  ) u 
+        !      + t*sinc( t*sqrt(M^{-1} K - h^2 I) ) v
+
+    u =  exp(-h*t)*this%tensor_cos_sqrt(   v=u0,tol=itr_tol,itrmax=itr_max,&
+        coeff=t+0*math%i,debug=debug,fix_idx=fix_idx ) &
+      +  exp(-h*t)*t*this%tensor_sinc_sqrt(v=v0,tol=itr_tol,itrmax=itr_max,&
+        coeff=t+0*math%i,debug=debug,fix_idx=fix_idx ) 
+    
 
 end function
+
+function tensor_wave_kernel_real_64_crs(this,u0,v0,tol,itrmax,h,t,fix_idx,debug) result(u)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in) :: u0(:),v0(:)
+    real(real64),allocatable:: Adu(:),Adv(:),u(:)
+    real(real64) :: cos_coeff,sinc_coeff
+    real(real64),intent(in) :: h,t
+    logical,optional,intent(in) :: debug
+
+    integer(int32),optional,intent(in) :: itrmax
+    real(real64),optional,intent(in) :: tol
+    integer(int32),optional,intent(in) :: fix_idx(:)
+
+    integer(int32) :: itr_max=100
+    real(real64)   :: itr_tol=dble(1.0e-16)
+    logical :: debug_mode
+    type(Math_) :: math
+    integer(int32) :: n
+
+    if(present(itrmax) )then
+        itr_max = itrmax
+    endif
+
+    if(present(tol) )then
+        itr_tol = tol
+    endif
+
+        ! a + 2 h M^{-1} v + M^{-1} K u = 0
+        ! u(t) = exp(-ht)( cos(t*sqrt(M^{-1} K - h^2 I)  ) u 
+        !      + t*sinc( t*sqrt(M^{-1} K - h^2 I) ) v
+
+    u =  exp(-h*t)*this%tensor_cos_sqrt(   v=u0,tol=itr_tol,itrmax=itr_max,&
+        coeff=t,debug=debug,fix_idx=fix_idx ) &
+      +  exp(-h*t)*t*this%tensor_sinc_sqrt(v=v0,tol=itr_tol,itrmax=itr_max,&
+        coeff=t,debug=debug,fix_idx=fix_idx ) 
+    
+
+end function
+
+
+! ###################################################
+
+
+
+function tensor_wave_kernel_RHS_real_64_crs(this,RHS,t,tol,itrmax,fix_idx,debug) result(u)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in) :: RHS(:)
+    real(real64),allocatable:: u(:),du(:)
+    real(real64) :: cos_coeff,sinc_coeff
+    real(real64),intent(in) :: t
+    logical,optional,intent(in) :: debug
+
+    integer(int32),optional,intent(in) :: itrmax
+    real(real64),optional,intent(in) :: tol
+    integer(int32),optional,intent(in) :: fix_idx(:)
+
+    integer(int32) :: itr_max=100
+    real(real64)   :: itr_tol=dble(1.0e-16)
+    logical :: debug_mode
+    type(Math_) :: math
+    integer(int32) :: n
+
+    if(present(itrmax) )then
+        itr_max = itrmax
+    endif
+
+    if(present(tol) )then
+        itr_tol = tol
+    endif
+
+    ! Force-induced displacement
+    ! RHS is constant for interval [0, t]
+
+    u = -1.0d0/2.0d0*t*t*RHS
+    du = RHS
+    do n = 1,itr_max
+        du = -t*t/dble(2*n+2)/dble(2*n+1)*this%matmul(du)
+        u = u + du
+        if(present(debug) )then
+            if(debug)then
+                print *, n, norm(du)
+            endif
+        endif
+        if(norm(du)<itr_tol )exit
+        
+    enddo
+
+end function
+
+
+! ###################################################
+
+
+
+function tensor_wave_kernel_RHS_complex_64_crs(this,RHS,t,tol,itrmax,fix_idx,debug) result(u)
+    class(CRS_),intent(in) :: this
+    complex(real64),intent(in) :: RHS(:)
+    complex(real64),allocatable:: u(:),u_n(:)
+    
+    real(real64),intent(in) :: t
+    logical,optional,intent(in) :: debug
+
+    integer(int32),optional,intent(in) :: itrmax
+    real(real64),optional,intent(in) :: tol
+    integer(int32),optional,intent(in) :: fix_idx(:)
+
+    integer(int32) :: itr_max=100
+    real(real64)   :: itr_tol=dble(1.0e-16)
+    logical :: debug_mode
+    type(Math_) :: math
+    integer(int32) :: n
+
+    if(present(itrmax) )then
+        itr_max = itrmax
+    endif
+
+    if(present(tol) )then
+        itr_tol = tol
+    endif
+
+    ! Force-induced displacement
+    ! RHS is constant for interval [0, t]
+
+    u = -1.0d0/2.0d0*t*t*RHS
+    u_n = 0.0d0*u
+    do n = 1,itr_max
+        u = -t*t/dble(2*n+2)/dble(2*n+1)*this%matmul(u)
+        if(norm(abs(u-u_n))<itr_tol )exit
+        u_n=u
+    enddo
+
+end function
+
+
+! ###################################################
+
 
 
 ! ###################################################
@@ -3068,12 +3347,14 @@ end function
 
 
 ! ###################################################
-function tensor_cos_sqrt_complex64_crs(this,v,tol,itrmax,coeff) result(retA_v)
+function tensor_cos_sqrt_complex64_crs(this,v,tol,itrmax,coeff,debug,fix_idx) result(retA_v)
     class(CRS_),intent(in) :: this
     complex(real64),intent(in) :: v(:)
     complex(real64),allocatable :: dv(:),retA_v(:)
     complex(real64),optional,intent(in) :: coeff
-    integer(int32) :: k
+    integer(int32),optional,intent(in) :: fix_idx(:)
+    logical,optional,intent(in) :: debug
+    integer(int32) :: k,row,CRS_id
     integer(int32),intent(in) :: itrmax
     real(real64),intent(in) :: tol
     type(Math_) :: math
@@ -3092,22 +3373,140 @@ function tensor_cos_sqrt_complex64_crs(this,v,tol,itrmax,coeff) result(retA_v)
     !k=0
     k=0
     retA_v = v
-    
+    ! zero-fixed Dirichlet boundary
+    if(present(fix_idx) )then
+        retA_v(fix_idx)=0 
+    endif
 
+    if(present(debug) )then
+        if(debug)then
+            print *, k, norm(abs(v))
+            
+        endif
+    endif
+
+    
     ! k=1
     k=1
-    dv = -0.50d0*a*a*this%matmul(v)
+    dv = this%matmul(v)
+    dv = -0.50d0*a*a*dv
+
+    ! zero-fixed Dirichlet boundary
+    if(present(fix_idx) )then
+        dv(fix_idx)=0 
+    endif
     retA_v = retA_v + dv
+
+    if(present(debug) )then
+        if(debug)then
+            print *, k, norm(abs(dv))
+        endif
+    endif
 
     do k=2,itrmax
         ! k = k + 1
         dv = a*a*this%matmul(dv)/(2*k)/(2*k-1)*(-1.0d0)
+
+        ! zero-fixed Dirichlet boundary
+        if(present(fix_idx) )then
+            dv(fix_idx)=0 
+        endif
         retA_v = retA_v + dv 
-        if(maxval(abs(dv)) < tol) return
+        
+        if(norm(abs(dv)) < tol) return
+
+        if(present(debug) )then
+            if(debug)then
+                print *, k, norm(abs(dv))
+            endif
+        endif
+
     enddo
      
 end function
 ! #####################################################
+
+
+! ###################################################
+function tensor_cos_sqrt_real64_crs(this,v,tol,itrmax,coeff,debug,fix_idx) result(retA_v)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in) :: v(:)
+    real(real64),allocatable :: dv(:),retA_v(:)
+    real(real64),optional,intent(in) :: coeff
+    integer(int32),optional,intent(in) :: fix_idx(:)
+    logical,optional,intent(in) :: debug
+    integer(int32) :: k,row,CRS_id
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol
+    type(Math_) :: math
+    real(real64) :: a
+
+    if(present(coeff) )then
+        a=coeff
+    else
+        a=1.0d0
+    endif
+    ! sinc(sqrt(A) ) = \sum_{n=0}^{\infty} 
+    !c = 1.0d0
+    ! k = 0  
+    
+    
+    !k=0
+    k=0
+    retA_v = v
+    ! zero-fixed Dirichlet boundary
+    if(present(fix_idx) )then
+        retA_v(fix_idx)=0 
+    endif
+
+    if(present(debug) )then
+        if(debug)then
+            print *, k, norm(abs(v))
+            
+        endif
+    endif
+
+    
+    ! k=1
+    k=1
+    dv = this%matmul(v)
+    dv = -0.50d0*a*a*dv
+
+    ! zero-fixed Dirichlet boundary
+    if(present(fix_idx) )then
+        dv(fix_idx)=0 
+    endif
+    retA_v = retA_v + dv
+
+    if(present(debug) )then
+        if(debug)then
+            print *, k, norm(abs(dv))
+        endif
+    endif
+
+    do k=2,itrmax
+        ! k = k + 1
+        dv = a*a*this%matmul(dv)/(2*k)/(2*k-1)*(-1.0d0)
+
+        ! zero-fixed Dirichlet boundary
+        if(present(fix_idx) )then
+            dv(fix_idx)=0 
+        endif
+        retA_v = retA_v + dv 
+        
+        if(norm(abs(dv)) < tol) return
+
+        if(present(debug) )then
+            if(debug)then
+                print *, k, norm(abs(dv))
+            endif
+        endif
+
+    enddo
+     
+end function
+! #####################################################
+
 
 
 
@@ -3184,12 +3583,25 @@ end subroutine
 
 subroutine removeCRS(this,idx)
     class(CRS_),intent(inout) :: this
-    integer(int32),intent(in) :: idx(:)
+    integer(int32),optional,intent(in) :: idx(:)
     integer(int32),allocatable :: num_col(:),col_idx(:),only_k(:),&
         copy_idx(:),row_ptr(:)
     real(real64),allocatable :: val(:)
     integer(int32) :: row, col_id,count_id,n,k,i,j
     
+    if(.not.present(idx) )then
+        if(allocated(this%col_idx) ) then
+            deallocate(this%col_idx)
+        endif
+        if(allocated(this%row_ptr) ) then
+            deallocate(this%row_ptr)
+        endif
+        if(allocated(this%val) ) then
+            deallocate(this%val)
+        endif
+        
+        return
+    endif
 
     copy_idx = idx
 
@@ -3336,19 +3748,21 @@ function tensor_cos_sqrt_cos_sqrt_complex64_crs(this,v,tol,itrmax,coeff_1,coeff_
             retA_v = retA_v +coeff* dv 
         endif
         
-        if(maxval(abs(dv)) < tol) return
+        if(norm(abs(dv)) < tol) return
     enddo
      
 end function
 ! #####################################################
 
 ! ###################################################
-function tensor_sinc_sqrt_cos_sqrt_complex64_crs(this,v,tol,itrmax,coeff_1,coeff_2) result(retA_v)
+function tensor_sinc_sqrt_cos_sqrt_complex64_crs(this,v,tol,itrmax,coeff_1,coeff_2,debug) result(retA_v)
     class(CRS_),intent(in) :: this
     complex(real64),intent(in) :: v(:)
     complex(real64),allocatable :: dv(:),retA_v(:)
     complex(real64),intent(in) :: coeff_1,coeff_2
+    logical,optional,intent(in) :: debug
     integer(int32) :: k
+
     integer(int32),intent(in) :: itrmax
     real(real64),intent(in) :: tol
     type(Math_) :: math
@@ -3373,7 +3787,13 @@ function tensor_sinc_sqrt_cos_sqrt_complex64_crs(this,v,tol,itrmax,coeff_1,coeff
             retA_v = retA_v + coeff*dv 
         endif
         
-        if(maxval(abs(dv)) < tol) return
+        if(norm(abs(dv)) < tol) return
+        if(present(debug) )then
+            if(debug)then
+                print *, k, norm(abs(dv))
+            endif
+        endif
+        
     enddo
      
 end function
@@ -3410,7 +3830,7 @@ function tensor_cos_sqrt_sinc_sqrt_complex64_crs(this,v,tol,itrmax,coeff_1,coeff
             retA_v = retA_v + coeff*dv 
         endif
         
-        if(maxval(abs(dv)) < tol) return
+        if(norm(abs(dv)) < tol) return
     enddo
      
 end function
@@ -3447,7 +3867,7 @@ function tensor_sinc_sqrt_sinc_sqrt_complex64_crs(this,v,tol,itrmax,coeff_1,coef
             retA_v = retA_v + coeff* dv 
         endif
         
-        if(maxval(abs(dv)) < tol) return
+        if(norm(abs(dv)) < tol) return
     enddo
      
 end function

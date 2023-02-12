@@ -284,7 +284,7 @@ module ArrayClass
     end interface
 
     interface print
-        module procedure ::  printArrayInt, printArrayReal,printArrayIntVec, printArrayRealVec, printArrayType,&
+        module procedure ::  printArrayInt, printArrayReal,printArrayReal32,printArrayIntVec, printArrayRealVec, printArrayType,&
             printLogical
     end interface print
 
@@ -4512,6 +4512,82 @@ subroutine printArrayReal(Mat,IndexArray,FileHandle,Name,Add)
     integer(int32) :: fh,i,j,k,l
 
     nn=input(default=0.0d0,option=Add)
+    if(present(FileHandle) )then
+        fh=FileHandle
+    else
+        fh=10
+    endif
+
+    if(present(Name) )then
+        open(fh,file=Name)
+    endif
+
+    if(present(IndexArray))then
+        
+        do i=1,size(IndexArray,1)
+            do j=1,size(IndexArray,2)
+                k = IndexArray(i,j)
+                if(k <= 0)then
+                    cycle
+                endif
+                
+                
+                if(present(FileHandle) .or. present(Name) )then
+                    !write(fh,*) Mat(k,:)
+                    do l=1,size(Mat,2)-1
+                        write(fh, '(e22.14e3)',advance='no' ) Mat( k,l )+nn
+                        write(fh,'(A)',advance='no') "     "
+                    enddo
+                    write(fh,'(e22.14e3)',advance='yes') Mat( k,size(Mat,2) )+nn
+                else
+                    print *, Mat(k,:)
+                endif
+            enddo
+        enddo
+    else
+
+        do j=1,size(Mat,1)
+            
+            if(present(FileHandle) .or. present(Name) )then
+                !write(fh,*) Mat(j,:)
+                do l=1,size(Mat,2)-1
+                    write(fh,'(e22.14e3)',advance='no') Mat( j,l )+nn
+                    write(fh,'(A)',advance='no') "     "
+                enddo
+                write(fh,'(e22.14e3)',advance='yes') Mat( j,size(Mat,2) )+nn
+            else
+                print *, Mat(j,:)
+            endif
+
+        enddo
+        
+    endif
+    
+    if(present(FileHandle) .or. present(Name) )then
+        flush(fh)
+    endif
+
+
+
+    if(present(Name) )then
+        close(fh)
+    endif
+
+end subroutine 
+!##################################################
+
+
+!##################################################
+subroutine printArrayReal32(Mat,IndexArray,FileHandle,Name,Add)
+    real(real32),intent(in)::Mat(:,:)
+    real(real32),optional,intent(in) :: Add
+    integer(int32),optional,intent(in) :: IndexArray(:,:)
+    integer(int32),optional,intent(in)::FileHandle
+    character(*),optional,intent(in)::Name
+    real(real32) :: nn
+    integer(int32) :: fh,i,j,k,l
+
+    nn=input(default=0.00,option=Add)
     if(present(FileHandle) )then
         fh=FileHandle
     else
