@@ -1,5 +1,6 @@
 module sim
     use fem
+    use WaveKernelClass
     use LoggerClass
     use ModalAnalysisClass
     use ElastoPlasticityClass

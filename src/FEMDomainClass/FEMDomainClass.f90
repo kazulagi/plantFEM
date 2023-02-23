@@ -9880,11 +9880,11 @@ function MassMatrix_as_CRS_FEMDomain(this,Density,DOF,omp) result(MassMatrix)
 		do ElementID=1,this%ne() 
 			Length = norm( this%mesh%nodcoord(this%mesh%elemnod(ElementID,1),:) &
 				- this%mesh%nodcoord(this%mesh%elemnod(ElementID,2),:)  )
-			entry_val = Density(ElementID)*Length/2.0d0
-			call coo%add( this%mesh%elemnod(ElementID,1),this%mesh%elemnod(ElementID,1), entry_val )
-			call coo%add( this%mesh%elemnod(ElementID,1),this%mesh%elemnod(ElementID,2), entry_val )
-			call coo%add( this%mesh%elemnod(ElementID,2),this%mesh%elemnod(ElementID,1), entry_val )
-			call coo%add( this%mesh%elemnod(ElementID,2),this%mesh%elemnod(ElementID,2), entry_val )
+			entry_val = Density(ElementID)*Length
+			call coo%add( this%mesh%elemnod(ElementID,1),this%mesh%elemnod(ElementID,1), entry_val/3.0d0 )
+			call coo%add( this%mesh%elemnod(ElementID,1),this%mesh%elemnod(ElementID,2), entry_val/6.0d0 )
+			call coo%add( this%mesh%elemnod(ElementID,2),this%mesh%elemnod(ElementID,1), entry_val/6.0d0 )
+			call coo%add( this%mesh%elemnod(ElementID,2),this%mesh%elemnod(ElementID,2), entry_val/3.0d0 )
 		enddo
 		MassMatrix = coo%to_crs()
 		return
