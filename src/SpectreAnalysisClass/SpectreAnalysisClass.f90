@@ -997,4 +997,101 @@ function cutif_loggers_SpectreAnalysis(this,x_t,window_size,sigma,log) result(x_
 end function
 
 
+! ##########################################################
+
+function bandpass_filter(x,freq_range,sampling_Hz,&
+    in1,in2,out1,out2) result(ft)
+    real(real64),intent(in) :: sampling_Hz
+    real(real64):: ft
+    real(real64),intent(in) :: freq_range(1:2)
+    real(real64),intent(in) :: x
+    real(real64),intent(inout) ::  in1,in2,out1,out2
+    type(Math_) :: math
+    real(real64) :: omega
+    real(real64) :: alpha
+    real(real64) :: a0
+    real(real64) :: a1
+    real(real64) :: a2
+    real(real64) :: b0
+    real(real64) :: b1
+    real(real64) :: b2,samplerate,freq,bw
+
+    integer(int32) :: i
+    
+    freq = minval(freq_range)
+    bw = maxval(freq_range) - minval(freq_range)
+
+    samplerate = sampling_Hz
+
+    ! それぞれの変数は下記のとおりとする
+    ! float samplerate … サンプリング周波数
+    ! float freq … カットオフ周波数
+    ! float bw   … 帯域幅
+
+
+    omega = 2.0d0 * math%pi *  freq/samplerate;
+    alpha = sin(omega) * sinh(log(2.0d0) / 2.0d0 * bw * omega / sin(omega));
+    a0 =  1.0d0 + alpha;
+    a1 = -2.0d0 * cos(omega);
+    a2 =  1.0d0 - alpha;
+    b0 =  alpha;
+    b1 =  0.0d0;
+    b2 = -alpha;
+
+    ! https://www.utsbox.com/?page_id=523
+    ! それぞれの変数は下記のとおりとする
+    ! 　float input[]  …入力信号の格納されたバッファ。
+    ! 　flaot output[] …フィルタ処理した値を書き出す出力信号のバッファ。
+    ! 　int   size     …入力信号・出力信号のバッファのサイズ。
+    ! 　float in1, in2, out1, out2  …フィルタ計算用のバッファ変数。初期値は0。
+    ! 　float a0, a1, a2, b0, b1, b2 …フィルタの係数。 別途算出する。
+    !for(int i = 0; i < size; i++)
+    
+    ! 入力信号にフィルタを適用し、出力信号として書き出す。
+	ft = b0/a0 * x + b1/a0 * in1  + b2/a0 * in2 - a1/a0 * out1 - a2/a0 * out2
+    in2  = in1;       ! 2つ前の入力信号を更新
+    in1  = x;  ! 1つ前の入力信号を更新
+    out2 = out1;      ! 2つ前の出力信号を更新
+    out1 = ft; ! 1つ前の出力信号を更新
+
+    
+end function
+! ##########################################################
+
+function movingAverage_filter(x,in1,in2) result(ft)
+
+    real(real64):: ft    
+    real(real64),intent(in) :: x
+    real(real64),intent(inout) ::  in1,in2
+
+    ! 入力信号にフィルタを適用し、出力信号として書き出す。
+	ft = average([x,in1,in2] )
+    in2  = in1       ! 2つ前の入力信号を更新
+    in1  = x  ! 1つ前の入力信号を更新
+    
+    
+end function
+
+
+! ##########################################################
+
+
+! ##########################################################
+function lowpass_filter(x_n,buf,fc,sampling_Hz) result(x)
+    real(Real64),intent(in) :: x_n, fc, sampling_Hz
+    real(Real64),intent(inout) :: buf
+    real(Real64) :: x,A,fs
+    type(Math_) :: math
+    !https://cognicull.com/ja/888mgpw8
+    fs = sampling_Hz
+    
+    A = 4.0d0-2.0d0*cos(2.0d0*math%pi*fc/fs) &
+        - sqrt( (4.0d0-2.0d0*cos(2.0d0*math%pi*fc/fs) )**2 - 4.0d0 )
+    A = A/2.0d0
+    x = (1.0d0-A)*x_n + A*buf
+    buf = x
+
+end function
+! ##########################################################
+
 end module SpectreAnalysisClass

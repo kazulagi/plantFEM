@@ -117,9 +117,11 @@ module SparseClass
 
         procedure,pass :: tensor_cos_sqrt_complex64_crs
         procedure,pass :: tensor_cos_sqrt_real64_crs
+        procedure,pass :: tensor_cos_sqrt_LPF_real64_crs
 
         procedure,pass :: tensor_sinc_sqrt_complex64_crs
         procedure,pass :: tensor_sinc_sqrt_real64_crs
+        procedure,pass :: tensor_t_sinc_sqrt_LPF_real64_crs
 
         procedure,pass :: tensor_sqrt_complex64_crs
         procedure,pass :: tensor_log_complex64_crs
@@ -127,15 +129,14 @@ module SparseClass
         procedure,pass :: tensor_d1_wave_kernel_complex64_crs
         procedure,pass :: tensor_wave_kernel_complex_64_crs
         procedure,pass :: tensor_wave_kernel_real_64_crs
+        procedure,pass :: tensor_wave_kernel_LPF_real_64_crs
         procedure,pass :: tensor_wave_kernel_RHS_real_64_crs
         procedure,pass :: tensor_wave_kernel_RHS_complex_64_crs
-
 
         procedure,pass :: tensor_cos_sqrt_cos_sqrt_complex64_crs
         procedure,pass :: tensor_cos_sqrt_sinc_sqrt_complex64_crs
         procedure,pass :: tensor_sinc_sqrt_cos_sqrt_complex64_crs
         procedure,pass :: tensor_sinc_sqrt_sinc_sqrt_complex64_crs
-
 
         generic,public :: tensor_exponential => tensor_exponential_complex64_crs,tensor_exponential_crs
         generic,public :: tensor_exp => tensor_exponential_complex64_crs,tensor_exponential_crs
@@ -145,6 +146,10 @@ module SparseClass
             tensor_cos_sqrt_real64_crs
         generic,public :: tensor_sinc_sqrt => tensor_sinc_sqrt_complex64_crs,&
             tensor_sinc_sqrt_real64_crs
+
+        
+        generic,public :: tensor_cos_sqrt_LPF => tensor_cos_sqrt_LPF_real64_crs
+        generic,public :: tensor_t_sinc_sqrt_LPF =>tensor_t_sinc_sqrt_LPF_real64_crs
 
         generic,public :: tensor_sqrt => tensor_sqrt_complex64_crs,tensor_sqrt_crs
         generic,public :: tensor_log => tensor_log_complex64_crs,tensor_log_crs
@@ -158,6 +163,8 @@ module SparseClass
 
         generic,public :: tensor_wave_kernel => tensor_wave_kernel_complex_64_crs,&
             tensor_wave_kernel_real_64_crs
+        generic,public :: tensor_wave_kernel_LPF => tensor_wave_kernel_LPF_real_64_crs
+
         generic,public :: tensor_wave_kernel_RHS => tensor_wave_kernel_RHS_real_64_crs,&
             tensor_wave_kernel_RHS_complex_64_crs
         
@@ -3198,6 +3205,48 @@ end function
 ! ###################################################
 
 
+function tensor_wave_kernel_LPF_real_64_crs(this,u0,v0,tol,itrmax,h,t,fix_idx,debug,cutoff_frequency) result(u)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in) :: u0(:),v0(:)
+    real(real64),allocatable:: Adu(:),Adv(:),u(:)
+    real(real64) :: cos_coeff,sinc_coeff
+    real(real64),intent(in) :: h,t,cutoff_frequency
+    logical,optional,intent(in) :: debug
+
+    integer(int32),optional,intent(in) :: itrmax
+    real(real64),optional,intent(in) :: tol
+    integer(int32),optional,intent(in) :: fix_idx(:)
+
+    integer(int32) :: itr_max=100
+    real(real64)   :: itr_tol=dble(1.0e-16)
+    logical :: debug_mode
+    type(Math_) :: math
+    integer(int32) :: n
+
+    if(present(itrmax) )then
+        itr_max = itrmax
+    endif
+
+    if(present(tol) )then
+        itr_tol = tol
+    endif
+
+        ! a + 2 h M^{-1} v + M^{-1} K u = 0
+        ! u(t) = exp(-ht)( cos(t*sqrt(M^{-1} K - h^2 I)  ) u 
+        !      + t*sinc( t*sqrt(M^{-1} K - h^2 I) ) v
+
+    u =  exp(-h*t)*this%tensor_cos_sqrt_LPF(   v=u0,tol=itr_tol,itrmax=itr_max,&
+        coeff=t,debug=debug,fix_idx=fix_idx,cutoff_frequency=cutoff_frequency ) &
+      +  exp(-h*t)*this%tensor_t_sinc_sqrt_LPF(v=v0,tol=itr_tol,itrmax=itr_max,&
+        coeff=t,debug=debug,fix_idx=fix_idx,cutoff_frequency=cutoff_frequency ) 
+    
+
+end function
+
+
+! ###################################################
+
+
 
 function tensor_wave_kernel_RHS_real_64_crs(this,RHS,t,tol,itrmax,fix_idx,debug) result(u)
     class(CRS_),intent(in) :: this
@@ -3378,14 +3427,10 @@ function tensor_cos_sqrt_complex64_crs(this,v,tol,itrmax,coeff,debug,fix_idx) re
         retA_v(fix_idx)=0 
     endif
 
-    if(present(debug) )then
-        if(debug)then
-            print *, k, norm(abs(v))
-            
-        endif
-    endif
 
-    
+
+    ! a=t
+
     ! k=1
     k=1
     dv = this%matmul(v)
@@ -3397,15 +3442,12 @@ function tensor_cos_sqrt_complex64_crs(this,v,tol,itrmax,coeff,debug,fix_idx) re
     endif
     retA_v = retA_v + dv
 
-    if(present(debug) )then
-        if(debug)then
-            print *, k, norm(abs(dv))
-        endif
-    endif
+
+    ! 
 
     do k=2,itrmax
         ! k = k + 1
-        dv = a*a*this%matmul(dv)/(2*k)/(2*k-1)*(-1.0d0)
+        dv = (a*a)*this%matmul(dv)/(2*k)/(2*k-1)*(-1.0d0)
 
         ! zero-fixed Dirichlet boundary
         if(present(fix_idx) )then
@@ -3426,6 +3468,24 @@ function tensor_cos_sqrt_complex64_crs(this,v,tol,itrmax,coeff,debug,fix_idx) re
 end function
 ! #####################################################
 
+! #####################################################
+function wave_kernel_hanning_coefficient(dt,num_sample,t_power) result(ret)
+    real(real64),intent(in)::dt
+    integer,intent(in) :: num_sample,t_power
+    integer(int32) :: m,k
+    real(real64) :: ret,t,period_T
+    type(Math_) :: math
+
+    k = num_sample/2
+    ret = 0.0d0
+    period_T = 1.0d0/dt*2
+    do m=-k,k
+        t = -num_sample*dt+(m-1)*dt
+        ret = ret + (0.50d0 - 0.50d0*cos(2.0d0*math%pi*(t)/period_T) )&
+            *(m*dt)**(t_power)
+    enddo
+end function
+! #####################################################
 
 ! ###################################################
 function tensor_cos_sqrt_real64_crs(this,v,tol,itrmax,coeff,debug,fix_idx) result(retA_v)
@@ -3502,6 +3562,135 @@ function tensor_cos_sqrt_real64_crs(this,v,tol,itrmax,coeff,debug,fix_idx) resul
             endif
         endif
 
+    enddo
+     
+end function
+! #####################################################
+
+
+! ###################################################
+function tensor_cos_sqrt_LPF_real64_crs(this,v,tol,itrmax,coeff,debug,fix_idx,cutoff_frequency) result(retA_v)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in) :: v(:)
+    real(real64),allocatable :: dv(:),retA_v(:)
+    real(real64),optional,intent(in) :: coeff
+    integer(int32),optional,intent(in) :: fix_idx(:)
+    
+    logical,optional,intent(in) :: debug
+    integer(int32) :: k,row,CRS_id,num_hanning_sample
+    integer(int32),intent(in) :: itrmax
+    real(real64),intent(in) :: tol,cutoff_frequency
+    type(Math_) :: math
+    real(real64) :: a,dt,b,ddt
+
+    ddt = 1.0d0/(cutoff_frequency/4.0d0)
+    if(present(coeff) )then
+        a=coeff
+    else
+        a=1.0d0
+    endif
+    ! sinc(sqrt(A) ) = \sum_{n=0}^{\infty} 
+    !c = 1.0d0
+    ! k = 0  
+    dt = a
+    dv = v
+    !k=0
+    k=0
+    retA_v = v
+    ! zero-fixed Dirichlet boundary
+    if(present(fix_idx) )then
+        retA_v(fix_idx)=0 
+    endif
+    
+    do k=1,itrmax
+        ! k = k + 1
+        
+        !dv = a*a*this%matmul(dv)/(2*k)/(2*k-1)*(-1.0d0)
+        dv = this%matmul(dv)
+
+        ! zero-fixed Dirichlet boundary
+        if(present(fix_idx) )then
+            dv(fix_idx)=0 
+        endif
+        a = ((-1.0d0)**k)/gamma(2.0d0*k+1.0d0)
+        b = 0.250d0*((dt-ddt)**(2*k)) + 0.50d0*((dt)**(2*k)) + 0.250d0*((dt+ddt)**(2*k))
+        retA_v = retA_v + a*b*dv
+        
+        if(norm(abs(a*b*dv)) < tol) return
+
+        if(present(debug) )then
+            if(debug)then
+                print *, k, norm(abs(a*b*dv))
+            endif
+        endif
+
+    enddo
+     
+end function
+! #####################################################
+
+
+! ###################################################
+function tensor_t_sinc_sqrt_LPF_real64_crs(this,v,tol,itrmax,coeff,debug,fix_idx,cutoff_frequency)&
+         result(retA_v)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in) :: v(:)
+    real(real64),optional,intent(in) :: coeff
+    real(real64),allocatable :: dv(:),retA_v(:)
+    integer(int32),optional,intent(in) :: fix_idx(:)
+    integer(int32) :: k,num_hanning_sample
+    integer(int32),intent(in) :: itrmax
+    logical,optional,intent(in) :: debug
+    real(real64),intent(in) :: tol,cutoff_frequency
+    type(Math_) :: math
+    real(real64) :: a,b,dt,ddt
+    !num_hanning_sample = input(default=16,option=window_size)
+    ddt = 1.0d0/(cutoff_frequency/4.0d0)
+    if(present(coeff) )then
+        a=coeff
+    else
+        a=1.0d0
+    endif
+    ! sinc(sqrt(A) ) = \sum_{n=0}^{\infty} 
+    !c = 1.0d0
+    ! k = 0  
+    dt = a
+    
+    !k=0
+    k=0
+    retA_v = v
+    dv = v
+
+    if(present(fix_idx) )then
+        dv(fix_idx)=0 
+    endif
+
+    retA_v = retA_v  + dt*dv
+
+    do k=1,itrmax
+        
+        a = ((-1.0d0)**k)*(sqrt(math%pi)*2.0d0**(-1-2*k) )&
+            /gamma(1.0d0+k)/gamma(1.5d0+k)
+        b = 0.250d0*((dt-ddt)**(2*k+1)) + 0.50d0*((dt)**(2*k+1)) &
+            + 0.250d0*((dt+ddt)**(2*k+1))
+        
+        dv = this%matmul(dv)
+
+        ! zero-fixed Dirichlet boundary
+        if(present(fix_idx) )then
+            dv(fix_idx)=0 
+        endif
+        
+        retA_v = retA_v  + a*b*dv
+
+        if(norm(abs(a*b*dv)) < tol) return
+
+        if(present(debug) )then
+            if(debug)then
+                print *, k, norm(abs(a*b*dv))
+            endif
+        endif
+        
     enddo
      
 end function

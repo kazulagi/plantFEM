@@ -13,6 +13,13 @@ echo "-----------------"
 # Compilation of Solvers
 
 # Compilation of Solvers
+echo "Compiling ./src/WaveKernelClass/WaveKernelClass.f90" 
+echo " >> WaveKernelClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/WaveKernelClass/WaveKernelClass.f90 -o  ./inc/WaveKernelClass.o
+
+
+
 echo "Compiling ./src/LoggerClass/LoggerClass.f90" 
 echo " >> LoggerClass.o "
 echo " | ===============>            | (70%)\r\c"
