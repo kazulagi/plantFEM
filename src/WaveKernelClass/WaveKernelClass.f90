@@ -255,7 +255,7 @@ function getDisplacementWaveKernel(this,u_n,v_n,dt,fix_idx,cutoff_frequency) res
     if(present(cutoff_frequency) )then
         
         ! cutoff = - 10 dB
-        ddt = 1.0d0/(cutoff_frequency/4.0d0)
+        ddt = 1.0d0/(cutoff_frequency*4.0d0)
         ! Hanning Window
         u =  0.250d0*this%OmegaSqMatrix%tensor_wave_kernel(&
                 u0=u_n,v0=v_n,h=this%DampingRatio,t=dt-ddt,&
@@ -297,7 +297,7 @@ function getVelocityWaveKernel(this,u_n, v_n,dt,fix_idx,cutoff_frequency) result
 !            cutoff_frequency=cutoff_frequency)
 !
         ! cutoff = - 3 dB
-        ddt = 1.0d0/(cutoff_frequency/4.0d0)
+        ddt = 1.0d0/(cutoff_frequency*4.0d0)
         
         v =   0.250d0*this%OmegaSqMatrix%tensor_wave_kernel(&
                 u0=-h*(dt-ddt)*u_n+v_n, &
