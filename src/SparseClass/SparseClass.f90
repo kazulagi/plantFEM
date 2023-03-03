@@ -3166,14 +3166,16 @@ end function
 function tensor_wave_kernel_real_64_crs(this,u0,v0,tol,itrmax,h,t,fix_idx,debug) result(u)
     class(CRS_),intent(in) :: this
     real(real64),intent(in) :: u0(:),v0(:)
-    real(real64),allocatable:: Adu(:),Adv(:),u(:)
-    real(real64) :: cos_coeff,sinc_coeff
     real(real64),intent(in) :: h,t
     logical,optional,intent(in) :: debug
-
+    
     integer(int32),optional,intent(in) :: itrmax
     real(real64),optional,intent(in) :: tol
     integer(int32),optional,intent(in) :: fix_idx(:)
+
+    real(real64),allocatable:: Adu(:),Adv(:),u(:)
+    real(real64) :: cos_coeff,sinc_coeff
+
 
     integer(int32) :: itr_max=100
     real(real64)   :: itr_tol=dble(1.0e-16)
