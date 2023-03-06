@@ -25,6 +25,8 @@ module WaveKernelClass
         procedure :: bandpass => bandpass_WaveKernel
         procedure :: lowpass => lowpass_WaveKernel
         procedure :: movingAverage => movingAverage_WaveKernel
+        procedure :: getDisplacement_and_Velocity &
+            => getDisplacement_and_Velocity_WaveKernel
         !procedure :: hanning => hanning_WaveKernel
         ! procedure :: filter => filter_WaveKernel
     end type
@@ -238,6 +240,56 @@ end subroutine
 
 
 
+! ##############################################################
+subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,fix_idx,cutoff_frequency,debug_mode,u,v) 
+    class(WaveKernel_),intent(inout) :: this
+    real(real64),intent(in) :: u_n(:),v_n(:)
+    real(real64),allocatable :: du(:),dv(:)
+    real(real64),allocatable :: u(:),v(:)
+    integer(int32),optional,intent(in) :: fix_idx(:)
+    real(real64),intent(in) :: dt
+    logical,optional,intent(in) :: debug_mode
+    real(real64),optional,intent(in)  :: cutoff_frequency
+    integer(int32) :: j,k
+    
+    
+    
+
+    ! [CAUTION!!] only undampled is implemented.
+    ! and has BUGS
+    du = u_n
+    du(fix_idx)=0.0d0 
+    u = u_n
+    v = 0.0d0*v_n
+    do k=1,this%itrmax
+        du = this%OmegaSqMatrix%matmul(du)
+        if(norm(LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*du)&
+            < this%tol )exit
+        u = u + LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*du
+        if(k==1)then
+            v = du
+        else
+            v = v + LPF_t_sinc_sqrt_taylor_coefficient(k=k-1,t=dt,f_c=cutoff_frequency)*du
+        endif
+        
+    enddo
+    deallocate(du)
+
+    dv = v_n
+    dv(fix_idx)=0.0d0
+    do k=0,this%itrmax
+        dv = this%OmegaSqMatrix%matmul(dv)
+        if(norm(LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*dv)&
+            < this%tol )exit
+        u = u + LPF_t_sinc_sqrt_taylor_coefficient(k=k ,t=dt,f_c=cutoff_frequency)*dv
+        v = v + LPF_cos_sqrt_taylor_coefficient(  k=k ,t=dt,f_c=cutoff_frequency)*dv
+    enddo
+    
+
+end subroutine
+! ##############################################################
+
+
 
 ! ##############################################################
 function getDisplacementWaveKernel(this,u_n,v_n,dt,fix_idx,cutoff_frequency,debug_mode) result(u)
@@ -273,9 +325,11 @@ function getDisplacementWaveKernel(this,u_n,v_n,dt,fix_idx,cutoff_frequency,debu
 
 
         u =   LPF_cos_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
-                dt=dt, f_c=cutoff_frequency, u_n=u_n, itrmax=this%itrmax,tol=this%tol) &
+                dt=dt, f_c=cutoff_frequency, u_n=u_n,&
+                fix_idx=fix_idx, itrmax=this%itrmax,tol=this%tol) &
             + LPF_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
-                dt=dt, f_c=cutoff_frequency, v_n=v_n, itrmax=this%itrmax,tol=this%tol)
+                dt=dt, f_c=cutoff_frequency, v_n=v_n,&
+                fix_idx=fix_idx, itrmax=this%itrmax,tol=this%tol)
         ! cutoff = - 10 dB
         
 
@@ -348,9 +402,11 @@ function getVelocityWaveKernel(this,u_n, v_n,dt,fix_idx,cutoff_frequency,debug_m
         
 
         v =   LPF_cos_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
-                dt=dt, f_c=cutoff_frequency, u_n=v_n, itrmax=this%itrmax,tol=this%tol) &
+                dt=dt, f_c=cutoff_frequency, u_n=v_n,&
+                fix_idx=fix_idx, itrmax=this%itrmax,tol=this%tol) &
             + LPF_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
-                dt=dt, f_c=cutoff_frequency, v_n=-this%OmegaSqMatrix%matmul(u_n), itrmax=this%itrmax,tol=this%tol)
+                dt=dt, f_c=cutoff_frequency, v_n=-this%OmegaSqMatrix%matmul(u_n), &
+                fix_idx=fix_idx,itrmax=this%itrmax,tol=this%tol)
 
     else
         v = this%OmegaSqMatrix%tensor_wave_kernel(&
@@ -494,15 +550,17 @@ end function
 
 
 ! #########################################################
-function LPF_cos_sqrt_WaveKernelFunction(Omega_sq_matrix,dt,f_c,u_n,itrmax,tol) result(ret)
+function LPF_cos_sqrt_WaveKernelFunction(Omega_sq_matrix,dt,f_c,u_n,itrmax,tol,fix_idx) result(ret)
     type(CRS_),intent(inout) :: Omega_sq_matrix
     real(real64),intent(in) :: dt, f_c, u_n(:),tol
     real(real64),allocatable :: ret(:),du(:)
-    integer(int32),intent(in) :: itrmax
+
+    integer(int32),intent(in) :: itrmax,fix_idx(:)
     integer(int32) :: k
 
     k=0
     du = u_n
+    du(fix_idx) = 0.0d0
     ret = LPF_cos_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c)*du
     
     do k=1,itrmax
@@ -517,15 +575,16 @@ end function
 
 
 ! #########################################################
-function LPF_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix,dt,f_c,v_n,itrmax,tol) result(ret)
+function LPF_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix,dt,f_c,v_n,itrmax,tol,fix_idx) result(ret)
     type(CRS_),intent(inout) :: Omega_sq_matrix
     real(real64),intent(in) :: dt, f_c, v_n(:),tol
     real(real64),allocatable :: ret(:),dv(:)
-    integer(int32),intent(in) :: itrmax
+    integer(int32),intent(in) :: itrmax,fix_idx(:)
     integer(int32) :: k
 
     k=0
     dv = v_n
+    dv(fix_idx) = 0.0d0
     ret = LPF_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c)*dv
     
     do k=1,itrmax
