@@ -240,12 +240,13 @@ end subroutine
 
 
 ! ##############################################################
-function getDisplacementWaveKernel(this,u_n,v_n,dt,fix_idx,cutoff_frequency) result(u)
+function getDisplacementWaveKernel(this,u_n,v_n,dt,fix_idx,cutoff_frequency,debug_mode) result(u)
     class(WaveKernel_),intent(inout) :: this
     real(real64),intent(in) :: u_n(:),v_n(:)
     real(real64),allocatable :: u(:)
     integer(int32),optional,intent(in) :: fix_idx(:)
     real(real64),intent(in) :: dt
+    logical,optional,intent(in) :: debug_mode
     real(real64),optional,intent(in)  :: cutoff_frequency
     integer(int32) :: j
     real(real64) :: h, ddt
@@ -253,19 +254,30 @@ function getDisplacementWaveKernel(this,u_n,v_n,dt,fix_idx,cutoff_frequency) res
     h  = this%DampingRatio
     
     if(present(cutoff_frequency) )then
-        
+        if(present(debug_mode) )then
+            if(debug_mode)then
+                ddt = 1.0d0/(cutoff_frequency*4.0d0)
+                ! Hanning Window
+                u =  0.250d0*this%OmegaSqMatrix%tensor_wave_kernel(&
+                        u0=u_n,v0=v_n,h=this%DampingRatio,t=dt-ddt,&
+                        itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)&
+                    + 0.50d0*this%OmegaSqMatrix%tensor_wave_kernel(&
+                        u0=u_n,v0=v_n,h=this%DampingRatio,t=dt,&
+                        itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)&
+                    + 0.250d0*this%OmegaSqMatrix%tensor_wave_kernel(&
+                        u0=u_n,v0=v_n,h=this%DampingRatio,t=dt+ddt,&
+                        itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)        
+            return
+            endif
+        endif
+
+
+        u =   LPF_cos_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                dt=dt, f_c=cutoff_frequency, u_n=u_n, itrmax=this%itrmax,tol=this%tol) &
+            + LPF_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                dt=dt, f_c=cutoff_frequency, v_n=v_n, itrmax=this%itrmax,tol=this%tol)
         ! cutoff = - 10 dB
-        ddt = 1.0d0/(cutoff_frequency*4.0d0)
-        ! Hanning Window
-        u =  0.250d0*this%OmegaSqMatrix%tensor_wave_kernel(&
-                u0=u_n,v0=v_n,h=this%DampingRatio,t=dt-ddt,&
-                itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)&
-            + 0.50d0*this%OmegaSqMatrix%tensor_wave_kernel(&
-                u0=u_n,v0=v_n,h=this%DampingRatio,t=dt,&
-                itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)&
-            + 0.250d0*this%OmegaSqMatrix%tensor_wave_kernel(&
-                u0=u_n,v0=v_n,h=this%DampingRatio,t=dt+ddt,&
-                itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)
+        
 
     else
         u = this%OmegaSqMatrix%tensor_wave_kernel(&
@@ -278,12 +290,13 @@ end function
 
 
 ! ##############################################################
-function getVelocityWaveKernel(this,u_n, v_n,dt,fix_idx,cutoff_frequency) result(v)
+function getVelocityWaveKernel(this,u_n, v_n,dt,fix_idx,cutoff_frequency,debug_mode) result(v)
     class(WaveKernel_),intent(inout) :: this
     real(real64),intent(in) :: u_n(:),v_n(:)
     
     integer(int32),optional,intent(in) :: fix_idx(:)
     real(real64),optional,intent(in)  :: cutoff_frequency
+    logical,optional,intent(in) :: debug_mode
     real(real64),allocatable :: v(:)
     real(real64),intent(in) :: dt
     integer(int32) :: j
@@ -291,26 +304,54 @@ function getVelocityWaveKernel(this,u_n, v_n,dt,fix_idx,cutoff_frequency) result
 
     h  = this%DampingRatio
     if(present(cutoff_frequency) )then
-!        v = this%OmegaSqMatrix%tensor_wave_kernel_LPF(&
-!            u0=u_n,v0=v_n,h=this%DampingRatio,t=dt,&
-!            itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx,&
-!            cutoff_frequency=cutoff_frequency)
-!
-        ! cutoff = - 3 dB
-        ddt = 1.0d0/(cutoff_frequency*4.0d0)
+        if(present(debug_mode)  )then
+            if( debug_mode )then    
+                ! cutoff = - 3 dB
+                ddt = 1.0d0/(cutoff_frequency*4.0d0)
         
-        v =   0.250d0*this%OmegaSqMatrix%tensor_wave_kernel(&
-                u0=-h*(dt-ddt)*u_n+v_n, &
-                v0=-this%OmegaSqMatrix%matmul(u_n)-h*(dt-ddt)*v_n, &
-                h=h,t=(dt-ddt),itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)&
-            + 0.500d0*this%OmegaSqMatrix%tensor_wave_kernel(&
-                u0=-h*dt*u_n+v_n, &
-                v0=-this%OmegaSqMatrix%matmul(u_n)-h*dt*v_n, &
-                h=h,t=dt,itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)&
-            + 0.250d0*this%OmegaSqMatrix%tensor_wave_kernel(&
-                u0=-h*(dt+ddt)*u_n+v_n, &
-                v0=-this%OmegaSqMatrix%matmul(u_n)-h*(dt+ddt)*v_n, &
-                h=h,t=(dt+ddt),itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)
+                v =   0.250d0*this%OmegaSqMatrix%tensor_wave_kernel(&
+                        u0=-h*(dt-ddt)*u_n+v_n, &
+                        v0=-this%OmegaSqMatrix%matmul(u_n)-h*(dt-ddt)*v_n, &
+                        h=h,t=(dt-ddt),itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)&
+                    + 0.500d0*this%OmegaSqMatrix%tensor_wave_kernel(&
+                        u0=-h*dt*u_n+v_n, &
+                        v0=-this%OmegaSqMatrix%matmul(u_n)-h*dt*v_n, &
+                        h=h,t=dt,itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)&
+                    + 0.250d0*this%OmegaSqMatrix%tensor_wave_kernel(&
+                        u0=-h*(dt+ddt)*u_n+v_n, &
+                        v0=-this%OmegaSqMatrix%matmul(u_n)-h*(dt+ddt)*v_n, &
+                        h=h,t=(dt+ddt),itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)
+
+                return
+            endif
+        endif
+
+
+        if( this%DampingRatio/=0.0d0 )then    
+            ! cutoff = - 3 dB
+            ddt = 1.0d0/(cutoff_frequency*4.0d0)
+    
+            v =   0.250d0*this%OmegaSqMatrix%tensor_wave_kernel(&
+                    u0=-h*(dt-ddt)*u_n+v_n, &
+                    v0=-this%OmegaSqMatrix%matmul(u_n)-h*(dt-ddt)*v_n, &
+                    h=h,t=(dt-ddt),itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)&
+                + 0.500d0*this%OmegaSqMatrix%tensor_wave_kernel(&
+                    u0=-h*dt*u_n+v_n, &
+                    v0=-this%OmegaSqMatrix%matmul(u_n)-h*dt*v_n, &
+                    h=h,t=dt,itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)&
+                + 0.250d0*this%OmegaSqMatrix%tensor_wave_kernel(&
+                    u0=-h*(dt+ddt)*u_n+v_n, &
+                    v0=-this%OmegaSqMatrix%matmul(u_n)-h*(dt+ddt)*v_n, &
+                    h=h,t=(dt+ddt),itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)
+            return
+        endif
+        
+
+        v =   LPF_cos_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                dt=dt, f_c=cutoff_frequency, u_n=v_n, itrmax=this%itrmax,tol=this%tol) &
+            + LPF_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                dt=dt, f_c=cutoff_frequency, v_n=-this%OmegaSqMatrix%matmul(u_n), itrmax=this%itrmax,tol=this%tol)
+
     else
         v = this%OmegaSqMatrix%tensor_wave_kernel(&
             u0=-h*dt*u_n+v_n, &
@@ -394,5 +435,106 @@ end function
 !
 !end function
 
+pure function LPF_cos_sqrt_taylor_coefficient(k,t,f_c) result(c_k)
+    integer(int32),intent(in) :: k
+    real(real64),intent(in) :: t
+    real(real64),intent(in) :: f_c
+    real(real64) :: c_k
+    real(real64) :: t_hat,dt
+
+    if(k==0)then
+        c_k = 1.0d0
+        return
+    endif
+    
+    dt = 1.0d0/(f_c*4.0d0)
+    t_hat = 0.250d0*((t-dt)**(2*k) ) + 0.50d0*((t)**(2*k) ) + 0.250d0*((t+dt)**(2*k) )
+    if(mod(k,2)==0 )then
+        ! k=even
+        c_k = t_hat/Gamma(2.0d0*k+1.0d0)
+    else
+        ! k=odd
+        c_k = -1.0d0*t_hat/Gamma(2.0d0*k+1.0d0)
+    endif
+    
+end function
+
+
+
+pure function LPF_t_sinc_sqrt_taylor_coefficient(k,t,f_c) result(s_k)
+    integer(int32),intent(in) :: k
+    real(real64),intent(in) :: t
+    real(real64),intent(in) :: f_c
+    real(real64) :: s_k
+    real(real64) :: t_hat,dt
+    type(Math_) :: math
+
+    if(k==0)then
+        s_k = t
+        return
+    endif
+    
+    dt = 1.0d0/(f_c*4.0d0)
+
+    t_hat = 0.250d0*((t-dt)**(2*k+1) ) + 0.50d0*((t)**(2*k+1) ) &
+        + 0.250d0*((t+dt)**(2*k+1) )
+    
+    if(mod(k,2)==0 )then
+        ! k=even
+        s_k = (2.0d0**(-1-2*k))*sqrt(math%pi)/Gamma(1.0d0+dble(k))/Gamma(1.5d0+dble(k))&
+            *t_hat
+    else
+        ! k=odd
+        s_k = -1.0d0*&
+              (2.0d0**(-1-2*k))*sqrt(math%pi)/Gamma(1.0d0+dble(k))/Gamma(1.5d0+dble(k))&
+            *t_hat
+    endif
+    
+end function
+
+
+! #########################################################
+function LPF_cos_sqrt_WaveKernelFunction(Omega_sq_matrix,dt,f_c,u_n,itrmax,tol) result(ret)
+    type(CRS_),intent(inout) :: Omega_sq_matrix
+    real(real64),intent(in) :: dt, f_c, u_n(:),tol
+    real(real64),allocatable :: ret(:),du(:)
+    integer(int32),intent(in) :: itrmax
+    integer(int32) :: k
+
+    k=0
+    du = u_n
+    ret = LPF_cos_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c)*du
+    
+    do k=1,itrmax
+        du = Omega_sq_matrix%matmul(du)  
+        if(norm(LPF_cos_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c)*du)<tol )exit  
+        ret = ret + LPF_cos_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c)*du
+    enddo
+
+end function
+! #########################################################
+
+
+
+! #########################################################
+function LPF_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix,dt,f_c,v_n,itrmax,tol) result(ret)
+    type(CRS_),intent(inout) :: Omega_sq_matrix
+    real(real64),intent(in) :: dt, f_c, v_n(:),tol
+    real(real64),allocatable :: ret(:),dv(:)
+    integer(int32),intent(in) :: itrmax
+    integer(int32) :: k
+
+    k=0
+    dv = v_n
+    ret = LPF_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c)*dv
+    
+    do k=1,itrmax
+        dv = Omega_sq_matrix%matmul(dv)    
+        if(norm(LPF_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c)*dv)<tol )exit
+        ret = ret + LPF_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c)*dv
+    enddo
+
+end function
+! #########################################################
 
 end module
