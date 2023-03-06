@@ -256,7 +256,7 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,fix_idx,cutof
     
 
     ! [CAUTION!!] only undampled is implemented.
-    ! and has BUGS
+    
     du = u_n
     du(fix_idx)=0.0d0 
     u = u_n
@@ -266,10 +266,11 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,fix_idx,cutof
         if(norm(LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*du)&
             < this%tol )exit
         u = u + LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*du
+        
         if(k==1)then
-            v = du
+            v = - dt*du
         else
-            v = v + LPF_t_sinc_sqrt_taylor_coefficient(k=k-1,t=dt,f_c=cutoff_frequency)*du
+            v = v - LPF_t_sinc_sqrt_taylor_coefficient(k=k-1,t=dt,f_c=cutoff_frequency)*du
         endif
         
     enddo
@@ -277,7 +278,10 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,fix_idx,cutof
 
     dv = v_n
     dv(fix_idx)=0.0d0
-    do k=0,this%itrmax
+    ! k=1
+    u = u + dt*dv
+    v = v + dv
+    do k=1,this%itrmax
         dv = this%OmegaSqMatrix%matmul(dv)
         if(norm(LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*dv)&
             < this%tol )exit
