@@ -24,7 +24,7 @@ module FEMSolverClass
         
         real(real64),allocatable :: CRS_val(:)
         integer(int32),allocatable :: CRS_Index_Col(:)
-        integer(int32),allocatable :: CRS_Index_Row(:)
+        integer(int64),allocatable :: CRS_Index_Row(:)
         real(real64),allocatable :: CRS_RHS(:)
 
         integer(int32),allocatable :: number_of_element_per_domain(:)
@@ -35,12 +35,12 @@ module FEMSolverClass
 
         real(real64),allocatable   :: A_CRS_val(:)
         integer(int32),allocatable :: A_CRS_Index_Col(:)
-        integer(int32),allocatable :: A_CRS_Index_Row(:)
+        integer(int64),allocatable :: A_CRS_Index_Row(:)
         logical                    :: A_empty = .true.
 
         real(real64),allocatable   :: B_CRS_val(:)
         integer(int32),allocatable :: B_CRS_Index_Col(:)
-        integer(int32),allocatable :: B_CRS_Index_Row(:)
+        integer(int64),allocatable :: B_CRS_Index_Row(:)
         logical                    :: B_empty = .true.
 
         
@@ -447,16 +447,16 @@ subroutine setCRSFEMSolver(this,DOF,debug)
     
     integer(int32),intent(in) :: DOF
     logical,optional,intent(in) :: debug    
-    integer(int32) :: i,j,k,l,m,n,itr
-    integer(int32) :: size_of_global_matrix,offset,node_id,row_id
-    integer(int32) :: node_id_p, col_id, kk, ll,drow_offset,buf_1
+    integer(int64) :: i,j,k,l,m,n,itr
+    integer(int64) :: size_of_global_matrix,offset,node_id,row_id
+    integer(int64) :: node_id_p, col_id, kk, ll,drow_offset,buf_1
     integer(int32),allocatable :: Num_nodes_in_Domains(:),num_entry_in_row(:)
     integer(int32),allocatable :: col_local(:),new_col_local(:)
     integer(int32),allocatable :: Overset_CRS_Index_Col(:)
-    integer(int32),allocatable :: Overset_CRS_Index_Row(:)
+    integer(int64),allocatable :: Overset_CRS_Index_Row(:)
     integer(int32),allocatable :: new_CRS_Index_Col(:)
-    integer(int32),allocatable :: new_CRS_Index_Row(:)
-    integer(int32) :: row_node_id,col_node_id, row, col,row_domain_id,col_domain_id,&
+    integer(int64),allocatable :: new_CRS_Index_Row(:)
+    integer(int64) :: row_node_id,col_node_id, row, col,row_domain_id,col_domain_id,&
         row_DOF,col_DOF, k0
     integer(int32),allocatable :: num_nodes_of_domains(:)
     logical :: debug_mode_on = .true.
@@ -581,7 +581,7 @@ subroutine setCRSFEMSolver(this,DOF,debug)
                                     ! [ok] num_nodes_of_domains
                                     ! [ok] row_domain_id
                                     
-                                    call COO%add(row=row,col=col,val=0.0d0)
+                                    call COO%add(row=int(row),col=int(col),val=0.0d0)
                                 enddo
                             enddo
                         enddo
@@ -595,7 +595,7 @@ subroutine setCRSFEMSolver(this,DOF,debug)
                     do j=this%CRS_Index_row(i),this%CRS_Index_row(i+1) - 1
                         row = i
                         col = this%CRS_Index_Col(j)
-                        call COO%add(row=row,col=col,val=0.0d0)
+                        call COO%add(row=int(row),col=int(col),val=0.0d0)
                     enddo
                 enddo
 
@@ -944,7 +944,7 @@ subroutine addMatrixValueFEMSolver(this,row_id,col_id,SingleValue,as_Dense)
     real(real64),intent(in) :: SingleValue
     logical,optional,intent(in) :: as_Dense
     logical :: successfully_done = .false.
-    integer(int32) :: i,j
+    integer(int64) :: i,j
 
     if(present(As_Dense) )then
         if(As_Dense)then
@@ -1322,7 +1322,7 @@ subroutine saveMatrixFEMSolver(this,name,CRS_as_dense, if_dense_exists,zero_or_n
         call f%close()
     
         call f%open(name+"_indptr.txt","w")
-        call f%write(this%CRS_Index_Row)
+        call f%write(int(this%CRS_Index_Row))
         call f%close()
         
     endif
@@ -1670,7 +1670,8 @@ function solveFEMSolver_UserDefinedLinearSolver(this,LinearSolver,x0) result(x)
             implicit none
             real(real64),intent(in) :: val(:),rhs(:)
             real(real64),intent(inout) :: x(:)
-            integer(int32),intent(in) :: row_ptr(:),col_idx(:)
+            integer(int32),intent(in) :: col_idx(:)
+            integer(int64),intent(in) :: row_ptr(:)
 
         end subroutine
     end interface
@@ -1706,7 +1707,8 @@ function solveFEMSolver_UserDefinedLinearSolverAsFunc(this,LinearSolver,x0) resu
             real(real64),intent(in) :: val(:),rhs(:)
             real(real64),intent(in) :: x0(:)
             real(real64),allocatable :: x(:)
-            integer(int32),intent(in) :: row_ptr(:),col_idx(:)
+            integer(int32),intent(in) :: col_idx(:)
+            integer(int64),intent(in) :: row_ptr(:)
 
         end function
     end interface
@@ -1727,7 +1729,7 @@ function solveFEMSolver(this,algorithm,preconditioning,x0) result(x)
     class(FEMSolver_),intent(inout) :: this
     real(real64),allocatable :: x(:),dense_mat(:,:),fix_value(:)
     real(real64),optional,intent(in) :: x0(:)
-    integer(int32) :: i,j, ElementID,col,row_ptr,col_row_fix
+    integer(int64) :: i,j, ElementID,col,row_ptr,col_row_fix
     logical,allocatable :: need_fix(:)
     character(*),optional,intent(in) :: algorithm, preconditioning
 
@@ -2239,7 +2241,8 @@ function argumented_Lagrangian_RHS_FEMSolver(this,DOF,lambda) result(aL_RHS)
 end function
 ! #####################################################
 subroutine bicgstab_CRS_2(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug)
-    integer(int32), intent(inout) :: ptr_i(:),index_j(:), itrmax
+    integer(int32), intent(inout) :: index_j(:), itrmax
+    integer(int64), intent(inout) :: ptr_i(:)
     real(real64), intent(inout) :: a(:), b(:), er
     real(real64),optional,intent(in) :: relative_er
     real(real64), intent(inout) :: x(:)
@@ -2465,10 +2468,11 @@ end subroutine
 subroutine gauss_jordan_crs(a0_val, a0_row_ptr,a0_col_idx, x, b, n)
     integer(int32), intent(in) :: n
     real(real64), intent(in) :: a0_val(n), b(n)
-    integer(int32),intent(in) :: a0_row_ptr(:), a0_col_idx(:)
+    integer(int32),intent(in) ::  a0_col_idx(:)
+    integer(int64),intent(in) :: a0_row_ptr(:)
     real(real64), intent(inout) :: x(n)
     real(real64) :: a_ik
-    integer(int32) i, j, k, m,nn, mm
+    integer(int64) i, j, k, m,nn, mm
 
 
     integer(int32) :: i_1,i_2,i_3,i_4
@@ -2489,7 +2493,7 @@ subroutine gauss_jordan_crs(a0_val, a0_row_ptr,a0_col_idx, x, b, n)
         m = k
        
         !am = abs(a(k,k))
-        am = abs(getCRSval(a_val, a0_row_ptr, a0_col_idx, row=k, col=k))
+        am = abs(getCRSval(a_val, a0_row_ptr, a0_col_idx, row=int(k), col= int(k) ))
 
         !do i = k+1, n
         !    if (abs(a(i,k)) > am) then
@@ -2543,8 +2547,9 @@ subroutine gauss_jordan_crs(a0_val, a0_row_ptr,a0_col_idx, x, b, n)
   
 function getCRSval(val, row_ptr, col_idx, row, col) result(ret)
     real(real64),intent(in) :: val(:)
-    integer(int32),intent(in) :: row_ptr(:), col_idx(:),row,col
-    integer(int32) :: j, k
+    integer(int32),intent(in) :: col_idx(:),col,row
+    integer(int64),intent(in) :: row_ptr(:)
+    integer(int64) :: j, k
     real(real64) :: ret
 
     ret=0.0d0
@@ -2562,14 +2567,15 @@ end function
 !===========================================================================
 subroutine JacobiPreconditionerCRS(val,row_ptr,col_idx,rhs)
     real(real64),intent(inout) :: val(:),rhs(:)
-    integer(int32),intent(inout) :: row_ptr(:),col_idx(:)
+    integer(int32),intent(inout) :: col_idx(:)
+    integer(int64),intent(inout) :: row_ptr(:)
     real(real64) :: A_k_k, A_k_k_inv
-    integer(int32) :: i,j
+    integer(int64) :: i,j
 
     !!$OMP parallel
     !!$OMP do 
     do i=1,size(row_ptr) - 1    
-        A_k_k = getCRSval(val=val, row_ptr=row_ptr, col_idx=col_idx, row=i, col=i)
+        A_k_k = getCRSval(val=val, row_ptr=row_ptr, col_idx=col_idx, row=int(i), col=int(i) )
         if(A_k_k ==0.0d0) cycle
         A_k_k_inv = 1.0d0/A_k_k
         rhs(i) = rhs(i) * A_k_k_inv

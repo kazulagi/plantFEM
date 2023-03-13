@@ -1,0 +1,1 @@
+g++ OpenGLClass.cpp -lglfw -lGLEW -lGL 

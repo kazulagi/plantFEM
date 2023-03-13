@@ -17,6 +17,9 @@ module RandomClass
         procedure :: name    => nameRandom
         procedure :: choiceInt  => choiceRandomInt
         procedure :: choiceReal => choiceRandomReal
+        procedure :: drawOne => drawOneRandomInt
+        procedure :: draw => drawRandomInt
+        procedure :: shuffle => shuffleRandomInt
         procedure :: uniform    => uniformRandom
         procedure,pass :: gauss_scalar_Random
         procedure,pass :: gauss_vector_Random
@@ -627,5 +630,106 @@ function whiteRandom(this,num_sample,mu,sigma) result(ret)
     enddo
 
 end function
+! ############################################
+
+function drawOneRandomInt(this,vec) result(ret)
+    class(Random_),intent(in) :: this
+    integer(int32),allocatable,intent(inout) :: vec(:)
+    integer(int32),allocatable :: buf(:)
+    integer(int32) :: ret, id
+
+
+    ret = 0
+    if(.not.allocated(vec) )then
+        return
+    endif
+
+    if(size(vec)==1 )then
+        ret = vec(1)
+        deallocate(vec)
+        return
+    endif
+
+    id = this%randint(1,size(vec) )
+    ret = vec(id)
+    if(id==1)then
+        
+        vec = vec(2:size(vec) )
+        
+    elseif(id==size(vec) )then
+        vec = vec(1:size(vec)-1)
+    else
+        buf = vec
+        deallocate(vec)
+        allocate(vec(size(buf)-1 ) )
+        vec(1:id-1) = buf( 1: id-1) 
+        vec(id:)    = buf( id+1:)
+        return 
+    endif
+    
+
+
+end function
+
+! #######################################################
+recursive function drawRandomInt(this,vec,num) result(ret)
+    class(Random_),intent(in) :: this
+    integer(int32),intent(in) :: num
+    integer(int32),allocatable,intent(inout) :: vec(:)
+    integer(int32),allocatable :: buf(:)
+    logical :: selected_entity(num)
+    integer(int32) :: i,n
+    integer(int32),allocatable :: ret(:)
+    
+    if(.not.allocated(vec) ) then
+        allocate(ret(0) )
+        return
+    endif
+
+    if(size(vec)==0 ) then
+        allocate(ret(0) )
+        return
+    endif
+
+    n = size(vec)
+    allocate( ret(minval([ num,n ])) )
+    ret = 0
+    do i=1,minval([ num,n ])
+        ret(i) = this%drawOne(vec)
+    enddo
+    
+
+end function
+! #################################################
+subroutine shuffleRandomInt(this,intvec) 
+    class(Random_),intent(in) :: this
+    integer(int32),intent(inout) :: intvec(:)
+    logical,allocatable :: selected_entity(:)
+    integer(int32),allocatable :: retvec(:)
+    integer(int32) :: i,n,id,itr
+
+    n  = size(intvec)
+    allocate(selected_entity(n) ) 
+    allocate(retvec(n) )
+    selected_entity(:) = .false.
+    itr = 0
+    do 
+        id = this%randint(1,n)
+        if(selected_entity(id) )then
+            cycle
+        else
+            itr = itr + 1
+            retvec(itr) = intvec(id)
+            selected_entity(id) = .true.
+            if(itr==n) then
+                intvec  = retvec
+                return
+            endif
+        endif
+    enddo
+
+
+end subroutine
+! #################################################
 
 end module

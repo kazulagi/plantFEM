@@ -69,7 +69,14 @@ module SparseClass
     
     type :: CRS_
         integer(int32),allocatable :: col_idx(:)
-        integer(int32),allocatable :: row_ptr(:)
+        
+    
+        !integer(int32),allocatable :: row_ptr(:)
+
+        ! Destructive
+        integer(int64),allocatable :: row_ptr(:)
+        
+
         real(real64)  ,allocatable :: val(:)
     contains
         procedure,public :: init => initCRS
@@ -219,8 +226,8 @@ function to_CRSCOO(this,remove_coo) result(CRS_version)
     class(COO_),intent(inout) :: this
     logical,optional,intent(in) :: remove_coo
     type(CRS_) :: CRS_version
-    integer(int32) :: i,j,idx
-    integer(int64) :: n
+    integer(int32) :: i,idx
+    integer(int64) :: n,j
 
     
     CRS_version%col_idx = this%getAllCol()
@@ -535,7 +542,8 @@ function matmulCRS(CRS,old_vector) result(new_vector)
     class(CRS_),intent(in) :: CRS
     complex(real64),intent(in)  :: Old_vector(:)
     complex(real64),allocatable :: new_vector(:)
-    integer(int32) :: n,row,CRS_id
+    integer(int32) :: n,row
+    integer(int64) :: CRS_id
 
   
     n = size(CRS%row_ptr)-1
@@ -572,10 +580,13 @@ function matmulCRS(CRS,old_vector) result(new_vector)
 
 function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
     real(real64),intent(in)  :: CRS_value(:),Old_vector(:)
-    integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
+    integeR(int32),intent(in):: CRS_col(:)
+    integeR(int64),intent(in):: CRS_row_ptr(:)
   
     real(real64),allocatable :: new_vector(:)
-    integer(int32) :: i, j, n,gid,lid,row,CRS_id,col
+    integer(int32) :: i, j, n,gid,lid,row,col
+    integer(int64) :: CRS_id
+    
     !> x_i = A_ij b_j
   
   
@@ -599,19 +610,10 @@ function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector
     !$OMP end do
     !$OMP end parallel 
     
-
-!    !$OMP parallel do default(shared) private(CRS_id,col)
-!    do row = 1 , n
-!        do CRS_id = CRS_row_ptr(row), CRS_row_ptr(row+1)-1
-!            col = CRS_col(CRS_id)
-!            !$OMP atomic
-!            new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(col)
-!        enddo
-!    enddo
-!    !$OMP end parallel do 
-    
   end function
 ! ###################################################################
+
+
 !function crs_opencl_matvec(CRS_row_ptr,CRS_col,CRS_value,old_vector) result(new_vector)
 !    integer(int32), intent(in)  :: CRS_row_ptr(:),CRS_col(:)
 !    real(real64),intent(in) :: CRS_value(:), old_vector(:)
@@ -624,10 +626,12 @@ function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector
 
   function crs_matvec_generic_complex_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
     complex(real64),intent(in)  :: CRS_value(:),Old_vector(:)
-    integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
+    integeR(int32),intent(in):: CRS_col(:)
+    integeR(int64),intent(in):: CRS_row_ptr(:)
   
     complex(real64),allocatable :: new_vector(:)
-    integer(int32) :: i, j, n,gid,lid,row,CRS_id,col
+    integer(int32) :: i, j, n,gid,lid,row,col
+    integer(int64) :: CRS_id
     !> x_i = A_ij b_j
   
   
@@ -717,7 +721,8 @@ end subroutine
 
 subroutine initCRS(this,val,col_idx,row_ptr)
     class(CRS_),intent(inout) :: this
-    integer(int32),intent(in) :: col_idx(:), row_ptr(:)
+    integer(int32),intent(in) :: col_idx(:)
+    integer(int64),intent(in) ::  row_ptr(:)
     real(real64),intent(in)   :: val(:)
 
     this%val = val
@@ -730,7 +735,8 @@ end subroutine
 function to_denseCRS(this) result(dense_mat)
     class(CRS_),intent(in) :: this
     real(real64),allocatable  :: dense_mat(:,:)
-    integer(int32) :: i,j,n,row,col
+    integer(int32) :: i,n,row,col
+    integeR(int64) :: j
 
     n = size(this%row_ptr) - 1
     allocate(dense_mat(n,n) )
@@ -748,7 +754,8 @@ end function
 pure function addCRS_and_CRS(CRS1,CRS2) result(CRS_ret)
     type(CRS_),intent(in) :: CRS1,CRS2
     type(CRS_) :: CRS_ret
-    integer(int32) :: i, j, row, col_2,col_1
+    integer(int32) :: i, j, row
+    integer(int64) :: col_2,col_1
     
     ! sum : CRS_ret = CRS1 + CRS2
     CRS_ret = CRS1
@@ -776,7 +783,8 @@ end function
 pure function diffCRS_and_CRS(CRS1,CRS2) result(CRS_ret)
     type(CRS_),intent(in) :: CRS1,CRS2
     type(CRS_) :: CRS_ret
-    integer(int32) :: i, j, row, col_2,col_1
+    integer(int32) :: i, j, row
+    integer(int64) :: col_2,col_1
     
     ! sum : CRS_ret = CRS1 + CRS2
     CRS_ret = CRS1
@@ -938,7 +946,7 @@ subroutine updateCRS(this,row,col,val)
     class(CRS_),intent(inout) :: this
     integer(int32),intent(in) :: row, col
     real(real64),intent(in) :: val
-    integer(int32) :: i,j
+    integer(int64) :: i,j
     
     
     ! update but ignore fill-in
@@ -961,7 +969,7 @@ subroutine addCRS(this,row,col,val)
     class(CRS_),intent(inout) :: this
     integer(int32),intent(in) :: row, col
     real(real64),intent(in) :: val
-    integer(int32) :: i,j
+    integer(int64) :: i,j
     
     
     ! update but ignore fill-in
@@ -986,7 +994,7 @@ function getCRS(this,row,col) result(val)
     class(CRS_),intent(in) :: this
     integer(int32),intent(in) :: row, col
     real(real64) :: val
-    integer(int32) :: i
+    integer(int64) :: i
     
     ! update but ignore fill-in
     val = 0.0d0
@@ -1011,7 +1019,7 @@ logical function is_nonzeroCRS(this,row,col)
     class(CRS_),intent(in) :: this
     integer(int32),intent(in) :: row, col
     real(real64) :: val
-    integer(int32) :: i
+    integer(int64) :: i
     
     is_nonzeroCRS = .false.
     if(row > this%size() ) return
@@ -1038,7 +1046,7 @@ function diagCRS(this,cell_centered) result(diag_vec)
     class(CRS_),intent(in) :: this
     real(real64),allocatable  :: diag_vec(:)
     logical,optional,intent(in) :: cell_centered
-    integeR(int32) :: i,j
+    integeR(int64) :: i,j
 
     if(present(cell_centered) )then
         if(cell_centered)then
@@ -1076,7 +1084,8 @@ recursive subroutine ILUCRS(this,fill_in_order,RHS,debug)
     type(CCS_) :: ccs
     logical,optional,intent(in) :: debug
     real(real64) :: A_k_j,A_ik
-    integer(int32) :: i,j,k,l,n,m,row,col,col_idx,row_idx,kk,jj
+    integer(int32) :: i,k,l,n,m,row,col,col_idx,row_idx,kk,jj
+    integer(int64) :: j
     integer(int32),allocatable :: nonzero_k_list(:),nonzero_j_list(:)
     logical :: debug_mode_on = .false.
 
@@ -1163,15 +1172,14 @@ recursive subroutine ILUCRS(this,fill_in_order,RHS,debug)
                     do jj=1,size(nonzero_k_list)
                         j = nonzero_k_list(jj)
                         if(j<k+1)cycle
-                        call this%add(row=i,col=j,val= - A_ik*this%get(k,j) )
+                        call this%add(row=int(i),col=int(j),val= - A_ik*this%get(int(k),int(j)) )
                     enddo
                     !$OMP end do
                     !$OMP end parallel 
                     
-                    diag_vec(i) = this%get(i,i)
+                    diag_vec(i) = this%get(int(i), int(i) )
                     
                 enddo
-
             enddo
             ! <<<<<<<<< slow
 
@@ -1235,7 +1243,7 @@ end subroutine
 ! ################################################
 subroutine ILU_matvecCRS(this,old_vector,new_vector)
     class(CRS_),intent(in) :: this ! ILU factorlized matrix
-    integer(int32) :: i, j
+    integer(int64) :: i, j
     real(real64),intent(in) :: old_vector(:)
     real(real64),allocatable,intent(inout) :: new_vector(:)
     real(real64),allocatable :: diag_vec(:)
@@ -1296,7 +1304,7 @@ end subroutine
 function to_CCSCRS(this) result(CCS)
     class(CRS_),intent(in) :: this
     type(CCS_) :: CCS
-    integer(int32) :: i,j,n,col
+    integer(int64) :: i,j,n,col
     integer(int32),allocatable :: inst_counter(:)
 
     inst_counter = int(zeros(this%size() ) )
@@ -1941,7 +1949,8 @@ end subroutine
 
 ! #####################################################
 subroutine bicgstab_CRS_SparseClass(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug)
-    integer(int32), intent(in) :: ptr_i(:),index_j(:)
+    integer(int64), intent(in) :: ptr_i(:)
+    integer(int32), intent(in) :: index_j(:)
     integer(int32), intent(in) :: itrmax
     real(real64), intent(in) :: a(:)
     real(real64), intent(in) :: b(:)
@@ -2052,11 +2061,13 @@ end subroutine
 
 subroutine SpMV_CRS_Sparse(CRS_value,CRS_col,CRS_row_ptr,old_vector,new_vector,precondition)
     real(real64),intent(in)  :: CRS_value(:),Old_vector(:)
-    integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
+    integeR(int32),intent(in):: CRS_col(:)
+    integeR(int64),intent(in):: CRS_row_ptr(:)
     type(CRS_),optional,intent(in) :: precondition
     real(real64),allocatable,intent(inout) :: new_vector(:)
     real(real64),allocatable :: precon_old_vector(:)
-    integer(int32) :: i, j, n,gid,lid,row,CRS_id,col
+    integer(int32) :: i, j, n,gid,lid,row,col
+    integer(int64) :: CRS_id
     !> x_i = A_ij b_j
   
   
@@ -2106,7 +2117,7 @@ function divide_by_CRS(this,diag_vector) result(ret_crs)
     class(CRS_),intent(in) :: this
     real(real64),intent(in) :: diag_vector(:)
     type(CRS_) :: ret_crs
-    integer(int32) :: i,j
+    integer(int64) :: i,j
     ret_crs = this
 
     if(size(diag_vector)==1)then
@@ -2132,7 +2143,7 @@ function mult_by_CRS(this,diag_vector) result(ret_crs)
     class(CRS_),intent(in) :: this
     real(real64),intent(in) :: diag_vector(:)
     type(CRS_) :: ret_crs
-    integer(int32) :: i,j
+    integer(int64) :: i,j
     ret_crs = this
 
     if(size(diag_vector)==1)then
@@ -2599,7 +2610,8 @@ subroutine fixCRS(this,idx,val,RHS,only_row)
     integer(int32),intent(in) :: idx(:)
     real(real64),optional,intent(inout) :: RHS(:)
     real(real64),intent(in) :: val(:)
-    integer(int32) :: i,j,k,id
+    integer(int64) :: i,j,k,id
+
     logical,optional,intent(in) :: only_row
 
     if(present(only_row) )then
@@ -3708,7 +3720,7 @@ subroutine fix_complex64_CRS(this,idx,val,RHS,only_row)
     integer(int32),intent(in) :: idx(:)
     complex(real64),optional,intent(inout) :: RHS(:)
     complex(real64),intent(in) :: val(:)
-    integer(int32) :: i,j,k,id
+    integer(int64) :: i,j,k,id
 
     logical,optional,intent(in) :: only_row
 
@@ -3775,10 +3787,10 @@ end subroutine
 subroutine removeCRS(this,idx)
     class(CRS_),intent(inout) :: this
     integer(int32),optional,intent(in) :: idx(:)
-    integer(int32),allocatable :: num_col(:),col_idx(:),only_k(:),&
+    integer(int64),allocatable :: num_col(:),col_idx(:),only_k(:),&
         copy_idx(:),row_ptr(:)
     real(real64),allocatable :: val(:)
-    integer(int32) :: row, col_id,count_id,n,k,i,j
+    integer(int64) :: row, col_id,count_id,n,k,i,j
     
     if(.not.present(idx) )then
         if(allocated(this%col_idx) ) then

@@ -148,6 +148,7 @@ module IOClass
     
             
             procedure,pass :: writeIOint32Vector
+            procedure,pass :: writeIOint64Vector
             procedure,pass :: writeIOint32Vectorint32Vector
             procedure,pass :: writeIOint32Vectorint32Vectorint32Vector
             procedure,pass :: writeIOint32Vectorint32Vectorre64Vector
@@ -1249,6 +1250,40 @@ module IOClass
     end subroutine
     ! #############################################
     
+
+
+    ! #############################################
+    subroutine writeIOint64Vector(obj,in64,separator)
+        class(IO_),intent(inout) :: obj
+        integer(int32),intent(in) :: in64(:)
+        integer(int32) :: i
+        character(*),optional,intent(in) :: separator
+        character(:),allocatable :: sep
+
+
+        if(obj%binary)then
+            write(obj%fh) in64
+            return
+        endif
+
+        if(present(separator) )then
+            sep = separator
+        else
+            sep = " "
+        endif
+    
+        if(obj%state=="r")then
+            call print("IOClass >> Error >> This file is readonly. ")
+            call print("Nothing is written.")
+            return
+        endif
+        do i=1,size(in64)
+            write(obj%fh, '(A)') trim(str(in64(i) ))//sep
+        enddo
+    end subroutine
+    ! #############################################
+    
+
     ! #############################################
     subroutine writeIOint32VectorInt32vector(obj,in32,in32_c,separator)
         class(IO_),intent(inout) :: obj
