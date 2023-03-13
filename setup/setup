@@ -11,6 +11,7 @@ sudo apt -y install libatlas3-base
 sudo apt -y install libatlas-base-dev
 sudo apt -y install libopencv-dev 
 sudo apt -y install gcc-offload-nvptx
+sudo apt -y install libglfw3-dev
 sudo chmod 777 ./plantfem
 sudo chmod 777 ./bin/soja.sh
 #sudo apt install -y jupyter-notebook

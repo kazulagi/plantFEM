@@ -1074,7 +1074,8 @@ subroutine runSeismicAnalysis_user_function(obj,t0,timestep,wave,AccelLimit,disp
             implicit none
             real(real64),intent(in) :: val(:),rhs(:)
             real(real64),intent(inout) :: x(:)
-            integer(int32),intent(in) :: row_ptr(:),col_idx(:)
+            integer(int32),intent(in) :: col_idx(:)
+            integer(int64),intent(in) :: row_ptr(:)
 
         end subroutine
     end interface

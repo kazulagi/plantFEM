@@ -20,13 +20,17 @@ module WaveKernelClass
         integer(int32) :: itrmax=100
     contains
         procedure :: init => initWaveKernel
-        procedure :: getDisplacement => getDisplacementWaveKernel
-        procedure :: getVelocity => getVelocityWaveKernel
         procedure :: bandpass => bandpass_WaveKernel
         procedure :: lowpass => lowpass_WaveKernel
         procedure :: movingAverage => movingAverage_WaveKernel
+
+        ! >>> RECCOMENDED >>>
         procedure :: getDisplacement_and_Velocity &
             => getDisplacement_and_Velocity_WaveKernel
+        ! <<< RECCOMENDED <<<
+
+        procedure :: getDisplacement => getDisplacementWaveKernel
+        procedure :: getVelocity => getVelocityWaveKernel
         !procedure :: hanning => hanning_WaveKernel
         ! procedure :: filter => filter_WaveKernel
     end type
@@ -246,7 +250,7 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,fix_idx,cutof
     real(real64),intent(in) :: u_n(:),v_n(:)
     real(real64),allocatable :: du(:),dv(:)
     real(real64),allocatable :: u(:),v(:)
-    integer(int32),optional,intent(in) :: fix_idx(:)
+    integer(int32),optional,allocatable,intent(in) :: fix_idx(:)
     real(real64),intent(in) :: dt
     logical,optional,intent(in) :: debug_mode
     real(real64),optional,intent(in)  :: cutoff_frequency
@@ -258,7 +262,7 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,fix_idx,cutof
     ! [CAUTION!!] only undampled is implemented.
     
     du = u_n
-    du(fix_idx)=0.0d0 
+    
     u = u_n
     v = 0.0d0*v_n
     do k=1,this%itrmax
@@ -277,7 +281,6 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,fix_idx,cutof
     deallocate(du)
 
     dv = v_n
-    dv(fix_idx)=0.0d0
     ! k=1
     u = u + dt*dv
     v = v + dv
@@ -289,7 +292,12 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,fix_idx,cutof
         v = v + LPF_cos_sqrt_taylor_coefficient(  k=k ,t=dt,f_c=cutoff_frequency)*dv
     enddo
     
-
+    if(present(fix_idx) )then
+        if(allocated(fix_idx) )then
+            v(fix_idx)=0.0d0
+            u(fix_idx)=0.0d0 
+        endif
+    endif
 end subroutine
 ! ##############################################################
 

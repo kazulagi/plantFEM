@@ -715,7 +715,9 @@ This project is financially supported by the following research grants.
 
 [2] Haruka Tomobe, Kazunori Fujisawa, Akira Murakami, A Mohr-Coulomb-Vilar model for constitutive relationship in root-soil interface under changing suction, Soils and Foundations, Volume 61,2021, Pages 815–835. 
 
-[3] plantFEM: A Numerical Platform for Multi-physical Simulation of Plants, Third International Workshop on Machine Learning for Cyber-Agricultural Systems (MLCAS2021), Page 22.
+[3] Haruka Tomobe, Yu Tanaka, Tomoya Watanabe, plantFEM: A Numerical Platform for Multi-physical Simulation of Plants, Third International Workshop on Machine Learning for Cyber-Agricultural Systems (MLCAS2021), Page 22.
+
+[4] Haruka Tomobe, Vikas Sharma, Harusato Kimura, Hitoshi Morikawa, An Energy-based Overset Finite Element Method for Pseudo-static Structural Analysis. J. Sci. Comput. 2023, 94:55.
 
 Others are under revision and/or under preparation.
 

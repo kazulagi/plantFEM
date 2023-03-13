@@ -4,6 +4,7 @@ module MPIClass
     use MathClass
     use ArrayClass
     use GraphClass
+
     implicit none
 
 
@@ -15,6 +16,13 @@ module MPIClass
         character*200 :: comment
     endtype
     
+    type :: MPI_JOB_
+        real(real64),pointer :: var => null()
+        real(real64),allocatable :: var_list(:)
+    end type
+
+    
+
     type:: MPI_
         integer(int32) :: ierr
         integer(int32) :: MyRank
@@ -25,6 +33,22 @@ module MPIClass
         integer(int32) :: Comm4
         integer(int32) :: Comm5
         integer(int32) :: start_id, end_id
+
+
+        ! >>> job scheduler
+        type(MPI_JOB_),allocatable :: MPI_JOB(:)
+        integer(int32) :: MPI_MAX_JOB_NUMBER=10
+        integer(int32) :: MPI_LAST_JOB_NUMBER=0
+        real(real64),allocatable  :: EP_MY_VARIABLE_LIST(:,:)
+        logical     ,allocatable  :: EP_MY_TASK_SCHEDULE(:)
+        integer(int32)            :: EP_MY_CURRENT_TASK_ID=0
+        real(real64),allocatable  :: EP_ALL_VARIABLE_LIST(:,:)
+        real(real64),allocatable  :: EP_MY_RESULT_LIST(:,:)
+        type(IO_) :: EP_result_summary
+
+        ! <<< job scheduler
+
+
         integer(int32),allocatable::start_end_id(:)
         integer(int32),allocatable::Comm(:),key(:)
         integer(int32),allocatable::local_ID(:),Global_ID(:)
@@ -36,9 +60,17 @@ module MPIClass
         character(200) :: name
         type(comment_) :: comments(1000)
         type(Graph_) :: graph
+
     contains
         procedure :: Start => StartMPI
         procedure :: init => StartMPI
+
+        ! >>>> Embarrassingly parallel (自明並列)
+        procedure :: EP_set_variable => EP_set_variableMPI ! Embarrassingly parallel (自明並列)
+        procedure :: EP_get_variable => EP_get_variableMPI ! Embarrassingly parallel (自明並列)
+        procedure :: EP_set_result   => EP_set_resultMPI   ! Embarrassingly parallel (自明並列)
+        ! <<<< Embarrassingly parallel (自明並列)
+
         procedure :: initItr => initItrMPI
         procedure :: Barrier => BarrierMPI
         procedure, Pass ::  readMPIInt
@@ -109,7 +141,6 @@ module MPIClass
         procedure :: num_images => num_imagesMPI
         procedure :: this_image => this_imageMPI
 
-
         procedure, Pass :: syncGraphMPI
         generic :: sync => syncGraphMPI
 
@@ -139,6 +170,10 @@ subroutine StartMPI(obj,NumOfComm)
     obj%comments%comment(:)="No comment"
 
     print *, "Number of Core is ",obj%Petot
+
+    if(allocated(obj%MPI_JOB) ) deallocate(obj%MPI_JOB)
+    allocate(obj%MPI_JOB(obj%MPI_MAX_JOB_NUMBER) )
+
 
 end subroutine
 !################################################################
@@ -377,12 +412,6 @@ recursive subroutine BcastMPIIntVec(obj,From,val)
     integer(int32),allocatable,intent(inout)::val(:)
     integer(int32) :: i,j,n,vec_size
     integer(int32) :: sendval
-
-    
-
-    !if(allocated(val) .and. From/=obj%myrank )then
-    !    deallocate(val)
-    !endif
 
     if(allocated(val) )then
         if(From/=obj%myrank )then
@@ -1589,6 +1618,12 @@ subroutine EndMPI(obj)
         print *, " ############################################ "
     endif
     
+
+
+    if(obj%EP_result_summary%active )then
+        call obj%EP_result_summary%close()
+    endif
+
     call mpi_finalize(obj%ierr)
 
 end subroutine
@@ -1807,5 +1842,127 @@ subroutine isend_irecvRealVectorMPI(this,sendobj,recvobj,send_recv_rank,debug)
     call this%barrier()
     this%ierr= ierr
 end subroutine
+! ###################################################
+
+subroutine EP_set_variableMPI(this,var,var_range,N)
+    class(MPI_),intent(inout) :: this
+    real(real64),target,intent(in)   :: var
+    real(real64),intent(in)   :: var_range(1:2)
+    integer(int32),intent(in) :: N
+    integer(int32) :: i
+    type(Random_) :: random
+
+    this%MPI_LAST_JOB_NUMBER=this%MPI_LAST_JOB_NUMBER+1
+    this%MPI_JOB(this%MPI_LAST_JOB_NUMBER)%var => var
+    this%MPI_JOB(this%MPI_LAST_JOB_NUMBER)%var_list = linspace(var_range,N)
+    
+    
+end subroutine
+! ###################################################
+
+
+! ###################################################
+function EP_get_variableMPI(this) result(ret)
+    class(MPI_),intent(inout) :: this
+    logical :: ret
+    integer(int32) :: var_id,n,i,j
+    integer(int32),allocatable :: order_list(:),part_rank(:)
+    type(Random_) :: random
+    
+    ret = .false.
+
+    if(.not.allocated(this%EP_ALL_VARIABLE_LIST) )then
+        
+        if    (this%MPI_LAST_JOB_NUMBER==1)then
+            this%EP_ALL_VARIABLE_LIST=zeros(size(this%MPI_JOB(1)%var_list) ,1)
+            this%EP_ALL_VARIABLE_LIST(:,1)=this%MPI_JOB(1)%var_list(:)
+        elseif(this%MPI_LAST_JOB_NUMBER==2)then
+            this%EP_ALL_VARIABLE_LIST = cartesian_product(&
+                this%MPI_JOB(1)%var_list,&
+                this%MPI_JOB(2)%var_list)
+        elseif(this%MPI_LAST_JOB_NUMBER>=3)then
+            this%EP_ALL_VARIABLE_LIST = cartesian_product(&
+                this%MPI_JOB(1)%var_list,&
+                this%MPI_JOB(2)%var_list)
+            do var_id=3,this%MPI_LAST_JOB_NUMBER
+                this%EP_ALL_VARIABLE_LIST = cartesian_product(&
+                    this%EP_ALL_VARIABLE_LIST,&
+                    this%MPI_JOB(var_id)%var_list)
+            enddo
+        else 
+            print *, "ERROR :: EP_get_variableMPI"
+            stop
+        endif
+        
+    endif
+    
+
+    if(.not.allocated(this%EP_MY_VARIABLE_LIST) )then
+        ! this%EP_ALL_VARIABLE_LIST
+        n = size(this%EP_ALL_VARIABLE_LIST,1)
+        if(this%myrank==0)then
+            order_list = [(i,i=1,n )]
+            call random%shuffle(order_list)
+        endif
+
+        call this%Bcast(from=0,val=order_list)
+        call this%createStack(n)
+        this%EP_MY_VARIABLE_LIST = this%EP_ALL_VARIABLE_LIST(this%localstack(:),:)
+    endif
+
+
+    if(.not.allocated(this%EP_MY_TASK_SCHEDULE) )then
+        allocate(this%EP_MY_TASK_SCHEDULE(size(this%EP_MY_VARIABLE_LIST,1) ))
+        this%EP_MY_TASK_SCHEDULE(:) = .false.
+    endif
+
+    ret = .false.
+    do i=1,size(this%EP_MY_TASK_SCHEDULE)
+        if(this%EP_MY_TASK_SCHEDULE(i) )    then
+            cycle
+        else
+            ! un-done
+            do j=1,size(this%EP_MY_VARIABLE_LIST,2)
+                ! substitute variables
+                this%MPI_JOB(j)%var = this%EP_MY_VARIABLE_LIST(i,j)
+            enddo
+            this%EP_MY_CURRENT_TASK_ID = i
+            this%EP_MY_TASK_SCHEDULE(i)=.true.
+            ret = .true.
+            return
+        endif
+    enddo
+
+    
+
+end function
+! ###################################################
+
+subroutine EP_set_resultMPI(this,result_value)
+    class(MPI_),intent(inout) :: this
+    real(real64),intent(in) :: result_value(:)
+    type(IO_) :: f
+
+    if(.not.allocated(this%EP_MY_RESULT_LIST ) )then
+        this%EP_MY_RESULT_LIST = zeros(size(this%EP_MY_VARIABLE_LIST,1), size(result_value))
+    endif
+    
+    this%EP_MY_RESULT_LIST(this%EP_MY_CURRENT_TASK_ID,:)=result_value(:)
+
+    if(.not. this%EP_result_summary%active )then
+        call this%EP_result_summary%open("result"+zfill(this%myrank,7)+".tsv","w" )
+    endif
+    
+    call this%EP_result_summary%write(this%EP_MY_VARIABLE_LIST(this%EP_MY_CURRENT_TASK_ID:this%EP_MY_CURRENT_TASK_ID,:) &
+        .h. this%EP_MY_RESULT_LIST(this%EP_MY_CURRENT_TASK_ID:this%EP_MY_CURRENT_TASK_ID,:) )
+    
+    
+
+end subroutine
+! ###################################################
+
+
+
+
 
 end module

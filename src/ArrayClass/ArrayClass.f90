@@ -51,6 +51,11 @@ module ArrayClass
         module procedure :: d_dx_real64,d_dx_real32,d_dx_complex64
     end interface
 
+
+    interface cartesian_product
+        module procedure :: cartesian_product_real64_2,cartesian_product_real64_array_vec
+    end interface cartesian_product
+
     interface decimate
         module procedure :: decimateReal64Vec, decimateInt32Vec
     end interface 
@@ -92,7 +97,7 @@ module ArrayClass
 
     interface linspace
         module procedure :: linspace1D, linspace1Dcomplex64,&
-                 linspace1Dreal32, linspace2D, linspace3D,linspace4D
+                 linspace1Dreal32, linspace1Dint64,linspace2D, linspace3D,linspace4D
     end interface linspace
 
     interface set
@@ -112,7 +117,7 @@ module ArrayClass
     end interface
 
     interface Removeif
-        module procedure :: RemoveIFintvec, RemoveIFintArray2
+        module procedure :: RemoveIFintvec,RemoveIFint64vec, RemoveIFintArray2
     end interface
 
     interface hstack
@@ -139,7 +144,7 @@ module ArrayClass
         module procedure :: zerosRealArray, zerosRealVector,zerosRealArray3,zerosRealArray4,zerosRealArray5,&
             zerosRealArray_64, zerosRealVector_64,zerosRealArray3_64,zerosRealArray4_64,zerosRealArray5_64
     end interface
-
+            
     interface ones
         module procedure :: onesRealArray, onesRealVector,onesRealArray3,onesRealArray4,onesRealArray5,&
             onesRealArray_64, onesRealVector_64,onesRealArray3_64,onesRealArray4_64,onesRealArray5_64
@@ -333,7 +338,7 @@ module ArrayClass
     end interface remove
 
     interface searchAndRemove
-        module procedure :: searchAndRemoveInt
+        module procedure :: searchAndRemoveInt,searchAndRemoveInt64
     end interface
 
     interface removeArray
@@ -365,7 +370,7 @@ module ArrayClass
         module procedure :: existIntVec, existIntArray
     end interface
 
-
+    
 
 
     interface exists
@@ -425,8 +430,10 @@ module ArrayClass
     end interface
 
     interface operator(//)
-        module procedure appendVectorsInt32,appendVectorsReal64,appendMatrixInt32,appendMatrixReal64
+        module procedure appendVectorsInt32,appendVectorsInt64,appendVectorsReal64,appendMatrixInt32,appendMatrixReal64
     end interface
+
+
     
     interface assignment(=)
       module procedure assignArrayAlloInt,assignArrayAlloReal, assignAlloArrayInt,assignAlloArrayReal,&
@@ -474,6 +481,7 @@ module ArrayClass
     interface operator(.and.)
         module procedure and_int32vector_int32vector
     end interface 
+
     
 
 contains
@@ -5816,7 +5824,7 @@ function sameAsGroupintVec(vec1, vec2) result(ret)
 
 
 end function
-
+! #######################################################
 subroutine searchAndRemoveInt(vec,eq,leq,geq)
     integer(int32),allocatable,intent(inout) :: vec(:)
     integer(int32),optional,intent(in) :: eq,leq,geq
@@ -5885,6 +5893,83 @@ subroutine searchAndRemoveInt(vec,eq,leq,geq)
     endif
 
 end subroutine
+
+! #######################################################
+
+
+
+! #######################################################
+subroutine searchAndRemoveInt64(vec,eq,leq,geq)
+    integer(int64),allocatable,intent(inout) :: vec(:)
+    integer(int32),optional,intent(in) :: eq,leq,geq
+    integer(int64),allocatable :: buf(:)
+    integer(int64):: countnum,i,k
+
+    if(present(eq) )then
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i)==eq )then
+                countnum = countnum + 1
+            endif
+        enddo
+
+        k = size(vec) - countnum
+        allocate(buf( k ) )
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i) /= eq )then
+                countnum=countnum+1
+                buf(countnum) = vec(i)
+            endif
+        enddo
+        vec = buf
+    endif
+
+
+    if(present(leq) )then
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i)<=leq )then
+                countnum = countnum + 1
+            endif
+        enddo
+
+        k = size(vec) - countnum
+        allocate(buf( k ) )
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i) > leq )then
+                countnum=countnum+1
+                buf(countnum) = vec(i)
+            endif
+        enddo
+        vec = buf
+    endif
+
+    if(present(geq) )then
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i)>=geq )then
+                countnum = countnum + 1
+            endif
+        enddo
+
+        k = size(vec) - countnum
+        allocate(buf( k ) )
+        countnum=0
+        do i=1,size(vec)
+            if(vec(i) < geq )then
+                countnum=countnum+1
+                buf(countnum) = vec(i)
+            endif
+        enddo
+        vec = buf
+    endif
+
+end subroutine
+
+! #######################################################
+
 
 function dot_product_omp(a, b, omp) result(dp)
     real(real64),intent(in) :: a(:),b(:)
@@ -6451,6 +6536,27 @@ pure function linspace1D(drange,numberOfData) result(ret)
 end function
 ! ###############################################################
 
+
+! ###############################################################
+pure function linspace1Dint64(drange,numberOfData) result(ret)
+    real(real64),intent(in) :: drange(2)
+    integer(int64),intent(in) :: numberOfData
+    real(real64) :: dx,x,from,to
+    real(real64),allocatable :: ret(:)
+    integer(int32) :: i
+    
+    allocate(ret(numberOfData) )
+    from = drange(1)
+    to = drange(2)
+    dx = (to - from)/dble(numberOfData-1)
+    x = from
+    do i=1, numberOfData-1
+        ret(i) = x
+        x = x + dx
+    enddo
+    ret(numberOfData) = x
+end function
+! ###############################################################
 
 
 
@@ -7846,6 +7952,31 @@ end function
 
 
 ! ####################################################################
+pure function appendVectorsInt64(vec1,vec2) result(vec12)
+    integer(int64),intent(in) :: vec1(:),vec2(:)
+    integer(int64),allocatable :: vec12(:)
+
+
+    if(size(vec1)==0 )then
+        vec12 = vec2    
+        return
+    endif
+
+    if(size(vec2)==0 )then
+        vec12 = vec1
+        return
+    endif
+
+    allocate(vec12( size(vec1)+size(vec2) ) )
+    vec12(           1:           size(vec1) ) = vec1(1:size(vec1) )
+    vec12(size(vec1)+1:size(vec1)+size(vec2) ) = vec2(1:size(vec2) )
+
+end function
+! ####################################################################
+
+
+
+! ####################################################################
 pure function appendVectorsReal64(vec1,vec2) result(vec12)
     real(real64),intent(in) :: vec1(:),vec2(:)
     real(real64),allocatable :: vec12(:)
@@ -7979,6 +8110,31 @@ pure function RemoveIFintvec(vector,equal_to) result(new_vector)
     integeR(int32),intent(in) :: vector(:),equal_to
     integer(int32),allocatable :: new_vector(:)
     integer(int32) :: i, num_remove,new_id
+
+    num_remove=0
+    do i=1,size(vector)
+        if(vector(i)==equal_to )then
+            num_remove=num_remove+1
+        endif
+    enddo
+    new_vector = int(zeros(size(vector,1)-num_remove ))
+    new_id=0
+    do i=1,size(vector)
+        if(vector(i)==equal_to )then
+            cycle
+        else
+            new_id = new_id+1
+            new_vector(new_id) = vector(i)
+        endif
+    enddo
+end function
+! ###################################################################
+
+! ###################################################################
+pure function RemoveIFint64vec(vector,equal_to) result(new_vector)
+    integeR(int64),intent(in) :: vector(:),equal_to
+    integer(int64),allocatable :: new_vector(:)
+    integer(int64) :: i, num_remove,new_id
 
     num_remove=0
     do i=1,size(vector)
@@ -8952,5 +9108,45 @@ function bandpass_vectors(x,in1,in2,out1,out2,freq_range,sampling_Hz) result(ft)
     
 
 end function
+! ##########################################################
+
+function cartesian_product_real64_2(vec1, vec2) result(vec1_vec2)
+    real(real64),intent(in) :: vec1(:),vec2(:)
+    real(real64),allocatable :: vec1_vec2(:,:)
+    integer(int32) :: i,j
+    
+    ! Cartesian product of two vectors
+    vec1_vec2 = zeros( size(vec1)*size(vec2),2)
+    do j=1,size(vec2)
+        do i=1,size(vec1)
+            vec1_vec2( (i-1)*size(vec2)+j,1) = vec1(i)
+            vec1_vec2( (i-1)*size(vec2)+j,2) = vec2(j)
+        enddo
+    enddo
+
+end function
+
+! ##########################################################
+
+
+! ##########################################################
+
+function cartesian_product_real64_array_vec(array1, vec2) result(array1_vec2)
+    real(real64),intent(in) :: array1(:,:),vec2(:)
+    real(real64),allocatable :: array1_vec2(:,:)
+    integer(int32) :: i,j,k
+    
+    ! Cartesian product of two vectors
+    array1_vec2 = zeros( size(array1,1)*size(vec2),size(array1,2)+1)
+
+    do i=1,size(array1,1)
+        do j=1,size(vec2)
+            array1_vec2( (i-1)*size(vec2)+j,1:size(array1,2) ) = array1(i,1:size(array1,2) )
+            array1_vec2( (i-1)*size(vec2)+j,size(array1,2)+1 ) = vec2(j)
+        enddo
+    enddo
+
+end function
+
 ! ##########################################################
 end module ArrayClass

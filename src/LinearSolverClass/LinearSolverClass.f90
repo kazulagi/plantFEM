@@ -41,7 +41,7 @@ module LinearSolverClass
     integer(int32),allocatable :: column_domain_id(:)
     ! CRS format
     real(real64),allocatable   :: CRS_val(:)
-    integer(int32),allocatable :: CRS_index_I(:)
+    integer(int64),allocatable :: CRS_index_I(:)
     integer(int32),allocatable :: CRS_index_J(:)
     integer(int32),allocatable :: CRS_row_domain_id(:)
     integer(int32),allocatable :: CRS_column_domain_id(:)
@@ -947,7 +947,8 @@ subroutine solveLinearSolver(obj,Solver,MPI,OpenCL,CUDAC,preconditioning,CRS)
   class(LinearSolver_),intent(inout) :: obj
   character(*),intent(in) :: Solver
   logical,optional,intent(in) :: MPI, OpenCL, CUDAC,preconditioning,CRS
-  integer(int32),allocatable :: Index_I(:),CRS_Index_I(:), Index_J(:),row_domain_id(:),column_Domain_ID(:)
+  integer(int32),allocatable :: Index_I(:), Index_J(:),row_domain_id(:),column_Domain_ID(:)
+  integer(int64),allocatable :: CRS_Index_I(:)
   real(real64),allocatable:: val(:)
   integer(int32) :: i,m,n,rn,rd,cn,cd,same_n,count_reduc,j
 
@@ -1514,9 +1515,9 @@ subroutine gauss_jordan_pv_complex64(a0, x, b, n)
 
  end subroutine bicgstab_diffusion
 !===============================================================
-
  subroutine bicgstab_CRS(a, ptr_i, index_j, x, b, itrmax, er, debug)
-  integer(int32), intent(inout) :: ptr_i(:),index_j(:), itrmax
+  integer(int32), intent(inout) :: index_j(:), itrmax
+  integer(int64), intent(inout) :: ptr_i(:)
     real(real64), intent(inout) :: a(:), b(:), er
     real(real64), intent(inout) :: x(:)
     logical,optional,intent(in) :: debug
@@ -1593,6 +1594,7 @@ subroutine gauss_jordan_pv_complex64(a0, x, b, n)
  end subroutine 
 !===============================================================
 
+ 
 
  !===============================================================
 
@@ -3000,7 +3002,8 @@ end function
 
 function LOBPCG_sparse(A_val,A_col,A_rowptr,lambda_min,tolerance) result(eigen_vectors)
   real(real64),intent(in) :: A_val(:)
-  integer(int32),intent(in)::A_col(:),A_rowptr(:)
+  integer(int32),intent(in)::A_col(:)
+  integer(int64),intent(in)::A_rowptr(:)
   real(real64),allocatable :: eigen_vectors(:,:)
   real(real64),allocatable :: V(:,:),A_(:,:),xtemp(:,:),&
       lambda_and_x(:,:),lambda(:),bmin(:),x(:,:),r(:,:),x0s(:,:),p(:,:),w(:),&
@@ -3692,9 +3695,10 @@ subroutine to_Dense(CRS_val,CRS_col,CRS_rowptr,DenseMatrix)
 
   real(real64),allocatable,intent(inout) :: DenseMatrix(:,:)
   real(real64),allocatable,intent(in) :: CRS_val(:)
-  integer(int32),allocatable,intent(in) :: CRS_col(:),CRS_rowptr(:)
+  integer(int32),allocatable,intent(in) :: CRS_col(:)
+  integer(int64),allocatable,intent(in) :: CRS_rowptr(:)
 
-  integer(int32) :: nonzero_count,i,j,k,n
+  integer(int64) :: nonzero_count,i,j,k,n
 
   n = size(CRS_rowptr) -1
   
@@ -3712,9 +3716,10 @@ end subroutine
 subroutine to_CRS(DenseMatrix,CRS_val,CRS_col,CRS_rowptr) 
   real(real64),intent(in) :: DenseMatrix(:,:)
   real(real64),allocatable,intent(inout) :: CRS_val(:)
-  integer(int32),allocatable,intent(inout) :: CRS_col(:),CRS_rowptr(:)
+  integer(int32),allocatable,intent(inout) :: CRS_col(:)
+  integer(int64),allocatable,intent(inout) :: CRS_rowptr(:)
 
-  integer(int32) :: nonzero_count,i,j,k,n
+  integer(int64) :: nonzero_count,i,j,k,n
 
   nonzero_count = 0
   do i=1,size(DenseMatrix,1)
@@ -3725,7 +3730,7 @@ subroutine to_CRS(DenseMatrix,CRS_val,CRS_col,CRS_rowptr)
       enddo
   enddo
   CRS_val = zeros(nonzero_count)
-  CRS_col = int(linspace([1.0d0,dble(nonzero_count)],nonzero_count))
+  CRS_col = int(linspace([1.0d0,dble(nonzero_count)], nonzero_count))
   CRS_rowptr = int(zeros(size(DenseMatrix,1)+1) )
   
   nonzero_count = 0
@@ -3761,12 +3766,13 @@ end subroutine
 !
 function crs_matmul_generic(CRS_value,CRS_col,CRS_row_ptr,old_vectors) result(new_vectors)
   real(real64),intent(in)  :: CRS_value(:),Old_vectors(:,:)
-  integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
+  integeR(int32),intent(in):: CRS_col(:)
+  integeR(int64),intent(in):: CRS_row_ptr(:)
 
   real(real64),allocatable :: new_vectors(:,:)
   
   
-  integer(int32) :: i, j, n,gid,lid,row,CRS_id,col,m
+  integer(int64) :: i, j, n,gid,lid,row,CRS_id,col,m
   !> x_i = A_ij b_j
 
 
@@ -3811,10 +3817,11 @@ end function
 
 function crs_matvec_generic(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
   real(real64),intent(in)  :: CRS_value(:),Old_vector(:)
-  integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
+  integeR(int32),intent(in):: CRS_col(:)
+  integeR(int64),intent(in):: CRS_row_ptr(:)
 
   real(real64),allocatable :: new_vector(:)
-  integer(int32) :: i, j, n,gid,lid,row,CRS_id,col
+  integer(int64) :: i, j, n,gid,lid,row,CRS_id,col
   !> x_i = A_ij b_j
 
 
@@ -3841,11 +3848,12 @@ end function
 
 subroutine sub_crs_matvec_generic(CRS_value,CRS_col,CRS_row_ptr,old_vector,new_vector,precondition)
   real(real64),intent(in)  :: CRS_value(:),Old_vector(:)
-  integeR(int32),intent(in):: CRS_col(:),CRS_row_ptr(:)
+  integeR(int32),intent(in):: CRS_col(:)
+  integeR(int64),intent(in):: CRS_row_ptr(:)
   type(CRS_),optional,intent(in) :: precondition
   real(real64),allocatable,intent(inout) :: new_vector(:)
   real(real64),allocatable :: precon_old_vector(:)
-  integer(int32) :: i, j, n,gid,lid,row,CRS_id,col
+  integer(int64) :: i, j, n,gid,lid,row,CRS_id,col
   !> x_i = A_ij b_j
 
 
@@ -3946,15 +3954,17 @@ end function
 subroutine reduce_crs_matrix(CRS_val,CRS_col,CRS_rowptr,remove_IDs)
   real(real64)  ,allocatable,intent(inout) :: CRS_val(:)
   integer(int32),allocatable,intent(inout) :: CRS_col(:)
-  integer(int32),allocatable,intent(inout) :: CRS_rowptr(:)
+  integer(int64),allocatable,intent(inout) :: CRS_rowptr(:)
+
   real(real64),allocatable :: new_CRS_val(:)
   integer(int32),allocatable :: new_CRS_col(:)
-  integer(int32),allocatable :: new_CRS_rowptr(:)
+  integer(int64),allocatable :: new_CRS_rowptr(:)
   
   
   integer(int32),intent(in) :: remove_IDs(:)
   integer(int32),allocatable :: remove_IDs_sorted(:)
-  integer(int32) :: i,j,old_row_id,old_col_id,old_col_ptr,count_m1
+  integer(int32) :: i,old_row_id,old_col_id,old_col_ptr,count_m1
+  integer(int32) :: j
   integer(int32) :: new_row_id,new_col_id,new_col_ptr,remove_id_ptr,rem_count,k,l,m
   integer(int32),allocatable :: new_id_from_old_id(:)
 
@@ -4074,7 +4084,7 @@ end subroutine
 function UpperTriangularMatrix(CRS_val,CRS_col,CRS_rowptr) result(UP)
   real(real64),intent(in) :: CRS_val(:)
   integer(int32),intent(in) :: CRS_col(:)
-  integer(int32),intent(in) :: CRS_rowptr(:)
+  integer(int64),intent(in) :: CRS_rowptr(:)
   integer(int64) :: i,j,col,row,N,offset
   real(real64) :: val
   real(real64) ,allocatable :: UP(:)
@@ -4230,7 +4240,8 @@ end subroutine
 
 ! #####################################################
 subroutine bicgstab_CRS_ILU(a, ptr_i, index_j, x, b, itrmax, er, relative_er,debug,ILU_MATRIX)
-  integer(int32), intent(inout) :: ptr_i(:),index_j(:), itrmax
+  integer(int32), intent(inout) :: index_j(:), itrmax
+  integer(int64), intent(inout) :: ptr_i(:)
   real(real64), intent(inout) :: a(:), b(:), er
   real(real64),optional,intent(in) :: relative_er
   real(real64), intent(inout) :: x(:)
@@ -4247,7 +4258,7 @@ subroutine bicgstab_CRS_ILU(a, ptr_i, index_j, x, b, itrmax, er, relative_er,deb
       speak = debug
   endif
   
-  call Pmat%init(val=a,row_ptr=ptr_i,col_idx=index_j)
+  call Pmat%init(val=a,row_ptr=int(ptr_i,int64),col_idx=index_j)
 
   if(speak) print *, "BiCGSTAB ILU(0) STARTED >> "
   if(present(ILU_MATRIX) )then
