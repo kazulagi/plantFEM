@@ -432,7 +432,10 @@ module ArrayClass
     interface operator(//)
         module procedure appendVectorsInt32,appendVectorsInt64,appendVectorsReal64,appendMatrixInt32,appendMatrixReal64
     end interface
-
+    
+    !interface operator(.init.)
+    !    module procedure zero_allocate_int32_vec
+    !end interface
 
     
     interface assignment(=)
@@ -9149,4 +9152,11 @@ function cartesian_product_real64_array_vec(array1, vec2) result(array1_vec2)
 end function
 
 ! ##########################################################
+
+
+!function zero_allocate_int32_vec() result(ret)
+!    integer(int32),allocatable :: ret(:)
+!    allocate(ret(0) )
+!end function
+
 end module ArrayClass

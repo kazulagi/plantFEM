@@ -546,28 +546,27 @@ homepath="$PWD"
     if [ "$EXTENSION" = "$f90" ]; then
 
 
-        if [ "$1" != "server.f90" ]; then
-            ln -f $1 "server.f90"
-        fi
+        #if [ "$1" != "server.f90" ]; then
+        #    cp $1 "server.f90"
+        #fi
 
-        if [ "$1" != "server.f90" ]; then
-            ln -f $1 "server.f90"
-        fi
+        #if [ "$1" != "server.f90" ]; then
+        #    cp -f $1 "server.f90"
+        #fi
+        $mpif90  /opt/plantfem/inc/*o $1  -I /opt/plantfem/inc -g -fcheck=all -fopenmp -fintrinsic-modules-path /opt/plantfem/inc -o "${1%.*}.out" -llapack -lblas  
         
-        $mpif90  /opt/plantfem/inc/*o $1  -I /opt/plantfem/inc -g -fcheck=all -fopenmp -fintrinsic-modules-path /opt/plantfem/inc -o server.out -llapack -lblas  
-
         #echo "Current num of cpu-core is :: $numcore "
-
-        if [ "$hostfile" != "" ]; then
-            echo "hostfile is activated."
-            mpirun   --hostfile $hostfile -np $numcore ./server.out
-            exit 0
-        fi
-        while read line
-        do 
-            echo $line && break
-        done < /opt/plantfem/etc/cpucore
-        mpirun   --hostfile /opt/plantfem/etc/hostfile -np $line ./server.out 
+        ./${1%.*}.out
+        #if [ "$hostfile" != "" ]; then
+        #    echo "hostfile is activated."
+        #    mpirun   --hostfile $hostfile -np $numcore ./server.out
+        #    exit 0
+        #fi
+        #while read line
+        #do 
+        #    echo $line && break
+        #done < /opt/plantfem/etc/cpucore
+        #mpirun   --hostfile /opt/plantfem/etc/hostfile -np $line ./server.out 
         exit 0
     fi
 

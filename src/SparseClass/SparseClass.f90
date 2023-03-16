@@ -211,6 +211,9 @@ module SparseClass
         module procedure LOBPCG_CRS,LOBPCG_SINGLE_CRS
     end interface LOBPCG
 
+    interface to_diag
+        module procedure to_diag_vector_to_CRS
+    end interface
 contains
 
 subroutine initCOO(this,num_row)
@@ -4122,6 +4125,16 @@ function sinc_real64(x) result(ret)
     else
         ret = sin(x)/x
     endif
+end function
+! #####################################################
+
+function to_diag_vector_to_CRS(diag_vec) result(ret)
+    real(real64),intent(in) :: diag_vec(:)
+    type(CRS_) :: ret
+
+    call ret%eyes(size(diag_vec) )
+    ret%val = diag_vec
+    
 end function
 
 end module SparseClass
