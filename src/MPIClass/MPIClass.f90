@@ -49,6 +49,8 @@ module MPIClass
         ! <<< job scheduler
 
 
+        type(IO_) :: file
+        character(:),allocatable :: filename
         integer(int32),allocatable::start_end_id(:)
         integer(int32),allocatable::Comm(:),key(:)
         integer(int32),allocatable::local_ID(:),Global_ID(:)
@@ -66,10 +68,22 @@ module MPIClass
         procedure :: init => StartMPI
 
         ! >>>> Embarrassingly parallel (自明並列)
-        procedure :: EP_set_variable => EP_set_variableMPI ! Embarrassingly parallel (自明並列)
-        procedure :: EP_get_variable => EP_get_variableMPI ! Embarrassingly parallel (自明並列)
+        
+        procedure,pass :: EP_set_variable_by_rangeMPI! Embarrassingly parallel (自明並列)
+        procedure,pass :: EP_set_variable_by_listMPI! Embarrassingly parallel (自明並列)
+        generic :: EP_set_variable => EP_set_variable_by_rangeMPI,EP_set_variable_by_listMPI 
+
         procedure :: EP_set_result   => EP_set_resultMPI   ! Embarrassingly parallel (自明並列)
+
+        procedure :: EP_write_result   => EP_write_resultMPI   ! Embarrassingly parallel (自明並列)
+        procedure :: EP_get_variable => EP_get_variableMPI
+        procedure :: EP_num_variavle => EP_num_variavleMPI
+        procedure :: EP_min_var   => EP_min_varMPI   ! minimal value
+        procedure :: EP_max_var   => EP_max_varMPI   ! maximum value
+
         ! <<<< Embarrassingly parallel (自明並列)
+
+
 
         procedure :: initItr => initItrMPI
         procedure :: Barrier => BarrierMPI
@@ -143,6 +157,11 @@ module MPIClass
 
         procedure, Pass :: syncGraphMPI
         generic :: sync => syncGraphMPI
+
+        procedure :: open => fopen_MPI
+        procedure :: fopen => fopen_MPI
+        procedure :: close => fclose_MPI
+        procedure :: fclose => fclose_MPI
 
     end type    
 contains
@@ -1844,7 +1863,7 @@ subroutine isend_irecvRealVectorMPI(this,sendobj,recvobj,send_recv_rank,debug)
 end subroutine
 ! ###################################################
 
-subroutine EP_set_variableMPI(this,var,var_range,N)
+subroutine EP_set_variable_by_rangeMPI(this,var,var_range,N)
     class(MPI_),intent(inout) :: this
     real(real64),target,intent(in)   :: var
     real(real64),intent(in)   :: var_range(1:2)
@@ -1859,6 +1878,25 @@ subroutine EP_set_variableMPI(this,var,var_range,N)
     
 end subroutine
 ! ###################################################
+
+
+! ###################################################
+
+subroutine EP_set_variable_by_listMPI(this,var,var_list)
+    class(MPI_),intent(inout) :: this
+    real(real64),target,intent(in)   :: var
+    real(real64),intent(in)   :: var_list(:)
+    integer(int32) :: i
+    type(Random_) :: random
+
+    this%MPI_LAST_JOB_NUMBER=this%MPI_LAST_JOB_NUMBER+1
+    this%MPI_JOB(this%MPI_LAST_JOB_NUMBER)%var => var
+    this%MPI_JOB(this%MPI_LAST_JOB_NUMBER)%var_list = var_list
+    
+    
+end subroutine
+! ###################################################
+
 
 
 ! ###################################################
@@ -1949,6 +1987,16 @@ subroutine EP_set_resultMPI(this,result_value)
     
     this%EP_MY_RESULT_LIST(this%EP_MY_CURRENT_TASK_ID,:)=result_value(:)
 
+
+end subroutine
+! ###################################################
+
+! ###################################################
+
+subroutine EP_write_resultMPI(this)
+    class(MPI_),intent(inout) :: this
+    type(IO_) :: f
+
     if(.not. this%EP_result_summary%active )then
         call this%EP_result_summary%open("result"+zfill(this%myrank,7)+".tsv","w" )
     endif
@@ -1960,9 +2008,74 @@ subroutine EP_set_resultMPI(this,result_value)
 
 end subroutine
 ! ###################################################
+function EP_num_variavleMPI(this) result(ret)
+    class(MPI_),intent(in) :: this
+    integer(int32) :: ret
+
+    ret = this%MPI_LAST_JOB_NUMBER
 
 
+end function
+! ###################################################
+
+! ###################################################
+function EP_min_varMPI(this) result(ret)
+    class(MPI_),intent(in) :: this
+    real(real64),allocatable :: ret(:,:)
+    integer(int32) :: i,idx
+
+    ret = zeros(this%EP_num_variavle()+1 , size(this%EP_MY_RESULT_LIST,2) )
+    do i=1,size(this%EP_MY_RESULT_LIST,2)
+        idx = minvalid(this%EP_MY_RESULT_LIST(:,i) )
+        ret(1:this%EP_num_variavle(),i) = this%EP_MY_VARIABLE_LIST(idx,:)
+        ret(this%EP_num_variavle()+1,i) = this%EP_MY_RESULT_LIST(idx,i)
+    enddo
 
 
+    
+end function
+! ###################################################
+
+
+! ###################################################
+function EP_max_varMPI(this) result(ret)
+    class(MPI_),intent(in) :: this
+    real(real64),allocatable :: ret(:,:)
+    integer(int32) :: i,idx
+
+    ret = zeros(this%EP_num_variavle()+1 , size(this%EP_MY_RESULT_LIST,2) )
+    do i=1,size(this%EP_MY_RESULT_LIST,2)
+        idx = maxvalid(this%EP_MY_RESULT_LIST(:,i) )
+        ret(1:this%EP_num_variavle(),i) = this%EP_MY_VARIABLE_LIST(idx,:)
+        ret(this%EP_num_variavle()+1,i) = this%EP_MY_RESULT_LIST(idx,i)
+    enddo
+    
+end function
+! ###################################################
+
+
+subroutine fopen_MPI(this,filename,io_option)
+    class(MPI_),intent(inout)  :: this
+    character(*),intent(in) :: filename,io_option
+    
+    this%filename = filename
+    call this%file%open(filename+"_rank_"+zfill(this%myrank,8),io_option)
+
+    
+end subroutine
+! ###################################################
+
+
+! ###################################################
+subroutine fclose_MPI(this)
+    class(MPI_),intent(inout)  :: this
+    
+    call this%file%close()
+    if(this%myrank==0)then
+        call system("cat "+this%filename+"_rank_* > "+this%filename)
+    endif
+    
+end subroutine
+! ###################################################
 
 end module
