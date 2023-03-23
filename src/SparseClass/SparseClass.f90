@@ -138,6 +138,7 @@ module SparseClass
         procedure,pass :: tensor_wave_kernel_real_64_crs
         procedure,pass :: tensor_wave_kernel_LPF_real_64_crs
         procedure,pass :: tensor_wave_kernel_RHS_real_64_crs
+        procedure,pass :: tensor_wave_kernel_RHS_LPF_real_64_crs
         procedure,pass :: tensor_wave_kernel_RHS_complex_64_crs
 
         procedure,pass :: tensor_cos_sqrt_cos_sqrt_complex64_crs
@@ -173,7 +174,7 @@ module SparseClass
         generic,public :: tensor_wave_kernel_LPF => tensor_wave_kernel_LPF_real_64_crs
 
         generic,public :: tensor_wave_kernel_RHS => tensor_wave_kernel_RHS_real_64_crs,&
-            tensor_wave_kernel_RHS_complex_64_crs
+            tensor_wave_kernel_RHS_complex_64_crs,tensor_wave_kernel_RHS_LPF_real_64_crs
         
         generic,public :: tensor_d1_wave_kernel => tensor_d1_wave_kernel_complex64_crs
         generic,public :: fix => fix_complex64_CRS,fixCRS
@@ -3294,10 +3295,12 @@ function tensor_wave_kernel_RHS_real_64_crs(this,RHS,t,tol,itrmax,fix_idx,debug)
     ! Force-induced displacement
     ! RHS is constant for interval [0, t]
 
-    u = -1.0d0/2.0d0*t*t*RHS
-    du = RHS
+    !u = -1.0d0/2.0d0*t*t*RHS
+    u = 0.0d0*RHS
+    du = -t*t/2.0d0*RHS
+    u = u+du
     do n = 1,itr_max
-        du = -t*t/dble(2*n+2)/dble(2*n+1)*this%matmul(du)
+        du = -t*t/dble(2*n+1)/dble(2*n+2)*this%matmul(du)
         u = u + du
         if(present(debug) )then
             if(debug)then
@@ -3305,7 +3308,64 @@ function tensor_wave_kernel_RHS_real_64_crs(this,RHS,t,tol,itrmax,fix_idx,debug)
             endif
         endif
         if(norm(du)<itr_tol )exit
-        
+    enddo
+
+end function
+
+
+! ###################################################
+
+
+function tensor_wave_kernel_RHS_LPF_real_64_crs(this,RHS,t,tol,itrmax,fix_idx,debug,cutoff_frequency) result(u)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in) :: RHS(:),cutoff_frequency
+    real(real64),allocatable:: u(:),du(:)
+    real(real64) :: cos_coeff,sinc_coeff
+    real(real64),intent(in) :: t
+    logical,optional,intent(in) :: debug
+
+    integer(int32),optional,intent(in) :: itrmax
+    real(real64),optional,intent(in) :: tol
+    integer(int32),optional,intent(in) :: fix_idx(:)
+
+    integer(int32) :: itr_max=100
+    real(real64)   :: itr_tol=dble(1.0e-16)
+    real(real64)   :: ddt,hat_t
+    logical :: debug_mode
+    type(Math_) :: math
+    integer(int32) :: n
+
+    if(present(itrmax) )then
+        itr_max = itrmax
+    endif
+
+    if(present(tol) )then
+        itr_tol = tol
+    endif
+
+    ! Force-induced displacement
+    ! RHS is constant for interval [0, t]
+    
+    ddt = 1.0d0/4.0d0/cutoff_frequency
+    
+    !u = -1.0d0/2.0d0*t*t*RHS
+
+    u = 0.0d0*RHS
+    hat_t = 0.250d0*(t-ddt)**2 + 0.50d0*(t)**2 + 0.250d0*(t+ddt)**2 
+    du = -1.0d0/2.0d0*RHS
+    u = u + hat_t*du
+    
+    do n = 1,itr_max
+        hat_t = 0.250d0*(t-ddt)**(2*n+2) + 0.50d0*(t)**(2*n+2)&
+             + 0.250d0*(t+ddt)**(2*n+2) 
+        du = -1.0d0/dble(2*n+1)/dble(2*n+2)*this%matmul(du)
+        u = u + hat_t*du
+        if(present(debug) )then
+            if(debug)then
+                print *, n, norm(hat_t*du)
+            endif
+        endif
+        if(norm(hat_t*du)<itr_tol )exit
     enddo
 
 end function
@@ -3318,7 +3378,7 @@ end function
 function tensor_wave_kernel_RHS_complex_64_crs(this,RHS,t,tol,itrmax,fix_idx,debug) result(u)
     class(CRS_),intent(in) :: this
     complex(real64),intent(in) :: RHS(:)
-    complex(real64),allocatable:: u(:),u_n(:)
+    complex(real64),allocatable:: u(:),u_n(:),du(:)
     
     real(real64),intent(in) :: t
     logical,optional,intent(in) :: debug
@@ -3343,13 +3403,18 @@ function tensor_wave_kernel_RHS_complex_64_crs(this,RHS,t,tol,itrmax,fix_idx,deb
 
     ! Force-induced displacement
     ! RHS is constant for interval [0, t]
-
-    u = -1.0d0/2.0d0*t*t*RHS
-    u_n = 0.0d0*u
+    u = 0.0d0*RHS
+    du = -t*t/2.0d0*RHS
+    u = u+du
     do n = 1,itr_max
-        u = -t*t/dble(2*n+2)/dble(2*n+1)*this%matmul(u)
-        if(norm(abs(u-u_n))<itr_tol )exit
-        u_n=u
+        du = -t*t/dble(2*n+1)/dble(2*n+2)*this%matmul(du)
+        u = u + du
+        if(present(debug) )then
+            if(debug)then
+                print *, n, sqrt(dble(dot_product(du,du))) 
+            endif
+        endif
+        if(sqrt(dble(dot_product(du,du))) <itr_tol )exit
     enddo
 
 end function

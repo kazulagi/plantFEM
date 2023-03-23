@@ -7866,6 +7866,13 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 	integer(int32) ::i,dim_num(3),j,VTK_CELL_TYPE,num_node,k,n
 	logical,optional,intent(in) :: debug
 
+	if(obj%nd()==2 )then
+		mini_obj = obj
+		call mini_obj%mesh%convert2Dto3D(division=1,thickness=dble(1.0e-8))
+		call mini_obj%vtk(name=name,scalar=scalar,vector=vector,tensor=tensor,&
+			field=field,ElementType=ElementType,NodeList=NodeList,debug=debug)
+		return
+	endif
 
 	if(present(NodeList))then
 		n = size(NodeList,1)
@@ -11139,6 +11146,7 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 		Psymat = ShapeFunction%dNdgzi
 		Jmat = ShapeFunction%Jmat
 		detJ = det_mat(Jmat, dim_num)
+		
 
 
 		if(dim_num==2)then
@@ -11152,13 +11160,15 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 
 	! J:Psymat�̌v�Z
 		if(obj%nd()==2 .and. obj%nne()==4)then
+
 		   if(detJ==0.0d0)  stop "Bmat,detJ=0"
-		   Jin(1,1) = (1.0d0 / detJ) * Jmat(2,2)
-		   Jin(2,2) = (1.0d0 / detJ) * Jmat(1,1)
-		   Jin(1,2) = (-1.0d0 / detJ) * Jmat(1,2)
-		   Jin(2,1) = (-1.0d0 / detJ) * Jmat(2,1)
-		   JPsy(:,:) = matmul(Jin, Psymat)   
-		
+		   Jin = inverse(Jmat)
+		   !Jin(1,1) = (1.0d0 / detJ) * Jmat(2,2)
+		   !Jin(2,2) = (1.0d0 / detJ) * Jmat(1,1)
+		   !Jin(1,2) = (-1.0d0 / detJ) * Jmat(1,2)
+		   !Jin(2,1) = (-1.0d0 / detJ) * Jmat(2,1)
+		   JPsy = matmul(Jin, Psymat)   
+		   Bmat=zeros(3,8)
 		   Bmat(1,1) =  JPsy(1,1)
 		   Bmat(1,2) = 0.0d0
 		   Bmat(1,3) =  JPsy(1,2)
@@ -11185,12 +11195,10 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 		   Bmat(3,8) = Bmat(1,7)
 		
 		elseif(obj%nd()==2 .and. obj%nne()==8 )then
-		   Jin(1,1) = (1.0d0 / detJ) * Jmat(2,2)
-		   Jin(2,2) = (1.0d0 / detJ) * Jmat(1,1)
-		   Jin(1,2) = (-1.0d0 / detJ) * Jmat(2,1)
-		   Jin(2,1) = (-1.0d0 / detJ) * Jmat(1,2)
-		   JPsy(:,:) = matmul(Jin, Psymat)      
-		
+			Jin = inverse(Jmat)
+		   	JPsy(:,:) = matmul(Jin, Psymat)   
+
+		   Bmat=zeros(3,16)
 		   Bmat(1,1) =  -JPsy(1,1)
 		   Bmat(1,2) = 0.0d0
 		   Bmat(1,3) =  JPsy(1,2)

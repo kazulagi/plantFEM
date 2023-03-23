@@ -6956,7 +6956,8 @@ subroutine Convert2Dto3DMesh(obj,Thickness,division,smooth,z_points)
 
     if(present(Thickness))then
         if(Thickness==0.0d0)then
-            print *, "ERROR :: Convert2Dto3D >> Thickness = 0"
+            Tn = Thickness
+            !print *, "ERROR :: Convert2Dto3D >> Thickness = 0"
             return
         else
             Tn=Thickness
