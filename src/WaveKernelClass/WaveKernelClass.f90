@@ -304,7 +304,6 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,&
 
     if(present(fix_idx) )then
         if(allocated(fix_idx) )then
-            v(fix_idx)=0.0d0
             u(fix_idx)=0.0d0 
         endif
     endif
