@@ -602,18 +602,39 @@ function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector
   
     new_vector = zeros(n) 
 
-! accerelation
+    ! accerelation
+!    do concurrent (row=1:n)
+!        new_vector(row) = new_vector(row) + dot_product( &
+!            CRS_value(CRS_row_ptr(row):CRS_row_ptr(row+1)-1),  &
+!            old_vector(CRS_col(CRS_row_ptr(row):CRS_row_ptr(row+1)-1) )&
+!            )
+!    enddo
 
-    !$OMP parallel default(shared) private(CRS_id,col)
+
+    !v2.0
+    !$OMP parallel default(shared)
     !$OMP do reduction(+:new_vector)
     do row = 1, n
-        do CRS_id = CRS_row_ptr(row), CRS_row_ptr(row+1)-1
-            new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(CRS_col(CRS_id))
-        enddo
+            new_vector(row) = new_vector(row) + dot_product( &
+                CRS_value(CRS_row_ptr(row):CRS_row_ptr(row+1)-1),  &
+                old_vector(CRS_col(CRS_row_ptr(row):CRS_row_ptr(row+1)-1) )&
+                )
     enddo
     !$OMP end do
     !$OMP end parallel 
-    
+
+
+    !<v1.0>
+!    !$OMP parallel default(shared) private(CRS_id,col)
+!    !$OMP do reduction(+:new_vector)
+!    do row = 1, n
+!        do concurrent(CRS_id=CRS_row_ptr(row):CRS_row_ptr(row+1)-1)
+!            new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(CRS_col(CRS_id))
+!        enddo
+!    enddo
+!    !$OMP end do
+!    !$OMP end parallel 
+!    
   end function
 ! ###################################################################
 

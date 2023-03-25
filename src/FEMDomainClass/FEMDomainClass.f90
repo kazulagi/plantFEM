@@ -168,6 +168,10 @@ module FEMDomainClass
 		procedure,public :: getCenter => centerPositionFEMDomain
 		procedure,public :: create => createFEMDomain
 
+		!>>> direct object generation
+		procedure,public :: cube => cubeFEMDomain
+		!<<< direct object generation
+
         procedure,public :: delete => DeallocateFEMDomain
 		procedure,public :: display => displayFEMDomain
 		procedure,public :: divide => divideFEMDomain
@@ -14628,7 +14632,16 @@ subroutine remove_duplication_FEMDomain(this)
 
 end subroutine
 ! #################################################
+subroutine cubeFEMDomain(this,x_num,y_num,z_num,&
+		x_axis,y_axis,z_axis)
+	class(FEMDomain_),intent(inout) :: this
+	integer(int32),optional,intent(in) :: x_num,y_num,z_num
+	real(real64),optional,intent(in) :: x_axis(:),y_axis(:),z_axis(:)
 
+	call this%create("Cube3D",x_num=x_num,y_num=y_num,z_num=z_num,&
+		x_axis=x_axis,y_axis=y_axis,z_axis=z_axis)
+end subroutine
+! #################################################
 
 end module FEMDomainClass
 
