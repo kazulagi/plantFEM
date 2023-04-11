@@ -102,10 +102,10 @@ echo " | =>                          | (4%)\r\c"
 mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RangeClass/RangeClass.f90 -o  ./inc/RangeClass.o -llapack -lblas
 
 
-echo "Compiling ./src/SparseClass/SparseClass.c " 
+echo "Compiling ./src/SparseClass/SparseClass-c.c " 
 echo " >> SparseClass-c.o "
 echo " | =>                          | (4%)\r\c"
-gcc -c ./src/SparseClass/SparseClass-c.c -o inc/SparseClass-c.o
+gcc -c  -fopenmp ./src/SparseClass/SparseClass-c.c -o inc/SparseClass-c.o
 
 echo "Compiling ./src/SparseClass/SparseClass.f90 " 
 echo " >> SparseClass.o "

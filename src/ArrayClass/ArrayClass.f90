@@ -136,6 +136,10 @@ module ArrayClass
             hstack_int32V_int32A2,hstack_int32A2_int32V,hstack_int32V_int32V
     end interface
 
+    interface operator(.cap.)
+        module procedure intersection_vec_vec_int32
+    end interface 
+
     interface dot_product_omp
         module procedure :: dot_product_omp
     end interface
@@ -410,7 +414,7 @@ module ArrayClass
     end interface
 
     interface getIdx
-        module procedure :: getIdxIntVec
+        module procedure :: getIdxIntVec,getIdxIntVecVec
     end interface
     
 
@@ -419,6 +423,7 @@ module ArrayClass
     public :: assignment(=)
     public :: operator(*)
     public :: operator(//)
+    
     
 
     interface operator(+)
@@ -436,6 +441,9 @@ module ArrayClass
     !interface operator(.init.)
     !    module procedure zero_allocate_int32_vec
     !end interface
+    interface operator(.of.)
+        module procedure get_element_from_vector_by_idx_int32,get_element_from_vector_by_idx_real64
+    end interface
 
     
     interface assignment(=)
@@ -461,7 +469,7 @@ module ArrayClass
     end interface to_array
 
     interface to_vector
-        module procedure to_vector_array_real64
+        module procedure to_vector_array_real64,to_vector_array_int32
     end interface
 
     interface dot_product
@@ -8065,12 +8073,12 @@ function setInt32Vector(int32Vector) result(ret)
     integer(int32),intent(in) :: int32Vector(:)
     integer(int32),allocatable :: ret(:)
 
-    ret = RemoveOverwrap(int32Vector)
+    ret = RemoveOverlap(int32Vector)
 
 end function
 
 ! ###################################################################
-function RemoveOverwrap(vector) result(new_vector)
+function RemoveOverlap(vector) result(new_vector)
     integeR(int32),intent(in) :: vector(:)
     integer(int32),allocatable :: new_vector(:),buf(:)
     integer(int32) :: i,j,null_flag,new_size,new_id
@@ -8532,6 +8540,20 @@ pure function to_vector_array_real64(Array) result(vector)
             vector( (j-1)*size(Array,2) + i ) = Array(j,i)
         enddo
     enddo
+
+end function
+! ########################################################
+pure function to_vector_array_int32(Array) result(vector)
+integer(int32),intent(in) :: Array(:,:)
+integer(int32),allocatable :: vector(:)
+integer(int32) :: i,j
+
+vector = zeros(size(Array,1)*size(Array,2))
+do i=1,size(Array,2)
+    do j=1,size(Array,1)
+        vector( (j-1)*size(Array,2) + i ) = Array(j,i)
+    enddo
+enddo
 
 end function
 ! ########################################################
@@ -9025,6 +9047,22 @@ function getIdxIntVec(vec,equal_to) result(idx)
 end function
 ! ########################################################
 
+! ########################################################
+function getIdxIntVecVec(vec,equal_to) result(idx)
+    integer(int32),intent(in) :: vec(:),equal_to(:)
+    integer(int32),allocatable :: idx(:)
+    integer(int32) :: i,count_num,j
+
+    allocate(idx(size(equal_to) ))
+
+    do i=1,size(equal_to)
+        idx(i) = 1 .of. getIdxIntVec(vec=vec,equal_to=equal_to(i) )
+    enddo
+
+
+end function
+! ########################################################
+
 function and_int32vector_int32vector(intv1,intv2) result(intv_ret)
     integer(int32),intent(in) :: intv1(:),intv2(:)
     integer(int32),allocatable :: intv_ret(:),buf(:)
@@ -9154,9 +9192,62 @@ end function
 ! ##########################################################
 
 
+! ##########################################################
+function get_element_from_vector_by_idx_int32(idx,vec) result(ret)
+    integer(int32),intent(in) :: vec(:),idx
+    integer(int32) :: ret
+
+    ret = vec(idx)
+end function
+! ##########################################################
+
+
+
+! ##########################################################
+function get_element_from_vector_by_idx_real64(idx,vec) result(ret)
+    real(real64),intent(in) :: vec(:)
+    integer(int32),intent(in) :: idx
+    real(real64) :: ret
+
+    ret = vec(idx)
+end function
+! ##########################################################
+
 !function zero_allocate_int32_vec() result(ret)
 !    integer(int32),allocatable :: ret(:)
 !    allocate(ret(0) )
 !end function
+function intersection_vec_vec_int32(a,b) result(ret)
+    integer(int32),intent(in) :: a(:),b(:)
+    integer(int32),allocatable :: retbuf(:),ret(:)
+    integer(int32) :: i,a_idx,b_idx,int_idx
+
+    ! A, B: sorted vectors
+    retbuf =zeros(size(a) )
+    a_idx=1
+    b_idx=1
+    int_idx=1
+    do 
+        if(a_idx>size(a) )exit
+        if(b_idx>size(b) )exit
+
+        if(a(a_idx) > b(b_idx))then
+            b_idx = b_idx + 1
+            cycle
+        elseif(a(a_idx) < b(b_idx))then
+            a_idx = a_idx + 1
+            cycle
+        else
+            ! equal
+            retbuf(int_idx) = a(a_idx)
+            a_idx = a_idx + 1
+            b_idx = b_idx + 1
+            int_idx = int_idx + 1
+        endif
+    enddo
+    ret = retbuf(1:int_idx-1)
+
+
+end function
 
 end module ArrayClass

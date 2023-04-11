@@ -5,6 +5,12 @@ module SparseClass
     use RangeClass
     implicit none
     
+!> Please edit "src/SparseClass/SparseClass.c"
+!> for 
+!>  'c_dot_product'
+!>  'crs_spmv_real32'
+!>  'crs_spmv_real64'
+
     interface
       Subroutine c_dot_product(a,b,n,ret) bind(C,Name='c_dot_product')
         import
@@ -15,14 +21,62 @@ module SparseClass
     End Interface
 
     interface
-      Subroutine c_sparse_matvec(row_ptr,col_idx,val,x,n,n_col,ret) bind(C,Name='c_sparse_matvec')
+      Subroutine crs_spmv_real32(val,row_ptr,col_idx,old_vector,new_vector,n,col_size)&
+            Bind(C,Name="crs_spmv_real32")
         import
-        integer(C_size_t),value :: n,n_col
-        integer(c_int),intent(in) :: row_ptr(n),col_idx(n_col)
-        real(c_double),intent(in) :: val(n-1),x(n-1)
-        real(c_double),intent(out) :: ret(n-1)
+        Integer(C_size_t),Value :: n,col_size
+        real(C_float),Intent(In) :: val(n)
+        integer(C_int64_t),Intent(In) :: row_ptr(n+1)
+        integer(C_int),Intent(In) :: col_idx(col_size)
+        real(C_float),Intent(In)  :: old_vector(n)
+        real(C_float),Intent(InOut) :: new_vector(n)
+        
       End Subroutine
+    End interface
+    
+    interface
+    Subroutine crs_spmv_real64(val,row_ptr,col_idx,old_vector,new_vector,n,col_size) &
+          Bind(C,Name="crs_spmv_real64")
+          use iso_c_binding
+      import
+      Integer(C_size_t),Value :: n,col_size
+      real(C_double),Intent(In) :: val(n)
+      integer(C_int64_t),Intent(In) :: row_ptr(n+1)
+      integer(C_int),Intent(In) :: col_idx(col_size)
+      real(C_double),Intent(In)  :: old_vector(n)
+      real(C_double),Intent(InOut) :: new_vector(n)
+      
+    End Subroutine
+  End interface
+
+
+!  interface
+!  Subroutine crs_spmv_real64_opencl(val,row_ptr,col_idx,old_vector,new_vector,n,col_size) &
+!        Bind(C,Name="crs_spmv_real64_opencl")
+!        use iso_c_binding
+!    import
+!    Integer(C_size_t),Value :: n,col_size
+!    real(C_double),Intent(In) :: val(n)
+!    integer(C_int64_t),Intent(In) :: row_ptr(n+1)
+!    integer(C_int),Intent(In) :: col_idx(col_size)
+!    real(C_double),Intent(In)  :: old_vector(n)
+!    real(C_double),Intent(InOut) :: new_vector(n)
+!    
+!  End Subroutine
+!End interface
+
+
+  interface
+  Subroutine c_sparse_matvec(row_ptr,col_idx,val,x,n,n_col,ret) bind(C,Name='c_sparse_matvec')
+    import
+    integer(C_size_t),value :: n,n_col
+    integer(c_int),intent(in) :: row_ptr(n),col_idx(n_col)
+    real(c_double),intent(in) :: val(n-1),x(n-1)
+    real(c_double),intent(out) :: ret(n-1)
+  End Subroutine
     End Interface
+
+
 
     interface sinc
         module procedure sinc_complex64,sinc_real64
@@ -70,25 +124,32 @@ module SparseClass
     type :: CRS_
         integer(int32),allocatable :: col_idx(:)
         
-    
-        !integer(int32),allocatable :: row_ptr(:)
-
         ! Destructive
         integer(int64),allocatable :: row_ptr(:)
-        
-
         real(real64)  ,allocatable :: val(:)
+
+        real(real32)  ,allocatable :: val_real32(:)
+        integer(int32) :: dtype = real64
     contains
         procedure,public :: init => initCRS
         procedure,public :: eyes => eyesCRS
         procedure,public :: Lanczos => LanczosCRS
         
         procedure,pass :: matmulCRS
+        !procedure,pass :: matmul_opencl_CRS
+
+        procedure,pass :: matmul_c_CRS
+        procedure,pass :: matmul_c_real32_CRS
+
+        procedure,pass :: matmul_real32_CRS
         procedure,pass :: matmul_complex_CRS
-        generic :: matmul => matmulCRS,matmul_complex_CRS
+        generic :: matmul => matmulCRS,matmul_complex_CRS,matmul_real32_CRS,matmul_c_CRS,&
+            matmul_c_real32_CRS!,matmul_opencl_CRS
+        
+        procedure,public :: to_real32 => to_real32_CRS
+        
 
-
-        procedure,public :: SpMV => matmulCRS
+        procedure,public :: SpMV => spmv_as_subroutine_CRS
         procedure,public :: eig => eigCRS
         procedure,public :: to_dense => to_denseCRS
         procedure,public :: DOF => DOFCRS
@@ -117,7 +178,10 @@ module SparseClass
         procedure,pass :: tensor_exp_sqrt_crs
         procedure,pass :: tensor_log_crs
         procedure,public :: tensor_log_crs_modified => tensor_log_crs_modified_Sparse
+        
         procedure,pass :: fixCRS
+        procedure,pass :: fix_zeroCRS
+
 
         procedure,pass :: tensor_exponential_complex64_crs
         procedure,pass :: tensor_exp_sqrt_complex64_crs
@@ -177,7 +241,7 @@ module SparseClass
             tensor_wave_kernel_RHS_complex_64_crs,tensor_wave_kernel_RHS_LPF_real_64_crs
         
         generic,public :: tensor_d1_wave_kernel => tensor_d1_wave_kernel_complex64_crs
-        generic,public :: fix => fix_complex64_CRS,fixCRS
+        generic,public :: fix => fix_complex64_CRS,fixCRS,fix_zeroCRS
 
 
 
@@ -532,14 +596,98 @@ function matmulCRS(CRS,old_vector) result(new_vector)
     class(CRS_),intent(in) :: CRS
     real(real64),intent(in)  :: Old_vector(:)
     real(real64),allocatable :: new_vector(:)
-  
+    
     new_vector = crs_matvec_generic_SparseClass(&
-      CRS_value=CRS%val,&
-      CRS_col=CRS%col_idx,&
-      CRS_row_ptr=CRS%row_ptr,&
-      old_vector=old_vector)
-  
+        CRS_value=CRS%val,&
+        CRS_col=CRS%col_idx,&
+        CRS_row_ptr=CRS%row_ptr,&
+        old_vector=old_vector)
+    
+    
   end function
+
+
+function matmul_c_CRS(CRS,old_vector,c_routine) result(new_vector)
+    
+    class(CRS_),intent(in) :: CRS
+    real(real64),intent(in)  :: Old_vector(:)
+    real(real64),allocatable :: new_vector(:)
+    character(*),intent(in) :: c_routine
+    integer(int64) :: n,col_size
+    
+    n = crs%size()
+    col_size=size(crs%col_idx)
+    allocate(new_vector(crs%size() ) )
+    new_vector(:) = 0.0d0
+    call crs_spmv_real64(val=crs%val,row_ptr=crs%row_ptr,&
+        col_idx=crs%col_idx,&
+        old_vector=old_vector,new_vector=new_vector,n=n,col_size=col_size)
+    
+  end function
+
+
+!  function matmul_opencl_CRS(CRS,old_vector,opencl) result(new_vector)
+!    
+!    class(CRS_),intent(in) :: CRS
+!    real(real64),intent(in)  :: Old_vector(:)
+!    real(real64),allocatable :: new_vector(:)
+!    logical,intent(in) :: opencl
+!    integer(int64) :: n,col_size
+!    
+!    n = crs%size()
+!    col_size=size(crs%col_idx)
+!    allocate(new_vector(crs%size() ) )
+!    new_vector(:) = 0.0d0
+!    call crs_spmv_real64_opencl(val=crs%val,row_ptr=crs%row_ptr,&
+!        col_idx=crs%col_idx,&
+!        old_vector=old_vector,new_vector=new_vector,n=n,col_size=col_size)
+!    
+!  end function
+
+
+function matmul_c_real32_CRS(CRS,old_vector,c_routine) result(new_vector)
+    
+    class(CRS_),intent(in) :: CRS
+    real(real32),intent(in)  :: Old_vector(:)
+    real(real32),allocatable :: new_vector(:)
+    character(*),intent(in) :: c_routine
+    integer(int64) :: n,col_size
+    
+    n = crs%size()
+    col_size=size(crs%col_idx)
+    allocate(new_vector(crs%size() ) )
+    new_vector(:) = 0.0d0
+    call crs_spmv_real32(val=real(crs%val),row_ptr=crs%row_ptr,&
+        col_idx=crs%col_idx,&
+        old_vector=old_vector,new_vector=new_vector,n=n,col_size=col_size)
+    
+  end function
+  
+
+  
+
+  function matmul_real32_CRS(CRS,old_vector) result(new_vector)
+    class(CRS_),intent(in) :: CRS
+    real(real32),intent(in)  :: Old_vector(:)
+    real(real32),allocatable :: new_vector(:)
+    
+    if(CRS%dtype /=real32)then
+        print *, "ERROR :: matmul_real32_CRS >> vector type is real32, but &
+            CRS%dtype /= real32. Plase use this%to_real32() before calling this."
+        return
+    endif
+
+    new_vector = crs_matvec_generic_real32_SparseClass(&
+        CRS_value=CRS%val_real32,&
+        CRS_col=CRS%col_idx,&
+        CRS_row_ptr=CRS%row_ptr,&
+        old_vector=old_vector)
+    
+    
+  end function
+
+
+
   
 
   function matmul_complex_CRS(CRS,old_vector) result(new_vector)
@@ -588,6 +736,86 @@ function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector
     integeR(int64),intent(in):: CRS_row_ptr(:)
   
     real(real64),allocatable :: new_vector(:)
+    integer(int32) :: i, j, n,gid,lid,row,col
+    integer(int64) :: CRS_id
+    
+    !> x_i = A_ij b_j
+  
+  
+    n = size(CRS_row_ptr)-1
+    if(size(old_vector)/=n )then
+        print *, "ERROR crs_matvec :: inconsistent size for old_vector"
+        return
+    endif
+  
+    new_vector = zeros(n) 
+
+    ! accerelation
+!    do concurrent (row=1:n)
+!        new_vector(row) = new_vector(row) + dot_product( &
+!            CRS_value(CRS_row_ptr(row):CRS_row_ptr(row+1)-1),  &
+!            old_vector(CRS_col(CRS_row_ptr(row):CRS_row_ptr(row+1)-1) )&
+!            )
+!    enddo
+
+
+    !v2.0
+    
+    !v2.0
+
+    !$OMP parallel default(shared)
+    !$OMP do reduction(+:new_vector)
+    do row = 1, n
+            new_vector(row) = new_vector(row) + dot_product( &
+                CRS_value(CRS_row_ptr(row):CRS_row_ptr(row+1)-1),  &
+                old_vector(CRS_col(CRS_row_ptr(row):CRS_row_ptr(row+1)-1) )&
+                )
+    enddo
+    !$OMP end do
+    !$OMP end parallel 
+
+
+    !<v1.0>
+!    !$OMP parallel default(shared) private(CRS_id,col)
+!    !$OMP do reduction(+:new_vector)
+!    do row = 1, n
+!        do concurrent(CRS_id=CRS_row_ptr(row):CRS_row_ptr(row+1)-1)
+!            new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(CRS_col(CRS_id))
+!        enddo
+!    enddo
+!    !$OMP end do
+!    !$OMP end parallel 
+!    
+  end function
+! ###################################################################
+
+subroutine spmv_as_subroutine_CRS(this,old_vector,new_vector)
+    class(CRS_),intent(in) :: this
+    real(real64),intent(in)  :: old_vector(:)
+    real(real64),intent(out) :: new_vector(:)
+    integer(int32) :: row
+    new_vector(:) = 0.0d0
+
+    !$OMP parallel default(shared)
+    !$OMP do reduction(+:new_vector)
+    do row = 1, size(new_vector)
+        new_vector(row) = new_vector(row) + dot_product( &
+            this%val(this%row_ptr(row):this%row_ptr(row+1)-1),  &
+            old_vector(this%col_idx(this%row_ptr(row):this%row_ptr(row+1)-1) )&
+            )
+    enddo
+    !$OMP end do
+    !$OMP end parallel 
+end subroutine
+
+
+
+function crs_matvec_generic_real32_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
+    real(real32),intent(in)  :: CRS_value(:),Old_vector(:)
+    integeR(int32),intent(in):: CRS_col(:)
+    integeR(int64),intent(in):: CRS_row_ptr(:)
+  
+    real(real32),allocatable :: new_vector(:)
     integer(int32) :: i, j, n,gid,lid,row,col
     integer(int64) :: CRS_id
     
@@ -2698,6 +2926,53 @@ subroutine fixCRS(this,idx,val,RHS,only_row)
 end subroutine
 ! #####################################################
 
+
+
+! #####################################################
+subroutine fix_zeroCRS(this,idx) 
+    class(CRS_),intent(inout) :: this
+    integer(int32),intent(in) :: idx(:)
+    
+    integer(int64) :: i,j,k,id
+    do i=1,size(idx)
+        id = idx(i)
+        do j=1,size(this%row_ptr)-1
+            if(j==id)then
+                do k=this%row_ptr(j),this%row_ptr(j+1)-1
+                    if( this%col_idx(k)==id  )then
+                        this%val(k) = 0.0d0
+                    else
+                        this%val(k) = 0.0d0
+                    endif
+                enddo
+            else
+                do k=this%row_ptr(j),this%row_ptr(j+1)-1
+                    if( this%col_idx(k)==id  )then
+                        
+                        this%val(k) = 0.0d0
+                    endif
+                enddo
+            endif
+        enddo
+    enddo
+
+
+    do i=1,size(idx)
+        id = idx(i)
+        do j=1,size(this%row_ptr)-1
+            if(j==id)then
+                do k=this%row_ptr(j),this%row_ptr(j+1)-1
+                    if( this%col_idx(k)==id  )then
+                        this%val(k) = 1.0d0
+                    endif
+                enddo
+            endif
+        enddo
+    enddo
+
+end subroutine
+! #####################################################
+
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> complex >>>>>>>>>>>>>>>>>>>>>>>
 
 
@@ -4222,5 +4497,15 @@ function to_diag_vector_to_CRS(diag_vec) result(ret)
     ret%val = diag_vec
     
 end function
+
+! ###################################################
+subroutine to_real32_CRS(this)
+    class(CRS_),intent(inout) :: this
+
+    this%val_real32 = real(this%val)
+    deallocate(this%val)
+    this%dtype = real32
+
+end subroutine
 
 end module SparseClass

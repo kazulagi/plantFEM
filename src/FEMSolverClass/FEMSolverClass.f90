@@ -870,7 +870,7 @@ subroutine setCRSFEMSolver(this,DOF,debug)
 !                this%CRS_Index_Col(this%CRS_Index_Row(i):this%CRS_Index_Row(i+1)-1 )
 !
 !                new_col_local = RemoveIF(col_local,equal_to=0)
-!                new_col_local = RemoveOverwrap(new_col_local)
+!                new_col_local = RemoveOverlap(new_col_local)
 !                
 !                
 !                col_local(:)  = 0
