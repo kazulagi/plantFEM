@@ -100,15 +100,15 @@ echo " >> SpectreAnalysisClass.o "
 echo " | =>                          | (4%)\r\c"
 mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SpectreAnalysisClass/SpectreAnalysisClass.f90 -o  ./inc/SpectreAnalysisClass.o -llapack -lblas
 
-echo "Compiling ./src/SparseClass/SparseClass.c " 
+echo "Compiling ./src/SparseClass/SparseClass-c.c " 
 echo " >> SparseClass_c.o "
 echo " | =>                          | (4%)\r\c"
-gcc -c ./src/SparseClass/SparseClass-c.c -o inc/SparseClass-c.o
+gcc -c  -fopenmp -O3 ./src/SparseClass/SparseClass-c.c -o inc/SparseClass-c.o
 
 echo "Compiling ./src/SparseClass/SparseClass.f90 " 
 echo " >> SparseClass.o "
 echo " | =>                          | (4%)\r\c"
-mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c  ./inc/SparseClass-c.o ./src/SparseClass/SparseClass.f90 -o  ./inc/SparseClass.o -llapack -lblas
+mpif90 -O3 -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c  ./inc/SparseClass-c.o ./src/SparseClass/SparseClass.f90 -o  ./inc/SparseClass.o -llapack -lblas
 
 
 

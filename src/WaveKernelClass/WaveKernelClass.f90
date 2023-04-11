@@ -26,8 +26,13 @@ module WaveKernelClass
         procedure :: movingAverage => movingAverage_WaveKernel
 
         ! >>> RECCOMENDED >>>
-        procedure :: getDisplacement_and_Velocity &
-            => getDisplacement_and_Velocity_WaveKernel
+        procedure,pass :: getDisplacement_and_Velocity_WaveKernel
+        procedure,pass :: getDisplacement_and_Velocity_MPI_WaveKernel
+        procedure,pass :: getDisplacement_and_Velocity_complex64_WaveKernel
+        generic :: getDisplacement_and_Velocity &
+            => getDisplacement_and_Velocity_WaveKernel,&
+            getDisplacement_and_Velocity_complex64_WaveKernel,&
+            getDisplacement_and_Velocity_MPI_WaveKernel
         ! <<< RECCOMENDED <<<
 
         procedure :: getDisplacement => getDisplacementWaveKernel
@@ -246,19 +251,178 @@ end subroutine
 
 ! ##############################################################
 subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,&
-    fix_idx,cutoff_frequency,debug_mode,u,v,RHS) 
+    fix_idx,cutoff_frequency,debug_mode,u,v,RHS,gain) 
     class(WaveKernel_),intent(inout) :: this
     real(real64),intent(in) :: u_n(:),v_n(:)
     real(real64),optional,intent(in) :: RHS(:)
     real(real64),allocatable :: du(:),dv(:)
     real(real64),allocatable :: u(:),v(:)
+    real(real64),optional,intent(in) :: gain
+    integer(int32),optional,allocatable,intent(in) :: fix_idx(:)
+    real(real64),intent(in) :: dt
+    logical,optional,intent(in) :: debug_mode
+    real(real64),optional,intent(in)  :: cutoff_frequency
+    real(real64) :: gain_value
+    integer(int32) :: j,k
+    
+    gain_value = input(default=1.0d0,option=gain)
+    
+
+    ! [CAUTION!!] only undamped is implemented.
+    
+    du = u_n
+    
+    u = u_n
+    v = 0.0d0*v_n
+    do k=1,this%itrmax
+        du = this%OmegaSqMatrix%matmul(du)
+        if(norm(LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*du)&
+            < this%tol )exit
+        u = u + LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*du
+        
+        if(k==1)then
+            v = - dt*du
+        else
+            v = v - LPF_t_sinc_sqrt_taylor_coefficient(k=k-1,t=dt,f_c=cutoff_frequency)*du
+        endif
+        
+    enddo
+    deallocate(du)
+
+    dv = v_n
+    ! k=1
+    u = u + dt*dv
+    v = v + dv
+    do k=1,this%itrmax
+        dv = this%OmegaSqMatrix%matmul(dv)
+        if(norm(LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*dv)&
+            < this%tol )exit
+        u = u + LPF_t_sinc_sqrt_taylor_coefficient(k=k ,t=dt,f_c=cutoff_frequency)*dv
+        v = v + LPF_cos_sqrt_taylor_coefficient(  k=k ,t=dt,f_c=cutoff_frequency)*dv
+    enddo
+    
+    if(present(RHS) )then
+        u = u + this%OmegaSqMatrix%tensor_wave_kernel_RHS(RHS=RHS/this%Mmatrix_diag,t=dt,tol=dble(1.0e-25),&
+            itrmax=this%itrmax,cutoff_frequency=cutoff_frequency)
+        v = v + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+            dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
+            DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol)
+    endif
+
+    if(present(fix_idx) )then
+        if(allocated(fix_idx) )then
+            u(fix_idx)=0.0d0 
+        endif
+    endif
+
+    u = gain_value*u
+    v = gain_value*v
+
+
+end subroutine
+! ##############################################################
+
+
+
+! ##############################################################
+subroutine getDisplacement_and_Velocity_MPI_WaveKernel(this,u_n,v_n,dt,&
+    fix_idx,cutoff_frequency,debug_mode,u,v,RHS,gain,MPID,FEMDomain) 
+    class(WaveKernel_),intent(inout) :: this
+    real(real64),intent(in) :: u_n(:),v_n(:)
+    real(real64),optional,intent(in) :: RHS(:)
+    real(real64),allocatable :: du(:),dv(:)
+    real(real64),allocatable :: u(:),v(:)
+    real(real64),optional,intent(in) :: gain
+    type(MPI_),intent(inout) :: MPID
+    type(FEMDomain_),intent(inout) :: FEMDomain
+
+    integer(int32),optional,allocatable,intent(in) :: fix_idx(:)
+    real(real64),intent(in) :: dt
+    logical,optional,intent(in) :: debug_mode
+    real(real64),optional,intent(in)  :: cutoff_frequency
+    real(real64) :: gain_value
+    integer(int32) :: j,k
+    
+    gain_value = input(default=1.0d0,option=gain)
+    
+
+    ! [CAUTION!!] only undamped is implemented.
+    
+    du = u_n
+    
+    u = u_n
+    v = 0.0d0*v_n
+    do k=1,this%itrmax
+        
+        !<<< du = this%OmegaSqMatrix%matmul(du) >>> for MPI
+        du = FEMDomain%mpi_matmul(this%OmegaSqMatrix,du,MPID)
+
+        if(norm(LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*du)&
+            < this%tol )exit
+        u = u + LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*du
+        
+        if(k==1)then
+            v = - dt*du
+        else
+            v = v - LPF_t_sinc_sqrt_taylor_coefficient(k=k-1,t=dt,f_c=cutoff_frequency)*du
+        endif
+        
+    enddo
+    deallocate(du)
+
+    dv = v_n
+    ! k=1
+    u = u + dt*dv
+    v = v + dv
+    do k=1,this%itrmax
+        !<<< dv = this%OmegaSqMatrix%matmul(dv) >>> for MPI
+        dv = FEMDomain%mpi_matmul(this%OmegaSqMatrix,dv,MPID)
+
+        if(norm(LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*dv)&
+            < this%tol )exit
+        u = u + LPF_t_sinc_sqrt_taylor_coefficient(k=k ,t=dt,f_c=cutoff_frequency)*dv
+        v = v + LPF_cos_sqrt_taylor_coefficient(  k=k ,t=dt,f_c=cutoff_frequency)*dv
+    enddo
+    
+    ! RHS (=M^{-1}F)
+    if(present(RHS) )then
+        u = u + this%OmegaSqMatrix%tensor_wave_kernel_RHS(RHS=RHS/this%Mmatrix_diag,t=dt,tol=dble(1.0e-25),&
+            itrmax=this%itrmax,cutoff_frequency=cutoff_frequency)
+        
+        v = v + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+            dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
+            DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol)
+    endif
+
+    if(present(fix_idx) )then
+        if(allocated(fix_idx) )then
+            u(fix_idx)=0.0d0 
+        endif
+    endif
+
+    u = gain_value*u
+    v = gain_value*v
+
+
+end subroutine
+! ##############################################################
+
+
+
+
+! ##############################################################
+subroutine getDisplacement_and_Velocity_complex64_WaveKernel(this,u_n,v_n,dt,&
+    fix_idx,cutoff_frequency,debug_mode,u,v,RHS) 
+    class(WaveKernel_),intent(inout) :: this
+    complex(real64),intent(in) :: u_n(:),v_n(:)
+    real(real64),optional,intent(in) :: RHS(:)
+    complex(real64),allocatable :: du(:),dv(:)
+    complex(real64),allocatable :: u(:),v(:)
     integer(int32),optional,allocatable,intent(in) :: fix_idx(:)
     real(real64),intent(in) :: dt
     logical,optional,intent(in) :: debug_mode
     real(real64),optional,intent(in)  :: cutoff_frequency
     integer(int32) :: j,k
-    
-    
     
 
     ! [CAUTION!!] only undamped is implemented.
@@ -309,25 +473,29 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,&
     endif
 
 
+
 end subroutine
 ! ##############################################################
 
 
 
 ! ##############################################################
-function getDisplacementWaveKernel(this,u_n,v_n,dt,fix_idx,cutoff_frequency,debug_mode,RHS) result(u)
+function getDisplacementWaveKernel(this,u_n,v_n,dt,fix_idx,cutoff_frequency,debug_mode,RHS,gain) result(u)
     class(WaveKernel_),intent(inout) :: this
     real(real64),intent(in) :: u_n(:),v_n(:)
+    
     real(real64),optional,intent(in) :: RHS(:)
     real(real64),allocatable :: u(:)
     integer(int32),optional,intent(in) :: fix_idx(:)
     real(real64),intent(in) :: dt
     logical,optional,intent(in) :: debug_mode
-    real(real64),optional,intent(in)  :: cutoff_frequency
+    real(real64),optional,intent(in)  :: cutoff_frequency,gain
+    real(real64) :: gain_value
     integer(int32) :: j
     real(real64) :: h, ddt
 
-    
+    gain_value = input(default=1.0d0,option=gain)
+
     if(present(cutoff_frequency) )then
 !        if(present(debug_mode) )then
 !            if(debug_mode)then
@@ -369,22 +537,25 @@ function getDisplacementWaveKernel(this,u_n,v_n,dt,fix_idx,cutoff_frequency,debu
             itrmax=this%itrmax,cutoff_frequency=cutoff_frequency)
     endif
 
+    u = gain_value*u
 end function
 ! ##############################################################
 
 
 ! ##############################################################
-function getVelocityWaveKernel(this,u_n, v_n,RHS,dt,fix_idx,cutoff_frequency,debug_mode) result(v)
+function getVelocityWaveKernel(this,u_n, v_n,RHS,dt,fix_idx,cutoff_frequency,debug_mode,gain) result(v)
     class(WaveKernel_),intent(inout) :: this
     real(real64),intent(in) :: u_n(:),v_n(:)
     real(real64),optional,intent(in) :: RHS(:)
     integer(int32),optional,intent(in) :: fix_idx(:)
-    real(real64),optional,intent(in)  :: cutoff_frequency
+    real(real64),optional,intent(in)  :: cutoff_frequency,gain
     logical,optional,intent(in) :: debug_mode
     real(real64),allocatable :: v(:)
     real(real64),intent(in) :: dt
     integer(int32) :: j
-    real(real64) :: h,ddt
+    real(real64) :: h,ddt,gain_value
+
+    gain_value = input(default=1.0d0,option=gain)
 
     if(present(cutoff_frequency) )then
 !        if(present(debug_mode)  )then
@@ -450,6 +621,8 @@ function getVelocityWaveKernel(this,u_n, v_n,RHS,dt,fix_idx,cutoff_frequency,deb
             dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
             DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol)
     endif
+
+    v = gain_value*v
 end function
 ! ##############################################################
 
@@ -709,6 +882,34 @@ end function
 ! #########################################################
 
 ! #########################################################
+function LPF_damped_cos_sqrt_complex64_WaveKernelFunction(Omega_sq_matrix,dt,f_c,u_n,DampingRatio, itrmax,tol,fix_idx) result(ret)
+    type(CRS_),intent(inout) :: Omega_sq_matrix
+    real(real64),intent(in) :: dt, f_c,tol,DampingRatio(:)
+    complex(real64),intent(in) :: u_n(:)
+    complex(real64),allocatable :: ret(:),du(:)
+
+    integer(int32),intent(in) :: itrmax
+    integer(int32),optional,intent(in) :: fix_idx(:)
+    integer(int32) :: k
+
+    k=0
+    du = u_n
+    if(present(fix_idx) )then
+        du(fix_idx) = 0.0d0
+    endif
+    ret = LPF_damped_cos_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*du
+    
+    do k=1,itrmax
+        du = Omega_sq_matrix%matmul(du)  
+        if(norm(LPF_damped_cos_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*du)<tol )exit  
+        ret = ret + LPF_damped_cos_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*du
+    enddo
+
+end function
+! #########################################################
+
+
+! #########################################################
 function LPF_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix,dt,f_c,v_n,itrmax,tol,fix_idx) result(ret)
     type(CRS_),intent(inout) :: Omega_sq_matrix
     real(real64),intent(in) :: dt, f_c, v_n(:),tol
@@ -755,6 +956,36 @@ function LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix,dt,f_c,v_n,it
 
 end function
 ! #########################################################
+
+
+! #########################################################
+function LPF_damped_t_sinc_sqrt_complex64_WaveKernelFunction(Omega_sq_matrix,dt,f_c,v_n,itrmax,tol,fix_idx,DampingRatio) result(ret)
+    type(CRS_),intent(inout) :: Omega_sq_matrix
+    real(real64),intent(in) :: dt, f_c,tol,DampingRatio(:)
+    
+    complex(real64),intent(in) :: v_n(:)
+    complex(real64),allocatable :: ret(:),dv(:)
+
+    integer(int32),intent(in) :: itrmax
+    integer(int32),optional,intent(in) :: fix_idx(:)
+    integer(int32) :: k
+
+    k=0
+    dv = v_n
+    if(present(fix_idx) )then
+        dv(fix_idx) = 0.0d0
+    endif
+    ret = LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*dv
+    
+    do k=1,itrmax
+        dv = Omega_sq_matrix%matmul(dv)    
+        if(norm(LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*dv)<tol )exit
+        ret = ret + LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*dv
+    enddo
+
+end function
+! #########################################################
+
 
 end module
 

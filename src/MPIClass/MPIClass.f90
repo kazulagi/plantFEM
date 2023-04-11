@@ -27,6 +27,7 @@ module MPIClass
         integer(int32) :: ierr
         integer(int32) :: MyRank
         integer(int32) :: PeTot
+
         integer(int32) :: Comm1
         integer(int32) :: Comm2
         integer(int32) :: Comm3
@@ -139,6 +140,27 @@ module MPIClass
 
         procedure, pass :: isend_irecvRealVectorMPI
         generic :: isend_irecv => isend_irecvRealVectorMPI
+
+
+        procedure,pass :: isend_Int32MPI
+        procedure,pass :: isend_Int32VectorMPI
+        procedure,pass :: isend_Real64MPI
+        procedure,pass :: isend_Real64VectorMPI
+
+        generic :: isend => isend_Int32MPI,isend_Real64MPI,&
+            isend_Int32VectorMPI,isend_Real64VectorMPI
+
+        procedure,pass :: irecv_Int32MPI
+        procedure,pass :: irecv_Int32VectorMPI
+        procedure,pass :: irecv_Real64MPI
+        procedure,pass :: irecv_Real64VectorMPI
+
+        generic :: irecv => irecv_Int32MPI,irecv_Real64MPI,&
+            irecv_Int32VectorMPI,irecv_Real64VectorMPI
+
+        procedure,pass :: WaitAll_Int32MPI
+        procedure,pass :: WaitAll_Int32VectorMPI
+        generic :: WaitAll => WaitAll_Int32MPI,WaitAll_Int32VectorMPI
 
         procedure :: createStack => createStackMPI
         procedure :: showStack   => showStackMPI
@@ -433,7 +455,7 @@ recursive subroutine BcastMPIIntVec(obj,From,val)
     integer(int32) :: sendval
 
     if(allocated(val) )then
-        if(From/=obj%myrank )then
+        if(From/=obj%myrank)then
             deallocate(val)
         endif
     endif
@@ -447,7 +469,7 @@ recursive subroutine BcastMPIIntVec(obj,From,val)
         endif
     endif
     call obj%Bcast(From=From, val=vec_size)
-
+    
     ! if array is empty, return
     if(vec_size < 1)then
         return
@@ -1863,6 +1885,70 @@ subroutine isend_irecvRealVectorMPI(this,sendobj,recvobj,send_recv_rank,debug)
 end subroutine
 ! ###################################################
 
+
+!################################################################
+
+subroutine isend_irecvInt32VectorMPI(this,sendobj,recvobj,send_recv_rank,debug)
+    class(MPI_),intent(inout) :: this
+    integer(int32),intent(in)    :: sendobj(:)
+    integer(int32),intent(inout) :: recvobj(:)
+    integer(int32),intent(in)  :: send_recv_rank(:)
+    integer(int32) :: i, n,ireq,ierr,tag
+    integer(int32) :: mpistat(MPI_STATUS_SIZE)
+    logical,optional,intent(in) :: debug
+
+    call this%barrier()
+    if(present(debug) )then
+        if(debug)then
+            if(size(send_recv_rank) > 100000 )then 
+                print *, "[CAUTION!] isend_irecv >> communication cost increases O(N^2)/ "
+                print *, "           For hevy workflow, please consider to use MPI_BCAST"
+            endif
+        endif
+    endif
+
+
+    ! ISEND :: >>> NON-BLOCKING
+    n = size(sendobj)
+    tag = 0
+
+    do i=1, n
+        !tag = tag+1
+        if(send_recv_rank(i) > this%petot-1 ) cycle
+        call MPI_IRECV(recvobj(i), 1, MPI_REAL8, send_recv_rank(i),&
+                       0, MPI_COMM_WORLD, ireq, ierr)
+    enddo
+
+
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] isend_irecv >> RANK :: ",this%myrank,"[IRECV:DONE]"        
+        endif
+    endif
+
+    do i=1, n
+        !tag = tag+1
+        if(send_recv_rank(i) > this%petot-1 ) cycle
+        call MPI_ISEND(sendobj(i), 1, MPI_REAL8, send_recv_rank(i),&
+                       tag, MPI_COMM_WORLD, ireq, ierr)
+        
+    enddo
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] isend_isend >> RANK :: ",this%myrank,"[ISEND:DONE]"        
+        endif
+    endif
+    
+
+    call MPI_WAIT(ireq,mpistat,ierr)
+    
+    call this%barrier()
+    this%ierr= ierr
+end subroutine
+! ###################################################
+
 subroutine EP_set_variable_by_rangeMPI(this,var,var_range,N)
     class(MPI_),intent(inout) :: this
     real(real64),target,intent(in)   :: var
@@ -2074,6 +2160,152 @@ subroutine fclose_MPI(this)
     if(this%myrank==0)then
         call system("cat "+this%filename+"_rank_* > "+this%filename)
     endif
+    
+end subroutine
+! ###################################################
+
+
+
+! ###################################################
+subroutine isend_Int32MPI(this,to,val,req,tag)
+    class(MPI_),intent(inout) :: this
+    integer(int32),intent(in) :: to
+    integer(int32),intent(in) :: val
+    integer(int32),intent(inout) :: req
+    integer(int32),intent(in) :: tag
+    
+    call MPI_ISEND(val,1,MPI_INTEGER4,to,tag,this%comm(1),req,this%ierr)
+
+end subroutine
+! ###################################################
+
+
+! ###################################################
+subroutine isend_Int32VectorMPI(this,to,val,req,tag)
+    class(MPI_),intent(inout) :: this
+    integer(int32),intent(in) :: to
+    integer(int32),intent(in) :: val(:)
+    integer(int32),intent(inout) :: req
+    integer(int32),intent(in) :: tag
+    
+    call MPI_ISEND(val,size(val),MPI_INTEGER4,to,tag,this%comm(1),req,this%ierr)
+
+end subroutine
+! ###################################################
+
+
+! ###################################################
+subroutine isend_Real64MPI(this,to,val,req,tag)
+    class(MPI_),intent(inout) :: this
+    integer(int32),intent(in) :: to
+    real(real64),intent(in) :: val
+    integer(int32),intent(inout) :: req
+    integer(int32),intent(in) :: tag
+    
+    call MPI_ISEND(val,1,MPI_REAL8,to,tag,this%comm(1),req,this%ierr)
+
+end subroutine
+! ###################################################
+
+
+
+! ###################################################
+subroutine isend_Real64VectorMPI(this,to,val,req,tag)
+    class(MPI_),intent(inout) :: this
+    integer(int32),intent(in) :: to
+    real(real64),intent(in) :: val(:)
+    integer(int32),intent(inout) :: req
+    integer(int32),intent(in) :: tag
+    
+    call MPI_ISEND(val,size(val),MPI_REAL8,to,tag,this%comm(1),req,this%ierr)
+
+end subroutine
+! ###################################################
+
+
+
+
+! ###################################################
+subroutine irecv_Int32MPI(this,from,val,req,tag)
+    class(MPI_),intent(inout) :: this
+    integer(int32),intent(in) :: from
+    integer(int32),intent(inout) :: val
+    integer(int32),intent(inout) :: req
+    integer(int32),intent(in) :: tag
+
+    call MPI_IRECV(val,1,MPI_INTEGER4,from,tag,this%comm(1),req,this%ierr)
+
+end subroutine
+! ###################################################
+
+
+! ###################################################
+subroutine irecv_Int32VectorMPI(this,from,val,req,tag)
+    class(MPI_),intent(inout) :: this
+    integer(int32),intent(in) :: from
+    integer(int32),intent(inout) :: val(:)
+    integer(int32),intent(inout) :: req
+    integer(int32),intent(in) :: tag
+
+    call MPI_IRECV(val,size(val),MPI_INTEGER4,from,tag,this%comm(1),req,this%ierr)
+
+end subroutine
+! ###################################################
+
+
+! ###################################################
+subroutine irecv_Real64MPI(this,from,val,req,tag)
+    class(MPI_),intent(inout) :: this
+    integer(int32),intent(in) :: from
+    real(real64),intent(inout) :: val
+    integer(int32),intent(inout) :: req
+    integer(int32),intent(in) :: tag
+
+    call MPI_IRECV(val,1,MPI_REAL8,from,tag,this%comm(1),req,this%ierr)
+
+end subroutine
+! ###################################################
+
+
+! ###################################################
+subroutine irecv_Real64VectorMPI(this,from,val,req,tag)
+    class(MPI_),intent(inout) :: this
+    integer(int32),intent(in) :: from
+    real(real64),intent(inout) :: val(:)
+    integer(int32),intent(inout) :: req
+    integer(int32),intent(in) :: tag
+
+    call MPI_IRECV(val,size(val),MPI_REAL8,from,tag,this%comm(1),req,this%ierr)
+
+end subroutine
+! ###################################################
+
+
+! ###################################################
+subroutine WaitAll_Int32MPI(this,send_req,recv_req)
+    class(MPI_),intent(inout) :: this
+    integer(int32),intent(in) :: send_req, recv_req
+    integer(int32) :: reqs(2)
+    integer(int32) :: mpistat(MPI_STATUS_SIZE,2)
+
+    reqs(1) = send_req
+    reqs(2) = recv_req
+    call MPI_Waitall(2,reqs,mpistat,this%ierr)
+    
+end subroutine
+! ###################################################
+
+
+
+! ###################################################
+subroutine WaitAll_Int32VectorMPI(this,send_req,recv_req)
+    class(MPI_),intent(inout) :: this
+    integer(int32),intent(in) :: send_req(:), recv_req(:)
+    integer(int32),allocatable :: reqs(:)
+    integer(int32) :: mpistat(MPI_STATUS_SIZE,2)
+
+    reqs = send_req // recv_req
+    call MPI_Waitall(size(reqs),reqs,mpistat,this%ierr)
     
 end subroutine
 ! ###################################################

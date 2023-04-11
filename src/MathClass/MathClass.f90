@@ -49,7 +49,7 @@ module MathClass
 	end interface
 	
 	interface norm
-		module procedure norm_mat,norm_vec
+		module procedure norm_mat,norm_vec,norm_vec_real32,norm_vec_complex64
 	end interface
 
 	interface factorial
@@ -606,6 +606,31 @@ function norm_vec(vec) result(a)
 end function
 !########################################
 
+
+!########################################
+function norm_vec_real32(vec) result(a)
+	real(real32),intent(in)::vec(:)
+	integer(int32) :: n
+	real(real32) :: a
+
+	n=size(vec)
+	a=sqrt(dot_product(vec,vec) )
+
+end function
+!########################################
+
+
+!########################################
+function norm_vec_complex64(vec) result(a)
+	complex(real64),intent(in)::vec(:)
+	integer(int32) :: n
+	real(real64) :: a
+
+	n=size(vec)
+	a=sqrt(dble(dot_product(vec,vec) ))
+
+end function
+!########################################
 
 !########################################
 function norm_mat(vec) result(a)

@@ -7951,13 +7951,14 @@ function divideMesh(obj,n) result(meshes)
     integer(int32),allocatable :: buffer(:,:)
     logical :: tf
 
+    ! Regacy :: some bugs
     if(n<2)then
         allocate(meshes(1))
         call meshes(1)%copy(obj)
         return
     endif
-    ! divide mesh by the Greedy algorithm.
 
+    ! divide mesh by the Greedy algorithm.
     mesh_num = input(default=2, option=n)
     
     allocate(meshes(mesh_num) )
@@ -8028,6 +8029,7 @@ function divideMesh(obj,n) result(meshes)
     local_id=0
     do i=1,size(meshes,1)
         allocate(global_vs_local(1,2) )
+        global_vs_local = 0
         do j=1,size(meshes(i)%ElemNod,1)
             do k=1,size(meshes(i)%ElemNod,2)
                 global_id=meshes(i)%ElemNod(j,k)
@@ -9104,6 +9106,7 @@ function getNeighboringElementMesh(obj, elemid,withSurfaceID,interfaces) result(
     integer(int32),allocatable :: retbuf(:)
     logical :: exists
 
+    ! [Caution!] may have bugs
     if(obj%empty() .eqv. .true. )then
         print *, "ERROR :: mesh is empty"
         return

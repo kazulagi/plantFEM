@@ -3,6 +3,7 @@
  */
 #include <stddef.h>
 #include <stdio.h>
+#include <omp.h>
 
 void c_dot_product(double x[],double y[],size_t n,double dp[])
 {
@@ -30,4 +31,49 @@ void c_sparse_matvec(int row_ptr[],int col_idx[], double val[],double x[],size_t
         };
     };
     
+}
+
+
+
+void crs_spmv_real32(float val[], long int row_ptr[], int col_idx[],float old_vector[], 
+    float new_vector[], size_t n,size_t col_size)
+{
+    size_t row;
+    size_t col;
+
+    #pragma omp_set_num_threads(4)
+    #pragma omp parallel for private(col) 
+    for (row=0; row<n; row++){
+        for (col=row_ptr[row]; col<row_ptr[row+1];col++  ){
+            new_vector[row] = new_vector[row] + val[col-1]*old_vector[col_idx[col-1]-1 ];
+        };
+    };
+}
+
+
+void crs_spmv_real64(double val[], long int row_ptr[], int col_idx[],double old_vector[], 
+    double new_vector[], size_t n,size_t col_size)
+{
+    size_t row;
+    size_t col;
+
+    for (row=0; row<n; row++){
+        for (col=row_ptr[row]; col<row_ptr[row+1];col++  ){
+            new_vector[row] = new_vector[row] + val[col-1]*old_vector[col_idx[col-1]-1 ];
+        };
+    };
+}
+
+
+void crs_spmv_real64_omp(double val[], long int row_ptr[], int col_idx[],double old_vector[], 
+    double new_vector[], size_t n,size_t col_size)
+{
+    size_t row;
+    size_t col;
+    
+    for (row=0; row<n; row++){
+        for (col=row_ptr[row]; col<row_ptr[row+1];col++  ){
+            new_vector[row] = new_vector[row] + val[col-1]*old_vector[col_idx[col-1]-1 ];
+        };
+    };
 }

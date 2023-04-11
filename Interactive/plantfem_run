@@ -531,12 +531,12 @@ homepath="$PWD"
     fi
 
     if [ "${line}" = "build_command" ]; then
-        echo "mpif90  -llapack -lblas -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc/  -o server.out -llapack -lblas  "
+        echo "mpif90  -llapack -lblas -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc/  -o server.out -llapack -lblas  -lOpenCL "
         exit 0
     fi
 
     if [ "${line}" = "strict_build" ]; then
-        mpif90  -llapack -lblas -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -Wall -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc/  -o server.out -llapack -lblas -ftrapv -fstack-check
+        mpif90  -llapack -lblas -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -Wall -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc/  -o server.out -llapack -lblas -ftrapv -fstack-check  -lOpenCL
         exit 0
     fi
      
@@ -554,7 +554,7 @@ homepath="$PWD"
         #    cp -f $1 "server.f90"
         #fi
         rm -f "${1%.*}.out"
-        $mpif90  /opt/plantfem/inc/*o $1  -I /opt/plantfem/inc -g -fcheck=all -fopenmp -fintrinsic-modules-path /opt/plantfem/inc -o "${1%.*}.out" -llapack -lblas  
+        $mpif90 /opt/plantfem/inc/*o $1  -I /opt/plantfem/inc -g -fcheck=all -fopenmp -fintrinsic-modules-path /opt/plantfem/inc -o "${1%.*}.out" -llapack -lblas -lOpenCL
         
         #echo "Current num of cpu-core is :: $numcore "
         ./${1%.*}.out

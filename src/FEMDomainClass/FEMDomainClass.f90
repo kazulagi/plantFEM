@@ -75,7 +75,6 @@ module FEMDomainClass
         type(MaterialProp_)     :: MaterialProp
         type(Boundary_)         :: Boundary
 		type(ControlParameter_) :: ControlPara
-
 		type(ShapeFunction_)    :: ShapeFunction
 		
 		type(PhysicalField_),allocatable :: PhysicalField(:)
@@ -103,6 +102,10 @@ module FEMDomainClass
 		integer(int32) :: timestep=1
 		integer(int32) :: NumberOfBoundaries=0
 		integer(int32) ::  NumberOfMaterials=0
+
+		! for MPI
+		integer(int32),allocatable :: mpi_global_node_idx(:)
+		integer(int32),allocatable :: mpi_shared_node_info(:,:)
 
 		! for overset, optional.
 		type(OversetConnect_),allocatable :: OversetConnect(:)
@@ -139,6 +142,7 @@ module FEMDomainClass
 			addLayerFEMDomainVector,&
 			addLayerFEMDomainTensor
 
+		procedure,public :: mpi_matmul => mpi_matmulFEMDomain
 		procedure,public :: showLayer => showLayerFEMDomain
 		procedure,public :: searchLayer => searchLayerFEMDomain
 
@@ -174,7 +178,11 @@ module FEMDomainClass
 
         procedure,public :: delete => DeallocateFEMDomain
 		procedure,public :: display => displayFEMDomain
-		procedure,public :: divide => divideFEMDomain
+
+		procedure,pass :: divide_mpi_FEMDomain
+		procedure,pass :: divide_nFEMDomain
+
+		generic ::  divide => divide_mpi_FEMDomain,divide_nFEMDomain
 		!procedure,public :: distribute => distributeFEMDomain
 		procedure,public :: Delaunay3D => Delaunay3DFEMDomain
 		procedure,public :: Delaunay2D => Delaunay2DFEMDomain
@@ -228,7 +236,10 @@ module FEMDomainClass
 		
 
 		procedure,public :: getElement => getElementFEMDOmain
-		
+
+		procedure,public :: getNeighboringElementList =>getNeighboringElementListFEMDomain
+		procedure,public :: to_ElementID => to_ElementIDFEMDomain
+
 		procedure,pass   :: getElementListFEMDomain
 		procedure,pass   :: getElementList_by_radiusFEMDomain
 
@@ -795,30 +806,286 @@ subroutine saveFEMDomain(obj,path,name)
 end subroutine 
 
 !##################################################
-function divideFEMDomain(obj,n) result(FEMDomains)
+function divide_mpi_FEMDomain(obj,mpid) result(FEMDomain)
 	class(FEMDomain_),intent(inout)::obj
-	type(FEMDomain_),allocatable :: FEMDomains(:)
+	type(FEMDomain_) :: FEMDomain
+	
     type(Mesh_),allocatable :: meshes(:)
-	integer(int32),intent(in) :: n
-	integer(int32) :: i
+	type(MPI_),intent(inout) :: mpid
+	integer(int32) :: n
+
+	integer(int32),allocatable :: proc_id(:),next_elems(:),global_node_idx(:)
+
+	! incremental method
+	integer(int32),allocatable :: subdomain_idx(:),elem_idx(:)
+	integer(int32),allocatable :: subdomain_center_elem_idx(:),node_idx(:),&
+		sendbuf(:),recvbuf(:),new_combination(:),new_info(:),my_node_idx(:),your_node_idx(:)
+	real(real64),allocatable :: subdomain_center_coord(:,:) 
+
+	real(real64),allocatable :: norms(:),new_center(:),num_shared_elem(:)
+
+	integer(int32) :: i,j,elem_id,last_elem_id,max_elem_per_subdomain,elem_counter,&
+		subdomain_id,ne,nn,elemid,k,proc_idx
+
+	type(Random_) :: random
 	
+	!>>> Passed the test "Tutorial/fem/divide_mesh.f90"
+
 	! split obj into n objects
-	allocate(FEMDomains(n))
+	! incremental method(逐次追加法)
+	n = mpid%petot
 
-	! Greedy algorithm
-	if(obj%Mesh%empty() .eqv. .true. )then
-		print *, "divideFEMDomain >> ERROR >> No mesh is imported."
-		stop
+	if(n==1)then
+		femdomain = obj
+		return
 	endif
+	subdomain_idx = int(zeros(obj%ne() ) )
+	subdomain_center_coord = zeros(n,obj%nd() )
+	subdomain_center_elem_idx = int(zeros(n))
+	elem_idx = [(i,i=1,obj%ne() ) ]
+	norms = zeros(n)
+	! set kernel of each subdomain
+	subdomain_center_elem_idx = random%draw(elem_idx,n)
 	
-	meshes = obj%mesh%divide(n)
 
-	! import mesh
-	do i=1,n
-		call FEMDomains(i)%import(Mesh=meshes(i))
+
+
+	if(mpid%myrank==0)then
+
+		!num_shared_elem = int(zeros(obj%ne() ) )
+		!!$OMP parallel do
+		!do i=1,size(obj%mesh%elemnod,1)
+		!	num_shared_elem(obj%mesh%elemnod(i,:) ) = num_shared_elem(obj%mesh%elemnod(i,:) ) + 1
+		!enddo
+		!!$OMP end parallel do
+
+
+		!$OMP parallel do
+		do i=1,n
+			subdomain_center_coord(i,:) =  obj%centerPosition(ElementID=subdomain_center_elem_idx(i) )
+		enddo
+		!$OMP end parallel do
+
+		!$OMP parallel do private(new_center,norms)
+		do i=1,obj%ne() 
+			new_center =  obj%centerPosition(ElementID=i)
+			do j=1,n
+				norms(j) = dot_product(new_center-subdomain_center_coord(j,:),new_center-subdomain_center_coord(j,:))
+			enddo
+			subdomain_idx(i) = minvalid(norms)
+		enddo
+		!$OMP end parallel do
+
+	endif
+	call mpid%bcast(from=0,val=subdomain_idx)
+
+	! select ones
+
+
+	
+	i = mpid%myrank+1
+	ne = countif(array=subdomain_idx,Equal=.true.,value=i)
+	allocate(femdomain%mesh%elemnod(ne,obj%nne() ) ) 
+	elemid = 0
+	do j=1,obj%ne()
+		if(subdomain_idx(j)== i)then
+			elemid = elemid + 1
+			! store global node id
+			femdomain%mesh%elemnod(elemid,:) = obj%mesh%elemnod(j,:)
+		endif
+	enddo
+	femdomain%mpi_global_node_idx = RemoveOverlap(to_vector(femdomain%mesh%elemnod))
+	femdomain%mesh%nodcoord = zeros( size(femdomain%mpi_global_node_idx),obj%nd() )
+
+	! Global index to local index
+	do j=1,size(femdomain%mpi_global_node_idx)
+		femdomain%mesh%nodcoord(j,:) = obj%mesh%nodcoord( femdomain%mpi_global_node_idx(j),: )
+	enddo
+	do j=1,size(femdomain%mesh%elemnod,1)
+		do k=1,size(femdomain%mesh%elemnod,2)
+			femdomain%mesh%elemnod(j,k) = 1 .of. getIdx(vec=femdomain%mpi_global_node_idx,&
+				equal_to=femdomain%mesh%elemnod(j,k)) 
+		enddo
 	enddo
 
-end function divideFEMDomain
+	
+	do proc_idx=0,mpid%petot-1
+		if(mpid%myrank == proc_idx)then
+			k = size(femdomain%mpi_global_node_idx)
+			call mpid%bcast(from=proc_idx,val=k)
+			call mpid%bcast(from=proc_idx,val=femdomain%mpi_global_node_idx)
+		else
+			call mpid%bcast(from=proc_idx,val=k)
+			recvbuf = int(zeros(k) )
+			call mpid%bcast(from=proc_idx,val=recvbuf)
+			new_combination = femdomain%mpi_global_node_idx .cap. recvbuf
+			if(size(new_combination)==0 )cycle
+			my_node_idx   = getIdx(vec=femdomain%mpi_global_node_idx,equal_to=new_combination)
+			your_node_idx = getIdx(vec=recvbuf,equal_to=new_combination)
+
+			if(size(new_combination)==0 )then
+				! do nothing
+			else
+				if(.not.allocated(femdomain%mpi_shared_node_info) )then
+					allocate(femdomain%mpi_shared_node_info( size(new_combination),3 ))
+					femdomain%mpi_shared_node_info(:,1)=my_node_idx
+					femdomain%mpi_shared_node_info(:,2)=(proc_idx)*int(ones(size(new_combination) ) )
+					femdomain%mpi_shared_node_info(:,3)=your_node_idx
+				else
+					femdomain%mpi_shared_node_info = &
+						femdomain%mpi_shared_node_info .v. &
+						(my_node_idx .h. &
+						(proc_idx)*int(ones(size(new_combination) ) )&
+							 .h. your_node_idx)
+				endif
+			endif
+		endif
+		call mpid%barrier()
+	enddo
+	
+
+end function
+
+
+!##################################################
+function divide_nFEMDomain(obj,n) result(FEMDomains)
+	class(FEMDomain_),intent(inout)::obj
+	type(FEMDomain_),allocatable :: FEMDomains(:)
+	!integer(int32),allocatable :: FEMDomains(:)
+	
+    type(Mesh_),allocatable :: meshes(:)
+	integer(int32),intent(in) :: n
+
+	integer(int32),allocatable :: proc_id(:),next_elems(:),global_node_idx(:)
+
+	! incremental method
+	integer(int32),allocatable :: subdomain_idx(:),elem_idx(:)
+	integer(int32),allocatable :: subdomain_center_elem_idx(:),node_idx(:)
+	real(real64),allocatable :: subdomain_center_coord(:,:) 
+
+	real(real64),allocatable :: norms(:),new_center(:)
+
+	integer(int32) :: i,j,elem_id,last_elem_id,max_elem_per_subdomain,elem_counter,&
+		subdomain_id,ne,nn,elemid,k
+
+	type(Random_) :: random
+	
+	if(n==1)then
+		allocate(femdomains(1) )
+		femdomains = obj
+		return
+	endif
+	! split obj into n objects
+	! incremental method(逐次追加法)
+	subdomain_idx = int(zeros(obj%ne() ) )
+	subdomain_center_coord = zeros(n,obj%nd() )
+	subdomain_center_elem_idx = int(zeros(n))
+	elem_idx = [(i,i=1,obj%ne() ) ]
+	norms = zeros(n)
+	! set kernel of each subdomain
+	subdomain_center_elem_idx = random%draw(elem_idx,n)
+
+	!$OMP parallel do
+	do i=1,n
+		subdomain_center_coord(i,:) =  obj%centerPosition(ElementID=subdomain_center_elem_idx(i) )
+	enddo
+	!$OMP end parallel do
+
+	! select ones
+	!$OMP parallel do private(new_center,norms)
+	do i=1,obj%ne() 
+		new_center =  obj%centerPosition(ElementID=i)
+		do j=1,n
+			norms(j) = dot_product(new_center-subdomain_center_coord(j,:),new_center-subdomain_center_coord(j,:))
+		enddo
+		subdomain_idx(i) = minvalid(norms)
+	enddo
+	!$OMP end parallel do
+
+
+	allocate(femdomains(n) )
+	
+	!$OMP parallel do private(ne,elemid,j,global_node_idx,k)
+	do i=1,n
+		ne = countif(array=subdomain_idx,Equal=.true.,value=i)
+		allocate(femdomains(i)%mesh%elemnod(ne,obj%nne() ) ) 
+		elemid = 0
+		do j=1,obj%ne()
+			if(subdomain_idx(j)== i)then
+				elemid = elemid + 1
+				! store global node id
+				femdomains(i)%mesh%elemnod(elemid,:) = obj%mesh%elemnod(j,:)
+			endif
+		enddo
+
+		global_node_idx = RemoveOverlap(to_vector(femdomains(i)%mesh%elemnod))
+
+		femdomains(i)%mesh%nodcoord = zeros( size(global_node_idx),obj%nd() )
+		do j=1,size(global_node_idx)
+			femdomains(i)%mesh%nodcoord(j,:) = obj%mesh%nodcoord( global_node_idx(j),: )
+		enddo
+
+		do j=1,size(femdomains(i)%mesh%elemnod,1)
+			do k=1,size(femdomains(i)%mesh%elemnod,2)
+				femdomains(i)%mesh%elemnod(j,k) = 1 .of. getIdx(vec=global_node_idx,equal_to=femdomains(i)%mesh%elemnod(j,k)) 
+			enddo
+		enddo
+	enddo
+	!$OMP end parallel do
+
+!	return
+!
+!		! greedy method
+!		allocate(FEMDomains(n))
+!		proc_id = int(zeros(obj%ne() ) )
+!		proc_id(1) = 1
+!		last_elem_id = 1
+!		max_elem_per_subdomain = size(proc_id)/n + 1
+!		! divide domain by Greedy method
+!		do subdomain_id = 1,n
+!			elem_counter = 0
+!			do
+!				next_elems = obj%getNeighboringElementList(ElementID=last_elem_id)
+!				do i=1,size(next_elems)
+!					elem_counter = elem_counter + 1
+!					proc_id( next_elems(i) ) = subdomain_id
+!					if(elem_counter > max_elem_per_subdomain)then
+!						exit
+!					endif
+!				enddo
+!				if(elem_counter > max_elem_per_subdomain)then
+!					exit
+!				endif
+!			enddo
+!			if(elem_counter > max_elem_per_subdomain)then
+!				do i=1,size(proc_id)
+!					last_elem_id = 0
+!					if(proc_id(i)==0 )then
+!						last_elem_id = i
+!					endif
+!				enddo
+!			endif
+!		enddo
+!		femdomains = proc_id
+!	return
+	! >>>> following has some bugs
+!		! split obj into n objects
+!		allocate(FEMDomains(n))
+!
+!		! Greedy algorithm
+!		if(obj%Mesh%empty() .eqv. .true. )then
+!			print *, "divideFEMDomain >> ERROR >> No mesh is imported."
+!			stop
+!		endif
+!
+!		meshes = obj%mesh%divide(n)
+!
+!		! import mesh
+!		do i=1,n
+!			call FEMDomains(i)%import(Mesh=meshes(i))
+!		enddo
+
+end function divide_nFEMDomain
 !##################################################
 
 !##################################################
@@ -14641,7 +14908,124 @@ subroutine cubeFEMDomain(this,x_num,y_num,z_num,&
 	call this%create("Cube3D",x_num=x_num,y_num=y_num,z_num=z_num,&
 		x_axis=x_axis,y_axis=y_axis,z_axis=z_axis)
 end subroutine
+
 ! #################################################
+
+
+! #################################################
+function getNeighboringElementListFEMDomain(this,ElementID) result(ret)
+	class(FEMDomain_),intent(in) :: this
+	integer(int32),intent(in) :: ElementID
+
+	integer(int32),allocatable :: ret(:)
+	integer(int32),allocatable :: node_list(:)
+	integer(int32),allocatable :: element_list(:)
+
+	node_list = this%mesh%elemnod(ElementID,:)
+	ret = this%to_ElementID(node_list)
+
+
+end function
+! #################################################
+
+function to_ElementIDFEMDomain(this,NodeList) result(ret)
+	class(FEMDomain_),intent(in) :: this
+	integer(int32),intent(in) :: NodeList(:)
+	logical,allocatable :: ElementList(:)
+	integer(int32),allocatable :: ret(:)
+	integer(int32) :: elemid,enodid,i,n
+
+	allocate(ElementList(this%ne()) )
+
+	ElementList(:) = .false.
+
+	!$OMP parallel do private(enodid,i) reduction(.or.:ElementList)
+	do elemid=1,this%ne()
+		do enodid=1,this%nne()
+			do i=1,size(NodeList)
+				if(this%mesh%elemnod(elemid,enodid)	== NodeList(i))then
+					ElementList(elemid) =  ElementList(elemid) .or. .true.
+					exit
+				endif
+			enddo
+		enddo
+	enddo
+	!$OMP end parallel do
+
+	n = 0
+	!$OMP parallel do reduction(+:n)
+	do i=1,size(ElementList)
+		if(ElementList(i) )then
+			n = n + 1
+		endif
+	enddo
+	!$OMP end parallel do
+	
+	allocate( ret(n) )
+	n = 0
+	do i=1,size(ElementList)
+		if(ElementList(i) )then
+			n = n + 1
+			ret(n) = i
+		endif
+	enddo
+	
+end function
+! ######################################################
+
+! ######################################################
+function mpi_matmulFEMDomain(this,A,x,mpid) result(ret)
+	class(FEMDomain_),intent(inout) :: this
+	type(CRS_),optional,intent(in) :: A
+	real(real64),intent(in)  :: x(:)
+	type(MPI_),intent(inout) :: mpid
+	real(real64),allocatable :: ret(:),val(:),val_buf(:)
+	!integer(int32),allocatable :: send_req(:),recv_req(:)
+	integer(int32) :: send_req,recv_req
+	integer(int32) :: proc_idx,i,node_idx,DOF
+
+	ret = A%matmul(x)
+	DOF = size(ret)/this%nn()
+
+	if(mpid%petot==1) return
+
+	! sync
+	val = zeros(DOF*size(this%mpi_shared_node_info,1))
+	val_buf = zeros(DOF)
+	send_req = 0!int(zeros(DOF))
+	recv_req = 0!int(zeros(DOF))
+	do i=1,size(this%mpi_shared_node_info,1)
+		node_idx = this%mpi_shared_node_info(i,1)
+		val_buf(:) = 0.0d0
+		call mpid%irecv(&
+			from=this%mpi_shared_node_info(i,2),&
+			val=val_buf(1:DOF),&
+			req=recv_req,&
+			tag=this%mpi_shared_node_info(i,1) )
+		
+		call mpid%isend(&
+			to=this%mpi_shared_node_info(i,2),&
+			val=ret(DOF*(node_idx-1)+1:DOF*(node_idx-1)+DOF),&
+			req=send_req,&
+			tag=this%mpi_shared_node_info(i,3) )
+
+		call mpid%WaitAll(send_req=send_req,recv_req=recv_req )
+		
+		val( DOF*(i-1)+1:DOF*(i-1)+DOF  ) = val( DOF*(i-1)+1:DOF*(i-1)+DOF  ) + val_buf(1:DOF)
+		val_buf = 0.0d0
+	enddo
+	
+
+	do i=1,size(this%mpi_shared_node_info,1)
+		node_idx = this%mpi_shared_node_info(i,1)
+		ret(DOF*(node_idx-1)+1:DOF*(node_idx-1)+DOF ) = ret(DOF*(node_idx-1)+1:DOF*(node_idx-1)+DOF ) &
+			+ val( DOF*(i-1)+1:DOF*(i-1)+DOF )
+	enddo
+	
+
+end function
+! ######################################################
+
 
 end module FEMDomainClass
 
