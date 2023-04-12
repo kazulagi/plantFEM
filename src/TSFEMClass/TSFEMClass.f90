@@ -105,7 +105,7 @@ subroutine initTSFEM(this,femdomain,Density,YoungModulus,PoissonRatio,DOF,mpid)
             PoissonRatio=this%PoissonRatio,&
             DOF=DOF)
     endif
-
+    
     nn  = this%femdomain%femdomainp%nn()
 
     this%initialized = .true.
@@ -119,7 +119,7 @@ end subroutine initTSFEM
 recursive subroutine DirichletBoundaryTSFEM(this,NodeList,direction)
     class(TSFEM_),intent(inout) :: this
     integer(int32),intent(in) :: NodeList(:)
-    integer(int32),allocatable :: LocalNodeList(:)
+    integer(int32),allocatable :: LocalNodeList(:),NodeIDx(:)
     character(*),intent(in) :: direction
     integer(int32) :: DOF,i
     integer(int32),allocatable ::  idx(:)
@@ -136,49 +136,52 @@ recursive subroutine DirichletBoundaryTSFEM(this,NodeList,direction)
             if(size(LocalNodeList )==0 )then
                 return
             else
-                call this%DirichletBoundary(NodeList=LocalNodeList,direction=direction)
-                return
+                NodeIDx = LocalNodeList
             endif
+        else
+            NodeIDx = NodeList
         endif
+    else
+        NodeIDx = NodeList
     endif
 
     if(.not.allocated(this%fix_idx) )then
         this%fix_idx = int(zeros(0))
     endif
 
-    if(size(NodeList)==0 )then
+    if(size(NodeIdx)==0 )then
         return
     endif
 
     if(index(direction,"x")/=0 )then
-        this%fix_idx = this%fix_idx // (NodeList-1)*DOF + 1
+        this%fix_idx = this%fix_idx // (NodeIdx-1)*DOF + 1
     endif
     if(index(direction,"X")/=0 )then
-        this%fix_idx = this%fix_idx // (NodeList-1)*DOF + 1
+        this%fix_idx = this%fix_idx // (NodeIdx-1)*DOF + 1
     endif
     if(index(direction,"1")/=0 )then
-        this%fix_idx = this%fix_idx // (NodeList-1)*DOF + 1
+        this%fix_idx = this%fix_idx // (NodeIdx-1)*DOF + 1
     endif
 
 
     if(index(direction,"y")/=0 )then
-        this%fix_idx = this%fix_idx // (NodeList-1)*DOF + 2
+        this%fix_idx = this%fix_idx // (NodeIdx-1)*DOF + 2
     endif
     if(index(direction,"Y")/=0 )then
-        this%fix_idx = this%fix_idx // (NodeList-1)*DOF + 2
+        this%fix_idx = this%fix_idx // (NodeIdx-1)*DOF + 2
     endif
     if(index(direction,"2")/=0 )then
-        this%fix_idx = this%fix_idx // (NodeList-1)*DOF + 2
+        this%fix_idx = this%fix_idx // (NodeIdx-1)*DOF + 2
     endif
 
     if(index(direction,"z")/=0 )then
-        this%fix_idx = this%fix_idx // (NodeList-1)*DOF + 3
+        this%fix_idx = this%fix_idx // (NodeIdx-1)*DOF + 3
     endif
     if(index(direction,"Z")/=0 )then
-        this%fix_idx = this%fix_idx // (NodeList-1)*DOF + 3
+        this%fix_idx = this%fix_idx // (NodeIdx-1)*DOF + 3
     endif
     if(index(direction,"3")/=0 )then
-        this%fix_idx = this%fix_idx // (NodeList-1)*DOF + 3
+        this%fix_idx = this%fix_idx // (NodeIdx-1)*DOF + 3
     endif
 
     call this%WK%OmegaSqMatrix%fix(idx=this%fix_idx)
@@ -469,12 +472,16 @@ subroutine updateTSFEM(this)
         f_u = this%WK%OmegaSqMatrix%matmul(this%u_n)
         this%f_n(this%fix_idx)= f_v(this%fix_idx) !+ f_u(this%fix_idx)
     endif
-    
+    call this%mpid%barrier()
     this%u_n = this%u
     this%v_n = this%v
 
     this%t = this%t + this%dt
     this%timestep = this%timestep + 1
+
+!    if(associated(this%mpid) )then
+!        call this%mpid%barrier()
+!    endif
 
 end subroutine
 ! ##############################################
@@ -487,7 +494,7 @@ subroutine saveTSFEM(this,name)
     type(IO_) :: f
     character(*),intent(in) :: name
     real(real64),allocatable :: u_xyz(:,:)
-    
+
     u_xyz = transpose(reshape(dble(this%v),[this%DOF,this%femdomain%femdomainp%nn() ]))
     call f%open(name+"_v"+zfill(this%timestep,6) +".tsv","w")
     call f%write( this%femdomain%femdomainp%mesh%nodcoord(:,1:this%DOF)&

@@ -339,8 +339,8 @@ subroutine getDisplacement_and_Velocity_MPI_WaveKernel(this,u_n,v_n,dt,&
     integer(int32),optional,allocatable,intent(in) :: fix_idx(:)
     real(real64),intent(in) :: dt
     logical,optional,intent(in) :: debug_mode
-    real(real64),optional,intent(in)  :: cutoff_frequency
-    real(real64) :: gain_value
+    real(real64),intent(in)  :: cutoff_frequency
+    real(real64) :: gain_value,error_norm(1),all_error_norm(1)
     integer(int32) :: j,k
     
     gain_value = input(default=1.0d0,option=gain)
@@ -356,9 +356,12 @@ subroutine getDisplacement_and_Velocity_MPI_WaveKernel(this,u_n,v_n,dt,&
         
         !<<< du = this%OmegaSqMatrix%matmul(du) >>> for MPI
         du = FEMDomain%mpi_matmul(this%OmegaSqMatrix,du,MPID)
+        error_norm = norm(LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*du)
+        call MPID%AllReduce(sendobj=error_norm,recvobj=all_error_norm,count=1,sum=.true.)
 
-        if(norm(LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*du)&
-            < this%tol )exit
+        if(all_error_norm(1) < this%tol )then
+            exit
+        endif
         u = u + LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*du
         
         if(k==1)then
@@ -370,6 +373,7 @@ subroutine getDisplacement_and_Velocity_MPI_WaveKernel(this,u_n,v_n,dt,&
     enddo
     deallocate(du)
 
+
     dv = v_n
     ! k=1
     u = u + dt*dv
@@ -378,12 +382,18 @@ subroutine getDisplacement_and_Velocity_MPI_WaveKernel(this,u_n,v_n,dt,&
         !<<< dv = this%OmegaSqMatrix%matmul(dv) >>> for MPI
         dv = FEMDomain%mpi_matmul(this%OmegaSqMatrix,dv,MPID)
 
-        if(norm(LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*dv)&
-            < this%tol )exit
+        error_norm = norm(LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*dv)
+        call MPID%AllReduce(sendobj=error_norm,recvobj=all_error_norm,count=1,sum=.true.)
+
+        if(all_error_norm(1)< this%tol )then
+            exit
+        endif
         u = u + LPF_t_sinc_sqrt_taylor_coefficient(k=k ,t=dt,f_c=cutoff_frequency)*dv
         v = v + LPF_cos_sqrt_taylor_coefficient(  k=k ,t=dt,f_c=cutoff_frequency)*dv
+
     enddo
     
+
     ! RHS (=M^{-1}F)
     if(present(RHS) )then
         u = u + this%OmegaSqMatrix%tensor_wave_kernel_RHS(RHS=RHS/this%Mmatrix_diag,t=dt,tol=dble(1.0e-25),&
@@ -392,6 +402,7 @@ subroutine getDisplacement_and_Velocity_MPI_WaveKernel(this,u_n,v_n,dt,&
         v = v + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
             dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
             DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol)
+
     endif
 
     if(present(fix_idx) )then
@@ -402,7 +413,6 @@ subroutine getDisplacement_and_Velocity_MPI_WaveKernel(this,u_n,v_n,dt,&
 
     u = gain_value*u
     v = gain_value*v
-
 
 end subroutine
 ! ##############################################################
@@ -957,6 +967,41 @@ function LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix,dt,f_c,v_n,it
 end function
 ! #########################################################
 
+! #########################################################
+function LPF_damped_t_sinc_sqrt_MPI_WaveKernelFunction(Omega_sq_matrix,&
+    dt,f_c,v_n,itrmax,tol,fix_idx,DampingRatio,MPID,FEMDomain) result(ret)
+    type(CRS_),intent(inout) :: Omega_sq_matrix
+    real(real64),intent(in) :: dt, f_c, v_n(:),tol,DampingRatio(:)
+    type(MPI_),intent(inout) :: MPID
+    type(FEMDomain_),intent(inout) :: FEMDomain
+    real(real64),allocatable :: ret(:),dv(:)
+    integer(int32),intent(in) :: itrmax
+    integer(int32),optional,intent(in) :: fix_idx(:)
+    integer(int32) :: k
+
+    k=0
+    dv = v_n
+    if(present(fix_idx) )then
+        dv(fix_idx) = 0.0d0
+    endif
+    ret = LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*dv
+    
+    do k=1,itrmax
+        call MPID%barrier()
+        !dv = Omega_sq_matrix%matmul(dv)    
+        dv = FEMDomain%mpi_matmul(Omega_Sq_Matrix,dv,MPID)
+
+        if(norm(LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*dv)<tol )then
+            call MPID%barrier()
+            exit
+        endif
+        ret = ret + LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*dv
+    enddo
+    call MPID%barrier()
+    
+
+end function
+! #########################################################
 
 ! #########################################################
 function LPF_damped_t_sinc_sqrt_complex64_WaveKernelFunction(Omega_sq_matrix,dt,f_c,v_n,itrmax,tol,fix_idx,DampingRatio) result(ret)
