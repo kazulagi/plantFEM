@@ -376,7 +376,13 @@ module FEMDomainClass
 		procedure,public :: remove_duplication => remove_duplication_FEMDomain
 		procedure,public :: refine => refineFEMDomain
 		
-		procedure,public :: read => readFEMDomain
+		procedure,pass   :: readFEMDomain
+		procedure,pass   :: read_vtk_domain_decomposed_FEMDOmain
+		generic :: read => readFEMDomain
+		
+		generic :: read_vtk => read_vtk_domain_decomposed_FEMDOmain
+
+		procedure,public :: read_mpi_property =>read_mpi_propertyFEMDomain
 		procedure,public :: remesh => remeshFEMDomain
 		procedure,public :: randomDance => randomDanceFEMDomain
 
@@ -396,7 +402,11 @@ module FEMDomainClass
 		procedure,public :: showBoundaries => showBoundariesFEMDomain
 		procedure,public :: stl => stlFEMDomain
 		procedure,public :: obj => objFEMDomain
-		procedure,public :: vtk => vtkFEMDomain
+
+		procedure,pass :: vtk_MPI_FEMDOmain
+		procedure,pass :: vtkFEMDOmain
+
+		generic :: vtk => vtkFEMDomain, vtk_MPI_FEMDOmain
 		procedure,public :: x3d => x3dFEMDomain
 		procedure,public :: csv => csvFEMDomain
 
@@ -880,9 +890,6 @@ function divide_mpi_FEMDomain(obj,mpid) result(FEMDomain)
 	call mpid%bcast(from=0,val=subdomain_idx)
 
 	! select ones
-
-
-	
 	i = mpid%myrank+1
 	ne = countif(array=subdomain_idx,Equal=.true.,value=i)
 	allocate(femdomain%mesh%elemnod(ne,obj%nne() ) ) 
@@ -928,9 +935,9 @@ function divide_mpi_FEMDomain(obj,mpid) result(FEMDomain)
 			else
 				if(.not.allocated(femdomain%mpi_shared_node_info) )then
 					allocate(femdomain%mpi_shared_node_info( size(new_combination),3 ))
-					femdomain%mpi_shared_node_info(:,1)=my_node_idx
-					femdomain%mpi_shared_node_info(:,2)=(proc_idx)*int(ones(size(new_combination) ) )
-					femdomain%mpi_shared_node_info(:,3)=your_node_idx
+					femdomain%mpi_shared_node_info(:,1) = my_node_idx
+					femdomain%mpi_shared_node_info(:,2) = (proc_idx)*int(ones(size(new_combination) ) )
+					femdomain%mpi_shared_node_info(:,3) = your_node_idx
 				else
 					femdomain%mpi_shared_node_info = &
 						femdomain%mpi_shared_node_info .v. &
@@ -959,17 +966,22 @@ function divide_nFEMDomain(obj,n) result(FEMDomains)
 	integer(int32),allocatable :: proc_id(:),next_elems(:),global_node_idx(:)
 
 	! incremental method
-	integer(int32),allocatable :: subdomain_idx(:),elem_idx(:)
-	integer(int32),allocatable :: subdomain_center_elem_idx(:),node_idx(:)
+	integer(int32),allocatable :: subdomain_idx(:),elem_idx(:),global_to_local(:)
+	integer(int32),allocatable :: subdomain_center_elem_idx(:),&
+		node_idx(:),count_shared(:),mpi_shared_node_info(:,:)
 	real(real64),allocatable :: subdomain_center_coord(:,:) 
 
 	real(real64),allocatable :: norms(:),new_center(:)
 
 	integer(int32) :: i,j,elem_id,last_elem_id,max_elem_per_subdomain,elem_counter,&
 		subdomain_id,ne,nn,elemid,k
-
 	type(Random_) :: random
-	
+
+	type :: global_to_local_
+		integer(int32),allocatable :: global_to_local(:)
+	end type
+	type(global_to_local_),allocatable :: forall_g2l(:)
+
 	if(n==1)then
 		allocate(femdomains(1) )
 		femdomains = obj
@@ -1002,10 +1014,12 @@ function divide_nFEMDomain(obj,n) result(FEMDomains)
 	enddo
 	!$OMP end parallel do
 
-
+	
 	allocate(femdomains(n) )
 	
-	!$OMP parallel do private(ne,elemid,j,global_node_idx,k)
+	!>> slow
+	allocate(forall_g2l(n) )
+	!$OMP parallel do private(ne,elemid,j,k)
 	do i=1,n
 		ne = countif(array=subdomain_idx,Equal=.true.,value=i)
 		allocate(femdomains(i)%mesh%elemnod(ne,obj%nne() ) ) 
@@ -1018,20 +1032,100 @@ function divide_nFEMDomain(obj,n) result(FEMDomains)
 			endif
 		enddo
 
-		global_node_idx = RemoveOverlap(to_vector(femdomains(i)%mesh%elemnod))
-
-		femdomains(i)%mesh%nodcoord = zeros( size(global_node_idx),obj%nd() )
-		do j=1,size(global_node_idx)
-			femdomains(i)%mesh%nodcoord(j,:) = obj%mesh%nodcoord( global_node_idx(j),: )
+		femdomains(i)%mpi_global_node_idx = &
+			RemoveOverlap(to_vector(femdomains(i)%mesh%elemnod))
+		
+		femdomains(i)%mesh%nodcoord = zeros( size(femdomains(i)%mpi_global_node_idx),obj%nd() )
+		
+		do j=1,size(femdomains(i)%mpi_global_node_idx)
+			femdomains(i)%mesh%nodcoord(j,:) = obj%mesh%nodcoord( femdomains(i)%mpi_global_node_idx(j),: )
 		enddo
 
+		! change global node-idx to local node-idx
+!		if(present(fast) )then
+		if(.not.allocated(forall_g2l(i)%global_to_local) )then
+			allocate(forall_g2l(i)%global_to_local( minval(femdomains(i)%mpi_global_node_idx):&
+			maxval(femdomains(i)%mpi_global_node_idx)   ))
+		endif
+		
+		do j=1,size(femdomains(i)%mpi_global_node_idx)
+			forall_g2l(i)%global_to_local( femdomains(i)%mpi_global_node_idx(j) ) = j
+		enddo
 		do j=1,size(femdomains(i)%mesh%elemnod,1)
 			do k=1,size(femdomains(i)%mesh%elemnod,2)
-				femdomains(i)%mesh%elemnod(j,k) = 1 .of. getIdx(vec=global_node_idx,equal_to=femdomains(i)%mesh%elemnod(j,k)) 
+				femdomains(i)%mesh%elemnod(j,k) = forall_g2l(i)%global_to_local(femdomains(i)%mesh%elemnod(j,k) )
 			enddo
+		enddo
+		
+!		else
+!			do j=1,size(femdomains(i)%mesh%elemnod,1)
+!				do k=1,size(femdomains(i)%mesh%elemnod,2)
+!					femdomains(i)%mesh%elemnod(j,k) = &
+!					1 .of. getIdx(vec=femdomains(i)%mpi_global_node_idx,equal_to=femdomains(i)%mesh%elemnod(j,k)) 
+!				enddo
+!			enddo
+!		endif
+
+	enddo
+	!$OMP end parallel do
+
+
+
+	!$OMP parallel do private(j,count_shared,mpi_shared_node_info)
+	do i=1,size(femdomains)
+		do j=1,size(femdomains)
+			if(i==j)cycle
+			count_shared = femdomains(i)%mpi_global_node_idx &
+				.cap. femdomains(j)%mpi_global_node_idx 
+			
+			if(size(count_shared)==0 )then
+				cycle
+			endif
+
+!			if(present(fast) )then
+
+			mpi_shared_node_info = int(zeros(size(count_shared),3 )  )
+			
+			mpi_shared_node_info(:,1) = forall_g2l(i)%global_to_local(count_shared)
+			mpi_shared_node_info(:,2) = j-1
+			mpi_shared_node_info(:,3) = forall_g2l(j)%global_to_local(count_shared)
+			
+			if(.not.allocated(femdomains(i)%mpi_shared_node_info))then
+				femdomains(i)%mpi_shared_node_info = mpi_shared_node_info
+			else
+				femdomains(i)%mpi_shared_node_info = &
+				femdomains(i)%mpi_shared_node_info .v. mpi_shared_node_info
+			
+			endif
+!			else
+
+!				mpi_shared_node_info = int(zeros(size(count_shared),3 )  )
+!
+!				mpi_shared_node_info(:,1) = &
+!						getIdx(femdomains(i)%mpi_global_node_idx,&
+!					equal_to=count_shared)
+!				mpi_shared_node_info(:,2) = j-1
+!				mpi_shared_node_info(:,3) = &
+!						getIdx(femdomains(j)%mpi_global_node_idx,&
+!					equal_to=count_shared)
+!				
+!				if(.not.allocated(femdomains(i)%mpi_shared_node_info))then
+!					femdomains(i)%mpi_shared_node_info = mpi_shared_node_info
+!				else
+!					femdomains(i)%mpi_shared_node_info = &
+!					femdomains(i)%mpi_shared_node_info .v. mpi_shared_node_info
+!				
+!				endif
+!			endif
+			
 		enddo
 	enddo
 	!$OMP end parallel do
+	
+
+
+	return
+
 
 !	return
 !
@@ -8122,6 +8216,52 @@ subroutine x3dFEMDomain(obj,name)
 
 
 end subroutine
+! ##################################################
+subroutine vtk_MPI_FEMDOmain(this,name,num_division,remove)
+	class(FEMDomain_),intent(inout) :: this
+	integer(int32),intent(in) :: num_division
+	character(*),intent(in) :: name
+	logical,optional,intent(in) :: remove
+	type(FEMDomain_),allocatable :: domains(:)
+	integer(int32) :: i,j,nn
+	type(IO_) :: f
+
+
+	nn = this%nn()
+	domains = this%divide(n=num_division)
+	if(present(remove))then
+		if(remove)then
+			call this%remove()
+		endif
+	endif
+
+	do i=1, num_division
+		call domains(i)%vtk(name+"_"+zfill(i-1,6 ))
+	enddo
+
+	do i=1, num_division
+		! domain connectivity
+		call f%open(name+"_"+zfill(i-1,6 )+".csv","w")
+		call f%write("# number of global node, number of local node, number of shared node,&
+			number of division ")
+		call f%write(str(nn ) + " ,"+ str( domains(i)%nn() )  + " ,"&
+			+ str( size(domains(i)%mpi_shared_node_info,1) )  + " ," &
+			+ str( num_division ) )
+		call f%write("# local node Idx, global node Idx ")
+		do j=1,size(domains(i)%mpi_global_node_idx)
+			call f%write( str(j) + " ,"+str(domains(i)%mpi_global_node_idx(j) )   )
+		enddo
+		call f%write("# local node Idx, domain Idx, shared local node Idx ")
+		do j=1,size(domains(i)%mpi_shared_node_info,1)
+			call f%write( str(domains(i)%mpi_shared_node_info(j,1) ) &
+				+ " ,"+str(domains(i)%mpi_shared_node_info(j,2) )  &
+				+ " ,"+str(domains(i)%mpi_shared_node_info(j,3) )    )
+		enddo
+		call f%close()
+	enddo
+
+end subroutine
+
 
 
 ! ##################################################
@@ -8735,7 +8875,7 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 					j = j + 1
 					read(line,*) m,obj%mesh%elemnod(j,1:m) 
 				enddo
-
+			
 !				elemnod = obj%mesh%elemnod
 !				deallocate(obj%mesh%elemnod)
 !				allocate(obj%mesh%elemnod(elem_num,4))
@@ -8806,6 +8946,7 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 		print *, "ERROR >> readFEMDomain >> not such file as ",name
 		return
 	endif
+
 end subroutine
 ! ##############################################
 
@@ -15025,6 +15166,50 @@ function mpi_matmulFEMDomain(this,A,x,mpid) result(ret)
 
 end function
 ! ######################################################
+
+subroutine read_mpi_propertyFEMDomain(this,name,num_division)
+	class(FEMDomain_),intent(inout) :: this
+	character(*),intent(in) :: name
+	integer(int32),optional,intent(inout) :: num_division
+	character(1) :: line
+	integer(int32) :: buf,num_glo_node,num_loc_node,num_shared_node,&
+		num_div,i,idx,val
+	integer(int32) :: buf_vec(3)
+	type(IO_) :: f
+
+	call f%open(name,"r")
+	read(f%fh,*) line
+	read(f%fh,*) num_glo_node,num_loc_node,num_shared_node,num_div
+	this%mpi_global_node_idx = int(zeros(num_loc_node) )
+	this%mpi_shared_node_info = int(zeros(num_shared_node,3) )
+	read(f%fh,*) line
+	do i = 1, num_loc_node
+		read(f%fh,*) idx,val
+		this%mpi_global_node_idx(idx) = val
+	enddo
+	read(f%fh,*) line
+	do i = 1, num_shared_node
+		read(f%fh,*) buf_vec(1:3)
+		this%mpi_shared_node_info(i,1:3) = buf_vec(1:3)
+	enddo
+	call f%close()
+
+	if(present(num_division) )then
+		num_division = num_div
+	endif
+end subroutine
+
+! #######################################################
+subroutine read_vtk_domain_decomposed_FEMDOmain(this,name,myrank)
+	class(FEMDomain_),intent(inout) :: this
+	character(*),intent(in) :: name
+	integer(int32),intent(in) :: myrank
+	
+    call this%read("Cube3D_"+zfill(myrank,6)+".vtk")
+    call this%read_mpi_property("Cube3D_"+zfill(myrank,6)+".csv")
+
+end subroutine
+! #######################################################
 
 
 end module FEMDomainClass
