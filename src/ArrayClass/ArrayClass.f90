@@ -8081,39 +8081,70 @@ end function
 function RemoveOverlap(vector) result(new_vector)
     integeR(int32),intent(in) :: vector(:)
     integer(int32),allocatable :: new_vector(:),buf(:)
-    integer(int32) :: i,j,null_flag,new_size,new_id
+    integer(int32) :: i,j,null_flag,new_size,new_id,remove_count
+    logical,allocatable :: remove_list(:)
+!    logical,optional,intent(in) :: fast
 
     buf = vector
     
     call heapsort(n=size(buf),array=buf)
-    
-    null_flag = minval(buf)-1
+
+!    if(present(fast))then
+    ! debug
+    allocate(remove_list(size(buf)))
+    remove_count=0
+    remove_list(:) = .false.
+    !$OMP parallel do reduction(+:remove_count)
     do i=1,size(buf)-1
-        if(buf(i)==null_flag ) cycle
-        do j=i+1,size(buf)
-            if(buf(j)==null_flag ) cycle
-            ! if same, set null_flag
-            if(buf(i)==buf(j) )then
-                buf(j)=null_flag
-            endif
-        enddo
+        if(buf(i+1) == buf(i) )then
+            remove_list(i+1)=.true.
+            remove_count=remove_count+1     
+        else
+            cycle
+        endif
     enddo
+    !$OMP end parallel do
+
+    allocate(new_vector( size(buf)-remove_count  ) )
+    j = 0
     
-    ! remove null_flaged values
-    new_size = 0
     do i=1,size(buf)
-        if(buf(i)/=null_flag )then
-            new_size = new_size + 1
+        if(remove_list(i) )then
+            cycle
+        else
+            j = j + 1
+            new_vector(j) = buf(i)   
         endif
     enddo
-    new_vector = int(zeros(new_size) )
-    new_id = 0
-    do i=1,size(buf)
-        if(buf(i)/=null_flag )then
-            new_id = new_id + 1
-            new_vector(new_id) = buf(i)
-        endif
-    enddo
+!    endif
+    
+!    null_flag = minval(buf)-1
+!    do i=1,size(buf)-1
+!        if(buf(i)==null_flag ) cycle
+!        do j=i+1,size(buf)
+!            if(buf(j)==null_flag ) cycle
+!            ! if same, set null_flag
+!            if(buf(i)==buf(j) )then
+!                buf(j)=null_flag
+!            endif
+!        enddo
+!    enddo
+!    
+!    ! remove null_flaged values
+!    new_size = 0
+!    do i=1,size(buf)
+!        if(buf(i)/=null_flag )then
+!            new_size = new_size + 1
+!        endif
+!    enddo
+!    new_vector = int(zeros(new_size) )
+!    new_id = 0
+!    do i=1,size(buf)
+!        if(buf(i)/=null_flag )then
+!            new_id = new_id + 1
+!            new_vector(new_id) = buf(i)
+!        endif
+!    enddo
 
 end function
 ! ###################################################################
@@ -9019,8 +9050,45 @@ end function
 ! ########################################################
 function getIdxIntVec(vec,equal_to) result(idx)
     integer(int32),intent(in) :: vec(:),equal_to
-    integer(int32),allocatable :: idx(:)
-    integer(int32) :: i,count_num
+    integer(int32),allocatable :: idx(:),vec_copy(:),buf(:)
+    integer(int32) :: i,count_num,from,to
+!    logical,optional,intent(in) :: fast
+
+
+!    if(present(fast) )then
+!        if(fast)then
+!            vec_copy = vec
+!            allocate(buf( size(vec) )  )
+!            do i=1,size(vec)
+!                buf(i) = i
+!            enddo
+!            
+!
+!            call heapsortInt32Int32(n=size(vec_copy),array=vec_copy,val=buf)
+!
+!            
+!            do i=1,size(vec_copy)
+!                if(vec_copy(i)==equal_to )then
+!                    from = i
+!                    exit
+!                endif
+!            enddo
+!            do i=size(vec_copy),1,-1
+!                if(vec_copy(i)==equal_to )then
+!                    to = i
+!                    exit
+!                endif
+!            enddo
+!
+!            if( from > to)then
+!                idx = int(zeros(0) )
+!            else
+!                idx = buf(from:to)
+!            endif
+!            return
+!        endif
+!    endif
+
 
     count_num=0
     do i=1,size(vec)
