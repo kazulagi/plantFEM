@@ -984,9 +984,13 @@ function divide_nFEMDomain(obj,n) result(FEMDomains)
 
 	if(n==1)then
 		allocate(femdomains(1) )
-		femdomains = obj
+		femdomains(1) = obj
 		return
 	endif
+
+	
+
+
 	! split obj into n objects
 	! incremental method(逐次追加法)
 	subdomain_idx = int(zeros(obj%ne() ) )
@@ -1003,6 +1007,8 @@ function divide_nFEMDomain(obj,n) result(FEMDomains)
 	enddo
 	!$OMP end parallel do
 
+
+
 	! select ones
 	!$OMP parallel do private(new_center,norms)
 	do i=1,obj%ne() 
@@ -1016,7 +1022,7 @@ function divide_nFEMDomain(obj,n) result(FEMDomains)
 
 	
 	allocate(femdomains(n) )
-	
+
 	!>> slow
 	allocate(forall_g2l(n) )
 	!$OMP parallel do private(ne,elemid,j,k)
@@ -8229,6 +8235,8 @@ subroutine vtk_MPI_FEMDOmain(this,name,num_division,remove)
 
 	nn = this%nn()
 	domains = this%divide(n=num_division)
+
+	
 	if(present(remove))then
 		if(remove)then
 			call this%remove()
@@ -8239,26 +8247,35 @@ subroutine vtk_MPI_FEMDOmain(this,name,num_division,remove)
 		call domains(i)%vtk(name+"_"+zfill(i-1,6 ))
 	enddo
 
+	
+
 	do i=1, num_division
 		! domain connectivity
 		call f%open(name+"_"+zfill(i-1,6 )+".csv","w")
 		call f%write("# number of global node, number of local node, number of shared node,&
 			number of division ")
+		
 		call f%write(str(nn ) + " ,"+ str( domains(i)%nn() )  + " ,"&
 			+ str( size(domains(i)%mpi_shared_node_info,1) )  + " ," &
 			+ str( num_division ) )
 		call f%write("# local node Idx, global node Idx ")
-		do j=1,size(domains(i)%mpi_global_node_idx)
-			call f%write( str(j) + " ,"+str(domains(i)%mpi_global_node_idx(j) )   )
-		enddo
+		if(allocated(domains(i)%mpi_global_node_idx) )then
+			do j=1,size(domains(i)%mpi_global_node_idx)
+				call f%write( str(j) + " ,"+str(domains(i)%mpi_global_node_idx(j) )   )
+			enddo
+		endif
 		call f%write("# local node Idx, domain Idx, shared local node Idx ")
-		do j=1,size(domains(i)%mpi_shared_node_info,1)
-			call f%write( str(domains(i)%mpi_shared_node_info(j,1) ) &
-				+ " ,"+str(domains(i)%mpi_shared_node_info(j,2) )  &
-				+ " ,"+str(domains(i)%mpi_shared_node_info(j,3) )    )
-		enddo
+		if( allocated(domains(i)%mpi_shared_node_info) )then
+			do j=1,size(domains(i)%mpi_shared_node_info,1)
+				call f%write( str(domains(i)%mpi_shared_node_info(j,1) ) &
+					+ " ,"+str(domains(i)%mpi_shared_node_info(j,2) )  &
+					+ " ,"+str(domains(i)%mpi_shared_node_info(j,3) )    )
+			enddo
+		endif
 		call f%close()
 	enddo
+
+	return
 
 end subroutine
 
