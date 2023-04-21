@@ -51,12 +51,14 @@ subroutine initWaveKernel(this,FEMDomain,DOF,YoungModulus,PoissonRatio,&
     real(real64),optional,intent(in) ::  PoissonRatio(:),DampingRatio(:)
     type(CRS_) :: Imatrix,Mmatrix,Cmatrix
     
-
+    
+    
     Mmatrix = FEMDomain%MassMatrix(DOF=DOF,Density=Density)
     
     if(DOF==1)then
         this%OmegaSqMatrix = FEMDomain%StiffnessMatrix( &
             YoungModulus=YoungModulus)
+        
     else
         if(.not.present(PoissonRatio) )then
             print *, "[initWaveKernel] Please input PoissonRatio"
@@ -64,11 +66,14 @@ subroutine initWaveKernel(this,FEMDomain,DOF,YoungModulus,PoissonRatio,&
         endif    
         this%OmegaSqMatrix = FEMDomain%StiffnessMatrix( &
             YoungModulus=YoungModulus,PoissonRatio=PoissonRatio)
+            
     endif
+    
     this%Mmatrix_diag = Mmatrix%diag(cell_centered=.true.) 
     this%OmegaSqMatrix = this%OmegaSqMatrix%divide_by(this%Mmatrix_diag )
     
     this%DampingRatio = zeros( this%OmegaSqMatrix%size() )
+    
     
     if(present(DampingRatio) )then
         !call Imatrix%eyes(this%OmegaSqMatrix%size() )
