@@ -37,7 +37,7 @@ module TSFEMClass
         integer(int32) :: start_step=1
         integer(int32) :: interval=0
 
-        integer(int32) :: itrmax = 30
+        integer(int32) :: itrmax = 50
         integer(int32) :: DOF
         real(real64)   :: tol    = dble(1.0e-25)
 
@@ -92,19 +92,24 @@ subroutine initTSFEM(this,femdomain,Density,YoungModulus,PoissonRatio,DOF,mpid)
     this%v   = zeros( femdomain%nn()*DOF )
     this%v_n = zeros( femdomain%nn()*DOF )
     this%v_n = zeros( femdomain%nn()*DOF )
-    
+    this%f_n = zeros( femdomain%nn()*DOF )
+
     if(DOF==1)then
         call this%WK%init(FEMDomain=femdomain,&
             YoungModulus=this%YoungModulus,&
             Density=this%Density,&
             DOF=DOF)
     else
+        
         call this%WK%init(FEMDomain=femdomain,&
             YoungModulus=this%YoungModulus,&
             Density=this%Density,&
             PoissonRatio=this%PoissonRatio,&
             DOF=DOF)
+        return
     endif
+
+    
     
     nn  = this%femdomain%femdomainp%nn()
 
@@ -472,7 +477,9 @@ subroutine updateTSFEM(this)
         f_u = this%WK%OmegaSqMatrix%matmul(this%u_n)
         this%f_n(this%fix_idx)= f_v(this%fix_idx) !+ f_u(this%fix_idx)
     endif
-    call this%mpid%barrier()
+    if(associated(this%mpid) )then
+        call this%mpid%barrier()
+    endif
     this%u_n = this%u
     this%v_n = this%v
 
