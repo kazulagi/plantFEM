@@ -86,6 +86,7 @@ subroutine initTSFEM(this,femdomain,Density,YoungModulus,PoissonRatio,DOF,mpid)
         this%PoissonRatio = PoissonRatio*ones(femdomain%ne() )
     endif
     
+    
 
     this%u   = zeros( femdomain%nn()*DOF )
     this%u_n = zeros( femdomain%nn()*DOF )
@@ -94,7 +95,9 @@ subroutine initTSFEM(this,femdomain,Density,YoungModulus,PoissonRatio,DOF,mpid)
     this%v_n = zeros( femdomain%nn()*DOF )
     this%f_n = zeros( femdomain%nn()*DOF )
 
+
     if(DOF==1)then
+        
         call this%WK%init(FEMDomain=femdomain,&
             YoungModulus=this%YoungModulus,&
             Density=this%Density,&
@@ -106,9 +109,10 @@ subroutine initTSFEM(this,femdomain,Density,YoungModulus,PoissonRatio,DOF,mpid)
             Density=this%Density,&
             PoissonRatio=this%PoissonRatio,&
             DOF=DOF)
-        return
+        
     endif
 
+    
     
     
     nn  = this%femdomain%femdomainp%nn()
