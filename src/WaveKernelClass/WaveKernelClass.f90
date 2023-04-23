@@ -52,8 +52,10 @@ subroutine initWaveKernel(this,FEMDomain,DOF,YoungModulus,PoissonRatio,&
     type(CRS_) :: Imatrix,Mmatrix,Cmatrix
     
     
-    
     Mmatrix = FEMDomain%MassMatrix(DOF=DOF,Density=Density)
+    
+
+    
     
     if(DOF==1)then
         this%OmegaSqMatrix = FEMDomain%StiffnessMatrix( &

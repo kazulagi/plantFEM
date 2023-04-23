@@ -96,13 +96,13 @@ homepath="$PWD"
 
 
     if [ "$1" = "dl" ]; then
-        wget "https://plantfem.org/download/$2" .
+        wget --no-check-certificate "https://plantfem.org/download/$2" .
         exit 0
     fi
     
 
     if [ "$1" = "download" ]; then
-        wget "https://plantfem.org/download/$2" .
+        wget --no-check-certificate "https://plantfem.org/download/$2" .
         exit 0
     fi
 
@@ -414,10 +414,16 @@ homepath="$PWD"
 
 
     if [ "$1" = "build" ]; then
-        #cp server.f90 server.f90
-        $mpif90  -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc  -o server.out -llapack -lblas  
-        #echo "Current num of cpu-core is :: $numcore "
-        
+        EXTENSION=${2##*.}
+        #echo "extension is $EXTENSION"
+        if [ "$EXTENSION" = "$f90" ]; then
+            #cp server.f90 server.f90
+            rm -f "${2%.*}.out"
+            $mpif90 /opt/plantfem/inc/*o $2  -I /opt/plantfem/inc -g -fcheck=all -fopenmp -fintrinsic-modules-path /opt/plantfem/inc -o "${2%.*}.out" -llapack -lblas -lOpenCL
+            #echo "Current num of cpu-core is :: $numcore "
+        else
+            $mpif90  -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc  -o server.out -llapack -lblas  
+        fi
         exit 0
     fi
 
