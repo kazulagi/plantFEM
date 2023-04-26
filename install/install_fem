@@ -47,7 +47,7 @@ mpif90 -fopenmp -Ofast -march=native -shared -fPIC -g -fcheck=all -fintrinsic-mo
 echo "Compiling ./src/FEMSolverClass/FEMSolverClass.f90 " 
 echo " >> FEMSolverClass.o  " 
 echo " | =============>              | (65%)\r\c"
-mpif90 -fopenmp -Ofast -march=native -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FEMSolverClass/FEMSolverClass.f90 -o  ./inc/FEMSolverClass.o 
+mpif90 -fopenmp -Ofast -march=native -fbacktrace -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FEMSolverClass/FEMSolverClass.f90 -o  ./inc/FEMSolverClass.o 
 
 
 echo "Compiling ./src/FEMIfaceClass/FEMIfaceClass.f90" 
