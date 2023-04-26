@@ -10302,9 +10302,9 @@ function MassMatrix_as_CRS_FEMDomain(this,Density,DOF,omp) result(MassMatrix)
 	
 	type(CRS_) :: MassMatrix
 	type(COO_) :: COO
-	integer(int32) :: ElementID,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,&
+	integer(int32) :: ElementID,LE1,LE2,ni1,ni2,&
 		pid_1,pid_2,DOF_1,DOF_2,loc_pid_1,loc_pid_2,i,col_id
-	real(real64),allocatable :: eDiffMat(:,:),val(:)
+	real(real64),allocatable :: EDM(:,:),val(:)
 	real(real64) :: Length,entry_val
 
 	
@@ -10337,22 +10337,22 @@ function MassMatrix_as_CRS_FEMDomain(this,Density,DOF,omp) result(MassMatrix)
 		if(.not.omp)then
 			MassMatrix = this%ZeroMatrix(DOF=DOF)
 			do ElementID=1,this%ne()
-				eDiffMat = this%MassMatrix(&
+				EDM = this%MassMatrix(&
 					ElementID=ElementID,&
 					Density=Density(ElementID) , &
 					DOF=DOF  &
    				) 
-				do LocElemID_1=1,this%nne()
-					do LocElemID_2=1,this%nne()
+				do LE1=1,this%nne()
+					do LE2=1,this%nne()
 						do DOF_1=1,DOF
 							do DOF_2=1,DOF
-								nodeid_1 = this%mesh%elemnod(ElementID,LocElemID_1)
-								nodeid_2 = this%mesh%elemnod(ElementID,LocElemID_2)
-								pid_1 = DOF*(nodeid_1-1) + DOF_1
-								pid_2 = DOF*(nodeid_2-1) + DOF_2
-								loc_pid_1 = DOF*(LocElemID_1-1) + DOF_1
-								loc_pid_2 = DOF*(LocElemID_2-1) + DOF_2
-								call MassMatrix%add(pid_1,pid_2,eDiffMat(loc_pid_1,loc_pid_2)  )
+								ni1 = this%mesh%elemnod(ElementID,LE1)
+								ni2 = this%mesh%elemnod(ElementID,LE2)
+								pid_1 = DOF*(ni1-1) + DOF_1
+								pid_2 = DOF*(ni2-1) + DOF_2
+								loc_pid_1 = DOF*(LE1-1) + DOF_1
+								loc_pid_2 = DOF*(LE2-1) + DOF_2
+								call MassMatrix%add(pid_1,pid_2,EDM(loc_pid_1,loc_pid_2)  )
 							enddo
 						enddo
 					enddo
@@ -10368,31 +10368,28 @@ function MassMatrix_as_CRS_FEMDomain(this,Density,DOF,omp) result(MassMatrix)
 
 	MassMatrix = this%ZeroMatrix(DOF=DOF)
 	val = MassMatrix%val
-	!!$OMP parallel do &
-	!!$OMP private(eDiffMat,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,&
-	!!$OMP col_id,i,pid_1,pid_2,loc_pid_1,loc_pid_2,DOF_1,DOF_2) &
-	!!$OMP reduction(+:val) 
+	!$OMP parallel do private(EDM,LE1,LE2,ni1,col_id,i,pid_1,pid_2,loc_pid_1,loc_pid_2,DOF_1,DOF_2) 
 	do ElementID=1,this%ne()
-		eDiffMat = this%MassMatrix(&
+		EDM = this%MassMatrix(&
 			ElementID=ElementID,&
 			Density=Density(ElementID) , &
 			DOF=DOF  &
 		   ) 
-		do LocElemID_1=1,this%nne()
-			do LocElemID_2=1,this%nne()
+		do LE1=1,this%nne()
+			do LE2=1,this%nne()
 				do DOF_1=1,DOF
 					do DOF_2=1,DOF
-						nodeid_1 = this%mesh%elemnod(ElementID,LocElemID_1)
-						nodeid_2 = this%mesh%elemnod(ElementID,LocElemID_2)
-						pid_1 = DOF*(nodeid_1-1) + DOF_1
-						pid_2 = DOF*(nodeid_2-1) + DOF_2
-						loc_pid_1 = DOF*(LocElemID_1-1) + DOF_1
-						loc_pid_2 = DOF*(LocElemID_2-1) + DOF_2
-						!call COO%add(pid_1,pid_2,eDiffMat(loc_pid_1,loc_pid_2)  )
+						ni1 = this%mesh%elemnod(ElementID,LE1)
+						pid_1 = DOF*(ni1-1) + DOF_1
+						ni1 = this%mesh%elemnod(ElementID,LE2)
+						pid_2 = DOF*(ni1-1) + DOF_2
+						loc_pid_1 = DOF*(LE1-1) + DOF_1
+						loc_pid_2 = DOF*(LE2-1) + DOF_2
+						!call COO%add(pid_1,pid_2,EDM(loc_pid_1,loc_pid_2)  )
 						
 						do i=MassMatrix%row_ptr(pid_1),MassMatrix%row_ptr(pid_1+1)-1
 							if(MassMatrix%col_idx(i)==pid_2 )then
-								val(i) = val(i) + eDiffMat(loc_pid_1,loc_pid_2)  
+								val(i) = val(i) + EDM(loc_pid_1,loc_pid_2)  
 								exit
 							endif
 						enddo
@@ -10402,7 +10399,7 @@ function MassMatrix_as_CRS_FEMDomain(this,Density,DOF,omp) result(MassMatrix)
 			enddo
 		enddo
 	enddo
-	!!$OMP end parallel do
+	!$OMP end parallel do
 	MassMatrix%val = val
 
 end function
@@ -10418,10 +10415,13 @@ recursive function ZeroMatrix_as_CRS_FEMDomain(this,DOF,regacy) result(ZeroMatri
 	integer(int32) :: ElementID,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,&
 		pid_1,pid_2,DOF_1,DOF_2,loc_pid_1,loc_pid_2,DOF_as_1
 	integer(int32) :: i,j,k,l,n,thread_num,m
-	integer(int32),allocatable :: count_appear(:),col_idx(:),row_ptr(:),ELL_col_idx(:,:),nonzero_idx(:),&
-		ELL_elem(:,:)
+	integer(int32),allocatable :: count_appear(:),ELL_col_idx(:,:),nonzero_idx(:),&
+		ELL_elem(:,:),col_idx(:)
+	integer(int64),allocatable ::row_ptr(:)
+	
 	logical,optional,intent(in) :: regacy
 
+	! Segfo error
 
 
 	if(present(regacy) )then
@@ -10487,6 +10487,8 @@ recursive function ZeroMatrix_as_CRS_FEMDomain(this,DOF,regacy) result(ZeroMatri
 
 	endif
 
+	! bugs exist from here 
+
 
 	!if(DOF/=1)then
 	!	ZeroMatrix = this%ZeroMatrix(DOF=DOF,regacy=.true.)
@@ -10505,6 +10507,7 @@ recursive function ZeroMatrix_as_CRS_FEMDomain(this,DOF,regacy) result(ZeroMatri
 	ELL_elem = int(zeros( this%nn(),maxval(count_appear) ) )
 	count_appear = count_appear*this%nne()
 
+	
 
 	!(ii) Create ELL format
 	! ここを並列化！！
@@ -10524,7 +10527,7 @@ recursive function ZeroMatrix_as_CRS_FEMDomain(this,DOF,regacy) result(ZeroMatri
 	
 
 	count_appear(:) = 0
-	!!$OMP parallel do private(j,k) reduction(+:count_appear)
+	!$OMP parallel do private(j,k) reduction(+:count_appear)
 	do i=1,size(ELL_elem,1)
 		do j=1,size(ELL_elem,2)
 			if(ELL_elem(i,j)==0 ) exit
@@ -10534,11 +10537,11 @@ recursive function ZeroMatrix_as_CRS_FEMDomain(this,DOF,regacy) result(ZeroMatri
 			enddo
 		enddo
 	enddo
-	!!$OMP end parallel do
+	!$OMP end parallel do
 
 	!(iii) overlap should be 0
 	nonzero_idx = int(zeros(size(ELL_col_idx,2)))
-	!!$OMP parallel do private(j,k)
+	!$OMP parallel do private(j,k)
 	do i=1,size(ELL_col_idx,1)
 		do j=1,count_appear(i)
 			if(ELL_col_idx(i,j) == 0  )then
@@ -10554,11 +10557,13 @@ recursive function ZeroMatrix_as_CRS_FEMDomain(this,DOF,regacy) result(ZeroMatri
 
 
 	enddo
-	!!$OMP end parallel do
+	!$OMP end parallel do
+
+
 
 	!(iv) shift zero to right
 	!count_appear(:) = 0
-	!!$OMP parallel do private(j,k,nonzero_idx)
+	!$OMP parallel do private(j,k,nonzero_idx)
 	do i=1,size(ELL_col_idx,1)
 		nonzero_idx(:) = 0
 		k = 0
@@ -10570,27 +10575,33 @@ recursive function ZeroMatrix_as_CRS_FEMDomain(this,DOF,regacy) result(ZeroMatri
 		enddo
 		ELL_col_idx(i,:) = nonzero_idx(:)
 	enddo
-	!!$OMP end parallel do
+	!$OMP end parallel do
 
 	
 
 	!print *, "v"
 	!(v) count non-zero
 	count_appear(:) = 0
-	!!$OMP parallel do private(j) reduction(+:count_appear)
+	!$OMP parallel do private(j) reduction(+:count_appear)
 	do i=1,size(ELL_col_idx,1)
 		do j=1,size(ELL_col_idx,2)
 			if(ELL_col_idx(i,j)/=0 )then
+				
 				count_appear(i) = count_appear(i) + 1
 			endif
 		enddo
 	enddo
-	!!$OMP end parallel do
+	!$OMP end parallel do
 	
 	
-
-	ZeroMatrix%row_ptr = int(zeros(this%nn()+1))
-	ZeroMatrix%col_idx = int(zeros(sum(count_appear) ))
+	!ZeroMatrix%row_ptr = int(zeros(this%nn()+1))
+	allocate( ZeroMatrix%row_ptr(this%nn()+1  ))
+	ZeroMatrix%row_ptr(:) = 0
+	
+	!ZeroMatrix%col_idx = int(zeros(sum(count_appear) ))
+	allocate( ZeroMatrix%col_idx(sum(count_appear)  ))
+	ZeroMatrix%col_idx(:) = 0
+	
 	!print *, "vi"
 	! (vi) create row_ptr
 	ZeroMatrix%row_ptr(1) = 1 
@@ -10600,7 +10611,7 @@ recursive function ZeroMatrix_as_CRS_FEMDomain(this,DOF,regacy) result(ZeroMatri
 
 	
 
-	!!$OMP parallel do private(j,k)
+	!$OMP parallel do private(j,k)
 	do i=1,size(ZeroMatrix%row_ptr)-1
 		k=0
 		do j=ZeroMatrix%row_ptr(i),ZeroMatrix%row_ptr(i+1)-1
@@ -10608,28 +10619,45 @@ recursive function ZeroMatrix_as_CRS_FEMDomain(this,DOF,regacy) result(ZeroMatri
 			ZeroMatrix%col_idx(j) = ELL_col_idx(i,k)
 		enddo
 	enddo
-	!!$OMP end parallel do
+	!$OMP end parallel do
 	deallocate(ELL_col_idx,ELL_elem,count_appear,nonzero_idx)
 
-	ZeroMatrix%val = zeros(size(ZeroMatrix%col_idx) )
+	! ZeroMatrix%val = zeros(size(ZeroMatrix%col_idx) )
+	allocate( ZeroMatrix%val(size(ZeroMatrix%col_idx)) )
+	ZeroMatrix%val(:) = 0.0d0
+
+
 
 	if(DOF>1)then
 		
 		! extend!
 		row_ptr = ZeroMatrix%row_ptr
 		col_idx = ZeroMatrix%col_idx
-		ZeroMatrix%row_ptr = int(zeros( (size(row_ptr)-1)*DOF + 1 ) )
+		!ZeroMatrix%row_ptr = int(zeros( (size(row_ptr)-1)*DOF + 1 ) )
+		if(allocated(ZeroMatrix%row_ptr) ) deallocate(ZeroMatrix%row_ptr)
+		allocate(ZeroMatrix%row_ptr( (size(row_ptr)-1)*DOF + 1 ) )
+		ZeroMatrix%row_ptr(:) = 0
 		
 		! update row-pointers
 		ZeroMatrix%row_ptr(1) = 1 
 		do i=1,size(row_ptr)-1
 			do j=1,DOF
+				if(size(ZeroMatrix%row_ptr) < DOF*(i-1) + j + 1  ) then
+					print *, "ERROR femdomain%zeromatrix >> if(size(ZeroMatrix%col_idx)>m ) then"
+					stop
+				endif
 				ZeroMatrix%row_ptr( DOF*(i-1) + j + 1 ) = ZeroMatrix%row_ptr( DOF*(i-1) + j ) &
 					+  DOF*( row_ptr(i+1) - row_ptr(i))
 			enddo
 		enddo
-		ZeroMatrix%col_idx = int(zeros( ( ZeroMatrix%row_ptr(size(ZeroMatrix%row_ptr) ) )-1 ))
+		!ZeroMatrix%col_idx = int(zeros( ( ZeroMatrix%row_ptr(size(ZeroMatrix%row_ptr) ) )-1 ))
+		if(allocated(ZeroMatrix%col_idx) ) deallocate(ZeroMatrix%col_idx)
+		allocate(ZeroMatrix%col_idx(  ( ZeroMatrix%row_ptr(size(ZeroMatrix%row_ptr) ) )-1  ) )
+		ZeroMatrix%col_idx(:) = 0
 		
+		
+		!return
+
 		! update column-indices
 		m = 0
 		do i=1,size(row_ptr)-1
@@ -10638,17 +10666,31 @@ recursive function ZeroMatrix_as_CRS_FEMDomain(this,DOF,regacy) result(ZeroMatri
 					n = row_ptr(i+1) - row_ptr(i)
 					do l=1,DOF
 						m = m + 1
-						ZeroMatrix%col_idx( m) =  DOF*(col_idx(j)-1) + l
+						if(size(ZeroMatrix%col_idx) < m ) then
+							print *, "ERROR femdomain%zeromatrix >> if(size(ZeroMatrix%col_idx)>m ) then"
+							stop
+						endif
+						if(size(col_idx) < j ) then
+							print *, "ERROR femdomain%zeromatrix >> if(size(ZeroMatrix%col_idx)>m ) then"
+							stop
+						endif
+						ZeroMatrix%col_idx(m) =  DOF*(col_idx(j)-1) + l
 					enddo
 				enddo
 			enddo
 		enddo
-		ZeroMatrix%val = zeros(size(ZeroMatrix%col_idx) )
+
+		m = size(ZeroMatrix%col_idx)
+		ZeroMatrix%val = zeros( m )
+		
+		!return
+		
+
+		
 	endif
 
 	ZeroMatrix%val(:) = 0.0d0
 	
-	return 
 end function
 
 ! ##########################################################################
@@ -10979,10 +11021,10 @@ function StiffnessMatrix_as_CRS_FEMDomain(this,YoungModulus,PoissonRatio,omp) re
 	!COO = this%ZeroMatrix_as_COO(DOF=DOF)
 	StiffnessMatrix = this%ZeroMatrix(DOF=DOF)
 	val = StiffnessMatrix%val
-	!!$OMP parallel do &
-	!!$OMP private(eDiffMat,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,col_id,i,&
-	!!$OMP pid_1,pid_2,loc_pid_1,loc_pid_2,DOF_1,DOF_2)&
-	!!$OMP  reduction(+:val) 
+	!$OMP parallel do &
+	!$OMP private(eDiffMat,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,col_id,i,&
+	!$OMP pid_1,pid_2,loc_pid_1,loc_pid_2,DOF_1,DOF_2)&
+	!$OMP  reduction(+:val) 
 	do ElementID=1,this%ne()
 		eDiffMat = this%StiffnessMatrix(&
 			ElementID=ElementID,&
@@ -11013,7 +11055,7 @@ function StiffnessMatrix_as_CRS_FEMDomain(this,YoungModulus,PoissonRatio,omp) re
 			enddo
 		enddo
 	enddo
-	!!$OMP end parallel do
+	!$OMP end parallel do
 	StiffnessMatrix%val = val
 	
 end function
@@ -11776,7 +11818,7 @@ function DiffusionMatrix_as_CRS_FEMDomain(this,Coefficient,omp) result(Diffusion
 	
 	DiffusionMatrix = this%ZeroMatrix(DOF=1)
 	val = DiffusionMatrix%val
-	!!$OMP parallel do private(eDiffMat,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,col_id,i) reduction(+:val) 
+	!$OMP parallel do private(eDiffMat,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,col_id,i) reduction(+:val) 
 	do ElementID=1,this%ne()
 		eDiffMat = this%DiffusionMatrix(&
 			ElementID=ElementID,&
@@ -11796,7 +11838,7 @@ function DiffusionMatrix_as_CRS_FEMDomain(this,Coefficient,omp) result(Diffusion
 			enddo
 		enddo
 	enddo
-	!!$OMP end parallel do
+	!$OMP end parallel do
 	DiffusionMatrix%val = val
 
 

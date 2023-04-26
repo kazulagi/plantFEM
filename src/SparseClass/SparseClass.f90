@@ -127,9 +127,10 @@ module SparseClass
         ! Destructive
         integer(int64),allocatable :: row_ptr(:)
         real(real64)  ,allocatable :: val(:)
-
+        
         real(real32)  ,allocatable :: val_real32(:)
         integer(int32) :: dtype = real64
+        
     contains
         procedure,public :: init => initCRS
         procedure,public :: eyes => eyesCRS

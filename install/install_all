@@ -259,7 +259,7 @@ mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c .
 echo "Compiling ./src/FEMSolverClass/FEMSolverClass.f90 " 
 echo " >> FEMSolverClass.o  " 
 echo " | =============>              | (65%)\r\c"
-mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/FEMSolverClass/FEMSolverClass.f90 -o  ./inc/FEMSolverClass.o 
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fbacktrace -fintrinsic-modules-path inc/  -c ./src/FEMSolverClass/FEMSolverClass.f90 -o  ./inc/FEMSolverClass.o 
 
 
 echo "Compiling ./src/FEMIfaceClass/FEMIfaceClass.f90" 
@@ -575,6 +575,5 @@ mkdir -p home
 #echo " | ########################### | (100%)\r"
 #cp ipynb/* .
 #echo "    "
-
 echo " plantFEM is successfully installed !!"
 echo "    "
