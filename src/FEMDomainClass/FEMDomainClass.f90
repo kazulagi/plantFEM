@@ -438,12 +438,14 @@ module FEMDomainClass
 		procedure,pass :: DiffusionMatrix_as_CRS_FEMDomain
 		procedure,pass :: StiffnessMatrix_as_CRS_FEMDomain
 		procedure,pass :: MassMatrix_as_CRS_FEMDomain
+		procedure,pass :: M_inv_K_Matrix_CRS_FEMDomain
 		procedure,pass :: ZeroMatrix_as_CRS_FEMDomain
 		procedure,pass :: ZeroMatrix_as_COO_FEMDomain
 
 		generic ::DiffusionMatrix => DiffusionMatrixFEMDomain,DiffusionMatrix_as_CRS_FEMDomain
 		generic ::StiffnessMatrix => StiffnessMatrixFEMDomain,StiffnessMatrix_as_CRS_FEMDomain
 		generic ::MassMatrix => MassMatrixFEMDomain,MassMatrix_as_CRS_FEMDomain
+		generic ::M_inv_K_Matrix => M_inv_K_Matrix_CRS_FEMDomain
 		generic ::ZeroMatrix => ZeroMatrix_as_CRS_FEMDomain
 		generic ::ZeroMatrix_as_COO => ZeroMatrix_as_COO_FEMDomain
 		
@@ -8282,17 +8284,25 @@ end subroutine
 
 
 ! ##################################################
-recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementType,NodeList,debug)
+recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementType,NodeList,debug,displacement)
 	class(FEMDomain_),intent(inout) :: obj
 	type(FEMDomain_) :: mini_obj
 	character(*),intent(in) :: name
 	character(*),optional,intent(in) :: field
-	real(real64),optional,intent(in) :: scalar(:),vector(:,:),tensor(:,:,:)
+	real(real64),optional,intent(in) :: scalar(:),vector(:,:),tensor(:,:,:),displacement(:)
 	integer(int32),optional,intent(in) :: ElementType,Nodelist(:)
 	character(len=:),allocatable :: point_scalars,point_vectors,point_tensors,cell_scalars,cell_vectors,cell_tensors
 	type(IO_) :: f
 	integer(int32) ::i,dim_num(3),j,VTK_CELL_TYPE,num_node,k,n
 	logical,optional,intent(in) :: debug
+	
+	if(present(displacement) )then
+		call obj%deform(disp=displacement)
+		call obj%vtk(name=name,scalar=scalar,vector=vector,tensor=tensor,&
+			field=field,ElementType=ElementType,NodeList=NodeList,debug=debug)
+		call obj%deform(disp=-displacement)
+		return
+	endif
 
 	if(obj%nd()==2 )then
 		mini_obj = obj
@@ -15283,6 +15293,29 @@ subroutine read_vtk_domain_decomposed_FEMDOmain(this,name,myrank)
 end subroutine
 ! #######################################################
 
+function M_inv_K_Matrix_CRS_FEMDomain(this,Density,YoungModulus,PoissonRatio) result(ret)
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),intent(in) :: Density(:),YoungModulus(:)
+	real(real64),optional,intent(in) :: PoissonRatio(:)
+	real(real64),allocatable :: v(:)
+	type(CRS_) :: K,M,ret
+	integer(int32) :: dof
+
+	K = this%StiffnessMatrix(&
+    	YoungModulus=YoungModulus ,&
+    	PoissonRatio=PoissonRatio)
+
+	dof = K%size()/this%nn()
+
+	M = this%MassMatrix(&
+    	Density=Density ,&
+    	DOF=dof)
+
+	v = M%lumped()
+
+	ret = K%divide_by(v)
+	
+end function
 
 end module FEMDomainClass
 

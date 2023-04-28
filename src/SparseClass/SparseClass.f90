@@ -162,6 +162,7 @@ module SparseClass
         procedure,public :: get    => getCRS
         procedure,public :: is_nonzero => is_nonzeroCRS
         procedure,public :: diag => diagCRS
+        procedure,public :: lumped => lumpedCRS
 
         procedure,public :: divide_by => divide_by_CRS
         procedure,public :: mult_by => mult_by_CRS
@@ -252,6 +253,7 @@ module SparseClass
     public :: operator(+)
     public :: operator(-)
     public :: operator(*)
+    !public :: operator(/)
     
     interface operator(+)
       module procedure addCRS_and_CRS
@@ -280,6 +282,13 @@ module SparseClass
     interface to_diag
         module procedure to_diag_vector_to_CRS
     end interface
+
+!    interface operator(/)
+!        module procedure divide_by_diagonal_vector_CRS, divide_by_scalar_CRS
+!    end interface
+
+
+
 contains
 
 subroutine initCOO(this,num_row)
@@ -1294,6 +1303,13 @@ logical function is_nonzeroCRS(this,row,col)
 end function
 ! ##################################################
 
+function lumpedCRS(this) result(ret)
+    class(CRS_),intent(in) :: this
+    real(real64),allocatable  :: ret(:)
+
+    ret = this%diag(cell_centered=.true.)
+
+end function
 
 ! ##################################################
 function diagCRS(this,cell_centered) result(diag_vec)
@@ -4514,5 +4530,30 @@ subroutine to_real32_CRS(this)
     this%dtype = real32
 
 end subroutine
+
+!! ###################################################
+!function divide_by_diagonal_vector_CRS(this,diag_vector) result(ret)
+!    type(CRS_),intent(in) :: this
+!    type(CRS_) :: ret
+!    real(real64),intent(in)  :: diag_vector(:)
+!    integer(int32) :: i
+!    
+!    ret = this
+!    do i=1,ret%size()    
+!        ret%val(ret%row_ptr(i):ret%row_ptr(i+1)-1) = &
+!            ret%val(ret%row_ptr(i):ret%row_ptr(i+1)-1)/diag_vector(i)
+!    enddo
+!end function
+!! ###################################################
+!
+!function divide_by_scalar_CRS(this,scalar_value) result(ret)
+!    type(CRS_),intent(in) :: this
+!    real(real64),intent(in)  :: scalar_value
+!    type(CRS_) :: ret
+!
+!    ret = this
+!    ret%val = ret%val/scalar_value
+!end function
+!! ###################################################
 
 end module SparseClass
