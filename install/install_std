@@ -103,7 +103,7 @@ mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-mo
 echo "Compiling ./src/SparseClass/SparseClass-c.c " 
 echo " >> SparseClass_c.o "
 echo " | =>                          | (4%)\r\c"
-gcc -c  -fopenmp -O3 ./src/SparseClass/SparseClass-c.c -o inc/SparseClass-c.o
+gcc -c  -fopenmp -O3  -fPIC ./src/SparseClass/SparseClass-c.c -o inc/SparseClass-c.o
 
 echo "Compiling ./src/SparseClass/SparseClass.f90 " 
 echo " >> SparseClass.o "
