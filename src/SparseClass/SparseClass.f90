@@ -602,18 +602,28 @@ subroutine LanczosCRS(this,DiagonalVector,subDiagonalVector,V)
 
 end subroutine
 
-function matmulCRS(CRS,old_vector) result(new_vector)
+function matmulCRS(CRS,old_vector,run_mode) result(new_vector)
     class(CRS_),intent(in) :: CRS
     real(real64),intent(in)  :: Old_vector(:)
     real(real64),allocatable :: new_vector(:)
+    integer(int32),optional,intent(in) :: run_mode
+    integer(int32) :: mode_id
     
-    new_vector = crs_matvec_generic_SparseClass(&
-        CRS_value=CRS%val,&
-        CRS_col=CRS%col_idx,&
-        CRS_row_ptr=CRS%row_ptr,&
-        old_vector=old_vector)
-    
-    
+    mode_id = input(default=0,option=run_mode)
+    if(mode_id==1)then
+        ! elemental mode
+        new_vector = crs_matvec_generic_elemental_SparseClass(&
+            CRS_value=CRS%val,&
+            CRS_col=CRS%col_idx,&
+            CRS_row_ptr=CRS%row_ptr,&
+            old_vector=old_vector)
+    else
+        new_vector = crs_matvec_generic_SparseClass(&
+            CRS_value=CRS%val,&
+            CRS_col=CRS%col_idx,&
+            CRS_row_ptr=CRS%row_ptr,&
+            old_vector=old_vector)
+    endif
   end function
 
 
@@ -741,6 +751,68 @@ function matmul_c_real32_CRS(CRS,old_vector,c_routine) result(new_vector)
 
 
 function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
+    real(real64),intent(in)  :: CRS_value(:),Old_vector(:)
+    integeR(int32),intent(in):: CRS_col(:)
+    integeR(int64),intent(in):: CRS_row_ptr(:)
+  
+    real(real64),allocatable :: new_vector(:)
+    integer(int32) :: i, j, n,gid,lid,row,col
+    integer(int64) :: CRS_id
+    
+    !> x_i = A_ij b_j
+  
+  
+    n = size(CRS_row_ptr)-1
+    if(size(old_vector)/=n )then
+        print *, "ERROR crs_matvec :: inconsistent size for old_vector"
+        return
+    endif
+  
+    new_vector = zeros(n) 
+
+    ! accerelation
+!    do concurrent (row=1:n)
+!        new_vector(row) = new_vector(row) + dot_product( &
+!            CRS_value(CRS_row_ptr(row):CRS_row_ptr(row+1)-1),  &
+!            old_vector(CRS_col(CRS_row_ptr(row):CRS_row_ptr(row+1)-1) )&
+!            )
+!    enddo
+
+
+    !v2.0
+    
+    !v2.0
+
+    !$OMP parallel default(shared)
+    !$OMP do reduction(+:new_vector)
+    do row = 1, n
+            new_vector(row) = new_vector(row) + dot_product( &
+                CRS_value(CRS_row_ptr(row):CRS_row_ptr(row+1)-1),  &
+                old_vector(CRS_col(CRS_row_ptr(row):CRS_row_ptr(row+1)-1) )&
+                )
+    enddo
+    !$OMP end do
+    !$OMP end parallel 
+
+
+    !<v1.0>
+!    !$OMP parallel default(shared) private(CRS_id,col)
+!    !$OMP do reduction(+:new_vector)
+!    do row = 1, n
+!        do concurrent(CRS_id=CRS_row_ptr(row):CRS_row_ptr(row+1)-1)
+!            new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(CRS_col(CRS_id))
+!        enddo
+!    enddo
+!    !$OMP end do
+!    !$OMP end parallel 
+!    
+  end function
+! ###################################################################
+
+
+
+
+function crs_matvec_generic_elemental_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
     real(real64),intent(in)  :: CRS_value(:),Old_vector(:)
     integeR(int32),intent(in):: CRS_col(:)
     integeR(int64),intent(in):: CRS_row_ptr(:)
