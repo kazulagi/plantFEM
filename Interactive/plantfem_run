@@ -101,6 +101,21 @@ homepath="$PWD"
     fi
     
 
+
+
+    if [ "$1" = "update_metainfo" ]; then
+        echo -n "plantFEM 22.04 LTS version " > etc/version
+        MYDATE=`date +"%Y.%m.%d"`
+        
+        echo -n "$MYDATE" >> etc/version
+        echo `od -An -tu4 -N4 /dev/random | tr -d ' '` >> etc/version
+        cat etc/version
+
+
+        exit 0
+    fi
+
+
     if [ "$1" = "download" ]; then
         wget --no-check-certificate "https://plantfem.org/download/$2" .
         exit 0

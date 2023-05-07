@@ -89,6 +89,15 @@ do
     fi
 
 
+
+    if [ "$1" = "update_version_id" ]; then
+        echo "plantFEM 22.04 LTS version " > etc/version
+        date +"%Y.%m.%d" >> etc/version
+        cat etc/version
+        exit 0
+    fi
+
+
     if [ "$1" = "dl" ]; then
         wget "https://plantfem.org/download/$2" .
         exit 0
