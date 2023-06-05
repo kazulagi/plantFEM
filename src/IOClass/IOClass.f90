@@ -362,8 +362,11 @@ module IOClass
     subroutine readIOReal64Array(obj,val)
         class(IO_),intent(in) :: obj
         real(real64),intent(inout) :: val(:,:)
-    
-        read(obj%fh,*) val(:,:)
+        integer(int32) :: i
+
+        do i=1,size(val,1)
+            read(obj%fh,*) val(i,1:)
+        enddo
     
     end subroutine
     ! ===========================================
@@ -3662,10 +3665,12 @@ subroutine to_csv_real_array2(name,a,no_header)
     endif
     do i=1,n1 
         do j=1,n2-1
-            write(f%fh,'(A)',advance="no") str(a(i,j)) + ","
+            write(f%fh,'(G31.20)',advance="no") a(i,j)
+            write(f%fh,'(A)',advance="no") ","
         enddo
         j = n2
-        write(f%fh,'(A)',advance="yes") str(a(i,j)) + ","
+        write(f%fh,'(G31.20)',advance="no") a(i,j)
+        write(f%fh,'(A)',advance="yes") ","
     enddo
     call f%close()
 

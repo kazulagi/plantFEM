@@ -1756,7 +1756,7 @@ end function
 !================================================================================== 
 pure function fstring_real(x) result(a)
 	real(real64),intent(in) :: x
-	character(len=20):: b
+	character(len=31):: b
 	character(len=:),allocatable	:: a
 
 	if(x/=x .or. abs(x) >= HUGE(real64) )then
@@ -1764,7 +1764,7 @@ pure function fstring_real(x) result(a)
 		return
 	endif
 
-	write(b,'(f0.8)') x
+	write(b,'(G31.20)') x
 	a = trim(adjustl(b))
 
 

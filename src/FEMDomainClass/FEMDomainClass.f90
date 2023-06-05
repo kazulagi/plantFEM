@@ -7248,6 +7248,8 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 				endif
 				return
 			endif
+		case("Box","Box2D")
+			call obj%mesh%box(x=x_axis,y=y_axis)
 		case ("Line","Line1D")
 			call obj%mesh%line(x_num=x_num,x_axis=x_axis)
 			return

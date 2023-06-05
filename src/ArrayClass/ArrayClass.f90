@@ -414,7 +414,7 @@ module ArrayClass
     end interface
 
     interface getIdx
-        module procedure :: getIdxIntVec,getIdxIntVecVec
+        module procedure :: getIdxIntVec,getIdxIntVecVec,getIdxReal64Vec
     end interface
     
 
@@ -445,6 +445,9 @@ module ArrayClass
         module procedure get_element_from_vector_by_idx_int32,get_element_from_vector_by_idx_real64
     end interface
 
+    interface operator(.indexOf.)
+        module procedure getIdxIntVec,getIdxIntVecVec,getIdxReal64Vec
+    end interface
     
     interface assignment(=)
       module procedure assignArrayAlloInt,assignArrayAlloReal, assignAlloArrayInt,assignAlloArrayReal,&
@@ -9114,6 +9117,42 @@ function getIdxIntVec(vec,equal_to) result(idx)
 
 end function
 ! ########################################################
+
+
+! ########################################################
+function getIdxReal64Vec(vec,equal_to) result(idx)
+    real(real64),intent(in) :: vec(:),equal_to
+    real(real64),allocatable :: vec_copy(:)
+    integer(int32),allocatable :: idx(:)
+    integer(int32) :: i,count_num
+
+
+    count_num=0
+    do i=1,size(vec)
+        if(vec(i) == equal_to )then
+            count_num = count_num + 1
+        endif
+    enddo
+
+    if(count_num==0)then
+        allocate(idx(0) ) 
+        return
+    else
+        allocate(idx(count_num) )
+        count_num=0
+        do i=1,size(vec)
+            if(vec(i) == equal_to )then
+                count_num = count_num + 1
+                idx(count_num) = i
+            endif
+        enddo
+    endif
+
+
+end function
+! ########################################################
+
+
 
 ! ########################################################
 function getIdxIntVecVec(vec,equal_to) result(idx)

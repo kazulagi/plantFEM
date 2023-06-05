@@ -1,11 +1,3 @@
-module test
-contains
-
-
-
-end module test
-
-
 
 program main
     use plantFEM

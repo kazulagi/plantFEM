@@ -344,6 +344,15 @@ recursive subroutine setDomainFEMSolver(this,FEMDomain,FEMDomains,FEMDomainPoint
     integer(int32),optional,intent(in) :: DomainID,DomainIDs(:)
     integer(int32) :: i
 
+    if(present(FEMDomain) )then
+        this%number_of_point_per_domain = [FEMDomain%nn() ]
+    elseif(present(FEMDomains))then
+        this%number_of_point_per_domain = int(zeros(size(FEMDomains) ) )
+        do i=1,size(FEMDomains)
+            this%number_of_point_per_domain(i) = FEMDomains(i)%nn()
+        enddo
+    endif
+
     if(present(DomainID) )then
         if(DomainID<=0)then
             print *, "ERROR :: FEMSOlver%setDomain >> DomainID should be >=1"

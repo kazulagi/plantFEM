@@ -17,6 +17,6 @@ dam = ci%EarthDam(&
     margin_cut   = 10 &
     )
 
-call dam%vtk("dam")
+
 
 end

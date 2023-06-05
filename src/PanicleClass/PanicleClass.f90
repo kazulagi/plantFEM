@@ -6,12 +6,22 @@ module PanicleClass
 
     implicit none
 
+    type  :: panicle_config_ 
+        real(real64) :: seed_interval = 3.0d0/1000.0d0 ! 3 mm 
+        real(real64) :: seed_branch_length = 3.0d0/1000.0d0 ! 2 mm 
+        real(real64) :: seed_length = 6.0d0/1000.0d0 ! 2 mm 
+        real(real64) :: seed_width = 4.0d0/1000.0d0 ! 2 mm 
+        real(real64) :: seed_thickness = 2.0d0/1000.0d0 ! 2 mm 
+        integer(int32) :: seed_division(1:3)=[3,3,3]
+    end type
+
     type :: Panicle_
         type(FEMDomain_)    ::  FEMDomain
         real(real64)        :: Length,Width,Angle
         type(Stem_),pointer ::  pStem
         integer(int32) :: division(1:3) = [5,5,5] ! for maize
         integer(int32) :: rice_seed_division(1:3) = [3,3,3] ! for rice
+        integer(int32) :: wheat_seed_division(1:3) = [3,3,3] ! for rice
 
 
         integer(int32),allocatable  :: I_planeNodeID(:)
@@ -58,13 +68,40 @@ module PanicleClass
 
 contains
 
+
+function to_panicle_config(seed_interval,seed_branch_length,seed_length,&
+    seed_width,seed_thickness,seed_division) result(this)
+    type(panicle_config_) :: this
+    real(real64) ,intent(in):: seed_interval
+    real(real64) ,intent(in):: seed_branch_length
+    real(real64) ,intent(in):: seed_length
+    real(real64) ,intent(in):: seed_width
+    real(real64) ,intent(in):: seed_thickness
+    integer(int32) ,intent(in):: seed_division(1:3)
+
+    this%seed_interval      = seed_interval
+    this%seed_branch_length = seed_branch_length
+    this%seed_length        = seed_length
+    this%seed_width         = seed_width
+    this%seed_thickness     = seed_thickness
+    this%seed_division      = seed_division
+
+
+end function
+
+
+
+
 ! #####################################################
 recursive subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num,y_num,z_num,rice,&
     rice_seed_interval,rice_seed_branch_length,&
     rice_seed_length,rice_seed_width,rice_seed_thickness,&
     rice_panicle_curvature,rice_seed_division,&
+    wheat,panicle_config,&
     Arabidopsis)
     class(Panicle_),intent(inout) :: this
+    type(panicle_config_),optional,intent(in) :: panicle_config ! for wheat
+
     real(real64),intent(in) :: Length, width ! need for all panicle type
 
     integer(int32),optional,intent(in) :: Node ! for maize
@@ -85,7 +122,7 @@ recursive subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num
     real(real64),allocatable :: x_axis(:),y_axis(:),z_axis(:),z_axis0(:)
     integer(int32) :: i,j
     integer(int32),allocatable :: buf(:), kill_element_list(:)
-    logical,optional,intent(in) :: debug,rice
+    logical,optional,intent(in) :: debug,rice,wheat
 
     type(FEMDomain_) :: femdomain
     type(FEMDomain_) :: seed,this_seed
@@ -110,11 +147,13 @@ recursive subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num
 
 
 
-    logical :: rice_mode,Arabidopsis_mode
+    logical :: rice_mode,Arabidopsis_mode,wheat_mode
 
 
     rice_mode = input(default=.false.,option=rice)
+    wheat_mode = input(default=.false.,option=wheat)
     Arabidopsis_mode = input(default=.false.,option=Arabidopsis)
+    
     if(rice_mode)then
         seed_interval  =input(default=this%default_rice_seed_interval,&
             option=rice_seed_interval)
@@ -135,6 +174,244 @@ recursive subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num
         nx = this%rice_seed_division(1)
         ny = this%rice_seed_division(2)
         nz = this%rice_seed_division(3)    
+        
+        
+        
+
+        call femdomain%create(meshtype="Cube3D",x_num=x_num,y_num=y_num,z_num=z_num)
+        call femdomain%resize(x=Width,y=width,z=Length)
+
+
+        call seed%create(meshtype="Cube3D",x_num=nx,y_num=ny,z_num=nz)
+
+        call seed%resize(x=seed_width,y=seed_thickness,z=seed_length)
+        center = seed%centerPosition()
+        call seed%move(x=-center(1),y=-center(2),z=-seed%zmin())
+        do i=1,seed%nn()
+            x = seed%mesh%nodcoord(i,1)
+            y = seed%mesh%nodcoord(i,2)
+            z = seed%mesh%nodcoord(i,3)
+            alpha = z/seed%zmax()
+            theta = 1.00d0 - abs(alpha-0.50d0)
+            seed%mesh%nodcoord(i,1) = x*theta
+        enddo
+
+
+        seed_joint = zeros(0)
+        num_seed = int(Length/seed_interval)
+
+
+        nodcoord = zeros( num_seed * 4, 3 )
+        elemnod  = int(zeros( num_seed , FEMDomain%nne() ))
+        allocate(seeds(num_seed) )
+        do i=1,num_seed
+            do 
+                elem_idx = random%randint(From=1,To=femdomain%ne())
+            
+                n1 = FEMDomain%mesh%elemnod(elem_idx,1)
+                n2 = FEMDomain%mesh%elemnod(elem_idx,2)
+                n3 = FEMDomain%mesh%elemnod(elem_idx,3)
+                n4 = FEMDomain%mesh%elemnod(elem_idx,4)
+                x1 = FEMDomain%mesh%nodcoord(n2,:) - FEMDomain%mesh%nodcoord(n1,:)
+                x2 = FEMDomain%mesh%nodcoord(n4,:) - FEMDomain%mesh%nodcoord(n1,:)
+            
+
+            
+                case_id = 0
+                if(minval( FEMDomain%mesh%nodcoord([n1,n2,n3,n4],1) )== FEMDomain%xmin() )then
+                    if(minval( FEMDomain%mesh%nodcoord([n1,n2,n3,n4],2) )== FEMDomain%ymin() )then
+                        case_id = 1 
+                    elseif(maxval( FEMDomain%mesh%nodcoord([n1,n2,n3,n4],2) )== FEMDomain%ymax() )then
+                        case_id = 2
+                    endif
+                
+                elseif(maxval( FEMDomain%mesh%nodcoord([n1,n2,n3,n4],1) )== FEMDomain%xmax() )then
+                    if(minval( FEMDomain%mesh%nodcoord([n1,n2,n3,n4],2) )== FEMDomain%ymin() )then
+                        case_id = 4
+                    elseif(maxval( FEMDomain%mesh%nodcoord([n1,n2,n3,n4],2) )== FEMDomain%ymax() )then
+                        case_id = 3 
+                    endif
+                endif
+                if(case_id /=0)exit
+            enddo
+            seed_joint = seed_joint // [elem_idx]
+            select case(case_id)
+                case(1)
+                    !x-min and y_min
+                    node_list = [4, 1, 5, 8]
+                case(2)
+                    !x-min and y_max
+                    node_list = [3, 4, 8, 7]
+                case(4)
+                    !x-max and y_min 
+                    node_list = [1, 2, 6, 5]
+                case(3)
+                    !x-max and y_max
+                    node_list = [2, 3, 7, 6]
+            end select
+        
+            n1 = FEMDomain%mesh%elemnod(elem_idx,node_list(1) )
+            n2 = FEMDomain%mesh%elemnod(elem_idx,node_list(2) )
+            n3 = FEMDomain%mesh%elemnod(elem_idx,node_list(3) )
+            n4 = FEMDomain%mesh%elemnod(elem_idx,node_list(4) )
+        
+            x1 = FEMDomain%mesh%nodcoord(n2,:) - FEMDomain%mesh%nodcoord(n1,:)
+            x2 = FEMDomain%mesh%nodcoord(n4,:) - FEMDomain%mesh%nodcoord(n1,:)
+            normal_vector = cross_product(x1,x2)
+            normal_vector = normal_vector/norm(normal_vector)
+            nodcoord( 4*i -3, 1:3 ) = seed_branch_length*normal_vector &
+                + FEMDomain%mesh%nodcoord(FEMDomain%mesh%elemnod(elem_idx,node_list(1)),:)
+            nodcoord( 4*i -2, 1:3 ) = seed_branch_length*normal_vector &
+                + FEMDomain%mesh%nodcoord(FEMDomain%mesh%elemnod(elem_idx,node_list(2)),:)
+            nodcoord( 4*i -1, 1:3 ) = seed_branch_length*normal_vector &
+                + FEMDomain%mesh%nodcoord(FEMDomain%mesh%elemnod(elem_idx,node_list(3)),:)
+            nodcoord( 4*i -0, 1:3 ) = seed_branch_length*normal_vector &
+                + FEMDomain%mesh%nodcoord(FEMDomain%mesh%elemnod(elem_idx,node_list(4)),:)
+            elemnod(i,1:4) = FEMDomain%mesh%elemnod(elem_idx,node_list(1:4))
+            elemnod(i,5:8) =[ 4*i-3, 4*i-2, 4*i-1, 4*i-0 ] + femdomain%nn()
+        
+            ! 果梗と子実をがっちゃんこ
+            ! seedの5要素目，1234番
+            seeds(i)  = seed
+            dx = sum(nodcoord( 4*i -3:4*i,1 ))/4.0d0
+            dy = sum(nodcoord( 4*i -3:4*i,2 ))/4.0d0
+            dz = sum(nodcoord( 4*i -3:4*i,3 ))/4.0d0 + seed_branch_length
+            call seeds(i)%move(x=dx,y=dy,z=dz)
+            call seeds(i)%rotate(z=math%pi/2.0d0*dble(case_id) )
+
+            select case(case_id)
+            case(1)
+                !x-min and y_min
+
+                nodcoord( 4*i -3, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),3),:)
+                nodcoord( 4*i -2, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),4),:)
+                nodcoord( 4*i -1, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),1),:)
+                nodcoord( 4*i -0, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),2),:)
+            case(2)
+                !x-min and y_max
+                ![ok]
+                nodcoord( 4*i -3, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),1),:)
+                nodcoord( 4*i -2, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),2),:)
+                nodcoord( 4*i -1, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),3),:)
+                nodcoord( 4*i -0, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),4),:)
+            case(4)
+                !x-max and y_min 
+                ![ok]
+                nodcoord( 4*i -3, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),1),:)
+                nodcoord( 4*i -2, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),2),:)
+                nodcoord( 4*i -1, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),3),:)
+                nodcoord( 4*i -0, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),4),:)
+            case(3)
+                !x-max and y_max
+                !
+                nodcoord( 4*i -3, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),3),:)
+                nodcoord( 4*i -2, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),4),:)
+                nodcoord( 4*i -1, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),1),:)
+                nodcoord( 4*i -0, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),2),:)
+            end select
+
+        enddo
+
+
+        FEMDomain%mesh%nodcoord = FEMDomain%mesh%nodcoord // nodcoord
+        FEMDomain%mesh%elemnod  = FEMDomain%mesh%elemnod // elemnod
+
+        do i=1,size(seeds)
+            seeds(i)%mesh%elemnod = seeds(i)%mesh%elemnod + femdomain%nn()
+            femdomain%mesh%nodcoord = femdomain%mesh%nodcoord // seeds(i)%mesh%nodcoord
+            femdomain%mesh%elemnod = femdomain%mesh%elemnod // seeds(i)%mesh%elemnod
+        enddo
+
+
+
+        ! remove duplicate nodes
+        call femdomain%Deduplicate(error=dble(1.0e-8))
+        
+
+        ! bend
+        z_max = femdomain%zmax()
+        call femdomain%move(x=panicle_curvature)
+        do i=1,femdomain%nn()
+            x = femdomain%mesh%nodcoord(i,1)
+            z = femdomain%mesh%nodcoord(i,3)
+            r = x
+            theta = z/panicle_curvature
+            femdomain%mesh%nodcoord(i,1) = r*cos(theta)
+            femdomain%mesh%nodcoord(i,3) = r*sin(theta)
+        
+        enddo
+        
+        call femdomain%move(x=-panicle_curvature)
+        theta = random%gauss(mu=0.0d0,sigma=math%pi/4.0d0)
+        call femdomain%rotate(z=theta )
+        dx = femdomain%mesh%nodcoord(1,1)
+        dy = femdomain%mesh%nodcoord(1,2)
+        dz = femdomain%mesh%nodcoord(1,3)
+        call femdomain%move(x=-dx,y=-dy,z=-dz ) 
+        this%femdomain = femdomain
+
+        this%A_PointNodeID = this%FEMDomain%getNearestNodeID(x=0.0d0,y=0.0d0,z=0.0d0)
+        this%B_PointNodeID = this%FEMDomain%getNearestNodeID(x=0.0d0,y=0.0d0,z=Length)
+        
+        ! branch exists
+        !if(present(rice_panicle_branch_num) )then
+        !    allocate(branch_panicle(rice_panicle_branch_num) )
+        !    ! create branches
+        !    do i=1,rice_panicle_branch_num
+        !        
+        !        call branch_panicle(i)%init(&
+        !            Length=Length,Width=Width,x_num=x_num,y_num=y_num,z_num=z_num,&
+        !            rice=.true.,&
+        !            rice_seed_interval= rice_seed_interval ,&
+        !            rice_seed_branch_length= rice_seed_branch_length ,&
+        !            rice_seed_length= rice_seed_length ,&
+        !            rice_seed_width= rice_seed_width ,&
+        !            rice_seed_thickness= rice_seed_thickness ,&
+        !            rice_panicle_curvature= rice_panicle_curvature ,&
+        !            rice_seed_division= rice_seed_division  )
+        !        
+        !    enddo
+        !endif
+
+        
+        return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    elseif(wheat_mode)then
+        if(.not.present(panicle_config) )then
+            print *, "ERROR :: [Panicle%init for wheat], panicle_config should be present. "
+            stop
+        endif
+
+        seed_interval  = panicle_config%seed_interval
+        seed_branch_length = panicle_config%seed_branch_length
+        seed_length    = panicle_config%seed_length
+        seed_width     = panicle_config%seed_width
+        seed_thickness = panicle_config%seed_thickness
+        panicle_curvature =100000.0d0
+
+        
+        this%wheat_seed_division = panicle_config%seed_division
+        
+        nx = this%wheat_seed_division(1)
+        ny = this%wheat_seed_division(2)
+        nz = this%wheat_seed_division(3)    
         
         
         
@@ -753,5 +1030,7 @@ subroutine removePanicle(this)
 
 
 end subroutine
+
+
 
 end module

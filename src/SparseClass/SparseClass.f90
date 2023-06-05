@@ -3735,7 +3735,7 @@ function tensor_wave_kernel_RHS_LPF_real_64_crs(this,RHS,t,tol,itrmax,fix_idx,de
     ! RHS is constant for interval [0, t]
     
     !ddt = 1.0d0/4.0d0/cutoff_frequency
-    ddt = 1.0d0/cutoff_frequency/math%pi*acos( (sqrt(2.0d0)-1.0d0)/2.0d0 )
+    ddt = 1.0d0/cutoff_frequency/2.0d0/math%pi*acos( sqrt(2.0d0)-1.0d0 )
     
     !u = -1.0d0/2.0d0*t*t*RHS
 
@@ -4055,7 +4055,8 @@ function tensor_cos_sqrt_LPF_real64_crs(this,v,tol,itrmax,coeff,debug,fix_idx,cu
     real(real64) :: a,dt,b,ddt
 
     !ddt = 1.0d0/(cutoff_frequency/4.0d0)
-    ddt = 1.0d0/cutoff_frequency/math%pi*acos( (sqrt(2.0d0)-1.0d0)/2.0d0 )
+    !ddt = 1.0d0/cutoff_frequency/math%pi*acos( (sqrt(2.0d0)-1.0d0)/2.0d0 )
+    ddt = 1.0d0/cutoff_frequency/2.0d0/math%pi*acos( sqrt(2.0d0)-1.0d0 )
     if(present(coeff) )then
         a=coeff
     else
@@ -4118,7 +4119,8 @@ function tensor_t_sinc_sqrt_LPF_real64_crs(this,v,tol,itrmax,coeff,debug,fix_idx
     real(real64) :: a,b,dt,ddt
     !num_hanning_sample = input(default=16,option=window_size)
     !ddt = 1.0d0/(cutoff_frequency/4.0d0)
-    ddt = 1.0d0/cutoff_frequency/math%pi*acos( (sqrt(2.0d0)-1.0d0)/2.0d0 )
+    !ddt = 1.0d0/cutoff_frequency/math%pi*acos( (sqrt(2.0d0)-1.0d0)/2.0d0 )
+    ddt = 1.0d0/cutoff_frequency/2.0d0/math%pi*acos( sqrt(2.0d0)-1.0d0 )
     if(present(coeff) )then
         a=coeff
     else
