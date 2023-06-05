@@ -12,6 +12,7 @@ module MeshClass
     integer(int32) :: PF_MAIZE = 2
     integer(int32) :: PF_RICE  = 3
     integer(int32) :: PF_Arabidopsis  = 4
+    integer(int32) :: PF_WHEAT  = 3
     
 
     type:: Mesh_
@@ -59,6 +60,11 @@ module MeshClass
         procedure :: assemble => assembleMesh
         procedure :: arrangeNodeOrder => arrangeNodeOrderMesh
 
+        
+        procedure,pass :: boxMesh
+        procedure,pass :: box_from_edge_Mesh
+        generic :: box => boxMesh 
+
         procedure :: copy => CopyMesh
         procedure :: cut => cutMesh
         procedure :: convertMeshType => ConvertMeshTypeMesh
@@ -67,6 +73,7 @@ module MeshClass
         procedure :: convertTriangleToRectangular => convertTriangleToRectangularMesh 
         procedure :: create=>createMesh
         procedure :: cube => cubeMesh
+
 
         procedure :: check=>checkMesh
         procedure :: convert2Dto3D => Convert2Dto3DMesh
@@ -5213,6 +5220,106 @@ subroutine cubeMesh(obj,x,y,z)
     obj%TopElemID    = (x_num)*(y_num)/2 + (x_num)*(y_num)*(division-1)
 
 end subroutine
+
+! ########################################################################
+subroutine boxMesh(obj,x,y)
+    class(Mesh_),intent(inout) :: obj
+    real(real64),intent(in) :: x(:),y(:)
+    integer(int32) :: xn,yn,i,j,division,x_num,y_num,n
+    real(real64)   :: lx,ly,unitx, unity,x_coord,y_coord
+    !validmeshtype=.true.
+    !call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
+    
+    x_num = size(x)-1
+    y_num = size(y)-1
+    !if(meshtype=="rectangular2D" .or. meshtype=="Box2D")then
+        xn=size(x)-1
+        yn=size(y)-1
+
+        lx=maxval(x) - minval(x)!input(default=1.0d0,option=x_len)
+        ly=maxval(y) - minval(y)!input(default=1.0d0,option=y_len)
+        
+        !unitx=lx/dble(xn)
+        !unity=ly/dble(yn)
+
+        ! creating rectangular mesh
+        allocate(obj%NodCoord( (xn+1)*(yn+1) , 2 ))
+        allocate(obj%ElemNod( xn*yn,4) )
+        allocate(obj%ElemMat(xn*yn) )
+        n=0
+        do j=1, yn+1
+            do i=1, xn+1
+                n=n+1
+                !x_coord = lx/dble(xn)*dble(i-1)
+                !y_coord = ly/dble(yn)*dble(j-1)
+                x_coord = x(i)
+                y_coord = y(j)
+                obj%NodCoord(n,1)=x_coord
+                obj%NodCoord(n,2)=y_coord
+            enddo
+        enddo
+
+        n=1
+        obj%ElemNod(1,1)=1
+        obj%ElemNod(1,2)=2
+        obj%ElemNod(1,3)=yn+3
+        obj%ElemNod(1,4)=yn+2
+        if(xn>=2)then
+            obj%ElemNod(2,1)=2
+            obj%ElemNod(2,2)=3
+            obj%ElemNod(2,3)=yn+4
+            obj%ElemNod(2,4)=yn+3
+        endif
+
+        
+        n=0
+        do j=1, yn
+            do i=1, xn
+                n=n+1
+                obj%ElemNod(n,1)=i + (j-1)*(xn+1)
+                obj%ElemNod(n,2)=i+1 + (j-1)*(xn+1)
+                obj%ElemNod(n,3)=xn+2+i+ (j-1)*(xn+1)
+                obj%ElemNod(n,4)=xn+1+i + (j-1)*(xn+1)
+                obj%ElemMat(n)=1
+            enddo
+        enddo
+
+
+
+    
+    if(.not.allocated(obj%ElemMat))then
+        n=size(obj%ElemNod,1)
+        allocate(obj%ElemMat(n) )
+    endif
+    
+    ! create direction-data
+    obj%BottomElemID = (x_num)/2
+    obj%TopElemID    = size(obj%nodcoord,1) - (x_num)/2
+
+end subroutine
+
+! ########################################################################
+
+! ########################################################################
+subroutine box_from_edge_Mesh(this,edges,divisions)
+    class(Mesh_),intent(inout) :: this
+    real(real64),intent(in) :: edges(4,2)
+    integer(int32),intent(in) :: divisions(1:2)
+    integer(int32) :: i,j
+
+    
+    this%nodcoord = zeros(divisions(1) +1,divisions(2)+1)
+
+
+    do i=1,divisions(1)
+        do j=1,divisions(2)
+            
+        enddo
+    enddo
+
+
+end subroutine
+! ########################################################################
 
 
 recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,thickness,&

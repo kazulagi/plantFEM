@@ -23,7 +23,12 @@ module CivilItemClass
 
         procedure, pass :: EarthDam_with_ground_CivilItem
         procedure, pass :: EarthDam_with_ground_CivilItem_JSON
-        generic :: EarthDam => EarthDam_with_ground_CivilItem,EarthDam_with_ground_CivilItem_JSON
+
+        procedure, pass :: EarthDam_without_ground_CivilItem
+        procedure, pass :: EarthDam_without_ground_with_channel_CivilItem
+        
+        generic :: EarthDam => EarthDam_with_ground_CivilItem,EarthDam_with_ground_CivilItem_JSON,&
+                EarthDam_without_ground_CivilItem,EarthDam_without_ground_with_channel_CivilItem
 
         procedure :: PaddyField => PaddyFieldCivilItem
         procedure :: OpenChannel => OpenChannelCivilItem
@@ -1290,6 +1295,273 @@ function EarthDam_with_ground_CivilItem_JSON(this,config) result(femdomain)
 end function
 ! ############################################
 
+! ############################################
+function EarthDam_without_ground_with_channel_CivilItem(this,&
+    height, length, angles,top_width,refine_level,&
+    channel_dist_from_center,&
+    channel_innter_width,&
+    channel_innter_depth,&
+    channel_thickness) result(dam)
+
+    class(CivilItem_),intent(in) :: this
+    real(real64),intent(in) :: height, length, top_width
+    real(real64),intent(in) :: angles(1:2)
+    integer(int32),intent(in) :: refine_level(1:3)
+    real(real64),allocatable :: x_axis(:),y_axis(:),z_axis(:),innter_x_1(:),innter_x_2(:),x_segment(:)
+    
+    real(real64),intent(in) :: channel_dist_from_center ! from -length/2 to length/2
+    real(real64),intent(in) :: channel_innter_width
+    real(real64),intent(in) :: channel_innter_depth
+    real(real64),intent(in) :: channel_thickness
+
+    real(real64) :: center_coord(1:3),h,w,a,x,y,z,xmax,ym,xm,dx,xmm,l1,l2,theta,&
+        channel_edges(6),dl,zmin,x_bar,xyz(1:3)
+    integer(int32),allocatable :: killElemList(:)
+    integer(int32) :: i,j
+    type(FEMDomain_) :: dam
+    
+    l1 = height/tan(radian(angles(1)))+top_width/2.0d0 !(-)
+    l2 = height/tan(radian(angles(2)))+top_width/2.0d0 !(+)
+
+!    innter_x_1 = [&
+!        -top_width/2.0d0 - height/tan(radian(angles(1))) ,&
+!        -top_width/2.0d0- height/tan(radian(angles(1))) + channel_innter_depth,&
+!        -top_width/2.0d0- height/tan(radian(angles(1))) + channel_innter_depth + channel_thickness ]
+!    innter_x_2 = [&
+!        top_width/2.0d0 + height/tan(radian(angles(2))) - channel_innter_depth - channel_thickness, &
+!        top_width/2.0d0 + height/tan(radian(angles(2))) - channel_innter_depth, &
+!        top_width/2.0d0 + height/tan(radian(angles(2))) ]
+    
+    innter_x_1 = [&
+        -top_width/2.0d0 - height/tan(radian(angles(1))) ]
+    innter_x_2 = [&
+        top_width/2.0d0 + height/tan(radian(angles(2))) ]
+!    if(refine_level(1)>0)then
+!        call refine(innter_x_1,refine_level(1)/2+1)
+!    endif
+!    if(refine_level(1)>0)then
+!        call refine(innter_x_2,refine_level(1)/2+1)
+!    endif
+    
+    x_axis = innter_x_1 // [&
+        -top_width/2.0d0,&
+         top_width/2.0d0 &
+          ] // innter_x_2
+    
+    y_axis = [-length/2.0d0, &
+        channel_dist_from_center - channel_innter_width/2.0d0 - channel_thickness,&
+        channel_dist_from_center - channel_innter_width/2.0d0,&
+        channel_dist_from_center - channel_innter_width/2.0d0 + channel_thickness,&
+        channel_dist_from_center + channel_innter_width/2.0d0 - channel_thickness,&
+        channel_dist_from_center + channel_innter_width/2.0d0,&
+        channel_dist_from_center + channel_innter_width/2.0d0 + channel_thickness,&
+        length/2.0d0]
+
+    z_axis = [0.0d0,&
+        height - channel_innter_depth - channel_thickness,&
+        height - channel_innter_depth ,&
+        height]
+
+    if(refine_level(1)>0 ) then
+        call refine(x_axis,refine_level(1) )
+    endif
+    if(refine_level(2)>0 ) then
+        call refine(y_axis,refine_level(2) )
+    endif
+    if(refine_level(3)>0 ) then
+        call refine(z_axis,refine_level(3) )
+    endif
+
+    call dam%create("Cube3D",x_axis=x_axis,y_axis=y_axis,z_axis=z_axis)
+    
+
+
+    channel_edges(1) = channel_dist_from_center - channel_innter_width/2.0d0 - channel_thickness
+    channel_edges(2) = channel_dist_from_center - channel_innter_width/2.0d0
+    channel_edges(3) = channel_dist_from_center - channel_innter_width/2.0d0 + channel_thickness+0.00010d0
+    channel_edges(4) = channel_dist_from_center + channel_innter_width/2.0d0 - channel_thickness-0.00010d0
+    channel_edges(5) = channel_dist_from_center + channel_innter_width/2.0d0
+    channel_edges(6) = channel_dist_from_center + channel_innter_width/2.0d0 + channel_thickness
+
+    do i=1,size(dam%mesh%nodcoord,1)
+        x = dam%mesh%nodcoord(i,1)
+        y = dam%mesh%nodcoord(i,2)
+        z = dam%mesh%nodcoord(i,3)
+        
+        if(z > height - channel_innter_depth )then
+            !if(x>0)then
+            !    dl = channel_innter_depth - channel_thickness  
+            !else
+            !    dl = channel_innter_depth - channel_thickness  
+            !endif
+            theta = (height)/height
+        else
+            !dl = 0
+            theta = (z + channel_innter_depth) /height
+        endif
+        dl = 0
+        theta = (z) /height
+
+        !if(x > top_width/2.0d0+height/tan(radian(angles(2))) - channel_innter_depth-channel_thickness  ) then
+        !    theta = z/height
+        !    
+        !    ! theta = 0 -> Lx = Lx
+        !    ! theta = 1 => Lx = top_width/2
+        !    x = abs((top_width/2.0d0 - l2)*theta + l2)*x/l2
+        !    dam%mesh%nodcoord(i,1) = x
+        !    cycle
+        !endif
+        !if(x < -top_width/2.0d0-height/tan(radian(angles(1))) + channel_innter_depth+channel_thickness  ) cycle
+        
+        
+        if(x>0.0d0)then
+            ! theta_0 = 0 => x_0 = l2
+            ! theta_1 = 1 => x_1 = top_width/2
+            x = abs((top_width/2.0d0 -dl - l2)*theta + l2)*x/l2
+        else
+            ! theta_0 = 0 => x_0 = -l1
+            ! theta_1 = 1 => x_1 = -top_width/2
+            x = abs((top_width/2.0d0 -dl - l1)*theta + l1)*x/l1
+        endif
+        
+        
+        dam%mesh%nodcoord(i,1) = x
+
+        
+    
+    enddo
+
+
+    ! remove element on channel
+    killElemList = int(zeros(dam%ne()))
+    do i=1,dam%ne()
+        xyz = dam%centerPosition(i)
+        x = xyz(1)
+        y = xyz(2)
+        z = xyz(3)
+
+        if(  x < top_width/2.0d0 )then
+            zmin = height-channel_innter_depth
+        else
+            x_bar = (x - top_width/2.0d0)/L2
+            L2    = height/tan(radian(angles(1)))
+            ! x_bar = 0 => z_min = height-channel_innter_depth
+            ! x_bar = 1 => z_min = -channel_innter_depth
+            zmin = abs(    (height)*x_bar -  (height-channel_innter_depth)  ) 
+        endif
+
+        if( channel_edges(3)<= y .and. y <= channel_edges(4) )then
+            if(z >= zmin)then
+                killElemList(i)=1.0d0
+            endif
+        endif
+    enddo
+
+    call dam%killElement(killElemList,flag=1)
+    
+
+
+    ! create channel
+    !killElemList = zeros(dam%ne() )
+    !killElemList(dam%getElementList(&
+    !    ymin = channel_edges(3),&
+    !    ymax = channel_edges(4),&
+    !    zmin = height-channel_innter_depth &
+    !    )) = 1
+    !
+    !call dam%killElement(killElemList,1)
+    allocate(dam%PhysicalField(2))
+    dam%PhysicalField(1)%name = "Soil is 0, Concrete is 1"
+    
+
+    dam%PhysicalField(1)%scalar = int(zeros(dam%ne()))
+    do i=1,dam%ne()
+        xyz = dam%centerPosition(i)
+        x = xyz(1)
+        y = xyz(2)
+        z = xyz(3)
+
+        if(  x < top_width/2.0d0 )then
+            zmin = height-channel_innter_depth
+        else
+            x_bar = (x - top_width/2.0d0)/L2
+            L2    = height/tan(radian(angles(1)))
+            ! x_bar = 0 => z_min = height-channel_innter_depth
+            ! x_bar = 1 => z_min = -channel_innter_depth
+            zmin = abs(    (height)*x_bar -  (height-channel_innter_depth)  ) 
+        endif
+
+        if( channel_edges(1)<= y .and. y <= channel_edges(6) )then
+            if(z >= zmin)then
+                dam%PhysicalField(1)%scalar(i) =1
+            endif
+        endif
+    enddo
+        
+    
+    
+end function
+! ######################################################
+
+
+! ############################################
+function EarthDam_without_ground_CivilItem(this, height, length, angles,top_width,refine_level) result(dam)
+    class(CivilItem_),intent(in) :: this
+    real(real64),intent(in) :: height, length, top_width
+    real(real64),intent(in) :: angles(1:2)
+    integer(int32),intent(in) :: refine_level(1:3)
+    real(real64),allocatable :: x_axis(:),y_axis(:),z_axis(:)
+    
+    real(real64) :: center_coord(1:3),h,w,a,x,y,z,xmax,ym,xm,dx,xmm,l1,l2,theta
+    integer(int32),allocatable :: killElemList(:)
+    integer(int32) :: i,j
+    type(FEMDomain_) :: dam
+    
+    l1 = height/tan(radian(angles(1)))+top_width/2.0d0
+    l2 = height/tan(radian(angles(2)))+top_width/2.0d0
+
+    x_axis = [ - height/tan(radian(angles(1)))-top_width/2.0d0 ,&
+        -top_width/2.0d0,top_width/2.0d0,top_width/2.0d0+height/tan(radian(angles(2))) ]
+    y_axis = [-length/2.0d0,length/2.0d0]
+    z_axis = [0.0d0, height]
+
+    if(refine_level(1)>0 ) then
+        call refine(x_axis,refine_level(1) )
+    endif
+    if(refine_level(2)>0 ) then
+        call refine(y_axis,refine_level(2) )
+    endif
+    if(refine_level(3)>0 ) then
+        call refine(z_axis,refine_level(3) )
+    endif
+
+    call dam%create("Cube3D",x_axis=x_axis,y_axis=y_axis,z_axis=z_axis)
+    
+    do i=1,size(dam%mesh%nodcoord,1)
+        x = dam%mesh%nodcoord(i,1)
+        y = dam%mesh%nodcoord(i,2)
+        z = dam%mesh%nodcoord(i,3)
+        
+        
+        theta = z/height
+        if(x>0.0d0)then
+            ! theta_0 = 0 => x_0 = l2
+            ! theta_1 = 1 => x_1 = top_width/2
+            x = abs((top_width/2.0d0 - l2)*theta + l2)*x/l2
+        else
+            ! theta_0 = 0 => x_0 = -l1
+            ! theta_1 = 1 => x_1 = -top_width/2
+            x = abs((top_width/2.0d0 - l1)*theta + l1)*x/l1
+        endif
+        
+        
+        dam%mesh%nodcoord(i,1) = x
+    
+    enddo
+
+
+    
+end function
 
 ! ############################################
 function EarthDam_with_ground_CivilItem(this, height, length, width, depth, margin,angles,top_width,refine_level,&
@@ -1913,6 +2185,8 @@ function BoxCulvertCivilItem(this,width,height,length,&
         enddo
         call culvert%killElement(blacklist=killElemList,flag=1)
     endif
+
+    
 
 
 end function

@@ -530,6 +530,12 @@ echo " | =========================> |  (99%)\r\c"
 mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/RiceClass/RiceClass.f90 -o  ./inc/RiceClass.o
 
 
+echo "Compiling ./src/WheatClass/WheatClass.f90" 
+echo " >> WheatClass.o "
+echo " | =========================> |  (99%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/WheatClass/WheatClass.f90 -o  ./inc/WheatClass.o
+
+
 echo "Compiling ./src/ArabidopsisClass/ArabidopsisClass.f90" 
 echo " >> ArabidopsisClass.o "
 echo " | =========================> |  (99%)\r\c"

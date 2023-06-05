@@ -1078,8 +1078,6 @@ if(size(this%ep_domain)==1 )then
     endif
 
 
-    !$OMP parallel 
-    !$OMP do
     do ElementID = 1, this%ep_domain(1)%femdomain%ne()
         call this%femsolver%setMatrix(DomainID=1,ElementID=ElementID,DOF=3,&
             Matrix=this%ep_domain(1)%femdomain%StiffnessMatrix(ElementID=ElementID,&
@@ -1094,8 +1092,6 @@ if(size(this%ep_domain)==1 )then
                 ) &    
             )
     enddo
-    !$OMP end do
-    !$OMP end parallel
     call this%femsolver%fix(DomainID=1,IDs=fix_node_list_x*3-2,FixValues=fix_value_list_x)
     call this%femsolver%fix(DomainID=1,IDs=fix_node_list_y*3-1,FixValues=fix_value_list_y)
     call this%femsolver%fix(DomainID=1,IDs=fix_node_list_z*3-0,FixValues=fix_value_list_z)

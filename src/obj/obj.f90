@@ -29,6 +29,7 @@ module obj
     use SoybeanClass
     use ArabidopsisClass
     use RiceClass
+    use WheatClass
     
     use MaizeClass
     use GrapeClass
