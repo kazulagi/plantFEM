@@ -7,12 +7,11 @@ module PanicleClass
     implicit none
 
     type  :: panicle_config_ 
-        real(real64) :: seed_interval = 3.0d0/1000.0d0 ! 3 mm 
-        real(real64) :: seed_branch_length = 3.0d0/1000.0d0 ! 2 mm 
-        real(real64) :: seed_length = 6.0d0/1000.0d0 ! 2 mm 
-        real(real64) :: seed_width = 4.0d0/1000.0d0 ! 2 mm 
-        real(real64) :: seed_thickness = 2.0d0/1000.0d0 ! 2 mm 
-        integer(int32) :: seed_division(1:3)=[3,3,3]
+        integer(int32) :: num_seed_column         = 30
+        real(real64) :: panicle_seed_interval   = 1.0d0/1000.0d0
+        real(real64) :: panicle_seed_diameter   = 5.0d0/1000.0d0
+        real(real64) :: panicle_seed_length     = 10.0d0/1000.0d0
+        real(real64) :: panicle_panicle_diameter     = 1.0d0/1000.0d0
     end type
 
     type :: Panicle_
@@ -21,7 +20,7 @@ module PanicleClass
         type(Stem_),pointer ::  pStem
         integer(int32) :: division(1:3) = [5,5,5] ! for maize
         integer(int32) :: rice_seed_division(1:3) = [3,3,3] ! for rice
-        integer(int32) :: wheat_seed_division(1:3) = [3,3,3] ! for rice
+        integer(int32) :: wheat_seed_division(1:3) = [2,2,2] ! for rice
 
 
         integer(int32),allocatable  :: I_planeNodeID(:)
@@ -69,22 +68,23 @@ module PanicleClass
 contains
 
 
-function to_panicle_config(seed_interval,seed_branch_length,seed_length,&
-    seed_width,seed_thickness,seed_division) result(this)
+function to_panicle_config(num_seed_column,panicle_seed_interval,&
+    panicle_seed_diameter,panicle_seed_length,panicle_panicle_diameter) result(this)
     type(panicle_config_) :: this
-    real(real64) ,intent(in):: seed_interval
-    real(real64) ,intent(in):: seed_branch_length
-    real(real64) ,intent(in):: seed_length
-    real(real64) ,intent(in):: seed_width
-    real(real64) ,intent(in):: seed_thickness
-    integer(int32) ,intent(in):: seed_division(1:3)
+    
 
-    this%seed_interval      = seed_interval
-    this%seed_branch_length = seed_branch_length
-    this%seed_length        = seed_length
-    this%seed_width         = seed_width
-    this%seed_thickness     = seed_thickness
-    this%seed_division      = seed_division
+    integer(int32),intent(in) :: num_seed_column      
+    real(real64) ,intent(in)  :: panicle_seed_interval  
+    real(real64) ,intent(in)  :: panicle_seed_diameter  
+    real(real64) ,intent(in)  :: panicle_seed_length    
+    real(real64) ,intent(in)  :: panicle_panicle_diameter  
+
+    this%num_seed_column = num_seed_column
+    this%panicle_seed_interval = panicle_seed_interval
+    this%panicle_seed_diameter = panicle_seed_diameter
+    this%panicle_seed_length = panicle_seed_length
+    this%panicle_panicle_diameter = panicle_panicle_diameter
+    
 
 
 end function
@@ -398,220 +398,19 @@ recursive subroutine initPanicle(this,Length,Width,Node,shape_factor,debug,x_num
             print *, "ERROR :: [Panicle%init for wheat], panicle_config should be present. "
             stop
         endif
-
-        seed_interval  = panicle_config%seed_interval
-        seed_branch_length = panicle_config%seed_branch_length
-        seed_length    = panicle_config%seed_length
-        seed_width     = panicle_config%seed_width
-        seed_thickness = panicle_config%seed_thickness
-        panicle_curvature =100000.0d0
-
         
-        this%wheat_seed_division = panicle_config%seed_division
-        
-        nx = this%wheat_seed_division(1)
-        ny = this%wheat_seed_division(2)
-        nz = this%wheat_seed_division(3)    
-        
-        
-        
-
-        call femdomain%create(meshtype="Cube3D",x_num=x_num,y_num=y_num,z_num=z_num)
-        call femdomain%resize(x=Width,y=width,z=Length)
-
-
-        call seed%create(meshtype="Cube3D",x_num=nx,y_num=ny,z_num=nz)
-
-        call seed%resize(x=seed_width,y=seed_thickness,z=seed_length)
-        center = seed%centerPosition()
-        call seed%move(x=-center(1),y=-center(2),z=-seed%zmin())
-        do i=1,seed%nn()
-            x = seed%mesh%nodcoord(i,1)
-            y = seed%mesh%nodcoord(i,2)
-            z = seed%mesh%nodcoord(i,3)
-            alpha = z/seed%zmax()
-            theta = 1.00d0 - abs(alpha-0.50d0)
-            seed%mesh%nodcoord(i,1) = x*theta
-        enddo
-
-
-        seed_joint = zeros(0)
-        num_seed = int(Length/seed_interval)
-
-
-        nodcoord = zeros( num_seed * 4, 3 )
-        elemnod  = int(zeros( num_seed , FEMDomain%nne() ))
-        allocate(seeds(num_seed) )
-        do i=1,num_seed
-            do 
-                elem_idx = random%randint(From=1,To=femdomain%ne())
-            
-                n1 = FEMDomain%mesh%elemnod(elem_idx,1)
-                n2 = FEMDomain%mesh%elemnod(elem_idx,2)
-                n3 = FEMDomain%mesh%elemnod(elem_idx,3)
-                n4 = FEMDomain%mesh%elemnod(elem_idx,4)
-                x1 = FEMDomain%mesh%nodcoord(n2,:) - FEMDomain%mesh%nodcoord(n1,:)
-                x2 = FEMDomain%mesh%nodcoord(n4,:) - FEMDomain%mesh%nodcoord(n1,:)
-            
-
-            
-                case_id = 0
-                if(minval( FEMDomain%mesh%nodcoord([n1,n2,n3,n4],1) )== FEMDomain%xmin() )then
-                    if(minval( FEMDomain%mesh%nodcoord([n1,n2,n3,n4],2) )== FEMDomain%ymin() )then
-                        case_id = 1 
-                    elseif(maxval( FEMDomain%mesh%nodcoord([n1,n2,n3,n4],2) )== FEMDomain%ymax() )then
-                        case_id = 2
-                    endif
-                
-                elseif(maxval( FEMDomain%mesh%nodcoord([n1,n2,n3,n4],1) )== FEMDomain%xmax() )then
-                    if(minval( FEMDomain%mesh%nodcoord([n1,n2,n3,n4],2) )== FEMDomain%ymin() )then
-                        case_id = 4
-                    elseif(maxval( FEMDomain%mesh%nodcoord([n1,n2,n3,n4],2) )== FEMDomain%ymax() )then
-                        case_id = 3 
-                    endif
-                endif
-                if(case_id /=0)exit
-            enddo
-            seed_joint = seed_joint // [elem_idx]
-            select case(case_id)
-                case(1)
-                    !x-min and y_min
-                    node_list = [4, 1, 5, 8]
-                case(2)
-                    !x-min and y_max
-                    node_list = [3, 4, 8, 7]
-                case(4)
-                    !x-max and y_min 
-                    node_list = [1, 2, 6, 5]
-                case(3)
-                    !x-max and y_max
-                    node_list = [2, 3, 7, 6]
-            end select
-        
-            n1 = FEMDomain%mesh%elemnod(elem_idx,node_list(1) )
-            n2 = FEMDomain%mesh%elemnod(elem_idx,node_list(2) )
-            n3 = FEMDomain%mesh%elemnod(elem_idx,node_list(3) )
-            n4 = FEMDomain%mesh%elemnod(elem_idx,node_list(4) )
-        
-            x1 = FEMDomain%mesh%nodcoord(n2,:) - FEMDomain%mesh%nodcoord(n1,:)
-            x2 = FEMDomain%mesh%nodcoord(n4,:) - FEMDomain%mesh%nodcoord(n1,:)
-            normal_vector = cross_product(x1,x2)
-            normal_vector = normal_vector/norm(normal_vector)
-            nodcoord( 4*i -3, 1:3 ) = seed_branch_length*normal_vector &
-                + FEMDomain%mesh%nodcoord(FEMDomain%mesh%elemnod(elem_idx,node_list(1)),:)
-            nodcoord( 4*i -2, 1:3 ) = seed_branch_length*normal_vector &
-                + FEMDomain%mesh%nodcoord(FEMDomain%mesh%elemnod(elem_idx,node_list(2)),:)
-            nodcoord( 4*i -1, 1:3 ) = seed_branch_length*normal_vector &
-                + FEMDomain%mesh%nodcoord(FEMDomain%mesh%elemnod(elem_idx,node_list(3)),:)
-            nodcoord( 4*i -0, 1:3 ) = seed_branch_length*normal_vector &
-                + FEMDomain%mesh%nodcoord(FEMDomain%mesh%elemnod(elem_idx,node_list(4)),:)
-            elemnod(i,1:4) = FEMDomain%mesh%elemnod(elem_idx,node_list(1:4))
-            elemnod(i,5:8) =[ 4*i-3, 4*i-2, 4*i-1, 4*i-0 ] + femdomain%nn()
-        
-            ! 果梗と子実をがっちゃんこ
-            ! seedの5要素目，1234番
-            seeds(i)  = seed
-            dx = sum(nodcoord( 4*i -3:4*i,1 ))/4.0d0
-            dy = sum(nodcoord( 4*i -3:4*i,2 ))/4.0d0
-            dz = sum(nodcoord( 4*i -3:4*i,3 ))/4.0d0 + seed_branch_length
-            call seeds(i)%move(x=dx,y=dy,z=dz)
-            call seeds(i)%rotate(z=math%pi/2.0d0*dble(case_id) )
-
-            select case(case_id)
-            case(1)
-                !x-min and y_min
-
-                nodcoord( 4*i -3, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),3),:)
-                nodcoord( 4*i -2, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),4),:)
-                nodcoord( 4*i -1, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),1),:)
-                nodcoord( 4*i -0, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),2),:)
-            case(2)
-                !x-min and y_max
-                ![ok]
-                nodcoord( 4*i -3, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),1),:)
-                nodcoord( 4*i -2, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),2),:)
-                nodcoord( 4*i -1, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),3),:)
-                nodcoord( 4*i -0, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),4),:)
-            case(4)
-                !x-max and y_min 
-                ![ok]
-                nodcoord( 4*i -3, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),1),:)
-                nodcoord( 4*i -2, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),2),:)
-                nodcoord( 4*i -1, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),3),:)
-                nodcoord( 4*i -0, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),4),:)
-            case(3)
-                !x-max and y_max
-                !
-                nodcoord( 4*i -3, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),3),:)
-                nodcoord( 4*i -2, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),4),:)
-                nodcoord( 4*i -1, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),1),:)
-                nodcoord( 4*i -0, 1:3 ) = seeds(i)%mesh%nodcoord(seeds(i)%mesh%elemnod( int(dble(nx*ny)/2.0d0),2),:)
-            end select
-
-        enddo
-
-
-        FEMDomain%mesh%nodcoord = FEMDomain%mesh%nodcoord // nodcoord
-        FEMDomain%mesh%elemnod  = FEMDomain%mesh%elemnod // elemnod
-
-        do i=1,size(seeds)
-            seeds(i)%mesh%elemnod = seeds(i)%mesh%elemnod + femdomain%nn()
-            femdomain%mesh%nodcoord = femdomain%mesh%nodcoord // seeds(i)%mesh%nodcoord
-            femdomain%mesh%elemnod = femdomain%mesh%elemnod // seeds(i)%mesh%elemnod
-        enddo
-
-
-
-        ! remove duplicate nodes
-        call femdomain%Deduplicate(error=dble(1.0e-8))
-        
-
-        ! bend
-        z_max = femdomain%zmax()
-        call femdomain%move(x=panicle_curvature)
-        do i=1,femdomain%nn()
-            x = femdomain%mesh%nodcoord(i,1)
-            z = femdomain%mesh%nodcoord(i,3)
-            r = x
-            theta = z/panicle_curvature
-            femdomain%mesh%nodcoord(i,1) = r*cos(theta)
-            femdomain%mesh%nodcoord(i,3) = r*sin(theta)
-        
-        enddo
-        
-        call femdomain%move(x=-panicle_curvature)
-        theta = random%gauss(mu=0.0d0,sigma=math%pi/4.0d0)
-        call femdomain%rotate(z=theta )
-        dx = femdomain%mesh%nodcoord(1,1)
-        dy = femdomain%mesh%nodcoord(1,2)
-        dz = femdomain%mesh%nodcoord(1,3)
-        call femdomain%move(x=-dx,y=-dy,z=-dz ) 
+        femdomain = to_wheat_panicle_mesh(&
+            num_seed_column         = 30,&
+            panicle_seed_interval   = 1.0d0/1000.0d0,&
+            panicle_seed_diameter   = 5.0d0/1000.0d0,&
+            panicle_seed_length     = 10.0d0/1000.0d0,&
+            panicle_panicle_diameter     = 1.0d0/1000.0d0&
+        )
         this%femdomain = femdomain
-
+        
         this%A_PointNodeID = this%FEMDomain%getNearestNodeID(x=0.0d0,y=0.0d0,z=0.0d0)
         this%B_PointNodeID = this%FEMDomain%getNearestNodeID(x=0.0d0,y=0.0d0,z=Length)
-        
-        ! branch exists
-        !if(present(rice_panicle_branch_num) )then
-        !    allocate(branch_panicle(rice_panicle_branch_num) )
-        !    ! create branches
-        !    do i=1,rice_panicle_branch_num
-        !        
-        !        call branch_panicle(i)%init(&
-        !            Length=Length,Width=Width,x_num=x_num,y_num=y_num,z_num=z_num,&
-        !            rice=.true.,&
-        !            rice_seed_interval= rice_seed_interval ,&
-        !            rice_seed_branch_length= rice_seed_branch_length ,&
-        !            rice_seed_length= rice_seed_length ,&
-        !            rice_seed_width= rice_seed_width ,&
-        !            rice_seed_thickness= rice_seed_thickness ,&
-        !            rice_panicle_curvature= rice_panicle_curvature ,&
-        !            rice_seed_division= rice_seed_division  )
-        !        
-        !    enddo
-        !endif
 
-        
         return
     elseif(Arabidopsis_mode)then
         print *, "No Arabidopsis-mode is implemented for Panicle"
@@ -1032,5 +831,335 @@ subroutine removePanicle(this)
 end subroutine
 
 
+! ################################################################
+
+function to_wheat_panicle_mesh(num_seed_column,panicle_seed_interval,panicle_seed_diameter,&
+    panicle_seed_length,panicle_panicle_diameter,seed_angle,&
+    culm_length,culm_diameter,culm_division,heights_vs_diameters) result(output_d)
+    type(FEMDomain_) :: output_d
+    type(Mesh_) :: wheat, culm
+    ! args
+    integer(int32),intent(in) :: num_seed_column
+    real(real64)  ,intent(in) :: panicle_seed_interval
+    real(real64)  ,intent(in) :: panicle_seed_diameter
+    real(real64)  ,intent(in) :: panicle_seed_length
+    real(real64)  ,intent(in) :: panicle_panicle_diameter
+    
+    real(real64)  ,optional,intent(in) :: seed_angle
+    ! for culm
+    real(real64)  ,optional,intent(in) :: culm_diameter
+    real(real64)  ,optional,intent(in) :: heights_vs_diameters(:,:)
+    real(real64)  ,optional,intent(in) :: culm_length
+    integer(int32)  ,optional,intent(in) :: culm_division
+
+
+    integer(int32) :: i, j, itr,tot_nod_num
+    real(real64)   :: center(1:3) ,dz,dx,dy,z0
+    real(real64)   :: dtheta,rotmat_z(3,3),theta
+    real(real64),allocatable :: hvd(:,:)
+    
+
+    if(present(seed_angle) )then
+        theta = radian(seed_angle)
+    else
+        theta = radian(45.0d0)
+    endif
+    
+    wheat%nodcoord = zeros(num_seed_column*28,3)
+    wheat%elemnod  = int(zeros( num_seed_column*6 ,8  ) )
+    center(:) = 0.0d0
+
+itr = 0
+do i=1,num_seed_column
+    z0 = center(3)
+    ! stem
+    wheat%nodcoord(itr+1,1:3) = &
+        [ - panicle_panicle_diameter*0.50d0, - panicle_panicle_diameter*0.50d0, center(3) ]
+    wheat%nodcoord(itr+2,1:3) = &
+        [   panicle_panicle_diameter*0.50d0, - panicle_panicle_diameter*0.50d0, center(3) ]
+    wheat%nodcoord(itr+3,1:3) = &
+        [   panicle_panicle_diameter*0.50d0,   panicle_panicle_diameter*0.50d0, center(3) ]
+    wheat%nodcoord(itr+4,1:3) = &
+        [ - panicle_panicle_diameter*0.50d0,   panicle_panicle_diameter*0.50d0, center(3) ]
+    
+    dz = panicle_seed_interval
+    wheat%nodcoord(itr+5,1:3) = &
+        [ - panicle_panicle_diameter*0.50d0, - panicle_panicle_diameter*0.50d0,center(3)+dz ]
+    wheat%nodcoord(itr+6,1:3) = &
+        [   panicle_panicle_diameter*0.50d0, - panicle_panicle_diameter*0.50d0,center(3)+dz ]
+    wheat%nodcoord(itr+7,1:3) = &
+        [   panicle_panicle_diameter*0.50d0,   panicle_panicle_diameter*0.50d0,center(3)+dz ]
+    wheat%nodcoord(itr+8,1:3) = &
+        [ - panicle_panicle_diameter*0.50d0,   panicle_panicle_diameter*0.50d0,center(3)+dz ]
+    
+
+    ! right seed
+    itr = itr + 8
+
+    dz = panicle_seed_diameter*0.50d0
+    dy = panicle_seed_diameter*0.50d0
+
+    wheat%nodcoord(itr+1,1:3) = &
+        [ panicle_seed_length*0.50d0*cos(theta),&
+         - panicle_panicle_diameter*0.50d0 - dy,&
+         panicle_seed_length*0.50d0*sin(theta)- panicle_panicle_diameter*0.50d0 - dz+z0]
+    wheat%nodcoord(itr+2,1:3) = &
+        [ panicle_seed_length*0.50d0*cos(theta),&
+        - panicle_panicle_diameter*0.50d0 - dy,&
+        panicle_seed_length*0.50d0*sin(theta)+ panicle_panicle_diameter*0.50d0 + dz+z0] 
+    wheat%nodcoord(itr+3,1:3) = &
+        [ panicle_seed_length*0.50d0*cos(theta),&
+         panicle_panicle_diameter*0.50d0 + dy,&
+        panicle_seed_length*0.50d0*sin(theta)+ panicle_panicle_diameter*0.50d0 + dz+z0]
+    wheat%nodcoord(itr+4,1:3) = &
+        [ panicle_seed_length*0.50d0*cos(theta),&
+         panicle_panicle_diameter*0.50d0 + dy,&
+        panicle_seed_length*0.50d0*sin(theta)- panicle_panicle_diameter*0.50d0  - dz+z0]
+    
+    wheat%nodcoord(itr+5,1:3) = &
+        [ panicle_seed_length*cos(theta),&
+        - panicle_panicle_diameter*0.50d0 ,&
+         panicle_seed_length*sin(theta)- panicle_panicle_diameter*0.50d0 +z0]
+    wheat%nodcoord(itr+6,1:3) = &
+        [ panicle_seed_length*cos(theta),&
+        - panicle_panicle_diameter*0.50d0 ,&
+        panicle_seed_length*sin(theta)+ panicle_panicle_diameter*0.50d0 +z0] 
+    wheat%nodcoord(itr+7,1:3) = &
+        [ panicle_seed_length*cos(theta),&
+         panicle_panicle_diameter*0.50d0 ,&
+        panicle_seed_length*sin(theta)+ panicle_panicle_diameter*0.50d0 +z0]
+    wheat%nodcoord(itr+8,1:3) = &
+        [ panicle_seed_length*cos(theta),&
+         panicle_panicle_diameter*0.50d0 ,&
+        panicle_seed_length*sin(theta)- panicle_panicle_diameter*0.50d0 +z0]
+    
+
+    ! stem
+    itr = itr + 8
+    dz = panicle_seed_interval
+    wheat%nodcoord(itr+1,1:3) = &
+        [ - panicle_panicle_diameter*0.50d0, - panicle_panicle_diameter*0.50d0,center(3) +2*dz]
+    wheat%nodcoord(itr+2,1:3) = &
+        [   panicle_panicle_diameter*0.50d0, - panicle_panicle_diameter*0.50d0,center(3) +2*dz]
+    wheat%nodcoord(itr+3,1:3) = &
+        [   panicle_panicle_diameter*0.50d0,   panicle_panicle_diameter*0.50d0,center(3) +2*dz]
+    wheat%nodcoord(itr+4,1:3) = &
+        [ - panicle_panicle_diameter*0.50d0,   panicle_panicle_diameter*0.50d0,center(3) +2*dz]
+    
+    
+    
+    ! left seed
+    itr = itr + 4
+    z0 = center(3) + panicle_seed_interval
+
+    wheat%nodcoord(itr+1,1:3) = &
+        [ -panicle_seed_length*0.50d0*cos(theta),&
+         - panicle_panicle_diameter*0.50d0 - dy,&
+         panicle_seed_length*0.50d0*sin(theta)- panicle_panicle_diameter*0.50d0 - dz+z0]
+    wheat%nodcoord(itr+2,1:3) = &
+        [ -panicle_seed_length*0.50d0*cos(theta),&
+        - panicle_panicle_diameter*0.50d0 - dy,&
+        panicle_seed_length*0.50d0*sin(theta)+ panicle_panicle_diameter*0.50d0 + dz+z0] 
+    wheat%nodcoord(itr+3,1:3) = &
+        [ -panicle_seed_length*0.50d0*cos(theta),&
+         panicle_panicle_diameter*0.50d0 + dy,&
+        panicle_seed_length*0.50d0*sin(theta)+ panicle_panicle_diameter*0.50d0 + dz+z0]
+    wheat%nodcoord(itr+4,1:3) = &
+        [ -panicle_seed_length*0.50d0*cos(theta),&
+         panicle_panicle_diameter*0.50d0 + dy,&
+        panicle_seed_length*0.50d0*sin(theta)- panicle_panicle_diameter*0.50d0 - dz+z0]
+    
+    wheat%nodcoord(itr+5,1:3) = &
+        [ -panicle_seed_length*cos(theta),&
+        - panicle_panicle_diameter*0.50d0 ,&
+         panicle_seed_length*sin(theta)- panicle_panicle_diameter*0.50d0 +z0]
+    wheat%nodcoord(itr+6,1:3) = &
+        [ -panicle_seed_length*cos(theta),&
+        - panicle_panicle_diameter*0.50d0 ,&
+        panicle_seed_length*sin(theta)+ panicle_panicle_diameter*0.50d0 +z0] 
+    wheat%nodcoord(itr+7,1:3) = &
+        [ -panicle_seed_length*cos(theta),&
+         panicle_panicle_diameter*0.50d0 ,&
+        panicle_seed_length*sin(theta)+ panicle_panicle_diameter*0.50d0 +z0]
+    wheat%nodcoord(itr+8,1:3) = &
+        [ -panicle_seed_length*cos(theta),&
+         panicle_panicle_diameter*0.50d0 ,&
+        panicle_seed_length*sin(theta)- panicle_panicle_diameter*0.50d0 +z0]
+    center(3) = center(3) + 2*dz
+    itr = itr + 8
+
+    dtheta = radian(90.0d0)
+    rotmat_z(1,1)=cos(dtheta*(i-1) )	;rotmat_z(1,2)=-sin(dtheta*(i-1) )	;rotmat_z(1,3)=0.0d0		;
+	rotmat_z(2,1)=sin(dtheta*(i-1) )	;rotmat_z(2,2)=cos( dtheta*(i-1) )		;rotmat_z(2,3)=0.0d0		;
+	rotmat_z(3,1)=0.0d0	;rotmat_z(3,2)=0.0d0		;rotmat_z(3,3)=1.0d0 		;	
+    do j=itr-27,itr
+        wheat%nodcoord(j,1:3) = matmul(rotmat_z, wheat%nodcoord(j,1:3) )
+    enddo
+    if(i>2)then
+        wheat%nodcoord(itr-27,1:3) = wheat%nodcoord(itr-27-28,1:3) 
+        wheat%nodcoord(itr-26,1:3) = wheat%nodcoord(itr-26-28,1:3) 
+        wheat%nodcoord(itr-25,1:3) = wheat%nodcoord(itr-25-28,1:3) 
+        wheat%nodcoord(itr-24,1:3) = wheat%nodcoord(itr-24-28,1:3) 
+    endif
+enddo
+
+! connectivity
+itr =  0
+tot_nod_num=0
+do i=1,num_seed_column
+    ! stem
+    wheat%elemnod(itr + 1,:) = [&
+        tot_nod_num+1,tot_nod_num+2,tot_nod_num+3,tot_nod_num+4,&
+        tot_nod_num+5,tot_nod_num+6,tot_nod_num+7,tot_nod_num+8]
+    ! seed
+    wheat%elemnod(itr + 2,:) = [&
+        tot_nod_num+2,tot_nod_num+8+1,tot_nod_num+8+4,tot_nod_num+3,&
+        tot_nod_num+6,tot_nod_num+8+2,tot_nod_num+8+3,tot_nod_num+7 ]
+    ! seed
+    wheat%elemnod(itr + 3,:) = [&
+        tot_nod_num+8+1,tot_nod_num+8+4+1,tot_nod_num+8+4+4,tot_nod_num+8+4,&
+        tot_nod_num+8+2,tot_nod_num+8+4+2,tot_nod_num+8+4+3,tot_nod_num+8+3 ]
+    
+    
+    ! stem 
+    
+    wheat%elemnod(itr + 4,:) = [&
+        tot_nod_num+5,tot_nod_num+6,tot_nod_num+7,tot_nod_num+8,&
+        tot_nod_num+4*4+1,tot_nod_num+4*4+2,tot_nod_num+4*4+3,tot_nod_num+4*4+4 ]
+    ! seed
+    wheat%elemnod(itr + 5,:) = [&
+        tot_nod_num+4*5+1,tot_nod_num+5,tot_nod_num+8,tot_nod_num+4*5+4,&
+        tot_nod_num+4*5+2,tot_nod_num+4*4+1,tot_nod_num+4*4+4,tot_nod_num+4*5+3 ]
+    
+    wheat%elemnod(itr + 6,:) = [&
+        tot_nod_num+4*6+1,tot_nod_num+4*5+1,tot_nod_num+4*5+4,tot_nod_num+4*6+4,&
+        tot_nod_num+4*6+2,tot_nod_num+4*5+2,tot_nod_num+4*5+3,tot_nod_num+4*6+3 ]
+    itr = itr + 6
+    tot_nod_num = tot_nod_num + 28
+enddo
+output_d%mesh = wheat
+call output_d%Deduplicate(error=dble(1.0e-8))
+
+if(present(culm_length) )then
+    if( present(heights_vs_diameters) )then
+        ! create culm
+        wheat = output_d%mesh
+        culm%nodcoord = zeros(culm_division*4,3)
+        culm%elemnod  = int(zeros(culm_division,8) )
+        itr = 0
+        hvd = heights_vs_diameters .n. [ culm_length, panicle_panicle_diameter ] 
+        
+        do i=1,culm_division
+            theta = dble(i)/dble(culm_division)
+
+            !dx = culm_diameter*0.50d0*theta &
+            !    + panicle_panicle_diameter*0.50d0*(1.0d0-theta)
+            !dy = culm_diameter*0.50d0*theta &
+            !    + panicle_panicle_diameter*0.50d0*(1.0d0-theta)
+            dx = 0.50d0*to_culm_diameter(heights_vs_diameters=hvd,height=(1.0d0-theta)*culm_length)
+            dy = dx
+            
+            z0 = -theta*culm_length
+            culm%nodcoord(itr+1,1:3) = [-dx,-dy,z0 ]
+            culm%nodcoord(itr+2,1:3) = [ dx,-dy,z0 ]
+            culm%nodcoord(itr+3,1:3) = [ dx, dy,z0 ]
+            culm%nodcoord(itr+4,1:3) = [-dx, dy,z0 ]
+            itr = itr + 4
+        enddo
+
+        itr = output_d%nn()
+        culm%elemnod(1,1:8) = &
+        [itr+1,itr+2,itr+3,itr+4,1,2,3,4]
+
+        do i=2,culm_division
+
+            culm%elemnod(i,1:8) = &
+                [itr+1,itr+2,itr+3,itr+4,itr+1-4,itr+2-4,itr+3-4,itr+4-4]
+            itr = itr + 4
+        enddo
+
+        wheat%nodcoord = wheat%nodcoord .v. culm%nodcoord
+        wheat%elemnod = wheat%elemnod .v. culm%elemnod
+
+        output_d%mesh = wheat
+        call output_d%move(z=-output_d%zmin() )
+    elseif( present(culm_diameter) )then
+        ! create culm
+        wheat = output_d%mesh
+        culm%nodcoord = zeros(culm_division*4,3)
+        culm%elemnod  = int(zeros(culm_division,8) )
+        itr = 0
+        
+        do i=1,culm_division
+            theta = dble(i)/dble(culm_division)
+            dx = culm_diameter*0.50d0*theta &
+                + panicle_panicle_diameter*0.50d0*(1.0d0-theta)
+            dy = culm_diameter*0.50d0*theta &
+                + panicle_panicle_diameter*0.50d0*(1.0d0-theta)
+            z0 = -theta*culm_length
+            culm%nodcoord(itr+1,1:3) = [-dx,-dy,z0 ]
+            culm%nodcoord(itr+2,1:3) = [ dx,-dy,z0 ]
+            culm%nodcoord(itr+3,1:3) = [ dx, dy,z0 ]
+            culm%nodcoord(itr+4,1:3) = [-dx, dy,z0 ]
+            itr = itr + 4
+        enddo
+
+        itr = output_d%nn()
+        culm%elemnod(1,1:8) = &
+        [itr+1,itr+2,itr+3,itr+4,1,2,3,4]
+
+        do i=2,culm_division
+
+            culm%elemnod(i,1:8) = &
+                [itr+1,itr+2,itr+3,itr+4,itr+1-4,itr+2-4,itr+3-4,itr+4-4]
+            itr = itr + 4
+        enddo
+
+        wheat%nodcoord = wheat%nodcoord .v. culm%nodcoord
+        wheat%elemnod = wheat%elemnod .v. culm%elemnod
+
+        output_d%mesh = wheat
+        call output_d%move(z=-output_d%zmin() )
+    endif
+endif
+
+end function 
+
+function to_culm_diameter(heights_vs_diameters,height) result(ret)
+    real(real64),intent(in) :: heights_vs_diameters(:,:) ! 1:height of observation points , 2:diameters
+    real(real64),intent(in) :: height
+    real(real64) :: ret
+    real(real64),allocatable :: heights(:), diameters(:)
+    real(real64) :: theta
+    integer(int32) :: i
+
+    heights = heights_vs_diameters(:,1)
+    diameters = heights_vs_diameters(:,2)
+
+    call heapsort(n=size(heights),array=heights,val=diameters)
+
+    if(height < heights(1) )then
+        ret = diameters(1)
+        return
+    endif
+
+
+    if(height > heights(size(heights) ) )then
+        ret = diameters(size(diameters) )
+        return
+    endif
+
+    do i=1, size(heights)-1
+        
+        if( heights(i) <= height .and. height <= heights(i+1))then
+            theta = (height - heights(i))/(heights(i+1) - heights(i))
+            ret = theta*diameters(i+1) + (1.0d0-theta)*diameters(i)
+            return
+        else
+            cycle
+        endif
+    enddo
+
+end function
 
 end module

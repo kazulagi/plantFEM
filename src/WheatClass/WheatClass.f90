@@ -441,12 +441,11 @@ subroutine createwheat(this,config,debug)
             Length=freal(wheatconfig%parse(config,key1="Panicle_"//str(i)//"_",key2="Length")),&
             Width= freal(wheatconfig%parse(config,key1="Panicle_"//str(i)//"_",key2="Width")),&
             panicle_config =to_panicle_config( &
-                seed_interval= freal(wheatconfig%parse(config,key1="Panicle_"//str(i)//"_",key2="wheat_seed_interval")),&
-                seed_branch_length= freal(wheatconfig%parse(config,key1="Panicle_"//str(i)//"_",key2="wheat_seed_branch_length")),&
-                seed_length= freal(wheatconfig%parse(config,key1="Panicle_"//str(i)//"_",key2="wheat_seed_length")),&
-                seed_width= freal(wheatconfig%parse(config,key1="Panicle_"//str(i)//"_",key2="wheat_seed_width")),&
-                seed_thickness= freal(wheatconfig%parse(config,key1="Panicle_"//str(i)//"_",key2="wheat_seed_thickness")), &
-                seed_division = this%wheat_panicle_seed_division &
+                num_seed_column= fint(wheatconfig%parse(config,key1="Panicle_"//str(i)//"_",key2="num_seed_column")),&
+                panicle_seed_interval= freal(wheatconfig%parse(config,key1="Panicle_"//str(i)//"_",key2="seed_interval")),&
+                panicle_seed_diameter= freal(wheatconfig%parse(config,key1="Panicle_"//str(i)//"_",key2="seed_diameter")),&
+                panicle_seed_length= freal(wheatconfig%parse(config,key1="Panicle_"//str(i)//"_",key2="seed_length")),&
+                panicle_panicle_diameter= freal(wheatconfig%parse(config,key1="Panicle_"//str(i)//"_",key2="panicle_diameter")) &
                 ) &
             )
         n = fint(wheatconfig%parse(config,key1="Panicle_"//str(i)//"_",key2="From"))
@@ -3376,9 +3375,6 @@ subroutine export_eigwheat(this,name,Frequency,ModeVectors,stress_type)
     call f%close()
     
 end subroutine
-
-! ################################################################
-
 
 
 end module wheatClass
