@@ -107,11 +107,11 @@
         "From":8,
         "Length":0.30,
         "Width":0.0010,
-        "wheat_seed_interval" :0.0040,
-        "wheat_seed_branch_length" :0.0010,
-        "wheat_seed_length" :0.0060,
-        "wheat_seed_width" :0.0040,
-        "wheat_seed_thickness" :0.0050
+        "num_seed_column" :30,
+        "seed_interval" :0.0010,
+        "seed_diameter" :0.0050,
+        "seed_length"   :0.0100,
+        "panicle_diameter" :0.0010
     },
     
 

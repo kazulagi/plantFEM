@@ -1780,6 +1780,10 @@ subroutine modalAnalysisSeismicAnalysis_single_domain(this,femdomain,YoungModulu
     integer(int32),optional,allocatable,intent(in) :: fix_node_list_y(:)
     integer(int32),optional,allocatable,intent(in) :: fix_node_list_z(:)
     
+
+    this%YoungModulus = YoungModulus
+    this%PoissonRatio = PoissonRatio
+    this%Density      = Density
     ! Modal analysis
     
     if(associated(this%femdomain) )then
@@ -2049,12 +2053,13 @@ end subroutine
 
 
 
-subroutine vtkSeismicAnalysis(this,name,num_mode,amp,scalar_field)
+subroutine vtkSeismicAnalysis(this,name,num_mode,amp,scalar_field,with_stress)
     class(SeismicAnalysis_),intent(in) :: this
     character(*),intent(in) :: name
     integer(int32),intent(in) :: num_mode
     real(real64),intent(in) :: amp
     real(real64),optional,intent(in) :: scalar_field(:)
+    integer(int32),optional,intent(in) :: with_stress(1:2) ! i and j for sigma_{i,j}
     integer(int32) :: i,j,n
     real(real64),allocatable :: Mode_U(:),mode_Ut(:),freq(:)
     real(real64) :: t, dt
@@ -2072,8 +2077,18 @@ subroutine vtkSeismicAnalysis(this,name,num_mode,amp,scalar_field)
 
             this%femdomain%mesh%nodcoord = this%femdomain%mesh%nodcoord &
             +amp*reshape(mode_Ut,this%femdomain%nn(),3 ) 
-
-            call this%femdomain%vtk(name+str(i)+"_t_"+str(j),scalar=scalar_field)
+            if(present(scalar_field) )then
+                call this%femdomain%vtk(name+str(i)+"_t_"+str(j),scalar=scalar_field)
+            elseif(present(with_stress) )then
+                call this%femdomain%vtk(name+str(i)+"_t_"+str(j),&
+                scalar=this%femdomain%getElementCauchyStress(&
+                    displacement=mode_Ut,&
+                    E=this%YoungModulus,&
+                    v=this%PoissonRatio,&
+                    i=with_stress(1),j=with_stress(2) )  )
+            else
+                call this%femdomain%vtk(name+str(i)+"_t_"+str(j))
+            endif
             
             this%femdomain%mesh%nodcoord = this%femdomain%mesh%nodcoord &
             -amp*reshape(mode_Ut,this%femdomain%nn(),3 ) 

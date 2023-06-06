@@ -130,10 +130,16 @@ module ArrayClass
             vstack_real64V_real64A2,vstack_real64A2_real64V,vstack_real64V_real64V
     end interface
 
+
     interface operator(.h.)
         module procedure hstack_real64A2_real64A2,hstack_int32A2_int32A2,&
             hstack_real64V_real64A2,hstack_real64A2_real64V,hstack_real64V_real64V,&
             hstack_int32V_int32A2,hstack_int32A2_int32V,hstack_int32V_int32V
+    end interface
+
+    interface operator(.n.)
+        module procedure horizontal_stack_vec_vec_real64,horizontal_stack_array_vec_real64,&
+            horizontal_stack_vec_vec_int32,horizontal_stack_array_vec_int32
     end interface
 
     interface operator(.cap.)
@@ -9356,5 +9362,64 @@ function intersection_vec_vec_int32(a,b) result(ret)
 
 
 end function
+
+
+! #########################################################
+pure function horizontal_stack_vec_vec_real64(vec1,vec2) result(ret)
+    real(real64),intent(in) :: vec1(:),vec2(:)
+    real(real64),allocatable :: ret(:,:)
+
+    allocate(ret( 2,max(size(vec1),size(vec2)) ) )
+    ret(:,:) = 0.0d0
+    ret(1,1:size(vec1) )=vec1(:)
+    ret(2,1:size(vec2) )=vec2(:)
+
+end function
+! #########################################################
+
+
+! #########################################################
+pure function horizontal_stack_array_vec_real64(array1,vec2) result(ret)
+    real(real64),intent(in) ::array1(:,:),vec2(:)
+    real(real64),allocatable :: ret(:,:)
+
+    allocate(ret( size(array1,1)+1,max(size(array1,1),size(vec2)) ) )
+    ret(:,:) = 0.0d0
+    ret(1:size(array1,1),1:size(array1,2)) = array1(:,:)
+    ret(size(array1,1)+1,1:size(vec2) )=vec2(:)
+
+end function
+! #########################################################
+
+
+
+! #########################################################
+pure function horizontal_stack_vec_vec_int32(vec1,vec2) result(ret)
+    integer(int32),intent(in) :: vec1(:),vec2(:)
+    integer(int32),allocatable :: ret(:,:)
+
+    allocate(ret( 2,max(size(vec1),size(vec2)) ) )
+    ret(:,:) = 0.0d0
+    ret(1,1:size(vec1) )=vec1(:)
+    ret(2,1:size(vec2) )=vec2(:)
+
+end function
+! #########################################################
+
+
+! #########################################################
+pure function horizontal_stack_array_vec_int32(array1,vec2) result(ret)
+    integer(int32),intent(in) ::array1(:,:),vec2(:)
+    integer(int32),allocatable :: ret(:,:)
+
+    allocate(ret( size(array1,1)+1,max(size(array1,1),size(vec2)) ) )
+    ret(:,:) = 0.0d0
+    ret(1:size(array1,1),1:size(array1,2)) = array1(:,:)
+    ret(size(array1,1)+1,1:size(vec2) )=vec2(:)
+
+end function
+! #########################################################
+
+
 
 end module ArrayClass

@@ -72,7 +72,7 @@ module FEMSolverClass
         real(real64)   :: er0 = dble(1.0e-10)
         real(real64)   :: relative_er = dble(1.0e-10)
 
-        logical        :: use_LOBPCG     = .true.
+        logical        :: use_LOBPCG     = .false.
         integer(int32) :: LOBPCG_MAX_ITR = 100000
         real(real64)   :: LOBPCG_TOL     = dble(1.0e-6)
         integer(int32) :: LOBPCG_NUM_MODE= 5
