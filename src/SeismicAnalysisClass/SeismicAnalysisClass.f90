@@ -1663,6 +1663,7 @@ subroutine removeSeismicAnalysis(obj)
     if(allocated(obj%FixNodeList_Disp_z) )then !(:)
         deallocate(obj%FixNodeList_Disp_z)
     endif
+
     obj%wavedirection="z"
     obj%wavetype = 0
     obj%dt=1.0d0
@@ -1674,6 +1675,8 @@ subroutine removeSeismicAnalysis(obj)
     obj%Newmark_beta  = 0.250d0 ! Nemark-beta method parameters
     obj%Newmark_gamma  = 0.50d0 ! Nemark-beta method parameters
     obj%restart=.False.
+    call obj%femsolver%remove()
+    if(associated(obj%femdomain) ) nullify(obj%femdomain)
 
     
 end subroutine
