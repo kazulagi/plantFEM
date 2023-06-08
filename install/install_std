@@ -16,6 +16,14 @@ echo " | >                           | (0%)\r\c "
 mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/uuid-fortran/uuid_module.f90 -o  ./inc/uuid_module.o -llapack -lblas
 
 
+
+echo "Compiling ./src/ListClass/ListClass.f90     "
+echo " >> ListClass.o"
+echo " | >                           | (0%)\r\c "
+mpif90 -Ofast -march=native -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ListClass/ListClass.f90 -o  ./inc/ListClass.o -llapack -lblas
+
+
+
 echo "Compiling ./src/OpenACCClass/OpenACCClass.f90     "
 echo " >> OpenACCClass.o"
 echo " | >                           | (0%)\r\c "
@@ -83,6 +91,11 @@ echo " >> ArrayClass.o "
 echo " | =>                          | (4%)\r\c"
 mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ArrayClass/ArrayClass.f90 -o  ./inc/ArrayClass.o -llapack -lblas
 
+
+echo "Compiling ./src/AnalystClass/AnalystClass.f90 " 
+echo " >> AnalystClass.o "
+echo " | =>                          | (4%)\r\c"
+mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/AnalystClass/AnalystClass.f90 -o  ./inc/AnalystClass.o -llapack -lblas
 
 echo "Compiling ./src/ElasticityClass/ElasticityClass.f90 " 
 echo " >> ElasticityClass.o "

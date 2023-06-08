@@ -16,6 +16,7 @@ module std
     use KinematicClass
     use RandomClass
     use ArrayClass
+    use AnalystClass
     use ElasticityClass
     use SpectreAnalysisClass
     use SparseClass

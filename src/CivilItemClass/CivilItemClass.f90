@@ -1276,7 +1276,7 @@ function EarthDam_with_ground_CivilItem_JSON(this,config) result(femdomain)
     depth_cut  = fint(json_file%parse(filename=config,key1="division_v"))
     margin_cut  = fint(json_file%parse(filename=config,key1="division_h"))
 
-    refine_level = to_list(json_file%parse(filename=config,key1="refine_level"),3)
+    refine_level = to_intvector(json_file%parse(filename=config,key1="refine_level"),3)
 
 
     femdomain = this%EarthDam(&
@@ -2217,7 +2217,7 @@ function BoxCulvertCivilItem_JSON(this,config) result(culvert)
     Spigot_length = freal(json_file%parse(filename=config,key1="Spigot_length"))
 
 
-    divisions = to_list(&
+    divisions = to_intvector(&
         json_file%parse(filename=config,key1="Divisions"),3)
 
     cut_angles = to_vector(&
