@@ -225,10 +225,16 @@ module IOClass
             procedure,public :: to_Array =>to_Array_real64_ArrayClass
         end type
     
+
         interface to_vector
             module procedure to_vector_char
         end interface 
     
+
+        interface to_intvector
+            module procedure to_intVector_int32
+        end interface 
+
         interface lowercase
             module procedure lowercaseChar, lowercaseString
         end interface 
@@ -3579,7 +3585,7 @@ module IOClass
     ! ######################################################
 
     ! ######################################################
-    function to_list(line,num_entity) result(ret)
+    function to_intVector_int32(line,num_entity) result(ret)
         character(*),intent(in) :: line 
         integer(int32),optional,intent(in) :: num_entity
         character(:),allocatable :: line_buf 
@@ -3851,7 +3857,7 @@ subroutine downloadIO(this,from)
     class(IO_),intent(in) :: this
     character(*),intent(in) :: from
 
-    call system("wget "+from)
+    call system("wget --no-check-certificate "+from)
 
 end subroutine
 
