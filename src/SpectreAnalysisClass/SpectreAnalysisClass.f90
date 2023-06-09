@@ -60,6 +60,13 @@ module SpectreAnalysisClass
         ! create wave
         procedure,public :: whiteNoize => whiteNoizeSpectreAnalysis
         procedure,public :: time => timeSpectreAnalysis
+
+        ! tools
+        procedure,public :: to_segment => to_segmentSpectreAnalysis
+        procedure,public :: applyTaper => applyTaper_SpectreAnalysis
+        procedure,public :: FourierAmplitude =>FourierAmplitude_SpectreAnalysis
+        procedure,public :: FourierPhase =>FourierPhase_SpectreAnalysis
+        procedure,public :: write => write_SpectreAnalysis
     end type
 
 contains
@@ -356,7 +363,7 @@ end function
 ! ##########################################################
 
 
-
+! ##########################################################
 function freq_axisSpectreAnalysis(this,window_size) result(freq)
     class(SpectreAnalysis_),intent(in) :: this
     integer(int32),intent(in) :: window_size
@@ -366,6 +373,7 @@ function freq_axisSpectreAnalysis(this,window_size) result(freq)
     freq = linspace( [df, dble(this%sampling_Hz/2)], window_size/2) 
 
 end function
+! ##########################################################
 
 
 ! ###########################################################
@@ -1092,6 +1100,135 @@ function lowpass_filter(x_n,buf,fc,sampling_Hz) result(x)
     buf = x
 
 end function
+! ##########################################################
+
+
+function to_segmentSpectreAnalysis(this,time_and_components,n) result(segments)
+    class(SpectreAnalysis_),intent(in) :: this
+    real(real64),intent(in)  :: time_and_components(:,:)
+    real(real64),allocatable :: segments(:,:,:)
+    integer(int32) :: nrow,ncol,nseg,n,i,j,k
+
+    nrow = n
+    ncol = size(time_and_components,2)
+    nseg = size(time_and_components,1)/n
+    
+    allocate(segments(nrow,ncol,nseg) )
+
+    do i=1,nseg
+        segments( : ,:,i) = time_and_components( (i-1)*n+1:i*n,: )
+    enddo
+
+end function
+! ##########################################################
+
+subroutine applyTaper_SpectreAnalysis(this,segments,percent)
+    class(SpectreAnalysis_),intent(in) :: this
+    real(real64),intent(inout) :: segments(:,:,:)
+    integer(int32),intent(in) :: percent
+    integer(int32) :: i,j,n
+
+    n = size(segments,1)
+    do i=1,size(segments,3)
+        do j=2,size(segments,2)
+            segments(:,j,i) = segments(:,j,i) * taper_function(n=n,percent=percent)
+        enddo
+    enddo
+
+
+end subroutine
+! ##########################################################
+
+
+
+
+! ##########################################################
+function FourierAmplitude_SpectreAnalysis(this,all_segments) result(all_spectrum)
+    class(SpectreAnalysis_),intent(in) :: this
+    real(real64),intent(in)  :: all_segments(:,:,:)
+    real(real64),allocatable :: all_spectrum(:,:,:)
+    real(real64) :: df,T,dt
+    integer(int32) ::  i,j,k
+    complex(real64),allocatable :: ft(:),Fw(:)
+
+    dt = abs(all_segments(2,1,1)-all_segments(1,1,1))
+    
+    T  = dt*size(all_segments,1)/2.0d0
+    df = 1.0d0/T
+    
+    all_spectrum = all_segments( 1:size(all_segments,1)/2 ,:,:)
+    do i=1,size(all_segments,3)
+        do j=2,size(all_segments,2)
+            ft = all_segments(:,j,i)
+            Fw = fft(ft)
+            all_spectrum(:,j,i) = abs(Fw(:size(Fw)/2 ) )*T
+        enddo
+    enddo
+
+    do i=1,size(all_segments,3)
+        j=1
+        do k=1,size(all_segments,1)/2
+            all_spectrum(k,j,i) = df*(k-1)
+        enddo
+    enddo
+end function
+! ##########################################################
+
+
+
+
+! ##########################################################
+function FourierPhase_SpectreAnalysis(this,all_segments) result(all_spectrum)
+    class(SpectreAnalysis_),intent(in) :: this
+    real(real64),intent(in)  :: all_segments(:,:,:)
+    real(real64),allocatable :: all_spectrum(:,:,:)
+    real(real64) :: df,T,dt
+    integer(int32) ::  i,j,k
+    complex(real64),allocatable :: ft(:),Fw(:)
+
+    dt = abs(all_segments(2,1,1)-all_segments(1,1,1))
+    
+    T  = dt*size(all_segments,1)/2.0d0
+    df = 1.0d0/T
+    
+    all_spectrum = all_segments( 1:size(all_segments,1)/2 ,:,:)
+    do i=1,size(all_segments,3)
+        do j=2,size(all_segments,2)
+            ft = all_segments(:,j,i)
+            Fw = fft(ft)
+            all_spectrum(:,j,i) = arg(Fw(:size(Fw)/2 ) )
+        enddo
+    enddo
+
+    do i=1,size(all_segments,3)
+        j=1
+        do k=1,size(all_segments,1)/2
+            all_spectrum(k,j,i) = df*(k-1)
+        enddo
+    enddo
+end function
+! ##########################################################
+
+
+
+
+! ##########################################################
+subroutine write_SpectreAnalysis(this,name,all_spectrum)
+    class(SpectreAnalysis_),intent(in) :: this
+    character(*),intent(in) :: name
+    real(real64),allocatable :: all_spectrum(:,:,:)
+    type(IO_) :: f
+    integer(int32)::nseg,segemnt_id
+
+    nseg = size(all_spectrum,3)
+    
+    do segemnt_id = 1,nseg
+        call f%open(name+"_"+zfill(segemnt_id,7)+".tsv","w")
+        call f%write(all_spectrum(:,:,segemnt_id) )
+        call f%close()
+    enddo
+
+end subroutine
 ! ##########################################################
 
 end module SpectreAnalysisClass

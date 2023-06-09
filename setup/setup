@@ -14,6 +14,8 @@ sudo apt -y install gcc-offload-nvptx
 sudo apt -y install libglfw3-dev
 sudo apt -y install pdfunite
 sudo apt -y install pdftk
+sudo apt -y install gmt
+sudo apt -y install gmt-gshhg
 sudo chmod 777 ./plantfem
 sudo chmod 777 ./bin/soja.sh
 #sudo apt install -y jupyter-notebook

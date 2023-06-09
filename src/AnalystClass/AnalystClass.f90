@@ -11,6 +11,10 @@ module AnalystClass
         logical :: confidential = .false. 
     end type
 
+    interface operator(//)
+        module procedure joint_pdfs_and_pdfs
+    end interface
+
 
     type :: Plot_
         real(real64),allocatable :: x_list(:)
@@ -30,7 +34,11 @@ module AnalystClass
     type :: Analyst_
 
     contains
-        procedure,public :: to_pdf => to_pdf_from_plots_analystclass
+        procedure,pass :: to_pdf_from_plots_analystclass
+        procedure,pass :: to_pdf_from_plots_auto_div_analystclass
+        generic,public :: to_pdf =>&
+            to_pdf_from_plots_analystclass,&
+            to_pdf_from_plots_auto_div_analystclass
         procedure,public :: render => render_analystclass
 
 
@@ -101,7 +109,7 @@ function to_plot_analystclass_vec_array(this,x_list,y_list,x_label,y_label,&
     type(Plot_) :: ret
     real(real64),intent(in) :: x_list(:),y_list(:,:)
     character(*),intent(in) :: x_label,y_label,title
-    type(List_),intent(in) :: regend
+    type(List_),optional,intent(in) :: regend
     logical,intent(in) :: with_line
 
 
@@ -115,7 +123,9 @@ function to_plot_analystclass_vec_array(this,x_list,y_list,x_label,y_label,&
     ret % y_label   = y_label
     ret % title     = title
     ret % with_line = with_line
-    ret % regend = regend
+    if(present(regend) )then
+        ret % regend = regend
+    endif
     
     if(present(logscale) )then
         ret % logscale  = logscale
@@ -331,6 +341,7 @@ subroutine pdf_from_plots_analystclass(this,name,plot)
 
     call gp%open(name+".gp","w")
     call gp%write("set terminal pdf size 29.7cm,21.0cm")
+    call gp%write("set encoding utf8")
     call gp%write("set output '"+name+"'")
     
     call gp%write("set grid")
@@ -393,10 +404,11 @@ end subroutine
 
 
 ! ###################################################
-function to_pdf_from_plots_analystclass(this,plot,option) result(pdfobj)
+function to_pdf_from_plots_analystclass(this,plot,option,layout) result(pdfobj)
     class(Analyst_),intent(in) :: this
     type(Plot_),intent(in) :: plot(:,:)
     character(*),optional,intent(in) :: option
+    integer(int32),optional,intent(in) :: layout(1:2)
     type(PDF_) :: pdfobj
     character(:),allocatable :: command
     type(IO_) :: f, gp
@@ -421,6 +433,7 @@ function to_pdf_from_plots_analystclass(this,plot,option) result(pdfobj)
 
     call gp%open(name+".gp","w")
     call gp%write("set terminal pdf size 29.7cm,21.0cm")
+    call gp%write("set encoding utf8")
     call gp%write("set output '"+name+".pdf'")
     
     call gp%write("set grid")
@@ -429,8 +442,11 @@ function to_pdf_from_plots_analystclass(this,plot,option) result(pdfobj)
     call gp%write("set xtics font 'Times, 14'")
     call gp%write("set ytics font 'Times, 14'")
 
-    
-    call gp%write("set multiplot layout "+str(size(plot,1) )+" , "+str(size(plot,2) ) )
+    if(present(layout) )then
+        call gp%write("set multiplot layout "+str(layout(1) )+" , "+str(layout(2) ) )
+    else
+        call gp%write("set multiplot layout "+str(size(plot,1) )+" , "+str(size(plot,2) ) )
+    endif
 
     do i=1,size(plot,1)
         do j=1,size(plot,2)    
@@ -495,6 +511,42 @@ function to_pdf_from_plots_analystclass(this,plot,option) result(pdfobj)
 end function
 ! ###################################################
 
+
+
+! ###################################################
+function to_pdf_from_plots_auto_div_analystclass(this,plot,row_per_page,option) result(pdfobj)
+    class(Analyst_),intent(in) :: this
+    type(Plot_),intent(in) :: plot(:,:)
+    integer(int32),intent(in) :: row_per_page
+    character(*),optional,intent(in) :: option
+    type(PDF_),allocatable :: pdfobj(:)
+    integer(int32) :: i, n,from,to
+
+    if(mod(size(plot,1), row_per_page) ==0)then
+        n = size(plot,1)/row_per_page
+    else
+        n = size(plot,1)/row_per_page + 1
+    endif
+
+    allocate(pdfobj(n) )
+    do i=1,n-1
+        from = (i-1) * row_per_page+1
+        to   =    i  * row_per_page
+        pdfobj(i) =this%to_pdf(plot=plot( from:to,: ),option=option)  
+    enddo
+    from = (n-1) * row_per_page+1
+    pdfobj(n) =this%to_pdf(plot=plot( from:, : ),&
+        layout=[row_per_page,size(plot,2) ],&
+        option=option)  
+    
+
+
+end function
+! ###################################################
+
+
+
+! ###################################################
 subroutine render_analystclass(this,name,pdf)
     class(Analyst_),intent(in) :: this
     character(*),intent(in) :: name
@@ -527,6 +579,17 @@ subroutine render_analystclass(this,name,pdf)
 
 
 end subroutine
+! #####################################################
 
+function joint_pdfs_and_pdfs(pdf1,pdf2) result(ret)
+    type(PDF_),intent(in) :: pdf1(:),pdf2(:)
+    type(PDF_),allocatable :: ret(:)
+
+    allocate(ret( size(pdf1)+size(pdf2) ) )
+    ret(1:size(pdf1) )            = pdf1(:)
+    ret(size(pdf1)+1:size(pdf1)+size(pdf2) ) = pdf2(:)
+
+end function
+! #####################################################
 
 end module

@@ -6,8 +6,10 @@ module IOClass
     !#endif
     
         use iso_fortran_env
+        use uuid_module
         use MathClass
         use StringClass
+        use ListClass
         implicit none
     
         
@@ -56,6 +58,7 @@ module IOClass
             procedure,public :: exists => existsIO
 
             procedure,public :: cp => cpIO
+            procedure,public :: ls => ls_IO
     
             procedure,public :: download => downloadIO
             !set & reset rule
@@ -3315,24 +3318,45 @@ module IOClass
     
     ! ##########################################################
     
-    function importIOReal64ArrayAsTxt(obj,name,num_column) result(real64Array)
+    recursive function importIOReal64ArrayAsTxt(obj,name,num_column) result(real64Array)
         class(IO_),intent(inout) :: obj
         character(*),intent(in) :: name
         integer(int32),intent(in) :: num_column
         real(real64),allocatable :: real64Array(:,:)
-        integer(int32) :: i,num_lines
+        integer(int32) :: i,num_lines,n,m
+        type(IO_) :: f
+        type(List_) :: file_list
         
         ! for both comma and space
-        num_lines = obj%numLine(name=name)
-        
-        allocate(real64Array(num_lines,num_column) )
-        real64Array(:,:) = 0.0d0
-        call obj%open(name,"r")
-        do i=1,num_lines
-            read(obj%fh,*) real64Array(i,1:num_column)
-            if(obj%EOF) exit
-        enddo
-        call obj%close()
+        if(index(name,"*")==0 )then
+            num_lines = obj%numLine(name=name)
+            
+            allocate(real64Array(num_lines,num_column) )
+            real64Array(:,:) = 0.0d0
+            
+            call obj%open(name,"r")
+            do i=1,num_lines
+                read(obj%fh,*) real64Array(i,1:num_column)
+                if(obj%EOF) exit
+            enddo
+            call obj%close()
+        else
+            ! ワイルドカードにしたがってファイル一覧を取得
+            file_list = f%ls(name)
+            
+            real64Array = f%import(name=file_list%get(1),num_column=num_column)
+            
+            n = size(real64Array,1)
+            m = size(real64Array,2)*file_list%size()
+            deallocate(real64Array)
+            allocate(real64Array(n,m))
+
+            do i=1,file_list%size()
+                real64Array(:, num_column*(i-1)+1:num_column*i ) = &
+                    f%import(name=file_list%get(i),num_column=num_column)
+            enddo
+        endif
+
     end function
     ! ##########################################################
     function importIOReal64VectorAsTxtWithIndex(obj,name,with_index) result(real64Vector)
@@ -3951,5 +3975,32 @@ subroutine cpIO(this,from,to)
 
 end subroutine
 ! ######################################################
+
+! ######################################################
+function ls_IO(this,name)  result(list)
+    class(IO_),intent(inout) :: this
+    character(*),intent(in) :: name
+    type(List_) :: list
+    character(:),allocatable :: filename
+    character(256) :: line
+    integer(int32) :: i,n
+
+    filename = "lsIO_"+generate_uuid(1)+".txt"
+
+    call system("ls "+name+" > "+filename)
+    n = this%numLine(filename)
+    list = to_list()
+    call this%open(filename,"r")
+    do i=1,n
+        read(this%fh,*) line
+        call list%append( trim(adjustl(line)) )
+    enddo
+    call this%close()
+    call system("rm "+filename)
+
+end function
+! ######################################################
+
+
 
 end module IOClass
