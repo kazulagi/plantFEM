@@ -395,7 +395,8 @@ module FEMDomainClass
 		procedure,public :: setBoundary => setBoundaryFEMDomain
         procedure,public :: setControlPara =>  SetControlParaFEMDomain
 		
-		procedure,public :: select => selectFEMDomain
+		procedure,public :: select => selectFEMDomain ! select nodes
+		
 		procedure,public :: show => showFEMDomain
 		procedure,public :: showRange => showRangeFEMDomain
 		procedure,public :: showMaterials => showMaterialsFEMDomain

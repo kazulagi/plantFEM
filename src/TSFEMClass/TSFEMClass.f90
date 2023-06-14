@@ -50,7 +50,12 @@ module TSFEMClass
     contains
         procedure,public :: init => initTSFEM
         procedure,public :: DirichletBoundary => DirichletBoundaryTSFEM
-        procedure,public :: NeumannBoundary   => NeumannBoundaryTSFEM
+        
+        procedure,pass :: NeumannBoundaryTSFEM
+        procedure,pass :: NeumannBoundary_multiple_ForceTSFEM
+        generic,public :: NeumannBoundary => NeumannBoundary_multiple_ForceTSFEM,&
+            NeumannBoundaryTSFEM
+
         procedure,public :: time   => timeTSFEM
         procedure,public :: update => updateTSFEM
         procedure,public :: save => saveTSFEM
@@ -285,6 +290,23 @@ recursive subroutine NeumannBoundaryTSFEM(this,NodeList,Force,direction,clear)
 end subroutine NeumannBoundaryTSFEM
 ! ##############################################
 
+! ##############################################
+recursive subroutine NeumannBoundary_multiple_ForceTSFEM(this,NodeList,Force,direction,clear)
+    class(TSFEM_),intent(inout) :: this
+    integer(int32),intent(in) :: NodeList(:)
+    character(*),intent(in) :: direction
+    real(real64),intent(in) :: Force(:)
+    logical,optional,intent(in) :: clear
+    real(real64) :: force_val
+    integer(int32) :: i
+    
+    do i=1,size(NodeList)
+        force_val = Force(i)
+        call this%NeumannBoundary(NodeList=NodeList(i:i),&
+            Force=force_val,direction=direction,clear=clear)
+    enddo
+end subroutine NeumannBoundary_multiple_ForceTSFEM
+! ##############################################
 
 ! ##############################################
 subroutine AbsorbingBoundaryTSFEM(this,NodeList,direction)
@@ -504,18 +526,25 @@ subroutine saveTSFEM(this,name)
     class(TSFEM_),intent(inout) :: this
     type(IO_) :: f
     character(*),intent(in) :: name
-    real(real64),allocatable :: u_xyz(:,:)
+    real(real64),allocatable :: u_xyz(:,:), v_xyz(:,:)
 
-    u_xyz = transpose(reshape(dble(this%v),[this%DOF,this%femdomain%femdomainp%nn() ]))
-    call f%open(name+"_v"+zfill(this%timestep,6) +".tsv","w")
-    call f%write( this%femdomain%femdomainp%mesh%nodcoord(:,1:this%DOF)&
-         .h. u_xyz(:,1:this%DOF ) )
-    call f%close()
     u_xyz = transpose(reshape(dble(this%u),[this%DOF,this%femdomain%femdomainp%nn() ]))
-    call f%open(name+"_u"+zfill(this%timestep,6) +".tsv","w")
-    call f%write( this%femdomain%femdomainp%mesh%nodcoord(:,1:this%DOF) &
-        .h. u_xyz(:,1:this%DOF) )
-    call f%close()
+    call this%femdomain%femdomainp%vtk(name=name+"_ux_"+zfill(this%timestep,6) +".vtk",&
+        scalar=u_xyz(:,1) )
+    call this%femdomain%femdomainp%vtk(name=name+"_uy_"+zfill(this%timestep,6) +".vtk",&
+        scalar=u_xyz(:,2) ) 
+    call this%femdomain%femdomainp%vtk(name=name+"_uz_"+zfill(this%timestep,6) +".vtk",&
+        scalar=u_xyz(:,3) ) 
+    deallocate(u_xyz)
+        
+    v_xyz = transpose(reshape(dble(this%u),[this%DOF,this%femdomain%femdomainp%nn() ]))
+    call this%femdomain%femdomainp%vtk(name=name+"_vx_"+zfill(this%timestep,6) +".vtk",&
+        scalar=v_xyz(:,1) )
+    call this%femdomain%femdomainp%vtk(name=name+"_vy_"+zfill(this%timestep,6) +".vtk",&
+        scalar=v_xyz(:,2) ) 
+    call this%femdomain%femdomainp%vtk(name=name+"_vz_"+zfill(this%timestep,6) +".vtk",&
+        scalar=v_xyz(:,3) ) 
+    deallocate(v_xyz)
 
 end subroutine
 ! ##############################################

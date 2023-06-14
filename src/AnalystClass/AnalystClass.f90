@@ -27,6 +27,9 @@ module AnalystClass
         logical :: x_logscale = .false.  
         logical :: y_logscale = .false.  
         logical :: z_logscale = .false.  
+        real(real64),allocatable :: x_range(:)
+        real(real64),allocatable :: y_range(:)
+        real(real64),allocatable :: z_range(:)
         type(List_) :: regend
     end type
 
@@ -59,7 +62,8 @@ contains
 
 ! ###################################################
 function to_plot_analystclass_vec_vec(this,x_list,y_list,x_label,y_label,&
-    title,with_line,logscale,x_logscale,y_logscale,z_logscale,regend) result(ret)
+    title,with_line,logscale,x_logscale,y_logscale,z_logscale,x_range,y_range,&
+    z_range,regend) result(ret)
     class(Analyst_),intent(in) :: this
     type(Plot_) :: ret
     real(real64),intent(in) :: x_list(:),y_list(:)
@@ -68,6 +72,7 @@ function to_plot_analystclass_vec_vec(this,x_list,y_list,x_label,y_label,&
     logical,intent(in) :: with_line
 
     logical,optional,intent(in) :: logscale,x_logscale,y_logscale,z_logscale
+    real(real64),optional,intent(in) :: x_range(1:2),y_range(1:2),z_range(1:2)
 
     ret % x_list    = x_list
 
@@ -98,13 +103,26 @@ function to_plot_analystclass_vec_vec(this,x_list,y_list,x_label,y_label,&
         ret % z_logscale  = z_logscale
     endif
 
+    if(present(x_range) )then
+        ret % x_range = x_range
+    endif
+
+
+    if(present(y_range) )then
+        ret % y_range = y_range
+    endif
+
+    if(present(z_range) )then
+        ret % z_range = z_range
+    endif
 end function
 ! ###################################################
 
 
 ! ###################################################
 function to_plot_analystclass_vec_array(this,x_list,y_list,x_label,y_label,&
-    title,with_line,logscale,x_logscale,y_logscale,z_logscale,regend) result(ret)
+    title,with_line,logscale,x_logscale,y_logscale,z_logscale,x_range,y_range,&
+    z_range,regend) result(ret)
     class(Analyst_),intent(in) :: this
     type(Plot_) :: ret
     real(real64),intent(in) :: x_list(:),y_list(:,:)
@@ -114,6 +132,7 @@ function to_plot_analystclass_vec_array(this,x_list,y_list,x_label,y_label,&
 
 
     logical,optional,intent(in) :: logscale,x_logscale,y_logscale,z_logscale
+    real(real64),optional,intent(in) :: x_range(1:2),y_range(1:2),z_range(1:2)
 
     ret % x_list    = x_list
 
@@ -141,6 +160,19 @@ function to_plot_analystclass_vec_array(this,x_list,y_list,x_label,y_label,&
 
     if(present(z_logscale) )then
         ret % z_logscale  = z_logscale
+    endif
+
+    if(present(x_range) )then
+        ret % x_range = x_range
+    endif
+
+
+    if(present(y_range) )then
+        ret % y_range = y_range
+    endif
+
+    if(present(z_range) )then
+        ret % z_range = z_range
     endif
 
     
@@ -215,6 +247,7 @@ subroutine pdf_analystclass_vec_vec(this,name,x_list,y_list,x_label,y_label,&
     call f%write("set xlabel '"+x_label+"'  font 'Times, 14'")
     call f%write("set ylabel '"+y_label+"'  font 'Times, 14'")
     call f%write("set title '"+title+"' font 'Times, 14'")
+    
 
     if(present(regend) )then
         call f%write("plot '"+name+".csv' u 1:2 "+wl+" title '"+regend%get(1)+"'" )
@@ -375,6 +408,16 @@ subroutine pdf_from_plots_analystclass(this,name,plot)
             call gp%write("set ylabel '"+plot(i,j)%y_label+"'  font 'Times, 14'")
             call gp%write("set title '"+plot(i,j)%title+"' font 'Times, 14'")
 
+            if(allocated(plot(i,j)%x_range) )then
+                call gp%write("set xr["+str(plot(i,j)%x_range(1) )+":"+str(plot(i,j)%x_range(2) )+"]")
+            endif
+            if(allocated(plot(i,j)%y_range) )then
+                call gp%write("set xr["+str(plot(i,j)%y_range(1) )+":"+str(plot(i,j)%y_range(2) )+"]")
+            endif
+            if(allocated(plot(i,j)%z_range) )then
+                call gp%write("set xr["+str(plot(i,j)%z_range(1) )+":"+str(plot(i,j)%z_range(2) )+"]")
+            endif
+
             if(plot(i,j)%with_line)then
                 wl = "w l "
             else
@@ -469,6 +512,17 @@ function to_pdf_from_plots_analystclass(this,plot,option,layout) result(pdfobj)
             call gp%write("set xlabel '"+plot(i,j)%x_label+"'  font 'Times, 14'")
             call gp%write("set ylabel '"+plot(i,j)%y_label+"'  font 'Times, 14'")
             call gp%write("set title '"+plot(i,j)%title+"' font 'Times, 14'")
+
+
+            if(allocated(plot(i,j)%x_range) )then
+                call gp%write("set xr["+str(plot(i,j)%x_range(1) )+":"+str(plot(i,j)%x_range(2) )+"]")
+            endif
+            if(allocated(plot(i,j)%y_range) )then
+                call gp%write("set xr["+str(plot(i,j)%y_range(1) )+":"+str(plot(i,j)%y_range(2) )+"]")
+            endif
+            if(allocated(plot(i,j)%z_range) )then
+                call gp%write("set xr["+str(plot(i,j)%z_range(1) )+":"+str(plot(i,j)%z_range(2) )+"]")
+            endif
 
             if(plot(i,j)%with_line)then
                 wl = "w l "
