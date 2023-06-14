@@ -279,6 +279,9 @@ module IOClass
         module procedure  to_csv_real_array2,to_csv_real_array3, to_csv_real_vector
     end interface to_csv
 
+    interface to_tsv
+        module procedure  to_tsv_real_array2,to_tsv_real_array3, to_tsv_real_vector
+    end interface to_tsv
 
     interface from_csv
         module procedure  from_csv_real_array2,from_csv_real_array3,from_csv_real_vector,&
@@ -3672,7 +3675,105 @@ subroutine to_csv_real_array3(name,a)
 
 end subroutine
 
+
+    ! ######################################################
+subroutine to_tsv_real_array3(name,a) 
+    real(real64),intent(in) :: a(:,:,:)
+    character(*),intent(in)  :: name
+    type(IO_) :: f
+    integer(int32) :: i,j,k,n1,n2,n3
+
+    n1 = size(a,1)
+    n2 = size(a,2)
+    n3 = size(a,3)
+    if(index(name,".tsv")==0 )then
+        call f%open(name+".tsv","w")
+    else
+        call f%open(name,"w")
+    endif
+    write(f%fh,*) n1, n2, n3
+    do k=1,n3
+        do j=1,n2
+            do i=1,n1 
+                write(f%fh,'(A)',advance="no") str(a(i,j,k)) + "    "
+            enddo
+        enddo
+        write(f%fh,'(A)',advance="yes") "   "
+    enddo
+    call f%close()
+
+end subroutine
+
+
+
+! ######################################################
+subroutine to_tsv_real_array2(name,a,no_header) 
+    real(real64),intent(in) :: a(:,:)
+    character(*),intent(in)  :: name
+    integer(int32) :: i,j,k,n1,n2
+    type(IO_) :: f
+    logical,optional,intent(in) :: no_header
+    logical :: ignore_header
+    ignore_header = input(default=.true.,option=no_header)
+
+    n1 = size(a,1)
+    n2 = size(a,2)
+    if(index(name,".tsv")==0 )then
+        call f%open(name+".tsv","w")
+    else
+        call f%open(name,"w")
+    endif
+    if(.not.ignore_header)then
+        write(f%fh,*) n1, n2
+    endif
+    do i=1,n1 
+        do j=1,n2-1
+            write(f%fh,'(G31.20)',advance="no") a(i,j)
+            write(f%fh,'(A)',advance="no") "    "
+        enddo
+        j = n2
+        write(f%fh,'(G31.20)',advance="no") a(i,j)
+        write(f%fh,'(A)',advance="yes") "   "
+    enddo
+    call f%close()
+
+end subroutine
+
+! ###########################################
+
+! ###########################################
+subroutine to_tsv_real_vector(name,a,no_header) 
+    real(real64),intent(in) :: a(:)
+    character(*),intent(in)  :: name
+    type(IO_) :: f
+    integer(int32) :: i,j,k,n1,n2,n3
     
+    logical,optional,intent(in) :: no_header
+    logical :: ignore_header
+    ignore_header = input(default=.true.,option=no_header)
+
+    n1 = size(a,1)
+    if(index(name,".tsv")==0 )then
+        call f%open(name+".tsv","w")
+    else
+        call f%open(name,"w")
+    endif
+    
+    if(.not.ignore_header)then
+        write(f%fh,*) n1
+    endif
+    
+    do i=1,n1 
+        write(f%fh,'(A)') str(a(i)) + " "
+    enddo
+    call f%close()
+
+end subroutine
+
+! ######################################################
+
+
+
 ! ######################################################
 subroutine to_csv_real_array2(name,a,no_header) 
     real(real64),intent(in) :: a(:,:)
