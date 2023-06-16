@@ -16,6 +16,8 @@ sudo apt -y install pdfunite
 sudo apt -y install pdftk
 sudo apt -y install gmt
 sudo apt -y install gmt-gshhg
+sudo apt -y install make
+sudo apt -y install ccache
 sudo chmod 777 ./plantfem
 sudo chmod 777 ./bin/soja.sh
 #sudo apt install -y jupyter-notebook
