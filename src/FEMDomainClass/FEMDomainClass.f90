@@ -298,9 +298,18 @@ module FEMDomainClass
 		! number of overset elements
 		procedure, public :: NumOversetElements => NumOversetElementsFEMDomain
 
+		! getter
 		procedure,public ::	x => xFEMDomain
 		procedure,public ::	y => yFEMDomain
 		procedure,public ::	z => zFEMDomain
+		procedure,public ::	getPoint_x => getPoint_xFEMDomain
+		procedure,public ::	getPoint_y => getPoint_yFEMDomain
+		procedure,public ::	getPoint_z => getPoint_zFEMDomain
+
+		procedure,public ::	setPoint_x => set_xFEMDomain
+		procedure,public ::	setPoint_y => set_yFEMDomain
+		procedure,public ::	setPoint_z => set_zFEMDomain
+
 		procedure,public ::	xyz => xyzFEMDomain
 
 		
@@ -494,6 +503,11 @@ module FEMDomainClass
 	interface ZeroMatrix_as_CRS
 		module procedure ZeroMatrix_as_CRS_FEMDomains
 	end interface ZeroMatrix_as_CRS
+
+	interface to_composite_beam
+		module procedure to_composite_beam_FEMDomain
+	end interface
+
 contains
 
 ! ####################################################################
@@ -15296,6 +15310,8 @@ subroutine read_vtk_domain_decomposed_FEMDOmain(this,name,myrank)
 end subroutine
 ! #######################################################
 
+
+! #######################################################
 function M_inv_K_Matrix_CRS_FEMDomain(this,Density,YoungModulus,PoissonRatio) result(ret)
 	class(FEMDomain_),intent(inout) :: this
 	real(real64),intent(in) :: Density(:),YoungModulus(:)
@@ -15304,9 +15320,9 @@ function M_inv_K_Matrix_CRS_FEMDomain(this,Density,YoungModulus,PoissonRatio) re
 	type(CRS_) :: K,M,ret
 	integer(int32) :: dof
 
-	K = this%StiffnessMatrix(&
-    	YoungModulus=YoungModulus ,&
-    	PoissonRatio=PoissonRatio)
+	K = this%StiffnessMatrix( &
+    	YoungModulus=YoungModulus, &
+    	PoissonRatio=PoissonRatio )
 
 	dof = K%size()/this%nn()
 
@@ -15315,10 +15331,331 @@ function M_inv_K_Matrix_CRS_FEMDomain(this,Density,YoungModulus,PoissonRatio) re
     	DOF=dof)
 
 	v = M%lumped()
-
+	
 	ret = K%divide_by(v)
 	
+
 end function
+! #######################################################
+
+
+
+
+! #######################################################
+subroutine set_xFEMDomain(this,idx,coord)
+	class(FEMDOmain_),intent(inout) :: this
+	integer(int32),intent(in) :: idx
+	real(real64),intent(in) :: coord
+
+	this%mesh%nodcoord(idx,1) = coord
+
+end subroutine
+! #######################################################
+
+
+
+
+
+! #######################################################
+subroutine set_yFEMDomain(this,idx,coord)
+	class(FEMDOmain_),intent(inout) :: this
+	integer(int32),intent(in) :: idx
+	real(real64),intent(in) :: coord
+
+	this%mesh%nodcoord(idx,2) = coord
+
+end subroutine
+! #######################################################
+
+
+
+! #######################################################
+subroutine set_zFEMDomain(this,idx,coord)
+	class(FEMDOmain_),intent(inout) :: this
+	integer(int32),intent(in) :: idx
+	real(real64),intent(in) :: coord
+
+	this%mesh%nodcoord(idx,3) = coord
+
+end subroutine
+! #######################################################
+
+
+
+
+
+
+
+
+
+
+! #######################################################
+function getPoint_xFEMDomain(this,idx) result(coord)
+	class(FEMDOmain_),intent(inout) :: this
+	integer(int32),intent(in) :: idx
+	real(real64) :: coord
+
+	coord = this%mesh%nodcoord(idx,1) 
+
+end function
+! #######################################################
+
+
+
+
+
+! #######################################################
+function getPoint_yFEMDomain(this,idx) result(coord)
+	class(FEMDOmain_),intent(inout) :: this
+	integer(int32),intent(in) :: idx
+	real(real64) :: coord
+
+	coord = this%mesh%nodcoord(idx,2) 
+
+end function
+! #######################################################
+
+
+
+! #######################################################
+function getPoint_zFEMDomain(this,idx) result(coord)
+	class(FEMDOmain_),intent(inout) :: this
+	integer(int32),intent(in) :: idx
+	real(real64) :: coord
+
+	coord = this%mesh%nodcoord(idx,3) 
+
+end function
+! #######################################################
+
+
+
+
+
+
+
+
+
+
+! #######################################################
+function to_composite_beam_FEMDomain(length,width,angle_x,angle_z,division) result(this)
+	type(FEMDomain_) :: this
+	real(real64),intent(in) :: length(:),width(:)
+	integer(int32),optional,intent(in) :: division(:)
+	real(real64),optional,intent(in) :: angle_x(:),angle_z
+
+	real(real64),allocatable :: x_axis(:),y_axis(:),z_axis(:)
+	real(real64),allocatable :: x_axis_r(:),y_axis_r(:),z_axis_r(:)
+	integer(int32) :: i, j, n, internode_idx(1:2),a,b,comp_mode
+	integer(int32),allocatable :: nodelist(:)
+	real(real64) :: r,x,y,z,w_a,w_b,theta,p(1:2),c(1:2),dc(1:2),psi_z,z_n
+	real(real64) :: w,YY,rt,r0,eps
+	type(Math_) :: math
+	!type(IO_) :: f
+
+	eps = 1.0e-8
+	
+	
+	x_axis = [-1.0d0,0.0d0,1.0d0]
+	y_axis = [-1.0d0,0.0d0,1.0d0]
+	z_axis = prefix_sum(length)
+	x_axis_r = x_axis
+	y_axis_r = y_axis
+	z_axis_r = z_axis
+	
+	if(present(division) )then
+		
+		if(size(division)>=1 )then
+			
+			call refine(x_axis_r,division(1) )
+		endif
+		
+		if(size(division)>=2 )then
+			call refine(y_axis_r,division(2) )
+		endif
+
+		if(size(division)>=3 )then
+			call refine(z_axis_r,division(3) )
+		endif
+
+	endif
+	
+	call this%create("Cube3D",x_axis=x_axis_r,y_axis=y_axis_r,z_axis=z_axis_r)
+
+	!call f%open("debug.txt","w")
+
+	do i=1,this%nn()
+		x = this%getPoint_x(i)
+		y = this%getPoint_y(i)
+		z = this%getPoint_z(i)
+		internode_idx = find_section(z_axis,z)
+		a = internode_idx(1)
+		b = internode_idx(2)
+
+		
+		if(a ==0)then
+			w_a = width(1)
+		else
+			w_a = width(a)
+		endif
+		
+		if(a==size(width,1) )then
+			w_b = width(size(width,1))
+		else
+			w_b = width(b)
+		endif
+		
+		
+		if(a==0)then
+			theta = 0.0d0
+		elseif(a==size(z_axis) )then
+			theta = 0.0d0
+		else
+			theta         = (z - z_axis(internode_idx(1)))&
+				/(z_axis(internode_idx(2)) - z_axis(internode_idx(1)))
+		endif
+		w = (1.0d0-theta)*w_a + theta*w_b  
+		x = (x/1.0d0) * abs(w/2.0d0)
+		y = (y/1.0d0) * abs(w/2.0d0)
+
+		
+		
+		theta = atan2(y,x)
+		r     = sqrt(x*x + y*y )
+		theta = theta + math%pi
+
+		if(x==0)then
+			comp_mode=1
+		elseif( abs(y/x) >= 1.0d0  )then
+			comp_mode=1
+		else
+			comp_mode=2
+		endif
+		
+		if( comp_mode == 1  )then
+			if((1.0d0-(cos(theta))**2 )/=0.0d0)then
+				rt = (0.50d0*w)/(sqrt(1.0d0-(cos(theta))**2 ))
+			else
+				rt = 0.50d0*w
+			endif
+		else
+			if(sqrt(1.0d0-(sin(theta))**2 )/=0.0d0)then
+				rt = (0.50d0*w)/(sqrt(1.0d0-(sin(theta))**2 ))
+			else
+				rt = 0.50d0*w
+			endif
+		endif
+		theta = atan2(y,x)
+		r     = sqrt(x*x + y*y )
+		r = r*(0.50d0*w)/rt
+		x = r*cos(theta)
+		y = r*sin(theta)
+
+
+		!call f%write(rt*cos(theta),rt*sin(theta) )
+		!YY  = (0.50d0*w)/x*y 
+		!R   = sqrt( (0.50d0*w)**2 + YY**2 )
+		
+		
+		!x   = (0.50d0*w)/(R) *x
+		!y   = (0.50d0*w)/(R) *y 
+		
+
+		call this%setPoint_x(idx=i,coord=x)
+		call this%setPoint_y(idx=i,coord=y)
+		call this%setPoint_z(idx=i,coord=z)
+
+	enddo
+
+
+	if(present(angle_x) )then
+		
+		! x = x + z/tan(0.50d0*math%pi-radian(angle_x(1)) )
+		! z = z - z*(1 - cos(0.50d0*math%pi-radian(angle_x(1)) ))
+		!$OMP parallel do private(x,y,z)
+		do i=1,this%nn()
+			x = this%getPoint_x(i)
+			y = this%getPoint_y(i)
+			z = this%getPoint_z(i)
+
+			x = x + z/tan(0.50d0*math%pi-radian(angle_x(1)) )
+			z = z*cos(radian(angle_x(1)) )
+
+			call this%setPoint_x(i,x)
+			call this%setPoint_y(i,y)
+			call this%setPoint_z(i,z)
+
+		enddo
+		!$OMP end parallel do
+
+		do i=2,min(size(z_axis),size(angle_x))
+			
+			do j=1,this%nn()
+				x = this%getPoint_x(j)
+				y = this%getPoint_y(j)
+				z = this%getPoint_z(j)
+				
+				if(z<=z_axis(i) )cycle
+
+				x = x + (z-z_axis(i)) /tan(0.50d0*math%pi-radian(angle_x(i)) ) 
+				z = (z-z_axis(i))*cos(radian(angle_x(i)) ) + z_axis(i)
+				
+				call this%setPoint_x(j,x)
+				call this%setPoint_y(j,y)
+				call this%setPoint_z(j,z)
+			enddo
+		enddo
+	endif
+	
+
+	if(present(angle_z) )then
+		call this%rotate(z= radian(angle_z))
+	endif
+	! IMPLEMENTATION FAILED>
+!	if(present(angle_z) )then
+!		
+!		c(:) = 0.0d0
+!		psi_z = 0.0d0
+!		z_n = 0.0d0
+!		do i=1,size(angle_z)
+!			
+!			do j=1,this%nn()
+!				x = this%getPoint_x(j)
+!				y = this%getPoint_y(j)
+!				z = this%getPoint_z(j)
+!				
+!				if(z<=z_n )cycle
+!
+!				p(1:2) = [x,y]
+!				p = p - c
+!				p = matmul( rotationMatrix(radian(angle_z(i))),p )
+!				p = p + c
+!				x = p(1)
+!				y = p(2)
+!					
+!				call this%setPoint_x(j,x)
+!				call this%setPoint_y(j,y)
+!				call this%setPoint_z(j,z)
+!			enddo
+!
+!			! update rotation center
+!			!psi_z = psi_z + angle_z(i)
+!			z_n = z_n + length(i+1)*cos( radian(angle_x(i) ))
+!			c(1) = average( this%mesh%nodcoord( this%select(z_min=z_n-eps,z_max=z_n+eps) ,1)  )
+!			c(2) = average( this%mesh%nodcoord( this%select(z_min=z_n-eps,z_max=z_n+eps) ,2)  )
+!			!
+!		enddo
+!	endif
+!
+	!call f%close()
+
+
+
+end function
+! #######################################################
+
+
+
 
 end module FEMDomainClass
 
