@@ -27,6 +27,7 @@ module FactoryClass
         procedure,pass :: resize_forall_Factory
         procedure,pass :: resize_foreach_Factory
         generic :: resize => resize_forall_Factory, resize_foreach_Factory
+        
     end type
 
     interface operator(//)

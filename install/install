@@ -17,10 +17,15 @@ elif [ "$1" = "sim" ]; then
 elif [ "$1" = "obj" ]; then
     sh "install/install_obj"
 else
-    sh "install/install_std"
-    sh "install/install_fem"
-    sh "install/install_sim"
-    sh "install/install_obj"
+    # Makefile is available, but is not fast.
+    # These scripts are faster than Make.
+    #sh "install/install_std"
+    #sh "install/install_fem"
+    #sh "install/install_sim"
+    #sh "install/install_obj"
+    make -j
+    mv *.mod inc/
+    cp *.so inc/
 fi
 
 echo " plantFEM is successfully installed !!"

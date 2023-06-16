@@ -51,6 +51,13 @@ module ArrayClass
         module procedure :: d_dx_real64,d_dx_real32,d_dx_complex64
     end interface
 
+    interface prefix_sum
+        module procedure :: prefix_sum_int32,prefix_sum_real32,prefix_sum_real64,prefix_sum_complex64
+    end interface prefix_sum
+
+    interface find_section
+        module procedure find_section_real64
+    end interface find_section
 
     interface cartesian_product
         module procedure :: cartesian_product_real64_2,cartesian_product_real64_array_vec
@@ -6219,6 +6226,8 @@ recursive subroutine refineReal64Vec(x,n)
     real(real64) :: max_len
     integer(int32) :: i, j,max_len_num
 
+    if(n==0) return
+    
     if(size(x)<=1 )then
         print *, "[ERROR] refineReal64Vec"
         print *, "size(x) should be >= 2 and sorted."
@@ -7579,6 +7588,8 @@ subroutine RefineSequenceReal64(x,Fx,x_range,num_point)
     integer(int32),intent(in) :: num_point
     integer(int32) :: i
     
+    
+
     x_o  = x
     Fx_o = Fx
 
@@ -9421,5 +9432,97 @@ end function
 ! #########################################################
 
 
+! #########################################################
+pure function prefix_sum_int32(vec) result(ret)
+    integer(int32),intent(in) :: vec(:)
+    integer(int32),allocatable :: ret(:)
+    integer(int32) :: i,n
+    
+    n = size(vec)
+    allocate(ret(n) )
+    ret(1) = vec(1)
+    do i=2,n
+        ret(i) = ret(i-1) + vec(i)
+    enddo
+
+end function
+! #########################################################
+
+
+
+! #########################################################
+pure function prefix_sum_real32(vec) result(ret)
+    real(real32),intent(in) :: vec(:)
+    real(real32),allocatable :: ret(:)
+    integer(int32) :: i,n
+    
+    n = size(vec)
+    allocate(ret(n) )
+    ret(1) = vec(1)
+    do i=2,n
+        ret(i) = ret(i-1) + vec(i)
+    enddo
+
+end function
+! #########################################################
+
+
+! #########################################################
+pure function prefix_sum_real64(vec) result(ret)
+    real(real64),intent(in) :: vec(:)
+    real(real64),allocatable :: ret(:)
+    integer(int32) :: i,n
+    
+    n = size(vec)
+    allocate(ret(n) )
+    ret(1) = vec(1)
+    do i=2,n
+        ret(i) = ret(i-1) + vec(i)
+    enddo
+
+end function
+! #########################################################
+
+
+! #########################################################
+pure function prefix_sum_complex64(vec) result(ret)
+    complex(real64),intent(in) :: vec(:)
+    complex(real64),allocatable :: ret(:)
+    integer(int32) :: i,n
+    
+    n = size(vec)
+    allocate(ret(n) )
+    ret(1) = vec(1)
+    do i=2,n
+        ret(i) = ret(i-1) + vec(i)
+    enddo
+
+end function
+! #########################################################
+
+
+pure function find_section_real64(sorted_list,given_value) result(idx)
+    real(real64),intent(in) :: sorted_list(:), given_value
+    integer(int32) :: idx(1:2),i,n
+
+    if(given_value < sorted_list(1) )then
+        idx = [0,1]
+        return
+    endif
+
+    
+    if(given_value > sorted_list(size(sorted_list) ) )then
+        idx = [ size(sorted_list), size(sorted_list)+1 ]
+        return
+    endif
+
+    do i=1,size(sorted_list)-1
+        if( sorted_list(i) <= given_value .and. given_value <= sorted_list(i+1)  )    then
+            idx(1:2) = [i,i+1]
+            return
+        endif
+    enddo
+
+end function
 
 end module ArrayClass

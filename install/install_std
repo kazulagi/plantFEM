@@ -45,6 +45,9 @@ echo " | >                           | (0%)\r\c "
 mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/StringClass/StringClass.f90 -o  ./inc/StringClass.o -llapack -lblas
 echo "Compiling ./src/TimeClass/TimeClass.f90      "
 echo " >> TimeClass.o"
+
+
+
 echo " | >                           | (0%)\r\c "
 mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/TimeClass/TimeClass.f90 -o  ./inc/TimeClass.o -llapack -lblas
 echo "Compiling ./src/TermClass/TermClass.f90      "
@@ -63,10 +66,15 @@ echo "Compiling ./src/PhysicsClass/PhysicsClass.f90   "
 echo " >> PhysicsClass.o"
 echo " | =>                          | (2%)\r\c "
 mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PhysicsClass/PhysicsClass.f90 -o  ./inc/PhysicsClass.o -llapack -lblas
+
+
 echo "Compiling ./src/HTTPClass/HTTPClass.f90   "
 echo " >> HTTPClass.o"
 echo " | =>                          | (2%)\r\c "
 mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/HTTPClass/HTTPClass.f90 -o  ./inc/HTTPClass.o -llapack -lblas
+
+
+
 
 echo "Compiling ./src/IOClass/IOClass.f90      "
 echo " >> IOClass.o"
@@ -81,6 +89,8 @@ echo "Compiling ./src/KinematicClass/KinematicClass.f90   "
 echo " >> KinematicClass.o"
 echo " | =>                          | (3%)\r\c "
 mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/KinematicClass/KinematicClass.f90 -o  ./inc/KinematicClass.o -llapack -lblas
+
+
 echo "Compiling ./src/RandomClass/RandomClass.f90   "
 echo " >> RandomClass.o"
 echo " | =>                          | (3%)\r\c "
@@ -149,7 +159,7 @@ mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-mo
 echo "Compiling ./src/VectorClass/VectorClass.f90 " 
 echo " >> VectorClass.o "
 echo " | =>                          | (4%)\r\c"
-mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/VectorClass/VectorClass.f90 -o  ./inc/Vector.o -llapack -lblas
+mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/VectorClass/VectorClass.f90 -o  ./inc/VectorClass.o -llapack -lblas
 echo "Compiling ./src/EquationClass/EquationClass.f90 " 
 echo " >> EquationClass.o "
 echo " | =>                          | (4%)\r\c"
