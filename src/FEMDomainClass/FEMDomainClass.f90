@@ -131,6 +131,7 @@ module FEMDomainClass
     contains
 		procedure,public :: add => addFEMDomain
 		procedure,public :: addNBC => AddNBCFEMDomain 
+		procedure,public :: add_point => add_pointFEMDomain
 		procedure,public :: importLayer => importLayerFEMDomain
 
 
@@ -383,7 +384,9 @@ module FEMDomainClass
 		procedure,public :: removeElements=> removeElementFEMDomain
 		procedure,public :: remove => removeFEMDomain
 		procedure,public :: remove_duplication => remove_duplication_FEMDomain
-		procedure,public :: refine => refineFEMDomain
+		procedure,pass ::  refineFEMDomain
+		procedure,pass ::  refine_elementsFEMDomain
+		generic,public :: refine => refineFEMDomain,refine_elementsFEMDomain
 		
 		procedure,pass   :: readFEMDomain
 		procedure,pass   :: read_vtk_domain_decomposed_FEMDOmain
@@ -404,7 +407,9 @@ module FEMDomainClass
 		procedure,public :: setBoundary => setBoundaryFEMDomain
         procedure,public :: setControlPara =>  SetControlParaFEMDomain
 		
-		procedure,public :: select => selectFEMDomain ! select nodes
+		procedure,pass :: selectFEMDomain ! select nodes
+		procedure,pass :: select_by_functionFEMDomain ! select nodes
+		generic,public :: select => selectFEMDomain,select_by_functionFEMDomain
 		
 		procedure,public :: show => showFEMDomain
 		procedure,public :: showRange => showRangeFEMDomain
@@ -13944,7 +13949,8 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID, deb
 
 
 end subroutine
-! ----------------------------------------------
+
+! #############################################################
 pure function NumOversetElementsFEMDomain(obj) result(ret)
 	class(FEMDomain_),intent(in) :: obj
 	integer(int32) :: ret
@@ -13952,23 +13958,211 @@ pure function NumOversetElementsFEMDomain(obj) result(ret)
 	ret = obj%num_oversetconnect
 
 end function
+! #############################################################
 
-subroutine refineFEMDomain(obj,x_min,x_max,y_min,y_max,z_min,z_max)  
-	class(FEMDomain_),intent(inout) :: obj
-	real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
-	real(real64) :: xr(2),yr(2),zr(2)
 
-	! refine mesh
-	xr(1) = input(default=minval(obj%mesh%nodcoord(:,1) ),option=x_min )
-	xr(2) = input(default=maxval(obj%mesh%nodcoord(:,1) ),option=x_max )
-	yr(1) = input(default=minval(obj%mesh%nodcoord(:,2) ),option=y_min )
-	yr(2) = input(default=maxval(obj%mesh%nodcoord(:,2) ),option=y_max )
-	zr(1) = input(default=minval(obj%mesh%nodcoord(:,3) ),option=z_min )
-	zr(2) = input(default=maxval(obj%mesh%nodcoord(:,3) ),option=z_max )
+! #############################################################
+subroutine refineFEMDomain(this,ElementID,success)  
+	class(FEMDomain_),intent(inout) :: this
+	integer(int32),intent(in) :: ElementID
+	real(real64),allocatable :: NodCoord_main(:,:)
+	real(real64),allocatable :: NodCoord_buf(:,:)
+
+	integer(int32),allocatable :: ElemNod_buf(:,:)
+	integer(int32),allocatable :: cross_pairing(:,:),new_pairing(:,:),main_new_pairing(:,:)
+	real(real64) :: theta
+	integer(int32) :: i,j,nn
+	logical,optional,intent(inout):: success
+
+	if(present(success) )then
+		success = .true.
+	endif
+
+	if(ElementID > this%ne() ) then
+		if(present(success) )then
+			success = .false.
+		endif
+		return
+	endif
+	! Only for 8-node isoparametric element
+	if(this%nne()/=8 ) then
+		print *, "[ERROR] refineFEMDomain is only for 8-node isoparametric elements."
+		if(present(success) )then
+			success = .false.
+		endif
+		stop
+	else
+		NodCoord_buf = zeros(this%nne(),3)
+		ElemNod_buf  = int(zeros(7,this%nne()))
+		NodCoord_buf = this%mesh%NodCoord(  this%mesh%ElemNod(ElementID,:)  ,:)
+
+		nn = this%nn()
+		
+		![1,7] 
+		![2,8] 
+		![3,5] 
+		![4,6] 
+		![5,3] 
+		![6,4] 
+		![7,1] 
+		![8,2] 
+		cross_pairing = int(zeros(this%nne(),2))
+		cross_pairing(1,1:2) = [1,7]
+		cross_pairing(2,1:2) = [2,8]
+		cross_pairing(3,1:2) = [3,5]
+		cross_pairing(4,1:2) = [4,6]
+		cross_pairing(5,1:2) = [5,3] 
+		cross_pairing(6,1:2) = [6,4] 
+		cross_pairing(7,1:2) = [7,1] 
+		cross_pairing(8,1:2) = [8,2] 
+
+		theta = 1.0d0/4.0d0
+
+		do i=1,size(cross_pairing,1)
+			do j=1,size(cross_pairing,2)
+				cross_pairing(i,j) =  this%mesh%elemnod(ElementID,cross_pairing(i,j))
+			enddo
+		enddo
+		
+		! 1/3 method
+		do i=1,size(cross_pairing,1)
+			NodCoord_buf(i,1:3) = (1.0d0-theta)*this%mesh%nodcoord( &
+					cross_pairing(i,1) ,1:3)  &
+				+ (theta)*this%mesh%nodcoord( &
+					cross_pairing(i,2) ,1:3)
+		enddo
+
+
+		! connectivity
+
+		ElemNod_buf(1,1) = this%mesh%elemnod(ElementID,1) 
+		ElemNod_buf(1,2) = this%mesh%elemnod(ElementID,2) 
+		ElemNod_buf(1,3) = this%mesh%elemnod(ElementID,3) 
+		ElemNod_buf(1,4) = this%mesh%elemnod(ElementID,4) 
+		ElemNod_buf(1,5) = nn + 1
+		ElemNod_buf(1,6) = nn + 2
+		ElemNod_buf(1,7) = nn + 3
+		ElemNod_buf(1,8) = nn + 4
+
+		ElemNod_buf(2,1) = this%mesh%elemnod(ElementID,1) 
+		ElemNod_buf(2,2) = this%mesh%elemnod(ElementID,5) 
+		ElemNod_buf(2,3) = this%mesh%elemnod(ElementID,6) 
+		ElemNod_buf(2,4) = this%mesh%elemnod(ElementID,2) 
+		ElemNod_buf(2,5) = nn + 1
+		ElemNod_buf(2,6) = nn + 5
+		ElemNod_buf(2,7) = nn + 6
+		ElemNod_buf(2,8) = nn + 2
+
+		ElemNod_buf(3,1) = this%mesh%elemnod(ElementID,2) 
+		ElemNod_buf(3,2) = this%mesh%elemnod(ElementID,6) 
+		ElemNod_buf(3,3) = this%mesh%elemnod(ElementID,7) 
+		ElemNod_buf(3,4) = this%mesh%elemnod(ElementID,3) 
+		ElemNod_buf(3,5) = nn + 2
+		ElemNod_buf(3,6) = nn + 6
+		ElemNod_buf(3,7) = nn + 7
+		ElemNod_buf(3,8) = nn + 3
+
+		ElemNod_buf(4,1) = this%mesh%elemnod(ElementID,3) 
+		ElemNod_buf(4,2) = this%mesh%elemnod(ElementID,7) 
+		ElemNod_buf(4,3) = this%mesh%elemnod(ElementID,8) 
+		ElemNod_buf(4,4) = this%mesh%elemnod(ElementID,4) 
+		ElemNod_buf(4,5) = nn + 3
+		ElemNod_buf(4,6) = nn + 7
+		ElemNod_buf(4,7) = nn + 8
+		ElemNod_buf(4,8) = nn + 4
+		
+
+		ElemNod_buf(5,1) = this%mesh%elemnod(ElementID,4) 
+		ElemNod_buf(5,2) = this%mesh%elemnod(ElementID,8) 
+		ElemNod_buf(5,3) = this%mesh%elemnod(ElementID,5) 
+		ElemNod_buf(5,4) = this%mesh%elemnod(ElementID,1) 
+		ElemNod_buf(5,5) = nn + 4
+		ElemNod_buf(5,6) = nn + 8
+		ElemNod_buf(5,7) = nn + 5
+		ElemNod_buf(5,8) = nn + 1
+
+		ElemNod_buf(6,1) = this%mesh%elemnod(ElementID,8) 
+		ElemNod_buf(6,2) = this%mesh%elemnod(ElementID,7) 
+		ElemNod_buf(6,3) = this%mesh%elemnod(ElementID,6) 
+		ElemNod_buf(6,4) = this%mesh%elemnod(ElementID,5) 
+		ElemNod_buf(6,5) = nn + 8
+		ElemNod_buf(6,6) = nn + 7
+		ElemNod_buf(6,7) = nn + 6
+		ElemNod_buf(6,8) = nn + 5
+
+		ElemNod_buf(7,1) = nn + 1
+		ElemNod_buf(7,2) = nn + 2
+		ElemNod_buf(7,3) = nn + 3
+		ElemNod_buf(7,4) = nn + 4
+		ElemNod_buf(7,5) = nn + 5
+		ElemNod_buf(7,6) = nn + 6
+		ElemNod_buf(7,7) = nn + 7
+		ElemNod_buf(7,8) = nn + 8
+
+
+		this%mesh%nodcoord = this%mesh%nodcoord .v. NodCoord_buf
+		
+		
+
+		if(ElementID==1)then
+			if(this%ne()==1 )then
+				this%mesh%elemnod  =  ElemNod_buf 
+			else
+				this%mesh%elemnod  =  ElemNod_buf .v. this%mesh%elemnod(2:,:)
+			endif
+		elseif(ElementID==this%ne() )then
+			this%mesh%elemnod  = this%mesh%elemnod(:this%ne()-1,: )  .v. ElemNod_buf
+		else
+			this%mesh%elemnod  = this%mesh%elemnod(:ElementID-1,:)  .v. ElemNod_buf &
+			 .v. this%mesh%elemnod(ElementID+1:,:)
+		endif
+	endif
+
+
+
 
 	
 end subroutine
+! #############################################################
 
+! #############################################################
+subroutine refine_elementsFEMDomain(this,ElementID)  
+	class(FEMDomain_),intent(inout) :: this
+	integer(int32),intent(in) :: ElementID(:)
+	real(real64),allocatable :: NodCoord_main(:,:)
+	real(real64),allocatable :: NodCoord_buf(:,:)
+
+	integer(int32),allocatable :: ElemNod_buf(:,:)
+	integer(int32),allocatable :: cross_pairing(:,:),new_pairing(:,:),main_new_pairing(:,:)
+	real(real64) :: theta
+	integer(int32) :: i,j,nn
+	integer(int32),allocatable :: ElementList(:)
+	logical :: success
+
+	ElementList = ElementID
+	call heapsort(size(ElementList), ElementList)
+
+	do i=1,size(ElementList)
+		call this%refine(ElementID=ElementList(i),success=success)
+		if(success)then
+			do j=i+1,size(ElementList)
+				if(ElementList(j)>ElementList(i) )then
+					ElementList(j) = ElementList(j) -1 + 7
+				endif
+			enddo
+		endif
+	enddo
+
+
+
+
+	
+end subroutine
+! #############################################################
+
+
+
+! #############################################################
 subroutine csvFEMDomain(this,name)
 	! export as point cloud
 	class(FEMDomain_),intent(in) :: this
@@ -15654,8 +15848,46 @@ function to_composite_beam_FEMDomain(length,width,angle_x,angle_z,division) resu
 end function
 ! #######################################################
 
+! #######################################################
+subroutine add_pointFEMDomain(this,coord)
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),intent(in) :: coord
 
 
+
+end subroutine
+! #######################################################
+
+
+function selectFEMDomain(this,surface,params,sign) result(NodeList)
+	
+	interface 
+		function surface(x,params) result(ret)
+			real(real64),intent(in) :: x(:)
+			real(real64),intent(in) :: params(:)
+			real(real64) :: ret
+		end function
+	end interface
+
+	character(*),intent(in) :: sign
+	class(FEMDomain_),intent(in) :: this
+	real(real64),intent(in) :: params(:)
+	integer(int32),allocatable :: flags(:)
+	real(real64) :: ret
+
+	flags = int(zeros(this%nn() ) ) 
+	do i=1,this%nn()
+		ret = surface()
+		select case(sign)
+			case(">=")
+
+		end select
+		
+		
+	enddo
+	
+
+end function
 
 end module FEMDomainClass
 
