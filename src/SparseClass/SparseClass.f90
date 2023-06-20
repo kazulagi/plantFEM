@@ -602,12 +602,13 @@ subroutine LanczosCRS(this,DiagonalVector,subDiagonalVector,V)
 
 end subroutine
 
-function matmulCRS(CRS,old_vector,run_mode) result(new_vector)
+function matmulCRS(CRS,old_vector,run_mode,cache_size) result(new_vector)
     class(CRS_),intent(in) :: CRS
     real(real64),intent(in)  :: Old_vector(:)
     real(real64),allocatable :: new_vector(:)
     integer(int32),optional,intent(in) :: run_mode
     integer(int32) :: mode_id
+    integer(int32),optional,intent(in) :: cache_size
     
     mode_id = input(default=0,option=run_mode)
     if(mode_id==1)then
@@ -622,7 +623,8 @@ function matmulCRS(CRS,old_vector,run_mode) result(new_vector)
             CRS_value=CRS%val,&
             CRS_col=CRS%col_idx,&
             CRS_row_ptr=CRS%row_ptr,&
-            old_vector=old_vector)
+            old_vector=old_vector,&
+            cache_size=cache_size)
     endif
   end function
 
@@ -750,14 +752,20 @@ function matmul_c_real32_CRS(CRS,old_vector,c_routine) result(new_vector)
   
 
 
-function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector) result(new_vector)
+function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector,&
+    cache_size) result(new_vector)
     real(real64),intent(in)  :: CRS_value(:),Old_vector(:)
     integeR(int32),intent(in):: CRS_col(:)
     integeR(int64),intent(in):: CRS_row_ptr(:)
-  
+    integer(int32),optional,intent(in) :: cache_size
+
     real(real64),allocatable :: new_vector(:)
     integer(int32) :: i, j, n,gid,lid,row,col
     integer(int64) :: CRS_id
+
+    integer(int64) :: block_idx, num_block, mem_size,num_row_in_block
+    integer(int64),allocatable :: row_idx_from(:),row_idx_to(:)
+    
     
     !> x_i = A_ij b_j
   
@@ -782,17 +790,69 @@ function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector
     !v2.0
     
     !v2.0
+    if(.not.present(cache_size) )then
+        !$OMP parallel default(shared)
+        !$OMP do reduction(+:new_vector)
+        do row = 1, n
+                new_vector(row) = new_vector(row) + dot_product( &
+                    CRS_value(CRS_row_ptr(row):CRS_row_ptr(row+1)-1),  &
+                    old_vector(CRS_col(CRS_row_ptr(row):CRS_row_ptr(row+1)-1) )&
+                    )
+        enddo
+        !$OMP end do
+        !$OMP end parallel 
+    else    
+        ! This does not work
 
-    !$OMP parallel default(shared)
-    !$OMP do reduction(+:new_vector)
-    do row = 1, n
-            new_vector(row) = new_vector(row) + dot_product( &
-                CRS_value(CRS_row_ptr(row):CRS_row_ptr(row+1)-1),  &
-                old_vector(CRS_col(CRS_row_ptr(row):CRS_row_ptr(row+1)-1) )&
-                )
-    enddo
-    !$OMP end do
-    !$OMP end parallel 
+        ! (1) 行列およびベクトルのメモリ消費量を算出する．
+        mem_size = sizeof(CRS_value) + sizeof(CRS_col)+sizeof(CRS_row_ptr)&
+            +sizeof(new_vector)+sizeof(old_vector)
+        ! (2) メモリ消費量/キャッシュサイズ=ブロック数を算出する．
+        
+        ! (3) 1~nを，1~k, k+1~2*k, 2k+1~3*k,...とブロックに分割し，
+        ! 　　j番目の開始idxをrow_idx_from(j), 終了idxをrow_idx_to(j)へ格納
+        if(mem_size <= cache_size)then
+            num_block = 1
+            row_idx_from = [1]
+            row_idx_to   = [n]
+
+        else
+            num_block = mem_size/cache_size
+            if(mod(n,num_block)==0 )then
+                allocate(row_idx_from(num_block) )
+                allocate(row_idx_to(num_block) )
+                num_row_in_block = n/num_block
+                do i=1,num_block
+                    row_idx_from(i) = (i-1)*num_row_in_block+1
+                    row_idx_to(i)   = i*num_row_in_block
+                enddo
+            else
+                allocate(row_idx_from(num_block+1) )
+                allocate(row_idx_to(num_block+1) )
+                num_row_in_block = n/num_block
+                do i=1,num_block
+                    row_idx_from(i) = (i-1)*num_row_in_block+1
+                    row_idx_to(i)   = i*num_row_in_block
+                enddo
+                row_idx_from(num_block+1) = num_block*num_row_in_block+1
+                row_idx_to(num_block+1)   = n
+            endif
+        endif
+        
+        do block_idx = 1,num_block
+            !$OMP parallel default(shared)
+            !$OMP do reduction(+:new_vector)
+            do row = row_idx_from(block_idx), row_idx_to(block_idx)
+                new_vector(row) = new_vector(row) + dot_product( &
+                    CRS_value(CRS_row_ptr(row):CRS_row_ptr(row+1)-1),  &
+                    old_vector(CRS_col(CRS_row_ptr(row):CRS_row_ptr(row+1)-1) )&
+                    )
+            enddo
+            !$OMP end do
+            !$OMP end parallel 
+        enddo
+    endif
+    
 
 
     !<v1.0>
@@ -888,6 +948,7 @@ subroutine spmv_as_subroutine_CRS(this,old_vector,new_vector)
     enddo
     !$OMP end do
     !$OMP end parallel 
+
 end subroutine
 
 

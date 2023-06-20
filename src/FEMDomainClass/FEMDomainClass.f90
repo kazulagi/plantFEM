@@ -15859,10 +15859,11 @@ end subroutine
 ! #######################################################
 
 
-function selectFEMDomain(this,surface,params,sign) result(NodeList)
+function select_by_functionFEMDomain(this,surface,params,sign) result(NodeList)
 	
 	interface 
 		function surface(x,params) result(ret)
+			use iso_fortran_env
 			real(real64),intent(in) :: x(:)
 			real(real64),intent(in) :: params(:)
 			real(real64) :: ret
@@ -15874,10 +15875,14 @@ function selectFEMDomain(this,surface,params,sign) result(NodeList)
 	real(real64),intent(in) :: params(:)
 	integer(int32),allocatable :: flags(:)
 	real(real64) :: ret
+	real(real64),allocatable :: x(:)
+	integer(int32) :: i
+	integer(int32),allocatable :: NodeList(:)
 
 	flags = int(zeros(this%nn() ) ) 
 	do i=1,this%nn()
-		ret = surface()
+		x = this%mesh%nodcoord(i,:)
+		ret = surface(x ,params )
 		select case(sign)
 			case(">=")
 

@@ -481,7 +481,7 @@ module ArrayClass
             to_Array_real32_vector, &
             to_Array_real32_vector_2,&
             to_Array_real32_vector_3,&
-            to_Array_from_keyword
+            to_Array_from_keyword,to_array_from_file
     end interface to_array
 
     interface to_vector
@@ -9524,5 +9524,24 @@ pure function find_section_real64(sorted_list,given_value) result(idx)
     enddo
 
 end function
+
+! ######################################################
+function to_array_from_file(filename,array_shape) result(real_array)
+    character(*),intent(in) :: filename
+    real(real64),allocatable :: real_array(:,:)
+    integer(int32),intent(in) :: array_shape(1:2)
+    integer(int32) :: fh,i
+
+    open(newunit=fh,file=filename,status="old")
+    real_array = zeros(array_shape(1),array_shape(2) )
+    do i=1,array_shape(1)
+        read(fh,*) real_array(i,:)
+    enddo
+    close(fh)
+
+
+end function
+! ######################################################
+
 
 end module ArrayClass
