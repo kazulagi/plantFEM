@@ -105,7 +105,6 @@ module SparseClass
         procedure,public :: maxval => maxvalCOO
         procedure,public :: random => randomCOO ! create random sparse matrix
 
-
         ! typical matrix
         procedure,public :: eyes => eyesCOO
         procedure,public :: poisson => poissonCOO
@@ -287,7 +286,13 @@ module SparseClass
 !        module procedure divide_by_diagonal_vector_CRS, divide_by_scalar_CRS
 !    end interface
 
+    interface to_COO
+        module procedure to_COO_from_DenseMatrix, to_COO_from_ArrayObject
+    end interface
 
+    interface to_CRS
+        module procedure to_CRS_from_DenseMatrix, to_CRS_from_ArrayObject
+    end interface
 
 contains
 
@@ -4665,6 +4670,10 @@ subroutine to_real32_CRS(this)
     this%dtype = real32
 
 end subroutine
+! ###################################################
+
+
+
 
 !! ###################################################
 !function divide_by_diagonal_vector_CRS(this,diag_vector) result(ret)
@@ -4690,5 +4699,72 @@ end subroutine
 !    ret%val = ret%val/scalar_value
 !end function
 !! ###################################################
+
+! ###################################################
+function to_COO_from_DenseMatrix(dense_matrix) result(ret)
+    type(COO_) :: ret
+    real(real64),intent(in) :: dense_matrix(:,:)
+    integer(int32) :: DOF,i,j
+    
+    DOF = size(dense_matrix,1)
+    call ret%init(DOF)
+    do i=1,size(dense_matrix,1)
+        do j=1,size(dense_matrix,1)
+            call ret%add(i,j,dense_matrix(i,j))
+        enddo
+    enddo
+
+end function
+! ###################################################
+
+! ###################################################
+function to_COO_from_ArrayObject(arrayobject) result(ret)
+    type(COO_) :: ret
+    type(Array_),intent(in) :: arrayobject
+    real(real64),allocatable :: dense_matrix(:,:)
+    integer(int32) :: DOF,i,j
+    
+    dense_matrix = arrayobject
+    DOF = size(dense_matrix,1)
+    call ret%init(DOF)
+    do i=1,size(dense_matrix,1)
+        do j=1,size(dense_matrix,1)
+            if(dense_matrix(i,j)==0.0d0)cycle
+            call ret%add(i,j,dense_matrix(i,j))
+        enddo
+    enddo
+
+end function
+! ###################################################
+
+
+
+! ###################################################
+function to_CRS_from_DenseMatrix(dense_matrix) result(ret)
+    type(COO_) :: coo
+    type(CRS_) :: ret
+    real(real64),intent(in) :: dense_matrix(:,:)
+
+    coo = to_COO(dense_matrix)
+    ret = coo%to_CRS()
+
+end function
+! ###################################################
+
+
+! ###################################################
+function to_CRS_from_ArrayObject(arrayobject) result(ret)
+    type(COO_) :: coo
+    type(CRS_) :: ret
+    type(Array_),intent(in) :: arrayobject
+    real(real64),allocatable :: dense_matrix(:,:)
+
+    dense_matrix = arrayobject
+    coo = to_COO(dense_matrix)
+    ret = coo%to_CRS()
+
+end function
+! ###################################################
+
 
 end module SparseClass

@@ -11644,8 +11644,8 @@ end function
 ! ##########################################################################
 recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 	class(FEMDomain_) ,intent(inout) :: obj
-	type(ShapeFunction_),optional,intent(in) :: shapefunction
 	integer(int32),optional,intent(in) :: ElementID
+	type(ShapeFunction_),optional,intent(in) :: shapefunction
 	real(real64), allocatable :: Psymat(:,:), Jmat(:,:), detJ 
 	real(real64), allocatable :: Bmat(:,:)
 	integer(int32)::dim_num
@@ -15742,8 +15742,10 @@ function to_composite_beam_FEMDomain(length,width,angle_x,angle_z,division) resu
 		theta = atan2(y,x)
 		r     = sqrt(x*x + y*y )
 		r = r*(0.50d0*w)/rt
-		x = r*cos(theta)
-		y = r*sin(theta)
+
+		! debug
+		!x = r*cos(theta)
+		!y = r*sin(theta)
 
 
 		!call f%write(rt*cos(theta),rt*sin(theta) )

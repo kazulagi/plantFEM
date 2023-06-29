@@ -8,6 +8,7 @@ program main
     character(:),allocatable :: filename
     real(real64),allocatable :: training_data(:,:),params(:)
     
+    ! fit by SGD
     call f%download("https://plantfem.org/download/test_step_response.txt")
 
     ! read file and extract step-response parts
