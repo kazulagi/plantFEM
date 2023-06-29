@@ -294,6 +294,11 @@ module SparseClass
         module procedure to_CRS_from_DenseMatrix, to_CRS_from_ArrayObject
     end interface
 
+    type :: Sparse_
+        type(COO_) :: COO
+        type(CRS_) :: CRS
+        type(CCS_) :: CCS
+    end type
 contains
 
 subroutine initCOO(this,num_row)

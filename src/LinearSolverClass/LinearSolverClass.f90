@@ -75,7 +75,9 @@ module LinearSolverClass
     
     procedure, public :: assemble => assembleLinearSolver
     
-    procedure, public :: import => importLinearSolver
+    procedure, pass ::  importLinearSolver
+    procedure, pass :: importCRS_LinearSolver
+    generic,public :: import => importLinearSolver,importCRS_LinearSolver
     procedure, public :: fix => fixLinearSolver
     procedure, public :: solve => solveLinearSolver
     
@@ -91,6 +93,8 @@ module LinearSolverClass
     procedure, public :: getCOOFormat => getCOOFormatLinearSolver
     procedure, public :: exportAsCOO  => exportAsCOOLinearSolver
     procedure, public :: exportRHS    => exportRHSLinearSolver
+
+    
   end type
 
 
@@ -3718,53 +3722,53 @@ subroutine to_Dense(CRS_val,CRS_col,CRS_rowptr,DenseMatrix)
   enddo
 end subroutine
 
-subroutine to_CRS(DenseMatrix,CRS_val,CRS_col,CRS_rowptr) 
-  real(real64),intent(in) :: DenseMatrix(:,:)
-  real(real64),allocatable,intent(inout) :: CRS_val(:)
-  integer(int32),allocatable,intent(inout) :: CRS_col(:)
-  integer(int64),allocatable,intent(inout) :: CRS_rowptr(:)
-
-  integer(int64) :: nonzero_count,i,j,k,n
-
-  nonzero_count = 0
-  do i=1,size(DenseMatrix,1)
-      do j=1,size(DenseMatrix,2)
-          if(DenseMatrix(i,j)/=0.0d0 ) then
-              nonzero_count = nonzero_count + 1
-          endif
-      enddo
-  enddo
-  CRS_val = zeros(nonzero_count)
-  CRS_col = int(linspace([1.0d0,dble(nonzero_count)], nonzero_count))
-  CRS_rowptr = int(zeros(size(DenseMatrix,1)+1) )
-  
-  nonzero_count = 0
-  do i=1,size(DenseMatrix,1)
-      do j=1,size(DenseMatrix,2)
-          if(DenseMatrix(i,j)/=0.0d0 ) then
-              nonzero_count = nonzero_count + 1
-              CRS_val(nonzero_count) = DenseMatrix(i,j)
-              CRS_col(nonzero_count) = j
-              CRS_rowptr(i) = CRS_rowptr(i) + 1
-          endif
-      enddo
-  enddo
-  
-  n = CRS_rowptr(1) 
-  !CRS_rowptr(1) =0
-  do i=1,size(CRS_rowptr)-1
-      CRS_rowptr(i+1) = CRS_rowptr(i+1) + CRS_rowptr(i) 
-  enddo
-  do i=size(CRS_rowptr)-1,1,-1
-      CRS_rowptr(i+1) = CRS_rowptr(i) 
-  enddo
-  do i=size(CRS_rowptr),1,-1
-      CRS_rowptr(i) = CRS_rowptr(i) +1
-  enddo
-  CRS_rowptr(1) = 1
-  
-  
-end subroutine
+!subroutine to_CRS(DenseMatrix,CRS_val,CRS_col,CRS_rowptr) 
+!  real(real64),intent(in) :: DenseMatrix(:,:)
+!  real(real64),allocatable,intent(inout) :: CRS_val(:)
+!  integer(int32),allocatable,intent(inout) :: CRS_col(:)
+!  integer(int64),allocatable,intent(inout) :: CRS_rowptr(:)
+!
+!  integer(int64) :: nonzero_count,i,j,k,n
+!
+!  nonzero_count = 0
+!  do i=1,size(DenseMatrix,1)
+!      do j=1,size(DenseMatrix,2)
+!          if(DenseMatrix(i,j)/=0.0d0 ) then
+!              nonzero_count = nonzero_count + 1
+!          endif
+!      enddo
+!  enddo
+!  CRS_val = zeros(nonzero_count)
+!  CRS_col = int(linspace([1.0d0,dble(nonzero_count)], nonzero_count))
+!  CRS_rowptr = int(zeros(size(DenseMatrix,1)+1) )
+!  
+!  nonzero_count = 0
+!  do i=1,size(DenseMatrix,1)
+!      do j=1,size(DenseMatrix,2)
+!          if(DenseMatrix(i,j)/=0.0d0 ) then
+!              nonzero_count = nonzero_count + 1
+!              CRS_val(nonzero_count) = DenseMatrix(i,j)
+!              CRS_col(nonzero_count) = j
+!              CRS_rowptr(i) = CRS_rowptr(i) + 1
+!          endif
+!      enddo
+!  enddo
+!  
+!  n = CRS_rowptr(1) 
+!  !CRS_rowptr(1) =0
+!  do i=1,size(CRS_rowptr)-1
+!      CRS_rowptr(i+1) = CRS_rowptr(i+1) + CRS_rowptr(i) 
+!  enddo
+!  do i=size(CRS_rowptr)-1,1,-1
+!      CRS_rowptr(i+1) = CRS_rowptr(i) 
+!  enddo
+!  do i=size(CRS_rowptr),1,-1
+!      CRS_rowptr(i) = CRS_rowptr(i) +1
+!  enddo
+!  CRS_rowptr(1) = 1
+!  
+!  
+!end subroutine
 
 
 
@@ -4504,7 +4508,15 @@ function SGD_gradient(fx,training_data_x,training_data_fx,&
 end function
 ! ###################################################
 
+subroutine importCRS_LinearSolver(this,CRS)
+  class(LinearSolver_),intent(inout) :: this
+  type(CRS_),intent(in) :: CRS
 
+  this%CRS_val = CRS%val
+  this%CRS_Index_I = CRS%col_idx
+  this%CRS_Index_J = CRS%row_ptr
+
+end subroutine
 
 
 end module
