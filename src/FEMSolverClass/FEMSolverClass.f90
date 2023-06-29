@@ -81,6 +81,7 @@ module FEMSolverClass
         type(CRS_),allocatable :: CRS_matrix_stack(:)
         type(Dictionary_)      :: CRS_matrix_stack_key
         integer(int32) :: LAST_CRS_MATRIX_STACK=0
+        integer(int32) :: MAXSIZE_CRS_MATRIX_STACK=10
 
     contains
         !(1) Initialize solver
@@ -116,7 +117,8 @@ module FEMSolverClass
         procedure,public :: fix_eig => fix_eigFEMSolver
         
 
-        
+        procedure,pass :: importCRSMatrix_FEMSolver
+        generic,public :: import => importCRSMatrix_FEMSolver
 
         !(6) save matrix
         procedure,public :: saveMatrix => saveMatrixFEMSolver
@@ -1211,6 +1213,7 @@ subroutine matmulDiagMatrixFEMSolver(this,diagMat)
     class(FEMSolver_),intent(inout) :: this
     real(real64),intent(in) :: diagMat(:)
     integer(int32) :: n
+
     integer(int32) :: row,col,id
     
     n = size(diagMat)
@@ -1604,7 +1607,11 @@ subroutine keepThisMatrixAsFEMSolver(this,As)
 !    endif
 
     ! for other cases:
-
+    if(.not.allocated(this%CRS_matrix_stack) )then
+        allocate(this%CRS_matrix_stack(this%MAXSIZE_CRS_MATRIX_STACK) )
+        allocate(this%CRS_matrix_stack_key%Dictionary(this%MAXSIZE_CRS_MATRIX_STACK) )
+        this%LAST_CRS_MATRIX_STACK = 0
+    endif
     if(this%LAST_CRS_MATRIX_STACK==0)then
         this%CRS_matrix_stack(1)%row_ptr = this%CRS_Index_Row
         this%CRS_matrix_stack(1)%col_idx = this%CRS_Index_Col
@@ -3046,5 +3053,16 @@ function get_fix_value_FEMSolver(this) result(fix_value)
 end function
 ! ################################################
 
+
+subroutine importCRSMatrix_FEMSolver(this,CRS)
+    class(FEMSolver_),intent(inout) :: this
+    type(CRS_),intent(in) :: CRS
+
+    
+    this%CRS_val = CRS%val
+    this%CRS_Index_Col = CRS%col_idx
+    this%CRS_Index_Row = CRS%row_ptr
+
+end subroutine
 
 end module 

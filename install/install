@@ -24,7 +24,6 @@ else
     sh "install/install_sim"
     sh "install/install_obj"
     #make -j
-    mv *.mod inc/
     cp *.so inc/
 fi
 
