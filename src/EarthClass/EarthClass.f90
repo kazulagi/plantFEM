@@ -743,5 +743,26 @@ pure function to_DecimalDegree(dd_mm_ss) result(ret)
 end function
 
 
+function to_MomentTensor(phi,delta,lambda,M) result(ret)
+    real(real64), intent(in):: phi,delta,lambda,M
+    real(real64) :: ret(3,3)
+
+    ret(1,1) = - M*(sin(delta)*cos(lambda)*sin(2*phi) &
+                + sin(2*delta)*sin(lambda)*sin(phi)*sin(phi))
+    ret(1,2) = M*(sin(delta)*cos(lambda)*cos(2*phi)&
+                +0.50d0*sin(2*delta)*sin(lambda)*sin(2*phi) )
+    ret(1,3) = - M*(cos(delta)*cos(lambda)*cos(phi)&
+                +cos(2*delta)*sin(lambda)*sin(phi) )
+    ret(2,1) = ret(1,2)
+    ret(2,2) = M*(sin(delta)*cos(lambda)*sin(2*phi)  &
+                - sin(2*delta)*sin(lambda)*cos(phi)*cos(phi) )
+    ret(2,3) = - M*(cos(delta)*cos(lambda)*sin(phi)  &
+                - cos(2*delta)*sin(lambda)*cos(phi))
+    ret(3,1) = ret(1,3)
+    ret(3,2) = ret(2,3)
+    ret(3,3) = M*sin(2*delta)*sin(lambda)
+    
+end function to_MomentTensor
+
 
 end module 

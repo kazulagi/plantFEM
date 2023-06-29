@@ -118,6 +118,7 @@ subroutine solveModalAnalysis(this,penalty,only_matrix)
     real(real64),optional,intent(in) :: penalty
     logical,optional,intent(in) :: only_matrix
     integer(int32) :: i,DomainID,offset
+    type(Math_) :: math
 
 
     ! create matrices
@@ -184,7 +185,7 @@ subroutine solveModalAnalysis(this,penalty,only_matrix)
     
 
     ! read results
-    this%EigenFrequency = sqrt(abs(this%EigenFrequency))/2.0d0/3.141590d0
+    this%EigenFrequency = sqrt(abs(this%EigenFrequency))/2.0d0/math%pi
 
 
 

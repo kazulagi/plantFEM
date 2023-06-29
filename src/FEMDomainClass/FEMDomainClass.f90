@@ -11644,8 +11644,8 @@ end function
 ! ##########################################################################
 recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 	class(FEMDomain_) ,intent(inout) :: obj
-	type(ShapeFunction_),optional,intent(in) :: shapefunction
 	integer(int32),optional,intent(in) :: ElementID
+	type(ShapeFunction_),optional,intent(in) :: shapefunction
 	real(real64), allocatable :: Psymat(:,:), Jmat(:,:), detJ 
 	real(real64), allocatable :: Bmat(:,:)
 	integer(int32)::dim_num
@@ -15742,8 +15742,10 @@ function to_composite_beam_FEMDomain(length,width,angle_x,angle_z,division) resu
 		theta = atan2(y,x)
 		r     = sqrt(x*x + y*y )
 		r = r*(0.50d0*w)/rt
-		x = r*cos(theta)
-		y = r*sin(theta)
+
+		! debug
+		!x = r*cos(theta)
+		!y = r*sin(theta)
 
 
 		!call f%write(rt*cos(theta),rt*sin(theta) )
@@ -15859,10 +15861,11 @@ end subroutine
 ! #######################################################
 
 
-function selectFEMDomain(this,surface,params,sign) result(NodeList)
+function select_by_functionFEMDomain(this,surface,params,sign) result(NodeList)
 	
 	interface 
 		function surface(x,params) result(ret)
+			use iso_fortran_env
 			real(real64),intent(in) :: x(:)
 			real(real64),intent(in) :: params(:)
 			real(real64) :: ret
@@ -15874,10 +15877,14 @@ function selectFEMDomain(this,surface,params,sign) result(NodeList)
 	real(real64),intent(in) :: params(:)
 	integer(int32),allocatable :: flags(:)
 	real(real64) :: ret
+	real(real64),allocatable :: x(:)
+	integer(int32) :: i
+	integer(int32),allocatable :: NodeList(:)
 
 	flags = int(zeros(this%nn() ) ) 
 	do i=1,this%nn()
-		ret = surface()
+		x = this%mesh%nodcoord(i,:)
+		ret = surface(x ,params )
 		select case(sign)
 			case(">=")
 

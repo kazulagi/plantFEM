@@ -3738,7 +3738,6 @@ subroutine to_tsv_real_array2(name,a,no_header)
     call f%close()
 
 end subroutine
-
 ! ###########################################
 
 ! ###########################################
@@ -4103,5 +4102,87 @@ end function
 ! ######################################################
 
 
+! ######################################################
+subroutine extractStepResponse(name,trigger_level,buffer_size,segment_length,segment_num,dt)
+    character(*),intent(in) :: name
+    real(real64),intent(in) :: trigger_level
+    integer(int32),intent(in) :: buffer_size
+    integer(int32),intent(in) :: segment_length
+    integer(int32),optional,intent(inout) :: segment_num
+    real(real64),optional,intent(in) :: dt
+
+
+    type(IO_) :: f
+    real(real64) :: wave
+    real(real64),allocatable :: buffer(:)
+    real(real64) :: ave_all, ave_r, ave_l
+    
+    integer(int32) :: buffer_idx, num_line, writing_count,max_segment_length,&
+        segment_idx 
+    real(real64) :: switch_level
+    logical :: writing_now = .false.
+    type(IO_) :: output_file
+    integer(int32) :: i,n
+    
+    ! setting
+    switch_level = trigger_level
+    max_segment_length = segment_length
+    
+
+    ! start >> 
+    num_line = f%numLine(name)
+    
+    allocate(buffer(buffer_size) )
+    writing_count = 0
+    ! ステップ応答データを逐次読み込み，Curve fitting を行う
+    
+    call f%open(name,"r")
+    buffer_idx = 0
+    segment_idx = 1
+    call output_file%open(name+"_"+zfill(segment_idx,4)+".txt","w")
+    do i_i = 1,num_line
+
+        if(buffer_idx >= buffer_size) then
+            buffer_idx = 0
+            ave_r = maxval(buffer)! average(buffer(:buffer_size/4)) 
+            ave_l = minval(buffer)!average(buffer(buffer_size-buffer_size/4+1:)) 
+            if(abs(ave_r - ave_l) > switch_level )then
+                writing_now = .true.
+                writing_count = 0
+            endif 
+        endif
+
+        buffer_idx = buffer_idx + 1
+        read(f%fh,*) buffer(buffer_idx) 
+        
+
+        if(writing_now)then
+            writing_count = writing_count + 1
+            if(present(dt) )then
+                write(output_file%fh,*) dt*(writing_count-1), buffer(buffer_idx) 
+            else
+                write(output_file%fh,*) buffer(buffer_idx) 
+            endif
+        else
+            cycle
+        endif
+
+        if(writing_count >= max_segment_length)then
+            writing_count=0
+            writing_now = .false.
+            call output_file%close()
+            segment_idx = segment_idx + 1
+            call output_file%open(name+"_"+zfill(segment_idx,4)+".txt","w")
+        endif
+    enddo
+
+    call f%close()
+    if(present(segment_num) )then
+        segment_num = segment_idx-1
+    endif
+
+end subroutine
+    
+! #####################################################################
 
 end module IOClass

@@ -10,6 +10,7 @@ module LinearSolverClass
   !use MPIClass
   implicit none
 
+  
   interface BiCGSTAB
     module procedure bicgstab_real32, bicgstab_real64, bicgstab_complex64
   end interface
@@ -20,6 +21,10 @@ module LinearSolverClass
   
   interface Gauss_Jordan_PV
     module procedure Gauss_Jordan_PV_real32, Gauss_Jordan_PV_real64, Gauss_Jordan_PV_complex64
+  end interface
+
+  interface StochasticGradientDescent
+    module procedure StochasticGradientDescent_scalar_function
   end interface
 
   type :: LinearSolver_
@@ -4372,6 +4377,133 @@ subroutine bicgstab_CRS_ILU(a, ptr_i, index_j, x, b, itrmax, er, relative_er,deb
   enddo
 end subroutine 
 !===============================================================
+
+
+! ###################################################
+function SGD_objective_function(fx,training_data_x,training_data_fx,&
+  params) result(ret)
+interface 
+  function fx(x,params) result(ret)
+      use iso_fortran_env
+      real(real64),intent(in) :: x
+      real(real64),intent(in) :: params(:)
+      real(real64) :: ret
+  end function
+end interface
+
+real(real64),intent(in) :: training_data_x(:)
+real(real64),intent(in) :: training_data_fx(:)
+real(real64),intent(in) :: params(:)
+real(real64) :: ret
+integer(int32) :: i
+
+ret = 0.0d0
+do i=1,size(training_data_x)
+  ret = ret + 1.0d0/dble(size(training_data_x))* (training_data_fx(i) - fx(x=training_data_x(i),params=params ) )**2
+enddo
+
+end function
+! ###################################################
+
+
+
+
+function StochasticGradientDescent_scalar_function(fx,&
+  training_data_x,training_data_fx,init_params,eta,max_itr,tol,logfile_idx) result(params)
+  interface 
+      function fx(x,params) result(ret)
+          use iso_fortran_env
+          real(real64),intent(in) :: x
+          real(real64),intent(in) :: params(:)
+          real(real64) :: ret
+      end function
+  end interface
+  
+  real(real64),intent(in) :: training_data_x(:)
+  real(real64),intent(in) :: training_data_fx(:)
+  real(real64),intent(in) :: init_params(:)
+  real(real64),intent(in) :: eta,tol
+  integer(int32),intent(in) :: max_itr
+  integer(int32),optional,intent(in) :: logfile_idx
+  real(real64),allocatable :: params(:),d_params(:)
+  integer(int32) :: itr,idx
+  real(real64) :: num
+  integer(int32) :: SGD_log
+  
+  
+  params = init_params
+  
+  if(present(logfile_idx) )then
+      open(newunit=SGD_log,file="SGD"+zfill(logfile_idx,6)+".log",status="replace")
+  else
+      open(newunit=SGD_log,file="SGD.log",status="replace")
+  endif
+  do itr = 1, max_itr
+      call random_number(num)
+      idx = int(num*dble(size(training_data_x))+1.0d0)
+      !print *, idx
+      d_params = - eta*SGD_gradient(&
+              fx = fx,&
+              training_data_x=training_data_x(idx),&
+              training_data_fx=training_data_fx(idx), &
+              params = params &
+          )
+      
+      write(SGD_log,*) itr, SGD_objective_function(&
+              fx = fx,&
+              training_data_x=training_data_x, &
+              training_data_fx=training_data_fx, &
+              params = params &
+          )
+      ! 勾配がNaNであれば無視
+      if( maxval(d_params(:)-d_params(:))/=0.00d0 .or. minval(d_params(:)-d_params(:))/=0.00d0) cycle
+
+      if(maxval(abs(d_params))< tol)exit
+      params = params + d_params
+      
+  enddo 
+  close(SGD_log)
+  
+
+end function
+! ###################################################
+
+
+! ###################################################
+function SGD_gradient(fx,training_data_x,training_data_fx,&
+      params) result(grad)
+  interface 
+      function fx(x,params) result(ret)
+          use iso_fortran_env
+          real(real64),intent(in) :: x
+          real(real64),intent(in) :: params(:)
+          real(real64) :: ret
+      end function
+  end interface
+  
+  real(real64),intent(in) :: training_data_x
+  real(real64),intent(in) :: training_data_fx
+  real(real64),intent(in) :: params(:)
+
+  real(real64),allocatable :: grad(:)
+  real(real64),allocatable :: d_params(:)
+  real(real64) :: epsilon
+  integer(int32) :: i,j
+
+  epsilon = dble(1.0e-4)
+  grad = 0.0d0*params
+  d_params = 0.0d0*params
+  
+  do j=1,size(grad)
+      d_params = 0.0d0*params
+      d_params(j) = epsilon
+      grad(j) = - 2.0d0*(training_data_fx - fx(x=training_data_x,params=params ) )&
+          *( fx(x=training_data_x,params=params+d_params ) - fx(x=training_data_x,params=params ) )/epsilon
+  enddo
+
+end function
+! ###################################################
+
 
 
 

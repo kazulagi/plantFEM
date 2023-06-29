@@ -19,11 +19,11 @@ elif [ "$1" = "obj" ]; then
 else
     # Makefile is available, but is not fast.
     # These scripts are faster than Make.
-    #sh "install/install_std"
-    #sh "install/install_fem"
-    #sh "install/install_sim"
-    #sh "install/install_obj"
-    make -j
+    sh "install/install_std"
+    sh "install/install_fem"
+    sh "install/install_sim"
+    sh "install/install_obj"
+    #make -j
     mv *.mod inc/
     cp *.so inc/
 fi

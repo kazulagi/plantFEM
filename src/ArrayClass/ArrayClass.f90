@@ -454,6 +454,11 @@ module ArrayClass
     !interface operator(.init.)
     !    module procedure zero_allocate_int32_vec
     !end interface
+
+    interface operator(.get.)
+        module procedure getter_of_vec, getter_of_vec_multi,getter_of_mat, getter_of_mat_multi,&
+            getter_of_int32_vec, getter_of_vec_int32_multi,getter_of_int32_mat, getter_of_int32_mat_multi
+    end interface 
     interface operator(.of.)
         module procedure get_element_from_vector_by_idx_int32,get_element_from_vector_by_idx_real64
     end interface
@@ -481,7 +486,7 @@ module ArrayClass
             to_Array_real32_vector, &
             to_Array_real32_vector_2,&
             to_Array_real32_vector_3,&
-            to_Array_from_keyword
+            to_Array_from_keyword,to_array_from_file
     end interface to_array
 
     interface to_vector
@@ -9190,13 +9195,17 @@ end function
 function and_int32vector_int32vector(intv1,intv2) result(intv_ret)
     integer(int32),intent(in) :: intv1(:),intv2(:)
     integer(int32),allocatable :: intv_ret(:),buf(:)
-    integer(int32) :: i,j,k
+    integer(int32) :: i,j,k,from,to
 
-    buf = int(zeros(maxval([ maxval(intv1) , maxval(intv2) ])))
+    from = minval([minval(intv1) , minval(intv2),1])
+    to = max( maxval(intv1) , maxval(intv2))
+    allocate(buf(from:to))
+    buf(from:to) = 0
     buf(intv1(:) ) = buf(intv1(:) )  + 1
     buf(intv2(:) ) = buf(intv2(:) )  + 1
+    
     k=0
-    do i=1,size(buf)
+    do i=from,to
         if(buf(i)==2 )then
             k=k+1
         endif
@@ -9206,8 +9215,9 @@ function and_int32vector_int32vector(intv1,intv2) result(intv_ret)
         return
     endif
     intv_ret = int(zeros(k) )
-
-    do i=1,size(buf)
+    
+    k=0
+    do i=from,to
         if(buf(i)==2 )then
             k=k+1
             intv_ret(k) = i
@@ -9525,4 +9535,129 @@ pure function find_section_real64(sorted_list,given_value) result(idx)
 
 end function
 
+! ######################################################
+function to_array_from_file(filename,array_shape) result(real_array)
+    character(*),intent(in) :: filename
+    real(real64),allocatable :: real_array(:,:)
+    integer(int32),intent(in) :: array_shape(1:2)
+    integer(int32) :: fh,i
+
+    open(newunit=fh,file=filename,status="old")
+    real_array = zeros(array_shape(1),array_shape(2) )
+    do i=1,array_shape(1)
+        read(fh,*) real_array(i,:)
+    enddo
+    close(fh)
+
+
+end function
+! ######################################################
+
+
+
+! #################################
+function getter_of_vec(vec,idx) result(ret)
+    real(real64),intent(in) :: vec(:)
+    integer(int32),intent(in) :: idx
+    real(real64),allocatable :: ret
+
+    ret = vec(idx)
+
+end function
+! #################################
+
+
+! #################################
+function getter_of_int32_vec(vec,idx) result(ret)
+    integer(int32),intent(in) :: vec(:)
+    integer(int32),intent(in) :: idx
+    integer(int32),allocatable :: ret
+
+    ret = vec(idx)
+
+end function
+! #################################
+
+
+
+
+! #################################
+function getter_of_vec_multi(vec,idx) result(ret)
+    real(real64),intent(in) :: vec(:)
+    integer(int32),intent(in) :: idx(:)
+    real(real64),allocatable :: ret(:)
+
+    ret = vec(idx(:))
+
+end function
+! #################################
+
+
+
+! #################################
+function getter_of_vec_int32_multi(vec,idx) result(ret)
+    integer(int32),intent(in) :: vec(:)
+    integer(int32),intent(in) :: idx(:)
+    integer(int32),allocatable :: ret(:)
+
+    ret = vec(idx(:))
+
+end function
+! #################################
+
+
+
+! #################################
+function getter_of_mat(mat,idx) result(ret)
+    real(real64),intent(in) :: mat(:,:)
+    integer(int32),intent(in) :: idx(1:2)
+    real(real64),allocatable :: ret
+
+    ret = mat(idx(1),idx(2) )
+
+end function
+! #################################
+
+
+! #################################
+function getter_of_int32_mat(mat,idx) result(ret)
+    integer(int32),intent(in) :: mat(:,:)
+    integer(int32),intent(in) :: idx(1:2)
+    integer(int32),allocatable :: ret
+
+    ret = mat(idx(1),idx(2) )
+
+end function
+! #################################
+
+
+
+
+! #################################
+function getter_of_mat_multi(mat,idx) result(ret)
+    real(real64),intent(in) :: mat(:,:)
+    complex(real32),intent(in) :: idx(:)
+    real(real64),allocatable :: ret(:)
+    integer(int32) :: i
+    allocate(ret(size(idx) ) )
+    do i=1,size(idx)
+        ret(i) = mat( nint( real(idx(i) ) ),nint( imag(idx(i) ) ) )
+    enddo
+
+end function
+! #################################
+
+! #################################
+function getter_of_int32_mat_multi(mat,idx) result(ret)
+    integer(int32),intent(in) :: mat(:,:)
+    complex(real32),intent(in) :: idx(:)
+    integer(int32),allocatable :: ret(:)
+    integer(int32) :: i
+    allocate(ret(size(idx) ) )
+    do i=1,size(idx)
+        ret(i) = mat( nint( real(idx(i) ) ),nint( imag(idx(i) ) ) )
+    enddo
+
+end function
+! #################################
 end module ArrayClass
