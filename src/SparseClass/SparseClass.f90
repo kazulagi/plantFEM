@@ -800,7 +800,7 @@ function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector
     !v2.0
     
     !v2.0
-    if(.not.present(cache_size) )then
+!    !if(.not.present(cache_size) )then
         !$OMP parallel default(shared)
         !$OMP do reduction(+:new_vector)
         do row = 1, n
@@ -811,57 +811,57 @@ function crs_matvec_generic_SparseClass(CRS_value,CRS_col,CRS_row_ptr,old_vector
         enddo
         !$OMP end do
         !$OMP end parallel 
-    else    
-        ! This does not work
-
-        ! (1) 行列およびベクトルのメモリ消費量を算出する．
-        mem_size = sizeof(CRS_value) + sizeof(CRS_col)+sizeof(CRS_row_ptr)&
-            +sizeof(new_vector)+sizeof(old_vector)
-        ! (2) メモリ消費量/キャッシュサイズ=ブロック数を算出する．
-        
-        ! (3) 1~nを，1~k, k+1~2*k, 2k+1~3*k,...とブロックに分割し，
-        ! 　　j番目の開始idxをrow_idx_from(j), 終了idxをrow_idx_to(j)へ格納
-        if(mem_size <= cache_size)then
-            num_block = 1
-            row_idx_from = [1]
-            row_idx_to   = [n]
-
-        else
-            num_block = mem_size/cache_size
-            if(mod(n,num_block)==0 )then
-                allocate(row_idx_from(num_block) )
-                allocate(row_idx_to(num_block) )
-                num_row_in_block = n/num_block
-                do i=1,num_block
-                    row_idx_from(i) = (i-1)*num_row_in_block+1
-                    row_idx_to(i)   = i*num_row_in_block
-                enddo
-            else
-                allocate(row_idx_from(num_block+1) )
-                allocate(row_idx_to(num_block+1) )
-                num_row_in_block = n/num_block
-                do i=1,num_block
-                    row_idx_from(i) = (i-1)*num_row_in_block+1
-                    row_idx_to(i)   = i*num_row_in_block
-                enddo
-                row_idx_from(num_block+1) = num_block*num_row_in_block+1
-                row_idx_to(num_block+1)   = n
-            endif
-        endif
-        
-        do block_idx = 1,num_block
-            !$OMP parallel default(shared)
-            !$OMP do reduction(+:new_vector)
-            do row = row_idx_from(block_idx), row_idx_to(block_idx)
-                new_vector(row) = new_vector(row) + dot_product( &
-                    CRS_value(CRS_row_ptr(row):CRS_row_ptr(row+1)-1),  &
-                    old_vector(CRS_col(CRS_row_ptr(row):CRS_row_ptr(row+1)-1) )&
-                    )
-            enddo
-            !$OMP end do
-            !$OMP end parallel 
-        enddo
-    endif
+!    else    
+!        ! This does not work
+!
+!        ! (1) 行列およびベクトルのメモリ消費量を算出する．
+!        mem_size = sizeof(CRS_value) + sizeof(CRS_col)+sizeof(CRS_row_ptr)&
+!            +sizeof(new_vector)+sizeof(old_vector)
+!        ! (2) メモリ消費量/キャッシュサイズ=ブロック数を算出する．
+!        
+!        ! (3) 1~nを，1~k, k+1~2*k, 2k+1~3*k,...とブロックに分割し，
+!        ! 　　j番目の開始idxをrow_idx_from(j), 終了idxをrow_idx_to(j)へ格納
+!        if(mem_size <= cache_size)then
+!            num_block = 1
+!            row_idx_from = [1]
+!            row_idx_to   = [n]
+!
+!        else
+!            num_block = mem_size/cache_size
+!            if(mod(n,num_block)==0 )then
+!                allocate(row_idx_from(num_block) )
+!                allocate(row_idx_to(num_block) )
+!                num_row_in_block = n/num_block
+!                do i=1,num_block
+!                    row_idx_from(i) = (i-1)*num_row_in_block+1
+!                    row_idx_to(i)   = i*num_row_in_block
+!                enddo
+!            else
+!                allocate(row_idx_from(num_block+1) )
+!                allocate(row_idx_to(num_block+1) )
+!                num_row_in_block = n/num_block
+!                do i=1,num_block
+!                    row_idx_from(i) = (i-1)*num_row_in_block+1
+!                    row_idx_to(i)   = i*num_row_in_block
+!                enddo
+!                row_idx_from(num_block+1) = num_block*num_row_in_block+1
+!                row_idx_to(num_block+1)   = n
+!            endif
+!        endif
+!        
+!        do block_idx = 1,num_block
+!            !$OMP parallel default(shared)
+!            !$OMP do reduction(+:new_vector)
+!            do row = row_idx_from(block_idx), row_idx_to(block_idx)
+!                new_vector(row) = new_vector(row) + dot_product( &
+!                    CRS_value(CRS_row_ptr(row):CRS_row_ptr(row+1)-1),  &
+!                    old_vector(CRS_col(CRS_row_ptr(row):CRS_row_ptr(row+1)-1) )&
+!                    )
+!            enddo
+!            !$OMP end do
+!            !$OMP end parallel 
+!        enddo
+!    endif
     
 
 

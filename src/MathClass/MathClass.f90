@@ -1764,7 +1764,7 @@ pure function fstring_real(x) result(a)
 		return
 	endif
 
-	write(b,'(G31.20)') x
+	write(b,'(f0.7)') x
 	a = trim(adjustl(b))
 
 

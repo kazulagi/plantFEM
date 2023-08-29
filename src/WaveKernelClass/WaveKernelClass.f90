@@ -274,17 +274,39 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,&
     
     gain_value = input(default=1.0d0,option=gain)
     
+  
 
     ! [CAUTION!!] only undamped is implemented.
     
     du = u_n
     
+    if(present(fix_idx) )then
+        if(allocated(fix_idx) )then
+            du(fix_idx)=0.0d0 
+        endif
+    endif
+
+    ! U_n から U?
     u = u_n
     v = 0.0d0*v_n
     do k=1,this%itrmax
+
+        if(present(fix_idx) )then
+            if(allocated(fix_idx) )then
+                du(fix_idx)=0.0d0 
+            endif
+        endif
         du = this%OmegaSqMatrix%matmul(du)
+
+        if(present(fix_idx) )then
+            if(allocated(fix_idx) )then
+                du(fix_idx)=0.0d0 
+            endif
+        endif
+
         if(norm(LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*du)&
             < this%tol )exit
+
         u = u + LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*du
         
         if(k==1)then
@@ -296,12 +318,43 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,&
     enddo
     deallocate(du)
 
+    ! V_n から V?
     dv = v_n
+
+    if(present(fix_idx) )then
+        if(allocated(fix_idx) )then
+            dv(fix_idx)=0.0d0 
+        endif
+    endif
     ! k=1
     u = u + dt*dv
     v = v + dv
+
+    if(present(fix_idx) )then
+        if(allocated(fix_idx) )then
+            u(fix_idx)=0.0d0 
+        endif
+    endif
+
+    if(present(fix_idx) )then
+        if(allocated(fix_idx) )then
+            v(fix_idx)=0.0d0 
+        endif
+    endif
     do k=1,this%itrmax
+
+        if(present(fix_idx) )then
+            if(allocated(fix_idx) )then
+                dv(fix_idx)=0.0d0 
+            endif
+        endif
         dv = this%OmegaSqMatrix%matmul(dv)
+
+        if(present(fix_idx) )then
+            if(allocated(fix_idx) )then
+                dv(fix_idx)=0.0d0 
+            endif
+        endif
         if(norm(LPF_cos_sqrt_taylor_coefficient(  k=k  ,t=dt,f_c=cutoff_frequency)*dv)&
             < this%tol )exit
         u = u + LPF_t_sinc_sqrt_taylor_coefficient(k=k ,t=dt,f_c=cutoff_frequency)*dv
@@ -723,13 +776,16 @@ pure function LPF_cos_sqrt_taylor_coefficient(k,t,f_c) result(c_k)
     real(real64),intent(in) :: f_c
     real(real64) :: c_k
     real(real64) :: t_hat,dt
+    type(Math_) :: math
 
     if(k==0)then
         c_k = 1.0d0
         return
     endif
     
-    dt = 1.0d0/(f_c*4.0d0)
+    !dt = 1.0d0/(f_c*4.0d0)
+    dt = 1.0d0/f_c/2.0d0/math%pi*acos( sqrt(2.0d0)-1.0d0 )
+    
     t_hat = 0.250d0*((t-dt)**(2*k) ) + 0.50d0*((t)**(2*k) ) + 0.250d0*((t+dt)**(2*k) )
 
     if(mod(k,2)==0 )then
@@ -750,6 +806,7 @@ pure function LPF_damped_cos_sqrt_taylor_coefficient(k,t,f_c,DampingRatio) resul
     real(real64) :: dt
     real(real64),allocatable:: c_k(:)
     real(real64),allocatable:: t_tilde(:)
+type(Math_) :: math
 
     if(k==0)then
         c_k = ones(size(DampingRatio) )
@@ -758,7 +815,8 @@ pure function LPF_damped_cos_sqrt_taylor_coefficient(k,t,f_c,DampingRatio) resul
     t_tilde = zeros(size(DampingRatio) ) 
     
     
-    dt = 1.0d0/(f_c*4.0d0)
+    !dt = 1.0d0/(f_c*4.0d0)
+    dt = 1.0d0/f_c/2.0d0/math%pi*acos( sqrt(2.0d0)-1.0d0 )
     t_tilde =   0.250d0*((t-dt)**(2*k) )*exp(-DampingRatio*(t-dt) ) &
             + 0.500d0*((t   )**(2*k) )*exp(-DampingRatio*(t   ) ) &
             + 0.250d0*((t+dt)**(2*k) )*exp(-DampingRatio*(t+dt) )
@@ -789,7 +847,8 @@ pure function LPF_t_sinc_sqrt_taylor_coefficient(k,t,f_c) result(s_k)
         return
     endif
     
-    dt = 1.0d0/(f_c*4.0d0)
+    !dt = 1.0d0/(f_c*4.0d0)
+    dt = 1.0d0/f_c/2.0d0/math%pi*acos( sqrt(2.0d0)-1.0d0 )
 
     t_hat = 0.250d0*((t-dt)**(2*k+1) ) + 0.50d0*((t)**(2*k+1) ) &
         + 0.250d0*((t+dt)**(2*k+1) )
@@ -827,7 +886,8 @@ pure function LPF_damped_t_sinc_sqrt_taylor_coefficient(k,t,f_c,DampingRatio) re
     endif
     t_tilde = zeros(size(DampingRatio) ) 
     
-    dt = 1.0d0/(f_c*4.0d0)
+    !dt = 1.0d0/(f_c*4.0d0)
+    dt = 1.0d0/f_c/2.0d0/math%pi*acos( sqrt(2.0d0)-1.0d0 )
 
     t_tilde =   0.250d0*((t-dt)**(2*k+1) )*exp(-DampingRatio*(t-dt) ) &
               + 0.500d0*((t   )**(2*k+1) )*exp(-DampingRatio*(t   ) ) &
