@@ -51,7 +51,7 @@ subroutine initWaveKernel(this,FEMDomain,DOF,YoungModulus,PoissonRatio,&
     real(real64),optional,intent(in) ::  PoissonRatio(:),DampingRatio(:)
     type(CRS_) :: Imatrix,Mmatrix,Cmatrix
     
-    this%DOF = DOF
+    
     Mmatrix = FEMDomain%MassMatrix(DOF=DOF,Density=Density)
     
     if(DOF==1)then
