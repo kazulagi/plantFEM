@@ -303,6 +303,8 @@ module FEMDomainClass
 		procedure,public ::	x => xFEMDomain
 		procedure,public ::	y => yFEMDomain
 		procedure,public ::	z => zFEMDomain
+		procedure,public ::	getPoint => getPointFEMDomain
+		procedure,public ::	Point => getPointFEMDomain
 		procedure,public ::	getPoint_x => getPoint_xFEMDomain
 		procedure,public ::	getPoint_y => getPoint_yFEMDomain
 		procedure,public ::	getPoint_z => getPoint_zFEMDomain
@@ -434,7 +436,7 @@ module FEMDomainClass
 		procedure,public :: StrainVector => StrainVectorFEMDomain
 		procedure,public :: StressMatrix => StressMatrixFEMDomain
 		procedure,public :: StressVector => StressVectorFEMDomain
-		
+		procedure,public :: ViscousBoundaryForce => ViscousBoundaryForceFEMDomain
 		! Element-wize matrix
 		procedure,pass :: DiffusionMatrixFEMDomain 
 		procedure,pass :: StiffnessMatrixFEMDomain 
@@ -446,6 +448,7 @@ module FEMDomainClass
 		procedure,public :: ElementVector => ElementVectorFEMDomain 
 		procedure,public :: GlobalVector => GlobalVectorFEMDomain 
 		procedure,public :: TractionVector => TractionVectorFEMDomain
+		procedure,public :: PointForceVector => PointForceVectorFEMDomain
 		procedure,public :: FlowVector => FlowVectorFEMDomain
 
 		! Domain-wize matrix (as CRS-format)
@@ -11640,6 +11643,45 @@ function StressVectorFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressV
 end function
 ! ##########################################################################
 
+! ##########################################################################
+function ViscousBoundaryForceFEMDomain(this,u,v,spring,damper,NodeList,Direction) result(ret)
+	class(FEMDomain_),intent(in) :: this
+	real(real64),intent(in) :: u(:),v(:),spring,damper
+	integer(int32),intent(in) :: NodeList(:)
+	character(*),intent(in) :: Direction
+	integer(int32) :: NodeListIdx,Idx
+	real(real64),allocatable :: ret(:)
+	integer(int32) :: DOF
+
+	DOF = size(this%mesh%nodcoord,2)
+	
+	ret = 0.0d0*u
+
+	if( (index(Direction,"X"))+(index(Direction,"x"))/=0  )then
+		do NodeListIdx=1,size(NodeList)
+			idx = DOF*(NodeList(NodeListIdx)-1)+1
+			ret(idx)  = - spring*u(idx) - damper*v(idx)
+		enddo
+	endif
+
+
+	if( (index(Direction,"Y"))+(index(Direction,"y"))/=0  )then
+		do NodeListIdx=1,size(NodeList)
+			idx = DOF*(NodeList(NodeListIdx)-1)+2
+			ret(idx)  = - spring*u(idx) - damper*v(idx)
+		enddo
+	endif
+
+
+	if( (index(Direction,"Z"))+(index(Direction,"z"))/=0  )then
+		do NodeListIdx=1,size(NodeList)
+			idx = DOF*(NodeList(NodeListIdx)-1)+3
+			ret(idx)  = - spring*u(idx) - damper*v(idx)
+		enddo
+	endif
+end function
+! ##########################################################################
+
 
 ! ##########################################################################
 recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
@@ -15895,6 +15937,39 @@ function select_by_functionFEMDomain(this,surface,params,sign) result(NodeList)
 	
 
 end function
+
+function getPointFEMDomain(this,pointIdx) result(ret)
+	class(FEMDOmain_),intent(in) :: this
+	integer(int32),intent(in) :: pointIdx
+	real(real64),allocatable :: ret(:)
+
+	ret = this%mesh%nodcoord(pointIdx,:)
+
+end function
+
+
+function PointForceVectorFEMDomain(this, NodeList,Direction,force) result(ret)
+	class(FEMDomain_),intent(in) :: this
+	integer(int32),intent(in) :: NodeList(:)
+	character(*),intent(in) :: Direction
+	real(real64),intent(in) :: force
+	real(real64),allocatable :: ret(:)
+	integer(int32) :: DOF
+
+	DOF = this%nd()
+	ret = zeros(this%nn()*this%nd() )
+
+	if( ("X" .in. Direction) .or. ("x" .in. Direction)  )then
+		ret(DOF*( NodeList(:)-1 )+1 ) = force
+	endif
+	if( ("Y" .in. Direction) .or. ("y" .in. Direction)  )then
+		ret(DOF*( NodeList(:)-1 )+2 ) = force
+	endif
+	if( ("Z" .in. Direction) .or. ("z" .in. Direction)  )then
+		ret(DOF*( NodeList(:)-1 )+3 ) = force
+	endif
+
+end function 
 
 end module FEMDomainClass
 

@@ -156,10 +156,10 @@ echo "Compiling ./src/GraphClass/GraphClass.f90 "
 echo " >> GraphClass.o "
 echo " | =>                          | (4%)\r\c"
 mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/GraphClass/GraphClass.f90 -o  ./inc/GraphClass.o -llapack -lblas
-echo "Compiling ./src/VectorClass/VectorClass.f90 " 
-echo " >> VectorClass.o "
-echo " | =>                          | (4%)\r\c"
-mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/VectorClass/VectorClass.f90 -o  ./inc/VectorClass.o -llapack -lblas
+#echo "Compiling ./src/VectorClass/VectorClass.f90 " 
+#echo " >> VectorClass.o "
+#echo " | =>                          | (4%)\r\c"
+#mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/VectorClass/VectorClass.f90 -o  ./inc/VectorClass.o -llapack -lblas
 echo "Compiling ./src/EquationClass/EquationClass.f90 " 
 echo " >> EquationClass.o "
 echo " | =>                          | (4%)\r\c"

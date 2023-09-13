@@ -153,6 +153,10 @@ module ArrayClass
         module procedure intersection_vec_vec_int32
     end interface 
 
+    interface operator(.column.)
+        module procedure getColumnOf2DMatrix_int32,getColumnOf2DMatrix_real64,getColumnOf2DMatrix_complex64
+    end interface 
+
     interface dot_product_omp
         module procedure :: dot_product_omp
     end interface
@@ -9660,4 +9664,41 @@ function getter_of_int32_mat_multi(mat,idx) result(ret)
 
 end function
 ! #################################
+
+
+
+! #################################
+function getColumnOf2DMatrix_int32(mat,column_idx) result(ret)
+    integer(int32),intent(in) :: mat(:,:)
+    integer(int32),intent(in) :: column_idx
+    integer(int32),allocatable :: ret(:)
+
+    ret = mat(:,column_idx)
+
+end function
+! #################################
+
+
+! #################################
+function getColumnOf2DMatrix_real64(mat,column_idx) result(ret)
+    real(real64),intent(in) :: mat(:,:)
+    integer(int32),intent(in) :: column_idx
+    real(real64),allocatable :: ret(:)
+
+    ret = mat(:,column_idx)
+
+end function
+! #################################
+
+! #################################
+function getColumnOf2DMatrix_complex64(mat,column_idx) result(ret)
+    complex(real64),intent(in) :: mat(:,:)
+    integer(int32),intent(in) :: column_idx
+    complex(real64),allocatable :: ret(:)
+
+    ret = mat(:,column_idx)
+
+end function
+! #################################
+
 end module ArrayClass

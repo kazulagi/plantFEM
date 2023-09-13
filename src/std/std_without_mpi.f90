@@ -15,7 +15,6 @@ module std
     use VertexClass
     use GraphClass
     use CSVClass
-    use VectorClass
     use EquationClass
     use DictionaryClass
     use OpenMPClass

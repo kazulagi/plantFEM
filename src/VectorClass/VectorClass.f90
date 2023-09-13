@@ -9,14 +9,14 @@ module VectorClass
         integer(int32),allocatable :: intvector(:,:)
         integer(int32),allocatable :: realvector(:,:)
     contains
-        procedure, public :: init => initVector
-        procedure, public :: copy => copyVector
+        procedure, public :: init => initVectorClass
+        procedure, public :: copy => copyVectorClass
     end type
 
 contains
 
 ! ############################################
-subroutine initVector(obj,real, float, int, char,VectorSize, RowSize)
+subroutine initVectorClass(obj,real, float, int, char,VectorSize, RowSize)
     class(Vector_) ,intent(inout) :: obj
     logical,optional,intent(in) :: real, float, int, char
     integer(int32),optional,intent(in) :: VectorSize, RowSize
@@ -47,9 +47,9 @@ subroutine initVector(obj,real, float, int, char,VectorSize, RowSize)
         endif
     endif
 
-end subroutine initVector
+end subroutine initVectorClass
 ! ############################################
-subroutine copyVector(obj,vector)
+subroutine copyVectorClass(obj,vector)
     class(Vector_) ,intent(inout) :: obj
     class(Vector_) ,intent(in) :: vector
     integer(int32) :: n,m
@@ -73,6 +73,6 @@ subroutine copyVector(obj,vector)
         allocate(obj%intVector(n,m) )
     endif
         
-end subroutine copyVector
+end subroutine copyVectorClass
 ! ############################################
 end module VectorClass
