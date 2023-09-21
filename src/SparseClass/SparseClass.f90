@@ -1,6 +1,7 @@
 module SparseClass
     use iso_c_binding
     use ArrayClass
+    use MathClass
     use RandomClass
     use RangeClass
     implicit none
@@ -84,6 +85,7 @@ module SparseClass
     
     type :: COO_Row_
         real(real64),allocatable :: val(:)
+        complex(real64),allocatable :: val_complex64(:)
         integer(int32),allocatable :: col(:)
     end type
 
@@ -93,7 +95,11 @@ module SparseClass
         procedure,public :: init => initCOO
         procedure,public :: update => updateCOO
         procedure,public :: set => updateCOO
-        procedure,public :: add => addCOO
+
+        procedure,pass :: addCOO
+        procedure,pass :: add_complexCOO
+        generic :: add => addCOO,add_complexCOO
+        
         procedure,public :: getDenseMatrix => getDenseMatrixCOO
         procedure,public :: to_dense => getDenseMatrixCOO
         procedure,public :: remove => removeCOO
@@ -104,10 +110,11 @@ module SparseClass
         procedure,public :: ne => neCOO
         procedure,public :: maxval => maxvalCOO
         procedure,public :: random => randomCOO ! create random sparse matrix
-
+        
         ! typical matrix
         procedure,public :: eyes => eyesCOO
         procedure,public :: poisson => poissonCOO
+        
 
         !procedure,public ::getAllCol_as_row_obj => getAllCol_as_row_objCOO
     end type
@@ -126,10 +133,9 @@ module SparseClass
         ! Destructive
         integer(int64),allocatable :: row_ptr(:)
         real(real64)  ,allocatable :: val(:)
-        
         real(real32)  ,allocatable :: val_real32(:)
+        complex(real64),allocatable :: val_complex64(:)
         integer(int32) :: dtype = real64
-        
     contains
         procedure,public :: init => initCRS
         procedure,public :: eyes => eyesCRS
@@ -281,6 +287,16 @@ module SparseClass
     interface to_diag
         module procedure to_diag_vector_to_CRS
     end interface
+
+
+
+    interface speye
+        module procedure speyeCOO
+    end interface 
+
+    interface imag_I
+        module procedure imag_ICOO
+    end interface 
 
 !    interface operator(/)
 !        module procedure divide_by_diagonal_vector_CRS, divide_by_scalar_CRS
@@ -449,9 +465,54 @@ subroutine addCOO(this,row,col,val)
     
 
 end subroutine
+! ###############################################
 
 
 
+! ###############################################
+subroutine add_complexCOO(this,row,col,val)
+    class(COO_),intent(inout) :: this
+    integer(int32),intent(in)   :: row
+    integer(int32),intent(in)   :: col
+    complex(real64),intent(in)   :: val
+    integer(int32) :: i, col_id
+    
+    if(row > this%DOF() .or. row < 1 ) return
+    if(col > this%DOF() .or. col < 1 ) return
+    
+    if(.not. allocated(this%row) )then
+        print *, "ERROR :: initCOO"
+        print *, "Please call [COO]%init() before this operation."
+        return
+    endif
+
+    if(.not. allocated(this%row(row)%val_complex64) )then
+        this%row(row)%val_complex64 = [val]
+        this%row(row)%col = [col]
+    else
+
+        ! check duplication
+        if(minval(abs(this%row(row)%col(:) - col ) )==0 ) then
+            ! duplication
+            do i=1,size(this%row(row)%col)
+                if(this%row(row)%col(i)==col )then
+                    col_id = i
+                    exit
+                endif
+            enddo
+            this%row(row)%val_complex64(col_id) = this%row(row)%val_complex64(col_id) + val
+        else
+            this%row(row)%val_complex64 = this%row(row)%val_complex64 // [val]
+            this%row(row)%col = this%row(row)%col // [col]
+        endif
+    endif
+    
+
+end subroutine
+! ###############################################
+
+
+! ###############################################
 function getDenseMatrixCOO(this) result(dense_matrix)
     class(COO_),intent(in) :: this
     real(real64),allocatable :: dense_matrix(:,:)
@@ -469,6 +530,8 @@ function getDenseMatrixCOO(this) result(dense_matrix)
     enddo
 
 end function
+! ###############################################
+
 
 ! ###############################################
 subroutine removeCOO(this)
@@ -4767,6 +4830,53 @@ function to_CRS_from_ArrayObject(arrayobject) result(ret)
     dense_matrix = arrayobject
     coo = to_COO(dense_matrix)
     ret = coo%to_CRS()
+
+end function
+! ###################################################
+
+! ###################################################
+function imag_ICOO(n) result(ret)
+    integer(int32),intent(in) :: n
+    type(COO_) :: ret 
+    integer(int32) :: i
+    type(Math_) :: math
+
+    call ret%init(n)
+    if(n==1)then
+        call ret%add(1,1,math%i)
+        return
+    endif
+
+    if(mod(n,2)==0 )then
+        ! even
+        do i=1,n/2
+            call ret%add(i,n-i+1,-1.0d0)
+        enddo
+        do i=n/2+1,n
+            call ret%add(i,n-i+1,1.0d0)
+        enddo
+    else
+        ! odd
+        ! even
+        do i=1,(n-1)/2
+            call ret%add(i,n,-1.0d0)
+        enddo
+        call ret%add( (n-1)/2+1 ,n,math%i)
+        do i=(n-1)/2+2,n
+            call ret%add(i,n,1.0d0)
+        enddo
+    endif
+
+end function
+! ###################################################
+
+
+! ###################################################
+function speyeCOO(n) result(ret)
+    integeR(int32),intent(in) :: n
+    type(COO_) :: ret
+
+    call ret%eyes(n)
 
 end function
 ! ###################################################

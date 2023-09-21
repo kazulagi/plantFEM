@@ -434,6 +434,9 @@ module ArrayClass
         module procedure :: getIdxIntVec,getIdxIntVecVec,getIdxReal64Vec
     end interface
     
+    interface conjg
+        module procedure :: conjgVectorComplex,conjgTensor2Complex,conjgTensor3Complex
+    end interface
 
 
     public :: operator(+)
@@ -452,7 +455,8 @@ module ArrayClass
     end interface
 
     interface operator(//)
-        module procedure appendVectorsInt32,appendVectorsInt64,appendVectorsReal64,appendMatrixInt32,appendMatrixReal64
+        module procedure appendVectorsInt32,appendVectorsInt64,appendVectorsReal64,appendMatrixInt32,appendMatrixReal64,&
+            appendVectorsComplex64,appendVectorsComplex64Real64,appendVectorsReal64Complex64
     end interface
     
     !interface operator(.init.)
@@ -8050,6 +8054,107 @@ end function
 
 
 ! ####################################################################
+pure function appendVectorsComplex64(vec1,vec2) result(vec12)
+    complex(real64),intent(in) :: vec1(:),vec2(:)
+    complex(real64),allocatable :: vec12(:)
+
+!    if(.not.allocated(vec1) )then
+!        vec12 = vec2
+!        return
+!    endif
+!    
+!    if(.not.allocated(vec2) )then
+!        vec12 = vec1
+!        return
+!    endif
+    
+    if(size(vec1)==0 )then
+        vec12 = vec2    
+        return
+    endif
+
+    if(size(vec2)==0 )then
+        vec12 = vec1
+        return
+    endif
+
+    allocate(vec12( size(vec1)+size(vec2) ) )
+    vec12(           1:           size(vec1) ) = vec1(1:size(vec1) )
+    vec12(size(vec1)+1:size(vec1)+size(vec2) ) = vec2(1:size(vec2) )
+    
+end function
+! ####################################################################
+
+! ####################################################################
+pure function appendVectorsComplex64Real64(vec1,vec2) result(vec12)
+    complex(real64),intent(in) :: vec1(:)
+    real(real64),intent(in) :: vec2(:)
+    complex(real64),allocatable :: vec12(:)
+
+!    if(.not.allocated(vec1) )then
+!        vec12 = vec2
+!        return
+!    endif
+!    
+!    if(.not.allocated(vec2) )then
+!        vec12 = vec1
+!        return
+!    endif
+    
+    if(size(vec1)==0 )then
+        vec12 = vec2    
+        return
+    endif
+
+    if(size(vec2)==0 )then
+        vec12 = vec1
+        return
+    endif
+
+    allocate(vec12( size(vec1)+size(vec2) ) )
+    vec12(           1:           size(vec1) ) = vec1(1:size(vec1) )
+    vec12(size(vec1)+1:size(vec1)+size(vec2) ) = vec2(1:size(vec2) )
+    
+end function
+! ####################################################################
+
+
+! ####################################################################
+pure function appendVectorsReal64Complex64(vec1,vec2) result(vec12)
+    real(real64),intent(in) :: vec1(:)
+    complex(real64),intent(in) :: vec2(:)
+    complex(real64),allocatable :: vec12(:)
+
+!    if(.not.allocated(vec1) )then
+!        vec12 = vec2
+!        return
+!    endif
+!    
+!    if(.not.allocated(vec2) )then
+!        vec12 = vec1
+!        return
+!    endif
+    
+    if(size(vec1)==0 )then
+        vec12 = vec2    
+        return
+    endif
+
+    if(size(vec2)==0 )then
+        vec12 = vec1
+        return
+    endif
+
+    allocate(vec12( size(vec1)+size(vec2) ) )
+    vec12(           1:           size(vec1) ) = vec1(1:size(vec1) )
+    vec12(size(vec1)+1:size(vec1)+size(vec2) ) = vec2(1:size(vec2) )
+    
+end function
+! ####################################################################
+
+
+
+! ####################################################################
 pure function appendMatrixInt32(mat1,mat2) result(mat12)
     integer(int32),intent(in) :: mat1(:,:),mat2(:,:)
     integer(int32),allocatable :: mat12(:,:)
@@ -9700,5 +9805,38 @@ function getColumnOf2DMatrix_complex64(mat,column_idx) result(ret)
 
 end function
 ! #################################
+
+! #################################
+function conjgVectorComplex(vec) result(ret)
+    complex(real64),intent(in)  :: vec(:)
+    type(Math_) :: math
+    complex(real64),allocatable :: ret(:)
+
+    ret = math%i*vec(:)
+
+end function
+! #################################
+
+
+! #################################
+function conjgTensor2Complex(vec) result(ret)
+    complex(real64),intent(in)  :: vec(:,:)
+    type(Math_) :: math
+    complex(real64),allocatable :: ret(:,:)
+
+    ret = math%i*vec(:,:)
+end function
+! #################################
+
+! #################################
+function conjgTensor3Complex(vec) result(ret)
+    complex(real64),intent(in)  :: vec(:,:,:)
+    type(Math_) :: math
+    complex(real64),allocatable :: ret(:,:,:)
+
+    ret = math%i*vec(:,:,:)
+end function
+! #################################
+
 
 end module ArrayClass

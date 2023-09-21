@@ -128,6 +128,8 @@ module FEMDomainClass
 		! pyhsical modifiers
 		integer(int32),allocatable :: grub_NodeList(:)
 
+		logical :: debug_mode = .false.
+
     contains
 		procedure,public :: add => addFEMDomain
 		procedure,public :: addNBC => AddNBCFEMDomain 
@@ -4489,8 +4491,9 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 				print *, "ERROR GmshPlotMesh >> withDirichletBC >> no NBC is found."
 				return
 			else
-				print *, "[ok] GmshPlotMesh",filename," is exported withDirichletBC. The value is:",maxval(obj%Mesh%ElemMat(:))+40
-				
+				if(obj%debug_mode)then
+					print *, "[ok] GmshPlotMesh",filename," is exported withDirichletBC. The value is:",maxval(obj%Mesh%ElemMat(:))+40
+				endif
 			endif
 			do i=1,size(obj%Boundary%DBoundNodID,1 )
 				do j=1,size(obj%Boundary%DBoundNodID,2)
@@ -4522,8 +4525,9 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 				print *, "ERROR GmshPlotMesh >> withNeumannBC >> no NBC is found."
 				return
 			else
-				print *, "[ok] GmshPlotMesh",filename," is exported withNeumannBC. The value is:",maxval(obj%Mesh%ElemMat(:))+20
-				
+				if(obj%debug_mode)then
+					print *, "[ok] GmshPlotMesh",filename," is exported withNeumannBC. The value is:",maxval(obj%Mesh%ElemMat(:))+20
+				endif
 			endif
 			do i=1,size(obj%Boundary%NBoundNodID,1 )
 				do j=1,size(obj%Boundary%NBoundNodID,2)
@@ -4556,8 +4560,9 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 				print *, "ERROR GmshPlotMesh >> onlyDirichletBC >> no NBC is found."
 				return
 			else
-				print *, "[ok] GmshPlotMesh",filename," is exported onlyDirichletBC. The value is:",maxval(obj%Mesh%ElemMat(:))+40
-				
+				if(obj%debug_mode)then
+					print *, "[ok] GmshPlotMesh",filename," is exported onlyDirichletBC. The value is:",maxval(obj%Mesh%ElemMat(:))+40
+				endif
 			endif
 			do i=1,size(obj%Boundary%DBoundNodID,1 )
 				do j=1,size(obj%Boundary%DBoundNodID,2)
@@ -7040,9 +7045,13 @@ subroutine CheckConnedctivityFEMDomain(obj,fix)
 	
 
 	if(minval(checklist)==0 )then
-		print *, "[HIT!] Non-connected nodes exist"
+		if(obj%debug_mode)then
+			print *, "[HIT!] Non-connected nodes exist"
+		endif
 	else
-		print *, "[OK] All nodes are connected."
+		if(obj%debug_mode)then
+			print *, "[OK] All nodes are connected."
+		endif
 	endif
 
 	if(present(fix) )then
@@ -7078,8 +7087,9 @@ subroutine CheckConnedctivityFEMDomain(obj,fix)
 
 		endif	
 	endif
-	print *, "[OK] All nodes are connected."
-
+	if(obj%debug_mode)then
+		print *, "[OK] All nodes are connected."
+	endif
 end subroutine
 !#######################################
 
@@ -12610,14 +12620,18 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 
 	! check vtk file
 	if(ASCII)then
-		print *, "[ok] ASCII format."
+		if(obj%debug_mode)then
+			print *, "[ok] ASCII format."
+		endif
 	else
 		print *, "ERROR :: importVTKFile >> here, vtk file should be ASCII format."
 		stop
 	endif
 	
 	if(UNSTRUCTURED_GRID)then
-		print *, "[ok] UNSTRUCTURED_GRID"
+		if(obj%debug_mode)then
+			print *, "[ok] UNSTRUCTURED_GRID"
+		endif
 	else
 		print *, "ERROR :: importVTKFile >> here, DATASET should be UNSTRUCTURED_GRID"
 		stop
@@ -12754,11 +12768,14 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 			to = index( line(from+1:)," ")
 			fieldname=line(from:to+7)
 			if(.not.allocated(obj%PhysicalField) )then
-				allocate(obj%PhysicalField(100) )
+				allocate(obj%PhysicalField(1) )
 				do i=1,size(obj%physicalfield)
 				obj%PhysicalField(i)%name = "untitled"
 				enddo
 			endif
+			! read "LOOKUP_TABLE default"
+			line = f%readline()
+			
 			do i=1,size(obj%PhysicalField)
 				if(allocated(obj%PhysicalField(i)%scalar ) )then
 					cycle
@@ -12774,6 +12791,9 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 						line = f%readline()
 						read(line,*)obj%PhysicalField(i)%scalar(j) 
 					enddo
+					if(obj%debug_mode)then
+						print *, "[ok] Read SCALAR field"
+					endif
 				endif
 			enddo
 		endif
@@ -12785,11 +12805,14 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 			to = index( line(from+1:)," ")
 			fieldname=line(from:to+7)
 			if(.not.allocated(obj%PhysicalField) )then
-				allocate(obj%PhysicalField(100) )
+				allocate(obj%PhysicalField(1) )
 				do i=1,size(obj%physicalfield)
 				obj%PhysicalField(i)%name = "untitled"
 				enddo
 			endif
+			! read "LOOKUP_TABLE default"
+			line = f%readline()
+			
 			do i=1,size(obj%PhysicalField)
 				if(allocated(obj%PhysicalField(i)%scalar ) )then
 					cycle
@@ -12823,6 +12846,9 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 				obj%PhysicalField(i)%name = "untitled"
 				enddo
 			endif
+			! read "LOOKUP_TABLE default"
+			line = f%readline()
+			
 			do i=1,size(obj%PhysicalField)
 				if(allocated(obj%PhysicalField(i)%scalar ) )then
 					cycle
