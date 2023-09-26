@@ -128,7 +128,9 @@ subroutine scalarPostProcessing(this,scalar,fileIdx)
 				return
 			endif
 			filename = this%filehead + zfill(fileIdx,this%file_zfill_len)+this%filetail
+			
 			call femdomain%read(trim(filename))
+
 			print *, "imported ",trim(filename)
 			scalar = femdomain%PhysicalField(1)%scalar
 		endif

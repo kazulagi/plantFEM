@@ -99,7 +99,7 @@ module MathClass
 	end interface
 
 	interface RickerFunction
-		module procedure RickerFunctionReal64
+		module procedure RickerFunctionReal64,RickerFunctionReal64Vector
 	end interface
 
 	interface derivative
@@ -2980,6 +2980,7 @@ function short_time_FFT(wave,frame) result(spectre)
 end function
 ! ########################################################################
 
+! ########################################################################
 pure function RickerFunctionReal64(t, sigma, center)  result(ft)
 	real(real64),intent(in) :: t, sigma
 	real(real64),optional,intent(in) :: center
@@ -2997,6 +2998,24 @@ pure function RickerFunctionReal64(t, sigma, center)  result(ft)
 		(1.0d0-((t-b)/sigma)*((t-b)/sigma) )*exp(-(t-b)*(t-b)/2.0d0/sigma/sigma)
 
 	ft = dble(ft128)
+
+end function
+! ########################################################################
+
+
+! ########################################################################
+pure function RickerFunctionReal64Vector(t, sigma, center)  result(ft)
+	real(real64),intent(in) :: t(:), sigma
+	real(real64),optional,intent(in) :: center
+	type(Math_)  :: math
+	real(real64) ::ft128
+	integer(int32) :: i
+	real(real64),allocatable :: ft(:)
+
+	allocate(ft(size(t) ) )
+	do i=1,size(t)
+		ft(i) = RickerFunction(t=t(i),sigma=sigma,center=center)
+	enddo
 
 end function
 ! ########################################################################
