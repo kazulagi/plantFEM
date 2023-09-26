@@ -286,6 +286,8 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,&
     ! U_n から U?
     u = u_n
     v = 0.0d0*v_n
+
+    
     do k=1,this%itrmax
 
         if(present(fix_idx) )then
@@ -312,6 +314,7 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,&
             v = v - LPF_t_sinc_sqrt_taylor_coefficient(k=k-1,t=dt,f_c=cutoff_frequency)*du
         endif
         
+
     enddo
     deallocate(du)
 
@@ -366,14 +369,16 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,&
             DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol)
     endif
 
+    
+
     if(present(fix_idx) )then
         if(allocated(fix_idx) )then
             u(fix_idx)=0.0d0 
         endif
     endif
 
-    u = gain_value*u
-    v = gain_value*v
+!    u = gain_value*u
+!    v = gain_value*v
 
 
 end subroutine
