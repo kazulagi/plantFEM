@@ -316,7 +316,7 @@ subroutine setLogger_byDomain(this,femdomain,position,dataset,name)
       deallocate(this%source_values)
     endif
 
-
+    
     this%ElementID = femdomain%getElementID(x=position )
     if(this%ElementID <=0)then
       print *, "setLogger_byDomain >> invalid element position"

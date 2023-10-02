@@ -14,6 +14,8 @@ module PostProcessingClass
 		integer(int32) :: start_idx
 		integer(int32) :: end_idx
 		character(:),allocatable :: file_info
+
+		type(FEMDomain_) :: buf
 		
 		logical :: initialized = .false.
 	contains
@@ -119,9 +121,9 @@ subroutine scalarPostProcessing(this,scalar,fileIdx)
 				print *, "[Caution] single file mode >> "
 				print *, "fileIdx is not necessary."
 			endif
-			call femdomain%read(this%filehead)
+			call this%buf%read_SCALAR(this%filehead)
 			print *, "imported ",this%filehead
-			scalar = femdomain%PhysicalField(1)%scalar
+			scalar = this%buf%PhysicalField(1)%scalar
 		else
 			if(.not.present(fileIdx) )then
 				print *, "[ERROR] there are multiple files. please input fileIdx"
@@ -129,10 +131,10 @@ subroutine scalarPostProcessing(this,scalar,fileIdx)
 			endif
 			filename = this%filehead + zfill(fileIdx,this%file_zfill_len)+this%filetail
 			
-			call femdomain%read(trim(filename))
+			call this%buf%read_SCALAR(trim(filename))
 
 			print *, "imported ",trim(filename)
-			scalar = femdomain%PhysicalField(1)%scalar
+			scalar = this%buf%PhysicalField(1)%scalar
 		endif
 	else
 		print *, "[ERROR] PostProcesser is not initialized!"

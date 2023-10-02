@@ -255,21 +255,21 @@ end subroutine
 
 ! ##############################################################
 subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,&
-    fix_idx,cutoff_frequency,debug_mode,u,v,RHS,gain) 
+    fix_idx,cutoff_frequency,debug_mode,u,v,RHS) 
     class(WaveKernel_),intent(inout) :: this
     real(real64),intent(in) :: u_n(:),v_n(:)
     real(real64),optional,intent(in) :: RHS(:)
     real(real64),allocatable :: du(:),dv(:)
     real(real64),allocatable :: u(:),v(:)
-    real(real64),optional,intent(in) :: gain
+    
     integer(int32),optional,allocatable,intent(in) :: fix_idx(:)
     real(real64),intent(in) :: dt
     logical,optional,intent(in) :: debug_mode
     real(real64),optional,intent(in)  :: cutoff_frequency
-    real(real64) :: gain_value
+    
     integer(int32) :: j,k
     
-    gain_value = input(default=1.0d0,option=gain)
+    
     
   
 
@@ -316,7 +316,7 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,&
         
 
     enddo
-    deallocate(du)
+    
 
     ! V_n から V?
     dv = v_n
@@ -388,13 +388,13 @@ end subroutine
 
 ! ##############################################################
 subroutine getDisplacement_and_Velocity_MPI_WaveKernel(this,u_n,v_n,dt,&
-    fix_idx,cutoff_frequency,debug_mode,u,v,RHS,gain,MPID,FEMDomain) 
+    fix_idx,cutoff_frequency,debug_mode,u,v,RHS,MPID,FEMDomain) 
     class(WaveKernel_),intent(inout) :: this
     real(real64),intent(in) :: u_n(:),v_n(:)
     real(real64),optional,intent(in) :: RHS(:)
     real(real64),allocatable :: du(:),dv(:)
     real(real64),allocatable :: u(:),v(:)
-    real(real64),optional,intent(in) :: gain
+    
     type(MPI_),intent(inout) :: MPID
     type(FEMDomain_),intent(inout) :: FEMDomain
 
@@ -402,10 +402,10 @@ subroutine getDisplacement_and_Velocity_MPI_WaveKernel(this,u_n,v_n,dt,&
     real(real64),intent(in) :: dt
     logical,optional,intent(in) :: debug_mode
     real(real64),intent(in)  :: cutoff_frequency
-    real(real64) :: gain_value,error_norm(1),all_error_norm(1)
+    real(real64) :: error_norm(1),all_error_norm(1)
     integer(int32) :: j,k
     
-    gain_value = input(default=1.0d0,option=gain)
+    
     
 
     ! [CAUTION!!] only undamped is implemented.
@@ -473,8 +473,6 @@ subroutine getDisplacement_and_Velocity_MPI_WaveKernel(this,u_n,v_n,dt,&
         endif
     endif
 
-    u = gain_value*u
-    v = gain_value*v
 
 end subroutine
 ! ##############################################################

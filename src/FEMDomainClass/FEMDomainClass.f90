@@ -303,6 +303,9 @@ module FEMDomainClass
 
 		! getter
 		procedure,public ::	x => xFEMDomain
+
+		
+
 		procedure,public ::	y => yFEMDomain
 		procedure,public ::	z => zFEMDomain
 		procedure,public ::	getPoint => getPointFEMDomain
@@ -395,6 +398,10 @@ module FEMDomainClass
 		procedure,pass   :: readFEMDomain
 		procedure,pass   :: read_vtk_domain_decomposed_FEMDOmain
 		generic :: read => readFEMDomain
+
+		procedure,pass   :: read_SCALAR_FEMDomain
+		generic :: read_SCALAR => read_SCALAR_FEMDomain
+
 		
 		generic :: read_vtk => read_vtk_domain_decomposed_FEMDOmain
 
@@ -15996,6 +16003,39 @@ function PointForceVectorFEMDomain(this, NodeList,Direction,force) result(ret)
 	endif
 
 end function 
+
+
+subroutine read_SCALAR_FEMDomain(this,filename)
+	class(FEMDomain_),intent(inout) :: this
+	character(*),intent(in) :: filename
+	type(IO_) :: f
+	character(:),allocatable :: line,POINT_DATA
+	integer(int32) :: i,n,num_pd
+
+	if(allocated(this%mesh%nodcoord))then
+		POINT_DATA = "POINT_DATA"
+		call f%search_line(filename,n)
+		call f%open(filename,"r")
+		do i=1,n-1
+			read (f%fh,'()') ! 読み飛ばし
+		enddo
+		read(f%fh,*) POINT_DATA,num_pd
+		read (f%fh,'()') 
+		read (f%fh,'()') 
+		if(.not.allocated(this%physicalfield) )then
+			allocate(this%physicalfield(1))
+		endif
+		
+		this%physicalfield(1)%scalar = zeros(num_pd)
+		do i=1,num_pd
+			read(f%fh,*) this%physicalfield(1)%scalar(i)
+		enddo
+		call f%close()
+	else
+		call this%read(filename)
+	endif
+
+end subroutine
 
 end module FEMDomainClass
 

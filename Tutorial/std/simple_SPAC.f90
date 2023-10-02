@@ -8,7 +8,7 @@ character(:),allocatable :: filepath
 
 !>>>> you can get example by >>>>>>
 ! plantfem dl SPAC_example.csv
-! plantfem dl SPAC_example.csv.condition.csv
+! plantfem dl SPAC_example.csv.condition.json
 
 call getarg(1,fpath)
 filepath = trim(adjustl(fpath))

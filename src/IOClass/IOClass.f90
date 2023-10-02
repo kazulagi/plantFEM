@@ -54,6 +54,7 @@ module IOClass
             procedure,public :: numLine => numLineIO
     
             procedure,public :: flush => flushIO
+            procedure,public :: search_line => search_lineIO
 
             procedure,public :: exists => existsIO
 
@@ -411,6 +412,32 @@ module IOClass
     
     end function
     
+    ! ===========================================
+    
+    subroutine search_lineIO(obj,name,n)
+        class(IO_),intent(in) :: obj
+        type(IO_) :: f
+        character(*),intent(in) :: name
+        character(:),allocatable :: fname,command
+        integer(int32),intent(inout) :: n 
+        character(len=1) :: content
+    
+        n = 0
+        fname = generate_uuid()+"_search_lineIO.buffer"
+        command = "sed -n '/POINT_DATA/=' "+name+" > "+fname+" "
+        call system(command)
+        
+        call f%open(fname,"r")
+        read(f%fh,*) n
+        call f%close()
+        call system("rm "+fname)
+        
+        
+    end subroutine
+    
+
+    
+
     ! #############################################
     function readlineIO(obj) result(ret)
         class(IO_),intent(inout) :: obj
