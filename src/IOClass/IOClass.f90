@@ -34,11 +34,13 @@ module IOClass
             integer :: fh=100
             logical :: active=.false.
             logical :: EOF=.true.
+            
             character(1) :: state
             character(200)::path,name,extention
             character(:),allocatable:: title
             character(:),allocatable:: xlabel,ylabel,zlabel
             character(:),allocatable :: filename
+            character(3) :: async = "no "
             integer(int32) :: lastModifiedTime=0
             logical :: json_mode = .false.
     
@@ -60,7 +62,9 @@ module IOClass
 
             procedure,public :: cp => cpIO
             procedure,public :: ls => ls_IO
-    
+            procedure,public :: zip => zip_IOClass
+            procedure,public :: unzip => unzip_IOClass
+
             procedure,public :: download => downloadIO
             !set & reset rule
             procedure,public :: rule => ruleIO
@@ -226,7 +230,12 @@ module IOClass
             
             procedure,public :: close => closeIO    
 
-            procedure,public :: to_Array =>to_Array_real64_ArrayClass
+            procedure,public :: to_Array =>to_Array_real64_IOClass
+
+            procedure,public :: bin2vector => bin2vector_real64_IOClass
+            procedure,public :: vector2bin => vector2bin_real64_IOClass
+
+            procedure,public :: wait => wait_async_IOClass
         end type
     
 
@@ -470,16 +479,18 @@ module IOClass
     ! #############################################
     
     ! #############################################
-    recursive subroutine openIOchar(obj,path,state,name,extention,binary,fh)
+    recursive subroutine openIOchar(obj,path,state,name,extention,binary,async,fh)
         class(IO_),intent(inout) :: obj
         character(1),optional,intent(in) :: state ! w or r
-        character(*),optional,intent(in)::path,name,extention
-        character(:),allocatable :: localcp
+        character(*),optional,intent(in)::path,name,extention,async
+        character(:),allocatable :: localcp,async_yes_no
         integer(int32),optional,intent(in) :: fh
         integer(int32) :: tag
         logical :: yml=.False.
         logical,optional,intent(in) :: binary
-        logical :: use_binary_form=.false.
+        logical :: use_binary_form
+
+        use_binary_form=.false.
 
         if(present(binary) )then
             use_binary_form = binary
@@ -492,7 +503,12 @@ module IOClass
             obj%state="w"
         endif
     
-    
+        if(present(async) )then
+            async_yes_no = async
+        else
+            async_yes_no = "no"
+        endif
+        obj%async = async_yes_no
         
         !if( index(path,"mongo://")/=0  )then
         !    
@@ -516,7 +532,7 @@ module IOClass
             print *, "[ok] Downloaded > ./tmp/"//trim(path(tag+1:) )
             localcp = trim("./tmp/"//path(tag+1:) )
 
-            call obj%open(trim(localcp),"r",binary=binary)
+            call obj%open(trim(localcp),state="r",binary=binary,async=async)
 
             return
         endif
@@ -596,25 +612,31 @@ module IOClass
                         if(state=="r")then
                             if(use_binary_form)then
                                 open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='old',&
-                                    form="UNFORMATTED")
+                                    form="UNFORMATTED",&
+                                    asynchronous=async_yes_no)
                             else
-                                open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='old')
+                                open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='old',&
+                                    asynchronous=async_yes_no)
                             endif
                             obj%filename=trim(path)//trim(name)//trim(extention)
                         elseif(state=="w")then
                             if(use_binary_form)then
                                 open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='replace',&
-                                    form="UNFORMATTED")
+                                    form="UNFORMATTED",&
+                                    asynchronous=async_yes_no)
                             else
-                                open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='replace')
+                                open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),status='replace',&
+                                    asynchronous=async_yes_no)
                             endif
                             obj%filename = trim(path)//trim(name)//trim(extention)
                         elseif(state=="a")then
                             if(use_binary_form)then
                                 open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),position='append',&
-                                    form="UNFORMATTED")
+                                    form="UNFORMATTED",&
+                                    asynchronous=async_yes_no)
                             else
-                                open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),position='append')
+                                open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),position='append',&
+                                    asynchronous=async_yes_no)
                             endif
                             obj%filename = trim(path)//trim(name)//trim(extention)
                         else
@@ -624,9 +646,11 @@ module IOClass
                     else
                         if(use_binary_form)then
                             open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention),&
-                                form="UNFORMATTED" )
+                                form="UNFORMATTED" ,&
+                            asynchronous=async_yes_no)
                         else
-                            open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention) )
+                            open(newunit=obj%fh,file=trim(path)//trim(name)//trim(extention)  ,&
+                            asynchronous=async_yes_no)
                         endif
                         obj%filename = trim(path)//trim(name)//trim(extention)
                     endif
@@ -635,25 +659,31 @@ module IOClass
                         if(state=="r")then
                             if(use_binary_form)then
                                 open(newunit=obj%fh,file=trim(path)//trim(name),status='old',&
-                                    form="UNFORMATTED" )
+                                    form="UNFORMATTED" ,&
+                            asynchronous=async_yes_no)
                             else
-                                open(newunit=obj%fh,file=trim(path)//trim(name),status='old' )
+                                open(newunit=obj%fh,file=trim(path)//trim(name),status='old'  ,&
+                                asynchronous=async_yes_no)
                             endif
                             obj%filename = trim(path)//trim(name)
                         elseif(state=="w")then
                             if(use_binary_form)then
                                 open(newunit=obj%fh,file=trim(path)//trim(name),status='replace',&
-                                    form="UNFORMATTED" )
+                                    form="UNFORMATTED" ,&
+                            asynchronous=async_yes_no)
                             else
-                                open(newunit=obj%fh,file=trim(path)//trim(name),status='replace' )
+                                open(newunit=obj%fh,file=trim(path)//trim(name),status='replace' ,&
+                                asynchronous=async_yes_no )
                             endif
                             obj%filename=trim(path)//trim(name)
                         elseif(state=="a")then
                             if(use_binary_form)then
                                 open(newunit=obj%fh,file=trim(path)//trim(name),position='append',&
-                                    form="UNFORMATTED" )
+                                    form="UNFORMATTED" ,&
+                            asynchronous=async_yes_no)
                             else
-                                open(newunit=obj%fh,file=trim(path)//trim(name),position='append' )
+                                open(newunit=obj%fh,file=trim(path)//trim(name),position='append' ,&
+                                    asynchronous=async_yes_no )
                             endif
                             obj%filename=trim(path)//trim(name)
                         else
@@ -663,9 +693,11 @@ module IOClass
                     else
                         if(use_binary_form)then
                             open(newunit=obj%fh,file=trim(path)//trim(name),&
-                                form="UNFORMATTED" )
+                                form="UNFORMATTED" ,&
+                            asynchronous=async_yes_no)
                         else
-                            open(newunit=obj%fh,file=trim(path)//trim(name) )
+                            open(newunit=obj%fh,file=trim(path)//trim(name) ,&
+                            asynchronous=async_yes_no )
                         endif
                         obj%filename = trim(path)//trim(name)
                     endif
@@ -675,25 +707,31 @@ module IOClass
                     if(state=="r")then
                         if(use_binary_form)then
                             open(newunit=obj%fh,file=trim(path),status='old',&
-                                form="UNFORMATTED" )
+                                form="UNFORMATTED" ,&
+                            asynchronous=async_yes_no)
                         else
-                            open(newunit=obj%fh,file=trim(path),status='old' )
+                            open(newunit=obj%fh,file=trim(path),status='old' ,&
+                            asynchronous=async_yes_no )
                         endif
                         obj%filename = trim(path)
                     elseif(state=="w")then
                         if(use_binary_form)then
                             open(newunit=obj%fh,file=trim(path),status='replace',&
-                                form="UNFORMATTED" )
+                                form="UNFORMATTED" ,&
+                            asynchronous=async_yes_no)
                         else
-                            open(newunit=obj%fh,file=trim(path),status='replace' )
+                            open(newunit=obj%fh,file=trim(path),status='replace' ,&
+                            asynchronous=async_yes_no )
                         endif
                         obj%filename = trim(path)
                     elseif(state=="a")then
                         if(use_binary_form)then
                             open(newunit=obj%fh,file=trim(path),position='append',&
-                                form="UNFORMATTED" )
+                                form="UNFORMATTED" ,&
+                            asynchronous=async_yes_no)
                         else
-                            open(newunit=obj%fh,file=trim(path),position='append' )
+                            open(newunit=obj%fh,file=trim(path),position='append' ,&
+                            asynchronous=async_yes_no )
                         endif
 
                         obj%filename = trim(path)
@@ -704,9 +742,11 @@ module IOClass
                 else
                     if(use_binary_form)then
                         open(newunit=obj%fh,file=trim(path),&
-                            form="UNFORMATTED" )
+                            form="UNFORMATTED" ,&
+                            asynchronous=async_yes_no)
                     else
-                        open(newunit=obj%fh,file=trim(path) )
+                        open(newunit=obj%fh,file=trim(path)  ,&
+                        asynchronous=async_yes_no)
                     endif
                     obj%filename = trim(path)
                 endif
@@ -714,9 +754,11 @@ module IOClass
         else
             if(use_binary_form)then
                 open(newunit=obj%fh,file="./untitled.txt",status="replace",&
-                    form="UNFORMATTED" )
+                    form="UNFORMATTED" ,&
+                            asynchronous=async_yes_no)
             else
-                open(newunit=obj%fh,file="./untitled.txt",status="replace" )
+                open(newunit=obj%fh,file="./untitled.txt",status="replace" ,&
+                asynchronous=async_yes_no )
             endif
             obj%filename = "./untitled.txt"
         endif
@@ -738,7 +780,9 @@ module IOClass
         integer(int32),optional,intent(in) :: fh
         logical :: yml=.False.
         logical,optional,intent(in) :: binary
-        logical :: use_binary_form=.false.
+        logical :: use_binary_form
+
+        use_binary_form=.false.
 
         if(present(binary) )then
             use_binary_form = binary
@@ -4015,7 +4059,7 @@ end subroutine
 ! #######################################################
 
 ! #####################################
-function to_Array_real64_ArrayClass(this,name,column,header,upsampling) result(ret)
+function to_Array_real64_IOClass(this,name,column,header,upsampling) result(ret)
     class(IO_),intent(inout) :: this
     character(*),intent(in) :: name
     integer(int32),intent(in) :: column(:),header
@@ -4026,7 +4070,7 @@ function to_Array_real64_ArrayClass(this,name,column,header,upsampling) result(r
 
     if(this%active)then
         ! opened
-        print *, "[ERROR] to_Array_real64_ArrayClass >> this should be closed." 
+        print *, "[ERROR] to_Array_real64_IOClass >> this should be closed." 
         stop
     else
 
@@ -4209,7 +4253,88 @@ subroutine extractStepResponse(name,trigger_level,buffer_size,segment_length,seg
     endif
 
 end subroutine
-    
 ! #####################################################################
+
+! #####################################################################
+subroutine wait_async_IOClass(this) 
+    class(IO_),intent(in) :: this
+
+    if( (index(this%async,"Y")/=0) .or. (index(this%async,"y")/=0) )then
+        wait(this%fh)
+    endif
+
+end subroutine
+! #####################################################################
+
+! #####################################################################
+subroutine zip_IOClass(this,zipfile,filename)
+    class(IO_),intent(in) :: this
+    character(*),intent(in) :: zipfile,filename
+
+    call system("zip -m "+zipfile+" "+filename)
+
+end subroutine
+! #####################################################################
+
+
+! #####################################################################
+subroutine unzip_IOClass(this,zipfile,filename)
+    class(IO_),intent(in) :: this
+    character(*),intent(in) :: zipfile,filename
+
+    if(filename=="*" .or. trim(filename)=="")then
+        call system("unzip -u "+zipfile)
+    else
+        call system("unzip -u "+zipfile+" "+filename)
+    endif
+
+end subroutine
+! #####################################################################
+
+
+
+! #####################################################################
+subroutine vector2bin_real64_IOClass(this,name,vec)
+    class(IO_),intent(in) :: this
+    character(*),intent(in) :: name
+    type(IO_) :: f
+    real(real64),intent(in) :: vec(:)
+
+    call f%open(name,"w",binary=.true.)
+    write(f%fh) size(vec)
+    write(f%fh) vec(:)
+    call f%close()
+
+end subroutine
+! #####################################################################
+
+! #####################################################################
+subroutine bin2vector_real64_IOClass(this,name,vec)
+    class(IO_),intent(in) :: this
+    character(*),intent(in) :: name
+    type(IO_) :: f
+    real(real64),allocatable,intent(inout) :: vec(:)
+    integer(int32) :: n
+    logical :: original_binary
+
+    call f%open(name,"r",binary=.true.)
+    read(f%fh) n
+
+    if(allocated(vec) )then
+        if(size(vec)==n )then
+            ! do nothing
+        else
+            deallocate(vec)
+            allocate(vec(n) )    
+        endif
+    else
+        allocate(vec(n) )
+    endif    
+    read(f%fh) vec(:)
+    call f%close()
+    
+end subroutine
+! #####################################################################
+
 
 end module IOClass

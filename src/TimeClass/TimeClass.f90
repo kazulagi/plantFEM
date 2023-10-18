@@ -3,6 +3,29 @@ module TimeClass
     use iso_fortran_env
     implicit none
 
+    type :: datetime_
+        integer(int32) :: year
+        integer(int32) :: month
+        integer(int32) :: date
+        integer(int32) :: hour
+        integer(int32) :: minutes
+        real(real64)   :: seconds
+    contains
+        procedure :: show => show_datetime_timeclass
+    end type
+
+    interface operator(+)
+        module procedure :: add_two_datetime
+    end interface
+
+    interface to_datetime
+        module procedure :: to_datetime_timeclass
+    end interface
+
+
+    
+
+
     type :: time_
         real(real64) ,private:: t1=0.0d0
         real(real64) ,private:: t2=0.0d0
@@ -22,6 +45,150 @@ module TimeClass
     end type
 
 contains
+
+! ########################################
+function to_datetime_timeclass(year,month,date,hour,minutes,seconds) result(ret)
+    type(datetime_) :: ret
+    integer(int32),optional,intent(in)  :: year,month,date,hour,minutes
+    real(real64)  ,optional,intent(in)  :: seconds
+
+    if(present(year) )then
+        ret%year    = year
+    else
+        ret%year = 0
+    endif
+    if(present(month) )then
+        ret%month   = month
+    else
+        ret%month = 0
+    endif
+    if(present(date) )then
+        ret%date    = date
+    else
+        ret%date = 0
+    endif
+    if(present(hour) )then
+        ret%hour    = hour
+    else
+        ret%hour = 0
+    endif
+    if(present(minutes) )then
+        ret%minutes = minutes
+    else
+        ret%minutes = 0
+    endif
+    if(present(seconds) )then
+        ret%seconds = seconds
+    else
+        ret%seconds = 0.0d0
+    endif
+
+end function
+! ########################################
+
+subroutine show_datetime_timeclass(dt)
+    class(datetime_),intent(in) :: dt
+
+    print *, dt%year
+    print *, dt%month
+    print *, dt%date
+    print *, dt%hour
+    print *, dt%minutes
+    print *, dt%seconds
+
+end subroutine
+
+! ########################################
+function add_two_datetime(dt1, dt2) result(ret)
+    type(datetime_),intent(in) :: dt1, dt2
+    type(datetime_) :: ret
+
+    ret = dt1
+    ret%year    = ret%year      + dt2%year
+    ret%month   = ret%month     + dt2%month
+    ret%date    = ret%date      + dt2%date
+
+    ret%hour    = ret%hour      + dt2%hour
+    ret%minutes = ret%minutes   + dt2%minutes
+    ret%seconds = ret%seconds   + dt2%seconds
+
+    if(ret%seconds >= 60.0d0)then
+        ret%minutes = ret%minutes + floor(ret%seconds/60.d0)
+        ret%seconds = ret%seconds - floor(ret%seconds/60.d0)
+    endif
+
+    if(ret%minutes >= 60)then
+        ret%hour    =  ret%hour + (ret%minutes - mod(ret%minutes,60) )/60
+        ret%minutes = mod(ret%minutes,60)
+    endif
+
+    if(ret%hour >= 24)then
+        ret%date    =  ret%date + (ret%minutes - mod(ret%minutes,24) )/24
+        ret%hour = mod(ret%hour,24)
+    endif
+
+    do
+        if(ret%month > 12)then
+            ret%year = ret%year + 1
+            ret%month = ret%month - 12
+        endif
+        if(ret%date > number_of_date_for_month(year=ret%year,month=ret%month))then
+            ret%date = ret%date - number_of_date_for_month(year=ret%year,month=ret%month)
+            ret%month = ret%month + 1
+        else
+            exit
+        endif
+    enddo
+end function
+! ########################################
+
+function number_of_date_for_month(year,month) result(ret)
+    integer(int32),intent(in) :: year,month
+    integer(int32) :: ret
+
+    if(month==1)then
+        ret = 31
+    elseif(month==2)then
+        if(mod(year,4)==0 )then
+            if(mod(year,100)==0 )then
+                if(mod(year,400)==0 )then
+                    ret = 29
+                else
+                    ret = 28
+                endif
+            else
+                ret = 29
+            endif
+        else
+            ret = 28
+        endif
+    elseif(month==3)then
+        ret = 31
+    elseif(month==4)then
+        ret = 30
+    elseif(month==5)then
+        ret = 31
+    elseif(month==6)then
+        ret = 30
+    elseif(month==7)then
+        ret = 31
+    elseif(month==8)then
+        ret = 31
+    elseif(month==9)then
+        ret = 30
+    elseif(month==10)then
+        ret = 31
+    elseif(month==11)then
+        ret = 30
+    elseif(month==12)then
+        ret = 31
+    else
+        ret = 0
+    endif
+
+end function
+
+
 
 ! ########################################
 subroutine starttime(obj)

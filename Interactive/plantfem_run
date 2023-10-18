@@ -434,7 +434,7 @@ homepath="$PWD"
         if [ "$EXTENSION" = "$f90" ]; then
             #cp server.f90 server.f90
             rm -f "${2%.*}.out"
-            $mpif90 /opt/plantfem/inc/*o $2  -I /opt/plantfem/inc -g -fcheck=all -fopenmp -fintrinsic-modules-path /opt/plantfem/inc -o "${2%.*}.out" -llapack -lblas -lOpenCL
+            $mpif90 /opt/plantfem/inc/*o $2  -I /opt/plantfem/inc -g -fcheck=all -fopenmp -fintrinsic-modules-path /opt/plantfem/inc -o "${2%.*}.out" -llapack -lblas 
             #echo "Current num of cpu-core is :: $numcore "
         else
             $mpif90  -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc  -o server.out -llapack -lblas  
@@ -552,12 +552,12 @@ homepath="$PWD"
     fi
 
     if [ "${line}" = "build_command" ]; then
-        echo "mpif90  -llapack -lblas -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc/  -o server.out -llapack -lblas  -lOpenCL "
+        echo "mpif90  -llapack -lblas -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc/  -o server.out -llapack -lblas  "
         exit 0
     fi
 
     if [ "${line}" = "strict_build" ]; then
-        mpif90  -llapack -lblas -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -Wall -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc/  -o server.out -llapack -lblas -ftrapv -fstack-check  -lOpenCL
+        mpif90  -llapack -lblas -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -Wall -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc/  -o server.out -llapack -lblas -ftrapv -fstack-check
         exit 0
     fi
      
@@ -575,7 +575,7 @@ homepath="$PWD"
         #    cp -f $1 "server.f90"
         #fi
         rm -f "${1%.*}.out"
-        $mpif90 /opt/plantfem/inc/*o $1  -I /opt/plantfem/inc -g -fcheck=all -fopenmp -fintrinsic-modules-path /opt/plantfem/inc -o "${1%.*}.out" -llapack -lblas -lOpenCL
+        $mpif90 /opt/plantfem/inc/*o $1  -I /opt/plantfem/inc -g -fcheck=all -fopenmp -fintrinsic-modules-path /opt/plantfem/inc -o "${1%.*}.out" -llapack -lblas
         
         #echo "Current num of cpu-core is :: $numcore "
         ./${1%.*}.out

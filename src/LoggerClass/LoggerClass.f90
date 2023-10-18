@@ -146,22 +146,34 @@ module LoggerClass
   
   
   !------------------------------------------------------
-  subroutine saveLogger(this,t)
+  subroutine saveLogger(this,t,debug)
     class(Logger_),intent(inout) :: this
     integer(int32) :: i,n,j
     real(real64),optional,intent(in) :: t
+    logical,optional,intent(in) :: debug
     real(real64) :: channel_val
     type(IO_) :: f
 
+    logical :: debug_mode
+
+    if(present(debug) )then
+      debug_mode = .true.
+    else
+      debug_mode = .false.
+    endif
+    if(debug_mode) print *, "[ok] saveLogger >> started"
     if(allocated(this%source_values) )then
       ! with setLogger_byDomain()
       ! it may have some bugs.
       do i=1,this%point_DOF
         call f%open(this%channel_name(1)%all+"_dim_"+str(i)+".txt","a")
         channel_val = 0.0d0
+
+        !if(debug_mode) print *, "saveLogger >> computing values>>start"
         do j=1, size(this%source_values,1)
           channel_val = channel_val + this%weight(j)*this%source_values(j,i)%ptr
         enddo
+        !if(debug_mode) print *, "saveLogger >> computing values>> done!"
 
         if(present(t) )then
             write(f%fh,*) t, channel_val
@@ -191,7 +203,7 @@ module LoggerClass
         if(n==this%numchannel() ) return
       enddo
     endif
-  
+    if(debug_mode) print *, "[ok] saveLogger >> done"
   end subroutine
   !------------------------------------------------------
   

@@ -8326,7 +8326,7 @@ end subroutine
 
 
 ! ##################################################
-recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementType,NodeList,debug,displacement)
+recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementType,NodeList,debug,displacement,only_field)
 	class(FEMDomain_),intent(inout) :: obj
 	type(FEMDomain_) :: mini_obj
 	character(*),intent(in) :: name
@@ -8334,6 +8334,7 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 	real(real64),optional,intent(in) :: scalar(:),vector(:,:),tensor(:,:,:),displacement(:)
 	integer(int32),optional,intent(in) :: ElementType,Nodelist(:)
 	character(len=:),allocatable :: point_scalars,point_vectors,point_tensors,cell_scalars,cell_vectors,cell_tensors
+	logical,optional,intent(in) :: only_field
 	type(IO_) :: f
 	integer(int32) ::i,dim_num(3),j,VTK_CELL_TYPE,num_node,k,n
 	logical,optional,intent(in) :: debug

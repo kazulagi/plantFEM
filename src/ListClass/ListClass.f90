@@ -12,9 +12,10 @@ module ListClass
         procedure,public :: get => get_list_content_listclass
         procedure,public :: append => append_list_content_listclass
         procedure,public :: new => new_list_listclass
-
         procedure,public :: print => print_listclass
         procedure,public :: size => size_listclass
+
+        procedure,public :: help => help_listclass
         
         
     end type
@@ -320,7 +321,16 @@ end function
 
 
 
+subroutine help_listclass(this)
+    class(List_),intent(in) :: this
 
+    print *, "function   get(this,idx) "
+    print *, "subroutine append(this,char) "
+    print *, "subroutine new(this,length)"
+    print *, "print => print_listclass"
+    print *, "size => size_listclass"
+
+end subroutine
 
 
 

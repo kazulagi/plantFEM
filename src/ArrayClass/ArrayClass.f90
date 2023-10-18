@@ -59,6 +59,14 @@ module ArrayClass
         module procedure find_section_real64
     end interface find_section
 
+    interface minvalx
+        module procedure    minvalx_binary_search_real64
+    end interface
+
+    interface maxvalx
+        module procedure    maxvalx_binary_search_real64
+    end interface
+
     interface cartesian_product
         module procedure :: cartesian_product_real64_2,cartesian_product_real64_array_vec
     end interface cartesian_product
@@ -9811,8 +9819,12 @@ function conjgVectorComplex(vec) result(ret)
     complex(real64),intent(in)  :: vec(:)
     type(Math_) :: math
     complex(real64),allocatable :: ret(:)
+    integer(int32) :: i
 
-    ret = math%i*vec(:)
+    ret = 0.0d0*vec
+    do i=1,size(vec)
+        ret(i) = conjg(vec(i))
+    enddo
 
 end function
 ! #################################
@@ -9823,8 +9835,17 @@ function conjgTensor2Complex(vec) result(ret)
     complex(real64),intent(in)  :: vec(:,:)
     type(Math_) :: math
     complex(real64),allocatable :: ret(:,:)
+    integer(int32) :: i,j
 
-    ret = math%i*vec(:,:)
+    ! x       = u + v i
+    ! \bar{x} = u - v i /= (u + v i)i
+
+    ret = 0.0d0*vec
+    do i=1,size(vec,1)
+        do j=1,size(vec,2)
+            ret(i,j) = conjg(vec(i,j))
+        enddo
+    enddo
 end function
 ! #################################
 
@@ -9833,10 +9854,98 @@ function conjgTensor3Complex(vec) result(ret)
     complex(real64),intent(in)  :: vec(:,:,:)
     type(Math_) :: math
     complex(real64),allocatable :: ret(:,:,:)
+    integer(int32) :: i,j,k
 
-    ret = math%i*vec(:,:,:)
+    
+    ret = 0.0d0*vec
+    do i=1,size(vec,1)
+        do j=1,size(vec,2)
+            do k=1,size(vec,2)
+                ret(i,j,k) = conjg(vec(i,j,k))
+            enddo
+        enddo
+    enddo
+end function
+! #################################
+
+! #################################
+recursive function minvalx_binary_search_real64(fx,params, x_range, depth) result(x)
+    interface 
+        function fx(x,params) result(ret)
+            use iso_fortran_env
+            implicit none
+            real(real64),intenT(in) :: x,params(:)
+            real(real64) :: ret
+        end function
+    end interface
+
+    real(real64),intent(in) :: x_range(1:2),params(:)
+    integer(int32),intent(in) :: depth
+    real(real64) :: x
+    real(real64) :: x_range_l(1:2),x_range_r(1:2),x_center,&
+        x_center_l,x_center_r,fx_center_l,fx_center_r
+
+    if(depth==0)then
+        x = average(x_range)
+        return
+    else
+        x_center  = average(x_range)
+        x_range_l = [x_range(1), x_center]
+        x_range_r = [x_center, x_range(2)]
+        x_center_l = average(x_range_l)
+        x_center_r = average(x_range_r)
+        fx_center_l = fx(x_center_l,params)
+        fx_center_r = fx(x_center_r,params)
+        if(fx_center_l < fx_center_r )then
+            x = minvalx_binary_search_real64(fx=fx,params=params,x_range=x_range_l,depth=depth-1)
+        else
+            x = minvalx_binary_search_real64(fx=fx,params=params,x_range=x_range_r,depth=depth-1)
+        endif
+        return
+    endif
+    
+
 end function
 ! #################################
 
 
+! #################################
+recursive function maxvalx_binary_search_real64(fx,params, x_range, depth) result(x)
+    interface 
+        function fx(x,params) result(ret)
+            use iso_fortran_env
+            implicit none
+            real(real64),intenT(in) :: x,params(:)
+            real(real64) :: ret
+        end function
+    end interface
+
+    real(real64),intent(in) :: x_range(1:2),params(:)
+    integer(int32),intent(in) :: depth
+    real(real64) :: x
+    real(real64) :: x_range_l(1:2),x_range_r(1:2),x_center,&
+        x_center_l,x_center_r,fx_center_l,fx_center_r
+
+    if(depth==0)then
+        x = average(x_range)
+        return
+    else
+        x_center  = average(x_range)
+        x_range_l = [x_range(1), x_center]
+        x_range_r = [x_center, x_range(2)]
+        x_center_l = average(x_range_l)
+        x_center_r = average(x_range_r)
+        fx_center_l = fx(x_center_l,params)
+        fx_center_r = fx(x_center_r,params)
+        if(fx_center_l > fx_center_r )then
+            x = maxvalx_binary_search_real64(fx=fx,params=params,x_range=x_range_l,depth=depth-1)
+        else
+            x = maxvalx_binary_search_real64(fx=fx,params=params,x_range=x_range_r,depth=depth-1)
+        endif
+        return
+    endif
+    
+
+end function
+! #################################
 end module ArrayClass

@@ -90,14 +90,14 @@ function to_FOURIER_SPECTRUM(A,frequency,FFT_SIZE,log,num_block,taper_percent,NU
     integer(int32),optional,intent(in) :: taper_percent,NUM_MOVING_AVERAGE
     real(real64),optional,intent(in) :: delta_f
     integer(int32) :: taper_percent_i,NUM_MOVING_AVERAGE_i
-    integer(int32) :: n,num_bl,i,from,to
+    integer(int32) :: n,num_bl,i,from,to,k
     character(*),optional,intent(in) :: log
     integer(int32),optional,intent(inout) :: num_block
     real(real64) :: dt
 
     
     ! Taper :: 5%
-    type(IO_) :: f
+    type(IO_) :: f, debug
     
     taper_percent_i = input(default=5,option=taper_percent)
     NUM_MOVING_AVERAGE_i = input(default=5,option=NUM_MOVING_AVERAGE)
@@ -118,16 +118,18 @@ function to_FOURIER_SPECTRUM(A,frequency,FFT_SIZE,log,num_block,taper_percent,NU
     do i=1,num_bl
         A_c = A
         
-        from = (i-1)*FFT_SIZE*2 +1
-        to   = i*FFT_SIZE*2
+        from = (i-1)*FFT_SIZE*2 + 1
+        to   = (i-1)*FFT_SIZE*2 + FFT_SIZE*2
         
         A_c = A_c(from:to)
         A_c(:)= A_c(:) * taper_function(size(A_c),percent=taper_percent_i)
         
         FFT_A = FFT( A_c(:) )
+
         FFT_A = FFT_A(1:FFT_SIZE)
-        
-        F_A = sqrt(dble(FFT_A*conjg(FFT_A)))
+
+        !F_A = sqrt(dble(FFT_A*conjg(FFT_A)))
+        F_A = sqrt(abs(FFT_A))
         F_A = moving_average(F_A,NUM_MOVING_AVERAGE_i)
         if(present(delta_f) )then
             F_A = F_A*(FFT_SIZE*dt)/2.0d0
@@ -153,21 +155,26 @@ function to_HoverV_spectra(H,V,FFT_SIZE,frequency,taper_percent) result(HoverV)
     real(real64),intent(in) :: H(:),V(:),frequency(:)
     integer(int32),intent(in) :: FFT_SIZE
     integer(int32),optional,intent(in) :: taper_percent
-    real(real64),allocatable :: HoverV(:)
+    integer(int32) :: i
+    real(real64),allocatable :: HoverV(:),H_F(:),V_F(:)
     
-    HoverV = &
-        to_FOURIER_SPECTRUM(&
-            A = H, &
-            frequency=frequency, &
-            FFT_SIZE=FFT_SIZE,&
-            taper_percent=input(default=5,option=taper_percent)) &
-            / &
-        to_FOURIER_SPECTRUM(&
-            A = V, &
-            frequency=frequency, &
-            FFT_SIZE=FFT_SIZE,&
-            taper_percent=input(default=5,option=taper_percent))
+    H_F = to_FOURIER_SPECTRUM(&
+        A = H, &
+        frequency=frequency, &
+        FFT_SIZE=FFT_SIZE,&
+        taper_percent=input(default=5,option=taper_percent))
+    V_F = to_FOURIER_SPECTRUM(&
+        A = V, &
+        frequency=frequency, &
+        FFT_SIZE=FFT_SIZE,&
+        taper_percent=input(default=5,option=taper_percent))
 
+    HoverV = 0.0d0*H_F
+    do i=1,size(HoverV)
+        if(V_F(i)==0.0d0 )cycle
+        HoverV(i) = H_F(i)/V_F(i)
+    enddo
+        
 end function
 
 function to_CROSS_SPECTRUM(A,B,FFT_SIZE) result(Cross_Spectrum)
@@ -176,21 +183,27 @@ function to_CROSS_SPECTRUM(A,B,FFT_SIZE) result(Cross_Spectrum)
     integer(int32),intent(in) :: FFT_SIZE
     complex(real64),allocatable :: FFT_A(:),FFT_B(:),Cross_Spectrum(:),A_c(:),B_c(:)
     integer(int32) :: n,num_block,i,from,to
+    type(math_) :: math
 
     Cross_Spectrum = zeros(FFT_SIZE)
     num_block = int(dble(size(A))/dble(FFT_SIZE*2) )
+    if(num_block==0)stop
     from = 1
     A_c = A
     B_c = B
     do i=1,num_block
-        from = (i-1)*FFT_SIZE*2 +1
-        to   = i*FFT_SIZE*2
+        from = (i-1)*FFT_SIZE*2 + 1
+        to   = (i-1)*FFT_SIZE*2 + FFT_SIZE*2
         FFT_A = FFT( A_c(from:to) )
         FFT_B = FFT( B_c(from:to) )
+
         FFT_A = FFT_A(1:FFT_SIZE)
         FFT_B = FFT_B(1:FFT_SIZE)
+        
+        !Cross_Spectrum(:) = Cross_Spectrum(:) + FFT_A(:)*conjg(FFT_B(:))
         Cross_Spectrum = Cross_Spectrum + FFT_A*conjg(FFT_B)
     enddo
+    
     Cross_Spectrum = Cross_Spectrum/num_block
 
 end function
@@ -200,14 +213,56 @@ function to_CCF(A,B,FFT_SIZE) result(CCF)
     real(real64),intent(in) :: A(:),B(:)
 
     integer(int32),intent(in) :: FFT_SIZE
-    complex(real64),allocatable :: E_C_AB(:),E_C_AA(:),E_C_BB(:),CCF(:)
+    complex(real64),allocatable :: E_C_BB(:),CCF(:),FFT_A(:),FFT_B(:),&
+        A_c(:),B_c(:),E_C_AB(:),E_C_AA(:)
+    
     integer(int32) :: n,num_block,i,from,to
+    type(Math_) :: math
+    type(IO_) :: f
+    
+    ! < #1 EXPECTATION TO CCF>
 
     E_C_AB = to_CROSS_SPECTRUM(A,B,FFT_SIZE)
     E_C_AA = to_CROSS_SPECTRUM(A,A,FFT_SIZE)
     E_C_BB = to_CROSS_SPECTRUM(B,B,FFT_SIZE)
     
+    ! SAME
+    !E_C_AA = to_FourierSpectrum(A=A,FFT_SIZE=FFT_SIZE)
+    !E_C_BB = to_FourierSpectrum(A=B,FFT_SIZE=FFT_SIZE)
     CCF = dble(E_C_AB)/sqrt(E_C_AA)/sqrt(E_C_BB)
+
+
+!    ! < #2 CCF TO EXPECTATION>
+!    
+!    E_C_AB = zeros(FFT_SIZE)
+!    E_C_AA = zeros(FFT_SIZE)
+!    E_C_BB = zeros(FFT_SIZE)
+!    CCF    = zeros(FFT_SIZE)
+!
+!    num_block = int(dble(size(A))/dble(FFT_SIZE*2) )
+!    from = 1
+!    A_c = A
+!    B_c = B
+!    do i=1,num_block
+!        from = (i-1)*FFT_SIZE*2 + 1
+!        to   = (i-1)*FFT_SIZE*2 + FFT_SIZE*2
+!
+!        ! segment-wise FFT
+!        FFT_A = FFT( A_c(from:to) )
+!        FFT_B = FFT( B_c(from:to) )
+!        
+!        FFT_A = FFT_A(1:FFT_SIZE)
+!        FFT_B = FFT_B(1:FFT_SIZE)
+!
+!        E_C_AB = FFT_A*conjg(FFT_B)
+!        E_C_AA = abs(FFT_A)
+!        E_C_BB = abs(FFT_B)
+!
+!        CCF = CCF + dble(E_C_AB/sqrt(abs(E_C_AA))/sqrt(abs(E_C_BB)))
+!    enddo
+!    CCF = CCF/num_block
+!    
+
     
 end function
 
@@ -247,9 +302,9 @@ end function
 
 ! ##############################################################
 function to_phase_velocity(Center_x,Circle_x,FFT_SIZE,radius, sampling_Hz,debug,&
-    max_c,max_itr,wave_type) result(c)
+    max_c,max_itr,wave_type,num_smoothing) result(c)
     real(real64),intent(in) :: Center_x(:),Circle_x(:,:),radius
-    real(real64),allocatable :: rho(:),c(:),freq(:),k(:)
+    real(real64),allocatable :: rho(:),c(:),freq(:),k(:),vbuf(:)
     character(*),optional,intent(in) :: wave_type
     character(:),allocatable :: target_wave_type
     logical,optional,intent(in) :: debug
@@ -257,8 +312,9 @@ function to_phase_velocity(Center_x,Circle_x,FFT_SIZE,radius, sampling_Hz,debug,
     real(real64),intent(in) :: max_c
     integer(int32),intent(in) :: max_itr
 
-    real(real64) :: residual,tangent_value,epsilon_val,tol,rf,rb,tr1,tr2,tr0,ctr,k_i    
-    integer(int32),intent(in) :: FFT_SIZE,sampling_Hz
+    real(real64) :: residual,tangent_value,epsilon_val,tol,rf,rb,tr1,tr2,tr0,ctr,&
+        k_i, max_k,min_k,min_c
+    integer(int32),intent(in) :: FFT_SIZE,sampling_Hz,num_smoothing
     integer(int32) :: i,NUM_SAMPLE,itr
     type(Math_) ::math
 
@@ -272,23 +328,36 @@ function to_phase_velocity(Center_x,Circle_x,FFT_SIZE,radius, sampling_Hz,debug,
     if(index(target_wave_type,"Rayleigh")/=0)then
 
         rho = to_SPAC_COEFF(Center_x=Center_x,Circle_x=Circle_x,FFT_SIZE=FFT_SIZE)
+        
 
         ! fitting by gradient descent method
         freq = to_frequency_axis(FFT_SIZE=FFT_SIZE,sampling_Hz=sampling_Hz)
-        c = eyes(FFT_SIZE)
+        !freq = linspace([0.0d0,dble(sampling_Hz)/2.0d0 ],FFT_SIZE)
+        c = zeros(FFT_SIZE)
         !
         !k = zeros(FFT_SIZE)
         !k = freq*2.0d0*math%PI/c
         
         c(1)=0.0d0
-        !$OMP parallel do default(shared) private(itr,ctr,residual,k_i,tr0)
-        do i=2,FFT_SIZE
+        !!$OMP parallel do default(shared) private(itr,ctr,residual,k_i,tr0)
+        !do i=2,FFT_SIZE
+        do i=1,FFT_SIZE
+            min_c = 0.50d0 ! m/s
+            ! binary search
+
+            !c(i) = minvalx(&
+            !    fx = residual_from_bessel_SPAC_function,&
+            !    params = [ rho(i), radius, freq(i) ],&
+            !    x_range = [min_c , max_c ],&
+            !    depth = max_itr)
+            
             c(i) = (max_c)/max_itr
             ! grid search
             do itr=1,max_itr
                 ctr = itr*(max_c)/max_itr
                 k_i = freq(i)*2.0d0*math%PI/ctr
                 residual = (rho(i) - Bessel_J0(radius*k_i ) )**2
+            
                 if( itr==1 )then
                     tr0 = residual
                 else
@@ -298,14 +367,35 @@ function to_phase_velocity(Center_x,Circle_x,FFT_SIZE,radius, sampling_Hz,debug,
                     endif
                 endif
             enddo
+
+
+
         enddo
-        !$OMP end parallel do
+        !!$OMP end parallel do
     else
         print *, "[ERROR] to_phase_velocity >> only for Rayleigh wave"
     endif
 
 end function
 ! ##############################################################
+
+function residual_from_bessel_SPAC_function(x,params) result(ret)
+    real(real64),intent(in) :: x,params(:)
+    real(real64) :: ret,radius,rho,k,freq
+    type(math_) :: math
+
+    ! c = x
+    rho = params(1)
+    radius = params(2)
+    freq = params(3)
+    k  = freq*2.0d0*math%PI/x
+    !k = x
+    ret =  (rho - Bessel_J0(radius*k ) )*(rho - Bessel_J0(radius*k ) )
+
+end function
+! ##############################################################
+
+
 
 function to_frequency_axis(FFT_SIZE,sampling_Hz) result(f_axis)
     integer(int32),intent(in) :: FFT_SIZE,sampling_Hz
@@ -367,7 +457,10 @@ subroutine init_SPAC(this,csv_wave_file,json_metadata_file)
 
     this%num_logger  = fint(f%parse(this%json_metadata_file,key1="num_logger")) != 4
 end subroutine
+! #################################################
 
+
+! #################################################
 subroutine run_SPAC(this,only_FFT)
     class(SPAC_),intent(inout) :: this
     logical,optional,intent(in) :: only_FFT
@@ -376,7 +469,7 @@ subroutine run_SPAC(this,only_FFT)
         FourierSpectrum(:),A_buf(:),vbuf(:),position_xy(:,:)
     real(real64) :: radius,Maximum_phase_velocity,cutoff_sd
     integer(int32) :: FFT_SIZE,NUM_SAMPLE,num_logger,Maximum_itr,&
-        num_smoothing,NUM_MOVING_AVERAGE,i,j,logger_id,taper_percent
+        num_smoothing,NUM_MOVING_AVERAGE,i,j,logger_id,taper_percent,k
     type(IO_) :: f
     real(real32) :: sampling_Hz,bandpass_high,bandpass_low,theta
     character(50) :: fpath,data_unit
@@ -384,7 +477,7 @@ subroutine run_SPAC(this,only_FFT)
     character(:),allocatable :: HoverV_spectra_EW
     character(:),allocatable :: HoverV_spectra_NS
     integer(int32),allocatable :: ids(:)
-    type(IO_) :: logfile
+    type(IO_) :: logfile,debug
     type(SpectreAnalysis_) :: speana
     type(Math_) :: math
 
@@ -452,7 +545,7 @@ subroutine run_SPAC(this,only_FFT)
     NUM_SAMPLE = f%numLine(filepath)
     t= to_time_axis(int(sampling_Hz),NUM_SAMPLE)
     
-    All_data = zeros(f%numline(filepath) ,num_logger*3 )
+    All_data = zeros(f%numline(filepath) ,num_logger*3)
     do i=1,num_logger*3
         All_data(:,i) = from_CSV(filepath,column=1+i )
         All_data(:,i) = All_data(:,i) - average(All_data(:,i) )
@@ -483,6 +576,7 @@ subroutine run_SPAC(this,only_FFT)
         !stop
         A = speana%bandpass(A_buf,[bandpass_low,bandpass_high])
         
+        
         ! >>>>>>>> Fourier spectra >>>>>>>>
         FourierSpectrum  = to_FOURIER_SPECTRUM(&
             A = A, &
@@ -492,11 +586,15 @@ subroutine run_SPAC(this,only_FFT)
             log=filepath+"_"+zfill(j,3) )
         ! >>>>>>>> Fourier spectra >>>>>>>>
         
+            ! need debug >> NaN
+        
         A_buf = moving_average(FourierSpectrum,num_smoothing)
         FourierSpectrum = A_buf
         
         call f%open(filepath+"_"+zfill(j,3)+"_FFT.csv","w")
-        call f%write(freq(:),FourierSpectrum(:),separator=",")
+        do k=1,size(freq)
+            write(f%fh,*) freq(k),",",FourierSpectrum(k)
+        enddo
         call f%flush()
         call f%close()
     enddo
@@ -519,14 +617,16 @@ subroutine run_SPAC(this,only_FFT)
         vbuf = moving_average(HoverV_spectra,num_smoothing)
         HoverV_spectra = vbuf
         call f%open(filepath+"_"+zfill(i,3)+"_HoverV-spectra_Ch2_Ch1.csv","w")
-        call f%write(freq(:),HoverV_spectra(:),separator=",")
+        do k=1,size(freq)
+            write(f%fh,*) freq(k),",",HoverV_spectra(k)
+        enddo
         call f%close()
     enddo
     ! >>>>>>>> H/V spectra (Ch2/Ch1) >>>>>>>>
     call logfile%write("[ok] H/V (Ch2/Ch1) DONE!")
     call logfile%flush()
-
-
+    
+    
     ! >>>>>>>> H/V spectra (Ch3/Ch1) >>>>>>>>
     
     do i=1,num_logger
@@ -541,7 +641,9 @@ subroutine run_SPAC(this,only_FFT)
         vbuf = moving_average(HoverV_spectra,num_smoothing)
         HoverV_spectra = vbuf
         call f%open(filepath+"_"+zfill(i,3)+"_HoverV-spectra_Ch3_Ch1.csv","w")
-        call f%write(freq(:),HoverV_spectra(:),separator=", ")
+        do k=1,size(freq)
+            write(f%fh,*) freq(k),",",HoverV_spectra(k)
+        enddo
         call f%close()
     enddo
     ! >>>>>>>> H/V spectra (Ch3/Ch1) >>>>>>>>
@@ -555,8 +657,6 @@ subroutine run_SPAC(this,only_FFT)
 
     ! debug
     !ids = [(i,i=4,num_logger*3,3)]
-
-    
 
     ! >>>>>>>> create position >>>>>>>> 
     allocate(position_xy(num_logger,1:2) )
@@ -575,15 +675,39 @@ subroutine run_SPAC(this,only_FFT)
     do i=1,num_logger-1
         ids(i+1) = ids(i) + 3
     enddo
+
+
     do i=1,num_logger
         do j=1,i-1
+            
+! debug
+! input >> ok!
+!            call f%open("center_x.txt","w")
+!            do k=1,size(All_data,1)
+!                write(f%fh,*)All_data(k, ids(i))
+!            enddo
+!            call f%close()
+!            call f%open("circle_x.txt","w")
+!            do k=1,size(All_data,1)
+!                write(f%fh,*)All_data(k, ids(j))
+!            enddo
+!            call f%close()
+!            stop
+            
+            
             SPAC_COEFF = to_SPAC_COEFF(&
                 Center_x=All_data(:, ids(i)),&
                 Circle_x=All_data(:, [ids(j)]),&
                 FFT_SIZE=FFT_SIZE)
+            
             call f%open(filepath+"_SPAC_COEFF_2pt_"+zfill(i,3)+"_"+zfill(j,3)+".csv","w")
-            call f%write(freq(:),SPAC_COEFF(:),separator=", ")
+            do k=1,size(freq)
+                write(f%fh,*) freq(k),",",SPAC_COEFF(k)
+            enddo
             call f%close()
+            
+            
+
             phase_velocity = to_phase_velocity(&
                 Center_x        =All_data(:,ids(i)),&
                 Circle_x        =All_data( :,[ids(j)]),&
@@ -592,11 +716,15 @@ subroutine run_SPAC(this,only_FFT)
                 sampling_Hz     =int(sampling_Hz),&
                 max_c           = Maximum_phase_velocity, & ! m/s
                 max_itr         = Maximum_itr, &
+                num_smoothing = num_smoothing,&
                 debug           =.true. )
-                
+            
             call f%open(filepath+"_Rayl-Dispersion_2pt_"+zfill(i,3)+"_"+zfill(j,3)+".csv","w")    
-            call f%write(freq(:),phase_velocity(:) ,separator=", ")
+            do k=1,size(freq)
+                write(f%fh,*) freq(k),",",phase_velocity(k)
+            enddo
             call f%close()
+            
         enddo
     enddo
     
@@ -611,7 +739,10 @@ subroutine run_SPAC(this,only_FFT)
         Circle_x=All_data(: ,ids(:) ),&
         FFT_SIZE=FFT_SIZE)
     call f%open(filepath+"_SPAC_COEFF.csv","w")
-    call f%write(freq(:),SPAC_COEFF(:),separator=", ")
+    
+    do k=1,size(freq)
+        write(f%fh,*) freq(k),",",SPAC_COEFF(k)
+    enddo
     call f%close()
 
     ! >>>>>>>> SPAC coefficient >>>>>>>> 
@@ -630,14 +761,18 @@ subroutine run_SPAC(this,only_FFT)
         sampling_Hz     =int(sampling_Hz),&
         max_c           = Maximum_phase_velocity, & ! m/s
         max_itr         = Maximum_itr, &
+        num_smoothing = num_smoothing,&
         debug           =.true. )
+        
         
     ! smoothing
     
     !phase_velocity = moving_average(phase_velocity,num_smoothing)
     
     call f%open(filepath+"_Rayl-Dispersion.csv","w")    
-    call f%write(freq(:),phase_velocity(:) ,separator=", ")
+    do k=1,size(freq)
+        write(f%fh,*) freq(k),",",phase_velocity(k)
+    enddo
     call f%close()
     ! >>>>>>>> Rayleigh wave dispersion curve >>>>>>>> 
     call logfile%write("[ok] PHASE VELOCITY DONE!")
