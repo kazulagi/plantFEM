@@ -51,6 +51,10 @@ module ArrayClass
         module procedure :: d_dx_real64,d_dx_real32,d_dx_complex64
     end interface
 
+    interface to_complex
+        module procedure :: to_complex_from_real64_vector
+    end interface to_complex
+
     interface prefix_sum
         module procedure :: prefix_sum_int32,prefix_sum_real32,prefix_sum_real64,prefix_sum_complex64
     end interface prefix_sum
@@ -194,7 +198,7 @@ module ArrayClass
     end interface
 
     interface taper
-        module procedure :: taperreal64
+        module procedure :: taperreal64, taperComplex64
     end interface taper
 
     interface average
@@ -4009,10 +4013,11 @@ recursive subroutine quicksortreal(list,val)
         if(size(list)==2 )then
             list(1)=b
             list(2)=a
-
-            buf=val(1)
-            val(1)=val(2)
-            val(2)=buf
+            if(present(val))then
+                buf=val(1)
+                val(1)=val(2)
+                val(2)=buf
+            endif
             return
         endif
     else
@@ -4036,10 +4041,11 @@ recursive subroutine quicksortreal(list,val)
                     buf=list(start)
                     list(start)=list(last)
                     list(last)=buf
-
-                    buf=val(start)
-                    val(start)=val(last)
-                    val(last)=buf
+                    if(present(val))then
+                        buf=val(start)
+                        val(start)=val(last)
+                        val(last)=buf
+                    endif
                     exit
                 else
                     if(start >=last )then
@@ -7674,8 +7680,8 @@ end subroutine
 function taperReal64(x,margin) result(ret)
     use iso_fortran_env
     implicit none
-    complex(real64),intent(in) :: x(:)
-    complex(real64),allocatable :: ret(:)
+    real(real64),intent(in) :: x(:)
+    real(real64),allocatable :: ret(:)
     integer(int32) :: i, n, k
     real(real64),intent(in) :: margin
     real(real64) :: rate
@@ -9948,4 +9954,69 @@ recursive function maxvalx_binary_search_real64(fx,params, x_range, depth) resul
 
 end function
 ! #################################
+
+
+function to_complex_from_real64_vector(x) result(ret)
+    real(real64),intent(in) :: x(:)
+    complex(real64),allocatable :: ret(:)
+
+    allocate(ret(size(x) ) )
+    ret(:) = x(:)
+end function
+
+
+function median_filter(x,window_size) result(ret)
+    integer(int32),intent(in) :: window_size
+    real(real64),intent(in)  :: x(:)
+    real(real64),allocatable :: ret(:)
+    integer(int32) :: i
+
+    ret = x
+    do i=window_size/2+1,size(x)-window_size/2-1
+        ret(i) = get_median( x(i-window_size/2:i+window_size/2) )
+    enddo
+
+end function
+
+function get_median(x) result(ret)
+    real(real64),intent(in) :: x(:)
+    real(real64),allocatable :: x_sorted(:)
+    real(real64) :: ret
+
+    x_sorted = x
+    call quicksortreal(x_sorted)
+    ret = x_sorted(size(x_sorted)/2)
+
+end function
+
+
+
+function average_filter(x,window_size) result(ret)
+    integer(int32),intent(in) :: window_size
+    real(real64),intent(in)  :: x(:)
+    real(real64),allocatable :: ret(:)
+    integer(int32) :: i
+
+    ret = x
+    do i=window_size/2+1,size(x)-window_size/2-1
+        ret(i) = average( x(i-window_size/2:i+window_size/2) )
+    enddo
+
+end function
+
+
+pure function add_offsets(array,col_interval) result(ret)
+    real(real64),intent(in) :: array(:,:),col_interval
+    real(real64),allocatable :: ret(:,:), offsets(:)
+    integer(int32) :: i
+
+    ret = array
+    offsets = linspace([0.0d0,size(array,2)*col_interval],size(array,2))
+    do i=1,size(array,2)
+        ret(:,i) = ret(:,i) + offsets(i)
+    enddo
+    
+end function
+
+
 end module ArrayClass

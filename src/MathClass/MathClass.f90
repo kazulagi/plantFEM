@@ -121,7 +121,48 @@ module MathClass
 	interface PSD
 		module procedure PSD_file_to_file
 	end interface
+	
+	interface SpectralWhitening
+		module procedure SpectralWhitening_real64
+	end interface
+
+
+
 contains
+
+function SpectralWhitening_real64(x,auto) result(ret)
+	real(real64),intent(in) :: x(:)
+	complex(complex64),allocatable :: x_c(:)
+	complex(complex64),allocatable :: f_c(:)
+	real(real64),allocatable :: ret(:)
+	real(real64) :: r,r_max,total_power,average_power
+	integer(int32) :: i,n
+	logical,optional,intent(in) :: auto
+
+	! FFT
+	n = int( log10(dble(size(x)))/log10(2.0d0)+0.00010d0 )
+	x_c = x(1:2**n)
+	f_c = FFT(x_c)
+	! for each frequencies,
+	if(present(auto) )then
+		if(auto)then
+			total_power = sum(abs(f_c(:))*abs(f_c(:)))
+			average_power = total_power/size(f_c)
+			r_max = sqrt(average_power)
+		else
+			r_max=1.0d0
+		endif
+	else
+		r_max=1.0d0
+	endif
+
+	do i=1,size(f_c)
+		r = abs(f_c(i))
+		f_c(i) = f_c(i)/r*r_max
+	enddo
+	ret = dble(IFFT(f_c))
+
+end function
 
 ! 
 function FFT_file_to_file(infile,outfile,window_size,dt,column,as_abs) result(FourierSpectrum)

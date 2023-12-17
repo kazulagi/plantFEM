@@ -291,6 +291,10 @@ function to_SPAC_COEFF(Center_x,Circle_x,FFT_SIZE) result(rho)
         !delta_angle = phi(i) - phi(i-1)
         !rho(:) = rho(:) + dble(to_CCF(Center_x,Circle_x(:,i),FFT_SIZE=FFT_SIZE ))*radian(delta_angle)
         rho(:) = rho(:) + dble(to_CCF(Center_x,Circle_x(:,i),FFT_SIZE=FFT_SIZE ))
+        
+        ! スペクトルホワイトニングを実装@2023/11/7
+        !rho(:) = rho(:) + dble(to_CCF( SpectralWhitening(Center_x) ,  SpectralWhitening(Circle_x(:,i))  ,FFT_SIZE=FFT_SIZE ))
+
     enddo
     !!!$OMP end parallel do
     
@@ -461,9 +465,9 @@ end subroutine
 
 
 ! #################################################
-subroutine run_SPAC(this,only_FFT)
+subroutine run_SPAC(this,only_FFT,only_summary)
     class(SPAC_),intent(inout) :: this
-    logical,optional,intent(in) :: only_FFT
+    logical,optional,intent(in) :: only_FFT,only_summary
     real(real64),allocatable :: Angle(:),A(:),All_data(:,:),buf(:,:)
     real(real64),allocatable :: t(:),freq(:),SPAC_COEFF(:),phase_velocity(:),HoverV_spectra(:),&
         FourierSpectrum(:),A_buf(:),vbuf(:),position_xy(:,:)
@@ -481,7 +485,14 @@ subroutine run_SPAC(this,only_FFT)
     type(SpectreAnalysis_) :: speana
     type(Math_) :: math
 
-    logical :: stop_before_spac
+
+    logical :: stop_before_spac,skip_two_point_SPAC
+
+    if(present(only_summary))then
+        skip_two_point_SPAC = only_summary
+    else
+        skip_two_point_SPAC = .false.
+    endif
 
     stop_before_spac = input(default=.false.,option=only_FFT)
 
@@ -668,65 +679,67 @@ subroutine run_SPAC(this,only_FFT)
     enddo
     ! >>>>>>>> create position >>>>>>>> 
     
-    ! >>>>>>>> SPAC coefficient >>>>>>>> 
-    ! two-point SPAC
-    ids = int(zeros(num_logger) )
-    ids(1) = 1
-    do i=1,num_logger-1
-        ids(i+1) = ids(i) + 3
-    enddo
-
-
-    do i=1,num_logger
-        do j=1,i-1
-            
-! debug
-! input >> ok!
-!            call f%open("center_x.txt","w")
-!            do k=1,size(All_data,1)
-!                write(f%fh,*)All_data(k, ids(i))
-!            enddo
-!            call f%close()
-!            call f%open("circle_x.txt","w")
-!            do k=1,size(All_data,1)
-!                write(f%fh,*)All_data(k, ids(j))
-!            enddo
-!            call f%close()
-!            stop
-            
-            
-            SPAC_COEFF = to_SPAC_COEFF(&
-                Center_x=All_data(:, ids(i)),&
-                Circle_x=All_data(:, [ids(j)]),&
-                FFT_SIZE=FFT_SIZE)
-            
-            call f%open(filepath+"_SPAC_COEFF_2pt_"+zfill(i,3)+"_"+zfill(j,3)+".csv","w")
-            do k=1,size(freq)
-                write(f%fh,*) freq(k),",",SPAC_COEFF(k)
-            enddo
-            call f%close()
-            
-            
-
-            phase_velocity = to_phase_velocity(&
-                Center_x        =All_data(:,ids(i)),&
-                Circle_x        =All_data( :,[ids(j)]),&
-                FFT_SIZE        =FFT_SIZE,&
-                radius          =norm(position_xy(i,:)-position_xy(j,:) ) ,&
-                sampling_Hz     =int(sampling_Hz),&
-                max_c           = Maximum_phase_velocity, & ! m/s
-                max_itr         = Maximum_itr, &
-                num_smoothing = num_smoothing,&
-                debug           =.true. )
-            
-            call f%open(filepath+"_Rayl-Dispersion_2pt_"+zfill(i,3)+"_"+zfill(j,3)+".csv","w")    
-            do k=1,size(freq)
-                write(f%fh,*) freq(k),",",phase_velocity(k)
-            enddo
-            call f%close()
-            
+    if(.not. skip_two_point_SPAC)then
+        ! >>>>>>>> SPAC coefficient >>>>>>>> 
+        ! two-point SPAC
+        ids = int(zeros(num_logger) )
+        ids(1) = 1
+        do i=1,num_logger-1
+            ids(i+1) = ids(i) + 3
         enddo
-    enddo
+
+
+        do i=1,num_logger
+            do j=1,i-1
+
+    ! debug
+    ! input >> ok!
+    !            call f%open("center_x.txt","w")
+    !            do k=1,size(All_data,1)
+    !                write(f%fh,*)All_data(k, ids(i))
+    !            enddo
+    !            call f%close()
+    !            call f%open("circle_x.txt","w")
+    !            do k=1,size(All_data,1)
+    !                write(f%fh,*)All_data(k, ids(j))
+    !            enddo
+    !            call f%close()
+    !            stop
+
+
+                SPAC_COEFF = to_SPAC_COEFF(&
+                    Center_x=All_data(:, ids(i)),&
+                    Circle_x=All_data(:, [ids(j)]),&
+                    FFT_SIZE=FFT_SIZE)
+
+                call f%open(filepath+"_SPAC_COEFF_2pt_"+zfill(i,3)+"_"+zfill(j,3)+".csv","w")
+                do k=1,size(freq)
+                    write(f%fh,*) freq(k),",",SPAC_COEFF(k)
+                enddo
+                call f%close()
+
+
+
+                phase_velocity = to_phase_velocity(&
+                    Center_x        =All_data(:,ids(i)),&
+                    Circle_x        =All_data( :,[ids(j)]),&
+                    FFT_SIZE        =FFT_SIZE,&
+                    radius          =norm(position_xy(i,:)-position_xy(j,:) ) ,&
+                    sampling_Hz     =int(sampling_Hz),&
+                    max_c           = Maximum_phase_velocity, & ! m/s
+                    max_itr         = Maximum_itr, &
+                    num_smoothing = num_smoothing,&
+                    debug           =.true. )
+
+                call f%open(filepath+"_Rayl-Dispersion_2pt_"+zfill(i,3)+"_"+zfill(j,3)+".csv","w")    
+                do k=1,size(freq)
+                    write(f%fh,*) freq(k),",",phase_velocity(k)
+                enddo
+                call f%close()
+
+            enddo
+        enddo
+    endif
     
     ids = int(zeros(num_logger-1) )
     ids(1) = 4
@@ -800,6 +813,7 @@ subroutine pdf_SPAC(this,name)
     call f%open(this%csv_wave_file + "_SPAC_LOG.gp")
     call f%write('set terminal pdf')
     call f%write('set output "'+pdf_name+'"')
+    call f%write('set title "'+name+'"')
     call f%write('set datafile separator ","')
     call f%write('set format y "10^{%L}"')
     call f%write('set grid')

@@ -134,7 +134,7 @@ module LoggerClass
     this%counter=0
     do i=1,size(this%channel_active)
       if(this%channel_active(i) )then
-        call f%open(this%channel_name(i)%all //".txt","w") 
+        call f%open(this%channel_name(i)%all //".txt","a") 
         call f%close()
         n = n + 1
       endif
@@ -219,7 +219,7 @@ module LoggerClass
     this%counter = 0
     do i=1,size(this%channel_active)
       if(this%channel_active(i) )then
-        call f%open(this%channel_name(i)%all //".txt","w") 
+        call f%open(this%channel_name(i)%all //".txt","a") 
         call f%close("delete")
         n = n + 1
       endif
@@ -374,7 +374,7 @@ subroutine setLogger_byDomain(this,femdomain,position,dataset,name)
 
 
   do i=1,this%point_DOF
-    call f%open(this%channel_name(1)%all+"_dim_"+str(i)+".txt","w")
+    call f%open(this%channel_name(1)%all+"_dim_"+str(i)+".txt","a")
     call f%close()
   enddo
 

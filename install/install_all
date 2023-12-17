@@ -56,10 +56,6 @@ echo "Compiling ./src/ConsoleClass/ConsoleClass.f90      "
 echo " >> ConsoleClass.o"
 echo " | >                           | (0%)\r\c "
 mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ConsoleClass/ConsoleClass.f90 -o  ./inc/ConsoleClass.o -llapack -lblas
-echo "Compiling ./src/PhysicsClass/PhysicsClass.f90   "
-echo " >> PhysicsClass.o"
-echo " | =>                          | (2%)\r\c "
-mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PhysicsClass/PhysicsClass.f90 -o  ./inc/PhysicsClass.o -llapack -lblas
 echo "Compiling ./src/HTTPClass/HTTPClass.f90   "
 echo " >> HTTPClass.o"
 echo " | =>                          | (2%)\r\c "
@@ -87,6 +83,12 @@ echo "Compiling ./src/ArrayClass/ArrayClass.f90 "
 echo " >> ArrayClass.o "
 echo " | =>                          | (4%)\r\c"
 mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ArrayClass/ArrayClass.f90 -o  ./inc/ArrayClass.o -llapack -lblas
+
+echo "Compiling ./src/PhysicsClass/PhysicsClass.f90   "
+echo " >> PhysicsClass.o"
+echo " | =>                          | (2%)\r\c "
+mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PhysicsClass/PhysicsClass.f90 -o  ./inc/PhysicsClass.o -llapack -lblas
+
 
 echo "Compiling ./src/AnalystClass/AnalystClass.f90 " 
 echo " >> AnalystClass.o "
