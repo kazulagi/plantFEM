@@ -4059,14 +4059,17 @@ end subroutine
 ! #######################################################
 
 ! #####################################
-function to_Array_real64_IOClass(this,name,column,header,upsampling) result(ret)
+function to_Array_real64_IOClass(this,name,column,header,upsampling,debug) result(ret)
     class(IO_),intent(inout) :: this
     character(*),intent(in) :: name
     integer(int32),intent(in) :: column(:),header
     integer(int32),optional,intent(in) :: upsampling
     real(real64),allocatable :: ret(:,:),col(:),buf(:,:)
     character(200) :: charbuf
+    character(:),allocatable :: line
+    logical,optional,intent(in) :: debug
     integer(int32) :: i,j,k,n
+    type(List_)::val_list
 
     if(this%active)then
         ! opened
@@ -4080,18 +4083,39 @@ function to_Array_real64_IOClass(this,name,column,header,upsampling) result(ret)
             print *, "[ERROR] numLineIO >> no such file named ",name
             stop
         endif
+
         allocate(ret(n-header,size(column) ))
         allocate(col(maxval(column)) )
+
         call this%open(name,"r")
         ! read header
         do i=1,header
             read(this%fh,*) charbuf
         enddo
+
         do i=1,n-header
-            read(this%fh,*) col(:)
-            do j=1,size(column)
-                ret(i,j) = col(column(j))
-            enddo
+            if(present(debug) )then
+                if(debug)then
+                    print *, i
+                endif
+            endif
+
+            if(index(name,"csv" )/=0 )then
+                ! read as csv file
+                line = this%readline()
+                !line = re(line," ","")
+                call val_list%split(line,",")
+                
+                do j=1,size(column)
+                    ret(i,j) = freal(val_list%get(column(j)))
+                enddo
+            else
+                read(this%fh,*) col(:)
+                do j=1,size(column)
+                    ret(i,j) = col(column(j))
+                enddo
+            endif
+
         enddo
         call this%close()
 

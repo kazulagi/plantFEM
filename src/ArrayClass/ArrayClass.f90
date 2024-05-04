@@ -450,6 +450,9 @@ module ArrayClass
         module procedure :: conjgVectorComplex,conjgTensor2Complex,conjgTensor3Complex
     end interface
 
+    interface re
+        module procedure :: re_char_in_string
+    end interface
 
     public :: operator(+)
     public :: assignment(=)
@@ -481,6 +484,10 @@ module ArrayClass
     end interface 
     interface operator(.of.)
         module procedure get_element_from_vector_by_idx_int32,get_element_from_vector_by_idx_real64
+    end interface
+
+    interface get_segments
+        module procedure get_segments_integer
     end interface
 
     interface operator(.indexOf.)
@@ -10018,5 +10025,81 @@ pure function add_offsets(array,col_interval) result(ret)
     
 end function
 
+
+function re_char_in_string(str_val,key,val) result(ret)
+    character(*),intent(in) :: str_val
+    character(*),intent(in) :: key,val
+    integer(int32) :: i
+    character(:),allocatable :: ret
+    ret = ""
+    i = 0
+    do 
+        i = i + 1
+        if(i > len(str_val)-(len(key)-1)) then
+            ret = ret + str_val(i:)
+            return
+        endif
+        
+        if(str_val(i:i+len(key)-1)==key )then
+            ret = ret + val
+            i = i + len(key)-1
+        else
+            ret = ret + str_val(i:i)
+        endif
+    enddo
+    !do i=1,len(ret)-(len(key)-1)
+    !    if(ret(i:i+len(key)-1)==key )then
+    !        ret = ret(:i) + val + ret(i+len(key):)
+    !    endif
+    !enddo
+
+end function
+
+
+function get_segments_integer(data_len,segment_len,overlap_percent) result(ret)
+    integer(int32),intent(in) :: data_len,segment_len,overlap_percent
+    integer(int32) :: i,n,current_idx,incr
+    integer(int32),allocatable :: ret(:,:)
+    ! create segement by data length and overlap
+    n = 1
+    current_idx = 0
+
+    incr = maxval([int(dble(overlap_percent)/100.0d0*segment_len),1])
+    do 
+        if(current_idx < data_len)then
+            current_idx = current_idx + incr
+            if(current_idx+segment_len <= data_len)then
+                n = n + 1
+            else
+                exit
+            endif
+        else
+            exit
+        endif
+    enddo
+    allocate(ret(n,2) )
+    ret (:,:) = 0.0d0
+    
+    n = 1
+    current_idx = 0
+    ret(1,1) = 1
+    ret(1,2) = segment_len
+    do 
+        if(current_idx < data_len)then
+            current_idx = current_idx + incr
+            if(current_idx+segment_len <= data_len)then
+                n = n + 1
+                ret(n,1) = current_idx+1
+                ret(n,2) = current_idx+segment_len
+                
+            else
+                exit
+            endif
+        else
+            exit
+        endif
+    enddo
+    
+end function
 
 end module ArrayClass

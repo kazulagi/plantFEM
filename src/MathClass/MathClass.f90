@@ -126,7 +126,9 @@ module MathClass
 		module procedure SpectralWhitening_real64
 	end interface
 
-
+	interface exp
+		module procedure matrix_exponential_real64
+	end interface
 
 contains
 
@@ -1347,7 +1349,6 @@ recursive function det_mat(a,n) result(det)
 		  	b(i:n-1, 1:n-1) = a(i+1:n, 2:n)
 		  	det = det + (-1.0d0) ** (i + 1) &
 			* a(i, 1) * det_mat(b, n-1)
-		
 		enddo
 	else
 		det = a(1,1)
@@ -3229,5 +3230,31 @@ end function
 !	endif
 !end function
 
+! ###########################################################
+function matrix_exponential_real64(mat,order) result(ret)
+	real(real64),intent(in) :: mat(:,:)
+	integer(int32),intent(in) :: order
+	real(real64),allocatable :: ret(:,:),d_ret(:,:)
+	integer(int32) :: i,k
+
+	ret = 0.0d0*mat
+	d_ret = 0.0d0*mat
+	do i=1,size(ret,1)
+		d_ret(i,i) = 1.0d0
+	enddo
+	
+	! k = 0
+	ret = d_ret
+	
+	k = 0
+	do 
+		k = k + 1
+		d_ret = 1.0d0/dble(k)*matmul(d_ret,mat)
+		ret = ret + d_ret
+		if(k+1 > order) exit
+	enddo
+
+end function
+! ###########################################################
 
 end module MathClass

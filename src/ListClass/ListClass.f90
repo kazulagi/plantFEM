@@ -16,6 +16,7 @@ module ListClass
         procedure,public :: size => size_listclass
 
         procedure,public :: help => help_listclass
+        procedure,public :: split => split_char_into_list        
         
         
     end type
@@ -29,6 +30,8 @@ module ListClass
 
     end interface
 
+    
+
     interface operator(//)
         module procedure joint_listclass
     end interface
@@ -36,6 +39,7 @@ module ListClass
     interface operator(//)
         module procedure joint_listcontentclass,joint_arraylistcontentclass
     end interface
+
 
 contains
 ! #####################################################
@@ -213,11 +217,20 @@ end function
 
 function to_list_1_listclass(char1) result(this)
     character(*),intent(in) :: char1
+    character(:),allocatable :: buf
     type(List_) :: this
+    integer(int32) :: ac_from,ac_to
 
-    allocate(this%content(1) )
-    this%content(1)%char = char1
 
+    ac_from = index(char1,"[")
+    ac_to   = index(char1,"]",back=.true.)
+    if( ac_from/=0 .and. ac_to /=0 )then
+        buf = char1(ac_from+1:ac_to-1)
+        call this%split(buf,",")
+    else
+        allocate(this%content(1) )
+        this%content(1)%char = char1
+    endif
 end function
 
 ! #####################################################
@@ -320,7 +333,7 @@ end function
 ! #####################################################
 
 
-
+! #####################################################
 subroutine help_listclass(this)
     class(List_),intent(in) :: this
 
@@ -331,8 +344,44 @@ subroutine help_listclass(this)
     print *, "size => size_listclass"
 
 end subroutine
+! #####################################################
 
+! #####################################################
+subroutine split_char_into_list(this,str_val,delimiter) 
+    character(*),intent(in) :: str_val,delimiter
+    class(List_),intent(inout) :: this
+    integer(int32) :: i,n,last_idx,current_idx
 
+    ! split charactor(*) into list
+    ! First, count the number of entity
+    n = 0
+    do i=1,len(str_val)
+        if(str_val(i:i)==delimiter )then
+            n = n + 1
+        endif
+    enddo
+
+    
+    call this%new(n)
+    last_idx = 1
+    n = 0
+    do current_idx=1,len(str_val)-(len(delimiter)-1)
+        if(str_val(current_idx:current_idx+len(delimiter)-1 )==delimiter )then
+            n = n + 1
+            this%content(n)%char = str_val(last_idx:current_idx-1)
+            last_idx = current_idx + 1
+        endif
+    enddo
+    if(index(str_val,delimiter,back=.true.)<len(str_val) )then
+        n = index(str_val,delimiter,back=.true.)
+        if(trim(str_val(n+1:))/="")then
+            call this%append(str_val(n+1:)  )
+        endif
+    endif
+    
+
+end subroutine
+! #####################################################
 
 
 
