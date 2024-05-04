@@ -54,15 +54,19 @@ module LeafClass
 
         real(real64) :: V_cmax = 100.0d0 ! 最大カルボキシル化反応速度, mincro-mol/m-2/s
         real(real64) :: V_omax = 100.0d0 ! 最大酸素化反応速度, mincro-mol/m-2/s, lambdaから推定
-        real(real64) :: O2 = 380.0d0! 酸素濃度, ppm
-        real(real64) :: CO2=202000.0d0! 二酸化炭素濃度, ppm
+        real(real64) :: CO2 = 380.0d0! 二酸化炭素濃度, ppm 
+        real(real64) :: O2=202000.0d0! 酸素濃度, ppm
         real(real64) :: R_d=1.0d0 ! 暗呼吸速度, mincro-mol/m-2/s
     
-        real(real64) :: K_c=272.380d0 ! CO2に対するミカエリス定数
-        real(real64) :: K_o=165820.0d0 ! O2に対するミカエリス定数
+!        real(real64) :: K_c=272.380d0 ! CO2に対するミカエリス定数
+!        real(real64) :: K_o=165820.0d0 ! O2に対するミカエリス定数
     
+        real(real64) :: K_c=272.380d0  ! CO2に対するミカエリス定数
+        real(real64) :: K_o=165820.0d0 ! O2に対するミカエリス定数
+
         real(real64) :: J_=0.0d0 ! 電子伝達速度
         real(real64) :: I_=0.0d0 ! 光強度
+
         real(real64) :: phi=0.0d0 ! I-J曲線の初期勾配
         real(real64) :: J_max=180.0d0 !最大電子伝達速度,mincro-mol/m-2/s
         real(real64) :: theta_r=0.0d0 ! 曲線の凸度
@@ -1156,7 +1160,10 @@ subroutine photosynthesisLeaf(obj,dt,air)
         ! 要素ごとに電子伝達速度を求める
         element_id = i
         pfd = obj%ppfd(element_id)
+
+        ! I-J関係
         obj%J_ = 0.240d0*pfd/(sqrt(1.0d0 + (0.240d0*0.240d0)*pfd*pfd)/obj%J_max/obj%J_max)
+        
         
         ! lambdaからV_omaxを推定
         obj%V_omax = obj%Lambda*( 2.0d0 * obj%V_cmax*obj%K_o )/(obj%K_c*O2)
@@ -1167,7 +1174,6 @@ subroutine photosynthesisLeaf(obj,dt,air)
 
         ! RuBPが飽和している場合のCO2吸収速度
         Ca  = obj%CO2
-
         W_c = (obj%V_cmax*(Ca - obj%Lambda))/(Ca + obj%K_c*(1.0d0 + obj%O2/obj%K_o))
 
         ! RuBP供給が律速している場合のCO2吸収速度
@@ -1261,7 +1267,7 @@ function getPhotosynthesisSpeedPerVolumeLeaf(obj,dt,air) result(Speed_PV)
     real(real64) :: V_omax ! 最大酸素化反応速度
     real(real64) :: O2 ! 酸素濃度
     real(real64) :: CO2 ! 二酸化炭素濃度
-    real(real64) :: R_d ! なんだっけ
+    real(real64) :: R_d ! 呼吸速度
 
     real(real64) :: K_c ! CO2に対するミカエリス定数
     real(real64) :: K_o ! O2に対するミカエリス定数

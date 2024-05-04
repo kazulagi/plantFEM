@@ -753,7 +753,10 @@ subroutine to_jsonDictionary(obj,Name,from,to)
     call f%close()
 
 end subroutine
+! ###########################################################
 
+
+! ###########################################################
 recursive function count_char_char(sentence, key, initialized) result(ret)
     character(*),intent(in) :: sentence
     character(*),intent(in) :: key
@@ -784,6 +787,8 @@ recursive function count_char_char(sentence, key, initialized) result(ret)
     endif
 
 end function
+! ###########################################################
+
 
 ! ###########################################################
 function splitChar_Dict(line,splitter) result(ret_dict)
@@ -804,5 +809,6 @@ function splitChar_Dict(line,splitter) result(ret_dict)
     ret_dict%Dictionary(n+1)%charvalue = line(from:)
 
 end function
+! ###########################################################
 
 end module

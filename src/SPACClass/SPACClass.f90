@@ -679,6 +679,8 @@ subroutine run_SPAC(this,only_FFT,only_summary)
     enddo
     ! >>>>>>>> create position >>>>>>>> 
     
+    call logfile%write("[ok] Logger position")
+    call logfile%flush()
     if(.not. skip_two_point_SPAC)then
         ! >>>>>>>> SPAC coefficient >>>>>>>> 
         ! two-point SPAC
@@ -746,6 +748,8 @@ subroutine run_SPAC(this,only_FFT,only_summary)
     do i=1,num_logger-2
         ids(i+1) = ids(i) + 3
     enddo
+    call logfile%write("[>>] SPAC COEFFICIENT")
+    call logfile%flush()
     ! 4-point SPAC
     SPAC_COEFF = to_SPAC_COEFF(&
         Center_x=All_data(:,1),&
