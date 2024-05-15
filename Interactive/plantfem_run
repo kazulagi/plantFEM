@@ -437,11 +437,11 @@ homepath="$PWD"
             #cp server.f90 server.f90
             rm -f "${2%.*}.out"
             #$mpif90 /opt/plantfem/inc/*o $2  -I /opt/plantfem/inc -g -fcheck=all -fopenmp -fintrinsic-modules-path /opt/plantfem/inc -o "${2%.*}.out" -llapack -lblas 
-            $mpiifort -Ofast -fopenmp -I/opt/plantfem/inc /opt/plantfem/inc/*.o $2 -o "${2%.*}.out" -llapack -lblas
+            $mpiifort -fc=ifx  -Ofast -fopenmp -I/opt/plantfem/inc /opt/plantfem/inc/*.o $2 -o "${2%.*}.out" -llapack -lblas
             #echo "Current num of cpu-core is :: $numcore "
         else
             #$mpif90  -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc  -o server.out -llapack -lblas  
-            $mpiifort -Ofast -fopenmp -I/opt/plantfem/inc /opt/plantfem/inc/*.o server.f90 -o server.out -llapack -lblas
+            $mpiifort -fc=ifx -Ofast -fopenmp -I/opt/plantfem/inc /opt/plantfem/inc/*.o server.f90 -o server.out -llapack -lblas
         fi
         exit 0
     fi
