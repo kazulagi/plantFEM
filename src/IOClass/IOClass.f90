@@ -7,6 +7,7 @@ module IOClass
     
         use iso_fortran_env
         use uuid_module
+        use ifport
         use MathClass
         use StringClass
         use ListClass
@@ -429,17 +430,18 @@ module IOClass
         character(*),intent(in) :: name
         character(:),allocatable :: fname,command
         integer(int32),intent(inout) :: n 
+        integer(int32) :: system_ret
         character(len=1) :: content
     
         n = 0
         fname = generate_uuid()+"_search_lineIO.buffer"
         command = "sed -n '/POINT_DATA/=' "+name+" > "+fname+" "
-        call system(command)
+        system_ret = system(command)
         
         call f%open(fname,"r")
         read(f%fh,*) n
         call f%close()
-        call system("rm "+fname)
+        system_ret = system("rm "+fname)
         
         
     end subroutine
@@ -4051,8 +4053,9 @@ end function
 subroutine downloadIO(this,from) 
     class(IO_),intent(in) :: this
     character(*),intent(in) :: from
+    integer(int32) :: system_ret
 
-    call system("wget --no-check-certificate "+from)
+    system_ret = system("wget --no-check-certificate "+from)
 
 end subroutine
 
@@ -4165,8 +4168,9 @@ end function
 subroutine cpIO(this,from,to)
     class(IO_) :: this
     character(*),intent(in) :: from,to
+    integer(int32) :: system_ret
 
-    call system("cp "+from+" "+to)
+    system_ret = system("cp "+from+" "+to)
 
 end subroutine
 ! ######################################################
@@ -4178,11 +4182,11 @@ function ls_IO(this,name)  result(list)
     type(List_) :: list
     character(:),allocatable :: filename
     character(256) :: line
-    integer(int32) :: i,n
+    integer(int32) :: i,n,system_ret
 
     filename = "lsIO_"+generate_uuid(1)+".txt"
 
-    call system("ls "+name+" > "+filename)
+    system_ret= system("ls "+name+" > "+filename)
     n = this%numLine(filename)
     list = to_list()
     call this%open(filename,"r")
@@ -4191,7 +4195,7 @@ function ls_IO(this,name)  result(list)
         call list%append( trim(adjustl(line)) )
     enddo
     call this%close()
-    call system("rm "+filename)
+    system_ret= system("rm "+filename)
 
 end function
 ! ######################################################
@@ -4294,8 +4298,9 @@ end subroutine
 subroutine zip_IOClass(this,zipfile,filename)
     class(IO_),intent(in) :: this
     character(*),intent(in) :: zipfile,filename
+    integer(int32) :: system_ret
 
-    call system("zip -m "+zipfile+" "+filename)
+    system_ret = system("zip -m "+zipfile+" "+filename)
 
 end subroutine
 ! #####################################################################
@@ -4305,11 +4310,12 @@ end subroutine
 subroutine unzip_IOClass(this,zipfile,filename)
     class(IO_),intent(in) :: this
     character(*),intent(in) :: zipfile,filename
+    integer(int32) :: system_ret
 
     if(filename=="*" .or. trim(filename)=="")then
-        call system("unzip -u "+zipfile)
+        system_ret = system("unzip -u "+zipfile)
     else
-        call system("unzip -u "+zipfile+" "+filename)
+        system_ret = system("unzip -u "+zipfile+" "+filename)
     endif
 
 end subroutine

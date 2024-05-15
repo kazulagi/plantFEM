@@ -33,7 +33,7 @@ contains
 function to_PostProcessingPostProcessingClass(filename) result(ret)
 	character(*),intent(in) :: filename
 	type(PostProcessing_) :: ret
-	integer(int32) :: percent_idx, d_idx,i,j
+	integer(int32) :: percent_idx, d_idx,i,j,system_ret
 	character(:),allocatable :: command
 	type(IO_) :: f
 
@@ -47,7 +47,7 @@ function to_PostProcessingPostProcessingClass(filename) result(ret)
 		
 		! search number of file
 		command = "ls "+ret%filehead+"*"+ret%filetail+"| wc -l > .postprocessing_buf.txt"
-		call system(command)
+		system_ret = system(command)
 		call f%open(".postprocessing_buf.txt","r")
 		ret%number_of_file = fint(f%readline() )
 		call f%close()
@@ -81,7 +81,7 @@ function to_PostProcessingPostProcessingClass(filename) result(ret)
 			+ret%filehead+zfill(ret%end_idx  ,ret%file_zfill_len)+ret%filetail &
 			+"]"
 		command = "rm .postprocessing_buf.txt"
-		call system(command)
+		system_ret = system(command)
 	else
 		ret%filehead=trim(filename)
 		ret%filetail=""

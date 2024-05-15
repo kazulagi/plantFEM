@@ -235,6 +235,7 @@ echo " | ======>                     | (30%)\r\c"
 echo "Standard library (std) is compiled.          "
 mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/std/std.f90 -o  ./inc/std.o
 
+
 echo "Compiling ./src/MeshClass/MeshClass.f90 " 
 echo " >> MeshClass.o "
 echo " | ======>                     | (30%)\r\c"
@@ -294,8 +295,19 @@ mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/fem/fem.f9
 echo "Modules for FEM (fem) is installed.       "
 
 # Compilation of Solvers
+echo "Compiling ./src/WaveKernelClass/WaveKernelClass.f90" 
+echo " >> WaveKernelClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpiifort -fc=ifx -fopenmp -Ofast -shared -fPIC -g -L./inc/  -c ./src/WaveKernelClass/WaveKernelClass.f90 -o  ./inc/WaveKernelClass.o
 
-# Compilation of Solvers
+echo "Compiling ./src/TSFEMClass/TSFEMClass.f90" 
+echo " >> TSFEMClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpiifort -fc=ifx -fopenmp  -Ofast -shared -fPIC -g -L./inc/  -c ./src/TSFEMClass/TSFEMClass.f90 -o  ./inc/TSFEMClass.o
+
+
+
+
 echo "Compiling ./src/LoggerClass/LoggerClass.f90" 
 echo " >> LoggerClass.o "
 echo " | ===============>            | (70%)\r\c"
@@ -310,6 +322,20 @@ echo "Compiling ./src/ElastoPlasticityClass/ElastoPlasticityClass.f90"
 echo " >> ElastoPlasticityClass.o "
 echo " | ===============>            | (70%)\r\c"
 mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/ElastoPlasticityClass/ElastoPlasticityClass.f90 -o  ./inc/ElastoPlasticityClass.o
+
+
+
+echo "Compiling ./src/ElastoPlasticityClass/ElastoPlasticityClass.f90 " 
+echo " >> ElastoPlasticityClass.o "
+echo " | =>                          | (4%)\r\c"
+mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/ElastoPlasticityClass/ElastoPlasticityClass.f90 -o  ./inc/ElastoPlasticityClass.o -llapack -lblas
+
+
+echo "Compiling ./src/ModalAnalysisClass/ModalAnalysisClass.f90" 
+echo " >> ModalAnalysisClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/ModalAnalysisClass/ModalAnalysisClass.f90 -o  ./inc/ModalAnalysisClass.o
+
 
 
 echo "Compiling ./src/ReactorClass/ReactorClass.f90" 
@@ -433,6 +459,14 @@ echo " >> LightClass.o "
 echo " | =======================>    | (90%)\r\c"
 mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/LightClass/LightClass.f90 -o  ./inc/DamClass.o
 
+
+echo "Compiling ./src/LightClass/LightClass.f90" 
+echo " >> EnvironmentClass.o "
+echo " | =======================>    | (90%)\r\c"
+mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/EnvironmentClass/EnvironmentClass.f90 -o  ./inc/EnvironmentClass.o
+
+
+
 echo "Compiling ./src/FertilizerClass/FertilizerClass.f90" 
 echo " >> FertilizerClass.o "
 echo " | =======================>    | (90%)\r\c"
@@ -521,6 +555,18 @@ echo " >> GrapeClass.o "
 echo " | =========================> |  (99%)\r\c"
 mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/GrapeClass/GrapeClass.f90 -o  ./inc/GrapeClass.o
 
+echo "Compiling ./src/RiceClass/RiceClass.f90" 
+echo " >> RiceClass.o "
+echo " | =========================> |  (99%)\r\c"
+mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/RiceClass/RiceClass.f90 -o  ./inc/RiceClass.o
+
+
+echo "Compiling ./src/WheatClass/WheatClass.f90" 
+echo " >> WheatClass.o "
+echo " | =========================> |  (99%)\r\c"
+mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/WheatClass/WheatClass.f90 -o  ./inc/WheatClass.o
+
+
 
 echo "Compiling ./src/ArabidopsisClass/ArabidopsisClass.f90" 
 echo " >> ArabidopsisClass.o "
@@ -528,15 +574,26 @@ echo " | =========================> |  (99%)\r\c"
 mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/ArabidopsisClass/ArabidopsisClass.f90 -o  ./inc/ArabidopsisClass.o
 
 
-echo "Compiling ./src/RiceClass/RiceClass.f90" 
-echo " >> RiceClass.o "
-echo " | =========================> |  (99%)\r\c"
-mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/RiceClass/RiceClass.f90 -o  ./inc/RiceClass.o
-
 echo "Compiling ./src/FarmClass/FarmClass.f90" 
 echo " >> FarmClass.o "
 echo " | =========================> |  (99%)\r\c"
 mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/FarmClass/FarmClass.f90 -o  ./inc/FarmClass.o
+
+
+
+echo "Compiling ./src/FactoryClass/FactoryClass.f90" 
+echo " >> FactoryClass.o "
+echo " | =========================> |  (99%)\r\c"
+mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/FactoryClass/FactoryClass.f90 -o  ./inc/FactoryClass.o
+
+echo "Compiling ./src/SceneClass/SceneClass.f90" 
+echo " >> SceneClass.o "
+echo " | =========================> |  (99%)\r\c"
+mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/SceneClass/SceneClass.f90 -o  ./inc/SceneClass.o
+
+
+
+
 echo "Compiling ./src/obj/obj.f90            " 
 echo " >> obj.o       "
 echo " | =========================> |  (99%)\r\c"
