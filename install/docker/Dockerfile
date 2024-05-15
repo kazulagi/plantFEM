@@ -30,8 +30,8 @@ RUN apt-get update && apt-get install -y \
     #&& apt-get clean \
     #&& rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/kazulagi/plantFEM.git
-WORKDIR "/plantFEM"
+RUN git clone https://github.com/kazulagi/plantfem.git
+WORKDIR "/plantfem"
 
 RUN python3 install.py
 RUN chmod +x bin/init

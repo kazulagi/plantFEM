@@ -15,6 +15,7 @@ module MeshClass
     integer(int32) :: PF_WHEAT  = 3
     
 
+
     type:: Mesh_
         ! Name
         character(:),allocatable::FileName
@@ -51,6 +52,7 @@ module MeshClass
         character(:),allocatable::ElemType
         character(:),allocatable:: ErrorMsg
         character(:),allocatable:: meshtype
+        integer(int32),private,allocatable:: elementType(:)
 
     contains
         procedure :: add => addMesh
@@ -67,10 +69,17 @@ module MeshClass
 
         procedure :: copy => CopyMesh
         procedure :: cut => cutMesh
+        
+        ! >>>>>>>> un-recommended >>>>>>>>>
         procedure :: convertMeshType => ConvertMeshTypeMesh
         procedure :: convertTetraToHexa => convertTetraToHexaMesh 
         procedure :: convertHigherOrder => convertHigherOrderMesh
         procedure :: convertTriangleToRectangular => convertTriangleToRectangularMesh 
+        ! <<<<<<<< un-recommended <<<<<<<<<
+
+
+
+        procedure :: changeElementType => changeElementTypeMesh
         procedure :: create=>createMesh
         procedure :: cube => cubeMesh
 
@@ -96,6 +105,8 @@ module MeshClass
         procedure :: edit => editMesh
 
         procedure :: getElementID => getElementIDMesh
+        procedure :: getElementType => getElementTypeMesh
+        procedure :: getNumOfGp => getNumOfGpMesh
         
         procedure :: getCoordinate => getCoordinateMesh
         procedure :: getNodeIDinElement => getNodeIDinElementMesh
@@ -4538,6 +4549,9 @@ subroutine ConvertMeshTypeMesh(obj,Option)
     class(Mesh_),intent(inout) :: obj
     character(*),intent(in) :: Option
 
+    print *, "[Caution!] >> convertMeshType  is not recommended!"
+    print *, "              please use changeElementType()"
+
     if(Option=="TetraToHexa" .or. Option=="TetraToHex")then
         call obj%convertTetraToHexa()
     elseif(Option=="convertTriangleToRectangular" .or. Option=="TriangleToRectangule")then
@@ -4551,6 +4565,28 @@ subroutine ConvertMeshTypeMesh(obj,Option)
 
 end subroutine
 !##################################################
+
+
+!##################################################
+subroutine changeElementTypeMesh(this,ElementType)
+    class(Mesh_),intent(inout) :: this
+    integer(int32),intent(in) :: ElementType(:)
+
+    ! mesh type converter:
+    ! 3D linear element ...
+    
+    if ( this%ElementType(1)==3 .and. this%ElementType(2)==8 ) then
+        if ( ElementType(1)==3 .and. ElementType(2)==20 )then
+            ! ... to 3D 20-node isoparametric element
+            call changeElementType_3D8N_to_3D20N_Mesh(this)
+            this%elementType = elementType
+        endif
+    endif
+
+
+end subroutine
+!##################################################
+
 
 !##################################################
 subroutine convertTetraToHexaMesh(obj)
@@ -5369,7 +5405,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
 
     if(obj%meshtype=="root" .or. obj%meshtype=="Root")then
         
-        
+        obj%elementType=[3,8,8] ! 3-dimensional, 8-noded, 8 Gauss points
         ! tree-like graph structure 
         call obj%remove(all=.true.)
 
@@ -6186,6 +6222,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     endif
 
     if(meshtype=="Leaf3D")then
+        obj%elementType=[3,8,8] ! 3-dimensional, 8-noded, 8 Gauss points
         validmeshtype=.true.
         call obj%create(meshtype="rectangular3D",x_num=x_num,&
         y_num=y_num,x_len=x_len,y_len=y_len,Le=Le,Lh=Lh,Dr=Dr,thickness=thickness,&
@@ -6417,6 +6454,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     endif
 
     if(meshtype=="HalfSphere3D")then
+        obj%elementType=[3,8,8] ! 3-dimensional, 8-noded, 8 Gauss points
         validmeshtype=.true.
         call obj%create(meshtype="Sphere3D",x_num=x_num,y_num=y_num,x_len=x_len,&
         y_len=y_len,Le=Le,Lh=Lh,Dr=Dr,thickness=thickness,&
@@ -6429,6 +6467,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     endif
 
     if(meshtype=="Bar1D" .or. meshtype=="bar1D")then
+        obj%elementType=[1,2,1] ! 1-dimensional, 2-noded, 1 Gauss points
         ! need x_len, x_num
         validmeshtype=.true.
         if(allocated(obj%NodCoord)) deallocate(obj%NodCoord)
@@ -6454,6 +6493,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     endif
 
     if(meshtype=="rectangular3D" .or. meshtype=="Cube")then
+        obj%elementType=[3,8,8] ! 3-dimensional, 8-noded, 8 Gauss points
         validmeshtype=.true.
         call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
         call obj%Convert2Dto3D(Thickness=Thickness,division=division)
@@ -6470,6 +6510,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
 
 
     if(meshtype=="Cube3D" .or.meshtype=="cube3D")then
+        
         validmeshtype=.true.
         call obj%create(meshtype="rectangular2D",x_num=x_num,y_num=y_num,x_len=x_len,y_len=y_len)
         call obj%Convert2Dto3D(Thickness=Thickness,division=division)
@@ -6481,7 +6522,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         ! create direction-data
         obj%BottomElemID = (x_num)*(y_num)/2
         obj%TopElemID    = (x_num)*(y_num)/2 + (x_num)*(y_num)*(division-1)
-
+        obj%elementType=[3,8,8] ! 3-dimensional, 8-noded, 8 Gauss points
     endif
 
 
@@ -6529,6 +6570,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             n=size(obj%ElemNod,1)
             allocate(obj%ElemMat(n) )
         endif
+        obj%elementType=[3,8,8] ! 3-dimensional, 8-noded, 8 Gauss points
         return
     endif
 
@@ -6555,6 +6597,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             n=size(obj%ElemNod,1)
             allocate(obj%ElemMat(n) )
         endif
+        obj%elementType=[3,8,8] ! 3-dimensional, 8-noded, 8 Gauss points
         return
     endif
 
@@ -6583,6 +6626,8 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             n=size(obj%ElemNod,1)
             allocate(obj%ElemMat(n) )
         endif
+
+        obj%elementType=[3,8,8] ! 3-dimensional, 8-noded, 8 Gauss points
         return
     endif
 
@@ -6600,6 +6645,8 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         call obj%resize(x_rate=x_len,&
             y_rate=y_len,&
             z_rate=thickness)
+        
+        obj%elementType=[3,8,8] ! 3-dimensional, 8-noded, 8 Gauss points
         return
     endif
 
@@ -6618,6 +6665,8 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         call obj%resize(x_rate=x_len,&
             y_rate=y_len,&
             z_rate=thickness)
+        
+        obj%elementType=[3,8,8] ! 3-dimensional, 8-noded, 8 Gauss points
         return
     endif
 
@@ -6635,6 +6684,8 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         call obj%resize(x_rate=2.0d0*x_len,&
             y_rate=2.0d0*y_len,&
             z_rate=thickness)
+
+        obj%elementType=[3,8,8] ! 3-dimensional, 8-noded, 8 Gauss points
         return
     endif
 
@@ -6642,6 +6693,8 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         validmeshtype=.true.
         call obj%to_HollowTube(r_num=x_num,theta_num=y_num,z_num=division,&
             thickness=thickness,radius=radius,length=length)
+        
+        obj%elementType=[3,8,8] ! 3-dimensional, 8-noded, 8 Gauss points
         return
     endif
 
@@ -6796,6 +6849,8 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         obj%nodcoord = mesh2%nodcoord
         obj%elemnod = mesh2%elemnod
         obj%elemmat = mesh2%elemmat
+
+        obj%elementType=[2,4,4] ! 2-dimensional, 4-noded, 4 Gauss points
         return
     endif
 
@@ -6863,6 +6918,7 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             enddo
         enddo
 
+        obj%elementType=[2,4,4] ! 2-dimensional, 4-noded, 4 Gauss points
 
     endif
 
@@ -6952,6 +7008,8 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         enddo
 
         call obj%GetSurface()
+
+        obj%elementType=[2,4,4] ! 2-dimensional, 4-noded, 4 Gauss points
     endif
 
 
@@ -7040,6 +7098,8 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
             endif
         enddo
         call obj%GetSurface()
+
+        obj%elementType=[2,4,4] ! 2-dimensional, 4-noded, 4 Gauss points
     endif
 
 
@@ -10726,6 +10786,137 @@ recursive subroutine Line_1D_Mesh(this,x_num,x_axis,x_len)
         this%elemnod(i,1:2) = [i,i+1]
     enddo
 
+end subroutine
+
+
+function getElementTypeMesh(this) result(ret)
+    class(Mesh_),intent(in) :: this
+    integer(int32),allocatable :: ret(:)
+
+    ret = this%elementType
+
+end function
+
+function getNumOfGpMesh(this) result(ret)
+    class(Mesh_),intent(in) :: this
+    integer(int32),allocatable :: elementType(:)
+    integer(int32) :: ret
+
+    elementType = this%elementType
+    ret = elementType(3)
+
+end function
+
+
+subroutine changeElementType_3D8N_to_3D20N_Mesh(this)
+    type(Mesh_),intent(inout) :: this
+    type(Mesh_) :: buf_mesh
+    integer(int32) :: i,j,k,m,last_node_idx,edge_connect(12,2),&
+        node_idx_1,node_idx_2,old_nne
+    integer(int32),allocatable :: num_shared_node(:),edges(:,:),new_node_number(:,:)
+
+    old_nne = this%nne()
+    m = 20 - 8
+    ! extend mesh info
+    !this%elemnod = this%elemnod .h. int(zeros(n,m) )
+    !this%nodcoord = this%nodcoord .v. zeros(size(this%elemnod,1)*12,3)
+
+    
+
+    ! edge info
+    ! See (https://it-mayura.com/cae/paraview007/#toc15)
+    edge_connect( 1,1:2) = [1,2]
+    edge_connect( 2,1:2) = [2,3]
+    edge_connect( 3,1:2) = [3,4]
+    edge_connect( 4,1:2) = [4,1]
+
+    edge_connect( 5,1:2) = [5,6]
+    edge_connect( 6,1:2) = [6,7]
+    edge_connect( 7,1:2) = [7,8]
+    edge_connect( 8,1:2) = [8,5]
+
+    edge_connect( 9,1:2) = [1,5]
+    edge_connect(10,1:2) = [2,6]
+    edge_connect(11,1:2) = [3,7]
+    edge_connect(12,1:2) = [4,8]
+
+
+    ! number of element for each shared node
+    allocate(num_shared_node(this%nn()))
+    num_shared_node(:) = 0
+    do i=1,this%ne()
+        do j=1,this%nne()
+            num_shared_node(this%elemnod(i,j)) = num_shared_node(this%elemnod(i,j)) + 1
+        enddo
+    enddo
+
+    allocate(edges(this%nn(),maxval(num_shared_node)+2 ) )
+    allocate(new_node_number(this%nn(),maxval(num_shared_node)+2 ) )
+    deallocate(num_shared_node)
+    this%elemnod = this%elemnod .h. int(zeros(this%ne(),12))
+
+    edges(:,:) = 0
+    new_node_number(:,:) = 0
+    last_node_idx = this%nn()
+    
+
+    ! edges
+    do i=1,this%ne()
+        do j=1,size(edge_connect,1)
+            node_idx_1 = this%elemnod(i,edge_connect(j,1))
+            node_idx_2 = this%elemnod(i,edge_connect(j,2))
+            
+            if(node_idx_1 < node_idx_2)then
+                do k=1,size(edges,2)
+                    if(edges(node_idx_1,k)==node_idx_2)then
+                        this%elemnod(i,j+old_nne) = new_node_number(node_idx_1,k)
+                        exit
+                    elseif(edges(node_idx_1,k)==0)then
+                        edges(node_idx_1,k)=node_idx_2
+                        last_node_idx = last_node_idx + 1
+                        new_node_number(node_idx_1,k)=last_node_idx
+                        this%elemnod(i,j+old_nne) = last_node_idx
+                        exit
+                    else
+                        cycle
+                    endif
+                enddo
+            else
+                do k=1,size(edges,2)
+                    if(edges(node_idx_2,k)==node_idx_1)then
+                        this%elemnod(i,j+old_nne) = new_node_number(node_idx_2,k)
+                        exit
+                    elseif(edges(node_idx_2,k)==0)then
+                        edges(node_idx_2,k)=node_idx_1
+                        last_node_idx = last_node_idx + 1
+                        new_node_number(node_idx_2,k)=last_node_idx
+                        this%elemnod(i,j+old_nne) = last_node_idx
+                        exit
+                    else
+                        cycle
+                    endif
+                enddo
+            endif
+
+        enddo
+    enddo
+
+    ! create new nodes by {edges} and {new_node_number}
+    this%nodcoord = this%nodcoord .v. zeros(last_node_idx-this%nn(),3)
+    !$OMP parallel do private(j,node_idx_1,node_idx_2)
+    do i=1,size(new_node_number,1)
+        do j=1,size(new_node_number,2)
+            if(new_node_number(i,j)==0 )cycle
+            node_idx_1 = i
+            node_idx_2 = edges(i,j)
+            this%nodcoord(new_node_number(i,j),1:3) = &
+                0.50d0*this%nodcoord(node_idx_1,1:3) + &
+                0.50d0*this%nodcoord(node_idx_2,1:3) 
+        enddo
+    enddo
+    !$OMP end parallel do
+
+    
 end subroutine
 
 end module MeshClass

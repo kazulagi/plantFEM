@@ -1473,13 +1473,11 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
         
         if(size(this%fix_eig_IDs)>=1 )then
             ! first, for [A]
-            
             call heapsort(n=size(this%fix_eig_IDs),array=this%fix_eig_IDs)
             call reduce_crs_matrix(CRS_val=A%val,CRS_col=A%col_idx,&
             CRS_rowptr=A%row_ptr,remove_IDs=this%fix_eig_IDs)
             call reduce_crs_matrix(CRS_val=B%val,CRS_col=B%col_idx,&
             CRS_rowptr=B%row_ptr,remove_IDs=this%fix_eig_IDs)
-
         endif
     endif
     
@@ -1532,9 +1530,7 @@ recursive subroutine eigFEMSolver(this,num_eigen,eigen_value,eigen_vectors)
         
         call DSPGVD (ITYPE, JOBZ, UPLO, N, AP, BP, W, Z, LDZ, WORK, &
             LWORK, IWORK, LIWORK, INFO)
-
     endif
-
     eigen_value = w
     if(allocated(this%fix_eig_IDs) )then    
         ! U(this%fix_eig_IDs(i),: ) = 0.0d0

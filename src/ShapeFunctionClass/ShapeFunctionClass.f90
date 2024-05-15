@@ -280,15 +280,16 @@ end subroutine
 
 
 !!  ##################################################
-subroutine SetShapeFuncType(obj,NumOfDim,NumOfNodePerElem,ReducedIntegration)
+subroutine SetShapeFuncType(obj,NumOfDim,NumOfNodePerElem,ReducedIntegration,NumOfGp)
     class(ShapeFunction_),intent(inout)::obj
     logical,optional,intent(in) :: ReducedIntegration
     character(:),allocatable ::  TrimedElemType
     integer(int32),optional,intent(in) :: NumOfDim,NumOfNodePerElem
+    integer(int32),optional,intent(in) :: NumOfGp
 
     if(present(NumOfDim) )then
         if(present(NumOfNodePerElem) )then
-            call obj%getType(NumOfDim,NumOfNodePerElem)
+            call obj%getType(NumOfDim,NumOfNodePerElem,NumOfGp)
         endif
     endif
     
@@ -310,7 +311,6 @@ subroutine SetShapeFuncType(obj,NumOfDim,NumOfNodePerElem,ReducedIntegration)
         obj%NumOfOrder  = 1
         obj%NumOfDim    = 3
         obj%NumOfGp     = 8
-        
     elseif(TrimedElemType=="Triangular")then
         obj%NumOfNode   = 3
         obj%NumOfOrder  = 1
@@ -321,6 +321,16 @@ subroutine SetShapeFuncType(obj,NumOfDim,NumOfNodePerElem,ReducedIntegration)
         obj%NumOfOrder  = 1
         obj%NumOfDim    = 3
         obj%NumOfGp     = 1
+    elseif(TrimedElemType=="QuadHexahedralGp8")then
+        obj%NumOfNode   = 20
+        obj%NumOfOrder  = 2
+        obj%NumOfDim    = 3
+        obj%NumOfGp     = 8
+    elseif(TrimedElemType=="QuadHexahedralGp27")then
+        obj%NumOfNode   = 20
+        obj%NumOfOrder  = 2
+        obj%NumOfDim    = 3
+        obj%NumOfGp     = 27
     else
         obj%ErrorMsg="ShapeFunctionClass.f90 :: SetShapeFuncType >> Element : "//TrimedElemType//"is not defined."
         print *, "ShapeFunctionClass.f90 :: SetShapeFuncType >> Element : ",TrimedElemType,"is not defined."
@@ -333,10 +343,11 @@ end subroutine SetShapeFuncType
 !!  ##################################################
 
 !!  ##################################################
-subroutine getShapeFuncType(obj,NumOfDim,NumOfNodePerElem)
+subroutine getShapeFuncType(obj,NumOfDim,NumOfNodePerElem,NumOfGp)
     class(ShapeFunction_),intent(inout)::obj
     character*70 ::  TrimedElemType
     integer(int32),intent(in) :: NumOfDim,NumOfNodePerElem
+    integer(int32),optional,intent(in) :: NumOfGp
 
     if(NumOfDim==2)then
         if(NumOfNodePerElem==4)then
@@ -347,6 +358,18 @@ subroutine getShapeFuncType(obj,NumOfDim,NumOfNodePerElem)
     elseif(NumOfDim==3)then
         if(NumOfNodePerElem==8)then
             obj%ElemType="LinearHexahedralGp8"
+        elseif(NumOfNodePerElem==20)then
+            if(present(NumOfGP) )then
+                if(NumOfGp==8)then
+                    obj%ElemType="QuadHexahedralGp8"
+                elseif(NumOfGp==27)then
+                    obj%ElemType="QuadHexahedralGp27"
+                else
+                    print *, "For 3D, 20-noded element,Number of Gauss point ",NumOfGP," is not ready."
+                endif
+            else
+                obj%ElemType="QuadHexahedralGp8"
+            endif
         else
             print *, "For 3D, NumOfNodePerElem = ",NumOfNodePerElem," is not set."
         endif
@@ -411,7 +434,6 @@ subroutine GetAllShapeFunc(obj,elem_id,nod_coord,nod_coord_n,elem_nod,OptionalNu
         obj%GpID=OptionalGpID
     endif
 
-
     call GetGaussPoint(obj)
     call SetGaussPoint(obj)
 
@@ -419,10 +441,7 @@ subroutine GetAllShapeFunc(obj,elem_id,nod_coord,nod_coord_n,elem_nod,OptionalNu
 
     call GetShapeFunction(obj)
     call GetShapeFuncDer1(obj)
-    !! call GetShapeFuncDer2(obj)
-
-
-
+    
     if(.not.present(nod_coord) .or. .not.present(elem_nod) )then
         
         obj%ErrorMsg="Mesh%NodCoord and Mesh%ElemNod is necessary to get Jmat"
@@ -465,8 +484,7 @@ end subroutine DeallocateShapeFunction
     subroutine GetGaussPoint(obj)
 
         class(ShapeFunction_),intent(inout)::obj
-
-        !! include "./GetGaussPoint.f90"
+        real(real64) :: pval(1:3),wval(1:3)
 
         if(.not.allocated(obj%GaussPoint) )then
             allocate(obj%GaussPoint(obj%NumOfDim,obj%NumOfGp ) )
@@ -535,7 +553,37 @@ end subroutine DeallocateShapeFunction
                 obj%GaussPoint(:,:) =0.0d0
                 obj%GaussIntegWei(:)=0.1250d0
             endif
-
+        elseif(size(obj%GaussPoint,1)==3 .and. size(obj%GaussPoint,2)==27)then
+            pval = [-sqrt(3.0d0/5.0d0),0.0d0,sqrt(3.0d0/5.0d0)]
+            wval = [5.0d0/9.0d0,8.0d0/9.0d0,5.0d0/9.0d0]
+            obj%GaussPoint(1:3, 1) = [pval(1), pval(1), pval(1)];obj%GaussIntegWei( 1)=(wval(1)*wval(1)*wval(1))
+            obj%GaussPoint(1:3, 2) = [pval(2), pval(1), pval(1)];obj%GaussIntegWei( 2)=(wval(2)*wval(1)*wval(1))
+            obj%GaussPoint(1:3, 3) = [pval(3), pval(1), pval(1)];obj%GaussIntegWei( 3)=(wval(3)*wval(1)*wval(1))
+            obj%GaussPoint(1:3, 4) = [pval(1), pval(2), pval(1)];obj%GaussIntegWei( 4)=(wval(1)*wval(2)*wval(1))
+            obj%GaussPoint(1:3, 5) = [pval(2), pval(2), pval(1)];obj%GaussIntegWei( 5)=(wval(2)*wval(2)*wval(1))
+            obj%GaussPoint(1:3, 6) = [pval(3), pval(2), pval(1)];obj%GaussIntegWei( 6)=(wval(3)*wval(2)*wval(1))
+            obj%GaussPoint(1:3, 7) = [pval(1), pval(3), pval(1)];obj%GaussIntegWei( 7)=(wval(1)*wval(3)*wval(1))
+            obj%GaussPoint(1:3, 8) = [pval(2), pval(3), pval(1)];obj%GaussIntegWei( 8)=(wval(2)*wval(3)*wval(1))
+            obj%GaussPoint(1:3, 9) = [pval(3), pval(3), pval(1)];obj%GaussIntegWei( 9)=(wval(3)*wval(3)*wval(1))
+            obj%GaussPoint(1:3,10) = [pval(1), pval(1), pval(2)];obj%GaussIntegWei(10)=(wval(1)*wval(1)*wval(2))
+            obj%GaussPoint(1:3,11) = [pval(2), pval(1), pval(2)];obj%GaussIntegWei(11)=(wval(2)*wval(1)*wval(2))
+            obj%GaussPoint(1:3,12) = [pval(3), pval(1), pval(2)];obj%GaussIntegWei(12)=(wval(3)*wval(1)*wval(2))
+            obj%GaussPoint(1:3,13) = [pval(1), pval(2), pval(2)];obj%GaussIntegWei(13)=(wval(1)*wval(2)*wval(2))
+            obj%GaussPoint(1:3,14) = [pval(2), pval(2), pval(2)];obj%GaussIntegWei(14)=(wval(2)*wval(2)*wval(2))
+            obj%GaussPoint(1:3,15) = [pval(3), pval(2), pval(2)];obj%GaussIntegWei(15)=(wval(3)*wval(2)*wval(2))
+            obj%GaussPoint(1:3,16) = [pval(1), pval(3), pval(2)];obj%GaussIntegWei(16)=(wval(1)*wval(3)*wval(2))
+            obj%GaussPoint(1:3,17) = [pval(2), pval(3), pval(2)];obj%GaussIntegWei(17)=(wval(2)*wval(3)*wval(2))
+            obj%GaussPoint(1:3,18) = [pval(3), pval(3), pval(2)];obj%GaussIntegWei(18)=(wval(3)*wval(3)*wval(2))
+            obj%GaussPoint(1:3,19) = [pval(1), pval(1), pval(3)];obj%GaussIntegWei(19)=(wval(1)*wval(1)*wval(3))
+            obj%GaussPoint(1:3,20) = [pval(2), pval(1), pval(3)];obj%GaussIntegWei(20)=(wval(2)*wval(1)*wval(3))
+            obj%GaussPoint(1:3,21) = [pval(3), pval(1), pval(3)];obj%GaussIntegWei(21)=(wval(3)*wval(1)*wval(3))
+            obj%GaussPoint(1:3,22) = [pval(1), pval(2), pval(3)];obj%GaussIntegWei(22)=(wval(1)*wval(2)*wval(3))
+            obj%GaussPoint(1:3,23) = [pval(2), pval(2), pval(3)];obj%GaussIntegWei(23)=(wval(2)*wval(2)*wval(3))
+            obj%GaussPoint(1:3,24) = [pval(3), pval(2), pval(3)];obj%GaussIntegWei(24)=(wval(3)*wval(2)*wval(3))
+            obj%GaussPoint(1:3,25) = [pval(1), pval(3), pval(3)];obj%GaussIntegWei(25)=(wval(1)*wval(3)*wval(3))
+            obj%GaussPoint(1:3,26) = [pval(2), pval(3), pval(3)];obj%GaussIntegWei(26)=(wval(2)*wval(3)*wval(3))
+            obj%GaussPoint(1:3,27) = [pval(3), pval(3), pval(3)];obj%GaussIntegWei(27)=(wval(3)*wval(3)*wval(3))
+            
         elseif(size(obj%GaussPoint,2)==1 )then
             !!  Triangular or Tetrahedral
             if(allocated(obj%GaussPoint))then
@@ -822,9 +870,61 @@ elseif(obj%NumOfNode==19) then
     obj%ErrorMsg="ERROR::GetShapeFunction "
     obj%ierr=1
 elseif(obj%NumOfNode==20) then
-    print *, "ERROR::GetShapeFunction"
-    obj%ErrorMsg="ERROR::GetShapeFunction "
-    obj%ierr=1
+    if(obj%NumOfDim==3) then
+        !!  #########################################################################
+        !!  #######           (8)   +----------(15)------------+ (7)          #######
+        !!  #######        (16)    /!                 (14)    /!              #######
+        !!  #######               / ! (20)              (6)  /  ! (19)         #######
+        !!  #######          (5) +--!-------(13)------------+  !              #######
+        !!  #######              !  !                      !  !               #######
+        !!  #######          (17)!  +----------(11)--------!--+ (3)           #######
+        !!  #######          (12)! / (4)              (18) ! / (10)           #######
+        !!  #######              !/                        !/                 #######        
+        !!  #######          (1) +----------(9)------------+ (2)              #######        
+        !!  #########################################################################
+        
+        ! Koers, R.W.J., 1989. Use of modified standard 20-node isoparametric brick elements for representing stress/strain fields at a crack tip for elastic and perfectly plastic material. Int. J. Fract. 40, 79–110. https://doi.org/10.1007/BF00963969
+        obj%Nmat( 1)=-0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+            *(2.0d0 + obj%gzi(1) + obj%gzi(2) + obj%gzi(3) )
+	    obj%Nmat( 2)=-0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+            *(2.0d0 - obj%gzi(1) + obj%gzi(2) + obj%gzi(3) )
+		obj%Nmat( 3)=-0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+            *(2.0d0 - obj%gzi(1) - obj%gzi(2) + obj%gzi(3) )
+		obj%Nmat( 4)=-0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+            *(2.0d0 + obj%gzi(1) - obj%gzi(2) + obj%gzi(3) )
+        obj%Nmat( 5)=-0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+            *(2.0d0 + obj%gzi(1) + obj%gzi(2) - obj%gzi(3) )
+	    obj%Nmat( 6)=-0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+            *(2.0d0 - obj%gzi(1) + obj%gzi(2) - obj%gzi(3) )
+		obj%Nmat( 7)=-0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+            *(2.0d0 - obj%gzi(1) - obj%gzi(2) - obj%gzi(3) )
+		obj%Nmat( 8)=-0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+            *(2.0d0 + obj%gzi(1) - obj%gzi(2) - obj%gzi(3) )
+        
+        obj%Nmat( 9)=0.250d0*(1.0d0 - obj%gzi(1)**2)*(1.0d0 - obj%gzi(2)   )*(1.0d0 - obj%gzi(3))
+	    obj%Nmat(10)=0.250d0*(1.0d0 + obj%gzi(1)   )*(1.0d0 - obj%gzi(2)**2)*(1.0d0 - obj%gzi(3))
+        obj%Nmat(11)=0.250d0*(1.0d0 - obj%gzi(1)**2)*(1.0d0 + obj%gzi(2)   )*(1.0d0 - obj%gzi(3))
+	    obj%Nmat(12)=0.250d0*(1.0d0 - obj%gzi(1)   )*(1.0d0 - obj%gzi(2)**2)*(1.0d0 - obj%gzi(3))
+		
+        obj%Nmat(13)=0.250d0*(1.0d0 - obj%gzi(1)**2)*(1.0d0 - obj%gzi(2)   )*(1.0d0 + obj%gzi(3))
+		obj%Nmat(14)=0.250d0*(1.0d0 + obj%gzi(1)   )*(1.0d0 - obj%gzi(2)**2)*(1.0d0 + obj%gzi(3))
+        obj%Nmat(15)=0.250d0*(1.0d0 - obj%gzi(1)**2)*(1.0d0 + obj%gzi(2)   )*(1.0d0 + obj%gzi(3))
+	    obj%Nmat(16)=0.250d0*(1.0d0 - obj%gzi(1)   )*(1.0d0 - obj%gzi(2)**2)*(1.0d0 + obj%gzi(3))
+		
+        obj%Nmat(17)=0.250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3)**2)
+		obj%Nmat(18)=0.250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3)**2)
+        obj%Nmat(19)=0.250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3)**2)
+	    obj%Nmat(20)=0.250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3)**2)
+	  
+
+        obj%ErrorMsg="Succeed::GetShapeFunction "
+        obj%ierr=0
+    else
+        print *, "ERROR::GetShapeFunction"
+        obj%ErrorMsg="ERROR::GetShapeFunction "
+        obj%ierr=1
+    endif
+    
 elseif(obj%NumOfNode==21) then
     print *, "ERROR::GetShapeFunction"
     obj%ErrorMsg="ERROR::GetShapeFunction "
@@ -1109,9 +1209,178 @@ endif
             obj%ErrorMsg="ERROR::GetShapeFunction "
             obj%ierr=1
         elseif(obj%NumOfNode==20) then
-            print *, "ERROR::GetShapeFunction"
-            obj%ErrorMsg="ERROR::GetShapeFunction "
-            obj%ierr=1
+            if(obj%NumOfDim==3) then
+                !!  #########################################################################
+                !!  #######           (8)   +----------(15)------------+ (7)          #######
+                !!  #######        (16)    /!                 (14)    /!              #######
+                !!  #######               / ! (20)              (6)  /  ! (19)         #######
+                !!  #######          (5) +--!-------(13)------------+  !              #######
+                !!  #######              !  !                      !  !               #######
+                !!  #######          (17)!  +----------(11)--------!--+ (3)           #######
+                !!  #######          (12)! / (4)              (18) ! / (10)           #######
+                !!  #######              !/                        !/                 #######        
+                !!  #######          (1) +----------(9)------------+ (2)              #######        
+                !!  #########################################################################
+                
+                ! Koers, R.W.J., 1989. Use of modified standard 20-node isoparametric brick elements for representing stress/strain fields at a crack tip for elastic and perfectly plastic material. Int. J. Fract. 40, 79–110. https://doi.org/10.1007/BF00963969
+                obj%dNdgzi(1, 1)=-0.1250d0*(-1.0d0)*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *(2.0d0 + obj%gzi(1) + obj%gzi(2) + obj%gzi(3) ) &
+                    -0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *1.0d0
+                obj%dNdgzi(1, 2)=-0.1250d0*(1.0d0)*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *(2.0d0 - obj%gzi(1) + obj%gzi(2) + obj%gzi(3) ) &
+                    -0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *(-1.0d0)
+                obj%dNdgzi(1, 3)=-0.1250d0*(1.0d0)*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *(2.0d0 - obj%gzi(1) - obj%gzi(2) + obj%gzi(3) ) &
+                    -0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *(-1.0d0)
+                obj%dNdgzi(1, 4)=-0.1250d0*(-1.0d0)*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *(2.0d0 + obj%gzi(1) - obj%gzi(2) + obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *(1.0d0)
+                obj%dNdgzi(1, 5)=-0.1250d0*(-1.0d0)*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(2.0d0 + obj%gzi(1) + obj%gzi(2) - obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(1.0d0)
+                obj%dNdgzi(1, 6)=-0.1250d0*(1.0d0)*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(2.0d0 - obj%gzi(1) + obj%gzi(2) - obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(-1.0d0)
+                obj%dNdgzi(1, 7)=-0.1250d0*(1.0d0)*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(2.0d0 - obj%gzi(1) - obj%gzi(2) - obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(-1.0d0)
+                obj%dNdgzi(1, 8)=-0.1250d0*(-1.0d0)*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(2.0d0 + obj%gzi(1) - obj%gzi(2) - obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(1.0d0)
+                !<<<ok>>>
+                
+                obj%dNdgzi(1, 9)=0.250d0*(- 2.0d0*obj%gzi(1)   )*(1.0d0 - obj%gzi(2)   )*(1.0d0 - obj%gzi(3))
+                obj%dNdgzi(1,10)=0.250d0*(1.0d0                )*(1.0d0 - obj%gzi(2)**2)*(1.0d0 - obj%gzi(3))
+                obj%dNdgzi(1,11)=0.250d0*(- 2.0d0*obj%gzi(1)   )*(1.0d0 + obj%gzi(2)   )*(1.0d0 - obj%gzi(3))
+                obj%dNdgzi(1,12)=0.250d0*(-1.0d0               )*(1.0d0 - obj%gzi(2)**2)*(1.0d0 - obj%gzi(3))
+                
+                obj%dNdgzi(1,13)=0.250d0*(- 2.0d0*obj%gzi(1)   )*(1.0d0 - obj%gzi(2)   )*(1.0d0 + obj%gzi(3))
+                obj%dNdgzi(1,14)=0.250d0*(1.0d0                )*(1.0d0 - obj%gzi(2)**2)*(1.0d0 + obj%gzi(3))
+                obj%dNdgzi(1,15)=0.250d0*(- 2.0d0*obj%gzi(1)   )*(1.0d0 + obj%gzi(2)   )*(1.0d0 + obj%gzi(3))
+                obj%dNdgzi(1,16)=0.250d0*(-1.0d0               )*(1.0d0 - obj%gzi(2)**2)*(1.0d0 + obj%gzi(3))
+                
+                obj%dNdgzi(1,17)=0.250d0*(-1.0d0)*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3)**2)
+                obj%dNdgzi(1,18)=0.250d0*(1.0d0 )*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3)**2)
+                obj%dNdgzi(1,19)=0.250d0*(1.0d0 )*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3)**2)
+                obj%dNdgzi(1,20)=0.250d0*(-1.0d0)*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3)**2)
+                !<<<ok>>>
+
+                obj%dNdgzi(2, 1)=-0.1250d0*(1.0d0 - obj%gzi(1))*(-1.0d0)*(1.0d0 - obj%gzi(3))&
+                    *(2.0d0 + obj%gzi(1) + obj%gzi(2) + obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *(1.0d0)
+                obj%dNdgzi(2, 2)=-0.1250d0*(1.0d0 + obj%gzi(1))*(-1.0d0)*(1.0d0 - obj%gzi(3))&
+                    *(2.0d0 - obj%gzi(1) + obj%gzi(2) + obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *(1.0d0)
+                obj%dNdgzi(2, 3)=-0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0)*(1.0d0 - obj%gzi(3))&
+                    *(2.0d0 - obj%gzi(1) - obj%gzi(2) + obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *(-1.0d0)
+                obj%dNdgzi(2, 4)=-0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0)*(1.0d0 - obj%gzi(3))&
+                    *(2.0d0 + obj%gzi(1) - obj%gzi(2) + obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *(-1.0d0)
+
+                obj%dNdgzi(2, 5)=-0.1250d0*(1.0d0 - obj%gzi(1))*(-1.0d0)*(1.0d0 + obj%gzi(3))&
+                    *(2.0d0 + obj%gzi(1) + obj%gzi(2) - obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(1.0d0)
+                obj%dNdgzi(2, 6)=-0.1250d0*(1.0d0 + obj%gzi(1))*(-1.0d0)*(1.0d0 + obj%gzi(3))&
+                    *(2.0d0 - obj%gzi(1) + obj%gzi(2) - obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(1.0d0)
+                obj%dNdgzi(2, 7)=-0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0)*(1.0d0 + obj%gzi(3))&
+                    *(2.0d0 - obj%gzi(1) - obj%gzi(2) - obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(-1.0d0)
+                obj%dNdgzi(2, 8)=-0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0)*(1.0d0 + obj%gzi(3))&
+                    *(2.0d0 + obj%gzi(1) - obj%gzi(2) - obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(-1.0d0)
+
+                !<<<ok>>>
+                obj%dNdgzi(2, 9)=0.250d0*(1.0d0 - obj%gzi(1)**2)*(-1.0d0               )*(1.0d0 - obj%gzi(3))
+                obj%dNdgzi(2,10)=0.250d0*(1.0d0 + obj%gzi(1)   )*(- 2.0d0*obj%gzi(2)   )*(1.0d0 - obj%gzi(3))
+                obj%dNdgzi(2,11)=0.250d0*(1.0d0 - obj%gzi(1)**2)*(1.0d0                )*(1.0d0 - obj%gzi(3))
+                obj%dNdgzi(2,12)=0.250d0*(1.0d0 - obj%gzi(1)   )*(- 2.0d0*obj%gzi(2)   )*(1.0d0 - obj%gzi(3))
+                
+                obj%dNdgzi(2,13)=0.250d0*(1.0d0 - obj%gzi(1)**2)*(-1.0d0               )*(1.0d0 + obj%gzi(3))
+                obj%dNdgzi(2,14)=0.250d0*(1.0d0 + obj%gzi(1)   )*(-2.0d0*obj%gzi(2)    )*(1.0d0 + obj%gzi(3))
+                obj%dNdgzi(2,15)=0.250d0*(1.0d0 - obj%gzi(1)**2)*( 1.0d0               )*(1.0d0 + obj%gzi(3))
+                obj%dNdgzi(2,16)=0.250d0*(1.0d0 - obj%gzi(1)   )*(-2.0d0*obj%gzi(2)    )*(1.0d0 + obj%gzi(3))
+                
+                obj%dNdgzi(2,17)=0.250d0*(1.0d0 - obj%gzi(1))*(-1.0d0)*(1.0d0 - obj%gzi(3)**2)
+                obj%dNdgzi(2,18)=0.250d0*(1.0d0 + obj%gzi(1))*(-1.0d0)*(1.0d0 - obj%gzi(3)**2)
+                obj%dNdgzi(2,19)=0.250d0*(1.0d0 + obj%gzi(1))*( 1.0d0)*(1.0d0 - obj%gzi(3)**2)
+                obj%dNdgzi(2,20)=0.250d0*(1.0d0 - obj%gzi(1))*( 1.0d0)*(1.0d0 - obj%gzi(3)**2)
+                !<<<ok>>>
+
+                obj%dNdgzi(3, 1)=-0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(-1.0d0)&
+                    *(2.0d0 + obj%gzi(1) + obj%gzi(2) + obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *(1.0d0)
+                obj%dNdgzi(3, 2)=-0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(-1.0d0)&
+                    *(2.0d0 - obj%gzi(1) + obj%gzi(2) + obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *(1.0d0)
+                obj%dNdgzi(3, 3)=-0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(-1.0d0)&
+                    *(2.0d0 - obj%gzi(1) - obj%gzi(2) + obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *(1.0d0)
+                obj%dNdgzi(3, 4)=-0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(-1.0d0)&
+                    *(2.0d0 + obj%gzi(1) - obj%gzi(2) + obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 - obj%gzi(3))&
+                    *(1.0d0)
+
+                obj%dNdgzi(3, 5)=-0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0)&
+                    *(2.0d0 + obj%gzi(1) + obj%gzi(2) - obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(-1.0d0)
+                obj%dNdgzi(3, 6)=-0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0)&
+                    *(2.0d0 - obj%gzi(1) + obj%gzi(2) - obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(-1.0d0)
+                obj%dNdgzi(3, 7)=-0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0)&
+                    *(2.0d0 - obj%gzi(1) - obj%gzi(2) - obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(-1.0d0)
+                obj%dNdgzi(3, 8)=-0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0)&
+                    *(2.0d0 + obj%gzi(1) - obj%gzi(2) - obj%gzi(3) )&
+                    -0.1250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(1.0d0 + obj%gzi(3))&
+                    *(-1.0d0)
+                !<<<ok>>>
+                obj%dNdgzi(3, 9)=0.250d0*(1.0d0 - obj%gzi(1)**2)*(1.0d0 - obj%gzi(2)   )*(-1.0d0)
+                obj%dNdgzi(3,10)=0.250d0*(1.0d0 + obj%gzi(1)   )*(1.0d0 - obj%gzi(2)**2)*(-1.0d0)
+                obj%dNdgzi(3,11)=0.250d0*(1.0d0 - obj%gzi(1)**2)*(1.0d0 + obj%gzi(2)   )*(-1.0d0)
+                obj%dNdgzi(3,12)=0.250d0*(1.0d0 - obj%gzi(1)   )*(1.0d0 - obj%gzi(2)**2)*(-1.0d0)
+                
+                obj%dNdgzi(3,13)=0.250d0*(1.0d0 - obj%gzi(1)**2)*(1.0d0 - obj%gzi(2)   )*(1.0d0)
+                obj%dNdgzi(3,14)=0.250d0*(1.0d0 + obj%gzi(1)   )*(1.0d0 - obj%gzi(2)**2)*(1.0d0)
+                obj%dNdgzi(3,15)=0.250d0*(1.0d0 - obj%gzi(1)**2)*(1.0d0 + obj%gzi(2)   )*(1.0d0)
+                obj%dNdgzi(3,16)=0.250d0*(1.0d0 - obj%gzi(1)   )*(1.0d0 - obj%gzi(2)**2)*(1.0d0)
+                
+                obj%dNdgzi(3,17)=0.250d0*(1.0d0 - obj%gzi(1))*(1.0d0 - obj%gzi(2))*(-2.0d0*obj%gzi(3))
+                obj%dNdgzi(3,18)=0.250d0*(1.0d0 + obj%gzi(1))*(1.0d0 - obj%gzi(2))*(-2.0d0*obj%gzi(3))
+                obj%dNdgzi(3,19)=0.250d0*(1.0d0 + obj%gzi(1))*(1.0d0 + obj%gzi(2))*(-2.0d0*obj%gzi(3))
+                obj%dNdgzi(3,20)=0.250d0*(1.0d0 - obj%gzi(1))*(1.0d0 + obj%gzi(2))*(-2.0d0*obj%gzi(3))
+        
+                obj%ErrorMsg="Succeed::GetShapeFunction "
+                obj%ierr=0
+            else
+                print *, "ERROR::GetShapeFunction"
+                obj%ErrorMsg="ERROR::GetShapeFunction "
+                obj%ierr=1
+            endif
+        
         elseif(obj%NumOfNode==21) then
             print *, "ERROR::GetShapeFunction"
             obj%ErrorMsg="ERROR::GetShapeFunction "

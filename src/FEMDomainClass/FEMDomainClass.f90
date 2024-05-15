@@ -26,7 +26,8 @@ module FEMDomainClass
 	integer(int32),parameter,public :: VTK_QUADRATIC_TRIANGLE  = 22 !	Triangle Lagrange P2
 	integer(int32),parameter,public :: VTK_QUADRATIC_QUAD		 = 23 !	Quadrilateral Lagrange P2
 	integer(int32),parameter,public :: VTK_QUADRATIC_TETRA	 = 24 !	Tetrahedron Lagrange P2
-	integer(int32),parameter,public :: VTK_QUADRATIC_HEXAHEDRON = 25 !	Hexahedron Lagrange P
+	integer(int32),parameter,public :: VTK_QUADRATIC_HEXAHEDRON = 25 !	Hexahedron Lagrange P2	
+	integer(int32),parameter,public :: VTK_QUADRATIC_LINEAR_WEDGE = 31
 
 	integer(int32),parameter,public :: MSH_LINE		 = 1 !	Edge Lagrange P1
 	integer(int32),parameter,public :: MSH_TRIANGLE	 = 2 !	Triangle Lagrange P1
@@ -167,7 +168,12 @@ module FEMDomainClass
 		procedure,public :: checkConnectivity => CheckConnedctivityFEMDomain
 		procedure,public :: connectivity => connectivityFEMDomain 
 		procedure,public :: copy => copyFEMDomain
+		
+		! >>>>>>>> un-recommended >>>>>>>>>
 		procedure,public :: convertMeshType => convertMeshTypeFEMDomain
+		! <<<<<<<< un-recommended <<<<<<<<<
+
+		procedure,public :: changeElementType => changeElementTypeFEMDomain
 		procedure,public :: clipVector => clipVectorFEMDomain
 		
 		procedure,public :: contactdetect => contactdetectFEMDomain
@@ -436,11 +442,11 @@ module FEMDomainClass
 		procedure,public :: x3d => x3dFEMDomain
 		procedure,public :: csv => csvFEMDomain
 
+		! >>> revising for adopting quad mesh >>> (2024.05.13)
 		! matrices
-
-        procedure,public :: MassVector => MassVectorFEMDomain
-		procedure,public :: Bmatrix => BMatrixFEMDomain
+		procedure,public :: Bmatrix => BMatrixFEMDomain ! <<< now <<<
 		procedure,public :: Dmatrix => DMatrixFEMDomain
+		procedure,public :: MassVector => MassVectorFEMDomain
 		procedure,public :: StrainMatrix => StrainMatrixFEMDomain
 		procedure,public :: StrainVector => StrainVectorFEMDomain
 		procedure,public :: StressMatrix => StressMatrixFEMDomain
@@ -477,6 +483,7 @@ module FEMDomainClass
 		generic ::ZeroMatrix_as_COO => ZeroMatrix_as_COO_FEMDomain
 		
 		
+		! <<< revising for adopting quad mesh <<< (2024.05.13)
 
 
 
@@ -528,59 +535,59 @@ module FEMDomainClass
 contains
 
 ! ####################################################################
-subroutine addFEMDomain(obj,mesh,from,length,rot_x,rot_y,rot_z,x,y,z,dx,dy,dz)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine addFEMDomain(this,mesh,from,length,rot_x,rot_y,rot_z,x,y,z,dx,dy,dz)
+	class(FEMDomain_),intent(inout) :: this
     class(Mesh_),optional,intent(inout)    :: mesh
     integer(int32),optional,intent(in) :: from
     real(real64),optional,intent(in) :: length,rot_x,rot_y,rot_z,x,y,z,dx,dy,dz
-	call obj%mesh%add(mesh,from,length,rot_x,rot_y,rot_z,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz)
+	call this%mesh%add(mesh,from,length,rot_x,rot_y,rot_z,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz)
 end subroutine
 ! ####################################################################
 
 ! ####################################################################
-function lengthFEMDomain(obj) result(length)
-	class(FEMDomain_),intent(in) :: obj
+function lengthFEMDomain(this) result(length)
+	class(FEMDomain_),intent(in) :: this
 	real(real64) :: length(3)
 
-	length(:)=obj%Mesh%length()
+	length(:)=this%Mesh%length()
 end function
 
 ! ####################################################################
 
 
 ! ####################################################################
-function x_lenFEMDomain(obj) result(length)
-	class(FEMDomain_),intent(in) :: obj
+function x_lenFEMDomain(this) result(length)
+	class(FEMDomain_),intent(in) :: this
 	real(real64) :: length
 
-	length = obj%xmax()-obj%xmin()
+	length = this%xmax()-this%xmin()
 end function
 
 ! ####################################################################
 
 
 ! ####################################################################
-function y_lenFEMDomain(obj) result(length)
-	class(FEMDomain_),intent(in) :: obj
+function y_lenFEMDomain(this) result(length)
+	class(FEMDomain_),intent(in) :: this
 	real(real64) :: length
 
-	length = obj%ymax()-obj%ymin()
+	length = this%ymax()-this%ymin()
 end function
 
 ! ####################################################################
 
 ! ####################################################################
-function z_lenFEMDomain(obj) result(length)
-	class(FEMDomain_),intent(in) :: obj
+function z_lenFEMDomain(this) result(length)
+	class(FEMDomain_),intent(in) :: this
 	real(real64) :: length
 
-	length = obj%zmax()-obj%zmin()
+	length = this%zmax()-this%zmin()
 end function
 
 ! ####################################################################
-subroutine openFEMDomain(obj,path,name)
+subroutine openFEMDomain(this,path,name)
 
-	class(FEMDomain_),intent(inout) :: obj
+	class(FEMDomain_),intent(inout) :: this
 	character(*),intent(in) :: path
 	character(*),optional,intent(in) :: name
 	character(:),allocatable :: pathi
@@ -589,25 +596,25 @@ subroutine openFEMDomain(obj,path,name)
 
 
 	if(index(path,".vtk")/=0 )then
-		call obj%ImportVTKFile(name=path)
+		call this%ImportVTKFile(name=path)
 		return
 	endif
 
 
 	if(index(path,".stl")/=0 )then
-		call obj%ImportSTLFile(name=path)
+		call this%ImportSTLFile(name=path)
 		return
 	endif
 
 	if(present(name) )then
 		if(index(name,".vtk")/=0 )then
-			call obj%ImportVTKFile(name=path//"/"//name)
+			call this%ImportVTKFile(name=path//"/"//name)
 			return
 		endif
 	endif
 
 	! remove and initialze
-	call obj%remove()
+	call this%remove()
 
 	if(present(name) )then
 		pathi=path
@@ -618,24 +625,24 @@ subroutine openFEMDomain(obj,path,name)
 
 		call execute_command_line("mkdir -p "//pathi)
 		call execute_command_line("mkdir -p "//pathi//"/"//name )
-		call obj%Mesh%open(path=pathi//"/"//name ,name="Mesh") !implement!
-		call obj%MaterialProp%open(path=pathi//"/"//name ,name="MaterialProp")!implement!
-		call obj%Boundary%open(path=pathi//"/"//name ,name="Boundary")!implement!
-		call obj%ControlPara%open(path=pathi//"/"//name ,name="ControlPara")!implement!
-		call obj%ShapeFunction%open(path=pathi//"/"//name ,name="ShapeFunction")!implement!
+		call this%Mesh%open(path=pathi//"/"//name ,name="Mesh") !implement!
+		call this%MaterialProp%open(path=pathi//"/"//name ,name="MaterialProp")!implement!
+		call this%Boundary%open(path=pathi//"/"//name ,name="Boundary")!implement!
+		call this%ControlPara%open(path=pathi//"/"//name ,name="ControlPara")!implement!
+		call this%ShapeFunction%open(path=pathi//"/"//name ,name="ShapeFunction")!implement!
 
 		call f%open(pathi//"/"//name //"/"//"FEMDomain"//".prop" )
-		write(f%fh,*) obj%RealTime
-		write(f%fh,*) obj%NumOfDomain
-		write(f%fh, '(A)' ) obj%FilePath
-		write(f%fh, '(A)' ) obj%FileName
-		write(f%fh, '(A)' ) obj%name
-		write(f%fh, '(A)' ) obj%dtype
-		write(f%fh, '(A)' ) obj%SolverType
-		write(f%fh, '(A)' ) obj%Category1
-		write(f%fh, '(A)' ) obj%Category2
-		write(f%fh, '(A)' ) obj%Category3
-		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
+		write(f%fh,*) this%RealTime
+		write(f%fh,*) this%NumOfDomain
+		write(f%fh, '(A)' ) this%FilePath
+		write(f%fh, '(A)' ) this%FileName
+		write(f%fh, '(A)' ) this%name
+		write(f%fh, '(A)' ) this%dtype
+		write(f%fh, '(A)' ) this%SolverType
+		write(f%fh, '(A)' ) this%Category1
+		write(f%fh, '(A)' ) this%Category2
+		write(f%fh, '(A)' ) this%Category3
+		write(f%fh,*) this%timestep, this%NumberOfBoundaries, this%NumberOfMaterials
 		call f%close()
 	else
 		pathi=path
@@ -646,24 +653,24 @@ subroutine openFEMDomain(obj,path,name)
 
 		call execute_command_line("mkdir -p "//pathi)
 		call execute_command_line("mkdir -p "//pathi//"/FEMDomain")
-		call obj%Mesh%open(path=pathi//"/"//"FEMDomain",name="Mesh")
-		call obj%MaterialProp%open(path=pathi//"/"//"FEMDomain",name="MaterialProp")
-		call obj%Boundary%open(path=pathi//"/"//"FEMDomain",name="Boundary")
-		call obj%ControlPara%open(path=pathi//"/"//"FEMDomain",name="ControlPara")
-		call obj%ShapeFunction%open(path=pathi//"/"//"FEMDomain",name="ShapeFunction")
+		call this%Mesh%open(path=pathi//"/"//"FEMDomain",name="Mesh")
+		call this%MaterialProp%open(path=pathi//"/"//"FEMDomain",name="MaterialProp")
+		call this%Boundary%open(path=pathi//"/"//"FEMDomain",name="Boundary")
+		call this%ControlPara%open(path=pathi//"/"//"FEMDomain",name="ControlPara")
+		call this%ShapeFunction%open(path=pathi//"/"//"FEMDomain",name="ShapeFunction")
 
 		call f%open(pathi//"/FEMDomain"//"/FEMDomain"//".prop" )
-		write(f%fh,*) obj%RealTime
-		write(f%fh,*) obj%NumOfDomain
-		write(f%fh, '(A)' ) obj%FilePath
-		write(f%fh, '(A)' ) obj%FileName
-		write(f%fh, '(A)' ) obj%name
-		write(f%fh, '(A)' ) obj%dtype
-		write(f%fh, '(A)' ) obj%SolverType
-		write(f%fh, '(A)' ) obj%Category1
-		write(f%fh, '(A)' ) obj%Category2
-		write(f%fh, '(A)' ) obj%Category3
-		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
+		write(f%fh,*) this%RealTime
+		write(f%fh,*) this%NumOfDomain
+		write(f%fh, '(A)' ) this%FilePath
+		write(f%fh, '(A)' ) this%FileName
+		write(f%fh, '(A)' ) this%name
+		write(f%fh, '(A)' ) this%dtype
+		write(f%fh, '(A)' ) this%SolverType
+		write(f%fh, '(A)' ) this%Category1
+		write(f%fh, '(A)' ) this%Category2
+		write(f%fh, '(A)' ) this%Category3
+		write(f%fh,*) this%timestep, this%NumberOfBoundaries, this%NumberOfMaterials
 		call f%close()
 	endif
 
@@ -721,69 +728,69 @@ recursive subroutine removeElementFEMDomain(this,x_min,x_max,y_min,y_max,z_min,z
 end subroutine
 
 ! ####################################################################
-subroutine removeFEMDomain(obj)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine removeFEMDomain(this)
+	class(FEMDomain_),intent(inout) :: this
 	
 
 	! remove all objects
 
-	call obj%Mesh%remove()
-	call obj%MaterialProp%remove()
-	call obj%Boundary%remove()
-	call obj%ControlPara%remove()
-	call obj%ShapeFunction%remove()
+	call this%Mesh%remove()
+	call this%MaterialProp%remove()
+	call this%Boundary%remove()
+	call this%ControlPara%remove()
+	call this%ShapeFunction%remove()
 
-	if(allocated(obj%Meshes))then
-		deallocate(obj%Meshes)
+	if(allocated(this%Meshes))then
+		deallocate(this%Meshes)
 	endif
-	if(allocated(obj%Materials))then
-		deallocate(obj%Materials)
+	if(allocated(this%Materials))then
+		deallocate(this%Materials)
 	endif
-	if(allocated(obj%Boundaries))then
-		deallocate(obj%Boundaries)
+	if(allocated(this%Boundaries))then
+		deallocate(this%Boundaries)
 	endif
-	!if(allocated(obj%FEMDomains))then
-	!	deallocate(obj%FEMDomains)
+	!if(allocated(this%FEMDomains))then
+	!	deallocate(this%FEMDomains)
 	!endif
 
 
-	if(allocated(obj%scalar) )then
-		deallocate(obj%scalar)
+	if(allocated(this%scalar) )then
+		deallocate(this%scalar)
 	endif
-	if(allocated(obj%vector) )then
-		deallocate(obj%vector)
+	if(allocated(this%vector) )then
+		deallocate(this%vector)
 	endif
-	if(allocated(obj%tensor) )then
-		deallocate(obj%tensor)
+	if(allocated(this%tensor) )then
+		deallocate(this%tensor)
 	endif
 
-	obj%RealTime=1.0d0
-	obj%NumOfDomain=1
-	obj%FilePath="None"
-	obj%FileName="None"
-	obj%Name="None"
-	obj%Dtype="None"
-	obj%SolverType="None"
-	obj%Category1 ="None"
-	obj%Category2="None"
-	obj%Category3="None"
-	obj%timestep=1
-	obj%NumberOfBoundaries=0
-	obj% NumberOfMaterials=0
+	this%RealTime=1.0d0
+	this%NumOfDomain=1
+	this%FilePath="None"
+	this%FileName="None"
+	this%Name="None"
+	this%Dtype="None"
+	this%SolverType="None"
+	this%Category1 ="None"
+	this%Category2="None"
+	this%Category3="None"
+	this%timestep=1
+	this%NumberOfBoundaries=0
+	this% NumberOfMaterials=0
 
-	if(allocated(obj%OversetConnect )) deallocate(obj%OversetConnect)
-	if(allocated(obj%OversetExists) ) deallocate(obj%OversetExists)
-	obj%num_oversetconnect = 0
+	if(allocated(this%OversetConnect )) deallocate(this%OversetConnect)
+	if(allocated(this%OversetExists) ) deallocate(this%OversetExists)
+	this%num_oversetconnect = 0
 
-	obj%total_rotation = 0.0d0
+	this%total_rotation = 0.0d0
 
 end subroutine
 ! ####################################################################
 
 
 ! ####################################################################
-subroutine saveFEMDomain(obj,path,name)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine saveFEMDomain(this,path,name)
+	class(FEMDomain_),intent(inout) :: this
 	character(*),intent(in) :: path
 	character(*),optional,intent(in) :: name
 	character(:),allocatable :: pathi
@@ -799,24 +806,24 @@ subroutine saveFEMDomain(obj,path,name)
 
 		call execute_command_line("mkdir -p "//pathi)
 		call execute_command_line("mkdir -p "//pathi//"/"//name )
-		call obj%Mesh%save(path=pathi//"/"//name ,name="Mesh")
-		call obj%MaterialProp%save(path=pathi//"/"//name ,name="MaterialProp")
-		call obj%Boundary%save(path=pathi//"/"//name ,name="Boundary")
-		call obj%ControlPara%save(path=pathi//"/"//name ,name="ControlPara")
-		call obj%ShapeFunction%save(path=pathi//"/"//name ,name="ShapeFunction")
+		call this%Mesh%save(path=pathi//"/"//name ,name="Mesh")
+		call this%MaterialProp%save(path=pathi//"/"//name ,name="MaterialProp")
+		call this%Boundary%save(path=pathi//"/"//name ,name="Boundary")
+		call this%ControlPara%save(path=pathi//"/"//name ,name="ControlPara")
+		call this%ShapeFunction%save(path=pathi//"/"//name ,name="ShapeFunction")
 
 		call f%open(pathi//"/"//name ,"/"//"FEMDomain",".prop" )
-		write(f%fh,*) obj%RealTime
-		write(f%fh,*) obj%NumOfDomain
-		write(f%fh, '(A)' ) obj%FilePath
-		write(f%fh, '(A)' ) obj%FileName
-		write(f%fh, '(A)' ) obj%name
-		write(f%fh, '(A)' ) obj%dtype
-		write(f%fh, '(A)' ) obj%SolverType
-		write(f%fh, '(A)' ) obj%Category1
-		write(f%fh, '(A)' ) obj%Category2
-		write(f%fh, '(A)' ) obj%Category3
-		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
+		write(f%fh,*) this%RealTime
+		write(f%fh,*) this%NumOfDomain
+		write(f%fh, '(A)' ) this%FilePath
+		write(f%fh, '(A)' ) this%FileName
+		write(f%fh, '(A)' ) this%name
+		write(f%fh, '(A)' ) this%dtype
+		write(f%fh, '(A)' ) this%SolverType
+		write(f%fh, '(A)' ) this%Category1
+		write(f%fh, '(A)' ) this%Category2
+		write(f%fh, '(A)' ) this%Category3
+		write(f%fh,*) this%timestep, this%NumberOfBoundaries, this%NumberOfMaterials
 		call f%close()
 	else
 		pathi=path
@@ -827,31 +834,31 @@ subroutine saveFEMDomain(obj,path,name)
 
 		call execute_command_line("mkdir -p "//pathi)
 		call execute_command_line("mkdir -p "//pathi//"/FEMDomain")
-		call obj%Mesh%save(path=pathi//"/"//"FEMDomain",name="Mesh")
-		call obj%MaterialProp%save(path=pathi//"/"//"FEMDomain",name="MaterialProp")
-		call obj%Boundary%save(path=pathi//"/"//"FEMDomain",name="Boundary")
-		call obj%ControlPara%save(path=pathi//"/"//"FEMDomain",name="ControlPara")
-		call obj%ShapeFunction%save(path=pathi//"/"//"FEMDomain",name="ShapeFunction")
+		call this%Mesh%save(path=pathi//"/"//"FEMDomain",name="Mesh")
+		call this%MaterialProp%save(path=pathi//"/"//"FEMDomain",name="MaterialProp")
+		call this%Boundary%save(path=pathi//"/"//"FEMDomain",name="Boundary")
+		call this%ControlPara%save(path=pathi//"/"//"FEMDomain",name="ControlPara")
+		call this%ShapeFunction%save(path=pathi//"/"//"FEMDomain",name="ShapeFunction")
 
 		call f%open(pathi//"/FEMDomain"//"/FEMDomain"//".prop" )
-		write(f%fh,*) obj%RealTime
-		write(f%fh,*) obj%NumOfDomain
-		write(f%fh, '(A)' ) obj%FilePath
-		write(f%fh, '(A)' ) obj%FileName
-		write(f%fh, '(A)' ) obj%name
-		write(f%fh, '(A)' ) obj%dtype
-		write(f%fh, '(A)' ) obj%SolverType
-		write(f%fh, '(A)' ) obj%Category1
-		write(f%fh, '(A)' ) obj%Category2
-		write(f%fh, '(A)' ) obj%Category3
-		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
+		write(f%fh,*) this%RealTime
+		write(f%fh,*) this%NumOfDomain
+		write(f%fh, '(A)' ) this%FilePath
+		write(f%fh, '(A)' ) this%FileName
+		write(f%fh, '(A)' ) this%name
+		write(f%fh, '(A)' ) this%dtype
+		write(f%fh, '(A)' ) this%SolverType
+		write(f%fh, '(A)' ) this%Category1
+		write(f%fh, '(A)' ) this%Category2
+		write(f%fh, '(A)' ) this%Category3
+		write(f%fh,*) this%timestep, this%NumberOfBoundaries, this%NumberOfMaterials
 		call f%close()
 	endif
 end subroutine 
 
 !##################################################
-function divide_mpi_FEMDomain(obj,mpid) result(FEMDomain)
-	class(FEMDomain_),intent(inout)::obj
+function divide_mpi_FEMDomain(this,mpid) result(FEMDomain)
+	class(FEMDomain_),intent(inout)::this
 	type(FEMDomain_) :: FEMDomain
 	
     type(Mesh_),allocatable :: meshes(:)
@@ -880,13 +887,13 @@ function divide_mpi_FEMDomain(obj,mpid) result(FEMDomain)
 	n = mpid%petot
 
 	if(n==1)then
-		femdomain = obj
+		femdomain = this
 		return
 	endif
-	subdomain_idx = int(zeros(obj%ne() ) )
-	subdomain_center_coord = zeros(n,obj%nd() )
+	subdomain_idx = int(zeros(this%ne() ) )
+	subdomain_center_coord = zeros(n,this%nd() )
 	subdomain_center_elem_idx = int(zeros(n))
-	elem_idx = [(i,i=1,obj%ne() ) ]
+	elem_idx = [(i,i=1,this%ne() ) ]
 	norms = zeros(n)
 	! set kernel of each subdomain
 	subdomain_center_elem_idx = random%draw(elem_idx,n)
@@ -896,23 +903,23 @@ function divide_mpi_FEMDomain(obj,mpid) result(FEMDomain)
 
 	if(mpid%myrank==0)then
 
-		!num_shared_elem = int(zeros(obj%ne() ) )
+		!num_shared_elem = int(zeros(this%ne() ) )
 		!!$OMP parallel do
-		!do i=1,size(obj%mesh%elemnod,1)
-		!	num_shared_elem(obj%mesh%elemnod(i,:) ) = num_shared_elem(obj%mesh%elemnod(i,:) ) + 1
+		!do i=1,size(this%mesh%elemnod,1)
+		!	num_shared_elem(this%mesh%elemnod(i,:) ) = num_shared_elem(this%mesh%elemnod(i,:) ) + 1
 		!enddo
 		!!$OMP end parallel do
 
 
 		!$OMP parallel do
 		do i=1,n
-			subdomain_center_coord(i,:) =  obj%centerPosition(ElementID=subdomain_center_elem_idx(i) )
+			subdomain_center_coord(i,:) =  this%centerPosition(ElementID=subdomain_center_elem_idx(i) )
 		enddo
 		!$OMP end parallel do
 
 		!$OMP parallel do private(new_center,norms)
-		do i=1,obj%ne() 
-			new_center =  obj%centerPosition(ElementID=i)
+		do i=1,this%ne() 
+			new_center =  this%centerPosition(ElementID=i)
 			do j=1,n
 				norms(j) = dot_product(new_center-subdomain_center_coord(j,:),new_center-subdomain_center_coord(j,:))
 			enddo
@@ -926,21 +933,21 @@ function divide_mpi_FEMDomain(obj,mpid) result(FEMDomain)
 	! select ones
 	i = mpid%myrank+1
 	ne = countif(array=subdomain_idx,Equal=.true.,value=i)
-	allocate(femdomain%mesh%elemnod(ne,obj%nne() ) ) 
+	allocate(femdomain%mesh%elemnod(ne,this%nne() ) ) 
 	elemid = 0
-	do j=1,obj%ne()
+	do j=1,this%ne()
 		if(subdomain_idx(j)== i)then
 			elemid = elemid + 1
 			! store global node id
-			femdomain%mesh%elemnod(elemid,:) = obj%mesh%elemnod(j,:)
+			femdomain%mesh%elemnod(elemid,:) = this%mesh%elemnod(j,:)
 		endif
 	enddo
 	femdomain%mpi_global_node_idx = RemoveOverlap(to_vector(femdomain%mesh%elemnod))
-	femdomain%mesh%nodcoord = zeros( size(femdomain%mpi_global_node_idx),obj%nd() )
+	femdomain%mesh%nodcoord = zeros( size(femdomain%mpi_global_node_idx),this%nd() )
 
 	! Global index to local index
 	do j=1,size(femdomain%mpi_global_node_idx)
-		femdomain%mesh%nodcoord(j,:) = obj%mesh%nodcoord( femdomain%mpi_global_node_idx(j),: )
+		femdomain%mesh%nodcoord(j,:) = this%mesh%nodcoord( femdomain%mpi_global_node_idx(j),: )
 	enddo
 	do j=1,size(femdomain%mesh%elemnod,1)
 		do k=1,size(femdomain%mesh%elemnod,2)
@@ -989,8 +996,8 @@ end function
 
 
 !##################################################
-function divide_nFEMDomain(obj,n) result(FEMDomains)
-	class(FEMDomain_),intent(inout)::obj
+function divide_nFEMDomain(this,n) result(FEMDomains)
+	class(FEMDomain_),intent(inout)::this
 	type(FEMDomain_),allocatable :: FEMDomains(:)
 	!integer(int32),allocatable :: FEMDomains(:)
 	
@@ -1018,7 +1025,7 @@ function divide_nFEMDomain(obj,n) result(FEMDomains)
 
 	if(n==1)then
 		allocate(femdomains(1) )
-		femdomains(1) = obj
+		femdomains(1) = this
 		return
 	endif
 
@@ -1027,17 +1034,17 @@ function divide_nFEMDomain(obj,n) result(FEMDomains)
 
 	! split obj into n objects
 	! incremental method(逐次追加法)
-	subdomain_idx = int(zeros(obj%ne() ) )
-	subdomain_center_coord = zeros(n,obj%nd() )
+	subdomain_idx = int(zeros(this%ne() ) )
+	subdomain_center_coord = zeros(n,this%nd() )
 	subdomain_center_elem_idx = int(zeros(n))
-	elem_idx = [(i,i=1,obj%ne() ) ]
+	elem_idx = [(i,i=1,this%ne() ) ]
 	norms = zeros(n)
 	! set kernel of each subdomain
 	subdomain_center_elem_idx = random%draw(elem_idx,n)
 
 	!$OMP parallel do
 	do i=1,n
-		subdomain_center_coord(i,:) =  obj%centerPosition(ElementID=subdomain_center_elem_idx(i) )
+		subdomain_center_coord(i,:) =  this%centerPosition(ElementID=subdomain_center_elem_idx(i) )
 	enddo
 	!$OMP end parallel do
 
@@ -1045,8 +1052,8 @@ function divide_nFEMDomain(obj,n) result(FEMDomains)
 
 	! select ones
 	!$OMP parallel do private(new_center,norms)
-	do i=1,obj%ne() 
-		new_center =  obj%centerPosition(ElementID=i)
+	do i=1,this%ne() 
+		new_center =  this%centerPosition(ElementID=i)
 		do j=1,n
 			norms(j) = dot_product(new_center-subdomain_center_coord(j,:),new_center-subdomain_center_coord(j,:))
 		enddo
@@ -1062,23 +1069,23 @@ function divide_nFEMDomain(obj,n) result(FEMDomains)
 	!$OMP parallel do private(ne,elemid,j,k)
 	do i=1,n
 		ne = countif(array=subdomain_idx,Equal=.true.,value=i)
-		allocate(femdomains(i)%mesh%elemnod(ne,obj%nne() ) ) 
+		allocate(femdomains(i)%mesh%elemnod(ne,this%nne() ) ) 
 		elemid = 0
-		do j=1,obj%ne()
+		do j=1,this%ne()
 			if(subdomain_idx(j)== i)then
 				elemid = elemid + 1
 				! store global node id
-				femdomains(i)%mesh%elemnod(elemid,:) = obj%mesh%elemnod(j,:)
+				femdomains(i)%mesh%elemnod(elemid,:) = this%mesh%elemnod(j,:)
 			endif
 		enddo
 
 		femdomains(i)%mpi_global_node_idx = &
 			RemoveOverlap(to_vector(femdomains(i)%mesh%elemnod))
 		
-		femdomains(i)%mesh%nodcoord = zeros( size(femdomains(i)%mpi_global_node_idx),obj%nd() )
+		femdomains(i)%mesh%nodcoord = zeros( size(femdomains(i)%mpi_global_node_idx),this%nd() )
 		
 		do j=1,size(femdomains(i)%mpi_global_node_idx)
-			femdomains(i)%mesh%nodcoord(j,:) = obj%mesh%nodcoord( femdomains(i)%mpi_global_node_idx(j),: )
+			femdomains(i)%mesh%nodcoord(j,:) = this%mesh%nodcoord( femdomains(i)%mpi_global_node_idx(j),: )
 		enddo
 
 		! change global node-idx to local node-idx
@@ -1171,7 +1178,7 @@ function divide_nFEMDomain(obj,n) result(FEMDomains)
 !
 !		! greedy method
 !		allocate(FEMDomains(n))
-!		proc_id = int(zeros(obj%ne() ) )
+!		proc_id = int(zeros(this%ne() ) )
 !		proc_id(1) = 1
 !		last_elem_id = 1
 !		max_elem_per_subdomain = size(proc_id)/n + 1
@@ -1179,7 +1186,7 @@ function divide_nFEMDomain(obj,n) result(FEMDomains)
 !		do subdomain_id = 1,n
 !			elem_counter = 0
 !			do
-!				next_elems = obj%getNeighboringElementList(ElementID=last_elem_id)
+!				next_elems = this%getNeighboringElementList(ElementID=last_elem_id)
 !				do i=1,size(next_elems)
 !					elem_counter = elem_counter + 1
 !					proc_id( next_elems(i) ) = subdomain_id
@@ -1207,12 +1214,12 @@ function divide_nFEMDomain(obj,n) result(FEMDomains)
 !		allocate(FEMDomains(n))
 !
 !		! Greedy algorithm
-!		if(obj%Mesh%empty() .eqv. .true. )then
+!		if(this%Mesh%empty() .eqv. .true. )then
 !			print *, "divideFEMDomain >> ERROR >> No mesh is imported."
 !			stop
 !		endif
 !
-!		meshes = obj%mesh%divide(n)
+!		meshes = this%mesh%divide(n)
 !
 !		! import mesh
 !		do i=1,n
@@ -1223,8 +1230,8 @@ end function divide_nFEMDomain
 !##################################################
 
 !##################################################
-subroutine displayFEMDomain(obj,path,name,extention,field)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine displayFEMDomain(this,path,name,extention,field)
+	class(FEMDomain_),intent(inout) :: this
 	character(*),intent(in) :: path,name,extention
 	integer(int32) :: i,j,n
 	real(real64),optional,intent(in) :: field(:)
@@ -1237,76 +1244,76 @@ subroutine displayFEMDomain(obj,path,name,extention,field)
 		write(10,'(A)' ) "ASCII"
 		write(10,'(A)' ) "DATASET POLYDATA"
 		write(10,'(A)' ,advance="no") "POINTS "
-		write(10,'(i10)' ,advance="no")size(obj%mesh%NodCoord,1)
+		write(10,'(i10)' ,advance="no")size(this%mesh%NodCoord,1)
 		write(10,'(A)')" float"
-		do i=1,size(obj%mesh%NodCoord,1)
-			do j=1,size(obj%mesh%NodCoord,2)
-				if(j==size(obj%mesh%NodCoord,2))then
-					write(10,'(f20.8)' ) obj%mesh%NodCoord(i,j)
+		do i=1,size(this%mesh%NodCoord,1)
+			do j=1,size(this%mesh%NodCoord,2)
+				if(j==size(this%mesh%NodCoord,2))then
+					write(10,'(f20.8)' ) this%mesh%NodCoord(i,j)
 				else
-					write(10,'(f20.8)', advance="no" ) obj%mesh%NodCoord(i,j)
+					write(10,'(f20.8)', advance="no" ) this%mesh%NodCoord(i,j)
 					write(10,'(A)', advance="no" ) " "
 				endif
 			enddo
 		enddo
 		write(10,'(A)',advance="no")" POLYGONS "
-		write(10,'(i10)',advance="no") 6*size(obj%mesh%ElemNod,1)
+		write(10,'(i10)',advance="no") 6*size(this%mesh%ElemNod,1)
 		write(10,'(A)',advance="no") " "
-		write(10,'(i10)') size(obj%mesh%ElemNod,1)*5*6
-		do i=1,size(obj%mesh%ElemNod,1)
+		write(10,'(i10)') size(this%mesh%ElemNod,1)*5*6
+		do i=1,size(this%mesh%ElemNod,1)
 			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,1)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,1)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,2)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,2)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,3)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,3)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,4)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,4)-1
 			write(10,'(A)') " "
 			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,5)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,5)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,6)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,6)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,7)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,7)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,8)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,8)-1
 			write(10,'(A)') " "
 			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,1)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,1)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,2)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,2)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,6)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,6)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,5)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,5)-1
 			write(10,'(A)') " "
 			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,3)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,3)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,4)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,4)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,8)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,8)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,7)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,7)-1
 			write(10,'(A)') " "
 			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,1)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,1)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,5)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,5)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,8)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,8)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,4)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,4)-1
 			write(10,'(A)') " "
 			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,2)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,2)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,3)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,3)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,7)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,7)-1
 			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") obj%mesh%ElemNod(i,6)-1
+			write(10,'(i10)',advance="no") this%mesh%ElemNod(i,6)-1
 			write(10,'(A)') " "
 		enddo
 		write(10,'(A)') "CELL_DATA 6"
@@ -1314,7 +1321,7 @@ subroutine displayFEMDomain(obj,path,name,extention,field)
 		write(10,'(A)')"ply"
 		write(10,'(A)')"format ascii 1.0"
 		write(10,'(A)',advance="no")"element vertex "
-		write(10,'(i10)') size(obj%mesh%NodCoord,1)
+		write(10,'(i10)') size(this%mesh%NodCoord,1)
 		write(10,'(A)')"property float32 x"
 		write(10,'(A)')"property float32 y"
 		write(10,'(A)')"property float32 z"
@@ -1322,28 +1329,28 @@ subroutine displayFEMDomain(obj,path,name,extention,field)
 		write(10,'(A)')"property uchar green"
 		write(10,'(A)')"property uchar blue"
 		write(10,'(A)',advance="no")"element face "
-		write(10,'(i10)') size(obj%mesh%ElemNod,1)*6
+		write(10,'(i10)') size(this%mesh%ElemNod,1)*6
 		write(10,'(A)')"property list uint8 int32 vertex_indices"
 		write(10,'(A)') "end_header"
-		do i=1,size(obj%mesh%NodCoord,1)
-			do j=1,size(obj%mesh%NodCoord,2)
-				if(j==size(obj%mesh%NodCoord,2))then
-					write(10,'(f20.8)', advance="no"  ) obj%mesh%NodCoord(i,j)
+		do i=1,size(this%mesh%NodCoord,1)
+			do j=1,size(this%mesh%NodCoord,2)
+				if(j==size(this%mesh%NodCoord,2))then
+					write(10,'(f20.8)', advance="no"  ) this%mesh%NodCoord(i,j)
 					write(10,'(A)', advance="no" ) " "
 				else
-					write(10,'(f20.8)', advance="no" ) obj%mesh%NodCoord(i,j)
+					write(10,'(f20.8)', advance="no" ) this%mesh%NodCoord(i,j)
 					write(10,'(A)', advance="no" ) " "
 				endif
 			enddo
 			write(10,'(A)', advance="no" ) " "
-			write(10,'(i3)',advance="no") int(obj%mesh%NodCoord(i,1)*255.0d0/maxval(obj%mesh%NodCoord(:,1) ))
+			write(10,'(i3)',advance="no") int(this%mesh%NodCoord(i,1)*255.0d0/maxval(this%mesh%NodCoord(:,1) ))
 			write(10,'(A)', advance="no" ) " "
-			write(10,'(i3)',advance="no") int(obj%mesh%NodCoord(i,2)*255.0d0/maxval(obj%mesh%NodCoord(:,2) ))
+			write(10,'(i3)',advance="no") int(this%mesh%NodCoord(i,2)*255.0d0/maxval(this%mesh%NodCoord(:,2) ))
 			write(10,'(A)', advance="no" ) " "
-			write(10,'(i3)') int(obj%mesh%NodCoord(i,3)*255.0d0/maxval(obj%mesh%NodCoord(:,3) ))
+			write(10,'(i3)') int(this%mesh%NodCoord(i,3)*255.0d0/maxval(this%mesh%NodCoord(:,3) ))
 		enddo
-		do i=1,size(obj%mesh%ElemNod,1)
-			val = dble(obj%mesh%ElemNod(i,1)-1)
+		do i=1,size(this%mesh%ElemNod,1)
+			val = dble(this%mesh%ElemNod(i,1)-1)
 			if(present(field) )then
 				val=field(i)
 			endif
@@ -1414,8 +1421,8 @@ end subroutine displayFEMDomain
 
 
 !##################################################
-subroutine fieldFEMDomain(obj,scalar,vector,tensor)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine fieldFEMDomain(this,scalar,vector,tensor)
+	class(FEMDomain_),intent(inout) :: this
 	real(real64),optional,intent(in) :: scalar(:),vector(:,:),tensor(:,:,:)
 	integer(int32) :: i,j,k,n
 
@@ -1425,20 +1432,20 @@ subroutine fieldFEMDomain(obj,scalar,vector,tensor)
 			print *, "displayFEMDomain :: ERROR :: scalar is not allocated."
 			stop 
 		endif
-		if(allocated(obj%scalar) )then
-			deallocate(obj%scalar)
+		if(allocated(this%scalar) )then
+			deallocate(this%scalar)
 		endif
 		i=size(scalar)
-		if(obj%mesh%empty() .eqv. .true.)then
+		if(this%mesh%empty() .eqv. .true.)then
 			print *, "displayFEMDomain :: ERROR :: element is not imported."
 			stop
 		endif
-		if(i/=size(obj%mesh%ElemNod,1))then
-			print *, "displayFEMDomain :: ERROR :: size(scalar/=size(obj%mesh%ElemNod,1)"
+		if(i/=size(this%mesh%ElemNod,1))then
+			print *, "displayFEMDomain :: ERROR :: size(scalar/=size(this%mesh%ElemNod,1)"
 			stop 
 		endif
-		allocate(obj%scalar(i) )
-		obj%scalar(:) = scalar(:)
+		allocate(this%scalar(i) )
+		this%scalar(:) = scalar(:)
 	endif
 	
 	! import data >> to obj
@@ -1447,21 +1454,21 @@ subroutine fieldFEMDomain(obj,scalar,vector,tensor)
 			print *, "displayFEMDomain :: ERROR :: vector is not allocated."
 			stop 
 		endif
-		if(allocated(obj%vector) )then
-			deallocate(obj%vector)
+		if(allocated(this%vector) )then
+			deallocate(this%vector)
 		endif
 		i=size(vector,1)
 		j=size(vector,2)
-		if(obj%mesh%empty() .eqv. .true.)then
+		if(this%mesh%empty() .eqv. .true.)then
 			print *, "displayFEMDomain :: ERROR :: element is not imported."
 			stop
 		endif
-		if(i/=size(obj%mesh%ElemNod,1))then
-			print *, "displayFEMDomain :: ERROR :: size(vector/=size(obj%mesh%ElemNod,1)"
+		if(i/=size(this%mesh%ElemNod,1))then
+			print *, "displayFEMDomain :: ERROR :: size(vector/=size(this%mesh%ElemNod,1)"
 			stop 
 		endif
-		allocate(obj%vector(i,j) )
-		obj%vector(:,:) = vector(:,:)
+		allocate(this%vector(i,j) )
+		this%vector(:,:) = vector(:,:)
 	endif
 	
 	! import data >> to obj
@@ -1470,22 +1477,22 @@ subroutine fieldFEMDomain(obj,scalar,vector,tensor)
 			print *, "displayFEMDomain :: ERROR :: tensor is not allocated."
 			stop 
 		endif
-		if(allocated(obj%tensor) )then
-			deallocate(obj%tensor)
+		if(allocated(this%tensor) )then
+			deallocate(this%tensor)
 		endif
 		i=size(tensor,1)
 		j=size(tensor,2)
 		k=size(tensor,3)
-		if(obj%mesh%empty() .eqv. .true.)then
+		if(this%mesh%empty() .eqv. .true.)then
 			print *, "displayFEMDomain :: ERROR :: element is not imported."
 			stop
 		endif
-		if(i/=size(obj%mesh%ElemNod,1))then
-			print *, "displayFEMDomain :: ERROR :: size(tensor/=size(obj%mesh%ElemNod,1)"
+		if(i/=size(this%mesh%ElemNod,1))then
+			print *, "displayFEMDomain :: ERROR :: size(tensor/=size(this%mesh%ElemNod,1)"
 			stop 
 		endif
-		allocate(obj%tensor(i,j,k) )
-		obj%tensor(:,:,:) = tensor(:,:,:)
+		allocate(this%tensor(i,j,k) )
+		this%tensor(:,:,:) = tensor(:,:,:)
 	endif
 
 end subroutine fieldFEMDomain
@@ -1493,13 +1500,13 @@ end subroutine fieldFEMDomain
 
 
 !##################################################
-subroutine DeallocateFEMDomain(obj)
-    class(FEMDomain_),intent(inout)::obj
+subroutine DeallocateFEMDomain(this)
+    class(FEMDomain_),intent(inout)::this
 
-    call DeallocateMesh(obj%Mesh)
-    call DeallocateMaterialProp(obj%MaterialProp)
-    call DeallocateBoundary(obj%Boundary)
-    call DeallocateShapeFunction(obj%ShapeFunction)    
+    call DeallocateMesh(this%Mesh)
+    call DeallocateMaterialProp(this%MaterialProp)
+    call DeallocateBoundary(this%Boundary)
+    call DeallocateShapeFunction(this%ShapeFunction)    
 
 end subroutine DeallocateFEMDomain
 !##################################################
@@ -1507,35 +1514,35 @@ end subroutine DeallocateFEMDomain
 
 
 ! ################################################
-subroutine renameFEMDomain(obj,Name)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine renameFEMDomain(this,Name)
+	class(FEMDomain_),intent(inout) :: this
 	character(*),intent(in) :: Name
 
-	obj%Name = ""
-	obj%Name = name
+	this%Name = ""
+	this%Name = name
 
 end subroutine renameFEMDomain
 
 
 !##################################################
-subroutine InitializeFEMDomain(obj,Default,FileName,simple)
-	class(FEMDomain_),intent(inout)::obj
+subroutine InitializeFEMDomain(this,Default,FileName,simple)
+	class(FEMDomain_),intent(inout)::this
 	character(*),optional,intent(in) :: FileName
     logical,optional,intent(in)::Default,simple
 
 
-	obj%FilePath="None"
-	obj%FileName="None"
-	obj%Name="None"
-	obj%SolverType="None"
-	obj%Category1 ="None"
-	obj%Category2="None"
-	obj%Category3="None"
+	this%FilePath="None"
+	this%FileName="None"
+	this%Name="None"
+	this%SolverType="None"
+	this%Category1 ="None"
+	this%Category2="None"
+	this%Category3="None"
 
 	if(.not. present(FileName) )then
-		obj%FileName="noName"
+		this%FileName="noName"
 	else
-		obj%FileName=FileName
+		this%FileName=FileName
 	endif
 
 	if(present(simple) )then
@@ -1546,12 +1553,12 @@ subroutine InitializeFEMDomain(obj,Default,FileName,simple)
 	endif
 
     if(Default .eqv. .true.)then
-        obj%Dtype="FEMDomain"
+        this%Dtype="FEMDomain"
     endif
-    call InitializeMesh(obj%Mesh)
-    call InitializeMaterial(obj%MaterialProp)
-	call obj%Boundary%Init(Default)
-	obj%timestep=0
+    call InitializeMesh(this%Mesh)
+    call InitializeMaterial(this%MaterialProp)
+	call this%Boundary%Init(Default)
+	this%timestep=0
     
     
     
@@ -1561,31 +1568,31 @@ end subroutine InitializeFEMDomain
 
 
 !##################################################
-subroutine showFEMDomain(obj)
-	class(FEMDomain_),intent(in)::obj
+subroutine showFEMDomain(this)
+	class(FEMDomain_),intent(in)::this
 	integer(int32)::i
 
 	print *, "=========================="
-	print *, "Name :: ",obj%name
+	print *, "Name :: ",this%name
 	print *, "Materials :: "
-	if(.not.allocated(obj%Materials) )then
+	if(.not.allocated(this%Materials) )then
 		print *, "No material is imported"
 	else
-		do i=1,obj%NumberOfMaterials
-			if(associated(obj%Materials(i)%materialp ) )then
-				call obj%Materials(i)%materialp%show()
+		do i=1,this%NumberOfMaterials
+			if(associated(this%Materials(i)%materialp ) )then
+				call this%Materials(i)%materialp%show()
 			else
 				cycle
 			endif
 		enddo
 	endif
 	print *, "Boundaries :: "
-	if(.not.allocated(obj%boundaries) )then
+	if(.not.allocated(this%boundaries) )then
 		print *, "No Boundary is imported"
 	else
-		do i=1,obj%NumberOfBoundaries
-			if(associated(obj%Boundaries(i)%Boundaryp ) )then
-				call obj%Boundaries(i)%Boundaryp%show()
+		do i=1,this%NumberOfBoundaries
+			if(associated(this%Boundaries(i)%Boundaryp ) )then
+				call this%Boundaries(i)%Boundaryp%show()
 			else
 				cycle
 			endif
@@ -1597,10 +1604,10 @@ end subroutine showFEMDomain
 !##################################################
 
 !##################################################
-subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,Mesh,Boundaries&
+subroutine ImportFEMDomain(this,OptionalFileFormat,OptionalProjectName,FileHandle,Mesh,Boundaries&
 		,Boundary,Materials, Material,NumberOfBoundaries,BoundaryID,NumberOfMaterials,MaterialID,&
 		node,element,materialinfo,dirichlet,neumann,file)
-	class(FEMDomain_),intent(inout)::obj
+	class(FEMDomain_),intent(inout)::this
 	type(Mesh_),optional,intent(in)::Mesh
 	type(Mesh_)::mobj
 	type(Boundary_),optional,intent(in)::Boundary
@@ -1624,7 +1631,7 @@ subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
 	if(present(file) )then
 		if(index(file,".vtk")/=0 )then
-			call obj%ImportVTKFile(name=file)
+			call this%ImportVTKFile(name=file)
 			print *, "imported ",file
 			return
 		endif
@@ -1663,7 +1670,7 @@ subroutine ImportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 		enddo
 		call f%close()
 		call mobj%convertTetraToHexa()
-		call obj%Mesh%copy(mobj)
+		call this%Mesh%copy(mobj)
 		return
 	endif
 
@@ -1675,12 +1682,12 @@ if(present(node) )then
 		endif
 		call f%open(file)
 		read(f%fh,*) nodenum, dimnum
-		if(allocated(obj%Mesh%NodCoord ) )then
-			deallocate(obj%Mesh%NodCoord)
+		if(allocated(this%Mesh%NodCoord ) )then
+			deallocate(this%Mesh%NodCoord)
 		endif
-		allocate(obj%Mesh%NodCoord(nodenum, dimnum) )
+		allocate(this%Mesh%NodCoord(nodenum, dimnum) )
 		do i=1,nodenum
-			read(f%fh,*) obj%Mesh%NodCoord(i,:)
+			read(f%fh,*) this%Mesh%NodCoord(i,:)
 		enddo
 		call f%close()
 		return
@@ -1695,12 +1702,12 @@ if(present(Element) )then
 		endif
 		call f%open(file)
 		read(f%fh,*) nodenum, dimnum
-		if(allocated(obj%Mesh%ElemNod ) )then
-			deallocate(obj%Mesh%ElemNod)
+		if(allocated(this%Mesh%ElemNod ) )then
+			deallocate(this%Mesh%ElemNod)
 		endif
-		allocate(obj%Mesh%ElemNod(nodenum, dimnum) )
+		allocate(this%Mesh%ElemNod(nodenum, dimnum) )
 		do i=1,nodenum
-			read(f%fh,*) obj%Mesh%ElemNod(i,:)
+			read(f%fh,*) this%Mesh%ElemNod(i,:)
 		enddo
 		call f%close()
 		return
@@ -1715,21 +1722,21 @@ if(present(materialinfo) )then
 		endif
 		call f%open(file)
 		read(f%fh,*) nodenum
-		if(allocated(obj%Mesh%ElemMat ) )then
-			deallocate(obj%Mesh%ElemMat)
+		if(allocated(this%Mesh%ElemMat ) )then
+			deallocate(this%Mesh%ElemMat)
 		endif
-		allocate(obj%Mesh%ElemMat(nodenum) )
+		allocate(this%Mesh%ElemMat(nodenum) )
 		do i=1,nodenum
-			read(f%fh,*) obj%Mesh%ElemMat(i)
+			read(f%fh,*) this%Mesh%ElemMat(i)
 		enddo
 		
 		read(f%fh,*) matnum, paranum
-		if(allocated(obj%MaterialProp%MatPara ) )then
-			deallocate(obj%MaterialProp%MatPara)
+		if(allocated(this%MaterialProp%MatPara ) )then
+			deallocate(this%MaterialProp%MatPara)
 		endif
-		allocate(obj%MaterialProp%MatPara(matnum, paranum) )
+		allocate(this%MaterialProp%MatPara(matnum, paranum) )
 		do i=1,matnum
-			read(f%fh,*) obj%MaterialProp%MatPara(i,:)
+			read(f%fh,*) this%MaterialProp%MatPara(i,:)
 		enddo
 		call f%close()
 		return
@@ -1743,26 +1750,26 @@ if(present(dirichlet) )then
 			stop
 		endif
 		call f%open(file)
-		dimnum=size(obj%mesh%NodCoord,2)
-		if(allocated(obj%Boundary%DboundNum ) )then
-			deallocate(obj%Boundary%DboundNum)
+		dimnum=size(this%mesh%NodCoord,2)
+		if(allocated(this%Boundary%DboundNum ) )then
+			deallocate(this%Boundary%DboundNum)
 		endif
-		allocate(obj%Boundary%DboundNum(dimnum) )
-		read(f%fh,*) obj%Boundary%DboundNum(:)
-		if(allocated(obj%Boundary%DboundNodID ) )then
-			deallocate(obj%Boundary%DboundNodID)
+		allocate(this%Boundary%DboundNum(dimnum) )
+		read(f%fh,*) this%Boundary%DboundNum(:)
+		if(allocated(this%Boundary%DboundNodID ) )then
+			deallocate(this%Boundary%DboundNodID)
 		endif
-		allocate(obj%Boundary%DboundNodID(maxval(obj%Boundary%DboundNum),dimnum ) )
-		if(allocated(obj%Boundary%DBoundVal ) )then
-			deallocate(obj%Boundary%DBoundVal)
+		allocate(this%Boundary%DboundNodID(maxval(this%Boundary%DboundNum),dimnum ) )
+		if(allocated(this%Boundary%DBoundVal ) )then
+			deallocate(this%Boundary%DBoundVal)
 		endif
-		allocate(obj%Boundary%DBoundVal(maxval(obj%Boundary%DboundNum),dimnum ) )
+		allocate(this%Boundary%DBoundVal(maxval(this%Boundary%DboundNum),dimnum ) )
 		
-		do i=1,size(obj%Boundary%DboundNodID,1)
-			read(f%fh,*) obj%Boundary%DboundNodID(i,:)
+		do i=1,size(this%Boundary%DboundNodID,1)
+			read(f%fh,*) this%Boundary%DboundNodID(i,:)
 		enddo
-		do i=1,size(obj%Boundary%DboundVal,1)
-			read(f%fh,*) obj%Boundary%DboundVal(i,:)
+		do i=1,size(this%Boundary%DboundVal,1)
+			read(f%fh,*) this%Boundary%DboundVal(i,:)
 		enddo
 		call f%close()
 		return
@@ -1777,26 +1784,26 @@ if(present(neumann) )then
 			stop
 		endif
 		call f%open(file)
-		dimnum=size(obj%mesh%NodCoord,2)
-		if(allocated(obj%Boundary%NboundNum ) )then
-			deallocate(obj%Boundary%NboundNum)
+		dimnum=size(this%mesh%NodCoord,2)
+		if(allocated(this%Boundary%NboundNum ) )then
+			deallocate(this%Boundary%NboundNum)
 		endif
-		allocate(obj%Boundary%NboundNum(dimnum) )
-		read(f%fh,*) obj%Boundary%NboundNum(:)
-		if(allocated(obj%Boundary%NboundNodID ) )then
-			deallocate(obj%Boundary%NboundNodID)
+		allocate(this%Boundary%NboundNum(dimnum) )
+		read(f%fh,*) this%Boundary%NboundNum(:)
+		if(allocated(this%Boundary%NboundNodID ) )then
+			deallocate(this%Boundary%NboundNodID)
 		endif
-		allocate(obj%Boundary%NboundNodID(maxval(obj%Boundary%NboundNum),dimnum ) )
-		if(allocated(obj%Boundary%NBoundVal ) )then
-			deallocate(obj%Boundary%NBoundVal)
+		allocate(this%Boundary%NboundNodID(maxval(this%Boundary%NboundNum),dimnum ) )
+		if(allocated(this%Boundary%NBoundVal ) )then
+			deallocate(this%Boundary%NBoundVal)
 		endif
-		allocate(obj%Boundary%NBoundVal(maxval(obj%Boundary%NboundNum),dimnum ) )
+		allocate(this%Boundary%NBoundVal(maxval(this%Boundary%NboundNum),dimnum ) )
 		
-		do i=1,size(obj%Boundary%NboundNodID,1)
-			read(f%fh,*) obj%Boundary%NboundNodID(i,:)
+		do i=1,size(this%Boundary%NboundNodID,1)
+			read(f%fh,*) this%Boundary%NboundNodID(i,:)
 		enddo
-		do i=1,size(obj%Boundary%NboundVal,1)
-			read(f%fh,*) obj%Boundary%NboundVal(i,:)
+		do i=1,size(this%Boundary%NboundVal,1)
+			read(f%fh,*) this%Boundary%NboundVal(i,:)
 		enddo
 		call f%close()
 		return
@@ -1807,25 +1814,25 @@ endif
 
 if(present(Boundaries) )then
 	if(Boundaries .eqv. .true.)then
-		call obj%ImportBoundaries(Boundary,NumberOfBoundaries,BoundaryID)
+		call this%ImportBoundaries(Boundary,NumberOfBoundaries,BoundaryID)
 		return
 	endif
 endif
 
 if(present(Materials) )then
 	if(materials .eqv. .true.)then
-		call obj%ImportMaterials(Material,NumberOfMaterials,MaterialID)
+		call this%ImportMaterials(Material,NumberOfMaterials,MaterialID)
 		return
 	endif
 endif
 if(present(Mesh) )then
-	call obj%Mesh%import(Mesh=Mesh)
+	call this%Mesh%import(Mesh=Mesh)
 	return
 endif
 
-!call DeallocateFEMDomain(obj)
+!call DeallocateFEMDomain(this)
 name="untitled"
-obj%FileName=input(default=name,option=OptionalProjectName)
+this%FileName=input(default=name,option=OptionalProjectName)
 
 if(present(FileHandle) )then
     fh=FileHandle
@@ -1862,25 +1869,25 @@ if(FileFormat==".scf" )then
         print *, "ERROR :: Datatype ",DataType," is not valid."
         return
     endif
-    obj%Dtype=DataType
-    read(fh,*) obj%SolverType
-    read(fh,*) obj%NumOfDomain
-    allocate(IntMat(obj%NumOfDomain,2))
-    allocate(obj%Mesh%SubMeshNodFromTo(obj%NumOfDomain,3) )
-    allocate(obj%Mesh%SubMeshElemFromTo(obj%NumOfDomain,3) )
+    this%Dtype=DataType
+    read(fh,*) this%SolverType
+    read(fh,*) this%NumOfDomain
+    allocate(IntMat(this%NumOfDomain,2))
+    allocate(this%Mesh%SubMeshNodFromTo(this%NumOfDomain,3) )
+    allocate(this%Mesh%SubMeshElemFromTo(this%NumOfDomain,3) )
     
-    do i=1,obj%NumOfDomain
-        obj%Mesh%SubMeshNodFromTo(i,1)=i
-        read(fh,*) obj%Mesh%SubMeshNodFromTo(i,2),obj%Mesh%SubMeshNodFromTo(i,3)
+    do i=1,this%NumOfDomain
+        this%Mesh%SubMeshNodFromTo(i,1)=i
+        read(fh,*) this%Mesh%SubMeshNodFromTo(i,2),this%Mesh%SubMeshNodFromTo(i,3)
     enddo
 
-    do i=1,obj%NumOfDomain
-        obj%Mesh%SubMeshElemFromTo(i,1)=i
-        read(fh,*) obj%Mesh%SubMeshElemFromTo(i,3)
+    do i=1,this%NumOfDomain
+        this%Mesh%SubMeshElemFromTo(i,1)=i
+        read(fh,*) this%Mesh%SubMeshElemFromTo(i,3)
         if(i==1)then
-            obj%Mesh%SubMeshElemFromTo(i,2)=1    
+            this%Mesh%SubMeshElemFromTo(i,2)=1    
         else
-            obj%Mesh%SubMeshElemFromTo(i,2)=obj%Mesh%SubMeshElemFromTo(i-1,3)+1
+            this%Mesh%SubMeshElemFromTo(i,2)=this%Mesh%SubMeshElemFromTo(i-1,3)+1
         endif
     enddo
 
@@ -1888,26 +1895,26 @@ if(FileFormat==".scf" )then
     read(fh,*) n,m
     DimNum=m
 
-    allocate(obj%Mesh%NodCoord(n,m) )
-    call ImportArray(obj%Mesh%NodCoord,OptionalFileHandle=fh)
-	call CopyArray(obj%Mesh%NodCoord,obj%Mesh%NodCoordInit )
+    allocate(this%Mesh%NodCoord(n,m) )
+    call ImportArray(this%Mesh%NodCoord,OptionalFileHandle=fh)
+	call CopyArray(this%Mesh%NodCoord,this%Mesh%NodCoordInit )
 
     read(fh,*) n,m
     
 
-    read(fh,*)obj%Mesh%ElemType
+    read(fh,*)this%Mesh%ElemType
 
-    !obj%ShapeFunction%ElemType=obj%Mesh%ElemType
-    allocate(obj%Mesh%ElemNod(n,m) )
-    allocate(obj%Mesh%ElemMat(n  ) )
-    call ImportArray(obj%Mesh%ElemNod,OptionalFileHandle=fh)
+    !this%ShapeFunction%ElemType=this%Mesh%ElemType
+    allocate(this%Mesh%ElemNod(n,m) )
+    allocate(this%Mesh%ElemMat(n  ) )
+    call ImportArray(this%Mesh%ElemNod,OptionalFileHandle=fh)
     do i=1,n
-        read(fh,*) obj%Mesh%ElemMat(i)
+        read(fh,*) this%Mesh%ElemMat(i)
     enddo
     read(fh,*) n,m
 
-    allocate(obj%MaterialProp%MatPara(n,m) )
-    call ImportArray(obj%MaterialProp%MatPara,OptionalFileHandle=fh)
+    allocate(this%MaterialProp%MatPara(n,m) )
+    call ImportArray(this%MaterialProp%MatPara,OptionalFileHandle=fh)
 
     !DirichletBoundary
     read(fh,*) n !DirichletBoundaryDimension
@@ -1915,24 +1922,24 @@ if(FileFormat==".scf" )then
     if(n<=0)then
         print *, "ImportFEMDomain >> Caution :: no Dirichlet Boundary Condition is loaded. "
     else
-        allocate(obj%Boundary%DBoundNum(n ))
-        read(fh,*) obj%Boundary%DBoundNum(:)
+        allocate(this%Boundary%DBoundNum(n ))
+        read(fh,*) this%Boundary%DBoundNum(:)
 
 
-        allocate(obj%Boundary%DBoundNodID( maxval(obj%Boundary%DBoundNum), size(obj%Boundary%DBoundNum)  )  )
-        allocate(obj%Boundary%DBoundVal( maxval(obj%Boundary%DBoundNum), size(obj%Boundary%DBoundNum)  )  )
+        allocate(this%Boundary%DBoundNodID( maxval(this%Boundary%DBoundNum), size(this%Boundary%DBoundNum)  )  )
+        allocate(this%Boundary%DBoundVal( maxval(this%Boundary%DBoundNum), size(this%Boundary%DBoundNum)  )  )
 
-        obj%Boundary%DBoundNodID(:,:)=-1
-        obj%Boundary%DBoundVal(:,:)  =0.0d0
+        this%Boundary%DBoundNodID(:,:)=-1
+        this%Boundary%DBoundVal(:,:)  =0.0d0
 
-        do i=1,size(obj%Boundary%DBoundNum,1)
-            do j=1,obj%Boundary%DBoundNum(i)
-                read(fh,*) obj%Boundary%DBoundNodID(j,i)
-                !!print *,obj%Boundary%DBoundNodID(j,i)
+        do i=1,size(this%Boundary%DBoundNum,1)
+            do j=1,this%Boundary%DBoundNum(i)
+                read(fh,*) this%Boundary%DBoundNodID(j,i)
+                !!print *,this%Boundary%DBoundNodID(j,i)
             enddo
-            do j=1,obj%Boundary%DBoundNum(i)
-                read(fh,*) obj%Boundary%DBoundVal(j,i)
-                !!print *,obj%Boundary%DBoundVal(j,i)
+            do j=1,this%Boundary%DBoundNum(i)
+                read(fh,*) this%Boundary%DBoundVal(j,i)
+                !!print *,this%Boundary%DBoundVal(j,i)
             enddo
         enddo
 
@@ -1946,20 +1953,20 @@ if(FileFormat==".scf" )then
         print *, "ImportFEMDomain >> Caution :: no Neumann Boundary Condition is loaded. "
     else
         read(fh,*) n
-        allocate( obj%Boundary%NBoundNum(DimNum))
-        allocate(obj%Boundary%NBoundNodID(n, size(obj%Boundary%NBoundNum)  )  )
-        allocate(obj%Boundary%NBoundVal( n, size(obj%Boundary%NBoundNum)  )  )
-        obj%Boundary%NBoundNodID(:,:)=-1
-        obj%Boundary%NBoundVal(:,:)  =0.0d0
+        allocate( this%Boundary%NBoundNum(DimNum))
+        allocate(this%Boundary%NBoundNodID(n, size(this%Boundary%NBoundNum)  )  )
+        allocate(this%Boundary%NBoundVal( n, size(this%Boundary%NBoundNum)  )  )
+        this%Boundary%NBoundNodID(:,:)=-1
+        this%Boundary%NBoundVal(:,:)  =0.0d0
 
-        obj%Boundary%NBoundNum(:)=n
+        this%Boundary%NBoundNum(:)=n
         do i=1,n
             read(fh,*) m
-            obj%Boundary%NBoundNodID(i,:)=m
+            this%Boundary%NBoundNodID(i,:)=m
         enddo
 
         do i=1,n
-            read(fh,*) obj%Boundary%NBoundVal(i,:)
+            read(fh,*) this%Boundary%NBoundVal(i,:)
         enddo
     
     endif
@@ -1972,21 +1979,21 @@ if(FileFormat==".scf" )then
         print *, "Caution :: no Initial Condition (Node-wise) Condition is loaded. "
     else
         read(fh,*) n
-        allocate(obj%Boundary%TBoundNodID(n,DimNum) )
-        allocate(obj%Boundary%TBoundVal(  n,DimNum) )
-        allocate(obj%Boundary%TBoundNum(  DimNum) )
+        allocate(this%Boundary%TBoundNodID(n,DimNum) )
+        allocate(this%Boundary%TBoundVal(  n,DimNum) )
+        allocate(this%Boundary%TBoundNum(  DimNum) )
 
-        obj%Boundary%TBoundNum(:)=n
+        this%Boundary%TBoundNum(:)=n
         
         if(n/=0)then
             if(n<0)then
                 print *, "ERROR :: number of initial conditions are to be zero"
             else
                 do i=1,n
-                    read(fh,*) obj%Boundary%TBoundNodID(i,:)
+                    read(fh,*) this%Boundary%TBoundNodID(i,:)
                 enddo
                 do i=1,n
-                    read(fh,*) obj%Boundary%TBoundVal(i,:)
+                    read(fh,*) this%Boundary%TBoundVal(i,:)
                 enddo
             endif
         endif
@@ -2004,20 +2011,20 @@ if(FileFormat==".scf" )then
     else
         read(fh,*) GpNum
         read(fh,*) n
-        allocate(obj%Boundary%TBoundElemID(n) )
-        allocate(obj%Boundary%TBoundElemGpVal(n,GpNum,DimNum) )
+        allocate(this%Boundary%TBoundElemID(n) )
+        allocate(this%Boundary%TBoundElemGpVal(n,GpNum,DimNum) )
         
         if(n/=0)then
             if(n<0)then
                 print *, "ERROR :: number of initial conditions are to be zero"
             else
                 do i=1,n
-                    read(fh,*) obj%Boundary%TBoundElemID(i)
+                    read(fh,*) this%Boundary%TBoundElemID(i)
                 enddo
                 do i=1,n
                     do j=1,GpNum
                         do k=1,DimNum
-                            read(fh,*) obj%Boundary%TBoundElemGpVal(i,j,k)
+                            read(fh,*) this%Boundary%TBoundElemGpVal(i,j,k)
                         enddo
                     enddo
                 enddo
@@ -2027,7 +2034,7 @@ if(FileFormat==".scf" )then
     endif
     !######### Initial conditions #################
 
-    read(fh,*) obj%ControlPara%SimMode ,obj%ControlPara%ItrTol,obj%ControlPara%Timestep
+    read(fh,*) this%ControlPara%SimMode ,this%ControlPara%ItrTol,this%ControlPara%Timestep
      
     close(fh)
 else
@@ -2043,28 +2050,28 @@ end subroutine ImportFEMDomain
 
 
 !##################################################
-subroutine ImportMeshFEMDomain(obj,Mesh)
-	class(FEMDomain_),intent(inout)::obj
+subroutine ImportMeshFEMDomain(this,Mesh)
+	class(FEMDomain_),intent(inout)::this
 	class(Mesh_),intent(inout)::Mesh
 
-	call obj%Mesh%copy(Mesh)
+	call this%Mesh%copy(Mesh)
 end subroutine
 !##################################################
 
-subroutine resizeFEMDomain(obj,x_rate,y_rate,z_rate,x_len,y_len,z_len,&
+subroutine resizeFEMDomain(this,x_rate,y_rate,z_rate,x_len,y_len,z_len,&
 	x,y,z)
-	class(FEMDomain_),intent(inout) :: obj
+	class(FEMDomain_),intent(inout) :: this
 	real(real64),optional,intent(in) :: x_rate,y_rate,z_rate,x_len,y_len,z_len
 	real(real64),optional,intent(in) :: x ,y ,z 
 	
-	call obj%Mesh%resize(x_rate=x_rate,y_rate=y_rate,z_rate=z_rate,x_len=x_len,y_len=y_len,z_len=z_len)
-	call obj%Mesh%resize(x_len=x,y_len=y,z_len=z)
+	call this%Mesh%resize(x_rate=x_rate,y_rate=y_rate,z_rate=z_rate,x_len=x_len,y_len=y_len,z_len=z_len)
+	call this%Mesh%resize(x_len=x,y_len=y,z_len=z)
 
 end subroutine
 
 
-subroutine fatFEMDomain(obj,ratio)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine fatFEMDomain(this,ratio)
+	class(FEMDomain_),intent(inout) :: this
 	real(real64),intent(in) :: ratio
 	real(real64),allocatable :: center(:),dx(:)
 	integer(int32) :: i
@@ -2073,15 +2080,15 @@ subroutine fatFEMDomain(obj,ratio)
 		print *, "[CAUTION] fatFEMDomain >> ratio should be >= 0"
 	endif
 	
-	center = zeros(obj%nd() )
-	dx = zeros(obj%nd() )
+	center = zeros(this%nd() )
+	dx = zeros(this%nd() )
 	do i=1,size(center)
-		center(i) = average(obj%mesh%nodcoord(:,i) )
+		center(i) = average(this%mesh%nodcoord(:,i) )
 	enddo
 
-	do i=1,obj%nn()
-		dx = obj%mesh%nodcoord(i,:) - center
-		obj%mesh%nodcoord(i,:) = center(:) + (1.0d0+ratio)*dx(:)
+	do i=1,this%nn()
+		dx = this%mesh%nodcoord(i,:) - center
+		this%mesh%nodcoord(i,:) = center(:) + (1.0d0+ratio)*dx(:)
 	enddo
 end subroutine
 
@@ -2169,9 +2176,9 @@ end subroutine
 
 
 !##################################################
-subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle,SolverType,MeshDimension,&
+subroutine ExportFEMDomain(this,OptionalFileFormat,OptionalProjectName,FileHandle,SolverType,MeshDimension,&
 	FileName,Name,regacy,with,path,extention,step,FieldValue,restart)
-    class(FEMDomain_),intent(inout)::obj
+    class(FEMDomain_),intent(inout)::this
     class(FEMDomain_),optional,intent(inout)::with
     character(*),optional,intent(in)::OptionalFileFormat,path,extention
     character(*),optional,intent(in)::OptionalProjectName,SolverType,FileName
@@ -2196,24 +2203,24 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
 		call execute_command_line("mkdir -p "//path)
 		call execute_command_line("mkdir -p "//path//"/FEMDomain")
-		call obj%Mesh%export(path=path//"/FEMDomain",restart=.true.)
-		call obj%MaterialProp%export(path=path//"/FEMDomain",restart=.true.)
-		call obj%Boundary%export(path=path//"/FEMDomain",restart=.true.)
-		call obj%ControlPara%export(path=path//"/FEMDomain",restart=.true.)
-		call obj%ShapeFunction%export(path=path//"/FEMDomain",restart=.true.)
+		call this%Mesh%export(path=path//"/FEMDomain",restart=.true.)
+		call this%MaterialProp%export(path=path//"/FEMDomain",restart=.true.)
+		call this%Boundary%export(path=path//"/FEMDomain",restart=.true.)
+		call this%ControlPara%export(path=path//"/FEMDomain",restart=.true.)
+		call this%ShapeFunction%export(path=path//"/FEMDomain",restart=.true.)
 
 		call f%open(path//"/FEMDomain"//"/FEMDomain"//".prop" )
-		write(f%fh,*) obj%RealTime
-		write(f%fh,*) obj%NumOfDomain
-		write(f%fh, '(A)' ) obj%FilePath
-		write(f%fh, '(A)' ) obj%FileName
-		write(f%fh, '(A)' ) obj%name
-		write(f%fh, '(A)' ) obj%dtype
-		write(f%fh, '(A)' ) obj%SolverType
-		write(f%fh, '(A)' ) obj%Category1
-		write(f%fh, '(A)' ) obj%Category2
-		write(f%fh, '(A)' ) obj%Category3
-		write(f%fh,*) obj%timestep, obj%NumberOfBoundaries, obj%NumberOfMaterials
+		write(f%fh,*) this%RealTime
+		write(f%fh,*) this%NumOfDomain
+		write(f%fh, '(A)' ) this%FilePath
+		write(f%fh, '(A)' ) this%FileName
+		write(f%fh, '(A)' ) this%name
+		write(f%fh, '(A)' ) this%dtype
+		write(f%fh, '(A)' ) this%SolverType
+		write(f%fh, '(A)' ) this%Category1
+		write(f%fh, '(A)' ) this%Category2
+		write(f%fh, '(A)' ) this%Category3
+		write(f%fh,*) this%timestep, this%NumberOfBoundaries, this%NumberOfMaterials
 		call f%close()
 		return
 	endif
@@ -2233,22 +2240,22 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 					print *, "Mode :: contact problem"
 					write(100, '(A)' ) "2"
 					write(100, '(A)' ) "  "
-					n=size(obj%Mesh%NodCoord,1)
+					n=size(this%Mesh%NodCoord,1)
 					m=size(with%Mesh%NodCoord,1)
 					write(100, '(A)' ) "1  "//fstring(n)
 					write(100, '(A)' ) fstring(n+1)//"  "//fstring(n+m)
 					write(100, '(A)' ) "  "
-					n=size(obj%Mesh%ElemNod,1)
+					n=size(this%Mesh%ElemNod,1)
 					m=size(with%Mesh%ElemNod,1)
 					write(100, '(A)' ) fstring(n)
 					write(100, '(A)' ) fstring(n+m)
 					write(100, '(A)' ) "  "
-					n=size(obj%Mesh%NodCoord,1)
-					m=size(obj%Mesh%NodCoord,2)
-					write(100, * ) size(obj%Mesh%NodCoord,1)+size(with%Mesh%NodCoord,1)
+					n=size(this%Mesh%NodCoord,1)
+					m=size(this%Mesh%NodCoord,2)
+					write(100, * ) size(this%Mesh%NodCoord,1)+size(with%Mesh%NodCoord,1)
 					write(100, '(A)' ) "  "
 					do i=1,n
-						write(100,*) obj%Mesh%NodCoord(i,:)	
+						write(100,*) this%Mesh%NodCoord(i,:)	
 					enddo
 					n=size(with%Mesh%NodCoord,1)
 					m=size(with%Mesh%NodCoord,2)
@@ -2256,32 +2263,32 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 						write(100,*) with%Mesh%NodCoord(i,:)
 					enddo
 					write(100, '(A)' ) "  "
-					n=size(with%Mesh%ElemNod,1)+size(obj%Mesh%ElemNod,1)
-					m=size(obj%Mesh%ElemNod,2)
+					n=size(with%Mesh%ElemNod,1)+size(this%Mesh%ElemNod,1)
+					m=size(this%Mesh%ElemNod,2)
 					write(100, * ) fstring(n),"  ",fstring(m) 
-					n=size(obj%Mesh%ElemNod,1)
-					m=size(obj%Mesh%ElemNod,2)
+					n=size(this%Mesh%ElemNod,1)
+					m=size(this%Mesh%ElemNod,2)
 					write(100, '(A)' ) "  "
 					do i=1,n
-						write(100,*) obj%Mesh%ElemNod(i,:)
+						write(100,*) this%Mesh%ElemNod(i,:)
 					enddo
 					n=size(with%Mesh%ElemNod,1)
 					m=size(with%Mesh%ElemNod,2)
-					nn=size(obj%Mesh%NodCoord,1)
+					nn=size(this%Mesh%NodCoord,1)
 					do i=1,n
 						write(100,*) with%Mesh%ElemNod(i,:)+nn  
 					enddo
 					print *, "Elem-mat"
 					write(100, '(A)' ) "  "
-					n=size(obj%Mesh%ElemNod,1)
-					if(.not.allocated(obj%Mesh%ElemMat) )then
-						allocate(obj%Mesh%ElemMat(n) )
-						obj%Mesh%ElemMat(:)=1
+					n=size(this%Mesh%ElemNod,1)
+					if(.not.allocated(this%Mesh%ElemMat) )then
+						allocate(this%Mesh%ElemMat(n) )
+						this%Mesh%ElemMat(:)=1
 					endif
 					write(100, '(A)' ) "  "
 
 					do i=1,n
-						write(100, *)  obj%Mesh%ElemMat(i)  
+						write(100, *)  this%Mesh%ElemMat(i)  
 					enddo
 					write(100, '(A)' ) "  "
 					n=size(with%Mesh%ElemNod,1)
@@ -2296,18 +2303,18 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 					write(100, '(A)' ) "  "
 					
 					print *, "Material parameters will be put in here." 
-					write(100,*) size(obj%MaterialProp%MatPara,1)
+					write(100,*) size(this%MaterialProp%MatPara,1)
 					write(100, '(A)' ) "  "
-					do i=1,size(obj%MaterialProp%MatPara,1)
-						write(100,*) obj%MaterialProp%MatPara(i,:)
+					do i=1,size(this%MaterialProp%MatPara,1)
+						write(100,*) this%MaterialProp%MatPara(i,:)
 					enddo
 					write(100, '(A)' ) "  "
 					print *, "Dboundary will be put in here." 
 					
 					! count number of dirichlet condition for x
 					n=0
-					do i=1,size(obj%Boundary%DBoundNodID,1)
-						if(obj%Boundary%DBoundNodID(i,1)>=1 )then
+					do i=1,size(this%Boundary%DBoundNodID,1)
+						if(this%Boundary%DBoundNodID(i,1)>=1 )then
 							n=n+1
 						else
 							cycle
@@ -2322,8 +2329,8 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 					enddo
 					! count number of dirichlet condition for y
 					m=0
-					do i=1,size(obj%Boundary%DBoundNodID,1)
-						if(obj%Boundary%DBoundNodID(i,2)>=1 )then
+					do i=1,size(this%Boundary%DBoundNodID,1)
+						if(this%Boundary%DBoundNodID(i,2)>=1 )then
 							m=m+1
 						else
 							cycle
@@ -2340,9 +2347,9 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 					write(100,*) n,m
 
 					! write out dirichlet boundary for x
-					do i=1,size(obj%Boundary%DBoundNodID,1)
-						if(obj%Boundary%DBoundNodID(i,1)>=1 )then
-							write(100,*) obj%Boundary%DBoundNodID(i,1)
+					do i=1,size(this%Boundary%DBoundNodID,1)
+						if(this%Boundary%DBoundNodID(i,1)>=1 )then
+							write(100,*) this%Boundary%DBoundNodID(i,1)
 						else
 							cycle
 						endif
@@ -2357,9 +2364,9 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 					write(100, '(A)' ) "  "
 
 					! write out value of dirichlet boundary for x
-					do i=1,size(obj%Boundary%DBoundNodID,1)
-						if(obj%Boundary%DBoundNodID(i,1)>=1 )then
-							write(100,*) obj%Boundary%DBoundVal(i,1)
+					do i=1,size(this%Boundary%DBoundNodID,1)
+						if(this%Boundary%DBoundNodID(i,1)>=1 )then
+							write(100,*) this%Boundary%DBoundVal(i,1)
 						else
 							cycle
 						endif
@@ -2374,9 +2381,9 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 					write(100, '(A)' ) "  "
 
 					! write out dirichlet boundary for y
-					do i=1,size(obj%Boundary%DBoundNodID,1)
-						if(obj%Boundary%DBoundNodID(i,2)>=1 )then
-							write(100,*) obj%Boundary%DBoundNodID(i,2)
+					do i=1,size(this%Boundary%DBoundNodID,1)
+						if(this%Boundary%DBoundNodID(i,2)>=1 )then
+							write(100,*) this%Boundary%DBoundNodID(i,2)
 						else
 							cycle
 						endif
@@ -2390,9 +2397,9 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 					enddo
 					write(100, '(A)' ) "  "
 					! write outvalue of  dirichlet boundary for y
-					do i=1,size(obj%Boundary%DBoundNodID,1)
-						if(obj%Boundary%DBoundNodID(i,2)>=1 )then
-							write(100,*) obj%Boundary%DBoundVal(i,2)
+					do i=1,size(this%Boundary%DBoundNodID,1)
+						if(this%Boundary%DBoundNodID(i,2)>=1 )then
+							write(100,*) this%Boundary%DBoundVal(i,2)
 						else
 							cycle
 						endif
@@ -2406,10 +2413,10 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 					enddo
 					write(100, '(A)' ) "  "
 
-					if(.not. allocated(obj%Boundary%NBoundNodID)  )then
+					if(.not. allocated(this%Boundary%NBoundNodID)  )then
 						write(100,*) 0
 					else
-						if(size(obj%Boundary%NBoundNodID,1)==0 )then
+						if(size(this%Boundary%NBoundNodID,1)==0 )then
 							write(100,*) 0
 						else
 							print *, "ERROR :: ExportFEMDOmain :: Neumann boundary will be implemented."
@@ -2421,19 +2428,19 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 					! surface nodes
 					! count surface nodes
 					n=0
-					n=size(obj%Mesh%SurfaceLine2D)+size(with%Mesh%SurfaceLine2D)
+					n=size(this%Mesh%SurfaceLine2D)+size(with%Mesh%SurfaceLine2D)
 					write(100,*) n
 					write(100, '(A)' ) "  "
 
-					do i=1,size(obj%Mesh%SurfaceLine2D)
-						write(100,*) obj%Mesh%SurfaceLine2D(i)
+					do i=1,size(this%Mesh%SurfaceLine2D)
+						write(100,*) this%Mesh%SurfaceLine2D(i)
 					enddo
 					do i=1,size(with%Mesh%SurfaceLine2D)
 						write(100,*) with%Mesh%SurfaceLine2D(i)+nn
 					enddo
 					write(100, '(A)' ) "  "
-					write(100,*) 1, size(obj%Mesh%SurfaceLine2D)
-					write(100,*) size(obj%Mesh%SurfaceLine2D)+1,size(obj%Mesh%SurfaceLine2D)+size(with%Mesh%SurfaceLine2D)
+					write(100,*) 1, size(this%Mesh%SurfaceLine2D)
+					write(100,*) size(this%Mesh%SurfaceLine2D)+1,size(this%Mesh%SurfaceLine2D)+size(with%Mesh%SurfaceLine2D)
 
 					write(100,*) 0.010d0, 0.010d0
 					write(100,*) 1,1
@@ -2454,10 +2461,10 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 	if(present(OptionalFileFormat) )then
 		if(OptionalFileFormat=="stl" .or. OptionalFileFormat==".stl")then
 			if(present(Name) )then
-				call ExportFEMDomainAsSTL(obj=obj,&
+				call ExportFEMDomainAsSTL(this=this,&
 			FileHandle=FileHandle,MeshDimension=MeshDimension,FileName=name)
 			else
-				call ExportFEMDomainAsSTL(obj=obj,&
+				call ExportFEMDomainAsSTL(this=this,&
 			FileHandle=FileHandle,MeshDimension=MeshDimension,FileName=FileName)
 			endif
 			
@@ -2503,56 +2510,56 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
     if(FileFormat==".scf" )then
 		
-		if(allocated(obj%Mesh%SubMeshNodFromTo) )then
-			obj%NumOfDomain=size(obj%Mesh%SubMeshNodFromTo,1)
+		if(allocated(this%Mesh%SubMeshNodFromTo) )then
+			this%NumOfDomain=size(this%Mesh%SubMeshNodFromTo,1)
 		else
-			obj%NumOfDomain=1
+			this%NumOfDomain=1
 		endif
 
-		obj%Dtype="domain"
-        write(fh,'(A)') obj%Dtype
-        write(*,'(A)') obj%Dtype,iFileName
+		this%Dtype="domain"
+        write(fh,'(A)') this%Dtype
+        write(*,'(A)') this%Dtype,iFileName
         write(fh,*) "  "
-        write(fh,'(A)') obj%SolverType
+        write(fh,'(A)') this%SolverType
         write(fh,*) "  "
-        write(fh,*) obj%NumOfDomain
+        write(fh,*) this%NumOfDomain
         write(fh,*) "  "
 
 
         print *, "########### Meta Info ###########"
-        print *, obj%Dtype
-        print *, obj%SolverType
-        print *, obj%NumOfDomain
+        print *, this%Dtype
+        print *, this%SolverType
+        print *, this%NumOfDomain
         print *, "########### Meta Info ###########"
 
-		if(.not. allocated(obj%Mesh%SubMeshNodFromTo) )then
-			print *, "obj%Mesh%SubMeshNodFromTo is not allocated"
+		if(.not. allocated(this%Mesh%SubMeshNodFromTo) )then
+			print *, "this%Mesh%SubMeshNodFromTo is not allocated"
 			stop 
 		endif
 
-        do i=1,obj%NumOfDomain
-            write(fh,*) obj%Mesh%SubMeshNodFromTo(i,2),obj%Mesh%SubMeshNodFromTo(i,3)
+        do i=1,this%NumOfDomain
+            write(fh,*) this%Mesh%SubMeshNodFromTo(i,2),this%Mesh%SubMeshNodFromTo(i,3)
         enddo
         write(fh,*) "  "
-        do i=1,obj%NumOfDomain
-            write(fh,*) obj%Mesh%SubMeshElemFromTo(i,3)
+        do i=1,this%NumOfDomain
+            write(fh,*) this%Mesh%SubMeshElemFromTo(i,3)
         enddo
         write(fh,*) "  "
 
 
 		
         print *, "########### Domain info ###########"
-        do i=1,obj%NumOfDomain
-            !write(*,*) obj%Mesh%SubMeshNodFromTo(i,2),obj%Mesh%SubMeshNodFromTo(i,3)
+        do i=1,this%NumOfDomain
+            !write(*,*) this%Mesh%SubMeshNodFromTo(i,2),this%Mesh%SubMeshNodFromTo(i,3)
         enddo
-        do i=1,obj%NumOfDomain
-            !write(*,*) obj%Mesh%SubMeshElemFromTo(i,3)
+        do i=1,this%NumOfDomain
+            !write(*,*) this%Mesh%SubMeshElemFromTo(i,3)
         enddo
         
         print *, "########### Domain info ###########"
 
-        n=size(obj%Mesh%NodCoord,1)
-        m=size(obj%Mesh%NodCoord,2)
+        n=size(this%Mesh%NodCoord,1)
+        m=size(this%Mesh%NodCoord,2)
         if(present(MeshDimension) )then
             m=MeshDimension
         endif
@@ -2561,7 +2568,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
         write(fh,*) "  "
         do i=1,n
-            write(fh,*) obj%Mesh%NodCoord(i,1:m)
+            write(fh,*) this%Mesh%NodCoord(i,1:m)
         enddo
         flush(fh)
 
@@ -2572,16 +2579,16 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
         print *, " "
 
 
-        n=size(obj%Mesh%ElemNod,1)
-        m=size(obj%Mesh%ElemNod,2)
+        n=size(this%Mesh%ElemNod,1)
+        m=size(this%Mesh%ElemNod,2)
         write(fh,*) n,m
 		write(fh,*) "  "
 		
-        write(fh,'(A)') obj%Mesh%getElemType()
+        write(fh,'(A)') this%Mesh%getElemType()
         write(fh,*) "  "
         do i=1,n
-            write(fh,*) obj%Mesh%ElemNod(i,:)
-            if(obj%Mesh%ElemNod(i,1)==0 )then
+            write(fh,*) this%Mesh%ElemNod(i,:)
+            if(this%Mesh%ElemNod(i,1)==0 )then
                 exit
             endif
         enddo
@@ -2591,23 +2598,23 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
         print *, " "
         print *, "########### Element info ###########"
-        print *, "Element Type : ",obj%Mesh%getElemType()
+        print *, "Element Type : ",this%Mesh%getElemType()
         print *, "Number of Element : ",n, "Number of node per element : ",m
         print *, "Successfully Exported"
         print *, "########### Element info ###########"
         print *, " "
 
-        n=size(obj%Mesh%ElemNod,1)
+        n=size(this%Mesh%ElemNod,1)
         do i=1,n
-            write(fh,*) obj%Mesh%ElemMat(i)
+            write(fh,*) this%Mesh%ElemMat(i)
         enddo
         write(fh,*) "  "
 		
-        n=size(obj%MaterialProp%MatPara,1)
-        m=size(obj%MaterialProp%MatPara,2)
+        n=size(this%MaterialProp%MatPara,1)
+        m=size(this%MaterialProp%MatPara,2)
         write(fh,*) n,m
         do i=1,n
-            write(fh,*) obj%MaterialProp%MatPara(i,:)
+            write(fh,*) this%MaterialProp%MatPara(i,:)
         enddo
         write(fh,*) "  "
         flush(fh)
@@ -2615,60 +2622,60 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
 
         print *, "########### Material info ###########"
-        n=size(obj%Mesh%ElemNod,1)
-        !write(*,*) size(obj%Mesh%ElemMat,1)
-        n=size(obj%MaterialProp%MatPara,1)
-        m=size(obj%MaterialProp%MatPara,2)
+        n=size(this%Mesh%ElemNod,1)
+        !write(*,*) size(this%Mesh%ElemMat,1)
+        n=size(this%MaterialProp%MatPara,1)
+        m=size(this%MaterialProp%MatPara,2)
         !write(*,*) n,m
         do i=1,n
-            write(*,*) obj%MaterialProp%MatPara(i,:)
+            write(*,*) this%MaterialProp%MatPara(i,:)
         enddo
         print *, "Successfully Exported"
         print *, "########### Material info ###########"
 		
         !DirichletBoundary
 
-        if(.not.allocated(obj%Boundary%DBoundNodID))then
+        if(.not.allocated(this%Boundary%DBoundNodID))then
             
             write(fh,*) "0" !DirichletBoundaryDimension
             write(fh,*) "  "
 			print *, "ImportFEMDomain >> Caution :: no Dirichlet Boundary Condition is loaded. "
 			stop 
         else
-			! update obj%Boundary%DBoundNum
-			if(allocated(obj%Boundary%DBoundNum) )then
-				deallocate(obj%Boundary%DBoundNum)
+			! update this%Boundary%DBoundNum
+			if(allocated(this%Boundary%DBoundNum) )then
+				deallocate(this%Boundary%DBoundNum)
 			endif
-			n=size(obj%Boundary%DBoundNodID,2)
-			allocate(obj%Boundary%DBoundNum(n) )
-			m=size(obj%Boundary%DBoundNodID,1)
+			n=size(this%Boundary%DBoundNodID,2)
+			allocate(this%Boundary%DBoundNum(n) )
+			m=size(this%Boundary%DBoundNodID,1)
 			do i=1,n
-				obj%Boundary%DBoundNum(i)=m-countif(Array=obj%Boundary%DBoundNodID(:,i),Equal=.true.,Value=-1 )
+				this%Boundary%DBoundNum(i)=m-countif(Array=this%Boundary%DBoundNodID(:,i),Equal=.true.,Value=-1 )
 			enddo
 
 
-            n=size(obj%Boundary%DBoundNum)
+            n=size(this%Boundary%DBoundNum)
             write(fh,*) n !DirichletBoundaryDimension
             write(fh,*) "  "
 
-            !allocate(obj%Boundary%DBoundNum(n ))
-            write(fh,*) obj%Boundary%DBoundNum(:)
+            !allocate(this%Boundary%DBoundNum(n ))
+            write(fh,*) this%Boundary%DBoundNum(:)
             write(fh,*) "  "
-            !allocate(obj%Boundary%DBoundNodID( maxval(obj%Boundary%DBoundNum), size(obj%Boundary%DBoundNum)  )  )
-            !allocate(obj%Boundary%DBoundVal( maxval(obj%Boundary%DBoundNum), size(obj%Boundary%DBoundNum)  )  )
+            !allocate(this%Boundary%DBoundNodID( maxval(this%Boundary%DBoundNum), size(this%Boundary%DBoundNum)  )  )
+            !allocate(this%Boundary%DBoundVal( maxval(this%Boundary%DBoundNum), size(this%Boundary%DBoundNum)  )  )
 
-            !obj%Boundary%DBoundNodID(:,:)=-1
-            !obj%Boundary%DBoundVal(:,:)  =0.0d0
+            !this%Boundary%DBoundNodID(:,:)=-1
+            !this%Boundary%DBoundVal(:,:)  =0.0d0
 
-            do i=1,size(obj%Boundary%DBoundNum,1)
-                do j=1,obj%Boundary%DBoundNum(i)
-					write(fh,*) obj%Boundary%DBoundNodID(j,i)
-                    !!print *,obj%Boundary%DBoundNodID(j,i)
+            do i=1,size(this%Boundary%DBoundNum,1)
+                do j=1,this%Boundary%DBoundNum(i)
+					write(fh,*) this%Boundary%DBoundNodID(j,i)
+                    !!print *,this%Boundary%DBoundNodID(j,i)
                 enddo
                 write(fh,*) "  "
-                do j=1,obj%Boundary%DBoundNum(i)
-                    write(fh,*) obj%Boundary%DBoundVal(j,i)
-                    !!print *,obj%Boundary%DBoundVal(j,i)
+                do j=1,this%Boundary%DBoundNum(i)
+                    write(fh,*) this%Boundary%DBoundVal(j,i)
+                    !!print *,this%Boundary%DBoundVal(j,i)
                 enddo
                 write(fh,*) "  "
             enddo
@@ -2679,7 +2686,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
 
         print *, "########### Dirichlet Boundary info ###########"
-        if(.not.allocated(obj%Boundary%DBoundNum))then
+        if(.not.allocated(this%Boundary%DBoundNum))then
             
             write(*,*) "0" !DirichletBoundaryDimension
             write(*,*) "  "
@@ -2687,28 +2694,28 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
             !print *, "ImportFEMDomain >> Caution :: no Dirichlet Boundary Condition is loaded. "
         else
 
-            n=size(obj%Boundary%DBoundNum)
+            n=size(this%Boundary%DBoundNum)
             !write(*,*) n !DirichletBoundaryDimension
             !write(*,*) "  "
 
-            !allocate(obj%Boundary%DBoundNum(n ))
-            !write(*,*) obj%Boundary%DBoundNum(:)
+            !allocate(this%Boundary%DBoundNum(n ))
+            !write(*,*) this%Boundary%DBoundNum(:)
             !write(*,*) "  "
-            !allocate(obj%Boundary%DBoundNodID( maxval(obj%Boundary%DBoundNum), size(obj%Boundary%DBoundNum)  )  )
-            !allocate(obj%Boundary%DBoundVal( maxval(obj%Boundary%DBoundNum), size(obj%Boundary%DBoundNum)  )  )
+            !allocate(this%Boundary%DBoundNodID( maxval(this%Boundary%DBoundNum), size(this%Boundary%DBoundNum)  )  )
+            !allocate(this%Boundary%DBoundVal( maxval(this%Boundary%DBoundNum), size(this%Boundary%DBoundNum)  )  )
 
-            !obj%Boundary%DBoundNodID(:,:)=-1
-            !obj%Boundary%DBoundVal(:,:)  =0.0d0
+            !this%Boundary%DBoundNodID(:,:)=-1
+            !this%Boundary%DBoundVal(:,:)  =0.0d0
 
-            do i=1,size(obj%Boundary%DBoundNum,1)
-                do j=1,obj%Boundary%DBoundNum(i)
-                    !write(*,*) obj%Boundary%DBoundNodID(j,i)
-                    !!print *,obj%Boundary%DBoundNodID(j,i)
+            do i=1,size(this%Boundary%DBoundNum,1)
+                do j=1,this%Boundary%DBoundNum(i)
+                    !write(*,*) this%Boundary%DBoundNodID(j,i)
+                    !!print *,this%Boundary%DBoundNodID(j,i)
                 enddo
                 !write(*,*) "  "
-                do j=1,obj%Boundary%DBoundNum(i)
-                    !write(*,*) obj%Boundary%DBoundVal(j,i)
-                    !!print *,obj%Boundary%DBoundVal(j,i)
+                do j=1,this%Boundary%DBoundNum(i)
+                    !write(*,*) this%Boundary%DBoundVal(j,i)
+                    !!print *,this%Boundary%DBoundVal(j,i)
                 enddo
                 !write(*,*) "  "
             enddo
@@ -2722,10 +2729,10 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
 
 
-        if(.not.allocated(obj%Boundary%NBoundNum) )then
+        if(.not.allocated(this%Boundary%NBoundNum) )then
             DimNum=0
         else
-            DimNum=size(obj%Boundary%NBoundNum,1)
+            DimNum=size(this%Boundary%NBoundNum,1)
         endif
 
 
@@ -2734,24 +2741,24 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
         if(DimNum<=0)then
             !print *, "ImportFEMDomain >> Caution :: no Neumann Boundary Condition is loaded. "
         else
-            n=size(obj%Boundary%NBoundNodID,1)
+            n=size(this%Boundary%NBoundNodID,1)
             write(fh,*) n
             write(fh,*) "  "
-            !allocate( obj%Boundary%NBoundNum(DimNum))
-            !allocate(obj%Boundary%NBoundNodID(n, size(obj%Boundary%NBoundNum)  )  )
-            !allocate(obj%Boundary%NBoundVal( n, size(obj%Boundary%NBoundNum)  )  )
-            !obj%Boundary%NBoundNodID(:,:)=-1
-            !obj%Boundary%NBoundVal(:,:)  =0.0d0
+            !allocate( this%Boundary%NBoundNum(DimNum))
+            !allocate(this%Boundary%NBoundNodID(n, size(this%Boundary%NBoundNum)  )  )
+            !allocate(this%Boundary%NBoundVal( n, size(this%Boundary%NBoundNum)  )  )
+            !this%Boundary%NBoundNodID(:,:)=-1
+            !this%Boundary%NBoundVal(:,:)  =0.0d0
 
-            !obj%Boundary%NBoundNum(:)=n
+            !this%Boundary%NBoundNum(:)=n
             do i=1,n
-                write(fh,*) obj%Boundary%NBoundNodID(i,:)
-                !obj%Boundary%NBoundNodID(i,:)=m
+                write(fh,*) this%Boundary%NBoundNodID(i,:)
+                !this%Boundary%NBoundNodID(i,:)=m
             enddo
             write(fh,*) "  "
 
             do i=1,n
-                write(fh,*) obj%Boundary%NBoundVal(i,:)
+                write(fh,*) this%Boundary%NBoundVal(i,:)
             enddo
             write(fh,*) "  "
         
@@ -2761,34 +2768,34 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
 
         print *, "########### Neumann Boundary info ###########"
 
-        if(.not.allocated(obj%Boundary%NBoundNum) )then
+        if(.not.allocated(this%Boundary%NBoundNum) )then
             DimNum=0
         else
-            DimNum=size(obj%Boundary%NBoundNum,1)
+            DimNum=size(this%Boundary%NBoundNum,1)
         endif
         !write(*,*) DimNum
         !write(*,*) "  "
         if(DimNum<=0)then
             !print *, "ImportFEMDomain >> Caution :: no Neumann Boundary Condition is loaded. "
         else
-            n=size(obj%Boundary%NBoundNodID,1)
+            n=size(this%Boundary%NBoundNodID,1)
             !write(*,*) n
             !write(*,*) "  "
-            !allocate( obj%Boundary%NBoundNum(DimNum))
-            !allocate(obj%Boundary%NBoundNodID(n, size(obj%Boundary%NBoundNum)  )  )
-            !allocate(obj%Boundary%NBoundVal( n, size(obj%Boundary%NBoundNum)  )  )
-            !obj%Boundary%NBoundNodID(:,:)=-1
-            !obj%Boundary%NBoundVal(:,:)  =0.0d0
+            !allocate( this%Boundary%NBoundNum(DimNum))
+            !allocate(this%Boundary%NBoundNodID(n, size(this%Boundary%NBoundNum)  )  )
+            !allocate(this%Boundary%NBoundVal( n, size(this%Boundary%NBoundNum)  )  )
+            !this%Boundary%NBoundNodID(:,:)=-1
+            !this%Boundary%NBoundVal(:,:)  =0.0d0
 
-            !obj%Boundary%NBoundNum(:)=n
+            !this%Boundary%NBoundNum(:)=n
             do i=1,n
-                !write(*,*) obj%Boundary%NBoundNodID(i,:)
-                !obj%Boundary%NBoundNodID(i,:)=m
+                !write(*,*) this%Boundary%NBoundNodID(i,:)
+                !this%Boundary%NBoundNodID(i,:)=m
             enddo
             !write(*,*) "  "
 
             do i=1,n
-                !write(*,*) obj%Boundary%NBoundVal(i,:)
+                !write(*,*) this%Boundary%NBoundVal(i,:)
             enddo
             !write(*,*) "  "
         
@@ -2805,10 +2812,10 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
         !######### Initial conditions #################
         ! For node-wize
         
-        if(.not.allocated(obj%Boundary%TBoundVal) )then
+        if(.not.allocated(this%Boundary%TBoundVal) )then
             DimNum=0
         else
-            DimNum=size(obj%Boundary%TBoundVal,2)
+            DimNum=size(this%Boundary%TBoundVal,2)
         endif
         write(fh,*) DimNum
         write(fh,*) "  "
@@ -2818,25 +2825,25 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
         if(DimNum<=0)then
             !print *, "Caution :: no Initial Condition (Node-wise) Condition is loaded. "
         else
-            n=size(obj%Boundary%TBoundVal,1)
+            n=size(this%Boundary%TBoundVal,1)
             write(fh,*) n
             write(fh,*) "  "
-            !allocate(obj%Boundary%TBoundNodID(n,DimNum) )
-            !allocate(obj%Boundary%TBoundVal(  n,DimNum) )
-            !allocate(obj%Boundary%TBoundNum(  DimNum) )
+            !allocate(this%Boundary%TBoundNodID(n,DimNum) )
+            !allocate(this%Boundary%TBoundVal(  n,DimNum) )
+            !allocate(this%Boundary%TBoundNum(  DimNum) )
 
-            !obj%Boundary%TBoundNum(:)=n
+            !this%Boundary%TBoundNum(:)=n
             
             if(n/=0)then
                 if(n<0)then
                     print *, "ERROR :: number of initial conditions are to be zero"
                 else
                     do i=1,n
-                        write(fh,*) obj%Boundary%TBoundNodID(i,:)
+                        write(fh,*) this%Boundary%TBoundNodID(i,:)
                     enddo
                     write(fh,*) "  "
                     do i=1,n
-                        write(fh,*) obj%Boundary%TBoundVal(i,:)
+                        write(fh,*) this%Boundary%TBoundVal(i,:)
                     enddo
                     write(fh,*) "  "
                 endif
@@ -2853,10 +2860,10 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
         print *, "########### Initial Condition (Element-wize) info ###########"
         !######### Initial conditions #################
         ! For ElementGP-wize
-        if(.not.allocated(obj%Boundary%TBoundElemGpVal) )then
+        if(.not.allocated(this%Boundary%TBoundElemGpVal) )then
             DimNum=0
         else
-            DimNum=size(obj%Boundary%TBoundElemGpVal,3)
+            DimNum=size(this%Boundary%TBoundElemGpVal,3)
         endif
         
         write(fh,*) DimNum 
@@ -2865,28 +2872,28 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
             !print *, "Caution :: no Initial Condition (Gp) is loaded. "
         else
             !write(fh,*) 
-            GpNum=size(obj%Boundary%TBoundElemGpVal,2)
+            GpNum=size(this%Boundary%TBoundElemGpVal,2)
             write(fh,*) GpNum
             write(fh,*) "  "
             !write(fh,*) 
-            n=size(obj%Boundary%TBoundElemGpVal,1)
+            n=size(this%Boundary%TBoundElemGpVal,1)
             write(fh,*) n
             write(fh,*) "  "
-            !allocate(obj%Boundary%TBoundElemID(n) )
-            !allocate(obj%Boundary%TBoundElemGpVal(n,GpNum,DimNum) )
+            !allocate(this%Boundary%TBoundElemID(n) )
+            !allocate(this%Boundary%TBoundElemGpVal(n,GpNum,DimNum) )
             
             if(n/=0)then
                 if(n<0)then
                     print *, "ERROR :: number of initial conditions are to be zero"
                 else
                     do i=1,n
-                        write(fh,*) obj%Boundary%TBoundElemID(i)
+                        write(fh,*) this%Boundary%TBoundElemID(i)
                     enddo
                     write(fh,*) "  "
                     do i=1,n
                         do j=1,GpNum
                             do k=1,DimNum
-                                write(fh,*) obj%Boundary%TBoundElemGpVal(i,j,k)
+                                write(fh,*) this%Boundary%TBoundElemGpVal(i,j,k)
                             enddo
                         enddo
                     enddo
@@ -2900,7 +2907,7 @@ subroutine ExportFEMDomain(obj,OptionalFileFormat,OptionalProjectName,FileHandle
         print *, "Successfully Exported"
         print *, "########### Initial Condition (Element-wize) info ###########"
         
-        write(fh,*) obj%ControlPara%SimMode ,obj%ControlPara%ItrTol,obj%ControlPara%Timestep
+        write(fh,*) this%ControlPara%SimMode ,this%ControlPara%ItrTol,this%ControlPara%Timestep
         flush(fh)
         close(fh)
     else
@@ -2915,43 +2922,43 @@ end subroutine ExportFEMDomain
 !##################################################
 
 !##################################################
-subroutine InitDBC(obj,NumOfValPerNod)
-    class(FEMDomain_),intent(inout)::obj
+subroutine InitDBC(this,NumOfValPerNod)
+    class(FEMDomain_),intent(inout)::this
     integer(int32),intent(in) :: NumOfValPerNod
     
     integer(int32) :: n,m
     !if the facet is not created, create facets (surface elements)
-    call GetSurface(obj%Mesh)        
-    n=size(obj%Mesh%FacetElemNod,1)
-    m=size(obj%Mesh%FacetElemNod,2)
+    call GetSurface(this%Mesh)        
+    n=size(this%Mesh%FacetElemNod,1)
+    m=size(this%Mesh%FacetElemNod,2)
 
-    if(allocated(obj%Boundary%DBoundNum))then
-        deallocate(obj%Boundary%DBoundNum)
+    if(allocated(this%Boundary%DBoundNum))then
+        deallocate(this%Boundary%DBoundNum)
     endif
 
-    if(allocated(obj%Boundary%DBoundNodID))then
-        deallocate(obj%Boundary%DBoundNodID)
+    if(allocated(this%Boundary%DBoundNodID))then
+        deallocate(this%Boundary%DBoundNodID)
     endif
 
-    if(allocated(obj%Boundary%DBoundVal) )then
-        deallocate(obj%Boundary%DBoundVal)
+    if(allocated(this%Boundary%DBoundVal) )then
+        deallocate(this%Boundary%DBoundVal)
     endif
 
-    allocate(obj%Boundary%DBoundNum(NumOfValPerNod) )
-    obj%Boundary%DBoundNum(:)=0
-    allocate(obj%Boundary%DBoundNodID(n*m,NumOfValPerNod) )
-    obj%Boundary%DBoundNodID(:,:)=-1
-    allocate(obj%Boundary%DBoundVal(n*m,NumOfValPerNod) )
-    obj%Boundary%DBoundVal(:,:)=0.0d0
+    allocate(this%Boundary%DBoundNum(NumOfValPerNod) )
+    this%Boundary%DBoundNum(:)=0
+    allocate(this%Boundary%DBoundNodID(n*m,NumOfValPerNod) )
+    this%Boundary%DBoundNodID(:,:)=-1
+    allocate(this%Boundary%DBoundVal(n*m,NumOfValPerNod) )
+    this%Boundary%DBoundVal(:,:)=0.0d0
             
 end subroutine
 !##################################################
 
 
 !##################################################
-subroutine AddDBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
+subroutine AddDBoundCondition(this,xmin,xmax,ymin,ymax,zmin,zmax,&
     tmin,tmax,valx,valy,valz,val,val_id,NumOfValPerNod,Mode2D )
-    class(FEMDomain_),intent(inout)::obj
+    class(FEMDomain_),intent(inout)::this
     real(real64),optional,intent(in)::xmin,xmax
     real(real64),optional,intent(in)::ymin,ymax
     real(real64),optional,intent(in)::zmin,zmax
@@ -2986,7 +2993,7 @@ subroutine AddDBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
         NumVN=3
     endif
 
-	n=size(obj%Mesh%NodCoord,2)
+	n=size(this%Mesh%NodCoord,2)
 	dim_num=n
 	
     
@@ -3062,13 +3069,13 @@ subroutine AddDBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     !if the facet is not created, create facets (surface elements)
     
     
-    if( .not. allocated(obj%Mesh%FacetElemNod))then
-		call obj%InitDBC(NumOfValPerNod)
+    if( .not. allocated(this%Mesh%FacetElemNod))then
+		call this%InitDBC(NumOfValPerNod)
 		print *, "add dbc :: initialized"
 	endif
 	
-	if(.not.allocated(obj%Boundary%DBoundNodID) )then
-		call obj%InitDBC(NumOfValPerNod)
+	if(.not.allocated(this%Boundary%DBoundNodID) )then
+		call this%InitDBC(NumOfValPerNod)
 	endif
     rmin(1)=x_min
     rmin(2)=y_min
@@ -3078,40 +3085,40 @@ subroutine AddDBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     rmax(2)=y_max
 	rmax(3)=z_max
 	
-    n=size(obj%Mesh%FacetElemNod,1)
-	m=size(obj%Mesh%FacetElemNod,2)
+    n=size(this%Mesh%FacetElemNod,1)
+	m=size(this%Mesh%FacetElemNod,2)
 	count_n=0
 
-	if(.not. allocated(obj%Boundary%DBoundNum) )then
-		i=size(obj%Boundary%DBoundNodID,2)
-		allocate(obj%Boundary%DBoundNum(i))
+	if(.not. allocated(this%Boundary%DBoundNum) )then
+		i=size(this%Boundary%DBoundNodID,2)
+		allocate(this%Boundary%DBoundNum(i))
 	endif
 
-    do i=1,size(obj%Mesh%FacetElemNod,1)
-		do j=1,size(obj%Mesh%FacetElemNod,2)
-			if(obj%Mesh%FacetElemNod(i,j) > size(obj%Mesh%NodCoord,1) )then
-				print *, "ERROR :: obj%Mesh%FacetElemNod is out of range"
-				print *, "Number of nodes: ",size(obj%Mesh%NodCoord,1),&
-					"obj%Mesh%FacetElemNod(i,j) is ",obj%Mesh%FacetElemNod(i,j)
+    do i=1,size(this%Mesh%FacetElemNod,1)
+		do j=1,size(this%Mesh%FacetElemNod,2)
+			if(this%Mesh%FacetElemNod(i,j) > size(this%Mesh%NodCoord,1) )then
+				print *, "ERROR :: this%Mesh%FacetElemNod is out of range"
+				print *, "Number of nodes: ",size(this%Mesh%NodCoord,1),&
+					"this%Mesh%FacetElemNod(i,j) is ",this%Mesh%FacetElemNod(i,j)
 				stop 
 			endif
 			x(:)=0.0d0
-            x(1:dim_num)=obj%Mesh%NodCoord( obj%Mesh%FacetElemNod(i,j),1:dim_num )    
+            x(1:dim_num)=this%Mesh%NodCoord( this%Mesh%FacetElemNod(i,j),1:dim_num )    
 			InOut = InOrOut(x,rmax,rmin)
             if(InOut .eqv. .true.)then
                 if( (i-1)*m+j > n*m )then
                     stop "sgdssdfssssssssssssss"
 				endif
 				count_n=count_n+1
-				if(size(obj%Boundary%DBoundNodID,1) < (i-1)*m+j  )then
-					print *, "ERROR :: obj%Boundary%DBoundNodID is out of range"
-					print *, size(obj%Boundary%DBoundNodID,1),size(obj%Boundary%DBoundNodID,2),size(obj%Mesh%NodCoord,1),&
-						ValID,obj%Mesh%FacetElemNod(i,j)
+				if(size(this%Boundary%DBoundNodID,1) < (i-1)*m+j  )then
+					print *, "ERROR :: this%Boundary%DBoundNodID is out of range"
+					print *, size(this%Boundary%DBoundNodID,1),size(this%Boundary%DBoundNodID,2),size(this%Mesh%NodCoord,1),&
+						ValID,this%Mesh%FacetElemNod(i,j)
 					stop 
 				endif
-                obj%Boundary%DBoundNum(ValID)=obj%Boundary%DBoundNum(ValID)+1
-                obj%Boundary%DBoundNodID( (i-1)*m+j ,ValID)=obj%Mesh%FacetElemNod(i,j)
-                obj%Boundary%DBoundVal( (i-1)*m+j ,ValID)=val
+                this%Boundary%DBoundNum(ValID)=this%Boundary%DBoundNum(ValID)+1
+                this%Boundary%DBoundNodID( (i-1)*m+j ,ValID)=this%Mesh%FacetElemNod(i,j)
+                this%Boundary%DBoundVal( (i-1)*m+j ,ValID)=val
             endif
             
         enddo
@@ -3126,38 +3133,38 @@ end subroutine AddDBoundCondition
 
 
 !##################################################
-subroutine InitNBC(obj,NumOfValPerNod)
-    class(FEMDomain_),intent(inout)::obj
+subroutine InitNBC(this,NumOfValPerNod)
+    class(FEMDomain_),intent(inout)::this
     integer(int32),intent(in) :: NumOfValPerNod
     
     integer(int32) :: n,m
     !if the facet is not created, create facets (surface elements)
-    if( .not. allocated(obj%Mesh%FacetElemNod) )then
-        call GetSurface(obj%Mesh)        
+    if( .not. allocated(this%Mesh%FacetElemNod) )then
+        call GetSurface(this%Mesh)        
 	endif
 	
-    n=size(obj%Mesh%FacetElemNod,1)
-    m=size(obj%Mesh%FacetElemNod,2)
+    n=size(this%Mesh%FacetElemNod,1)
+    m=size(this%Mesh%FacetElemNod,2)
 
 
-    if(allocated(obj%Boundary%NBoundNum))then
-        deallocate(obj%Boundary%NBoundNum)
+    if(allocated(this%Boundary%NBoundNum))then
+        deallocate(this%Boundary%NBoundNum)
     endif
 
-    if(allocated(obj%Boundary%NBoundNodID))then
-        deallocate(obj%Boundary%NBoundNodID)
+    if(allocated(this%Boundary%NBoundNodID))then
+        deallocate(this%Boundary%NBoundNodID)
     endif
 
-    if(allocated(obj%Boundary%NBoundVal) )then
-        deallocate(obj%Boundary%NBoundVal)
+    if(allocated(this%Boundary%NBoundVal) )then
+        deallocate(this%Boundary%NBoundVal)
     endif
 
-    allocate(obj%Boundary%NBoundNum(NumOfValPerNod) )
-    obj%Boundary%NBoundNum(:)=0
-    allocate(obj%Boundary%NBoundNodID(n*m,NumOfValPerNod) )
-    obj%Boundary%NBoundNodID(:,:)=-1
-    allocate(obj%Boundary%NBoundVal(n*m,NumOfValPerNod) )
-    obj%Boundary%NBoundVal(:,:)=0.0d0
+    allocate(this%Boundary%NBoundNum(NumOfValPerNod) )
+    this%Boundary%NBoundNum(:)=0
+    allocate(this%Boundary%NBoundNodID(n*m,NumOfValPerNod) )
+    this%Boundary%NBoundNodID(:,:)=-1
+    allocate(this%Boundary%NBoundVal(n*m,NumOfValPerNod) )
+    this%Boundary%NBoundVal(:,:)=0.0d0
     
     return
         
@@ -3169,9 +3176,9 @@ end subroutine
 
 
 !##################################################
-subroutine AddNBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
+subroutine AddNBoundCondition(this,xmin,xmax,ymin,ymax,zmin,zmax,&
     tmin,tmax,valx,valy,valz,val,val_id,NumOfValPerNod,Mode2D )
-    class(FEMDomain_),intent(inout)::obj
+    class(FEMDomain_),intent(inout)::this
     real(real64),optional,intent(in)::xmin,xmax
     real(real64),optional,intent(in)::ymin,ymax
     real(real64),optional,intent(in)::zmin,zmax
@@ -3208,7 +3215,7 @@ subroutine AddNBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
 
 
 
-    n=size(obj%Mesh%NodCoord,2)
+    n=size(this%Mesh%NodCoord,2)
     
     if( present(Mode2D) )then
         if(Mode2D .eqv. .true.)then
@@ -3285,8 +3292,8 @@ subroutine AddNBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     !if the facet is not created, create facets (surface elements)
     
     
-    if( .not. allocated(obj%Mesh%FacetElemNod))then
-        call obj%InitNBC(NumOfValPerNod)
+    if( .not. allocated(this%Mesh%FacetElemNod))then
+        call this%InitNBC(NumOfValPerNod)
         
     endif
     
@@ -3297,46 +3304,46 @@ subroutine AddNBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     rmax(1)=x_max
     rmax(2)=y_max
     rmax(3)=z_max
-    n=size(obj%Mesh%FacetElemNod,1)
-    m=size(obj%Mesh%FacetElemNod,2)
+    n=size(this%Mesh%FacetElemNod,1)
+    m=size(this%Mesh%FacetElemNod,2)
         
-    do i=1,size(obj%Mesh%FacetElemNod,1)
-        do j=1,size(obj%Mesh%FacetElemNod,2)
-            x(:)=obj%Mesh%NodCoord( obj%Mesh%FacetElemNod(i,j),: )
+    do i=1,size(this%Mesh%FacetElemNod,1)
+        do j=1,size(this%Mesh%FacetElemNod,2)
+            x(:)=this%Mesh%NodCoord( this%Mesh%FacetElemNod(i,j),: )
             InOut = InOrOut(x,rmax,rmin)
             if(InOut .eqv. .true.)then
                 if( (i-1)*m+j > n*m )then
                     stop "sgdssdfssssssssssssss"
                 endif
-                obj%Boundary%NBoundNum(ValID)=obj%Boundary%NBoundNum(ValID)+1
-				obj%Boundary%NBoundNodID( (i-1)*m+j ,ValID)=obj%Mesh%FacetElemNod(i,j)
-				nodenum=size(obj%Mesh%ElemNod,2)
+                this%Boundary%NBoundNum(ValID)=this%Boundary%NBoundNum(ValID)+1
+				this%Boundary%NBoundNodID( (i-1)*m+j ,ValID)=this%Mesh%FacetElemNod(i,j)
+				nodenum=size(this%Mesh%ElemNod,2)
 				if(nodenum==3)then
 					call tobj%init(dim=3)
 					tobj%NodCoord(1,1:3)=&
-					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),1:3)
+					this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,1),1:3)
 					tobj%NodCoord(2,1:3)=&
-					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),1:3)
+					this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,1),1:3)
 					tobj%NodCoord(3,1:3)=&
-					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),1:3)
+					this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,1),1:3)
 					area=tobj%getArea()
 				elseif(nodenum>=4)then
 					nodenum=4
 					call tobj%init(dim=3)
 					tobj%NodCoord(1,1:3)=&
-					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),1:3)
+					this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,1),1:3)
 					tobj%NodCoord(2,1:3)=&
-					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,2),1:3)
+					this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,2),1:3)
 					tobj%NodCoord(3,1:3)=&
-					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),1:3)
+					this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,3),1:3)
 					area=tobj%getArea()
 					call tobj%init(dim=3)
 					tobj%NodCoord(1,1:3)=&
-					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,2),1:3)
+					this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,2),1:3)
 					tobj%NodCoord(2,1:3)=&
-					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),1:3)
+					this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,3),1:3)
 					tobj%NodCoord(3,1:3)=&
-					obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,4),1:3)
+					this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,4),1:3)
 					area=area+tobj%getArea()
 				else
 					print *, "ERROR :: Node num = ",nodenum,"is not implemented."
@@ -3346,7 +3353,7 @@ subroutine AddNBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
 					print *, "area==0.0d0 .or. area/=area"
 					stop
 				endif
-                obj%Boundary%NBoundVal( (i-1)*m+j ,ValID)=val*area/dble(nodenum)
+                this%Boundary%NBoundVal( (i-1)*m+j ,ValID)=val*area/dble(nodenum)
             endif
         enddo
     enddo
@@ -3372,19 +3379,19 @@ subroutine AddNBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
 !    endif
 !
 !    
-!    allocate(NBoundNodINBuf(size(obj%Mesh%SurfaceLine2D),size(obj%Boundary%NBoundNodID,2) ) )
-!    allocate(NBoundValBuf  (size(obj%Mesh%SurfaceLine2D),size(obj%Boundary%NBoundNodID,2) ) )
+!    allocate(NBoundNodINBuf(size(this%Mesh%SurfaceLine2D),size(this%Boundary%NBoundNodID,2) ) )
+!    allocate(NBoundValBuf  (size(this%Mesh%SurfaceLine2D),size(this%Boundary%NBoundNodID,2) ) )
 !    
 !    NBoundNodINBuf(:,:) = -1
 !    NBoundValBuf(:,:)   = -1.0d0
 !
 !
 !    k=0
-!    do i=1,size(obj%Mesh%SurfaceLine2D,1)
+!    do i=1,size(this%Mesh%SurfaceLine2D,1)
 !        countnum=0
-!        node_id=obj%Mesh%SurfaceLine2D(i)
+!        node_id=this%Mesh%SurfaceLine2D(i)
 !        
-!        do j=1,size(obj%Mesh%NodCoord,2)
+!        do j=1,size(this%Mesh%NodCoord,2)
 !            if(j==1)then
 !                minline=x_min
 !                maxline=x_max
@@ -3400,14 +3407,14 @@ subroutine AddNBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
 !            else
 !                !print *, "ERROR :: EditClass >> AddNBoundCondition >> dimension should 0 < d < 5"
 !            endif
-!            if(minline <= obj%Mesh%NodCoord(node_id,j) .and. obj%Mesh%NodCoord(node_id,j) <= maxline )then
+!            if(minline <= this%Mesh%NodCoord(node_id,j) .and. this%Mesh%NodCoord(node_id,j) <= maxline )then
 !                countnum=countnum+1
 !            endif 
 !        enddo
 !
-!        if(countnum==size(obj%Mesh%NodCoord,2))then
+!        if(countnum==size(this%Mesh%NodCoord,2))then
 !            k=k+1
-!            do j=1,size(obj%Mesh%NodCoord,2)
+!            do j=1,size(this%Mesh%NodCoord,2)
 !                if(j==1)then
 !                    if(.not.present(valx) ) then
 !                        NBoundNodINBuf(k,1)=-1
@@ -3442,47 +3449,47 @@ subroutine AddNBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
 ! 
 !    call TrimArray(DBoundNodIDBuf,k)
 !    call TrimArray(DBoundValBuf,k)
-!    call CopyArray(obj%Boundary%DBoundNodID,CopiedArrayInt)
-!    call CopyArray(obj%Boundary%DBoundVal,CopiedArrayReal)
-!    call MergeArray(CopiedArrayInt,DBoundNodIDBuf,obj%Boundary%DBoundNodID)
-!    call MergeArray(CopiedArrayReal,DBoundValBuf,obj%Boundary%DBoundVal)
+!    call CopyArray(this%Boundary%DBoundNodID,CopiedArrayInt)
+!    call CopyArray(this%Boundary%DBoundVal,CopiedArrayReal)
+!    call MergeArray(CopiedArrayInt,DBoundNodIDBuf,this%Boundary%DBoundNodID)
+!    call MergeArray(CopiedArrayReal,DBoundValBuf,this%Boundary%DBoundVal)
 !
-!    call DeleteOverlapBoundary(obj%Boundary)
+!    call DeleteOverlapBoundary(this%Boundary)
 
 end subroutine AddNBoundCondition
 !##################################################
 
 !##################################################
-subroutine InitTBC(obj,NumOfValPerNod)
-    class(FEMDomain_),intent(inout)::obj
+subroutine InitTBC(this,NumOfValPerNod)
+    class(FEMDomain_),intent(inout)::this
     integer(int32),intent(in) :: NumOfValPerNod
     
     integer(int32) :: n,m
     !if the facet is not created, create facets (surface elements)
-    if( .not. allocated(obj%Mesh%FacetElemNod) )then
-        call GetSurface(obj%Mesh)        
+    if( .not. allocated(this%Mesh%FacetElemNod) )then
+        call GetSurface(this%Mesh)        
     endif
-    n=size(obj%Mesh%NodCoord,1)
-    m=size(obj%Mesh%NodCoord,2)
+    n=size(this%Mesh%NodCoord,1)
+    m=size(this%Mesh%NodCoord,2)
 
-    if(allocated(obj%Boundary%TBoundNum))then
-        deallocate(obj%Boundary%TBoundNum)
-    endif
-
-    if(allocated(obj%Boundary%TBoundNodID))then
-        deallocate(obj%Boundary%TBoundNodID)
+    if(allocated(this%Boundary%TBoundNum))then
+        deallocate(this%Boundary%TBoundNum)
     endif
 
-    if(allocated(obj%Boundary%TBoundVal) )then
-        deallocate(obj%Boundary%TBoundVal)
+    if(allocated(this%Boundary%TBoundNodID))then
+        deallocate(this%Boundary%TBoundNodID)
     endif
 
-    allocate(obj%Boundary%TBoundNum(NumOfValPerNod) )
-    obj%Boundary%TBoundNum(:)=0
-    allocate(obj%Boundary%TBoundNodID(n,NumOfValPerNod) )
-    obj%Boundary%TBoundNodID(:,:)=-1
-    allocate(obj%Boundary%TBoundVal(n,NumOfValPerNod) )
-    obj%Boundary%TBoundVal(:,:)=0.0d0
+    if(allocated(this%Boundary%TBoundVal) )then
+        deallocate(this%Boundary%TBoundVal)
+    endif
+
+    allocate(this%Boundary%TBoundNum(NumOfValPerNod) )
+    this%Boundary%TBoundNum(:)=0
+    allocate(this%Boundary%TBoundNodID(n,NumOfValPerNod) )
+    this%Boundary%TBoundNodID(:,:)=-1
+    allocate(this%Boundary%TBoundVal(n,NumOfValPerNod) )
+    this%Boundary%TBoundVal(:,:)=0.0d0
     
     return
         
@@ -3494,9 +3501,9 @@ end subroutine
 
 
 !##################################################
-subroutine AddTBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
+subroutine AddTBoundCondition(this,xmin,xmax,ymin,ymax,zmin,zmax,&
     tmin,tmax,valx,valy,valz,val,val_id,NumOfValPerNod,Mode2D )
-    class(FEMDomain_),intent(inout)::obj
+    class(FEMDomain_),intent(inout)::this
     real(real64),optional,intent(in)::xmin,xmax
     real(real64),optional,intent(in)::ymin,ymax
     real(real64),optional,intent(in)::zmin,zmax
@@ -3530,7 +3537,7 @@ subroutine AddTBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
         NumVN=3
     endif
 
-    n=size(obj%Mesh%NodCoord,2)
+    n=size(this%Mesh%NodCoord,2)
     
     if( present(Mode2D) )then
         if(Mode2D .eqv. .true.)then
@@ -3605,8 +3612,8 @@ subroutine AddTBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     !if the facet is not created, create facets (surface elements)
     
     
-    if( size(obj%Mesh%NodCoord,1)/=size(obj%Boundary%TBoundNodID,1)  )then
-        call obj%InitTBC(NumOfValPerNod)
+    if( size(this%Mesh%NodCoord,1)/=size(this%Boundary%TBoundNodID,1)  )then
+        call this%InitTBC(NumOfValPerNod)
         print *, "sifdh"
     endif
     
@@ -3617,17 +3624,17 @@ subroutine AddTBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     rmax(1)=x_max
     rmax(2)=y_max
     rmax(3)=z_max
-    n=size(obj%Mesh%NodCoord,1)
+    n=size(this%Mesh%NodCoord,1)
 
 	count_n=0
     do i=1,n
-            x(:)=obj%Mesh%NodCoord( i,: )
+            x(:)=this%Mesh%NodCoord( i,: )
             InOut = InOrOut(x,rmax,rmin)
 			if(InOut .eqv. .true.)then
 				count_n=count_n+1
-                obj%Boundary%TBoundNum(ValID)=obj%Boundary%TBoundNum(ValID)+1
-                obj%Boundary%TBoundNodID( i ,ValID)=i
-                obj%Boundary%TBoundVal( i,ValID)=val
+                this%Boundary%TBoundNum(ValID)=this%Boundary%TBoundNum(ValID)+1
+                this%Boundary%TBoundNodID( i ,ValID)=i
+                this%Boundary%TBoundVal( i,ValID)=val
             endif
         
 	enddo
@@ -3640,9 +3647,9 @@ end subroutine AddTBoundCondition
 
 
 !!##################################################
-!subroutine AddNBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
+!subroutine AddNBoundCondition(this,xmin,xmax,ymin,ymax,zmin,zmax,&
 !    tmin,tmax,valx,valy,valz)
-!    class(FEMDomain_),intent(inout)::obj
+!    class(FEMDomain_),intent(inout)::this
 !    real(real64),optional,intent(in)::xmin,xmax
 !    real(real64),optional,intent(in)::ymin,ymax
 !    real(real64),optional,intent(in)::zmin,zmax
@@ -3727,19 +3734,19 @@ end subroutine AddTBoundCondition
 !
 !
 !    ! get node ID and value
-!    allocate(NBoundNodIDBuf(size(obj%Mesh%SurfaceLine2D),size(obj%Boundary%NBoundNodID,2) ) )
-!    allocate(NBoundValBuf  (size(obj%Mesh%SurfaceLine2D),size(obj%Boundary%NBoundNodID,2) ) )
+!    allocate(NBoundNodIDBuf(size(this%Mesh%SurfaceLine2D),size(this%Boundary%NBoundNodID,2) ) )
+!    allocate(NBoundValBuf  (size(this%Mesh%SurfaceLine2D),size(this%Boundary%NBoundNodID,2) ) )
 !    NBoundNodIDBuf(:,:) = -1
 !    NBoundValBuf(:,:)   = -1.0d0
 !
 !
 !
 !    k=0
-!    do i=1,size(obj%Mesh%SurfaceLine2D,1)
+!    do i=1,size(this%Mesh%SurfaceLine2D,1)
 !        countnum=0
-!        node_id=obj%Mesh%SurfaceLine2D(i)
+!        node_id=this%Mesh%SurfaceLine2D(i)
 !        
-!        do j=1,size(obj%Mesh%NodCoord,2)
+!        do j=1,size(this%Mesh%NodCoord,2)
 !            if(j==1)then
 !                minline=x_min
 !                maxline=x_max
@@ -3755,14 +3762,14 @@ end subroutine AddTBoundCondition
 !            else
 !                !print *, "ERROR :: EditClass >> AddNBoundCondition >> dimension should 0 < d < 5"
 !            endif
-!            if(minline <= obj%Mesh%NodCoord(node_id,j) .and. obj%Mesh%NodCoord(node_id,j) <= maxline )then
+!            if(minline <= this%Mesh%NodCoord(node_id,j) .and. this%Mesh%NodCoord(node_id,j) <= maxline )then
 !                countnum=countnum+1
 !            endif 
 !        enddo
 !
-!        if(countnum==size(obj%Mesh%NodCoord,2))then
+!        if(countnum==size(this%Mesh%NodCoord,2))then
 !            k=k+1
-!            do j=1,size(obj%Mesh%NodCoord,2)
+!            do j=1,size(this%Mesh%NodCoord,2)
 !                if(j==1)then
 !                    if(.not.present(valx) ) then
 !                        NBoundNodIDBuf(k,1)=-1
@@ -3797,12 +3804,12 @@ end subroutine AddTBoundCondition
 ! 
 !    call TrimArray(NBoundNodIDBuf,k)
 !    call TrimArray(NBoundValBuf,k)
-!    call CopyArray(obj%Boundary%NBoundNodID,CopiedArrayInt)
-!    call CopyArray(obj%Boundary%NBoundVal,CopiedArrayReal)
-!!    call MergeArray(CopiedArrayInt,NBoundNodIDBuf,obj%Boundary%NBoundNodID)
-!!    call MergeArray(CopiedArrayReal,NBoundValBuf,obj%Boundary%NBoundVal)
-!!    call DeleteOverlapBoundary(obj%Boundary)
-!!    call InitializeBoundary(obj%Boundary)
+!    call CopyArray(this%Boundary%NBoundNodID,CopiedArrayInt)
+!    call CopyArray(this%Boundary%NBoundVal,CopiedArrayReal)
+!!    call MergeArray(CopiedArrayInt,NBoundNodIDBuf,this%Boundary%NBoundNodID)
+!!    call MergeArray(CopiedArrayReal,NBoundValBuf,this%Boundary%NBoundVal)
+!!    call DeleteOverlapBoundary(this%Boundary)
+!!    call InitializeBoundary(this%Boundary)
 !!    
 !!
 !!
@@ -3817,9 +3824,9 @@ end subroutine AddTBoundCondition
 !
 !
 !!##################################################
-!subroutine AddTBoundCondition(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
+!subroutine AddTBoundCondition(this,xmin,xmax,ymin,ymax,zmin,zmax,&
 !    tmin,tmax,valx,valy,valz)
-!    class(FEMDomain_),intent(inout)::obj
+!    class(FEMDomain_),intent(inout)::this
 !    real(real64),optional,intent(in)::xmin,xmax
 !    real(real64),optional,intent(in)::ymin,ymax
 !    real(real64),optional,intent(in)::zmin,zmax
@@ -3904,19 +3911,19 @@ end subroutine AddTBoundCondition
 !
 !
 !    ! get node ID and value
-!    allocate(TBoundNodIDBuf(size(obj%Mesh%SurfaceLine2D),size(obj%Boundary%TBoundNodID,2) ) )
-!    allocate(TBoundValBuf  (size(obj%Mesh%SurfaceLine2D),size(obj%Boundary%TBoundNodID,2) ) )
+!    allocate(TBoundNodIDBuf(size(this%Mesh%SurfaceLine2D),size(this%Boundary%TBoundNodID,2) ) )
+!    allocate(TBoundValBuf  (size(this%Mesh%SurfaceLine2D),size(this%Boundary%TBoundNodID,2) ) )
 !    TBoundNodIDBuf(:,:) = -1
 !    TBoundValBuf(:,:)   = -1.0d0
 !
 !
 !
 !    k=0
-!    do i=1,size(obj%Mesh%SurfaceLine2D,1)
+!    do i=1,size(this%Mesh%SurfaceLine2D,1)
 !        countnum=0
-!        node_id=obj%Mesh%SurfaceLine2D(i)
+!        node_id=this%Mesh%SurfaceLine2D(i)
 !        
-!        do j=1,size(obj%Mesh%NodCoord,2)
+!        do j=1,size(this%Mesh%NodCoord,2)
 !            if(j==1)then
 !                minline=x_min
 !                maxline=x_max
@@ -3932,14 +3939,14 @@ end subroutine AddTBoundCondition
 !            else
 !                !print *, "ERROR :: EditClass >> AddTBoundCondition >> dimension should 0 < d < 5"
 !            endif
-!            if(minline <= obj%Mesh%NodCoord(node_id,j) .and. obj%Mesh%NodCoord(node_id,j) <= maxline )then
+!            if(minline <= this%Mesh%NodCoord(node_id,j) .and. this%Mesh%NodCoord(node_id,j) <= maxline )then
 !                countnum=countnum+1
 !            endif 
 !        enddo
 !
-!        if(countnum==size(obj%Mesh%NodCoord,2))then
+!        if(countnum==size(this%Mesh%NodCoord,2))then
 !            k=k+1
-!            do j=1,size(obj%Mesh%NodCoord,2)
+!            do j=1,size(this%Mesh%NodCoord,2)
 !                if(j==1)then
 !                    if(.not.present(valx) ) then
 !                        TBoundNodIDBuf(k,1)=-1
@@ -3973,12 +3980,12 @@ end subroutine AddTBoundCondition
 ! 
 !    call TrimArray(TBoundNodIDBuf,k)
 !    call TrimArray(TBoundValBuf,k)
-!    call CopyArray(obj%Boundary%TBoundNodID,CopiedArrayInt)
-!    call CopyArray(obj%Boundary%TBoundVal,CopiedArrayReal)
-!    call MergeArray(CopiedArrayInt,TBoundNodIDBuf,obj%Boundary%TBoundNodID)
-!    call MergeArray(CopiedArrayReal,TBoundValBuf,obj%Boundary%TBoundVal)
-!    call DeleteOverlapBoundary(obj%Boundary)
-!    call InitializeBoundary(obj%Boundary)
+!    call CopyArray(this%Boundary%TBoundNodID,CopiedArrayInt)
+!    call CopyArray(this%Boundary%TBoundVal,CopiedArrayReal)
+!    call MergeArray(CopiedArrayInt,TBoundNodIDBuf,this%Boundary%TBoundNodID)
+!    call MergeArray(CopiedArrayReal,TBoundValBuf,this%Boundary%TBoundVal)
+!    call DeleteOverlapBoundary(this%Boundary)
+!    call InitializeBoundary(this%Boundary)
 !    
 !
 !
@@ -3989,32 +3996,32 @@ end subroutine AddTBoundCondition
 
 
 !##################################################
-subroutine SetSolver(obj,inSolverType)
-    class(FEMDomain_),intent(inout)::obj
+subroutine SetSolver(this,inSolverType)
+    class(FEMDomain_),intent(inout)::this
     character(*),intent(in) :: inSolverType
 
-    obj%SolverType=inSolverType
+    this%SolverType=inSolverType
 
 end subroutine
 !##################################################
 
 !##################################################
-subroutine SetName(obj,Name)
-    class(FEMDomain_),intent(inout)::obj
+subroutine SetName(this,Name)
+    class(FEMDomain_),intent(inout)::this
     character(*),intent(in) :: Name
 
-    obj%FileName=Name
+    this%FileName=Name
 
 end subroutine
 !##################################################
 
 
 !##################################################
-subroutine SetDataType(obj,inDType)
-    class(FEMDomain_),intent(inout)::obj
+subroutine SetDataType(this,inDType)
+    class(FEMDomain_),intent(inout)::this
     character(*),intent(in) :: inDType
 
-    obj%DType = inDType
+    this%DType = inDType
 
 end subroutine
 
@@ -4022,19 +4029,19 @@ end subroutine
 
 
 !##################################################
-subroutine SetUpFEMDomain(obj)
-    class(FEMDomain_),intent(inout)::obj
+subroutine SetUpFEMDomain(this)
+    class(FEMDomain_),intent(inout)::this
 
     logical :: NodeExist
     logical :: ElementExist
 
-    if(allocated(obj%Mesh%NodCoord)  )then
+    if(allocated(this%Mesh%NodCoord)  )then
         NodeExist = .true.
     else
         NodeExist = .false.
     endif
 
-    if(allocated(obj%Mesh%ElemNod)  )then
+    if(allocated(this%Mesh%ElemNod)  )then
         ElementExist = .true.
     else
         ElementExist = .false.
@@ -4058,20 +4065,20 @@ end subroutine
 
 
 !##################################################
-subroutine SetControlParaFEMDomain(obj,OptionalTol,OptionalItrTol,OptionalTimestep,OptionalSimMode)
-    class(FEMDomain_),intent(inout)::obj
+subroutine SetControlParaFEMDomain(this,OptionalTol,OptionalItrTol,OptionalTimestep,OptionalSimMode)
+    class(FEMDomain_),intent(inout)::this
     real(real64),optional,intent(in)::OptionalTol
     integer(int32),optional,intent(in)::OptionalSimMode,OptionalItrTol,OptionalTimestep
     
-    call SetControlPara(obj%ControlPara,OptionalTol,OptionalItrTol,OptionalTimestep,OptionalSimMode)
+    call SetControlPara(this%ControlPara,OptionalTol,OptionalItrTol,OptionalTimestep,OptionalSimMode)
 end subroutine
 !##################################################
 
 
 !##################################################
-subroutine AddMaterialID(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
+subroutine AddMaterialID(this,xmin,xmax,ymin,ymax,zmin,zmax,&
     tmin,tmax,valx,valy,valz,MaterialID ,mode2D)
-    class(FEMDomain_),intent(inout)::obj
+    class(FEMDomain_),intent(inout)::this
     real(real64),optional,intent(in)::xmin,xmax
     real(real64),optional,intent(in)::ymin,ymax
     real(real64),optional,intent(in)::zmin,zmax
@@ -4100,7 +4107,7 @@ subroutine AddMaterialID(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     endif
 
 
-    n=size(obj%Mesh%NodCoord,2)
+    n=size(this%Mesh%NodCoord,2)
     
     if( present(Mode2D) )then
         if(Mode2D .eqv. .true.)then
@@ -4182,20 +4189,20 @@ subroutine AddMaterialID(obj,xmin,xmax,ymin,ymax,zmin,zmax,&
     rmax(1)=x_max
     rmax(2)=y_max
     rmax(3)=z_max
-    n=size(obj%Mesh%ElemMat,1)
+    n=size(this%Mesh%ElemMat,1)
 
     do i=1,n
         x(:)=0.0d0
-        do j=1,size(obj%Mesh%ElemNod,2)
-            x(:)=x(:)+obj%Mesh%NodCoord( obj%Mesh%ElemNod(i,j),: )
+        do j=1,size(this%Mesh%ElemNod,2)
+            x(:)=x(:)+this%Mesh%NodCoord( this%Mesh%ElemNod(i,j),: )
         enddo
 
-        x(:)=1.0d0/dble(size(obj%Mesh%ElemNod,2))*x(:)
+        x(:)=1.0d0/dble(size(this%Mesh%ElemNod,2))*x(:)
         
         InOut = InOrOut(x,rmax,rmin)
         if(InOut .eqv. .true.)then
             
-            obj%Mesh%ElemMat(i)=md
+            this%Mesh%ElemMat(i)=md
         endif
         
     enddo
@@ -4206,19 +4213,19 @@ end subroutine
 
 
 !##################################################
-subroutine MeltingSkeltonFEMDomain(obj)
-    class(FEMDomain_),intent(inout)::obj
+subroutine MeltingSkeltonFEMDomain(this)
+    class(FEMDomain_),intent(inout)::this
 
-    call obj%Mesh%MeltingSkelton()
+    call this%Mesh%MeltingSkelton()
     
 end subroutine
 !##################################################
 
 
 !##################################################
-recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname,NodeList)
+recursive subroutine mshFEMDomain(this,name,scalar,vector,tensor,step,fieldname,NodeList)
 	! export as msh format
-	class(FEMDomain_),intent(in)::obj
+	class(FEMDomain_),intent(in)::this
 	type(FEMDomain_)::mini_obj
 	character(*),intent(in) :: name
 	character(*),optional,intent(in) :: fieldname
@@ -4232,10 +4239,10 @@ recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname,N
 
 	if(present(NodeList))then
 		n = size(NodeList,1)
-		mini_obj%mesh%nodcoord = zeros(n,obj%nd())
-		mini_obj%mesh%elemNod = zeros(n,obj%nne())
+		mini_obj%mesh%nodcoord = zeros(n,this%nd())
+		mini_obj%mesh%elemNod = zeros(n,this%nne())
 		do i=1,n
-			mini_obj%mesh%nodcoord(i,: ) = obj%mesh%nodcoord( NodeList(i),: ) 
+			mini_obj%mesh%nodcoord(i,: ) = this%mesh%nodcoord( NodeList(i),: ) 
 		enddo
 		do i=1,n
 			mini_obj%mesh%elemNod(i,:) = i
@@ -4257,14 +4264,14 @@ recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname,N
 				vec1(i,:) = eigenvector(1,:)
 				vec2(i,:) = eigenvector(2,:)
 			enddo
-			call obj%msh(vector=vec1,name="first_eigen_plus"//name)
-			call obj%msh(vector=vec2,name="second_eigen_plus"//name)
+			call this%msh(vector=vec1,name="first_eigen_plus"//name)
+			call this%msh(vector=vec2,name="second_eigen_plus"//name)
 			do i=1,size(vec1,1)
 				vec1(i,:) =  - vec1(i,:) 
 				vec2(i,:) =  - vec2(i,:)
 			enddo 
-			call obj%msh(vector=vec1,name="first_eigen_minus"//name)
-			call obj%msh(vector=vec2,name="second_eigen_minus"//name)
+			call this%msh(vector=vec1,name="first_eigen_minus"//name)
+			call this%msh(vector=vec2,name="second_eigen_minus"//name)
 			return
 		else
 			! only rank-2 tensor is now implemented.
@@ -4282,7 +4289,7 @@ recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname,N
 		endif
 		vector_ = array(size(vector,1),3 )
 		vector_(:,1:size(vector,2) ) = vector(:,1:size(vector,2))
-		call obj%GmshPlotVector(Vector=vector_,name=name,FieldName=fname,step=n)
+		call this%GmshPlotVector(Vector=vector_,name=name,FieldName=fname,step=n)
 		return
 	endif
 
@@ -4294,29 +4301,29 @@ recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname,N
 		else
 			fname = "Scalar Field"
 		endif
-		call obj%GmshPlotContour(gp_value=scalar,OptionalContorName=fname,OptionalStep=n,Name=name)
+		call this%GmshPlotContour(gp_value=scalar,OptionalContorName=fname,OptionalStep=n,Name=name)
 		return
 	endif
 
 	if(present(fieldname) )then
 		! fieldname がどこかのレイヤーの名前と一致した場合
-		do i=1,size(obj%PhysicalField)
-			if(obj%PhysicalField(i)%name==fieldname )then
+		do i=1,size(this%PhysicalField)
+			if(this%PhysicalField(i)%name==fieldname )then
 				
-				if(allocated(obj%PhysicalField(i)%scalar))then
-					scalar_ = array(size(obj%PhysicalField(i)%scalar) ,1)
+				if(allocated(this%PhysicalField(i)%scalar))then
+					scalar_ = array(size(this%PhysicalField(i)%scalar) ,1)
 					do j=1,size(scalar_)
-						scalar_(j,:) = obj%PhysicalField(i)%scalar(j)
+						scalar_(j,:) = this%PhysicalField(i)%scalar(j)
 					enddo
-					call obj%msh(name=name,scalar=scalar_,step=step,fieldname=fieldname)
+					call this%msh(name=name,scalar=scalar_,step=step,fieldname=fieldname)
 					return
 				endif
-				if(allocated(obj%PhysicalField(i)%vector))then
-					call obj%msh(name=name,vector=obj%PhysicalField(i)%vector,step=step,fieldname=fieldname)
+				if(allocated(this%PhysicalField(i)%vector))then
+					call this%msh(name=name,vector=this%PhysicalField(i)%vector,step=step,fieldname=fieldname)
 					return
 				endif
-				if(allocated(obj%PhysicalField(i)%tensor))then
-					call obj%msh(name=name,tensor=obj%PhysicalField(i)%tensor,step=step,fieldname=fieldname)
+				if(allocated(this%PhysicalField(i)%tensor))then
+					call this%msh(name=name,tensor=this%PhysicalField(i)%tensor,step=step,fieldname=fieldname)
 					return
 				endif
 			endif
@@ -4330,20 +4337,20 @@ recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname,N
 	write(f%fh, '(a)' ) "$EndMeshFormat"
 	
 	write(f%fh, '(a)' ) "$Nodes"
-	write(f%fh, '(a)' ) str(size(obj%mesh%nodcoord,1) )
-	do i=1,size(obj%mesh%nodcoord,1)
+	write(f%fh, '(a)' ) str(size(this%mesh%nodcoord,1) )
+	do i=1,size(this%mesh%nodcoord,1)
 		write(f%fh,'(a)',advance="no") str(i)//" "
-		do j=1,size(obj%mesh%nodcoord,2)-1
-			write(f%fh,'(a)',advance="no") str(obj%mesh%nodcoord(i,j))//" "
+		do j=1,size(this%mesh%nodcoord,2)-1
+			write(f%fh,'(a)',advance="no") str(this%mesh%nodcoord(i,j))//" "
 		enddo
-		j=size(obj%mesh%nodcoord,2)
+		j=size(this%mesh%nodcoord,2)
 		if(3-j == 0)then
-			write(f%fh,'(a)',advance="yes") str(obj%mesh%nodcoord(i,j))
+			write(f%fh,'(a)',advance="yes") str(this%mesh%nodcoord(i,j))
 		elseif(3-j==1)then
-			write(f%fh,'(a)',advance="no") str(obj%mesh%nodcoord(i,j))//" "
+			write(f%fh,'(a)',advance="no") str(this%mesh%nodcoord(i,j))//" "
 			write(f%fh,'(a)',advance="yes") "0.00000  "
 		elseif(3-j==2)then
-			write(f%fh,'(a)',advance="no") str(obj%mesh%nodcoord(i,j))//" "
+			write(f%fh,'(a)',advance="no") str(this%mesh%nodcoord(i,j))//" "
 			write(f%fh,'(a)',advance="no") "0.00000  "
 			write(f%fh,'(a)',advance="yes") "0.00000  "
 		else
@@ -4354,7 +4361,7 @@ recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname,N
 	write(f%fh,'(a)' ) "$EndNodes"
 
 	write(f%fh, '(a)' ) "$Elements"
-	write(f%fh, '(a)' ) str(size(obj%mesh%elemnod,1) )
+	write(f%fh, '(a)' ) str(size(this%mesh%elemnod,1) )
 	! id, type, tag
 	! 1 : 2-node line
 	! 2 : 3-node line
@@ -4362,28 +4369,28 @@ recursive subroutine mshFEMDomain(obj,name,scalar,vector,tensor,step,fieldname,N
 	! 4 : 4-node tetrahedron
 	! 5 : 8-node hexahedron
 	! ...etc.
-	if(size(obj%mesh%elemnod,2) == 8 .and. size(obj%mesh%nodcoord,2)==3 ) then
+	if(size(this%mesh%elemnod,2) == 8 .and. size(this%mesh%nodcoord,2)==3 ) then
 		typeid=5
-	elseif(size(obj%mesh%elemnod,2) == 4 .and. size(obj%mesh%nodcoord,2)==3 )then
+	elseif(size(this%mesh%elemnod,2) == 4 .and. size(this%mesh%nodcoord,2)==3 )then
 		typeid=4
-	elseif(size(obj%mesh%elemnod,2) == 4 .and. size(obj%mesh%nodcoord,2)==2 )then
+	elseif(size(this%mesh%elemnod,2) == 4 .and. size(this%mesh%nodcoord,2)==2 )then
 		typeid=3
-	elseif(size(obj%mesh%elemnod,2) == 3 .and. size(obj%mesh%nodcoord,2)==1 )then
+	elseif(size(this%mesh%elemnod,2) == 3 .and. size(this%mesh%nodcoord,2)==1 )then
 		typeid=2
-	elseif(size(obj%mesh%elemnod,2) == 2 .and. size(obj%mesh%nodcoord,2)==1 )then
+	elseif(size(this%mesh%elemnod,2) == 2 .and. size(this%mesh%nodcoord,2)==1 )then
 		typeid=1
 	else
 		print *, "mshFEMDomain >> meshtype is not supported. (only 1-5 for elm-type)"
 		stop 
 	endif
 
-	do i=1,size(obj%mesh%elemnod,1)
+	do i=1,size(this%mesh%elemnod,1)
 		write(f%fh,'(a)',advance="no") str(i)//" "//str(typeid)//" 0 "
-		do j=1,size(obj%mesh%elemnod,2)-1
-			write(f%fh,'(a)',advance="no") str(obj%mesh%elemnod(i,j))//" "
+		do j=1,size(this%mesh%elemnod,2)-1
+			write(f%fh,'(a)',advance="no") str(this%mesh%elemnod(i,j))//" "
 		enddo
-		j=size(obj%mesh%elemnod,2)
-		write(f%fh,'(a)',advance="yes") str(obj%mesh%elemnod(i,j))
+		j=size(this%mesh%elemnod,2)
+		write(f%fh,'(a)',advance="yes") str(this%mesh%elemnod(i,j))
 	enddo
 	write(f%fh, '(a)' ) "$EndElements"
 	call f%close()
@@ -4394,9 +4401,9 @@ end subroutine
 
 
 ! #########################################################################################
-subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeumannBC,withDirichletBC&
+subroutine GmshPlotMesh(this,OptionalContorName,OptionalAbb,OptionalStep,Name,withNeumannBC,withDirichletBC&
 	,onlyNeumannBC,onlyDirichletBC,asMsh,withMaterial,Tag,timestep,field)
-	class(FEMDomain_),intent(inout)::obj
+	class(FEMDomain_),intent(inout)::this
 	real(real64),allocatable::gp_value(:,:)
 	real(real64),allocatable,optional,intent(in)::field(:)
 	integer(int32),optional,intent(in)::OptionalStep,timestep
@@ -4441,9 +4448,9 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 
 	filetitle(1:6)=abbmap(1:6)
     
-    if(.not.allocated(obj%Mesh%ElemMat) )then
-        allocate(obj%Mesh%ElemMat(size(obj%Mesh%ElemNod,1) ) )
-        obj%Mesh%ElemMat(:)=1
+    if(.not.allocated(this%Mesh%ElemMat) )then
+        allocate(this%Mesh%ElemMat(size(this%Mesh%ElemNod,1) ) )
+        this%Mesh%ElemMat(:)=1
     endif
 
 	!---------------------
@@ -4451,25 +4458,25 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 	if(present(Name) )then
 		filename=filename0
 		
-		!call execute_command_line(  "touch "//name//obj%FileName//filename )
+		!call execute_command_line(  "touch "//name//this%FileName//filename )
 		open(fh,file=name//filetitle//filename )
 		print *, "writing ",name//filetitle//filename," step>>",step
 	else
 		filename=filename0
-		!call execute_command_line(  "touch "//obj%FileName//filename )
-		!print *, obj%FileName//filetitle//filename
-		open(fh,file=obj%FileName//filetitle//filename )
-		print *, "writing ",obj%FileName//filetitle//filename," step>>",step
+		!call execute_command_line(  "touch "//this%FileName//filename )
+		!print *, this%FileName//filetitle//filename
+		open(fh,file=this%FileName//filetitle//filename )
+		print *, "writing ",this%FileName//filetitle//filename," step>>",step
 	endif
 	
 	
 	!---------------------
-	if( size(obj%Mesh%ElemNod,2)==4 .and. size(obj%Mesh%NodCoord,2)==2 ) then
+	if( size(this%Mesh%ElemNod,2)==4 .and. size(this%Mesh%NodCoord,2)==2 ) then
 		allocate(x(4,3) )
 		allocate(x_double(4,3) )
 		x(:,:)=0.0d0
 		x_double(:,:)=0.0d0
-	elseif( size(obj%Mesh%ElemNod,2)==8 .and. size(obj%Mesh%NodCoord,2)==3 ) then
+	elseif( size(this%Mesh%ElemNod,2)==8 .and. size(this%Mesh%NodCoord,2)==3 ) then
 		allocate(x(8,3) )
 		allocate(x_double(8,3) )
 		x(:,:)=0.0d0
@@ -4477,10 +4484,10 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 		
 	endif
 
-	allocate(gp_value( size(obj%Mesh%ElemNod,1),size(obj%Mesh%ElemNod,2) ))
-	if(allocated(obj%Mesh%ElemMat) )then
-		do i=1,size(obj%Mesh%ElemMat,1)
-			gp_value(i,:)=dble(obj%Mesh%ElemMat(i))
+	allocate(gp_value( size(this%Mesh%ElemNod,1),size(this%Mesh%ElemNod,2) ))
+	if(allocated(this%Mesh%ElemMat) )then
+		do i=1,size(this%Mesh%ElemMat,1)
+			gp_value(i,:)=dble(this%Mesh%ElemMat(i))
 		enddo
 	else
 		gp_value(i,:)=0.0d0
@@ -4494,28 +4501,28 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 	if(present(withDirichletBC) )then
 		if(withDirichletBC .eqv. .true. )then
 			! search Dirichlet BC and change color
-			if(.not. allocated(obj%Boundary%DBoundNodID) )then
+			if(.not. allocated(this%Boundary%DBoundNodID) )then
 				print *, "ERROR GmshPlotMesh >> withDirichletBC >> no NBC is found."
 				return
 			else
-				if(obj%debug_mode)then
-					print *, "[ok] GmshPlotMesh",filename," is exported withDirichletBC. The value is:",maxval(obj%Mesh%ElemMat(:))+40
+				if(this%debug_mode)then
+					print *, "[ok] GmshPlotMesh",filename," is exported withDirichletBC. The value is:",maxval(this%Mesh%ElemMat(:))+40
 				endif
 			endif
-			do i=1,size(obj%Boundary%DBoundNodID,1 )
-				do j=1,size(obj%Boundary%DBoundNodID,2)
+			do i=1,size(this%Boundary%DBoundNodID,1 )
+				do j=1,size(this%Boundary%DBoundNodID,2)
 					
-					if(obj%Boundary%DBoundNodID(i,j)>0 )then
-						nodeid1=obj%Boundary%DBoundNodID(i,j)
+					if(this%Boundary%DBoundNodID(i,j)>0 )then
+						nodeid1=this%Boundary%DBoundNodID(i,j)
 					else
 						cycle
 					endif
 
-					do k=1,size(obj%Mesh%ElemNod,1)
-						do l=1,size(obj%Mesh%ElemNod,2)
-							nodeid2=obj%Mesh%ElemNod( k,l  )
+					do k=1,size(this%Mesh%ElemNod,1)
+						do l=1,size(this%Mesh%ElemNod,2)
+							nodeid2=this%Mesh%ElemNod( k,l  )
 							if(nodeid1==nodeid2 )then
-								gp_value(k,:)=dble(maxval(obj%Mesh%ElemMat(:)))+40.0d0 ! Dirichlet is +20
+								gp_value(k,:)=dble(maxval(this%Mesh%ElemMat(:)))+40.0d0 ! Dirichlet is +20
 							endif
 						enddo
 					enddo
@@ -4528,28 +4535,28 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 	if(present(withNeumannBC) )then
 		if(withNeumannBC .eqv. .true. )then
 			! search Neumann BC and change color
-			if(.not. allocated(obj%Boundary%NBoundNodID) )then
+			if(.not. allocated(this%Boundary%NBoundNodID) )then
 				print *, "ERROR GmshPlotMesh >> withNeumannBC >> no NBC is found."
 				return
 			else
-				if(obj%debug_mode)then
-					print *, "[ok] GmshPlotMesh",filename," is exported withNeumannBC. The value is:",maxval(obj%Mesh%ElemMat(:))+20
+				if(this%debug_mode)then
+					print *, "[ok] GmshPlotMesh",filename," is exported withNeumannBC. The value is:",maxval(this%Mesh%ElemMat(:))+20
 				endif
 			endif
-			do i=1,size(obj%Boundary%NBoundNodID,1 )
-				do j=1,size(obj%Boundary%NBoundNodID,2)
+			do i=1,size(this%Boundary%NBoundNodID,1 )
+				do j=1,size(this%Boundary%NBoundNodID,2)
 					
-					if(obj%Boundary%NBoundNodID(i,j)>0 .and. obj%Boundary%NBoundVal(i,j)/=0.0d0)then
-						nodeid1=obj%Boundary%NBoundNodID(i,j)
+					if(this%Boundary%NBoundNodID(i,j)>0 .and. this%Boundary%NBoundVal(i,j)/=0.0d0)then
+						nodeid1=this%Boundary%NBoundNodID(i,j)
 					else
 						cycle
 					endif
 
-					do k=1,size(obj%Mesh%ElemNod,1)
-						do l=1,size(obj%Mesh%ElemNod,2)
-							nodeid2=obj%Mesh%ElemNod( k,l  )
+					do k=1,size(this%Mesh%ElemNod,1)
+						do l=1,size(this%Mesh%ElemNod,2)
+							nodeid2=this%Mesh%ElemNod( k,l  )
 							if(nodeid1==nodeid2 )then
-								gp_value(k,:)=dble(maxval(obj%Mesh%ElemMat(:)))+20.0d0 ! neumann is +20
+								gp_value(k,:)=dble(maxval(this%Mesh%ElemMat(:)))+20.0d0 ! neumann is +20
 							endif
 						enddo
 					enddo
@@ -4563,32 +4570,32 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 	if(present(onlyDirichletBC) )then
 		if(onlyDirichletBC .eqv. .true. )then
 			! search Dirichlet BC and change color
-			if(.not. allocated(obj%Boundary%DBoundNodID) )then
+			if(.not. allocated(this%Boundary%DBoundNodID) )then
 				print *, "ERROR GmshPlotMesh >> onlyDirichletBC >> no NBC is found."
 				return
 			else
-				if(obj%debug_mode)then
-					print *, "[ok] GmshPlotMesh",filename," is exported onlyDirichletBC. The value is:",maxval(obj%Mesh%ElemMat(:))+40
+				if(this%debug_mode)then
+					print *, "[ok] GmshPlotMesh",filename," is exported onlyDirichletBC. The value is:",maxval(this%Mesh%ElemMat(:))+40
 				endif
 			endif
-			do i=1,size(obj%Boundary%DBoundNodID,1 )
-				do j=1,size(obj%Boundary%DBoundNodID,2)
+			do i=1,size(this%Boundary%DBoundNodID,1 )
+				do j=1,size(this%Boundary%DBoundNodID,2)
 					
-					if(obj%Boundary%DBoundNodID(i,j)>0 )then
-						nodeid1=obj%Boundary%DBoundNodID(i,j)
+					if(this%Boundary%DBoundNodID(i,j)>0 )then
+						nodeid1=this%Boundary%DBoundNodID(i,j)
 					else
 						cycle
 					endif
 
 					
-					do k=1,size(obj%Mesh%ElemNod,1)
-						do l=1,size(obj%Mesh%ElemNod,2)
-							nodeid2=obj%Mesh%ElemNod( k,l  )
+					do k=1,size(this%Mesh%ElemNod,1)
+						do l=1,size(this%Mesh%ElemNod,2)
+							nodeid2=this%Mesh%ElemNod( k,l  )
 							if(nodeid1==nodeid2 )then
 								if(l>size(gp_value,2) )then
 									exit
 								endif
-								gp_value(k,l)=obj%Boundary%DBoundVal(i,j)
+								gp_value(k,l)=this%Boundary%DBoundVal(i,j)
 							endif
 						enddo
 					enddo
@@ -4603,14 +4610,17 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 	x(:,:)=0.0d0
 	write(fh,*) 'View "',mapname,'" {'
 	do i=1,size(gp_value,1)
-		if( size(obj%Mesh%ElemNod,2)==4 .and. size(obj%Mesh%NodCoord,2)==2 ) then
+		if( size(this%Mesh%ElemNod,2)==4 .and. size(this%Mesh%NodCoord,2)==2 ) then
 			
 			! 2-D, 4 noded, isoparametric elements with four gauss points 
-			x_double(1,1:2)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )
-			x_double(2,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )
-			x_double(3,1:2)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )&
-					+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-			x_double(4,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )
+			x_double(1,1:2)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )
+			x_double(2,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )
+			x_double(3,1:2)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )&
+					+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+			x_double(4,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )
 
 			
 			x(:,:)=x_double(:,:) 
@@ -4622,11 +4632,14 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 				gp_value(i,1),",",gp_value(i,1),",",gp_value(i,1),"};"
 				
 
-			x_double(1,1:2)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )
-			x_double(2,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )
-			x_double(3,1:2)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )&
-					+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-			x_double(4,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )
+			x_double(1,1:2)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )
+			x_double(2,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )
+			x_double(3,1:2)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )&
+					+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+			x_double(4,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )
 
 			
 			x(:,:)=x_double(:,:) 
@@ -4638,11 +4651,14 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 			,x(4,1),",",x(4,2),",",x(4,3),"){",gp_value(i,2),",",&
 				gp_value(i,2),",",gp_value(i,2),",",gp_value(i,2),"};"
 				
-			x_double(1,1:2)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )
-			x_double(2,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-			x_double(3,1:2)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )&
-					+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-			x_double(4,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )
+			x_double(1,1:2)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )
+			x_double(2,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+			x_double(3,1:2)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )&
+					+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+			x_double(4,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )
 			
 			x(:,:)=x_double(:,:) 
 
@@ -4652,11 +4668,14 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 			,x(4,1),",",x(4,2),",",x(4,3),"){",gp_value(i,3),",",&
 				gp_value(i,3),",",gp_value(i,3),",",gp_value(i,3),"};"
 				
-			x_double(1,1:2)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-			x_double(2,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )
-			x_double(3,1:2)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )&
-					+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-			x_double(4,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
+			x_double(1,1:2)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+			x_double(2,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )
+			x_double(3,1:2)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )&
+					+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+			x_double(4,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
 			
 			x(:,:)=x_double(:,:) 
 			
@@ -4666,29 +4685,36 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 			,x(4,1),",",x(4,2),",",x(4,3),"){",gp_value(i,4),",",&
 				gp_value(i,4),",",gp_value(i,4),",",gp_value(i,4),"};"
 			
-		elseif(size(obj%Mesh%ElemNod,2)==8 .and. size(obj%Mesh%NodCoord,2)==3  ) then
+		elseif(size(this%Mesh%ElemNod,2)==8 .and. size(this%Mesh%NodCoord,2)==3  ) then
 			
 			! 3-D, 8 noded, isoparametric elements with 8 gauss points
 			! 1/8
 
-			x_double(1,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )
-			x_double(2,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1), 1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )
-			x_double(3,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2), 1:3  )&
-					+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4), 1:3  )
-			x_double(4,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4), 1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )
+			x_double(1,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )
+			x_double(2,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1), 1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )
+			x_double(3,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2), 1:3  )&
+					+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4), 1:3  )
+			x_double(4,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4), 1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )
 
-			x_double(5,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )
+			x_double(5,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )
 
-			x_double(6,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-					+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(6,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+					+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 			
-			x_double(7,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-					+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-					+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-					+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(7,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+					+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+					+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+					+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
-			x_double(8,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-					+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(8,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+					+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 			
 			x(:,:)=x_double(:,:) 
 
@@ -4727,29 +4753,36 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 			
 			! 2/8
 
-			x_double(1,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1), 1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )
+			x_double(1,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1), 1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )
 			
-			x_double(2,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )
+			x_double(2,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )
 			
-			x_double(3,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )
+			x_double(3,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )
 			
 
-			x_double(4,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )
+			x_double(4,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )
 
-			x_double(5,1:3)= 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(5,1:3)=&
+				 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 
-			x_double(6,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(6,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 
 			
-			x_double(7,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(7,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 			
-			x_double(8,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(8,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 
 			x(:,:)=x_double(:,:) 
@@ -4789,29 +4822,36 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 			
 			! 3/8
 
-			x_double(8,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(8,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(3,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )
+			x_double(3,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )
 			
-			x_double(2,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )
+			x_double(2,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )
 			
 
-			x_double(1,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )
+			x_double(1,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )
 
-			x_double(6,1:3)= 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(6,1:3)=&
+				 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 
-			x_double(7,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(7,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
 			
-			x_double(4,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )
+			x_double(4,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )
 
-			x_double(5,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(5,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 
 			x(:,:)=x_double(:,:) 
@@ -4851,29 +4891,36 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 
 			! 4/8
 
-			x_double(6,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(6,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(3,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )
+			x_double(3,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )
 			
-			x_double(7,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(7,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 			
 
-			x_double(1,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )
+			x_double(1,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )
 
-			x_double(8,1:3)= 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )
+			x_double(8,1:3)=&
+				 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )
 
-			x_double(4,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )
+			x_double(4,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )
 
 			
-			x_double(2,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )
+			x_double(2,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )
 
-			x_double(5,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(5,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 			x(:,:)=x_double(:,:) 
 
@@ -4915,29 +4962,36 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 
 			! 5/8
 
-			x_double(7,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(7,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(5,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )
+			x_double(5,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )
 			
-			x_double(6,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(6,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 			
 
-			x_double(2,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )
+			x_double(2,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )
 
-			x_double(4,1:3)= 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )
+			x_double(4,1:3)=&
+				 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )
 
-			x_double(1,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )
+			x_double(1,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )
 
 			
-			x_double(8,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(8,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
-			x_double(3,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(3,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 			x(:,:)=x_double(:,:) 
 
@@ -4976,29 +5030,36 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 			
 			! 6/8
 
-			x_double(8,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(8,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(6,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(6,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 			
-			x_double(5,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(5,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 			
 
-			x_double(1,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )
+			x_double(1,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )
 
-			x_double(3,1:3)= 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(3,1:3)=&
+				 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 
-			x_double(2,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )
+			x_double(2,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )
 
 			
-			x_double(7,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(7,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(4,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(4,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 			x(:,:)=x_double(:,:) 
 
@@ -5039,29 +5100,36 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 			
 			! 7/8
 
-			x_double(5,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(5,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(7,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(7,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 			
-			x_double(8,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(8,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 			
 
-			x_double(4,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(4,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
-			x_double(2,1:3)= 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(2,1:3)=&
+				 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(3,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(3,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
 			
-			x_double(6,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(6,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(1,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(1,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 			x(:,:)=x_double(:,:) 
 
@@ -5104,29 +5172,36 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 			
 			! 8/8
 
-			x_double(5,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(5,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(7,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(7,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 			
-			x_double(6,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(6,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 			
 
-			x_double(2,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(2,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
-			x_double(4,1:3)= 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(4,1:3)=&
+				 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
-			x_double(3,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(3,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 			
-			x_double(8,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(8,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
-			x_double(1,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(1,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 
 			x(:,:)=x_double(:,:) 
@@ -5168,8 +5243,8 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 
 
         else
-            print *, " size(obj%Mesh%ElemNod,2)==",size(obj%Mesh%ElemNod,2)
-            print *, ".and. size(obj%Mesh%NodCoord,2)==",size(obj%Mesh%NodCoord,2)
+            print *, " size(this%Mesh%ElemNod,2)==",size(this%Mesh%ElemNod,2)
+            print *, ".and. size(this%Mesh%NodCoord,2)==",size(this%Mesh%NodCoord,2)
 			stop "plot_contour >> now constructing"
 		endif
 	enddo
@@ -5181,8 +5256,8 @@ subroutine GmshPlotMesh(obj,OptionalContorName,OptionalAbb,OptionalStep,Name,wit
 
 
 ! ########################################################################################
-subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalStep,Name)
-	class(FEMDomain_),intent(in)::obj
+subroutine GmshPlotContour(this,gp_value,OptionalContorName,OptionalAbb,OptionalStep,Name)
+	class(FEMDomain_),intent(in)::this
 	real(real64),intent(in)::gp_value(:,:)
 	integer(int32),optional,intent(in)::OptionalStep
 	character,optional,intent(in):: OptionalContorName*30,OptionalAbb*6
@@ -5219,18 +5294,18 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 	!---------------------
 	write (filename0, '("_", i6.6, ".pos")') step ! ここでファイル名を生成している
 	filename=filename0
-	!command="touch "//obj%FileName//filename
-	!call execute_command_line("touch "//obj%FileName//filename)
+	!command="touch "//this%FileName//filename
+	!call execute_command_line("touch "//this%FileName//filename)
 
-	open(fh,file=obj%FileName//filetitle//filename)
-	print *, "writing ",obj%FileName//filetitle//filename," step>>",step
+	open(fh,file=this%FileName//filetitle//filename)
+	print *, "writing ",this%FileName//filetitle//filename," step>>",step
 	
 	!---------------------
-	if( size(obj%Mesh%ElemNod,2)==4 .and. size(obj%Mesh%NodCoord,2)==2 ) then
+	if( size(this%Mesh%ElemNod,2)==4 .and. size(this%Mesh%NodCoord,2)==2 ) then
 		allocate(x(4,3) )
 		allocate(x_double(4,3) )
 		
-	elseif( size(obj%Mesh%ElemNod,2)==8 .and. size(obj%Mesh%NodCoord,2)==3 ) then
+	elseif( size(this%Mesh%ElemNod,2)==8 .and. size(this%Mesh%NodCoord,2)==3 ) then
 		allocate(x(8,3) )
 		allocate(x_double(8,3) )
 		
@@ -5240,14 +5315,17 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 	x(:,:)=0.0d0
 	write(fh,*) 'View "',mapname,'" {'
 	do i=1,size(gp_value,1)
-		if( size(obj%Mesh%ElemNod,2)==4 .and. size(obj%Mesh%NodCoord,2)==2 ) then
+		if( size(this%Mesh%ElemNod,2)==4 .and. size(this%Mesh%NodCoord,2)==2 ) then
 			
 			! 2-D, 4 noded, isoparametric elements with four gauss points 
-			x_double(1,1:2)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )
-			x_double(2,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )
-			x_double(3,1:2)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )&
-					+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-			x_double(4,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )
+			x_double(1,1:2)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )
+			x_double(2,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )
+			x_double(3,1:2)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )&
+					+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+			x_double(4,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )
 
 			x(:,:)=x_double(:,:) 
 
@@ -5258,11 +5336,14 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 				gp_value(i,1),",",gp_value(i,1),",",gp_value(i,1),"};"
 				
 
-			x_double(1,1:2)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )
-			x_double(2,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )
-			x_double(3,1:2)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )&
-					+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-			x_double(4,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )
+			x_double(1,1:2)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )
+			x_double(2,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )
+			x_double(3,1:2)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )&
+					+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+			x_double(4,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )
 
 			
 			x(:,:)=x_double(:,:) 
@@ -5274,11 +5355,14 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 			,x(4,1),",",x(4,2),",",x(4,3),"){",gp_value(i,2),",",&
 				gp_value(i,2),",",gp_value(i,2),",",gp_value(i,2),"};"
 				
-			x_double(1,1:2)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )
-			x_double(2,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-			x_double(3,1:2)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )&
-					+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-			x_double(4,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )
+			x_double(1,1:2)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )
+			x_double(2,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+			x_double(3,1:2)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )&
+					+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+			x_double(4,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )
 			
 			x(:,:)=x_double(:,:) 
 
@@ -5288,11 +5372,14 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 			,x(4,1),",",x(4,2),",",x(4,3),"){",gp_value(i,3),",",&
 				gp_value(i,3),",",gp_value(i,3),",",gp_value(i,3),"};"
 				
-			x_double(1,1:2)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-			x_double(2,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )
-			x_double(3,1:2)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )&
-					+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-			x_double(4,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
+			x_double(1,1:2)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+			x_double(2,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )
+			x_double(3,1:2)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )&
+					+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+			x_double(4,1:2)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
 			
 			x(:,:)=x_double(:,:) 
 			
@@ -5301,30 +5388,37 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 			,x(3,1),",",x(3,2),",",x(3,3),","&
 			,x(4,1),",",x(4,2),",",x(4,3),"){",gp_value(i,4),",",&
 				gp_value(i,4),",",gp_value(i,4),",",gp_value(i,4),"};"
-		elseif(size(obj%Mesh%ElemNod,2)==8 .and. size(obj%Mesh%NodCoord,2)==3  ) then
+		elseif(size(this%Mesh%ElemNod,2)==8 .and. size(this%Mesh%NodCoord,2)==3  ) then
 			
 			
 			! 3-D, 8 noded, isoparametric elements with 8 gauss points
 			! 1/8
 
-			x_double(1,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )
-			x_double(2,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1), 1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )
-			x_double(3,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2), 1:3  )&
-					+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4), 1:3  )
-			x_double(4,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4), 1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )
+			x_double(1,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )
+			x_double(2,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1), 1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )
+			x_double(3,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2), 1:3  )&
+					+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4), 1:3  )
+			x_double(4,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4), 1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )
 			
-			x_double(5,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )
+			x_double(5,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )
 
-			x_double(6,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-					+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(6,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+					+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 			
-			x_double(7,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-					+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-					+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-					+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(7,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+					+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+					+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+					+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
-			x_double(8,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-					+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(8,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+					+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 			
 			x(:,:)=x_double(:,:) 
 
@@ -5363,29 +5457,36 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 			
 			! 2/8
 
-			x_double(1,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1), 1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )
+			x_double(1,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1), 1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )
 			
-			x_double(2,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )
+			x_double(2,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )
 			
-			x_double(3,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )
+			x_double(3,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )
 			
 
-			x_double(4,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )
+			x_double(4,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )
 
-			x_double(5,1:3)= 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(5,1:3)=&
+				 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 
-			x_double(6,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(6,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 
 			
-			x_double(7,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(7,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 			
-			x_double(8,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(8,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 
 			x(:,:)=x_double(:,:) 
@@ -5425,29 +5526,36 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 			
 			! 3/8
 
-			x_double(8,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(8,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(3,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )
+			x_double(3,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )
 			
-			x_double(2,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )
+			x_double(2,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )
 			
 
-			x_double(1,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )
+			x_double(1,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )
 
-			x_double(6,1:3)= 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(6,1:3)=&
+				 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 
-			x_double(7,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(7,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
 			
-			x_double(4,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )
+			x_double(4,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )
 
-			x_double(5,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(5,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 
 			x(:,:)=x_double(:,:) 
@@ -5487,29 +5595,36 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 
 			! 4/8
 
-			x_double(6,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(6,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(3,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )
+			x_double(3,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )
 			
-			x_double(7,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(7,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 			
 
-			x_double(1,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )
+			x_double(1,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )
 
-			x_double(8,1:3)= 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )
+			x_double(8,1:3)=&
+				 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )
 
-			x_double(4,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )
+			x_double(4,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )
 
 			
-			x_double(2,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )
+			x_double(2,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )
 
-			x_double(5,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(5,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 			x(:,:)=x_double(:,:) 
 
@@ -5551,29 +5666,36 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 
 			! 5/8
 
-			x_double(7,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(7,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(5,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )
+			x_double(5,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )
 			
-			x_double(6,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(6,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 			
 
-			x_double(2,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )
+			x_double(2,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )
 
-			x_double(4,1:3)= 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )
+			x_double(4,1:3)=&
+				 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )
 
-			x_double(1,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )
+			x_double(1,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )
 
 			
-			x_double(8,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(8,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
-			x_double(3,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(3,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 			x(:,:)=x_double(:,:) 
 
@@ -5612,29 +5734,36 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 			
 			! 6/8
 
-			x_double(8,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(8,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(6,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(6,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 			
-			x_double(5,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(5,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 			
 
-			x_double(1,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )
+			x_double(1,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )
 
-			x_double(3,1:3)= 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )
+			x_double(3,1:3)=&
+				 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )
 
-			x_double(2,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )
+			x_double(2,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )
 
 			
-			x_double(7,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(7,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(4,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(4,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 			x(:,:)=x_double(:,:) 
 
@@ -5675,29 +5804,36 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 			
 			! 7/8
 
-			x_double(5,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(5,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(7,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(7,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 			
-			x_double(8,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(8,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 			
 
-			x_double(4,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(4,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
-			x_double(2,1:3)= 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(2,1:3)=&
+				 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(3,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(3,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
 			
-			x_double(6,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(6,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(1,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(1,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 			x(:,:)=x_double(:,:) 
 
@@ -5740,29 +5876,36 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 			
 			! 8/8
 
-			x_double(5,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )
+			x_double(5,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )
 
-			x_double(7,1:3)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(7,1:3)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 			
-			x_double(6,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(6,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 			
 
-			x_double(2,1:3)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(2,1:3)=&
+				0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
-			x_double(4,1:3)= 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(4,1:3)=&
+				 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
-			x_double(3,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4), 1:3  )+0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(3,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4), 1:3  )+0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 			
-			x_double(8,1:3)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(8,1:3)=&
+				0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
-			x_double(1,1:3)=0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,5),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,6),1:3  )&
-				+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,7),1:3  )+0.1250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,8),1:3  )
+			x_double(1,1:3)=&
+				0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,5),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,6),1:3  )&
+				+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,7),1:3  )+0.1250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,8),1:3  )
 
 
 			x(:,:)=x_double(:,:) 
@@ -5813,8 +5956,8 @@ subroutine GmshPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalS
 !===========================================================================================
 
 !===========================================================================================
-subroutine GmshPlotVector(obj,Vector,Name,FieldName,Step,fh,withMsh,ElementWize,NodeWize,onlyDirichlet)
-	class(FEMDomain_),intent(in)::obj
+subroutine GmshPlotVector(this,Vector,Name,FieldName,Step,fh,withMsh,ElementWize,NodeWize,onlyDirichlet)
+	class(FEMDomain_),intent(in)::this
 	real(real64),optional,intent(in)::Vector(:,:)
 	character(*),intent(in)::FieldName
 	character(*),optional,intent(in)::Name
@@ -5831,7 +5974,7 @@ subroutine GmshPlotVector(obj,Vector,Name,FieldName,Step,fh,withMsh,ElementWize,
 	if(present(onlyDirichlet) )then
 		if(onlyDirichlet .eqv. .true.)then
 			
-			call obj%getDBCVector(DBCVector)
+			call this%getDBCVector(DBCVector)
 			do i=1,size(DBCVector,1)
 				write(10,*) DBCVector(i,:)
 			enddo
@@ -5860,8 +6003,8 @@ subroutine GmshPlotVector(obj,Vector,Name,FieldName,Step,fh,withMsh,ElementWize,
 			write(FileHandle,'(A)')  "3"
 			write(FileHandle,'(A)')  "1"
 			write(FileHandle,'(A)')  "3"
-			write(FileHandle,*) 	size(obj%Mesh%NodCoord,1)  
-			do i=1,size(obj%Mesh%NodCoord,1)
+			write(FileHandle,*) 	size(this%Mesh%NodCoord,1)  
+			do i=1,size(this%Mesh%NodCoord,1)
 				write(FileHandle,*) i,DBCVector(i,:)
 			enddo
 
@@ -5885,15 +6028,15 @@ subroutine GmshPlotVector(obj,Vector,Name,FieldName,Step,fh,withMsh,ElementWize,
 					write(FileHandle,'(A)')  "2.2 0 8"
 					write(FileHandle,'(A)')  "$EndMeshFormat"
 					write(FileHandle,'(A)')  "$Nodes"
-					write(FileHandle,*) 	size(obj%Mesh%NodCoord,1)  
-					do i=1,size(obj%Mesh%NodCoord,1)
-						write(FileHandle,*) i,obj%Mesh%NodCoord(i,:)
+					write(FileHandle,*) 	size(this%Mesh%NodCoord,1)  
+					do i=1,size(this%Mesh%NodCoord,1)
+						write(FileHandle,*) i,this%Mesh%NodCoord(i,:)
 					enddo
 					write(FileHandle,'(A)')  "$EndNodes"
 					write(FileHandle,'(A)')  "$Elements"
-					write(FileHandle,*) 	size(obj%Mesh%ElemNod,1)
-					do i=1,size(obj%Mesh%ElemNod,1)
-						write(FileHandle,*) i,"5 2 0 1 ",obj%Mesh%ElemNod(i,:)
+					write(FileHandle,*) 	size(this%Mesh%ElemNod,1)
+					do i=1,size(this%Mesh%ElemNod,1)
+						write(FileHandle,*) i,"5 2 0 1 ",this%Mesh%ElemNod(i,:)
 					enddo  
 					write(FileHandle,'(A)')  "$EndElements"
 
@@ -5944,8 +6087,8 @@ subroutine GmshPlotVector(obj,Vector,Name,FieldName,Step,fh,withMsh,ElementWize,
 	write(FileHandle,'(A)')  "3"
 	write(FileHandle,'(A)')  "1"
 	write(FileHandle,'(A)')  "3"
-	write(FileHandle,*) 	size(obj%Mesh%NodCoord,1)  
-	do i=1,size(obj%Mesh%NodCoord,1)
+	write(FileHandle,*) 	size(this%Mesh%NodCoord,1)  
+	do i=1,size(this%Mesh%NodCoord,1)
 		write(FileHandle,*) i,Vector(i,:)
 	enddo
 	
@@ -5969,15 +6112,15 @@ subroutine GmshPlotVector(obj,Vector,Name,FieldName,Step,fh,withMsh,ElementWize,
 			write(FileHandle,'(A)')  "2.2 0 8"
 			write(FileHandle,'(A)')  "$EndMeshFormat"
 			write(FileHandle,'(A)')  "$Nodes"
-			write(FileHandle,*) 	size(obj%Mesh%NodCoord,1)  
-			do i=1,size(obj%Mesh%NodCoord,1)
-				write(FileHandle,*) i,obj%Mesh%NodCoord(i,:)
+			write(FileHandle,*) 	size(this%Mesh%NodCoord,1)  
+			do i=1,size(this%Mesh%NodCoord,1)
+				write(FileHandle,*) i,this%Mesh%NodCoord(i,:)
 			enddo
 			write(FileHandle,'(A)')  "$EndNodes"
 			write(FileHandle,'(A)')  "$Elements"
-			write(FileHandle,*) 	size(obj%Mesh%ElemNod,1)
-			do i=1,size(obj%Mesh%ElemNod,1)
-				write(FileHandle,*) i,"5 2 0 1 ",obj%Mesh%ElemNod(i,:)
+			write(FileHandle,*) 	size(this%Mesh%ElemNod,1)
+			do i=1,size(this%Mesh%ElemNod,1)
+				write(FileHandle,*) i,"5 2 0 1 ",this%Mesh%ElemNod(i,:)
 			enddo  
 			write(FileHandle,'(A)')  "$EndElements"
 			
@@ -5991,8 +6134,8 @@ end subroutine
 !===========================================================================================
 
 
-subroutine GmshPlotContour2D(obj,gp_value,OptionalContorName,OptionalAbb,OptionalStep,Name)
-	class(FEMDomain_),intent(in)::obj
+subroutine GmshPlotContour2D(this,gp_value,OptionalContorName,OptionalAbb,OptionalStep,Name)
+	class(FEMDomain_),intent(in)::this
 	real(real64),intent(in)::gp_value(:,:)
 	integer(int32),optional,intent(in)::OptionalStep
 	character,optional,intent(in):: OptionalContorName*30,OptionalAbb*6
@@ -6029,55 +6172,67 @@ subroutine GmshPlotContour2D(obj,gp_value,OptionalContorName,OptionalAbb,Optiona
 	filename=filename0
 
 
-	open(40,file=obj%FileName//filetitle//filename0)
-	print *, "writing ",obj%FileName//filetitle//filename0," step>>",step	
+	open(40,file=this%FileName//filetitle//filename0)
+	print *, "writing ",this%FileName//filetitle//filename0," step>>",step	
 
 	!---------------------
 	allocate(x(4,3) )
 	x(:,:)=0.0d0
 	write(40,*) 'View "',mapname,'" {'
-	do i=1,size(obj%Mesh%ElemNod,1)
-		if( size(obj%Mesh%ElemNod,2)/=4)  stop  "GmshPlotContour >> now constructing"
+	do i=1,size(this%Mesh%ElemNod,1)
+		if( size(this%Mesh%ElemNod,2)/=4)  stop  "GmshPlotContour >> now constructing"
 		
 		
-		x(1,1:2)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )
-		x(2,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )
-		x(3,1:2)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-		x(4,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )
+		x(1,1:2)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )
+		x(2,1:2)=&
+			0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )
+		x(3,1:2)=&
+			0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+		x(4,1:2)=&
+			0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )
 		write(40,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
 		,x(2,1),",",x(2,2),",",x(2,3),","&
 		,x(3,1),",",x(3,2),",",x(3,3),","&
 		,x(4,1),",",x(4,2),",",x(4,3),"){",gp_value(i,1),",",&
 			gp_value(i,1),",",gp_value(i,1),",",gp_value(i,1),"};"
 			
-		x(1,1:2)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )
-		x(2,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )
-		x(3,1:2)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-		x(4,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )
+		x(1,1:2)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )
+		x(2,1:2)=&
+			0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )
+		x(3,1:2)=&
+			0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+		x(4,1:2)=&
+			0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )
 		write(40,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
 		,x(2,1),",",x(2,2),",",x(2,3),","&
 		,x(3,1),",",x(3,2),",",x(3,3),","&
 		,x(4,1),",",x(4,2),",",x(4,3),"){",gp_value(i,2),",",&
 			gp_value(i,2),",",gp_value(i,2),",",gp_value(i,2),"};"
 			
-		x(1,1:2)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )
-		x(2,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-		x(3,1:2)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-		x(4,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )
+		x(1,1:2)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )
+		x(2,1:2)=&
+			0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+		x(3,1:2)=&
+			0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+		x(4,1:2)=&
+			0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )
 		write(40,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
 		,x(2,1),",",x(2,2),",",x(2,3),","&
 		,x(3,1),",",x(3,2),",",x(3,3),","&
 		,x(4,1),",",x(4,2),",",x(4,3),"){",gp_value(i,3),",",&
 			gp_value(i,3),",",gp_value(i,3),",",gp_value(i,3),"};"
 			
-		x(1,1:2)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-		x(2,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )
-		x(3,1:2)=0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,1),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,2),1:2  )&
-				+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  )+0.250d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
-		x(4,1:2)=0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,3),1:2  ) + 0.50d0*obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,4),1:2  )
+		x(1,1:2)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+		x(2,1:2)=&
+			0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )
+		x(3,1:2)=&
+			0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,1),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,2),1:2  )&
+				+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  )+0.250d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
+		x(4,1:2)=&
+			0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,3),1:2  ) + 0.50d0*this%Mesh%NodCoord(this%Mesh%ElemNod(i,4),1:2  )
 		write(40,*)" SQ(",x(1,1),",",x(1,2),",",x(1,3),","&
 		,x(2,1),",",x(2,2),",",x(2,3),","&
 		,x(3,1),",",x(3,2),",",x(3,3),","&
@@ -6087,8 +6242,8 @@ subroutine GmshPlotContour2D(obj,gp_value,OptionalContorName,OptionalAbb,Optiona
 	write(40,*) '};'
  end subroutine GmshPlotContour2D
  !===========================================================================================
-subroutine GmshExportStress(obj,uvec,sigma,strain_measure,step,Name )
-	class(FEMDomain_),intent(in)::obj
+subroutine GmshExportStress(this,uvec,sigma,strain_measure,step,Name )
+	class(FEMDomain_),intent(in)::this
 	real(real64),intent(in)::uvec(:),sigma(:,:,:),strain_measure(:,:,:)
 	integer(int32),intent(in)::step
 	character p_stress_field*30
@@ -6102,7 +6257,7 @@ subroutine GmshExportStress(obj,uvec,sigma,strain_measure,step,Name )
 	integer(int32) i,j,n,gp_number,dim_num
 	
 	gp_number=size(strain_measure,2)
-	dim_num=size(obj%Mesh%NodCoord,2)
+	dim_num=size(this%Mesh%NodCoord,2)
 	
 	p_stress_field="Hydrostatic stress (kPa)"
 	q_stress_field="Deviatoric stress (kPa)"
@@ -6111,11 +6266,11 @@ subroutine GmshExportStress(obj,uvec,sigma,strain_measure,step,Name )
 	
 	allocate(F_iJ(3,3),b_ij(3,3) )
 	
-	allocate( c_nod_coord(size(obj%Mesh%NodCoord,1),size(obj%Mesh%NodCoord,2))) 
-	allocate(gp_value(size(obj%Mesh%ElemNod,1),gp_number  ))
+	allocate( c_nod_coord(size(this%Mesh%NodCoord,1),size(this%Mesh%NodCoord,2))) 
+	allocate(gp_value(size(this%Mesh%ElemNod,1),gp_number  ))
 	
-	do i=1,size(obj%Mesh%NodCoord,1)
-		c_nod_coord(i,:)=obj%Mesh%NodCoord(i,:)+uvec(dim_num*(i-1)+1:dim_num*i )
+	do i=1,size(this%Mesh%NodCoord,1)
+		c_nod_coord(i,:)=this%Mesh%NodCoord(i,:)+uvec(dim_num*(i-1)+1:dim_num*i )
 	enddo
 	
 	!!"Hydrostatic stress (kPa)"
@@ -6132,7 +6287,7 @@ subroutine GmshExportStress(obj,uvec,sigma,strain_measure,step,Name )
 	enddo
 	mapname=p_stress_field
 	abbrivation="Hysigm"
-	call GmshPlotContour(obj,gp_value,mapname,abbrivation,step,Name=Name)
+	call GmshPlotContour(this,gp_value,mapname,abbrivation,step,Name=Name)
 	
 	!!""Deviatoric stress (kPa)"
 	do i=1,size(sigma,1)
@@ -6157,7 +6312,7 @@ subroutine GmshExportStress(obj,uvec,sigma,strain_measure,step,Name )
 	enddo
 	mapname=q_stress_field
 	abbrivation="Dvsigm"
-	call GmshPlotContour(obj,gp_value,mapname,abbrivation,step,Name=Name)
+	call GmshPlotContour(this,gp_value,mapname,abbrivation,step,Name=Name)
 	
 	!!"Hydrostatic strain"
 	do i=1,size(strain_measure,1)
@@ -6189,7 +6344,7 @@ subroutine GmshExportStress(obj,uvec,sigma,strain_measure,step,Name )
 	enddo
 	mapname=p_strain_field
 	abbrivation="Hyepsi"
-	call GmshPlotContour(obj,gp_value,mapname,abbrivation,step,Name=Name)
+	call GmshPlotContour(this,gp_value,mapname,abbrivation,step,Name=Name)
 	
 	!!"Deviatoric strain"
 	do i=1,size(strain_measure,1)
@@ -6225,12 +6380,12 @@ subroutine GmshExportStress(obj,uvec,sigma,strain_measure,step,Name )
 	enddo
 	mapname=p_stress_field
 	abbrivation="Dvepsi"
-	call GmshPlotContour(obj,gp_value,mapname,abbrivation,step,Name=Name)
+	call GmshPlotContour(this,gp_value,mapname,abbrivation,step,Name=Name)
 	
  end subroutine
  !=======================================================================================
-subroutine GnuplotPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,OptionalStep)
-	class(FEMDomain_),intent(in)::obj
+subroutine GnuplotPlotContour(this,gp_value,OptionalContorName,OptionalAbb,OptionalStep)
+	class(FEMDomain_),intent(in)::this
 	real(real64),intent(in)::gp_value(:,:)
 	integer(int32),optional,intent(in)::OptionalStep
 	character,optional,intent(in):: OptionalContorName*30,OptionalAbb*6
@@ -6264,14 +6419,14 @@ subroutine GnuplotPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,Option
 	!---------------------
 	write (filename0, '("_", i6.6, ".txt")') step ! ここでファイル名を生成している
 	filename=filename0
-	open(40,file="touch "//obj%FileName//filename)
+	open(40,file="touch "//this%FileName//filename)
 	print *, "writing .gnuplot-txt file... step>>",step
 	!---------------------
 
     do i=1,size(gp_value,1)
         do j=1,size(gp_value,2)
-            n=obj%Mesh%ElemNod(i,j)
-            write(40,*) obj%Mesh%NodCoord(n,:),&
+            n=this%Mesh%ElemNod(i,j)
+            write(40,*) this%Mesh%NodCoord(n,:),&
                 gp_value(i,j)
         enddo
     enddo
@@ -6280,8 +6435,8 @@ subroutine GnuplotPlotContour(obj,gp_value,OptionalContorName,OptionalAbb,Option
  !===========================================================================================
  
  !===========================================================================================
-subroutine GnuplotExportStress(obj,uvec,sigma,strain_measure,step )
-	class(FEMDomain_),intent(in)::obj
+subroutine GnuplotExportStress(this,uvec,sigma,strain_measure,step )
+	class(FEMDomain_),intent(in)::this
 	real(real64),intent(in)::uvec(:),sigma(:,:,:),strain_measure(:,:,:)
 	integer(int32),intent(in)::step
 	character p_stress_field*30
@@ -6296,18 +6451,18 @@ subroutine GnuplotExportStress(obj,uvec,sigma,strain_measure,step )
 	
 	
 	gp_number=size(strain_measure,2)
-	dim_num=size(obj%Mesh%NodCoord,2)
+	dim_num=size(this%Mesh%NodCoord,2)
 	
 	p_stress_field="Hydrostatic stress (kPa)"
 	q_stress_field="Deviatoric stress (kPa)"
 	p_strain_field="Hydrostatic strain "
 	q_strain_field="Deviatoric strain "
 	
-	allocate( c_nod_coord(size(obj%Mesh%NodCoord,1),size(obj%Mesh%NodCoord,2))) 
-	allocate(gp_value(size(obj%Mesh%ElemNod,1),gp_number  ))
+	allocate( c_nod_coord(size(this%Mesh%NodCoord,1),size(this%Mesh%NodCoord,2))) 
+	allocate(gp_value(size(this%Mesh%ElemNod,1),gp_number  ))
 	
-	do i=1,size(obj%Mesh%NodCoord,1)
-		c_nod_coord(i,:)=obj%Mesh%NodCoord(i,:)+uvec(dim_num*(i-1)+1:dim_num*i )
+	do i=1,size(this%Mesh%NodCoord,1)
+		c_nod_coord(i,:)=this%Mesh%NodCoord(i,:)+uvec(dim_num*(i-1)+1:dim_num*i )
 	enddo
 	
 	!!"Hydrostatic stress (kPa)"
@@ -6319,7 +6474,7 @@ subroutine GnuplotExportStress(obj,uvec,sigma,strain_measure,step )
 	enddo
 	mapname=p_stress_field
 	abbrivation="Hysigm"
-	call GnuplotPlotContour(obj,gp_value,mapname,abbrivation,step)
+	call GnuplotPlotContour(this,gp_value,mapname,abbrivation,step)
 	
 	!!""Deviatoric stress (kPa)"
 	do i=1,size(sigma,1)
@@ -6332,7 +6487,7 @@ subroutine GnuplotExportStress(obj,uvec,sigma,strain_measure,step )
 	enddo
 	mapname=q_stress_field
 	abbrivation="Dvsigm"
-	call GnuplotPlotContour(obj,gp_value,mapname,abbrivation,step)
+	call GnuplotPlotContour(this,gp_value,mapname,abbrivation,step)
 	
 	!!"Hydrostatic strain"
 	do i=1,size(strain_measure,1)
@@ -6343,7 +6498,7 @@ subroutine GnuplotExportStress(obj,uvec,sigma,strain_measure,step )
 	enddo
 	mapname=p_strain_field
 	abbrivation="Hyepsi"
-	call GnuplotPlotContour(obj,gp_value,mapname,abbrivation,step)
+	call GnuplotPlotContour(this,gp_value,mapname,abbrivation,step)
 	
 	!!"Deviatoric strain"
 	do i=1,size(strain_measure,1)
@@ -6357,7 +6512,7 @@ subroutine GnuplotExportStress(obj,uvec,sigma,strain_measure,step )
 	enddo
 	mapname=p_stress_field
 	abbrivation="Dvepsi"
-	call GnuplotPlotContour(obj,gp_value,mapname,abbrivation,step)
+	call GnuplotPlotContour(this,gp_value,mapname,abbrivation,step)
 	
  end subroutine
  !=======================================================================================
@@ -6406,8 +6561,8 @@ pure function zrangeFEMDomain(this) result(zrange)
 end function
 
 ! ################################################
-subroutine moveFEMDomain(obj,x,y,z,NodeList,to)
-	class(FEMDomain_),intent(inout)::obj
+subroutine moveFEMDomain(this,x,y,z,NodeList,to)
+	class(FEMDomain_),intent(inout)::this
 	real(real64),optional,intent(in)::x,y,z
 	real(real64),allocatable :: center(:)
 	integer(int32),optional,intent(in) :: NodeList(:)
@@ -6417,14 +6572,14 @@ subroutine moveFEMDomain(obj,x,y,z,NodeList,to)
 	if(present(to) )then
 		select case(to)
 		case("center","CENTER","Center")
-			center = obj%centerPosition()
-			call obj%move(x=-center(1),y=-center(2),z=-center(3) )
+			center = this%centerPosition()
+			call this%move(x=-center(1),y=-center(2),z=-center(3) )
 		case("origin","ORIGIN","Origin")
-			center = zeros(obj%nd() )
-			do i=1,obj%nd()
-				center(i) = minval(obj%mesh%nodcoord(:,i))
+			center = zeros(this%nd() )
+			do i=1,this%nd()
+				center(i) = minval(this%mesh%nodcoord(:,i))
 			enddo
-			call obj%move(x=-center(1),y=-center(2),z=-center(3) )
+			call this%move(x=-center(1),y=-center(2),z=-center(3) )
 		case default
 			print *, "ERROR :: moveFEMDomain + arg :: to >> invalid keyword"
 			print *, "select center or origin"
@@ -6437,7 +6592,7 @@ subroutine moveFEMDomain(obj,x,y,z,NodeList,to)
 		if(present(x) )then
 			do i=1,size(NodeList)
 				nid = NodeList(i)
-				obj%Mesh%NodCoord(nid,1)=obj%Mesh%NodCoord(nid,1)+x
+				this%Mesh%NodCoord(nid,1)=this%Mesh%NodCoord(nid,1)+x
 			enddo
 		endif
 
@@ -6445,12 +6600,12 @@ subroutine moveFEMDomain(obj,x,y,z,NodeList,to)
 		if(present(y) )then
 			do i=1,size(NodeList)
 				nid = NodeList(i)
-				obj%Mesh%NodCoord(nid,2)=obj%Mesh%NodCoord(nid,2)+y
+				this%Mesh%NodCoord(nid,2)=this%Mesh%NodCoord(nid,2)+y
 			enddo
 		endif
 
 
-		if(size(obj%Mesh%NodCoord,2) <3 .and. present(z))then
+		if(size(this%Mesh%NodCoord,2) <3 .and. present(z))then
 			print *, "ERROR :: moveFEMDomain >> z cannot be imported"
 			return
 		endif
@@ -6459,29 +6614,29 @@ subroutine moveFEMDomain(obj,x,y,z,NodeList,to)
 
 			do i=1,size(NodeList)
 				nid = NodeList(i)
-				obj%Mesh%NodCoord(nid,3)=obj%Mesh%NodCoord(nid,3)+z
+				this%Mesh%NodCoord(nid,3)=this%Mesh%NodCoord(nid,3)+z
 			enddo
 		endif
 	
 	else
 	
 		if(present(x) )then
-			obj%Mesh%NodCoord(:,1)=obj%Mesh%NodCoord(:,1)+x
+			this%Mesh%NodCoord(:,1)=this%Mesh%NodCoord(:,1)+x
 		endif
 
 
 		if(present(y) )then
-			obj%Mesh%NodCoord(:,2)=obj%Mesh%NodCoord(:,2)+y
+			this%Mesh%NodCoord(:,2)=this%Mesh%NodCoord(:,2)+y
 		endif
 
 
-		if(size(obj%Mesh%NodCoord,2) <3 .and. present(z))then
+		if(size(this%Mesh%NodCoord,2) <3 .and. present(z))then
 			print *, "ERROR :: moveFEMDomain >> z cannot be imported"
 			return
 		endif
 
 		if(present(z) )then
-			obj%Mesh%NodCoord(:,3)=obj%Mesh%NodCoord(:,3)+z
+			this%Mesh%NodCoord(:,3)=this%Mesh%NodCoord(:,3)+z
 		endif
 	endif
 
@@ -6490,8 +6645,8 @@ end subroutine
  
 
 ! ################################################
-subroutine rotateFEMDomain(obj,x,y,z,deg)
-	class(FEMDomain_),intent(inout)::obj
+subroutine rotateFEMDomain(this,x,y,z,deg)
+	class(FEMDomain_),intent(inout)::this
 	real(real64),optional,intent(in)::x,y,z
 	real(real64) ::xd,yd,zd,x_u,y_u,z_u
 	real(real64),allocatable :: midpoint(:),&
@@ -6505,26 +6660,26 @@ subroutine rotateFEMDomain(obj,x,y,z,deg)
 	! Euler-XYZ
 	xyz_nonzero(1:3) = .true.
 
-	n=size(obj%Mesh%NodCoord,2)
-	m=size(obj%Mesh%NodCoord,1)
+	n=size(this%Mesh%NodCoord,2)
+	m=size(this%Mesh%NodCoord,1)
 
 
-	if(obj%nd()==2 )then
+	if(this%nd()==2 )then
 
 		! unroll from Y to X
 
-		midpoint = obj%centerPosition()
-		do i=1,obj%nn()
-			obj%Mesh%NodCoord(i,:)=obj%Mesh%NodCoord(i,:)-midpoint(:)
+		midpoint = this%centerPosition()
+		do i=1,this%nn()
+			this%Mesh%NodCoord(i,:)=this%Mesh%NodCoord(i,:)-midpoint(:)
 		enddo
-		all_rotmat = eyes(obj%nd(),obj%nd() )
+		all_rotmat = eyes(this%nd(),this%nd() )
 
-		rotmat_x = eyes(obj%nd(),obj%nd() )
-		rotmat_y = eyes(obj%nd(),obj%nd() )
+		rotmat_x = eyes(this%nd(),this%nd() )
+		rotmat_y = eyes(this%nd(),this%nd() )
 		
 		all_rotmat = eyes(2,2)
 		
-		total_rot = obj%total_rotation
+		total_rot = this%total_rotation
 		
 		x_u = - total_rot(1)
 		y_u = - total_rot(2)
@@ -6541,29 +6696,29 @@ subroutine rotateFEMDomain(obj,x,y,z,deg)
 		if(present(x) )then
 			if(present(deg) )then
 				if(deg)then
-					obj%total_rotation(1) = obj%total_rotation(1) + radian(x)
+					this%total_rotation(1) = this%total_rotation(1) + radian(x)
 				else
-					obj%total_rotation(1) = obj%total_rotation(1) + x
+					this%total_rotation(1) = this%total_rotation(1) + x
 				endif
 			else
-				obj%total_rotation(1) = obj%total_rotation(1) + x
+				this%total_rotation(1) = this%total_rotation(1) + x
 			endif
 		endif
 
 		if(present(y) )then
-			!obj%total_rotation(2) = obj%total_rotation(2)+ y
+			!this%total_rotation(2) = this%total_rotation(2)+ y
 			if(present(deg) )then
 				if(deg)then
-					obj%total_rotation(2) = obj%total_rotation(2) + radian(y)
+					this%total_rotation(2) = this%total_rotation(2) + radian(y)
 				else
-					obj%total_rotation(2) = obj%total_rotation(2) + y
+					this%total_rotation(2) = this%total_rotation(2) + y
 				endif
 			else
-				obj%total_rotation(2) = obj%total_rotation(2) + y
+				this%total_rotation(2) = this%total_rotation(2) + y
 			endif
 		endif
 
-		total_rot = obj%total_rotation
+		total_rot = this%total_rotation
 		
 		x_u = total_rot(1)
 		y_u = total_rot(2)
@@ -6577,33 +6732,33 @@ subroutine rotateFEMDomain(obj,x,y,z,deg)
 		all_rotmat = matmul(rotmat_y,all_rotmat)
 
 		!$OMP parallel do
-		do i=1,obj%nn()
-			obj%Mesh%NodCoord(i,:)=matmul(all_rotmat,obj%Mesh%NodCoord(i,:))	
+		do i=1,this%nn()
+			this%Mesh%NodCoord(i,:)=matmul(all_rotmat,this%Mesh%NodCoord(i,:))	
 		enddo
 		!$OMP end parallel do
 
 		!$OMP parallel do
-		do i=1,obj%nn()
-			obj%Mesh%NodCoord(i,:)=obj%Mesh%NodCoord(i,:)+midpoint(:)
+		do i=1,this%nn()
+			this%Mesh%NodCoord(i,:)=this%Mesh%NodCoord(i,:)+midpoint(:)
 		enddo
 		!$OMP end parallel do
 
-	elseif(obj%nd()==3 )then
+	elseif(this%nd()==3 )then
 		! unroll from Z to X
 
-		midpoint = obj%centerPosition()
-		do i=1,obj%nn()
-			obj%Mesh%NodCoord(i,:)=obj%Mesh%NodCoord(i,:)-midpoint(:)
+		midpoint = this%centerPosition()
+		do i=1,this%nn()
+			this%Mesh%NodCoord(i,:)=this%Mesh%NodCoord(i,:)-midpoint(:)
 		enddo
-		all_rotmat = eyes(obj%nd(),obj%nd() )
+		all_rotmat = eyes(this%nd(),this%nd() )
 
-		rotmat_x = eyes(obj%nd(),obj%nd() )
-		rotmat_y = eyes(obj%nd(),obj%nd() )
-		rotmat_z = eyes(obj%nd(),obj%nd() )
+		rotmat_x = eyes(this%nd(),this%nd() )
+		rotmat_y = eyes(this%nd(),this%nd() )
+		rotmat_z = eyes(this%nd(),this%nd() )
 		
 		all_rotmat = eyes(3,3)
 		
-		total_rot = obj%total_rotation
+		total_rot = this%total_rotation
 		
 		x_u = - total_rot(1)
 		y_u = - total_rot(2)
@@ -6628,25 +6783,25 @@ subroutine rotateFEMDomain(obj,x,y,z,deg)
 		if(present(x) )then
 			if(present(deg) )then
 				if(deg)then
-					obj%total_rotation(1) = obj%total_rotation(1) + radian(x)
+					this%total_rotation(1) = this%total_rotation(1) + radian(x)
 				else
-					obj%total_rotation(1) = obj%total_rotation(1) + x
+					this%total_rotation(1) = this%total_rotation(1) + x
 				endif
 			else
-				obj%total_rotation(1) = obj%total_rotation(1) + x
+				this%total_rotation(1) = this%total_rotation(1) + x
 			endif
 		endif
 
 		if(present(y) )then
-			!obj%total_rotation(2) = obj%total_rotation(2)+ y
+			!this%total_rotation(2) = this%total_rotation(2)+ y
 			if(present(deg) )then
 				if(deg)then
-					obj%total_rotation(2) = obj%total_rotation(2) + radian(y)
+					this%total_rotation(2) = this%total_rotation(2) + radian(y)
 				else
-					obj%total_rotation(2) = obj%total_rotation(2) + y
+					this%total_rotation(2) = this%total_rotation(2) + y
 				endif
 			else
-				obj%total_rotation(2) = obj%total_rotation(2) + y
+				this%total_rotation(2) = this%total_rotation(2) + y
 			endif
 		endif
 
@@ -6654,17 +6809,17 @@ subroutine rotateFEMDomain(obj,x,y,z,deg)
 		if(present(z) )then
 			if(present(deg) )then
 				if(deg)then
-					obj%total_rotation(3) = obj%total_rotation(3) + radian(z)
+					this%total_rotation(3) = this%total_rotation(3) + radian(z)
 				else
-					obj%total_rotation(3) = obj%total_rotation(3) + z
+					this%total_rotation(3) = this%total_rotation(3) + z
 				endif
 			else
-				obj%total_rotation(3) = obj%total_rotation(3) + z
+				this%total_rotation(3) = this%total_rotation(3) + z
 			endif
 		endif
 
 
-		total_rot = obj%total_rotation
+		total_rot = this%total_rotation
 		
 		x_u = total_rot(1)
 		y_u = total_rot(2)
@@ -6687,14 +6842,14 @@ subroutine rotateFEMDomain(obj,x,y,z,deg)
 		all_rotmat = matmul(rotmat_z,all_rotmat)
 
 		!$OMP parallel do
-		do i=1,obj%nn()
-			obj%Mesh%NodCoord(i,:)=matmul(all_rotmat,obj%Mesh%NodCoord(i,:))	
+		do i=1,this%nn()
+			this%Mesh%NodCoord(i,:)=matmul(all_rotmat,this%Mesh%NodCoord(i,:))	
 		enddo
 		!$OMP end parallel do
 
 		!$OMP parallel do
-		do i=1,obj%nn()
-			obj%Mesh%NodCoord(i,:)=obj%Mesh%NodCoord(i,:)+midpoint(:)
+		do i=1,this%nn()
+			this%Mesh%NodCoord(i,:)=this%Mesh%NodCoord(i,:)+midpoint(:)
 		enddo
 		!$OMP end parallel do
 
@@ -6705,8 +6860,8 @@ end subroutine
 
 
 ! ################################################
-subroutine AddNBCFEMDomain(obj,NodID,DimID,Val,FastMode)
-	class(FEMDomain_),intent(inout)::obj
+subroutine AddNBCFEMDomain(this,NodID,DimID,Val,FastMode)
+	class(FEMDomain_),intent(inout)::this
 	integer(int32),intent(in)::NodID,DimID
 	real(real64),intent(in)::Val
 	logical,optional,intent(in)::FastMode
@@ -6720,29 +6875,29 @@ subroutine AddNBCFEMDomain(obj,NodID,DimID,Val,FastMode)
 	endif
 	fmode = input(default=.false.,option=FastMode)
 
-	if(.not.allocated(obj%Boundary%NBoundNodID))then
-		print *, "ERROR  :: AddNBC >> obj%Boundary%NBoundNodID should be allocated."
+	if(.not.allocated(this%Boundary%NBoundNodID))then
+		print *, "ERROR  :: AddNBC >> this%Boundary%NBoundNodID should be allocated."
 		print *, "Initializing NBC..."
-		call obj%InitNBC(NumOfValPerNod=3)
+		call this%InitNBC(NumOfValPerNod=3)
 		return
 	endif
 
 	! check wheather NodID exisits or not
-	! if obj%Boundary%NBoundNodID(NodID) is found, add the current Val to the last value and return.
-	do i=1,size(obj%Boundary%NBoundNodID,1)
-		if(obj%Boundary%NBoundNodID(i,DimID)==NodID)then
-			obj%Boundary%NBoundVal(i,DimID)=obj%Boundary%NBoundVal(i,DimID)+Val
+	! if this%Boundary%NBoundNodID(NodID) is found, add the current Val to the last value and return.
+	do i=1,size(this%Boundary%NBoundNodID,1)
+		if(this%Boundary%NBoundNodID(i,DimID)==NodID)then
+			this%Boundary%NBoundVal(i,DimID)=this%Boundary%NBoundVal(i,DimID)+Val
 			return
 		endif 
 	enddo
 	
 	if(fmode .eqv. .false.)then
 		installed=0
-		do i=1,size(obj%Boundary%NBoundNodID,1)
-			if(obj%Boundary%NBoundNodID(i,DimID)==-1  )then
-				obj%Boundary%NBoundNodID(i,DimID)=NodID
-				obj%Boundary%NBoundVal(i,DimID)=Val
-				obj%Boundary%NBoundNum(DimID)=obj%Boundary%NBoundNum(DimID)+1
+		do i=1,size(this%Boundary%NBoundNodID,1)
+			if(this%Boundary%NBoundNodID(i,DimID)==-1  )then
+				this%Boundary%NBoundNodID(i,DimID)=NodID
+				this%Boundary%NBoundVal(i,DimID)=Val
+				this%Boundary%NBoundNum(DimID)=this%Boundary%NBoundNum(DimID)+1
 				installed=1
 				exit
 			else
@@ -6754,21 +6909,21 @@ subroutine AddNBCFEMDomain(obj,NodID,DimID,Val,FastMode)
 	if(installed==1)then
 		return
 	else
-		n=size(obj%Boundary%NBoundNodID,1)
-		call insertArray(obj%Boundary%NBoundNodID ,insert1stColumn=.true.,DefaultValue=-1 ,NextOf=n)
-		call insertArray(obj%Boundary%NBoundVal ,insert1stColumn=.true.,DefaultValue=0.0d0,NextOf=n)
+		n=size(this%Boundary%NBoundNodID,1)
+		call insertArray(this%Boundary%NBoundNodID ,insert1stColumn=.true.,DefaultValue=-1 ,NextOf=n)
+		call insertArray(this%Boundary%NBoundVal ,insert1stColumn=.true.,DefaultValue=0.0d0,NextOf=n)
 		i=n+1
-		obj%Boundary%NBoundNodID(i,DimID)=NodID
-		obj%Boundary%NBoundVal(i,DimID)=Val
-		obj%Boundary%NBoundNum(DimID)=obj%Boundary%NBoundNum(DimID)+1
+		this%Boundary%NBoundNodID(i,DimID)=NodID
+		this%Boundary%NBoundVal(i,DimID)=Val
+		this%Boundary%NBoundNum(DimID)=this%Boundary%NBoundNum(DimID)+1
 		
 	endif
 
 end subroutine
 ! ################################################
 ! too slow
-subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
-	class(FEMDomain_),intent(inout)::obj
+subroutine ExportFEMDomainAsSTL(this,FileHandle,MeshDimension,FileName)
+	class(FEMDomain_),intent(inout)::this
 	integer(int32),optional,intent(in)::FileHandle,MeshDimension
 	character(*),optional,intent(in)::FileName
 	real(real64) :: x1(3),x2(3),x3(3)
@@ -6785,13 +6940,13 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 			fh =104
 		endif
 	
-		write (filename0, '("_", i6.6, ".stl")') obj%Timestep ! ここでファイル名を生成している
+		write (filename0, '("_", i6.6, ".stl")') this%Timestep ! ここでファイル名を生成している
 		call execute_command_line(  "touch "//filename//filename0 )
 		print *, filename//filename0
 	
 		open(fh,file=filename//filename0 )
 		! hot-splot
-		call obj%Mesh%GetSurface(sorting=.false.)
+		call this%Mesh%GetSurface(sorting=.false.)
 		
 		if(dim_num/=3)then
 			print *, "Sorry, Export stl is supported only for 3-D mesh"
@@ -6799,15 +6954,15 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 			return
 		endif
 		write(fh,'(A)') "solid "//filename
-		print *, "Number of facet is",size(obj%Mesh%FacetElemNod,1)
-		do i=1,size(obj%Mesh%FacetElemNod,1)
-			if(size(obj%Mesh%FacetElemNod,2)==4  )then
+		print *, "Number of facet is",size(this%Mesh%FacetElemNod,1)
+		do i=1,size(this%Mesh%FacetElemNod,1)
+			if(size(this%Mesh%FacetElemNod,2)==4  )then
 				! rectangular
 				! describe two triangular
 				
-				x1(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),: ) 
-				x2(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,2),: )
-				x3(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),: )
+				x1(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,1),: ) 
+				x2(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,2),: )
+				x3(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,3),: )
 				write(fh,'(A)') "facet normal 0.0 0.0 1.0"
 				write(fh,'(A)') "outer loop"
 				write(fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
@@ -6815,9 +6970,9 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 				write(fh,*) "vertex ",real(x3(1) ),real(x3(2) ),real(x3(3) )
 				write(fh,'(A)') "endloop"
 				write(fh,'(A)') "endfacet"
-				x1(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),: ) 
-				x2(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),: )
-				x3(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,4),: )
+				x1(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,1),: ) 
+				x2(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,3),: )
+				x3(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,4),: )
 				write(fh,'(A)') "facet normal 0.0 0.0 1.0"
 				write(fh,'(A)') "outer loop"
 				write(fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
@@ -6825,12 +6980,12 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 				write(fh,*) "vertex ",real(x3(1) ),real(x3(2) ),real(x3(3) )
 				write(fh,'(A)') "endloop"
 				write(fh,'(A)') "endfacet"
-			elseif(size(obj%Mesh%FacetElemNod,2)==3  )then
+			elseif(size(this%Mesh%FacetElemNod,2)==3  )then
 				! rectangular
 				! describe two triangular
-				x1(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),: ) 
-				x2(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,2),: )
-				x3(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),: )
+				x1(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,1),: ) 
+				x2(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,2),: )
+				x3(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,3),: )
 				write(fh,'(A)') "facet normal 0.0 0.0 1.0"
 				write(fh,'(A)') "outer loop"
 				write(fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
@@ -6848,7 +7003,7 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 		enddo
 		write(fh,'(A)') "endsolid "//filename
 	
-		print *, "writing ",filename//filename0," step>>",obj%Timestep
+		print *, "writing ",filename//filename0," step>>",this%Timestep
 		flush(fh)
 		close(fh)
 		return
@@ -6859,22 +7014,22 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 	
 		fh=FileHandle
 		
-		call obj%Mesh%GetSurface()
+		call this%Mesh%GetSurface()
 		dim_num=input(default=3,option=MeshDimension)
 		if(dim_num/=3)then
 			print *, "Sorry, Export stl is supported only for 3-D mesh"
 			return
 		endif
 		write(fh,'(A)') "solid stl"
-		print *, "Number of facet is",size(obj%Mesh%FacetElemNod,1)
-		do i=1,size(obj%Mesh%FacetElemNod,1)
-			if(size(obj%Mesh%FacetElemNod,2)==4  )then
+		print *, "Number of facet is",size(this%Mesh%FacetElemNod,1)
+		do i=1,size(this%Mesh%FacetElemNod,1)
+			if(size(this%Mesh%FacetElemNod,2)==4  )then
 				! rectangular
 				! describe two triangular
 				
-				x1(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),: ) 
-				x2(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,2),: )
-				x3(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),: )
+				x1(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,1),: ) 
+				x2(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,2),: )
+				x3(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,3),: )
 				write(fh,'(A)') "facet normal 0.0 0.0 1.0"
 				write(fh,'(A)') "outer loop"
 				write(fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
@@ -6882,9 +7037,9 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 				write(fh,*) "vertex ",real(x3(1) ),real(x3(2) ),real(x3(3) )
 				write(fh,'(A)') "endloop"
 				write(fh,'(A)') "endfacet"
-				x1(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),: ) 
-				x2(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),: )
-				x3(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,4),: )
+				x1(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,1),: ) 
+				x2(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,3),: )
+				x3(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,4),: )
 				write(fh,'(A)') "facet normal 0.0 0.0 1.0"
 				write(fh,'(A)') "outer loop"
 				write(fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
@@ -6892,12 +7047,12 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 				write(fh,*) "vertex ",real(x3(1) ),real(x3(2) ),real(x3(3) )
 				write(fh,'(A)') "endloop"
 				write(fh,'(A)') "endfacet"
-			elseif(size(obj%Mesh%FacetElemNod,2)==3  )then
+			elseif(size(this%Mesh%FacetElemNod,2)==3  )then
 				! rectangular
 				! describe two triangular
-				x1(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),: ) 
-				x2(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,2),: )
-				x3(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),: )
+				x1(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,1),: ) 
+				x2(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,2),: )
+				x3(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,3),: )
 				write(fh,'(A)') "facet normal 0.0 0.0 1.0"
 				write(fh,'(A)') "outer loop"
 				write(fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
@@ -6915,7 +7070,7 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 		enddo
 		write(fh,'(A)') "endsolid "//filename
 	
-		print *, "writing ",filename//filename0," step>>",obj%Timestep
+		print *, "writing ",filename//filename0," step>>",this%Timestep
 		flush(fh)
 		return
 		
@@ -6930,28 +7085,28 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
         fh =104
     endif
 
-	write (filename0, '("_", i6.6, ".stl")') obj%Timestep ! ここでファイル名を生成している
-	call execute_command_line(  "touch "//obj%FileName//filename0 )
-	print *, obj%FileName//filename0
+	write (filename0, '("_", i6.6, ".stl")') this%Timestep ! ここでファイル名を生成している
+	call execute_command_line(  "touch "//this%FileName//filename0 )
+	print *, this%FileName//filename0
 
-	open(fh,file=obj%FileName//filename0 )
+	open(fh,file=this%FileName//filename0 )
 
-	call obj%Mesh%GetSurface()
+	call this%Mesh%GetSurface()
 	
 	if(dim_num/=3)then
 		print *, "Sorry, Export stl is supported only for 3-D mesh"
 		close(fh)
 		return
 	endif
-	write(fh,'(A)') "solid "//obj%FileName
-	print *, "Number of facet is",size(obj%Mesh%FacetElemNod,1)
-	do i=1,size(obj%Mesh%FacetElemNod,1)
-		if(size(obj%Mesh%FacetElemNod,2)==4  )then
+	write(fh,'(A)') "solid "//this%FileName
+	print *, "Number of facet is",size(this%Mesh%FacetElemNod,1)
+	do i=1,size(this%Mesh%FacetElemNod,1)
+		if(size(this%Mesh%FacetElemNod,2)==4  )then
 			! rectangular
 			! describe two triangular
-			x1(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),: ) 
-			x2(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,2),: )
-			x3(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),: )
+			x1(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,1),: ) 
+			x2(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,2),: )
+			x3(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,3),: )
 			write(fh,'(A)') "facet normal 0.0 0.0 1.0"
 			write(fh,'(A)') "outer loop"
 			write(fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
@@ -6959,9 +7114,9 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 			write(fh,*) "vertex ",real(x3(1) ),real(x3(2) ),real(x3(3) )
 			write(fh,'(A)') "endloop"
 			write(fh,'(A)') "endfacet"
-			x1(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,1),: ) 
-			x2(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,3),: )
-			x3(:)=obj%Mesh%NodCoord(obj%Mesh%FacetElemNod(i,4),: )
+			x1(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,1),: ) 
+			x2(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,3),: )
+			x3(:)=this%Mesh%NodCoord(this%Mesh%FacetElemNod(i,4),: )
 			write(fh,'(A)') "facet normal 0.0 0.0 1.0"
 			write(fh,'(A)') "outer loop"
 			write(fh,*) "vertex ",real(x1(1) ),real(x1(2) ),real(x1(3) )
@@ -6976,9 +7131,9 @@ subroutine ExportFEMDomainAsSTL(obj,FileHandle,MeshDimension,FileName)
 			close(fh)
 		endif
 	enddo
-	write(fh,'(A)') "endsolid "//obj%FileName
+	write(fh,'(A)') "endsolid "//this%FileName
 
-	print *, "writing ",obj%FileName//filename0," step>>",obj%Timestep
+	print *, "writing ",this%FileName//filename0," step>>",this%Timestep
 	flush(fh)
 	close(fh)
 
@@ -6986,45 +7141,45 @@ end subroutine
 
 
 !#######################################
-subroutine meshingFEMDomain(obj)
-	class(FEMDomain_),intent(inout)::obj
+subroutine meshingFEMDomain(this)
+	class(FEMDomain_),intent(inout)::this
 
-	call obj%Mesh%meshing()
+	call this%Mesh%meshing()
 end subroutine
 !#######################################
 
 
 !#######################################
-subroutine removeDBoundCondition(obj)
-	class(FEMDomain_),intent(inout)::obj
+subroutine removeDBoundCondition(this)
+	class(FEMDomain_),intent(inout)::this
 
-	call obj%Boundary%removeDBC()
+	call this%Boundary%removeDBC()
 end subroutine
 !#######################################
 
 !#######################################
-subroutine removeNBoundCondition(obj)
-	class(FEMDomain_),intent(inout)::obj
-	call obj%Boundary%removeNBC()
+subroutine removeNBoundCondition(this)
+	class(FEMDomain_),intent(inout)::this
+	call this%Boundary%removeNBC()
 end subroutine
 !#######################################
 
 
 !#######################################
-subroutine removeTBoundCondition(obj)
-	class(FEMDomain_),intent(inout)::obj
-	call obj%Boundary%removeTBC()
+subroutine removeTBoundCondition(this)
+	class(FEMDomain_),intent(inout)::this
+	call this%Boundary%removeTBC()
 end subroutine
 !#######################################
 
 !#######################################
-subroutine CheckConnedctivityFEMDomain(obj,fix)
-	class(FEMDomain_),intent(inout)::obj
+subroutine CheckConnedctivityFEMDomain(this,fix)
+	class(FEMDomain_),intent(inout)::this
 	integer(int32),allocatable:: checklist(:,:),new_node_id(:)
 	logical,optional,intent(in)::fix
 	integer(int32) :: i,n,m,j
 
-	n=size(obj%Mesh%NodCoord,1)
+	n=size(this%Mesh%NodCoord,1)
 	allocate(checklist(n,1),new_node_id(n) )
 	checklist(:,1)=0
 
@@ -7032,9 +7187,9 @@ subroutine CheckConnedctivityFEMDomain(obj,fix)
 		new_node_id(i)=i
 	enddo
 
-	do i=1,size(obj%Mesh%ElemNod,1)
-		do j=1,size(obj%Mesh%ElemNod,2)
-			checklist( obj%Mesh%ElemNod(i,j),1 )=1
+	do i=1,size(this%Mesh%ElemNod,1)
+		do j=1,size(this%Mesh%ElemNod,2)
+			checklist( this%Mesh%ElemNod(i,j),1 )=1
 		enddo
 	enddo
 
@@ -7052,11 +7207,11 @@ subroutine CheckConnedctivityFEMDomain(obj,fix)
 	
 
 	if(minval(checklist)==0 )then
-		if(obj%debug_mode)then
+		if(this%debug_mode)then
 			print *, "[HIT!] Non-connected nodes exist"
 		endif
 	else
-		if(obj%debug_mode)then
+		if(this%debug_mode)then
 			print *, "[OK] All nodes are connected."
 		endif
 	endif
@@ -7064,12 +7219,12 @@ subroutine CheckConnedctivityFEMDomain(obj,fix)
 	if(present(fix) )then
 		if( fix .eqv. .true. )then
 			! update connectivity
-			do i=1,size(obj%Mesh%ElemNod,1)
-				do j=1,size(obj%Mesh%ElemNod,2)
-					if(new_node_id(obj%Mesh%ElemNod(i,j))==0)then
+			do i=1,size(this%Mesh%ElemNod,1)
+				do j=1,size(this%Mesh%ElemNod,2)
+					if(new_node_id(this%Mesh%ElemNod(i,j))==0)then
 						print *, "ERROR :: CheckConnedctivityFEMDomain"
 					endif
-					obj%Mesh%ElemNod(i,j)=new_node_id(obj%Mesh%ElemNod(i,j))
+					this%Mesh%ElemNod(i,j)=new_node_id(this%Mesh%ElemNod(i,j))
 				enddo
 			enddo
 			
@@ -7077,7 +7232,7 @@ subroutine CheckConnedctivityFEMDomain(obj,fix)
 			i=1
 			do 
 				if(checklist(i,1)==0 )then
-					call removeArray(obj%Mesh%NodCoord,remove1stColumn=.true.,NextOf=i-1)
+					call removeArray(this%Mesh%NodCoord,remove1stColumn=.true.,NextOf=i-1)
 					call removeArray(checklist        ,remove1stColumn=.true.,NextOf=i-1)
 				else
 					i=i+1
@@ -7094,38 +7249,38 @@ subroutine CheckConnedctivityFEMDomain(obj,fix)
 
 		endif	
 	endif
-	if(obj%debug_mode)then
+	if(this%debug_mode)then
 		print *, "[OK] All nodes are connected."
 	endif
 end subroutine
 !#######################################
 
-subroutine getDBCVectorFEMDomain(obj,DBCvec)
-	class(FEMDomain_),intent(in)::obj
+subroutine getDBCVectorFEMDomain(this,DBCvec)
+	class(FEMDomain_),intent(in)::this
 	real(real64),allocatable,intent(inout)::DBCvec(:,:)
 	integer(int32) :: i,j,n,m,k,l
-	n=size(obj%Mesh%NodCoord,1)
-	m=size(obj%Mesh%NodCoord,2)
+	n=size(this%Mesh%NodCoord,1)
+	m=size(this%Mesh%NodCoord,2)
 	if(.not. allocated(DBCvec ) )then
 		allocate(DBCvec(n,m) )
 		DBCvec(:,:)=0.0d0
 	endif
 
 	! check number of DBC
-	do i=1,size(obj%Boundary%DBoundNum)
-		k=countif(Array=obj%Boundary%DBoundNodID(:,i),Value=-1,notEqual=.true.)
-		l=obj%Boundary%DBoundNum(i)
+	do i=1,size(this%Boundary%DBoundNum)
+		k=countif(Array=this%Boundary%DBoundNodID(:,i),Value=-1,notEqual=.true.)
+		l=this%Boundary%DBoundNum(i)
 		if(k /= l)then
 			print *, "Caution :: FiniteDeformationClass::getDBCVector :: check number of DBC :: k /= l"
 		endif
 	enddo
 
-	do i=1,size(obj%Boundary%DBoundNodID,1)
-		do j=1,size(obj%Boundary%DBoundNodID,2)
-			if(obj%Boundary%DBoundNodID(i,j) <=0)then
+	do i=1,size(this%Boundary%DBoundNodID,1)
+		do j=1,size(this%Boundary%DBoundNodID,2)
+			if(this%Boundary%DBoundNodID(i,j) <=0)then
 				cycle
 			endif
-			DBCvec(obj%Boundary%DBoundNodID(i,j),j )=obj%Boundary%DBoundVal(i,j)
+			DBCvec(this%Boundary%DBoundNodID(i,j),j )=this%Boundary%DBoundVal(i,j)
 		enddo
 	enddo
 
@@ -7134,18 +7289,31 @@ end subroutine
 ! ##################################################
 
 ! ##################################################
-subroutine convertMeshTypeFEMDomain(obj,Option)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine convertMeshTypeFEMDomain(this,Option)
+	class(FEMDomain_),intent(inout) :: this
 	character(*),intent(in) :: Option
 
-	call obj%Mesh%convertMeshType(Option=Option)
+	print *, "[Caution!] >> convertMeshType  is not recommended!"
+    print *, "              please use changeElementType()"
+	call this%Mesh%convertMeshType(Option=Option)
 
 end subroutine
 ! ##################################################
 
-subroutine remeshFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
+
+! ##################################################
+subroutine changeElementTypeFEMDomain(this,elementtype)
+	class(FEMDomain_),intent(inout) :: this
+	integer(int32),intent(in) :: elementtype(:)
+	
+	call this%Mesh%changeElementType(elementtype=elementtype)
+
+end subroutine
+! ##################################################
+
+subroutine remeshFEMDomain(this,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
 	top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz,coordinate)
-	class(FEMDomain_),intent(inout) :: obj
+	class(FEMDomain_),intent(inout) :: this
 	type(FEMDomain_),optional,intent(inout) :: master,slave
 	character(*),optional,intent(in) :: meshtype
 	character(*),optional,intent(in) ::Name
@@ -7163,10 +7331,10 @@ subroutine remeshFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 
 !	! create uuid
 !
-!	obj%meshtype = meshtype
+!	this%meshtype = meshtype
 !
-!	obj%uuid = generate_uuid(1)
-!	obj%mesh%uuid = obj%uuid
+!	this%uuid = generate_uuid(1)
+!	this%mesh%uuid = this%uuid
 !
 	xnum=input(default=10,option=x_num)
 	ynum=input(default=10,option=y_num)
@@ -7177,53 +7345,53 @@ subroutine remeshFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 	zlen=input(default=1.0d0,option=z_len)
 
 !	if(present(Name) )then
-!		obj%Name=Name
-!		obj%FileName=Name
+!		this%Name=Name
+!		this%FileName=Name
 !	else
-!		obj%Name="NoName"
-!		obj%FileName="NoName"
+!		this%Name="NoName"
+!		this%FileName="NoName"
 !	endif
 
 !	! if create interface, set paired uuid in address
-!	obj%link(1) = "None"
-!	obj%link(2) = "None"
+!	this%link(1) = "None"
+!	this%link(2) = "None"
 !	
 !	if(present(master) )then
-!		obj%link(1) = master%uuid
+!		this%link(1) = master%uuid
 !	endif
 !
 !	if(present(slave) )then
-!		obj%link(2) = slave%uuid
+!		this%link(2) = slave%uuid
 !	endif
 
 	if(present(z_num) .or. present(z_len) )then
-		call obj%Mesh%remesh(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
+		call this%Mesh%remesh(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
 			Lh=Lh,Dr=Dr,thickness=zlen,top=top,margin=margin,shaperatio=shaperatio,&
 			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
 			coordinate=coordinate,division=znum)
 	elseif(present(thickness) )then
-		call obj%Mesh%remesh(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
+		call this%Mesh%remesh(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
 			Lh=Lh,Dr=Dr,thickness=thickness,top=top,margin=margin,shaperatio=shaperatio,&
 			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
 			coordinate=coordinate,division=znum)
 	else
-		call obj%Mesh%remesh(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
+		call this%Mesh%remesh(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
 			Lh=Lh,Dr=Dr,top=top,margin=margin,shaperatio=shaperatio,&
 			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
 			coordinate=coordinate,division=znum)
 	endif
 
-!	if(obj%nd()==2 .or. obj%nd()==3)then
-!		call obj%getSurface()
+!	if(this%nd()==2 .or. this%nd()==3)then
+!		call this%getSurface()
 !	endif
 
 end subroutine
 
 ! ##################################################
-subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
+subroutine createFEMDomain(this,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len,Le,Lh,Dr,thickness,division,&
 	top,margin,inclineRate,shaperatio,master,slave,x,y,z,dx,dy,dz,coordinate,species,SoyWidthRatio,&
 	x_axis,y_axis,z_axis)
-	class(FEMDomain_),intent(inout) :: obj
+	class(FEMDomain_),intent(inout) :: this
 	type(FEMDomain_),optional,intent(inout) :: master,slave
 	character(*),intent(in) :: meshtype
 	character(*),optional,intent(in) ::Name
@@ -7243,10 +7411,10 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 
 	! create uuid
 
-	obj%meshtype = meshtype
+	this%meshtype = meshtype
 
-	obj%uuid = generate_uuid(1)
-	obj%mesh%uuid = obj%uuid
+	this%uuid = generate_uuid(1)
+	this%mesh%uuid = this%uuid
 
 	xnum=input(default=10,option=x_num)
 	ynum=input(default=10,option=y_num)
@@ -7258,23 +7426,23 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 
 
 	if(present(Name) )then
-		obj%Name=Name
-		obj%FileName=Name
+		this%Name=Name
+		this%FileName=Name
 	else
-		obj%Name="NoName"
-		obj%FileName="NoName"
+		this%Name="NoName"
+		this%FileName="NoName"
 	endif
 
 	! if create interface, set paired uuid in address
-	obj%link(1) = "None"
-	obj%link(2) = "None"
+	this%link(1) = "None"
+	this%link(2) = "None"
 	
 	if(present(master) )then
-		obj%link(1) = master%uuid
+		this%link(1) = master%uuid
 	endif
 
 	if(present(slave) )then
-		obj%link(2) = slave%uuid
+		this%link(2) = slave%uuid
 	endif
 
 
@@ -7282,32 +7450,32 @@ subroutine createFEMDomain(obj,meshtype,Name,x_num,y_num,z_num,x_len,y_len,z_len
 		case("Cube","Cube3D")
 			if(present(x_axis) .and. present(y_axis) )then
 				if(present(z_axis) )then
-					call obj%mesh%cube(x=x_axis,y=y_axis,z=z_axis)
+					call this%mesh%cube(x=x_axis,y=y_axis,z=z_axis)
 				else
-					call obj%mesh%cube(x=x_axis,y=y_axis,z=[0.0d0,1.0d0])
+					call this%mesh%cube(x=x_axis,y=y_axis,z=[0.0d0,1.0d0])
 				endif
 				return
 			endif
 		case("Box","Box2D")
-			call obj%mesh%box(x=x_axis,y=y_axis)
+			call this%mesh%box(x=x_axis,y=y_axis)
 		case ("Line","Line1D")
-			call obj%mesh%line(x_num=x_num,x_axis=x_axis)
+			call this%mesh%line(x_num=x_num,x_axis=x_axis)
 			return
 
 	end select
 
 	if(present(z_num) .or. present(z_len) )then
-		call obj%Mesh%create(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
+		call this%Mesh%create(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
 			Lh=Lh,Dr=Dr,thickness=zlen,top=top,margin=margin,shaperatio=shaperatio,&
 			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
 			coordinate=coordinate,division=znum,species=species,SoyWidthRatio=SoyWidthRatio)
 	elseif(present(thickness) )then
-		call obj%Mesh%create(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
+		call this%Mesh%create(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
 			Lh=Lh,Dr=Dr,thickness=thickness,top=top,margin=margin,shaperatio=shaperatio,&
 			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
 			coordinate=coordinate,division=znum,species=species,SoyWidthRatio=SoyWidthRatio)
 	else
-		call obj%Mesh%create(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
+		call this%Mesh%create(meshtype=meshtype,x_num=xnum,y_num=ynum,x_len=xlen,y_len=ylen,Le=Le,&
 			Lh=Lh,Dr=Dr,top=top,margin=margin,shaperatio=shaperatio,&
 			master=master%mesh,slave=slave%mesh,x=x,y=y,z=z,dx=dx,dy=dy,dz=dz,&
 			coordinate=coordinate,division=znum,species=species,SoyWidthRatio=SoyWidthRatio)
@@ -7317,78 +7485,78 @@ end subroutine createFEMDomain
 ! ##################################################
 
 ! ##################################################
-subroutine setBoundaryFEMDomain(obj,new,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,value,values)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine setBoundaryFEMDomain(this,new,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,value,values)
+	class(FEMDomain_),intent(inout) :: this
     real(real64),optional,intent(in) :: x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min
 	real(real64),optional,intent(in) :: value,values(4)
 	logical,optional,intent(in) :: new
 
-	!call obj%Boundary%setDB(new,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,value,values)
+	!call this%Boundary%setDB(new,x_max,x_min,y_max,y_min,z_max,z_min,t_max,t_min,value,values)
 
 end subroutine setBoundaryFEMDomain
 ! ##################################################
 
 ! ##################################################
-subroutine showRangeFEMDomain(obj)
-	class(FEMDomain_)::obj
+subroutine showRangeFEMDomain(this)
+	class(FEMDomain_)::this
 
-	call obj%Mesh%showRange()
+	call this%Mesh%showRange()
 end subroutine
 ! ##################################################
 
 ! ##################################################
-subroutine ImportBoundariesFEMDomain(obj,Boundary,NumberOfBoundaries,BoundaryID)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine ImportBoundariesFEMDomain(this,Boundary,NumberOfBoundaries,BoundaryID)
+	class(FEMDomain_),intent(inout) :: this
 	type(Boundary_),target,intent(in) :: Boundary
 	integer(int32),optional,intent(in) :: NumberOfBoundaries,BoundaryID
 	integer(int32) :: n,i
 
 
-	if(.not.allocated(obj%Boundaries) )then
+	if(.not.allocated(this%Boundaries) )then
 		n=input(default=30,option=NumberOfBoundaries)
-		allocate(obj%Boundaries(n))
+		allocate(this%Boundaries(n))
 		do i=1,n
-			nullify(obj%Boundaries(i)%boundaryp)
+			nullify(this%Boundaries(i)%boundaryp)
 		enddo
-		obj%NumberOfBoundaries = 0
+		this%NumberOfBoundaries = 0
 	endif
 
 	if(present(BoundaryID) )then
-		if(BoundaryID > size(obj%Boundaries) )then
+		if(BoundaryID > size(this%Boundaries) )then
 			print *, "ERROR :: ImportBoundariesFEMDomain >> requested BoundaryID is grater than the size of stack"
-			print *, "Stack size is ",size(obj%Boundaries), " , and your request is ",BoundaryID
+			print *, "Stack size is ",size(this%Boundaries), " , and your request is ",BoundaryID
 			return
 		endif
-		if(BoundaryID > obj%NumberOfBoundaries)then
+		if(BoundaryID > this%NumberOfBoundaries)then
 			print *, "ERROR :: ImportBoundariesFEMDomain >> requested BoundaryID is grater than the Last ID"
-			print *, "The last ID is ",obj%NumberOfBoundaries+1, " , and your request is ",BoundaryID
-			print *, "Hence, your request ",BoundaryID, " is accepted as the ID of ",obj%NumberOfBoundaries+1
-			obj%NumberOfBoundaries=obj%NumberOfBoundaries+1
-			obj%Boundaries(obj%NumberOfBoundaries)%Boundaryp => Boundary
-			print *, "Now, number of boundary conditions is ",obj%NumberOfBoundaries
+			print *, "The last ID is ",this%NumberOfBoundaries+1, " , and your request is ",BoundaryID
+			print *, "Hence, your request ",BoundaryID, " is accepted as the ID of ",this%NumberOfBoundaries+1
+			this%NumberOfBoundaries=this%NumberOfBoundaries+1
+			this%Boundaries(this%NumberOfBoundaries)%Boundaryp => Boundary
+			print *, "Now, number of boundary conditions is ",this%NumberOfBoundaries
 			return
 		endif
-		if( associated(obj%Boundaries(BoundaryID)%Boundaryp) )then
+		if( associated(this%Boundaries(BoundaryID)%Boundaryp) )then
 			print *, "Boundary ID :: ", BoundaryID, " is overwritten."
-			nullify(obj%Boundaries(BoundaryID)%Boundaryp )
+			nullify(this%Boundaries(BoundaryID)%Boundaryp )
 		endif
-		obj%Boundaries(BoundaryID)%Boundaryp => Boundary
+		this%Boundaries(BoundaryID)%Boundaryp => Boundary
 		return
 	endif
 
-	obj%NumberOfBoundaries=obj%NumberOfBoundaries+1
+	this%NumberOfBoundaries=this%NumberOfBoundaries+1
 
-	obj%Boundaries(obj%NumberOfBoundaries)%Boundaryp => Boundary
+	this%Boundaries(this%NumberOfBoundaries)%Boundaryp => Boundary
 
-	print *, "Now, number of boundary conditions is ",obj%NumberOfBoundaries
+	print *, "Now, number of boundary conditions is ",this%NumberOfBoundaries
 
 end subroutine ImportBoundariesFEMDomain
 ! ##################################################
 
 
 ! ##################################################
-subroutine showBoundariesFEMDomain(obj,Name)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine showBoundariesFEMDomain(this,Name)
+	class(FEMDomain_),intent(inout) :: this
 	character(*),optional,intent(in)::Name
 	integer(int32) :: i
 
@@ -7396,12 +7564,12 @@ subroutine showBoundariesFEMDomain(obj,Name)
 		print *, "Domain Name is :: ", name
 	endif
 
-	if(.not. allocated(obj%Boundaries) )then
+	if(.not. allocated(this%Boundaries) )then
 		print *, "No boundary is set."
 	else
-		do i=1,obj%NumberOfBoundaries
-			print *, "Layer :: ",obj%Boundaries(i)%Boundaryp%Layer,"B.C. ::",i," => ",&
-				associated(obj%Boundaries(i)%Boundaryp)
+		do i=1,this%NumberOfBoundaries
+			print *, "Layer :: ",this%Boundaries(i)%Boundaryp%Layer,"B.C. ::",i," => ",&
+				associated(this%Boundaries(i)%Boundaryp)
 		enddo
 	endif
 end subroutine showBoundariesFEMDomain
@@ -7409,8 +7577,8 @@ end subroutine showBoundariesFEMDomain
 
 
 ! ##################################################
-subroutine removeBoundariesFEMDomain(obj,Name,BoundaryID)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine removeBoundariesFEMDomain(this,Name,BoundaryID)
+	class(FEMDomain_),intent(inout) :: this
 	character(*),optional,intent(in)::Name
 	integer(int32) :: i
 	integer(int32),optional,intent(in) ::BoundaryID
@@ -7419,32 +7587,32 @@ subroutine removeBoundariesFEMDomain(obj,Name,BoundaryID)
 		print *, "Domain Name is :: ", name
 	endif
 
-	if(.not. allocated(obj%Boundaries) )then
+	if(.not. allocated(this%Boundaries) )then
 		print *, "No boundary is set."
 	else
 		if(present(BoundaryID))then
-			nullify(obj%Boundaries(BoundaryID)%Boundaryp)
+			nullify(this%Boundaries(BoundaryID)%Boundaryp)
 		else
-			do i=1,obj%NumberOfBoundaries
-				nullify(obj%Boundaries(i)%Boundaryp)
+			do i=1,this%NumberOfBoundaries
+				nullify(this%Boundaries(i)%Boundaryp)
 			enddo
 		endif
 	endif
-	call obj%showBoundaries(Name)
+	call this%showBoundaries(Name)
 
 end subroutine removeBoundariesFEMDomain
 ! ##################################################
 
 ! ##################################################
-subroutine copyFEMDomain(obj,OriginalObj,onlyMesh)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine copyFEMDomain(this,OriginalObj,onlyMesh)
+	class(FEMDomain_),intent(inout) :: this
 	class(FEMDomain_),intent(in) :: OriginalObj
 	logical,optional,intent(in) :: onlyMesh
 
 
-	call obj%Mesh%copy(OriginalObj%Mesh)
-	obj%FileName=Originalobj%FileName
-	obj%Name=Originalobj%Name
+	call this%Mesh%copy(OriginalObj%Mesh)
+	this%FileName=OriginalObj%FileName
+	this%Name=OriginalObj%Name
 	if(present(onlyMesh) )then
 		if(onlyMesh .eqv. .true.)then
 			print *, "Only mesh is copied."
@@ -7456,9 +7624,9 @@ end subroutine copyFEMDomain
 ! ##################################################
 
 ! ##################################################
-recursive subroutine bakeFEMDomain(obj, template, templateFile,&
+recursive subroutine bakeFEMDomain(this, template, templateFile,&
 	NodalDOF,NumOfMaterialPara,Tol,SimMode,ItrTol,Timestep)
-	class(FEMDomain_),intent(inout) :: obj
+	class(FEMDomain_),intent(inout) :: this
 	character(*),optional,intent(in) :: template
 	character(*),optional,intent(in) :: templateFile 
 	integer(int32) :: SpaceDim, ElemNodNum, NumOfMatPara, NumOfMaterial, NodeDOF,NodeTDOF,i
@@ -7530,53 +7698,53 @@ recursive subroutine bakeFEMDomain(obj, template, templateFile,&
 		else
 			print *, "In case that you want to use your template, please type template='original'."
 			print *, "BakeFEMDomain == default (="
-			call obj%bake(template="Original", templateFile= templateFile,NodalDOF=NodalDOF,&
+			call this%bake(template="Original", templateFile= templateFile,NodalDOF=NodalDOF,&
 				NumOfMaterialPara=NumOfMaterialPara,Tol=Tol,SimMode=SimMode,ItrTol=ItrTol,Timestep=Timestep)
 			return
 		endif
 	else
-		call obj%bake(template="Original", templateFile= templateFile,NodalDOF=NodalDOF,&
+		call this%bake(template="Original", templateFile= templateFile,NodalDOF=NodalDOF,&
 		NumOfMaterialPara=NumOfMaterialPara,Tol=Tol,SimMode=SimMode,ItrTol=ItrTol,Timestep=Timestep)
 	endif
 
 	! domain information
-	obj%Dtype="domain"
-	obj%SolverType=template
-	obj%NumOfDomain=1
+	this%Dtype="domain"
+	this%SolverType=template
+	this%NumOfDomain=1
 	
-	if(allocated(obj%Mesh%SubMeshNodFromTo))then
-		deallocate(obj%Mesh%SubMeshNodFromTo)
+	if(allocated(this%Mesh%SubMeshNodFromTo))then
+		deallocate(this%Mesh%SubMeshNodFromTo)
 	endif
-	if(allocated(obj%Mesh%SubMeshElemFromTo))then
-		deallocate(obj%Mesh%SubMeshElemFromTo)
+	if(allocated(this%Mesh%SubMeshElemFromTo))then
+		deallocate(this%Mesh%SubMeshElemFromTo)
 	endif
-	allocate(obj%Mesh%SubMeshNodFromTo(obj%NumOfDomain,3) )
-	allocate(obj%Mesh%SubMeshElemFromTo(obj%NumOfDomain,3) )
-	if(obj%Mesh%empty() .eqv. .true. )then
+	allocate(this%Mesh%SubMeshNodFromTo(this%NumOfDomain,3) )
+	allocate(this%Mesh%SubMeshElemFromTo(this%NumOfDomain,3) )
+	if(this%Mesh%empty() .eqv. .true. )then
 		print *, "bakeFEMDomain :: Mesh is Empty!"
 		return
 	endif
-	obj%Mesh%ElemType=obj%Mesh%GetElemType()
+	this%Mesh%ElemType=this%Mesh%GetElemType()
 	! mesh information
-	obj%Mesh%SubMeshNodFromTo(1,1) = 1
-	obj%Mesh%SubMeshNodFromTo(1,2) = 1
-	obj%Mesh%SubMeshNodFromTo(1,3) = size(obj%Mesh%NodCoord,1)
-	obj%Mesh%SubMeshElemFromTo(1,1) = 1
-	obj%Mesh%SubMeshElemFromTo(1,2) = 1
-	obj%Mesh%SubMeshElemFromTo(1,3) = size(obj%Mesh%ElemNod,1)
-	if(.not.allocated(obj%Mesh%ElemMat) )then
-		allocate(obj%Mesh%ElemMat(size(obj%Mesh%ElemNod,1) ) )
-		obj%Mesh%ElemMat(:)=1
+	this%Mesh%SubMeshNodFromTo(1,1) = 1
+	this%Mesh%SubMeshNodFromTo(1,2) = 1
+	this%Mesh%SubMeshNodFromTo(1,3) = size(this%Mesh%NodCoord,1)
+	this%Mesh%SubMeshElemFromTo(1,1) = 1
+	this%Mesh%SubMeshElemFromTo(1,2) = 1
+	this%Mesh%SubMeshElemFromTo(1,3) = size(this%Mesh%ElemNod,1)
+	if(.not.allocated(this%Mesh%ElemMat) )then
+		allocate(this%Mesh%ElemMat(size(this%Mesh%ElemNod,1) ) )
+		this%Mesh%ElemMat(:)=1
 	endif
-	call showarraysize(obj%Mesh%SubMeshNodFromTo)
-	call showarraysize(obj%Mesh%SubMeshElemFromTo)
+	call showarraysize(this%Mesh%SubMeshNodFromTo)
+	call showarraysize(this%Mesh%SubMeshElemFromTo)
 
-	call obj%bakeMaterials(NumOfMatPara=NumOfMatPara)
-	call obj%bakeDBoundaries(NodeDOF=NodeDOF)
-	call obj%bakeNBoundaries(NodeDOF=NodeDOF)
-	call obj%bakeTBoundaries(NodeDOF=NodeTDOF)
+	call this%bakeMaterials(NumOfMatPara=NumOfMatPara)
+	call this%bakeDBoundaries(NodeDOF=NodeDOF)
+	call this%bakeNBoundaries(NodeDOF=NodeDOF)
+	call this%bakeTBoundaries(NodeDOF=NodeTDOF)
 
-	call obj%ControlPara%set(OptionalTol=Tol,&
+	call this%ControlPara%set(OptionalTol=Tol,&
 	OptionalItrTol=ItrTol,&
 	OptionalTimestep=Timestep,&
 	OptionalSimMode=SimMode)
@@ -7585,8 +7753,8 @@ end subroutine bakeFEMDomain
 ! ##################################################
 
 ! ##################################################
-subroutine bakeMaterialsFEMDomain(obj,NumOfMatPara)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine bakeMaterialsFEMDomain(this,NumOfMatPara)
+	class(FEMDomain_),intent(inout) :: this
 	integer(int32),optional,intent(in) :: NumOfMatPara
 	integer(int32) :: i,j,k,l,n,m,NumOfMaterial,layer,in_num,NumOfLayer
 	real(real64),allocatable :: matPara(:,:),info(:,:)
@@ -7597,14 +7765,14 @@ subroutine bakeMaterialsFEMDomain(obj,NumOfMatPara)
 
 	! get Num of Layer
 	NumOfLayer=0
-	if(.not. allocated(obj%Materials) )then
+	if(.not. allocated(this%Materials) )then
 		print *, "no materials found"
 		return
 	endif
 
 
-	do i=1,size(obj%Materials)
-		if(associated(obj%Materials(i)%materialp ) )then
+	do i=1,size(this%Materials)
+		if(associated(this%Materials(i)%materialp ) )then
 			NumOfLayer=NumOfLayer+1
 		else
 			cycle
@@ -7613,11 +7781,11 @@ subroutine bakeMaterialsFEMDomain(obj,NumOfMatPara)
 
 
 
-	if(.not. allocated(obj%Materials) )then
+	if(.not. allocated(this%Materials) )then
 		print *, "No material is baked. All material IDs are 1 "
-		if(.not.allocated(obj%Mesh%ElemMat) )then
-			allocate(obj%Mesh%ElemMat(size(obj%Mesh%ElemNod,1) ) )
-			obj%Mesh%ElemMat(:)=1
+		if(.not.allocated(this%Mesh%ElemMat) )then
+			allocate(this%Mesh%ElemMat(size(this%Mesh%ElemNod,1) ) )
+			this%Mesh%ElemMat(:)=1
 		endif
 		stop "No material parameters are found."
 		return
@@ -7626,33 +7794,33 @@ subroutine bakeMaterialsFEMDomain(obj,NumOfMatPara)
 		! for all materials, resistrate material parameter and material IDs
 		m=input(default=NumOfLayer,option=NumOfMatPara)
 		
-		allocate(rect%NodCoord(size(obj%Mesh%ElemNod,2),size(obj%Mesh%NodCoord,2)) )
-		allocate(mrect%NodCoord(size(obj%Mesh%ElemNod,2),size(obj%Mesh%NodCoord,2)) )
-		allocate(matPara(size(obj%Mesh%ElemNod,1),m) )
+		allocate(rect%NodCoord(size(this%Mesh%ElemNod,2),size(this%Mesh%NodCoord,2)) )
+		allocate(mrect%NodCoord(size(this%Mesh%ElemNod,2),size(this%Mesh%NodCoord,2)) )
+		allocate(matPara(size(this%Mesh%ElemNod,1),m) )
 		matPara(:,:) = 0.0d0
-		do i=1,size(obj%Mesh%ElemNod,1)
+		do i=1,size(this%Mesh%ElemNod,1)
 			! for each element
 			
 			! input rectangler
-			do j=1,size(obj%Mesh%ElemNod,2)
-				rect%NodCoord(j,:)=obj%Mesh%NodCoord(obj%Mesh%ElemNod(i,j),:)
+			do j=1,size(this%Mesh%ElemNod,2)
+				rect%NodCoord(j,:)=this%Mesh%NodCoord(this%Mesh%ElemNod(i,j),:)
 			enddo
 
 			! for all materials, check material parameters
-			do j=1,size(obj%Materials)
-				if(associated(obj%Materials(j)%materialp) )then
-					do k=1, size(obj%Materials(j)%materialp%Mesh%ElemNod,1)
+			do j=1,size(this%Materials)
+				if(associated(this%Materials(j)%materialp) )then
+					do k=1, size(this%Materials(j)%materialp%Mesh%ElemNod,1)
 						! for each zones, check in-out
 						! import nodal coordinate
-						do l=1,size(obj%Materials(j)%materialp%Mesh%ElemNod,2)
-							n=obj%Materials(j)%materialp%Mesh%ElemNod(k,l)
-							mrect%NodCoord(l,:)=obj%Materials(j)%materialp%Mesh%NodCoord(n,:)
+						do l=1,size(this%Materials(j)%materialp%Mesh%ElemNod,2)
+							n=this%Materials(j)%materialp%Mesh%ElemNod(k,l)
+							mrect%NodCoord(l,:)=this%Materials(j)%materialp%Mesh%NodCoord(n,:)
 						enddo
-						layer=obj%Materials(j)%materialp%layer
+						layer=this%Materials(j)%materialp%layer
 						! check in-out
 						if(rect%contact(mrect) .eqv. .true. )then
 							! in
-							matPara(i,layer)=obj%Materials(j)%materialp%meshPara(k,1)
+							matPara(i,layer)=this%Materials(j)%materialp%meshPara(k,1)
 						else
 							cycle
 						endif
@@ -7665,15 +7833,15 @@ subroutine bakeMaterialsFEMDomain(obj,NumOfMatPara)
 
 	endif
 
-	call getKeyAndValue(Array=matPara,key=obj%Mesh%ElemMat, info=obj%MaterialProp%MatPara)
-	!call showarray(obj%Mesh%ElemMat,Name="test1.txt")
-	!call showarray(obj%MaterialProp%MatPara,Name="test2.txt")
+	call getKeyAndValue(Array=matPara,key=this%Mesh%ElemMat, info=this%MaterialProp%MatPara)
+	!call showarray(this%Mesh%ElemMat,Name="test1.txt")
+	!call showarray(this%MaterialProp%MatPara,Name="test2.txt")
 end subroutine bakeMaterialsFEMDomain
 ! ##################################################
 
 ! ##################################################
-subroutine bakeDBoundariesFEMDomain(obj,NodeDOF)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine bakeDBoundariesFEMDomain(this,NodeDOF)
+	class(FEMDomain_),intent(inout) :: this
 	integer(int32) ,optional,intent(in) :: NodeDOF 
 	integer(int32) :: i,j,k,l,n,m,NumOfMaterial,layer,in_num,NumOfLayer,DBCnum,&
 	val_id,NumOfValPerNod
@@ -7687,22 +7855,22 @@ subroutine bakeDBoundariesFEMDomain(obj,NodeDOF)
 
 	! get Num of Layer
 	NumOfLayer=0
-	if(.not. allocated(obj%Boundaries) )then
+	if(.not. allocated(this%Boundaries) )then
 		print *, "no Boundaries found"
 		return
 	endif
 
 	DBCnum=NodeDOF
 
-	if(.not. allocated(obj%Boundaries) )then
+	if(.not. allocated(this%Boundaries) )then
 		print *, "No Dirichlet Boundaries are imported."
 		return
 	endif
 
 	NumOfLayer=0
-	do i=1, size(obj%Boundaries,1)
-		if(associated(obj%Boundaries(i)%Boundaryp ) )then
-			if(obj%Boundaries(i)%Boundaryp%Dbound%empty() .eqv. .false. )then
+	do i=1, size(this%Boundaries,1)
+		if(associated(this%Boundaries(i)%Boundaryp ) )then
+			if(this%Boundaries(i)%Boundaryp%Dbound%empty() .eqv. .false. )then
 				NumOfLayer=NumOfLayer+1
 			endif
 		else
@@ -7711,37 +7879,37 @@ subroutine bakeDBoundariesFEMDomain(obj,NodeDOF)
 	enddo
 	print *, "Number of Layer for Dirichlet Boundary= ",NumOfLayer
 
-	call obj%initDBC(NumOfValPerNod=input(default=NumOfLayer,option=NodeDOF) )
+	call this%initDBC(NumOfValPerNod=input(default=NumOfLayer,option=NodeDOF) )
 
 
-	if(.not. allocated(obj%Boundaries) )then
+	if(.not. allocated(this%Boundaries) )then
 		print *, "No Dirichlet boundary is baked."
 		return
 	else
 		! total $NumOfLayer Boundary Conditions exist.
 		! for all Boundaries, resistrate material parameter and material IDs
-		do i=1,size(obj%Boundaries,1)
+		do i=1,size(this%Boundaries,1)
 			! for each Layer
-			if(associated(obj%Boundaries(i)%Boundaryp ) )then
-				if(obj%Boundaries(i)%Boundaryp%DBound%empty() .eqv. .false. )then
-					do j=1,size(obj%Boundaries(i)%Boundaryp%DBound%ElemNod,1)
+			if(associated(this%Boundaries(i)%Boundaryp ) )then
+				if(this%Boundaries(i)%Boundaryp%DBound%empty() .eqv. .false. )then
+					do j=1,size(this%Boundaries(i)%Boundaryp%DBound%ElemNod,1)
 						! for each Zone
-						xmin = minval( obj%Boundaries(i)%Boundaryp%DBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,1) ) 
-						xmax = maxval( obj%Boundaries(i)%Boundaryp%DBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,1) ) 
-						ymin = minval( obj%Boundaries(i)%Boundaryp%DBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,2) )
-						ymax = maxval( obj%Boundaries(i)%Boundaryp%DBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,2) )
-						zmin = minval( obj%Boundaries(i)%Boundaryp%DBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,3) )
-						zmax = maxval( obj%Boundaries(i)%Boundaryp%DBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,3) )
-						val = obj%Boundaries(i)%Boundaryp%DBoundPara(j,1)
-						call obj%AddDBoundCondition(xmin=xmin,xmax=xmax,ymin=ymin,&
+						xmin = minval( this%Boundaries(i)%Boundaryp%DBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,1) ) 
+						xmax = maxval( this%Boundaries(i)%Boundaryp%DBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,1) ) 
+						ymin = minval( this%Boundaries(i)%Boundaryp%DBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,2) )
+						ymax = maxval( this%Boundaries(i)%Boundaryp%DBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,2) )
+						zmin = minval( this%Boundaries(i)%Boundaryp%DBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,3) )
+						zmax = maxval( this%Boundaries(i)%Boundaryp%DBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%DBound%ElemNod(j,:) ,3) )
+						val = this%Boundaries(i)%Boundaryp%DBoundPara(j,1)
+						call this%AddDBoundCondition(xmin=xmin,xmax=xmax,ymin=ymin,&
 						ymax=ymax,zmin=zmin,zmax=zmax,val=val,&
-						val_id=obj%Boundaries(i)%Boundaryp%layer)
+						val_id=this%Boundaries(i)%Boundaryp%layer)
 					enddo
 				endif
 			endif
@@ -7753,8 +7921,8 @@ end subroutine bakeDBoundariesFEMDomain
 
 
 ! ##################################################
-subroutine bakeNBoundariesFEMDomain(obj,NodeDOF)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine bakeNBoundariesFEMDomain(this,NodeDOF)
+	class(FEMDomain_),intent(inout) :: this
 	integer(int32) ,optional,intent(in) :: NodeDOF 
 	integer(int32) :: i,j,k,l,n,m,NumOfMaterial,layer,in_num,NumOfLayer,DBCnum,&
 	val_id,NumOfValPerNod,numofnode
@@ -7768,22 +7936,22 @@ subroutine bakeNBoundariesFEMDomain(obj,NodeDOF)
 
 	! get Num of Layer
 	NumOfLayer=0
-	if(.not. allocated(obj%Boundaries) )then
+	if(.not. allocated(this%Boundaries) )then
 		print *, "no Boundaries found"
 		return
 	endif
 
 	DBCnum=NodeDOF
 
-	if(.not. allocated(obj%Boundaries) )then
+	if(.not. allocated(this%Boundaries) )then
 		print *, "No Neumann Boundaries are imported."
 		return
 	endif
 
 	NumOfLayer=0
-	do i=1, size(obj%Boundaries,1)
-		if(associated(obj%Boundaries(i)%Boundaryp ) )then
-			if(obj%Boundaries(i)%Boundaryp%Nbound%empty() .eqv. .false. )then
+	do i=1, size(this%Boundaries,1)
+		if(associated(this%Boundaries(i)%Boundaryp ) )then
+			if(this%Boundaries(i)%Boundaryp%Nbound%empty() .eqv. .false. )then
 				NumOfLayer=NumOfLayer+1
 			endif
 		else
@@ -7792,37 +7960,37 @@ subroutine bakeNBoundariesFEMDomain(obj,NodeDOF)
 	enddo
 	print *, "Number of Layer for Neumann Boundary= ",NumOfLayer
 
-	call obj%initNBC(NumOfValPerNod=input(default=NumOfLayer,option=NodeDOF) )
+	call this%initNBC(NumOfValPerNod=input(default=NumOfLayer,option=NodeDOF) )
 	
 
-	if(.not. allocated(obj%Boundaries) )then
+	if(.not. allocated(this%Boundaries) )then
 		print *, "No Neumann boundary is baked."
 		return
 	else
 		! total $NumOfLayer Boundary Conditions exist.
 		! for all Boundaries, resistrate material parameter and material IDs
-		do i=1,size(obj%Boundaries,1)
+		do i=1,size(this%Boundaries,1)
 			! for each Layer
-			if(associated(obj%Boundaries(i)%Boundaryp ) )then
-				if(obj%Boundaries(i)%Boundaryp%NBound%empty() .eqv. .false. )then
-					do j=1,size(obj%Boundaries(i)%Boundaryp%NBound%ElemNod,1)
+			if(associated(this%Boundaries(i)%Boundaryp ) )then
+				if(this%Boundaries(i)%Boundaryp%NBound%empty() .eqv. .false. )then
+					do j=1,size(this%Boundaries(i)%Boundaryp%NBound%ElemNod,1)
 						! for each Zone
-						xmin = minval( obj%Boundaries(i)%Boundaryp%NBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,1) ) 
-						xmax = maxval( obj%Boundaries(i)%Boundaryp%NBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,1) ) 
-						ymin = minval( obj%Boundaries(i)%Boundaryp%NBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,2) )
-						ymax = maxval( obj%Boundaries(i)%Boundaryp%NBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,2) )
-						zmin = minval( obj%Boundaries(i)%Boundaryp%NBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,3) )
-						zmax = maxval( obj%Boundaries(i)%Boundaryp%NBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,3) )
-						val = obj%Boundaries(i)%Boundaryp%NBoundPara(j,1)
-						call obj%AddNBoundCondition(xmin=xmin,xmax=xmax,ymin=ymin,&
+						xmin = minval( this%Boundaries(i)%Boundaryp%NBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,1) ) 
+						xmax = maxval( this%Boundaries(i)%Boundaryp%NBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,1) ) 
+						ymin = minval( this%Boundaries(i)%Boundaryp%NBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,2) )
+						ymax = maxval( this%Boundaries(i)%Boundaryp%NBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,2) )
+						zmin = minval( this%Boundaries(i)%Boundaryp%NBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,3) )
+						zmax = maxval( this%Boundaries(i)%Boundaryp%NBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%NBound%ElemNod(j,:) ,3) )
+						val = this%Boundaries(i)%Boundaryp%NBoundPara(j,1)
+						call this%AddNBoundCondition(xmin=xmin,xmax=xmax,ymin=ymin,&
 						ymax=ymax,zmin=zmin,zmax=zmax,val=val,&
-						val_id=obj%Boundaries(i)%Boundaryp%layer)
+						val_id=this%Boundaries(i)%Boundaryp%layer)
 					enddo
 				endif
 			endif
@@ -7834,8 +8002,8 @@ end subroutine bakeNBoundariesFEMDomain
 
 
 ! ##################################################
-subroutine bakeTBoundariesFEMDomain(obj,NodeDOF)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine bakeTBoundariesFEMDomain(this,NodeDOF)
+	class(FEMDomain_),intent(inout) :: this
 	integer(int32) ,optional,intent(in) :: NodeDOF 
 	integer(int32) :: i,j,k,l,n,m,NumOfMaterial,layer,in_num,NumOfLayer,DBCnum,&
 	val_id,NumOfValPerNod,numofnode
@@ -7849,22 +8017,22 @@ subroutine bakeTBoundariesFEMDomain(obj,NodeDOF)
 
 	! get Num of Layer
 	NumOfLayer=0
-	if(.not. allocated(obj%Boundaries) )then
+	if(.not. allocated(this%Boundaries) )then
 		print *, "no Boundaries found"
 		return
 	endif
 
 	DBCnum=NodeDOF
 
-	if(.not. allocated(obj%Boundaries) )then
+	if(.not. allocated(this%Boundaries) )then
 		print *, "No Time Boundaries are imported."
 		return
 	endif
 
 	NumOfLayer=0
-	do i=1, size(obj%Boundaries,1)
-		if(associated(obj%Boundaries(i)%Boundaryp ) )then
-			if(obj%Boundaries(i)%Boundaryp%Tbound%empty() .eqv. .false. )then
+	do i=1, size(this%Boundaries,1)
+		if(associated(this%Boundaries(i)%Boundaryp ) )then
+			if(this%Boundaries(i)%Boundaryp%Tbound%empty() .eqv. .false. )then
 				NumOfLayer=NumOfLayer+1
 			endif
 		else
@@ -7873,37 +8041,37 @@ subroutine bakeTBoundariesFEMDomain(obj,NodeDOF)
 	enddo
 	print *, "Number of Layer for Time Boundary= ",NumOfLayer
 
-	call obj%initTBC(NumOfValPerNod=input(default=NumOfLayer,option=NodeDOF) )
+	call this%initTBC(NumOfValPerNod=input(default=NumOfLayer,option=NodeDOF) )
 
 
-	if(.not. allocated(obj%Boundaries) )then
+	if(.not. allocated(this%Boundaries) )then
 		print *, "No Time boundary is baked."
 		return
 	else
 		! total $NumOfLayer Boundary Conditions exist.
 		! for all Boundaries, resistrate material parameter and material IDs
-		do i=1,size(obj%Boundaries,1)
+		do i=1,size(this%Boundaries,1)
 			! for each Layer
-			if(associated(obj%Boundaries(i)%Boundaryp ) )then
-				if(obj%Boundaries(i)%Boundaryp%TBound%empty() .eqv. .false. )then
-					do j=1,size(obj%Boundaries(i)%Boundaryp%TBound%ElemNod,1)
+			if(associated(this%Boundaries(i)%Boundaryp ) )then
+				if(this%Boundaries(i)%Boundaryp%TBound%empty() .eqv. .false. )then
+					do j=1,size(this%Boundaries(i)%Boundaryp%TBound%ElemNod,1)
 						! for each Zone
-						xmin = minval( obj%Boundaries(i)%Boundaryp%TBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,1) ) 
-						xmax = maxval( obj%Boundaries(i)%Boundaryp%TBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,1) ) 
-						ymin = minval( obj%Boundaries(i)%Boundaryp%TBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,2) )
-						ymax = maxval( obj%Boundaries(i)%Boundaryp%TBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,2) )
-						zmin = minval( obj%Boundaries(i)%Boundaryp%TBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,3) )
-						zmax = maxval( obj%Boundaries(i)%Boundaryp%TBound%NodCoord&
-						(obj%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,3) )
-						val = obj%Boundaries(i)%Boundaryp%TBoundPara(j,1)
-						call obj%AddTBoundCondition(xmin=xmin,xmax=xmax,ymin=ymin,&
+						xmin = minval( this%Boundaries(i)%Boundaryp%TBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,1) ) 
+						xmax = maxval( this%Boundaries(i)%Boundaryp%TBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,1) ) 
+						ymin = minval( this%Boundaries(i)%Boundaryp%TBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,2) )
+						ymax = maxval( this%Boundaries(i)%Boundaryp%TBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,2) )
+						zmin = minval( this%Boundaries(i)%Boundaryp%TBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,3) )
+						zmax = maxval( this%Boundaries(i)%Boundaryp%TBound%NodCoord&
+						(this%Boundaries(i)%Boundaryp%TBound%ElemNod(j,:) ,3) )
+						val = this%Boundaries(i)%Boundaryp%TBoundPara(j,1)
+						call this%AddTBoundCondition(xmin=xmin,xmax=xmax,ymin=ymin,&
 						ymax=ymax,zmin=zmin,zmax=zmax,val=val,&
-						val_id=obj%Boundaries(i)%Boundaryp%layer)
+						val_id=this%Boundaries(i)%Boundaryp%layer)
 					enddo
 				endif
 			endif
@@ -7918,50 +8086,50 @@ end subroutine bakeTBoundariesFEMDomain
 
 
 ! ##################################################
-subroutine ImportMaterialsFEMDomain(obj,Material,NumberOfMaterials,MaterialID)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine ImportMaterialsFEMDomain(this,Material,NumberOfMaterials,MaterialID)
+	class(FEMDomain_),intent(inout) :: this
 	type(MaterialProp_),target,intent(in) :: Material
 	integer(int32), optional,intent(in) :: NumberOfMaterials,MaterialID
 	integer(int32) :: n,i
 
 
-	if(.not.allocated(obj%Materials) )then
+	if(.not.allocated(this%Materials) )then
 		n=input(default=30,option=NumberOfMaterials)
-		allocate(obj%Materials(n))
-		obj%NumberOfMaterials = 0
+		allocate(this%Materials(n))
+		this%NumberOfMaterials = 0
 		do i=1,n
-			nullify(obj%Materials(i)%materialp)
+			nullify(this%Materials(i)%materialp)
 		enddo
 	endif
 
 	if(present(MaterialID) )then
-		if(MaterialID > size(obj%Materials) )then
+		if(MaterialID > size(this%Materials) )then
 			print *, "ERROR :: ImportMaterialsFEMDomain >> requested MaterialID is grater than the size of stack"
-			print *, "Stack size is ",size(obj%Materials), " , and your request is ",MaterialID
+			print *, "Stack size is ",size(this%Materials), " , and your request is ",MaterialID
 			return
 		endif
-		if(MaterialID > obj%NumberOfMaterials)then
+		if(MaterialID > this%NumberOfMaterials)then
 			print *, "ERROR :: ImportMaterialsFEMDomain >> requested MaterialID is grater than the Last ID"
-			print *, "The last ID is ",obj%NumberOfMaterials+1, " , and your request is ",MaterialID
-			print *, "Hence, your request ",MaterialID, " is accepted as the ID of ",obj%NumberOfMaterials+1
-			obj%NumberOfMaterials=obj%NumberOfMaterials+1
-			obj%Materials(obj%NumberOfMaterials)%Materialp => Material
-			print *, "Now, number of Material conditions is ",obj%NumberOfMaterials
+			print *, "The last ID is ",this%NumberOfMaterials+1, " , and your request is ",MaterialID
+			print *, "Hence, your request ",MaterialID, " is accepted as the ID of ",this%NumberOfMaterials+1
+			this%NumberOfMaterials=this%NumberOfMaterials+1
+			this%Materials(this%NumberOfMaterials)%Materialp => Material
+			print *, "Now, number of Material conditions is ",this%NumberOfMaterials
 			return
 		endif
-		if( associated(obj%Materials(MaterialID)%Materialp) )then
+		if( associated(this%Materials(MaterialID)%Materialp) )then
 			print *, "Material ID :: ", MaterialID, " is overwritten."
-			nullify(obj%Materials(MaterialID)%Materialp )
+			nullify(this%Materials(MaterialID)%Materialp )
 		endif
-		obj%Materials(MaterialID)%Materialp => Material
+		this%Materials(MaterialID)%Materialp => Material
 		return
 	endif
 
-	obj%NumberOfMaterials=obj%NumberOfMaterials+1
+	this%NumberOfMaterials=this%NumberOfMaterials+1
 
-	obj%Materials(obj%NumberOfMaterials)%Materialp => Material
+	this%Materials(this%NumberOfMaterials)%Materialp => Material
 
-	print *, "Now, number of Material conditions is ",obj%NumberOfMaterials
+	print *, "Now, number of Material conditions is ",this%NumberOfMaterials
 
 end subroutine ImportMaterialsFEMDomain
 ! ##################################################
@@ -7970,8 +8138,8 @@ end subroutine ImportMaterialsFEMDomain
 
 
 ! ##################################################
-subroutine showMaterialsFEMDomain(obj,Name)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine showMaterialsFEMDomain(this,Name)
+	class(FEMDomain_),intent(inout) :: this
 	character(*),optional,intent(in)::Name
 	integer(int32) :: i
 
@@ -7979,12 +8147,12 @@ subroutine showMaterialsFEMDomain(obj,Name)
 		print *, "Domain Name is :: ", name
 	endif
 
-	if(.not. allocated(obj%Materials) )then
+	if(.not. allocated(this%Materials) )then
 		print *, "No boundary is set."
 	else
-		do i=1,obj%NumberOfMaterials
-			print *, "Layer :: ",obj%Materials(i)%Materialp%Layer,"Material ::",i," => ",&
-				associated(obj%Materials(i)%Materialp)
+		do i=1,this%NumberOfMaterials
+			print *, "Layer :: ",this%Materials(i)%Materialp%Layer,"Material ::",i," => ",&
+				associated(this%Materials(i)%Materialp)
 		enddo
 	endif
 end subroutine showMaterialsFEMDomain
@@ -7992,8 +8160,8 @@ end subroutine showMaterialsFEMDomain
 
 
 ! ##################################################
-subroutine removeMaterialsFEMDomain(obj,Name,BoundaryID)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine removeMaterialsFEMDomain(this,Name,BoundaryID)
+	class(FEMDomain_),intent(inout) :: this
 	character(*),optional,intent(in)::Name
 	integer(int32) :: i
 	integer(int32),optional,intent(in) ::BoundaryID
@@ -8002,18 +8170,18 @@ subroutine removeMaterialsFEMDomain(obj,Name,BoundaryID)
 		print *, "Domain Name is :: ", name
 	endif
 
-	if(.not. allocated(obj%Materials) )then
+	if(.not. allocated(this%Materials) )then
 		print *, "No boundary is set."
 	else
 		if(present(BoundaryID))then
-			nullify(obj%Materials(BoundaryID)%Materialp)
+			nullify(this%Materials(BoundaryID)%Materialp)
 		else
-			do i=1,obj%NumberOfMaterials
-				nullify(obj%Materials(i)%Materialp)
+			do i=1,this%NumberOfMaterials
+				nullify(this%Materials(i)%Materialp)
 			enddo
 		endif
 	endif
-	call obj%showMaterials(Name)
+	call this%showMaterials(Name)
 
 
 end subroutine removeMaterialsFEMDomain
@@ -8125,68 +8293,68 @@ subroutine contactdetectFEMDomain(obj1, obj2, ContactModel)
 end subroutine
 ! ##################################################
 
-subroutine getSurfaceFEMDomain(obj)
-	class(FEMDomain_),intent(inout) :: Obj
+subroutine getSurfaceFEMDomain(this)
+	class(FEMDomain_),intent(inout) :: this
 	
-	call obj%mesh%getSurface()
+	call this%mesh%getSurface()
 
 end subroutine
 ! ##################################################
 
 ! ##################################################
-recursive function getVolumeFEMDomain(obj,elem) result(ret)
-	class(FEMDomain_),intent(in) :: obj
+recursive function getVolumeFEMDomain(this,elem) result(ret)
+	class(FEMDomain_),intent(in) :: this
 	type(ShapeFunction_) :: sf
 	integer(int32),optional,intent(in) :: elem
 	real(real64) :: ret
 	integer(int32) :: i,j,elemid
 
 	if(present(elem) )then
-		sf%ElemType=obj%Mesh%GetElemType()
+		sf%ElemType=this%Mesh%GetElemType()
 		call SetShapeFuncType(sf)
 		i = elem
 		ret = 0.0d0
 		do j=1,sf%numOfGP
-			call GetAllShapeFunc(sf,elem_id=i,nod_coord=obj%Mesh%NodCoord,&
-				elem_nod=obj%Mesh%ElemNod,OptionalGpID=j)
-			ret = ret + sf%detJ*((2.0d0)**obj%nd())/dble(sf%numOfGP)
+			call GetAllShapeFunc(sf,elem_id=i,nod_coord=this%Mesh%NodCoord,&
+				elem_nod=this%Mesh%ElemNod,OptionalGpID=j)
+			ret = ret + sf%detJ*((2.0d0)**this%nd())/dble(sf%numOfGP)
 		enddo
 	else
 		! count all
 		ret = 0.0d0
-		do elemid=1,obj%ne()
-			ret = ret + obj%getVolume(elem=elemid)	
+		do elemid=1,this%ne()
+			ret = ret + this%getVolume(elem=elemid)	
 		enddo
 	endif
 end function
 ! ##################################################
 
 ! ##################################################
-function getJacobiMatrixFEMDomain(obj,elem) result(ret)
-	class(FEMDomain_),intent(inout) :: obj
+function getJacobiMatrixFEMDomain(this,elem) result(ret)
+	class(FEMDomain_),intent(inout) :: this
 	integer(int32),intent(in) :: elem
 	real(real64),allocatable :: ret(:,:)
 	integer(int32) :: i,j
 
 
-	obj%ShapeFunction%ElemType=obj%Mesh%GetElemType()
-	call SetShapeFuncType(obj%ShapeFunction)
+	this%ShapeFunction%ElemType=this%Mesh%GetElemType()
+	call SetShapeFuncType(this%ShapeFunction)
 	i = elem
-	call GetAllShapeFunc(obj%ShapeFunction,elem_id=i,nod_coord=obj%Mesh%NodCoord,&
-		elem_nod=obj%Mesh%ElemNod,OptionalGpID=1)
-	ret = obj%ShapeFunction%Jmat
+	call GetAllShapeFunc(this%ShapeFunction,elem_id=i,nod_coord=this%Mesh%NodCoord,&
+		elem_nod=this%Mesh%ElemNod,OptionalGpID=1)
+	ret = this%ShapeFunction%Jmat
 
 end function
 ! ##################################################
 
 
-function getSingleFacetNodeIDFEMDomain(obj,ElementID) result(facet)
-	class(FEMDomain_),intent(in) :: obj
+function getSingleFacetNodeIDFEMDomain(this,ElementID) result(facet)
+	class(FEMDomain_),intent(in) :: this
 	integer(int32),intent(in) :: ElementID
 	integer(int32),allocatable :: facet(:,:)
 	integer(int32) :: i, j
 
-	if(obj%nd()==3 .and. obj%nne()==8 )then
+	if(this%nd()==3 .and. this%nne()==8 )then
 		allocate(Facet(6,4) )
 		Facet(1,1:4) = [4,3,2,1]
 		Facet(2,1:4) = [1,2,6,5]
@@ -8194,13 +8362,13 @@ function getSingleFacetNodeIDFEMDomain(obj,ElementID) result(facet)
 		Facet(4,1:4) = [3,4,8,7]
 		Facet(5,1:4) = [4,1,5,8]
 		Facet(6,1:4) = [5,6,7,8] 
-	elseif(obj%nd()==3 .and. obj%nne()==4 )then
+	elseif(this%nd()==3 .and. this%nne()==4 )then
 		allocate(Facet(4,3) )
 		Facet(1,1:3) = [3,2,1]
 		Facet(2,1:3) = [1,2,4]
 		Facet(3,1:3) = [2,3,4]
 		Facet(4,1:3) = [3,1,4]
-	elseif(obj%nd()==2 .and. obj%nne()==4 )then
+	elseif(this%nd()==2 .and. this%nne()==4 )then
 		allocate(Facet(4,2) )
 		Facet(1,1:2) = [1,2]
 		Facet(2,1:2) = [2,3]
@@ -8216,14 +8384,14 @@ function getSingleFacetNodeIDFEMDomain(obj,ElementID) result(facet)
 
 	do i=1,size(Facet,1)
 		do j=1,size(Facet,2)
-			Facet(i,j) = obj%mesh%elemnod(ElementID, Facet(i,j) )
+			Facet(i,j) = this%mesh%elemnod(ElementID, Facet(i,j) )
 		enddo
 	enddo
 
 end function
 
-subroutine x3dFEMDomain(obj,name)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine x3dFEMDomain(this,name)
+	class(FEMDomain_),intent(inout) :: this
 	character(*),intent(in) :: name
 	type(IO_) :: f
 	integer(int32),allocatable ::Facet(:,:)
@@ -8239,8 +8407,8 @@ subroutine x3dFEMDomain(obj,name)
 	write(f%fh,*) 'solid="false"'
 	write(f%fh,*) 'coordIndex="'
 	
-	do ElementID = 1,obj%ne()
-		facet = obj%getSingleFacetNodeID(ElementID=ElementID)
+	do ElementID = 1,this%ne()
+		facet = this%getSingleFacetNodeID(ElementID=ElementID)
 		facet(:,:) = facet(:,:) -1
 		do FacetID = 1, size(Facet,1)
 			write(f%fh,*) Facet(FacetID,:),"-1"
@@ -8251,8 +8419,8 @@ subroutine x3dFEMDomain(obj,name)
 
 	write(f%fh,*) '<Coordinate DEF="coords_ME_Cube" point="'
 
-	do PointID = 1,obj%nn()
-		write(f%fh,*) obj%mesh%nodcoord(PointID,:)
+	do PointID = 1,this%nn()
+		write(f%fh,*) this%mesh%nodcoord(PointID,:)
 	enddo
 
 	write(f%fh,*) '"/>'
@@ -8326,8 +8494,8 @@ end subroutine
 
 
 ! ##################################################
-recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementType,NodeList,debug,displacement,only_field)
-	class(FEMDomain_),intent(inout) :: obj
+recursive subroutine vtkFEMDomain(this,name,scalar,vector,tensor,field,ElementType,NodeList,debug,displacement,only_field)
+	class(FEMDomain_),intent(inout) :: this
 	type(FEMDomain_) :: mini_obj
 	character(*),intent(in) :: name
 	character(*),optional,intent(in) :: field
@@ -8340,15 +8508,15 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 	logical,optional,intent(in) :: debug
 	
 	if(present(displacement) )then
-		call obj%deform(disp=displacement)
-		call obj%vtk(name=name,scalar=scalar,vector=vector,tensor=tensor,&
+		call this%deform(disp=displacement)
+		call this%vtk(name=name,scalar=scalar,vector=vector,tensor=tensor,&
 			field=field,ElementType=ElementType,NodeList=NodeList,debug=debug)
-		call obj%deform(disp=-displacement)
+		call this%deform(disp=-displacement)
 		return
 	endif
 
-	if(obj%nd()==2 )then
-		mini_obj = obj
+	if(this%nd()==2 )then
+		mini_obj = this
 		call mini_obj%mesh%convert2Dto3D(division=1,thickness=dble(1.0e-8))
 		call mini_obj%vtk(name=name,scalar=scalar,vector=vector,tensor=tensor,&
 			field=field,ElementType=ElementType,NodeList=NodeList,debug=debug)
@@ -8357,10 +8525,10 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 
 	if(present(NodeList))then
 		n = size(NodeList,1)
-		mini_obj%mesh%nodcoord = zeros(n,obj%nd())
-		mini_obj%mesh%elemNod = zeros(n,obj%nne())
+		mini_obj%mesh%nodcoord = zeros(n,this%nd())
+		mini_obj%mesh%elemNod = zeros(n,this%nne())
 		do i=1,n
-			mini_obj%mesh%nodcoord(i,: ) = obj%mesh%nodcoord( NodeList(i),: ) 
+			mini_obj%mesh%nodcoord(i,: ) = this%mesh%nodcoord( NodeList(i),: ) 
 		enddo
 		do i=1,n
 			mini_obj%mesh%elemNod(i,:) = i
@@ -8386,33 +8554,39 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 		cell_tensors  = "cell_tensors"
 	endif
 
-	if(obj%mesh%empty() .eqv. .true.)then
-		print *, "ERROR :: vtkFEMDomain >> obj%mesh%empty() .eqv. .true., nothing exported"
+	if(this%mesh%empty() .eqv. .true.)then
+		print *, "ERROR :: vtkFEMDomain >> this%mesh%empty() .eqv. .true., nothing exported"
 		return
 	endif
 
-	if( .not.allocated(obj%mesh%elemnod) )then
+	
+	if( .not.allocated(this%mesh%elemnod) )then
 		VTK_CELL_TYPE=1 ! point
-	elseif(obj%nd()==3 .and. obj%nne()==2 )then
+	elseif(this%nd()==3 .and. this%nne()==2 )then
 		VTK_CELL_TYPE=1 ! point
-	elseif(obj%nd()==2 .and. obj%nne()==3 )then
+	elseif(this%nd()==2 .and. this%nne()==3 )then
 		VTK_CELL_TYPE=5 ! triangle
-	elseif(obj%nd()==2 .and. obj%nne()==4 )then
+	elseif(this%nd()==2 .and. this%nne()==4 )then
 		VTK_CELL_TYPE=9 ! square
-	elseif(obj%nd()==3 .and. obj%nne()==4 )then
+	elseif(this%nd()==3 .and. this%nne()==4 )then
 		VTK_CELL_TYPE=10 ! 4-node triangle
-	elseif(obj%nd()==3 .and. obj%nne()==8 )then
+	elseif(this%nd()==3 .and. this%nne()==8 )then
 		VTK_CELL_TYPE=12 ! 8-node box
 	else
-		print *, "VTKFEMDomain >> ERROR :: Nothing is exported."
-		return
+		VTK_CELL_TYPE = elementType2VTKCellType(this%mesh%getElementType())
+		if(VTK_CELL_TYPE==-1)then
+			print *, "VTKFEMDomain >> ERROR :: Nothing is exported."
+			return
+		endif
 	endif
+	
+	
 
 	if(present(ElementType) )then
 		VTK_CELL_TYPE = ElementType
 	endif
 
-	!call displayFEMDomain(obj,path="./",name=name,extention=".vtk")
+	!call displayFEMDomain(this,path="./",name=name,extention=".vtk")
 	if(index(name,".vtk")/=0 .or. index(name,".VTK")/=0 )then
 		call f%open(name,'w')
 	else
@@ -8423,18 +8597,18 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 	call f%write(name)
 	call f%write("ASCII")
 	call f%write("DATASET UNSTRUCTURED_GRID")
-	call f%write("POINTS "//str( obj%nn() )//" float")
-	do i=1,obj%nn()
-		do j=1, obj%nd()-1
-			write(f%fh,'(A)',advance="no") str(obj%mesh%nodcoord(i,j))//" "
+	call f%write("POINTS "//str( this%nn() )//" float")
+	do i=1,this%nn()
+		do j=1, this%nd()-1
+			write(f%fh,'(A)',advance="no") str(this%mesh%nodcoord(i,j))//" "
 		enddo
-		write(f%fh,'(A)',advance="yes") str(obj%mesh%nodcoord(i,obj%nd() ))
+		write(f%fh,'(A)',advance="yes") str(this%mesh%nodcoord(i,this%nd() ))
 	enddo
 
 
-	call f%write("CELLS "//str(obj%ne())//" "//str(obj%ne()* (obj%nne()+1) ))
-	do i=1, obj%ne()
-		num_node = obj%nne() 
+	call f%write("CELLS "//str(this%ne())//" "//str(this%ne()* (this%nne()+1) ))
+	do i=1, this%ne()
+		num_node = this%nne() 
 		if(present(ElementType) )then
 			if(ElementType==1)then
 				num_node = 1
@@ -8452,66 +8626,67 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 				num_node = 4
 			endif
 		endif
+
 		write(f%fh,'(A)',advance="no") str(num_node ) // " "
 		
 		do j=1, num_node-1
-			write(f%fh,'(A)',advance="no") str(obj%mesh%elemnod(i,j)-1)//" "
+			write(f%fh,'(A)',advance="no") str(this%mesh%elemnod(i,j)-1)//" "
 		enddo
-		write(f%fh,'(A)',advance="yes") str(obj%mesh%elemnod(i, num_node )-1)
+		write(f%fh,'(A)',advance="yes") str(this%mesh%elemnod(i, num_node )-1)
 	enddo
 	
-	call f%write("CELL_TYPES "//str(obj%ne() ) )
-	do i=1, obj%ne()
+	call f%write("CELL_TYPES "//str(this%ne() ) )
+	do i=1, this%ne()
 		call f%write(str(VTK_CELL_TYPE) )
 	enddo
 
 	! if scalar or vector exists..
 	if(present(scalar) )then
-		if(size(scalar)==obj%nn()  )then
-			call f%write("POINT_DATA "//str(obj%nn() ) )
+		if(size(scalar)==this%nn()  )then
+			call f%write("POINT_DATA "//str(this%nn() ) )
 			call f%write("SCALARS "//point_scalars//" float")
 			call f%write("LOOKUP_TABLE default")
-			do i=1,obj%nn()
+			do i=1,this%nn()
 				write(f%fh,*) real(scalar(i))
 			enddo
-		elseif(size(scalar)==obj%ne()  )then
-			call f%write("CELL_DATA "//str(obj%ne() ) )
+		elseif(size(scalar)==this%ne()  )then
+			call f%write("CELL_DATA "//str(this%ne() ) )
 			call f%write("SCALARS "//cell_scalars//" float")
 			call f%write("LOOKUP_TABLE default")
-			do i=1,obj%ne()
+			do i=1,this%ne()
 				write(f%fh,*) real(scalar(i))
 			enddo
 		else
-			call print("vtkFEMDOmain ERROR ::size(scalar) should be obj%nn() or obj%ne()  ")
-			call print("size(scalar)="//str(size(scalar))//" <> obj%nn() = "//str(obj%nn() )//&
-				" <> obj%ne() = "//str(obj%ne() ) )
+			call print("vtkFEMDOmain ERROR ::size(scalar) should be this%nn() or this%ne()  ")
+			call print("size(scalar)="//str(size(scalar))//" <> this%nn() = "//str(this%nn() )//&
+				" <> this%ne() = "//str(this%ne() ) )
 			call f%close()
 			return
 		endif
 	endif
 	
 	if(present(vector) )then
-		if(size(vector,1)==obj%nn()  )then
-			call f%write("POINT_DATA "//str(obj%nn() ) )
+		if(size(vector,1)==this%nn()  )then
+			call f%write("POINT_DATA "//str(this%nn() ) )
 			call f%write("VECTORS "//point_vectors//" float")
-			do i=1,obj%nn()
+			do i=1,this%nn()
 				do j=1,size(vector,2)-1
 					write(f%fh,'(A)',advance="no") str(vector(i,j) )//" "
 				enddo
 				write(f%fh,'(A)',advance="yes") str(vector(i, size(vector,2) ) )
 			enddo
-		elseif(size(vector,1)==obj%ne()  )then
-			call f%write("CELL_DATA "//str(obj%ne() ) )
+		elseif(size(vector,1)==this%ne()  )then
+			call f%write("CELL_DATA "//str(this%ne() ) )
 			call f%write("VECTORS "//cell_vectors//" float")
-			do i=1,obj%ne()
+			do i=1,this%ne()
 				do j=1,size(vector,2)-1
 					write(f%fh,'(A)',advance="no") str(vector(i,j) )//" "
 				enddo
 				write(f%fh,'(A)',advance="yes") str(vector(i, size(vector,2) ) )
 			enddo
 		else
-			call print("vtkFEMDOmain ERROR ::size(vector,1) sould be obj%nn()   ")
-			call print("size(vector,1)="//str(size(vector,1))//" and obj%nn() = "//str(obj%nn() ) )
+			call print("vtkFEMDOmain ERROR ::size(vector,1) sould be this%nn()   ")
+			call print("size(vector,1)="//str(size(vector,1))//" and this%nn() = "//str(this%nn() ) )
 			call f%close()
 			return
 		endif
@@ -8520,10 +8695,10 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 
 
 	if(present(tensor) )then
-		if(size(tensor,1)==obj%nn()  )then
-			call f%write("POINT_DATA "//str(obj%nn() ) )
+		if(size(tensor,1)==this%nn()  )then
+			call f%write("POINT_DATA "//str(this%nn() ) )
 			call f%write("TENSORS "//point_tensors//" float")
-			do i=1,obj%nn()
+			do i=1,this%nn()
 				do j=1,size(tensor,2)
 					do k=1,size(tensor,3)-1
 						write(f%fh,'(A)',advance="no") str(tensor(i,j,k) )//" "
@@ -8532,10 +8707,10 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 				enddo
 				
 			enddo
-		elseif(size(tensor,1)==obj%ne()  )then
-			call f%write("CELL_DATA "//str(obj%ne() ) )
+		elseif(size(tensor,1)==this%ne()  )then
+			call f%write("CELL_DATA "//str(this%ne() ) )
 			call f%write("TENSORS "//cell_tensors//" float")
-			do i=1,obj%ne()
+			do i=1,this%ne()
 				do j=1,size(tensor,2)
 					do k=1,size(tensor,3)-1
 						write(f%fh,'(A)',advance="no") str(tensor(i,j,k) )//" "
@@ -8548,8 +8723,8 @@ recursive subroutine vtkFEMDomain(obj,name,scalar,vector,tensor,field,ElementTyp
 				enddo
 			enddo
 		else
-			call print("vtkFEMDOmain ERROR ::size(tensor,1) sould be obj%nn()   ")
-			call print("size(tensor,1)="//str(size(tensor,1))//" and obj%nn() = "//str(obj%nn() ) )
+			call print("vtkFEMDOmain ERROR ::size(tensor,1) sould be this%nn()   ")
+			call print("size(tensor,1)="//str(size(tensor,1))//" and this%nn() = "//str(this%nn() ) )
 			call f%close()
 			return
 		endif
@@ -8567,25 +8742,25 @@ end subroutine
 ! ##################################################
 
 ! ##################################################
-subroutine plyFEMDomain(obj,name,NodeList)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine plyFEMDomain(this,name,NodeList)
+	class(FEMDomain_),intent(inout) :: this
 	type(FEMDomain_) :: mini_obj
 	character(*),intent(in) :: name
 	type(IO_) :: f
 	integer(int32),optional,intent(in) :: NodeList(:)
 	integer(int32) ::i,n
 
-	if(obj%mesh%empty() .eqv. .true.)then
-		print *, "ERROR :: vtkFEMDomain >> obj%mesh%empty() .eqv. .true., nothing exported"
+	if(this%mesh%empty() .eqv. .true.)then
+		print *, "ERROR :: vtkFEMDomain >> this%mesh%empty() .eqv. .true., nothing exported"
 		return
 	endif
 
 	if(present(NodeList))then
 		n = size(NodeList,1)
-		mini_obj%mesh%nodcoord = zeros(n,obj%nd())
-		mini_obj%mesh%elemNod = zeros(n,obj%nne())
+		mini_obj%mesh%nodcoord = zeros(n,this%nd())
+		mini_obj%mesh%elemNod = zeros(n,this%nne())
 		do i=1,n
-			mini_obj%mesh%nodcoord(i,: ) = obj%mesh%nodcoord( NodeList(i),: ) 
+			mini_obj%mesh%nodcoord(i,: ) = this%mesh%nodcoord( NodeList(i),: ) 
 		enddo
 		do i=1,n
 			mini_obj%mesh%elemNod(i,:) = i
@@ -8594,15 +8769,15 @@ subroutine plyFEMDomain(obj,name,NodeList)
 		return
 	endif
 
-	call displayFEMDomain(obj,path="./",name=name,extention=".ply")
+	call displayFEMDomain(this,path="./",name=name,extention=".ply")
 	return
 
 
 end subroutine
 ! ##################################################
 
-subroutine stlFEMDomain(obj,name,NodeList)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine stlFEMDomain(this,name,NodeList)
+	class(FEMDomain_),intent(inout) :: this
 	type(IO_) :: f
 	type(FEMDomain_) :: mini_obj
 	integer(int32),optional,intent(in) :: NodeList(:)
@@ -8611,10 +8786,10 @@ subroutine stlFEMDomain(obj,name,NodeList)
 
 	if(present(NodeList))then
 		n = size(NodeList,1)
-		mini_obj%mesh%nodcoord = zeros(n,obj%nd())
-		mini_obj%mesh%elemNod = zeros(n,obj%nne())
+		mini_obj%mesh%nodcoord = zeros(n,this%nd())
+		mini_obj%mesh%elemNod = zeros(n,this%nne())
 		do i=1,n
-			mini_obj%mesh%nodcoord(i,: ) = obj%mesh%nodcoord( NodeList(i),: ) 
+			mini_obj%mesh%nodcoord(i,: ) = this%mesh%nodcoord( NodeList(i),: ) 
 		enddo
 		do i=1,n
 			mini_obj%mesh%elemNod(i,:) = i
@@ -8624,25 +8799,25 @@ subroutine stlFEMDomain(obj,name,NodeList)
 	endif
 
 	!call f%open(name//".stl")
-	call ExportFEMDomainAsSTL(obj,MeshDimension=size(obj%mesh%Nodcoord,2),FileName=name)
+	call ExportFEMDomainAsSTL(this,MeshDimension=size(this%mesh%Nodcoord,2),FileName=name)
 	!call f%close()
 end subroutine
 ! ##################################################
 
 ! ##################################################
-subroutine objFEMDomain(obj,name)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine objFEMDomain(this,name)
+	class(FEMDomain_),intent(inout) :: this
 	type(IO_) :: f
 	character(*),intent(in) :: name
 	integer(int32) :: i,j,k
 
 	call f%open(name//".obj")
-	do i=1,obj%nn()
+	do i=1,this%nn()
 		write(f%fh,'(A)',advance="no") "v "
-		do j=1,size(obj%mesh%Nodcoord,2)-1
-			write(f%fh,'(A)',advance="no") str(obj%mesh%Nodcoord(i,j) )//" "
+		do j=1,size(this%mesh%Nodcoord,2)-1
+			write(f%fh,'(A)',advance="no") str(this%mesh%Nodcoord(i,j) )//" "
 		enddo
-		write(f%fh,'(A)',advance="yes") str(obj%mesh%Nodcoord(i, size(obj%mesh%Nodcoord,2) ) )
+		write(f%fh,'(A)',advance="yes") str(this%mesh%Nodcoord(i, size(this%mesh%Nodcoord,2) ) )
 	enddo
 	
 
@@ -8652,8 +8827,8 @@ end subroutine
 ! ##################################################
 
 ! ##################################################
-subroutine jsonFEMDomain(obj,name,fh,endl)
-	class(FEMDomain_),intent(in) :: obj
+subroutine jsonFEMDomain(this,name,fh,endl)
+	class(FEMDomain_),intent(in) :: this
 	type(IO_) :: f
 	integer(int32),optional,intent(in) :: fh
 	character(*),optional,intent(in) :: name
@@ -8702,7 +8877,7 @@ subroutine jsonFEMDomain(obj,name,fh,endl)
 	endif
 	write(fileid,*) '"type": "femdomain",'
 
-	call obj%mesh%json(fh=fileid)
+	call this%mesh%json(fh=fileid)
 	
 	
 
@@ -8735,8 +8910,8 @@ subroutine jsonFEMDomain(obj,name,fh,endl)
 
 end subroutine
 ! ##############################################
-subroutine readFEMDomain(obj,name,DimNum,ElementType)
-	class(FEMDomain_) ,intent(inout) :: obj
+subroutine readFEMDomain(this,name,DimNum,ElementType)
+	class(FEMDomain_) ,intent(inout) :: this
 	character(*),intent(in) :: name
 	character(:),allocatable :: line
 	integeR(int32),allocatable :: elemnod(:,:),node_list(:),element_list(:),g_node_list(:),cell_types(:)
@@ -8749,7 +8924,7 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 	type(IO_) :: f
 
 	if(index(name,".vtk")/=0 )then
-		call obj%ImportVTKFile(name=name)
+		call this%ImportVTKFile(name=name)
 		return
 	endif
 	
@@ -8780,7 +8955,7 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 				allocate(g_node_list(num_node) )
 				g_node_list(:) = 0
 				allocate(node_list(num_node) )
-				obj%mesh%nodcoord = zeros(num_node, 3)
+				this%mesh%nodcoord = zeros(num_node, 3)
 				node_id=0
 				do
 					line = f%readline()
@@ -8797,7 +8972,7 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 						do i=1, m
 							line = f%readline()
 							node_id = node_id+1
-							read(line,*) obj%mesh%nodcoord(node_id,1:3)
+							read(line,*) this%mesh%nodcoord(node_id,1:3)
 						enddo
 						exit
 					else
@@ -8807,7 +8982,7 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 						g_node_list( n ) = n
 						line = f%readline()
 						node_id = node_id+1
-						read(line,*) obj%mesh%nodcoord(n,1:3)
+						read(line,*) this%mesh%nodcoord(n,1:3)
 					endif
 				enddo
 			endif
@@ -8861,11 +9036,11 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 							print *, "[CAUTION] ReadFEMDomain >> No such elemtype as",n
 							exit	
 						endif
-						allocate(obj%mesh%elemnod(m, nne))
+						allocate(this%mesh%elemnod(m, nne))
 						do i=1, m
 							line = f%readline()
 							print *, line
-							read(line,*) element_list(i),obj%mesh%elemnod(i,1:)
+							read(line,*) element_list(i),this%mesh%elemnod(i,1:)
 						enddo
 						exit
 					else
@@ -8877,15 +9052,15 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 				enddo
 				! got nodcoord & elemnod
 				
-				do i=1,size(obj%mesh%elemnod,1)
-					do j=1,size(obj%mesh%elemnod,2)
-						m = g_node_list( obj%mesh%elemnod(i,j) )
+				do i=1,size(this%mesh%elemnod,1)
+					do j=1,size(this%mesh%elemnod,2)
+						m = g_node_list( this%mesh%elemnod(i,j) )
 						if(m==0)then
 							print *, g_node_list(845:)
-							print *, "[ERROR] ReadFEMDomain >> obj%mesh%elemnod(i,j) = m",i,j,obj%mesh%elemnod(i,j)
+							print *, "[ERROR] ReadFEMDomain >> this%mesh%elemnod(i,j) = m",i,j,this%mesh%elemnod(i,j)
 							stop 
 						else
-							obj%mesh%elemnod(i,j) = m
+							this%mesh%elemnod(i,j) = m
 						endif
 					enddo
 				enddo
@@ -8914,9 +9089,9 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 							cell_types(i) = -1
 						endif
 					enddo
-					call obj%killElement(blacklist=cell_types,flag=-1)		
+					call this%killElement(blacklist=cell_types,flag=-1)		
 				endif
-				obj%mesh%elemnod = obj%mesh%elemnod + 1
+				this%mesh%elemnod = this%mesh%elemnod + 1
 				return
 			endif
 
@@ -8926,41 +9101,41 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 				read(line(n+6:),* ) node_num
 				allocate(node_list(node_num) )
 				node_list(:) = 0
-				obj%mesh%nodcoord = zeros(node_num,3)
+				this%mesh%nodcoord = zeros(node_num,3)
 				do i=1,node_num
 					line = f%readline()
-					read(line,*) obj%mesh%nodcoord(i,:) 
+					read(line,*) this%mesh%nodcoord(i,:) 
 				enddo
 			endif
 
 			if(index(line, "CELLS")/=0 )then
 				n = index(line,"CELLS")
 				read(line(n+5:),* ) elem_num
-				if(allocated(obj%mesh%elemnod)) deallocate(obj%mesh%elemnod) 
-				allocate(obj%mesh%elemnod(elem_num,8))
-				obj%mesh%ElemNod(:,:) = 0
+				if(allocated(this%mesh%elemnod)) deallocate(this%mesh%elemnod) 
+				allocate(this%mesh%elemnod(elem_num,8))
+				this%mesh%ElemNod(:,:) = 0
 				j=0
 				do i=1,elem_num
 					line = f%readline()
 					j = j + 1
-					read(line,*) m,obj%mesh%elemnod(j,1:m) 
+					read(line,*) m,this%mesh%elemnod(j,1:m) 
 				enddo
 			
-!				elemnod = obj%mesh%elemnod
-!				deallocate(obj%mesh%elemnod)
-!				allocate(obj%mesh%elemnod(elem_num,4))
+!				elemnod = this%mesh%elemnod
+!				deallocate(this%mesh%elemnod)
+!				allocate(this%mesh%elemnod(elem_num,4))
 !				elem_num=0
-!				do i=1,obj%ne()
+!				do i=1,this%ne()
 !					if(elemnod(i,1)/=0 )then
 !						elem_num=elem_num+1
-!						obj%mesh%elemnod(elem_num,:) = elemnod(i,:)
+!						this%mesh%elemnod(elem_num,:) = elemnod(i,:)
 !					endif
 !				enddo
-!				obj%mesh%elemnod(:,:) = obj%mesh%elemnod(:,:) + 1
+!				this%mesh%elemnod(:,:) = this%mesh%elemnod(:,:) + 1
 !				! 要素の節点番号を振り直す。
-!				do i=1,size(obj%mesh%elemnod,1)
-!					do j=1,size(obj%mesh%elemnod,2)
-!						node_list( obj%mesh%elemnod(i,j) ) = 1
+!				do i=1,size(this%mesh%elemnod,1)
+!					do j=1,size(this%mesh%elemnod,2)
+!						node_list( this%mesh%elemnod(i,j) ) = 1
 !					enddo
 !				enddo
 !				j=0
@@ -8973,21 +9148,21 @@ subroutine readFEMDomain(obj,name,DimNum,ElementType)
 !				num_node_new = j
 !
 !				! new node-id
-!				do i=1,size(obj%mesh%elemnod,1)
-!					do j=1,size(obj%mesh%elemnod,2)
-!						obj%mesh%elemnod(i,j) = node_list( obj%mesh%elemnod(i,j) )
+!				do i=1,size(this%mesh%elemnod,1)
+!					do j=1,size(this%mesh%elemnod,2)
+!						this%mesh%elemnod(i,j) = node_list( this%mesh%elemnod(i,j) )
 !					enddo
 !				enddo
 
 				! remove un-associated nodes
-				!nodcoord = obj%mesh%nodcoord
-				!obj%mesh%nodcoord = zeros(num_node_new,3) 
+				!nodcoord = this%mesh%nodcoord
+				!this%mesh%nodcoord = zeros(num_node_new,3) 
 				!do i=1, size(node_list)
 				!	j = node_list(i)
 				!	if(j == 0)then
 				!		cycle
 				!	else
-				!		obj%mesh%nodcoord(node_list(i) ,:   ) = nodcoord(i,:)
+				!		this%mesh%nodcoord(node_list(i) ,:   ) = nodcoord(i,:)
 				!	endif
 				!enddo
 
@@ -9023,8 +9198,8 @@ end subroutine
 
 
 ! ##############################################
-subroutine addLayerFEMDomain(obj,name,attribute,datastyle,vectorrank,tensorrank1,tensorrank2)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine addLayerFEMDomain(this,name,attribute,datastyle,vectorrank,tensorrank1,tensorrank2)
+	class(FEMDomain_),intent(inout) :: this
 	type(PhysicalField_),allocatable :: pfa(:)
 	character(*),intent(in) :: attribute ! should be NODAL, ELEMENTAL, or GAUSSPOINT
 	character(*),intent(in) :: datastyle ! should be SCALAR, VECTOR, or TENSOR
@@ -9037,25 +9212,25 @@ subroutine addLayerFEMDomain(obj,name,attribute,datastyle,vectorrank,tensorrank1
 	tensor_rank1 = input(default=3,option=tensorrank1)
 	tensor_rank2 = input(default=3,option=tensorrank2)
 
-	if(.not.allocated(obj % PhysicalField) ) then
-		allocate(obj % PhysicalField(100)) ! 100 layer as default
-		obj%numoflayer=0
+	if(.not.allocated(this % PhysicalField) ) then
+		allocate(this % PhysicalField(100)) ! 100 layer as default
+		this%numoflayer=0
 	endif
-	obj%numoflayer=obj%numoflayer+1
+	this%numoflayer=this%numoflayer+1
 	
-	if(obj%numoflayer>size(obj % PhysicalField) )then
-		pfa = obj%PhysicalField
-		deallocate(obj%PhysicalField)
-		allocate(obj%PhysicalField(size(pfa)*100 ) )
-		do i=1,size(obj%physicalfield)
-		obj%PhysicalField(i)%name = "untitled"
+	if(this%numoflayer>size(this % PhysicalField) )then
+		pfa = this%PhysicalField
+		deallocate(this%PhysicalField)
+		allocate(this%PhysicalField(size(pfa)*100 ) )
+		do i=1,size(this%physicalfield)
+		this%PhysicalField(i)%name = "untitled"
 		enddo
-		obj%PhysicalField(1:size(pfa))=pfa(:)
+		this%PhysicalField(1:size(pfa))=pfa(:)
 	endif
 
 
-	obj % PhysicalField(obj%numoflayer) % name   = name
-	if(obj%mesh%empty() .eqv. .true. )then
+	this % PhysicalField(this%numoflayer) % name   = name
+	if(this%mesh%empty() .eqv. .true. )then
 		print *, "ERROR >> addLayerFEMDomain >> mesh should be defined preliminary."
 		return
 	endif
@@ -9063,33 +9238,33 @@ subroutine addLayerFEMDomain(obj,name,attribute,datastyle,vectorrank,tensorrank1
 	datasize=0
 	select case( attribute)
 		case ("Nodal","NODAL","node-wize","Node-Wize","NODEWIZE","Node","node")
-			datasize=size(obj%mesh%nodcoord,1)
-			obj%PhysicalField(obj%numoflayer) %attribute = 1
+			datasize=size(this%mesh%nodcoord,1)
+			this%PhysicalField(this%numoflayer) %attribute = 1
 		case ("Elemental","ELEMENTAL","element-wize","Element-Wize","ELEMENTWIZE","Element","element")
-			datasize=size(obj%mesh%elemnod,1)
-			obj%PhysicalField(obj%numoflayer) %attribute = 2
+			datasize=size(this%mesh%elemnod,1)
+			this%PhysicalField(this%numoflayer) %attribute = 2
 		case ("Gausspoint","GAUSSPOINT","gausspoint-wize","GaussPoint-Wize","GAUSSPOINTWIZE")
-			datasize=size(obj%mesh%elemnod,1)
-			obj%PhysicalField(obj%numoflayer) %attribute = 3
+			datasize=size(this%mesh%elemnod,1)
+			this%PhysicalField(this%numoflayer) %attribute = 3
 	end select
 
 	select case( datastyle)
 		case ("Scalar","SCALAR","scalar")
-			allocate(obj%PhysicalField(obj%numoflayer) % scalar(datasize) )
-			obj%PhysicalField(obj%numoflayer)%datastyle = 1
-			obj%PhysicalField(obj%numoflayer) % scalar(:) = 0.0d0
+			allocate(this%PhysicalField(this%numoflayer) % scalar(datasize) )
+			this%PhysicalField(this%numoflayer)%datastyle = 1
+			this%PhysicalField(this%numoflayer) % scalar(:) = 0.0d0
 		case ("Vector","VECTOR","vector")
-			allocate(obj%PhysicalField(obj%numoflayer) % vector(datasize,vector_rank) )
-			obj%PhysicalField(obj%numoflayer) % vector(:,:) = 0.0d0
-			obj%PhysicalField(obj%numoflayer)%datastyle = 2
+			allocate(this%PhysicalField(this%numoflayer) % vector(datasize,vector_rank) )
+			this%PhysicalField(this%numoflayer) % vector(:,:) = 0.0d0
+			this%PhysicalField(this%numoflayer)%datastyle = 2
 		case ("Tensor","TENSOR","tensor")
-			allocate(obj%PhysicalField(obj%numoflayer) % tensor(datasize,tensor_rank1,tensor_rank2) )
-			obj%PhysicalField(obj%numoflayer) % tensor(:,:,:) = 0.0d0
-			obj%PhysicalField(obj%numoflayer)%datastyle = 3
+			allocate(this%PhysicalField(this%numoflayer) % tensor(datasize,tensor_rank1,tensor_rank2) )
+			this%PhysicalField(this%numoflayer) % tensor(:,:,:) = 0.0d0
+			this%PhysicalField(this%numoflayer)%datastyle = 3
 	end select
 
 	!if(present(scalar) )then
-	!	obj % PhysicalField(obj%numoflayer) % scalar = scalar		
+	!	this %PhysicalField(this%numoflayer) % scalar = scalar		
 	!endif
     
 
@@ -9100,53 +9275,53 @@ end subroutine
 
 
 ! ######################################################################
-subroutine addLayerFEMDomainScalar(obj,name,scalar)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine addLayerFEMDomainScalar(this,name,scalar)
+	class(FEMDomain_),intent(inout) :: this
 	type(PhysicalField_),allocatable :: pfa(:)
 	real(real64),intent(in) :: scalar(:)
 	character(*),intent(in) :: name
 	integer(int32) :: datasize,i
 
 
-	if(.not.allocated(obj % PhysicalField) ) then
-		allocate(obj % PhysicalField(100)) ! 100 layer as default
-		obj%numoflayer=0
+	if(.not.allocated(this % PhysicalField) ) then
+		allocate(this % PhysicalField(100)) ! 100 layer as default
+		this%numoflayer=0
 	endif
-	obj%numoflayer=obj%numoflayer+1
+	this%numoflayer=this%numoflayer+1
 	
-	if(obj%numoflayer>size(obj % PhysicalField) )then
-		pfa = obj%PhysicalField
-		deallocate(obj%PhysicalField)
-		allocate(obj%PhysicalField(size(pfa)*100 ) )
-		do i=1,size(obj%physicalfield)
-		obj%PhysicalField(i)%name = "untitled"
+	if(this%numoflayer>size(this % PhysicalField) )then
+		pfa = this%PhysicalField
+		deallocate(this%PhysicalField)
+		allocate(this%PhysicalField(size(pfa)*100 ) )
+		do i=1,size(this%physicalfield)
+		this%PhysicalField(i)%name = "untitled"
 		enddo
-		obj%PhysicalField(1:size(pfa))=pfa(:)
+		this%PhysicalField(1:size(pfa))=pfa(:)
 	endif
 
 
-	obj % PhysicalField(obj%numoflayer) % name   = name
-	if(obj%mesh%empty() .eqv. .true. )then
+	this %PhysicalField(this%numoflayer) % name   = name
+	if(this%mesh%empty() .eqv. .true. )then
 		print *, "ERROR >> addLayerFEMDomain >> mesh should be defined preliminary."
 		return
 	endif
 
 	
-	obj%PhysicalField(obj%numoflayer) % scalar =scalar
+	this%PhysicalField(this%numoflayer) % scalar =scalar
 	
 	! auto detection of the type of layer
-	obj%PhysicalField(obj%numoflayer)%datastyle = 1
-	if(size(scalar,1) == obj%nn()  )then
+	this%PhysicalField(this%numoflayer)%datastyle = 1
+	if(size(scalar,1) == this%nn()  )then
 		! Node-wise scalar field
-		obj%PhysicalField(obj%numoflayer) %attribute = 1
-	elseif(size(scalar,1) == obj%ne())then
+		this%PhysicalField(this%numoflayer) %attribute = 1
+	elseif(size(scalar,1) == this%ne())then
 		! Element-wise scalar field
-		obj%PhysicalField(obj%numoflayer) %attribute = 2
-	elseif(size(scalar,1) == obj%nne()*obj%nn()  )then
+		this%PhysicalField(this%numoflayer) %attribute = 2
+	elseif(size(scalar,1) == this%nne()*this%nn()  )then
 		! GausPoint-wise field
-		obj%PhysicalField(obj%numoflayer) %attribute = 3
+		this%PhysicalField(this%numoflayer) %attribute = 3
 	else
-		obj%PhysicalField(obj%numoflayer) %attribute = 0
+		this%PhysicalField(this%numoflayer) %attribute = 0
 		print *, "addLaayerFEMDOmainScalar :: layer ",name,"is not node-wise, not element-wize nor GaussPoint-wise"
 	endif
 
@@ -9157,51 +9332,51 @@ end subroutine
 
 
 ! ######################################################################
-subroutine addLayerFEMDomainVector(obj,name,vector)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine addLayerFEMDomainVector(this,name,vector)
+	class(FEMDomain_),intent(inout) :: this
 	type(PhysicalField_),allocatable :: pfa(:)
 	real(real64),intent(in) :: vector(:,:)
 	character(*),intent(in) :: name
 	integer(int32) :: datasize,datadimension,i
 
 
-	if(.not.allocated(obj % PhysicalField) ) then
-		allocate(obj % PhysicalField(100)) ! 100 layer as default
-		obj%numoflayer=0
+	if(.not.allocated(this % PhysicalField) ) then
+		allocate(this % PhysicalField(100)) ! 100 layer as default
+		this%numoflayer=0
 	endif
-	obj%numoflayer=obj%numoflayer+1
+	this%numoflayer=this%numoflayer+1
 	
-	if(obj%numoflayer>size(obj % PhysicalField) )then
-		pfa = obj%PhysicalField
-		deallocate(obj%PhysicalField)
-		allocate(obj%PhysicalField(size(pfa)*100 ) )
-		do i=1,size(obj%physicalfield)
-		obj%PhysicalField(i)%name = "untitled"
+	if(this%numoflayer>size(this % PhysicalField) )then
+		pfa = this%PhysicalField
+		deallocate(this%PhysicalField)
+		allocate(this%PhysicalField(size(pfa)*100 ) )
+		do i=1,size(this%physicalfield)
+		this%PhysicalField(i)%name = "untitled"
 		enddo
-		obj%PhysicalField(1:size(pfa))=pfa(:)
+		this%PhysicalField(1:size(pfa))=pfa(:)
 	endif
 
 
-	obj % PhysicalField(obj%numoflayer) % name   = name
-	if(obj%mesh%empty() .eqv. .true. )then
+	this %PhysicalField(this%numoflayer) % name   = name
+	if(this%mesh%empty() .eqv. .true. )then
 		print *, "ERROR >> addLayerFEMDomain >> mesh should be defined preliminary."
 		return
 	endif
-	obj%PhysicalField(obj%numoflayer) % vector =vector
+	this%PhysicalField(this%numoflayer) % vector =vector
 
 		! auto detection of the type of layer
-	obj%PhysicalField(obj%numoflayer)%datastyle = 2
-	if(size(vector,1) == obj%nn()  )then
+	this%PhysicalField(this%numoflayer)%datastyle = 2
+	if(size(vector,1) == this%nn()  )then
 		! Node-wise vector field
-		obj%PhysicalField(obj%numoflayer) %attribute = 1
-	elseif(size(vector,1) == obj%ne())then
+		this%PhysicalField(this%numoflayer) %attribute = 1
+	elseif(size(vector,1) == this%ne())then
 		! Element-wise vector field
-		obj%PhysicalField(obj%numoflayer) %attribute = 2
-	elseif(size(vector,1) == obj%nne()*obj%nn()  )then
+		this%PhysicalField(this%numoflayer) %attribute = 2
+	elseif(size(vector,1) == this%nne()*this%nn()  )then
 		! GausPoint-wise field
-		obj%PhysicalField(obj%numoflayer) %attribute = 3
+		this%PhysicalField(this%numoflayer) %attribute = 3
 	else
-		obj%PhysicalField(obj%numoflayer) %attribute = 0
+		this%PhysicalField(this%numoflayer) %attribute = 0
 		print *, "addLaayerFEMDOmainvector :: layer ",name,"is not node-wise, not element-wize nor GaussPoint-wise"
 	endif
 
@@ -9212,51 +9387,51 @@ end subroutine
 
 
 ! ######################################################################
-subroutine addLayerFEMDomaintensor(obj,name,tensor)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine addLayerFEMDomaintensor(this,name,tensor)
+	class(FEMDomain_),intent(inout) :: this
 	type(PhysicalField_),allocatable :: pfa(:)
 	real(real64),intent(in) :: tensor(:,:,:)
 	character(*),intent(in) :: name
 	integer(int32) :: datasize,datadimension,i
 
 
-	if(.not.allocated(obj % PhysicalField) ) then
-		allocate(obj % PhysicalField(100)) ! 100 layer as default
-		obj%numoflayer=0
+	if(.not.allocated(this % PhysicalField) ) then
+		allocate(this % PhysicalField(100)) ! 100 layer as default
+		this%numoflayer=0
 	endif
-	obj%numoflayer=obj%numoflayer+1
+	this%numoflayer=this%numoflayer+1
 	
-	if(obj%numoflayer>size(obj % PhysicalField) )then
-		pfa = obj%PhysicalField
-		deallocate(obj%PhysicalField)
-		allocate(obj%PhysicalField(size(pfa)*100 ) )
-		do i=1,size(obj%physicalfield)
-		obj%PhysicalField(i)%name = "untitled"
+	if(this%numoflayer>size(this % PhysicalField) )then
+		pfa = this%PhysicalField
+		deallocate(this%PhysicalField)
+		allocate(this%PhysicalField(size(pfa)*100 ) )
+		do i=1,size(this%physicalfield)
+		this%PhysicalField(i)%name = "untitled"
 		enddo
-		obj%PhysicalField(1:size(pfa))=pfa(:)
+		this%PhysicalField(1:size(pfa))=pfa(:)
 	endif
 
 
-	obj % PhysicalField(obj%numoflayer) % name   = name
-	if(obj%mesh%empty() .eqv. .true. )then
+	this %PhysicalField(this%numoflayer) % name   = name
+	if(this%mesh%empty() .eqv. .true. )then
 		print *, "ERROR >> addLayerFEMDomain >> mesh should be defined preliminary."
 		return
 	endif
 
-	obj%PhysicalField(obj%numoflayer) % tensor =tensor
+	this%PhysicalField(this%numoflayer) % tensor =tensor
     	! auto detection of the type of layer
-	obj%PhysicalField(obj%numoflayer)%datastyle = 3
-	if(size(tensor,1) == obj%nn()  )then
+	this%PhysicalField(this%numoflayer)%datastyle = 3
+	if(size(tensor,1) == this%nn()  )then
 		! Node-wise tensor field
-		obj%PhysicalField(obj%numoflayer) %attribute = 1
-	elseif(size(tensor,1) == obj%ne())then
+		this%PhysicalField(this%numoflayer) %attribute = 1
+	elseif(size(tensor,1) == this%ne())then
 		! Element-wise tensor field
-		obj%PhysicalField(obj%numoflayer) %attribute = 2
-	elseif(size(tensor,1) == obj%nne()*obj%nn()  )then
+		this%PhysicalField(this%numoflayer) %attribute = 2
+	elseif(size(tensor,1) == this%nne()*this%nn()  )then
 		! GausPoint-wise field
-		obj%PhysicalField(obj%numoflayer) %attribute = 3
+		this%PhysicalField(this%numoflayer) %attribute = 3
 	else
-		obj%PhysicalField(obj%numoflayer) %attribute = 0
+		this%PhysicalField(this%numoflayer) %attribute = 0
 		print *, "addLaayerFEMDOmaintensor :: layer ",name,"is not node-wise, not element-wize nor GaussPoint-wise"
 	endif
 
@@ -9264,24 +9439,24 @@ end subroutine
 ! ######################################################################
 
 ! ######################################################################
-subroutine importLayerFEMDomain(obj,name,id,scalar,vector,tensor)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine importLayerFEMDomain(this,name,id,scalar,vector,tensor)
+	class(FEMDomain_),intent(inout) :: this
 	character(*),optional,intent(in) :: name
 	integer(int32),optional,intent(in)  :: id
 	real(real64),optional,intent(in) :: scalar(:),vector(:,:),tensor(:,:,:)
 	integer(int32) :: i,j,n
 	
 	if(present(name))then
-		do i=1,obj%numoflayer
-			if( obj%PhysicalField(i)%name==name )then
+		do i=1,this%numoflayer
+			if( this%PhysicalField(i)%name==name )then
 				if(present(scalar) )then
-					obj%PhysicalField(i)%scalar = scalar
+					this%PhysicalField(i)%scalar = scalar
 				endif
 				if(present(vector) )then
-					obj%PhysicalField(i)%vector = vector
+					this%PhysicalField(i)%vector = vector
 				endif
 				if(present(tensor) )then
-					obj%PhysicalField(i)%tensor = tensor
+					this%PhysicalField(i)%tensor = tensor
 				endif
 			endif
 		enddo
@@ -9289,13 +9464,13 @@ subroutine importLayerFEMDomain(obj,name,id,scalar,vector,tensor)
 
 	if(present(id) )then
 		if(present(scalar) )then
-			obj%PhysicalField(id)%scalar = scalar
+			this%PhysicalField(id)%scalar = scalar
 		endif
 		if(present(vector) )then
-			obj%PhysicalField(id)%vector = vector
+			this%PhysicalField(id)%vector = vector
 		endif
 		if(present(tensor) )then
-			obj%PhysicalField(id)%tensor = tensor
+			this%PhysicalField(id)%tensor = tensor
 		endif
 	endif
 
@@ -9305,16 +9480,16 @@ end subroutine
 
 
 ! ######################################################################
-subroutine showLayerFEMDomain(obj)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine showLayerFEMDomain(this)
+	class(FEMDomain_),intent(inout) :: this
 	integer(int32) :: i,j,n
 	
-	print *, "Number of layers : ",obj%numoflayer
-	do i=1,obj%numoflayer
-		print *, obj%PhysicalField(i)%name//" : scalar >> "&
-			//str(allocated(obj%PhysicalField(i)%scalar))//" : vector >> "&
-			//str(allocated(obj%PhysicalField(i)%vector))//" : tensor >> "&
-			//str(allocated(obj%PhysicalField(i)%tensor))
+	print *, "Number of layers : ",this%numoflayer
+	do i=1,this%numoflayer
+		print *, this%PhysicalField(i)%name//" : scalar >> "&
+			//str(allocated(this%PhysicalField(i)%scalar))//" : vector >> "&
+			//str(allocated(this%PhysicalField(i)%vector))//" : tensor >> "&
+			//str(allocated(this%PhysicalField(i)%tensor))
 	enddo
 
 end subroutine
@@ -9322,8 +9497,8 @@ end subroutine
 
 
 ! ######################################################################
-function searchLayerFEMDomain(obj,name,id) result(ret)
-	class(FEMDomain_),intent(inout) :: obj
+function searchLayerFEMDomain(this,name,id) result(ret)
+	class(FEMDomain_),intent(inout) :: this
 	character(*),optional,intent(in) :: name
 	integer(int32),optional,intent(in) :: id
 	integer(int32) :: i
@@ -9331,8 +9506,8 @@ function searchLayerFEMDomain(obj,name,id) result(ret)
 
 	ret =.False.
 	if(present(name) )then
-		do i=1,obj%numoflayer
-			if(obj%PhysicalField(i)%name==name )then
+		do i=1,this%numoflayer
+			if(this%PhysicalField(i)%name==name )then
 				ret=.true.
 				return
 			endif
@@ -9341,11 +9516,11 @@ function searchLayerFEMDomain(obj,name,id) result(ret)
 	endif
 
 	if(present(id) )then
-		if(id <= obj%numoflayer)then
-			!print *, "Layer-ID : ",id," is : ",obj%PhysicalField(id)%name
+		if(id <= this%numoflayer)then
+			!print *, "Layer-ID : ",id," is : ",this%PhysicalField(id)%name
 			ret = .true.
 		else
-			print *, "id ",id,"is greater than the number of layers",obj%numoflayer
+			print *, "id ",id,"is greater than the number of layers",this%numoflayer
 		endif
 	endif
 
@@ -9354,14 +9529,14 @@ end function
 
 
 ! ######################################################################
-function getLayerIDFEMDomain(obj,name) result(id)
-	class(FEMDomain_),intent(inout) :: obj
+function getLayerIDFEMDomain(this,name) result(id)
+	class(FEMDomain_),intent(inout) :: this
 	character(*),intent(in) :: name
 	integer(int32) :: id
 	integer(int32)::i
 	
-	do i=1,obj%numoflayer
-		if(obj%PhysicalField(i)%name==name )then
+	do i=1,this%numoflayer
+		if(this%PhysicalField(i)%name==name )then
 			id=i
 			return
 		endif
@@ -9373,15 +9548,15 @@ end function
 
 
 ! ######################################################################
-function getLayerAttributeFEMDomain(obj,name) result(id)
-	class(FEMDomain_),intent(inout) :: obj
+function getLayerAttributeFEMDomain(this,name) result(id)
+	class(FEMDomain_),intent(inout) :: this
 	character(*),intent(in) :: name
 	integer(int32):: id
 	integer(int32)::i
 	
-	do i=1,obj%numoflayer
-		if(obj%PhysicalField(i)%name==name )then
-			id = obj%PhysicalField(i)%attribute 
+	do i=1,this%numoflayer
+		if(this%PhysicalField(i)%name==name )then
+			id = this%PhysicalField(i)%attribute 
 			return
 		endif
 	enddo
@@ -9392,15 +9567,15 @@ end function
 
 
 ! ######################################################################
-function getLayerDataStyleFEMDomain(obj,name) result(id)
-	class(FEMDomain_),intent(inout) :: obj
+function getLayerDataStyleFEMDomain(this,name) result(id)
+	class(FEMDomain_),intent(inout) :: this
 	character(*),intent(in) :: name
 	integer(int32) :: id
 	integer(int32)::i
 	
-	do i=1,obj%numoflayer
-		if(obj%PhysicalField(i)%name==name )then
-			id = obj%PhysicalField(i)%DataStyle
+	do i=1,this%numoflayer
+		if(this%PhysicalField(i)%name==name )then
+			id = this%PhysicalField(i)%DataStyle
 			return
 		endif
 	enddo
@@ -9411,8 +9586,8 @@ end function
 
 
 ! ######################################################################
-subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine projectionFEMDomain(this,direction,domain,PhysicalField,debug)
+	class(FEMDomain_),intent(inout) :: this
 	character(2),intent(in) :: direction ! "=>, <=, -> or <-"
 	type(FEMDomain_),intent(inout) :: domain
 	type(ShapeFunction_) :: shapefunc
@@ -9430,7 +9605,7 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 
 	! pre-check list
 	! PhysicalField exists for both domains?
-	dim_num=size(obj%mesh%nodcoord,2)
+	dim_num=size(this%mesh%nodcoord,2)
 	if(dim_num/=3)then
 		print *, "Caution :: femdomain%projection is ready for 3-D, not for other dimensions"
 		return
@@ -9446,7 +9621,7 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 		endif
 	endif
 
-	if(obj%searchLayer(name=PhysicalField ) .eqv. .false. )then
+	if(this%searchLayer(name=PhysicalField ) .eqv. .false. )then
 		print *, "ERROR >> projectionFEMDomain >> no such physicalfield as '"//PhysicalField&
 			//"' of domain#1"
 		return 
@@ -9463,17 +9638,17 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 	endif
 
 	! check datastyle and attribute
-	if(obj%getLayerDataStyle(name=PhysicalField) /= &
+	if(this%getLayerDataStyle(name=PhysicalField) /= &
 		domain%getLayerDataStyle(name=PhysicalField) )then
 		print *, "ERROR >> projectionFEMDomain >> INVALID DataStyle >> node=1, element=2, gauss point = 3"
-		print *, "obj%getLayerDataStyle(name=PhysicalField) :: ",obj%getLayerDataStyle(name=PhysicalField) 
+		print *, "this%getLayerDataStyle(name=PhysicalField) :: ",this%getLayerDataStyle(name=PhysicalField) 
 		print *, "domain%getLayerDataStyle(name=PhysicalField) :: ",domain%getLayerDataStyle(name=PhysicalField) 
 		return
 	endif
-	if(obj%getLayerAttribute(name=PhysicalField) /= &
+	if(this%getLayerAttribute(name=PhysicalField) /= &
 		domain%getLayerAttribute(name=PhysicalField) )then
 		print *, "ERROR >> projectionFEMDomain >> INVALID attribute >> node=1, element=2, gauss point = 3"
-		print *, "obj%getLayerAttribute(name=PhysicalField) :: ",obj%getLayerAttribute(name=PhysicalField) 
+		print *, "this%getLayerAttribute(name=PhysicalField) :: ",this%getLayerAttribute(name=PhysicalField) 
 		print *, "domain%getLayerAttribute(name=PhysicalField) :: ",domain%getLayerAttribute(name=PhysicalField) 
 		return
 	endif
@@ -9491,8 +9666,8 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 	endif
 
 	! projection starts
-	! if obj%getLayerAttribute(name=PhysicalField) == 1 (nodal values)
-	if(obj%getLayerAttribute(name=PhysicalField)==1)then
+	! if this%getLayerAttribute(name=PhysicalField) == 1 (nodal values)
+	if(this%getLayerAttribute(name=PhysicalField)==1)then
 		if(present(debug) )then
 			if(debug .eqv. .true.)then
 				print *, "[>>] projectionFEMDomain :: projestion starts."
@@ -9509,11 +9684,11 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 				k=size(domain%mesh%nodcoord,2)
 				allocate(LocalCoord(size(domain%mesh%nodcoord,1),k))
 				LocalCoord(:,:) = 0.0d0
-				shapefunc%ElemType=obj%Mesh%GetElemType()
+				shapefunc%ElemType=this%Mesh%GetElemType()
 				call SetShapeFuncType(shapefunc)
 
-				!!call GetAllShapeFunc(shapefunc,elem_id=1,nod_coord=obj%Mesh%NodCoord,&
-				!elem_nod=obj%Mesh%ElemNod,OptionalGpID=1)
+				!!call GetAllShapeFunc(shapefunc,elem_id=1,nod_coord=this%Mesh%NodCoord,&
+				!elem_nod=this%Mesh%ElemNod,OptionalGpID=1)
 				
 				! for mpi acceralation
 				start_id=1
@@ -9525,12 +9700,12 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 !				endif
 
 				do i=start_id, end_id ! for each node
-					do j=1, size(obj%mesh%elemnod,1) ! for each element
+					do j=1, size(this%mesh%elemnod,1) ! for each element
 						
 						! get Jacobian matrix (dx/dgzi)
 						do k=1,shapefunc%NumOfGP
-							call GetAllShapeFunc(shapefunc,elem_id=j,nod_coord=obj%Mesh%NodCoord,&
-							elem_nod=obj%Mesh%ElemNod,OptionalGpID=k)
+							call GetAllShapeFunc(shapefunc,elem_id=j,nod_coord=this%Mesh%NodCoord,&
+							elem_nod=this%Mesh%ElemNod,OptionalGpID=k)
 							if(k==1)then
 								Jmat=shapefunc%Jmat
 							else
@@ -9549,25 +9724,25 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 						endif
 						! 
 						if(.not. allocated(center) )then
-							allocate(center(size(obj%mesh%nodcoord,2) ) )
+							allocate(center(size(this%mesh%nodcoord,2) ) )
 						endif
 						if(.not. allocated(x) )then
-							allocate(x(size(obj%mesh%nodcoord,2) ) )
+							allocate(x(size(this%mesh%nodcoord,2) ) )
 						endif
 						if(.not. allocated(dx) )then
-							allocate(dx(size(obj%mesh%nodcoord,2) ) )
+							allocate(dx(size(this%mesh%nodcoord,2) ) )
 						endif
 						if(.not. allocated(gzi) )then
-							allocate(gzi(size(obj%mesh%nodcoord,2) ) )
+							allocate(gzi(size(this%mesh%nodcoord,2) ) )
 						endif
 						if(.not. allocated(dgzi) )then
-							allocate(dgzi(size(obj%mesh%nodcoord,2) ) )
+							allocate(dgzi(size(this%mesh%nodcoord,2) ) )
 						endif
 						center(:)=0.0d0
-						do k=1,size(obj%mesh%elemnod,2)
-							center(:) = center(:) + obj%mesh%nodcoord( obj%mesh%elemnod(j,k),: )
+						do k=1,size(this%mesh%elemnod,2)
+							center(:) = center(:) + this%mesh%nodcoord( this%mesh%elemnod(j,k),: )
 						enddo
-						center(:) = 1.0d0/dble(size(obj%mesh%elemnod,2))*center(:)
+						center(:) = 1.0d0/dble(size(this%mesh%elemnod,2))*center(:)
 						x(:) = domain%mesh%nodcoord(i,:)
 						dx(:) = x(:) - center(:)
 						call inverse_rank_2(Jmat,J_inv)
@@ -9626,7 +9801,7 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 				if(domain%getLayerAttribute(name=PhysicalField)==1)then
 					! scalar
 					! for each element
-					do i=1,size(obj%mesh%nodcoord,1)
+					do i=1,size(this%mesh%nodcoord,1)
 						! 節点ごとの値 node-by-node
 						if(elemid(i)==-1 )then
 							! 対応する要素なし
@@ -9645,9 +9820,9 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 							allocate(nodvalue(size(shapefunc%Nmat,1)))
 							nodvalue(:) = 0.0d0
 						endif
-						do k=1,size(obj%mesh%elemnod,2)
-							n = obj%mesh%elemnod(elemid(i) ,k)
-							nodvalue(k) = obj%PhysicalField(field_id)%scalar(n)
+						do k=1,size(this%mesh%elemnod,2)
+							n = this%mesh%elemnod(elemid(i) ,k)
+							nodvalue(k) = this%PhysicalField(field_id)%scalar(n)
 						enddo
 						! 節点値の計算
 						scalar = dot_product(shapefunc%Nmat, nodvalue)
@@ -9680,10 +9855,10 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 			case ("<=", "<-")
 				! project domain-side field to => obj
 
-				allocate(ElemID(size(obj%mesh%nodcoord,1)))
+				allocate(ElemID(size(this%mesh%nodcoord,1)))
 				ElemID(:) = -1
-				k=size(obj%mesh%nodcoord,2)
-				allocate(LocalCoord(size(obj%mesh%nodcoord,1),k))
+				k=size(this%mesh%nodcoord,2)
+				allocate(LocalCoord(size(this%mesh%nodcoord,1),k))
 				LocalCoord(:,:) = 0.0d0
 				shapefunc%ElemType=domain%Mesh%GetElemType()
 				call SetShapeFuncType(shapefunc)
@@ -9693,7 +9868,7 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 				
 				! for mpi acceralation
 				start_id=1
-				end_id=size(obj%mesh%nodcoord,1)
+				end_id=size(this%mesh%nodcoord,1)
 !				if(present(mpid) )then
 !					call mpid%initItr(end_id)
 !					start_id = mpid%start_id
@@ -9714,7 +9889,7 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 							endif
 						enddo
 						! In-Or-out
-						xvec(:)=obj%mesh%nodcoord(i,:)
+						xvec(:)=this%mesh%nodcoord(i,:)
 						do k=1,dim_num
 							x_max(k)=maxval(shapefunc%elemcoord(:,k) )
 							x_min(k)=minval(shapefunc%elemcoord(:,k) )
@@ -9744,7 +9919,7 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 							center(:) = center(:) + domain%mesh%nodcoord( domain%mesh%elemnod(j,k),: )
 						enddo
 						center(:) = 1.0d0/dble(size(domain%mesh%elemnod,2))*center(:)
-						x(:) = obj%mesh%nodcoord(i,:)
+						x(:) = this%mesh%nodcoord(i,:)
 						dx(:) = x(:) - center(:)
 						call inverse_rank_2(Jmat,J_inv)
 						dgzi = matmul(J_inv,dx)
@@ -9758,16 +9933,16 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 					enddo
 					if(present(debug) )then
 						if(debug .eqv. .true.)then
-							if(i == int(dble(size(obj%mesh%nodcoord,1))/4.0d0) )then
+							if(i == int(dble(size(this%mesh%nodcoord,1))/4.0d0) )then
 								print *, "[--] projectionFEMDomain :: local coordinate 25 % done."
 							endif
-							if(i == int(dble(size(obj%mesh%nodcoord,1))/2.0d0) )then
+							if(i == int(dble(size(this%mesh%nodcoord,1))/2.0d0) )then
 								print *, "[--] projectionFEMDomain :: local coordinate 50 % done."
 							endif
-							if(i == int(3.0d0*dble(size(obj%mesh%nodcoord,1))/4.0d0) )then
+							if(i == int(3.0d0*dble(size(this%mesh%nodcoord,1))/4.0d0) )then
 								print *, "[--] projectionFEMDomain :: local coordinate 75 % done."
 							endif
-							if(i == size(obj%mesh%nodcoord,1))then
+							if(i == size(this%mesh%nodcoord,1))then
 								print *, "[ok] projectionFEMDomain :: local coordinate 100 % done."
 							endif
 						endif
@@ -9802,7 +9977,7 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 				if(domain%getLayerAttribute(name=PhysicalField)==1)then
 					! scalar
 					! for each element
-					do i=1,size(obj%mesh%nodcoord,1)
+					do i=1,size(this%mesh%nodcoord,1)
 						! 節点ごとの値 node-by-node
 						if(elemid(i)==-1 )then
 							! 対応する要素なし
@@ -9821,9 +9996,9 @@ subroutine projectionFEMDomain(obj,direction,domain,PhysicalField,debug)
 							allocate(nodvalue(size(shapefunc%Nmat,1)))
 							nodvalue(:) = 0.0d0
 						endif
-						do k=1,size(obj%mesh%elemnod,2)
-							n = obj%mesh%elemnod(elemid(i) ,k)
-							nodvalue(k) = obj%PhysicalField(field_id)%scalar(n)
+						do k=1,size(this%mesh%elemnod,2)
+							n = this%mesh%elemnod(elemid(i) ,k)
+							nodvalue(k) = this%PhysicalField(field_id)%scalar(n)
 						enddo
 						! 節点値の計算
 						scalar = dot_product(shapefunc%Nmat, nodvalue)
@@ -9861,8 +10036,8 @@ end subroutine
 
 
 ! ######################################################################
-function centerPositionFEMDomain(obj,ElementID,max,min) result(ret)
-	class(FEMDomain_),intent(in) :: obj
+function centerPositionFEMDomain(this,ElementID,max,min) result(ret)
+	class(FEMDomain_),intent(in) :: this
 	integer(int32),optional,intent(in) :: ElementID
 	logical,optional,intent(in) :: max, min
 	real(real64),allocatable :: ret(:)
@@ -9870,54 +10045,54 @@ function centerPositionFEMDomain(obj,ElementID,max,min) result(ret)
 
 	
 	! get center coordinate of the element 
-	ret = zeros(obj%nd() )
+	ret = zeros(this%nd() )
 	if(present(ElementID) )then
 
 		if(present(max) )then
 			if(max)then
-				ret = zeros(obj%nn() )
-				do i=1,obj%nn()
-					ret(i) = maxval(obj%mesh%nodcoord( obj%mesh%elemnod(ElementID,:) ,i))
+				ret = zeros(this%nn() )
+				do i=1,this%nn()
+					ret(i) = maxval(this%mesh%nodcoord( this%mesh%elemnod(ElementID,:) ,i))
 				enddo
 				return
 			endif
 		elseif(present(min) )then
 			if(min)then
-				ret = zeros(obj%nn() )
-				do i=1,obj%nn()
-					ret(i) = minval(obj%mesh%nodcoord( obj%mesh%elemnod(ElementID,:) ,i))
+				ret = zeros(this%nn() )
+				do i=1,this%nn()
+					ret(i) = minval(this%mesh%nodcoord( this%mesh%elemnod(ElementID,:) ,i))
 				enddo
 				return
 			endif
 		endif
 		
-		do i=1,obj%nne()
-			ret = ret + obj%mesh%nodcoord( obj%mesh%elemnod(ElementID,i) ,:)
+		do i=1,this%nne()
+			ret = ret + this%mesh%nodcoord( this%mesh%elemnod(ElementID,i) ,:)
 		enddo
-		ret = 1.0d0/dble( obj%nne() )* ret
+		ret = 1.0d0/dble( this%nne() )* ret
 		
 	else
 
 		if(present(max) )then
 			if(max)then
-				ret = zeros(obj%nn() )
-				do i=1,obj%nn()
-					ret(i) = maxval(obj%mesh%nodcoord( : ,i))
+				ret = zeros(this%nn() )
+				do i=1,this%nn()
+					ret(i) = maxval(this%mesh%nodcoord( : ,i))
 				enddo
 				return
 			endif
 		elseif(present(min) )then
 			if(min)then
-				ret = zeros(obj%nn() )
-				do i=1,obj%nn()
-					ret(i) = minval(obj%mesh%nodcoord( : ,i))
+				ret = zeros(this%nn() )
+				do i=1,this%nn()
+					ret(i) = minval(this%mesh%nodcoord( : ,i))
 				enddo
 				return
 			endif
 		endif
 
-		do i=1,obj%nd()
-			ret(i) = sum(obj%mesh%nodcoord(:,i) )/dble(obj%nn() )
+		do i=1,this%nd()
+			ret(i) = sum(this%mesh%nodcoord(:,i) )/dble(this%nn() )
 		enddo
 	
 	endif
@@ -9927,16 +10102,16 @@ end function
 
 
 ! ######################################################################
-function getGlobalPositionOfGaussPointFEMDomain(obj,ElementID,GaussPointID) result(ret)
-	class(FEMDomain_),intent(inout) :: obj
+function getGlobalPositionOfGaussPointFEMDomain(this,ElementID,GaussPointID) result(ret)
+	class(FEMDomain_),intent(inout) :: this
 	integer(int32),intent(in) :: ElementID,GaussPointID
 	real(real64),allocatable :: ret(:),center(:)
 	integer(int32) :: i
 	type(ShapeFunction_) :: sf
 	! get center coordinate of the element 
-	center = obj%centerPosition(ElementID)
+	center = this%centerPosition(ElementID)
 
-	sf = obj%mesh%getShapeFunction(ElementID,GaussPointID)
+	sf = this%mesh%getShapeFunction(ElementID,GaussPointID)
 
 	ret = zeros(size(center) )
 	ret(:) = matmul( transpose(sf%elemcoord) , sf%nmat ) !+ center(:)
@@ -9947,8 +10122,8 @@ end function
 
 
 ! ######################################################################
-recursive function getShapeFunctionFEMDomain(obj, ElementID,GaussPointID,ReducedIntegration,Position) result(sobj)
-	class(FEMDomain_),intent(inout)::obj
+recursive function getShapeFunctionFEMDomain(this, ElementID,GaussPointID,ReducedIntegration,Position) result(sobj)
+	class(FEMDomain_),intent(inout)::this
     integer(int32),optional,intent(in) :: GaussPointID, ElementID
     logical,optional,intent(in) :: ReducedIntegration
 	real(real64),optional,intent(in) :: position(:)
@@ -9958,7 +10133,7 @@ recursive function getShapeFunctionFEMDomain(obj, ElementID,GaussPointID,Reduced
 	real(real64) :: x,y,z
 	
 	if(.not.present(position) )then
-		sobj = obj%mesh%getShapeFunction(ElementID,GaussPointID,ReducedIntegration)
+		sobj = this%mesh%getShapeFunction(ElementID,GaussPointID,ReducedIntegration)
 	else
 		! search nearest element
 		
@@ -9979,7 +10154,7 @@ recursive function getShapeFunctionFEMDomain(obj, ElementID,GaussPointID,Reduced
 
 		! get the nearest element's ID
 		sobj%ElementID = -1
-		sobj%ElementID      = obj%mesh%getNearestElementID(x=x,y=y,z=z)
+		sobj%ElementID      = this%mesh%getNearestElementID(x=x,y=y,z=z)
 		if(sobj%ElementID==-1)then
 			sobj%Empty = .true.
 			print *, "[Caution]:: getShapeFunctionFEMDomain >> sobj%elementID = -1 , no such element"
@@ -9987,23 +10162,23 @@ recursive function getShapeFunctionFEMDomain(obj, ElementID,GaussPointID,Reduced
 		endif
 
 		! 4点セット
-		sobj%NumOfNode = obj%nne() !ok
-		sobj%NumOfDim  = obj%nd()  !ok
-		sobj%gzi       = obj%getLocalCoordinate(ElementID=sobj%ElementID,x=x,y=y,z=z)
-		sobj%Nmat      = zeros(obj%nne() )  !ok
-		sobj%ElemCoord = zeros(obj%nne(),obj%nd() )
+		sobj%NumOfNode = this%nne() !ok
+		sobj%NumOfDim  = this%nd()  !ok
+		sobj%gzi       = this%getLocalCoordinate(ElementID=sobj%ElementID,x=x,y=y,z=z)
+		sobj%Nmat      = zeros(this%nne() )  !ok
+		sobj%ElemCoord = zeros(this%nne(),this%nd() )
 		
 		call sobj%getOnlyNvec() !ok
-		do i=1,obj%nne()
-			sobj%ElemCoord(i,1:obj%nd() ) = obj%mesh%nodcoord(obj%mesh%elemnod(sobj%elementID,i),1:obj%nd() )
+		do i=1,this%nne()
+			sobj%ElemCoord(i,1:this%nd() ) = this%mesh%nodcoord(this%mesh%elemnod(sobj%elementID,i),1:this%nd() )
 		enddo
 	endif
 end function
 ! ######################################################################
 
 ! ######################################################################
-function getLocalCoordinateFEMDomain(obj,ElementID,x,y,z) result(xi)
-	class(FEMDomain_),intent(inout) :: Obj
+function getLocalCoordinateFEMDomain(this,ElementID,x,y,z) result(xi)
+	class(FEMDomain_),intent(inout) :: this
 	type(ShapeFunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
 	real(real64),intent(in) ::  x,y,z
@@ -10012,17 +10187,17 @@ function getLocalCoordinateFEMDomain(obj,ElementID,x,y,z) result(xi)
 	real(real64),allocatable :: xi(:)
 	integer(int32) :: i,j,n
 
-	Jmat = zeros(obj%nd(),obj%nd())
-	allocate( xcoord(obj%nd() ))
-	allocate( xi(obj%nd() ))
-	allocate( center(obj%nd() ))
+	Jmat = zeros(this%nd(),this%nd())
+	allocate( xcoord(this%nd() ))
+	allocate( xi(this%nd() ))
+	allocate( center(this%nd() ))
 	xcoord(:) = 0.0d0
 	xi(:) = 0.0d0 
 	center(:)  = 0.0d0
 	! only for 2D 4-node/ 3D 8node- isoparametric elements
-	if(obj%nne()==4 .and. obj%nd()==2 )then
+	if(this%nne()==4 .and. this%nd()==2 )then
 		do i=1,4 ! 4-gauss points
-			shapefunc = obj%mesh%getShapeFunction(ElementID=ElementID,GaussPointID=i)
+			shapefunc = this%mesh%getShapeFunction(ElementID=ElementID,GaussPointID=i)
 			jmat(:,:) = jmat(:,:) + shapefunc%jmat(:,:)
 		enddo
 		jmat(:,:) = 0.250d0 * jmat(:,:)
@@ -10032,9 +10207,9 @@ function getLocalCoordinateFEMDomain(obj,ElementID,x,y,z) result(xi)
 			center(:) = center(:) + shapefunc%elemcoord(i,:)
 		enddo
 		center(:) = 0.250d0 *center(:)
-	elseif(obj%nne()==8 .and. obj%nd()==3 )then
+	elseif(this%nne()==8 .and. this%nd()==3 )then
 		do i=1,8 ! 8-gauss points
-			shapefunc = obj%mesh%getShapeFunction(ElementID=ElementID,GaussPointID=i)
+			shapefunc = this%mesh%getShapeFunction(ElementID=ElementID,GaussPointID=i)
 			jmat(:,:) = jmat(:,:) + shapefunc%jmat(:,:)
 		enddo
 		jmat(:,:) = 0.1250d0 * jmat(:,:)
@@ -10064,10 +10239,10 @@ function getLocalCoordinateFEMDomain(obj,ElementID,x,y,z) result(xi)
 
 
 	! ok
-	!allocate(xi( obj%nd()*obj%nne() ) )
+	!allocate(xi( this%nd()*this%nne() ) )
 	!n=0
-	!do i=1,obj%nne()
-	!	do j=1,obj%nd()
+	!do i=1,this%nne()
+	!	do j=1,this%nd()
 	!		n=n+1
 	!		xi(n) = shapefunc%elemcoord(i,j)
 	!	enddo
@@ -10091,95 +10266,95 @@ end function
 ! ######################################################################
 
 ! ######################################################################
-pure function nnFEMDomain(obj) result(ret)
-	class(FEMDomain_),intent(in) :: obj
+pure function nnFEMDomain(this) result(ret)
+	class(FEMDomain_),intent(in) :: this
 	integer(int32) :: ret
 
-	if(obj%empty() )then
+	if(this%empty() )then
 		ret = 0
 		return
 	endif
-	ret = size(obj%mesh%nodcoord,1)
+	ret = size(this%mesh%nodcoord,1)
 
 end function
 ! ######################################################################
 ! ######################################################################
-pure function ndFEMDomain(obj) result(ret)
-	class(FEMDomain_),intent(in) :: obj
+pure function ndFEMDomain(this) result(ret)
+	class(FEMDomain_),intent(in) :: this
 	integer(int32) :: ret
 
 
-	if(obj%empty() )then
+	if(this%empty() )then
 		ret = 0
 		return
 	endif
-	ret = size(obj%mesh%nodcoord,2)
+	ret = size(this%mesh%nodcoord,2)
 
 end function
 ! ######################################################################
 ! ######################################################################
-pure function neFEMDomain(obj) result(ret)
-	class(FEMDomain_),intent(in) :: obj
+pure function neFEMDomain(this) result(ret)
+	class(FEMDomain_),intent(in) :: this
 	integer(int32) :: ret
 
 
-	if(obj%empty() )then
+	if(this%empty() )then
 		ret = 0
 		return
 	endif
 
-	if(.not.allocated(obj%mesh%ElemNod) ) then
+	if(.not.allocated(this%mesh%ElemNod) ) then
 		ret = 0
 		return
 	endif
-	ret = size(obj%mesh%ElemNod,1)
+	ret = size(this%mesh%ElemNod,1)
 
 end function
 ! ######################################################################
 
 ! ######################################################################
-pure function nneFEMDomain(obj) result(ret)
-	class(FEMDomain_),intent(in) :: obj
+pure function nneFEMDomain(this) result(ret)
+	class(FEMDomain_),intent(in) :: this
 	integer(int32) :: ret
 
 
-	if(obj%empty() )then
+	if(this%empty() )then
 		ret = 0
 		return
 	endif
 
-	ret = size(obj%mesh%ElemNod,2)
+	ret = size(this%mesh%ElemNod,2)
 
 end function
 ! ######################################################################
 
 
 ! ######################################################################
-function ngpFEMDomain(obj) result(ret)
-	class(FEMDomain_),intent(inout) :: obj
+function ngpFEMDomain(this) result(ret)
+	class(FEMDomain_),intent(inout) :: this
 	type(ShapeFunction_) :: sf
 	integer(int32) :: ret
 
 
-	if(obj%empty() )then
+	if(this%empty() )then
 		ret = 0
 		return
 	endif
 	
-	sf = obj%mesh%getShapeFunction(ElementID=1, GaussPointID=1)
+	sf = this%mesh%getShapeFunction(ElementID=1, GaussPointID=1)
 	ret = sf%NumOfGP
 
 !	red = input(default=.false.,option=reduction)
 !
-!	if(obj%nd()==1 )then
-!		if(obj%nne()==2 )then
+!	if(this%nd()==1 )then
+!		if(this%nne()==2 )then
 !			! 1st order 1-D line element
 !			if(reduction)then
 !				ret = 1
 !			else
 !				ret = 2
 !			endif
-!		elseif(obj%nne()==3 )then
+!		elseif(this%nne()==3 )then
 !			! 2nd order 1-D line element
 !			if(reduction)then
 !				ret = 2
@@ -10187,25 +10362,25 @@ function ngpFEMDomain(obj) result(ret)
 !				ret = 3
 !			endif
 !		else
-!			print *, "ERROR :: ngpFEMDomain >> obj%nne() should be 2 or 3 for 1D"
+!			print *, "ERROR :: ngpFEMDomain >> this%nne() should be 2 or 3 for 1D"
 !			ret = -1
 !		endif
-!	elseif(obj%nd()==2 )then
-!		if(obj%nne()==3 )then
+!	elseif(this%nd()==2 )then
+!		if(this%nne()==3 )then
 !			! 1st order 2-D triangle element
 !			if(reduction)then
 !				ret = 1
 !			else
 !				ret = 3
 !			endif
-!		elseif(obj%nne()==6 )then
+!		elseif(this%nne()==6 )then
 !			! 2nd order 2-D triangle element
 !			if(reduction)then
 !				ret = 3
 !			else
 !				ret = 6
 !			endif
-!		elseif(obj%nne()==4 )then
+!		elseif(this%nne()==4 )then
 !			! 1st order 2-D rectangle element
 !			if(reduction)then
 !				ret = 1
@@ -10213,7 +10388,7 @@ function ngpFEMDomain(obj) result(ret)
 !				ret = 4
 !			endif
 !
-!		elseif(obj%nne()==8 .or. obj%nne()==9 )then
+!		elseif(this%nne()==8 .or. this%nne()==9 )then
 !			! 2nd order 2-D rectangle element
 !			if(reduction)then
 !				ret = 4
@@ -10221,20 +10396,20 @@ function ngpFEMDomain(obj) result(ret)
 !				ret = 9
 !			endif
 !		else
-!			print *, "ERROR :: ngpFEMDomain >> obj%nne() should be 3, 4, or 9 for 2-D"
+!			print *, "ERROR :: ngpFEMDomain >> this%nne() should be 3, 4, or 9 for 2-D"
 !			ret = -1
 !		endif
 !
-!	elseif(obj%nd()==3 )then
+!	elseif(this%nd()==3 )then
 !
-!		if(obj%nne()==4 )then
+!		if(this%nne()==4 )then
 !			! 1st order 3-D tetra element
 !			if(reduction)then
 !				ret = 1
 !			else
 !				ret = 4
 !			endif
-!		elseif(obj%nne()==8 )then
+!		elseif(this%nne()==8 )then
 !			! 1st order 2-D rectangle element
 !			if(reduction)then
 !				ret = 1
@@ -10243,11 +10418,11 @@ function ngpFEMDomain(obj) result(ret)
 !			endif
 !
 !		else
-!			print *, "ERROR :: ngpFEMDomain >> obj%nne() should be 4, 8 for 3-D"
+!			print *, "ERROR :: ngpFEMDomain >> this%nne() should be 4, 8 for 3-D"
 !			ret = -1
 !		endif
 !	else
-!		print *, "ERROR :: ngpFEMDomain >> obj%nd() should be 1, 2 or 3."
+!		print *, "ERROR :: ngpFEMDomain >> this%nd() should be 1, 2 or 3."
 !		ret = -1
 !	endif
 
@@ -10255,42 +10430,42 @@ end function
 ! ######################################################################
 
 
-subroutine editFEMDomain(obj,x,altitude)
-    class(FEMDomain_),intent(inout) :: obj
+subroutine editFEMDomain(this,x,altitude)
+    class(FEMDomain_),intent(inout) :: this
 	real(real64),optional,intent(in) :: x(:),altitude(:)
 	
-	call obj%mesh%edit(x,altitude)
+	call this%mesh%edit(x,altitude)
 end subroutine
 
 ! ######################################################################
-function getNearestNodeIDFEMDomain(obj,x,y,z,except,exceptlist) result(node_id)
-	class(FEMDomain_),intent(inout) :: obj
+function getNearestNodeIDFEMDomain(this,x,y,z,except,exceptlist) result(node_id)
+	class(FEMDomain_),intent(inout) :: this
     real(real64),optional,intent(in) :: x,y,z ! coordinate
     integer(int32),optional,intent(in) :: except ! excepted node id
     integer(int32),optional,intent(in) :: exceptlist(:) ! excepted node id
 	integer(int32) :: node_id,i
 
-	node_id = obj%mesh%getNearestNodeID(x=x,y=y,z=z,except=except,exceptlist=exceptlist)
+	node_id = this%mesh%getNearestNodeID(x=x,y=y,z=z,except=except,exceptlist=exceptlist)
 end function
 ! ######################################################################
 
 ! ##########################################################################
-function positionFEMDomain(obj,id) result(x)
-    class(FEMDomain_),intent(in) :: obj
+function positionFEMDomain(this,id) result(x)
+    class(FEMDomain_),intent(in) :: this
     integer(int32),optional,intent(in) :: id ! node_id
     real(real64) :: x(3)
     integer(int32) :: dim_num,i
 
 	if(present(id) )then
-    	dim_num = size(obj%mesh%nodcoord,2)
+    	dim_num = size(this%mesh%nodcoord,2)
     	do i=1,dim_num
-    	    x(i) = obj%mesh%nodcoord(id,i)
+    	    x(i) = this%mesh%nodcoord(id,i)
     	enddo
 	else
 
-		x = zeros(obj%nd() )
-		do i=1,obj%nd()
-			x(i) = sum(obj%mesh%nodcoord(:,i) )/dble(obj%nn() )
+		x = zeros(this%nd() )
+		do i=1,this%nd()
+			x(i) = sum(this%mesh%nodcoord(:,i) )/dble(this%nn() )
 		enddo
 	
 	endif
@@ -10298,15 +10473,15 @@ end function
 ! ##########################################################################
 
 ! ##########################################################################
-function position_xFEMDomain(obj,id) result(x)
-    class(FEMDomain_),intent(in) :: obj
+function position_xFEMDomain(this,id) result(x)
+    class(FEMDomain_),intent(in) :: this
     integer(int32),optional,intent(in) :: id ! node_id
     real(real64) :: x
     
 	if(present(id) )then
-    	x = obj%mesh%nodcoord(id,1)
+    	x = this%mesh%nodcoord(id,1)
 	else
-		x = sum(obj%mesh%nodcoord(:,1))/dble(obj%nn() )
+		x = sum(this%mesh%nodcoord(:,1))/dble(this%nn() )
 	endif
 
 
@@ -10314,31 +10489,31 @@ end function
 ! ##########################################################################
 
 ! ##########################################################################
-function position_yFEMDomain(obj,id) result(x)
-    class(FEMDomain_),intent(in) :: obj
+function position_yFEMDomain(this,id) result(x)
+    class(FEMDomain_),intent(in) :: this
     integer(int32),optional,intent(in) :: id ! node_id
     real(real64) :: x
     
     
 	if(present(id) )then
-    	x = obj%mesh%nodcoord(id,2)
+    	x = this%mesh%nodcoord(id,2)
 	else
-		x = sum(obj%mesh%nodcoord(:,2))/dble(obj%nn() )
+		x = sum(this%mesh%nodcoord(:,2))/dble(this%nn() )
 	endif
 	
 end function
 ! ##########################################################################
 
 ! ##########################################################################
-function position_zFEMDomain(obj,id) result(x)
-    class(FEMDomain_),intent(in) :: obj
+function position_zFEMDomain(this,id) result(x)
+    class(FEMDomain_),intent(in) :: this
     integer(int32),optional,intent(in) :: id ! node_id
     real(real64) :: x
     
 	if(present(id) )then
-    	x = obj%mesh%nodcoord(id,3)
+    	x = this%mesh%nodcoord(id,3)
 	else
-		x = sum(obj%mesh%nodcoord(:,3))/dble(obj%nn() )
+		x = sum(this%mesh%nodcoord(:,3))/dble(this%nn() )
 	endif
 
 end function
@@ -10779,8 +10954,8 @@ end function
 
 
 ! ##########################################################################
-function MassMatrixFEMDomain(obj,ElementID,Density,DOF,Lumped) result(MassMatrix)
-	class(FEMDomain_),intent(inout) :: obj
+function MassMatrixFEMDomain(this,ElementID,Density,DOF,Lumped) result(MassMatrix)
+	class(FEMDomain_),intent(inout) :: this
 	type(ShapeFunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
 	real(real64),optional,intent(in) :: Density
@@ -10794,17 +10969,16 @@ function MassMatrixFEMDomain(obj,ElementID,Density,DOF,Lumped) result(MassMatrix
 	node_DOF = input(default=1, option=DOF)
 	! For Element ID = ElementID, create Mass Matrix and return it
 	! Number of Gauss Point = number of node per element, as default.
-
 	! initialize shape-function object
     
-	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne(),NumOfGp=this%mesh%getNumOfGp())
 	
 
 	do i=1, shapefunc%NumOfGp
 		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
-		nod_coord=obj%Mesh%NodCoord,&
-		elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
-	
+			nod_coord=this%Mesh%NodCoord,&
+			elem_nod=this%Mesh%ElemNod,OptionalGpID=i)
+		
     	n=size(shapefunc%dNdgzi,2)*node_DOF
 
     	if(.not.allocated(MassMatrix) ) then
@@ -10839,10 +11013,12 @@ function MassMatrixFEMDomain(obj,ElementID,Density,DOF,Lumped) result(MassMatrix
 				! 0        0    N_(3)
 				! ...
 
+		
 			enddo
 		enddo
-
-    	MassMatrix(:,:)=MassMatrix(:,:)+&
+		
+    	
+		MassMatrix(:,:)=MassMatrix(:,:)+&
 			matmul( Nmat, transpose(Nmat) ) &
 			*det_mat(shapefunc%Jmat,size(shapefunc%Jmat,1) )
 		
@@ -10880,7 +11056,7 @@ function FlowVectorFEMDomain(this,pressure,Permiability,ElementID) result(FlowVe
 	Flowvector=zeros(this%nd() )    
 	
 	p_elem_nodes = this%ElementVector(ElementID=ElementID,GlobalVector=Pressure,DOF=1)
-	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() )
+	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() ,NumOfGp=this%mesh%getNumOfGp())
 
 	do j=1, shapefunc%NumOfGp
 		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
@@ -10910,8 +11086,8 @@ end function
 
 
 ! ##########################################################################
-function MassVectorFEMDomain(obj,ElementID,Density,DOF,Accel) result(MassVector)
-	class(FEMDomain_),intent(inout) :: obj
+function MassVectorFEMDomain(this,ElementID,Density,DOF,Accel) result(MassVector)
+	class(FEMDomain_),intent(inout) :: this
 	type(ShapeFunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
 	real(real64),optional,intent(in) :: Density,Accel(:)
@@ -10923,7 +11099,7 @@ function MassVectorFEMDomain(obj,ElementID,Density,DOF,Accel) result(MassVector)
 
 	! density :: (unit: t/m^3)
 	! accelerator :: m/s/s
-	dim_num = size(obj%mesh%nodcoord,2)
+	dim_num = size(this%mesh%nodcoord,2)
 	rho = input(default=1.0d0, option=Density)
 	node_DOF = input(default=1, option=DOF)
 	if(present(accel) )then
@@ -10937,14 +11113,14 @@ function MassVectorFEMDomain(obj,ElementID,Density,DOF,Accel) result(MassVector)
 	! Number of Gauss Point = number of node per element, as default.
 
 	! initialize shape-function object
-    !obj%ShapeFunction%ElemType=obj%Mesh%ElemType
+    !this%ShapeFunction%ElemType=this%Mesh%ElemType
 	
-	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() ,NumOfGp=this%mesh%getNumOfGp())
 
 	do i=1, shapefunc%NumOfGp
 		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
-		nod_coord=obj%Mesh%NodCoord,&
-		elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+		nod_coord=this%Mesh%NodCoord,&
+		elem_nod=this%Mesh%ElemNod,OptionalGpID=i)
 	
     	n=size(shapefunc%dNdgzi,2)*node_DOF
 		
@@ -11117,8 +11293,8 @@ end function
 
 
 ! ##########################################################################
-function StiffnessMatrixFEMDomain(obj,ElementID,E,v) result(StiffnessMatrix)
-	class(FEMDomain_),intent(inout) :: obj
+function StiffnessMatrixFEMDomain(this,ElementID,E,v) result(StiffnessMatrix)
+	class(FEMDomain_),intent(inout) :: this
 	type(Shapefunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
 	real(real64),intent(in) :: E, v ! Young's modulus and Poisson ratio
@@ -11131,20 +11307,20 @@ function StiffnessMatrixFEMDomain(obj,ElementID,E,v) result(StiffnessMatrix)
 	! in terms of small-strain and return it
 	! Number of Gauss Point = number of node per element, as default.
 	
-	node_DOF = obj%nd() ! Degree of freedom/node = dimension of space
+	node_DOF = this%nd() ! Degree of freedom/node = dimension of space
 
 	! For Element ID = ElementID, create Mass Matrix and return it
 	! Number of Gauss Point = number of node per element, as default.
 
 	! initialize shape-function object
     
-	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() ,NumOfGp=this%mesh%getNumOfGp())
 	
 
 	do i=1, shapefunc%NumOfGp
 		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
-		nod_coord=obj%Mesh%NodCoord,&
-		elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+		nod_coord=this%Mesh%NodCoord,&
+		elem_nod=this%Mesh%ElemNod,OptionalGpID=i)
 	
     	n=size(shapefunc%dNdgzi,2)*node_DOF
 
@@ -11160,10 +11336,10 @@ function StiffnessMatrixFEMDomain(obj,ElementID,E,v) result(StiffnessMatrix)
     	endif
 
 		! get so-called B-matrix
-		Bmat = obj%Bmatrix(shapefunc)
+		Bmat = this%Bmatrix(shapefunc)
 		
 		! get D-matrix
-		Dmat = obj%Dmatrix(E=E, v=v)
+		Dmat = this%Dmatrix(E=E, v=v)
 
 		if(i==1)then
 			StiffnessMatrix = matmul(matmul(transpose(Bmat),Dmat),Bmat)
@@ -11182,8 +11358,8 @@ end function
 
 
 ! ##########################################################################
-function DMatrixFEMDomain(obj,E,v) result(Dmat)
-	class(FEMDomain_) ,intent(inout) :: obj
+function DMatrixFEMDomain(this,E,v) result(Dmat)
+	class(FEMDomain_) ,intent(inout) :: this
 	real(real64),intent(in) :: E, v
 	real(real64),allocatable :: Dmat(:,:)
 	real(real64) :: mu, lambda
@@ -11193,11 +11369,11 @@ function DMatrixFEMDomain(obj,E,v) result(Dmat)
 	mu = E/2.0d0/(1.0d0 + v)
 	lambda = v*E/(1.0d0 + v)/(1.0d0-2.0d0*v)
 
-	if(obj%nd() == 1 )then
+	if(this%nd() == 1 )then
 		Dmat = zeros(1,1)
 		Dmat(:,:) = E
 		return
-	elseif(obj%nd() == 2 )then
+	elseif(this%nd() == 2 )then
 		! s_11, s_22, s_12
 		Dmat = zeros(3,3)
 		Dmat(1,1) = (1.0d0-v)*E/( (1.0d0+v)*(1.0d0-2.0d0*v))
@@ -11205,7 +11381,7 @@ function DMatrixFEMDomain(obj,E,v) result(Dmat)
 		Dmat(3,3) = E/(2.0d0*(1.0d0+v) )
 		Dmat(1,2) = v*E/( (1.0d0+v)*(1.0d0-2.0d0*v))
 		Dmat(2,1) = v*E/( (1.0d0+v)*(1.0d0-2.0d0*v))
-	elseif(obj%nd() == 3 )then
+	elseif(this%nd() == 3 )then
 		Dmat = zeros(6,6)
 		Dmat(1,1)= 2.0d0*mu + lambda
 		Dmat(1,2)= lambda
@@ -11220,7 +11396,7 @@ function DMatrixFEMDomain(obj,E,v) result(Dmat)
 		Dmat(5,5)= mu
 		Dmat(6,6)= mu
 	else
-		print *, "Error :: DMatrixFEMDomain >> number of dimension should be 1-3. Now ",obj%nd() 
+		print *, "Error :: DMatrixFEMDomain >> number of dimension should be 1-3. Now ",this%nd() 
 		stop
 	endif
 end function
@@ -11228,8 +11404,8 @@ end function
 
 
 ! ##########################################################################
-function StrainMatrixFEMDomain(obj,ElementID,GaussPoint,disp) result(StrainMatrix)
-	class(FEMDomain_),intent(inout) :: obj
+function StrainMatrixFEMDomain(this,ElementID,GaussPoint,disp) result(StrainMatrix)
+	class(FEMDomain_),intent(inout) :: this
 	type(Shapefunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
 	integer(int32),optional,intent(in) :: GaussPoint
@@ -11244,16 +11420,16 @@ function StrainMatrixFEMDomain(obj,ElementID,GaussPoint,disp) result(StrainMatri
 	! in terms of small-strain and return it
 	! Number of Gauss Point = number of node per element, as default.
 	
-	node_DOF = obj%nd() ! Degree of freedom/node = dimension of space
+	node_DOF = this%nd() ! Degree of freedom/node = dimension of space
 
 	! For Element ID = ElementID, create Mass Matrix and return it
 	! Number of Gauss Point = number of node per element, as default.
 
 	! initialize shape-function object
-	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() ,NumOfGp=this%mesh%getNumOfGp())
 	
-	ElemDisp = zeros(  size( obj%mesh%elemnod,2 ) *node_DOF) 
-	do i=1,obj%nne()
+	ElemDisp = zeros(  size( this%mesh%elemnod,2 ) *node_DOF) 
+	do i=1,this%nne()
 		do j=1,node_DOF
 			ElemDisp( node_DOF*(i-1) + j ) = Disp(i,j)
 		enddo
@@ -11261,8 +11437,8 @@ function StrainMatrixFEMDomain(obj,ElementID,GaussPoint,disp) result(StrainMatri
 
 	if(present(gausspoint) )then
 		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
-		nod_coord=obj%Mesh%NodCoord,&
-		elem_nod=obj%Mesh%ElemNod,OptionalGpID=gausspoint)
+		nod_coord=this%Mesh%NodCoord,&
+		elem_nod=this%Mesh%ElemNod,OptionalGpID=gausspoint)
 	
 		n=size(shapefunc%dNdgzi,2)*node_DOF
 
@@ -11279,7 +11455,7 @@ function StrainMatrixFEMDomain(obj,ElementID,GaussPoint,disp) result(StrainMatri
 		endif
 
 		! get so-called B-matrix
-		Bmat = obj%Bmatrix(shapefunc)
+		Bmat = this%Bmatrix(shapefunc)
 		
 		strainvec = matmul(Bmat,ElemDisp)
 
@@ -11304,8 +11480,8 @@ function StrainMatrixFEMDomain(obj,ElementID,GaussPoint,disp) result(StrainMatri
 	else
 		do i=1, shapefunc%NumOfGp
 			call getAllShapeFunc(shapefunc,elem_id=ElementID,&
-			nod_coord=obj%Mesh%NodCoord,&
-			elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+			nod_coord=this%Mesh%NodCoord,&
+			elem_nod=this%Mesh%ElemNod,OptionalGpID=i)
 		
 			n=size(shapefunc%dNdgzi,2)*node_DOF
 	
@@ -11322,7 +11498,7 @@ function StrainMatrixFEMDomain(obj,ElementID,GaussPoint,disp) result(StrainMatri
 			endif
 	
 			! get so-called B-matrix
-			Bmat = obj%Bmatrix(shapefunc)
+			Bmat = this%Bmatrix(shapefunc)
 			
 			strainvec = matmul(Bmat,ElemDisp)
 			if(node_DOF==3)then
@@ -11351,8 +11527,8 @@ end function
 
 
 ! ##########################################################################
-function StrainVectorFEMDomain(obj,ElementID,GaussPoint,disp) result(StrainVec)
-	class(FEMDomain_),intent(inout) :: obj
+function StrainVectorFEMDomain(this,ElementID,GaussPoint,disp) result(StrainVec)
+	class(FEMDomain_),intent(inout) :: this
 	type(Shapefunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
 	integer(int32),optional,intent(in) :: GaussPoint
@@ -11367,22 +11543,22 @@ function StrainVectorFEMDomain(obj,ElementID,GaussPoint,disp) result(StrainVec)
 	! in terms of small-strain and return it
 	! Number of Gauss Point = number of node per element, as default.
 	
-	node_DOF = obj%nd() ! Degree of freedom/node = dimension of space
+	node_DOF = this%nd() ! Degree of freedom/node = dimension of space
 
 	! For Element ID = ElementID, create Mass Matrix and return it
 	! Number of Gauss Point = number of node per element, as default.
-	vectorsize = obj%nd()
-	do i=1,obj%nd()-1
-		do j=i+1, obj%nd()
+	vectorsize = this%nd()
+	do i=1,this%nd()-1
+		do j=i+1, this%nd()
 			vectorsize = vectorsize+1
 		enddo
 	enddo
 	strainvec = zeros( vectorsize )
 	! initialize shape-function object
-	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() ,NumOfGp=this%mesh%getNumOfGp())
 	
-	ElemDisp = zeros(  size( obj%mesh%elemnod,2 ) *node_DOF) 
-	do i=1,obj%nne()
+	ElemDisp = zeros(  size( this%mesh%elemnod,2 ) *node_DOF) 
+	do i=1,this%nne()
 		do j=1,node_DOF
 			ElemDisp( node_DOF*(i-1) + j ) = Disp(i,j)
 		enddo
@@ -11390,8 +11566,8 @@ function StrainVectorFEMDomain(obj,ElementID,GaussPoint,disp) result(StrainVec)
 
 	if(present(gausspoint) )then
 		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
-		nod_coord=obj%Mesh%NodCoord,&
-		elem_nod=obj%Mesh%ElemNod,OptionalGpID=gausspoint)
+		nod_coord=this%Mesh%NodCoord,&
+		elem_nod=this%Mesh%ElemNod,OptionalGpID=gausspoint)
 	
 		n=size(shapefunc%dNdgzi,2)*node_DOF
 
@@ -11408,14 +11584,14 @@ function StrainVectorFEMDomain(obj,ElementID,GaussPoint,disp) result(StrainVec)
 		endif
 
 		! get so-called B-matrix
-		Bmat = obj%Bmatrix(shapefunc)
+		Bmat = this%Bmatrix(shapefunc)
 		
 		strainvec = strainvec+matmul(Bmat,ElemDisp)
 	else
 		do i=1, shapefunc%NumOfGp
 			call getAllShapeFunc(shapefunc,elem_id=ElementID,&
-			nod_coord=obj%Mesh%NodCoord,&
-			elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+			nod_coord=this%Mesh%NodCoord,&
+			elem_nod=this%Mesh%ElemNod,OptionalGpID=i)
 		
 			n=size(shapefunc%dNdgzi,2)*node_DOF
 	
@@ -11432,7 +11608,7 @@ function StrainVectorFEMDomain(obj,ElementID,GaussPoint,disp) result(StrainVec)
 			endif
 	
 			! get so-called B-matrix
-			Bmat = obj%Bmatrix(shapefunc)
+			Bmat = this%Bmatrix(shapefunc)
 			
 			strainvec = strainvec + matmul(Bmat,ElemDisp)
 			
@@ -11442,8 +11618,8 @@ end function
 ! ##########################################################################
 
 ! ##########################################################################
-function StressMatrixFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressMatrix)
-	class(FEMDomain_),intent(inout) :: obj
+function StressMatrixFEMDomain(this,ElementID,GaussPoint,disp,E,v) result(StressMatrix)
+	class(FEMDomain_),intent(inout) :: this
 	type(Shapefunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
 	integer(int32),optional,intent(in) :: GaussPoint
@@ -11459,25 +11635,25 @@ function StressMatrixFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressM
 	! in terms of small-strain and return it
 	! Number of Gauss Point = number of node per element, as default.
 	
-	node_DOF = obj%nd() ! Degree of freedom/node = dimension of space
+	node_DOF = this%nd() ! Degree of freedom/node = dimension of space
 
 	! For Element ID = ElementID, create Mass Matrix and return it
 	! Number of Gauss Point = number of node per element, as default.
 
 	! initialize shape-function object
-	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() ,NumOfGp=this%mesh%getNumOfGp())
 	
-	ElemDisp = zeros(  size( obj%mesh%elemnod,2 ) *node_DOF) 
-	do i=1,obj%nne()
+	ElemDisp = zeros(  size( this%mesh%elemnod,2 ) *node_DOF) 
+	do i=1,this%nne()
 		do j=1,node_DOF
-			ElemDisp( node_DOF*(i-1) + j ) = Disp( obj%mesh%elemnod(ElementID,i) ,j)
+			ElemDisp( node_DOF*(i-1) + j ) = Disp( this%mesh%elemnod(ElementID,i) ,j)
 		enddo
 	enddo
 
 	if(present(gausspoint) )then
 		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
-		nod_coord=obj%Mesh%NodCoord,&
-		elem_nod=obj%Mesh%ElemNod,OptionalGpID=gausspoint)
+		nod_coord=this%Mesh%NodCoord,&
+		elem_nod=this%Mesh%ElemNod,OptionalGpID=gausspoint)
 	
 		n=size(shapefunc%dNdgzi,2)*node_DOF
 
@@ -11494,8 +11670,8 @@ function StressMatrixFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressM
 		endif
 
 		! get so-called B-matrix
-		Dmat = obj%Dmatrix(E,v)
-		Bmat = obj%Bmatrix(shapefunc)
+		Dmat = this%Dmatrix(E,v)
+		Bmat = this%Bmatrix(shapefunc)
 		
 		Stressvec = matmul(Dmat,matmul(Bmat,ElemDisp))
 		
@@ -11520,8 +11696,8 @@ function StressMatrixFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressM
 	else
 		do i=1, shapefunc%NumOfGp
 			call getAllShapeFunc(shapefunc,elem_id=ElementID,&
-			nod_coord=obj%Mesh%NodCoord,&
-			elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+			nod_coord=this%Mesh%NodCoord,&
+			elem_nod=this%Mesh%ElemNod,OptionalGpID=i)
 		
 			n=size(shapefunc%dNdgzi,2)*node_DOF
 	
@@ -11538,8 +11714,8 @@ function StressMatrixFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressM
 			endif
 	
 			! get so-called B-matrix
-			Bmat = obj%Bmatrix(shapefunc)
-			Dmat = obj%Dmatrix(E,v)
+			Bmat = this%Bmatrix(shapefunc)
+			Dmat = this%Dmatrix(E,v)
 			Stressvec = matmul(Dmat,matmul(Bmat,ElemDisp))
 			if(node_DOF==3)then
 				StressMatrix(1,1) = StressMatrix(1,1)+Stressvec(1)
@@ -11570,8 +11746,8 @@ end function
 
 
 ! ##########################################################################
-function StressVectorFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressVec)
-	class(FEMDomain_),intent(inout) :: obj
+function StressVectorFEMDomain(this,ElementID,GaussPoint,disp,E,v) result(StressVec)
+	class(FEMDomain_),intent(inout) :: this
 	type(Shapefunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
 	integer(int32),optional,intent(in) :: GaussPoint
@@ -11589,12 +11765,12 @@ function StressVectorFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressV
 	! in terms of small-strain and return it
 	! Number of Gauss Point = number of node per element, as default.
 	
-	node_DOF = obj%nd() ! Degree of freedom/node = dimension of space
+	node_DOF = this%nd() ! Degree of freedom/node = dimension of space
 	! vector size
 	! if nd == 3 => vectorsize = 6
-	vectorsize = obj%nd()
-	do i=1,obj%nd()-1
-		do j=i+1, obj%nd()
+	vectorsize = this%nd()
+	do i=1,this%nd()-1
+		do j=i+1, this%nd()
 			vectorsize = vectorsize+1
 		enddo
 	enddo
@@ -11603,17 +11779,17 @@ function StressVectorFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressV
 	! Number of Gauss Point = number of node per element, as default.
 
 	! initialize shape-function object
-	!call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	!call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() ,NumOfGp=this%mesh%getNumOfGp())
 	
-	!ElemDisp = zeros(  size( obj%mesh%elemnod,2 ) *node_DOF) 
-	if( size(disp,1)/=obj%nne() )then
+	!ElemDisp = zeros(  size( this%mesh%elemnod,2 ) *node_DOF) 
+	if( size(disp,1)/=this%nne() )then
 		print *, "[ERROR] StressVectorFEM :: Wrong Argument :: disp"
-		print *, "[ERROR] >> size(disp,1) should be equal to obj%nne()"
+		print *, "[ERROR] >> size(disp,1) should be equal to this%nne()"
 		stop
 	endif
 	ElemDisp_m = reshape(transpose(Disp),[ size(Disp,1)*size(Disp,2),1 ])
 	ElemDisp = ElemDisp_m(:,1)
-	!do i=1,obj%nne()
+	!do i=1,this%nne()
 	!	do j=1,node_DOF
 	!		ElemDisp( node_DOF*(i-1) + j ) = Disp(i,j)
 	!	enddo
@@ -11621,10 +11797,10 @@ function StressVectorFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressV
 
 	if(present(gausspoint) )then
 		!call getAllShapeFunc(shapefunc,elem_id=ElementID,&
-		!nod_coord=obj%Mesh%NodCoord,&
-		!elem_nod=obj%Mesh%ElemNod,OptionalGpID=gausspoint)
+		!nod_coord=this%Mesh%NodCoord,&
+		!elem_nod=this%Mesh%ElemNod,OptionalGpID=gausspoint)
 	
-		shapefunc = obj%getShapeFunction(&
+		shapefunc = this%getShapeFunction(&
 		ElementID=ElementID,GaussPointID=GaussPoint)
 
 		!n=size(shapefunc%dNdgzi,2)*node_DOF
@@ -11632,14 +11808,14 @@ function StressVectorFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressV
 		!ns = node_DOF ! For 3D, 3-by-3 matrix.
 
 		! get so-called B-matrix
-		Dmat = obj%Dmatrix(E,v)
-		Bmat = obj%Bmatrix(shapefunc)
+		Dmat = this%Dmatrix(E,v)
+		Bmat = this%Bmatrix(shapefunc)
 		
 		Stressvec = matmul(Dmat,matmul(Bmat,ElemDisp))
 	else
 		do i=1, shapefunc%NumOfGp
 			
-			shapefunc = obj%getShapeFunction(&
+			shapefunc = this%getShapeFunction(&
 			ElementID=ElementID,GaussPointID=i)
 		
 			n=size(shapefunc%dNdgzi,2)*node_DOF
@@ -11648,11 +11824,11 @@ function StressVectorFEMDomain(obj,ElementID,GaussPoint,disp,E,v) result(StressV
 			
 	
 			! get so-called B-matrix
-			!Bmat = obj%Bmatrix(shapefunc)
+			!Bmat = this%Bmatrix(shapefunc)
 			!Stressvec = Stressvec + matmul(Bmat,ElemDisp)
 
-			Dmat = obj%Dmatrix(E,v)
-			Bmat = obj%Bmatrix(shapefunc)
+			Dmat = this%Dmatrix(E,v)
+			Bmat = this%Bmatrix(shapefunc)
 		
 			Stressvec = Stressvec + matmul(Dmat,matmul(Bmat,ElemDisp))
 		enddo
@@ -11702,8 +11878,8 @@ end function
 
 
 ! ##########################################################################
-recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
-	class(FEMDomain_) ,intent(inout) :: obj
+recursive function BMatrixFEMDomain(this,shapefunction,ElementID) result(Bmat)
+	class(FEMDomain_) ,intent(inout) :: this
 	integer(int32),optional,intent(in) :: ElementID
 	type(ShapeFunction_),optional,intent(in) :: shapefunction
 	real(real64), allocatable :: Psymat(:,:), Jmat(:,:), detJ 
@@ -11717,8 +11893,8 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 	if(present(shapefunction))then
 		
 	
-		dim_num = obj%nd()
-		mm = obj%nne() * 2
+		dim_num = this%nd()
+		mm = this%nne() * 2
 		Psymat = ShapeFunction%dNdgzi
 		Jmat = ShapeFunction%Jmat
 		detJ = det_mat(Jmat, dim_num)
@@ -11732,10 +11908,10 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 		else
 		   stop "B_mat >> dim_num = tobe 2 or 3 "
 		endif
-		!k = size(ij,1)   ! �Ђ��݂���11,��22,��12��3����
+		
 
 	! J:Psymat�̌v�Z
-		if(obj%nd()==2 .and. obj%nne()==4)then
+		if(this%nd()==2 .and. this%nne()==4)then
 
 		   if(detJ==0.0d0)  stop "Bmat,detJ=0"
 		   Jin = inverse(Jmat)
@@ -11770,7 +11946,7 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 		   Bmat(3,7) = Bmat(2,8)
 		   Bmat(3,8) = Bmat(1,7)
 		
-		elseif(obj%nd()==2 .and. obj%nne()==8 )then
+		elseif(this%nd()==2 .and. this%nne()==8 )then
 			Jin = inverse(Jmat)
 		   	JPsy(:,:) = matmul(Jin, Psymat)   
 
@@ -11823,14 +11999,14 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 		   Bmat(3,14) = Bmat(1,13)
 		   Bmat(3,15) = Bmat(2,16)
 		   Bmat(3,16) = Bmat(1,15)
-		elseif(obj%nd()==3 .and. obj%nne()==8 )then
+		elseif(this%nd()==3  )then
 		
 		   if(detJ==0.0d0)  stop "Bmat,detJ=0"
 		
 		   call  inverse_rank_2(Jmat,Jin)
 		
 		   JPsy = transpose(matmul(transpose(Psymat),Jin)) !dNdgzi* dgzidx
-		   Bmat=zeros(6,8*3)
+		   Bmat=zeros(6,this%nne()*3)
 		   do q=1,size(JPsy,2)
 			   do p=1,dim_num
 				   Bmat(p,dim_num*(q-1) + p )=JPsy(p,q)
@@ -11842,7 +12018,7 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 
 		   !Bmat(4:6,:)=0.50d0*Bmat(4:6,:)
 
-
+		   
 
 		else
 		   stop "Bmat >> The element is not supported."
@@ -11854,18 +12030,18 @@ recursive function BMatrixFEMDomain(obj,shapefunction,ElementID) result(Bmat)
 			print *, "BmatrixFEMDOmain >> ERROR >> at least, arg:ElementID or arg:shapefunction is necessary."
 			stop
 		endif
-		call sf%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+		call sf%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() ,NumOfGp=this%mesh%getNumOfGp())
 	
 
 		do i=1, sf%NumOfGp
 			call getAllShapeFunc(sf,elem_id=ElementID,&
-			nod_coord=obj%Mesh%NodCoord,&
-			elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+			nod_coord=this%Mesh%NodCoord,&
+			elem_nod=this%Mesh%ElemNod,OptionalGpID=i)
 			
 			if(i==1)then
-				Bmat = obj%Bmatrix(sf,ElementID)
+				Bmat = this%Bmatrix(sf,ElementID)
 			else
-				Bmat = Bmat + obj%Bmatrix(sf,ElementID)
+				Bmat = Bmat + this%Bmatrix(sf,ElementID)
 			endif
 		enddo
 		return
@@ -11937,12 +12113,12 @@ function DiffusionMatrix_as_CRS_FEMDomain(this,Coefficient,omp) result(Diffusion
 end function
 
 ! ##########################################################################
-function DiffusionMatrixFEMDomain(obj,ElementID,D) result(DiffusionMatrix)
+function DiffusionMatrixFEMDomain(this,ElementID,D) result(DiffusionMatrix)
 	! 拡散係数マトリクス
 	! For Element ID = ElementID, create Diffusion Matrix 
 	! in terms of small-strain and return it
 	! Number of Gauss Point = number of node per element, as default.
-	class(FEMDomain_),intent(inout) :: obj
+	class(FEMDomain_),intent(inout) :: this
 	type(ShapeFunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
 	real(real64),optional,intent(in) :: D ! diffusion matrix
@@ -11957,14 +12133,14 @@ function DiffusionMatrixFEMDomain(obj,ElementID,D) result(DiffusionMatrix)
 	! Number of Gauss Point = number of node per element, as default.
 
 	! initialize shape-function object
-    !obj%ShapeFunction%ElemType=obj%Mesh%ElemType
+    !this%ShapeFunction%ElemType=this%Mesh%ElemType
 	
-	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
+	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() ,NumOfGp=this%mesh%getNumOfGp())
 
 	do i=1, shapefunc%NumOfGp
 		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
-		nod_coord=obj%Mesh%NodCoord,&
-		elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+		nod_coord=this%Mesh%NodCoord,&
+		elem_nod=this%Mesh%ElemNod,OptionalGpID=i)
 	
     	n=size(shapefunc%dNdgzi,2)
     	if(.not.allocated(DiffusionMatrix) ) then
@@ -12009,13 +12185,13 @@ end function
 
 
 ! ##########################################################################
-!function GradMatrixFEMDomain(obj,ElementID,DOF) result(GradMatrix)
+!function GradMatrixFEMDomain(this,ElementID,DOF) result(GradMatrix)
 !	! This matrix G_{A B}
 !	
 !	! \int_{\omega_e} N_A \frac{\partial N_B}{\partial x_i} d \Omega_e
 !	! \int_{\omega_e} N_A  d N_B/d xi  (d xi/d x) det(d x/d Xi) d \Xi
 !
-!	class(FEMDomain_),intent(inout) :: obj
+!	class(FEMDomain_),intent(inout) :: this
 !	type(ShapeFunction_) :: shapefunc
 !	integer(int32),intent(in) :: ElementID,DOF
 !
@@ -12027,15 +12203,15 @@ end function
 !	! Number of Gauss Point = number of node per element, as default.
 !
 !	! initialize shape-function object
-!    !obj%ShapeFunction%ElemType=obj%Mesh%ElemType
+!    !this%ShapeFunction%ElemType=this%Mesh%ElemType
 !	
-!	call shapefunc%SetType(NumOfDim=obj%nd(),NumOfNodePerElem=obj%nne() )
-!	n = obj%nne()
+!	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() ,NumOfGp=this%mesh%getNumOfGp())
+!	n = this%nne()
 !	GradMatrix = zeros(n,n*DOF)
 !	do i=1, shapefunc%NumOfGp
 !		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
-!		nod_coord=obj%Mesh%NodCoord,&
-!		elem_nod=obj%Mesh%ElemNod,OptionalGpID=i)
+!		nod_coord=this%Mesh%NodCoord,&
+!		elem_nod=this%Mesh%ElemNod,OptionalGpID=i)
 !	
 !    	n=size(shapefunc%dNdgzi,2)
 !
@@ -12059,8 +12235,8 @@ end function
 
 
 ! ##########################################################################
-function ElementVectorFEMDomain(obj,ElementID,GlobalVector,DOF) result(ElementVector)
-	class(FEMDomain_),intent(inout) :: obj
+function ElementVectorFEMDomain(this,ElementID,GlobalVector,DOF) result(ElementVector)
+	class(FEMDomain_),intent(inout) :: this
 	integer(int32),intent(in) :: ElementID
 	real(real64),intent(in) :: GlobalVector(:) ! size = number_of_node
 	real(real64),allocatable :: ElementVector(:)
@@ -12069,7 +12245,7 @@ function ElementVectorFEMDomain(obj,ElementID,GlobalVector,DOF) result(ElementVe
 	
 	! For Element ID = ElementID, create ElementVector and return it
 	! Number of Gauss Point = number of node per element, as default.
-	num_node_per_elem = obj%nne()
+	num_node_per_elem = this%nne()
 	nodal_DOF = input(default=1, option=DOF)
 	allocate(ElementVector(num_node_per_elem*nodal_DOF) )
 	ElementVector(:) = 0.0d0
@@ -12077,7 +12253,7 @@ function ElementVectorFEMDomain(obj,ElementID,GlobalVector,DOF) result(ElementVe
 	! (x1, y1, z1, x2, y2, z2 ...)
 	do i=1,num_node_per_elem
 		do j=1,nodal_DOF
-			node_id = obj%mesh%elemnod(ElementID,i)
+			node_id = this%mesh%elemnod(ElementID,i)
 			ElementVector( (i-1)*nodal_DOF + j) = &
 				GlobalVector((node_id-1)*nodal_DOF + j )
 		enddo
@@ -12088,8 +12264,8 @@ end function
 
 
 ! ##########################################################################
-subroutine GlobalVectorFEMDomain(obj,ElementID,ElementVector,DOF,Replace, Reset,GlobalVector)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine GlobalVectorFEMDomain(this,ElementID,ElementVector,DOF,Replace, Reset,GlobalVector)
+	class(FEMDomain_),intent(inout) :: this
 	integer(int32),intent(in) :: ElementID
 	real(real64),intent(in) :: ElementVector(:) 
 	real(real64),allocatable,intent(inout) :: GlobalVector(:)! size = number_of_node*DOF
@@ -12100,28 +12276,28 @@ subroutine GlobalVectorFEMDomain(obj,ElementID,ElementVector,DOF,Replace, Reset,
 	! For Element ID = ElementID, create ElementVector and return it
 	! Number of Gauss Point = number of node per element, as default.
 
-	num_node_per_elem = obj%nne()
+	num_node_per_elem = this%nne()
 	nodal_DOF = input(default=1, option=DOF)
 
 	if(.not. allocated(GlobalVector) )then
-		GlobalVector = zeros(obj%nn() * nodal_DOF )
+		GlobalVector = zeros(this%nn() * nodal_DOF )
 	endif
 
 	if(present(Replace) )then
 		if(Replace)then
-			GlobalVector = zeros(obj%nn() * nodal_DOF )
+			GlobalVector = zeros(this%nn() * nodal_DOF )
 		endif
 	endif
 
 	if(present(Reset) )then
 		if(Reset)then
-			GlobalVector = zeros(obj%nn() * nodal_DOF )
+			GlobalVector = zeros(this%nn() * nodal_DOF )
 		endif
 	endif
 
-	do j=1, obj%nne() ! NNE : Number of Node per Element
+	do j=1, this%nne() ! NNE : Number of Node per Element
 		do k=1, nodal_DOF
-			GlobalVector( (obj%NodeID(ElementID,j)-1)*nodal_DOF + k ) = &
+			GlobalVector( (this%NodeID(ElementID,j)-1)*nodal_DOF + k ) = &
 				ElementVector( (j-1)*nodal_DOF +  k )
 		enddo
 	enddo
@@ -12130,36 +12306,36 @@ end subroutine
 ! ##########################################################################
 
 ! ##########################################################################
-function connectivityFEMDomain(obj,ElementID) result(ret)
-	class(FEMDomain_),intent(in) :: obj
+function connectivityFEMDomain(this,ElementID) result(ret)
+	class(FEMDomain_),intent(in) :: this
 	integer(int32),intent(in) :: ElementID
 	integer(int32),allocatable :: ret(:)
 
-	allocate(ret(size(obj%mesh%elemnod,2) ))
-	ret(:) = obj%mesh%elemnod(ElementID,:)
+	allocate(ret(size(this%mesh%elemnod,2) ))
+	ret(:) = this%mesh%elemnod(ElementID,:)
 
 end function
 ! ##########################################################################
 
 ! ##########################################################################
-function allconnectivityFEMDomain(obj) result(ret)
-	class(FEMDomain_),intent(in) :: obj
+function allconnectivityFEMDomain(this) result(ret)
+	class(FEMDomain_),intent(in) :: this
 	integer(int32),allocatable :: ret(:,:)
 
-	ret = obj%mesh%elemnod(:,:)
+	ret = this%mesh%elemnod(:,:)
 
 end function
 ! ##########################################################################
 
-function selectFEMDomain(obj,x_min,x_max,y_min,y_max,z_min,z_max,center,radius_range) result(NodeList)
-	class(FEMDomain_),intent(in) :: obj
+function selectFEMDomain(this,x_min,x_max,y_min,y_max,z_min,z_max,center,radius_range) result(NodeList)
+	class(FEMDomain_),intent(in) :: this
 	real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max,center(:),radius_range(1:2)
 	real(real64) :: x(3),xmax(3),xmin(3),r
 	integer(int32),allocatable :: NodeList(:),CheckList(:)
 	logical :: InOut
 	integer(int32) :: i,j,n
 
-	CheckList = int(zeros(obj%nn()) )
+	CheckList = int(zeros(this%nn()) )
 	xmin(1) = input(default=dble(-1.0e14),option=x_min )
 	xmin(2) = input(default=dble(-1.0e14),option=y_min )
 	xmin(3) = input(default=dble(-1.0e14),option=z_min )
@@ -12170,8 +12346,8 @@ function selectFEMDomain(obj,x_min,x_max,y_min,y_max,z_min,z_max,center,radius_r
 
 	n = 0
 
-	do i=1, obj%nn()
-		x(:)=obj%mesh%nodcoord(i,:)
+	do i=1, this%nn()
+		x(:)=this%mesh%nodcoord(i,:)
 
 
 		if(present(center) .and. present(radius_range)  )then
@@ -12192,7 +12368,7 @@ function selectFEMDomain(obj,x_min,x_max,y_min,y_max,z_min,z_max,center,radius_r
 				endif
 			endif
 		else
-			InOut = InOrOut(x=x,xmax=xmax,xmin=xmin,DimNum=obj%nd() )
+			InOut = InOrOut(x=x,xmax=xmax,xmin=xmin,DimNum=this%nd() )
 			if(InOut)then
 				! inside
 				CheckList(i) = 1
@@ -12219,18 +12395,18 @@ end function
 
 
 ! ##########################################################################
-function NodeIDFEMDomain(obj,ElementID,LocalNodeID) result(NodeID)
-	class(FEMDomain_),intent(inout) :: obj
+function NodeIDFEMDomain(this,ElementID,LocalNodeID) result(NodeID)
+	class(FEMDomain_),intent(inout) :: this
 	integer(int32),intent(in) :: ElementID,LocalNodeID
 	integer(int32) :: NodeID
 
-	NodeID = obj%mesh%elemnod(ElementID,LocalNodeID)
+	NodeID = this%mesh%elemnod(ElementID,LocalNodeID)
 
 end function
 ! ##########################################################################
 
-subroutine killElementFEMDomain(obj,blacklist,flag)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine killElementFEMDomain(this,blacklist,flag)
+	class(FEMDomain_),intent(inout) :: this
 	real(real64),allocatable :: new_nod_coord(:,:)
 	integer(int32),allocatable :: elemnod_old(:,:),non_remove_node(:),new_node_id(:)
 	integer(int32),optional,intent(in) :: blacklist(:),flag
@@ -12239,10 +12415,10 @@ subroutine killElementFEMDomain(obj,blacklist,flag)
 	logical :: survive
 
 	! if(blacklist(i) == flag ) => kill ethe element
-	elemnod_old = obj%mesh%elemnod
+	elemnod_old = this%mesh%elemnod
 	
-	m = size(obj%mesh%elemnod,2)
-	k = size(obj%mesh%elemnod,1)
+	m = size(this%mesh%elemnod,2)
+	k = size(this%mesh%elemnod,1)
 
 	if(size(blacklist)/=k )then
 		print *, "ERROR :: killElementFEMDomain >> should be size(blacklist)==k"
@@ -12260,9 +12436,9 @@ subroutine killElementFEMDomain(obj,blacklist,flag)
 		return
 	endif
 	
-	deallocate(obj%mesh%elemnod)
-	allocate(obj%mesh%elemnod(k-n,m) )
-	obj%mesh%elemnod(:,:) = 0
+	deallocate(this%mesh%elemnod)
+	allocate(this%mesh%elemnod(k-n,m) )
+	this%mesh%elemnod(:,:) = 0
 	n=0
 	do i=1, size(elemnod_old,1)
 		
@@ -12270,16 +12446,16 @@ subroutine killElementFEMDomain(obj,blacklist,flag)
 			cycle
 		else
 			n=n+1
-			obj%mesh%elemnod(n,:) = elemnod_old(i,:)
+			this%mesh%elemnod(n,:) = elemnod_old(i,:)
 		endif
 	enddo
 
 	! if there are uncounted nodes, kill nodes
-	non_remove_node = zeros(obj%nn() )
-	new_node_id = zeros(obj%nn() )
-	do i=1,obj%ne()
-		do j=1,obj%nne()
-			non_remove_node( obj%mesh%elemnod(i,j) ) = 1
+	non_remove_node = zeros(this%nn() )
+	new_node_id = zeros(this%nn() )
+	do i=1,this%ne()
+		do j=1,this%nne()
+			non_remove_node( this%mesh%elemnod(i,j) ) = 1
 		enddo
 	enddo
 
@@ -12289,26 +12465,26 @@ subroutine killElementFEMDomain(obj,blacklist,flag)
 		new_node_id(1) = 0
 	endif
 
-	do i=2,obj%nn()
+	do i=2,this%nn()
 		new_node_id(i) = new_node_id(i-1) + non_remove_node(i) 
 	enddo
 
 
-	new_nod_coord = zeros( sum(non_remove_node),obj%nd() )
+	new_nod_coord = zeros( sum(non_remove_node),this%nd() )
 	j=0
 	do i=1,size(new_node_id)
 		if(non_remove_node(i)==1 )then
 			j = j + 1
-			new_nod_coord( j,: ) = obj%mesh%nodcoord(i,:)
+			new_nod_coord( j,: ) = this%mesh%nodcoord(i,:)
 		endif
 	enddo
 
-	do i=1,obj%ne()
-		do j=1,obj%nne()
-			obj%mesh%elemnod(i,j) = new_node_id( obj%mesh%elemnod(i,j) )
+	do i=1,this%ne()
+		do j=1,this%nne()
+			this%mesh%elemnod(i,j) = new_node_id( this%mesh%elemnod(i,j) )
 		enddo
 	enddo
-	obj%mesh%nodcoord = new_nod_coord
+	this%mesh%nodcoord = new_nod_coord
 
 
 
@@ -12318,8 +12494,8 @@ end subroutine
 
 
 ! ###################################################################
-function ConnectMatrixFEMDomain(obj,position,DOF,shapefunction,strict) result(connectMatrix)
-	class(FEMDomain_),intent(inout) :: obj
+function ConnectMatrixFEMDomain(this,position,DOF,shapefunction,strict) result(connectMatrix)
+	class(FEMDomain_),intent(inout) :: this
 	type(ShapeFunction_),optional,intent(in) :: shapefunction
 	type(ShapeFunction_) :: sobj
 	real(real64),intent(in) :: position(:)
@@ -12339,9 +12515,9 @@ function ConnectMatrixFEMDomain(obj,position,DOF,shapefunction,strict) result(co
 		! 
 
 		! domain#2
-		sobj = obj%getShapeFunction(position=position)
+		sobj = this%getShapeFunction(position=position)
 
-		n = (obj%nne()+size(shapefunction%nmat,1) ) * DOF
+		n = (this%nne()+size(shapefunction%nmat,1) ) * DOF
 		
 		if(sobj%elementid == -1)then
 			! no contact
@@ -12411,8 +12587,8 @@ function ConnectMatrixFEMDomain(obj,position,DOF,shapefunction,strict) result(co
 	
 	else
 		! P2P
-		sobj = obj%getShapeFunction(position=position)
-		n = (obj%nne()+1) * DOF
+		sobj = this%getShapeFunction(position=position)
+		n = (this%nne()+1) * DOF
 		
 		if(sobj%elementid == -1)then
 			! no contact
@@ -12442,8 +12618,8 @@ end function
 
 
 ! ###################################################################
-function ConnectVectorFEMDomain(obj,position,DOF,shapefunction,strict) result(Connectvector)
-	class(FEMDomain_),intent(inout) :: obj
+function ConnectVectorFEMDomain(this,position,DOF,shapefunction,strict) result(Connectvector)
+	class(FEMDomain_),intent(inout) :: this
 	type(ShapeFunction_),optional,intent(in) :: shapefunction
 	type(ShapeFunction_) :: sobj
 	real(real64),intent(in) :: position(:)
@@ -12463,9 +12639,9 @@ function ConnectVectorFEMDomain(obj,position,DOF,shapefunction,strict) result(Co
 		! 
 
 		! domain#2
-		sobj = obj%getShapeFunction(position=position)
+		sobj = this%getShapeFunction(position=position)
 
-		n = (obj%nne()+size(shapefunction%nmat,1) ) * DOF
+		n = (this%nne()+size(shapefunction%nmat,1) ) * DOF
 		
 		if(sobj%elementid == -1)then
 			! no contact
@@ -12535,8 +12711,8 @@ function ConnectVectorFEMDomain(obj,position,DOF,shapefunction,strict) result(Co
 	
 	else
 		! P2P
-		sobj = obj%getShapeFunction(position=position)
-		n = (obj%nne()+1) * DOF
+		sobj = this%getShapeFunction(position=position)
+		n = (this%nne()+1) * DOF
 		
 		if(sobj%elementid == -1)then
 			! no contact
@@ -12565,8 +12741,8 @@ end function
 ! ##################################################################
 
 ! ##################################################################
-subroutine ImportVTKFileFEMDomain(obj,name)
-	class(FEMDomain_),intent(inout) :: Obj
+subroutine ImportVTKFileFEMDomain(this,name)
+	class(FEMDomain_),intent(inout) :: this
 	character(*),intent(in) :: name
 	type(IO_) :: f
 	character(len=:),allocatable :: fullname, line,fieldname
@@ -12577,7 +12753,7 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 
 	! Only for POINTS, CELLS, CELL_TYPES, VECTORS, TENSORS, SCALARS
 	
-	call obj%remove()
+	call this%remove()
 
 	if( index(name,".vtk")==0 .and. index(name,".VTK")==0 )then
 		fullname = name//".vtk"
@@ -12628,7 +12804,7 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 
 	! check vtk file
 	if(ASCII)then
-		if(obj%debug_mode)then
+		if(this%debug_mode)then
 			print *, "[ok] ASCII format."
 		endif
 	else
@@ -12637,7 +12813,7 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 	endif
 	
 	if(UNSTRUCTURED_GRID)then
-		if(obj%debug_mode)then
+		if(this%debug_mode)then
 			print *, "[ok] UNSTRUCTURED_GRID"
 		endif
 	else
@@ -12655,10 +12831,10 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 		if(index( line,"POINTS") /=0  )then
 			from = index( line,"POINTS") + 6
 			read( line(from:),* ) n
-			allocate(obj%mesh%nodcoord(n,3) )
+			allocate(this%mesh%nodcoord(n,3) )
 			do i=1,n
 				line = f%readline()
-				read(line,*) obj%mesh%nodcoord(i,:)
+				read(line,*) this%mesh%nodcoord(i,:)
 			enddo
 		endif
 
@@ -12740,15 +12916,15 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 			end select
 
 
-			allocate(obj%mesh%elemnod(n,numnode) )
+			allocate(this%mesh%elemnod(n,numnode) )
 			
-			obj%mesh%elemnod(:,:) = 0
+			this%mesh%elemnod(:,:) = 0
 			n=0
-			do i=1,obj%ne() 
+			do i=1,this%ne() 
 				do
 					if(n+1 > size(CELLS) ) exit
 					if(CELLS(n+1)==numnode )then
-						obj%mesh%elemnod(i,1:numnode) = CELLS(n+2:n+numnode+1)
+						this%mesh%elemnod(i,1:numnode) = CELLS(n+2:n+numnode+1)
 						n=n+1+numnode
 						exit
 					else
@@ -12775,31 +12951,31 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 			from = index( line,"SCALARS") + 7
 			to = index( line(from+1:)," ")
 			fieldname=line(from:to+7)
-			if(.not.allocated(obj%PhysicalField) )then
-				allocate(obj%PhysicalField(1) )
-				do i=1,size(obj%physicalfield)
-				obj%PhysicalField(i)%name = "untitled"
+			if(.not.allocated(this%PhysicalField) )then
+				allocate(this%PhysicalField(1) )
+				do i=1,size(this%physicalfield)
+				this%PhysicalField(i)%name = "untitled"
 				enddo
 			endif
 			! read "LOOKUP_TABLE default"
 			line = f%readline()
 			
-			do i=1,size(obj%PhysicalField)
-				if(allocated(obj%PhysicalField(i)%scalar ) )then
+			do i=1,size(this%PhysicalField)
+				if(allocated(this%PhysicalField(i)%scalar ) )then
 					cycle
-				elseif(allocated(obj%PhysicalField(i)%vector ) )then
+				elseif(allocated(this%PhysicalField(i)%vector ) )then
 					cycle
-				elseif(allocated(obj%PhysicalField(i)%tensor ) )then
+				elseif(allocated(this%PhysicalField(i)%tensor ) )then
 					cycle
 				else
-					allocate(obj%PhysicalField(i)%scalar(POINT_DATA) )
-					obj%PhysicalField(i)%name = fieldname
-					obj%PhysicalField(i)%scalar(:) = 0.0d0
+					allocate(this%PhysicalField(i)%scalar(POINT_DATA) )
+					this%PhysicalField(i)%name = fieldname
+					this%PhysicalField(i)%scalar(:) = 0.0d0
 					do j=1,POINT_DATA
 						line = f%readline()
-						read(line,*)obj%PhysicalField(i)%scalar(j) 
+						read(line,*)this%PhysicalField(i)%scalar(j) 
 					enddo
-					if(obj%debug_mode)then
+					if(this%debug_mode)then
 						print *, "[ok] Read SCALAR field"
 					endif
 				endif
@@ -12812,29 +12988,29 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 			from = index( line,"VECTORS") + 7
 			to = index( line(from+1:)," ")
 			fieldname=line(from:to+7)
-			if(.not.allocated(obj%PhysicalField) )then
-				allocate(obj%PhysicalField(1) )
-				do i=1,size(obj%physicalfield)
-				obj%PhysicalField(i)%name = "untitled"
+			if(.not.allocated(this%PhysicalField) )then
+				allocate(this%PhysicalField(1) )
+				do i=1,size(this%physicalfield)
+				this%PhysicalField(i)%name = "untitled"
 				enddo
 			endif
 			! read "LOOKUP_TABLE default"
 			line = f%readline()
 			
-			do i=1,size(obj%PhysicalField)
-				if(allocated(obj%PhysicalField(i)%scalar ) )then
+			do i=1,size(this%PhysicalField)
+				if(allocated(this%PhysicalField(i)%scalar ) )then
 					cycle
-				elseif(allocated(obj%PhysicalField(i)%vector ) )then
+				elseif(allocated(this%PhysicalField(i)%vector ) )then
 					cycle
-				elseif(allocated(obj%PhysicalField(i)%tensor ) )then
+				elseif(allocated(this%PhysicalField(i)%tensor ) )then
 					cycle
 				else
-					allocate(obj%PhysicalField(i)%vector(POINT_DATA,3) )
-					obj%PhysicalField(i)%name = fieldname
-					obj%PhysicalField(i)%vector(:,:) = 0.0d0
+					allocate(this%PhysicalField(i)%vector(POINT_DATA,3) )
+					this%PhysicalField(i)%name = fieldname
+					this%PhysicalField(i)%vector(:,:) = 0.0d0
 					do j=1,POINT_DATA
 						line = f%readline()
-						read(line,*)obj%PhysicalField(i)%vector(j,:) 
+						read(line,*)this%PhysicalField(i)%vector(j,:) 
 						
 					enddo
 					exit
@@ -12848,30 +13024,30 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 			from = index( line,"TENSORS") + 7
 			to = index( line(from+1:)," ")
 			fieldname=line(from:to+7)
-			if(.not.allocated(obj%PhysicalField) )then
-				allocate(obj%PhysicalField(100) )
-				do i=1,size(obj%physicalfield)
-				obj%PhysicalField(i)%name = "untitled"
+			if(.not.allocated(this%PhysicalField) )then
+				allocate(this%PhysicalField(100) )
+				do i=1,size(this%physicalfield)
+				this%PhysicalField(i)%name = "untitled"
 				enddo
 			endif
 			! read "LOOKUP_TABLE default"
 			line = f%readline()
 			
-			do i=1,size(obj%PhysicalField)
-				if(allocated(obj%PhysicalField(i)%scalar ) )then
+			do i=1,size(this%PhysicalField)
+				if(allocated(this%PhysicalField(i)%scalar ) )then
 					cycle
-				elseif(allocated(obj%PhysicalField(i)%vector ) )then
+				elseif(allocated(this%PhysicalField(i)%vector ) )then
 					cycle
-				elseif(allocated(obj%PhysicalField(i)%tensor ) )then
+				elseif(allocated(this%PhysicalField(i)%tensor ) )then
 					cycle
 				else
-					allocate(obj%PhysicalField(i)%tensor(POINT_DATA,3,3) )
-					obj%PhysicalField(i)%name = fieldname
-					obj%PhysicalField(i)%tensor(:,:,:) = 0.0d0
+					allocate(this%PhysicalField(i)%tensor(POINT_DATA,3,3) )
+					this%PhysicalField(i)%name = fieldname
+					this%PhysicalField(i)%tensor(:,:,:) = 0.0d0
 					do j=1,POINT_DATA
 						do k=1,3
 							line = f%readline()
-							read(line,*)obj%PhysicalField(i)%tensor(j,k,:) 
+							read(line,*)this%PhysicalField(i)%tensor(j,k,:) 
 						enddo
 					enddo
 
@@ -12891,88 +13067,88 @@ subroutine ImportVTKFileFEMDomain(obj,name)
 end subroutine
 ! ##################################################################
 
-function getElementFEMDOmain(obj,ElementID) result(element)
-	class(FEMDomain_),intent(in) :: obj
+function getElementFEMDOmain(this,ElementID) result(element)
+	class(FEMDomain_),intent(in) :: this
 	type(FEMDomain_) :: element
 	integer(int32),intent(in) :: ElementID
 
-	element%mesh = obj%mesh%getelement(ElementID)
+	element%mesh = this%mesh%getelement(ElementID)
 
 end function
 ! ##################################################################
 
 ! ##################################################################
-subroutine Delaunay3DFEMDomain(obj)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine Delaunay3DFEMDomain(this)
+	class(FEMDomain_),intent(inout) :: this
 
-	if(.not. allocated(obj%mesh%nodcoord) )then
+	if(.not. allocated(this%mesh%nodcoord) )then
 		print *, "ERROR :: Delauney3DFEMDomain >> no nodes are found in femdomain%mesh%nodcoord(:,:)"
 	endif
-	call obj%mesh%meshing(mode=3)
+	call this%mesh%meshing(mode=3)
 
 end subroutine
 ! ##################################################################
 
 ! ##################################################################
-subroutine Delaunay2DFEMDomain(obj)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine Delaunay2DFEMDomain(this)
+	class(FEMDomain_),intent(inout) :: this
 
-	if(.not. allocated(obj%mesh%nodcoord) )then
+	if(.not. allocated(this%mesh%nodcoord) )then
 		print *, "ERROR :: Delauney3DFEMDomain >> no nodes are found in femdomain%mesh%nodcoord(:,:)"
 	endif
-	call obj%mesh%meshing(delaunay2d=.true.)
+	call this%mesh%meshing(delaunay2d=.true.)
 
 end subroutine
 ! ##################################################################
 
 
 ! ##################################################################
-function xFEMDomain(obj) result(ret)
-	class(FEMDomain_),intent(in) :: obj
+function xFEMDomain(this) result(ret)
+	class(FEMDomain_),intent(in) :: this
 	real(real64),allocatable :: ret(:)
 
-	if(obj%mesh%empty() )then
+	if(this%mesh%empty() )then
 		ret = zeros(1)
 	else
-		allocate(ret(obj%nn() ) )
-		ret(:) = obj%mesh%nodcoord(:,1) 
+		allocate(ret(this%nn() ) )
+		ret(:) = this%mesh%nodcoord(:,1) 
 	endif
 
 end function
 ! ##################################################################
 
 ! ##################################################################
-function yFEMDomain(obj) result(ret)
-	class(FEMDomain_),intent(in) :: obj
+function yFEMDomain(this) result(ret)
+	class(FEMDomain_),intent(in) :: this
 	real(real64),allocatable :: ret(:)
 
-	if(obj%mesh%empty() )then
+	if(this%mesh%empty() )then
 		ret = zeros(1)
 	else
-		allocate(ret(obj%nn() ) )
-		ret(:) = obj%mesh%nodcoord(:,2) 
+		allocate(ret(this%nn() ) )
+		ret(:) = this%mesh%nodcoord(:,2) 
 	endif
 
 end function
 ! ##################################################################
 
 ! ##################################################################
-function zFEMDomain(obj) result(ret)
-	class(FEMDomain_),intent(in) :: obj
+function zFEMDomain(this) result(ret)
+	class(FEMDomain_),intent(in) :: this
 	real(real64),allocatable :: ret(:)
 
-	if(obj%mesh%empty() )then
+	if(this%mesh%empty() )then
 		ret = zeros(1)
 	else
-		allocate(ret(obj%nn() ) )
-		ret(:) = obj%mesh%nodcoord(:,3) 
+		allocate(ret(this%nn() ) )
+		ret(:) = this%mesh%nodcoord(:,3) 
 	endif
 
 end function
 ! ##################################################################
 
-function TractionVectorFEMDomain(obj,displacement,YoungModulus,PoissonRatio,debug_elementID) result(Traction)
-	class(FEMDomain_),intent(inout) :: obj
+function TractionVectorFEMDomain(this,displacement,YoungModulus,PoissonRatio,debug_elementID) result(Traction)
+	class(FEMDomain_),intent(inout) :: this
 	real(real64),intent(in) :: displacement(:),YoungModulus(:),PoissonRatio(:)
 	real(real64),allocatable :: Traction(:)
 	real(real64),allocatable :: Dmat(:,:), Bmat(:,:),Te(:),Teg(:),ElemDisp(:,:),Tem(:,:),Disp_vec(:,:)
@@ -12982,50 +13158,50 @@ function TractionVectorFEMDomain(obj,displacement,YoungModulus,PoissonRatio,debu
 	type(IO_) :: f
 	integer(int32) :: i,j
 
-	if(obj%mesh%empty() )then
+	if(this%mesh%empty() )then
 		return
 	endif
 
-	Traction = zeros(obj%nn()*obj%nd() ) 
+	Traction = zeros(this%nn()*this%nd() ) 
 	
-	ElemDisp = zeros(obj%nne(),obj%nd() )
+	ElemDisp = zeros(this%nne(),this%nd() )
 
 	! For each element
-	do i=1, obj%ne()
+	do i=1, this%ne()
 		if(present(debug_elementID) )then
 			if(debug_elementID==i)then
 				call f%open("TractionVector___debug_msg.txt")
 			endif
 		endif
 		! For each integration point
-		do j=1, obj%ngp()
+		do j=1, this%ngp()
 			! Compute traction vector
 			! (1) get shape function
-			sf = obj%getShapeFunction(&
+			sf = this%getShapeFunction(&
 				ElementID=i,GaussPointID=j)
 			! get B-matrix
-			Bmat = obj%BMatrix(&
+			Bmat = this%BMatrix(&
 				shapefunction=sf,ElementID=i)
 			! get Element-wise displacement vector
 			ElemDisp = selectRow(&
-				Matrix=reshape(Displacement,obj%nn(),obj%nd()),  &
-				RowIDs=obj%connectivity(ElementID=i) )
+				Matrix=reshape(Displacement,this%nn(),this%nd()),  &
+				RowIDs=this%connectivity(ElementID=i) )
 			
 			! get Stress vector
 !  <<<<bug>>>>>
-			StressVector = obj%StressVector(&
+			StressVector = this%StressVector(&
 				ElementID=i,GaussPoint=j,disp= ElemDisp,&
 					E = YoungModulus(i),v=PoissonRatio(i) )
 			! get elemental traction vector
 !  <<<<bug>>>>>
-			!Tem = matmul(transpose(Bmat),matmul(obj%Dmatrix(E = YoungModulus(i),v=PoissonRatio(i)),&
+			!Tem = matmul(transpose(Bmat),matmul(this%Dmatrix(E = YoungModulus(i),v=PoissonRatio(i)),&
 			!matmul(Bmat,reshape(transpose(ElemDisp),[size(ElemDisp,1)*size(ElemDisp,2),1] )  )))*sf%detJ
 			
 			Te = matmul(transpose(Bmat),StressVector)*sf%detJ
 			!Te = reshape(Tem,[size(Tem,1)*size(Tem,2)])
 			
 			! add to global vector
-			Traction = Traction + obj%asGlobalVector(LocalVector=Te,ElementID=i,DOF=obj%nd() )
+			Traction = Traction + this%asGlobalVector(LocalVector=Te,ElementID=i,DOF=this%nd() )
 			if(present(debug_elementID) )then
 				if(debug_elementID==i)then
 				
@@ -13041,13 +13217,13 @@ function TractionVectorFEMDomain(obj,displacement,YoungModulus,PoissonRatio,debu
 					write(f%fh,*) "StressVector"
 					call f%write(StressVector)
 					write(f%fh,*) "%StressVector"
-					call f%write(obj%StressVector(&
+					call f%write(this%StressVector(&
 						ElementID=i,GaussPoint=j,disp= ElemDisp,&
 							E = YoungModulus(i),v=PoissonRatio(i) ))
 					write(f%fh,*) "Tem"
 					call f%write(Tem)
 					call f%write("Dmat")
-					call f%write(obj%Dmatrix(E = YoungModulus(i),v=PoissonRatio(i)) )
+					call f%write(this%Dmatrix(E = YoungModulus(i),v=PoissonRatio(i)) )
 					write(f%fh,*) "Traction(element)"
 					call f%write(Te)
 
@@ -13055,11 +13231,11 @@ function TractionVectorFEMDomain(obj,displacement,YoungModulus,PoissonRatio,debu
 					call f%write(matmul(Bmat,Disp_vec  ))					
 
 					write(f%fh,*) "*matmul(Dmat,matmul(Bmat,ElemDisp))"
-					call f%write(matmul(obj%Dmatrix(E = YoungModulus(i),v=PoissonRatio(i)),&
+					call f%write(matmul(this%Dmatrix(E = YoungModulus(i),v=PoissonRatio(i)),&
 						matmul(Bmat,Disp_vec  )))
 					
 					write(f%fh,*) "*sf%detJ*matmul(Dmat,matmul(Bmat,ElemDisp))"
-					call f%write(sf%detJ*matmul(obj%Dmatrix(E = YoungModulus(i),v=PoissonRatio(i)),&
+					call f%write(sf%detJ*matmul(this%Dmatrix(E = YoungModulus(i),v=PoissonRatio(i)),&
 						matmul(Bmat,Disp_vec  )))
 				endif
 			endif
@@ -13112,8 +13288,8 @@ end function
 !	
 !
 !end function
-function asGlobalVectorFEMDomain(obj,LocalVector,ElementID,DOF) result(globalvec)
-	class(FEMDomain_),intent(in) :: obj
+function asGlobalVectorFEMDomain(this,LocalVector,ElementID,DOF) result(globalvec)
+	class(FEMDomain_),intent(in) :: this
 	real(real64),intent(in):: LocalVector(:)
 	integer(int32),intent(in) :: ElementID,DOF
 	real(real64),allocatable :: globalvec(:)
@@ -13121,13 +13297,13 @@ function asGlobalVectorFEMDomain(obj,LocalVector,ElementID,DOF) result(globalvec
 	integer(int32), allocatable :: connectivity(:)
 	
 
-	n = obj%nn()*DOF
+	n = this%nn()*DOF
 	globalvec = zeros(n)
 
 	! globalvec = (A1x, A1y, A1z, A2x, A2y, A2z, ...  ) 
 
-	connectivity= obj%connectivity(ElementID=ElementID)
-	do i=1,obj%nne()
+	connectivity= this%connectivity(ElementID=ElementID)
+	do i=1,this%nne()
 		do j=1, DOF
 			n = DOF*(i-1) + j
 			ng= DOF*(connectivity(i)-1) + j
@@ -13143,14 +13319,14 @@ end function
 
 
 ! #########################################################################
-function getNodeListFEMDomain(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax) result(NodeList)
-	class(FEMDomain_),intent(inout) :: obj
+function getNodeListFEMDomain(this,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax) result(NodeList)
+	class(FEMDomain_),intent(inout) :: this
 	type(FEMDomain_),optional,intent(inout) :: BoundingBox
 	real(real64),optional,intent(in) :: xmin,xmax,ymin,ymax,zmin,zmax
 	integer(int32),allocatable :: NodeList(:)
 
 
-	NodeList = obj%mesh%getNodeList(BoundingBox=BoundingBox%mesh &
+	NodeList = this%mesh%getNodeList(BoundingBox=BoundingBox%mesh &
 	,xmin=xmin &
 	,xmax=xmax &
 	,ymin=ymin &
@@ -13162,26 +13338,26 @@ end function
 ! #########################################################################
 
 ! #########################################################################
-function getFacetListFEMDomain(obj,NodeID) result(FacetList)
-    class(FEMDomain_),intent(inout) :: obj
+function getFacetListFEMDomain(this,NodeID) result(FacetList)
+    class(FEMDomain_),intent(inout) :: this
     integer(int32),intent(in) :: NodeID
     integer(int32),allocatable :: FacetList(:,:) ! Node-ID =  FacetList(FacetID, LocalNodeID ) 
 
-	FacetList = obj%mesh%getFacetList(NodeID=NodeID)
+	FacetList = this%mesh%getFacetList(NodeID=NodeID)
 
 end function
 ! #########################################################################
 
 
-function getElementListFEMDomain(obj,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax,NodeID) result(ElementList)
-    class(FEMDomain_),intent(inout) :: obj
+function getElementListFEMDomain(this,BoundingBox,xmin,xmax,ymin,ymax,zmin,zmax,NodeID) result(ElementList)
+    class(FEMDomain_),intent(inout) :: this
     type(FEMDomain_),optional,intent(inout) :: BoundingBox
     real(real64),optional,intent(in) :: xmin,xmax,ymin,ymax,zmin,zmax
     integer(int32),optional,intent(in) :: NodeID
     integer(int32),allocatable :: NodeList(:)
     integer(int32),allocatable :: ElementList(:)
 
-	ElementList= obj%mesh%getElementList(BoundingBox=BoundingBox%mesh &
+	ElementList= this%mesh%getElementList(BoundingBox=BoundingBox%mesh &
 		,xmin=xmin &
 		,xmax=xmax &
 		,ymin=ymin &
@@ -13194,8 +13370,8 @@ end function
 ! #########################################################################
 
 
-function getElementList_by_radiusFEMDomain(obj,center,radius,zmin,zmax) result(ElementList)
-    class(FEMDomain_),intent(inout) :: obj
+function getElementList_by_radiusFEMDomain(this,center,radius,zmin,zmax) result(ElementList)
+    class(FEMDomain_),intent(inout) :: this
     real(real64),intent(in) :: center(1:2),radius,zmin,zmax
     real(real64),allocatable :: elem_center(:)
 
@@ -13203,9 +13379,9 @@ function getElementList_by_radiusFEMDomain(obj,center,radius,zmin,zmax) result(E
     integer(int32),allocatable :: ElementList(:)
 	integer(int32) :: i,j,k
 	
-	CheckList = int(zeros(obj%ne() ))
-	do i=1, obj%ne() 
-		elem_center = obj%centerPosition(i)
+	CheckList = int(zeros(this%ne() ))
+	do i=1, this%ne() 
+		elem_center = this%centerPosition(i)
 		if(norm(elem_center(1:2)-center(1:2))<=radius ) then
 			if(zmin <= elem_center(3) .and. elem_center(3) <=zmax )then
 				CheckList(i) = 1
@@ -13248,11 +13424,11 @@ end function
 
 
 
-pure function emptyFEMDomain(obj) result(FEMDomain_is_empty)
-    class(FEMDomain_),intent(in) :: obj
+pure function emptyFEMDomain(this) result(FEMDomain_is_empty)
+    class(FEMDomain_),intent(in) :: this
     logical :: FEMDomain_is_empty
 
-    FEMDomain_is_empty = obj%mesh%empty()
+    FEMDomain_is_empty = this%mesh%empty()
 
 end function
 ! ########################################
@@ -13289,48 +13465,48 @@ function appendfemdomain(x,y)  result(z)
 end function appendFEMDomain
 ! ########################################
 
-subroutine fixReversedElementsFEMDomain(obj)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine fixReversedElementsFEMDomain(this)
+	class(FEMDomain_),intent(inout) :: this
 	real(real64) :: volume
     integer(int32) :: i,j
 	integer(int32),allocatable :: elemnod(:)
 
-	if(obj%mesh%empty() )then
+	if(this%mesh%empty() )then
 		return
 	else
 		! fix reversed elements
 		!!$OMP parallel do default(shared) private(elemnod,volume)
-		do i=1,obj%mesh%ne()
-			volume = obj%getVolume(elem=i)
+		do i=1,this%mesh%ne()
+			volume = this%getVolume(elem=i)
 			if(volume < 0.0d0) then
-				elemnod = obj%mesh%elemnod(i,:) 
+				elemnod = this%mesh%elemnod(i,:) 
 				
-				if(obj%nne()==8 .and. obj%nd()==3 )then
-					obj%mesh%elemnod(i,1) = elemnod(4)
-					obj%mesh%elemnod(i,2) = elemnod(3)
-					obj%mesh%elemnod(i,3) = elemnod(2)
-					obj%mesh%elemnod(i,4) = elemnod(1)
-					obj%mesh%elemnod(i,5) = elemnod(8)
-					obj%mesh%elemnod(i,6) = elemnod(7)
-					obj%mesh%elemnod(i,7) = elemnod(6)
-					obj%mesh%elemnod(i,8) = elemnod(5)
-				elseif(obj%nne()==4 .and. obj%nd()==3 )then
-					obj%mesh%elemnod(i,1) = elemnod(3)
-					obj%mesh%elemnod(i,2) = elemnod(2)
-					obj%mesh%elemnod(i,3) = elemnod(1)
-					obj%mesh%elemnod(i,4) = elemnod(4)
-				elseif(obj%nne()==4 .and. obj%nd()==2 )then
-					obj%mesh%elemnod(i,1) = elemnod(4)
-					obj%mesh%elemnod(i,2) = elemnod(3)
-					obj%mesh%elemnod(i,3) = elemnod(2)
-					obj%mesh%elemnod(i,4) = elemnod(1)
-				elseif(obj%nne()==3 .and. obj%nd()==2 )then
-					obj%mesh%elemnod(i,1) = elemnod(3)
-					obj%mesh%elemnod(i,2) = elemnod(2)
-					obj%mesh%elemnod(i,3) = elemnod(1)
+				if(this%nne()==8 .and. this%nd()==3 )then
+					this%mesh%elemnod(i,1) = elemnod(4)
+					this%mesh%elemnod(i,2) = elemnod(3)
+					this%mesh%elemnod(i,3) = elemnod(2)
+					this%mesh%elemnod(i,4) = elemnod(1)
+					this%mesh%elemnod(i,5) = elemnod(8)
+					this%mesh%elemnod(i,6) = elemnod(7)
+					this%mesh%elemnod(i,7) = elemnod(6)
+					this%mesh%elemnod(i,8) = elemnod(5)
+				elseif(this%nne()==4 .and. this%nd()==3 )then
+					this%mesh%elemnod(i,1) = elemnod(3)
+					this%mesh%elemnod(i,2) = elemnod(2)
+					this%mesh%elemnod(i,3) = elemnod(1)
+					this%mesh%elemnod(i,4) = elemnod(4)
+				elseif(this%nne()==4 .and. this%nd()==2 )then
+					this%mesh%elemnod(i,1) = elemnod(4)
+					this%mesh%elemnod(i,2) = elemnod(3)
+					this%mesh%elemnod(i,3) = elemnod(2)
+					this%mesh%elemnod(i,4) = elemnod(1)
+				elseif(this%nne()==3 .and. this%nd()==2 )then
+					this%mesh%elemnod(i,1) = elemnod(3)
+					this%mesh%elemnod(i,2) = elemnod(2)
+					this%mesh%elemnod(i,3) = elemnod(1)
 				else
 					print *, "[ERROR] >> fixReversedElementsFEMDomain"
-					print *, "Element with ",obj%nne(),"nne and",obj%nd(),"obj%nd()"
+					print *, "Element with ",this%nne(),"nne and",this%nd(),"this%nd()"
 					print *, "is not impremented yet."
 					stop
 				endif
@@ -13340,28 +13516,28 @@ subroutine fixReversedElementsFEMDomain(obj)
 	endif
 end subroutine
 
-!function getNumberOfPointFEMDomain(obj,xmin,) result(ret)
-!	class(FEMDomain_),intent(in) :: obj
+!function getNumberOfPointFEMDomain(this,xmin,) result(ret)
+!	class(FEMDomain_),intent(in) :: this
 !end function
 
-subroutine syncFEMDomain(obj,from,mpid)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine syncFEMDomain(this,from,mpid)
+	class(FEMDomain_),intent(inout) :: this
 	integer(int32),intent(in) :: from
 	type(MPI_),intent(inout) :: mpid
 
-	call obj%mesh%sync(from=from, mpid=mpid)
+	call this%mesh%sync(from=from, mpid=mpid)
 end subroutine
 
 
-subroutine syncFEMDomainVector(obj,from,mpid)
-	type(FEMDomain_),allocatable,intent(inout) :: obj(:)
+subroutine syncFEMDomainVector(this,from,mpid)
+	type(FEMDomain_),allocatable,intent(inout) :: this(:)
 	integer(int32),intent(in) :: from
 	type(MPI_),intent(inout) :: mpid
 	integer(int32) :: vec_size, i
 
 	vec_size=0
 	if(mpid%myrank==from)then
-		if(.not.allocated(obj) )then
+		if(.not.allocated(this) )then
 			vec_size = -1
 		endif
 	endif
@@ -13371,21 +13547,21 @@ subroutine syncFEMDomainVector(obj,from,mpid)
 	endif
 
 	if(from /= mpid%myrank)then
-		if(allocated(obj) )then
-			deallocate(obj)
+		if(allocated(this) )then
+			deallocate(this)
 		endif
-		allocate(obj(vec_size) )
+		allocate(this(vec_size) )
 	endif
 
 	do i=1,vec_size
-		call obj(i)%mesh%sync(from=from, mpid=mpid)
+		call this(i)%mesh%sync(from=from, mpid=mpid)
 	enddo
 
 end subroutine
 
 ! ###################################################################
-function getScalarFieldFEMDomain(obj,xr,yr,zr,entryvalue,default) result(ScalarField)
-	class(FEMDomain_),intent(in) :: obj
+function getScalarFieldFEMDomain(this,xr,yr,zr,entryvalue,default) result(ScalarField)
+	class(FEMDomain_),intent(in) :: this
 	real(real64),intent(in) :: xr(2),yr(2),zr(2),default(:),entryvalue
 	real(real64),allocatable:: ScalarField(:)
 	real(real64) :: x(3)
@@ -13393,24 +13569,24 @@ function getScalarFieldFEMDomain(obj,xr,yr,zr,entryvalue,default) result(ScalarF
 	logical :: empty_field
 	
 	n = size(default)
-	if(n==obj%nn() )then
+	if(n==this%nn() )then
 		! node-wise
 		ScalarField = default
-		do i=1,obj%nn()
-			if( xr(1) <= obj%position_x(i) .and. obj%position_x(i) <= xr(2)  )then
-				if( yr(1) <= obj%position_y(i) .and. obj%position_y(i) <= yr(2)  )then
-					if( zr(1) <= obj%position_z(i) .and. obj%position_z(i) <= zr(2)  )then
+		do i=1,this%nn()
+			if( xr(1) <= this%position_x(i) .and. this%position_x(i) <= xr(2)  )then
+				if( yr(1) <= this%position_y(i) .and. this%position_y(i) <= yr(2)  )then
+					if( zr(1) <= this%position_z(i) .and. this%position_z(i) <= zr(2)  )then
 						ScalarField(i) = entryvalue
 					endif
 				endif
 			endif
 		enddo
-	elseif(n==obj%ne())then
+	elseif(n==this%ne())then
 		! element-wise
 		
 		ScalarField = default
-		do i=1,obj%ne()
-			x = obj%centerPosition(i)
+		do i=1,this%ne()
+			x = this%centerPosition(i)
 			if( xr(1) <= x(1) .and. x(1) <= xr(2)  )then
 				if( yr(1) <= x(2) .and. x(2) <= yr(2)  )then
 					if( zr(1) <= x(3) .and. x(3) <= zr(2)  )then
@@ -13432,8 +13608,8 @@ function getScalarFieldFEMDomain(obj,xr,yr,zr,entryvalue,default) result(ScalarF
 end function
 ! ###################################################################
 
-function getE2EconnectivityFEMDomain(obj) result(E2Econnect)
-	class(FEMDomain_),intent(in) :: obj
+function getE2EconnectivityFEMDomain(this) result(E2Econnect)
+	class(FEMDomain_),intent(in) :: this
 	integer(int32),allocatable :: E2Econnect(:,:),elemnodid(:),GroupID(:,:),element_id_list(:)
 	integer(int32) :: i,j,k,efacet_id(6,4),gfacet_id(6,4),l
 	integer(int32) :: exists_count
@@ -13442,15 +13618,15 @@ function getE2EconnectivityFEMDomain(obj) result(E2Econnect)
 
 	integer(int32) :: group_id,num_elem,ii,jj
 
-	if(obj%mesh%empty()) then
+	if(this%mesh%empty()) then
 		return
 	endif
 
 		
 	! O(1025*1025*NlogN) algorithm
-	allocate(E2Econnect(obj%ne(),6) )
+	allocate(E2Econnect(this%ne(),6) )
 	E2Econnect(:,:) = -1
-	elemnodid = zeros(obj%nne())
+	elemnodid = zeros(this%nne())
 
 	! only for 8-node isoparametric element
 	efacet_id(1,1:4) = [1,2,6,5]
@@ -13460,7 +13636,7 @@ function getE2EconnectivityFEMDomain(obj) result(E2Econnect)
 	efacet_id(5,1:4) = [1,2,3,4]
 	efacet_id(6,1:4) = [5,6,7,8]
 	
-	GroupID = obj%mesh%BinaryTreeSearch(old_GroupID=GroupID,min_elem_num=2000)
+	GroupID = this%mesh%BinaryTreeSearch(old_GroupID=GroupID,min_elem_num=2000)
 	! for each group IDs
 	
 
@@ -13481,11 +13657,11 @@ function getE2EconnectivityFEMDomain(obj) result(E2Econnect)
 		
 		do ii=1,size(element_id_list)
 			i = element_id_list(ii)
-			elemnodid = obj%mesh%elemnod(i,:)
+			elemnodid = this%mesh%elemnod(i,:)
 
 			do j=1,6
 				do k=1,4
-					gfacet_id(j,k) = obj%mesh%elemnod(i,efacet_id(j,k) )
+					gfacet_id(j,k) = this%mesh%elemnod(i,efacet_id(j,k) )
 				enddo
 			enddo
 
@@ -13495,13 +13671,13 @@ function getE2EconnectivityFEMDomain(obj) result(E2Econnect)
 				if(i==j) cycle
 				
 				
-				if(minval(obj%mesh%elemnod(j,:)) > maxval(gfacet_id) ) cycle
-				if(maxval(obj%mesh%elemnod(j,:)) < minval(gfacet_id) ) cycle
+				if(minval(this%mesh%elemnod(j,:)) > maxval(gfacet_id) ) cycle
+				if(maxval(this%mesh%elemnod(j,:)) < minval(gfacet_id) ) cycle
 				
 				do k=1,size(gfacet_id,1)
 					exists_count = 0
 					do l=1,size(gfacet_id,2)
-						if( exists(vector=obj%mesh%elemnod(j,:),val=gfacet_id(k,l) ) )then
+						if( exists(vector=this%mesh%elemnod(j,:),val=gfacet_id(k,l) ) )then
 							exists_count = exists_count+1
 						endif
 					enddo
@@ -13522,8 +13698,8 @@ end function
 ! ###################################################################
 
 ! ###################################################################
-function MovingAverageFilterFEMDomain(obj,inScalarField,ignore_top_and_bottom) result(outScalarField)
-	class(FEMDomain_),intent(in) :: obj
+function MovingAverageFilterFEMDomain(this,inScalarField,ignore_top_and_bottom) result(outScalarField)
+	class(FEMDomain_),intent(in) :: this
 	real(real64),intent(in) :: inScalarField(:)
 	real(real64),allocatable:: outScalarField(:),neighborvalue(:) 
 	logical,optional,intent(in) :: ignore_top_and_bottom
@@ -13532,17 +13708,17 @@ function MovingAverageFilterFEMDomain(obj,inScalarField,ignore_top_and_bottom) r
 	
 	integer(int32) :: count_zero
 
-	if(obj%mesh%empty() )then
+	if(this%mesh%empty() )then
 		return
 	endif
 
-	if(obj%ne() /= size(inScalarField) )then
+	if(this%ne() /= size(inScalarField) )then
 		!print *, "ERROR :: MovingAverageFilterFEMDomain >> only for element-wise scalar fields"
 		return
 	endif
 
-	E2Econnect = obj%getE2Econnectivity()
-	!Element_Groups = obj%mesh%BinaryTreeSearch(old_GroupID=GroupID,min_elem_num=10000)
+	E2Econnect = this%getE2Econnectivity()
+	!Element_Groups = this%mesh%BinaryTreeSearch(old_GroupID=GroupID,min_elem_num=10000)
 
 	if(present(ignore_top_and_bottom) )then
 		if(ignore_top_and_bottom)then
@@ -13556,7 +13732,7 @@ function MovingAverageFilterFEMDomain(obj,inScalarField,ignore_top_and_bottom) r
 	
 	!移動平均フィルタ
 
-	do i=1,obj%ne()
+	do i=1,this%ne()
 		count_zero = 0
 		neighborvalue = 0.0d0
 		do j=1,size(E2Econnect,2)
@@ -13578,53 +13754,53 @@ end function
 
 
 ! #########################################################
-pure function xminFEMDomain(obj) result(ret)
-    class(FEMDomain_),intent(in) :: obj
+pure function xminFEMDomain(this) result(ret)
+    class(FEMDomain_),intent(in) :: this
     real(real64) :: ret
 
-    ret = minval(obj%mesh%nodcoord(:,1))
+    ret = minval(this%mesh%nodcoord(:,1))
 
 end function
 ! #########################################################
 
 
 ! #########################################################
-pure function xmaxFEMDomain(obj) result(ret)
-    class(FEMDomain_),intent(in) :: obj
+pure function xmaxFEMDomain(this) result(ret)
+    class(FEMDomain_),intent(in) :: this
     real(real64) :: ret
 
-    ret = maxval(obj%mesh%nodcoord(:,1))
+    ret = maxval(this%mesh%nodcoord(:,1))
 
 end function
 ! #########################################################
 
 ! #########################################################
-pure function yminFEMDomain(obj) result(ret)
-    class(FEMDomain_),intent(in) :: obj
+pure function yminFEMDomain(this) result(ret)
+    class(FEMDomain_),intent(in) :: this
     real(real64) :: ret
 
-    ret = minval(obj%mesh%nodcoord(:,2))
+    ret = minval(this%mesh%nodcoord(:,2))
 
 end function
 ! #########################################################
 
 
 ! #########################################################
-pure function ymaxFEMDomain(obj) result(ret)
-    class(FEMDomain_),intent(in) :: obj
+pure function ymaxFEMDomain(this) result(ret)
+    class(FEMDomain_),intent(in) :: this
     real(real64) :: ret
 
-    ret = maxval(obj%mesh%nodcoord(:,2))
+    ret = maxval(this%mesh%nodcoord(:,2))
 
 end function
 ! #########################################################
 
 ! #########################################################
-pure function zminFEMDomain(obj) result(ret)
-    class(FEMDomain_),intent(in) :: obj
+pure function zminFEMDomain(this) result(ret)
+    class(FEMDomain_),intent(in) :: this
     real(real64) :: ret
 
-    ret = minval(obj%mesh%nodcoord(:,3))
+    ret = minval(this%mesh%nodcoord(:,3))
 
 end function
 ! #########################################################
@@ -13729,30 +13905,30 @@ function getElevationFEMDomain(this,x_num,y_num,x_len,y_len) result(ret)
 
 end function
 ! #########################################################
-subroutine deformFEMDomain(obj,disp,velocity,accel,dt)
-    class(FEMDomain_),intent(inout) :: obj
+subroutine deformFEMDomain(this,disp,velocity,accel,dt)
+    class(FEMDomain_),intent(inout) :: this
     real(real64),optional,intent(in) :: disp(:),velocity(:),accel(:),dt
 
-	if(obj%mesh%empty() )then
+	if(this%mesh%empty() )then
 		print *, "ERROR :: no mesh is imported."
 		return
 	else
 		if(present(disp) )then
-			obj%mesh%nodcoord(:,:) = obj%mesh%nodcoord(:,:) + reshape(disp,obj%nn(),obj%nd() )
+			this%mesh%nodcoord(:,:) = this%mesh%nodcoord(:,:) + reshape(disp,this%nn(),this%nd() )
 		endif
 		if(present(velocity) )then
 			if(.not. present(dt) )then
 				print *, "ERROR :: dt shuold be imported."
 				stop
 			endif
-			obj%mesh%nodcoord(:,:) = obj%mesh%nodcoord(:,:) + reshape(velocity,obj%nn(),obj%nd() )*dt
+			this%mesh%nodcoord(:,:) = this%mesh%nodcoord(:,:) + reshape(velocity,this%nn(),this%nd() )*dt
 		endif
 		if(present(accel) )then
 			if(.not. present(dt) )then
 				print *, "ERROR :: dt shuold be imported."
 				stop
 			endif
-			obj%mesh%nodcoord(:,:) = obj%mesh%nodcoord(:,:) + 0.50d0*reshape(accel,obj%nn(),obj%nd() )*dt*dt
+			this%mesh%nodcoord(:,:) = this%mesh%nodcoord(:,:) + 0.50d0*reshape(accel,this%nn(),this%nd() )*dt*dt
 		endif
 
 	endif
@@ -13799,15 +13975,15 @@ end function
 
 
 
-subroutine overset_FEMDomainp(obj,FEMDomainp,to,by,debug)
-	class(FEMDomainp_),intent(inout) :: obj
+subroutine overset_FEMDomainp(this,FEMDomainp,to,by,debug)
+	class(FEMDomainp_),intent(inout) :: this
 	type(FEMDomainp_),intent(inout) :: femdomainp(:)
 	integer(int32),intent(in) :: to
 	character(*),intent(in) :: by
 	integer(int32) :: from, MyID, algorithm
 	logical,optional,intent(in) :: debug
 
-	myID = obj%getMyID(femdomainp)
+	myID = this%getMyID(femdomainp)
 	select case(by)
 		case default
 			algorithm = FEMDomain_Overset_GPP
@@ -13834,15 +14010,15 @@ subroutine overset_FEMDomainp(obj,FEMDomainp,to,by,debug)
 end subroutine
 
 
-subroutine oversetFEMDomains(obj,FEMDomains,to,by,debug)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine oversetFEMDomains(this,FEMDomains,to,by,debug)
+	class(FEMDomain_),intent(inout) :: this
 	type(FEMDomain_),intent(inout) :: FEMDomains(:)
 	integer(int32),intent(in) :: to
 	character(*),intent(in) :: by
 	integer(int32) :: from, MyID, algorithm
 	logical,optional,intent(in) :: debug
 
-	myID = obj%getMyID(FEMDomains)
+	myID = this%getMyID(FEMDomains)
 	select case(by)
 		case default
 			algorithm = FEMDomain_Overset_GPP
@@ -13869,8 +14045,8 @@ subroutine oversetFEMDomains(obj,FEMDomains,to,by,debug)
 end subroutine
 
 
-subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID, debug)
-	class(FEMDomain_),intent(inout) :: obj
+subroutine oversetFEMDomain(this, FEMDomain, DomainID, algorithm, MyDomainID, debug)
+	class(FEMDomain_),intent(inout) :: this
 	type(FEMDomain_),intent(inout) :: FEMDomain
 	integer(int32),intent(in) :: DomainID, algorithm
 	integer(int32),optional,intent(in) :: MyDomainID
@@ -13884,23 +14060,23 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID, deb
 	integer(int32) :: kk
 	
 
-	if(.not. allocated(obj%OversetConnect) )then
-		allocate(obj%OversetConnect(300) )
+	if(.not. allocated(this%OversetConnect) )then
+		allocate(this%OversetConnect(300) )
 	endif
-	position = zeros(obj%nd() )
+	position = zeros(this%nd() )
 
 
 	if(algorithm == FEMDomain_Overset_GPP)then
 
-		if(.not.allocated(obj%OversetExists) )then
-			obj%OversetExists = int(zeros(obj%ne(),obj%ngp() ))
+		if(.not.allocated(this%OversetExists) )then
+			this%OversetExists = int(zeros(this%ne(),this%ngp() ))
 		endif
 
-		InterConnect = int( zeros(obj%nne()+ femdomain%nne()) )
+		InterConnect = int( zeros(this%nne()+ femdomain%nne()) )
 						
-		DomainIDs12 = int( zeros(obj%nne()+ femdomain%nne()) ) 
-		DomainIDs12(1:obj%nne() ) = input(default=1, option=MyDomainID)
-		DomainIDs12(obj%nne()+1: ) = DomainID
+		DomainIDs12 = int( zeros(this%nne()+ femdomain%nne()) ) 
+		DomainIDs12(1:this%nne() ) = input(default=1, option=MyDomainID)
+		DomainIDs12(this%nne()+1: ) = DomainID
 
 
 		if(present(debug) )then
@@ -13910,7 +14086,7 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID, deb
 		endif
 
 		! ElementIDList
-		ElementIDList = obj%getElementList(&
+		ElementIDList = this%getElementList(&
 			xmin=FEMDomain%x_min(),&
 			ymin=FEMDomain%y_min(),&
 			zmin=FEMDomain%z_min(),&
@@ -13927,38 +14103,38 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID, deb
 				endif
 			endif
 			MyElementID = ElementIDList(kk)
-			do GaussPointID = 1, obj%ngp()
+			do GaussPointID = 1, this%ngp()
 				! For 1st element, create stiffness matrix
 		    	! set global coordinate
-				position = obj%GlobalPositionOfGaussPoint(ElementID,GaussPointID)
+				position = this%GlobalPositionOfGaussPoint(ElementID,GaussPointID)
 		    	if( femdomain%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))<=0 )then
 		    	    cycle
 				else
-					obj%OversetExists(ElementID, GaussPointID) = obj%OversetExists(ElementID, GaussPointID) +1
+					this%OversetExists(ElementID, GaussPointID) = this%OversetExists(ElementID, GaussPointID) +1
 		    	endif
 
-				if(obj%num_oversetconnect + 1 > size(obj%OversetConnect) )then
-					buf_oversetConnect = obj%OversetConnect
-					deallocate(obj%OversetConnect)
-					allocate(obj%OversetConnect(size(buf_oversetConnect)*2 ) )
-					obj%OversetConnect(1: size(buf_oversetConnect)) = buf_oversetConnect(1:size(buf_oversetConnect))
+				if(this%num_oversetconnect + 1 > size(this%OversetConnect) )then
+					buf_oversetConnect = this%OversetConnect
+					deallocate(this%OversetConnect)
+					allocate(this%OversetConnect(size(buf_oversetConnect)*2 ) )
+					this%OversetConnect(1: size(buf_oversetConnect)) = buf_oversetConnect(1:size(buf_oversetConnect))
 					deallocate(buf_oversetConnect)
 				endif
 
-				obj%num_oversetconnect = obj%num_oversetconnect + 1
+				this%num_oversetconnect = this%num_oversetconnect + 1
 
-				InterConnect(1:obj%nne() ) = obj%connectivity(ElementID)
-		    	InterConnect(obj%nne()+1:) &
+				InterConnect(1:this%nne() ) = this%connectivity(ElementID)
+		    	InterConnect(this%nne()+1:) &
 					= femdomain%connectivity(femdomain%mesh%nearestElementID(x=position(1),y=position(2),z=position(3) ))
 				
-				obj%OversetConnect(obj%num_oversetconnect)%projection = FEMDomain_Overset_GPP
-				obj%OversetConnect(obj%num_oversetconnect)%position   = position
-				obj%OversetConnect(obj%num_oversetconnect)%ElementID  = ElementID
-				obj%OversetConnect(obj%num_oversetconnect)%MyElementID  = MyElementID
-				obj%OversetConnect(obj%num_oversetconnect)%GaussPointID = GaussPointID
-				obj%OversetConnect(obj%num_oversetconnect)%InterConnect = InterConnect
-				obj%OversetConnect(obj%num_oversetconnect)%DomainIDs12  = DomainIDs12
-				obj%OversetConnect(obj%num_oversetconnect)%active = .true.
+				this%OversetConnect(this%num_oversetconnect)%projection = FEMDomain_Overset_GPP
+				this%OversetConnect(this%num_oversetconnect)%position   = position
+				this%OversetConnect(this%num_oversetconnect)%ElementID  = ElementID
+				this%OversetConnect(this%num_oversetconnect)%MyElementID  = MyElementID
+				this%OversetConnect(this%num_oversetconnect)%GaussPointID = GaussPointID
+				this%OversetConnect(this%num_oversetconnect)%InterConnect = InterConnect
+				this%OversetConnect(this%num_oversetconnect)%DomainIDs12  = DomainIDs12
+				this%OversetConnect(this%num_oversetconnect)%active = .true.
 				! 何を記憶して，何はもう一度計算するか．
 				
 			enddo
@@ -13967,51 +14143,51 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID, deb
 
 	elseif(algorithm == FEMDomain_Overset_P2P )then
 
-		if(.not.allocated(obj%OversetExists) )then
-			obj%OversetExists = int(zeros(obj%nn(),1 ))
+		if(.not.allocated(this%OversetExists) )then
+			this%OversetExists = int(zeros(this%nn(),1 ))
 		endif
 
 		allocate(DomainIDs12(femdomain%nne()+1 ) )
 		allocate(InterConnect(femdomain%nne()+1 ) )
 
-		do NodeID=1, obj%nn()
+		do NodeID=1, this%nn()
 			! For 1st element, create stiffness matrix
 			! set global coordinate
-			position(:) = obj%mesh%nodcoord(NodeID,:)
+			position(:) = this%mesh%nodcoord(NodeID,:)
 			ElementID = femdomain%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))
-			MyElementID = obj%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))
+			MyElementID = this%mesh%nearestElementID(x=position(1),y=position(2),z=position(3))
 			if( ElementID<=0 )then
 				cycle
 			else
-				obj%OversetExists(NodeID, 1) = obj%OversetExists(NodeID, 1) +1
+				this%OversetExists(NodeID, 1) = this%OversetExists(NodeID, 1) +1
 			endif
 
-			if(obj%num_oversetconnect + 1 > size(obj%OversetConnect) )then
-				buf_oversetConnect = obj%OversetConnect
-				deallocate(obj%OversetConnect)
-				allocate(obj%OversetConnect(size(buf_oversetConnect)*2 ) )
-				obj%OversetConnect(1: size(buf_oversetConnect)) = buf_oversetConnect(1:size(buf_oversetConnect))
+			if(this%num_oversetconnect + 1 > size(this%OversetConnect) )then
+				buf_oversetConnect = this%OversetConnect
+				deallocate(this%OversetConnect)
+				allocate(this%OversetConnect(size(buf_oversetConnect)*2 ) )
+				this%OversetConnect(1: size(buf_oversetConnect)) = buf_oversetConnect(1:size(buf_oversetConnect))
 				deallocate(buf_oversetConnect)
 			endif
-			obj%num_oversetconnect = obj%num_oversetconnect + 1
+			this%num_oversetconnect = this%num_oversetconnect + 1
 
 			InterConnect(1) = NodeID
 			InterConnect(2:) = femdomain%connectivity(femdomain%mesh%nearestElementID(x=position(1),y=position(2),z=position(3) ))
 			DomainIDs12(1)   = input(default=1,option=myDomainID)
 			DomainIDs12(2:)  = DomainID
 
-			obj%OversetConnect(obj%num_oversetconnect)%projection = FEMDomain_Overset_P2P
-			obj%OversetConnect(obj%num_oversetconnect)%position = position
-			obj%OversetConnect(obj%num_oversetconnect)%ElementID =ElementID
-			obj%OversetConnect(obj%num_oversetconnect)%MyElementID = MyElementID
-			obj%OversetConnect(obj%num_oversetconnect)%GaussPointID =0 ! ignore
-			obj%OversetConnect(obj%num_oversetconnect)%InterConnect = InterConnect
-			obj%OversetConnect(obj%num_oversetconnect)%DomainIDs12 = DomainIDs12
-			obj%OversetConnect(obj%num_oversetconnect)%active = .true.
+			this%OversetConnect(this%num_oversetconnect)%projection = FEMDomain_Overset_P2P
+			this%OversetConnect(this%num_oversetconnect)%position = position
+			this%OversetConnect(this%num_oversetconnect)%ElementID =ElementID
+			this%OversetConnect(this%num_oversetconnect)%MyElementID = MyElementID
+			this%OversetConnect(this%num_oversetconnect)%GaussPointID =0 ! ignore
+			this%OversetConnect(this%num_oversetconnect)%InterConnect = InterConnect
+			this%OversetConnect(this%num_oversetconnect)%DomainIDs12 = DomainIDs12
+			this%OversetConnect(this%num_oversetconnect)%active = .true.
 			
 			!A_ij = penalty*femdomain%ConnectMatrix(position,DOF=femdomain%nd() ) 
 			!! assemble them 
-			!call obj%solver%assemble(&
+			!call this%solver%assemble(&
 			!	connectivity=InterConnect,&
 			!	DOF=femdomain%nd() ,&
 			!	eMatrix=A_ij,&
@@ -14027,11 +14203,11 @@ subroutine oversetFEMDomain(obj, FEMDomain, DomainID, algorithm, MyDomainID, deb
 end subroutine
 
 ! #############################################################
-pure function NumOversetElementsFEMDomain(obj) result(ret)
-	class(FEMDomain_),intent(in) :: obj
+pure function NumOversetElementsFEMDomain(this) result(ret)
+	class(FEMDomain_),intent(in) :: this
 	integer(int32) :: ret
 
-	ret = obj%num_oversetconnect
+	ret = this%num_oversetconnect
 
 end function
 ! #############################################################
@@ -14945,7 +15121,7 @@ end function
 
 ! ##########################################################
 function getValueFEMDomain(this,scalar_field,position) result(retval)
-	class(FEMDomain_),intent(inout) :: this	
+	class(FEMDomain_),intent(inout) :: this
 	real(real64),intent(in) :: scalar_field(:),position(1:3)
 	real(real64) :: retval,localCoord(1:3)
 	type(ShapeFunction_) :: sf
@@ -15068,7 +15244,7 @@ function getStrainTensorFEMDomain(this,displacement,ElementID,GaussPointID,debug
 	integer(int32) :: i,j
 	StrainTensor = zeros(3,3)
 
-	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() )
+	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() ,NumOfGp=this%mesh%getNumOfGp())
 
 	call getAllShapeFunc(shapefunc,elem_id=ElementID,&
 		nod_coord=this%Mesh%NodCoord,&
@@ -16037,6 +16213,54 @@ subroutine read_SCALAR_FEMDomain(this,filename)
 	endif
 
 end subroutine
+
+function elementType2VTKCellType(elementType) result(ret)
+	integer(int32),intent(in) :: elementType(:)
+	integer(int32) :: ret
+
+	if(elementType(1)==1)then
+		! 1-dimensional
+		if(elementType(2)==1)then
+			ret = VTK_VERTEX
+		elseif(elementType(2)==2)then
+			ret = VTK_LINE
+		elseif(elementType(2)==3)then
+			ret = VTK_QUADRATIC_EDGE
+		else 
+			ret = -1
+		endif
+	elseif(elementType(1)==2)then
+		! 2-dimensional
+		if(elementType(2)==3)then
+			ret = VTK_TRIANGLE
+		elseif(elementType(2)==4)then
+			ret = VTK_QUAD
+		elseif(elementType(2)==6)then
+			ret = VTK_QUADRATIC_TRIANGLE
+		elseif(elementType(2)==8)then
+			ret = VTK_QUADRATIC_QUAD
+		else 
+			ret = -1
+		endif
+	elseif(elementType(1)==3)then
+		! 3-dimensional
+		if(elementType(2)==4)then
+			ret = VTK_TETRA
+		elseif(elementType(2)==6)then
+			ret = VTK_WEDGE
+		elseif(elementType(2)==8)then
+			ret = VTK_HEXAHEDRON
+		elseif(elementType(2)==10)then
+			ret = VTK_QUADRATIC_TETRA
+		elseif(elementType(2)==12)then
+			ret = VTK_QUADRATIC_LINEAR_WEDGE
+		elseif(elementType(2)==20)then
+			ret = VTK_QUADRATIC_HEXAHEDRON
+		else 
+			ret = -1
+		endif
+	endif
+end function
 
 end module FEMDomainClass
 
