@@ -503,8 +503,8 @@ subroutine run_SPAC(this,only_FFT,only_summary)
 
     call logfile%open("SPAC_LOG.txt","w")
     
-    filepath = trim(adjustl(this%csv_wave_file))
-    config   = trim(adjustl(this%json_metadata_file))
+    filepath = adjustl(this%csv_wave_file)
+    config   = adjustl(this%json_metadata_file)
     
     call logfile%write("wavedata.csv  :" + filepath)
     call logfile%write("metadata.json :" + config)
@@ -524,7 +524,7 @@ subroutine run_SPAC(this,only_FFT,only_summary)
     bandpass_low         = freal(f%parse(config,key1="bandpass_low")) != 10
     bandpass_high        = freal(f%parse(config,key1="bandpass_high")) != 10
     data_unit            = f%parse(config,key1="data_unit")
-    this%d_unit = trim(data_unit)
+    this%d_unit = data_unit
     
     this%sampling_Hz =      sampling_Hz
     this%radius =       radius
@@ -840,19 +840,19 @@ subroutine pdf_SPAC(this,name)
         do j=1,2
             call f%write('set title "L'+str(logger_id)+' (CH1)"')
             call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
-            call f%write('set ylabel "Fourier spectrum ('+trim(this%d_unit)+') " font "Times,10"')
+            call f%write('set ylabel "Fourier spectrum ('+this%d_unit+') " font "Times,10"')
             call f%write('plot   "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+1,3 )+'_FFT_blocks.csv" u 1:2 w l,&
                  "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+1,3 )+'_FFT.csv" u 1:2 w l ')
             
             call f%write('set title "L'+str(logger_id)+' (CH2)"')
             call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
-            call f%write('set ylabel "Fourier spectrum ('+trim(this%d_unit)+') " font "Times,10"')
+            call f%write('set ylabel "Fourier spectrum ('+this%d_unit+') " font "Times,10"')
             call f%write('plot   "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+2,3 )+'_FFT_blocks.csv" u 1:2 w l,&
                  "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+2,3 )+'_FFT.csv" u 1:2 w l ')
             
             call f%write('set title "L'+str(logger_id)+' (CH3)"')
             call f%write('set xlabel "Frequency (Hz)" font "Times,10"')
-            call f%write('set ylabel "Fourier spectrum ('+trim(this%d_unit)+') " font "Times,10"')
+            call f%write('set ylabel "Fourier spectrum ('+this%d_unit+') " font "Times,10"')
             call f%write('plot   "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+3,3 )+'_FFT_blocks.csv" u 1:2 w l,&
                  "'+this%csv_wave_file+'_'+zfill( 3*(logger_id-1)+3,3 )+'_FFT.csv" u 1:2 w l ')
             logger_id = logger_id + 1
@@ -1098,10 +1098,9 @@ subroutine inversion_SPAC(this,db,db_shape,frequency_scope,name)
         do id = 1, db_shape(2)
             my_filepath = adjustl(db)
             !filename = zfill(proc_id,4)+"_"+zfill(id,8)+"/Rayl-Dispersion.csv"
-            !print *, trim(my_filepath)+zfill(proc_id,4)+"_"+zfill(id,8)+"/Rayl-Dispersion.csv"
-            if(.not.chk%exists(trim(my_filepath)+zfill(proc_id,4)+"_"+zfill(id,8)+"/Rayl-Dispersion.csv") ) cycle
+            if(.not.chk%exists(my_filepath+zfill(proc_id,4)+"_"+zfill(id,8)+"/Rayl-Dispersion.csv") ) cycle
 
-            call f%open(trim(my_filepath) + zfill(proc_id,4)+"_"+zfill(id,8)+"/Rayl-Dispersion.csv","r")
+            call f%open(my_filepath + zfill(proc_id,4)+"_"+zfill(id,8)+"/Rayl-Dispersion.csv","r")
             buf = f%readline()
             do line=1,max_num_line
                 if(f%EOF) exit

@@ -45,21 +45,11 @@ module ShapeFunctionClass
         procedure :: remove => removeShapeFunction
         procedure :: save => saveShapeFunction
         procedure :: open => openShapeFunction
-        procedure :: getNvec => getNvecShapeFunction
 
     end type ShapeFunction_
 
 contains
 
-!!  #####################################################
-function getNvecShapeFunction(obj,x,y,z) result(nvec)
-    class(Shapefunction_),intent(in) :: obj
-    real(real64),optional,intent(in)::x,y,z
-    real(real64),allocatable :: nvec(:)
-
-    
-end function
-!!  #####################################################
 
 !!  #####################################################
 subroutine openShapeFunction(obj,path,name)

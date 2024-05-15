@@ -261,12 +261,12 @@ end subroutine
 subroutine createFileNameMPI(obj,Path,Name)
     class(MPI_),intent(inout) :: obj
     character(*),intent(in) :: Path,Name
-    integer :: i, access
+    integer :: i
     
-    i=access(Path//adjustl(fstring(obj%MyRank))," ")
-    if(i/=0)then
-        call execute_command_line("mkdir "//Path//adjustl(fstring(obj%MyRank)))
-    endif
+    !i=access(Path//adjustl(fstring(obj%MyRank))," ")
+    !if(i/=0)then
+        call execute_command_line("mkdir -p "//Path//adjustl(fstring(obj%MyRank)))
+    !endif
     obj%name=Path//adjustl(fstring(obj%MyRank))//"/"&
         //Name//adjustl(fstring(obj%MyRank))
 

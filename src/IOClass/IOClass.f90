@@ -4039,7 +4039,7 @@ function existsIO(this,filename) result(exist_then_true)
     character(*),intent(in) :: filename
     logical :: exist_then_true
 
-    if(access(filename," ")==0 )then
+    if(access(filename,"r")==0 )then
         exist_then_true = .true.
     else
         exist_then_true = .false.

@@ -257,7 +257,7 @@ function in_detect_char(key,chararg) result(ret)
     character(*),intent(in) :: key,chararg
     logical :: ret
 
-    if( index(chararg, trim(key) )==0 )then
+    if( index(chararg, key )==0 )then
         ret = .false.
     else
         ret = .true.
