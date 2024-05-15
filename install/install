@@ -3,7 +3,7 @@
 echo "-----------------"
 echo "    "
 echo "    "
-echo "Installing plantFEM (21.10)"
+echo "Installing plantFEM (22.04)"
 echo "    "
 echo "    "
 echo "-----------------"
@@ -26,6 +26,3 @@ else
     #make -j
     cp *.so inc/
 fi
-
-echo " plantFEM is successfully installed !!"
-echo "    "

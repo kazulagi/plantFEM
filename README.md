@@ -125,6 +125,13 @@ ford ford.md
 # How to install 
 
 
+1. Clone the repository.
+```
+git clone https://github.com/kazulagi/plantFEM.git
+```
+
+2. Run ```python3 install.py```. The default compiler is  ```mpif90```. If you want to use Intel compiler, run ```python3 install.py --compiler=intel``` instead of it.
+
 
 ### For Windows users:
 1. Activate your WSL2 (Windows 10)

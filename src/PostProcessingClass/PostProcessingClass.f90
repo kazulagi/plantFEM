@@ -83,10 +83,10 @@ function to_PostProcessingPostProcessingClass(filename) result(ret)
 		command = "rm .postprocessing_buf.txt"
 		system_ret = system(command)
 	else
-		ret%filehead=trim(filename)
+		ret%filehead=filename
 		ret%filetail=""
 		ret%file_zfill_len=0
-		if(f%exists(trim(filename)) )then
+		if(f%exists(filename) )then
 			ret%number_of_file=1
 		else
 			ret%number_of_file=0
@@ -131,9 +131,9 @@ subroutine scalarPostProcessing(this,scalar,fileIdx)
 			endif
 			filename = this%filehead + zfill(fileIdx,this%file_zfill_len)+this%filetail
 			
-			call this%buf%read_SCALAR(trim(filename))
+			call this%buf%read_SCALAR(filename)
 
-			print *, "imported ",trim(filename)
+			print *, "imported ",filename
 			scalar = this%buf%PhysicalField(1)%scalar
 		endif
 	else
@@ -175,8 +175,8 @@ subroutine femdomainPostProcessing(this,femdomain,fileIdx)
 				return
 			endif
 			filename = this%filehead + zfill(fileIdx,this%file_zfill_len)+this%filetail
-			call femdomain%read(trim(filename))
-			print *, "imported ",trim(filename)
+			call femdomain%read(filename)
+			print *, "imported ",filename
 		endif
 	else
 		print *, "[ERROR] PostProcesser is not initialized!"
