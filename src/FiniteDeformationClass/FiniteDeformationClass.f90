@@ -2684,7 +2684,7 @@ subroutine resultFiniteDeform(obj,path,name,step)
 		call GmshExportStress(obj%FEMDomain,obj%DeformVecGloTot,obj%DeformStress,&
 		obj%DeformStrain,step,Name=path//"/"//name )
 		call obj%getDBCVector(DBCvec)
-		call GmshPlotVector(obj=obj%FEMDomain,Vector=DBCvec,Name=path//"/"&
+		call obj%FEMDomain%GmshPlotVector(Vector=DBCvec,Name=path//"/"&
 		//name,Step=fstep,FieldName="DispBoundary",&
 		NodeWize=.true. )
 		!call obj%exportAsPly()
@@ -2768,7 +2768,7 @@ subroutine DisplayDeformStress(obj,DisplayMode,OptionalStep,Name,withDirichlet)
 					if(withDirichlet .eqv. .true.)then
 						! Export dirichlet (Deformation) boundary conditions
 						call obj%getDBCVector(DBCvec)
-						call GmshPlotVector(obj=obj%FEMDomain,Vector=DBCvec,Name=Name,Step=step,FieldName="DispBoundary",NodeWize=.true. )
+						call obj%FEMDomain%GmshPlotVector(Vector=DBCvec,Name=Name,Step=step,FieldName="DispBoundary",NodeWize=.true. )
 					endif
 				endif
     	    elseif(DisplayMode=="gnuplot" .or. DisplayMode=="Gnuplot" )then

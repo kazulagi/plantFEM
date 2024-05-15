@@ -8161,9 +8161,9 @@ subroutine syncSoybean(obj,mpid,from)
 !        ! 節-節点データ構造
     call obj%struct%sync(from=from, mpid=mpid)
 !        ! 器官オブジェクト配列
-    call syncFEMDomainVector(obj=obj%leaf_list,from=from,mpid=mpid)
-    call syncFEMDomainVector(obj=obj%stem_list,from=from,mpid=mpid)
-    call syncFEMDomainVector(obj=obj%root_list,from=from,mpid=mpid)
+    call syncFEMDomainVector(this=obj%leaf_list,from=from,mpid=mpid)
+    call syncFEMDomainVector(this=obj%stem_list,from=from,mpid=mpid)
+    call syncFEMDomainVector(this=obj%root_list,from=from,mpid=mpid)
 !
 
 !        type(Seed_) :: Seed
