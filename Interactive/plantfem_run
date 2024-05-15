@@ -492,6 +492,34 @@ homepath="$PWD"
         exit 0
     fi
 
+
+    if [ "$commandl" = "deploy_ifort" ]; then
+        NUMBER_OF_FILE=$(find *.o -type f  2>/dev/null | wc -l )
+        if [ $NUMBER_OF_FILE -ne 0 ]; then
+          #$mpif90  -fopenmp $PWD/inc/*o ./*.o -I $PWD/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path $PWD/inc  -o server.out -llapack -lblas  
+          $mpiifort -Ofast -fopenmp -I$PWD/inc $PWD/inc/*.o server.f90 -o server.out -llapack -lblas
+        else
+          #$mpif90  -fopenmp $PWD/inc/*o -I $PWD/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path $PWD/inc  -o server.out -llapack -lblas  
+          $mpiifort -Ofast -fopenmp -I$PWD/inc $PWD/inc/*.o server.f90 -o server.out -llapack -lblas
+        fi
+        
+        continue
+    fi
+
+
+    if [ "$commandl" = "deploy_ifx" ]; then
+        NUMBER_OF_FILE=$(find *.o -type f  2>/dev/null | wc -l )
+        if [ $NUMBER_OF_FILE -ne 0 ]; then
+          #$mpif90  -fopenmp $PWD/inc/*o ./*.o -I $PWD/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path $PWD/inc  -o server.out -llapack -lblas  
+          $mpiifort -Ofast -fc=ifx -fopenmp -I$PWD/inc $PWD/inc/*.o server.f90 -o server.out -llapack -lblas
+        else
+          #$mpif90  -fopenmp $PWD/inc/*o -I $PWD/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path $PWD/inc  -o server.out -llapack -lblas  
+          $mpiifort -Ofast -fc=ifx -fopenmp -I$PWD/inc $PWD/inc/*.o server.f90 -o server.out -llapack -lblas
+        fi
+        
+        continue
+    fi
+
     if [ "$1" = "run_" ]; then
         #cp server.f90 server.f90
         $mpif90  -fopenmp $PWD/inc/*o -I $PWD/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path $PWD/inc  -o server.out -llapack -lblas  
