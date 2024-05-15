@@ -804,7 +804,7 @@ subroutine pdf_SPAC(this,name)
     class(SPAC_),intent(in) :: this
     character(*),intent(in) :: name
     type(IO_) :: f, layer_csv
-    integer(int32) :: logger_id, i,j
+    integer(int32) :: logger_id, i,j,system_ret
 
     character(:),allocatable :: pdf_name
     if(index(name,".pdf")==0 )then
@@ -1038,7 +1038,7 @@ subroutine pdf_SPAC(this,name)
     call f%close()
     ! >>>>>>>> GNUPLOT file >>>>>>>> 
 
-    call system("gnuplot "+ this%csv_wave_file + "_SPAC_LOG.gp")
+    system_ret = system("gnuplot "+ this%csv_wave_file + "_SPAC_LOG.gp")
 
 end subroutine
 

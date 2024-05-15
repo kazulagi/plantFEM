@@ -9,6 +9,11 @@ echo "    "
 echo "    "
 echo "-----------------"
 
+echo "Compiling ./src/ifport/ifport.f90     "
+echo " >> ifport.o"
+echo " | >                           | (0%)\r\c "
+mpif90 -Ofast -march=native -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ifport/ifport.f90 -o  ./inc/ifport.o -llapack -lblas
+
 echo "Compiling ./src/uuid-fortran/uuid_module.f90     "
 echo " >> uuid_module.o"
 echo " | >                           | (0%)\r\c "

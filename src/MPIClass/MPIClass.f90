@@ -2155,10 +2155,10 @@ end subroutine
 ! ###################################################
 subroutine fclose_MPI(this)
     class(MPI_),intent(inout)  :: this
-    
+    integer(int32) :: system_ret
     call this%file%close()
     if(this%myrank==0)then
-        call system("cat "+this%filename+"_rank_* > "+this%filename)
+        system_ret = system("cat "+this%filename+"_rank_* > "+this%filename)
     endif
     
 end subroutine

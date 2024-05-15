@@ -189,7 +189,7 @@ subroutine pdf_analystclass_vec_vec(this,name,x_list,y_list,x_label,y_label,&
     logical,intent(in) :: with_line
     type(List_),optional,intent(in) :: regend
     logical,optional,intent(in) :: logscale,x_logscale,y_logscale,z_logscale
-
+    integer(int32) :: system_ret
     character(:),allocatable :: wl
     type(IO_) :: f
     integer(int32) :: i
@@ -259,7 +259,7 @@ subroutine pdf_analystclass_vec_vec(this,name,x_list,y_list,x_label,y_label,&
     call f%write("exit")
     call f%close()
 
-    call system("gnuplot "+name+".gp")
+    system_ret = system("gnuplot "+name+".gp")
     
 
 end subroutine
@@ -277,7 +277,7 @@ subroutine pdf_analystclass_vec_array(this,name,x_list,y_list,x_label,y_label,&
     character(:),allocatable :: command
     character(:),allocatable :: wl
     type(IO_) :: f
-    integer(int32) :: i
+    integer(int32) :: i,system_ret
 
     if(with_line)then
         wl = "w l "
@@ -343,7 +343,7 @@ subroutine pdf_analystclass_vec_array(this,name,x_list,y_list,x_label,y_label,&
     
     call f%close()
 
-    call system("gnuplot "+name+".gp")
+    system_ret = system("gnuplot "+name+".gp")
     
 
 end subroutine
@@ -356,7 +356,7 @@ subroutine pdf_from_plots_analystclass(this,name,plot)
     type(Plot_),intent(in) :: plot(:,:)
     character(:),allocatable :: command
     type(IO_) :: f, gp
-    integer(int32) :: i,j,itr
+    integer(int32) :: i,j,itr,system_ret
     character(:),allocatable :: wl
 
     ! write data
@@ -436,7 +436,7 @@ subroutine pdf_from_plots_analystclass(this,name,plot)
 
     call gp%write("unset multiplot")
     call gp%close()
-    call system("gnuplot "+name+".gp")
+    system_ret= system("gnuplot "+name+".gp")
     
 
 
@@ -606,17 +606,17 @@ subroutine render_analystclass(this,name,pdf)
     character(*),intent(in) :: name
     type(PDF_),intent(in) :: pdf(:)
     character(:),allocatable :: command
-    integer(int32) :: i
+    integer(int32) :: i,system_ret
     
     ! watermark
     do i=1,size(pdf)
-        call system("gnuplot "+pdf(i)%scene_name+".gp")
+        system_ret= system("gnuplot "+pdf(i)%scene_name+".gp")
         if(pdf(i)%confidential )then
             
             command = "pdftk "+pdf(i)%scene_name+".pdf " +" background confidential.pdf output "+pdf(i)%scene_name+"_c.pdf "
-            call system(command)
+            system_ret= system(command)
             command = "mv "+pdf(i)%scene_name+"_c.pdf "+pdf(i)%scene_name+".pdf "
-            call system(command)
+            system_ret= system(command)
         endif
     enddo
 
@@ -629,7 +629,7 @@ subroutine render_analystclass(this,name,pdf)
 
     
 
-    call system(command)
+    system_ret= system(command)
 
 
 end subroutine
