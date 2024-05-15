@@ -437,11 +437,28 @@ homepath="$PWD"
             #cp server.f90 server.f90
             rm -f "${2%.*}.out"
             #$mpif90 /opt/plantfem/inc/*o $2  -I /opt/plantfem/inc -g -fcheck=all -fopenmp -fintrinsic-modules-path /opt/plantfem/inc -o "${2%.*}.out" -llapack -lblas 
-            $mpiifort -Ofast -fopenmp -I/opt/plantfem/inc /opt/plantfem/inc/*.o $2 -o "${2%.*}.out" -llapack -lblas
+            $mpiifort  -Ofast -fopenmp -I/opt/plantfem/inc /opt/plantfem/inc/*.o $2 -o "${2%.*}.out" -llapack -lblas
             #echo "Current num of cpu-core is :: $numcore "
         else
             #$mpif90  -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc  -o server.out -llapack -lblas  
             $mpiifort -Ofast -fopenmp -I/opt/plantfem/inc /opt/plantfem/inc/*.o server.f90 -o server.out -llapack -lblas
+        fi
+        exit 0
+    fi
+
+    
+    if [ "$1" = "build_ifx" ]; then
+        EXTENSION=${2##*.}
+        #echo "extension is $EXTENSION"
+        if [ "$EXTENSION" = "$f90" ]; then
+            #cp server.f90 server.f90
+            rm -f "${2%.*}.out"
+            #$mpif90 /opt/plantfem/inc/*o $2  -I /opt/plantfem/inc -g -fcheck=all -fopenmp -fintrinsic-modules-path /opt/plantfem/inc -o "${2%.*}.out" -llapack -lblas 
+            $mpiifort -fc=ifx  -Ofast -fopenmp -I/opt/plantfem/inc /opt/plantfem/inc/*.o $2 -o "${2%.*}.out" -llapack -lblas
+            #echo "Current num of cpu-core is :: $numcore "
+        else
+            #$mpif90  -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc  -o server.out -llapack -lblas  
+            $mpiifort -fc=ifx -Ofast -fopenmp -I/opt/plantfem/inc /opt/plantfem/inc/*.o server.f90 -o server.out -llapack -lblas
         fi
         exit 0
     fi
@@ -473,6 +490,34 @@ homepath="$PWD"
         
         #echo "Current num of cpu-core is :: $numcore "
         exit 0
+    fi
+
+
+    if [ "$commandl" = "deploy_ifort" ]; then
+        NUMBER_OF_FILE=$(find *.o -type f  2>/dev/null | wc -l )
+        if [ $NUMBER_OF_FILE -ne 0 ]; then
+          #$mpif90  -fopenmp $PWD/inc/*o ./*.o -I $PWD/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path $PWD/inc  -o server.out -llapack -lblas  
+          $mpiifort -Ofast -fopenmp -I$PWD/inc $PWD/inc/*.o server.f90 -o server.out -llapack -lblas
+        else
+          #$mpif90  -fopenmp $PWD/inc/*o -I $PWD/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path $PWD/inc  -o server.out -llapack -lblas  
+          $mpiifort -Ofast -fopenmp -I$PWD/inc $PWD/inc/*.o server.f90 -o server.out -llapack -lblas
+        fi
+        
+        continue
+    fi
+
+
+    if [ "$commandl" = "deploy_ifx" ]; then
+        NUMBER_OF_FILE=$(find *.o -type f  2>/dev/null | wc -l )
+        if [ $NUMBER_OF_FILE -ne 0 ]; then
+          #$mpif90  -fopenmp $PWD/inc/*o ./*.o -I $PWD/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path $PWD/inc  -o server.out -llapack -lblas  
+          $mpiifort -Ofast -fc=ifx -fopenmp -I$PWD/inc $PWD/inc/*.o server.f90 -o server.out -llapack -lblas
+        else
+          #$mpif90  -fopenmp $PWD/inc/*o -I $PWD/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path $PWD/inc  -o server.out -llapack -lblas  
+          $mpiifort -Ofast -fc=ifx -fopenmp -I$PWD/inc $PWD/inc/*.o server.f90 -o server.out -llapack -lblas
+        fi
+        
+        continue
     fi
 
     if [ "$1" = "run_" ]; then
