@@ -425,8 +425,8 @@ module FEMDomainClass
         procedure,public :: setControlPara =>  SetControlParaFEMDomain
 		
 		procedure,pass :: selectFEMDomain ! select nodes
-		procedure,pass :: select_by_functionFEMDomain ! select nodes
-		generic,public :: select => selectFEMDomain,select_by_functionFEMDomain
+		!procedure,pass :: select_by_functionFEMDomain ! select nodes
+		generic,public :: select => selectFEMDomain!,select_by_functionFEMDomain
 		
 		procedure,public :: show => showFEMDomain
 		procedure,public :: showRange => showRangeFEMDomain
@@ -12018,7 +12018,7 @@ recursive function BMatrixFEMDomain(this,shapefunction,ElementID) result(Bmat)
 
 		   !Bmat(4:6,:)=0.50d0*Bmat(4:6,:)
 
-		   
+
 
 		else
 		   stop "Bmat >> The element is not supported."
@@ -16113,40 +16113,40 @@ end subroutine
 ! #######################################################
 
 
-function select_by_functionFEMDomain(this,surface,params,sign) result(NodeList)
-	
-	interface 
-		function surface(x,params) result(ret)
-			use iso_fortran_env
-			real(real64),intent(in) :: x(:)
-			real(real64),intent(in) :: params(:)
-			real(real64) :: ret
-		end function
-	end interface
-
-	character(*),intent(in) :: sign
-	class(FEMDomain_),intent(in) :: this
-	real(real64),intent(in) :: params(:)
-	integer(int32),allocatable :: flags(:)
-	real(real64) :: ret
-	real(real64),allocatable :: x(:)
-	integer(int32) :: i
-	integer(int32),allocatable :: NodeList(:)
-
-	flags = int(zeros(this%nn() ) ) 
-	do i=1,this%nn()
-		x = this%mesh%nodcoord(i,:)
-		ret = surface(x ,params )
-		select case(sign)
-			case(">=")
-
-		end select
-		
-		
-	enddo
-	
-
-end function
+!function select_by_functionFEMDomain(this,surface,params,sign) result(NodeList)
+!	
+!	interface 
+!		function surface(x,params) result(ret)
+!			use iso_fortran_env
+!			real(real64),intent(in) :: x(:)
+!			real(real64),intent(in) :: params(:)
+!			real(real64) :: ret
+!		end function
+!	end interface
+!
+!	character(*),intent(in) :: sign
+!	class(FEMDomain_),intent(in) :: this
+!	real(real64),intent(in) :: params(:)
+!	integer(int32),allocatable :: flags(:)
+!	real(real64) :: ret
+!	real(real64),allocatable :: x(:)
+!	integer(int32) :: i
+!	integer(int32),allocatable :: NodeList(:)
+!
+!	flags = int(zeros(this%nn() ) ) 
+!	do i=1,this%nn()
+!		x = this%mesh%nodcoord(i,:)
+!		ret = surface(x ,params )
+!		select case(sign)
+!			case(">=")
+!
+!		end select
+!		
+!		
+!	enddo
+!	
+!
+!end function
 
 function getPointFEMDomain(this,pointIdx) result(ret)
 	class(FEMDOmain_),intent(in) :: this

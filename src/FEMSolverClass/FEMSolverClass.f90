@@ -453,7 +453,7 @@ subroutine setRHSFEMSolver(this,RHS)
 
 end subroutine
 
-subroutine setCRSFEMSolver(this,DOF,debug)
+recursive subroutine setCRSFEMSolver(this,DOF,debug)
     class(FEMSolver_),intent(inout) :: this
     
     integer(int32),intent(in) :: DOF
