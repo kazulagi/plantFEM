@@ -247,9 +247,9 @@ module ArrayClass
     end interface Copy
 
 
-    interface Trim
-        module procedure TrimArrayInt, TrimArrayReal
-    end interface Trim
+    !interface Trim
+    !    module procedure TrimArrayInt, TrimArrayReal
+    !end interface Trim
 
     interface TrimArray
         module procedure TrimArrayInt, TrimArrayReal
