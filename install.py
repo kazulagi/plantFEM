@@ -1,7 +1,25 @@
 import os
+import sys
 import platform
 
 def install_plantFEM():
+    # selecting compiler type::
+    # Default: mpif90 (gfortran)
+    build_script = "/install/install"
+    args = sys.argv
+    for i in range(len(args) ):
+        if "--compiler=" in args[i]:
+            compiler = str(args[i]).replace("--compiler=","")
+            if "intel" in compiler:
+                build_script = "/install/install_ifort"
+                break
+            if "ifx" in compiler:
+                build_script = "/install/install_ifort"
+                break
+            if "ifort" in compiler:
+                build_script = "/install/install_ifort"
+                break
+
     print("Detecting OS type...")
     pf=platform.system()
     if pf == 'Windows':
@@ -19,7 +37,7 @@ def install_plantFEM():
         if os.path.exists("/opt/plantfem/inc/obj.o"):
             print("plantFEM is already built.")
         else:
-            os.system("sh "+str(os.path.abspath("./"))+"/install/install")
+            os.system("sh "+str(os.path.abspath("./"))+build_script)
 
         if os.path.exists("/opt/plantfem"):
             print("plantFEM is already installed.")
@@ -53,7 +71,11 @@ def install_plantFEM():
         if os.path.exists("/opt/plantfem/inc/obj.o"):
             print("plantFEM is already built.")
         else:
-            os.system("sh "+str(os.path.abspath("./"))+"/install/install")
+            os.system("sh "+str(os.path.abspath("./"))+build_script)
+        
+        if not os.path.isfile("inc/obj.o"):
+            print("[COMPILE ERROR]")
+            return
 
         if os.path.exists("/usr/local/bin/plantfem"):
             print("plantFEM is already installed.")
@@ -70,7 +92,10 @@ def install_plantFEM():
         os.system("rm -f plantFEM")
 
         #os.system("sudo pip3 install -U plantfem")
-        print("Successfully Installed!!")
+        if os.path.isfile("inc/obj.o"):
+            print("Successfully Installed!!")
+        else:
+            print("[COMPILE ERROR]")
     else:
         print("OS : Unknown ")
     
