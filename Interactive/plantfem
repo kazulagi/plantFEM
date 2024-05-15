@@ -455,12 +455,22 @@ do
         python3 /opt/plantfem/bin/check_end.py
         #cp server.f90 /opt/plantfem/server.f90
         #$mpif90  -llapack -lblas -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc/  -o server.out -llapack -lblas  
-        $mpiifort -Ofast -fc=ifx -fopenmp -I/opt/plantfem/inc /opt/plantfem/inc/*.o server.f90 -o server.out -llapack -lblas
+        $mpiifort -Ofast -fopenmp -I/opt/plantfem/inc /opt/plantfem/inc/*.o server.f90 -o server.out -llapack -lblas
         #echo "Current num of cpu-core is :: $numcore "
         
         continue
     fi
 
+
+    if [ "$commandl" = "build_ifx" ]; then
+        python3 /opt/plantfem/bin/check_end.py
+        #cp server.f90 /opt/plantfem/server.f90
+        #$mpif90  -llapack -lblas -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc/  -o server.out -llapack -lblas  
+        $mpiifort -Ofast -fc=ifx -fopenmp -I/opt/plantfem/inc /opt/plantfem/inc/*.o server.f90 -o server.out -llapack -lblas
+        #echo "Current num of cpu-core is :: $numcore "
+        
+        continue
+    fi
 
     if [ "$commandl" = "build" ]; then
         python3 /opt/plantfem/bin/check_end.py
