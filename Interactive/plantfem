@@ -19,6 +19,7 @@ keywords=""
 cpucore="cpu-core"
 install="install"
 compress="compress"
+mpiifort="mpiifort"
 mpif90="mpif90"
 intel="intel"
 debugMode="-"
@@ -443,6 +444,19 @@ do
         fi
 
         mpirun   --hostfile /opt/plantfem/etc/hostfile -np $line ./server.out  "$2"
+        
+        continue
+    fi
+
+
+
+
+    if [ "$commandl" = "build_ifort" ]; then
+        python3 /opt/plantfem/bin/check_end.py
+        #cp server.f90 /opt/plantfem/server.f90
+        #$mpif90  -llapack -lblas -fopenmp /opt/plantfem/inc/*o -I /opt/plantfem/inc server.f90  -g -fcheck=all  -fintrinsic-modules-path /opt/plantfem/inc/  -o server.out -llapack -lblas  
+        $mpiifort -Ofast -fopenmp -I/opt/plantfem/inc /opt/plantfem/inc/*.o server.f90 -o server.out -llapack -lblas
+        #echo "Current num of cpu-core is :: $numcore "
         
         continue
     fi
