@@ -234,6 +234,7 @@ module FEMDomainClass
 		
 
 		procedure,public :: getSurface => getSurfaceFEMDomain
+		procedure,public :: getVertices => getVerticesFEMDomain
 		procedure,public ::	NodeID => NodeIDFEMDomain
 		procedure,public ::	getElementID => getElementIDFEMDomain
 		procedure,public ::	getNodeList =>getNodeListFEMDomain
@@ -355,6 +356,7 @@ module FEMDomainClass
 		procedure,public :: to_culm => to_culm_FEMDomain
 		procedure,public :: to_multi_culm => to_multi_culm_FEMDomain
 		procedure,public :: to_cylinder => to_cylinder_FEMDomain
+		procedure,public :: to_vertexData => to_vertexData_FEMDomain
 
 		procedure,public :: xmin => xminFEMDomain
 		procedure,public :: x_min => xminFEMDomain
@@ -8297,6 +8299,17 @@ subroutine getSurfaceFEMDomain(this)
 	class(FEMDomain_),intent(inout) :: this
 	
 	call this%mesh%getSurface()
+
+end subroutine
+! ##################################################
+
+
+subroutine getVerticesFEMDomain(this,vertices,vertexIDs)
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),allocatable,intent(inout) :: vertices(:)
+	integer(int32),allocatable,intent(inout) :: vertexIDs(:)
+	
+	call this%mesh%getVertices(vertices,vertexIDs)
 
 end subroutine
 ! ##################################################
@@ -16261,6 +16274,56 @@ function elementType2VTKCellType(elementType) result(ret)
 		endif
 	endif
 end function
+
+
+function to_vertexData_FEMDomain(this,vertexIDs,scalar) result(vertexData)
+	class(FEMDomain_),intent(in) :: this
+	integer(int32),intent(in) :: vertexIDs(:)
+	real(real64),intent(in) :: scalar(:)
+	real(real64),allocatable :: vertexData(:)
+
+	allocate(vertexData(size(vertexIDs) ) )
+
+	vertexData(:) = scalar(vertexIDs)
+
+end function
+
+
+
+subroutine vtk_file(name,vertices,vertexData)
+	character(*),intent(in) :: name
+	real(real64),intent(in) :: vertices(:),vertexData(:)
+	character(:),allocatable :: vtk_filename
+	type(IO_) :: f
+	integer(int32) :: i
+
+	if(".vtk" .in. name)then
+		vtk_filename = name
+	else
+		vtk_filename = name + ".vtk"
+	endif
+
+	call f%open(vtk_filename,"w")
+	call f%write("# vtk DataFile Version 3.0")
+	call f%write(vtk_filename)
+	call f%write("ASCII")
+	call f%write("DATASET UNSTRUCTURED_GRID")
+	call f%write("POINTS "+str(size(vertices)/3)+" float")
+	do i=1,size(vertices)/3
+		call f%write(vertices( (i-1)*3+1:(i-1)*3+3 ))
+	enddo
+	call f%write("CELL_TYPES "+str(size(vertices)/3))
+	do i=1,size(vertices)/3
+		call f%write("1")
+	enddo
+	call f%write("POINT_DATA "+str(size(vertexData)))
+	call f%write("SCALARS radius float")
+	call f%write("LOOKUP_TABLE default")
+	do i=1,size(vertexData)
+		write(f%fh,*) vertexData(i)
+	enddo
+	call f%close()
+end subroutine
 
 end module FEMDomainClass
 

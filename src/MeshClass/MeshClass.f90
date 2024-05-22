@@ -113,6 +113,7 @@ module MeshClass
         procedure :: getFacetElement => GetFacetElement
         procedure :: getFacetNodeID => getFacetNodeIDMesh
         procedure :: getSurface => GetSurface
+        procedure :: getVertices => getVerticesMesh
         procedure :: getInterface => GetInterface
         procedure :: getInterfaceElemNod => GetInterfaceElemNod
         procedure :: getBoundingBox     => GetBoundingBox
@@ -10844,11 +10845,13 @@ subroutine changeElementType_3D8N_to_3D20N_Mesh(this)
     ! number of element for each shared node
     allocate(num_shared_node(this%nn()))
     num_shared_node(:) = 0
+    
     do i=1,this%ne()
         do j=1,this%nne()
             num_shared_node(this%elemnod(i,j)) = num_shared_node(this%elemnod(i,j)) + 1
         enddo
     enddo
+    
 
     allocate(edges(this%nn(),maxval(num_shared_node)+2 ) )
     allocate(new_node_number(this%nn(),maxval(num_shared_node)+2 ) )
@@ -10918,5 +10921,154 @@ subroutine changeElementType_3D8N_to_3D20N_Mesh(this)
 
     
 end subroutine
+
+
+subroutine getVerticesMesh(this,vertices,vertexIDs)
+    class(Mesh_),intent(inout) :: this
+	real(real64),allocatable,intent(inout) :: vertices(:)
+	integer(int32),allocatable,intent(inout) :: vertexIDs(:)
+    integer(int32),allocatable :: facets(:,:),loc_facet(:,:),this_facet(:),min_facet(:),&
+        sorted_facets(:,:),buf(:)
+    real(real64),allocatable ::  val(:)
+    integer(int32) :: i,j,k,max_num_facet,m
+    logical :: dup
+    integer(int32),allocatable :: is_vertex(:)
+
+    ! get Facet info
+    if (this%nd()==3 .and. this%nne()==4)then
+        max_num_facet = 6
+        allocate(loc_facet(max_num_facet,4))
+        ! for outer normal
+        loc_facet(1,1:4) = [4,3,2,1]
+        loc_facet(2,1:4) = [1,2,6,5]
+        loc_facet(3,1:4) = [2,3,7,6]
+        loc_facet(4,1:4) = [3,4,8,7]
+        loc_facet(5,1:4) = [4,1,5,8]
+        loc_facet(6,1:4) = [5,6,7,8]
+    elseif (this%nd()==3 .and. this%nne()==8)then
+        max_num_facet = 6
+        allocate(loc_facet(max_num_facet,4))
+        loc_facet(1,1:4) = [4,3,2,1]
+        loc_facet(2,1:4) = [1,2,6,5]
+        loc_facet(3,1:4) = [2,3,7,6]
+        loc_facet(4,1:4) = [3,4,8,7]
+        loc_facet(5,1:4) = [4,1,5,8]
+        loc_facet(6,1:4) = [5,6,7,8]
+    elseif (this%nd()==3 .and. this%nne()==4)then
+        max_num_facet = 4
+        allocate(loc_facet(max_num_facet,3))
+        loc_facet(1,1:3) = [3,2,1]
+        loc_facet(2,1:3) = [1,2,4]
+        loc_facet(3,1:3) = [2,3,4]
+        loc_facet(4,1:3) = [3,1,4]
+    else
+        print *, "ERROR : getVerticesMesh >> this%nd(),this%nne() is invalid."
+        stop
+    endif
+    m = size(loc_facet,2)
+    allocate(facets(max_num_facet*this%ne(),m) )
+    allocate(this_facet(size(facets,2) ) )
+    allocate(min_facet(m) )
+
+    
+    !$OMP parallel do private(j,k,min_facet,this_facet)
+    do i=1,this%ne()
+        do j=1,size(loc_facet,1)
+            this_facet = this%elemnod(i,loc_facet(j,:) )
+            ! sort
+            do k=1,size(min_facet)
+                min_facet(k) = maxval(this_facet)
+                this_facet(maxvalid(this_facet))=-1
+            enddo
+            facets( (i-1)*size(loc_facet,1)+j,1:m)=min_facet(1:m)
+        enddo
+    enddo
+    !$OMP end parallel do
+
+    
+
+    
+
+    buf = facets(:,1)
+    val = dble([(i,i=1,size(facets,1) )])
+    
+    call heapsortInt32(size(buf),buf,val)
+    
+    allocate(sorted_facets(size(facets,1),size(facets,2)))
+    !$OMP parallel do private(j)
+    do i=1,size(sorted_facets,1)
+        j = int(val(i)+0.10d0 )
+        sorted_facets(i,:) = facets(j,: )
+    enddo
+    !$OMP end parallel do
+
+    deallocate(facets)
+    
+    
+    ! find dupulication
+    do i=1,size(sorted_facets,1)-1
+        j = 0
+        dup = .false.
+        if(sorted_facets(i,1)==0)then
+            cycle
+        endif
+        do 
+            j = j + 1
+
+            if(i+j > size(sorted_facets,1))then
+                exit
+            endif
+            if(sorted_facets(i+j,1)==0)then
+                cycle
+            endif
+            if(sorted_facets(i,1)==sorted_facets(i+j,1))then
+                if( sorted_facets(i,2)==sorted_facets(i+j,2) .and. &
+                    sorted_facets(i,3)==sorted_facets(i+j,3) )then
+                    sorted_facets(i+j,:)=0
+                    dup = .true.
+                endif
+            else
+                exit
+            endif
+        enddo
+        if(dup)then
+            sorted_facets(i,:) = 0
+        endif
+    enddo
+    
+    
+
+    allocate(is_vertex(this%nn()) )
+    is_vertex(:) = 0
+    !$OMP parallel do private(j)
+    do i=1,size(sorted_facets,1)
+        do j=1,size(sorted_facets,2)
+            if(sorted_facets(i,j)==0 )then
+                cycle
+            else
+                is_vertex(sorted_facets(i,j))=1
+            endif
+        enddo
+    enddo
+    !$OMP end parallel do
+
+    allocate(vertices(sum(is_vertex)*this%nd()))
+    allocate(vertexIDs(sum(is_vertex)) ) 
+    
+
+    j = 0
+    do i=1,size(is_vertex)
+        if(is_vertex(i)==1 )then
+            j = j + 1
+            vertexIDs(j) = i
+            do k=1,this%nd()
+                vertices( (j-1)*this%nd()+k ) = this%nodcoord(i,k)
+            enddo
+        else
+            cycle
+        endif
+    enddo
+    
+end subroutine getVerticesMesh
 
 end module MeshClass
