@@ -342,9 +342,7 @@ homepath="$PWD"
         cp $keywords /mnt/c/Users/$username/Desktop/
         exit 0
     fi
-
-
-
+    
     if [ "$1" = "$debugMode" ]; then
         echo "Debug Mode :: Please input keywords of re-compile modules."
         read keywords

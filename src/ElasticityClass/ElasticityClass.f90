@@ -1,4 +1,4 @@
-!> This is a toolbox for elasticity/elastodynamics
+!> This is a toolbox for /elastodynamics
 module ElasticityClass
     use ArrayClass
     implicit none
@@ -17,7 +17,7 @@ module ElasticityClass
         procedure,public :: to_T => to_T_Elasticity
         procedure,public :: to_ImpedanceRatio => to_ImpedanceRatioElasticity
         procedure,public :: to_SurfaceResponse => to_SurfaceResponseElasticity
-        procedure,public :: to_LoveWavePhaseVelocity => to_LoveWavePhaseVelocityElasticity
+        procedure,public :: to_LoveWavePhaseVelocity => to_LoveWavePhaseVelElasticity
     end type
 
 contains
@@ -139,7 +139,7 @@ end function
 
 ! ###########################################################
 
-function to_LoveWavePhaseVelocityElasticity(this,Density,Vs, H, division,Mode) result(ret)
+function to_LoveWavePhaseVelElasticity(this,Density,Vs, H, division,Mode) result(ret)
     class(Elasticity_),intent(in) :: this
     real(real64),intent(in) :: Density(1:2), Vs(1:2), H
     integer(int32),intent(in) :: Division
@@ -171,5 +171,20 @@ function to_LoveWavePhaseVelocityElasticity(this,Density,Vs, H, division,Mode) r
 
 end function
 ! ###########################################################
+
+function get_eigenfreq_cantilever(Length,YoungModulus,density,width,height) result(ret)
+    real(real64), intent(in) :: Length,YoungModulus,density,width,height
+    real(real64) :: ret
+    real(real64) :: lambda,I,area
+    
+    lambda = 1.8570d0
+    area   = width*height
+    I      = width*height*height*height/12.0d0
+    ret = sqrt(YoungModulus*I/density/area)*lambda*lambda/Length/Length/2.0d0/(4.0d0*atan(1.0d0))
+    
+end function
+! ###########################################################
+
+
 
 end module 
