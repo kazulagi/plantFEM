@@ -148,6 +148,9 @@ module MaizeClass
         procedure,public :: ne => neMaize
         ! number of points
         procedure,public :: nn => nnMaize
+        ! range of pointIDs for [Organ type, ID]
+        procedure,public :: nn_range => nn_rangeMaize
+
         ! MemSize
         procedure,public :: checkMemoryRequirement => checkMemoryRequirementMaize
         ! number of stem, leaf ...etc.
@@ -166,6 +169,7 @@ module MaizeClass
         procedure,public :: getYoungModulus => getYoungModulusMaize 
         procedure,public :: getPoissonRatio => getPoissonRatioMaize
         procedure,public :: getDensity => getDensityMaize
+        procedure,public :: getVertices => getVerticesMaize
         
         procedure,public :: getYoungModulusField => getYoungModulusFieldMaize
         procedure,public :: getPoissonRatioField => getPoissonRatioFieldMaize
@@ -1765,6 +1769,8 @@ end function
 
 ! ##################################################################
 
+
+
 ! ##################################################################
 pure function nnMaize(this) result(ret)
     class(Maize_) ,intent(in) :: this
@@ -1815,6 +1821,157 @@ pure function nnMaize(this) result(ret)
     endif
 end function
 ! ##################################################################
+
+
+
+
+
+! ##################################################################
+function nn_rangeMaize(this,organ_type,ID) result(ret)
+    class(Maize_) ,intent(inout) :: this
+    integer(int32),intent(in) :: ID
+    character(*),intent(in) :: organ_type
+    integer(int32) :: ret(1:2), i,offset
+
+    ! get number of node (point)
+    ret = [0,0]
+    
+    offset = 0
+    select case (organ_type)
+        case ("Stem","stem","STEM")
+            if(allocated(this%stem) )then
+                do i=1,ID-1
+                    if( .not.this%stem(i)%femdomain%mesh%empty() ) then
+                        offset = offset + this%stem(i)%femdomain%nn()
+                    endif
+                enddo
+                ret(1) = offset + 1
+                ret(2) = offset + this%stem(ID)%femdomain%nn()
+            endif
+        case ("Leaf","leaf","LEAF")
+            if(allocated(this%stem) )then
+                do i=1,size(this%stem)
+                    if( .not.this%stem(i)%femdomain%mesh%empty() ) then
+                        offset = offset + this%stem(i)%femdomain%nn()
+                    endif
+                enddo
+            endif
+            if(allocated(this%leaf) )then
+                do i=1,ID-1
+                    if( .not.this%leaf(i)%femdomain%mesh%empty() ) then
+                        offset = offset + this%leaf(i)%femdomain%nn()
+                    endif
+                enddo
+                ret(1) = offset + 1
+                ret(2) = offset + this%leaf(ID)%femdomain%nn()
+            endif
+            
+        case ("Root","root","ROOT")
+            if(allocated(this%stem) )then
+                do i=1,size(this%stem)
+                    if( .not.this%stem(i)%femdomain%mesh%empty() ) then
+                        offset = offset + this%stem(i)%femdomain%nn()
+                    endif
+                enddo
+            endif
+            if(allocated(this%leaf) )then
+                do i=1,size(this%leaf)
+                    if( .not.this%leaf(i)%femdomain%mesh%empty() ) then
+                        offset = offset + this%leaf(i)%femdomain%nn()
+                    endif
+                enddo
+            endif
+            if(allocated(this%root) )then
+                do i=1,ID-1
+                    if( .not.this%root(i)%femdomain%mesh%empty() ) then
+                        offset = offset + this%root(i)%femdomain%nn()
+                    endif
+                enddo
+                ret(1) = offset + 1
+                ret(2) = offset + this%root(ID)%femdomain%nn()
+            endif
+        case ("Ear","ear","EAR")
+            
+            if(allocated(this%stem) )then
+                if(allocated(this%stem) )then
+                    do i=1,size(this%stem)
+                        if( .not.this%stem(i)%femdomain%mesh%empty() ) then
+                            offset = offset + this%stem(i)%femdomain%nn()
+                        endif
+                    enddo
+                endif
+                if(allocated(this%leaf) )then
+                    do i=1,size(this%leaf)
+                        if( .not.this%leaf(i)%femdomain%mesh%empty() ) then
+                            offset = offset + this%leaf(i)%femdomain%nn()
+                        endif
+                    enddo
+                endif
+                if(allocated(this%root) )then
+                    do i=1,size(this%root)
+                        if( .not.this%root(i)%femdomain%mesh%empty() ) then
+                            offset = offset + this%root(i)%femdomain%nn()
+                        endif
+                    enddo
+                endif
+                if(allocated(this%ear) )then
+                    do i=1,ID-1
+                        if( .not.this%ear(i)%femdomain%mesh%empty() ) then
+                            offset = offset + this%ear(i)%femdomain%nn()
+                        endif
+                    enddo
+                    ret(1) = offset + 1
+                    ret(2) = offset + this%ear(ID)%femdomain%nn()
+                endif
+            endif
+        case ("Panicle","panicle","PANICLE")
+            if(allocated(this%stem) )then
+                if(allocated(this%stem) )then
+                    do i=1,size(this%stem)
+                        if( .not.this%stem(i)%femdomain%mesh%empty() ) then
+                            offset = offset + this%stem(i)%femdomain%nn()
+                        endif
+                    enddo
+                endif
+                if(allocated(this%leaf) )then
+                    do i=1,size(this%leaf)
+                        if( .not.this%leaf(i)%femdomain%mesh%empty() ) then
+                            offset = offset + this%leaf(i)%femdomain%nn()
+                        endif
+                    enddo
+                endif
+                if(allocated(this%root) )then
+                    do i=1,size(this%root)
+                        if( .not.this%root(i)%femdomain%mesh%empty() ) then
+                            offset = offset + this%root(i)%femdomain%nn()
+                        endif
+                    enddo
+                endif
+                if(allocated(this%ear) )then
+                    do i=1,size(this%ear)
+                        if( .not.this%ear(i)%femdomain%mesh%empty() ) then
+                            offset = offset + this%ear(i)%femdomain%nn()
+                        endif
+                    enddo
+                endif
+                if(allocated(this%panicle) )then
+                    do i=1,ID-1
+                        if( .not.this%panicle(i)%femdomain%mesh%empty() ) then
+                            offset = offset + this%panicle(i)%femdomain%nn()
+                        endif
+                    enddo
+                    ret(1) = offset + 1
+                    ret(2) = offset + this%panicle(ID)%femdomain%nn()
+                endif
+            endif
+
+    end select 
+
+end function
+! ##################################################################
+
+
+
 
 
 
@@ -2545,6 +2702,358 @@ function getEigenModeMaize(this, ground_level,penalty,debug,Frequency,EbOM_Algor
 end function
 ! ################################################################
 
+!! ################################################################
+!function getDisplacement_elastodynamic_maize(this, ground_level,penalty,debug,Frequency,EbOM_Algorithm,num_mode) result(EigenVectors)
+!    class(Maize_),target,intent(inout) :: this
+!    real(real64),intent(in) :: ground_level
+!    real(real64),optional,intent(in) :: penalty
+!    logical,optional,intent(in) :: debug
+!    real(real64),allocatable,intent(inout) :: Frequency(:)
+!    character(*),optional,intent(in) :: EbOM_Algorithm
+!
+!    integer(int32),optional,intent(in) :: num_mode
+!    integer(int32) :: num_freq
+!    !integer(int32),optional,intent(in) :: num_mode
+!    
+!
+!    type(FEMDomainp_),allocatable :: FEMDomainPointers(:)
+!    type(FEMSolver_) :: solver
+!    type(Math_) :: math
+!
+!    real(real64),allocatable :: EigenVectors(:,:),buf(:,:),buf_vec(:)
+!
+!    integer(int32) :: stem_id, leaf_id, root_id,DomainID,ElementID,i,n
+!    integer(int32) :: myStemID, yourStemID, myLeafID,myRootID, yourRootID
+!    integer(int32),allocatable :: FixBoundary(:)
+!    integer(int32) :: nn_domains,EbOM_Algorithm_id
+!    real(real64) :: vec_norm
+!
+!    integer(int32) :: myEarID, myPanicleID
+!    real(real64),allocatable :: all_frequency(:),All_EigenVectors(:,:)
+!
+!    num_freq = input(default=10,option=num_mode)
+!    
+!    EbOM_Algorithm_id = FEMDomain_Overset_GPP
+!    if(present(EbOM_Algorithm) )then
+!        if(EbOM_Algorithm=="P2P")then
+!            EbOM_Algorithm_id=FEMDomain_Overset_P2P
+!        elseif(EbOM_Algorithm=="GPP")then
+!            EbOM_Algorithm_id=FEMDomain_Overset_P2P
+!        endif
+!    endif
+!
+!    ! linear elasticity with infinitesimal strain theory
+!    n = this%numStem() + this%numLeaf() + this%numRoot() + this%numEar() + this%numPanicle()
+!    
+!    allocate(FEMDomainPointers(n) )
+!    ! ORDER 
+!    ! [STEM] => [LEAF] => [ROOT] => [Ear] => [PANICLE]
+!    !(1) >> compute overset
+!    ! For stems
+!    if(allocated(this%stem2stem) )then
+!        if(allocated(this%stem) )then
+!            do myStemID = 1,size(this%stem2stem,1)
+!                do yourStemID = 1, size(this%stem2stem,2)
+!                    if(this%stem2stem(myStemID,yourStemID)>=1 )then
+!                        ! connected
+!                        call this%stem(myStemID)%femdomain%overset(&
+!                            FEMDomain=this%stem(yourStemID)%femdomain,&
+!                            DomainID   = yourStemID    ,& 
+!                            MyDomainID = myStemID  ,&
+!                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+!                        call this%stem(yourStemID)%femdomain%overset(&
+!                            FEMDomain=this%stem(myStemID)%femdomain,&
+!                            DomainID   = myStemID    ,& 
+!                            MyDomainID = yourStemID  ,&
+!                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+!                    endif
+!                enddo
+!            enddo
+!        endif
+!    endif
+!
+!    if(allocated(this%leaf2stem) )then
+!        if(allocated(this%leaf) .and. allocated(this%stem) )then
+!            do myLeafID = 1,size(this%leaf2stem,1)
+!                do yourStemID = 1, size(this%leaf2stem,2)
+!                    if(this%leaf2stem(myLeafID,yourStemID)>=1 )then
+!                        ! connected
+!                        call this%leaf(myLeafID)%femdomain%overset(&
+!                            FEMDomain=this%stem(yourStemID)%femdomain,&
+!                            DomainID   = yourStemID    ,& 
+!                            MyDomainID = this%numStem() + myLeafID  , &
+!                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+!                        call this%stem(yourStemID)%femdomain%overset(&
+!                            FEMDomain=this%leaf(myLeafID)%femdomain,&
+!                            DomainID   = this%numStem() + myLeafID    ,& 
+!                            MyDomainID = yourStemID  , &
+!                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+!                    endif
+!                enddo
+!            enddo
+!        endif
+!    endif
+!    
+!
+!
+!
+!    if(allocated(this%root2stem) )then
+!        if(allocated(this%stem) .and. allocated(this%root) )then
+!            do myRootID = 1,size(this%root2stem,1)
+!                do yourStemID = 1, size(this%root2stem,2)
+!                    if(this%root2stem(myRootID,yourStemID)>=1 )then
+!                        ! connected
+!                        call this%root(myRootID)%femdomain%overset(&
+!                            FEMDomain=this%stem(yourStemID)%femdomain,&
+!                            DomainID   = yourStemID    ,& 
+!                            MyDomainID = this%numStem() +this%numLeaf() + myRootID  , &
+!                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+!                        call this%stem(yourStemID)%femdomain%overset(&
+!                            FEMDomain=  this%root(myRootID)%femdomain,&
+!                            DomainID   = this%numStem() +this%numLeaf() + myRootID    ,& 
+!                            MyDomainID =  yourStemID , &
+!                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+!                    endif
+!                enddo
+!            enddo
+!        endif
+!    endif
+!
+!
+!    if(allocated(this%root2root) )then
+!        if(allocated(this%root) )then
+!            do myRootID = 1,size(this%root2root,1)
+!                do yourrootID = 1, size(this%root2root,2)
+!                    if(this%root2root(myRootID,yourrootID)>=1 )then
+!                        ! connected
+!                        call this%root(myRootID)%femdomain%overset(&
+!                            FEMDomain=this%root(yourrootID)%femdomain,&
+!                            DomainID   = this%numroot() +this%numLeaf() + yourrootID    ,& 
+!                            MyDomainID = this%numroot() +this%numLeaf() + myRootID  , &
+!                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+!                    
+!                        call this%root(yourrootID)%femdomain%overset(&
+!                            FEMDomain=this%root(myRootID)%femdomain,&
+!                            DomainID   = this%numroot() +this%numLeaf() + myRootID    ,& 
+!                            MyDomainID =  this%numroot() +this%numLeaf() + yourrootID , &
+!                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+!                    endif
+!                enddo
+!            enddo
+!        endif
+!    endif
+!
+!
+!    if(allocated(this%Ear2stem) )then
+!        if(allocated(this%Ear) .and. allocated(this%stem) )then
+!            do myEarID = 1,size(this%Ear2stem,1)
+!                do yourStemID = 1, size(this%Ear2stem,2)
+!                    if(this%Ear2stem(myEarID,yourStemID)>=1 )then
+!                        ! connected
+!                        call this%Ear(myEarID)%femdomain%overset(&
+!                            FEMDomain=this%stem(yourStemID)%femdomain,&
+!                            DomainID   = yourStemID    ,& 
+!                            MyDomainID = this%numStem() + this%numLeaf() + this%numRoot() + myEarID  , &
+!                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+!                        call this%stem(yourStemID)%femdomain%overset(&
+!                            FEMDomain=this%Ear(myEarID)%femdomain,&
+!                            DomainID   = this%numStem() + this%numLeaf() + this%numRoot() + myEarID    ,& 
+!                            MyDomainID = yourStemID  , &
+!                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+!                        
+!                    endif
+!                enddo
+!            enddo
+!        endif
+!    endif
+!    
+!    if(allocated(this%Panicle2stem) )then
+!        if(allocated(this%Panicle) .and. allocated(this%stem) )then
+!            do myPanicleID = 1,size(this%Panicle2stem,1)
+!                do yourStemID = 1, size(this%Panicle2stem,2)
+!                    if(this%Panicle2stem(myPanicleID,yourStemID)>=1 )then
+!                        ! connected
+!                        call this%Panicle(myPanicleID)%femdomain%overset(&
+!                            FEMDomain=this%stem(yourStemID)%femdomain,&
+!                            DomainID   = yourStemID    ,& 
+!                            MyDomainID = this%numStem() + this%numLeaf() + this%numRoot() + &
+!                                this%numEar() + myPanicleID  , &
+!                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+!                        
+!                        call this%stem(yourStemID)%femdomain%overset(&
+!                            FEMDomain=this%Panicle(myPanicleID)%femdomain,&
+!                            DomainID   = this%numStem() + this%numLeaf() + this%numRoot() + &
+!                            this%numEar() + myPanicleID    ,& 
+!                            MyDomainID = yourStemID  , &
+!                            algorithm=EbOM_Algorithm_id ) ! or "P2P"
+!                    endif
+!                enddo
+!            enddo
+!        endif
+!    endif
+!    
+!
+!
+!    if(present(debug) )then
+!        if(debug)then
+!            print *, "[ok] overset >> done."        
+!        endif
+!    endif
+!
+!
+!
+!    call solver%init(NumDomain=this%numStem() +this%numLeaf() + this%numRoot() &
+!        + this%numEar() + this%numPanicle() )
+!    
+!    FEMDomainPointers = this%getFEMDomainPointers()
+!    call solver%setDomain(FEMDomainPointers=FEMDomainPointers )
+!    
+!    if(present(debug) )then
+!        if(debug)then
+!            print *, "[ok] initSolver >> done."        
+!        endif
+!    endif
+!
+!    call solver%setCRS(DOF=3,debug=debug)
+!
+!    ! CRS ready!
+!
+!    if( .not. this%checkYoungModulus())then
+!        print *, "[ERROR] YoungModulus(:) is not ready."
+!        stop
+!    endif
+!    if( .not. this%checkPoissonRatio())then
+!        print *, "[ERROR] PoissonRatio(:) is not ready."
+!        stop
+!    endif
+!    if( .not. this%checkDensity())then
+!        print *, "[ERROR] Density(:) is not ready."
+!        stop
+!    endif
+!
+!
+!    if(present(debug) )then
+!        if(debug)then
+!            print *, "[ok] setCRS >> done."        
+!        endif
+!    endif
+!    
+!    !$OMP parallel 
+!    !$OMP do
+!    do DomainID=1,size(FEMDomainPointers)
+!        do ElementID = 1, FEMDomainPointers(DomainID)%femdomainp%ne()
+!            call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=3,&
+!               Matrix=FEMDomainPointers(DomainID)%femdomainp%StiffnessMatrix(&
+!               ElementID=ElementID,&
+!               E=this%getYoungModulus(DomainID=DomainID,ElementID=ElementID), &
+!               v=this%getPoissonRatio(DomainID=DomainID,ElementID=ElementID)  ) )
+!        enddo
+!    enddo
+!    !$OMP end do
+!    !$OMP end parallel
+!    
+!    
+!    if(present(debug) )then
+!        if(debug)then
+!            print *, "[ok] set Matrix & vectors >> done."        
+!        endif
+!    endif
+!    
+!    call solver%setEbOM(penalty=input(default=10000000.0d0,option=penalty), DOF=3)
+!    
+!    if(present(debug) )then
+!        if(debug)then
+!            print *, "[ok] set EbOM >> done."        
+!        endif
+!    endif
+!    call solver%keepThisMatrixAs("A")
+!    !call solver%saveMatrix(name="A",CRS_as_dense=.true.,zero_or_nonzero=.true)
+!    call solver%zeros()
+!    
+!    ! mass matrix
+!    !$OMP parallel 
+!    !$OMP do
+!    do DomainID=1,size(FEMDomainPointers)
+!        do ElementID = 1, FEMDomainPointers(DomainID)%femdomainp%ne()
+!            call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=3,&
+!               Matrix=FEMDomainPointers(DomainID)%femdomainp%massMatrix(&
+!                ElementID=ElementID,&
+!                Density=this%getDensity(DomainID=DomainID,ElementID=ElementID), &
+!                DOF=3 ) )
+!        enddo
+!    enddo
+!    !$OMP end do
+!    !$OMP end parallel
+!    call solver%keepThisMatrixAs("B")
+!    
+!    ! fix-boundary conditions
+!    nn_domains = 0
+!    do i=1,size(FEMDomainPointers)
+!        if(FEMDomainPointers(i)%FEMDomainp%z_min() <= ground_level )then
+!            FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-2 + nn_domains*3
+!            call solver%fix_eig(IDs=FixBoundary)
+!            FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-1 + nn_domains*3
+!            call solver%fix_eig(IDs=FixBoundary)
+!            FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-0 + nn_domains*3
+!            call solver%fix_eig(IDs=FixBoundary)
+!        endif
+!        nn_domains = nn_domains + FEMDomainPointers(i)%FEMDomainp%nn()
+!    enddo
+!
+!    if(present(debug) )then
+!        if(debug)then
+!            print *, "[ok] FixBoundary >> done."        
+!        endif
+!    endif
+!
+!    if(present(debug) )then
+!        solver%debug = debug
+!    endif
+!
+!
+!
+!    call solver%eig(eigen_value=All_Frequency,eigen_vectors=All_EigenVectors)
+!    call solver%remove()
+!
+!    ! simplify this part
+!    ! normalize EigenVectors
+!    do i=1,size(All_EigenVectors,2)
+!        vec_norm = norm(All_EigenVectors(:,i) )
+!        
+!        All_EigenVectors(:,i) = All_EigenVectors(:,i)/vec_norm
+!    enddo
+!
+!    Frequency = zeros(num_freq)
+!    EigenVectors = zeros(size(All_EigenVectors,1),num_freq)
+!
+!    do i=1,num_freq
+!        n = minvalID(All_Frequency)
+!        EigenVectors(:,i) = All_EigenVectors(:,n)
+!        Frequency(i)      = All_Frequency(n)
+!        All_Frequency(n) = maxval(All_Frequency) 
+!    enddo
+!
+!    do i=1,size(Frequency)
+!        if(Frequency(i)<0.0d0)then
+!            Frequency(i)=0.0d0
+!        endif
+!    enddo
+!    Frequency = sqrt((Frequency))/(2.0d0*math%PI)
+!
+!
+!
+!    
+!    if(present(debug) )then
+!        if(debug)then
+!            print *, "[ok] Solve >> done."        
+!        endif
+!    endif
+!    
+!
+!
+!end function
+!! ################################################################
+
 
 ! ########################################
 function numleafMaize(this) result(ret)
@@ -3125,6 +3634,126 @@ function getDensityMaize(this,DomainID,ElementID) result(Density)
     
 end function
 ! ################################################################
+
+
+! ################################################################
+subroutine getVerticesMaize(this,Vertices,VertexIDs)
+    class(Maize_),intent(inout) :: this
+    real(real64),allocatable,intent(inout) :: Vertices(:)
+    integer(int32),allocatable,intent(inout) :: VertexIDs(:)
+    real(real64),allocatable :: this_vertices(:)
+    integer(int32),allocatable :: nn_range(:),this_vertexIDs(:)
+    integer(int32) :: i,n,new_idx
+    real(real64),allocatable :: old_Vertices(:)
+    integer(int32),allocatable :: old_VertexIDs(:)
+    
+
+    Vertices  = zeros(this%nn()*3)
+    VertexIDs = int(zeros(this%nn()))
+    if(allocated(this%stem) )then
+        !$OMP parallel do private(nn_range,this_vertices,this_vertexIDs)
+        do i=1,size(this%stem)
+            if(.not. this%stem(i)%femdomain%Mesh%empty() )then
+                call this%stem(i)%femdomain%getVertices(this_vertices,this_vertexIDs)
+
+                nn_range = this%nn_range("stem",i)
+                Vertices(3*(nn_range(1)-1)+1 : 3*(nn_range(1)-1)+size(this_vertices)  ) = this_vertices(:)
+                VertexIDs(nn_range(1):nn_range(1)-1+size(this_vertexIDs) ) = nn_range(1)-1+this_vertexIDs(:)
+                deallocate(this_vertices)
+                deallocate(this_vertexIDs)
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+
+    if(allocated(this%leaf) )then
+        !$OMP parallel do private(nn_range,this_vertices,this_vertexIDs)
+        do i=1,size(this%leaf)
+            if(.not. this%leaf(i)%femdomain%Mesh%empty() )then
+                call this%leaf(i)%femdomain%getVertices(this_vertices,this_vertexIDs)
+                nn_range = this%nn_range("leaf",i)
+                Vertices(3*(nn_range(1)-1)+1:3*(nn_range(1)-1)+size(this_vertices))  = this_vertices(:)
+                VertexIDs(nn_range(1):nn_range(1)-1+size(this_vertexIDs)) = nn_range(1)-1+this_vertexIDs(:)
+                deallocate(this_vertices)
+                deallocate(this_vertexIDs)
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+
+    if(allocated(this%root) )then
+        !$OMP parallel do private(nn_range,this_vertices,this_vertexIDs)
+        do i=1,size(this%root)
+            if(.not. this%root(i)%femdomain%Mesh%empty() )then
+                call this%root(i)%femdomain%getVertices(this_vertices,this_vertexIDs)
+                nn_range = this%nn_range("root",i)
+                Vertices(3*(nn_range(1)-1)+1:3*(nn_range(1)-1)+size(this_vertices))  = this_vertices(:)
+                VertexIDs(nn_range(1):nn_range(1)-1+size(this_vertexIDs)) = nn_range(1)-1+this_vertexIDs(:)
+                deallocate(this_vertices)
+                deallocate(this_vertexIDs)
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+
+
+    if(allocated(this%ear) )then
+        !$OMP parallel do private(nn_range,this_vertices,this_vertexIDs)
+        do i=1,size(this%ear)
+            if(.not. this%ear(i)%femdomain%Mesh%empty() )then
+                call this%ear(i)%femdomain%getVertices(this_vertices,this_vertexIDs)
+                nn_range = this%nn_range("ear",i)
+                Vertices(3*(nn_range(1)-1)+1:3*(nn_range(1)-1)+size(this_vertices))  = this_vertices(:)
+                VertexIDs(nn_range(1):nn_range(1)-1+size(this_vertexIDs)) = nn_range(1)-1+this_vertexIDs(:)
+                deallocate(this_vertices)
+                deallocate(this_vertexIDs)
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+
+    if(allocated(this%panicle) )then
+        !$OMP parallel do private(nn_range,this_vertices,this_vertexIDs)
+        do i=1,size(this%panicle)
+            if(.not. this%panicle(i)%femdomain%Mesh%empty() )then
+                call this%panicle(i)%femdomain%getVertices(this_vertices,this_vertexIDs)
+                nn_range = this%nn_range("panicle",i)
+                Vertices(3*(nn_range(1)-1)+1:3*(nn_range(1)-1)+size(this_vertices))  = this_vertices(:)
+                VertexIDs(nn_range(1):nn_range(1)-1+size(this_vertexIDs)) = nn_range(1)-1+this_vertexIDs(:)
+                deallocate(this_vertices)
+                deallocate(this_vertexIDs)
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+    
+    ! if VertexIDs(:) = 0 then
+    ! remove vertices
+    old_VertexIDs = VertexIDs
+    old_Vertices  = Vertices
+    n = size(VertexIDs) - countif(Array=VertexIDs,Equal=.true.,Value=0)
+    deallocate(VertexIDs)
+    deallocate(Vertices)
+    allocate(VertexIDs(n))
+    allocate(Vertices(3*n))
+    
+    new_idx = 0
+    do i=1,size(old_VertexIDs)
+        if(old_VertexIDs(i)==0 )then
+            cycle
+        else
+            new_idx = new_idx + 1
+            VertexIDs(new_idx) = old_VertexIDs(i)
+            Vertices(3*(new_idx-1)+1:3*(new_idx-1)+3) = old_Vertices( 3*(i-1)+1:3*(i-1)+3 )
+        endif
+    enddo
+    
+
+end subroutine getVerticesMaize
+! ################################################################
+
+
+
 
 
 ! #############################################################

@@ -8,7 +8,7 @@ maize%stem_division(1:3) = [2,2,10]
 maize%leaf_division(1:3) = [4,1,10]
 maize%ear_division(1:3) = [3,3,8]
 maize%panicle_division(1:3) = [2,1,2]
-call maize%create(config="Tutorial/obj/realMaizeConfig.json")
+call maize%create(config="Tutorial/obj/maize.json")
 call maize%remove(root=.true.)
 call maize%vtk("maize",single_file=.true.)
 call maize%checkMemoryRequirement()

@@ -267,6 +267,7 @@ module SoybeanClass
         procedure,public :: getYoungModulus => getYoungModulusSoybean
         procedure,public :: getPoissonRatio => getPoissonRatioSoybean
         procedure,public :: getDensity => getDensitySoybean
+        procedure,public :: getVertices => getVerticesSoybean
 
         procedure,public :: getYoungModulusField => getYoungModulusFieldSoybean
         procedure,public :: getPoissonRatioField => getPoissonRatioFieldSoybean
@@ -364,6 +365,8 @@ module SoybeanClass
         procedure,public :: nn => nnSoybean
         procedure,public :: np => nnSoybean
         procedure,public :: branchID =>branchIDSoybean
+        ! range of pointIDs for [Organ type, ID]
+        procedure,public :: nn_range => nn_rangeSoybean
 
         ! regacy/experimental
         procedure,public :: WaterAbsorption => WaterAbsorptionSoybean
@@ -10473,6 +10476,236 @@ end subroutine
 ! ######################################################
 
 
+
+! ##################################################################
+function nn_rangeSoybean(this,organ_type,ID) result(ret)
+    class(Soybean_) ,intent(inout) :: this
+    integer(int32),intent(in) :: ID
+    character(*),intent(in) :: organ_type
+    integer(int32) :: ret(1:2), i,offset
+
+    ! get number of node (point)
+    ret = [0,0]
+    
+    offset = 0
+    select case (organ_type)
+        case ("Stem","stem","STEM")
+            if(allocated(this%stem) )then
+                do i=1,ID-1
+                    if( .not.this%stem(i)%femdomain%mesh%empty() ) then
+                        offset = offset + this%stem(i)%femdomain%nn()
+                    endif
+                enddo
+                ret(1) = offset + 1
+                ret(2) = offset + this%stem(ID)%femdomain%nn()
+            endif
+        case ("Leaf","leaf","LEAF")
+            if(allocated(this%stem) )then
+                do i=1,size(this%stem)
+                    if( .not.this%stem(i)%femdomain%mesh%empty() ) then
+                        offset = offset + this%stem(i)%femdomain%nn()
+                    endif
+                enddo
+            endif
+            if(allocated(this%leaf) )then
+                do i=1,ID-1
+                    if( .not.this%leaf(i)%femdomain%mesh%empty() ) then
+                        offset = offset + this%leaf(i)%femdomain%nn()
+                    endif
+                enddo
+                ret(1) = offset + 1
+                ret(2) = offset + this%leaf(ID)%femdomain%nn()
+            endif
+            
+        case ("Root","root","ROOT")
+            if(allocated(this%stem) )then
+                do i=1,size(this%stem)
+                    if( .not.this%stem(i)%femdomain%mesh%empty() ) then
+                        offset = offset + this%stem(i)%femdomain%nn()
+                    endif
+                enddo
+            endif
+            if(allocated(this%leaf) )then
+                do i=1,size(this%leaf)
+                    if( .not.this%leaf(i)%femdomain%mesh%empty() ) then
+                        offset = offset + this%leaf(i)%femdomain%nn()
+                    endif
+                enddo
+            endif
+            if(allocated(this%root) )then
+                do i=1,ID-1
+                    if( .not.this%root(i)%femdomain%mesh%empty() ) then
+                        offset = offset + this%root(i)%femdomain%nn()
+                    endif
+                enddo
+                ret(1) = offset + 1
+                ret(2) = offset + this%root(ID)%femdomain%nn()
+            endif
+!        case ("Ear","ear","EAR")
+!            
+!            if(allocated(this%stem) )then
+!                if(allocated(this%stem) )then
+!                    do i=1,size(this%stem)
+!                        if( .not.this%stem(i)%femdomain%mesh%empty() ) then
+!                            offset = offset + this%stem(i)%femdomain%nn()
+!                        endif
+!                    enddo
+!                endif
+!                if(allocated(this%leaf) )then
+!                    do i=1,size(this%leaf)
+!                        if( .not.this%leaf(i)%femdomain%mesh%empty() ) then
+!                            offset = offset + this%leaf(i)%femdomain%nn()
+!                        endif
+!                    enddo
+!                endif
+!                if(allocated(this%root) )then
+!                    do i=1,size(this%root)
+!                        if( .not.this%root(i)%femdomain%mesh%empty() ) then
+!                            offset = offset + this%root(i)%femdomain%nn()
+!                        endif
+!                    enddo
+!                endif
+!                if(allocated(this%ear) )then
+!                    do i=1,ID-1
+!                        if( .not.this%ear(i)%femdomain%mesh%empty() ) then
+!                            offset = offset + this%ear(i)%femdomain%nn()
+!                        endif
+!                    enddo
+!                    ret(1) = offset + 1
+!                    ret(2) = offset + this%ear(ID)%femdomain%nn()
+!                endif
+!            endif
+!        case ("Panicle","panicle","PANICLE")
+!            if(allocated(this%stem) )then
+!                if(allocated(this%stem) )then
+!                    do i=1,size(this%stem)
+!                        if( .not.this%stem(i)%femdomain%mesh%empty() ) then
+!                            offset = offset + this%stem(i)%femdomain%nn()
+!                        endif
+!                    enddo
+!                endif
+!                if(allocated(this%leaf) )then
+!                    do i=1,size(this%leaf)
+!                        if( .not.this%leaf(i)%femdomain%mesh%empty() ) then
+!                            offset = offset + this%leaf(i)%femdomain%nn()
+!                        endif
+!                    enddo
+!                endif
+!                if(allocated(this%root) )then
+!                    do i=1,size(this%root)
+!                        if( .not.this%root(i)%femdomain%mesh%empty() ) then
+!                            offset = offset + this%root(i)%femdomain%nn()
+!                        endif
+!                    enddo
+!                endif
+!                if(allocated(this%ear) )then
+!                    do i=1,size(this%ear)
+!                        if( .not.this%ear(i)%femdomain%mesh%empty() ) then
+!                            offset = offset + this%ear(i)%femdomain%nn()
+!                        endif
+!                    enddo
+!                endif
+!                if(allocated(this%panicle) )then
+!                    do i=1,ID-1
+!                        if( .not.this%panicle(i)%femdomain%mesh%empty() ) then
+!                            offset = offset + this%panicle(i)%femdomain%nn()
+!                        endif
+!                    enddo
+!                    ret(1) = offset + 1
+!                    ret(2) = offset + this%panicle(ID)%femdomain%nn()
+!                endif
+!            endif
+!
+    end select 
+
+end function
+! ##################################################################
+
+
+
+! ################################################################
+subroutine getVerticesSoybean(this,Vertices,VertexIDs)
+    class(Soybean_),intent(inout) :: this
+    real(real64),allocatable,intent(inout) :: Vertices(:)
+    integer(int32),allocatable,intent(inout) :: VertexIDs(:)
+    real(real64),allocatable :: this_vertices(:)
+    integer(int32),allocatable :: nn_range(:),this_vertexIDs(:)
+    integer(int32) :: i,n,new_idx
+    real(real64),allocatable :: old_Vertices(:)
+    integer(int32),allocatable :: old_VertexIDs(:)
+    
+
+    Vertices  = zeros(this%nn()*3)
+    VertexIDs = int(zeros(this%nn()))
+    if(allocated(this%stem) )then
+        !$OMP parallel do private(nn_range,this_vertices,this_vertexIDs)
+        do i=1,size(this%stem)
+            if(.not. this%stem(i)%femdomain%Mesh%empty() )then
+                call this%stem(i)%femdomain%getVertices(this_vertices,this_vertexIDs)
+                nn_range = this%nn_range("stem",i)
+                Vertices(3*(nn_range(1)-1)+1 : 3*(nn_range(1)-1)+size(this_vertices)  ) = this_vertices(:)
+                VertexIDs(nn_range(1): nn_range(1)-1+size(this_vertexIDs) ) = nn_range(1)-1+this_vertexIDs(:)
+                deallocate(this_vertices)
+                deallocate(this_vertexIDs)
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+
+    if(allocated(this%leaf) )then
+        !$OMP parallel do private(nn_range,this_vertices,this_vertexIDs)
+        do i=1,size(this%leaf)
+            if(.not. this%leaf(i)%femdomain%Mesh%empty() )then
+                call this%leaf(i)%femdomain%getVertices(this_vertices,this_vertexIDs)
+                nn_range = this%nn_range("leaf",i)
+                Vertices(3*(nn_range(1)-1)+1:3*(nn_range(1)-1)+size(this_vertices))  = this_vertices(:)
+                VertexIDs(nn_range(1): nn_range(1)-1+size(this_vertexIDs)) = nn_range(1)-1+this_vertexIDs(:)
+                deallocate(this_vertices)
+                deallocate(this_vertexIDs)
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+
+    if(allocated(this%root) )then
+        !$OMP parallel do private(nn_range,this_vertices,this_vertexIDs)
+        do i=1,size(this%root)
+            if(.not. this%root(i)%femdomain%Mesh%empty() )then
+                call this%root(i)%femdomain%getVertices(this_vertices,this_vertexIDs)
+                nn_range = this%nn_range("root",i)
+                Vertices(3*(nn_range(1)-1)+1:3*(nn_range(1)-1)+size(this_vertices))  = this_vertices(:)
+                VertexIDs(nn_range(1): nn_range(1)-1+size(this_vertexIDs)) = nn_range(1)-1+this_vertexIDs(:)
+                deallocate(this_vertices)
+                deallocate(this_vertexIDs)
+            endif
+        enddo
+        !$OMP end parallel do
+    endif
+
+    ! if VertexIDs(:) = 0 then
+    ! remove vertices
+    old_VertexIDs = VertexIDs
+    old_Vertices  = Vertices
+    n = size(VertexIDs) - countif(Array=VertexIDs,Equal=.true.,Value=0)
+    deallocate(VertexIDs)
+    deallocate(Vertices)
+    allocate(VertexIDs(n))
+    allocate(Vertices(3*n))
+    
+    new_idx = 0
+    do i=1,size(old_VertexIDs)
+        if(old_VertexIDs(i)==0 )then
+            cycle
+        else
+            new_idx = new_idx + 1
+            VertexIDs(new_idx) = old_VertexIDs(i)
+            Vertices(3*(new_idx-1)+1:3*(new_idx-1)+3) = old_Vertices( 3*(i-1)+1:3*(i-1)+3 )
+        endif
+    enddo
+    
+
+end subroutine getVerticesSoybean
+! ################################################################
 
 
     
