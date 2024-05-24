@@ -10934,6 +10934,13 @@ subroutine getVerticesMesh(this,vertices,vertexIDs)
     logical :: dup
     integer(int32),allocatable :: is_vertex(:)
 
+    if(allocated(vertices) ) then
+        deallocate(vertices)
+    endif
+    if(allocated(vertexIDs) ) then
+        deallocate(vertexIDs)
+    endif
+
     ! get Facet info
     if (this%nd()==3 .and. this%nne()==4)then
         max_num_facet = 6
