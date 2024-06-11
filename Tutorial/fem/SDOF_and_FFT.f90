@@ -137,7 +137,7 @@ program main
             K_inv_F=0.0d0
         endif
         fix_disp = 0.0d0
-        if( timestep .in. to_range(50,150) )then
+        if( timestep .in. to_range([50,150]) )then
             Force = zeros(DOF)
             Force(DOF) = sin(11.0d0*timestep*dt)
             K_inv_F = Force

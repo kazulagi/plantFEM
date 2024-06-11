@@ -2,7 +2,7 @@
 *.msh
 /home
 home/
-build/
+.vscode/
 *.dSYM*
 .DS_Store
 doc/ford

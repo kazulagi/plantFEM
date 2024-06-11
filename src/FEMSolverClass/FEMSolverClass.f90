@@ -535,6 +535,12 @@ recursive subroutine setCRSFEMSolver(this,DOF,debug)
         !print *, size(this%CRS_Val), maxval(this%CRS_Val),minval(this%CRS_Val)
         !print *, size(this%CRS_Index_Col)/size(this%CRS_Index_Row)
         
+
+        ! >>>> time consuming part >>>>
+        ! >>>> time consuming part >>>>
+        ! >>>> time consuming part >>>>
+        ! >>>> time consuming part >>>>
+
         call COO%init( num_row = size(this%CRS_Index_Row) -1 )
         ! next :: interface:
         do domainID=1,size(this%femdomains)
@@ -587,11 +593,6 @@ recursive subroutine setCRSFEMSolver(this,DOF,debug)
                                         (col_node_id-1)*DOF + col_DOF
                                     endif
                                     
-                                    !col = sum(num_nodes_of_domains(0:col_domain_id-1))*DOF + &
-                                    !    (col_node_id-1)*DOF + col_DOF
-                                    ! [ok] num_nodes_of_domains
-                                    ! [ok] row_domain_id
-                                    
                                     call COO%add(row=int(row),col=int(col),val=0.0d0)
                                 enddo
                             enddo
@@ -614,6 +615,11 @@ recursive subroutine setCRSFEMSolver(this,DOF,debug)
                 ! COO -> CRSにする作戦，完了．
             endif
         enddo
+        ! <<<< time consuming part <<<<
+        ! <<<< time consuming part <<<<
+        ! <<<< time consuming part <<<<
+        ! <<<< time consuming part <<<<
+
 
 
         if(present(debug) )then

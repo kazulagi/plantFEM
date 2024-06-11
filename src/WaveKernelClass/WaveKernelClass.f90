@@ -1,6 +1,7 @@
 module WaveKernelClass
     use SparseClass
     use FEMDomainClass
+    use FEMSolverClass
     use SpectreAnalysisClass
     implicit none
 
@@ -19,8 +20,16 @@ module WaveKernelClass
         real(real64),allocatable :: u_out2(:)
         real(real64),allocatable :: hanning_buffer(:,:)
         integer(int32) :: itrmax=100
+
+        ! EbO-Scheme
+        integer(int32) :: EbO_Algorithm = FEMDomain_Overset_GPP
+        real(real64)   :: EbO_relative_penalty = 1000.0d0
+
+
     contains
-        procedure :: init => initWaveKernel
+        procedure,pass :: initWaveKernel
+        procedure,pass :: init_by_femdomain_pointers_WK
+        generic :: init => initWaveKernel, init_by_femdomain_pointers_WK
         procedure :: bandpass => bandpass_WaveKernel
         procedure :: lowpass => lowpass_WaveKernel
         procedure :: movingAverage => movingAverage_WaveKernel
@@ -42,6 +51,7 @@ module WaveKernelClass
 
 contains
 
+! ##############################################################
 subroutine initWaveKernel(this,FEMDomain,DOF,YoungModulus,PoissonRatio,&
         DampingRatio,Density)
     class(WaveKernel_),intent(inout) :: this
@@ -50,7 +60,6 @@ subroutine initWaveKernel(this,FEMDomain,DOF,YoungModulus,PoissonRatio,&
     real(real64),intent(in) :: YoungModulus(:),Density(:)
     real(real64),optional,intent(in) ::  PoissonRatio(:),DampingRatio(:)
     type(CRS_) :: Imatrix,Mmatrix,Cmatrix
-    
     
     Mmatrix = FEMDomain%MassMatrix(DOF=DOF,Density=Density)
     
@@ -62,7 +71,7 @@ subroutine initWaveKernel(this,FEMDomain,DOF,YoungModulus,PoissonRatio,&
         if(.not.present(PoissonRatio) )then
             print *, "[initWaveKernel] Please input PoissonRatio"
             stop
-        endif    
+        endif
         this%OmegaSqMatrix = FEMDomain%StiffnessMatrix( &
             YoungModulus=YoungModulus,PoissonRatio=PoissonRatio)
             
@@ -81,12 +90,75 @@ subroutine initWaveKernel(this,FEMDomain,DOF,YoungModulus,PoissonRatio,&
         this%DampingRatio = DampingRatio
     endif
 
-
-
-
-
 end subroutine initWaveKernel
 ! ##############################################################
+
+
+! ##############################################################
+subroutine init_by_femdomain_pointers_WK(this,FEMDomainPointers,DOF,YoungModulus,PoissonRatio,&
+    DampingRatio,Density)
+class(WaveKernel_),intent(inout) :: this
+integer(int32),intent(in) :: DOF
+type(FEMDomainp_),intent(inout) :: FEMDomainPointers(:)
+type(FEMSolver_) :: solver
+real(real64),intent(in) :: YoungModulus(:),Density(:)
+real(real64),optional,intent(in) ::  PoissonRatio(:),DampingRatio(:)
+integer(int32) :: DomainID,ElementID
+type(CRS_) :: Imatrix,Mmatrix,Cmatrix,Kmatrix
+
+! initialize wave kernel function by given FEMDomain-pointers
+call solver%init(NumDomain=size(FEMDomainPointers) )
+call solver%setDomain(FEMDomainPointers=FEMDomainPointers)
+call solver%setCRS(DOF=DOF)
+
+!$OMP parallel do private(ElementID)
+do DomainID=1,size(FEMDomainPointers)
+    do ElementID = 1, FEMDomainPointers(DomainID)%femdomainp%ne()
+        call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=DOF,&
+           Matrix=FEMDomainPointers(DomainID)%femdomainp%StiffnessMatrix(&
+           ElementID=ElementID,&
+           E=YoungModulus(get_element_idx(FEMDomainPointers,DomainID,ElementID)) , &
+           v=PoissonRatio(get_element_idx(FEMDomainPointers,DomainID,ElementID))  ) )
+    enddo
+enddo
+!$OMP end parallel do
+
+call solver%setEbOM(penalty=this%EbO_relative_penalty, DOF=3)
+Kmatrix = solver%getCRS()
+call solver%zeros()
+    
+! mass matrix
+!$OMP parallel do private(ElementID)
+do DomainID=1,size(FEMDomainPointers)
+    do ElementID = 1, FEMDomainPointers(DomainID)%femdomainp%ne()
+        call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=DOF,&
+            Matrix=FEMDomainPointers(DomainID)%femdomainp%MassMatrix(&
+            ElementID=ElementID,&
+            Density=Density(get_element_idx(FEMDomainPointers,DomainID,ElementID)), &
+            DOF=3 ) )
+    enddo
+enddo
+!$OMP end parallel do
+Mmatrix = solver%getCRS()
+
+this%OmegaSqMatrix = Kmatrix
+this%Mmatrix_diag = Mmatrix%diag(cell_centered=.true.) 
+this%OmegaSqMatrix = this%OmegaSqMatrix%divide_by(this%Mmatrix_diag)
+
+this%DampingRatio = zeros( this%OmegaSqMatrix%size() )
+
+if(present(DampingRatio) )then
+    !call Imatrix%eyes(this%OmegaSqMatrix%size() )
+    Cmatrix = to_diag(DampingRatio*DampingRatio) ! vector to diagonal matrix
+    this%OmegaSqMatrix = this%OmegaSqMatrix - Cmatrix
+    this%DampingRatio = DampingRatio
+endif
+
+end subroutine init_by_femdomain_pointers_WK
+! ##############################################################
+
+
+
 
 ! ##############################################################
 subroutine bandpass_WaveKernel(this,u_n, v_n,freq_range,dt,fix_idx)

@@ -5,13 +5,13 @@ import sys
 
 class plantfem:
     # Is plantFEM installed?
-    ret = os.system("plantfem hello")
-    if int(ret) != 0:
-        print("Library package of plantFEM is not installed.")
-        ans = input("Can I install the library? [y/N]")
-        if ans == "y" or ans == "Y":
-            # install
-            os.system("git clone https://github.com/kazulagi/plantFEM.git && cd plantFEM && python3 install.py")
+    #ret = os.system("plantfem hello")
+    #if int(ret) != 0:
+    #    print("Library package of plantFEM is not installed.")
+    #    ans = input("Can I install the library? [y/N]")
+    #    if ans == "y" or ans == "Y":
+    #        # install
+    #        os.system("git clone https://github.com/kazulagi/plantFEM.git && cd plantFEM && python3 install.py")
 
         
 
@@ -114,6 +114,34 @@ class Light():
     def direction(self):
         return self.__light_direction 
 
+def create_soybean(in_name,out_name):
+    if os.path.exists("./create_soybean.out"):
+        os.system("./create_soybean.out "+in_name+" "+out_name)
+    else:
+        os.system("plantfem build Tutorial/obj/create_soybean.f90")
+        os.system("mv Tutorial/obj/create_soybean.out ./")
+        os.system("./create_soybean.out "+in_name+" "+out_name)
 
+def create_maize(in_name,out_name):
+    if os.path.exists("./create_maize.out"):
+        os.system("./create_maize.out "+in_name+" "+out_name)
+    else:
+        os.system("plantfem build Tutorial/obj/create_maize.f90")
+        os.system("mv Tutorial/obj/create_maize.out ./")
+        os.system("./create_maize.out "+in_name+" "+out_name)
 
+def create_rice(in_name,out_name):
+    if os.path.exists("./create_rice.out"):
+        os.system("./create_rice.out "+in_name+" "+out_name)
+    else:
+        os.system("plantfem build Tutorial/obj/create_rice.f90")
+        os.system("mv Tutorial/obj/create_rice.out ./")
+        os.system("./create_rice.out "+in_name+" "+out_name)
 
+def create_wheat(in_name,out_name):
+    if os.path.exists("./create_wheat.out"):
+        os.system("./create_wheat.out "+in_name+" "+out_name)
+    else:
+        os.system("plantfem build Tutorial/obj/create_wheat.f90")
+        os.system("mv Tutorial/obj/create_wheat.out ./")
+        os.system("./create_wheat.out "+in_name+" "+out_name)

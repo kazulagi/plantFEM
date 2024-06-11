@@ -418,6 +418,7 @@ module ArrayClass
         module procedure :: quicksortreal,quicksortint,quicksortintArray
     end interface
 
+
     interface getKeyAndValue
         module procedure :: getKeyAndValueReal
     end interface
@@ -516,6 +517,10 @@ module ArrayClass
             to_Array_from_keyword,to_array_from_file
     end interface to_array
 
+    interface tile
+        module procedure tile_int32,tile_int64,tile_real32,tile_real64,tile_real128
+    end interface tile
+
     interface to_vector
         module procedure to_vector_array_real64,to_vector_array_int32
     end interface
@@ -540,6 +545,8 @@ module ArrayClass
     interface operator(.and.)
         module procedure and_int32vector_int32vector
     end interface 
+
+    
 
     
 
@@ -4107,6 +4114,7 @@ function getifReal(Array,Value) result(list)
 end function
 !##################################################
 
+
 !##################################################
 subroutine heapsortArray(array,val)
     real(real64),optional,intent(inout) :: val(:)
@@ -4206,6 +4214,7 @@ subroutine heapsortArray(array,val)
       enddo
   
   end subroutine heapsortArray
+!##################################################
   
 
 !##################################################
@@ -10100,6 +10109,108 @@ function get_segments_integer(data_len,segment_len,overlap_percent) result(ret)
         endif
     enddo
     
+end function
+
+
+
+function tile_int32(tinyarray,number_of_repeat) result(ret)
+    integer(int32),intent(in) :: tinyarray(:)
+    integer(int32),intent(in) :: number_of_repeat
+    integer(int32),allocatable :: ret(:)
+    integer(int64) :: i,n
+    
+    n = size(tinyarray)
+
+    allocate(ret(n*number_of_repeat ) )
+    
+    !$OMP parallel do
+    do i=1,number_of_repeat
+        ret( n*(i-1)+1 : n*(i-1)+n  ) = tinyarray(1:n)
+    enddo
+    !$OMP end parallel do
+
+
+end function
+
+
+
+function tile_int64(tinyarray,number_of_repeat) result(ret)
+    integer(int64),intent(in) :: tinyarray(:)
+    integer(int64),intent(in) :: number_of_repeat
+    integer(int64),allocatable :: ret(:)
+    integer(int64) :: i,n
+    
+    n = size(tinyarray)
+
+    allocate(ret(n*number_of_repeat ) )
+    
+    !$OMP parallel do
+    do i=1,number_of_repeat
+        ret( n*(i-1)+1 : n*(i-1)+n  ) = tinyarray(1:n)
+    enddo
+    !$OMP end parallel do
+
+
+end function
+
+
+function tile_real32(tinyarray,number_of_repeat) result(ret)
+    real(real32),intent(in) :: tinyarray(:)
+    integer(int32),intent(in) :: number_of_repeat
+    real(real32),allocatable :: ret(:)
+    integer(int64) :: i,n
+    
+    n = size(tinyarray)
+
+    allocate(ret(n*number_of_repeat ) )
+    
+    !$OMP parallel do
+    do i=1,number_of_repeat
+        ret( n*(i-1)+1 : n*(i-1)+n  ) = tinyarray(1:n)
+    enddo
+    !$OMP end parallel do
+
+
+end function
+
+
+function tile_real64(tinyarray,number_of_repeat) result(ret)
+    real(real64),intent(in) :: tinyarray(:)
+    integer(int32),intent(in) :: number_of_repeat
+    real(real64),allocatable :: ret(:)
+    integer(int64) :: i,n
+    
+    n = size(tinyarray)
+
+    allocate(ret(n*number_of_repeat ) )
+    
+    !$OMP parallel do
+    do i=1,number_of_repeat
+        ret( n*(i-1)+1 : n*(i-1)+n  ) = tinyarray(1:n)
+    enddo
+    !$OMP end parallel do
+
+
+end function
+
+
+function tile_real128(tinyarray,number_of_repeat) result(ret)
+    real(real128),intent(in) :: tinyarray(:)
+    integer(int32),intent(in) :: number_of_repeat
+    real(real128),allocatable :: ret(:)
+    integer(int64) :: i,n
+    
+    n = size(tinyarray)
+
+    allocate(ret(n*number_of_repeat ) )
+    
+    !$OMP parallel do
+    do i=1,number_of_repeat
+        ret( n*(i-1)+1 : n*(i-1)+n  ) = tinyarray(1:n)
+    enddo
+    !$OMP end parallel do
+
+
 end function
 
 end module ArrayClass
