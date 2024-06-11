@@ -276,6 +276,9 @@ module SoybeanClass
 
         procedure,public :: getElementList => getElementListSoybean
         
+        procedure,public :: MassMatrix => MassMatrixSoybean
+        procedure,public :: StiffnessMatrix => StiffnessMatrixSoybean
+
         ! operation
         procedure,public :: findApical => findApicalSoybean
         
@@ -7350,7 +7353,7 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
                     center_x = obj%leaf(i)%femdomain%centerPosition(ElementID=j)
                     ! 枚数のみカウント
                     ! 1枚あたりthicknessだけ距離加算
-
+                    
                     !$OMP parallel do default(shared), private(inside,upside,radius_vec,radius_tr,zmin,n,element_id)
                     do k=1,size(leaf)
                         if(.not. leaf(k)%femdomain%empty() )then
@@ -8274,10 +8277,10 @@ end subroutine
 
 
 ! ################################################################
-function getDisplacementSoybean(obj, ground_level,penalty,debug,itrmax,tol) result(disp)
+function getDisplacementSoybean(obj, ground_level,penalty,traction_force,debug,itrmax,tol) result(disp)
     class(Soybean_),target,intent(inout) :: obj
     real(real64),intent(in) :: ground_level
-    real(real64),optional,intent(in) :: penalty, tol
+    real(real64),optional,intent(in) :: penalty, tol,traction_force(:)
     logical,optional,intent(in) ::debug
     integer(int32),optional,intent(in) ::itrmax
     
@@ -8403,8 +8406,9 @@ function getDisplacementSoybean(obj, ground_level,penalty,debug,itrmax,tol) resu
         endif
     endif
     
-    !$OMP parallel 
-    !$OMP do
+    !!$OMP parallel 
+    !!$OMP do
+    !$OMP parallel do private(ElementID)
     do DomainID=1,size(FEMDomainPointers)
         do ElementID = 1, FEMDomainPointers(DomainID)%femdomainp%ne()
             call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=3,&
@@ -8423,8 +8427,7 @@ function getDisplacementSoybean(obj, ground_level,penalty,debug,itrmax,tol) resu
                 )
         enddo
     enddo
-    !$OMP end do
-    !$OMP end parallel
+    !$OMP end parallel do
     
     if(present(debug) )then
         if(debug)then
@@ -8440,6 +8443,15 @@ function getDisplacementSoybean(obj, ground_level,penalty,debug,itrmax,tol) resu
         if(debug)then
             print *, "[ok] set EbOM >> done."        
         endif
+    endif
+
+    ! traction boundary condition
+    if(present(traction_force) )then
+        if(size(traction_force)/=size(solver%CRS_RHS) )then
+            print *, "[ERROR] > getDisplacementSoybean > (size(traction_force)/=size(solver%CRS_RHS) )"
+            stop
+        endif
+        solver%CRS_RHS(:) = solver%CRS_RHS(:) + traction_force(:)
     endif
     
     ! fix-boundary conditions
@@ -8476,6 +8488,9 @@ function getDisplacementSoybean(obj, ground_level,penalty,debug,itrmax,tol) resu
         solver%er0 = tol
     endif
 
+    print *,"dbf"
+
+    
 
     disp = solver%solve()
 
@@ -8498,10 +8513,15 @@ end function
 
 
 ! ################################################################
-function getFEMDomainPointersSoybean(obj) result(FEMDomainPointers)
-    class(Soybean_),target,intent(in) :: obj
+function getFEMDomainPointersSoybean(obj,algorithm) result(FEMDomainPointers)
+    class(Soybean_),target,intent(inout) :: obj
+    integer(int32),optional,intent(in) :: algorithm
+
     type(FEMDomainp_),allocatable :: FEMDomainPointers(:)
-    integer(int32) :: num_FEMDomain,i, n
+    integer(int32) :: num_FEMDomain,i, n,yourStemID,myStemID,yourLeafID,myLeafID,&
+        yourRootID,myRootID,EbO_Algorithm
+
+    EbO_algorithm = input(default=FEMDomain_Overset_GPP,option=algorithm)
 
     num_FEMDomain = obj%numStem() + obj%numLeaf() + obj%numRoot()
     allocate(FEMDomainPointers(num_FEMDomain) )
@@ -8524,6 +8544,75 @@ function getFEMDomainPointersSoybean(obj) result(FEMDomainPointers)
             FEMDomainPointers(n)%femdomainp => obj%root(i)%femdomain
         endif
     enddo
+
+    ! for overset
+    n = obj%numStem() + obj%numLeaf() + obj%numRoot() 
+    
+    !(1) >> compute overset
+    ! For stems
+    if(allocated(obj%stem2stem) )then
+        do myStemID = 1,size(obj%stem2stem,1)
+            do yourStemID = 1, size(obj%stem2stem,2)
+                if(obj%stem2stem(myStemID,yourStemID)>=1 )then
+                    ! connected
+                    call obj%stem(myStemID)%femdomain%overset(&
+                        FEMDomain=obj%stem(yourStemID)%femdomain,&
+                        DomainID   = yourStemID    ,& 
+                        MyDomainID = myStemID  ,&
+                        algorithm=EbO_algorithm) 
+                endif
+            enddo
+        enddo
+    endif
+
+    if(allocated(obj%leaf2stem) )then
+        do myLeafID = 1,size(obj%leaf2stem,1)
+            do yourStemID = 1, size(obj%leaf2stem,2)
+                if(obj%leaf2stem(myLeafID,yourStemID)>=1 )then
+                    ! connected
+                    call obj%leaf(myLeafID)%femdomain%overset(&
+                        FEMDomain=obj%stem(yourStemID)%femdomain,&
+                        DomainID   = yourStemID    ,& 
+                        MyDomainID = obj%numStem() + myLeafID  , &
+                        algorithm=EbO_algorithm) 
+                endif
+            enddo
+        enddo
+    endif
+    
+
+    if(allocated(obj%root2stem) )then
+        do myRootID = 1,size(obj%root2stem,1)
+            do yourStemID = 1, size(obj%root2stem,2)
+                if(obj%root2stem(myRootID,yourStemID)>=1 )then
+                    ! connected
+                    call obj%root(myRootID)%femdomain%overset(&
+                        FEMDomain=obj%stem(yourStemID)%femdomain,&
+                        DomainID   = yourStemID    ,& 
+                        MyDomainID = obj%numStem() +obj%numLeaf() + myRootID  , &
+                        algorithm=EbO_algorithm) 
+                endif
+            enddo
+        enddo
+    endif
+
+
+    if(allocated(obj%root2root) )then
+        do myRootID = 1,size(obj%root2root,1)
+            do yourrootID = 1, size(obj%root2root,2)
+                if(obj%root2root(myRootID,yourrootID)>=1 )then
+                    ! connected
+                    call obj%root(myRootID)%femdomain%overset(&
+                        FEMDomain=obj%root(yourrootID)%femdomain,&
+                        DomainID   = obj%numroot() +obj%numLeaf() + yourrootID    ,& 
+                        MyDomainID = obj%numroot() +obj%numLeaf() + myRootID  , &
+                        algorithm=EbO_algorithm) 
+                endif
+            enddo
+        enddo
+    endif
+
+
 end function
 ! ################################################################
 
@@ -9260,8 +9349,9 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
         endif
     endif
     
-    !$OMP parallel 
-    !$OMP do
+    !!$OMP parallel 
+    !!$OMP do
+    !$OMP parallel do private(ElementID)
     do DomainID=1,size(FEMDomainPointers)
         do ElementID = 1, FEMDomainPointers(DomainID)%femdomainp%ne()
             call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=3,&
@@ -9271,8 +9361,7 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
                v=obj%getPoissonRatio(DomainID=DomainID,ElementID=ElementID)  ) )
         enddo
     enddo
-    !$OMP end do
-    !$OMP end parallel
+    !$OMP end parallel do
     
     
     if(present(debug) )then
@@ -9294,8 +9383,7 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
     call solver%zeros()
     
     ! mass matrix
-    !$OMP parallel 
-    !$OMP do
+    !$OMP parallel do private(ElementID)
     do DomainID=1,size(FEMDomainPointers)
         do ElementID = 1, FEMDomainPointers(DomainID)%femdomainp%ne()
             call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=3,&
@@ -9305,8 +9393,7 @@ function getEigenModeSoybean(obj, ground_level,penalty,debug,Frequency,EbOM_Algo
                 DOF=3 ) )
         enddo
     enddo
-    !$OMP end do
-    !$OMP end parallel
+    !$OMP end parallel do
     call solver%keepThisMatrixAs("B")
     
     ! fix-boundary conditions
@@ -10707,6 +10794,454 @@ subroutine getVerticesSoybean(this,Vertices,VertexIDs)
 end subroutine getVerticesSoybean
 ! ################################################################
 
+
+function MassMatrixSoybean(obj,debug) result(ret)
+    class(Soybean_),target,intent(inout) :: obj
+!    real(real64),intent(in) :: ground_level
+!    real(real64),optional,intent(in) :: penalty, tol,traction_force(:)
+    logical,optional,intent(in) ::debug
+    type(CRS_) :: ret
+!    integer(int32),optional,intent(in) ::itrmax
+    
+
+    type(FEMDomainp_),allocatable :: FEMDomainPointers(:)
+    type(FEMSolver_) :: solver
+
+    integer(int32) :: stem_id, leaf_id, root_id,DomainID,ElementID,i,n,offset
+    integer(int32) :: myStemID, yourStemID, myLeafID,myRootID, yourRootID
+    integer(int32),allocatable :: FixBoundary(:)
+    ! linear elasticity with infinitesimal strain theory
+    n = obj%numStem() + obj%numLeaf() + obj%numRoot() 
+    allocate(FEMDomainPointers(n) )
+
+    !(1) >> compute overset
+    ! For stems
+    if(allocated(obj%stem2stem) )then
+        do myStemID = 1,size(obj%stem2stem,1)
+            do yourStemID = 1, size(obj%stem2stem,2)
+                if(obj%stem2stem(myStemID,yourStemID)>=1 )then
+                    ! connected
+                    call obj%stem(myStemID)%femdomain%overset(&
+                        FEMDomain=obj%stem(yourStemID)%femdomain,&
+                        DomainID   = yourStemID    ,& 
+                        MyDomainID = myStemID  ,&
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+
+    if(allocated(obj%leaf2stem) )then
+        do myLeafID = 1,size(obj%leaf2stem,1)
+            do yourStemID = 1, size(obj%leaf2stem,2)
+                if(obj%leaf2stem(myLeafID,yourStemID)>=1 )then
+                    ! connected
+                    call obj%leaf(myLeafID)%femdomain%overset(&
+                        FEMDomain=obj%stem(yourStemID)%femdomain,&
+                        DomainID   = yourStemID    ,& 
+                        MyDomainID = obj%numStem() + myLeafID  , &
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+    
+
+    if(allocated(obj%root2stem) )then
+        do myRootID = 1,size(obj%root2stem,1)
+            do yourStemID = 1, size(obj%root2stem,2)
+                if(obj%root2stem(myRootID,yourStemID)>=1 )then
+                    ! connected
+                    call obj%root(myRootID)%femdomain%overset(&
+                        FEMDomain=obj%stem(yourStemID)%femdomain,&
+                        DomainID   = yourStemID    ,& 
+                        MyDomainID = obj%numStem() +obj%numLeaf() + myRootID  , &
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+
+
+    if(allocated(obj%root2root) )then
+        do myRootID = 1,size(obj%root2root,1)
+            do yourrootID = 1, size(obj%root2root,2)
+                if(obj%root2root(myRootID,yourrootID)>=1 )then
+                    ! connected
+                    call obj%root(myRootID)%femdomain%overset(&
+                        FEMDomain=obj%root(yourrootID)%femdomain,&
+                        DomainID   = obj%numroot() +obj%numLeaf() + yourrootID    ,& 
+                        MyDomainID = obj%numroot() +obj%numLeaf() + myRootID  , &
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] overset >> done."        
+        endif
+    endif
+
+
+
+    call solver%init(NumDomain=obj%numStem() +obj%numLeaf() + obj%numRoot() )
+    
+    FEMDomainPointers = obj%getFEMDomainPointers()
+    call solver%setDomain(FEMDomainPointers=FEMDomainPointers )
+    
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] initSolver >> done."        
+        endif
+    endif
+
+    call solver%setCRS(DOF=3,debug=debug)
+
+    ! CRS ready!
+
+!    if( .not. obj%checkYoungModulus())then
+!        print *, "[ERROR] YoungModulus(:) is not ready."
+!        stop
+!    endif
+!    if( .not. obj%checkPoissonRatio())then
+!        print *, "[ERROR] PoissonRatio(:) is not ready."
+!        stop
+!    endif
+    if( .not. obj%checkDensity())then
+        print *, "[ERROR] Density(:) is not ready."
+        stop
+    endif
+
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] setCRS >> done."        
+        endif
+    endif
+    
+    !$OMP parallel do private(ElementID)
+    do DomainID=1,size(FEMDomainPointers)
+        do ElementID = 1, FEMDomainPointers(DomainID)%femdomainp%ne()
+            call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=3,&
+               Matrix=FEMDomainPointers(DomainID)%femdomainp%MassMatrix(&
+               ElementID=ElementID,&
+               DOF=FEMDomainPointers(DomainID)%femdomainp%nd(),&
+               Density=obj%getDensity(DomainID=DomainID,ElementID=ElementID) ) )
+        enddo
+    enddo
+    !$OMP end parallel do
+    
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] set Matrix & vectors >> done."        
+        endif
+    endif
+    
+
+!    call solver%setEbOM(penalty=input(default=10000000.0d0,option=penalty), DOF=3)
+
+
+!    if(present(debug) )then
+!        if(debug)then
+!            print *, "[ok] set EbOM >> done."        
+!        endif
+!    endif
+!
+!    ! traction boundary condition
+!    if(present(traction_force) )then
+!        if(size(traction_force)/=size(solver%CRS_RHS) )then
+!            print *, "[ERROR] > getDisplacementSoybean > (size(traction_force)/=size(solver%CRS_RHS) )"
+!            stop
+!        endif
+!        solver%CRS_RHS(:) = solver%CRS_RHS(:) + traction_force(:)
+!    endif
+!    
+!    ! fix-boundary conditions
+!    offset = 0
+!    do i=1,size(FEMDomainPointers)
+!        if(FEMDomainPointers(i)%FEMDomainp%z_min() <= ground_level )then
+!            FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-2
+!            FixBoundary = FixBoundary + offset
+!            call solver%fix(IDs=FixBoundary,FixValue=0.0d0)
+!            FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-1
+!            FixBoundary = FixBoundary + offset
+!            call solver%fix(IDs=FixBoundary,FixValue=0.0d0)
+!            FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-0
+!            FixBoundary = FixBoundary + offset
+!            call solver%fix(IDs=FixBoundary,FixValue=0.0d0)
+!        endif
+!        offset = offset + FEMDomainPointers(i)%femdomainp%nn()*3
+!    enddo
+!
+!    if(present(debug) )then
+!        if(debug)then
+!            print *, "[ok] FixBoundary >> done."        
+!        endif
+!    endif
+!
+    if(present(debug) )then
+        solver%debug = debug
+    endif
+!    if(present(itrmax) )then
+!        solver%itrmax = itrmax
+!    endif
+!
+!    if(present(tol) )then
+!        solver%er0 = tol
+!    endif
+
+
+!    disp = solver%solve()
+!
+!
+    ret = solver%getCRS()
+    !call solver%remove()
+
+
+!    if(present(debug) )then
+!        if(debug)then
+!            print *, "[ok] Solve >> done."        
+!        endif
+!    endif
+    ! japanese "ato-shimatsu"
+
+
+end function
+
+! #####################################################################
+
+
+function StiffnessMatrixSoybean(obj,penalty,debug) result(ret)
+    class(Soybean_),target,intent(inout) :: obj
+!    real(real64),intent(in) :: ground_level
+    real(real64),optional,intent(in) :: penalty!, tol,traction_force(:)
+    logical,optional,intent(in) ::debug
+    type(CRS_) :: ret
+!    integer(int32),optional,intent(in) ::itrmax
+    
+
+    type(FEMDomainp_),allocatable :: FEMDomainPointers(:)
+    type(FEMSolver_) :: solver
+
+    integer(int32) :: stem_id, leaf_id, root_id,DomainID,ElementID,i,n,offset
+    integer(int32) :: myStemID, yourStemID, myLeafID,myRootID, yourRootID
+    integer(int32),allocatable :: FixBoundary(:)
+    ! linear elasticity with infinitesimal strain theory
+    n = obj%numStem() + obj%numLeaf() + obj%numRoot() 
+    
+    allocate(FEMDomainPointers(n) )
+
+    !(1) >> compute overset
+    ! For stems
+    if(allocated(obj%stem2stem) )then
+        do myStemID = 1,size(obj%stem2stem,1)
+            do yourStemID = 1, size(obj%stem2stem,2)
+                if(obj%stem2stem(myStemID,yourStemID)>=1 )then
+                    ! connected
+                    call obj%stem(myStemID)%femdomain%overset(&
+                        FEMDomain=obj%stem(yourStemID)%femdomain,&
+                        DomainID   = yourStemID    ,& 
+                        MyDomainID = myStemID  ,&
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+
+    if(allocated(obj%leaf2stem) )then
+        do myLeafID = 1,size(obj%leaf2stem,1)
+            do yourStemID = 1, size(obj%leaf2stem,2)
+                if(obj%leaf2stem(myLeafID,yourStemID)>=1 )then
+                    ! connected
+                    call obj%leaf(myLeafID)%femdomain%overset(&
+                        FEMDomain=obj%stem(yourStemID)%femdomain,&
+                        DomainID   = yourStemID    ,& 
+                        MyDomainID = obj%numStem() + myLeafID  , &
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+    
+
+    if(allocated(obj%root2stem) )then
+        do myRootID = 1,size(obj%root2stem,1)
+            do yourStemID = 1, size(obj%root2stem,2)
+                if(obj%root2stem(myRootID,yourStemID)>=1 )then
+                    ! connected
+                    call obj%root(myRootID)%femdomain%overset(&
+                        FEMDomain=obj%stem(yourStemID)%femdomain,&
+                        DomainID   = yourStemID    ,& 
+                        MyDomainID = obj%numStem() +obj%numLeaf() + myRootID  , &
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+
+
+    if(allocated(obj%root2root) )then
+        do myRootID = 1,size(obj%root2root,1)
+            do yourrootID = 1, size(obj%root2root,2)
+                if(obj%root2root(myRootID,yourrootID)>=1 )then
+                    ! connected
+                    call obj%root(myRootID)%femdomain%overset(&
+                        FEMDomain=obj%root(yourrootID)%femdomain,&
+                        DomainID   = obj%numroot() +obj%numLeaf() + yourrootID    ,& 
+                        MyDomainID = obj%numroot() +obj%numLeaf() + myRootID  , &
+                        algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                endif
+            enddo
+        enddo
+    endif
+
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] overset >> done."        
+        endif
+    endif
+
+
+
+    call solver%init(NumDomain=obj%numStem() +obj%numLeaf() + obj%numRoot() )
+    
+    FEMDomainPointers = obj%getFEMDomainPointers()
+    call solver%setDomain(FEMDomainPointers=FEMDomainPointers )
+    
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] initSolver >> done."        
+        endif
+    endif
+
+    call solver%setCRS(DOF=3,debug=debug)
+
+    ! CRS ready!
+
+    if( .not. obj%checkYoungModulus())then
+        print *, "[ERROR] YoungModulus(:) is not ready."
+        stop
+    endif
+    if( .not. obj%checkPoissonRatio())then
+        print *, "[ERROR] PoissonRatio(:) is not ready."
+        stop
+    endif
+!    if( .not. obj%checkDensity())then
+!        print *, "[ERROR] Density(:) is not ready."
+!        stop
+!    endif
+
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] setCRS >> done."        
+        endif
+    endif
+    
+    !$OMP parallel do private(ElementID)
+    do DomainID=1,size(FEMDomainPointers)
+        do ElementID = 1, FEMDomainPointers(DomainID)%femdomainp%ne()
+            call solver%setMatrix(DomainID=DomainID,ElementID=ElementID,DOF=3,&
+                Matrix=FEMDomainPointers(DomainID)%femdomainp%StiffnessMatrix(&
+                ElementID=ElementID,&
+                E=obj%getYoungModulus(DomainID=DomainID,ElementID=ElementID), &
+                v=obj%getPoissonRatio(DomainID=DomainID,ElementID=ElementID)  ) )
+
+!            call solver%setVector(DomainID=DomainID,ElementID=ElementID,DOF=3,&
+!                Vector=FEMDomainPointers(DomainID)%femdomainp%MassVector(&
+!                    ElementID=ElementID,&
+!                    DOF=FEMDomainPointers(DomainID)%femdomainp%nd() ,&
+!                    Density= obj%getDensity(DomainID=DomainID,ElementID=ElementID) ,&
+!                    Accel=[0.0d0, 0.0d0, -9.80d0]&
+!                    ) & 
+!                )
+        enddo
+    enddo
+    !$OMP end parallel do
+    
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] set Matrix & vectors >> done."        
+        endif
+    endif
+    
+
+    call solver%setEbOM(penalty=input(default=10000000.0d0,option=penalty), DOF=3)
+
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] set EbOM >> done."        
+        endif
+    endif
+
+!    ! traction boundary condition
+!    if(present(traction_force) )then
+!        if(size(traction_force)/=size(solver%CRS_RHS) )then
+!            print *, "[ERROR] > getDisplacementSoybean > (size(traction_force)/=size(solver%CRS_RHS) )"
+!            stop
+!        endif
+!        solver%CRS_RHS(:) = solver%CRS_RHS(:) + traction_force(:)
+!    endif
+!    
+!    ! fix-boundary conditions
+!    offset = 0
+!    do i=1,size(FEMDomainPointers)
+!        if(FEMDomainPointers(i)%FEMDomainp%z_min() <= ground_level )then
+!            FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-2
+!            FixBoundary = FixBoundary + offset
+!            call solver%fix(IDs=FixBoundary,FixValue=0.0d0)
+!            FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-1
+!            FixBoundary = FixBoundary + offset
+!            call solver%fix(IDs=FixBoundary,FixValue=0.0d0)
+!            FixBoundary = FEMDomainPointers(i)%FEMDomainp%select(z_max = ground_level )*3-0
+!            FixBoundary = FixBoundary + offset
+!            call solver%fix(IDs=FixBoundary,FixValue=0.0d0)
+!        endif
+!        offset = offset + FEMDomainPointers(i)%femdomainp%nn()*3
+!    enddo
+
+    if(present(debug) )then
+        if(debug)then
+            print *, "[ok] FixBoundary >> done."        
+        endif
+    endif
+
+    if(present(debug) )then
+        solver%debug = debug
+    endif
+!    if(present(itrmax) )then
+!        solver%itrmax = itrmax
+!    endif
+!
+!    if(present(tol) )then
+!        solver%er0 = tol
+!    endif
+!
+
+!    disp = solver%solve()
+!
+!
+    
+    ret = solver%getCRS()
+    !call solver%remove()
+
+
+!    if(present(debug) )then
+!        if(debug)then
+!            print *, "[ok] Solve >> done."        
+!        endif
+!    endif
+    ! japanese "ato-shimatsu"
+
+
+end function
+
+! #####################################################################
 
     
 end module  

@@ -220,6 +220,9 @@ module FEMDomainClass
 		procedure,public :: getVolume => getVolumeFEMDomain
 
 		procedure,public :: getJacobiMatrix => getJacobiMatrixFEMDomain
+		procedure,pass :: getLayer_scalarFEMDomain
+		generic :: getLayer => getLayer_scalarFEMDomain
+
 		procedure,public :: getLayerID => getLayerIDFEMDomain
 		procedure,public :: getLayerAttribute => getLayerAttributeFEMDomain
 		procedure,public :: getLayerDataStyle => getLayerDataStyleFEMDomain
@@ -494,7 +497,6 @@ module FEMDomainClass
 
 		procedure,public :: sync => syncFEMDomain
 
-
 		!# physical modifiers
 		! Is it necessary?
 		!procedure :: grub    => grubFEMDomain ! grub some part of object in range
@@ -517,6 +519,8 @@ module FEMDomainClass
 	contains
 		procedure,public :: getMyID => getMyIDFEMDomainp
 		procedure,public :: overset => overset_FEMDomainp
+		procedure,public :: connect => overset_FEMDomainp
+		procedure,public :: overlap => overset_FEMDomainp
 	end type
 
 
@@ -533,6 +537,32 @@ module FEMDomainClass
 	interface to_composite_beam
 		module procedure to_composite_beam_FEMDomain
 	end interface
+
+
+	! for FEMDomainPointers
+	interface to_ptr
+		module procedure to_ptr_femdomain,to_ptr_femdomains
+	end interface
+
+	interface num_node
+		module procedure num_node_femdomain_pointers
+	end interface 
+	
+	interface num_element
+		module procedure num_element_femdomain_pointers
+	end interface 
+
+	interface get_element_idx
+		module procedure get_element_idx_FEMDomainPointer
+	end interface
+
+	interface get_node_list
+		module procedure get_node_list_by_range_FEMDP
+	end interface
+
+	interface export_vtk
+		module procedure export_vtk_FEMDomainPointer
+	end interface export_vtk
 
 contains
 
@@ -16323,6 +16353,208 @@ subroutine vtk_file(name,vertices,vertexData)
 		write(f%fh,*) vertexData(i)
 	enddo
 	call f%close()
+end subroutine
+
+
+! ########################################################
+function to_ptr_femdomain(femdomain) result(ret)
+	type(femdomain_),target,intent(in) :: femdomain
+	type(femdomainp_) :: ret
+	
+	ret%femdomainp => femdomain
+	
+end function
+! ########################################################
+
+
+
+
+! ########################################################
+function to_ptr_femdomains(femdomains) result(ret)
+	type(femdomain_),target,intent(in) :: femdomains(:)
+	type(femdomainp_),allocatable :: ret(:)
+	integer(int32) :: i
+	
+	allocate(ret(size(femdomains) ) )
+	do i=1,size(femdomains)
+		ret(i)%femdomainp => femdomains(i)
+	enddo
+	
+end function
+! ########################################################
+
+! ########################################################
+subroutine getLayer_scalarFEMDomain(this,name,ret)
+	class(FEMDomain_),intent(inout) :: this
+	character(*),intent(in) :: name
+	real(real64),allocatable :: ret(:)
+
+	ret = this%PhysicalField( this%getLayerID(name) )%scalar
+
+end subroutine
+! ########################################################
+
+! ########################################################
+function get_element_idx_FEMDomainPointer(FEMDomainPointer,DomainID,ElementID) result(ret)
+	type(FEMDomainp_),intent(in) :: FEMDomainPointer(:)
+	integer(int32),intent(in) :: DomainID,ElementID
+	integer(int32) :: ret, i
+
+	ret = 0
+	do i=1,DomainID-1
+		ret = ret + FEMDomainPointer(i)%femdomainp%ne()
+	enddo
+	ret = ret + ElementID
+	
+end function
+! ########################################################
+
+
+! ########################################################
+function get_node_list_by_range_FEMDP(FEMDomainPointer,range) result(ret)
+	type(FEMDomainp_),intent(in) :: FEMDomainPointer(:)
+	type(Range_),intent(in) :: range
+	integer(int32) :: i,offset
+	integer(int32),allocatable :: ret(:),dret(:)
+	
+	offset = 0
+	allocate(ret(0))
+	do i=1,size(FEMDomainPointer)
+		dret = FEMDomainPointer(i)%femdomainp%select(&
+			x_min=range%x_range(1),&
+			y_min=range%y_range(1),&
+			z_min=range%z_range(1),&
+			x_max=range%x_range(2),&
+			y_max=range%y_range(2),&
+			z_max=range%z_range(2)&
+		)
+		dret(:) = dret(:) + offset
+		ret = ret // dret
+		offset = offset + FEMDomainPointer(i)%femdomainp%nn()
+	enddo
+	
+end function
+! ########################################################
+
+
+! ########################################################
+function num_node_femdomain_pointers(FEMDomainPointer) result(ret)
+	type(FEMDomainp_),intent(in) :: FEMDomainPointer(:)
+	integer(int32) :: ret, i
+	ret = 0
+	do i=1,size(FEMDomainPointer)
+		ret = ret + FEMDomainPointer(i)%femdomainp%nn()
+	enddo
+
+end function
+! ########################################################
+
+
+! ########################################################
+function num_element_femdomain_pointers(FEMDomainPointer) result(ret)
+	type(FEMDomainp_),intent(in) :: FEMDomainPointer(:)
+	integer(int32) :: ret, i
+	ret = 0
+	do i=1,size(FEMDomainPointer)
+		ret = ret + FEMDomainPointer(i)%femdomainp%ne()
+	enddo
+
+end function
+! ########################################################
+
+
+! ########################################################
+subroutine export_vtk_FEMDomainPointer(FEMDomainPointer,name,field,displacement)
+	type(FEMDomainp_),intent(in) :: FEMDomainPointer(:)
+	character(*),intent(in) :: name
+	real(real64),intent(in) :: field(:)
+	real(real64),optional,intent(in) :: displacement(:)
+	real(real64),allocatable :: vec(:),vf_array(:,:)
+	integer(int32) :: DOF,offset,i,offset_nn
+
+	
+	if(mod(size(field),num_node(FEMDomainPointer))==0 )then
+		DOF = size(field)/num_node(FEMDomainPointer)
+		! node_wise value
+		if(DOF==1)then
+			! scalar field
+			offset = 0
+			do i=1,size(FEMDomainPointer,1)
+				if(present(displacement) )then
+					call FEMDomainPointer(i)%femdomainp%vtk(name="domain_"+zfill(i,5)+name,&
+						scalar=field(offset+1:offset+DOF*FEMDomainPointer(i)%femdomainp%nn()),&
+						displacement=field(offset+1:offset+FEMDomainPointer(i)%femdomainp%nd()&
+							*FEMDomainPointer(i)%femdomainp%nn()))
+				else
+					call FEMDomainPointer(i)%femdomainp%vtk(name="domain_"+zfill(i,5)+name,&
+						scalar=field(offset+1:offset+DOF*FEMDomainPointer(i)%femdomainp%nn()))
+				endif
+				offset = offset + DOF*FEMDomainPointer(i)%femdomainp%nn()
+			enddo
+		elseif(DOF>=2)then
+			! vector field
+			offset = 0
+			do i=1,size(FEMDomainPointer,1)
+				vec = field(offset+1:offset+DOF*FEMDomainPointer(i)%femdomainp%nn())
+				vf_array = reshape(vec,[size(vec)/DOF,DOF ])
+				if(present(displacement) )then
+					call FEMDomainPointer(i)%femdomainp%vtk(name="domain_"+zfill(i,5)+name,&
+						vector=vf_array,&
+						displacement=field(offset+1:offset+FEMDomainPointer(i)%femdomainp%nd()&
+							*FEMDomainPointer(i)%femdomainp%nn()))
+				else
+					call FEMDomainPointer(i)%femdomainp%vtk(name="domain_"+zfill(i,5)+name,&
+						vector=vf_array)
+				endif
+				offset = offset + DOF*FEMDomainPointer(i)%femdomainp%nn()
+			enddo
+		endif
+		return
+	endif
+
+
+	if(mod(size(field),num_element(FEMDomainPointer))==0 )then
+		DOF = size(field)/num_element(FEMDomainPointer)
+		! node_wise value
+		if(DOF==1)then
+			! scalar field
+			offset = 0
+			offset_nn = 0
+			do i=1,size(FEMDomainPointer,1)
+				if(present(displacement) )then
+					call FEMDomainPointer(i)%femdomainp%vtk(name=name+"_domain_"+zfill(i,5),&
+						scalar=field(offset+1:offset+DOF*FEMDomainPointer(i)%femdomainp%ne()),&
+						displacement=field(offset_nn+1:offset_nn+FEMDomainPointer(i)%femdomainp%nd()&
+							*FEMDomainPointer(i)%femdomainp%nn()))
+				else
+					call FEMDomainPointer(i)%femdomainp%vtk(name=name+"_domain_"+zfill(i,5),&
+					scalar=field(offset+1:offset+DOF*FEMDomainPointer(i)%femdomainp%ne()))
+				endif
+				offset = offset + DOF*FEMDomainPointer(i)%femdomainp%ne()
+				offset_nn = offset_nn + DOF*FEMDomainPointer(i)%femdomainp%nn()
+			enddo
+		elseif(DOF>=2)then
+			! vector field
+			offset = 0
+			offset_nn = 0
+			do i=1,size(FEMDomainPointer,1)
+				vec = field(offset+1:offset+DOF*FEMDomainPointer(i)%femdomainp%ne())
+				vf_array = reshape(vec,[size(vec)/DOF,DOF ])
+				if(present(displacement) )then
+					call FEMDomainPointer(i)%femdomainp%vtk(name=name+"_domain_"+zfill(i,5),&
+						vector=vf_array,&
+						displacement=field(offset_nn+1:offset_nn+FEMDomainPointer(i)%femdomainp%nd()&
+							*FEMDomainPointer(i)%femdomainp%nn()))
+				else
+					call FEMDomainPointer(i)%femdomainp%vtk(name=name+"_domain_"+zfill(i,5),&
+						vector=vf_array)
+				endif
+				offset = offset + DOF*FEMDomainPointer(i)%femdomainp%ne()
+				offset_nn = offset_nn + DOF*FEMDomainPointer(i)%femdomainp%nn()
+			enddo
+		endif
+		return
+	endif
 end subroutine
 
 end module FEMDomainClass

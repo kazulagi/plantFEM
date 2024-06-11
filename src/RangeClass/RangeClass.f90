@@ -7,10 +7,15 @@ module RangeClass
     real(real64),parameter :: PF_RANGE_INFTY = dble(1.0e+14)
     
     type :: Range_
-        real(real64) :: x_range(1:2)=[-PF_RANGE_INFTY , PF_RANGE_INFTY]
-        real(real64) :: y_range(1:2)=[-PF_RANGE_INFTY , PF_RANGE_INFTY]
-        real(real64) :: z_range(1:2)=[-PF_RANGE_INFTY , PF_RANGE_INFTY]
-        real(real64) :: t_range(1:2)=[-PF_RANGE_INFTY , PF_RANGE_INFTY]
+        real(real64) :: x_range(1:2)
+        real(real64) :: y_range(1:2)
+        real(real64) :: z_range(1:2)
+        real(real64) :: t_range(1:2)
+        logical :: x_substituted(1:2)
+        logical :: y_substituted(1:2)
+        logical :: z_substituted(1:2)
+        logical :: t_substituted(1:2)
+        
     contains 
         procedure :: init => initRange
         procedure :: set => setRange
@@ -28,7 +33,7 @@ module RangeClass
 
     
     interface to_range
-        module procedure :: to_range_int32, to_range_real64
+        module procedure :: to_range_int32, to_range_real64,to_range_real64_rect
     end interface
 
     interface operator(.in.)
@@ -74,23 +79,58 @@ end function
 
 
 
-function to_range_int32(from,to) result(ret_range)
+function to_range_int32(from_to) result(ret_range)
     type(Range_) :: ret_range
-    integer(int32),intent(in) :: from,to
+    integer(int32),intent(in) :: from_to(1:2)
 
-    ret_range%x_range(1:2) = dble([from,to])
+    call ret_range%init()
+    ret_range%x_range(1:2) = dble(from_to)
+    ret_range%x_substituted(:) = .True.
 
 end function
 
 
-function to_range_real64(from,to) result(ret_range)
+function to_range_real64(from_to) result(ret_range)
     type(Range_) :: ret_range
-    real(real64),intent(in) :: from,to
-
-    ret_range%x_range(1:2) = [from,to]
+    real(real64),intent(in) :: from_to(:)
+    
+    call ret_range%init()
+    ret_range%x_range(1:2) = from_to
+    ret_range%x_substituted(:) = .True.
     
 end function
 
+function to_range_real64_rect(x_min,y_min,z_min,x_max,y_max,z_max) result(ret_range)
+    type(Range_) :: ret_range
+    real(real64),optional,intent(in) :: x_min,y_min,z_min,x_max,y_max,z_max
+
+    call ret_range%init()
+    if(present(x_min))then
+        ret_range%x_range(1) = x_min
+        ret_range%x_substituted(1) = .True.
+    endif
+    if(present(y_min))then
+        ret_range%y_range(1) = y_min
+        ret_range%y_substituted(1) = .True.
+    endif
+    if(present(z_min))then
+        ret_range%z_range(1) = z_min
+        ret_range%z_substituted(1) = .True.
+    endif
+    if(present(x_max))then
+        ret_range%x_range(2) = x_max
+        ret_range%x_substituted(2) = .True.
+    endif
+    if(present(y_max))then
+        ret_range%y_range(2) = y_max
+        ret_range%y_substituted(2) = .True.
+    endif
+    if(present(z_max))then
+        ret_range%z_range(2) = z_max
+        ret_range%z_substituted(2) = .True.
+    endif
+
+end function
 
 ! #########################################################
 subroutine initRange(this,MaxRange) 
@@ -108,6 +148,11 @@ subroutine initRange(this,MaxRange)
         this%z_range=[-PF_RANGE_INFTY , PF_RANGE_INFTY]
         this%t_range=[-PF_RANGE_INFTY , PF_RANGE_INFTY]
     endif
+
+    this%x_substituted = [.false.,.false.]
+    this%y_substituted = [.false.,.false.]
+    this%z_substituted = [.false.,.false.]
+    this%t_substituted = [.false.,.false.]
 
 end subroutine
 ! #########################################################
@@ -131,10 +176,12 @@ subroutine set_xRange(this,x_min,x_max)
 
     if(present(x_min) )then 
         this%x_range(1) = x_min
+        this%x_substituted(1) = .True.
     endif
 
     if(present(x_max) )then 
         this%x_range(2) = x_max
+        this%x_substituted(2) = .True.
     endif
 
 end subroutine
@@ -148,10 +195,12 @@ subroutine set_yRange(this,y_min,y_max)
 
     if(present(y_min) )then 
         this%y_range(1) = y_min
+        this%y_substituted(1) = .True.
     endif
 
     if(present(y_max) )then 
         this%y_range(2) = y_max
+        this%y_substituted(2) = .True.
     endif
 
 end subroutine
@@ -165,10 +214,12 @@ subroutine set_zRange(this,z_min,z_max)
 
     if(present(z_min) )then 
         this%z_range(1) = z_min
+        this%z_substituted(1) = .True.
     endif
 
     if(present(z_max) )then 
         this%z_range(2) = z_max
+        this%z_substituted(2) = .True.
     endif
 
 end subroutine
@@ -182,10 +233,12 @@ subroutine set_tRange(this,t_min,t_max)
 
     if(present(t_min) )then 
         this%t_range(1) = t_min
+        this%t_substituted(1) = .True.
     endif
 
     if(present(t_max) )then 
         this%t_range(2) = t_max
+        this%t_substituted(2) = .True.
     endif
 
 end subroutine 
@@ -264,5 +317,6 @@ function in_detect_char(key,chararg) result(ret)
     endif
     
 end function
+
 
 end module RangeClass

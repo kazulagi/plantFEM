@@ -56,6 +56,12 @@ module MathClass
 		module procedure factorialInt32, factorialReal64
 	end interface factorial
 
+
+
+    interface sort
+        module procedure :: sort_int32
+    end interface sort
+
 	interface heapsort
 		module procedure :: heapsortInt32,heapsortInt32Int32, heapsortReal64,heapsortReal32
 	end interface
@@ -939,9 +945,17 @@ subroutine heapsortReal32(n,array,val)
 	enddo
 
 end subroutine heapsortReal32
+!##################################################
 
+!##################################################
+function sort_int32(vec) result(ret)
+	integer(int32),intent(in) :: vec(:)
+	integer(int32),allocatable :: ret(:)
 
+	ret = vec 
+	call heapsortInt32(size(ret),ret)
 
+end function
 !##################################################
 subroutine heapsortInt32(n,array,val)
 	integer(int32),intent(in) :: n
