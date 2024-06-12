@@ -37,8 +37,7 @@ module RangeClass
     end interface
 
     interface operator(.in.)
-        module procedure :: in_detect_by_range_int32,in_detect_by_range_real64,in_int32_int32vector,&
-            in_detect_char
+        module procedure :: in_detect_by_range_int32,in_detect_by_range_real64,in_int32_int32vector
     end interface
 
 contains
@@ -306,17 +305,6 @@ pure function insideRange(this,point) result(inside_is_true)
 
 end function
 
-function in_detect_char(key,chararg) result(ret)
-    character(*),intent(in) :: key,chararg
-    logical :: ret
-
-    if( index(chararg, key )==0 )then
-        ret = .false.
-    else
-        ret = .true.
-    endif
-    
-end function
 
 
 end module RangeClass

@@ -76,6 +76,8 @@ module IOClass
             procedure,pass   :: openIOchar
             procedure,pass   :: openIOstring
     
+
+
             procedure, pass :: parseIOChar200
             procedure, pass :: parseIO2keysChar200
         
@@ -94,6 +96,9 @@ module IOClass
             exportIOReal64VectorAsTxtWithIndex
     
             generic,public :: parse =>parseIOChar200,parseIO2keysChar200
+            
+            procedure, pass :: parse_json_IOClass
+            generic,public :: parse_json => parse_json_IOClass
     
             generic,public :: open => openIOchar, openIOstring
 
@@ -4364,6 +4369,60 @@ subroutine bin2vector_real64_IOClass(this,name,vec)
     call f%close()
     
 end subroutine
+! #####################################################################
+
+! #####################################################################
+recursive function parse_json_IOClass(this,filename,keys,from_line_idx) result(ret)
+    class(IO_),intent(in) :: this
+    type(IO_) :: f
+    character(*),intent(in) :: filename
+    type(List_),intent(in) :: keys
+    type(List_) :: mini_keys
+    integer(int32),optional,intent(in) :: from_line_idx
+    integer(int32) :: line_idx,key_idx
+    character(:),allocatable :: line,ret,not_found
+
+    not_found = "{'not found'}"
+    ret = not_found
+    
+    line_idx  = 0
+    call f%open(filename,"r")
+    if(present(from_line_idx)  )then
+        do line_idx = 1,from_line_idx-1
+            line = f%readline()
+            not_found = "{'not found loop'}"
+        enddo
+    endif
+
+    do 
+        line_idx = line_idx + 1
+        if(f%EOF) exit
+        line = f%readline()
+        if(f%EOF) exit
+
+        if(keys%get(1) .in. line ) then
+            if (size(keys%content)==1 )then
+                ret = line
+                call replace(ret,keys%get(1),"")
+                call replace(ret,'"',"")
+                call replace(ret,"'","")
+                call replace(ret,":","")
+                call replace(ret,",","")
+                call f%close()
+                return
+            endif
+        endif
+
+        if(keys%get(1) .in. line ) then
+            mini_keys%content = keys%content(2:)
+            ret = f%parse_json(filename=filename,keys=mini_keys,from_line_idx=line_idx)
+            call f%close()
+            return
+        endif
+    enddo
+    call f%close()
+    
+end function
 ! #####################################################################
 
 
