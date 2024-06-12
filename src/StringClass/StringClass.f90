@@ -41,6 +41,9 @@ module StringClass
     module procedure addCharChar
   end interface
 
+  interface operator(.in.)
+      module procedure in_detect_char
+  end interface
 
   
 contains
@@ -209,5 +212,21 @@ recursive subroutine replaceChar(word,keyword,to)
   call replaceChar(word,keyword,to)
   
 end subroutine
+! ############################################################
+
+! ############################################################
+
+
+function in_detect_char(key,chararg) result(ret)
+  character(*),intent(in) :: key,chararg
+  logical :: ret
+
+  if( index(chararg, key )==0 )then
+      ret = .false.
+  else
+      ret = .true.
+  endif
+  
+end function
 
 end module 

@@ -24,6 +24,7 @@ module ListClass
     interface to_list    
         module procedure to_list_repeat_listclass,to_list_0_listclass,to_list_1_listclass,&
             to_list_2_listclass,to_list_3_listclass,to_list_4_listclass,&
+            to_list_5_listclass,to_list_6_listclass,to_list_7_listclass,&
             to_list_int32vec_listclass,&
             to_list_real32vec_listclass,& 
             to_list_real64vec_listclass
@@ -269,12 +270,66 @@ function to_list_4_listclass(char1,char2,char3,char4) result(this)
     this%content(1)%char = char1
     this%content(2)%char = char2
     this%content(3)%char = char3
-    this%content(3)%char = char4
+    this%content(4)%char = char4
 
 end function
 
 ! #####################################################
 
+
+! #####################################################
+
+function to_list_5_listclass(char1,char2,char3,char4,char5) result(this)
+    character(*),intent(in) :: char1,char2,char3,char4,char5
+    type(List_) :: this
+
+    allocate(this%content(5) )
+    this%content(1)%char = char1
+    this%content(2)%char = char2
+    this%content(3)%char = char3
+    this%content(4)%char = char4
+    this%content(5)%char = char5
+
+end function
+
+! #####################################################
+
+! #####################################################
+
+function to_list_6_listclass(char1,char2,char3,char4,char5,char6) result(this)
+    character(*),intent(in) :: char1,char2,char3,char4,char5,char6
+    type(List_) :: this
+
+    allocate(this%content(6) )
+    this%content(1)%char = char1
+    this%content(2)%char = char2
+    this%content(3)%char = char3
+    this%content(4)%char = char4
+    this%content(5)%char = char5
+    this%content(6)%char = char6
+
+end function
+
+! #####################################################
+
+
+! #####################################################
+
+function to_list_7_listclass(char1,char2,char3,char4,char5,char6,char7) result(this)
+    character(*),intent(in) :: char1,char2,char3,char4,char5,char6,char7
+    type(List_) :: this
+
+    allocate(this%content(7) )
+    this%content(1)%char = char1
+    this%content(2)%char = char2
+    this%content(3)%char = char3
+    this%content(4)%char = char4
+    this%content(5)%char = char5
+    this%content(6)%char = char6
+    this%content(7)%char = char7
+end function
+
+! #####################################################
 
 ! #####################################################
 function to_list_int32vec_listclass(int32vec) result(this)
