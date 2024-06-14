@@ -499,6 +499,10 @@ module IOClass
 
         use_binary_form=.false.
 
+        
+        
+    
+
         if(present(binary) )then
             use_binary_form = binary
             obj%binary = binary
@@ -522,7 +526,6 @@ module IOClass
         !    return
         !endif
     
-    
         if( index(path,"https://")/=0 .or. index(path,"http://")/=0 )then
             ! get online file
             ! read-only
@@ -544,6 +547,7 @@ module IOClass
             return
         endif
     
+        
     !    if(present(extention) )then
     !        if( trim(extention) == "yml" )then
     !            yml=.True.
@@ -598,17 +602,17 @@ module IOClass
         else
             obj%fh=10
         endif
-    
-        
+
         obj%path="./"
         obj%name="untitled"
         obj%name=".txt"
-    
-        tag = index(trim(path),"/",back=.true.)
-        if(tag/=0)then
-            call execute_command_line("mkdir -p "//path(1:tag-1) )
-        endif
-    
+        
+        !!! 意味不明なので削除@20240614
+        !tag = index(trim(path),"/",back=.true.)
+        !if(tag/=0)then
+        !    call execute_command_line("mkdir -p "//path(1:tag-1) )
+        !endif
+
         if(present(path) )then
             obj%path=trim(path)
             if(present(name) )then
@@ -4371,34 +4375,38 @@ subroutine bin2vector_real64_IOClass(this,name,vec)
 end subroutine
 ! #####################################################################
 
+
+
 ! #####################################################################
 recursive function parse_json_IOClass(this,filename,keys,from_line_idx) result(ret)
-    class(IO_),intent(in) :: this
-    type(IO_) :: f
+    class(IO_),intent(inout) :: this
+    type(IO_) :: f,debug,g
     character(*),intent(in) :: filename
     type(List_),intent(in) :: keys
     type(List_) :: mini_keys
     integer(int32),optional,intent(in) :: from_line_idx
-    integer(int32) :: line_idx,key_idx,num_bracket
+    integer(int32) :: line_idx,key_idx,num_bracket,num_line
     character(:),allocatable :: line,ret,not_found
 
     not_found = "{'not found'}"
     ret = not_found
     
     line_idx  = 0
-    call f%open(filename,"r")
+    
+    call g%open(filename,"r")
+    
     if(present(from_line_idx)  )then
         do line_idx = 1,from_line_idx-1
-            line = f%readline()
+            line = g%readline()
             not_found = "{'not found loop'}"
         enddo
     endif
 
     do 
         line_idx = line_idx + 1
-        if(f%EOF) exit
-        line = f%readline()
-        if(f%EOF) exit
+        if(g%EOF) exit
+        line = g%readline()
+        if(g%EOF) exit
 
         if(keys%get(1) .in. line ) then
             if (size(keys%content)==1 )then
@@ -4408,7 +4416,7 @@ recursive function parse_json_IOClass(this,filename,keys,from_line_idx) result(r
                     ret = line
                     do 
                         line_idx = line_idx + 1
-                        line = f%readline()
+                        line = g%readline()
                         if("[" .in. line)then
                             num_bracket = num_bracket + 1
                         endif
@@ -4426,7 +4434,7 @@ recursive function parse_json_IOClass(this,filename,keys,from_line_idx) result(r
                     call replace(ret,":","")
                     call replace(ret,"],","]")
                     call replace(ret,"][","],[")
-                    call f%close()
+                    close(g%fh)
                     return
                 else
                     ret = line
@@ -4435,7 +4443,7 @@ recursive function parse_json_IOClass(this,filename,keys,from_line_idx) result(r
                     call replace(ret,"'","")
                     call replace(ret,":","")
                     call replace(ret,",","")
-                    call f%close()
+                    close(g%fh)
                     return
                 endif
             endif
@@ -4444,11 +4452,11 @@ recursive function parse_json_IOClass(this,filename,keys,from_line_idx) result(r
         if(keys%get(1) .in. line ) then
             mini_keys%content = keys%content(2:)
             ret = f%parse_json(filename=filename,keys=mini_keys,from_line_idx=line_idx)
-            call f%close()
+            close(g%fh)
             return
         endif
     enddo
-    call f%close()
+    close(g%fh)
     
 end function
 ! #####################################################################

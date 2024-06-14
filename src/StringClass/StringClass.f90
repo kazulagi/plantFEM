@@ -3,6 +3,7 @@ module StringClass
   implicit none
 
   integer(int32),parameter :: ascii = selected_char_kind('ASCII')
+  
   type :: string_
     character(len=:),allocatable :: all
 
@@ -218,9 +219,8 @@ recursive subroutine replaceChar(word,keyword,to)
 end subroutine
 ! ############################################################
 
+
 ! ############################################################
-
-
 function in_detect_char(key,chararg) result(ret)
   character(*),intent(in) :: key,chararg
   logical :: ret
@@ -232,5 +232,7 @@ function in_detect_char(key,chararg) result(ret)
   endif
   
 end function
+! ############################################################
+
 
 end module 
