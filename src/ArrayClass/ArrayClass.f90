@@ -514,7 +514,9 @@ module ArrayClass
             to_Array_real32_vector, &
             to_Array_real32_vector_2,&
             to_Array_real32_vector_3,&
-            to_Array_from_keyword,to_array_from_file
+            to_Array_from_keyword,&
+            to_Array_from_ndarray,&
+            to_array_from_file
     end interface to_array
 
     interface tile
@@ -10212,5 +10214,43 @@ function tile_real128(tinyarray,number_of_repeat) result(ret)
 
 
 end function
+
+
+! ########################################################
+function to_Array_from_ndarray(strdata) result(ret)
+    character(*),intent(in) :: strdata
+    character(:),allocatable :: strdata_work
+    real(real64),allocatable :: ret(:,:),vec(:)
+    integer(int32) :: n,m,i,j,idx
+
+    strdata_work = trim(strdata)
+    call replace(strdata_work," ","")
+    n = countif(strdata,"],")
+    call replace(strdata_work,"[","")
+    call replace(strdata_work,"]","")
+    allocate(vec(countif(strdata_work,",")+1) )
+
+    call replace(strdata_work,","," ")
+    !m = size(vec)
+    !do i=1,m
+    !    read(strdata_work,*) vec(i)   
+    !    strdata_work = index(strdata_work," ")
+    !enddo
+    !
+    read(strdata_work,*) vec(:)   
+    
+    m = size(vec)
+    ret = zeros(n+1,m/(n+1))
+    idx = 0
+    do i=1,size(ret,1)
+        do j=1,size(ret,2)
+            idx = idx + 1
+            ret(i,j)=vec(idx)
+        enddo
+    enddo
+    
+end function
+! ########################################################
+
 
 end module ArrayClass

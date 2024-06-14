@@ -207,6 +207,10 @@ recursive subroutine replaceChar(word,keyword,to)
   old_word = word
   from = index(word,keyword)
   if(from==0 ) return
+  if(from==len(word))then
+    word = old_word(:from-1) 
+    return
+  endif
 
   word = old_word(:from-1) // to // old_word(from+n:)
   call replaceChar(word,keyword,to)

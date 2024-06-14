@@ -4379,7 +4379,7 @@ recursive function parse_json_IOClass(this,filename,keys,from_line_idx) result(r
     type(List_),intent(in) :: keys
     type(List_) :: mini_keys
     integer(int32),optional,intent(in) :: from_line_idx
-    integer(int32) :: line_idx,key_idx
+    integer(int32) :: line_idx,key_idx,num_bracket
     character(:),allocatable :: line,ret,not_found
 
     not_found = "{'not found'}"
@@ -4402,14 +4402,42 @@ recursive function parse_json_IOClass(this,filename,keys,from_line_idx) result(r
 
         if(keys%get(1) .in. line ) then
             if (size(keys%content)==1 )then
-                ret = line
-                call replace(ret,keys%get(1),"")
-                call replace(ret,'"',"")
-                call replace(ret,"'","")
-                call replace(ret,":","")
-                call replace(ret,",","")
-                call f%close()
-                return
+                if("[" .in. line)then
+                    num_bracket = 1
+                    ! import array
+                    ret = line
+                    do 
+                        line_idx = line_idx + 1
+                        line = f%readline()
+                        if("[" .in. line)then
+                            num_bracket = num_bracket + 1
+                        endif
+                        if("]" .in. line)then
+                            num_bracket = num_bracket - 1
+                        endif
+                        ret = ret // line
+                        if(num_bracket == 0)then
+                            exit
+                        endif
+                    enddo
+                    call replace(ret,keys%get(1),"")
+                    call replace(ret,'"',"")
+                    call replace(ret,"'","")
+                    call replace(ret,":","")
+                    call replace(ret,"],","]")
+                    call replace(ret,"][","],[")
+                    call f%close()
+                    return
+                else
+                    ret = line
+                    call replace(ret,keys%get(1),"")
+                    call replace(ret,'"',"")
+                    call replace(ret,"'","")
+                    call replace(ret,":","")
+                    call replace(ret,",","")
+                    call f%close()
+                    return
+                endif
             endif
         endif
 
