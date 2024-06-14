@@ -548,7 +548,12 @@ module ArrayClass
         module procedure and_int32vector_int32vector
     end interface 
 
-    
+    interface operator(.as.)
+        module procedure as_realArray_from_ndarray, &
+            as_int32Array_from_ndarray,&
+            as_realVector_from_ndarray,&
+            as_int32Vector_from_ndarray
+    end interface
 
     
 
@@ -10249,6 +10254,157 @@ function to_Array_from_ndarray(strdata) result(ret)
         enddo
     enddo
     
+end function
+! ########################################################
+
+
+
+
+! ########################################################
+function as_realArray_from_ndarray(strdata,dtype) result(ret)
+    character(*),intent(in) :: strdata
+    real(real64),intent(in) :: dtype(:,:)
+
+    character(:),allocatable :: strdata_work
+    real(real64),allocatable :: ret(:,:),vec(:)
+    integer(int32) :: n,m,i,j,idx
+
+    strdata_work = trim(strdata)
+    call replace(strdata_work," ","")
+    n = countif(strdata,"],")
+    call replace(strdata_work,"[","")
+    call replace(strdata_work,"]","")
+    allocate(vec(countif(strdata_work,",")+1) )
+
+    call replace(strdata_work,","," ")
+    read(strdata_work,*) vec(:)   
+    
+    m = size(vec)
+    ret = zeros(n+1,m/(n+1))
+    idx = 0
+    do i=1,size(ret,1)
+        do j=1,size(ret,2)
+            idx = idx + 1
+            ret(i,j)=vec(idx)
+        enddo
+    enddo
+    
+end function
+! ########################################################
+
+
+! ########################################################
+function as_realVector_from_ndarray(strdata,dtype) result(ret)
+    character(*),intent(in) :: strdata
+    real(real64),intent(in) :: dtype(:)
+
+    character(:),allocatable :: strdata_work
+    real(real64),allocatable :: ret(:,:),vec(:)
+    integer(int32) :: n,m,i,j,idx
+
+    strdata_work = trim(strdata)
+    call replace(strdata_work," ","")
+    n = countif(strdata,"],")
+    call replace(strdata_work,"[","")
+    call replace(strdata_work,"]","")
+    allocate(vec(countif(strdata_work,",")+1) )
+
+    call replace(strdata_work,","," ")
+    read(strdata_work,*) vec(:)   
+    
+    ret = vec
+end function
+! ########################################################
+
+
+! ########################################################
+function as_int32Array_from_ndarray(strdata,dtype) result(ret)
+    character(*),intent(in) :: strdata
+    integer(int32),intent(in) :: dtype(:,:)
+
+    character(:),allocatable :: strdata_work
+    integer(int32),allocatable :: ret(:,:),vec(:)
+    integer(int32) :: n,m,i,j,idx
+
+    strdata_work = trim(strdata)
+    call replace(strdata_work," ","")
+    n = countif(strdata,"],")
+    call replace(strdata_work,"[","")
+    call replace(strdata_work,"]","")
+    allocate(vec(countif(strdata_work,",")+1) )
+
+    call replace(strdata_work,","," ")
+    read(strdata_work,*) vec(:)   
+    
+    m = size(vec)
+    ret = int(zeros(n+1,m/(n+1)))
+    idx = 0
+    do i=1,size(ret,1)
+        do j=1,size(ret,2)
+            idx = idx + 1
+            ret(i,j)=vec(idx)
+        enddo
+    enddo
+    
+end function
+! ########################################################
+
+
+
+! ########################################################
+function as_int32Vector_from_ndarray(strdata,dtype) result(ret)
+    character(*),intent(in) :: strdata
+    integer(int32),intent(in) :: dtype(:)
+
+    character(:),allocatable :: strdata_work
+    integer(int32),allocatable :: ret(:,:),vec(:)
+    integer(int32) :: n,m,i,j,idx
+
+    strdata_work = trim(strdata)
+    call replace(strdata_work," ","")
+    n = countif(strdata,"],")
+    call replace(strdata_work,"[","")
+    call replace(strdata_work,"]","")
+    allocate(vec(countif(strdata_work,",")+1) )
+
+    call replace(strdata_work,","," ")
+    read(strdata_work,*) vec(:)   
+    
+    ret = vec
+
+end function
+! ########################################################
+
+
+! ########################################################
+function real64_array() result(ret)
+    real(real64),allocatable :: ret(:,:)
+
+end function
+! ########################################################
+
+
+
+! ########################################################
+function int32_array() result(ret)
+    integer(int32),allocatable :: ret(:,:)
+
+end function
+! ########################################################
+
+
+
+! ########################################################
+function real64_vector() result(ret)
+    real(real64),allocatable :: ret(:)
+
+end function
+! ########################################################
+
+! ########################################################
+function int32_vector() result(ret)
+    integer(int32),allocatable :: ret(:)
+
 end function
 ! ########################################################
 
