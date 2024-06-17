@@ -99,7 +99,8 @@ module IOClass
             
             procedure, pass :: parse_json_IOClass
             generic,public :: parse_json => parse_json_IOClass
-    
+            generic,public :: parse => parse_json_IOClass
+            
             generic,public :: open => openIOchar, openIOstring
 
     
@@ -236,7 +237,8 @@ module IOClass
             
             procedure,public :: close => closeIO    
 
-            procedure,public :: to_Array =>to_Array_real64_IOClass
+            procedure,public :: to_Array => to_Array_real64_IOClass
+            
 
             procedure,public :: bin2vector => bin2vector_real64_IOClass
             procedure,public :: vector2bin => vector2bin_real64_IOClass
@@ -303,6 +305,8 @@ module IOClass
         module procedure  from_csv_real_array2,from_csv_real_array3,from_csv_real_vector,&
             from_CSV_to_vector_simple
     end interface from_csv
+
+
     contains
     
     ! ===========================================
@@ -4460,6 +4464,5 @@ recursive function parse_json_IOClass(this,filename,keys,from_line_idx) result(r
     
 end function
 ! #####################################################################
-
 
 end module IOClass

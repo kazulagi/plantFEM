@@ -536,30 +536,30 @@ subroutine runCM(obj,penaltyparameter,debug,GaussPointProjection)
 				! For 1st element, create stiffness matrix
 				YoungModulus = obj%YoungModulus(DomainID)
 				if(obj%YoungModulusList%initialized )then
-					if(allocated(obj%YoungModulusList%dictionary ) )then
-						if(allocated(obj%YoungModulusList%dictionary(DomainID)%realist))then
+					if(allocated(obj%YoungModulusList%pages ) )then
+						if(allocated(obj%YoungModulusList%pages(DomainID)%realist))then
 							YoungModulus = &
-								obj%YoungModulusList%dictionary(DomainID)%realist(ElementID) 
+								obj%YoungModulusList%pages(DomainID)%realist(ElementID) 
 						endif
 					endif
 				endif
 
 				PoissonRatio = obj%PoissonRatio(DomainID)
 				if(obj%PoissonRatioList%initialized )then
-					if(allocated(obj%PoissonRatioList%dictionary ) )then
-						if(allocated(obj%PoissonRatioList%dictionary(DomainID)%realist))then
+					if(allocated(obj%PoissonRatioList%pages ) )then
+						if(allocated(obj%PoissonRatioList%pages(DomainID)%realist))then
 							PoissonRatio = &
-								obj%PoissonRatioList%dictionary(DomainID)%realist(ElementID) 
+								obj%PoissonRatioList%pages(DomainID)%realist(ElementID) 
 						endif
 					endif
 				endif
 
 				Density = obj%Density(DomainID)
 				if(obj%DensityList%initialized )then
-					if(allocated(obj%DensityList%dictionary ) )then
-						if(allocated(obj%DensityList%dictionary(DomainID)%realist))then
+					if(allocated(obj%DensityList%pages ) )then
+						if(allocated(obj%DensityList%pages(DomainID)%realist))then
 							Density = &
-								obj%DensityList%dictionary(DomainID)%realist(ElementID) 
+								obj%DensityList%pages(DomainID)%realist(ElementID) 
 						endif
 					endif
 				endif
@@ -6373,8 +6373,8 @@ function getStressContactMechanics(obj,DomainID) result(Stress)
 		allocate(Stress(n,ngp,DOF,DOF) )
 
 		displacement = obj%getDisplacement(DomainID)
-		YoungModulus = obj%YoungModulusList%dictionary(DomainID)%realist
-		PoissonRatio = obj%YoungModulusList%dictionary(DomainID)%realist
+		YoungModulus = obj%YoungModulusList%pages(DomainID)%realist
+		PoissonRatio = obj%YoungModulusList%pages(DomainID)%realist
 		!$OMP parallel do private(i,j)
 		do i=1, n
 			do j=1,ngp

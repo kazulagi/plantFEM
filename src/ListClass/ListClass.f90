@@ -8,6 +8,7 @@ module ListClass
 
     type :: List_ 
         type(List_content_),allocatable :: content(:)
+        type(List_),allocatable :: list(:)
     contains
         procedure,public :: get => get_list_content_listclass
         procedure,public :: append => append_list_content_listclass
