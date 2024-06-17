@@ -2185,7 +2185,7 @@ subroutine SetBoundaryConditionPrePro(obj,Dirichlet,Neumann,Initial,xmin,xmax,ym
     integer(int32) :: i,j,n,k,l
 
     if(present(BoundInfo) )then
-        if(.not.allocated(BoundInfo%Dictionary))then
+        if(.not.allocated(BoundInfo%pages))then
             return
         endif
 
@@ -2497,13 +2497,13 @@ subroutine SetMatParaPreProcessing(obj,MaterialID,ParameterID,Val,materialist,si
         ! import material information from list
         print *, "total ",materialist%sizeof()," materials are imported."
         n=materialist%sizeof()
-        m=size(materialist%Dictionary(1)%Realist)
+        m=size(materialist%pages(1)%Realist)
         if(allocated(obj%FEMDomain%MaterialProp%MatPara) )then
             deallocate(obj%FEMDomain%MaterialProp%MatPara)
         endif
         allocate(obj%FEMDomain%MaterialProp%MatPara(n,m) )
         do i=1,materialist%sizeof()
-            obj%FEMDomain%MaterialProp%MatPara(i,:)=materialist%Dictionary(i)%Realist(:)
+            obj%FEMDomain%MaterialProp%MatPara(i,:)=materialist%pages(i)%Realist(:)
         enddo
     endif
 

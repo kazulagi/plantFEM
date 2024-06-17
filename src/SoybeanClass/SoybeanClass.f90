@@ -6612,14 +6612,14 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,debug,z_min)
         !!!$OMP end parallel do
 
         ! YoungModulusListを作る
-        allocate(YoungModulusList%dictionary(obj%numleaf() + obj%numStem() + obj%numRoot()))
+        allocate(YoungModulusList%pages(obj%numleaf() + obj%numStem() + obj%numRoot()))
         k=0
         do i=1,size(obj%stem)
             if(obj%stem(i)%empty() )then
                 cycle
             else
                 k  = k+ 1
-                YoungModulusList%dictionary(k)%realist = obj%stem(i)%YoungModulus
+                YoungModulusList%pages(k)%realist = obj%stem(i)%YoungModulus
             endif
         enddo
         do i=1,size(obj%leaf)
@@ -6627,7 +6627,7 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,debug,z_min)
                 cycle
             else
                 k  = k+ 1
-                YoungModulusList%dictionary(k)%realist = obj%leaf(i)%YoungModulus
+                YoungModulusList%pages(k)%realist = obj%leaf(i)%YoungModulus
             endif
         enddo
         do i=1,size(obj%root)
@@ -6635,19 +6635,19 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,debug,z_min)
                 cycle
             else
                 k  = k+ 1
-                YoungModulusList%dictionary(k)%realist = obj%root(i)%YoungModulus
+                YoungModulusList%pages(k)%realist = obj%root(i)%YoungModulus
             endif
         enddo
 
         ! PoissonRatioListを作る
-        allocate(PoissonRatioList%dictionary(obj%numstem() + obj%numleaf() + obj%numRoot()))
+        allocate(PoissonRatioList%pages(obj%numstem() + obj%numleaf() + obj%numRoot()))
         k=0
         do i=1,size(obj%stem)
             if(obj%stem(i)%empty() )then
                 cycle
             else
                 k  = k+ 1
-                PoissonRatioList%dictionary(k)%realist = obj%stem(i)%PoissonRatio
+                PoissonRatioList%pages(k)%realist = obj%stem(i)%PoissonRatio
             endif
         enddo
         do i=1,size(obj%leaf)
@@ -6655,7 +6655,7 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,debug,z_min)
                 cycle
             else
                 k  = k+ 1
-                PoissonRatioList%dictionary(k)%realist = obj%leaf(i)%PoissonRatio
+                PoissonRatioList%pages(k)%realist = obj%leaf(i)%PoissonRatio
             endif
         enddo
         do i=1,size(obj%root)
@@ -6663,19 +6663,19 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,debug,z_min)
                 cycle
             else
                 k  = k+ 1
-                PoissonRatioList%dictionary(k)%realist = obj%root(i)%PoissonRatio
+                PoissonRatioList%pages(k)%realist = obj%root(i)%PoissonRatio
             endif
         enddo
 
         ! DensityListを作る
-        allocate(DensityList%dictionary(obj%numStem() + obj%numLeaf() + obj%numRoot()))
+        allocate(DensityList%pages(obj%numStem() + obj%numLeaf() + obj%numRoot()))
         k=0
         do i=1,size(obj%stem)
             if(obj%stem(i)%empty() )then
                 cycle
             else
                 k  = k+ 1
-                DensityList%dictionary(k)%realist = obj%stem(i)%Density
+                DensityList%pages(k)%realist = obj%stem(i)%Density
             endif
         enddo
         do i=1,size(obj%leaf)
@@ -6683,7 +6683,7 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,debug,z_min)
                 cycle
             else
                 k  = k+ 1
-                DensityList%dictionary(k)%realist = obj%leaf(i)%Density
+                DensityList%pages(k)%realist = obj%leaf(i)%Density
             endif
         enddo
         do i=1,size(obj%root)
@@ -6691,7 +6691,7 @@ subroutine runSimulationSoybean(obj, Simulator,error_tolerance,debug,z_min)
                 cycle
             else
                 k  = k+ 1
-                DensityList%dictionary(k)%realist = obj%root(i)%Density
+                DensityList%pages(k)%realist = obj%root(i)%Density
             endif
         enddo
 

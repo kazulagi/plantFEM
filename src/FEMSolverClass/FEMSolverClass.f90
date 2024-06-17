@@ -1611,18 +1611,18 @@ subroutine keepThisMatrixAsFEMSolver(this,As)
     ! for other cases:
     if(.not.allocated(this%CRS_matrix_stack) )then
         allocate(this%CRS_matrix_stack(this%MAXSIZE_CRS_MATRIX_STACK) )
-        allocate(this%CRS_matrix_stack_key%Dictionary(this%MAXSIZE_CRS_MATRIX_STACK) )
+        allocate(this%CRS_matrix_stack_key%pages(this%MAXSIZE_CRS_MATRIX_STACK) )
         this%LAST_CRS_MATRIX_STACK = 0
     endif
     if(this%LAST_CRS_MATRIX_STACK==0)then
         this%CRS_matrix_stack(1)%row_ptr = this%CRS_Index_Row
         this%CRS_matrix_stack(1)%col_idx = this%CRS_Index_Col
         this%CRS_matrix_stack(1)%val     = this%CRS_Val
-        this%CRS_matrix_stack_key%Dictionary(1)%charvalue = As
+        this%CRS_matrix_stack_key%pages(1)%charvalue = As
         this%LAST_CRS_MATRIX_STACK = 1
     else
         do i=1,this%LAST_CRS_MATRIX_STACK
-            if(this%CRS_matrix_stack_key%Dictionary(i)%charvalue == As)then
+            if(this%CRS_matrix_stack_key%pages(i)%charvalue == As)then
                 this%CRS_matrix_stack(i)%row_ptr = this%CRS_Index_Row
                 this%CRS_matrix_stack(i)%col_idx = this%CRS_Index_Col
                 this%CRS_matrix_stack(i)%val     = this%CRS_Val
@@ -1641,7 +1641,7 @@ subroutine keepThisMatrixAsFEMSolver(this,As)
             this%CRS_matrix_stack(i)%row_ptr = this%CRS_Index_Row
             this%CRS_matrix_stack(i)%col_idx = this%CRS_Index_Col
             this%CRS_matrix_stack(i)%val     = this%CRS_Val
-            this%CRS_matrix_stack_key%Dictionary(i)%charvalue = As
+            this%CRS_matrix_stack_key%pages(i)%charvalue = As
         endif
 
     endif
@@ -2790,7 +2790,7 @@ pure function getCRSFEMSolver(this,name) result(ret)
 !
 !            case default
                 do i=1,this%LAST_CRS_MATRIX_STACK
-                    if(this%CRS_matrix_stack_key%Dictionary(i)%charvalue == name)then
+                    if(this%CRS_matrix_stack_key%pages(i)%charvalue == name)then
                         ret =  this%CRS_matrix_stack(i)
                         return
                     else
