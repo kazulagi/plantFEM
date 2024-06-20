@@ -1,5 +1,6 @@
 {
     "Name":"Rice",
+    "Version":1,
     "Mainstem":{
         "Length":0.80,
         "Width":0.006,

@@ -20,6 +20,10 @@ module RiceClass
     end type
     
     type :: Rice_
+        integer(int32) :: version 
+        integer(int32) :: num_shoot=0
+        type(Rice_),allocatable :: rice_shoots(:)
+
         integer(int32) :: TYPE_STEM    = 1
         integer(int32) :: TYPE_LEAF    = 2
         integer(int32) :: TYPE_ROOT    = 3
@@ -118,6 +122,7 @@ module RiceClass
     contains
         procedure,public :: init => createRice
         procedure,public :: create => createRice
+        procedure,public :: createShoot => createRiceShoot
         procedure,public :: msh => mshRice
         procedure,public :: vtk => vtkRice
         procedure,public :: stl => stlRice
@@ -178,16 +183,20 @@ module RiceClass
 contains
 
 ! #############################################################
-subroutine createRice(this,config,debug)
+recursive subroutine createRice(this,config,debug)
     class(Rice_),intent(inout) :: this
+    type(Rice_),allocatable :: rice_shoots(:)
     character(*),intent(in) :: config
     character(:),allocatable :: line
     logical,optional,intent(in) :: debug
     logical :: debug_log
     type(IO_) :: Riceconfig
     type(Random_) :: random
-    integer(int32)::i,n,j,k,num_leaf,num_stem_node,num_branch_branch,cpid
-    real(real64) :: x_A(1:3)
+    type(Math_) :: math
+    integer(int32)::i,n,j,k,num_leaf,num_stem_node,num_branch_branch,cpid,shoot_idx
+    real(real64) :: x_A(1:3),rx,ry,angle
+
+
 
     debug_log = input(default=.false.,option=debug)
     cpid = 0
@@ -196,6 +205,27 @@ subroutine createRice(this,config,debug)
         cpid = cpid + 1
         call print("createRice #" + str(cpid) )
     endif
+    
+    this%version = fint(Riceconfig%parse_json(config,to_list("Version")))
+    if(this%version == 2)then
+        this%num_shoot = fint(Riceconfig%parse_json(config,to_list("num_shoot")))
+        
+        allocate(rice_shoots(this%num_shoot))
+        do shoot_idx=1,this%num_shoot
+            call rice_shoots(shoot_idx)%createShoot(config=config,ShootIdx=shoot_idx,debug=debug)
+            angle = random%random()*2.0d0*math%pi
+            rx = random%random()*freal(Riceconfig%parse_json(config,to_list("plot_radius_x") ) )
+            ry = random%random()*freal(Riceconfig%parse_json(config,to_list("plot_radius_y") ) )
+            call rice_shoots(shoot_idx)%move(x=rx*cos(angle),y=ry*sin(angle))
+            call rice_shoots(shoot_idx)%rotate(z=random%random()*2.0d0*math%pi)
+        enddo 
+        this%rice_shoots = rice_shoots
+        ! integrate rice_shoots to a rice object
+        !call rice%add(rice_shoots)
+        return
+    endif
+
+
     this%mainstem_length = freal(Riceconfig%parse(config,key1="Mainstem",key2="Length"))
     this%mainstem_width = freal(Riceconfig%parse(config,key1="Mainstem",key2="Width"))
     this%mainstem_node = fint(Riceconfig%parse(config,key1="Mainstem",key2="Node"))
@@ -444,6 +474,354 @@ subroutine createRice(this,config,debug)
             rice_panicle_curvature= freal(Riceconfig%parse(config,key1="Panicle_"//str(i)//"_",key2="rice_panicle_curvature")) &
             )
         n = fint(Riceconfig%parse(config,key1="Panicle_"//str(i)//"_",key2="From"))
+        this%panicle2stem(i,n) = 1
+        
+        ! こいつを実装する．
+        call this%panicle(i)%connect("=>",this%stem(n) )
+
+    enddo
+
+
+    
+    call this%update()
+    
+
+
+end subroutine
+! #############################################################
+
+! #############################################################
+recursive subroutine createRiceShoot(this,config,ShootIdx,debug)
+    class(Rice_),intent(inout) :: this
+    character(*),intent(in) :: config
+    integer(int32),intent(in) :: ShootIdx
+
+    character(:),allocatable :: line
+    logical,optional,intent(in) :: debug
+    logical :: debug_log
+    type(IO_) :: Riceconfig
+    type(Random_) :: random
+    integer(int32)::i,n,j,k,num_leaf,num_stem_node,num_branch_branch,cpid,shoot_idx
+    real(real64) :: x_A(1:3)
+
+
+
+    debug_log = input(default=.false.,option=debug)
+    cpid = 0
+
+    if(debug_log)then
+        cpid = cpid + 1
+        call print("createRice #" + str(cpid) )
+    endif
+
+!    this%mainstem_length = freal(Riceconfig%parse(config,key1="Mainstem",key2="Length"))
+!    this%mainstem_width = freal(Riceconfig%parse(config,key1="Mainstem",key2="Width"))
+!    this%mainstem_node = fint(Riceconfig%parse(config,key1="Mainstem",key2="Node"))
+!    this%ms_angle_ave = freal(Riceconfig%parse(config,key1="Mainstem",key2="ms_angle_ave"))
+!    this%ms_angle_sig = freal(Riceconfig%parse(config,key1="Mainstem",key2="ms_angle_sig"))
+!
+!    print *, this%mainstem_length &
+!    ,this%mainstem_width &
+!    ,this%mainstem_node &
+!    ,this%ms_angle_ave &
+!    ,this%ms_angle_sig
+
+    this%mainstem_length = freal(Riceconfig%parse_json(&
+        config,to_list("Shoot_"+str(ShootIdx)+"_","Mainstem","Length")))
+    this%mainstem_width = freal(Riceconfig%parse_json(&
+        config,to_list("Shoot_"+str(ShootIdx)+"_","Mainstem","Width")))
+    this%mainstem_node = fint(Riceconfig%parse_json(&
+        config,to_list("Shoot_"+str(ShootIdx)+"_","Mainstem","Node")))
+    this%ms_angle_ave = freal(Riceconfig%parse_json(&
+        config,to_list("Shoot_"+str(ShootIdx)+"_","Mainstem","ms_angle_ave")))
+    this%ms_angle_sig = freal(Riceconfig%parse_json(&
+        config,to_list("Shoot_"+str(ShootIdx)+"_","Mainstem","ms_angle_sig")))
+    
+    if(debug_log)then
+        cpid = cpid + 1
+        call print("createRice #" + str(cpid) )
+    endif
+    
+    ! get number of leaf
+    this%num_leaf=0
+    do
+        if(this%num_leaf ==  this%mainstem_node)then
+            exit
+        endif
+
+        ! line = Riceconfig%parse(config,key1="Leaf_"//str(this%num_leaf)//"_",key2="From")
+        line = Riceconfig%parse_json(config,to_list(&
+            "Shoot_"+str(ShootIdx)+"_","Leaf_"//str(this%num_leaf+1)//"_","From"))
+        
+        if ("not found" .in. line)then
+            exit
+        else
+            this%num_leaf = this%num_leaf  + 1
+        endif
+
+        !if(len(trim(line))==0)then
+        !    this%num_leaf = this%num_leaf -1
+        !    exit
+        !else
+        !    this%num_leaf = this%num_leaf  + 1
+        !    cycle
+        !endif
+        
+    enddo
+
+
+    if(debug_log)then
+        cpid = cpid + 1
+        call print("createRice #" + str(cpid) )
+    endif
+
+    allocate(this%leaf_curvature(this%num_leaf))
+    allocate(this%leaf_thickness_ave(this%num_leaf))
+    allocate(this%leaf_thickness_sig(this%num_leaf))
+    allocate(this%leaf_angle_ave_x(this%num_leaf))
+    allocate(this%leaf_angle_sig_x(this%num_leaf))
+    allocate(this%leaf_angle_ave_z(this%num_leaf))
+    allocate(this%leaf_angle_sig_z(this%num_leaf))
+    allocate(this%leaf_length_ave(this%num_leaf))
+    allocate(this%leaf_length_sig(this%num_leaf))
+    allocate(this%leaf_width_ave(this%num_leaf))
+    allocate(this%leaf_width_sig(this%num_leaf))
+    allocate(this%leaf_From(this%num_leaf))
+    !allocate(this%leaf_Length(this%num_leaf))
+    !allocate(this%leaf_Width(this%num_leaf))
+
+
+    if(debug_log)then
+        cpid = cpid + 1
+        call print("createRice #" + str(cpid) )
+    endif
+
+    do i=1,this%num_leaf
+        !this%leaf_From(i)= fint(Riceconfig%parse(&
+        !    config,key1="Leaf_"//str(i)//"_",key2="From"))
+        !this%leaf_curvature(i)= freal(Riceconfig%parse(&
+        !    config,key1="Leaf_"//str(i)//"_",key2="leaf_curvature"))
+        !this%leaf_thickness_ave(i)= freal(Riceconfig%parse(&
+        !    config,key1="Leaf_"//str(i)//"_",key2="leaf_thickness_ave"))
+        !this%leaf_thickness_sig(i)= freal(Riceconfig%parse(&
+        !    config,key1="Leaf_"//str(i)//"_",key2="leaf_thickness_sig"))
+        !this%leaf_angle_ave_x(i)= freal(Riceconfig%parse(&
+        !    config,key1="Leaf_"//str(i)//"_",key2="leaf_angle_ave_x"))
+        !this%leaf_angle_sig_x(i)= freal(Riceconfig%parse(&
+        !    config,key1="Leaf_"//str(i)//"_",key2="leaf_angle_sig_x"))
+        !this%leaf_angle_ave_z(i)= freal(Riceconfig%parse(&
+        !    config,key1="Leaf_"//str(i)//"_",key2="leaf_angle_ave_z"))
+        !this%leaf_angle_sig_z(i)= freal(Riceconfig%parse(&
+        !    config,key1="Leaf_"//str(i)//"_",key2="leaf_angle_sig_z"))
+        !this%leaf_length_ave(i)= freal(Riceconfig%parse(&
+        !    config,key1="Leaf_"//str(i)//"_",key2="leaf_length_ave"))
+        !this%leaf_length_sig(i)= freal(Riceconfig%parse(&
+        !    config,key1="Leaf_"//str(i)//"_",key2="leaf_length_sig"))
+        !this%leaf_width_ave(i)= freal(Riceconfig%parse(&
+        !    config,key1="Leaf_"//str(i)//"_",key2="leaf_width_ave"))
+        !this%leaf_width_sig(i)= freal(Riceconfig%parse(&
+        !    config,key1="Leaf_"//str(i)//"_",key2="leaf_width_sig"))
+        
+        this%leaf_From(i)= fint(Riceconfig%parse_json(&
+            config,to_list("Shoot_"+str(ShootIdx)+"_","Leaf_"//str(i)//"_","From")))
+        this%leaf_curvature(i)= freal(Riceconfig%parse_json(&
+            config,to_list("Shoot_"+str(ShootIdx)+"_","Leaf_"//str(i)//"_","leaf_curvature")))
+        this%leaf_thickness_ave(i)= freal(Riceconfig%parse_json(&
+            config,to_list("Shoot_"+str(ShootIdx)+"_","Leaf_"//str(i)//"_","leaf_thickness_ave")))
+        this%leaf_thickness_sig(i)= freal(Riceconfig%parse_json(&
+            config,to_list("Shoot_"+str(ShootIdx)+"_","Leaf_"//str(i)//"_","leaf_thickness_sig")))
+        this%leaf_angle_ave_x(i)= freal(Riceconfig%parse_json(&
+            config,to_list("Shoot_"+str(ShootIdx)+"_","Leaf_"//str(i)//"_","leaf_angle_ave_x")))
+        this%leaf_angle_sig_x(i)= freal(Riceconfig%parse_json(&
+            config,to_list("Shoot_"+str(ShootIdx)+"_","Leaf_"//str(i)//"_","leaf_angle_sig_x")))
+        this%leaf_angle_ave_z(i)= freal(Riceconfig%parse_json(&
+            config,to_list("Shoot_"+str(ShootIdx)+"_","Leaf_"//str(i)//"_","leaf_angle_ave_z")))
+        this%leaf_angle_sig_z(i)= freal(Riceconfig%parse_json(&
+            config,to_list("Shoot_"+str(ShootIdx)+"_","Leaf_"//str(i)//"_","leaf_angle_sig_z")))
+        this%leaf_length_ave(i)= freal(Riceconfig%parse_json(&
+            config,to_list("Shoot_"+str(ShootIdx)+"_","Leaf_"//str(i)//"_","leaf_length_ave")))
+        this%leaf_length_sig(i)= freal(Riceconfig%parse_json(&
+            config,to_list("Shoot_"+str(ShootIdx)+"_","Leaf_"//str(i)//"_","leaf_length_sig")))
+        this%leaf_width_ave(i)= freal(Riceconfig%parse_json(&
+            config,to_list("Shoot_"+str(ShootIdx)+"_","Leaf_"//str(i)//"_","leaf_width_ave")))
+        this%leaf_width_sig(i)= freal(Riceconfig%parse_json(&
+            config,to_list("Shoot_"+str(ShootIdx)+"_","Leaf_"//str(i)//"_","leaf_width_sig")))
+        
+    enddo
+    
+    if(debug_log)then
+        cpid = cpid + 1
+        call print("createRice #" + str(cpid) )
+    endif
+!    this%mainroot_length = freal(Riceconfig%parse(config,key1="Mainroot",key2="Length"))
+!    this%mainroot_width = freal(Riceconfig%parse(config,key1="Mainroot",key2="Width"))
+!    this%mainroot_node = fint(Riceconfig%parse(config,key1="Mainroot",key2="Node"))
+
+
+
+    ! get number of branch && number of node
+!    this%num_branch_root=1
+!    this%num_branch_root_node=0
+!    do 
+!        line = Riceconfig%parse(config,key1="Branchroot_"//str(this%num_branch_root)//"_",key2="Node" )
+!        if(len(trim(line))==0)then
+!            this%num_branch_root = this%num_branch_root -1
+!            exit
+!        else
+!            this%num_branch_root = this%num_branch_root  + 1
+!            this%num_branch_root_node = this%num_branch_root_node + fint(line)
+!            cycle
+!        endif
+!    enddo
+
+
+    if(debug_log)then
+        cpid = cpid + 1
+        call print("createRice #" + str(cpid) )
+    endif
+    this%num_stem = this%mainstem_node 
+    !this%num_root =this%num_branch_root_node + this%mainroot_node
+
+    allocate(this%leaf_list(this%num_leaf))
+    allocate(this%stem_list(this%num_stem))
+    !allocate(this%root_list(this%num_root))
+
+    allocate(this%leaf(this%num_leaf))
+    allocate(this%stem(this%num_stem))
+    !allocate(this%root(this%num_root))
+
+
+
+    this%leaf2stem = zeros( this%num_leaf , this%num_stem) 
+    this%stem2stem = zeros( this%num_stem, this%num_stem)
+    this%panicle2stem = zeros( this%num_panicle, this%num_stem) 
+    !this%root2stem = zeros( this%num_root , this%num_stem) 
+    !this%root2root = zeros( this%num_root , this%num_root ) 
+
+    if(debug_log)then
+        cpid = cpid + 1
+        call print("createRice #" + str(cpid) )
+    endif
+
+    ! set mainstem
+    do i=1,this%mainstem_node
+
+        call this%stem(i)%init(&
+            x_num = this%stem_division(1),&
+            y_num = this%stem_division(2),&
+            z_num = this%stem_division(3) &
+            )
+             
+        call this%stem(i)%resize(&
+            x = this%mainstem_width, &
+            y = this%mainstem_width, &
+            z = this%mainstem_length/dble(this%mainstem_node) &
+            )
+        call this%stem(i)%rotate(&
+            x = radian(random%gauss(mu=this%ms_angle_ave,sigma=this%ms_angle_sig)),  &
+            y = radian(random%gauss(mu=this%ms_angle_ave,sigma=this%ms_angle_sig)),  &
+            z = radian(random%gauss(mu=this%ms_angle_ave,sigma=this%ms_angle_sig))   &
+            )
+    enddo
+
+    do i=1,this%mainstem_node-1
+        call this%stem(i+1)%connect("=>",this%stem(i))
+        this%stem2stem(i+1,i) = 1
+    enddo
+    
+
+    if(debug_log)then
+        cpid = cpid + 1
+        call print("createRice #" + str(cpid) )
+    endif
+
+    !set leaf
+    num_leaf = 0
+    do i=1,this%num_leaf
+        ! 1葉/1節
+        ! add leaves
+        
+        num_leaf=num_leaf+1
+        
+        call this%leaf(num_leaf)%init(species=PF_RICE,&
+            x_num = this%leaf_division(1),&
+            y_num = this%leaf_division(2),&
+            z_num = this%leaf_division(3) &
+            )
+        call this%leaf(num_leaf)%femdomain%resize(&
+                y = random%gauss(mu=this%leaf_thickness_ave(i),sigma=this%leaf_thickness_sig(i))  , &
+                z = random%gauss(mu=this%leaf_length_ave(i)   ,sigma=this%leaf_length_sig(i)) , &
+                x = random%gauss(mu=this%leaf_width_ave(i)    ,sigma=this%leaf_width_sig(i)) &
+            )
+        call this%leaf(num_leaf)%curve(curvature=this%leaf_curvature(i) )
+        
+        call this%leaf(num_leaf)%femdomain%rotate(&
+                x = radian(random%gauss(mu=this%leaf_angle_ave_x(i),sigma=this%leaf_angle_sig_x(i))), &
+                y = 0.0d0, &
+                z = radian(random%gauss(mu=this%leaf_angle_ave_z(i),sigma=this%leaf_angle_sig_z(i)) ) &
+            )
+        call this%leaf(num_leaf)%connect("=>",this%stem( this%Leaf_From(i) ))
+            this%leaf2stem(num_leaf, this%Leaf_From(i) ) = 1
+    enddo
+
+    ! set panicle
+
+    ! set panicles
+    ! get number of panicles
+    this%num_panicle=0
+    do
+        if(this%num_panicle ==  this%mainstem_node)then
+            this%num_panicle = this%num_panicle -1
+            exit
+        endif
+
+        line = Riceconfig%parse_json(config,to_list(&
+            "Shoot_"+str(ShootIdx)+"_","Panicle_"//str(this%num_panicle+1)//"_","From"))
+        
+        
+        if ("not found" .in. line)then
+            exit
+        else
+            this%num_panicle = this%num_panicle  + 1
+        endif
+        
+    enddo
+
+    allocate(this%panicle(this%num_panicle) )
+    this%panicle2stem = zeros(this%num_panicle, size(this%stem2stem,1 ) )
+    do i=1,this%num_panicle
+        call this%panicle(i)%init(&
+            x_num = this%panicle_division(1),&
+            y_num = this%panicle_division(2),&
+            z_num = this%panicle_division(3),&
+            rice=.true.,&
+            Length=freal(Riceconfig%parse_json(&
+                config,to_list("Shoot_"+str(ShootIdx)+"_",&
+                    "Panicle_"//str(i)//"_","Length"))),&
+            Width= freal(Riceconfig%parse_json(&
+                config,to_list("Shoot_"+str(ShootIdx)+"_",&
+                    "Panicle_"//str(i)//"_","Width"))),&
+            rice_seed_interval= freal(Riceconfig%parse_json(&
+                config,to_list("Shoot_"+str(ShootIdx)+"_",&
+                    "Panicle_"//str(i)//"_","rice_seed_interval"))),&
+            rice_seed_branch_length= freal(Riceconfig%parse_json(&
+                config,to_list("Shoot_"+str(ShootIdx)+"_",&
+                    "Panicle_"//str(i)//"_","rice_seed_branch_length"))),&
+            rice_seed_length= freal(Riceconfig%parse_json(&
+                config,to_list("Shoot_"+str(ShootIdx)+"_",&
+                    "Panicle_"//str(i)//"_","rice_seed_length"))),&
+            rice_seed_width= freal(Riceconfig%parse_json(&
+                config,to_list("Shoot_"+str(ShootIdx)+"_",&
+                    "Panicle_"//str(i)//"_","rice_seed_width"))),&
+            rice_seed_thickness= freal(Riceconfig%parse_json(&
+                config,to_list("Shoot_"+str(ShootIdx)+"_",&
+                    "Panicle_"//str(i)//"_","rice_seed_thickness"))),&
+            rice_panicle_curvature= freal(Riceconfig%parse_json(&
+                config,to_list("Shoot_"+str(ShootIdx)+"_",&
+                    "Panicle_"//str(i)//"_","rice_panicle_curvature"))) &
+            )
+        n = fint(Riceconfig%parse_json(&
+            config,to_list("Shoot_"+str(ShootIdx)+"_","Panicle_"//str(i)//"_","From")))
         this%panicle2stem(i,n) = 1
         
         ! こいつを実装する．
