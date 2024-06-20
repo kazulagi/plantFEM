@@ -4,7 +4,7 @@
     "plot_radius_x":0.05,
     "plot_radius_y":0.05,
     "plot_angle_ave":0.00,
-    "plot_angle_sig":30.00,
+    "plot_angle_sig":5.00,
     "num_shoot":33,
     "Shoot_1_":{
         "Mainstem":{
