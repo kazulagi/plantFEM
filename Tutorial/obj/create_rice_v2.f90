@@ -5,9 +5,9 @@ program create_rice
     type(rice_) :: rice
     integeR(int32) :: i
     
-    call rice%create("rice_v2.json")
+    call rice%create("Tutorial/obj/rice_v2.json")
     do i=1,size(Rice%rice_shoots)
-        call rice%rice_shoots(i)%vtk("rice_shoot"+zfill(i,4),single_file=True)   
+        call rice%rice_shoots(i)%vtk("rice_shoot_e"+zfill(i,4),single_file=True)   
     enddo 
 
 end program
