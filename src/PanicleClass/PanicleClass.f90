@@ -65,6 +65,11 @@ module PanicleClass
         procedure, public :: remove => removePanicle
     end type
 
+
+    interface operator(//)
+        module procedure append_panicle_object_vector
+    end interface
+
 contains
 
 
@@ -1161,5 +1166,32 @@ function to_culm_diameter(heights_vs_diameters,height) result(ret)
     enddo
 
 end function
+
+
+
+! ############################################################
+function append_panicle_object_vector(arg1,arg2) result(ret)
+    type(Panicle_),allocatable,intent(in) :: arg1(:),arg2(:)
+    type(Panicle_),allocatable :: ret(:)
+
+    if(.not. allocated(arg1) )then
+        if(.not. allocated(arg2) )then
+            return 
+        else
+            ret = arg2
+        endif    
+    else
+        if(.not. allocated(arg2) )then
+            ret = arg1
+            return 
+        else
+            allocate(ret(size(arg1)+size(arg2) ) )
+            ret(1:size(arg1) ) = arg1(:)
+            ret(size(arg1)+1: ) = arg2(:)
+        endif    
+    endif
+
+end function
+! ############################################################
 
 end module
