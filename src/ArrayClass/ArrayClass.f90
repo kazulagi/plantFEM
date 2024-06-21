@@ -466,6 +466,10 @@ module ArrayClass
       module procedure addArrayClass
     end interface
 
+    !interface operator(+)
+    !    module procedure adjoint_to_vectors_for_any
+    !end interface
+
     interface operator(*)
         module procedure multArrayClass
     end interface
@@ -493,6 +497,10 @@ module ArrayClass
 
     interface operator(.indexOf.)
         module procedure getIdxIntVec,getIdxIntVecVec,getIdxReal64Vec
+    end interface
+
+    interface operator(.diag.)
+        module procedure append_matrix_in_diag_part_int,append_matrix_in_diag_part_re
     end interface
     
     interface assignment(=)
@@ -10405,6 +10413,73 @@ end function
 function int32_vector() result(ret)
     integer(int32),allocatable :: ret(:)
 
+end function
+! ########################################################
+
+
+!function adjoint_to_vectors_for_any(arg1,arg2) result(ret)
+!    class(*),intent(in) :: arg1(:),arg2(:)
+!    class(*),allocatable :: ret(:)
+!
+!    
+!
+!end function
+
+! ########################################################
+function append_matrix_in_diag_part_int(arg1,arg2) result(ret)
+    integer(int32),allocatable,intent(in)  :: arg1(:,:),arg2(:,:)
+    integer(int32),allocatable :: ret(:,:)
+    integer(int32) :: n,m
+    
+    if(allocated(arg1))then
+        if(allocated(arg2))then
+            n = size(arg1,1) + size(arg2,1)
+            m = size(arg1,2) + size(arg2,2)
+            allocate(ret(n,m) )
+            ret(:,:) = 0.0d0
+            ret(1:size(arg1,1),1:size(arg1,2)) = arg1(:,:)
+            ret(size(arg1,1)+1:,size(arg1,2)+1:) = arg2(:,:)
+        else
+            ret = arg1
+        endif
+    else
+        if(allocated(arg1))then
+            ret = arg2
+        else
+            return
+        endif
+    endif
+    
+
+end function
+! ########################################################
+
+
+! ########################################################
+function append_matrix_in_diag_part_re(arg1,arg2) result(ret)
+    real(real64),allocatable,intent(in)  :: arg1(:,:),arg2(:,:)
+    real(real64),allocatable :: ret(:,:)
+    integer(int32) :: n,m
+
+    if(allocated(arg1))then
+        if(allocated(arg2))then
+            n = size(arg1,1) + size(arg2,1)
+            m = size(arg1,2) + size(arg2,2)
+            allocate(ret(n,m) )
+            ret(:,:) = 0.0d0
+            ret(1:size(arg1,1),1:size(arg1,2)) = arg1(:,:)
+            ret(size(arg1,1)+1:,size(arg1,2)+1:) = arg2(:,:)
+        else
+            ret = arg1
+        endif
+    else
+        if(allocated(arg1))then
+            ret = arg2
+        else
+            return
+        endif
+    endif
+    
 end function
 ! ########################################################
 

@@ -96,6 +96,12 @@ module RootClass
 
         procedure, public :: remove => removeRoot
     end type
+
+
+    interface operator(//)
+        module procedure append_root_object_vector
+    end interface
+
 contains
 
 
@@ -913,5 +919,34 @@ function neRoot(this) result(ret)
 
     ret = this%femdomain%ne()
 end function
+
+
+
+
+! ############################################################
+function append_root_object_vector(arg1,arg2) result(ret)
+    type(root_),allocatable,intent(in) :: arg1(:),arg2(:)
+    type(root_),allocatable :: ret(:)
+
+    if(.not. allocated(arg1) )then
+        if(.not. allocated(arg2) )then
+            return 
+        else
+            ret = arg2
+        endif    
+    else
+        if(.not. allocated(arg2) )then
+            ret = arg1
+            return 
+        else
+            allocate(ret(size(arg1)+size(arg2) ) )
+            ret(1:size(arg1) ) = arg1(:)
+            ret(size(arg1)+1: ) = arg2(:)
+        endif    
+    endif
+
+end function
+! ############################################################
+
 
 end module

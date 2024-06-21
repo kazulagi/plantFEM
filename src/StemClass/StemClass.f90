@@ -109,6 +109,12 @@ module StemClass
 
         procedure,public :: remove => removeStem
     end type
+
+
+    interface operator(//)
+        module procedure append_stem_object_vector
+    end interface
+
 contains
 
 
@@ -1155,5 +1161,31 @@ function neStem(this) result(ret)
 
     ret = this%femdomain%ne()
 end function
+
+
+! ############################################################
+function append_stem_object_vector(arg1,arg2) result(ret)
+    type(Stem_),allocatable,intent(in) :: arg1(:),arg2(:)
+    type(Stem_),allocatable :: ret(:)
+
+    if(.not. allocated(arg1) )then
+        if(.not. allocated(arg2) )then
+            return 
+        else
+            ret = arg2
+        endif    
+    else
+        if(.not. allocated(arg2) )then
+            ret = arg1
+            return 
+        else
+            allocate(ret(size(arg1)+size(arg2) ) )
+            ret(1:size(arg1) ) = arg1(:)
+            ret(size(arg1)+1: ) = arg2(:)
+        endif    
+    endif
+
+end function
+! ############################################################
 
 end module

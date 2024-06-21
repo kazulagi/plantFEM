@@ -22,20 +22,19 @@ module RiceClass
     type :: Rice_
         integer(int32) :: version 
         integer(int32) :: num_shoot=0
-        type(Rice_),allocatable :: rice_shoots(:)
 
+        ! for version >= 2.0, this instace has all states.
+        ! >>>>>
+        type(Rice_),allocatable :: rice_shoots(:)
+        ! <<<<<
+
+        
         integer(int32) :: TYPE_STEM    = 1
         integer(int32) :: TYPE_LEAF    = 2
         integer(int32) :: TYPE_ROOT    = 3
         integer(int32) :: TYPE_PANICLE = 4
-        ! 節-節点データ構造
-        type(Mesh_) :: struct 
-        integer(int32),allocatable :: leaf2stem(:,:)
-        integer(int32),allocatable :: stem2stem(:,:)
-        integer(int32),allocatable :: panicle2stem(:,:)
-        integer(int32),allocatable :: root2stem(:,:)
-        integer(int32),allocatable :: root2root(:,:)
 
+        ! Only for pre-processing >>>>
         real(real64)   :: mainstem_length
         real(real64)   :: mainstem_width
         integer(int32) :: mainstem_node
@@ -44,7 +43,6 @@ module RiceClass
         real(real64)   :: mainroot_width
         integer(int32) :: mainroot_node
 
-
         integer(int32) :: num_branch_root
         integer(int32) :: num_branch_root_node
 
@@ -52,10 +50,6 @@ module RiceClass
         real(real64) :: ms_angle_sig = 0.0d0
 
         integer(int32),allocatable :: Leaf_From(:)
-
-        !real(real64),allocatable :: leaf_Length(:)
-        !real(real64),allocatable :: leaf_Width(:)
-
         real(real64),allocatable :: leaf_curvature(:)
 
         real(real64),allocatable :: leaf_thickness_ave(:)
@@ -70,29 +64,30 @@ module RiceClass
         real(real64),allocatable :: leaf_length_sig(:)
         real(real64),allocatable :: leaf_width_ave(:)
         real(real64),allocatable :: leaf_width_sig(:)
+        ! Only for pre-processing <<<<
+
         
-        integer(int32) :: num_leaf
-        integer(int32) :: num_stem
-        integer(int32) :: num_panicle = 1
-        integer(int32) :: num_root
+        !character(:),allocatable :: LeafSurfaceData
 
-
-        ! 器官オブジェクト配列
-        type(FEMDomain_),allocatable :: leaf_list(:)
-        type(FEMDomain_),allocatable :: stem_list(:)
-        type(FEMDomain_),allocatable :: root_list(:)
-
-        character(:),allocatable :: LeafSurfaceData
+        ! objects generated from json file
+        ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        integer(int32) :: num_leaf = 0
+        integer(int32) :: num_stem = 0
+        integer(int32) :: num_panicle = 0
+        integer(int32) :: num_root= 0
         type(Leaf_),allocatable :: Leaf(:)
         type(Stem_),allocatable :: Stem(:)
         type(Panicle_),allocatable :: Panicle(:)
         type(Root_),allocatable :: Root(:)
+        integer(int32),allocatable :: leaf2stem(:,:)
+        integer(int32),allocatable :: stem2stem(:,:)
+        integer(int32),allocatable :: panicle2stem(:,:)
+        integer(int32),allocatable :: root2stem(:,:)
+        integer(int32),allocatable :: root2root(:,:)
+        ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-
-
-        
-        integer(int32),allocatable :: NodeID_MainStem(:)
-        type(Rice_NodeID_Branch_),allocatable :: NodeID_Branch(:)
+        ! integer(int32),allocatable :: NodeID_MainStem(:)
+        ! type(Rice_NodeID_Branch_),allocatable :: NodeID_Branch(:)
         
         logical ::  inLoop = .false.
         real(real64) :: hours = 0.0d0
@@ -180,12 +175,21 @@ module RiceClass
         procedure,public :: export_eig => export_eigRice
         
     end type
+
+    interface operator(+)
+        module procedure add_rice_to_rice
+    end interface
+
+    interface assignment(=)
+        module procedure substitute_rice_into_rice
+    end interface
 contains
 
 ! #############################################################
 recursive subroutine createRice(this,config,debug)
     class(Rice_),intent(inout) :: this
     type(Rice_),allocatable :: rice_shoots(:)
+    type(Rice_) :: this_shoot
     character(*),intent(in) :: config
     character(:),allocatable :: line
     logical,optional,intent(in) :: debug
@@ -195,8 +199,6 @@ recursive subroutine createRice(this,config,debug)
     type(Math_) :: math
     integer(int32)::i,n,j,k,num_leaf,num_stem_node,num_branch_branch,cpid,shoot_idx
     real(real64) :: x_A(1:3),rx,ry,angle,plot_angle_ave,plot_angle_sig
-
-
 
     debug_log = input(default=.false.,option=debug)
     cpid = 0
@@ -224,8 +226,14 @@ recursive subroutine createRice(this,config,debug)
             
             call rice_shoots(shoot_idx)%move(x=rx*cos(angle),y=ry*sin(angle))
             call rice_shoots(shoot_idx)%rotate(z=random%random()*2.0d0*math%pi)
-
+            if(shoot_idx==1)then
+                this_shoot = rice_shoots(1)
+            else
+                this_shoot = this_shoot + rice_shoots(shoot_idx)
+            endif
         enddo 
+        this = this_shoot
+
         this%rice_shoots = rice_shoots
         ! integrate rice_shoots to a rice object
         !call rice%add(rice_shoots)
@@ -358,8 +366,8 @@ recursive subroutine createRice(this,config,debug)
     this%num_stem = this%mainstem_node 
     !this%num_root =this%num_branch_root_node + this%mainroot_node
 
-    allocate(this%leaf_list(this%num_leaf))
-    allocate(this%stem_list(this%num_stem))
+    !allocate(this%leaf_list(this%num_leaf))
+    !allocate(this%stem_list(this%num_stem))
     !allocate(this%root_list(this%num_root))
 
     allocate(this%leaf(this%num_leaf))
@@ -689,8 +697,8 @@ recursive subroutine createRiceShoot(this,config,ShootIdx,debug)
     this%num_stem = this%mainstem_node 
     !this%num_root =this%num_branch_root_node + this%mainroot_node
 
-    allocate(this%leaf_list(this%num_leaf))
-    allocate(this%stem_list(this%num_stem))
+    !allocate(this%leaf_list(this%num_leaf))
+    !allocate(this%stem_list(this%num_stem))
     !allocate(this%root_list(this%num_root))
 
     allocate(this%leaf(this%num_leaf))
@@ -1772,7 +1780,7 @@ subroutine removeRice(this,root)
 !    if(allocated(this%NodeID_MainStem)) deallocate(this%NodeID_MainStem)
 !    if(allocated(this%NodeID_Branch)) deallocate(this%NodeID_Branch)
     ! 節-節点データ構造
-    call this%struct%remove(all=.true.)
+    ! call this%struct%remove(all=.true.)
     if (allocated(this%leaf2stem) ) deallocate(this%leaf2stem)
     if (allocated(this%stem2stem) ) deallocate(this%stem2stem)
     if (allocated(this%root2stem) ) deallocate(this%root2stem)
@@ -1798,7 +1806,7 @@ subroutine removeRice(this,root)
     this%TYPE_ROOT    = 3
     this%TYPE_PANICLE = 4
     ! 節-節点データ構造
-    call this % struct % remove()
+    ! call this % struct % remove()
     if(allocated(this%leaf2stem)) deallocate(this%leaf2stem)! (:,:)
     if(allocated(this%stem2stem)) deallocate(this%stem2stem)! (:,:)
     if(allocated(this%panicle2stem)) deallocate(this%panicle2stem)! (:,:)
@@ -1847,11 +1855,11 @@ subroutine removeRice(this,root)
 
 
     ! 器官オブジェクト配列
-    if(allocated(this%leaf_list)) deallocate(this%leaf_list)! (:)
-    if(allocated(this%stem_list)) deallocate(this%stem_list)! (:)
-    if(allocated(this%root_list)) deallocate(this%root_list)! (:)
+    !if(allocated(this%leaf_list)) deallocate(this%leaf_list)! (:)
+    !if(allocated(this%stem_list)) deallocate(this%stem_list)! (:)
+    !if(allocated(this%root_list)) deallocate(this%root_list)! (:)
 
-    this%LeafSurfaceData = ""
+    !this%LeafSurfaceData = ""
     if(allocated(this % Leaf)) deallocate(this % Leaf)! (:)
     if(allocated(this % Stem)) deallocate(this % Stem)! (:)
     if(allocated(this % Panicle)) deallocate(this % Panicle)! (:)
@@ -1860,8 +1868,8 @@ subroutine removeRice(this,root)
 
 
     
-    if(allocated(this%NodeID_MainStem)) deallocate(this%NodeID_MainStem)! (:)
-    if(allocated(this%NodeID_Branch)) deallocate(this%NodeID_Branch)! (:)
+    !if(allocated(this%NodeID_MainStem)) deallocate(this%NodeID_MainStem)! (:)
+    !if(allocated(this%NodeID_Branch)) deallocate(this%NodeID_Branch)! (:)
     
     this%inLoop = .false.
     this%hours = 0.0d0
@@ -3759,5 +3767,70 @@ end subroutine
 ! ################################################################
 
 
+function add_rice_to_rice(rice1,rice2) result(ret)
+    type(Rice_),intent(in) :: rice1,rice2
+    type(Rice_) :: ret
+
+    ret%num_leaf = rice1%num_leaf + rice2%num_leaf
+    ret%num_stem = rice1%num_stem + rice2%num_stem
+    ret%num_panicle = rice1%num_panicle + rice2%num_panicle
+    ret%num_root = rice1%num_root + rice2%num_root
+
+
+    ret%leaf = rice1%leaf // rice2%leaf
+    ret%stem = rice1%stem // rice2%stem
+    ret%panicle = rice1%panicle // rice2%panicle
+    !ret%root = rice1%root // rice2%root
+    
+    ret%leaf2stem = rice1%leaf2stem .diag. rice2%leaf2stem
+    ret%stem2stem = rice1%stem2stem .diag. rice2%stem2stem
+    ret%panicle2stem = rice1%panicle2stem .diag. rice2%panicle2stem
+    !ret%root2stem = rice1%root2stem .diag. rice2%root2stem
+    !et%root2root = rice1%root2root .diag. rice2%root2root
+
+end function
+
+
+
+subroutine substitute_rice_into_rice(ret,rice1)
+    type(Rice_),intent(out) :: ret
+    type(Rice_),intent(in) :: rice1
+    
+
+    ret%num_leaf = rice1%num_leaf 
+    ret%num_stem = rice1%num_stem 
+    ret%num_panicle = rice1%num_panicle 
+    ret%num_root = rice1%num_root 
+
+    if(allocated(rice1%leaf) )then
+        ret%leaf = rice1%leaf
+    endif
+    if(allocated(rice1%stem) )then
+        ret%stem = rice1%stem
+    endif
+    if(allocated(rice1%panicle) )then
+        ret%panicle = rice1%panicle
+    endif
+    if(allocated(rice1%root) )then
+        ret%root = rice1%root
+    endif
+    
+    if(allocated(rice1%leaf2stem ))then
+        ret%leaf2stem = rice1%leaf2stem 
+    endif
+    if(allocated(rice1%stem2stem ))then
+        ret%stem2stem = rice1%stem2stem 
+    endif
+    if(allocated(rice1%panicle2stem ))then
+        ret%panicle2stem = rice1%panicle2stem 
+    endif
+    if(allocated(rice1%root2stem ))then
+        ret%root2stem = rice1%root2stem 
+    endif
+    if(allocated(rice1%root2root ))then
+        ret%root2root = rice1%root2root 
+    endif
+
+end subroutine
 
 end module RiceClass
