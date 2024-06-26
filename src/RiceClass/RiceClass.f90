@@ -198,7 +198,7 @@ recursive subroutine createRice(this,config,debug)
     type(Random_) :: random
     type(Math_) :: math
     integer(int32)::i,n,j,k,num_leaf,num_stem_node,num_branch_branch,cpid,shoot_idx
-    real(real64) :: x_A(1:3),rx,ry,angle,plot_angle_ave,plot_angle_sig
+    real(real64) :: x_A(1:3),rx,ry,angle,plot_angle_ave,plot_angle_sig, base_x, base_y, shoot_az_angle, shoot_in_angle
 
     debug_log = input(default=.false.,option=debug)
     cpid = 0
@@ -209,6 +209,7 @@ recursive subroutine createRice(this,config,debug)
     endif
     
     this%version = fint(Riceconfig%parse_json(config,to_list("Version")))
+
     if(this%version == 2)then
         this%num_shoot = fint(Riceconfig%parse_json(config,to_list("num_shoot")))
         
@@ -237,9 +238,37 @@ recursive subroutine createRice(this,config,debug)
         this%rice_shoots = rice_shoots
         ! integrate rice_shoots to a rice object
         !call rice%add(rice_shoots)
-        return
+        return     
     endif
 
+    if(this%version == 3)then
+        this%num_shoot = fint(Riceconfig%parse_json(config,to_list("num_shoot")))
+        
+        allocate(rice_shoots(this%num_shoot))
+        do shoot_idx=1,this%num_shoot
+            call rice_shoots(shoot_idx)%createShoot(config=config,ShootIdx=shoot_idx,debug=debug)
+
+            shoot_az_angle = freal(Riceconfig%parse_json(config,to_list("Shoot_"+str(shoot_idx)+"_","Mainstem", "shoot_az_angle")))
+            shoot_in_angle = freal(Riceconfig%parse_json(config,to_list("Shoot_"+str(shoot_idx)+"_","Mainstem", "shoot_in_angle")))
+            call rice_shoots(shoot_idx)%rotate(x=shoot_in_angle, z=shoot_az_angle)
+
+            base_x = freal(Riceconfig%parse_json(config,to_list("Shoot_"+str(shoot_idx)+"_","Mainstem", "base_x")))
+            base_y = freal(Riceconfig%parse_json(config,to_list("Shoot_"+str(shoot_idx)+"_","Mainstem", "base_y")))
+            call rice_shoots(shoot_idx)%move(x=base_x,y=base_y)
+
+            if(shoot_idx==1)then
+                this_shoot = rice_shoots(1)
+            else
+                this_shoot = this_shoot + rice_shoots(shoot_idx)
+            endif
+        enddo 
+        this = this_shoot
+
+        this%rice_shoots = rice_shoots
+        ! integrate rice_shoots to a rice object
+        !call rice%add(rice_shoots)
+        return
+    endif
 
     this%mainstem_length = freal(Riceconfig%parse(config,key1="Mainstem",key2="Length"))
     this%mainstem_width = freal(Riceconfig%parse(config,key1="Mainstem",key2="Width"))

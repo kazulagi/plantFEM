@@ -12,3 +12,4 @@ addon/github/
 ./*.out.*
 tmp/
 
+inc/*
