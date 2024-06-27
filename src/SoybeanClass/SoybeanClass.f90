@@ -356,6 +356,7 @@ module SoybeanClass
         procedure,public :: msh => mshSoybean
         procedure,public :: vtk => vtkSoybean
         procedure,public :: stl => stlSoybean
+        procedure,public :: ply => plySoybean
         procedure,public :: json => jsonSoybean
         
         ! get info
@@ -3573,6 +3574,125 @@ subroutine stlSoybean(obj,name,num_threads,single_file)
 
 end subroutine
 ! ########################################
+
+
+! ########################################
+subroutine plySoybean(obj,name,num_threads,single_file)
+    class(Soybean_),intent(inout) :: obj
+    character(*),intent(in) :: name
+    integer(int32),optional,intent(in) :: num_threads
+    type(FEMDomain_) :: femdomain
+    logical,optional,intent(in) :: single_file
+    integer(int32) :: i,n
+
+    type(IO_) :: f
+
+
+    if(present(single_file) )then
+        if(single_file)then
+            ! export mesh for a single file
+            if(allocated(obj%stem) )then
+                do i=1,size(obj%stem)
+                    if(.not.obj%stem(i)%femdomain%empty() )then
+                        femdomain = femdomain + obj%stem(i)%femdomain
+                    endif
+                enddo
+            endif
+            
+            if(allocated(obj%leaf) )then
+                do i=1,size(obj%leaf)
+                    if(.not.obj%leaf(i)%femdomain%empty() )then
+                        femdomain = femdomain + obj%leaf(i)%femdomain
+                    endif
+                enddo
+            endif
+
+            if(allocated(obj%root) )then
+                do i=1,size(obj%root)
+                    if(.not.obj%root(i)%femdomain%empty() )then
+                        femdomain = femdomain + obj%root(i)%femdomain
+                    endif
+                enddo
+            endif
+            call femdomain%ply(name=name)
+            return
+        endif
+    endif
+
+
+    ! index file
+    call f%open(name//"_index.txt","w")
+
+    if(allocated(obj%stem) )then
+        do i=1,size(obj%stem)
+            if( .not.obj%stem(i)%femdomain%mesh%empty() )then
+                call f%write(name//"_stem"//str(i)//".ply")
+            endif
+        enddo
+    endif
+    
+    if(allocated(obj%root) )then
+        do i=1,size(obj%root)
+            if( .not.obj%root(i)%femdomain%mesh%empty() )then
+                call f%write(name//"_root"//str(i)//".ply")
+            endif
+        enddo
+    endif
+
+    if(allocated(obj%leaf) )then
+        do i=1,size(obj%leaf)
+            if( .not.obj%leaf(i)%femdomain%mesh%empty() )then
+                call f%write(name//"_leaf"//str(i)//".ply")
+            endif
+        enddo
+    endif
+    call f%close()
+    
+    n = input(default=1,option=num_threads)
+    !call execute_command_line("echo ' ' > "//name//".ply")
+    !!$OMP parallel num_threads(n) private(i)
+    !!$OMP do 
+    do i=1,size(obj%stem)
+        if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call obj%stem(i)%ply(name=name//"_stem"//str(i))
+            !call execute_command_line("cat "//name//"_stem"//str(i)//"_000001.ply >> "//name//".ply")
+        endif
+    enddo
+    !!$OMP end do
+    !!$OMP end parallel
+
+    !!$OMP parallel num_threads(n) private(i)
+    !!$OMP do 
+    do i=1,size(obj%root)
+        if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call obj%root(i)%ply(name=name//"_root"//str(i))
+            !call execute_command_line("cat "//name//"_root"//str(i)//"_000001.ply >> "//name//".ply")
+        endif
+    enddo
+    !!$OMP end do
+    !!$OMP end parallel
+
+    !!$OMP parallel num_threads(n) private(i)
+    !!$OMP do 
+    do i=1,size(obj%leaf)
+        if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call obj%leaf(i)%ply(name=name//"_leaf"//str(i))
+            !call execute_command_line("cat "//name//"_leaf"//str(i)//"_000001.ply >> "//name//".ply")
+        endif
+    enddo
+    !!$OMP end do
+    !!$OMP end parallel
+
+    call execute_command_line("cat "//name//"*_leaf*.ply > "//name//"_leaf.ply" )
+    call execute_command_line("cat "//name//"*_stem*.ply > "//name//"_stem.ply" )
+    call execute_command_line("cat "//name//"*_root*.ply > "//name//"_root.ply" )
+    call execute_command_line("cat "//name//"_leaf.ply "//name//"_stem.ply "&
+        //name//"_root.ply > "//name//".ply" )
+
+end subroutine
+! ########################################
+
+
 
 ! ########################################
 subroutine moveSoybean(obj,x,y,z)

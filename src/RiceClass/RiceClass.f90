@@ -186,23 +186,30 @@ module RiceClass
 contains
 
 ! #############################################################
-recursive subroutine createRice(this,config,debug)
+recursive subroutine createRice(this,config,debug,output_detail_config)
     class(Rice_),intent(inout) :: this
     type(Rice_),allocatable :: rice_shoots(:)
     type(Rice_) :: this_shoot
     character(*),intent(in) :: config
+    character(*),optional,intent(in) :: output_detail_config
     character(:),allocatable :: line
     logical,optional,intent(in) :: debug
     logical :: debug_log
-    type(IO_) :: Riceconfig
+    type(IO_) :: Riceconfig,input_dc,output_dc
     type(Random_) :: random
     type(Math_) :: math
     integer(int32)::i,n,j,k,num_leaf,num_stem_node,num_branch_branch,cpid,shoot_idx
     real(real64) :: x_A(1:3),rx,ry,angle,plot_angle_ave,plot_angle_sig
 
+
+    if(present(output_detail_config) )then
+        call output_dc%open(output_detail_config,"a")
+        call output_dc%write("{")
+    endif
+
     debug_log = input(default=.false.,option=debug)
     cpid = 0
-
+    
     if(debug_log)then
         cpid = cpid + 1
         call print("createRice #" + str(cpid) )
@@ -210,22 +217,39 @@ recursive subroutine createRice(this,config,debug)
     
     this%version = fint(Riceconfig%parse_json(config,to_list("Version")))
     if(this%version == 2)then
+        
+
         this%num_shoot = fint(Riceconfig%parse_json(config,to_list("num_shoot")))
         
         allocate(rice_shoots(this%num_shoot))
         do shoot_idx=1,this%num_shoot
-            call rice_shoots(shoot_idx)%createShoot(config=config,ShootIdx=shoot_idx,debug=debug)
+            
             
             angle = random%random()*2.0d0*math%pi
             rx = random%random()*freal(Riceconfig%parse_json(config,to_list("plot_radius_x") ) )
             ry = random%random()*freal(Riceconfig%parse_json(config,to_list("plot_radius_y") ) )
             plot_angle_ave = radian(freal(Riceconfig%parse_json(config,to_list("plot_angle_ave") ) ))
             plot_angle_sig = radian(freal(Riceconfig%parse_json(config,to_list("plot_angle_sig") ) ))
-            
+    
+
+            if(present(output_detail_config) )then
+                call output_dc%open(output_detail_config,"a")
+                call output_dc%write('"shoot_idx_'+str(shoot_idx)+'rx'+'":'+str(rx)+',')
+                call output_dc%write('"shoot_idx_'+str(shoot_idx)+'ry'+'":'+str(ry)+',')
+                call output_dc%write('"shoot_idx_'+str(shoot_idx)+'angle'+'":'+str(angle)+',')
+            endif
+            !実装途中!!@20240624
+
+             
+            call rice_shoots(shoot_idx)%createShoot(config=config,ShootIdx=shoot_idx,debug=debug)
             call rice_shoots(shoot_idx)%rotate(x=random%gauss(mu=plot_angle_ave,sigma=plot_angle_sig))
             
             call rice_shoots(shoot_idx)%move(x=rx*cos(angle),y=ry*sin(angle))
             call rice_shoots(shoot_idx)%rotate(z=random%random()*2.0d0*math%pi)
+
+
+
+
             if(shoot_idx==1)then
                 this_shoot = rice_shoots(1)
             else

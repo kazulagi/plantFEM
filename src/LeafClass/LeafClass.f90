@@ -144,6 +144,7 @@ module LeafClass
         procedure, public :: msh => mshleaf
         procedure, public :: vtk => vtkleaf
         procedure, public :: stl => stlleaf
+        procedure, public :: ply => plyleaf
 
 
 
@@ -975,6 +976,26 @@ subroutine stlleaf(obj,name)
     endif
     
     call obj%femdomain%stl(Name=name)
+    ! PPFD を出力
+    !call obj%femdomain%msh(Name=name//"_PPFD_",field=obj%PPFD)
+    ! ソース量 を出力
+    !call obj%femdomain%msh(Name=name//"_SOURCE_",field=obj%source)
+    ! 光合成速度 を出力
+    !call obj%femdomain%msh(Name=name//"_A_",field=obj%A)
+
+
+end subroutine
+! ########################################
+
+! ########################################
+subroutine plyleaf(obj,name)
+    class(leaf_),intent(inout) :: obj
+    character(*),intent(in) ::name
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
+    call obj%femdomain%ply(Name=name)
     ! PPFD を出力
     !call obj%femdomain%msh(Name=name//"_PPFD_",field=obj%PPFD)
     ! ソース量 を出力

@@ -25,11 +25,17 @@ module WaveKernelClass
         integer(int32) :: EbO_Algorithm = FEMDomain_Overset_GPP
         real(real64)   :: EbO_relative_penalty = 1000.0d0
 
+        ! custom low-pass filter
+        real(real64),allocatable,private :: weights(:)
 
     contains
+
         procedure,pass :: initWaveKernel
         procedure,pass :: init_by_femdomain_pointers_WK
         generic :: init => initWaveKernel, init_by_femdomain_pointers_WK
+
+        procedure :: setLPF => setLPF_WaveKernel
+
         procedure :: bandpass => bandpass_WaveKernel
         procedure :: lowpass => lowpass_WaveKernel
         procedure :: movingAverage => movingAverage_WaveKernel
@@ -434,11 +440,20 @@ subroutine getDisplacement_and_Velocity_WaveKernel(this,u_n,v_n,dt,&
     enddo
     
     if(present(RHS) )then
-        u = u + this%OmegaSqMatrix%tensor_wave_kernel_RHS(RHS=RHS/this%Mmatrix_diag,t=dt,tol=dble(1.0e-25),&
-            itrmax=this%itrmax,cutoff_frequency=cutoff_frequency)
-        v = v + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
-            dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
-            DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol)
+        if(allocated(this%weights) )then
+            u = u + this%OmegaSqMatrix%tensor_wave_kernel_RHS(RHS=RHS/this%Mmatrix_diag,t=dt,tol=dble(1.0e-25),&
+                itrmax=this%itrmax,cutoff_frequency=cutoff_frequency,weights=this%weights)
+            v = v + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
+                DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol,weights=this%weights)
+        else
+            u = u + this%OmegaSqMatrix%tensor_wave_kernel_RHS(RHS=RHS/this%Mmatrix_diag,t=dt,tol=dble(1.0e-25),&
+                itrmax=this%itrmax,cutoff_frequency=cutoff_frequency)
+            v = v + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
+                DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol)
+        endif
+        
     endif
 
     
@@ -530,12 +545,19 @@ subroutine getDisplacement_and_Velocity_MPI_WaveKernel(this,u_n,v_n,dt,&
 
     ! RHS (=M^{-1}F)
     if(present(RHS) )then
-        u = u + this%OmegaSqMatrix%tensor_wave_kernel_RHS(RHS=RHS/this%Mmatrix_diag,t=dt,tol=dble(1.0e-25),&
-            itrmax=this%itrmax,cutoff_frequency=cutoff_frequency)
-        
-        v = v + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
-            dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
-            DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol)
+        if(allocated(this%weights) )then
+            u = u + this%OmegaSqMatrix%tensor_wave_kernel_RHS(RHS=RHS/this%Mmatrix_diag,t=dt,tol=dble(1.0e-25),&
+                itrmax=this%itrmax,cutoff_frequency=cutoff_frequency,weights=this%weights)
+            v = v + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
+                DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol,weights=this%weights)
+        else
+            u = u + this%OmegaSqMatrix%tensor_wave_kernel_RHS(RHS=RHS/this%Mmatrix_diag,t=dt,tol=dble(1.0e-25),&
+                itrmax=this%itrmax,cutoff_frequency=cutoff_frequency)
+            v = v + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
+                DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol)
+        endif
 
     endif
 
@@ -601,11 +623,19 @@ subroutine getDisplacement_and_Velocity_complex64_WaveKernel(this,u_n,v_n,dt,&
     enddo
     
     if(present(RHS) )then
-        u = u + this%OmegaSqMatrix%tensor_wave_kernel_RHS(RHS=RHS/this%Mmatrix_diag,t=dt,tol=dble(1.0e-25),&
-            itrmax=this%itrmax,cutoff_frequency=cutoff_frequency)
-        v = v + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
-            dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
-            DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol)
+        if(allocated(this%weights))then
+            u = u + this%OmegaSqMatrix%tensor_wave_kernel_RHS(RHS=RHS/this%Mmatrix_diag,t=dt,tol=dble(1.0e-25),&
+                itrmax=this%itrmax,cutoff_frequency=cutoff_frequency,weights=this%weights)
+            v = v + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
+                DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol,weights=this%weights)
+        else
+            u = u + this%OmegaSqMatrix%tensor_wave_kernel_RHS(RHS=RHS/this%Mmatrix_diag,t=dt,tol=dble(1.0e-25),&
+                itrmax=this%itrmax,cutoff_frequency=cutoff_frequency)
+            v = v + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
+                DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol)
+        endif
     endif
 
     if(present(fix_idx) )then
@@ -637,7 +667,7 @@ function getDisplacementWaveKernel(this,u_n,v_n,dt,fix_idx,cutoff_frequency,debu
     real(real64) :: h, ddt
 
     gain_value = input(default=1.0d0,option=gain)
-
+    
     if(present(cutoff_frequency) )then
 !        if(present(debug_mode) )then
 !            if(debug_mode)then
@@ -656,17 +686,26 @@ function getDisplacementWaveKernel(this,u_n,v_n,dt,fix_idx,cutoff_frequency,debu
 !            return
 !            endif
 !        endif
-
-        u =   LPF_Damped_cos_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
-                dt=dt, f_c=cutoff_frequency, u_n=u_n,DampingRatio=this%DampingRatio,&
-                fix_idx=fix_idx, itrmax=this%itrmax,tol=this%tol) &
-            + LPF_Damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
-                dt=dt, f_c=cutoff_frequency, v_n=v_n,DampingRatio=this%DampingRatio,&
-                fix_idx=fix_idx, itrmax=this%itrmax,tol=this%tol)
+        if(allocated(this%weights))then
+            u =   LPF_Damped_cos_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                    dt=dt, f_c=cutoff_frequency, u_n=u_n,DampingRatio=this%DampingRatio,&
+                    fix_idx=fix_idx, itrmax=this%itrmax,tol=this%tol,weights=this%weights) &
+                + LPF_Damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                    dt=dt, f_c=cutoff_frequency, v_n=v_n,DampingRatio=this%DampingRatio,&
+                    fix_idx=fix_idx, itrmax=this%itrmax,tol=this%tol,weights=this%weights)
+        else
+            u =   LPF_Damped_cos_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                    dt=dt, f_c=cutoff_frequency, u_n=u_n,DampingRatio=this%DampingRatio,&
+                    fix_idx=fix_idx, itrmax=this%itrmax,tol=this%tol) &
+                + LPF_Damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                    dt=dt, f_c=cutoff_frequency, v_n=v_n,DampingRatio=this%DampingRatio,&
+                    fix_idx=fix_idx, itrmax=this%itrmax,tol=this%tol)
+        endif
         ! cutoff = - 10 dB
         
 
     else
+        ! cutoff周波数なし，ただのWKF
         u = this%OmegaSqMatrix%tensor_wave_kernel(&
             u0=u_n,v0=v_n,t=dt,h=0.0d0,&
             itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)
@@ -675,8 +714,13 @@ function getDisplacementWaveKernel(this,u_n,v_n,dt,fix_idx,cutoff_frequency,debu
 
 
     if(present(RHS) )then
-        u = u + this%OmegaSqMatrix%tensor_wave_kernel_RHS(RHS=RHS/this%Mmatrix_diag,t=dt,tol=dble(1.0e-25),&
-            itrmax=this%itrmax,cutoff_frequency=cutoff_frequency)
+        if(allocated(this%weights) )then
+            u = u + this%OmegaSqMatrix%tensor_wave_kernel_RHS(RHS=RHS/this%Mmatrix_diag,t=dt,tol=dble(1.0e-25),&
+                itrmax=this%itrmax,cutoff_frequency=cutoff_frequency,weights=this%weights)
+        else
+            u = u + this%OmegaSqMatrix%tensor_wave_kernel_RHS(RHS=RHS/this%Mmatrix_diag,t=dt,tol=dble(1.0e-25),&
+                itrmax=this%itrmax,cutoff_frequency=cutoff_frequency)
+        endif
     endif
 
     u = gain_value*u
@@ -741,16 +785,24 @@ function getVelocityWaveKernel(this,u_n, v_n,RHS,dt,fix_idx,cutoff_frequency,deb
 !                    h=h,t=(dt+ddt),itrmax=this%itrmax,tol=this%tol,fix_idx=fix_idx)
 !            return
 !        endif
-        
-
-        v =   LPF_damped_cos_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
-                dt=dt, f_c=cutoff_frequency, u_n=v_n,DampingRatio=this%DampingRatio,&
-                fix_idx=fix_idx, itrmax=this%itrmax,tol=this%tol) &
-            + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
-                dt=dt, f_c=cutoff_frequency, v_n=-this%OmegaSqMatrix%matmul(u_n), &
-                DampingRatio=this%DampingRatio,fix_idx=fix_idx,itrmax=this%itrmax,tol=this%tol)
-
+        if(allocated(this%weights) )then
+            v =   LPF_damped_cos_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&   
+                    dt=dt, f_c=cutoff_frequency, u_n=v_n,DampingRatio=this%DampingRatio,&
+                    fix_idx=fix_idx, itrmax=this%itrmax,tol=this%tol,weights=this%weights) &
+                + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                    dt=dt, f_c=cutoff_frequency, v_n=-this%OmegaSqMatrix%matmul(u_n), &
+                    DampingRatio=this%DampingRatio,fix_idx=fix_idx,itrmax=this%itrmax,tol=this%tol,&
+                    weights=this%weights)
+        else
+            v =   LPF_damped_cos_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&   
+                    dt=dt, f_c=cutoff_frequency, u_n=v_n,DampingRatio=this%DampingRatio,&
+                    fix_idx=fix_idx, itrmax=this%itrmax,tol=this%tol) &
+                + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                    dt=dt, f_c=cutoff_frequency, v_n=-this%OmegaSqMatrix%matmul(u_n), &
+                    DampingRatio=this%DampingRatio,fix_idx=fix_idx,itrmax=this%itrmax,tol=this%tol)
+        endif
     else
+        ! cutoff周波数なし，ただのWKF
         v = exp(-this%DampingRatio*dt )*this%OmegaSqMatrix%tensor_wave_kernel(&
             u0=-this%DampingRatio*dt*u_n+v_n, &
             v0=-this%OmegaSqMatrix%matmul(u_n)-this%DampingRatio*dt*v_n, &
@@ -759,9 +811,15 @@ function getVelocityWaveKernel(this,u_n, v_n,RHS,dt,fix_idx,cutoff_frequency,deb
 
 
     if(present(RHS) )then
-        v = v + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
-            dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
-            DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol)
+        if(allocated(this%weights) )then
+            v = v + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
+                DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol,weights=this%weights)
+        else
+            v = v + LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix=this%OmegaSqMatrix,&
+                dt=dt, f_c=cutoff_frequency, v_n=RHS/this%Mmatrix_diag , &
+                DampingRatio=this%DampingRatio,itrmax=this%itrmax,tol=this%tol)
+        endif
     endif
 
     v = gain_value*v
@@ -870,15 +928,27 @@ pure function LPF_cos_sqrt_taylor_coefficient(k,t,f_c) result(c_k)
     
 end function
 
-pure function LPF_damped_cos_sqrt_taylor_coefficient(k,t,f_c,DampingRatio) result(c_k)
+function LPF_damped_cos_sqrt_taylor_coefficient(k,t,f_c,DampingRatio,weights) result(c_k)
     integer(int32),intent(in) :: k
     real(real64),intent(in) :: t
     real(real64),intent(in) :: f_c
     real(real64),intent(in) :: DampingRatio(:)
+    real(real64),optional,intent(in) :: weights(:)
     real(real64) :: dt
     real(real64),allocatable:: c_k(:)
     real(real64),allocatable:: t_tilde(:)
-type(Math_) :: math
+    type(Math_) :: math
+    integer(int32) :: n
+
+    integer(int32) :: lbd,ubd
+    real(real64),allocatable :: w(:)
+
+    if(present(weights) )then
+        ubd = size(weights) - (size(weights)+1)/2
+        lbd = -(size(weights) - (size(weights)+1)/2)
+        allocate(w(lbd:ubd) )
+        w(lbd:ubd)=weights(1:size(weights))
+    endif
 
     if(k==0)then
         c_k = ones(size(DampingRatio) )
@@ -889,10 +959,18 @@ type(Math_) :: math
     
     !dt = 1.0d0/(f_c*4.0d0)
     dt = 1.0d0/f_c/2.0d0/math%pi*acos( sqrt(2.0d0)-1.0d0 )
-    t_tilde =   0.250d0*((t-dt)**(2*k) )*exp(-DampingRatio*(t-dt) ) &
-            + 0.500d0*((t   )**(2*k) )*exp(-DampingRatio*(t   ) ) &
-            + 0.250d0*((t+dt)**(2*k) )*exp(-DampingRatio*(t+dt) )
     
+    if(present(weights))then
+        t_tilde=0.0d0
+        do n=lbound(w,1),ubound(w,1)    
+            t_tilde = t_tilde + w(n)*((t+n*dt)**(2*k) )*exp(-DampingRatio*(t+n*dt) ) 
+        enddo
+    else
+        t_tilde =   0.250d0*((t-dt)**(2*k) )*exp(-DampingRatio*(t-dt) ) &
+                + 0.500d0*((t   )**(2*k) )*exp(-DampingRatio*(t   ) ) &
+                + 0.250d0*((t+dt)**(2*k) )*exp(-DampingRatio*(t+dt) )
+    endif
+
     if(mod(k,2)==0 )then
         ! k=even
         c_k = t_tilde/Gamma(2.0d0*k+1.0d0)
@@ -902,6 +980,7 @@ type(Math_) :: math
     endif
     
 end function
+
 
 
 
@@ -942,15 +1021,28 @@ end function
 
 
 
-pure function LPF_damped_t_sinc_sqrt_taylor_coefficient(k,t,f_c,DampingRatio) result(s_k)
+function LPF_damped_t_sinc_sqrt_taylor_coefficient(k,t,f_c,DampingRatio,weights) result(s_k)
     integer(int32),intent(in) :: k
     real(real64),intent(in) :: t
     real(real64),intent(in) :: f_c
     real(real64),allocatable :: s_k(:)
     real(real64),allocatable :: t_tilde(:)
-    real(real64) :: dt
+    real(real64),optional,intent(in) :: weights(:)
+    real(real64) :: dt,buf
     real(real64),intent(in) :: DampingRatio(:)
     type(Math_) :: math
+    integer(int32) :: n
+
+    integer(int32) :: lbd,ubd
+    real(real64),allocatable :: w(:)
+
+    if(present(weights) )then
+        ubd = size(weights) - (size(weights)+1)/2
+        lbd = -(size(weights) - (size(weights)+1)/2)
+        allocate(w(lbd:ubd) )
+        w(lbd:ubd)=weights(1:)
+    endif
+
 
     if(k==0)then
         s_k = t*ones(size(DampingRatio) )
@@ -961,9 +1053,35 @@ pure function LPF_damped_t_sinc_sqrt_taylor_coefficient(k,t,f_c,DampingRatio) re
     !dt = 1.0d0/(f_c*4.0d0)
     dt = 1.0d0/f_c/2.0d0/math%pi*acos( sqrt(2.0d0)-1.0d0 )
 
-    t_tilde =   0.250d0*((t-dt)**(2*k+1) )*exp(-DampingRatio*(t-dt) ) &
-              + 0.500d0*((t   )**(2*k+1) )*exp(-DampingRatio*(t   ) ) &
-              + 0.250d0*((t+dt)**(2*k+1) )*exp(-DampingRatio*(t+dt) )
+    if(present(weights))then
+        t_tilde=0.0d0
+        do n=lbound(w,1),ubound(w,1)  
+            t_tilde = t_tilde + w(n)*((t+n*dt)**(2*k+1) )*exp(-DampingRatio*(t+n*dt) ) 
+        enddo
+        
+        ! check solution
+        !if(lbound(weights,1)==-1 .and. ubound(weights,1)==1)then
+        !    if(weights(-1)==0.250d0 .or. weights(0)==0.50d0)then
+        !        if(weights(0)==0.250d0)then
+        !            buf =  0.250d0*((t-dt)**(2*k+1) )*exp(-DampingRatio*(t-dt) ) &
+        !            + 0.500d0*((t   )**(2*k+1) )*exp(-DampingRatio*(t   ) ) &
+        !            + 0.250d0*((t+dt)**(2*k+1) )*exp(-DampingRatio*(t+dt) )
+        !            if(buf/=t_tilde)then
+        !                open(10,file="debug.txt")
+        !                write(10,*) buf,t_tilde
+        !                close(10)
+        !            endif
+        !        endif
+        !    endif
+        !endif
+        ! check solution
+
+    else
+        t_tilde =   0.250d0*((t-dt)**(2*k+1) )*exp(-DampingRatio*(t-dt) ) &
+        + 0.500d0*((t   )**(2*k+1) )*exp(-DampingRatio*(t   ) ) &
+        + 0.250d0*((t+dt)**(2*k+1) )*exp(-DampingRatio*(t+dt) )
+    endif
+    
     
     if(mod(k,2)==0 )then
         ! k=even
@@ -1005,26 +1123,31 @@ end function
 
 
 ! #########################################################
-function LPF_damped_cos_sqrt_WaveKernelFunction(Omega_sq_matrix,dt,f_c,u_n,DampingRatio, itrmax,tol,fix_idx) result(ret)
+function LPF_damped_cos_sqrt_WaveKernelFunction(Omega_sq_matrix,dt,f_c,u_n,DampingRatio, itrmax,tol,fix_idx,weights) result(ret)
     type(CRS_),intent(inout) :: Omega_sq_matrix
     real(real64),intent(in) :: dt, f_c, u_n(:),tol,DampingRatio(:)
+
     real(real64),allocatable :: ret(:),du(:)
 
     integer(int32),intent(in) :: itrmax
     integer(int32),optional,intent(in) :: fix_idx(:)
+    real(real64),optional,intent(in) :: weights(:)
+
     integer(int32) :: k
+
+    
 
     k=0
     du = u_n
     if(present(fix_idx) )then
         du(fix_idx) = 0.0d0
     endif
-    ret = LPF_damped_cos_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*du
+    ret = LPF_damped_cos_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio,weights=weights)*du
     
     do k=1,itrmax
         du = Omega_sq_matrix%matmul(du)  
-        if(norm(LPF_damped_cos_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*du)<tol )exit  
-        ret = ret + LPF_damped_cos_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*du
+        if(norm(LPF_damped_cos_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio,weights=weights)*du)<tol )exit  
+        ret = ret + LPF_damped_cos_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio,weights=weights)*du
     enddo
 
 end function
@@ -1082,12 +1205,13 @@ end function
 
 
 ! #########################################################
-function LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix,dt,f_c,v_n,itrmax,tol,fix_idx,DampingRatio) result(ret)
+function LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix,dt,f_c,v_n,itrmax,tol,fix_idx,DampingRatio,weights) result(ret)
     type(CRS_),intent(inout) :: Omega_sq_matrix
     real(real64),intent(in) :: dt, f_c, v_n(:),tol,DampingRatio(:)
     real(real64),allocatable :: ret(:),dv(:)
     integer(int32),intent(in) :: itrmax
     integer(int32),optional,intent(in) :: fix_idx(:)
+    real(real64),optional,intent(in) :: weights(:)
     integer(int32) :: k
 
     k=0
@@ -1095,12 +1219,12 @@ function LPF_damped_t_sinc_sqrt_WaveKernelFunction(Omega_sq_matrix,dt,f_c,v_n,it
     if(present(fix_idx) )then
         dv(fix_idx) = 0.0d0
     endif
-    ret = LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*dv
+    ret = LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio,weights=weights)*dv
     
     do k=1,itrmax
         dv = Omega_sq_matrix%matmul(dv)    
-        if(norm(LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*dv)<tol )exit
-        ret = ret + LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*dv
+        if(norm(LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio,weights=weights)*dv)<tol )exit
+        ret = ret + LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio,weights=weights)*dv
     enddo
 
 end function
@@ -1108,7 +1232,7 @@ end function
 
 ! #########################################################
 function LPF_damped_t_sinc_sqrt_MPI_WaveKernelFunction(Omega_sq_matrix,&
-    dt,f_c,v_n,itrmax,tol,fix_idx,DampingRatio,MPID,FEMDomain) result(ret)
+    dt,f_c,v_n,itrmax,tol,fix_idx,DampingRatio,MPID,FEMDomain,weights) result(ret)
     type(CRS_),intent(inout) :: Omega_sq_matrix
     real(real64),intent(in) :: dt, f_c, v_n(:),tol,DampingRatio(:)
     type(MPI_),intent(inout) :: MPID
@@ -1116,6 +1240,7 @@ function LPF_damped_t_sinc_sqrt_MPI_WaveKernelFunction(Omega_sq_matrix,&
     real(real64),allocatable :: ret(:),dv(:)
     integer(int32),intent(in) :: itrmax
     integer(int32),optional,intent(in) :: fix_idx(:)
+    real(real64),optional,intent(in) :: weights(:)
     integer(int32) :: k
 
     k=0
@@ -1123,18 +1248,18 @@ function LPF_damped_t_sinc_sqrt_MPI_WaveKernelFunction(Omega_sq_matrix,&
     if(present(fix_idx) )then
         dv(fix_idx) = 0.0d0
     endif
-    ret = LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*dv
+    ret = LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio,weights=weights)*dv
     
     do k=1,itrmax
         call MPID%barrier()
         !dv = Omega_sq_matrix%matmul(dv)    
         dv = FEMDomain%mpi_matmul(Omega_Sq_Matrix,dv,MPID)
 
-        if(norm(LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*dv)<tol )then
+        if(norm(LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio,weights=weights)*dv)<tol )then
             call MPID%barrier()
             exit
         endif
-        ret = ret + LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*dv
+        ret = ret + LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio,weights=weights)*dv
     enddo
     call MPID%barrier()
     
@@ -1143,7 +1268,8 @@ end function
 ! #########################################################
 
 ! #########################################################
-function LPF_damped_t_sinc_sqrt_complex64_WaveKernelFunction(Omega_sq_matrix,dt,f_c,v_n,itrmax,tol,fix_idx,DampingRatio) result(ret)
+function LPF_damped_t_sinc_sqrt_complex64_WaveKernelFunction(&
+    Omega_sq_matrix,dt,f_c,v_n,itrmax,tol,fix_idx,DampingRatio,weights) result(ret)
     type(CRS_),intent(inout) :: Omega_sq_matrix
     real(real64),intent(in) :: dt, f_c,tol,DampingRatio(:)
     
@@ -1152,6 +1278,7 @@ function LPF_damped_t_sinc_sqrt_complex64_WaveKernelFunction(Omega_sq_matrix,dt,
 
     integer(int32),intent(in) :: itrmax
     integer(int32),optional,intent(in) :: fix_idx(:)
+    real(real64),optional,intent(in) :: weights(:)
     integer(int32) :: k
 
     k=0
@@ -1159,17 +1286,27 @@ function LPF_damped_t_sinc_sqrt_complex64_WaveKernelFunction(Omega_sq_matrix,dt,
     if(present(fix_idx) )then
         dv(fix_idx) = 0.0d0
     endif
-    ret = LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*dv
+    ret = LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio,weights=weights)*dv
     
     do k=1,itrmax
         dv = Omega_sq_matrix%matmul(dv)    
-        if(norm(LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*dv)<tol )exit
-        ret = ret + LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio)*dv
+        if(norm(LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio,weights=weights)*dv)<tol )exit
+        ret = ret + LPF_damped_t_sinc_sqrt_taylor_coefficient(k=k,t=dt,f_c=f_c,DampingRatio=DampingRatio,weights=weights)*dv
     enddo
 
 end function
 ! #########################################################
 
+subroutine setLPF_WaveKernel(this,weights)
+    class(WaveKernel_),intent(inout) :: this
+    real(real64),intent(in) :: weights(:)
+
+    if(mod(size(weights),2)==0 )then
+        print *, "[ERROR] >> setLPF_WaveKernel >> size(weights) should be odd."
+    else
+        this%weights = weights
+    endif
+end subroutine
 
 end module
 
