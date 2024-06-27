@@ -62,6 +62,7 @@ module PanicleClass
         procedure, public :: connect => connectPanicle
         procedure, public :: vtk => vtkPanicle
         procedure, public :: stl => stlPanicle
+        procedure, public :: ply => plyPanicle
         procedure, public :: remove => removePanicle
     end type
 
@@ -791,6 +792,16 @@ subroutine stlPanicle(obj,name)
 end subroutine
 ! ########################################
 
+subroutine plyPanicle(obj,name)
+    class(Panicle_),intent(inout) :: obj
+    character(*),intent(in) ::name
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
+    call obj%femdomain%ply(Name=name)
+end subroutine
+! ########################################
 subroutine removePanicle(this)
     class(Panicle_),intent(inout) :: this
 

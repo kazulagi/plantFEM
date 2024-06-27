@@ -85,6 +85,7 @@ module RootClass
         procedure, public :: vtk => vtkRoot
         procedure, public :: msh => mshRoot
         procedure, public :: stl => stlRoot
+        procedure, public :: ply => plyRoot
         procedure, public :: export => exportRoot
 
         ! MPI
@@ -644,6 +645,17 @@ subroutine stlRoot(obj,name)
     endif
     
     call obj%femdomain%stl(Name=name)
+end subroutine
+! ########################################
+
+subroutine plyRoot(obj,name)
+    class(Root_),intent(inout) :: obj
+    character(*),intent(in) ::name
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
+    call obj%femdomain%ply(Name=name)
 end subroutine
 
 

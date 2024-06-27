@@ -1266,6 +1266,7 @@ subroutine displayFEMDomain(this,path,name,extention,field)
 	class(FEMDomain_),intent(inout) :: this
 	character(*),intent(in) :: path,name,extention
 	integer(int32) :: i,j,n
+	integer(int32),allocatable :: facet_connect(:,:)
 	real(real64),optional,intent(in) :: field(:)
 	real(real64) :: val
 
@@ -1360,6 +1361,9 @@ subroutine displayFEMDomain(this,path,name,extention,field)
 		write(10,'(A)')"property uchar red"
 		write(10,'(A)')"property uchar green"
 		write(10,'(A)')"property uchar blue"
+		if(present(field))then
+			write(10,'(A)')"property float32 field"
+		endif
 		write(10,'(A)',advance="no")"element face "
 		write(10,'(i10)') size(this%mesh%ElemNod,1)*6
 		write(10,'(A)')"property list uint8 int32 vertex_indices"
@@ -1378,68 +1382,88 @@ subroutine displayFEMDomain(this,path,name,extention,field)
 			write(10,'(i3)',advance="no") int(this%mesh%NodCoord(i,1)*255.0d0/maxval(this%mesh%NodCoord(:,1) ))
 			write(10,'(A)', advance="no" ) " "
 			write(10,'(i3)',advance="no") int(this%mesh%NodCoord(i,2)*255.0d0/maxval(this%mesh%NodCoord(:,2) ))
-			write(10,'(A)', advance="no" ) " "
-			write(10,'(i3)') int(this%mesh%NodCoord(i,3)*255.0d0/maxval(this%mesh%NodCoord(:,3) ))
-		enddo
-		do i=1,size(this%mesh%ElemNod,1)
-			val = dble(this%mesh%ElemNod(i,1)-1)
-			if(present(field) )then
-				val=field(i)
+			if(present(field))then
+				write(10,'(A)', advance="no" ) " "
+				write(10,'(i3)', advance="no") int(this%mesh%NodCoord(i,3)*255.0d0/maxval(this%mesh%NodCoord(:,3) ))
+				write(10,'(A)', advance="no" ) " "
+				write(10,'(A)') str(real(field(i)))
+			else
+				write(10,'(A)', advance="no" ) " "
+				write(10,'(i3)') int(this%mesh%NodCoord(i,3)*255.0d0/maxval(this%mesh%NodCoord(:,3) ))
 			endif
-			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)') " "
-			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)') " "
-			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)') " "
-			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)') " "
-			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)') " "
-			write(10,'(A)',advance="no") "4 "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)',advance="no") " "
-			write(10,'(i10)',advance="no") int(val)
-			write(10,'(A)') " "
+
+		enddo
+		allocate(facet_connect(6,4))
+		facet_connect(1,:)=[3 ,2 ,1 ,0 ]
+		facet_connect(2,:)=[0 ,1 ,5 ,4 ]
+		facet_connect(3,:)=[1 ,2 ,6 ,5 ]
+		facet_connect(4,:)=[2 ,3 ,7 ,6 ]
+		facet_connect(5,:)=[3 ,0 ,4 ,7 ]
+		facet_connect(6,:)=[4 ,5 ,6 ,7 ]
+		facet_connect(:,:) = facet_connect(:,:) +1
+
+		do i=1,size(this%mesh%ElemNod,1)
+			!val = dble(this%mesh%ElemNod(i,1)-1)
+			!if(present(field) )then
+			!	val=field(i)
+			!endif
+			do j=1,size(facet_connect,1)
+				write(10,'(A)',advance="no") "4 "
+				write(10,'(i10)',advance="no") this%mesh%ElemNod(i,facet_connect(j,1))-1
+				write(10,'(A)',advance="no") " "
+				write(10,'(i10)',advance="no") this%mesh%ElemNod(i,facet_connect(j,2))-1
+				write(10,'(A)',advance="no") " "
+				write(10,'(i10)',advance="no") this%mesh%ElemNod(i,facet_connect(j,3))-1
+				write(10,'(A)',advance="no") " "
+				write(10,'(i10)',advance="no") this%mesh%ElemNod(i,facet_connect(j,4))-1
+				write(10,'(A)') " "
+			enddo
+			!write(10,'(A)') " "
+			!write(10,'(A)',advance="no") "4 "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)',advance="no") " "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)',advance="no") " "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)',advance="no") " "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)') " "
+			!write(10,'(A)',advance="no") "4 "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)',advance="no") " "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)',advance="no") " "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)',advance="no") " "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)') " "
+			!write(10,'(A)',advance="no") "4 "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)',advance="no") " "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)',advance="no") " "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)',advance="no") " "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)') " "
+			!write(10,'(A)',advance="no") "4 "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)',advance="no") " "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)',advance="no") " "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)',advance="no") " "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)') " "
+			!write(10,'(A)',advance="no") "4 "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)',advance="no") " "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)',advance="no") " "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)',advance="no") " "
+			!write(10,'(i10)',advance="no") int(val)
+			!write(10,'(A)') " "
 		enddo
 
 	else
@@ -8785,12 +8809,13 @@ end subroutine
 ! ##################################################
 
 ! ##################################################
-subroutine plyFEMDomain(this,name,NodeList)
+subroutine plyFEMDomain(this,name,NodeList,scalar)
 	class(FEMDomain_),intent(inout) :: this
 	type(FEMDomain_) :: mini_obj
 	character(*),intent(in) :: name
 	type(IO_) :: f
 	integer(int32),optional,intent(in) :: NodeList(:)
+	real(real64),optional,intent(in) :: scalar(:)
 	integer(int32) ::i,n
 
 	if(this%mesh%empty() .eqv. .true.)then
@@ -8812,7 +8837,7 @@ subroutine plyFEMDomain(this,name,NodeList)
 		return
 	endif
 
-	call displayFEMDomain(this,path="./",name=name,extention=".ply")
+	call displayFEMDomain(this,path="./",name=name,extention=".ply",field=scalar)
 	return
 
 

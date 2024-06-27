@@ -80,7 +80,7 @@ module SparseClass
 
 
     interface sinc
-        module procedure sinc_complex64,sinc_real64
+        module procedure sinc_complex64,sinc_real64,sinc_real64_vec
     end interface
     
     type :: COO_Row_
@@ -3838,7 +3838,7 @@ end function
 ! ###################################################
 
 
-function tensor_wave_kernel_RHS_LPF_real_64_crs(this,RHS,t,tol,itrmax,fix_idx,debug,cutoff_frequency) result(u)
+function tensor_wave_kernel_RHS_LPF_real_64_crs(this,RHS,t,tol,itrmax,fix_idx,debug,cutoff_frequency,weights) result(u)
     class(CRS_),intent(in) :: this
     real(real64),intent(in) :: RHS(:),cutoff_frequency
     real(real64),allocatable:: u(:),du(:)
@@ -3849,13 +3849,30 @@ function tensor_wave_kernel_RHS_LPF_real_64_crs(this,RHS,t,tol,itrmax,fix_idx,de
     integer(int32),optional,intent(in) :: itrmax
     real(real64),optional,intent(in) :: tol
     integer(int32),optional,intent(in) :: fix_idx(:)
+    real(real64),optional,intent(in) :: weights(:)
 
     integer(int32) :: itr_max=100
     real(real64)   :: itr_tol=dble(1.0e-16)
     real(real64)   :: ddt,hat_t
     logical :: debug_mode
     type(Math_) :: math
-    integer(int32) :: n
+    integer(int32) :: n,m
+    real(real64),allocatable :: w(:)
+
+
+    integer(int32) :: lbd,ubd
+
+    if(present(weights) )then
+        ubd = size(weights) - (size(weights)+1)/2
+        lbd = -(size(weights) - (size(weights)+1)/2)
+        allocate(w(lbd:ubd) )
+        w(lbd:ubd)=weights(1:)
+    else
+        allocate(w(-1:1))
+        w(-1) = 0.250d0
+        w( 0) = 0.500d0
+        w( 1) = 0.250d0
+    endif
 
     if(present(itrmax) )then
         itr_max = itrmax
@@ -3874,14 +3891,27 @@ function tensor_wave_kernel_RHS_LPF_real_64_crs(this,RHS,t,tol,itrmax,fix_idx,de
     !u = -1.0d0/2.0d0*t*t*RHS
 
     u = 0.0d0*RHS
-    hat_t = 0.250d0*(t-ddt)**2 + 0.50d0*(t)**2 + 0.250d0*(t+ddt)**2 
+    
+    hat_t = 0.0d0
+    do m=lbound(w,1),ubound(w,1)
+        hat_t = hat_t + w(m)*(t+m*ddt)**2
+    enddo
+    !hat_t = 0.250d0*(t-ddt)**2 &
+    !    + 0.50d0*(t)**2 &
+    !    + 0.250d0*(t+ddt)**2 
+
     du = -1.0d0/2.0d0*RHS
     u = u + hat_t*du
     
     do n = 1,itr_max
-        hat_t = 0.250d0*(t-ddt)**(2*n+2) + 0.50d0*(t)**(2*n+2)&
-             + 0.250d0*(t+ddt)**(2*n+2) 
-        du = -1.0d0/dble(2*n+1)/dble(2*n+2)*this%matmul(du)
+        do m=lbound(w,1),ubound(w,1)
+            hat_t = hat_t + w(m)*(t+m*ddt)**(2*n+2)
+        enddo
+        !hat_t = 0.250d0*(t-ddt)**(2*n+2) &
+        !     + 0.50d0*(t)**(2*n+2)&
+        !     + 0.250d0*(t+ddt)**(2*n+2) 
+        
+         du = -1.0d0/dble(2*n+1)/dble(2*n+2)*this%matmul(du)
         u = u + hat_t*du
         if(present(debug) )then
             if(debug)then
@@ -4719,6 +4749,19 @@ function sinc_real64(x) result(ret)
     endif
 end function
 ! #####################################################
+
+function sinc_real64_vec(x) result(ret)
+    real(real64),intent(in) :: x(:)
+    real(real64),allocatable :: ret(:)
+    integer(int32) :: i
+
+    allocate(ret(size(x) ) )
+
+    do i=1,size(x)
+        ret(i) = sinc(x(i))
+    enddo
+end function
+
 
 function to_diag_vector_to_CRS(diag_vec) result(ret)
     real(real64),intent(in) :: diag_vec(:)

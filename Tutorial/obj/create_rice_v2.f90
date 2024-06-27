@@ -6,6 +6,6 @@ program create_rice
     integeR(int32) :: i
     
     call rice%create("Tutorial/obj/rice_v2.json")
-    call rice%vtk("rice_v2")
+    call rice%vtk("rice_v2",single_file=True)
     
 end program

@@ -98,6 +98,7 @@ module StemClass
         procedure, public :: msh => mshStem
         procedure, public :: vtk => vtkStem
         procedure, public :: stl => stlStem
+        procedure, public :: ply => plyStem
         procedure, public :: export => exportStem
         procedure, public :: getVolume => getVolumeStem
         procedure, public :: getBiomass => getBiomassStem
@@ -758,8 +759,20 @@ subroutine stlStem(obj,name)
         return
     endif
     
-    call obj%femdomain%stl(Name=name)
+    call obj%femdomain%ply(Name=name)
 end subroutine
+
+! ########################################
+subroutine plyStem(obj,name)
+    class(Stem_),intent(inout) :: obj
+    character(*),intent(in) ::name
+    if(obj%femdomain%mesh%empty() )then
+        return
+    endif
+    
+    call obj%femdomain%ply(Name=name)
+end subroutine
+
 ! ########################################
 subroutine resizeStem(obj,x,y,z)
     class(Stem_),optional,intent(inout) :: obj
