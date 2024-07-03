@@ -274,7 +274,11 @@ module SoybeanClass
         procedure,public :: getDensityField => getDensityFieldSoybean
         procedure,public :: getDiffusionCoefficient => getDiffusionCoefficientSoybean
 
+        ! these two functions are different!!! 
+        ! get [obj_idx(:),obj_type(:),local element idx(:)]
         procedure,public :: getElementList => getElementListSoybean
+        ! get global Element Idx
+        procedure,public :: getGlobalElementIdx => getGlobalElementIdxSoybean
         
         procedure,public :: MassMatrix => MassMatrixSoybean
         procedure,public :: StiffnessMatrix => StiffnessMatrixSoybean
@@ -311,7 +315,10 @@ module SoybeanClass
 
         ! >> simulation 
         procedure,public :: getPPFD => getPPFDSoybean
-        
+        procedure,public :: getSpectrum => getSpectrumSoybean
+        procedure,public :: to_R_FR => to_R_FRSoybean
+
+
         procedure,public :: getDisplacement => getDisplacementSoybean
         procedure,public :: getEigenMode => getEigenModeSoybean
         
@@ -7407,6 +7414,35 @@ end function
 
 
 ! ############################################################################
+function getSpectrumSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  result(spectrum)
+    class(Soybean_),intent(inout) :: obj 
+    type(Light_),intent(in)    :: light
+    real(real64),optional,intent(in) :: Transparency,Resolution
+    integer(int32),optional,intent(in) :: num_threads
+    ! leaf of other plants
+    type(Leaf_),optional,intent(inout) :: leaf(:)
+    real(real64),allocatable :: ppfd(:),tp_ratio(:),spectrum(:,:)
+    integeR(int32) :: i
+
+    ppfd = obj%getPPFD(light,Transparency,Resolution,num_threads,leaf)
+    tp_ratio = ppfd/light%maxPPFD
+    spectrum = zeros(size(ppfd),size(light%spectrum) )
+    
+
+    ! 400-700nmはtransparencyに基づき減衰
+    ! 1-399nm, 701nm以上はそのまま透過
+    do i=1,size(ppfd)
+        spectrum(i,:) = light%spectrum(:)
+        spectrum(i,400:700)=light%spectrum(400:700)*tp_ratio(i)
+    enddo
+
+
+end function
+! ############################################################################
+
+
+
+! ############################################################################
 function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  result(ppfd)
     class(Soybean_),intent(inout) :: obj 
     type(Light_),intent(in)    :: light
@@ -7578,11 +7614,12 @@ function getPPFDSoybean(obj,light,Transparency,Resolution,num_threads,leaf)  res
     enddo
     !$OMP end do
     !$OMP end parallel 
+    
     !ppfd = ppfd*reduction*cosin-value
     do i=1,obj%ne()
+        ! 400-700を一律減衰
         ppfd(i) = ppfd(i) * Transparency_val**leaf_pass_num(i)
     enddo
-    
     !ppfd(:) = ppfd(:)*elem_cosins(:)
     
 
@@ -10086,6 +10123,83 @@ function getDensityFieldSoybean(this) result(Density)
     
 end function
 ! #####################################################################
+function getGlobalElementIdxSoybean(this,x_min,x_max,y_min,y_max,z_min,z_max,debug) result(GlobalElementIdx)
+    class(Soybean_),intent(inout) :: this
+    integer(int32),allocatable :: GlobalElementIdx(:)
+    logical,optional,intent(in) :: debug
+    logical :: do_debug
+    real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
+    integer(int32) :: offset,idx
+
+    if(present(debug))then
+        do_debug = debug
+    else
+        do_debug = .false.
+    endif
+
+    offset = 0
+    allocate(GlobalElementIdx(0))
+    if(allocated(this%stem) )then
+        do idx=1,size(this%stem)
+            if(this%stem(idx)%femdomain%empty() )cycle
+            GlobalElementIdx = &
+                GlobalElementIdx // (this%stem(idx)%femdomain%mesh%getElementList(&
+                xmin=x_min,xmax=x_max,ymin=y_min,ymax=y_max,zmin=z_min,zmax=z_max)+offset)
+            offset = offset + this%stem(idx)%femdomain%ne()
+        enddo
+
+        if(do_debug)then
+            print *, "[o] STEM"
+        endif
+    else
+        if(do_debug)then
+            print *, "NO STEM"
+        endif
+    endif
+
+    if(allocated(this%leaf) )then
+        do idx=1,size(this%leaf)
+            if(this%leaf(idx)%femdomain%empty() )cycle
+            
+            GlobalElementIdx = &
+                GlobalElementIdx // (this%leaf(idx)%femdomain%mesh%getElementList(&
+                xmin=x_min,xmax=x_max,ymin=y_min,ymax=y_max,zmin=z_min,zmax=z_max)+offset)
+                offset = offset + this%leaf(idx)%femdomain%ne()
+            
+        enddo
+
+        if(do_debug)then
+            print *, "[o] LEAF"
+        endif
+    else
+        if(do_debug)then
+            print *, "NO LEAF"
+        endif
+    endif
+
+    if(allocated(this%root) )then
+        do idx=1,size(this%root)
+            if(this%root(idx)%femdomain%empty() )cycle
+            
+            GlobalElementIdx = &
+                GlobalElementIdx // (this%root(idx)%femdomain%mesh%getElementList(&
+                xmin=x_min,xmax=x_max,ymin=y_min,ymax=y_max,zmin=z_min,zmax=z_max)+offset)
+            offset = offset + this%root(idx)%femdomain%ne()
+            
+        enddo
+
+        if(do_debug)then
+            print *, "[o] ROOT"
+        endif
+    else
+        if(do_debug)then
+            print *, "NO ROOT"
+        endif
+    endif
+
+
+end function
+! #####################################################################
 
 function getElementListSoybean(this,x_min,x_max,y_min,y_max,z_min,z_max,debug) result(ElementList)
     class(Soybean_),intent(inout) :: this
@@ -11363,5 +11477,18 @@ end function
 
 ! #####################################################################
 
+
+function to_R_FRSoybean(this,spectrum) result(ret)
+    class(Soybean_),intent(in) :: this
+    real(real64),intent(in) :: spectrum(:,:) ! global_elem_idx, nm
+    real(real64),allocatable :: ret(:)
+    integer(int32) :: idx
+
+    ret = zeros(size(spectrum,1))
+    do idx=1,size(ret)
+        ret(idx)=sum(spectrum(idx,600:700))/sum(spectrum(idx,700:800))
+    enddo
+
+end function
     
 end module  

@@ -450,8 +450,13 @@ module FEMDomainClass
 		! >>> revising for adopting quad mesh >>> (2024.05.13)
 		! matrices
 		procedure,public :: Bmatrix => BMatrixFEMDomain ! <<< now <<<
-		procedure,public :: Dmatrix => DMatrixFEMDomain
+		
+		procedure,pass :: DMatrix_generic_FEMDomain
+		procedure,pass :: DMatrixFEMDomain
+		generic,public :: Dmatrix => DMatrixFEMDomain, DMatrix_generic_FEMDomain
+
 		procedure,public :: MassVector => MassVectorFEMDomain
+		procedure,public :: PressureVector => PressureVectorFEMDomain
 		procedure,public :: StrainMatrix => StrainMatrixFEMDomain
 		procedure,public :: StrainVector => StrainVectorFEMDomain
 		procedure,public :: StressMatrix => StressMatrixFEMDomain
@@ -459,7 +464,10 @@ module FEMDomainClass
 		procedure,public :: ViscousBoundaryForce => ViscousBoundaryForceFEMDomain
 		! Element-wize matrix
 		procedure,pass :: DiffusionMatrixFEMDomain 
+		
 		procedure,pass :: StiffnessMatrixFEMDomain 
+		procedure,pass :: StiffnessMatrix_generic_FEMDomain
+
         procedure,pass :: MassMatrixFEMDomain
 
 
@@ -481,7 +489,10 @@ module FEMDomainClass
 		procedure,pass :: ZeroMatrix_as_COO_FEMDomain
 
 		generic ::DiffusionMatrix => DiffusionMatrixFEMDomain,DiffusionMatrix_as_CRS_FEMDomain
-		generic ::StiffnessMatrix => StiffnessMatrixFEMDomain,StiffnessMatrix_as_CRS_FEMDomain
+		generic ::StiffnessMatrix => StiffnessMatrixFEMDomain,&
+									StiffnessMatrix_generic_FEMDomain,&
+									StiffnessMatrix_as_CRS_FEMDomain
+
 		generic ::MassMatrix => MassMatrixFEMDomain,MassMatrix_as_CRS_FEMDomain
 		generic ::M_inv_K_Matrix => M_inv_K_Matrix_CRS_FEMDomain
 		generic ::ZeroMatrix => ZeroMatrix_as_CRS_FEMDomain
@@ -11241,6 +11252,53 @@ end function
 ! ##########################################################################
 
 
+! ##########################################################################
+function PressureVectorFEMDomain(this,ElementID,Pressure) result(PressureVector)
+	class(FEMDomain_),intent(inout) :: this
+	integer(int32),intent(in) :: ElementID
+	real(real64),intent(in) :: pressure ! internal pressure (kPa)
+	
+	type(ShapeFunction_) :: shapefunc
+	real(real64),allocatable :: PressureVector(:),internal_stress(:)
+	integer(int32) :: i,j,k,n,node_DOF,dim_num
+	real(real64),allocatable :: Bmat(:,:)
+
+	! density :: (unit: t/m^3)
+	! accelerator :: m/s/s
+	dim_num = size(this%mesh%nodcoord,2)
+	node_DOF = this%nd()
+	
+	! For Element ID = ElementID, create Mass Matrix and return it
+	! Number of Gauss Point = number of node per element, as default.
+
+	! initialize shape-function object
+    !this%ShapeFunction%ElemType=this%Mesh%ElemType
+	
+	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() ,NumOfGp=this%mesh%getNumOfGp())
+
+	n=this%nne()*node_DOF
+	allocate(PressureVector(n) )
+	PressureVector(:)=0.0d0
+
+	do i=1, shapefunc%NumOfGp
+		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+		nod_coord=this%Mesh%NodCoord,&
+		elem_nod=this%Mesh%ElemNod,OptionalGpID=i)
+		
+		Bmat = this%Bmatrix(shapefunc)
+		internal_stress = zeros(size(Bmat,1))
+		internal_stress(1:this%nd())=pressure
+
+    	PressureVector(:)=PressureVector(:)+matmul(transpose(Bmat),internal_stress) &
+			*det_mat(shapefunc%Jmat,size(shapefunc%Jmat,1) )
+
+	enddo
+	
+
+end function
+! ##########################################################################
+
+
 
 ! ##########################################################################
 
@@ -11359,6 +11417,108 @@ end function
 
 ! ##########################################################################
 
+function StiffnessMatrix_g_as_CRS_FEMDomain(this,YoungModulus,PoissonRatio,omp) result(StiffnessMatrix)
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),intent(in) :: YoungModulus(:,:) ! NumElem x 6 (E1,E2,E3,G12,G23,G31)
+	real(real64),intent(in) :: PoissonRatio(:,:)! NumElem x 6 (v12,v13,v21,v23,v31,v32)
+	logical,optional,intent(in) :: omp
+	type(CRS_) :: StiffnessMatrix
+	type(COO_) :: COO
+	integer(int32) :: ElementID,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,&
+		pid_1,pid_2,DOF_1,DOF_2,DOF,loc_pid_1,loc_pid_2,i,col_id
+	real(real64) :: Length,entry_val
+	real(real64),allocatable :: val(:)
+	real(real64),allocatable :: eDiffMat(:,:)
+
+	! >>>>>>>> FOR non-3D case >>>>>>>> 
+	if(this%nd()/=3 )then
+		! stiffness matrix for non-3D
+		call coo%init(this%nn())
+		! DO NOTHING!
+		StiffnessMatrix = coo%to_crs()
+		return
+	endif
+	! <<<<<<<< FOR non-3D case <<<<<<<<
+
+
+	if(present(omp) )then
+		if(.not.omp)then
+			DOF = this%nd()
+			call COO%init(this%nn()*DOF)
+			do ElementID=1,this%ne()
+				eDiffMat = this%StiffnessMatrix(&
+					ElementID=ElementID,&
+					E=YoungModulus(ElementID,1:6) , &
+					v=PoissonRatio(ElementID,1:6)  &
+		   		) 
+				do LocElemID_1=1,this%nne()
+					do LocElemID_2=1,this%nne()
+						do DOF_1=1,DOF
+							do DOF_2=1,DOF
+								nodeid_1 = this%mesh%elemnod(ElementID,LocElemID_1)
+								nodeid_2 = this%mesh%elemnod(ElementID,LocElemID_2)
+								pid_1 = DOF*(nodeid_1-1) + DOF_1
+								pid_2 = DOF*(nodeid_2-1) + DOF_2
+								loc_pid_1 = DOF*(LocElemID_1-1) + DOF_1
+								loc_pid_2 = DOF*(LocElemID_2-1) + DOF_2
+								call COO%add(pid_1,pid_2,eDiffMat(loc_pid_1,loc_pid_2)  )
+							enddo
+						enddo
+					enddo
+				enddo
+			enddo
+			StiffnessMatrix = COO%to_CRS()
+			return
+		endif
+	endif
+
+	DOF = this%nd()
+	!call COO%init(this%nn()*DOF)
+	!COO = this%ZeroMatrix_as_COO(DOF=DOF)
+	StiffnessMatrix = this%ZeroMatrix(DOF=DOF)
+	val = StiffnessMatrix%val
+	!$OMP parallel do &
+	!$OMP private(eDiffMat,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,col_id,i,&
+	!$OMP pid_1,pid_2,loc_pid_1,loc_pid_2,DOF_1,DOF_2)&
+	!$OMP  reduction(+:val) 
+	do ElementID=1,this%ne()
+		eDiffMat = this%StiffnessMatrix(&
+			ElementID=ElementID,&
+			E=YoungModulus(ElementID,1:6) , &
+			v=PoissonRatio(ElementID,1:6)  &
+		) 
+		do LocElemID_1=1,this%nne()
+			do LocElemID_2=1,this%nne()
+				do DOF_1=1,DOF
+					do DOF_2=1,DOF
+						nodeid_1 = this%mesh%elemnod(ElementID,LocElemID_1)
+						nodeid_2 = this%mesh%elemnod(ElementID,LocElemID_2)
+						pid_1 = DOF*(nodeid_1-1) + DOF_1
+						pid_2 = DOF*(nodeid_2-1) + DOF_2
+						loc_pid_1 = DOF*(LocElemID_1-1) + DOF_1
+						loc_pid_2 = DOF*(LocElemID_2-1) + DOF_2
+						!call COO%add(pid_1,pid_2,eDiffMat(loc_pid_1,loc_pid_2)  )
+
+						do i=StiffnessMatrix%row_ptr(pid_1),StiffnessMatrix%row_ptr(pid_1+1)-1
+							if(StiffnessMatrix%col_idx(i)==pid_2 )then
+								val(i) = val(i) + eDiffMat(loc_pid_1,loc_pid_2)  
+								exit
+							endif
+						enddo
+
+					enddo
+				enddo
+			enddo
+		enddo
+	enddo
+	!$OMP end parallel do
+	StiffnessMatrix%val = val
+	
+end function
+
+! ##########################################################################
+
+
 
 ! ##########################################################################
 function StiffnessMatrixFEMDomain(this,ElementID,E,v) result(StiffnessMatrix)
@@ -11366,6 +11526,71 @@ function StiffnessMatrixFEMDomain(this,ElementID,E,v) result(StiffnessMatrix)
 	type(Shapefunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
 	real(real64),intent(in) :: E, v ! Young's modulus and Poisson ratio
+	real(real64),allocatable :: StiffnessMatrix(:,:),Bmat(:,:),Dmat(:,:)
+	real(real64) :: rho
+	integer(int32) :: node_DOF,i,j,n
+
+	! 線形弾性微小ひずみにおける要素剛性マトリクス
+	! For Element ID = ElementID, create Stiffness Matrix 
+	! in terms of small-strain and return it
+	! Number of Gauss Point = number of node per element, as default.
+	
+	node_DOF = this%nd() ! Degree of freedom/node = dimension of space
+
+	! For Element ID = ElementID, create Mass Matrix and return it
+	! Number of Gauss Point = number of node per element, as default.
+
+	! initialize shape-function object
+    
+	call shapefunc%SetType(NumOfDim=this%nd(),NumOfNodePerElem=this%nne() ,NumOfGp=this%mesh%getNumOfGp())
+	
+
+	do i=1, shapefunc%NumOfGp
+		call getAllShapeFunc(shapefunc,elem_id=ElementID,&
+		nod_coord=this%Mesh%NodCoord,&
+		elem_nod=this%Mesh%ElemNod,OptionalGpID=i)
+	
+    	n=size(shapefunc%dNdgzi,2)*node_DOF
+
+    	if(.not.allocated(StiffnessMatrix) ) then
+			allocate(StiffnessMatrix(n,n) )
+			StiffnessMatrix(:,:)=0.0d0
+		endif
+    	if(size(StiffnessMatrix,1)/=n .or.size(StiffnessMatrix,2)/=n )then
+    	    if(allocated(StiffnessMatrix)) then
+    	        deallocate(StiffnessMatrix)
+    	    endif
+    	    allocate(StiffnessMatrix(n,n) )
+    	endif
+
+		! get so-called B-matrix
+		Bmat = this%Bmatrix(shapefunc)
+		
+		! get D-matrix
+		Dmat = this%Dmatrix(E=E, v=v)
+
+		if(i==1)then
+			StiffnessMatrix = matmul(matmul(transpose(Bmat),Dmat),Bmat)
+			StiffnessMatrix = StiffnessMatrix * det_mat(shapefunc%Jmat,size(shapefunc%Jmat,1) )
+		else
+			StiffnessMatrix = StiffnessMatrix + &
+				matmul(matmul(transpose(Bmat),Dmat),Bmat)&
+				*det_mat(shapefunc%Jmat,size(shapefunc%Jmat,1) )
+		endif
+
+		
+	enddo
+
+end function
+! ##########################################################################
+
+! ##########################################################################
+function StiffnessMatrix_generic_FEMDomain(this,ElementID,E,v) result(StiffnessMatrix)
+	class(FEMDomain_),intent(inout) :: this
+	type(Shapefunction_) :: shapefunc
+	integer(int32),intent(in) :: ElementID
+	real(real64),intent(in) :: E(:), v(:) ! Young's modulus(E1,E2,E3,G12,G23,G31),
+		 ! Poisson ratio(v12,v13,v21,v23,v31,v32)
 	real(real64),allocatable :: StiffnessMatrix(:,:),Bmat(:,:),Dmat(:,:)
 	real(real64) :: rho
 	integer(int32) :: node_DOF,i,j,n
@@ -11466,6 +11691,62 @@ function DMatrixFEMDomain(this,E,v) result(Dmat)
 	else
 		print *, "Error :: DMatrixFEMDomain >> number of dimension should be 1-3. Now ",this%nd() 
 		stop
+	endif
+end function
+! ##########################################################################
+
+! ##########################################################################
+function DMatrix_generic_FEMDomain(this,E,v) result(Dmat)
+	class(FEMDomain_) ,intent(inout) :: this
+	real(real64),intent(in) :: E(1:6), v(1:6)
+	real(real64),allocatable :: Dmat(:,:)
+	real(real64) :: v_12,v_13,v_21,v_23,v_31,v_32
+	real(real64) :: E_1,E_2,E_3
+	real(real64) :: G_12,G_23,G_31,delta
+	real(real64) :: mu, lambda
+
+	! https://www.frontistr.com/seminar/140730/orthotropic_elastic_material.pdf
+	v_12 =  v(1)
+	v_13 =  v(2)
+	v_21 =  v(3)
+	v_23 =  v(4)
+	v_31 =  v(5)
+	v_32 =  v(6)
+	
+	E_1 =  E(1)
+	E_2 =  E(2)
+	E_3 =  E(3)
+
+	G_12 =  E(4)
+	G_23 =  E(5)
+	G_31 =  E(6)
+
+
+
+	! Dmatrix for generic (orthotropic elastic material)
+	! Caution! this is for 3D
+	delta = 1.0d0 - v_12*v_21-v_23*v_32-v_31*v_13-2.0d0*v_21*v_32*v_13
+
+	if(this%nd() /= 3 )then
+		Dmat = zeros(1,1)
+		return
+	else
+		Dmat = zeros(6,6)
+		Dmat(1,1)= E_1*(1.0d0-v_23*v_32)/delta
+		Dmat(1,2)= E_1*(v_31*v_23+v_21)/delta
+		Dmat(1,3)= E_1*(v_21*v_32+v_31)/delta
+
+		Dmat(2,1)= Dmat(1,2)
+		Dmat(2,2)= E_2*(1.0d0-v_13*v_31)/delta
+		Dmat(2,3)= E_2*(v_12*v_31+v_32)/delta
+		
+		Dmat(3,1)= Dmat(1,3)
+		Dmat(3,2)= Dmat(2,3)
+		Dmat(3,3)= E_3*(1.0d0-v_12*v_21)/delta
+		
+		Dmat(4,4)= 2.0d0*G_12
+		Dmat(5,5)= 2.0d0*G_23
+		Dmat(6,6)= 2.0d0*G_31
 	endif
 end function
 ! ##########################################################################
