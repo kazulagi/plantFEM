@@ -202,7 +202,7 @@ module ArrayClass
     end interface taper
 
     interface average
-        module procedure :: averageInt32, averageReal64
+        module procedure :: averageInt32, averageReal64, averageReal64Array
     end interface
 
     interface median
@@ -6271,6 +6271,19 @@ function averageReal64(vec) result(ret)
     real(Real64) :: ret
 
     ret = sum(vec)/dble(size(vec))
+
+end function
+
+
+function averageReal64Array(arr) result(ret)
+    real(Real64),intent(in) :: arr(:,:)
+    real(Real64),allocatable :: ret(:)
+    integer(int32) :: i
+
+    ret = zeros(size(arr,1) )
+    do i=1,size(arr,1)
+        ret(i) = sum(arr(i,:))/dble(size(arr,2) )
+    enddo
 
 end function
 ! ###############################################################

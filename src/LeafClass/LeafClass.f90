@@ -71,7 +71,7 @@ module LeafClass
         real(real64) :: J_max=180.0d0 !最大電子伝達速度,mincro-mol/m-2/s
         real(real64) :: theta_r=0.0d0 ! 曲線の凸度
     
-        real(real64) :: maxPPFD=1.0d0 ! micro-mol/m^2/s
+        real(real64) :: maxPPFD=1000.0d0 ! micro-mol/m^2/s
     
         real(real64) :: Lambda= 37.430d0 ! 暗呼吸速度を無視した時のCO2補償点ppm
         real(real64) :: temp=303.0d0 ! temp
@@ -1778,7 +1778,7 @@ subroutine removeLeaf(this)
         this % J_max=180.0d0 !最大電子伝達速度,mincro-mol/m-2/s
         this % theta_r=0.0d0 ! 曲線の凸度
     
-        this % maxPPFD=1.0d0 ! micro-mol/m^2/s
+        this % maxPPFD=1000.0d0 ! micro-mol/m^2/s
     
         this % Lambda= 37.430d0 ! 暗呼吸速度を無視した時のCO2補償点ppm
         this % temp=303.0d0 ! temp

@@ -597,6 +597,7 @@ function bandpass_real64_SpectreAnalysis(this,x,freq_range) result(ft)
     b2 = -alpha;
 
     ! https://www.utsbox.com/?page_id=523
+    ! https://www.w3.org/TR/audio-eq-cookbook/
     ! それぞれの変数は下記のとおりとする
     ! 　float input[]  …入力信号の格納されたバッファ。
     ! 　flaot output[] …フィルタ処理した値を書き出す出力信号のバッファ。
