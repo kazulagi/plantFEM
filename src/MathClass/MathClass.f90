@@ -14,7 +14,8 @@ module MathClass
 	!integer(int32) :: i_i = 0
 
 	type :: Math_
-		real(real64) :: PI = 3.141592653589793d0
+		!real(real64) :: PI = 3.14159265358979323846d0
+		real(real64) :: PI = 3.14159265358979323846d0
 		real(real64) :: E  = 2.718281828459045d0
 		complex(kind(0d0))	 :: i = (0.0d0, 1.0d0)
 		complex(kind(0d0))	 :: j = (0.0d0, 1.0d0)
@@ -598,7 +599,7 @@ end function
 function radianreal32(deg) result(ret)
 	real(real32),intent(in) :: deg
 	real(real64) :: ret
-	ret = deg/180.0d0*3.1415926535d0
+	ret = deg/180.0d0*3.14159265358979323846d0
 end function
 ! ###############################################
 
@@ -606,7 +607,7 @@ end function
 function radianreal64(deg) result(ret)
 	real(real64),intent(in) :: deg
 	real(real64) :: ret
-	ret = deg/180.0d0*3.1415926535d0
+	ret = deg/180.0d0*3.14159265358979323846d0
 end function
 ! ###############################################
 
@@ -620,7 +621,7 @@ function radianreal64Vec(degs) result(ret)
 	ret = degs
 	
 	do i=1,size(degs)
-		ret(i) = degs(i)/180.0d0*3.1415926535d0
+		ret(i) = degs(i)/180.0d0*3.14159265358979323846d0
 	enddo
 
 end function
@@ -630,7 +631,7 @@ end function
 function radianint(deg) result(ret)
 	integer(int32),intent(in) :: deg
 	real(real64) :: ret
-	ret = dble(deg)/180.0d0*3.1415926535d0
+	ret = dble(deg)/180.0d0*3.14159265358979323846d0
 end function
 ! ###############################################
 
@@ -638,7 +639,7 @@ end function
 function degrees(rad) result(ret)
 	real(real64),intent(in) :: rad
 	real(real64) :: ret
-	ret = rad/3.1415926535d0*180.0d0
+	ret = rad/3.14159265358979323846d0*180.0d0
 end function
 ! ###############################################
 
@@ -1202,7 +1203,7 @@ end subroutine calcgz
 function arg_complex64(comp) result(theta)
 	complex(real64),intent(in) :: comp
 	real(real64) :: theta,re,im
-	real(real64) ::pi=3.141592653589793d0
+	real(real64) ::pi=3.14159265358979323846d0
 
 	re = dble(real(comp) )
 	im = dble(aimag(comp) )
@@ -1260,7 +1261,7 @@ function cubic_equation(a,b,c,d) result(x)
 	real(real64),intent(in) :: a,b,c,d
 	real(real64) :: x(3),theta
 	real(real64) ::Deq,A_,B_,C_,p,q
-	real(real64) ::pi=3.141592653589793d0
+	real(real64) ::pi=3.14159265358979323846d0
 	complex(real64)  :: comp
 	!https://qiita.com/yotapoon/items/42b1749b69c264d6f486
 
