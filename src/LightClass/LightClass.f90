@@ -21,14 +21,23 @@ module LightClass
         type(FEMDomain_) :: femdomain 
     contains
         procedure,public :: init => initLight
+        procedure,public :: turnOff => turnOffLight
+        procedure,pass :: addSpectrumLight
+        procedure,pass :: addSpectrum_by_single_Light
+        generic,public :: addSpectrum => addSpectrumLight,addSpectrum_by_single_Light
+
+        procedure,public :: to_RGB => to_RGB_LightClass
         procedure,public :: setSunLight => setSunLightLight
         procedure,public :: updateSunLight => updateSunLightLight
     end type
 
     interface to_ppfd
-        module procedure to_ppdf_from_spectrum
+        module procedure to_ppfd_from_spectrum
     end interface to_ppfd
 contains
+
+
+
 
 ! #################################
 subroutine initLight(obj,config)
@@ -4422,7 +4431,7 @@ end function
 
 
 
-function to_ppdf_from_spectrum(spectrum,ppfd_spectrum) result(ret)
+function to_ppfd_from_spectrum(spectrum,ppfd_spectrum) result(ret)
     real(real64),intent(in) :: spectrum(:) ! W/m^2/nm
     real(real64),optional,allocatable,intent(inout) :: ppfd_spectrum(:)
     real(real64) :: ret
@@ -4430,20 +4439,22 @@ function to_ppdf_from_spectrum(spectrum,ppfd_spectrum) result(ret)
         this_ppfd_mol,this_ppfd_micromol,num_photon,Avogadro_constant
     integer(int32) :: i
     
+    
     light_speed = 299792458.0d0 ! m/s
     Plank_const = dble(6.62607015E-34) ! J⋅s
     Avogadro_constant = dble(6.02214076E+23) ! /mol
-
+    
     if(present(ppfd_spectrum) )then
         ppfd_spectrum = 0.0d0*spectrum
     endif
-
+    
     ! array id is seen as a wavelength (nm)
     ret = 0.0d0
     do i=1,size(spectrum)
         wave_length = i*(1.0e-9) ! m
         if(wave_length<400.0d0*(1.0e-9))cycle
         if(wave_length>700.0d0*(1.0e-9))cycle
+        
         energy_per_photon = Plank_const*light_speed/wave_length ! J
         ! パワー(W/m^2/nm)
         ! = パワー(J/s/m^2/nm)
@@ -4454,8 +4465,129 @@ function to_ppdf_from_spectrum(spectrum,ppfd_spectrum) result(ret)
         if(present(ppfd_spectrum) )then
             ppfd_spectrum(i) = dble(this_ppfd_micromol)
         endif
+        
     enddo
 
 end function
+
+! #################################################################
+subroutine turnOffLight(this)
+    class(Light_),intent(inout) :: this
+
+    this%maxPPFD  = 0.0d0
+    this%spectrum = 0.0d0
+end subroutine
+! #################################################################
+
+
+! #################################################################
+subroutine addSpectrumLight(this,filename)
+    class(Light_),intent(inout) :: this
+    character(*),intent(in) :: filename
+    type(IO_) :: f
+    integer(int32) :: wavelength
+    real(real64) :: radiation
+    integer(int32) :: i
+    
+    call f%open(filename,"r")
+    do i=1,size(this%spectrum)
+        read(f%fh,*) wavelength,radiation
+        this%spectrum(int(wavelength)) = this%spectrum(int(wavelength)) + radiation ! W/m^2/nm
+    enddo
+    call f%close()
+    
+    this%maxPPFD = to_ppfd_from_spectrum(this%spectrum)
+
+end subroutine
+! #################################################################
+
+
+
+! #################################################################
+subroutine addSpectrum_by_single_Light(this,wavelength,peak_radiation,sigma)
+    class(Light_),intent(inout) :: this
+    real(real64),intent(in) :: wavelength,peak_radiation,sigma
+    real(real64) :: this_radiation,original_peak
+    type(IO_) :: f
+    type(Math_) :: math
+    integer(int32) :: i
+    
+    original_peak = 1.0d0/sqrt(2.0d0*math%pi)/sigma
+    do i=1,size(this%spectrum)
+        this_radiation = peak_radiation/original_peak/sqrt(2.0d0*math%pi)/sigma*exp(-((dble(i)-wavelength)**2)/(2.0d0*sigma*sigma))
+        this%spectrum(i) = this%spectrum(i) + this_radiation ! W/m^2/nm
+    enddo
+    
+    this%maxPPFD = to_ppfd_from_spectrum(this%spectrum)
+
+
+end subroutine
+! #################################################################
+
+function gaussian_function(x,mu,sigma1,sigma2) result(ret)
+    real(real64),intent(in) :: x,mu,sigma1,sigma2
+    real(real64) :: ret
+
+    if(x<mu)then
+        ret = exp(-0.50d0*((x-mu)**2)/(sigma1*sigma1))
+    else
+        ret = exp(-0.50d0*((x-mu)**2)/(sigma2*sigma2))
+    endif
+end function
+
+! #################################################################
+function to_RGB_LightClass(this) result(ret)
+    class(Light_),intent(in) :: this
+    real(real64) :: ret(1:3),XYZ(1:3),RGB(1:3),to_RBG_from_XYZ(1:3,1:3)
+    real(real64),allocatable :: x(:),y(:),z(:)
+    integer(int32) :: i
+
+    !https://ja.wikipedia.org/wiki/CIE_1931_%E8%89%B2%E7%A9%BA%E9%96%93
+    ! CIE 1931 function
+    x = zeros(size(this%spectrum) ) 
+    y = zeros(size(this%spectrum) ) 
+    z = zeros(size(this%spectrum) ) 
+    do i=1,size(this%spectrum)
+        x(i) = 1.0560d0*gaussian_function(dble(i),599.8d0,37.9d0,31.0d0)&
+            + 0.362d0*gaussian_function(dble(i),442.0d0,16.0d0,26.70d0)&
+            -0.065d0*gaussian_function(dble(i),501.10d0,20.40d0,26.20d0)
+        y(i) = 0.820d0*gaussian_function(dble(i),568.8d0,46.9d0,40.5d0)&
+            + 0.286d0*gaussian_function(dble(i),530.9d0,16.3d0,31.10d0)
+        z(i) = 1.217d0*gaussian_function(dble(i),437.0d0,11.8d0,36.0d0)&
+            + 0.681d0*gaussian_function(dble(i),459.0d0,26.0d0,13.80d0)
+    enddo
+    
+    !https://rayspace.xyz/CG/contents/Spectrum_RGB/
+    XYZ(1) = dot_product(this%spectrum(380:780),x(380:780) )
+    XYZ(2) = dot_product(this%spectrum(380:780),y(380:780) )
+    XYZ(3) = dot_product(this%spectrum(380:780),z(380:780) )
+
+    !http://www.enjoy.ne.jp/~k-ichikawa/CIEXYZ_RGB.html
+    to_RBG_from_XYZ(1,1:3) = [2.3655d0,-0.8971d0,-0.4683d0]
+    to_RBG_from_XYZ(2,1:3) = [-0.5151d0,1.4264d0, 0.0887d0]
+    to_RBG_from_XYZ(3,1:3) = [0.0052d0,-0.0144d0,1.0089d0]
+    RGB = matmul(to_RBG_from_XYZ,XYZ)
+    ret = RGB
+    if(ret(1)>255)then
+        ret(1) = 255.0d0
+    endif
+    if(ret(2)>255)then
+        ret(2) = 255.0d0
+    endif
+    if(ret(3)>255)then
+        ret(3) = 255.0d0
+    endif
+    if(ret(1)<0)then
+        ret(1) = 0
+    endif
+    if(ret(2)<0)then
+        ret(2) = 0
+    endif
+    if(ret(3)<0)then
+        ret(3) = 0
+    endif
+end function
+! #################################################################
+
 
 end module

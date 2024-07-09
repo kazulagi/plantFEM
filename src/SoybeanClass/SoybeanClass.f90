@@ -7427,7 +7427,7 @@ function getSpectrumSoybean(obj,light,Transparency,Resolution,num_threads,leaf) 
     ppfd = obj%getPPFD(light,Transparency,Resolution,num_threads,leaf)
     tp_ratio = ppfd/light%maxPPFD
     spectrum = zeros(size(ppfd),size(light%spectrum) )
-    
+
 
     ! 400-700nmはtransparencyに基づき減衰
     ! 1-399nm, 701nm以上はそのまま透過
@@ -7435,8 +7435,7 @@ function getSpectrumSoybean(obj,light,Transparency,Resolution,num_threads,leaf) 
         spectrum(i,:) = light%spectrum(:)
         spectrum(i,400:700)=light%spectrum(400:700)*tp_ratio(i)
     enddo
-
-
+    
 end function
 ! ############################################################################
 

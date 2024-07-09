@@ -260,6 +260,7 @@ module FEMDomainClass
 
 		procedure,public :: getScalarField => getScalarFieldFEMDomain
 		procedure,public :: getSingleFacetNodeID => getSingleFacetNodeIDFEMDomain
+		procedure,public :: getFacetLocalNodeID => getFacetLocalNodeIDFEM
 		
 		!procedure,public :: getNumberOfPoint => getNumberOfPointFEMDomain
 		
@@ -475,7 +476,11 @@ module FEMDomainClass
 		procedure,public :: ConnectVector => ConnectVectorFEMDomain 
 		procedure,public :: ElementVector => ElementVectorFEMDomain 
 		procedure,public :: GlobalVector => GlobalVectorFEMDomain 
-		procedure,public :: TractionVector => TractionVectorFEMDomain
+		
+		procedure,pass   :: TractionVectorFEMDomain
+		procedure,pass   :: TractionVector_by_elemFEMDomain
+		generic,public :: TractionVector => TractionVectorFEMDomain,TractionVector_by_elemFEMDomain
+
 		procedure,public :: PointForceVector => PointForceVectorFEMDomain
 		procedure,public :: FlowVector => FlowVectorFEMDomain
 
@@ -8426,6 +8431,43 @@ end function
 ! ##################################################
 
 
+function getFacetLocalNodeIDFEM(this) result(facet)
+	class(FEMDomain_),intent(in) :: this
+	integer(int32),allocatable :: facet(:,:)
+	integer(int32) :: i, j
+
+	if(this%nd()==3 .and. this%nne()==8 )then
+		allocate(Facet(6,4) )
+		Facet(1,1:4) = [4,3,2,1]
+		Facet(2,1:4) = [1,2,6,5]
+		Facet(3,1:4) = [2,3,7,6]
+		Facet(4,1:4) = [3,4,8,7]
+		Facet(5,1:4) = [4,1,5,8]
+		Facet(6,1:4) = [5,6,7,8] 
+	elseif(this%nd()==3 .and. this%nne()==4 )then
+		allocate(Facet(4,3) )
+		Facet(1,1:3) = [3,2,1]
+		Facet(2,1:3) = [1,2,4]
+		Facet(3,1:3) = [2,3,4]
+		Facet(4,1:3) = [3,1,4]
+	elseif(this%nd()==2 .and. this%nne()==4 )then
+		allocate(Facet(4,2) )
+		Facet(1,1:2) = [1,2]
+		Facet(2,1:2) = [2,3]
+		Facet(3,1:2) = [3,4]
+		Facet(4,1:2) = [4,1]
+	else
+		print *, "ERROR :: getSingleFacetNodeIDFEMDomain >> "
+		print *, "No implementation for such element type"
+		print *, "Please send issue on the Github."
+		stop
+	endif
+	
+
+
+end function
+
+
 function getSingleFacetNodeIDFEMDomain(this,ElementID) result(facet)
 	class(FEMDomain_),intent(in) :: this
 	integer(int32),intent(in) :: ElementID
@@ -11585,13 +11627,14 @@ end function
 ! ##########################################################################
 
 ! ##########################################################################
-function StiffnessMatrix_generic_FEMDomain(this,ElementID,E,v) result(StiffnessMatrix)
+function StiffnessMatrix_generic_FEMDomain(this,ElementID,E,v,rot_angles) result(StiffnessMatrix)
 	class(FEMDomain_),intent(inout) :: this
 	type(Shapefunction_) :: shapefunc
 	integer(int32),intent(in) :: ElementID
 	real(real64),intent(in) :: E(:), v(:) ! Young's modulus(E1,E2,E3,G12,G23,G31),
 		 ! Poisson ratio(v12,v13,v21,v23,v31,v32)
-	real(real64),allocatable :: StiffnessMatrix(:,:),Bmat(:,:),Dmat(:,:)
+	real(real64),optional,intent(in) :: rot_angles(:)
+	real(real64),allocatable :: StiffnessMatrix(:,:),Bmat(:,:),Dmat(:,:),Q(:,:),G(:)
 	real(real64) :: rho
 	integer(int32) :: node_DOF,i,j,n
 
@@ -11633,6 +11676,24 @@ function StiffnessMatrix_generic_FEMDomain(this,ElementID,E,v) result(StiffnessM
 		
 		! get D-matrix
 		Dmat = this%Dmatrix(E=E, v=v)
+
+		! これで正しいか吟味が必要
+		Q = rotate_3x3_matrix(&
+					x=rot_angles(1),&
+					y=rot_angles(2),&
+					z=rot_angles(3)&
+				)
+		Dmat(1:3,1:3) = abs(matmul(transpose(Q), matmul(Dmat(1:3,1:3),Q)))
+		
+		G = zeros(3)
+		G(1)=Dmat(4,4)
+		G(2)=Dmat(5,5)
+		G(3)=Dmat(6,6)
+		G = matmul(transpose(Q),G)
+		Dmat(4,4) = abs(G(1))
+		Dmat(5,5) = abs(G(2))
+		Dmat(6,6) = abs(G(3))
+		
 
 		if(i==1)then
 			StiffnessMatrix = matmul(matmul(transpose(Bmat),Dmat),Bmat)
@@ -16862,6 +16923,181 @@ subroutine export_vtk_FEMDomainPointer(FEMDomainPointer,name,field,displacement)
 		return
 	endif
 end subroutine
+
+! ############################################################################################
+function TractionVector_by_elemFEMDomain(this,ElementID,range,SurfacePressure) result(ret)
+	class(FEMDOmain_),intent(in) :: this
+	integer(int32),intent(in) :: ElementID
+	type(Range_),intent(in) :: range
+	real(real64),intent(in) :: SurfacePressure ! kPa
+	integer(int32),allocatable :: nodeIdx(:)
+	integer(int32),allocatable :: is_inside(:),target_facet(:),Facet(:,:),buf(:)
+	integer(int32) :: i,j
+	real(real64),allocatable :: ret(:),nvec(:),force(:),weights(:),A(:),B(:),C(:),D(:)
+	real(real64):: area
+	type(IO_)::debug
+	nodeIdx = this%mesh%elemnod(ElementID,:)
+	allocate(is_inside(size(nodeidx)))
+	is_inside(:) = 0
+
+	ret = zeros(this%nd()*this%nn() )
+
+	do i=1,size(nodeIdx)
+		if(range%inside(this%mesh%nodcoord(nodeIdx(i),:)))then
+			is_inside(i)=1
+		endif
+	enddo
+
+
+
+	Facet = this%getFacetLocalNodeID() ! local Idx
+
+	target_facet = 0*Facet(:,1)
+	do i=1,size(Facet,1) ! Facetごとにループ
+		do j=1,size(Facet,2)
+			if( is_inside(Facet(i,j))==1 )then
+				! inside
+				target_facet(i)=target_facet(i)+1 ! 領域内にあるFacetには1，そうでないFacetは0
+				
+			endif
+		enddo
+	enddo
+
+	if(maxval(target_facet)<size(Facet,2) ) return !もしFacetの節点すべてがinsideであるようなFacetがないならreturn
+	call debug%open("debug.txt","a")
+	do i=1,size(target_facet)
+	
+		if(target_facet(i)==size(Facet,2) )then
+			! 表面力を計算すべきFacet
+			! 法線ベクトルと面積をかけてkNにしたうえで，節点に分配
+			if(size(Facet,2)==3 )then
+				A = this%mesh%nodcoord(this%mesh%elemnod(ElementID,Facet(i,1)) ,:)
+				B = this%mesh%nodcoord(this%mesh%elemnod(ElementID,Facet(i,2)) ,:)
+				C = this%mesh%nodcoord(this%mesh%elemnod(ElementID,Facet(i,3)) ,:)
+				area  =   getTriangularArea_fromPoint(&
+					A=A,B=B,C=C )! 表面の面積
+			elseif(size(Facet,2)==4)then
+				A = this%mesh%nodcoord(this%mesh%elemnod(ElementID,Facet(i,1)) ,:)
+				B = this%mesh%nodcoord(this%mesh%elemnod(ElementID,Facet(i,2)) ,:)
+				C = this%mesh%nodcoord(this%mesh%elemnod(ElementID,Facet(i,3)) ,:)
+				D = this%mesh%nodcoord(this%mesh%elemnod(ElementID,Facet(i,4)) ,:)
+				area  =   getTriangularArea_fromPoint(&
+						A=A,B=B,C=C ) + &
+					getTriangularArea_fromPoint(&
+						A=B,B=C,C=D )! 表面の面積
+			else
+				print *, "[ERROR] TractionVector_by_elemFEMDomain >> size(Facet,2) of 3 or 4 are available."
+				stop
+			endif
+			
+			nvec    =  cross_product(B-A,C-A)/norm(cross_product(B-A,C-A))! 表面の外向き法線ベクトル
+			weights =  1.0d0/dble(size(Facet,2))*ones(size(Facet,2))! 表面節点ごとの重み．1次要素では等配分なのでこの実装．2次要素では修正．
+
+			force = SurfacePressure*area*nvec
+			
+			if(sum(is_inside)==0) cycle
+			call debug%write("ElementID"+str(ElementID))
+			call debug%write("FacetID"+str(i))
+			call debug%write(force)
+			call debug%write(target_facet)
+			
+			
+
+			do j=1,size(Facet,2)
+				ret( (Facet(i,j)-1)*(this%nd())+1:(Facet(i,j)-1)*(this%nd())+this%nd() ) = &
+				ret( (Facet(i,j)-1)*(this%nd())+1:(Facet(i,j)-1)*(this%nd())+this%nd() ) + weights(j)*force(:)
+			enddo
+		endif
+	enddo
+	call debug%close()
+	
+
+end function
+
+! ############################################
+function getTriangularArea_fromPoint(A,B,C) result(ret)
+	real(real64),intent(in) :: A(:),B(:),C(:)
+	real(real64) :: ret
+
+	ret = 0.50d0*sqrt( dot_product(B-A,B-A)*dot_product(C-A,C-A)&
+		- dot_product(B-A,C-A)*dot_product(B-A,C-A) )
+
+end function
+! ############################################
+
+
+function rotate_3x3_matrix(x,y,z,inverse) result(ret)
+	real(real64),intent(in) :: x,y,z
+	logical,optional,intent(in) :: inverse
+	real(real64),allocatable :: ret(:,:)
+	real(real128),allocatable :: ret128(:,:),rotmat_x(:,:),rotmat_y(:,:),rotmat_z(:,:),&
+		all_rotmat(:,:)
+	integer(int32) :: i,j
+
+	! Euler angle:
+	! [ret] = [Rz][Ry][Rx]
+	rotmat_x = eyes(3,3)
+	rotmat_y = eyes(3,3)
+	rotmat_z = eyes(3,3)
+		
+	ret128 = eyes(3,3)
+		
+	rotmat_x(1,1)=1.0d0	;rotmat_x(1,2)=0.0d0		;rotmat_x(1,3)=0.0d0			;
+	rotmat_x(2,1)=0.0d0	;rotmat_x(2,2)=cos(x)		;rotmat_x(2,3)=-sin(x)		;
+	rotmat_x(3,1)=0.0d0	;rotmat_x(3,2)=sin(x)		;rotmat_x(3,3)= cos(x)		;
+
+	do i=1,size(rotmat_x,1)
+		do j=1,size(rotmat_x,1)
+			if(abs(rotmat_x(i,j))<dble(1.0e-16) )then
+				rotmat_x(i,j) = 0.0d0
+			endif
+		enddo
+	enddo
+	
+
+	rotmat_y(1,1)=cos(y)	;rotmat_y(1,2)=0.0d0		;rotmat_y(1,3)=sin(y)			;
+	rotmat_y(2,1)=0.0d0	    ;rotmat_y(2,2)=1.0d0		;rotmat_y(2,3)=0.0d0		;
+	rotmat_y(3,1)=-sin(y)	;rotmat_y(3,2)=0.0d0		;rotmat_y(3,3)= cos(y)		;
+
+	do i=1,size(rotmat_y,1)
+		do j=1,size(rotmat_y,1)
+			if(abs(rotmat_y(i,j))<dble(1.0e-16) )then
+				rotmat_y(i,j) = 0.0d0
+			endif
+		enddo
+	enddo
+
+	rotmat_z(1,1)=cos(z)	;rotmat_z(1,2)=-sin(z)	;rotmat_z(1,3)=0.0d0		;
+	rotmat_z(2,1)=sin(z)	;rotmat_z(2,2)=cos(z)		;rotmat_z(2,3)=0.0d0		;
+	rotmat_z(3,1)=0.0d0	    ;rotmat_z(3,2)=0.0d0		;rotmat_z(3,3)=1.0d0 		;	
+	
+
+	do i=1,size(rotmat_z,1)
+		do j=1,size(rotmat_z,1)
+			if(abs(rotmat_z(i,j))<dble(1.0e-16) )then
+				rotmat_z(i,j) = 0.0d0
+			endif
+		enddo
+	enddo
+
+	if(present(inverse) )then
+		if(inverse)then
+			ret128 = matmul(rotmat_z,ret128)
+			ret128 = matmul(rotmat_y,ret128)
+			ret128 = matmul(rotmat_x,ret128)
+			return
+		endif
+	endif
+
+
+	ret128 = matmul(rotmat_x,ret128)
+	ret128 = matmul(rotmat_y,ret128)
+	ret128 = matmul(rotmat_z,ret128)
+
+	ret = dble(ret128)
+
+
+end function
 
 end module FEMDomainClass
 
