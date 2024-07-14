@@ -34,7 +34,7 @@ module MPIClass
         integer(int32) :: Comm4
         integer(int32) :: Comm5
         integer(int32) :: start_id, end_id
-
+        integer(int32) :: mpi_restart_idf
 
         ! >>> job scheduler
         type(MPI_JOB_),allocatable :: MPI_JOB(:)
@@ -177,6 +177,16 @@ module MPIClass
         procedure :: num_images => num_imagesMPI
         procedure :: this_image => this_imageMPI
 
+        procedure,pass :: restart_point_intmat64_MPI
+        procedure,pass :: restart_point_realmat64_MPI
+        procedure,pass :: restart_point_intvec32_MPI
+        procedure,pass :: restart_point_realvec64_MPI
+
+        generic :: restart_point => restart_point_intmat64_MPI &
+            ,restart_point_realmat64_MPI &
+            ,restart_point_intvec32_MPI &
+            ,restart_point_realvec64_MPI
+
         procedure, Pass :: syncGraphMPI
         generic :: sync => syncGraphMPI
 
@@ -199,6 +209,7 @@ subroutine StartMPI(obj,NumOfComm)
     call mpi_comm_size(mpi_comm_world,obj%Petot ,obj%ierr)
     call mpi_comm_rank(mpi_comm_world,obj%MyRank,obj%ierr)
 
+    obj%mpi_restart_idf = 0
 
     allocate(obj%Comm(input(default=100,option=NumOfComm)  ) )
     allocate(obj%key(input(default=100,option=NumOfComm)  ) )
@@ -2309,5 +2320,250 @@ subroutine WaitAll_Int32VectorMPI(this,send_req,recv_req)
     
 end subroutine
 ! ###################################################
+
+
+subroutine restart_point_intvec32_MPI(this,name,intvec)
+    class(MPI_),intent(inout) :: this
+    character(*),intent(in) :: name
+    character(:),allocatable :: fname
+    integer(int32),allocatable,intent(inout) :: intvec(:)
+    type(IO_) :: f
+    integer(int32) :: n,i
+
+    ! restart-file name
+    fname = "restart_r"+zfill(this%myrank,6)+"_"+name+".txt"
+
+    ! restart-file format
+    ! size,
+    ! data
+    
+
+    if(this%mpi_restart_idf==0)then
+        if(f%exists(fname) )then
+            ! first call after mpi%init()
+            ! and has "Zense-No-Kioku(ZNK)"
+            call f%open(fname,"r")
+            read(f%fh,*) n
+            if(allocated(intvec) )then
+                deallocate(intvec)
+            endif
+            allocate(intvec(n))
+            do i=1,n
+                read(f%fh,*) intvec(i) 
+            enddo
+            call f%close()
+            this%mpi_restart_idf = 1
+        else
+            if(allocated(intvec) )then
+                call f%open(fname,"w")
+                n = size(intvec)
+                write(f%fh,*) n
+                do i=1,n
+                    write(f%fh,*) intvec(i) 
+                enddo
+                call f%close()
+            endif
+            this%mpi_restart_idf = 1
+        endif
+        return
+    else
+        ! second call after mpi%init()
+        if(allocated(intvec) )then
+            call f%open(fname,"w")
+            n = size(intvec)
+            write(f%fh,*) n
+            do i=1,n
+                write(f%fh,*) intvec(i) 
+            enddo
+            call f%close()
+        endif
+        this%mpi_restart_idf = 1
+    endif
+end subroutine
+
+
+subroutine restart_point_realvec64_MPI(this,name,dat_content)
+    class(MPI_),intent(inout) :: this
+    character(*),intent(in) :: name
+    character(:),allocatable :: fname
+    real(real64),allocatable,intent(inout) :: dat_content(:)
+    type(IO_) :: f
+    integer(int32) :: n,i
+
+    ! restart-file name
+    fname = "restart_r"+zfill(this%myrank,6)+"_"+name+".txt"
+
+    ! restart-file format
+    ! size,
+    ! data
+    
+
+    if(this%mpi_restart_idf==0)then
+        if(f%exists(fname) )then
+            ! first call after mpi%init()
+            ! and has "Zense-No-Kioku(ZNK)"
+            call f%open(fname,"r")
+            read(f%fh,*) n
+            if(allocated(dat_content) )then
+                deallocate(dat_content)
+            endif
+            allocate(dat_content(n))
+            do i=1,n
+                read(f%fh,*) dat_content(i) 
+            enddo
+            call f%close()
+            this%mpi_restart_idf = 1
+        else
+            if(allocated(dat_content) )then
+                call f%open(fname,"w")
+                n = size(dat_content)
+                write(f%fh,*) n
+                do i=1,n
+                    write(f%fh,*) dat_content(i) 
+                enddo
+                call f%close()
+            endif
+            this%mpi_restart_idf = 1
+        endif
+        return
+    else
+        ! second call after mpi%init()
+        if(allocated(dat_content) )then
+            call f%open(fname,"w")
+            n = size(dat_content)
+            write(f%fh,*) n
+            do i=1,n
+                write(f%fh,*) dat_content(i) 
+            enddo
+            call f%close()
+        endif
+        this%mpi_restart_idf = 1
+    endif
+end subroutine
+
+
+subroutine restart_point_intmat64_MPI(this,name,dat_content)
+    class(MPI_),intent(inout) :: this
+    character(*),intent(in) :: name
+    character(:),allocatable :: fname
+    integer(int32),allocatable,intent(inout) :: dat_content(:,:)
+    type(IO_) :: f
+    integer(int32) :: n,i,m
+
+    ! restart-file name
+    fname = "restart_r"+zfill(this%myrank,6)+"_"+name+".txt"
+
+    ! restart-file format
+    ! size,
+    ! data
+    
+
+    if(this%mpi_restart_idf==0)then
+        if(f%exists(fname) )then
+            ! first call after mpi%init()
+            ! and has "Zense-No-Kioku(ZNK)"
+            call f%open(fname,"r")
+            read(f%fh,*) n,m
+            if(allocated(dat_content) )then
+                deallocate(dat_content)
+            endif
+            allocate(dat_content(n,m))
+            do i=1,n
+                read(f%fh,*) dat_content(i,:) 
+            enddo
+            call f%close()
+            this%mpi_restart_idf = 1
+        else
+            if(allocated(dat_content) )then
+                call f%open(fname,"w")
+                n = size(dat_content,1)
+                m = size(dat_content,2)
+                write(f%fh,*) n, m
+                do i=1,n
+                    write(f%fh,*) dat_content(i,:) 
+                enddo
+                call f%close()
+            endif
+            this%mpi_restart_idf = 1
+        endif
+        return
+    else
+        ! second call after mpi%init()
+        if(allocated(dat_content) )then
+            call f%open(fname,"w")
+            n = size(dat_content,1)
+            m = size(dat_content,2)
+            write(f%fh,*) n,m
+            do i=1,n
+                write(f%fh,*) dat_content(i,:) 
+            enddo
+            call f%close()
+        endif
+        this%mpi_restart_idf = 1
+    endif
+end subroutine
+
+
+
+subroutine restart_point_realmat64_MPI(this,name,dat_content)
+    class(MPI_),intent(inout) :: this
+    character(*),intent(in) :: name
+    character(:),allocatable :: fname
+    real(real64),allocatable,intent(inout) :: dat_content(:,:)
+    type(IO_) :: f
+    integer(int32) :: n,i,m
+
+    ! restart-file name
+    fname = "restart_r"+zfill(this%myrank,6)+"_"+name+".txt"
+
+    ! restart-file format
+    ! size,
+    ! data
+    
+
+    if(this%mpi_restart_idf==0)then
+        if(f%exists(fname) )then
+            ! first call after mpi%init()
+            ! and has "Zense-No-Kioku(ZNK)"
+            call f%open(fname,"r")
+            read(f%fh,*) n,m
+            if(allocated(dat_content) )then
+                deallocate(dat_content)
+            endif
+            allocate(dat_content(n,m))
+            do i=1,n
+                read(f%fh,*) dat_content(i,:) 
+            enddo
+            call f%close()
+            this%mpi_restart_idf = 1
+        else
+            if(allocated(dat_content) )then
+                call f%open(fname,"w")
+                n = size(dat_content,1)
+                m = size(dat_content,2)
+                write(f%fh,*) n, m
+                do i=1,n
+                    write(f%fh,*) dat_content(i,:) 
+                enddo
+                call f%close()
+            endif
+            this%mpi_restart_idf = 1
+        endif
+        return
+    else
+        ! second call after mpi%init()
+        if(allocated(dat_content) )then
+            call f%open(fname,"w")
+            n = size(dat_content,1)
+            m = size(dat_content,2)
+            write(f%fh,*) n,m
+            do i=1,n
+                write(f%fh,*) dat_content(i,:) 
+            enddo
+            call f%close()
+        endif
+        this%mpi_restart_idf = 1
+    endif
+end subroutine
 
 end module
