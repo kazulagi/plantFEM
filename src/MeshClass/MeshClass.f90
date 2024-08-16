@@ -6688,9 +6688,8 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         !call obj%adjustCylinder(debug=.true.)
         ! move unconnected nodes
         call obj%clean()
-        call obj%resize(x=x_len,&
-            y=y_len,&
-            z=thickness)
+        call obj%resize(x_rate=x_len,&
+            y_rate=y_len)
 
         obj%elementType=[3,8,8] ! 3-dimensional, 8-noded, 8 Gauss points
         return
