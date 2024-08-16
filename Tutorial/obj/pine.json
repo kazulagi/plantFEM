@@ -1,0 +1,19 @@
+{
+    "Mainstem":{
+        "Length":8.0,
+        "Diameters":[
+            0.40,
+            0.30,
+            0.10
+        ],
+        "Diameter_heights":[
+            0.0,
+            4.0,
+            8.0
+        ],
+        "Divisions":[
+            10,
+            40
+        ]
+    }
+}

@@ -107,7 +107,7 @@ module LeafClass
 
     contains
         procedure, public :: Init => initLeaf
-        procedure, public :: grow => growLeaf
+        procedure, public :: change_length_or_width => change_length_or_width_Leaf
 
         procedure, public :: rotate => rotateleaf
         procedure, public :: move => moveleaf
@@ -1671,7 +1671,7 @@ function getNormalVectorLeaf(obj,ElementID) result(ret)
 
 end function
 ! #################################################################
-subroutine growLeaf(this,dt)
+subroutine change_length_or_width_Leaf(this,dt)
     class(Leaf_),intent(inout)::this
     real(real64),intent(in) :: dt
     real(real64) :: Length,Width

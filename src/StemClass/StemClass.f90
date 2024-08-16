@@ -2,6 +2,7 @@ module StemClass
     use, intrinsic :: iso_fortran_env
     use KinematicClass
     use FEMDomainClass
+    use FEMSolverClass
     implicit none
     
     type :: Stem_
@@ -48,6 +49,7 @@ module StemClass
         ! For deformation analysis
         real(real64),allocatable :: YoungModulus(:)! element-wise
         real(real64),allocatable :: PoissonRatio(:)! element-wise
+        real(real64),allocatable :: CrossSectionalYoungModulus(:) !element-wise
         real(real64),allocatable :: Density(:)     ! element-wise
         real(real64),allocatable :: CarbonDiffusionCoefficient(:) ! element-wise
         real(real64),allocatable :: Stress(:,:,:)     ! Gauss point-wise
@@ -70,6 +72,8 @@ module StemClass
         real(real64)  :: width_growth_ratio = 1.0d0/4.0d0   ! 
         real(real64)  :: length_growth_ratio = 1.0d0/4.0d0   ! 
 
+        logical :: material_is_set
+
         type(Stem_),pointer ::  pStem
 
 
@@ -79,8 +83,15 @@ module StemClass
     contains
         procedure, public :: Init => initStem
         procedure, public :: rotate => rotateStem
-        procedure, public :: grow => growStem
-        procedure, public :: change_length_or_width => growStem
+        
+        procedure, pass :: change_length_or_width_stem
+        procedure,pass :: grow_by_pressure_stem
+
+        generic,public :: grow => grow_by_pressure_stem
+
+        generic,public :: change_length_or_width => change_length_or_width_stem
+
+
         procedure, public :: resize => resizeStem
         procedure, public :: move => moveStem
         procedure, public :: connect => connectStem
@@ -102,6 +113,9 @@ module StemClass
         procedure, public :: export => exportStem
         procedure, public :: getVolume => getVolumeStem
         procedure, public :: getBiomass => getBiomassStem
+
+        ! simulation
+        procedure, public :: set_material => set_material_Stem
 
         procedure,public :: sync => syncStem
 
@@ -139,7 +153,7 @@ subroutine initStem(obj,config,regacy,Thickness,length,width,MaxThickness,&
     logical :: debug=.false.
 
     obj%my_time = 0.0d0
-
+    obj%material_is_set = .false.
     ! default value
     obj%minlength= 0.001
     obj%mindiameter= 0.001
@@ -788,7 +802,7 @@ end subroutine
 ! ########################################
 
 ! ########################################
-recursive subroutine growStem(obj,length,length_rate,Width,width_rate,dt)
+recursive subroutine change_length_or_width_stem(obj,length,length_rate,Width,width_rate,dt)
     class(Stem_),intent(inout) :: obj 
     real(real64),optional,intent(in) :: length,length_rate,width_rate,Width,dt
     real(real64) :: new_width,new_length
@@ -819,7 +833,7 @@ recursive subroutine growStem(obj,length,length_rate,Width,width_rate,dt)
             /(1.0d0 +&
                 (obj%final_Width/obj%initial_Width - 1.0d0)&
                     *exp(-obj%Width_growth_ratio*obj%my_time) )
-        call obj%grow(Length=new_Length,Width=new_Width)
+        call obj%change_length_or_width(Length=new_Length,Width=new_Width)
         return
     endif
 
@@ -1200,5 +1214,111 @@ function append_stem_object_vector(arg1,arg2) result(ret)
 
 end function
 ! ############################################################
+
+
+! ############################################################
+subroutine set_material_Stem(this,YoungModulus,PoissonRatio,side_stiffness_ratio)
+    class(Stem_),intent(inout) :: this
+    real(real64),intent(in) :: YoungModulus,PoissonRatio,side_stiffness_ratio! kPa, [dimensionless],[dimensionless(Ez/Ex=Ez/Ey)],
+
+    this%YoungModulus = YoungModulus*ones(this%femdomain%ne())
+    this%PoissonRatio = PoissonRatio*ones(this%femdomain%ne())
+    this%CrossSectionalYoungModulus = this%YoungModulus*side_stiffness_ratio
+    this%material_is_set = .true.
+    
+end subroutine
+! ############################################################
+
+
+subroutine grow_by_pressure_stem(this,pressure)
+    class(Stem_),intent(inout) :: this
+    real(real64),intent(in) :: pressure ! kPa
+
+    real(real64),allocatable :: displ(:),sigma(:,:),tr_sigma(:),E_G(:),v(:),&
+        pressure_vec(:),rot_angles(:)
+
+    type(FEMSolver_) :: solver
+    integer(int32),allocatable   :: FixBoundary(:)
+    integer(int32)   :: i 
+
+
+    call solver%init(NumDomain=1)
+    call solver%setDomain(FEMDomain=this%femdomain,DomainID=1)
+    call solver%setCRS(DOF=3)
+    E_G = zeros(6)
+    v = zeros(6)
+    
+    rot_angles = radian([-this%rot_x,-this%rot_y,-this%rot_z])
+
+    pressure_vec = pressure*ones(this%femdomain%ne())
+
+    !$OMP parallel 
+    !$OMP do
+    do i = 1, this%femdomain%ne()
+        E_G(1) = this%CrossSectionalYoungModulus(i)
+        E_G(2) = this%CrossSectionalYoungModulus(i)
+        E_G(3) = this%YoungModulus(i)
+        E_G(4) = 2.0d0*(1.0d0+this%PoissonRatio(i))*E_G(1) ! really?
+        E_G(5) = 2.0d0*(1.0d0+this%PoissonRatio(i))*E_G(2) ! really?
+        E_G(6) = 2.0d0*(1.0d0+this%PoissonRatio(i))*E_G(3) ! really?
+        v(:) = this%PoissonRatio(i)
+        call solver%setMatrix(DomainID=1,ElementID=i,DOF=3,&
+           Matrix=this%femdomain%StiffnessMatrix(ElementID=i,E=E_G, v=v,rot_angles=rot_angles))
+        call solver%setVector(DomainID=1,ElementID=i,DOF=3, &
+            Vector=this%femdomain%PressureVector(&
+                    ElementID=i,&
+                    Pressure=pressure_vec(i) &
+                )&
+        )
+    enddo
+    !$OMP end do
+    !$OMP end parallel
+
+
+
+    print *, "matrices imported."
+    ! disp. boundary
+    FixBoundary = this%femdomain%select(z_max = this%femdomain%z_min() )*3-2
+    call solver%fix(DomainID=1,IDs=FixBoundary,FixValue=0.0d0)
+    FixBoundary = this%femdomain%select(z_max = this%femdomain%z_min() )*3-1
+    call solver%fix(DomainID=1,IDs=FixBoundary,FixValue=0.0d0)
+    FixBoundary = this%femdomain%select(z_max = this%femdomain%z_min() )*3-0
+    call solver%fix(DomainID=1,IDs=FixBoundary,FixValue=0.0d0)
+
+    print *, "b.c. imported."
+    
+
+    ! solve
+    solver%debug = .true.
+    solver%relative_er = dble(1.0e-4)
+    solver%er0 = dble(1.0e-4)
+    solver%itrmax = 1000
+
+    displ = solver%solve()
+    call this%femdomain%deform(disp=displ )
+
+    !!compute cell-averaged mean stress
+    !!trace(sigma)
+    !tr_sigma = zeros(cube%ne() )
+    !do i_i=1,cube%ne()
+    !    sigma = zeros(3,3)
+    !    sigma = cube%stressMatrix(ElementID=i_i,&
+    !        disp=reshape(displ,cube%nn(),cube%nd() ),&
+    !        E=100.0d0, v=0.40d0)
+    !    tr_sigma(i_i) = trace(sigma)/3.0d0
+    !enddo
+
+    ! x = X + u
+    this%femdomain%mesh%Nodcoord(:,:) = &
+        this%femdomain%mesh%Nodcoord(:,:) + reshape(displ,this%femdomain%nn(),this%femdomain%nd() )
+
+
+    !! show result
+    !call cube%vtk("result_pressure_15",scalar=tr_sigma)
+
+    call solver%remove()
+
+
+end subroutine
 
 end module

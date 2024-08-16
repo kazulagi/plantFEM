@@ -6672,9 +6672,15 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
     endif
 
     if(meshtype=="Cylinder3D" .or. meshtype=="Cylinder")then
+
+
         validmeshtype=.true.
-        call obj%create(meshtype="Circle2D",x_num=x_num,y_num=y_num,x_len=1.0d0,y_len=1.0d0)       
+
+
+        call obj%create(meshtype="Circle2D",x_num=x_num,y_num=y_num,x_len=1.0d0,y_len=1.0d0) 
+        
         call obj%Convert2Dto3D(Thickness=thickness,division=division)
+
         if(.not.allocated(obj%ElemMat))then
             n=size(obj%ElemNod,1)
             allocate(obj%ElemMat(n) )
@@ -6682,9 +6688,9 @@ recursive subroutine createMesh(obj,meshtype,x_num,y_num,x_len,y_len,Le,Lh,Dr,th
         !call obj%adjustCylinder(debug=.true.)
         ! move unconnected nodes
         call obj%clean()
-        call obj%resize(x_rate=2.0d0*x_len,&
-            y_rate=2.0d0*y_len,&
-            z_rate=thickness)
+        call obj%resize(x=x_len,&
+            y=y_len,&
+            z=thickness)
 
         obj%elementType=[3,8,8] ! 3-dimensional, 8-noded, 8 Gauss points
         return

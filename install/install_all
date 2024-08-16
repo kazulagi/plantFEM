@@ -525,10 +525,19 @@ echo " >> SoilClass.o "
 echo " | =========================> |  (99%)\r\c"
 mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SoilClass/SoilClass.f90 -o  ./inc/SoilClass.o
 
+
+echo "Compiling ./src/PineClass/PineClass.f90" 
+echo " >> PineClass.o "
+echo " | =========================> |  (99%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PineClass/PineClass.f90 -o  ./inc/PineClass.o
+
+
 echo "Compiling ./src/SoybeanClass/SoybeanClass.f90" 
 echo " >> SoybeanClass.o "
 echo " | =========================> |  (99%)\r\c"
 mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SoybeanClass/SoybeanClass.f90 -o  ./inc/SoybeanClass.o
+
+
 
 echo "Compiling ./src/MaizeClass/MaizeClass.f90" 
 echo " >> MaizeClass.o "

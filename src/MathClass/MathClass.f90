@@ -57,7 +57,13 @@ module MathClass
 		module procedure factorialInt32, factorialReal64
 	end interface factorial
 
+	interface Bessel_J0
+		module procedure Bessel_J0_complex
+	end interface
 
+	interface Bessel_J1
+		module procedure Bessel_J1_complex
+	end interface
 
     interface sort
         module procedure :: sort_int32
@@ -3270,6 +3276,43 @@ function matrix_exponential_real64(mat,order) result(ret)
 	enddo
 
 end function
+! ###########################################################
+
+function Bessel_J0_complex(z) result(ret)
+	complex(real64),intent(in) :: z
+	complex(real64) :: ret,dret
+	integer(int32) :: k
+	
+	!ret = 1.0d0-z*z/4+(z**4)/64.0d0 ! + O(x^6)
+	ret = 0.0d0
+	dret = 1.0d0
+	do k=1,30
+		ret = ret + dret
+		dret = dret/dble(k)/dble(k)*(-1.0d0/4.0d0)*z*z
+		if(abs(dret)<1.0e-16 )exit
+	enddo
+
+end function
+
+! ###########################################################
+
+! ###########################################################
+
+function Bessel_J1_complex(z) result(ret)
+	complex(real64),intent(in) :: z
+	complex(real64) :: ret,dret
+	integer(int32) :: k
+	
+	!ret = z/2.0d0+(z**3)/16.0d0+(z**5)/384.0d0 ! + O(x^6)
+	ret = 0.0d0
+	dret = 1.0d0/2.0d0*z
+	do k=1,30
+		ret = ret + dret
+		dret = dret/dble(k)/dble(k+1)*(-1.0d0)*(1.0d0/4.0d0)*z*z
+		if(abs(dret)<1.0e-16 )exit
+	enddo
+end function
+
 ! ###########################################################
 
 end module MathClass
