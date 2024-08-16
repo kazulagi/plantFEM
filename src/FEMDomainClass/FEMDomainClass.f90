@@ -399,8 +399,11 @@ module FEMDomainClass
 		procedure,public :: rename => renameFEMDomain
 		procedure,public :: resize => resizeFEMDomain
 		procedure,public :: fat => fatFEMDomain
-		procedure,public :: removeElement => removeElementFEMDomain
-		procedure,public :: removeElements=> removeElementFEMDomain
+		procedure,pass   ::removeElementFEMDomain,removeElement_by_radius_FEMDomain
+
+		generic,public :: removeElement => removeElementFEMDomain,removeElement_by_radius_FEMDomain
+		generic,public :: removeElements=> removeElementFEMDomain,removeElement_by_radius_FEMDomain
+		
 		procedure,public :: remove => removeFEMDomain
 		procedure,public :: remove_duplication => remove_duplication_FEMDomain
 		procedure,pass ::  refineFEMDomain
@@ -724,6 +727,28 @@ subroutine openFEMDomain(this,path,name)
 
 end subroutine
 ! ####################################################################
+
+
+recursive subroutine removeElement_by_radius_FEMDomain(this,center,r)
+
+	class(FEMDomain_),intent(inout) :: this
+	real(real64),intent(in) :: center(1:3),r
+	real(real64),allocatable :: x(:)
+	integer(int32),allocatable :: killElemList(:)
+	integer(int32) :: i
+
+	killElemList = zeros(this%ne())
+
+	do i=1,this%ne()
+		x = this%centerPosition(ElementID=i)
+		if(norm(x-center)<=r)then
+			killElemList(i) = 1
+		endif		
+	enddo
+
+	call this%killElement(blacklist=killElemList,flag=1)
+
+end subroutine
 
 
 recursive subroutine removeElementFEMDomain(this,x_min,x_max,y_min,y_max,z_min,z_max,&
@@ -15932,8 +15957,15 @@ l = input(default=1.0d0,option=length)
 xn = input(default=20,option=x_num)
 yn = input(default=20,option=y_num)
 zn = input(default=20,option=z_num)
-call this%create("Cylinder3D",x_num=x_num,y_num=y_num,division=z_num,&
-	thickness=l,x_len=r(1),y_len=r(2) )
+
+!call this%create("Cylinder3D",x_num=x_num,y_num=y_num,division=z_num,&
+!	thickness=l,x_len=r(1),y_len=r(2) )
+
+call this%mesh%create(meshtype="Circle2D",&
+	x_num=x_num,y_num=y_num,x_len=1.0d0,y_len=1.0d0)
+call this%mesh%convert2Dto3D(thickness=l,division=z_num )
+call this%mesh%clean()
+
 
 end subroutine
 ! #################################################

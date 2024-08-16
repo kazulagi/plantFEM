@@ -2577,11 +2577,11 @@ subroutine growSoybean(obj,dt,light,air,temp,simple,add_apical)
             ! growth by temp by time
 
             do i=1,size(obj%stem)
-                call obj%stem(i)%grow(dt=dt)
+                call obj%stem(i)%change_length_or_width(dt=dt)
             enddo
             call obj%update()
             do i=1,size(obj%leaf)
-                call obj%leaf(i)%grow(dt=dt)
+                call obj%leaf(i)%change_length_or_width(dt=dt)
             enddo
             call obj%update()
 
@@ -2810,7 +2810,7 @@ subroutine developmentSoybean(obj)
 
     !do i=1, obj%numleaf
     !   leafID=i
-    !   call obj%leaf(leafID)%grow()
+    !   call obj%leaf(leafID)%change_length_or_width()
     !enddo
 
     !do i=1, obj%numrootApical
@@ -4054,7 +4054,7 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
                 y = radian(random%gauss(mu=obj%ms_angle_ave,sigma=obj%ms_angle_sig)),  &
                 z = obj%stem(StemNodeID)%femdomain%total_rotation(3) + radian((random%random()-0.50d0)*90.0d0)    &
                 )           
-            call obj%stem(i)%grow(dt = 0.0d0)    
+            call obj%stem(i)%change_length_or_width(dt = 0.0d0)    
             obj%stem(i)%StemID=0 
             obj%stem(i)%InterNodeID = size(obj%NodeID_MainStem)
             
@@ -4082,7 +4082,7 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
             z = obj%stem(StemNodeID)%femdomain%total_rotation(3) + radian((random%random()-0.50d0)*90.0d0)   &
             )
             
-            call obj%stem(My_StemID)%grow(dt = 0.0d0)    
+            call obj%stem(My_StemID)%change_length_or_width(dt = 0.0d0)    
             obj%stem(My_StemID)%StemID=branch_id 
             obj%stem(My_StemID)%InterNodeID = size(obj%NodeID_Branch(branch_id)%ID)
         ! main stem -> branch
@@ -4135,7 +4135,7 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
             z = radian(random%random()*360.0d0)    &
             )
             
-            call obj%stem(My_StemID)%grow(dt = 0.0d0)
+            call obj%stem(My_StemID)%change_length_or_width(dt = 0.0d0)
             obj%stem(My_StemID)%StemID=branch_id
             obj%stem(My_StemID)%InterNodeID = 1
         else
@@ -4159,7 +4159,7 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
             y = random%gauss(mu=obj%peti_width_ave(i),sigma=obj%peti_width_sig(i)), &
             z = random%gauss(mu=obj%peti_size_ave(i),sigma=obj%peti_size_sig(i)) &
             )
-        call obj%stem(obj%numStem() )%grow(dt = 0.0d0)
+        call obj%stem(obj%numStem() )%change_length_or_width(dt = 0.0d0)
         
         call obj%stem(obj%numStem() )%rotate(&
             x = radian(random%gauss(mu=obj%peti_angle_ave(i),sigma=obj%peti_angle_sig(i) )),  &
@@ -4201,7 +4201,7 @@ subroutine addNodeSoybean(obj,StemNodeID,RootNodeID,peti_width_ave,peti_width_si
             call obj%leaf(obj%num_leaf)%connect("=>",obj%stem(obj%numStem() ))
             obj%leaf2stem(obj%num_leaf,obj%numStem() ) = 1
             
-            call obj%leaf(obj%num_leaf)%grow(dt = 0.0d0)
+            call obj%leaf(obj%num_leaf)%change_length_or_width(dt = 0.0d0)
 
         enddo
     elseif(present(RootNodeID) )then
@@ -5175,7 +5175,7 @@ subroutine resizeSoybean(obj,StemID,StemLength)
             num_snode = size(obj%NodeID_MainStem)
             
             do i=1,num_snode
-                call obj%stem(obj%NodeID_MainStem(i))%grow(length=StemLength(i))
+                call obj%stem(obj%NodeID_MainStem(i))%change_length_or_width(length=StemLength(i))
             enddo
         else
             if(StemID >=size(obj%NodeID_Branch)) then
@@ -5187,7 +5187,7 @@ subroutine resizeSoybean(obj,StemID,StemLength)
             num_snode = size(obj%NodeID_Branch(StemID)%ID)
             
             do i=1,num_snode
-                call obj%stem(obj%NodeID_Branch(StemID)%ID(i))%grow(length=StemLength(i) )
+                call obj%stem(obj%NodeID_Branch(StemID)%ID(i))%change_length_or_width(length=StemLength(i) )
             enddo
         endif
         call obj%update()
@@ -9647,7 +9647,7 @@ subroutine resizeStemSoybean(this,StemID,InterNodeID,Length,Width)
         return
     endif
     
-    call this%stem(node_id)%grow(length=Length,Width=Width)
+    call this%stem(node_id)%change_length_or_width(length=Length,Width=Width)
     call this%update()
 
 
@@ -9802,7 +9802,7 @@ subroutine resizePetioleSoybean(this,StemID,InterNodeID,PetioleID,Length,Width)
         return
     endif
 
-    call this%stem(node_id)%grow(length=Length,Width=Width)
+    call this%stem(node_id)%change_length_or_width(length=Length,Width=Width)
     call this%update()
 
 end subroutine
@@ -9980,7 +9980,7 @@ subroutine growStemSoybean(this,StemID,InterNodeID,dt)
     endif
     
 
-    call this%stem(node_id)%grow(dt)
+    call this%stem(node_id)%change_length_or_width(dt)
     call this%update()
 
 

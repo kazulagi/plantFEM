@@ -206,7 +206,7 @@ module ArrayClass
     end interface
 
     interface median
-        module procedure :: medianIntVec
+        module procedure :: medianIntVec,medianReal64Vec
     end interface median
 
     interface arange
@@ -7789,6 +7789,26 @@ function medianIntVec(intvec) result(med)
 
 end function
 ! ###########################################################
+! ###########################################################
+function medianReal64Vec(realvec) result(med)
+    real(real64),intent(in) :: realvec(:)
+    real(real64) :: med
+    integer(int32) :: i, n
+    real(real64),allocatable :: vec(:)
+    
+    if(size(realvec)==1 )then
+        med = realvec(1)
+        return
+    endif
+
+    vec = realvec
+    call heapsort(size(vec),vec)
+    
+    n   = size(vec)/2
+    med = vec(n)
+
+end function
+! ###########################################################
 
 recursive pure function minvalIDInt32(vec,opt_id) result(id)
     integer(int32),intent(in) :: vec(:)
@@ -10320,7 +10340,7 @@ function as_realVector_from_ndarray(strdata,dtype) result(ret)
     real(real64),intent(in) :: dtype(:)
 
     character(:),allocatable :: strdata_work
-    real(real64),allocatable :: ret(:,:),vec(:)
+    real(real64),allocatable :: ret(:),vec(:)
     integer(int32) :: n,m,i,j,idx
 
     strdata_work = trim(strdata)
@@ -10378,7 +10398,7 @@ function as_int32Vector_from_ndarray(strdata,dtype) result(ret)
     integer(int32),intent(in) :: dtype(:)
 
     character(:),allocatable :: strdata_work
-    integer(int32),allocatable :: ret(:,:),vec(:)
+    integer(int32),allocatable :: ret(:),vec(:)
     integer(int32) :: n,m,i,j,idx
 
     strdata_work = trim(strdata)
