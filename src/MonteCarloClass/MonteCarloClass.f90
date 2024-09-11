@@ -1,9 +1,9 @@
-module MonteCarloClass 
-    use RandomClass
-    implicit none
+module MonteCarloClass
+   use RandomClass
+   implicit none
 
-    type :: MonteCarlo_
-        
-    end type
-    
-end module MonteCarloClass 
+   type :: MonteCarlo_
+
+   end type
+
+end module MonteCarloClass

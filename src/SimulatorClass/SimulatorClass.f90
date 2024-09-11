@@ -1,290 +1,259 @@
 module SimulatorClass
-    use, intrinsic :: iso_fortran_env
-    !use MPIClass
-    use TermClass
-    use FEMDomainClass
-    use DiffusionEquationClass
-    use FiniteDeformationClass
-    use MultiPhysicsClass
-    use PostProcessingClass
-    use ContactMechanicsClass
-    use FieldClass
-    implicit none
+   use, intrinsic :: iso_fortran_env
+   !use MPIClass
+   use TermClass
+   use FEMDomainClass
+   use DiffusionEquationClass
+   use FiniteDeformationClass
+   use MultiPhysicsClass
+   use PostProcessingClass
+   use ContactMechanicsClass
+   use FieldClass
+   implicit none
 
-    type :: Simulator_
-        type(DiffusionEq_) ,allocatable :: DiffusionEq_Array(:)
-        type(FiniteDeform_),allocatable :: FiniteDeform_Array(:)
-        type(MultiPhysics_)  ,allocatable :: MultiPhysics_Array(:)
-        type(ContactMechanics_),allocatable :: ContactMechanics_Array(:)
-    contains
-        procedure :: Deploy => DeploySimulator
-        procedure :: SetTime => SetSimulatorTime
-        procedure :: Run => RunSimulation
-        procedure :: Display => DisplaySimulation
-    end type
+   type :: Simulator_
+      type(DiffusionEq_), allocatable :: DiffusionEq_Array(:)
+      type(FiniteDeform_), allocatable :: FiniteDeform_Array(:)
+      type(MultiPhysics_), allocatable :: MultiPhysics_Array(:)
+      type(ContactMechanics_), allocatable :: ContactMechanics_Array(:)
+   contains
+      procedure :: Deploy => DeploySimulator
+      procedure :: SetTime => SetSimulatorTime
+      procedure :: Run => RunSimulation
+      procedure :: Display => DisplaySimulation
+   end type
 
 contains
 
 !###################################################
-subroutine Simulator(world,OptionalStep,OptionalTime,SolverType)
-    class(Field_),target,intent(inout)   :: world
-    type(Simulator_),target             :: sim
-    !type(MPI_) :: mpidata
-    integer(int32),intent(in)  :: OptionalStep
-    real(real64),intent(in)  :: OptionalTime
-    character(*),optional,intent(in)::SolverType
-    integer(int32)                 :: i,Step,ierr
-    real(real64)                 :: time
+   subroutine Simulator(world, OptionalStep, OptionalTime, SolverType)
+      class(Field_), target, intent(inout)   :: world
+      type(Simulator_), target             :: sim
+      !type(MPI_) :: mpidata
+      integer(int32), intent(in)  :: OptionalStep
+      real(real64), intent(in)  :: OptionalTime
+      character(*), optional, intent(in)::SolverType
+      integer(int32)                 :: i, Step, ierr
+      real(real64)                 :: time
 
-    step=OptionalStep
-    time=OptionalTime
+      step = OptionalStep
+      time = OptionalTime
 
-    call sim%Deploy(world)
-    call sim%SetTime(world,time,step)
-    do i=1,step
-        call sim%Run(world,i,SolverType=SolverType)
-        call sim%Display(world,i)
-    enddo
+      call sim%Deploy(world)
+      call sim%SetTime(world, time, step)
+      do i = 1, step
+         call sim%Run(world, i, SolverType=SolverType)
+         call sim%Display(world, i)
+      end do
 
-end subroutine
+   end subroutine
 !###################################################
 
-
-
-
 !###################################################
-subroutine RunSimulation(sim,field,step,SolverType)
-    type(Field_),target,intent(inout)  :: field
-    class(Simulator_),intent(inout) :: sim
-    integer(int32),intent(in)             :: step
-    character(*),Optional,intent(in)::SolverType
-    type(Term_)             :: term
-    integer(int32) :: i,n,ierr
-    
-    call InitializeTerm(term)
-    n=size(field%FEMDomainArray,1)
+   subroutine RunSimulation(sim, field, step, SolverType)
+      type(Field_), target, intent(inout)  :: field
+      class(Simulator_), intent(inout) :: sim
+      integer(int32), intent(in)             :: step
+      character(*), Optional, intent(in)::SolverType
+      type(Term_)             :: term
+      integer(int32) :: i, n, ierr
 
-    do i=1,n ! update all FEMDomain
-        if(field%FEMDomainArray(i)%SolverType=="DiffusionEq_" )then
-            if(step==1)then
-                ! ###### Diffusion Part ###################
-                call sim%DiffusionEq_Array(i)%Setup()
-                call sim%DiffusionEq_Array(i)%Solve(SolverType=SolverType)
-                ! ###### Diffusion Part ###################   
+      call InitializeTerm(term)
+      n = size(field%FEMDomainArray, 1)
+
+      do i = 1, n ! update all FEMDomain
+         if (field%FEMDomainArray(i)%SolverType == "DiffusionEq_") then
+            if (step == 1) then
+               ! ###### Diffusion Part ###################
+               call sim%DiffusionEq_Array(i)%Setup()
+               call sim%DiffusionEq_Array(i)%Solve(SolverType=SolverType)
+               ! ###### Diffusion Part ###################
             else
-                ! ###### Update Diffusion Field over timesteps ###################
-                call sim%DiffusionEq_Array(i)%Update()
-                call sim%DiffusionEq_Array(i)%Solve(SolverType=SolverType)
-                ! ###### Update Diffusion Field over timesteps ###################
-            endif
+               ! ###### Update Diffusion Field over timesteps ###################
+               call sim%DiffusionEq_Array(i)%Update()
+               call sim%DiffusionEq_Array(i)%Solve(SolverType=SolverType)
+               ! ###### Update Diffusion Field over timesteps ###################
+            end if
 
-
-        elseif(field%FEMDomainArray(i)%SolverType=="FiniteDeform_" )then
-            if(step==1)then
-                ! ###### Finite deformation part #############################   
-                call sim%FiniteDeform_Array(i)%DivideBC()
-                call sim%FiniteDeform_Array(i)%Solve(SolverType=SolverType)  
-                ! ###### Finite deformation part #############################
+         elseif (field%FEMDomainArray(i)%SolverType == "FiniteDeform_") then
+            if (step == 1) then
+               ! ###### Finite deformation part #############################
+               call sim%FiniteDeform_Array(i)%DivideBC()
+               call sim%FiniteDeform_Array(i)%Solve(SolverType=SolverType)
+               ! ###### Finite deformation part #############################
             else
-                ! ###### Update Finite Deformation over timesteps ###################
-                call sim%FiniteDeform_Array(i)%UpdateInitConfig()
-                call sim%FiniteDeform_Array(i)%UpdateBC()
-                call sim%FiniteDeform_Array(i)%Solve(SolverType=SolverType) 
-                ! ###### Update Finite Deformation over timesteps ###################
-            endif
-        else
-            print *, "RunSimulation >> Invalid Solver Name for domain : ",field%FEMDomainArray(i)%SolverType
+               ! ###### Update Finite Deformation over timesteps ###################
+               call sim%FiniteDeform_Array(i)%UpdateInitConfig()
+               call sim%FiniteDeform_Array(i)%UpdateBC()
+               call sim%FiniteDeform_Array(i)%Solve(SolverType=SolverType)
+               ! ###### Update Finite Deformation over timesteps ###################
+            end if
+         else
+            print *, "RunSimulation >> Invalid Solver Name for domain : ", field%FEMDomainArray(i)%SolverType
             stop
-        endif
-    enddo
+         end if
+      end do
 
-    n=size(field%FEMIfaceArray,1)
-    do i=1,n ! update all FEMDomain
-        if( field%FEMIfaceArray(i)%SolverType == "SyncMesh_")then
-            ! ###### SyncMesh #############################       
+      n = size(field%FEMIfaceArray, 1)
+      do i = 1, n ! update all FEMDomain
+         if (field%FEMIfaceArray(i)%SolverType == "SyncMesh_") then
+            ! ###### SyncMesh #############################
             call sim%MultiPhysics_Array(i)%SyncMesh()
-            ! ###### SyncMesh ############################# 
-        elseif(field%FEMIfaceArray(i)%SolverType == "ContactMechanics_")then
+            ! ###### SyncMesh #############################
+         elseif (field%FEMIfaceArray(i)%SolverType == "ContactMechanics_") then
             ! ###### Contact Analysis #############################
-            call sim%ContactMechanics_Array(i)%Update(WeakCoupling = .true.)
+            call sim%ContactMechanics_Array(i)%Update(WeakCoupling=.true.)
             ! ###### Contact Analysis #############################
-        else
-            print *, "RunSimulation >> Invalid Solver Name for interface : ",field%FEMIfaceArray(i)%SolverType
-        endif
+         else
+            print *, "RunSimulation >> Invalid Solver Name for interface : ", field%FEMIfaceArray(i)%SolverType
+         end if
 
-    enddo
-    
+      end do
 
-
-end subroutine
+   end subroutine
 !###################################################
 
-
-
-
-
-
 !###################################################
-subroutine InitializeSimulator(sim,field)
-    type(Field_    ),intent(inout) :: field
-    type(Simulator_),intent(inout) :: sim
+   subroutine InitializeSimulator(sim, field)
+      type(Field_), intent(inout) :: field
+      type(Simulator_), intent(inout) :: sim
 
-    integer(int32) :: n
-    n = size(field%FEMDomainArray,1)
-    allocate(sim%DiffusionEq_Array(n) )
-    allocate(sim%FiniteDeform_Array(n) )
+      integer(int32) :: n
+      n = size(field%FEMDomainArray, 1)
+      allocate (sim%DiffusionEq_Array(n))
+      allocate (sim%FiniteDeform_Array(n))
 
-    n = size(field%FEMIfaceArray,1)
-    allocate(sim%MultiPhysics_Array(n))
-    allocate(sim%ContactMechanics_Array(n))
-    
-    
-end subroutine
+      n = size(field%FEMIfaceArray, 1)
+      allocate (sim%MultiPhysics_Array(n))
+      allocate (sim%ContactMechanics_Array(n))
+
+   end subroutine
 !###################################################
 
-
-
 !###################################################
-subroutine DeploySimulator(sim,field)
-    type(Field_),target,intent(inout)  :: field
-    class(Simulator_),intent(inout) :: sim
-    integer(int32) :: i,j,n,DomainNum,ierr
+   subroutine DeploySimulator(sim, field)
+      type(Field_), target, intent(inout)  :: field
+      class(Simulator_), intent(inout) :: sim
+      integer(int32) :: i, j, n, DomainNum, ierr
 
-    if(.not.allocated(sim%DiffusionEq_Array) ) then
-        call InitializeSimulator(sim,field)
-    endif
+      if (.not. allocated(sim%DiffusionEq_Array)) then
+         call InitializeSimulator(sim, field)
+      end if
 
-    n=size(field%FEMDomainArray,1)
-    DomainNum=n
-    do i=1,n
-        if(field%FEMDomainArray(i)%SolverType=="DiffusionEq_" )then
+      n = size(field%FEMDomainArray, 1)
+      DomainNum = n
+      do i = 1, n
+         if (field%FEMDomainArray(i)%SolverType == "DiffusionEq_") then
             sim%DiffusionEq_Array(i)%FEMDomain => field%FEMDomainArray(i)
-        elseif(field%FEMDomainArray(i)%SolverType=="FiniteDeform_" )then
+         elseif (field%FEMDomainArray(i)%SolverType == "FiniteDeform_") then
             sim%FiniteDeform_Array(i)%FEMDomain => field%FEMDomainArray(i)
-        else
-            print *, "DeploySolver >> Invalid Solver Name : ",field%FEMDomainArray(i)%SolverType
+         else
+            print *, "DeploySolver >> Invalid Solver Name : ", field%FEMDomainArray(i)%SolverType
             stop
-        endif
-    enddo
+         end if
+      end do
 
-    n=size(field%FEMIfaceArray,1)
+      n = size(field%FEMIfaceArray, 1)
 
-    do i=1,n
-        if(field%FEMIfaceArray(i) %SolverType=="SyncMesh_" .or. &
-            field%FEMIfaceArray(i)%SolverType=="syncmesh_" )then
+      do i = 1, n
+         if (field%FEMIfaceArray(i)%SolverType == "SyncMesh_" .or. &
+             field%FEMIfaceArray(i)%SolverType == "syncmesh_") then
             sim%MultiPhysics_Array(i)%FEMIFace => field%FEMIfaceArray(i)
 
-            do j=1, DomainNum
-                if(sim%MultiPhysics_Array(i)%FEMIFace%FileNameDomain1 == &
-                    field%FEMDomainArray(j)%FileName  )then
-                    sim%MultiPhysics_Array(i)%FEMDomain1 => field%FEMDomainArray(j)
-                    
-                endif
-                if(sim%MultiPhysics_Array(i)%FEMIFace%FileNameDomain2 == &
-                    field%FEMDomainArray(j)%FileName  )then
-                    sim%MultiPhysics_Array(i)%FEMDomain2 => field%FEMDomainArray(j)
-                endif
-            enddo
-        elseif(field%FEMIfaceArray(i) %SolverType=="ContactMechanics_" .or. &
-            field%FEMIfaceArray(i)%SolverType=="contactmechanics_" )then
+            do j = 1, DomainNum
+               if (sim%MultiPhysics_Array(i)%FEMIFace%FileNameDomain1 == &
+                   field%FEMDomainArray(j)%FileName) then
+                  sim%MultiPhysics_Array(i)%FEMDomain1 => field%FEMDomainArray(j)
+
+               end if
+               if (sim%MultiPhysics_Array(i)%FEMIFace%FileNameDomain2 == &
+                   field%FEMDomainArray(j)%FileName) then
+                  sim%MultiPhysics_Array(i)%FEMDomain2 => field%FEMDomainArray(j)
+               end if
+            end do
+         elseif (field%FEMIfaceArray(i)%SolverType == "ContactMechanics_" .or. &
+                 field%FEMIfaceArray(i)%SolverType == "contactmechanics_") then
             sim%ContactMechanics_Array(i)%FEMIFace => field%FEMIfaceArray(i)
-            do j=1, DomainNum
-                if(sim%ContactMechanics_Array(i)%FEMIFace%FileNameDomain1 == &
-                    field%FEMDomainArray(j)%FileName  )then
-                    sim%ContactMechanics_Array(i)%FEMDomain1 => field%FEMDomainArray(j)
-                    
-                endif
-                if(sim%ContactMechanics_Array(i)%FEMIFace%FileNameDomain2 == &
-                    field%FEMDomainArray(j)%FileName  )then
-                    
-                    sim%ContactMechanics_Array(i)%FEMDomain2 => field%FEMDomainArray(j)
-                endif
-            enddo
+            do j = 1, DomainNum
+               if (sim%ContactMechanics_Array(i)%FEMIFace%FileNameDomain1 == &
+                   field%FEMDomainArray(j)%FileName) then
+                  sim%ContactMechanics_Array(i)%FEMDomain1 => field%FEMDomainArray(j)
 
-        
-        else
-            print *, "DeploySolver >> Invalid Solver Name : ",field%FEMIfaceArray(i) %SolverType
+               end if
+               if (sim%ContactMechanics_Array(i)%FEMIFace%FileNameDomain2 == &
+                   field%FEMDomainArray(j)%FileName) then
+
+                  sim%ContactMechanics_Array(i)%FEMDomain2 => field%FEMDomainArray(j)
+               end if
+            end do
+
+         else
+            print *, "DeploySolver >> Invalid Solver Name : ", field%FEMIfaceArray(i)%SolverType
             stop "debug"
-        endif
-    enddo
-end subroutine
+         end if
+      end do
+   end subroutine
 !###################################################
 
-
-
-
-
-
 !###################################################
-subroutine DisplaySimulation(sim,field,step)
+   subroutine DisplaySimulation(sim, field, step)
 
-    type(Field_),target,intent(inout)  :: field
-    class(Simulator_),intent(inout) :: sim
-    integer(int32),intent(in)             :: step
-    type(Term_)             :: term
-    integer(int32) :: i,n,ierr
+      type(Field_), target, intent(inout)  :: field
+      class(Simulator_), intent(inout) :: sim
+      integer(int32), intent(in)             :: step
+      type(Term_)             :: term
+      integer(int32) :: i, n, ierr
 
-    call InitializeTerm(term)
-    n=size(field%FEMDomainArray,1)
-    do i=1,n
-        if(field%FEMDomainArray(i)%SolverType=="DiffusionEq_" )then
+      call InitializeTerm(term)
+      n = size(field%FEMDomainArray, 1)
+      do i = 1, n
+         if (field%FEMDomainArray(i)%SolverType == "DiffusionEq_") then
             ! ########## Display Results #####################
-            call DisplayDiffusionEq(sim%DiffusionEq_Array(i),DisplayMode=term%gmsh,OptionalStep=step)
+            call DisplayDiffusionEq(sim%DiffusionEq_Array(i), DisplayMode=term%gmsh, OptionalStep=step)
             ! ########## Display Results #####################
 
-        elseif(field%FEMDomainArray(i)%SolverType=="FiniteDeform_" )then
+         elseif (field%FEMDomainArray(i)%SolverType == "FiniteDeform_") then
             ! ########## Display Results #####################
-            call DisplayDeformStress(sim%FiniteDeform_Array(i),Name=field%FieldList(2)%FieldObjName,&
-                DisplayMode=term%gmsh,OptionalStep=step)   
+            call DisplayDeformStress(sim%FiniteDeform_Array(i), Name=field%FieldList(2)%FieldObjName, &
+                                     DisplayMode=term%gmsh, OptionalStep=step)
             call DisplayReactionForce(sim%FiniteDeform_Array(i))
             ! ########## Display Results #####################
-        else
-            print *, "DeploySolver >> Invalid Solver Name : ",field%FEMDomainArray(i)%SolverType
+         else
+            print *, "DeploySolver >> Invalid Solver Name : ", field%FEMDomainArray(i)%SolverType
             stop
-        endif
-    enddo
+         end if
+      end do
 
-
-end subroutine
+   end subroutine
 !###################################################
 
-
-
-
-
-
 !###################################################
-subroutine SetSimulatorTime(sim,field,time,step)
+   subroutine SetSimulatorTime(sim, field, time, step)
 
-    type(Field_),target,intent(inout)  :: field
-    class(Simulator_),intent(inout) :: sim
-    real(real64),intent(in)  :: time
-    integer(int32),intent(in) :: step
-    integer(int32) :: i,n,ierr
-    
-    n=size(field%FEMDomainArray,1)
-    do i=1,n
-        if(field%FEMDomainArray(i)%SolverType=="DiffusionEq_" )then
+      type(Field_), target, intent(inout)  :: field
+      class(Simulator_), intent(inout) :: sim
+      real(real64), intent(in)  :: time
+      integer(int32), intent(in) :: step
+      integer(int32) :: i, n, ierr
+
+      n = size(field%FEMDomainArray, 1)
+      do i = 1, n
+         if (field%FEMDomainArray(i)%SolverType == "DiffusionEq_") then
             ! ########## Display Results #####################
-            field%FEMDomainArray(i)%ControlPara%Timestep=step
-            sim%DiffusionEq_Array(i)%dt=time/dble(field%FEMDomainArray(i)%ControlPara%Timestep)
+            field%FEMDomainArray(i)%ControlPara%Timestep = step
+            sim%DiffusionEq_Array(i)%dt = time/dble(field%FEMDomainArray(i)%ControlPara%Timestep)
             ! ########## Display Results #####################
 
-        elseif(field%FEMDomainArray(i)%SolverType=="FiniteDeform_" )then
-            field%FEMDomainArray(i)%ControlPara%Timestep=step
-            sim%FiniteDeform_Array(i)%dt=time/dble(field%FEMDomainArray(i)%ControlPara%Timestep)
-        else
-            print *, "DeploySolver >> Invalid Solver Name : ",field%FEMDomainArray(i)%SolverType
+         elseif (field%FEMDomainArray(i)%SolverType == "FiniteDeform_") then
+            field%FEMDomainArray(i)%ControlPara%Timestep = step
+            sim%FiniteDeform_Array(i)%dt = time/dble(field%FEMDomainArray(i)%ControlPara%Timestep)
+         else
+            print *, "DeploySolver >> Invalid Solver Name : ", field%FEMDomainArray(i)%SolverType
             stop
-        endif
-    enddo
+         end if
+      end do
 
-end subroutine 
+   end subroutine
 !###################################################
-
-
-
-
-
 
 end module
