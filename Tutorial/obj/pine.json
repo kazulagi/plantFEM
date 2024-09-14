@@ -13,7 +13,18 @@
         ],
         "Divisions":[
             10,
-            40
+            200
         ]
+    },
+    "Branch":{
+        "Branch_heights":[
+            7.0,
+            8.0
+        ],
+        "NumberOfBranch":30,
+        "DiameterOfBranch_ave":0.10,
+        "DiameterOfBranch_sig":0.01,
+        "AngleOfBranch_ave":90.0,
+        "AngleOfBranch_sig":1.0
     }
 }

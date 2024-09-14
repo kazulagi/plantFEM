@@ -1,6 +1,6 @@
 integer :: fh
-if(present(OptionalFileHandle) )then
-    fh=OptionalFileHandle
-endif
+if (present(OptionalFileHandle)) then
+   fh = OptionalFileHandle
+end if
 
-write(fh,*) size(Mat,RankNum)
+write (fh, *) size(Mat, RankNum)
