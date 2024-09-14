@@ -155,6 +155,7 @@ module FEMDomainClass
       procedure, public :: bakeNBoundaries => bakeNBoundariesFEMDomain
       procedure, public :: bakeTBoundaries => bakeTBoundariesFEMDomain
       procedure, public :: Boolean => BooleanFEMDomain
+      procedure, public :: bond => bondFEMDomain
 
       procedure, public :: checkConnectivity => CheckConnedctivityFEMDomain
       procedure, public :: connectivity => connectivityFEMDomain
@@ -202,6 +203,7 @@ module FEMDomainClass
       procedure, public :: field => fieldFEMDomain
       procedure, public :: fixReversedElements => fixReversedElementsFEMDomain
       procedure, public :: fit => fitFEMDomain
+      procedure, public :: fitSegmentToSegment => fitSegmentToSegmentFEMDomain
       procedure, public :: full => fullFEMDomain
 
       procedure, public :: gmshPlotMesh => GmshPlotMesh
@@ -236,6 +238,7 @@ module FEMDomainClass
       procedure, public ::        NodeID => NodeIDFEMDomain
       procedure, public ::        getElementID => getElementIDFEMDomain
       procedure, public ::        getNodeList => getNodeListFEMDomain
+      procedure, public :: getDuplicatedNodeList => getDuplicatedNodeListFEMDomain
 
       procedure, public :: has => hasFEMDomain
       procedure, public :: have => hasFEMDomain
@@ -256,6 +259,11 @@ module FEMDomainClass
       procedure, public :: getSingleFacetNodeID => getSingleFacetNodeIDFEMDomain
       procedure, public :: getFacetLocalNodeID => getFacetLocalNodeIDFEM
 
+      procedure,pass  :: getFacetList_by_range
+      procedure,pass  :: getFacetListFEMDomain
+
+      generic, public :: getFacetList => getFacetList_by_range, getFacetListFEMDomain
+      procedure,public :: getFacetList_as_Idx => getFacetList_as_Idx_by_range
       !procedure,public :: getNumberOfPoint => getNumberOfPointFEMDomain
 
       procedure, public :: getLocalCoordinate => getLocalCoordinateFEMDomain
@@ -529,6 +537,7 @@ module FEMDomainClass
    interface operator(+)
       module procedure appendfemdomain
    end interface
+
 
    interface ZeroMatrix_as_CRS
       module procedure ZeroMatrix_as_CRS_FEMDomains
@@ -13292,6 +13301,88 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
    end function
 ! #########################################################################
 
+   ! #########################################################################
+   function getFacetList_by_range(this, range) result(FacetList)
+      class(FEMDomain_), intent(inout) :: this
+      type(Range_), intent(in) :: range
+      integer(int32), allocatable :: FacetList(:, :) ! Node-ID =  FacetList(FacetID, LocalNodeID )
+      integer(int32) :: FacetIdx,i
+      integer(int32),allocatable :: inside_is_1(:)
+      real(real64) :: center(1:3)
+
+      call this%getSurface()
+
+      allocate(inside_is_1(size(this%mesh%FacetElemNod,1)) )
+      do FacetIdx=1,size(this%mesh%FacetElemNod,1)
+         do i=1,size(this%mesh%FacetElemNod,2)
+            center(:) = center(:) + this%mesh%nodcoord(this%mesh%FacetElemNod(FacetIdx,i) ,:)
+         enddo
+         center(:) = center(:)/dble(size(this%mesh%FacetElemNod,2))
+         if(center .in. range)then
+            inside_is_1(FacetIdx)=1
+         else
+            inside_is_1(FacetIdx)=0
+         endif
+      enddo
+
+      allocate(FacetList(sum(inside_is_1),size(this%mesh%FacetElemNod,2) ))
+      i = 0
+      do FacetIdx=1,size(inside_is_1)
+         if(inside_is_1(i)==1)then
+            i = i + 1
+            FacetList(i,:) = this%mesh%FacetElemNod(FacetIdx,:)
+         else
+            cycle
+         endif
+      enddo
+      
+
+   end function
+! #########################################################################
+
+
+
+   ! #########################################################################
+   function getFacetList_as_Idx_by_range(this, range) result(FacetList)
+      class(FEMDomain_), intent(inout) :: this
+      type(Range_), intent(in) :: range
+      integer(int32), allocatable :: FacetList(:) 
+      integer(int32) :: FacetIdx,i
+      integer(int32),allocatable :: inside_is_1(:)
+      real(real64) :: center(1:3)
+
+      call this%getSurface()
+
+      allocate(inside_is_1(size(this%mesh%FacetElemNod,1)) )
+      inside_is_1(:)=0
+      do FacetIdx=1,size(this%mesh%FacetElemNod,1)
+         center(:) = 0.0d0
+         do i=1,size(this%mesh%FacetElemNod,2)
+            center(:) = center(:) + this%mesh%nodcoord(this%mesh%FacetElemNod(FacetIdx,i) ,:)
+         enddo
+         center(:) = center(:)/dble(size(this%mesh%FacetElemNod,2))
+         
+         if(center .in. range)then
+            inside_is_1(FacetIdx)=1
+         endif
+      enddo
+
+
+      allocate(FacetList(sum(inside_is_1)))
+      i = 0
+      do FacetIdx=1,size(inside_is_1)
+         if(inside_is_1(FacetIdx)==1)then
+            i = i + 1
+            FacetList(i) = FacetIdx
+         else
+            cycle
+         endif
+      enddo
+      
+
+   end function
+! #########################################################################
+
    function getElementListFEMDomain(this, BoundingBox, xmin, xmax, ymin, ymax, zmin, zmax, NodeID) result(ElementList)
       class(FEMDomain_), intent(inout) :: this
       type(FEMDomain_), optional, intent(inout) :: BoundingBox
@@ -15355,6 +15446,7 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
       end do
 
       ! kill overlap nodes
+      
       call this%remove_duplication()
 
    end subroutine
@@ -15385,59 +15477,193 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
    end subroutine
 ! #################################################
 
+
 ! #################################################
-   subroutine remove_duplication_FEMDomain(this)
+   subroutine remove_duplication_FEMDomain(this,epsilon,debug)
       class(FEMDomain_), intent(inout) :: this
-      integer(int32), allocatable :: same_node_as(:), kill_node_list(:)
-      integer(int32) :: i, j, n
+      logical,optional,intent(in) :: debug
+      integer(int32), allocatable :: same_node_as(:), kill_node_list(:),order(:),buf(:,:),&
+         dupulicated_node_is_one(:),groupIdx(:),dup_node_list(:),dup_n(:),new_node_idx(:)
+      real(real64),allocatable :: new_nodcoord(:,:)
+      real(real64),optional,intent(in) :: epsilon
+      integer(int32) :: i, j, n, last_i,k
+      type(Time_) :: time
 
       ! remove duplicated points
       same_node_as = int(zeros(this%nn()))
       n = 0
-        !!$OMP parallel do private(j) reduction(+:n)
-      do i = 1, this%nn()
-         if (same_node_as(i) >= 1) cycle
-                !!$OMP parallel do private(j) reduction(+:n)
-         do j = i + 1, this%nn()
-            if (same_node_as(j) >= 1) cycle
-            if (norm(this%mesh%nodcoord(i, :) - this%mesh%nodcoord(j, :)) <= 1.0e-18) then
-               same_node_as(j) = i
-               n = n + 1
-               cycle
-            end if
-         end do
-                !!$OMP end parallel do
-      end do
-        !!$OMP end parallel do
+      if(present(debug) )then
+         if(debug)then
+            print *, "[ok] remove_duplication_FEMDomain >> started!@parallel"
+         endif
+      endif
 
-      if (n == 0) then
-         print *, "no duplicated nodes"
+      ! new algorithm
+      ! Quadtree :: "getDuplicatedNodeList()" has bug
+      
+      dup_node_list = this%getDuplicatedNodeList(groupIdx,epsilon)
+      
+      if(size(dup_node_list)<1 .or. .not.allocated(dup_node_list))then
+         
+         if(present(debug) )then
+            if(debug)then
+               print *, "[ok] remove_duplication_FEMDomain >> no dupulication of nodes"
+            endif
+         endif
          return
-      end if
+      endif
 
-      ! remove nodes
-      do i = 1, this%ne()
-         do j = 1, this%nne()
-            if (same_node_as(this%mesh%elemnod(i, j)) == 0) then
-               cycle
-            else
-               this%mesh%elemnod(i, j) = same_node_as(this%mesh%elemnod(i, j))
-            end if
-         end do
-      end do
+      allocate(kill_node_list(size(dup_node_list) - groupIdx(size(groupIdx))))
+      
 
-      allocate (kill_node_list(n))
-      kill_node_list(:) = 0
       n = 0
-      do i = 1, size(same_node_as)
-         if (same_node_as(i) /= 0) then
+      last_i = 0
+      new_node_idx = int(zeros(this%nn()) )
+      do i=1,size(dup_node_list)
+         if(i==size(dup_node_list))then
+            last_i = last_i + 1
+            
+            do j=last_i+1,i
+               new_node_idx(dup_node_list(j))=-dup_node_list(last_i)
+            enddo
+            exit
+         endif
+         if(groupIdx(i+1)==groupIdx(i) )then
             n = n + 1
-            kill_node_list(n) = i
-         end if
-      end do
+            kill_node_list(n)=dup_node_list(i+1)
+         else
+            ! groupIdx(i+1)/=groupIdx(i)
+            last_i = last_i + 1
+            
+            do j=last_i+1,i
+               new_node_idx(dup_node_list(j))=-dup_node_list(last_i)
+            enddo
+            last_i = i
+            cycle
+         endif
+         
+      enddo
 
-      call this%killNodes(NodeList=kill_node_list)
+      ! remove non-listed nodes and create new_node_idx(:)
+      n = 0
+      k = 0
+      do i=1,size(new_node_idx)
+         if(new_node_idx(i)<0 )then
+            cycle 
+         else
+            n = n + 1
+            new_node_idx(i) = n
+         endif
+      enddo
 
+      do i=1,size(new_node_idx)
+         if(new_node_idx(i)<0 )then
+            new_node_idx(i) = new_node_idx(abs(new_node_idx(i)))
+         else
+            cycle
+         endif
+      enddo
+      
+      do i=1,this%ne()
+         do j=1,this%nne()   
+            this%mesh%elemnod(i,j) = new_node_idx(this%mesh%elemnod(i,j))
+         enddo
+      enddo
+
+      !call this%killNodes(kill_node_list)
+      new_nodcoord = zeros(maxval(new_node_idx),this%nd()) 
+      do i=1,size(new_node_idx)
+         new_nodcoord(new_node_idx(i),: ) = this%mesh%nodcoord(i,:)
+      enddo
+      this%mesh%nodcoord = new_nodcoord
+      return
+
+      ! (1) sort coordinate & remove duplication
+      !order = [(i,i=1,this%nn())]
+      !buf = this%mesh%nodcoord
+      !print *, "sort and dup"
+      !call sort_and_remove_duplication(buf,order)
+      !deallocate(buf)
+      !allocate(dupulicated_node_is_one(this%nn()) )
+      !dupulicated_node_is_one(:) = 1
+      !dupulicated_node_is_one(order(:)) = 0
+      !allocate(kill_node_list(sum(dupulicated_node_is_one)) )
+      !j = 0
+      !do i=1,this%nn()
+      !   if(dupulicated_node_is_one(i)==1)then
+      !      j = j + 1
+      !      kill_node_list(j) = i
+      !   endif
+      !enddo
+      !print *, "kill-elem"
+      !call this%killNodes(NodeList=kill_node_list)
+      !return
+
+      ! following algorithm is slow.
+
+
+!      do i = 1, this%nn()
+!         if (same_node_as(i) >= 1) cycle
+!         do j = i + 1, this%nn()
+!            if (same_node_as(j) >= 1) cycle
+!            if (norm(this%mesh%nodcoord(i, :) - this%mesh%nodcoord(j, :)) <= 1.0e-18) then
+!               same_node_as(j) = i
+!               n = n + 1
+!               cycle
+!            end if
+!         end do
+!      end do
+!      
+!      if (n == 0) then
+!         print *, "no duplicated nodes"
+!         return
+!      end if
+!
+!
+!      if(present(debug) )then
+!         if(debug)then
+!            print *, "[ok] remove_duplication_FEMDomain >> searched"
+!         endif
+!      endif
+!
+!      ! remove nodes
+!      do i = 1, this%ne()
+!         do j = 1, this%nne()
+!            if (same_node_as(this%mesh%elemnod(i, j)) == 0) then
+!               cycle
+!            else
+!               this%mesh%elemnod(i, j) = same_node_as(this%mesh%elemnod(i, j))
+!            end if
+!         end do
+!      end do
+!
+!
+!      if(present(debug) )then
+!         if(debug)then
+!            print *, "[ok] remove_duplication_FEMDomain >> killed node selected"
+!         endif
+!      endif
+!
+!      allocate (kill_node_list(n))
+!      kill_node_list(:) = 0
+!      n = 0
+!      do i = 1, size(same_node_as)
+!         if (same_node_as(i) /= 0) then
+!            n = n + 1
+!            kill_node_list(n) = i
+!         end if
+!      end do
+!
+!
+!      call this%killNodes(NodeList=kill_node_list)
+!
+!
+!      if(present(debug) )then
+!         if(debug)then
+!            print *, "[ok] remove_duplication_FEMDomain >> finished"
+!         endif
+!      endif
+!      
    end subroutine
 ! #################################################
    subroutine cubeFEMDomain(this, x_num, y_num, z_num, &
@@ -16338,7 +16564,7 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
       end do
 
       if (maxval(target_facet) < size(Facet, 2)) return !もしFacetの節点すべてがinsideであるようなFacetがないならreturn
-      call debug%open("debug.txt", "a")
+      !call debug%open("debug.txt", "a")
       do i = 1, size(target_facet)
 
          if (target_facet(i) == size(Facet, 2)) then
@@ -16526,9 +16752,397 @@ subroutine extractFacetElementFEMDomain(this,SurfaceElements,repeat)
 
    this%mesh%nodcoord = this%mesh%nodcoord .v. newMesh%nodcoord
    this%mesh%elemnod = this%mesh%elemnod .v. newMesh%elemnod
-
-   call this%remove_duplication()
+   !call this%remove_duplication()
 end subroutine
+
+
+! ############################################################
+function getDuplicatedNodeListFEMDomain(this,groupIdx,epsilon) result(ret)
+   class(FEMDomain_),intent(in) :: this
+   integer(int32),allocatable,optional,intent(inout) :: groupIdx(:)
+   real(real64),optional,intent(in) :: epsilon
+   integer(int32),allocatable   :: ret(:),pointIdx(:)
+   real(real64) :: eps
+   real(real64):: xr(1:2),yr(1:2),zr(1:2)
+   integeR(int32) :: i
+   type(Time_) :: time
+
+
+   eps = input(default=dble(1.0e-18),option=epsilon)
+   ! find duplicated nodes by the binary search.
+   pointIdx = [(i,i=1,this%nn())]
+   
+   
+   ret = OcTreeSearch(this%mesh%nodcoord,pointIdx,eps)
+   if(size(ret)<1) return
+   if(present(groupIdx) )then
+      allocate(groupIdx(size(ret)))
+      groupIdx(1) = 1
+
+      do i=1,size(ret)-1
+         xr(1) = this%mesh%nodcoord(ret(i  ),1)
+         yr(1) = this%mesh%nodcoord(ret(i  ),2)
+         zr(1) = this%mesh%nodcoord(ret(i  ),3)
+         xr(2) = this%mesh%nodcoord(ret(i+1),1)
+         yr(2) = this%mesh%nodcoord(ret(i+1),2)
+         zr(2) = this%mesh%nodcoord(ret(i+1),3)
+         if(maxval([abs(xr(2)-xr(1)),abs(yr(2)-yr(1) ),abs(zr(2)-zr(1))] ) <= eps)then
+            groupIdx(i+1) = groupIdx(i)
+         else
+            groupIdx(i+1) = groupIdx(i) + 1
+         endif
+      end do
+   endif
+
+end function
+! ############################################################
+
+
+
+! ############################################################
+recursive function OcTreeSearch(Points,PointIdx,MinimumDist) result(ret)
+   real(real64),intent(in) :: Points(:,:), MinimumDist
+   integer(int32),intent(in) :: PointIdx(:)
+   real(real64),allocatable :: miniPoints(:,:)
+   integer(int32),allocatable :: point_category(:),idx(:)
+   integer(int32),allocatable :: miniPointIdx(:),ret(:),dupPointIdx(:)
+   type(IO_) :: f
+   integer(int32) :: num_cat(1:8)
+   real(real64):: xr(1:2),yr(1:2),zr(1:2),borders(1:3)
+   integer(int32) :: i, j, k 
+
+   xr(1) = minval(Points(:,1)); xr(2) = maxval(Points(:,1));
+   yr(1) = minval(Points(:,2)); yr(2) = maxval(Points(:,2));
+   zr(1) = minval(Points(:,3)); zr(2) = maxval(Points(:,3));
+   borders(1) = average(xr)
+   borders(2) = average(yr)
+   borders(3) = average(zr)
+   num_cat(:) = 0
+
+   if(size(Points,1 )<=1) then
+      allocate(ret(0))
+      return
+   endif
+   
+   
+   if(maxval([abs(xr(2)-xr(1)),abs(yr(2)-yr(1) ),abs(zr(2)-zr(1))] ) <= MinimumDist ) then
+      ret = PointIdx
+      return
+   else
+      
+   
+      allocate(point_category(size(Points,1)) )   
+      
+      !$OMP parallel do reduction(+:num_cat)
+      do i=1,size(Points,1)
+         if(Points(i,1) < borders(1) )then
+            if(Points(i,2) < borders(2) )then
+               if(Points(i,3) < borders(3) )then
+                  point_category(i) = 1
+                  num_cat(1) = num_cat(1) + 1
+               else
+                  point_category(i) = 2
+                  num_cat(2) = num_cat(2) + 1
+               endif
+            else
+               if(Points(i,3) < borders(3) )then
+                  point_category(i) = 3
+                  num_cat(3) = num_cat(3) + 1
+               else
+                  point_category(i) = 4
+                  num_cat(4) = num_cat(4) + 1
+               endif
+            endif
+         else
+            if(Points(i,2) < borders(2) )then
+               if(Points(i,3) < borders(3) )then
+                  point_category(i) = 5
+                  num_cat(5) = num_cat(5) + 1
+               else
+                  point_category(i) = 6
+                  num_cat(6) = num_cat(6) + 1
+               endif
+            else
+               if(Points(i,3) < borders(3) )then
+                  point_category(i) = 7
+                  num_cat(7) = num_cat(7) + 1
+               else
+                  point_category(i) = 8
+                  num_cat(8) = num_cat(8) + 1
+               endif
+            endif
+         endif
+      enddo
+      !$OMP end parallel do
+
+
+
+      do i=1,size(num_cat)
+         if(num_cat(i)<=1 )then
+            cycle
+         endif
+         Idx= int(zeros((num_cat(i))))
+
+         k = 0
+         do j=1, size(point_category)
+            if(point_category(j)==i)then
+               k = k + 1
+               Idx(k) = j
+            endif
+         enddo
+
+         miniPoints = Points(Idx(:),:)
+         miniPointIdx = PointIdx(Idx(:))
+         
+         
+         dupPointIdx = OcTreeSearch(&
+            Points=miniPoints,PointIdx=miniPointIdx,MinimumDist=MinimumDist)
+
+         if(size(dupPointIdx)==0) then
+            ! duplicated!
+            cycle
+         else
+            if(.not.allocated(ret) )then
+               ret = dupPointIdx
+            else
+               if(size(ret)==0)then
+                  ret = dupPointIdx
+               else
+                  ret = ret // dupPointIdx
+               endif
+            endif
+            cycle
+         endif
+      enddo
+
+
+   endif
+   if(.not.allocated(ret))then
+      allocate(ret(0))
+   endif
+
+
+end function
+
+
+! ############################################################
+
+
+subroutine bondFEMDomain(this,domain,radius) 
+   class(FEMDomain_),target,intent(inout) :: this
+   type(FEMDomain_) ,target,intent(inout) :: domain
+   type(FEMDomainp_) :: femdomain_pointers(1:2)
+   integer(int32),allocatable :: this_segment_list(:),domain_segment_list(:),&
+      kill_node_list(:)
+   type(Range_) :: cross_section
+   real(real64) :: radius
+
+   ! surface matching
+   femdomain_pointers(1)%femdomainp => this
+   femdomain_pointers(2)%femdomainp => domain
+   cross_section = getCrossSection_FEMDomain(femdomain_pointers=femdomain_pointers)
+   call print(cross_section)
+   this_segment_list   = this%getFacetList_as_Idx(range=cross_section)
+   domain_segment_list = domain%getFacetList_as_Idx(range=cross_section)
+
+   call print(size(this_segment_list))
+   call print(size(domain_segment_list))
+
+   call this%fitSegmentToSegment(&
+         target_domain=domain,&
+         this_segment_list=this_segment_list,&
+         domain_segment_list=domain_segment_list, &
+         kill_node_list=kill_node_list &
+      )
+   
+   this%mesh%elemnod = this%mesh%elemnod .v. (domain%mesh%elemnod + this%nn())
+   this%mesh%nodcoord = this%mesh%nodcoord .v. domain%mesh%nodcoord
+   
+   call this%remove_duplication()
+
+
+
+end subroutine
+
+! #############################################################
+function getCrossSection_FEMDomain(femdomain_pointers) result(ret)
+   type(FEMDomainp_),intent(in) :: femdomain_pointers(:)
+   type(Range_),allocatable :: domain_rects(:)
+   type(Range_) :: ret
+   integer(int32) :: i
+   
+   allocate(domain_rects(size(femdomain_pointers)))
+
+   do i=1,size(femdomain_pointers)
+      domain_rects(i) = to_range(&
+         x_min=minval(femdomain_pointers(i)%femdomainp%mesh%nodcoord(:,1)) ,&
+         x_max=maxval(femdomain_pointers(i)%femdomainp%mesh%nodcoord(:,1))  ,&
+         y_min=minval(femdomain_pointers(i)%femdomainp%mesh%nodcoord(:,2))  ,&
+         y_max=maxval(femdomain_pointers(i)%femdomainp%mesh%nodcoord(:,2))  ,&
+         z_min=minval(femdomain_pointers(i)%femdomainp%mesh%nodcoord(:,3))  ,&
+         z_max=maxval(femdomain_pointers(i)%femdomainp%mesh%nodcoord(:,3))  &
+      )
+   enddo
+
+   ret = domain_rects(1)
+   do i=2,size(domain_rects)
+      ret = ret .and. domain_rects(i)
+   enddo
+
+end function
+! #############################################################
+
+! #############################################################
+subroutine fitSegmentToSegmentFEMDomain(this,target_domain,this_segment_list,domain_segment_list,kill_node_list)
+   class(FEMDomain_),intent(in) :: this
+   type(FEMDomain_),intent(inout) :: target_domain ! edit this one.
+   integer(int32),intent(in) :: this_segment_list(:),domain_segment_list(:)
+   integer,allocatable,intent(inout):: kill_node_list(:)
+   integer(int32),allocatable :: pairing(:), pairing_order(:), IdxList(:)
+   real(real64),allocatable :: this_facet_centers(:,:),domain_facet_centers(:,:),xd(:),xt(:),&
+      dist_val(:)
+   integer(int32) :: i,j,idx,t_node_idx,d_node_idx,itr
+   logical,allocatable :: moved(:)
+
+   type(IO_) :: f
+
+   !call f%open("debug.txt","w")
+   ! mode segment listed in "domain_segment_list" so that
+   ! all segments fit to the corresponding "this_segment_list"
+   
+   !(1) get center coordinate
+   this_facet_centers = zeros( size(this_segment_list), this%nd() )
+   do i = 1, size(this_segment_list)
+      do j=1,size(target_domain%mesh%FacetElemNod,2)
+         idx = target_domain%mesh%FacetElemNod(this_segment_list(i),j)
+         this_facet_centers(i,:) = this_facet_centers(i,:) + target_domain%mesh%nodcoord(idx,:)
+      enddo
+      this_facet_centers(i,:) = this_facet_centers(i,:)/dble(size(target_domain%mesh%FacetElemNod,2))
+   enddo
+
+   domain_facet_centers = zeros( size(domain_segment_list), this%nd() )
+   do i = 1, size(domain_segment_list)
+      do j=1,size(target_domain%mesh%FacetElemNod,2)
+         idx = target_domain%mesh%FacetElemNod(domain_segment_list(i),j)
+         domain_facet_centers(i,:) = domain_facet_centers(i,:) + target_domain%mesh%nodcoord(idx,:)
+      enddo
+      domain_facet_centers(i,:) = domain_facet_centers(i,:)/dble(size(target_domain%mesh%FacetElemNod,2))
+   enddo
+
+   !(2) find nearest segment for each segment in target domain
+   pairing = int(zeros(size(domain_segment_list)) )
+   dist_val = zeros(size(domain_segment_list))
+   do i = 1, size(domain_segment_list)
+      xd = domain_facet_centers(i,:)
+      xt = this_facet_centers(1,:)
+      pairing(i)  = this_segment_list(1)
+      dist_val(i) = dot_product(xd-xt,xd-xt)
+      do j=1,size(this_segment_list)
+         xt = this_facet_centers(j,:)
+         if(dot_product(xd-xt,xd-xt) < dist_val(i))then
+            pairing(i)  = this_segment_list(j)
+            dist_val(i) = dot_product(xd-xt,xd-xt)
+         endif
+      enddo
+   enddo
+   
+
+   !(3) find order
+   pairing_order = int(zeros(size(domain_segment_list)) )
+   do i=1,size(domain_segment_list)
+      pairing_order = find_facet_pairing_FEMDomain(&
+         DomainA = target_domain,&
+         DomainB = this,&
+         FacetA  = target_domain%mesh%FacetElemNod(&
+            domain_segment_list(i),: ) ,&
+         FacetB  = this%mesh%FacetElemNod(&
+            pairing(i),: ) )
+   enddo
+
+
+   !(4) Fit coordinates
+   if(allocated(kill_node_list))then
+      deallocate(kill_node_list)
+   endif
+   allocate(kill_node_list(size(domain_segment_list)*size(target_domain%mesh%FacetElemNod,2)))
+   itr = 0
+   do i=1,size(domain_segment_list)
+      do j=1,size(target_domain%mesh%FacetElemNod,2)
+         IdxList = target_domain%mesh%FacetElemNod(domain_segment_list(i),:)
+         IdxList = cycle_vector(reverse(IdxList),pairing_order(i))
+         d_node_idx = IdxList(j)
+         t_node_idx = this%mesh%FacetElemNod(pairing(i),j)
+         itr = itr + 1
+         kill_node_list(itr) = d_node_idx
+         target_domain%mesh%nodcoord(d_node_idx,:) = this%mesh%nodcoord(t_node_idx,:)
+      enddo
+   enddo
+
+  
+
+
+end subroutine
+! #############################################################
+
+
+
+! #############################################################
+function cycle_vector(vec,n)  result(ret)
+   integer(int32),intent(in)  :: vec(:)
+   integer(int32),intent(in)  :: n
+   integer(int32),allocatable :: ret(:)
+   integer(int32) :: m,k
+
+   if (n > 0) then
+      m = mod(n,size(vec))
+      if ( m == 0 ) then
+         ret = vec
+      else
+         k = size(vec)
+         ret = vec(m+1:k) // vec(1:m)
+      endif
+   else
+      m = mod(abs(n),size(vec))
+      m = 4 - m
+      if ( m == 0 ) then
+         ret = vec
+      else
+         k = size(vec)
+         ret = vec(m+1:k) // vec(1:m)
+      endif
+   endif
+
+end function cycle_vector
+! #############################################################
+
+
+! #############################################################
+function find_facet_pairing_FEMDomain(DomainA,DomainB,FacetA,FacetB) result(ret)
+   type(FEMDomain_),intent(in) :: DomainA,DomainB
+   integer(int32),intent(in) :: FacetA(:),FacetB(:)
+   real(real64),allocatable  :: dist_val(:),x(:)
+   integer(int32),allocatable :: bufA(:),bufB(:)
+   integer(int32) :: ret 
+   integer(int32) :: i, j,AIdx,BIdx
+
+   ! A: slab (not slave!)
+   ! B: master
+
+   dist_val = zeros(size(FacetA))
+   do i=1,size(FacetA)
+      bufA = cycle_vector(reverse(FacetA),i)
+      bufB = FacetB
+      do j=1,size(FacetA)
+         AIdx = bufA(j)
+         BIdx = bufB(j)
+         x = DomainA%mesh%nodcoord(AIdx,:) - DomainA%mesh%nodcoord(BIdx,:) 
+         dist_val(i) = dist_val(i) + dot_product(x,x)
+      enddo
+   enddo
+   ret = minvalID(dist_val)
+   
+end function
+! #############################################################
 
 
 

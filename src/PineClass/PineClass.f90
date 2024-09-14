@@ -105,6 +105,9 @@ contains
       ! >>>>>> branching >>>>>> 
       vec = [(i_i,i_i=1,size(surface_elements,1))]
       surface_elements = surface_elements(random%draw(vec,this%NumberOfBranch),:)
+      if(debug_mode)then
+         print *, "[ok] :: PineClass :: Branching points are identified!"
+      endif
       call this%stem(1)%femdomain%extract(SurfaceElements=surface_elements,repeat=200)
 
    end subroutine

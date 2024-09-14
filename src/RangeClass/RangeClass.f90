@@ -38,11 +38,17 @@ module RangeClass
    end interface print
 
    interface operator(.in.)
-      module procedure :: in_detect_by_range_int32, in_detect_by_range_real64, in_int32_int32vector
+      module procedure :: in_detect_by_range_int32, in_detect_by_range_real64, &
+            in_int32_int32vector,in_detect_by_range_xyz_real64
+   end interface
+
+   interface operator(.and.)
+      module procedure :: and_rect_real64
    end interface
 
 contains
 
+   ! ###############################################################
    function in_int32_int32vector(intval, intlist) result(ret)
       integer(int32), intent(in) :: intval, intlist(:)
       integer(int32) :: i
@@ -57,7 +63,10 @@ contains
       end do
 
    end function
+   ! ###############################################################
 
+
+   ! ###############################################################
    function in_detect_by_range_int32(intval, in_range) result(ret)
       integer(int32), intent(in) :: intval
       type(Range_), intent(in) :: in_range
@@ -66,15 +75,45 @@ contains
       ret = (in_range%x_range(1) <= dble(intval)) .and. (dble(intval) <= in_range%x_range(2))
 
    end function
+   ! ###############################################################
 
-   function in_detect_by_range_real64(intval, in_range) result(ret)
-      real(real64), intent(in) :: intval
+
+
+   ! ###############################################################
+   function in_detect_by_range_real64(real64val, in_range) result(ret)
+      real(real64), intent(in) :: real64val
       type(Range_), intent(in) :: in_range
       logical :: ret
 
-      ret = (in_range%x_range(1) <= intval) .and. (intval <= in_range%x_range(2))
+      ret = (in_range%x_range(1) <= real64val) .and. (real64val <= in_range%x_range(2))
 
    end function
+   ! ###############################################################
+
+
+
+   ! ###############################################################
+   function in_detect_by_range_xyz_real64(real64val, in_range) result(ret)
+      real(real64), intent(in) :: real64val(:)
+      type(Range_), intent(in) :: in_range
+      logical :: ret
+
+      if(size(real64val)==2 )then
+         ret =    ((in_range%x_range(1) <= real64val(1)) .and. (real64val(1)  <= in_range%x_range(2))) &
+            .and. ((in_range%y_range(1) <= real64val(2)) .and. (real64val(2) <= in_range%y_range(2)))
+      elseif(size(real64val)==3 )then
+         ret =    ((in_range%x_range(1) <= real64val(1)) .and. (real64val(1) <= in_range%x_range(2))) &
+            .and. ((in_range%y_range(1) <= real64val(2)) .and. (real64val(2) <= in_range%y_range(2))) &
+            .and. ((in_range%z_range(1) <= real64val(3)) .and. (real64val(3) <= in_range%z_range(2))) 
+      else
+         ret = (in_range%x_range(1) <= real64val(1)) .and. (real64val(1) <= in_range%x_range(2))
+      endif
+
+   end function
+   ! ###############################################################
+
+
+
 
    function to_range_int32(from_to) result(ret_range)
       type(Range_) :: ret_range
@@ -271,22 +310,22 @@ contains
       inside_is_true = .true.
       do i = 1, size(point)
          if (i == 1) then
-            if (this%x_range(1) > point(i) .or. this%x_range(2) < point(i)) then
+            if (this%x_range(1) >= point(i) .or. this%x_range(2) <= point(i)) then
                inside_is_true = .false.
                return
             end if
          elseif (i == 2) then
-            if (this%y_range(1) > point(i) .or. this%y_range(2) < point(i)) then
+            if (this%y_range(1) >= point(i) .or. this%y_range(2) <= point(i)) then
                inside_is_true = .false.
                return
             end if
          elseif (i == 3) then
-            if (this%z_range(1) > point(i) .or. this%z_range(2) < point(i)) then
+            if (this%z_range(1) >= point(i) .or. this%z_range(2) <= point(i)) then
                inside_is_true = .false.
                return
             end if
          elseif (i == 4) then
-            if (this%t_range(1) > point(i) .or. this%t_range(2) < point(i)) then
+            if (this%t_range(1) >= point(i) .or. this%t_range(2) <= point(i)) then
                inside_is_true = .false.
                return
             end if
@@ -294,7 +333,7 @@ contains
       end do
 
    end function
-
+! #########################################################
    subroutine printRange(range)
       type(Range_),intent(in) :: range
 
@@ -302,5 +341,29 @@ contains
       print *, "[",range%y_range(1),",",range%y_range(2),"]"
       print *, "[",range%z_range(1),",",range%z_range(2),"]"
    end subroutine
+
+! #########################################################
+elemental function and_rect_real64(range1,range2) result(ret)
+   type(Range_),intent(in) :: range1,range2
+   type(Range_) :: ret
+
+   ret%x_range(1) = maxval([range1%x_range(1),range2%x_range(1)])
+   ret%x_range(2) = minval([range1%x_range(2),range2%x_range(2)])
+   ret%y_range(1) = maxval([range1%y_range(1),range2%y_range(1)])
+   ret%y_range(2) = minval([range1%y_range(2),range2%y_range(2)])
+   ret%z_range(1) = maxval([range1%z_range(1),range2%z_range(1)])
+   ret%z_range(2) = minval([range1%z_range(2),range2%z_range(2)])
+   
+   if(ret%x_range(1) > ret%x_range(2))then
+      ret%x_range(:) = 0.0d0 
+   endif
+   if(ret%y_range(1) > ret%y_range(2))then
+      ret%y_range(:) = 0.0d0 
+   endif
+   if(ret%z_range(1) > ret%z_range(2))then
+      ret%z_range(:) = 0.0d0 
+   endif
+
+end function
 
 end module RangeClass

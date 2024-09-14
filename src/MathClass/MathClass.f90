@@ -68,8 +68,13 @@ module MathClass
    end interface sort
 
    interface heapsort
-      module procedure :: heapsortInt32, heapsortInt32Int32, heapsortReal64, heapsortReal32,&
-            heapsort_int32_array
+      module procedure :: heapsortInt32, heapsortInt32Int32,heapsortReal64Int32,&
+             heapsortReal64, heapsortReal32,&
+            heapsort_int32_array,heapsort_real64_array
+   end interface
+
+   interface sort_and_remove_duplication
+      module procedure  :: sort_and_remove_duplication_int32, sort_and_remove_duplication_real64
    end interface
 
    interface str
@@ -1066,7 +1071,76 @@ pure   subroutine heapsortInt32(n, array, val)
       end do
 
    end subroutine heapsortInt32Int32
-!==========================================================
+!##################################################
+   pure  subroutine heapsortReal64Int32(n, array, val)
+      integer(int32), intent(in) :: n
+      real(real64), intent(inout) :: array(1:n)! rearrange order by this array
+      integer(int32), intent(inout) :: val(1:n) ! linked data
+      real(real64) :: t_real
+      integer(int32) ::i, k, j, l
+      real(real64) :: t
+
+      if (n .le. 0) then
+         !write (6, *) "Error, at heapsort"; stop
+         !print *, "Error, at heapsort"
+         return
+      end if
+      if (n .eq. 1) return
+
+      l = n/2 + 1
+      k = n
+      do while (k .ne. 1)
+         if (l .gt. 1) then
+            l = l - 1
+            t = array(L)
+
+            t_real = val(L)
+
+         else
+            t = array(k)
+
+            t_real = val(k)
+
+            array(k) = array(1)
+
+            val(k) = val(1)
+
+            k = k - 1
+            if (k .eq. 1) then
+               array(1) = t
+
+               val(1) = t_real
+
+               exit
+            end if
+         end if
+         i = l
+         j = l + l
+         do while (j .le. k)
+            if (j .lt. k) then
+               if (array(j) .lt. array(j + 1)) j = j + 1
+
+            end if
+            if (t .lt. array(j)) then
+               array(i) = array(j)
+               val(i) = val(j)
+
+               i = j
+               j = j + j
+            else
+               j = k + 1
+            end if
+         end do
+         array(i) = t
+
+         val(i) = t_real
+
+      end do
+
+   end subroutine heapsortReal64Int32
+
+
+   !==========================================================
 !calculate cross product
 !---------------------------
    pure function cross_product(a, b) result(c)
@@ -3212,6 +3286,8 @@ pure   subroutine heapsortInt32(n, array, val)
 
 ! ###########################################################
 
+
+
 ! ###########################################################
    recursive subroutine heapsort_int32_array(array,order,exec_row_sort)
       integer(int32),intent(inout) :: array(:,:)
@@ -3386,8 +3462,188 @@ pure   subroutine heapsortInt32(n, array, val)
    end subroutine
 ! ###########################################################
 
+
+
+   
 ! ###########################################################
-   subroutine sort_and_remove_duplication(array,order)
+   recursive subroutine heapsort_real64_array(array,order,exec_row_sort)
+      real(real64),intent(inout) :: array(:,:)
+      integer(int32),allocatable,optional,intent(inout) :: order(:)
+      logical,optional,intent(in) :: exec_row_sort
+      real(real64),allocatable :: buf(:),colbuf(:),arraybuf(:,:)
+      integer(int32),allocatable :: new_order(:),orderbuf(:)
+      integer(int32),allocatable :: from_to(:,:)
+      integer(int32) :: i, j, from, to, k, n_from_to
+      logical :: row_sort
+      
+      !if(present(order) )then
+      !   if(.not.allocated(order))then
+      !      order = [(i,i=1,size(array,1))]
+      !   endif
+      !endif
+      row_sort = .true.
+      if(present(exec_row_sort) )then
+         row_sort = exec_row_sort
+      endif
+
+      ! 各行をソート
+      allocate(buf(size(array,2)) )
+      if(size(array,2)>2 .and. row_sort)then
+         !$OMP parallel do private(buf) shared(array)
+         !do concurrent(i=1:size(array,1))
+         do i=1,size(array,1)
+            buf(:) = array(i,:)
+            ! 行内入れ替えではorderは変えず
+            call heapsortReal64(n=size(buf),array=buf)
+            array(i,:) = buf(:)
+         end do
+         !$OMP end parallel do
+      end if
+
+      ! 1回1列目でソート
+      colbuf = array(:,1)
+      new_order = [(i,i=1,size(colbuf))]
+      call heapsortReal64Int32(n=size(colbuf),array=colbuf,val=new_order)
+      
+      ! new_orderによってorderを並び替え
+      
+
+      arraybuf = array
+      array(:,:) = arraybuf(new_order(:),:)
+      if(present(order) )then
+         order(:) = order(new_order(:))
+      endif
+      ! debug
+      !return
+
+      if(size(array,2)==1 )then
+         return
+      endif
+      
+      ! もしcolumが2以上あれば，再帰
+      n_from_to = 0
+      j=1
+      do 
+         if(j>=size(array,1) )exit
+         from = j
+         do to=j+1,size(array,1)
+            if(array(from,1)==array(to,1))then
+               cycle
+            else
+               exit
+            endif
+         end do
+         
+      
+         if(to-from>1)then
+            if(size(array,2)>1 )then
+               
+               !arraybuf = array(from:to-1,2:)
+               !orderbuf = order(from:to-1)
+               !
+               !call heapsort_int32_array(arraybuf,orderbuf,exec_row_sort=.false.)
+               !
+               !array(from:to-1,2:) = arraybuf(:,:)
+               !order(from:to-1) = orderbuf(:)
+               n_from_to = n_from_to + 1
+               j = to 
+               cycle
+            endif
+         endif
+         j = j + 1
+      end do
+
+      allocate(from_to(n_from_to,2))
+      n_from_to = 0
+      j=1
+      do 
+         if(j>=size(array,1) )exit
+         from = j
+         do to=j+1,size(array,1)
+            if(array(from,1)==array(to,1))then
+               cycle
+            else
+               exit
+            endif
+         end do
+         
+      
+         if(to-from>1)then
+            if(size(array,2)>1 )then
+               
+               !arraybuf = array(from:to-1,2:)
+               !orderbuf = order(from:to-1)
+               !
+               !call heapsort_int32_array(arraybuf,orderbuf,exec_row_sort=.false.)
+               !
+               !array(from:to-1,2:) = arraybuf(:,:)
+               !order(from:to-1) = orderbuf(:)
+               n_from_to = n_from_to + 1
+               from_to(n_from_to,1) = from
+               from_to(n_from_to,2) = to 
+               j = to 
+               cycle
+            endif
+         endif
+         j = j + 1
+      end do
+
+      !$OMP parallel do private(from,to,arraybuf,orderbuf) shared(array,order)
+      do n_from_to=1,size(from_to,1)
+         from = from_to(n_from_to,1)
+         to   = from_to(n_from_to,2)
+         arraybuf = array(from:to-1,2:)
+         if(present(order) )then
+            orderbuf = order(from:to-1)
+         endif
+         
+         call heapsort_real64_array(arraybuf,orderbuf,exec_row_sort=.false.)
+         
+         array(from:to-1,2:) = arraybuf(:,:)
+         if(present(order) )then
+            order(from:to-1) = orderbuf(:)
+         endif
+      enddo
+      !$OMP end parallel do
+
+      ! >> non-parallelization
+      !j=1
+      !do 
+      !   if(j>=size(array,1) )exit
+      !   from = j
+      !   do to=j+1,size(array,1)
+      !      if(array(from,1)==array(to,1))then
+      !         cycle
+      !      else
+      !         exit
+      !      endif
+      !   end do
+      !   
+      !
+      !   if(to-from>1)then
+      !      if(size(array,2)>1 )then
+      !         
+      !         arraybuf = array(from:to-1,2:)
+      !         orderbuf = order(from:to-1)
+      !         
+      !         call heapsort_int32_array(arraybuf,orderbuf,exec_row_sort=.false.)
+      !         
+      !         array(from:to-1,2:) = arraybuf(:,:)
+      !         order(from:to-1) = orderbuf(:)
+      !         j = to 
+      !         cycle
+      !      endif
+      !   endif
+      !   j = j + 1
+      !end do
+
+   end subroutine
+! ###########################################################
+
+
+
+! ###########################################################
+   subroutine sort_and_remove_duplication_int32(array,order)
       integer(int32),allocatable,intent(inout) :: array(:,:)
       integer(int32),allocatable,optional,intent(inout) :: order(:)
       integer(int32),allocatable :: buf(:),arraybuf(:,:),orderbuf(:)
@@ -3439,6 +3695,63 @@ pure   subroutine heapsortInt32(n, array, val)
       
    end subroutine
 ! ###########################################################
+
+! ###########################################################
+   subroutine sort_and_remove_duplication_real64(array,order)
+      real(real64),allocatable,intent(inout) :: array(:,:)
+      integer(int32),allocatable,optional,intent(inout) :: order(:)
+      integer(int32),allocatable :: buf(:),arraybuf(:,:)
+      integer(int32),allocatable :: orderbuf(:)
+      integer(int32) :: i,j,count_minus_one,itr
+      real(real64) :: offset
+
+      offset = minval(array)
+      array = array - offset + 1.0d0
+      call heapsort(array,order)
+
+      do i=1,size(array,1)
+         buf = array(i,:)
+         do j=i+1,size(array,1)-1
+            if( maxval(abs(buf(:)-array(j,:)))==0.0d0)then
+               array(i,:) = -1.0d0
+               array(j,:) = -1.0d0
+            else
+               exit
+            endif
+         enddo
+      end do
+      
+      count_minus_one = 0
+      do i=1,size(array,1)
+         if(array(i,1)==-1 )then
+            count_minus_one = count_minus_one + 1
+         endif
+      enddo
+      
+      arraybuf = array
+      deallocate(array)
+      allocate(array(size(arraybuf,1)-count_minus_one,size(arraybuf,2)))
+      if(present(order) )then
+         orderbuf = order
+         order = 0*orderbuf(1:size(arraybuf,1)-count_minus_one)
+      endif
+      itr = 0
+      do i=1,size(arraybuf,1)
+         if(arraybuf(i,1)==-1 )then
+            cycle
+         else
+            itr = itr + 1
+            array(itr,:) = arraybuf(i,:)
+            if(present(order) )then
+               order(itr) = orderbuf(i)
+            endif
+         endif
+      enddo
+      array = array + offset - 1.0d0
+      
+   end subroutine
+! ###########################################################
+
 
 
 end module MathClass
