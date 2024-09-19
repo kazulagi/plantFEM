@@ -53,6 +53,12 @@ echo "Compiling ./src/IOClass/IOClass.f90      "
 echo " >> IOClass.o"
 echo " | =>                          | (2%)\r\c "
 gfortran -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/IOClass/IOClass.f90 -o  ./inc/IOClass.o
+
+echo "Compiling ./src/PlotClass/PlotClass.f90      "
+echo " >> PlotClass.o"
+echo " | =>                          | (2%)\r\c "
+gfortran -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlotClass/PlotClass.f90 -o  ./inc/PlotClass.o
+
 echo "Compiling ./src/HTMLClass/HTMLClass.f90      "
 echo " >> HTMLClass.o"
 echo " | =>                          | (2%)\r\c "
@@ -352,10 +358,28 @@ echo " >> SoilClass.o "
 echo " | =========================> |  (99%)\r\c"
 gfortran -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SoilClass/SoilClass.f90 -o  ./inc/SoilClass.o
 
+echo "Compiling ./src/PineClass/PineClass.f90" 
+echo " >> PineClass.o "
+echo " | =========================> |  (99%)\r\c"
+gfortran -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PineClass/PineClass.f90 -o  ./inc/PineClass.o
+
 echo "Compiling ./src/SoybeanClass/SoybeanClass.f90" 
 echo " >> SoybeanClass.o "
 echo " | =========================> |  (99%)\r\c"
 gfortran -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SoybeanClass/SoybeanClass.f90 -o  ./inc/SoybeanClass.o
+
+
+echo "Compiling ./src/MaizeClass/MaizeClass.f90" 
+echo " >> MaizeClass.o "
+echo " | =========================> |  (99%)\r\c"
+gfortran -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MaizeClass/MaizeClass.f90 -o  ./inc/MaizeClass.o
+
+
+echo "Compiling ./src/WheatClass/WheatClass.f90" 
+echo " >> WheatClass.o "
+echo " | =========================> |  (99%)\r\c"
+gfortran -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/WheatClass/WheatClass.f90 -o  ./inc/WheatClass.o
+
 
 echo "Compiling ./src/RiceClass/RiceClass.f90" 
 echo " >> RiceClass.o "

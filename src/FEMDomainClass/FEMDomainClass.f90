@@ -16928,25 +16928,24 @@ end function
 ! ############################################################
 
 
-subroutine bondFEMDomain(this,domain,radius) 
+subroutine bondFEMDomain(this,domain) 
    class(FEMDomain_),target,intent(inout) :: this
    type(FEMDomain_) ,target,intent(inout) :: domain
    type(FEMDomainp_) :: femdomain_pointers(1:2)
    integer(int32),allocatable :: this_segment_list(:),domain_segment_list(:),&
       kill_node_list(:)
    type(Range_) :: cross_section
-   real(real64) :: radius
 
    ! surface matching
    femdomain_pointers(1)%femdomainp => this
    femdomain_pointers(2)%femdomainp => domain
    cross_section = getCrossSection_FEMDomain(femdomain_pointers=femdomain_pointers)
-   call print(cross_section)
+   !call print(cross_section)
    this_segment_list   = this%getFacetList_as_Idx(range=cross_section)
    domain_segment_list = domain%getFacetList_as_Idx(range=cross_section)
 
-   call print(size(this_segment_list))
-   call print(size(domain_segment_list))
+   !call print(size(this_segment_list))
+   !call print(size(domain_segment_list))
 
    call this%fitSegmentToSegment(&
          target_domain=domain,&
@@ -17014,7 +17013,7 @@ subroutine fitSegmentToSegmentFEMDomain(this,target_domain,this_segment_list,dom
    this_facet_centers = zeros( size(this_segment_list), this%nd() )
    do i = 1, size(this_segment_list)
       do j=1,size(target_domain%mesh%FacetElemNod,2)
-         idx = target_domain%mesh%FacetElemNod(this_segment_list(i),j)
+         idx = target_domain%mesh%FacetElemNod(domain_segment_list(i),j) !!! 20240915 changed from this_segment
          this_facet_centers(i,:) = this_facet_centers(i,:) + target_domain%mesh%nodcoord(idx,:)
       enddo
       this_facet_centers(i,:) = this_facet_centers(i,:)/dble(size(target_domain%mesh%FacetElemNod,2))
