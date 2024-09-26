@@ -39,6 +39,7 @@ module std
    use ShapeFunctionClass
    use RouteOptimization
    use STLClass
+   use PlotClass
    use WebserverClass
    use PhysicalFieldClass
    use SPACClass

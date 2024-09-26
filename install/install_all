@@ -76,7 +76,6 @@ echo " >> PlotClass.o"
 echo " | =>                          | (2%)\r\c "
 mpif90 -cpp -Ofast -march=native -fopenmp  -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PlotClass/PlotClass.f90 -o  ./inc/PlotClass.o
 
-
 echo "Compiling ./src/HTMLClass/HTMLClass.f90      "
 echo " >> HTMLClass.o"
 echo " | =>                          | (2%)\r\c "
@@ -307,7 +306,15 @@ echo "Modules for FEM (fem) is installed.       "
 
 # Compilation of Solvers
 
+
+
 # Compilation of Solvers
+echo "Compiling ./src/DEMDomainClass/DEMDomainClass.f90" 
+echo " >> DEMDomainClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/DEMDomainClass/DEMDomainClass.f90 -o  ./inc/DEMDomainClass.o
+
+
 echo "Compiling ./src/WaveKernelClass/WaveKernelClass.f90" 
 echo " >> WaveKernelClass.o "
 echo " | ===============>            | (70%)\r\c"

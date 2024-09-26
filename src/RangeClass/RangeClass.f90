@@ -17,16 +17,19 @@ module RangeClass
       logical :: t_substituted(1:2)
 
    contains
-      procedure :: init => initRange
-      procedure :: set => setRange
-      procedure :: get => getRange
+      procedure,public :: init => initRange
+      procedure,public :: set => setRange
+      procedure,public :: get => getRange
 
-      procedure :: set_x => set_xRange
-      procedure :: set_y => set_yRange
-      procedure :: set_z => set_zRange
-      procedure :: set_t => set_tRange
+      procedure,public :: set_x => set_xRange
+      procedure,public :: set_y => set_yRange
+      procedure,public :: set_z => set_zRange
+      procedure,public :: set_t => set_tRange
 
-      procedure :: inside => insideRange
+      procedure,public :: inside => insideRange
+
+      !procedure,public :: getSubrange    => getSubrangeRange
+      !procedure,public :: getSubrangeIdx => getSubrangeIdxRange
    end type
 
    interface to_range
@@ -365,5 +368,43 @@ elemental function and_rect_real64(range1,range2) result(ret)
    endif
 
 end function
+
+
+!function getSubrange(this,dim,n) result(ret)
+!   class(Range_),intent(in) :: this
+!   integer(int32),intent(in) :: dim ! number of dimension (e.g. x-y-z => 3)
+!   integer(int32),intent(in) :: n   ! number of division (e.g. n=2 for binomial search)
+!   type(Range_),allocatable :: ret(:)
+!   real(real64) :: dr
+!   integer(int32) :: i,j,k,itr,n,idx
+!
+!   if(dim==3)then
+!      allocate(ret(8))
+!      idx = 0
+!      do x_id=1,n
+!         do y_id=1,n
+!            do z_id=1,n
+!               idx = idx + 1
+!               dr = (this%x_range(2)-this%x_range(1))/dble(n)
+!               ret(idx)%x_range(1) = this%x_range(1) + dr*dble(x_id-1)
+!               ret(idx)%x_range(2) = this%x_range(2) + dr*dble(x_id  )
+!               dr = (this%y_range(2)-this%y_range(1))/dble(n)
+!               ret(idx)%y_range(1) = this%y_range(1) + dr*dble(y_id-1)
+!               ret(idx)%y_range(2) = this%y_range(2) + dr*dble(y_id  )
+!               dr = (this%z_range(2)-this%z_range(1))/dble(n)
+!               ret(idx)%z_range(1) = this%z_range(1) + dr*dble(z_id-1)
+!               ret(idx)%z_range(2) = this%z_range(2) + dr*dble(z_id  )
+!            enddo
+!         enddo
+!      enddo
+!      return
+!   else
+!      ! not implemented yet.
+!      return
+!   endif
+!
+!
+!
+!end function
 
 end module RangeClass

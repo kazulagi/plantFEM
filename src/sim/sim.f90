@@ -1,5 +1,6 @@
 module sim
    use fem
+   use DemDomainClass
    use WaveKernelClass
    use TSFEMClass
    use LoggerClass

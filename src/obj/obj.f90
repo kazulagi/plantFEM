@@ -30,6 +30,7 @@ module obj
    use ArabidopsisClass
    use RiceClass
    use WheatClass
+   use PineClass
 
    use MaizeClass
    use GrapeClass
