@@ -203,6 +203,12 @@ echo "Modules for FEM (fem) is installed.       "
 
 
 # Compilation of Solvers
+echo "Compiling ./src/DEMDomainClass/DEMDomainClass.f90" 
+echo " >> DEMDomainClass.o "
+echo " | ===============>            | (70%)\r\c"
+gfortran -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/DEMDomainClass/DEMDomainClass.f90 -o  ./inc/DiffusionEquationClass.o
+
+
 echo "Compiling ./src/DiffusionEquationClass/DiffusionEquationClass.f90" 
 echo " >> DiffusionEquationClass.o "
 echo " | ===============>            | (70%)\r\c"

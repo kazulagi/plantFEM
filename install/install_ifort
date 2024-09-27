@@ -302,6 +302,12 @@ mpiifort -fc=ifx -Ofast -fopenmp -shared -fPIC -g  -L./inc/  -c ./src/fem/fem.f9
 echo "Modules for FEM (fem) is installed.       "
 
 # Compilation of Solvers
+echo "Compiling ./src/DEMDomainClass/DEMDomainClass.f90" 
+echo " >> DEMDomainClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpiifort -fc=ifx -fopenmp -Ofast -shared -fPIC -g -L./inc/  -c ./src/DEMDomainClass/DEMDomainClass.f90 -o  ./inc/DEMDomainClass.o
+
+
 echo "Compiling ./src/WaveKernelClass/WaveKernelClass.f90" 
 echo " >> WaveKernelClass.o "
 echo " | ===============>            | (70%)\r\c"
