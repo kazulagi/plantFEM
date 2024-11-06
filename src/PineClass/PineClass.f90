@@ -3,6 +3,7 @@ module PineClass
    use ArrayClass
    use IOClass
    use StemClass
+   use FEMDomainClass
    implicit none
 
    type :: Pine_
@@ -22,6 +23,7 @@ module PineClass
    contains
       procedure, public :: init => initPine
    end type
+
 
 contains
 
@@ -103,12 +105,14 @@ contains
       !                   , :)
 !
       ! >>>>>> branching >>>>>> 
+
       vec = [(i_i,i_i=1,size(surface_elements,1))]
       surface_elements = surface_elements(random%draw(vec,this%NumberOfBranch),:)
+      
       if(debug_mode)then
          print *, "[ok] :: PineClass :: Branching points are identified!"
       endif
-      call this%stem(1)%femdomain%extract(SurfaceElements=surface_elements,repeat=200)
+      call this%stem(1)%femdomain%extract(SurfaceElements=surface_elements,repeat=10)
 
    end subroutine
 ! --------------------------------------------------------------

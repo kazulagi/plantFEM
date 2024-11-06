@@ -12,6 +12,13 @@ echo "-----------------"
 
 # Compilation of Solvers
 
+echo "Compiling ./src/TankModelClass/TankModelClass.f90" 
+echo " >> TankModelClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/TankModelClass/TankModelClass.f90 -o  ./inc/TankModelClass.o
+
+
+
 echo "Compiling ./src/DEMDomainClass/DEMDomainClass.f90" 
 echo " >> DEMDomainClass.o "
 echo " | ===============>            | (70%)\r\c"

@@ -159,6 +159,10 @@ module SparseClass
       procedure, public :: size => sizeCRS
       procedure, public :: update => updateCRS
       procedure, public :: add => addCRS
+
+      ! 対象行列とみなし，埋まっていない要素をすべて埋める．
+      procedure, public :: fillSymmetric => fillSymmetric_CRS
+
       procedure, public :: get => getCRS
       procedure, public :: is_nonzero => is_nonzeroCRS
       procedure, public :: diag => diagCRS
@@ -4690,5 +4694,13 @@ contains
 
    end function
 ! ###################################################
+
+   subroutine fillSymmetric_CRS(this)
+      class(CRS_),intent(in) :: this
+      ! fill-in to symmetric parts
+      ! under implementation!
+
+
+   end subroutine
 
 end module SparseClass

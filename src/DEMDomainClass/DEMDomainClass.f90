@@ -32,12 +32,13 @@ module DemDomainClass
         integer(int32),allocatable :: status(:)
 
 
+
         real(real64),allocatable :: wall(:,:,:) ! wall(wall_idx,node_idx,x-z)
         type(DEM_3D_NeighborList_) :: NeighborList
 
         real(real64) :: contact_stiffness
         real(real64) :: contact_damping
-        real(real64) :: grid_scale_factor = 3.0d0
+        real(real64) :: grid_scale_factor = 5.0d0
     contains
         procedure,public :: init => initDEMDomainClass
         procedure,public :: np   => getNumberOfPointDEMDomain
@@ -53,6 +54,8 @@ module DemDomainClass
         procedure,public :: updateneighborList   => updateneighborListDEMDomain
         procedure,public :: updateForce        => updateForceDEMDomain
         procedure,public :: updateDisplacement => updateDisplacementDEMDomain
+
+        procedure,public :: StiffnessMatrix => StiffnessMatrixDEMDomain
 
     end type 
 
@@ -230,12 +233,12 @@ subroutine updateForceDEMDomain(this,dt)
     integer(int32),allocatable :: gridIdxList(:,:),order(:),max_idx(:),point_list(:)
 
     ! contact detection & update contact force
-    contactForce = 0.0d0*this%contactForce
+    contactForce = 0.0d0*this%xyz
     
     DEFAULT_ALGORITHM = 0
     EXPMTAL_ALGORITHM = 1
-    !contact_algorithm = EXPMTAL_ALGORITHM
-    contact_algorithm = DEFAULT_ALGORITHM
+    contact_algorithm = EXPMTAL_ALGORITHM
+    !contact_algorithm = DEFAULT_ALGORITHM
 
     if(contact_algorithm==DEFAULT_ALGORITHM)then
         !$OMP parallel do private(direction,relative_veocity,overlap,j,distance_len) reduction(+:contactForce)
@@ -244,7 +247,7 @@ subroutine updateForceDEMDomain(this,dt)
                 distance_len = sqrt(dot_product(this%xyz(pointIdx,:)-this%xyz(j,:),this%xyz(pointIdx,:)-this%xyz(j,:)))
                 if(distance_len <= (this%r(pointIdx)+this%r(j)) )then
                         ! contact detected!
-
+                        if(distance_len==0)cycle
                         ! 初回接触時から法線方向を保存するべき?
                         direction = (this%xyz(pointIdx,:)-this%xyz(j,:))/distance_len
                         relative_veocity = this%v(pointIdx,:)-this%v(j,:)
@@ -552,7 +555,7 @@ subroutine updateNeighborListDEMDomain(this)
 
     allocate(this%NeighborList%grid(max_grid_idx(1)+1,max_grid_idx(2)+1,max_grid_idx(3)+1))
     allocate(num_particle_array(max_grid_idx(1)+1,max_grid_idx(2)+1,max_grid_idx(3)+1))
-
+    
     num_particle_array(:,:,:) = 0
     !$OMP parallel do reduction(+:num_particle_array)
     do i=1,size(grid_idx,1)
@@ -562,6 +565,7 @@ subroutine updateNeighborListDEMDomain(this)
             num_particle_array(grid_idx(i,1)+1, grid_idx(i,2)+1, grid_idx(i,3)+1) + 1
     enddo
     !$OMP end parallel do
+    
 
     !$OMP parallel do private(j,k)
     do i=1,size(this%NeighborList%grid,1)
@@ -680,6 +684,14 @@ end subroutine
 !
 !end function
 !
-!
-!
+function StiffnessMatrixDEMDomain(this,springCoefficient) result(ret)
+    class(DEMDomain_),intent(in) :: this
+    real(real64),intent(in) :: springCoefficient(:)
+    type(CRS_) :: ret
+
+    ! under implementation
+
+end function
+
+
 end module DemDomainClass
