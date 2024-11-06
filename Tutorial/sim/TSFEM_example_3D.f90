@@ -18,7 +18,7 @@ program main
     
     !call TSFEM%DirichletBoundary(NodeList=[1],direction="X")
     !call TSFEM%AbsorbingBoundary(NodeList=[1],spring=100000.0d0,damper=1.0d0,direction="X")
-    call TSFEM%NeumannBoundary(NodeList=[domain%nn()],Force=dble(1.0e+3),direction="Z")
+    call TSFEM%NeumannBoundary(NodeList=[domain%nn()],Force=dble(1.0e+3),direction="X")
     
     call TSFEM%Time(dt=dble(1.0e-4),t=0.0d0,timestep=0)
 

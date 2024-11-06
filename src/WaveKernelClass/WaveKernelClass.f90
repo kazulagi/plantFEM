@@ -2,6 +2,7 @@ module WaveKernelClass
    use SparseClass
    use FEMDomainClass
    use FEMSolverClass
+   use DEMDomainClass
    use SpectreAnalysisClass
    implicit none
 
@@ -32,7 +33,8 @@ module WaveKernelClass
 
       procedure, pass :: initWaveKernel
       procedure, pass :: init_by_femdomain_pointers_WK
-      generic :: init => initWaveKernel, init_by_femdomain_pointers_WK
+      !procedure, pass :: initWaveKernel_DEM
+      generic :: init => initWaveKernel, init_by_femdomain_pointers_WK !,initWaveKernel_DEM
 
       procedure :: setLPF => setLPF_WaveKernel
 
@@ -97,6 +99,49 @@ contains
 
    end subroutine initWaveKernel
 ! ##############################################################
+
+
+!! ##############################################################
+!subroutine initWaveKernel_DEM(this, DEMDomain, DOF, YoungModulus, PoissonRatio, &
+!      DampingRatio, Density)
+!class(WaveKernel_), intent(inout) :: this
+!integer(int32), intent(in) :: DOF
+!type(DEMDomain_), intent(inout) :: DEMDomain
+!real(real64), intent(in) :: YoungModulus(:), Density(:)
+!real(real64), optional, intent(in) ::  PoissonRatio(:), DampingRatio(:)
+!type(CRS_) :: Imatrix, Mmatrix, Cmatrix
+!
+!Mmatrix = DEMDomain%MassMatrix(DOF=DOF, Density=Density)
+!
+!if (DOF == 1) then
+!this%OmegaSqMatrix = DEMDomain%StiffnessMatrix( &
+!       YoungModulus=YoungModulus)
+!
+!else
+!if (.not. present(PoissonRatio)) then
+!print *, "[initWaveKernel] Please input PoissonRatio"
+!stop
+!end if
+!this%OmegaSqMatrix = DEMDomain%StiffnessMatrix( &
+!       YoungModulus=YoungModulus, PoissonRatio=PoissonRatio)
+!
+!end if
+!
+!this%Mmatrix_diag = Mmatrix%diag(cell_centered=.true.)
+!this%OmegaSqMatrix = this%OmegaSqMatrix%divide_by(this%Mmatrix_diag)
+!
+!this%DampingRatio = zeros(this%OmegaSqMatrix%size())
+!
+!if (present(DampingRatio)) then
+!!call Imatrix%eyes(this%OmegaSqMatrix%size() )
+!Cmatrix = to_diag(DampingRatio*DampingRatio) ! vector to diagonal matrix
+!this%OmegaSqMatrix = this%OmegaSqMatrix - Cmatrix
+!this%DampingRatio = DampingRatio
+!end if
+!
+!end subroutine initWaveKernel
+! ##############################################################
+
 
 ! ##############################################################
    subroutine init_by_femdomain_pointers_WK(this, FEMDomainPointers, DOF, YoungModulus, PoissonRatio, &
