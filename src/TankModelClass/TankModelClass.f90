@@ -53,7 +53,11 @@ module Tank_TankModelClassClass
         type(Tank_),allocatable :: tanks(:)
     contains
         procedure,public :: init    => initTankModel_TankModelClass
-        procedure,public :: add     => addTankModel_TankModelClass
+        procedure,pass   :: addTankModel_TankModelClass
+        !procedure,pass   :: addTankModel_by_config_TMC
+        generic,public :: add     => addTankModel_TankModelClass
+
+
         procedure,public :: connect => connectTankModel_TankModelClass
         procedure,public :: optimize => optimizeTankModel_TankModelClass
         procedure,public :: simulate => simulateTankModel_TankModelClass
@@ -61,6 +65,7 @@ module Tank_TankModelClassClass
 
         ! check unit for space, time and force.
         procedure,public :: showUnit => showUnit_TankModelClass
+        procedure,public :: show => show_TankModelClass
     end type
 
     interface simulate
@@ -154,7 +159,14 @@ subroutine addTankModel_TankModelClass(this,tank)
     
 
 end subroutine
+! #################################
 
+
+! #################################
+!subroutine addTankModel_by_config_TMC(this,config)
+!
+!end subroutine
+! #################################
 
 
 ! #################################
@@ -443,6 +455,7 @@ function to_waterhead_Tank_TankModelClass(this,GL) result(waterhead_mm)
 end function
 ! ###############################################################
 
+! ###############################################################
 subroutine showUnit_TankModelClass(this) 
     class(TankModel_),intent(in) :: this
 
@@ -451,6 +464,17 @@ subroutine showUnit_TankModelClass(this)
     print *, "Time       :: s "
 
 end subroutine
+! ###############################################################
+
+! ###############################################################
+subroutine show_TankModelClass(this) 
+    class(TankModel_),intent(in) :: this
+
+    ! visualize tank configulations
+    ! but how?
+
+end subroutine
+! ###############################################################
 
 
 end module Tank_TankModelClassClass

@@ -51,6 +51,14 @@ module MathClass
       module procedure norm_mat, norm_vec, norm_vec_real32, norm_vec_complex64
    end interface
 
+   interface int
+      module procedure fint
+   end interface int
+
+   interface float
+      module procedure freal
+   end interface float
+
    interface factorial
       module procedure factorialInt32, factorialReal64
    end interface factorial
