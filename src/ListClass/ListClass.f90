@@ -1,13 +1,21 @@
 module ListClass
    use iso_fortran_env
    implicit none
-
+   
+   
+   
    type :: List_content_
       character(:), allocatable :: char
    end type
 
+   type :: List_fix_content_
+      character(len=200) :: char
+      integer(int32) :: char_len
+   end type
+
    type :: List_
       type(List_content_), allocatable :: content(:)
+      type(List_fix_content_), allocatable :: fcontent(:)
       type(List_), allocatable :: list(:)
    contains
       procedure, public :: get => get_list_content_listclass
@@ -39,23 +47,64 @@ module ListClass
       module procedure joint_listcontentclass, joint_arraylistcontentclass
    end interface
 
+   interface operator(.get.)
+      module procedure get_element_of_listclass
+   end interface
+
+   interface argv
+      module procedure argv_get_cmd_args_as_list
+   end interface
+
+   interface str
+      module procedure str_listclass
+   end interface
 contains
 ! #####################################################
+
+   function argv_get_cmd_args_as_list() result(ret)
+      type(List_) :: ret
+      integer(int32) ::i, n, length, status
+      character(:),allocatable :: this_arg
+      !character(:),allocatable ::line
+
+      n = command_argument_count()
+      call ret%new(n) 
+      
+      do i = 1,n
+         call  get_command_argument(i,length=length,status=status)
+         if(allocated(this_arg))then
+            deallocate(this_arg)
+         endif      
+         allocate(character(length)::this_arg)
+         
+         call  get_command_argument(i,this_arg,status=status)
+         
+         ret%fcontent(i)%char = this_arg
+         ret%fcontent(i)%char_len = length
+          
+      enddo
+      
+
+   end function
+
+! #####################################################
+
    pure function get_list_content_listclass(this, idx) result(ret)
       class(List_), intent(in) :: this
       integeR(int32), intent(in) :: idx
       character(:), allocatable :: ret
 
-      if (.not. allocated(this%content)) then
+      if (allocated(this%fcontent))then
+         ret = this%fcontent(idx)%char(1:this%fcontent(idx)%char_len)
+         return
+
+      endif
+      if (.not. allocated(this%fcontent)) then
          ret = ""
          return
       end if
 
-      if (.not. allocated(this%content(idx)%char)) then
-         ret = ""
-      else
-         ret = this%content(idx)%char
-      end if
+
 
    end function
 ! #####################################################
@@ -65,13 +114,17 @@ contains
       integer(int32), intent(in) :: length
       integer(int32) :: i
 
-      if (allocated(this%content)) then
-         deallocate (this%content)
+      !if (allocated(this%fcontent)) then
+      !   deallocate (this%fcontent)
+      !end if
+
+      if (allocated(this%fcontent)) then
+         deallocate (this%fcontent)
       end if
 
-      allocate (this%content(length))
+      allocate (this%fcontent(length))
       do i = 1, length
-         this%content(i)%char = ""
+         this%fcontent(i)%char = ""
       end do
 
    end subroutine
@@ -84,14 +137,16 @@ contains
       integer(int32) :: i, n
 
       buf = this
-      n = size(buf%content)
-      call this%new(length=size(buf%content) + 1)
+      n = size(buf%fcontent)
+      call this%new(length=size(buf%fcontent) + 1)
 
-      do i = 1, size(buf%content)
-         this%content(i)%char = buf%content(i)%char
+      do i = 1, size(buf%fcontent)
+         this%fcontent(i)%char = buf%fcontent(i)%char
+         this%fcontent(i)%char_len = buf%fcontent(i)%char_len
       end do
 
-      this%content(n + 1)%char = char
+      this%fcontent(n + 1)%char = char
+      this%fcontent(n + 1)%char_len = len(char)
 
    end subroutine
 ! #####################################################
@@ -101,7 +156,7 @@ contains
       class(List_), intent(in) :: this
       integer(int32) :: ret
 
-      ret = size(this%content)
+      ret = size(this%fcontent)
 
    end function
 ! #####################################################
@@ -109,17 +164,42 @@ contains
 ! #####################################################
    subroutine print_listclass(this)
       class(List_), intent(in) :: this
+      character(1) :: comma
       integer(int32) :: i
 
-      do i = 1, this%size()
-         print *, this%content(i)%char
-      end do
+      print *, str(this)
 
    end subroutine
 ! #####################################################
+
+! #####################################################
+   function str_listclass(this) result(ret)
+      class(List_), intent(in) :: this
+      character(1) :: comma
+      character(:),allocatable :: ret
+      integer(int32) :: i
+      ret = ""
+      ret = ret //  "["
+      if(allocated(this%fcontent))then
+         do i = 1, this%size()
+            if (i < this%size())then
+               ret = ret // trim(this%fcontent(i)%char(1:this%fcontent(i)%char_len)) // ","
+            else
+               ret = ret // trim(this%fcontent(i)%char(1:this%fcontent(i)%char_len))
+            endif
+            
+            
+         end do
+      endif
+
+      ret = ret //  "]"
+
+   end function
+! #####################################################
+
    pure function joint_listcontentclass(List_content_1, List_content_2) result(List_content)
-      type(List_content_), intent(in) :: List_content_1, List_content_2
-      type(List_content_) :: List_content
+      type(List_fix_content_), intent(in) :: List_content_1, List_content_2
+      type(List_fix_content_) :: List_content
 
       List_content%char = List_content_1%char//List_content_2%char
 
@@ -131,40 +211,43 @@ contains
       type(List_) :: ret_list
       integer(int32) :: i
 
-      if (allocated(list1%content) .and. .not. allocated(list2%content)) then
+      if (allocated(list1%fcontent) .and. .not. allocated(list2%fcontent)) then
          ret_list = list1
          return
       end if
 
-      if (allocated(list2%content) .and. .not. allocated(list1%content)) then
+      if (allocated(list2%fcontent) .and. .not. allocated(list1%fcontent)) then
          ret_list = list2
          return
       end if
 
-      if (.not. allocated(list1%content) .and. .not. allocated(list2%content)) then
+      if (.not. allocated(list1%fcontent) .and. .not. allocated(list2%fcontent)) then
          return
       end if
 
       call ret_list%new(list1%size() + list2%size())
 
       do i = 1, list1%size()
-         ret_list%content(i)%char = list1%content(i)%char
+         ret_list%fcontent(i)%char = list1%fcontent(i)%char
+         ret_list%fcontent(i)%char_len = list1%fcontent(i)%char_len
       end do
       do i = 1, list2%size()
-         ret_list%content(i + list1%size())%char = list2%content(i)%char
+         ret_list%fcontent(i + list1%size())%char = list2%fcontent(i)%char
+         ret_list%fcontent(i + list1%size())%char_len = list2%fcontent(i)%char_len
       end do
 
    end function
 
    pure function joint_arraylistcontentclass(List_content_1, List_content_2) result(List_content)
-      type(List_content_), intent(in) :: List_content_1(:), List_content_2(:)
-      type(List_content_), allocatable :: List_content(:)
+      type(List_fix_content_), intent(in) :: List_content_1(:), List_content_2(:)
+      type(List_fix_content_), allocatable :: List_content(:)
       integer(int32) :: i
 
       List_content = List_content_1
 
       do i = 1, size(List_content_1)
-         List_content(i)%char = List_content_1(i)%char//List_content_2(i)%char
+         List_content(i)%char(1:List_content(i)%char_len) = List_content(i)%char(1:List_content(i)%char_len)&
+            //List_content_2(i)%char(1:List_content_2(i)%char_len)
       end do
 
    end function
@@ -173,7 +256,7 @@ contains
    function to_list_0_listclass() result(this)
       type(List_) :: this
 
-      allocate (this%content(0))
+      allocate (this%fcontent(0))
 
    end function
 ! #####################################################
@@ -184,9 +267,10 @@ contains
       integer(int32), intent(in) :: num_repeat
       integer(int32) :: i
 
-      allocate (this%content(num_repeat))
+      allocate (this%fcontent(num_repeat))
       do i = 1, num_repeat
-         this%content(i)%char = char1
+         this%fcontent(i)%char = char1
+         this%fcontent(i)%char_len = len(char1)
       end do
 
    end function
@@ -207,8 +291,9 @@ contains
          buf = char1(ac_from + 1:ac_to - 1)
          call this%split(buf, ",")
       else
-         allocate (this%content(1))
-         this%content(1)%char = char1
+         allocate (this%fcontent(1))
+         this%fcontent(1)%char = char1
+         this%fcontent(1)%char_len = len(char1)
       end if
    end function
 
@@ -218,9 +303,12 @@ contains
       character(*), intent(in) :: char1, char2
       type(List_) :: this
 
-      allocate (this%content(2))
-      this%content(1)%char = char1
-      this%content(2)%char = char2
+      allocate (this%fcontent(2))
+      this%fcontent(1)%char = char1
+      this%fcontent(2)%char = char2
+
+      this%fcontent(1)%char_len = len(char1)
+      this%fcontent(2)%char_len = len(char2)
 
    end function
 
@@ -230,10 +318,14 @@ contains
       character(*), intent(in) :: char1, char2, char3
       type(List_) :: this
 
-      allocate (this%content(3))
-      this%content(1)%char = char1
-      this%content(2)%char = char2
-      this%content(3)%char = char3
+      allocate (this%fcontent(3))
+      this%fcontent(1)%char = char1
+      this%fcontent(2)%char = char2
+      this%fcontent(3)%char = char3
+
+      this%fcontent(1)%char_len = len(char1)
+      this%fcontent(2)%char_len = len(char2)
+      this%fcontent(3)%char_len = len(char3)
 
    end function
 
@@ -243,11 +335,16 @@ contains
       character(*), intent(in) :: char1, char2, char3, char4
       type(List_) :: this
 
-      allocate (this%content(4))
-      this%content(1)%char = char1
-      this%content(2)%char = char2
-      this%content(3)%char = char3
-      this%content(4)%char = char4
+      allocate (this%fcontent(4))
+      this%fcontent(1)%char = char1
+      this%fcontent(2)%char = char2
+      this%fcontent(3)%char = char3
+      this%fcontent(4)%char = char4
+
+      this%fcontent(1)%char_len = len(char1)
+      this%fcontent(2)%char_len = len(char2)
+      this%fcontent(3)%char_len = len(char3)
+      this%fcontent(4)%char_len = len(char4)
 
    end function
 
@@ -259,13 +356,19 @@ contains
       character(*), intent(in) :: char1, char2, char3, char4, char5
       type(List_) :: this
 
-      allocate (this%content(5))
-      this%content(1)%char = char1
-      this%content(2)%char = char2
-      this%content(3)%char = char3
-      this%content(4)%char = char4
-      this%content(5)%char = char5
+      allocate (this%fcontent(5))
+      this%fcontent(1)%char = char1
+      this%fcontent(2)%char = char2
+      this%fcontent(3)%char = char3
+      this%fcontent(4)%char = char4
+      this%fcontent(5)%char = char5
 
+
+      this%fcontent(1)%char_len = len(char1)
+      this%fcontent(2)%char_len = len(char2)
+      this%fcontent(3)%char_len = len(char3)
+      this%fcontent(4)%char_len = len(char4)
+      this%fcontent(5)%char_len = len(char5)
    end function
 
 ! #####################################################
@@ -276,14 +379,21 @@ contains
       character(*), intent(in) :: char1, char2, char3, char4, char5, char6
       type(List_) :: this
 
-      allocate (this%content(6))
-      this%content(1)%char = char1
-      this%content(2)%char = char2
-      this%content(3)%char = char3
-      this%content(4)%char = char4
-      this%content(5)%char = char5
-      this%content(6)%char = char6
+      allocate (this%fcontent(6))
+      this%fcontent(1)%char = char1
+      this%fcontent(2)%char = char2
+      this%fcontent(3)%char = char3
+      this%fcontent(4)%char = char4
+      this%fcontent(5)%char = char5
+      this%fcontent(6)%char = char6
 
+
+      this%fcontent(1)%char_len = len(char1)
+      this%fcontent(2)%char_len = len(char2)
+      this%fcontent(3)%char_len = len(char3)
+      this%fcontent(4)%char_len = len(char4)
+      this%fcontent(5)%char_len = len(char5)
+      this%fcontent(6)%char_len = len(char6)
    end function
 
 ! #####################################################
@@ -294,14 +404,23 @@ contains
       character(*), intent(in) :: char1, char2, char3, char4, char5, char6, char7
       type(List_) :: this
 
-      allocate (this%content(7))
-      this%content(1)%char = char1
-      this%content(2)%char = char2
-      this%content(3)%char = char3
-      this%content(4)%char = char4
-      this%content(5)%char = char5
-      this%content(6)%char = char6
-      this%content(7)%char = char7
+      allocate (this%fcontent(7))
+      this%fcontent(1)%char = char1
+      this%fcontent(2)%char = char2
+      this%fcontent(3)%char = char3
+      this%fcontent(4)%char = char4
+      this%fcontent(5)%char = char5
+      this%fcontent(6)%char = char6
+      this%fcontent(7)%char = char7
+
+
+      this%fcontent(1)%char_len = len(char1)
+      this%fcontent(2)%char_len = len(char2)
+      this%fcontent(3)%char_len = len(char3)
+      this%fcontent(4)%char_len = len(char4)
+      this%fcontent(5)%char_len = len(char5)
+      this%fcontent(6)%char_len = len(char6)
+      this%fcontent(7)%char_len = len(char7)
    end function
 
 ! #####################################################
@@ -313,10 +432,11 @@ contains
       integer(int32) :: i
       character(len=50):: b
 
-      allocate (this%content(size(int32vec)))
+      allocate (this%fcontent(size(int32vec)))
       do i = 1, size(int32vec)
          write (b, *) int32vec(i)
-         this%content(i)%char = trim(adjustl(b))
+         this%fcontent(i)%char = trim(adjustl(b))
+         this%fcontent(i)%char_len = len(this%fcontent(i)%char)
       end do
 
    end function
@@ -329,10 +449,11 @@ contains
       integer(int32) :: i
       character(len=50):: b
 
-      allocate (this%content(size(real32vec)))
+      allocate (this%fcontent(size(real32vec)))
       do i = 1, size(real32vec)
          write (b, '(f0.10)') real32vec(i)
-         this%content(i)%char = trim(adjustl(b))
+         this%fcontent(i)%char = trim(adjustl(b))
+         this%fcontent(i)%char_len = len(this%fcontent(i)%char)
       end do
 
    end function
@@ -345,15 +466,17 @@ contains
       integer(int32) :: i
       character(len=50):: b
 
-      allocate (this%content(size(real64vec)))
+      allocate (this%fcontent(size(real64vec)))
       do i = 1, size(real64vec)
 
          write (b, '(G31.20)') real64vec(i)
-         this%content(i)%char = trim(adjustl(b))
+         this%fcontent(i)%char = trim(adjustl(b))
+         this%fcontent(i)%char_len = len(this%fcontent(i)%char)
       end do
 
    end function
 ! #####################################################
+
 
 ! #####################################################
    subroutine help_listclass(this)
@@ -389,7 +512,8 @@ contains
       do current_idx = 1, len(str_val) - (len(delimiter) - 1)
          if (str_val(current_idx:current_idx + len(delimiter) - 1) == delimiter) then
             n = n + 1
-            this%content(n)%char = str_val(last_idx:current_idx - 1)
+            this%fcontent(n)%char = trim(str_val(last_idx:current_idx - 1))
+            this%fcontent(n)%char_len = (current_idx - 1)-last_idx+1
             last_idx = current_idx + 1
          end if
       end do
@@ -402,5 +526,19 @@ contains
 
    end subroutine
 ! #####################################################
+
+function get_element_of_listclass(this_list,idx) result(ret)
+   character(:),allocatable :: ret
+   type(List_),intent(in) :: this_list
+   integer(int32),intent(in) :: idx
+
+   ret = ""
+   if(allocated(this_list%fcontent) )then
+      if (size(this_list%fcontent) >= idx )then
+         ret = this_list%fcontent(idx)%char(1:this_list%fcontent(idx)%char_len)
+      endif
+   endif
+
+end function
 
 end module ListClass

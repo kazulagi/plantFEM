@@ -223,6 +223,7 @@ module IOClass
       procedure, public :: close => closeIO
 
       procedure, public :: to_Array => to_Array_real64_IOClass
+      procedure, public :: to_list => to_List_IOClass
 
       procedure, public :: bin2vector => bin2vector_real64_IOClass
       procedure, public :: vector2bin => vector2bin_real64_IOClass
@@ -3965,6 +3966,64 @@ contains
    end function
 
 ! #############################################################
+
+
+! #####################################
+   function to_list_IOClass(this, name, column, header, separator,debug) result(ret)
+      class(IO_), intent(inout) :: this
+      character(*),intent(in) :: separator
+      character(*), intent(in) :: name
+      integer(int32), intent(in) :: column, header
+      real(real64), allocatable ::  col(:), buf(:, :)
+      type(List_) :: ret
+      character(200) :: charbuf
+      character(:), allocatable :: line
+      logical, optional, intent(in) :: debug
+      integer(int32) :: i, j, k, n
+      type(List_)::val_list
+
+      if (this%active) then
+         ! opened
+         print *, "[ERROR] to_Array_real64_IOClass >> this should be closed."
+         stop
+      else
+
+         n = this%numLine(name)
+         call ret%new(n)
+
+         if (.not. this%exists(name)) then
+            print *, "[ERROR] numLineIO >> no such file named ", name
+            stop
+         end if
+
+         call this%open(name, "r")
+         ! read header
+         do i = 1, header
+            read (this%fh, *) charbuf
+         end do
+
+         do i = 1, n - header
+            if (present(debug)) then
+               if (debug) then
+                  print *, i
+               end if
+            end if
+
+            line = this%readline()
+            !line = re(line," ","")
+            call val_list%split(line, separator)
+            ret%fcontent(i)%char = val_list%get(column)
+            ret%fcontent(i)%char_len = len(val_list%get(column))
+
+         end do
+         call this%close()
+
+      end if
+
+   end function
+
+! #############################################################
+
    function to_upsampling_ioclass(dataframe, upsampling) result(ret)
       real(Real64), intent(in) :: dataframe(:, :)
       integer(int32), intent(in) :: upsampling
