@@ -50,6 +50,11 @@ module RandomClass
    interface rand
       module procedure :: rand_n, rand_sz2, rand_sz3
    end interface
+
+   interface EV
+      module procedure :: ExpectationValue_r64_i32_i32
+   end interface
+
 contains
 
 !##########################################
@@ -684,5 +689,30 @@ contains
 
    end subroutine
 ! #################################################
+
+function ExpectationValue_r64_i32_i32(func,arg1,arg2,arg3) result(ret)
+   interface
+      function func(arg1,arg2,arg3) result(ret)
+         use iso_fortran_env
+         real(real64),intent(in) :: arg1
+         integer(int32),intent(in) :: arg2,arg3
+         real(real64) :: ret
+      end function
+   end interface
+   
+   real(real64),intent(in) :: arg1
+   integer(int32),intent(in) :: arg2,arg3
+   integer(int32) :: i,n
+   real(real64) :: ret
+
+   n = 1000
+   ret = 0.0d0
+   do i=1,n
+      ret = ret + func(arg1,arg2,arg3)
+   enddo
+   ret = ret/dble(n)
+
+end function
+
 
 end module
