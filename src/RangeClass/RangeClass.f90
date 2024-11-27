@@ -15,7 +15,6 @@ module RangeClass
       logical :: y_substituted(1:2)
       logical :: z_substituted(1:2)
       logical :: t_substituted(1:2)
-
    contains
       procedure,public :: init => initRange
       procedure,public :: set => setRange
@@ -27,6 +26,11 @@ module RangeClass
       procedure,public :: set_t => set_tRange
 
       procedure,public :: inside => insideRange
+
+      procedure,public :: lx => lx_RangeClass
+      procedure,public :: ly => ly_RangeClass
+      procedure,public :: lz => lz_RangeClass
+
 
       !procedure,public :: getSubrange    => getSubrangeRange
       !procedure,public :: getSubrangeIdx => getSubrangeIdxRange
@@ -406,5 +410,38 @@ end function
 !
 !
 !end function
+
+! ######################################################
+function lx_RangeClass(this) result(ret)
+   class(Range_),intent(in) :: this
+   real(real64) :: ret
+
+   ret = this%x_range(2) - this%x_range(1) 
+
+end function
+! ######################################################
+
+
+! ######################################################
+function ly_RangeClass(this) result(ret)
+   class(Range_),intent(in) :: this
+   real(real64) :: ret
+
+   ret = this%y_range(2) - this%y_range(1) 
+   
+end function
+! ######################################################
+
+
+! ######################################################
+function lz_RangeClass(this) result(ret)
+   class(Range_),intent(in) :: this
+   real(real64) :: ret
+
+   ret = this%z_range(2) - this%z_range(1) 
+   
+end function
+! ######################################################
+
 
 end module RangeClass

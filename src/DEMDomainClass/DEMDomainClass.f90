@@ -1,4 +1,5 @@
 module DemDomainClass
+    use RangeClass
     use FEMDomainClass
     implicit none
 
@@ -31,8 +32,6 @@ module DemDomainClass
         real(real64),allocatable :: contactForce(:,:) ! contact force
         integer(int32),allocatable :: status(:)
 
-
-
         real(real64),allocatable :: wall(:,:,:) ! wall(wall_idx,node_idx,x-z)
         type(DEM_3D_NeighborList_) :: NeighborList
 
@@ -41,10 +40,13 @@ module DemDomainClass
         real(real64) :: grid_scale_factor = 5.0d0
     contains
         procedure,public :: init => initDEMDomainClass
+        procedure,public :: closepack => closepackDEMDomainClass
         procedure,public :: np   => getNumberOfPointDEMDomain
         procedure,public :: nd   => getNumberOfDimDEMDomain
         procedure,public :: setWall => setWallDEMDomain
         procedure,public :: vtk  => vtkDEMDomain
+        procedure,public :: getStiffnessMatrix => getStiffnessMatrixDEMDomain
+
 
         ! pre-processing
         procedure,pass :: addDEMDomain
@@ -56,6 +58,8 @@ module DemDomainClass
         procedure,public :: updateDisplacement => updateDisplacementDEMDomain
 
         procedure,public :: StiffnessMatrix => StiffnessMatrixDEMDomain
+
+        procedure,public :: distance => distanceDEMDomain
 
     end type 
 
@@ -141,20 +145,31 @@ subroutine addDEMDomain(this,position,r,m,status)
 
 end subroutine
 
-subroutine vtkDEMDomain(this,name)
+subroutine vtkDEMDomain(this,name,displacement)
     class(DEMDomain_),intent(in) :: this
     character(*),intent(in) :: name
+    real(real64),optional,intent(in):: displacement(:)
+    real(real64),allocatable :: disp(:)
     type(IO_) :: f
     integer(int32) :: i
 
-    call f%open(name+".vtk","w")
+    if (".vtk" .in. name)then        
+        call f%open(name,"w")
+    else
+        call f%open(name+".vtk","w")
+    endif
+
     call f%write("# vtk DataFile Version 3.0")
     call f%write(name+".vtk")
     call f%write("ASCII")
     call f%write("DATASET UNSTRUCTURED_GRID")
     call f%write("POINTS "+str(this%np())+" double")
+    disp = zeros(this%nd())
     do i=1,this%np()
-        write(f%fh,*) this%xyz(i,:)
+        if (present(displacement))then
+            disp(:) = displacement( (i-1)*this%nd()+1: (i-1)*this%nd()+this%nd())
+        endif
+        write(f%fh,*) this%xyz(i,:) + disp(:)
     enddo
     call f%write("CELL_TYPES "+str(this%np()))
     call f%write(int(ones(this%np()) ))
@@ -693,5 +708,150 @@ function StiffnessMatrixDEMDomain(this,springCoefficient) result(ret)
 
 end function
 
+
+subroutine closepackDEMDomainClass(this,radius,length)
+    class(DEMDomain_),intent(inout) :: this
+    real(real64),intent(in) :: radius,length(3)
+    integer(int32) :: i,j,k,n_xy,n_xyz,m,nx,mx,ny,nz,idx,lx,ly,lz
+    real(real64) :: dx,dy
+
+    
+    lx = length(1)
+    ly = length(2)
+    lz = length(3)
+
+    ! rangeに従い，最密充填構造を作成する．
+    nx = int(lx/(2*radius)) + 1
+    mx = int(lx/(2*radius)) 
+    ny = int(ly/((radius)*sqrt(3.0d0))) 
+    nz = int(lz/((2*radius)*sqrt(6.0d0)/3.0d0)) + 1
+
+
+    if (mod(ny,2)==0)then
+        ! even
+        n_xy = (nx + mx)*(ny/2)
+    else
+        ! odd
+        n_xy = (nx + mx)*(ny/2) + nx
+    endif
+    
+
+    this%xyz = zeros(n_xy*nz,3)
+    this%r = radius*ones(n_xy*nz)
+
+    idx  = 0
+    do k=1,nz
+        if (mod(k,2)==1)then
+            dx = 0.0d0
+            dy = 0.0d0
+
+            do j=1,ny
+                if (mod(j,2)==1)then
+                    do i=1,nx
+                        idx = idx + 1
+                        this%xyz(idx,1) = (i-1)*(2.0d0*radius) + dx
+                        this%xyz(idx,2) = (j-1)*(sqrt(3.0d0)*radius) + dy
+                        this%xyz(idx,3) = (k-1)*((2*radius)*sqrt(6.0d0)/3.0d0) 
+                    enddo
+                else
+                    do i=1,mx
+                        idx = idx + 1
+                        this%xyz(idx,1) = (i-1)*(2.0d0*radius) + radius + dx
+                        this%xyz(idx,2) = (j-1)*(sqrt(3.0d0)*radius) + dy
+                        this%xyz(idx,3) = (k-1)*((2*radius)*sqrt(6.0d0)/3.0d0) 
+                    enddo
+                endif
+            enddo
+        else
+            
+            dx = radius
+            dy = radius*sqrt(3.0d0)*(1.0d0/3.0d0)
+
+            do j=1,ny
+                if (mod(j,2)==1)then
+                    do i=1,nx
+                        idx = idx + 1
+                        this%xyz(idx,1) = (i-1)*(2.0d0*radius) + dx
+                        this%xyz(idx,2) = (j-1)*(sqrt(3.0d0)*radius) + dy
+                        this%xyz(idx,3) = (k-1)*((2*radius)*sqrt(6.0d0)/3.0d0) 
+                    enddo
+                else
+                    do i=1,mx
+                        idx = idx + 1
+                        this%xyz(idx,1) = (i-1)*(2.0d0*radius) + radius + dx
+                        this%xyz(idx,2) = (j-1)*(sqrt(3.0d0)*radius) + dy
+                        this%xyz(idx,3) = (k-1)*((2*radius)*sqrt(6.0d0)/3.0d0) 
+                    enddo
+                endif
+            enddo
+        endif
+        
+    enddo
+
+end subroutine
+! ####################################################################
+
+
+! ####################################################################
+function distanceDEMDomain(this,idx1,idx2) result(ret)
+    class(DEMDomain_),intent(in) :: this
+    integer(int32),intent(in) :: idx1,idx2
+    real(real64) :: ret
+
+    ret = sqrt(dot_product(this%xyz(idx1,:)-this%xyz(idx2,:),this%xyz(idx1,:)-this%xyz(idx2,:)))
+
+end function
+! ####################################################################
+
+
+! ####################################################################
+function getStiffnessMatrixDEMDomain(this) result(ret)
+    class(DEMDomain_),intent(in) :: this
+    type(CRS_) :: ret
+    type(COO_) :: ret_coo
+    integer(int32) :: i,j,k1,k2,nd
+    real(real64),allocatable :: normal_vector(:),mat(:,:)
+    
+    ! 接しているものとbondingを形成
+    ! normal and tangential
+    call ret_coo%init(this%np()*3)
+    nd = size(this%xyz,2)
+    do i=1,this%np()-1
+        do j=i+1,this%np()
+            if(this%distance(i,j) <= this%r(i) + this%r(j)  )then
+                normal_vector = (this%xyz(j,:) - this%xyz(i,:) )
+                normal_vector = normal_vector/sqrt(dot_product(normal_vector,normal_vector))
+                mat = diadic(normal_vector,normal_vector)
+                do k1=1,nd
+                    do k2=1,nd
+                        call ret_coo%add((i-1)*nd+k1,(j-1)*nd+k2,mat(k1,k2))
+                    enddo
+                enddo
+                do k1=1,nd
+                    do k2=1,nd
+                        call ret_coo%add((j-1)*nd+k1,(i-1)*nd+k2,mat(k1,k2))
+                    enddo
+                enddo
+
+                do k1=1,nd
+                    do k2=1,nd
+                        call ret_coo%add((i-1)*nd+k1,(i-1)*nd+k2,-mat(k1,k2))
+                    enddo
+                enddo
+                do k1=1,nd
+                    do k2=1,nd
+                        call ret_coo%add((j-1)*nd+k1,(j-1)*nd+k2,-mat(k1,k2))
+                    enddo
+                enddo
+
+            endif
+        enddo
+    enddo
+    ret = ret_coo%to_crs()
+
+
+
+end function
+! ####################################################################
 
 end module DemDomainClass
