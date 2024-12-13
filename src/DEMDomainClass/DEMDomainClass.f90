@@ -36,15 +36,21 @@ module DemDomainClass
         type(DEM_3D_NeighborList_) :: NeighborList
 
         real(real64) :: contact_stiffness
+        
+        ! for 2-d case(experimental)
+        real(real64) :: k_N = 1.0d0
+        real(real64) :: k_T = 0.50d0
+        
         real(real64) :: contact_damping
         real(real64) :: grid_scale_factor = 5.0d0
     contains
         procedure,public :: init => initDEMDomainClass
         procedure,public :: closepack => closepackDEMDomainClass
+        procedure,public :: closepack2D => closepack2DDEMDomainClass
         procedure,public :: np   => getNumberOfPointDEMDomain
         procedure,public :: nd   => getNumberOfDimDEMDomain
         procedure,public :: setWall => setWallDEMDomain
-        procedure,public :: vtk  => vtkDEMDomain
+        
         procedure,public :: getStiffnessMatrix => getStiffnessMatrixDEMDomain
 
 
@@ -57,9 +63,16 @@ module DemDomainClass
         procedure,public :: updateForce        => updateForceDEMDomain
         procedure,public :: updateDisplacement => updateDisplacementDEMDomain
 
+        ! update particles
+        procedure,public :: move => moveDEMDomain
+
         procedure,public :: StiffnessMatrix => StiffnessMatrixDEMDomain
 
         procedure,public :: distance => distanceDEMDomain
+
+        ! visualization
+        procedure,public :: vtk  => vtkDEMDomain
+        procedure,public :: gnuplot2D  => gnuplot2DDEMDomain
 
     end type 
 
@@ -805,53 +818,221 @@ end function
 
 
 ! ####################################################################
-function getStiffnessMatrixDEMDomain(this) result(ret)
+function getStiffnessMatrixDEMDomain(this,u) result(ret)
     class(DEMDomain_),intent(in) :: this
+    real(real64),optional,intent(in) :: u(:)
+
     type(CRS_) :: ret
     type(COO_) :: ret_coo
     integer(int32) :: i,j,k1,k2,nd
-    real(real64),allocatable :: normal_vector(:),mat(:,:)
+    real(real64),allocatable :: normal_vector(:),mat(:,:),du_p(:)
     
-    ! 接しているものとbondingを形成
-    ! normal and tangential
-    call ret_coo%init(this%np()*3)
-    nd = size(this%xyz,2)
-    do i=1,this%np()-1
-        do j=i+1,this%np()
-            if(this%distance(i,j) <= this%r(i) + this%r(j)  )then
-                normal_vector = (this%xyz(j,:) - this%xyz(i,:) )
-                normal_vector = normal_vector/sqrt(dot_product(normal_vector,normal_vector))
-                mat = diadic(normal_vector,normal_vector)
-                do k1=1,nd
-                    do k2=1,nd
-                        call ret_coo%add((i-1)*nd+k1,(j-1)*nd+k2,mat(k1,k2))
-                    enddo
-                enddo
-                do k1=1,nd
-                    do k2=1,nd
-                        call ret_coo%add((j-1)*nd+k1,(i-1)*nd+k2,mat(k1,k2))
-                    enddo
-                enddo
+    du_p = zeros(size(this%xyz,2))
+    if( size(this%xyz,2) == 3)then
+        ! 接しているものとbondingを形成
+        ! normal and tangential
+        call ret_coo%init(this%np()*3)
+        nd = size(this%xyz,2)
+        do i=1,this%np()-1
+            do j=i+1,this%np()
+                if(this%distance(i,j) <= this%r(i) + this%r(j)  )then
+                    ! 変位が与えられている場合，pairingは初期配置，法線は現配置で計算することでbondingを再現
+                    if (present(u))then
+                        du_p = u(nd*(j-1)+1:nd*(j-1)+nd) - u(nd*(i-1)+1:nd*(i-1)+nd)
+                    endif
+                    normal_vector = (this%xyz(j,:) - this%xyz(i,:) ) + du_p(:)
+                    normal_vector = normal_vector/sqrt(dot_product(normal_vector,normal_vector))
+                    mat = (this%k_N - this%k_T)*diadic(normal_vector,normal_vector) + this%k_T*eyes(nd,nd)
 
-                do k1=1,nd
-                    do k2=1,nd
-                        call ret_coo%add((i-1)*nd+k1,(i-1)*nd+k2,-mat(k1,k2))
+                    do k1=1,nd
+                        do k2=1,nd
+                            call ret_coo%add((i-1)*nd+k1,(j-1)*nd+k2,mat(k1,k2))
+                        enddo
                     enddo
-                enddo
-                do k1=1,nd
-                    do k2=1,nd
-                        call ret_coo%add((j-1)*nd+k1,(j-1)*nd+k2,-mat(k1,k2))
+                    do k1=1,nd
+                        do k2=1,nd
+                            call ret_coo%add((j-1)*nd+k1,(i-1)*nd+k2,mat(k1,k2))
+                        enddo
                     enddo
-                enddo
 
-            endif
+                    do k1=1,nd
+                        do k2=1,nd
+                            call ret_coo%add((i-1)*nd+k1,(i-1)*nd+k2,-mat(k1,k2))
+                        enddo
+                    enddo
+                    do k1=1,nd
+                        do k2=1,nd
+                            call ret_coo%add((j-1)*nd+k1,(j-1)*nd+k2,-mat(k1,k2))
+                        enddo
+                    enddo
+
+                endif
+            enddo
         enddo
-    enddo
+    elseif( size(this%xyz,2) == 2)then
+        ! 接しているものとbondingを形成
+        ! normal and tangential
+        normal_vector = zeros(3)
+        call ret_coo%init(this%np()*3)
+        nd = size(this%xyz,2)
+        do i=1,this%np()-1
+            do j=i+1,this%np()
+                if(this%distance(i,j) <= this%r(i) + this%r(j)  )then
+                    ! 変位が与えられている場合，pairingは初期配置，法線は現配置で計算することでbondingを再現
+                    if (present(u))then
+                        du_p = u(nd*(j-1)+1:nd*(j-1)+nd) - u(nd*(i-1)+1:nd*(i-1)+nd)
+                    endif
+                    normal_vector(1:2) = (this%xyz(j,1:2) - this%xyz(i,1:2) ) + du_p(:)
+                    normal_vector = normal_vector/sqrt(dot_product(normal_vector,normal_vector))
+                    mat = (this%k_N - this%k_T)*diadic(normal_vector,normal_vector) + this%k_T*eyes(nd,nd)
+                    
+                    
+                    do k1=1,nd
+                        do k2=1,nd
+                            call ret_coo%add((i-1)*nd+k1,(j-1)*nd+k2,mat(k1,k2))
+                        enddo
+                    enddo
+                    do k1=1,nd
+                        do k2=1,nd
+                            call ret_coo%add((j-1)*nd+k1,(i-1)*nd+k2,mat(k1,k2))
+                        enddo
+                    enddo
+
+                    do k1=1,nd
+                        do k2=1,nd
+                            call ret_coo%add((i-1)*nd+k1,(i-1)*nd+k2,-mat(k1,k2))
+                        enddo
+                    enddo
+                    do k1=1,nd
+                        do k2=1,nd
+                            call ret_coo%add((j-1)*nd+k1,(j-1)*nd+k2,-mat(k1,k2))
+                        enddo
+                    enddo
+
+                endif
+            enddo
+        enddo
+    else
+        call print("ERROR :: getStiffnessMatrixDEMDomain >> invalid dimension @ demdomain%xyz")
+    endif
     ret = ret_coo%to_crs()
 
 
 
 end function
 ! ####################################################################
+
+
+
+subroutine closepack2DDEMDomainClass(this,radius,length)
+    class(DEMDomain_),intent(inout) :: this
+    real(real64),intent(in) :: radius,length(2)
+    integer(int32) :: i,j,k,n_xy,n_xyz,m,nx,mx,ny,nz,idx,lx,ly,lz
+    real(real64) :: dx,dy
+
+    
+    lx = length(1)
+    ly = length(2)
+
+    ! rangeに従い，最密充填構造を作成する．
+    nx = int(lx/(2*radius)) + 1
+    mx = int(lx/(2*radius)) 
+    ny = int(ly/((radius)*sqrt(3.0d0))) 
+    nz = 1
+
+
+    if (mod(ny,2)==0)then
+        ! even
+        n_xy = (nx + mx)*(ny/2)
+    else
+        ! odd
+        n_xy = (nx + mx)*(ny/2) + nx
+    endif
+    
+
+    this%xyz = zeros(n_xy*nz,2)
+    this%r = radius*ones(n_xy*nz)
+
+    idx  = 0
+    do k=1,nz
+        if (mod(k,2)==1)then
+            dx = 0.0d0
+            dy = 0.0d0
+
+            do j=1,ny
+                if (mod(j,2)==1)then
+                    do i=1,nx
+                        idx = idx + 1
+                        this%xyz(idx,1) = (i-1)*(2.0d0*radius) + dx
+                        this%xyz(idx,2) = (j-1)*(sqrt(3.0d0)*radius) + dy
+                    enddo
+                else
+                    do i=1,mx
+                        idx = idx + 1
+                        this%xyz(idx,1) = (i-1)*(2.0d0*radius) + radius + dx
+                        this%xyz(idx,2) = (j-1)*(sqrt(3.0d0)*radius) + dy
+                    enddo
+                endif
+            enddo
+        else
+            
+            dx = radius
+            dy = radius*sqrt(3.0d0)*(1.0d0/3.0d0)
+
+            do j=1,ny
+                if (mod(j,2)==1)then
+                    do i=1,nx
+                        idx = idx + 1
+                        this%xyz(idx,1) = (i-1)*(2.0d0*radius) + dx
+                        this%xyz(idx,2) = (j-1)*(sqrt(3.0d0)*radius) + dy
+                    enddo
+                else
+                    do i=1,mx
+                        idx = idx + 1
+                        this%xyz(idx,1) = (i-1)*(2.0d0*radius) + radius + dx
+                        this%xyz(idx,2) = (j-1)*(sqrt(3.0d0)*radius) + dy
+                    enddo
+                endif
+            enddo
+        endif
+        
+    enddo
+
+
+
+end subroutine
+! ####################################################################
+
+! ####################################################################
+subroutine gnuplot2DDEMDomain(this,name)
+    class(DEMDomain_),intent(in) :: this
+    character(*),intent(in) :: name
+    type(IO_) :: f
+    integeR(int32) :: i
+
+    call f%open(name,"w")
+    call f%write("set parametric")
+    call f%write("unset key")
+    do i=1,size(this%xyz,1)
+        if (i==1)then
+            write(f%fh,*) "plot [0:2*pi] ",this%r(i),"*cos(t)+",this%xyz(i,1),", ",this%r(i),"*sin(t     ) + ",this%xyz(i,2)
+        else
+            write(f%fh,*) "replot [0:2*pi] ",this%r(i),"*cos(t)+",this%xyz(i,1),", ",this%r(i),"*sin(t     ) + ",this%xyz(i,2)
+        endif
+    enddo
+    call f%close()
+end subroutine
+! ####################################################################
+
+! ####################################################################
+subroutine moveDEMDomain(this,displacement)
+    class(DEMDomain_),intent(inout) :: this
+    real(real64),intent(in) :: displacement(:)
+
+    this%xyz = this%xyz + reshape(displacement,size(this%xyz,1),size(this%xyz,2))
+
+end subroutine
+! ####################################################################
+
 
 end module DemDomainClass

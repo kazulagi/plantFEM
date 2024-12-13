@@ -1166,7 +1166,7 @@ contains
                   if (num_bracket_L1 == 0) exit
                   line_idx = line_idx + 1
                   line = readline(content, line_idx)
-                  key_and_value%content(2)%char = key_and_value%content(2)%char + new_line("A") &
+                  key_and_value%fcontent(2)%char = key_and_value%fcontent(2)%char + new_line("A") &
                                                   + line
 
                   if ("{".in.line) then

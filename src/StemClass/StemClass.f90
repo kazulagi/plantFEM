@@ -95,6 +95,7 @@ module StemClass
       procedure, public :: empty => emptyStem
       procedure, public :: getCoordinate => getCoordinateStem
       procedure, public :: getLength => getLengthStem
+      procedure, public :: getAngles => getAngles_StemClass
       procedure, public :: getWidth => getWidthStem
       procedure, public :: FullyExpanded => FullyExpandedStem
 
@@ -540,6 +541,18 @@ contains
       StemID = StemID + 1
 
    end subroutine
+! ########################################
+
+! ########################################
+function getAngles_StemClass(this) result(ret)
+   class(Stem_),intent(in) :: this
+   real(real64) :: ret(1:3)
+
+   ret(1) = this%rot_x
+   ret(2) = this%rot_y
+   ret(3) = this%rot_z
+
+end function
 ! ########################################
 
 ! ########################################

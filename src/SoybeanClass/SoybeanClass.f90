@@ -217,6 +217,10 @@ module SoybeanClass
       procedure, public :: setPoints => setPointsSoybean
       procedure, public :: setProperties => setPropertiesSoybean
 
+      ! editor
+      procedure, public :: set_stem_length_by_list => set_stem_length_by_list_Soybean
+      procedure, public :: set_stem_angle_by_list => set_stem_angle_by_list_Soybean
+
       ! simple setters
       procedure, public :: addStem => addStemSoybean
       procedure, public :: setPropertiesDensity => setPropertiesDensitySoybean
@@ -229,6 +233,7 @@ module SoybeanClass
       procedure, public :: setPropertiesGravity => setPropertiesGravitySoybean
       procedure, public :: setFEMDomains => setFEMDomainsSoybean
       procedure, public :: setFEMDomain => setFEMDomainsSoybean
+
 
       ! alternative setters
       procedure, public :: setYoungModulus => setYoungModulusSoybean
@@ -268,8 +273,14 @@ module SoybeanClass
       ! get global Element Idx
       procedure, public :: getGlobalElementIdx => getGlobalElementIdxSoybean
 
+      ! stem length, stem angles
+      procedure, public :: get_stem_length_list => get_stem_length_list_Soybean
+      procedure, public :: get_stem_angle_list  => get_stem_angle_list_Soybean
+
       procedure, public :: MassMatrix => MassMatrixSoybean
       procedure, public :: StiffnessMatrix => StiffnessMatrixSoybean
+
+      
 
       ! operation
       procedure, public :: findApical => findApicalSoybean
@@ -363,6 +374,23 @@ module SoybeanClass
       procedure, public :: branchID => branchIDSoybean
       ! range of pointIDs for [Organ type, ID]
       procedure, public :: nn_range => nn_rangeSoybean
+
+      ! observe
+      procedure,public  :: height => height_Soybean
+
+      procedure,public  :: xmin   => x_min_Soybean
+      procedure,public  :: x_min  => x_min_Soybean
+      procedure,public  :: ymin   => y_min_Soybean
+      procedure,public  :: y_min  => y_min_Soybean
+      procedure,public  :: zmin   => z_min_Soybean
+      procedure,public  :: z_min  => z_min_Soybean
+
+      procedure,public  :: xmax   => x_max_Soybean
+      procedure,public  :: x_max  => x_max_Soybean
+      procedure,public  :: ymax   => y_max_Soybean
+      procedure,public  :: y_max  => y_max_Soybean
+      procedure,public  :: zmax   => z_max_Soybean
+      procedure,public  :: z_max  => z_max_Soybean
 
       ! regacy/experimental
       procedure, public :: WaterAbsorption => WaterAbsorptionSoybean
@@ -654,8 +682,10 @@ contains
       integer(int32) :: i, j, this_stem_id, next_stem_id, A_id, B_id, itr_tol, itr, k, kk
       integer(int32) :: this_leaf_id, next_leaf_id
       integer(int32) :: this_root_id, next_root_id, InterNodeID, PetioleID, StemID, LeafID
-      real(real64) :: x_A(3), x_B(3), diff(3), error, last_error, mgn, overset_m, error_tol
+      real(real64) :: x_A(3), x_B(3), diff(3), error, last_error, mgn, overset_m, error_tol,original_position(1:3),disp(1:3)
       logical, optional, intent(in) :: debug
+
+      original_position = obj%stem(1)%femdomain%mesh%nodcoord(1,3)
 
       if (obj%default_Leaf_growth_ratio > 0.0d0) then
          do i = 1, size(obj%leaf)
@@ -755,7 +785,7 @@ contains
       ! margin between subdomains
       overset_m = input(default=0.03d0, option=overset_margin)
 
-      itr_tol = 100
+      itr_tol = 1000
       itr = 0
 
       ! if debug
@@ -940,6 +970,12 @@ contains
          if (abs(error) + abs(last_error) < error_tol) exit
          last_error = error
       end do
+
+      ! offset displacement
+      !if ( norm(obj%stem(1)%femdomain%mesh%nodcoord(1,3) - original_position) > error_tol)then
+      !   disp = obj%stem(1)%femdomain%mesh%nodcoord(1,3) - original_position
+      !   call obj%move(x=-disp(1),y=-disp(2),z=-disp(3))
+      !endif
 
    end subroutine
 ! ########################################
@@ -11081,5 +11117,356 @@ contains
       end do
 
    end function
+! #####################################################################
+
+! #####################################################################
+   function get_stem_length_list_Soybean(this) result(ret)
+      class(Soybean_),intent(in) :: this
+      real(real64),allocatable :: ret(:)
+      integer(int32) :: idx,i
+
+
+      ret = zeros(this%numStem())
+
+      if (.not. allocated(this%stem)) then
+         return
+      end if
+      
+      idx = 0
+      do i = 1, size(this%stem)
+         if (this%stem(i)%femdomain%Mesh%empty() .eqv. .false.) then
+            idx = idx + 1
+            ret(idx) = this%stem(idx)%getLength()
+         end if
+      end do
+
+   end function
+! #####################################################################
+
+
+! #####################################################################
+   subroutine set_stem_length_by_list_Soybean(this,stem_length_list)
+      class(Soybean_),intent(inout) :: this
+      real(real64),intent(in) :: stem_length_list(:)
+      integer(int32) :: idx,i
+
+
+      if (.not. allocated(this%stem)) then
+         return
+      end if
+      
+      idx = 0
+      do i = 1, size(this%stem)
+         if (this%stem(i)%femdomain%Mesh%empty() .eqv. .false.) then
+            idx = idx + 1
+            this%stem(idx)%already_grown = False
+            call this%stem(idx)%change_length_or_width(length=stem_length_list(idx))
+
+         end if
+      end do
+
+      call this%update()
+   end subroutine
+! #####################################################################
+
+
+! #####################################################################
+   subroutine set_stem_angle_by_list_Soybean(this,stem_angle_list)
+      class(Soybean_),intent(inout) :: this
+      real(real64),intent(in) :: stem_angle_list(:,:)
+      real(real64) :: original_position(1:3),disp(1:3)
+      integer(int32) :: idx,i
+
+
+      if (.not. allocated(this%stem)) then
+         return
+      end if
+      
+      idx = 0
+      original_position(1:3) = this%stem(1)%femdomain%Mesh%nodcoord(1,1:3)
+      do i = 1, size(this%stem)
+         if (this%stem(i)%femdomain%Mesh%empty() .eqv. .false.) then
+            idx = idx + 1
+            call this%stem(idx)%rotate(&
+               x=stem_angle_list(idx,1),&
+               y=stem_angle_list(idx,2),&
+               z=stem_angle_list(idx,3),reset=True)
+         end if
+      end do
+      call this%update()
+      disp = original_position(1:3) - this%stem(1)%femdomain%Mesh%nodcoord(1,1:3)
+      call this%move(x=disp(1),y=disp(2),z=disp(3))
+      call this%update()
+
+   end subroutine
+! #####################################################################
+
+
+
+
+! #####################################################################
+   function get_stem_angle_list_Soybean(this) result(ret)
+      class(Soybean_),intent(in) :: this
+      real(real64),allocatable :: ret(:,:)
+      integer(int32) :: idx,i
+
+      ret = zeros(this%numStem(),3)
+
+      if (.not. allocated(this%stem)) then
+         return
+      end if
+      
+      idx = 0
+      do i = 1, size(this%stem)
+         if (this%stem(i)%femdomain%Mesh%empty() .eqv. .false.) then
+            idx = idx + 1
+            ret(idx,1:3) = this%stem(idx)%getAngles()
+         end if
+      end do
+
+   end function
+! #####################################################################
+
+! #####################################################################
+function height_Soybean(this) result(ret)
+   class(Soybean_),intent(in) :: this
+   real(real64) :: ret
+
+   ret = this%z_max() - this%stem(1)%femdomain%z_min()
+   
+end function
+! #####################################################################
+
+
+! #####################################################################
+function x_min_Soybean(this) result(ret)
+   class(Soybean_),intent(in) :: this
+   real(real64) :: ret
+   integer(int32) :: i
+
+   ret = this%stem(1)%femdomain%x_min()
+   if (allocated(this%stem))then
+      do i=1,size(this%stem)
+         if (this%stem(i)%FEMDomain%mesh%empty()) cycle
+         if (this%stem(i)%femdomain%x_min() <= ret)then
+            ret = this%stem(i)%femdomain%x_min()
+         endif 
+      enddo
+   endif
+   
+   if (allocated(this%leaf))then
+      do i=1,size(this%leaf)
+         if (this%leaf(i)%FEMDomain%mesh%empty()) cycle
+         if (this%leaf(i)%femdomain%x_min() <= ret)then
+            ret = this%leaf(i)%femdomain%x_min()
+         endif 
+      enddo
+   endif
+
+   if (allocated(this%root))then
+      do i=1,size(this%root)
+         if (this%root(i)%FEMDomain%mesh%empty()) cycle
+         if (this%root(i)%femdomain%x_min() <= ret)then
+            ret = this%root(i)%femdomain%x_min()
+         endif 
+      enddo
+   endif
+   
+end function
+! #####################################################################
+
+
+! #####################################################################
+function x_max_Soybean(this) result(ret)
+   class(Soybean_),intent(in) :: this
+   real(real64) :: ret
+   integer(int32) :: i
+
+   ret = this%stem(1)%femdomain%x_max()
+   if (allocated(this%stem))then
+      do i=1,size(this%stem)
+         if (this%stem(i)%FEMDomain%mesh%empty()) cycle
+         if (this%stem(i)%femdomain%x_max() >= ret)then
+            ret = this%stem(i)%femdomain%x_max()
+         endif 
+      enddo
+   endif
+   
+   if (allocated(this%leaf))then
+      do i=1,size(this%leaf)
+         if (this%leaf(i)%FEMDomain%mesh%empty()) cycle
+         if (this%leaf(i)%femdomain%x_max() >= ret)then
+            ret = this%leaf(i)%femdomain%x_max()
+         endif 
+      enddo
+   endif
+
+   if (allocated(this%root))then
+      do i=1,size(this%root)
+         if (this%root(i)%FEMDomain%mesh%empty()) cycle
+         if (this%root(i)%femdomain%x_max() >= ret)then
+            ret = this%root(i)%femdomain%x_max()
+         endif 
+      enddo
+   endif
+   
+end function
+! #####################################################################
+
+
+
+! #####################################################################
+function y_min_Soybean(this) result(ret)
+   class(Soybean_),intent(in) :: this
+   real(real64) :: ret
+   integer(int32) :: i
+
+   ret = this%stem(1)%femdomain%y_min()
+   if (allocated(this%stem))then
+      do i=1,size(this%stem)
+         if (this%stem(i)%FEMDomain%mesh%empty()) cycle
+         if (this%stem(i)%femdomain%y_min() <= ret)then
+            ret = this%stem(i)%femdomain%y_min()
+         endif 
+      enddo
+   endif
+   
+   if (allocated(this%leaf))then
+      do i=1,size(this%leaf)
+         if (this%leaf(i)%FEMDomain%mesh%empty()) cycle
+         if (this%leaf(i)%femdomain%y_min() <= ret)then
+            ret = this%leaf(i)%femdomain%y_min()
+         endif 
+      enddo
+   endif
+
+   if (allocated(this%root))then
+      do i=1,size(this%root)
+         if (this%root(i)%FEMDomain%mesh%empty()) cycle
+         if (this%root(i)%femdomain%y_min() <= ret)then
+            ret = this%root(i)%femdomain%y_min()
+         endif 
+      enddo
+   endif
+   
+end function
+! #####################################################################
+
+
+! #####################################################################
+function y_max_Soybean(this) result(ret)
+   class(Soybean_),intent(in) :: this
+   real(real64) :: ret
+   integer(int32) :: i
+
+   ret = this%stem(1)%femdomain%y_max()
+   if (allocated(this%stem))then
+      do i=1,size(this%stem)
+         if (this%stem(i)%FEMDomain%mesh%empty()) cycle
+         if (this%stem(i)%femdomain%y_max() >= ret)then
+            ret = this%stem(i)%femdomain%y_max()
+         endif 
+      enddo
+   endif
+   
+   if (allocated(this%leaf))then
+      do i=1,size(this%leaf)
+         if (this%leaf(i)%FEMDomain%mesh%empty()) cycle
+         if (this%leaf(i)%femdomain%y_max() >= ret)then
+            ret = this%leaf(i)%femdomain%y_max()
+         endif 
+      enddo
+   endif
+
+   if (allocated(this%root))then
+      do i=1,size(this%root)
+         if (this%root(i)%FEMDomain%mesh%empty()) cycle
+         if (this%root(i)%femdomain%y_max() >= ret)then
+            ret = this%root(i)%femdomain%y_max()
+         endif 
+      enddo
+   endif
+   
+end function
+! #####################################################################
+
+
+
+
+! #####################################################################
+function z_min_Soybean(this) result(ret)
+   class(Soybean_),intent(in) :: this
+   real(real64) :: ret
+   integer(int32) :: i
+
+   ret = this%stem(1)%femdomain%z_min()
+   if (allocated(this%stem))then
+      do i=1,size(this%stem)
+         if (this%stem(i)%FEMDomain%mesh%empty()) cycle
+         if (this%stem(i)%femdomain%z_min() <= ret)then
+            ret = this%stem(i)%femdomain%z_min()
+         endif 
+      enddo
+   endif
+   
+   if (allocated(this%leaf))then
+      do i=1,size(this%leaf)
+         if (this%leaf(i)%FEMDomain%mesh%empty()) cycle
+         if (this%leaf(i)%femdomain%z_min() <= ret)then
+            ret = this%leaf(i)%femdomain%z_min()
+         endif 
+      enddo
+   endif
+
+   if (allocated(this%root))then
+      do i=1,size(this%root)
+         if (this%root(i)%FEMDomain%mesh%empty()) cycle
+         if (this%root(i)%femdomain%z_min() <= ret)then
+            ret = this%root(i)%femdomain%z_min()
+         endif 
+      enddo
+   endif
+   
+end function
+! #####################################################################
+
+
+! #####################################################################
+function z_max_Soybean(this) result(ret)
+   class(Soybean_),intent(in) :: this
+   real(real64) :: ret
+   integer(int32) :: i
+
+   ret = this%stem(1)%femdomain%z_max()
+   if (allocated(this%stem))then
+      do i=1,size(this%stem)
+         if (this%stem(i)%FEMDomain%mesh%empty()) cycle
+         if (this%stem(i)%femdomain%z_max() >= ret)then
+            ret = this%stem(i)%femdomain%z_max()
+         endif 
+      enddo
+   endif
+   
+   if (allocated(this%leaf))then
+      do i=1,size(this%leaf)
+         if (this%leaf(i)%FEMDomain%mesh%empty()) cycle
+         if (this%leaf(i)%femdomain%z_max() >= ret)then
+            ret = this%leaf(i)%femdomain%z_max()
+         endif 
+      enddo
+   endif
+
+   if (allocated(this%root))then
+      do i=1,size(this%root)
+         if (this%root(i)%FEMDomain%mesh%empty()) cycle
+         if (this%root(i)%femdomain%z_max() >= ret)then
+            ret = this%root(i)%femdomain%z_max()
+         endif 
+      enddo
+   endif
+   
+end function
+! #####################################################################
+
 
 end module

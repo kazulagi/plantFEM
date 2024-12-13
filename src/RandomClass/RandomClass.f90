@@ -22,7 +22,8 @@ module RandomClass
       procedure :: uniform => uniformRandom
       procedure, pass :: gauss_scalar_Random
       procedure, pass :: gauss_vector_Random
-      generic :: gauss => gauss_scalar_Random, gauss_vector_Random
+      procedure, pass :: gauss_tensor_Random
+      generic :: gauss => gauss_scalar_Random, gauss_vector_Random,gauss_tensor_Random
       procedure :: ChiSquared => ChiSquaredRandom
       procedure :: Chauchy => ChauchyRandom
       procedure :: Lognormal => LognormalRandom
@@ -336,6 +337,25 @@ contains
 
       do i = 1, n
          ret(i) = obj%gauss(mu=mu, sigma=sigma)
+      end do
+
+   end function
+!##########################################
+
+
+!##########################################
+   function gauss_tensor_Random(obj, mu, sigma, n, m) result(ret)
+      class(Random_), intent(inout) :: obj
+      real(real64), intent(in) :: mu, sigma
+      real(real64) :: ret(n,m)
+      real(real64) :: pi = 3.141592653d0
+      integer(int32), intent(in) :: n, m
+      integer(int32) :: i,j 
+
+      do j=1,m
+         do i = 1, n
+            ret(i,j) = obj%gauss(mu=mu, sigma=sigma)
+         end do
       end do
 
    end function

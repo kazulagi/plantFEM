@@ -1,6 +1,7 @@
 module SoilClass
    use, intrinsic :: iso_fortran_env
    use fem
+   use FEMDomainClass
    use FertilizerClass
    use BoringClass
    use DigitalElevationModelClass
@@ -18,6 +19,7 @@ module SoilClass
    !Ⅴ耐震設計編、pp.69、2017
    integer(int32), parameter :: PF_N2Vs_JAPANROAD_1 = 3
    integer(int32), parameter :: PF_N2Vs_JAPANROAD_2 = 4
+
 
    type :: Soil_
       type(FEMDomain_) :: FEMDomain
@@ -42,6 +44,12 @@ module SoilClass
       real(real64) :: x, y, z ! center coordinate
 
       ! soil property
+      character(:),allocatable :: config
+      real(real64),allocatable :: lambda(:)
+      real(real64),allocatable :: kappa(:)
+      real(real64),allocatable :: e0(:)
+      real(real64),allocatable :: P0(:)
+      real(real64),allocatable :: Py(:)
 
       ! ================
       ! Nutorient
@@ -68,12 +76,21 @@ module SoilClass
       real(real64) :: EC
       ! ================
 
+      ! ================
+      
+      ! ================
+
    contains
       procedure, pass :: initSoil
       procedure, pass :: init_by_latlon_Soil
       generic :: init => initSoil, init_by_latlon_Soil
       generic :: create => initSoil, init_by_latlon_Soil
       generic :: new => initSoil, init_by_latlon_Soil
+
+      procedure,public :: nn => nn_Soil
+      procedure,public :: ne => ne_Soil
+      procedure,public :: nne => nne_Soil
+      procedure,public :: nd => nd_Soil
 
       procedure :: import => importSoil
       procedure :: resize => resizeSoil
@@ -90,6 +107,16 @@ module SoilClass
       procedure :: getNvalue => getNvalueSoil
       procedure :: convertNvalue2Vs => convertNvalue2VsSoil
 
+      procedure,public :: GL => Ground_level_of_Soil
+
+      ! Soil's emperical mechanical parameters & models
+      procedure,public :: setSoilType => setSoilType_SoilClass
+      procedure,public :: JGS_coeff_subgrade_react => JGS_coeff_subgrade_react_Soil
+      procedure,public :: JGS_subgrade_displacement => JGS_subgrade_displacement_Soil
+      procedure,public :: raining => raining_Soil
+      procedure,public :: cultivate => cultivate_Soil
+      procedure,public :: updateVoidRatio => updateVoidRatio_Soil
+      ! 
       ! MPI
       procedure :: sync => syncSoil
    end type
@@ -1080,5 +1107,218 @@ contains
    end function
 
 ! ##############################################################
+
+! ##############################################################
+function JGS_coeff_subgrade_react_Soil(this,B,Is) result(k)
+   class(Soil_),intent(inout) :: this
+   real(real64),intent(in) :: B ! width of foundation loaded on the soil (Unit: m)
+   real(real64),optional,intent(in) :: Is
+   integer(int32),allocatable  :: elementlist(:)
+   real(real64) :: k,E,v
+
+   if(.not. allocated(this%YoungModulus))then
+      print *, "[ERROR] >> JGS_coeff_subgrade_react_Soil >> .not. allocated(this%YoungModulus)"
+      stop
+   endif
+   if(.not. allocated(this%PoissonRatio))then
+      print *, "[ERROR] >> JGS_coeff_subgrade_react_Soil >> .not. allocated(this%PoissonRatio)"
+      stop
+   endif
+
+   ! Compute a coefficient of subgrade reaction of soil by Ishihara's formula (Kenji Ishihara, Soil Mehcanics, 1988, pp. 216-219.)
+   elementlist = this%FEMDomain%getElementList(xmin=this%FEMDomain%x_min(),zmin=this%FEMDomain%z_max()-1.0d0)
+   E  = average(this%YoungModulus(elementlist) ) ! Average of Young's modulus above G.L. -1.0m
+   v  = average(this%PoissonRatio(elementlist) ) ! Average of Poisson's ratio above G.L. -1.0m
+   
+   k = 1.0d0/(input(default=0.785d0,option=Is)*(1.0d0-v*v) )*E/B
+
+end function
+! ##############################################################
+
+
+! ##############################################################
+function JGS_subgrade_displacement_Soil(this,area,weight,Is) result(u)
+   class(Soil_),intent(inout) :: this
+   real(real64),intent(in) :: area  ! area of foundation loaded on the soil (Unit: m^2)
+   real(real64),intent(in) :: weight ! weight of foundation loaded on the soil (Unit: t)
+   real(real64),optional,intent(in) :: Is ! optional
+   real(real64) :: u
+
+   u = weight*1000.0d0*9.80d0/area/this%JGS_coeff_subgrade_react(B=sqrt(area)) ! m
+
+end function
+! ##############################################################
+
+
+! ##############################################################
+subroutine raining_Soil(this,precipitation_mm)
+   class(Soil_),intent(inout) :: this
+   real(real64),intent(in) :: precipitation_mm
+
+   ! update Young's modulus by precipitation
+   
+
+end subroutine
+! ##############################################################
+
+
+
+! ##############################################################
+subroutine cultivate_Soil(this,depth,VoidRatio)
+   class(Soil_),intent(inout) :: this
+   real(real64),intent(in) :: depth,VoidRatio
+   real(real64),allocatable :: volumetric_strain(:)
+
+   ! update Young's modulus by precipitation
+   call this%updateVoidRatio(range=to_range(z_min=this%GL()-depth),VoidRatio=VoidRatio)
+
+   if(.not. allocated(this%P0))then
+      print *, "[ERROR] :: this%P0 is not set."
+      stop
+   endif
+   if(.not. allocated(this%lambda))then
+      print *, "[ERROR] :: this%lambda is not set."
+      stop
+   endif
+   if(.not. allocated(this%kappa))then
+      print *, "[ERROR] :: this%kappa is not set."
+      stop
+   endif
+   if(.not. allocated(this%e0))then
+      print *, "[ERROR] :: this%e0 is not set."
+      stop
+   endif
+   if(.not. allocated(this%Py))then
+      print *, "[ERROR] :: this%Py is not set."
+      stop
+   endif
+   if(.not. allocated(this%Density))then
+      print *, "[ERROR] :: this%Density is not set."
+      stop
+   endif
+   if(.not. allocated(this%PoissonRatio))then
+      print *, "[ERROR] :: this%PoissonRatio is not set."
+      stop
+   endif
+   
+   ! 間隙比からヤング率を更新
+   ! ln f-ln P 関係を利用
+   ! f = f0*(P/P_0)^(-lambda)
+   !this%VoidRatio( this%FEMDomain%getElementList(x_min=this%FEMDomain%x_min(),&
+   !   z_min=this%FEMDomain%z_max()-depth) ) = VoidRatio
+   volumetric_strain  = (this%VoidRatio - this%e0)/this%e0
+   this%YoungModulus = -this%P0*1.0d0/this%lambda*(1+volumetric_strain)**(-1.0d0-1.0d0/this%lambda)
+
+
+end subroutine
+! ##############################################################
+
+
+
+! ##############################################################
+subroutine updateVoidRatio_Soil(this,range,VoidRatio)
+   class(Soil_),intent(inout) :: this
+   type(Range_),intent(in) :: range
+   real(real64),intent(in) :: VoidRatio
+
+   if (.not. allocated(this%VoidRatio) )then
+      this%VoidRatio = zeros(this%ne())
+   endif
+
+   this%VoidRatio(this%FEMDomain%getElementList(&
+         xmin=range%x_range(1),&
+         xmax=range%x_range(2),&
+         ymin=range%y_range(1),&
+         ymax=range%y_range(2),&
+         zmin=range%z_range(1),&
+         zmax=range%z_range(2) &
+      ) ) = VoidRatio
+
+   
+end subroutine
+! ##############################################################
+
+
+! ##############################################################
+function Ground_level_of_Soil(this) result(ret)
+   class(Soil_),intent(in) :: this
+   real(real64) :: ret
+
+   ret = this%FEMDomain%zmax()
+
+end function
+! ##############################################################
+
+
+! ##############################################################
+subroutine setSoilType_SoilClass(this,config)
+   class(Soil_),intent(inout) :: this
+   character(*),intent(in) :: config
+   type(IO_) :: f
+
+   this%config = config
+
+   this%lambda = freal(f%parse_json(config,to_list("lnf_lnP","lambda")) )*ones(this%ne())
+   this%kappa  = freal(f%parse_json(config,to_list("lnf_lnP","kappa")) )*ones(this%ne())
+   this%e0     = freal(f%parse_json(config,to_list("lnf_lnP","e0")) )*ones(this%ne())
+   this%P0     = freal(f%parse_json(config,to_list("lnf_lnP","P0")) )*ones(this%ne())
+   this%Py     = freal(f%parse_json(config,to_list("lnf_lnP","Py")) )*ones(this%ne())
+
+   this%VoidRatio = this%e0*ones(this%ne())
+   this%Density      = freal(f%parse_json(config,to_list("MechanicalProperties","Density")) )*ones(this%ne())
+   this%PoissonRatio = freal(f%parse_json(config,to_list("MechanicalProperties","PoissonRatio")) )*ones(this%ne())
+   
+   !this%YoungModulus = - this%P0(:)*1.0d0/this%kappa(:)*(1.0d0+this)
+
+end subroutine
+! ##############################################################
+
+! ##############################################################
+function nn_Soil(this) result(ret)
+   class(Soil_),intent(in) :: this
+   integer(int32) :: ret
+
+   ret = this%FEMDomain%nn()
+
+end function
+! ##############################################################
+
+
+! ##############################################################
+function ne_Soil(this) result(ret)
+   class(Soil_),intent(in) :: this
+   integer(int32) :: ret
+
+   ret = this%FEMDomain%ne()
+
+end function
+! ##############################################################
+
+
+
+! ##############################################################
+function nne_Soil(this) result(ret)
+   class(Soil_),intent(in) :: this
+   integer(int32) :: ret
+
+   ret = this%FEMDomain%nne()
+
+end function
+! ##############################################################
+
+
+! ##############################################################
+function nd_Soil(this) result(ret)
+   class(Soil_),intent(in) :: this
+   integer(int32) :: ret
+
+   ret = this%FEMDomain%nd()
+
+end function
+! ##############################################################
+
+
+
+
 
 end module

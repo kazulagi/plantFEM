@@ -1,0 +1,19 @@
+{
+    "name":"EX_CLAY",
+    "e_lnP":{
+        "lambda": 0.0130,
+        "kappa" : 0.0500,
+        "e0"    : 0.60, 
+        "P0"    : 10.0,
+        "Py"    : 10.0
+    },
+    "MechanicalProperties":{
+        "Density": 1.80,
+        "PoissonRatio": 0.30
+    },
+    "ConstitutiveModel":{
+        "NCL": "lnf-lnP",
+        "CSL": "Mohr-Coulomb",
+        "FlowRule":"associated"
+    }
+}

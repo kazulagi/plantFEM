@@ -533,11 +533,17 @@ contains
       NUM_SAMPLE = f%numLine(filepath)
       t = to_time_axis(int(sampling_Hz), NUM_SAMPLE)
 
-      All_data = zeros(f%numline(filepath), num_logger*3)
-      do i = 1, num_logger*3
-         All_data(:, i) = from_CSV(filepath, column=1 + i)
-         All_data(:, i) = All_data(:, i) - average(All_data(:, i))
-      end do
+      !All_data = zeros(f%numline(filepath), num_logger*3)
+      !do i = 1, num_logger*3
+      !   All_data(:, i) = from_CSV(filepath, column=1 + i)
+      !   All_data(:, i) = All_data(:, i) - average(All_data(:, i))
+      !end do
+      All_data = f%to_array(filepath,column=[(i, i=2,num_logger*3+1)],header=0)
+      !call print(shape(All_data))
+      do i=1,size(All_data,2)
+         All_data(:,i) = All_data(:,i) - average(All_data(:,i) )
+      enddo
+
       ! >>>>>>>> READ DATA INFO >>>>>>>>>>>
       call logfile%write("[ok] WAVE DATA LOADED")
       call logfile%flush()
