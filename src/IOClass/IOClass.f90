@@ -264,11 +264,6 @@ module IOClass
       module procedure open_fileIOandReturn
    end interface open_file
 
-
-   interface open
-      module procedure open_fileIOandReturn
-   end interface open
-
    interface CaesarCipher
       module procedure CaesarCipherChar
    end interface
