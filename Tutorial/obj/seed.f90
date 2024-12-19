@@ -1,20 +1,18 @@
-program main
-    use plantFEM
-    implicit none
+use SoybeanClass
+implicit none
 
-    type(Soybean_) :: soy(5)
-    type(MPI_)     :: mpid
-    integer(int32) :: i,j
+type(Soybean_),allocatable :: soy(:,:)
+type(Random_) :: random
+type(Math_) :: math
 
-    call mpid%start()
-    i = mpid%myrank + 1
-    do j=1,5
-        call soy(j)%init("soyconfig")
-        ! 条間75cm, 株間15cm
-        call soy(j)%move(x=dble(i-1)*0.750d0,y=dble(j-1)*0.150d0 )
-        ! 描画
-        call soy(j)%gmsh("soy"//trim(str(i))//"_"//trim(str(j)))
+allocate(soy(10,100))
+do i_i=1,7
+    do j_j=1,20
+        call soy(i_i,j_j)%init(radius=[0.60d0,0.70d0,0.50d0]/100.0d0,division=[10,10,10])
+        call soy(i_i,j_j)%move(x=0.70d0*(i_i-1),y=0.050d0*(j_j-1))
+        call soy(i_i,j_j)%rotate(x=2*math%PI*random%random(),y=2*math%PI*random%random(),z=2*math%PI*random%random())
+        call soy(i_i,j_j)%vtk("soy_seed"+zfill(i_i,4)+"_"+zfill(j_j,4),single_file=True)
     enddo
-    call mpid%end()
+enddo
 
-end program main
+end

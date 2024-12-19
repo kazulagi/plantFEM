@@ -3942,10 +3942,11 @@ contains
                line = this%readline()
                !line = re(line," ","")
                call val_list%split(line, ",")
-
-               do j = 1, size(column)
-                  ret(i, j) = freal(val_list%get(column(j)))
-               end do
+               if (maxval(column) <= val_list%size())then
+                  do j = 1, size(column)
+                     ret(i, j) = freal(val_list%get(column(j)))
+                  end do
+               endif
             else
                read (this%fh, *) col(:)
                do j = 1, size(column)
@@ -4279,7 +4280,7 @@ contains
          if (g%EOF) exit
 
          if (keys%get(1) .in.line) then
-            if (size(keys%content) == 1) then
+            if (size(keys%fcontent) == 1) then
                if ("[".in.line) then
                   num_bracket = 1
                   ! import array
@@ -4320,7 +4321,7 @@ contains
          end if
 
          if (keys%get(1) .in.line) then
-            mini_keys%content = keys%content(2:)
+            mini_keys%fcontent = keys%fcontent(2:)
             ret = f%parse_json(filename=filename, keys=mini_keys, from_line_idx=line_idx)
             close (g%fh)
             return
