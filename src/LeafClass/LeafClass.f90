@@ -594,21 +594,77 @@ contains
       !print *, obj%D_PointElementID
 !
       call obj%FEMdomain%remove()
+      
       if (present(species)) then
          if (species == PF_SOYBEAN_CV) then
             call obj%FEMdomain%create(meshtype="Sphere3D", x_num=obj%xnum, y_num=obj%ynum, z_num=obj%xnum, &
-                                      x_len=10.0d0, y_len=10.0d0, z_len=10.0d0)
-            killElementIDs = obj%FEMdomain%getElementList(ymin=obj%FEMdomain%ymax()*1.0d0/2.0d0)
-            killElementList = zeros(obj%FEMdomain%ne())
-            killElementList(killElementIDs(:)) = 1
-            call obj%FEMDomain%killElement(blacklist=killElementList, flag=1)
+                                      x_len=input(default=0.050d0,option=length), &
+                                      y_len=input(default=0.050d0,option=thickness), &
+                                      z_len=input(default=0.050d0,option=width))
+            call obj%FEMDomain%move(&
+               x=-(obj%FEMDomain%xmax() + obj%FEMDomain%xmin())/2.0d0,&
+               y=-(obj%FEMDomain%ymax() + obj%FEMDomain%ymin())/2.0d0,&
+               z=-(obj%FEMDomain%zmax() + obj%FEMDomain%zmin())/2.0d0 )
+            
+            do i=1,obj%FEMDomain%nn()
+               if(obj%FEMDomain%mesh%nodcoord(i,2) >=0.0d0)then
+                  obj%FEMDomain%mesh%nodcoord(i,2) = obj%FEMDomain%mesh%nodcoord(i,2)*0.20d0
+               endif
+            enddo
+            
+            buf = obj%FEMDomain%mesh%getNodeList( &
+               xmin=maxval(obj%FEMdomain%mesh%nodcoord(:, 1)) &
+            )
+            obj%A_PointNodeID = median(buf)
+            obj%I_planeNodeID = buf
+            
+            buf = obj%FEMDomain%mesh%getNodeList( &
+               xmax=minval(obj%FEMdomain%mesh%nodcoord(:, 1)) &
+            )
+            obj%B_PointNodeID = median(buf)
+            obj%II_planeNodeID = buf
+            
+            buf = obj%FEMDomain%mesh%getNodeList( &
+               zmin=maxval(obj%FEMdomain%mesh%nodcoord(:, 3)) &
+            )
+            obj%C_PointNodeID = median(buf)
 
-            call obj%resize(x=obj%minwidth/2.0d0, y=obj%minthickness/2.0d0, &
-                            z=obj%minlength)
-            call obj%FEMdomain%move(z=-obj%FEMdomain%zmin())
-            call obj%FEMdomain%move(x=-(obj%FEMdomain%xmax() + obj%FEMdomain%xmin()))
-            call obj%FEMdomain%move(y=-(obj%FEMdomain%ymax() + obj%FEMdomain%ymin()))
+            buf = obj%FEMDomain%mesh%getNodeList( &
+               zmax=minval(obj%FEMdomain%mesh%nodcoord(:, 3)) &
+            )
+            obj%D_PointNodeID = median(buf)
 
+
+
+
+            buf = obj%FEMDomain%mesh%getElementList( &
+               xmin=maxval(obj%FEMdomain%mesh%nodcoord(:, 1)) &
+            )
+            obj%A_PointElementID = median(buf)
+            
+            buf = obj%FEMDomain%mesh%getElementList( &
+               xmax=maxval(obj%FEMdomain%mesh%nodcoord(:, 1)) &
+            )
+            obj%B_PointElementID = median(buf)
+            
+            buf = obj%FEMDomain%mesh%getElementList( &
+               zmax=maxval(obj%FEMdomain%mesh%nodcoord(:, 3)) &
+            )
+            obj%C_PointElementID = median(buf)
+
+            buf = obj%FEMDomain%mesh%getElementList( &
+               zmin=maxval(obj%FEMdomain%mesh%nodcoord(:, 3)) &
+            )
+            obj%D_PointElementID = median(buf)
+            
+            return
+            !
+            !call obj%resize(x=input(default=(obj%minwidth/2.0d0),option=width),&
+            !                y=input(default=obj%minthickness/2.0d0,option=thickness), &
+            !                z=input(default=obj%minlength,option=thickness))
+            !call obj%FEMdomain%move(z=-obj%FEMdomain%zmin())
+            !call obj%FEMdomain%move(x=-(obj%FEMdomain%xmax() + obj%FEMdomain%xmin()))
+            !call obj%FEMdomain%move(y=-(obj%FEMdomain%ymax() + obj%FEMdomain%ymin()))
          else
             call obj%FEMdomain%create(meshtype="Leaf3D", x_num=obj%xnum, y_num=obj%ynum, z_num=obj%znum, &
                                       x_len=obj%minwidth/2.0d0, y_len=obj%minthickness/2.0d0, &
@@ -852,7 +908,7 @@ contains
 
          !ret = obj%femdomain%mesh%nodcoord(obj%A_PointNodeID,:)
       end if
-      if (nodetype == "B" .or. nodetype == "B") then
+      if (nodetype == "B" .or. nodetype == "b") then
          !ret = obj%femdomain%mesh%nodcoord(obj%B_PointNodeID,:)
          n = size(obj%II_planeNodeID)
          do i = 1, n
