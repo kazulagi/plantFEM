@@ -155,6 +155,11 @@ module MathClass
       module procedure matrix_exponential_real64
    end interface
 
+   public :: assignment(=)
+   interface assignment(=)
+      module procedure assign_real64, assign_int32
+   end interface
+
 contains
 
    function SpectralWhitening_real64(x, auto) result(ret)
@@ -3760,6 +3765,27 @@ pure   subroutine heapsortInt32(n, array, val)
    end subroutine
 ! ###########################################################
 
+! ###########################################################
+subroutine assign_real64(x,y)
+   character(*),intent(in) :: y
+   real(real64),intent(inout) :: x
+
+   x = freal(y)
+
+end subroutine
+! ###########################################################
+
+
+
+! ###########################################################
+subroutine assign_int32(x,y)
+   character(*),intent(in) :: y
+   integer(int32),intent(inout) :: x
+
+   x = fint(y)
+
+end subroutine
+! ###########################################################
 
 
 end module MathClass

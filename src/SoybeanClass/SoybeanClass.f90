@@ -1012,10 +1012,29 @@ contains
       type(Stem_) :: stem
       type(Leaf_) :: leaf
       type(Root_) :: root
+      real(real64) :: seed_width,seed_length,seed_thickness
+      integer(int32) :: seed_division
 
       obj%UUID = generate_uuid(1)
 
       timeOpt = input(default=.false., option=profiler)
+
+
+      ! IS THIS A SEED?
+      if (present(config))then
+         !if ("Seed" .in. keys(json_file=config)) then
+         if (.not. ( "{'not found'}" .in. soyconf%parse_json(filename="Tutorial/obj/soy_seed.json", &
+            keys=to_list("Seed","Length")) ) ) then
+            seed_length    = soyconf%parse_json(filename="Tutorial/obj/soy_seed.json", keys=to_list("Seed","Length"))
+            seed_width     = soyconf%parse_json(filename="Tutorial/obj/soy_seed.json", keys=to_list("Seed","Width"))
+            seed_thickness = soyconf%parse_json(filename="Tutorial/obj/soy_seed.json", keys=to_list("Seed","Thickness"))
+            seed_division  = soyconf%parse_json(filename="Tutorial/obj/soy_seed.json", keys=to_list("Seed","Division"))
+            call obj%init(&
+               radius=[seed_length,seed_width,seed_thickness],&
+               division=[seed_division,seed_division,seed_division])
+            return
+         endif
+      endif
 
       !if(.not.allocated(obj%InterNodeInfo) )then
       !    allocate(this%InterNodeInfo(0:obj%MaxBranchNum) )

@@ -110,6 +110,8 @@ contains
    end subroutine
 !==============================================================
 
+
+
 !==============================================================
    subroutine printString(this)
       class(string_), intent(in) :: this
