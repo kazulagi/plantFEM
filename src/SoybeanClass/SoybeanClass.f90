@@ -11605,7 +11605,7 @@ subroutine init_as_seed_soybean(this,radius,division)
          z=cv_peti_angles_z(i) &
          )
       call this%stem(this%num_stem_node)%connect("=>", this%stem(1))
-      this%stem2stem(this%num_stem_node, i) = 1
+      this%stem2stem(this%num_stem_node, 1) = 1
 
       
       ! add leaves
@@ -11651,7 +11651,7 @@ subroutine init_as_seed_soybean(this,radius,division)
    end do
    
    call this%update()
-   
+
 end subroutine
 ! #####################################################################
 
