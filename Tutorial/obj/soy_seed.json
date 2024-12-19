@@ -1,0 +1,15 @@
+{
+    "Name":"soybean",
+    "Genotype":{
+        "Dt1":"dt1"
+    },
+    "Seed":{
+        "Length":0.005,
+        "Width":0.005,
+        "Thickness":0.005,
+        "Division":10
+    },
+
+    "Comment#1": "This entity and following content is optional.",
+    
+}
