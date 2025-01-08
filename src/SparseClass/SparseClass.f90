@@ -128,6 +128,7 @@ module SparseClass
       ! Destructive
       integer(int64), allocatable :: row_ptr(:)
       real(real64), allocatable :: val(:)
+
       real(real32), allocatable :: val_real32(:)
       complex(real64), allocatable :: val_complex64(:)
       integer(int32) :: dtype = real64
@@ -246,7 +247,7 @@ module SparseClass
 
       generic, public :: tensor_d1_wave_kernel => tensor_d1_wave_kernel_complex64_crs
       generic, public :: fix => fix_complex64_CRS, fixCRS, fix_zeroCRS
-
+         
    end type
 
    public :: operator(+)

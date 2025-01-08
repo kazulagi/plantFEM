@@ -5,8 +5,13 @@ module StemClass
    use FEMSolverClass
    implicit none
 
+   integer(int32),public :: PF_STEM_SHAPE_RECTANGULAR  = 1
+   integer(int32),public :: PF_STEM_SHAPE_CYLINDER     = 2
+   integer(int32),public :: PF_STEM_SHAPE_HYPERBOLOID  = 3
+
    type :: Stem_
       type(FEMDomain_)    ::  FEMDomain
+      integer(int32)      :: cross_section_shape = 1 ! PF_STEM_SHAPE_RECTANGULAR
       real(real64)             ::  Thickness, length, width
       real(real64)             ::  MaxThickness, Maxlength, Maxwidth
       real(real64)             ::  center_bottom(3), center_top(3)
@@ -75,6 +80,7 @@ module StemClass
       ! physiological factor
       real(real64) :: R_d = 1.0d0 ! 暗呼吸速度, mincro-mol/m-2/s
       real(real64) :: default_CarbonDiffusionCoefficient = 0.0010d0 ! ソースの拡散係数 mincro-mol/m^2/m/s
+
    contains
       procedure, public :: Init => initStem
       procedure, public :: rotate => rotateStem
@@ -287,8 +293,16 @@ contains
       obj%ynum = input(default=obj%ynum, option=y_num)
       obj%znum = input(default=obj%znum, option=z_num)
 
-      call obj%FEMdomain%create(meshtype="Cube", x_num=obj%xnum, y_num=obj%ynum, z_num=obj%znum, &
-                                x_len=obj%mindiameter/2.0d0, y_len=obj%mindiameter/2.0d0, z_len=obj%minlength)
+      ! 矩形
+      if (obj%CROSS_SECTION_SHAPE == PF_STEM_SHAPE_CYLINDER)then
+         ! 円柱
+         call obj%FEMdomain%create(meshtype="Cylinder", x_num=obj%xnum, y_num=obj%ynum, z_num=obj%znum, &
+         x_len=obj%mindiameter/2.0d0, y_len=obj%mindiameter/2.0d0, z_len=obj%minlength)
+      else
+         call obj%FEMdomain%create(meshtype="Cube", x_num=obj%xnum, y_num=obj%ynum, z_num=obj%znum, &
+               x_len=obj%mindiameter/2.0d0, y_len=obj%mindiameter/2.0d0, z_len=obj%minlength)
+      endif
+      
 
       ! initialize physical parameters
       obj%DryDensity = zeros(obj%FEMDomain%ne())

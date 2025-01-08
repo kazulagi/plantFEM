@@ -8739,6 +8739,32 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
 
       if (index(name, ".vtk") /= 0) then
          call this%ImportVTKFile(name=name)
+         this%mesh%elementType = [0,0,0]
+         this%mesh%elementType(1) = this%nd()
+         this%mesh%elementType(2) = this%nne()
+
+         ! Number of Gauss points
+         if (this%mesh%elementType(1) == 1) then
+            ! 1D -> ngp = nne - 1
+            this%mesh%elementType(3) = this%nne() - 1
+
+         elseif (this%mesh%elementType(1) == 2) then
+            if (this%mesh%elementType(2)==3)then
+               this%mesh%elementType(3) = 1
+            else 
+               this%mesh%elementType(3) = this%mesh%elementType(2)
+            endif
+            
+         elseif  (this%mesh%elementType(1) == 3) then
+            if (this%mesh%elementType(2)==4)then
+               this%mesh%elementType(3) = 1
+            else 
+               this%mesh%elementType(3) = this%mesh%elementType(2)
+            endif
+         else
+            print *, "[ERROR] readFEMDomain >> invalid %nd()", this%nd()
+            stop
+         endif
          return
       end if
 
