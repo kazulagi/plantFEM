@@ -45,12 +45,12 @@ module SpectreAnalysisClass
       procedure, pass   :: bandpass_complex64_SpectreAnalysis
       procedure, pass   :: bandpass_real64_scalar_SpectreAnalysis
       procedure, pass   :: bandpass_real64_SpectreAnalysis
-
       generic, public :: bandpass => bandpass_complex64_scalar_SpectreAnalysis &
                                      , bandpass_complex64_SpectreAnalysis &
                                      , bandpass_real64_scalar_SpectreAnalysis &
                                      , bandpass_real64_SpectreAnalysis
 
+      procedure,public :: lowpass => lowpass_vector_SpectreAnalysis
       procedure, pass :: cutifSpectreAnalysis
       procedure, pass :: cutif_loggers_SpectreAnalysis
       generic ::  cutif => cutifSpectreAnalysis, cutif_loggers_SpectreAnalysis
@@ -64,6 +64,9 @@ module SpectreAnalysisClass
       procedure, public :: applyTaper => applyTaper_SpectreAnalysis
       procedure, public :: FourierAmplitude => FourierAmplitude_SpectreAnalysis
       procedure, public :: FourierPhase => FourierPhase_SpectreAnalysis
+
+      procedure, public :: masw => masw_SpectreAnalysis
+      procedure, public :: fk => fk_SpectreAnalysis
       procedure, public :: write => write_SpectreAnalysis
    end type
 
@@ -1034,6 +1037,30 @@ contains
 
 ! ##########################################################
 
+function lowpass_vector_SpectreAnalysis(this,x,cutoff_frequency) result(ret)
+   class(SpectreAnalysis_),intent(in) :: this
+   real(real64),intent(in) :: x(:),cutoff_frequency
+   real(real64),allocatable :: ret(:)
+   real(real64) :: buf,x_n
+   integer(int32) :: i
+
+   ret = 0.0d0*x
+   buf = x(1)
+   do i=1,size(x)
+      ret(i) = lowpass_filter(x(i),buf=buf,fc=cutoff_frequency,sampling_Hz=dble(this%sampling_Hz))   
+   enddo
+   ret = reverse(ret)
+   do i=1,size(x)
+      ret(i) = lowpass_filter(ret(i),buf=buf,fc=cutoff_frequency,sampling_Hz=dble(this%sampling_Hz))   
+   enddo
+   ret = reverse(ret)
+   
+
+
+
+
+end function
+
 ! ##########################################################
    function lowpass_filter(x_n, buf, fc, sampling_Hz) result(x)
       real(Real64), intent(in) :: x_n, fc, sampling_Hz
@@ -1168,6 +1195,161 @@ contains
       end do
 
    end subroutine
+! ##########################################################
+
+! ##########################################################
+   function masw_SpectreAnalysis(this,t,x,position,c_axis) result(ret)
+      class(SpectreAnalysis_),intent(in) :: this
+      real(real64),intent(in) :: t(:),x(:,:),position(:),c_axis(:)
+      complex(real64),allocatable :: U(:,:),ret(:,:),ave_x(:)
+      real(real64),allocatable :: x_bin(:,:),x_hanning(:,:)
+      real(real64) :: f,w,dt
+      integer(int32) :: num_data,num_fft
+      integer(int32) :: i,j,k
+      type(Math_) :: math
+
+      ! zero padding and fft
+      num_data = size(x,1)
+      num_fft  = 2**(int( log(dble(num_data))/log(2.0d0) ) + 3)
+      
+      U = zeros(num_fft,size(x,2))
+      ! 3値化
+      !x_bin = x
+      !do j=1,size(x_bin,2)
+      !   do i=1,size(x_bin,1)
+      !      if(x_bin(i,j)>0.0d0)then
+      !         x_bin(i,j) = 1.0d0
+      !      elseif(x_bin(i,j)<0.0d0)then
+      !         x_bin(i,j) = -1.0d0
+      !      else
+      !         x_bin(i,j) = 0.0d0
+      !      endif
+      !   enddo
+      !enddo
+
+      x_hanning = zeros(size(x,1),size(x,2))
+      do i=1,size(x,1) ! time
+         j=1
+         x_hanning(i,j) = 0.250d0*x(i,j) + 0.50d0*x(i,j+1) + 0.250d0*x(i,j+2)
+         do j=2,size(x,2)-1 ! space
+            x_hanning(i,j) = 0.250d0*x(i,j-1) + 0.50d0*x(i,j) + 0.250d0*x(i,j+1)
+         enddo
+         j = size(x,2)
+         x_hanning(i,j) = 0.250d0*x(i,j-2) + 0.50d0*x(i,j-1) + 0.250d0*x(i,j)
+      enddo
+      ! 
+      U(num_data+1:2*num_data,1:size(x,2)) = x_hanning(:,:) !_bin(:,:)
+
+      dt = t(2)-t(1)
+      ! FFT for all stations
+      ! U(x,w)
+      do i=1,size(U,2)
+         U(:,i) = FFT(U(:,i))
+      enddo
+
+      ! V(k,w)
+      ret = zeros(num_fft/2,size(c_axis))
+
+      do i=1,size(position)
+         do j=1,size(c_axis)
+            do k=1,num_fft/2
+               ! V(k,w) = exp(ikx)*U(x,w)/abs(U(x,w))
+               ! print *, i,j
+               ! print *, ret(j,num_fft)
+               ! print *, c_axis(j),position(i)
+               ! print *, cos(c_axis(j)*position(i)) + math%i*sin(c_axis(j)*position(i))
+               f = ((1.0d0/dt))/(num_fft)*(k-1)
+               w = 2.0d0*math%PI*f
+               if (c_axis(j)==0.0d0)then
+                  cycle
+               else
+                  if (abs(U(k,i))==0.0d0)then
+                     ret(k,j) = ret(k,j) &
+                     + 0.0d0
+                  else
+                     ret(k,j) = ret(k,j) &
+                     + exp(math%i*w*position(i)/c_axis(j))*U(k,i)/abs(U(k,i))
+                  endif
+               endif
+            enddo
+         enddo
+      enddo
+      
+
+   end function
+! ##########################################################
+
+
+   ! ##########################################################
+   function fk_SpectreAnalysis(this,t,x,position,k_axis) result(z)
+      class(SpectreAnalysis_),intent(in) :: this
+      real(real64),intent(in) :: t(:),x(:,:),position(:),k_axis(:)
+      complex(real64),allocatable :: U(:,:),z(:,:),ave_x(:)
+      real(real64),allocatable :: x_hanning(:,:)
+      real(real64) :: f,w,dt
+      integer(int32) :: num_data,num_fft
+      integer(int32) :: m,i,j,k,freq
+      type(Math_) :: math
+
+      ! Foti 2014
+      ! Chapter 4, Dispersion analysis
+      ! Eqs. (4.42) ~ (4.44)
+
+      ! zero padding and fft
+      num_data = size(x,1)
+      num_fft  = 2**(int( log(dble(num_data))/log(2.0d0) ) + 3)
+      
+      U = zeros(num_fft,size(x,2))
+
+      x_hanning = zeros(size(x,1),size(x,2))
+      do i=1,size(x,1) ! time
+         j=1
+         x_hanning(i,j) = 0.250d0*x(i,j) + 0.50d0*x(i,j+1) + 0.250d0*x(i,j+2)
+         do j=2,size(x,2)-1 ! space
+            x_hanning(i,j) = 0.250d0*x(i,j-1) + 0.50d0*x(i,j) + 0.250d0*x(i,j+1)
+         enddo
+         j = size(x,2)
+         x_hanning(i,j) = 0.250d0*x(i,j-2) + 0.50d0*x(i,j-1) + 0.250d0*x(i,j)
+      enddo
+      
+      U(num_data+1:2*num_data,1:size(x,2)) = x_hanning(:,:)
+
+      dt = t(2)-t(1)
+      ! time-FFT for all stations
+      ! U(w,x)
+      do i=1,size(U,2)
+         U(:,i) = FFT(U(:,i))
+      enddo
+
+      ! Z(k,w)
+      
+      
+      Z = zeros(num_fft/2,size(k_axis))
+
+      ! m=1,...,M
+      ! weight = 1 for all stations
+      do m=1,size(position)
+         ! summersion over m
+
+         do k=1,size(k_axis)
+            do freq=1,num_fft/2
+
+               f = ((1.0d0/dt))/(num_fft)*(k-1)
+               w = 2.0d0*math%PI*f
+               
+               z(freq,k) = z(freq,k) &
+                  + U(freq,m)&
+                     *exp(math%i    &
+                     *2.0d0*math%PI &
+                     *k_axis(k)*position(m))&
+                  /abs(U(freq,m)) 
+            enddo
+         enddo
+
+      enddo
+      
+
+   end function
 ! ##########################################################
 
 end module SpectreAnalysisClass

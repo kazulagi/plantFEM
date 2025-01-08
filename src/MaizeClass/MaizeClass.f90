@@ -329,6 +329,11 @@ contains
 
       allocate (this%leaf(this%num_leaf))
       allocate (this%stem(this%num_stem))
+      
+      ! Change Crosssectional shape from RECT to CYLINDER
+      do i=1,size(this%stem)
+         this%stem(i)%cross_section_shape = PF_STEM_SHAPE_CYLINDER
+      enddo
       !allocate(this%root(this%num_root))
 
       this%leaf2stem = zeros(this%num_leaf, this%num_stem)

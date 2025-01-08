@@ -49,7 +49,7 @@ module MeshClass
       character(:), allocatable::ElemType
       character(:), allocatable:: ErrorMsg
       character(:), allocatable:: meshtype
-      integer(int32), private, allocatable:: elementType(:)
+      integer(int32),  allocatable:: elementType(:)
 
    contains
       procedure :: add => addMesh

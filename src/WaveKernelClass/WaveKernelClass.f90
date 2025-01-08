@@ -70,6 +70,10 @@ contains
       type(CRS_) :: Imatrix, Mmatrix, Cmatrix
 
       Mmatrix = FEMDomain%MassMatrix(DOF=DOF, Density=Density)
+      this%Mmatrix_diag = Mmatrix%diag(cell_centered=.true.)
+      call Mmatrix%remove()
+
+      print *, "debug: Mmat"
 
       if (DOF == 1) then
          this%OmegaSqMatrix = FEMDomain%StiffnessMatrix( &
@@ -84,9 +88,11 @@ contains
                               YoungModulus=YoungModulus, PoissonRatio=PoissonRatio)
 
       end if
-
-      this%Mmatrix_diag = Mmatrix%diag(cell_centered=.true.)
+      print *, "debug: Kmat"
+      
       this%OmegaSqMatrix = this%OmegaSqMatrix%divide_by(this%Mmatrix_diag)
+
+      print *, "debug: Kmat/Mmat"
 
       this%DampingRatio = zeros(this%OmegaSqMatrix%size())
 
