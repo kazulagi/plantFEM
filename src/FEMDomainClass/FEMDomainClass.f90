@@ -495,6 +495,13 @@ module FEMDomainClass
          StiffnessMatrix_as_CRS_FEMDomain
 
       generic ::MassMatrix => MassMatrixFEMDomain, MassMatrix_as_CRS_FEMDomain
+
+
+      ! subroutine version
+      procedure, public :: setMassMatrix => setMassMatrix_as_CRS_FEMDomain
+      procedure, public :: setStiffnessMatrix =>setStiffnessMatrix_as_CRS_FEMDomain
+
+
       generic ::M_inv_K_Matrix => M_inv_K_Matrix_CRS_FEMDomain
       generic ::ZeroMatrix => ZeroMatrix_as_CRS_FEMDomain
       generic ::ZeroMatrix_as_COO => ZeroMatrix_as_COO_FEMDomain
@@ -10431,6 +10438,115 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
 ! ##########################################################################
 
 ! ##########################################################################
+   subroutine setMassMatrix_as_CRS_FEMDomain(this, Density, DOF, omp, MassMatrix)
+      class(FEMDomain_), intent(inout) :: this
+      real(real64), intent(in) :: Density(:)
+      integer(int32), optional, intent(in) :: DOF
+      logical, optional, intent(in) :: omp
+
+      type(CRS_),intent(inout) :: MassMatrix
+      type(COO_) :: COO
+      integer(int32) :: ElementID, LE1, LE2, ni1, ni2, &
+                        pid_1, pid_2, DOF_1, DOF_2, loc_pid_1, loc_pid_2, i, col_id
+      real(real64), allocatable :: EDM(:, :), val(:)
+      real(real64) :: Length, entry_val
+
+      ! >>>>>>>> FOR 1-D case >>>>>>>>
+      if (this%nne() == 2) then
+         ! stiffness matrix for 1-D
+         call coo%init(this%nn())
+         do ElementID = 1, this%ne()
+            Length = norm(this%mesh%nodcoord(this%mesh%elemnod(ElementID, 1), :) &
+                          - this%mesh%nodcoord(this%mesh%elemnod(ElementID, 2), :))
+            entry_val = Density(ElementID)*Length
+            call coo%add(this%mesh%elemnod(ElementID, 1), this%mesh%elemnod(ElementID, 1), entry_val/3.0d0)
+            call coo%add(this%mesh%elemnod(ElementID, 1), this%mesh%elemnod(ElementID, 2), entry_val/6.0d0)
+            call coo%add(this%mesh%elemnod(ElementID, 2), this%mesh%elemnod(ElementID, 1), entry_val/6.0d0)
+            call coo%add(this%mesh%elemnod(ElementID, 2), this%mesh%elemnod(ElementID, 2), entry_val/3.0d0)
+         end do
+         MassMatrix = coo%to_crs()
+         return
+      end if
+      ! <<<<<<<< FOR 1-D case <<<<<<<<
+
+      if (.not. present(DOF)) then
+         print *, "ERROR >> MassMatrix_as_CRS_FEMDomain should have arg [DOF]"
+         stop
+      end if
+
+      if (present(omp)) then
+         if (.not. omp) then
+            MassMatrix = this%ZeroMatrix(DOF=DOF)
+            do ElementID = 1, this%ne()
+               EDM = this%MassMatrix( &
+                     ElementID=ElementID, &
+                     Density=Density(ElementID), &
+                     DOF=DOF &
+                     )
+               do LE1 = 1, this%nne()
+                  do LE2 = 1, this%nne()
+                     do DOF_1 = 1, DOF
+                        do DOF_2 = 1, DOF
+                           ni1 = this%mesh%elemnod(ElementID, LE1)
+                           ni2 = this%mesh%elemnod(ElementID, LE2)
+                           pid_1 = DOF*(ni1 - 1) + DOF_1
+                           pid_2 = DOF*(ni2 - 1) + DOF_2
+                           loc_pid_1 = DOF*(LE1 - 1) + DOF_1
+                           loc_pid_2 = DOF*(LE2 - 1) + DOF_2
+                           call MassMatrix%add(pid_1, pid_2, EDM(loc_pid_1, loc_pid_2))
+                        end do
+                     end do
+                  end do
+               end do
+            end do
+            return
+         end if
+      end if
+
+      !call COO%init(this%nn()*DOF)
+
+      MassMatrix = this%ZeroMatrix(DOF=DOF)
+      val = MassMatrix%val
+      !$OMP parallel do private(EDM,LE1,LE2,ni1,col_id,i,pid_1,pid_2,loc_pid_1,loc_pid_2,DOF_1,DOF_2)
+      do ElementID = 1, this%ne()
+         EDM = this%MassMatrix( &
+               ElementID=ElementID, &
+               Density=Density(ElementID), &
+               DOF=DOF &
+               )
+         do LE1 = 1, this%nne()
+            do LE2 = 1, this%nne()
+               do DOF_1 = 1, DOF
+                  do DOF_2 = 1, DOF
+                     ni1 = this%mesh%elemnod(ElementID, LE1)
+                     pid_1 = DOF*(ni1 - 1) + DOF_1
+                     ni1 = this%mesh%elemnod(ElementID, LE2)
+                     pid_2 = DOF*(ni1 - 1) + DOF_2
+                     loc_pid_1 = DOF*(LE1 - 1) + DOF_1
+                     loc_pid_2 = DOF*(LE2 - 1) + DOF_2
+                     !call COO%add(pid_1,pid_2,EDM(loc_pid_1,loc_pid_2)  )
+
+                     do i = MassMatrix%row_ptr(pid_1), MassMatrix%row_ptr(pid_1 + 1) - 1
+                        if (MassMatrix%col_idx(i) == pid_2) then
+                           val(i) = val(i) + EDM(loc_pid_1, loc_pid_2)
+                           exit
+                        end if
+                     end do
+
+                  end do
+               end do
+            end do
+         end do
+      end do
+      !$OMP end parallel do
+      MassMatrix%val = val
+
+   end subroutine
+
+! ##########################################################################
+
+
+! ##########################################################################
    recursive function ZeroMatrix_as_CRS_FEMDomain(this, DOF, regacy) result(ZeroMatrix)
       class(FEMDomain_), intent(inout) :: this
       integer(int32), intent(in) :: DOF
@@ -11083,6 +11199,126 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
       StiffnessMatrix%val = val
 
    end function
+
+! ##########################################################################
+! ##########################################################################
+
+   subroutine setStiffnessMatrix_as_CRS_FEMDomain(this, YoungModulus, PoissonRatio, omp, StiffnessMatrix) 
+      class(FEMDomain_), intent(inout) :: this
+      real(real64), intent(in) :: YoungModulus(:)
+      real(real64), optional, intent(in) :: PoissonRatio(:)
+      logical, optional, intent(in) :: omp
+      type(CRS_),intent(inout) :: StiffnessMatrix
+      type(COO_) :: COO
+      integer(int32) :: ElementID, LocElemID_1, LocElemID_2, nodeid_1, nodeid_2, &
+                        pid_1, pid_2, DOF_1, DOF_2, DOF, loc_pid_1, loc_pid_2, i, col_id
+      real(real64) :: Length, entry_val
+      real(real64), allocatable :: val(:)
+      real(real64), allocatable :: eDiffMat(:, :)
+
+      ! >>>>>>>> FOR 1-D case >>>>>>>>
+      if (this%nne() == 2) then
+         ! stiffness matrix for 1-D
+         call coo%init(this%nn())
+         do ElementID = 1, this%ne()
+            Length = norm(this%mesh%nodcoord(this%mesh%elemnod(ElementID, 1), :) &
+                          - this%mesh%nodcoord(this%mesh%elemnod(ElementID, 2), :))
+            entry_val = YoungModulus(ElementID)/Length
+            call coo%add(this%mesh%elemnod(ElementID, 1), this%mesh%elemnod(ElementID, 1), entry_val)
+            call coo%add(this%mesh%elemnod(ElementID, 1), this%mesh%elemnod(ElementID, 2), -entry_val)
+            call coo%add(this%mesh%elemnod(ElementID, 2), this%mesh%elemnod(ElementID, 1), -entry_val)
+            call coo%add(this%mesh%elemnod(ElementID, 2), this%mesh%elemnod(ElementID, 2), entry_val)
+         end do
+         StiffnessMatrix = coo%to_crs()
+         return
+      end if
+      ! <<<<<<<< FOR 1-D case <<<<<<<<
+
+      if (.not. present(PoissonRatio)) then
+         print *, "ERROR >> MassMatrix_as_CRS_FEMDomain should have arg [DOF]"
+         stop
+      end if
+
+      if (present(omp)) then
+         if (.not. omp) then
+            DOF = this%nd()
+            call COO%init(this%nn()*DOF)
+            do ElementID = 1, this%ne()
+               eDiffMat = this%StiffnessMatrix( &
+                          ElementID=ElementID, &
+                          E=YoungModulus(ElementID), &
+                          v=PoissonRatio(ElementID) &
+                          )
+               do LocElemID_1 = 1, this%nne()
+                  do LocElemID_2 = 1, this%nne()
+                     do DOF_1 = 1, DOF
+                        do DOF_2 = 1, DOF
+                           nodeid_1 = this%mesh%elemnod(ElementID, LocElemID_1)
+                           nodeid_2 = this%mesh%elemnod(ElementID, LocElemID_2)
+                           pid_1 = DOF*(nodeid_1 - 1) + DOF_1
+                           pid_2 = DOF*(nodeid_2 - 1) + DOF_2
+                           loc_pid_1 = DOF*(LocElemID_1 - 1) + DOF_1
+                           loc_pid_2 = DOF*(LocElemID_2 - 1) + DOF_2
+                           call COO%add(pid_1, pid_2, eDiffMat(loc_pid_1, loc_pid_2))
+                        end do
+                     end do
+                  end do
+               end do
+            end do
+            StiffnessMatrix = COO%to_CRS(remove_coo=True)
+            return
+         end if
+      end if
+
+      DOF = this%nd()
+      !call COO%init(this%nn()*DOF)
+      !COO = this%ZeroMatrix_as_COO(DOF=DOF)
+      StiffnessMatrix = this%ZeroMatrix(DOF=DOF)
+      val = StiffnessMatrix%val
+      deallocate(StiffnessMatrix%val)
+      
+      !$OMP parallel do &
+      !$OMP private(eDiffMat,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,col_id,i,&
+      !$OMP pid_1,pid_2,loc_pid_1,loc_pid_2,DOF_1,DOF_2)&
+      !$OMP  shared(val) 
+      !!$OMP  reduction(+:val) 
+      do ElementID = 1, this%ne()
+         eDiffMat = this%StiffnessMatrix( &
+                    ElementID=ElementID, &
+                    E=YoungModulus(ElementID), &
+                    v=PoissonRatio(ElementID) &
+                    )
+         do LocElemID_1 = 1, this%nne()
+            do LocElemID_2 = 1, this%nne()
+               do DOF_1 = 1, DOF
+                  do DOF_2 = 1, DOF
+                     nodeid_1 = this%mesh%elemnod(ElementID, LocElemID_1)
+                     nodeid_2 = this%mesh%elemnod(ElementID, LocElemID_2)
+                     pid_1 = DOF*(nodeid_1 - 1) + DOF_1
+                     pid_2 = DOF*(nodeid_2 - 1) + DOF_2
+                     loc_pid_1 = DOF*(LocElemID_1 - 1) + DOF_1
+                     loc_pid_2 = DOF*(LocElemID_2 - 1) + DOF_2
+                     !call COO%add(pid_1,pid_2,eDiffMat(loc_pid_1,loc_pid_2)  )
+
+                     do i = StiffnessMatrix%row_ptr(pid_1), StiffnessMatrix%row_ptr(pid_1 + 1) - 1
+                        if (StiffnessMatrix%col_idx(i) == pid_2) then
+                           !$OMP atomic
+                           val(i) = val(i) + eDiffMat(loc_pid_1, loc_pid_2)
+                           exit
+                        end if
+                     end do
+
+                  end do
+               end do
+            end do
+         end do
+      end do
+      !$OMP end parallel do
+
+      StiffnessMatrix%val = val
+      deallocate(val)
+
+   end subroutine
 
 ! ##########################################################################
 
