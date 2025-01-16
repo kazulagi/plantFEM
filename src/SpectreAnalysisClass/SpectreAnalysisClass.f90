@@ -1210,7 +1210,7 @@ end function
 
       ! zero padding and fft
       num_data = size(x,1)
-      num_fft  = 2**(int( log(dble(num_data))/log(2.0d0) ) + 3)
+      num_fft  = 2**(int( log(dble(num_data))/log(2.0d0) ) + 1)
       
       U = zeros(num_fft,size(x,2))
       ! 3値化
@@ -1238,7 +1238,7 @@ end function
          x_hanning(i,j) = 0.250d0*x(i,j-2) + 0.50d0*x(i,j-1) + 0.250d0*x(i,j)
       enddo
       ! 
-      U(num_data+1:2*num_data,1:size(x,2)) = x_hanning(:,:) !_bin(:,:)
+      U(1:num_data,1:size(x,2)) = x_hanning(:,:) !_bin(:,:)
 
       dt = t(2)-t(1)
       ! FFT for all stations
@@ -1297,7 +1297,7 @@ end function
 
       ! zero padding and fft
       num_data = size(x,1)
-      num_fft  = 2**(int( log(dble(num_data))/log(2.0d0) ) + 3)
+      num_fft  = 2**(int( log(dble(num_data))/log(2.0d0) ) + 1)
       
       U = zeros(num_fft,size(x,2))
 
@@ -1312,7 +1312,7 @@ end function
          x_hanning(i,j) = 0.250d0*x(i,j-2) + 0.50d0*x(i,j-1) + 0.250d0*x(i,j)
       enddo
       
-      U(num_data+1:2*num_data,1:size(x,2)) = x_hanning(:,:)
+      U(1:num_data,1:size(x,2)) = x_hanning(:,:)
 
       dt = t(2)-t(1)
       ! time-FFT for all stations

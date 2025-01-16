@@ -170,6 +170,8 @@ module SparseClass
       procedure, public :: lumped => lumpedCRS
 
       procedure, public :: divide_by => divide_by_CRS
+      ! subroutine version
+      procedure, public :: divide_by_vector => divide_by_vector_CRS
       procedure, public :: mult_by => mult_by_CRS
 
       procedure, public :: to_CCS => to_CCSCRS
@@ -2482,6 +2484,32 @@ contains
       end do
 
    end function
+! ###################################################################
+   ! ###################################################################
+
+   subroutine divide_by_vector_CRS(this, diag_vector) 
+      class(CRS_), intent(inout) :: this
+      real(real64), intent(in) :: diag_vector(:)
+      integer(int64) :: i, j
+
+      
+      if (size(diag_vector) == 1) then
+         this%val(:) = this%val(:)/diag_vector(1)
+         return
+      end if
+
+      if (this%size() /= size(diag_vector)) then
+         print *, "ERROR >> divide_by_CRS >> this%size()/=size(diag_vector) "
+         stop
+      end if
+
+      do i = 1, this%size()
+         do j = this%row_ptr(i), this%row_ptr(i + 1) - 1
+            this%val(j) = this%val(j)/diag_vector(i)
+         end do
+      end do
+
+   end subroutine
 ! ###################################################################
 
    function mult_by_CRS(this, diag_vector) result(ret_crs)

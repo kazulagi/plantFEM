@@ -69,31 +69,37 @@ contains
       real(real64), optional, intent(in) ::  PoissonRatio(:), DampingRatio(:)
       type(CRS_) :: Imatrix, Mmatrix, Cmatrix
 
-      Mmatrix = FEMDomain%MassMatrix(DOF=DOF, Density=Density)
+      
+      !Mmatrix = FEMDomain%MassMatrix(DOF=DOF, Density=Density)
+      call FEMDomain%setMassMatrix(DOF=DOF, Density=Density,MassMatrix=Mmatrix)
+
       this%Mmatrix_diag = Mmatrix%diag(cell_centered=.true.)
       call Mmatrix%remove()
 
-      print *, "debug: Mmat"
+      
 
       if (DOF == 1) then
-         this%OmegaSqMatrix = FEMDomain%StiffnessMatrix( &
-                              YoungModulus=YoungModulus)
-
+         !this%OmegaSqMatrix = FEMDomain%StiffnessMatrix( &
+         !                     YoungModulus=YoungModulus)
+         call FEMDomain%setStiffnessMatrix( &
+                              YoungModulus=YoungModulus,StiffnessMatrix=this%OmegaSqMatrix)
       else
          if (.not. present(PoissonRatio)) then
             print *, "[initWaveKernel] Please input PoissonRatio"
             stop
          end if
-         this%OmegaSqMatrix = FEMDomain%StiffnessMatrix( &
-                              YoungModulus=YoungModulus, PoissonRatio=PoissonRatio)
-
+         !this%OmegaSqMatrix = FEMDomain%StiffnessMatrix( &
+         !                     YoungModulus=YoungModulus, PoissonRatio=PoissonRatio)
+         call FEMDomain%setStiffnessMatrix( &
+                              YoungModulus=YoungModulus,&
+                              PoissonRatio=PoissonRatio,&
+                              StiffnessMatrix=this%OmegaSqMatrix)
       end if
-      print *, "debug: Kmat"
       
-      this%OmegaSqMatrix = this%OmegaSqMatrix%divide_by(this%Mmatrix_diag)
+      !this%OmegaSqMatrix = this%OmegaSqMatrix%divide_by(this%Mmatrix_diag)
+      call this%OmegaSqMatrix%divide_by_vector(this%Mmatrix_diag)
 
-      print *, "debug: Kmat/Mmat"
-
+      
       this%DampingRatio = zeros(this%OmegaSqMatrix%size())
 
       if (present(DampingRatio)) then
