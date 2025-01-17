@@ -6454,6 +6454,7 @@ contains
          validmeshtype = .true.
 
          call obj%create(meshtype="Circle2D", x_num=x_num, y_num=y_num, x_len=1.0d0, y_len=1.0d0)
+         call obj%clean()
 
          call obj%Convert2Dto3D(Thickness=thickness, division=division)
 
@@ -6463,10 +6464,8 @@ contains
          end if
          !call obj%adjustCylinder(debug=.true.)
          ! move unconnected nodes
-         call obj%clean()
          call obj%resize(x_rate=x_len, &
                          y_rate=y_len)
-
          obj%elementType = [3, 8, 8] ! 3-dimensional, 8-noded, 8 Gauss points
          return
       end if
@@ -8468,8 +8467,12 @@ call mesh1%create(meshtype=meshtype, x_num=x_num, y_num=y_num, x_len=x_len, y_le
       integer(int32), allocatable :: removes(:)
       real(real64), allocatable :: nodcoord(:, :)
 
+      !
       allocate (removes(size(obj%nodcoord, 1)))
+      
+      ! set 1 for all nodes
       removes(:) = 1
+
       num_dim = size(obj%nodcoord, 2)
       do i = 1, size(obj%ElemNod, 1)
          do j = 1, size(obj%ElemNod, 2)
