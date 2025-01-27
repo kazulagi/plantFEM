@@ -3743,7 +3743,6 @@ contains
 
       do n = 1, itr_max
          
-         print *, "debug 2025_01_27",n,maxval(u),minval(u)
          hat_t = 0.0d0
          do m = lbound(w, 1), ubound(w, 1)
             hat_t = hat_t + w(m)*(t + m*ddt)**(2*n + 2)
