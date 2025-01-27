@@ -365,7 +365,7 @@ contains
 
 ! ##############################################################
    subroutine getDisplacement_and_Velocity_WaveKernel(this, u_n, v_n, dt, &
-                                                      fix_idx, cutoff_frequency, debug_mode, u, v, RHS)
+                              fix_idx, cutoff_frequency, debug_mode, u, v, RHS)
       class(WaveKernel_), intent(inout) :: this
       real(real64), intent(in) :: u_n(:), v_n(:)
       real(real64), optional, intent(in) :: RHS(:)

@@ -3693,6 +3693,7 @@ contains
       real(real64), allocatable :: w(:)
 
       integer(int32) :: lbd, ubd
+      
 
       if (present(weights)) then
          ubd = size(weights) - (size(weights) + 1)/2
@@ -3720,11 +3721,13 @@ contains
       !ddt = 1.0d0/4.0d0/cutoff_frequency
       ddt = 1.0d0/cutoff_frequency/2.0d0/math%pi*acos(sqrt(2.0d0) - 1.0d0)
 
+      
       !u = -1.0d0/2.0d0*t*t*RHS
 
       u = 0.0d0*RHS
 
       hat_t = 0.0d0
+      !print *,"dbg",lbound(w, 1), ubound(w, 1) 
       do m = lbound(w, 1), ubound(w, 1)
          hat_t = hat_t + w(m)*(t + m*ddt)**2
       end do
@@ -3735,21 +3738,30 @@ contains
       du = -1.0d0/2.0d0*RHS
       u = u + hat_t*du
 
+
+      
+
       do n = 1, itr_max
+         
+         print *, "debug 2025_01_27",n,maxval(u),minval(u)
+         hat_t = 0.0d0
          do m = lbound(w, 1), ubound(w, 1)
             hat_t = hat_t + w(m)*(t + m*ddt)**(2*n + 2)
          end do
+
          !hat_t = 0.250d0*(t-ddt)**(2*n+2) &
          !     + 0.50d0*(t)**(2*n+2)&
          !     + 0.250d0*(t+ddt)**(2*n+2)
 
          du = -1.0d0/dble(2*n + 1)/dble(2*n + 2)*this%matmul(du)
          u = u + hat_t*du
+         
          if (present(debug)) then
             if (debug) then
                print *, n, norm(hat_t*du)
             end if
          end if
+
          if (norm(hat_t*du) < itr_tol) exit
       end do
 

@@ -1336,7 +1336,7 @@ end function
 
                f = ((1.0d0/dt))/(num_fft)*(k-1)
                w = 2.0d0*math%PI*f
-               
+               if (abs(U(freq,m)) ==0.0d0) cycle
                z(freq,k) = z(freq,k) &
                   + U(freq,m)&
                      *exp(math%i    &
