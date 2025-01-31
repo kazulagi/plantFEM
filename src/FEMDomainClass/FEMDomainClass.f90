@@ -242,6 +242,8 @@ module FEMDomainClass
 
       procedure, public :: has => hasFEMDomain
       procedure, public :: have => hasFEMDomain
+
+      !procedure, public :: getSubDomain => getSubDomainFEMDomain
       ! filters
       procedure, public :: MovingAverageFilter => MovingAverageFilterFEMDomain
 
@@ -477,7 +479,13 @@ module FEMDomainClass
       procedure, pass   :: TractionVector_by_elemFEMDomain
       generic, public :: TractionVector => TractionVectorFEMDomain, TractionVector_by_elemFEMDomain
 
+      ! Force vector
+      !<Torsional>
+      procedure, public :: PointTorsionalForce => PointTorsionalForceFEMDomain
+      procedure, public :: TorsionalForce => TorsionalForceFEMDomain
+      !<Point Force>
       procedure, public :: PointForceVector => PointForceVectorFEMDomain
+
       procedure, public :: FlowVector => FlowVectorFEMDomain
 
       ! Domain-wize matrix (as CRS-format)
@@ -513,6 +521,9 @@ module FEMDomainClass
 
       procedure, public :: sync => syncFEMDomain
 
+      ! Vector editor
+      procedure,public :: setVectorValue => setVectorValueFEMDomain
+
       !# physical modifiers
       ! Is it necessary?
       !procedure :: grub    => grubFEMDomain ! grub some part of object in range
@@ -538,6 +549,8 @@ module FEMDomainClass
       procedure, public :: connect => overset_FEMDomainp
       procedure, public :: overlap => overset_FEMDomainp
    end type
+
+
 
    public :: operator(+)
 
@@ -13567,7 +13580,7 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
    function getFacetList_by_range(this, range) result(FacetList)
       class(FEMDomain_), intent(inout) :: this
       type(Range_), intent(in) :: range
-      integer(int32), allocatable :: FacetList(:, :) ! Node-ID =  FacetList(FacetID, LocalNodeID )
+      integer(int32), allocatable :: FacetList(:, :) ! Node-ID = FacetList(FacetID, LocalNodeID )
       integer(int32) :: FacetIdx,i
       integer(int32),allocatable :: inside_is_1(:)
       real(real64) :: center(1:3)
@@ -17405,7 +17418,156 @@ function find_facet_pairing_FEMDomain(DomainA,DomainB,FacetA,FacetB) result(ret)
 end function
 ! #############################################################
 
+! #############################################################
+!function getTangentialForceFEMDomain(this,range,force) result(ret)
+!   class(FEMDomain_),intent(in) :: this
+!   type(Range_),intent(in) :: range
+!   real(real64),intent(in) :: force
+!   real(real64),allocatable :: ret(:),UnitTangentialVector(:),&
+!      nodalForce(:,:),UnitNormalVector(:)
+!   integer(int32),allocatable :: FacetList(:,:),LocalNodeList(:)
+!   integer(int32) :: LocalNodeID,FacetID,nd_ID
+!
+!   !> compute tangentical traction force vector
+!
+!   ![0] initialize tangential force vector
+!   ret = zeros(this%nn()*this%nd())
+!
+!   ![1] get Surface Elements in the range
+!   FacetList = this%getFacetList(range=range)
+!
+!   ![2] Compute Tangential vector for each element
+!   UnitTangentialVector = zeros(this%nd())
+!   do FacetID=1,size(FacetList,1)
+!      ![2-1] get Node ID list for this facet
+!      LocalNodeList = FacetList(FacetID,:)
+!      ![2-2] compute tangential vector from LocalNodeList
+!      UnitNormalVector = computeNormalVecFromFacet(FEMDomain=this,Facet=LocalNodeList)
+!      UnitTangentialVector = computeTangentialVecFromFacet(FEMDomain=this,Facet=LocalNodeList)
+!      ![2-3] compute nodal force for unit traction (1 kPa)
+!      ! (Fx, Fy, Fz) = NodalForce(LocalNodeID,:)
+!      NodalForce = computeUnitNodForceFromUnitTan(FEMDomain=this,UnitTangential=UnitTangentialVector)
+!      ![2-4] add this local force to global force vector
+!      do LocalNodeID=1,size(FacetList,2)
+!         do nd_ID = 1, size(this%nd())
+!            ret(  this%nd()*(FacetList(FacetID,LocalNodeID)-1)+nd_ID ) = &
+!               ret(  this%nd()*(FacetList(FacetID,LocalNodeID)-1)+nd_ID ) + &
+!               NodalForce(LocalNodeID,nd_ID)
+!         enddo
+!      enddo
+!   enddo
+!
+!
+!   ![3] Multiply force
+!
+!end function
+! #############################################################
+
+
+!! #############################################################
+!function getSubDomainFEMDomain(this,range) result(ret)
+!   class(FEMDomain_),target,intent(in) :: this
+!   type(Range_),intent(in) :: range
+!   type(FEMDomain_),pointer :: ret
+!
+!
+!
+!end function
+!! #############################################################
+
+!function computeNormalVecFromFacet(FEMDomain,Facet) result(ret)
+!   type(FEMDomain_),intent(in) :: FEMDomain
+!   integer(int32),intent(in)   :: Facet(:)
+!   real(real64) :: ret(1:3),x1(1:3),x2(1:3)
+!   
+!   x1(:) = 0.0d0
+!   x2(:) = 0.0d0
+!   ret(:) = 0.0d0
+!
+!   x1(1:FEMDomain%nd()) = FEMDomain%mesh%nodcoord(Facet(3),:) - FEMDomain%mesh%nodcoord(Facet(2),:)
+!   x2(1:FEMDomain%nd()) = FEMDomain%mesh%nodcoord(Facet(1),:) - FEMDomain%mesh%nodcoord(Facet(2),:)
+!
+!   ret = cross_product(x1,x2)
+!
+!   if (dot_product(ret,ret)==0.0d0)then
+!      ! exception >> cross product is zero vector.
+!      !ret(1) = 
+!      stop
+!   else
+!      ret = ret / sqrt(dot_product(ret,ret))
+!   endif
+!
+!end function
+
+
+! ################################################################
+function PointTorsionalForceFEMDomain(this,normal,center,NodeID) result(ret)
+   class(FEMDomain_),intent(in) :: this
+   !type(Range_),intent(in) :: range
+   real(real64),intent(in) :: normal(:),center(:)
+   integer(int32),intent(in) :: NodeID
+   real(real64),allocatable :: x(:),ret(:)
+
+   ! compute torsional force vector around
+   ! normal vector with the center position
+   x = this%mesh%nodcoord(NodeID,:) - center(:)
+   
+   ret = cross_product(x,normal)
+
+   if (dot_product(ret,ret)==0.0d0 )then
+      return
+   else
+      ret = ret/sqrt(dot_product(ret,ret))
+   endif
+
+end function
+! ################################################################
+
+! ################################################################
+function TorsionalForceFEMDomain(this,normal,center,range) result(ret)
+   class(FEMDomain_),intent(in) :: this
+   type(Range_),intent(in) :: range
+   real(real64),intent(in) :: normal(:),center(:)
+   integer(int32) :: NodeID
+   real(real64),allocatable :: x(:),ret(:)
+   real(real64) :: radius
+
+   ! compute torsional force vector around
+   ! normal vector with the center position
+   ret = zeros(this%nd()*this%nn())
+   do NodeID=1,this%nn()
+      x = this%mesh%nodcoord(NodeID,:)
+      !radius = sqrt(abs(dot_product(x-center,this%PointTorsionalForce(normal,center,NodeID))))
+      if (x .in. range)then
+         ret( (NodeID-1)*this%nd() + 1 : (NodeID-1)*this%nd() + this%nd() ) = &  
+            this%PointTorsionalForce(normal,center,NodeID)
+      endif
+   enddo
+
+end function
+! ################################################################
+
+! ################################################################
+subroutine setVectorValueFEMDomain(this,vector,dof,fillValue,range)
+   class(FEMDomain_),intent(in) :: this
+   real(real64),allocatable,intent(inout) :: vector(:)
+   integer(int32),intent(in) :: DOF
+   real(real64),intent(in) :: fillValue
+   type(Range_),intent(in) :: range
+   integer(int32) :: NodeID
+
+   if(.not.allocated(vector))then
+      vector = zeros(this%nn()*DOF)
+   endif
+   do NodeID=1,this%nn()
+      if (this%mesh%nodcoord(NodeID,:) .in. range)then
+         vector( (NodeID-1)*DOF + 1: (NodeID-1)*DOF + DOF) = fillValue
+      endif
+   enddo
+
+
+end subroutine
+! ################################################################
 
 
 end module FEMDomainClass
-

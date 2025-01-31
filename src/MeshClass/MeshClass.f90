@@ -105,7 +105,9 @@ module MeshClass
       procedure :: getNodeIDinElement => getNodeIDinElementMesh
       procedure :: getFacetElement => GetFacetElement
       procedure :: getFacetNodeID => getFacetNodeIDMesh
+
       procedure :: getSurface => GetSurface
+      
       procedure :: getVertices => getVerticesMesh
       procedure :: getInterface => GetInterface
       procedure :: getInterfaceElemNod => GetInterfaceElemNod
