@@ -15,6 +15,26 @@ module RangeClass
       logical :: y_substituted(1:2)
       logical :: z_substituted(1:2)
       logical :: t_substituted(1:2)
+
+      ! for sphere
+      logical      :: sphere_is_active = .false.
+      real(real64) :: sphere_center(1:3)
+      real(real64) :: sphere_radius
+
+      ! for cylinder
+      logical      :: cylinder_is_active = .false.
+      real(real64) :: cylinder_p1(1:3)
+      real(real64) :: cylinder_p2(1:3)
+      real(real64) :: cylinder_radius
+      
+      ! for cone
+      logical      :: cone_is_active = .false.
+      real(real64) :: cone_p1(1:3)
+      real(real64) :: cone_p2(1:3)
+      real(real64) :: cone_radius(1:2)
+      
+      ! for multiple 
+
    contains
       procedure,public :: init => initRange
       procedure,public :: set => setRange
@@ -37,9 +57,10 @@ module RangeClass
    end type
 
    interface to_range
-      module procedure :: to_range_int32, to_range_real64, to_range_real64_rect
+      module procedure :: to_range_int32, to_range_real64, to_range_real64_rect,&
+         to_range_real64_sphere,to_range_real64_cylinder,to_range_real64_Cone
    end interface
-
+   
    interface print
       module procedure :: printRange
    end interface print
@@ -102,8 +123,95 @@ contains
    ! ###############################################################
    function in_detect_by_range_xyz_real64(real64val, in_range) result(ret)
       real(real64), intent(in) :: real64val(:)
+      real(real64) :: x(1:3),y(1:3),tot_l,l,nvec(1:3),this_R,cone_r_limit,theta
       type(Range_), intent(in) :: in_range
       logical :: ret
+      x(:) = 0.0d0
+
+      ! <SPHERE>
+      if(in_range%sphere_is_active )then
+         x(1:size(real64Val)) = real64Val(:)
+         ret = (in_range%sphere_radius &
+            >= sqrt(dot_product(in_range%sphere_center-x,in_range%sphere_center-x) )  ) 
+         return
+      endif
+
+      ! <CYLINDER>
+      if(in_range%cylinder_is_active )then
+         x(1:size(real64Val)) = real64Val(:)
+
+         ! p1                        p2
+         ! *-------------------------*
+         !
+         !             * x
+         !
+         tot_l = sqrt(dot_product(&
+            in_range%cylinder_p2-in_range%cylinder_p1,&
+            in_range%cylinder_p2-in_range%cylinder_p1) )
+         
+         if (tot_l == 0.0d0)then
+            if (dot_product(x-in_range%cylinder_p1,x-in_range%cylinder_p1)==0.0d0 )then
+               ret = .True.
+            else
+               ret = .False.
+            endif
+         else
+            nvec = (in_range%cylinder_p2-in_range%cylinder_p1)/tot_l
+            l = dot_product(x-in_range%cylinder_p1,in_range%cylinder_p2-in_range%cylinder_p1)/tot_L
+            
+            if (l < 0.0d0)then
+               ret = .false.
+            elseif (l > tot_L)then
+               ret = .false.
+            else
+               y = in_range%cylinder_p1(:) + l*nvec(:)
+               this_R = sqrt(dot_product(x-y,x-y))
+               ret = (in_range%cylinder_radius >= this_R ) 
+            endif
+         endif
+         return
+      endif
+
+      !<CONE>
+      if(in_range%cone_is_active )then
+         x(1:size(real64Val)) = real64Val(:)
+
+         ! p1                        p2
+         ! *-------------------------*
+         !
+         !             * x
+         !
+         tot_l = sqrt(dot_product(&
+            in_range%cone_p2-in_range%cone_p1,&
+            in_range%cone_p2-in_range%cone_p1) )
+         
+         if (tot_l == 0.0d0)then
+            if (dot_product(x-in_range%cone_p1,x-in_range%cone_p1)==0.0d0 )then
+               ret = .True.
+            else
+               ret = .False.
+            endif
+         else
+            nvec = (in_range%cone_p2-in_range%cone_p1)/tot_l
+            l = dot_product(x-in_range%cone_p1,in_range%cone_p2-in_range%cone_p1)/tot_L
+            
+            theta = l/tot_l
+
+            cone_r_limit = (1.0d0-theta)*in_range%cone_radius(1) + (theta)*in_range%cone_radius(2)
+
+            if (l < 0.0d0)then
+               ret = .false.
+            elseif (l > tot_L)then
+               ret = .false.         
+            else
+               y = in_range%cone_p1(:) + l*nvec(:)
+               this_R = sqrt(dot_product(x-y,x-y))
+               ret = (cone_r_limit >= this_R ) 
+            endif
+         endif
+         return
+      endif
+
 
       if(size(real64val)==2 )then
          ret =    ((in_range%x_range(1) <= real64val(1)) .and. (real64val(1)  <= in_range%x_range(2))) &
@@ -115,6 +223,8 @@ contains
       else
          ret = (in_range%x_range(1) <= real64val(1)) .and. (real64val(1) <= in_range%x_range(2))
       endif
+
+
 
    end function
    ! ###############################################################
@@ -442,6 +552,49 @@ function lz_RangeClass(this) result(ret)
    
 end function
 ! ######################################################
+
+
+! ######################################################
+function to_range_real64_sphere(center,radius) result(ret)
+   real(real64),intent(in) :: center(1:3),radius
+   type(Range_) :: ret
+
+   ret%sphere_is_active = .true.
+   ret%sphere_center = center
+   ret%sphere_radius = abs(radius)
+
+end function
+! ######################################################
+
+
+! ######################################################
+function to_range_real64_cylinder(p1,p2,radius) result(ret)
+   real(real64),intent(in) :: p1(1:3),p2(1:3),radius
+   type(Range_) :: ret
+   
+   ret%cylinder_is_active = .true.
+   ret%cylinder_p1 = p1
+   ret%cylinder_p2 = p2
+   ret%cylinder_radius = abs(radius)
+
+end function
+! ######################################################
+
+
+
+! ######################################################
+function to_range_real64_Cone(p1,p2,radius) result(ret)
+   real(real64),intent(in) :: p1(1:3),p2(1:3),radius(1:2)
+   type(Range_) :: ret
+   
+   ret%cone_is_active = .true.
+   ret%cone_p1 = p1
+   ret%cone_p2 = p2
+   ret%cone_radius = abs(radius)
+
+end function
+! ######################################################
+
 
 
 end module RangeClass
