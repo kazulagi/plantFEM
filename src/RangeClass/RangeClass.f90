@@ -7,6 +7,7 @@ module RangeClass
    real(real64), parameter :: PF_RANGE_INFTY = dble(1.0e+14)
 
    type :: Range_
+      logical :: rect_is_active = .false.
       real(real64) :: x_range(1:2)
       real(real64) :: y_range(1:2)
       real(real64) :: z_range(1:2)
@@ -34,6 +35,8 @@ module RangeClass
       real(real64) :: cone_radius(1:2)
       
       ! for multiple 
+      type(Range_),allocatable :: and_ranges(:)
+      type(Range_),allocatable :: or_ranges(:)
 
    contains
       procedure,public :: init => initRange
@@ -72,6 +75,11 @@ module RangeClass
 
    interface operator(.and.)
       module procedure :: and_rect_real64
+   end interface
+
+
+   interface operator(.or.)
+      module procedure :: or_xyz_range_real64
    end interface
 
 contains
@@ -121,12 +129,25 @@ contains
 
 
    ! ###############################################################
-   function in_detect_by_range_xyz_real64(real64val, in_range) result(ret)
+   recursive function in_detect_by_range_xyz_real64(real64val, in_range) result(ret)
       real(real64), intent(in) :: real64val(:)
       real(real64) :: x(1:3),y(1:3),tot_l,l,nvec(1:3),this_R,cone_r_limit,theta
       type(Range_), intent(in) :: in_range
       logical :: ret
+
       x(:) = 0.0d0
+
+      ! <Boolean :: and>
+      if (allocated(in_range%and_ranges))then
+         ret = (real64val .in. in_range%and_ranges(1) ) .and. (real64val .in. in_range%and_ranges(2))
+         return
+      endif
+
+      ! <Boolean :: or>
+      if (allocated(in_range%or_ranges))then
+         ret = (real64val .in. in_range%or_ranges(1) ) .or. (real64val .in. in_range%or_ranges(2))
+         return
+      endif
 
       ! <SPHERE>
       if(in_range%sphere_is_active )then
@@ -289,6 +310,8 @@ contains
       class(Range_), intent(inout) :: this
       real(real64), optional, intent(in) :: MaxRange
 
+      this%rect_is_active = .true.
+
       if (present(MaxRange)) then
          this%x_range = [-MaxRange, MaxRange]
          this%y_range = [-MaxRange, MaxRange]
@@ -314,7 +337,8 @@ contains
       real(real64), optional, intent(in) :: x_min, x_max
       real(real64), optional, intent(in) :: y_min, y_max
       real(real64), optional, intent(in) :: z_min, z_max
-
+      
+      this%rect_is_active = .true.
       call this%set_x(x_min=x_min, x_max=x_max)
       call this%set_y(y_min=y_min, y_max=y_max)
       call this%set_z(z_min=z_min, z_max=z_max)
@@ -326,6 +350,7 @@ contains
       class(Range_), intent(inout) :: this
       real(real64), optional, intent(in) :: x_min, x_max
 
+      this%rect_is_active = .true.
       if (present(x_min)) then
          this%x_range(1) = x_min
          this%x_substituted(1) = .True.
@@ -344,6 +369,7 @@ contains
       class(Range_), intent(inout) :: this
       real(real64), optional, intent(in) :: y_min, y_max
 
+      this%rect_is_active = .true.
       if (present(y_min)) then
          this%y_range(1) = y_min
          this%y_substituted(1) = .True.
@@ -362,6 +388,7 @@ contains
       class(Range_), intent(inout) :: this
       real(real64), optional, intent(in) :: z_min, z_max
 
+      this%rect_is_active = .true.
       if (present(z_min)) then
          this%z_range(1) = z_min
          this%z_substituted(1) = .True.
@@ -399,22 +426,23 @@ contains
       character(1), intent(in) :: range_type
       real(real64) :: min_and_max(2)
 
-      if (range_type == "x" .or. range_type == "X") then
-         min_and_max = this%x_range
-      end if
+      if(this%rect_is_active)then
+         if (range_type == "x" .or. range_type == "X") then
+            min_and_max = this%x_range
+         end if
 
-      if (range_type == "y" .or. range_type == "Y") then
-         min_and_max = this%y_range
-      end if
+         if (range_type == "y" .or. range_type == "Y") then
+            min_and_max = this%y_range
+         end if
 
-      if (range_type == "z" .or. range_type == "Z") then
-         min_and_max = this%z_range
-      end if
+         if (range_type == "z" .or. range_type == "Z") then
+            min_and_max = this%z_range
+         end if
 
-      if (range_type == "t" .or. range_type == "T") then
-         min_and_max = this%t_range
-      end if
-
+         if (range_type == "t" .or. range_type == "T") then
+            min_and_max = this%t_range
+         end if
+      endif
    end function
 ! #########################################################
 
@@ -424,39 +452,44 @@ contains
       integer(int32) :: i
       logical :: inside_is_true
 
-      inside_is_true = .true.
-      do i = 1, size(point)
-         if (i == 1) then
-            if (this%x_range(1) >= point(i) .or. this%x_range(2) <= point(i)) then
-               inside_is_true = .false.
-               return
+      if (this%rect_is_active)then
+         inside_is_true = .true.
+         do i = 1, size(point)
+            if (i == 1) then
+               if (this%x_range(1) >= point(i) .or. this%x_range(2) <= point(i)) then
+                  inside_is_true = .false.
+                  return
+               end if
+            elseif (i == 2) then
+               if (this%y_range(1) >= point(i) .or. this%y_range(2) <= point(i)) then
+                  inside_is_true = .false.
+                  return
+               end if
+            elseif (i == 3) then
+               if (this%z_range(1) >= point(i) .or. this%z_range(2) <= point(i)) then
+                  inside_is_true = .false.
+                  return
+               end if
+            elseif (i == 4) then
+               if (this%t_range(1) >= point(i) .or. this%t_range(2) <= point(i)) then
+                  inside_is_true = .false.
+                  return
+               end if
             end if
-         elseif (i == 2) then
-            if (this%y_range(1) >= point(i) .or. this%y_range(2) <= point(i)) then
-               inside_is_true = .false.
-               return
-            end if
-         elseif (i == 3) then
-            if (this%z_range(1) >= point(i) .or. this%z_range(2) <= point(i)) then
-               inside_is_true = .false.
-               return
-            end if
-         elseif (i == 4) then
-            if (this%t_range(1) >= point(i) .or. this%t_range(2) <= point(i)) then
-               inside_is_true = .false.
-               return
-            end if
-         end if
-      end do
-
+         end do
+      endif
    end function
 ! #########################################################
    subroutine printRange(range)
       type(Range_),intent(in) :: range
 
-      print *, "[",range%x_range(1),",",range%x_range(2),"]"
-      print *, "[",range%y_range(1),",",range%y_range(2),"]"
-      print *, "[",range%z_range(1),",",range%z_range(2),"]"
+      if(range%rect_is_active)then
+         print *, "[",range%x_range(1),",",range%x_range(2),"]"
+         print *, "[",range%y_range(1),",",range%y_range(2),"]"
+         print *, "[",range%z_range(1),",",range%z_range(2),"]"
+      endif
+
+      ! cylinder等も追記   
    end subroutine
 
 ! #########################################################
@@ -464,24 +497,47 @@ elemental function and_rect_real64(range1,range2) result(ret)
    type(Range_),intent(in) :: range1,range2
    type(Range_) :: ret
 
-   ret%x_range(1) = maxval([range1%x_range(1),range2%x_range(1)])
-   ret%x_range(2) = minval([range1%x_range(2),range2%x_range(2)])
-   ret%y_range(1) = maxval([range1%y_range(1),range2%y_range(1)])
-   ret%y_range(2) = minval([range1%y_range(2),range2%y_range(2)])
-   ret%z_range(1) = maxval([range1%z_range(1),range2%z_range(1)])
-   ret%z_range(2) = minval([range1%z_range(2),range2%z_range(2)])
    
-   if(ret%x_range(1) > ret%x_range(2))then
-      ret%x_range(:) = 0.0d0 
-   endif
-   if(ret%y_range(1) > ret%y_range(2))then
-      ret%y_range(:) = 0.0d0 
-   endif
-   if(ret%z_range(1) > ret%z_range(2))then
-      ret%z_range(:) = 0.0d0 
+   allocate(ret%and_ranges(1:2))
+   ret%and_ranges(1) = range1
+   ret%and_ranges(2) = range2
+   
+   ! regacy code >>> 
+   if (range1%rect_is_active .and. range2%rect_is_active)then
+      ret%x_range(1) = maxval([range1%x_range(1),range2%x_range(1)])
+      ret%x_range(2) = minval([range1%x_range(2),range2%x_range(2)])
+      ret%y_range(1) = maxval([range1%y_range(1),range2%y_range(1)])
+      ret%y_range(2) = minval([range1%y_range(2),range2%y_range(2)])
+      ret%z_range(1) = maxval([range1%z_range(1),range2%z_range(1)])
+      ret%z_range(2) = minval([range1%z_range(2),range2%z_range(2)])
+      
+      if(ret%x_range(1) > ret%x_range(2))then
+         ret%x_range(:) = 0.0d0 
+      endif
+      if(ret%y_range(1) > ret%y_range(2))then
+         ret%y_range(:) = 0.0d0 
+      endif
+      if(ret%z_range(1) > ret%z_range(2))then
+         ret%z_range(:) = 0.0d0 
+      endif
    endif
 
 end function
+! #########################################################
+
+! #########################################################
+elemental function or_xyz_range_real64(range1,range2) result(ret)
+   type(Range_),intent(in) :: range1,range2
+   type(Range_) :: ret
+
+   allocate(ret%or_ranges(1:2))
+   ret%or_ranges(1) = range1
+   ret%or_ranges(2) = range2
+
+end function
+! #########################################################
+
+
 
 
 !function getSubrange(this,dim,n) result(ret)
