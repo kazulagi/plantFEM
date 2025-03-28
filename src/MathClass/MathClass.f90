@@ -168,9 +168,9 @@ module MathClass
       module procedure assign_real64, assign_int32
    end interface
    
-   interface matmul_complex
-      module procedure matmul_complex_real64
-   end interface matmul_complex
+   !interface matmul_complex
+   !   module procedure matmul_complex_real64
+   !end interface matmul_complex
 
 contains
 
