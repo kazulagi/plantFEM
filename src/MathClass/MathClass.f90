@@ -51,6 +51,10 @@ module MathClass
       module procedure norm_mat, norm_vec, norm_vec_real32, norm_vec_complex64
    end interface
 
+   interface det_mat
+      module procedure det_mat_real64, det_mat_complex64
+   end interface
+
    interface int
       module procedure fint
    end interface int
@@ -58,6 +62,10 @@ module MathClass
    interface float
       module procedure freal
    end interface float
+
+   interface trace
+      module procedure trace_complex64, trace_real64
+   end interface
 
    interface factorial
       module procedure factorialInt32, factorialReal64
@@ -159,6 +167,10 @@ module MathClass
    interface assignment(=)
       module procedure assign_real64, assign_int32
    end interface
+   
+   interface matmul_complex
+      module procedure matmul_complex_real64
+   end interface matmul_complex
 
 contains
 
@@ -1407,23 +1419,43 @@ pure   subroutine heapsortInt32(n, array, val)
 ! This function is not presented with GPL or any licenses.
 ! this function will be replaced by LAPACK.
 
-   recursive function det_mat(a, n) result(det)
+   recursive function det_mat_real64(a, n) result(ret)
       integer(int32), intent(in) :: n
       real(real64), intent(in) :: a(n, n)
-      real(real64) det, b(n - 1, n - 1)
+      real(real64) ret, b(n - 1, n - 1)
       integer(int32) i
       if (n > 1) then
-         det = 0.0d0
+         ret = 0.0d0
          do i = 1, n
             b(1:i - 1, 1:n - 1) = a(1:i - 1, 2:n)
             b(i:n - 1, 1:n - 1) = a(i + 1:n, 2:n)
-            det = det + (-1.0d0)**(i + 1) &
-                  *a(i, 1)*det_mat(b, n - 1)
+            ret = ret + (-1.0d0)**(i + 1) &
+                  *a(i, 1)*det_mat_real64(b, n - 1)
          end do
       else
-         det = a(1, 1)
+         ret = a(1, 1)
       end if
-   end function det_mat
+   end function det_mat_real64
+!=====================================================================================
+
+   
+   recursive function det_mat_complex64(a, n) result(ret)
+      integer(int32), intent(in) :: n
+      complex(real64), intent(in) :: a(n, n)
+      complex(real64) ret, b(n - 1, n - 1)
+      integer(int32) i
+      if (n > 1) then
+         ret = 0.0d0
+         do i = 1, n
+            b(1:i - 1, 1:n - 1) = a(1:i - 1, 2:n)
+            b(i:n - 1, 1:n - 1) = a(i + 1:n, 2:n)
+            ret = ret + (-1.0d0)**(i + 1) &
+                  *a(i, 1)*det_mat_complex64(b, n - 1)
+         end do
+      else
+         ret = a(1, 1)
+      end if
+   end function det_mat_complex64
 !=====================================================================================
 
 !==========================================================
@@ -1735,7 +1767,7 @@ pure   subroutine heapsortInt32(n, array, val)
    end function
 !==================================================================================
 
-   function trace(a) result(b)
+   function trace_real64(a) result(b)
       real(real64), intent(in)::a(:, :)
       real(real64) :: b
       integer(int32) :: i, j
@@ -1744,7 +1776,19 @@ pure   subroutine heapsortInt32(n, array, val)
          b = b + a(i, i)
       end do
    end function
+!==================================================================================
 
+   function trace_complex64(a) result(b)
+      complex(real64), intent(in)::a(:, :)
+      complex(real64) :: b
+      integer(int32) :: i, j
+      b = 0
+      do i = 1, size(a, 1)
+         b = b + a(i, i)
+      end do
+   end function
+!==================================================================================
+   
 !==================================================================================
    function sym(a, n) result(ret)
       real(real64), intent(in) :: a(:, :)
@@ -3787,5 +3831,22 @@ subroutine assign_int32(x,y)
 end subroutine
 ! ###########################################################
 
+!function matmul_complex_real64(a,b) result(ret)
+!   complex(real64),intent(in) :: a(:,:),b(:,:)
+!   complex(real64),allocatable :: ret(:,:)
+!   integer(int32) :: i,j,k
+!
+!   allocate(ret(size(a,1),size(b,2)))
+!   ret(:,:) = 0.0d0
+!   do i=1,size(a,1)
+!      do j=1,size(b,2)
+!         do k=1,size(a,2)
+!            ret(i,j) = ret(i,j) + a(i,k)*b(k,j)
+!         enddo
+!      enddo
+!   enddo
+!
+!
+!end function
 
 end module MathClass

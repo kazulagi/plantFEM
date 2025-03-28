@@ -5193,7 +5193,7 @@ contains
                      x_min(3), x_m_mid(3), x_s_mid(3), x1vec(3), x2vec(3), nvec(3), hvec(3)
       integer(int32), allocatable:: OutNodeID(:), OutElementID(:)
       logical :: inside
-      real(real64):: dist_tr, dist_cur, z_, zval1, zval2, x_1(3), x_2(3)
+      real(real64):: dist_tr, dist_cur, z_, zval1, zval2, x_1(3), x_2(3),theta
       integer(int32) :: num_layer, itr, node1, node2, node3, node4, count, prev_node1
       integer(int32), allocatable :: elemnod(:, :)
       integer(int32) :: nearest_node_id, nearest_facet_id, node_id, elist(2), tri_excep, tri_excep_last
@@ -6513,27 +6513,64 @@ contains
          do i = 1, size(obj%nodCoord, 1)
             xx = obj%nodCoord(i, 1)
             yy = obj%nodCoord(i, 2)
-            if (xx >= 0.0d0 .and. yy >= 0.0d0) then
-               obj%nodCoord(i, 1) = xx + xx*(sqrt(2.0d0) - 1.0d0)*(1.0d0 - yy)
-               obj%nodCoord(i, 2) = yy + yy*(sqrt(2.0d0) - 1.0d0)*(1.0d0 - xx)
-            elseif (xx < 0.0d0 .and. yy >= 0.0d0) then
-               obj%nodCoord(i, 1) = xx + xx*(sqrt(2.0d0) - 1.0d0)*(1.0d0 - yy)
-               obj%nodCoord(i, 2) = yy + yy*(sqrt(2.0d0) - 1.0d0)*(1.0d0 + xx)
-            elseif (xx < 0.0d0 .and. yy < 0.0d0) then
-               obj%nodCoord(i, 1) = xx + xx*(sqrt(2.0d0) - 1.0d0)*(1.0d0 + yy)
-               obj%nodCoord(i, 2) = yy + yy*(sqrt(2.0d0) - 1.0d0)*(1.0d0 + xx)
-            elseif (xx >= 0.0d0 .and. yy < 0.0d0) then
-               obj%nodCoord(i, 1) = xx + xx*(sqrt(2.0d0) - 1.0d0)*(1.0d0 + yy)
-               obj%nodCoord(i, 2) = yy + yy*(sqrt(2.0d0) - 1.0d0)*(1.0d0 - xx)
-            else
-               print *, "ERROR :: createMesh >> circle error"
-               stop
-            end if
+            RR = 1.00d0
+            if (xx/=0.0d0)then
+               if (abs(yy/xx) > 1.0d0)then
+                  if(yy/=0.0d0)then
+                     RR = sqrt((xx/yy)*(xx/yy) + 1)
+                  endif
+               else
+                  RR    = sqrt((yy/xx)*(yy/xx) + 1)
+               endif
+            endif
+
+            ! alpha = f(x)
+            ! x \in [1, 1/sqrt(2)]
+            ! f(1/sqrt(2)) = 0.8
+            ! f(1) = 1.0d0 
+            
+            ! gradient
+            theta = (1.0d0-0.80d0)/(1.0d0-1.0d0/sqrt(2.0d0))
+            ! linear function
+            !alpha = theta*((1/RR)-1.0d0/sqrt(2.0d0)) + 0.80d0
+            ! quadrature function
+            alpha = theta*((1/RR)-1.0d0/sqrt(2.0d0)) + 0.790d0
+
+            xx = xx*alpha
+            yy = yy*alpha
+
+            obj%nodCoord(i, 1) = xx*(sqrt(2.0d0))*0.95d0
+            obj%nodCoord(i, 2) = yy*(sqrt(2.0d0))*0.95d0
+
+            !alpha = 2.0d0
+            !if (xx >= 0.0d0 .and. yy >= 0.0d0) then
+            !   obj%nodCoord(i, 1) = obj%nodCoord(i, 1) + alpha*(xx + xx*(sqrt(2.0d0) - 1.0d0)*(1.0d0 - yy))
+            !   obj%nodCoord(i, 2) = obj%nodCoord(i, 2) + alpha*(yy + yy*(sqrt(2.0d0) - 1.0d0)*(1.0d0 - xx))
+            !elseif (xx < 0.0d0 .and. yy >= 0.0d0) then
+            !   obj%nodCoord(i, 1) = obj%nodCoord(i, 1) + alpha*(xx + xx*(sqrt(2.0d0) - 1.0d0)*(1.0d0 - yy))
+            !   obj%nodCoord(i, 2) = obj%nodCoord(i, 2) + alpha*(yy + yy*(sqrt(2.0d0) - 1.0d0)*(1.0d0 + xx))
+            !elseif (xx < 0.0d0 .and. yy < 0.0d0) then
+            !   obj%nodCoord(i, 1) = obj%nodCoord(i, 1) + alpha*(xx + xx*(sqrt(2.0d0) - 1.0d0)*(1.0d0 + yy))
+            !   obj%nodCoord(i, 2) = obj%nodCoord(i, 2) + alpha*(yy + yy*(sqrt(2.0d0) - 1.0d0)*(1.0d0 + xx))
+            !elseif (xx >= 0.0d0 .and. yy < 0.0d0) then
+            !   obj%nodCoord(i, 1) = obj%nodCoord(i, 1) + alpha*(xx + xx*(sqrt(2.0d0) - 1.0d0)*(1.0d0 + yy))
+            !   obj%nodCoord(i, 2) = obj%nodCoord(i, 2) + alpha*(yy + yy*(sqrt(2.0d0) - 1.0d0)*(1.0d0 - xx))
+            !else
+            !   print *, "ERROR :: createMesh >> circle error"
+            !   stop
+            !end if
+            !obj%nodCoord(i, 1) = obj%nodCoord(i, 1)/2.0d0
+            !obj%nodCoord(i, 2) = obj%nodCoord(i, 2)/2.0d0
+
          end do
          if (present(meshtype) .and. validmeshtype .eqv. .false.) then
             print *, "createMesh%error :: no such mesh as ", meshtype
             return
          end if
+
+         
+         
+         
 
          !obj%nodcoord(:,1)=obj%nodcoord(:,1)*0.650d0
          !obj%nodcoord(:,2)=obj%nodcoord(:,2)*0.650d0

@@ -442,11 +442,14 @@ module FEMDomainClass
 
       procedure, pass :: vtk_MPI_FEMDOmain
       procedure, pass :: vtkFEMDOmain
+      
 
       generic :: vtk => vtkFEMDomain, vtk_MPI_FEMDOmain
       procedure, public :: x3d => x3dFEMDomain
+      
       procedure, public :: csv => csvFEMDomain
 
+      procedure, public :: ifc => ifcFEMDomain
       ! >>> revising for adopting quad mesh >>> (2024.05.13)
       ! matrices
       procedure, public :: Bmatrix => BMatrixFEMDomain ! <<< now <<<
@@ -17569,5 +17572,78 @@ subroutine setVectorValueFEMDomain(this,vector,dof,fillValue,range)
 end subroutine
 ! ################################################################
 
+
+! ################################################################
+subroutine ifcFEMDomain(this,name)
+   class(FEMDomain_),intent(in) :: this
+   character(*),intent(in) :: name
+   character(:),allocatable :: full_name
+   type(IO_) :: f
+   
+   if(".ifc" .in. name)then
+      full_name = name
+   else
+      full_name = name+".ifc"
+   endif
+   call f%open(full_name,"w")
+
+   call f%write("ISO-10303-21;")
+
+   ! header
+   call f%write("HEADER;")
+
+   ! See
+   ! https://standards.buildingsmart.org/documents/Implementation/ImplementationGuide_IFCHeaderData_Version_1.0.2.pdf
+   call f%write("FILE_DESCRIPTION(('ViewDefinition [CoordinationView]'),'2;1');")
+   call f%write("FILE_NAME( '"+full_name+"', '2011-11-07T18:00:00', ('plantFEM'), ('plantFEM'), 'plantFEM',&
+       'plantFEM', 'IFC4 exporter of FEMDomain object in plantFEM');")
+   call f%write("FILE_SCHEMA(('IFC4'));")
+   call f%write("ENDSEC;")
+
+   ! data
+   call f%write("DATA;")
+   call f%write("#100= IFCPROJECT ('"+this%uuid+"',#110,'plantFEM's FEMDomain object',$,$,$,$,(#201),#301);")
+   call f%write("#201= IFCGEOMETRICREPRESENTATIONCONTEXT ($,'Model',3,1.0E-5,#210,$);")
+
+
+   call f%write("#202= IFCGEOMETRICREPRESENTATIONSUBCONTEXT ('Body','Model',*,*,*,*,#201,$,.MODEL_VIEW.,$);")
+   call f%write("#210= IFCAXIS2PLACEMENT3D (#901,$,$);")
+
+   ! #301, #901
+   call f%write("#301= IFCUNITASSIGNMENT ((#311,#312));")
+   call f%write("#311= IFCSIUNIT (*,.LENGTHUNIT.,.MILLI.,.METRE.);")
+   call f%write("#312= IFCCONVERSIONBASEDUNIT (#313,.PLANEANGLEUNIT.,'degree',#314);")
+   call f%write("#313= IFCDIMENSIONALEXPONENTS (0,0,0,0,0,0,0);")
+   call f%write("#314= IFCMEASUREWITHUNIT (IFCPLANEANGLEMEASURE(0.017453293),#315);")
+   call f%write("#315= IFCSIUNIT (*,.PLANEANGLEUNIT.,$,.RADIAN.);")
+
+
+   call f%write("#901= IFCCARTESIANPOINT ((0.,0.,0.));")
+   call f%write("#902= IFCDIRECTION ((1.,0.,0.));")
+   call f%write("#903= IFCDIRECTION ((0.,1.,0.));")
+   call f%write("#904= IFCDIRECTION ((0.,0.,1.));")
+   call f%write("#905= IFCDIRECTION ((-1.,0.,0.));")
+   call f%write("#906= IFCDIRECTION ((0.,-1.,0.));")
+   call f%write("#907= IFCDIRECTION ((0.,0.,-1.));")
+
+   call f%write("")
+   call f%write("")
+   call f%write("")
+   call f%write("")
+   call f%write("")
+   call f%write("")
+
+
+
+   call f%write("ENDSEC;")
+
+   
+   call f%write("END-ISO-10303-21;")
+   call f%close()
+
+   print *, "STEP >> .ifc exporter is under implementation."
+   stop
+end subroutine
+! ################################################################
 
 end module FEMDomainClass
