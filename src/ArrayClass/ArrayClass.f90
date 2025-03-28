@@ -162,6 +162,11 @@ module ArrayClass
       module procedure getColumnOf2DMatrix_int32, getColumnOf2DMatrix_real64, getColumnOf2DMatrix_complex64
    end interface
 
+      
+   interface operator(.for.)
+      module procedure getArray_by_Stacking_Vectors_re64,getArray_by_Stacking_Vectors_in32
+   end interface
+
    interface dot_product_omp
       module procedure :: dot_product_omp
    end interface
@@ -9987,6 +9992,36 @@ contains
       end if
 
    end function
+! ########################################################
+
+function getArray_by_Stacking_Vectors_re64(vec,idx_range) result(ret)
+   real(real64),intent(in)   :: vec(:)
+   integer(int32),intent(in) :: idx_range(1:2)
+   real(real64),allocatable :: ret(:,:)
+   integer(int32) :: i
+   
+   allocate(ret(idx_range(1):idx_range(2),size(vec)))
+   do i = idx_range(1),idx_range(2)
+      ret(i,:) = vec(:)
+   enddo
+
+end function
+
+! ########################################################
+
+function getArray_by_Stacking_Vectors_in32(vec,idx_range) result(ret)
+   integer(int32),intent(in)   :: vec(:)
+   integer(int32),intent(in) :: idx_range(1:2)
+   integer(int32),allocatable :: ret(:,:)
+   integer(int32) :: i
+   
+   allocate(ret(idx_range(1):idx_range(2),size(vec)))
+   do i = idx_range(1),idx_range(2)
+      ret(i,:) = vec(:)
+   enddo
+
+end function
+
 ! ########################################################
 
 end module ArrayClass

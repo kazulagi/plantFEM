@@ -101,6 +101,7 @@ module SparseClass
       procedure, public :: remove => removeCOO
       procedure, public :: getAllCol => getAllColCOO
       procedure, public :: DOF => DOFCOO
+      
       procedure, public :: to_CRS => to_CRSCOO
       procedure, public :: get => getCOO
       procedure, public :: ne => neCOO
@@ -136,6 +137,7 @@ module SparseClass
    contains
       procedure, public :: init => initCRS
       procedure, public :: eyes => eyesCRS
+      procedure, public :: poisson => poissonCRS
       procedure, public :: Lanczos => LanczosCRS
 
       procedure, pass :: matmulCRS
@@ -158,6 +160,7 @@ module SparseClass
 
       procedure, public :: remove => removeCRS
       procedure, public :: size => sizeCRS
+      procedure, public :: shape => shapeCRS
       procedure, public :: update => updateCRS
       procedure, public :: add => addCRS
 
@@ -217,7 +220,7 @@ module SparseClass
       procedure, pass :: tensor_cos_sqrt_sinc_sqrt_complex64_crs
       procedure, pass :: tensor_sinc_sqrt_cos_sqrt_complex64_crs
       procedure, pass :: tensor_sinc_sqrt_sinc_sqrt_complex64_crs
-
+      
       generic, public :: tensor_exponential => tensor_exponential_complex64_crs, tensor_exponential_crs
       generic, public :: tensor_exp => tensor_exponential_complex64_crs, tensor_exponential_crs
       generic, public :: tensor_exp_sqrt => tensor_exp_sqrt_complex64_crs, tensor_exp_sqrt_crs
@@ -250,7 +253,23 @@ module SparseClass
       generic, public :: tensor_d1_wave_kernel => tensor_d1_wave_kernel_complex64_crs
       generic, public :: fix => fix_complex64_CRS, fixCRS, fix_zeroCRS
          
+      ! assemble large matrix by combining small matrices
+      ! >> If you want to do this, use type(BCRS_), which is for block CRS format.
+      !procedure,public :: assemble => assemble_CRS <- this is/will not be implemented.
    end type
+
+   type :: BCRS_
+      type(CRS_),allocatable :: CRS(:,:)
+   contains
+      procedure,public :: set => setBCRS
+      procedure,public :: add => addBCRS
+      procedure,public :: showShape => showShapeBCRS
+      procedure,public :: shape     => shapeBCRS
+      procedure,public :: row_range => row_range_BCRS
+      procedure,public :: col_range => col_range_BCRS
+      procedure,public :: matmul => matmulBCRS
+      procedure,public :: exp => expBCRS
+   end type 
 
    public :: operator(+)
    public :: operator(-)
@@ -270,7 +289,7 @@ module SparseClass
    end interface
 
    interface operator(*)
-      module procedure multReal64_and_CRS, multCRS_and_Real64
+      module procedure multReal64_and_CRS, multCRS_and_Real64, multReal64_and_BCRS, multBCRS_and_Real64
    end interface
 
    interface matmul
@@ -283,6 +302,10 @@ module SparseClass
 
    interface to_diag
       module procedure to_diag_vector_to_CRS
+   end interface
+
+   interface allocated
+      module procedure allocated_CRS
    end interface
 
    interface speye
@@ -417,8 +440,11 @@ contains
       real(real64), intent(in)   :: val
       integer(int32) :: i, col_id
 
+      !if (row > this%DOF() .or. row < 1) return
+      !if (col > this%DOF() .or. col < 1) return
+
       if (row > this%DOF() .or. row < 1) return
-      if (col > this%DOF() .or. col < 1) return
+      if (col < 1) return
 
       if (.not. allocated(this%row)) then
          print *, "ERROR :: initCOO"
@@ -755,10 +781,10 @@ contains
       integer(int64) :: CRS_id
 
       n = size(CRS%row_ptr) - 1
-      if (size(old_vector) /= n) then
-         print *, "ERROR crs_matvec :: inconsistent size for old_vector"
-         return
-      end if
+      !if (size(old_vector) /= n) then
+      !   print *, "ERROR crs_matvec :: inconsistent size for old_vector"
+      !   return
+      !end if
 
       new_vector = zeros(n)
 
@@ -798,10 +824,10 @@ contains
       !> x_i = A_ij b_j
 
       n = size(CRS_row_ptr) - 1
-      if (size(old_vector) /= n) then
-         print *, "ERROR crs_matvec :: inconsistent size for old_vector"
-         return
-      end if
+      !if (size(old_vector) /= n) then
+      !   print *, "ERROR crs_matvec :: inconsistent size for old_vector"
+      !   return
+      !end if
 
       new_vector = zeros(n)
 
@@ -905,10 +931,10 @@ contains
       !> x_i = A_ij b_j
 
       n = size(CRS_row_ptr) - 1
-      if (size(old_vector) /= n) then
-         print *, "ERROR crs_matvec :: inconsistent size for old_vector"
-         return
-      end if
+      !if (size(old_vector) /= n) then
+      !   print *, "ERROR crs_matvec :: inconsistent size for old_vector"
+      !   return
+      !end if
 
       new_vector = zeros(n)
 
@@ -981,10 +1007,10 @@ contains
       !> x_i = A_ij b_j
 
       n = size(CRS_row_ptr) - 1
-      if (size(old_vector) /= n) then
-         print *, "ERROR crs_matvec :: inconsistent size for old_vector"
-         return
-      end if
+      !if (size(old_vector) /= n) then
+      !   print *, "ERROR crs_matvec :: inconsistent size for old_vector"
+      !   return
+      !end if
 
       new_vector = zeros(n)
 
@@ -1041,10 +1067,10 @@ contains
       !> x_i = A_ij b_j
 
       n = size(CRS_row_ptr) - 1
-      if (size(old_vector) /= n) then
-         print *, "ERROR crs_matvec :: inconsistent size for old_vector"
-         return
-      end if
+      !if (size(old_vector) /= n) then
+      !   print *, "ERROR crs_matvec :: inconsistent size for old_vector"
+      !   return
+      !end if
 
       new_vector = zeros(n)
 
@@ -1136,11 +1162,12 @@ contains
    function to_denseCRS(this) result(dense_mat)
       class(CRS_), intent(in) :: this
       real(real64), allocatable  :: dense_mat(:, :)
-      integer(int32) :: i, n, row, col
+      integer(int32) :: i, n, m, row, col
       integeR(int64) :: j
 
       n = size(this%row_ptr) - 1
-      allocate (dense_mat(n, n))
+      m = maxval(this%col_idx)
+      allocate (dense_mat(n, m))
       dense_mat(:, :) = 0.0d0
       do row = 1, n
          do j = this%row_ptr(row), this%row_ptr(row + 1) - 1
@@ -1203,7 +1230,9 @@ contains
       end do
 
    end function
+! #############################################
 
+! #############################################
    function multReal64_and_CRS(scalar64, CRS1) result(CRS_ret)
       real(real64), intent(in) :: scalar64
       type(CRS_), intent(in) :: CRS1
@@ -1218,7 +1247,45 @@ contains
       !$OMP end parallel do
 
    end function
+! #############################################
 
+
+! #############################################
+   function multReal64_and_BCRS(scalar64, BCRS1) result(BCRS_ret)
+      real(real64), intent(in) :: scalar64
+      type(BCRS_), intent(in) :: BCRS1
+      type(BCRS_) :: BCRS_ret
+      integer(int32) :: i,j
+
+      BCRS_ret = BCRS1
+      do i = 1, size(BCRS_ret%CRS,1)
+         do j = 1, size(BCRS_ret%CRS,1)
+            BCRS_ret%CRS(i,j) = scalar64*BCRS_ret%CRS(i,j)
+         enddo
+      end do
+      
+   end function
+! #############################################
+
+
+   ! #############################################
+   function multBCRS_and_Real64(BCRS1,scalar64) result(BCRS_ret)
+      real(real64), intent(in) :: scalar64
+      type(BCRS_), intent(in) :: BCRS1
+      type(BCRS_) :: BCRS_ret
+      integer(int32) :: i,j
+
+      BCRS_ret = BCRS1
+      do i = 1, size(BCRS_ret%CRS,1)
+         do j = 1, size(BCRS_ret%CRS,1)
+            BCRS_ret%CRS(i,j) = scalar64*BCRS_ret%CRS(i,j)
+         enddo
+      end do
+      
+   end function
+! #############################################
+
+! #############################################
    function multCRS_and_Real64(CRS1, scalar64) result(CRS_ret)
       type(CRS_), intent(in) :: CRS1
       real(real64), intent(in) :: scalar64
@@ -1329,6 +1396,28 @@ contains
       else
          n = 0
       end if
+
+   end function
+! ##################################################
+
+
+! ##################################################
+   function shapeCRS(this) result(ret)
+      class(CRS_), intent(in) :: this
+      integer(int32) :: ret(1:2)
+
+      if(.not.allocated(this))then
+         ret(:) = 0
+         return
+      endif
+
+      if (allocated(this%row_ptr)) then
+         ret(1) = size(this%row_ptr) - 1
+      else
+         ret(1) = 0
+      end if
+
+      ret(2) = maxval(this%col_idx)
 
    end function
 ! ##################################################
@@ -2420,10 +2509,10 @@ contains
       !> x_i = A_ij b_j
 
       n = size(CRS_row_ptr) - 1
-      if (size(old_vector) /= n) then
-         print *, "ERROR crs_matvec :: inconsistent size for old_vector"
-         return
-      end if
+      !if (size(old_vector) /= n) then
+      !   print *, "ERROR crs_matvec :: inconsistent size for old_vector"
+      !   return
+      !end if
 
       if (.not. allocated(new_vector)) then
          new_vector = zeros(n)
@@ -2673,6 +2762,24 @@ contains
       this%val = buf%val
    end subroutine
 ! ###################################################
+
+
+! ###################################################
+subroutine poissonCRS(this, n)
+   class(CRS_),intent(inout) :: this
+   type(COO_) :: coo
+   type(CRS_) :: buf
+   integer(int32),intent(in) :: n
+
+   call coo%poisson(n)
+   buf = coo%to_crs()
+   this%row_ptr = buf%row_ptr
+   this%col_idx = buf%col_idx
+   this%val = buf%val
+
+end subroutine
+! ###################################################
+
 
 ! ###################################################
    function tensor_exponential_crs(this, itr_tol, tol, x, dt, fix_idx, fix_val) result(expA_v)
@@ -4635,7 +4742,7 @@ contains
       DOF = size(dense_matrix, 1)
       call ret%init(DOF)
       do i = 1, size(dense_matrix, 1)
-         do j = 1, size(dense_matrix, 1)
+         do j = 1, size(dense_matrix, 2)
             call ret%add(i, j, dense_matrix(i, j))
          end do
       end do
@@ -4735,6 +4842,7 @@ contains
    end function
 ! ###################################################
 
+! ###################################################
    subroutine fillSymmetric_CRS(this)
       class(CRS_),intent(in) :: this
       ! fill-in to symmetric parts
@@ -4742,5 +4850,267 @@ contains
 
 
    end subroutine
+! ###################################################
+
+
+! ###################################################
+   function allocated_CRS(this) result(ret)
+      class(CRS_),intent(in) :: this
+      logical :: ret
+
+      ret = allocated(this%val)
+      ret = ret .and. allocated(this%row_ptr)
+      ret = ret .and. allocated(this%col_idx)
+
+   end function
+! ###################################################
+
+! ###################################################
+! >> BCRS procedures
+! ###################################################
+
+! ###################################################
+!   subroutine assemble_CRS(this,crs_matrices,matrices_shape)
+!      class(CRS_),intent(inout) :: this
+!      type(CRS_),intent(in) :: crs_matrices(:)
+!      integer(int32),intent(in) :: matrices_shape(1:2)
+!
+!
+!   end subroutine
+! ###################################################
+
+   subroutine setBCRS(this,block_position,CRS) 
+      class(BCRS_),intent(inout) :: this
+      integer(int32) :: block_position(1:2)
+      type(CRS_),intent(in) :: CRS
+      type(BCRS_) :: BCRS_buffer
+
+      if(.not.allocated(this%CRS))then
+         allocate(this%CRS(block_position(1),block_position(2)))
+      endif
+      if(&
+         block_position(1)>size(this%CRS,1) &
+            .or. &
+         block_position(2)>size(this%CRS,2) )then
+         BCRS_buffer = this
+         deallocate(this%CRS)
+         allocate(this%CRS( max(block_position(1),size(BCRS_buffer%CRS,1)),&
+            max(block_position(2),size(BCRS_buffer%CRS,2))))
+         this%CRS(1:size(BCRS_buffer%CRS,1),1:size(BCRS_buffer%CRS,2)) = &
+            BCRS_buffer%CRS(1:size(BCRS_buffer%CRS,1),1:size(BCRS_buffer%CRS,2))
+      endif
+      
+      this%CRS(block_position(1),block_position(2)) = CRS
+
+   end subroutine
+! ###################################################
+
+
+   ! ###################################################
+
+   subroutine addBCRS(this,block_position,CRS) 
+      class(BCRS_),intent(inout) :: this
+      integer(int32) :: block_position(1:2)
+      type(CRS_),intent(in) :: CRS
+      type(BCRS_) :: BCRS_buffer
+      
+      if(.not.allocated(this%CRS))then
+         allocate(this%CRS(block_position(1),block_position(2)))
+      endif
+      if(&
+         block_position(1)>size(this%CRS,1) &
+            .or. &
+         block_position(2)>size(this%CRS,2) )then
+         BCRS_buffer = this
+         deallocate(this%CRS)
+         allocate(this%CRS( max(block_position(1),size(BCRS_buffer%CRS,1)),&
+            max(block_position(2),size(BCRS_buffer%CRS,2))))
+         this%CRS(1:size(BCRS_buffer%CRS,1),1:size(BCRS_buffer%CRS,2)) = &
+            BCRS_buffer%CRS(1:size(BCRS_buffer%CRS,1),1:size(BCRS_buffer%CRS,2))
+      endif
+      
+      this%CRS(block_position(1),block_position(2)) = &
+         this%CRS(block_position(1),block_position(2)) + CRS
+
+   end subroutine
+! ###################################################
+
+
+! ###################################################
+   subroutine showShapeBCRS(this)
+      class(BCRS_),intent(in) :: this
+      integer(int32) :: i,j
+      character(:),allocatable :: msg      
+      integer(int32) :: this_shape(1:2)
+
+      print *, "BCRS :: shape >> "
+      do i=1,size(this%CRS,1)
+         do j = 1, size(this%CRS,2)
+            if(allocated(this%CRS(i,j)))then
+               this_shape = this%CRS(i,j)%shape()
+               msg = "[" + str(this_shape(1))+","+str(this_shape(2)) + "]"
+            else
+               msg = "[-0-]"
+            endif
+            write (*,fmt='(a)', advance='no') msg
+         enddo
+         write (*,fmt='(a)', advance='yes') ""
+      enddo
+      print *, "BCRS :: shape << "
+   end subroutine
+! ###################################################
+
+! ###################################################
+   function matmulBCRS(this,vec) result(ret)
+      class(BCRS_),intent(in) :: this
+      real(real64),intent(in) :: vec(:)
+      real(real64),allocatable :: ret(:)
+      integer(int32),allocatable :: non_zero_idx(:,:)
+      integer(int32) :: i,j,row_r(1:2),col_r(1:2),bcrs_shape(1:2),non_zero_counter,row,col
+      
+      bcrs_shape = this%shape()
+      ret = zeros(bcrs_shape(1))
+
+      ! Pick-up non-zero values
+      non_zero_counter = 0
+      do i=1,size(this%CRS,1)
+         do j=1,size(this%CRS,2)
+            if(.not.allocated(this%CRS(i,j))) then
+               cycle
+            else
+               non_zero_counter = non_zero_counter + 1
+            endif
+         enddo
+      enddo
+      allocate(non_zero_idx(non_zero_counter,6))
+      non_zero_counter = 0
+      do i=1,size(this%CRS,1)
+         do j=1,size(this%CRS,2)
+            if(.not.allocated(this%CRS(i,j))) then
+               cycle
+            else
+               non_zero_counter = non_zero_counter + 1
+               non_zero_idx(non_zero_counter,1) = i ! row of block
+               non_zero_idx(non_zero_counter,2) = j ! column of block
+               non_zero_idx(non_zero_counter,3:4) = this%row_range(i,j) ! global row idx
+               non_zero_idx(non_zero_counter,5:6) = this%col_range(i,j) ! global column idx
+            endif
+         enddo
+      enddo
+            
+      !$OMP parallel do private(row,col,row_r,col_r) reduction(+:ret)
+      do i=1,non_zero_counter
+         row   = non_zero_idx(i,1)
+         col   = non_zero_idx(i,2)
+         row_r = non_zero_idx(i,3:4)
+         col_r = non_zero_idx(i,5:6)
+         ret(row_r(1):row_r(2)) = ret(row_r(1):row_r(2))&
+             + this%CRS(row,col)%matmul(vec(col_r(1):col_r(2)))
+      enddo
+      !$OMP end parallel do
+
+   end function
+
+! ###################################################
+
+
+! ###################################################
+   function row_range_BCRS(this,box_row,box_col) result(ret)
+      class(BCRS_),intent(in) :: this
+      integer(int32),intent(in) :: box_row,box_col
+      integer(int32) :: ret(1:2),this_shape(1:2)
+      integer(int32) :: i,j
+
+      ret(1:2) = [1,0]
+
+      do i=1,box_row-1
+         do j=1,size(this%CRS,2)
+            if(allocated(this%CRS(i,j) ) )then
+               this_shape = this%CRS(i,j)%shape()
+               ret(1) = ret(1) + this_shape(1)
+               exit
+            endif
+         enddo
+      enddo
+      this_shape = this%CRS(box_row,box_col)%shape()
+      if (this_shape(1)==0)then
+         ret(2) = ret(1) 
+      else
+         ret(2) = ret(1) + this_shape(1) -1
+      endif
+      
+
+   end function
+! ###################################################
+
+
+! ###################################################
+   function col_range_BCRS(this,box_row,box_col) result(ret)
+      class(BCRS_),intent(in) :: this
+      integer(int32),intent(in) :: box_row,box_col
+      integer(int32) :: ret(1:2),this_shape(1:2)
+      integer(int32) :: i,j
+
+      ret(1:2) = [1,0]
+
+      
+      do i=1,box_col-1
+         do j=1,size(this%CRS,1)
+            if(allocated(this%CRS(j,i) ) )then
+               this_shape = this%CRS(j,i)%shape()
+               ret(1) = ret(1) + this_shape(2)
+               exit
+            endif
+         enddo
+      enddo
+      this_shape = this%CRS(box_row,box_col)%shape()
+      if (this_shape(2)==0)then
+         ret(2) = ret(1) 
+      else
+         ret(2) = ret(1) + this_shape(2) -1
+      endif
+
+   end function
+! ###################################################
+
+function shapeBCRS(this) result(ret)
+   class(BCRS_),intent(in) :: this
+   integer(int32) :: ret(1:2)
+
+   ret(1) = maxval(this%row_range(size(this%CRS,1),size(this%CRS,2)))
+   ret(2) = maxval(this%col_range(size(this%CRS,1),size(this%CRS,2)))
+
+end function
+! ###################################################
+
+
+! ###################################################
+function expBCRS(this,vec,max_itr) result(b)
+   ! tensor exponential 
+
+   ! exp(x) = \sum_{0}^{\infty} \cfrac{1}{n!}x^{n}
+   ! let a_{k} = x^{k}, b_{k} = \sum_{0}^{k} \cfrac{1}{n!}x^{n}
+   ! b_{0} = 1
+   ! a_{0} = 1
+   ! a_{k+1} = \cfrac{1}{k} x*a_{k} 
+   ! b_{k+1} = b_{k} + a_{k+1}
+   class(BCRS_),intent(in) :: this
+   real(real64),intent(in) :: vec(:)
+   integer(int32),optional,intent(in) :: max_itr
+   integer(int32) :: k,n,itr_max,this_shape(1:2)
+   real(real64)   :: tol
+   real(real64),allocatable :: a(:),b(:)
+   itr_max = input(default=100,option=max_itr)
+
+   a = vec(:)
+   b = vec(:)
+
+   do k=1,itr_max
+      a = 1.0d0/dble(k)*this%matmul(a)
+      b = b + a
+   enddo
+
+end function
+! ###################################################
 
 end module SparseClass

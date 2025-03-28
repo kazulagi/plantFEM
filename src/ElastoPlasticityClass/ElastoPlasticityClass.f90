@@ -9,16 +9,65 @@ module ElastoPlasticityClass
    implicit none
 
    abstract interface
-      function PotentialFunction(CauchyStress, PlasticStrain, params) result(ret)
+      function ScalarFunction(x,params) result(ret)
          use iso_fortran_env
-         real(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :), params(:)
-         real(real64) :: ret
+         complex(real64), intent(in) :: x ! variables should be complex numbers
+         real(real64), intent(in) ::params(:)
+         complex(real64) :: ret! variables should be complex numbers
       end function
    end interface
 
+
+   abstract interface
+      function E_PotentialFunction(ElasticStrain, params) result(ret)
+         use iso_fortran_env
+         complex(real64), intent(in) :: ElasticStrain(:, :)! variables should be complex numbers
+         real(real64), intent(in) :: params(:)
+         complex(real64) :: ret! variables should be complex numbers
+      end function
+   end interface
+   
+   abstract interface
+      function P_PotentialFunction(CauchyStress, PlasticStrain, params) result(ret)
+         use iso_fortran_env
+         complex(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :) ! variables should be complex numbers
+         real(real64), intent(in) ::  params(:)
+         complex(real64) :: ret! variables should be complex numbers
+      end function
+   end interface
+
+
+
+   abstract interface
+      function StressRatioFunction(CauchyStress, dCauchyStress, StrainRatio) result(ret)
+         use iso_fortran_env
+         real(real64), intent(in) :: CauchyStress(:, :), dCauchyStress(:, :), StrainRatio(:, :)
+         real(real64),allocatable :: ret(:,:)
+      end function
+   end interface
+
+
+   type :: EP_Model_ 
+      procedure(E_PotentialFunction), nopass, pointer :: ElasticPotential => null()   
+      procedure(P_PotentialFunction), nopass, pointer :: YieldFunction => null()
+      procedure(P_PotentialFunction), nopass, pointer :: PlasticPotential => null()
+
+      ! optional >> 
+      procedure(StressRatioFunction),    nopass, pointer :: StressRatio => null()  
+   contains
+      procedure,public ::  StiffnessMatrix => StiffnessMatrix_EP_model
+   end type
+   
+   interface to_EP_Model
+      module procedure to_EP_Model_ElastoPlastClass
+   end interface
+   
+
    type :: EP_Domain_
-      procedure(PotentialFunction), nopass, pointer :: YieldFunction => null()
-      procedure(PotentialFunction), nopass, pointer :: PlasticPotential => null()
+      procedure(E_PotentialFunction), nopass, pointer :: ElasticPotential => null()   
+      procedure(P_PotentialFunction), nopass, pointer :: YieldFunction => null()
+      procedure(P_PotentialFunction), nopass, pointer :: PlasticPotential => null()
+      
       type(FEMDomain_) :: femdomain
       real(real64), allocatable :: YieldFunction_params(:, :)
       real(real64), allocatable :: PlasticPotential_params(:, :)
@@ -33,7 +82,7 @@ module ElastoPlasticityClass
       real(real64), allocatable :: dCauchyStress_field(:, :, :)  ! (stressid, gpid, elemid)
       real(real64), allocatable :: dStrain_field(:, :, :)  ! (stressid, gpid, elemid)
       real(real64), allocatable :: PlasticStrain_field_n(:, :, :) ! (stressid, gpid, elemid)
-
+      
       real(real64), allocatable :: displacement(:)
    contains
       procedure, public :: importField => importFieldEpDomain
@@ -49,9 +98,15 @@ module ElastoPlasticityClass
       integer(int32) :: MAX_NEWTON_LOOP_ITR = 10000
 
    contains
+      ! >>>> solver >>>> 
       procedure, public :: init => initElastoPlasticity
+
+      ! >> static >>
       procedure, public :: solve => solveElastoPlasticity
       procedure, public :: solve_increment => solve_increment_ElastoPlasticity
+      ! << static <<
+
+      ! <<<< solver <<<<
 
       procedure, pass :: edit_YF_PP_ElastoPlasticity
       generic :: edit => edit_YF_PP_ElastoPlasticity
@@ -95,14 +150,47 @@ module ElastoPlasticityClass
       procedure, public :: I1_e => I1_e_ElastoPlasticity
       procedure, public :: J2_e => J2_e_ElastoPlasticity
    end type
+
+   interface d_dsigma
+         module procedure d_dsigma_P_PotentialFunction, d_dsigma_E_PotentialFunction
+   end interface
+
+   interface d2_dsigma2
+         module procedure d2_dsigma2_E_PotentialFunction
+   end interface
+!
+!
+!   interface d_depsilon_p
+!         module procedure d_depsion_p_P_PotentialFunc
+!   end interface
+   
+   interface to_I1
+      module procedure to_I1_real64, to_I1_complex64
+   end interface
+
+   interface to_J1
+      module procedure to_J1_real64, to_J1_complex64
+   end interface
+
+   interface to_J2
+      module procedure to_J2_real64, to_J2_complex64
+   end interface
+
+   interface to_J3
+      module procedure to_J3_real64, to_J3_complex64
+   end interface
+   
+   interface to_LodeAngle
+      module procedure to_LodeAngle_real64, to_LodeAngle_complex64
+   end interface
 contains
 
 ! #############################################
    function to_StressTensor(YieldFunction, PlasticPotential, Strain, dStrain, CauchyStress, PlasticStrain, &
                             YieldParams, PlasticParams, ElasticParams, pval, epsilon, Jmat) &
       result(tr_CauchyStress)
-      procedure(PotentialFunction) :: YieldFunction
-      procedure(PotentialFunction) :: PlasticPotential
+      procedure(P_PotentialFunction) :: YieldFunction
+      procedure(P_PotentialFunction) :: PlasticPotential
 
       real(real64), intent(in) :: Strain(:, :), dStrain(:, :), ElasticParams(:), &
                                   YieldParams(:), PlasticParams(:), CauchyStress(:, :)
@@ -126,14 +214,14 @@ contains
 
       tr_CauchyStress = zeros(3, 3)
       ! (1)
-      dCauchyStress = StVenant(ElasticStrain=dStrain, params=ElasticParams)
+      dCauchyStress = StVenant_ConstModel(ElasticStrain=dStrain, params=ElasticParams)
 
       ! (2)
       tr_CauchyStress = CauchyStress + dCauchyStress
 
       ! (3)
-      f_val = YieldFunction(CauchyStress=tr_CauchyStress, &
-                            PlasticStrain=PlasticStrain, params=YieldParams)
+      f_val = real(YieldFunction(CauchyStress=dcmplx(tr_CauchyStress), &
+                            PlasticStrain=dcmplx(PlasticStrain), params=YieldParams))
       dgamma = 0.0d0
       f_n_0 = f_val
       f_n = f_val
@@ -168,19 +256,19 @@ contains
                             PlasticStrain=PlasticStrain, params=PlasticParams, epsilon=epsilon)
             dgds = dgds/norm(dgds)
 
-            En = StVenant(ElasticStrain=dgds, params=ElasticParams)
-            Ee = StVenant(ElasticStrain=dStrain, params=ElasticParams)
+            En = StVenant_ConstModel(ElasticStrain=dgds, params=ElasticParams)
+            Ee = StVenant_ConstModel(ElasticStrain=dStrain, params=ElasticParams)
 
             dfds = d_dSigma(PlasticPotential=YieldFunction, CauchyStress=tr_CauchyStress, &
                             PlasticStrain=PlasticStrain, params=YieldParams, epsilon=epsilon)
 
             dgamma = tensordot(dfds, Ee)/tensordot(dfds, En)
 
-            dCauchyStress = StVenant(ElasticStrain=dStrain - dgamma*dgds, params=ElasticParams)
+            dCauchyStress = StVenant_ConstModel(ElasticStrain=dStrain - dgamma*dgds, params=ElasticParams)
 
             tr_CauchyStress = CauchyStress + dCauchyStress
-            f_n = YieldFunction(CauchyStress=tr_CauchyStress, &
-                                PlasticStrain=PlasticStrain, params=YieldParams)
+            f_n = real(YieldFunction(CauchyStress=dcmplx(tr_CauchyStress), &
+                                PlasticStrain=dcmplx(PlasticStrain), params=YieldParams))
 
             PlasticStrain = PlasticStrain + dgamma*dgds
 
@@ -207,13 +295,13 @@ contains
             PlasticStrain = old_PlasticStrain + dGamma*dfds
             ! Forward Euler
             ! ds_{ij} = E_{ijkl}( d\epsilon_{kl} - d \gamma*df/ds_{kl} )
-            dCauchyStress = StVenant(ElasticStrain=dStrain - dgamma*dfds, params=ElasticParams)
+            dCauchyStress = StVenant_ConstModel(ElasticStrain=dStrain - dgamma*dfds, params=ElasticParams)
 
             tr_CauchyStress = CauchyStress + dCauchyStress
 
             ! check yield function
-            f_val = PlasticPotential(CauchyStress=tr_CauchyStress, &
-                                     PlasticStrain=PlasticStrain, params=PlasticParams)
+            f_val = real(PlasticPotential(CauchyStress=dcmplx(tr_CauchyStress), &
+                                     PlasticStrain=dcmplx(PlasticStrain), params=PlasticParams))
 
             if (present(pval)) then
                pval = f_val
@@ -228,8 +316,8 @@ contains
    function to_dStressTensor(YieldFunction, PlasticPotential, dStrain, CauchyStress, PlasticStrain, &
                              YieldParams, PlasticParams, ElasticParams, pval, epsilon, new_PlasticStrain) &
       result(dCauchyStress)
-      procedure(PotentialFunction) :: YieldFunction
-      procedure(PotentialFunction) :: PlasticPotential
+      procedure(P_PotentialFunction) :: YieldFunction
+      procedure(P_PotentialFunction) :: PlasticPotential
 
 !! return increment of Cauchy tensor
 
@@ -260,14 +348,14 @@ contains
 
       tr_CauchyStress = zeros(3, 3)
 ! (1)
-      dCauchyStress = StVenant(ElasticStrain=dStrain, params=ElasticParams)
+      dCauchyStress = StVenant_ConstModel(ElasticStrain=dStrain, params=ElasticParams)
 
 ! (2)
       tr_CauchyStress = CauchyStress + dCauchyStress
 
 ! (3)
-      f_val = YieldFunction(CauchyStress=tr_CauchyStress, &
-                            PlasticStrain=new_PlasticStrain, params=YieldParams)
+      f_val = real(YieldFunction(CauchyStress=dcmplx(tr_CauchyStress), &
+                            PlasticStrain=dcmplx(new_PlasticStrain), params=YieldParams))
       dgamma = 0.0d0
       f_n_0 = f_val
       f_n = f_val
@@ -296,20 +384,20 @@ contains
                             PlasticStrain=new_PlasticStrain, params=PlasticParams, epsilon=epsilon)
             dgds = dgds/norm(dgds)
 
-            En = StVenant(ElasticStrain=dgds, params=ElasticParams)
-            Ee = StVenant(ElasticStrain=dStrain, params=ElasticParams)
+            En = StVenant_ConstModel(ElasticStrain=dgds, params=ElasticParams)
+            Ee = StVenant_ConstModel(ElasticStrain=dStrain, params=ElasticParams)
 
             dfds = d_dSigma(PlasticPotential=YieldFunction, CauchyStress=tr_CauchyStress, &
                             PlasticStrain=new_PlasticStrain, params=YieldParams, epsilon=epsilon)
 
             dgamma = tensordot(dfds, Ee)/tensordot(dfds, En)
 
-            dCauchyStress = StVenant(ElasticStrain=dStrain - dgamma*dgds, params=ElasticParams)
+            dCauchyStress = StVenant_ConstModel(ElasticStrain=dStrain - dgamma*dgds, params=ElasticParams)
 
             tr_CauchyStress = CauchyStress + dCauchyStress
 
-            f_n = YieldFunction(CauchyStress=tr_CauchyStress, &
-                                PlasticStrain=new_PlasticStrain, params=YieldParams)
+            f_n = real(YieldFunction(CauchyStress=dcmplx(tr_CauchyStress), &
+                                PlasticStrain=dcmplx(new_PlasticStrain), params=YieldParams))
 
             new_PlasticStrain = new_PlasticStrain + dgamma*dgds
             !dCauchyStress = tr_CauchyStress - CauchyStress
@@ -323,7 +411,99 @@ contains
    end function to_dStressTensor
 ! #############################################
 
-   function StVenant(ElasticStrain, params) result(CauchyStress)
+
+! #############################################
+   function neoHookean(ElasticStrain, params) result(ret)
+      ! E_PotentialFunction
+      ! Simo and Pister, 1984
+      complex(real64), intent(in) :: ElasticStrain(:, :)
+      real(real64), intent(in) :: params(:)
+      complex(real64) :: ret
+      real(real64) :: lambda, mu
+      complex(real64) :: det_Ce, J
+      complex(real64),allocatable :: C_e(:,:)
+      integeR(int32) :: n
+
+      lambda = params(1)
+      mu = params(2)
+      n = size(ElasticStrain,1)
+      C_e = 2.0d0*ElasticStrain + eyes(n,n)
+      det_Ce = det_mat(C_e,size(ElasticStrain,1))
+      J = sqrt(det_Ce)
+      
+      ret = lambda/2.0d0*(log(J))**2 - mu*log(J) + mu/2.0d0*(trace(C_e) - 3.0d0)
+
+   end function
+
+! #############################################
+   function neoHookean_Vladimirov(ElasticStrain, params) result(ret)
+      ! E_PotentialFunction
+      ! Vladimirov, I.N., Pietryga, M.P., Reese, S., 2010. Anisotropic finite elastoplasticity 
+      ! with nonlinear kinematic and isotropic hardening and application to sheet metal forming.
+      ! Int. J. Plast. 26, 659–687.
+      complex(real64), intent(in) :: ElasticStrain(:, :)
+      real(real64), intent(in) :: params(:)
+      complex(real64) :: ret
+      real(real64) :: lambda, mu
+      complex(real64) :: det_Ce
+      complex(real64),allocatable :: C_e(:,:)
+      integeR(int32) :: n
+
+      lambda = params(1)
+      mu = params(2)
+      n = size(ElasticStrain,1)
+      C_e = 2.0d0*ElasticStrain + eyes(n,n)
+      det_Ce = det_mat(C_e,size(ElasticStrain,1))
+      
+      ret = mu/2.0d0*(trace(C_e) - 3.0d0 ) - mu*log(sqrt(det_Ce)) &
+            + lambda/4.0d0*( &
+               det_Ce &
+            - 1.0d0 &
+            - 2.0d0*log(sqrt(det_Ce ) ) &
+            )
+
+   end function
+
+! #############################################
+   function neoHookean_Simo(ElasticStrain, params) result(ret)
+      ! E_PotentialFunction
+      ! Simo and Pister, 1984
+      complex(real64), intent(in) :: ElasticStrain(:, :)
+      real(real64), intent(in) :: params(:)
+      complex(real64) :: ret
+      real(real64) :: lambda, mu
+      complex(real64) :: det_Ce, J
+      complex(real64),allocatable :: C_e(:,:)
+      integeR(int32) :: n
+
+      lambda = params(1)
+      mu = params(2)
+      n = size(ElasticStrain,1)
+      C_e = 2.0d0*ElasticStrain + eyes(n,n)
+      det_Ce = det_mat(C_e,size(ElasticStrain,1))
+      J = sqrt(det_Ce)
+      
+      ret = lambda/4.0d0*(det_Ce-1.0d0) - (lambda/2.0d0+mu)*log(J) + mu/2.0d0*(trace(C_e) - 3.0d0)
+
+   end function
+
+! #############################################
+   function StVenant(ElasticStrain, params) result(ret)
+      ! E_PotentialFunction
+      complex(real64), intent(in) :: ElasticStrain(:, :)
+      real(real64), intent(in) :: params(:)
+      complex(real64) :: ret
+      real(real64) :: lambda, mu
+
+      lambda = params(1)
+      mu     = params(2)
+      ret    = lambda/2.0d0*(trace(ElasticStrain))**2 + mu*trace(matmul(ElasticStrain,ElasticStrain))
+
+   end function
+
+! #############################################
+
+   function StVenant_ConstModel(ElasticStrain, params) result(CauchyStress)
       real(real64), intent(in) :: ElasticStrain(:, :), params(:)
       real(real64), allocatable :: CauchyStress(:, :)
       real(real64) :: lambda, mu
@@ -391,9 +571,11 @@ contains
 ! #############################################
 
    function MohrCoulomb(CauchyStress, PlasticStrain, params) result(ret)
-      real(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :), params(:)
-
-      real(real64) :: ret, c, phi, I_1, J_2, J_3, theta
+      ! ! P_PotentialFunction
+      complex(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :)
+      real(real64), intent(in) :: params(:)
+      complex(real64) :: ret
+      complex(real64) :: c, phi, I_1, J_2, J_3, theta
 
       ! https://static.rocscience.cloud/assets/verification-and-theory/RSData/mohr-coulomb-model.pdf
 
@@ -405,16 +587,18 @@ contains
       J_3 = to_J3(CauchyStress)
       theta = to_LodeAngle(CauchyStress)
 
-      ret = I_1/3.0d0*sin(phi) &
+      ret = I_1/  3.0d0*sin(phi) &
             + sqrt(J_2)*(cos(theta) - 1.0d0/sqrt(3.0d0)*sin(theta)*sin(phi)) &
             - c*cos(phi)
 
    end function
 ! ##################################################
    function DruckerPrager(CauchyStress, PlasticStrain, params) result(ret)
-      real(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :), params(:)
-
-      real(real64) :: ret, c, phi, I_1, J_2, J_3, theta, A, B
+      ! ! P_PotentialFunction
+      complex(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :)
+      real(real64), intent(in) :: params(:)
+      complex(real64) :: ret
+      complex(real64) :: c, phi, I_1, J_2, J_3, theta, A, B
 
       ! https://static.rocscience.cloud/assets/verification-and-theory/RSData/mohr-coulomb-model.pdf
 
@@ -429,49 +613,63 @@ contains
       ! middle circumscribes
       A = 6.0d0*c*cos(phi)/sqrt(3.0d0)/(3.0d0 + sin(phi))
       B = 2.0d0*sin(phi)/sqrt(3.0d0)/(3.0d0 + sin(phi))
-      ret = sqrt(J_2) - A - B*I_1
+      !ret = sqrt(J_2) - A - B*I_1
+      ret = sqrt(J_2) - abs(A) - abs(B)*I_1
 
    end function
 ! ##################################################
    function VonMises(CauchyStress, PlasticStrain, params) result(ret)
-      real(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :), params(:)
-
-      real(real64) :: ret, k, J_2
+      ! ! P_PotentialFunction
+      complex(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :)
+      real(real64), intent(in) :: params(:)
+      complex(real64) :: ret
+      complex(real64) :: k, J_2
       !https://www.engineersedge.com/material_science/von_mises.htm
       k = params(1)
 
       J_2 = to_J2(CauchyStress)
 
-      ret = J_2 - k**2
+      ret = sqrt(J_2) - k
 
    end function
 ! ##################################################
 
    function Tresca(CauchyStress, PlasticStrain, params) result(ret)
-      real(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :), params(:)
+      ! ! P_PotentialFunction
+      complex(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :)
+      real(real64), intent(in) :: params(:)
+      complex(real64) :: ret
+      complex(real64) :: c, phi, J_2, theta,f_t
 
-      real(real64) :: ret, k, J_2, J_3
       !https://www.engineersedge.com/material_science/von_mises.htm
-      k = params(1)
-
+      c   = params(1)
+      phi = params(2)
       J_2 = to_J2(CauchyStress)
-      J_3 = to_J3(CauchyStress)
+      theta = to_LodeAngle(CauchyStress)
+      f_t   = 2.0d0*c*cos(phi)/(1.0d0+sin(phi))
 
-      ret = 4.0d0*(J_2**3) &
-            - 27.0d0*(J_3**2) &
-            - 36.0d0*(k**2)*(J_2**2) &
-            + 96.0d0*(k**4)*(J_2) &
-            - 64.0d0*(k**6)
+      ret = sqrt(J_2) - abs(f_t/(2.0d0*cos(theta)))
+      !ret = sqrt(J_2) - sqrt(abs(f_t/(2.0d0*cos(theta))))
+
+      !ret = 4.0d0*(J_2**3) &
+      !      - 27.0d0*(J_3**2) &
+      !      - 36.0d0*(k**2)*(J_2**2) &
+      !      + 96.0d0*(k**4)*(J_2) &
+      !      - 64.0d0*(k**6)
 
    end function
 ! ##################################################
 
    function CamClay(CauchyStress, PlasticStrain, params) result(ret)
-      real(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :), params(:)
-
-      real(real64) :: ret, c, phi, J_2, J_3, p, q, M, theta, pc
+      ! ! P_PotentialFunction
+      complex(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :)
+      real(real64), intent(in) :: params(:)
+      complex(real64) :: ret
+      complex(real64) :: c, phi, J_2, J_3, p, q, M, theta, pc
       !https://www.engineersedge.com/material_science/von_mises.htm
       !http://manual.midasuser.com/JP_Common/FEANX/110/FEA_NX/%E3%83%A1%E3%83%83%E3%82%B7%E3%83%A5/%E7%89%B9%E6%80%A7_%E5%BA%A7%E6%A8%99%E7%B3%BB_%E9%96%A2%E6%95%B0/%E6%9D%90%E6%96%99/%E6%9D%90%E6%96%99%E4%B8%80%E8%88%AC/Modified_Cam_Clay.htm
+      
+      stop "ERROR >> CamClay is not correctly implemented."
       c = params(1)
       phi = params(2)
       pc = params(3)
@@ -483,27 +681,16 @@ contains
       p = -3.0d0*to_I1(CauchyStress)
       q = 3.0d0*J_2
       M = 6.0d0*sin(phi)/(3.0d0 - sin(phi)) ! 厳密には正しくない
-      ret = 3.0d0*J_2 + M*P*log(p/pc)
+      ret = 3.0d0*J_2 + M*p*log(p/pc)
 
-   end function
-! ##################################################
-
-   function is_elastic(val) result(ret)
-      real(real64), intent(in) :: val
-      logical :: ret
-
-      if (val < 0.0d0) then
-         ret = .true.
-      else
-         ret = .false.
-      end if
    end function
 
 ! ##################################################
    function ModifiedCamClay(CauchyStress, PlasticStrain, params) result(ret)
-      real(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :), params(:)
-
-      real(real64) :: ret, c, phi, J_2, J_3, p, q, M, theta, pc
+      complex(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :)
+      real(real64), intent(in) ::  params(:)
+      complex(real64) :: ret
+      complex(real64) :: c, phi, J_2, J_3, p, q, M, theta, pc
       !https://www.engineersedge.com/material_science/von_mises.htm
       !http://manual.midasuser.com/JP_Common/FEANX/110/FEA_NX/%E3%83%A1%E3%83%83%E3%82%B7%E3%83%A5/%E7%89%B9%E6%80%A7_%E5%BA%A7%E6%A8%99%E7%B3%BB_%E9%96%A2%E6%95%B0/%E6%9D%90%E6%96%99/%E6%9D%90%E6%96%99%E4%B8%80%E8%88%AC/Modified_Cam_Clay.htm
       !http://docs.itascacg.com/3dec700/common/models/camclay/doc/modelcamclay.html
@@ -524,7 +711,18 @@ contains
 ! ##################################################
 
 ! ##################################################
-   function to_I1(CauchyStress) result(ret)
+   function to_I1_complex64(CauchyStress) result(ret)
+      complex(real64), intent(in) :: CauchyStress(:, :)
+      complex(real64) :: ret
+
+      ret = trace(CauchyStress)/3.0d0
+
+   end function
+! ##################################################
+
+
+! ##################################################
+   function to_I1_real64(CauchyStress) result(ret)
       real(real64), intent(in) :: CauchyStress(:, :)
       real(real64) :: ret
 
@@ -566,7 +764,17 @@ contains
 ! ##################################################
 
 ! ##################################################
-   function to_J1(CauchyStress) result(ret)
+   function to_J1_complex64(CauchyStress) result(ret)
+      complex(real64), intent(in) :: CauchyStress(:, :)
+      complex(real64) :: ret
+
+      ret = 0.0d0
+
+   end function
+! ##################################################
+
+! ##################################################
+   function to_J1_real64(CauchyStress) result(ret)
       real(real64), intent(in) :: CauchyStress(:, :)
       real(real64) :: ret
 
@@ -576,7 +784,21 @@ contains
 ! ##################################################
 
 ! ##################################################
-   function to_J2(CauchyStress) result(ret)
+   function to_J2_complex64(CauchyStress) result(ret)
+      complex(real64), intent(in) :: CauchyStress(:, :)
+      complex(real64) :: ret
+      ! https://en.wikipedia.org/wiki/Cauchy_stress_tensor
+      !ret = tensorSelfDot(to_DeviatricStress(CauchyStress))*0.50d0
+      ret = 0.50d0*( &
+            trace(matmul(CauchyStress, CauchyStress)) &
+            - trace(CauchyStress)*trace(CauchyStress)/3.0d0 &
+            )
+
+   end function
+! ##################################################
+
+! ##################################################
+   function to_J2_real64(CauchyStress) result(ret)
       real(real64), intent(in) :: CauchyStress(:, :)
       real(real64) :: ret
       ! https://en.wikipedia.org/wiki/Cauchy_stress_tensor
@@ -589,8 +811,24 @@ contains
    end function
 ! ##################################################
 
+
 ! ##################################################
-   function to_J3(CauchyStress) result(ret)
+   function to_J3_complex64(CauchyStress) result(ret)
+      complex(real64), intent(in) :: CauchyStress(:, :)
+      complex(real64) :: ret
+      ! https://en.wikipedia.org/wiki/Cauchy_stress_tensor
+      ret = ( &
+            trace(matmul(CauchyStress, matmul(CauchyStress, CauchyStress))) &
+            - trace(matmul(CauchyStress, CauchyStress))*trace(CauchyStress) &
+            + 2.0d0/9.0d0*trace(CauchyStress)*trace(CauchyStress)*trace(CauchyStress) &
+            )/3.0d0
+
+   end function
+! ##################################################
+
+
+! ##################################################
+   function to_J3_real64(CauchyStress) result(ret)
       real(real64), intent(in) :: CauchyStress(:, :)
       real(real64) :: ret
       ! https://en.wikipedia.org/wiki/Cauchy_stress_tensor
@@ -604,7 +842,31 @@ contains
 ! ##################################################
 
 ! ##################################################
-   function to_LodeAngle(CauchyStress) result(ret)
+   function to_LodeAngle_complex64(CauchyStress) result(ret)
+      complex(real64), intent(in) :: CauchyStress(:, :)
+      complex(real64) :: ret, J_2, J_3
+
+      J_2 = to_J2(CauchyStress)
+      J_3 = to_J3(CauchyStress)
+      if (J_2 == 0.0d0) then
+         ret = 0.0d0
+      else
+         if (abs(3.0d0*sqrt(3.0d0)/2.0d0*J_3/(J_2)**(1.50d0)) > 1.0d0) then
+            if (abs(3.0d0*sqrt(3.0d0)/2.0d0*J_3/(J_2)**(1.50d0)) > 0.0d0) then
+               ret = 1.0d0/3.0d0*asin(1.0d0)
+            else
+               ret = 1.0d0/3.0d0*asin(-1.0d0)
+            end if
+         else
+            ret = 1.0d0/3.0d0*asin(-3.0d0*sqrt(3.0d0)/2.0d0*J_3/(J_2)**(1.50d0))
+         end if
+      end if
+   end function
+! ##################################################
+
+
+! ##################################################
+   function to_LodeAngle_real64(CauchyStress) result(ret)
       real(real64), intent(in) :: CauchyStress(:, :)
       real(real64) :: ret, J_2, J_3
 
@@ -626,6 +888,7 @@ contains
    end function
 ! ##################################################
 
+
 ! ##################################################
    function to_DeviatricStress(CauchyStress) result(ret)
       real(real64), intent(in) :: CauchyStress(:, :)
@@ -636,8 +899,8 @@ contains
    end function
 ! ##################################################
 
-   function d_dSigma(PlasticPotential, CauchyStress, PlasticStrain, params, epsilon) result(ret)
-      procedure(PotentialFunction) :: PlasticPotential
+   function d_dsigma_P_PotentialFunction(PlasticPotential, CauchyStress, PlasticStrain, params, epsilon) result(ret)
+      procedure(P_PotentialFunction) :: PlasticPotential
 
       real(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :), params(:)
 
@@ -646,6 +909,7 @@ contains
       real(real64), allocatable :: dsigma_tensor(:, :), ret(:, :)
       real(real64) :: dsigma, df
       integer(int32) :: i, j
+      type(Math_) :: math
 
       ret = zeros(size(CauchyStress, 1), size(CauchyStress, 2))
       dsigma_tensor = zeros(size(CauchyStress, 1), size(CauchyStress, 2))
@@ -653,15 +917,17 @@ contains
       if (present(epsilon)) then
          dsigma = epsilon/2.0d0
       else
-         dsigma = dble(1.0e-4)/2.0d0
+         dsigma = dble(1.0e-16)/2.0d0
       end if
 
       do i = 1, size(CauchyStress, 1)
          do j = i, size(CauchyStress, 2)
             dsigma_tensor(:, :) = 0.0d0
             dsigma_tensor(i, j) = dsigma
-            df = PlasticPotential(CauchyStress + dsigma_tensor, PlasticStrain, params) &
-                 - PlasticPotential(CauchyStress - dsigma_tensor, PlasticStrain, params)
+            df = aimag(&
+                  PlasticPotential( dcmplx(CauchyStress) + dcmplx(dsigma_tensor)*math%i, dcmplx(PlasticStrain), params) &
+                  - PlasticPotential( dcmplx(CauchyStress) - dcmplx(dsigma_tensor)*math%i, dcmplx(PlasticStrain), params)&
+               )
             df = df/(dsigma*2.0d0)
             ret(i, j) = df
             ret(j, i) = df
@@ -669,6 +935,167 @@ contains
       end do
 
    end function
+! ##################################################
+! ##################################################
+
+   function d_dsigma_E_PotentialFunction(ElasticPotential, ElasticStrain, params, epsilon) result(ret)
+      procedure(E_PotentialFunction) :: ElasticPotential
+
+      real(real64), intent(in) :: ElasticStrain(:, :),  params(:)
+
+      real(real64), optional, intent(in) :: epsilon
+
+      real(real64), allocatable :: dsigma_tensor(:, :), ret(:, :)
+      real(real64) :: dsigma
+      real(real64) ::  df
+      integer(int32) :: i, j
+      type(Math_) :: math
+
+      ret = zeros(size(ElasticStrain, 1), size(ElasticStrain, 2))
+      dsigma_tensor = zeros(size(ElasticStrain, 1), size(ElasticStrain, 2))
+
+      if (present(epsilon)) then
+         dsigma = epsilon/2.0d0
+      else
+         dsigma = dble(1.0e-16)/2.0d0
+      end if
+
+      do i = 1, size(ElasticStrain, 1)
+         do j = i, size(ElasticStrain, 2)
+
+            dsigma_tensor(:, :) = 0.0d0
+            dsigma_tensor(i, j) = dsigma
+            
+            df = aimag(&
+                  ElasticPotential( dcmplx(ElasticStrain) + dcmplx(dsigma_tensor)*math%i, params) &
+                  - ElasticPotential( dcmplx(ElasticStrain) - dcmplx(dsigma_tensor)*math%i, params)&
+               )
+            df = df/(dsigma*2.0d0)
+
+            ret(i, j) = df
+            ret(j, i) = df
+         end do
+      end do
+
+   end function
+! ##################################################
+
+
+
+! ##################################################
+
+   function d2_dsigma2_E_PotentialFunction(ElasticPotential, ElasticStrain, params, epsilon) result(ret)
+      ! stiffness tensor
+      procedure(E_PotentialFunction) :: ElasticPotential
+
+      real(real64), intent(in) :: ElasticStrain(:, :),  params(:)
+
+      real(real64), optional, intent(in) :: epsilon
+
+      real(real64), allocatable :: dsigma_tensor(:, :), ret(:, :, :, :),dElasticStrain(:, :), dS(:,:)
+      real(real64) :: dsigma
+      integer(int32) :: i, j, k, l
+      type(Math_) :: math
+      complex(real64) :: df
+      type(IO_) :: debug
+
+      ret = zeros(size(ElasticStrain, 1), size(ElasticStrain, 2),&
+         size(ElasticStrain, 1), size(ElasticStrain, 2))
+      dsigma_tensor  = zeros(size(ElasticStrain, 1), size(ElasticStrain, 2))
+      dElasticStrain = zeros(size(ElasticStrain, 1), size(ElasticStrain, 2))
+      if (present(epsilon)) then
+         dsigma = epsilon/2.0d0
+      else
+         dsigma = dble(1.0e-8)/2.0d0
+      end if
+
+      ! 中心差分
+      do k = 1, size(ElasticStrain, 1)
+         do l = 1, size(ElasticStrain, 2)
+            dElasticStrain(:,:)   = 0.0d0
+            dElasticStrain(k, l)  = dsigma
+            dS = d_dsigma(ElasticPotential,ElasticStrain+dElasticStrain, params, epsilon) &
+               - d_dsigma(ElasticPotential,ElasticStrain-dElasticStrain, params, epsilon) 
+            
+            do i = 1, size(ElasticStrain, 1)
+               do j = 1, size(ElasticStrain, 2)
+                  ret(i,j,k,l) = dS(i,j)/(2.0d0*dsigma)
+                  ret(i,j,l,k) = dS(i,j)/(2.0d0*dsigma)
+                  ret(j,i,k,l) = dS(i,j)/(2.0d0*dsigma)
+                  ret(j,i,l,k) = dS(i,j)/(2.0d0*dsigma)
+               enddo
+            enddo
+
+         enddo
+      enddo
+
+!      ! (i,j) == (k,l)
+!      do i = 1, size(ElasticStrain, 1)
+!         do j = i, size(ElasticStrain, 2)
+!            dElasticStrain(:,:)   = 0.0d0
+!            dElasticStrain(i, j)  = dsigma
+!            
+!            if(i/=j)then
+!               dElasticStrain(j, i)  = dsigma
+!            endif
+!            
+!            
+!            df =  real(ElasticPotential( dcmplx(ElasticStrain), params)) &
+!               -  real(ElasticPotential( dcmplx(ElasticStrain+math%i*dElasticStrain), params) )
+!
+!            df = 2.0d0*df/(dsigma)/(dsigma)
+!            if(i/=j)then
+!               df = df/4.0d0
+!            endif
+!
+!            ret(i, j, i, j) = real(df)
+!            ret(i, j, j, i) = real(df)
+!            ret(j, i, i, j) = real(df)
+!            ret(j, i, j, i) = real(df)
+!            
+!         end do
+!      end do
+!      return
+!      ! (i,j) /= (k,l)
+!      do i = 1, size(ElasticStrain, 1)
+!         do j = i, size(ElasticStrain, 2)
+!            do k = 1, size(ElasticStrain, 1)
+!               do l = k, size(ElasticStrain, 2)
+!                  if(i==k .and. j==l) cycle
+!                  if(i==l .and. j==k) cycle
+!                  
+!                  dsigma_tensor(:, :)   = 0.0d0
+!                  dsigma_tensor(i, j)   = dsigma
+!                  dsigma_tensor(j, i)   = dsigma
+!
+!                  dElasticStrain(:, :)   = 0.0d0
+!                  dElasticStrain(k, l)   = dsigma
+!                  dElasticStrain(l, k)   = dsigma
+!                  
+!                  df = 1.0d0/dsigma/dsigma*ElasticPotential( dcmplx(ElasticStrain), params) &
+!                        - 1.0d0/dsigma/dsigma*&
+!                        real(ElasticPotential( &
+!                           dcmplx(ElasticStrain+math%i*dsigma_tensor+math%i*dElasticStrain), params)) &
+!                        - 0.50d0*ret(i, j, i, j) - 0.50d0*ret(k, l, k, l)
+!                  
+!
+!                  ! df = V = dW/dE|_(E)
+!                  ! ddf = dV/dE = im(dW/dE|_(E+ih) - dW/dE|_(E+ih))/2h
+!                  ret(i, j, k, l) = abs(real(df))
+!                  !ret(j, i, k, l) = abs(real(df))
+!                  !ret(k, l, i, j) = abs(real(df))
+!                  !ret(l, k, i, j) = abs(real(df))
+!               end do
+!            end do
+!         end do
+!      end do
+!
+   end function
+! ##################################################
+
+
+
+! ##################################################
 
    subroutine getYieldFunctionTemplateElastoPlasticity(this, name)
       class(ElastoPlasticity_), intent(in) :: this
@@ -695,7 +1122,7 @@ contains
 
    function get_Return_mapping_tangent_matrix(PlasticPotential, CauchyStress, PlasticStrain, Strain, &
                                               ElasticParams, gamma, PlasticParams, epsilon) result(ret)
-      procedure(PotentialFunction) :: PlasticPotential
+      procedure(P_PotentialFunction) :: PlasticPotential
 
       real(real64), intent(in) :: CauchyStress(:, :), PlasticStrain(:, :), ElasticParams(:), PlasticParams(:), &
                                   gamma, Strain(:, :)
@@ -707,11 +1134,11 @@ contains
       real(real64) :: dsigma, df
       integer(int32) :: i, j
 
-      real(real64) :: forward, backward
+      complex(real64) :: forward, backward
       real(real64), allocatable :: ds(:, :), dfds_forward(:, :), dfds_backward(:, :), dfds_vec(:), &
                                    dfds_backward_vec(:), dfds_forward_vec(:), E_dfds_backward(:), E_dfds_forward(:), &
                                    E_dfds_vec(:), dfds(:, :), X_vec(:), Y_vec(:), J_mat(:, :), tr_CauchyStress(:, :)
-
+      type(Math_) :: math
       indx = zeros(6, 2)
 
       indx(1, 1:2) = [1, 1]
@@ -758,15 +1185,17 @@ contains
             forward = E_dfds_forward(I)
             backward = E_dfds_backward(I)
 
-            ret(I, J) = ret(I, J) + (forward - backward)/(2.0d0*epsilon)
+            ret(I, J) = ret(I, J) + real(forward - backward)/(2.0d0*epsilon)
          end do
 
          I = 7
-         forward = PlasticPotential(CauchyStress=CauchyStress + ds, PlasticStrain=PlasticStrain, &
+         forward = PlasticPotential(CauchyStress=dcmplx(CauchyStress + ds*math%i), &
+                                    PlasticStrain=dcmplx(PlasticStrain), &
                                     params=PlasticParams)
-         backward = PlasticPotential(CauchyStress=CauchyStress - ds, PlasticStrain=PlasticStrain, &
+         backward = PlasticPotential(CauchyStress=dcmplx(CauchyStress - ds*math%i), &
+                                     PlasticStrain=dcmplx(PlasticStrain), &
                                      params=PlasticParams)
-         ret(I, J) = ret(I, J) + (forward - backward)/(2.0d0*epsilon)
+         ret(I, J) = ret(I, J) + aimag((forward - backward)/(2.0d0*epsilon))
 
       end do
 
@@ -793,8 +1222,8 @@ contains
       type(FEMDomain_), target, intent(in) :: femdomains(:)
       real(real64), intent(in) :: default_YieldFunction_params(:)
       real(real64), intent(in) :: default_PlasticPotential_params(:)
-      procedure(PotentialFunction) :: default_YieldFunction
-      procedure(PotentialFunction) :: default_PlasticPotential
+      procedure(P_PotentialFunction) :: default_YieldFunction
+      procedure(P_PotentialFunction) :: default_PlasticPotential
       integer(int32) :: i, j, n, ne, ngp
 
       if (allocated(this%ep_domain)) deallocate (this%ep_domain)
@@ -835,8 +1264,8 @@ contains
    subroutine edit_YF_PP_ElastoPlasticity(this, DomainID, YieldFunction, PlasticPotential)
       class(ElastoPlasticity_), intent(inout) :: this
       integer(int32), intent(in) :: DomainID
-      procedure(PotentialFunction) :: YieldFunction
-      procedure(PotentialFunction) :: PlasticPotential
+      procedure(P_PotentialFunction) :: YieldFunction
+      procedure(P_PotentialFunction) :: PlasticPotential
 
       if (associated(this%ep_domain(DomainID)%YieldFunction)) nullify (this%ep_domain(DomainID)%YieldFunction)
       this%ep_domain(DomainID)%YieldFunction => YieldFunction
@@ -1806,9 +2235,184 @@ contains
       this%CauchyStress_field = from_csv(name + "_CauchyStress_field", n1, n2, n3)
 
       n1 = this%femdomain%nd()*this%femdomain%nn()
-      this%displacement = from_csv(name + "_displacement", n1)
+      this%displacement = from_csv(name + "_displacement.csv", n1)
 
    end subroutine
+
+! #######################################################
+
+
+! #######################################################
+function to_EP_Model_ElastoPlastClass(ElasticPotential,YieldFunction,PlasticPotential,StressRatio) result(ret)
+
+      procedure(E_PotentialFunction) :: ElasticPotential
+      procedure(P_PotentialFunction) :: YieldFunction
+      procedure(P_PotentialFunction) :: PlasticPotential
+      procedure(StressRatioFunction),optional :: StressRatio
+      type(EP_Model_) :: ret
+
+      ret%ElasticPotential => ElasticPotential
+      ret%YieldFunction    => YieldFunction
+      ret%PlasticPotential => PlasticPotential
+      if (present(StressRatio) )then
+         ! if StressRatio is presented,
+         ! then, construct matrices based on 
+         ! the hypo-elasto-plasticity
+         ret%StressRatio => StressRatio
+      endif
+   
+   end function
+! #######################################################
+
+
+! #######################################################
+   function JaumannStressRatio(sigma, d_sigma, l) result(ret)
+      real(real64), intent(in) :: sigma(:, :), d_sigma(:, :), l(:, :)
+      real(real64), allocatable :: w(:,:)
+      real(real64),allocatable :: ret(:,:)
+
+      w = 0.50d0*(l - transpose(l))
+      ret = d_sigma + matmul(sigma,w) - matmul(w,sigma)
+
+   end function
+! #######################################################
+
+! #######################################################
+   function TruesdellStressRatio(sigma, d_sigma, l) result(ret)
+      real(real64), intent(in) :: sigma(:, :), d_sigma(:, :), l(:, :)
+      real(real64),allocatable :: ret(:,:)
+
+      ret = d_sigma - matmul(l,sigma) - matmul(sigma,l) + trace(l)*sigma
+
+   end function
+! #######################################################
+
+
+! #######################################################
+   function OldroydStressRatio(sigma, d_sigma, l) result(ret)
+      real(real64), intent(in) :: sigma(:, :), d_sigma(:, :), l(:, :)
+      real(real64),allocatable :: ret(:,:)
+
+      ret = d_sigma + matmul(l,sigma) + matmul(sigma,transpose(l)) 
+
+   end function
+! #######################################################
+
+
+
+! #######################################################
+! [(potential function),(Stress Ratio)] -> (element-wise Coefficient Matrix)
+!--------------------------------------------------------
+
+function StiffnessMatrix_EP_model(EP_Model,ElasticParams,PlasticParams,l,sigma) result(ret)
+   class(EP_Model_),intent(in) :: EP_Model
+   real(real64),intent(in) :: ElasticParams(:), PlasticParams(:),l(:,:),sigma(:,:)
+   real(real64),allocatable :: ret(:,:)
+   
+   if( associated(EP_Model%StressRatio ))then
+      ! hypo-elasto-plasticity
+
+   else
+      ! hyper-elasto-plasticity
+      stop
+   endif
+
+end function
+
+! #######################################################
+
+
+! #######################################################
+function imaginaryTimestepDerivative_c(this_func,x,params) result(ret)
+   procedure(ScalarFunction) :: this_func
+   real(real64),intent(in) :: x,params(:)
+   type(Math_) :: math
+   real(real64) :: ret,epsilon
+   
+   epsilon = params(1)
+   
+   ret = aimag( (this_func((x+math%i*epsilon),params)))/epsilon
+
+end function
+! #######################################################
+
+
+! #######################################################
+function imaginaryTimestep2ndDerivative(this_func,x,params) result(ret)
+   procedure(ScalarFunction) :: this_func
+   real(real64),intent(in) :: x
+   real(real64),intent(in) :: params(:)
+   type(Math_) :: math
+   real(real64) :: ret,epsilon
+   
+   epsilon = params(1)
+   
+   ret = 2.0d0*real(this_func(dcmplx(x),params))/epsilon/epsilon - &
+      2.0d0*real( this_func((x+math%i*epsilon),params)/epsilon/epsilon )
+
+end function
+! #######################################################
+
+! #######################################################
+function imaginaryTimestepDerivative(this_func,x,params) result(ret)
+   procedure(ScalarFunction) :: this_func
+   real(real64),intent(in) :: x,params(:)
+   type(Math_) :: math
+   real(real64) :: ret,epsilon
+   
+   epsilon = params(1)
+   
+   ret = aimag( this_func((x+math%i*epsilon),params)/epsilon )
+
+end function
+! #######################################################
+
+
+! #######################################################
+function ForwardDifferenceDerivative(this_func,x,params) result(ret)
+   procedure(ScalarFunction) :: this_func
+   real(real64),intent(in) :: x,params(:)
+   complex(real64) :: y1,y2
+   type(Math_) :: math
+   real(real64) :: ret,epsilon
+   
+   epsilon = params(1)
+   y1 = x+epsilon
+   y2 = x
+   ret = real( (this_func(y1,params)-this_func(y2,params))/epsilon )
+
+end function
+! #######################################################
+
+
+! #######################################################
+function CentralDifferenceDerivative(this_func,x,params) result(ret)
+   procedure(ScalarFunction) :: this_func
+   real(real64),intent(in) :: x,params(:)
+   complex(real64) :: y1,y2
+   type(Math_) :: math
+   real(real64) :: ret,epsilon
+   
+   epsilon = params(1)
+   y1 = x+epsilon/2.0d0
+   y2 = x-epsilon/2.0d0
+   ret = real( (this_func(y1,params)-this_func(y2,params))/epsilon )
+
+end function
+! #######################################################
+
+
+function is_elastic(val) result(ret)
+   real(real64), intent(in) :: val
+   logical :: ret
+
+   if (val < 0.0d0) then
+      ret = .true.
+   else
+      ret = .false.
+   end if
+end function
+! ##################################################
 
 end module ElastoPlasticityClass
 

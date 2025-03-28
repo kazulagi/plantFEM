@@ -1023,12 +1023,12 @@ contains
       ! IS THIS A SEED?
       if (present(config))then
          !if ("Seed" .in. keys(json_file=config)) then
-         if (.not. ( "{'not found'}" .in. soyconf%parse_json(filename="Tutorial/obj/soy_seed.json", &
+         if (.not. ( "{'not found'}" .in. soyconf%parse_json(filename=config, &
             keys=to_list("Seed","Length")) ) ) then
-            seed_length    = soyconf%parse_json(filename="Tutorial/obj/soy_seed.json", keys=to_list("Seed","Length"))
-            seed_width     = soyconf%parse_json(filename="Tutorial/obj/soy_seed.json", keys=to_list("Seed","Width"))
-            seed_thickness = soyconf%parse_json(filename="Tutorial/obj/soy_seed.json", keys=to_list("Seed","Thickness"))
-            seed_division  = soyconf%parse_json(filename="Tutorial/obj/soy_seed.json", keys=to_list("Seed","Division"))
+            seed_length    = soyconf%parse_json(filename=config, keys=to_list("Seed","Length"))
+            seed_width     = soyconf%parse_json(filename=config, keys=to_list("Seed","Width"))
+            seed_thickness = soyconf%parse_json(filename=config, keys=to_list("Seed","Thickness"))
+            seed_division  = soyconf%parse_json(filename=config, keys=to_list("Seed","Division"))
             call obj%init(&
                radius=[seed_length,seed_width,seed_thickness],&
                division=[seed_division,seed_division,seed_division])
