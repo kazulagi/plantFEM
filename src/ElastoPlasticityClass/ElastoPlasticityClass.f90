@@ -56,6 +56,7 @@ module ElastoPlasticityClass
       procedure(StressRatioFunction),    nopass, pointer :: StressRatio => null()  
    contains
       procedure,public ::  StiffnessMatrix => StiffnessMatrix_EP_model
+      !procedure,public ::  SmallStrainTensor => SmallStrainTensor_EP_model
    end type
    
    interface to_EP_Model
@@ -2304,22 +2305,55 @@ function to_EP_Model_ElastoPlastClass(ElasticPotential,YieldFunction,PlasticPote
 ! [(potential function),(Stress Ratio)] -> (element-wise Coefficient Matrix)
 !--------------------------------------------------------
 
-function StiffnessMatrix_EP_model(EP_Model,ElasticParams,PlasticParams,l,sigma) result(ret)
+function StiffnessMatrix_EP_model(EP_Model,ElasticParams,PlasticParams,ElasticStrain,nDim) result(ret)
    class(EP_Model_),intent(in) :: EP_Model
-   real(real64),intent(in) :: ElasticParams(:), PlasticParams(:),l(:,:),sigma(:,:)
-   real(real64),allocatable :: ret(:,:)
-   
-   if( associated(EP_Model%StressRatio ))then
-      ! hypo-elasto-plasticity
+   real(real64),intent(in) :: ElasticParams(:), PlasticParams(:),ElasticStrain(:,:)
+   real(real64),allocatable :: ret(:,:),stiffness_tensor(:,:,:,:)
+   integer(int32),intent(in) :: nDim
+   integer(int32),allocatable :: stress_matrix_order(:,:)
+   integer(int32) :: i,j,k,l,idx,n,m
 
+   if(nDim == 1 )then
+      allocate(stress_matrix_order(1,2))
+      stress_matrix_order(1,1:2) = 1
    else
-      ! hyper-elasto-plasticity
-      stop
+      allocate(stress_matrix_order(nDim*(nDim-1)/2 + nDim,2))
+      idx = 0
+      do i = 1, nDim
+         idx = idx + 1
+         stress_matrix_order(idx,1:2) = i
+      enddo
+
+      do i = 1, nDim
+         do j=i+1, nDim
+            idx = idx + 1
+            stress_matrix_order(idx,1) = i
+            stress_matrix_order(idx,2) = j
+         enddo
+      enddo
+
    endif
+
+   ! とりあえず，超弾性のみ実装
+   stiffness_tensor = d2_dsigma2(EP_Model%ElasticPotential,ElasticStrain,ElasticParams)
+
+   ! ret
+   ret = zeros(size(stress_matrix_order,1),size(stress_matrix_order,1))
+   do m=1,size(stress_matrix_order,1)
+      do n=1,size(stress_matrix_order,1)
+         i = stress_matrix_order(m,1)
+         j = stress_matrix_order(m,2)
+         k = stress_matrix_order(n,1)
+         l = stress_matrix_order(n,2)
+         ret(m,n) = stiffness_tensor(i,j,k,l)
+      enddo
+   enddo
 
 end function
 
 ! #######################################################
+
+!function SmallStrainTensor_EP_model(
 
 
 ! #######################################################
@@ -2401,7 +2435,7 @@ function CentralDifferenceDerivative(this_func,x,params) result(ret)
 end function
 ! #######################################################
 
-
+! ##################################################
 function is_elastic(val) result(ret)
    real(real64), intent(in) :: val
    logical :: ret
@@ -2413,6 +2447,7 @@ function is_elastic(val) result(ret)
    end if
 end function
 ! ##################################################
+
 
 end module ElastoPlasticityClass
 
