@@ -56,7 +56,7 @@ module TSFEMClass
          NeumannBoundaryTSFEM
 
       procedure, public :: time => timeTSFEM
-      procedure, public :: update => updateTSFEM
+      !procedure, public :: update => updateTSFEM
       procedure, public :: save => saveTSFEM
       procedure, public :: movie => movieTSFEM
 

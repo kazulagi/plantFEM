@@ -15730,8 +15730,8 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
       if (present(debug)) then
          print *, "StrainVector"
          call print(StrainVector)
-         print *, "Bmat"
-         call print(Bmat)
+         print *, "Wmat"
+         call print(Wmat)
          print *, "ElemDisp"
          call print(ElemDisp)
       end if
