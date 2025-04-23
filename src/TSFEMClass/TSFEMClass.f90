@@ -439,7 +439,7 @@ contains
 ! ##############################################
 
 ! ##############################################
-   subroutine updateTSFEM(this)
+   subroutine TSFEM(this)
       class(TSFEM_), intent(inout) :: this
       real(real64) :: cutoff_frequency
       real(real64), allocatable :: f_v(:), f_u(:)

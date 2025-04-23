@@ -5069,6 +5069,8 @@ contains
       obj%BottomElemID = (x_num)*(y_num)/2
       obj%TopElemID = (x_num)*(y_num)/2 + (x_num)*(y_num)*(division - 1)
 
+      obj%elementType = [3, 8, 8]
+
    end subroutine
 
 ! ########################################################################
@@ -5141,6 +5143,8 @@ contains
       ! create direction-data
       obj%BottomElemID = (x_num)/2
       obj%TopElemID = size(obj%nodcoord, 1) - (x_num)/2
+
+      obj%elementType = [2, 4, 4]
 
    end subroutine
 
@@ -6508,7 +6512,8 @@ contains
 
          obj%nodcoord(:, 1) = obj%nodcoord(:, 1) - 1.0d0
          obj%nodcoord(:, 2) = obj%nodcoord(:, 2) - 1.0d0
-
+         
+         
          ! 正方形を整形して、円とのコネクティビティを改善
          do i = 1, size(obj%nodCoord, 1)
             xx = obj%nodCoord(i, 1)
@@ -6534,7 +6539,12 @@ contains
             ! linear function
             !alpha = theta*((1/RR)-1.0d0/sqrt(2.0d0)) + 0.80d0
             ! quadrature function
-            alpha = theta*((1/RR)-1.0d0/sqrt(2.0d0)) + 0.790d0
+            if(RR/=0.0d0)then
+               alpha = theta*((1/RR)-1.0d0/sqrt(2.0d0)) + 0.790d0
+            else
+               print *, "R=0"
+               stop
+            endif
 
             xx = xx*alpha
             yy = yy*alpha

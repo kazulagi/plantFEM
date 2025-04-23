@@ -453,6 +453,7 @@ module FEMDomainClass
       ! >>> revising for adopting quad mesh >>> (2024.05.13)
       ! matrices
       procedure, public :: Bmatrix => BMatrixFEMDomain ! <<< now <<<
+      procedure, public :: Wmatrix => WMatrixFEMDomain ! 2024/04/16
 
       procedure, pass :: DMatrix_generic_FEMDomain
       procedure, pass :: DMatrixFEMDomain
@@ -7265,6 +7266,7 @@ contains
             else
                call this%mesh%cube(x=x_axis, y=y_axis, z=[0.0d0, 1.0d0])
             end if
+            
             return
          end if
       case ("Box", "Box2D")
@@ -12319,6 +12321,183 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
    end function
 ! ##########################################################################
 
+   ! ##########################################################################
+   recursive function WMatrixFEMDomain(this, shapefunction, ElementID) result(Wmat)
+      class(FEMDomain_), intent(inout) :: this
+      integer(int32), optional, intent(in) :: ElementID
+      type(ShapeFunction_), optional, intent(in) :: shapefunction
+      real(real64), allocatable :: Psymat(:, :), Jmat(:, :), detJ
+      real(real64), allocatable :: Wmat(:, :)
+      integer(int32)::dim_num
+      real(real64), allocatable :: JPsy(:, :), Jin(:, :)
+      integer(int32) k, l, m, n, a, b, p, mm, i, j, q
+
+      type(ShapeFunction_) :: sf
+
+      if (present(shapefunction)) then
+
+         dim_num = this%nd()
+         mm = this%nne()*2
+         Psymat = ShapeFunction%dNdgzi
+         Jmat = ShapeFunction%Jmat
+         detJ = det_mat(Jmat, dim_num)
+
+         if (dim_num == 2) then
+            k = 3
+         elseif (dim_num == 3) then
+            k = 6
+         else
+            stop "B_mat >> dim_num = tobe 2 or 3 "
+         end if
+
+         ! J:Psymat�̌v�Z
+         if (this%nd() == 2 .and. this%nne() == 4) then
+
+            if (detJ == 0.0d0) stop "Wmat,detJ=0"
+            Jin = inverse(Jmat)
+            !Jin(1,1) = (1.0d0 / detJ) * Jmat(2,2)
+            !Jin(2,2) = (1.0d0 / detJ) * Jmat(1,1)
+            !Jin(1,2) = (-1.0d0 / detJ) * Jmat(1,2)
+            !Jin(2,1) = (-1.0d0 / detJ) * Jmat(2,1)
+            JPsy = matmul(Jin, Psymat)
+            Wmat = zeros(3, 8)
+            Wmat(1, 1) = 0.0d0 !JPsy(1, 1) ! dN_{1}/dx_{1}
+            Wmat(1, 2) = 0.0d0
+            Wmat(1, 3) = 0.0d0 !JPsy(1, 2) ! dN_{2}/dx_{1}
+            Wmat(1, 4) = 0.0d0
+            Wmat(1, 5) = 0.0d0 !JPsy(1, 3) ! dN_{3}/dx_{1}
+            Wmat(1, 6) = 0.0d0
+            Wmat(1, 7) = 0.0d0 !JPsy(1, 4) ! dN_{4}/dx_{1}
+            Wmat(1, 8) = 0.0d0
+            Wmat(2, 1) = 0.0d0
+            Wmat(2, 2) = 0.0d0 !JPsy(2, 1) ! dN_{1}/dx_{2}
+            Wmat(2, 3) = 0.0d0
+            Wmat(2, 4) = 0.0d0 !JPsy(2, 2) ! dN_{2}/dx_{2}
+            Wmat(2, 5) = 0.0d0
+            Wmat(2, 6) = 0.0d0 !JPsy(2, 3) ! dN_{3}/dx_{2}
+            Wmat(2, 7) = 0.0d0
+            Wmat(2, 8) = 0.0d0 !JPsy(2, 4) ! dN_{4}/dx_{2}
+            Wmat(3, 1) = - JPsy(2, 1) ! Wmat(2, 2) ! - dN_{1}/dx_{2}
+            Wmat(3, 2) =   JPsy(1, 1) ! Wmat(1, 1) !   dN_{1}/dx_{1}
+            Wmat(3, 3) = - JPsy(2, 2) ! Wmat(2, 4) ! - dN_{2}/dx_{2}
+            Wmat(3, 4) =   JPsy(1, 2) ! Wmat(1, 3) !   dN_{2}/dx_{1}
+            Wmat(3, 5) = - JPsy(2, 3) ! Wmat(2, 6) ! - dN_{3}/dx_{2}
+            Wmat(3, 6) =   JPsy(1, 3) ! Wmat(1, 5) !   dN_{3}/dx_{1}
+            Wmat(3, 7) = - JPsy(2, 4) ! Wmat(2, 8) ! - dN_{4}/dx_{2}
+            Wmat(3, 8) =   JPsy(1, 4) ! Wmat(1, 7) !   dN_{4}/dx_{1}
+
+            Wmat(:,:) = 1.0d0/2.0d0*Wmat(:,:)
+
+         elseif (this%nd() == 2 .and. this%nne() == 8) then
+            Jin = inverse(Jmat)
+            JPsy(:, :) = matmul(Jin, Psymat)
+
+            Wmat = zeros(3, 16)
+            Wmat(1, 1 ) = 0.0d0 ! -JPsy(1, 1)
+            Wmat(1, 2 ) = 0.0d0 ! 0.0d0
+            Wmat(1, 3 ) = 0.0d0 ! JPsy(1, 2)
+            Wmat(1, 4 ) = 0.0d0 ! 0.0d0
+            Wmat(1, 5 ) = 0.0d0 ! JPsy(1, 3)
+            Wmat(1, 6 ) = 0.0d0 ! 0.0d0
+            Wmat(1, 7 ) = 0.0d0 ! JPsy(1, 4)
+            Wmat(1, 8 ) = 0.0d0 ! 0.0d0
+            Wmat(1, 9 ) = 0.0d0 ! JPsy(1, 5)
+            Wmat(1, 10) = 0.0d0 ! 0.0d0
+            Wmat(1, 11) = 0.0d0 ! JPsy(1, 6)
+            Wmat(1, 12) = 0.0d0 ! 0.0d0
+            Wmat(1, 13) = 0.0d0 ! JPsy(1, 7)
+            Wmat(1, 14) = 0.0d0 ! 0.0d0
+            Wmat(1, 15) = 0.0d0 ! JPsy(1, 8)
+            Wmat(1, 16) = 0.0d0 ! 0.0d0
+            Wmat(2, 1)  = 0.0d0 ! 0.0d0
+            Wmat(2, 2)  = 0.0d0 ! JPsy(2, 1)
+            Wmat(2, 3)  = 0.0d0 ! 0.0d0
+            Wmat(2, 4)  = 0.0d0 ! JPsy(2, 2)
+            Wmat(2, 5)  = 0.0d0 ! 0.0d0
+            Wmat(2, 6)  = 0.0d0 ! JPsy(2, 3)
+            Wmat(2, 7)  = 0.0d0 ! 0.0d0
+            Wmat(2, 8)  = 0.0d0 ! JPsy(2, 4)
+            Wmat(2, 9)  = 0.0d0 ! 0.0d0
+            Wmat(2, 10) = 0.0d0 ! JPsy(2, 5)
+            Wmat(2, 11) = 0.0d0 ! 0.0d0
+            Wmat(2, 12) = 0.0d0 ! JPsy(2, 6)
+            Wmat(2, 13) = 0.0d0 ! 0.0d0
+            Wmat(2, 14) = 0.0d0 ! JPsy(2, 7)
+            Wmat(2, 15) = 0.0d0 ! 0.0d0
+            Wmat(2, 16) = 0.0d0 ! JPsy(2, 8)
+            Wmat(3, 1)  = - JPsy( 2, 1 ) ! Wmat(2, 2)
+            Wmat(3, 2)  =   JPsy( 1, 1 ) ! Wmat(1, 1)
+            Wmat(3, 3)  = - JPsy( 2, 2 ) ! Wmat(2, 4)
+            Wmat(3, 4)  =   JPsy( 1, 2 ) ! Wmat(1, 3)
+            Wmat(3, 5)  = - JPsy( 2, 3 ) ! Wmat(2, 6)
+            Wmat(3, 6)  =   JPsy( 1, 3 ) ! Wmat(1, 5)
+            Wmat(3, 7)  = - JPsy( 2, 4 ) ! Wmat(2, 8)
+            Wmat(3, 8)  =   JPsy( 1, 4 ) ! Wmat(1, 7)
+            Wmat(3, 9)  = - JPsy( 2, 5 ) ! Wmat(2, 10)
+            Wmat(3, 10) =   JPsy( 1, 5 ) ! Wmat(1, 9)
+            Wmat(3, 11) = - JPsy( 2, 6) ! Wmat(2, 12)
+            Wmat(3, 12) =   JPsy( 1, 6) ! Wmat(1, 11)
+            Wmat(3, 13) = - JPsy( 2, 7) ! Wmat(2, 14)
+            Wmat(3, 14) =   JPsy( 1, 7) ! Wmat(1, 13)
+            Wmat(3, 15) = - JPsy( 2, 8) ! Wmat(2, 16)
+            Wmat(3, 16) =   JPsy( 1, 8) ! Wmat(1, 15)
+
+            Wmat(:,: ) = 1.0d0/2.0d0*Wmat(:,:)
+         elseif (this%nd() == 3) then
+
+            if (detJ == 0.0d0) stop "Wmat,detJ=0"
+
+            call inverse_rank_2(Jmat, Jin)
+
+            JPsy = transpose(matmul(transpose(Psymat), Jin)) !dNdgzi* dgzidx
+            Wmat = zeros(6, this%nne()*3)
+            do q = 1, size(JPsy, 2)
+               do p = 1, dim_num
+                  Wmat(p, dim_num*(q - 1) + p) = 0.0d0 ! JPsy(p, q)
+               end do
+               Wmat(4, dim_num*(q - 1) + 1) = - JPsy(2, q); ! JPsy(2, q); 
+               Wmat(4, dim_num*(q - 1) + 2) =   JPsy(1, q); ! JPsy(1, q); 
+               Wmat(4, dim_num*(q - 1) + 3) =   0.0d0;      ! 0.0d0;     
+               Wmat(5, dim_num*(q - 1) + 1) =   0.0d0;      ! 0.0d0;     
+               Wmat(5, dim_num*(q - 1) + 2) = - JPsy(3, q); ! JPsy(3, q); 
+               Wmat(5, dim_num*(q - 1) + 3) =   JPsy(2, q); ! JPsy(2, q); 
+               Wmat(6, dim_num*(q - 1) + 1) =   JPsy(3, q); ! JPsy(3, q); 
+               Wmat(6, dim_num*(q - 1) + 2) =   0.0d0;      ! 0.0d0;     
+               Wmat(6, dim_num*(q - 1) + 3) = - JPsy(1, q); ! JPsy(1, q); 
+            end do
+
+            Wmat(:,:) = 1.0d0/2.0d0*Wmat(:,:)
+            !Wmat(4:6,:)=0.50d0*Wmat(4:6,:)
+
+         else
+            stop "Wmat >> The element is not supported."
+         end if
+
+      else
+         ! take sum for all gauss-points
+         if (.not. present(ElementID)) then
+            print *, "BmatrixFEMDOmain >> ERROR >> at least, arg:ElementID or arg:shapefunction is necessary."
+            stop
+         end if
+         call sf%SetType(NumOfDim=this%nd(), NumOfNodePerElem=this%nne(), NumOfGp=this%mesh%getNumOfGp())
+
+         do i = 1, sf%NumOfGp
+            call getAllShapeFunc(sf, elem_id=ElementID, &
+                                 nod_coord=this%Mesh%NodCoord, &
+                                 elem_nod=this%Mesh%ElemNod, OptionalGpID=i)
+
+            if (i == 1) then
+               Wmat = this%Wmatrix(sf, ElementID)
+            else
+               Wmat = Wmat + this%Wmatrix(sf, ElementID)
+            end if
+         end do
+         return
+
+      end if
+   end function
+! ##########################################################################
+
    function DiffusionMatrix_as_CRS_FEMDomain(this, Coefficient, omp) result(DiffusionMatrix)
       class(FEMDomain_), intent(inout) :: this
       real(real64), intent(in) :: Coefficient(:)
@@ -15463,7 +15642,6 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
 ! ###################################################################
 
 ! ###################################################################
-
    function getStrainTensorFEMDomain(this, displacement, ElementID, GaussPointID, debug) result(StrainTensor)
       class(FEMDomain_), intent(inout) :: this
       real(real64), intent(in)   :: displacement(:, :)
@@ -15510,6 +15688,56 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
       end if
 
    end function
+
+   ! ###################################################################
+   function getSpinTensorFEMDomain(this, velocity, ElementID, GaussPointID, debug) result(SpinTensor)
+      class(FEMDomain_), intent(inout) :: this
+      real(real64), intent(in)   :: velocity(:, :)
+      integer(int32), intent(in) :: ElementID, GaussPointID
+      logical, optional, intent(in) :: debug
+      real(real64), allocatable :: SpinTensor(:, :), Wmat(:, :), ElemDisp(:), StrainVector(:)
+      type(ShapeFunction_) :: shapefunc
+      integer(int32) :: i, j
+      SpinTensor = zeros(3, 3)
+
+      call shapefunc%SetType(NumOfDim=this%nd(), NumOfNodePerElem=this%nne(), NumOfGp=this%mesh%getNumOfGp())
+
+      call getAllShapeFunc(shapefunc, elem_id=ElementID, &
+                           nod_coord=this%Mesh%NodCoord, &
+                           elem_nod=this%Mesh%ElemNod, OptionalGpID=GaussPointID)
+
+      ElemDisp = zeros(size(this%mesh%elemnod, 2)*3)
+      do i = 1, this%nne()
+         do j = 1, 3
+            ElemDisp(3*(i - 1) + j) = &
+               velocity(this%mesh%elemnod(ElementID, i), j)
+         end do
+      end do
+      Wmat = this%Wmatrix(shapefunc)
+      
+
+      StrainVector = matmul(Wmat, ElemDisp)
+      SpinTensor(1, 1) = StrainVector(1)
+      SpinTensor(2, 2) = StrainVector(2)
+      SpinTensor(3, 3) = StrainVector(3)
+      SpinTensor(1, 2) = StrainVector(4)
+      SpinTensor(2, 3) = StrainVector(5)
+      SpinTensor(1, 3) = StrainVector(6)
+      SpinTensor(2, 1) = StrainVector(4)
+      SpinTensor(3, 2) = StrainVector(5)
+      SpinTensor(3, 1) = StrainVector(6)
+
+      if (present(debug)) then
+         print *, "StrainVector"
+         call print(StrainVector)
+         print *, "Bmat"
+         call print(Bmat)
+         print *, "ElemDisp"
+         call print(ElemDisp)
+      end if
+
+   end function
+! ###################################################################
 
    function getNumberOfOversetForElementFEMDomain(this) result(ret)
       class(FEMDomain_), intent(in) :: this

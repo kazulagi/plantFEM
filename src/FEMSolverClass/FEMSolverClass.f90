@@ -1772,32 +1772,45 @@ contains
             call bicgstab_CRS_ILU(this%CRS_val, this%CRS_index_row, this%CRS_index_col, &
                                   x, this%CRS_RHS, this%itrmax, this%er0, this%relative_er, this%debug, &
                                   this%ILU_MATRIX)
-            return
+            
          else
             print *, "[Warning!] :: FEMSolver :: invalid preconditioning"
             stop
          end if
-      end if
-
-      if (associated(this%mpi_target)) then
-         call this%MPI_BICGSTAB(x)
       else
-         if (present(algorithm)) then
-            if (algorithm == "GaussJordan") then
-               call gauss_jordan_crs(this%CRS_val, this%CRS_index_row, this%CRS_index_col, &
-                                     x, this%CRS_RHS, size(this%CRS_RHS))
-               return
+
+         if (associated(this%mpi_target)) then
+            call this%MPI_BICGSTAB(x)
+         else
+            if (present(algorithm)) then
+               if (algorithm == "GaussJordan") then
+                  call gauss_jordan_crs(this%CRS_val, this%CRS_index_row, this%CRS_index_col, &
+                                        x, this%CRS_RHS, size(this%CRS_RHS))
+                  
+               else
+                  call bicgstab_CRS_2(this%CRS_val, this%CRS_index_row, this%CRS_index_col, &
+                                      x, this%CRS_RHS, this%itrmax, this%er0, this%relative_er, this%debug)
+                  
+               end if
             else
                call bicgstab_CRS_2(this%CRS_val, this%CRS_index_row, this%CRS_index_col, &
                                    x, this%CRS_RHS, this%itrmax, this%er0, this%relative_er, this%debug)
-               return
+               
             end if
-         else
-            call bicgstab_CRS_2(this%CRS_val, this%CRS_index_row, this%CRS_index_col, &
-                                x, this%CRS_RHS, this%itrmax, this%er0, this%relative_er, this%debug)
-            return
          end if
+   
       end if
+      
+      if (allocated(this%fix_lin_exists)) then
+
+         ! 右辺ベクトルに強制値を導入
+         ! for each boundary conditioned-node
+         do i = 1, size(this%CRS_RHS)
+            if (this%fix_lin_exists(i)) then
+               x(i) = this%fix_lin_exists_values(i)
+            end if
+         end do
+      endif
 
    end function
 ! #####################################################
