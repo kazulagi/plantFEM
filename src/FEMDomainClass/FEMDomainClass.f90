@@ -230,6 +230,8 @@ module FEMDomainClass
       procedure, public :: getMyID => getMyIDFEMDomain
       procedure, public :: getValue => getValueFEMDomain
       procedure, public :: getStrainTensor => getStrainTensorFEMDomain
+      procedure, public :: getSpinTensor => getSpinTensorFEMDomain
+      procedure, public :: getVelocityGradient => getVelocityGradientFEMDomain
       procedure, public :: getNumberOfOversetForElement => getNumberOfOversetForElementFEMDomain
 
       procedure, public :: getSurface => getSurfaceFEMDomain
@@ -452,8 +454,9 @@ module FEMDomainClass
       procedure, public :: ifc => ifcFEMDomain
       ! >>> revising for adopting quad mesh >>> (2024.05.13)
       ! matrices
-      procedure, public :: Bmatrix => BMatrixFEMDomain ! <<< now <<<
-      procedure, public :: Wmatrix => WMatrixFEMDomain ! 2024/04/16
+      procedure, public :: Bmatrix => BMatrixFEMDomain ! 
+      procedure, public :: Lmatrix => LMatrixFEMDomain ! 2025/04/25
+      procedure, public :: Wmatrix => WMatrixFEMDomain ! 2025/04/25
 
       procedure, pass :: DMatrix_generic_FEMDomain
       procedure, pass :: DMatrixFEMDomain
@@ -595,6 +598,10 @@ module FEMDomainClass
    interface export_vtk
       module procedure export_vtk_FEMDomainPointer
    end interface export_vtk
+
+   interface diff 
+      module procedure diff_for_real_array
+   end interface diff
 
 contains
 
@@ -12275,16 +12282,19 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
 
             JPsy = transpose(matmul(transpose(Psymat), Jin)) !dNdgzi* dgzidx
             Bmat = zeros(6, this%nne()*3)
-            do q = 1, size(JPsy, 2)
+            do q = 1, size(JPsy, 2) ! = nne
                do p = 1, dim_num
                   Bmat(p, dim_num*(q - 1) + p) = JPsy(p, q)
                end do
+               
                Bmat(4, dim_num*(q - 1) + 1) = JPsy(2, q); 
                Bmat(4, dim_num*(q - 1) + 2) = JPsy(1, q); 
                Bmat(4, dim_num*(q - 1) + 3) = 0.0d0; 
+
                Bmat(5, dim_num*(q - 1) + 1) = 0.0d0; 
                Bmat(5, dim_num*(q - 1) + 2) = JPsy(3, q); 
                Bmat(5, dim_num*(q - 1) + 3) = JPsy(2, q); 
+
                Bmat(6, dim_num*(q - 1) + 1) = JPsy(3, q); 
                Bmat(6, dim_num*(q - 1) + 2) = 0.0d0; 
                Bmat(6, dim_num*(q - 1) + 3) = JPsy(1, q); 
@@ -12490,6 +12500,73 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
                Wmat = this%Wmatrix(sf, ElementID)
             else
                Wmat = Wmat + this%Wmatrix(sf, ElementID)
+            end if
+         end do
+         return
+
+      end if
+   end function
+! ##########################################################################
+
+
+   ! ##########################################################################
+   recursive function LMatrixFEMDomain(this, shapefunction, ElementID) result(Lmat)
+      class(FEMDomain_), intent(inout) :: this
+      integer(int32), optional, intent(in) :: ElementID
+      type(ShapeFunction_), optional, intent(in) :: shapefunction
+      real(real64), allocatable :: Psymat(:, :), Jmat(:, :), detJ
+      real(real64), allocatable :: Lmat(:, :)
+      integer(int32)::dim_num
+      real(real64), allocatable :: JPsy(:, :), Jin(:, :)
+      integer(int32) k, l, m, n, a, b, p, mm, i, j, q, r
+
+      type(ShapeFunction_) :: sf
+
+      if (present(shapefunction)) then
+
+         dim_num = this%nd()
+         mm = this%nne()*2
+         Psymat = ShapeFunction%dNdgzi
+         Jmat = ShapeFunction%Jmat
+         detJ = det_mat(Jmat, dim_num)
+
+         if (detJ == 0.0d0) stop "Lmat,detJ=0"
+         call inverse_rank_2(Jmat, Jin)
+         JPsy = transpose(matmul(transpose(Psymat), Jin)) !dNdgzi* dgzidx
+         Lmat = zeros(9, this%nne()*3)
+         ! \cfrac{\partial v_1}{\partial x_1}
+         ! \cfrac{\partial v_1}{\partial x_2}
+         ! \cfrac{\partial v_1}{\partial x_3}
+         ! \cfrac{\partial v_2}{\partial x_1}
+         ! \cfrac{\partial v_2}{\partial x_2}
+         ! \cfrac{\partial v_2}{\partial x_3}
+         ! \cfrac{\partial v_3}{\partial x_1}
+         ! \cfrac{\partial v_3}{\partial x_2}
+         ! \cfrac{\partial v_3}{\partial x_3}
+         do q = 1, size(JPsy, 2) ! q: Shape function iterator
+            do p = 1, dim_num    ! p: Dimension iterator
+               do r=1, dim_num   
+                  Lmat( dim_num*(p-1) + r, dim_num*(q - 1) + p) = JPsy(r, q) ! JPsy(p, q)
+               enddo
+            end do
+         end do
+      else
+         ! take sum for all gauss-points
+         if (.not. present(ElementID)) then
+            print *, "BmatrixFEMDOmain >> ERROR >> at least, arg:ElementID or arg:shapefunction is necessary."
+            stop
+         end if
+         call sf%SetType(NumOfDim=this%nd(), NumOfNodePerElem=this%nne(), NumOfGp=this%mesh%getNumOfGp())
+
+         do i = 1, sf%NumOfGp
+            call getAllShapeFunc(sf, elem_id=ElementID, &
+                                 nod_coord=this%Mesh%NodCoord, &
+                                 elem_nod=this%Mesh%ElemNod, OptionalGpID=i)
+
+            if (i == 1) then
+               Lmat = this%Lmatrix(sf, ElementID)
+            else
+               Lmat = Lmat + this%Lmatrix(sf, ElementID)
             end if
          end do
          return
@@ -15652,6 +15729,8 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
       integer(int32) :: i, j
       StrainTensor = zeros(3, 3)
 
+      ! SOMETHING IS WRONG >> NEED DEBUG
+
       call shapefunc%SetType(NumOfDim=this%nd(), NumOfNodePerElem=this%nne(), NumOfGp=this%mesh%getNumOfGp())
 
       call getAllShapeFunc(shapefunc, elem_id=ElementID, &
@@ -15689,7 +15768,63 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
 
    end function
 
+! ###################################################################
+
+! ###################################################################
+   function getVelocityGradientFEMDomain(this, velocity, ElementID, GaussPointID, debug) result(VelocityGradient)
+      class(FEMDomain_), intent(inout) :: this
+      real(real64), intent(in)   :: velocity(:, :)
+      integer(int32), intent(in) :: ElementID, GaussPointID
+      logical, optional, intent(in) :: debug
+      real(real64), allocatable :: VelocityGradient(:, :), Lmat(:, :), ElemVelocity(:), StrainVector(:)
+      type(ShapeFunction_) :: shapefunc
+      integer(int32) :: i, j
+      VelocityGradient = zeros(3, 3)
+
+
+      call shapefunc%SetType(NumOfDim=this%nd(), NumOfNodePerElem=this%nne(), NumOfGp=this%mesh%getNumOfGp())
+
+      call getAllShapeFunc(shapefunc, elem_id=ElementID, &
+                           nod_coord=this%Mesh%NodCoord, &
+                           elem_nod=this%Mesh%ElemNod, OptionalGpID=GaussPointID)
+
+      ElemVelocity = zeros(size(this%mesh%elemnod, 2)*3)
+      do i = 1, this%nne()
+         do j = 1, 3
+            ElemVelocity(3*(i - 1) + j) = &
+               velocity(this%mesh%elemnod(ElementID, i), j)
+         end do
+      end do
+      Lmat = this%Lmatrix(shapefunc)
+
+      ! \cfrac{\partial v}{\partial x}
+
+      StrainVector = matmul(Lmat, ElemVelocity)
+
+      
+      VelocityGradient(1, 1) = StrainVector(1)
+      VelocityGradient(1, 2) = StrainVector(2)
+      VelocityGradient(1, 3) = StrainVector(3)
+      VelocityGradient(2, 1) = StrainVector(4)
+      VelocityGradient(2, 2) = StrainVector(5)
+      VelocityGradient(2, 3) = StrainVector(6)
+      VelocityGradient(3, 1) = StrainVector(7)
+      VelocityGradient(3, 2) = StrainVector(8)
+      VelocityGradient(3, 3) = StrainVector(9)
+
+      if (present(debug)) then
+         print *, "StrainVector"
+         call print(StrainVector)
+         print *, "Lmat"
+         call print(Lmat)
+         print *, "ElemVelocity"
+         call print(ElemVelocity)
+      end if
+
+   end function
+
    ! ###################################################################
+
    function getSpinTensorFEMDomain(this, velocity, ElementID, GaussPointID, debug) result(SpinTensor)
       class(FEMDomain_), intent(inout) :: this
       real(real64), intent(in)   :: velocity(:, :)
@@ -15723,9 +15858,9 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
       SpinTensor(1, 2) = StrainVector(4)
       SpinTensor(2, 3) = StrainVector(5)
       SpinTensor(1, 3) = StrainVector(6)
-      SpinTensor(2, 1) = StrainVector(4)
-      SpinTensor(3, 2) = StrainVector(5)
-      SpinTensor(3, 1) = StrainVector(6)
+      SpinTensor(2, 1) = - StrainVector(4)
+      SpinTensor(3, 2) = - StrainVector(5)
+      SpinTensor(3, 1) = - StrainVector(6)
 
       if (present(debug)) then
          print *, "StrainVector"
@@ -17872,6 +18007,25 @@ subroutine ifcFEMDomain(this,name)
    print *, "STEP >> .ifc exporter is under implementation."
    stop
 end subroutine
+! ################################################################
+
+
+! ################################################################
+function diff_for_real_array(femdomains,diff_target) result(ret)
+   type(FEMDomain_),intent(in) :: femdomains(1:2)
+   real(real64),intent(in) :: diff_target(:,:)
+   real(real64),allocatable :: ret(:,:)
+
+   ! Taking diff on the target data table
+   if( size(diff_target,1) == femdomains(1)%nn() .and. &
+      size(diff_target,2) == femdomains(1)%nd() )then
+
+      ! difference on the coordinate:
+      ! both domain should have the same numNode and numDim.
+      ret = femdomains(1)%mesh%nodcoord(:,:) - femdomains(2)%mesh%nodcoord(:,:)
+   endif
+
+end function
 ! ################################################################
 
 end module FEMDomainClass

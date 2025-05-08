@@ -3,61 +3,93 @@ module ListClass
    implicit none
    
    
-   
+   !> String-like data content. This is not used for compatibility.
    type :: List_content_
+      !> String-like data content. This is not used for compatibility.
       character(:), allocatable :: char
    end type
+   
 
    type :: List_fix_content_
+      !> This is a data content. Please change the word limit of 200 if you need.
       character(len=200) :: char
+      !> Effective character length: if "hello" in char, the char_len should be 5.
       integer(int32) :: char_len
    end type
 
+   !> This is a derived type of list, where we can create a list instance and do some basic operations such as GET, APPEND, SPLIT.
    type :: List_
+      !> This attribute is no used. 
       type(List_content_), allocatable :: content(:)
+      !> This attribute is active. All entities in a list are contained in this list. 
       type(List_fix_content_), allocatable :: fcontent(:)
+      !> A list instance can have an array of list.
       type(List_), allocatable :: list(:)
    contains
+      
       procedure, public :: get => get_list_content_listclass
+      !! GET operation for a list instance.   
+      
       procedure, public :: append => append_list_content_listclass
+      !! APPEND operation for a list instance.
+      
       procedure, public :: new => new_list_listclass
+      !! Initialize and allocate list by a number of content.
+      
       procedure, public :: print => print_listclass
+      !! It shows the all content in the terminal.
+      
       procedure, public :: size => size_listclass
-
+      !! It returns a number of entities of list.
+      
       procedure, public :: help => help_listclass
+      !! It shows the help of the listclass.
+      
       procedure, public :: split => split_char_into_list
-
+      !! It sets entities by splitting a string by a delimiter.
    end type
 
+   
    interface to_list
+      !! It converts various lists or data structures into a list.
       module procedure to_list_repeat_listclass, to_list_0_listclass, to_list_1_listclass, &
          to_list_2_listclass, to_list_3_listclass, to_list_4_listclass, &
          to_list_5_listclass, to_list_6_listclass, to_list_7_listclass, &
          to_list_int32vec_listclass, &
          to_list_real32vec_listclass, &
          to_list_real64vec_listclass
-
    end interface
+   
 
    interface operator(//)
+      !! This merges two lists into a list.
       module procedure joint_listclass
    end interface
+   
 
    interface operator(//)
+      !! This merges two contents of a list into a list.
       module procedure joint_listcontentclass, joint_arraylistcontentclass
    end interface
+   
 
    interface operator(.get.)
+      !! This is a GET operator for a list.
       module procedure get_element_of_listclass
    end interface
+   
 
    interface argv
+      !! This returns a list of the command line arguments.
       module procedure argv_get_cmd_args_as_list
    end interface
+   
 
    interface str
+      !! This converts list to a string (an allocatable array of character.)
       module procedure str_listclass
    end interface
+   
 contains
 ! #####################################################
 
@@ -262,9 +294,13 @@ contains
 ! #####################################################
 
    function to_list_repeat_listclass(char1, num_repeat) result(this)
+      !! It creates a list with a same entity as char1 into a list.
       character(*), intent(in) :: char1
+      !! This entity will be repeated for all contents in a returned list.
       type(List_) :: this
+      
       integer(int32), intent(in) :: num_repeat
+      !! Number of the repeat.
       integer(int32) :: i
 
       allocate (this%fcontent(num_repeat))
@@ -280,7 +316,10 @@ contains
 ! #####################################################
 
    function to_list_1_listclass(char1) result(this)
+      !! Create a list with a length of 1, where the entity char1 is the content.
       character(*), intent(in) :: char1
+      !! The entity char1 is the content.
+      
       character(:), allocatable :: buf
       type(List_) :: this
       integer(int32) :: ac_from, ac_to

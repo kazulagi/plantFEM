@@ -1,4 +1,5 @@
 module KinematicClass
+   !! Some basic functions for Kinematics
    use, intrinsic :: iso_fortran_env
    use MathClass
 
@@ -7,6 +8,7 @@ module KinematicClass
 contains
 
 ! #############################################
+!> It returns 3-D rotation matrix.
    function RotationMatrix3D(rotx, roty, rotz, n, angle) result(Rmat)
       real(real64)::Rmat(3, 3)
       real(real64), optional, intent(in)::rotx, roty, rotz, n(3), angle
@@ -54,6 +56,7 @@ contains
 ! #############################################
 
 ! #############################################
+!> It rotates 3-D vector.
    function Rotation3D(vector, rotx, roty, rotz, n, angle) result(vec)
       real(real64)::vec(3)
       real(real64), intent(in)::vector(3)

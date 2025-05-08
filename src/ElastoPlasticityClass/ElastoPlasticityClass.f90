@@ -153,11 +153,16 @@ module ElastoPlasticityClass
    end type
 
    interface d_dsigma
-         module procedure d_dsigma_P_PotentialFunction, d_dsigma_E_PotentialFunction
+         module procedure d_dsigma_P_PotentialFunction
    end interface
 
-   interface d2_dsigma2
-         module procedure d2_dsigma2_E_PotentialFunction
+
+   interface d_depsilon
+         module procedure d_depsilon_E_PotentialFunction
+   end interface
+
+   interface d2_depsilon2
+         module procedure d2_depsilon2_E_PotentialFunction
    end interface
 !
 !
@@ -939,7 +944,7 @@ contains
 ! ##################################################
 ! ##################################################
 
-   function d_dsigma_E_PotentialFunction(ElasticPotential, ElasticStrain, params, epsilon) result(ret)
+   function d_depsilon_E_PotentialFunction(ElasticPotential, ElasticStrain, params, epsilon) result(ret)
       procedure(E_PotentialFunction) :: ElasticPotential
 
       real(real64), intent(in) :: ElasticStrain(:, :),  params(:)
@@ -985,7 +990,7 @@ contains
 
 ! ##################################################
 
-   function d2_dsigma2_E_PotentialFunction(ElasticPotential, ElasticStrain, params, epsilon) result(ret)
+   function d2_depsilon2_E_PotentialFunction(ElasticPotential, ElasticStrain, params, epsilon) result(ret)
       ! stiffness tensor
       procedure(E_PotentialFunction) :: ElasticPotential
 
@@ -993,8 +998,8 @@ contains
 
       real(real64), optional, intent(in) :: epsilon
 
-      real(real64), allocatable :: dsigma_tensor(:, :), ret(:, :, :, :),dElasticStrain(:, :), dS(:,:)
-      real(real64) :: dsigma
+      real(real64), allocatable ::  ret(:, :, :, :),dElasticStrain(:, :), dS(:,:)
+      real(real64) :: depsilon
       integer(int32) :: i, j, k, l
       type(Math_) :: math
       complex(real64) :: df
@@ -1002,30 +1007,29 @@ contains
 
       ret = zeros(size(ElasticStrain, 1), size(ElasticStrain, 2),&
          size(ElasticStrain, 1), size(ElasticStrain, 2))
-      dsigma_tensor  = zeros(size(ElasticStrain, 1), size(ElasticStrain, 2))
       dElasticStrain = zeros(size(ElasticStrain, 1), size(ElasticStrain, 2))
       if (present(epsilon)) then
-         dsigma = epsilon/2.0d0
+         depsilon = epsilon/2.0d0
       else
-         dsigma = dble(1.0e-8)/2.0d0
+         depsilon = dble(1.0e-8)/2.0d0
       end if
 
       ! 中心差分
       do k = 1, size(ElasticStrain, 1)
          do l = 1, size(ElasticStrain, 2)
             dElasticStrain(:,:)   = 0.0d0
-            dElasticStrain(k, l)  = dsigma
-            dS = d_dsigma(ElasticPotential,ElasticStrain+dElasticStrain, params, epsilon) &
-               - d_dsigma(ElasticPotential,ElasticStrain-dElasticStrain, params, epsilon) 
+            dElasticStrain(k, l)  = depsilon
+            dElasticStrain(l, k)  = depsilon
+            dS = d_depsilon(ElasticPotential,ElasticStrain+dElasticStrain, params, epsilon) &
+               - d_depsilon(ElasticPotential,ElasticStrain-dElasticStrain, params, epsilon) 
             
-            do i = 1, size(ElasticStrain, 1)
-               do j = 1, size(ElasticStrain, 2)
-                  ret(i,j,k,l) = dS(i,j)/(2.0d0*dsigma)
-                  ret(i,j,l,k) = dS(i,j)/(2.0d0*dsigma)
-                  ret(j,i,k,l) = dS(i,j)/(2.0d0*dsigma)
-                  ret(j,i,l,k) = dS(i,j)/(2.0d0*dsigma)
+            do i=1,size(ElasticStrain, 1)
+               do j=1,size(ElasticStrain, 2)
+                  ret(i,j,k,l) = ret(i,j,k,l) + dS(i,j)/(2.0d0*depsilon)   
                enddo
             enddo
+            
+            
 
          enddo
       enddo
@@ -2323,7 +2327,7 @@ function StiffnessMatrix_EP_model(EP_Model,ElasticParams,PlasticParams,ElasticSt
          idx = idx + 1
          stress_matrix_order(idx,1:2) = i
       enddo
-
+      
       do i = 1, nDim
          do j=i+1, nDim
             idx = idx + 1
@@ -2332,11 +2336,17 @@ function StiffnessMatrix_EP_model(EP_Model,ElasticParams,PlasticParams,ElasticSt
          enddo
       enddo
 
+      if(nDim==3)then
+         stress_matrix_order(5,1:2) = [2,3]
+         stress_matrix_order(6,1:2) = [3,1]
+      endif
+
    endif
 
    ! とりあえず，超弾性のみ実装
-   stiffness_tensor = d2_dsigma2(EP_Model%ElasticPotential,ElasticStrain,ElasticParams)
-
+   ! C_{ijkl}
+   stiffness_tensor = d2_depsilon2(EP_Model%ElasticPotential,ElasticStrain,ElasticParams)
+   
    ! ret
    ret = zeros(size(stress_matrix_order,1),size(stress_matrix_order,1))
    do m=1,size(stress_matrix_order,1)
@@ -2347,6 +2357,7 @@ function StiffnessMatrix_EP_model(EP_Model,ElasticParams,PlasticParams,ElasticSt
          l = stress_matrix_order(n,2)
          ret(m,n) = stiffness_tensor(i,j,k,l)
       enddo
+      
    enddo
 
 end function

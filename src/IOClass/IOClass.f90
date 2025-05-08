@@ -1,4 +1,5 @@
 module IOClass
+   !! This module defines a usefull derived type for file-IO.
 
    !#if "INTEL"
    !    use IFPORT
@@ -29,20 +30,42 @@ module IOClass
    integer(int32), parameter :: KNT_ASCII = 100 ! K-NET ASCII
 
    type :: IO_
+      !! This class is usefull for file-IO.
+      
       integer :: fh = 100
+      !! File handler
+      
       logical :: active = .false.
+      !! If file is opened, the active=.true.
+
       logical :: EOF = .true.
+      !! If the reader reaches the end of file, the EOF = .true.
 
       character(1) :: state
-      character(200)::path, name, extention
-      character(:), allocatable:: title
-      character(:), allocatable:: xlabel, ylabel, zlabel
-      character(:), allocatable :: filename
-      character(3) :: async = "no "
-      integer(int32) :: lastModifiedTime = 0
-      logical :: json_mode = .false.
+      !! state of the opened file ("w"::write-only , "a"::append , or "r"::read-only.)
 
-      ! if a rule is set
+      character(200)::path, name, extention
+      !! Triplet for identifing a file, but "name" and "extention" will be deplicated.
+
+      character(:), allocatable:: title
+      !! File title
+      
+      character(:), allocatable:: xlabel, ylabel, zlabel
+      !! It will be deplicated.
+
+      character(:), allocatable :: filename
+      !! It will be deplicated.
+
+      character(3) :: async = "no "
+      !! For async read/write
+
+      integer(int32) :: lastModifiedTime = 0
+      !! It will be deplicated.
+
+      logical :: json_mode = .false.
+      !! Read/write a file as a JSON file. It will be deplicated.
+
+      !> if a rule should be set, following parameter should be modified.
       logical :: activate_rule = .false.
       integer(int32) :: header, offset
       integer(int32), allocatable :: content_type(:)
@@ -50,50 +73,96 @@ module IOClass
 
    contains
       procedure, public :: unit => unitIO
+      !! It returns a file handler.
 
       procedure, public :: numLine => numLineIO
+      !! It returns a number of line in the file.
 
       procedure, public :: flush => flushIO
+      !! It flushes all buffered content.
+
       procedure, public :: search_line => search_lineIO
+      !! It counts the number of line in a file.
 
       procedure, public :: exists => existsIO
+      !! If file exists, it returns .true.
 
       procedure, public :: cp => cpIO
+      !! File copy
+      
       procedure, public :: ls => ls_IO
+      !! ls command
+
       procedure, public :: zip => zip_IOClass
+      !! zip command
+
       procedure, public :: unzip => unzip_IOClass
+      !! unzip command
 
       procedure, public :: download => downloadIO
-      !set & reset rule
+      !! download a file
+
+      
       procedure, public :: rule => ruleIO
+      !! set rule
+
       procedure, public :: ResetRule => ResetRuleIO
-      !procedure,public :: import => importIO
+      !! reset rule
 
       procedure, pass   :: openIOchar
+      !! file open
+
       procedure, pass   :: openIOstring
+      !! file open
 
       procedure, pass :: parseIOChar200
+      !! parser
+
       procedure, pass :: parseIO2keysChar200
+      !! parser
 
       procedure, pass :: importIOReal64ArrayAsTxt
+      !! Import real64-type array from txt file
+
       procedure, pass :: importIOReal64VectorAsTxt
+      !! Import real64-type array from txt file
+
       procedure, pass :: importIOReal64VectorAsTxtWithIndex
+      !! Import real64-type array from txt file
+
       procedure, pass :: importIODataFromFormatted
+      !! Import real64-type array from txt file
+
+      !> Import real64-type array from txt file
       generic, public :: import => importIOReal64VectorAsTxt, importIOReal64ArrayAsTxt, &
          importIOReal64VectorAsTxtWithIndex, importIODataFromFormatted
 
+      !> Exmport real64-type array from txt file
       procedure, pass :: exportIOReal64ArrayAsTxt
+
+      !> Exmport real64-type array from txt file
       procedure, pass :: exportIOReal64VectorAsTxt
+
+      !> Exmport real64-type array from txt file
       procedure, pass :: exportIOReal64VectorAsTxtWithIndex
+
+      !> Exmport real64-type array from txt file
       generic, public :: export => exportIOReal64VectorAsTxt, exportIOReal64ArrayAsTxt, &
          exportIOReal64VectorAsTxtWithIndex
 
+      !> Parser
       generic, public :: parse => parseIOChar200, parseIO2keysChar200
 
+      !> Json parser
       procedure, pass :: parse_json_IOClass
+      
+      !> Json parser
       generic, public :: parse_json => parse_json_IOClass
+
+      !> Json parser
       generic, public :: parse => parse_json_IOClass
 
+      !> File open
       generic, public :: open => openIOchar, openIOstring
 
       ! file properties
@@ -110,15 +179,22 @@ module IOClass
       !procedure,public :: size => sizeIO ! stab(8)
 
       ! while reading files,
+      
+      !> Rewind file
       procedure, public :: rewind => rewindIO
+
+      !> Go back to some lines.
       procedure, public :: goBack => goBackIO
+
+      !> Skip some lines.
       procedure, public :: goForward => goForwardIO
 
-      !procedure,public :: open => openIO
+      !> Write 
       procedure, pass :: writeIOchar, writeIOcharchar, writeIOcharcharchar
+      !> Write 
       procedure, pass :: writeIOstring, writeIOstringstring, writeIOstringstringstring
 
-      ! writer for JSON format
+      !! Writer for JSON format
       procedure, pass :: dumpIOJSON_Key_Vector
       procedure, pass :: dumpIOJSON_Key_VectorRe32
       procedure, pass :: dumpIOJSON_Key_VectorInt32
@@ -130,6 +206,7 @@ module IOClass
       procedure, pass :: dumpIOJSON_Key_ArrayRe64
       procedure, pass :: dumpIOJSON_Key_ArrayInt32
 
+      !> JSON dump. 
       generic, public :: dump => dumpIOJSON_Key_Vector, dumpIOJSON_Key_VectorRe32, &
          dumpIOJSON_Key_VectorInt32, dumpIOJSON_Key_value, &
          dumpIOJSON_Key_valueRe32, dumpIOJSON_Key_valueRe64, &
@@ -138,44 +215,76 @@ module IOClass
       ! commandline args
       procedure, public :: arg => argIO
 
-      ! WRITE
-      ! int-char-int
+      !! WRITE operation
       procedure, pass :: writeIOint32re64
-
+      
+      
+      !! WRITE operation
       procedure, pass :: writeIOint32re64vector
+      !! WRITE operation
       procedure, pass :: writeIOint32int32vector
 
+      !! WRITE operation
       procedure, pass :: writeIOint32
+      !! WRITE operation
       procedure, pass :: writeIOint32int32
+      !! WRITE operation
       procedure, pass :: writeIOint32int32int32
+      !! WRITE operation
       procedure, pass :: writeIOint32int32int32int32
+      !! WRITE operation
       procedure, pass :: writeIOint32int32int32int32int32
+      !! WRITE operation
       procedure, pass :: writeIOint32int32int32int32int32int32
 
+      !! WRITE operation
       procedure, pass :: writeIOint32Vector
+      !! WRITE operation
       procedure, pass :: writeIOint64Vector
+      !! WRITE operation
       procedure, pass :: writeIOint32Vectorint32Vector
+      !! WRITE operation
       procedure, pass :: writeIOint32Vectorint32Vectorint32Vector
+      !! WRITE operation
       procedure, pass :: writeIOint32Vectorint32Vectorre64Vector
+      !! WRITE operation
       procedure, pass :: writeIOint32Vectorre64Vector
+      !! WRITE operation
       procedure, pass :: writeIOre64Vectorre64Vector
+      !! WRITE operation
       procedure, pass :: writeIOre64Vectorre64Vectorre64Vector
+      !! WRITE operation
       procedure, pass :: writeIOint32Array
 
+      !! WRITE operation
       procedure, pass :: writeIOre64
+      !! WRITE operation
       procedure, pass :: writeIOre64re64
+      !! WRITE operation
       procedure, pass :: writeIOre64re64re64
+      !! WRITE operation
       procedure, pass :: writeIOre64re64re64re64
+      !! WRITE operation
       procedure, pass :: writeIOre64re64re64re64re64
+      !! WRITE operation
       procedure, pass :: writeIOre64re64re64re64re64re64
-
+      !! WRITE operation
       procedure, pass :: writeIOre64Vector
+      !! WRITE operation
       procedure, pass :: writeIOre64Array
+      !! WRITE operation
       procedure, pass :: writeIO_re64Vector_re64Array
+      !! WRITE operation
       procedure, pass :: writeIOcomplex64
+      !! WRITE operation
       procedure, pass :: writeIOcomplex64Vector
+      !! WRITE operation
       procedure, pass :: writeIOcomplex64Array
+      !! WRITE operation
       procedure, pass :: writeIOchar_real64Array_real64Array
+      !! WRITE operation
+
+      !> WRITE operation
       generic, public :: write => writeIOchar, writeIOstring, writeIOre64, writeIOre64Vector, &
          writeIOre64Array, &
          writeIOint32, writeIOint32Vector, writeIOint32Array, &
@@ -195,95 +304,135 @@ module IOClass
          writeIOint32Vectorint32Vectorre64Vector, &
          writeIOchar_real64Array_real64Array, &
          writeIO_re64Vector_re64Array
-      !procedure,public :: write => writeIO
+      
+      !! READ operation
       procedure, pass :: readIOchar
+
       procedure, pass :: readIOInt
+      !! READ operation
       procedure, pass :: readIOIntVector
+      !! READ operation
       procedure, pass :: readIOIntArray
+      !! READ operation
       procedure, pass :: readIOReal64
+      !! READ operation
       procedure, pass :: readIOReal64Vector
+      !! READ operation
       procedure, pass :: readIOReal64VectorVector
+      !! READ operation
       procedure, pass :: readIOReal64Array
+      !! READ operation
+
+      !> READ operation
       generic, public :: read => readIOchar, readIOInt, readIOIntVector, readIOIntArray &
          , readIOReal64, readIOReal64Vector, readIOReal64VectorVector, readIOReal64Array
 
+      !> Write and plot by gnuplot.
       procedure, pass :: plotIO
+      !> Write and plot by gnuplot.
       procedure, pass :: plotIODirect
+      !> Write and plot by gnuplot.
       procedure, pass :: plotIODirectReal32
+      !> Write and plot by gnuplot.
       generic, public :: plot => plotIO, plotIODirect, plotIODirectReal32
 
+      !> Write and replot by gnuplot.
       procedure, pass :: replotIO
+      !> Write and replot by gnuplot.
       procedure, pass :: replotIODirect
+      !> Write and replot by gnuplot.
       generic, public :: replot => replotIO, replotIODirect
 
+      !> Write and 3D-plot by gnuplot.
       procedure, public :: splot => splotIO
 
+      !> read a line
       procedure, public :: readline => readlineIO
 
+      !> close file
       procedure, public :: close => closeIO
 
+      !> convert file content to real64-array
       procedure, public :: to_Array => to_Array_real64_IOClass
+      !> convert file content to list
       procedure, public :: to_list => to_List_IOClass
 
+      !> convert file content written in binary to vector
       procedure, public :: bin2vector => bin2vector_real64_IOClass
+      !> convert file content written in real64 vector to binary
       procedure, public :: vector2bin => vector2bin_real64_IOClass
-
+      !> wait for async (only for async read/write)
       procedure, public :: wait => wait_async_IOClass
    end type
 
+   !> convert character array to vector.
    interface to_vector
       module procedure to_vector_char
    end interface
 
+   !> fill a vector by same integer number.
    interface to_intvector
       module procedure to_intVector_int32
    end interface
 
+   !> Capital to lowercase
    interface lowercase
       module procedure lowercaseChar, lowercaseString
    end interface
 
+   ! print command.
    interface print
       module procedure printChar, printReal64, printComplex64, &
          printReal32, printInt64, printInt32, printInt32Int32, printCharAndIntVector
    end interface print
 
-   interface disp
-      module procedure printChar, printReal64, printReal32, printInt64, printInt32
-   end interface disp
+   ! 
+   !interface disp
+   !   module procedure printChar, printReal64, printReal32, printInt64, printInt32
+   !end interface disp
 
+   !> plot array by gnuplot
    interface plot
       module procedure plotRealArray
    end interface
 
+   !> plot array by gnuplot
    interface spy
       module procedure spyRealArray
    end interface
 
+   !> open file
    interface open_file
       module procedure open_fileIOandReturn
    end interface open_file
 
+   !> run Caesar cipher
    interface CaesarCipher
       module procedure CaesarCipherChar
    end interface
 
+   !> JSON to real64-array
    interface as_JSON
       module procedure as_JSONRealArray2
    end interface
 
+   !> parse real64 array 
    interface parse
       module procedure parse_fileRealArray
    end interface
 
+   !> export array to csv file.
    interface to_csv
       module procedure to_csv_real_array2, to_csv_real_array3, to_csv_real_vector
    end interface to_csv
 
+   !> export array to tsv file.
    interface to_tsv
       module procedure to_tsv_real_array2, to_tsv_real_array3, to_tsv_real_vector
    end interface to_tsv
 
+   
+   !> import array from csv file.
    interface from_csv
       module procedure from_csv_real_array2, from_csv_real_array3, from_csv_real_vector, &
          from_CSV_to_vector_simple

@@ -1,7 +1,10 @@
 module PlotClass
+    !! It creates a PDF file with plots.
+
     use IOClass
     implicit none
     
+    !> Subplot in the main plot.
     type :: SubPlot_
         character(:),allocatable :: xlabel
         character(:),allocatable :: ylabel
@@ -16,12 +19,17 @@ module PlotClass
         character(:),allocatable :: comment
     end type
 
+    !> Plotter
     type :: Plot_ 
         type(SubPlot_),allocatable :: subplot(:,:)
     contains
+        !> set Layout of the plots
         procedure,public :: setLayout => setLayoutPlotClass
+        !> Show the plots
         procedure,public :: show => showPlotClass
+        !> Create pdf file from the plots
         procedure,public :: pdf  => pdfPlotClass
+        !> Create png file from the plots
         procedure,public :: png  => pngPlotClass
     end type
 contains

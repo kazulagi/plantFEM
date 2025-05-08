@@ -1,7 +1,11 @@
 module OpenACCClass
+   !! Thic module defines some matrix-vector operations using OpenACC.
+   !! But, not tested fully, so unrecommended.
+   
    use iso_fortran_env
    implicit none
-
+   !! No derived types are defined in this module.
+   
 contains
 
    subroutine acc_crs_matvec(CRS_value, CRS_col, CRS_row_ptr, old_vector, new_vector)
@@ -23,13 +27,13 @@ contains
          new_vector(:) = 0.0d0
       end if
 
-    !!$acc kernels
+   ! !$acc kernels
       do row = 1, n
          do CRS_id = CRS_row_ptr(row), CRS_row_ptr(row + 1) - 1
             new_vector(row) = new_vector(row) + CRS_value(CRS_id)*old_vector(CRS_col(CRS_id))
          end do
       end do
-    !!$acc end kernels
+   ! !$acc end kernels
 
    end subroutine
 ! ###################################################################

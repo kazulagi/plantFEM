@@ -261,14 +261,15 @@ module SparseClass
    type :: BCRS_
       type(CRS_),allocatable :: CRS(:,:)
    contains
-      procedure,public :: set => setBCRS
-      procedure,public :: add => addBCRS
+      procedure,public :: set       => setBCRS
+      procedure,public :: add       => addBCRS
       procedure,public :: showShape => showShapeBCRS
       procedure,public :: shape     => shapeBCRS
       procedure,public :: row_range => row_range_BCRS
       procedure,public :: col_range => col_range_BCRS
-      procedure,public :: matmul => matmulBCRS
-      procedure,public :: exp => expBCRS
+      procedure,public :: matmul    => matmulBCRS
+      procedure,public :: to_dense  => to_dense_BCRS
+      procedure,public :: exp       => expBCRS
    end type 
 
    public :: operator(+)
@@ -435,16 +436,26 @@ contains
 
    subroutine addCOO(this, row, col, val)
       class(COO_), intent(inout) :: this
+      type(COO_) :: buf
       integer(int32), intent(in)   :: row
       integer(int32), intent(in)   :: col
       real(real64), intent(in)   :: val
-      integer(int32) :: i, col_id
+      integer(int32) :: i, col_id,n
 
       !if (row > this%DOF() .or. row < 1) return
       !if (col > this%DOF() .or. col < 1) return
 
-      if (row > this%DOF() .or. row < 1) return
+      if ( row < 1) return
       if (col < 1) return
+
+      if(row > this%DOF())then
+         ! add row
+         buf = this
+         n = this%DOF()
+         call this%remove()
+         call this%init(row)
+         this%row(1:n) = buf%row(1:n)
+      endif
 
       if (.not. allocated(this%row)) then
          print *, "ERROR :: initCOO"
@@ -5019,25 +5030,27 @@ end subroutine
       class(BCRS_),intent(in) :: this
       integer(int32),intent(in) :: box_row,box_col
       integer(int32) :: ret(1:2),this_shape(1:2)
+      integer(int32),allocatable :: row_len(:)
       integer(int32) :: i,j
 
       ret(1:2) = [1,0]
 
-      do i=1,box_row-1
+      do i=1,box_row-1 
+         ! for each box_row
+         row_len = int(zeros(size(this%CRS,1)))
          do j=1,size(this%CRS,2)
-            if(allocated(this%CRS(i,j) ) )then
-               this_shape = this%CRS(i,j)%shape()
-               ret(1) = ret(1) + this_shape(1)
-               exit
-            endif
+            row_len(j) = 1 .of. this%CRS(i,j)%shape()
          enddo
+         
+         ret(1) = ret(1) + maxval(row_len)
       enddo
-      this_shape = this%CRS(box_row,box_col)%shape()
-      if (this_shape(1)==0)then
-         ret(2) = ret(1) 
-      else
-         ret(2) = ret(1) + this_shape(1) -1
-      endif
+
+      row_len = int(zeros(size(this%CRS,1)))
+      do j=1,size(this%CRS,2)
+         row_len(j) = 1 .of. this%CRS(box_row,j)%shape()
+      enddo
+      
+      ret(2) = ret(1) + maxval(row_len) -1
       
 
    end function
@@ -5049,26 +5062,35 @@ end subroutine
       class(BCRS_),intent(in) :: this
       integer(int32),intent(in) :: box_row,box_col
       integer(int32) :: ret(1:2),this_shape(1:2)
+      integer(int32),allocatable :: col_len(:)
       integer(int32) :: i,j
 
       ret(1:2) = [1,0]
 
-      
-      do i=1,box_col-1
-         do j=1,size(this%CRS,1)
-            if(allocated(this%CRS(j,i) ) )then
-               this_shape = this%CRS(j,i)%shape()
-               ret(1) = ret(1) + this_shape(2)
-               exit
-            endif
+      do i=1,box_col-1 
+         ! for each box_col
+         col_len = int(zeros(size(this%CRS,2)))
+         do j=1,size(this%CRS,2)
+            col_len(j) = 2 .of. this%CRS(j,i)%shape()
          enddo
+         
+         ret(1) = ret(1) + maxval(col_len)
       enddo
-      this_shape = this%CRS(box_row,box_col)%shape()
-      if (this_shape(2)==0)then
-         ret(2) = ret(1) 
-      else
-         ret(2) = ret(1) + this_shape(2) -1
-      endif
+
+      col_len = int(zeros(size(this%CRS,2)))
+      do j=1,size(this%CRS,2)
+         col_len(j) = 2 .of. this%CRS(j,box_col)%shape()
+      enddo
+      
+      ret(2) = ret(1) + maxval(col_len) -1
+      
+
+      !this_shape = this%CRS(box_row,box_col)%shape()
+      !if (this_shape(2)==0)then
+      !   ret(2) = ret(1) 
+      !else
+      !   ret(2) = ret(1) + this_shape(2) -1
+      !endif
 
    end function
 ! ###################################################
@@ -5079,6 +5101,35 @@ function shapeBCRS(this) result(ret)
 
    ret(1) = maxval(this%row_range(size(this%CRS,1),size(this%CRS,2)))
    ret(2) = maxval(this%col_range(size(this%CRS,1),size(this%CRS,2)))
+
+end function
+! ###################################################
+
+! ###################################################
+function to_dense_BCRS(this) result(ret)
+   class(BCRS_),intent(in)  :: this
+   real(real64),allocatable :: ret(:,:)
+   integer(int32) :: n_row,n_col,i,j,bcrs_row,bcrs_col,row_1,row_2,col_1,col_2
+
+   ret = zeros(1 .of. this%shape(), 2 .of. this%shape())
+
+
+   
+   do bcrs_row=1,size(this%crs,1)
+      do bcrs_col=1,size(this%crs,2)
+         if(.not.allocated(this%crs(bcrs_row,bcrs_col))) cycle
+         row_1 = 1 .of. this%row_range(bcrs_row,bcrs_col)
+         row_2 = 1 .of. this%row_range(bcrs_row,bcrs_col) + (1 .of. this%crs(bcrs_row,bcrs_col)%shape()) -1
+         col_1 = 1 .of. this%col_range(bcrs_row,bcrs_col)
+         col_2 = 1 .of. this%col_range(bcrs_row,bcrs_col) + (2 .of. this%crs(bcrs_row,bcrs_col)%shape()) -1 
+
+         
+
+         ret( &
+            row_1: row_2 ,col_1: col_2 ) = this%crs(bcrs_row,bcrs_col)%to_dense()
+      enddo
+   enddo
+
 
 end function
 ! ###################################################

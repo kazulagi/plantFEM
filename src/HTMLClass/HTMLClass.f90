@@ -1,16 +1,26 @@
 module HTMLClass
+   !! This module creates HTML file.
    use IOClass
    implicit none
 
-   ! show info as HTML file (index.html)
+   
    type :: HTML_
+      !! It shows info as HTML file (index.html)
+      
       type(IO_) :: file
+      !> File instance
       character(len=10) :: mode = "text"! text or 3D
+      !> Text file or 3D file
       character(len=200) :: title = "plantFEM"
+      !> Title of the page
       integer(int32) :: fh
+      !> file handle
    contains
+      !> initialize the HTML file
       procedure, public :: init => initHTML
+      !> Add content in the HTML file
       procedure, public :: add => addHTML
+      !> show the HTML file
       procedure, public :: show => showHTML
    end type
 contains
