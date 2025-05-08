@@ -983,11 +983,11 @@ contains
       if (mpid%myrank == 0) then
 
          !num_shared_elem = int(zeros(this%ne() ) )
-                !!$OMP parallel do
+                ! !$OMP parallel do
          !do i=1,size(this%mesh%elemnod,1)
          !        num_shared_elem(this%mesh%elemnod(i,:) ) = num_shared_elem(this%mesh%elemnod(i,:) ) + 1
          !enddo
-                !!$OMP end parallel do
+                ! !$OMP end parallel do
 
          !$OMP parallel do
          do i = 1, n
@@ -1928,9 +1928,9 @@ contains
 
       FileName = ProjectName//FileFormat
 
-!!print *, "Project : ",ProjectName
-!!print *, "is Exported as : ",FileFormat," format"
-!!print *, "File Name is : ",FileName
+! !print *, "Project : ",ProjectName
+! !print *, "is Exported as : ",FileFormat," format"
+! !print *, "File Name is : ",FileName
 
       open (fh, file=FileName, status="old")
 
@@ -2004,11 +2004,11 @@ contains
             do i = 1, size(this%Boundary%DBoundNum, 1)
                do j = 1, this%Boundary%DBoundNum(i)
                   read (fh, *) this%Boundary%DBoundNodID(j, i)
-                !!print *,this%Boundary%DBoundNodID(j,i)
+                ! !print *,this%Boundary%DBoundNodID(j,i)
                end do
                do j = 1, this%Boundary%DBoundNum(i)
                   read (fh, *) this%Boundary%DBoundVal(j, i)
-                !!print *,this%Boundary%DBoundVal(j,i)
+                ! !print *,this%Boundary%DBoundVal(j,i)
                end do
             end do
 
@@ -2102,7 +2102,7 @@ contains
 
          close (fh)
       else
-    !!print *, "ERROR :: ExportFEMDomain >> only .scf file can be exported."
+    ! !print *, "ERROR :: ExportFEMDomain >> only .scf file can be exported."
       end if
 
    end subroutine ImportFEMDomain
@@ -2544,9 +2544,9 @@ contains
       end if
       iFileName = ProjectName//FileFormat
 
-    !!print *, "Project : ",ProjectName
-    !!print *, "is Exported as : ",FileFormat," format"
-    !!print *, "File Name is : ",iFileName
+    ! !print *, "Project : ",ProjectName
+    ! !print *, "is Exported as : ",FileFormat," format"
+    ! !print *, "File Name is : ",iFileName
 
       if (present(Name)) then
          open (fh, file=name//".scf", status="replace")
@@ -2708,12 +2708,12 @@ contains
             do i = 1, size(this%Boundary%DBoundNum, 1)
                do j = 1, this%Boundary%DBoundNum(i)
                   write (fh, *) this%Boundary%DBoundNodID(j, i)
-                    !!print *,this%Boundary%DBoundNodID(j,i)
+                    ! !print *,this%Boundary%DBoundNodID(j,i)
                end do
                write (fh, *) "  "
                do j = 1, this%Boundary%DBoundNum(i)
                   write (fh, *) this%Boundary%DBoundVal(j, i)
-                    !!print *,this%Boundary%DBoundVal(j,i)
+                    ! !print *,this%Boundary%DBoundVal(j,i)
                end do
                write (fh, *) "  "
             end do
@@ -2745,12 +2745,12 @@ contains
             do i = 1, size(this%Boundary%DBoundNum, 1)
                do j = 1, this%Boundary%DBoundNum(i)
                   !write(*,*) this%Boundary%DBoundNodID(j,i)
-                    !!print *,this%Boundary%DBoundNodID(j,i)
+                    ! !print *,this%Boundary%DBoundNodID(j,i)
                end do
                !write(*,*) "  "
                do j = 1, this%Boundary%DBoundNum(i)
                   !write(*,*) this%Boundary%DBoundVal(j,i)
-                    !!print *,this%Boundary%DBoundVal(j,i)
+                    ! !print *,this%Boundary%DBoundVal(j,i)
                end do
                !write(*,*) "  "
             end do
@@ -3636,7 +3636,7 @@ contains
    end subroutine AddTBoundCondition
 !##################################################
 
-!!##################################################
+! !##################################################
 !subroutine AddNBoundCondition(this,xmin,xmax,ymin,ymax,zmin,zmax,&
 !    tmin,tmax,valx,valy,valz)
 !    class(FEMDomain_),intent(inout)::this
@@ -3796,15 +3796,15 @@ contains
 !    call TrimArray(NBoundValBuf,k)
 !    call CopyArray(this%Boundary%NBoundNodID,CopiedArrayInt)
 !    call CopyArray(this%Boundary%NBoundVal,CopiedArrayReal)
-!!    call MergeArray(CopiedArrayInt,NBoundNodIDBuf,this%Boundary%NBoundNodID)
-!!    call MergeArray(CopiedArrayReal,NBoundValBuf,this%Boundary%NBoundVal)
-!!    call DeleteOverlapBoundary(this%Boundary)
-!!    call InitializeBoundary(this%Boundary)
-!!
-!!
-!!
-!!end subroutine
-!!##################################################
+! !    call MergeArray(CopiedArrayInt,NBoundNodIDBuf,this%Boundary%NBoundNodID)
+! !    call MergeArray(CopiedArrayReal,NBoundValBuf,this%Boundary%NBoundVal)
+! !    call DeleteOverlapBoundary(this%Boundary)
+! !    call InitializeBoundary(this%Boundary)
+! !
+! !
+! !
+! !end subroutine
+! !##################################################
 !
 !
 !
@@ -3813,7 +3813,7 @@ contains
 !
 !
 !
-!!##################################################
+! !##################################################
 !subroutine AddTBoundCondition(this,xmin,xmax,ymin,ymax,zmin,zmax,&
 !    tmin,tmax,valx,valy,valz)
 !    class(FEMDomain_),intent(inout)::this
@@ -3980,7 +3980,7 @@ contains
 !
 !
 !end subroutine
-!!##################################################
+! !##################################################
 
 !##################################################
    subroutine SetSolver(this, inSolverType)
@@ -6119,7 +6119,7 @@ contains
          c_nod_coord(i, :) = this%Mesh%NodCoord(i, :) + uvec(dim_num*(i - 1) + 1:dim_num*i)
       end do
 
-        !!"Hydrostatic stress (kPa)"
+        ! !"Hydrostatic stress (kPa)"
       do i = 1, size(sigma, 1)
          do j = 1, size(sigma, 2)
             if (dim_num == 2) then
@@ -6135,7 +6135,7 @@ contains
       abbrivation = "Hysigm"
       call GmshPlotContour(this, gp_value, mapname, abbrivation, step, Name=Name)
 
-        !!""Deviatoric stress (kPa)"
+        ! !""Deviatoric stress (kPa)"
       do i = 1, size(sigma, 1)
          do j = 1, size(sigma, 2)
             if (dim_num == 2) then
@@ -6160,7 +6160,7 @@ contains
       abbrivation = "Dvsigm"
       call GmshPlotContour(this, gp_value, mapname, abbrivation, step, Name=Name)
 
-        !!"Hydrostatic strain"
+        ! !"Hydrostatic strain"
       do i = 1, size(strain_measure, 1)
          do j = 1, size(strain_measure, 2)
             F_iJ(:, :) = 0.0d0
@@ -6192,7 +6192,7 @@ contains
       abbrivation = "Hyepsi"
       call GmshPlotContour(this, gp_value, mapname, abbrivation, step, Name=Name)
 
-        !!"Deviatoric strain"
+        ! !"Deviatoric strain"
       do i = 1, size(strain_measure, 1)
          do j = 1, size(strain_measure, 2)
             F_iJ(:, :) = 0.0d0
@@ -6309,7 +6309,7 @@ contains
          c_nod_coord(i, :) = this%Mesh%NodCoord(i, :) + uvec(dim_num*(i - 1) + 1:dim_num*i)
       end do
 
-        !!"Hydrostatic stress (kPa)"
+        ! !"Hydrostatic stress (kPa)"
       do i = 1, size(sigma, 1)
          do j = 1, size(sigma, 2)
             gp_value(i, j) = sigma(i, j, 1) + sigma(i, j, 2) + sigma(i, j, 4)
@@ -6320,7 +6320,7 @@ contains
       abbrivation = "Hysigm"
       call GnuplotPlotContour(this, gp_value, mapname, abbrivation, step)
 
-        !!""Deviatoric stress (kPa)"
+        ! !""Deviatoric stress (kPa)"
       do i = 1, size(sigma, 1)
          do j = 1, size(sigma, 2)
             tr_sigma = sigma(i, j, 1) + sigma(i, j, 2) + sigma(i, j, 4)
@@ -6333,7 +6333,7 @@ contains
       abbrivation = "Dvsigm"
       call GnuplotPlotContour(this, gp_value, mapname, abbrivation, step)
 
-        !!"Hydrostatic strain"
+        ! !"Hydrostatic strain"
       do i = 1, size(strain_measure, 1)
          do j = 1, size(strain_measure, 2)
             gp_value(i, j) = strain_measure(i, j, 4) + strain_measure(i, j, 5) + 1.0d0
@@ -6344,7 +6344,7 @@ contains
       abbrivation = "Hyepsi"
       call GnuplotPlotContour(this, gp_value, mapname, abbrivation, step)
 
-        !!"Deviatoric strain"
+        ! !"Deviatoric strain"
       do i = 1, size(strain_measure, 1)
          do j = 1, size(strain_measure, 2)
             tr_C = strain_measure(i, j, 4) + strain_measure(i, j, 5) + 1.0d0
@@ -8003,11 +8003,11 @@ contains
 
       if (obj1%name == "NoName") then
          obj1%name = random%name()
-         print *, "Caution !!! object #1 is not named. New name is "//obj1%name
+         print *, "Caution !  object #1 is not named. New name is "//obj1%name
       end if
       if (obj2%name == "NoName") then
          obj2%name = random%name()
-         print *, "Caution !!! object #2 is not named. New name is "//obj2%name
+         print *, "Caution !  object #2 is not named. New name is "//obj2%name
       end if
 
       ! create Node-To-Node contact elements
@@ -9524,7 +9524,7 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
             shapefunc%ElemType = this%Mesh%GetElemType()
             call SetShapeFuncType(shapefunc)
 
-                                !!call GetAllShapeFunc(shapefunc,elem_id=1,nod_coord=this%Mesh%NodCoord,&
+                                ! !call GetAllShapeFunc(shapefunc,elem_id=1,nod_coord=this%Mesh%NodCoord,&
             !elem_nod=this%Mesh%ElemNod,OptionalGpID=1)
 
             ! for mpi acceralation
@@ -9699,7 +9699,7 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
             shapefunc%ElemType = domain%Mesh%GetElemType()
             call SetShapeFuncType(shapefunc)
 
-                                !!call GetAllShapeFunc(shapefunc,elem_id=1,nod_coord=domain%Mesh%NodCoord,&
+                                ! !call GetAllShapeFunc(shapefunc,elem_id=1,nod_coord=domain%Mesh%NodCoord,&
             !elem_nod=domain%Mesh%ElemNod,OptionalGpID=1)
 
             ! for mpi acceralation
@@ -11306,7 +11306,7 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
       !$OMP private(eDiffMat,LocElemID_1,LocElemID_2,nodeid_1,nodeid_2,col_id,i,&
       !$OMP pid_1,pid_2,loc_pid_1,loc_pid_2,DOF_1,DOF_2)&
       !$OMP  shared(val) 
-      !!$OMP  reduction(+:val) 
+      ! !$OMP  reduction(+:val) 
       do ElementID = 1, this%ne()
          eDiffMat = this%StiffnessMatrix( &
                     ElementID=ElementID, &
@@ -14038,7 +14038,7 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
          return
       else
          ! fix reversed elements
-                !!$OMP parallel do default(shared) private(elemnod,volume)
+                ! !$OMP parallel do default(shared) private(elemnod,volume)
          do i = 1, this%mesh%ne()
             volume = this%getVolume(elem=i)
             if (volume < 0.0d0) then
@@ -14075,7 +14075,7 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
                end if
             end if
          end do
-                !!OMP end parallel do
+                ! !OMP end parallel do
       end if
    end subroutine
 
@@ -14719,7 +14719,7 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
             this%OversetConnect(this%num_oversetconnect)%active = .true.
 
             !A_ij = penalty*femdomain%ConnectMatrix(position,DOF=femdomain%nd() )
-                        !! assemble them
+                        ! ! assemble them
             !call this%solver%assemble(&
             !        connectivity=InterConnect,&
             !        DOF=femdomain%nd() ,&
@@ -15636,7 +15636,7 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
 
 !## physical operator
 
-!! ####################################################
+! ! ####################################################
 !subroutine grubFEMDomain(this,x_min,x_max,y_min,y_max,z_min,z_max)
 !        class(FEMDomain_),intent(in) :: this
 !        real(real64),optional,intent(in) :: x_min,x_max,y_min,y_max,z_min,z_max
@@ -15649,10 +15649,10 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
 !        endif
 !
 !end subroutine
-!! ####################################################
+! ! ####################################################
 !
 !
-!! ####################################################
+! ! ####################################################
 !subroutine fixFEMDomain(this)
 !        class(FEMDomain_),intent(in) :: this
 !
@@ -15661,10 +15661,10 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
 !        endif
 !
 !end subroutine
-!! ####################################################
+! ! ####################################################
 !
 !
-!! ####################################################
+! ! ####################################################
 !subroutine releaseFEMDomain(this)
 !        class(FEMDomain_),intent(in) :: this
 !
@@ -15673,7 +15673,7 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
 !        endif
 !
 !end subroutine
-!! ####################################################
+! ! ####################################################
    subroutine ImportSTLFileFEMDomain(this, name)
       class(FEMDomain_), intent(inout) :: this
       character(*), intent(in) :: name
@@ -17654,7 +17654,7 @@ subroutine fitSegmentToSegmentFEMDomain(this,target_domain,this_segment_list,dom
    this_facet_centers = zeros( size(this_segment_list), this%nd() )
    do i = 1, size(this_segment_list)
       do j=1,size(target_domain%mesh%FacetElemNod,2)
-         idx = target_domain%mesh%FacetElemNod(domain_segment_list(i),j) !!! 20240915 changed from this_segment
+         idx = target_domain%mesh%FacetElemNod(domain_segment_list(i),j) !  20240915 changed from this_segment
          this_facet_centers(i,:) = this_facet_centers(i,:) + target_domain%mesh%nodcoord(idx,:)
       enddo
       this_facet_centers(i,:) = this_facet_centers(i,:)/dble(size(target_domain%mesh%FacetElemNod,2))
@@ -17830,7 +17830,7 @@ end function
 ! #############################################################
 
 
-!! #############################################################
+! ! #############################################################
 !function getSubDomainFEMDomain(this,range) result(ret)
 !   class(FEMDomain_),target,intent(in) :: this
 !   type(Range_),intent(in) :: range
@@ -17839,7 +17839,7 @@ end function
 !
 !
 !end function
-!! #############################################################
+! ! #############################################################
 
 !function computeNormalVecFromFacet(FEMDomain,Facet) result(ret)
 !   type(FEMDomain_),intent(in) :: FEMDomain
