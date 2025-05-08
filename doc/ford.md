@@ -1,6 +1,6 @@
 src_dir: ../src  
-output_dir: ./doc/ford
+output_dir: ./ford
 project: plantFEM
-summary: Document for plantFEM
-author: kazulagi
+summary: Documentation for plantFEM
+author: kazulagi (https://github.com/kazulagi/plantFEM)
 license: mit
