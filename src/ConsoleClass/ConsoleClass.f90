@@ -1,11 +1,14 @@
 module ConsoleClass
+   !! This module defines a class of console, which is inspired by the console of Javascript.
    use MathClass
    implicit none
 
    integer(int32), parameter ::PF_CONSOLE_ARG_LEN = 200
    type :: Console_
+      !! It is inspired by the console of Javascript.
       character(:), allocatable :: line
    contains
+      !> Similar to console.log() in Javascript.
       procedure, public :: log => logConsole
       procedure, public :: write => logConsole
       procedure, public :: writeLine => logConsole

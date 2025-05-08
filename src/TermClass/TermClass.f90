@@ -2,7 +2,11 @@ module TermClass
    use, intrinsic :: iso_fortran_env
    implicit none
 
+   
    type :: Term_
+      !! It defines some terms frequently used in the library.
+      !! It is scheduled to be discontinued.
+
       ! post-processors
 
       character*4 :: gmsh = "Gmsh"

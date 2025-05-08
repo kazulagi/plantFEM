@@ -1,57 +1,120 @@
 module RandomClass
+   !! It gives Pseudorandom numbers and random operations/functions.
+
    use, intrinsic :: iso_fortran_env
    use MathClass
    implicit none
 
+   !> A class for random number
    type::Random_
+      
       integer(int32) :: random_int
+      !! it will be deplicated.
+
       integer(int32), allocatable  :: random_int_seed(:)
+      !! It is a seed number
+
       integer(int32), allocatable :: random_int_vec(:)
+      !! it will be deplicated.
       real(real64) :: random_real
+      !! it will be deplicated.
       real(real64), allocatable :: random_real_vec(:)
+      !! it will be deplicated.
    contains
+      !> It initializes the random number by a seed.
       procedure :: init => initRandom
+
+      !> Returns random number in [0,1) 
       procedure :: random => getRandom
+      
+      !> Returns integer random number
       procedure :: randint => getRandomInt
+      
+      !> Returns random name
       procedure :: name => nameRandom
+
+      !> Random choice
       procedure :: choiceInt => choiceRandomInt
+
+      !> Random choice
       procedure :: choiceReal => choiceRandomReal
+
+      !> Random choice, and the number of the set will be (-1)
       procedure :: drawOne => drawOneRandomInt
+
+      !>  Random choice, and the number of the set will be (-n)
       procedure :: draw => drawRandomInt
+
+      !> Random rearrange of a integer array.
       procedure :: shuffle => shuffleRandomInt
+
+      !> Generate uniform distribution
       procedure :: uniform => uniformRandom
+
+      !> Generate Gaussian distribution
       procedure, pass :: gauss_scalar_Random
+      !> Generate Gaussian distribution
       procedure, pass :: gauss_vector_Random
+      !> Generate Gaussian distribution
       procedure, pass :: gauss_tensor_Random
+      
+      !> Generate Gaussian distribution
       generic :: gauss => gauss_scalar_Random, gauss_vector_Random,gauss_tensor_Random
+
+      !> Generate Chi-Squared distribution
       procedure :: ChiSquared => ChiSquaredRandom
-      procedure :: Chauchy => ChauchyRandom
+      
+      !> Generate Cauchy distribution
+      procedure :: Cauchy => CauchyRandom
+
+      !> Generate Lognormal distribution
       procedure :: Lognormal => LognormalRandom
+
+      !> Generate InverseGaussian distribution
       procedure :: InverseGauss => InverseGaussRandom
+
+      !> save random number
       procedure :: save => saveRandom
+
+      !> Generate While-Gaussian signal
       procedure :: white => whiteRandom
 
+      !> Generate a vector of uniform random number.
       procedure, pass :: randnRandomVector
+      !> Generate a array of uniform random number.
       procedure, pass :: randnRandomArray
+
+      !> Generate a vector/array of uniform random number.
       generic :: randn => randnRandomArray, randnRandomvector
 
+      !> Generate a vector of uniform random number.
       procedure :: fill => fillRandom
+
+      !> Generate a histogram of a vector
       procedure :: histogram => histogramRandom
+
+      !> Generate a random scalar of uniform distribution [0,1)
       procedure :: scalar => scalarRandom
+      !> Generate a random vector of uniform distribution [0,1)
       procedure :: vector => vectorRandom
+      !> Generate a random matrix of uniform distribution [0,1)
       procedure :: matrix => matrixRandom
+      !> Generate a random cube (3rd order tensor) of uniform distribution [0,1)
       procedure :: cube => cubeRandom
-      !procedure :: choiceString => choiceRandomString
+      
    end type
 
+   !> Generate a uniformly distributed random integers
    interface randi
       module procedure :: randi_range_rank2, randi_imax, randi_imax_n
    end interface
 
+   !> Generate a uniformly distributed random integers
    interface rand
       module procedure :: rand_n, rand_sz2, rand_sz3
    end interface
 
+   !> Compute expectation value
    interface EV
       module procedure :: ExpectationValue_r64_i32_i32
    end interface
@@ -382,7 +445,7 @@ contains
 !##########################################
 
 !##########################################
-   function ChauchyRandom(obj, mu, gamma) result(ret)
+   function CauchyRandom(obj, mu, gamma) result(ret)
       class(Random_), intent(inout) :: obj
       real(real64), intent(in) :: mu, gamma
       real(real64) :: ret, z, w

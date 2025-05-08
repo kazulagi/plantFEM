@@ -1,23 +1,35 @@
 module BitClass
+   !! This module defines bit-wise operations.
+   
    use iso_fortran_env
    implicit none
 
+   !> This is a derived type for a bit array.
    type :: Bit_
       logical, allocatable :: bitArray(:)
    contains
+      
       procedure, public :: init => initBit
+      !! It is a constructor of a bit array
+
       procedure, public :: int => intBit
+      !! It converts bit array into a int value.
+
       procedure, public :: not => notBit
+      !! It converts NOT operation for all bits in a bit array.
    end type
 
+   !> logical NOT operation 
    interface not
       procedure notBitfunc
    end interface
 
+   !> Bit reverse 
    interface reverse
       procedure reverseBitfunc
    end interface
 
+   !> assignment 
    interface assignment(=)
       module procedure assignIntBit
    end interface

@@ -4,41 +4,55 @@ module StringClass
 
    integer(int32), parameter :: ascii = selected_char_kind('ASCII')
 
+   !> Derived type for string object.
    type :: string_
       character(len=:), allocatable :: all
 
    contains
       procedure, public :: char => charString
+      !! It returns the string to array of character.
+
       procedure, public :: str => charString
+      !! It initializes the string by an array of character.
 
       procedure, public :: print => printString
+      !! It shows the string in the terminal.
+
       procedure, public :: lower => lowerString
+      !! It converts the CAPITAL to the lowercase
       procedure, public :: upper => upperString
+      !! It converts the lowercase to the CAPITAL
    end type
 
    public :: operator(+)
    public :: assignment(=)
 
+   !> It replaces a character into another.
    interface replace
       module procedure replaceChar
    end interface
 
+   !> It merges two strings.
    interface operator(+)
       module procedure addstring, addstringchar, addcharstring
    end interface
 
+   !> It assigns a string.
    interface assignment(=)
       module procedure assignstring
    end interface
 
+   !> It shows the string in the terminal.
    interface print
       module procedure printString, printStringVec, printStringArray
    end interface
 
+   !> It marges two arrays of characters to a string.
    interface operator(+)
       module procedure addCharChar
    end interface
 
+   !> It detects whether a array of character is contained in the string or not.
    interface operator(.in.)
       module procedure in_detect_char
    end interface

@@ -6,7 +6,7 @@ home/
 *.dSYM*
 .DS_Store
 doc/ford
-doc/ford/
+doc/doc/ford/
 ./Desktop/
 addon/github/
 ./*.out.*

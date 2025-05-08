@@ -1,4 +1,7 @@
 module MathClass
+   !! This module defines numerious basic mathematical operations, mainly for scalar and vector computation.
+   !! It also contains some converter among string, characters and othe datatypes.
+
    use, intrinsic :: iso_fortran_env
    !use OouraFFT
    use StringClass
@@ -13,152 +16,187 @@ module MathClass
    !integer(int32) :: i_i = 0
 
    type :: Math_
-      !real(real64) :: PI = 3.14159265358979323846d0
       real(real64) :: PI = 3.14159265358979323846d0
+      !! For saving the computation time, this uses a fixed value for PI.
       real(real64) :: E = 2.718281828459045d0
+      !! For saving the computation time, this uses a fixed value for e.
       complex(kind(0d0))         :: i = (0.0d0, 1.0d0)
       complex(kind(0d0))         :: j = (0.0d0, 1.0d0)
+      !! It is a unit imaginary value.
    end type
 
+   !> A real64-type pointer.
    type :: Real64Ptr_
       real(real64), pointer :: ptr
    end type Real64Ptr_
 
    integer(int32), parameter :: complex64 = real64
-   !real(real64) :: pi=3.141592653589793238d0
-   !
+   
+   !> It computes nCr (combination number)
    interface nchoosek
       module procedure comb
    end interface
 
+   !> It computes nCr (combination number)
    interface choose
       module procedure comb
    end interface
 
+   !> It computes factorial.
    interface fact
       module procedure factorialInt32, factorialReal64
    end interface
 
+   !> It takes a imaginary part of a complex number.
    interface imag
       module procedure imaginary_partComplex64, imaginary_partComplex32
    end interface
 
+   !> It takes a arg() of a complex number.
    interface arg
       module procedure arg_complex64, arg_complex64_vector, arg_complex64_tensor
    end interface
 
+   !> It computes L^2 norm of a tensor.
    interface norm
       module procedure norm_mat, norm_vec, norm_vec_real32, norm_vec_complex64
    end interface
 
+   !> It computes determinant of a regular matrix.
    interface det_mat
       module procedure det_mat_real64, det_mat_complex64
    end interface
 
+   !> It converts an array of character into a integer
    interface int
       module procedure fint
    end interface int
 
+   !> It converts an array of character into a float (real32)
    interface float
       module procedure freal
    end interface float
 
+   !> It returns the trace of a matrix.
    interface trace
       module procedure trace_complex64, trace_real64
    end interface
 
+   !> It returns factorial.
    interface factorial
       module procedure factorialInt32, factorialReal64
    end interface factorial
 
+   !> It returns Bessel function of 0th kind by complex number.
    interface Bessel_J0
       module procedure Bessel_J0_complex
    end interface
 
+   !> It returns Bessel function of 1st kind by complex number.
    interface Bessel_J1
       module procedure Bessel_J1_complex
    end interface
 
+   !> It sorts integer vector
    interface sort
       module procedure :: sort_int32
    end interface sort
 
+   !> It sorts integer vector by heap sort.
    interface heapsort
       module procedure :: heapsortInt32, heapsortInt32Int32,heapsortReal64Int32,&
              heapsortReal64, heapsortReal32,&
             heapsort_int32_array,heapsort_real64_array
    end interface
 
+   !> It sorts integer vector and removes duplication.
    interface sort_and_remove_duplication
       module procedure  :: sort_and_remove_duplication_int32, sort_and_remove_duplication_real64
    end interface
 
+   !> It converts valiables into a string.
    interface str
       module procedure fstring_Int, fstring_Int64, fstring_Real, fstring_Real32, &
          fstring_complex, fstring_Int_len, fstring_Real_len, fstring_logical, fstring_String, stringFromChar
    end interface str
 
+   !> It converts valiables into a string.
    interface fstring
       module procedure fstring_Int, fstring_Int64, fstring_Real, fstring_Int_len, fstring_Real_len, fstring_logical
    end interface fstring
 
+   !> It converts logical array into int.
    interface int
       module procedure int_from_logical, int_from_logical_vector
    end interface int
 
+   !> It returns a value from defalut value when no optional value is given, and returns the optional value only if it is given.
    interface input
       module procedure input_Int, input_Real, input_Real32, input_Complex, input_IntVec, &
          input_RealVec, input_IntArray, input_RealArray, input_String, input_logical
    end interface input
 
+   !> It returns zero if some value is positive/negative.
    interface zeroif
       module procedure zeroif_Int, zeroif_Real
    end interface zeroif
 
+   !> It removes a character from string.
    interface removeWord
       module procedure removeWord_String
    end interface
 
+   !> It computes tensor product.
    interface tensor_product
       module procedure :: tensor_product_complex, tensor_product_real64
    end interface
 
+   !> It converts deg. to rad.
    interface radian
       module procedure radianreal32, radianreal64, radianreal64Vec, radianint
    end interface
 
+   !> It allocates array.
    interface array
       module procedure arrayDim1Real64, arrayDim2Real64, arrayDim3Real64
    end interface
 
+   !> It returns the Ricker's function.
    interface RickerFunction
       module procedure RickerFunctionReal64, RickerFunctionReal64Vector
    end interface
 
+   !> It gives a numerical derivative.
    interface derivative
       module procedure derivative_scalar, derivative_vector
    end interface
 
+   !> It gives a numerical derivative.
    interface der
       module procedure derivative_scalar, derivative_vector
    end interface
 
+   !> It gives a numerical derivative.
    interface d_dx
       module procedure derivative_scalar, derivative_vector
    end interface
 
+   !> It computes the fact Fourier transformation.
    interface FFT
       module procedure FFT1D, FFT2D_real, FFT2D_comp, FFT_file_to_file
    end interface
-
+   
+   !> It computes the power spectral density function from datafile.
    interface PSD
       module procedure PSD_file_to_file
    end interface
 
+   !> It performs spectral whitening.
    interface SpectralWhitening
       module procedure SpectralWhitening_real64
    end interface
 
+   !> It computes matrix exponential by the Taylor expansion.
    interface exp
       module procedure matrix_exponential_real64
    end interface
