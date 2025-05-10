@@ -4,7 +4,7 @@ use RandomClass
 use MPIClass
 implicit none
 
-integer(int32),parameter :: n=1000000
+integer(int32),parameter :: n=100
 
 logical,parameter :: CRS=.false.
 

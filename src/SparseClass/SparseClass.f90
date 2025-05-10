@@ -1271,6 +1271,7 @@ contains
       BCRS_ret = BCRS1
       do i = 1, size(BCRS_ret%CRS,1)
          do j = 1, size(BCRS_ret%CRS,1)
+            if(.not.allocated(BCRS_ret%CRS(i,j)%val)) cycle
             BCRS_ret%CRS(i,j) = scalar64*BCRS_ret%CRS(i,j)
          enddo
       end do
@@ -1289,6 +1290,7 @@ contains
       BCRS_ret = BCRS1
       do i = 1, size(BCRS_ret%CRS,1)
          do j = 1, size(BCRS_ret%CRS,1)
+            if(.not.allocated(BCRS_ret%CRS(i,j)%val)) cycle
             BCRS_ret%CRS(i,j) = scalar64*BCRS_ret%CRS(i,j)
          enddo
       end do
@@ -5136,7 +5138,7 @@ end function
 
 
 ! ###################################################
-function expBCRS(this,vec,max_itr) result(b)
+function expBCRS(this,vec,max_itr,fix_idx) result(b)
    ! tensor exponential 
 
    ! exp(x) = \sum_{0}^{\infty} \cfrac{1}{n!}x^{n}
@@ -5147,7 +5149,7 @@ function expBCRS(this,vec,max_itr) result(b)
    ! b_{k+1} = b_{k} + a_{k+1}
    class(BCRS_),intent(in) :: this
    real(real64),intent(in) :: vec(:)
-   integer(int32),optional,intent(in) :: max_itr
+   integer(int32),optional,intent(in) :: max_itr,fix_idx(:)
    integer(int32) :: k,n,itr_max,this_shape(1:2)
    real(real64)   :: tol
    real(real64),allocatable :: a(:),b(:)
@@ -5157,7 +5159,14 @@ function expBCRS(this,vec,max_itr) result(b)
    b = vec(:)
 
    do k=1,itr_max
+      
       a = 1.0d0/dble(k)*this%matmul(a)
+      if(present(fix_idx))then
+         if(size(fix_idx)>=1)then
+            a(fix_idx(:))=0.0d0
+            b(fix_idx(:))=0.0d0
+         endif
+      endif
       b = b + a
    enddo
 
