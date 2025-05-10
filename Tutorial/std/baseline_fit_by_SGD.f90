@@ -16,7 +16,7 @@ program main
     ! create training data
     true_answer = [0.5d0,100.0d0,0.10d0, 1.0d0, 200.0d0, -0.20d0]
     call f%open("step_response.txt","w")
-    num_data = 50000
+    num_data = 500
     sampling_rate = 100 !Hz
 
     do i=1,num_data
@@ -48,7 +48,7 @@ program main
     coeff = coeff // [0.10d0,  700.0d0,  0.0d0]
 
     ! fitting by Robbin-Monro algorithm (SGD)
-    do i_i=1,10000
+    do i_i=1,100
         
         fit_coeff = fit(f=offset_function,training_data=training_data, params=coeff ,&
             eta=0.00001d0,max_itr=30, error=err,use_ratio=0.0000030d0,logfile="SGD.log")
