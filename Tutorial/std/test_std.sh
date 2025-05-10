@@ -350,3 +350,7 @@ rm FDD_FDD_mode_*
 rm analystclass_*
 rm *.FFT
 rm *.html
+rm *.vtk
+rm *.bin
+rm *.mod
+rm fort.*
