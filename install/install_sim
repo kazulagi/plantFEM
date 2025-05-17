@@ -49,6 +49,12 @@ echo " | =>                          | (4%)\r\c"
 mpif90 -Ofast -fopenmp -Ofast -march=native -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ElastoPlasticityClass/ElastoPlasticityClass.f90 -o  ./inc/ElastoPlasticityClass.o -llapack -lblas
 
 
+echo "Compiling ./src/DynamicElastoPlasticityClass/DynamicElastoPlasticityClass.f90 " 
+echo " >> DynamicElastoPlasticityClass.o "
+echo " | =>                          | (4%)\r\c"
+mpif90 -Ofast -fopenmp -Ofast -march=native -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/DynamicElastoPlasticityClass/DynamicElastoPlasticityClass.f90 -o  ./inc/DynamicElastoPlasticityClass.o -llapack -lblas
+
+
 echo "Compiling ./src/ModalAnalysisClass/ModalAnalysisClass.f90" 
 echo " >> ModalAnalysisClass.o "
 echo " | ===============>            | (70%)\r\c"

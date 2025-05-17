@@ -6,6 +6,7 @@ module sim
    use LoggerClass
    use ModalAnalysisClass
    use ElastoPlasticityClass
+   use DynamicElastoPlasticityClass
    use ReactorClass
    use SeepageFlowClass
    use DiffusionEquationClass

@@ -347,6 +347,12 @@ echo " >> ElastoPlasticityClass.o "
 echo " | =>                          | (4%)\r\c"
 mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ElastoPlasticityClass/ElastoPlasticityClass.f90 -o  ./inc/ElastoPlasticityClass.o -llapack -lblas
 
+echo "Compiling ./src/DynamicElastoPlasticityClass/DynamicElastoPlasticityClass.f90 " 
+echo " >> DynamicElastoPlasticityClass.o "
+echo " | =>                          | (4%)\r\c"
+mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/DynamicElastoPlasticityClass/DynamicElastoPlasticityClass.f90 -o  ./inc/DynamicElastoPlasticityClass.o -llapack -lblas
+
+
 echo "Compiling ./src/ReactorClass/ReactorClass.f90" 
 echo " >> ReactorClass.o "
 echo " | ===============>            | (70%)\r\c"

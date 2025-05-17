@@ -173,7 +173,8 @@ module ArrayClass
 
    interface zeros
       module procedure :: zerosRealArray, zerosRealVector, zerosRealArray3, zerosRealArray4, zerosRealArray5, &
-         zerosRealArray_64, zerosRealVector_64, zerosRealArray3_64, zerosRealArray4_64, zerosRealArray5_64
+         zerosRealArray_64, zerosRealVector_64, zerosRealArray3_64, zerosRealArray4_64, zerosRealArray5_64,&
+         zerosComplex64Array, zerosComplex64Vector
    end interface
 
    interface ones
@@ -4893,6 +4894,16 @@ contains
    end function zerosRealVector
 
 ! ############################################################
+   pure function zerosComplex64Vector(size1) result(vector)
+      integer(int32), intent(in) :: size1
+      Complex(real64), allocatable :: vector(:)
+
+      allocate (vector(size1))
+      vector(:) = 0.0d0
+
+   end function zerosComplex64Vector
+
+! ############################################################
 
    pure function onesRealVector(size1) result(vector)
       integer(int32), intent(in) :: size1
@@ -4914,6 +4925,19 @@ contains
    end function
 
 ! ############################################################
+
+   ! ############################################################
+   pure function zerosComplex64Array(size1, size2) result(array)
+      integer(int32), intent(in) :: size1, size2
+      complex(real64), allocatable :: array(:, :)
+
+      allocate (array(size1, size2))
+      array(:, :) = 0.0d0
+
+   end function
+
+! ############################################################
+   
 ! ############################################################
    pure function onesRealArray(size1, size2) result(array)
       integer(int32), intent(in) :: size1, size2

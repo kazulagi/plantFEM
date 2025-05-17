@@ -112,6 +112,8 @@ module SparseClass
       procedure, public :: eyes => eyesCOO
       procedure, public :: poisson => poissonCOO
 
+      
+
       !procedure,public ::getAllCol_as_row_obj => getAllCol_as_row_objCOO
    end type
 
@@ -164,8 +166,11 @@ module SparseClass
       procedure, public :: update => updateCRS
       procedure, public :: add => addCRS
 
-      ! 対象行列とみなし，埋まっていない要素をすべて埋める．
+      !! 対象行列とみなし，埋まっていない要素をすべて埋める．
       procedure, public :: fillSymmetric => fillSymmetric_CRS
+
+      !! fill zero for row 
+      procedure, public :: fill_zero_row => fill_zero_rowCRS
 
       procedure, public :: get => getCRS
       procedure, public :: is_nonzero => is_nonzeroCRS
@@ -270,6 +275,8 @@ module SparseClass
       procedure,public :: matmul    => matmulBCRS
       procedure,public :: to_dense  => to_dense_BCRS
       procedure,public :: exp       => expBCRS
+      ! fix value
+      procedure,public :: fill_zero_row       => fill_zero_rowBCRS
    end type 
 
    public :: operator(+)
@@ -3133,12 +3140,16 @@ end subroutine
    end subroutine
 ! #####################################################
 
+
 ! #####################################################
    subroutine fix_zeroCRS(this, idx)
+   !! fix zero for requested rows
       class(CRS_), intent(inout) :: this
       integer(int32), intent(in) :: idx(:)
 
       integer(int64) :: i, j, k, id
+
+      
       do i = 1, size(idx)
          id = idx(i)
          do j = 1, size(this%row_ptr) - 1
@@ -3176,6 +3187,29 @@ end subroutine
 
    end subroutine
 ! #####################################################
+
+
+
+! #####################################################
+   subroutine fill_zero_rowCRS(this, row)
+   !! fix zero for requested rows
+      class(CRS_), intent(inout) :: this
+      integer(int32), intent(in) :: row(:)
+
+      integer(int64) :: i, j, k, id
+
+      
+      do j = 1, size(row)
+         id = row(j)
+         do i = this%row_ptr(id), this%row_ptr(id + 1) - 1
+            this%val(i) = 0.0d0
+         end do
+      end do
+
+
+   end subroutine
+! #####################################################
+
 
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> complex >>>>>>>>>>>>>>>>>>>>>>>
 
@@ -5005,8 +5039,8 @@ end subroutine
                non_zero_counter = non_zero_counter + 1
                non_zero_idx(non_zero_counter,1) = i ! row of block
                non_zero_idx(non_zero_counter,2) = j ! column of block
-               non_zero_idx(non_zero_counter,3:4) = this%row_range(i,j) ! global row idx
-               non_zero_idx(non_zero_counter,5:6) = this%col_range(i,j) ! global column idx
+               non_zero_idx(non_zero_counter,3:4) = this%row_range(i) ! global row idx
+               non_zero_idx(non_zero_counter,5:6) = this%col_range(j) ! global column idx
             endif
          enddo
       enddo
@@ -5028,9 +5062,9 @@ end subroutine
 
 
 ! ###################################################
-   function row_range_BCRS(this,box_row,box_col) result(ret)
+   function row_range_BCRS(this,box_row) result(ret)
       class(BCRS_),intent(in) :: this
-      integer(int32),intent(in) :: box_row,box_col
+      integer(int32),intent(in) :: box_row
       integer(int32) :: ret(1:2),this_shape(1:2)
       integer(int32),allocatable :: row_len(:)
       integer(int32) :: i,j
@@ -5060,9 +5094,9 @@ end subroutine
 
 
 ! ###################################################
-   function col_range_BCRS(this,box_row,box_col) result(ret)
+   function col_range_BCRS(this,box_col) result(ret)
       class(BCRS_),intent(in) :: this
-      integer(int32),intent(in) :: box_row,box_col
+      integer(int32),intent(in) :: box_col
       integer(int32) :: ret(1:2),this_shape(1:2)
       integer(int32),allocatable :: col_len(:)
       integer(int32) :: i,j
@@ -5101,8 +5135,8 @@ function shapeBCRS(this) result(ret)
    class(BCRS_),intent(in) :: this
    integer(int32) :: ret(1:2)
 
-   ret(1) = maxval(this%row_range(size(this%CRS,1),size(this%CRS,2)))
-   ret(2) = maxval(this%col_range(size(this%CRS,1),size(this%CRS,2)))
+   ret(1) = maxval(this%row_range(size(this%CRS,1)))
+   ret(2) = maxval(this%col_range(size(this%CRS,2)))
 
 end function
 ! ###################################################
@@ -5120,10 +5154,10 @@ function to_dense_BCRS(this) result(ret)
    do bcrs_row=1,size(this%crs,1)
       do bcrs_col=1,size(this%crs,2)
          if(.not.allocated(this%crs(bcrs_row,bcrs_col))) cycle
-         row_1 = 1 .of. this%row_range(bcrs_row,bcrs_col)
-         row_2 = 1 .of. this%row_range(bcrs_row,bcrs_col) + (1 .of. this%crs(bcrs_row,bcrs_col)%shape()) -1
-         col_1 = 1 .of. this%col_range(bcrs_row,bcrs_col)
-         col_2 = 1 .of. this%col_range(bcrs_row,bcrs_col) + (2 .of. this%crs(bcrs_row,bcrs_col)%shape()) -1 
+         row_1 = 1 .of. this%row_range(bcrs_row)
+         row_2 = 1 .of. this%row_range(bcrs_row) + (1 .of. this%crs(bcrs_row,bcrs_col)%shape()) -1
+         col_1 = 1 .of. this%col_range(bcrs_col)
+         col_2 = 1 .of. this%col_range(bcrs_col) + (2 .of. this%crs(bcrs_row,bcrs_col)%shape()) -1 
 
          
 
@@ -5138,7 +5172,7 @@ end function
 
 
 ! ###################################################
-function expBCRS(this,vec,max_itr,fix_idx) result(b)
+function expBCRS(this,vec,max_itr,fix_idx,fix_value) result(b)
    ! tensor exponential 
 
    ! exp(x) = \sum_{0}^{\infty} \cfrac{1}{n!}x^{n}
@@ -5150,6 +5184,8 @@ function expBCRS(this,vec,max_itr,fix_idx) result(b)
    class(BCRS_),intent(in) :: this
    real(real64),intent(in) :: vec(:)
    integer(int32),optional,intent(in) :: max_itr,fix_idx(:)
+   real(real64),optional,intent(in) :: fix_value(:)
+
    integer(int32) :: k,n,itr_max,this_shape(1:2)
    real(real64)   :: tol
    real(real64),allocatable :: a(:),b(:)
@@ -5158,19 +5194,70 @@ function expBCRS(this,vec,max_itr,fix_idx) result(b)
    a = vec(:)
    b = vec(:)
 
+
+   !if(present(fix_idx))then
+   !   if(present(fix_value))then
+   !      if(size(fix_idx)>=1)then
+   !         a(fix_idx(:)) = fix_value(:)
+   !         b(fix_idx(:)) = fix_value(:)
+   !      endif
+   !   else
+   !      if(size(fix_idx)>=1)then
+   !         a(fix_idx(:)) = 0.0d0
+   !         b(fix_idx(:)) = 0.0d0
+   !      endif
+   !   endif
+   !endif
+
    do k=1,itr_max
       
+
       a = 1.0d0/dble(k)*this%matmul(a)
+      
+
       if(present(fix_idx))then
-         if(size(fix_idx)>=1)then
-            a(fix_idx(:))=0.0d0
-            b(fix_idx(:))=0.0d0
+         if(present(fix_value))then
+            if(size(fix_idx)>=1)then
+               a(fix_idx(:)) = 0.0d0
+               b(fix_idx(:)) = 0.0d0
+            endif
+         else
+            if(size(fix_idx)>=1)then
+               a(fix_idx(:)) = 0.0d0
+               b(fix_idx(:)) = 0.0d0
+            endif
          endif
       endif
+      
       b = b + a
    enddo
 
 end function
 ! ###################################################
+
+subroutine fill_zero_rowBCRS(this,row)
+   class(BCRS_),intent(inout) :: this
+   integer(int32),intent(in) :: row(:)
+   integer(int32) :: block_idx, offset_idx,r_idx,i,j
+
+   !> zero-padding for a row idx
+   do r_idx = 1, size(row,1)
+      ! search local idx
+      do i=1, size(this%crs,1)
+         if( (1 .of. this%row_range(i)) <= row(r_idx) .and. &
+            row(r_idx) <= (2 .of. this%row_range(i)))then
+               ! found!
+               offset_idx = (1 .of. this%row_range(i)) - 1
+               
+               do j=1,size(this%crs,2)
+                  if(allocated(this%crs(i,j)) )then
+                     call this%crs(i,j)%fill_zero_row(row=[row(r_idx) - offset_idx])
+                  endif
+               enddo
+         endif
+      enddo
+   enddo
+
+end subroutine
 
 end module SparseClass
