@@ -2309,13 +2309,23 @@ function to_EP_Model_ElastoPlastClass(ElasticPotential,YieldFunction,PlasticPote
 ! [(potential function),(Stress Ratio)] -> (element-wise Coefficient Matrix)
 !--------------------------------------------------------
 
-function StiffnessMatrix_EP_model(EP_Model,ElasticParams,PlasticParams,ElasticStrain,nDim) result(ret)
+function StiffnessMatrix_EP_model(EP_Model,CauchyStress,ElasticParams,PlasticParams,ElasticStrain,nDim,&
+   force_elastic) result(ret)
    class(EP_Model_),intent(in) :: EP_Model
-   real(real64),intent(in) :: ElasticParams(:), PlasticParams(:),ElasticStrain(:,:)
-   real(real64),allocatable :: ret(:,:),stiffness_tensor(:,:,:,:)
+   real(real64),intent(in) :: ElasticParams(:), PlasticParams(:),ElasticStrain(:,:),CauchyStress(:,:)
+   logical,optional,intent(in) :: force_elastic
+   real(real64),allocatable :: ret(:,:),stiffness_tensor(:,:,:,:),stiffness_tensor_p(:,:,:,:)&
+      ,dfdsigma(:,:),dpsidsigma(:,:)
+   complex(real64),allocatable :: PlasticStrain(:,:)
+
+   real(real64) :: eta
    integer(int32),intent(in) :: nDim
    integer(int32),allocatable :: stress_matrix_order(:,:)
-   integer(int32) :: i,j,k,l,idx,n,m
+   integer(int32) :: i,j,k,l,s,t,u,p,q,r,idx,n,m
+   logical :: elasto_plastic_mode 
+
+   elasto_plastic_mode = input(default=.true.,option=(.not. force_elastic))
+   
 
    if(nDim == 1 )then
       allocate(stress_matrix_order(1,2))
@@ -2346,7 +2356,64 @@ function StiffnessMatrix_EP_model(EP_Model,ElasticParams,PlasticParams,ElasticSt
    ! とりあえず，超弾性のみ実装
    ! C_{ijkl}
    stiffness_tensor = d2_depsilon2(EP_Model%ElasticPotential,ElasticStrain,ElasticParams)
+
+   ! 弾塑性判定とstiffness matrixの更新
+   ! (nd x nd) matrix
    
+
+   ! (nd x nd) matrix
+   ! まずはひずみ軟化/硬化は考慮せず．
+   ! 一旦無視
+   PlasticStrain = zeros(nDim,nDim)
+   
+   !> 除荷時にもこちらの判定に入ってしまう！
+   
+   if ( elasto_plastic_mode .and. &
+   (dble(EP_Model%YieldFunction(dcmplx(CauchyStress), PlasticStrain, PlasticParams )) >= 0.0d0))then
+      !print *, "plastic !"
+      !call print(dble(CauchyStress))
+      
+      ! EP matrix
+      dfdsigma   = dble(d_dsigma(EP_Model%YieldFunction,    dble(CauchyStress), dble(PlasticStrain), PlasticParams))
+      dpsidsigma = dble(d_dsigma(EP_Model%PlasticPotential, dble(CauchyStress), dble(PlasticStrain), PlasticParams))
+      stiffness_tensor_p = 0.0d0*stiffness_tensor
+      eta = 0.0d0
+
+      do p=1,nDim
+         do q=1,nDim
+            do t=1, nDim
+               do u=1, nDim
+                  eta = eta + dfdsigma(p,q)*stiffness_tensor(p,q,t,u)*dpsidsigma(t,u)
+               enddo
+            enddo
+         enddo
+      enddo
+      
+      do m=1,size(stress_matrix_order,1) ! 1-6
+         do n=1,size(stress_matrix_order,1) ! 1-2
+            i = stress_matrix_order(m,1)
+            j = stress_matrix_order(m,2)
+            k = stress_matrix_order(n,1)
+            l = stress_matrix_order(n,2)
+            do p=1,nDim ! 1-3
+               do q=1,nDim ! 1-3
+                  do t=1, nDim ! 1-3
+                     do u=1, nDim ! 1-3
+                        stiffness_tensor_p(i,j,k,l) = stiffness_tensor_p(i,j,k,l) &
+                           + stiffness_tensor(i,j,t,u)*dpsidsigma(t,u)*dfdsigma(p,q)*stiffness_tensor(p,q,k,l)
+                     enddo
+                  enddo
+               enddo
+            enddo
+         enddo
+      enddo
+      
+      !print *, "Elasto-Plastic !"
+      stiffness_tensor(:,:,:,:) = stiffness_tensor(:,:,:,:) - stiffness_tensor_p(:,:,:,:)/eta
+   else
+      !print *, "Elastic !"
+   endif
+
    ! ret
    ret = zeros(size(stress_matrix_order,1),size(stress_matrix_order,1))
    do m=1,size(stress_matrix_order,1)
@@ -2357,8 +2424,8 @@ function StiffnessMatrix_EP_model(EP_Model,ElasticParams,PlasticParams,ElasticSt
          l = stress_matrix_order(n,2)
          ret(m,n) = stiffness_tensor(i,j,k,l)
       enddo
-      
    enddo
+
 
 end function
 

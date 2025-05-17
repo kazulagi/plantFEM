@@ -16,13 +16,17 @@ call bcrs%set([1,2],b)
 call bcrs%set([2,2],d)
 call bcrs%set([3,3],e)
 
-print *, bcrs%row_range(3,3)
-print *, bcrs%col_range(3,3)
+print *, bcrs%row_range(box_row=3)
+print *, bcrs%col_range(box_col=3)
+
+call bcrs%fill_zero_row(row=[3])
 
 call bcrs%showShape()
 print *, bcrs%shape()
 
 print *, bcrs%matmul(ones(9))
+
+
 
 
 end
