@@ -2310,10 +2310,13 @@ function to_EP_Model_ElastoPlastClass(ElasticPotential,YieldFunction,PlasticPote
 !--------------------------------------------------------
 
 function StiffnessMatrix_EP_model(EP_Model,CauchyStress,ElasticParams,PlasticParams,ElasticStrain,nDim,&
-   force_elastic) result(ret)
+   force_elastic,yield_function_value) result(ret)
    class(EP_Model_),intent(in) :: EP_Model
    real(real64),intent(in) :: ElasticParams(:), PlasticParams(:),ElasticStrain(:,:),CauchyStress(:,:)
    logical,optional,intent(in) :: force_elastic
+   
+   real(real64),optional,intent(inout) :: yield_function_value
+
    real(real64),allocatable :: ret(:,:),stiffness_tensor(:,:,:,:),stiffness_tensor_p(:,:,:,:)&
       ,dfdsigma(:,:),dpsidsigma(:,:)
    complex(real64),allocatable :: PlasticStrain(:,:)
@@ -2366,8 +2369,10 @@ function StiffnessMatrix_EP_model(EP_Model,CauchyStress,ElasticParams,PlasticPar
    ! 一旦無視
    PlasticStrain = zeros(nDim,nDim)
    
-   !> 除荷時にもこちらの判定に入ってしまう！
-   
+   if(present(yield_function_value))then
+      yield_function_value = dble(EP_Model%YieldFunction(dcmplx(CauchyStress), PlasticStrain, PlasticParams ))
+   endif
+
    if ( elasto_plastic_mode .and. &
    (dble(EP_Model%YieldFunction(dcmplx(CauchyStress), PlasticStrain, PlasticParams )) >= 0.0d0))then
       !print *, "plastic !"
