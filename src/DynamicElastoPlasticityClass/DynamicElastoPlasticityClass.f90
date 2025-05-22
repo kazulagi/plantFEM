@@ -20,17 +20,22 @@ module DynamicEPClass
         real(real64),allocatable :: ElasticParams(:,:),YieldParams(:,:),PlasticParams(:,:)
         integer(int32),allocatable :: ElemEP_ModelIdx(:)
         real(real64),allocatable :: u(:,:)
-        real(real64),allocatable :: u_tr(:,:)
+        real(real64),allocatable :: u_n(:,:)
         real(real64),allocatable :: v(:,:)
+        real(real64),allocatable :: v_n(:,:)
         logical :: force_elastic = .false.
 
+        ! control parameters
         integer(int32) :: stress_ratio = 2 ! TRUESDELL_STRESS_RATIO
+        !real(real64) :: time_integration_factor = 0.50d0 ! time-integration factor (theta \in [0,1])
 
         ! >> for computation
         type(BCRS_) :: Upsilon
         real(real64),allocatable :: Psi(:) ! unknowns
+        real(real64),allocatable :: Psi_n(:) ! unknowns
         real(real64),allocatable :: Psi_tr(:) ! unknowns
         real(real64),allocatable :: ElasticStrain(:,:),PlasticStrain(:,:)
+        real(real64),allocatable :: yield_function_values_n(:,:)
 
 
     contains
@@ -46,7 +51,11 @@ module DynamicEPClass
 
         ! getter
         procedure,public :: getCauchyStress => getCauchyStress_SymEP
+        procedure,public :: get_yield_function_values => get_yield_function_values_DynamicEP
+        procedure,public :: get_yield_function_value => get_yield_function_value_DynamicEP
 
+        ! post-processing
+        procedure,public :: getStrainField => getStrainField_SymEP
     end type
 
     public :: assignment(=)
@@ -83,7 +92,6 @@ subroutine init_DynamicEP(this,femdomain,EP_Models,ElemEP_ModelIdx,&
     
     this%density = Density(:)
     this%u    = zeros(this%femdomain%nn(),this%femdomain%nd())
-    this%u_tr = zeros(this%femdomain%nn(),this%femdomain%nd())
     this%v    = zeros(this%femdomain%nn(),this%femdomain%nd())
 
 end subroutine
@@ -102,9 +110,16 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     real(real64),optional,intent(in) :: fixValueList_y(:)
     real(real64),optional,intent(in) :: fixValueList_z(:)
 
-    real(real64),allocatable :: v_n(:,:),u_n(:,:),X(:,:),Psi_n(:),fix_value(:)
+    real(real64),allocatable :: X(:,:),fix_value(:),&
+        yield_function_values(:,:)
     type(CRS_) :: M_inv_P, K, W
+    type(BCRS_) :: Upsilon_n
     integer(int32),allocatable :: fix_idx(:)
+    real(real64) :: theta
+    
+
+    
+    
     
     !<<弾性除荷に戻らない問題についてのコメント用>>
     !<3001 step目開始>
@@ -156,17 +171,20 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     !<<ここまでで，前ステップの速度およびΨベクトルに速度固定条件が入る．>>
     
     ! 前ステップのu,vを保存
-    v_n = this%v
-    u_n = this%u
+    this%v_n = this%v
+    this%u_n = this%u
+    Upsilon_n = this%Upsilon
+    this%Psi_n = this%Psi
 
-    Psi_n = this%Psi
+! >>> auto-tuning algorithm    ! 現在の応力状態から降伏関数の値を計算(廃止予定)
+! >>> auto-tuning algorithm    this%yield_function_values_n = this%get_yield_function_values()
     
     call print("debug >> 1")
 ! !    ! この時点で，節点座標は初期配置Xのまま
 ! !    X = this%femdomain%mesh%nodcoord(:,:)
 ! !    ! だが，dN/dxを求めなくてはならない．
 ! !    ! そのため，粗い近似ではあるが，x = X + u でxを更新
-! !    this%femdomain%mesh%nodcoord(:,:) = this%femdomain%mesh%nodcoord(:,:) + u_n(:,:)
+! !    this%femdomain%mesh%nodcoord(:,:) = this%femdomain%mesh%nodcoord(:,:) + this%u_n(:,:)
 ! !    ! また，メッシュを更新したので，変位は0に戻る
 ! !    this%u(:,:) = 0.0d0
 
@@ -199,7 +217,7 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     
     ! EXP-INTEGによる時間積分を実行
     ! Psi^{\rm tr} 0 -> dt
-    this%Psi = this%Upsilon%exp(Psi_n)
+    this%Psi = this%Upsilon%exp(this%Psi_n)
     !<<弾性除荷に戻らない問題についてのコメント用>>
     !<<ここで応力更新される．ただし，剛性は小さいままで応力が更新されるので．>>
     !<<降伏したままで，応力は減らない．>>
@@ -226,7 +244,7 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
         [this%femdomain%nd(),this%femdomain%nn()]))
     
     ! 変位場を更新
-    this%u = u_n + dt/2.0d0 * (this%v + v_n)
+    this%u = this%u_n + dt/2.0d0 * (this%v + this%v_n)
 
     call print("debug >> 6")
 ! !    ! ここまでで，trialのu, vを計算した．
@@ -250,24 +268,54 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     this%force_elastic = .false.
     M_inv_P = this%globalStressDivMatrix()
     call M_inv_P%divide_by_vector(diag_vector=this%LumpedMassDiag())    
-    K = this%globalStiffnessMatrix() ! global matrix
+    ! 弾性係数の変化を考慮して，f=0をキープするよう重み付け
+    K = this%globalStiffnessMatrix(auto_tuning=.True.) ! weighted global matrix
     W = this%globalStressRatiolMatrix() ! global matrix
     
+
     call print("debug >> 6")
     !call this%Upsilon%add([1,2],(-1.0d0)*dt/2.0d0*M_inv_P)
     !call this%Upsilon%add([2,1],dt/2.0d0*K)
     !call this%Upsilon%add([2,2],(-1.0d0)*dt/2.0d0*W)
-    call this%Upsilon%set([1,2],(-1.0d0)*dt*M_inv_P)
-    call this%Upsilon%set([2,1],dt*K)
-    call this%Upsilon%set([2,2],(-1.0d0)*dt*W)
+    if(.not.allocated(Upsilon_n%CRS))then
+        Upsilon_n = this%Upsilon
+    endif
+    call this%Upsilon%set([1,2],(-1.0d0)*dt/2.0d0*M_inv_P + 1.0d0/2.0d0*Upsilon_n%CRS(1,2))
+    call this%Upsilon%set([2,1],dt*K) ! auto-tuning done!
+    call this%Upsilon%set([2,2],(-1.0d0)*dt/2.0d0*W + 1.0d0/2.0d0*Upsilon_n%CRS(2,2))
 
     call print("debug >> 7")
     ![new!] 2025/05/16
+    
+    
+! >>> auto-tuning algorithm    if(allocated(Upsilon_n%CRS))then
+! >>> auto-tuning algorithm        ! 試しに，1要素のときのみthetaのオートチューニングを入れてみる．
+! >>> auto-tuning algorithm        yield_function_values = this%get_yield_function_values()
+! >>> auto-tuning algorithm
+! >>> auto-tuning algorithm        if ( (yield_function_values(1,1) <= 0  ) .and. (this%yield_function_values_n(1,1) <= 0  ))then
+! >>> auto-tuning algorithm            ! e -> e
+! >>> auto-tuning algorithm            theta = 0.50d0
+! >>> auto-tuning algorithm        elseif( (yield_function_values(1,1) <= 0  ) .and. (this%yield_function_values_n(1,1) >= 0  ))then
+! >>> auto-tuning algorithm            ! p -> e
+! >>> auto-tuning algorithm            theta        = this%yield_function_values_n(1,1)/(this%yield_function_values_n(1,1) - yield_function_values(1,1))
+! >>> auto-tuning algorithm        elseif( (yield_function_values(1,1) >= 0  ) .and. (this%yield_function_values_n(1,1) <= 0  ))then
+! >>> auto-tuning algorithm            ! e -> p 
+! >>> auto-tuning algorithm            theta        = this%yield_function_values_n(1,1)/(this%yield_function_values_n(1,1) - yield_function_values(1,1))
+! >>> auto-tuning algorithm            !call print([theta,yield_function_values(1,1),this%yield_function_values_n(1,1)])
+! >>> auto-tuning algorithm            !stop
+! >>> auto-tuning algorithm        elseif( (yield_function_values(1,1) >= 0  ) .and. (this%yield_function_values_n(1,1) <= 0  ))then
+! >>> auto-tuning algorithm            ! p -> p
+! >>> auto-tuning algorithm            theta        = this%yield_function_values_n(1,1)/(this%yield_function_values_n(1,1) - yield_function_values(1,1))
+! >>> auto-tuning algorithm        endif
+! >>> auto-tuning algorithm        this%Upsilon = (1.0d0-theta)*this%Upsilon
+! >>> auto-tuning algorithm        this%Upsilon = this%Upsilon + (theta)*Upsilon_n
+! >>> auto-tuning algorithm    endif
+    
     call this%Upsilon%fill_zero_row(row=fix_idx)
     call print("debug >> 8")
-
+    
     ! get updated solution
-    this%Psi = this%Upsilon%exp(Psi_n)
+    this%Psi = this%Upsilon%exp(this%Psi_n)
     
 !    if(present(fixNodeList_x) .and. present(fixValueList_x) )then
 !        this%Psi(fixNodeList_x(:)*3-2) = fixValueList_x(:)
@@ -284,7 +332,7 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
         [this%femdomain%nd(),this%femdomain%nn()]))
     
     ! Crank-Nicolson
-    this%u = u_n + dt/2.0d0 * (this%v + v_n)
+    this%u = this%u_n + dt/2.0d0 * (this%v + this%v_n)
 
 ! !    ! 最後に，x を X に戻しておく
 ! !    this%femdomain%mesh%nodcoord(:,:) = X(:,:)
@@ -391,24 +439,69 @@ function LumpedMassDiag_DynamicEP(this) result(ret)
 end function
 ! ####################################################
 
-! ####################################################
-function globalStiffnessMatrix_DynamicEP(this) result(ret)
+function get_yield_function_values_DynamicEP(this) result(ret)
     class(DynamicEP_),intent(in) :: this
+    real(real64),allocatable :: ret(:,:)
+    complex(real64),allocatable :: CauchyStress(:,:),PlasticStrain(:,:)
+    integer(int32) :: elem_idx, gp_idx
+    
+    ret = zeros(this%femdomain%ne(),this%femdomain%ngp())
+    do elem_idx = 1, this%femdomain%ne()
+        do gp_idx = 1, this%femdomain%ngp()
+            CauchyStress = this%getCauchyStress(ElementID=elem_idx,GaussPointID=gp_idx)
+            PlasticStrain = zeros(3,3)
+            ret(elem_idx,gp_idx) = dble(&
+                this%EP_Models(this%ElemEP_ModelIdx(elem_idx))&
+                    %YieldFunction(CauchyStress, PlasticStrain, this%PlasticParams(elem_idx,:) ))
+        enddo
+    enddo
+
+end function
+
+! ####################################################
+
+function get_yield_function_value_DynamicEP(this,ElementID,GaussPointID,last_step) result(ret)
+    class(DynamicEP_),intent(in) :: this
+    integer(int32),intent(in) :: ElementID,GaussPointID
+    logical,optional,intent(in) :: last_step
+    real(real64),allocatable :: ret
+    complex(real64),allocatable :: CauchyStress(:,:),PlasticStrain(:,:)
+    integer(int32) :: elem_idx, gp_idx
+    
+    
+    CauchyStress = this%getCauchyStress(ElementID=ElementID,GaussPointID=GaussPointID,last_step=last_step)
+    PlasticStrain = zeros(3,3)
+    ret = dble(&
+        this%EP_Models(this%ElemEP_ModelIdx(ElementID)) &
+            %YieldFunction(CauchyStress, PlasticStrain, this%PlasticParams(ElementID,:) ))
+    
+end function
+
+! ####################################################
+
+function globalStiffnessMatrix_DynamicEP(this,auto_tuning) result(ret)
+    class(DynamicEP_),intent(in) :: this
+    logical,optional,intent(in)  :: auto_tuning
 
     ! under implementation 
     integer(int32) :: elem_idx,gp_idx,i,j,nd,nne,row_idx,col_idx,nsig,k,l,ne,&
-        node_idx_1,node_idx_2,nn
+        node_idx_1,node_idx_2,nn,theta
     real(real64),allocatable :: dNdxi(:,:),N(:),C_mat(:,:),B_mat(:,:),ElasticStrain(:,:),&
-        U(:),ElasticStrain_vec(:),U_e(:)
+        U(:),ElasticStrain_vec(:),U_e(:),C_mat_n(:,:),ElasticStrain_n(:,:)
+        
     integer(int32),allocatable ::  stress_i(:),stress_j(:)
-    real(real64) :: integral_val
-    real(real64),allocatable :: K_e(:,:)
+    real(real64) :: integral_val,yield_function_value,yield_function_value_n
+    real(real64),allocatable :: K_e(:,:),K_e_n(:,:)
     integer(int32) :: stress_point_idx, ngp
+    
     type(Shapefunction_) :: shapefunc
     type(COO_) :: ret_COO
     type(CRS_) :: ret
     type(IO_)  :: debug
+    logical :: execute_auto_tuning 
 
+
+    execute_auto_tuning = input(default=.false.,option=auto_tuning)
     ! Validated >> 2025/04/24
     ! 亜弾性構成則の全体要素剛性行列　
     ! C B v
@@ -446,99 +539,184 @@ function globalStiffnessMatrix_DynamicEP(this) result(ret)
     stress_point_idx = 1
     do elem_idx = 1, this%femdomain%ne()
         do gp_idx = 1, this%femdomain%ngp()
-            call GetAllShapeFunc(shapefunc, elem_id=elem_idx, nod_coord=this%femdomain%Mesh%NodCoord, &
-                elem_nod=this%femdomain%Mesh%ElemNod, OptionalGpID=gp_idx)
-            ! element-wise matrices >> 
+            if(.not. execute_auto_tuning)then
+                call GetAllShapeFunc(shapefunc, elem_id=elem_idx, nod_coord=this%femdomain%Mesh%NodCoord, &
+                    elem_nod=this%femdomain%Mesh%ElemNod, OptionalGpID=gp_idx)
+                ! element-wise matrices >> 
 
-            ! 2025/04/15 
-            ! どこのStrain?
-            ! StressとStrainを同じ場所で定義していないと，
-            ! 構成則を厳密に満たさないおそれがある．
-            ! 平均化するか?(=要素内で一定値とするか)
+                ! 2025/04/15 
+                ! どこのStrain?
+                ! StressとStrainを同じ場所で定義していないと，
+                ! 構成則を厳密に満たさないおそれがある．
+                ! 平均化するか?(=要素内で一定値とするか)
 
-            ! とりあえず，節点で応力を定義している以上は，
-            ! それと整合するように，節点でひずみをとる．
-            ! そのため，
-            ! e = Bu
-            ! とするための，Bmatrixは，それぞれの節点
-            ! に対応する局所座標により定義する．
-            ! そのため，getStrainTensor関数で
-            ! (変位，節点番号)
-            ! を引数にとれるようにする．
+                ! とりあえず，節点で応力を定義している以上は，
+                ! それと整合するように，節点でひずみをとる．
+                ! そのため，
+                ! e = Bu
+                ! とするための，Bmatrixは，それぞれの節点
+                ! に対応する局所座標により定義する．
+                ! そのため，getStrainTensor関数で
+                ! (変位，節点番号)
+                ! を引数にとれるようにする．
 
-            ! >> どのように?
-            ! その節点が含まれる要素を探索し，局所座標を特定したうえで
-            ! Bmatrixを計算し，e = Bu によりひずみを計算
+                ! >> どのように?
+                ! その節点が含まれる要素を探索し，局所座標を特定したうえで
+                ! Bmatrixを計算し，e = Bu によりひずみを計算
 
-            ! <課題>
-            ! 1つの節点が複数の要素に属していた場合，
-            ! e = Buは一意か?
+                ! <課題>
+                ! 1つの節点が複数の要素に属していた場合，
+                ! e = Buは一意か?
 
-            ! <eの一意性についての考察>
-            ! uが連続であるが，uは節点およびエッジにおいて不連続となりうる．
-            ! そのとき，du/dxは不定となりうる．
-            ! よって，一意とは限らない．
-            
-            ! <ではどうするか>
-            ! <1> 全要素で平均化して一意性をみたすようにする．
-            ! <2> 要素内で一定値をとるようにする．
-
-            ! <test>
-            ! 1D-linear elementでやってみる．
-            ! 線形要素の場合，ひずみは要素内で一定
-            ! 2D-linear elemetの場合
-            ! ひずみテンソルは要素内の至るところで異なる．
-            ! ひずみテンソル = f(dN/dxi)*g(dN/d\xi) 
-            ! では，連続性はどうか？ →　当然，節点で非連続
-            
-            ! <Conclusion>
-            ! 応力とひずみはGauss pointで定義すべき．
-            ! 当然，応力評価点はメッシュ読み込み後に決定．
-            
-            ! Gauss-point wise
-            !ElasticStrain = this%femdomain%getStrainTensor(&
-            !    displacement=this%u,&
-            !    ElementID=elem_idx, &
-            !    GaussPointID=gp_idx)
-            B_mat = this%femdomain%Bmatrix(shapefunc)
-
-
-            ElasticStrain = this%femdomain%getStrainTensor(&
-                displacement=this%u,&
-                ElementID=elem_idx, &
-                GaussPointID=gp_idx)
-            
-            ! 論点:
-                ! small strainのBmatでよいのか．
-                ! 超弾性と亜弾性の関係を深堀する必要あり
+                ! <eの一意性についての考察>
+                ! uが連続であるが，uは節点およびエッジにおいて不連続となりうる．
+                ! そのとき，du/dxは不定となりうる．
+                ! よって，一意とは限らない．
                 
-            ! Compute stiffness matrix C
-            C_mat = this%EP_Models( this%ElemEP_ModelIdx(elem_idx) )%StiffnessMatrix(&
-                CauchyStress = this%getCauchyStress(ElementID=elem_idx,GaussPointID=gp_idx),&
-                ElasticParams=this%ElasticParams(elem_idx,:),&
-                PlasticParams=this%PlasticParams(elem_idx,:),&
-                ElasticStrain=ElasticStrain,&
-                nDim=this%femdomain%nd(),&
-                force_elastic=this%force_elastic)
+                ! <ではどうするか>
+                ! <1> 全要素で平均化して一意性をみたすようにする．
+                ! <2> 要素内で一定値をとるようにする．
 
-            
-            ! K = C B
-            ! K_e : (  NSIG, ND*NNE)
-            K_e = matmul(C_mat,B_mat)
-            
-            do i=1,nne
-                node_idx_1 = this%femdomain%mesh%elemnod(elem_idx,i)
-                do k=1,nd
-                    do l=1,nsig
-                        call ret_COO%add( &
-                            nsig * ngp * (elem_idx-1) + nsig * (gp_idx-1) +  l, & ! gauss-point wise
-                            nd * (node_idx_1 - 1) + k, & ! node-wise
-                            K_e( l , nd*(i-1)+k ) &
-                        )
+                ! <test>
+                ! 1D-linear elementでやってみる．
+                ! 線形要素の場合，ひずみは要素内で一定
+                ! 2D-linear elemetの場合
+                ! ひずみテンソルは要素内の至るところで異なる．
+                ! ひずみテンソル = f(dN/dxi)*g(dN/d\xi) 
+                ! では，連続性はどうか？ →　当然，節点で非連続
+                
+                ! <Conclusion>
+                ! 応力とひずみはGauss pointで定義すべき．
+                ! 当然，応力評価点はメッシュ読み込み後に決定．
+                
+                ! Gauss-point wise
+                !ElasticStrain = this%femdomain%getStrainTensor(&
+                !    displacement=this%u,&
+                !    ElementID=elem_idx, &
+                !    GaussPointID=gp_idx)
+                B_mat = this%femdomain%Bmatrix(shapefunc)
+
+
+                ElasticStrain = this%femdomain%getStrainTensor(&
+                    displacement=this%u,&
+                    ElementID=elem_idx, &
+                    GaussPointID=gp_idx)
+                
+                ! 論点:
+                    ! small strainのBmatでよいのか．
+                    ! 超弾性と亜弾性の関係を深堀する必要あり
+
+                ! Compute stiffness matrix C
+                C_mat = this%EP_Models( this%ElemEP_ModelIdx(elem_idx) )%StiffnessMatrix(&
+                    CauchyStress = this%getCauchyStress(ElementID=elem_idx,GaussPointID=gp_idx),&
+                    ElasticParams=this%ElasticParams(elem_idx,:),&
+                    PlasticParams=this%PlasticParams(elem_idx,:),&
+                    ElasticStrain=ElasticStrain,&
+                    nDim=this%femdomain%nd(),&
+                    force_elastic=this%force_elastic)
+
+                ! K = C B
+                ! K_e : (  NSIG, ND*NNE)
+                K_e = matmul(C_mat,B_mat)
+                do i=1,nne
+                    node_idx_1 = this%femdomain%mesh%elemnod(elem_idx,i)
+                    do k=1,nd
+                        do l=1,nsig
+                            call ret_COO%add( &
+                                nsig * ngp * (elem_idx-1) + nsig * (gp_idx-1) +  l, & ! gauss-point wise
+                                nd * (node_idx_1 - 1) + k, & ! node-wise
+                                K_e( l , nd*(i-1)+k ) &
+                            )
+                        enddo
                     enddo
                 enddo
-            enddo
             
+            else
+                ! 時間積分においてUpsilonの線形仮定を無視し，
+                ! 塑性構成則をみたすように時間積分点をずらす．
+                ! 説明は追記予定
+                
+                !(1) 形状関数を計算(共通)
+                call GetAllShapeFunc(shapefunc, elem_id=elem_idx, nod_coord=this%femdomain%Mesh%NodCoord, &
+                    elem_nod=this%femdomain%Mesh%ElemNod, OptionalGpID=gp_idx)
+
+                !(2) Bマトリクスを計算(共通)
+                B_mat = this%femdomain%Bmatrix(shapefunc)
+
+                !(2) 弾性ひずみ@(n), (n+1)ステップを計算(共通)
+                ElasticStrain_n = this%femdomain%getStrainTensor(&
+                    displacement=this%u_n,&
+                    ElementID=elem_idx, &
+                    GaussPointID=gp_idx)
+                
+                ElasticStrain = this%femdomain%getStrainTensor(&
+                    displacement=this%u,&
+                    ElementID=elem_idx, &
+                    GaussPointID=gp_idx)
+                ! 論点:
+                    ! small strainのBmatでよいのか．
+                    ! 超弾性と亜弾性の関係を深堀する必要あり
+
+                ! Compute stiffness matrix C for n-th step
+                C_mat_n = this%EP_Models( this%ElemEP_ModelIdx(elem_idx) )%StiffnessMatrix(&
+                    CauchyStress = this%getCauchyStress(ElementID=elem_idx,GaussPointID=gp_idx,last_step=.true.),&
+                    ElasticParams=this%ElasticParams(elem_idx,:),&
+                    PlasticParams=this%PlasticParams(elem_idx,:),&
+                    ElasticStrain=ElasticStrain_n,&
+                    nDim=this%femdomain%nd(),&
+                    force_elastic=.false.)
+                
+                ! Compute stiffness matrix C for n-th step
+                C_mat = this%EP_Models( this%ElemEP_ModelIdx(elem_idx) )%StiffnessMatrix(&
+                    CauchyStress = this%getCauchyStress(ElementID=elem_idx,GaussPointID=gp_idx,last_step=.false.),&
+                    ElasticParams=this%ElasticParams(elem_idx,:),&
+                    PlasticParams=this%PlasticParams(elem_idx,:),&
+                    ElasticStrain=ElasticStrain,&
+                    nDim=this%femdomain%nd(),&
+                    force_elastic=.false.)
+                
+                
+                yield_function_value = this%get_yield_function_value(ElementID=elem_idx,GaussPointID=gp_idx)
+                yield_function_value_n = this%get_yield_function_value(ElementID=elem_idx,GaussPointID=gp_idx,last_step=.true.)
+            
+                theta = 0.50d0
+                if ( (yield_function_value < 0  ) .and. (yield_function_value_n <= 0  ))then
+                    ! e -> e
+                    theta = 0.50d0
+                elseif( (yield_function_value == 0  ) .and. (yield_function_value_n <= 0  ))then
+                    theta        = yield_function_value_n/(yield_function_value_n - yield_function_value)
+                elseif( (yield_function_value <= 0  ) .and. (yield_function_value_n >= 0  ))then
+                    ! p -> e
+                    theta        = yield_function_value_n/(yield_function_value_n - yield_function_value)
+                elseif( (yield_function_value >= 0  ) .and. (yield_function_value_n <= 0  ))then
+                    ! e -> p 
+                    theta        = yield_function_value_n/(yield_function_value_n - yield_function_value)
+                elseif( (yield_function_value >= 0  ) .and. (yield_function_value_n <= 0  ))then
+                    ! p -> p
+                    theta        = yield_function_value_n/(yield_function_value_n - yield_function_value)
+                endif
+                
+                ! stiffness matrix for current and last stress conditions
+                K_e = matmul(C_mat,B_mat)
+                K_e_n = matmul(C_mat_n,B_mat)
+
+                K_e = (1 - theta) * K_e + (theta) * K_e_n
+
+                do i=1,nne
+                    node_idx_1 = this%femdomain%mesh%elemnod(elem_idx,i)
+                    do k=1,nd
+                        do l=1,nsig
+                            call ret_COO%add( &
+                                nsig * ngp * (elem_idx-1) + nsig * (gp_idx-1) +  l, & ! gauss-point wise
+                                nd * (node_idx_1 - 1) + k, & ! node-wise
+                                K_e( l , nd*(i-1)+k ) &
+                            )
+                        enddo
+                    enddo
+                enddo
+
+            endif
+
             
 
         enddo
@@ -735,11 +913,15 @@ end subroutine
  
 ! ################################################################
 !> Get Cauchy's stress tensor from the state vector Psi.
-function getCauchyStress_SymEP(this,ElementID, GaussPointID) result(ret)
+function getCauchyStress_SymEP(this,ElementID, GaussPointID,last_step) result(ret)
     class(DynamicEP_),intent(in) :: this
     integer(int32),intent(in) :: ElementID, GaussPointID
+    logical,optional,intent(in) :: last_step
     real(real64),allocatable :: ret(:,:),sigma_vec(:)
     integer(int32) :: nSigma, num_offset
+    logical :: compute_stress_of_last_step
+
+    compute_stress_of_last_step = input(default=.false.,option=last_step)
 
     nSigma = (this%femdomain%nd()+1)*this%femdomain%nd()/2
     !> skip velocity field
@@ -747,7 +929,11 @@ function getCauchyStress_SymEP(this,ElementID, GaussPointID) result(ret)
     !> consider offsets for stress
     num_offset = num_offset + nSigma*this%femdomain%ngp()*(ElementID-1) + nSigma*(GaussPointID-1)
     
-    sigma_vec = this%Psi(num_offset + 1: num_offset + nSigma )
+    if(compute_stress_of_last_step)then
+        sigma_vec = this%Psi_n(num_offset + 1: num_offset + nSigma )
+    else
+        sigma_vec = this%Psi(num_offset + 1: num_offset + nSigma )
+    endif
 
     ret = zeros(this%femdomain%nd(),this%femdomain%nd())
     if(this%femdomain%nd()==1)then
@@ -773,6 +959,39 @@ function getCauchyStress_SymEP(this,ElementID, GaussPointID) result(ret)
     endif
     
 end function
- ! ################################################################
+! ################################################################
+
+
+! ################################################################
+function getStrainField_SymEP(this,invariant_type) result(ret)
+    class(DynamicEP_),intent(in) :: this
+    real(real64),allocatable :: ret(:),StrainTensor(:,:)
+    character(*),intent(in) :: invariant_type
+    integer(int32) :: elem_idx, gp_idx,nsig
+
+    ret = zeros(this%femdomain%ne())
+    do elem_idx=1,this%femdomain%ne()
+        StrainTensor = zeros(this%femdomain%nd(),this%femdomain%nd())
+        do gp_idx=1,this%femdomain%ngp()
+            StrainTensor = StrainTensor + this%femdomain%getStrainTensor(&
+                displacement=this%u,ElementID=elem_idx,GaussPointID=gp_idx)
+        enddo
+        ! Averaging
+        StrainTensor = StrainTensor/dble(this%femdomain%ngp())
+        if("J2" .in. invariant_type)then
+            ! J2
+            ret(elem_idx) = to_J2(StrainTensor)
+        elseif("I1" .in. invariant_type)then
+            ret(elem_idx) = to_I1(StrainTensor)
+        else
+            call print("[ERROR] getStrainField_SymEP >> argument invariant_type should be ")
+            call print("I1 or J2")
+        endif
+    enddo
+
+
+end function
+! ################################################################
+
 
 end module

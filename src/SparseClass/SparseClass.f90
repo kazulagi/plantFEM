@@ -285,7 +285,7 @@ module SparseClass
    !public :: operator(/)
 
    interface operator(+)
-      module procedure addCRS_and_CRS
+      module procedure addCRS_and_CRS, addBCRS_and_BCRS
    end interface
 
    interface operator(-)
@@ -1195,15 +1195,33 @@ contains
       end do
 
    end function
+! #####################################################################
 
+! #####################################################################
    pure function addCRS_and_CRS(CRS1, CRS2) result(CRS_ret)
       type(CRS_), intent(in) :: CRS1, CRS2
       type(CRS_) :: CRS_ret
       integer(int32) :: i, j, row
       integer(int64) :: col_2, col_1
 
+      if(.not.allocated(CRS1))then
+         if(.not.allocated(CRS2))then
+            return
+         else
+            CRS_ret = CRS2
+            return
+         endif
+      else
+         if(.not.allocated(CRS2))then
+            CRS_ret = CRS1
+            return
+         else
+            CRS_ret = CRS1
+         endif
+      endif
+      
       ! sum : CRS_ret = CRS1 + CRS2
-      CRS_ret = CRS1
+      
 
       ! ignore fill-in
     !!$OMP parallel do private(col_2,col_1)
@@ -1223,7 +1241,28 @@ contains
     !!$OMP end parallel do
 
    end function
+! #####################################################################
 
+
+
+! #####################################################################
+   pure function addBCRS_and_BCRS(BCRS1, BCRS2) result(BCRS_ret)
+      type(BCRS_), intent(in) :: BCRS1, BCRS2
+      type(BCRS_) :: BCRS_ret
+      integer(int32) :: i, j
+      
+      allocate(BCRS_ret%CRS(size(BCRS1%CRS,1),size(BCRS1%CRS,2)) )
+
+      do i=1,size(BCRS1%CRS,1)
+         do j=1,size(BCRS1%CRS,2)
+            BCRS_ret%CRS(i,j) = BCRS1%CRS(i,j) + BCRS2%CRS(i,j)   
+         enddo
+      enddo
+   end function
+! #####################################################################
+
+
+! #####################################################################
    pure function diffCRS_and_CRS(CRS1, CRS2) result(CRS_ret)
       type(CRS_), intent(in) :: CRS1, CRS2
       type(CRS_) :: CRS_ret
@@ -1258,6 +1297,11 @@ contains
       integer(int32) :: i
 
       CRS_ret = CRS1
+
+      if(.not.allocated(CRS1)) then
+         return
+      endif
+
       !$OMP parallel do
       do i = 1, size(CRS_ret%val)
          CRS_ret%val(i) = scalar64*CRS_ret%val(i)
@@ -1275,11 +1319,15 @@ contains
       type(BCRS_) :: BCRS_ret
       integer(int32) :: i,j
 
-      BCRS_ret = BCRS1
-      do i = 1, size(BCRS_ret%CRS,1)
-         do j = 1, size(BCRS_ret%CRS,1)
-            if(.not.allocated(BCRS_ret%CRS(i,j)%val)) cycle
-            BCRS_ret%CRS(i,j) = scalar64*BCRS_ret%CRS(i,j)
+      allocate(BCRS_ret%CRS( size(BCRS1%CRS,1), size(BCRS1%CRS,2) ) )
+      
+      do i = 1, size(BCRS1%CRS,1)
+         do j = 1, size(BCRS1%CRS,2)
+            if(.not.allocated(BCRS1%CRS(i,j))) then
+               cycle
+            else
+               BCRS_ret%CRS(i,j) = scalar64*BCRS1%CRS(i,j)
+            endif
          enddo
       end do
       
@@ -1297,7 +1345,7 @@ contains
       BCRS_ret = BCRS1
       do i = 1, size(BCRS_ret%CRS,1)
          do j = 1, size(BCRS_ret%CRS,1)
-            if(.not.allocated(BCRS_ret%CRS(i,j)%val)) cycle
+            if(.not.allocated(BCRS_ret%CRS(i,j))) cycle
             BCRS_ret%CRS(i,j) = scalar64*BCRS_ret%CRS(i,j)
          enddo
       end do
@@ -4901,7 +4949,7 @@ end subroutine
 
 
 ! ###################################################
-   function allocated_CRS(this) result(ret)
+   pure function allocated_CRS(this) result(ret)
       class(CRS_),intent(in) :: this
       logical :: ret
 
@@ -5211,7 +5259,7 @@ function expBCRS(this,vec,max_itr,fix_idx,fix_value) result(b)
 
    do k=1,itr_max
       
-
+      
       a = 1.0d0/dble(k)*this%matmul(a)
       
 
