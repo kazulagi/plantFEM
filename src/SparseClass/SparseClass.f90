@@ -3246,18 +3246,27 @@ end subroutine
 
       integer(int64) :: i, j, k, id
 
-      
+      !$OMP parallel do private(i)
       do j = 1, size(row)
-         id = row(j)
-         do i = this%row_ptr(id), this%row_ptr(id + 1) - 1
-            this%val(i) = 0.0d0
-         end do
+         this%val(this%row_ptr(row(j)): this%row_ptr(row(j) + 1) - 1) = 0.0d0
       end do
+      !$OMP end parallel do
 
+!      !$OMP parallel do private(i,id)
+!      do j = 1, size(row)
+!
+!         id = row(j)
+!         do i = this%row_ptr(id), this%row_ptr(id + 1) - 1
+!            this%val(i) = 0.0d0
+!         end do
+!
+!      end do
+!      !$OMP end parallel do
 
    end subroutine
 ! #####################################################
 
+   
 
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> complex >>>>>>>>>>>>>>>>>>>>>>>
 
@@ -5220,9 +5229,8 @@ end function
 
 
 ! ###################################################
-function expBCRS(this,vec,max_itr,fix_idx,fix_value) result(b)
+function expBCRS(this,vec,max_itr,fix_idx,cutoff_frequency,dt) result(b)
    ! tensor exponential 
-
    ! exp(x) = \sum_{0}^{\infty} \cfrac{1}{n!}x^{n}
    ! let a_{k} = x^{k}, b_{k} = \sum_{0}^{k} \cfrac{1}{n!}x^{n}
    ! b_{0} = 1
@@ -5232,17 +5240,31 @@ function expBCRS(this,vec,max_itr,fix_idx,fix_value) result(b)
    class(BCRS_),intent(in) :: this
    real(real64),intent(in) :: vec(:)
    integer(int32),optional,intent(in) :: max_itr,fix_idx(:)
-   real(real64),optional,intent(in) :: fix_value(:)
+   !real(real64),optional,intent(in) :: fix_value(:)
+   real(real64), optional,intent(in) :: cutoff_frequency,dt
 
    integer(int32) :: k,n,itr_max,this_shape(1:2)
-   real(real64)   :: tol
+   real(real64)   :: tol, lpf_coeff,ddt
    real(real64),allocatable :: a(:),b(:)
-   itr_max = input(default=100,option=max_itr)
-
-   a = vec(:)
-   b = vec(:)
+   type(Math_) :: math
 
 
+   itr_max = input(default=20,option=max_itr)
+
+
+   if(present(cutoff_frequency) )then
+      if(.not.present(dt) )then
+         print *, "ERROR >> expBCRS >> arg:cutoff_frequency should be given with arg:dt"
+         stop
+      endif
+   endif
+
+   if(present(dt) )then
+      if(.not.present(cutoff_frequency) )then
+         print *, "ERROR >> expBCRS >> arg:dt should be given with arg:cutoff_frequency"
+         stop
+      endif
+   endif
    !if(present(fix_idx))then
    !   if(present(fix_value))then
    !      if(size(fix_idx)>=1)then
@@ -5256,29 +5278,41 @@ function expBCRS(this,vec,max_itr,fix_idx,fix_value) result(b)
    !      endif
    !   endif
    !endif
+   if(present(cutoff_frequency))then
 
-   do k=1,itr_max
+      a = vec(:)
+      b = vec(:)
       
       
-      a = 1.0d0/dble(k)*this%matmul(a)
-      
+      do k=1,itr_max
+         ! local time interval for three-point Hanning filter
+         ddt = 1.0d0/cutoff_frequency/2.0d0/math%pi*acos(sqrt(2.0d0) - 1.0d0)
+         lpf_coeff = 0.250d0*((dt - ddt)**(k)) + 0.50d0*((dt)**(k)) + 0.250d0*((dt + ddt)**(k))
 
-      if(present(fix_idx))then
-         if(present(fix_value))then
-            if(size(fix_idx)>=1)then
-               a(fix_idx(:)) = 0.0d0
-               b(fix_idx(:)) = 0.0d0
-            endif
-         else
-            if(size(fix_idx)>=1)then
-               a(fix_idx(:)) = 0.0d0
-               b(fix_idx(:)) = 0.0d0
-            endif
+         a = 1.0d0/dble(k)*this%matmul(a)
+
+
+         if(present(fix_idx))then
+            a(fix_idx(:)) = 0.0d0      
          endif
-      endif
+
+         b = b + lpf_coeff*a
+      enddo
+   else
       
-      b = b + a
-   enddo
+      a = vec(:)
+      b = vec(:)
+      do k=1,itr_max
+
+         a = lpf_coeff*1.0d0/dble(k)*this%matmul(a)
+
+         if(present(fix_idx))then
+            a(fix_idx(:)) = 0.0d0      
+         endif
+
+         b = b + a
+      enddo
+   endif
 
 end function
 ! ###################################################
@@ -5291,6 +5325,7 @@ subroutine fill_zero_rowBCRS(this,row)
    !> zero-padding for a row idx
    do r_idx = 1, size(row,1)
       ! search local idx
+      
       do i=1, size(this%crs,1)
          if( (1 .of. this%row_range(i)) <= row(r_idx) .and. &
             row(r_idx) <= (2 .of. this%row_range(i)))then
@@ -5302,8 +5337,10 @@ subroutine fill_zero_rowBCRS(this,row)
                      call this%crs(i,j)%fill_zero_row(row=[row(r_idx) - offset_idx])
                   endif
                enddo
+               
          endif
       enddo
+      
    enddo
 
 end subroutine

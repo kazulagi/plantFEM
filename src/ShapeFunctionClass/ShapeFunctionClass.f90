@@ -459,6 +459,9 @@ contains
 
 !!  ######################################
    subroutine GetGaussPoint(obj)
+      !! This should not be called $OMP private, since it causes bug, where the GaussPoint is filled with 0.
+      !! Instead, use firstprivate()
+      
 
       class(ShapeFunction_), intent(inout)::obj
       real(real64) :: pval(1:3), wval(1:3)
