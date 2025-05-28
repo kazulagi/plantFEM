@@ -12158,7 +12158,7 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
 
 ! ##########################################################################
    recursive function BMatrixFEMDomain(this, shapefunction, ElementID) result(Bmat)
-      class(FEMDomain_), intent(inout) :: this
+      class(FEMDomain_), intent(in) :: this
       integer(int32), optional, intent(in) :: ElementID
       type(ShapeFunction_), optional, intent(in) :: shapefunction
       real(real64), allocatable :: Psymat(:, :), Jmat(:, :), detJ
@@ -15720,7 +15720,7 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
 
 ! ###################################################################
    function getStrainTensorFEMDomain(this, displacement, ElementID, GaussPointID, debug) result(StrainTensor)
-      class(FEMDomain_), intent(inout) :: this
+      class(FEMDomain_), intent(in) :: this
       real(real64), intent(in)   :: displacement(:, :)
       integer(int32), intent(in) :: ElementID, GaussPointID
       logical, optional, intent(in) :: debug

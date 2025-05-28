@@ -218,7 +218,7 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     call print("debug >> 3")    
 
     ![new!] 2025/05/16
-    !call this%Upsilon%fill_zero_row(row=fix_idx)
+    !call this%Upsilon%fill_zero_row(row=set(fix_idx))
     call print("debug >> 4")    
 !    ! 一旦，x を X に戻しておく
 !    this%femdomain%mesh%nodcoord(:,:) = X(:,:)
@@ -226,7 +226,7 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     
     ! EXP-INTEGによる時間積分を実行
     ! Psi^{\rm tr} 0 -> dt
-    this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx)
+    this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=set(fix_idx))
     !<<弾性除荷に戻らない問題についてのコメント用>>
     !<<ここで応力更新される．ただし，剛性は小さいままで応力が更新されるので．>>
     !<<降伏したままで，応力は減らない．>>
@@ -325,12 +325,12 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
 ! >>> auto-tuning algorithm    endif
     
     ! ↓遅すぎるのでリストラ
-    !call this%Upsilon%fill_zero_row(row=fix_idx)
+    !call this%Upsilon%fill_zero_row(row=set(fix_idx))
 
     call print("debug >> 8")
     
     ! get updated solution
-    this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx)
+    this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=set(fix_idx))
     
 !    if(present(fixNodeList_x) .and. present(fixValueList_x) )then
 !        this%Psi(fixNodeList_x(:)*3-2) = fixValueList_x(:)
@@ -360,8 +360,8 @@ end subroutine
 function globalStressDivMatrix_DynamicEP(this) result(ret)
     class(DynamicEP_),intent(inout) :: this
     integer(int32) :: elem_idx,gp_idx,i,j,nd,nne,row_idx,col_idx,nsig,k,l,nn,&
-        nne_idx,sig_idx,dim_idx,ngp,node_idx,row,col
-    real(real64),allocatable :: dNdxi(:,:),P_e(:,:),Jin(:,:),dNdx(:,:),val(:)
+        nne_idx,sig_idx,dim_idx,ngp,node_idx
+    real(real64),allocatable :: dNdxi(:,:),P_e(:,:),Jin(:,:),dNdx(:,:)
     integer(int32),allocatable ::  stress_i(:),stress_j(:)
     real(real64) :: integral_val,detJ
     type(Shapefunction_) :: shapefunc
@@ -394,50 +394,46 @@ function globalStressDivMatrix_DynamicEP(this) result(ret)
         stress_j = [1,2,3,2,3,1]
     endif
 
-    ! create coo matrix
+    P_e = zeros(nd*nne,nsig)
+
+
+    ! create COO form
     do elem_idx = 1, this%femdomain%ne()
         do gp_idx = 1, this%femdomain%ngp()
             do nne_idx=1,this%femdomain%nne()
                 node_idx = this%femdomain%mesh%elemnod(elem_idx,nne_idx)
                 do dim_idx=1,this%femdomain%nd()
                     do sig_idx = 1,nsig
-                        call ret_COO%add(&
+                        
+                        call ret_COO%set(&
                             nd*(node_idx-1)+dim_idx,&
                             ngp*nsig*(elem_idx-1) + nsig*(gp_idx-1) + sig_idx,&
                             0.0d0 )
+                        
                     enddo
                 enddo
             enddo
+
         enddo
     enddo
-!
+
     ret = ret_COO%to_CRS()
-    call ret_COO%remove()
-    val = ret%val
-    val(:) = 0.0d0
-    
-    deallocate(ret%val)
 
-    P_e = zeros(nd*nne,nsig)
-
-    call shapefunc%setType(NumOfDim=this%femdomain%nd(), &
-        NumOfNodePerElem=this%femdomain%nne(), NumOfGp=this%femdomain%ngp())
-    !$OMP parallel do private(gp_idx,dNdxi,Jin,P_e,nne_idx,node_idx,dim_idx,sig_idx,dNdx,j,row,col) &
-    !$OMP  shared(this,nsig,ret) firstprivate(shapefunc) reduction(+:val)
     do elem_idx = 1, this%femdomain%ne()
-        !call shapefunc%setType(NumOfDim=this%femdomain%nd(), &
-        !    NumOfNodePerElem=this%femdomain%nne(), NumOfGp=this%femdomain%ngp())
+
+        call shapefunc%setType(NumOfDim=this%femdomain%nd(), &
+            NumOfNodePerElem=this%femdomain%nne(), NumOfGp=this%femdomain%ngp())
         do gp_idx = 1, this%femdomain%ngp()
-            call getAllShapeFunc(shapefunc, elem_id=elem_idx, nod_coord=this%femdomain%Mesh%NodCoord, &
+            call shapefunc%getAll( elem_id=elem_idx, nod_coord=this%femdomain%Mesh%NodCoord, &
                 elem_nod=this%femdomain%Mesh%ElemNod, OptionalGpID=gp_idx)
 
             dNdxi = shapefunc%dNdgzi
             
-            if (det_mat(shapefunc%Jmat, this%femdomain%nd()) == 0.0d0) stop "globalStressDivMatrix_DynamicEP,detJ=0"
+            if (det_mat(shapefunc%Jmat, nd) == 0.0d0) stop "globalStressDivMatrix_DynamicEP,detJ=0"
             call inverse_rank_2(shapefunc%Jmat, Jin)
             dNdx = matmul(transpose(dNdxi), Jin) !dNdgzi* dgzidx
 
-            do nne_idx=1,this%femdomain%nne()
+            do nne_idx=1,nne
                 P_e(3*(nne_idx-1)+1,1:nsig) = [dNdx(nne_idx,1),0.0d0,0.0d0,dNdx(nne_idx,2),0.0d0,dNdx(nne_idx,3)]
                 P_e(3*(nne_idx-1)+2,1:nsig) = [0.0d0,dNdx(nne_idx,2),0.0d0,dNdx(nne_idx,1),dNdx(nne_idx,3),0.0d0]
                 P_e(3*(nne_idx-1)+3,1:nsig) = [0.0d0,0.0d0,dNdx(nne_idx,3),0.0d0,dNdx(nne_idx,2),dNdx(nne_idx,1)]
@@ -447,20 +443,11 @@ function globalStressDivMatrix_DynamicEP(this) result(ret)
                 node_idx = this%femdomain%mesh%elemnod(elem_idx,nne_idx)
                 do dim_idx=1,this%femdomain%nd()
                     do sig_idx = 1,nsig
-
-                        ! Rewritten for parallelization
-                        row = this%femdomain%nd()*(node_idx-1)+dim_idx
-                        col = this%femdomain%ngp()*nsig*(elem_idx-1) + nsig*(gp_idx-1) + sig_idx
-                        do j = ret%row_ptr(row), ret%row_ptr(row + 1) - 1
-                            if (ret%col_idx(j) == col) then
-                                val(j) = val(j) + P_e(this%femdomain%nd()*(nne_idx-1)+dim_idx,sig_idx )
-                                exit
-                            end if
-                        end do
-                        !call ret_COO%add(&
-                        !    nd*(node_idx-1)+dim_idx,&
-                        !    ngp*nsig*(elem_idx-1) + nsig*(gp_idx-1) + sig_idx,&
-                        !    P_e(nd*(nne_idx-1)+dim_idx,sig_idx ) )
+                        
+                        call ret%add(&
+                            nd*(node_idx-1)+dim_idx,&
+                            ngp*nsig*(elem_idx-1) + nsig*(gp_idx-1) + sig_idx,&
+                            P_e(nd*(nne_idx-1)+dim_idx,sig_idx ) )
                         
                     enddo
                 enddo
@@ -468,9 +455,7 @@ function globalStressDivMatrix_DynamicEP(this) result(ret)
 
         enddo
     enddo
-    !$OMP end parallel do
-    ret%val = val
-!    ret = ret_COO%to_CRS()
+
 
     
 
@@ -546,7 +531,7 @@ function globalStiffnessMatrix_DynamicEP(this,auto_tuning) result(ret)
         U(:),ElasticStrain_vec(:),U_e(:),C_mat_n(:,:),ElasticStrain_n(:,:),val(:)
         
     integer(int32),allocatable ::  stress_i(:),stress_j(:)
-    real(real64) :: integral_val,fval,fval_n
+    real(real64) :: integral_val,yield_function_value,yield_function_value_n
     real(real64),allocatable :: K_e(:,:),K_e_n(:,:)
     integer(int32) :: ngp
     
@@ -610,205 +595,22 @@ function globalStiffnessMatrix_DynamicEP(this,auto_tuning) result(ret)
     endif
 
     ! ONLY FOR UNIFORM MESH which uses only a single type of element
-    call ret_COO%remove()
-    val = ret%val
-    deallocate(ret%val)
-    val(:)=0.0d0
+    val = zeros(size(ret%val))
+
     
     if(.not. execute_auto_tuning)then
-!$OMP parallel do private(gp_idx,C_mat,ElasticStrain,K_e,node_idx_1,i,j,k,l,n,m,row,col,nsig) &
-!$OMP   shared(this,ret)  firstprivate(shapefunc) reduction(+:val)
+        
+
+!!$OMP parallel do private(shapefunc,gp_idx,B_mat,C_mat,ElasticStrain,K_e,node_idx_1,i,j,k,l,n,m,row,col) &
+!!$OMP   shared(this,ret,nsig) reduction(+:val)
         do elem_idx = 1, this%femdomain%ne()
-
-    call shapefunc%setType(NumOfDim=this%femdomain%nd(), &
-        NumOfNodePerElem=this%femdomain%nne(), NumOfGp=this%femdomain%ngp())
-
-
-            nsig = ((this%femdomain%nd())*(this%femdomain%nd()-1))/2 + this%femdomain%nd()
-            do gp_idx = 1, this%femdomain%ngp()                
-                call getAllShapeFunc(shapefunc,elem_id=elem_idx, nod_coord=this%femdomain%Mesh%NodCoord, &
+            call shapefunc%setType(NumOfDim=this%femdomain%nd(), &
+                NumOfNodePerElem=this%femdomain%nne(), NumOfGp=this%femdomain%ngp())
+            do gp_idx = 1, this%femdomain%ngp()
+                
+                call shapefunc%getAll(elem_id=elem_idx, nod_coord=this%femdomain%Mesh%NodCoord, &
                     elem_nod=this%femdomain%Mesh%ElemNod, OptionalGpID=gp_idx)
                 ! element-wise matrices >> 
-                
-                ElasticStrain = this%femdomain%getStrainTensor(&
-                    displacement=this%u,&
-                    ElementID=elem_idx, &
-                    GaussPointID=gp_idx)
-
-                ! 論点:
-                    ! small strainのBmatでよいのか．
-                    ! 超弾性と亜弾性の関係を深堀する必要あり
-                ! Compute stiffness matrix C
-
-                C_mat = this%EP_Models( this%ElemEP_ModelIdx(elem_idx) )%StiffnessMatrix(&
-                    CauchyStress = this%getCauchyStress(ElementID=elem_idx,GaussPointID=gp_idx),&
-                    ElasticParams=this%ElasticParams(elem_idx,:),&
-                    PlasticParams=this%PlasticParams(elem_idx,:),&
-                    ElasticStrain=ElasticStrain,&
-                    nDim=this%femdomain%nd(),&
-                    force_elastic=this%force_elastic)
-
-                ! K = C B
-                ! K_e : (  NSIG, ND*NNE)
-                K_e = matmul(C_mat,this%femdomain%Bmatrix(shapefunc))
-
-                do i=1,this%femdomain%nne()
-                    node_idx_1 = this%femdomain%mesh%elemnod(elem_idx,i)
-                    do k=1,this%femdomain%nd()
-                        do l=1,nsig
-                            row = nsig * this%femdomain%ngp() * (elem_idx-1) + nsig * (gp_idx-1) +  l
-                            col = this%femdomain%nd() * (node_idx_1 - 1) + k
-                        
-                            !ret%add
-                            do j = ret%row_ptr(row), ret%row_ptr(row + 1) - 1
-                                if (ret%col_idx(j) == col) then
-                                    
-                                    val(j) = val(j) + K_e( l , nd*(i-1)+k )   
-                                    exit
-                                end if
-                            end do
-
-!                            call ret_COO%add( &
-!                                nsig * ngp * (elem_idx-1) + nsig * (gp_idx-1) +  l, & ! gauss-point wise
-!                                nd * (node_idx_1 - 1) + k, & ! node-wise
-!                                K_e( l , nd*(i-1)+k ) &
-!                            )
-                        enddo
-                    enddo
-                enddo
-            enddo
-        enddo        
-        !$OMP end parallel do
-        
-!        ret = ret_COO%to_CRS()
-        ret%val = val
-    else
-
-        call shapefunc%setType(NumOfDim=this%femdomain%nd(), &
-            NumOfNodePerElem=this%femdomain%nne(), NumOfGp=this%femdomain%ngp())
- !$OMP parallel do private(gp_idx,C_mat_n,C_mat,B_mat,ElasticStrain,ElasticStrain_n,&
-        !$OMP K_e,K_e_n,node_idx_1,i,j,k,l,fval,fval_n,theta,row,col,nsig) firstprivate(shapefunc) shared(this,ret) reduction(+:val)
-        do elem_idx = 1, this%femdomain%ne()
-            
-            nsig = ((this%femdomain%nd())*(this%femdomain%nd()-1))/2 + this%femdomain%nd()    
-                
-            do gp_idx = 1, this%femdomain%ngp()
-                ! 時間積分においてUpsilonの線形仮定を無視し，
-                ! 塑性構成則をみたすように時間積分点をずらす．
-                ! 説明は追記予定
-                
-                ! 原因はBマトリクス
-                ! さらにshapefuncの何が原因かを絞り込む
-                !> shapefunc%dNdgziが原因!
-                
-                
-                
-                !(1) 形状関数を計算(共通)ここに原因
-                
-                call getAllShapeFunc(shapefunc,elem_id=elem_idx, nod_coord=this%femdomain%Mesh%NodCoord, &
-                    elem_nod=this%femdomain%Mesh%ElemNod, OptionalGpID=gp_idx)
-                
-                !(2) 弾性ひずみ@(n), (n+1)ステップを計算(共通)
-                ![ok]
-                ElasticStrain_n = this%femdomain%getStrainTensor(&
-                    displacement=this%u_n,&
-                    ElementID=elem_idx, &
-                    GaussPointID=gp_idx)
-                ![ok]
-                ElasticStrain = this%femdomain%getStrainTensor(&
-                    displacement=this%u,&
-                    ElementID=elem_idx, &
-                    GaussPointID=gp_idx)
-                ! 論点:
-                    ! small strainのBmatでよいのか．
-                    ! 超弾性と亜弾性の関係を深堀する必要あり
-
-                ! Compute stiffness matrix C for n-th step
-                ![OK]
-                C_mat_n = this%EP_Models( this%ElemEP_ModelIdx(elem_idx) )%StiffnessMatrix(&
-                    CauchyStress = this%getCauchyStress(ElementID=elem_idx,GaussPointID=gp_idx,last_step=.true.),&
-                    ElasticParams=this%ElasticParams(elem_idx,:),&
-                    PlasticParams=this%PlasticParams(elem_idx,:),&
-                    ElasticStrain=ElasticStrain_n,&
-                    nDim=this%femdomain%nd(),&
-                    force_elastic=.false.)
-                ![OK]
-                ! Compute stiffness matrix C for n-th step
-                C_mat = this%EP_Models( this%ElemEP_ModelIdx(elem_idx) )%StiffnessMatrix(&
-                    CauchyStress = this%getCauchyStress(ElementID=elem_idx,GaussPointID=gp_idx,last_step=.false.),&
-                    ElasticParams=this%ElasticParams(elem_idx,:),&
-                    PlasticParams=this%PlasticParams(elem_idx,:),&
-                    ElasticStrain=ElasticStrain,&
-                    nDim=this%femdomain%nd(),&
-                    force_elastic=.false.)
-                
-                ![ok]
-                fval = this%get_yield_function_value(ElementID=elem_idx,GaussPointID=gp_idx)
-                fval_n = this%get_yield_function_value(ElementID=elem_idx,GaussPointID=gp_idx,last_step=.true.)
-            
-                theta = 0.50d0
-                if(fval_n - fval==0.0d0)then
-                    theta = 0.50d0
-                elseif ( (fval < 0  ) .and. (fval_n <= 0  ))then
-                    ! e -> e
-                    theta = 0.50d0
-                elseif( (fval == 0  ) .and. (fval_n <= 0  ))then
-                    theta        = fval_n/(fval_n - fval)    
-                elseif( (fval <= 0  ) .and. (fval_n >= 0  ))then
-                    ! p -> e
-                    theta        = fval_n/(fval_n - fval)
-                elseif( (fval >= 0  ) .and. (fval_n <= 0  ))then
-                    ! e -> p 
-                    theta        = fval_n/(fval_n - fval)
-                elseif( (fval >= 0  ) .and. (fval_n <= 0  ))then
-                    ! p -> p
-                    theta        = fval_n/(fval_n - fval)
-                endif
-                
-
-                B_mat = this%femdomain%Bmatrix(shapefunc)
-
-                ! stiffness matrix for current and last stress conditions
-                K_e = matmul(C_mat,B_mat)
-                K_e_n = matmul(C_mat_n,B_mat)
-
-                K_e = (1.0d0 - theta) * K_e + (theta) * K_e_n
-                
-
-                do i=1,this%femdomain%nne()
-                    ![OK]
-                    node_idx_1 = this%femdomain%mesh%elemnod(elem_idx,i)
-                    
-                    do k=1,this%femdomain%nd()
-                        do l=1,nsig
-                            ![OK]
-                            row = nsig * this%femdomain%ngp() * (elem_idx-1) + nsig * (gp_idx-1) +  l
-                            col = this%femdomain%nd() * (node_idx_1 - 1) + k
-                            do j = ret%row_ptr(row), ret%row_ptr(row + 1) - 1
-                                if (ret%col_idx(j) == col) then
-                                    val(j) = val(j) + K_e( l , this%femdomain%nd()*(i-1) + k )   
-                                    exit
-                                end if
-                            end do
-
-                            !call ret_COO%add( &
-                            !    nsig * ngp * (elem_idx-1) + nsig * (gp_idx-1) +  l, & ! gauss-point wise
-                            !    nd * (node_idx_1 - 1) + k, & ! node-wise
-                            !    K_e( l , nd*(i-1)+k ) &
-                            !)
-
-                        enddo
-                    enddo
-                enddo
-            enddo
-        enddo
-        !$OMP end parallel do
-!        ret = ret_COO%to_CRS()
-        ret%val = val
-        
-    endif
-    
-! ! memo
 
                 ! 2025/04/15 
                 ! どこのStrain?
@@ -860,7 +662,171 @@ function globalStiffnessMatrix_DynamicEP(this,auto_tuning) result(ret)
                 !    displacement=this%u,&
                 !    ElementID=elem_idx, &
                 !    GaussPointID=gp_idx)
+                B_mat = this%femdomain%Bmatrix(shapefunc)
 
+
+                ElasticStrain = this%femdomain%getStrainTensor(&
+                    displacement=this%u,&
+                    ElementID=elem_idx, &
+                    GaussPointID=gp_idx)
+                
+                ! 論点:
+                    ! small strainのBmatでよいのか．
+                    ! 超弾性と亜弾性の関係を深堀する必要あり
+
+                ! Compute stiffness matrix C
+                C_mat = this%EP_Models( this%ElemEP_ModelIdx(elem_idx) )%StiffnessMatrix(&
+                    CauchyStress = this%getCauchyStress(ElementID=elem_idx,GaussPointID=gp_idx),&
+                    ElasticParams=this%ElasticParams(elem_idx,:),&
+                    PlasticParams=this%PlasticParams(elem_idx,:),&
+                    ElasticStrain=ElasticStrain,&
+                    nDim=this%femdomain%nd(),&
+                    force_elastic=this%force_elastic)
+
+                ! K = C B
+                ! K_e : (  NSIG, ND*NNE)
+                K_e = matmul(C_mat,B_mat)
+                do i=1,this%femdomain%nne()
+                    node_idx_1 = this%femdomain%mesh%elemnod(elem_idx,i)
+                    do k=1,this%femdomain%nd()
+                        do l=1,nsig
+                            !row = nsig * this%femdomain%ngp() * (elem_idx-1) + nsig * (gp_idx-1) +  l
+                            !col = this%femdomain%nd() * (node_idx_1 - 1) + k
+                            !
+                            !! ret%add
+                            !do j = ret%row_ptr(row), ret%row_ptr(row + 1) - 1
+                            !    if (ret%col_idx(j) == col) then
+                            !        
+                            !        val(j) = val(j) + K_e( l , nd*(i-1)+k )   
+                            !        exit
+                            !    end if
+                            !end do
+
+
+                            call ret%add( &
+                                nsig * ngp * (elem_idx-1) + nsig * (gp_idx-1) +  l, & ! gauss-point wise
+                                nd * (node_idx_1 - 1) + k, & ! node-wise
+                                K_e( l , nd*(i-1)+k ) &
+                            )
+                        enddo
+                    enddo
+                enddo
+            enddo
+        enddo        
+        !!$OMP end parallel do
+        
+        
+        ret%val = val
+    else
+        val = ret%val
+!        !$OMP parallel private(shapefunc,gp_idx,B_mat,C_mat_n,C_mat,ElasticStrain,&
+!        !$OMP ElasticStrain_n,K_e,K_e_n,node_idx_1,i,j,k,l,n,m,yield_function_value,yield_function_value_n,&
+!        !$OMP theta,row,col) shared(this,ret)
+!        !$OMP do reduction(+:val)
+        do elem_idx = 1, this%femdomain%ne()
+
+            call shapefunc%setType(NumOfDim=this%femdomain%nd(), &
+                NumOfNodePerElem=this%femdomain%nne(), NumOfGp=this%femdomain%ngp())
+            do gp_idx = 1, this%femdomain%ngp()
+                ! 時間積分においてUpsilonの線形仮定を無視し，
+                ! 塑性構成則をみたすように時間積分点をずらす．
+                ! 説明は追記予定
+                
+                !(1) 形状関数を計算(共通)
+                call shapefunc%getAll( elem_id=elem_idx, nod_coord=this%femdomain%Mesh%NodCoord, &
+                    elem_nod=this%femdomain%Mesh%ElemNod, OptionalGpID=gp_idx)
+
+                !(2) Bマトリクスを計算(共通)
+                B_mat = this%femdomain%Bmatrix(shapefunc)
+
+                !(2) 弾性ひずみ@(n), (n+1)ステップを計算(共通)
+                ElasticStrain_n = this%femdomain%getStrainTensor(&
+                    displacement=this%u_n,&
+                    ElementID=elem_idx, &
+                    GaussPointID=gp_idx)
+                
+                ElasticStrain = this%femdomain%getStrainTensor(&
+                    displacement=this%u,&
+                    ElementID=elem_idx, &
+                    GaussPointID=gp_idx)
+                ! 論点:
+                    ! small strainのBmatでよいのか．
+                    ! 超弾性と亜弾性の関係を深堀する必要あり
+
+                ! Compute stiffness matrix C for n-th step
+                C_mat_n = this%EP_Models( this%ElemEP_ModelIdx(elem_idx) )%StiffnessMatrix(&
+                    CauchyStress = this%getCauchyStress(ElementID=elem_idx,GaussPointID=gp_idx,last_step=.true.),&
+                    ElasticParams=this%ElasticParams(elem_idx,:),&
+                    PlasticParams=this%PlasticParams(elem_idx,:),&
+                    ElasticStrain=ElasticStrain_n,&
+                    nDim=this%femdomain%nd(),&
+                    force_elastic=.false.)
+                
+                ! Compute stiffness matrix C for n-th step
+                C_mat = this%EP_Models( this%ElemEP_ModelIdx(elem_idx) )%StiffnessMatrix(&
+                    CauchyStress = this%getCauchyStress(ElementID=elem_idx,GaussPointID=gp_idx,last_step=.false.),&
+                    ElasticParams=this%ElasticParams(elem_idx,:),&
+                    PlasticParams=this%PlasticParams(elem_idx,:),&
+                    ElasticStrain=ElasticStrain,&
+                    nDim=this%femdomain%nd(),&
+                    force_elastic=.false.)
+                
+                
+                yield_function_value = this%get_yield_function_value(ElementID=elem_idx,GaussPointID=gp_idx)
+                yield_function_value_n = this%get_yield_function_value(ElementID=elem_idx,GaussPointID=gp_idx,last_step=.true.)
+            
+                theta = 0.50d0
+                if ( (yield_function_value < 0  ) .and. (yield_function_value_n <= 0  ))then
+                    ! e -> e
+                    theta = 0.50d0
+                elseif( (yield_function_value == 0  ) .and. (yield_function_value_n <= 0  ))then
+                    theta        = yield_function_value_n/(yield_function_value_n - yield_function_value)
+                elseif( (yield_function_value <= 0  ) .and. (yield_function_value_n >= 0  ))then
+                    ! p -> e
+                    theta        = yield_function_value_n/(yield_function_value_n - yield_function_value)
+                elseif( (yield_function_value >= 0  ) .and. (yield_function_value_n <= 0  ))then
+                    ! e -> p 
+                    theta        = yield_function_value_n/(yield_function_value_n - yield_function_value)
+                elseif( (yield_function_value >= 0  ) .and. (yield_function_value_n <= 0  ))then
+                    ! p -> p
+                    theta        = yield_function_value_n/(yield_function_value_n - yield_function_value)
+                endif
+                
+                ! stiffness matrix for current and last stress conditions
+                K_e = matmul(C_mat,B_mat)
+                K_e_n = matmul(C_mat_n,B_mat)
+
+                K_e = (1 - theta) * K_e + (theta) * K_e_n
+
+                do i=1,this%femdomain%nne()
+                    node_idx_1 = this%femdomain%mesh%elemnod(elem_idx,i)
+                    do k=1,this%femdomain%nd()
+                        do l=1,nsig
+!                            row = nsig * this%femdomain%ngp() * (elem_idx-1) + nsig * (gp_idx-1) +  l
+!                            col = this%femdomain%nd() * (node_idx_1 - 1) + k
+!                            do j = ret%row_ptr(row), ret%row_ptr(row + 1) - 1
+!                                if (ret%col_idx(j) == col) then
+!                                    
+!                                    val(j) = val(j) + K_e( l , nd*(i-1)+k )   
+!                                    exit
+!                                end if
+!                            end do
+                            call ret%add( &
+                                nsig * ngp * (elem_idx-1) + nsig * (gp_idx-1) +  l, & ! gauss-point wise
+                                nd * (node_idx_1 - 1) + k, & ! node-wise
+                                K_e( l , nd*(i-1)+k ) &
+                            )
+
+                        enddo
+                    enddo
+                enddo
+            enddo
+        enddo
+!        !$OMP end do
+!        !$OMP end parallel 
+        ret%val = val
+    endif
+    
 
     
 
@@ -878,13 +844,13 @@ function globalStressRatiolMatrix_SymEP(this) result(ret)
 
     ! under implementation 
     integer(int32) :: elem_idx,gp_idx,i,j,nd,nne,row_idx,col_idx,nsig,k,l,ne,&
-        node_idx_1,node_idx_2,nn
+        node_idx_1,node_idx_2,nn,row,col
     real(real64),allocatable :: dNdxi(:,:),N(:),C_mat(:,:),B_mat(:,:),ElasticStrain(:,:),&
         U(:),ElasticStrain_vec(:),U_e(:),W_tensor(:),val(:)
     integer(int32),allocatable ::  stress_i(:),stress_j(:)
     real(real64) :: integral_val
     real(real64),allocatable :: W_e(:,:)
-    integer(int32) :: ngp,row,col
+    integer(int32) :: stress_point_idx, ngp
     type(Shapefunction_) :: shapefunc
     type(COO_) :: ret_COO
     type(CRS_) :: ret
@@ -900,33 +866,13 @@ function globalStressRatiolMatrix_SymEP(this) result(ret)
     nne  = this%femdomain%nne()
     ne  = this%femdomain%ne()
     ngp  = this%femdomain%ngp()
-    nsig = ((nd)*(nd-1))/2 + nd
+    nsig = ((nd)*(nd-1))/2 + this%femdomain%nd()
 
     ! for 3-D case, with single element
     ! and NNE = 8, NN=8, nGP = 9
     ! matrix size = ( nsig * ngp * ne ,ND * NN )
 
     call ret_COO%init(nsig * ngp * ne)
-
-    do elem_idx = 1, this%femdomain%ne()
-        do gp_idx = 1, this%femdomain%ngp()
-            do i=1,nsig
-                do j=1,nsig
-                    call ret_COO%add( &
-                        nsig * ngp * (elem_idx-1) + nsig * (gp_idx-1) +  i, & ! gauss-point wise
-                        nsig * ngp * (elem_idx-1) + nsig * (gp_idx-1) +  j, & ! gauss-point wise
-                        0.0d0 &
-                    )
-                enddo
-            enddo
-        enddo
-    enddo
-    ret = ret_COO%to_CRS()
-    call ret_COO%remove()
-    val = ret%val
-    deallocate(ret%val)
-    val(:) = 0.0d0
-
 
     ! s(1,1),s(2,2),s(3,3)
     if(nd==1)then
@@ -943,27 +889,42 @@ function globalStressRatiolMatrix_SymEP(this) result(ret)
     endif
 
     ! ONLY FOR UNIFORM MESH which uses only a single type of element
-    
+    ! USING Jaumann stress ratio
+    stress_point_idx = 1
 
-    !$OMP parallel do private(gp_idx,W_e,i,j,k,row,col) &
-    !$OMP  shared(this,nsig,ret) firstprivate(shapefunc) reduction(+:val)
     do elem_idx = 1, this%femdomain%ne()
-        !call shapefunc%setType(NumOfDim=this%femdomain%nd(), &
-        !    NumOfNodePerElem=this%femdomain%nne(), NumOfGp=this%femdomain%ngp())
         do gp_idx = 1, this%femdomain%ngp()
-            call getAllShapeFunc(shapefunc, elem_id=elem_idx, nod_coord=this%femdomain%Mesh%NodCoord, &
-                elem_nod=this%femdomain%Mesh%ElemNod, OptionalGpID=gp_idx)
-            !dNdxi = shapefunc%dNdgzi
-            !N = shapefunc%Nmat
-
-            W_e = this%StressRatioMatrix(ElementID=elem_idx,GaussPointID=gp_idx)
-
             ! compute spin tensor
             do i=1,nsig
                 do j=1,nsig
-                    row = nsig * this%femdomain%ngp() * (elem_idx-1) + nsig * (gp_idx-1) +  i
-                    col = nsig * this%femdomain%ngp() * (elem_idx-1) + nsig * (gp_idx-1) +  j
-                    !ret%add
+                    call ret_COO%add( &
+                        nsig * ngp * (elem_idx-1) + nsig * (gp_idx-1) +  i, & ! gauss-point wise
+                        nsig * ngp * (elem_idx-1) + nsig * (gp_idx-1) +  j, & ! gauss-point wise
+                        0.0d0 &
+                    )
+                enddo
+            enddo
+        enddo
+    enddo
+
+    ret = ret_COO%to_CRS()
+    val  = ret%val 
+!    !$OMP parallel do private(gp_idx,W_e,i,j,k,l,row,col) &
+!    !$OMP   shared(this,ret) reduction(+:val)
+    do elem_idx = 1, this%femdomain%ne()
+        do gp_idx = 1, this%femdomain%ngp()
+            
+            W_e = this%StressRatioMatrix(ElementID=elem_idx,GaussPointID=gp_idx)
+            nsig = ((nd)*(nd-1))/2 + this%femdomain%nd()
+            ! compute spin tensor
+            do i=1,nsig
+                do j=1,nsig
+
+                    ! parallelization
+                    row = nsig * this%femdomain%ngp() * (elem_idx-1) + nsig * (gp_idx-1) +  i!, & ! gauss-point wise
+                    col = nsig * this%femdomain%ngp() * (elem_idx-1) + nsig * (gp_idx-1) +  j!, & ! gauss-point wise
+                    
+                    
                     do k = ret%row_ptr(row), ret%row_ptr(row + 1) - 1
                         if (ret%col_idx(k) == col) then
                             val(k) = val(k) + W_e( i, j )
@@ -971,18 +932,20 @@ function globalStressRatiolMatrix_SymEP(this) result(ret)
                         end if
                     end do
 
-                    !call ret_COO%add( &
+                    !call ret%add( &
                     !    nsig * ngp * (elem_idx-1) + nsig * (gp_idx-1) +  i, & ! gauss-point wise
                     !    nsig * ngp * (elem_idx-1) + nsig * (gp_idx-1) +  j, & ! gauss-point wise
                     !    W_e( i, j ) &
                     !)
                 enddo
             enddo
+            
         enddo
     enddo
-    !$OMP end parallel do
+!    !$OMP end parallel do
     ret%val = val
-!    ret = ret_COO%to_CRS()
+    
+    
 
 end function
 ! ####################################################
@@ -996,7 +959,7 @@ function StressRatioMatrix_SymEP(this,ElementID,GaussPointID) result(ret)
     type(ShapeFunction_) :: shapefunc
 
     
-    call getAllShapeFunc(shapefunc, elem_id=ElementID, nod_coord=this%femdomain%Mesh%NodCoord, &
+    call shapefunc%getAll( elem_id=ElementID, nod_coord=this%femdomain%Mesh%NodCoord, &
         elem_nod=this%femdomain%Mesh%ElemNod, OptionalGpID=GaussPointID)
     
     
