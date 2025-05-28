@@ -4,6 +4,7 @@ module DynamicEPClass
     use SpectreAnalysisClass
     use ElastoPlasticityClass
     use WaveKernelClass
+    use TimeClass
     implicit none
 
     integer(int32),public :: NONE    = 0
@@ -38,6 +39,8 @@ module DynamicEPClass
         real(real64),allocatable :: yield_function_values_n(:,:)
 
         real(real64) :: cutoff_frequency=0.0d0
+
+        integer(int32) :: max_itr = 100
 
 
     contains
@@ -117,9 +120,12 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
         yield_function_values(:,:)
     type(CRS_) :: M_inv_P, K, W
     type(BCRS_) :: Upsilon_n
+    type(Time_) :: time
     integer(int32),allocatable :: fix_idx(:)
     real(real64) :: theta
     
+    call time%start()
+
     if(this%cutoff_frequency==0.0d0)then
         ! default value is 1.0d0/dt
         this%cutoff_frequency = 1.0d0/dt
@@ -186,6 +192,8 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
 ! >>> auto-tuning algorithm    this%yield_function_values_n = this%get_yield_function_values()
     
     call print("debug >> 1")
+    call time%show()
+    call time%start()
 ! !    ! この時点で，節点座標は初期配置Xのまま
 ! !    X = this%femdomain%mesh%nodcoord(:,:)
 ! !    ! だが，dN/dxを求めなくてはならない．
@@ -199,7 +207,11 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     ! 現配置(x)で係数マトリクスを計算
     M_inv_P = this%globalStressDivMatrix()
     call print("debug >> 1-1")
+    call time%show()
+    call time%start()
+
     call M_inv_P%divide_by_vector(this%LumpedMassDiag())
+
     
     !<<弾性除荷に戻らない問題についてのコメント用>>
     !<<この時点では，前ステップの応力を参照して剛性を決定している．
@@ -207,26 +219,37 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     !<<では，まずここで弾性仮定を強制する>>
     this%force_elastic = .true.
     call print("debug >> 1-2")
+    call time%show()
+    call time%start()
     K = this%globalStiffnessMatrix()
     call print("debug >> 1-3")
+    call time%show()
+    call time%start()
     W = this%globalStressRatiolMatrix() 
 
     call print("debug >> 2")
+    call time%show()
+    call time%start()
     call this%Upsilon%set([1,2],(-1.0d0)*M_inv_P)
     call this%Upsilon%set([2,1],K)
     call this%Upsilon%set([2,2],(-1.0d0)*W)
     call print("debug >> 3")    
+    call time%show()
+    call time%start()
 
     ![new!] 2025/05/16
     !call this%Upsilon%fill_zero_row(row=fix_idx)
     call print("debug >> 4")    
+    call time%show()
+    call time%start()
 !    ! 一旦，x を X に戻しておく
 !    this%femdomain%mesh%nodcoord(:,:) = X(:,:)
 
     
     ! EXP-INTEGによる時間積分を実行
     ! Psi^{\rm tr} 0 -> dt
-    this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx)
+    this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
+        max_itr=this%max_itr)
     !<<弾性除荷に戻らない問題についてのコメント用>>
     !<<ここで応力更新される．ただし，剛性は小さいままで応力が更新されるので．>>
     !<<降伏したままで，応力は減らない．>>
@@ -247,6 +270,8 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
 
 
     call print("debug >> 5")
+    call time%show()
+    call time%start()
     ! 速度場を更新
     this%v = transpose( &
         reshape(this%Psi(1:this%femdomain%nd()*this%femdomain%nn()),&
@@ -256,6 +281,8 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     this%u = this%u_n + dt/2.0d0 * (this%v + this%v_n)
 
     call print("debug >> 6")
+    call time%show()
+    call time%start()
 ! !    ! ここまでで，trialのu, vを計算した．
 ! !    ! 得られたu, v, σが正しいとして，係数行列Upsilonを計算し，前ステップのUpsilonとの平均を取る．
 ! !    ! そうして作られた新たなUpsilonにより，真のu, v, σを得る．
@@ -277,15 +304,23 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     this%force_elastic = .false.
     M_inv_P = this%globalStressDivMatrix()
     call print("debug >> 6-1")
+    call time%show()
+    call time%start()
     call M_inv_P%divide_by_vector(diag_vector=this%LumpedMassDiag())    
     call print("debug >> 6-2")
+    call time%show()
+    call time%start()
     ! 弾性係数の変化を考慮して，f=0をキープするよう重み付け
     K = this%globalStiffnessMatrix(auto_tuning=.True.) ! weighted global matrix
     call print("debug >> 6-3")
+    call time%show()
+    call time%start()
     W = this%globalStressRatiolMatrix() ! global matrix
     
 
     call print("debug >> 6")
+    call time%show()
+    call time%start()
     !call this%Upsilon%add([1,2],(-1.0d0)*dt/2.0d0*M_inv_P)
     !call this%Upsilon%add([2,1],dt/2.0d0*K)
     !call this%Upsilon%add([2,2],(-1.0d0)*dt/2.0d0*W)
@@ -298,6 +333,8 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     call this%Upsilon%set([2,2],(-1.0d0)/2.0d0*W + 1.0d0/2.0d0*Upsilon_n%CRS(2,2))
 
     call print("debug >> 7")
+    call time%show()
+    call time%start()
     ![new!] 2025/05/16
     
     
@@ -328,9 +365,12 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     !call this%Upsilon%fill_zero_row(row=fix_idx)
 
     call print("debug >> 8")
+    call time%show()
+    call time%start()
     
     ! get updated solution
-    this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx)
+    this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
+        max_itr=this%max_itr)
     
 !    if(present(fixNodeList_x) .and. present(fixValueList_x) )then
 !        this%Psi(fixNodeList_x(:)*3-2) = fixValueList_x(:)
@@ -342,6 +382,8 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
 !        this%Psi(fixNodeList_z(:)*3-0) = fixValueList_z(:)
 !    endif
     call print("debug >> 9")
+    call time%show()
+    call time%start()
     this%v = transpose(&
         reshape(this%Psi(1:this%femdomain%nd()*this%femdomain%nn()),&
         [this%femdomain%nd(),this%femdomain%nn()]))
@@ -395,28 +437,34 @@ function globalStressDivMatrix_DynamicEP(this) result(ret)
     endif
 
     ! create coo matrix
-    do elem_idx = 1, this%femdomain%ne()
-        do gp_idx = 1, this%femdomain%ngp()
-            do nne_idx=1,this%femdomain%nne()
-                node_idx = this%femdomain%mesh%elemnod(elem_idx,nne_idx)
-                do dim_idx=1,this%femdomain%nd()
-                    do sig_idx = 1,nsig
-                        call ret_COO%add(&
-                            nd*(node_idx-1)+dim_idx,&
-                            ngp*nsig*(elem_idx-1) + nsig*(gp_idx-1) + sig_idx,&
-                            0.0d0 )
+    if(allocated(this%Upsilon%CRS) )then
+        ret = this%Upsilon%CRS(1,2)
+        ret%val(:) = 0.0d0
+        val = ret%val(:)
+        deallocate(ret%val)
+    else
+        do elem_idx = 1, this%femdomain%ne()
+            do gp_idx = 1, this%femdomain%ngp()
+                do nne_idx=1,this%femdomain%nne()
+                    node_idx = this%femdomain%mesh%elemnod(elem_idx,nne_idx)
+                    do dim_idx=1,this%femdomain%nd()
+                        do sig_idx = 1,nsig
+                            call ret_COO%add(&
+                                nd*(node_idx-1)+dim_idx,&
+                                ngp*nsig*(elem_idx-1) + nsig*(gp_idx-1) + sig_idx,&
+                                0.0d0 )
+                        enddo
                     enddo
                 enddo
             enddo
         enddo
-    enddo
-!
-    ret = ret_COO%to_CRS()
-    call ret_COO%remove()
-    val = ret%val
-    val(:) = 0.0d0
-    
-    deallocate(ret%val)
+
+        ret = ret_COO%to_CRS()
+        call ret_COO%remove()
+        val = ret%val
+        val(:) = 0.0d0
+        deallocate(ret%val)
+    endif
 
     P_e = zeros(nd*nne,nsig)
 
@@ -431,11 +479,10 @@ function globalStressDivMatrix_DynamicEP(this) result(ret)
             call getAllShapeFunc(shapefunc, elem_id=elem_idx, nod_coord=this%femdomain%Mesh%NodCoord, &
                 elem_nod=this%femdomain%Mesh%ElemNod, OptionalGpID=gp_idx)
 
-            dNdxi = shapefunc%dNdgzi
             
             if (det_mat(shapefunc%Jmat, this%femdomain%nd()) == 0.0d0) stop "globalStressDivMatrix_DynamicEP,detJ=0"
             call inverse_rank_2(shapefunc%Jmat, Jin)
-            dNdx = matmul(transpose(dNdxi), Jin) !dNdgzi* dgzidx
+            dNdx = matmul(transpose(shapefunc%dNdgzi), Jin) !dNdgzi* dgzidx
 
             do nne_idx=1,this%femdomain%nne()
                 P_e(3*(nne_idx-1)+1,1:nsig) = [dNdx(nne_idx,1),0.0d0,0.0d0,dNdx(nne_idx,2),0.0d0,dNdx(nne_idx,3)]
@@ -534,7 +581,7 @@ function get_yield_function_value_DynamicEP(this,ElementID,GaussPointID,last_ste
 end function
 
 ! ####################################################
-
+! ここを高速化したい．
 function globalStiffnessMatrix_DynamicEP(this,auto_tuning) result(ret)
     class(DynamicEP_),intent(in) :: this
     logical,optional,intent(in)  :: auto_tuning
@@ -574,26 +621,39 @@ function globalStiffnessMatrix_DynamicEP(this,auto_tuning) result(ret)
     ! and NNE = 8, NN=8, nGP = 9
     ! matrix size = ( nsig * ngp * ne ,ND * NN )
 
-    call ret_COO%init(nsig * ngp * ne)
-
-    do elem_idx = 1, this%femdomain%ne()
-        do gp_idx = 1, this%femdomain%ngp()
-            do i=1,nne
-                node_idx_1 = this%femdomain%mesh%elemnod(elem_idx,i)
-                do k=1,nd
-                    do l=1,nsig
-                        call ret_COO%set( &
-                            nsig * ngp * (elem_idx-1) + nsig * (gp_idx-1) +  l, & ! gauss-point wise
-                            nd * (node_idx_1 - 1) + k, & ! node-wise
-                            0.0d0 &
-                        )
+    ! use zero matrix
+    if(allocated(this%Upsilon%CRS))then
+        ! if K is already allocated, use the CRS format.
+        ret = this%Upsilon%CRS(2,1)
+        ret%val(:) = 0.0d0
+        val = ret%val(:)
+        deallocate(ret%val)
+    else
+        call ret_COO%init(nsig * ngp * ne)
+        do elem_idx = 1, this%femdomain%ne()
+            do gp_idx = 1, this%femdomain%ngp()
+                do i=1,nne
+                    node_idx_1 = this%femdomain%mesh%elemnod(elem_idx,i)
+                    do k=1,nd
+                        do l=1,nsig
+                            call ret_COO%set( &
+                                nsig * ngp * (elem_idx-1) + nsig * (gp_idx-1) +  l, & ! gauss-point wise
+                                nd * (node_idx_1 - 1) + k, & ! node-wise
+                                0.0d0 &
+                            )
+                        enddo
                     enddo
                 enddo
             enddo
         enddo
-    enddo
-    
-    ret = ret_COO%to_CRS()
+        ret = ret_COO%to_CRS()
+        call ret_COO%remove()
+        val = ret%val
+        deallocate(ret%val)
+        val(:)=0.0d0
+    endif
+
+
 
     ! s(1,1),s(2,2),s(3,3)
     if(nd==1)then
@@ -610,10 +670,7 @@ function globalStiffnessMatrix_DynamicEP(this,auto_tuning) result(ret)
     endif
 
     ! ONLY FOR UNIFORM MESH which uses only a single type of element
-    call ret_COO%remove()
-    val = ret%val
-    deallocate(ret%val)
-    val(:)=0.0d0
+    
     
     if(.not. execute_auto_tuning)then
 !$OMP parallel do private(gp_idx,C_mat,ElasticStrain,K_e,node_idx_1,i,j,k,l,n,m,row,col,nsig) &
@@ -763,6 +820,11 @@ function globalStiffnessMatrix_DynamicEP(this,auto_tuning) result(ret)
                 elseif( (fval >= 0  ) .and. (fval_n <= 0  ))then
                     ! p -> p
                     theta        = fval_n/(fval_n - fval)
+                endif
+                if(theta < 0.0d0)then
+                    theta = 0.0d0
+                elseif(theta > 1.0d0)then
+                    theta = 1.0d0
                 endif
                 
 
