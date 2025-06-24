@@ -13,6 +13,12 @@ module DynamicEPClass
     integer(int32),public :: OLDROYD_STRESS_RATIO    = 3
     integer(int32),public :: CONVECTIVE_STRESS_RATIO = 4
     
+    integer(int32),public :: TI_EXPONENTIAL_INTEGRATOR = 0
+    integer(int32),public :: TI_NEWMARK_BETA           = 1
+    integer(int32),public :: TI_FORWARDEULER           = 2
+    integer(int32),public :: TI_HEUN             = 3
+    integer(int32),public :: TI_RungeKutta4            = 4
+
     type :: DynamicEP_
         type(EP_Model_),allocatable  :: EP_Models(:)
         type(FEMDomain_),pointer :: femdomain => null()
@@ -24,6 +30,12 @@ module DynamicEPClass
         real(real64),allocatable :: u_n(:,:)
         real(real64),allocatable :: v(:,:)
         real(real64),allocatable :: v_n(:,:)
+
+        ! traction boundary
+        real(real64),allocatable :: TractionBoundaryIdx(:)
+        real(real64),allocatable :: TractionBoundaryVal(:)
+
+
         logical :: force_elastic = .false.
 
         ! control parameters
@@ -41,7 +53,12 @@ module DynamicEPClass
         real(real64) :: cutoff_frequency=0.0d0
 
         integer(int32) :: max_itr = 100
+        integer(int32) :: max_Newton_itr = 1000
+        real(real64) :: bicgstab_er = dble(1.0e-14)
+        integer(int32) :: max_bicgstab_itr = 10000
 
+
+        integer(int32) :: TimeIntegrationScheme = 0 !
 
     contains
         procedure,public :: init => init_DynamicEP
@@ -52,7 +69,19 @@ module DynamicEPClass
         procedure,public :: LumpedMassDiag  => LumpedMassDiag_DynamicEP
         procedure,public :: globalStiffnessMatrix => globalStiffnessMatrix_DynamicEP
         procedure,public :: globalStressRatiolMatrix => globalStressRatiolMatrix_SymEP
+        
+        procedure,public :: localExternalForceVector => localExternalForceVector_SymEP
+        procedure,public :: globalExternalForceVector => globalExternalForceVector_SymEP
         procedure,public :: StressRatioMatrix => StressRatioMatrix_SymEP
+
+        ! >> >> for Newton-raphson return-mapping
+        
+        procedure,public :: localInternalForceVector => localInternalForceVector_SymEP
+        procedure,public :: globalInternalForceVector => globalInternalForceVector_SymEP
+
+        procedure,public :: returnMapping => returnMapping_SymEP
+        
+
 
         ! getter
         procedure,public :: getCauchyStress => getCauchyStress_SymEP
@@ -61,6 +90,10 @@ module DynamicEPClass
 
         ! post-processing
         procedure,public :: getStrainField => getStrainField_SymEP
+        procedure,public :: getStressField => getStressField_SymEP
+
+        ! get traction force 
+        
     end type
 
     public :: assignment(=)
@@ -117,21 +150,25 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     real(real64),optional,intent(in) :: fixValueList_z(:)
 
     real(real64),allocatable :: X(:,:),fix_value(:),&
-        yield_function_values(:,:)
+        yield_function_values(:,:),u(:),du(:),ddu(:),RHS(:),&
+        k_1(:),k_2(:),k_3(:),k_4(:),Psi_buf(:)
     type(CRS_) :: M_inv_P, K, W
-    type(BCRS_) :: Upsilon_n
+    type(BCRS_) :: Upsilon_n,Upsilon_mid
     type(Time_) :: time
     integer(int32),allocatable :: fix_idx(:)
+
+    integer(int32) :: itr_Newton
     real(real64) :: theta
     
+
+    
+
     call time%start()
 
     if(this%cutoff_frequency==0.0d0)then
         ! default value is 1.0d0/dt
         this%cutoff_frequency = 1.0d0/dt
     endif
-    
-    
     
     !<<弾性除荷に戻らない問題についてのコメント用>>
     !<3001 step目開始>
@@ -140,15 +177,15 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     fix_value = zeros(0)
     if(present(fixNodeList_x))then
         fix_idx   = fix_idx   // fixNodeList_x(:)*this%femdomain%nd()-2
-        fix_value = fix_value // fixValueList_x(:)*this%femdomain%nd()-2
+        fix_value = fix_value // fixValueList_x(:)
     endif
     if(present(fixNodeList_y))then
         fix_idx   = fix_idx // fixNodeList_y(:)*this%femdomain%nd()-1
-        fix_value = fix_value // fixValueList_y(:)*this%femdomain%nd()-1
+        fix_value = fix_value // fixValueList_y(:)
     endif
     if(present(fixNodeList_z))then
         fix_idx   = fix_idx // fixNodeList_z(:)*this%femdomain%nd()-0
-        fix_value = fix_value // fixValueList_z(:)*this%femdomain%nd()-0
+        fix_value = fix_value // fixValueList_z(:)
     endif
     !<<弾性除荷に戻らない問題についてのコメント用>>
     !<<境界面で速度が負値となる．>>
@@ -244,19 +281,118 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     call time%start()
 !    ! 一旦，x を X に戻しておく
 !    this%femdomain%mesh%nodcoord(:,:) = X(:,:)
+    if(.not.allocated(Upsilon_n%CRS))then
+
+        Upsilon_n  = this%Upsilon
+    endif
 
     
     ! EXP-INTEGによる時間積分を実行
     ! Psi^{\rm tr} 0 -> dt
-    this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
-        max_itr=this%max_itr)
+    if (this%TimeIntegrationScheme==TI_EXPONENTIAL_INTEGRATOR)then
+        ![ok] call print(fix_idx)
+        ![ok] stop
+        
+        if(this%cutoff_frequency==0.0d0)then
+            ! disable cutoff frequency
+            this%Psi = this%Upsilon%exp(dt*this%Psi_n,fix_idx=fix_idx,&
+                max_itr=this%max_itr)
+        else
+            this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
+                max_itr=this%max_itr)
+        endif
+    elseif(this%TimeIntegrationScheme==TI_FORWARDEULER)then
+        !! Forward Euler method
+
+        this%Psi = this%Psi_n + dt*Upsilon_n%matmul(this%Psi_n)
+        !if(this%cutoff_frequency==0.0d0)then
+        !    ! disable cutoff frequency
+        !    this%Psi = this%Upsilon%exp(dt*this%Psi_n,fix_idx=fix_idx,&
+        !        max_itr=1)
+        !else
+        !    this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
+        !        max_itr=1)
+        !endif
+
+    elseif(this%TimeIntegrationScheme==TI_RungeKutta4)then
+        !! 4-th order Runge-Kutta method
+        k_1 = Upsilon_n%matmul(this%Psi_n)
+        k_1(fix_idx(:)) = 0.0d0
+
+        ! 現配置(x)で係数マトリクスを計算
+        M_inv_P = this%globalStressDivMatrix(Psi=this%Psi_n + dt/2.0d0*k_1)
+        call M_inv_P%divide_by_vector(this%LumpedMassDiag())
+        this%force_elastic = .true.
+        K = this%globalStiffnessMatrix(   Psi=this%Psi_n + dt/2.0d0*k_1)        
+        W = this%globalStressRatiolMatrix(Psi=this%Psi_n + dt/2.0d0*k_1) 
+        call Upsilon_mid%set([1,2],(-1.0d0)*M_inv_P)
+        call Upsilon_mid%set([2,1],K)
+        call Upsilon_mid%set([2,2],(-1.0d0)*W)
+        k_2 = Upsilon_mid%matmul(this%Psi_n + dt/2.0d0*k_1 )
+        k_2(fix_idx(:)) = 0.0d0
+
+
+        M_inv_P = this%globalStressDivMatrix(Psi=this%Psi_n + dt/2.0d0*k_2)
+        call M_inv_P%divide_by_vector(this%LumpedMassDiag())
+        this%force_elastic = .true.
+        K = this%globalStiffnessMatrix(   Psi=this%Psi_n + dt/2.0d0*k_2)        
+        W = this%globalStressRatiolMatrix(Psi=this%Psi_n + dt/2.0d0*k_2) 
+        call Upsilon_mid%set([1,2],(-1.0d0)*M_inv_P)
+        call Upsilon_mid%set([2,1],K)
+        call Upsilon_mid%set([2,2],(-1.0d0)*W)
+        k_3 = Upsilon_mid%matmul(this%Psi_n + dt/2.0d0*k_2 )
+        k_3(fix_idx(:)) = 0.0d0
+
+
+        M_inv_P = this%globalStressDivMatrix(Psi=this%Psi_n + dt/2.0d0*k_3)
+        call M_inv_P%divide_by_vector(this%LumpedMassDiag())
+        this%force_elastic = .true.
+        K = this%globalStiffnessMatrix(   Psi=this%Psi_n + dt/2.0d0*k_3)        
+        W = this%globalStressRatiolMatrix(Psi=this%Psi_n + dt/2.0d0*k_3) 
+        call Upsilon_mid%set([1,2],(-1.0d0)*M_inv_P)
+        call Upsilon_mid%set([2,1],K)
+        call Upsilon_mid%set([2,2],(-1.0d0)*W)
+        k_4 = this%Upsilon%matmul(this%Psi_n + dt*k_3 )
+        k_4(fix_idx(:)) = 0.0d0
+
+        this%Psi = this%Psi_n &
+            + dt/6.0d0*(k_1 + 2.0d0*k_2 + 2.0d0*k_3 + k_4)
+        this%Psi(fix_idx) = fix_value(:)
+
+    elseif(this%TimeIntegrationScheme==TI_HEUN)then
+        !! Heun method
+        !k_1 = this%Upsilon%matmul(this%Psi_n)
+        !k_2 = this%Upsilon%matmul(this%Psi_n + dt*k_1)
+        !this%Psi = this%Psi_n &
+        !    + dt/2.0d0*(k_1 + k_2)
+
+        k_1 = this%Upsilon%matmul(this%Psi_n)
+        k_1(fix_idx(:)) = 0.0d0
+        !k_2 = this%Upsilon%matmul(this%Psi_n + dt*k_1)
+
+        M_inv_P = this%globalStressDivMatrix(Psi=this%Psi_n + dt/2.0d0*k_1)
+        call M_inv_P%divide_by_vector(this%LumpedMassDiag())
+        this%force_elastic = .true.
+        K = this%globalStiffnessMatrix(   Psi=this%Psi_n + dt/2.0d0*k_1)        
+        W = this%globalStressRatiolMatrix(Psi=this%Psi_n + dt/2.0d0*k_1) 
+        call Upsilon_mid%set([1,2],(-1.0d0)*M_inv_P)
+        call Upsilon_mid%set([2,1],K)
+        call Upsilon_mid%set([2,2],(-1.0d0)*W)
+        k_2 = this%Upsilon%matmul(this%Psi_n + dt*k_1)
+        k_2(fix_idx(:)) = 0.0d0
+
+        this%Psi = this%Psi_n &
+            + dt/2.0d0*(k_1 + k_2)
+        this%Psi(fix_idx) = fix_value(:)
+    else
+        call print("[ERROR] >> update_DynamicEP >> no such TimeIntegrationSceme :: "&
+            +str(this%TimeIntegrationScheme))
+    endif
+
     !<<弾性除荷に戻らない問題についてのコメント用>>
     !<<ここで応力更新される．ただし，剛性は小さいままで応力が更新されるので．>>
     !<<降伏したままで，応力は減らない．>>
     !<<剛性を更新する際に，一旦弾性仮定が必要！>>
-
-    
-    
 
     if(present(fixNodeList_x) .and. present(fixValueList_x) )then
         this%Psi(fixNodeList_x(:)*3-2) = fixValueList_x(:)
@@ -369,8 +505,97 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     call time%start()
     
     ! get updated solution
-    this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
-        max_itr=this%max_itr)
+    if(this%TimeIntegrationScheme==TI_EXPONENTIAL_INTEGRATOR)then
+        !this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
+        !    max_itr=this%max_itr)
+        
+        if(this%cutoff_frequency==0.0d0)then
+            ! disable cutoff frequency
+            this%Psi = this%Upsilon%exp(dt*this%Psi_n,fix_idx=fix_idx,&
+                max_itr=this%max_itr)
+        else
+            this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
+                max_itr=this%max_itr)
+        endif
+    elseif(this%TimeIntegrationScheme==TI_FORWARDEULER)then
+        !! Forward Euler method
+        !this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
+        !    max_itr=1)
+        if(this%cutoff_frequency==0.0d0)then
+            ! disable cutoff frequency
+            this%Psi = this%Upsilon%exp(dt*this%Psi_n,fix_idx=fix_idx,&
+                max_itr=1)
+        else
+            this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
+                max_itr=1)
+        endif
+    elseif(this%TimeIntegrationScheme==TI_RungeKutta4)then
+        !! 4-th order Runge-Kutta method
+        k_1 = Upsilon_n%matmul(this%Psi_n)
+        k_1(fix_idx) = 0.0d0
+        
+        ! 現配置(x)で係数マトリクスを計算
+        M_inv_P = this%globalStressDivMatrix(Psi=this%Psi_n + dt/2.0d0*k_1)
+        call M_inv_P%divide_by_vector(this%LumpedMassDiag())
+        
+        K = this%globalStiffnessMatrix(   Psi=this%Psi_n + dt/2.0d0*k_1)        
+        W = this%globalStressRatiolMatrix(Psi=this%Psi_n + dt/2.0d0*k_1) 
+        call Upsilon_mid%set([1,2],(-1.0d0)*M_inv_P)
+        call Upsilon_mid%set([2,1],K)
+        call Upsilon_mid%set([2,2],(-1.0d0)*W)
+        k_2 = Upsilon_mid%matmul(this%Psi_n + dt/2.0d0*k_1 )
+        k_2(fix_idx) = 0.0d0
+
+        M_inv_P = this%globalStressDivMatrix(Psi=this%Psi_n + dt/2.0d0*k_2)
+        call M_inv_P%divide_by_vector(this%LumpedMassDiag())
+        
+        K = this%globalStiffnessMatrix(   Psi=this%Psi_n + dt/2.0d0*k_2)        
+        W = this%globalStressRatiolMatrix(Psi=this%Psi_n + dt/2.0d0*k_2) 
+        call Upsilon_mid%set([1,2],(-1.0d0)*M_inv_P)
+        call Upsilon_mid%set([2,1],K)
+        call Upsilon_mid%set([2,2],(-1.0d0)*W)
+        k_3 = Upsilon_mid%matmul(this%Psi_n + dt/2.0d0*k_2 )
+        k_3(fix_idx) = 0.0d0
+
+        M_inv_P = this%globalStressDivMatrix(Psi=this%Psi_n + dt/2.0d0*k_3)
+        call M_inv_P%divide_by_vector(this%LumpedMassDiag())
+        this%force_elastic = .true.
+        K = this%globalStiffnessMatrix(   Psi=this%Psi_n + dt/2.0d0*k_3)        
+        W = this%globalStressRatiolMatrix(Psi=this%Psi_n + dt/2.0d0*k_3) 
+        call Upsilon_mid%set([1,2],(-1.0d0)*M_inv_P)
+        call Upsilon_mid%set([2,1],K)
+        call Upsilon_mid%set([2,2],(-1.0d0)*W)
+        k_4 = this%Upsilon%matmul(this%Psi_n + dt*k_3 )
+        k_4(fix_idx) = 0.0d0
+
+        this%Psi = this%Psi_n &
+            + dt/6.0d0*(k_1 + 2.0d0*k_2 + 2.0d0*k_3 + k_4)
+        this%Psi(fix_idx) = fix_value(:)
+
+    elseif(this%TimeIntegrationScheme==TI_HEUN)then
+        !! Heun method
+        k_1 = this%Upsilon%matmul(this%Psi_n)
+        k_1(fix_idx) = 0.0d0
+        !k_2 = this%Upsilon%matmul(this%Psi_n + dt*k_1)
+
+        M_inv_P = this%globalStressDivMatrix(Psi=this%Psi_n + dt/2.0d0*k_1)
+        call M_inv_P%divide_by_vector(this%LumpedMassDiag())
+        this%force_elastic = .true.
+        K = this%globalStiffnessMatrix(   Psi=this%Psi_n + dt/2.0d0*k_1)        
+        W = this%globalStressRatiolMatrix(Psi=this%Psi_n + dt/2.0d0*k_1) 
+        call Upsilon_mid%set([1,2],(-1.0d0)*M_inv_P)
+        call Upsilon_mid%set([2,1],K)
+        call Upsilon_mid%set([2,2],(-1.0d0)*W)
+        k_2 = this%Upsilon%matmul(this%Psi_n + dt*k_1)
+        k_2(fix_idx) = 0.0d0
+
+        this%Psi = this%Psi_n &
+            + dt/2.0d0*(k_1 + k_2)
+        this%Psi(fix_idx) = fix_value(:)
+    else
+        call print("[ERROR] >> update_DynamicEP >> no such TimeIntegrationSceme :: "&
+            +str(this%TimeIntegrationScheme))
+    endif
     
 !    if(present(fixNodeList_x) .and. present(fixValueList_x) )then
 !        this%Psi(fixNodeList_x(:)*3-2) = fixValueList_x(:)
@@ -393,22 +618,80 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
 
 ! !    ! 最後に，x を X に戻しておく
 ! !    this%femdomain%mesh%nodcoord(:,:) = X(:,:)
-    
+!    elseif(this%TimeIntegrationScheme == TI_NEWMARK_BETA)then
+!        ! Time-integration scheme is Newmark's beta method.
+!        ! Stress-update scheme is Return-mapping.
+!        ! Solution algorithm is Newton's method.
+!
+!        
+!        fix_idx   = int(zeros(0))
+!        fix_value = zeros(0)
+!        if(present(fixNodeList_x))then
+!            fix_idx   = fix_idx   // fixNodeList_x(:)*this%femdomain%nd()-2
+!            fix_value = fix_value // fixValueList_x(:)*this%femdomain%nd()-2
+!        endif
+!        if(present(fixNodeList_y))then
+!            fix_idx   = fix_idx // fixNodeList_y(:)*this%femdomain%nd()-1
+!            fix_value = fix_value // fixValueList_y(:)*this%femdomain%nd()-1
+!        endif
+!        if(present(fixNodeList_z))then
+!            fix_idx   = fix_idx // fixNodeList_z(:)*this%femdomain%nd()-0
+!            fix_value = fix_value // fixValueList_z(:)*this%femdomain%nd()-0
+!        endif
+!        
+!        if(allocated(this%Upsilon%CRS)) then
+!            deallocate(this%Upsilon%CRS)
+!        endif
+!        allocate(this%Upsilon%CRS(1,1))
+!        this%force_elastic = .true.
+!        this%Upsilon%CRS(1,1) = this%globalStiffnessMatrix()
+!        
+!        ! 当該ステップにおけるtraction + body force からinternal forceを引いて初期残差力を出す
+!        !  [new!]   && [new!] 
+!        RHS = this%globalExternalForceVector() - this%globalInternalForceVector()
+!        !  [!] bicgstab for BCRS format
+!        call this%Upsilon%bicgstab(x=du,b=RHS,itrmax=this%max_bicgstab_itr, &
+!            er=this%bicgstab_er) !fix_idx=fix_idx,,fix_value=fix_value
+!        
+!        do itr_Newton = 1,this%max_Newton_itr
+!            du = du - ddu
+!
+!            this%force_elastic = .false.
+!            ! [new!] update stress
+!            call this%returnMapping(du) !Store [du, stress tensor] in this%Psi
+!            this%Upsilon%CRS(1,1) = this%globalStiffnessMatrix()
+!            !> Solve K(ddu) = f
+!            RHS = RHS - this%globalInternalForceVector()
+!            call this%Upsilon%bicgstab(x=ddu,b=RHS,itrmax=this%max_bicgstab_itr,&
+!                er=this%bicgstab_er) !fix_idx=fix_idx,fix_value=0.0d0*fix_value
+!            
+!        enddo
+!
+!    else
+!        call print("[ERROR] >> update_DynamicEP >> no such TimeIntegrationSceme :: "+str(this%TimeIntegrationScheme))
+!    endif
 end subroutine
 ! ###############################################################
 
 
 ! ###############################################################
-function globalStressDivMatrix_DynamicEP(this) result(ret)
+function globalStressDivMatrix_DynamicEP(this,Psi) result(ret)
     class(DynamicEP_),intent(inout) :: this
+    real(real64),optional,intent(in) :: Psi(:)
+    
     integer(int32) :: elem_idx,gp_idx,i,j,nd,nne,row_idx,col_idx,nsig,k,l,nn,&
         nne_idx,sig_idx,dim_idx,ngp,node_idx,row,col
-    real(real64),allocatable :: dNdxi(:,:),P_e(:,:),Jin(:,:),dNdx(:,:),val(:)
+    real(real64),allocatable :: dNdxi(:,:),P_e(:,:),Jin(:,:),dNdx(:,:),val(:), Psi_buf(:)
     integer(int32),allocatable ::  stress_i(:),stress_j(:)
     real(real64) :: integral_val,detJ
     type(Shapefunction_) :: shapefunc
     type(COO_) :: ret_COO
     type(CRS_) :: ret
+
+    if(present(Psi))then
+        Psi_buf  = this%Psi
+        this%Psi = Psi
+    endif
 
     nd   = this%femdomain%nd()
     nne  = this%femdomain%nne()
@@ -517,6 +800,11 @@ function globalStressDivMatrix_DynamicEP(this) result(ret)
     enddo
     !$OMP end parallel do
     ret%val = val
+
+
+    if(present(Psi))then
+        this%Psi = Psi_buf
+    endif
 !    ret = ret_COO%to_CRS()
 
     
@@ -582,15 +870,16 @@ end function
 
 ! ####################################################
 ! ここを高速化したい．
-function globalStiffnessMatrix_DynamicEP(this,auto_tuning) result(ret)
-    class(DynamicEP_),intent(in) :: this
+function globalStiffnessMatrix_DynamicEP(this,auto_tuning,Psi) result(ret)
+    class(DynamicEP_),intent(inout) :: this
     logical,optional,intent(in)  :: auto_tuning
+    real(real64),optional,intent(in) :: Psi(:)
 
     ! under implementation 
     integer(int32) :: elem_idx,gp_idx,i,j,nd,nne,row_idx,col_idx,nsig,k,l,ne,&
         node_idx_1,node_idx_2,nn,theta,n,m,row,col
     real(real64),allocatable :: dNdxi(:,:),C_mat(:,:),B_mat(:,:),ElasticStrain(:,:),&
-        U(:),ElasticStrain_vec(:),U_e(:),C_mat_n(:,:),ElasticStrain_n(:,:),val(:)
+        U(:),ElasticStrain_vec(:),U_e(:),C_mat_n(:,:),ElasticStrain_n(:,:),val(:),Psi_buf(:)
         
     integer(int32),allocatable ::  stress_i(:),stress_j(:)
     real(real64) :: integral_val,fval,fval_n
@@ -603,6 +892,12 @@ function globalStiffnessMatrix_DynamicEP(this,auto_tuning) result(ret)
     type(IO_)  :: debug
     logical :: execute_auto_tuning 
 
+
+
+    if(present(Psi))then
+        Psi_buf  = this%Psi
+        this%Psi = Psi
+    endif
 
     execute_auto_tuning = input(default=.false.,option=auto_tuning)
     ! Validated >> 2025/04/24
@@ -870,6 +1165,11 @@ function globalStiffnessMatrix_DynamicEP(this,auto_tuning) result(ret)
         
     endif
     
+
+    if(present(Psi))then
+        this%Psi = Psi_buf 
+    endif
+
 ! ! memo
 
                 ! 2025/04/15 
@@ -935,14 +1235,15 @@ end function
 
 
 ! ####################################################
-function globalStressRatiolMatrix_SymEP(this) result(ret)
-    class(DynamicEP_),intent(in) :: this
+function globalStressRatiolMatrix_SymEP(this,Psi) result(ret)
+    class(DynamicEP_),intent(inout) :: this
+    real(real64),optional,intent(in) :: Psi(:)
 
     ! under implementation 
     integer(int32) :: elem_idx,gp_idx,i,j,nd,nne,row_idx,col_idx,nsig,k,l,ne,&
         node_idx_1,node_idx_2,nn
     real(real64),allocatable :: dNdxi(:,:),N(:),C_mat(:,:),B_mat(:,:),ElasticStrain(:,:),&
-        U(:),ElasticStrain_vec(:),U_e(:),W_tensor(:),val(:)
+        U(:),ElasticStrain_vec(:),U_e(:),W_tensor(:),val(:),Psi_buf(:)
     integer(int32),allocatable ::  stress_i(:),stress_j(:)
     real(real64) :: integral_val
     real(real64),allocatable :: W_e(:,:)
@@ -955,6 +1256,10 @@ function globalStressRatiolMatrix_SymEP(this) result(ret)
     ! Validated >> 2025/04/24
     ! 亜弾性構成則の全体要素剛性行列　
     ! C B v
+    if(present(Psi))then
+        Psi_buf  = this%Psi 
+        this%Psi = Psi 
+    endif
     
 
     nd   = this%femdomain%nd()
@@ -1045,6 +1350,10 @@ function globalStressRatiolMatrix_SymEP(this) result(ret)
     !$OMP end parallel do
     ret%val = val
 !    ret = ret_COO%to_CRS()
+
+    if(present(Psi))then
+        this%Psi  = Psi_buf 
+    endif
 
 end function
 ! ####################################################
@@ -1226,6 +1535,262 @@ function getStrainField_SymEP(this,invariant_type) result(ret)
 
 
 end function
+! ################################################################
+
+
+! ################################################################
+function getStressField_SymEP(this,invariant_type) result(ret)
+    class(DynamicEP_),intent(in) :: this
+    real(real64),allocatable :: ret(:),StressTensor(:,:)
+    character(*),intent(in) :: invariant_type
+    integer(int32) :: elem_idx, gp_idx,nsig
+
+    ret = zeros(this%femdomain%ne())
+    do elem_idx=1,this%femdomain%ne()
+        StressTensor = zeros(this%femdomain%nd(),this%femdomain%nd())
+        do gp_idx=1,this%femdomain%ngp()
+            StressTensor = StressTensor + this%getCauchyStress(&
+                ElementID=elem_idx,GaussPointID=gp_idx)
+        enddo
+        ! Averaging
+        StressTensor = StressTensor/dble(this%femdomain%ngp())
+
+        if("J2" .in. invariant_type)then
+            ! J2
+            ret(elem_idx) = to_J2(StressTensor)
+        elseif("I1" .in. invariant_type)then
+            ret(elem_idx) = to_I1(StressTensor)
+        else
+            call print("[ERROR] getStrainField_SymEP >> argument invariant_type should be ")
+            call print("I1 or J2")
+        endif
+    enddo
+
+
+end function
+! ################################################################
+
+
+! ################################################################
+!> compute element-wise f_ext
+function localInternalForceVector_SymEP(this,ElementID) result(ret)
+    class(DynamicEP_),intent(in) :: this
+    real(real64),allocatable :: ret(:)
+    integer(int32) ,intent(in) :: ElementID
+    integer(int32) :: gp_idx
+    type(Shapefunction_) :: shapefunc
+
+    ! using following values
+    ret = zeros(this%femdomain%nne()*this%femdomain%nd())
+
+    call shapefunc%SetType(NumOfDim=this%femdomain%nd(),&
+        NumOfNodePerElem=this%femdomain%nne(),&
+        NumOfGp=this%femdomain%mesh%getNumOfGp())
+    do gp_idx=1,this%femdomain%ngp()
+
+        call shapefunc%getAll( elem_id=ElementID, &
+                              nod_coord=this%femdomain%Mesh%NodCoord, &
+                              elem_nod=this%femdomain%Mesh%ElemNod, OptionalGpID=gp_idx)
+        
+        
+        ret = ret + matmul(transpose(this%femdomain%Bmatrix(shapefunction=shapefunc)),&
+            to_stress_vector(this%getCauchyStress(ElementID=ElementID,GaussPointID=gp_idx) ))&
+            *shapefunc%GaussIntegWei(gp_idx)*shapefunc%detJ
+    enddo
+    
+    
+end function
+! ################################################################
+
+
+function to_stress_vector(stress_tensor) result(ret)
+    real(real64),intent(in) :: stress_tensor(:,:)
+    real(real64),allocatable :: ret(:)
+
+    if(size(stress_tensor,1)==1)then
+        ret = stress_tensor(1,1)*ones(1)
+    elseif(size(stress_tensor,1)==2)then
+        allocate(ret(3))
+        ret(1) = stress_tensor(1,1)
+        ret(2) = stress_tensor(2,2)
+        ret(3) = stress_tensor(1,2)
+    elseif(size(stress_tensor,1)==3)then
+        allocate(ret(6))
+        ret(1) = stress_tensor(1,1)
+        ret(2) = stress_tensor(2,2)
+        ret(3) = stress_tensor(3,3)
+        ret(4) = stress_tensor(1,2)
+        ret(5) = stress_tensor(2,3)
+        ret(6) = stress_tensor(3,1)
+    else
+        ret = zeros(0)
+    endif
+
+end function 
+! ################################################################
+!> compute global f_ext
+function globalInternalForceVector_SymEP(this) result(ret)
+    class(DynamicEP_),intent(in) :: this
+    real(real64),allocatable :: ret(:),vec(:)
+    integer(int32) :: elem_idx,nne_idx
+
+    ! using following values
+    ret = zeros(this%femdomain%nn()*this%femdomain%nd())
+
+    
+    do elem_idx = 1,this%femdomain%ne()
+        vec = this%localInternalForceVector(ElementID=elem_idx)
+        do nne_idx = 1, this%femdomain%nne()
+            ret(this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)-1)+1: &
+                this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)) )  = &
+            ret(this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)-1)+1: &
+                this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)) )  + &
+                vec(this%femdomain%nd()*(nne_idx-1)+1:&
+                    this%femdomain%nd()*(nne_idx  ) )
+        enddo
+    enddo
+    
+end function
+! ################################################################
+
+
+! ################################################################
+!> compute element-wise f_ext
+function localExternalForceVector_SymEP(this,ElementID) result(ret)
+    class(DynamicEP_),intent(in) :: this
+    real(real64),allocatable :: ret(:)
+    integer(int32) ,intent(in) :: ElementID
+    integer(int32) :: gp_idx
+    real(real64),allocatable :: Nmat(:,:),gravity_vector(:)
+    type(Shapefunction_) :: shapefunc
+    type(PhysicalConstants_) :: p_const
+
+    ! using following values
+    ret = zeros(this%femdomain%nne()*this%femdomain%nd())
+
+    call shapefunc%SetType(NumOfDim=this%femdomain%nd(),&
+        NumOfNodePerElem=this%femdomain%nne(),&
+        NumOfGp=this%femdomain%mesh%getNumOfGp())
+    gravity_vector = zeros(this%femdomain%nd())
+    gravity_vector(size(gravity_vector)) = p_const%g
+
+    do gp_idx=1,this%femdomain%ngp()
+
+        call getAllShapeFunc(shapefunc, elem_id=ElementID, &
+                              nod_coord=this%femdomain%Mesh%NodCoord, &
+                              elem_nod=this%femdomain%Mesh%ElemNod, OptionalGpID=gp_idx)
+        
+        
+        ret = ret + matmul(&
+            to_stripe_repeat_matrix(shapefunc%Nmat,this%femdomain%nd()),&
+                gravity_vector)*shapefunc%detJ*shapefunc%GaussIntegWei(gp_idx)
+    enddo
+    
+    
+end function
+! ################################################################
+
+
+! ################################################################
+function to_stripe_repeat_matrix(vec,num_col) result(ret)
+    real(real64),intent(in) :: vec(:)
+    integer(int32),intent(in) :: num_col
+    real(real64),allocatable :: ret(:,:)
+    integer(int32) :: i,j
+
+    allocate(ret(size(vec)*num_col,num_col))
+    ret(:,:) = 0.0d0
+    !(A)
+    !(B)
+    !(C)
+    !(D)
+
+    ! => 
+
+    !(A, 0, 0)
+    !(0, A, 0)
+    !(0, 0, A)
+    !(B, 0, 0)
+    !(0, B, 0)
+    !(0, 0, B)
+    !(C, 0, 0)
+    !(0, C, 0)
+    !(0, 0, C)
+    !(D, 0, 0)
+    !(0, D, 0)
+    !(0, 0, D)
+    
+    do i=1,size(vec)
+        do j=1,num_col
+            ret( num_col*(i-1) + j, j)  = vec(i)
+        enddo
+    enddo
+
+end function 
+
+! ################################################################
+function globalExternalForceVector_SymEP(this) result(ret)
+    class(DynamicEP_),intent(in) :: this
+    real(real64),allocatable :: ret(:),vec(:)
+    integer(int32) :: elem_idx,nne_idx
+
+    ret = zeros(this%femdomain%nd()*this%femdomain%nn())
+    if(maxval(this%density)==0.0d0)then
+        return
+    else
+        ! only for body-force
+        do elem_idx = 1,this%femdomain%ne()
+        vec = this%localExternalForceVector(ElementID=elem_idx)
+        do nne_idx = 1, this%femdomain%nne()
+            ret(this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)-1)+1: &
+                this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)  ) )  = &
+                ret(this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)-1)+1: &
+                this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)) )  + &
+                vec(this%femdomain%nd()*(nne_idx-1)+1:&
+                    this%femdomain%nd()*(nne_idx  ) )
+        enddo
+
+        ! add traction
+
+    enddo
+    
+    endif
+
+end function
+! ################################################################
+
+subroutine returnMapping_SymEP(this,du)
+    class(DynamicEP_),intent(inout) :: this
+    real(real64),intent(in) :: du(:)
+    real(real64),allocatable :: CauchyStress(:,:),StrainTensor(:,:),d_StrainTensor(:,:),&
+        CauchyStress_n(:,:)
+    real(real64) :: epsilon
+    integer(int32) :: elem_idx, gp_idx
+
+!    ! return-mapping algorithm 
+!    do elem_idx=1,this%femdomain%ne()
+!        do gp_idx=1,this%femdomain%ngp()
+!            ! 
+!            StrainTensor   = 
+!            d_StrainTensor = 
+!            PlasticStrain  =
+!            CauchyStress = to_StressTensor(&
+!                    YieldFunction=this%YieldFunction,&
+!                    PlasticPotential=this%PlasticPotential,&
+!                    Strain=StrainTensor,&
+!                    dStrain=d_StrainTensor,&
+!                    CauchyStress=CauchyStress_n,&
+!                    PlasticStrain=PlasticStrain,&
+!                    YieldParams=this%YieldParams,&
+!                    PlasticParams=this%PlasticParams,&
+!                    ElasticParams=this%ElasticParams,&
+!                    epsilon=epsilon &
+!                )
+!        enddo
+!    enddo
+
+end subroutine
+
 ! ################################################################
 
 

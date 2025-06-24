@@ -332,6 +332,8 @@ module FEMDomainClass
       procedure, public ::        setPoint_z => set_zFEMDomain
 
       procedure, public ::        xyz => xyzFEMDomain
+      procedure, public ::        top => top_FEMDomain
+      procedure, public ::        bottom => bottom_FEMDomain
 
       ! converter
       procedure, public :: asGlobalVector => asGlobalVectorFEMDomain
@@ -7281,7 +7283,10 @@ contains
       case ("Line", "Line1D")
          call this%mesh%line(x_num=x_num, x_axis=x_axis)
          return
-
+      case ("Cyliner","Cylinder3D")
+         call this%to_cylinder(x_num, y_num, z_num)
+         call this%resize(x=x_len,y=y_len,z=z_len)
+         return
       end select
 
       if (present(z_num) .or. present(z_len)) then
@@ -16111,8 +16116,8 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
 !        thickness=l,x_len=r(1),y_len=r(2) )
 
       call this%mesh%create(meshtype="Circle2D", &
-                            x_num=x_num, y_num=y_num, x_len=1.0d0, y_len=1.0d0)
-      call this%mesh%convert2Dto3D(thickness=l, division=z_num)
+                            x_num=xn, y_num=yn, x_len=r(1), y_len=r(2))
+      call this%mesh%convert2Dto3D(thickness=l, division=zn)
       call this%mesh%clean()
 
    end subroutine
@@ -18023,6 +18028,45 @@ function diff_for_real_array(femdomains,diff_target) result(ret)
       ! difference on the coordinate:
       ! both domain should have the same numNode and numDim.
       ret = femdomains(1)%mesh%nodcoord(:,:) - femdomains(2)%mesh%nodcoord(:,:)
+   endif
+
+end function
+! ################################################################
+
+!! get boundaries
+! ################################################################
+function top_FEMDomain(this,axis) result(ret)
+   class(FEMDomain_),intent(inout) :: this
+   character(1),intent(in) :: axis
+   integer(int32),allocatable :: ret(:)
+
+   if(    axis=="x" .or. axis=="X")then
+      ret = this%getNodeList(xmin=this%xmax())
+   elseif(axis=="y" .or. axis=="Y")then
+      ret = this%getNodeList(ymin=this%ymax())
+   elseif(axis=="z" .or. axis=="Z")then
+      ret = this%getNodeList(zmin=this%zmax())
+   else
+      allocate(ret(0))
+   endif
+
+end function
+! ################################################################
+
+! ################################################################
+function bottom_FEMDomain(this,axis) result(ret)
+   class(FEMDomain_),intent(inout) :: this
+   character(1),intent(in) :: axis
+   integer(int32),allocatable :: ret(:)
+
+   if(    axis=="x" .or. axis=="X")then
+      ret = this%getNodeList(xmax=this%xmin())
+   elseif(axis=="y" .or. axis=="Y")then
+      ret = this%getNodeList(ymax=this%ymin())
+   elseif(axis=="z" .or. axis=="Z")then
+      ret = this%getNodeList(zmax=this%zmin())
+   else
+      allocate(ret(0))
    endif
 
 end function

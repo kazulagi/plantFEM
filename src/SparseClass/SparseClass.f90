@@ -198,6 +198,8 @@ module SparseClass
 
       procedure, pass :: fixCRS
       procedure, pass :: fix_zeroCRS
+      procedure, pass :: fix_complex64_CRS
+      generic, public :: fix => fix_complex64_CRS, fixCRS, fix_zeroCRS
 
       procedure, pass :: tensor_exponential_complex64_crs
       procedure, pass :: tensor_exp_sqrt_complex64_crs
@@ -212,7 +214,7 @@ module SparseClass
 
       procedure, pass :: tensor_sqrt_complex64_crs
       procedure, pass :: tensor_log_complex64_crs
-      procedure, pass :: fix_complex64_CRS
+      
       procedure, pass :: tensor_d1_wave_kernel_complex64_crs
       procedure, pass :: tensor_wave_kernel_complex_64_crs
       procedure, pass :: tensor_wave_kernel_real_64_crs
@@ -256,7 +258,7 @@ module SparseClass
          tensor_wave_kernel_RHS_complex_64_crs, tensor_wave_kernel_RHS_LPF_real_64_crs
 
       generic, public :: tensor_d1_wave_kernel => tensor_d1_wave_kernel_complex64_crs
-      generic, public :: fix => fix_complex64_CRS, fixCRS, fix_zeroCRS
+      
          
       ! assemble large matrix by combining small matrices
       ! >> If you want to do this, use type(BCRS_), which is for block CRS format.
@@ -275,8 +277,10 @@ module SparseClass
       procedure,public :: matmul    => matmulBCRS
       procedure,public :: to_dense  => to_dense_BCRS
       procedure,public :: exp       => expBCRS
+      procedure,public :: bicgstab  => bicgstab_BCRS
       ! fix value
       procedure,public :: fill_zero_row       => fill_zero_rowBCRS
+      procedure,public :: fix => fix_BCRS ! transform matrix and vector
    end type 
 
    public :: operator(+)
@@ -3246,27 +3250,18 @@ end subroutine
 
       integer(int64) :: i, j, k, id
 
-      !$OMP parallel do private(i)
+      
       do j = 1, size(row)
-         this%val(this%row_ptr(row(j)): this%row_ptr(row(j) + 1) - 1) = 0.0d0
+         id = row(j)
+         do i = this%row_ptr(id), this%row_ptr(id + 1) - 1
+            this%val(i) = 0.0d0
+         end do
       end do
-      !$OMP end parallel do
 
-!      !$OMP parallel do private(i,id)
-!      do j = 1, size(row)
-!
-!         id = row(j)
-!         do i = this%row_ptr(id), this%row_ptr(id + 1) - 1
-!            this%val(i) = 0.0d0
-!         end do
-!
-!      end do
-!      !$OMP end parallel do
 
    end subroutine
 ! #####################################################
 
-   
 
 ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> complex >>>>>>>>>>>>>>>>>>>>>>>
 
@@ -5215,9 +5210,7 @@ function to_dense_BCRS(this) result(ret)
          row_2 = 1 .of. this%row_range(bcrs_row) + (1 .of. this%crs(bcrs_row,bcrs_col)%shape()) -1
          col_1 = 1 .of. this%col_range(bcrs_col)
          col_2 = 1 .of. this%col_range(bcrs_col) + (2 .of. this%crs(bcrs_row,bcrs_col)%shape()) -1 
-
          
-
          ret( &
             row_1: row_2 ,col_1: col_2 ) = this%crs(bcrs_row,bcrs_col)%to_dense()
       enddo
@@ -5325,7 +5318,6 @@ subroutine fill_zero_rowBCRS(this,row)
    !> zero-padding for a row idx
    do r_idx = 1, size(row,1)
       ! search local idx
-      
       do i=1, size(this%crs,1)
          if( (1 .of. this%row_range(i)) <= row(r_idx) .and. &
             row(r_idx) <= (2 .of. this%row_range(i)))then
@@ -5337,12 +5329,218 @@ subroutine fill_zero_rowBCRS(this,row)
                      call this%crs(i,j)%fill_zero_row(row=[row(r_idx) - offset_idx])
                   endif
                enddo
-               
          endif
       enddo
-      
    enddo
 
 end subroutine
+
+
+
+! #####################################################
+   subroutine bicgstab_BCRS(this, x, b, itrmax, er, relative_er, debug)
+      class(BCRS_), intent(in) :: this
+      real(real64), intent(in) :: b(:)
+      real(real64), allocatable, intent(inout) :: x(:)
+      logical, optional, intent(in) :: debug
+      ! integer(int32), optional, intent(in) :: fix_idx(:)  => fix_BCRS()
+      ! real(real64), optional, intent(in) :: fix_val(:)    => fix_BCRS() 
+      
+
+      integer(int32), intent(in) :: itrmax
+      real(real64), intent(in) :: er
+      real(real64), optional, intent(in) :: relative_er
+      
+      
+
+      logical :: speak = .false.
+      integer(int32) itr, i, j, n
+      real(real64) alp, bet, c1, c2, c3, ev, vv, rr, er0, init_rr, re_er0
+      real(real64), allocatable:: r(:), r0(:), p(:), y(:), e(:), v(:), pa(:), ax(:)
+
+
+      if(.not.allocated(x))then
+         x = 0.0d0*b
+      endif
+      er0 = er
+      if (present(debug)) then
+         speak = debug
+      end if
+
+      n = size(b)
+      if (speak) print *, "BiCGSTAB STARTED >> DOF:", n
+      allocate (r(n), r0(n), p(n), y(n), e(n), v(n))
+
+      r(:) = b(:)
+      if (speak) print *, "BiCGSTAB >> [1] initialize"
+
+      ax = this%matmul(x)
+      !call SpMV_CRS_Sparse(CRS_value=a, CRS_col=index_j, &
+      !                     CRS_row_ptr=ptr_i, old_vector=x, new_vector=ax)
+      r = b - ax
+
+      if (speak) print *, "BiCGSTAB >> [2] dp1"
+
+      c1 = dot_product(r, r)
+      !call omp_dot_product(r,r,c1)
+
+      init_rr = c1
+      if (speak) print *, "BiCGSTAB >> [2] init_rr", c1
+      !if(speak) print *, "BiCGSTAB >>      |r|^2 = ",init_rr
+
+      !if (c1 < er0) return
+
+      p(:) = r(:)
+      r0(:) = r(:)
+
+      do itr = 1, itrmax
+         if (speak) print *, "BiCGSTAB >> ["//str(itr)//"] initialize"
+         c1 = dot_product(r0, r)
+         !call omp_dot_product(r0,r,c1)
+
+         y(:) = 0.0d0
+         y = this%matmul(p)
+         !call SpMV_CRS_Sparse(CRS_value=a, CRS_col=index_j, &
+         !                     CRS_row_ptr=ptr_i, old_vector=p, new_vector=y)
+
+         c2 = dot_product(r0, y)
+         !call omp_dot_product(r0,y,c2)
+
+         alp = c1/c2
+         e(:) = r(:) - alp*y(:)
+         v(:) = 0.0d0
+         v = this%matmul(e)
+         !call SpMV_CRS_Sparse(CRS_value=a, CRS_col=index_j, &
+         !                     CRS_row_ptr=ptr_i, old_vector=e, new_vector=v)
+
+         if (speak) print *, "BiCGSTAB >> ["//str(itr)//"] half"
+
+         ev = dot_product(e, v)
+         vv = dot_product(v, v)
+         !call omp_dot_product(e,v,ev)
+         !call omp_dot_product(v,v,vv)
+
+         if (vv == 0.0d0) stop "Bicgstab devide by zero"
+         c3 = ev/vv
+         if (speak) print *, "BiCGSTAB >> c3 = ev/vv", c3
+         x(:) = x(:) + alp*p(:) + c3*e(:)
+         r(:) = e(:) - c3*v(:)
+
+         rr = dot_product(r, r)
+         !call omp_dot_product(r,r,rr)
+
+         if (itr == 1) then
+            re_er0 = rr
+         end if
+
+         if (speak) then
+            print *, sqrt(rr)
+         end if
+
+         if (present(relative_er)) then
+            if (sqrt(rr/re_er0) < relative_er) then
+               exit
+            end if
+         end if
+         !    write(*,*) 'itr, er =', itr,rr
+         if (sqrt(rr) < er0) exit
+
+         c1 = dot_product(r0, r)
+         !call omp_dot_product(r0,r,c1)
+
+         bet = c1/(c2*c3)
+         if ((c2*c3) == 0.0d0) stop "Bicgstab devide by zero"
+         p(:) = r(:) + bet*(p(:) - c3*y(:))
+      end do
+   end subroutine
+!===============================================================
+
+!===============================================================
+subroutine fix_BCRS(this,RHS,idx,val)
+   class(BCRS_),intent(inout) :: this
+   real(real64),intent(inout) :: RHS(:)
+   integer(int32),intent(in)  :: idx(:)
+   real( real64 ),intent(in)  :: val(:)
+
+   integer(int32),allocatable :: loc_fix_idx(:)
+   real(real64),allocatable :: loc_fix_val(:)
+
+   integer(int32) :: bcrs_row,bcrs_col
+   ! introduce Dirichlet boundary condition
+   do bcrs_row=1,size(this%CRS,1)
+      do bcrs_col=1,size(this%CRS,2)
+         if(allocated(this%CRS(bcrs_row,bcrs_col)))then
+            ! [this%row_range()]に入っている fix_idx のみを切り出し，
+            ! このCRSについてのみ有効なリストを作成
+            loc_fix_idx = get_loc_fix_idx_bcrs(idx,this%row_range(bcrs_row))
+            loc_fix_val = get_loc_fix_val_bcrs(idx,val,this%row_range(bcrs_row))
+            call this%CRS(bcrs_row,bcrs_col)%fixCRS(&
+                  RHS=RHS(1 .of. this%row_range(bcrs_row) : 2 .of. this%row_range(bcrs_row) ),&
+                  idx=loc_fix_idx(:), &
+                  val=loc_fix_val(:)  &
+               )
+         endif
+      enddo
+   enddo
+
+end subroutine
+!===============================================================
+
+!===============================================================
+function get_loc_fix_idx_bcrs(idx,crs_range) result(ret)
+   integer(int32),intent(in) :: idx(:)
+   integer(int32),intent(in)   :: crs_range(1:2)
+   integer(int32),allocatable  :: ret(:)
+   integer(int32) :: i, ret_size
+   
+   ret_size = 0
+   do i=1,size(idx)
+      if (   crs_range(1) <= idx(i) .and. idx(i) <= crs_range(2))then
+         ret_size = ret_size + 1
+      endif
+   enddo
+   allocate(ret(ret_size))
+   ret_size = 0
+   do i=1,size(idx)
+      if (   crs_range(1) <= idx(i) .and. idx(i) <= crs_range(2))then
+         ret_size = ret_size + 1
+         ret(ret_size) = idx(i)
+      endif
+   enddo
+   
+
+
+end function
+!===============================================================
+
+
+
+!===============================================================
+function get_loc_fix_val_bcrs(idx,val,crs_range) result(ret)
+   integer(int32),intent(in) :: idx(:)
+   real(real64),intent(in)   :: val(:)
+   integer(int32),intent(in)   :: crs_range(1:2)
+   real(real64),allocatable  :: ret(:)
+   integer(int32) :: i, ret_size
+   
+   ret_size = 0
+   do i=1,size(idx)
+      if (   crs_range(1) <= idx(i) .and. idx(i) <= crs_range(2))then
+         ret_size = ret_size + 1
+      endif
+   enddo
+   allocate(ret(ret_size))
+   ret_size = 0
+   do i=1,size(idx)
+      if (   crs_range(1) <= idx(i) .and. idx(i) <= crs_range(2))then
+         ret_size = ret_size + 1
+         ret(ret_size) = val(i)
+      endif
+   enddo
+   
+
+
+end function
+!===============================================================
 
 end module SparseClass

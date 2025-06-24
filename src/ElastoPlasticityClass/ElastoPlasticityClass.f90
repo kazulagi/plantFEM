@@ -318,6 +318,135 @@ contains
    end function to_StressTensor
 ! #############################################
 
+
+!
+!   ! #############################################
+!   function to_StressTensor_elastic_poten(YieldFunction, PlasticPotential, Strain, dStrain, CauchyStress, PlasticStrain, &
+!                            YieldParams, PlasticParams, ElasticParams, pval, epsilon, Jmat) &
+!      result(tr_CauchyStress)
+!      procedure(P_PotentialFunction) :: YieldFunction
+!      procedure(P_PotentialFunction) :: PlasticPotential
+!
+!      real(real64), intent(in) :: Strain(:, :), dStrain(:, :), ElasticParams(:), &
+!                                  YieldParams(:), PlasticParams(:), CauchyStress(:, :)
+!      real(real64), intent(inout) :: PlasticStrain(:, :)
+!      real(real64), optional, intent(inout) :: pval
+!      real(real64), optional, allocatable, intent(inout) :: Jmat(:, :)
+!      real(real64), intent(in) :: epsilon
+!      real(real64), allocatable :: tr_CauchyStress(:, :), dfds(:, :), E(:, :, :, :), dCauchyStress(:, :), &
+!                                   old_PlasticStrain(:, :), J_mat(:, :), X_vec(:), Y_vec(:), E_dfds(:, :), dX_vec(:), E_ee(:, :), &
+!                                 E11_epsilon(:, :), dfds_inv(:, :), dfds_forward(:, :), dfds_backward(:, :), ds(:, :), dE_e(:, :), &
+!                                 tr_sigma_vec(:), D_mat(:, :), tr_0_sigma(:, :), tr_f_CauchyStress(:, :), tr_b_CauchyStress(:, :), &
+!                                   E_ijkl(:, :, :, :), En(:, :), Ee(:, :), dgds(:, :)
+!      real(real64) :: f_val, dGamma, dGamma_lower, dGamma_upper, ddgamma, buf, G_val, K_val, eps, f_n_0, dg1, dg2
+!      integer(int32) :: i, j, k, l, n, m
+!      character(:), allocatable :: algorithm
+!      real(real64) :: f_n, f_n1, dfdgamma, f_forward, f_backward
+!      integer(int32) :: max_itr
+!      type(IO_) :: f
+!
+!      algorithm = "ReturnMapping"
+!
+!      tr_CauchyStress = zeros(3, 3)
+!      ! (1)
+!      dCauchyStress = StVenant_ConstModel(ElasticStrain=dStrain, params=ElasticParams)
+!
+!      ! (2)
+!      tr_CauchyStress = CauchyStress + dCauchyStress
+!
+!      ! (3)
+!      f_val = real(YieldFunction(CauchyStress=dcmplx(tr_CauchyStress), &
+!                            PlasticStrain=dcmplx(PlasticStrain), params=YieldParams))
+!      dgamma = 0.0d0
+!      f_n_0 = f_val
+!      f_n = f_val
+!      if (present(pval)) then
+!         pval = f_val
+!      end if
+!
+!      dfds = zeros(3, 3)
+!      if (is_elastic(f_val)) then
+!         return
+!      else
+!         ! [Caution!]
+!         ! only for plastic potential with no hardening/softerning parameters associated with the plastic strain
+!         ! For such cases, Return mapping is required.
+!         if (algorithm == "ReturnMapping") then
+!            ! only for f(\sigma), not for f(\sigma, K, Hm ...etc.)
+!            
+!            max_itr = 4
+!
+!            !tr_0_sigma = tr_CauchyStress
+!            dgamma = 0.0d0
+!            !dfds = d_dSigma(PlasticPotential=PlasticPotential,CauchyStress=tr_CauchyStress,&
+!            !        PlasticStrain=PlasticStrain,params=PlasticParams,epsilon=epsilon)
+!            !dfds = dfds/norm(dfds)
+!            dfdgamma = 0.0d0
+!
+!            f_n = f_val
+!
+!            !print *, zfill(0,4),dgamma,dfdgamma,f_val
+!
+!            dgds = d_dSigma(PlasticPotential=PlasticPotential, CauchyStress=tr_CauchyStress, &
+!                            PlasticStrain=PlasticStrain, params=PlasticParams, epsilon=epsilon)
+!            dgds = dgds/norm(dgds)
+!
+!            En = StVenant_ConstModel(ElasticStrain=dgds, params=ElasticParams)
+!            Ee = StVenant_ConstModel(ElasticStrain=dStrain, params=ElasticParams)
+!
+!            dfds = d_dSigma(PlasticPotential=YieldFunction, CauchyStress=tr_CauchyStress, &
+!                            PlasticStrain=PlasticStrain, params=YieldParams, epsilon=epsilon)
+!
+!            dgamma = tensordot(dfds, Ee)/tensordot(dfds, En)
+!
+!            dCauchyStress = StVenant_ConstModel(ElasticStrain=dStrain - dgamma*dgds, params=ElasticParams)
+!
+!            tr_CauchyStress = CauchyStress + dCauchyStress
+!            f_n = real(YieldFunction(CauchyStress=dcmplx(tr_CauchyStress), &
+!                                PlasticStrain=dcmplx(PlasticStrain), params=YieldParams))
+!
+!            PlasticStrain = PlasticStrain + dgamma*dgds
+!
+!            return
+!
+!         elseif (algorithm == "ForwardEuler") then
+!            ! Forward Euler
+!            dfds = d_dSigma(PlasticPotential=PlasticPotential, CauchyStress=tr_CauchyStress, &
+!                            PlasticStrain=PlasticStrain, params=PlasticParams, epsilon=epsilon)
+!            E = StVenant_StiffnessMatrix(params=ElasticParams)
+!            dGamma_upper = 0.0d0
+!            dGamma_lower = 0.0d0
+!            do i = 1, 3
+!               do j = 1, 3
+!                  do k = 1, 3
+!                     do l = 1, 3
+!                        dGamma_upper = dGamma_upper + dfds(i, j)*E(i, j, k, l)*dStrain(k, l)
+!                        dGamma_lower = dGamma_lower + dfds(i, j)*E(i, j, k, l)*dfds(k, l)
+!                     end do
+!                  end do
+!               end do
+!            end do
+!            dGamma = dGamma_upper/dGamma_lower
+!            PlasticStrain = old_PlasticStrain + dGamma*dfds
+!            ! Forward Euler
+!            ! ds_{ij} = E_{ijkl}( d\epsilon_{kl} - d \gamma*df/ds_{kl} )
+!            dCauchyStress = StVenant_ConstModel(ElasticStrain=dStrain - dgamma*dfds, params=ElasticParams)
+!
+!            tr_CauchyStress = CauchyStress + dCauchyStress
+!
+!            ! check yield function
+!            f_val = real(PlasticPotential(CauchyStress=dcmplx(tr_CauchyStress), &
+!                                     PlasticStrain=dcmplx(PlasticStrain), params=PlasticParams))
+!
+!            if (present(pval)) then
+!               pval = f_val
+!            end if
+!         end if
+!      end if
+!
+!   end function to_StressTensor
+!! #############################################
+
 ! #############################################
    function to_dStressTensor(YieldFunction, PlasticPotential, dStrain, CauchyStress, PlasticStrain, &
                              YieldParams, PlasticParams, ElasticParams, pval, epsilon, new_PlasticStrain) &
