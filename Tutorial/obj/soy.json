@@ -57,8 +57,8 @@
     "peti_angle_ave"  :  30.00,
     "peti_angle_sig"  :  1.000,
     
-    "leaf_thickness_ave"  :  0.0001000,
-    "leaf_thickness_sig"  :  0.00000500,
+    "leaf_thickness_ave"  :  0.00005000,
+    "leaf_thickness_sig"  :  0.0000000,
 
     "leaf_angle_ave": 30.00,
     "leaf_angle_sig": 10.00,
