@@ -1,5 +1,7 @@
 module sim
    use fem
+   use SoilMechanicsClass
+   use TankModelClass
    use DemDomainClass
    use WaveKernelClass
    use TSFEMClass

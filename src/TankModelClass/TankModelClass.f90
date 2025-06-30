@@ -1,4 +1,4 @@
-module Tank_TankModelClassClass
+module TankModeLClass
     use IOClass
     use ArrayClass
     use RandomClass
@@ -477,4 +477,4 @@ end subroutine
 ! ###############################################################
 
 
-end module Tank_TankModelClassClass
+end module TankModelClass

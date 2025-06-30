@@ -11,6 +11,11 @@ echo "    "
 echo "-----------------"
 
 # Compilation of Solvers
+echo "Compiling ./src/SoilMechanicsClass/SoilMechanicsClass.f90" 
+echo " >> SoilMechanicsClass.o "
+echo " | ===============>            | (70%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SoilMechanicsClass/SoilMechanicsClass.f90 -o  ./inc/SoilMechanicsClass.o
+
 
 echo "Compiling ./src/TankModelClass/TankModelClass.f90" 
 echo " >> TankModelClass.o "
