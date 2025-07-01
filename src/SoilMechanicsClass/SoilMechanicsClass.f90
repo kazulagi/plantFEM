@@ -25,7 +25,7 @@ function sweden_method_SoilMechanics(this,name,slope_angle,slope_height,density,
     integer(int32),intent(in) :: num_division 
     real(real64) :: ret
 
-    type(IO_) :: f
+    type(IO_) :: f,gp
     real(real64) :: circle_center(1:2), circle_radius
     integer(int32) ::  x_n, y_n, y_idx, x_idx
 
@@ -93,7 +93,30 @@ function sweden_method_SoilMechanics(this,name,slope_angle,slope_height,density,
     ret = Fs
     call this%show_slope_and_circle(name,circle_center,circle_radius,slope_angle,slope_height,num_division)
     
+    ! gnuplot
+    call gp%open(name+"_geo.gp")
+    call gp%write("set terminal svg")
+    call gp%write("plot '"+name+"_divisions.txt' u 1:2 w l")
+    call gp%write("replot '"+name+"_slope_and_circle.txt' u 1:2 w l")
+    call gp%write("set output '"+name+"_geo.svg'")
+    call gp%write("replot")
+    call gp%write("exit")
+    call gp%close()
 
+    call system("gnuplot "+name+"_geo.gp")
+
+    call gp%open(name+"_cont.gp")
+    call gp%write("set terminal svg")
+    call gp%write("set pm3d")
+    call gp%write("set pm3d map")
+    call gp%write("splot '"+name+"_min_Fs_value.txt' u 1:2:3 w pm3d")
+    call gp%write("set output '"+name+"_cont.svg'")
+    call gp%write("replot")
+    call gp%write("exit")
+    call gp%close()
+
+    call system("gnuplot "+name+"_cont.gp")
+    
 end function
 
 

@@ -3573,12 +3573,14 @@ end subroutine
 ! #####################################################
 
 ! ###################################################
-   function tensor_sinc_sqrt_complex64_crs(this, v, tol, itrmax, coeff, debug, fix_idx) result(retA_v)
+   function tensor_sinc_sqrt_complex64_crs(this, v, tol, itrmax, coeff, debug, fix_idx, fix_value) result(retA_v)
       class(CRS_), intent(in) :: this
       complex(real64), intent(in) :: v(:)
       complex(real64), optional, intent(in) :: coeff
       complex(real64), allocatable :: dv(:), retA_v(:)
       integer(int32), optional, intent(in) :: fix_idx(:)
+      real(real64), optional,intent(in) :: fix_value(:)
+
       integer(int32) :: k
       integer(int32), intent(in) :: itrmax
       logical, optional, intent(in) :: debug
@@ -3602,6 +3604,9 @@ end subroutine
       ! zero-fixed Dirichlet boundary
       if (present(fix_idx)) then
          retA_v(fix_idx) = 0
+         if ( present(fix_value))then
+            retA_v(fix_idx(:))=fix_value(:)
+         endif
       end if
 
       ! k=1
@@ -3642,12 +3647,14 @@ end subroutine
 ! #####################################################
 
 ! ###################################################
-   function tensor_sinc_sqrt_real64_crs(this, v, tol, itrmax, coeff, debug, fix_idx) result(retA_v)
+   function tensor_sinc_sqrt_real64_crs(this, v, tol, itrmax, coeff, debug, fix_idx,fix_value) result(retA_v)
       class(CRS_), intent(in) :: this
       real(real64), intent(in) :: v(:)
       real(real64), optional, intent(in) :: coeff
       real(real64), allocatable :: dv(:), retA_v(:)
       integer(int32), optional, intent(in) :: fix_idx(:)
+      real(real64), optional, intent(in) :: fix_value(:)
+
       integer(int32) :: k
       integer(int32), intent(in) :: itrmax
       logical, optional, intent(in) :: debug
@@ -3671,6 +3678,9 @@ end subroutine
       ! zero-fixed Dirichlet boundary
       if (present(fix_idx)) then
          retA_v(fix_idx) = 0
+         if ( present(fix_value))then
+            retA_v(fix_idx(:))=fix_value(:)
+         endif
       end if
 
       ! k=1
@@ -3710,7 +3720,7 @@ end subroutine
    end function
 ! #####################################################
 
-   function tensor_wave_kernel_complex_64_crs(this, u0, v0, tol, itrmax, h, t, fix_idx, debug) result(u)
+   function tensor_wave_kernel_complex_64_crs(this, u0, v0, tol, itrmax, h, t, fix_idx, fix_value, debug) result(u)
       class(CRS_), intent(in) :: this
       complex(real64), intent(in) :: u0(:), v0(:)
       complex(real64), allocatable:: Adu(:), Adv(:), u(:)
@@ -3718,9 +3728,11 @@ end subroutine
       real(real64), intent(in) :: h, t
       logical, optional, intent(in) :: debug
 
+
       integer(int32), optional, intent(in) :: itrmax
       real(real64), optional, intent(in) :: tol
       integer(int32), optional, intent(in) :: fix_idx(:)
+      real(real64),optional,intent(in) :: fix_value(:)
 
       integer(int32) :: itr_max = 100
       real(real64)   :: itr_tol = dble(1.0e-16)
@@ -3741,13 +3753,13 @@ end subroutine
       !      + t*sinc( t*sqrt(M^{-1} K - h^2 I) ) v
 
       u = exp(-h*t)*this%tensor_cos_sqrt(v=u0, tol=itr_tol, itrmax=itr_max, &
-                                         coeff=t + 0*math%i, debug=debug, fix_idx=fix_idx) &
+                                         coeff=t + 0*math%i, debug=debug, fix_idx=fix_idx,fix_value=fix_value) &
           + exp(-h*t)*t*this%tensor_sinc_sqrt(v=v0, tol=itr_tol, itrmax=itr_max, &
-                                              coeff=t + 0*math%i, debug=debug, fix_idx=fix_idx)
+                                              coeff=t + 0*math%i, debug=debug, fix_idx=fix_idx,fix_value=fix_value)
 
    end function
 
-   function tensor_wave_kernel_real_64_crs(this, u0, v0, tol, itrmax, h, t, fix_idx, debug) result(u)
+   function tensor_wave_kernel_real_64_crs(this, u0, v0, tol, itrmax, h, t, fix_idx,fix_value, debug) result(u)
       class(CRS_), intent(inout) :: this
       real(real64), intent(in) :: u0(:), v0(:)
       real(real64), intent(in) :: h, t
@@ -3756,6 +3768,7 @@ end subroutine
       integer(int32), optional, intent(in) :: itrmax
       real(real64), optional, intent(in) :: tol
       integer(int32), optional, intent(in) :: fix_idx(:)
+      real(real64),optional,intent(in) :: fix_value(:)
 
       real(real64), allocatable:: Adu(:), Adv(:), u(:)
       real(real64) :: cos_coeff, sinc_coeff
@@ -3782,15 +3795,16 @@ end subroutine
       !      + t*sinc( t*sqrt(M^{-1} K - h^2 I) ) v
 
       u = exp(-h*t)*this%tensor_cos_sqrt(v=u0, tol=itr_tol, itrmax=itr_max, &
-                                         coeff=t, debug=debug, fix_idx=fix_idx) &
+                                         coeff=t, debug=debug, fix_idx=fix_idx,fix_value=fix_value) &
           + exp(-h*t)*t*this%tensor_sinc_sqrt(v=v0, tol=itr_tol, itrmax=itr_max, &
-                                              coeff=t, debug=debug, fix_idx=fix_idx)
+                                              coeff=t, debug=debug, fix_idx=fix_idx,fix_value=fix_value)
 
    end function
 
 ! ###################################################
 
-   function tensor_wave_kernel_LPF_real_64_crs(this, u0, v0, tol, itrmax, h, t, fix_idx, debug, cutoff_frequency) result(u)
+   function tensor_wave_kernel_LPF_real_64_crs(this, u0, v0, tol, &
+      itrmax, h, t, fix_idx, fix_value,debug, cutoff_frequency) result(u)
       class(CRS_), intent(in) :: this
       real(real64), intent(in) :: u0(:), v0(:)
       real(real64), allocatable:: Adu(:), Adv(:), u(:)
@@ -3801,6 +3815,7 @@ end subroutine
       integer(int32), optional, intent(in) :: itrmax
       real(real64), optional, intent(in) :: tol
       integer(int32), optional, intent(in) :: fix_idx(:)
+      real(real64), optional, intent(in) :: fix_value(:)
 
       integer(int32) :: itr_max = 100
       real(real64)   :: itr_tol = dble(1.0e-16)
@@ -3821,9 +3836,9 @@ end subroutine
       !      + t*sinc( t*sqrt(M^{-1} K - h^2 I) ) v
 
       u = exp(-h*t)*this%tensor_cos_sqrt_LPF(v=u0, tol=itr_tol, itrmax=itr_max, &
-                                             coeff=t, debug=debug, fix_idx=fix_idx, cutoff_frequency=cutoff_frequency) &
+            coeff=t, debug=debug, fix_idx=fix_idx,fix_value=fix_value,  cutoff_frequency=cutoff_frequency) &
           + exp(-h*t)*this%tensor_t_sinc_sqrt_LPF(v=v0, tol=itr_tol, itrmax=itr_max, &
-                                                  coeff=t, debug=debug, fix_idx=fix_idx, cutoff_frequency=cutoff_frequency)
+            coeff=t, debug=debug, fix_idx=fix_idx,fix_value=fix_value, cutoff_frequency=cutoff_frequency)
 
    end function
 
@@ -4071,12 +4086,14 @@ end subroutine
 ! #####################################################
 
 ! ###################################################
-   function tensor_cos_sqrt_complex64_crs(this, v, tol, itrmax, coeff, debug, fix_idx) result(retA_v)
+   function tensor_cos_sqrt_complex64_crs(this, v, tol, itrmax, coeff, debug, fix_idx,fix_value) result(retA_v)
       class(CRS_), intent(in) :: this
       complex(real64), intent(in) :: v(:)
       complex(real64), allocatable :: dv(:), retA_v(:)
       complex(real64), optional, intent(in) :: coeff
       integer(int32), optional, intent(in) :: fix_idx(:)
+      real(real64), optional, intent(in) :: fix_value(:)
+
       logical, optional, intent(in) :: debug
       integer(int32) :: k, row, CRS_id
       integer(int32), intent(in) :: itrmax
@@ -4099,6 +4116,9 @@ end subroutine
       ! zero-fixed Dirichlet boundary
       if (present(fix_idx)) then
          retA_v(fix_idx) = 0
+         if(present(fix_value))then
+            retA_v(fix_idx(:)) = fix_value(:)
+         endif
       end if
 
       ! a=t
@@ -4159,12 +4179,14 @@ end subroutine
 ! #####################################################
 
 ! ###################################################
-   function tensor_cos_sqrt_real64_crs(this, v, tol, itrmax, coeff, debug, fix_idx) result(retA_v)
+   function tensor_cos_sqrt_real64_crs(this, v, tol, itrmax, coeff, debug, fix_idx,fix_value) result(retA_v)
       class(CRS_), intent(in) :: this
       real(real64), intent(in) :: v(:)
       real(real64), allocatable :: dv(:), retA_v(:)
       real(real64), optional, intent(in) :: coeff
       integer(int32), optional, intent(in) :: fix_idx(:)
+      real(real64), optional,intent(in) :: fix_value(:)
+
       logical, optional, intent(in) :: debug
       integer(int32) :: k, row, CRS_id
       integer(int32), intent(in) :: itrmax
@@ -4187,12 +4209,14 @@ end subroutine
       ! zero-fixed Dirichlet boundary
       if (present(fix_idx)) then
          retA_v(fix_idx) = 0
+         if(present(fix_value))then
+            retA_v(fix_idx(:)) = fix_value(:)
+         endif
       end if
 
       if (present(debug)) then
          if (debug) then
             print *, k, norm(abs(v))
-
          end if
       end if
 
@@ -4237,12 +4261,13 @@ end subroutine
 ! #####################################################
 
 ! ###################################################
-   function tensor_cos_sqrt_LPF_real64_crs(this, v, tol, itrmax, coeff, debug, fix_idx, cutoff_frequency) result(retA_v)
+   function tensor_cos_sqrt_LPF_real64_crs(this, v, tol, itrmax, coeff, debug, fix_idx, fix_value,cutoff_frequency) result(retA_v)
       class(CRS_), intent(in) :: this
       real(real64), intent(in) :: v(:)
       real(real64), allocatable :: dv(:), retA_v(:)
       real(real64), optional, intent(in) :: coeff
       integer(int32), optional, intent(in) :: fix_idx(:)
+      real(real64), optional,intent(in) :: fix_value(:)
 
       logical, optional, intent(in) :: debug
       integer(int32) :: k, row, CRS_id, num_hanning_sample
@@ -4270,6 +4295,9 @@ end subroutine
       ! zero-fixed Dirichlet boundary
       if (present(fix_idx)) then
          retA_v(fix_idx) = 0
+         if(present(fix_value))then
+            retA_v(fix_idx(:)) = fix_value(:)
+         endif
       end if
 
       do k = 1, itrmax
@@ -4300,13 +4328,15 @@ end subroutine
 ! #####################################################
 
 ! ###################################################
-   function tensor_t_sinc_sqrt_LPF_real64_crs(this, v, tol, itrmax, coeff, debug, fix_idx, cutoff_frequency) &
+   function tensor_t_sinc_sqrt_LPF_real64_crs(this, v, tol, itrmax, coeff, debug, fix_idx, fix_value, cutoff_frequency) &
       result(retA_v)
       class(CRS_), intent(in) :: this
       real(real64), intent(in) :: v(:)
       real(real64), optional, intent(in) :: coeff
       real(real64), allocatable :: dv(:), retA_v(:)
       integer(int32), optional, intent(in) :: fix_idx(:)
+      real(real64), optional, intent(in) :: fix_value(:)
+
       integer(int32) :: k, num_hanning_sample
       integer(int32), intent(in) :: itrmax
       logical, optional, intent(in) :: debug
@@ -4332,6 +4362,11 @@ end subroutine
       retA_v = v
       dv = v
 
+
+      ! Dirichlet boundary
+      if ( present(fix_value))then
+         retA_v(fix_idx(:))=fix_value(:)
+      endif
       if (present(fix_idx)) then
          dv(fix_idx) = 0
       end if
