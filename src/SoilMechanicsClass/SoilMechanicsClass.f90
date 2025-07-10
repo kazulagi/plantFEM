@@ -61,23 +61,26 @@ function sweden_method_SoilMechanics(this,name,slope_angle,slope_height,density,
 
     call f%open(name+"_Fs.txt","w")
     
-    solution(1:4) = 100000.0d0
+    solution(1:4) = 100000000.0d0
     do x_idx=1,x_n
         do y_idx=1,y_n
             circle_center = [x_list(x_idx), y_list(y_idx)]
             Fs = this%get_Fs_of_slices(circle_center, slope_angle, slope_height,c,phi,num_division,circle_radius,density)        
             Fs = abs(Fs)
+
             if(Fs > max_fs_value)then
                 Fs = max_fs_value
             elseif(Fs < 0.0d0)then
                 Fs = 0.0d0
             endif
 
+
             if(solution(4) > Fs)then
                 solution(1:2) = circle_center(1:2)
                 solution(3)   = circle_radius
                 solution(4)   = Fs
             endif
+            
 
             write(f%fh,*) circle_center(1:2), Fs
             call f%flush()
@@ -90,6 +93,7 @@ function sweden_method_SoilMechanics(this,name,slope_angle,slope_height,density,
     circle_center = solution(1:2)
     circle_radius = solution(3)
     Fs = solution(4)
+    
     ret = Fs
     call this%show_slope_and_circle(name,circle_center,circle_radius,slope_angle,slope_height,num_division)
     
@@ -109,7 +113,7 @@ function sweden_method_SoilMechanics(this,name,slope_angle,slope_height,density,
     call gp%write("set terminal svg")
     call gp%write("set pm3d")
     call gp%write("set pm3d map")
-    call gp%write("splot '"+name+"_min_Fs_value.txt' u 1:2:3 w pm3d")
+    call gp%write("splot '"+name+"_Fs.txt' u 1:2:3 w pm3d")
     call gp%write("set output '"+name+"_cont.svg'")
     call gp%write("replot")
     call gp%write("exit")
@@ -136,15 +140,16 @@ function get_Fs_of_slices_SoilMechanics(this,circle_center,&
     
     integer(int32) :: n,j
 
+    
+
     n = this%num_radius_division
     ! find minimum Fs by changing radius
     radius_list = linspace([slope_height*2/dble(n),slope_height*2],n)
 
     Fs = 100000000.0d0
     Fs_list = Fs*ones(n)
-    
 
-    !$OMP parallel do private(Fs_1,Fs_2,circle_radius,ith_slice,vol,alpha,l,W_i)
+    !!$OMP parallel do private(Fs_1,Fs_2,circle_radius,ith_slice,vol,alpha,l,W_i)
     do j=1,n
         Fs_1 = 0.0d0
         Fs_2 = 0.0d0
@@ -160,15 +165,17 @@ function get_Fs_of_slices_SoilMechanics(this,circle_center,&
             Fs_1 = Fs_1 + c*l + tan(radian(phi))*W_i*cos(alpha)
             Fs_2 = Fs_2 + W_i * sin(alpha)
         enddo
-        Fs_list(j) = Fs_1/Fs_2
-        ! if(Fs > Fs_1/Fs_2 )then
-        !     Fs  = Fs_1/Fs_2
-        !     opt_radius = radius_list(j)
-        ! endif
-    enddo    
+        !Fs_list(j) = Fs_1/Fs_2
+        if(Fs_2==0.0d0) cycle
+        if(Fs > Fs_1/Fs_2 )then
+            Fs  = Fs_1/Fs_2
+            opt_radius = radius_list(j)
+        endif
+    enddo  
+    !!$OMP end parallel do  
 
-    Fs = minval(Fs_list)
-    opt_radius = radius_list(minvalID(Fs_list))
+    !Fs = minval(Fs_list)
+    !opt_radius = radius_list(minvalID(Fs_list))
 
 end function
 
