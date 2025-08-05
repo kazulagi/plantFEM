@@ -124,7 +124,9 @@ module MaizeClass
       procedure, public :: json => jsonMaize
       procedure, public :: update => updateMaize
 
+
       ! Editor
+      procedure, public :: modifier => modifier_MaizeClass
       procedure, public :: remove => removeMaize
       procedure, public :: rotate => rotateMaize
       procedure, public :: move => moveMaize
@@ -4302,4 +4304,31 @@ contains
    end subroutine
 ! ################################################################
 
+subroutine modifier_MaizeClass(this)
+   class(Maize_),intent(inout) :: this
+
+   ! modifier for stems and leaves
+   
+   ! stem modifier
+   ! based on Cook's model
+   ! parameters for each node;
+   real(real64) :: a ! major radius (m)
+   real(real64) :: b ! minor radius (m)
+   real(real64) :: t ! rind thickness (m)
+   
+
+end subroutine
+! ################################################################
+
+! ################################################################
+function maize_stalk_tomobe_model(local_coordinate,original_r) result(r)
+   real(real64),intent(in) :: local_coordinate,original_r
+   real(real64) :: r,x
+
+   ! local coodinate \in [0,1]
+   
+
+
+end function
+! ################################################################
 end module MaizeClass
