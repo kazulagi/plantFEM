@@ -1,6 +1,6 @@
 ![Growth](https://user-images.githubusercontent.com/54159711/177001085-9ecd60a8-94b9-4848-b33e-af51545e1c9c.gif)
 
-![soybean_photosynthesis](https://www.plantfem.org/download/out_mini_mini.gif)
+![soyphoto](https://www.plantfem.org/download/out_mini_mini.gif)
 
 
 ![soy_scalar_field](https://user-images.githubusercontent.com/54159711/147451703-cd0ecca3-5a87-4cc7-81e2-4621210dc0c4.jpeg)
