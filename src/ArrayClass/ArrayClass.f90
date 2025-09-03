@@ -167,6 +167,13 @@ module ArrayClass
       module procedure getArray_by_Stacking_Vectors_re64,getArray_by_Stacking_Vectors_in32
    end interface
 
+      
+   interface operator(.times.)
+      module procedure times_operator_int32_vec,times_operator_int32_mat_vec,times_operator_int32_vec_mat
+   end interface
+
+   
+
    interface dot_product_omp
       module procedure :: dot_product_omp
    end interface
@@ -10047,5 +10054,65 @@ function getArray_by_Stacking_Vectors_in32(vec,idx_range) result(ret)
 end function
 
 ! ########################################################
+
+
+
+! ############################################################
+function times_operator_int32_vec(vec1, vec2) result(ret)!,times_operator_int32_mat
+   integer(int32),intent(in) :: vec1(:), vec2(:)
+   integer(int32),allocatable :: ret(:,:)
+
+   integer(int32) :: i,j
+
+   allocate(ret(size(vec1)*size(vec2),2))
+   do i=1,size(vec1)
+      do j=1,size(vec2)
+         ret( size(vec2)*(i-1) +j,1) = vec1(i)
+         ret( size(vec2)*(i-1) +j,2) = vec2(j)
+      enddo
+   enddo
+
+end function
+! ############################################################
+
+
+! ############################################################
+function times_operator_int32_vec_mat(vec, mat) result(ret)
+   integer(int32),intent(in) :: vec(:), mat(:,:)
+   integer(int32),allocatable :: ret(:,:)
+
+   integer(int32) :: i,j
+
+   allocate(ret(size(vec)*size(mat,1),1+size(mat,2)))
+   do i=1,size(vec)
+      do j=1,size(mat,1)
+         ret( size(mat,1)*(i-1) + j ,1) = vec(i)
+         ret( size(mat,1)*(i-1) + j ,2:) = mat(j,:)
+      enddo
+   enddo
+
+end function
+! ############################################################
+
+
+
+! ############################################################
+function times_operator_int32_mat_vec(mat, vec) result(ret)
+   integer(int32),intent(in) :: vec(:), mat(:,:)
+   integer(int32),allocatable :: ret(:,:)
+
+   integer(int32) :: i,j
+
+   allocate(ret(size(vec)*size(mat,1),1+size(mat,2)))
+   do i=1,size(mat,1)
+      do j=1,size(vec)
+         ret( size(vec)*(i-1) + j ,size(mat,2)+1) = vec(j)
+         ret( size(vec)*(i-1) + j ,1:size(mat,2)) = mat(i,:)
+      enddo
+   enddo
+
+end function
+! ############################################################
+
 
 end module ArrayClass

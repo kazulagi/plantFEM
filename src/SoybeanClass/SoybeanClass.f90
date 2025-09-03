@@ -212,13 +212,15 @@ module SoybeanClass
       procedure, public :: new => initsoybean
       procedure, public :: sowing => initsoybean
       procedure, public :: export => exportSoybean
-      procedure, public :: expanition => expanitionSoybean
-      procedure, public :: development => developmentSoybean
+      ! procedure, public :: expanition => expanitionSoybean
+      ! procedure, public :: development => developmentSoybean
+
 
       !  Simulator
       procedure, public :: checkProperties => checkPropertiesSoybean
       procedure, public :: setPoints => setPointsSoybean
       procedure, public :: setProperties => setPropertiesSoybean
+      !procedure, public :: easy_grow => easy_grow_SoybeanClass
 
       ! editor
       procedure, public :: set_stem_length_by_list => set_stem_length_by_list_Soybean
@@ -11673,6 +11675,29 @@ subroutine init_as_seed_soybean(this,radius,division)
 
 end subroutine
 ! #####################################################################
+
+!subroutine easy_grow_SoybeanClass(this,dt)
+!   class(Soybean_),intent(inout) :: this
+!   real(real64),intent(in) :: dt
+!
+!   real(real64) :: stem_enlong_time
+!   ! 理想的な成長をシミュレートする．
+!   
+!   ! (1) まずは節間伸長
+!   ! 節間伸長期間(stem_enlong_time (s))
+!   stem_enlong_time = 1.0d0*60.0d0*60.0d0 ! 3日程度
+!   do stem_idx = 1, size(this%stem)
+!      if(this%stem(stem_idx)%empty() ) cycle
+!      if(this%stem(stem_idx)%already_grown) cycle
+!      if(this%stem(stem_idx)%FullyExpanded())cycle
+!
+!      ! 未成長
+!      l_max = 
+!
+!   enddo
+!
+!
+!end subroutine
 
 
 end module
