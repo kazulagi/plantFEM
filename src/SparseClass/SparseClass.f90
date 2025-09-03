@@ -281,6 +281,8 @@ module SparseClass
       ! fix value
       procedure,public :: fill_zero_row       => fill_zero_rowBCRS
       procedure,public :: fix => fix_BCRS ! transform matrix and vector
+
+      procedure,public :: remove => removeBCRS
    end type 
 
    public :: operator(+)
@@ -5577,5 +5579,12 @@ function get_loc_fix_val_bcrs(idx,val,crs_range) result(ret)
 
 end function
 !===============================================================
+
+subroutine removeBCRS(this)
+   class(BCRS_),intent(inout) :: this
+   if(allocated(this%CRS))then
+      deallocate(this%CRS)
+   endif
+end subroutine
 
 end module SparseClass

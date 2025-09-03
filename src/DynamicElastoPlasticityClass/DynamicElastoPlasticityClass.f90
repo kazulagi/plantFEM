@@ -22,6 +22,7 @@ module DynamicEPClass
     type :: DynamicEP_
         type(EP_Model_),allocatable  :: EP_Models(:)
         type(FEMDomain_),pointer :: femdomain => null()
+        
 
         real(real64),allocatable :: Density(:)
         real(real64),allocatable :: ElasticParams(:,:),YieldParams(:,:),PlasticParams(:,:)
@@ -63,6 +64,7 @@ module DynamicEPClass
     contains
         procedure,public :: init => init_DynamicEP
         procedure,public :: update => update_DynamicEP
+        procedure,public :: remove => remove_DynamicEP
 
         ! >> for matrix assembly
         procedure,public :: globalStressDivMatrix => globalStressDivMatrix_DynamicEP
@@ -94,6 +96,8 @@ module DynamicEPClass
 
         ! get traction force 
         
+
+
     end type
 
     public :: assignment(=)
@@ -1810,5 +1814,55 @@ end subroutine
 
 ! ################################################################
 
+! destructor
+subroutine remove_DynamicEP(this)
+    class(DynamicEP_),intent(inout) :: this
+    
+    if(allocated(this%EP_Models))  deallocate (this%EP_Models)
+
+    this%femdomain => null()
+        
+
+    if(allocated(this%Density)) deallocate(this%density)
+    if(allocated(this%ElasticParams)) deallocate(this%ElasticParams)
+    if(allocated(this%YieldParams)) deallocate(this%YieldParams)
+    if(allocated(this%PlasticParams)) deallocate(this%PlasticParams)
+    if(allocated(this%ElemEP_ModelIdx)) deallocate(this%ElemEP_ModelIdx)
+    if(allocated(this%u)) deallocate(this%u)
+    if(allocated(this%u_n)) deallocate(this%u_n)
+    if(allocated(this%v)) deallocate(this%v)
+    if(allocated(this%v_n)) deallocate(this%v_n)
+    if(allocated(this%v)) deallocate(this%TractionBoundaryIdx)
+    if(allocated(this%v_n)) deallocate(this%TractionBoundaryVal)
+        
+
+    this%force_elastic = .false.
+
+    ! control parameters
+    this% stress_ratio = 2 ! TRUESDELL_STRESS_RATIO
+    !real(real64) :: time_integration_factor = 0.50d0 ! time-integration factor (theta \in [0,1])
+
+        ! >> for computation
+    call this % Upsilon% remove()
+    if(allocated(this%Psi)) deallocate(this%Psi)
+    if(allocated(this%Psi_n)) deallocate(this%Psi_n)
+    if(allocated(this%Psi_tr)) deallocate(this%Psi_tr)
+    if(allocated(this%ElasticStrain)) deallocate(this%ElasticStrain)
+    if(allocated(this%PlasticStrain)) deallocate(this%PlasticStrain)
+    if(allocated(this%yield_function_values_n)) deallocate(this%yield_function_values_n)
+        
+
+    this % cutoff_frequency=0.0d0
+
+    this % max_itr = 100
+    this % max_Newton_itr = 1000
+    this % bicgstab_er = dble(1.0e-14)
+    this % max_bicgstab_itr = 10000
+
+
+    this % TimeIntegrationScheme = 0 !
+
+
+end subroutine
 
 end module
