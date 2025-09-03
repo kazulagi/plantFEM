@@ -256,8 +256,9 @@ module FEMDomainClass
 
       procedure, pass   :: getElementListFEMDomain
       procedure, pass   :: getElementList_by_radiusFEMDomain
+      procedure, pass   :: getElementList_by_range_FEMD
 
-      generic, public :: getElementList => getElementList_by_radiusFEMDomain, getElementListFEMDomain
+      generic, public :: getElementList => getElementList_by_radiusFEMDomain, getElementListFEMDomain, getElementList_by_range_FEMD
 
       procedure, public :: getScalarField => getScalarFieldFEMDomain
       procedure, public :: getSingleFacetNodeID => getSingleFacetNodeIDFEMDomain
@@ -13942,6 +13943,20 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
    end function
 ! #########################################################################
 
+
+! #########################################################################
+   function getElementList_by_range_FEMD(this, range) result(ElementList)
+      class(FEMDomain_), intent(inout) :: this
+      type(Range_),intent(in) :: range
+      integer(int32),allocatable :: ElementList(:)
+      
+      ElementList = this%mesh%getElementList( range )
+      
+   end function
+! #########################################################################
+
+
+! #########################################################################
    function getElementList_by_radiusFEMDomain(this, center, radius, zmin, zmax) result(ElementList)
       class(FEMDomain_), intent(inout) :: this
       real(real64), intent(in) :: center(1:2), radius, zmin, zmax

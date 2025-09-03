@@ -126,7 +126,10 @@ module MeshClass
 
       procedure :: getNodeList => getNodeListMesh
       procedure :: getFacetList => getFacetListMesh
-      procedure :: getElementList => getElementListMesh
+
+      procedure,pass :: getElementListMesh
+      procedure,pass :: getElementListMesh_by_range
+      generic :: getElementList => getElementListMesh,getElementListMesh_by_range
 
       procedure :: getVolume => getVolumeMesh
       procedure :: getShapeFunction => getShapeFunctionMesh
@@ -10725,6 +10728,34 @@ call mesh1%create(meshtype=meshtype, x_num=x_num, y_num=y_num, x_len=x_len, y_le
 
    end subroutine getVerticesMesh
 
+! ################################################################
+   function getElementListMesh_by_range(this,range) result(element_list)
+      class(Mesh_),intent(in) :: this
+      type(Range_),intent(in) :: range
+      integer(int32),allocatable :: element_list(:)
+      logical,allocatable :: is_inside(:)
+      integer(int32) :: i, n_active
+
+      allocate(is_inside(this%ne()) )
+      n_active = 0
+      do i=1,this%ne()
+         is_inside(i) = this%getCenterCoordinate(ElemID=i) .in. range
+         if(is_inside(i))then
+            n_active = n_active + 1
+         endif
+      enddo
+
+      allocate(element_list(n_active))
+      n_active = 0
+      do i=1,this%ne()
+         if(is_inside(i))then
+            n_active = n_active + 1
+            element_list(n_active) = i
+         endif
+      enddo
+      
+   end function
+! ################################################################
 
 
 end module MeshClass

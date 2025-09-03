@@ -136,7 +136,7 @@ contains
       logical :: ret
 
       x(:) = 0.0d0
-
+      
       ! <Boolean :: and>
       if (allocated(in_range%and_ranges))then
          ret = (real64val .in. in_range%and_ranges(1) ) .and. (real64val .in. in_range%and_ranges(2))

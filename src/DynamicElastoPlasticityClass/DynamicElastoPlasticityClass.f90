@@ -1629,27 +1629,44 @@ function to_stress_vector(stress_tensor) result(ret)
 end function 
 ! ################################################################
 !> compute global f_ext
-function globalInternalForceVector_SymEP(this) result(ret)
+function globalInternalForceVector_SymEP(this,range) result(ret)
     class(DynamicEP_),intent(in) :: this
+    type(Range_),optional,intent(in) :: range
     real(real64),allocatable :: ret(:),vec(:)
-    integer(int32) :: elem_idx,nne_idx
+    integer(int32),allocatable :: elemlist(:)
+    integer(int32) :: elem_idx,nne_idx,idx
 
     ! using following values
-    ret = zeros(this%femdomain%nn()*this%femdomain%nd())
 
-    
-    do elem_idx = 1,this%femdomain%ne()
-        vec = this%localInternalForceVector(ElementID=elem_idx)
-        do nne_idx = 1, this%femdomain%nne()
-            ret(this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)-1)+1: &
-                this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)) )  = &
-            ret(this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)-1)+1: &
-                this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)) )  + &
-                vec(this%femdomain%nd()*(nne_idx-1)+1:&
-                    this%femdomain%nd()*(nne_idx  ) )
+    if (present(range)) then
+        ret = zeros(this%femdomain%nn()*this%femdomain%nd())
+        elemlist = this%femdomain%getElementList(range=range)
+        do idx = 1,size(elemlist)
+            elem_idx = elemlist(idx)
+            vec = this%localInternalForceVector(ElementID=elem_idx)
+            do nne_idx = 1, this%femdomain%nne()
+                ret(this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)-1)+1: &
+                    this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)) )  = &
+                ret(this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)-1)+1: &
+                    this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)) )  + &
+                    vec(this%femdomain%nd()*(nne_idx-1)+1:&
+                        this%femdomain%nd()*(nne_idx  ) )
+            enddo
         enddo
-    enddo
-    
+    else
+        ret = zeros(this%femdomain%nn()*this%femdomain%nd())
+        do elem_idx = 1,this%femdomain%ne()
+            vec = this%localInternalForceVector(ElementID=elem_idx)
+            do nne_idx = 1, this%femdomain%nne()
+                ret(this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)-1)+1: &
+                    this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)) )  = &
+                ret(this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)-1)+1: &
+                    this%femdomain%nd()*(this%femdomain%mesh%elemnod(elem_idx,nne_idx)) )  + &
+                    vec(this%femdomain%nd()*(nne_idx-1)+1:&
+                        this%femdomain%nd()*(nne_idx  ) )
+            enddo
+        enddo
+    endif
 end function
 ! ################################################################
 
