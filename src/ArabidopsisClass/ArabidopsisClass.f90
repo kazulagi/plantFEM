@@ -1,6 +1,7 @@
 module ArabidopsisClass
    use LeafClass
    use StemClass
+   use PodClass
    use RootClass
    implicit none
 
@@ -17,13 +18,32 @@ module ArabidopsisClass
       !procedure, public :: sync => syncArabidopsis_NodeID_Branch
    end type
 
+
    type :: Arabidopsis_
+
+      ! >>> new implementation
+      real(real64),allocatable :: ms_internode_length(:)
+      real(real64),allocatable :: ms_internode_radius(:)
+      real(real64),allocatable :: ms_internode_angle(:)
+      real(real64),allocatable :: ms_leaf_length(:)
+      real(real64),allocatable :: ms_leaf_width(:)
+      real(real64),allocatable :: ms_leaf_thickness(:)
+
+      real(real64),allocatable :: ms_pod_length(:)
+      real(real64),allocatable :: ms_pod_radius(:)
+      real(real64),allocatable :: ms_pod_angle(:)
+      integer(int32),allocatable :: ms_pod_stem_idx(:)
+
+
+      ! >>> regady implementation
+
       integer(int32) :: TYPE_STEM = 1
       integer(int32) :: TYPE_LEAF = 2
       integer(int32) :: TYPE_ROOT = 3
       ! 節-節点データ構造
       type(Mesh_) :: struct
       integer(int32), allocatable :: leaf2stem(:, :)
+      integer(int32), allocatable :: pod2stem(:, :)
       integer(int32), allocatable :: stem2stem(:, :)
       integer(int32), allocatable :: root2stem(:, :)
       integer(int32), allocatable :: root2root(:, :)
@@ -64,16 +84,18 @@ module ArabidopsisClass
 
       integer(int32) :: num_leaf
       integer(int32) :: num_stem
+      integer(int32) :: num_pod
       integer(int32) :: num_root
 
       ! 器官オブジェクト配列
-      type(FEMDomain_), allocatable :: leaf_list(:)
-      type(FEMDomain_), allocatable :: stem_list(:)
-      type(FEMDomain_), allocatable :: root_list(:)
+      !type(FEMDomain_), allocatable :: leaf_list(:)
+      !type(FEMDomain_), allocatable :: stem_list(:)
+      !type(FEMDomain_), allocatable :: root_list(:)
 
       character(:), allocatable :: LeafSurfaceData
       type(Leaf_), allocatable :: Leaf(:)
       type(Stem_), allocatable :: Stem(:)
+      type(Pod_), allocatable  :: Pod(:)
       type(Root_), allocatable :: Root(:)
 
       integer(int32), allocatable :: NodeID_MainStem(:)
@@ -98,22 +120,39 @@ module ArabidopsisClass
       logical :: GaussPointProjection = .false.
 
       ! setting
-      integer(int32) :: stem_division(1:3) = [10, 10, 10]
-      integer(int32) :: leaf_division(1:3) = [10, 10, 10]
+      integer(int32) :: stem_division(1:3) = [5, 5, 20]
+      integer(int32) :: leaf_division(1:3) = [4, 2, 10] ! [width, thickness, length]
+      integer(int32) :: pod_division(1:3) = [4, 4, 10] ! [radius1, radius2, length]
+
+      ! only for arabi @ 2025.10.14
+
+
+      ! k : rosette_limit
+      ! 1 to k-th internodes are the rosette
+      ! (k+1)th to n-th internodes are stalks
+      integer(int32) :: ms_rosette_limit
+
+      ! k : leaf_limit
+      ! 1 to k-th internodes are the leaf
+      ! (k+1)th to n-th internodes are flower stalks 
+      integer(int32) :: ms_leaf_limit
+      
 
    contains
       procedure, public :: init => createArabidopsis
       procedure, public :: create => createArabidopsis
-      procedure, public :: msh => mshArabidopsis
+      procedure, public :: AddBranch => AddBranchArabidopsis
+
+      !procedure, public :: msh => mshArabidopsis
       procedure, public :: vtk => vtkArabidopsis
-      procedure, public :: stl => stlArabidopsis
-      procedure, public :: json => jsonArabidopsis
+      !procedure, public :: stl => stlArabidopsis
+      !procedure, public :: json => jsonArabidopsis
       procedure, public :: update => updateArabidopsis
 
       ! Editor
-      procedure, public :: remove => removeArabidopsis
-      procedure, public :: rotate => rotateArabidopsis
-      procedure, public :: move => moveArabidopsis
+!      procedure, public :: remove => removeArabidopsis
+!      procedure, public :: rotate => rotateArabidopsis
+!      procedure, public :: move => moveArabidopsis
 
       procedure, public :: getElementList => getElementListArabidopsis
       ! Info
@@ -171,9 +210,12 @@ contains
       logical :: debug_log
       type(IO_) :: Arabidopsisconfig
       type(Random_) :: random
-      integer(int32)::i, n, j, k, num_leaf, num_stem_node, num_branch_branch, cpid
+      integer(int32)::i, n, j, k, num_leaf, num_stem_node, num_branch, cpid,num_pod,&
+         branch_idx
       real(real64) :: x_A(1:3)
 
+      
+      ! >> regacy mode
       debug_log = input(default=.false., option=debug)
       cpid = 0
 
@@ -181,36 +223,63 @@ contains
          cpid = cpid + 1
          call print("createArabidopsis #"+str(cpid))
       end if
-      this%mainstem_length = freal(Arabidopsisconfig%parse(config, key1="Mainstem", key2="Length"))
-      this%mainstem_width = freal(Arabidopsisconfig%parse(config, key1="Mainstem", key2="Width"))
-      this%mainstem_node = fint(Arabidopsisconfig%parse(config, key1="Mainstem", key2="Node"))
-      this%ms_angle_ave = freal(Arabidopsisconfig%parse(config, key1="Mainstem", key2="ms_angle_ave"))
-      this%ms_angle_sig = freal(Arabidopsisconfig%parse(config, key1="Mainstem", key2="ms_angle_sig"))
 
+      
+      this%ms_internode_length = Arabidopsisconfig%parse_json(config,to_list("Mainstem","internode_length")) .as. real64_vector() 
+      this%ms_internode_radius = Arabidopsisconfig%parse_json(config,to_list("Mainstem","internode_radius")) .as. real64_vector() 
+      this%ms_internode_angle  = Arabidopsisconfig%parse_json(config,to_list("Mainstem","internode_angle" )) .as. real64_vector() 
+
+      this%ms_leaf_length     = Arabidopsisconfig%parse_json(config,to_list("Mainstem","leaf_length")) .as. real64_vector() 
+      this%ms_leaf_width      = Arabidopsisconfig%parse_json(config,to_list("Mainstem","leaf_width")) .as. real64_vector() 
+      this%ms_leaf_thickness  = Arabidopsisconfig%parse_json(config,to_list("Mainstem","leaf_thickness" )) .as. real64_vector() 
+
+      this%ms_pod_radius  = Arabidopsisconfig%parse_json(config,to_list("Mainstem","pod_radius" )) .as. real64_vector() 
+      this%ms_pod_length  = Arabidopsisconfig%parse_json(config,to_list("Mainstem","pod_length" )) .as. real64_vector() 
+      this%ms_pod_angle   = Arabidopsisconfig%parse_json(config,to_list("Mainstem","pod_angle"  )) .as. real64_vector() 
+
+      this%ms_pod_stem_idx   = Arabidopsisconfig%parse_json(config,to_list("Mainstem","pod_stem_idx"  )) .as. int32_vector() 
+
+      
+      
+      this%Leaf_From = 0.0d0*this%ms_leaf_length
+      do i=1,size(this%Leaf_From)
+         this%Leaf_From(i) = i
+      enddo
+
+      
+      !this%mainstem_length = freal(Arabidopsisconfig%parse(config, key1="Mainstem", key2="Length"))
+      !this%mainstem_width = freal(Arabidopsisconfig%parse(config, key1="Mainstem", key2="Width"))
+      !this%mainstem_node = fint(Arabidopsisconfig%parse(config, key1="Mainstem", key2="Node"))
+      !this%ms_angle_ave = freal(Arabidopsisconfig%parse(config, key1="Mainstem", key2="ms_angle_ave"))
+      !this%ms_angle_sig = freal(Arabidopsisconfig%parse(config, key1="Mainstem", key2="ms_angle_sig"))
+
+      this%mainstem_node = size(this%ms_internode_length)
       if (debug_log) then
          cpid = cpid + 1
          call print("createArabidopsis #"+str(cpid))
       end if
 
+
+
+      ! k : rosette_limit
+      ! 1 to k-th internodes are the rosette
+      ! (k+1)th to n-th internodes are stalks
+
+      !this%ms_rosette_limit = fint(Arabidopsisconfig%parse(config, key1="Mainstem", key2="rosette_limit"))
+
+      ! k : leaf_limit
+      ! 1 to k-th internodes are the leaf
+      ! (k+1)th to n-th internodes are flower stalks 
+
+      !this%ms_leaf_limit    = fint(Arabidopsisconfig%parse(config, key1="Mainstem", key2="leaf_limit"))
+      
+
+      
       ! get number of leaf
-      this%num_leaf = 1
-      do
-         if (this%num_leaf == this%mainstem_node) then
-            this%num_leaf = this%num_leaf - 1
-            exit
-         end if
-
-         line = Arabidopsisconfig%parse(config, key1="Leaf_"//str(this%num_leaf)//"_", key2="From")
-
-         if (len(trim(line)) == 0) then
-            this%num_leaf = this%num_leaf - 1
-            exit
-         else
-            this%num_leaf = this%num_leaf + 1
-            cycle
-         end if
-
-      end do
+      this%num_leaf = size(this%ms_leaf_length)
+      this%num_pod = size(this%ms_pod_length)
+      
+      
 
       if (debug_log) then
          cpid = cpid + 1
@@ -228,7 +297,7 @@ contains
       allocate (this%leaf_length_sig(this%num_leaf))
       allocate (this%leaf_width_ave(this%num_leaf))
       allocate (this%leaf_width_sig(this%num_leaf))
-      allocate (this%leaf_From(this%num_leaf))
+      !allocate (this%leaf_From(this%num_leaf))
       !allocate(this%leaf_Length(this%num_leaf))
       !allocate(this%leaf_Width(this%num_leaf))
 
@@ -237,77 +306,33 @@ contains
          call print("createArabidopsis #"+str(cpid))
       end if
 
-      do i = 1, this%num_leaf
-         this%leaf_From(i) = fint(Arabidopsisconfig%parse( &
-                                  config, key1="Leaf_"//str(i)//"_", key2="From"))
-         !this%leaf_Length(i)= freal(Arabidopsisconfig%parse(&
-         !    config,key1="Leaf_"//str(i)//"_",key2="Length"))
-         !this%leaf_Width(i)= freal(Arabidopsisconfig%parse(&
-         !    config,key1="Leaf_"//str(i)//"_",key2="Width"))
-         this%leaf_curvature(i) = freal(Arabidopsisconfig%parse( &
-                                        config, key1="Leaf_"//str(i)//"_", key2="leaf_curvature"))
-         this%leaf_thickness_ave(i) = freal(Arabidopsisconfig%parse( &
-                                            config, key1="Leaf_"//str(i)//"_", key2="leaf_thickness_ave"))
-         this%leaf_thickness_sig(i) = freal(Arabidopsisconfig%parse( &
-                                            config, key1="Leaf_"//str(i)//"_", key2="leaf_thickness_sig"))
-         this%leaf_angle_ave_x(i) = freal(Arabidopsisconfig%parse( &
-                                          config, key1="Leaf_"//str(i)//"_", key2="leaf_angle_ave_x"))
-         this%leaf_angle_sig_x(i) = freal(Arabidopsisconfig%parse( &
-                                          config, key1="Leaf_"//str(i)//"_", key2="leaf_angle_sig_x"))
-         this%leaf_angle_ave_z(i) = freal(Arabidopsisconfig%parse( &
-                                          config, key1="Leaf_"//str(i)//"_", key2="leaf_angle_ave_z"))
-         this%leaf_angle_sig_z(i) = freal(Arabidopsisconfig%parse( &
-                                          config, key1="Leaf_"//str(i)//"_", key2="leaf_angle_sig_z"))
-         this%leaf_length_ave(i) = freal(Arabidopsisconfig%parse( &
-                                         config, key1="Leaf_"//str(i)//"_", key2="leaf_length_ave"))
-         this%leaf_length_sig(i) = freal(Arabidopsisconfig%parse( &
-                                         config, key1="Leaf_"//str(i)//"_", key2="leaf_length_sig"))
-         this%leaf_width_ave(i) = freal(Arabidopsisconfig%parse( &
-                                        config, key1="Leaf_"//str(i)//"_", key2="leaf_width_ave"))
-         this%leaf_width_sig(i) = freal(Arabidopsisconfig%parse( &
-                                        config, key1="Leaf_"//str(i)//"_", key2="leaf_width_sig"))
-      end do
+      if (debug_log) then
+         cpid = cpid + 1
+         call print("createArabidopsis #"+str(cpid))
+      end if
 
       if (debug_log) then
          cpid = cpid + 1
          call print("createArabidopsis #"+str(cpid))
       end if
-!    this%mainroot_length = freal(Arabidopsisconfig%parse(config,key1="Mainroot",key2="Length"))
-!    this%mainroot_width = freal(Arabidopsisconfig%parse(config,key1="Mainroot",key2="Width"))
-!    this%mainroot_node = fint(Arabidopsisconfig%parse(config,key1="Mainroot",key2="Node"))
-
-      ! get number of branch && number of node
-!    this%num_branch_root=1
-!    this%num_branch_root_node=0
-!    do
-!        line = Arabidopsisconfig%parse(config,key1="Branchroot_"//str(this%num_branch_root)//"_",key2="Node" )
-!        if(len(trim(line))==0)then
-!            this%num_branch_root = this%num_branch_root -1
-!            exit
-!        else
-!            this%num_branch_root = this%num_branch_root  + 1
-!            this%num_branch_root_node = this%num_branch_root_node + fint(line)
-!            cycle
-!        endif
-!    enddo
-
-      if (debug_log) then
-         cpid = cpid + 1
-         call print("createArabidopsis #"+str(cpid))
-      end if
-      this%num_stem = this%mainstem_node
+      this%num_stem = size(this%ms_internode_length)
       !this%num_root =this%num_branch_root_node + this%mainroot_node
 
-      allocate (this%leaf_list(this%num_leaf))
-      allocate (this%stem_list(this%num_stem))
+      !allocate (this%stem_list(this%num_stem))
+      !allocate (this%leaf_list(this%num_leaf))
+      !allocate (this%pod_list(this%num_leaf))
+      
       !allocate(this%root_list(this%num_root))
 
-      allocate (this%leaf(this%num_leaf))
+      
       allocate (this%stem(this%num_stem))
+      allocate (this%leaf(this%num_leaf))
+      allocate (this%pod(this%num_pod))
       !allocate(this%root(this%num_root))
 
       this%leaf2stem = zeros(this%num_leaf, this%num_stem)
       this%stem2stem = zeros(this%num_stem, this%num_stem)
+      this%pod2stem = zeros(this%num_pod, this%num_stem)
       !this%root2stem = zeros( this%num_root , this%num_stem)
       !this%root2root = zeros( this%num_root , this%num_root )
 
@@ -316,26 +341,32 @@ contains
          call print("createArabidopsis #"+str(cpid))
       end if
 
+
+      
+      
+
+
       ! set mainstem
       do i = 1, this%mainstem_node
-
+         this%stem(i)%CROSS_SECTION_SHAPE = PF_STEM_SHAPE_CYLINDER
          call this%stem(i)%init( &
             x_num=this%stem_division(1), &
             y_num=this%stem_division(2), &
-            z_num=this%stem_division(3) &
+            z_num=this%stem_division(3)  &
             )
 
          call this%stem(i)%resize( &
-            x=this%mainstem_width, &
-            y=this%mainstem_width, &
-            z=this%mainstem_length/dble(this%mainstem_node) &
+            x=this%ms_internode_radius(i)*2.0d0, &
+            y=this%ms_internode_radius(i)*2.0d0, &
+            z=this%ms_internode_length(i) &
             )
          call this%stem(i)%rotate( &
-            x=radian(random%gauss(mu=this%ms_angle_ave, sigma=this%ms_angle_sig)), &
-            y=radian(random%gauss(mu=this%ms_angle_ave, sigma=this%ms_angle_sig)), &
-            z=radian(random%gauss(mu=this%ms_angle_ave, sigma=this%ms_angle_sig)) &
+            x=radian(this%ms_internode_angle(i)), &
+            y=0.0d0, &
+            z=radian(random%random()*360.0d0) &
             )
       end do
+
 
       do i = 1, this%mainstem_node - 1
          call this%stem(i + 1)%connect("=>", this%stem(i))
@@ -347,12 +378,11 @@ contains
          call print("createArabidopsis #"+str(cpid))
       end if
 
+
+
       !set leaf
       num_leaf = 0
       do i = 1, this%num_leaf
-         ! 1葉/1節
-         ! add leaves
-
          num_leaf = num_leaf + 1
 
          call this%leaf(num_leaf)%init(species=PF_Arabidopsis, &
@@ -361,25 +391,247 @@ contains
                                        z_num=this%leaf_division(3) &
                                        )
          call this%leaf(num_leaf)%femdomain%resize( &
-            y=random%gauss(mu=this%leaf_thickness_ave(i), sigma=this%leaf_thickness_sig(i)), &
-            z=random%gauss(mu=this%leaf_length_ave(i), sigma=this%leaf_length_sig(i)), &
-            x=random%gauss(mu=this%leaf_width_ave(i), sigma=this%leaf_width_sig(i)) &
+            y=this%ms_leaf_thickness(num_leaf), &
+            z=this%ms_leaf_length(num_leaf), &
+            x=this%ms_leaf_width(num_leaf) &
             )
-         call this%leaf(num_leaf)%curve(curvature=this%leaf_curvature(i))
+         !call this%leaf(num_leaf)%curve(curvature=this%leaf_curvature(i))
 
          call this%leaf(num_leaf)%femdomain%rotate( &
-            x=radian(random%gauss(mu=this%leaf_angle_ave_x(i), sigma=this%leaf_angle_sig_x(i))), &
-            y=0.0d0, &
-            z=radian(random%gauss(mu=this%leaf_angle_ave_z(i), sigma=this%leaf_angle_sig_z(i))) &
+               x=radian(90.0d0), &
+               y=0.0d0, &
+               z=radian(360.0d0*random%random()) &
             )
          call this%leaf(num_leaf)%connect("=>", this%stem(this%Leaf_From(i)))
          this%leaf2stem(num_leaf, this%Leaf_From(i)) = 1
       end do
 
+      !set pod
+      num_pod = 0
+      do i = 1, this%num_pod
+         num_pod = num_pod + 1
+         call this%pod(num_pod)%init(species=PF_Arabidopsis, &
+                                       x_num=this%pod_division(1), &
+                                       y_num=this%pod_division(2), &
+                                       z_num=this%pod_division(3) &
+                                    )
+         call this%pod(num_pod)%femdomain%resize( &
+            z=this%ms_pod_length(num_pod), &
+            y=this%ms_pod_radius(num_pod)*2.0d0, &
+            x=this%ms_pod_radius(num_pod)*2.0d0 &
+            )
+         !call this%pod(num_pod)%curve(curvature=this%pod_curvature(i))
+
+         call this%pod(num_pod)%femdomain%rotate( &
+               x=radian(180.0d0-this%ms_pod_angle(num_pod)), &
+               y=0.0d0, &
+               z=radian(360.0d0*random%random()) &
+            )
+         call this%pod(num_pod)%connect("=>", this%stem(this%ms_pod_stem_idx(i)))
+         this%pod2stem(num_pod, this%ms_pod_stem_idx(i)) = 1
+      end do
+
+
       call this%update()
+
+      ! add branch
+      num_branch = fint(Arabidopsisconfig%parse_json(config,to_list("Mainstem","num_branch")))
+
+      do branch_idx=1,num_branch
+         call this%addBranch(idx=branch_idx,config=config)
+      enddo
 
    end subroutine
 ! #############################################################
+
+
+subroutine AddBranchArabidopsis(this,idx,config)
+   class(Arabidopsis_),intent(inout) :: this
+   integer(int32),intent(in) :: idx
+   character(*), intent(in) :: config
+   type(IO_) :: f
+
+   real(real64),allocatable :: br_internode_length(:)
+   real(real64),allocatable :: br_internode_radius(:)
+   real(real64),allocatable :: br_internode_angle(:)
+   real(real64),allocatable :: br_leaf_length(:)
+   real(real64),allocatable :: br_leaf_width(:)
+   real(real64),allocatable :: br_leaf_thickness(:)
+
+   real(real64),allocatable :: br_pod_length(:)
+   real(real64),allocatable :: br_pod_radius(:)
+   real(real64),allocatable :: br_pod_angle(:)
+   integer(int32),allocatable :: br_pod_stem_idx(:)
+   integer(int32),allocatable :: leaf_From(:),old_stem2stem(:,:),old_leaf2stem(:,:),old_pod2stem(:,:)
+
+   type(Stem_),allocatable :: stem(:),old_stem(:)
+   type(Leaf_),allocatable :: leaf(:),old_leaf(:)
+   type(Pod_),allocatable  :: pod(:),old_pod(:)
+   integer(int32) :: stem_idx, i, num_stem, from_Idx,num_leaf,num_pod,leaf_idx,pod_idx
+   type(Random_) :: random
+
+   from_Idx            = fint(f%parse_json(config,to_list("Branch#"+str(idx),"From")))
+   br_internode_length = f%parse_json(config,to_list("Branch#"+str(idx),"internode_length")) .as. real64_vector() 
+   br_internode_radius = f%parse_json(config,to_list("Branch#"+str(idx),"internode_radius")) .as. real64_vector() 
+   br_internode_angle  = f%parse_json(config,to_list("Branch#"+str(idx),"internode_angle" )) .as. real64_vector() 
+   br_leaf_length      = f%parse_json(config,to_list("Branch#"+str(idx),"leaf_length")) .as. real64_vector() 
+   br_leaf_width       = f%parse_json(config,to_list("Branch#"+str(idx),"leaf_width")) .as. real64_vector() 
+   br_leaf_thickness   = f%parse_json(config,to_list("Branch#"+str(idx),"leaf_thickness" )) .as. real64_vector() 
+   br_pod_radius       = f%parse_json(config,to_list("Branch#"+str(idx),"pod_radius" )) .as. real64_vector() 
+   br_pod_length       = f%parse_json(config,to_list("Branch#"+str(idx),"pod_length" )) .as. real64_vector() 
+   br_pod_angle        = f%parse_json(config,to_list("Branch#"+str(idx),"pod_angle"  )) .as. real64_vector() 
+   br_pod_stem_idx     = f%parse_json(config,to_list("Branch#"+str(idx),"pod_stem_idx"  )) .as. int32_vector() 
+
+
+   this%Leaf_From = 0.0d0*br_leaf_length
+   do i=1,size(this%Leaf_From)
+      this%Leaf_From(i) = i
+   enddo
+
+
+!   allocate (this%leaf_curvature(this%num_leaf))
+!   allocate (this%leaf_thickness_ave(this%num_leaf))
+!   allocate (this%leaf_thickness_sig(this%num_leaf))
+!   allocate (this%leaf_angle_ave_x(this%num_leaf))
+!   allocate (this%leaf_angle_sig_x(this%num_leaf))
+!   allocate (this%leaf_angle_ave_z(this%num_leaf))
+!   allocate (this%leaf_angle_sig_z(this%num_leaf))
+!   allocate (this%leaf_length_ave(this%num_leaf))
+!   allocate (this%leaf_length_sig(this%num_leaf))
+!   allocate (this%leaf_width_ave(this%num_leaf))
+!   allocate (this%leaf_width_sig(this%num_leaf))
+
+   allocate(stem(size(br_internode_length)))
+   do i = 1, size(br_internode_length)
+      stem(i)%CROSS_SECTION_SHAPE = PF_STEM_SHAPE_CYLINDER
+      call stem(i)%init( &
+         x_num=this%stem_division(1), &
+         y_num=this%stem_division(2), &
+         z_num=this%stem_division(3)  &
+         )
+      call stem(i)%resize( &
+         x=br_internode_radius(i)*2.0d0, &
+         y=br_internode_radius(i)*2.0d0, &
+         z=br_internode_length(i) &
+         )
+      call stem(i)%rotate( &
+         x=radian(br_internode_angle(i)), &
+         y=0.0d0, &
+         z=radian(random%random()*360.0d0) &
+         )
+   end do
+
+   num_stem = size(this%stem)
+   
+   old_stem = this%stem(:)
+   deallocate(this%stem)
+   allocate(this%stem(size(old_stem)+size(stem)))
+   this%stem(1:size(old_stem))  = old_stem(:)
+   this%stem(size(old_stem)+1:) = stem(:)
+   
+   old_stem2stem = this%stem2stem 
+   this%stem2stem = int(zeros(size(this%stem),size(this%stem)))
+   this%stem2stem(1:size(old_stem2stem,1),1:size(old_stem2stem,2)) = old_stem2stem(:,:)
+   
+   call this%stem(num_stem + 1)%connect("=>", this%stem(from_Idx))
+   this%stem2stem(num_stem + 1, from_Idx) = 1
+
+   do i = num_stem+1, num_stem+size(br_internode_length)-1
+      call this%stem(i + 1)%connect("=>", this%stem(i))
+      this%stem2stem(i + 1, i) = 1
+   end do
+
+
+   !set leaf
+   num_leaf = size(br_leaf_length) 
+   allocate(leaf(size(br_leaf_length)))
+   do leaf_idx = 1, num_leaf
+      call leaf(leaf_idx)%init(species=PF_Arabidopsis, &
+                                    x_num=this%leaf_division(1), &
+                                    y_num=this%leaf_division(2), &
+                                    z_num=this%leaf_division(3) &
+                                    )
+      call leaf(leaf_idx)%femdomain%resize( &
+         y=br_leaf_thickness(num_leaf), &
+         z=br_leaf_length(num_leaf), &
+         x=br_leaf_width(num_leaf) &
+         )
+      !call leaf(leaf_idx)%curve(curvature=this%leaf_curvature(i))
+      call leaf(leaf_idx)%femdomain%rotate( &
+            x=radian(90.0d0), &
+            y=0.0d0, &
+            z=radian(360.0d0*random%random()) &
+         )
+   end do
+
+   
+
+   ! extend leaf object list
+   num_leaf = size(this%leaf)
+   old_leaf = this%leaf(:)
+   deallocate(this%leaf)
+   allocate(this%leaf(size(old_leaf)+size(leaf)))
+   this%leaf(1:size(old_leaf))  = old_leaf(:)
+   this%leaf(size(old_leaf)+1:) = leaf(:)
+   
+   ! connect leaf to stem
+   old_leaf2stem = this%leaf2stem 
+   this%leaf2stem = int(zeros(size(this%leaf),size(this%stem)))
+   this%leaf2stem(1:size(old_leaf2stem,1),1:size(old_leaf2stem,2)) = old_leaf2stem(:,:)
+
+   do leaf_idx=1,size(leaf)!stem_idx=size(old_stem)+1,size(old_stem)+size(leaf)
+      ! leaves are connected to the stem from its bottom
+      call this%leaf(size(old_leaf)+leaf_idx)%connect("=>", this%stem(size(old_stem)+leaf_idx))
+      this%leaf2stem(size(old_leaf)+leaf_idx, size(old_stem)+leaf_idx) = 1
+   enddo
+   call this%update()
+
+
+   !set pod
+   num_pod = size(br_pod_length)
+   allocate(pod(num_pod))
+   do pod_idx = 1, num_pod
+      call pod(pod_idx)%init(species=PF_Arabidopsis, &
+                                    x_num=this%pod_division(1), &
+                                    y_num=this%pod_division(2), &
+                                    z_num=this%pod_division(3) &
+                                 )
+      call pod(pod_idx)%femdomain%resize( &
+         z=br_pod_length(pod_idx), &
+         y=br_pod_radius(pod_idx)*2.0d0, &
+         x=br_pod_radius(pod_idx)*2.0d0 &
+         )
+      !call pod(pod_idx)%curve(curvature=this%pod_curvature(i))
+      call pod(pod_idx)%femdomain%rotate( &
+            x=radian(180.0d0-br_pod_angle(pod_idx)), &
+            y=0.0d0, &
+            z=radian(360.0d0*random%random()) &
+         )
+   end do
+
+
+   ! extend pod object list
+   num_pod = size(this%pod)
+   old_pod = this%pod(:)
+   deallocate(this%pod)
+   allocate(this%pod(size(old_pod)+size(pod)))
+   this%pod(1:size(old_pod))  = old_pod(:)
+   this%pod(size(old_pod)+1:) = pod(:)
+   
+
+   ! connect pod to stem
+   old_pod2stem = this%pod2stem 
+   this%pod2stem = int(zeros(size(this%pod),size(this%stem)))
+   this%pod2stem(1:size(old_pod2stem,1),1:size(old_pod2stem,2)) = old_pod2stem(:,:)
+   
+   do pod_idx=1,size(pod)
+      call this%pod(size(old_pod)+pod_idx)%connect("=>", this%stem(size(old_stem)+br_pod_stem_idx(pod_idx)))
+      this%pod2stem(size(old_pod)+pod_idx, size(old_stem)+br_pod_stem_idx(pod_idx)) = 1
+   enddo
+
+   call this%update()
+
+end subroutine
 
 ! ########################################
    subroutine mshArabidopsis(this, name, num_threads)
@@ -455,6 +707,14 @@ contains
                end do
             end if
 
+            if (allocated(this%pod)) then
+               do i = 1, size(this%pod)
+                  if (.not. this%pod(i)%femdomain%empty()) then
+                     femdomain = femdomain + this%pod(i)%femdomain
+                  end if
+               end do
+            end if
+
             if (allocated(this%root)) then
                do i = 1, size(this%root)
                   if (.not. this%root(i)%femdomain%empty()) then
@@ -513,6 +773,18 @@ contains
          do i = 1, size(this%leaf)
             if (this%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
                call this%leaf(i)%vtk(name=name//"_leaf"//str(i))
+            end if
+         end do
+         !$OMP end do
+         !$OMP end parallel
+      end if
+
+      if (allocated(this%pod)) then
+         !$OMP parallel num_threads(n) private(i)
+         !$OMP do
+         do i = 1, size(this%pod)
+            if (this%pod(i)%femdomain%mesh%empty() .eqv. .false.) then
+               call this%pod(i)%vtk(name=name//"_pod"//str(i))
             end if
          end do
          !$OMP end do
@@ -697,8 +969,8 @@ contains
       integer(int32), optional, intent(in) :: stem_id, root_id, leaf_id
       real(real64), optional, intent(in) :: overset_margin
       integer(int32) :: i, j, this_stem_id, next_stem_id, A_id, B_id, itr_tol, itr, k, kk
-      integer(int32) :: this_leaf_id, next_leaf_id
-      integer(int32) :: this_root_id, next_root_id, InterNodeID, PetioleID, StemID, LeafID
+      integer(int32) :: this_leaf_id, next_leaf_id, this_pod_id, next_pod_id
+      integer(int32) :: this_root_id, next_root_id, InterNodeID, PetioleID, StemID, LeafID, PodID
       real(real64) :: x_A(3), x_B(3), diff(3), error, last_error, mgn, overset_m, error_tol
       logical, optional, intent(in) :: debug
 
@@ -988,6 +1260,46 @@ contains
          last_error = error
       end do
 
+      ! Pod to stem
+      last_error = 1.0d0
+      do
+         itr = itr + 1
+         error = 0.0d0
+         do i = 1, size(this%pod2stem, 1)
+            do j = 1, size(this%pod2stem, 2)
+               this_stem_id = j
+               next_pod_id = i
+               if (this%pod2stem(i, j) == 1) then
+                  ! this_stem_id ===>>> next_pod_id, connected!
+                  !x_B(:) = this%stem(this_stem_id)%getCoordinate("B")
+                  !x_A(:) = this%pod(next_pod_id)%getCoordinate("A")
+
+                  ! Overset分食い込ませる
+                  x_B(:) = (1.0d0 - overset_m)*this%stem(this_stem_id)%getCoordinate("B") &
+                           + overset_m*this%stem(this_stem_id)%getCoordinate("A")
+                  ! Overset分食い込ませる
+                  x_A(:) = this%pod(next_pod_id)%getCoordinate("A")
+
+                  diff(:) = x_B(:) - x_A(:)
+                  error = error + dot_product(diff, diff)
+                  call this%pod(next_pod_id)%move(x=diff(1), y=diff(2), z=diff(3))
+               end if
+            end do
+         end do
+         if (present(debug)) then
+            if (debug) then
+               print *, "Arabidopsis % update p2s >> error :: ", error
+            end if
+         end if
+         if (itr > itr_tol) then
+            print *, "Arabidopsis % update p2s  >> ERROR :: not converged"
+            stop
+         end if
+
+         if (abs(error) + abs(last_error) < error_tol) exit
+         last_error = error
+      end do
+
    end subroutine
 ! ########################################
 
@@ -1248,10 +1560,10 @@ contains
       this%num_stem = 0
       this%num_root = 0
 
-      ! 器官オブジェクト配列
-      if (allocated(this%leaf_list)) deallocate (this%leaf_list)! (:)
-      if (allocated(this%stem_list)) deallocate (this%stem_list)! (:)
-      if (allocated(this%root_list)) deallocate (this%root_list)! (:)
+      !! 器官オブジェクト配列
+      !if (allocated(this%leaf_list)) deallocate (this%leaf_list)! (:)
+      !if (allocated(this%stem_list)) deallocate (this%stem_list)! (:)
+      !if (allocated(this%root_list)) deallocate (this%root_list)! (:)
 
       this%LeafSurfaceData = ""
       if (allocated(this%Leaf)) deallocate (this%Leaf)! (:)
@@ -2818,5 +3130,7 @@ contains
    end subroutine
 
 ! ################################################################
+
+
 
 end module ArabidopsisClass

@@ -6165,54 +6165,57 @@ contains
 
                ! TOMOBE model (Tomobe 2021, in prep.)
                ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+            elseif (species == PF_Arabidopsis) then
+               ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+               ! TOMOBE model (Tomobe 2021, in prep.)
+               zm = minval(obj%NodCoord(:, 3))
+               length = maxval(obj%NodCoord(:, 3)) - minval(obj%NodCoord(:, 3))
+               width = maxval(obj%NodCoord(:, 1)) - minval(obj%NodCoord(:, 1))
+               zl = maxval(obj%NodCoord(:, 3)) - minval(obj%NodCoord(:, 3))
+               swratio = input(default=0.50d0, option=SoyWidthRatio)
+               if (swratio >= 1.0d0 .or. swratio <= 0.0d0) then
+                  print *, "ERROR  >> mesh%create(leaf3d, PF_SOYBEAN) >> invalid SoyWidthRatio ", SoyWidthRatio
+                  stop
+               end if
+               thickness_ = maxval(obj%NodCoord(:, 2)) - minval(obj%NodCoord(:, 2))
+               width = maxval(obj%NodCoord(:, 1)) - minval(obj%NodCoord(:, 1))
+               thickness_ratio = 5.0d0!(width/10.0d0)/thickness_
+               do i = 1, size(obj%nodcoord, 1)
+                  xx = obj%nodcoord(i, 3)
+                  if (obj%NodCoord(i, 1) <= (maxval(obj%NodCoord(:, 1)) + minval(obj%NodCoord(:, 1)))*0.50d0) then
+                     alpha = swratio*width
+                  else
+                     alpha = (1.0d0 - swratio)*width
+                  end if
+                  r = (alpha**2 + (length - alpha)**2)/(2*alpha)*1.20d0
+                  if (xx <= 1.0d0/25.0d0*length) then
+                     ! base of the leaf
+                     obj%NodCoord(i, 1) = obj%NodCoord(i, 1)*1.0d0/10.0d0
+                     ! fat base of the leaf
+                     obj%NodCoord(i, 2) = obj%NodCoord(i, 2)*thickness_ratio
+                     cycle
+                  elseif (xx < alpha) then
+                     yy = sqrt(alpha**2 - (xx - alpha)**2)
+                     yy_ = xx
+                     yy = lin_curve_ratio*yy + (1.0d0 - lin_curve_ratio)*yy_
+                  else
+                     yy_ = alpha + (-alpha)/(length - alpha)*(xx - alpha)
+                     yy = alpha - r + sqrt(r**2 - (xx - alpha)**2)
+                     yy = lin_curve_ratio*yy + (1.0d0 - lin_curve_ratio)*yy_
+                  end if
+                  yy = abs(yy)
+                  obj%nodcoord(i, 1) = obj%nodcoord(i, 1)*(yy/alpha)
+               end do
+               ! TOMOBE model (Tomobe 2021, in prep.)
+               ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+               ! Curl
+               !  
 
             else
                print *, "[ERROR] Mesh%create =>  No such species as ", species
                stop
             end if
-         elseif (species == PF_Arabidopsis) then
-            ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-            ! TOMOBE model (Tomobe 2021, in prep.)
-            zm = minval(obj%NodCoord(:, 3))
-            length = maxval(obj%NodCoord(:, 3)) - minval(obj%NodCoord(:, 3))
-            width = maxval(obj%NodCoord(:, 1)) - minval(obj%NodCoord(:, 1))
-            zl = maxval(obj%NodCoord(:, 3)) - minval(obj%NodCoord(:, 3))
-            swratio = input(default=0.50d0, option=SoyWidthRatio)
-            if (swratio >= 1.0d0 .or. swratio <= 0.0d0) then
-               print *, "ERROR  >> mesh%create(leaf3d, PF_SOYBEAN) >> invalid SoyWidthRatio ", SoyWidthRatio
-               stop
-            end if
-            thickness_ = maxval(obj%NodCoord(:, 2)) - minval(obj%NodCoord(:, 2))
-            width = maxval(obj%NodCoord(:, 1)) - minval(obj%NodCoord(:, 1))
-            thickness_ratio = 5.0d0!(width/10.0d0)/thickness_
-            do i = 1, size(obj%nodcoord, 1)
-               xx = obj%nodcoord(i, 3)
-               if (obj%NodCoord(i, 1) <= (maxval(obj%NodCoord(:, 1)) + minval(obj%NodCoord(:, 1)))*0.50d0) then
-                  alpha = swratio*width
-               else
-                  alpha = (1.0d0 - swratio)*width
-               end if
-               r = (alpha**2 + (length - alpha)**2)/(2*alpha)*1.20d0
-               if (xx <= 1.0d0/25.0d0*length) then
-                  ! base of the leaf
-                  obj%NodCoord(i, 1) = obj%NodCoord(i, 1)*1.0d0/10.0d0
-                  ! fat base of the leaf
-                  obj%NodCoord(i, 2) = obj%NodCoord(i, 2)*thickness_ratio
-                  cycle
-               elseif (xx < alpha) then
-                  yy = sqrt(alpha**2 - (xx - alpha)**2)
-                  yy_ = xx
-                  yy = lin_curve_ratio*yy + (1.0d0 - lin_curve_ratio)*yy_
-               else
-                  yy_ = alpha + (-alpha)/(length - alpha)*(xx - alpha)
-                  yy = alpha - r + sqrt(r**2 - (xx - alpha)**2)
-                  yy = lin_curve_ratio*yy + (1.0d0 - lin_curve_ratio)*yy_
-               end if
-               yy = abs(yy)
-               obj%nodcoord(i, 1) = obj%nodcoord(i, 1)*(yy/alpha)
-            end do
-            ! TOMOBE model (Tomobe 2021, in prep.)
-            ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+         
          else
             ! other shape
             thickness_ = maxval(obj%NodCoord(:, 2)) - minval(obj%NodCoord(:, 2))

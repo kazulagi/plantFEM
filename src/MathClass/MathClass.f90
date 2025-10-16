@@ -2006,11 +2006,17 @@ pure   subroutine heapsortInt32(n, array, val)
 !==================================================================================
 
 !==================================================================================
-   function fint(ch) result(a)
+   recursive function fint(ch) result(a)
       character(*), intent(in)                        :: ch
       integer(int32)                                :: a
 
+      if(ch(1:1)=="0" .or. ch(1:1)==" " )then
+         a = fint(ch(2:len(ch)))
+         return
+      endif
+
       read (ch, *, err=1000) a
+      
       return
 1000  a = 0
 
