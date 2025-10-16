@@ -220,7 +220,7 @@ module SoybeanClass
       procedure, public :: checkProperties => checkPropertiesSoybean
       procedure, public :: setPoints => setPointsSoybean
       procedure, public :: setProperties => setPropertiesSoybean
-      !procedure, public :: easy_grow => easy_grow_SoybeanClass
+      procedure, public :: easy_grow => easy_grow_SoybeanClass
 
       ! editor
       procedure, public :: set_stem_length_by_list => set_stem_length_by_list_Soybean
@@ -11676,28 +11676,45 @@ subroutine init_as_seed_soybean(this,radius,division)
 end subroutine
 ! #####################################################################
 
-!subroutine easy_grow_SoybeanClass(this,dt)
-!   class(Soybean_),intent(inout) :: this
-!   real(real64),intent(in) :: dt
-!
-!   real(real64) :: stem_enlong_time
-!   ! 理想的な成長をシミュレートする．
-!   
-!   ! (1) まずは節間伸長
-!   ! 節間伸長期間(stem_enlong_time (s))
-!   stem_enlong_time = 1.0d0*60.0d0*60.0d0 ! 3日程度
-!   do stem_idx = 1, size(this%stem)
-!      if(this%stem(stem_idx)%empty() ) cycle
-!      if(this%stem(stem_idx)%already_grown) cycle
-!      if(this%stem(stem_idx)%FullyExpanded())cycle
-!
-!      ! 未成長
-!      l_max = 
-!
-!   enddo
-!
-!
-!end subroutine
+subroutine easy_grow_SoybeanClass(this,dt,&
+      stem_grow_speed_coeff,l_max)
+   class(Soybean_),intent(inout) :: this
+   real(real64),intent(in) :: dt
+
+   real(real64) :: stem_enlong_time
+   real(real64),intent(in) :: l_max != 0.10d0 ! matured internode length
+   real(real64),intent(in) :: stem_grow_speed_coeff != 0.10d0 ! 1/m/s
+
+
+   real(real64) :: l_current,dldt
+
+   integer(int32) :: stem_idx
+
+   ! 理想的な成長をシミュレートする．
+   
+   ! (1) まずは節間伸長
+   ! 節間伸長期間(stem_enlong_time (s))
+   stem_enlong_time = 1.0d0*60.0d0*60.0d0 ! 3日程度
+   do stem_idx = 1, size(this%stem)
+      if(this%stem(stem_idx)%empty() ) cycle
+      !if(this%stem(stem_idx)%already_grown) cycle
+
+      ! if this stem internode is not grown, grow by logistic equation
+      l_current = this%stem(stem_idx)%getLength()
+      !print *, l_current
+      if(l_current >= l_max)then
+         dldt=0.0d0
+      else
+         dldt = stem_grow_speed_coeff*l_current*(1.0d0-l_current/l_max)
+      endif
+      print *, l_current, dldt*dt
+      call this%stem(stem_idx)%change_length_or_width(length=l_current + dldt*dt)
+
+   enddo
+
+   call this%update()
+
+end subroutine
 
 
 end module

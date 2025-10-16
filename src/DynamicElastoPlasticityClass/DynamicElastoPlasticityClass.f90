@@ -162,7 +162,7 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     integer(int32),allocatable :: fix_idx(:)
 
     integer(int32) :: itr_Newton
-    real(real64) :: theta
+    real(real64) :: theta,epsilon_0
     
 
     
@@ -297,14 +297,42 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
         ![ok] call print(fix_idx)
         ![ok] stop
         
-        if(this%cutoff_frequency==0.0d0)then
-            ! disable cutoff frequency
+        !!! FOR_DEBUG !!!
+        !epsilon_0 = 1.0d0/1000.0d0/1000.0d0/100.0d0
+
+        !do i_i=1,10
+        !
+        !    this%Psi = this%Upsilon%exp(this%Psi_n,dt=epsilon_0,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
+        !        max_itr=i_i)    
+        !    this%Psi = this%Psi*exp(dt/epsilon_0)
+        !    print *, "(itr, |Psi|) = ",i_i, sum(this%Psi*this%Psi)
+        !enddo
+        !stop
+
+    if(this%cutoff_frequency==0.0d0)then
+            !20250925-test-debug
+            
+            ![ORIGINAL]disable cutoff frequency
             this%Psi = this%Upsilon%exp(dt*this%Psi_n,fix_idx=fix_idx,&
                 max_itr=this%max_itr)
+            
+            ! [EXPERIMENTAL]disable cutoff frequency
+            !this%Psi = this%Upsilon%exp(epsilon_0*this%Psi_n,fix_idx=fix_idx,&
+            !    max_itr=this%max_itr)
+            !this%Psi = this%Psi*exp(dt/epsilon_0)
+
         else
+            ! [ORIGINAL]
             this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
                 max_itr=this%max_itr)
+            ! [EXPERIMENTAL]
+            !this%Psi = this%Upsilon%exp(this%Psi_n,dt=epsilon_0,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
+            !    max_itr=this%max_itr)
+            !this%Psi = this%Psi*exp(dt/epsilon_0)
+            
         endif
+        print *, "|Psi|=",sum(this%Psi*this%Psi)
+        
     elseif(this%TimeIntegrationScheme==TI_FORWARDEULER)then
         !! Forward Euler method
 
@@ -411,6 +439,7 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
 
     call print("debug >> 5")
     call time%show()
+    print *, "|v|=",sum(this%v*this%v)
     call time%start()
     ! 速度場を更新
     this%v = transpose( &
@@ -422,6 +451,7 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
 
     call print("debug >> 6")
     call time%show()
+    print *, "|v|=",sum(this%v*this%v)
     call time%start()
 ! !    ! ここまでで，trialのu, vを計算した．
 ! !    ! 得られたu, v, σが正しいとして，係数行列Upsilonを計算し，前ステップのUpsilonとの平均を取る．
@@ -513,13 +543,26 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
         !this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
         !    max_itr=this%max_itr)
         
+        
         if(this%cutoff_frequency==0.0d0)then
-            ! disable cutoff frequency
+            ! [ORIGINAL] disable cutoff frequency
             this%Psi = this%Upsilon%exp(dt*this%Psi_n,fix_idx=fix_idx,&
                 max_itr=this%max_itr)
+            ! [EXPERIMENTAL]
+            !%Psi = this%Upsilon%exp(epsilon_0*this%Psi_n,fix_idx=fix_idx,&
+            !max_itr=this%max_itr)
+            !%Psi = this%Psi*exp(dt/epsilon_0)
         else
+            ! [ORIGINAL]
             this%Psi = this%Upsilon%exp(this%Psi_n,dt=dt,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
                 max_itr=this%max_itr)
+            ! [EXPERIMENTAL]
+            !this%Psi = this%Upsilon%exp(this%Psi_n,dt=epsilon_0,cutoff_frequency=this%cutoff_frequency,fix_idx=fix_idx,&
+            !    max_itr=this%max_itr)
+            !this%Psi = this%Psi*exp(dt/epsilon_0)
+
+
+
         endif
     elseif(this%TimeIntegrationScheme==TI_FORWARDEULER)then
         !! Forward Euler method
@@ -612,6 +655,7 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
 !    endif
     call print("debug >> 9")
     call time%show()
+    print *, "|v|=",sum(this%v*this%v)
     call time%start()
     this%v = transpose(&
         reshape(this%Psi(1:this%femdomain%nd()*this%femdomain%nn()),&
@@ -619,6 +663,8 @@ subroutine update_DynamicEP(this,dt,fixNodeList_x,fixNodeList_y,fixNodeList_z,&
     
     ! Crank-Nicolson
     this%u = this%u_n + dt/2.0d0 * (this%v + this%v_n)
+
+    print *, "|v|=",sum(this%v*this%v)
 
 ! !    ! 最後に，x を X に戻しておく
 ! !    this%femdomain%mesh%nodcoord(:,:) = X(:,:)

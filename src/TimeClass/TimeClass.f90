@@ -18,6 +18,10 @@ module TimeClass
       module procedure :: add_two_datetime
    end interface
 
+   interface operator(-)
+      module procedure :: subtract_two_datetime
+   end interface
+
    interface to_datetime
       module procedure :: to_datetime_timeclass
    end interface
@@ -110,17 +114,35 @@ contains
 
       if (ret%seconds >= 60.0d0) then
          ret%minutes = ret%minutes + floor(ret%seconds/60.d0)
-         ret%seconds = ret%seconds - floor(ret%seconds/60.d0)
+         ret%seconds = ret%seconds - floor(ret%seconds/60.d0)*60
       end if
+
+      if (ret%seconds <= 0.0d0) then
+         ret%minutes = ret%minutes - int(abs(ret%seconds)/60.d0) -1
+         ret%seconds = 60.0d0  -  ( abs(ret%seconds) - dble(int(abs(ret%seconds)/60.d0) )*60.0d0)
+      end if
+
 
       if (ret%minutes >= 60) then
          ret%hour = ret%hour + (ret%minutes - mod(ret%minutes, 60))/60
          ret%minutes = mod(ret%minutes, 60)
       end if
 
+      if (ret%minutes < 0) then
+         ret%hour = ret%hour - (abs(ret%minutes) - mod(abs(ret%minutes), 60))/60-1
+         ret%minutes = 60 - mod(abs(ret%minutes), 60)
+      end if
+      
+
       if (ret%hour >= 24) then
-         ret%date = ret%date + (ret%minutes - mod(ret%minutes, 24))/24
+         ret%date = ret%date + (ret%minutes - mod(ret%minutes, 24))/24 + 1
          ret%hour = mod(ret%hour, 24)
+      end if
+
+
+      if (ret%hour < 0) then
+         ret%date = ret%date - (abs(ret%hour) - mod(abs(ret%hour), 24))/24 - 1
+         ret%hour = 24- mod(abs(ret%hour), 24)
       end if
 
       do
@@ -135,6 +157,79 @@ contains
             exit
          end if
       end do
+
+   end function
+! ########################################
+
+! ########################################
+   function subtract_two_datetime(dt1, dt2) result(ret)
+      type(datetime_), intent(in) :: dt1, dt2
+      type(datetime_) :: ret
+
+      ret = dt1
+      ret%year = ret%year - dt2%year
+      ret%month = ret%month - dt2%month
+      ret%date = ret%date - dt2%date
+
+      ret%hour = ret%hour - dt2%hour
+      ret%minutes = ret%minutes - dt2%minutes
+      ret%seconds = ret%seconds - dt2%seconds
+      
+      if (ret%seconds <= 0.0d0) then
+         ret%minutes = ret%minutes - int(abs(ret%seconds)/60.d0) -1
+         ret%seconds = 60.0d0  -  ( abs(ret%seconds) - dble(int(abs(ret%seconds)/60.d0) )*60.0d0)
+      end if
+
+      if (ret%seconds >= 60.0d0) then
+         ret%minutes = ret%minutes + floor(ret%seconds/60.d0)
+         ret%seconds = ret%seconds - floor(ret%seconds/60.d0)*60
+      end if
+
+
+
+      if (ret%minutes < 0) then
+         ret%hour = ret%hour - (abs(ret%minutes) - mod(abs(ret%minutes), 60))/60-1
+         ret%minutes = 60 - mod(abs(ret%minutes), 60)
+      end if
+
+
+      if (ret%minutes >= 60) then
+         ret%hour = ret%hour + (ret%minutes - mod(ret%minutes, 60))/60
+         ret%minutes = mod(ret%minutes, 60)
+      end if
+
+      if (ret%hour < 0) then
+         ret%date = ret%date - (abs(ret%hour) - mod(abs(ret%hour), 24))/24 - 1
+         ret%hour = 24- mod(abs(ret%hour), 24)
+      end if
+
+
+
+      if (ret%hour >= 24) then
+         ret%date = ret%date + (ret%minutes - mod(ret%minutes, 24))/24 + 1
+         ret%hour = mod(ret%hour, 24)
+      end if
+
+
+
+      do
+         if (ret%month < 0) then
+            ret%year = ret%year - 1
+            ret%month = 12 + ret%month
+         end if
+         if (ret%date < 0) then
+            if(ret%month==1)then
+               ret%date = ret%date + number_of_date_for_month(year=ret%year-1, month=12)
+               ret%month = 12
+            else
+               ret%date = ret%date + number_of_date_for_month(year=ret%year, month=ret%month-1)
+               ret%month = ret%month - 1
+            endif
+         else
+            exit
+         end if
+      end do
+
    end function
 ! ########################################
 

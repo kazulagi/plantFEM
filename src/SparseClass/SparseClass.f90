@@ -5277,7 +5277,7 @@ function expBCRS(this,vec,max_itr,fix_idx,cutoff_frequency,dt) result(b)
    real(real64)   :: tol, lpf_coeff,ddt
    real(real64),allocatable :: a(:),b(:)
    type(Math_) :: math
-
+   lpf_coeff = 1.0d0
 
    itr_max = input(default=20,option=max_itr)
 
@@ -5319,7 +5319,7 @@ function expBCRS(this,vec,max_itr,fix_idx,cutoff_frequency,dt) result(b)
          ddt = 1.0d0/cutoff_frequency/2.0d0/math%pi*acos(sqrt(2.0d0) - 1.0d0)
          lpf_coeff = 0.250d0*((dt - ddt)**(k)) + 0.50d0*((dt)**(k)) + 0.250d0*((dt + ddt)**(k))
 
-         a = 1.0d0/dble(k)*this%matmul(a)
+         a = this%matmul(a/dble(k))
 
 
          if(present(fix_idx))then
@@ -5327,6 +5327,7 @@ function expBCRS(this,vec,max_itr,fix_idx,cutoff_frequency,dt) result(b)
          endif
 
          b = b + lpf_coeff*a
+         
       enddo
    else
       
@@ -5334,13 +5335,15 @@ function expBCRS(this,vec,max_itr,fix_idx,cutoff_frequency,dt) result(b)
       b = vec(:)
       do k=1,itr_max
 
-         a = lpf_coeff*1.0d0/dble(k)*this%matmul(a)
+         !a = 1.0d0/dble(k)*this%matmul(a)
+         a = this%matmul(a/dble(k))
 
          if(present(fix_idx))then
             a(fix_idx(:)) = 0.0d0      
          endif
 
          b = b + a
+
       enddo
    endif
 
