@@ -8,7 +8,6 @@ module LeafClass
    use AirClass
    implicit none
 
-   integer(int32) :: PF_SOYBEAN_CV = 100
    type :: Leaf_
       type(FEMDomain_)    ::  FEMDomain
       real(real64), allocatable ::  LeafSurfaceNode2D(:, :)

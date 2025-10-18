@@ -584,7 +584,7 @@ contains
 
       do i = 1, 2
          this%num_leaf = this%num_leaf + 1
-         call this%leaf(i)%init(species=PF_SOYBEAN_CV)
+         call this%leaf(i)%init(species=PF_SOYBEAN_CV) ! soybean
 
          y_val = random%gauss(mu=this%CV_leaf_thickness_ave, sigma=this%CV_leaf_thickness_sig)
          z_val = random%gauss(mu=this%CV_leaf_length_ave, sigma=this%CV_leaf_length_sig)
