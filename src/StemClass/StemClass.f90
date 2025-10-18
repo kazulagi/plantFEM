@@ -9,6 +9,8 @@ module StemClass
    integer(int32),public :: PF_STEM_SHAPE_CYLINDER     = 2
    integer(int32),public :: PF_STEM_SHAPE_HYPERBOLOID  = 3
 
+   integer(int32) :: PF_SOYBEAN_CV = 100
+   
    type :: Stem_
       type(FEMDomain_)    ::  FEMDomain
       integer(int32)      :: cross_section_shape = 1 ! PF_STEM_SHAPE_RECTANGULAR
