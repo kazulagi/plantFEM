@@ -47,6 +47,9 @@ module ListClass
       
       procedure, public :: split => split_char_into_list
       !! It sets entities by splitting a string by a delimiter.
+
+      procedure,public :: get_idx => get_idx_listclass
+      procedure,public :: getIdx => get_idx_listclass
    end type
 
    
@@ -54,7 +57,7 @@ module ListClass
       !! It converts various lists or data structures into a list.
       module procedure to_list_repeat_listclass, to_list_0_listclass, to_list_1_listclass, &
          to_list_2_listclass, to_list_3_listclass, to_list_4_listclass, &
-         to_list_5_listclass, to_list_6_listclass, to_list_7_listclass, &
+         to_list_5_listclass, to_list_6_listclass, to_list_7_listclass, to_list_8_listclass,&
          to_list_int32vec_listclass, &
          to_list_real32vec_listclass, &
          to_list_real64vec_listclass
@@ -78,6 +81,11 @@ module ListClass
       module procedure get_element_of_listclass
    end interface
    
+
+   interface operator(.in.)
+      !! This is a GET operator for a list.
+      module procedure in_element_of_listclass
+   end interface
 
    interface argv
       !! This returns a list of the command line arguments.
@@ -168,6 +176,13 @@ contains
       type(List_) :: buf
       integer(int32) :: i, n
 
+      if(.not.allocated(this%fcontent))then
+         call this%new(length=1)
+         this%fcontent%char = char
+         this%fcontent%char_len = len(char)
+         return
+
+      endif
       buf = this
       n = size(buf%fcontent)
       call this%new(length=size(buf%fcontent) + 1)
@@ -464,6 +479,35 @@ contains
 
 ! #####################################################
 
+
+! #####################################################
+
+   function to_list_8_listclass(char1, char2, char3, char4, char5, char6, char7, char8) result(this)
+      character(*), intent(in) :: char1, char2, char3, char4, char5, char6, char7, char8
+      type(List_) :: this
+
+      allocate (this%fcontent(7))
+      this%fcontent(1)%char = char1
+      this%fcontent(2)%char = char2
+      this%fcontent(3)%char = char3
+      this%fcontent(4)%char = char4
+      this%fcontent(5)%char = char5
+      this%fcontent(6)%char = char6
+      this%fcontent(7)%char = char7
+      this%fcontent(8)%char = char8
+      
+      this%fcontent(1)%char_len = len(char1)
+      this%fcontent(2)%char_len = len(char2)
+      this%fcontent(3)%char_len = len(char3)
+      this%fcontent(4)%char_len = len(char4)
+      this%fcontent(5)%char_len = len(char5)
+      this%fcontent(6)%char_len = len(char6)
+      this%fcontent(7)%char_len = len(char7)
+      this%fcontent(8)%char_len = len(char8)
+   end function
+
+! #####################################################
+
 ! #####################################################
    function to_list_int32vec_listclass(int32vec) result(this)
       integer(int32), intent(in) :: int32vec(:)
@@ -579,5 +623,38 @@ function get_element_of_listclass(this_list,idx) result(ret)
    endif
 
 end function
+
+! #####################################################
+function get_idx_listclass(this,char) result(ret)
+   class(List_),intent(in) :: this
+   character(*),intent(in) :: char
+   integer(int32) :: ret,i
+
+   ret = -1
+   if(.not.allocated(this%fcontent)) return
+   do i=1,this%size()
+      if(this%fcontent(i)%char == char)then
+         ret = i
+         return
+      endif
+   enddo
+   
+end function
+! #####################################################
+
+
+function in_element_of_listclass(char,this) result(ret)
+   class(List_),intent(in) :: this
+   character(*),intent(in) :: char
+   logical :: ret
+
+   if(this%get_idx(char=char)==-1)then
+      ret = .false.
+   else
+      ret = .true.
+   endif
+
+end function
+
 
 end module ListClass

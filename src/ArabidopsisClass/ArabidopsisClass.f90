@@ -120,9 +120,9 @@ module ArabidopsisClass
       logical :: GaussPointProjection = .false.
 
       ! setting
-      integer(int32) :: stem_division(1:3) = [5, 5, 20]
-      integer(int32) :: leaf_division(1:3) = [4, 2, 10] ! [width, thickness, length]
-      integer(int32) :: pod_division(1:3) = [4, 4, 10] ! [radius1, radius2, length]
+      integer(int32) :: stem_division(1:3) = [6, 6, 20]
+      integer(int32) :: leaf_division(1:3) = [6, 2, 10] ! [width, thickness, length]
+      integer(int32) :: pod_division(1:3) = [5, 5, 10] ! [radius1, radius2, length]
 
       ! only for arabi @ 2025.10.14
 
@@ -623,7 +623,7 @@ subroutine AddBranchArabidopsis(this,idx,config)
    old_pod2stem = this%pod2stem 
    this%pod2stem = int(zeros(size(this%pod),size(this%stem)))
    this%pod2stem(1:size(old_pod2stem,1),1:size(old_pod2stem,2)) = old_pod2stem(:,:)
-   
+
    do pod_idx=1,size(pod)
       call this%pod(size(old_pod)+pod_idx)%connect("=>", this%stem(size(old_stem)+br_pod_stem_idx(pod_idx)))
       this%pod2stem(size(old_pod)+pod_idx, size(old_stem)+br_pod_stem_idx(pod_idx)) = 1

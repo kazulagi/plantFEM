@@ -105,6 +105,12 @@ echo " >> LeafClass.o "
 echo " | =======================>    | (92%)\r\c"
 mpif90 -fopenmp -Ofast  -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LeafClass/LeafClass.f90 -o  ./inc/LeafClass.o
 
+echo "Compiling ./src/MeristemClass/MeristemClass.f90" 
+echo " >> MeristemClass.o "
+echo " | =======================>    | (92%)\r\c"
+mpif90 -fopenmp -Ofast  -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MeristemClass/MeristemClass.f90 -o  ./inc/MeristemClass.o
+
+
 echo "Compiling ./src/PlantNodeClass/PlantNodeClass.f90" 
 echo " >> PlantNodeClass.o "
 echo " | =======================>    | (92%)\r\c"

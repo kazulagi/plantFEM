@@ -95,6 +95,12 @@ echo " >> ArrayClass.o "
 echo " | =>                          | (4%)\r\c"
 mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ArrayClass/ArrayClass.f90 -o  ./inc/ArrayClass.o -llapack -lblas
 
+echo "Compiling ./src/ODEClass/ODEClass.f90 " 
+echo " >> ODEClass.o "
+echo " | =>                          | (4%)\r\c"
+mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ODEClass/ODEClass.f90 -o  ./inc/ODEClass.o -llapack -lblas
+
+
 echo "Compiling ./src/PhysicsClass/PhysicsClass.f90   "
 echo " >> PhysicsClass.o"
 echo " | =>                          | (2%)\r\c "
@@ -238,6 +244,12 @@ echo " >> SPACClass.o "
 echo " | ======>                     | (30%)\r\c"
 echo "Standard library (SPACClass) is compiled."
 mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SPACClass/SPACClass.f90 -o  ./inc/SPACClass.o -llapack -lblas
+
+echo "Compiling ./src/GeneticControlClass/GeneticControlClass.f90 " 
+echo " >> GeneticControlClass.o "
+echo " | ======>                     | (30%)\r\c"
+echo "Standard library (GeneticControlClass) is compiled."
+mpif90 -Ofast -march=native -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/GeneticControlClass/GeneticControlClass.f90 -o  ./inc/GeneticControlClass.o -llapack -lblas
 
 
 echo "Compiling ./src/std/std.f90 " 
@@ -533,6 +545,10 @@ echo "Compiling ./src/LeafClass/LeafClass.f90"
 echo " >> LeafClass.o "
 echo " | =======================>    | (92%)\r\c"
 mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LeafClass/LeafClass.f90 -o  ./inc/LeafClass.o
+echo "Compiling ./src/MeristemClass/MeristemClass.f90" 
+echo " >> MeristemClass.o "
+echo " | =======================>    | (92%)\r\c"
+mpif90 -fopenmp -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MeristemClass/MeristemClass.f90 -o  ./inc/MeristemClass.o
 
 echo "Compiling ./src/PlantNodeClass/PlantNodeClass.f90" 
 echo " >> PlantNodeClass.o "

@@ -299,11 +299,13 @@ contains
       if (obj%CROSS_SECTION_SHAPE == PF_STEM_SHAPE_CYLINDER)then
          ! 円柱
          call obj%FEMdomain%create(meshtype="Cylinder", x_num=obj%xnum, y_num=obj%ynum, z_num=obj%znum, &
-         x_len=obj%mindiameter/2.0d0, y_len=obj%mindiameter/2.0d0, z_len=obj%minlength)
+         x_len=obj%mindiameter, y_len=obj%mindiameter, z_len=obj%minlength)
       else
          call obj%FEMdomain%create(meshtype="Cube", x_num=obj%xnum, y_num=obj%ynum, z_num=obj%znum, &
-               x_len=obj%mindiameter/2.0d0, y_len=obj%mindiameter/2.0d0, z_len=obj%minlength)
+               x_len=obj%mindiameter, y_len=obj%mindiameter, z_len=obj%minlength)
       endif
+      obj%mindiameter = 0.50d0*(obj%FEMdomain%xmax()-obj%FEMdomain%xmin())
+      
       
 
       ! initialize physical parameters
@@ -434,6 +436,7 @@ contains
             ymin=obj%mindiameter/2.0d0 - obj%mindiameter/dble(obj%ynum)/2.0d0, &
             ymax=obj%mindiameter/2.0d0 + obj%mindiameter/dble(obj%ynum)/2.0d0, &
             zmax=0.0d0)
+            
       !obj%A_PointElementID = buf(1)
       obj%A_PointElementID = median(buf)
 

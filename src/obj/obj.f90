@@ -21,6 +21,7 @@ module obj
    use FlowerClass
    use PanicleClass
    use LeafClass
+   use MeristemClass
    use PlantNodeClass
    use InsectClass
    use LsystemClass
