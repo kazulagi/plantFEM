@@ -17,6 +17,7 @@ module std
    use KinematicClass
    use RandomClass
    use ArrayClass
+   use ODEClass
    use AnalystClass
    use ElasticityClass
    use SpectreAnalysisClass
@@ -43,6 +44,7 @@ module std
    use WebserverClass
    use PhysicalFieldClass
    use SPACClass
+   use GeneticControlClass
    implicit none
 
 end module std

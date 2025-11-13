@@ -6037,7 +6037,8 @@ contains
          call obj%clean()
 
          if (present(species)) then
-            if (species == PF_GLYCINE_MAX) then
+            if (species == PF_GLYCINE_MAX .or. &
+               species == PF_GLYCINE_SOJA) then
                ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
                ! TOMOBE model (Tomobe 2021, in prep.)
                zm = minval(obj%NodCoord(:, 3))
@@ -6081,6 +6082,21 @@ contains
                   yy = abs(yy)
                   obj%nodcoord(i, 1) = obj%nodcoord(i, 1)*(yy/alpha)
                end do
+
+               
+               ! curl
+               do i = 1, size(obj%nodcoord, 1)
+                  xx = obj%NodCoord(i, 1)
+                  
+                  ! curl function
+                  theta = abs(xx/(width/2.0d0))
+                  yy = obj%NodCoord(i, 2)
+
+                  yy = yy - 0.10d0*theta*(theta-1.0d0)
+                  
+                  obj%NodCoord(i, 2) = yy
+               enddo
+               
 
                ! TOMOBE model (Tomobe 2021, in prep.)
                ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -6209,7 +6225,19 @@ contains
                ! TOMOBE model (Tomobe 2021, in prep.)
                ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                ! Curl
-               !  
+               ! z-axis => center line of a leaf
+               ! y-axis => width-direction
+               do i = 1, size(obj%nodcoord, 1)
+                  xx = obj%NodCoord(i, 1)
+                  
+                  ! curl function
+                  theta = abs(xx/(width/2.0d0))
+                  yy = obj%NodCoord(i, 2)
+
+                  yy = yy - 0.10d0*theta*(theta-1.0d0)
+                  
+                  obj%NodCoord(i, 2) = yy
+               enddo
 
             else
                print *, "[ERROR] Mesh%create =>  No such species as ", species
@@ -6245,6 +6273,20 @@ contains
                ! fat the base of the leaf
 
             end do
+
+            ! curl
+            do i = 1, size(obj%nodcoord, 1)
+               xx = obj%NodCoord(i, 1)
+               
+               ! curl function
+               width = maxval(obj%NodCoord(:, 1)) - minval(obj%NodCoord(:, 1))
+               theta = abs(xx/(width/2.0d0))
+               yy = obj%NodCoord(i, 2)
+               yy = yy - 0.10d0*theta*(theta-1.0d0)
+               
+               obj%NodCoord(i, 2) = yy
+            enddo
+
          end if
       end if
 
@@ -6476,8 +6518,8 @@ contains
          end if
          !call obj%adjustCylinder(debug=.true.)
          ! move unconnected nodes
-         call obj%resize(x_rate=x_len, &
-                         y_rate=y_len)
+         call obj%resize(x_len=x_len, &
+                         y_len=y_len)
          obj%elementType = [3, 8, 8] ! 3-dimensional, 8-noded, 8 Gauss points
          return
       end if
@@ -6687,6 +6729,16 @@ contains
          obj%elemmat = mesh2%elemmat
 
          obj%elementType = [2, 4, 4] ! 2-dimensional, 4-noded, 4 Gauss points
+
+
+         ! resize
+         if(present(x_len))then
+            call obj%resize(x_rate=x_len/(maxval(obj%nodcoord(:,1))-minval(obj%nodcoord(:,1))))
+         endif
+         if(present(y_len))then
+            call obj%resize(y_rate=y_len/(maxval(obj%nodcoord(:,2))-minval(obj%nodcoord(:,2))))
+         endif
+
          return
       end if
 

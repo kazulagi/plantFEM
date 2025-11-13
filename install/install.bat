@@ -76,6 +76,12 @@ echo "Compiling ./src/ArrayClass/ArrayClass.f90 "
 echo " >> ArrayClass.o "
 echo " | =>                          | (4%)\r\c"
 gfortran -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ArrayClass/ArrayClass.f90 -o  ./inc/ArrayClass.o
+echo "Compiling ./src/ODEClass/ODEClass.f90 " 
+echo " >> ODEClass.o "
+echo " | =>                          | (4%)\r\c"
+gfortran -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/ODEClass/ODEClass.f90 -o  ./inc/ODEClass.o
+
+
 echo "Compiling ./src/VertexClass/VertexClass.f90 " 
 echo " >> VertexClass.o "
 echo " | =>                          | (4%)\r\c"
@@ -143,6 +149,19 @@ echo " >> PhysicalFieldClass.o "
 echo " | ======>                     | (30%)\r\c"
 echo "Standard library (PhysicalFieldClass) is compiled."
 gfortran -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/PhysicalFieldClass/PhysicalFieldClass.f90 -o  ./inc/PhysicalFieldClass.o
+
+echo "Compiling ./src/SPACClass/SPACClass.f90 " 
+echo " >> SPACClass.o "
+echo " | ======>                     | (30%)\r\c"
+echo "Standard library (SPACClass) is compiled."
+gfortran -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/SPACClass/SPACClass.f90 -o  ./inc/SPACClass.o
+
+echo "Compiling ./src/GeneticControlClass/GeneticControlClass.f90 " 
+echo " >> GeneticControlClass.o "
+echo " | ======>                     | (30%)\r\c"
+echo "Standard library (GeneticControlClass) is compiled."
+gfortran -Ofast -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/GeneticControlClass/GeneticControlClass.f90 -o  ./inc/GeneticControlClass.o
+
 echo "Compiling ./src/std/std.f90 " 
 echo " >> std.o "
 echo " | ======>                     | (30%)\r\c"
@@ -340,6 +359,10 @@ echo "Compiling ./src/LeafClass/LeafClass.f90"
 echo " >> LeafClass.o "
 echo " | =======================>    | (92%)\r\c"
 gfortran -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/LeafClass/LeafClass.f90 -o  ./inc/LeafClass.o
+echo "Compiling ./src/MeristemClass/MeristemClass.f90" 
+echo " >> MeristemClass.o "
+echo " | =======================>    | (92%)\r\c"
+gfortran -fopenmp -fopenacc -shared -fPIC -g -fcheck=all -fintrinsic-modules-path inc/  -c ./src/MeristemClass/MeristemClass.f90 -o  ./inc/MeristemClass.o
 
 echo "Compiling ./src/PlantNodeClass/PlantNodeClass.f90" 
 echo " >> PlantNodeClass.o "
