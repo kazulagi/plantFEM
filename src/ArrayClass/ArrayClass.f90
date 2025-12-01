@@ -348,11 +348,13 @@ module ArrayClass
    end interface ShowArray
 
    interface Extend
-      module procedure  :: ExtendArrayReal, ExtendArrayRealVec, ExtendArrayIntVec, ExtendArrayInt, ExtendArrayChar
+      module procedure  :: ExtendArrayReal, ExtendArrayRealVec, ExtendArrayIntVec,&
+             ExtendArrayInt, ExtendArrayChar, ExtendRealMatrixArbitSize,ExtendInt32MatrixArbitSize
    end interface Extend
 
    interface ExtendArray
-      module procedure  :: ExtendArrayReal, ExtendArrayRealVec, ExtendArrayIntVec, ExtendArrayInt, ExtendArrayChar
+      module procedure  :: ExtendArrayReal, ExtendArrayRealVec, ExtendArrayIntVec, &
+            ExtendArrayInt, ExtendArrayChar, ExtendRealMatrixArbitSize,ExtendInt32MatrixArbitSize
    end interface ExtendArray
 
    interface insert
@@ -2617,6 +2619,40 @@ contains
 
    end subroutine
 !##################################################
+
+subroutine ExtendRealMatrixArbitSize(mat,row,col,default_value)
+   real(real64),intent(inout) :: mat(:,:)
+   integer(int32),intent(in) :: row,col
+   real(real64),optional,intent(in) :: default_value
+   real(real64),allocatable :: buf(:,:)
+
+   buf = mat
+
+   mat = zeros(size(buf,1)+row,size(buf,2)+col)
+   if(present(default_value))then
+      mat(:,:) = default_value
+   endif
+   mat(1:size(buf,1),1:size(buf,2)) = buf(:,:)
+
+end subroutine
+
+!##################################################
+
+subroutine ExtendInt32MatrixArbitSize(mat,row,col,default_value)
+   integer(int32),intent(inout) :: mat(:,:)
+   integer(int32),intent(in) :: row,col
+   integer(int32),optional,intent(in) :: default_value
+   integer(int32),allocatable :: buf(:,:)
+
+   buf = mat
+
+   mat = zeros(size(buf,1)+row,size(buf,2)+col)
+   if(present(default_value))then
+      mat(:,:) = default_value
+   endif
+   mat(1:size(buf,1),1:size(buf,2)) = buf(:,:)
+
+end subroutine
 
 !##################################################
    subroutine ExtendArrayInt(mat, extend1stColumn, extend2ndColumn, DefaultValue)

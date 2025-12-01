@@ -67,13 +67,17 @@ module StemClass
       integer(int32)             ::  Division
 
       ! growth parameters
-      real(real64)  :: my_time = 0.0d0
+      
       real(real64)  :: initial_width = 0.0010d0 ! 1.0 mm
       real(real64)  :: initial_length = 0.0010d0 ! 1.0 mm
       real(real64)  :: final_width = 0.0040d0   ! 4.0 mm
       real(real64)  :: final_length = 0.040d0   ! 40.0 mm
       real(real64)  :: width_growth_ratio = 1.0d0/4.0d0   !
       real(real64)  :: length_growth_ratio = 1.0d0/4.0d0   !
+
+      ! growth state (created with meristem class)
+      real(real64)  :: my_time = 0.0d0
+      real(real64) :: volumetric_strain = 0.0d0 ! time after generated.
 
       logical :: material_is_set
 
@@ -82,6 +86,8 @@ module StemClass
       ! physiological factor
       real(real64) :: R_d = 1.0d0 ! 暗呼吸速度, mincro-mol/m-2/s
       real(real64) :: default_CarbonDiffusionCoefficient = 0.0010d0 ! ソースの拡散係数 mincro-mol/m^2/m/s
+
+
 
    contains
       procedure, public :: Init => initStem
@@ -128,7 +134,7 @@ module StemClass
    end type
 
    interface operator(//)
-      module procedure append_stem_object_vector
+      module procedure append_stem_object_vector,append_stem_object_vector_single
    end interface
 
 contains
@@ -151,7 +157,7 @@ contains
       real(real64) :: loc(3)
       logical :: debug = .false.
 
-      obj%my_time = 0.0d0
+      
       obj%material_is_set = .false.
       ! default value
       obj%minlength = 0.001
@@ -161,6 +167,10 @@ contains
       obj%xnum = 10
       obj%ynum = 10
       obj%znum = 10
+
+
+      obj%my_time = 0.0d0
+      obj%volumetric_strain = 0.0d0 ! time after generated.
 
       if (present(config)) then
 
@@ -1163,6 +1173,23 @@ end function
             ret(1:size(arg1)) = arg1(:)
             ret(size(arg1) + 1:) = arg2(:)
          end if
+      end if
+
+   end function
+! ############################################################
+
+! ############################################################
+   function append_stem_object_vector_single(arg1, arg2) result(ret)
+      type(Stem_), allocatable, intent(in) :: arg1(:), arg2
+      type(Stem_), allocatable :: ret(:)
+
+      if (.not. allocated(arg1)) then
+         allocate(ret(1))
+         ret(1) = arg2   
+      else
+         allocate (ret(size(arg1) + 1))
+         ret(1:size(arg1)) = arg1(:)
+         ret(size(arg1) + 1:) = arg2
       end if
 
    end function
