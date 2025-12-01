@@ -2,7 +2,7 @@ module LeafClass
    use, intrinsic :: iso_fortran_env
    use KinematicClass
    use FEMDomainClass
-   use PetiClass
+   ! use PetiClass
    use StemClass
    use LightClass
    use AirClass
@@ -16,12 +16,15 @@ module LeafClass
       real(real64)             ::  center_bottom(3), center_top(3)
       real(real64)             ::  outer_normal_bottom(3), outer_normal_top(3)
       real(real64), allocatable ::  source(:), ppfd(:), A(:)
-      integer(int32)             ::  Division
-      type(leaf_), pointer ::  pleaf
-      type(Peti_), pointer ::  pPeti
+      integer(int32)           :: Division
+      type(leaf_), pointer     :: pleaf
+
+
+      !type(Peti_), pointer     ::  pPeti
       real(real64)             ::  rot_x = 0.0d0
       real(real64)             ::  rot_y = 0.0d0
       real(real64)             ::  rot_z = 0.0d0
+
       real(real64)             ::  disp_x = 0.0d0
       real(real64)             ::  disp_y = 0.0d0
       real(real64)             ::  disp_z = 0.0d0
@@ -31,6 +34,9 @@ module LeafClass
       ! id in multi-leaf
       integer(int32) :: LeafID = -1
       logical :: already_grown = .false.
+
+      ! opening angle of leaf (90:closed, 0:opened), added 2025.11.19 with meristemclass
+      real(real64)             ::  leaf_opening_angle = 0.0d0
 
       integer(int32), allocatable  :: I_planeNodeID(:)
       integer(int32), allocatable  :: I_planeElementID(:)
@@ -102,13 +108,16 @@ module LeafClass
       real(real64) :: default_CarbonDiffusionCoefficient = 0.0010d0 ! ソースの拡散係数 mincro-mol/m^2/m/s
 
    contains
-      procedure, public :: Init => initLeaf
-      procedure, public :: change_length_or_width => change_length_or_width_Leaf
+      procedure, pass :: initLeaf
+      generic :: init => initleaf
 
+      procedure, public :: change_length_or_width => change_length_or_width_Leaf
+      
       procedure, public :: rotate => rotateleaf
       procedure, public :: move => moveleaf
       procedure, public :: curve => curveleaf
       procedure, public :: create => createLeaf
+      procedure, public :: change_leaf_opening_angle => change_leaf_opening_angle_Leaf
 
       procedure, pass :: connectLeafLeaf => connectLeafLeaf
       procedure, pass :: connectLeafStem => connectLeafStem
@@ -154,6 +163,55 @@ module LeafClass
    interface operator(//)
       module procedure append_leaf_object_vector
    end interface
+
+!   interface to_petiole_and_leaf
+!      module procedure to_petiole_and_leaf_LeafClass
+!   end interface
+
+
+   type :: LeafSet_
+      
+      ! for leafset  (leaves + petioles)
+      ! >>>>>>>>>>>>>>>
+      type(leaf_), allocatable :: leaf(:)
+      type(Stem_), allocatable :: peti(:)
+
+      integer(int32),allocatable :: stem2stem(:,:)
+      integer(int32),allocatable :: leaf2stem(:,:)
+      real(real64) :: slight_overlap_epsilon = dble(1.0e-4)
+
+      ! growth parameters of leafset
+      ! n: number of leaves
+      real(real64) :: K_pL ! maximum size of each petiole internodes (m) 
+      real(real64) :: K_pR ! maximum size of each petiole radius (m) 
+      real(real64) :: K_lL ! maximum length of each leaf  (m) 
+
+      real(real64) :: T_pL ! Delay time (time constant) of each petiole internodes (s)
+      real(real64) :: T_pR ! Delay time (time constant) of each petiole radius (s)
+      real(real64) :: T_lL ! Delay time (time constant) for length of each leaf (s)
+      
+      real(real64) :: leaf_aspect_ratio = 0.50d0 ! width/length
+      real(real64) :: leaf_thickness_ratio = 0.01d0 ! thickness/length
+      real(real64) :: max_angle_deg = 90.0d0 ! maximum angles from their vertical positions 
+      ! <<<<<<<<<<<<<<<<
+
+      real(real64) :: rot_x = 0.0d0
+      real(real64) :: rot_y = 0.0d0
+      real(real64) :: rot_z = 0.0d0
+   contains
+      procedure,public :: init => initLeafSet_LeafClass
+      procedure,public :: rotate => rotateLeafSet_LeafClass
+      procedure,public :: move => moveLeafSet_LeafClass
+      procedure,public :: is_empty => is_emptyLeafSet_LeafClass
+      procedure,public :: grow_peti_and_leaf => grow_peti_and_leaf_leafclass
+      procedure,public :: update => updateLeafSet
+      procedure,public :: vtk => vtk_leafsetclass
+   end type
+
+   interface operator(//)
+      module procedure append_leafset_object_vector,append_leafset_object_vector_single
+   end interface
+
 contains
 
    subroutine createLeaf(obj, SurfacePoints, filename, x_num, y_num, x_len, y_len)
@@ -307,6 +365,9 @@ contains
 !    call f%plot(filename,"w l")
 
    end subroutine
+! ########################################
+
+
 
 ! ########################################
    subroutine initLeaf(obj, config, regacy, Thickness, length, width, ShapeFactor, &
@@ -524,6 +585,9 @@ contains
       !      <I> %%%%%%%%%%%%%%%% C
 
       ! メッシュを生成
+      if(.not.obj%FEMDomain%empty())then
+         call obj%FEMDomain%remove()
+      endif
       call obj%FEMdomain%create(meshtype="rectangular3D", x_num=obj%xnum, y_num=obj%ynum, z_num=obj%znum, &
                                 x_len=obj%minwidth/2.0d0, y_len=obj%minwidth/2.0d0, z_len=obj%minlength, shaperatio=obj%shaperatio)
 
@@ -1709,7 +1773,7 @@ contains
 
       this%Division = 0
       if (associated(this%pleaf)) nullify (this%pleaf)
-      if (associated(this%pPeti)) nullify (this%pPeti)
+      !if (associated(this%pPeti)) nullify (this%pPeti)
 
       this%rot_x = 0.0d0
       this%rot_y = 0.0d0
@@ -1828,5 +1892,705 @@ contains
 
    end function
 ! ############################################################
+
+! ############################################################
+recursive subroutine change_leaf_opening_angle_Leaf(this,new_angle,reset)
+   class(Leaf_),intent(inout) :: this
+   real(real64) :: new_angle
+   integer(int32) :: node_idx
+   logical,optional,intent(in) :: reset
+
+   real(real64) :: rot_x, rot_y, rot_z
+   real(real64) :: x, y, z, r,leaf_width,a,theta,new_x(1:3)
+   real(real64),allocatable :: rot_mat(:,:)
+
+
+   if(present(reset))then
+      if(reset)then
+         rot_x = this%rot_x
+         rot_y = this%rot_y
+         rot_z = this%rot_z
+         call this%rotate(reset=.true.)
+         leaf_width = this%femdomain%xmax()-this%femdomain%xmin()
+         ! z: longitudinal axis
+         ! x: width
+         ! y: thickness
+         if(this%leaf_opening_angle==0.0d0)then
+            do node_idx=1,this%FEMDomain%nn()
+
+               x = this%FEMDomain%mesh%nodcoord(node_idx,1)
+               y = this%FEMDomain%mesh%nodcoord(node_idx,2)
+               z = this%FEMDomain%mesh%nodcoord(node_idx,3)
+            
+               r = sqrt(x*x + y*y)
+               a = radian(new_angle)/leaf_width
+               
+               if (x > 0.0d0)then
+                  x = r*cos(radian(new_angle)) !*sin(radian(new_angle))
+                  y = r*sin(radian(new_angle)) + y!*cos(radian(new_angle))
+                  !x = r 
+                  !y = r*r*a + y
+               else
+                  !x = -r  
+                  !y =  r*r*a  + y
+                  x = -r*cos(radian(new_angle)) 
+                  y =  r*sin(radian(new_angle)) + y
+               endif
+               this%FEMDomain%mesh%nodcoord(node_idx,1) = x
+               this%FEMDomain%mesh%nodcoord(node_idx,2) = y
+            enddo
+         else
+            print *, "[STOP] change_leaf_opening_angle_Leaf"
+            stop
+         endif
+      
+         call this%rotate(x=rot_x,y=rot_y,z=rot_z)
+         this%leaf_opening_angle = new_angle
+
+         return
+      endif
+   endif
+
+
+   ! reset rotation
+   rot_x = this%rot_x
+   rot_y = this%rot_y
+   rot_z = this%rot_z
+   call this%rotate(reset=.true.)
+   leaf_width = this%femdomain%xmax()-this%femdomain%xmin()
+   ! z: longitudinal axis
+   ! x: width
+   ! y: thickness
+   if(this%leaf_opening_angle==0.0d0)then
+      do node_idx=1,this%FEMDomain%nn()
+         
+         
+         x = this%FEMDomain%mesh%nodcoord(node_idx,1)
+         y = this%FEMDomain%mesh%nodcoord(node_idx,2)
+         z = this%FEMDomain%mesh%nodcoord(node_idx,3)
+
+         r = sqrt(x*x)
+         a = radian(new_angle)/leaf_width
+         !theta = 
+         if (x > 0.0d0)then
+            !x = r*cos(radian(new_angle)) !*sin(radian(new_angle))
+            !y = r*sin(radian(new_angle)) + y!*cos(radian(new_angle))
+            !x = r 
+            !y = r*r*a + y
+            new_x = matmul(rotate_3x3_matrix(&
+               x=0.0d0,y=0.0d0,z=radian(new_angle)),this%FEMDomain%mesh%nodcoord(node_idx,:))
+         else
+            !x = -r  
+            !y =  r*r*a  + y
+            !x = -r*cos(radian(new_angle)) 
+            !y =  r*sin(radian(new_angle)) + y
+            new_x = matmul(rotate_3x3_matrix(&
+               x=0.0d0,y=0.0d0,z=radian(-new_angle)),this%FEMDomain%mesh%nodcoord(node_idx,:))
+         endif
+         
+         this%FEMDomain%mesh%nodcoord(node_idx,1) = new_x(1)
+         this%FEMDomain%mesh%nodcoord(node_idx,2) = new_x(2)
+      enddo
+   else
+      print *, "[STOP] change_leaf_opening_angle_Leaf"
+      stop
+   endif
+
+   call this%rotate(x=rot_x,y=rot_y,z=rot_z)
+   this%leaf_opening_angle = new_angle
+
+
+
+end subroutine
+! ############################################################
+
+
+!> procedures for LeafSet_ class
+! ############################################################
+!> create a leafset (leaves + petioles)
+subroutine initLeafSet_LeafClass(this,num_leaf,params,species,direction,dt)
+   class(LeafSet_),intent(inout) :: this
+   integer(int32),intent(in) :: num_leaf,species
+   real(real64),intent(in) :: params(:), direction,dt !
+   integer(int32) :: n, m, peti_idx, leaf_idx
+
+   n = 0; m = 0;
+
+   ! check parameter array size
+   if(size(params)/=6)then
+      print *, "[ERROR] initLeafSet_LeafClass >> invalid array size for arg. params(:)"
+      print *, "it should be",6," but size(params) = ",size(params)
+      stop
+   endif
+   
+   !! load parameters
+   !this%K_pL = params(1)
+   !this%K_pR = params(2)
+   !K_lL = params(3)
+   !this%T_pL = params(4)
+   !this%T_pR = params(5)
+   !this%T_lL = params(6)
+
+   ! set default parameters
+   this%leaf_aspect_ratio = 0.50d0 ! width/length
+   this%leaf_thickness_ratio = 0.01d0 ! thickness/length
+   this%max_angle_deg = 90.0d0 ! maximum angles from their vertical positions 
+
+   if(allocated(this%leaf)) then
+      deallocate(this%leaf)
+   endif
+
+   if(allocated(this%peti)) then
+      deallocate(this%peti)
+   endif
+   
+   allocate(this%leaf(num_leaf))
+   allocate(this%peti(num_leaf/2+mod(num_leaf,2))) ! 3 leaf => 1 petiole, 5 leaf => 3 petiole, 
+
+   
+
+   this%leaf2stem = zeros(size(this%leaf),size(this%peti))
+   this%stem2stem = zeros(size(this%peti),size(this%peti))
+
+   ! first, create petiole internodes
+   do peti_idx=1,size(this%peti)
+      this%peti(peti_idx)%CROSS_SECTION_SHAPE = PF_STEM_SHAPE_CYLINDER
+      call this%peti(peti_idx)%init()
+      call this%peti(peti_idx)%move(z=-this%peti(peti_idx)%FEMDomain%zmin())
+      
+      !if(peti_idx>=2)then
+      !   call this%peti(peti_idx)%move(z=this%peti(peti_idx-1)%FEMDomain%zmax()&
+      !      - this%slight_overlap_epsilon*length)
+      !endif
+   enddo
+
+   ! petiole to petiole connectivity
+   do peti_idx=2,size(this%peti)
+      call this%peti(peti_idx)%connect("=>", this%peti(peti_idx-1))
+      this%stem2stem(peti_idx, peti_idx-1) = 1
+   enddo
+
+
+   do leaf_idx=1,size(this%leaf)
+      call this%leaf(leaf_idx)%init(species=species)
+      call this%leaf(leaf_idx)%move(z=-this%leaf(leaf_idx)%FEMDomain%zmin())
+      
+      !if(leaf_idx>=2)then
+      !   call this%leaf(leaf_idx)%move(z=this%peti(leaf_idx-1)%FEMDomain%zmax()&
+      !      - this%slight_overlap_epsilon*length)
+      !endif
+   enddo
+
+   ! leaf to petiole connectivity
+   do leaf_idx=1,size(this%leaf)
+      peti_idx = leaf_idx/2+mod(leaf_idx,2)
+      call this%leaf(leaf_idx)%connect("=>", this%peti(peti_idx) )
+      this%leaf2stem(leaf_idx, peti_idx) = 1
+   enddo
+   
+
+   ! reset shape and create initial leaf meristems
+   
+   call this%grow_peti_and_leaf(params=params,dt=dt)
+   call this%rotate(z=direction)
+
+end subroutine
+! ############################################################
+
+! ########################################
+subroutine grow_peti_and_leaf_leafclass(this,params,dt)
+   class(LeafSet_),intent(inout) :: this
+   real(real64),intent(in) :: dt,params(1:6)
+
+   integer(int32)   :: idx
+
+   real(real64) :: K_pL ! maximum size of each petiole internodes (m) 
+   real(real64) :: K_pR ! maximum size of each petiole radius (m) 
+   real(real64) :: K_lL ! maximum length of each leaf  (m) 
+
+   real(real64) :: T_pL ! Delay time (time constant) of each petiole internodes (s)
+   real(real64) :: T_pR ! Delay time (time constant) of each petiole radius (s)
+   real(real64) :: T_lL ! Delay time (time constant) for length of each leaf (s)
+   
+   real(real64) :: ex_ratio(1:3),max_width,t,rot_x,rot_y,rot_z,&
+      peti_rot_x,peti_rot_y,peti_rot_z,&
+      leaf_rot_x,leaf_rot_y,leaf_rot_z 
+   real(real64), allocatable :: origin1(:),origin2(:)
+
+   
+   K_pL = params(1)
+   K_pR = params(2)
+   K_lL = params(3)
+
+   T_pL = params(4)
+   T_pR = params(5)
+   T_lL = params(6)
+
+   ! まず全体の回転をもとに戻してから．
+
+
+   rot_x   = this%rot_x
+   rot_y   = this%rot_y
+   rot_z   = this%rot_z
+   call this%rotate(reset=.true.)
+
+   do idx=1,size(this%peti)
+      t = this%peti(idx)%my_time + dt
+      
+      ! move to origin & reset rotation
+      origin1 = this%peti(idx)%getCoordinate("A")
+
+      call this%peti(idx)%move( &
+         x = -origin1(1) ,&
+         y = -origin1(2) ,&
+         z = -origin1(3)  &
+      )
+      
+      peti_rot_x = this%peti(idx)%rot_x
+      peti_rot_y = this%peti(idx)%rot_y
+      peti_rot_z = this%peti(idx)%rot_z
+
+      call this%peti(idx)%rotate(reset=.true.)
+
+      call this%peti(idx)%resize( &
+         x = 2.0d0*K_pR*(1.0d0 - exp(-t/T_pR)) ,&
+         y = 2.0d0*K_pR*(1.0d0 - exp(-t/T_pR)) ,&
+         z = K_pL*(1.0d0 - exp(-t/T_pL))  &
+      )
+      
+      call this%peti(idx)%rotate(&
+         x = radian(this%max_angle_deg)*(1.0d0 - exp(-t/T_pL)) ,&
+         y = peti_rot_y,&
+         z = peti_rot_z &
+      )
+      origin2 = this%peti(idx)%getCoordinate("A")
+
+      call this%peti(idx)%move( &
+         x = origin1(1)-origin2(1) ,&
+         y = origin1(2)-origin2(2) ,&
+         z = origin1(3)-origin2(3)  &
+      )
+      
+      this%peti(idx)%my_time = this%peti(idx)%my_time + dt
+   enddo
+
+   do idx=1,size(this%leaf)
+      t = this%leaf(idx)%my_time + dt
+
+      !rot_x = this%rot_x
+      !rot_y = this%rot_y
+      !rot_z = this%rot_z
+      leaf_rot_x   = this%leaf(idx)%rot_x
+      leaf_rot_y   = this%leaf(idx)%rot_y
+      leaf_rot_z   = this%leaf(idx)%rot_z
+      call this%leaf(idx)%rotate(reset=.true.)
+
+      call this%leaf(idx)%resize( &
+         x = this%leaf_aspect_ratio*K_lL*(1.0d0 - exp(-t/T_lL)) ,&
+         y = this%leaf_thickness_ratio*K_lL*(1.0d0 - exp(-t/T_lL)) ,&
+         z = K_lL*(1.0d0 - exp(-t/T_pL))  &
+      )
+      !call this%leaf(idx)%rotate(x=rot_x,y=rot_y,z=rot_z)
+
+      !print *, "debug",this%leaf_aspect_ratio,this%leaf_thickness_ratio,K_lL
+
+      !call this%leaf(idx)%rotate(&
+      !   x = radian(this%max_angle_deg)*(1.0d0 - exp(-t/T_lL)) &
+      !)
+      !
+      if(mod(size(this%leaf),2)==1 .and. idx == size(this%leaf))then
+         call this%leaf(idx)%rotate(&
+            x = radian(this%max_angle_deg)*(1.0d0 - exp(-t/T_lL)) , &
+            y   = leaf_rot_y,&
+            z   = leaf_rot_z &
+         )
+      else
+         call this%leaf(idx)%rotate(&
+            x   = radian(this%max_angle_deg)*(1.0d0 - exp(-t/T_lL)),  &
+            y   = leaf_rot_y,  &
+            z   = dble(mod(idx,2)*2-1)*radian(90.0d0)  &
+         )
+      endif
+      this%leaf(idx)%my_time = this%leaf(idx)%my_time + dt
+   enddo
+
+   call this%rotate(&
+         x=rot_x,&
+         y=rot_y,&
+         z=rot_z &
+      )
+
+   call this%update()
+
+
+end subroutine
+
+! ######################################################
+
+! ########################################
+   recursive subroutine updateLeafSet(this)
+      class(LeafSet_), intent(inout) :: this
+      !integer(int32), optional, intent(in) :: stem_id, root_id, leaf_id
+      !real(real64), optional, intent(in) :: overset_margin
+      integer(int32) :: i, j, this_stem_id, next_stem_id, A_id, B_id, itr_tol, itr, k, kk
+      integer(int32) :: this_leaf_id, next_leaf_id
+      integer(int32) :: this_root_id, next_root_id, InterNodeID, PetioleID, StemID, LeafID
+      real(real64) :: x_A(3), x_B(3), diff(3), error, last_error, mgn, overset_m, error_tol,original_position(1:3),disp(1:3)
+      !logical, optional, intent(in) :: debug
+
+      original_position = this%peti(1)%femdomain%mesh%nodcoord(1,3)
+
+      ! update connectivity
+      if (.not. allocated(this%stem2stem)) then
+         print *, "updateMeristem >> ERROR :: .not. allocated(this%stem2stem )"
+         return
+      end if
+
+      error_tol = dble(1.0e-14)
+
+      ! margin between subdomains
+      overset_m = input(default=0.03d0, option=this%slight_overlap_epsilon)
+
+      itr_tol = 1000
+      itr = 0
+
+      ! if debug
+      !if(present(debug) )then
+      !    if(debug)then
+      !        print *, "this%stem2stem"
+      !        call print(this%stem2stem)
+      !    endif
+      !endif
+
+      ! stem to stem
+      last_error = 1.0d0
+      if (maxval(this%stem2stem) /= 0) then
+
+         do
+            itr = itr + 1
+            error = 0.0d0
+            do i = 1, size(this%stem2stem, 1)
+               do j = 1, size(this%stem2stem, 2)
+                  this_stem_id = j
+                  next_stem_id = i
+                  if (this%stem2stem(i, j) /= 0 .and. i /= j) then
+                     ! this_stem_id ===>>> next_stem_id, connected!
+
+                     !x_B(:) = this%peti(this_stem_id)%getCoordinate("B")
+                     !x_A(:) = this%peti(next_stem_id)%getCoordinate("A")
+                     ! Overset分食い込ませる
+                     x_B(:) = (1.0d0 - overset_m)*this%peti(this_stem_id)%getCoordinate("B") &
+                              + overset_m*this%peti(this_stem_id)%getCoordinate("A")
+                     ! Overset分食い込ませる
+                     x_A(:) = (1.0d0 - overset_m)*this%peti(next_stem_id)%getCoordinate("A") &
+                              + overset_m*this%peti(next_stem_id)%getCoordinate("B")
+
+                     diff(:) = x_B(:) - x_A(:)  
+
+                     error = error + dot_product(diff, diff)
+                     call this%peti(next_stem_id)%move(x=diff(1), y=diff(2), z=diff(3))
+
+                  end if
+               end do
+            end do
+            !if (present(debug)) then
+            !   if (debug) then
+            !      print *, "Meristem % update s2s >> error :: ", error
+            !   end if
+            !end if
+            if (itr > itr_tol) then
+               print *, "leafset % update s2s >> ERROR :: not converged for peti"
+               stop
+            end if
+
+            if (abs(error) + abs(last_error) < error_tol) exit
+            last_error = error
+         end do
+      end if
+
+!      if (allocated(this%root2root)) then
+!         ! root to root
+!         last_error = 1.0d0
+!         do
+!            itr = itr + 1
+!            error = 0.0d0
+!            do i = 1, size(this%root2root, 1)
+!               do j = 1, size(this%root2root, 2)
+!                  this_root_id = j
+!                  next_root_id = i
+!                  if (next_root_id == 1) then
+!                     cycle
+!                  end if
+!                  if (this%root2root(i, j) /= 0 .and. i /= j) then
+!                     ! this_root_id ===>>> next_root_id, connected!
+!                     !x_B(:) = this%root(this_root_id)%getCoordinate("B")
+!                     !x_A(:) = this%root(next_root_id)%getCoordinate("A")
+!
+!                     ! Overset分食い込ませる
+!                     x_B(:) = (1.0d0 - overset_m)*this%root(this_root_id)%getCoordinate("B") &
+!                              + overset_m*this%root(this_root_id)%getCoordinate("A")
+!                     ! Overset分食い込ませる
+!                     x_A(:) = (1.0d0 - overset_m)*this%root(next_root_id)%getCoordinate("A") &
+!                              + overset_m*this%root(next_root_id)%getCoordinate("B")
+!
+!                     diff(:) = x_B(:) - x_A(:)
+!                     error = error + dot_product(diff, diff)
+!                     call this%root(next_root_id)%move(x=diff(1), y=diff(2), z=diff(3))
+!                  end if
+!               end do
+!            end do
+!            if (present(debug)) then
+!               if (debug) then
+!                  print *, "Meristem % update r2r >> error :: ", error
+!               end if
+!            end if
+!            if (itr > itr_tol) then
+!               print *, "Meristem % update r2r >> ERROR :: not converged"
+!               stop
+!            end if
+!
+!            if (abs(error) + abs(last_error) < error_tol) exit
+!            last_error = error
+!         end do
+!      end if
+
+
+      ! leaf to stem
+      
+      last_error = 1.0d0
+      do
+         itr = itr + 1
+         error = 0.0d0
+         do i = 1, size(this%leaf2stem, 1)
+            do j = 1, size(this%leaf2stem, 2)
+               this_stem_id = j
+               next_leaf_id = i
+               if (this%leaf2stem(i, j) == 1) then
+                  ! this_stem_id ===>>> next_leaf_id, connected!
+                  !x_B(:) = this%peti(this_stem_id)%getCoordinate("B")
+                  !x_A(:) = this%leaf(next_leaf_id)%getCoordinate("A")
+
+                  ! Overset分食い込ませる
+                  x_B(:) = (1.0d0 - overset_m)*this%peti(this_stem_id)%getCoordinate("B") &
+                           + overset_m*this%peti(this_stem_id)%getCoordinate("A")
+                  ! Overset分食い込ませる
+                  x_A(:) = this%leaf(next_leaf_id)%getCoordinate("A")
+
+                  diff(:) = x_B(:) - x_A(:)
+                  error = error + dot_product(diff, diff)
+                  call this%leaf(next_leaf_id)%move(x=diff(1), y=diff(2), z=diff(3))
+               end if
+            end do
+         end do
+         
+         if (itr > itr_tol) then
+            print *, "leafset % update l2s  >> ERROR :: not converged for leafset"
+            stop
+         end if
+
+         if (abs(error) - abs(last_error) < error_tol) exit
+         last_error = error
+      end do
+     ! offset displacement
+     !if ( norm(this%peti(1)%femdomain%mesh%nodcoord(1,3) - original_position) > error_tol)then
+     !   disp = this%peti(1)%femdomain%mesh%nodcoord(1,3) - original_position
+     !   call this%move(x=-disp(1),y=-disp(2),z=-disp(3))
+     !endif
+  end subroutine
+! ########################################
+
+! ##############################################
+   subroutine vtk_leafsetclass(this, name, field_name,single_file,&
+      scalar_field, vector_field, tensor_field)
+      class(Leafset_), intent(inout) :: this
+      character(*), intent(in) ::name
+      character(*), optional, intent(in) ::field_name
+      logical,optional,intent(in) :: single_file
+      
+      real(real64), optional, intent(in) :: scalar_field(:)
+      real(real64), optional, intent(in) :: vector_field(:, :)
+      real(real64), optional, intent(in) :: tensor_field(:, :, :)
+
+      type(FEMDomain_) :: femdomain
+      integer(int32) :: i
+      
+
+      
+
+
+      if (present(single_file)) then
+         if (single_file) then
+            ! export mesh for a single file
+            if (allocated(this%peti)) then
+               do i = 1, size(this%peti)
+                  if (.not. this%peti(i)%femdomain%empty()) then
+                     femdomain = femdomain + this%peti(i)%femdomain
+                  end if
+               end do
+            end if
+
+            if (allocated(this%leaf)) then
+               do i = 1, size(this%leaf)
+                  if (.not. this%leaf(i)%femdomain%empty()) then
+                     femdomain = femdomain + this%leaf(i)%femdomain
+                  end if
+               end do
+            end if
+
+!            if (allocated(this%root)) then
+!               do i = 1, size(this%root)
+!                  if (.not. this%root(i)%femdomain%empty()) then
+!                     femdomain = femdomain + this%root(i)%femdomain
+!                  end if
+!               end do
+!            end if
+
+            if (present(scalar_field)) then
+               ! export scalar-valued field
+               ! as a single file
+               call femdomain%vtk(field=field_name, name=name, scalar=scalar_field)
+            elseif (present(vector_field)) then
+               ! export vector-valued field
+               ! as a single file
+               call femdomain%vtk(field=field_name, name=name, vector=vector_field)
+            elseif (present(tensor_field)) then
+               ! export tensor-valued field
+               ! as a single file
+               call femdomain%vtk(field=field_name, name=name, tensor=tensor_field)
+            else
+               call femdomain%vtk(field=field_name, name=name)
+            end if
+            return
+         end if
+      end if
+
+
+      if(allocated(this%peti))then
+         do i=1,size(this%peti)
+            call this%peti(i)%vtk(Name=name+"_stem_"+str(i))
+         enddo
+      endif
+
+      
+      
+   end subroutine
+! ##############################################
+
+! ############################################################
+   function append_leafset_object_vector(arg1, arg2) result(ret)
+      type(Leafset_), allocatable, intent(in) :: arg1(:), arg2(:)
+      type(Leafset_), allocatable :: ret(:)
+
+      if (.not. allocated(arg1)) then
+         if (.not. allocated(arg2)) then
+            return
+         else
+            ret = arg2
+         end if
+      else
+         if (.not. allocated(arg2)) then
+            ret = arg1
+            return
+         else
+            allocate (ret(size(arg1) + size(arg2)))
+            ret(1:size(arg1)) = arg1(:)
+            ret(size(arg1) + 1:) = arg2(:)
+         end if
+      end if
+
+   end function
+! ############################################################
+
+
+! ############################################################
+   function append_leafset_object_vector_single(arg1, arg2) result(ret)
+      type(Leafset_), allocatable, intent(in) :: arg1(:), arg2
+      type(Leafset_), allocatable :: ret(:)
+
+      if (.not. allocated(arg1)) then
+         allocate(ret(1))
+         ret(1) = arg2   
+      else
+         allocate (ret(size(arg1) + 1))
+         ret(1:size(arg1)) = arg1(:)
+         ret(size(arg1) + 1:) = arg2
+      end if
+
+   end function
+! ############################################################
+
+   function is_emptyLeafSet_LeafClass(this) result(is_empty)
+      class(Leafset_),intent(in) :: this
+      logical :: is_empty
+
+      is_empty = (.not. allocated(this%leaf))
+
+   end function
+
+! ############################################################
+recursive subroutine rotateLeafSet_LeafClass(this,x,y,z,reset)
+      class(LeafSet_),intent(inout) :: this
+      real(real64),optional,intent(in) :: x,y,z
+      real(real64) :: rot_x,rot_y,rot_z,disp_x,origin1(1:3)
+      logical,optional,intent(in) :: reset
+      integer(int32) :: i
+      
+      if(this%is_empty()) then
+         return
+      else
+         ! move to origin
+         origin1 = this%peti(1)%getCoordinate("A")
+         call this%move(x=-origin1(1),y=-origin1(2),z=-origin1(3))
+
+         if(present(reset))then
+            if(reset)then
+               rot_x = this%rot_x
+               rot_y = this%rot_y
+               rot_z = this%rot_z
+               call this%rotate(x=-rot_x,y=-rot_y,z=-rot_z)
+            endif
+         endif
+         
+         
+         do i=1,size(this%peti)
+            call this%peti(i)%rotate(x=x,y=y,z=z)
+         enddo
+         do i=1,size(this%leaf)
+            call this%leaf(i)%rotate(x=x,y=y,z=z)
+         enddo
+
+         this%rot_x = this%rot_x + input(default=0.0d0,option=x)
+         this%rot_y = this%rot_y + input(default=0.0d0,option=y)
+         this%rot_z = this%rot_z + input(default=0.0d0,option=z)
+
+
+         call this%move(x=origin1(1),y=origin1(2),z=origin1(3))
+
+         call this%update()
+      endif
+
+
+
+   end subroutine
+! ############################################################
+
+subroutine moveLeafSet_LeafClass(this,x,y,z)
+   class(LeafSet_),intent(inout) :: this
+   real(real64),optional,intent(in) :: x,y,z
+   integer(int32) :: i
+
+   if(this%is_empty()) then
+      return
+   else
+      ! move to origin
+      do i=1,size(this%peti)
+         call this%peti(i)%move(x=x,y=y,z=z)
+      enddo
+      do i=1,size(this%leaf)
+         call this%leaf(i)%move(x=x,y=y,z=z)
+      enddo
+      
+   endif
+end subroutine
 
 end module

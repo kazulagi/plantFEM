@@ -2041,7 +2041,7 @@ contains
          obj%num_leaf = 0
          ! bugfix 2021/08/18
          !call leaf%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
-
+         
          if (index(obj%leafconfig, ".json") == 0) then
             call leaf%init(species=PF_GLYCINE_SOJA, &
                            x_num=obj%leaf_division(1), &

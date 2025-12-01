@@ -6275,17 +6275,17 @@ contains
             end do
 
             ! curl
-            do i = 1, size(obj%nodcoord, 1)
-               xx = obj%NodCoord(i, 1)
-               
-               ! curl function
-               width = maxval(obj%NodCoord(:, 1)) - minval(obj%NodCoord(:, 1))
-               theta = abs(xx/(width/2.0d0))
-               yy = obj%NodCoord(i, 2)
-               yy = yy - 0.10d0*theta*(theta-1.0d0)
-               
-               obj%NodCoord(i, 2) = yy
-            enddo
+            !do i = 1, size(obj%nodcoord, 1)
+            !   xx = obj%NodCoord(i, 1)
+            !   
+            !   ! curl function
+            !   width = maxval(obj%NodCoord(:, 1)) - minval(obj%NodCoord(:, 1))
+            !   theta = abs(xx/(width/2.0d0))
+            !   yy = obj%NodCoord(i, 2)
+            !   yy = yy - 0.10d0*theta*(theta-1.0d0)
+            !   
+            !   obj%NodCoord(i, 2) = yy
+            !enddo
 
          end if
       end if
