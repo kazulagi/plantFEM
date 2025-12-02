@@ -48,6 +48,9 @@ module MeristemClass
       integer(int32)  :: ynum = 10
       integer(int32)  :: znum = 10
 
+      ! branch
+      type(Meristem_),allocatable :: branch_meristem(:)
+
       ! meristem parameters
       integer(int32)  :: num_shoot_stem_node = 2
       real(real64) :: slight_overlap_epsilon = dble(1.0e-3)
@@ -103,6 +106,8 @@ module MeristemClass
          procedure,public :: grow_internode  => grow_internodeMeristem
          
          procedure,public :: meristem_division => meristem_division_MeristemC
+
+         procedure,public :: set_branch => set_branch_MeristemC
 
 
 
@@ -1651,6 +1656,20 @@ function getVolumeMeristem(this) result(vol)
    enddo
 
 end function
+! ######################################################
+
+
+! ######################################################
+subroutine set_branch_MeristemC(this,stem_idx)
+   class(Meristem_),intent(inout) :: this
+   integer(int32),intent(in) :: stem_idx
+
+   ! Creating branch at a leaf axil of a given stem idx.
+   ! The brancing angle is a half of the petiole angle.
+   
+
+
+end subroutine
 ! ######################################################
 
 end module
