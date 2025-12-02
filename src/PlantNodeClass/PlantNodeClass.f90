@@ -90,8 +90,8 @@ contains
                                         location=location)
 
                   ! joint leaves
-                  obj%Leaf(1)%pPeti => obj%Peti(1)
-                  obj%Leaf(2)%pPeti => obj%Peti(2)
+                  !obj%Leaf(1)%pPeti => obj%Peti(1)
+                  !obj%Leaf(2)%pPeti => obj%Peti(2)
 
                   ! joint peti
                   obj%Peti(1)%pStem => obj%Stem(1)

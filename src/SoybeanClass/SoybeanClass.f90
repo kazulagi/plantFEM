@@ -9,6 +9,7 @@ module SoybeanClass
    use StemClass
    use FEMSolverClass
    use EnvironmentClass
+   use MeristemClass
    implicit none
 
    integer(int32), parameter :: PF_SOY_OBJECT_WISE = 1
@@ -30,6 +31,9 @@ module SoybeanClass
    integer(int32), parameter :: PF_DEFAULT_SOYBEAN_ASIZE = 300
 
    type :: soybean_
+
+      ! [new implementation with the meristem-class]
+      type(Meristem_),allocatable :: meristem(:)
 
       ! setting
       integer(int32) :: stem_division(1:3) = [3, 3, 30]
@@ -195,6 +199,7 @@ module SoybeanClass
       ! carbon concentration (micro-gram/m^3) at apical
       real(real64) :: apical_carbon_concentration = 0.01d0
       real(real64), allocatable :: Photosynthate_n(:), reaction_n(:)
+
 
    contains
       !procedure,public :: addRoot => addRootSoybean
@@ -2041,7 +2046,7 @@ contains
          obj%num_leaf = 0
          ! bugfix 2021/08/18
          !call leaf%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
-         
+
          if (index(obj%leafconfig, ".json") == 0) then
             call leaf%init(species=PF_GLYCINE_SOJA, &
                            x_num=obj%leaf_division(1), &
