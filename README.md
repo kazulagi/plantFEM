@@ -1,5 +1,4 @@
-![Growth](https://github.com/user-attachments/assets/b5cd0b51-517c-4a03-ac4a-4313e9573287
-)
+![Growth](https://plantfem.org/download/soygrow.gif)
 
 ![soyphoto](https://www.plantfem.org/download/out_mini_mini.gif)
 
