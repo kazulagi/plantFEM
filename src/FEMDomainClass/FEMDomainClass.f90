@@ -2125,7 +2125,7 @@ contains
       class(FEMDomain_), intent(inout) :: this
       real(real64), optional, intent(in) :: x_rate, y_rate, z_rate, x_len, y_len, z_len
       real(real64), optional, intent(in) :: x, y, z
-
+      
       call this%Mesh%resize(x_rate=x_rate, y_rate=y_rate, z_rate=z_rate, x_len=x_len, y_len=y_len, z_len=z_len)
       call this%Mesh%resize(x_len=x, y_len=y, z_len=z)
 

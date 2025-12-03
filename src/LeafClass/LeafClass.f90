@@ -37,6 +37,7 @@ module LeafClass
 
       ! opening angle of leaf (90:closed, 0:opened), added 2025.11.19 with meristemclass
       real(real64)             ::  leaf_opening_angle = 0.0d0
+      
 
       integer(int32), allocatable  :: I_planeNodeID(:)
       integer(int32), allocatable  :: I_planeElementID(:)
@@ -97,6 +98,8 @@ module LeafClass
 
       ! growth parameters
       real(real64)  :: my_time = 0.0d0
+
+
       real(real64)  :: initial_width = 0.0010d0 ! 1.0 mm
       real(real64)  :: initial_length = 0.0010d0 ! 1.0 mm
       real(real64)  :: final_width = 0.060d0   !  60.0 mm
@@ -193,6 +196,7 @@ module LeafClass
       real(real64) :: leaf_aspect_ratio = 0.50d0 ! width/length
       real(real64) :: leaf_thickness_ratio = 0.01d0 ! thickness/length
       real(real64) :: max_angle_deg = 90.0d0 ! maximum angles from their vertical positions 
+      real(real64) ::  leaf_curvature = 0.0d0
       ! <<<<<<<<<<<<<<<<
 
       real(real64) :: rot_x = 0.0d0
@@ -206,6 +210,8 @@ module LeafClass
       procedure,public :: grow_peti_and_leaf => grow_peti_and_leaf_leafclass
       procedure,public :: update => updateLeafSet
       procedure,public :: vtk => vtk_leafsetclass
+      procedure,public :: ne => ne_LeafsetClass
+      procedure,public :: nn => ne_LeafsetClass
    end type
 
    interface operator(//)
@@ -2008,10 +2014,11 @@ end subroutine
 !> procedures for LeafSet_ class
 ! ############################################################
 !> create a leafset (leaves + petioles)
-subroutine initLeafSet_LeafClass(this,num_leaf,params,species,direction,dt)
+subroutine initLeafSet_LeafClass(this,num_leaf,params,species,direction,dt,base_petiole_length_ratio)
    class(LeafSet_),intent(inout) :: this
    integer(int32),intent(in) :: num_leaf,species
    real(real64),intent(in) :: params(:), direction,dt !
+   real(real64),optional,intent(in) :: base_petiole_length_ratio
    integer(int32) :: n, m, peti_idx, leaf_idx
 
    n = 0; m = 0;
@@ -2072,7 +2079,7 @@ subroutine initLeafSet_LeafClass(this,num_leaf,params,species,direction,dt)
 
 
    do leaf_idx=1,size(this%leaf)
-      call this%leaf(leaf_idx)%init(species=species)
+      call this%leaf(leaf_idx)%init(species=species,curvature=this%leaf_curvature)
       call this%leaf(leaf_idx)%move(z=-this%leaf(leaf_idx)%FEMDomain%zmin())
       
       !if(leaf_idx>=2)then
@@ -2091,16 +2098,18 @@ subroutine initLeafSet_LeafClass(this,num_leaf,params,species,direction,dt)
 
    ! reset shape and create initial leaf meristems
    
-   call this%grow_peti_and_leaf(params=params,dt=dt)
+   call this%grow_peti_and_leaf(params=params,dt=dt,&
+      base_petiole_length_ratio=base_petiole_length_ratio)
    call this%rotate(z=direction)
 
 end subroutine
 ! ############################################################
 
 ! ########################################
-subroutine grow_peti_and_leaf_leafclass(this,params,dt)
+subroutine grow_peti_and_leaf_leafclass(this,params,base_petiole_length_ratio,dt)
    class(LeafSet_),intent(inout) :: this
    real(real64),intent(in) :: dt,params(1:6)
+   real(real64),optional,intent(in) :: base_petiole_length_ratio ! (primary petiole length)/(n-th petiole length(n>1))
 
    integer(int32)   :: idx
 
@@ -2114,8 +2123,9 @@ subroutine grow_peti_and_leaf_leafclass(this,params,dt)
    
    real(real64) :: ex_ratio(1:3),max_width,t,rot_x,rot_y,rot_z,&
       peti_rot_x,peti_rot_y,peti_rot_z,&
-      leaf_rot_x,leaf_rot_y,leaf_rot_z 
-   real(real64), allocatable :: origin1(:),origin2(:)
+      leaf_rot_x,leaf_rot_y,leaf_rot_z, sum_peti_len
+   real(real64), allocatable :: origin1(:),origin2(:),peti_length_coeff(:)
+
 
    
    K_pL = params(1)
@@ -2133,6 +2143,17 @@ subroutine grow_peti_and_leaf_leafclass(this,params,dt)
    rot_y   = this%rot_y
    rot_z   = this%rot_z
    call this%rotate(reset=.true.)
+
+   
+   peti_length_coeff = ones(size(this%peti))
+   if(present(base_petiole_length_ratio))then
+      peti_length_coeff(1) = base_petiole_length_ratio
+   endif
+   sum_peti_len =  sum(peti_length_coeff)
+   peti_length_coeff(:) = peti_length_coeff(:)/sum_peti_len
+
+
+   
 
    do idx=1,size(this%peti)
       t = this%peti(idx)%my_time + dt
@@ -2155,7 +2176,7 @@ subroutine grow_peti_and_leaf_leafclass(this,params,dt)
       call this%peti(idx)%resize( &
          x = 2.0d0*K_pR*(1.0d0 - exp(-t/T_pR)) ,&
          y = 2.0d0*K_pR*(1.0d0 - exp(-t/T_pR)) ,&
-         z = K_pL*(1.0d0 - exp(-t/T_pL))  &
+         z = K_pL*peti_length_coeff(idx)*(1.0d0 - exp(-t/T_pL))  &
       )
       
       call this%peti(idx)%rotate(&
@@ -2574,6 +2595,8 @@ recursive subroutine rotateLeafSet_LeafClass(this,x,y,z,reset)
    end subroutine
 ! ############################################################
 
+
+! ############################################################
 subroutine moveLeafSet_LeafClass(this,x,y,z)
    class(LeafSet_),intent(inout) :: this
    real(real64),optional,intent(in) :: x,y,z
@@ -2592,5 +2615,49 @@ subroutine moveLeafSet_LeafClass(this,x,y,z)
       
    endif
 end subroutine
+! ############################################################
+
+
+! ############################################################
+function ne_LeafsetClass(this) result(number_of_element)
+   class(Leafset_),intent(in) :: this
+   integer(int32) :: i, number_of_element
+
+   number_of_element = 0
+   if(allocated(this%peti))then
+      do i=1,size(this%peti)
+         number_of_element = number_of_element + this%peti(i)%ne()
+      enddo
+   endif
+   if(allocated(this%leaf))then
+      do i=1,size(this%leaf)
+         number_of_element = number_of_element + this%leaf(i)%ne()
+      enddo
+   endif
+   
+end function
+! ############################################################
+
+
+! ############################################################
+function nn_LeafsetClass(this) result(number_of_node)
+   class(Leafset_),intent(in) :: this
+   integer(int32) :: i, number_of_node
+
+   number_of_node = 0
+   if(allocated(this%peti))then
+      do i=1,size(this%peti)
+         number_of_node = number_of_node + this%peti(i)%nn()
+      enddo
+   endif
+   if(allocated(this%leaf))then
+      do i=1,size(this%leaf)
+         number_of_node = number_of_node + this%leaf(i)%nn()
+      enddo
+   endif
+   
+end function
+! ############################################################
+
 
 end module
