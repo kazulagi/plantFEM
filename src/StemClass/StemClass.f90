@@ -544,8 +544,20 @@ contains
    subroutine resize(obj, x, y, z)
       class(Stem_), intent(inout) :: obj
       real(real64), optional, intent(in) :: x, y, z
+      real(real64) :: origin1(1:3),origin_rot(1:3)
+
+      ! pull back 
+      origin1 = obj%getCoordinate("A")
+      origin_rot = [obj%rot_x,obj%rot_y,obj%rot_z]
+      call obj%femdomain%move(x=-origin1(1),y=-origin1(2),z=-origin1(3))
+      call obj%femdomain%rotate(x=-origin_rot(1),y=-origin_rot(2),z=-origin_rot(3))
 
       call obj%femdomain%resize(x, y, z)
+
+      ! push forward
+      call obj%femdomain%rotate(x=origin_rot(1),y=origin_rot(2),z=origin_rot(3))
+      call obj%femdomain%move(x=origin1(1),y=origin1(2),z=origin1(3))
+
 
    end subroutine
 
@@ -778,12 +790,28 @@ end function
       class(Stem_), optional, intent(inout) :: obj
       real(real64), optional, intent(in) :: x, y, z
       real(real64), allocatable :: origin1(:), origin2(:), disp(:)
+      real(real64) :: rot_x,rot_y,rot_z
+      ! before resizing, rotate and move back!
 
+      ! pull back!
       origin1 = obj%getCoordinate("A")
+      rot_x = obj%rot_x
+      rot_y = obj%rot_y
+      rot_z = obj%rot_z
+      call obj%move(x=-origin1(1),y=-origin1(2),z=-origin1(3))
+      call obj%rotate(x = - rot_x, y = - rot_y, z = - rot_z)
+
+      ! change size
       call obj%femdomain%resize(x_len=x, y_len=y, z_len=z)
-      origin2 = obj%getCoordinate("A")
-      disp = origin1 - origin2
-      call obj%move(x=disp(1), y=disp(2), z=disp(3))
+
+      ! push forward
+      call obj%rotate(x = rot_x, y = rot_y, z = rot_z)
+      call obj%move(x=origin1(1),y=origin1(2),z=origin1(3))
+      
+
+      !origin2 = obj%getCoordinate("A")
+      !disp = origin1 - origin2
+      !call obj%move(x=disp(1), y=disp(2), z=disp(3))
    end subroutine
 ! ########################################
 

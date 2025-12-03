@@ -49,16 +49,22 @@ module MeristemClass
       integer(int32)  :: znum = 10
 
       ! branch
+      integer(int32) :: stem_idx ! the branch is branched from stem with stem_idx
+      integer(int32) :: leafset_idx ! the branch is branched from leafset with leafset_idx
       type(Meristem_),allocatable :: branch_meristem(:)
 
       ! meristem parameters
       integer(int32)  :: num_shoot_stem_node = 2
       real(real64) :: slight_overlap_epsilon = dble(1.0e-3)
-      real(real64) :: top_meristem_aspect_ratio = 0.70d0 ! if length/width is greater than this value, internodes are divided.
+      real(real64) :: top_meristem_aspect_ratio = 0.50d0 ! if length/width is greater than this value, internodes are divided.
+      real(real64) :: leaf_aspect_ratio = 0.50d0 ! width/length
+      real(real64) :: leaf_max_angle_deg = 90.0d0!
+      real(real64) :: leaf_curvature = 0.0d0
 
       ! position in a whole structure (single plant)
       integer(int32) :: MeristemID = -1
       integer(int32) :: InterNodeID = -1
+
       logical :: already_grown = .false.
 
       ! physical parameter
@@ -86,9 +92,12 @@ module MeristemClass
       real(real64) :: T_R ! time constant for cross-sectional growth of a single internode (m)
       real(real64) :: L_limit ! threshold for internode division
 
-      integer(int32) :: species = 1  ! 
+      integer(int32) :: species = 1  ! soybean
+
+      ! phenotype parameters
       real(real64) :: leaf_directional_angle = 120.0d0 ! 
       real(real64) :: last_leaf_direction = 0.0d0
+      real(real64) :: base_petiole_length_ratio = 3.0d0 ! (primary petiole length)/(n-th petiole length(n>1))
 
        ! <<<<<<<<<<<
       logical :: material_is_set
@@ -99,6 +108,7 @@ module MeristemClass
       real(real64) :: R_d = 1.0d0 ! 暗呼吸速度, mincro-mol/m-2/s
       real(real64) :: default_CarbonDiffusionCoefficient = 0.0010d0 ! ソースの拡散係数 mincro-mol/m^2/m/s
 
+      real(real64) :: average_drydensity = 0.50d0 ! dry bulk density, g/cm^3 = t/m^3
    contains
          procedure, public :: Init => initMeristem
          procedure, public :: rotate => rotateMeristem
@@ -109,7 +119,7 @@ module MeristemClass
 
          procedure,public :: set_branch => set_branch_MeristemC
 
-
+         procedure,public :: grow => grow_MeristemClass
 
          !procedure, pass :: change_length_or_width_Meristem
          !procedure, pass :: grow_by_pressure_Meristem
@@ -127,6 +137,11 @@ module MeristemClass
          procedure, public :: getAngles => getAngles_MeristemClass
          procedure, public :: getWidth => getWidthMeristem
          procedure, public :: getVolume => getVolumeMeristem
+         procedure, public :: get_all_femdomain => get_all_femdomain_MeristemClass
+         procedure, public :: getLeafsetAngles => getLeafsetAngles_MeristemClass
+
+         procedure, public :: ne => ne_MeristemClass ! number of FE-elements
+         procedure, public :: nn => nn_MeristemClass ! number of FE-nodes
 
          !procedure, public :: FullyExpanded => FullyExpandedMeristem
          procedure, public :: gmsh => gmshMeristem
@@ -140,8 +155,8 @@ module MeristemClass
          ! simulation
          procedure, public :: set_material => set_material_Meristem
          procedure, public :: sync => syncMeristem
-         procedure, public :: nn => nnMeristem
-         procedure, public :: ne => neMeristem
+         !procedure, public :: nn => nnMeristem
+         !procedure, public :: ne => neMeristem
          procedure, public :: remove => removeMeristem
    end type
 
@@ -182,6 +197,8 @@ subroutine initMeristem(this, MERISTEM_TYPE, params, num_internode,dt,species)
    !real(real64) :: T_pL ! Delay time (time constant) of each petiole internodes (s)
    !real(real64) :: T_pR ! Delay time (time constant) of each petiole radius (s)
    !real(real64) :: T_lL ! Delay time (time constant) for length of each leaf (s)
+
+   
 
    if(present(species))then
       this%species = species
@@ -257,12 +274,14 @@ subroutine initMeristem(this, MERISTEM_TYPE, params, num_internode,dt,species)
          do i=1,this%num_leafset_per_stem
             n = this%num_leafset_per_stem*(stem_idx-1) + i
             this%last_leaf_direction = this%last_leaf_direction + this%leaf_directional_angle
+            this%leafset(n)%leaf_aspect_ratio = this%leaf_aspect_ratio
             call this%leafset(n)%init( &
                num_leaf=this%num_leaf_per_leafset,&
                params=params(6:11),&
                species=this%species,&
                direction=radian(this%last_leaf_direction),&
-               dt=dt)
+               dt=dt,&
+               base_petiole_length_ratio=this%base_petiole_length_ratio)
             
             !call this%leafset(n)%rotate(x = radian(90.0d0))
 
@@ -490,18 +509,51 @@ end function
       class(Meristem_), intent(inout) :: this
       real(real64), optional, intent(in) :: x, y, z
       logical, optional, intent(in) :: reset
+      integer(int32) :: stem_idx,leafset_idx
       real(real64), allocatable :: origin1(:), origin2(:), disp(:)
 
-      if (present(reset)) then
-         if (reset .eqv. .true.) then
-            call this%femdomain%move(-this%disp_x, -this%disp_y, -this%disp_z)
-            this%disp_x = 0.0d0
-            this%disp_y = 0.0d0
-            this%disp_z = 0.0d0
+      if(.not.this%femdomain%empty())then
+         print *, "[CAUTION] > moveMeristem :: meristem%femdomain is regacy. It will be deleted."
+         if (present(reset)) then
+            if (reset .eqv. .true.) then
+               call this%femdomain%move(-this%disp_x, -this%disp_y, -this%disp_z)
+               this%disp_x = 0.0d0
+               this%disp_y = 0.0d0
+               this%disp_z = 0.0d0
+            end if
          end if
-      end if
 
-      call this%femdomain%move(x, y, z)
+         call this%femdomain%move(x, y, z)
+         this%disp_x = this%disp_x + input(default=0.0d0, option=x)
+         this%disp_y = this%disp_y + input(default=0.0d0, option=y)
+         this%disp_z = this%disp_z + input(default=0.0d0, option=z)
+      endif
+
+      if(allocated(this%stem))then
+         if(present(reset))then
+            print *, "[ERROR] :: moveMeristem :: reset option is regacy"
+            stop
+         else
+            do stem_idx=1,size(this%stem)
+               call this%stem(stem_idx)%move(x=x,y=y,z=z)
+            enddo
+         endif
+      endif
+
+
+      if(allocated(this%leafset))then
+         if(present(reset))then
+            print *, "[ERROR] :: moveMeristem :: reset option is regacy"
+            stop
+         else
+            do leafset_idx=1,size(this%leafset)
+               call this%leafset(leafset_idx)%move(x=x,y=y,z=z)
+            enddo
+         endif
+      endif
+
+      
+
       this%disp_x = this%disp_x + input(default=0.0d0, option=x)
       this%disp_y = this%disp_y + input(default=0.0d0, option=y)
       this%disp_z = this%disp_z + input(default=0.0d0, option=z)
@@ -654,6 +706,12 @@ end function
                   enddo
                end do
             end if
+
+            if(allocated(this%branch_meristem))then
+               do i=1,size(this%branch_meristem)
+                  femdomain = femdomain + this%branch_meristem(i)%get_all_femdomain()
+               enddo
+            endif
             
 
 
@@ -874,19 +932,20 @@ end function
 ! ####################################################################
 
 ! ####################################################################
-   function getBiomassMeristem(this) result(ret)
+   function getBiomassMeristem(this) result(ret) ! unit: g
       class(Meristem_), intent(in) :: this
       real(real64) :: ret
       integer(int32) :: i, j
 
-      ret = 0.0d0
-      if (this%femdomain%mesh%empty()) then
-         return
-      end if
-
-      do i = 1, this%femdomain%ne()
-         ret = ret + this%femdomain%getVolume(elem=i)*this%drydensity(i)
-      end do
+      ret = this%getVolume()*100.0d0*100.0d0*100.0d0*this%average_drydensity
+      !ret = 0.0d0
+      !if (this%femdomain%mesh%empty()) then
+      !   return
+      !end if
+      !
+      !do i = 1, this%femdomain%ne()
+      !   ret = ret + this%femdomain%getVolume(elem=i)*this%drydensity(i)
+      !end do
 
    end function
 ! ####################################################################
@@ -1094,19 +1153,19 @@ end function
 
    end subroutine
 
-   function nnMeristem(this) result(ret)
-      class(Meristem_), intent(in) :: this
-      integer(int32) :: ret
-
-      ret = this%femdomain%nn()
-   end function
-
-   function neMeristem(this) result(ret)
-      class(Meristem_), intent(in) :: this
-      integer(int32) :: ret
-
-      ret = this%femdomain%ne()
-   end function
+!   function nnMeristem(this) result(ret)
+!      class(Meristem_), intent(in) :: this
+!      integer(int32) :: ret
+!
+!      ret = this%femdomain%nn()
+!   end function
+!
+!   function neMeristem(this) result(ret)
+!      class(Meristem_), intent(in) :: this
+!      integer(int32) :: ret
+!
+!      ret = this%femdomain%ne()
+!   end function
 
 ! ############################################################
    function append_Meristem_thisect_vector(arg1, arg2) result(ret)
@@ -1238,7 +1297,8 @@ end function
       integer(int32) :: i, j, this_stem_id, next_stem_id, A_id, B_id, itr_tol, itr, k, kk
       integer(int32) :: this_leaf_id, next_leaf_id
       integer(int32) :: this_root_id, next_root_id, InterNodeID, PetioleID, StemID, LeafID
-      real(real64) :: x_A(3), x_B(3), diff(3), error, last_error, mgn, overset_m, error_tol,original_position(1:3),disp(1:3)
+      real(real64) :: x_A(3), x_B(3), diff(3), error, last_error, mgn, overset_m, error_tol,&
+         original_position(1:3),disp(1:3),origin_of_branch(1:3),old_origin_of_branch(1:3)
       type(Meristem_) :: meristem
       !logical, optional, intent(in) :: debug
 
@@ -1443,6 +1503,20 @@ end function
          end do
       endif
 
+      ! move branch
+      if(allocated(this%branch_meristem))then
+         do i=1,size(this%branch_meristem)
+            origin_of_branch = this%stem(this%branch_meristem(i)%stem_idx)%getCoordinate("A")
+            old_origin_of_branch = this%branch_meristem(i)%stem(1)%getCoordinate("A")
+
+            call this%branch_meristem(i)%move(&
+                  x=-old_origin_of_branch(1)+origin_of_branch(1),&
+                  y=-old_origin_of_branch(2)+origin_of_branch(2),&
+                  z=-old_origin_of_branch(3)+origin_of_branch(3) &
+               )
+            call this%branch_meristem(i)%update()
+         enddo
+      endif
 
       ! offset displacement
       !if ( norm(this%stem(1)%femdomain%mesh%nodcoord(1,3) - original_position) > error_tol)then
@@ -1452,20 +1526,6 @@ end function
 
    end subroutine
 ! ########################################
-
-subroutine grow_merisemClass(this,dt,temperature,reproductive_stage)
-   class(Meristem_),intent(inout) :: this
-   real(real64),intent(in) :: dt, temperature
-   logical,optional,intent(in) :: reproductive_stage
-   logical :: is_in_reproductive_stage
-
-   is_in_reproductive_stage = input(default=.false.,option=reproductive_stage)
-
-!   do j_j=1,size(this%stem)
-!      call this%grow_internode(idx=j_j,no_division=is_in_reproductive_stage)
-!   enddo
-
-end subroutine
 
 
 
@@ -1483,7 +1543,7 @@ subroutine grow_internodeMeristem(this,idx,params,dt,no_division)
    real(real64) :: L_limit ! 0.50d0 ! threshold length on subdivision of the top meristem
    
    real(real64) :: ex_ratio(1:3),max_width,t
-   integer(int32) :: leafset_idx,i,peti_idx,leaf_idx
+   integer(int32) :: leafset_idx,i,peti_idx,leaf_idx,rot_x,rot_y,rot_z
    
 
    K_L = params(1)
@@ -1493,6 +1553,8 @@ subroutine grow_internodeMeristem(this,idx,params,dt,no_division)
    L_limit = params(5)
 
    t = this%stem(idx)%my_time + dt
+
+   
    call this%stem(idx)%resize( &
          x = 2.0d0*K_R*(1.0d0 - exp(-t/T_R)) ,&
          y = 2.0d0*K_R*(1.0d0 - exp(-t/T_R)) ,&
@@ -1529,7 +1591,6 @@ subroutine grow_internodeMeristem(this,idx,params,dt,no_division)
    !   enddo
    !endif
 
-   call this%update()
 
 
 end subroutine
@@ -1585,18 +1646,20 @@ subroutine meristem_division_MeristemC(this,params,dt)
    !>(1) extend this%leafset2stem array (connectivity matrix)
    if(allocated(this%leafset2stem))then
       leafset2stem_buf = this%leafset2stem
+      ! stem + 1, leafset + n (n:this%num_leafset_per_stem)
       this%leafset2stem = zeros( size(leafset2stem_buf,1)+this%num_leafset_per_stem,&
-          size(leafset2stem_buf,2)+this%num_leafset_per_stem)
+          size(leafset2stem_buf,2)+1)
       this%leafset2stem(1:size(leafset2stem_buf,1),1:size(leafset2stem_buf,2)) &
          = leafset2stem_buf(:,:)
    else
-      allocate(this%leafset2stem(this%num_leafset_per_stem,size(this%stem)))
+      allocate(this%leafset2stem(this%num_leafset_per_stem,size(this%stem) ))
    endif
 
    !>(2) create new leafsets
    allocate(new_leafset(this%num_leafset_per_stem))
    stem_idx = size(this%stem)
    do i=1,size(new_leafset)
+      this%leafset(i)%leaf_aspect_ratio = this%leaf_aspect_ratio
       call new_leafset(i)%init(&
          num_leaf=this%num_leaf_per_leafset,&
          params=params(6:11),&
@@ -1611,12 +1674,16 @@ subroutine meristem_division_MeristemC(this,params,dt)
    this%leafset = this%leafset // new_leafset
 
    do i=old_leafset_size+1,size(this%leafset)
-      print *, allocated(this%leafset), size(this%leafset),old_leafset_size+1, size(this%leafset)
-      print *, i
+      !print *, allocated(this%leafset), size(this%leafset),old_leafset_size+1, size(this%leafset)
+      !print *, i
       if(this%leafset(i)%is_empty())cycle
-      call this%leafset(i)%peti(1)%connect("=>", this%stem(stem_idx))
-      this%leafset2stem( i,stem_idx ) = 1
+      call this%leafset(i)%peti(1)%connect("=>", this%stem(stem_idx-1))
+      this%leafset2stem( i,stem_idx-1 ) = 1
    enddo
+
+   
+
+
    call this%update()
    
 
@@ -1636,7 +1703,7 @@ end function
 
 
 ! ######################################################
-function getVolumeMeristem(this) result(vol)
+recursive function getVolumeMeristem(this) result(vol)
    class(Meristem_),intent(in) :: this
    real(real64) :: vol
    integer(int32) :: i,j
@@ -1654,22 +1721,238 @@ function getVolumeMeristem(this) result(vol)
          vol = vol + this%leafset(i)%leaf(j)%getVolume()
       enddo
    enddo
+   if(allocated(this%branch_meristem))then
+      do i=1,size(this%branch_meristem)
+         vol = vol + this%branch_meristem(i)%getVolume()
+      enddo
+   endif
 
 end function
 ! ######################################################
 
 
 ! ######################################################
-subroutine set_branch_MeristemC(this,stem_idx)
+subroutine set_branch_MeristemC(this,stem_idx,leafset_idx,params,dt)
    class(Meristem_),intent(inout) :: this
-   integer(int32),intent(in) :: stem_idx
+   integer(int32),intent(in) :: stem_idx,leafset_idx
+   real(real64),intent(in) :: params(:),dt
+   type(Meristem_),allocatable :: branch_meristem_buf(:)
+   real(real64) :: base_angle_x,base_angle_z,leafset_angles(1:3)
+   integer(int32) :: branch_idx
 
-   ! Creating branch at a leaf axil of a given stem idx.
+   ! Creating branch at a leaf axil of a given stem idx. (not for LATERAL ROOTS)
    ! The brancing angle is a half of the petiole angle.
+   if(.not.allocated(this%branch_meristem))then
+      allocate(this%branch_meristem(1))
+   else
+      ! extend array
+      branch_meristem_buf = this%branch_meristem
+      deallocate(this%branch_meristem)
+      allocate(this%branch_meristem(size(branch_meristem_buf)+1))
+      this%branch_meristem(1:size(branch_meristem_buf,1)) = branch_meristem_buf(:)
+      deallocate(branch_meristem_buf)
+   endif
+   branch_idx = size(this%branch_meristem)
+
+   call this%branch_meristem(branch_idx)%init(meristem_type=PF_MERISTEM_TYPE_SHOOT,params=params,dt=dt)
+   
+   ! set position of the base of branch
+   ! 
+   leafset_angles = this%getLeafsetAngles(stem_idx=stem_idx,leafset_idx=leafset_idx)
+   base_angle_x = 0.50d0*leafset_angles(1) ! half of the angle of leafset from its vertical positon.
+   base_angle_z = leafset_angles(3) ! same direction as leafset
+   !print *, base_angle_x
+   
+   call this%branch_meristem(branch_idx)%stem(1)%rotate(x=base_angle_x,z=base_angle_z)
    
 
-
+   ! connect
+   call this%branch_meristem(branch_idx)%stem(1)%connect("=>", this%stem(stem_idx))
+   this%branch_meristem(branch_idx)%stem_idx = stem_idx
+   this%branch_meristem(branch_idx)%leafset_idx = leafset_idx
+   
 end subroutine
 ! ######################################################
+
+! ######################################################
+recursive subroutine grow_MeristemClass(this,params,dt,no_division)
+   class(Meristem_),intent(inout) :: this
+   real(real64),intent(in) :: params(:),dt
+   logical,optional,intent(in) :: no_division
+   real(real64) :: base_angle_x, base_angle_z,leafset_angles(1:3)
+   integer(int32) :: i,j,leafset_idx,stem_idx
+
+   do i=1,size(this%stem)
+      call this%grow_internode(idx=i,params=params,dt=dt,no_division=no_division)
+   enddo
+   do i=1,size(this%leafset)
+      if(this%leafset(i)%is_empty()) cycle
+      this%leafset(i)%leaf_aspect_ratio= this%leaf_aspect_ratio
+      this%leafset(i)%max_angle_deg = this%leaf_max_angle_deg
+      this%leafset(i)%leaf_curvature = this%leaf_curvature
+      call this%leafset(i)%grow_peti_and_leaf(params=params(6:11),dt=dt,&
+         base_petiole_length_ratio=this%base_petiole_length_ratio)
+   enddo
+
+   if(allocated(this%branch_meristem))then
+      do i=1,size(this%branch_meristem)
+         !print *, "vol of 1st stem in 1st branch:before",i,this%branch_meristem(i)%stem(1)%getVolume(),&
+         !   this%branch_meristem(i)%stem(1)%my_time
+         !print *, "vol of last stem in 1st branch:before",i,&
+         !   this%branch_meristem(i)%stem(size(this%branch_meristem(i)%stem))%getVolume(),&
+         !   this%branch_meristem(i)%stem(size(this%branch_meristem(i)%stem))%my_time
+
+         call this%branch_meristem(i)%grow(params=params,dt=dt,no_division=no_division)
+         
+         ! my_timeは増加しているがvolumeは減っている．
+         !print *, "vol of 1st stem in 1st branch:after",i,this%branch_meristem(i)%stem(1)%getVolume(),&
+         !   this%branch_meristem(i)%stem(1)%my_time
+         !print *, "vol of last stem in 1st branch:after",i,&
+         !   this%branch_meristem(i)%stem(size(this%branch_meristem(i)%stem))%getVolume(),&
+         !   this%branch_meristem(i)%stem(size(this%branch_meristem(i)%stem))%my_time
+
+         ! set position of the base of branch
+         leafset_idx = this%branch_meristem(i)%leafset_idx
+         stem_idx = this%branch_meristem(i)%stem_idx
+         leafset_angles = this%getLeafsetAngles(stem_idx=stem_idx,leafset_idx=leafset_idx)
+         base_angle_x = 0.50d0*leafset_angles(1) ! half of the angle of leafset from its vertical positon.
+         base_angle_z = leafset_angles(3) ! same direction as leafset   
+         !print *, base_angle_x
+         do j=1,size(this%branch_meristem(i)%stem)
+            call this%branch_meristem(i)%stem(j)%rotate(x=base_angle_x,z=base_angle_z,reset=.true.)
+            base_angle_x = base_angle_x/2.0d0 ! gradually reaches vertical position
+         enddo
+         call this%branch_meristem(i)%update()
+      enddo
+   endif
+
+   call this%update()
+   
+end subroutine
+! ######################################################
+
+recursive function get_all_femdomain_MeristemClass(this) result(femdomain)
+   class(Meristem_),intent(in) :: this
+   type(FEMDomain_) :: femdomain
+   integer(int32) :: i, j
+
+   if (allocated(this%stem)) then
+      do i = 1, size(this%stem)
+         if (.not. this%stem(i)%femdomain%empty()) then
+            femdomain = femdomain + this%stem(i)%femdomain
+         end if
+      end do
+   end if
+   
+   if (allocated(this%leafset)) then
+      do i = 1, size(this%leafset)
+         if(this%leafset(i)%is_empty())cycle
+         do j=1, size(this%leafset(i)%peti)
+            femdomain = femdomain + this%leafset(i)%peti(j)%femdomain
+         enddo
+         do j=1, size(this%leafset(i)%leaf)
+            femdomain = femdomain + this%leafset(i)%leaf(j)%femdomain
+         enddo
+      end do
+   end if
+
+   if(allocated(this%branch_meristem))then
+      do i=1,size(this%branch_meristem)
+         femdomain = femdomain + this%get_all_femdomain()
+      enddo
+   endif
+
+end function
+
+! ############################################################
+function getLeafsetAngles_MeristemClass(this,stem_idx,leafset_idx) result(angles)
+   class(Meristem_),intent(in) :: this
+   integer(int32),intent(in) :: stem_idx, leafset_idx
+   real(real64) :: angles(1:3)
+   integer(int32) :: i,j,current_leafset_idx
+
+   if(leafset_idx > sum(this%leafset2stem(:,stem_idx)))then
+      print *, "[ERROR] :: getLeafsetAngles_MeristemClass >> leafset idx should be smaller than"
+      print *, sum(this%leafset2stem(:,stem_idx))," but leafset idx of ",leafset_idx, "are requested."
+      stop
+   endif
+   
+   angles(:) = 0.0d0
+   current_leafset_idx = 0 
+   do i=1,size(this%leafset2stem,1)
+      if(this%leafset2stem(i,stem_idx) ==1)then
+         current_leafset_idx = current_leafset_idx + 1
+         if(current_leafset_idx==leafset_idx)then
+            angles(:) = [&
+               this%leafset(i)%peti(1)%rot_x,&
+               this%leafset(i)%peti(1)%rot_y,&
+               this%leafset(i)%peti(1)%rot_z &
+            ]
+            return
+         endif
+      endif
+   enddo
+   
+   
+
+end function
+! ##############################################
+
+
+! ##############################################
+recursive function ne_MeristemClass(this) result(number_of_elements)
+   class(Meristem_),intent(in) :: this
+   integer(int32) :: number_of_elements,i
+
+   number_of_elements = 0
+   if(allocated(this%stem))then
+      do i=1,size(this%stem)
+         number_of_elements = number_of_elements + this%stem(i)%femdomain%ne()
+      enddo
+   endif
+
+   if(allocated(this%leafset))then
+      do i=1,size(this%leafset)
+         number_of_elements = number_of_elements + this%leafset(i)%ne()
+      enddo
+   endif
+   
+   if(allocated(this%branch_meristem))then
+      do i=1,size(this%branch_meristem)
+         number_of_elements = number_of_elements + this%branch_meristem(i)%ne()
+      enddo
+   endif
+
+end function
+! ##############################################
+
+
+
+! ##############################################
+recursive function nn_MeristemClass(this) result(number_of_nodes)
+   class(Meristem_),intent(in) :: this
+   integer(int32) :: number_of_nodes,i
+
+   number_of_nodes = 0
+   if(allocated(this%stem))then
+      do i=1,size(this%stem)
+         number_of_nodes = number_of_nodes + this%stem(i)%femdomain%nn()
+      enddo
+   endif
+
+   if(allocated(this%leafset))then
+      do i=1,size(this%leafset)
+         number_of_nodes = number_of_nodes + this%leafset(i)%nn()
+      enddo
+   endif
+   
+   if(allocated(this%branch_meristem))then
+      do i=1,size(this%branch_meristem)
+         number_of_nodes = number_of_nodes + this%branch_meristem(i)%nn()
+      enddo
+   endif
+
+end function
+! ##############################################
 
 end module
