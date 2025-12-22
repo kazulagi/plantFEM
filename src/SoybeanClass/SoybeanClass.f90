@@ -154,6 +154,9 @@ module SoybeanClass
 
       ! modal analysis
       logical :: use_LOBPCG = .false.
+      real(real64) :: LOBPCG_TOL = dble(1.0e-6)
+      integer(int32) :: LOBPCG_MAX_ITR = 100000
+
       ! contact analysis
       type(ContactMechanics_) :: contact
       real(real64) :: time
@@ -9424,7 +9427,10 @@ contains
          solver%debug = debug
       end if
 
+
       solver%use_LOBPCG = this%use_LOBPCG
+      solver%LOBPCG_TOL = this%LOBPCG_TOL
+      solver%LOBPCG_MAX_ITR = this%LOBPCG_MAX_ITR
       call solver%eig(eigen_value=All_Frequency, eigen_vectors=All_EigenVectors)
 
       if (present(femsolver)) then
@@ -12102,7 +12108,8 @@ function to_soybean_soybeanclass(&
       node_length,node_weight_g,node_diameter,peti_diameter,&
       peti_length,leaf_length,leaf_width,&
       leaf_thickness,&
-      num_leaf_set,num_leaf_per_set,leaf_peti_weight_g) result(ret)
+      num_leaf_set,num_leaf_per_set,leaf_peti_weight_g,&
+      mesh_div) result(ret)
    
    real(real64),  intent(in) :: node_length(:)
    real(real64),  intent(in) :: node_weight_g(:)
@@ -12115,6 +12122,7 @@ function to_soybean_soybeanclass(&
    integer(int32),optional,intent(in) :: num_leaf_set(:)
    integer(int32),optional,intent(in) :: num_leaf_per_set(:)
    real(real64),  optional,intent(in) :: leaf_peti_weight_g(:),leaf_thickness
+   integer(int32),optional,intent(in) :: mesh_div(1:3) ! number of mesh division
 
    type(Soybean_) :: ret
    type(Math_) :: math
@@ -12122,7 +12130,17 @@ function to_soybean_soybeanclass(&
    integer(int32) :: i, j, stem_idx,leaf_idx,k,leaf_ne_sum
    real(real64) ::  y_val,z_val,x_val,z_angle,leafset_volume,&
       stem_volume,stem_weight_g,stem_density,leafset_weight_g,leafset_density
-   integer(int32) :: leaf_idx_range(1:2),stem_idx_range(1:2)
+   integer(int32) :: leaf_idx_range(1:2),stem_idx_range(1:2),x_num,y_num,z_num
+
+   if(present(mesh_div))then
+      x_num = mesh_div(1)
+      y_num = mesh_div(2)
+      z_num = mesh_div(3)
+   else
+      x_num = 4
+      y_num = 4
+      z_num = 10
+   endif
 
    allocate(ret%stem(size(node_length)+sum(num_leaf_set)))
    allocate(ret%leaf(dot_product(num_leaf_per_set,num_leaf_set)))
@@ -12137,7 +12155,7 @@ function to_soybean_soybeanclass(&
    stem_idx = 0
    do i=1,size(node_length)
       stem_idx = stem_idx + 1
-      call ret%stem(i)%init()
+      call ret%stem(i)%init(x_num=x_num,y_num=y_num,z_num=z_num)
       call ret%stem(i)%resize(&
          x = node_diameter(i),&
          y = node_diameter(i),&
@@ -12164,7 +12182,7 @@ function to_soybean_soybeanclass(&
          stem_idx_range(1) = stem_idx + 1
          do j=1,num_leaf_set(i)
             stem_idx = stem_idx + 1
-            call ret%stem(stem_idx)%init()
+            call ret%stem(stem_idx)%init(x_num=x_num,y_num=y_num,z_num=z_num)
             call ret%stem(stem_idx)%resize(&
                   x = peti_diameter(i),&
                   y = peti_diameter(i),&
