@@ -4,7 +4,7 @@ program create_maize
     
     type(Arabidopsis_) :: arabi
 
-    call arabi%create("Tutorial/obj/arabidopsis.json")
+    call arabi%create("arabidopsis.json")
     call arabi%vtk("arabi",single_file=True)
 
 end program

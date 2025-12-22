@@ -30,6 +30,29 @@ module SoybeanClass
    integer(int32), parameter :: PF_DEFORMATION_ANALYSIS = 100
    integer(int32), parameter :: PF_DEFAULT_SOYBEAN_ASIZE = 300
 
+   ! connectivity information
+   ! s2s, l2s, ...etc.
+   !(1-1) stem to stem
+   integer(int32), private, parameter :: PF_SOYBEAN_MAINSTEM_TO_MAINSTEM = 1
+   integer(int32), private, parameter :: PF_SOYBEAN_BRANCH_TO_MAINSTEM   = 2
+   integer(int32), private, parameter :: PF_SOYBEAN_BRANCH_TO_BRANCH     = 3
+   !(1-2) petiole to stem
+   integer(int32), private, parameter :: PF_SOYBEAN_PETIOLE_TO_MAINSTEM  = 4
+   integer(int32), private, parameter :: PF_SOYBEAN_PETIOLE_TO_BRANCH    = 5
+   integer(int32), private, parameter :: PF_SOYBEAN_PETIOLE_TO_PETIOLE   = 6
+   !(2) leaf to stem/petiole
+   integer(int32), private, parameter :: PF_SOYBEAN_LEAF_TO_PETIOLE    = 11
+   integer(int32), private, parameter :: PF_SOYBEAN_LEAF_TO_MAINSTEM   = 12
+   integer(int32), private, parameter :: PF_SOYBEAN_LEAF_TO_BRANCH     = 13
+   !(2) root to stem/petiole
+   integer(int32), private, parameter :: PF_SOYBEAN_ROOT_TO_ROOT       = 21
+   integer(int32), private, parameter :: PF_SOYBEAN_ROOT_TO_MAINSTEM   = 22
+   integer(int32), private, parameter :: PF_SOYBEAN_ROOT_TO_BRANCH     = 23
+
+   !(2) root to meristem to stem
+   integer(int32), private, parameter :: PF_SOYBEAN_MERISTEM_TO_MAINSTEM = 31
+   integer(int32), private, parameter :: PF_SOYBEAN_MERISTEM_TO_BRANCH   = 32
+
    type :: soybean_
 
       ! [new implementation with the meristem-class]
@@ -115,10 +138,12 @@ module SoybeanClass
 
       ! 節-節点データ構造
       type(Mesh_) :: struct
+      integer(int32), allocatable :: meristem2stem(:,:)
       integer(int32), allocatable :: leaf2stem(:, :)
       integer(int32), allocatable :: stem2stem(:, :)
       integer(int32), allocatable :: root2stem(:, :)
       integer(int32), allocatable :: root2root(:, :)
+
 
       ! 器官オブジェクト配列 (regacy)
       type(FEMDomain_), allocatable :: leaf_list(:)
@@ -153,6 +178,7 @@ module SoybeanClass
       real(real64) :: Gravity_acceralation = 9.810d0
       real(real64) :: PenaltyParameter = 100000.0d0
       logical :: GaussPointProjection = .false.
+      integer(int32) :: overset_algorithm = FEMDomain_Overset_GPP !
 
       integer(int32), allocatable :: NodeID_MainStem(:)
       type(soybean_NodeID_Branch_), allocatable :: NodeID_Branch(:)
@@ -210,6 +236,12 @@ module SoybeanClass
       procedure, pass :: init_as_seed_soybean
       generic :: init => initsoybean,init_as_seed_soybean
 
+      
+      procedure, pass :: setMeristem_soybeanclass
+      procedure, pass :: setMeristem_multi_soy
+      generic, public :: setMeristem => setMeristem_soybeanclass,setMeristem_multi_soy
+      
+
       procedure, public :: VC => VCSoybean
 
       procedure, public :: remove => removeSoybean
@@ -227,6 +259,7 @@ module SoybeanClass
       procedure, public :: setProperties => setPropertiesSoybean
       procedure, public :: easy_grow => easy_grow_SoybeanClass
 
+      
       ! editor
       procedure, public :: set_stem_length_by_list => set_stem_length_by_list_Soybean
       procedure, public :: set_stem_angle_by_list => set_stem_angle_by_list_Soybean
@@ -312,6 +345,16 @@ module SoybeanClass
       procedure, public :: getNumberOfElement => getNumberOfElementSoybean
       procedure, public :: getDistanceToGroundFromStemID &
          => getDistanceToGroundFromStemIDSoybean
+      
+      procedure, public :: getNumberOfBranch => getNumberOfBranch_Soy
+      procedure, public :: getMainStemTipIdx => getMainStemTipIdx_Soy
+      procedure, public :: getBranchStemTipIdx => getBranchStemTipIdx_Soy
+      procedure, public :: getBranchBaseStemIdx => getBranchBaseStemIdx_Soy
+      procedure, public :: getTipOfStem => getTipOfStem_SoybeanClass
+      procedure, public :: getNumberOfInternode => getNumberOfInternode_Soy
+      procedure, public :: getInternodes => getInternodes_Soy
+      
+
       procedure, public :: getDistanceToGroundFromRootID &
          => getDistanceToGroundFromRootIDSoybean
       procedure, public :: getLeafCosValue => getLeafCosValueSoybean
@@ -407,6 +450,7 @@ module SoybeanClass
       procedure, public :: move => moveSoybean
       procedure, public :: rotate => rotateSoybean
 
+      procedure, public :: numMeristem => numMeristemSoybean
       procedure, public :: numleaf => numleafsoybean
       procedure, public :: numstem => numstemsoybean
       procedure, public :: numroot => numrootsoybean
@@ -450,6 +494,10 @@ module SoybeanClass
       real(real64) :: inter_row, intra_row
       type(soybean_), allocatable :: Canopy(:, :)
    end type
+
+   interface to_soybean
+      module procedure to_soybean_soybeanclass
+   end interface
 
 contains
 
@@ -646,7 +694,7 @@ contains
       ! end of primary growth
       this%stem(2)%already_grown = .true.
 
-      this%stem2stem(2, 1) = 1
+      this%stem2stem(2, 1) = PF_SOYBEAN_MAINSTEM_TO_MAINSTEM
 
       do i = 3, 4
          this%num_leaf = this%num_leaf + 1
@@ -681,102 +729,102 @@ contains
       call this%update()
       ! no root
 
-      this%stem2stem(2, 1) = 1
+      this%stem2stem(2, 1) = PF_SOYBEAN_MAINSTEM_TO_MAINSTEM
 
    end subroutine
 
 ! ########################################
-   recursive subroutine updateSoybean(obj, stem_id, root_id, leaf_id, overset_margin, debug)
-      class(Soybean_), intent(inout) :: obj
+   recursive subroutine updateSoybean(this, stem_id, root_id, leaf_id, overset_margin, debug)
+      class(Soybean_), intent(inout) :: this
       integer(int32), optional, intent(in) :: stem_id, root_id, leaf_id
       real(real64), optional, intent(in) :: overset_margin
-      integer(int32) :: i, j, this_stem_id, next_stem_id, A_id, B_id, itr_tol, itr, k, kk
+      integer(int32) :: i, j, this_stem_id, next_stem_id, A_id, B_id, itr_tol, itr, k, kk,meristem_id
       integer(int32) :: this_leaf_id, next_leaf_id
       integer(int32) :: this_root_id, next_root_id, InterNodeID, PetioleID, StemID, LeafID
       real(real64) :: x_A(3), x_B(3), diff(3), error, last_error, mgn, overset_m, error_tol,original_position(1:3),disp(1:3)
       logical, optional, intent(in) :: debug
 
-      original_position = obj%stem(1)%femdomain%mesh%nodcoord(1,3)
+      original_position = this%stem(1)%femdomain%mesh%nodcoord(1,3)
 
-      if (obj%default_Leaf_growth_ratio > 0.0d0) then
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%empty()) cycle
-            obj%leaf(i)%length_growth_ratio = obj%default_Leaf_growth_ratio
-            obj%leaf(i)%Width_growth_ratio = obj%default_Leaf_growth_ratio
+      if (this%default_Leaf_growth_ratio > 0.0d0) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%empty()) cycle
+            this%leaf(i)%length_growth_ratio = this%default_Leaf_growth_ratio
+            this%leaf(i)%Width_growth_ratio = this%default_Leaf_growth_ratio
          end do
       end if
 
-      if (obj%default_stem_growth_ratio > 0.0d0) then
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%empty()) cycle
-            obj%stem(i)%length_growth_ratio = obj%default_stem_growth_ratio
-            obj%stem(i)%Width_growth_ratio = obj%default_stem_growth_ratio
+      if (this%default_stem_growth_ratio > 0.0d0) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%empty()) cycle
+            this%stem(i)%length_growth_ratio = this%default_stem_growth_ratio
+            this%stem(i)%Width_growth_ratio = this%default_stem_growth_ratio
          end do
       end if
 
       ! if soybean_internode_info_ is active
       ! update parameters
-      if (allocated(obj%InterNodeInfo)) then
-         do i = 0, obj%MaxBranchNum
+      if (allocated(this%InterNodeInfo)) then
+         do i = 0, this%MaxBranchNum
 
-            if (allocated(obj%InterNodeInfo(i)%FinalInterNodeLength)) then
-               do j = 1, obj%maxInterNodeID(StemID=i)
-                  InterNodeID = obj%searchStem(StemID=i, InterNodeID=j)
-                  if (size(obj%InterNodeInfo(i)%FinalInterNodeLength) < j) then
+            if (allocated(this%InterNodeInfo(i)%FinalInterNodeLength)) then
+               do j = 1, this%maxInterNodeID(StemID=i)
+                  InterNodeID = this%searchStem(StemID=i, InterNodeID=j)
+                  if (size(this%InterNodeInfo(i)%FinalInterNodeLength) < j) then
                      print *, "ERROR :: updateSoybean >> "
-                     print *, "size(obj%InterNodeInfo(i)%FinalInterNodeLength) is not enough"
+                     print *, "size(this%InterNodeInfo(i)%FinalInterNodeLength) is not enough"
                      stop
                   end if
                   if (InterNodeID < 1) then
                      cycle
                   end if
-                  obj%stem(InterNodeID)%final_length = obj%InterNodeInfo(i)%FinalInterNodeLength(j)
+                  this%stem(InterNodeID)%final_length = this%InterNodeInfo(i)%FinalInterNodeLength(j)
                end do
             end if
 
-            if (allocated(obj%InterNodeInfo(i)%FinalPetioleLength)) then
-               do j = 1, obj%maxInterNodeID(StemID=i)
-                  do k = 1, obj%maxPetioleID(StemID=i, InterNodeID=j)
-                     if (size(obj%InterNodeInfo(i)%FinalPetioleLength) < j) then
+            if (allocated(this%InterNodeInfo(i)%FinalPetioleLength)) then
+               do j = 1, this%maxInterNodeID(StemID=i)
+                  do k = 1, this%maxPetioleID(StemID=i, InterNodeID=j)
+                     if (size(this%InterNodeInfo(i)%FinalPetioleLength) < j) then
                         print *, "ERROR :: updateSoybean >> "
-                        print *, "size(obj%InterNodeInfo(i)%FinalInterNodeLength) is not enough"
+                        print *, "size(this%InterNodeInfo(i)%FinalInterNodeLength) is not enough"
                         stop
                      end if
 
-                     PetioleID = obj%searchPetiole(StemID=i, InterNodeID=j, PetioleID=k)
+                     PetioleID = this%searchPetiole(StemID=i, InterNodeID=j, PetioleID=k)
 
-                     obj%stem(PetioleID)%final_length = obj%InterNodeInfo(i)%FinalPetioleLength(j)
+                     this%stem(PetioleID)%final_length = this%InterNodeInfo(i)%FinalPetioleLength(j)
                   end do
                end do
             end if
 
-            if (allocated(obj%InterNodeInfo(i)%FinalLeafLength)) then
-               do j = 1, obj%maxInterNodeID(StemID=i)
-                  do k = 1, obj%maxPetioleID(StemID=i, InterNodeID=j)
-                     do kk = 1, obj%maxleafID(StemID=i, InterNodeID=j, PetioleID=k)
-                        if (size(obj%InterNodeInfo(i)%FinalLeafLength) < j) then
+            if (allocated(this%InterNodeInfo(i)%FinalLeafLength)) then
+               do j = 1, this%maxInterNodeID(StemID=i)
+                  do k = 1, this%maxPetioleID(StemID=i, InterNodeID=j)
+                     do kk = 1, this%maxleafID(StemID=i, InterNodeID=j, PetioleID=k)
+                        if (size(this%InterNodeInfo(i)%FinalLeafLength) < j) then
                            print *, "ERROR :: updateSoybean >> "
-                           print *, "size(obj%InterNodeInfo(i)%FinalInterNodeLength) is not enough"
+                           print *, "size(this%InterNodeInfo(i)%FinalInterNodeLength) is not enough"
                            stop
                         end if
-                        LeafID = obj%searchleaf(StemID=i, InterNodeID=j, PetioleID=k, LeafID=kk)
-                        obj%leaf(LeafID)%final_length = obj%InterNodeInfo(i)%FinalLeafLength(j)
+                        LeafID = this%searchleaf(StemID=i, InterNodeID=j, PetioleID=k, LeafID=kk)
+                        this%leaf(LeafID)%final_length = this%InterNodeInfo(i)%FinalLeafLength(j)
                      end do
                   end do
                end do
             end if
 
-            if (allocated(obj%InterNodeInfo(i)%FinalLeafWidth)) then
-               do j = 1, obj%maxInterNodeID(StemID=i)
-                  do k = 1, obj%maxPetioleID(StemID=i, InterNodeID=j)
-                     do kk = 1, obj%maxleafID(StemID=i, InterNodeID=j, PetioleID=k)
-                        if (size(obj%InterNodeInfo(i)%FinalLeafWidth) < j) then
+            if (allocated(this%InterNodeInfo(i)%FinalLeafWidth)) then
+               do j = 1, this%maxInterNodeID(StemID=i)
+                  do k = 1, this%maxPetioleID(StemID=i, InterNodeID=j)
+                     do kk = 1, this%maxleafID(StemID=i, InterNodeID=j, PetioleID=k)
+                        if (size(this%InterNodeInfo(i)%FinalLeafWidth) < j) then
                            print *, "ERROR :: updateSoybean >> "
-                           print *, "size(obj%InterNodeInfo(i)%FinalInterNodeLength) is not enough"
+                           print *, "size(this%InterNodeInfo(i)%FinalInterNodeLength) is not enough"
                            stop
                         end if
-                        LeafID = obj%searchleaf(StemID=i, InterNodeID=j, PetioleID=k, LeafID=kk)
-                        obj%leaf(LeafID)%final_Width = obj%InterNodeInfo(i)%FinalLeafWidth(j)
+                        LeafID = this%searchleaf(StemID=i, InterNodeID=j, PetioleID=k, LeafID=kk)
+                        this%leaf(LeafID)%final_Width = this%InterNodeInfo(i)%FinalLeafWidth(j)
                      end do
                   end do
                end do
@@ -786,8 +834,8 @@ contains
       end if
 
       ! update connectivity
-      if (.not. allocated(obj%stem2stem)) then
-         print *, "updateSoybean >> ERROR :: .not. allocated(obj%stem2stem )"
+      if (.not. allocated(this%stem2stem)) then
+         print *, "updateSoybean >> ERROR :: .not. allocated(this%stem2stem )"
          return
       end if
 
@@ -802,38 +850,38 @@ contains
       ! if debug
       !if(present(debug) )then
       !    if(debug)then
-      !        print *, "obj%stem2stem"
-      !        call print(obj%stem2stem)
+      !        print *, "this%stem2stem"
+      !        call print(this%stem2stem)
       !    endif
       !endif
 
       ! stem to stem
       last_error = 1.0d0
-      if (maxval(obj%stem2stem) /= 0) then
+      if (maxval(this%stem2stem) >= 1) then
 
          do
             itr = itr + 1
             error = 0.0d0
-            do i = 1, size(obj%stem2stem, 1)
-               do j = 1, size(obj%stem2stem, 2)
+            do i = 1, size(this%stem2stem, 1)
+               do j = 1, size(this%stem2stem, 2)
                   this_stem_id = j
                   next_stem_id = i
-                  if (obj%stem2stem(i, j) /= 0 .and. i /= j) then
+                  if (this%stem2stem(i, j) >= 1 .and. i /= j) then
                      ! this_stem_id ===>>> next_stem_id, connected!
 
-                     !x_B(:) = obj%stem(this_stem_id)%getCoordinate("B")
-                     !x_A(:) = obj%stem(next_stem_id)%getCoordinate("A")
+                     !x_B(:) = this%stem(this_stem_id)%getCoordinate("B")
+                     !x_A(:) = this%stem(next_stem_id)%getCoordinate("A")
                      ! Overset分食い込ませる
-                     x_B(:) = (1.0d0 - overset_m)*obj%stem(this_stem_id)%getCoordinate("B") &
-                              + overset_m*obj%stem(this_stem_id)%getCoordinate("A")
+                     x_B(:) = (1.0d0 - overset_m)*this%stem(this_stem_id)%getCoordinate("B") &
+                              + overset_m*this%stem(this_stem_id)%getCoordinate("A")
                      ! Overset分食い込ませる
-                     x_A(:) = (1.0d0 - overset_m)*obj%stem(next_stem_id)%getCoordinate("A") &
-                              + overset_m*obj%stem(next_stem_id)%getCoordinate("B")
+                     x_A(:) = (1.0d0 - overset_m)*this%stem(next_stem_id)%getCoordinate("A") &
+                              + overset_m*this%stem(next_stem_id)%getCoordinate("B")
 
                      diff(:) = x_B(:) - x_A(:)
 
                      error = error + dot_product(diff, diff)
-                     call obj%stem(next_stem_id)%move(x=diff(1), y=diff(2), z=diff(3))
+                     call this%stem(next_stem_id)%move(x=diff(1), y=diff(2), z=diff(3))
 
                   end if
                end do
@@ -854,30 +902,30 @@ contains
       end if
 
       ! root to stem
-      if (allocated(obj%root2stem)) then
+      if (allocated(this%root2stem)) then
          last_error = 1.0d0
          do
             itr = itr + 1
             error = 0.0d0
-            do i = 1, size(obj%root2stem, 1)
-               do j = 1, size(obj%root2stem, 2)
+            do i = 1, size(this%root2stem, 1)
+               do j = 1, size(this%root2stem, 2)
                   this_stem_id = j
                   next_root_id = i
-                  if (obj%root2stem(i, j) == 1) then
+                  if (this%root2stem(i, j) == 1) then
                      ! this_stem_id ===>>> next_root_id, connected!
-                     !x_B(:) = obj%stem(this_stem_id)%getCoordinate("B")
-                     !x_A(:) = obj%root(next_root_id)%getCoordinate("A")
+                     !x_B(:) = this%stem(this_stem_id)%getCoordinate("B")
+                     !x_A(:) = this%root(next_root_id)%getCoordinate("A")
 
                      ! Overset分食い込ませる
-                     x_B(:) = (1.0d0 - overset_m)*obj%stem(this_stem_id)%getCoordinate("A") &
-                              + overset_m*obj%stem(this_stem_id)%getCoordinate("B")
+                     x_B(:) = (1.0d0 - overset_m)*this%stem(this_stem_id)%getCoordinate("A") &
+                              + overset_m*this%stem(this_stem_id)%getCoordinate("B")
                      ! Overset分食い込ませる
-                     x_A(:) = (1.0d0 - overset_m)*obj%root(next_root_id)%getCoordinate("A") &
-                              + overset_m*obj%root(next_root_id)%getCoordinate("B")
+                     x_A(:) = (1.0d0 - overset_m)*this%root(next_root_id)%getCoordinate("A") &
+                              + overset_m*this%root(next_root_id)%getCoordinate("B")
 
                      diff(:) = x_B(:) - x_A(:)
                      error = error + dot_product(diff, diff)
-                     call obj%root(next_root_id)%move(x=diff(1), y=diff(2), z=diff(3))
+                     call this%root(next_root_id)%move(x=diff(1), y=diff(2), z=diff(3))
                   end if
                end do
             end do
@@ -896,34 +944,34 @@ contains
          end do
       end if
 
-      if (allocated(obj%root2root)) then
+      if (allocated(this%root2root)) then
          ! root to root
          last_error = 1.0d0
          do
             itr = itr + 1
             error = 0.0d0
-            do i = 1, size(obj%root2root, 1)
-               do j = 1, size(obj%root2root, 2)
+            do i = 1, size(this%root2root, 1)
+               do j = 1, size(this%root2root, 2)
                   this_root_id = j
                   next_root_id = i
                   if (next_root_id == 1) then
                      cycle
                   end if
-                  if (obj%root2root(i, j) /= 0 .and. i /= j) then
+                  if (this%root2root(i, j) /= 0 .and. i /= j) then
                      ! this_root_id ===>>> next_root_id, connected!
-                     !x_B(:) = obj%root(this_root_id)%getCoordinate("B")
-                     !x_A(:) = obj%root(next_root_id)%getCoordinate("A")
+                     !x_B(:) = this%root(this_root_id)%getCoordinate("B")
+                     !x_A(:) = this%root(next_root_id)%getCoordinate("A")
 
                      ! Overset分食い込ませる
-                     x_B(:) = (1.0d0 - overset_m)*obj%root(this_root_id)%getCoordinate("B") &
-                              + overset_m*obj%root(this_root_id)%getCoordinate("A")
+                     x_B(:) = (1.0d0 - overset_m)*this%root(this_root_id)%getCoordinate("B") &
+                              + overset_m*this%root(this_root_id)%getCoordinate("A")
                      ! Overset分食い込ませる
-                     x_A(:) = (1.0d0 - overset_m)*obj%root(next_root_id)%getCoordinate("A") &
-                              + overset_m*obj%root(next_root_id)%getCoordinate("B")
+                     x_A(:) = (1.0d0 - overset_m)*this%root(next_root_id)%getCoordinate("A") &
+                              + overset_m*this%root(next_root_id)%getCoordinate("B")
 
                      diff(:) = x_B(:) - x_A(:)
                      error = error + dot_product(diff, diff)
-                     call obj%root(next_root_id)%move(x=diff(1), y=diff(2), z=diff(3))
+                     call this%root(next_root_id)%move(x=diff(1), y=diff(2), z=diff(3))
                   end if
                end do
             end do
@@ -947,24 +995,24 @@ contains
       do
          itr = itr + 1
          error = 0.0d0
-         do i = 1, size(obj%leaf2stem, 1)
-            do j = 1, size(obj%leaf2stem, 2)
+         do i = 1, size(this%leaf2stem, 1)
+            do j = 1, size(this%leaf2stem, 2)
                this_stem_id = j
                next_leaf_id = i
-               if (obj%leaf2stem(i, j) == 1) then
+               if (this%leaf2stem(i, j) == 1) then
                   ! this_stem_id ===>>> next_leaf_id, connected!
-                  !x_B(:) = obj%stem(this_stem_id)%getCoordinate("B")
-                  !x_A(:) = obj%leaf(next_leaf_id)%getCoordinate("A")
+                  !x_B(:) = this%stem(this_stem_id)%getCoordinate("B")
+                  !x_A(:) = this%leaf(next_leaf_id)%getCoordinate("A")
 
                   ! Overset分食い込ませる
-                  x_B(:) = (1.0d0 - overset_m)*obj%stem(this_stem_id)%getCoordinate("B") &
-                           + overset_m*obj%stem(this_stem_id)%getCoordinate("A")
+                  x_B(:) = (1.0d0 - overset_m)*this%stem(this_stem_id)%getCoordinate("B") &
+                           + overset_m*this%stem(this_stem_id)%getCoordinate("A")
                   ! Overset分食い込ませる
-                  x_A(:) = obj%leaf(next_leaf_id)%getCoordinate("A")
+                  x_A(:) = this%leaf(next_leaf_id)%getCoordinate("A")
 
                   diff(:) = x_B(:) - x_A(:)
                   error = error + dot_product(diff, diff)
-                  call obj%leaf(next_leaf_id)%move(x=diff(1), y=diff(2), z=diff(3))
+                  call this%leaf(next_leaf_id)%move(x=diff(1), y=diff(2), z=diff(3))
                end if
             end do
          end do
@@ -982,21 +1030,49 @@ contains
          last_error = error
       end do
 
+      
+      !> connect meristem to stem
+      if (allocated(this%meristem2stem) ) then
+         do i = 1, size(this%meristem2stem, 1)
+            do j = 1, size(this%meristem2stem, 2)
+               if (this%meristem2stem(i, j) >= 1 ) then
+                  ! this_stem_id ===>>> meristem_id, connected!
+                  !x_B(:) = this%stem(this_stem_id)%getCoordinate("B")
+                  !x_A(:) = this%stem(meristem_id)%getCoordinate("A")
+                  ! Overset分食い込ませる
+                  this_stem_id = j
+                  meristem_id  = i
+
+                  x_B(:) = (1.0d0 - overset_m)*this%stem(this_stem_id)%getCoordinate("B") &
+                           + overset_m*this%stem(this_stem_id)%getCoordinate("A")
+                  ! Overset分食い込ませる
+                  x_A(:) = (1.0d0 - overset_m)*this%meristem(meristem_id)%stem(1)%getCoordinate("A") &
+                           + overset_m*this%meristem(meristem_id)%stem(1)%getCoordinate("B")
+                  diff(:) = x_B(:) - x_A(:)
+                  error = error + dot_product(diff, diff)
+                  call this%meristem(meristem_id)%move(x=diff(1), y=diff(2), z=diff(3))
+                  call this%meristem(meristem_id)%update()
+               end if
+            end do
+         end do
+      end if
+
+
       ! offset displacement
-      !if ( norm(obj%stem(1)%femdomain%mesh%nodcoord(1,3) - original_position) > error_tol)then
-      !   disp = obj%stem(1)%femdomain%mesh%nodcoord(1,3) - original_position
-      !   call obj%move(x=-disp(1),y=-disp(2),z=-disp(3))
+      !if ( norm(this%stem(1)%femdomain%mesh%nodcoord(1,3) - original_position) > error_tol)then
+      !   disp = this%stem(1)%femdomain%mesh%nodcoord(1,3) - original_position
+      !   call this%move(x=-disp(1),y=-disp(2),z=-disp(3))
       !endif
 
    end subroutine
 ! ########################################
 
 ! ########################################
-   subroutine initsoybean(obj, config, &
+   subroutine initsoybean(this, config, &
                           regacy, mass, water_content, radius, location, x, y, z, &
                           PlantRoot_diameter_per_seed_radius, max_PlantNode_num, Variety, FileName, &
                           max_leaf_num, max_stem_num, max_root_num, profiler)
-      class(Soybean_), intent(inout) :: obj
+      class(Soybean_), intent(inout) :: this
 
       real(real64), optional, intent(in) :: mass, water_content, radius, location(3), x, y, z
       real(real64), optional, intent(in) :: PlantRoot_diameter_per_seed_radius
@@ -1022,7 +1098,7 @@ contains
       real(real64) :: seed_width,seed_length,seed_thickness
       integer(int32) :: seed_division
 
-      obj%UUID = generate_uuid(1)
+      this%UUID = generate_uuid(1)
 
       timeOpt = input(default=.false., option=profiler)
 
@@ -1036,21 +1112,21 @@ contains
             seed_width     = soyconf%parse_json(filename=config, keys=to_list("Seed","Width"))
             seed_thickness = soyconf%parse_json(filename=config, keys=to_list("Seed","Thickness"))
             seed_division  = soyconf%parse_json(filename=config, keys=to_list("Seed","Division"))
-            call obj%init(&
+            call this%init(&
                radius=[seed_length,seed_width,seed_thickness],&
                division=[seed_division,seed_division,seed_division])
             return
          endif
       endif
 
-      !if(.not.allocated(obj%InterNodeInfo) )then
-      !    allocate(this%InterNodeInfo(0:obj%MaxBranchNum) )
+      !if(.not.allocated(this%InterNodeInfo) )then
+      !    allocate(this%InterNodeInfo(0:this%MaxBranchNum) )
       !    ! default value
-      !    do i=0,size(obj%InterNodeInfo)
-      !        obj%InterNodeInfo(i)%FinalInterNodeLength = linspace([0.030d0,0.060d0],30)
-      !        obj%InterNodeInfo(i)%FinalLeafLength      = linspace([0.050d0,0.20d0],30)
-      !        obj%InterNodeInfo(i)%FinalLeafWidth       = linspace([0.020d0,0.25d0],30)
-      !        obj%InterNodeInfo(i)%FinalPetioleLength   = linspace([0.050d0,0.25d0],30)
+      !    do i=0,size(this%InterNodeInfo)
+      !        this%InterNodeInfo(i)%FinalInterNodeLength = linspace([0.030d0,0.060d0],30)
+      !        this%InterNodeInfo(i)%FinalLeafLength      = linspace([0.050d0,0.20d0],30)
+      !        this%InterNodeInfo(i)%FinalLeafWidth       = linspace([0.020d0,0.25d0],30)
+      !        this%InterNodeInfo(i)%FinalPetioleLength   = linspace([0.050d0,0.25d0],30)
       !    enddo
       !endif
 
@@ -1058,57 +1134,57 @@ contains
          call time%start()
       end if
 
-      call obj%remove()
+      call this%remove()
       ! set default parameters
       ! stem
-      obj%br_node(:) = 0
-      obj%br_from(:) = 0
-      obj%br_length(:) = 0.0d0
+      this%br_node(:) = 0
+      this%br_from(:) = 0
+      this%br_length(:) = 0.0d0
 
-      obj%br_angle_ave(:) = 0.0d0
-      obj%br_angle_sig(:) = 10.0d0
-      !obj%br_angle_ave(1)=10.0d0
-      !obj%br_angle_sig(1)=2.0d0
+      this%br_angle_ave(:) = 0.0d0
+      this%br_angle_sig(:) = 10.0d0
+      !this%br_angle_ave(1)=10.0d0
+      !this%br_angle_sig(1)=2.0d0
 
-      obj%ms_angle_ave = 0.0d0
-      obj%ms_angle_sig = 2.0d0
+      this%ms_angle_ave = 0.0d0
+      this%ms_angle_sig = 2.0d0
 
       ! for roots
-      obj%brr_node(:) = 0
-      obj%brr_from(:) = 0
-      obj%brr_length(:) = 0.0d0
+      this%brr_node(:) = 0
+      this%brr_from(:) = 0
+      this%brr_length(:) = 0.0d0
 
-      obj%brr_angle_ave(:) = 0.0d0
-      obj%brr_angle_sig(:) = 10.0d0
-      obj%brr_angle_ave(1) = 30.0d0
-      obj%brr_angle_sig(1) = 2.0d0
+      this%brr_angle_ave(:) = 0.0d0
+      this%brr_angle_sig(:) = 10.0d0
+      this%brr_angle_ave(1) = 30.0d0
+      this%brr_angle_sig(1) = 2.0d0
 
-      obj%mr_angle_ave = 0.0d0
-      obj%mr_angle_sig = 2.0d0
+      this%mr_angle_ave = 0.0d0
+      this%mr_angle_sig = 2.0d0
       ! peti
       ! is also stem
 
-      obj%peti_size_ave(:) = 0.20d0
-      obj%peti_size_sig(:) = 0.010d0
+      this%peti_size_ave(:) = 0.20d0
+      this%peti_size_sig(:) = 0.010d0
 
-      obj%peti_width_ave(:) = 0.0050d0
-      obj%peti_width_sig(:) = 0.00010d0
+      this%peti_width_ave(:) = 0.0050d0
+      this%peti_width_sig(:) = 0.00010d0
 
-      obj%peti_angle_ave(:) = 30.0d0
-      obj%peti_angle_sig(:) = 1.00d0
+      this%peti_angle_ave(:) = 30.0d0
+      this%peti_angle_sig(:) = 1.00d0
 
       ! leaf
-      obj%leaf_length_ave(:) = 0.20d0
-      obj%leaf_length_sig(:) = 0.01d0
+      this%leaf_length_ave(:) = 0.20d0
+      this%leaf_length_sig(:) = 0.01d0
 
-      obj%leaf_width_ave(:) = 0.050d0
-      obj%leaf_width_sig(:) = 0.010d0
+      this%leaf_width_ave(:) = 0.050d0
+      this%leaf_width_sig(:) = 0.010d0
 
-      obj%leaf_thickness_ave(:) = 0.00100d0
-      obj%leaf_thickness_sig(:) = 0.00050d0
+      this%leaf_thickness_ave(:) = 0.00100d0
+      this%leaf_thickness_sig(:) = 0.00050d0
 
-      obj%leaf_angle_ave(:) = 80.0d0
-      obj%leaf_angle_sig(:) = 10.0d0
+      this%leaf_angle_ave(:) = 80.0d0
+      this%leaf_angle_sig(:) = 10.0d0
 
       if (timeOpt) then
          print *, "[1] set default values :: "
@@ -1184,9 +1260,9 @@ contains
 
       line = soyconf%parse(conf, key1="Genotype", key2="Dt1")
       if (index(line, "Dt1") /= 0) then
-         obj%determinate = .False.
+         this%determinate = .False.
       else
-         obj%determinate = .True.
+         this%determinate = .True.
       end if
 
       call soyconf%open(conf)
@@ -1211,7 +1287,7 @@ contains
                   line(rmc:rmc) = " "
                end if
                id = index(line, ":")
-               read (line(id + 1:), *) obj%name
+               read (line(id + 1:), *) this%name
             end if
 
             if (index(line, "Mainstem") /= 0) then
@@ -1228,7 +1304,7 @@ contains
                         line(rmc:rmc) = " "
                      end if
                      id = index(line, ":")
-                     read (line(id + 1:), *) obj%ms_length
+                     read (line(id + 1:), *) this%ms_length
                   end if
 
                   if (index(line, "Width") /= 0) then
@@ -1237,7 +1313,7 @@ contains
                         line(rmc:rmc) = " "
                      end if
                      id = index(line, ":")
-                     read (line(id + 1:), *) obj%ms_width
+                     read (line(id + 1:), *) this%ms_width
                   end if
 
                   if (index(line, "Node") /= 0) then
@@ -1246,7 +1322,7 @@ contains
                         line(rmc:rmc) = " "
                      end if
                      id = index(line, ":")
-                     read (line(id + 1:), *) obj%ms_node
+                     read (line(id + 1:), *) this%ms_node
                   end if
 
                end do
@@ -1286,7 +1362,7 @@ contains
                         line(rmc:rmc) = " "
                      end if
                      id = index(line, ":")
-                     read (line(id + 1:), *) obj%br_length(branch_id)
+                     read (line(id + 1:), *) this%br_length(branch_id)
                   end if
 
                   if (index(line, "Width") /= 0) then
@@ -1295,7 +1371,7 @@ contains
                         line(rmc:rmc) = " "
                      end if
                      id = index(line, ":")
-                     read (line(id + 1:), *) obj%br_Width(branch_id)
+                     read (line(id + 1:), *) this%br_Width(branch_id)
                   end if
 
                   if (index(line, "Node") /= 0) then
@@ -1304,7 +1380,7 @@ contains
                         line(rmc:rmc) = " "
                      end if
                      id = index(line, ":")
-                     read (line(id + 1:), *) obj%br_node(branch_id)
+                     read (line(id + 1:), *) this%br_node(branch_id)
                   end if
 
                   if (index(line, "From") /= 0) then
@@ -1313,7 +1389,7 @@ contains
                         line(rmc:rmc) = " "
                      end if
                      id = index(line, ":")
-                     read (line(id + 1:), *) obj%br_from(branch_id)
+                     read (line(id + 1:), *) this%br_from(branch_id)
                   end if
 
                end do
@@ -1335,7 +1411,7 @@ contains
                         line(rmc:rmc) = " "
                      end if
                      id = index(line, ":")
-                     read (line(id + 1:), *) obj%mr_length
+                     read (line(id + 1:), *) this%mr_length
                   end if
 
                   if (index(line, "Width") /= 0) then
@@ -1344,7 +1420,7 @@ contains
                         line(rmc:rmc) = " "
                      end if
                      id = index(line, ":")
-                     read (line(id + 1:), *) obj%mr_width
+                     read (line(id + 1:), *) this%mr_width
                   end if
 
                   if (index(line, "Node") /= 0) then
@@ -1353,7 +1429,7 @@ contains
                         line(rmc:rmc) = " "
                      end if
                      id = index(line, ":")
-                     read (line(id + 1:), *) obj%mr_node
+                     read (line(id + 1:), *) this%mr_node
                   end if
 
                end do
@@ -1393,7 +1469,7 @@ contains
                         line(rmc:rmc) = " "
                      end if
                      id = index(line, ":")
-                     read (line(id + 1:), *) obj%brr_length(branch_id)
+                     read (line(id + 1:), *) this%brr_length(branch_id)
                   end if
 
                   if (index(line, "Width") /= 0) then
@@ -1402,7 +1478,7 @@ contains
                         line(rmc:rmc) = " "
                      end if
                      id = index(line, ":")
-                     read (line(id + 1:), *) obj%brr_Width(branch_id)
+                     read (line(id + 1:), *) this%brr_Width(branch_id)
                   end if
 
                   if (index(line, "Node") /= 0) then
@@ -1411,7 +1487,7 @@ contains
                         line(rmc:rmc) = " "
                      end if
                      id = index(line, ":")
-                     read (line(id + 1:), *) obj%brr_node(branch_id)
+                     read (line(id + 1:), *) this%brr_node(branch_id)
                   end if
 
                   if (index(line, "From") /= 0) then
@@ -1420,7 +1496,7 @@ contains
                         line(rmc:rmc) = " "
                      end if
                      id = index(line, ":")
-                     read (line(id + 1:), *) obj%brr_from(branch_id)
+                     read (line(id + 1:), *) this%brr_from(branch_id)
                   end if
 
                end do
@@ -1434,7 +1510,7 @@ contains
                   line(rmc:rmc) = " "
                end if
                id = index(line, ":")
-               read (line(id + 1:), *) obj%rootconfig
+               read (line(id + 1:), *) this%rootconfig
             end if
 
             if (index(line, "stemconfig") /= 0) then
@@ -1445,7 +1521,7 @@ contains
                   line(rmc:rmc) = " "
                end if
                id = index(line, ":")
-               read (line(id + 1:), *) obj%stemconfig
+               read (line(id + 1:), *) this%stemconfig
             end if
 
             if (index(line, "leafconfig") /= 0) then
@@ -1456,7 +1532,7 @@ contains
                   line(rmc:rmc) = " "
                end if
                id = index(line, ":")
-               read (line(id + 1:), *) obj%leafconfig
+               read (line(id + 1:), *) this%leafconfig
             end if
 
             if (index(line, "stage") /= 0) then
@@ -1467,7 +1543,7 @@ contains
                   line(rmc:rmc) = " "
                end if
                id = index(line, ":")
-               read (line(id + 1:), *) obj%stage_id
+               read (line(id + 1:), *) this%stage_id
             end if
 
             if (index(line, "MaxLeafNum") /= 0) then
@@ -1478,7 +1554,7 @@ contains
                   line(rmc:rmc) = " "
                end if
                id = index(line, ":")
-               read (line(id + 1:), *) obj%MaxLeafNum
+               read (line(id + 1:), *) this%MaxLeafNum
             end if
 
             if (index(line, "MaxStemNum") /= 0) then
@@ -1489,7 +1565,7 @@ contains
                   line(rmc:rmc) = " "
                end if
                id = index(line, ":")
-               read (line(id + 1:), *) obj%MaxStemNum
+               read (line(id + 1:), *) this%MaxStemNum
             end if
 
             if (index(line, "MaxRootNum") /= 0) then
@@ -1500,7 +1576,7 @@ contains
                   line(rmc:rmc) = " "
                end if
                id = index(line, ":")
-               read (line(id + 1:), *) obj%MaxRootNum
+               read (line(id + 1:), *) this%MaxRootNum
             end if
 
             if (index(line, "length") /= 0) then
@@ -1511,7 +1587,7 @@ contains
                   line(rmc:rmc) = " "
                end if
                id = index(line, ":")
-               read (line(id + 1:), *) obj%seed_length
+               read (line(id + 1:), *) this%seed_length
             end if
 
             if (index(line, "width") /= 0) then
@@ -1522,7 +1598,7 @@ contains
                   line(rmc:rmc) = " "
                end if
                id = index(line, ":")
-               read (line(id + 1:), *) obj%seed_width
+               read (line(id + 1:), *) this%seed_width
             end if
 
             if (index(line, "height") /= 0) then
@@ -1533,7 +1609,7 @@ contains
                   line(rmc:rmc) = " "
                end if
                id = index(line, ":")
-               read (line(id + 1:), *) obj%seed_height
+               read (line(id + 1:), *) this%seed_height
             end if
 
             ! for version 2020.11.24
@@ -1548,7 +1624,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%br_angle_ave(:) = readvalreal
+               this%br_angle_ave(:) = readvalreal
             end if
 
             if (index(line, "br_angle_sig") /= 0 .and. index(line, "br_angle_sig(") == 0) then
@@ -1560,7 +1636,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%br_angle_sig(:) = readvalreal
+               this%br_angle_sig(:) = readvalreal
             end if
 
             if (index(line, "br_angle_ave(1)") /= 0) then
@@ -1572,7 +1648,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%br_angle_ave(1) = readvalreal
+               this%br_angle_ave(1) = readvalreal
             end if
             if (index(line, "br_angle_sig(1)") /= 0) then
 
@@ -1583,7 +1659,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%br_angle_sig(1) = readvalreal
+               this%br_angle_sig(1) = readvalreal
             end if
 
             if (index(line, "ms_angle_ave") /= 0) then
@@ -1595,7 +1671,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%ms_angle_ave = readvalreal
+               this%ms_angle_ave = readvalreal
             end if
 
             if (index(line, "ms_angle_sig") /= 0) then
@@ -1607,7 +1683,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%ms_angle_sig = readvalreal
+               this%ms_angle_sig = readvalreal
             end if
             ! peti
             ! is also stem
@@ -1621,7 +1697,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%peti_size_ave(:) = readvalreal
+               this%peti_size_ave(:) = readvalreal
             end if
 
             if (index(line, "peti_size_sig") /= 0) then
@@ -1633,7 +1709,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%peti_size_sig(:) = readvalreal
+               this%peti_size_sig(:) = readvalreal
             end if
 
             if (index(line, "peti_width_ave") /= 0) then
@@ -1645,7 +1721,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%peti_width_ave(:) = readvalreal
+               this%peti_width_ave(:) = readvalreal
             end if
 
             if (index(line, "peti_width_sig") /= 0) then
@@ -1657,7 +1733,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%peti_width_sig(:) = readvalreal
+               this%peti_width_sig(:) = readvalreal
             end if
 
             if (index(line, "peti_angle_ave") /= 0) then
@@ -1669,7 +1745,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%peti_angle_ave(:) = readvalreal
+               this%peti_angle_ave(:) = readvalreal
             end if
 
             if (index(line, "peti_angle_sig") /= 0) then
@@ -1681,7 +1757,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%peti_angle_sig(:) = readvalreal
+               this%peti_angle_sig(:) = readvalreal
             end if
             ! leaf
 
@@ -1694,7 +1770,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%leaf_length_ave(:) = readvalreal
+               this%leaf_length_ave(:) = readvalreal
             end if
 
             if (index(line, "leaf_length_sig") /= 0) then
@@ -1706,7 +1782,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%leaf_length_sig(:) = readvalreal
+               this%leaf_length_sig(:) = readvalreal
             end if
 
             if (index(line, "leaf_width_ave") /= 0) then
@@ -1718,7 +1794,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%leaf_width_ave(:) = readvalreal
+               this%leaf_width_ave(:) = readvalreal
             end if
 
             if (index(line, "leaf_width_sig") /= 0) then
@@ -1730,7 +1806,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%leaf_width_sig(:) = readvalreal
+               this%leaf_width_sig(:) = readvalreal
             end if
 
             if (index(line, "leaf_thickness_ave") /= 0) then
@@ -1742,7 +1818,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%leaf_thickness_ave(:) = readvalreal
+               this%leaf_thickness_ave(:) = readvalreal
             end if
 
             if (index(line, "leaf_thickness_sig") /= 0) then
@@ -1754,7 +1830,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%leaf_thickness_sig(:) = readvalreal
+               this%leaf_thickness_sig(:) = readvalreal
             end if
 
             if (index(line, "leaf_angle_ave") /= 0) then
@@ -1766,7 +1842,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%leaf_angle_ave(:) = readvalreal
+               this%leaf_angle_ave(:) = readvalreal
             end if
 
             if (index(line, "leaf_angle_sig") /= 0) then
@@ -1778,7 +1854,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%leaf_angle_sig(:) = readvalreal
+               this%leaf_angle_sig(:) = readvalreal
             end if
 
             ! added in 2020/12/15
@@ -1793,7 +1869,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%brr_angle_ave(:) = readvalreal
+               this%brr_angle_ave(:) = readvalreal
             end if
 
             if (index(line, "brr_angle_sig") /= 0 .and. index(line, "brr_angle_sig(") == 0) then
@@ -1805,7 +1881,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%brr_angle_sig(:) = readvalreal
+               this%brr_angle_sig(:) = readvalreal
             end if
 
             if (index(line, "brr_angle_ave(1)") /= 0) then
@@ -1817,7 +1893,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%brr_angle_ave(1) = readvalreal
+               this%brr_angle_ave(1) = readvalreal
             end if
             if (index(line, "brr_angle_sig(1)") /= 0) then
 
@@ -1828,7 +1904,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%brr_angle_sig(1) = readvalreal
+               this%brr_angle_sig(1) = readvalreal
             end if
 
             if (index(line, "mr_angle_ave") /= 0) then
@@ -1840,7 +1916,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%mr_angle_ave = readvalreal
+               this%mr_angle_ave = readvalreal
             end if
 
             if (index(line, "mr_angle_sig") /= 0) then
@@ -1852,7 +1928,7 @@ contains
                end if
                id = index(line, ":")
                read (line(id + 1:), *) readvalreal
-               obj%mr_angle_sig = readvalreal
+               this%mr_angle_sig = readvalreal
             end if
 
             cycle
@@ -1863,9 +1939,9 @@ contains
       call soyconf%close()
 
       if (index(config, ".json") == 0) then
-         obj%stemconfig = " "
-         obj%rootconfig = " "
-         obj%leafconfig = " "
+         this%stemconfig = " "
+         this%rootconfig = " "
+         this%leafconfig = " "
       end if
 
       if (timeOpt) then
@@ -1873,7 +1949,7 @@ contains
          call time%show()
       end if
 
-      if (obj%ms_node /= 0) then
+      if (this%ms_node /= 0) then
          ! loaded from Mainstem-Branches relation file format
          ! ex.
 !       {
@@ -1899,85 +1975,85 @@ contains
 !           }
 !       }
          ! count number of nodes
-         !num_node = countif(obj%ms_node,notEquai=.true.,0)
-         !num_node = num_node + countif(obj%br_node,notEquai=.true.,0)
+         !num_node = countif(this%ms_node,notEquai=.true.,0)
+         !num_node = num_node + countif(this%br_node,notEquai=.true.,0)
 
-         allocate (obj%leaf(obj%MaxLeafNum))
-         allocate (obj%root(obj%MaxrootNum))
-         allocate (obj%stem(obj%MaxstemNum))
+         allocate (this%leaf(this%MaxLeafNum))
+         allocate (this%root(this%MaxrootNum))
+         allocate (this%stem(this%MaxstemNum))
 
-         allocate (obj%leafYoungModulus(obj%MaxLeafNum))
-         allocate (obj%rootYoungModulus(obj%MaxrootNum))
-         allocate (obj%stemYoungModulus(obj%MaxstemNum))
+         allocate (this%leafYoungModulus(this%MaxLeafNum))
+         allocate (this%rootYoungModulus(this%MaxrootNum))
+         allocate (this%stemYoungModulus(this%MaxstemNum))
          ! default value
-         obj%leafYoungModulus(:) = 1000.0d0
-         obj%rootYoungModulus(:) = 1000.0d0
-         obj%stemYoungModulus(:) = 1000.0d0
+         this%leafYoungModulus(:) = 1000.0d0
+         this%rootYoungModulus(:) = 1000.0d0
+         this%stemYoungModulus(:) = 1000.0d0
 
-         allocate (obj%leafPoissonRatio(obj%MaxLeafNum))
-         allocate (obj%rootPoissonRatio(obj%MaxrootNum))
-         allocate (obj%stemPoissonRatio(obj%MaxstemNum))
-         obj%leafPoissonRatio(:) = 0.30d0
-         obj%rootPoissonRatio(:) = 0.30d0
-         obj%stemPoissonRatio(:) = 0.30d0
+         allocate (this%leafPoissonRatio(this%MaxLeafNum))
+         allocate (this%rootPoissonRatio(this%MaxrootNum))
+         allocate (this%stemPoissonRatio(this%MaxstemNum))
+         this%leafPoissonRatio(:) = 0.30d0
+         this%rootPoissonRatio(:) = 0.30d0
+         this%stemPoissonRatio(:) = 0.30d0
 
-         allocate (obj%leafDensity(obj%MaxLeafNum))
-         allocate (obj%rootDensity(obj%MaxrootNum))
-         allocate (obj%stemDensity(obj%MaxstemNum))
+         allocate (this%leafDensity(this%MaxLeafNum))
+         allocate (this%rootDensity(this%MaxrootNum))
+         allocate (this%stemDensity(this%MaxstemNum))
 
-         obj%leafDensity(:) = 0.0d0
-         obj%rootDensity(:) = 0.0d0
-         obj%stemDensity(:) = 0.0d0
+         this%leafDensity(:) = 0.0d0
+         this%rootDensity(:) = 0.0d0
+         this%stemDensity(:) = 0.0d0
 
-         allocate (obj%stem2stem(obj%MaxstemNum, obj%MaxstemNum))
-         allocate (obj%leaf2stem(obj%MaxstemNum, obj%MaxLeafNum))
-         allocate (obj%root2stem(obj%MaxrootNum, obj%MaxstemNum))
-         allocate (obj%root2root(obj%MaxrootNum, obj%MaxrootNum))
-         obj%stem2stem(:, :) = 0
-         obj%leaf2stem(:, :) = 0
-         obj%root2stem(:, :) = 0
-         obj%root2root(:, :) = 0
+         allocate (this%stem2stem(this%MaxstemNum, this%MaxstemNum))
+         allocate (this%leaf2stem(this%MaxstemNum, this%MaxLeafNum))
+         allocate (this%root2stem(this%MaxrootNum, this%MaxstemNum))
+         allocate (this%root2root(this%MaxrootNum, this%MaxrootNum))
+         this%stem2stem(:, :) = 0
+         this%leaf2stem(:, :) = 0
+         this%root2stem(:, :) = 0
+         this%root2root(:, :) = 0
 
          ! set mainstem
 
-         allocate (obj%NodeID_MainStem(obj%ms_node))
+         allocate (this%NodeID_MainStem(this%ms_node))
 
-         if (index(obj%stemconfig, ".json") == 0) then
+         if (index(this%stemconfig, ".json") == 0) then
             call stem%init( &
-               x_num=obj%stem_division(1), &
-               y_num=obj%stem_division(2), &
-               z_num=obj%stem_division(3) &
+               x_num=this%stem_division(1), &
+               y_num=this%stem_division(2), &
+               z_num=this%stem_division(3) &
                )
          else
-            call stem%init(config=obj%stemconfig)
+            call stem%init(config=this%stemconfig)
          end if
 
-         do i = 1, obj%ms_node
+         do i = 1, this%ms_node
 
-            !call obj%stem(i)%init(config=obj%stemconfig)
+            !call this%stem(i)%init(config=this%stemconfig)
 
-            obj%stem(i) = stem
+            this%stem(i) = stem
 
-            obj%stem(i)%stemID = 0
-            obj%stem(i)%InterNodeID = i
-            obj%stem(i)%already_grown = .true.
+            this%stem(i)%stemID = 0
+            this%stem(i)%InterNodeID = i
+            this%stem(i)%already_grown = .true.
 
-            obj%NodeID_MainStem(i) = i
-            call obj%stem(i)%resize( &
-               x=obj%ms_width, &
-               y=obj%ms_width, &
-               z=obj%ms_length/dble(obj%ms_node) &
+            this%NodeID_MainStem(i) = i
+            call this%stem(i)%resize( &
+               x=this%ms_width, &
+               y=this%ms_width, &
+               z=this%ms_length/dble(this%ms_node) &
                )
-            call obj%stem(i)%move( &
-               x=-obj%ms_width/2.0d0, &
-               y=-obj%ms_width/2.0d0, &
-               z=-obj%ms_length/dble(obj%ms_node)/2.0d0 &
+            call this%stem(i)%move( &
+               x=-this%ms_width/2.0d0, &
+               y=-this%ms_width/2.0d0, &
+               z=-this%ms_length/dble(this%ms_node)/2.0d0 &
                )
 
-            call obj%stem(i)%rotate( &
-               x=radian(random%gauss(mu=obj%ms_angle_ave, sigma=obj%ms_angle_sig)), &
-               y=radian(random%gauss(mu=obj%ms_angle_ave, sigma=obj%ms_angle_sig)), &
-               z=radian(random%gauss(mu=obj%ms_angle_ave, sigma=obj%ms_angle_sig)) &
+            call this%stem(i)%rotate( &
+               x=radian(random%gauss(mu=this%ms_angle_ave, sigma=this%ms_angle_sig)), &
+               y=radian(random%gauss(mu=this%ms_angle_ave, sigma=this%ms_angle_sig)), &
+               z=radian(random%gauss(mu=this%ms_angle_ave, sigma=this%ms_angle_sig)) &
                )
 
          end do
@@ -1987,50 +2063,50 @@ contains
             call time%show()
          end if
 
-         do i = 1, obj%ms_node - 1
-            call obj%stem(i + 1)%connect("=>", obj%stem(i))
-            obj%stem2stem(i + 1, i) = 1
+         do i = 1, this%ms_node - 1
+            call this%stem(i + 1)%connect("=>", this%stem(i))
+            this%stem2stem(i + 1, i) = PF_SOYBEAN_MAINSTEM_TO_MAINSTEM
          end do
 
          ! set branches
-         k = obj%ms_node
-         allocate (obj%NodeID_Branch(size(obj%br_node)))
-         do i = 1, size(obj%br_node) ! num branch
-            allocate (obj%NodeID_Branch(i)%ID(obj%br_node(i)))
-            do j = 1, obj%br_node(i)
+         k = this%ms_node
+         allocate (this%NodeID_Branch(size(this%br_node)))
+         do i = 1, size(this%br_node) ! num branch
+            allocate (this%NodeID_Branch(i)%ID(this%br_node(i)))
+            do j = 1, this%br_node(i)
 
                k = k + 1
-               !call obj%stem(k)%init(config=obj%stemconfig)
-               obj%stem(k) = stem
-               obj%stem(k)%stemID = i
-               obj%stem(k)%InterNodeID = j
-               obj%stem(k)%already_grown = .true.
+               !call this%stem(k)%init(config=this%stemconfig)
+               this%stem(k) = stem
+               this%stem(k)%stemID = i
+               this%stem(k)%InterNodeID = j
+               this%stem(k)%already_grown = .true.
 
-               obj%NodeID_Branch(i)%ID(j) = k
+               this%NodeID_Branch(i)%ID(j) = k
 
-               call obj%stem(k)%resize( &
-                  x=obj%br_width(i), &
-                  y=obj%br_width(i), &
-                  z=obj%br_length(i)/dble(obj%br_node(i)) &
+               call this%stem(k)%resize( &
+                  x=this%br_width(i), &
+                  y=this%br_width(i), &
+                  z=this%br_length(i)/dble(this%br_node(i)) &
                   )
 
-               call obj%stem(k)%move( &
-                  x=-obj%br_width(i)/2.0d0, &
-                  y=-obj%br_width(i)/2.0d0, &
-                  z=-obj%br_length(i)/dble(obj%br_node(i))/2.0d0 &
+               call this%stem(k)%move( &
+                  x=-this%br_width(i)/2.0d0, &
+                  y=-this%br_width(i)/2.0d0, &
+                  z=-this%br_length(i)/dble(this%br_node(i))/2.0d0 &
                   )
-               call obj%stem(k)%rotate( &
-                  x=radian(random%gauss(mu=obj%br_angle_ave(j), sigma=obj%br_angle_sig(j))), &
+               call this%stem(k)%rotate( &
+                  x=radian(random%gauss(mu=this%br_angle_ave(j), sigma=this%br_angle_sig(j))), &
                   y=0.0d0, &
                   z=radian(360.0d0*random%random()) &
                   )
 
                if (j == 1) then
-                  call obj%stem(k)%connect("=>", obj%stem(obj%br_from(i)))
-                  obj%stem2stem(k, obj%br_from(i)) = 1
+                  call this%stem(k)%connect("=>", this%stem(this%br_from(i)))
+                  this%stem2stem(k, this%br_from(i)) = PF_SOYBEAN_BRANCH_TO_MAINSTEM
                else
-                  call obj%stem(k)%connect("=>", obj%stem(k - 1))
-                  obj%stem2stem(k, k - 1) = 1
+                  call this%stem(k)%connect("=>", this%stem(k - 1))
+                  this%stem2stem(k, k - 1) = PF_SOYBEAN_BRANCH_TO_BRANCH
                end if
 
             end do
@@ -2042,97 +2118,97 @@ contains
          end if
 
          ! peti and leaf
-         obj%num_stem_node = k
-         obj%num_leaf = 0
+         this%num_stem_node = k
+         this%num_leaf = 0
          ! bugfix 2021/08/18
-         !call leaf%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
+         !call leaf%init(config=this%leafconfig,species=PF_GLYCINE_SOJA)
 
-         if (index(obj%leafconfig, ".json") == 0) then
+         if (index(this%leafconfig, ".json") == 0) then
             call leaf%init(species=PF_GLYCINE_SOJA, &
-                           x_num=obj%leaf_division(1), &
-                           y_num=obj%leaf_division(2), &
-                           z_num=obj%leaf_division(3) &
+                           x_num=this%leaf_division(1), &
+                           y_num=this%leaf_division(2), &
+                           z_num=this%leaf_division(3) &
                            )
          else
-            call leaf%init(config=obj%leafconfig, species=PF_GLYCINE_SOJA)
+            call leaf%init(config=this%leafconfig, species=PF_GLYCINE_SOJA)
          end if
 
          if (.not. stem%empty()) then
             call stem%remove()
          end if
 
-         if (index(obj%stemconfig, ".json") == 0) then
+         if (index(this%stemconfig, ".json") == 0) then
 
             call stem%init( &
-               x_num=obj%peti_division(1), &
-               y_num=obj%peti_division(2), &
-               z_num=obj%peti_division(3) &
+               x_num=this%peti_division(1), &
+               y_num=this%peti_division(2), &
+               z_num=this%peti_division(3) &
                )
          else
-            call stem%init(config=obj%stemconfig)
+            call stem%init(config=this%stemconfig)
          end if
 
          do i = 1, k
             ! ３複葉
             ! add peti
-            obj%num_stem_node = obj%num_stem_node + 1
-            !call obj%stem(obj%num_stem_node)%init(config=obj%stemconfig)
-            obj%stem(obj%num_stem_node) = stem
-            obj%stem(obj%num_stem_node)%already_grown = .true.
+            this%num_stem_node = this%num_stem_node + 1
+            !call this%stem(this%num_stem_node)%init(config=this%stemconfig)
+            this%stem(this%num_stem_node) = stem
+            this%stem(this%num_stem_node)%already_grown = .true.
 
-            call obj%stem(obj%num_stem_node)%resize( &
-               x=random%gauss(mu=obj%peti_width_ave(i), sigma=obj%peti_width_sig(i)), &
-               y=random%gauss(mu=obj%peti_width_ave(i), sigma=obj%peti_width_sig(i)), &
-               z=random%gauss(mu=obj%peti_size_ave(i), sigma=obj%peti_size_sig(i)) &
+            call this%stem(this%num_stem_node)%resize( &
+               x=random%gauss(mu=this%peti_width_ave(i), sigma=this%peti_width_sig(i)), &
+               y=random%gauss(mu=this%peti_width_ave(i), sigma=this%peti_width_sig(i)), &
+               z=random%gauss(mu=this%peti_size_ave(i), sigma=this%peti_size_sig(i)) &
                )
-            call obj%stem(obj%num_stem_node)%rotate( &
-               x=radian(random%gauss(mu=obj%peti_angle_ave(i), sigma=obj%peti_angle_sig(i))), &
+            call this%stem(this%num_stem_node)%rotate( &
+               x=radian(random%gauss(mu=this%peti_angle_ave(i), sigma=this%peti_angle_sig(i))), &
                y=0.0d0, &
                z=radian(360.0d0*random%random()) &
                )
-            call obj%stem(obj%num_stem_node)%connect("=>", obj%stem(i))
-            !obj%leaf2stem(num_stem_node,i) = 1
-            obj%stem2stem(obj%num_stem_node, i) = 1
+            call this%stem(this%num_stem_node)%connect("=>", this%stem(i))
+            !this%leaf2stem(num_stem_node,i) = 1
+            this%stem2stem(this%num_stem_node, i) = PF_SOYBEAN_PETIOLE_TO_MAINSTEM
 
             ! add leaves
 
-            leaf_z_angles = linspace([0.0d0, 360.0d0], obj%max_num_leaf_per_petiole + 1)
-            do j = 1, obj%max_num_leaf_per_petiole
+            leaf_z_angles = linspace([0.0d0, 360.0d0], this%max_num_leaf_per_petiole + 1)
+            do j = 1, this%max_num_leaf_per_petiole
                leaf_z_angles(j) = radian(leaf_z_angles(j))
             end do
 
             leaf_z_angles(:) = leaf_z_angles(:) + radian(random%random()*360.0d0)
 
-            do j = 1, obj%max_num_leaf_per_petiole
-               obj%num_leaf = obj%num_leaf + 1
-               !call obj%leaf(obj%num_leaf)%init(config=obj%leafconfig,species=PF_GLYCINE_SOJA)
-               obj%leaf(obj%num_leaf) = leaf
-               obj%leaf(obj%num_leaf)%LeafID = j
+            do j = 1, this%max_num_leaf_per_petiole
+               this%num_leaf = this%num_leaf + 1
+               !call this%leaf(this%num_leaf)%init(config=this%leafconfig,species=PF_GLYCINE_SOJA)
+               this%leaf(this%num_leaf) = leaf
+               this%leaf(this%num_leaf)%LeafID = j
 
-               y_val = random%gauss(mu=obj%leaf_thickness_ave(i), sigma=obj%leaf_thickness_sig(i))
-               z_val = random%gauss(mu=obj%leaf_length_ave(i), sigma=obj%leaf_length_sig(i))
-               x_val = random%gauss(mu=obj%leaf_width_ave(i), sigma=obj%leaf_width_sig(i))
+               y_val = random%gauss(mu=this%leaf_thickness_ave(i), sigma=this%leaf_thickness_sig(i))
+               z_val = random%gauss(mu=this%leaf_length_ave(i), sigma=this%leaf_length_sig(i))
+               x_val = random%gauss(mu=this%leaf_width_ave(i), sigma=this%leaf_width_sig(i))
 
-               obj%leaf(obj%num_leaf)%already_grown = .true.
+               this%leaf(this%num_leaf)%already_grown = .true.
 
-               call obj%leaf(obj%num_leaf)%resize( &
+               call this%leaf(this%num_leaf)%resize( &
                   y=y_val, &
                   z=z_val, &
                   x=x_val &
                   )
-               call obj%leaf(obj%num_leaf)%move( &
+               call this%leaf(this%num_leaf)%move( &
                   y=-y_val/2.0d0, &
                   z=-z_val/2.0d0, &
                   x=-x_val/2.0d0 &
                   )
 
-               call obj%leaf(obj%num_leaf)%rotate( &
-                  x=radian(random%gauss(mu=obj%leaf_angle_ave(i), sigma=obj%leaf_angle_sig(i))), &
+               call this%leaf(this%num_leaf)%rotate( &
+                  x=radian(random%gauss(mu=this%leaf_angle_ave(i), sigma=this%leaf_angle_sig(i))), &
                   y=0.0d0, &
                   z=leaf_z_angles(j) &
                   )
-               call obj%leaf(obj%num_leaf)%connect("=>", obj%stem(obj%num_stem_node))
-               obj%leaf2stem(obj%num_leaf, obj%num_stem_node) = 1
+               call this%leaf(this%num_leaf)%connect("=>", this%stem(this%num_stem_node))
+               this%leaf2stem(this%num_leaf, this%num_stem_node) = 1
             end do
 
          end do
@@ -2143,90 +2219,90 @@ contains
          end if
 
          ! set mainroot
-         !call root%init(obj%rootconfig)
+         !call root%init(this%rootconfig)
 
-         if (index(obj%rootconfig, ".json") == 0) then
+         if (index(this%rootconfig, ".json") == 0) then
             call root%init( &
-               x_num=obj%root_division(1), &
-               y_num=obj%root_division(2), &
-               z_num=obj%root_division(3) &
+               x_num=this%root_division(1), &
+               y_num=this%root_division(2), &
+               z_num=this%root_division(3) &
                )
          else
-            call root%init(config=obj%rootconfig)
+            call root%init(config=this%rootconfig)
          end if
 
-         do i = 1, obj%mr_node
+         do i = 1, this%mr_node
 
-            obj%root(i) = root
-            obj%root(i)%already_grown = .true.
+            this%root(i) = root
+            this%root(i)%already_grown = .true.
 
-            call obj%root(i)%resize( &
-               x=obj%mr_width, &
-               y=obj%mr_width, &
-               z=obj%mr_length/dble(obj%mr_node) &
+            call this%root(i)%resize( &
+               x=this%mr_width, &
+               y=this%mr_width, &
+               z=this%mr_length/dble(this%mr_node) &
                )
-            call obj%root(i)%move( &
-               x=-obj%mr_width/2.0d0, &
-               y=-obj%mr_width/2.0d0, &
-               z=-obj%mr_length/dble(obj%mr_node)/2.0d0 &
+            call this%root(i)%move( &
+               x=-this%mr_width/2.0d0, &
+               y=-this%mr_width/2.0d0, &
+               z=-this%mr_length/dble(this%mr_node)/2.0d0 &
                )
-            call obj%root(i)%rotate( &
-               x=radian(random%gauss(mu=obj%mr_angle_ave, sigma=obj%mr_angle_sig)), &
-               y=radian(random%gauss(mu=obj%mr_angle_ave, sigma=obj%mr_angle_sig)), &
-               z=radian(random%gauss(mu=obj%mr_angle_ave, sigma=obj%mr_angle_sig)) &
+            call this%root(i)%rotate( &
+               x=radian(random%gauss(mu=this%mr_angle_ave, sigma=this%mr_angle_sig)), &
+               y=radian(random%gauss(mu=this%mr_angle_ave, sigma=this%mr_angle_sig)), &
+               z=radian(random%gauss(mu=this%mr_angle_ave, sigma=this%mr_angle_sig)) &
                )
          end do
 
-         do i = 1, obj%mr_node - 1
+         do i = 1, this%mr_node - 1
             if (i == 1) then
-               call obj%root(1)%connect("=>", obj%stem(1))
-               obj%root2stem(1, 1) = 1
+               call this%root(1)%connect("=>", this%stem(1))
+               this%root2stem(1, 1) = 1
             end if
-            call obj%root(i + 1)%connect("=>", obj%root(i))
-            obj%root2root(i + 1, i) = 1
+            call this%root(i + 1)%connect("=>", this%root(i))
+            this%root2root(i + 1, i) = 1
          end do
 
          ! set branches
-         k = obj%mr_node
-         do i = 1, size(obj%brr_node)
-            do j = 1, obj%brr_node(i)
+         k = this%mr_node
+         do i = 1, size(this%brr_node)
+            do j = 1, this%brr_node(i)
                k = k + 1
-               !call obj%root(k)%init(config=obj%rootconfig)
-               obj%root(k) = root
-               obj%root(k)%already_grown = .true.
+               !call this%root(k)%init(config=this%rootconfig)
+               this%root(k) = root
+               this%root(k)%already_grown = .true.
 
-               call obj%root(k)%resize( &
-                  x=obj%mr_width, &
-                  y=obj%mr_width, &
-                  z=obj%mr_length/dble(obj%mr_node) &
+               call this%root(k)%resize( &
+                  x=this%mr_width, &
+                  y=this%mr_width, &
+                  z=this%mr_length/dble(this%mr_node) &
                   )
-               call obj%root(k)%move( &
-                  x=-obj%mr_width/2.0d0, &
-                  y=-obj%mr_width/2.0d0, &
-                  z=-obj%mr_length/dble(obj%mr_node)/2.0d0 &
+               call this%root(k)%move( &
+                  x=-this%mr_width/2.0d0, &
+                  y=-this%mr_width/2.0d0, &
+                  z=-this%mr_length/dble(this%mr_node)/2.0d0 &
                   )
-               call obj%root(k)%rotate( &
-                  x=radian(random%gauss(mu=obj%brr_angle_ave(j), sigma=obj%brr_angle_sig(j))), &
+               call this%root(k)%rotate( &
+                  x=radian(random%gauss(mu=this%brr_angle_ave(j), sigma=this%brr_angle_sig(j))), &
                   y=0.0d0, &
                   z=radian(360.0d0*random%random()) &
                   )
 
                if (j == 1) then
-                  call obj%root(k)%connect("=>", obj%root(obj%brr_from(i)))
-                  obj%root2root(k, obj%brr_from(i)) = 1
+                  call this%root(k)%connect("=>", this%root(this%brr_from(i)))
+                  this%root2root(k, this%brr_from(i)) = 1
                else
-                  call obj%root(k)%connect("=>", obj%root(k - 1))
-                  obj%root2root(k, k - 1) = 1
+                  call this%root(k)%connect("=>", this%root(k - 1))
+                  this%root2root(k, k - 1) = 1
                end if
 
             end do
          end do
 
-         obj%stage = "V"//str(obj%ms_node)
+         this%stage = "V"//str(this%ms_node)
 
-         call obj%update()
+         call this%update()
 
-         call obj%fixReversedElements()
+         call this%fixReversedElements()
 
          if (timeOpt) then
             print *, "[4] create objects."
@@ -2235,152 +2311,152 @@ contains
          return
       else
          ! create leaf, root, stem
-         allocate (obj%leaf(obj%MaxLeafNum))
-         allocate (obj%root(obj%MaxrootNum))
-         allocate (obj%stem(obj%MaxstemNum))
+         allocate (this%leaf(this%MaxLeafNum))
+         allocate (this%root(this%MaxrootNum))
+         allocate (this%stem(this%MaxstemNum))
 
-         allocate (obj%leafYoungModulus(obj%MaxLeafNum))
-         allocate (obj%rootYoungModulus(obj%MaxrootNum))
-         allocate (obj%stemYoungModulus(obj%MaxstemNum))
+         allocate (this%leafYoungModulus(this%MaxLeafNum))
+         allocate (this%rootYoungModulus(this%MaxrootNum))
+         allocate (this%stemYoungModulus(this%MaxstemNum))
          ! default value
-         obj%leafYoungModulus(:) = 1000.0d0
-         obj%rootYoungModulus(:) = 1000.0d0
-         obj%stemYoungModulus(:) = 1000.0d0
+         this%leafYoungModulus(:) = 1000.0d0
+         this%rootYoungModulus(:) = 1000.0d0
+         this%stemYoungModulus(:) = 1000.0d0
 
-         allocate (obj%leafPoissonRatio(obj%MaxLeafNum))
-         allocate (obj%rootPoissonRatio(obj%MaxrootNum))
-         allocate (obj%stemPoissonRatio(obj%MaxstemNum))
-         obj%leafPoissonRatio(:) = 0.30d0
-         obj%rootPoissonRatio(:) = 0.30d0
-         obj%stemPoissonRatio(:) = 0.30d0
+         allocate (this%leafPoissonRatio(this%MaxLeafNum))
+         allocate (this%rootPoissonRatio(this%MaxrootNum))
+         allocate (this%stemPoissonRatio(this%MaxstemNum))
+         this%leafPoissonRatio(:) = 0.30d0
+         this%rootPoissonRatio(:) = 0.30d0
+         this%stemPoissonRatio(:) = 0.30d0
 
-         allocate (obj%leafDensity(obj%MaxLeafNum))
-         allocate (obj%rootDensity(obj%MaxrootNum))
-         allocate (obj%stemDensity(obj%MaxstemNum))
+         allocate (this%leafDensity(this%MaxLeafNum))
+         allocate (this%rootDensity(this%MaxrootNum))
+         allocate (this%stemDensity(this%MaxstemNum))
 
-         obj%leafDensity(:) = 0.0d0
-         obj%rootDensity(:) = 0.0d0
-         obj%stemDensity(:) = 0.0d0
+         this%leafDensity(:) = 0.0d0
+         this%rootDensity(:) = 0.0d0
+         this%stemDensity(:) = 0.0d0
 
-         allocate (obj%stem2stem(obj%MaxstemNum, obj%MaxstemNum))
-         allocate (obj%leaf2stem(obj%MaxstemNum, obj%MaxLeafNum))
-         allocate (obj%root2stem(obj%MaxrootNum, obj%MaxstemNum))
-         allocate (obj%root2root(obj%MaxrootNum, obj%MaxrootNum))
+         allocate (this%stem2stem(this%MaxstemNum, this%MaxstemNum))
+         allocate (this%leaf2stem(this%MaxstemNum, this%MaxLeafNum))
+         allocate (this%root2stem(this%MaxrootNum, this%MaxstemNum))
+         allocate (this%root2root(this%MaxrootNum, this%MaxrootNum))
 
-         !allocate(obj%struct%NodCoord(4,3) )
-         !allocate(obj%struct%ElemNod(3,2) )
-         !allocate(obj%struct%ElemMat(3) )
+         !allocate(this%struct%NodCoord(4,3) )
+         !allocate(this%struct%ElemNod(3,2) )
+         !allocate(this%struct%ElemMat(3) )
          ! 子葉結節部=(0,0,0)
-         !obj%struct%NodCoord(1,1:3) = 0.0d0
-         call obj%leaf(1)%init(obj%leafconfig, species=PF_GLYCINE_SOJA)
-         call obj%leaf(1)%rotate(x=radian(90.0d0), y=radian(90.0d0), z=radian(10.0d0))
-         obj%leaf(1)%already_grown = .true.
+         !this%struct%NodCoord(1,1:3) = 0.0d0
+         call this%leaf(1)%init(this%leafconfig, species=PF_GLYCINE_SOJA)
+         call this%leaf(1)%rotate(x=radian(90.0d0), y=radian(90.0d0), z=radian(10.0d0))
+         this%leaf(1)%already_grown = .true.
 
-         call obj%leaf(2)%init(obj%leafconfig, species=PF_GLYCINE_SOJA)
-         call obj%leaf(2)%rotate(x=radian(90.0d0), y=radian(90.0d0), z=radian(-10.0d0))
-         obj%leaf(2)%already_grown = .true.
+         call this%leaf(2)%init(this%leafconfig, species=PF_GLYCINE_SOJA)
+         call this%leaf(2)%rotate(x=radian(90.0d0), y=radian(90.0d0), z=radian(-10.0d0))
+         this%leaf(2)%already_grown = .true.
 
-         call obj%stem(1)%init(obj%stemconfig)
-         call obj%stem(1)%rotate(x=radian(40.0d0))
-         obj%stem(1)%already_grown = .true.
+         call this%stem(1)%init(this%stemconfig)
+         call this%stem(1)%rotate(x=radian(40.0d0))
+         this%stem(1)%already_grown = .true.
 
-         call obj%stem(2)%init(obj%stemconfig)
-         call obj%stem(2)%rotate(x=radian(80.0d0))
-         obj%stem(2)%already_grown = .true.
+         call this%stem(2)%init(this%stemconfig)
+         call this%stem(2)%rotate(x=radian(80.0d0))
+         this%stem(2)%already_grown = .true.
 
-         call obj%root(1)%init(obj%rootconfig)
-         call obj%root(1)%fix(x=0.0d0, y=0.0d0, z=0.0d0)
-         call obj%root(1)%rotate(x=radian(-60.0d0))
-         obj%root(1)%already_grown = .true.
+         call this%root(1)%init(this%rootconfig)
+         call this%root(1)%fix(x=0.0d0, y=0.0d0, z=0.0d0)
+         call this%root(1)%rotate(x=radian(-60.0d0))
+         this%root(1)%already_grown = .true.
 
-         call obj%leaf(1)%connect("=>", obj%stem(1))
-         obj%leaf2stem(1, 1) = 1
+         call this%leaf(1)%connect("=>", this%stem(1))
+         this%leaf2stem(1, 1) = 1
 
-         call obj%leaf(2)%connect("=>", obj%stem(1))
-         obj%leaf2stem(2, 1) = 1
+         call this%leaf(2)%connect("=>", this%stem(1))
+         this%leaf2stem(2, 1) = 1
 
-         call obj%stem(2)%connect("=>", obj%stem(1))
-         obj%stem2stem(2, 1) = 1
+         call this%stem(2)%connect("=>", this%stem(1))
+         this%stem2stem(2, 1) = PF_SOYBEAN_MAINSTEM_TO_MAINSTEM
 
-         call obj%root(1)%connect("=>", obj%stem(1))
-         obj%root2stem(1, 1) = 1
+         call this%root(1)%connect("=>", this%stem(1))
+         this%root2stem(1, 1) = 1
 
-         obj%stage = "VE"
+         this%stage = "VE"
          ! 初生葉結節部
-         !obj%struct%NodCoord(2,1) = 0.0d0
-         !obj%struct%NodCoord(2,2) = 0.0d0
-         !obj%struct%NodCoord(2,3) = 1.0d0/20.0d0*obj%seed_height
+         !this%struct%NodCoord(2,1) = 0.0d0
+         !this%struct%NodCoord(2,2) = 0.0d0
+         !this%struct%NodCoord(2,3) = 1.0d0/20.0d0*this%seed_height
          ! 地際部
-         !obj%struct%NodCoord(3,1) = 1.0d0/4.0d0*obj%seed_length
-         !obj%struct%NodCoord(3,2) = 0.0d0
-         !obj%struct%NodCoord(3,3) = -1.0d0/3.0d0*obj%seed_height
+         !this%struct%NodCoord(3,1) = 1.0d0/4.0d0*this%seed_length
+         !this%struct%NodCoord(3,2) = 0.0d0
+         !this%struct%NodCoord(3,3) = -1.0d0/3.0d0*this%seed_height
          ! 根冠
-         !obj%struct%NodCoord(4,1) = 1.0d0/2.0d0*obj%seed_length
-         !obj%struct%NodCoord(4,2) = 0.0d0
-         !obj%struct%NodCoord(4,3) = -1.0d0/2.0d0*obj%seed_height
+         !this%struct%NodCoord(4,1) = 1.0d0/2.0d0*this%seed_length
+         !this%struct%NodCoord(4,2) = 0.0d0
+         !this%struct%NodCoord(4,3) = -1.0d0/2.0d0*this%seed_height
 
          ! 子葉-初生葉節
-         !obj%struct%ElemNod(1,1) = 1
-         !obj%struct%ElemNod(1,2) = 2
+         !this%struct%ElemNod(1,1) = 1
+         !this%struct%ElemNod(1,2) = 2
          ! 地際-子葉節
-         !obj%struct%ElemNod(2,1) = 3
-         !obj%struct%ElemNod(2,2) = 1
+         !this%struct%ElemNod(2,1) = 3
+         !this%struct%ElemNod(2,2) = 1
          ! 地際-根冠節
-         !obj%struct%ElemNod(3,1) = 3
-         !obj%struct%ElemNod(3,2) = 4
+         !this%struct%ElemNod(3,1) = 3
+         !this%struct%ElemNod(3,2) = 4
 
          ! 子葉-初生葉節 stem: 1
-         !obj%struct%ElemMat(1) = 1
+         !this%struct%ElemMat(1) = 1
          ! 地際-子葉節 stem: 1
-         !obj%struct%ElemMat(2) = 1
+         !this%struct%ElemMat(2) = 1
          ! 地際-根冠節 primary root: -1
-         !obj%struct%ElemMat(3) = -1
+         !this%struct%ElemMat(3) = -1
 
          ! FEメッシュを生成
          ! 領域を確保
          !    n = input(default=80,option=max_leaf_num)
-         !    allocate(obj%leaf_list(n) )
+         !    allocate(this%leaf_list(n) )
          !    n = input(default=80,option=max_stem_num)
-         !    allocate(obj%stem_list(n) )
+         !    allocate(this%stem_list(n) )
          !    n = input(default=80,option=max_root_num)
-         !    allocate(obj%root_list(n) )
+         !    allocate(this%root_list(n) )
          !
          !    ! 子葉のメッシュを生成
-         !    call obj%leaf_list(1)%create(meshtype="Sphere3D",x_num=10,y_num=10,z_num=10,&
-         !        x_len=obj%seed_length,y_len=obj%seed_width,z_len=obj%seed_height)
-         !    call obj%leaf_list(1)%move(x=0.0d0,y=-0.50d0*obj%seed_width,z=-0.50d0*obj%seed_height)
+         !    call this%leaf_list(1)%create(meshtype="Sphere3D",x_num=10,y_num=10,z_num=10,&
+         !        x_len=this%seed_length,y_len=this%seed_width,z_len=this%seed_height)
+         !    call this%leaf_list(1)%move(x=0.0d0,y=-0.50d0*this%seed_width,z=-0.50d0*this%seed_height)
          !
-         !    call obj%leaf_list(2)%create(meshtype="Sphere3D",x_num=10,y_num=10,z_num=10,&
-         !        x_len=obj%seed_length,y_len=obj%seed_width,z_len=obj%seed_height)
-         !    call obj%leaf_list(2)%rotate(x=radian(180.0d0) )
-         !    call obj%leaf_list(2)%move(x=0.0d0,y=-0.50d0*obj%seed_width,z=-0.50d0*obj%seed_height)
+         !    call this%leaf_list(2)%create(meshtype="Sphere3D",x_num=10,y_num=10,z_num=10,&
+         !        x_len=this%seed_length,y_len=this%seed_width,z_len=this%seed_height)
+         !    call this%leaf_list(2)%rotate(x=radian(180.0d0) )
+         !    call this%leaf_list(2)%move(x=0.0d0,y=-0.50d0*this%seed_width,z=-0.50d0*this%seed_height)
          !
          !
          !
          !    ! 子葉-初生葉節のメッシュを生成
          !    rot(:) = 0.0d0
-         !    call obj%stem_list(1)%create(meshtype="rectangular3D",x_num=5,y_num=5,z_num=10,&
-         !        x_len=obj%seed_width/6.0d0,y_len=obj%seed_width/6.0d0,z_len=obj%seed_length/4.0d0)
+         !    call this%stem_list(1)%create(meshtype="rectangular3D",x_num=5,y_num=5,z_num=10,&
+         !        x_len=this%seed_width/6.0d0,y_len=this%seed_width/6.0d0,z_len=this%seed_length/4.0d0)
          !    ! 節基部の節点ID
-         !    node_id = obj%struct%ElemNod(1,1)
+         !    node_id = this%struct%ElemNod(1,1)
          !    ! 節先端部の節点ID
-         !    node_id2= obj%struct%ElemNod(1,2)
+         !    node_id2= this%struct%ElemNod(1,2)
          !    ! 節基部の位置ベクトル
-         !    loc(:) = obj%struct%NodCoord( node_id  ,:)
+         !    loc(:) = this%struct%NodCoord( node_id  ,:)
          !    ! 節先端部までの方向ベクトル
-         !    vec(:) =  obj%struct%NodCoord( node_id2 ,:) - obj%struct%NodCoord( node_id  ,:)
+         !    vec(:) =  this%struct%NodCoord( node_id2 ,:) - this%struct%NodCoord( node_id  ,:)
          !
          !    ! structの構造データにメッシュデータを合わせる。
-         !    print *, obj%stem_list(1)%Mesh%BottomElemID
-         !    print *, obj%stem_list(1)%Mesh%TopElemID
+         !    print *, this%stem_list(1)%Mesh%BottomElemID
+         !    print *, this%stem_list(1)%Mesh%TopElemID
          !
-         !    elemid = obj%stem_list(1)%Mesh%BottomElemID
-         !    node_id = obj%stem_list(1)%Mesh%ElemNod(elemID,1)
-         !    meshloc(:) = obj%stem_list(1)%Mesh%NodCoord(node_id,:)
+         !    elemid = this%stem_list(1)%Mesh%BottomElemID
+         !    node_id = this%stem_list(1)%Mesh%ElemNod(elemID,1)
+         !    meshloc(:) = this%stem_list(1)%Mesh%NodCoord(node_id,:)
          !
-         !    elemid = obj%stem_list(1)%Mesh%TopElemID
-         !    node_id = obj%stem_list(1)%Mesh%ElemNod(elemID,1)
-         !    meshvec(:) = obj%stem_list(1)%Mesh%NodCoord(node_id,:)-meshloc(:)
+         !    elemid = this%stem_list(1)%Mesh%TopElemID
+         !    node_id = this%stem_list(1)%Mesh%ElemNod(elemID,1)
+         !    meshvec(:) = this%stem_list(1)%Mesh%NodCoord(node_id,:)-meshloc(:)
 
          !print *, "loc",loc
          !print *, "meshloc",meshloc
@@ -2388,16 +2464,16 @@ contains
          !print *, "meshvec",meshvec
 
          !    ! 節中央を原点へ
-         !    call obj%stem_list(1)%move(x=-obj%seed_width/12.0d0,y=-obj%seed_width/12.0d0)
+         !    call this%stem_list(1)%move(x=-this%seed_width/12.0d0,y=-this%seed_width/12.0d0)
          !
          !    print *, "loc",loc
          !    print *, "vec",vec
          !    print *, "rot",rot
          !    zaxis(:)=0.0d0
-         !    zaxis(3)=obj%seed_length/5.0d0
+         !    zaxis(3)=this%seed_length/5.0d0
          !    rot(:) = angles(zaxis,vec)
-         !    call obj%stem_list(1)%move(x=loc(1),y=loc(2),z=loc(3) )
-         !    call obj%stem_list(1)%rotate(x=0.0d0,y=0.0d0,z=0.0d0 )
+         !    call this%stem_list(1)%move(x=loc(1),y=loc(2),z=loc(3) )
+         !    call this%stem_list(1)%rotate(x=0.0d0,y=0.0d0,z=0.0d0 )
     !!
          !
     !!
@@ -2405,62 +2481,62 @@ contains
          !
          !    ! 地際-子葉節のメッシュを生成
          !    rot(:) = 0.0d0
-         !    call obj%stem_list(2)%create(meshtype="rectangular3D",x_num=5,y_num=5,z_num=10,&
-         !        x_len=obj%seed_width/6.0d0,y_len=obj%seed_width/6.0d0,z_len=obj%seed_length/4.0d0)
+         !    call this%stem_list(2)%create(meshtype="rectangular3D",x_num=5,y_num=5,z_num=10,&
+         !        x_len=this%seed_width/6.0d0,y_len=this%seed_width/6.0d0,z_len=this%seed_length/4.0d0)
          !    ! 節基部の節点ID
-         !    node_id = obj%struct%ElemNod(2,1)
+         !    node_id = this%struct%ElemNod(2,1)
          !    ! 節先端部の節点ID
-         !    node_id2= obj%struct%ElemNod(2,2)
+         !    node_id2= this%struct%ElemNod(2,2)
          !    ! 節基部の位置ベクトル
-         !    loc(:) = obj%struct%NodCoord( node_id  ,:)
+         !    loc(:) = this%struct%NodCoord( node_id  ,:)
          !    ! 節先端部までの方向ベクトル
-         !    vec(:) =  obj%struct%NodCoord( node_id2 ,:) - obj%struct%NodCoord( node_id  ,:)
+         !    vec(:) =  this%struct%NodCoord( node_id2 ,:) - this%struct%NodCoord( node_id  ,:)
          !    ! 節中央を原点へ
-         !    call obj%stem_list(2)%move(x=-obj%seed_width/12.0d0,y=-obj%seed_width/12.0d0,&
-         !        z=-obj%seed_length/8.0d0)
+         !    call this%stem_list(2)%move(x=-this%seed_width/12.0d0,y=-this%seed_width/12.0d0,&
+         !        z=-this%seed_length/8.0d0)
          !    zaxis(:)=0.0d0
-         !    zaxis(3)=obj%seed_length/5.0d0
+         !    zaxis(3)=this%seed_length/5.0d0
          !    rot(:) = angles(zaxis,vec)
          !    print *, "loc",loc
          !    print *, "vec",vec
          !    print *, "rot",rot
-         !    !call obj%stem_list(2)%rotate(x=rot(1),y=rot(2),z=rot(3) )
-         !    call obj%stem_list(2)%move(x=loc(1),y=loc(2),z=loc(3) )
+         !    !call this%stem_list(2)%rotate(x=rot(1),y=rot(2),z=rot(3) )
+         !    call this%stem_list(2)%move(x=loc(1),y=loc(2),z=loc(3) )
          !
          !
          !
          !    ! 地際-根冠節のメッシュ生成
          !    rot(:) = 0.0d0
-         !    call obj%root_list(1)%create(meshtype="rectangular3D",x_num=5,y_num=5,z_num=10,&
-         !        x_len=obj%seed_width/6.0d0,y_len=obj%seed_width/6.0d0,z_len=obj%seed_length/4.0d0)
+         !    call this%root_list(1)%create(meshtype="rectangular3D",x_num=5,y_num=5,z_num=10,&
+         !        x_len=this%seed_width/6.0d0,y_len=this%seed_width/6.0d0,z_len=this%seed_length/4.0d0)
          !    ! 節基部の節点ID
-         !    node_id = obj%struct%ElemNod(3,1)
+         !    node_id = this%struct%ElemNod(3,1)
          !    ! 節先端部の節点ID
-         !    node_id2= obj%struct%ElemNod(3,2)
+         !    node_id2= this%struct%ElemNod(3,2)
          !    ! 節基部の位置ベクトル
-         !    loc(:) = obj%struct%NodCoord( node_id  ,:)
+         !    loc(:) = this%struct%NodCoord( node_id  ,:)
          !    ! 節先端部までの方向ベクトル
-         !    vec(:) =  obj%struct%NodCoord( node_id2 ,:) - obj%struct%NodCoord( node_id  ,:)
+         !    vec(:) =  this%struct%NodCoord( node_id2 ,:) - this%struct%NodCoord( node_id  ,:)
          !    ! 節基部へ移動
-         !    call obj%root_list(1)%move(x=-obj%seed_width/12.0d0,y=-obj%seed_width/12.0d0,&
-         !        z=-obj%seed_length/8.0d0)
-         !    call obj%root_list(1)%move(x=loc(1),y=loc(2),z=loc(3) )
+         !    call this%root_list(1)%move(x=-this%seed_width/12.0d0,y=-this%seed_width/12.0d0,&
+         !        z=-this%seed_length/8.0d0)
+         !    call this%root_list(1)%move(x=loc(1),y=loc(2),z=loc(3) )
          !    zaxis(:)=0.0d0
-         !    zaxis(3)=obj%seed_length/5.0d0
+         !    zaxis(3)=this%seed_length/5.0d0
          !    rot(:) = angles(zaxis,vec)
-         !    !call obj%root_list(1)%rotate(x=rot(1),y=rot(2),z=rot(3) )
+         !    !call this%root_list(1)%rotate(x=rot(1),y=rot(2),z=rot(3) )
          !    print *, "loc",loc
          !    print *, "vec",vec
          !    print *, "rot",rot
-         call obj%update()
-         call obj%fixReversedElements()
+         call this%update()
+         call this%fixReversedElements()
 
       end if
 
       ! ここからレガシーモード
       if (present(regacy)) then
          if (regacy .eqv. .true.) then
-            obj%Stage = "VE"
+            this%Stage = "VE"
             if (present(FileName)) then
                fn = FileName
             else
@@ -2486,24 +2562,24 @@ contains
             end if
 
             ! initialize RootSystem and NodeSystem
-            if (.not. allocated(obj%RootSystem)) then
-               allocate (obj%RootSystem(input(default=1000, option=max_PlantNode_num)))
-               obj%num_of_root = 1
+            if (.not. allocated(this%RootSystem)) then
+               allocate (this%RootSystem(input(default=1000, option=max_PlantNode_num)))
+               this%num_of_root = 1
             end if
-            if (.not. allocated(obj%NodeSystem)) then
-               allocate (obj%NodeSystem(input(default=1000, option=max_PlantNode_num)))
-               obj%num_of_node = 1
+            if (.not. allocated(this%NodeSystem)) then
+               allocate (this%NodeSystem(input(default=1000, option=max_PlantNode_num)))
+               this%num_of_node = 1
             end if
 
             ! setup seed
             if (Variety == "Tachinagaha" .or. Variety == "tachinagaha") then
-               call obj%Seed%init(mass=mass, width1=9.70d0, width2=8.20d0, &
+               call this%Seed%init(mass=mass, width1=9.70d0, width2=8.20d0, &
                                   width3=7.70d0, &
                                   water_content=water_content, radius=radius, location=loc)
-               call obj%Seed%createMesh(FileName=fn//".stl", &
+               call this%Seed%createMesh(FileName=fn//".stl", &
                                         ElemType="Tetrahedra")
 
-               call obj%Seed%convertMeshType(Option="TetraToHexa")
+               call this%Seed%convertMeshType(Option="TetraToHexa")
 
             else
                print *, "Variety name :: is not implemented."
@@ -2511,20 +2587,20 @@ contains
             end if
 
             ! setup primary node (plumule)
-            call obj%NodeSystem(1)%init(Stage=obj%Stage, &
+            call this%NodeSystem(1)%init(Stage=this%Stage, &
                                         Plantname="soybean", location=loc)
 
             ! setup primary node (radicle))
             MaxThickness = input(default=0.20d0, &
-                                 option=PlantRoot_diameter_per_seed_radius)*obj%Seed%radius
+                                 option=PlantRoot_diameter_per_seed_radius)*this%Seed%radius
             Maxwidth = input(default=0.20d0, &
-                             option=PlantRoot_diameter_per_seed_radius)*obj%Seed%radius
-            call obj%RootSystem(1)%init(Plantname="soybean", &
-                                        Stage=obj%Stage, MaxThickness=MaxThickness, Maxwidth=Maxwidth, location=loc)
+                             option=PlantRoot_diameter_per_seed_radius)*this%Seed%radius
+            call this%RootSystem(1)%init(Plantname="soybean", &
+                                        Stage=this%Stage, MaxThickness=MaxThickness, Maxwidth=Maxwidth, location=loc)
 
-            obj%time = 0.0d0
-            call obj%update()
-            call obj%fixReversedElements()
+            this%time = 0.0d0
+            call this%update()
+            call this%fixReversedElements()
 
             return
          end if
@@ -2534,8 +2610,8 @@ contains
 ! ########################################
 
 ! ########################################
-   subroutine growSoybean(obj, dt, light, air, temp, simple, add_apical)
-      class(Soybean_), intent(inout) :: obj
+   subroutine growSoybean(this, dt, light, air, temp, simple, add_apical)
+      class(Soybean_), intent(inout) :: this
       type(Light_), optional, intent(inout) :: light
       type(air_), optional, intent(in) :: air
       real(real64), optional, intent(in) :: temp
@@ -2552,26 +2628,26 @@ contains
       logical :: add_node = .false.
       real(real64) :: count_dist
 
-      obj%dt = dt
-      call obj%update()
+      this%dt = dt
+      call this%update()
 
       if (present(simple)) then
          if (simple) then
             ! simple algorithmic growth
             ! growth by temp by time
 
-            do i = 1, size(obj%stem)
-               call obj%stem(i)%change_length_or_width(dt=dt)
+            do i = 1, size(this%stem)
+               call this%stem(i)%change_length_or_width(dt=dt)
             end do
-            call obj%update()
-            do i = 1, size(obj%leaf)
-               call obj%leaf(i)%change_length_or_width(dt=dt)
+            call this%update()
+            do i = 1, size(this%leaf)
+               call this%leaf(i)%change_length_or_width(dt=dt)
             end do
-            call obj%update()
+            call this%update()
 
             if (present(add_apical)) then
                if (add_apical) then
-                  apicals = obj%findApical()
+                  apicals = this%findApical()
                   do i = 1, size(apicals)
                      ! add stem&leaf
                      if (i == 1) then
@@ -2579,13 +2655,13 @@ contains
                         StemID = apicals(i)
                         add_node = .false.
 
-                        j = size(obj%NodeID_MainStem)
+                        j = size(this%NodeID_MainStem)
                         if (j >= 1) then
-                           N_StemID = obj%NodeID_MainStem(j)
+                           N_StemID = this%NodeID_MainStem(j)
 
                            if (N_StemID >= 1) then
 
-                              if (obj%stem(N_StemID)%FullyExpanded(threshold=obj%FullyExpanded_stem_threshold)) then
+                              if (this%stem(N_StemID)%FullyExpanded(threshold=this%FullyExpanded_stem_threshold)) then
 
                                  add_node = .true.
 
@@ -2597,45 +2673,45 @@ contains
                         StemID = apicals(i)
                         add_node = .false.
 
-                        N_StemID = maxval(obj%NodeID_Branch(i - 1)%ID)
+                        N_StemID = maxval(this%NodeID_Branch(i - 1)%ID)
                         ! 1個前の節ID
 
-                        if (obj%stem(N_StemID)%FullyExpanded(threshold=obj%FullyExpanded_stem_threshold)) then
+                        if (this%stem(N_StemID)%FullyExpanded(threshold=this%FullyExpanded_stem_threshold)) then
                            add_node = .true.
                         end if
 
                      end if
 
                      if (add_node) then
-                        call obj%addNode(StemNodeID=apicals(i), mainstem_to_branch=.false.)
+                        call this%addNode(StemNodeID=apicals(i), mainstem_to_branch=.false.)
                      end if
-                     call obj%update()
+                     call this%update()
                   end do
 
                   ! branch
-                  has_branch = zeros(size(obj%NodeID_MainStem))
-                  if (allocated(obj%MainStem_num_branch)) then
-                     has_branch(1:size(obj%MainStem_num_branch)) = obj%MainStem_num_branch(:)
+                  has_branch = zeros(size(this%NodeID_MainStem))
+                  if (allocated(this%MainStem_num_branch)) then
+                     has_branch(1:size(this%MainStem_num_branch)) = this%MainStem_num_branch(:)
                   end if
-                  obj%MainStem_num_branch = has_branch
+                  this%MainStem_num_branch = has_branch
 
                   ! we introduced an apploximation of the apical dominance.
-                  do i = 1, size(obj%NodeID_MainStem) - 1
-                     if (obj%MainStem_num_branch(i) >= 1) then
+                  do i = 1, size(this%NodeID_MainStem) - 1
+                     if (this%MainStem_num_branch(i) >= 1) then
                         cycle
                      else
                         count_dist = 0.0d0
-                        do j = i + 1, size(obj%NodeID_MainStem)
-                           count_dist = count_dist + obj%stem(obj%NodeID_MainStem(j))%getLength()
+                        do j = i + 1, size(this%NodeID_MainStem)
+                           count_dist = count_dist + this%stem(this%NodeID_MainStem(j))%getLength()
                         end do
-                        if (count_dist > obj%apical_dominance_distance) then
+                        if (count_dist > this%apical_dominance_distance) then
                            ! add Node
-                           if (obj%stem(i)%StemID /= 0) cycle
+                           if (this%stem(i)%StemID /= 0) cycle
                            !debug
-                           call obj%addNode(StemNodeID=i, mainstem_to_branch=.true.)
+                           call this%addNode(StemNodeID=i, mainstem_to_branch=.true.)
                            !has_branch(i) = has_branch(i) + 1
-                           obj%MainStem_num_branch(i) = obj%MainStem_num_branch(i) + 1
-                           call obj%update()
+                           this%MainStem_num_branch(i) = this%MainStem_num_branch(i) + 1
+                           call this%update()
 
                         end if
 
@@ -2647,25 +2723,25 @@ contains
 
 !            if(present(add_apical) )then
 !                if(add_apical)then
-!                    apicals = obj%findApical()
+!                    apicals = this%findApical()
 !                    do i=1,size(apicals)-1
 !                        ! add stem&leaf
 !                        StemID = apicals(i+1)
 !                        add_node = .false.
 !
-!                        do j=size(obj%NodeID_Branch(i)%ID)-4,size(obj%NodeID_Branch(i)%ID)-1
+!                        do j=size(this%NodeID_Branch(i)%ID)-4,size(this%NodeID_Branch(i)%ID)-1
 !
 !                            if(j < 0 )then
 !                                cycle
 !                            else
-!                                N_StemID = obj%NodeID_Branch(i)%ID(j)
-!                                LeafID = obj%searchLeaf(StemID=i,InterNodeID=j,PetioleID=1,LeafID=1)
+!                                N_StemID = this%NodeID_Branch(i)%ID(j)
+!                                LeafID = this%searchLeaf(StemID=i,InterNodeID=j,PetioleID=1,LeafID=1)
 !
 !                                if(LeafID < 1)then
 !                                    cycle
 !                                endif
 !
-!                                if( obj%leaf(LeafID)%FullyExpanded(threshold=0.90d0 ))then
+!                                if( this%leaf(LeafID)%FullyExpanded(threshold=0.90d0 ))then
 !
 !                                    add_node = .true.
 !                                    exit
@@ -2674,41 +2750,41 @@ contains
 !                            endif
 !                        enddo
 !                        if(add_node)then
-!                            call obj%addNode(StemNodeID=apicals(i))
+!                            call this%addNode(StemNodeID=apicals(i))
 !                        endif
 !                    enddo
 !                endif
 !            endif
 
-            call obj%update()
+            call this%update()
             return
          end if
       end if
 
       ! 光量子量を計算
-      call obj%laytracing(light=light)
+      call this%laytracing(light=light)
 
       ! 光合成量を計算
-      do i = 1, size(obj%Leaf)
-         if (obj%Leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
-            call obj%leaf(i)%photosynthesis(dt=dt, air=air)
+      do i = 1, size(this%Leaf)
+         if (this%Leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
+            call this%leaf(i)%photosynthesis(dt=dt, air=air)
          end if
       end do
 
       ! シンクソース輸送を計算
-      !call obj%SinkSourceFlow()
+      !call this%SinkSourceFlow()
 
       ! ソースの消耗、拡散を計算
-      !call obj%source2sink()
+      !call this%source2sink()
 
       ! 伸長を計算
-      !call obj%extention()
+      !call this%extention()
 
       ! 分化を計算、構造の更新
-      !call obj%development()
+      !call this%development()
 
       !限界日長以下>> 花成 & 子実成長
-      !if( obj%DayLengthIsShort() .eqv. .true. )then
+      !if( this%DayLengthIsShort() .eqv. .true. )then
       !call soybean%updateFlowers()
       !call soybean%updatePods()
       !endif
@@ -2717,8 +2793,8 @@ contains
 ! ########################################
 
 ! ########################################
-   subroutine SinkSourceFlowSoybean(obj, simple)
-      class(Soybean_), intent(inout) :: obj
+   subroutine SinkSourceFlowSoybean(this, simple)
+      class(Soybean_), intent(inout) :: this
       logical, optional, intent(in) :: simple
       !type(DiffusionEq_) :: DiffusionEq
 
@@ -2730,38 +2806,38 @@ contains
             return
          end if
       end if
-      !call obj%lossEnergy()
+      !call this%lossEnergy()
 
       ! solve diffusion equation for multi-domains
-      !call DiffusionEq%init(multiDomain=.true.,connectivity=obj%domainConnectivity)
-      !call DiffusionEq%add(domainlist=obj%stem(:)%femdomain)
-      !call DiffusionEq%add(domainlist=obj%leaf(:)%femdomain)
-      !call DiffusionEq%add(domainlist=obj%root(:)%femdomain)
+      !call DiffusionEq%init(multiDomain=.true.,connectivity=this%domainConnectivity)
+      !call DiffusionEq%add(domainlist=this%stem(:)%femdomain)
+      !call DiffusionEq%add(domainlist=this%leaf(:)%femdomain)
+      !call DiffusionEq%add(domainlist=this%root(:)%femdomain)
       !call DiffusionEq%FixValue(&
       !range=soil%femdonain, projection=true, values=soil%watercontent)
 
-      !call DiffusionEq%run(dt=obj%dt)
+      !call DiffusionEq%run(dt=this%dt)
       !soybean%sourceContent = Diffusion%unknowns
 
    end subroutine
 ! ########################################
 
 ! ########################################
-   subroutine expanitionSoybean(obj)
-      class(Soybean_), intent(inout) :: obj
+   subroutine expanitionSoybean(this)
+      class(Soybean_), intent(inout) :: this
       !type(ContactMechanics_) :: contact
 
-      !contact%init(connectivity=obj%connectivity)
-      !contact%add(domain=obj%stem(:)%domain)
-      !contact%add(domain=obj%leaf(:)%domain)
-      !contact%add(domain=obj%root(:)%domain)
+      !contact%init(connectivity=this%connectivity)
+      !contact%add(domain=this%stem(:)%domain)
+      !contact%add(domain=this%leaf(:)%domain)
+      !contact%add(domain=this%root(:)%domain)
       !contact%add(domain=soil)
-      !contact%Density = obj%density()
-      !contact%PoissonRatio = obj%PoissonRatio()
-      !contact%PenaltyParameter = obj%PenaltyParameter()
+      !contact%Density = this%density()
+      !contact%PoissonRatio = this%PoissonRatio()
+      !contact%PenaltyParameter = this%PenaltyParameter()
       !contact%fix(bottom=.true., direction="xyz",displacement=[0.0d0,0.0d0,0.0d0] )
       !contact%fix(side=.true., direction="xyz",displacement=[0.0d0,0.0d0,0.0d0] )
-      !contact%solve(dt=obj%dt)
+      !contact%solve(dt=this%dt)
       !soybean%CauchyStress = contact%CauchyStress
       !soybean%displacement = contact%displacement
 
@@ -2769,27 +2845,27 @@ contains
 ! ########################################
 
 ! ########################################
-   subroutine developmentSoybean(obj)
-      class(Soybean_), intent(inout) :: obj
+   subroutine developmentSoybean(this)
+      class(Soybean_), intent(inout) :: this
       integer(int32) :: i, new_stem_id, new_leaf_id, new_root_id
 
-      !do i=1, obj%numStemApical
-      !   stemID=obj%StemApical(i)
-      !   if(obj%stem(stemID)%source => obj%minimalSource )then
-      !       new_stem_id = obj%newStem(from=StemID,how=obj%stem(stemID)%properties)
-      !       new_leaf_id = obj%newLeaf(from=new_stem_id,how=obj%stem(stemID)%properties)
+      !do i=1, this%numStemApical
+      !   stemID=this%StemApical(i)
+      !   if(this%stem(stemID)%source => this%minimalSource )then
+      !       new_stem_id = this%newStem(from=StemID,how=this%stem(stemID)%properties)
+      !       new_leaf_id = this%newLeaf(from=new_stem_id,how=this%stem(stemID)%properties)
       !   endif
       !enddo
 
-      !do i=1, obj%numleaf
+      !do i=1, this%numleaf
       !   leafID=i
-      !   call obj%leaf(leafID)%change_length_or_width()
+      !   call this%leaf(leafID)%change_length_or_width()
       !enddo
 
-      !do i=1, obj%numrootApical
-      !   rootID=obj%rootApical(i)
-      !   if(obj%root(rootID)%source => obj%minimalSource )then
-      !       new_root_id = obj%newroot(from=rootID,how=obj%root(rootID)%properties)
+      !do i=1, this%numrootApical
+      !   rootID=this%rootApical(i)
+      !   if(this%root(rootID)%source => this%minimalSource )then
+      !       new_root_id = this%newroot(from=rootID,how=this%root(rootID)%properties)
       !   endif
       !enddo
 
@@ -2797,38 +2873,38 @@ contains
 ! ########################################
 
 ! ########################################
-   subroutine updateFlowersSoybean(obj)
-      class(Soybean_), intent(inout) :: obj
+   subroutine updateFlowersSoybean(this)
+      class(Soybean_), intent(inout) :: this
       integer(int32) :: i
 
-      !do i=1, obj%numStem()
-      !   call obj%stem(i)%updateFlowerCapacity()
+      !do i=1, this%numStem()
+      !   call this%stem(i)%updateFlowerCapacity()
       !enddo
 
    end subroutine
 ! ########################################
 
 ! ########################################
-   subroutine updatePodsSoybean(obj)
-      class(Soybean_), intent(inout) :: obj
+   subroutine updatePodsSoybean(this)
+      class(Soybean_), intent(inout) :: this
       integer(int32) :: i
 
-      !do i=1, obj%numStem()
-      !   call obj%stem(i)%updatePodCapacity()
-      !   call obj%stem(i)%growPod()
+      !do i=1, this%numStem()
+      !   call this%stem(i)%updatePodCapacity()
+      !   call this%stem(i)%growPod()
       !enddo
 
    end subroutine
 ! ########################################
 
 ! ########################################
-   subroutine WaterAbsorptionSoybean(obj, temp, dt)
-      class(Soybean_), intent(inout) :: obj
+   subroutine WaterAbsorptionSoybean(this, temp, dt)
+      class(Soybean_), intent(inout) :: this
       real(real64), intent(in) :: temp, dt
       real(real64) :: a, b, c, d, AA, BB, w1max, w2max, w3max, time
       real(real64) :: x_rate, y_rate, z_rate, wx, wy, wz
 
-      obj%time = obj%time + dt
+      this%time = this%time + dt
 
       ! tested by tachinagaha, 2019
       a = 0.00910d0
@@ -2842,38 +2918,38 @@ contains
       w1max = 1.70d0
       w2max = 1.20d0
       w3max = 1.10d0
-      obj%seed%width1 = obj%seed%width1_origin*(w1max - AA*exp(-BB*obj%time))
-      obj%seed%width2 = obj%seed%width2_origin*(w2max - AA*exp(-BB*obj%time))
-      obj%seed%width3 = obj%seed%width3_origin*(w3max - AA*exp(-BB*obj%time))
+      this%seed%width1 = this%seed%width1_origin*(w1max - AA*exp(-BB*this%time))
+      this%seed%width2 = this%seed%width2_origin*(w2max - AA*exp(-BB*this%time))
+      this%seed%width3 = this%seed%width3_origin*(w3max - AA*exp(-BB*this%time))
 
       ! linear model; it should be changed in near future.
-      if (obj%time > 60.0d0*6.0d0) then
-         obj%seed%width2 = obj%seed%width2_origin*(w2max)
-         obj%seed%width3 = obj%seed%width3_origin*(w3max)
+      if (this%time > 60.0d0*6.0d0) then
+         this%seed%width2 = this%seed%width2_origin*(w2max)
+         this%seed%width3 = this%seed%width3_origin*(w3max)
       else
-         obj%seed%width2 = obj%seed%width2_origin + obj%seed%width2_origin*(w2max - 1.0d0)*(obj%time)/(60.0d0*6.0d0)
-         obj%seed%width3 = obj%seed%width3_origin + obj%seed%width3_origin*(w3max - 1.0d0)*(obj%time)/(60.0d0*6.0d0)
+         this%seed%width2 = this%seed%width2_origin + this%seed%width2_origin*(w2max - 1.0d0)*(this%time)/(60.0d0*6.0d0)
+         this%seed%width3 = this%seed%width3_origin + this%seed%width3_origin*(w3max - 1.0d0)*(this%time)/(60.0d0*6.0d0)
       end if
 
-      wx = maxval(obj%Seed%FEMDomain%Mesh%NodCoord(:, 1)) - minval(obj%Seed%FEMDomain%Mesh%NodCoord(:, 1))
-      wy = maxval(obj%Seed%FEMDomain%Mesh%NodCoord(:, 2)) - minval(obj%Seed%FEMDomain%Mesh%NodCoord(:, 2))
-      wz = maxval(obj%Seed%FEMDomain%Mesh%NodCoord(:, 3)) - minval(obj%Seed%FEMDomain%Mesh%NodCoord(:, 3))
+      wx = maxval(this%Seed%FEMDomain%Mesh%NodCoord(:, 1)) - minval(this%Seed%FEMDomain%Mesh%NodCoord(:, 1))
+      wy = maxval(this%Seed%FEMDomain%Mesh%NodCoord(:, 2)) - minval(this%Seed%FEMDomain%Mesh%NodCoord(:, 2))
+      wz = maxval(this%Seed%FEMDomain%Mesh%NodCoord(:, 3)) - minval(this%Seed%FEMDomain%Mesh%NodCoord(:, 3))
       !print *, wx,wy,wz
       x_rate = 1.0d0/wx
       y_rate = 1.0d0/wy
       z_rate = 1.0d0/wz
-      call obj%Seed%FEMDomain%resize(x_rate=x_rate, y_rate=y_rate, z_rate=z_rate)
-      x_rate = obj%seed%width1
-      y_rate = obj%seed%width2
-      z_rate = obj%seed%width3
-      call obj%Seed%FEMDomain%resize(x_rate=x_rate, y_rate=y_rate, z_rate=z_rate)
+      call this%Seed%FEMDomain%resize(x_rate=x_rate, y_rate=y_rate, z_rate=z_rate)
+      x_rate = this%seed%width1
+      y_rate = this%seed%width2
+      z_rate = this%seed%width3
+      call this%Seed%FEMDomain%resize(x_rate=x_rate, y_rate=y_rate, z_rate=z_rate)
 
    end subroutine
 ! ########################################
 
 ! ########################################
-   subroutine exportSoybean(obj, FilePath, FileName, SeedID, withSTL, withMesh)
-      class(Soybean_), intent(inout) :: obj
+   subroutine exportSoybean(this, FilePath, FileName, SeedID, withSTL, withMesh)
+      class(Soybean_), intent(inout) :: this
       character(*), optional, intent(in) :: FilePath
       character(*), intent(in) :: FileName
       integer(int32), optional, intent(inout) :: SeedID
@@ -2882,48 +2958,48 @@ contains
 
       itr = SeedID
       ! if seed exists => output
-      if (obj%Seed%num_of_seed >= 0) then
+      if (this%Seed%num_of_seed >= 0) then
          if (present(withSTL)) then
             if (withSTL .eqv. .true.) then
-               call obj%Seed%export(FileName=FileName, SeedID=itr, extention=".stl")
+               call this%Seed%export(FileName=FileName, SeedID=itr, extention=".stl")
             end if
          end if
          if (present(withMesh)) then
             if (withMesh .eqv. .true.) then
-               call obj%Seed%export(FileName=FileName, SeedID=itr, extention=".pos")
+               call this%Seed%export(FileName=FileName, SeedID=itr, extention=".pos")
             end if
          end if
 
          if (present(FilePath)) then
-            call obj%Seed%export(FileName=FilePath//"/seed.geo", SeedID=itr)
+            call this%Seed%export(FileName=FilePath//"/seed.geo", SeedID=itr)
          else
-            call obj%Seed%export(FileName=FileName, SeedID=itr)
+            call this%Seed%export(FileName=FileName, SeedID=itr)
          end if
       end if
 
       itr = itr + 1
       ! export NodeSystem
-      do i = 1, size(obj%NodeSystem)
+      do i = 1, size(this%NodeSystem)
 
          if (present(FilePath)) then
-            call obj%NodeSystem(i)%export(FileName=FilePath//"/Node.geo", objID=itr)
+            call this%NodeSystem(i)%export(FileName=FilePath//"/Node.geo", objID=itr)
          else
-            call obj%NodeSystem(i)%export(FileName=FileName//"_Node.geo", objID=itr)
+            call this%NodeSystem(i)%export(FileName=FileName//"_Node.geo", objID=itr)
          end if
-         if (i == obj%num_of_node) then
+         if (i == this%num_of_node) then
             exit
          end if
       end do
 
       ! export RootSystem
-      do i = 1, size(obj%RootSystem)
+      do i = 1, size(this%RootSystem)
 
          if (present(FilePath)) then
-            call obj%RootSystem(i)%export(FileName=FilePath//"/Root.geo", RootID=itr)
+            call this%RootSystem(i)%export(FileName=FilePath//"/Root.geo", RootID=itr)
          else
-            call obj%RootSystem(i)%export(FileName=FileName//"_Root.geo", RootID=itr)
+            call this%RootSystem(i)%export(FileName=FileName//"_Root.geo", RootID=itr)
          end if
-         if (i == obj%num_of_root) then
+         if (i == this%num_of_root) then
             exit
          end if
       end do
@@ -2935,30 +3011,30 @@ contains
 ! ########################################
 
 ! ########################################
-!subroutine initsoybean(obj,growth_habit,Max_Num_of_Node)
-!    class(soybean_) :: obj
+!subroutine initsoybean(this,growth_habit,Max_Num_of_Node)
+!    class(soybean_) :: this
 !    character(*),optional,intent(in) :: growth_habit
 !    integer(int32),optional,intent(in)::Max_Num_of_Node
 !    integer(int32) ::n
 !
 !    if(present(growth_habit) )then
-!        obj%growth_habit=growth_habit
+!        this%growth_habit=growth_habit
 !    else
-!        obj%growth_habit="determinate"
+!        this%growth_habit="determinate"
 !    endif
 !
-!    obj%growth_stage="VE"
+!    this%growth_stage="VE"
 !
 !    n=input(default=100,option=Max_Num_of_Node)
 !
-!    allocate(obj%NodeSystem(n))
-!    obj%NumOfNode=0
-!    obj%NumOfRoot=0
+!    allocate(this%NodeSystem(n))
+!    this%NumOfNode=0
+!    this%NumOfRoot=0
 !
 !    ! set an initial node and root
 !    ! two leaves, one root.
 !
-!    call obj%AddNode()
+!    call this%AddNode()
 !
 !end subroutine
 !! ########################################
@@ -2969,36 +3045,36 @@ contains
 !
 !
 !! ########################################
-!subroutine AddNodeSoybean(obj,SizeRatio)
-!    class(soybean_),intent(inout)::obj
+!subroutine AddNodeSoybean(this,SizeRatio)
+!    class(soybean_),intent(inout):: this
 !    real(real64),optional,intent(in)::SizeRatio
 !    real(real64) :: magnif
 !
 !    magnif=input(default=1.0d0,option=SizeRatio)
-!    obj%NumOfNode=obj%NumOfNode+1
+!    this%NumOfNode=this%NumOfNode+1
 !
 !    ! add leaves
-!    if(obj%NumOfNode==1 .or. obj%NumOfNode==2)then
-!        allocate(obj%NodeSystem(obj%NumOfNode)%leaf(2) )
-!        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
-!        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
+!    if(this%NumOfNode==1 .or. this%NumOfNode==2)then
+!        allocate(this%NodeSystem(this%NumOfNode)%leaf(2) )
+!        call this%NodeSystem(this%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
+!        call this%NodeSystem(this%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
 !    else
-!        allocate(obj%NodeSystem(obj%NumOfNode)%leaf(3) )
-!        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
-!        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
-!        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
+!        allocate(this%NodeSystem(this%NumOfNode)%leaf(3) )
+!        call this%NodeSystem(this%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
+!        call this%NodeSystem(this%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
+!        call this%NodeSystem(this%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=4.0d0*magnif,width=2.0d0*magnif)
 !    endif
 !
 !    ! add stem
-!    if(obj%NumOfNode==1 .or. obj%NumOfNode==2)then
-!        allocate(obj%NodeSystem(obj%NumOfNode)%Stem(1) )
-!        call obj%NodeSystem(obj%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
+!    if(this%NumOfNode==1 .or. this%NumOfNode==2)then
+!        allocate(this%NodeSystem(this%NumOfNode)%Stem(1) )
+!        call this%NodeSystem(this%NumOfNode)%leaf(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
 !    endif
 !
 !    ! add Peti
-!    if(obj%NumOfNode==1 .or. obj%NumOfNode==2)then
-!        allocate(obj%NodeSystem(obj%NumOfNode)%Peti(1) )
-!        call obj%NodeSystem(obj%NumOfNode)%Peti(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
+!    if(this%NumOfNode==1 .or. this%NumOfNode==2)then
+!        allocate(this%NodeSystem(this%NumOfNode)%Peti(1) )
+!        call this%NodeSystem(this%NumOfNode)%Peti(1)%init(thickness=0.10d0*magnif,length=3.0d0*magnif,width=2.0d0*magnif)
 !    endif
 !
 !end subroutine
@@ -3006,32 +3082,32 @@ contains
 !
 
 ! ########################################
-   subroutine showSoybean(obj, name)
-      class(Soybean_), intent(inout) :: obj
+   subroutine showSoybean(this, name)
+      class(Soybean_), intent(inout) :: this
       character(*), intent(in)::name
 
-      if (obj%struct%empty() .eqv. .true.) then
+      if (this%struct%empty() .eqv. .true.) then
          print *, "Error :: showSoybean>> no structure is imported."
          return
       end if
 
-      call obj%struct%export(name=name)
+      call this%struct%export(name=name)
 
    end subroutine
 ! ########################################
 
 ! ########################################
-   function numleafsoybean(obj) result(ret)
-      class(Soybean_), intent(in) :: obj
+   function numleafsoybean(this) result(ret)
+      class(Soybean_), intent(in) :: this
       integer(int32) :: ret, i
 
       ret = 0
-      if (.not. allocated(obj%leaf)) then
+      if (.not. allocated(this%leaf)) then
          return
       end if
 
-      do i = 1, size(obj%leaf)
-         if (obj%leaf(i)%femdomain%Mesh%empty() .eqv. .false.) then
+      do i = 1, size(this%leaf)
+         if (this%leaf(i)%femdomain%Mesh%empty() .eqv. .false.) then
             ret = ret + 1
          end if
       end do
@@ -3040,17 +3116,17 @@ contains
 ! ########################################
 
 ! ########################################
-   function numstemsoybean(obj) result(ret)
-      class(Soybean_), intent(in) :: obj
+   function numstemsoybean(this) result(ret)
+      class(Soybean_), intent(in) :: this
       integer(int32) :: ret, i
 
       ret = 0
-      if (.not. allocated(obj%stem)) then
+      if (.not. allocated(this%stem)) then
          return
       end if
 
-      do i = 1, size(obj%stem)
-         if (obj%stem(i)%femdomain%Mesh%empty() .eqv. .false.) then
+      do i = 1, size(this%stem)
+         if (this%stem(i)%femdomain%Mesh%empty() .eqv. .false.) then
             ret = ret + 1
          end if
       end do
@@ -3059,17 +3135,17 @@ contains
 ! ########################################
 
 ! ########################################
-   function numrootsoybean(obj) result(ret)
-      class(Soybean_), intent(in) :: obj
+   function numrootsoybean(this) result(ret)
+      class(Soybean_), intent(in) :: this
       integer(int32) :: ret, i
 
       ret = 0
-      if (.not. allocated(obj%root)) then
+      if (.not. allocated(this%root)) then
          return
       end if
 
-      do i = 1, size(obj%root)
-         if (obj%root(i)%femdomain%Mesh%empty() .eqv. .false.) then
+      do i = 1, size(this%root)
+         if (this%root(i)%femdomain%Mesh%empty() .eqv. .false.) then
             ret = ret + 1
          end if
       end do
@@ -3078,8 +3154,8 @@ contains
 ! ########################################
 
 ! ########################################
-   subroutine gmshSoybean(obj, name, num_threads, single_file)
-      class(Soybean_), intent(inout) :: obj
+   subroutine gmshSoybean(this, name, num_threads, single_file)
+      class(Soybean_), intent(inout) :: this
       character(*), intent(in) :: name
       type(FEMDomain_) :: femdomain
       integer(int32), optional, intent(in) :: num_threads
@@ -3089,26 +3165,26 @@ contains
       if (present(single_file)) then
          if (single_file) then
             ! export mesh for a single file
-            if (allocated(obj%stem)) then
-               do i = 1, size(obj%stem)
-                  if (.not. obj%stem(i)%femdomain%empty()) then
-                     femdomain = femdomain + obj%stem(i)%femdomain
+            if (allocated(this%stem)) then
+               do i = 1, size(this%stem)
+                  if (.not. this%stem(i)%femdomain%empty()) then
+                     femdomain = femdomain + this%stem(i)%femdomain
                   end if
                end do
             end if
 
-            if (allocated(obj%leaf)) then
-               do i = 1, size(obj%leaf)
-                  if (.not. obj%leaf(i)%femdomain%empty()) then
-                     femdomain = femdomain + obj%leaf(i)%femdomain
+            if (allocated(this%leaf)) then
+               do i = 1, size(this%leaf)
+                  if (.not. this%leaf(i)%femdomain%empty()) then
+                     femdomain = femdomain + this%leaf(i)%femdomain
                   end if
                end do
             end if
 
-            if (allocated(obj%root)) then
-               do i = 1, size(obj%root)
-                  if (.not. obj%root(i)%femdomain%empty()) then
-                     femdomain = femdomain + obj%root(i)%femdomain
+            if (allocated(this%root)) then
+               do i = 1, size(this%root)
+                  if (.not. this%root(i)%femdomain%empty()) then
+                     femdomain = femdomain + this%root(i)%femdomain
                   end if
                end do
             end if
@@ -3121,9 +3197,9 @@ contains
     !!$OMP parallel num_threads(n) private(i)
     !!$OMP do
 
-      do i = 1, size(obj%stem)
-         !if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-         call obj%stem(i)%gmsh(name=name//"_stem"//str(i))
+      do i = 1, size(this%stem)
+         !if(this%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+         call this%stem(i)%gmsh(name=name//"_stem"//str(i))
          !endif
       end do
     !!$OMP end do
@@ -3132,9 +3208,9 @@ contains
     !!$OMP parallel num_threads(n) private(i)
     !!$OMP do
 
-      do i = 1, size(obj%root)
-         !if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-         call obj%root(i)%gmsh(name=name//"_root"//str(i))
+      do i = 1, size(this%root)
+         !if(this%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+         call this%root(i)%gmsh(name=name//"_root"//str(i))
          !endif
       end do
     !!$OMP end do
@@ -3142,9 +3218,9 @@ contains
 
     !!$OMP parallel num_threads(n) private(i)
     !!$OMP do
-      do i = 1, size(obj%leaf)
-         !if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-         call obj%leaf(i)%gmsh(name=name//"_leaf"//str(i))
+      do i = 1, size(this%leaf)
+         !if(this%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+         call this%leaf(i)%gmsh(name=name//"_leaf"//str(i))
          !endif
       end do
     !!$OMP end do
@@ -3154,8 +3230,8 @@ contains
 ! ########################################
 
 ! ########################################
-   subroutine mshSoybean(obj, name, num_threads)
-      class(Soybean_), intent(inout) :: obj
+   subroutine mshSoybean(this, name, num_threads)
+      class(Soybean_), intent(inout) :: this
       character(*), intent(in) :: name
       integer(int32), optional, intent(in) :: num_threads
       integer(int32) :: i, n
@@ -3163,25 +3239,25 @@ contains
       ! index file
       call f%open(name//"_index.txt", "w")
 
-      if (allocated(obj%stem)) then
-         do i = 1, size(obj%stem)
-            if (.not. obj%stem(i)%femdomain%mesh%empty()) then
+      if (allocated(this%stem)) then
+         do i = 1, size(this%stem)
+            if (.not. this%stem(i)%femdomain%mesh%empty()) then
                call f%write(name//"_stem"//str(i)//".msh")
             end if
          end do
       end if
 
-      if (allocated(obj%root)) then
-         do i = 1, size(obj%root)
-            if (.not. obj%root(i)%femdomain%mesh%empty()) then
+      if (allocated(this%root)) then
+         do i = 1, size(this%root)
+            if (.not. this%root(i)%femdomain%mesh%empty()) then
                call f%write(name//"_root"//str(i)//".msh")
             end if
          end do
       end if
 
-      if (allocated(obj%leaf)) then
-         do i = 1, size(obj%leaf)
-            if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
+      if (allocated(this%leaf)) then
+         do i = 1, size(this%leaf)
+            if (.not. this%leaf(i)%femdomain%mesh%empty()) then
                call f%write(name//"_leaf"//str(i)//".msh")
             end if
          end do
@@ -3191,9 +3267,9 @@ contains
       n = input(default=1, option=num_threads)
     !!$OMP parallel num_threads(n) private(i)
     !!$OMP do
-      do i = 1, size(obj%stem)
-         !if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-         call obj%stem(i)%msh(name=name//"_stem"//str(i))
+      do i = 1, size(this%stem)
+         !if(this%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+         call this%stem(i)%msh(name=name//"_stem"//str(i))
          !endif
       end do
     !!$OMP end do
@@ -3201,9 +3277,9 @@ contains
 
     !!$OMP parallel num_threads(n) private(i)
     !!$OMP do
-      do i = 1, size(obj%root)
-         !if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-         call obj%root(i)%msh(name=name//"_root"//str(i))
+      do i = 1, size(this%root)
+         !if(this%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+         call this%root(i)%msh(name=name//"_root"//str(i))
          !endif
       end do
     !!$OMP end do
@@ -3211,9 +3287,9 @@ contains
 
     !!$OMP parallel num_threads(n) private(i)
     !!$OMP do
-      do i = 1, size(obj%leaf)
-         !if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-         call obj%leaf(i)%msh(name=name//"_leaf"//str(i))
+      do i = 1, size(this%leaf)
+         !if(this%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+         call this%leaf(i)%msh(name=name//"_leaf"//str(i))
          !endif
       end do
     !!$OMP end do
@@ -3223,9 +3299,9 @@ contains
 ! ########################################
 
 ! ########################################
-   subroutine vtkSoybean(obj, name, num_threads, single_file, &
+   subroutine vtkSoybean(this, name, num_threads, single_file, &
                          scalar_field, vector_field, tensor_field, field_name)
-      class(Soybean_), intent(inout) :: obj
+      class(Soybean_), intent(inout) :: this
       character(*), intent(in) :: name
       character(*), optional, intent(in) :: field_name
 
@@ -3238,9 +3314,9 @@ contains
       integer(int32) :: i, n
       logical, optional, intent(in) :: single_file
 
-      if (.not. allocated(obj%stem)) then
-         if (.not. allocated(obj%leaf)) then
-            if (.not. allocated(obj%root)) then
+      if (.not. allocated(this%stem)) then
+         if (.not. allocated(this%leaf)) then
+            if (.not. allocated(this%root)) then
                return
             end if
          end if
@@ -3249,29 +3325,37 @@ contains
       if (present(single_file)) then
          if (single_file) then
             ! export mesh for a single file
-            if (allocated(obj%stem)) then
-               do i = 1, size(obj%stem)
-                  if (.not. obj%stem(i)%femdomain%empty()) then
-                     femdomain = femdomain + obj%stem(i)%femdomain
+            if (allocated(this%stem)) then
+               do i = 1, size(this%stem)
+                  if (.not. this%stem(i)%femdomain%empty()) then
+                     femdomain = femdomain + this%stem(i)%femdomain
                   end if
                end do
             end if
 
-            if (allocated(obj%leaf)) then
-               do i = 1, size(obj%leaf)
-                  if (.not. obj%leaf(i)%femdomain%empty()) then
-                     femdomain = femdomain + obj%leaf(i)%femdomain
+            if (allocated(this%leaf)) then
+               do i = 1, size(this%leaf)
+                  if (.not. this%leaf(i)%femdomain%empty()) then
+                     femdomain = femdomain + this%leaf(i)%femdomain
                   end if
                end do
             end if
 
-            if (allocated(obj%root)) then
-               do i = 1, size(obj%root)
-                  if (.not. obj%root(i)%femdomain%empty()) then
-                     femdomain = femdomain + obj%root(i)%femdomain
+            if (allocated(this%root)) then
+               do i = 1, size(this%root)
+                  if (.not. this%root(i)%femdomain%empty()) then
+                     femdomain = femdomain + this%root(i)%femdomain
                   end if
                end do
             end if
+
+            if(allocated(this%meristem))then
+               do i=1,size(this%meristem)
+                  if( .not. this%meristem(i)%empty())then
+                     femdomain = femdomain + this%meristem(i)%get_all_femdomain()
+                  endif
+               enddo
+            endif
 
             if (present(scalar_field)) then
                ! export scalar-valued field
@@ -3297,50 +3381,50 @@ contains
       ! index file
       call f%open(name//"_index.txt", "w")
 
-      if (allocated(obj%stem)) then
-         do i = 1, size(obj%stem)
-            if (.not. obj%stem(i)%femdomain%mesh%empty()) then
+      if (allocated(this%stem)) then
+         do i = 1, size(this%stem)
+            if (.not. this%stem(i)%femdomain%mesh%empty()) then
                call f%write(name//"_stem"//str(i)//".vtk")
             end if
          end do
       end if
 
-      if (allocated(obj%root)) then
-         do i = 1, size(obj%root)
-            if (.not. obj%root(i)%femdomain%mesh%empty()) then
+      if (allocated(this%root)) then
+         do i = 1, size(this%root)
+            if (.not. this%root(i)%femdomain%mesh%empty()) then
                call f%write(name//"_root"//str(i)//".vtk")
             end if
          end do
       end if
 
-      if (allocated(obj%leaf)) then
-         do i = 1, size(obj%leaf)
-            if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
+      if (allocated(this%leaf)) then
+         do i = 1, size(this%leaf)
+            if (.not. this%leaf(i)%femdomain%mesh%empty()) then
                call f%write(name//"_leaf"//str(i)//".vtk")
             end if
          end do
       end if
       call f%close()
 
-      if (allocated(obj%stem)) then
+      if (allocated(this%stem)) then
         !!$OMP parallel num_threads(n) private(i)
         !!$OMP do
-         do i = 1, size(obj%stem)
-            !if(obj%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%stem(i)%vtk(field_name=field_name, name=name//"_stem"//str(i))
+         do i = 1, size(this%stem)
+            !if(this%stem(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call this%stem(i)%vtk(field_name=field_name, name=name//"_stem"//str(i))
             !endif
          end do
         !!$OMP end do
         !!$OMP end parallel
       end if
 
-      if (allocated(obj%root)) then
+      if (allocated(this%root)) then
 
         !!$OMP parallel num_threads(n) private(i)
         !!$OMP do
-         do i = 1, size(obj%root)
-            !if(obj%root(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%root(i)%vtk(field_name=field_name, name=name//"_root"//str(i))
+         do i = 1, size(this%root)
+            !if(this%root(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call this%root(i)%vtk(field_name=field_name, name=name//"_root"//str(i))
             !endif
          end do
 
@@ -3348,13 +3432,13 @@ contains
         !!$OMP end parallel
       end if
 
-      if (allocated(obj%leaf)) then
+      if (allocated(this%leaf)) then
 
         !!$OMP parallel num_threads(n) private(i)
         !!$OMP do
-         do i = 1, size(obj%leaf)
-            !if(obj%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
-            call obj%leaf(i)%vtk(field_name=field_name, name=name//"_leaf"//str(i))
+         do i = 1, size(this%leaf)
+            !if(this%leaf(i)%femdomain%mesh%empty() .eqv. .false. )then
+            call this%leaf(i)%vtk(field_name=field_name, name=name//"_leaf"//str(i))
             !endif
          end do
         !!$OMP end do
@@ -3365,8 +3449,8 @@ contains
 ! ########################################
 
 ! ########################################
-   subroutine jsonSoybean(obj, name)
-      class(Soybean_), intent(inout) :: obj
+   subroutine jsonSoybean(this, name)
+      class(Soybean_), intent(inout) :: this
       character(*), intent(in) :: name
       integer(int32) :: i, countnum
       type(IO_) :: f
@@ -3374,34 +3458,34 @@ contains
       call f%open(name//".json")
       call f%write("{")
       countnum = 0
-      do i = 1, size(obj%stem)
-         if (obj%stem(i)%femdomain%mesh%empty() .eqv. .false.) then
+      do i = 1, size(this%stem)
+         if (this%stem(i)%femdomain%mesh%empty() .eqv. .false.) then
             countnum = countnum + 1
             call f%write('"'//"stem"//str(i)//'":')
-            call obj%stem(i)%femdomain%json(name=name//"_stem"//str(i), fh=f%fh, endl=.false.)
+            call this%stem(i)%femdomain%json(name=name//"_stem"//str(i), fh=f%fh, endl=.false.)
          end if
       end do
       call f%write('"num_stem":'//str(countnum)//',')
 
       countnum = 0
-      do i = 1, size(obj%root)
-         if (obj%root(i)%femdomain%mesh%empty() .eqv. .false.) then
+      do i = 1, size(this%root)
+         if (this%root(i)%femdomain%mesh%empty() .eqv. .false.) then
             countnum = countnum + 1
             call f%write('"'//"root"//str(i)//'":')
-            call obj%root(i)%femdomain%json(name=name//"_root"//str(i), fh=f%fh, endl=.false.)
+            call this%root(i)%femdomain%json(name=name//"_root"//str(i), fh=f%fh, endl=.false.)
          end if
       end do
       call f%write('"num_root":'//str(countnum)//',')
 
       countnum = 0
-      do i = 1, size(obj%leaf)
-         if (obj%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
+      do i = 1, size(this%leaf)
+         if (this%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
             countnum = countnum + 1
             call f%write('"'//"leaf"//str(i)//'":')
-            call obj%leaf(i)%femdomain%json(name=name//"_leaf"//str(i), fh=f%fh, endl=.false.)
+            call this%leaf(i)%femdomain%json(name=name//"_leaf"//str(i), fh=f%fh, endl=.false.)
          end if
       end do
-      call f%write('"obj%num_leaf":'//str(countnum)//',')
+      call f%write('"this%num_leaf":'//str(countnum)//',')
       call f%write('"return_soybean":0')
       call f%write("}")
       call f%close()
@@ -3409,8 +3493,8 @@ contains
 ! ########################################
 
 ! ########################################
-   subroutine stlSoybean(obj, name, num_threads, single_file)
-      class(Soybean_), intent(inout) :: obj
+   subroutine stlSoybean(this, name, num_threads, single_file)
+      class(Soybean_), intent(inout) :: this
       character(*), intent(in) :: name
       integer(int32), optional, intent(in) :: num_threads
       type(FEMDomain_) :: femdomain
@@ -3422,26 +3506,26 @@ contains
       if (present(single_file)) then
          if (single_file) then
             ! export mesh for a single file
-            if (allocated(obj%stem)) then
-               do i = 1, size(obj%stem)
-                  if (.not. obj%stem(i)%femdomain%empty()) then
-                     femdomain = femdomain + obj%stem(i)%femdomain
+            if (allocated(this%stem)) then
+               do i = 1, size(this%stem)
+                  if (.not. this%stem(i)%femdomain%empty()) then
+                     femdomain = femdomain + this%stem(i)%femdomain
                   end if
                end do
             end if
 
-            if (allocated(obj%leaf)) then
-               do i = 1, size(obj%leaf)
-                  if (.not. obj%leaf(i)%femdomain%empty()) then
-                     femdomain = femdomain + obj%leaf(i)%femdomain
+            if (allocated(this%leaf)) then
+               do i = 1, size(this%leaf)
+                  if (.not. this%leaf(i)%femdomain%empty()) then
+                     femdomain = femdomain + this%leaf(i)%femdomain
                   end if
                end do
             end if
 
-            if (allocated(obj%root)) then
-               do i = 1, size(obj%root)
-                  if (.not. obj%root(i)%femdomain%empty()) then
-                     femdomain = femdomain + obj%root(i)%femdomain
+            if (allocated(this%root)) then
+               do i = 1, size(this%root)
+                  if (.not. this%root(i)%femdomain%empty()) then
+                     femdomain = femdomain + this%root(i)%femdomain
                   end if
                end do
             end if
@@ -3453,25 +3537,25 @@ contains
       ! index file
       call f%open(name//"_index.txt", "w")
 
-      if (allocated(obj%stem)) then
-         do i = 1, size(obj%stem)
-            if (.not. obj%stem(i)%femdomain%mesh%empty()) then
+      if (allocated(this%stem)) then
+         do i = 1, size(this%stem)
+            if (.not. this%stem(i)%femdomain%mesh%empty()) then
                call f%write(name//"_stem"//str(i)//".stl")
             end if
          end do
       end if
 
-      if (allocated(obj%root)) then
-         do i = 1, size(obj%root)
-            if (.not. obj%root(i)%femdomain%mesh%empty()) then
+      if (allocated(this%root)) then
+         do i = 1, size(this%root)
+            if (.not. this%root(i)%femdomain%mesh%empty()) then
                call f%write(name//"_root"//str(i)//".stl")
             end if
          end do
       end if
 
-      if (allocated(obj%leaf)) then
-         do i = 1, size(obj%leaf)
-            if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
+      if (allocated(this%leaf)) then
+         do i = 1, size(this%leaf)
+            if (.not. this%leaf(i)%femdomain%mesh%empty()) then
                call f%write(name//"_leaf"//str(i)//".stl")
             end if
          end do
@@ -3482,9 +3566,9 @@ contains
       !call execute_command_line("echo ' ' > "//name//".stl")
     !!$OMP parallel num_threads(n) private(i)
     !!$OMP do
-      do i = 1, size(obj%stem)
-         if (obj%stem(i)%femdomain%mesh%empty() .eqv. .false.) then
-            call obj%stem(i)%stl(name=name//"_stem"//str(i))
+      do i = 1, size(this%stem)
+         if (this%stem(i)%femdomain%mesh%empty() .eqv. .false.) then
+            call this%stem(i)%stl(name=name//"_stem"//str(i))
             !call execute_command_line("cat "//name//"_stem"//str(i)//"_000001.stl >> "//name//".stl")
          end if
       end do
@@ -3493,9 +3577,9 @@ contains
 
     !!$OMP parallel num_threads(n) private(i)
     !!$OMP do
-      do i = 1, size(obj%root)
-         if (obj%root(i)%femdomain%mesh%empty() .eqv. .false.) then
-            call obj%root(i)%stl(name=name//"_root"//str(i))
+      do i = 1, size(this%root)
+         if (this%root(i)%femdomain%mesh%empty() .eqv. .false.) then
+            call this%root(i)%stl(name=name//"_root"//str(i))
             !call execute_command_line("cat "//name//"_root"//str(i)//"_000001.stl >> "//name//".stl")
          end if
       end do
@@ -3504,9 +3588,9 @@ contains
 
     !!$OMP parallel num_threads(n) private(i)
     !!$OMP do
-      do i = 1, size(obj%leaf)
-         if (obj%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
-            call obj%leaf(i)%stl(name=name//"_leaf"//str(i))
+      do i = 1, size(this%leaf)
+         if (this%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
+            call this%leaf(i)%stl(name=name//"_leaf"//str(i))
             !call execute_command_line("cat "//name//"_leaf"//str(i)//"_000001.stl >> "//name//".stl")
          end if
       end do
@@ -3523,8 +3607,8 @@ contains
 ! ########################################
 
 ! ########################################
-   subroutine plySoybean(obj, name, num_threads, single_file)
-      class(Soybean_), intent(inout) :: obj
+   subroutine plySoybean(this, name, num_threads, single_file)
+      class(Soybean_), intent(inout) :: this
       character(*), intent(in) :: name
       integer(int32), optional, intent(in) :: num_threads
       type(FEMDomain_) :: femdomain
@@ -3536,26 +3620,26 @@ contains
       if (present(single_file)) then
          if (single_file) then
             ! export mesh for a single file
-            if (allocated(obj%stem)) then
-               do i = 1, size(obj%stem)
-                  if (.not. obj%stem(i)%femdomain%empty()) then
-                     femdomain = femdomain + obj%stem(i)%femdomain
+            if (allocated(this%stem)) then
+               do i = 1, size(this%stem)
+                  if (.not. this%stem(i)%femdomain%empty()) then
+                     femdomain = femdomain + this%stem(i)%femdomain
                   end if
                end do
             end if
 
-            if (allocated(obj%leaf)) then
-               do i = 1, size(obj%leaf)
-                  if (.not. obj%leaf(i)%femdomain%empty()) then
-                     femdomain = femdomain + obj%leaf(i)%femdomain
+            if (allocated(this%leaf)) then
+               do i = 1, size(this%leaf)
+                  if (.not. this%leaf(i)%femdomain%empty()) then
+                     femdomain = femdomain + this%leaf(i)%femdomain
                   end if
                end do
             end if
 
-            if (allocated(obj%root)) then
-               do i = 1, size(obj%root)
-                  if (.not. obj%root(i)%femdomain%empty()) then
-                     femdomain = femdomain + obj%root(i)%femdomain
+            if (allocated(this%root)) then
+               do i = 1, size(this%root)
+                  if (.not. this%root(i)%femdomain%empty()) then
+                     femdomain = femdomain + this%root(i)%femdomain
                   end if
                end do
             end if
@@ -3567,25 +3651,25 @@ contains
       ! index file
       call f%open(name//"_index.txt", "w")
 
-      if (allocated(obj%stem)) then
-         do i = 1, size(obj%stem)
-            if (.not. obj%stem(i)%femdomain%mesh%empty()) then
+      if (allocated(this%stem)) then
+         do i = 1, size(this%stem)
+            if (.not. this%stem(i)%femdomain%mesh%empty()) then
                call f%write(name//"_stem"//str(i)//".ply")
             end if
          end do
       end if
 
-      if (allocated(obj%root)) then
-         do i = 1, size(obj%root)
-            if (.not. obj%root(i)%femdomain%mesh%empty()) then
+      if (allocated(this%root)) then
+         do i = 1, size(this%root)
+            if (.not. this%root(i)%femdomain%mesh%empty()) then
                call f%write(name//"_root"//str(i)//".ply")
             end if
          end do
       end if
 
-      if (allocated(obj%leaf)) then
-         do i = 1, size(obj%leaf)
-            if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
+      if (allocated(this%leaf)) then
+         do i = 1, size(this%leaf)
+            if (.not. this%leaf(i)%femdomain%mesh%empty()) then
                call f%write(name//"_leaf"//str(i)//".ply")
             end if
          end do
@@ -3596,9 +3680,9 @@ contains
       !call execute_command_line("echo ' ' > "//name//".ply")
     !!$OMP parallel num_threads(n) private(i)
     !!$OMP do
-      do i = 1, size(obj%stem)
-         if (obj%stem(i)%femdomain%mesh%empty() .eqv. .false.) then
-            call obj%stem(i)%ply(name=name//"_stem"//str(i))
+      do i = 1, size(this%stem)
+         if (this%stem(i)%femdomain%mesh%empty() .eqv. .false.) then
+            call this%stem(i)%ply(name=name//"_stem"//str(i))
             !call execute_command_line("cat "//name//"_stem"//str(i)//"_000001.ply >> "//name//".ply")
          end if
       end do
@@ -3607,9 +3691,9 @@ contains
 
     !!$OMP parallel num_threads(n) private(i)
     !!$OMP do
-      do i = 1, size(obj%root)
-         if (obj%root(i)%femdomain%mesh%empty() .eqv. .false.) then
-            call obj%root(i)%ply(name=name//"_root"//str(i))
+      do i = 1, size(this%root)
+         if (this%root(i)%femdomain%mesh%empty() .eqv. .false.) then
+            call this%root(i)%ply(name=name//"_root"//str(i))
             !call execute_command_line("cat "//name//"_root"//str(i)//"_000001.ply >> "//name//".ply")
          end if
       end do
@@ -3618,9 +3702,9 @@ contains
 
     !!$OMP parallel num_threads(n) private(i)
     !!$OMP do
-      do i = 1, size(obj%leaf)
-         if (obj%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
-            call obj%leaf(i)%ply(name=name//"_leaf"//str(i))
+      do i = 1, size(this%leaf)
+         if (this%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
+            call this%leaf(i)%ply(name=name//"_leaf"//str(i))
             !call execute_command_line("cat "//name//"_leaf"//str(i)//"_000001.ply >> "//name//".ply")
          end if
       end do
@@ -3637,32 +3721,32 @@ contains
 ! ########################################
 
 ! ########################################
-   subroutine moveSoybean(obj, x, y, z, reset)
-      class(Soybean_), intent(inout) :: obj
+   subroutine moveSoybean(this, x, y, z, reset)
+      class(Soybean_), intent(inout) :: this
       real(real64), optional, intent(in) :: x, y, z
       logical,optional,intent(in) :: reset
       integer(int32) :: i
 
-      if (allocated(obj%stem)) then
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%femdomain%mesh%empty() .eqv. .false.) then
-               call obj%stem(i)%move(x=x, y=y, z=z, reset=reset)
+      if (allocated(this%stem)) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%femdomain%mesh%empty() .eqv. .false.) then
+               call this%stem(i)%move(x=x, y=y, z=z, reset=reset)
             end if
          end do
       end if
 
-      if (allocated(obj%leaf)) then
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
-               call obj%leaf(i)%move(x=x, y=y, z=z, reset=reset)
+      if (allocated(this%leaf)) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
+               call this%leaf(i)%move(x=x, y=y, z=z, reset=reset)
             end if
          end do
       end if
 
-      if (allocated(obj%root)) then
-         do i = 1, size(obj%root)
-            if (obj%root(i)%femdomain%mesh%empty() .eqv. .false.) then
-               call obj%root(i)%move(x=x, y=y, z=z,reset=reset)
+      if (allocated(this%root)) then
+         do i = 1, size(this%root)
+            if (this%root(i)%femdomain%mesh%empty() .eqv. .false.) then
+               call this%root(i)%move(x=x, y=y, z=z,reset=reset)
             end if
          end do
       end if
@@ -3671,8 +3755,8 @@ contains
 ! ########################################
 
 ! ########################################
-   subroutine laytracingsoybean(obj, light, Transparency, Resolution)
-      class(Soybean_), intent(inout) :: obj
+   subroutine laytracingsoybean(this, light, Transparency, Resolution)
+      class(Soybean_), intent(inout) :: this
       type(Light_), intent(in) :: light
       real(real64), optional, intent(in) :: Transparency, Resolution
       real(real64), allocatable :: ppfd(:)
@@ -3690,18 +3774,18 @@ contains
       integer(int32) :: num_particle_leaf, tocount_leaf
       ! <<< regacy
 
-      ppfd = obj%getPPFD(Light=Light, Transparency=Transparency, Resolution=Resolution)
+      ppfd = this%getPPFD(Light=Light, Transparency=Transparency, Resolution=Resolution)
 
-      NumberOfElement = obj%getNumberOfElement()
-      from = sum(NumberOfElement(1:obj%numstem()))
+      NumberOfElement = this%getNumberOfElement()
+      from = sum(NumberOfElement(1:this%numstem()))
 
       elem_id = from
-      do i = 1, size(obj%leaf)
-         if (.not. obj%leaf(i)%femdomain%empty()) then
-            obj%leaf(i)%ppfd = zeros(obj%leaf(i)%femdomain%ne())
-            do j = 1, obj%leaf(i)%femdomain%ne()
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%femdomain%empty()) then
+            this%leaf(i)%ppfd = zeros(this%leaf(i)%femdomain%ne())
+            do j = 1, this%leaf(i)%femdomain%ne()
                elem_id = elem_id + 1
-               obj%leaf(i)%ppfd(j) = ppfd(elem_id)
+               this%leaf(i)%ppfd(j) = ppfd(elem_id)
             end do
          end if
       end do
@@ -3714,9 +3798,9 @@ contains
       ! 要素中心から頂点への平均長さを半径に持ち、要素中心を中心とする球
       ! を考え、Layとの公差判定を行う。
       num_particle = 0
-      do i = 1, size(obj%leaf)
-         if (obj%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
-            num_particle = num_particle + size(obj%leaf(i)%femdomain%mesh%ElemNod, 1)
+      do i = 1, size(this%leaf)
+         if (this%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
+            num_particle = num_particle + size(this%leaf(i)%femdomain%mesh%ElemNod, 1)
          end if
       end do
       allocate (leafcenter(num_particle, 3), leafradius(num_particle))
@@ -3724,9 +3808,9 @@ contains
       leafradius(:) = 0.0d0
 
       num_particle = 0
-      do i = 1, size(obj%leaf)
-         if (obj%stem(i)%femdomain%mesh%empty() .eqv. .false.) then
-            num_particle = num_particle + size(obj%stem(i)%femdomain%mesh%ElemNod, 1)
+      do i = 1, size(this%leaf)
+         if (this%stem(i)%femdomain%mesh%empty() .eqv. .false.) then
+            num_particle = num_particle + size(this%stem(i)%femdomain%mesh%ElemNod, 1)
          end if
       end do
       allocate (stemcenter(num_particle, 3), stemradius(num_particle))
@@ -3735,16 +3819,16 @@ contains
 
       num_particle = 0
 
-      do i = 1, size(obj%leaf)
-         if (obj%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
-            n = size(obj%leaf(i)%femdomain%mesh%Elemnod, 2)
-            m = size(obj%leaf(i)%femdomain%mesh%Nodcoord, 2)
+      do i = 1, size(this%leaf)
+         if (this%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
+            n = size(this%leaf(i)%femdomain%mesh%Elemnod, 2)
+            m = size(this%leaf(i)%femdomain%mesh%Nodcoord, 2)
             allocate (elemnodcoord(n, m))
             allocate (x(m))
-            do j = 1, size(obj%leaf(i)%femdomain%mesh%elemnod, 1)
-               do k = 1, size(obj%leaf(i)%femdomain%mesh%elemnod, 2)
-                  nodeid = obj%leaf(i)%femdomain%mesh%elemnod(j, k)
-                  elemnodcoord(k, :) = obj%leaf(i)%femdomain%mesh%Nodcoord(nodeid, :)
+            do j = 1, size(this%leaf(i)%femdomain%mesh%elemnod, 1)
+               do k = 1, size(this%leaf(i)%femdomain%mesh%elemnod, 2)
+                  nodeid = this%leaf(i)%femdomain%mesh%elemnod(j, k)
+                  elemnodcoord(k, :) = this%leaf(i)%femdomain%mesh%Nodcoord(nodeid, :)
                end do
                num_particle = num_particle + 1
                do k = 1, size(elemnodcoord, 1)
@@ -3772,16 +3856,16 @@ contains
       end do
 
       num_particle = 0
-      do i = 1, size(obj%stem)
-         if (obj%stem(i)%femdomain%mesh%empty() .eqv. .false.) then
-            n = size(obj%stem(i)%femdomain%mesh%Elemnod, 2)
-            m = size(obj%stem(i)%femdomain%mesh%Nodcoord, 2)
+      do i = 1, size(this%stem)
+         if (this%stem(i)%femdomain%mesh%empty() .eqv. .false.) then
+            n = size(this%stem(i)%femdomain%mesh%Elemnod, 2)
+            m = size(this%stem(i)%femdomain%mesh%Nodcoord, 2)
             allocate (elemnodcoord(n, m))
             allocate (x(m))
-            do j = 1, size(obj%stem(i)%femdomain%mesh%elemnod, 1)
-               do k = 1, size(obj%stem(i)%femdomain%mesh%elemnod, 2)
-                  nodeid = obj%stem(i)%femdomain%mesh%elemnod(j, k)
-                  elemnodcoord(k, :) = obj%stem(i)%femdomain%mesh%Nodcoord(nodeid, :)
+            do j = 1, size(this%stem(i)%femdomain%mesh%elemnod, 1)
+               do k = 1, size(this%stem(i)%femdomain%mesh%elemnod, 2)
+                  nodeid = this%stem(i)%femdomain%mesh%elemnod(j, k)
+                  elemnodcoord(k, :) = this%stem(i)%femdomain%mesh%Nodcoord(nodeid, :)
                end do
                num_particle = num_particle + 1
                do k = 1, size(elemnodcoord, 1)
@@ -3829,14 +3913,14 @@ contains
       tocount_leaf = 0
       num_particle_leaf = 0
 
-      do i = 1, size(obj%leaf)
-         !print *, i,"/",obj%numleaf()
-         if (obj%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
+      do i = 1, size(this%leaf)
+         !print *, i,"/",this%numleaf()
+         if (this%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
             ! 葉あり
-            obj%leaf(i)%PPFD(:) = max_PPFD
+            this%leaf(i)%PPFD(:) = max_PPFD
 
             !!$OMP parallel do private(j)
-            do j = 1, size(obj%leaf(i)%PPFD)
+            do j = 1, size(this%leaf(i)%PPFD)
 
                totcount = tocount_leaf + j
 
@@ -3857,11 +3941,11 @@ contains
                   rc = sqrt(rc)
                   if (rc <= r0 + r .and. x(3) < x2(3)) then
                      ! 茎により覆陰されてる
-                     obj%leaf(i)%PPFD(j) = 0.0d0
+                     this%leaf(i)%PPFD(j) = 0.0d0
                      exit
                   end if
                end do
-               if (obj%leaf(i)%PPFD(j) == 0.0d0) then
+               if (this%leaf(i)%PPFD(j) == 0.0d0) then
                   cycle
                end if
 
@@ -3877,10 +3961,10 @@ contains
                   rc = sqrt(rc)
                   if (rc <= (r0 + r)/2.0d0 .and. x(3) < x2(3)) then
                      ! 茎により覆陰されてる
-                     obj%leaf(i)%PPFD(j) = &
-                        obj%leaf(i)%PPFD(j)*(1.0d0 - extinction_ratio*2.0d0*r)
-                     if (obj%leaf(i)%PPFD(j) <= 0.0d0) then
-                        obj%leaf(i)%PPFD(j) = 0.0d0
+                     this%leaf(i)%PPFD(j) = &
+                        this%leaf(i)%PPFD(j)*(1.0d0 - extinction_ratio*2.0d0*r)
+                     if (this%leaf(i)%PPFD(j) <= 0.0d0) then
+                        this%leaf(i)%PPFD(j) = 0.0d0
                      end if
                   end if
                end do
@@ -3888,17 +3972,17 @@ contains
             end do
             !!$OMP end parallel do
 
-            tocount_leaf = tocount_leaf + size(obj%leaf(i)%PPFD)
-            num_particle_leaf = num_particle_leaf + size(obj%leaf(i)%PPFD)
+            tocount_leaf = tocount_leaf + size(this%leaf(i)%PPFD)
+            num_particle_leaf = num_particle_leaf + size(this%leaf(i)%PPFD)
          end if
       end do
 
       call f%open("PPFD.txt")
-      do i = 1, size(obj%leaf)
-         if (obj%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
+      do i = 1, size(this%leaf)
+         if (this%leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
             ! 葉あり
-            do j = 1, size(obj%leaf(i)%PPFD, 1)
-               write (f%fh, *) obj%leaf(i)%PPFD(j), "leaf_id: ", str(i), "elem_id: ", str(j)
+            do j = 1, size(this%leaf(i)%PPFD, 1)
+               write (f%fh, *) this%leaf(i)%PPFD(j), "leaf_id: ", str(i), "elem_id: ", str(j)
             end do
          end if
       end do
@@ -3907,11 +3991,11 @@ contains
    end subroutine
 ! ########################################
 
-   subroutine addNodeSoybean(obj, StemNodeID, RootNodeID, peti_width_ave, peti_width_sig, peti_size_ave &
+   subroutine addNodeSoybean(this, StemNodeID, RootNodeID, peti_width_ave, peti_width_sig, peti_size_ave &
                              , peti_size_sig, peti_angle_ave, peti_angle_sig, leaf_thickness_ave, leaf_thickness_sig &
                              , leaf_length_ave, leaf_length_sig, leaf_width_ave, leaf_width_sig, leaf_angle_sig &
                              , leaf_angle_ave, mainstem_to_branch)
-      class(Soybean_), intent(inout) :: obj
+      class(Soybean_), intent(inout) :: this
       integer(int32), optional, intent(in) :: StemNodeID, RootNodeID
       real(real64), optional, intent(in) :: peti_width_ave, peti_width_sig, peti_size_ave &
                                            , peti_size_sig, peti_angle_ave, peti_angle_sig, leaf_thickness_ave, leaf_thickness_sig &
@@ -3928,109 +4012,109 @@ contains
          mainstem_2_branch = mainstem_to_branch
       end if
 
-      call obj%update()
+      call this%update()
 
       if (present(StemNodeID)) then
          i = StemNodeID
 
-         obj%leaf_thickness_ave(obj%num_leaf) = input( &
-                                                default=obj%leaf_thickness_ave(obj%num_leaf), &
+         this%leaf_thickness_ave(this%num_leaf) = input( &
+                                                default=this%leaf_thickness_ave(this%num_leaf), &
                                                 option=leaf_thickness_ave)
-         obj%leaf_thickness_sig(obj%num_leaf) = input( &
-                                                default=obj%leaf_thickness_sig(obj%num_leaf), &
+         this%leaf_thickness_sig(this%num_leaf) = input( &
+                                                default=this%leaf_thickness_sig(this%num_leaf), &
                                                 option=leaf_thickness_sig)
 
-         obj%leaf_length_ave(obj%num_leaf) = input( &
-                                             default=obj%leaf_length_ave(obj%num_leaf), &
+         this%leaf_length_ave(this%num_leaf) = input( &
+                                             default=this%leaf_length_ave(this%num_leaf), &
                                              option=leaf_length_ave)
-         obj%leaf_length_sig(obj%num_leaf) = input( &
-                                             default=obj%leaf_length_sig(obj%num_leaf), &
+         this%leaf_length_sig(this%num_leaf) = input( &
+                                             default=this%leaf_length_sig(this%num_leaf), &
                                              option=leaf_length_sig)
-         obj%leaf_width_ave(obj%num_leaf) = input( &
-                                            default=obj%leaf_width_ave(obj%num_leaf), &
+         this%leaf_width_ave(this%num_leaf) = input( &
+                                            default=this%leaf_width_ave(this%num_leaf), &
                                             option=leaf_width_ave)
-         obj%leaf_width_sig(obj%num_leaf) = input( &
-                                            default=obj%leaf_width_sig(obj%num_leaf), &
+         this%leaf_width_sig(this%num_leaf) = input( &
+                                            default=this%leaf_width_sig(this%num_leaf), &
                                             option=leaf_width_sig)
-         obj%leaf_angle_sig(obj%num_leaf) = input( &
-                                            default=obj%leaf_angle_sig(obj%num_leaf), &
+         this%leaf_angle_sig(this%num_leaf) = input( &
+                                            default=this%leaf_angle_sig(this%num_leaf), &
                                             option=leaf_angle_sig)
 
-         obj%leaf_angle_ave(obj%num_leaf) = input( &
-                                            default=obj%leaf_angle_ave(obj%num_leaf), &
+         this%leaf_angle_ave(this%num_leaf) = input( &
+                                            default=this%leaf_angle_ave(this%num_leaf), &
                                             option=leaf_angle_ave)
 
          ! main stem -> main stem
-         if (obj%isMainStem(StemNodeID) .and. .not. mainstem_2_branch) then
+         if (this%isMainStem(StemNodeID) .and. .not. mainstem_2_branch) then
             print *, "Main -> Main", StemNodeID
             ! main stem
             i = StemNodeID
-            call obj%stem(obj%numStem() + 1)%init(config=obj%stemconfig)
+            call this%stem(this%numStem() + 1)%init(config=this%stemconfig)
 
-            call extend(obj%NodeID_MainStem)
-            obj%NodeID_MainStem(size(obj%NodeID_MainStem)) = obj%numStem()
+            call extend(this%NodeID_MainStem)
+            this%NodeID_MainStem(size(this%NodeID_MainStem)) = this%numStem()
 
-            if (obj%ms_node > 0.0d0) then
-               call obj%stem(i)%resize( &
-                  x=obj%ms_width, &
-                  y=obj%ms_width, &
-                  z=obj%ms_length/dble(obj%ms_node) &
+            if (this%ms_node > 0.0d0) then
+               call this%stem(i)%resize( &
+                  x=this%ms_width, &
+                  y=this%ms_width, &
+                  z=this%ms_length/dble(this%ms_node) &
                   )
             end if
 
-            call obj%stem(i)%rotate( &
-               x=radian(random%gauss(mu=obj%ms_angle_ave, sigma=obj%ms_angle_sig)), &
-               y=radian(random%gauss(mu=obj%ms_angle_ave, sigma=obj%ms_angle_sig)), &
-               z=obj%stem(StemNodeID)%femdomain%total_rotation(3) + radian((random%random() - 0.50d0)*90.0d0) &
+            call this%stem(i)%rotate( &
+               x=radian(random%gauss(mu=this%ms_angle_ave, sigma=this%ms_angle_sig)), &
+               y=radian(random%gauss(mu=this%ms_angle_ave, sigma=this%ms_angle_sig)), &
+               z=this%stem(StemNodeID)%femdomain%total_rotation(3) + radian((random%random() - 0.50d0)*90.0d0) &
                )
-            call obj%stem(i)%change_length_or_width(dt=0.0d0)
-            obj%stem(i)%StemID = 0
-            obj%stem(i)%InterNodeID = size(obj%NodeID_MainStem)
+            call this%stem(i)%change_length_or_width(dt=0.0d0)
+            this%stem(i)%StemID = 0
+            this%stem(i)%InterNodeID = size(this%NodeID_MainStem)
 
             ! branch -> branch
-         elseif (.not. obj%isMainStem(StemNodeID) .and. .not. mainstem_2_branch) then
+         elseif (.not. this%isMainStem(StemNodeID) .and. .not. mainstem_2_branch) then
 
             i = StemNodeID
 
-            branch_id = obj%BranchID(i)
+            branch_id = this%BranchID(i)
             print *, "Branch -> Branch branch id", branch_id
 
-            call obj%stem(obj%numStem() + 1)%init(config=obj%stemconfig)
+            call this%stem(this%numStem() + 1)%init(config=this%stemconfig)
 
-            if (.not. allocated(obj%NodeID_Branch(branch_id)%ID)) then
-               obj%NodeID_Branch(branch_id)%ID = [obj%numStem()]
+            if (.not. allocated(this%NodeID_Branch(branch_id)%ID)) then
+               this%NodeID_Branch(branch_id)%ID = [this%numStem()]
             else
-               obj%NodeID_Branch(branch_id)%ID = obj%NodeID_Branch(branch_id)%ID//[obj%numStem()]
+               this%NodeID_Branch(branch_id)%ID = this%NodeID_Branch(branch_id)%ID//[this%numStem()]
             end if
 
-            My_StemID = obj%numStem()
-            call obj%stem(My_StemID)%rotate( &
-               x=radian(random%gauss(mu=obj%br_angle_ave(branch_id), sigma=obj%br_angle_sig(branch_id))), &
-               y=radian(random%gauss(mu=obj%br_angle_ave(branch_id), sigma=obj%br_angle_sig(branch_id))), &
-               z=obj%stem(StemNodeID)%femdomain%total_rotation(3) + radian((random%random() - 0.50d0)*90.0d0) &
+            My_StemID = this%numStem()
+            call this%stem(My_StemID)%rotate( &
+               x=radian(random%gauss(mu=this%br_angle_ave(branch_id), sigma=this%br_angle_sig(branch_id))), &
+               y=radian(random%gauss(mu=this%br_angle_ave(branch_id), sigma=this%br_angle_sig(branch_id))), &
+               z=this%stem(StemNodeID)%femdomain%total_rotation(3) + radian((random%random() - 0.50d0)*90.0d0) &
                )
 
-            call obj%stem(My_StemID)%change_length_or_width(dt=0.0d0)
-            obj%stem(My_StemID)%StemID = branch_id
-            obj%stem(My_StemID)%InterNodeID = size(obj%NodeID_Branch(branch_id)%ID)
+            call this%stem(My_StemID)%change_length_or_width(dt=0.0d0)
+            this%stem(My_StemID)%StemID = branch_id
+            this%stem(My_StemID)%InterNodeID = size(this%NodeID_Branch(branch_id)%ID)
             ! main stem -> branch
-         elseif (obj%isMainStem(StemNodeID) .and. mainstem_2_branch) then
+         elseif (this%isMainStem(StemNodeID) .and. mainstem_2_branch) then
             ! branch
             i = StemNodeID ! 1 : stem ID of main stem
             My_StemID = i
 
             ! create new internode
-            call obj%stem(obj%numStem() + 1)%init(config=obj%stemconfig)
+            call this%stem(this%numStem() + 1)%init(config=this%stemconfig)
 
             ! if mainstem -> branch
 
-            if (allocated(obj%MainStem_num_branch)) then
+            if (allocated(this%MainStem_num_branch)) then
                branch_id = 1
-               do j = 1, size(obj%NodeID_MainStem)
-                  if (obj%NodeID_MainStem(j) == StemNodeID) then
+               do j = 1, size(this%NodeID_MainStem)
+                  if (this%NodeID_MainStem(j) == StemNodeID) then
                      exit
-                  elseif (obj%MainStem_num_branch(j) /= 0) then
-                     branch_id = branch_id + obj%MainStem_num_branch(j)
+                  elseif (this%MainStem_num_branch(j) /= 0) then
+                     branch_id = branch_id + this%MainStem_num_branch(j)
                      cycle
                   else
                      cycle
@@ -4042,138 +4126,138 @@ contains
 
             print *, "Main -> Branch branch id", branch_id
 
-            if (.not. allocated(obj%NodeID_Branch)) then
-               allocate (obj%NodeID_Branch(obj%MaxStemNum))
+            if (.not. allocated(this%NodeID_Branch)) then
+               allocate (this%NodeID_Branch(this%MaxStemNum))
             end if
 
-            if (.not. allocated(obj%NodeID_Branch(branch_id)%ID)) then
-               obj%NodeID_Branch(branch_id)%ID = [obj%numStem()]
+            if (.not. allocated(this%NodeID_Branch(branch_id)%ID)) then
+               this%NodeID_Branch(branch_id)%ID = [this%numStem()]
             else
-               obj%NodeID_Branch(branch_id)%ID = obj%NodeID_Branch(branch_id)%ID//[obj%numStem()]
+               this%NodeID_Branch(branch_id)%ID = this%NodeID_Branch(branch_id)%ID//[this%numStem()]
             end if
 
-            My_StemID = obj%numStem()
+            My_StemID = this%numStem()
 
-            obj%stem(obj%numStem())%StemID = branch_id
+            this%stem(this%numStem())%StemID = branch_id
 
-            call obj%stem(My_StemID)%rotate( &
-               x=radian(random%gauss(mu=obj%br_angle_ave(branch_id), sigma=obj%br_angle_sig(branch_id))), &
-               y=radian(random%gauss(mu=obj%br_angle_ave(branch_id), sigma=obj%br_angle_sig(branch_id))), &
+            call this%stem(My_StemID)%rotate( &
+               x=radian(random%gauss(mu=this%br_angle_ave(branch_id), sigma=this%br_angle_sig(branch_id))), &
+               y=radian(random%gauss(mu=this%br_angle_ave(branch_id), sigma=this%br_angle_sig(branch_id))), &
                z=radian(random%random()*360.0d0) &
                )
 
-            call obj%stem(My_StemID)%change_length_or_width(dt=0.0d0)
-            obj%stem(My_StemID)%StemID = branch_id
-            obj%stem(My_StemID)%InterNodeID = 1
+            call this%stem(My_StemID)%change_length_or_width(dt=0.0d0)
+            this%stem(My_StemID)%StemID = branch_id
+            this%stem(My_StemID)%InterNodeID = 1
          else
-            print *, obj%isMainStem(StemNodeID)
+            print *, this%isMainStem(StemNodeID)
             print *, mainstem_2_branch
             print *, "[ERROR] addNode"
             stop
          end if
 
-         call obj%stem(obj%numStem())%connect("=>", obj%stem(StemNodeID))
-         obj%stem2stem(obj%numStem(), StemNodeID) = 1
+         call this%stem(this%numStem())%connect("=>", this%stem(StemNodeID))
+         this%stem2stem(this%numStem(), StemNodeID) = PF_SOYBEAN_BRANCH_TO_MAINSTEM
          ! petiole
 
-         call obj%stem(obj%numStem() + 1)%init(config=obj%stemconfig)
+         call this%stem(this%numStem() + 1)%init(config=this%stemconfig)
 
-         obj%stem(obj%numStem())%StemID = -1
+         this%stem(this%numStem())%StemID = -1
 
-         call obj%stem(obj%numStem())%resize( &
-            x=random%gauss(mu=obj%peti_width_ave(i), sigma=obj%peti_width_sig(i)), &
-            y=random%gauss(mu=obj%peti_width_ave(i), sigma=obj%peti_width_sig(i)), &
-            z=random%gauss(mu=obj%peti_size_ave(i), sigma=obj%peti_size_sig(i)) &
+         call this%stem(this%numStem())%resize( &
+            x=random%gauss(mu=this%peti_width_ave(i), sigma=this%peti_width_sig(i)), &
+            y=random%gauss(mu=this%peti_width_ave(i), sigma=this%peti_width_sig(i)), &
+            z=random%gauss(mu=this%peti_size_ave(i), sigma=this%peti_size_sig(i)) &
             )
-         call obj%stem(obj%numStem())%change_length_or_width(dt=0.0d0)
+         call this%stem(this%numStem())%change_length_or_width(dt=0.0d0)
 
-         call obj%stem(obj%numStem())%rotate( &
-            x=radian(random%gauss(mu=obj%peti_angle_ave(i), sigma=obj%peti_angle_sig(i))), &
+         call this%stem(this%numStem())%rotate( &
+            x=radian(random%gauss(mu=this%peti_angle_ave(i), sigma=this%peti_angle_sig(i))), &
             y=0.0d0, &
             z=radian(360.0d0*random%random()) &
             )
 
-         !call obj%stem(obj%numStem() )%connect("=>",obj%stem(i))
-         !obj%stem2stem(obj%numStem() ,i) = 1
-         call obj%stem(obj%numStem())%connect("=>", obj%stem(obj%numStem() - 1))
-         obj%stem2stem(obj%numStem(), obj%numStem() - 1) = 1
+         !call this%stem(this%numStem() )%connect("=>",this%stem(i))
+         !this%stem2stem(this%numStem() ,i) = 1
+         call this%stem(this%numStem())%connect("=>", this%stem(this%numStem() - 1))
+         this%stem2stem(this%numStem(), this%numStem() - 1) = PF_SOYBEAN_PETIOLE_TO_BRANCH
 
-         leaf_z_angles = linspace([0.0d0, 360.0d0], obj%max_num_leaf_per_petiole + 1)
-         do j = 1, obj%max_num_leaf_per_petiole
+         leaf_z_angles = linspace([0.0d0, 360.0d0], this%max_num_leaf_per_petiole + 1)
+         do j = 1, this%max_num_leaf_per_petiole
             leaf_z_angles(j) = radian(leaf_z_angles(j))
          end do
 
          leaf_z_angles(:) = leaf_z_angles(:) + radian(random%random()*360.0d0)
 
          ! add leaves
-         do j = 1, obj%max_num_leaf_per_petiole
-            obj%num_leaf = obj%num_leaf + 1
+         do j = 1, this%max_num_leaf_per_petiole
+            this%num_leaf = this%num_leaf + 1
 
-            call obj%leaf(obj%num_leaf)%init(config=obj%leafconfig, species=PF_GLYCINE_SOJA)
-            call obj%leaf(obj%num_leaf)%resize( &
-               y=random%gauss(mu=obj%leaf_thickness_ave(i), sigma=obj%leaf_thickness_sig(i)), &
-               z=random%gauss(mu=obj%leaf_length_ave(i), sigma=obj%leaf_length_sig(i)), &
-               x=random%gauss(mu=obj%leaf_width_ave(i), sigma=obj%leaf_width_sig(i)) &
+            call this%leaf(this%num_leaf)%init(config=this%leafconfig, species=PF_GLYCINE_SOJA)
+            call this%leaf(this%num_leaf)%resize( &
+               y=random%gauss(mu=this%leaf_thickness_ave(i), sigma=this%leaf_thickness_sig(i)), &
+               z=random%gauss(mu=this%leaf_length_ave(i), sigma=this%leaf_length_sig(i)), &
+               x=random%gauss(mu=this%leaf_width_ave(i), sigma=this%leaf_width_sig(i)) &
                )
-            call obj%leaf(obj%num_leaf)%rotate( &
-               x=radian(random%gauss(mu=obj%leaf_angle_ave(i), sigma=obj%leaf_angle_sig(i))), &
+            call this%leaf(this%num_leaf)%rotate( &
+               x=radian(random%gauss(mu=this%leaf_angle_ave(i), sigma=this%leaf_angle_sig(i))), &
                y=0.0d0, &
                z=leaf_z_angles(j) &
                )
-            call obj%leaf(obj%num_leaf)%connect("=>", obj%stem(obj%numStem()))
-            obj%leaf2stem(obj%num_leaf, obj%numStem()) = 1
+            call this%leaf(this%num_leaf)%connect("=>", this%stem(this%numStem()))
+            this%leaf2stem(this%num_leaf, this%numStem()) = 1
 
-            call obj%leaf(obj%num_leaf)%change_length_or_width(dt=0.0d0)
+            call this%leaf(this%num_leaf)%change_length_or_width(dt=0.0d0)
 
          end do
       elseif (present(RootNodeID)) then
 
          ! set mainroot
-         call obj%root(obj%numRoot() + 1)%init(obj%rootconfig)
-         call obj%root(i)%resize( &
-            x=obj%mr_width, &
-            y=obj%mr_width, &
-            z=obj%mr_length/dble(obj%mr_node) &
+         call this%root(this%numRoot() + 1)%init(this%rootconfig)
+         call this%root(i)%resize( &
+            x=this%mr_width, &
+            y=this%mr_width, &
+            z=this%mr_length/dble(this%mr_node) &
             )
-         call obj%root(i)%rotate( &
-            x=radian(random%gauss(mu=obj%mr_angle_ave, sigma=obj%mr_angle_sig)), &
-            y=radian(random%gauss(mu=obj%mr_angle_ave, sigma=obj%mr_angle_sig)), &
-            z=radian(random%gauss(mu=obj%mr_angle_ave, sigma=obj%mr_angle_sig)) &
+         call this%root(i)%rotate( &
+            x=radian(random%gauss(mu=this%mr_angle_ave, sigma=this%mr_angle_sig)), &
+            y=radian(random%gauss(mu=this%mr_angle_ave, sigma=this%mr_angle_sig)), &
+            z=radian(random%gauss(mu=this%mr_angle_ave, sigma=this%mr_angle_sig)) &
             )
 
          i = RootNodeID
-         call obj%root(obj%numRoot())%connect("=>", obj%root(i))
-         obj%root2root(obj%numRoot(), i) = 1
+         call this%root(this%numRoot())%connect("=>", this%root(i))
+         this%root2root(this%numRoot(), i) = 1
 
       else
          print *, "ERROR :: add Node ` soybean >> RootNodeID or StemNodeID should be identified."
          stop
       end if
 
-      call obj%update()
+      call this%update()
    end subroutine
 ! ########################################
 
 ! ########################################
-   subroutine addStemSoybean(obj, stemid, rotx, roty, rotz, json)
-      class(Soybean_), intent(inout) :: obj
+   subroutine addStemSoybean(this, stemid, rotx, roty, rotz, json)
+      class(Soybean_), intent(inout) :: this
       integer(int32), intent(in) :: stemid
       character(*), optional, intent(in) :: json
       real(real64), optional, intent(in) :: rotx, roty, rotz
       integer(int32) :: i
 
       ! add a stem after stem(stemid)
-      do i = 1, size(obj%stem)
-         if (obj%stem(i)%femdomain%mesh%empty() .eqv. .true.) then
+      do i = 1, size(this%stem)
+         if (this%stem(i)%femdomain%mesh%empty() .eqv. .true.) then
             if (present(json)) then
-               call obj%stem(i)%init(json)
-               call obj%stem(i)%rotate(x=rotx, y=roty, z=rotz)
-               call obj%stem(i)%connect("=>", obj%stem(stemid))
+               call this%stem(i)%init(json)
+               call this%stem(i)%rotate(x=rotx, y=roty, z=rotz)
+               call this%stem(i)%connect("=>", this%stem(stemid))
                return
             else
-               call obj%stem(i)%init()
-               call obj%stem(i)%rotate(x=rotx, y=roty, z=rotz)
-               call obj%stem(i)%connect("=>", obj%stem(stemid))
+               call this%stem(i)%init()
+               call this%stem(i)%rotate(x=rotx, y=roty, z=rotz)
+               call this%stem(i)%connect("=>", this%stem(stemid))
                return
             end if
          else
@@ -4184,10 +4268,10 @@ contains
    end subroutine
 ! #############################################################
 
-   subroutine deformSoybean(obj, displacement, penaltyparameter, groundLevel, disp, &
+   subroutine deformSoybean(this, displacement, penaltyparameter, groundLevel, disp, &
                             x_min, x_max, y_min, y_max, z_min, z_max)
 
-      class(Soybean_), target, intent(inout) :: obj
+      class(Soybean_), target, intent(inout) :: this
 
       ! deform soybean by displacement
       real(real64), optional, intent(in) :: displacement(:)
@@ -4201,24 +4285,24 @@ contains
       real(real64) :: penalty, GLevel
 
       if (present(displacement)) then
-         if (size(displacement) /= obj%nn()*3) then
-            print *, "ERROR :: deformSoybean >> size(displacement) should be (obj%numStem() + obj%numLeaf() + obj%numRoot())*3"
+         if (size(displacement) /= this%nn()*3) then
+            print *, "ERROR :: deformSoybean >> size(displacement) should be (this%numStem() + this%numLeaf() + this%numRoot())*3"
             return
          end if
 
          ! order :: stem -> leaf -> root
          from = 1
          to = 0
-         if (allocated(obj%stem)) then
-            do i = 1, size(obj%stem)
-               if (.not. obj%stem(i)%femdomain%Mesh%empty()) then
-                  nn = obj%stem(i)%femdomain%nn()
-                  nd = obj%stem(i)%femdomain%nd()
+         if (allocated(this%stem)) then
+            do i = 1, size(this%stem)
+               if (.not. this%stem(i)%femdomain%Mesh%empty()) then
+                  nn = this%stem(i)%femdomain%nn()
+                  nd = this%stem(i)%femdomain%nd()
 
-                  to = from + obj%stem(i)%femdomain%nn()*obj%stem(i)%femdomain%nd() - 1
+                  to = from + this%stem(i)%femdomain%nn()*this%stem(i)%femdomain%nd() - 1
 
-                  obj%stem(i)%femdomain%mesh%nodcoord(:, :) = &
-                     obj%stem(i)%femdomain%mesh%nodcoord(:, :) + &
+                  this%stem(i)%femdomain%mesh%nodcoord(:, :) = &
+                     this%stem(i)%femdomain%mesh%nodcoord(:, :) + &
                      reshape(displacement(from:to), nn, nd)
 
                   from = to + 1
@@ -4226,16 +4310,16 @@ contains
             end do
          end if
 
-         if (allocated(obj%leaf)) then
-            do i = 1, size(obj%leaf)
-               if (.not. obj%leaf(i)%femdomain%Mesh%empty()) then
-                  nn = obj%leaf(i)%femdomain%nn()
-                  nd = obj%leaf(i)%femdomain%nd()
+         if (allocated(this%leaf)) then
+            do i = 1, size(this%leaf)
+               if (.not. this%leaf(i)%femdomain%Mesh%empty()) then
+                  nn = this%leaf(i)%femdomain%nn()
+                  nd = this%leaf(i)%femdomain%nd()
 
-                  to = from + obj%leaf(i)%femdomain%nn()*obj%leaf(i)%femdomain%nd() - 1
+                  to = from + this%leaf(i)%femdomain%nn()*this%leaf(i)%femdomain%nd() - 1
 
-                  obj%leaf(i)%femdomain%mesh%nodcoord(:, :) = &
-                     obj%leaf(i)%femdomain%mesh%nodcoord(:, :) + &
+                  this%leaf(i)%femdomain%mesh%nodcoord(:, :) = &
+                     this%leaf(i)%femdomain%mesh%nodcoord(:, :) + &
                      reshape(displacement(from:to), nn, nd)
 
                   from = to + 1
@@ -4243,16 +4327,16 @@ contains
             end do
          end if
 
-         if (allocated(obj%root)) then
-            do i = 1, size(obj%root)
-               if (.not. obj%root(i)%femdomain%Mesh%empty()) then
-                  nn = obj%root(i)%femdomain%nn()
-                  nd = obj%root(i)%femdomain%nd()
+         if (allocated(this%root)) then
+            do i = 1, size(this%root)
+               if (.not. this%root(i)%femdomain%Mesh%empty()) then
+                  nn = this%root(i)%femdomain%nn()
+                  nd = this%root(i)%femdomain%nd()
 
-                  to = from + obj%root(i)%femdomain%nn()*obj%root(i)%femdomain%nd() - 1
+                  to = from + this%root(i)%femdomain%nn()*this%root(i)%femdomain%nd() - 1
 
-                  obj%root(i)%femdomain%mesh%nodcoord(:, :) = &
-                     obj%root(i)%femdomain%mesh%nodcoord(:, :) + &
+                  this%root(i)%femdomain%mesh%nodcoord(:, :) = &
+                     this%root(i)%femdomain%mesh%nodcoord(:, :) + &
                      reshape(displacement(from:to), nn, nd)
 
                   from = to + 1
@@ -4263,33 +4347,33 @@ contains
       end if
 
       ! >> regacy >>
-      if (.not. allocated(obj%Stem)) then
+      if (.not. allocated(this%Stem)) then
          print *, "ERROR :: deformSoybean >> no soybean is found!"
          return
       end if
       numDomain = 0
 
-      if (allocated(obj%stem)) then
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%femdomain%mesh%empty()) then
+      if (allocated(this%stem)) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%femdomain%mesh%empty()) then
                cycle
             else
                numDomain = numDomain + 1
             end if
          end do
       end if
-      if (allocated(obj%leaf)) then
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%femdomain%mesh%empty()) then
+      if (allocated(this%leaf)) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%femdomain%mesh%empty()) then
                cycle
             else
                numDomain = numDomain + 1
             end if
          end do
       end if
-      if (allocated(obj%root)) then
-         do i = 1, size(obj%root)
-            if (obj%root(i)%femdomain%mesh%empty()) then
+      if (allocated(this%root)) then
+         do i = 1, size(this%root)
+            if (this%root(i)%femdomain%mesh%empty()) then
                cycle
             else
                numDomain = numDomain + 1
@@ -4300,40 +4384,40 @@ contains
       allocate (domainsp(numDomain))
       numDomain = 0
       stemDomain = 0
-      if (allocated(obj%stem)) then
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%femdomain%mesh%empty()) then
+      if (allocated(this%stem)) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%femdomain%mesh%empty()) then
                cycle
             else
                numDomain = numDomain + 1
                stemDomain = stemDomain + 1
-               domainsp(numDomain)%femdomainp => obj%stem(i)%femdomain
+               domainsp(numDomain)%femdomainp => this%stem(i)%femdomain
             end if
          end do
       end if
 
       leafDomain = 0
-      if (allocated(obj%leaf)) then
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%femdomain%mesh%empty()) then
+      if (allocated(this%leaf)) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%femdomain%mesh%empty()) then
                cycle
             else
                numDomain = numDomain + 1
                leafDomain = leafDomain + 1
-               domainsp(numDomain)%femdomainp => obj%leaf(i)%femdomain
+               domainsp(numDomain)%femdomainp => this%leaf(i)%femdomain
             end if
          end do
       end if
 
       rootDomain = 0
-      if (allocated(obj%root)) then
-         do i = 1, size(obj%root)
-            if (obj%root(i)%femdomain%mesh%empty()) then
+      if (allocated(this%root)) then
+         do i = 1, size(this%root)
+            if (this%root(i)%femdomain%mesh%empty()) then
                cycle
             else
                numDomain = numDomain + 1
                rootDomain = rootDomain + 1
-               domainsp(numDomain)%femdomainp => obj%root(i)%femdomain
+               domainsp(numDomain)%femdomainp => this%root(i)%femdomain
             end if
          end do
       end if
@@ -4341,75 +4425,75 @@ contains
       ! (1) create contact-list for all domains
 
       contactlist = zeros(numDomain, numDomain)
-      if (allocated(obj%stem2stem)) then
+      if (allocated(this%stem2stem)) then
          do i = 1, stemDomain
             do j = 1, stemDomain
-               contactlist(i, j) = obj%stem2stem(i, j)
+               contactlist(i, j) = this%stem2stem(i, j)
             end do
          end do
       end if
 
-      if (allocated(obj%leaf2stem)) then
+      if (allocated(this%leaf2stem)) then
          do i = 1, leafDomain
             do j = 1, stemDomain
-               contactlist(i + stemDomain, j) = obj%leaf2stem(i, j)
+               contactlist(i + stemDomain, j) = this%leaf2stem(i, j)
             end do
          end do
       end if
 
-      if (allocated(obj%root2stem)) then
+      if (allocated(this%root2stem)) then
          do i = 1, rootDomain
             do j = 1, stemDomain
-               contactlist(i + stemDomain + leafDomain, j) = obj%root2stem(i, j)
+               contactlist(i + stemDomain + leafDomain, j) = this%root2stem(i, j)
             end do
          end do
       end if
 
-      if (allocated(obj%root2root)) then
+      if (allocated(this%root2root)) then
          do i = 1, rootDomain
             do j = 1, rootDomain
-               contactlist(i + stemDomain + leafDomain, j + stemDomain + leafDomain) = obj%root2root(i, j)
+               contactlist(i + stemDomain + leafDomain, j + stemDomain + leafDomain) = this%root2root(i, j)
             end do
          end do
       end if
 
-      call obj%contact%init(femdomainsp=domainsp, contactlist=contactlist)
+      call this%contact%init(femdomainsp=domainsp, contactlist=contactlist)
 
       ! load material info
       numDomain = 0
-      if (allocated(obj%stem)) then
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%femdomain%mesh%empty()) then
+      if (allocated(this%stem)) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%femdomain%mesh%empty()) then
                cycle
             else
                numDomain = numDomain + 1
-               call obj%contact%setYoungModulus(YoungModulus=obj%stemYoungModulus(i), DomainID=numDomain)
-               call obj%contact%setPoissonRatio(PoissonRatio=obj%stemPoissonRatio(i), DomainID=numDomain)
-               call obj%contact%setDensity(density=obj%stemDensity(i), DomainID=numDomain)
+               call this%contact%setYoungModulus(YoungModulus=this%stemYoungModulus(i), DomainID=numDomain)
+               call this%contact%setPoissonRatio(PoissonRatio=this%stemPoissonRatio(i), DomainID=numDomain)
+               call this%contact%setDensity(density=this%stemDensity(i), DomainID=numDomain)
             end if
          end do
       end if
-      if (allocated(obj%leaf)) then
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%femdomain%mesh%empty()) then
+      if (allocated(this%leaf)) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%femdomain%mesh%empty()) then
                cycle
             else
                numDomain = numDomain + 1
-               call obj%contact%setYoungModulus(YoungModulus=obj%leafYoungModulus(i), DomainID=numDomain)
-               call obj%contact%setPoissonRatio(PoissonRatio=obj%leafPoissonRatio(i), DomainID=numDomain)
-               call obj%contact%setDensity(density=obj%leafDensity(i), DomainID=numDomain)
+               call this%contact%setYoungModulus(YoungModulus=this%leafYoungModulus(i), DomainID=numDomain)
+               call this%contact%setPoissonRatio(PoissonRatio=this%leafPoissonRatio(i), DomainID=numDomain)
+               call this%contact%setDensity(density=this%leafDensity(i), DomainID=numDomain)
             end if
          end do
       end if
-      if (allocated(obj%root)) then
-         do i = 1, size(obj%root)
-            if (obj%root(i)%femdomain%mesh%empty()) then
+      if (allocated(this%root)) then
+         do i = 1, size(this%root)
+            if (this%root(i)%femdomain%mesh%empty()) then
                cycle
             else
                numDomain = numDomain + 1
-               call obj%contact%setYoungModulus(YoungModulus=obj%rootYoungModulus(i), DomainID=numDomain)
-               call obj%contact%setPoissonRatio(PoissonRatio=obj%rootPoissonRatio(i), DomainID=numDomain)
-               call obj%contact%setDensity(density=obj%rootDensity(i), DomainID=numDomain)
+               call this%contact%setYoungModulus(YoungModulus=this%rootYoungModulus(i), DomainID=numDomain)
+               call this%contact%setPoissonRatio(PoissonRatio=this%rootPoissonRatio(i), DomainID=numDomain)
+               call this%contact%setDensity(density=this%rootDensity(i), DomainID=numDomain)
             end if
          end do
       end if
@@ -4417,20 +4501,20 @@ contains
 
       penalty = input(default=1000.0d0, option=penaltyparameter)
 
-      call obj%contact%setup(penaltyparameter=penalty)
+      call this%contact%setup(penaltyparameter=penalty)
 
       ! if displacement is set, load displacement
       if (present(disp)) then
          do i = 1, numDomain
-            call obj%contact%fix(direction="x", disp=disp(1), DomainID=i, &
+            call this%contact%fix(direction="x", disp=disp(1), DomainID=i, &
                                  x_min=x_min, x_max=x_max, &
                                  y_min=y_min, y_max=y_max, &
                                  z_min=z_min, z_max=z_max)
-            call obj%contact%fix(direction="y", disp=disp(2), DomainID=i, &
+            call this%contact%fix(direction="y", disp=disp(2), DomainID=i, &
                                  x_min=x_min, x_max=x_max, &
                                  y_min=y_min, y_max=y_max, &
                                  z_min=z_min, z_max=z_max)
-            call obj%contact%fix(direction="z", disp=disp(3), DomainID=i, &
+            call this%contact%fix(direction="z", disp=disp(3), DomainID=i, &
                                  x_min=x_min, x_max=x_max, &
                                  y_min=y_min, y_max=y_max, &
                                  z_min=z_min, z_max=z_max)
@@ -4440,25 +4524,25 @@ contains
       Glevel = input(default=0.0d0, option=groundLevel)
       ! under-ground parts are fixed.
       do i = 1, numDomain
-         call obj%contact%fix(direction="x", disp=0.0d0, DomainID=i, &
+         call this%contact%fix(direction="x", disp=0.0d0, DomainID=i, &
                               z_max=Glevel)
-         call obj%contact%fix(direction="y", disp=0.0d0, DomainID=i, &
+         call this%contact%fix(direction="y", disp=0.0d0, DomainID=i, &
                               z_max=Glevel)
-         call obj%contact%fix(direction="z", disp=0.0d0, DomainID=i, &
+         call this%contact%fix(direction="z", disp=0.0d0, DomainID=i, &
                               z_max=Glevel)
       end do
 
       ! solve > get displacement
-      call obj%contact%solver%solve("BiCGSTAB")
+      call this%contact%solver%solve("BiCGSTAB")
       ! update mesh
-      call obj%contact%updateMesh()
+      call this%contact%updateMesh()
 
    end subroutine
 ! #####################################################################
 
 ! #####################################################################
-   function getVolumeSoybean(obj, stem, leaf, root) result(ret)
-      class(Soybean_), intent(in) :: obj
+   function getVolumeSoybean(this, stem, leaf, root) result(ret)
+      class(Soybean_), intent(in) :: this
       logical, optional, intent(in) :: stem, leaf, root
       logical :: all
       integer(int32) :: i, j
@@ -4473,24 +4557,24 @@ contains
 
       ret = 0.0d0
       if (all) then
-         do i = 1, size(obj%stem)
-            if (.not. obj%stem(i)%femdomain%mesh%empty()) then
-               do j = 1, obj%stem(i)%femdomain%ne()
-                  ret = ret + obj%stem(i)%femdomain%getVolume(elem=j)
+         do i = 1, size(this%stem)
+            if (.not. this%stem(i)%femdomain%mesh%empty()) then
+               do j = 1, this%stem(i)%femdomain%ne()
+                  ret = ret + this%stem(i)%femdomain%getVolume(elem=j)
                end do
             end if
          end do
-         do i = 1, size(obj%leaf)
-            if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
-               do j = 1, obj%leaf(i)%femdomain%ne()
-                  ret = ret + obj%leaf(i)%femdomain%getVolume(elem=j)
+         do i = 1, size(this%leaf)
+            if (.not. this%leaf(i)%femdomain%mesh%empty()) then
+               do j = 1, this%leaf(i)%femdomain%ne()
+                  ret = ret + this%leaf(i)%femdomain%getVolume(elem=j)
                end do
             end if
          end do
-         do i = 1, size(obj%root)
-            if (.not. obj%root(i)%femdomain%mesh%empty()) then
-               do j = 1, obj%root(i)%femdomain%ne()
-                  ret = ret + obj%root(i)%femdomain%getVolume(elem=j)
+         do i = 1, size(this%root)
+            if (.not. this%root(i)%femdomain%mesh%empty()) then
+               do j = 1, this%root(i)%femdomain%ne()
+                  ret = ret + this%root(i)%femdomain%getVolume(elem=j)
                end do
             end if
          end do
@@ -4499,10 +4583,10 @@ contains
 
       if (present(stem)) then
          if (stem .or. all) then
-            do i = 1, size(obj%stem)
-               if (.not. obj%stem(i)%femdomain%mesh%empty()) then
-                  do j = 1, obj%stem(i)%femdomain%ne()
-                     ret = ret + obj%stem(i)%femdomain%getVolume(elem=j)
+            do i = 1, size(this%stem)
+               if (.not. this%stem(i)%femdomain%mesh%empty()) then
+                  do j = 1, this%stem(i)%femdomain%ne()
+                     ret = ret + this%stem(i)%femdomain%getVolume(elem=j)
                   end do
                end if
             end do
@@ -4510,10 +4594,10 @@ contains
       end if
       if (present(leaf)) then
          if (leaf) then
-            do i = 1, size(obj%leaf)
-               if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
-                  do j = 1, obj%leaf(i)%femdomain%ne()
-                     ret = ret + obj%leaf(i)%femdomain%getVolume(elem=j)
+            do i = 1, size(this%leaf)
+               if (.not. this%leaf(i)%femdomain%mesh%empty()) then
+                  do j = 1, this%leaf(i)%femdomain%ne()
+                     ret = ret + this%leaf(i)%femdomain%getVolume(elem=j)
                   end do
                end if
             end do
@@ -4521,10 +4605,10 @@ contains
       end if
       if (present(root)) then
          if (root) then
-            do i = 1, size(obj%root)
-               if (.not. obj%root(i)%femdomain%mesh%empty()) then
-                  do j = 1, obj%root(i)%femdomain%ne()
-                     ret = ret + obj%root(i)%femdomain%getVolume(elem=j)
+            do i = 1, size(this%root)
+               if (.not. this%root(i)%femdomain%mesh%empty()) then
+                  do j = 1, this%root(i)%femdomain%ne()
+                     ret = ret + this%root(i)%femdomain%getVolume(elem=j)
                   end do
                end if
             end do
@@ -4535,35 +4619,35 @@ contains
 ! ############################################################################
 
 ! #####################################################################
-   function getVolumePerElementSoybean(obj) result(volume)
-      class(Soybean_), intent(in) :: obj
+   function getVolumePerElementSoybean(this) result(volume)
+      class(Soybean_), intent(in) :: this
       integer(int32) :: i, j, elem_id
       real(real64), allocatable :: volume(:)
 
       elem_id = 0
-      volume = zeros(obj%ne())
+      volume = zeros(this%ne())
 
-      do i = 1, size(obj%stem)
-         if (.not. obj%stem(i)%femdomain%mesh%empty()) then
-            do j = 1, obj%stem(i)%femdomain%ne()
+      do i = 1, size(this%stem)
+         if (.not. this%stem(i)%femdomain%mesh%empty()) then
+            do j = 1, this%stem(i)%femdomain%ne()
                elem_id = elem_id + 1
-               volume(elem_id) = obj%stem(i)%femdomain%getVolume(elem=j)
+               volume(elem_id) = this%stem(i)%femdomain%getVolume(elem=j)
             end do
          end if
       end do
-      do i = 1, size(obj%leaf)
-         if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
-            do j = 1, obj%leaf(i)%femdomain%ne()
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%femdomain%mesh%empty()) then
+            do j = 1, this%leaf(i)%femdomain%ne()
                elem_id = elem_id + 1
-               volume(elem_id) = obj%leaf(i)%femdomain%getVolume(elem=j)
+               volume(elem_id) = this%leaf(i)%femdomain%getVolume(elem=j)
             end do
          end if
       end do
-      do i = 1, size(obj%root)
-         if (.not. obj%root(i)%femdomain%mesh%empty()) then
-            do j = 1, obj%root(i)%femdomain%ne()
+      do i = 1, size(this%root)
+         if (.not. this%root(i)%femdomain%mesh%empty()) then
+            do j = 1, this%root(i)%femdomain%ne()
                elem_id = elem_id + 1
-               volume(elem_id) = obj%root(i)%femdomain%getVolume(elem=j)
+               volume(elem_id) = this%root(i)%femdomain%getVolume(elem=j)
             end do
          end if
       end do
@@ -4572,8 +4656,8 @@ contains
 ! ############################################################################
 
 ! ############################################################################
-   function getBiomassSoybean(obj, stem, leaf, root) result(ret)
-      class(Soybean_), intent(in) :: obj
+   function getBiomassSoybean(this, stem, leaf, root) result(ret)
+      class(Soybean_), intent(in) :: this
       logical, optional, intent(in) :: stem, leaf, root
       logical :: all
       integer(int32) :: i, j
@@ -4588,32 +4672,32 @@ contains
 
       ret = 0.0d0
       if (all) then
-         do i = 1, size(obj%stem)
-            if (.not. obj%stem(i)%femdomain%mesh%empty()) then
-               do j = 1, obj%stem(i)%femdomain%ne()
-                  volume = obj%stem(i)%femdomain%getVolume(elem=j)
+         do i = 1, size(this%stem)
+            if (.not. this%stem(i)%femdomain%mesh%empty()) then
+               do j = 1, this%stem(i)%femdomain%ne()
+                  volume = this%stem(i)%femdomain%getVolume(elem=j)
                   ! total = total + solid(=drydensity * volume)
-                  ret = ret + volume*obj%stem(i)%drydensity(j)
+                  ret = ret + volume*this%stem(i)%drydensity(j)
                end do
 
             end if
          end do
-         do i = 1, size(obj%leaf)
-            if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
-               do j = 1, obj%leaf(i)%femdomain%ne()
-                  volume = obj%leaf(i)%femdomain%getVolume(elem=j)
+         do i = 1, size(this%leaf)
+            if (.not. this%leaf(i)%femdomain%mesh%empty()) then
+               do j = 1, this%leaf(i)%femdomain%ne()
+                  volume = this%leaf(i)%femdomain%getVolume(elem=j)
                   ! total = total + solid(=drydensity * volume)
-                  ret = ret + volume*obj%leaf(i)%drydensity(j)
+                  ret = ret + volume*this%leaf(i)%drydensity(j)
                end do
 
             end if
          end do
-         do i = 1, size(obj%root)
-            if (.not. obj%root(i)%femdomain%mesh%empty()) then
-               do j = 1, obj%root(i)%femdomain%ne()
-                  volume = obj%root(i)%femdomain%getVolume(elem=j)
+         do i = 1, size(this%root)
+            if (.not. this%root(i)%femdomain%mesh%empty()) then
+               do j = 1, this%root(i)%femdomain%ne()
+                  volume = this%root(i)%femdomain%getVolume(elem=j)
                   ! total = total + solid(=drydensity * volume)
-                  ret = ret + volume*obj%root(i)%drydensity(j)
+                  ret = ret + volume*this%root(i)%drydensity(j)
                end do
 
             end if
@@ -4623,12 +4707,12 @@ contains
 
       if (present(stem)) then
          if (stem .or. all) then
-            do i = 1, size(obj%stem)
-               if (.not. obj%stem(i)%femdomain%mesh%empty()) then
-                  do j = 1, obj%stem(i)%femdomain%ne()
-                     volume = obj%stem(i)%femdomain%getVolume(elem=j)
+            do i = 1, size(this%stem)
+               if (.not. this%stem(i)%femdomain%mesh%empty()) then
+                  do j = 1, this%stem(i)%femdomain%ne()
+                     volume = this%stem(i)%femdomain%getVolume(elem=j)
                      ! total = total + solid(=drydensity * volume)
-                     ret = ret + volume*obj%stem(i)%drydensity(j)
+                     ret = ret + volume*this%stem(i)%drydensity(j)
                   end do
                end if
             end do
@@ -4636,12 +4720,12 @@ contains
       end if
       if (present(leaf)) then
          if (leaf) then
-            do i = 1, size(obj%leaf)
-               if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
-                  do j = 1, obj%leaf(i)%femdomain%ne()
-                     volume = obj%leaf(i)%femdomain%getVolume(elem=j)
+            do i = 1, size(this%leaf)
+               if (.not. this%leaf(i)%femdomain%mesh%empty()) then
+                  do j = 1, this%leaf(i)%femdomain%ne()
+                     volume = this%leaf(i)%femdomain%getVolume(elem=j)
                      ! total = total + solid(=drydensity * volume)
-                     ret = ret + volume*obj%leaf(i)%drydensity(j)
+                     ret = ret + volume*this%leaf(i)%drydensity(j)
                   end do
                end if
             end do
@@ -4649,12 +4733,12 @@ contains
       end if
       if (present(root)) then
          if (root) then
-            do i = 1, size(obj%root)
-               if (.not. obj%root(i)%femdomain%mesh%empty()) then
-                  do j = 1, obj%root(i)%femdomain%ne()
-                     volume = obj%root(i)%femdomain%getVolume(elem=j)
+            do i = 1, size(this%root)
+               if (.not. this%root(i)%femdomain%mesh%empty()) then
+                  do j = 1, this%root(i)%femdomain%ne()
+                     volume = this%root(i)%femdomain%getVolume(elem=j)
                      ! total = total + solid(=drydensity * volume)
-                     ret = ret + volume*obj%root(i)%drydensity(j)
+                     ret = ret + volume*this%root(i)%drydensity(j)
                   end do
                end if
             end do
@@ -4664,44 +4748,44 @@ contains
    end function
 
 ! ############################################################################
-   function getElementBiomassSoybean(obj) result(ret)
-      class(Soybean_), intent(in) :: obj
+   function getElementBiomassSoybean(this) result(ret)
+      class(Soybean_), intent(in) :: this
       integer(int32) :: i, j, itr
       real(real64), allocatable :: ret(:)
       real(real64) :: volume
 
-      ret = zeros(obj%ne())
+      ret = zeros(this%ne())
 
       itr = 0
-      do i = 1, size(obj%stem)
-         if (.not. obj%stem(i)%femdomain%mesh%empty()) then
-            do j = 1, obj%stem(i)%femdomain%ne()
-               volume = obj%stem(i)%femdomain%getVolume(elem=j)
+      do i = 1, size(this%stem)
+         if (.not. this%stem(i)%femdomain%mesh%empty()) then
+            do j = 1, this%stem(i)%femdomain%ne()
+               volume = this%stem(i)%femdomain%getVolume(elem=j)
                ! total = total + solid(=drydensity * volume)
                itr = itr + 1
-               ret(itr) = volume*obj%stem(i)%drydensity(j)
+               ret(itr) = volume*this%stem(i)%drydensity(j)
             end do
 
          end if
       end do
-      do i = 1, size(obj%leaf)
-         if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
-            do j = 1, obj%leaf(i)%femdomain%ne()
-               volume = obj%leaf(i)%femdomain%getVolume(elem=j)
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%femdomain%mesh%empty()) then
+            do j = 1, this%leaf(i)%femdomain%ne()
+               volume = this%leaf(i)%femdomain%getVolume(elem=j)
                ! total = total + solid(=drydensity * volume)
                itr = itr + 1
-               ret(itr) = volume*obj%leaf(i)%drydensity(j)
+               ret(itr) = volume*this%leaf(i)%drydensity(j)
             end do
 
          end if
       end do
-      do i = 1, size(obj%root)
-         if (.not. obj%root(i)%femdomain%mesh%empty()) then
-            do j = 1, obj%root(i)%femdomain%ne()
-               volume = obj%root(i)%femdomain%getVolume(elem=j)
+      do i = 1, size(this%root)
+         if (.not. this%root(i)%femdomain%mesh%empty()) then
+            do j = 1, this%root(i)%femdomain%ne()
+               volume = this%root(i)%femdomain%getVolume(elem=j)
                ! total = total + solid(=drydensity * volume)
                itr = itr + 1
-               ret(itr) = volume*obj%root(i)%drydensity(j)
+               ret(itr) = volume*this%root(i)%drydensity(j)
             end do
 
          end if
@@ -4709,8 +4793,8 @@ contains
 
    end function
 
-   function getTotalWeightSoybean(obj, stem, leaf, root, waterDensity) result(ret)
-      class(Soybean_), intent(in) :: obj
+   function getTotalWeightSoybean(this, stem, leaf, root, waterDensity) result(ret)
+      class(Soybean_), intent(in) :: this
       logical, optional, intent(in) :: stem, leaf, root
       real(real64), optional, intent(in) :: waterDensity
       logical :: all
@@ -4729,32 +4813,32 @@ contains
 
       ret = 0.0d0
       if (all) then
-         do i = 1, size(obj%stem)
-            if (.not. obj%stem(i)%femdomain%mesh%empty()) then
-               do j = 1, obj%stem(i)%femdomain%ne()
-                  volume = obj%stem(i)%femdomain%getVolume(elem=j)
+         do i = 1, size(this%stem)
+            if (.not. this%stem(i)%femdomain%mesh%empty()) then
+               do j = 1, this%stem(i)%femdomain%ne()
+                  volume = this%stem(i)%femdomain%getVolume(elem=j)
                   ! total = total + solid(=drydensity * volume) + fluid (=watercontent * volume)
-                  ret = ret + volume*obj%stem(i)%drydensity(j) + volume*obj%stem(i)%watercontent(j)*water_density
+                  ret = ret + volume*this%stem(i)%drydensity(j) + volume*this%stem(i)%watercontent(j)*water_density
                end do
 
             end if
          end do
-         do i = 1, size(obj%leaf)
-            if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
-               do j = 1, obj%leaf(i)%femdomain%ne()
-                  volume = obj%leaf(i)%femdomain%getVolume(elem=j)
+         do i = 1, size(this%leaf)
+            if (.not. this%leaf(i)%femdomain%mesh%empty()) then
+               do j = 1, this%leaf(i)%femdomain%ne()
+                  volume = this%leaf(i)%femdomain%getVolume(elem=j)
                   ! total = total + solid(=drydensity * volume) + fluid (=watercontent * volume)
-                  ret = ret + volume*obj%leaf(i)%drydensity(j) + volume*obj%leaf(i)%watercontent(j)*water_density
+                  ret = ret + volume*this%leaf(i)%drydensity(j) + volume*this%leaf(i)%watercontent(j)*water_density
                end do
 
             end if
          end do
-         do i = 1, size(obj%root)
-            if (.not. obj%root(i)%femdomain%mesh%empty()) then
-               do j = 1, obj%root(i)%femdomain%ne()
-                  volume = obj%root(i)%femdomain%getVolume(elem=j)
+         do i = 1, size(this%root)
+            if (.not. this%root(i)%femdomain%mesh%empty()) then
+               do j = 1, this%root(i)%femdomain%ne()
+                  volume = this%root(i)%femdomain%getVolume(elem=j)
                   ! total = total + solid(=drydensity * volume) + fluid (=watercontent * volume)
-                  ret = ret + volume*obj%root(i)%drydensity(j) + volume*obj%root(i)%watercontent(j)*water_density
+                  ret = ret + volume*this%root(i)%drydensity(j) + volume*this%root(i)%watercontent(j)*water_density
                end do
 
             end if
@@ -4764,12 +4848,12 @@ contains
 
       if (present(stem)) then
          if (stem .or. all) then
-            do i = 1, size(obj%stem)
-               if (.not. obj%stem(i)%femdomain%mesh%empty()) then
-                  do j = 1, obj%stem(i)%femdomain%ne()
-                     volume = obj%stem(i)%femdomain%getVolume(elem=j)
+            do i = 1, size(this%stem)
+               if (.not. this%stem(i)%femdomain%mesh%empty()) then
+                  do j = 1, this%stem(i)%femdomain%ne()
+                     volume = this%stem(i)%femdomain%getVolume(elem=j)
                      ! total = total + solid(=drydensity * volume) + fluid (=watercontent * volume)
-                     ret = ret + volume*obj%stem(i)%drydensity(j) + volume*obj%stem(i)%watercontent(j)*water_density
+                     ret = ret + volume*this%stem(i)%drydensity(j) + volume*this%stem(i)%watercontent(j)*water_density
                   end do
                end if
             end do
@@ -4777,12 +4861,12 @@ contains
       end if
       if (present(leaf)) then
          if (leaf) then
-            do i = 1, size(obj%leaf)
-               if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
-                  do j = 1, obj%leaf(i)%femdomain%ne()
-                     volume = obj%leaf(i)%femdomain%getVolume(elem=j)
+            do i = 1, size(this%leaf)
+               if (.not. this%leaf(i)%femdomain%mesh%empty()) then
+                  do j = 1, this%leaf(i)%femdomain%ne()
+                     volume = this%leaf(i)%femdomain%getVolume(elem=j)
                      ! total = total + solid(=drydensity * volume) + fluid (=watercontent * volume)
-                     ret = ret + volume*obj%leaf(i)%drydensity(j) + volume*obj%leaf(i)%watercontent(j)*water_density
+                     ret = ret + volume*this%leaf(i)%drydensity(j) + volume*this%leaf(i)%watercontent(j)*water_density
                   end do
                end if
             end do
@@ -4790,12 +4874,12 @@ contains
       end if
       if (present(root)) then
          if (root) then
-            do i = 1, size(obj%root)
-               if (.not. obj%root(i)%femdomain%mesh%empty()) then
-                  do j = 1, obj%root(i)%femdomain%ne()
-                     volume = obj%root(i)%femdomain%getVolume(elem=j)
+            do i = 1, size(this%root)
+               if (.not. this%root(i)%femdomain%mesh%empty()) then
+                  do j = 1, this%root(i)%femdomain%ne()
+                     volume = this%root(i)%femdomain%getVolume(elem=j)
                      ! total = total + solid(=drydensity * volume) + fluid (=watercontent * volume)
-                     ret = ret + volume*obj%root(i)%drydensity(j) + volume*obj%root(i)%watercontent(j)*water_density
+                     ret = ret + volume*this%root(i)%drydensity(j) + volume*this%root(i)%watercontent(j)*water_density
                   end do
                end if
             end do
@@ -4804,8 +4888,8 @@ contains
 
    end function
 
-!function getBioMassSoybean(obj,stemDensity,leafDensity,rootDensity) result(ret)
-!    class(Soybean_),intent(in) :: obj
+!function getBioMassSoybean(this,stemDensity,leafDensity,rootDensity) result(ret)
+!    class(Soybean_),intent(in) :: this
 !    real(real64),optional,intent(in) :: stemDensity,leafDensity,rootDensity
 !    logical :: all
 !    integer(int32) :: i,j
@@ -4814,40 +4898,40 @@ contains
 !    ret = 0.0d0
 !
 !    if(present(stemDensity))then
-!        ret = ret + obj%getVolume(stem=.true.) * stemDensity
+!        ret = ret + this%getVolume(stem=.true.) * stemDensity
 !    endif
 !
 !    if(present(leafDensity))then
-!        ret = ret + obj%getVolume(leaf=.true.) * leafDensity
+!        ret = ret + this%getVolume(leaf=.true.) * leafDensity
 !    endif
 !
 !    if(present(rootDensity))then
-!        ret = ret + obj%getVolume(root=.true.) * rootDensity
+!        ret = ret + this%getVolume(root=.true.) * rootDensity
 !    endif
 !
 !
 !
 !end function
-   subroutine fall_leafSoybean(obj, BranchID, InterNodeID, with_petiole)
-      class(Soybean_), intent(inout) :: obj
+   subroutine fall_leafSoybean(this, BranchID, InterNodeID, with_petiole)
+      class(Soybean_), intent(inout) :: this
       integer(int32), intent(in) :: BranchID, InterNodeID
       logical, optional, intent(in) :: with_petiole
       integer(int32) :: i, j, stemID
       integer(int32), allocatable :: petioleIDs(:)
 
       ! fall leaves
-      do i = 1, size(obj%stem)
-         if (obj%stem(i)%empty()) cycle
-         if (obj%stem(i)%stemID == branchID .and. &
-             obj%stem(i)%InterNodeID == InterNodeID) then
+      do i = 1, size(this%stem)
+         if (this%stem(i)%empty()) cycle
+         if (this%stem(i)%stemID == branchID .and. &
+             this%stem(i)%InterNodeID == InterNodeID) then
             stemID = i
          end if
       end do
 
       allocate (petioleIDs(0))
-      do i = 1, size(obj%stem2stem, 1)
+      do i = 1, size(this%stem2stem, 1)
          ! stem id i -> stemID
-         if (obj%stem2stem(i, StemID) /= 0 .and. obj%stem(i)%InterNodeID < 1) then
+         if (this%stem2stem(i, StemID) >= 1 .and. this%stem(i)%InterNodeID < 1) then
             ! petiole
             petioleIDs = petioleIDs//[i]
          end if
@@ -4856,10 +4940,10 @@ contains
       print *, "petioleIDs", petioleIDs
       ! remove leaves
       do i = 1, size(petioleIDs)
-         do j = 1, size(obj%leaf2stem, 1)
-            if (obj%leaf2stem(j, petioleIDs(i)) /= 0) then
-               obj%leaf2stem(j, petioleIDs(i)) = 0
-               call obj%leaf(j)%remove()
+         do j = 1, size(this%leaf2stem, 1)
+            if (this%leaf2stem(j, petioleIDs(i)) /= 0) then
+               this%leaf2stem(j, petioleIDs(i)) = 0
+               call this%leaf(j)%remove()
             end if
          end do
       end do
@@ -4867,178 +4951,178 @@ contains
       if (present(with_petiole)) then
          if (with_petiole) then
             do i = 1, size(petioleIDs)
-               obj%stem2stem(petioleIDs(i), :) = 0
-               call obj%stem(petioleIDs(i))%remove()
+               this%stem2stem(petioleIDs(i), :) = 0
+               call this%stem(petioleIDs(i))%remove()
             end do
          end if
       end if
 
    end subroutine
 
-   subroutine removeSoybean(obj, root)
-      class(Soybean_), intent(inout) :: obj
+   subroutine removeSoybean(this, root)
+      class(Soybean_), intent(inout) :: this
       logical, optional, intent(in) :: root
 
       if (present(root)) then
          if (root) then
 
-            obj%mr_node = 0
-            obj%brr_node(:) = 0
-            obj%brr_from(:) = 0
-            obj%mr_length = 0.0d0
-            obj%brr_length(:) = 0.0d0
-            obj%mr_width = 0.0d0
-            obj%brr_width(:) = 0.0d0
-            obj%mr_angle_ave = 0.0d0
-            obj%brr_angle_ave(:) = 0.0d0
-            obj%mr_angle_sig = 0.0d0
-            obj%brr_angle_sig(:) = 0.0d0
-            if (allocated(obj%RootSystem)) deallocate (obj%RootSystem)
-            if (allocated(obj%Root)) deallocate (obj%Root)
-            if (allocated(obj%rootYoungModulus)) deallocate (obj%rootYoungModulus)
-            if (allocated(obj%rootPoissonRatio)) deallocate (obj%rootPoissonRatio)
-            if (allocated(obj%rootDensity)) deallocate (obj%rootDensity)
+            this%mr_node = 0
+            this%brr_node(:) = 0
+            this%brr_from(:) = 0
+            this%mr_length = 0.0d0
+            this%brr_length(:) = 0.0d0
+            this%mr_width = 0.0d0
+            this%brr_width(:) = 0.0d0
+            this%mr_angle_ave = 0.0d0
+            this%brr_angle_ave(:) = 0.0d0
+            this%mr_angle_sig = 0.0d0
+            this%brr_angle_sig(:) = 0.0d0
+            if (allocated(this%RootSystem)) deallocate (this%RootSystem)
+            if (allocated(this%Root)) deallocate (this%Root)
+            if (allocated(this%rootYoungModulus)) deallocate (this%rootYoungModulus)
+            if (allocated(this%rootPoissonRatio)) deallocate (this%rootPoissonRatio)
+            if (allocated(this%rootDensity)) deallocate (this%rootDensity)
 
-            if (allocated(obj%root2stem)) deallocate (obj%root2stem)
-            if (allocated(obj%root2root)) deallocate (obj%root2root)
-            if (allocated(obj%root_list)) deallocate (obj%root_list)
+            if (allocated(this%root2stem)) deallocate (this%root2stem)
+            if (allocated(this%root2root)) deallocate (this%root2root)
+            if (allocated(this%root_list)) deallocate (this%root_list)
 
-            if (allocated(obj%root_angle)) deallocate (obj%root_angle)
-            obj%rootconfig = " "
-            obj%Num_Of_Root = 0
+            if (allocated(this%root_angle)) deallocate (this%root_angle)
+            this%rootconfig = " "
+            this%Num_Of_Root = 0
 
          end if
          return
       end if
 
-      obj%growth_habit = " "
-      obj%growth_stage = " "
-      obj%Num_Of_Node = 0
-      obj%Num_Of_Root = 0
+      this%growth_habit = " "
+      this%growth_stage = " "
+      this%Num_Of_Node = 0
+      this%Num_Of_Root = 0
 
-      obj%MaxLeafNum = 300
-      obj%MaxRootNum = 300
-      obj%MaxStemNum = 300
+      this%MaxLeafNum = 300
+      this%MaxRootNum = 300
+      this%MaxStemNum = 300
 
-      obj%ms_node = 0
-      obj%br_node(:) = 0
-      obj%br_from(:) = 0
-      obj%ms_length = 0.0d0
-      obj%br_length(:) = 0.0d0
-      obj%ms_width = 0.0d0
-      obj%br_width(:) = 0.0d0
-      obj%ms_angle_ave = 0.0d0
-      obj%br_angle_ave(:) = 0.0d0
-      obj%ms_angle_sig = 0.0d0
-      obj%br_angle_sig(:) = 0.0d0
+      this%ms_node = 0
+      this%br_node(:) = 0
+      this%br_from(:) = 0
+      this%ms_length = 0.0d0
+      this%br_length(:) = 0.0d0
+      this%ms_width = 0.0d0
+      this%br_width(:) = 0.0d0
+      this%ms_angle_ave = 0.0d0
+      this%br_angle_ave(:) = 0.0d0
+      this%ms_angle_sig = 0.0d0
+      this%br_angle_sig(:) = 0.0d0
 
-      obj%mr_node = 0
-      obj%brr_node(:) = 0
-      obj%brr_from(:) = 0
-      obj%mr_length = 0.0d0
-      obj%brr_length(:) = 0.0d0
-      obj%mr_width = 0.0d0
-      obj%brr_width(:) = 0.0d0
-      obj%mr_angle_ave = 0.0d0
-      obj%brr_angle_ave(:) = 0.0d0
-      obj%mr_angle_sig = 0.0d0
-      obj%brr_angle_sig(:) = 0.0d0
+      this%mr_node = 0
+      this%brr_node(:) = 0
+      this%brr_from(:) = 0
+      this%mr_length = 0.0d0
+      this%brr_length(:) = 0.0d0
+      this%mr_width = 0.0d0
+      this%brr_width(:) = 0.0d0
+      this%mr_angle_ave = 0.0d0
+      this%brr_angle_ave(:) = 0.0d0
+      this%mr_angle_sig = 0.0d0
+      this%brr_angle_sig(:) = 0.0d0
 
-      obj%peti_size_ave(:) = 0.0d0
-      obj%peti_size_sig(:) = 0.0d0
-      obj%peti_width_ave(:) = 0.0d0
-      obj%peti_width_sig(:) = 0.0d0
-      obj%peti_angle_ave(:) = 0.0d0
-      obj%peti_angle_sig(:) = 0.0d0
+      this%peti_size_ave(:) = 0.0d0
+      this%peti_size_sig(:) = 0.0d0
+      this%peti_width_ave(:) = 0.0d0
+      this%peti_width_sig(:) = 0.0d0
+      this%peti_angle_ave(:) = 0.0d0
+      this%peti_angle_sig(:) = 0.0d0
 
-      obj%leaf_angle_ave(:) = 0.0d0
-      obj%leaf_angle_sig(:) = 0.0d0
-      obj%leaf_length_ave(:) = 0.0d0
-      obj%leaf_length_sig(:) = 0.0d0
-      obj%leaf_width_ave(:) = 0.0d0
-      obj%leaf_width_sig(:) = 0.0d0
-      obj%leaf_thickness_ave(:) = 0.0d0
-      obj%leaf_thickness_sig(:) = 0.0d0
+      this%leaf_angle_ave(:) = 0.0d0
+      this%leaf_angle_sig(:) = 0.0d0
+      this%leaf_length_ave(:) = 0.0d0
+      this%leaf_length_sig(:) = 0.0d0
+      this%leaf_width_ave(:) = 0.0d0
+      this%leaf_width_sig(:) = 0.0d0
+      this%leaf_thickness_ave(:) = 0.0d0
+      this%leaf_thickness_sig(:) = 0.0d0
 
-      obj%Stage = "" ! VE, CV, V1,V2, ..., R1, R2, ..., R8
-      obj%name = ""
-      obj%stage_id = 0
-      obj%dt = 0.0d0
-      call obj%Seed%remove()
-      if (allocated(obj%NodeSystem)) deallocate (obj%NodeSystem)
-      if (allocated(obj%RootSystem)) deallocate (obj%RootSystem)
+      this%Stage = "" ! VE, CV, V1,V2, ..., R1, R2, ..., R8
+      this%name = ""
+      this%stage_id = 0
+      this%dt = 0.0d0
+      call this%Seed%remove()
+      if (allocated(this%NodeSystem)) deallocate (this%NodeSystem)
+      if (allocated(this%RootSystem)) deallocate (this%RootSystem)
 
-      if (allocated(obj%Stem)) deallocate (obj%Stem)
-      if (allocated(obj%Leaf)) deallocate (obj%Leaf)
-      if (allocated(obj%Root)) deallocate (obj%Root)
+      if (allocated(this%Stem)) deallocate (this%Stem)
+      if (allocated(this%Leaf)) deallocate (this%Leaf)
+      if (allocated(this%Root)) deallocate (this%Root)
 
       ! material info
-      if (allocated(obj%stemYoungModulus)) deallocate (obj%stemYoungModulus)
-      if (allocated(obj%leafYoungModulus)) deallocate (obj%leafYoungModulus)
-      if (allocated(obj%rootYoungModulus)) deallocate (obj%rootYoungModulus)
+      if (allocated(this%stemYoungModulus)) deallocate (this%stemYoungModulus)
+      if (allocated(this%leafYoungModulus)) deallocate (this%leafYoungModulus)
+      if (allocated(this%rootYoungModulus)) deallocate (this%rootYoungModulus)
 
-      if (allocated(obj%stemPoissonRatio)) deallocate (obj%stemPoissonRatio)
-      if (allocated(obj%leafPoissonRatio)) deallocate (obj%leafPoissonRatio)
-      if (allocated(obj%rootPoissonRatio)) deallocate (obj%rootPoissonRatio)
+      if (allocated(this%stemPoissonRatio)) deallocate (this%stemPoissonRatio)
+      if (allocated(this%leafPoissonRatio)) deallocate (this%leafPoissonRatio)
+      if (allocated(this%rootPoissonRatio)) deallocate (this%rootPoissonRatio)
 
-      if (allocated(obj%stemDensity)) deallocate (obj%stemDensity)
-      if (allocated(obj%leafDensity)) deallocate (obj%leafDensity)
-      if (allocated(obj%rootDensity)) deallocate (obj%rootDensity)
+      if (allocated(this%stemDensity)) deallocate (this%stemDensity)
+      if (allocated(this%leafDensity)) deallocate (this%leafDensity)
+      if (allocated(this%rootDensity)) deallocate (this%rootDensity)
 
-      if (allocated(obj%NodeID_MainStem)) deallocate (obj%NodeID_MainStem)
-      if (allocated(obj%NodeID_Branch)) deallocate (obj%NodeID_Branch)
+      if (allocated(this%NodeID_MainStem)) deallocate (this%NodeID_MainStem)
+      if (allocated(this%NodeID_Branch)) deallocate (this%NodeID_Branch)
       ! 節-節点データ構造
-      call obj%struct%remove(all=.true.)
-      if (allocated(obj%leaf2stem)) deallocate (obj%leaf2stem)
-      if (allocated(obj%stem2stem)) deallocate (obj%stem2stem)
-      if (allocated(obj%root2stem)) deallocate (obj%root2stem)
-      if (allocated(obj%root2root)) deallocate (obj%root2root)
+      call this%struct%remove(all=.true.)
+      if (allocated(this%leaf2stem)) deallocate (this%leaf2stem)
+      if (allocated(this%stem2stem)) deallocate (this%stem2stem)
+      if (allocated(this%root2stem)) deallocate (this%root2stem)
+      if (allocated(this%root2root)) deallocate (this%root2root)
 
       ! 器官オブジェクト配列
-      if (allocated(obj%leaf_list)) deallocate (obj%leaf_list)
-      if (allocated(obj%stem_list)) deallocate (obj%stem_list)
-      if (allocated(obj%root_list)) deallocate (obj%root_list)
+      if (allocated(this%leaf_list)) deallocate (this%leaf_list)
+      if (allocated(this%stem_list)) deallocate (this%stem_list)
+      if (allocated(this%root_list)) deallocate (this%root_list)
 
       ! シミュレータ
-      call obj%contact%remove()
-      obj%time = 0.0d0
-      obj%seed_length = 0.0d0
-      obj%seed_width = 0.0d0
-      obj%seed_height = 0.0d0
-      if (allocated(obj%stem_angle)) deallocate (obj%stem_angle)
-      if (allocated(obj%root_angle)) deallocate (obj%root_angle)
-      if (allocated(obj%leaf_angle)) deallocate (obj%leaf_angle)
+      call this%contact%remove()
+      this%time = 0.0d0
+      this%seed_length = 0.0d0
+      this%seed_width = 0.0d0
+      this%seed_height = 0.0d0
+      if (allocated(this%stem_angle)) deallocate (this%stem_angle)
+      if (allocated(this%root_angle)) deallocate (this%root_angle)
+      if (allocated(this%leaf_angle)) deallocate (this%leaf_angle)
 
-      obj%stemconfig = " "
-      obj%rootconfig = " "
-      obj%leafconfig = " "
+      this%stemconfig = " "
+      this%rootconfig = " "
+      this%leafconfig = " "
 
    end subroutine
 
-   function stemlengthSoybean(obj, StemID) result(ret)
-      class(Soybean_), intent(inout) :: obj
+   function stemlengthSoybean(this, StemID) result(ret)
+      class(Soybean_), intent(inout) :: this
       integer(int32), intent(in) :: StemID ! 0, 1, 2...
       integer(int32) :: num_snode, i
       real(real64), allocatable :: ret(:)
 
       if (StemID == 0) then
          ! main stem
-         num_snode = size(obj%NodeID_MainStem)
+         num_snode = size(this%NodeID_MainStem)
          allocate (ret(num_snode))
          do i = 1, num_snode
-            ret(i) = obj%stem(obj%NodeID_MainStem(i))%getLength()
+            ret(i) = this%stem(this%NodeID_MainStem(i))%getLength()
          end do
       else
-         if (StemID >= size(obj%NodeID_Branch)) then
-            print *, "ERROR :: stemlengthSoybean >> StemID >=size(obj%NodeID_Branch)"
+         if (StemID >= size(this%NodeID_Branch)) then
+            print *, "ERROR :: stemlengthSoybean >> StemID >=size(this%NodeID_Branch)"
             ret = zeros(1)
             return
          end if
          ! main stem
-         num_snode = size(obj%NodeID_Branch(StemID)%ID)
+         num_snode = size(this%NodeID_Branch(StemID)%ID)
          allocate (ret(num_snode))
          do i = 1, num_snode
-            ret(i) = obj%stem(obj%NodeID_Branch(StemID)%ID(i))%getLength()
+            ret(i) = this%stem(this%NodeID_Branch(StemID)%ID(i))%getLength()
          end do
       end if
 
@@ -5056,8 +5140,8 @@ contains
 ! resizeLeaf
 
 ! ###################################################################
-   subroutine resizeSoybean(obj, StemID, StemLength)
-      class(Soybean_), intent(inout) :: obj
+   subroutine resizeSoybean(this, StemID, StemLength)
+      class(Soybean_), intent(inout) :: this
       integer(int32), optional, intent(in) :: StemID
       real(real64), optional, intent(in) :: StemLength(:)
       integer(int32) :: num_snode, i
@@ -5070,40 +5154,40 @@ contains
 
          if (StemID == 0) then
             ! main stem
-            num_snode = size(obj%NodeID_MainStem)
+            num_snode = size(this%NodeID_MainStem)
 
             do i = 1, num_snode
-               call obj%stem(obj%NodeID_MainStem(i))%change_length_or_width(length=StemLength(i))
+               call this%stem(this%NodeID_MainStem(i))%change_length_or_width(length=StemLength(i))
             end do
          else
-            if (StemID >= size(obj%NodeID_Branch)) then
-               print *, "ERROR :: resizeSoybean >> StemID >=size(obj%NodeID_Branch)"
+            if (StemID >= size(this%NodeID_Branch)) then
+               print *, "ERROR :: resizeSoybean >> StemID >=size(this%NodeID_Branch)"
 
                return
             end if
             ! main stem
-            num_snode = size(obj%NodeID_Branch(StemID)%ID)
+            num_snode = size(this%NodeID_Branch(StemID)%ID)
 
             do i = 1, num_snode
-               call obj%stem(obj%NodeID_Branch(StemID)%ID(i))%change_length_or_width(length=StemLength(i))
+               call this%stem(this%NodeID_Branch(StemID)%ID(i))%change_length_or_width(length=StemLength(i))
             end do
          end if
-         call obj%update()
+         call this%update()
 
       end if
    end subroutine
 ! ###################################################################
 
 ! ###################################################################
-   function NumberOfBranchSoybean(obj) result(ret)
-      class(Soybean_), intent(in) :: obj
+   function NumberOfBranchSoybean(this) result(ret)
+      class(Soybean_), intent(in) :: this
       integer(int32) :: ret, i
 
       ret = 0
-      if (allocated(obj%NodeID_Branch)) then
-         do i = 1, size(obj%NodeID_Branch)
-            if (allocated(obj%NodeID_Branch(i)%ID)) then
-               if (size(obj%NodeID_Branch(i)%ID) >= 1) then
+      if (allocated(this%NodeID_Branch)) then
+         do i = 1, size(this%NodeID_Branch)
+            if (allocated(this%NodeID_Branch(i)%ID)) then
+               if (size(this%NodeID_Branch(i)%ID) >= 1) then
                   ret = ret + 1
                end if
             end if
@@ -5113,28 +5197,28 @@ contains
 ! ###################################################################
 
 ! ###################################################################
-   function findApicalSoybean(obj) result(ret)
-      class(Soybean_), intent(in) :: obj
+   function findApicalSoybean(this) result(ret)
+      class(Soybean_), intent(in) :: this
       integer(int32), allocatable :: ret(:)
       !integer(int32),optional,intent(in) :: StemID
       integer(int32), allocatable :: stem
       integer(int32) :: i, j, itr
 
-      ret = zeros(obj%NumberOfBranch() + 1)
+      ret = zeros(this%NumberOfBranch() + 1)
 
-      ret(1) = maxval(obj%NodeID_MainStem(:))
+      ret(1) = maxval(this%NodeID_MainStem(:))
 
       itr = 1
-      do i = 1, obj%NumberOfBranch()
-         if (allocated(obj%NodeID_Branch(i)%ID)) then
+      do i = 1, this%NumberOfBranch()
+         if (allocated(this%NodeID_Branch(i)%ID)) then
             itr = itr + 1
-            ret(itr) = maxval(obj%NodeID_Branch(i)%ID(:))
+            ret(itr) = maxval(this%NodeID_Branch(i)%ID(:))
          end if
       end do
 
 !    if(present(StemID) )then
-!        if(StemID > size(obj%br_node) )then
-!            print *, "ERROR >> findApicalSoybean >> number of branch is ",size(obj%br_node)
+!        if(StemID > size(this%br_node) )then
+!            print *, "ERROR >> findApicalSoybean >> number of branch is ",size(this%br_node)
 !            print *, "StemID=",StemID,"is larger than it."
 !            return
 !        endif
@@ -5146,40 +5230,40 @@ contains
    end function
 ! ###################################################################
 
-!function propertiesSoybean(obj) result(ret)
-!    class(Soybean_) ,intent(in) :: obj
+!function propertiesSoybean(this) result(ret)
+!    class(Soybean_) ,intent(in) :: this
 !
 !
 !end function
 
 ! ##################################################################
-   pure function nnSoybean(obj) result(ret)
-      class(Soybean_), intent(in) :: obj
+   pure function nnSoybean(this) result(ret)
+      class(Soybean_), intent(in) :: this
       integer(int32) :: ret, i
 
       ! get number of node (point)
       ret = 0
 
-      if (allocated(obj%stem)) then
-         do i = 1, size(obj%stem)
-            if (.not. obj%stem(i)%femdomain%mesh%empty()) then
-               ret = ret + obj%stem(i)%femdomain%nn()
+      if (allocated(this%stem)) then
+         do i = 1, size(this%stem)
+            if (.not. this%stem(i)%femdomain%mesh%empty()) then
+               ret = ret + this%stem(i)%femdomain%nn()
             end if
          end do
       end if
 
-      if (allocated(obj%leaf)) then
-         do i = 1, size(obj%leaf)
-            if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
-               ret = ret + obj%leaf(i)%femdomain%nn()
+      if (allocated(this%leaf)) then
+         do i = 1, size(this%leaf)
+            if (.not. this%leaf(i)%femdomain%mesh%empty()) then
+               ret = ret + this%leaf(i)%femdomain%nn()
             end if
          end do
       end if
 
-      if (allocated(obj%root)) then
-         do i = 1, size(obj%root)
-            if (.not. obj%root(i)%femdomain%mesh%empty()) then
-               ret = ret + obj%root(i)%femdomain%nn()
+      if (allocated(this%root)) then
+         do i = 1, size(this%root)
+            if (.not. this%root(i)%femdomain%mesh%empty()) then
+               ret = ret + this%root(i)%femdomain%nn()
             end if
          end do
       end if
@@ -5188,50 +5272,56 @@ contains
 ! ##################################################################
 
 ! ##################################################################
-   function neSoybean(obj) result(ret)
-      class(Soybean_), intent(in) :: obj
+   function neSoybean(this) result(ret)
+      class(Soybean_), intent(in) :: this
       integer(int32) :: ret, i
 
       ! get number of element
       ret = 0
-      do i = 1, size(obj%stem)
-         if (.not. obj%stem(i)%femdomain%mesh%empty()) then
-            ret = ret + obj%stem(i)%femdomain%ne()
-         end if
-      end do
-      do i = 1, size(obj%leaf)
-         if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
-            ret = ret + obj%leaf(i)%femdomain%ne()
-         end if
-      end do
-      do i = 1, size(obj%root)
-         if (.not. obj%root(i)%femdomain%mesh%empty()) then
-            ret = ret + obj%root(i)%femdomain%ne()
-         end if
-      end do
+      if(allocated(this%stem))then
+         do i = 1, size(this%stem)
+            if (.not. this%stem(i)%femdomain%mesh%empty()) then
+               ret = ret + this%stem(i)%femdomain%ne()
+            end if
+         end do
+      end if
+      if(allocated(this%leaf))then
+         do i = 1, size(this%leaf)
+            if (.not. this%leaf(i)%femdomain%mesh%empty()) then
+               ret = ret + this%leaf(i)%femdomain%ne()
+            end if
+         end do
+      end if
+      if(allocated(this%root))then
+         do i = 1, size(this%root)
+            if (.not. this%root(i)%femdomain%mesh%empty()) then
+               ret = ret + this%root(i)%femdomain%ne()
+            end if
+         end do
+      end if
 
    end function
 ! ##################################################################
 
 ! ##################################################################
-   function nsSoybean(obj) result(ret)
-      class(Soybean_), intent(in) :: obj
+   function nsSoybean(this) result(ret)
+      class(Soybean_), intent(in) :: this
       integer(int32) :: ret, i
 
       ! get number of subdomain
       ret = 0
-      do i = 1, size(obj%stem)
-         if (.not. obj%stem(i)%femdomain%mesh%empty()) then
+      do i = 1, size(this%stem)
+         if (.not. this%stem(i)%femdomain%mesh%empty()) then
             ret = ret + 1
          end if
       end do
-      do i = 1, size(obj%leaf)
-         if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%femdomain%mesh%empty()) then
             ret = ret + 1
          end if
       end do
-      do i = 1, size(obj%root)
-         if (.not. obj%root(i)%femdomain%mesh%empty()) then
+      do i = 1, size(this%root)
+         if (.not. this%root(i)%femdomain%mesh%empty()) then
             ret = ret + 1
          end if
       end do
@@ -5240,37 +5330,37 @@ contains
 
 ! ##################################################################
 
-   function getSubDomainSoybean(obj, id) result(ret)
-      class(Soybean_), intent(in) :: obj
+   function getSubDomainSoybean(this, id) result(ret)
+      class(Soybean_), intent(in) :: this
       integer(int32), intent(in) :: id
       type(FEMDomain_) :: ret
       integer(int32) :: i, ret_id
 
       ! get number of subdomain
       ret_id = 0
-      do i = 1, size(obj%stem)
-         if (.not. obj%stem(i)%femdomain%mesh%empty()) then
+      do i = 1, size(this%stem)
+         if (.not. this%stem(i)%femdomain%mesh%empty()) then
             ret_id = ret_id + 1
             if (id == ret_id) then
-               ret = obj%stem(i)%femdomain
+               ret = this%stem(i)%femdomain
                return
             end if
          end if
       end do
-      do i = 1, size(obj%leaf)
-         if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%femdomain%mesh%empty()) then
             ret_id = ret_id + 1
             if (id == ret_id) then
-               ret = obj%stem(i)%femdomain
+               ret = this%stem(i)%femdomain
                return
             end if
          end if
       end do
-      do i = 1, size(obj%root)
-         if (.not. obj%root(i)%femdomain%mesh%empty()) then
+      do i = 1, size(this%root)
+         if (.not. this%root(i)%femdomain%mesh%empty()) then
             ret_id = ret_id + 1
             if (id == ret_id) then
-               ret = obj%stem(i)%femdomain
+               ret = this%stem(i)%femdomain
                return
             end if
          end if
@@ -5284,37 +5374,37 @@ contains
 
 ! ##################################################################
 
-   subroutine setSubDomainSoybean(obj, domain, id)
-      class(Soybean_), intent(inout) :: obj
+   subroutine setSubDomainSoybean(this, domain, id)
+      class(Soybean_), intent(inout) :: this
       type(FEMDomain_), intent(in) :: domain
       integer(int32), intent(in) :: id
       integer(int32) :: i, domain_id
 
       ! get number of subdomain
       domain_id = 0
-      do i = 1, size(obj%stem)
-         if (.not. obj%stem(i)%femdomain%mesh%empty()) then
+      do i = 1, size(this%stem)
+         if (.not. this%stem(i)%femdomain%mesh%empty()) then
             domain_id = domain_id + 1
             if (id == domain_id) then
-               obj%stem(i)%femdomain = domain
+               this%stem(i)%femdomain = domain
                return
             end if
          end if
       end do
-      do i = 1, size(obj%leaf)
-         if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%femdomain%mesh%empty()) then
             domain_id = domain_id + 1
             if (id == domain_id) then
-               obj%stem(i)%femdomain = domain
+               this%stem(i)%femdomain = domain
                return
             end if
          end if
       end do
-      do i = 1, size(obj%root)
-         if (.not. obj%root(i)%femdomain%mesh%empty()) then
+      do i = 1, size(this%root)
+         if (.not. this%root(i)%femdomain%mesh%empty()) then
             domain_id = domain_id + 1
             if (id == domain_id) then
-               obj%stem(i)%femdomain = domain
+               this%stem(i)%femdomain = domain
                return
             end if
          end if
@@ -5328,16 +5418,16 @@ contains
 
 ! ##################################################################
 
-   function getSubDomainTypeSoybean(obj, id) result(ret)
-      class(Soybean_), intent(in) :: obj
+   function getSubDomainTypeSoybean(this, id) result(ret)
+      class(Soybean_), intent(in) :: this
       integer(int32), intent(in) :: id
       character(:), allocatable :: ret
       integer(int32) :: i, ret_id
 
       ! get number of subdomain
       ret_id = 0
-      do i = 1, size(obj%stem)
-         if (.not. obj%stem(i)%femdomain%mesh%empty()) then
+      do i = 1, size(this%stem)
+         if (.not. this%stem(i)%femdomain%mesh%empty()) then
             ret_id = ret_id + 1
             if (id == ret_id) then
                ret = "stem"
@@ -5345,8 +5435,8 @@ contains
             end if
          end if
       end do
-      do i = 1, size(obj%leaf)
-         if (.not. obj%leaf(i)%femdomain%mesh%empty()) then
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%femdomain%mesh%empty()) then
             ret_id = ret_id + 1
             if (id == ret_id) then
                ret = "leaf"
@@ -5354,8 +5444,8 @@ contains
             end if
          end if
       end do
-      do i = 1, size(obj%root)
-         if (.not. obj%root(i)%femdomain%mesh%empty()) then
+      do i = 1, size(this%root)
+         if (.not. this%root(i)%femdomain%mesh%empty()) then
             ret_id = ret_id + 1
             if (id == ret_id) then
                ret = "root"
@@ -5371,23 +5461,23 @@ contains
 ! ##################################################################
 
 ! ##################################################################
-   pure function isMainStemSoybean(obj, StemNodeID) result(ret)
-      class(Soybean_), intent(in) :: obj
+   pure function isMainStemSoybean(this, StemNodeID) result(ret)
+      class(Soybean_), intent(in) :: this
       integer(int32), intent(in)  :: StemNodeID
       logical :: ret
 
-      ret = exists(vector=obj%NodeID_MainStem, val=StemNodeID)
+      ret = exists(vector=this%NodeID_MainStem, val=StemNodeID)
 
    end function
 ! ##################################################################
 
 ! ##################################################################
-   pure function isBranchStemSoybean(obj, StemNodeID) result(ret)
-      class(Soybean_), intent(in) :: obj
+   pure function isBranchStemSoybean(this, StemNodeID) result(ret)
+      class(Soybean_), intent(in) :: this
       integer(int32), intent(in)  :: StemNodeID
       logical :: ret
 
-      if (obj%branchID(StemNodeID) == 0) then
+      if (this%branchID(StemNodeID) == 0) then
          ret = .False.
       else
          ret = .True.
@@ -5396,14 +5486,14 @@ contains
    end function
 ! ##################################################################
 
-   pure function branchIDSoybean(obj, StemNodeID) result(ret)
-      class(Soybean_), intent(in) :: obj
+   pure function branchIDSoybean(this, StemNodeID) result(ret)
+      class(Soybean_), intent(in) :: this
       integer(int32), intent(in)  :: StemNodeID
       integer(int32), allocatable :: ret
       integer(int32) :: i, j, k, l, m, n, ret_id
 
-      do i = 1, size(obj%NodeID_Branch)
-         if (exist(obj%NodeID_Branch(i)%ID(:), StemNodeID)) then
+      do i = 1, size(this%NodeID_Branch)
+         if (exist(this%NodeID_Branch(i)%ID(:), StemNodeID)) then
             ret = i
             return
          end if
@@ -5413,8 +5503,8 @@ contains
    end function
 ! ##################################################################
 
-   subroutine checkPropertiesSoybean(obj, Simulator)
-      class(Soybean_), intent(in) :: obj
+   subroutine checkPropertiesSoybean(this, Simulator)
+      class(Soybean_), intent(in) :: this
       integer(int32), intent(in)  ::  Simulator
       type(Time_) :: time
       type(IO_) :: f
@@ -5431,23 +5521,23 @@ contains
          call print("Checking datasets for deformation analysis...")
          ! check if it ready or not.
          print *, "property_deform_material_density       |", &
-            obj%property_deform_material_density
+            this%property_deform_material_density
          print *, "property_deform_material_YoungModulus  |", &
-            obj%property_deform_material_YoungModulus
+            this%property_deform_material_YoungModulus
          print *, "property_deform_material_CarbonDiffusionCoefficient|", &
-            obj%property_deform_material_CarbonDiffusionCoefficient
+            this%property_deform_material_CarbonDiffusionCoefficient
          print *, "property_deform_material_PoissonRatio  |", &
-            obj%property_deform_material_PoissonRatio
+            this%property_deform_material_PoissonRatio
          print *, "property_deform_initial_Displacement   |", &
-            obj%property_deform_initial_Displacement
+            this%property_deform_initial_Displacement
          print *, "property_deform_initial_Stress         |", &
-            obj%property_deform_initial_Stress
+            this%property_deform_initial_Stress
          print *, "property_deform_boundary_TractionForce |", &
-            obj%property_deform_boundary_TractionForce
+            this%property_deform_boundary_TractionForce
          print *, "property_deform_boundary_Displacement  |", &
-            obj%property_deform_boundary_Displacement
+            this%property_deform_boundary_Displacement
          print *, "property_deform_gravity                |", &
-            obj%property_deform_gravity
+            this%property_deform_gravity
          call print("---------------------------------------")
          ! >>>> export to log
          call f%write("---------------------------------------")
@@ -5460,23 +5550,23 @@ contains
          call f%write("Checking datasets for deformation analysis...")
          ! check if it ready or not.
          call f%write("property_deform_material_density       |"// &
-                      str(obj%property_deform_material_density))
+                      str(this%property_deform_material_density))
          call f%write("property_deform_material_YoungModulus  |"// &
-                      str(obj%property_deform_material_YoungModulus))
+                      str(this%property_deform_material_YoungModulus))
          call f%write("property_deform_material_CarbonDiffusionCoefficient  |"// &
-                      str(obj%property_deform_material_CarbonDiffusionCoefficient))
+                      str(this%property_deform_material_CarbonDiffusionCoefficient))
          call f%write("property_deform_material_PoissonRatio  |"// &
-                      str(obj%property_deform_material_PoissonRatio))
+                      str(this%property_deform_material_PoissonRatio))
          call f%write("property_deform_initial_Displacement   |"// &
-                      str(obj%property_deform_initial_Displacement))
+                      str(this%property_deform_initial_Displacement))
          call f%write("property_deform_initial_Stress         |"// &
-                      str(obj%property_deform_initial_Stress))
+                      str(this%property_deform_initial_Stress))
          call f%write("property_deform_boundary_TractionForce |"// &
-                      str(obj%property_deform_boundary_TractionForce))
+                      str(this%property_deform_boundary_TractionForce))
          call f%write("property_deform_boundary_Displacement  |"// &
-                      str(obj%property_deform_boundary_Displacement))
+                      str(this%property_deform_boundary_Displacement))
          call f%write("property_deform_gravity                |"// &
-                      str(obj%property_deform_gravity))
+                      str(this%property_deform_gravity))
          call f%write("---------------------------------------")
       else
          call print("Invalid  Simulator ID :: "//str(Simulator))
@@ -5487,21 +5577,21 @@ contains
    end subroutine
 ! ##################################################################
 ! ##################################################################
-   subroutine setPropertiesDensitySoybean(obj)
-      class(Soybean_), intent(inout) :: obj
+   subroutine setPropertiesDensitySoybean(this)
+      class(Soybean_), intent(inout) :: this
       integer(int32) :: i, j
 
       ! default == false
-      obj%property_deform_material_density = .false.
+      this%property_deform_material_density = .false.
 
       ! check
       ! Does stem/leaf/root have Density for each element?
-      if (allocated(obj%leaf)) then
+      if (allocated(this%leaf)) then
          print *, "[ok] setPropertiesSoybean >> leaf exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%empty()) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%empty()) then
                cycle
             else
                ! exists
@@ -5510,64 +5600,64 @@ contains
                !  (2) size of density(:)
                !  if invalid, compute from drydensity(:)and watercontent(:)
                !  if not both do not exists, create all as 0.0
-               if (allocated(obj%leaf(i)%density)) then
+               if (allocated(this%leaf(i)%density)) then
                   ! check size
 
-                  !if(size(obj%leaf(i)%density)/=obj%leaf(i)%femdomain%ne() )then
+                  !if(size(this%leaf(i)%density)/=this%leaf(i)%femdomain%ne() )then
                   !print *, "[Caution] setPropertiesSoybean >> stem("//str(i)//")%density >> "//&
-                  !"size(obj%leaf(i)%density)/=obj%leaf(i)%femdomain%ne() >> reset by zero!!"
-                  !deallocate(obj%leaf(i)%density)
+                  !"size(this%leaf(i)%density)/=this%leaf(i)%femdomain%ne() >> reset by zero!!"
+                  !deallocate(this%leaf(i)%density)
                   ! let's go to next
                   !else
                   print *, "[ok] setPropertiesSoybean &
 &                        >> leaf("//str(i)//")%density >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_material_density = .true.
+                  this%property_deform_material_density = .true.
 
                   !endif
                else
                   ! density is not allocated.
 
-                  obj%leaf(i)%density = zeros(obj%leaf(i)%femdomain%ne())
+                  this%leaf(i)%density = zeros(this%leaf(i)%femdomain%ne())
 
                   ! >> try to compute from drydensity(:) and watercontent(:)
                   ! >> check existatce of drydensity(:) and watercontent(:)
-                  if (.not. allocated(obj%leaf(i)%drydensity)) then
-                     obj%leaf(i)%drydensity = zeros(obj%leaf(i)%femdomain%ne())
+                  if (.not. allocated(this%leaf(i)%drydensity)) then
+                     this%leaf(i)%drydensity = zeros(this%leaf(i)%femdomain%ne())
                   end if
-                  if (.not. allocated(obj%leaf(i)%watercontent)) then
-                     obj%leaf(i)%watercontent = zeros(obj%leaf(i)%femdomain%ne())
+                  if (.not. allocated(this%leaf(i)%watercontent)) then
+                     this%leaf(i)%watercontent = zeros(this%leaf(i)%femdomain%ne())
                   end if
 
-                  if (size(obj%leaf(i)%drydensity) /= obj%leaf(i)%femdomain%ne()) then
-                     obj%leaf(i)%drydensity = zeros(obj%leaf(i)%femdomain%ne())
+                  if (size(this%leaf(i)%drydensity) /= this%leaf(i)%femdomain%ne()) then
+                     this%leaf(i)%drydensity = zeros(this%leaf(i)%femdomain%ne())
                   end if
-                  if (size(obj%leaf(i)%watercontent) /= obj%leaf(i)%femdomain%ne()) then
-                     obj%leaf(i)%watercontent = zeros(obj%leaf(i)%femdomain%ne())
+                  if (size(this%leaf(i)%watercontent) /= this%leaf(i)%femdomain%ne()) then
+                     this%leaf(i)%watercontent = zeros(this%leaf(i)%femdomain%ne())
                   end if
 
                   ! compute density from drydensity and water content
                   ! \rho_t = \rho_d * (1 - w )
                     !!$OMP parallel do private(j)
-                  do j = 1, obj%leaf(i)%femdomain%ne()
-                     obj%leaf(i)%density(j) = obj%leaf(i)%drydensity(j)*(1.0d0 - obj%leaf(i)%watercontent(j))
+                  do j = 1, this%leaf(i)%femdomain%ne()
+                     this%leaf(i)%density(j) = this%leaf(i)%drydensity(j)*(1.0d0 - this%leaf(i)%watercontent(j))
                   end do
                     !!$OMP end parallel do
                end if
             end if
          end do
         !!$OMP end parallel do
-         obj%property_deform_material_density = .true.
+         this%property_deform_material_density = .true.
       else
          print *, "[Notice] setPropertiesSoybean >> no leaf"
       end if
     !! stem
-      if (allocated(obj%stem)) then
+      if (allocated(this%stem)) then
          print *, "[ok] setPropertiesSoybean >> stems exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%empty()) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%empty()) then
                cycle
             else
                ! exists
@@ -5576,63 +5666,63 @@ contains
                !  (2) size of density(:)
                !  if invalid, compute from drydensity(:)and watercontent(:)
                !  if not both do not exists, create all as 0.0
-               if (allocated(obj%stem(i)%density)) then
+               if (allocated(this%stem(i)%density)) then
                   ! check size
 
-                  !if(size(obj%stem(i)%density)/=obj%stem(i)%femdomain%ne() )then
+                  !if(size(this%stem(i)%density)/=this%stem(i)%femdomain%ne() )then
                   !print *, "[Caution] setPropertiesSoybean >> stem("//str(i)//")%density >> "//&
-                  !"size(obj%stem(i)%density)/=obj%stem(i)%femdomain%ne() >> reset by zero!!"
-                  !deallocate(obj%stem(i)%density)
+                  !"size(this%stem(i)%density)/=this%stem(i)%femdomain%ne() >> reset by zero!!"
+                  !deallocate(this%stem(i)%density)
                   ! let's go to next
                   !else
                   print *, "[ok] setPropertiesSoybean >> stem("//str(i)//")%density >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_material_density = .true.
+                  this%property_deform_material_density = .true.
 
                   !endif
                else
                   ! density is not allocated.
 
-                  obj%stem(i)%density = zeros(obj%stem(i)%femdomain%ne())
+                  this%stem(i)%density = zeros(this%stem(i)%femdomain%ne())
 
                   ! >> try to compute from drydensity(:) and watercontent(:)
                   ! >> check existatce of drydensity(:) and watercontent(:)
-                  if (.not. allocated(obj%stem(i)%drydensity)) then
-                     obj%stem(i)%drydensity = zeros(obj%stem(i)%femdomain%ne())
+                  if (.not. allocated(this%stem(i)%drydensity)) then
+                     this%stem(i)%drydensity = zeros(this%stem(i)%femdomain%ne())
                   end if
-                  if (.not. allocated(obj%stem(i)%watercontent)) then
-                     obj%stem(i)%watercontent = zeros(obj%stem(i)%femdomain%ne())
+                  if (.not. allocated(this%stem(i)%watercontent)) then
+                     this%stem(i)%watercontent = zeros(this%stem(i)%femdomain%ne())
                   end if
 
-                  if (size(obj%stem(i)%drydensity) /= obj%stem(i)%femdomain%ne()) then
-                     obj%stem(i)%drydensity = zeros(obj%stem(i)%femdomain%ne())
+                  if (size(this%stem(i)%drydensity) /= this%stem(i)%femdomain%ne()) then
+                     this%stem(i)%drydensity = zeros(this%stem(i)%femdomain%ne())
                   end if
-                  if (size(obj%stem(i)%watercontent) /= obj%stem(i)%femdomain%ne()) then
-                     obj%stem(i)%watercontent = zeros(obj%stem(i)%femdomain%ne())
+                  if (size(this%stem(i)%watercontent) /= this%stem(i)%femdomain%ne()) then
+                     this%stem(i)%watercontent = zeros(this%stem(i)%femdomain%ne())
                   end if
 
                   ! compute density from drydensity and water content
                   ! \rho_t = \rho_d * (1 - w )
                     !!$OMP parallel do private(j)
-                  do j = 1, obj%stem(i)%femdomain%ne()
-                     obj%stem(i)%density(j) = obj%stem(i)%drydensity(j)*(1.0d0 - obj%stem(i)%watercontent(j))
+                  do j = 1, this%stem(i)%femdomain%ne()
+                     this%stem(i)%density(j) = this%stem(i)%drydensity(j)*(1.0d0 - this%stem(i)%watercontent(j))
                   end do
                     !!$OMP end parallel do
                end if
             end if
          end do
         !!$OMP end parallel do
-         obj%property_deform_material_density = .true.
+         this%property_deform_material_density = .true.
       else
          print *, "[Notice] setPropertiesSoybean >> no stems"
       end if
     !! root
-      if (allocated(obj%root)) then
+      if (allocated(this%root)) then
          print *, "[ok] setPropertiesSoybean >> roots exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%root)
-            if (obj%root(i)%empty()) then
+         do i = 1, size(this%root)
+            if (this%root(i)%empty()) then
                cycle
             else
                ! exists
@@ -5641,284 +5731,284 @@ contains
                !  (2) size of density(:)
                !  if invalid, compute from drydensity(:)and watercontent(:)
                !  if not both do not exists, create all as 0.0
-               if (allocated(obj%root(i)%density)) then
+               if (allocated(this%root(i)%density)) then
                   ! check size
 
-                  !if(size(obj%root(i)%density)/=obj%root(i)%femdomain%ne() )then
+                  !if(size(this%root(i)%density)/=this%root(i)%femdomain%ne() )then
                   !print *, "[Caution] setPropertiesSoybean >> root("//str(i)//")%density >> "//&
-                  !"size(obj%root(i)%density)/=obj%root(i)%femdomain%ne() >> reset by zero!!"
-                  !deallocate(obj%root(i)%density)
+                  !"size(this%root(i)%density)/=this%root(i)%femdomain%ne() >> reset by zero!!"
+                  !deallocate(this%root(i)%density)
                   ! let's go to next
                   !else
                   print *, "[ok] setPropertiesSoybean >> root("//str(i)//")%density >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_material_density = .true.
+                  this%property_deform_material_density = .true.
 
                   !endif
                else
                   ! density is not allocated.
 
-                  obj%root(i)%density = zeros(obj%root(i)%femdomain%ne())
+                  this%root(i)%density = zeros(this%root(i)%femdomain%ne())
 
                   ! >> try to compute from drydensity(:) and watercontent(:)
                   ! >> check existatce of drydensity(:) and watercontent(:)
-                  if (.not. allocated(obj%root(i)%drydensity)) then
-                     obj%root(i)%drydensity = zeros(obj%root(i)%femdomain%ne())
+                  if (.not. allocated(this%root(i)%drydensity)) then
+                     this%root(i)%drydensity = zeros(this%root(i)%femdomain%ne())
                   end if
-                  if (.not. allocated(obj%root(i)%watercontent)) then
-                     obj%root(i)%watercontent = zeros(obj%root(i)%femdomain%ne())
+                  if (.not. allocated(this%root(i)%watercontent)) then
+                     this%root(i)%watercontent = zeros(this%root(i)%femdomain%ne())
                   end if
 
-                  if (size(obj%root(i)%drydensity) /= obj%root(i)%femdomain%ne()) then
-                     obj%root(i)%drydensity = zeros(obj%root(i)%femdomain%ne())
+                  if (size(this%root(i)%drydensity) /= this%root(i)%femdomain%ne()) then
+                     this%root(i)%drydensity = zeros(this%root(i)%femdomain%ne())
                   end if
-                  if (size(obj%root(i)%watercontent) /= obj%root(i)%femdomain%ne()) then
-                     obj%root(i)%watercontent = zeros(obj%root(i)%femdomain%ne())
+                  if (size(this%root(i)%watercontent) /= this%root(i)%femdomain%ne()) then
+                     this%root(i)%watercontent = zeros(this%root(i)%femdomain%ne())
                   end if
 
                   ! compute density from drydensity and water content
                   ! \rho_t = \rho_d * (1 - w )
                     !!$OMP parallel do private(j)
-                  do j = 1, obj%root(i)%femdomain%ne()
-                     obj%root(i)%density(j) = obj%root(i)%drydensity(j)*(1.0d0 - obj%root(i)%watercontent(j))
+                  do j = 1, this%root(i)%femdomain%ne()
+                     this%root(i)%density(j) = this%root(i)%drydensity(j)*(1.0d0 - this%root(i)%watercontent(j))
                   end do
                     !!$OMP end parallel do
                end if
             end if
          end do
         !!$OMP end parallel do
-         obj%property_deform_material_density = .true.
+         this%property_deform_material_density = .true.
       else
          print *, "[Notice] setPropertiesSoybean >> no roots"
       end if
 
    end subroutine
 ! ##################################################################
-   subroutine setPropertiesYoungModulusSoybean(obj, default_value)
-      class(Soybean_), intent(inout) :: obj
+   subroutine setPropertiesYoungModulusSoybean(this, default_value)
+      class(Soybean_), intent(inout) :: this
       real(real64), optional, intent(in) :: default_value
       real(real64) :: defval
       integer(int32) :: i, j
 
       defval = input(default=0.0d0, option=default_value)
 
-      if (allocated(obj%stem)) then
+      if (allocated(this%stem)) then
          print *, "[ok] setPropertiesYoungModulusSoybean >> stems exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%empty()) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if stem(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%stem(i)%youngmodulus)) then
+               if (allocated(this%stem(i)%youngmodulus)) then
 
                   print *, "[ok] setPropertiesYoungModulusSoybean >> stem("//str(i)//")%youngmodulus >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_material_youngmodulus = .true.
+                  this%property_deform_material_youngmodulus = .true.
 
                else
 
                   ! youngmodulus is not allocated.
 
-                  obj%stem(i)%youngmodulus = zeros(obj%stem(i)%femdomain%ne())
-                  obj%stem(i)%youngmodulus = defval
+                  this%stem(i)%youngmodulus = zeros(this%stem(i)%femdomain%ne())
+                  this%stem(i)%youngmodulus = defval
                end if
             end if
          end do
       end if
 
       ! same as this
-      if (allocated(obj%root)) then
+      if (allocated(this%root)) then
          print *, "[ok] setPropertiesYoungModulusSoybean >> roots exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%root)
-            if (obj%root(i)%empty()) then
+         do i = 1, size(this%root)
+            if (this%root(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if root(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%root(i)%youngmodulus)) then
+               if (allocated(this%root(i)%youngmodulus)) then
 
                   print *, "[ok] setPropertiesYoungModulusSoybean >> root("//str(i)//")%youngmodulus >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_material_youngmodulus = .true.
+                  this%property_deform_material_youngmodulus = .true.
 
                else
 
                   ! youngmodulus is not allocated.
 
-                  obj%root(i)%youngmodulus = zeros(obj%root(i)%femdomain%ne())
-                  obj%root(i)%youngmodulus = defval
+                  this%root(i)%youngmodulus = zeros(this%root(i)%femdomain%ne())
+                  this%root(i)%youngmodulus = defval
                end if
             end if
          end do
       end if
 
       ! same for leaf
-      if (allocated(obj%leaf)) then
+      if (allocated(this%leaf)) then
          print *, "[ok] setPropertiesYoungModulusSoybean >> leafs exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%empty()) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if leaf(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%leaf(i)%youngmodulus)) then
+               if (allocated(this%leaf(i)%youngmodulus)) then
 
                   print *, "[ok] setPropertiesYoungModulusSoybean &
 &                    >> leaf("//str(i)//")%youngmodulus >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_material_youngmodulus = .true.
+                  this%property_deform_material_youngmodulus = .true.
 
                else
                   ! youngmodulus is not allocated.
 
-                  obj%leaf(i)%youngmodulus = zeros(obj%leaf(i)%femdomain%ne())
-                  obj%leaf(i)%youngmodulus = defval
+                  this%leaf(i)%youngmodulus = zeros(this%leaf(i)%femdomain%ne())
+                  this%leaf(i)%youngmodulus = defval
                end if
             end if
          end do
       end if
-      obj%property_deform_material_youngmodulus = .true.
+      this%property_deform_material_youngmodulus = .true.
 
    end subroutine
 ! ##################################################################
 
 ! ##################################################################
-   subroutine setPropertiesCarbonDiffusionCoefficientSoybean(obj, default_value)
-      class(Soybean_), intent(inout) :: obj
+   subroutine setPropertiesCarbonDiffusionCoefficientSoybean(this, default_value)
+      class(Soybean_), intent(inout) :: this
       real(real64), optional, intent(in) :: default_value
       real(real64) :: defval
       integer(int32) :: i, j
 
       defval = input(default=0.0d0, option=default_value)
 
-      if (allocated(obj%stem)) then
+      if (allocated(this%stem)) then
          print *, "[ok] setPropertiesCarbonDiffusionCoefficientSoybean >> stems exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%empty()) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if stem(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%stem(i)%CarbonDiffusionCoefficient)) then
+               if (allocated(this%stem(i)%CarbonDiffusionCoefficient)) then
 
                   print *, "[ok] setPropertiesCarbonDiffusionCoefficientSoybean >> &
 &                    stem("//str(i)//")%CarbonDiffusionCoefficient >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_material_CarbonDiffusionCoefficient = .true.
+                  this%property_deform_material_CarbonDiffusionCoefficient = .true.
 
                else
 
                   ! CarbonDiffusionCoefficient is not allocated.
 
-                  obj%stem(i)%CarbonDiffusionCoefficient = zeros(obj%stem(i)%femdomain%ne())
-                  obj%stem(i)%CarbonDiffusionCoefficient = defval
+                  this%stem(i)%CarbonDiffusionCoefficient = zeros(this%stem(i)%femdomain%ne())
+                  this%stem(i)%CarbonDiffusionCoefficient = defval
                end if
             end if
          end do
       end if
 
       ! same as this
-      if (allocated(obj%root)) then
+      if (allocated(this%root)) then
          print *, "[ok] setPropertiesCarbonDiffusionCoefficientSoybean >> roots exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%root)
-            if (obj%root(i)%empty()) then
+         do i = 1, size(this%root)
+            if (this%root(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if root(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%root(i)%CarbonDiffusionCoefficient)) then
+               if (allocated(this%root(i)%CarbonDiffusionCoefficient)) then
 
                   print *, "[ok] setPropertiesCarbonDiffusionCoefficientSoybean &
 &                    >> root("//str(i)//")%CarbonDiffusionCoefficient >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_material_CarbonDiffusionCoefficient = .true.
+                  this%property_deform_material_CarbonDiffusionCoefficient = .true.
 
                else
 
                   ! CarbonDiffusionCoefficient is not allocated.
 
-                  obj%root(i)%CarbonDiffusionCoefficient = zeros(obj%root(i)%femdomain%ne())
-                  obj%root(i)%CarbonDiffusionCoefficient = defval
+                  this%root(i)%CarbonDiffusionCoefficient = zeros(this%root(i)%femdomain%ne())
+                  this%root(i)%CarbonDiffusionCoefficient = defval
                end if
             end if
          end do
       end if
 
       ! same for leaf
-      if (allocated(obj%leaf)) then
+      if (allocated(this%leaf)) then
          print *, "[ok] setPropertiesCarbonDiffusionCoefficientSoybean >> leafs exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%empty()) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if leaf(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%leaf(i)%CarbonDiffusionCoefficient)) then
+               if (allocated(this%leaf(i)%CarbonDiffusionCoefficient)) then
 
                   print *, "[ok] setPropertiesCarbonDiffusionCoefficientSoybean &
 &                    >> leaf("//str(i)//")%CarbonDiffusionCoefficient >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_material_CarbonDiffusionCoefficient = .true.
+                  this%property_deform_material_CarbonDiffusionCoefficient = .true.
 
                else
                   ! CarbonDiffusionCoefficient is not allocated.
 
-                  obj%leaf(i)%CarbonDiffusionCoefficient = zeros(obj%leaf(i)%femdomain%ne())
-                  obj%leaf(i)%CarbonDiffusionCoefficient = defval
+                  this%leaf(i)%CarbonDiffusionCoefficient = zeros(this%leaf(i)%femdomain%ne())
+                  this%leaf(i)%CarbonDiffusionCoefficient = defval
                end if
             end if
          end do
       end if
-      obj%property_deform_material_CarbonDiffusionCoefficient = .true.
+      this%property_deform_material_CarbonDiffusionCoefficient = .true.
 
    end subroutine
 ! ##################################################################
 
 ! ##################################################################
 !same for poissonratio
-   subroutine setPropertiesPoissonRatioSoybean(obj, default_value)
-      class(Soybean_), intent(inout) :: obj
+   subroutine setPropertiesPoissonRatioSoybean(this, default_value)
+      class(Soybean_), intent(inout) :: this
       real(real64), optional, intent(in) :: default_value
       real(real64) :: defval
       integer(int32) :: i, j
 
       defval = input(default=0.0d0, option=default_value)
 
-      if (allocated(obj%stem)) then
+      if (allocated(this%stem)) then
          print *, "[ok] setPropertiesPoissonRatioSoybean >> stems exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%empty()) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if stem(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%stem(i)%poissonratio)) then
+               if (allocated(this%stem(i)%poissonratio)) then
 
                   print *, "[ok] setPropertiesPoissonRatioSoybean >> stem("//str(i)//")%poissonratio >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_material_poissonratio = .true.
+                  this%property_deform_material_poissonratio = .true.
 
                else
 
                   ! youngmodulus is not allocated.
 
-                  obj%stem(i)%poissonratio = zeros(obj%stem(i)%femdomain%ne())
-                  obj%stem(i)%poissonratio = defval
+                  this%stem(i)%poissonratio = zeros(this%stem(i)%femdomain%ne())
+                  this%stem(i)%poissonratio = defval
                end if
             end if
          end do
@@ -5926,27 +6016,27 @@ contains
       end if
 
       ! same for leaf
-      if (allocated(obj%leaf)) then
+      if (allocated(this%leaf)) then
          print *, "[ok] setPropertiesPoissonRatioSoybean >> leafs exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%empty()) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if leaf(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%leaf(i)%poissonratio)) then
+               if (allocated(this%leaf(i)%poissonratio)) then
 
                   print *, "[ok] setPropertiesPoissonRatioSoybean >> leaf("//str(i)//")%poissonratio >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_material_poissonratio = .true.
+                  this%property_deform_material_poissonratio = .true.
 
                else
                   ! youngmodulus is not allocated.
 
-                  obj%leaf(i)%poissonratio = zeros(obj%leaf(i)%femdomain%ne())
-                  obj%leaf(i)%poissonratio = defval
+                  this%leaf(i)%poissonratio = zeros(this%leaf(i)%femdomain%ne())
+                  this%leaf(i)%poissonratio = defval
                end if
             end if
          end do
@@ -5954,69 +6044,69 @@ contains
       end if
 
       ! same for root
-      if (allocated(obj%root)) then
+      if (allocated(this%root)) then
          print *, "[ok] setPropertiesPoissonRatioSoybean >> roots exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%root)
-            if (obj%root(i)%empty()) then
+         do i = 1, size(this%root)
+            if (this%root(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if root(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%root(i)%poissonratio)) then
+               if (allocated(this%root(i)%poissonratio)) then
 
                   print *, "[ok] setPropertiesPoissonRatioSoybean >> root("//str(i)//")%poissonratio >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_material_poissonratio = .true.
+                  this%property_deform_material_poissonratio = .true.
 
                else
 
                   ! youngmodulus is not allocated.
 
-                  obj%root(i)%poissonratio = zeros(obj%root(i)%femdomain%ne())
-                  obj%root(i)%poissonratio = defval
+                  this%root(i)%poissonratio = zeros(this%root(i)%femdomain%ne())
+                  this%root(i)%poissonratio = defval
                end if
             end if
          end do
         !!$OMP end parallel do
       end if
-      obj%property_deform_material_poissonratio = .true.
+      this%property_deform_material_poissonratio = .true.
    end subroutine
 
 ! ##################################################################
 ! similar subroutine for Initialdisplacement
-   subroutine setPropertiesInitialDisplacementSoybean(obj, default_value)
-      class(Soybean_), intent(inout) :: obj
+   subroutine setPropertiesInitialDisplacementSoybean(this, default_value)
+      class(Soybean_), intent(inout) :: this
       real(real64), optional, intent(in) :: default_value
       real(real64) :: defval
       integer(int32) :: i, j
 
       defval = input(default=0.0d0, option=default_value)
 
-      if (allocated(obj%stem)) then
+      if (allocated(this%stem)) then
          print *, "[ok] setPropertiesInitialDisplacementSoybean >> stems exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%empty()) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if stem(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%stem(i)%Displacement)) then
+               if (allocated(this%stem(i)%Displacement)) then
 
                   print *, "[ok] setPropertiesInitialDisplacementSoybean >> &
 &                    stem("//str(i)//")%Displacement >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_initial_displacement = .true.
+                  this%property_deform_initial_displacement = .true.
 
                else
 
                   ! youngmodulus is not allocated.
 
-                  obj%stem(i)%Displacement = zeros(obj%stem(i)%femdomain%nn(), 3)
-                  obj%stem(i)%Displacement = defval
+                  this%stem(i)%Displacement = zeros(this%stem(i)%femdomain%nn(), 3)
+                  this%stem(i)%Displacement = defval
                end if
             end if
          end do
@@ -6024,27 +6114,27 @@ contains
       end if
 
       ! same for leaf
-      if (allocated(obj%leaf)) then
+      if (allocated(this%leaf)) then
          print *, "[ok] setPropertiesInitialDisplacementSoybean >> leafs exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%empty()) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if leaf(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%leaf(i)%Displacement)) then
+               if (allocated(this%leaf(i)%Displacement)) then
 
                   print *, "[ok] setPropertiesInitialDisplacementSoybean >> leaf("//str(i)//")%Displacement >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_initial_displacement = .true.
+                  this%property_deform_initial_displacement = .true.
 
                else
                   ! youngmodulus is not allocated.
 
-                  obj%leaf(i)%Displacement = zeros(obj%leaf(i)%femdomain%nn(), 3)
-                  obj%leaf(i)%Displacement = defval
+                  this%leaf(i)%Displacement = zeros(this%leaf(i)%femdomain%nn(), 3)
+                  this%leaf(i)%Displacement = defval
                end if
             end if
          end do
@@ -6052,96 +6142,96 @@ contains
       end if
 
       ! same for root
-      if (allocated(obj%root)) then
+      if (allocated(this%root)) then
          print *, "[ok] setPropertiesInitialDisplacementSoybean >> roots exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%root)
-            if (obj%root(i)%empty()) then
+         do i = 1, size(this%root)
+            if (this%root(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if root(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%root(i)%Displacement)) then
+               if (allocated(this%root(i)%Displacement)) then
 
                   print *, "[ok] setPropertiesInitialDisplacementSoybean >> root("//str(i)//")%Displacement >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_initial_displacement = .true.
+                  this%property_deform_initial_displacement = .true.
 
                else
 
                   ! youngmodulus is not allocated.
 
-                  obj%root(i)%Displacement = zeros(obj%root(i)%femdomain%nn(), 3)
-                  obj%root(i)%Displacement = defval
+                  this%root(i)%Displacement = zeros(this%root(i)%femdomain%nn(), 3)
+                  this%root(i)%Displacement = defval
                end if
             end if
          end do
         !!$OMP end parallel do
       end if
-      obj%property_deform_initial_displacement = .true.
+      this%property_deform_initial_displacement = .true.
 
    end subroutine
 
 ! same for initialstress but dimension = 3
-   subroutine setPropertiesInitialStressSoybean(obj, default_value)
-      class(Soybean_), intent(inout) :: obj
+   subroutine setPropertiesInitialStressSoybean(this, default_value)
+      class(Soybean_), intent(inout) :: this
       real(real64), optional, intent(in) :: default_value
       real(real64) :: defval
       integer(int32) :: i, j
 
       defval = input(default=0.0d0, option=default_value)
 
-      if (allocated(obj%stem)) then
+      if (allocated(this%stem)) then
          print *, "[ok] setPropertiesInitialStressSoybean >> stems exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%empty()) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if stem(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%stem(i)%stress)) then
+               if (allocated(this%stem(i)%stress)) then
 
                   print *, "[ok] setPropertiesInitialStressSoybean >> &
 &                    stem("//str(i)//")%stress >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_initial_stress = .true.
+                  this%property_deform_initial_stress = .true.
 
                else
 
                   ! youngmodulus is not allocated.
 
-                  obj%stem(i)%stress = zeros(obj%stem(i)%femdomain%ne(), obj%stem(i)%femdomain%nne(), 6)
-                  obj%stem(i)%stress = defval
+                  this%stem(i)%stress = zeros(this%stem(i)%femdomain%ne(), this%stem(i)%femdomain%nne(), 6)
+                  this%stem(i)%stress = defval
                end if
             end if
          end do
         !!$OMP end parallel do
       end if
       ! same for leaf
-      if (allocated(obj%leaf)) then
+      if (allocated(this%leaf)) then
          print *, "[ok] setPropertiesInitialStressSoybean >> leafs exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%empty()) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if leaf(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%leaf(i)%stress)) then
+               if (allocated(this%leaf(i)%stress)) then
 
                   print *, "[ok] setPropertiesInitialStressSoybean >> leaf("//str(i)//")%stress >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_initial_stress = .true.
+                  this%property_deform_initial_stress = .true.
 
                else
                   ! youngmodulus is not allocated.
 
-                  obj%leaf(i)%stress = zeros(obj%leaf(i)%femdomain%ne(), obj%leaf(i)%femdomain%nne(), 6)
-                  obj%leaf(i)%stress = defval
+                  this%leaf(i)%stress = zeros(this%leaf(i)%femdomain%ne(), this%leaf(i)%femdomain%nne(), 6)
+                  this%leaf(i)%stress = defval
                end if
             end if
          end do
@@ -6149,98 +6239,98 @@ contains
       end if
 
       ! same for root
-      if (allocated(obj%root)) then
+      if (allocated(this%root)) then
          print *, "[ok] setPropertiesInitialStressSoybean >> roots exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%root)
-            if (obj%root(i)%empty()) then
+         do i = 1, size(this%root)
+            if (this%root(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if root(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%root(i)%stress)) then
+               if (allocated(this%root(i)%stress)) then
 
                   print *, "[ok] setPropertiesInitialStressSoybean >> root("//str(i)//")%stress >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_initial_stress = .true.
+                  this%property_deform_initial_stress = .true.
 
                else
 
                   ! youngmodulus is not allocated.
 
-                  obj%root(i)%stress = zeros(obj%root(i)%femdomain%ne(), obj%root(i)%femdomain%nne(), 6)
-                  obj%root(i)%stress = defval
+                  this%root(i)%stress = zeros(this%root(i)%femdomain%ne(), this%root(i)%femdomain%nne(), 6)
+                  this%root(i)%stress = defval
                end if
             end if
          end do
         !!$OMP end parallel do
       end if
-      obj%property_deform_initial_stress = .true.
+      this%property_deform_initial_stress = .true.
    end subroutine
 
 ! ################################################################################
 
 ! same as initdisplacement for BoundaryTractionForce
-   subroutine setPropertiesBoundaryTractionForceSoybean(obj, default_value, xrange, yrange, zrange)
-      class(Soybean_), intent(inout) :: obj
+   subroutine setPropertiesBoundaryTractionForceSoybean(this, default_value, xrange, yrange, zrange)
+      class(Soybean_), intent(inout) :: this
       real(real64), optional, intent(in) :: default_value, xrange(2), yrange(2), zrange(2)
       real(real64) :: defval
       integer(int32) :: i, j
 
       defval = input(default=0.0d0, option=default_value)
 
-      if (allocated(obj%stem)) then
+      if (allocated(this%stem)) then
          print *, "[ok] setPropertiesBoundaryTractionForceSoybean >> stems exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%empty()) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if stem(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%stem(i)%BoundaryTractionForce)) then
+               if (allocated(this%stem(i)%BoundaryTractionForce)) then
 
                   print *, "[ok] setPropertiesBoundaryTractionForceSoybean >> &
 &                    stem("//str(i)//")%BoundaryTractionForce >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_boundary_tractionforce = .true.
+                  this%property_deform_boundary_tractionforce = .true.
 
                else
 
                   ! youngmodulus is not allocated.
 
-                  obj%stem(i)%BoundaryTractionForce = zeros(obj%stem(i)%femdomain%nn(), 3)
-                  obj%stem(i)%BoundaryTractionForce = defval
+                  this%stem(i)%BoundaryTractionForce = zeros(this%stem(i)%femdomain%nn(), 3)
+                  this%stem(i)%BoundaryTractionForce = defval
                end if
             end if
          end do
         !!$OMP end parallel do
       end if
       ! same for leaf
-      if (allocated(obj%leaf)) then
+      if (allocated(this%leaf)) then
          print *, "[ok] setPropertiesBoundaryTractionForceSoybean >> leafs exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%empty()) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if leaf(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%leaf(i)%BoundaryTractionForce)) then
+               if (allocated(this%leaf(i)%BoundaryTractionForce)) then
 
                   print *, "[ok] setPropertiesBoundaryTractionForceSoybean &
 &                    >> leaf("//str(i)//")%BoundaryTractionForce >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_boundary_tractionforce = .true.
+                  this%property_deform_boundary_tractionforce = .true.
 
                else
                   ! youngmodulus is not allocated.
 
-                  obj%leaf(i)%BoundaryTractionForce = zeros(obj%leaf(i)%femdomain%nn(), 3)
-                  obj%leaf(i)%BoundaryTractionForce = defval
+                  this%leaf(i)%BoundaryTractionForce = zeros(this%leaf(i)%femdomain%nn(), 3)
+                  this%leaf(i)%BoundaryTractionForce = defval
                end if
             end if
          end do
@@ -6248,100 +6338,100 @@ contains
       end if
 
       ! same for root
-      if (allocated(obj%root)) then
+      if (allocated(this%root)) then
          print *, "[ok] setPropertiesBoundaryTractionForceSoybean >> roots exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%root)
-            if (obj%root(i)%empty()) then
+         do i = 1, size(this%root)
+            if (this%root(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if root(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%root(i)%BoundaryTractionForce)) then
+               if (allocated(this%root(i)%BoundaryTractionForce)) then
 
                   print *, "[ok] setPropertiesBoundaryTractionForceSoybean &
 &                    >> root("//str(i)//")%BoundaryTractionForce >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_boundary_tractionforce = .true.
+                  this%property_deform_boundary_tractionforce = .true.
 
                else
 
                   ! youngmodulus is not allocated.
 
-                  obj%root(i)%BoundaryTractionForce = zeros(obj%root(i)%femdomain%nn(), 3)
-                  obj%root(i)%BoundaryTractionForce = defval
+                  this%root(i)%BoundaryTractionForce = zeros(this%root(i)%femdomain%nn(), 3)
+                  this%root(i)%BoundaryTractionForce = defval
                end if
             end if
          end do
         !!$OMP end parallel do
       end if
-      obj%property_deform_boundary_tractionforce = .true.
+      this%property_deform_boundary_tractionforce = .true.
    end subroutine
 ! ##################################################################
 
 ! ################################################################################
 
 ! same as initdisplacement for BoundaryTractionForce
-   subroutine setPropertiesBoundaryDisplacementSoybean(obj, default_value, xrange, yrange, zrange)
-      class(Soybean_), intent(inout) :: obj
+   subroutine setPropertiesBoundaryDisplacementSoybean(this, default_value, xrange, yrange, zrange)
+      class(Soybean_), intent(inout) :: this
       real(real64), optional, intent(in) :: default_value, xrange(2), yrange(2), zrange(2)
       real(real64) :: defval
       integer(int32) :: i, j
 
       defval = input(default=0.0d0, option=default_value)
 
-      if (allocated(obj%stem)) then
+      if (allocated(this%stem)) then
          print *, "[ok] setPropertiesBoundaryDisplacementSoybean >> stems exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%empty()) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if stem(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%stem(i)%BoundaryDisplacement)) then
+               if (allocated(this%stem(i)%BoundaryDisplacement)) then
 
                   print *, "[ok] setPropertiesBoundaryDisplacementSoybean >> &
 &                    stem("//str(i)//")%BoundaryDisplacement >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_boundary_displacement = .true.
+                  this%property_deform_boundary_displacement = .true.
 
                else
 
                   ! youngmodulus is not allocated.
 
-                  obj%stem(i)%BoundaryDisplacement = zeros(obj%stem(i)%femdomain%nn(), 3)
-                  obj%stem(i)%BoundaryDisplacement = defval
+                  this%stem(i)%BoundaryDisplacement = zeros(this%stem(i)%femdomain%nn(), 3)
+                  this%stem(i)%BoundaryDisplacement = defval
                end if
             end if
          end do
         !!$OMP end parallel do
       end if
       ! same for leaf
-      if (allocated(obj%leaf)) then
+      if (allocated(this%leaf)) then
          print *, "[ok] setPropertiesBoundaryDisplacementSoybean >> leafs exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%empty()) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if leaf(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%leaf(i)%BoundaryDisplacement)) then
+               if (allocated(this%leaf(i)%BoundaryDisplacement)) then
 
                   print *, "[ok] setPropertiesBoundaryDisplacementSoybean &
 &                    >> leaf("//str(i)//")%BoundaryDisplacement >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_boundary_Displacement = .true.
+                  this%property_deform_boundary_Displacement = .true.
 
                else
                   ! youngmodulus is not allocated.
 
-                  obj%leaf(i)%BoundaryDisplacement = zeros(obj%leaf(i)%femdomain%nn(), 3)
-                  obj%leaf(i)%BoundaryDisplacement = defval
+                  this%leaf(i)%BoundaryDisplacement = zeros(this%leaf(i)%femdomain%nn(), 3)
+                  this%leaf(i)%BoundaryDisplacement = defval
                end if
             end if
          end do
@@ -6349,58 +6439,58 @@ contains
       end if
 
       ! same for root
-      if (allocated(obj%root)) then
+      if (allocated(this%root)) then
          print *, "[ok] setPropertiesBoundaryDisplacementSoybean >> roots exist."
          ! leaf exists
         !!$OMP parallel do private(i)
-         do i = 1, size(obj%root)
-            if (obj%root(i)%empty()) then
+         do i = 1, size(this%root)
+            if (this%root(i)%empty()) then
                cycle
             else
                ! allocate youngmoludus if root(i) exists and not allocated
                ! the default value is defval
-               if (allocated(obj%root(i)%BoundaryDisplacement)) then
+               if (allocated(this%root(i)%BoundaryDisplacement)) then
 
                   print *, "[ok] setPropertiesBoundaryDisplacementSoybean &
 &                    >> root("//str(i)//")%BoundaryDisplacement >> allocated"
                   ! then ok. let's return
-                  obj%property_deform_boundary_displacement = .true.
+                  this%property_deform_boundary_displacement = .true.
 
                else
 
                   ! youngmodulus is not allocated.
 
-                  obj%root(i)%BoundaryDisplacement = zeros(obj%root(i)%femdomain%nn(), 3)
-                  obj%root(i)%BoundaryDisplacement = defval
+                  this%root(i)%BoundaryDisplacement = zeros(this%root(i)%femdomain%nn(), 3)
+                  this%root(i)%BoundaryDisplacement = defval
                end if
             end if
          end do
         !!$OMP end parallel do
       end if
-      obj%property_deform_boundary_Displacement = .true.
+      this%property_deform_boundary_Displacement = .true.
    end subroutine
 ! ##################################################################
 
-   subroutine setPropertiesGravitySoybean(obj, default_value, xrange, yrange, zrange)
-      class(Soybean_), intent(inout) :: obj
+   subroutine setPropertiesGravitySoybean(this, default_value, xrange, yrange, zrange)
+      class(Soybean_), intent(inout) :: this
       real(real64), optional, intent(in) :: default_value, xrange(2), yrange(2), zrange(2)
       real(real64) :: defval
       integer(int32) :: i, j
 
       defval = input(default=9.810d0, option=default_value)
 
-      obj%Gravity_acceralation = defval
+      this%Gravity_acceralation = defval
 
-      obj%property_deform_gravity = .true.
+      this%property_deform_gravity = .true.
 
    end subroutine
 
 ! ##################################################################
-   subroutine setPropertiesSoybean(obj, density, YoungModulus, PoissonRatio, &
+   subroutine setPropertiesSoybean(this, density, YoungModulus, PoissonRatio, &
                                    InitialStress, InitialDisplacement, &
                                    BoundaryTractionForce, BoundaryDisplacement, Gravity, xr, yr, zr, &
                                    default_value)
-      class(Soybean_), intent(inout) :: obj
+      class(Soybean_), intent(inout) :: this
       logical, optional, intent(in) :: density, YoungModulus, PoissonRatio, InitialStress, &
                                        InitialDisplacement, &
                                        BoundaryTractionForce, BoundaryDisplacement, Gravity
@@ -6410,79 +6500,79 @@ contains
       ! set each conditions
       if (present(density)) then
          if (density) then
-            call obj%setPropertiesDensity()
+            call this%setPropertiesDensity()
          end if
       end if
 
       if (present(YoungModulus)) then
          if (YoungModulus) then
-            call obj%setPropertiesYoungModulus(default_value=default_value)
+            call this%setPropertiesYoungModulus(default_value=default_value)
          end if
       end if
 
       if (present(PoissonRatio)) then
          if (PoissonRatio) then
-            call obj%setPropertiesPoissonRatio(default_value=default_value)
+            call this%setPropertiesPoissonRatio(default_value=default_value)
          end if
       end if
 
       if (present(InitialDisplacement)) then
          if (InitialDisplacement) then
-            call obj%setPropertiesInitialDisplacement(default_value=default_value)
+            call this%setPropertiesInitialDisplacement(default_value=default_value)
          end if
       end if
 
       if (present(InitialStress)) then
          if (InitialStress) then
-            call obj%setPropertiesInitialStress(default_value=default_value)
+            call this%setPropertiesInitialStress(default_value=default_value)
          end if
       end if
 
       if (present(BoundaryTractionForce)) then
          if (BoundaryTractionForce) then
-            call obj%setPropertiesBoundaryTractionForce(default_value=default_value)
+            call this%setPropertiesBoundaryTractionForce(default_value=default_value)
          end if
       end if
 
       if (present(BoundaryDisplacement)) then
          if (BoundaryDisplacement) then
-            call obj%setPropertiesBoundaryDisplacement(default_value=default_value)
+            call this%setPropertiesBoundaryDisplacement(default_value=default_value)
          end if
       end if
 
       if (present(Gravity)) then
          if (Gravity) then
-            call obj%setPropertiesGravity(default_value=default_value)
+            call this%setPropertiesGravity(default_value=default_value)
          end if
       end if
    end subroutine
 ! ##################################################################
 
-   function readyForSoybean(obj, Simulator) result(ready)
-      class(Soybean_), intent(inout) :: obj
+   function readyForSoybean(this, Simulator) result(ready)
+      class(Soybean_), intent(inout) :: this
       integer(int32), intent(in) ::  Simulator
       logical :: ready
       ! default = ready!
       ! if all the properties are set, then ready = true
       if (Simulator == PF_DEFORMATION_ANALYSIS) then
          ready = .true.
-         ready = ready .and. obj%property_deform_material_density
-         ready = ready .and. obj%property_deform_material_YoungModulus
-         ready = ready .and. obj%property_deform_material_PoissonRatio
-         ready = ready .and. obj%property_deform_initial_Displacement
-         ready = ready .and. obj%property_deform_material_CarbonDiffusionCoefficient
-         ready = ready .and. obj%property_deform_initial_Stress
-         ready = ready .and. obj%property_deform_boundary_TractionForce
-         ready = ready .and. obj%property_deform_boundary_Displacement
-         ready = ready .and. obj%property_deform_gravity
+         ready = ready .and. this%property_deform_material_density
+         ready = ready .and. this%property_deform_material_YoungModulus
+         ready = ready .and. this%property_deform_material_PoissonRatio
+         ready = ready .and. this%property_deform_initial_Displacement
+         ready = ready .and. this%property_deform_material_CarbonDiffusionCoefficient
+         ready = ready .and. this%property_deform_initial_Stress
+         ready = ready .and. this%property_deform_boundary_TractionForce
+         ready = ready .and. this%property_deform_boundary_Displacement
+         ready = ready .and. this%property_deform_gravity
       else
          print *, "[ERROR] readyForSoybean >> invalid  Simulator type.", Simulator
       end if
    end function
 ! ##################################################################
 
-   subroutine runSimulationSoybean(obj, Simulator, error_tolerance, debug, z_min)
-      class(Soybean_), target, intent(inout) :: obj
+   subroutine runSimulationSoybean(this, Simulator, error_tolerance, debug, z_min)
+      class(Soybean_), target, intent(inout) :: this
       type(ContactMechanics_) :: contact
       type(FEMDomainp_), allocatable :: femdomainp(:)
       type(FEMDomain_), allocatable :: femdomains(:)
@@ -6500,9 +6590,9 @@ contains
       integer(int32) :: i, j, k, i_offset, j_offset
       type(IO_)  :: f
 
-      if (.not. obj%readyFor(Simulator)) then
-         call obj%checkProperties(Simulator=Simulator)
-         print *, "[ERROR] :: runSimulationSoybean >> .not.obj%readyFor(Simulator) "
+      if (.not. this%readyFor(Simulator)) then
+         call this%checkProperties(Simulator=Simulator)
+         print *, "[ERROR] :: runSimulationSoybean >> .not.this%readyFor(Simulator) "
          return
       end if
 
@@ -6510,34 +6600,34 @@ contains
          ! run
          print *, "[ok] Running PF_DEFORMATION_ANALYSIS..."
          ! 全てのdomainのpointer
-         allocate (femdomainp(obj%numleaf() + obj%numStem() + obj%numRoot()))
-         allocate (femdomains(obj%numleaf() + obj%numStem() + obj%numRoot()))
+         allocate (femdomainp(this%numleaf() + this%numStem() + this%numRoot()))
+         allocate (femdomains(this%numleaf() + this%numStem() + this%numRoot()))
          k = 0
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%empty()) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%empty()) then
                cycle
             else
                k = k + 1
-               femdomainp(k)%femdomainp => obj%stem(i)%femdomain
-               femdomains(k) = obj%stem(i)%femdomain
+               femdomainp(k)%femdomainp => this%stem(i)%femdomain
+               femdomains(k) = this%stem(i)%femdomain
             end if
          end do
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%empty()) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%empty()) then
                cycle
             else
                k = k + 1
-               femdomainp(k)%femdomainp => obj%leaf(i)%femdomain
-               femdomains(k) = obj%leaf(i)%femdomain
+               femdomainp(k)%femdomainp => this%leaf(i)%femdomain
+               femdomains(k) = this%leaf(i)%femdomain
             end if
          end do
-         do i = 1, size(obj%root)
-            if (obj%root(i)%empty()) then
+         do i = 1, size(this%root)
+            if (this%root(i)%empty()) then
                cycle
             else
                k = k + 1
-               femdomainp(k)%femdomainp => obj%root(i)%femdomain
-               femdomains(k) = obj%root(i)%femdomain
+               femdomainp(k)%femdomainp => this%root(i)%femdomain
+               femdomains(k) = this%root(i)%femdomain
             end if
          end do
 
@@ -6545,17 +6635,17 @@ contains
          ! connectivitylist
          ! >>>>>>>>>>>>>>>>>>>>>>>
 
-         k = obj%numStem() + obj%numleaf() + obj%numRoot()
+         k = this%numStem() + this%numleaf() + this%numRoot()
          contactlist = zeros(k, k)
 
          ! leaf to stem
-         i_offset = obj%numStem()
+         i_offset = this%numStem()
          j_offset = 0
         !!!$OMP parallel do private(i,j)
-         do i = 1, obj%numleaf()
-            do j = 1, obj%numstem()
-               if (obj%leaf2stem(i, j) /= 0) then
-                  contactlist(i + i_offset, j + j_offset) = obj%leaf2stem(i, j)
+         do i = 1, this%numleaf()
+            do j = 1, this%numstem()
+               if (this%leaf2stem(i, j) /= 0) then
+                  contactlist(i + i_offset, j + j_offset) = this%leaf2stem(i, j)
                end if
             end do
          end do
@@ -6565,122 +6655,122 @@ contains
          i_offset = 0
          j_offset = 0
         !!!$OMP parallel do private(i,j)
-         do i = 1, obj%numstem()
-            do j = 1, obj%numstem()
-               if (obj%stem2stem(i, j) /= 0) then
-                  contactlist(i + i_offset, j + j_offset) = obj%stem2stem(i, j)
+         do i = 1, this%numstem()
+            do j = 1, this%numstem()
+               if (this%stem2stem(i, j) >= 1) then
+                  contactlist(i + i_offset, j + j_offset) = this%stem2stem(i, j)
                end if
             end do
          end do
         !!!$OMP end parallel do
 
          ! root to stem
-         i_offset = obj%numstem() + obj%numleaf()
+         i_offset = this%numstem() + this%numleaf()
          j_offset = 0
         !!!$OMP parallel do private(i,j)
-         do i = 1, obj%numroot()
-            do j = 1, obj%numstem()
-               if (obj%root2stem(i, j) /= 0) then
-                  contactlist(i + i_offset, j + j_offset) = obj%root2stem(i, j)
+         do i = 1, this%numroot()
+            do j = 1, this%numstem()
+               if (this%root2stem(i, j) /= 0) then
+                  contactlist(i + i_offset, j + j_offset) = this%root2stem(i, j)
                end if
             end do
          end do
         !!!$OMP end parallel do
 
          ! root to root
-         i_offset = obj%numstem() + obj%numroot()
-         j_offset = obj%numstem() + obj%numroot()
+         i_offset = this%numstem() + this%numroot()
+         j_offset = this%numstem() + this%numroot()
         !!!$OMP parallel do private(i,j)
-         do i = 1, obj%numroot()
-            do j = 1, obj%numroot()
-               if (obj%root2root(i, j) /= 0) then
-                  contactlist(i + i_offset, j + j_offset) = obj%root2root(i, j)
+         do i = 1, this%numroot()
+            do j = 1, this%numroot()
+               if (this%root2root(i, j) /= 0) then
+                  contactlist(i + i_offset, j + j_offset) = this%root2root(i, j)
                end if
             end do
          end do
         !!!$OMP end parallel do
 
          ! YoungModulusListを作る
-         allocate (YoungModulusList%pages(obj%numleaf() + obj%numStem() + obj%numRoot()))
+         allocate (YoungModulusList%pages(this%numleaf() + this%numStem() + this%numRoot()))
          k = 0
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%empty()) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%empty()) then
                cycle
             else
                k = k + 1
-               YoungModulusList%pages(k)%realist = obj%stem(i)%YoungModulus
+               YoungModulusList%pages(k)%realist = this%stem(i)%YoungModulus
             end if
          end do
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%empty()) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%empty()) then
                cycle
             else
                k = k + 1
-               YoungModulusList%pages(k)%realist = obj%leaf(i)%YoungModulus
+               YoungModulusList%pages(k)%realist = this%leaf(i)%YoungModulus
             end if
          end do
-         do i = 1, size(obj%root)
-            if (obj%root(i)%empty()) then
+         do i = 1, size(this%root)
+            if (this%root(i)%empty()) then
                cycle
             else
                k = k + 1
-               YoungModulusList%pages(k)%realist = obj%root(i)%YoungModulus
+               YoungModulusList%pages(k)%realist = this%root(i)%YoungModulus
             end if
          end do
 
          ! PoissonRatioListを作る
-         allocate (PoissonRatioList%pages(obj%numstem() + obj%numleaf() + obj%numRoot()))
+         allocate (PoissonRatioList%pages(this%numstem() + this%numleaf() + this%numRoot()))
          k = 0
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%empty()) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%empty()) then
                cycle
             else
                k = k + 1
-               PoissonRatioList%pages(k)%realist = obj%stem(i)%PoissonRatio
+               PoissonRatioList%pages(k)%realist = this%stem(i)%PoissonRatio
             end if
          end do
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%empty()) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%empty()) then
                cycle
             else
                k = k + 1
-               PoissonRatioList%pages(k)%realist = obj%leaf(i)%PoissonRatio
+               PoissonRatioList%pages(k)%realist = this%leaf(i)%PoissonRatio
             end if
          end do
-         do i = 1, size(obj%root)
-            if (obj%root(i)%empty()) then
+         do i = 1, size(this%root)
+            if (this%root(i)%empty()) then
                cycle
             else
                k = k + 1
-               PoissonRatioList%pages(k)%realist = obj%root(i)%PoissonRatio
+               PoissonRatioList%pages(k)%realist = this%root(i)%PoissonRatio
             end if
          end do
 
          ! DensityListを作る
-         allocate (DensityList%pages(obj%numStem() + obj%numLeaf() + obj%numRoot()))
+         allocate (DensityList%pages(this%numStem() + this%numLeaf() + this%numRoot()))
          k = 0
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%empty()) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%empty()) then
                cycle
             else
                k = k + 1
-               DensityList%pages(k)%realist = obj%stem(i)%Density
+               DensityList%pages(k)%realist = this%stem(i)%Density
             end if
          end do
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%empty()) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%empty()) then
                cycle
             else
                k = k + 1
-               DensityList%pages(k)%realist = obj%leaf(i)%Density
+               DensityList%pages(k)%realist = this%leaf(i)%Density
             end if
          end do
-         do i = 1, size(obj%root)
-            if (obj%root(i)%empty()) then
+         do i = 1, size(this%root)
+            if (this%root(i)%empty()) then
                cycle
             else
                k = k + 1
-               DensityList%pages(k)%realist = obj%root(i)%Density
+               DensityList%pages(k)%realist = this%root(i)%Density
             end if
          end do
 
@@ -6696,11 +6786,11 @@ contains
          contact%YoungModulusList = YoungModulusList
          contact%PoissonRatioList = PoissonRatioList
          contact%DensityList = DensityList
-         contact%gravity = obj%Gravity_acceralation
+         contact%gravity = this%Gravity_acceralation
 
          !
-         call contact%setup(penaltyparameter=obj%PenaltyParameter, &
-                            GaussPointProjection=obj%GaussPointProjection)
+         call contact%setup(penaltyparameter=this%PenaltyParameter, &
+                            GaussPointProjection=this%GaussPointProjection)
 
          ! 要修正(2) 境界条件を課す節点のリスト+値から境界条件を導入．
          ! Boundary conditions
@@ -6732,28 +6822,28 @@ contains
          ! update mesh
          call contact%updateMesh()
          k = 0
-         do i = 1, size(obj%stem)
-            if (obj%stem(i)%empty()) then
+         do i = 1, size(this%stem)
+            if (this%stem(i)%empty()) then
                cycle
             else
                k = k + 1
-               obj%stem(i)%femdomain = femdomains(k)
+               this%stem(i)%femdomain = femdomains(k)
             end if
          end do
-         do i = 1, size(obj%leaf)
-            if (obj%leaf(i)%empty()) then
+         do i = 1, size(this%leaf)
+            if (this%leaf(i)%empty()) then
                cycle
             else
                k = k + 1
-               obj%leaf(i)%femdomain = femdomains(k)
+               this%leaf(i)%femdomain = femdomains(k)
             end if
          end do
-         do i = 1, size(obj%root)
-            if (obj%root(i)%empty()) then
+         do i = 1, size(this%root)
+            if (this%root(i)%empty()) then
                cycle
             else
                k = k + 1
-               obj%root(i)%femdomain = femdomains(k)
+               this%root(i)%femdomain = femdomains(k)
             end if
          end do
 
@@ -6765,8 +6855,8 @@ contains
    end subroutine
 ! ##################################################################
 
-   pure function getPointsSoybean(obj, leaf, stem, root) result(points)
-      class(Soybean_), intent(in) :: obj
+   pure function getPointsSoybean(this, leaf, stem, root) result(points)
+      class(Soybean_), intent(in) :: this
       logical, optional, intent(in) :: leaf, stem, root
       real(real64), allocatable :: points(:, :), buf(:, :)
       logical :: count_leaf, count_stem, count_root
@@ -6784,41 +6874,41 @@ contains
          count_root = Root
       end if
 
-      n = obj%nn()
+      n = this%nn()
       points = zeros(n, 3)
 
       id = 1
       !if(count_stem)then
-      if (allocated(obj%stem)) then
-         do i = 1, size(obj%stem)
-            if (.not. obj%stem(i)%femdomain%empty()) then
-               points(id:id + obj%stem(i)%femdomain%nn() - 1, 1:3) = &
-                  obj%stem(i)%femdomain%mesh%nodcoord(1:obj%stem(i)%femdomain%nn(), 1:3)
-               id = id + obj%stem(i)%femdomain%nn()
+      if (allocated(this%stem)) then
+         do i = 1, size(this%stem)
+            if (.not. this%stem(i)%femdomain%empty()) then
+               points(id:id + this%stem(i)%femdomain%nn() - 1, 1:3) = &
+                  this%stem(i)%femdomain%mesh%nodcoord(1:this%stem(i)%femdomain%nn(), 1:3)
+               id = id + this%stem(i)%femdomain%nn()
             end if
          end do
       end if
       !endif
 
       !if(count_leaf)then
-      if (allocated(obj%leaf)) then
-         do i = 1, size(obj%leaf)
-            if (.not. obj%leaf(i)%femdomain%empty()) then
-               points(id:id + obj%leaf(i)%femdomain%nn() - 1, 1:3) = &
-                  obj%leaf(i)%femdomain%mesh%nodcoord(:, :)
-               id = id + obj%leaf(i)%femdomain%nn()
+      if (allocated(this%leaf)) then
+         do i = 1, size(this%leaf)
+            if (.not. this%leaf(i)%femdomain%empty()) then
+               points(id:id + this%leaf(i)%femdomain%nn() - 1, 1:3) = &
+                  this%leaf(i)%femdomain%mesh%nodcoord(:, :)
+               id = id + this%leaf(i)%femdomain%nn()
             end if
          end do
       end if
       !endif
 
       !if(count_root)then
-      if (allocated(obj%root)) then
-         do i = 1, size(obj%root)
-            if (.not. obj%root(i)%femdomain%empty()) then
-               points(id:id + obj%root(i)%femdomain%nn() - 1, 1:3) = &
-                  obj%root(i)%femdomain%mesh%nodcoord(:, :)
-               id = id + obj%root(i)%femdomain%nn()
+      if (allocated(this%root)) then
+         do i = 1, size(this%root)
+            if (.not. this%root(i)%femdomain%empty()) then
+               points(id:id + this%root(i)%femdomain%nn() - 1, 1:3) = &
+                  this%root(i)%femdomain%mesh%nodcoord(:, :)
+               id = id + this%root(i)%femdomain%nn()
             end if
          end do
       end if
@@ -6835,45 +6925,45 @@ contains
 
 ! ##################################################################
 
-   subroutine setPointsSoybean(obj, points)
-      class(Soybean_), intent(inout) :: obj
+   subroutine setPointsSoybean(this, points)
+      class(Soybean_), intent(inout) :: this
       real(real64), intent(in) :: points(:, :)
       integer(int32) :: i, n, id
 
-      if (size(points, 1) /= obj%nn()) then
+      if (size(points, 1) /= this%nn()) then
          print *, "[ERROR] setPointsSoybean >> Invalid size of arg points"
-         print *, "size(points,1)/=obj%nn()", size(points, 1), obj%nn()
+         print *, "size(points,1)/=this%nn()", size(points, 1), this%nn()
          return
       end if
 
       id = 1
-      if (allocated(obj%stem)) then
-         do i = 1, size(obj%stem)
-            if (.not. obj%stem(i)%femdomain%empty()) then
-               obj%stem(i)%femdomain%mesh%nodcoord(1:obj%stem(i)%femdomain%nn(), 1:3) &
-                  = points(id:id + obj%stem(i)%femdomain%nn() - 1, 1:3)
-               id = id + obj%stem(i)%femdomain%nn()
+      if (allocated(this%stem)) then
+         do i = 1, size(this%stem)
+            if (.not. this%stem(i)%femdomain%empty()) then
+               this%stem(i)%femdomain%mesh%nodcoord(1:this%stem(i)%femdomain%nn(), 1:3) &
+                  = points(id:id + this%stem(i)%femdomain%nn() - 1, 1:3)
+               id = id + this%stem(i)%femdomain%nn()
             end if
          end do
       end if
 
-      if (allocated(obj%leaf)) then
-         do i = 1, size(obj%leaf)
-            if (.not. obj%leaf(i)%femdomain%empty()) then
-               obj%leaf(i)%femdomain%mesh%nodcoord(:, :) &
-                  = points(id:id + obj%leaf(i)%femdomain%nn() - 1, 1:3)
-               id = id + obj%leaf(i)%femdomain%nn()
+      if (allocated(this%leaf)) then
+         do i = 1, size(this%leaf)
+            if (.not. this%leaf(i)%femdomain%empty()) then
+               this%leaf(i)%femdomain%mesh%nodcoord(:, :) &
+                  = points(id:id + this%leaf(i)%femdomain%nn() - 1, 1:3)
+               id = id + this%leaf(i)%femdomain%nn()
             end if
          end do
       end if
 
-      if (allocated(obj%root)) then
-         do i = 1, size(obj%root)
-            if (.not. obj%root(i)%femdomain%empty()) then
-               obj%root(i)%femdomain%mesh%nodcoord(:, :) &
-                  = points(id:id + obj%root(i)%femdomain%nn() - 1, 1:3)
+      if (allocated(this%root)) then
+         do i = 1, size(this%root)
+            if (.not. this%root(i)%femdomain%empty()) then
+               this%root(i)%femdomain%mesh%nodcoord(:, :) &
+                  = points(id:id + this%root(i)%femdomain%nn() - 1, 1:3)
 
-               id = id + obj%root(i)%femdomain%nn()
+               id = id + this%root(i)%femdomain%nn()
             end if
          end do
       end if
@@ -6881,8 +6971,8 @@ contains
    end subroutine
 ! ############################################################################
 
-   function getDistanceFromGroundSoybean(obj) result(distance_per_nodes)
-      class(Soybean_), intent(inout) :: obj
+   function getDistanceFromGroundSoybean(this) result(distance_per_nodes)
+      class(Soybean_), intent(inout) :: this
       real(real64), allocatable :: distance_per_nodes(:), xA(:), xB(:), dist_per_stem(:), &
                                    dist_per_root(:)
       integer(int32), allocatable :: num_of_point(:)
@@ -6893,22 +6983,22 @@ contains
       node_id = 1
 
       ! get the intersection
-      num_node = obj%nn()
+      num_node = this%nn()
 
-      distance_per_nodes = zeros(obj%nn())
-      dist_per_stem = zeros(size(obj%stem))
-      dist_per_root = zeros(size(obj%root))
+      distance_per_nodes = zeros(this%nn())
+      dist_per_stem = zeros(size(this%stem))
+      dist_per_root = zeros(size(this%root))
 
-      num_of_point = obj%getNumberOfPoint()
+      num_of_point = this%getNumberOfPoint()
       id = 0
       ! global search
       ! calculate distance from bottom to "A" node of each stem domains
       ! 1節目から順番に接いでいったと仮定する．
 
     !!$OMP parallel do private(i)
-      do i = 1, size(obj%stem)
-         if (.not. obj%stem(i)%empty()) then
-            dist_per_stem(i) = obj%getDistanceToGroundFromStemID( &
+      do i = 1, size(this%stem)
+         if (.not. this%stem(i)%empty()) then
+            dist_per_stem(i) = this%getDistanceToGroundFromStemID( &
                                dist_in=0.0d0, &
                                stem_id=i)
          end if
@@ -6932,7 +7022,7 @@ contains
 
       end do
 
-      do i = obj%numStem() + 1, obj%numStem() + obj%numLeaf()
+      do i = this%numStem() + 1, this%numStem() + this%numLeaf()
 
          if (i == 1) then
             from_id = 1
@@ -6942,8 +7032,8 @@ contains
             to_id = sum(num_of_point(1:i))
          end if
 
-         do j = 1, size(obj%leaf2stem, 1)
-            if (obj%leaf2stem(i - obj%numStem(), j) /= 0) then
+         do j = 1, size(this%leaf2stem, 1)
+            if (this%leaf2stem(i - this%numStem(), j) /= 0) then
                stem_id = j
                exit
             end if
@@ -6957,9 +7047,9 @@ contains
 
       ! 1節目から順番に接いでいったと仮定する．
     !!$OMP parallel do private(i)
-      do i = 1, size(obj%Root)
-         if (.not. obj%Root(i)%empty()) then
-            dist_per_Root(i) = obj%getDistanceToGroundFromRootID( &
+      do i = 1, size(this%Root)
+         if (.not. this%Root(i)%empty()) then
+            dist_per_Root(i) = this%getDistanceToGroundFromRootID( &
                                dist_in=0.0d0, &
                                Root_id=i)
          end if
@@ -6967,7 +7057,7 @@ contains
     !!$OMP end parallel do
 
       ! comupte node-wise data from root-wise data
-      do i = obj%numstem() + obj%numleaf() + 1, obj%numstem() + obj%numleaf() + obj%numRoot()
+      do i = this%numstem() + this%numleaf() + 1, this%numstem() + this%numleaf() + this%numRoot()
          if (i == 1) then
             from_id = 1
             to_id = num_of_point(1)
@@ -6978,19 +7068,19 @@ contains
 
          distance_per_nodes(from_id:to_id) = &
             distance_per_nodes(from_id:to_id) &
-            + dist_per_root(i - obj%numstem() - obj%numleaf())
+            + dist_per_root(i - this%numstem() - this%numleaf())
 
       end do
 
       ! node-to-node
       ! @stem
       id = 0
-      do i = 1, size(obj%stem)
-         if (.not. obj%stem(i)%femdomain%empty()) then
+      do i = 1, size(this%stem)
+         if (.not. this%stem(i)%femdomain%empty()) then
             id = id + 1
-            do j = 1, obj%stem(i)%femdomain%nn()
-               xA = obj%stem(i)%getCoordinate("A")
-               xB = obj%stem(i)%femdomain%mesh%nodcoord(j, :)
+            do j = 1, this%stem(i)%femdomain%nn()
+               xA = this%stem(i)%getCoordinate("A")
+               xB = this%stem(i)%femdomain%mesh%nodcoord(j, :)
                if (id == 1 .and. i == 1) then
                   node_id = j
                else
@@ -7003,13 +7093,13 @@ contains
       end do
       ! for each domain
       ! @leaf
-      id = obj%numStem() - 1
-      do i = 1, size(obj%leaf)
-         if (.not. obj%leaf(i)%femdomain%empty()) then
+      id = this%numStem() - 1
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%femdomain%empty()) then
             id = id + 1
-            do j = 1, obj%leaf(i)%femdomain%nn()
-               xA = obj%leaf(i)%getCoordinate("A")
-               xB = obj%leaf(i)%femdomain%mesh%nodcoord(j, :)
+            do j = 1, this%leaf(i)%femdomain%nn()
+               xA = this%leaf(i)%getCoordinate("A")
+               xB = this%leaf(i)%femdomain%mesh%nodcoord(j, :)
                if (id == 1 .and. i == 1) then
                   node_id = j
                else
@@ -7023,13 +7113,13 @@ contains
 
       ! for each domain
       ! @root
-      id = obj%numStem() + obj%numLeaf() - 1
-      do i = 1, size(obj%root)
-         if (.not. obj%root(i)%femdomain%empty()) then
+      id = this%numStem() + this%numLeaf() - 1
+      do i = 1, size(this%root)
+         if (.not. this%root(i)%femdomain%empty()) then
             id = id + 1
-            do j = 1, obj%root(i)%femdomain%nn()
-               xA = obj%root(i)%getCoordinate("A")
-               xB = obj%root(i)%femdomain%mesh%nodcoord(j, :)
+            do j = 1, this%root(i)%femdomain%nn()
+               xA = this%root(i)%getCoordinate("A")
+               xB = this%root(i)%femdomain%mesh%nodcoord(j, :)
                if (id == 1 .and. i == 1) then
                   node_id = j
                else
@@ -7045,31 +7135,31 @@ contains
 ! ############################################################################
 
 ! ############################################################################
-   function getNumberOfPointSoybean(obj) result(NumberOfPoint)
-      class(Soybean_), intent(in) :: obj
+   function getNumberOfPointSoybean(this) result(NumberOfPoint)
+      class(Soybean_), intent(in) :: this
       integer(int32), allocatable :: NumberOfPoint(:)
       integer(int32) :: i, id
       ! order :: stem -> leaf -> root
 
-      NumberOfPoint = zeros(obj%numStem() + obj%numLeaf() + obj%numRoot())
+      NumberOfPoint = zeros(this%numStem() + this%numLeaf() + this%numRoot())
       id = 1
-      do i = 1, size(obj%stem)
-         if (.not. obj%stem(i)%empty()) then
-            NumberOfPoint(id) = obj%stem(i)%femdomain%nn()
+      do i = 1, size(this%stem)
+         if (.not. this%stem(i)%empty()) then
+            NumberOfPoint(id) = this%stem(i)%femdomain%nn()
             id = id + 1
          end if
       end do
 
-      do i = 1, size(obj%leaf)
-         if (.not. obj%leaf(i)%empty()) then
-            NumberOfPoint(id) = obj%leaf(i)%femdomain%nn()
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%empty()) then
+            NumberOfPoint(id) = this%leaf(i)%femdomain%nn()
             id = id + 1
          end if
       end do
 
-      do i = 1, size(obj%root)
-         if (.not. obj%root(i)%empty()) then
-            NumberOfPoint(id) = obj%root(i)%femdomain%nn()
+      do i = 1, size(this%root)
+         if (.not. this%root(i)%empty()) then
+            NumberOfPoint(id) = this%root(i)%femdomain%nn()
             id = id + 1
          end if
       end do
@@ -7078,31 +7168,31 @@ contains
 ! ############################################################################
 
 ! ############################################################################
-   function getNumberOfElementSoybean(obj) result(NumberOfElement)
-      class(Soybean_), intent(in) :: obj
+   function getNumberOfElementSoybean(this) result(NumberOfElement)
+      class(Soybean_), intent(in) :: this
       integer(int32), allocatable :: NumberOfElement(:)
       integer(int32) :: i, id
       ! order :: stem -> leaf -> root
 
-      NumberOfElement = zeros(obj%numStem() + obj%numLeaf() + obj%numRoot())
+      NumberOfElement = zeros(this%numStem() + this%numLeaf() + this%numRoot())
       id = 1
-      do i = 1, size(obj%stem)
-         if (.not. obj%stem(i)%empty()) then
-            NumberOfElement(id) = obj%stem(i)%femdomain%ne()
+      do i = 1, size(this%stem)
+         if (.not. this%stem(i)%empty()) then
+            NumberOfElement(id) = this%stem(i)%femdomain%ne()
             id = id + 1
          end if
       end do
 
-      do i = 1, size(obj%leaf)
-         if (.not. obj%leaf(i)%empty()) then
-            NumberOfElement(id) = obj%leaf(i)%femdomain%ne()
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%empty()) then
+            NumberOfElement(id) = this%leaf(i)%femdomain%ne()
             id = id + 1
          end if
       end do
 
-      do i = 1, size(obj%root)
-         if (.not. obj%root(i)%empty()) then
-            NumberOfElement(id) = obj%root(i)%femdomain%ne()
+      do i = 1, size(this%root)
+         if (.not. this%root(i)%empty()) then
+            NumberOfElement(id) = this%root(i)%femdomain%ne()
             id = id + 1
          end if
       end do
@@ -7111,8 +7201,8 @@ contains
 ! ############################################################################
 
 ! ############################################################################
-   recursive function getDistanceToGroundFromStemIDSoybean(obj, dist_in, stem_id) result(dist_ground)
-      class(Soybean_), intent(in) :: obj
+   recursive function getDistanceToGroundFromStemIDSoybean(this, dist_in, stem_id) result(dist_ground)
+      class(Soybean_), intent(in) :: this
       real(real64), intent(in)    :: dist_in
       integer(int32), intent(in)  :: stem_id
       integer(int32) :: j, parent_id
@@ -7122,23 +7212,23 @@ contains
 
       ! check stem-to-stem connectivity
       dist_ground = dist_in
-      if (maxval(obj%stem2stem(stem_id, :)) /= 1) then
+      if (maxval(this%stem2stem(stem_id, :)) == 0) then
          return
       end if
 
-      do j = 1, size(obj%stem2stem, 1)
+      do j = 1, size(this%stem2stem, 1)
 
-         if (obj%stem2stem(stem_id, j) == 1) then
-            if (.not. obj%stem(j)%femdomain%empty()) then
+         if (this%stem2stem(stem_id, j) >= 1) then
+            if (.not. this%stem(j)%femdomain%empty()) then
                ! found parent
                ! number of parent node should be 1
                parent_id = j
-               xA = obj%stem(parent_id)%getCoordinate("A")
-               xB = obj%stem(parent_id)%getCoordinate("B")
+               xA = this%stem(parent_id)%getCoordinate("A")
+               xB = this%stem(parent_id)%getCoordinate("B")
                dist_AB = sqrt(dot_product(xA - xB, xA - xB))
                dist_old = dist_in + dist_AB
 
-               dist_ground = obj%getDistanceToGroundFromStemID( &
+               dist_ground = this%getDistanceToGroundFromStemID( &
                              dist_in=dist_old, &
                              stem_id=parent_id)
                return
@@ -7151,8 +7241,8 @@ contains
 ! ############################################################################
 
 ! ############################################################################
-   recursive function getDistanceToGroundFromRootIDSoybean(obj, dist_in, root_id) result(dist_ground)
-      class(Soybean_), intent(in) :: obj
+   recursive function getDistanceToGroundFromRootIDSoybean(this, dist_in, root_id) result(dist_ground)
+      class(Soybean_), intent(in) :: this
       real(real64), intent(in)    :: dist_in
       integer(int32), intent(in)  :: root_id
       integer(int32) :: j, parent_id
@@ -7162,23 +7252,23 @@ contains
 
       ! check root-to-root connectivity
       dist_ground = dist_in
-      if (maxval(obj%root2root(root_id, :)) /= 1) then
+      if (maxval(this%root2root(root_id, :)) /= 1) then
          return
       end if
 
-      do j = 1, size(obj%root2root, 1)
+      do j = 1, size(this%root2root, 1)
 
-         if (obj%root2root(root_id, j) == 1) then
-            if (.not. obj%root(j)%femdomain%empty()) then
+         if (this%root2root(root_id, j) == 1) then
+            if (.not. this%root(j)%femdomain%empty()) then
                ! found parent
                ! number of parent node should be 1
                parent_id = j
-               xA = obj%root(parent_id)%getCoordinate("A")
-               xB = obj%root(parent_id)%getCoordinate("B")
+               xA = this%root(parent_id)%getCoordinate("A")
+               xB = this%root(parent_id)%getCoordinate("B")
                dist_AB = sqrt(dot_product(xA - xB, xA - xB))
                dist_old = dist_in + dist_AB
 
-               dist_ground = obj%getDistanceToGroundFromrootID( &
+               dist_ground = this%getDistanceToGroundFromrootID( &
                              dist_in=dist_old, &
                              root_id=parent_id)
                return
@@ -7191,17 +7281,17 @@ contains
 ! ############################################################################
 
 ! ############################################################################
-   function getRangeOfNodeIDSoybean(obj, stem, leaf, root) result(id_range)
-      class(Soybean_), intent(in) :: obj
+   function getRangeOfNodeIDSoybean(this, stem, leaf, root) result(id_range)
+      class(Soybean_), intent(in) :: this
       integer(int32) :: id_range(2), numStemNode, numLeafNode, numRootNode, i
       logical, optional, intent(in) :: stem, leaf, root
 
       id_range(1:2) = [0, 0]
 
       numStemNode = 0
-      do i = 1, size(obj%stem)
-         if (.not. obj%stem(i)%femdomain%empty()) then
-            numStemNode = numStemNode + obj%stem(i)%femdomain%nn()
+      do i = 1, size(this%stem)
+         if (.not. this%stem(i)%femdomain%empty()) then
+            numStemNode = numStemNode + this%stem(i)%femdomain%nn()
          end if
       end do
 
@@ -7214,9 +7304,9 @@ contains
       end if
 
       numLeafNode = 0
-      do i = 1, size(obj%Leaf)
-         if (.not. obj%Leaf(i)%femdomain%empty()) then
-            numLeafNode = numLeafNode + obj%Leaf(i)%femdomain%nn()
+      do i = 1, size(this%Leaf)
+         if (.not. this%Leaf(i)%femdomain%empty()) then
+            numLeafNode = numLeafNode + this%Leaf(i)%femdomain%nn()
          end if
       end do
 
@@ -7228,9 +7318,9 @@ contains
       end if
 
       numRootNode = 0
-      do i = 1, size(obj%Root)
-         if (.not. obj%Root(i)%femdomain%empty()) then
-            numRootNode = numRootNode + obj%Root(i)%femdomain%nn()
+      do i = 1, size(this%Root)
+         if (.not. this%Root(i)%femdomain%empty()) then
+            numRootNode = numRootNode + this%Root(i)%femdomain%nn()
          end if
       end do
 
@@ -7246,8 +7336,8 @@ contains
 ! ############################################################################
 
 ! ############################################################################
-   function getSpectrumSoybean(obj, light, Transparency, Resolution, num_threads, leaf) result(spectrum)
-      class(Soybean_), intent(inout) :: obj
+   function getSpectrumSoybean(this, light, Transparency, Resolution, num_threads, leaf) result(spectrum)
+      class(Soybean_), intent(inout) :: this
       type(Light_), intent(in)    :: light
       real(real64), optional, intent(in) :: Transparency, Resolution
       integer(int32), optional, intent(in) :: num_threads
@@ -7256,7 +7346,7 @@ contains
       real(real64), allocatable :: ppfd(:), tp_ratio(:), spectrum(:, :)
       integeR(int32) :: i
 
-      ppfd = obj%getPPFD(light, Transparency, Resolution, num_threads, leaf)
+      ppfd = this%getPPFD(light, Transparency, Resolution, num_threads, leaf)
       tp_ratio = ppfd/light%maxPPFD
       spectrum = zeros(size(ppfd), size(light%spectrum))
 
@@ -7271,8 +7361,8 @@ contains
 ! ############################################################################
 
 ! ############################################################################
-   function getPPFDSoybean(obj, light, Transparency, Resolution, num_threads, leaf) result(ppfd)
-      class(Soybean_), intent(inout) :: obj
+   function getPPFDSoybean(this, light, Transparency, Resolution, num_threads, leaf) result(ppfd)
+      class(Soybean_), intent(inout) :: this
       type(Light_), intent(in)    :: light
       real(real64), optional, intent(in) :: Transparency, Resolution
       integer(int32), optional, intent(in) :: num_threads
@@ -7289,11 +7379,11 @@ contains
       logical :: inside, upside
 
       ! compute cosin
-      !elem_cosins = obj%getLeafCosValue(light)
+      !elem_cosins = this%getLeafCosValue(light)
 
       ! rotate soybean
-      call obj%rotate(z=radian(180.0d0 - light%angles(1)))
-      call obj%rotate(x=radian(90.0d0 - light%angles(2)))
+      call this%rotate(z=radian(180.0d0 - light%angles(1)))
+      call this%rotate(x=radian(90.0d0 - light%angles(2)))
       if (present(leaf)) then
          do i = 1, size(leaf)
             call leaf(i)%femdomain%rotate(z=radian(180.0d0 - light%angles(1)))
@@ -7307,16 +7397,16 @@ contains
       Transparency_val = input(default=0.30d0, option=Transparency)
 
       ! ppfdが通過した葉の積算長さで減衰するモデル
-      NumberOfElement = obj%getNumberOfElement()
-      ppfd = zeros(obj%ne())
-      elem_cosins = zeros(obj%ne())
-      !i = sum(NumberOfElement(1:obj%numStem())+1)
-      i = sum(NumberOfElement(1:obj%numStem())) + 1
-      j = sum(NumberOfElement(1:obj%numStem() + obj%numLeaf()))
+      NumberOfElement = this%getNumberOfElement()
+      ppfd = zeros(this%ne())
+      elem_cosins = zeros(this%ne())
+      !i = sum(NumberOfElement(1:this%numStem())+1)
+      i = sum(NumberOfElement(1:this%numStem())) + 1
+      j = sum(NumberOfElement(1:this%numStem() + this%numLeaf()))
       ppfd(i:j) = light%maxPPFD
-      leaf_pass_num = int(zeros(obj%ne()))
+      leaf_pass_num = int(zeros(this%ne()))
 
-      n = sum(NumberOfElement(1:obj%numStem()))
+      n = sum(NumberOfElement(1:this%numStem()))
       from = n
       if (present(num_threads)) then
          call omp_set_num_threads(num_threads)
@@ -7325,13 +7415,13 @@ contains
       ! leaf of other plants
       if (present(leaf)) then
          !$OMP parallel do default(shared), private(j,k,inside,upside,center_x,radius_vec,radius_tr,zmin,n,element_id)
-         do i = 1, size(obj%leaf)
-            if (.not. obj%leaf(i)%femdomain%empty()) then
-               !print *, i, "/", obj%numLeaf()
+         do i = 1, size(this%leaf)
+            if (.not. this%leaf(i)%femdomain%empty()) then
+               !print *, i, "/", this%numLeaf()
                !$OMP parallel do default(shared), private(k,inside,upside,center_x,radius_vec,radius_tr,zmin,n,element_id)
-               do j = 1, obj%leaf(i)%femdomain%ne()
+               do j = 1, this%leaf(i)%femdomain%ne()
                   ! 中心座標
-                  center_x = obj%leaf(i)%femdomain%centerPosition(ElementID=j)
+                  center_x = this%leaf(i)%femdomain%centerPosition(ElementID=j)
                   ! 枚数のみカウント
                   ! 1枚あたりthicknessだけ距離加算
 
@@ -7358,7 +7448,7 @@ contains
                            if (center_x(3) <= zmin) then
                               !print *, center_x(3) , zmin
 
-                              n = obj%numStem() + (i - 1)
+                              n = this%numStem() + (i - 1)
 
                               element_id = sum(NumberOfElement(1:n)) + j
                               leaf_pass_num(element_id) = leaf_pass_num(element_id) + 1
@@ -7376,35 +7466,35 @@ contains
 
       !$OMP parallel private(j,k,inside,upside,center_x,radius_vec,radius_tr,zmin,n,element_id)
       !$OMP do reduction(+:leaf_pass_num)
-      do i = 1, size(obj%leaf)
-         if (obj%leaf(i)%femdomain%empty()) then
+      do i = 1, size(this%leaf)
+         if (this%leaf(i)%femdomain%empty()) then
             cycle
          else
-            !print *, i, "/", obj%numLeaf()
+            !print *, i, "/", this%numLeaf()
             !!$OMP parallel do default(shared), private(k,inside,upside,center_x,radius_vec,radius_tr,zmin,n,element_id)
 
-            do j = 1, obj%leaf(i)%femdomain%ne()
+            do j = 1, this%leaf(i)%femdomain%ne()
                ! 中心座標
-               center_x = obj%leaf(i)%femdomain%centerPosition(ElementID=j)
+               center_x = this%leaf(i)%femdomain%centerPosition(ElementID=j)
 
                ! 枚数のみカウント
                ! 1枚あたりthicknessだけ距離加算
                 !!$OMP parallel do default(shared), private(inside,upside,radius_vec,radius_tr,zmin,n,element_id)
-               do k = 1, size(obj%leaf)
+               do k = 1, size(this%leaf)
 
                   if (i == k) cycle
-                  if (obj%leaf(k)%femdomain%empty()) then
+                  if (this%leaf(k)%femdomain%empty()) then
                      cycle
                   else
 
                      inside = .false.
-                     radius_vec = zeros(obj%leaf(k)%femdomain%nn())
-                     radius_vec = (obj%leaf(k)%femdomain%mesh%nodcoord(:, 1) - center_x(1))**2 &
-                                  + (obj%leaf(k)%femdomain%mesh%nodcoord(:, 2) - center_x(2))**2
+                     radius_vec = zeros(this%leaf(k)%femdomain%nn())
+                     radius_vec = (this%leaf(k)%femdomain%mesh%nodcoord(:, 1) - center_x(1))**2 &
+                                  + (this%leaf(k)%femdomain%mesh%nodcoord(:, 2) - center_x(2))**2
 
                      radius_tr = minval(radius_vec)
                      if (radius_tr < radius*radius) then
-                        zmin = obj%leaf(k)%femdomain%mesh%nodcoord(minvalID(radius_vec), 3)
+                        zmin = this%leaf(k)%femdomain%mesh%nodcoord(minvalID(radius_vec), 3)
                         inside = .true.
                      end if
                      !あるいは，zmin,xmax,ymin,ymaxの正負で場合分けできるのでは？
@@ -7418,7 +7508,7 @@ contains
                            if (center_x(3) > zmin) then
                               cycle
                            end if
-                           n = obj%numStem() + (i - 1)
+                           n = this%numStem() + (i - 1)
                            element_id = sum(NumberOfElement(1:n)) + j
                            leaf_pass_num(element_id) = leaf_pass_num(element_id) + 1
 
@@ -7437,15 +7527,15 @@ contains
       !$OMP end parallel
 
       !ppfd = ppfd*reduction*cosin-value
-      do i = 1, obj%ne()
+      do i = 1, this%ne()
          ! 400-700を一律減衰
          ppfd(i) = ppfd(i)*Transparency_val**leaf_pass_num(i)
       end do
       !ppfd(:) = ppfd(:)*elem_cosins(:)
 
       ! get back
-      call obj%rotate(x=-radian(90.0d0 - light%angles(2)))
-      call obj%rotate(z=-radian(180.0d0 - light%angles(1)))
+      call this%rotate(x=-radian(90.0d0 - light%angles(2)))
+      call this%rotate(z=-radian(180.0d0 - light%angles(1)))
 
       if (present(leaf)) then
          do i = 1, size(leaf)
@@ -7458,8 +7548,8 @@ contains
 ! ############################################################################
 
 ! ############################################################################
-   function getLeafCosValueSoybean(obj, light, num_threads) result(elem_cosins)
-      class(Soybean_), intent(inout) :: obj
+   function getLeafCosValueSoybean(this, light, num_threads) result(elem_cosins)
+      class(Soybean_), intent(inout) :: this
       type(Light_), intent(in)    :: light
       integer(int32), optional, intent(in) :: num_threads
 
@@ -7474,27 +7564,27 @@ contains
 
       ! rotate soybean
 
-      call obj%rotate(z=radian(180.0d0 - light%angles(1)))
-      call obj%rotate(x=radian(90.0d0 - light%angles(2)))
+      call this%rotate(z=radian(180.0d0 - light%angles(1)))
+      call this%rotate(x=radian(90.0d0 - light%angles(2)))
 
-      NumberOfElement = obj%getNumberOfElement()
+      NumberOfElement = this%getNumberOfElement()
 
-      elem_cosins = zeros(obj%ne())
+      elem_cosins = zeros(this%ne())
 
       if (present(num_threads)) then
          call omp_set_num_threads(num_threads)
       end if
 
       !$OMP parallel do default(shared), private(j,k,n,element_id,N_leaf,N_light)
-      do i = 1, size(obj%leaf)
-         if (.not. obj%leaf(i)%femdomain%empty()) then
-            !print *, i, "/", obj%numLeaf()
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%femdomain%empty()) then
+            !print *, i, "/", this%numLeaf()
             !$OMP parallel do default(shared), private(k,n,element_id,N_leaf,N_light)
-            do j = 1, obj%leaf(i)%femdomain%ne()
+            do j = 1, this%leaf(i)%femdomain%ne()
                ! cosin rule
-               n = obj%numStem() + (i - 1)
+               n = this%numStem() + (i - 1)
                element_id = sum(NumberOfElement(1:n)) + j
-               N_leaf = obj%leaf(i)%getNormalVector(ElementID=j)
+               N_leaf = this%leaf(i)%getNormalVector(ElementID=j)
                N_light = [0.0d0, 0.0d0, 1.0d0]
                elem_cosins(element_id) = dble(dot_product(N_light, N_Leaf))
             end do
@@ -7504,12 +7594,12 @@ contains
       !$OMP end parallel do
 
       ! get back
-      call obj%rotate(x=-radian(90.0d0 - light%angles(2)))
-      call obj%rotate(z=-radian(180.0d0 - light%angles(1)))
+      call this%rotate(x=-radian(90.0d0 - light%angles(2)))
+      call this%rotate(z=-radian(180.0d0 - light%angles(1)))
    end function
 ! ############################################################################
-   function getPhotoSynthesisSoybean(obj, light, air, dt, Transparency, Resolution, ppfd) result(photosynthesis)
-      class(Soybean_), intent(inout) :: obj
+   function getPhotoSynthesisSoybean(this, light, air, dt, Transparency, Resolution, ppfd) result(photosynthesis)
+      class(Soybean_), intent(inout) :: this
       type(Light_), intent(in)    :: light
       type(Air_), intent(in)    :: Air
       real(real64), intent(in) :: dt
@@ -7519,44 +7609,44 @@ contains
       integer(int32), allocatable :: NumberOfElement(:)
       integer(int32) :: i, j, offset, elem_id
 
-      if (.not. allocated(obj%Photosynthate_n)) then
-         obj%Photosynthate_n = zeros(obj%nn())
+      if (.not. allocated(this%Photosynthate_n)) then
+         this%Photosynthate_n = zeros(this%nn())
       end if
 
-      photosynthesis = zeros(obj%ne())
+      photosynthesis = zeros(this%ne())
 
-      NumberOfElement = obj%getNumberOfElement()
-      offset = sum(NumberOfElement(1:obj%numStem()))
+      NumberOfElement = this%getNumberOfElement()
+      offset = sum(NumberOfElement(1:this%numStem()))
 
       ! before photosynthesis
       elem_id = offset
-      do i = 1, size(obj%leaf)
-         if (.not. obj%leaf(i)%femdomain%empty()) then
-            do j = 1, obj%leaf(i)%femdomain%ne()
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%femdomain%empty()) then
+            do j = 1, this%leaf(i)%femdomain%ne()
                elem_id = elem_id + 1
-               photosynthesis(elem_id) = obj%leaf(i)%source(j)
+               photosynthesis(elem_id) = this%leaf(i)%source(j)
             end do
          end if
       end do
 
       if (.not. present(ppfd)) then
 
-         call obj%laytracing(light=light, Transparency=Transparency, Resolution=Resolution)
+         call this%laytracing(light=light, Transparency=Transparency, Resolution=Resolution)
 
          ! 光合成量を計算
-         do i = 1, size(obj%Leaf)
-            if (obj%Leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
-               call obj%leaf(i)%photosynthesis(dt=dt, air=air)
+         do i = 1, size(this%Leaf)
+            if (this%Leaf(i)%femdomain%mesh%empty() .eqv. .false.) then
+               call this%leaf(i)%photosynthesis(dt=dt, air=air)
             end if
          end do
       else
          elem_id = offset
 
-         do i = 1, size(obj%leaf)
-            if (.not. obj%leaf(i)%femdomain%empty()) then
-               do j = 1, obj%leaf(i)%femdomain%ne()
+         do i = 1, size(this%leaf)
+            if (.not. this%leaf(i)%femdomain%empty()) then
+               do j = 1, this%leaf(i)%femdomain%ne()
                   elem_id = elem_id + 1
-                  obj%leaf(i)%ppfd(j) = ppfd(elem_id) !- photosynthesis(elem_id)
+                  this%leaf(i)%ppfd(j) = ppfd(elem_id) !- photosynthesis(elem_id)
                end do
             end if
          end do
@@ -7564,11 +7654,11 @@ contains
       end if
 
       elem_id = offset
-      do i = 1, size(obj%leaf)
-         if (.not. obj%leaf(i)%femdomain%empty()) then
-            do j = 1, obj%leaf(i)%femdomain%ne()
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%femdomain%empty()) then
+            do j = 1, this%leaf(i)%femdomain%ne()
                elem_id = elem_id + 1
-               photosynthesis(elem_id) = obj%leaf(i)%source(j) - photosynthesis(elem_id)
+               photosynthesis(elem_id) = this%leaf(i)%source(j) - photosynthesis(elem_id)
             end do
          end if
       end do
@@ -7615,8 +7705,8 @@ contains
    end function
 
 ! ############################################################################
-   function getPhotoSynthesisSpeedPerVolumeSoybean(obj, light, air, dt, Transparency, Resolution, ppfd) result(photosynthesis)
-      class(Soybean_), intent(inout) :: obj
+   function getPhotoSynthesisSpeedPerVolumeSoybean(this, light, air, dt, Transparency, Resolution, ppfd) result(photosynthesis)
+      class(Soybean_), intent(inout) :: this
       type(Light_), intent(in)    :: light
       type(Air_), intent(in)    :: Air
       real(real64), intent(in) :: dt
@@ -7626,27 +7716,27 @@ contains
       integer(int32), allocatable :: NumberOfElement(:)
       integer(int32) :: i, j, offset, elem_id
 
-      if (.not. allocated(obj%Photosynthate_n)) then
-         obj%Photosynthate_n = zeros(obj%nn())
+      if (.not. allocated(this%Photosynthate_n)) then
+         this%Photosynthate_n = zeros(this%nn())
       end if
 
-      photosynthesis = zeros(obj%ne())
+      photosynthesis = zeros(this%ne())
 
-      NumberOfElement = obj%getNumberOfElement()
-      offset = sum(NumberOfElement(1:obj%numStem()))
+      NumberOfElement = this%getNumberOfElement()
+      offset = sum(NumberOfElement(1:this%numStem()))
 
       if (.not. present(ppfd)) then
 
-         call obj%laytracing(light=light, Transparency=Transparency, Resolution=Resolution)
+         call this%laytracing(light=light, Transparency=Transparency, Resolution=Resolution)
 
       else
          elem_id = offset
 
-         do i = 1, size(obj%leaf)
-            if (.not. obj%leaf(i)%femdomain%empty()) then
-               do j = 1, obj%leaf(i)%femdomain%ne()
+         do i = 1, size(this%leaf)
+            if (.not. this%leaf(i)%femdomain%empty()) then
+               do j = 1, this%leaf(i)%femdomain%ne()
                   elem_id = elem_id + 1
-                  obj%leaf(i)%ppfd(j) = ppfd(elem_id) !- photosynthesis(elem_id)
+                  this%leaf(i)%ppfd(j) = ppfd(elem_id) !- photosynthesis(elem_id)
                end do
             end if
          end do
@@ -7654,10 +7744,10 @@ contains
       end if
 
       elem_id = offset
-      do i = 1, size(obj%leaf)
-         if (.not. obj%leaf(i)%femdomain%empty()) then
-            Speed_PV = obj%leaf(i)%getPhotoSynthesisSpeedPerVolume(dt=dt, air=air)
-            do j = 1, obj%leaf(i)%femdomain%ne()
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%femdomain%empty()) then
+            Speed_PV = this%leaf(i)%getPhotoSynthesisSpeedPerVolume(dt=dt, air=air)
+            do j = 1, this%leaf(i)%femdomain%ne()
                elem_id = elem_id + 1
                photosynthesis(elem_id) = Speed_PV(j)
             end do
@@ -7667,19 +7757,19 @@ contains
    end function
 ! ############################################################################
 
-   subroutine fixReversedElementsSoybean(obj)
-      class(Soybean_), intent(inout) :: obj
+   subroutine fixReversedElementsSoybean(this)
+      class(Soybean_), intent(inout) :: this
       integer(int32) :: i, j
       real(Real64) :: v
 
-      do i = 1, size(obj%stem)
-         if (obj%stem(i)%femdomain%empty()) cycle
+      do i = 1, size(this%stem)
+         if (this%stem(i)%femdomain%empty()) cycle
 
-         do j = 1, obj%stem(i)%femdomain%ne()
-            v = obj%stem(i)%femdomain%getvolume(elem=j)
+         do j = 1, this%stem(i)%femdomain%ne()
+            v = this%stem(i)%femdomain%getvolume(elem=j)
             if (v <= 0) then
-               call obj%stem(i)%femdomain%fixReversedElements()
-               if (obj%stem(i)%femdomain%getvolume(elem=j) < 0.0d0) then
+               call this%stem(i)%femdomain%fixReversedElements()
+               if (this%stem(i)%femdomain%getvolume(elem=j) < 0.0d0) then
                   print *, "[ERROR] >> fixReversedElementsSoybean >> not fixed"
                   stop
                end if
@@ -7689,14 +7779,14 @@ contains
 
       end do
 
-      do i = 1, size(obj%leaf)
-         if (obj%leaf(i)%femdomain%empty()) cycle
+      do i = 1, size(this%leaf)
+         if (this%leaf(i)%femdomain%empty()) cycle
 
-         do j = 1, obj%Leaf(i)%femdomain%ne()
-            v = obj%Leaf(i)%femdomain%getvolume(elem=j)
+         do j = 1, this%Leaf(i)%femdomain%ne()
+            v = this%Leaf(i)%femdomain%getvolume(elem=j)
             if (v <= 0) then
-               call obj%Leaf(i)%femdomain%fixReversedElements()
-               if (obj%Leaf(i)%femdomain%getvolume(elem=j) < 0.0d0) then
+               call this%Leaf(i)%femdomain%fixReversedElements()
+               if (this%Leaf(i)%femdomain%getvolume(elem=j) < 0.0d0) then
                   print *, "[ERROR] >> fixReversedElementsSoybean >> not fixed"
                   stop
                end if
@@ -7706,14 +7796,14 @@ contains
 
       end do
 
-      do i = 1, size(obj%root)
-         if (obj%root(i)%femdomain%empty()) cycle
+      do i = 1, size(this%root)
+         if (this%root(i)%femdomain%empty()) cycle
 
-         do j = 1, obj%root(i)%femdomain%ne()
-            v = obj%root(i)%femdomain%getvolume(elem=j)
+         do j = 1, this%root(i)%femdomain%ne()
+            v = this%root(i)%femdomain%getvolume(elem=j)
             if (v <= 0) then
-               call obj%root(i)%femdomain%fixReversedElements()
-               if (obj%root(i)%femdomain%getvolume(elem=j) < 0.0d0) then
+               call this%root(i)%femdomain%fixReversedElements()
+               if (this%root(i)%femdomain%getvolume(elem=j) < 0.0d0) then
                   print *, "[ERROR] >> fixReversedElementsSoybean >> not fixed"
                   stop
                end if
@@ -7725,8 +7815,8 @@ contains
 
    end subroutine
 ! ################################################################
-   function convertDataFormatSoybean(obj, scalar, new_format) result(ret)
-      class(Soybean_), intent(in) :: obj
+   function convertDataFormatSoybean(this, scalar, new_format) result(ret)
+      class(Soybean_), intent(in) :: this
       real(real64), intent(in) :: scalar(:)
       integer(int32), intent(in) :: new_format
       real(real64), allocatable :: ret(:)
@@ -7734,8 +7824,8 @@ contains
       integer(int32) :: i, k, j, n
       logical :: ELEMENT_WISE, POINT_WISE
 
-      NumberOfPoint = obj%getNumberOfPoint()
-      NumberOfElement = obj%getNumberOfElement()
+      NumberOfPoint = this%getNumberOfPoint()
+      NumberOfElement = this%getNumberOfElement()
 
       POINT_WISE = .false.
       ELEMENT_WISE = .false.
@@ -7751,30 +7841,30 @@ contains
 
       if (new_format == PF_SOY_OBJECT_WISE) then
          ! for each root/stem/soil object
-         ret = zeros(obj%numStem() + obj%numLeaf() + obj%numRoot())
+         ret = zeros(this%numStem() + this%numLeaf() + this%numRoot())
 
          if (POINT_WISE) then
             n = 0
             k = 0
-            do i = 1, obj%numStem()
+            do i = 1, this%numStem()
                k = k + 1
-               do j = 1, obj%stem(i)%femdomain%nn()
+               do j = 1, this%stem(i)%femdomain%nn()
                   n = n + 1
                   ret(k) = ret(k) + scalar(n)
                end do
             end do
 
-            do i = 1, obj%numLeaf()
+            do i = 1, this%numLeaf()
                k = k + 1
-               do j = 1, obj%Leaf(i)%femdomain%nn()
+               do j = 1, this%Leaf(i)%femdomain%nn()
                   n = n + 1
                   ret(k) = ret(k) + scalar(n)
                end do
             end do
 
-            do i = 1, obj%numRoot()
+            do i = 1, this%numRoot()
                k = k + 1
-               do j = 1, obj%Root(i)%femdomain%nn()
+               do j = 1, this%Root(i)%femdomain%nn()
                   n = n + 1
                   ret(k) = ret(k) + scalar(n)
                end do
@@ -7783,25 +7873,25 @@ contains
          elseif (ELEMENT_WISE) then
             n = 0
             k = 0
-            do i = 1, obj%numStem()
+            do i = 1, this%numStem()
                k = k + 1
-               do j = 1, obj%stem(i)%femdomain%ne()
+               do j = 1, this%stem(i)%femdomain%ne()
                   n = n + 1
                   ret(k) = ret(k) + scalar(n)
                end do
             end do
 
-            do i = 1, obj%numLeaf()
+            do i = 1, this%numLeaf()
                k = k + 1
-               do j = 1, obj%Leaf(i)%femdomain%ne()
+               do j = 1, this%Leaf(i)%femdomain%ne()
                   n = n + 1
                   ret(k) = ret(k) + scalar(n)
                end do
             end do
 
-            do i = 1, obj%numRoot()
+            do i = 1, this%numRoot()
                k = k + 1
-               do j = 1, obj%Root(i)%femdomain%ne()
+               do j = 1, this%Root(i)%femdomain%ne()
                   n = n + 1
                   ret(k) = ret(k) + scalar(n)
                end do
@@ -7811,21 +7901,21 @@ contains
       end if
    end function
 ! ################################################################
-   function getLeafAreaSoybean(obj) result(LeafArea)
-      class(Soybean_), intent(in) :: obj
+   function getLeafAreaSoybean(this) result(LeafArea)
+      class(Soybean_), intent(in) :: this
       real(real64) :: LeafArea
       integer(int32) :: i
 
       LeafArea = 0.0d0
-      do i = 1, obj%numLeaf()
-         LeafArea = LeafArea + obj%leaf(i)%getLeafArea()
+      do i = 1, this%numLeaf()
+         LeafArea = LeafArea + this%leaf(i)%getLeafArea()
       end do
 
    end function
 ! ################################################################
 
-   function getIntersectLeafSoybean(obj, soybeans, light, except) result(Leaf)
-      class(Soybean_), intent(inout) :: obj
+   function getIntersectLeafSoybean(this, soybeans, light, except) result(Leaf)
+      class(Soybean_), intent(inout) :: this
       type(Soybean_), intent(inout) :: soybeans(:)
       type(Light_), optional, intent(in) :: light ! default is z+ direction
       type(Leaf_), allocatable :: leaf(:)
@@ -7840,8 +7930,8 @@ contains
       ! search Intersect leaf
       ! considering light position
       if (present(light)) then
-         call obj%rotate(z=radian(180.0d0 - light%angles(1)))
-         call obj%rotate(x=radian(90.0d0 - light%angles(2)))
+         call this%rotate(z=radian(180.0d0 - light%angles(1)))
+         call this%rotate(x=radian(90.0d0 - light%angles(2)))
          if (present(except)) then
             do i = 1, size(soybeans)
                if (i == except) cycle
@@ -7857,14 +7947,14 @@ contains
 
       end if
 
-      obj_radius = obj%getRadius()
-      obj_center = obj%getCenter()
+      obj_radius = this%getRadius()
+      obj_center = this%getCenter()
 
       ! search overlaped soybeans
       allocate (overset(size(soybeans)))
       overset(:) = .false.
       do i = 1, size(soybeans)
-         if (soybeans(i)%uuid == obj%uuid) cycle
+         if (soybeans(i)%uuid == this%uuid) cycle
          if (present(except)) then
             if (i == except) cycle
          end if
@@ -7874,7 +7964,7 @@ contains
          if (dist_2 <= chk_radius + obj_radius) then
             ! added 2022/1/29, trial
             points = soybeans(i)%getPoints(leaf=.true., stem=.false., root=.false.)
-            mypoints = obj%getPoints(leaf=.true., stem=.false., root=.false.)
+            mypoints = this%getPoints(leaf=.true., stem=.false., root=.false.)
             ! if a soybean is above mysoy, count
             ! added 2022/1/29, trial
             if (minval(points(:, 3)) >= maxval(mypoints(:, 3))) then
@@ -7935,8 +8025,8 @@ contains
       end do
 
       if (present(light)) then
-         call obj%rotate(x=-radian(90.0d0 - light%angles(2)))
-         call obj%rotate(z=-radian(180.0d0 - light%angles(1)))
+         call this%rotate(x=-radian(90.0d0 - light%angles(2)))
+         call this%rotate(z=-radian(180.0d0 - light%angles(1)))
          if (present(except)) then
             do i = 1, size(soybeans)
                if (i == except) cycle
@@ -7959,15 +8049,15 @@ contains
 ! ################################################################
 
 ! ################################################################
-   pure function getRadiusSoybean(obj) result(radius)
-      class(Soybean_), intent(in) :: obj
+   pure function getRadiusSoybean(this) result(radius)
+      class(Soybean_), intent(in) :: this
       real(real64), allocatable :: Points(:, :)
       real(real64) :: radius, center(3)
 
-      Points = obj%getPoints()
+      Points = this%getPoints()
 
       ! search Intersect leaf
-      center = obj%getCenter()
+      center = this%getCenter()
 
       Points(:, 1) = Points(:, 1) - center(1)
       Points(:, 2) = Points(:, 2) - center(2)
@@ -7979,12 +8069,12 @@ contains
 ! ################################################################
 
 ! ################################################################
-   pure function getCenterSoybean(obj) result(Center)
-      class(Soybean_), intent(in) :: obj
+   pure function getCenterSoybean(this) result(Center)
+      class(Soybean_), intent(in) :: this
       real(real64), allocatable :: Points(:, :)
       real(real64) :: center(3)
 
-      Points = obj%getPoints()
+      Points = this%getPoints()
 
       ! search Intersect leaf
       center(1) = sum(Points(:, 1))/dble(size(Points, 1))
@@ -7995,150 +8085,151 @@ contains
 ! ################################################################
 
 ! ################################################################
-   subroutine syncSoybean(obj, mpid, from)
-      class(Soybean_), intent(inout) :: obj
+   subroutine syncSoybean(this, mpid, from)
+      class(Soybean_), intent(inout) :: this
       type(MPI_), intent(inout) :: mpid
       integer(int32), intent(in) :: from
 
-      call mpid%BcastMPIcharN(N=20, from=from, val=obj%growth_habit(1:20))
-      call mpid%BcastMPIcharN(N=2, from=from, val=obj%growth_stage(1:2))
+      call mpid%BcastMPIcharN(N=20, from=from, val=this%growth_habit(1:20))
+      call mpid%BcastMPIcharN(N=2, from=from, val=this%growth_stage(1:2))
 
-      call mpid%bcast(from=from, val=obj%Num_Of_Node)
-      call mpid%bcast(from=from, val=obj%num_leaf)
-      call mpid%bcast(from=from, val=obj%num_stem_node)
-      call mpid%bcast(from=from, val=obj%Num_Of_Root)
+      call mpid%bcast(from=from, val=this%Num_Of_Node)
+      call mpid%bcast(from=from, val=this%num_leaf)
+      call mpid%bcast(from=from, val=this%num_stem_node)
+      call mpid%bcast(from=from, val=this%Num_Of_Root)
 
-      call mpid%bcast(from=from, val=obj%MaxLeafNum)
-      call mpid%bcast(from=from, val=obj%MaxRootNum)
-      call mpid%bcast(from=from, val=obj%MaxStemNum)
+      call mpid%bcast(from=from, val=this%MaxLeafNum)
+      call mpid%bcast(from=from, val=this%MaxRootNum)
+      call mpid%bcast(from=from, val=this%MaxStemNum)
 
-      call mpid%bcast(from=from, val=obj%determinate)
+      call mpid%bcast(from=from, val=this%determinate)
 !!
-      call mpid%bcast(from=from, val=obj%ms_node)
-      call mpid%BcastMPIIntVecFixedSize(from=from, val=obj%br_node)
-      call mpid%BcastMPIIntVecFixedSize(from=from, val=obj%br_from)
+      call mpid%bcast(from=from, val=this%ms_node)
+      call mpid%BcastMPIIntVecFixedSize(from=from, val=this%br_node)
+      call mpid%BcastMPIIntVecFixedSize(from=from, val=this%br_from)
 !!
-      call mpid%bcastMPIReal(from=from, val=obj%ms_length)
-      call mpid%bcastMPIReal(from=from, val=obj%ms_width)
+      call mpid%bcastMPIReal(from=from, val=this%ms_length)
+      call mpid%bcastMPIReal(from=from, val=this%ms_width)
 !
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%br_length)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%br_width)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%br_length)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%br_width)
 !!
 !!
-      call mpid%bcast(from=from, val=obj%ms_angle_ave)
-      call mpid%bcast(from=from, val=obj%ms_angle_sig)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%br_angle_ave)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%br_angle_sig)
+      call mpid%bcast(from=from, val=this%ms_angle_ave)
+      call mpid%bcast(from=from, val=this%ms_angle_sig)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%br_angle_ave)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%br_angle_sig)
 !!!
 !!!
-      call mpid%bcast(from=from, val=obj%mr_node)
-      call mpid%bcast(from=from, val=obj%mr_length)
-      call mpid%bcast(from=from, val=obj%mr_width)
+      call mpid%bcast(from=from, val=this%mr_node)
+      call mpid%bcast(from=from, val=this%mr_length)
+      call mpid%bcast(from=from, val=this%mr_width)
 !
-      call mpid%BcastMPIIntVecFixedSize(from=from, val=obj%brr_node)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%brr_length)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%brr_width)
+      call mpid%BcastMPIIntVecFixedSize(from=from, val=this%brr_node)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%brr_length)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%brr_width)
 !
-      call mpid%bcast(from=from, val=obj%mr_angle_ave)
-      call mpid%bcast(from=from, val=obj%mr_angle_sig)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%brr_angle_ave)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%brr_angle_sig)
+      call mpid%bcast(from=from, val=this%mr_angle_ave)
+      call mpid%bcast(from=from, val=this%mr_angle_sig)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%brr_angle_ave)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%brr_angle_sig)
 !!
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%peti_size_ave)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%peti_size_sig)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%peti_width_ave)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%peti_width_sig)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%peti_angle_ave)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%peti_angle_sig)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%peti_size_ave)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%peti_size_sig)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%peti_width_ave)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%peti_width_sig)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%peti_angle_ave)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%peti_angle_sig)
 !
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%leaf_angle_ave)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%leaf_angle_sig)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%leaf_length_ave)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%leaf_length_sig)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%leaf_width_ave)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%leaf_width_sig)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%leaf_thickness_ave)
-      call mpid%BcastMPIRealVecFixedSize(from=from, val=obj%leaf_thickness_sig)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%leaf_angle_ave)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%leaf_angle_sig)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%leaf_length_ave)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%leaf_length_sig)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%leaf_width_ave)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%leaf_width_sig)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%leaf_thickness_ave)
+      call mpid%BcastMPIRealVecFixedSize(from=from, val=this%leaf_thickness_sig)
 !!
-      call mpid%BcastMPICharN(N=3, from=from, val=obj%Stage) ! VE, CV, V1,V2, ..., R1, R2, ..., R8
-      call mpid%BcastMPICharN(N=200, from=from, val=obj%name)
-      call mpid%bcast(from=from, val=obj%stage_id)
-      call mpid%bcast(from=from, val=obj%dt)
+      call mpid%BcastMPICharN(N=3, from=from, val=this%Stage) ! VE, CV, V1,V2, ..., R1, R2, ..., R8
+      call mpid%BcastMPICharN(N=200, from=from, val=this%name)
+      call mpid%bcast(from=from, val=this%stage_id)
+      call mpid%bcast(from=from, val=this%dt)
 !
 !!
 !!        ! material info
-      call mpid%bcast(from=from, val=obj%stemYoungModulus)
-      call mpid%bcast(from=from, val=obj%leafYoungModulus)
-      call mpid%bcast(from=from, val=obj%rootYoungModulus)
+      call mpid%bcast(from=from, val=this%stemYoungModulus)
+      call mpid%bcast(from=from, val=this%leafYoungModulus)
+      call mpid%bcast(from=from, val=this%rootYoungModulus)
 !!
-      call mpid%bcast(from=from, val=obj%stemPoissonRatio)
-      call mpid%bcast(from=from, val=obj%leafPoissonRatio)
-      call mpid%bcast(from=from, val=obj%rootPoissonRatio)
+      call mpid%bcast(from=from, val=this%stemPoissonRatio)
+      call mpid%bcast(from=from, val=this%leafPoissonRatio)
+      call mpid%bcast(from=from, val=this%rootPoissonRatio)
 !!
-      call mpid%bcast(from=from, val=obj%stemDensity)
-      call mpid%bcast(from=from, val=obj%leafDensity)
-      call mpid%bcast(from=from, val=obj%rootDensity)
+      call mpid%bcast(from=from, val=this%stemDensity)
+      call mpid%bcast(from=from, val=this%leafDensity)
+      call mpid%bcast(from=from, val=this%rootDensity)
 !!
-      call mpid%bcast(from=from, val=obj%leaf2stem)
-      call mpid%bcast(from=from, val=obj%stem2stem)
-      call mpid%bcast(from=from, val=obj%root2stem)
-      call mpid%bcast(from=from, val=obj%root2root)
+      call mpid%bcast(from=from, val=this%leaf2stem)
+      call mpid%bcast(from=from, val=this%stem2stem)
+      call mpid%bcast(from=from, val=this%root2stem)
+      call mpid%bcast(from=from, val=this%root2root)
 !!
 !
-      call mpid%bcast(from=from, val=obj%time)
-      call mpid%bcast(from=from, val=obj%seed_length)
-      call mpid%bcast(from=from, val=obj%seed_width)
-      call mpid%bcast(from=from, val=obj%seed_height)
-      call mpid%bcast(from=from, val=obj%stem_angle)
-      call mpid%bcast(from=from, val=obj%root_angle)
-      call mpid%bcast(from=from, val=obj%leaf_angle)
+      call mpid%bcast(from=from, val=this%time)
+      call mpid%bcast(from=from, val=this%seed_length)
+      call mpid%bcast(from=from, val=this%seed_width)
+      call mpid%bcast(from=from, val=this%seed_height)
+      call mpid%bcast(from=from, val=this%stem_angle)
+      call mpid%bcast(from=from, val=this%root_angle)
+      call mpid%bcast(from=from, val=this%leaf_angle)
 !!
-      call mpid%BcastMPICharN(N=200, from=from, val=obj%stemconfig)
-      call mpid%BcastMPICharN(N=200, from=from, val=obj%rootconfig)
-      call mpid%BcastMPICharN(N=200, from=from, val=obj%leafconfig)
+      call mpid%BcastMPICharN(N=200, from=from, val=this%stemconfig)
+      call mpid%BcastMPICharN(N=200, from=from, val=this%rootconfig)
+      call mpid%BcastMPICharN(N=200, from=from, val=this%leafconfig)
 !!
 !!        ! for deformation analysis
-      call mpid%bcast(from=from, val=obj%property_deform_material_density)
-      call mpid%bcast(from=from, val=obj%property_deform_material_YoungModulus)
-      call mpid%bcast(from=from, val=obj%property_deform_material_CarbonDiffusionCoefficient)
-      call mpid%bcast(from=from, val=obj%property_deform_material_PoissonRatio)
-      call mpid%bcast(from=from, val=obj%property_deform_initial_Displacement)
-      call mpid%bcast(from=from, val=obj%property_deform_initial_Stress)
-      call mpid%bcast(from=from, val=obj%property_deform_boundary_TractionForce)
-      call mpid%bcast(from=from, val=obj%property_deform_boundary_Displacement)
-      call mpid%bcast(from=from, val=obj%property_deform_gravity)
+      call mpid%bcast(from=from, val=this%property_deform_material_density)
+      call mpid%bcast(from=from, val=this%property_deform_material_YoungModulus)
+      call mpid%bcast(from=from, val=this%property_deform_material_CarbonDiffusionCoefficient)
+      call mpid%bcast(from=from, val=this%property_deform_material_PoissonRatio)
+      call mpid%bcast(from=from, val=this%property_deform_initial_Displacement)
+      call mpid%bcast(from=from, val=this%property_deform_initial_Stress)
+      call mpid%bcast(from=from, val=this%property_deform_boundary_TractionForce)
+      call mpid%bcast(from=from, val=this%property_deform_boundary_Displacement)
+      call mpid%bcast(from=from, val=this%property_deform_gravity)
 !!
-      call mpid%bcast(from=from, val=obj%Gravity_acceralation)
-      call mpid%bcast(from=from, val=obj%PenaltyParameter)
-      call mpid%bcast(from=from, val=obj%GaussPointProjection)
+      call mpid%bcast(from=from, val=this%Gravity_acceralation)
+      call mpid%bcast(from=from, val=this%PenaltyParameter)
+      call mpid%bcast(from=from, val=this%GaussPointProjection)
 !!
 !!
 !!
-      call mpid%bcast(from=from, val=obj%NodeID_MainStem)
+      call mpid%bcast(from=from, val=this%NodeID_MainStem)
 !
 !!
-      call mpid%bcast(from=from, val=obj%inLoop)
-      call mpid%bcast(from=from, val=obj%hours)
+      call mpid%bcast(from=from, val=this%inLoop)
+      call mpid%bcast(from=from, val=this%hours)
 
 !        ! 節-節点データ構造
-      call obj%struct%sync(from=from, mpid=mpid)
+      call this%struct%sync(from=from, mpid=mpid)
 !        ! 器官オブジェクト配列
-      call syncFEMDomainVector(this=obj%leaf_list, from=from, mpid=mpid)
-      call syncFEMDomainVector(this=obj%stem_list, from=from, mpid=mpid)
-      call syncFEMDomainVector(this=obj%root_list, from=from, mpid=mpid)
+      ! 20251219 廃止
+      !call syncFEMDomainVector(this=this%leaf_list(:), from=from, mpid=mpid)
+      !call syncFEMDomainVector(this=this%stem_list(:), from=from, mpid=mpid)
+      !call syncFEMDomainVector(this=this%root_list(:), from=from, mpid=mpid)
 !
 
 !        type(Seed_) :: Seed
 !        type(PlantNode_),allocatable :: NodeSystem(:)
 !        type(PlantRoot_),allocatable :: RootSystem(:)
 
-      call syncStemVector(obj=obj%Stem, from=from, mpid=mpid)
-      call syncLeafVector(obj=obj%Leaf, from=from, mpid=mpid)
-      call syncRootVector(obj=obj%Root, from=from, mpid=mpid)
+      call syncStemVector(obj=this%Stem, from=from, mpid=mpid)
+      call syncLeafVector(obj=this%Leaf, from=from, mpid=mpid)
+      call syncRootVector(obj=this%Root, from=from, mpid=mpid)
 
 !        ! シミュレータ
 !        type(ContactMechanics_) :: contact
-      call syncsoybean_NodeID_BranchVector(obj%NodeID_Branch, from=from, mpid=mpid)
+      call syncsoybean_NodeID_BranchVector(this%NodeID_Branch, from=from, mpid=mpid)
 
    end subroutine
 
@@ -8168,28 +8259,28 @@ contains
    end subroutine
 ! ################################################################
 
-   subroutine syncsoybean_NodeID_Branch(obj, from, mpid)
-      class(soybean_NodeID_Branch_), intent(inout) :: obj
+   subroutine syncsoybean_NodeID_Branch(this, from, mpid)
+      class(soybean_NodeID_Branch_), intent(inout) :: this
       integer(int32), intent(in) :: from
       type(MPI_), intent(inout) :: mpid
 
-      call mpid%bcast(from=from, val=obj%id)
+      call mpid%bcast(from=from, val=this%id)
 
    end subroutine
 ! ################################################################
 
-   subroutine syncsoybean_NodeID_BranchVector(obj, from, mpid)
-      type(soybean_NodeID_Branch_), allocatable, intent(inout) :: obj(:)
+   subroutine syncsoybean_NodeID_BranchVector(this, from, mpid)
+      type(soybean_NodeID_Branch_), allocatable, intent(inout) :: this(:)
       integer(int32), intent(in) :: from
       type(MPI_), intent(inout) :: mpid
       integer(int32) :: vec_size, i
 
       vec_size = 0
       if (mpid%myrank == from) then
-         if (.not. allocated(obj)) then
+         if (.not. allocated(this)) then
             vec_size = -1
          else
-            vec_size = size(obj)
+            vec_size = size(this)
          end if
       end if
       call mpid%bcast(from=from, val=vec_size)
@@ -8198,39 +8289,39 @@ contains
       end if
 
       if (from /= mpid%myrank) then
-         if (allocated(obj)) then
-            deallocate (obj)
+         if (allocated(this)) then
+            deallocate (this)
          end if
-         allocate (obj(vec_size))
+         allocate (this(vec_size))
       end if
 
       do i = 1, vec_size
-         call obj(i)%sync(from=from, mpid=mpid)
+         call this(i)%sync(from=from, mpid=mpid)
       end do
 
    end subroutine
 
 ! ################################################################
-   subroutine rotateSoybean(obj, x, y, z)
-      class(Soybean_), intent(inout) :: obj
+   subroutine rotateSoybean(this, x, y, z)
+      class(Soybean_), intent(inout) :: this
       real(real64), optional, intent(in) :: x, y, z
       type(FEMDomain_) :: domain
 
       ! get points
-      domain%mesh%nodcoord = obj%getpoints()
+      domain%mesh%nodcoord = this%getpoints()
 
       ! rotate points
       call domain%rotate(x=x, y=y, z=z)
 
       ! set points
-      call obj%setPoints(domain%mesh%nodcoord)
+      call this%setPoints(domain%mesh%nodcoord)
 
    end subroutine
 ! ################################################################
 
 ! ################################################################
-   function getDisplacementSoybean(obj, ground_level, penalty, traction_force, debug, itrmax, tol) result(disp)
-      class(Soybean_), target, intent(inout) :: obj
+   function getDisplacementSoybean(this, ground_level, penalty, traction_force, debug, itrmax, tol) result(disp)
+      class(Soybean_), target, intent(inout) :: this
       real(real64), intent(in) :: ground_level
       real(real64), optional, intent(in) :: penalty, tol, traction_force(:)
       logical, optional, intent(in) ::debug
@@ -8245,66 +8336,66 @@ contains
       integer(int32) :: myStemID, yourStemID, myLeafID, myRootID, yourRootID
       integer(int32), allocatable :: FixBoundary(:)
       ! linear elasticity with infinitesimal strain theory
-      n = obj%numStem() + obj%numLeaf() + obj%numRoot()
+      n = this%numStem() + this%numLeaf() + this%numRoot()
       allocate (FEMDomainPointers(n))
 
       !(1) >> compute overset
       ! For stems
-      if (allocated(obj%stem2stem)) then
-         do myStemID = 1, size(obj%stem2stem, 1)
-            do yourStemID = 1, size(obj%stem2stem, 2)
-               if (obj%stem2stem(myStemID, yourStemID) >= 1) then
+      if (allocated(this%stem2stem)) then
+         do myStemID = 1, size(this%stem2stem, 1)
+            do yourStemID = 1, size(this%stem2stem, 2)
+               if (this%stem2stem(myStemID, yourStemID) >= 1) then
                   ! connected
-                  call obj%stem(myStemID)%femdomain%overset( &
-                     FEMDomain=obj%stem(yourStemID)%femdomain, &
+                  call this%stem(myStemID)%femdomain%overset( &
+                     FEMDomain=this%stem(yourStemID)%femdomain, &
                      DomainID=yourStemID, &
                      MyDomainID=myStemID, &
-                     algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                     algorithm=this%overset_algorithm) ! or "P2P"
                end if
             end do
          end do
       end if
 
-      if (allocated(obj%leaf2stem)) then
-         do myLeafID = 1, size(obj%leaf2stem, 1)
-            do yourStemID = 1, size(obj%leaf2stem, 2)
-               if (obj%leaf2stem(myLeafID, yourStemID) >= 1) then
+      if (allocated(this%leaf2stem)) then
+         do myLeafID = 1, size(this%leaf2stem, 1)
+            do yourStemID = 1, size(this%leaf2stem, 2)
+               if (this%leaf2stem(myLeafID, yourStemID) >= 1) then
                   ! connected
-                  call obj%leaf(myLeafID)%femdomain%overset( &
-                     FEMDomain=obj%stem(yourStemID)%femdomain, &
+                  call this%leaf(myLeafID)%femdomain%overset( &
+                     FEMDomain=this%stem(yourStemID)%femdomain, &
                      DomainID=yourStemID, &
-                     MyDomainID=obj%numStem() + myLeafID, &
-                     algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                     MyDomainID=this%numStem() + myLeafID, &
+                     algorithm=this%overset_algorithm) ! or "P2P"
                end if
             end do
          end do
       end if
 
-      if (allocated(obj%root2stem)) then
-         do myRootID = 1, size(obj%root2stem, 1)
-            do yourStemID = 1, size(obj%root2stem, 2)
-               if (obj%root2stem(myRootID, yourStemID) >= 1) then
+      if (allocated(this%root2stem)) then
+         do myRootID = 1, size(this%root2stem, 1)
+            do yourStemID = 1, size(this%root2stem, 2)
+               if (this%root2stem(myRootID, yourStemID) >= 1) then
                   ! connected
-                  call obj%root(myRootID)%femdomain%overset( &
-                     FEMDomain=obj%stem(yourStemID)%femdomain, &
+                  call this%root(myRootID)%femdomain%overset( &
+                     FEMDomain=this%stem(yourStemID)%femdomain, &
                      DomainID=yourStemID, &
-                     MyDomainID=obj%numStem() + obj%numLeaf() + myRootID, &
-                     algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                     MyDomainID=this%numStem() + this%numLeaf() + myRootID, &
+                     algorithm=this%overset_algorithm) ! or "P2P"
                end if
             end do
          end do
       end if
 
-      if (allocated(obj%root2root)) then
-         do myRootID = 1, size(obj%root2root, 1)
-            do yourrootID = 1, size(obj%root2root, 2)
-               if (obj%root2root(myRootID, yourrootID) >= 1) then
+      if (allocated(this%root2root)) then
+         do myRootID = 1, size(this%root2root, 1)
+            do yourrootID = 1, size(this%root2root, 2)
+               if (this%root2root(myRootID, yourrootID) >= 1) then
                   ! connected
-                  call obj%root(myRootID)%femdomain%overset( &
-                     FEMDomain=obj%root(yourrootID)%femdomain, &
-                     DomainID=obj%numroot() + obj%numLeaf() + yourrootID, &
-                     MyDomainID=obj%numroot() + obj%numLeaf() + myRootID, &
-                     algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                  call this%root(myRootID)%femdomain%overset( &
+                     FEMDomain=this%root(yourrootID)%femdomain, &
+                     DomainID=this%numroot() + this%numLeaf() + yourrootID, &
+                     MyDomainID=this%numroot() + this%numLeaf() + myRootID, &
+                     algorithm=this%overset_algorithm) ! or "P2P"
                end if
             end do
          end do
@@ -8316,9 +8407,9 @@ contains
          end if
       end if
 
-      call solver%init(NumDomain=obj%numStem() + obj%numLeaf() + obj%numRoot())
+      call solver%init(NumDomain=this%numStem() + this%numLeaf() + this%numRoot())
 
-      FEMDomainPointers = obj%getFEMDomainPointers()
+      FEMDomainPointers = this%getFEMDomainPointers(algorithm=this%overset_algorithm)
       call solver%setDomain(FEMDomainPointers=FEMDomainPointers)
 
       if (present(debug)) then
@@ -8331,15 +8422,15 @@ contains
 
       ! CRS ready!
 
-      if (.not. obj%checkYoungModulus()) then
+      if (.not. this%checkYoungModulus()) then
          print *, "[ERROR] YoungModulus(:) is not ready."
          stop
       end if
-      if (.not. obj%checkPoissonRatio()) then
+      if (.not. this%checkPoissonRatio()) then
          print *, "[ERROR] PoissonRatio(:) is not ready."
          stop
       end if
-      if (.not. obj%checkDensity()) then
+      if (.not. this%checkDensity()) then
          print *, "[ERROR] Density(:) is not ready."
          stop
       end if
@@ -8358,14 +8449,14 @@ contains
             call solver%setMatrix(DomainID=DomainID, ElementID=ElementID, DOF=3, &
                                   Matrix=FEMDomainPointers(DomainID)%femdomainp%StiffnessMatrix( &
                                   ElementID=ElementID, &
-                                  E=obj%getYoungModulus(DomainID=DomainID, ElementID=ElementID), &
-                                  v=obj%getPoissonRatio(DomainID=DomainID, ElementID=ElementID)))
+                                  E=this%getYoungModulus(DomainID=DomainID, ElementID=ElementID), &
+                                  v=this%getPoissonRatio(DomainID=DomainID, ElementID=ElementID)))
 
             call solver%setVector(DomainID=DomainID, ElementID=ElementID, DOF=3, &
                                   Vector=FEMDomainPointers(DomainID)%femdomainp%MassVector( &
                                   ElementID=ElementID, &
                                   DOF=FEMDomainPointers(DomainID)%femdomainp%nd(), &
-                                  Density=obj%getDensity(DomainID=DomainID, ElementID=ElementID), &
+                                  Density=this%getDensity(DomainID=DomainID, ElementID=ElementID), &
                                   Accel=[0.0d0, 0.0d0, -9.80d0] &
                                   ) &
                                   )
@@ -8447,8 +8538,8 @@ contains
 ! ################################################################
 
 ! ################################################################
-   function getFEMDomainPointersSoybean(obj, algorithm) result(FEMDomainPointers)
-      class(Soybean_), target, intent(inout) :: obj
+   function getFEMDomainPointersSoybean(this, algorithm) result(FEMDomainPointers)
+      class(Soybean_), target, intent(inout) :: this
       integer(int32), optional, intent(in) :: algorithm
 
       type(FEMDomainp_), allocatable :: FEMDomainPointers(:)
@@ -8457,88 +8548,88 @@ contains
 
       EbO_algorithm = input(default=FEMDomain_Overset_GPP, option=algorithm)
 
-      num_FEMDomain = obj%numStem() + obj%numLeaf() + obj%numRoot()
+      num_FEMDomain = this%numStem() + this%numLeaf() + this%numRoot()
       allocate (FEMDomainPointers(num_FEMDomain))
       n = 0
-      do i = 1, obj%numStem()
-         if (.not. obj%stem(i)%femdomain%empty()) then
+      do i = 1, this%numStem()
+         if (.not. this%stem(i)%femdomain%empty()) then
             n = n + 1
-            FEMDomainPointers(n)%femdomainp => obj%stem(i)%femdomain
+            FEMDomainPointers(n)%femdomainp => this%stem(i)%femdomain
          end if
       end do
-      do i = 1, obj%numLeaf()
-         if (.not. obj%leaf(i)%femdomain%empty()) then
+      do i = 1, this%numLeaf()
+         if (.not. this%leaf(i)%femdomain%empty()) then
             n = n + 1
-            FEMDomainPointers(n)%femdomainp => obj%leaf(i)%femdomain
+            FEMDomainPointers(n)%femdomainp => this%leaf(i)%femdomain
          end if
       end do
-      do i = 1, obj%numRoot()
-         if (.not. obj%root(i)%femdomain%empty()) then
+      do i = 1, this%numRoot()
+         if (.not. this%root(i)%femdomain%empty()) then
             n = n + 1
-            FEMDomainPointers(n)%femdomainp => obj%root(i)%femdomain
+            FEMDomainPointers(n)%femdomainp => this%root(i)%femdomain
          end if
       end do
 
       ! for overset
-      n = obj%numStem() + obj%numLeaf() + obj%numRoot()
+      n = this%numStem() + this%numLeaf() + this%numRoot()
 
       !(1) >> compute overset
       ! For stems
-      if (allocated(obj%stem2stem)) then
-         do myStemID = 1, size(obj%stem2stem, 1)
-            do yourStemID = 1, size(obj%stem2stem, 2)
-               if (obj%stem2stem(myStemID, yourStemID) >= 1) then
+      if (allocated(this%stem2stem)) then
+         do myStemID = 1, size(this%stem2stem, 1)
+            do yourStemID = 1, size(this%stem2stem, 2)
+               if (this%stem2stem(myStemID, yourStemID) >= 1) then
                   ! connected
-                  call obj%stem(myStemID)%femdomain%overset( &
-                     FEMDomain=obj%stem(yourStemID)%femdomain, &
+                  call this%stem(myStemID)%femdomain%overset( &
+                     FEMDomain=this%stem(yourStemID)%femdomain, &
                      DomainID=yourStemID, &
                      MyDomainID=myStemID, &
-                     algorithm=EbO_algorithm)
+                     algorithm=this%overset_algorithm)
                end if
             end do
          end do
       end if
 
-      if (allocated(obj%leaf2stem)) then
-         do myLeafID = 1, size(obj%leaf2stem, 1)
-            do yourStemID = 1, size(obj%leaf2stem, 2)
-               if (obj%leaf2stem(myLeafID, yourStemID) >= 1) then
+      if (allocated(this%leaf2stem)) then
+         do myLeafID = 1, size(this%leaf2stem, 1)
+            do yourStemID = 1, size(this%leaf2stem, 2)
+               if (this%leaf2stem(myLeafID, yourStemID) >= 1) then
                   ! connected
-                  call obj%leaf(myLeafID)%femdomain%overset( &
-                     FEMDomain=obj%stem(yourStemID)%femdomain, &
+                  call this%leaf(myLeafID)%femdomain%overset( &
+                     FEMDomain=this%stem(yourStemID)%femdomain, &
                      DomainID=yourStemID, &
-                     MyDomainID=obj%numStem() + myLeafID, &
-                     algorithm=EbO_algorithm)
+                     MyDomainID=this%numStem() + myLeafID, &
+                     algorithm=this%overset_algorithm)
                end if
             end do
          end do
       end if
 
-      if (allocated(obj%root2stem)) then
-         do myRootID = 1, size(obj%root2stem, 1)
-            do yourStemID = 1, size(obj%root2stem, 2)
-               if (obj%root2stem(myRootID, yourStemID) >= 1) then
+      if (allocated(this%root2stem)) then
+         do myRootID = 1, size(this%root2stem, 1)
+            do yourStemID = 1, size(this%root2stem, 2)
+               if (this%root2stem(myRootID, yourStemID) >= 1) then
                   ! connected
-                  call obj%root(myRootID)%femdomain%overset( &
-                     FEMDomain=obj%stem(yourStemID)%femdomain, &
+                  call this%root(myRootID)%femdomain%overset( &
+                     FEMDomain=this%stem(yourStemID)%femdomain, &
                      DomainID=yourStemID, &
-                     MyDomainID=obj%numStem() + obj%numLeaf() + myRootID, &
-                     algorithm=EbO_algorithm)
+                     MyDomainID=this%numStem() + this%numLeaf() + myRootID, &
+                     algorithm=this%overset_algorithm)
                end if
             end do
          end do
       end if
 
-      if (allocated(obj%root2root)) then
-         do myRootID = 1, size(obj%root2root, 1)
-            do yourrootID = 1, size(obj%root2root, 2)
-               if (obj%root2root(myRootID, yourrootID) >= 1) then
+      if (allocated(this%root2root)) then
+         do myRootID = 1, size(this%root2root, 1)
+            do yourrootID = 1, size(this%root2root, 2)
+               if (this%root2root(myRootID, yourrootID) >= 1) then
                   ! connected
-                  call obj%root(myRootID)%femdomain%overset( &
-                     FEMDomain=obj%root(yourrootID)%femdomain, &
-                     DomainID=obj%numroot() + obj%numLeaf() + yourrootID, &
-                     MyDomainID=obj%numroot() + obj%numLeaf() + myRootID, &
-                     algorithm=EbO_algorithm)
+                  call this%root(myRootID)%femdomain%overset( &
+                     FEMDomain=this%root(yourrootID)%femdomain, &
+                     DomainID=this%numroot() + this%numLeaf() + yourrootID, &
+                     MyDomainID=this%numroot() + this%numLeaf() + myRootID, &
+                     algorithm=this%overset_algorithm)
                end if
             end do
          end do
@@ -8548,40 +8639,40 @@ contains
 ! ################################################################
 
 ! ################################################################
-   function getObjectPointersSoybean(obj) result(FEMDomainPointers)
-      class(Soybean_), target, intent(in) :: obj
+   function getObjectPointersSoybean(this) result(FEMDomainPointers)
+      class(Soybean_), target, intent(in) :: this
       type(FEMDomainp_), allocatable :: FEMDomainPointers(:)
       integer(int32) :: num_FEMDomain, i, n
 
       ! order: stem -> leaf -> root
-      num_FEMDomain = obj%numStem() + obj%numLeaf() + obj%numRoot()
+      num_FEMDomain = this%numStem() + this%numLeaf() + this%numRoot()
       allocate (FEMDomainPointers(num_FEMDomain))
       n = 0
-      do i = 1, obj%numStem()
+      do i = 1, this%numStem()
          n = n + 1
-         FEMDomainPointers(n)%femdomainp => obj%stem(i)%femdomain
+         FEMDomainPointers(n)%femdomainp => this%stem(i)%femdomain
       end do
-      do i = 1, obj%numLeaf()
+      do i = 1, this%numLeaf()
          n = n + 1
-         FEMDomainPointers(n)%femdomainp => obj%leaf(i)%femdomain
+         FEMDomainPointers(n)%femdomainp => this%leaf(i)%femdomain
       end do
-      do i = 1, obj%numRoot()
+      do i = 1, this%numRoot()
          n = n + 1
-         FEMDomainPointers(n)%femdomainp => obj%root(i)%femdomain
+         FEMDomainPointers(n)%femdomainp => this%root(i)%femdomain
       end do
    end function
 ! ################################################################
 
 ! ################################################################
-   function checkYoungModulusSoybean(obj) result(all_young_modulus_is_set)
-      class(Soybean_), intent(in) :: obj
+   function checkYoungModulusSoybean(this) result(all_young_modulus_is_set)
+      class(Soybean_), intent(in) :: this
       logical :: all_young_modulus_is_set
       integer(int32) :: i
       ! order: stem -> leaf -> root
 
       all_young_modulus_is_set = .true.
-      do i = 1, obj%numStem()
-         if (.not. allocated(obj%stem(i)%YoungModulus)) then
+      do i = 1, this%numStem()
+         if (.not. allocated(this%stem(i)%YoungModulus)) then
             all_young_modulus_is_set = .false.
             print *, "[!Warning!] checkYoungModulusSoybean >> Young Modulus is not set"
             print *, "@ Stem ID:", i
@@ -8590,8 +8681,8 @@ contains
          end if
       end do
 
-      do i = 1, obj%numLeaf()
-         if (.not. allocated(obj%Leaf(i)%YoungModulus)) then
+      do i = 1, this%numLeaf()
+         if (.not. allocated(this%Leaf(i)%YoungModulus)) then
             all_young_modulus_is_set = .false.
             print *, "[!Warning!] checkYoungModulusSoybean >> Young Modulus is not set"
             print *, "@ Leaf ID:", i
@@ -8600,8 +8691,8 @@ contains
          end if
       end do
 
-      do i = 1, obj%numRoot()
-         if (.not. allocated(obj%Root(i)%YoungModulus)) then
+      do i = 1, this%numRoot()
+         if (.not. allocated(this%Root(i)%YoungModulus)) then
             all_young_modulus_is_set = .false.
             print *, "[!Warning!] checkYoungModulusSoybean >> Young Modulus is not set"
             print *, "@ Root ID:", i
@@ -8614,15 +8705,15 @@ contains
 ! ################################################################
 
 ! ################################################################
-   function checkPoissonRatioSoybean(obj) result(all_young_modulus_is_set)
-      class(Soybean_), intent(in) :: obj
+   function checkPoissonRatioSoybean(this) result(all_young_modulus_is_set)
+      class(Soybean_), intent(in) :: this
       logical :: all_young_modulus_is_set
       integer(int32) :: i
       ! order: stem -> leaf -> root
 
       all_young_modulus_is_set = .true.
-      do i = 1, obj%numStem()
-         if (.not. allocated(obj%stem(i)%PoissonRatio)) then
+      do i = 1, this%numStem()
+         if (.not. allocated(this%stem(i)%PoissonRatio)) then
             all_young_modulus_is_set = .false.
             print *, "[!Warning!] checkPoissonRatioSoybean >> Young Modulus is not set"
             print *, "@ Stem ID:", i
@@ -8631,8 +8722,8 @@ contains
          end if
       end do
 
-      do i = 1, obj%numLeaf()
-         if (.not. allocated(obj%Leaf(i)%PoissonRatio)) then
+      do i = 1, this%numLeaf()
+         if (.not. allocated(this%Leaf(i)%PoissonRatio)) then
             all_young_modulus_is_set = .false.
             print *, "[!Warning!] checkPoissonRatioSoybean >> Young Modulus is not set"
             print *, "@ Leaf ID:", i
@@ -8641,8 +8732,8 @@ contains
          end if
       end do
 
-      do i = 1, obj%numRoot()
-         if (.not. allocated(obj%Root(i)%PoissonRatio)) then
+      do i = 1, this%numRoot()
+         if (.not. allocated(this%Root(i)%PoissonRatio)) then
             all_young_modulus_is_set = .false.
             print *, "[!Warning!] checkPoissonRatioSoybean >> Young Modulus is not set"
             print *, "@ Root ID:", i
@@ -8655,15 +8746,15 @@ contains
 ! ################################################################
 
 ! ################################################################
-   function checkDensitySoybean(obj) result(all_young_modulus_is_set)
-      class(Soybean_), intent(in) :: obj
+   function checkDensitySoybean(this) result(all_young_modulus_is_set)
+      class(Soybean_), intent(in) :: this
       logical :: all_young_modulus_is_set
       integer(int32) :: i
       ! order: stem -> leaf -> root
 
       all_young_modulus_is_set = .true.
-      do i = 1, obj%numStem()
-         if (.not. allocated(obj%stem(i)%Density)) then
+      do i = 1, this%numStem()
+         if (.not. allocated(this%stem(i)%Density)) then
             all_young_modulus_is_set = .false.
             print *, "[!Warning!] checkDensitySoybean >> Young Modulus is not set"
             print *, "@ Stem ID:", i
@@ -8672,8 +8763,8 @@ contains
          end if
       end do
 
-      do i = 1, obj%numLeaf()
-         if (.not. allocated(obj%Leaf(i)%Density)) then
+      do i = 1, this%numLeaf()
+         if (.not. allocated(this%Leaf(i)%Density)) then
             all_young_modulus_is_set = .false.
             print *, "[!Warning!] checkDensitySoybean >> Young Modulus is not set"
             print *, "@ Leaf ID:", i
@@ -8682,8 +8773,8 @@ contains
          end if
       end do
 
-      do i = 1, obj%numRoot()
-         if (.not. allocated(obj%Root(i)%Density)) then
+      do i = 1, this%numRoot()
+         if (.not. allocated(this%Root(i)%Density)) then
             all_young_modulus_is_set = .false.
             print *, "[!Warning!] checkDensitySoybean >> Young Modulus is not set"
             print *, "@ Root ID:", i
@@ -8696,30 +8787,30 @@ contains
 ! ################################################################
 
 ! ################################################################
-   function getYoungModulusSoybean(obj, DomainID, ElementID) result(YoungModulus)
-      class(Soybean_), intent(in) :: obj
+   function getYoungModulusSoybean(this, DomainID, ElementID) result(YoungModulus)
+      class(Soybean_), intent(in) :: this
       integer(int32), intent(in) :: DomainID, ElementID
       real(real64) :: YoungModulus
       integer(int32) :: i, n
 
-      if (DomainID > obj%numStem() + obj%numLeaf() + obj%numRoot()) then
+      if (DomainID > this%numStem() + this%numLeaf() + this%numRoot()) then
          print *, "ERROR :: getYoungModulusSoybean >>  DomainID exceeds max_domain_size"
          return
       end if
 
       ! default >> search @ all domains
       ! order: stem -> leaf -> root
-      if (DomainID <= obj%numStem()) then
+      if (DomainID <= this%numStem()) then
          n = DomainID - 0
-         YoungModulus = obj%stem(n)%YoungModulus(ElementID)
+         YoungModulus = this%stem(n)%YoungModulus(ElementID)
          return
-      elseif (obj%numStem() + 1 <= DomainID .and. DomainID <= obj%numStem() + obj%numLeaf()) then
-         n = DomainID - obj%numStem()
-         YoungModulus = obj%leaf(n)%YoungModulus(ElementID)
+      elseif (this%numStem() + 1 <= DomainID .and. DomainID <= this%numStem() + this%numLeaf()) then
+         n = DomainID - this%numStem()
+         YoungModulus = this%leaf(n)%YoungModulus(ElementID)
          return
       else
-         n = DomainID - obj%numStem() - obj%numLeaf()
-         YoungModulus = obj%root(n)%YoungModulus(ElementID)
+         n = DomainID - this%numStem() - this%numLeaf()
+         YoungModulus = this%root(n)%YoungModulus(ElementID)
          return
       end if
 
@@ -8727,30 +8818,30 @@ contains
 ! ################################################################
 
 ! ################################################################
-   function getPoissonRatioSoybean(obj, DomainID, ElementID) result(PoissonRatio)
-      class(Soybean_), intent(in) :: obj
+   function getPoissonRatioSoybean(this, DomainID, ElementID) result(PoissonRatio)
+      class(Soybean_), intent(in) :: this
       integer(int32), intent(in) :: DomainID, ElementID
       real(real64) :: PoissonRatio
       integer(int32) :: i, n
 
-      if (DomainID > obj%numStem() + obj%numLeaf() + obj%numRoot()) then
+      if (DomainID > this%numStem() + this%numLeaf() + this%numRoot()) then
          print *, "ERROR :: getPoissonRatioSoybean >>  DomainID exceeds max_domain_size"
          return
       end if
 
       ! default >> search @ all domains
       ! order: stem -> leaf -> root
-      if (DomainID <= obj%numStem()) then
+      if (DomainID <= this%numStem()) then
          n = DomainID - 0
-         PoissonRatio = obj%stem(n)%PoissonRatio(ElementID)
+         PoissonRatio = this%stem(n)%PoissonRatio(ElementID)
          return
-      elseif (obj%numStem() + 1 <= DomainID .and. DomainID <= obj%numStem() + obj%numLeaf()) then
-         n = DomainID - obj%numStem()
-         PoissonRatio = obj%leaf(n)%PoissonRatio(ElementID)
+      elseif (this%numStem() + 1 <= DomainID .and. DomainID <= this%numStem() + this%numLeaf()) then
+         n = DomainID - this%numStem()
+         PoissonRatio = this%leaf(n)%PoissonRatio(ElementID)
          return
       else
-         n = DomainID - obj%numStem() - obj%numLeaf()
-         PoissonRatio = obj%root(n)%PoissonRatio(ElementID)
+         n = DomainID - this%numStem() - this%numLeaf()
+         PoissonRatio = this%root(n)%PoissonRatio(ElementID)
          return
       end if
 
@@ -8758,37 +8849,37 @@ contains
 ! ################################################################
 
 ! ################################################################
-   function getDensitySoybean(obj, DomainID, ElementID) result(Density)
-      class(Soybean_), intent(in) :: obj
+   function getDensitySoybean(this, DomainID, ElementID) result(Density)
+      class(Soybean_), intent(in) :: this
       integer(int32), intent(in) :: DomainID, ElementID
       real(real64) :: Density
       integer(int32) :: i, n
 
-      if (DomainID > obj%numStem() + obj%numLeaf() + obj%numRoot()) then
+      if (DomainID > this%numStem() + this%numLeaf() + this%numRoot()) then
          print *, "ERROR :: getDensitySoybean >>  DomainID exceeds max_domain_size"
          return
       end if
 
       ! default >> search @ all domains
       ! order: stem -> leaf -> root
-      if (DomainID <= obj%numStem()) then
+      if (DomainID <= this%numStem()) then
          n = DomainID - 0
-         Density = obj%stem(n)%Density(ElementID)
+         Density = this%stem(n)%Density(ElementID)
          return
-      elseif (obj%numStem() + 1 <= DomainID .and. DomainID <= obj%numStem() + obj%numLeaf()) then
-         n = DomainID - obj%numStem()
-         Density = obj%leaf(n)%Density(ElementID)
+      elseif (this%numStem() + 1 <= DomainID .and. DomainID <= this%numStem() + this%numLeaf()) then
+         n = DomainID - this%numStem()
+         Density = this%leaf(n)%Density(ElementID)
          return
       else
-         n = DomainID - obj%numStem() - obj%numLeaf()
-         Density = obj%root(n)%Density(ElementID)
+         n = DomainID - this%numStem() - this%numLeaf()
+         Density = this%root(n)%Density(ElementID)
          return
       end if
 
    end function
 ! ################################################################
-   subroutine checkMemoryRequirementSoybean(obj)
-      class(Soybean_), intent(in) :: Obj
+   subroutine checkMemoryRequirementSoybean(this)
+      class(Soybean_), intent(in) :: this
       real(real64) :: re_val
       integer(int64) :: val
 
@@ -8796,25 +8887,25 @@ contains
       print *, "checking Memory (RAM) Requirement..."
       print *, "------------------------------------"
       print *, "| Object type                     | Soybean"
-      print *, "| Number of points                | "+str(obj%nn())
-      print *, "| Degree of freedom | Deformation | "+str(obj%nn()*3)
-      print *, "|                   | ModeAnalysis| "+str(obj%nn()*3*obj%nn()*3)
-      print *, "|                   | Diffusion   | "+str(obj%nn())
-      print *, "|                   | Reaction    | "+str(obj%nn())
+      print *, "| Number of points                | "+str(this%nn())
+      print *, "| Degree of freedom | Deformation | "+str(this%nn()*3)
+      print *, "|                   | ModeAnalysis| "+str(this%nn()*3*this%nn()*3)
+      print *, "|                   | Diffusion   | "+str(this%nn())
+      print *, "|                   | Reaction    | "+str(this%nn())
 
-      print *, "| DRAM requirement  | Deformation | "+str(obj%nn()*3*40*30/1000/1000) + " (MB)"
-      val = obj%nn()*3*30
-      val = val*obj%nn()*3/1000/1000
+      print *, "| DRAM requirement  | Deformation | "+str(this%nn()*3*40*30/1000/1000) + " (MB)"
+      val = this%nn()*3*30
+      val = val*this%nn()*3/1000/1000
       print *, "|                   | ModeAnalysis| ", str(val), " (MB)"
-      print *, "|                   | Diffusion   | "+str(obj%nn()*1*20*10/1000/1000) + " (MB)"
-      print *, "|                   | Reaction    | "+str(obj%nn()*1*20*10/1000/1000) + " (MB)"
+      print *, "|                   | Diffusion   | "+str(this%nn()*1*20*10/1000/1000) + " (MB)"
+      print *, "|                   | Reaction    | "+str(this%nn()*1*20*10/1000/1000) + " (MB)"
       print *, "===================================="
 
    end subroutine
 
 ! ################################################################
-   recursive subroutine setYoungModulusSoybean(obj, YoungModulus, stem, root, leaf, ElementList)
-      class(Soybean_), intent(inout) :: obj
+   recursive subroutine setYoungModulusSoybean(this, YoungModulus, stem, root, leaf, ElementList)
+      class(Soybean_), intent(inout) :: this
       logical, optional, intent(in) :: stem, root, leaf
 
       ! ElementList(Idx, [TYPE, DOMAIN, ELEMENT])
@@ -8827,20 +8918,20 @@ contains
       if (present(stem)) then
          if (stem) then
             n = n + 1
-            if (allocated(obj%stem)) then
-               do i = 1, size(obj%stem)
-                  if (obj%stem(i)%femdomain%empty()) then
+            if (allocated(this%stem)) then
+               do i = 1, size(this%stem)
+                  if (this%stem(i)%femdomain%empty()) then
                      cycle
                   elseif (present(ElementList)) then
                      do j = 1, size(ElementList, 1)
-                        if (ElementList(j, 1) == obj%TYPE_STEM) then
+                        if (ElementList(j, 1) == this%TYPE_STEM) then
                            domain_idx = ElementList(j, 2)
                            elem_idx = ElementList(j, 3)
-                           obj%stem(domain_idx)%YoungModulus(elem_idx) = YoungModulus
+                           this%stem(domain_idx)%YoungModulus(elem_idx) = YoungModulus
                         end if
                      end do
                   else
-                     obj%stem(i)%YoungModulus = YoungModulus*eyes(obj%stem(i)%femdomain%ne())
+                     this%stem(i)%YoungModulus = YoungModulus*eyes(this%stem(i)%femdomain%ne())
                   end if
                end do
             end if
@@ -8850,20 +8941,20 @@ contains
       if (present(leaf)) then
          if (leaf) then
             n = n + 10
-            if (allocated(obj%leaf)) then
-               do i = 1, size(obj%leaf)
-                  if (obj%leaf(i)%femdomain%empty()) then
+            if (allocated(this%leaf)) then
+               do i = 1, size(this%leaf)
+                  if (this%leaf(i)%femdomain%empty()) then
                      cycle
                   elseif (present(ElementList)) then
                      do j = 1, size(ElementList, 1)
-                        if (ElementList(j, 1) == obj%TYPE_LEAF) then
+                        if (ElementList(j, 1) == this%TYPE_LEAF) then
                            domain_idx = ElementList(j, 2)
                            elem_idx = ElementList(j, 3)
-                           obj%LEAF(domain_idx)%YoungModulus(elem_idx) = YoungModulus
+                           this%LEAF(domain_idx)%YoungModulus(elem_idx) = YoungModulus
                         end if
                      end do
                   else
-                     obj%leaf(i)%YoungModulus = YoungModulus*eyes(obj%leaf(i)%femdomain%ne())
+                     this%leaf(i)%YoungModulus = YoungModulus*eyes(this%leaf(i)%femdomain%ne())
                   end if
                end do
             end if
@@ -8873,20 +8964,20 @@ contains
       if (present(root)) then
          if (root) then
             n = n + 100
-            if (allocated(obj%root)) then
-               do i = 1, size(obj%root)
-                  if (obj%root(i)%femdomain%empty()) then
+            if (allocated(this%root)) then
+               do i = 1, size(this%root)
+                  if (this%root(i)%femdomain%empty()) then
                      cycle
                   elseif (present(ElementList)) then
                      do j = 1, size(ElementList, 1)
-                        if (ElementList(j, 1) == obj%TYPE_ROOT) then
+                        if (ElementList(j, 1) == this%TYPE_ROOT) then
                            domain_idx = ElementList(j, 2)
                            elem_idx = ElementList(j, 3)
-                           obj%ROOT(domain_idx)%YoungModulus(elem_idx) = YoungModulus
+                           this%ROOT(domain_idx)%YoungModulus(elem_idx) = YoungModulus
                         end if
                      end do
                   else
-                     obj%root(i)%YoungModulus = YoungModulus*eyes(obj%root(i)%femdomain%ne())
+                     this%root(i)%YoungModulus = YoungModulus*eyes(this%root(i)%femdomain%ne())
                   end if
                end do
             end if
@@ -8894,15 +8985,15 @@ contains
       end if
 
       if (n == 0) then
-         call obj%setYoungModulus(YoungModulus=YoungModulus, stem=.true., root=.true., leaf=.true., &
+         call this%setYoungModulus(YoungModulus=YoungModulus, stem=.true., root=.true., leaf=.true., &
                                   ElementList=ElementList)
       end if
 
    end subroutine
 ! ################################################################
 ! ################################################################
-   recursive subroutine setPoissonRatioSoybean(obj, PoissonRatio, stem, root, leaf, ElementList)
-      class(Soybean_), intent(inout) :: obj
+   recursive subroutine setPoissonRatioSoybean(this, PoissonRatio, stem, root, leaf, ElementList)
+      class(Soybean_), intent(inout) :: this
       logical, optional, intent(in) :: stem, root, leaf
 
       ! ElementList(Idx, [TYPE, DOMAIN, ELEMENT])
@@ -8915,20 +9006,20 @@ contains
       if (present(stem)) then
          if (stem) then
             n = n + 1
-            if (allocated(obj%stem)) then
-               do i = 1, size(obj%stem)
-                  if (obj%stem(i)%femdomain%empty()) then
+            if (allocated(this%stem)) then
+               do i = 1, size(this%stem)
+                  if (this%stem(i)%femdomain%empty()) then
                      cycle
                   elseif (present(ElementList)) then
                      do j = 1, size(ElementList, 1)
-                        if (ElementList(j, 1) == obj%TYPE_STEM) then
+                        if (ElementList(j, 1) == this%TYPE_STEM) then
                            domain_idx = ElementList(j, 2)
                            elem_idx = ElementList(j, 3)
-                           obj%stem(domain_idx)%PoissonRatio(elem_idx) = PoissonRatio
+                           this%stem(domain_idx)%PoissonRatio(elem_idx) = PoissonRatio
                         end if
                      end do
                   else
-                     obj%stem(i)%PoissonRatio = PoissonRatio*eyes(obj%stem(i)%femdomain%ne())
+                     this%stem(i)%PoissonRatio = PoissonRatio*eyes(this%stem(i)%femdomain%ne())
                   end if
                end do
             end if
@@ -8938,20 +9029,20 @@ contains
       if (present(leaf)) then
          if (leaf) then
             n = n + 10
-            if (allocated(obj%leaf)) then
-               do i = 1, size(obj%leaf)
-                  if (obj%leaf(i)%femdomain%empty()) then
+            if (allocated(this%leaf)) then
+               do i = 1, size(this%leaf)
+                  if (this%leaf(i)%femdomain%empty()) then
                      cycle
                   elseif (present(ElementList)) then
                      do j = 1, size(ElementList, 1)
-                        if (ElementList(j, 1) == obj%TYPE_LEAF) then
+                        if (ElementList(j, 1) == this%TYPE_LEAF) then
                            domain_idx = ElementList(j, 2)
                            elem_idx = ElementList(j, 3)
-                           obj%LEAF(domain_idx)%PoissonRatio(elem_idx) = PoissonRatio
+                           this%LEAF(domain_idx)%PoissonRatio(elem_idx) = PoissonRatio
                         end if
                      end do
                   else
-                     obj%leaf(i)%PoissonRatio = PoissonRatio*eyes(obj%leaf(i)%femdomain%ne())
+                     this%leaf(i)%PoissonRatio = PoissonRatio*eyes(this%leaf(i)%femdomain%ne())
                   end if
                end do
             end if
@@ -8961,20 +9052,20 @@ contains
       if (present(root)) then
          if (root) then
             n = n + 100
-            if (allocated(obj%root)) then
-               do i = 1, size(obj%root)
-                  if (obj%root(i)%femdomain%empty()) then
+            if (allocated(this%root)) then
+               do i = 1, size(this%root)
+                  if (this%root(i)%femdomain%empty()) then
                      cycle
                   elseif (present(ElementList)) then
                      do j = 1, size(ElementList, 1)
-                        if (ElementList(j, 1) == obj%TYPE_ROOT) then
+                        if (ElementList(j, 1) == this%TYPE_ROOT) then
                            domain_idx = ElementList(j, 2)
                            elem_idx = ElementList(j, 3)
-                           obj%ROOT(domain_idx)%PoissonRatio(elem_idx) = PoissonRatio
+                           this%ROOT(domain_idx)%PoissonRatio(elem_idx) = PoissonRatio
                         end if
                      end do
                   else
-                     obj%root(i)%PoissonRatio = PoissonRatio*eyes(obj%root(i)%femdomain%ne())
+                     this%root(i)%PoissonRatio = PoissonRatio*eyes(this%root(i)%femdomain%ne())
                   end if
                end do
             end if
@@ -8982,7 +9073,7 @@ contains
       end if
 
       if (n == 0) then
-         call obj%setPoissonRatio(PoissonRatio=PoissonRatio, stem=.true., root=.true., leaf=.true., &
+         call this%setPoissonRatio(PoissonRatio=PoissonRatio, stem=.true., root=.true., leaf=.true., &
                                   ElementList=ElementList)
       end if
 
@@ -8990,8 +9081,8 @@ contains
 ! ################################################################
 
 ! ################################################################
-   recursive subroutine setDensitySoybean(obj, Density, stem, root, leaf, ElementList)
-      class(Soybean_), intent(inout) :: obj
+   recursive subroutine setDensitySoybean(this, Density, stem, root, leaf, ElementList)
+      class(Soybean_), intent(inout) :: this
       logical, optional, intent(in) :: stem, root, leaf
 
       ! ElementList(Idx, [TYPE, DOMAIN, ELEMENT])
@@ -9004,20 +9095,20 @@ contains
       if (present(stem)) then
          if (stem) then
             n = n + 1
-            if (allocated(obj%stem)) then
-               do i = 1, size(obj%stem)
-                  if (obj%stem(i)%femdomain%empty()) then
+            if (allocated(this%stem)) then
+               do i = 1, size(this%stem)
+                  if (this%stem(i)%femdomain%empty()) then
                      cycle
                   elseif (present(ElementList)) then
                      do j = 1, size(ElementList, 1)
-                        if (ElementList(j, 1) == obj%TYPE_STEM) then
+                        if (ElementList(j, 1) == this%TYPE_STEM) then
                            domain_idx = ElementList(j, 2)
                            elem_idx = ElementList(j, 3)
-                           obj%stem(domain_idx)%Density(elem_idx) = Density
+                           this%stem(domain_idx)%Density(elem_idx) = Density
                         end if
                      end do
                   else
-                     obj%stem(i)%Density = Density*eyes(obj%stem(i)%femdomain%ne())
+                     this%stem(i)%Density = Density*eyes(this%stem(i)%femdomain%ne())
                   end if
                end do
             end if
@@ -9027,20 +9118,20 @@ contains
       if (present(leaf)) then
          if (leaf) then
             n = n + 10
-            if (allocated(obj%leaf)) then
-               do i = 1, size(obj%leaf)
-                  if (obj%leaf(i)%femdomain%empty()) then
+            if (allocated(this%leaf)) then
+               do i = 1, size(this%leaf)
+                  if (this%leaf(i)%femdomain%empty()) then
                      cycle
                   elseif (present(ElementList)) then
                      do j = 1, size(ElementList, 1)
-                        if (ElementList(j, 1) == obj%TYPE_LEAF) then
+                        if (ElementList(j, 1) == this%TYPE_LEAF) then
                            domain_idx = ElementList(j, 2)
                            elem_idx = ElementList(j, 3)
-                           obj%LEAF(domain_idx)%Density(elem_idx) = Density
+                           this%LEAF(domain_idx)%Density(elem_idx) = Density
                         end if
                      end do
                   else
-                     obj%leaf(i)%Density = Density*eyes(obj%leaf(i)%femdomain%ne())
+                     this%leaf(i)%Density = Density*eyes(this%leaf(i)%femdomain%ne())
                   end if
                end do
             end if
@@ -9050,20 +9141,20 @@ contains
       if (present(root)) then
          if (root) then
             n = n + 100
-            if (allocated(obj%root)) then
-               do i = 1, size(obj%root)
-                  if (obj%root(i)%femdomain%empty()) then
+            if (allocated(this%root)) then
+               do i = 1, size(this%root)
+                  if (this%root(i)%femdomain%empty()) then
                      cycle
                   elseif (present(ElementList)) then
                      do j = 1, size(ElementList, 1)
-                        if (ElementList(j, 1) == obj%TYPE_ROOT) then
+                        if (ElementList(j, 1) == this%TYPE_ROOT) then
                            domain_idx = ElementList(j, 2)
                            elem_idx = ElementList(j, 3)
-                           obj%ROOT(domain_idx)%Density(elem_idx) = Density
+                           this%ROOT(domain_idx)%Density(elem_idx) = Density
                         end if
                      end do
                   else
-                     obj%root(i)%Density = Density*eyes(obj%root(i)%femdomain%ne())
+                     this%root(i)%Density = Density*eyes(this%root(i)%femdomain%ne())
                   end if
                end do
             end if
@@ -9071,7 +9162,7 @@ contains
       end if
 
       if (n == 0) then
-         call obj%setDensity(Density=Density, stem=.true., root=.true., leaf=.true., &
+         call this%setDensity(Density=Density, stem=.true., root=.true., leaf=.true., &
                              ElementList=ElementList)
       end if
 
@@ -9079,9 +9170,9 @@ contains
 ! ################################################################
 
 ! ################################################################
-   function getEigenModeSoybean(obj, ground_level, penalty, debug, Frequency, EbOM_Algorithm, &
+   function getEigenModeSoybean(this, ground_level, penalty, debug, Frequency, EbOM_Algorithm, &
                                 num_mode, femsolver) result(EigenVectors)
-      class(Soybean_), target, intent(inout) :: obj
+      class(Soybean_), target, intent(inout) :: this
       real(real64), intent(in) :: ground_level
       real(real64), optional, intent(in) :: penalty
       logical, optional, intent(in) :: debug
@@ -9114,57 +9205,57 @@ contains
 
       num_freq = input(default=10, option=num_mode)
 
-      EbOM_Algorithm_id = FEMDomain_Overset_GPP
+      
       if (present(EbOM_Algorithm)) then
-         if (EbOM_Algorithm == "P2P") then
-            EbOM_Algorithm_id = FEMDomain_Overset_P2P
-         elseif (EbOM_Algorithm == "GPP") then
-            EbOM_Algorithm_id = FEMDomain_Overset_P2P
-         end if
+         if("P2P" .in. EbOM_Algorithm)then
+            this%overset_algorithm = FEMDomain_Overset_P2P
+         else
+            this%overset_algorithm = FEMDomain_Overset_GPP
+         endif
       end if
 
       ! linear elasticity with infinitesimal strain theory
-      n = obj%numStem() + obj%numLeaf() + obj%numRoot()
+      n = this%numStem() + this%numLeaf() + this%numRoot()
       allocate (FEMDomainPointers(n))
 
       !(1) >> compute overset
       ! For stems
-      if (allocated(obj%stem2stem)) then
-         if (allocated(obj%stem)) then
-            do myStemID = 1, size(obj%stem2stem, 1)
-               do yourStemID = 1, size(obj%stem2stem, 2)
-                  if (obj%stem2stem(myStemID, yourStemID) >= 1) then
+      if (allocated(this%stem2stem)) then
+         if (allocated(this%stem)) then
+            do myStemID = 1, size(this%stem2stem, 1)
+               do yourStemID = 1, size(this%stem2stem, 2)
+                  if (this%stem2stem(myStemID, yourStemID) >= 1) then
                      ! connected
-                     call obj%stem(myStemID)%femdomain%overset( &
-                        FEMDomain=obj%stem(yourStemID)%femdomain, &
+                     call this%stem(myStemID)%femdomain%overset( &
+                        FEMDomain=this%stem(yourStemID)%femdomain, &
                         DomainID=yourStemID, &
                         MyDomainID=myStemID, &
-                        algorithm=EbOM_Algorithm_id) ! or "P2P"
-                     call obj%stem(yourStemID)%femdomain%overset( &
-                        FEMDomain=obj%stem(myStemID)%femdomain, &
+                        algorithm=this%overset_algorithm) ! or "P2P"
+                     call this%stem(yourStemID)%femdomain%overset( &
+                        FEMDomain=this%stem(myStemID)%femdomain, &
                         DomainID=myStemID, &
                         MyDomainID=yourStemID, &
-                        algorithm=EbOM_Algorithm_id) ! or "P2P"
+                        algorithm=this%overset_algorithm) ! or "P2P"
                   end if
                end do
             end do
          end if
       end if
 
-      if (allocated(obj%leaf2stem)) then
-         if (allocated(obj%leaf) .and. allocated(obj%stem)) then
-            do myLeafID = 1, size(obj%leaf2stem, 1)
-               do yourStemID = 1, size(obj%leaf2stem, 2)
-                  if (obj%leaf2stem(myLeafID, yourStemID) >= 1) then
+      if (allocated(this%leaf2stem)) then
+         if (allocated(this%leaf) .and. allocated(this%stem)) then
+            do myLeafID = 1, size(this%leaf2stem, 1)
+               do yourStemID = 1, size(this%leaf2stem, 2)
+                  if (this%leaf2stem(myLeafID, yourStemID) >= 1) then
                      ! connected
-                     call obj%leaf(myLeafID)%femdomain%overset( &
-                        FEMDomain=obj%stem(yourStemID)%femdomain, &
+                     call this%leaf(myLeafID)%femdomain%overset( &
+                        FEMDomain=this%stem(yourStemID)%femdomain, &
                         DomainID=yourStemID, &
-                        MyDomainID=obj%numStem() + myLeafID, &
-                        algorithm=EbOM_Algorithm_id) ! or "P2P"
-                     !call obj%stem(yourStemID)%femdomain%overset(&
-                     !    FEMDomain=obj%leaf(myLeafID)%femdomain,
-                     !    DomainID =obj%numStem() + myLeafID,
+                        MyDomainID=this%numStem() + myLeafID, &
+                        algorithm=this%overset_algorithm) ! or "P2P"
+                     !call this%stem(yourStemID)%femdomain%overset(&
+                     !    FEMDomain=this%leaf(myLeafID)%femdomain,
+                     !    DomainID =this%numStem() + myLeafID,
                      !    MyDomainID= yourStemID,
                      !    algorithm=EbOM_Algorithm_id ) ! or "P2P"
 
@@ -9174,45 +9265,45 @@ contains
          end if
       end if
 
-      if (allocated(obj%root2stem)) then
-         if (allocated(obj%stem) .and. allocated(obj%root)) then
-            do myRootID = 1, size(obj%root2stem, 1)
-               do yourStemID = 1, size(obj%root2stem, 2)
-                  if (obj%root2stem(myRootID, yourStemID) >= 1) then
+      if (allocated(this%root2stem)) then
+         if (allocated(this%stem) .and. allocated(this%root)) then
+            do myRootID = 1, size(this%root2stem, 1)
+               do yourStemID = 1, size(this%root2stem, 2)
+                  if (this%root2stem(myRootID, yourStemID) >= 1) then
                      ! connected
-                     call obj%root(myRootID)%femdomain%overset( &
-                        FEMDomain=obj%stem(yourStemID)%femdomain, &
+                     call this%root(myRootID)%femdomain%overset( &
+                        FEMDomain=this%stem(yourStemID)%femdomain, &
                         DomainID=yourStemID, &
-                        MyDomainID=obj%numStem() + obj%numLeaf() + myRootID, &
-                        algorithm=EbOM_Algorithm_id) ! or "P2P"
-                     call obj%stem(yourStemID)%femdomain%overset( &
-                        FEMDomain=obj%root(myRootID)%femdomain, &
-                        DomainID=obj%numStem() + obj%numLeaf() + myRootID, &
+                        MyDomainID=this%numStem() + this%numLeaf() + myRootID, &
+                        algorithm=this%overset_algorithm) ! or "P2P"
+                     call this%stem(yourStemID)%femdomain%overset( &
+                        FEMDomain=this%root(myRootID)%femdomain, &
+                        DomainID=this%numStem() + this%numLeaf() + myRootID, &
                         MyDomainID=yourStemID, &
-                        algorithm=EbOM_Algorithm_id) ! or "P2P"
+                        algorithm=this%overset_algorithm) ! or "P2P"
                   end if
                end do
             end do
          end if
       end if
 
-      if (allocated(obj%root2root)) then
-         if (allocated(obj%root)) then
-            do myRootID = 1, size(obj%root2root, 1)
-               do yourrootID = 1, size(obj%root2root, 2)
-                  if (obj%root2root(myRootID, yourrootID) >= 1) then
+      if (allocated(this%root2root)) then
+         if (allocated(this%root)) then
+            do myRootID = 1, size(this%root2root, 1)
+               do yourrootID = 1, size(this%root2root, 2)
+                  if (this%root2root(myRootID, yourrootID) >= 1) then
                      ! connected
-                     call obj%root(myRootID)%femdomain%overset( &
-                        FEMDomain=obj%root(yourrootID)%femdomain, &
-                        DomainID=obj%numroot() + obj%numLeaf() + yourrootID, &
-                        MyDomainID=obj%numroot() + obj%numLeaf() + myRootID, &
-                        algorithm=EbOM_Algorithm_id) ! or "P2P"
+                     call this%root(myRootID)%femdomain%overset( &
+                        FEMDomain=this%root(yourrootID)%femdomain, &
+                        DomainID=this%numroot() + this%numLeaf() + yourrootID, &
+                        MyDomainID=this%numroot() + this%numLeaf() + myRootID, &
+                        algorithm=this%overset_algorithm) ! or "P2P"
 
-                     call obj%root(yourrootID)%femdomain%overset( &
-                        FEMDomain=obj%root(myRootID)%femdomain, &
-                        DomainID=obj%numroot() + obj%numLeaf() + myRootID, &
-                        MyDomainID=obj%numroot() + obj%numLeaf() + yourrootID, &
-                        algorithm=EbOM_Algorithm_id) ! or "P2P"
+                     call this%root(yourrootID)%femdomain%overset( &
+                        FEMDomain=this%root(myRootID)%femdomain, &
+                        DomainID=this%numroot() + this%numLeaf() + myRootID, &
+                        MyDomainID=this%numroot() + this%numLeaf() + yourrootID, &
+                        algorithm=this%overset_algorithm) ! or "P2P"
                   end if
                end do
             end do
@@ -9225,9 +9316,9 @@ contains
          end if
       end if
 
-      call solver%init(NumDomain=obj%numStem() + obj%numLeaf() + obj%numRoot())
+      call solver%init(NumDomain=this%numStem() + this%numLeaf() + this%numRoot())
 
-      FEMDomainPointers = obj%getFEMDomainPointers()
+      FEMDomainPointers = this%getFEMDomainPointers(algorithm=this%overset_algorithm)
       call solver%setDomain(FEMDomainPointers=FEMDomainPointers)
 
       if (present(debug)) then
@@ -9240,15 +9331,15 @@ contains
 
       ! CRS ready!
 
-      if (.not. obj%checkYoungModulus()) then
+      if (.not. this%checkYoungModulus()) then
          print *, "[ERROR] YoungModulus(:) is not ready."
          stop
       end if
-      if (.not. obj%checkPoissonRatio()) then
+      if (.not. this%checkPoissonRatio()) then
          print *, "[ERROR] PoissonRatio(:) is not ready."
          stop
       end if
-      if (.not. obj%checkDensity()) then
+      if (.not. this%checkDensity()) then
          print *, "[ERROR] Density(:) is not ready."
          stop
       end if
@@ -9267,8 +9358,8 @@ contains
             call solver%setMatrix(DomainID=DomainID, ElementID=ElementID, DOF=3, &
                                   Matrix=FEMDomainPointers(DomainID)%femdomainp%StiffnessMatrix( &
                                   ElementID=ElementID, &
-                                  E=obj%getYoungModulus(DomainID=DomainID, ElementID=ElementID), &
-                                  v=obj%getPoissonRatio(DomainID=DomainID, ElementID=ElementID)))
+                                  E=this%getYoungModulus(DomainID=DomainID, ElementID=ElementID), &
+                                  v=this%getPoissonRatio(DomainID=DomainID, ElementID=ElementID)))
          end do
       end do
       !$OMP end parallel do
@@ -9298,7 +9389,7 @@ contains
             call solver%setMatrix(DomainID=DomainID, ElementID=ElementID, DOF=3, &
                                   Matrix=FEMDomainPointers(DomainID)%femdomainp%massMatrix( &
                                   ElementID=ElementID, &
-                                  Density=obj%getDensity(DomainID=DomainID, ElementID=ElementID), &
+                                  Density=this%getDensity(DomainID=DomainID, ElementID=ElementID), &
                                   DOF=3))
          end do
       end do
@@ -9475,7 +9566,7 @@ contains
 
       n = 0
       do i = 1, size(this%stem2stem, 1)
-         if (this%stem2stem(i, node_id) == 1 &
+         if (this%stem2stem(i, node_id) >= 1 &
              .and. this%stem(i)%StemID == -1) then
             n = n + 1
             if (n == PetioleID) then
@@ -10404,7 +10495,7 @@ contains
       if (allocated(this%Stem2Stem)) then
          do i = 1, size(this%Stem2Stem, 1)
             do j = 1, size(this%Stem2Stem, 2)
-               if (this%Stem2Stem(i, j) == 1) then
+               if (this%Stem2Stem(i, j) >= 1) then
                   call femdomains(i + stem_offset)%overset( &
                      FEMDomains=femdomains, to=j + stem_offset, by="GPP")
                   call femdomains(j + stem_offset)%overset( &
@@ -10712,8 +10803,8 @@ contains
    end subroutine getVerticesSoybean
 ! ################################################################
 
-   function MassMatrixSoybean(obj, debug) result(ret)
-      class(Soybean_), target, intent(inout) :: obj
+   function MassMatrixSoybean(this, debug) result(ret)
+      class(Soybean_), target, intent(inout) :: this
 !    real(real64),intent(in) :: ground_level
 !    real(real64),optional,intent(in) :: penalty, tol,traction_force(:)
       logical, optional, intent(in) ::debug
@@ -10727,66 +10818,66 @@ contains
       integer(int32) :: myStemID, yourStemID, myLeafID, myRootID, yourRootID
       integer(int32), allocatable :: FixBoundary(:)
       ! linear elasticity with infinitesimal strain theory
-      n = obj%numStem() + obj%numLeaf() + obj%numRoot()
+      n = this%numStem() + this%numLeaf() + this%numRoot()
       allocate (FEMDomainPointers(n))
 
       !(1) >> compute overset
       ! For stems
-      if (allocated(obj%stem2stem)) then
-         do myStemID = 1, size(obj%stem2stem, 1)
-            do yourStemID = 1, size(obj%stem2stem, 2)
-               if (obj%stem2stem(myStemID, yourStemID) >= 1) then
+      if (allocated(this%stem2stem)) then
+         do myStemID = 1, size(this%stem2stem, 1)
+            do yourStemID = 1, size(this%stem2stem, 2)
+               if (this%stem2stem(myStemID, yourStemID) >= 1) then
                   ! connected
-                  call obj%stem(myStemID)%femdomain%overset( &
-                     FEMDomain=obj%stem(yourStemID)%femdomain, &
+                  call this%stem(myStemID)%femdomain%overset( &
+                     FEMDomain=this%stem(yourStemID)%femdomain, &
                      DomainID=yourStemID, &
                      MyDomainID=myStemID, &
-                     algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                     algorithm=this%overset_algorithm) ! or "P2P"
                end if
             end do
          end do
       end if
 
-      if (allocated(obj%leaf2stem)) then
-         do myLeafID = 1, size(obj%leaf2stem, 1)
-            do yourStemID = 1, size(obj%leaf2stem, 2)
-               if (obj%leaf2stem(myLeafID, yourStemID) >= 1) then
+      if (allocated(this%leaf2stem)) then
+         do myLeafID = 1, size(this%leaf2stem, 1)
+            do yourStemID = 1, size(this%leaf2stem, 2)
+               if (this%leaf2stem(myLeafID, yourStemID) >= 1) then
                   ! connected
-                  call obj%leaf(myLeafID)%femdomain%overset( &
-                     FEMDomain=obj%stem(yourStemID)%femdomain, &
+                  call this%leaf(myLeafID)%femdomain%overset( &
+                     FEMDomain=this%stem(yourStemID)%femdomain, &
                      DomainID=yourStemID, &
-                     MyDomainID=obj%numStem() + myLeafID, &
-                     algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                     MyDomainID=this%numStem() + myLeafID, &
+                     algorithm=this%overset_algorithm) ! or "P2P"
                end if
             end do
          end do
       end if
 
-      if (allocated(obj%root2stem)) then
-         do myRootID = 1, size(obj%root2stem, 1)
-            do yourStemID = 1, size(obj%root2stem, 2)
-               if (obj%root2stem(myRootID, yourStemID) >= 1) then
+      if (allocated(this%root2stem)) then
+         do myRootID = 1, size(this%root2stem, 1)
+            do yourStemID = 1, size(this%root2stem, 2)
+               if (this%root2stem(myRootID, yourStemID) >= 1) then
                   ! connected
-                  call obj%root(myRootID)%femdomain%overset( &
-                     FEMDomain=obj%stem(yourStemID)%femdomain, &
+                  call this%root(myRootID)%femdomain%overset( &
+                     FEMDomain=this%stem(yourStemID)%femdomain, &
                      DomainID=yourStemID, &
-                     MyDomainID=obj%numStem() + obj%numLeaf() + myRootID, &
-                     algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                     MyDomainID=this%numStem() + this%numLeaf() + myRootID, &
+                     algorithm=this%overset_algorithm) ! or "P2P"
                end if
             end do
          end do
       end if
 
-      if (allocated(obj%root2root)) then
-         do myRootID = 1, size(obj%root2root, 1)
-            do yourrootID = 1, size(obj%root2root, 2)
-               if (obj%root2root(myRootID, yourrootID) >= 1) then
+      if (allocated(this%root2root)) then
+         do myRootID = 1, size(this%root2root, 1)
+            do yourrootID = 1, size(this%root2root, 2)
+               if (this%root2root(myRootID, yourrootID) >= 1) then
                   ! connected
-                  call obj%root(myRootID)%femdomain%overset( &
-                     FEMDomain=obj%root(yourrootID)%femdomain, &
-                     DomainID=obj%numroot() + obj%numLeaf() + yourrootID, &
-                     MyDomainID=obj%numroot() + obj%numLeaf() + myRootID, &
-                     algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                  call this%root(myRootID)%femdomain%overset( &
+                     FEMDomain=this%root(yourrootID)%femdomain, &
+                     DomainID=this%numroot() + this%numLeaf() + yourrootID, &
+                     MyDomainID=this%numroot() + this%numLeaf() + myRootID, &
+                     algorithm=this%overset_algorithm) ! or "P2P"
                end if
             end do
          end do
@@ -10798,9 +10889,9 @@ contains
          end if
       end if
 
-      call solver%init(NumDomain=obj%numStem() + obj%numLeaf() + obj%numRoot())
+      call solver%init(NumDomain=this%numStem() + this%numLeaf() + this%numRoot())
 
-      FEMDomainPointers = obj%getFEMDomainPointers()
+      FEMDomainPointers = this%getFEMDomainPointers()
       call solver%setDomain(FEMDomainPointers=FEMDomainPointers)
 
       if (present(debug)) then
@@ -10813,15 +10904,15 @@ contains
 
       ! CRS ready!
 
-!    if( .not. obj%checkYoungModulus())then
+!    if( .not. this%checkYoungModulus())then
 !        print *, "[ERROR] YoungModulus(:) is not ready."
 !        stop
 !    endif
-!    if( .not. obj%checkPoissonRatio())then
+!    if( .not. this%checkPoissonRatio())then
 !        print *, "[ERROR] PoissonRatio(:) is not ready."
 !        stop
 !    endif
-      if (.not. obj%checkDensity()) then
+      if (.not. this%checkDensity()) then
          print *, "[ERROR] Density(:) is not ready."
          stop
       end if
@@ -10839,7 +10930,7 @@ contains
                                   Matrix=FEMDomainPointers(DomainID)%femdomainp%MassMatrix( &
                                   ElementID=ElementID, &
                                   DOF=FEMDomainPointers(DomainID)%femdomainp%nd(), &
-                                  Density=obj%getDensity(DomainID=DomainID, ElementID=ElementID)))
+                                  Density=this%getDensity(DomainID=DomainID, ElementID=ElementID)))
          end do
       end do
       !$OMP end parallel do
@@ -10918,8 +11009,8 @@ contains
 
 ! #####################################################################
 
-   function StiffnessMatrixSoybean(obj, penalty, debug) result(ret)
-      class(Soybean_), target, intent(inout) :: obj
+   function StiffnessMatrixSoybean(this, penalty, debug) result(ret)
+      class(Soybean_), target, intent(inout) :: this
 !    real(real64),intent(in) :: ground_level
       real(real64), optional, intent(in) :: penalty!, tol,traction_force(:)
       logical, optional, intent(in) ::debug
@@ -10933,67 +11024,67 @@ contains
       integer(int32) :: myStemID, yourStemID, myLeafID, myRootID, yourRootID
       integer(int32), allocatable :: FixBoundary(:)
       ! linear elasticity with infinitesimal strain theory
-      n = obj%numStem() + obj%numLeaf() + obj%numRoot()
+      n = this%numStem() + this%numLeaf() + this%numRoot()
 
       allocate (FEMDomainPointers(n))
 
       !(1) >> compute overset
       ! For stems
-      if (allocated(obj%stem2stem)) then
-         do myStemID = 1, size(obj%stem2stem, 1)
-            do yourStemID = 1, size(obj%stem2stem, 2)
-               if (obj%stem2stem(myStemID, yourStemID) >= 1) then
+      if (allocated(this%stem2stem)) then
+         do myStemID = 1, size(this%stem2stem, 1)
+            do yourStemID = 1, size(this%stem2stem, 2)
+               if (this%stem2stem(myStemID, yourStemID) >= 1) then
                   ! connected
-                  call obj%stem(myStemID)%femdomain%overset( &
-                     FEMDomain=obj%stem(yourStemID)%femdomain, &
+                  call this%stem(myStemID)%femdomain%overset( &
+                     FEMDomain=this%stem(yourStemID)%femdomain, &
                      DomainID=yourStemID, &
                      MyDomainID=myStemID, &
-                     algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                     algorithm=this%overset_algorithm) ! or "P2P"
                end if
             end do
          end do
       end if
 
-      if (allocated(obj%leaf2stem)) then
-         do myLeafID = 1, size(obj%leaf2stem, 1)
-            do yourStemID = 1, size(obj%leaf2stem, 2)
-               if (obj%leaf2stem(myLeafID, yourStemID) >= 1) then
+      if (allocated(this%leaf2stem)) then
+         do myLeafID = 1, size(this%leaf2stem, 1)
+            do yourStemID = 1, size(this%leaf2stem, 2)
+               if (this%leaf2stem(myLeafID, yourStemID) >= 1) then
                   ! connected
-                  call obj%leaf(myLeafID)%femdomain%overset( &
-                     FEMDomain=obj%stem(yourStemID)%femdomain, &
+                  call this%leaf(myLeafID)%femdomain%overset( &
+                     FEMDomain=this%stem(yourStemID)%femdomain, &
                      DomainID=yourStemID, &
-                     MyDomainID=obj%numStem() + myLeafID, &
-                     algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                     MyDomainID=this%numStem() + myLeafID, &
+                     algorithm=this%overset_algorithm) ! or "P2P"
                end if
             end do
          end do
       end if
 
-      if (allocated(obj%root2stem)) then
-         do myRootID = 1, size(obj%root2stem, 1)
-            do yourStemID = 1, size(obj%root2stem, 2)
-               if (obj%root2stem(myRootID, yourStemID) >= 1) then
+      if (allocated(this%root2stem)) then
+         do myRootID = 1, size(this%root2stem, 1)
+            do yourStemID = 1, size(this%root2stem, 2)
+               if (this%root2stem(myRootID, yourStemID) >= 1) then
                   ! connected
-                  call obj%root(myRootID)%femdomain%overset( &
-                     FEMDomain=obj%stem(yourStemID)%femdomain, &
+                  call this%root(myRootID)%femdomain%overset( &
+                     FEMDomain=this%stem(yourStemID)%femdomain, &
                      DomainID=yourStemID, &
-                     MyDomainID=obj%numStem() + obj%numLeaf() + myRootID, &
-                     algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                     MyDomainID=this%numStem() + this%numLeaf() + myRootID, &
+                     algorithm=this%overset_algorithm) ! or "P2P"
                end if
             end do
          end do
       end if
 
-      if (allocated(obj%root2root)) then
-         do myRootID = 1, size(obj%root2root, 1)
-            do yourrootID = 1, size(obj%root2root, 2)
-               if (obj%root2root(myRootID, yourrootID) >= 1) then
+      if (allocated(this%root2root)) then
+         do myRootID = 1, size(this%root2root, 1)
+            do yourrootID = 1, size(this%root2root, 2)
+               if (this%root2root(myRootID, yourrootID) >= 1) then
                   ! connected
-                  call obj%root(myRootID)%femdomain%overset( &
-                     FEMDomain=obj%root(yourrootID)%femdomain, &
-                     DomainID=obj%numroot() + obj%numLeaf() + yourrootID, &
-                     MyDomainID=obj%numroot() + obj%numLeaf() + myRootID, &
-                     algorithm=FEMDomain_Overset_GPP) ! or "P2P"
+                  call this%root(myRootID)%femdomain%overset( &
+                     FEMDomain=this%root(yourrootID)%femdomain, &
+                     DomainID=this%numroot() + this%numLeaf() + yourrootID, &
+                     MyDomainID=this%numroot() + this%numLeaf() + myRootID, &
+                     algorithm=this%overset_algorithm) ! or "P2P"
                end if
             end do
          end do
@@ -11005,9 +11096,9 @@ contains
          end if
       end if
 
-      call solver%init(NumDomain=obj%numStem() + obj%numLeaf() + obj%numRoot())
+      call solver%init(NumDomain=this%numStem() + this%numLeaf() + this%numRoot())
 
-      FEMDomainPointers = obj%getFEMDomainPointers()
+      FEMDomainPointers = this%getFEMDomainPointers()
       call solver%setDomain(FEMDomainPointers=FEMDomainPointers)
 
       if (present(debug)) then
@@ -11020,15 +11111,15 @@ contains
 
       ! CRS ready!
 
-      if (.not. obj%checkYoungModulus()) then
+      if (.not. this%checkYoungModulus()) then
          print *, "[ERROR] YoungModulus(:) is not ready."
          stop
       end if
-      if (.not. obj%checkPoissonRatio()) then
+      if (.not. this%checkPoissonRatio()) then
          print *, "[ERROR] PoissonRatio(:) is not ready."
          stop
       end if
-!    if( .not. obj%checkDensity())then
+!    if( .not. this%checkDensity())then
 !        print *, "[ERROR] Density(:) is not ready."
 !        stop
 !    endif
@@ -11045,14 +11136,14 @@ contains
             call solver%setMatrix(DomainID=DomainID, ElementID=ElementID, DOF=3, &
                                   Matrix=FEMDomainPointers(DomainID)%femdomainp%StiffnessMatrix( &
                                   ElementID=ElementID, &
-                                  E=obj%getYoungModulus(DomainID=DomainID, ElementID=ElementID), &
-                                  v=obj%getPoissonRatio(DomainID=DomainID, ElementID=ElementID)))
+                                  E=this%getYoungModulus(DomainID=DomainID, ElementID=ElementID), &
+                                  v=this%getPoissonRatio(DomainID=DomainID, ElementID=ElementID)))
 
 !            call solver%setVector(DomainID=DomainID,ElementID=ElementID,DOF=3,&
 !                Vector=FEMDomainPointers(DomainID)%femdomainp%MassVector(&
 !                    ElementID=ElementID,&
 !                    DOF=FEMDomainPointers(DomainID)%femdomainp%nd() ,&
-!                    Density= obj%getDensity(DomainID=DomainID,ElementID=ElementID) ,&
+!                    Density= this%getDensity(DomainID=DomainID,ElementID=ElementID) ,&
 !                    Accel=[0.0d0, 0.0d0, -9.80d0]&
 !                    ) &
 !                )
@@ -11532,7 +11623,7 @@ subroutine init_as_seed_soybean(this,radius,division)
 
    allocate (this%stem(this%MaxstemNum))
    allocate (this%leaf(this%MaxLeafNum))
-   !allocate (this%root(obj%MaxrootNum))
+   !allocate (this%root(this%MaxrootNum))
 
    allocate (this%stem2stem(this%MaxstemNum, this%MaxstemNum))
    allocate (this%leaf2stem(this%MaxLeafNum, this%MaxStemNum))
@@ -11544,7 +11635,7 @@ subroutine init_as_seed_soybean(this,radius,division)
    !this%root2stem(:,:) = 0
    !this%root2root(:,:) = 0
 
-   this%stem2stem(2, 1) = 1
+   this%stem2stem(2, 1) = PF_SOYBEAN_MAINSTEM_TO_MAINSTEM
    this%leaf2stem(1:2, 1) = 1
    !this%root2stem(1, 1) = 1
    !this%root2root(:, :) = 0
@@ -11586,10 +11677,10 @@ subroutine init_as_seed_soybean(this,radius,division)
       endif
 
       call this%stem(i)%rotate(y=radian(-30.0d0)*dble(i-1))
-      !call obj%stem(i)%rotate( &
-      !      x=radian(random%gauss(mu=obj%ms_angle_ave, sigma=obj%ms_angle_sig)), &
-      !      y=radian(random%gauss(mu=obj%ms_angle_ave, sigma=obj%ms_angle_sig)), &
-      !      z=radian(random%gauss(mu=obj%ms_angle_ave, sigma=obj%ms_angle_sig)) &
+      !call this%stem(i)%rotate( &
+      !      x=radian(random%gauss(mu=this%ms_angle_ave, sigma=this%ms_angle_sig)), &
+      !      y=radian(random%gauss(mu=this%ms_angle_ave, sigma=this%ms_angle_sig)), &
+      !      z=radian(random%gauss(mu=this%ms_angle_ave, sigma=this%ms_angle_sig)) &
       !   )
 
    end do
@@ -11631,33 +11722,33 @@ subroutine init_as_seed_soybean(this,radius,division)
          z=cv_peti_angles_z(i) &
          )
       call this%stem(this%num_stem_node)%connect("=>", this%stem(1))
-      this%stem2stem(this%num_stem_node, 1) = 1
+      this%stem2stem(this%num_stem_node, 1) = PF_SOYBEAN_PETIOLE_TO_MAINSTEM
 
       
       ! add leaves
 
       ! ??
-      !leaf_z_angles = linspace([0.0d0, 360.0d0], obj%max_num_leaf_per_petiole + 1)
-      !do j = 1, obj%max_num_leaf_per_petiole
+      !leaf_z_angles = linspace([0.0d0, 360.0d0], this%max_num_leaf_per_petiole + 1)
+      !do j = 1, this%max_num_leaf_per_petiole
       !   leaf_z_angles(j) = radian(leaf_z_angles(j))
       !end do
       !leaf_z_angles(:) = leaf_z_angles(:) + radian(random%random()*360.0d0)
 
       
       
-      do j = 1, 1 !obj%max_num_leaf_per_petiole
+      do j = 1, 1 !this%max_num_leaf_per_petiole
          this%num_leaf = this%num_leaf + 1
          this%leaf(this%num_leaf) = leaf
          this%leaf(this%num_leaf)%LeafID = j
 
-         !y_val = random%gauss(mu=obj%leaf_thickness_ave(i), sigma=obj%leaf_thickness_sig(i))
-         !z_val = random%gauss(mu=obj%leaf_length_ave(i), sigma=obj%leaf_length_sig(i))
-         !x_val = random%gauss(mu=obj%leaf_width_ave(i), sigma=obj%leaf_width_sig(i))
+         !y_val = random%gauss(mu=this%leaf_thickness_ave(i), sigma=this%leaf_thickness_sig(i))
+         !z_val = random%gauss(mu=this%leaf_length_ave(i), sigma=this%leaf_length_sig(i))
+         !x_val = random%gauss(mu=this%leaf_width_ave(i), sigma=this%leaf_width_sig(i))
 
          this%leaf(this%num_leaf)%already_grown = .true.
 
          
-         !call obj%leaf(obj%num_leaf)%move( &
+         !call this%leaf(this%num_leaf)%move( &
          !   y=-y_val/2.0d0, &
          !   z=-z_val/2.0d0, &
          !   x=-x_val/2.0d0 &
@@ -11720,6 +11811,427 @@ subroutine easy_grow_SoybeanClass(this,dt,&
    call this%update()
 
 end subroutine
+! ############################################################
+subroutine setMeristem_soybeanclass(this,stemIdx,dt,params)
+   class(Soybean_),intent(inout) :: this
+   real(real64),intent(in) :: dt, params(:)
+   integer(int32),intent(in) :: stemIdx
+
+   type(Meristem_),allocatable :: meristem_buf(:)
+   integer(int32),allocatable :: meristem2stem_buf(:,:)
+   integer(int32) :: meristem_idx
+
+   if(.not.allocated(this%meristem))then
+      allocate(this%meristem(1))
+      
+      this%meristem2stem = int(zeros(1,this%numStem()))
+      meristem_idx = 1
+   else
+      meristem_buf = this%meristem
+      deallocate(this%meristem)
+      allocate(this%meristem(size(meristem_buf)+1))
+      this%meristem(1:size(meristem_buf)) = meristem_buf(:)
+      
+      meristem_idx = size(this%meristem)
+      meristem2stem_buf = this%meristem2stem
+      this%meristem2stem = zeros(this%numMeristem(),size(meristem2stem_buf,2))
+      this%meristem2stem(1:size(meristem2stem_buf,1),1:size(meristem2stem_buf,2)) &
+         = meristem2stem_buf(:,:)
+   endif
+   call this%meristem(meristem_idx)%init(&
+      Meristem_type=PF_MERISTEM_TYPE_SHOOT,&
+      params=params, &
+      dt=dt)
+   if(this%isMainStem(stemIdx))then
+      this%meristem2stem(meristem_idx,stemIdx) = PF_SOYBEAN_MERISTEM_TO_MAINSTEM
+   else
+      this%meristem2stem(meristem_idx,stemIdx) = PF_SOYBEAN_MERISTEM_TO_BRANCH
+   endif
+   call this%update()
+
+end subroutine
+! ##################################################
+
+! ############################################################
+subroutine setMeristem_multi_soy(this,stemIdx,dt,params)
+   class(Soybean_),intent(inout) :: this
+   real(real64),intent(in) :: dt, params(:)
+   integer(int32),intent(in) :: stemIdx(:)
+
+   type(Meristem_),allocatable :: meristem_buf(:)
+   integer(int32),allocatable :: meristem2stem_buf(:,:)
+   integer(int32) :: idx, this_stemIdx
+
+   do idx=1,size(stemIdx)
+      this_stemIdx = stemIdx(idx)
+      call this%setMeristem(stemIdx=this_stemIdx,dt=dt,params=params(:))
+      call this%update()
+   enddo
+
+end subroutine
+! ##################################################
 
 
+! ##################################################
+function numMeristemSoybean(this) result(ret)
+   class(Soybean_),intent(in) :: this
+   integer(int32) :: ret
+
+   if(allocated(this%meristem))then
+      ret = size(this%meristem)
+   else
+      ret = 0
+   endif
+
+end function
+! ##################################################
+
+! ##################################################
+function getMainStemTipIdx_Soy(this) result(StemIdx)
+   class(Soybean_),intent(in) :: this
+   integer(int32) :: StemIdx
+
+   StemIdx = maxval(this%NodeID_MainStem)
+
+end function
+! ##################################################
+
+! ##################################################
+function getBranchStemTipIdx_Soy(this) result(StemIdxList)
+   class(Soybean_),intent(in) :: this
+   integer(int32),allocatable :: StemIdxList(:)
+   integer(int32),allocatable :: BranchBaseStemIdx(:)
+   integer(int32) :: branch_idx
+   
+   BranchBaseStemIdx = this%getBranchBaseStemIdx()
+   allocate(StemIdxList(size(BranchBaseStemIdx)))
+   do branch_idx=1,size(BranchBaseStemIdx)
+      StemIdxList(branch_idx) = this%getTipOfStem(stemIdx = BranchBaseStemIdx(branch_idx))
+   enddo
+
+end function
+! ##################################################
+
+! ##################################################
+function getBranchBaseStemIdx_Soy(this) result(ret)
+   class(Soybean_),intent(in) :: this
+   integer(int32),allocatable :: ret(:)
+   integer(int32) :: n_branch, branch_idx, i,j
+
+   n_branch = this%getNumberOfBranch()
+   allocate(ret(n_branch))
+   branch_idx=0
+   if(allocated(this%stem2stem))then
+      do i=1,size(this%stem2stem,1) ! branch
+         do j=1,size(this%stem2stem,2) ! mainstem
+            if(this%stem2stem(i,j)==PF_SOYBEAN_BRANCH_TO_MAINSTEM) then
+               branch_idx = branch_idx + 1
+               ret(branch_idx) = i
+            endif
+         enddo
+      enddo
+   endif
+
+   
+
+end function
+! ##################################################
+
+
+! ##################################################
+function getNumberOfBranch_Soy(this) result(ret)
+   class(Soybean_),intent(in) :: this
+   integer(int32) :: ret,i,j
+
+   ret = 0
+   if(allocated(this%stem2stem))then
+      do i=1,size(this%stem2stem,1)
+         do j=1,size(this%stem2stem,2)
+            if(this%stem2stem(i,j)==PF_SOYBEAN_BRANCH_TO_MAINSTEM) then
+               ret = ret + 1
+            endif
+         enddo
+      enddo
+   endif
+
+end function
+! ##################################################
+
+
+! ##################################################
+recursive function getTipOfStem_SoybeanClass(this,stemIdx) result(ret)
+   class(Soybean_),intent(in) :: this
+   integer(int32),intent(in)  :: stemIdx
+   integer(int32) :: ret, i, j
+   
+   ret = stemIdx
+   if(allocated(this%stem2stem))then
+      if(this%isMainStem(stemIdx))then 
+         do i=1,size(this%stem2stem,2)   
+            if( this%stem2stem(i,stemIdx)==PF_SOYBEAN_MAINSTEM_TO_MAINSTEM ) then
+               ret = this%getTipOfStem(stemIdx=i)
+               return
+            else
+               cycle
+            endif
+         enddo
+      else
+         do i=1,size(this%stem2stem,2)   
+            if( this%stem2stem(i,stemIdx)==PF_SOYBEAN_BRANCH_TO_BRANCH ) then
+               ret = this%getTipOfStem(stemIdx=i)
+               return
+            else
+               cycle
+            endif
+         enddo
+      endif
+   endif
+   
+
+end function
+! ##################################################
+
+
+! ##################################################
+recursive function getNumberOfInternode_Soy(this,BranchIdx,stemIdx) result(ret)
+   class(Soybean_),intent(in) :: this
+   integer(int32),intent(in) :: BranchIdx
+   integer(int32),optional,intent(in) :: stemIdx
+   integer(int32) :: ret,n,i,current_stem_idx
+   integer(int32),allocatable :: BranchBaseStemIdx(:)
+
+   ! Main stem => branch_idx = 0 
+   ! Branch stem => branch_idx >= 1
+   ret = 1
+   if(branchIdx<=0)then
+      current_stem_idx = 1
+   else
+      BranchBaseStemIdx = this%getBranchBaseStemIdx() 
+      if(BranchIdx > size(BranchBaseStemIdx)) then
+         ret = 0
+         return
+      endif
+      current_stem_idx  = BranchBaseStemIdx(BranchIdx)
+   endif
+   
+   if(present(stemIdx))then
+      current_stem_idx = stemIdx
+   endif
+
+   if(BranchIdx<=0)then
+      ! main stem
+      do i=1,size(this%stem2stem,2)
+         if(this%stem2stem(i,current_stem_idx)==PF_SOYBEAN_MAINSTEM_TO_MAINSTEM)then
+            ret = ret + this%getNumberOfInternode(BranchIdx=BranchIdx,stemIdx=i)
+            return
+         endif
+      enddo
+   else
+      ! branch
+      do i=1,size(this%stem2stem,2)
+         if(this%stem2stem(i,current_stem_idx)==PF_SOYBEAN_BRANCH_TO_BRANCH)then
+            ret = ret + this%getNumberOfInternode(BranchIdx=BranchIdx,stemIdx=i)
+            return
+         endif
+      enddo
+   endif
+   ret = 1
+
+end function
+! ##################################################
+
+
+! ##################################################
+recursive function getInternodes_Soy(this,BranchIdx,stemIdx) result(ret)
+   class(Soybean_),intent(in) :: this
+   integer(int32),intent(in) :: BranchIdx
+   integer(int32),optional,intent(in) :: stemIdx
+   integer(int32) :: n,i,current_stem_idx
+   integer(int32),allocatable :: BranchBaseStemIdx(:), ret(:)
+
+   ! Main stem => branch_idx = 0 
+   ! Branch stem => branch_idx >= 1
+   
+   if(branchIdx<=0)then
+      current_stem_idx = 1
+   else
+      BranchBaseStemIdx = this%getBranchBaseStemIdx() 
+      if(BranchIdx > size(BranchBaseStemIdx)) then
+         ret = zeros(0)
+         return
+      endif
+      current_stem_idx  = BranchBaseStemIdx(BranchIdx)
+   endif
+   
+   if(present(stemIdx))then
+      current_stem_idx = stemIdx
+   endif
+
+   ret = [current_stem_idx]
+
+   if(BranchIdx<=0)then
+      ! main stem
+      do i=1,size(this%stem2stem,2)
+         if(this%stem2stem(i,current_stem_idx)==PF_SOYBEAN_MAINSTEM_TO_MAINSTEM)then
+            ret = ret // this%getInternodes(BranchIdx=BranchIdx,stemIdx=i)
+            return
+         endif
+      enddo
+   else
+      ! branch
+      do i=1,size(this%stem2stem,2)
+         if(this%stem2stem(i,current_stem_idx)==PF_SOYBEAN_BRANCH_TO_BRANCH)then
+            ret = ret // this%getInternodes(BranchIdx=BranchIdx,stemIdx=i)
+            return
+         endif
+      enddo
+   endif
+   ret(1) = stemIdx
+
+end function
+! ##################################################
+
+
+! ##################################################
+function to_soybean_soybeanclass(&
+      node_length,node_weight_g,node_diameter,peti_diameter,&
+      peti_length,leaf_length,leaf_width,&
+      leaf_thickness,&
+      num_leaf_set,num_leaf_per_set,leaf_peti_weight_g) result(ret)
+   
+   real(real64),  intent(in) :: node_length(:)
+   real(real64),  intent(in) :: node_weight_g(:)
+   real(real64),  intent(in) :: node_diameter(:)
+
+   
+   real(real64),  intent(in) :: peti_length(:)
+   real(real64),  intent(in) :: peti_diameter(:)
+
+   real(real64),  intent(in) :: leaf_length(:)
+   real(real64),  intent(in) :: leaf_width(:)
+
+   integer(int32),intent(in) :: num_leaf_set(:)
+   integer(int32),intent(in) :: num_leaf_per_set(:)
+   real(real64),  intent(in) :: leaf_peti_weight_g(:),leaf_thickness
+
+   type(Soybean_) :: ret
+   type(Math_) :: math
+   type(Random_) :: random
+   integer(int32) :: i, j, stem_idx,leaf_idx,k,leaf_ne_sum
+   real(real64) ::  y_val,z_val,x_val,z_angle,leafset_volume,&
+      stem_volume,stem_weight_g,stem_density,leafset_weight_g,leafset_density
+   integer(int32) :: leaf_idx_range(1:2),stem_idx_range(1:2)
+
+   allocate(ret%stem(size(node_length)+sum(num_leaf_set)))
+   allocate(ret%leaf(dot_product(num_leaf_per_set,num_leaf_set)))
+   allocate(ret%stem2stem(size(ret%stem),size(ret%stem)))
+   allocate(ret%leaf2stem(size(ret%leaf),size(ret%stem)))
+   allocate(ret%stemDensity(0))
+   allocate(ret%leafDensity(0))
+   
+   ret%stem2stem = 0
+   ret%leaf2stem = 0
+   ! main stem
+   stem_idx = 0
+   do i=1,size(node_length)
+      stem_idx = stem_idx + 1
+      call ret%stem(i)%init()
+      call ret%stem(i)%resize(&
+         x = node_diameter(i),&
+         y = node_diameter(i),&
+         z = node_length(i))
+      if(i>=2)then
+         ret%stem2stem(i,i-1)=PF_SOYBEAN_MERISTEM_TO_MAINSTEM
+      endif
+      call ret%update()
+
+      stem_volume = ret%stem(i)%getVolume()!m^3
+      stem_weight_g = node_weight_g(stem_idx) !kg
+      stem_density = stem_weight_g/stem_volume/1000.0d0/1000.0d0
+      ret%stem(i)%density = stem_density*ones(ret%stem(i)%ne())
+      ret%stemDensity = ret%stemDensity // stem_density*ones(ret%stem(i)%ne())
+      
+   enddo
+   
+   ! petiole and leaf
+   leaf_idx = 0
+   do i=1,size(num_leaf_set)
+      leafset_volume = 0.0d0
+      leaf_idx_range(1) = leaf_idx + 1
+      stem_idx_range(1) = stem_idx + 1
+      do j=1,num_leaf_set(i)
+         stem_idx = stem_idx + 1
+         call ret%stem(stem_idx)%init()
+         call ret%stem(stem_idx)%resize(&
+               x = peti_diameter(i),&
+               y = peti_diameter(i),&
+               z = peti_length(i))
+         z_angle = mod(stem_idx,2)*math%pi
+         call ret%stem(stem_idx)%rotate(&
+               x = radian(50.0d0),&
+               z = z_angle &
+            )
+         ret%stem2stem(stem_idx,i)=PF_SOYBEAN_PETIOLE_TO_MAINSTEM
+         call ret%update()
+
+         leafset_volume = leafset_volume + ret%stem(stem_idx)%getVolume()
+         
+         
+         
+         ! leafset 
+         leaf_ne_sum = 0
+         do k=1,num_leaf_per_set(i)
+            leaf_idx = leaf_idx + 1
+            call ret%leaf(leaf_idx)%init(species=PF_GLYCINE_SOJA)
+            leaf_ne_sum = leaf_ne_sum + ret%leaf(leaf_idx)%ne()
+            ret%leaf(leaf_idx)%already_grown = .true.
+
+            y_val = leaf_thickness
+            z_val = leaf_length(i)
+            x_val = leaf_width(i)
+            call ret%leaf(leaf_idx)%resize( &
+                  y=y_val, &
+                  z=z_val, &
+                  x=x_val &
+               )
+            call ret%leaf(leaf_idx)%move( &
+               y=-y_val/2.0d0, &
+               z=-z_val/2.0d0, &
+               x=-x_val/2.0d0 &
+               )
+            call ret%leaf(leaf_idx)%rotate( &
+               x=radian(90.0d0), &
+               y=0.0d0, &
+               z= z_angle + radian(360.0d0/dble(num_leaf_per_set(i)))*(k-1), reset=.true. &
+               )
+            call ret%leaf(leaf_idx)%connect("=>", ret%stem(stem_idx))
+            ret%leaf2stem(leaf_idx, stem_idx) = PF_SOYBEAN_LEAF_TO_PETIOLE
+
+            leafset_volume = leafset_volume + ret%leaf(leaf_idx)%getVolume()
+         enddo
+      enddo
+      leafset_weight_g = leaf_peti_weight_g(i)
+      leafset_density = leafset_weight_g/leafset_volume/1000.0d0/1000.0d0 ! t/m^3 or g/cm^3
+      ! petiole density
+      
+      ret%leafDensity = ret%leafDensity // leafset_density*ones(leaf_ne_sum)
+      leaf_idx_range(2) = leaf_idx
+      stem_idx_range(2) = stem_idx
+      do j=leaf_idx_range(1),leaf_idx_range(2)
+         ret%leaf(j)%density = leafset_density*ones(ret%leaf(j)%ne())
+      enddo
+      print *, stem_idx_range(:)
+      do j=stem_idx_range(1),stem_idx_range(2)        
+         ret%stem(j)%density = leafset_density*ones(ret%stem(j)%ne())
+         ret%stemDensity = ret%stemDensity // ret%stem(j)%density 
+      enddo
+
+   enddo
+   
+
+
+
+
+end function
+! ##################################################
 end module

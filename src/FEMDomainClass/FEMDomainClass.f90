@@ -14657,6 +14657,14 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
                end if
             end if
             MyElementID = ElementIDList(kk)
+
+            if(size(this%OversetExists,2)/=this%ngp())then
+               print *, "[ERROR] FEMDomainClass > oversetFEMDomain >> GPP"
+               print *, "  P2P & GPP cannot be mixed. "
+               print *, "  Please do not call this subroutine for different overset algorithm."
+               print *, "  (If you called femdomain%overset(Alg=P2P), you cannot call femdomain%overset(Alg=GPP))"
+               stop
+            endif
             do GaussPointID = 1, this%ngp()
                ! For 1st element, create stiffness matrix
                ! set global coordinate
@@ -14664,7 +14672,8 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
                if (femdomain%mesh%nearestElementID(x=position(1), y=position(2), z=position(3)) <= 0) then
                   cycle
                else
-                  this%OversetExists(ElementID, GaussPointID) = this%OversetExists(ElementID, GaussPointID) + 1
+                  
+                  this%OversetExists(ElementID, GaussPointID)  = this%OversetExists(ElementID, GaussPointID) + 1
                end if
 
                if (this%num_oversetconnect + 1 > size(this%OversetConnect)) then
@@ -14698,10 +14707,20 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
 
          if (.not. allocated(this%OversetExists)) then
             this%OversetExists = int(zeros(this%nn(), 1))
+            print *, "FEMDomain_Overset_P2P shape(this%OversetExists)",shape(this%OversetExists)
          end if
 
          allocate (DomainIDs12(femdomain%nne() + 1))
          allocate (InterConnect(femdomain%nne() + 1))
+
+
+         if(size(this%OversetExists,2)/=1)then
+            print *, "[ERROR] FEMDomainClass > oversetFEMDomain >> P2P"
+            print *, "  P2P & GPP cannot be mixed. "
+            print *, "  Please do not call this subroutine for different overset algorithm."
+            print *, "  (If you called femdomain%overset(Alg=P2P), you cannot call femdomain%overset(Alg=GPP))"
+            stop
+         endif
 
          do NodeID = 1, this%nn()
             ! For 1st element, create stiffness matrix

@@ -28,7 +28,6 @@ program main
 
     call ms%init(Meristem_type=PF_MERISTEM_TYPE_SHOOT,params=params, dt=dt)
     call ms%vtk("meristem"+zfill(0,5),single_file=.true.)
-    
 
     !ms%top_meristem_aspect_ratio = params(1)/params(2)*0.50d0
     ! vegitative stage
