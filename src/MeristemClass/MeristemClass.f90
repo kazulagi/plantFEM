@@ -120,6 +120,7 @@ module MeristemClass
          procedure,public :: set_branch => set_branch_MeristemC
 
          procedure,public :: grow => grow_MeristemClass
+         
 
          !procedure, pass :: change_length_or_width_Meristem
          !procedure, pass :: grow_by_pressure_Meristem
@@ -149,6 +150,8 @@ module MeristemClass
          procedure, public :: vtk => vtkMeristem
          procedure, public :: stl => stlMeristem
          procedure, public :: ply => plyMeristem
+         
+
          !procedure, public :: export => exportMeristem
          procedure, public :: getBiomass => getBiomassMeristem
          procedure, public :: getHeight => getHeightMeristem
@@ -955,7 +958,9 @@ end function
       class(Meristem_), intent(in) :: this
       logical :: Meristem_is_empty
 
-      Meristem_is_empty = this%femdomain%empty()
+      Meristem_is_empty = this%femdomain%empty() ! true 
+      Meristem_is_empty = Meristem_is_empty .and. (.not. allocated(this%leafset))
+      Meristem_is_empty = Meristem_is_empty .and. (.not. allocated(this%stem))
 
    end function
 ! ########################################
@@ -1659,7 +1664,7 @@ subroutine meristem_division_MeristemC(this,params,dt)
    allocate(new_leafset(this%num_leafset_per_stem))
    stem_idx = size(this%stem)
    do i=1,size(new_leafset)
-      this%leafset(i)%leaf_aspect_ratio = this%leaf_aspect_ratio
+      new_leafset(i)%leaf_aspect_ratio = this%leaf_aspect_ratio
       call new_leafset(i)%init(&
          num_leaf=this%num_leaf_per_leafset,&
          params=params(6:11),&
