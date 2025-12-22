@@ -151,6 +151,10 @@ module SoybeanClass
       type(FEMDomain_), allocatable :: root_list(:)
 
       ! シミュレータ
+
+      ! modal analysis
+      logical :: use_LOBPCG = .false.
+      ! contact analysis
       type(ContactMechanics_) :: contact
       real(real64) :: time
       real(real64) :: seed_length
@@ -9420,6 +9424,7 @@ contains
          solver%debug = debug
       end if
 
+      solver%use_LOBPCG = this%use_LOBPCG
       call solver%eig(eigen_value=All_Frequency, eigen_vectors=All_EigenVectors)
 
       if (present(femsolver)) then
@@ -12102,17 +12107,14 @@ function to_soybean_soybeanclass(&
    real(real64),  intent(in) :: node_length(:)
    real(real64),  intent(in) :: node_weight_g(:)
    real(real64),  intent(in) :: node_diameter(:)
-
    
-   real(real64),  intent(in) :: peti_length(:)
-   real(real64),  intent(in) :: peti_diameter(:)
-
-   real(real64),  intent(in) :: leaf_length(:)
-   real(real64),  intent(in) :: leaf_width(:)
-
-   integer(int32),intent(in) :: num_leaf_set(:)
-   integer(int32),intent(in) :: num_leaf_per_set(:)
-   real(real64),  intent(in) :: leaf_peti_weight_g(:),leaf_thickness
+   real(real64),  optional,intent(in) :: peti_length(:)
+   real(real64),  optional,intent(in) :: peti_diameter(:)
+   real(real64),  optional,intent(in) :: leaf_length(:)
+   real(real64),  optional,intent(in) :: leaf_width(:)
+   integer(int32),optional,intent(in) :: num_leaf_set(:)
+   integer(int32),optional,intent(in) :: num_leaf_per_set(:)
+   real(real64),  optional,intent(in) :: leaf_peti_weight_g(:),leaf_thickness
 
    type(Soybean_) :: ret
    type(Math_) :: math
@@ -12153,81 +12155,82 @@ function to_soybean_soybeanclass(&
       
    enddo
    
-   ! petiole and leaf
-   leaf_idx = 0
-   do i=1,size(num_leaf_set)
-      leafset_volume = 0.0d0
-      leaf_idx_range(1) = leaf_idx + 1
-      stem_idx_range(1) = stem_idx + 1
-      do j=1,num_leaf_set(i)
-         stem_idx = stem_idx + 1
-         call ret%stem(stem_idx)%init()
-         call ret%stem(stem_idx)%resize(&
-               x = peti_diameter(i),&
-               y = peti_diameter(i),&
-               z = peti_length(i))
-         z_angle = mod(stem_idx,2)*math%pi
-         call ret%stem(stem_idx)%rotate(&
-               x = radian(50.0d0),&
-               z = z_angle &
-            )
-         ret%stem2stem(stem_idx,i)=PF_SOYBEAN_PETIOLE_TO_MAINSTEM
-         call ret%update()
-
-         leafset_volume = leafset_volume + ret%stem(stem_idx)%getVolume()
-         
-         
-         
-         ! leafset 
-         leaf_ne_sum = 0
-         do k=1,num_leaf_per_set(i)
-            leaf_idx = leaf_idx + 1
-            call ret%leaf(leaf_idx)%init(species=PF_GLYCINE_SOJA)
-            leaf_ne_sum = leaf_ne_sum + ret%leaf(leaf_idx)%ne()
-            ret%leaf(leaf_idx)%already_grown = .true.
-
-            y_val = leaf_thickness
-            z_val = leaf_length(i)
-            x_val = leaf_width(i)
-            call ret%leaf(leaf_idx)%resize( &
-                  y=y_val, &
-                  z=z_val, &
-                  x=x_val &
+   if(present(leaf_length))then
+      ! petiole and leaf
+      leaf_idx = 0
+      do i=1,size(num_leaf_set)
+         leafset_volume = 0.0d0
+         leaf_idx_range(1) = leaf_idx + 1
+         stem_idx_range(1) = stem_idx + 1
+         do j=1,num_leaf_set(i)
+            stem_idx = stem_idx + 1
+            call ret%stem(stem_idx)%init()
+            call ret%stem(stem_idx)%resize(&
+                  x = peti_diameter(i),&
+                  y = peti_diameter(i),&
+                  z = peti_length(i))
+            z_angle = mod(stem_idx,2)*math%pi
+            call ret%stem(stem_idx)%rotate(&
+                  x = radian(50.0d0),&
+                  z = z_angle &
                )
-            call ret%leaf(leaf_idx)%move( &
-               y=-y_val/2.0d0, &
-               z=-z_val/2.0d0, &
-               x=-x_val/2.0d0 &
-               )
-            call ret%leaf(leaf_idx)%rotate( &
-               x=radian(90.0d0), &
-               y=0.0d0, &
-               z= z_angle + radian(360.0d0/dble(num_leaf_per_set(i)))*(k-1), reset=.true. &
-               )
-            call ret%leaf(leaf_idx)%connect("=>", ret%stem(stem_idx))
-            ret%leaf2stem(leaf_idx, stem_idx) = PF_SOYBEAN_LEAF_TO_PETIOLE
+            ret%stem2stem(stem_idx,i)=PF_SOYBEAN_PETIOLE_TO_MAINSTEM
+            call ret%update()
 
-            leafset_volume = leafset_volume + ret%leaf(leaf_idx)%getVolume()
+            leafset_volume = leafset_volume + ret%stem(stem_idx)%getVolume()
+
+
+
+            ! leafset 
+            leaf_ne_sum = 0
+            do k=1,num_leaf_per_set(i)
+               leaf_idx = leaf_idx + 1
+               call ret%leaf(leaf_idx)%init(species=PF_GLYCINE_SOJA)
+               leaf_ne_sum = leaf_ne_sum + ret%leaf(leaf_idx)%ne()
+               ret%leaf(leaf_idx)%already_grown = .true.
+
+               y_val = leaf_thickness
+               z_val = leaf_length(i)
+               x_val = leaf_width(i)
+               call ret%leaf(leaf_idx)%resize( &
+                     y=y_val, &
+                     z=z_val, &
+                     x=x_val &
+                  )
+               call ret%leaf(leaf_idx)%move( &
+                  y=-y_val/2.0d0, &
+                  z=-z_val/2.0d0, &
+                  x=-x_val/2.0d0 &
+                  )
+               call ret%leaf(leaf_idx)%rotate( &
+                  x=radian(90.0d0), &
+                  y=0.0d0, &
+                  z= z_angle + radian(360.0d0/dble(num_leaf_per_set(i)))*(k-1), reset=.true. &
+                  )
+               call ret%leaf(leaf_idx)%connect("=>", ret%stem(stem_idx))
+               ret%leaf2stem(leaf_idx, stem_idx) = PF_SOYBEAN_LEAF_TO_PETIOLE
+
+               leafset_volume = leafset_volume + ret%leaf(leaf_idx)%getVolume()
+            enddo
          enddo
-      enddo
-      leafset_weight_g = leaf_peti_weight_g(i)
-      leafset_density = leafset_weight_g/leafset_volume/1000.0d0/1000.0d0 ! t/m^3 or g/cm^3
-      ! petiole density
-      
-      ret%leafDensity = ret%leafDensity // leafset_density*ones(leaf_ne_sum)
-      leaf_idx_range(2) = leaf_idx
-      stem_idx_range(2) = stem_idx
-      do j=leaf_idx_range(1),leaf_idx_range(2)
-         ret%leaf(j)%density = leafset_density*ones(ret%leaf(j)%ne())
-      enddo
-      print *, stem_idx_range(:)
-      do j=stem_idx_range(1),stem_idx_range(2)        
-         ret%stem(j)%density = leafset_density*ones(ret%stem(j)%ne())
-         ret%stemDensity = ret%stemDensity // ret%stem(j)%density 
-      enddo
+         leafset_weight_g = leaf_peti_weight_g(i)
+         leafset_density = leafset_weight_g/leafset_volume/1000.0d0/1000.0d0 ! t/m^3 or g/cm^3
+         ! petiole density
 
-   enddo
-   
+         ret%leafDensity = ret%leafDensity // leafset_density*ones(leaf_ne_sum)
+         leaf_idx_range(2) = leaf_idx
+         stem_idx_range(2) = stem_idx
+         do j=leaf_idx_range(1),leaf_idx_range(2)
+            ret%leaf(j)%density = leafset_density*ones(ret%leaf(j)%ne())
+         enddo
+         print *, stem_idx_range(:)
+         do j=stem_idx_range(1),stem_idx_range(2)        
+            ret%stem(j)%density = leafset_density*ones(ret%stem(j)%ne())
+            ret%stemDensity = ret%stemDensity // ret%stem(j)%density 
+         enddo
+
+      enddo
+   endif
 
 
 
