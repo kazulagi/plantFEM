@@ -12109,7 +12109,8 @@ function to_soybean_soybeanclass(&
       peti_length,leaf_length,leaf_width,&
       leaf_thickness,&
       num_leaf_set,num_leaf_per_set,leaf_peti_weight_g,&
-      mesh_div) result(ret)
+      mesh_div,&
+      leaf_div) result(ret)
    
    real(real64),  intent(in) :: node_length(:)
    real(real64),  intent(in) :: node_weight_g(:)
@@ -12122,7 +12123,8 @@ function to_soybean_soybeanclass(&
    integer(int32),optional,intent(in) :: num_leaf_set(:)
    integer(int32),optional,intent(in) :: num_leaf_per_set(:)
    real(real64),  optional,intent(in) :: leaf_peti_weight_g(:),leaf_thickness
-   integer(int32),optional,intent(in) :: mesh_div(1:3) ! number of mesh division
+   integer(int32),optional,intent(in) :: mesh_div(1:3) ! number of stem/peti mesh division
+   integer(int32),optional,intent(in) :: leaf_div(1:3)
 
    type(Soybean_) :: ret
    type(Math_) :: math
@@ -12166,7 +12168,7 @@ function to_soybean_soybeanclass(&
       call ret%update()
 
       stem_volume = ret%stem(i)%getVolume()!m^3
-      stem_weight_g = node_weight_g(stem_idx) !kg
+      stem_weight_g = node_weight_g(stem_idx) !g
       stem_density = stem_weight_g/stem_volume/1000.0d0/1000.0d0
       ret%stem(i)%density = stem_density*ones(ret%stem(i)%ne())
       ret%stemDensity = ret%stemDensity // stem_density*ones(ret%stem(i)%ne())
@@ -12203,6 +12205,12 @@ function to_soybean_soybeanclass(&
             leaf_ne_sum = 0
             do k=1,num_leaf_per_set(i)
                leaf_idx = leaf_idx + 1
+               if(present(leaf_div))then
+                  ret%leaf(leaf_idx)%xnum = leaf_div(1)
+                  ret%leaf(leaf_idx)%ynum = leaf_div(2)
+                  ret%leaf(leaf_idx)%znum = leaf_div(3)
+               endif
+               
                call ret%leaf(leaf_idx)%init(species=PF_GLYCINE_SOJA)
                leaf_ne_sum = leaf_ne_sum + ret%leaf(leaf_idx)%ne()
                ret%leaf(leaf_idx)%already_grown = .true.

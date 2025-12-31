@@ -123,6 +123,7 @@ module FEMSolverClass
 
       !(7-1) Modal analysis
       procedure, public :: eig => eigFEMSolver
+      procedure, public :: get_LOBPCG_initial_value => get_LOBPCG_initial_value_FEMS
 
       !(7-2) linear solver
       procedure, pass :: solveFEMSolver
@@ -1396,7 +1397,7 @@ contains
       real(real64), allocatable :: AP(:)
       real(real64), allocatable :: BP(:)
       real(real64), allocatable :: W(:)
-      real(real64), allocatable :: Z(:, :), M(:)
+      real(real64), allocatable :: Z(:, :), M(:), X_init(: , :)
       real(real64), allocatable :: WORK(:), ID(:)
       real(real64), allocatable, intent(inout) :: eigen_value(:)
       real(real64), allocatable, intent(inout) :: eigen_vectors(:, :)
@@ -1405,11 +1406,12 @@ contains
       integer(int32) :: LWORK
       integer(int32) :: LIWORK
       integer(int32) :: INFO
-      integer(int32) :: from, to, k, j, i
+      integer(int32) :: from, to, k, j, i, mm
       integer(int32), allocatable :: new_id_from_old_id(:)
       real(real64), allocatable :: dense_mat(:, :)
       !logical :: use_lanczos
       type(IO_) :: f
+      type(Random_) :: random
       type(CRS_) :: crs, A, B
 
       !use_lanczos = .false.
@@ -1443,15 +1445,23 @@ contains
       !<<<<<<<<<<<<<< INPUT
 
       if (this%use_LOBPCG) then
+         ! create initial value of eigen vectors
+         ! by considering mesh structure
+         ! lower modes has long memory for space.
+
+
+         mm = input(default=this%LOBPCG_NUM_MODE, option=num_eigen)
+
          print *, ">> Solver :: LOBPCG"
          call LOBPCG( &
             A=A, &
             B=B, &
             X=Z, lambda=W, &
-            m=input(default=this%LOBPCG_NUM_MODE, option=num_eigen), &
+            m=mm, &
             MAX_ITR=this%LOBPCG_MAX_ITR, &
             TOL=this%LOBPCG_TOL, &
-            debug=this%debug)
+            debug=this%debug,&
+            X_init=this%get_LOBPCG_initial_value(n=A%size(),num_mode=mm))
 
       else
          !>>>>>>>>>>>>>>  INPUT/OUTPUT
@@ -2957,6 +2967,7 @@ contains
    end function
 ! ################################################
 
+! ################################################
    subroutine importCRSMatrix_FEMSolver(this, CRS)
       class(FEMSolver_), intent(inout) :: this
       type(CRS_), intent(in) :: CRS
@@ -2966,5 +2977,51 @@ contains
       this%CRS_Index_Row = CRS%row_ptr
 
    end subroutine
+! ################################################
+
+! ################################################
+   function get_LOBPCG_initial_value_FEMS(this,n,num_mode) result(ret)
+      class(FEMSolver_),intent(in) :: this
+      real(real64),allocatable :: ret(:,:)
+      integer(int32) :: node_idx,loc_node_idx, domain_idx, eigvec_idx
+      integer(int32),intent(in) :: n, num_mode
+      real(real64) :: dist_sq_from_origin,max_dist_sq
+      real(real64),allocatable :: position(:)
+      type(Random_) :: random
+      ! compute initial eigen vector
+      ! compute distance
+
+      if(allocated(this%FEMDomains))then
+         ! multi-domain
+         ret = zeros(n,num_mode)
+         node_idx = 0
+         eigvec_idx = 0
+         do domain_idx=1,size(this%FEMDomains)
+            do loc_node_idx=1,this%FEMDomains(domain_idx)%femdomainp%nn()
+               node_idx = node_idx + 1
+               if(3*node_idx-2 .in. this%fix_eig_IDs)then
+                  cycle
+               else
+                  eigvec_idx = eigvec_idx + 1
+                  position = this%FEMDomains(domain_idx)%femdomainp%mesh%nodcoord(loc_node_idx,:)
+                  dist_sq_from_origin = dot_product(position,position)
+                  ret(3*eigvec_idx-2:3*eigvec_idx,:) = sqrt(dist_sq_from_origin)
+               endif
+
+            enddo
+         enddo
+         max_dist_sq = maxval(abs(ret))
+         if(maxval(abs(ret))>0.0d0)then
+            ret = ret/max_dist_sq
+         endif
+         
+      endif
+      
+      !ret = ret + 0.0010d0*random%randn(n,num_mode)
+      ret = 0.0010d0*random%randn(n,num_mode)
+
+   end function
+! ################################################
+
 
 end module

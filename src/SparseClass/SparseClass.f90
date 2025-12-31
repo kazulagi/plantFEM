@@ -1953,12 +1953,13 @@ contains
 
    end subroutine
 
-   subroutine LOBPCG_single_CRS(A, B, lambda, X, alpha, tol, debug)
+   subroutine LOBPCG_SINGLE_CRS(A, B, lambda, X, alpha, tol, debug, X_init)
       type(CRS_), intent(in) :: A, B
       real(real64), allocatable, intent(inout) :: X(:)
       real(real64), allocatable, intent(inout) :: lambda
       real(real64), intent(in) :: alpha
       logical, optional, intent(in) :: debug
+      real(real64), optional,intent(in) :: X_init(:)
       logical :: debug_mode
 
       type(Random_) :: random
@@ -1974,6 +1975,10 @@ contains
       ! initialize X and lambda
       n = A%size()
       X = 2.0d0*random%randn(n) - 1.0d0
+
+      if(present(X_init))then
+         X = X_init
+      endif
 
       lambda = 0.0d0
 
@@ -1998,13 +2003,14 @@ contains
       lambda = rho
    end subroutine
 
-   subroutine LOBPCG_CRS(A, B, lambda, X, m, MAX_ITR, TOL, debug)
+   subroutine LOBPCG_CRS(A, B, lambda, X, m, MAX_ITR, TOL, debug, X_init)
       type(CRS_), intent(in) :: A, B
       real(real64), allocatable, intent(out) :: X(:, :)
       real(real64), allocatable, intent(out) :: lambda(:)
       real(real64), intent(in) :: TOL
       integer(int32), intent(in) :: m, MAX_ITR
       logical, optional, intent(in) :: debug
+      real(real64), optional, intent(in) :: X_init(:,:)
       logical :: debug_mode
 
       type(Random_) :: random
@@ -2031,7 +2037,13 @@ contains
       n = A%size()
 
       !X = random%randn(n,m)
+
+      ! random initial value
       X = random%randn(n, m)! + random%randn(n,m) !+ random%randn(n,m)
+      if(present(X_init))then
+         X = X_init
+      endif
+
       do i = 1, m
          X(:, i) = X(:, i)/norm(X(:, i))
       end do
@@ -2144,6 +2156,7 @@ contains
 
          ! Gram-Scmidtを計算する．
          call GramSchmidt(V, size(V, 1), size(V, 2), V)
+
          do k = 1, size(X, 2)
             V(:, k) = V(:, k)/norm(V(:, k))
          end do
