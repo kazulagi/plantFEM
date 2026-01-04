@@ -9431,7 +9431,7 @@ contains
       solver%use_LOBPCG = this%use_LOBPCG
       solver%LOBPCG_TOL = this%LOBPCG_TOL
       solver%LOBPCG_MAX_ITR = this%LOBPCG_MAX_ITR
-      call solver%eig(eigen_value=All_Frequency, eigen_vectors=All_EigenVectors)
+      call solver%eig(eigen_value=All_Frequency, eigen_vectors=All_EigenVectors, num_eigen=num_freq)
 
       if (present(femsolver)) then
          femsolver = solver
@@ -12210,8 +12210,9 @@ function to_soybean_soybeanclass(&
                   ret%leaf(leaf_idx)%ynum = leaf_div(2)
                   ret%leaf(leaf_idx)%znum = leaf_div(3)
                endif
-               
-               call ret%leaf(leaf_idx)%init(species=PF_GLYCINE_SOJA)
+
+               call ret%leaf(leaf_idx)%init(species=PF_GLYCINE_SOJA,&
+                  x_num=leaf_div(1),y_num=leaf_div(2),z_num=leaf_div(3))
                leaf_ne_sum = leaf_ne_sum + ret%leaf(leaf_idx)%ne()
                ret%leaf(leaf_idx)%already_grown = .true.
 
