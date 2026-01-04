@@ -1969,6 +1969,8 @@ contains
       integer(int32) :: MAX_ITR = 1000000
       real(real64), intent(in) :: tol
 
+      type(Math_) :: math
+
       debug_mode = input(default=.false., option=debug)
       ! BLOPEX IN HYPRE AND PETSC, SIAM Eq. (2.2)
       ! number of eigen value :: m
@@ -1988,7 +1990,7 @@ contains
          r = A%matmul(x) - rho*B%matmul(x)
          x = x - alpha*r
          if (debug_mode) then
-            print *, i, norm(r)
+            print *, i, norm(r), sqrt(abs(rho))/math%pi/2.0d0
          end if
          if (norm(r) < tol) then
             if (debug_mode) then
@@ -2014,6 +2016,7 @@ contains
       logical :: debug_mode
 
       type(Random_) :: random
+      type(Math_) :: math
 
       real(real64), allocatable :: r(:, :), p(:, :), V(:, :), A_small(:, :), AV(:, :), &
                                    b_small(:, :), lambda_small(:), XAX(:, :), AX(:, :), OR(:, :), BX(:, :), XBX(:, :), &
@@ -2217,7 +2220,7 @@ contains
          end if
 
          if (debug_mode) then
-            print *, i, maxval(abs(R))/initial_R
+            print *, i, maxval(abs(R))/initial_R,  sqrt(abs(lambda_small(1:m)))/math%pi/2.0d0
          end if
          if (maxval(abs(R))/initial_R < tol) then
             if (debug_mode) then
