@@ -49,12 +49,19 @@ end subroutine
 function solve_ODEClass(this,dt) result(x)
     class(ODE_),intent(inout) :: this
     real(real64),intent(in)   :: dt
-    real(real64),allocatable  :: x(:)
+    real(real64),allocatable  :: x(:),k_1(:),k_2(:),k_3(:),k_4(:)
     integer(int32) :: i
 
     ! matrix exponential
-    x = matmul(exp(dt*this%A,order=100),this%x) + exp(dt)*this%const
-    
+    ! RK4
+    ! dx/dt = A x + const
+    ! x = matmul(exp(dt*this%A,order=100),this%x) + exp(dt)*this%const
+    k_1 = matmul(this%A, this%x) + this%const
+    k_2 = matmul(this%A, this%x + 0.50d0*dt*k_1) + this%const
+    k_3 = matmul(this%A, this%x + 0.50d0*dt*k_2) + this%const
+    k_4 = matmul(this%A, this%x + dt*k_3) + this%const
+    x = this%x + dt/6.0d0*(k_1 + 2.0d0*k_2 + 2.0d0*k_3 + k_4) 
+
     if(this%real_positive_value)then
         do i=1,size(x)
             if(x(i) < 0.0d0)then

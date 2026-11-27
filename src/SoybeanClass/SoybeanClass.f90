@@ -1,6 +1,7 @@
 module SoybeanClass
    use, intrinsic :: iso_fortran_env
    use sim
+   use EarthClass
    use SeedClass
    use LeafClass
    use RootClass
@@ -233,6 +234,27 @@ module SoybeanClass
       real(real64) :: apical_carbon_concentration = 0.01d0
       real(real64), allocatable :: Photosynthate_n(:), reaction_n(:)
 
+      ! gene-regulatory simulations
+      integer(int32),private :: num_locus = 6 ! considers only following loci
+      character(:),allocatable :: E1_locus
+      character(:),allocatable :: E2_locus
+      character(:),allocatable :: E3_locus
+      character(:),allocatable :: E4_locus
+      character(:),allocatable :: E9_locus
+      character(:),allocatable :: GmFT5a_locus
+
+      real(real64),allocatable :: FT_params(:)
+      integer(int32) :: sowing_date(1:3)
+      real(real64) :: limit_daylength = 13.750d0 ! limit daylength for E3 & E4
+
+      real(real64) :: latitude  = 36.380d0  ! ibaraki pref.
+      real(real64) :: longitude = 140.470d0 ! ibaraki pref.
+
+      real(real64) :: seed_weight = 0.250d0 ! g/seed
+      real(real64) :: days_to_V2 = 7.0d0 ! days from sowing date to V2-stage date
+      real(real64) :: lethal_min_temp = 5.0d0 ! Cannot survive under 5 deg. C 
+
+      !real(real64) :: TimeZonePosition = 135.0d0
 
    contains
       !procedure,public :: addRoot => addRootSoybean
@@ -247,6 +269,12 @@ module SoybeanClass
       procedure, pass :: setMeristem_soybeanclass
       procedure, pass :: setMeristem_multi_soy
       generic, public :: setMeristem => setMeristem_soybeanclass,setMeristem_multi_soy
+
+      ! gene regulatory network
+      procedure, public :: setGenotype => setGenotype_soybeanclass
+      procedure, public :: setSowingDate => setSowingDate_soybeanclass
+      procedure, public :: loadGenotype => loadGenotype_soybeanclass
+      procedure, public :: showGenotype => showGenotype_soybeanclass
       
 
       procedure, public :: VC => VCSoybean
@@ -264,7 +292,9 @@ module SoybeanClass
       procedure, public :: checkProperties => checkPropertiesSoybean
       procedure, public :: setPoints => setPointsSoybean
       procedure, public :: setProperties => setPropertiesSoybean
-      procedure, public :: easy_grow => easy_grow_SoybeanClass
+      procedure, pass :: easy_grow_SoybeanClass
+      procedure, pass :: easy_grow_regacy_SoybeanClass
+      generic, public :: easy_grow => easy_grow_SoybeanClass, easy_grow_regacy_SoybeanClass
 
       
       ! editor
@@ -300,6 +330,7 @@ module SoybeanClass
       procedure, public :: NumberOfBranch => NumberOfBranchSoybean
       procedure, public :: isMainStem => isMainStemSoybean
       procedure, public :: isBranchStem => isBranchStemSoybean
+      procedure, public :: isPetiole => isPetiole_soybeanclass
 
       procedure, public :: checkYoungModulus => checkYoungModulusSoybean
       procedure, public :: checkPoissonRatio => checkPoissonRatioSoybean
@@ -322,10 +353,27 @@ module SoybeanClass
       procedure, public :: getElementList => getElementListSoybean
       ! get global Element Idx
       procedure, public :: getGlobalElementIdx => getGlobalElementIdxSoybean
+      
 
       ! stem length, stem angles
       procedure, public :: get_stem_length_list => get_stem_length_list_Soybean
       procedure, public :: get_stem_angle_list  => get_stem_angle_list_Soybean
+
+      ! gene-regulatory network
+      procedure, public :: checkGenotype => checkGenotype_soy
+      procedure, public :: getGenotypeValueVector => getGenotypeValueVector_soy
+      procedure, public :: getFloweringDate => getFloweringDate_soybean
+      procedure, public :: get_R1_Date => getFloweringDate_soybean
+      !procedure, public :: get_R2_Date => get_R2_Date_soybean
+      !procedure, public :: get_R3_Date => get_R3_Date_soybean
+      !procedure, public :: get_R4_Date => get_R4_Date_soybean
+      !procedure, public :: get_R5_Date => get_R5_Date_soybean
+      !procedure, public :: get_R6_Date => get_R6_Date_soybean
+      !procedure, public :: get_R7_Date => get_R7_Date_soybean
+      !procedure, public :: get_R8_Date => get_R8_Date_soybean
+      procedure, public :: get_thermal_time =>  get_thermal_time_SoybeanClass
+
+      procedure, public :: getShortDaylengthDay => getShortDaylengthDay_soy
 
       procedure, public :: MassMatrix => MassMatrixSoybean
       procedure, public :: StiffnessMatrix => StiffnessMatrixSoybean
@@ -392,6 +440,8 @@ module SoybeanClass
       procedure, public :: searchStem => searchStemSoybean
       procedure, public :: searchPetiole => searchPetioleSoybean
       procedure, public :: searchLeaf => searchLeafSoybean
+
+      procedure, public ::  get_growth_stage => get_growth_stage_soybean
 
       ! post-processing
       procedure, public :: export_eig => export_eigSoybean
@@ -491,6 +541,9 @@ module SoybeanClass
       procedure, pass :: getcarbon_concentration => getCarbon_concentrationSoybean
       procedure, pass :: getRespiration => getRespirationSoybean
       procedure, pass :: getCarbonFlow => getCarbonFlowSoybean
+
+
+      
    end type
 
    type :: soybeanp_
@@ -7909,7 +7962,7 @@ contains
    end function
 ! ################################################################
    function getLeafAreaSoybean(this) result(LeafArea)
-      class(Soybean_), intent(in) :: this
+      class(Soybean_), intent(inout) :: this
       real(real64) :: LeafArea
       integer(int32) :: i
 
@@ -8911,9 +8964,9 @@ contains
    end subroutine
 
 ! ################################################################
-   recursive subroutine setYoungModulusSoybean(this, YoungModulus, stem, root, leaf, ElementList)
+   recursive subroutine setYoungModulusSoybean(this, YoungModulus, stem, root, leaf, petiole, ElementList)
       class(Soybean_), intent(inout) :: this
-      logical, optional, intent(in) :: stem, root, leaf
+      logical, optional, intent(in) :: stem, root, leaf, petiole
 
       ! ElementList(Idx, [TYPE, DOMAIN, ELEMENT])
       integer(int32), optional, intent(in) :: ElementList(:, :)
@@ -8966,6 +9019,29 @@ contains
                end do
             end if
          end if
+      end if
+
+
+      if (present(petiole)) then
+         if (petiole) then
+            ! search petiole
+            n = n + 11
+            if (allocated(this%stem)) then
+               
+               do i = 1, size(this%stem)
+                  if (this%stem(i)%femdomain%empty()) then
+                     cycle
+                  else
+                     if(this%isPetiole(stem_idx=i))then
+                        this%stem(i)%YoungModulus = YoungModulus*eyes(this%stem(i)%femdomain%ne())
+                     endif
+                  end if
+               end do
+            
+            end if
+
+         end if
+         
       end if
 
       if (present(root)) then
@@ -9178,13 +9254,14 @@ contains
 
 ! ################################################################
    function getEigenModeSoybean(this, ground_level, penalty, debug, Frequency, EbOM_Algorithm, &
-                                num_mode, femsolver) result(EigenVectors)
+                                num_mode, femsolver,logfile_name) result(EigenVectors)
       class(Soybean_), target, intent(inout) :: this
       real(real64), intent(in) :: ground_level
       real(real64), optional, intent(in) :: penalty
       logical, optional, intent(in) :: debug
       real(real64), allocatable, intent(inout) :: Frequency(:)
-      character(*), optional, intent(in) :: EbOM_Algorithm
+      character(*), optional, intent(in) :: EbOM_Algorithm,logfile_name
+
       !integer(int32),optional,intent(in) :: num_mode
 
       integer(int32), optional, intent(in) :: num_mode
@@ -9431,7 +9508,11 @@ contains
       solver%use_LOBPCG = this%use_LOBPCG
       solver%LOBPCG_TOL = this%LOBPCG_TOL
       solver%LOBPCG_MAX_ITR = this%LOBPCG_MAX_ITR
-      call solver%eig(eigen_value=All_Frequency, eigen_vectors=All_EigenVectors, num_eigen=num_freq)
+      call solver%eig( &
+         eigen_value=All_Frequency, &
+         eigen_vectors=All_EigenVectors, &
+         num_eigen=num_freq, &
+         logfile_name=logfile_name)
 
       if (present(femsolver)) then
          femsolver = solver
@@ -10312,7 +10393,7 @@ contains
 
          to = sum(NumberOfElement(1:stemID))
          from = to - this%stem(stemID)%ne() + 1
-         ret(from:to) = this%stem(stemid)%R_d*180.160d0/6.0d0/0.00020d0
+         ret(from:to) = this%stem(stemid)%R_dV*180.160d0/6.0d0/0.00020d0
       end do
       ! ignore leaf since it is contained in the %GetPhotosynthesis
 
@@ -10914,7 +10995,7 @@ contains
       call solver%setCRS(DOF=3, debug=debug)
 
       ! CRS ready!
-
+      
 !    if( .not. this%checkYoungModulus())then
 !        print *, "[ERROR] YoungModulus(:) is not ready."
 !        stop
@@ -11783,7 +11864,255 @@ subroutine init_as_seed_soybean(this,radius,division)
 end subroutine
 ! #####################################################################
 
-subroutine easy_grow_SoybeanClass(this,dt,&
+subroutine easy_grow_SoybeanClass(this,&
+   model_param_file,&
+   genotype_file,&
+   env_file,&
+   logfile_name, &
+   vtk_file_name &
+   )
+
+   class(Soybean_),intent(inout) :: this
+   character(*),intent(in) :: genotype_file,env_file,logfile_name,model_param_file
+   character(*),optional,intent(in) :: vtk_file_name
+
+
+   type(IO_) :: f, Flowering_day_file,env_f
+   type(DateTime_) :: datetime
+   real(real64) :: body_init_params(1:11),temp_range(1:2),dt,thermal_dt
+   integer(int32) :: num_node_internode_per_branch,temp_data_idx,max_log_days,&
+      temp_data_shape(1:2), germination_delay,R8_dat_count
+   real(real64),allocatable :: temperature_log(:),daily_temp(:)
+   logical :: no_division
+
+   character(:),allocatable :: accession_name
+   character(:),allocatable :: temperature_log_file
+
+   real(real64) :: thermal_date
+
+
+   accession_name = env_f%parse(env_file,key1="accession_name")
+
+
+   call this%loadGenotype(file=genotype_file,name=accession_name)
+
+   ! check show genotype 
+   call this%showGenotype()
+   ! check input genotype 
+   call this%checkGenotype()
+
+   this%FT_params = zeros(11)
+   this%FT_params( 1) = freal(env_f%parse(model_param_file,key1="FT_params_1"))
+   this%FT_params( 2) = freal(env_f%parse(model_param_file,key1="FT_params_2"))
+   this%FT_params( 3) = freal(env_f%parse(model_param_file,key1="FT_params_3"))
+   this%FT_params( 4) = freal(env_f%parse(model_param_file,key1="FT_params_4"))
+   this%FT_params( 5) = freal(env_f%parse(model_param_file,key1="FT_params_5"))
+   this%FT_params( 6) = freal(env_f%parse(model_param_file,key1="FT_params_6"))
+   this%FT_params( 7) = freal(env_f%parse(model_param_file,key1="FT_params_7"))
+   this%FT_params( 8) = freal(env_f%parse(model_param_file,key1="FT_params_8"))
+   this%FT_params( 9) = freal(env_f%parse(model_param_file,key1="FT_params_9"))
+   this%FT_params(10) = freal(env_f%parse(model_param_file,key1="FT_params_10"))
+   this%FT_params(11) = freal(env_f%parse(model_param_file,key1="FT_params_11"))
+
+
+   ! 2010/6/2播種→2010/8/5
+   this%limit_daylength = freal(env_f%parse(model_param_file,key1="limit_daylength"))
+
+
+   ! >>>>>>>>>>>>>>> settings >>>>>>>>>>>>>>>
+   
+   this%latitude  = freal(env_f%parse(env_file,key1="latitude"))
+   this%longitude = freal(env_f%parse(env_file,key1="longitude"))
+   call this%setSowingDate(&
+      fint(env_f%parse(env_file,key1="sowing_year")),&
+      fint(env_f%parse(env_file,key1="sowing_month")),&
+      fint(env_f%parse(env_file,key1="sowing_day")) &
+      )
+   ! >>>>>>>>>>>>>>> settings >>>>>>>>>>>>>>>
+   
+   call f%open(logfile_name+"_FT-std.txt","a")
+
+   datetime = to_datetime(&
+       year  = this%sowing_date(:) .get. 1 ,&
+       month = this%sowing_date(:) .get. 2 ,&
+       date  = this%sowing_date(:) .get. 3 &
+   )
+   write(f%fh,*)  "Flowering date (std): " , this%getFloweringDate(),"! ",argv() .get. 1
+   print *, "Flowering date (std): " , this%getFloweringDate(),"! ",argv() .get. 1
+
+
+   call f%close()
+
+   temperature_log_file = env_f%parse(model_param_file,key1="tepmerature_log_file")
+   temp_data_shape(1) = fint(env_f%parse(model_param_file,key1="tepmerature_log_file_num_row"))
+   temp_data_shape(2) = fint(env_f%parse(model_param_file,key1="tepmerature_log_file_num_col"))
+   
+!!!!!! [check] func() lat_lon_find_nearest_idx
+!   print *, temperature_log_file
+   print *,"JMA-site Idx: ", lat_lon_find_nearest_idx(&
+      lat = real(this%latitude),&
+      lon = real(this%longitude),&
+      lat_dat = real(read_real_vector_by_line(temperature_log_file,1,&
+         temp_data_shape(1),temp_data_shape(2))),&
+      lon_dat = real(read_real_vector_by_line(temperature_log_file,2,&
+         temp_data_shape(1),temp_data_shape(2))) &
+      )
+!   
+!   stop
+   ! [passed!]
+   
+   temperature_log = get_temperature_log(&
+      file=temperature_log_file,&
+      lat = real(this%latitude),&
+      lon = real(this%longitude),&
+      start_date=datetime, &
+      end_date=datetime + to_datetime(0,0,365), & 
+      data_shape=temp_data_shape(1:2) &
+      )
+
+   dt = 60.0d0*60.0d0*24.0d0 ! 1 day
+
+   body_init_params(1)  = freal(env_f%parse(model_param_file,key1="body_init_params_1"))
+   body_init_params(2)  = freal(env_f%parse(model_param_file,key1="body_init_params_2"))
+   body_init_params(3)  = freal(env_f%parse(model_param_file,key1="body_init_params_3"))
+   body_init_params(4)  = freal(env_f%parse(model_param_file,key1="body_init_params_4"))
+   body_init_params(5)  = freal(env_f%parse(model_param_file,key1="body_init_params_5"))
+   body_init_params(6)  = freal(env_f%parse(model_param_file,key1="body_init_params_6"))
+   body_init_params(7)  = freal(env_f%parse(model_param_file,key1="body_init_params_7"))
+   body_init_params(8)  = freal(env_f%parse(model_param_file,key1="body_init_params_8"))
+   body_init_params(9)  = freal(env_f%parse(model_param_file,key1="body_init_params_9"))
+   body_init_params(10) = freal(env_f%parse(model_param_file,key1="body_init_params_10"))
+   body_init_params(11) = freal(env_f%parse(model_param_file,key1="body_init_params_11"))
+   num_node_internode_per_branch = freal(env_f%parse(model_param_file,key1="num_node_internode_per_branch"))
+
+   ! seed weight (g/seed) -> from genotype file
+   !this%seed_weight = freal(env_f%parse(env_file,key1="seed_weight"))
+   !print *, "seed_weight",this%seed_weight
+
+   !stop
+
+   this%days_to_V2 = freal(env_f%parse(model_param_file,key1="days_to_V2"))
+
+   ! vegitative stage
+   no_division = .false.
+
+   allocate(this%meristem(1))
+
+   this%meristem(1)%temp_range(1) = freal(env_f%parse(model_param_file,key1="temp_range_min"))
+   this%meristem(1)%temp_range(2) = freal(env_f%parse(model_param_file,key1="temp_range_max"))
+
+   call f%open(logfile_name+"_mainstem_len_node_br-wo-temp.txt","w")
+   write(f%fh,*) "# cultivar_idx, mainstem_length, num_node, num_branch "
+   call Flowering_day_file%open(logfile_name+"_flowering_date.txt","w")
+   write(Flowering_day_file%fh,*) "# cultivar_idx, R1 day from sowing"
+   !Flowering_day_num = 0
+   !do cultivar_idx=1,size(genotype_value,1)
+       call this%meristem(1)%init(Meristem_type=PF_MERISTEM_TYPE_SHOOT,params=body_init_params, dt=dt)
+       this%meristem(1)%xnum = fint(env_f%parse(model_param_file,key1="x_num"))
+       this%meristem(1)%ynum = fint(env_f%parse(model_param_file,key1="y_num"))
+       this%meristem(1)%znum = fint(env_f%parse(model_param_file,key1="z_num"))
+       
+       ! call this%meristem(1)%vtk("meristem"+zfill(0,5),single_file=.true.)
+       this%meristem(1)%size_coeff(1) = freal(env_f%parse(model_param_file,key1="size_coeff"))
+       !Flowering_day_num = 0
+       !FT_params(11) = tau(cultivar_idx)
+
+       daily_temp = temperature_log(1:)
+       thermal_date = 0.0d0
+       R8_dat_count = 0
+       do i_i=1,365 ! physical days
+           datetime = datetime + to_datetime(0,0,1)
+
+           if( daily_temp(i_i) <= this%lethal_min_temp)then
+            print *, "[Died] >> daily_temp(i_i) <= lethal_min_temp"
+            exit
+           endif
+           
+           if(size(temperature_log)<i_i)then
+               this%meristem(1)%temperature = daily_temp(size(daily_temp))
+           else
+               this%meristem(1)%temperature = daily_temp(i_i)
+           endif
+
+         ! update thermal time
+         thermal_dt = dt*this%get_thermal_time(daily_temp(i_i))
+         thermal_date = thermal_date  + 1.0d0*this%get_thermal_time(daily_temp(i_i))
+            
+
+        ! untill germination
+        ! this should be governed by temperature
+        if(thermal_date < this%days_to_V2)then
+            print *, datetime%str(), ", < V1",i_i
+            print *, "thermal_day",thermal_date,"physical_day",i_i
+            germination_delay = dble(i_i) - thermal_date 
+            cycle
+        endif
+
+         ! if it took too long time for germination,
+         ! it will die
+         if(i_i > this%days_to_V2*6.0d0 .and. &
+            thermal_date < this%days_to_V2)then
+            print *, "Already died."
+            stop
+         endif
+
+         ! 
+         
+         
+         !print *, "germination_delay",germination_delay
+         
+
+           if(i_i >= this%get_R1_Date()+germination_delay )then
+               ! reproductive !
+               no_division = .true. ! no new stem
+
+               print *, datetime%str(), " , ", this%get_growth_stage(day=i_i-germination_delay),i_i
+               if(trim(this%get_growth_stage(day=i_i-germination_delay))=="R8" ) then
+                  R8_dat_count = R8_dat_count + 1
+               endif
+
+               if (R8_dat_count >= 7)then
+                  exit
+               endif
+
+           else
+               ! vegetative !
+               print *,datetime%str(), " , ", this%get_growth_stage(day=i_i-germination_delay),i_i
+               
+
+               no_division = .false. ! new stem allowed
+               if((mod(i_i,num_node_internode_per_branch)==0))then
+                  call this%meristem(1)%set_branch(&
+                  stem_idx=i_i/num_node_internode_per_branch,&
+                  leafset_idx=1,params=body_init_params,dt=thermal_dt)
+               endif
+               !Flowering_day_num = Flowering_day_num + 1
+           endif
+           ! ここが遅い
+           call this%meristem(1)%grow(params=body_init_params,dt=thermal_dt,no_division=no_division)
+           if(present(vtk_file_name))then
+            call this%meristem(1)%vtk(vtk_file_name+"-cv-"+accession_name+"-"+zfill(i_i,5),single_file=.true.)        
+           endif
+           call this%meristem(1)%update()
+       enddo
+       !write(Flowering_day_file%fh,*) cultivar_idx, Flowering_day_num
+       !call this%meristem(1)%vtk("cv-"+zfill(cultivar_idx,3)+"-wo-temp",single_file=.true.)
+       write(f%fh,*)  &
+           this%meristem(1)%get_mainstem_length(), &
+           this%meristem(1)%get_mainstem_num_node(), &
+           this%meristem(1)%get_num_branch() 
+       call f%flush()
+       !call this%meristem(1)%vtk("cv-"+zfill(cultivar_idx,3)+zfill(i_i,5)+"-wo-temp",single_file=.true.)
+   !enddo
+   call f%close()
+   call this%meristem(1)%vtk("cv-"+accession_name,single_file=.true.)
+   
+
+end subroutine
+! ############################################################
+
+subroutine easy_grow_regacy_SoybeanClass(this & 
+   ,dt,&
       stem_grow_speed_coeff,l_max)
    class(Soybean_),intent(inout) :: this
    real(real64),intent(in) :: dt
@@ -11823,6 +12152,7 @@ subroutine easy_grow_SoybeanClass(this,dt,&
 
 end subroutine
 ! ############################################################
+
 subroutine setMeristem_soybeanclass(this,stemIdx,dt,params)
    class(Soybean_),intent(inout) :: this
    real(real64),intent(in) :: dt, params(:)
@@ -12264,4 +12594,1083 @@ function to_soybean_soybeanclass(&
 
 end function
 ! ##################################################
+
+! ##################################################
+function isPetiole_soybeanclass(this,stem_idx) result(ret)
+   class(Soybean_),intent(in) :: this
+   integer(int32),intent(in) :: stem_idx
+   logical :: ret
+   integer(int32) :: j
+
+   ret = .false.
+   do j=1,size(this%stem2stem,2)
+      if(this%stem2stem(stem_idx,j)==PF_SOYBEAN_PETIOLE_TO_MAINSTEM)then
+         ret = .true.
+         exit
+      endif
+      if(this%stem2stem(stem_idx,j)==PF_SOYBEAN_PETIOLE_TO_BRANCH)then
+         ret = .true.
+         exit
+      endif
+      if(this%stem2stem(stem_idx,j)==PF_SOYBEAN_PETIOLE_TO_PETIOLE)then
+         ret = .true.
+         exit
+      endif
+   enddo
+   
+
+end function
+! ##################################################
+
+
+! ##################################################
+subroutine setGenotype_soybeanclass(this,locus_name,allele_name)
+   class(Soybean_),intent(inout) :: this
+   character(*),intent(in) :: locus_name, allele_name
+
+   if(locus_name=="E1")then
+      this%E1_locus = allele_name
+   elseif(locus_name=="E2")then
+      this%E2_locus = allele_name
+   elseif(locus_name=="E3")then
+      this%E3_locus = allele_name
+   elseif(locus_name=="E4")then
+      this%E4_locus = allele_name
+   elseif(locus_name=="E9")then
+      this%E9_locus = allele_name
+   elseif(locus_name=="GmFT5a")then
+      this%GmFT5a_locus = allele_name
+   else 
+      print *, "[ERROR] >> setGenotype_soybeanclass >> invalid locus name",locus_name
+   endif
+
+end subroutine
+
+
+! ##################################################
+
+! ##################################################
+
+subroutine checkGenotype_soy(this) 
+   class(Soybean_),intent(in) :: this
+   real(real64),allocatable :: ret(:) 
+
+   ret = zeros(this%num_locus)
+   ! E1 locus
+   if(this%E1_locus=="E1")then
+      ret(1) = 1.0d0
+   elseif(this%E1_locus=="e1-as")then
+      ret(1) = 0.50d0
+   elseif(this%E1_locus=="e1-nl")then
+      ret(1) = 0.050d0
+   else 
+      print *, "[WARNING] getGenotypeValueVector >>  invalid genotype: ",this%E1_locus
+      stop
+   endif
+
+   if(this%E2_locus=="E2")then
+      ret(2) = 1.0d0
+   elseif(this%E2_locus=="e2")then
+      ret(2) = 0.050d0
+   else 
+      print *, "[WARNING] getGenotypeValueVector >>  invalid genotype: ",this%E2_locus
+      stop
+   endif
+
+   if(this%E3_locus=="E3")then
+      ret(3) = 1.0d0
+   elseif(this%E3_locus=="e3")then
+      ret(3) = 0.050d0
+   else 
+      print *, "[WARNING] getGenotypeValueVector >>  invalid genotype: ",this%E3_locus
+      stop
+   endif
+
+
+   if(this%E4_locus=="E4")then
+      ret(4) = 1.0d0
+   elseif(this%E4_locus=="e4")then
+      ret(4) = 0.30d0
+   else 
+      print *, "[WARNING] getGenotypeValueVector >>  invalid genotype: ",this%E4_locus
+      stop
+   endif
+
+
+   if(this%E9_locus=="E9")then
+      ret(5) = 1.0d0
+   elseif(this%E9_locus=="e9")then
+      ret(5) = 0.30d0
+   else 
+      print *, "[WARNING] getGenotypeValueVector >>  invalid genotype: ",this%E9_locus
+      stop
+   endif
+
+   if(this%GmFT5a_locus=="GmFT5a-ef")then
+      ret(6) = 1.0d0
+   elseif(this%GmFT5a_locus=="GmFT5a-lf")then
+      ret(6) = 0.30d0
+   else 
+      print *, "[WARNING] getGenotypeValueVector >>  invalid genotype: ",this%GmFT5a_locus
+      stop
+   endif
+   
+   print *, "[OK] getGenotypeValueVector >>  nice genotype"
+
+end subroutine
+
+! ##################################################
+
+
+
+! ##################################################
+function getGenotypeValueVector_soy(this) result(ret)
+   class(Soybean_),intent(in) :: this
+   real(real64),allocatable :: ret(:) 
+
+   ret = zeros(this%num_locus)
+   ! E1 locus
+   if(this%E1_locus=="E1")then
+      ret(1) = 1.0d0
+   elseif(this%E1_locus=="e1-as")then
+      ret(1) = 0.50d0
+   elseif(this%E1_locus=="e1-nl")then
+      ret(1) = 0.050d0
+   else 
+      ret(1) = -1.0d0
+      !print *, "[WARNING] getGenotypeValueVector >>  invalid genotype: ",this%E1_locus
+      !return
+   endif
+
+   if(this%E2_locus=="E2")then
+      ret(2) = 1.0d0
+   elseif(this%E2_locus=="e2")then
+      ret(2) = 0.050d0
+   else 
+      ret(2) = -1.0d0
+      !print *, "[WARNING] getGenotypeValueVector >>  invalid genotype: ",this%E2_locus
+      !return
+   endif
+
+   if(this%E3_locus=="E3")then
+      ret(3) = 1.0d0
+   elseif(this%E3_locus=="e3")then
+      ret(3) = 0.050d0
+   else 
+      ret(3) = -1.0d0
+      !print *, "[WARNING] getGenotypeValueVector >>  invalid genotype: ",this%E3_locus
+      !return
+   endif
+
+
+   if(this%E4_locus=="E4")then
+      ret(4) = 1.0d0
+   elseif(this%E4_locus=="e4")then
+      ret(4) = 0.30d0
+   else 
+      ret(4) = -1.0d0
+      !print *, "[WARNING] getGenotypeValueVector >>  invalid genotype: ",this%E4_locus
+      !return
+   endif
+
+
+   if(this%E9_locus=="E9")then
+      ret(5) = 1.0d0
+   elseif(this%E9_locus=="e9")then
+      ret(5) = 0.30d0
+   else 
+      ret(5) = -1.0d0
+      !print *, "[WARNING] getGenotypeValueVector >>  invalid genotype: ",this%E9_locus
+      !return
+   endif
+
+   if(this%GmFT5a_locus=="GmFT5a-ef")then
+      ret(6) = 1.0d0
+   elseif(this%GmFT5a_locus=="GmFT5a-lf")then
+      ret(6) = 0.30d0
+   else 
+      ret(6) = -1.0d0
+      !print *, "[WARNING] getGenotypeValueVector >>  invalid genotype: ",this%GmFT5a_locus
+      !return
+   endif
+   
+end function
+! #########################################################
+
+
+
+
+! #########################################################
+function getFloweringDate_soybean(this) result(ret)
+   class(Soybean_),intent(in) :: this
+   real(real64) :: FT_epsilon = 0.90d0
+   real(real64),allocatable :: params(:)
+   real(real64) :: ret
+
+   params = zeros(12)
+   params(1:11) = this%FT_params(1:11)
+   params(12) =  this%getShortDaylengthDay()
+   params(1:6) = params(1:6)*this%getGenotypeValueVector()
+   ret = Flowering_day(params=params,epsilon=FT_epsilon)
+
+end function
+! #########################################################
+function Flowering_day(params,epsilon) result(ret)
+    real(real64),intent(in) :: params(:),epsilon
+    real(real64) :: ret, dt,t
+    integer(int32) :: i
+    
+    
+    dt = 0.010d0
+    t = 0.0d0
+    do i=1,120*100
+        t = t + dt   
+        if(FT(t,params) > epsilon) then 
+            ret = t
+            exit
+        endif
+    enddo
+    ret = t
+
+end function
+
+function FT(t,params) result(ret)
+    real(real64),intent(in) :: t, params(1:12)
+    real(real64) :: ret
+
+    ! parameters
+    real(real64) :: lambda_E1
+    real(real64) :: lambda_E2
+    real(real64) :: lambda_E3
+    real(real64) :: lambda_E4
+    real(real64) :: lambda_E9
+    real(real64) :: lambda_GmFT5a
+    real(real64) :: lambda_FT
+    real(real64) :: theta_E1
+    real(real64) :: theta_E2
+    real(real64) :: theta_E9
+    real(real64) :: theta_FT
+    real(real64) :: tau
+
+    real(real64) :: k(1:7),beta(1:12),Lambda(1:7)
+    real(real64) :: dt
+    integer(int32) :: i
+    
+    lambda_E1       = params(1)
+    lambda_E2       = params(2)
+    lambda_E3       = params(3)
+    lambda_E4       = params(4)
+    lambda_E9       = params(5)
+    lambda_GmFT5a   = params(6)
+    lambda_FT       = params(7)
+    theta_E1        = params(8)
+    theta_E2        = params(9) ![new]
+    theta_E9        = params(10)
+    theta_FT        = params(11)
+    tau             = params(12)
+    
+    Lambda(1:7) = params(1:7)
+
+    dt = t - tau
+    
+    ret = 0.0d0
+
+    beta( 1) = (1.0d0-theta_FT)*lambda_FT/(lambda_GmFT5a-lambda_FT)
+    beta( 2) = theta_FT*lambda_FT/(lambda_E9-lambda_FT)
+    beta( 3) = (1.0d0-theta_FT)*lambda_GmFT5a/(lambda_FT-lambda_GmFT5a) &
+                + theta_FT*lambda_E9/(lambda_FT-lambda_E9)
+    beta( 4) = 1.0d0 ! not used.
+
+    beta( 5) = (1.0d0-theta_FT)*lambda_GmFT5a*(1.0d0-theta_E1)*lambda_E1*lambda_E3 &
+        /(lambda_GmFT5a-lambda_FT)/(lambda_E1-lambda_FT)/(lambda_E3-lambda_FT) &
+        + theta_FT*(1.0d0-theta_E9)*lambda_E9*(1.0d0-theta_E1)*lambda_E1*lambda_E3 &
+        /(lambda_E9-lambda_FT)/(lambda_E1-lambda_FT)/(lambda_E3-lambda_FT) &
+        + theta_FT*theta_E9*lambda_E9*(1.0d0-theta_E2)*lambda_E2*lambda_E3 &
+        /(lambda_E9-lambda_FT)/(lambda_E2-lambda_FT)/(lambda_E3-lambda_FT) &
+        + (1.0d0-theta_FT)*lambda_GmFT5a*theta_E1*lambda_E1*lambda_E4 &
+        /(lambda_GmFT5a-lambda_FT)/(lambda_E1-lambda_FT)/(lambda_E4-lambda_FT) &
+        + theta_FT*(1.0d0-theta_E9)*lambda_E9*theta_E1*lambda_E1*lambda_E4 &
+        /(lambda_E9-lambda_FT)/(lambda_E1-lambda_FT)/(lambda_E4-lambda_FT) &
+        + theta_FT*theta_E9*lambda_E9*theta_E2*lambda_E2*lambda_E4 &
+        /(lambda_E9-lambda_FT)/(lambda_E2-lambda_FT)/(lambda_E4-lambda_FT)
+
+    beta( 6) = (1.0d0-theta_FT)*lambda_FT*(1.0d0-theta_E1)*lambda_E1*lambda_E3 &
+        /(lambda_FT-lambda_GmFT5a)/(lambda_E1-lambda_GmFT5a)/(lambda_E3-lambda_GmFT5a) &
+        + (1.0d0-theta_FT)*lambda_FT*theta_E1*lambda_E1*lambda_E4 &
+        /(lambda_FT-lambda_GmFT5a)/(lambda_E1-lambda_GmFT5a)/(lambda_E4-lambda_GmFT5a)
+
+    beta( 7) = (1.0d0-theta_FT)*lambda_FT*lambda_GmFT5a*(1.0d0-theta_E1)*lambda_E3 &
+        /(lambda_FT-lambda_E1)/(lambda_GmFT5a-lambda_E1)/(lambda_E3-lambda_E1) &
+        + theta_FT*lambda_FT*(1.0d0-theta_E9)*lambda_E9*(1.0d0-theta_E1)*lambda_E3 &
+        /(lambda_FT-lambda_E1)/(lambda_E9-lambda_E1)/(lambda_E3-lambda_E1) &
+        + (1.0d0-theta_FT)*lambda_FT*lambda_GmFT5a*theta_E1*lambda_E4 &
+        /(lambda_FT-lambda_E1)/(lambda_GmFT5a-lambda_E1)/(lambda_E4-lambda_E1) &
+        + theta_FT*lambda_FT*(1.0d0-theta_E9)*lambda_E9*theta_E1*lambda_E4 &
+        /(lambda_FT-lambda_E1)/(lambda_E9-lambda_E1)/(lambda_E4-lambda_E1)
+
+    beta( 8) = (1.0d0-theta_FT)*lambda_FT*lambda_GmFT5a*(1.0d0-theta_E1)*lambda_E1 &
+        /(lambda_FT-lambda_E3)/(lambda_GmFT5a-lambda_E3)/(lambda_E1-lambda_E3) &
+        + theta_FT*lambda_FT*theta_E9*lambda_E9*(1.0d0-theta_E2)*lambda_E2 &
+        /(lambda_FT-lambda_E3)/(lambda_E9-lambda_E3)/(lambda_E2-lambda_E3) &
+        + theta_FT*lambda_FT*(1.0d0-theta_E9)*lambda_E9*(1.0d0-theta_E1)*lambda_E1 &
+        /(lambda_FT-lambda_E3)/(lambda_E9-lambda_E3)/(lambda_E1-lambda_E3)
+
+    beta( 9) = theta_FT*lambda_FT*(1.0d0-theta_E9)*(1.0d0-theta_E1)*lambda_E1*lambda_E3 &
+        /(lambda_FT-lambda_E9)/(lambda_E1-lambda_E9)/(lambda_E3-lambda_E9)  &
+        + theta_FT*lambda_FT*theta_E9*(1.0d0-theta_E2)*lambda_E2*lambda_E3 &
+        /(lambda_FT-lambda_E9)/(lambda_E2-lambda_E9)/(lambda_E3-lambda_E9) &
+        + theta_FT*lambda_FT*(1.0d0-theta_E9)*theta_E1*lambda_E1*lambda_E4 &
+        /(lambda_FT-lambda_E9)/(lambda_E1-lambda_E9)/(lambda_E4-lambda_E9) &
+        + theta_FT*lambda_FT*theta_E9*theta_E2*lambda_E2*lambda_E4 &
+        /(lambda_FT-lambda_E9)/(lambda_E2-lambda_E9)/(lambda_E4-lambda_E9)
+
+    beta(10) = theta_FT*lambda_FT*theta_E9*lambda_E9*(1.0d0-theta_E2)*lambda_E3 &
+        /(lambda_FT-lambda_E2)/(lambda_E9-lambda_E2)/(lambda_E3-lambda_E2) &
+        + theta_FT*lambda_FT*theta_E9*lambda_E9*theta_E2*lambda_E4 &
+        /(lambda_FT-lambda_E2)/(lambda_E9-lambda_E2)/(lambda_E4-lambda_E2)
+
+    beta(11) = (1.0d0-theta_FT)*lambda_FT*lambda_GmFT5a*theta_E1*lambda_E1 &
+        /(lambda_FT-lambda_E4)/(lambda_GmFT5a-lambda_E4)/(lambda_E1-lambda_E4) &
+            + theta_FT*lambda_FT*(1.0d0-theta_E9)*lambda_E9*theta_E1*lambda_E1 &
+            /(lambda_FT-lambda_E4)/(lambda_E9-lambda_E4)/(lambda_E1-lambda_E4) &
+            + theta_FT*lambda_FT*theta_E9*lambda_E9*theta_E2*lambda_E2 &
+            /(lambda_FT-lambda_E4)/(lambda_E9-lambda_E4)/(lambda_E2-lambda_E4)
+
+    beta(12) = 1.0d0 ! not used.
+
+    k(1) = beta( 7)*( 1.0d0-exp(-lambda_E1*tau)*Heaviside_step_function(t-tau) )
+    k(2) = beta(10)*( 1.0d0-exp(-lambda_E2*tau)*Heaviside_step_function(t-tau) )
+    k(3) = beta( 8)*( 1.0d0-exp(-lambda_E3*tau)*Heaviside_step_function(t-tau) )
+    k(4) = beta(11)*( 1.0d0-exp(-lambda_E4*tau)*Heaviside_step_function(t-tau) )
+    k(5) = beta( 9)*( 1.0d0-exp(-lambda_E9*tau)*Heaviside_step_function(t-tau) )+beta(2)
+    k(6) = beta( 6)*( 1.0d0-exp(-lambda_GmFT5a*tau)*Heaviside_step_function(t-tau) )+beta(1)
+    k(7) = beta( 5)*( 1.0d0-exp(-lambda_FT*tau)*Heaviside_step_function(t-tau) )+beta(3)
+
+    ret = Heaviside_step_function(t-tau)
+    do i=1,7
+        ret = ret + k(i)*exp(-Lambda(i)*t)
+    enddo
+
+    
+end function
+
+
+
+function Heaviside_step_function(t) result(ret)
+    real(real64),intent(in) :: t
+    real(real64) :: ret
+
+    !ret = (t + abs(t) )/(2.0d0*abs(t))
+
+    ret = 1.0d0/(1.0d0 + exp(-100.0d0*t))
+
+end function
+
+
+
+
+! #########################################################
+subroutine setSowingDate_soybeanclass(this,year,month,day)
+   class(Soybean_),intent(inout) :: this
+   integer(int32),intent(in) :: year, month,day
+
+   this%sowing_date = [year, month, day]
+
+   ! update parameter tau (time delay)
+   
+
+end subroutine
+
+! #########################################################
+
+
+! #########################################################
+function getShortDaylengthDay_soy(this) result(ret)
+   class(Soybean_),intent(in) :: this
+   type(Earth_) :: earth
+   type(datetime_) :: datetime
+   real(real64) :: ret,t(1:2),daylength,now(1:6)
+   integer(int32) :: i
+
+   ret = 0.0d0
+   now = 0.0d0
+
+   earth%MyPosition(1) = this%latitude
+   earth%MyPosition(2) = this%longitude
+   now(1) = this%sowing_date(1) !yyyy
+   now(2) = this%sowing_date(2) !mm
+   now(3) = this%sowing_date(3) !dd
+   datetime = to_datetime(&
+      year  = this%sowing_date(1),&
+      month = this%sowing_date(2),&
+      date  = this%sowing_date(3) &
+      )
+   do i=1,365
+      datetime = datetime + to_datetime(0,0,1) ! append 1 day 
+      call earth%setTime(time=datetime)
+      t = earth%getSunTime()
+      daylength = t(2)-t(1)
+      if(daylength <= this%limit_daylength)then
+         ret = max(i-3,0)
+         return
+      endif
+   enddo
+
+end function
+! #########################################################
+
+
+! #########################################################
+subroutine loadGenotype_soybeanclass(this,file,name)
+   class(Soybean_),intent(inout) :: this
+   type(IO_) :: soyconf
+   character(*),intent(in) :: file, name
+   
+   print *, file
+   print *, name
+
+   !print *, soyconf%parse(filename=file, key1=name,key2="E1")
+   call this%setGenotype("E1",soyconf%parse(filename=file, key1=name,key2="E1"))
+   !print *, soyconf%parse(filename=file, key1=name,key2="E2")
+   call this%setGenotype("E2",soyconf%parse(filename=file, key1=name,key2="E2"))
+   !print *, soyconf%parse(filename=file, key1=name,key2="E3")
+   call this%setGenotype("E3",soyconf%parse(filename=file, key1=name,key2="E3"))
+   !print *, soyconf%parse(filename=file, key1=name,key2="E4")
+   call this%setGenotype("E4",soyconf%parse(filename=file, key1=name,key2="E4"))
+   !print *, soyconf%parse(filename=file, key1=name,key2="E9")
+   call this%setGenotype("E9",soyconf%parse(filename=file, key1=name,key2="E9"))
+   !print *, soyconf%parse(filename=file, key1=name,key2="GmFT5a")
+   call this%setGenotype("GmFT5a",soyconf%parse(filename=file, key1=name,key2="GmFT5a"))
+
+   ! 100-seed weight is not a allele name, but mostly regurated by
+   ! genetic factors, so included here.
+   this%seed_weight = freal(soyconf%parse(filename=file, key1=name,key2="seed_weight"))
+
+end subroutine
+! #########################################################
+
+! #########################################################
+subroutine showGenotype_soybeanclass(this)
+   class(Soybean_),intent(in) :: this
+
+   print *, "E1 : ", trim(this%E1_locus)
+   print *, "E2 : ", trim(this%E2_locus)
+   print *, "E3 : ", trim(this%E3_locus)
+   print *, "E4 : ", trim(this%E4_locus)
+   print *, "E9 : ", trim(this%E9_locus)
+   print *, "GmFT5a : ", trim(this%GmFT5a_locus)
+
+
+end subroutine
+! #########################################################
+!
+!
+!! #########################################################
+!function get_R2_Date_soybean(this) result(ret)
+!   class(Soybean_),intent(in) :: this
+!   real(real64) :: ret, R1_R2_duration
+!
+!   ret = this%get_R1_Date()
+!   ! 決定要因：
+!   
+!   ! 最短3日，最長10日?
+!   ! 短縮要因：低温，寡日照，花落ち等 
+!   ! 節数が多い程斉一になりにくい．
+!   ! （advanced）無限だと長い
+!   ! => 総節数の関数とする．
+!   ! => 10節以下は3日，10-30節は1節ごとに，30節以上は10日
+!   R1_R2_duration =  3.0d0 + (10.0d0-3.0d0)*(size(this%meristem(1)%stem)-10.0d0)/20.0d0
+!   R1_R2_duration = max(3.0d0,R1_R2_duration)
+!   R1_R2_duration = min(10.0d0,R1_R2_duration)
+!   ret = ret + R1_R2_duration
+!
+!end function
+!! #########################################################
+!
+!
+!! #########################################################
+!function get_R3_Date_soybean(this) result(ret)
+!   class(Soybean_),intent(in) :: this
+!   real(real64) :: ret, R2_R3_duration
+!
+!   ret = this%get_R2_Date()
+!   ! 決定要因：
+!   
+!   ! 最短3日，最長10日?
+!   ! 短縮要因：低温，寡日照，花落ち等 
+!   ! 節数が多い程斉一になりにくい．
+!   ! （advanced）無限だと長い
+!   ! => 総節数の関数とする．
+!   ! => 10節以下は3日，10-30節は1節ごとに，30節以上は10日
+!   R2_R3_duration =  3.0d0 + (10.0d0-3.0d0)*(size(this%meristem(1)%stem)-10.0d0)/20.0d0
+!   R2_R3_duration = max(3.0d0,R2_R3_duration)
+!   R2_R3_duration = min(10.0d0,R2_R3_duration)
+!   ret = ret + R2_R3_duration
+!   
+!end function
+!! #########################################################
+!
+!
+!! #########################################################
+!function get_R4_Date_soybean(this) result(ret)
+!   class(Soybean_),intent(in) :: this
+!   real(real64) :: ret, R3_R4_duration
+!   real(real64) :: min_day, max_day, min_seed_weight,max_seed_weight
+!
+!   ret = this%get_R3_Date()
+!   ! 決定要因：
+!   
+!   ! 最短7日，最長14日?
+!   ! 短縮要因：低温，寡日照，莢落ち等 
+!   ! 莢が大きいほど時間がかかる．
+!
+!   ! => 百粒重の関数とする．（本当は莢長の関数が良い）
+!   ! => 10 g 以下は7日，10-50 g は比例，50 g 以上は14日
+!   min_day = 7.0d0
+!   max_day = 14.0d0
+!   min_seed_weight = 10.0d0/100.0d0
+!   max_seed_weight = 50.0d0/100.0d0
+!   R3_R4_duration =  min_day + (max_day-min_day)&
+!      *(this%seed_weight-min_seed_weight)/(max_seed_weight-min_seed_weight)
+!   R3_R4_duration = max(min_day,R3_R4_duration)
+!   R3_R4_duration = min(max_day,R3_R4_duration)
+!   ret = ret + R3_R4_duration
+!   
+!end function
+!! #########################################################
+!
+!
+!! #########################################################
+!function get_R5_Date_soybean(this) result(ret)
+!   class(Soybean_),intent(in) :: this
+!   real(real64) :: ret, R4_R5_duration
+!   real(real64) :: min_day, max_day, min_seed_weight,max_seed_weight
+!
+!   ret = this%get_R4_Date()
+!   ! 決定要因：
+!   
+!   ! 最短7日，最長14日?
+!   ! 短縮要因：低温，寡日照，莢落ち等 
+!   ! 莢が大きいほど時間がかかる．
+!
+!   ! => 百粒重の関数とする．（本当は莢長の関数が良い）
+!   ! => 10 g 以下は7日，10-50 g は比例，50 g 以上は14日
+!   min_day = 7.0d0
+!   max_day = 14.0d0
+!   min_seed_weight = 10.0d0/100.0d0
+!   max_seed_weight = 50.0d0/100.0d0
+!   R4_R5_duration =  min_day + (max_day-min_day)&
+!      *(this%seed_weight-min_seed_weight)/(max_seed_weight-min_seed_weight)
+!   R4_R5_duration = max(min_day,R4_R5_duration)
+!   R4_R5_duration = min(max_day,R4_R5_duration)
+!   ret = ret + R4_R5_duration
+!   
+!end function
+!! #########################################################
+!
+!! #########################################################
+!function get_R6_Date_soybean(this) result(ret)
+!   class(Soybean_),intent(in) :: this
+!   real(real64) :: ret, R5_R6_duration
+!   real(real64) :: min_day, max_day, min_seed_weight,max_seed_weight
+!
+!   ret = this%get_R5_Date()
+!   ! 決定要因：
+!   
+!   ! 最短7日，最長14日?
+!   ! 短縮要因：低温，寡日照，莢落ち等 
+!   ! 莢が大きいほど時間がかかる．
+!
+!   ! => 百粒重の関数とする．（本当は莢長の関数が良い）
+!   ! => 10 g 以下は7日，10-50 g は比例，50 g 以上は14日
+!   min_day = 7.0d0
+!   max_day = 14.0d0
+!   min_seed_weight = 10.0d0/100.0d0
+!   max_seed_weight = 50.0d0/100.0d0
+!   R5_R6_duration =  min_day + (max_day-min_day)&
+!      *(this%seed_weight-min_seed_weight)/(max_seed_weight-min_seed_weight)
+!   R5_R6_duration = max(min_day,R5_R6_duration)
+!   R5_R6_duration = min(max_day,R5_R6_duration)
+!   ret = ret + R5_R6_duration
+!   
+!end function
+!! #########################################################
+!
+!
+!! #########################################################
+!function get_R7_Date_soybean(this) result(ret)
+!   class(Soybean_),intent(in) :: this
+!   real(real64) :: ret, R6_R7_duration
+!   real(real64) :: min_day, max_day, min_seed_weight,max_seed_weight
+!
+!   ret = this%get_R6_Date()
+!   ! 決定要因：
+!   
+!   ! 最短7日，最長14日?
+!   ! 短縮要因：低温，寡日照，莢落ち等 
+!   ! 莢が大きいほど時間がかかる．
+!
+!   ! => 百粒重の関数とする．（本当は莢長の関数が良い）
+!   ! => 10 g 以下は7日，10-50 g は比例，50 g 以上は14日
+!   min_day = 7.0d0
+!   max_day = 14.0d0
+!   min_seed_weight = 10.0d0/100.0d0
+!   max_seed_weight = 50.0d0/100.0d0
+!   R6_R7_duration =  min_day + (max_day-min_day)&
+!      *(this%seed_weight-min_seed_weight)/(max_seed_weight-min_seed_weight)
+!   R6_R7_duration = max(min_day,R6_R7_duration)
+!   R6_R7_duration = min(max_day,R6_R7_duration)
+!   ret = ret + R6_R7_duration
+!   
+!end function
+!! #########################################################
+!
+!
+!! #########################################################
+!function get_R8_Date_soybean(this) result(ret)
+!   class(Soybean_),intent(in) :: this
+!   real(real64) :: ret, R7_R8_duration
+!   real(real64) :: min_day, max_day, min_seed_weight,max_seed_weight
+!
+!
+!   ! R1-R8は，
+!   ! 最短：3+3+7+7+7+7 = 34 days
+!   ! 最長：10+10+14+14+14+14 = 76 days
+!
+!   ret = this%get_R7_Date()
+!   ! 決定要因：
+!   
+!   ! 最短7日，最長14日?
+!   ! 短縮要因：低温，寡日照，莢落ち等 
+!   ! 莢が大きいほど時間がかかる．
+!
+!   ! => 百粒重の関数とする．（本当は莢長の関数が良い）
+!   ! => 10 g 以下は7日，10-50 g は比例，50 g 以上は14日
+!   min_day = 7.0d0
+!   max_day = 14.0d0
+!   min_seed_weight = 10.0d0/100.0d0
+!   max_seed_weight = 50.0d0/100.0d0
+!   R7_R8_duration =  min_day + (max_day-min_day)&
+!      *(this%seed_weight-min_seed_weight)/(max_seed_weight-min_seed_weight)
+!   R7_R8_duration = max(min_day,R7_R8_duration)
+!   R7_R8_duration = min(max_day,R7_R8_duration)
+!   ret = ret + R7_R8_duration
+!   
+!end function
+!! #########################################################
+
+! #########################################################
+function get_growth_stage_soybean(this,day) result(ret)
+   class(Soybean_),intent(in) :: this
+   integer(int32),intent(in) :: day
+   !real(real64),intent(in) :: thermal_date
+   character(:),allocatable :: ret
+   real(real64) :: duration_day,&
+      R1_R2_duration, &
+      R2_R3_duration, &
+      R3_R4_duration, &
+      R4_R5_duration, &
+      R5_R6_duration, &
+      R6_R7_duration, &
+      R7_R8_duration
+   real(real64) :: min_day, max_day, min_seed_weight,max_seed_weight
+
+
+   ! R1-R8は，
+   ! 最短：3+3+7+7+7+7 = 34 days
+   ! 最長：10+10+14+14+14+14 = 76 days
+   
+   
+   duration_day = this%get_R1_Date()
+   if(day < duration_day)then
+      ret = "V" + str(this%meristem(1)%get_mainstem_num_node())
+      return
+   else
+      
+      ! R2
+      ! 決定要因：
+      ! 最短3日，最長10日?
+      ! 短縮要因：低温，寡日照，花落ち等 
+      ! 節数が多い程斉一になりにくい．
+      ! （advanced）無限だと長い
+      ! => 総節数の関数とする．
+      ! => 10節以下は3日，10-30節は1節ごとに，30節以上は10日
+      R1_R2_duration =  3.0d0 + (10.0d0-3.0d0)*(size(this%meristem(1)%stem)-10.0d0)/20.0d0
+      R1_R2_duration = max(3.0d0,R1_R2_duration)
+      R1_R2_duration = min(10.0d0,R1_R2_duration)
+      duration_day = duration_day + R1_R2_duration
+      if(day < duration_day)then
+         ret = "R1"
+         return
+      endif
+      
+      ! R3
+      ! 最短3日，最長10日?
+      ! 短縮要因：低温，寡日照，花落ち等 
+      ! 節数が多い程斉一になりにくい．
+      ! （advanced）無限だと長い
+      ! => 総節数の関数とする．
+      ! => 10節以下は3日，10-30節は1節ごとに，30節以上は10日
+      R2_R3_duration =  3.0d0 + (10.0d0-3.0d0)*(size(this%meristem(1)%stem)-10.0d0)/20.0d0
+      R2_R3_duration = max(3.0d0,R2_R3_duration)
+      R2_R3_duration = min(10.0d0,R2_R3_duration)
+      duration_day = duration_day + R2_R3_duration
+      if(day < duration_day)then
+         ret = "R2"
+         return
+      endif
+
+
+      ! R4
+      ! 決定要因：
+   
+      ! 最短7日，最長14日?
+      ! 短縮要因：低温，寡日照，莢落ち等 
+      ! 莢が大きいほど時間がかかる．
+
+      ! => 百粒重の関数とする．（本当は莢長の関数が良い）
+      ! => 10 g 以下は7日，10-50 g は比例，50 g 以上は14日
+      min_day = 7.0d0
+      max_day = 14.0d0
+      min_seed_weight = 10.0d0/100.0d0
+      max_seed_weight = 50.0d0/100.0d0
+      R3_R4_duration =  min_day + (max_day-min_day)&
+         *(this%seed_weight-min_seed_weight)/(max_seed_weight-min_seed_weight)
+      R3_R4_duration = max(min_day,R3_R4_duration)
+      R3_R4_duration = min(max_day,R3_R4_duration)
+      duration_day = duration_day + R3_R4_duration
+      if(day < duration_day)then
+         ret = "R3"
+         return
+      endif
+
+
+      ! R5
+      ! 決定要因：
+   
+      ! 最短7日，最長14日?
+      ! 短縮要因：低温，寡日照，莢落ち等 
+      ! 莢が大きいほど時間がかかる．
+
+      ! => 百粒重の関数とする．（本当は莢長の関数が良い）
+      ! => 10 g 以下は7日，10-50 g は比例，50 g 以上は14日
+      min_day = 7.0d0
+      max_day = 14.0d0
+      min_seed_weight = 10.0d0/100.0d0
+      max_seed_weight = 50.0d0/100.0d0
+      R4_R5_duration =  min_day + (max_day-min_day)&
+         *(this%seed_weight-min_seed_weight)/(max_seed_weight-min_seed_weight)
+      R4_R5_duration = max(min_day,R4_R5_duration)
+      R4_R5_duration = min(max_day,R4_R5_duration)
+      duration_day = duration_day + R4_R5_duration
+      if(day < duration_day)then
+         ret = "R4"
+         return
+      endif
+
+      ! R6
+      ! 決定要因：
+      ! 最短7日，最長14日?
+      ! 短縮要因：低温，寡日照，莢落ち等 
+      ! 莢が大きいほど時間がかかる．
+
+      ! => 百粒重の関数とする．（本当は莢長の関数が良い）
+      ! => 10 g 以下は7日，10-50 g は比例，50 g 以上は14日
+      min_day = 7.0d0
+      max_day = 14.0d0
+      min_seed_weight = 10.0d0/100.0d0
+      max_seed_weight = 50.0d0/100.0d0
+      R5_R6_duration =  min_day + (max_day-min_day)&
+         *(this%seed_weight-min_seed_weight)/(max_seed_weight-min_seed_weight)
+      R5_R6_duration = max(min_day,R5_R6_duration)
+      R5_R6_duration = min(max_day,R5_R6_duration)
+      duration_day = duration_day + R5_R6_duration
+      if(day < duration_day)then
+         ret = "R5"
+         return
+      endif
+   
+      ! R7
+      ! 決定要因：
+   
+      ! 最短7日，最長14日?
+      ! 短縮要因：低温，寡日照，莢落ち等 
+      ! 莢が大きいほど時間がかかる．
+
+      ! => 百粒重の関数とする．（本当は莢長の関数が良い）
+      ! => 10 g 以下は7日，10-50 g は比例，50 g 以上は14日
+      min_day = 7.0d0
+      max_day = 14.0d0
+      min_seed_weight = 10.0d0/100.0d0
+      max_seed_weight = 50.0d0/100.0d0
+      R6_R7_duration =  min_day + (max_day-min_day)&
+         *(this%seed_weight-min_seed_weight)/(max_seed_weight-min_seed_weight)
+      R6_R7_duration = max(min_day,R6_R7_duration)
+      R6_R7_duration = min(max_day,R6_R7_duration)
+      duration_day = duration_day + R6_R7_duration
+      if(day < duration_day)then
+         ret = "R6"
+         return
+      endif
+
+      ! R8
+      ! 決定要因：
+      
+      ! 最短7日，最長14日?
+      ! 短縮要因：低温，寡日照，莢落ち等 
+      ! 莢が大きいほど時間がかかる．
+
+      ! => 百粒重の関数とする．（本当は莢長の関数が良い）
+      ! => 10 g 以下は7日，10-50 g は比例，50 g 以上は14日
+      min_day = 7.0d0
+      max_day = 14.0d0
+      min_seed_weight = 10.0d0/100.0d0
+      max_seed_weight = 50.0d0/100.0d0
+      R7_R8_duration =  min_day + (max_day-min_day)&
+         *(this%seed_weight-min_seed_weight)/(max_seed_weight-min_seed_weight)
+      R7_R8_duration = max(min_day,R7_R8_duration)
+      R7_R8_duration = min(max_day,R7_R8_duration)
+      duration_day = duration_day + R7_R8_duration
+      if(day < duration_day)then
+         ret = "R7"
+      else
+         ret = "R8"
+      endif
+
+   endif
+
+   
+end function
+! #########################################################
+
+       function get_temperature_log(file,lat,lon,start_date,end_date,data_shape) result(ret)
+            character(*),intent(in) :: file
+            real(real32),intent(in) :: lat, lon
+            type(Datetime_),intent(in) :: start_date,end_date
+            integer(int32),intent(in) :: data_shape(1:2) ! [row, col]
+            real(real32),allocatable :: lat_dat(:), lon_dat(:), all_temp(:),temp(:)
+            real(real64),allocatable :: ret(:)
+            integer(int32) :: idx
+
+            lat_dat = read_real_vector_by_line(file,1,data_shape(1),data_shape(2))
+            lon_dat = read_real_vector_by_line(file,2,data_shape(1),data_shape(2))
+
+            ! [x]
+            idx = lat_lon_find_nearest_idx(lat, lon, lat_dat, lon_dat)
+
+            ! idx列目の数値のみを読む
+            all_temp = read_real_column_by_line(file,idx,data_shape(1),data_shape(2),skip=2)
+
+            ! 当該気温のみextractする．
+            temp = extract_temperature(all_temp, start_date, end_date)
+
+            ret = temp
+
+        end function
+! ########################################
+function extract_temperature(all_temp, start_date, end_date) result(temp)
+    use iso_fortran_env, only: int32, real32
+    use TimeClass
+    implicit none
+
+    real(real32), intent(in) :: all_temp(:)
+    type(datetime_), intent(in) :: start_date, end_date
+    real(real32), allocatable :: temp(:)
+
+    integer :: i_start, i_end
+
+    i_start = date_index(start_date)
+    i_end   = date_index(end_date)
+
+    if (i_start < 1 .or. i_end > size(all_temp) .or. i_start > i_end) then
+        allocate(temp(0))
+        return
+    end if
+
+    temp = all_temp(i_start:i_end)
+
+
+end function extract_temperature
+! ########################################
+
+    integer function date_index(dt)
+        use TimeClass
+        type(datetime_), intent(in) :: dt
+        integer :: y, m, d
+        integer :: days
+
+        y = dt%year
+        m = dt%month
+        d = dt%date
+
+        ! 1900年1月1日からの経過日数
+        days = 365 * (y - 1900) &
+             + (y - 1) / 4 - (1900 - 1) / 4 &
+             - ((y - 1) / 100 - (1900 - 1) / 100) &
+             + ((y - 1) / 400 - (1900 - 1) / 400)
+
+        select case (m)
+        case (2)
+            days = days + 31
+        case (3)
+            days = days + 59
+        case (4)
+            days = days + 90
+        case (5)
+            days = days + 120
+        case (6)
+            days = days + 151
+        case (7)
+            days = days + 181
+        case (8)
+            days = days + 212
+        case (9)
+            days = days + 243
+        case (10)
+            days = days + 273
+        case (11)
+            days = days + 304
+        case (12)
+            days = days + 334
+        end select
+
+        ! うるう年の2月29日以降は1日加算
+        if (m > 2) then
+            if (mod(y, 400) == 0 .or. &
+                (mod(y, 4) == 0 .and. mod(y, 100) /= 0)) then
+                days = days + 1
+            end if
+        end if
+
+        date_index = days + d
+    end function date_index
+
+    ! ########################################
+    function read_real_vector_by_line(filename, line_number,num_line,num_col) result(vec)
+    use iso_fortran_env, only: real64
+    implicit none
+
+    character(len=*), intent(in) :: filename
+    integer(int32), intent(in) :: line_number,num_line,num_col
+    real(real64), allocatable :: vec(:)
+
+    character(len=100000) :: line
+    integer :: unit, ios, i, n
+    integer :: p, first, last, line_len
+    real(real64) :: x
+    logical :: in_token
+    type(IO_) :: f
+    
+    call f%open(filename,"r")
+    vec = zeros(num_col)
+
+    do i=1,num_line
+        if(i<line_number)then
+            read(f%fh,*) x
+        elseif(i==line_number)then
+            read(f%fh,*) vec(1:num_col)
+            exit        
+        else
+            exit
+        endif
+    enddo
+    call f%close()
+
+end function read_real_vector_by_line
+    
+    ! ########################################
+
+    ! ###############################################################
+    integer function lat_lon_find_nearest_idx(lat, lon, lat_dat, lon_dat) result(idx)
+    use iso_fortran_env, only: real32
+    implicit none
+
+    real(real32), intent(in) :: lat, lon
+    real(real32), intent(in) :: lat_dat(:), lon_dat(:)
+
+    real(real32), parameter :: pi = acos(-1.0_real32)
+    real(real32), parameter :: R = 6371.0_real32 ! 地球半径 [km]
+
+    real(real32) :: dlat, dlon, a, dist
+    real(real32) :: min_dist
+    integer :: i
+
+    idx = 0
+    min_dist = huge(1.0_real32)
+
+    do i = 1, size(lat_dat)
+
+        dlat = (lat_dat(i) - lat) * pi / 180.0_real32
+        dlon = (lon_dat(i) - lon) * pi / 180.0_real32
+
+        a = sin(dlat/2.0_real32)**2 &
+          + cos(lat*pi/180.0_real32) &
+          * cos(lat_dat(i)*pi/180.0_real32) &
+          * sin(dlon/2.0_real32)**2
+
+        a = min(1.0_real32, max(0.0_real32, a))
+
+        dist = 2.0_real32 * R * asin(sqrt(a))
+
+        if (dist < min_dist) then
+            min_dist = dist
+            idx = i
+        end if
+
+    end do
+
+end function lat_lon_find_nearest_idx
+! ###############################################################
+
+
+! ###############################################################
+function read_real_column_by_line(filename, idx, num_line,num_col, skip) result(vec)
+    use iso_fortran_env, only: real32
+    implicit none
+
+    character(len=*), intent(in) :: filename
+    integer(int32), intent(in) :: idx, num_line,num_col
+    integer(int32), intent(in), optional :: skip
+    integer(int32) :: i,n
+    real(real32), allocatable :: vec(:)
+    real(real32), allocatable :: row(:)
+    character(len=100000) :: line
+    type(IO_) :: f
+    
+    vec = zeros(num_line-skip)
+    row = zeros(idx)
+    n = 0
+    call f%open(filename,"r")
+    do i=1,num_line
+        if(i<=skip)then
+            read(f%fh,*) row(1:1)
+            cycle
+        else
+            n = n + 1
+            read(f%fh,*) row(:)
+            vec(n)=row(size(row))
+        endif
+    enddo
+    call f%close()
+
+
+
+end function read_real_column_by_line
+! ###############################################################
+
+! ###############################################################
+function get_thermal_time_SoybeanClass(this,temp) result(ret)
+   class(Soybean_),intent(in) :: this
+   real(real64),intent(in) :: temp
+   real(real64) :: ret
+
+   ! A built-in function in src/MeristemClass/MeristemClass.f90
+   ret = default_temp_response_function(&
+      temp_range=this%meristem(1)%temp_range,&
+      temp=temp)
+   
+
+end function
+! ###############################################################
+
 end module

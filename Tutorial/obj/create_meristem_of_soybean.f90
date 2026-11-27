@@ -35,6 +35,7 @@ program main
         print *, "day", i_i
         call ms%grow(params=params,dt=dt,no_division=.false.)
         call ms%vtk("meristem"+zfill(i_i,5),single_file=.true.)
+
         write(f%fh,*) i_i, ms%getHeight(), ms%getVolume(),ms%getBiomass()
         if(i_i==5)then
             call ms%set_branch(stem_idx=1,leafset_idx=1,params=params,dt=dt)
@@ -42,7 +43,9 @@ program main
         if(i_i==15)then
             call ms%set_branch(stem_idx=2,leafset_idx=1,params=params,dt=dt)
         endif
+        
         print *, "NE, NN: ", ms%ne(), ms%nn()
+        
         call f%flush()
         call ms%update()
     enddo

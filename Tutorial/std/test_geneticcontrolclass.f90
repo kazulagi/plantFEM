@@ -1,4 +1,3 @@
-
 program main
     use GeneticControlClass
     use IOClass

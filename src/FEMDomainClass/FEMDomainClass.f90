@@ -55,7 +55,7 @@ module FEMDomainClass
    type::Boundaryp_
       type(Boundary_), pointer :: Boundaryp => null()
    end type
-   
+
    type :: OversetConnect_
       logical :: active = .false.
       real(real64), allocatable :: position(:)
@@ -215,6 +215,9 @@ module FEMDomainClass
       procedure, public :: gnuplotExportStress => GnuplotExportStress
       procedure, public :: getDBCVector => getDBCVectorFEMDomain
       procedure, public :: getVolume => getVolumeFEMDomain
+      procedure, public :: getArea => getAreaFEMDomain
+      procedure, public :: getFacetElemArea => getFacetElemAreaFEMDomain
+
 
       procedure, public :: getJacobiMatrix => getJacobiMatrixFEMDomain
       procedure, pass :: getLayer_scalarFEMDomain
@@ -236,6 +239,7 @@ module FEMDomainClass
 
       procedure, public :: getSurface => getSurfaceFEMDomain
       procedure, public :: getSurfaceElements => getSurfaceElementsFEMDomain
+      procedure, public :: getSTLConnectivityList => getSTLConnectivityList_FEMDomain
       procedure, public :: getVertices => getVerticesFEMDomain
       procedure, public ::        NodeID => NodeIDFEMDomain
       procedure, public ::        getElementID => getElementIDFEMDomain
@@ -562,12 +566,17 @@ module FEMDomainClass
 
 
 
+
+
    public :: operator(+)
 
    interface operator(+)
       module procedure appendfemdomain
    end interface
 
+   interface operator(//)
+      module procedure appendfemdomain_vector,appendfemdomainp_vector
+   end interface
 
    interface ZeroMatrix_as_CRS
       module procedure ZeroMatrix_as_CRS_FEMDomains
@@ -6755,13 +6764,30 @@ contains
    end subroutine
 ! ################################################
 ! too slow
-   subroutine ExportFEMDomainAsSTL(this, FileHandle, MeshDimension, FileName)
+   subroutine ExportFEMDomainAsSTL(this,&
+       FileHandle, MeshDimension, FileName,&
+       stl_node_idx)
       class(FEMDomain_), intent(inout)::this
       integer(int32), optional, intent(in)::FileHandle, MeshDimension
       character(*), optional, intent(in)::FileName
+      integer(int32), optional, allocatable,intent(inout) :: stl_node_idx(:,:)
+
       real(real64) :: x1(3), x2(3), x3(3)
       character*11  :: filename0
-      integer(int32) :: fh, i, dim_num
+      integer(int32) :: fh, i, dim_num,stl_idx
+
+      stl_idx = 0
+
+      call this%Mesh%getSurface()
+      if(present(stl_node_idx))then
+         if(size(this%Mesh%FacetElemNod, 2) == 4)then
+            stl_node_idx = int(zeros(size(this%Mesh%FacetElemNod,1)*2,3))
+         else
+            stl_node_idx = int(zeros(size(this%Mesh%FacetElemNod,1)  ,3))
+         endif
+      endif
+
+      
 
       if (present(FileName)) then
 
@@ -6792,7 +6818,13 @@ contains
             if (size(this%Mesh%FacetElemNod, 2) == 4) then
                ! rectangular
                ! describe two triangular
-
+               if(present(stl_node_idx))then
+                  stl_idx = stl_idx + 1
+                  !print *, stl_idx,size(stl_node_idx,1),size(stl_node_idx,2)
+                  stl_node_idx(stl_idx,1:3) = this%Mesh%FacetElemNod(i, 1:3)
+                  
+               endif
+               
                x1(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 1), :)
                x2(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 2), :)
                x3(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 3), :)
@@ -6803,6 +6835,11 @@ contains
                write (fh, *) "vertex ", real(x3(1)), real(x3(2)), real(x3(3))
                write (fh, '(A)') "endloop"
                write (fh, '(A)') "endfacet"
+               if(present(stl_node_idx))then
+                  stl_idx = stl_idx + 1
+                  !print *, stl_idx,size(stl_node_idx,1),size(stl_node_idx,2)
+                  stl_node_idx(stl_idx,1:3) = this%Mesh%FacetElemNod(i, [1,3,4])
+               endif
                x1(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 1), :)
                x2(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 3), :)
                x3(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 4), :)
@@ -6816,6 +6853,10 @@ contains
             elseif (size(this%Mesh%FacetElemNod, 2) == 3) then
                ! rectangular
                ! describe two triangular
+               if(present(stl_node_idx))then
+                  stl_idx = stl_idx + 1
+                  stl_node_idx(stl_idx,1:3) = this%Mesh%FacetElemNod(i, 1:3)
+               endif
                x1(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 1), :)
                x2(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 2), :)
                x3(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 3), :)
@@ -6859,7 +6900,10 @@ contains
             if (size(this%Mesh%FacetElemNod, 2) == 4) then
                ! rectangular
                ! describe two triangular
-
+               if(present(stl_node_idx))then
+                  stl_idx = stl_idx + 1
+                  stl_node_idx(stl_idx,1:3) = this%Mesh%FacetElemNod(i, 1:3)
+               endif
                x1(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 1), :)
                x2(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 2), :)
                x3(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 3), :)
@@ -6870,6 +6914,10 @@ contains
                write (fh, *) "vertex ", real(x3(1)), real(x3(2)), real(x3(3))
                write (fh, '(A)') "endloop"
                write (fh, '(A)') "endfacet"
+               if(present(stl_node_idx))then
+                  stl_idx = stl_idx + 1
+                  stl_node_idx(stl_idx,1:3) = this%Mesh%FacetElemNod(i, [1,3,4])
+               endif
                x1(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 1), :)
                x2(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 3), :)
                x3(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 4), :)
@@ -6883,6 +6931,10 @@ contains
             elseif (size(this%Mesh%FacetElemNod, 2) == 3) then
                ! rectangular
                ! describe two triangular
+               if(present(stl_node_idx))then
+                  stl_idx = stl_idx + 1
+                  stl_node_idx(stl_idx,1:3) = this%Mesh%FacetElemNod(i, 1:3)
+               endif
                x1(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 1), :)
                x2(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 2), :)
                x3(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 3), :)
@@ -6936,6 +6988,10 @@ contains
          if (size(this%Mesh%FacetElemNod, 2) == 4) then
             ! rectangular
             ! describe two triangular
+            if(present(stl_node_idx))then
+               stl_idx = stl_idx + 1
+               stl_node_idx(stl_idx,1:3) = this%Mesh%FacetElemNod(i, 1:3)
+            endif
             x1(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 1), :)
             x2(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 2), :)
             x3(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 3), :)
@@ -6946,6 +7002,10 @@ contains
             write (fh, *) "vertex ", real(x3(1)), real(x3(2)), real(x3(3))
             write (fh, '(A)') "endloop"
             write (fh, '(A)') "endfacet"
+            if(present(stl_node_idx))then
+               stl_idx = stl_idx + 1
+               stl_node_idx(stl_idx,1:3) = this%Mesh%FacetElemNod(i, [1,3,4])
+            endif
             x1(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 1), :)
             x2(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 3), :)
             x3(:) = this%Mesh%NodCoord(this%Mesh%FacetElemNod(i, 4), :)
@@ -6972,6 +7032,70 @@ contains
    end subroutine
 
 !#######################################
+
+! ################################################
+! too slow
+   function getSTLConnectivityList_FEMDomain(this) result(stl_node_idx)
+      class(FEMDomain_), intent(inout)::this
+      integer(int32), allocatable :: stl_node_idx(:,:)
+
+      !integer(int32), optional, intent(in)::FileHandle, MeshDimension
+      !character(*), optional, intent(in)::FileName
+
+      real(real64) :: x1(3), x2(3), x3(3)
+      character*11  :: filename0
+      integer(int32) :: fh, i, dim_num,stl_idx
+
+      stl_idx = 0
+
+      call this%Mesh%GetSurface(sorting=.false.)
+      
+      if(size(this%Mesh%FacetElemNod, 2) == 4)then
+         stl_node_idx = int(zeros(size(this%Mesh%FacetElemNod,1)*2,3))
+      else
+         stl_node_idx = int(zeros(size(this%Mesh%FacetElemNod,1)  ,3))
+      endif
+      
+      dim_num = this%nd()
+      
+      if (dim_num /= 3) then
+         print *, "Sorry, Export stl is supported only for 3-D mesh"
+         close (fh)
+         return
+      end if
+      
+      do i = 1, size(this%Mesh%FacetElemNod, 1)
+         if (size(this%Mesh%FacetElemNod, 2) == 4) then
+            ! rectangular
+            ! describe two triangular
+            stl_idx = stl_idx + 1
+            !print *, stl_idx,size(stl_node_idx,1),size(stl_node_idx,2)
+            stl_node_idx(stl_idx,1:3) = this%Mesh%FacetElemNod(i, 1:3)
+               
+            stl_idx = stl_idx + 1
+            !print *, stl_idx,size(stl_node_idx,1),size(stl_node_idx,2)
+            stl_node_idx(stl_idx,1:3) = this%Mesh%FacetElemNod(i, [1,3,4])
+            
+         elseif (size(this%Mesh%FacetElemNod, 2) == 3) then
+            ! rectangular
+            ! describe two triangular
+            stl_idx = stl_idx + 1
+            stl_node_idx(stl_idx,1:3) = this%Mesh%FacetElemNod(i, 1:3)
+            
+         else
+            ! other
+            print *, "Sorry, Export stl is supported only for rectangular mesh"
+            return
+            
+         end if
+      end do
+         
+
+ 
+   end function
+
+!#######################################
+
    subroutine meshingFEMDomain(this)
       class(FEMDomain_), intent(inout)::this
 
@@ -8154,6 +8278,10 @@ contains
 
       if (present(elem)) then
          sf%ElemType = this%Mesh%GetElemType()
+         if(len(trim(sf%ElemType))==0)then
+            print *, "[ERROR] >> getVolumeFEMDomain >> len(trim(sf%ElemType))==0"
+            stop
+         endif
          call SetShapeFuncType(sf)
          i = elem
          ret = 0.0d0
@@ -8172,6 +8300,8 @@ contains
    end function
 ! ##################################################
 
+
+   
 ! ##################################################
    function getJacobiMatrixFEMDomain(this, elem) result(ret)
       class(FEMDomain_), intent(inout) :: this
@@ -8634,11 +8764,12 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
    end subroutine
 ! ##################################################
 
-   subroutine stlFEMDomain(this, name, NodeList)
+   subroutine stlFEMDomain(this, name, NodeList,stl_node_idx)
       class(FEMDomain_), intent(inout) :: this
       type(IO_) :: f
       type(FEMDomain_) :: mini_obj
       integer(int32), optional, intent(in) :: NodeList(:)
+      integer(int32), optional, allocatable,intent(inout) :: stl_node_idx(:,:)
       character(*), intent(in) :: name
       integer(int32) :: i, j, n
 
@@ -8657,7 +8788,8 @@ recursive subroutine vtkFEMDomain(this, name, scalar, vector, tensor, field, Ele
       end if
 
       !call f%open(name//".stl")
-      call ExportFEMDomainAsSTL(this, MeshDimension=size(this%mesh%Nodcoord, 2), FileName=name)
+      call ExportFEMDomainAsSTL(this, MeshDimension=size(this%mesh%Nodcoord, 2), FileName=name,&
+         stl_node_idx=stl_node_idx)
       !call f%close()
    end subroutine
 ! ##################################################
@@ -18105,5 +18237,99 @@ function bottom_FEMDomain(this,axis) result(ret)
 
 end function
 ! ################################################################
+
+function appendfemdomain_vector(femdomain_vector_1,femdomain_vector_2) result(ret)
+   type(femdomain_),intent(in) :: femdomain_vector_1(:),femdomain_vector_2(:)
+   type(femdomain_),allocatable :: ret(:)
+   integer(int32) :: i,itr
+
+   allocate(ret(size(femdomain_vector_1)+size(femdomain_vector_2)))
+   itr = 0
+   do i=1,size(femdomain_vector_1)
+      itr = itr + 1
+      ret(itr) = femdomain_vector_1(i)
+   enddo
+   do i=1,size(femdomain_vector_2)
+      itr = itr + 1
+      ret(itr) = femdomain_vector_2(i)
+   enddo
+
+end function
+! ################################################################
+
+
+! ################################################################
+function appendfemdomainp_vector(femdomainp_vector_1,femdomainp_vector_2) result(ret)
+   type(femdomainp_),intent(in) :: femdomainp_vector_1(:),femdomainp_vector_2(:)
+   type(femdomainp_),allocatable :: ret(:)
+   integer(int32) :: i,itr
+
+   allocate(ret(size(femdomainp_vector_1)+size(femdomainp_vector_2)))
+   itr = 0
+   do i=1,size(femdomainp_vector_1)
+      itr = itr + 1
+      ret(itr) = femdomainp_vector_1(i)
+   enddo
+   do i=1,size(femdomainp_vector_2)
+      itr = itr + 1
+      ret(itr) = femdomainp_vector_2(i)
+   enddo
+
+end function
+! ################################################################
+
+! ################################################################
+function getFacetElemAreaFEMDomain(this,FacetElemIdx) result(FacetElemArea)
+   class(FEMDomain_),intent(inout) :: this   
+   integer(int32),intent(in) :: FacetElemIdx
+   real(real64) :: FacetElemArea,a(1:3),b(1:3),c(1:3),d(1:3),area
+   integer(int32) :: i
+
+   ! if surface elements are not created, create them.
+   if(.not.allocated(this%mesh%FacetElemNod))then
+      call this%getSurface()
+   endif
+   
+   FacetElemArea = 0.0d0
+   do i = 1, size(this%mesh%FacetElemNod,2)-2
+      a(3)=0.0d0
+      b(3)=0.0d0
+      c(3)=0.0d0
+      a = this%mesh%nodcoord(this%mesh%FacetElemNod(FacetElemIdx,1),:)
+      b = this%mesh%nodcoord(this%mesh%FacetElemNod(FacetElemIdx,i+1),:)
+      c = this%mesh%nodcoord(this%mesh%FacetElemNod(FacetElemIdx,i+2),:)
+
+      d = cross_product(b-a, c-a)
+      area = 0.50d0*sqrt(  dot_product(d,d)  )
+      !area = (a(1)*a(1) + a(2)*a(2) + a(3)*a(3))*(b(1)*b(1) + b(2)*b(2) + b(3)*b(3))
+      !area = area - (a(1)*b(1) + a(2)*b(2) + a(3)*b(3))*(a(1)*b(1) + a(2)*b(2) + a(3)*b(3))
+      !area = 0.50d0*abs(area)
+      !area = sqrt(area)
+      FacetElemArea = FacetElemArea + area
+   enddo
+end function
+! ################################################################
+
+! ################################################################
+function getAreaFEMDomain(this) result(area)
+   class(FEMDomain_),intent(inout) :: this
+   real(real64) :: area
+   integer(int32) :: i
+
+   if(.not.allocated(this%mesh%FacetElemNod))then
+      call this%getSurface()
+   endif
+
+   area = 0.0d0
+   !$OMP parallel do reduction(+:area)
+   do i=1,size(this%mesh%FacetElemNod,1)
+      area = area + this%getFacetElemArea(FacetElemIdx=i)
+   enddo
+   !$OMP end parallel do
+
+end function
+! ################################################################
+
+
 
 end module FEMDomainClass
