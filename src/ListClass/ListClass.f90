@@ -220,7 +220,7 @@ contains
 ! #####################################################
 
 ! #####################################################
-   function str_listclass(this) result(ret)
+recursive function str_listclass(this) result(ret)
       class(List_), intent(in) :: this
       character(1) :: comma
       character(:),allocatable :: ret

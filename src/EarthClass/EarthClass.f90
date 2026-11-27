@@ -32,13 +32,18 @@ module EarthClass
 
    contains
       procedure, public :: init => initEarth
-      procedure, public :: setTime => setTimeEarthClass
+   
+      procedure, pass :: setTimeEarthClass
+      procedure, pass :: setTime_timetype_EarthClass
+      generic, public :: setTime => setTimeEarthClass,setTime_timetype_EarthClass
+
       procedure, public :: setPosition => setPositionEarthClass
       procedure, public :: setTimeZone => setTimeZoneEarthClass
       procedure, public :: getSunTime => getSunTimeEarthClass
       procedure, public :: getSunPosition => getSunPositionEarthClass
       procedure, public :: getTimeZone => getTimeZoneEarthClass
       procedure, public :: getTimeZoneOffset => getTimeZoneOffsetEarthClass
+      procedure, public :: getDayLength => getDayLengthEarthClass
    end type
 contains
    subroutine initTimeZoneList(this)
@@ -283,7 +288,7 @@ contains
    function getSunTimeEarthClass(this, Now) result(times)
       !http://k-ichikawa.blog.enjoy.jp/etc/HP/js/sunShineAngle/ssa.html
       class(Earth_), intent(inout) :: this
-      integer(int32), intent(in) :: Now(6) ! Year, Month, Day, Hour, Minute, Second
+      integer(int32),optional, intent(in) :: Now(6) ! Year, Month, Day, Hour, Minute, Second
       real(real64) :: times(2)
       type(Math_)  :: math
       real(real64) :: delta
@@ -292,12 +297,14 @@ contains
       real(real64) :: t, TT, h, A, TT1, TT2, t1, t2, sinA, cosA, Ts, buf
       integer(int32) :: total_days
 
-      this%Year = Now(1)
-      this%Month = Now(2)
-      this%Day = Now(3)
-      this%Hour = Now(4)
-      this%Minute = Now(5)
-      this%Second = Now(6)
+      if(present(now))then
+         this%Year = Now(1)
+         this%Month = Now(2)
+         this%Day = Now(3)
+         this%Hour = Now(4)
+         this%Minute = Now(5)
+         this%Second = Now(6)
+      endif
 
       total_days = sum(this%Day_Per_Month(1:this%Month - 1)) + this%Day - 1
       omega = 2.0d0*math%pi/365.0d0
@@ -739,4 +746,36 @@ contains
 
    end function to_MomentTensor
 
+
+
+   ! ################################################################
+   function getDayLengthEarthClass(this) result(daylength_sec)
+      class(Earth_),intent(inout) :: this
+      type(Earth_) :: current_time
+      real(real64) :: daylength_sec,times(1:2)
+      integer(int32) :: i
+
+      times = this%getSunTime()
+      daylength_sec = times(2)-times(1)
+
+   end function
+   ! ################################################################
+
+
+   ! ###############################################################
+   subroutine setTime_timetype_EarthClass(this, time)
+      class(Earth_), intent(inout) :: this
+      type(datetime_),intent(in) :: time
+
+      this%year    = time%year
+      this%month   = time%month
+      this%day   = time%date
+      this%hour    = time%hour
+      this%minute = time%minutes
+      this%second  = int(time%seconds)
+
+   end subroutine
+   ! ###############################################################
+
 end module
+

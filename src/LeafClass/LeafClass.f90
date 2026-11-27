@@ -56,30 +56,31 @@ module LeafClass
       integer(int32)  :: znum = 10
 
       ! phisiological parameters
-
       real(real64) :: V_cmax = 100.0d0 ! 最大カルボキシル化反応速度, mincro-mol/m-2/s
-      real(real64) :: V_omax = 100.0d0 ! 最大酸素化反応速度, mincro-mol/m-2/s, lambdaから推定
+      real(real64) :: J_max = 180.0d0 !最大電子伝達速度,mincro-mol/m-2/s
+      real(real64) :: R_d = 1.0d0 ! 暗呼吸速度, mincro-mol/m-2/s
+      
+      real(real64) :: K_c = 272.380d0  ! CO2に対するミカエリス定数(for unit:ppm)
+      real(real64) :: K_o = 165820.0d0 ! O2に対するミカエリス定数(for unit:ppm)
+      real(real64) :: Lambda = 37.430d0 ! 暗呼吸速度を無視した時のCO2補償点ppm
+      
+
+      ! internally computed from other parameters
+      real(real64) :: I_ = 0.0d0 ! 光強度　
+      real(real64) :: J_ = 0.0d0 ! 電子伝達速度 
+      real(real64) :: V_omax = 0.0d0 ! 最大酸素化反応速度, mincro-mol/m-2/s, lambdaから推定
+
+      ! usually imported from other data source
       real(real64) :: CO2 = 380.0d0! 二酸化炭素濃度, ppm
       real(real64) :: O2 = 202000.0d0! 酸素濃度, ppm
-      real(real64) :: R_d = 1.0d0 ! 暗呼吸速度, mincro-mol/m-2/s
-
-!        real(real64) :: K_c=272.380d0 ! CO2に対するミカエリス定数
-!        real(real64) :: K_o=165820.0d0 ! O2に対するミカエリス定数
-
-      real(real64) :: K_c = 272.380d0  ! CO2に対するミカエリス定数
-      real(real64) :: K_o = 165820.0d0 ! O2に対するミカエリス定数
-
-      real(real64) :: J_ = 0.0d0 ! 電子伝達速度
-      real(real64) :: I_ = 0.0d0 ! 光強度
-
+      
+      ! unused parameters
       real(real64) :: phi = 0.0d0 ! I-J曲線の初期勾配
-      real(real64) :: J_max = 180.0d0 !最大電子伝達速度,mincro-mol/m-2/s
       real(real64) :: theta_r = 0.0d0 ! 曲線の凸度
 
+      ! > variables
       real(real64) :: maxPPFD = 1000.0d0 ! micro-mol/m^2/s
-
-      real(real64) :: Lambda = 37.430d0 ! 暗呼吸速度を無視した時のCO2補償点ppm
-      real(real64) :: temp = 303.0d0 ! temp
+      real(real64) :: temp = 303.0d0 ! temp (K)
 
       ! physical parameter
       real(real64), allocatable :: DryDensity(:)  ! element-wise
@@ -110,6 +111,11 @@ module LeafClass
       !Sink-source flow parameter
       real(real64) :: default_CarbonDiffusionCoefficient = 0.0010d0 ! ソースの拡散係数 mincro-mol/m^2/m/s
 
+      ! default values for aging of leaves in terms of photosynthesis
+      ! 0 ~ 10 days  : 100 %
+      ! 10 ~ 40 days : 100 % -> 0 %
+      ! 30 days~ (lighting hour: 8hr/day): 0 %
+      real(real64) :: aging_params(1:2) = [30.0d0, 50.0d0]*60.0d0*60.0d0*24.0d0
    contains
       procedure, pass :: initLeaf
       generic :: init => initleaf
@@ -133,6 +139,8 @@ module LeafClass
       procedure, public :: rescale => rescaleleaf
       procedure, public :: adjust => adjustLeaf
       procedure, public :: resize => resizeleaf
+      procedure, public :: getSize => getSizeleaf
+      procedure, public :: getVolumePerElement => getVolumePerElement_LeafClass
 
       ! check condition
       ! is it empty?
@@ -142,6 +150,7 @@ module LeafClass
       procedure, public :: getBiomass => getBiomassLeaf
       procedure, public :: getCoordinate => getCoordinateleaf
       procedure, public :: getLeafArea => getLeafAreaLeaf
+      procedure, public :: getThickness => getThickness_leaf
       procedure, public :: getRadius => getRadiusLeaf
       procedure, public :: getCenter => getCenterLeaf
       procedure, public :: getNormalVector => getNormalVectorLeaf
@@ -202,6 +211,10 @@ module LeafClass
       real(real64) :: rot_x = 0.0d0
       real(real64) :: rot_y = 0.0d0
       real(real64) :: rot_z = 0.0d0
+
+      integer(int32) :: peti_x_num = 5
+      integer(int32) :: peti_y_num = 5
+      integer(int32) :: peti_z_num = 10
    contains
       procedure,public :: init => initLeafSet_LeafClass
       procedure,public :: rotate => rotateLeafSet_LeafClass
@@ -359,8 +372,7 @@ contains
          call obj%femdomain%resize(y=y_len)
       end if
 
-      obj%thickness = maxval(obj%femdomain%mesh%nodcoord(:, 3)) &
-                      - minval(obj%femdomain%mesh%nodcoord(:, 3))
+      obj%thickness = obj%getThickness()
 !    ! export data
 !    call f%open("theta_r_relation.txt","w")
 !    do i=1,size(r_data)
@@ -405,7 +417,7 @@ contains
       !obj%drydensity =  0.0
       !obj%watercontent =  0.0
       obj%xnum = 10
-      obj%ynum = 10
+      obj%ynum = 2
       obj%znum = 20
 
 !        ! 節を生成するためのスクリプトを開く
@@ -666,7 +678,7 @@ contains
       
       if (present(species)) then
          if (species == PF_SOYBEAN_CV) then
-            call obj%FEMdomain%create(meshtype="Sphere3D", x_num=obj%xnum, y_num=obj%ynum, z_num=obj%xnum, &
+            call obj%FEMdomain%create(meshtype="Sphere3D", x_num=obj%xnum, y_num=obj%ynum, z_num=obj%znum, &
                                       x_len=input(default=0.050d0,option=length), &
                                       y_len=input(default=0.050d0,option=thickness), &
                                       z_len=input(default=0.050d0,option=width))
@@ -744,8 +756,14 @@ contains
                              x_len=obj%minwidth/2.0d0, y_len=obj%minthickness/2.0d0, z_len=obj%minlength, shaperatio=obj%shaperatio)
       end if
 
-      obj%thickness = maxval(obj%femdomain%mesh%nodcoord(:, 2)) &
-                      - minval(obj%femdomain%mesh%nodcoord(:, 2))
+
+
+      ! wrong
+      obj%thickness = obj%getThickness()
+
+
+
+
 
       buf = obj%FEMDomain%mesh%getNodeList( &
             xmin=maxval(obj%FEMdomain%mesh%nodcoord(:, 1)) &
@@ -974,7 +992,7 @@ contains
             ret(:) = ret(:) + obj%femdomain%mesh%nodcoord(obj%I_planeNodeID(i), :)
          end do
          ret(:) = 1.0d0/dble(n)*ret(:)
-
+         return
          !ret = obj%femdomain%mesh%nodcoord(obj%A_PointNodeID,:)
       end if
       if (nodetype == "B" .or. nodetype == "b") then
@@ -984,7 +1002,20 @@ contains
             ret(:) = ret(:) + obj%femdomain%mesh%nodcoord(obj%II_planeNodeID(i), :)
          end do
          ret(:) = 1.0d0/dble(n)*ret(:)
+         return
       end if
+
+      if (nodetype == "C" .or. nodetype == "c") then
+         !ret = obj%femdomain%mesh%nodcoord(obj%B_PointNodeID,:)
+         ret(:) = obj%femdomain%mesh%nodcoord(obj%C_PointNodeID, :)
+         return
+      end if
+
+      if (nodetype == "D" .or. nodetype == "d") then   
+         ret(:) = obj%femdomain%mesh%nodcoord(obj%D_PointNodeID, :)
+         return
+      end if
+
 
    end function
 ! ########################################
@@ -1123,6 +1154,32 @@ contains
    end subroutine
 ! ########################################
 
+
+! ########################################
+   function getSizeleaf(obj) result(xyz)
+      class(Leaf_), optional, intent(inout) :: obj
+      real(real64) :: xyz(1:3)
+      real(real64), allocatable :: origin1(:), origin2(:), disp(:), total_rot(:)
+
+
+      total_rot = zeros(3)
+      total_rot(1) = obj%rot_x
+      total_rot(2) = obj%rot_y
+      total_rot(3) = obj%rot_z
+      call obj%rotate(z=-total_rot(3))
+      call obj%rotate(y=-total_rot(2))
+      call obj%rotate(x=-total_rot(1))
+
+      xyz(1) = obj%femdomain%x_len()
+      xyz(2) = obj%femdomain%y_len()
+      xyz(3) = obj%femdomain%z_len()
+
+      call obj%rotate(x=total_rot(1))
+      call obj%rotate(y=total_rot(2))
+      call obj%rotate(z=total_rot(3))
+   end function
+! ########################################
+
 ! ########################################
    function getLengthLeaf(obj) result(Length)
       class(Leaf_), optional, intent(inout) :: obj
@@ -1252,61 +1309,66 @@ contains
       obj%CO2 = air%CO2
       obj%O2 = air%O2
 
-      ! TT-model
-      do i = 1, size(obj%source)
-         ! 要素ごとに電子伝達速度を求める
-         element_id = i
-         pfd = obj%ppfd(element_id)
+      print *, "[ERROR] :: photosynthesisLeaf >> use getPhotosynthesisSpeedPerVolumeLeaf, instead."
+      stop
 
-         ! I-J関係
-         obj%J_ = 0.240d0*pfd/(sqrt(1.0d0 + (0.240d0*0.240d0)*pfd*pfd)/obj%J_max/obj%J_max)
+!!!      ! TT-model
+!!!      do i = 1, size(obj%source)
+!!!         ! 要素ごとに電子伝達速度を求める
+!!!         element_id = i
+!!!         pfd = obj%ppfd(element_id)
+!!!
+!!!         ! I-J関係
+!!!         obj%J_ = 0.240d0*pfd/(sqrt(1.0d0 + (0.240d0*0.240d0)*pfd*pfd)/obj%J_max/obj%J_max)
+!!!
+!!!         ! lambdaからV_omaxを推定
+!!!         obj%V_omax = obj%Lambda*(2.0d0*obj%V_cmax*obj%K_o)/(obj%K_c*O2)
+!!!
+!!!         ! CO2固定速度の計算
+!!!         V_c = (obj%V_cmax*obj%CO2)/(obj%CO2 + obj%K_o*(1.0d0 + obj%O2/obj%K_o))
+!!!         V_o = (obj%V_omax*obj%O2)/(obj%O2 + obj%K_o*(1.0d0 + obj%CO2/obj%K_c))
+!!!
+!!!         ! RuBPが飽和している場合のCO2吸収速度
+!!!         Ca = obj%CO2
+!!!         W_c = (obj%V_cmax*(Ca - obj%Lambda))/(Ca + obj%K_c*(1.0d0 + obj%O2/obj%K_o))
+!!!
+!!!         ! RuBP供給が律速している場合のCO2吸収速度
+!!!         W_j = obj%J_*(Ca - obj%Lambda)/(4.0d0*Ca + 8.0d0*obj%Lambda) - obj%R_d
+!!!
+!!!         if (W_j >= W_c) then
+!!!            A = W_c
+!!!         else
+!!!            A = W_j
+!!!         end if
+!!!
+!!!         !A = gs(Ca - Ci)
+!!!         !A = gs*Ca - gs*Ci
+!!!         !A = gs*Ca - gs*Ci
+!!!         !gs_max = 0.6
+!!!
+!!!         ! 要素体積を求める, m^3
+!!!         obj%A(element_id) = A
+!!!         volume = obj%femdomain%getVolume(elem=element_id)
+!!!
+!!!         ! CO2拡散が考慮されていない，表皮がない．コンダクタンス∞
+!!!         ! コンダクタンスを光で．
+!!!         ! 水分の関数をあとでいれる
+!!!
+!!!         !CO2固定量　mincro-mol/m-2/s
+!!!         ! ここ、体積あたりにする必要がある
+!!!         ! 一応、通常の葉の厚さを2mmとして、
+!!!         ! 1 micro-mol/m^2/sを、 1 micro-mol/ 0.0002m^3/s= 5000micro-mol/m^3/sとして計算
+!!!         ! また、ソース量はC6H12O6の質量gramとして換算する。
+!!!         ! CO2の分子量44.01g/mol
+!!!         ! C6H12O6の分子量180.16g/mol
+!!!         ! 6CO2 + 12H2O => C6H12O6 + 6H2O + 6O2
+!!!         ! よって、生成されるソース量は
+!!!         !               {CO2固定量,micro-mol     }× {1/6 してグルコースmol}×グルコース分子量/1000.0d0/1000.0d0
+!!!         obj%source(i) = obj%source(i) + A*dt/obj%thickness*volume*1.0d0/6.0d0*180.160d0
+!!!
+!!!      end do
 
-         ! lambdaからV_omaxを推定
-         obj%V_omax = obj%Lambda*(2.0d0*obj%V_cmax*obj%K_o)/(obj%K_c*O2)
 
-         ! CO2固定速度の計算
-         V_c = (obj%V_cmax*obj%CO2)/(obj%CO2 + obj%K_o*(1.0d0 + obj%O2/obj%K_o))
-         V_o = (obj%V_omax*obj%O2)/(obj%O2 + obj%K_o*(1.0d0 + obj%CO2/obj%K_c))
-
-         ! RuBPが飽和している場合のCO2吸収速度
-         Ca = obj%CO2
-         W_c = (obj%V_cmax*(Ca - obj%Lambda))/(Ca + obj%K_c*(1.0d0 + obj%O2/obj%K_o))
-
-         ! RuBP供給が律速している場合のCO2吸収速度
-         W_j = obj%J_*(Ca - obj%Lambda)/(4.0d0*Ca + 8.0d0*obj%Lambda) - obj%R_d
-
-         if (W_j >= W_c) then
-            A = W_c
-         else
-            A = W_j
-         end if
-
-         !A = gs(Ca - Ci)
-         !A = gs*Ca - gs*Ci
-         !A = gs*Ca - gs*Ci
-         !gs_max = 0.6
-
-         ! 要素体積を求める, m^3
-         obj%A(element_id) = A
-         volume = obj%femdomain%getVolume(elem=element_id)
-
-         ! CO2拡散が考慮されていない，表皮がない．コンダクタンス∞
-         ! コンダクタンスを光で．
-         ! 水分の関数をあとでいれる
-
-         !CO2固定量　mincro-mol/m-2/s
-         ! ここ、体積あたりにする必要がある
-         ! 一応、通常の葉の厚さを2mmとして、
-         ! 1 micro-mol/m^2/sを、 1 micro-mol/ 0.0002m^3/s= 5000micro-mol/m^3/sとして計算
-         ! また、ソース量はC6H12O6の質量gramとして換算する。
-         ! CO2の分子量44.01g/mol
-         ! C6H12O6の分子量180.16g/mol
-         ! 6CO2 + 12H2O => C6H12O6 + 6H2O + 6O2
-         ! よって、生成されるソース量は
-         !               {CO2固定量,mol     }× {1/6 してグルコースmol}×グルコース分子量
-         obj%source(i) = obj%source(i) + A*dt*5000.0d0*volume*1.0d0/6.0d0*180.160d0
-
-      end do
 !    ! For each elements, estimate photosynthesis by Farquhar model
 !    do i=1,size(obj%source)
 !
@@ -1341,18 +1403,24 @@ contains
 ! ####################################################################
 
 ! ########################################
-   function getPhotosynthesisSpeedPerVolumeLeaf(obj, dt, air) result(Speed_PV)
+   function getPhotosynthesisSpeedPerVolumeLeaf(obj, dt, air,debug) result(Speed_PV)
 
       ! https://eprints.lib.hokudai.ac.jp/dspace/bitstream/2115/39102/1/67-013.pdf
+
+      ! unit of result :: g
 
       class(Leaf_), intent(inout) :: obj
       type(Air_), intent(in) :: air
       type(IO_) :: f
       real(real64), intent(in) :: dt
+      real(real64) :: thickness
+
+      logical,optional,intent(in) :: debug
       ! Farquhar modelのパラメータ
       real(real64) :: A   ! CO2吸収速度
       real(real64) :: V_c ! カルボキシル化反応速度
       real(real64) :: V_o ! 酸素化反応速度
+      real(real64) :: Z_ ! V_o/V_c
 
       real(real64) :: W_c! RuBPが飽和している場合のCO2吸収速度
       real(real64) :: W_j! RuBP供給が律速している場合のCO2吸収速度
@@ -1374,61 +1442,138 @@ contains
 
       real(real64) :: pfd
 
-      real(real64) :: Lambda, volume
-      real(real128) :: buf
+      real(real64) :: Lambda, volume,Q_10
+      real(real128) :: buf,f_
       real(real64), allocatable :: Speed_PV(:)
 
       integer(int32) :: i, element_id
+      logical :: run_as_debug_mode
 
-      obj%temp = air%temp
+      run_as_debug_mode = input(default=.false.,option=debug)
+      obj%temp = air%temp ! unit: K
       obj%CO2 = air%CO2
       obj%O2 = air%O2
+      obj%my_time = obj%my_time + dt
+
+      ! update Farquhar's parameters by current temperature
+      ! https://www.coupmodel.com/WordDocuments/farquharapproach1.htm
+      ! Q_10 = (obj%temp - 298.160d0)/10.0d0 ! regularized by 25 deg. (Farquhar, 1980)
+      ! obj%K_c = 30.0d0*(2.10d0)**Q_10
+      ! obj%K_o = 30000.0d0*(1.20d0)**Q_10
+      ! obj%Lambda = 0.50d0*obj%O2/(2600.0d0*(0.57d0)**Q_10)
 
       Speed_PV = zeros(obj%femdomain%ne())
       ! TT-model
+      thickness = obj%getThickness()
       do i = 1, size(Speed_PV)
+         
          ! 要素ごとに電子伝達速度を求める
          element_id = i
          pfd = obj%ppfd(element_id)
-         obj%J_ = 0.240d0*pfd/(sqrt(1.0d0 + (0.240d0*0.240d0)*pfd*pfd)/obj%J_max/obj%J_max)
 
+         pfd = pfd*performance_function_for_leaf(obj%my_time,obj%aging_params) !正しい
+
+         
+
+         
          ! lambdaからV_omaxを推定
          !obj%V_omax = obj%Lambda* 2.0d0 * obj%V_cmax*obj%K_o/(obj%K_c*O2)
-         buf = obj%Lambda*2.0d0*obj%V_cmax*obj%K_o
-         obj%V_omax = dble(buf/obj%K_c/obj%O2)
+         buf = obj%Lambda*2.0d0*obj%V_cmax*obj%K_o 
+         obj%V_omax = buf/obj%K_c/obj%O2! 正しい
 
          ! CO2固定速度の計算
-         V_c = (obj%V_cmax*obj%CO2)/(obj%CO2 + obj%K_o*(1.0d0 + obj%O2/obj%K_o))
+         
+         V_c = (obj%V_cmax*obj%CO2)/(obj%CO2 + obj%K_c*(1.0d0 + obj%O2/obj%K_o))
          V_o = (obj%V_omax*obj%O2)/(obj%O2 + obj%K_o*(1.0d0 + obj%CO2/obj%K_c))
+         Z_   = V_o/V_c
+         
+
+         ! 以下2式は20260224 追記
+         ! http://www.biology.tohoku.ac.jp/lab-www/hikosaka_lab/hikosaka/CO2-short.html
+         obj%J_ = V_c*(4.0d0 + 4.0d0*V_o/V_c)
+         
+
+
 
          ! RuBPが飽和している場合のCO2吸収速度
-         W_c = (obj%V_cmax*(obj%CO2 - obj%Lambda))/(obj%CO2 + obj%K_c*(1.0d0 + obj%O2/obj%K_o))
+         ! Eq. (40) of Farquhar (1980)
+         W_c = (obj%V_cmax*(obj%CO2 - obj%Lambda))/(obj%CO2 + obj%K_c*(1.0d0 + obj%O2/obj%K_o))&
+            - obj%R_d * aging_function_for_leaf(obj%my_time,obj%aging_params) !これが必要では?20260224
 
          ! RuBP供給が律速している場合のCO2吸収速度
-         W_j = obj%J_*(obj%CO2 - obj%Lambda)/(4.0d0*obj%CO2 + 8.0d0*obj%Lambda) - obj%R_d
+         !W_j = obj%J_*(obj%CO2 - obj%Lambda)/(4.0d0*obj%CO2 + 8.0d0*obj%Lambda) &
+         !    - obj%R_d * aging_function_for_leaf(obj%my_time,obj%aging_params)
+         
+         ! 2026/02/06
+         ! temperature-dependency of J_max
+         ! Farquhar 1980 Eq. (36)
+         ! R_ = !気体定数
+         ! S_ = 
+         !H_ = 
+         !obj%J_max = 483.0d0*exp(-E_/R_/obj%temp)/&
+         !   (1.0d0+exp(S_*obj%temp*H_)/R_/obj%temp )
+         
+
+         ! これがおかしい => かわりに次式を試用@2026/2/25
+         ! obj%J_ = 0.240d0*pfd / (sqrt(1.0d0 + (0.240d0*0.240d0)*pfd*pfd)/obj%J_max/obj%J_max)
+         ! Farquhar 1980 Eq. (8)を参照
+         f_ = 0.1d0
+         obj%J_ = min(0.50d0*(1.0d0-f_)*pfd,obj%J_max)
+
+         
+
+
+         ! 下記リンクを参考に修正   
+         ! http://www.biology.tohoku.ac.jp/lab-www/hikosaka_lab/hikosaka/CO2-short.html
+         W_j = obj%J_*(obj%CO2 - obj%Lambda)/(4.5d0*obj%CO2 + 10.50d0*obj%Lambda) &
+             - obj%R_d * aging_function_for_leaf(obj%my_time,obj%aging_params)
 
          if (W_j >= W_c) then
             A = W_c
          else
             A = W_j
          end if
-         ! 要素体積を求める, m^3
-         obj%A(element_id) = A
-         volume = obj%femdomain%getVolume(elem=element_id)
 
-         !CO2固定量　mincro-mol/m^2/s
+         if(run_as_debug_mode)then
+            print *, "[getPhotosynthesisSpeedPerVolumeLeaf] >> debug-mode"
+            print *, "PPFD (micro-mol/s/m^2)",pfd
+            print *, "obj%J_ ",obj%J_
+            print *, "obj%J_ ",obj%J_
+            print *, "obj%V_cmax", obj%V_cmax
+            print *, "obj%V_omax", obj%V_omax
+            print *, "V_c", V_c
+            print *, "V_o", V_o
+            print *, "W_c", W_c
+            print *, "W_j", W_j
+            print *, "A", A
+            print *, "Lambda_given", obj%lambda,"ppm"
+            print *, "Lambda_theor",V_o/V_c*obj%CO2/2.0d0,"ppm"
+            stop
+         endif
+
+         ! 要素体積を求める, m^3
+         obj%A(element_id) = A ! unit: micro-mol/s/m^2
+         !volume = obj%femdomain%getVolume(elem=element_id)
+
+         !CO2固定量　micro-mol/m^2/s
          ! ここ、体積あたりにする必要がある
-         ! 一応、通常の葉の厚さを0.2mmとして、
-         ! 1 micro-mol/m^2/sを、 1 micro-mol/ 0.002m^3/s= 500micro-mol/m^3/sとして計算
+         ! 葉の厚さをthickness mとして、
+         ! 1 micro-mol/m^2/sを、 1 micro-mol/ thickness m^3/s= 1.0/thickness micro-mol/m^3/sとして計算
          ! また、ソース量はC6H12O6の質量gramとして換算する。
          ! CO2の分子量44.01g/mol
          ! C6H12O6の分子量180.16g/mol
          ! 6CO2 + 12H2O => C6H12O6 + 6H2O + 6O2
-         ! よって、生成されるソース量(micro-gram)は
-         !               {CO2固定量,mol     }× {1/6 してグルコースmol}×グルコース分子量
-         Speed_PV(i) = A*dt*5000.0d0*1.0d0/6.0d0*180.160d0
-
+         ! よって、生成されるソース量(gram)は
+         !               {CO2固定量,micro-mol     }× {1/6 してグルコースmol}×グルコース分子量/1000.0d0/1000.0d0
+         !Speed_PV(i) = A*dt*thickness * 1.0d0/6.0d0*180.160d0/1000.0d0/1000.0d0
+         
+         ! thickness
+         
+         Speed_PV(i) = A*dt*(1.0d0/thickness) * 1.0d0/6.0d0 *180.160d0/1000.0d0/1000.0d0
+         
       end do
+
+
    end function
 
 ! ####################################################################
@@ -1437,7 +1582,9 @@ contains
       real(real64), intent(in) :: width(:, :)
 
    end subroutine
+! ####################################################################
 
+! ####################################################################
    function getVolumeLeaf(obj) result(ret)
       class(Leaf_), intent(in) :: obj
       real(real64) :: ret
@@ -1449,9 +1596,11 @@ contains
          return
       end if
 
+      !$OMP parallel do reduction(+:ret) shared(obj)
       do i = 1, obj%femdomain%ne()
          ret = ret + obj%femdomain%getVolume(elem=i)
       end do
+      !$OMP end parallel do
 
    end function
 ! ########################################
@@ -1485,11 +1634,16 @@ contains
    end function
 ! ########################################
 
-   function getLeafAreaLeaf(obj) result(LeafArea)
-      class(Leaf_), intent(in) :: obj
+   function getLeafAreaLeaf(this) result(LeafArea)
+      class(Leaf_), intent(inout) :: this
       real(real64) :: LeafArea
+      integer(int32) :: facetElemIdx
 
-      LeafArea = obj%getVolume()/obj%thickness
+      
+
+      LeafArea = this%femdomain%getArea()/2.0d0 ! only upside surface
+
+      !LeafArea = obj%getVolume()/obj%thickness
 
    end function
 ! ########################################
@@ -2062,7 +2216,7 @@ subroutine initLeafSet_LeafClass(this,num_leaf,params,species,direction,dt,base_
    ! first, create petiole internodes
    do peti_idx=1,size(this%peti)
       this%peti(peti_idx)%CROSS_SECTION_SHAPE = PF_STEM_SHAPE_CYLINDER
-      call this%peti(peti_idx)%init()
+      call this%peti(peti_idx)%init(x_num=this%peti_x_num,y_num=this%peti_y_num,z_num=this%peti_z_num)
       call this%peti(peti_idx)%move(z=-this%peti(peti_idx)%FEMDomain%zmin())
       
       !if(peti_idx>=2)then
@@ -2106,10 +2260,13 @@ end subroutine
 ! ############################################################
 
 ! ########################################
-subroutine grow_peti_and_leaf_leafclass(this,params,base_petiole_length_ratio,dt)
+subroutine grow_peti_and_leaf_leafclass(this,params,base_petiole_length_ratio,dt,&
+      effective_ratio,debug_mode)
    class(LeafSet_),intent(inout) :: this
    real(real64),intent(in) :: dt,params(1:6)
    real(real64),optional,intent(in) :: base_petiole_length_ratio ! (primary petiole length)/(n-th petiole length(n>1))
+   real(real64),optional,intent(in) :: effective_ratio
+   logical,optional,intent(in) :: debug_mode
 
    integer(int32)   :: idx
 
@@ -2123,15 +2280,21 @@ subroutine grow_peti_and_leaf_leafclass(this,params,base_petiole_length_ratio,dt
    
    real(real64) :: ex_ratio(1:3),max_width,t,rot_x,rot_y,rot_z,&
       peti_rot_x,peti_rot_y,peti_rot_z,&
-      leaf_rot_x,leaf_rot_y,leaf_rot_z, sum_peti_len
+      leaf_rot_x,leaf_rot_y,leaf_rot_z, sum_peti_len,xyz(1:3),dx,dy,dz
    real(real64), allocatable :: origin1(:),origin2(:),peti_length_coeff(:)
 
-
+   logical :: run_as_debug_mode
    
+   run_as_debug_mode = input(default=.false.,option=debug_mode)
+
+   if(run_as_debug_mode)then
+      print *, "[debug] grow_peti_and_leaf_leafclass >>> started."
+   endif
+
    K_pL = params(1)
    K_pR = params(2)
    K_lL = params(3)
-
+   
    T_pL = params(4)
    T_pR = params(5)
    T_lL = params(6)
@@ -2154,6 +2317,9 @@ subroutine grow_peti_and_leaf_leafclass(this,params,base_petiole_length_ratio,dt
 
 
    
+   if(run_as_debug_mode)then
+      print *, "[debug] grow_peti_and_leaf_leafclass >>> rotated."
+   endif
 
    do idx=1,size(this%peti)
       t = this%peti(idx)%my_time + dt
@@ -2173,11 +2339,41 @@ subroutine grow_peti_and_leaf_leafclass(this,params,base_petiole_length_ratio,dt
 
       call this%peti(idx)%rotate(reset=.true.)
 
-      call this%peti(idx)%resize( &
-         x = 2.0d0*K_pR*(1.0d0 - exp(-t/T_pR)) ,&
-         y = 2.0d0*K_pR*(1.0d0 - exp(-t/T_pR)) ,&
-         z = K_pL*peti_length_coeff(idx)*(1.0d0 - exp(-t/T_pL))  &
-      )
+      if(present(effective_ratio))then
+
+         xyz = this%peti(idx)%getSize()
+
+         ! Trapezoidal rule 
+         dx = 0.50d0*( &
+            1.0d0/T_pR*2.0d0*K_pR*exp(-t   /T_pR) &
+         +  1.0d0/T_pR*2.0d0*K_pR*exp(-(t+dt)/T_pR) &
+            )
+         dy = 0.50d0*( &
+            1.0d0/T_pR*2.0d0*K_pR*exp(-t   /T_pR) &
+         +  1.0d0/T_pR*2.0d0*K_pR*exp(-(t+dt)/T_pR) &
+            )
+         dz = 0.50d0*( &
+               1.0d0/T_pL*K_pL*peti_length_coeff(idx)*(exp(-t   /T_pL)) &
+            +  1.0d0/T_pL*K_pL*peti_length_coeff(idx)*(exp(-(t+dt)/T_pL)) &
+            )
+         !call this%peti(idx)%resize( &
+         !   x = xyz(1)+(2.0d0*K_pR*(1.0d0 - exp(-t/T_pR))-xyz(1))*effective_ratio ,&
+         !   y = xyz(2)+(2.0d0*K_pR*(1.0d0 - exp(-t/T_pR))-xyz(2))*effective_ratio ,&
+         !   z = xyz(3)+(K_pL*peti_length_coeff(idx)*(1.0d0 - exp(-t/T_pL))-xyz(3))*effective_ratio  &
+         !)
+         call this%peti(idx)%resize( &
+            x = xyz(1)+dx*dt*(effective_ratio**(1.0d0/3.0d0)) ,&
+            y = xyz(2)+dy*dt*(effective_ratio**(1.0d0/3.0d0)) ,&
+            z = xyz(3)+dz*dt*(effective_ratio**(1.0d0/3.0d0))  &
+         )
+      else
+         call this%peti(idx)%resize( &
+            x = 2.0d0*K_pR*(1.0d0 - exp(-t/T_pR)) ,&
+            y = 2.0d0*K_pR*(1.0d0 - exp(-t/T_pR)) ,&
+            z = K_pL*peti_length_coeff(idx)*(1.0d0 - exp(-t/T_pL))  &
+         )  
+      endif
+      
       
       call this%peti(idx)%rotate(&
          x = radian(this%max_angle_deg)*(1.0d0 - exp(-t/T_pL)) ,&
@@ -2195,6 +2391,11 @@ subroutine grow_peti_and_leaf_leafclass(this,params,base_petiole_length_ratio,dt
       this%peti(idx)%my_time = this%peti(idx)%my_time + dt
    enddo
 
+
+   if(run_as_debug_mode)then
+      print *, "[debug] grow_peti_and_leaf_leafclass >>> petiole updated."
+   endif
+
    do idx=1,size(this%leaf)
       t = this%leaf(idx)%my_time + dt
 
@@ -2206,11 +2407,42 @@ subroutine grow_peti_and_leaf_leafclass(this,params,base_petiole_length_ratio,dt
       leaf_rot_z   = this%leaf(idx)%rot_z
       call this%leaf(idx)%rotate(reset=.true.)
 
-      call this%leaf(idx)%resize( &
-         x = this%leaf_aspect_ratio*K_lL*(1.0d0 - exp(-t/T_lL)) ,&
-         y = this%leaf_thickness_ratio*K_lL*(1.0d0 - exp(-t/T_lL)) ,&
-         z = K_lL*(1.0d0 - exp(-t/T_pL))  &
-      )
+      if(present(effective_ratio))then
+         xyz = this%leaf(idx)%getSize()
+
+         ! Trapezoidal rule 
+         dx = 0.50d0*( &
+            1.0d0/T_lL*this%leaf_aspect_ratio*K_lL*exp(-t/T_lL) &
+         +  1.0d0/T_lL*this%leaf_aspect_ratio*K_lL*exp(-(t+dt)/T_lL) &
+            )
+         dy = 0.50d0*( &
+            1.0d0/T_lL*this%leaf_thickness_ratio*K_lL*exp(-t/T_lL) &
+         +  1.0d0/T_lL*this%leaf_thickness_ratio*K_lL*exp(-(t+dt)/T_lL) &
+            )
+         dz = 0.50d0*( &
+            1.0d0/T_pL*K_lL*exp(-t/T_pL) &
+            + 1.0d0/T_pL*K_lL*exp(-(t+dt)/T_lL) &
+         )
+         !call this%leaf(idx)%resize( &
+         !   x = xyz(1)+ (this%leaf_aspect_ratio*K_lL*(1.0d0 - exp(-t/T_lL)) - xyz(1))*effective_ratio  ,&
+         !   y = xyz(2)+ (this%leaf_thickness_ratio*K_lL*(1.0d0 - exp(-t/T_lL)) - xyz(2))*effective_ratio  ,&
+         !   z = xyz(3)+ (K_lL*(1.0d0 - exp(-t/T_lL)) - xyz(3) )*effective_ratio   &
+         !)
+         call this%leaf(idx)%resize( &
+            x = xyz(1)+ dx*dt*(effective_ratio**(1.0d0/3.0d0))  ,&
+            y = xyz(2)+ dy*dt*(effective_ratio**(1.0d0/3.0d0))  ,&
+            z = xyz(3)+ dz*dt*(effective_ratio**(1.0d0/3.0d0))   &
+         )
+         this%leaf(idx)%thickness = this%leaf(idx)%femdomain%ymax()-this%leaf(idx)%femdomain%ymin()
+      else
+         call this%leaf(idx)%resize( &
+            x = this%leaf_aspect_ratio*K_lL*(1.0d0 - exp(-t/T_lL)) ,&
+            y = this%leaf_thickness_ratio*K_lL*(1.0d0 - exp(-t/T_lL)) ,&
+            z = K_lL*(1.0d0 - exp(-t/T_pL))  &
+         )
+         this%leaf(idx)%thickness = this%leaf(idx)%femdomain%ymax()-this%leaf(idx)%femdomain%ymin()
+      endif
+      
       !call this%leaf(idx)%rotate(x=rot_x,y=rot_y,z=rot_z)
 
       !print *, "debug",this%leaf_aspect_ratio,this%leaf_thickness_ratio,K_lL
@@ -2235,6 +2467,11 @@ subroutine grow_peti_and_leaf_leafclass(this,params,base_petiole_length_ratio,dt
       this%leaf(idx)%my_time = this%leaf(idx)%my_time + dt
    enddo
 
+
+   if(run_as_debug_mode)then
+      print *, "[debug] grow_peti_and_leaf_leafclass >>> leaf updated."
+   endif
+
    call this%rotate(&
          x=rot_x,&
          y=rot_y,&
@@ -2244,6 +2481,9 @@ subroutine grow_peti_and_leaf_leafclass(this,params,base_petiole_length_ratio,dt
    call this%update()
 
 
+   if(run_as_debug_mode)then
+      print *, "[debug] grow_peti_and_leaf_leafclass >>> fin."
+   endif
 end subroutine
 
 ! ######################################################
@@ -2659,5 +2899,94 @@ function nn_LeafsetClass(this) result(number_of_node)
 end function
 ! ############################################################
 
+
+
+
+! ########################################
+function getThickness_leaf(this) result(ret)
+   class(Leaf_),intent(inout) :: this
+   real(real64) :: ret
+
+   ret = sum(this%getVolumePerElement())/this%getLeafArea()
+   this%thickness = ret
+
+end function
+! ########################################
+
+! ######################################################
+function getVolumePerElement_LeafClass(this) result(ret)
+   class(Leaf_),intent(in) :: this
+   real(real64),allocatable :: ret(:)
+   integer(int32) :: element_idx
+
+   allocate(ret(this%femdomain%ne()))
+   do element_idx=1,this%ne()
+      ret(element_idx) = this%femdomain%getVolume(elem=element_idx)
+   enddo
+
+end function
+! ######################################################
+
+
+! ######################################################
+function aging_function_for_leaf(t,params) result(aging_coefficient)
+   real(real64),intent(in) :: t, params(:)
+   real(real64) :: aging_coefficient ! \in [0,1]
+   real(real64) :: max_limit_time ! sec.
+   real(real64) :: zero_limit_time ! sec.
+
+
+   ! Wada 1988
+   ! https://agriknowledge.affrc.go.jp/RN/2030410501.pdf
+   ! t : seconds after emerging
+   ! 
+   ! We originally introduced a tri-linear model
+
+   ! If a leaf is younger, it has higher respiration ratio.
+
+
+   max_limit_time = params(1)
+   zero_limit_time = params(2)
+   if(t <= max_limit_time)then
+      aging_coefficient = 1.0d0
+   elseif(t >= zero_limit_time)then
+      aging_coefficient = 0.00d0
+   else
+      aging_coefficient = 1.0d0 - (t-max_limit_time)/(zero_limit_time-max_limit_time)
+   endif
+
+
+end function 
+! ######################################################
+
+
+! ######################################################
+function performance_function_for_leaf(t,params) result(aging_coefficient)
+   real(real64),intent(in) :: t, params(:)
+   real(real64) :: aging_coefficient ! \in [0,1]
+   real(real64) :: max_limit_time ! sec.
+   real(real64) :: zero_limit_time ! sec.
+   ! Wada 1988
+   ! https://agriknowledge.affrc.go.jp/RN/2030410501.pdf
+   ! t : seconds after emerging
+   ! 
+   
+   ! If a leaf is younger or older, it has low photosynthesis ratio.
+   
+   ! We originally introduced a tri-linear model
+   max_limit_time = params(1)
+   zero_limit_time = params(2)
+   if(t <= max_limit_time*0.30d0)then
+      aging_coefficient = 0.01d0 + 0.99d0*t/(max_limit_time*0.30d0)
+   elseif(t <= max_limit_time)then
+      aging_coefficient = 1.0d0
+   elseif(t >= zero_limit_time)then
+      aging_coefficient = 0.00d0
+   else
+      aging_coefficient = 1.0d0 - (t-max_limit_time)/(zero_limit_time-max_limit_time)
+   endif
+
+end function 
+! ######################################################
 
 end module

@@ -3,6 +3,7 @@ module StemClass
    use KinematicClass
    use FEMDomainClass
    use FEMSolverClass
+   use AirClass
    implicit none
 
    integer(int32),public :: PF_STEM_SHAPE_RECTANGULAR  = 1
@@ -84,10 +85,20 @@ module StemClass
       type(Stem_), pointer ::  pStem
 
       ! physiological factor
-      real(real64) :: R_d = 1.0d0 ! 暗呼吸速度, mincro-mol/m-2/s
+      ! refered from 1 mincro-mol/m-2/s for leaf
+      real(real64) :: R_dV = 1.0d0/(0.20/1000.0d0) ! 暗呼吸速度, mincro-mol/m-3/s, if leaf thickness = 0.2 mm, 
+
+      ! default values for aging of leaves in terms of photosynthesis
+      ! 0 ~ 10 days (lighting hour : 8hr/day) : 100 %
+      ! 30 ~ 60 days (lighting hour : 8hr/day): 100 % -> 0 %
+      ! 60 days~ (lighting hour: 8hr/day): 0 %
+      real(real64) :: aging_params(1:2) = [20.0d0, 40.0d0]*60.0d0*60.0d0*24.0d0
+
+
+      ! growth simulation
+      real(real64) :: temp_time = 0.0d0 ! time after emergence, not a real time but normalized by the time. (unit:sec.) 
+
       real(real64) :: default_CarbonDiffusionCoefficient = 0.0010d0 ! ソースの拡散係数 mincro-mol/m^2/m/s
-
-
 
    contains
       procedure, public :: Init => initStem
@@ -101,6 +112,7 @@ module StemClass
       generic, public :: change_length_or_width => change_length_or_width_stem
 
       procedure, public :: resize => resizeStem
+      procedure, public :: getSize => getSizeStem
       procedure, public :: move => moveStem
       procedure, public :: connect => connectStem
 
@@ -122,6 +134,8 @@ module StemClass
       procedure, public :: getVolume => getVolumeStem
       procedure, public :: getBiomass => getBiomassStem
 
+      procedure, public :: getRespirationSpeedPerVolume => getRespirationSpeedPerVolStem
+
       ! simulation
       procedure, public :: set_material => set_material_Stem
 
@@ -133,9 +147,17 @@ module StemClass
       procedure, public :: remove => removeStem
    end type
 
+   ! interface to_stem
+   !    module procedure to_stem_stemclass
+   ! end interface
+   interface to_hollow_stem
+      module procedure to_hollow_stem_stemclass
+   end interface
+
    interface operator(//)
       module procedure append_stem_object_vector,append_stem_object_vector_single
    end interface
+
 
 contains
 
@@ -167,6 +189,8 @@ contains
       obj%xnum = 10
       obj%ynum = 10
       obj%znum = 10
+      
+      obj%temp_time = 0.0d0
 
 
       obj%my_time = 0.0d0
@@ -816,6 +840,39 @@ end function
 ! ########################################
 
 ! ########################################
+   function getSizeStem(obj) result(xyz)
+      class(Stem_), optional, intent(inout) :: obj
+      real(real64) :: xyz(1:3)
+      real(real64), allocatable :: origin1(:), origin2(:), disp(:)
+      real(real64) :: rot_x,rot_y,rot_z
+      ! before resizing, rotate and move back!
+
+      ! pull back!
+      origin1 = obj%getCoordinate("A")
+      rot_x = obj%rot_x
+      rot_y = obj%rot_y
+      rot_z = obj%rot_z
+      call obj%move(x=-origin1(1),y=-origin1(2),z=-origin1(3))
+      call obj%rotate(x = - rot_x, y = - rot_y, z = - rot_z)
+
+      ! change size
+      xyz(1) = obj%femdomain%x_len()
+      xyz(2) = obj%femdomain%y_len()
+      xyz(3) = obj%femdomain%z_len()
+
+      ! push forward
+      call obj%rotate(x = rot_x, y = rot_y, z = rot_z)
+      call obj%move(x=origin1(1),y=origin1(2),z=origin1(3))
+      
+
+      !origin2 = obj%getCoordinate("A")
+      !disp = origin1 - origin2
+      !call obj%move(x=disp(1), y=disp(2), z=disp(3))
+   end function
+! ########################################
+
+
+! ########################################
    recursive subroutine change_length_or_width_stem(obj, length, length_rate, Width, width_rate, dt)
       class(Stem_), intent(inout) :: obj
       real(real64), optional, intent(in) :: length, length_rate, width_rate, Width, dt
@@ -1320,5 +1377,165 @@ end function
       call solver%remove()
 
    end subroutine
+
+! #############################################
+!function to_stem_stemclass() result(ret)
+!   
+!end function
+! #############################################
+
+
+! #############################################
+function getRespirationSpeedPerVolStem(obj, dt, air) result(Speed_PV)
+   ! https://eprints.lib.hokudai.ac.jp/dspace/bitstream/2115/39102/1/67-013.pdf
+
+   ! unit of result :: g
+
+   class(Stem_), intent(inout) :: obj
+   type(Air_), intent(in) :: air
+   type(IO_) :: f
+   real(real64), intent(in) :: dt
+   ! real(real64) :: thickness
+   ! Farquhar modelのパラメータ
+   real(real64) :: A   ! CO2排出速度
+   ! real(real64) :: V_c ! カルボキシル化反応速度
+   ! real(real64) :: V_o ! 酸素化反応速度
+   ! real(real64) :: W_c! RuBPが飽和している場合のCO2吸収速度
+   ! real(real64) :: W_j! RuBP供給が律速している場合のCO2吸収速度
+   ! real(real64) :: V_cmax ! 最大カルボキシル化反応速度
+   ! real(real64) :: V_omax ! 最大酸素化反応速度
+   ! real(real64) :: O2 ! 酸素濃度
+   ! real(real64) :: CO2 ! 二酸化炭素濃度
+   ! real(real64) :: R_d ! 呼吸速度
+   ! real(real64) :: K_c ! CO2に対するミカエリス定数
+   ! real(real64) :: K_o ! O2に対するミカエリス定数
+   ! real(real64) :: J_ ! 電子伝達速度
+   ! real(real64) :: I_ ! 光強度
+   ! real(real64) :: phi ! I-J曲線の初期勾配
+   ! real(real64) :: J_max !最大電子伝達速度
+   ! real(real64) :: theta_r ! 曲線の凸度
+   ! real(real64) :: pfd
+   ! real(real64) :: Lambda, volume
+   ! real(real128) :: buf
+
+   real(real64), allocatable :: Speed_PV(:)
+   integer(int32) :: i, element_id
+
+   !obj%temp = air%temp
+   !obj%CO2 = air%CO2
+   !obj%O2 = air%O2
+   obj%my_time = obj%my_time + dt
+   Speed_PV = zeros(obj%femdomain%ne())
+
+   ! TT-model
+   do i = 1, size(Speed_PV)
+      ! ! 要素ごとに電子伝達速度を求める
+      element_id = i
+      ! pfd = obj%ppfd(element_id)
+      ! obj%J_ = 0.240d0*pfd/(sqrt(1.0d0 + (0.240d0*0.240d0)*pfd*pfd)/obj%J_max/obj%J_max)
+      ! ! lambdaからV_omaxを推定
+      ! !obj%V_omax = obj%Lambda* 2.0d0 * obj%V_cmax*obj%K_o/(obj%K_c*O2)
+      ! buf = obj%Lambda*2.0d0*obj%V_cmax*obj%K_o
+      ! obj%V_omax = dble(buf/obj%K_c/obj%O2)
+      ! ! CO2固定速度の計算
+      ! V_c = (obj%V_cmax*obj%CO2)/(obj%CO2 + obj%K_o*(1.0d0 + obj%O2/obj%K_o))
+      ! V_o = (obj%V_omax*obj%O2)/(obj%O2 + obj%K_o*(1.0d0 + obj%CO2/obj%K_c))
+      ! ! RuBPが飽和している場合のCO2吸収速度
+      ! W_c = (obj%V_cmax*(obj%CO2 - obj%Lambda))/(obj%CO2 + obj%K_c*(1.0d0 + obj%O2/obj%K_o))
+      ! ! RuBP供給が律速している場合のCO2吸収速度
+      ! W_j = obj%J_*(obj%CO2 - obj%Lambda)/(4.0d0*obj%CO2 + 8.0d0*obj%Lambda) - obj%R_d
+      ! if (W_j >= W_c) then
+      !    A = W_c
+      ! else
+      !    A = W_j
+      ! end if
+      ! aging effect:
+      A = obj%R_dV
+      A = A * aging_function_for_stem(obj%my_time,obj%aging_params)
+      ! 1 m^3あたり消費されるソース量(gram)は
+      !               {CO2固定量,micro-mol     }× {1/6 してグルコースmol}×グルコース分子量/1000.0d0/1000.0d0
+      
+      Speed_PV(i) = A*dt*1.0d0/6.0d0*180.160d0/1000.0d0/1000.0d0
+      
+   end do
+
+
+end function
+! #############################################
+
+
+! ######################################################
+function aging_function_for_stem(t,params) result(aging_coefficient)
+   real(real64),intent(in) :: t, params(:)
+   real(real64) :: aging_coefficient ! \in [0,1]
+   real(real64) :: max_limit_time ! sec.
+   real(real64) :: zero_limit_time ! sec.
+   ! Wada 1988
+   ! https://agriknowledge.affrc.go.jp/RN/2030410501.pdf
+   ! t : seconds after emerging
+   ! 
+   ! We originally introduced a tri-linear model
+   max_limit_time = params(1)
+   zero_limit_time = params(2)
+   if(t <= max_limit_time)then
+      aging_coefficient = 1.0d0
+   elseif(t >= zero_limit_time)then
+      aging_coefficient = 0.00d0
+   else
+      aging_coefficient = 1.0d0 - (t-max_limit_time)/(zero_limit_time-max_limit_time)
+   endif
+
+end function 
+! ######################################################
+
+function to_hollow_stem_stemclass(division,int_radius,out_radius,internode_len,internode_thickness,total_len) result(ret_stem)
+   type(Stem_) :: ret_stem
+   integer(int32),intent(in) :: division(1:3) ! grid division for x, y and z directions.
+   real(real64),intent(in) :: int_radius,out_radius,internode_len,internode_thickness,total_len
+   integer(int32),allocatable :: node_list(:)
+   integer(int32) :: n,i
+   real(real64) :: c_z_min,c_z_max
+   ! bamboo-like hollow stem
+   ! r_i : int_radius
+   ! r_o : out_radius
+   ! l_i : internode_len
+   ! t_i : internode_thickness
+   ! L   : total_len
+
+   !<-                        L                        ->|
+   !-----------------------------------------------------    ---r_o    
+   !               |||             |||                 |||      r_i
+   !-----------------------------------------------------    ---r_o
+   !                  |<-  l_i ->|
+   !                             ->| |<-  t_i
+   
+
+   call ret_stem%femdomain%create("Cylinder3D",x_num=division(1),y_num=division(2),z_num=division(3))
+   call ret_stem%femdomain%move(&
+         x=-(ret_stem%femdomain%x_min()+ret_stem%femdomain%x_max())/2.0d0,&
+         y=-(ret_stem%femdomain%y_min()+ret_stem%femdomain%y_max())/2.0d0,&
+         z=-ret_stem%femdomain%z_min() &
+      )
+   call ret_stem%femdomain%resize(x=out_radius*2.0d0,y=out_radius*2.0d0,z=total_len)
+   n = int(total_len/(internode_len+internode_thickness))+1
+   
+   c_z_min = internode_thickness
+   do i=1,n
+      c_z_max = c_z_min + internode_len
+      print *, c_z_min, c_z_max
+      node_list = ret_stem%femdomain%select(center=[0.0d0,0.0d0],radius_range=[0.0d0,int_radius],&
+         z_min=c_z_min,z_max=c_z_max)
+      print *, size(node_list)
+      c_z_min = c_z_min + internode_len + internode_thickness
+      if(size(node_list)<=0) cycle
+      call ret_stem%femdomain%killNodes(node_list)
+
+      
+
+   enddo
+
+
+end function
+
 
 end module

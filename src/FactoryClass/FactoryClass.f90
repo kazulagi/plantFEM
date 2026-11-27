@@ -29,10 +29,7 @@ module FactoryClass
       generic :: resize => resize_forall_Factory, resize_foreach_Factory
 
    end type
-
-   interface operator(//)
-      module procedure :: appendFEMDomainVector
-   end interface
+   
 contains
 
    function cube_Factory(this, division, n) result(cubes)

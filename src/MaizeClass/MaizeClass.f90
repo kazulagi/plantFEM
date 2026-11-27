@@ -115,9 +115,18 @@ module MaizeClass
       integer(int32) :: ear_division(1:3) = [10, 10, 10]
       integer(int32) :: panicle_division(1:3) = [10, 10, 10]
 
+      integer(int32) :: bicgstab_itrmax = 100000
+      real(real64) :: bicgstab_er0 = dble(1.0e-10)
+      real(real64) :: bicgstab_relative_er = dble(1.0e-10)
+
    contains
       procedure :: init => createMaize
       procedure :: create => createMaize
+
+      procedure :: loadMesh => loadMesh_Maize
+      ! load external data
+      procedure, pass ::  loadSTLdata => loadSTLdata_MaizeClass
+
       procedure, public :: msh => mshMaize
       procedure, public :: vtk => vtkMaize
       procedure, public :: stl => stlMaize
@@ -178,6 +187,8 @@ module MaizeClass
       procedure, public :: getDisplacement => getDisplacementMaize
       procedure, public :: deform => deformMaize
 
+      procedure, public :: computeRigidMoment => computeRigidMoment_maize
+
       ! export eigen modes and frequency
       procedure, public :: export_eig => export_eigMaize
 
@@ -206,13 +217,14 @@ contains
          cpid = cpid + 1
          call print("createMaize #"+str(cpid))
       end if
+      
       this%mainstem_length = freal(Maizeconfig%parse(config, key1="Mainstem", key2="Length"))
-      this%mainstem_width = freal(Maizeconfig%parse(config, key1="Mainstem", key2="Width"))
-      this%mainstem_bottom_width = freal(Maizeconfig%parse(config, key1="Mainstem", key2="BottomWidth"))
-      this%mainstem_top_width = freal(Maizeconfig%parse(config, key1="Mainstem", key2="TopWidth"))
-      this%mainstem_node = fint(Maizeconfig%parse(config, key1="Mainstem", key2="Node"))
-      this%ms_angle_ave = freal(Maizeconfig%parse(config, key1="Mainstem", key2="ms_angle_ave"))
-      this%ms_angle_sig = freal(Maizeconfig%parse(config, key1="Mainstem", key2="ms_angle_sig"))
+      this%mainstem_width = freal(trim(Maizeconfig%parse(config, key1="Mainstem", key2="Width")))
+      this%mainstem_bottom_width = freal(trim(Maizeconfig%parse(config, key1="Mainstem", key2="BottomWidth")))
+      this%mainstem_top_width = freal(trim(Maizeconfig%parse(config, key1="Mainstem", key2="TopWidth")))
+      this%mainstem_node = fint(trim(Maizeconfig%parse(config, key1="Mainstem", key2="Node")))
+      this%ms_angle_ave = freal(trim(Maizeconfig%parse(config, key1="Mainstem", key2="ms_angle_ave")))
+      this%ms_angle_sig = freal(trim(Maizeconfig%parse(config, key1="Mainstem", key2="ms_angle_sig")))
 
       if (debug_log) then
          cpid = cpid + 1
@@ -548,7 +560,7 @@ contains
 
 ! ########################################
    subroutine vtkMaize(this, name, num_threads, single_file, &
-                       scalar_field, vector_field, tensor_field, field_name)
+         scalar_field, vector_field, tensor_field, field_name)
       class(Maize_), intent(inout) :: this
       character(*), intent(in) :: name
       integer(int32), optional, intent(in) :: num_threads
@@ -2297,7 +2309,7 @@ contains
          if (EbOM_Algorithm == "P2P") then
             EbOM_Algorithm_id = FEMDomain_Overset_P2P
          elseif (EbOM_Algorithm == "GPP") then
-            EbOM_Algorithm_id = FEMDomain_Overset_P2P
+            EbOM_Algorithm_id = FEMDomain_Overset_GPP
          end if
       end if
 
@@ -3873,12 +3885,14 @@ contains
 ! ###########################################################################
 
 ! ################################################################
-   function getDisplacementMaize(this, ground_level, penalty, debug, EbOM_Algorithm) result(displacement)
+   function getDisplacementMaize(this, ground_level, penalty, debug, EbOM_Algorithm,&
+         traction_force,boundary_force ) result(displacement)
       class(Maize_), target, intent(inout) :: this
       real(real64), intent(in) :: ground_level
-      real(real64), optional, intent(in) :: penalty
+      real(real64), optional, intent(in) :: penalty,traction_force(:)
+      real(real64), optional,allocatable, intent(inout) :: boundary_force(:)
       logical, optional, intent(in) :: debug
-      real(real64), allocatable :: Frequency(:)
+      real(real64), allocatable :: Frequency(:),residual_force(:)
       character(*), optional, intent(in) :: EbOM_Algorithm
       !integer(int32),optional,intent(in) :: num_mode
 
@@ -3890,7 +3904,7 @@ contains
 
       real(real64), allocatable :: EigenVectors(:, :), buf(:, :), buf_vec(:)
 
-      integer(int32) :: stem_id, leaf_id, root_id, DomainID, ElementID, i, n
+      integer(int32) :: stem_id, leaf_id, root_id, DomainID, ElementID, i, n,node_idx
       integer(int32) :: myStemID, yourStemID, myLeafID, myRootID, yourRootID
       integer(int32), allocatable :: FixBoundary(:)
       integer(int32) :: nn_domains, EbOM_Algorithm_id
@@ -3903,7 +3917,7 @@ contains
          if (EbOM_Algorithm == "P2P") then
             EbOM_Algorithm_id = FEMDomain_Overset_P2P
          elseif (EbOM_Algorithm == "GPP") then
-            EbOM_Algorithm_id = FEMDomain_Overset_P2P
+            EbOM_Algorithm_id = FEMDomain_Overset_GPP
          end if
       end if
 
@@ -4142,6 +4156,17 @@ contains
       !$OMP end do
       !$OMP end parallel
 
+      ! traction-boundary conditions
+      if(present(traction_force))then
+         if(size(solver%CRS_RHS) /= size(traction_force))then
+            print *, "[ERROR] getDisplacementMaize >> Invalid traction_force size"
+            print *, "size(solver%CRS_RHS)" , size(solver%CRS_RHS)
+            print *, "size(traction_force)",size(traction_force)
+            stop
+         endif
+         solver%CRS_RHS(:) = solver%CRS_RHS(:) + traction_force(:)
+      endif
+
       ! fix-boundary conditions
       nn_domains = 0
       do i = 1, size(FEMDomainPointers)
@@ -4165,8 +4190,22 @@ contains
       if (present(debug)) then
          solver%debug = debug
       end if
-
+      solver%itrmax = this%bicgstab_itrmax
+      solver%er0 = this%bicgstab_er0
+      solver%relative_er = this%bicgstab_relative_er
       displacement = solver%solve(algorithm="BiCGSTAB")
+      !residual_force = solver%getResidualForce()
+      !if(present(boundary_force))then
+      !   boundary_force = zeros(3)
+      !   do i=1,size(solver%fix_lin_exists)
+      !      if(solver%fix_lin_exists(i))then
+      !         node_idx = (i-mod(i,3))/3
+      !         boundary_force = boundary_force &
+      !            + residual_force( 3*(node_idx-1)+1: 3*(node_idx-1)+3) 
+      !      endif
+      !   enddo
+      !endif
+
       call solver%remove()
 
       if (present(debug)) then
@@ -4331,4 +4370,398 @@ function maize_stalk_tomobe_model(local_coordinate,original_r) result(r)
 
 end function
 ! ################################################################
+
+subroutine loadMesh_Maize(this,name)
+   class(Maize_),intent(inout) :: this
+   character(*),intent(in) :: name
+   type(IO_) :: f
+   character(:),allocatable :: fname
+   integer(int32) :: stem_idx, leaf_idx, ear_idx, panicle_idx, point_idx
+   type(FEMDomain_) :: all_vtk
+
+   
+   call this%init(config=name + ".json")
+   call all_vtk%read(name=name + ".vtk")
+   point_idx = 0
+   do stem_idx=1,this%numStem()
+      if(this%stem(stem_idx)%femdomain%empty()  ) cycle
+         this%stem(stem_idx)%femdomain%mesh%nodcoord(:,:) &
+            = all_vtk%mesh%nodcoord(point_idx+1:point_idx+this%stem(stem_idx)%femdomain%nn(),:)
+         point_idx = point_idx + this%stem(stem_idx)%femdomain%nn()
+      
+   enddo
+   do leaf_idx=1,this%numleaf()
+      if(this%leaf(leaf_idx)%femdomain%empty()  ) cycle
+         this%leaf(leaf_idx)%femdomain%mesh%nodcoord(:,:) &
+            = all_vtk%mesh%nodcoord(point_idx+1:point_idx+this%leaf(leaf_idx)%femdomain%nn(),:)
+         point_idx = point_idx + this%leaf(leaf_idx)%femdomain%nn()
+      
+   enddo
+   do ear_idx=1,this%numear()
+      if(this%ear(ear_idx)%femdomain%empty()  ) cycle
+         this%ear(ear_idx)%femdomain%mesh%nodcoord(:,:) &
+            = all_vtk%mesh%nodcoord(point_idx+1:point_idx+this%ear(ear_idx)%femdomain%nn(),:)
+         point_idx = point_idx + this%ear(ear_idx)%femdomain%nn()
+      
+   enddo
+   do panicle_idx=1,this%numpanicle()
+      if(this%panicle(panicle_idx)%femdomain%empty()  ) cycle
+         this%panicle(panicle_idx)%femdomain%mesh%nodcoord(:,:) &
+            = all_vtk%mesh%nodcoord(point_idx+1:point_idx+this%panicle(panicle_idx)%femdomain%nn(),:)
+         point_idx = point_idx + this%panicle(panicle_idx)%femdomain%nn()
+      
+   enddo
+
+end subroutine
+! ###########################################
+
+
+! ###########################################
+function loadSTLdata_MaizeClass(this,name,num_dim,dataName,num_point,num_poly,scalar_as_vector) result(ret)
+   class(Maize_),intent(in) :: this
+   character(*),intent(in) :: name,dataName
+   integer(int32),intent(in) :: num_dim ! dimension of data 
+   integer(int32),intent(in) :: num_point ! number of point
+   integer(int32),intent(in) :: num_poly ! number of polygon
+   logical,optional,intent(in) :: scalar_as_vector
+   character(:),allocatable :: this_line
+   integer(int32),allocatable :: stl_node_idx(:,:)
+   real(real64),allocatable :: all_data(:),all_coord(:),xyz(:),nvec(:)
+   integer(int32),allocatable :: connectivity(:),offset(:),ids(:)
+   integer(int32) :: point_idx, line_idx, i,j , k, num_line,node_idx,id,pt_idx,sid,eid,n
+   real(real64), allocatable :: TT(:),loc_coord(:,:),x1(:),x2(:),x0(:)
+   real(real64) ,allocatable:: ret(:)
+   real(real64) :: AA, p
+   type(IO_) :: f
+   type(FEMDomain_) :: femdomain
+   
+
+   ! export mesh for a single file
+   if (allocated(this%stem)) then
+      do i = 1, size(this%stem)
+         if (.not. this%stem(i)%femdomain%empty()) then
+            femdomain = femdomain + this%stem(i)%femdomain
+         end if
+      end do
+   end if
+   if (allocated(this%leaf)) then
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%femdomain%empty()) then
+            femdomain = femdomain + this%leaf(i)%femdomain
+         end if
+      end do
+   end if
+
+
+   if (allocated(this%Ear)) then
+      do i = 1, size(this%Ear)
+         if (.not. this%Ear(i)%femdomain%empty()) then
+            femdomain = femdomain + this%Ear(i)%femdomain
+         end if
+      end do
+   end if
+
+   if (allocated(this%Panicle)) then
+      do i = 1, size(this%Panicle)
+         if (.not. this%Panicle(i)%femdomain%empty()) then
+            femdomain = femdomain + this%Panicle(i)%femdomain
+         end if
+      end do
+   end if
+
+   if (allocated(this%root)) then
+      do i = 1, size(this%root)
+         if (.not. this%root(i)%femdomain%empty()) then
+            femdomain = femdomain + this%root(i)%femdomain
+         end if
+      end do
+   end if
+
+   
+!   stl_node_idx = femdomain%getSTLConnectivityList()
+!   
+!   num_point = size(stl_node_idx,1)*size(stl_node_idx,2)
+!   
+!
+!   ret = zeros(num_dim*femdomain%nn())
+   
+   num_line = f%numLine(name)
+   call f%open(name)
+   do i=1,num_line
+      if(f%EOF)then
+         print *, "[ERROR] :: loadSTLdata_MaizeClass >> EOF"
+         stop
+      endif
+      this_line = f%readline()
+      if(("Name=" .in. this_line) .and. (("'"+dataName+"'") .in. this_line ))then
+         print *, this_line
+         exit
+      endif
+   enddo
+
+   ! 座標マッチングをやらざるを得ない．
+   all_data = zeros(num_dim*num_poly)
+   read(f%fh,*) all_data(:)
+   call f%close()
+
+
+   num_line = f%numLine(name)
+   call f%open(name)
+   do i=1,num_line
+      if(f%EOF)then
+         print *, "[ERROR] :: loadSTLdata_MaizeClass >> EOF"
+         stop
+      endif
+      this_line = f%readline()
+      if((("'offsets'") .in. this_line ))then
+         print *, this_line
+         exit
+      endif
+   enddo
+
+   ! 座標マッチングをやらざるを得ない．
+   offset = zeros(num_poly)
+   read(f%fh,*) offset(:)
+   call f%close()
+   
+   
+   ret = zeros(this%nn()*num_dim)
+   if(present(scalar_as_vector))then
+      if(scalar_as_vector)then
+         ret = zeros(this%nn()*3)
+      endif
+   endif
+   
+   num_line = f%numLine(name)
+   call f%open(name)
+   do i=1,num_line
+      if(f%EOF)then
+         print *, "[ERROR] :: loadSTLdata_MaizeClass >> EOF"
+         stop
+      endif
+      this_line = f%readline()
+      if( ("'Points'") .in. this_line )then
+         print *, this_line
+         exit
+      endif
+   enddo
+   all_coord = zeros(3*num_point)
+   read(f%fh,*) all_coord(:)
+   call f%close()
+   
+   
+   connectivity = int(zeros( offset(size(offset)) ))
+   num_line = f%numLine(name)
+   call f%open(name)
+   do i=1,num_line
+      if(f%EOF)then
+         print *, "[ERROR] :: loadSTLdata_MaizeClass >> EOF"
+         stop
+      endif
+      this_line = f%readline()
+      if( ("Name='connectivity'") .in. this_line )then
+         print *, this_line
+         exit
+      endif
+   enddo
+   
+   read(f%fh,*) connectivity(:)
+   call f%close()
+
+   connectivity(:) = connectivity(:) + 1 
+   ! search nearest point
+   xyz = zeros(3)
+
+   !$OMP parallel do private(eid,sid,nvec,TT,p,n,loc_coord,ids,id,j,x0,x1,x2,AA) reduction(+:ret)
+   do i=1,num_poly
+      print *, i,"/",num_poly
+      eid   = offset(i)-1
+      if(i==1)then
+         sid = 1
+      else
+         sid = offset(i-1)+1
+      endif
+
+      nvec = zeros(3)
+      TT = zeros(3)
+      p = 0.0d0
+      n = 0
+      loc_coord = zeros(eid-sid+1,3)
+      ids = int(zeros(eid-sid+1))
+      do j=sid,eid
+         
+         n = n + 1
+         loc_coord(n,:) = all_coord( 3*(connectivity(j)-1)+1: 3*(connectivity(j)-1)+3)
+         ids(n) = femdomain%getNearestNodeID(x=loc_coord(n,1),y=loc_coord(n,2),z=loc_coord(n,3))
+      enddo
+      
+      
+
+      
+
+      if(present(scalar_as_vector))then
+         if(scalar_as_vector)then
+            AA = compute_area_from_coord(loc_coord)
+            x0 = zeros(size(loc_coord,2))
+            x0(1) = average(loc_coord(:,1) )
+            x0(2) = average(loc_coord(:,2) )
+            x0(3) = average(loc_coord(:,3) )
+            x1 = loc_coord(2,:) - x0(:)
+            x2 = loc_coord(size(loc_coord,1),:) - x0(:)
+            nvec = cross_product(x1-x2,x1-x2)
+
+            if(sqrt(dot_product(nvec,nvec))==0.0d0)then
+               nvec = 0.0d0*nvec
+            else
+               nvec = nvec/sqrt(dot_product(nvec,nvec))
+            endif
+            p = all_data(i)
+            
+            
+            TT = p*AA*nvec(:)/size(ids)
+            ! debug
+            !TT = AA*nvec(:)/size(ids)
+            !TT = p*AA*nvec(:)/size(ids)
+            !TT = 1.0d0*nvec(:)/size(ids)
+
+            
+         endif
+      endif
+      
+      n = 0
+      do j=sid,eid
+         n = n + 1
+         !pt_idx = connectivity(j)
+         !xyz = loc_coord(n,:) 
+         id = ids(n)
+         !print *, "id",id,ids(:)
+         
+         
+         if(present(scalar_as_vector))then
+            if(scalar_as_vector)then
+               
+               if(dot_product(TT,TT)&
+                  /=dot_product(TT,TT))then
+                  print *, "[ERROR} loadSTLdata_MaizeClass >> NaN"
+                  print *, p, AA, nvec(:)
+                  stop
+               endif
+
+               !ret(3*(id-1)+1:3*(id-1)+3) = &
+               !   TT(:)
+               ret(3*(id-1)+1:3*(id-1)+3) = &
+                  ret(3*(id-1)+1:3*(id-1)+3) + &
+                  TT(:)
+               cycle
+            endif
+         endif
+         
+
+         ret(num_dim*(id-1)+1:num_dim*(id-1)+num_dim) = &
+            all_data( num_dim*(i-1)+1: num_dim*(i-1)+num_dim)
+      enddo
+   enddo
+   !$OMP end parallel do
+
+
+   
+   
+end function
+! ###########################################
+function compute_area_from_coord(points) result(area)
+   ! compute area for convective surface
+   real(real64),intent(in) :: points(:,:)
+   real(real64) :: area
+   real(real64),allocatable :: x1(:),x2(:),x3(:)
+   integer(int32),allocatable :: tri_connect(:,:)
+   integer(int32) :: num_point,num_dim,triangle_idx
+
+   num_point = size(points,1)
+   num_dim   = size(points,2)
+   allocate(tri_connect(num_point-2,num_dim ))
+   if(num_dim==3)then
+      do triangle_idx=1,num_point-2
+         tri_connect(triangle_idx,1) = 1
+         tri_connect(triangle_idx,2) = triangle_idx + 1
+         tri_connect(triangle_idx,3) = triangle_idx + 2
+      enddo
+   else
+      print *, "[ERROR] compute_area_from_coord >> num_dim should be 3"
+      stop
+   endif
+   
+   area = 0.0d0
+   do triangle_idx=1,size(tri_connect,1)
+      x1 = points(tri_connect(triangle_idx,1),:)
+      x2 = points(tri_connect(triangle_idx,2),:)
+      x3 = points(tri_connect(triangle_idx,3),:)
+      area = area + 0.50d0*sqrt(abs(&
+         dot_product(x3-x1,x3-x1)*dot_product(x2-x1,x2-x1) &
+         -dot_product(x2-x1,x3-x1)*dot_product(x2-x1,x3-x1)))
+   enddo
+
+end function
+! ############################################################
+
+
+function computeRigidMoment_maize(this,traction_force,origin) result(ret)
+   class(Maize_),intent(in) :: this
+   real(real64),intent(in) :: traction_force(:,:),origin(1:3)
+   real(real64) :: ret(1:3)
+   real(real64),allocatable :: r(:)
+   integer(int32) :: i,node_idx
+   type(FEMDomain_) :: femdomain
+
+   ! export mesh for a single file
+   if (allocated(this%stem)) then
+      do i = 1, size(this%stem)
+         if (.not. this%stem(i)%femdomain%empty()) then
+            femdomain = femdomain + this%stem(i)%femdomain
+         end if
+      end do
+   end if
+   if (allocated(this%leaf)) then
+      do i = 1, size(this%leaf)
+         if (.not. this%leaf(i)%femdomain%empty()) then
+            femdomain = femdomain + this%leaf(i)%femdomain
+         end if
+      end do
+   end if
+
+
+   if (allocated(this%Ear)) then
+      do i = 1, size(this%Ear)
+         if (.not. this%Ear(i)%femdomain%empty()) then
+            femdomain = femdomain + this%Ear(i)%femdomain
+         end if
+      end do
+   end if
+
+   if (allocated(this%Panicle)) then
+      do i = 1, size(this%Panicle)
+         if (.not. this%Panicle(i)%femdomain%empty()) then
+            femdomain = femdomain + this%Panicle(i)%femdomain
+         end if
+      end do
+   end if
+
+   if (allocated(this%root)) then
+      do i = 1, size(this%root)
+         if (.not. this%root(i)%femdomain%empty()) then
+            femdomain = femdomain + this%root(i)%femdomain
+         end if
+      end do
+   end if
+
+   ! compute moment 
+   ret(:) = 0.0d0
+   do node_idx=1,femdomain%nn()
+      r = femdomain%mesh%nodcoord(node_idx,:) - origin(:)
+      ret = ret + cross_product(r,traction_force(node_idx,:))
+   enddo
+
+end function
+
+
+
 end module MaizeClass

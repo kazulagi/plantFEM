@@ -53,6 +53,8 @@ module GeneticControlClass
         ! 発現量の半減期
         real(real64) :: half_life = 60.0d0*60.0d0*24.0d0 ! sec. = 1 day
     contains
+        procedure,public :: init => init_GeneticControl
+
         procedure,public :: define_Allele => define_Allele_GeneticControl
         procedure,public :: show_Allele_Database => show_Allele_Database_GC
         procedure,public :: show_input_signal_Database => show_input_signal_Database_GC
@@ -68,12 +70,17 @@ module GeneticControlClass
         procedure,public :: update_time => update_time_GC
         procedure,public :: get_max_expression_value => get_max_expression_value_GC
 
+        procedure,public :: get_current_value => get_current_value_GC
+
         procedure,public :: num_gene          => num_gene_GC
         procedure,public :: num_input_signal  => num_input_signal_GC
         procedure,public :: num_output_signal => num_output_signal_GC
         procedure,public :: num_unique_output_signal => num_unique_output_signal_GC
 
         procedure,public :: write => write_GC
+
+        ! updator
+        procedure,public :: load_all_weight => load_all_weight_GC
     end type
 
 
@@ -82,6 +89,89 @@ module GeneticControlClass
     end interface
 
 contains
+
+subroutine init_GeneticControl(this,config)
+    class(GeneticControl_),intent(inout) :: this    
+    character(*),intent(in) :: config ! json-formatted. see Tutorial/std/soy_flowering.json
+    type(IO_) :: config_json
+    integer(int32) :: gene_idx,input_idx,output_idx,relation_idx
+    integer(int32) :: num_gene,num_input,num_output,num_relation
+    integer(int32) :: num_wildtype,num_mutant
+    integer(int32) :: wildtype_idx,mutant_idx
+    character(:),allocatable :: gene_name,wildtype_name,mutant_name
+
+    character(:),allocatable :: target_name
+    character(:),allocatable :: output_signal_name
+    character(:),allocatable :: signal_name,relation_signal_name
+    character(:),allocatable :: signal_type,input_name,output_name,relation_name
+
+    real(real64) :: max_expression,weight,gain,threshold
+
+    num_gene    = fint(config_json%parse_json(config,to_list("num_gene")))
+    num_input   = fint(config_json%parse_json(config,to_list("num_input")))
+    num_output  = fint(config_json%parse_json(config,to_list("num_output")))
+    num_relation= fint(config_json%parse_json(config,to_list("num_relation")))
+
+    do gene_idx=1,num_gene
+        gene_name = "gene_"+str(gene_idx)
+        num_wildtype = fint(config_json%parse_json(config,to_list(gene_name,"num_wildtype")))
+        num_mutant = fint(config_json%parse_json(config,to_list(gene_name,"num_mutant")))
+        do wildtype_idx=1,num_wildtype
+            wildtype_name = trim(config_json%parse_json(config,to_list(&
+                gene_name,"wildtype_"+str(wildtype_idx), "name")))
+            do mutant_idx=1,num_mutant
+                mutant_name = trim(config_json%parse_json(config,to_list(&
+                    gene_name,"mutant_"+str(mutant_idx), "name")))
+                max_expression = freal(config_json%parse_json(config,to_list(&
+                    gene_name,"mutant_"+str(mutant_idx), "max_expression")))
+                call this%define_Allele( &
+                    wild=trim(wildtype_name), &
+                    mutant=trim(mutant_name), &
+                    max_expression=max_expression &
+                )
+            enddo
+        enddo
+    enddo
+
+
+    do relation_idx=1,num_relation
+        relation_name = "relation_"+str(relation_idx)
+        gene_name = trim(config_json%parse_json(config,to_list(relation_name,"source")))
+        signal_type = trim(config_json%parse_json(config,to_list(relation_name,"type")))
+        relation_signal_name = trim(config_json%parse_json(config,to_list(relation_name,"target")))
+        weight = freal(config_json%parse_json(config,to_list(relation_name,"weight")))
+        
+        call this%add_relation(trim(gene_name), trim(signal_type), trim(relation_signal_name), weight)           
+    enddo
+
+
+    do input_idx=1,num_input
+        input_name = "input_"+str(input_idx)
+        signal_name = trim(config_json%parse_json(config,to_list(input_name,"name")))
+        signal_type = trim(config_json%parse_json(config,to_list(input_name,"type")))
+        target_name = trim(config_json%parse_json(config,to_list(input_name,"target")))
+        weight = freal(config_json%parse_json(config,to_list(input_name,"weight")))
+        threshold = freal(config_json%parse_json(config,to_list(input_name,"threshold")))
+        gain = freal(config_json%parse_json(config,to_list(input_name,"gain")))
+        
+        call this%add_input_signal(trim(signal_name),trim(signal_type),&
+            trim(target_name), weight,threshold,gain)           
+    enddo
+
+    do output_idx=1,num_output
+        output_name = "output_"+str(output_idx)
+        gene_name = trim(config_json%parse_json(config,to_list(output_name,"from")))
+        signal_type = trim(config_json%parse_json(config,to_list(input_name,"type")))
+        output_signal_name = trim(config_json%parse_json(config,to_list(output_name,"name")))
+        weight = freal(config_json%parse_json(config,to_list(output_name,"weight")))
+        
+        call this%add_output_signal(&
+            trim(gene_name),trim(signal_type), trim(output_signal_name), weight)           
+    enddo
+
+    
+    
+end subroutine
 
 !> returns gene idx
 function get_gene_id_GC(this,name) result(ret)
@@ -492,27 +582,21 @@ subroutine update_time_GC(this,dt)
 
     !> [1]following parts setup ODE
     call this%ode%init(n)
-    
+    this%ode%A(:,:) = 0.0d0
     !> [1-1]set coefficient matrix
-    do i=1,this%num_gene()
+    do i=1,this%num_gene()    
         do j=1,this%num_gene()
-            if(i==j)then
-                ! 現在の発現量は放っておくと指数関数的に減少
-                ! 半減期からlambdaを計算
-                lambda = log(2.0d0)/this%half_life 
-                this%ode%A(i,j) = - lambda
-                    ! x = x_0 * exp(-labmda*t)
-            endif
+            
             if(this%genotype(i)>=1)then
                 ! mutant
                 !> 不等式制約のときのEIって...?
                 !> 要検討
                 !> とりあえず，=0制約ならマトリクスをゼロにすればよい．
                 if(this%get_max_expression_value(i)==0.0d0)then
-                    this%ode%A(i,j) = 0.0d0
+                    this%ode%A(i,j) =  0.0d0
                 else
                     !> 一旦，0でなければ係数行列は不変でいく．
-                    this%ode%A(i,j) = this%relation_matrix(i,j)
+                    this%ode%A(i,j) =  this%relation_matrix(i,j)
                 endif
             else
                 ! wildtype
@@ -547,11 +631,17 @@ subroutine update_time_GC(this,dt)
 
         gene_idx = this%get_gene_id(this%output_signal(i)%related_gene_info%wild%name)
         !> [weight] * [expression amount]
-        val = this%output_signal(i)%weight*this%output_signal(i)%related_gene_info%current_value
+        !val = this%output_signal(i)%weight*this%output_signal(i)%related_gene_info%current_value
+        val = this%output_signal(i)%weight!*this%output_signal(i)%related_gene_info%current_value
+
         if(.not.(this%output_signal(i)%is_activator))then
             val = -val
         endif
-        this%ode%A(this%num_gene()+this_idx,gene_idx) =  val
+        ! original
+        this%ode%A(this%num_gene()+this_idx,gene_idx) =   val
+        
+        ! 2026/02/28
+        !this%ode%A(gene_idx,this%num_gene()+this_idx) =  val
     enddo
     
     !> [1-2]set initial condition
@@ -575,6 +665,14 @@ subroutine update_time_GC(this,dt)
     !> [1-3]all quantities are to be non-negative 
     this%ode%real_positive_value = .true. 
 
+
+    do i=1,size(this%ode%A,1)
+        ! 現在の発現量は放っておくと指数関数的に減少
+        ! 半減期からlambdaを計算
+        lambda = log(2.0d0)/this%half_life 
+        this%ode%A(i,i) = - lambda
+        ! x = x_0 * exp(-labmda*t)
+    enddo
 
 
     !> [2] solve ODE
@@ -611,12 +709,15 @@ subroutine update_time_GC(this,dt)
             if(output_signal_list%get(j)==this%output_signal(i)%name)then
                 this%output_signal(i)%current_value = this%ode%x(idx)
 
-                if(this%output_signal(i)%current_value > this%get_max_expression_value(i))then
-                    this%output_signal(i)%current_value = this%get_max_expression_value(i)
-                elseif(this%output_signal(i)%current_value < 0.0d0)then
+                !if(this%output_signal(i)%current_value > this%get_max_expression_value(i))then
+                !    this%output_signal(i)%current_value = this%get_max_expression_value(i)
+                !else
+                if(this%output_signal(i)%current_value < 0.0d0)then
                     this%output_signal(i)%current_value = 0.0d0
-                else
-                    this%output_signal(i)%current_value = this%ode%x(idx)
+                endif
+
+                if(this%output_signal(i)%current_value > 1.0d0)then
+                    this%output_signal(i)%current_value = 1.0d0
                 endif
                 
             endif
@@ -736,5 +837,111 @@ subroutine write_GC(this,name,time_unit)
     enddo
     
 end subroutine
+! #####################################################################
 
+! #####################################################################
+function get_current_value_GC(this,name) result(ret)
+    class(GeneticControl_),intent(in) :: this
+    character(*),intent(in) :: name
+    real(real64) :: ret
+    integer(int32) :: i
+
+    
+    do i = 1,size(this%gene_info)
+        if(name == this%gene_info(i)%wild%name)then
+            ret = this%gene_info(i)%current_value
+            return
+        endif 
+    enddo
+    
+
+    do i = 1,size(this%input_signal)
+        if(name == this%input_signal(i)%name)then
+            ret = this%input_signal(i)%current_value
+            return
+        endif 
+    enddo
+    
+
+    do i = 1,size(this%output_signal)
+        if(name == this%output_signal(i)%name)then
+            ret = this%output_signal(i)%current_value
+            return
+        endif 
+    enddo
+
+end function
+! #####################################################################
+
+
+! #####################################################################
+subroutine load_all_weight_GC(this,config,weights,debug)
+    class(GeneticControl_),intent(inout) :: this    
+    real(real64),intent(in) :: weights(:)
+    character(*),intent(in) :: config ! json-formatted. see Tutorial/std/soy_flowering.json
+    logical,optional,intent(in) :: debug
+    type(IO_) :: config_json
+    integer(int32) :: gene_idx,input_idx,output_idx,relation_idx
+    integer(int32) :: num_gene,num_input,num_output,num_relation
+    integer(int32) :: num_wildtype,num_mutant
+    integer(int32) :: wildtype_idx,mutant_idx
+    character(:),allocatable :: gene_name,wildtype_name,mutant_name
+
+    character(:),allocatable :: target_name
+    character(:),allocatable :: output_signal_name
+    character(:),allocatable :: signal_name,relation_signal_name
+    character(:),allocatable :: signal_type,input_name,output_name,relation_name
+
+    real(real64) :: max_expression,weight,gain,threshold
+
+    num_gene    = fint(config_json%parse_json(config,to_list("num_gene")))
+    num_input   = fint(config_json%parse_json(config,to_list("num_input")))
+    num_output  = fint(config_json%parse_json(config,to_list("num_output")))
+    num_relation= fint(config_json%parse_json(config,to_list("num_relation")))
+
+    if(allocated(this%relation_matrix))then
+        deallocate(this%relation_matrix)
+    endif
+
+    if(size(weights)/=num_relation+num_output+num_input)then
+        print *, "size(weights)/=num_relation",size(weights),"/=",num_relation+num_output+num_input
+        stop
+    endif
+
+    do relation_idx=1,num_relation
+        relation_name = "relation_"+str(relation_idx)
+        gene_name = trim(config_json%parse_json(config,to_list(relation_name,"source")))
+        signal_type = trim(config_json%parse_json(config,to_list(relation_name,"type")))
+        relation_signal_name = trim(config_json%parse_json(config,to_list(relation_name,"target")))
+        weight = weights(relation_idx)
+        if(present(debug))then
+            if(debug)then
+                print *, gene_name, signal_type, weight
+            endif
+        endif
+        call this%add_relation(trim(gene_name), trim(signal_type), trim(relation_signal_name), weight)           
+    enddo
+
+    do input_idx=1,num_input
+        if(present(debug))then
+            if(debug)then
+                print *, this%input_signal(input_idx)%name, weights(num_relation + input_idx)
+            endif
+        endif
+        this%input_signal(input_idx)%weight = weights(num_relation + input_idx)
+    enddo
+
+    do output_idx=1,num_output
+        if(present(debug))then
+            if(debug)then
+                print *, this%output_signal(output_idx)%name,"-",&
+                    this%output_signal(output_idx)%related_gene_info%wild%name, weights(num_relation + num_input + output_idx)
+            endif
+        endif
+        this%output_signal(output_idx)%weight = weights(num_relation + num_input + output_idx)
+    enddo
+
+end subroutine
+
+! #####################################################################
 end module 

@@ -1381,10 +1381,11 @@ contains
    end subroutine
 ! ###################################################################
 
-   recursive subroutine eigFEMSolver(this, num_eigen, eigen_value, eigen_vectors)
+   recursive subroutine eigFEMSolver(this, num_eigen, eigen_value, eigen_vectors,logfile_name)
       ! solve Ku = \lambda M x by LAPACK
       clasS(FEMSolver_), intent(inout) :: this
       integer(int32), optional, intent(in)::num_eigen
+      character(*),optional,intent(in) :: logfile_name
       !logical,optional,intent(in) :: Lanczos
 
       !>>>>>>>>>>>>>> INPUT
@@ -1461,6 +1462,7 @@ contains
             MAX_ITR=this%LOBPCG_MAX_ITR, &
             TOL=this%LOBPCG_TOL, &
             debug=this%debug,&
+            logfile_name=logfile_name,&
             X_init=this%get_LOBPCG_initial_value(n=A%size(),num_mode=mm))
 
       else

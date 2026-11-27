@@ -12,6 +12,7 @@ module TimeClass
       real(real64)   :: seconds
    contains
       procedure :: show => show_datetime_timeclass
+      procedure, public :: str => str_datetime_timeclass
    end type
 
    interface operator(+)
@@ -42,7 +43,9 @@ module TimeClass
       procedure, public :: DateAndTime => DateAndTimetime
       procedure, public :: t => tTime
       procedure, public :: freq => freqTime
+      
    end type
+
 
 contains
 
@@ -97,6 +100,28 @@ contains
       print *, dt%seconds
 
    end subroutine
+
+! ########################################
+
+! ########################################
+   function str_datetime_timeclass(dt) result(ret)
+      class(datetime_), intent(in) :: dt
+      character(:),allocatable :: ret
+      character(20) :: YYYY
+      character(20) :: MM,DD,HH,M_MIN
+      
+      write(YYYY,*) dt%year
+      write(MM,*) dt%month
+      write(DD,*) dt%date
+      write(HH,*) dt%hour
+      write(M_MIN,*) dt%minutes
+
+      ret = trim(adjustl(YYYY)) // "/" // trim(adjustl(MM)) // &
+          "/" // trim(adjustl(DD)) // "-" // trim(adjustl(HH)) // "-" // trim(adjustl(M_MIN))
+      
+
+   end function
+! ########################################
 
 ! ########################################
    function add_two_datetime(dt1, dt2) result(ret)

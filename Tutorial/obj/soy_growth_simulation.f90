@@ -16,7 +16,7 @@ program main
     type(CRS_) :: crs
     type(IO_)  :: f
     sampling_Hz = 200
-
+    
     ! initialize environment
     ! senario.csv: table data and time series
     ! senario.json: meta data

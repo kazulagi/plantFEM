@@ -4,6 +4,7 @@ module SparseClass
    use MathClass
    use RandomClass
    use RangeClass
+   use IOClass
    implicit none
 
 !> Please edit "src/SparseClass/SparseClass.c"
@@ -2005,13 +2006,14 @@ contains
       lambda = rho
    end subroutine
 
-   subroutine LOBPCG_CRS(A, B, lambda, X, m, MAX_ITR, TOL, debug, X_init)
+   subroutine LOBPCG_CRS(A, B, lambda, X, m, MAX_ITR, TOL, debug, logfile_name,X_init)
       type(CRS_), intent(in) :: A, B
       real(real64), allocatable, intent(out) :: X(:, :)
       real(real64), allocatable, intent(out) :: lambda(:)
       real(real64), intent(in) :: TOL
       integer(int32), intent(in) :: m, MAX_ITR
       logical, optional, intent(in) :: debug
+      character(*),optional,intent(in) :: logfile_name
       real(real64), optional, intent(in) :: X_init(:,:)
       logical :: debug_mode
 
@@ -2023,6 +2025,7 @@ contains
                                    Bm_small(:, :), BV(:, :)
       real(real64)   :: initial_R
       integer(int32) :: n, i, j, k
+      type(IO_) :: f
       !integer(int32) :: MAX_ITR = 1000000
 
       ! References:
@@ -2031,6 +2034,9 @@ contains
       ! https://webpark1378.sakura.ne.jp/nagai/note_141009_LOBPCG.pdf
 
       debug_mode = input(default=.false., option=debug)
+      if(present(logfile_name))then
+         call f%open(logfile_name,"w")
+      endif
       ! BLOPEX IN HYPRE AND PETSC, SIAM Eq. (2.2)
       ! number of eigen value :: m
 
@@ -2222,6 +2228,11 @@ contains
          if (debug_mode) then
             print *, i, maxval(abs(R))/initial_R,  sqrt(abs(lambda_small(1:m)))/math%pi/2.0d0
          end if
+         if(mod(i,100)==0)then
+            if(present(logfile_name))then
+               write(f%fh,*) i, maxval(abs(R))/initial_R,  sqrt(abs(lambda_small(1:m)))/math%pi/2.0d0
+            endif
+         endif
          if (maxval(abs(R))/initial_R < tol) then
             if (debug_mode) then
                print *, "[OK] converged."
@@ -2233,6 +2244,10 @@ contains
             cycle
          end if
       end do
+
+      if(present(logfile_name))then
+         call f%close()
+      endif
 
       if (i == MAX_ITR) print *, "[ERROR] LOBPCG NOT CONVERGED."
 
